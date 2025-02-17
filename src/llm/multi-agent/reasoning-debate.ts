@@ -5,7 +5,7 @@ import { DeepSeekR1_Together_Fireworks } from '#llm/multi-agent/deepSeekR1_Fallb
 import { Claude3_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { deepSeekR1, deepSeekV3 } from '#llm/services/deepseek';
 import { fireworksDeepSeek, fireworksDeepSeekR1 } from '#llm/services/fireworks';
-import { openAIo1 } from '#llm/services/openai';
+import { openAIo1, openAIo3mini } from '#llm/services/openai';
 import { togetherDeepSeekR1 } from '#llm/services/together';
 import { Gemini_2_0_Flash_Thinking } from '#llm/services/vertexai';
 import { logger } from '#o11y/logger';
@@ -14,10 +14,10 @@ import { logger } from '#o11y/logger';
 
 export function MoA_reasoningLLMRegistry(): Record<string, () => LLM> {
 	return {
-		'MoA:R1x3': () => new ReasonerDebateLLM('R1x3', deepSeekV3, [deepSeekR1, deepSeekR1, deepSeekR1], 'MoA R1x3'),
+		'MoA:R1x3 DeepSeek': () => new ReasonerDebateLLM('R1x3 DeepSeek', deepSeekV3, [deepSeekR1, deepSeekR1, deepSeekR1], 'MoA R1x3'),
 		'MoA:R1x3-Together-Fireworks': Together_R1x3_Together_Fireworks,
 		'MoA:R1x3-Together': () => Together_R1x3(),
-		'MoA:Sonnet_R1,o1,Gemini_Together': TogetherMoA_Claude_Sonnet_R1x2_o1,
+		'MoA:Sonnet_Sonnet,o3-mini,R1': MoA_Sonnet__Sonnet_R1_o3mini,
 		'MoA:Sonnet-Claude-R1,o1,Gemini': () =>
 			new ReasonerDebateLLM(
 				'Sonnet-Claude-R1,o1,Gemini',
@@ -37,12 +37,12 @@ export function Together_R1x3_Together_Fireworks(): LLM {
 	);
 }
 
-export function TogetherMoA_Claude_Sonnet_R1x2_o1(): LLM {
+export function MoA_Sonnet__Sonnet_R1_o3mini(): LLM {
 	return new ReasonerDebateLLM(
-		'Sonnet_R1,o1,Gemini_Together',
+		'Sonnet_Sonnet,o3-mini,R1',
 		Claude3_5_Sonnet_Vertex,
-		[DeepSeekR1_Together_Fireworks, openAIo1, DeepSeekR1_Together_Fireworks],
-		'MoA:Claude-R1,o1,Gemini (Together, Fireworks)',
+		[DeepSeekR1_Together_Fireworks, openAIo3mini, Claude3_5_Sonnet_Vertex],
+		'MoA:Sonnet-Sonnet,o3-mini,R1(Together, Fireworks)',
 	);
 }
 

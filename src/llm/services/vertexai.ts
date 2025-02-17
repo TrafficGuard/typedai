@@ -1,112 +1,45 @@
 import { GoogleVertexProvider, createVertex } from '@ai-sdk/google-vertex';
 import { HarmBlockThreshold, HarmCategory, SafetySetting } from '@google-cloud/vertexai';
 import axios from 'axios';
-import { AgentLLMs } from '#agent/agentContextTypes';
-import { InputCostFunction, OutputCostFunction } from '#llm/base-llm';
+import { InputCostFunction, OutputCostFunction, perMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
 import { currentUser } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
 import { LLM, combinePrompts } from '../llm';
-import { MultiLLM } from '../multi-llm';
-
-export function GEMINI_1_5_PRO_LLMS(): AgentLLMs {
-	const flash2 = Gemini_2_0_Flash();
-	return {
-		easy: flash2,
-		medium: flash2,
-		hard: flash2,
-		xhard: new MultiLLM([flash2], 5),
-	};
-}
 
 export const VERTEX_SERVICE = 'vertex';
 
 export function vertexLLMRegistry(): Record<string, () => LLM> {
 	return {
-		[`${VERTEX_SERVICE}:gemini-1.5-pro`]: Gemini_1_5_Pro,
-		[`${VERTEX_SERVICE}:gemini-1.5-flash`]: Gemini_1_5_Flash,
+		[`${VERTEX_SERVICE}:gemini-2.0-pro`]: Gemini_2_0_Experimental,
 		[`${VERTEX_SERVICE}:gemini-2.0-flash-thinking`]: Gemini_2_0_Flash_Thinking,
+		[`${VERTEX_SERVICE}:gemini-2.0-flash-lite`]: Gemini_2_0_Flash_Lite,
 		[`${VERTEX_SERVICE}:gemini-2.0-flash`]: Gemini_2_0_Flash,
-		[`${VERTEX_SERVICE}:Llama3-405b-instruct-maas`]: Vertex_Llama3_405b,
 	};
 }
 
-// Text input is charged by every 1,000 characters of input (prompt) and every 1,000 characters of output (response).
-// Characters are counted by UTF-8 code points and white space is excluded from the count, resulting in approximately 4 characters per token
-// https://ai.google.dev/gemini-api/docs/models/gemini#token-size
-// https://cloud.google.com/vertex-ai/generative-ai/pricing
+// https://cloud.google.com/vertex-ai/generative-ai/pricing#token-based-pricing
 
-// gemini-1.5-pro-latest
-// gemini-1.5-pro-exp-0801
-// exp-0801
-export function Gemini_1_5_Pro() {
-	return new VertexLLM(
-		'Gemini 1.5 Pro',
-		'gemini-1.5-pro',
-		1_000_000,
-		(input: string) => (input.length * (input.length > 128_000 * 4 ? 0.0003125 : 0.000625)) / 1000,
-		(output: string) => (output.length * (output.length > 128_000 * 4 ? 0.0025 : 0.00125)) / 1000,
-	);
-}
-
-export function Gemini_Experimental() {
+export function Gemini_2_0_Experimental() {
 	return new VertexLLM(
 		'Gemini experimental',
-		'gemini-experimental',
+		'gemini-2.0-pro-exp-02-05',
 		1_000_000,
 		(input: string) => (input.length * 0.0036) / 1000,
 		(output: string) => (output.length * 0.018) / 1000,
 	);
 }
 
-export function Gemini_1_5_Flash() {
-	return new VertexLLM(
-		'Gemini 1.5 Flash',
-		'gemini-1.5-flash',
-		1_000_000,
-		(input: string) => (input.length * 0.000125) / 1000,
-		(output: string) => (output.length * 0.000375) / 1000,
-	);
-}
-
-// export function Gemini_1_5_Flash_8B() {
-// 	return new VertexLLM(
-// 		'Gemini 1.5 Flash 8B',
-// 		'gemini-1.5-flash-8b', // gemini-1.5-flash-8b, alias that points to gemini-1.5-flash-8b-001
-// 		1_000_000,
-// 		(input: string) => (input.length * 0.000125) / 1000,
-// 		(output: string) => (output.length * 0.000375) / 1000,
-// 	);
-// }
-
 export function Gemini_2_0_Flash() {
-	return new VertexLLM(
-		'Gemini 2.0 Flash Experimental',
-		'gemini-2.0-flash-exp',
-		1_000_000,
-		(input: string) => (input.length * 0.000125) / 1000,
-		(output: string) => (output.length * 0.000375) / 1000,
-	);
+	return new VertexLLM('Gemini 2.0 Flash', 'gemini-2.0-flash-001', 1_000_000, perMilTokens(0.15), perMilTokens(0.6));
 }
 
 export function Gemini_2_0_Flash_Thinking() {
-	return new VertexLLM(
-		'Gemini 2.0 Flash Thinking Experimental',
-		'gemini-2.0-flash-thinking-exp-1219', // gemini-2.0-flash-thinking-exp-01-21
-		1_000_000,
-		(input: string) => (input.length * 0.000125) / 1000,
-		(output: string) => (output.length * 0.000375) / 1000,
-	);
+	return new VertexLLM('Gemini 2.0 Flash Thinking Experimental', 'gemini-2.0-flash-thinking-exp-01-21', 1_000_000, perMilTokens(0.15), perMilTokens(0.6));
 }
 
-export function Vertex_Llama3_405b() {
-	return new VertexLLM(
-		'Llama3 405b (Vertex)',
-		'Llama3-405b-instruct-maas', // meta/llama3
-		100_000,
-		(input: string) => 0,
-		(output: string) => 0,
-	);
+export function Gemini_2_0_Flash_Lite() {
+	return new VertexLLM('Gemini 2.0 Flash Lite', 'gemini-2.0-flash-lite-preview-02-05', 1_000_000, perMilTokens(0.075), perMilTokens(0.3));
 }
 
 /**
@@ -118,7 +51,7 @@ class VertexLLM extends AiLLM<GoogleVertexProvider> {
 	}
 
 	protected apiKey(): string {
-		return currentUser().llmConfig.vertexProjectId ?? envVar('GCLOUD_PROJECT'); //currentUser().llmConfig.vertexKey || process.env.VERTEX_API_KEY;
+		return currentUser().llmConfig.vertexProjectId || envVar('GCLOUD_PROJECT');
 	}
 
 	provider(): GoogleVertexProvider {

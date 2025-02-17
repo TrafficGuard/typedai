@@ -3,6 +3,7 @@ import { BaseLLM } from '../base-llm';
 import { GenerateTextOptions, LLM, LlmMessage } from '../llm';
 import { fireworksDeepSeekR1 } from '../services/fireworks';
 
+import { nebiusDeepSeekR1 } from '#llm/services/nebius';
 import { togetherDeepSeekR1 } from '#llm/services/together';
 
 export function deepSeekFallbackRegistry(): Record<string, () => LLM> {
@@ -22,12 +23,13 @@ export function DeepSeekR1_Together_Fireworks(): LLM {
 export class DeepSeekR1_Fallbacks extends BaseLLM {
 	private together: LLM = togetherDeepSeekR1();
 	private fireworks: LLM = fireworksDeepSeekR1();
+	private nebius: LLM = nebiusDeepSeekR1();
 
 	constructor() {
 		super(
-			'DeepSeek R1 (Together, Fireworks)',
+			'DeepSeek R1 (Together, Fireworks, Nebius)',
 			'DeepSeekFallback',
-			'deepseek-r1-together-fireworks',
+			'deepseek-r1-together-fireworks-nebius',
 			0, // Initialized later
 			() => 0,
 			() => 0,
@@ -48,8 +50,11 @@ export class DeepSeekR1_Fallbacks extends BaseLLM {
 		} catch (e) {
 			const errMsg = e.statuCode === '429' ? 'rate limited' : `error: ${e.message}`;
 			logger.error(`Together DeepSeek ${errMsg}`);
-
-			return await this.fireworks.generateText(messages, opts);
+			try {
+				return await this.fireworks.generateText(messages, opts);
+			} catch (e) {
+				return await this.nebius.generateText(messages, opts);
+			}
 		}
 	}
 }
