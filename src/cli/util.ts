@@ -8,7 +8,6 @@ import { FileSystemService } from '#functions/storage/fileSystemService';
 import { MultiLLM } from '#llm/multi-llm';
 import { Claude3_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { GPT4o } from '#llm/services/openai';
-import { Gemini_1_5_Pro } from '#llm/services/vertexai';
 import { appContext } from '../applicationContext';
 import { envVarHumanInLoopSettings } from './cliHumanInLoop';
 
@@ -17,13 +16,12 @@ import { envVarHumanInLoopSettings } from './cliHumanInLoop';
 // npm run util
 
 const sonnet = Claude3_5_Sonnet_Vertex();
-const gemini = Gemini_1_5_Pro();
 
 const utilLLMs: AgentLLMs = {
 	easy: sonnet,
 	medium: sonnet,
 	hard: sonnet,
-	xhard: new MultiLLM([sonnet, GPT4o(), Gemini_1_5_Pro()], 3),
+	xhard: new MultiLLM([sonnet, GPT4o()], 3),
 };
 
 async function main() {

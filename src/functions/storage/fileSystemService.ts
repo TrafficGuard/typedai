@@ -114,20 +114,24 @@ export class FileSystemService {
 	setWorkingDirectory(dir: string): void {
 		if (!dir) throw new Error('dir must be provided');
 		let relativeDir = dir;
+		let isAbsolute = false;
 		// Check absolute directory path
 		if (dir.startsWith('/')) {
 			if (existsSync(dir)) {
 				this.workingDirectory = dir;
+				isAbsolute = true;
 			} else {
 				// try it as a relative path
 				relativeDir = dir.substring(1);
 			}
 		}
-		const relativePath = path.join(this.getWorkingDirectory(), relativeDir);
-		if (existsSync(relativePath)) {
-			this.workingDirectory = relativePath;
-		} else {
-			throw new Error(`New working directory ${dir} does not exist (current working directory ${this.workingDirectory}`);
+		if (!isAbsolute) {
+			const relativePath = path.join(this.getWorkingDirectory(), relativeDir);
+			if (existsSync(relativePath)) {
+				this.workingDirectory = relativePath;
+			} else {
+				throw new Error(`New working directory ${dir} does not exist (current working directory ${this.workingDirectory}`);
+			}
 		}
 
 		// After setting the working directory, update the vcs (version control system) property
