@@ -85,7 +85,7 @@ export class SoftwareDeveloperAgent {
 			// Otherwise swallow the exception so we can push the changes made so far for review
 		}
 
-		const { title, description } = await generatePullRequestTitleDescription(requirements, projectInfo.devBranch);
+		const { title, description } = await generatePullRequestTitleDescription(requirements, baseBranch);
 
 		return await getSourceControlManagementTool().createMergeRequest(title, description, featureBranchName, baseBranch);
 	}

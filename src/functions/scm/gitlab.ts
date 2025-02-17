@@ -185,24 +185,32 @@ export class GitLab implements SourceControlManagement {
 	async cloneProject(projectPathWithNamespace: string): Promise<string> {
 		if (!projectPathWithNamespace) throw new Error('Parameter "projectPathWithNamespace" must be truthy');
 		const path = join(systemDir(), 'gitlab', projectPathWithNamespace);
+		const fss = getFileSystem();
 
 		// If the project already exists pull updates from the main/dev branch
 		if (existsSync(path) && existsSync(join(path, '.git'))) {
-			logger.info(`${projectPathWithNamespace} exists at ${path}. Pulling updates`);
+			const currentWorkingDir = fss.getWorkingDirectory();
+			try {
+				fss.setWorkingDirectory(path);
+				logger.info(`${projectPathWithNamespace} exists at ${path}. Pulling updates`);
 
-			// If the repo has a projectInfo.json file with a devBranch defined, then switch to that
-			// else switch to the default branch defined in the GitLab project
-			const projectInfo = await getProjectInfo();
-			if (projectInfo.devBranch) {
-				await getFileSystem().vcs.switchToBranch(projectInfo.devBranch);
-			} else {
-				const gitProject = await this.getProject(projectPathWithNamespace);
-				const switchResult = await execCommand(`git switch ${gitProject.defaultBranch}`, { workingDirectory: path });
-				if (switchResult.exitCode === 0) logger.info(`Switched to branch ${gitProject.defaultBranch}`);
+				// If the repo has a projectInfo.json file with a devBranch defined, then switch to that
+				// else switch to the default branch defined in the GitLab project
+				const projectInfo = await getProjectInfo();
+				if (projectInfo.devBranch) {
+					await getFileSystem().vcs.switchToBranch(projectInfo.devBranch);
+				} else {
+					const gitProject = await this.getProject(projectPathWithNamespace);
+					const switchResult = await execCommand(`git switch ${gitProject.defaultBranch}`, { workingDirectory: path });
+					if (switchResult.exitCode === 0) logger.info(`Switched to branch ${gitProject.defaultBranch}`);
+				}
+
+				const result = await execCommand(`git -C ${path} pull`);
+				if (result.exitCode !== 0) logger.warn('Failed to pull updates');
+			} finally {
+				// Current behaviour of this function is to not change the working directory
+				fss.setWorkingDirectory(currentWorkingDir);
 			}
-
-			const result = await execCommand(`git -C ${path} pull`);
-			if (result.exitCode !== 0) logger.warn('Failed to pull updates');
 		} else {
 			logger.info(`Cloning project: ${projectPathWithNamespace} to ${path}`);
 			await fs.promises.mkdir(path, { recursive: true });
@@ -242,6 +250,7 @@ export class GitLab implements SourceControlManagement {
 		)}`;
 		const { exitCode, stdout, stderr } = await execCommand(cmd);
 		if (exitCode > 0) throw new Error(`${stdout}\n${stderr}`);
+		logger.info(stdout);
 
 		const url = await new LlmTools().processText(stdout, 'Respond only with the URL where the merge request is.');
 

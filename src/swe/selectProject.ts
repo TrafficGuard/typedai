@@ -1,6 +1,5 @@
 import { llms } from '#agent/agentContextLocalStorage';
 import { GitProject } from '#functions/scm/gitProject';
-import { GitLabProject } from '#functions/scm/gitlab';
 import { SourceControlManagement, getSourceControlManagementTool } from '#functions/scm/sourceControlManagement';
 import { buildPrompt } from '#swe/softwareDeveloperAgent';
 
