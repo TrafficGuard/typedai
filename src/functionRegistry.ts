@@ -1,3 +1,4 @@
+import { AgentFeedback } from '#agent/agentFeedback';
 import { LiveFiles } from '#agent/liveFiles';
 import { GoogleCloud } from '#functions/cloud/google/google-cloud';
 import { ImageGen } from '#functions/image';
@@ -22,6 +23,7 @@ import { SoftwareDeveloperAgent } from '#swe/softwareDeveloperAgent';
  */
 export function functionRegistry(): Array<new () => any> {
 	return [
+		AgentFeedback,
 		CodeEditingAgent,
 		FileSystemRead,
 		FileSystemWrite,

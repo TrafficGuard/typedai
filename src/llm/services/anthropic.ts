@@ -12,11 +12,16 @@ export function anthropicLLMRegistry(): Record<string, () => LLM> {
 	return {
 		[`${ANTHROPIC_SERVICE}:claude-3-5-haiku`]: Claude3_5_Haiku,
 		[`${ANTHROPIC_SERVICE}:claude-3-5-sonnet`]: Claude3_5_Sonnet,
+		[`${ANTHROPIC_SERVICE}:claude-3-7-sonnet`]: Claude3_7_Sonnet,
 	};
 }
 
 export function Claude3_5_Sonnet() {
 	return new Anthropic('Claude 3.5 Sonnet', 'claude-3-5-sonnet-20241022', 3, 15);
+}
+
+export function Claude3_7_Sonnet() {
+	return new Anthropic('Claude 3.7 Sonnet', 'claude-3-7-sonnet-latest', 3, 15);
 }
 
 export function Claude3_5_Haiku() {

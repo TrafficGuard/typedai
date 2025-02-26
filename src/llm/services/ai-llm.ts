@@ -12,10 +12,11 @@ import {
 } from 'ai';
 import { addCost, agentContext } from '#agent/agentContextLocalStorage';
 import { BaseLLM } from '#llm/base-llm';
-import { GenerateTextOptions, LlmMessage } from '#llm/llm';
+import { GenerateTextOptions, LlmMessage, userContentText } from '#llm/llm';
 import { LlmCall } from '#llm/llmCallService/llmCall';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
+// import { currentUser } from '#user/userService/userContext';
 import { appContext } from '../../applicationContext';
 
 /**
@@ -45,7 +46,8 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 	}
 
 	async generateTextFromMessages(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
-		return withActiveSpan(`generateTextFromMessages ${opts?.id ?? ''}`, async (span) => {
+		const description = opts?.id ?? '';
+		return withActiveSpan(`generateTextFromMessages ${description}`, async (span) => {
 			const messages: CoreMessage[] = this.processMessages(llmMessages);
 
 			// Gemini Flash 2.0 thinking max is about 42
@@ -56,6 +58,8 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				inputChars: prompt.length,
 				model: this.model,
 				service: this.service,
+				// userId: currentUser().id,
+				description,
 			});
 
 			const llmCallSave: Promise<LlmCall> = appContext().llmCallService.saveRequest({
@@ -63,11 +67,24 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				messages: llmMessages,
 				llmId: this.getId(),
 				agentId: agentContext()?.agentId,
+				// userId: currentUser().id,
 				callStack: this.callStack(agentContext()),
+				description,
 			});
 
 			const requestTime = Date.now();
 			try {
+				const experimental: any = {};
+				// https://sdk.vercel.ai/docs/guides/sonnet-3-7#reasoning-ability
+				// https://sdk.vercel.ai/docs/guides/o3#refining-reasoning-effort
+				if (opts?.thinking) {
+					experimental.openai = { reasoningEffort: opts.thinking };
+					const budgetTokens = opts.thinking === 'low' ? 1024 : opts.thinking === 'medium' ? 6000 : 13000;
+					experimental.anthropic = {
+						thinking: { type: 'enabled', budgetTokens },
+					};
+				}
+
 				const result: GenerateTextResult<any, any> = await aiGenerateText({
 					model: this.aiModel(),
 					messages,
@@ -78,6 +95,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 					presencePenalty: opts?.presencePenalty,
 					stopSequences: opts?.stopSequences,
 					maxRetries: opts?.maxRetries,
+					experimental_providerMetadata: experimental,
 				});
 
 				const responseText = result.text;

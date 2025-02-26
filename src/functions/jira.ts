@@ -72,7 +72,7 @@ export class Jira {
 			// 	}
 			// }
 
-			return response.data.fields.description;
+			return `${response.data.fields.summary}\n\n${response.data.fields.description}`;
 		} catch (error) {
 			logger.error(error, `Error fetching Jira ${issueId} description:`);
 			throw error;

@@ -3,7 +3,7 @@ import { AsyncLocalStorage } from 'async_hooks';
 import { LlmFunctions } from '#agent/LlmFunctions';
 import { ConsoleCompletedHandler } from '#agent/agentCompletion';
 import { AgentContext, AgentLLMs } from '#agent/agentContextTypes';
-import { RunAgentConfig } from '#agent/agentRunner';
+import { RunAgentConfig, RunWorkflowConfig } from '#agent/agentRunner';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
 import { currentUser } from '#user/userService/userContext';
@@ -48,7 +48,7 @@ export function getFileSystem(): FileSystemService {
 	return filesystem;
 }
 
-export function createContext(config: RunAgentConfig): AgentContext {
+export function createContext(config: RunAgentConfig | RunWorkflowConfig): AgentContext {
 	const fileSystem = new FileSystemService(config.fileSystemPath);
 	const hilBudget = config.humanInLoop?.budget ?? (process.env.HIL_BUDGET ? parseFloat(process.env.HIL_BUDGET) : 2);
 	const context: AgentContext = {
@@ -74,7 +74,7 @@ export function createContext(config: RunAgentConfig): AgentContext {
 		hilCount: config.humanInLoop?.count ?? (process.env.HIL_COUNT ? parseFloat(process.env.HIL_COUNT) : 5),
 		budgetRemaining: hilBudget,
 		cost: 0,
-		llms: config.llms,
+		llms: config.llms, // we can't do `?? defaultLLMs()` as compiling breaks from import cycle dependencies,
 		fileSystem,
 		functions: Array.isArray(config.functions) ? new LlmFunctions(...config.functions) : config.functions,
 		completedHandler: config.completedHandler ?? new ConsoleCompletedHandler(),

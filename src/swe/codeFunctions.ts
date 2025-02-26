@@ -28,9 +28,10 @@ export class CodeFunctions {
 	 * Reviews the changes committed to git since a commit or start of a branch
 	 * @param requirements
 	 * @param sourceBranchOrCommit
+	 * @param fileSelection
 	 */
 	@func()
-	async reviewChanges(requirements: string, sourceBranchOrCommit: string) {
-		return await reviewChanges(requirements, sourceBranchOrCommit);
+	async reviewChanges(requirements: string, sourceBranchOrCommit: string, fileSelection: string[]) {
+		return await reviewChanges(requirements, sourceBranchOrCommit, fileSelection);
 	}
 }

@@ -2,7 +2,8 @@ import { expect } from 'chai';
 import sinon from 'sinon';
 import { LlmFunctions } from '#agent/LlmFunctions';
 import { AgentContext, AgentLLMs } from '#agent/agentContextTypes';
-import { AGENT_COMPLETED_NAME, AGENT_REQUEST_FEEDBACK, AGENT_SAVE_MEMORY, REQUEST_FEEDBACK_PARAM_NAME } from '#agent/agentFunctions';
+import { AGENT_REQUEST_FEEDBACK } from '#agent/agentFeedback';
+import { AGENT_COMPLETED_NAME, AGENT_SAVE_MEMORY } from '#agent/agentFunctions';
 import {
 	RunAgentConfig,
 	SUPERVISOR_CANCELLED_FUNCTION_NAME,

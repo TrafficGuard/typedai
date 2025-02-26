@@ -3,13 +3,8 @@ import { Span, SpanStatusCode } from '@opentelemetry/api';
 import { PyodideInterface, loadPyodide } from 'pyodide';
 import { runAgentCompleteHandler } from '#agent/agentCompletion';
 import { AgentContext } from '#agent/agentContextTypes';
-import {
-	AGENT_COMPLETED_NAME,
-	AGENT_COMPLETED_PARAM_NAME,
-	AGENT_REQUEST_FEEDBACK,
-	AGENT_SAVE_MEMORY_CONTENT_PARAM_NAME,
-	REQUEST_FEEDBACK_PARAM_NAME,
-} from '#agent/agentFunctions';
+import { AGENT_REQUEST_FEEDBACK, REQUEST_FEEDBACK_PARAM_NAME } from '#agent/agentFeedback';
+import { AGENT_COMPLETED_NAME, AGENT_COMPLETED_PARAM_NAME, AGENT_SAVE_MEMORY_CONTENT_PARAM_NAME } from '#agent/agentFunctions';
 import { buildFunctionCallHistoryPrompt, buildMemoryPrompt, buildToolStatePrompt, updateFunctionSchemas } from '#agent/agentPromptUtils';
 import { AgentExecution, formatFunctionError, formatFunctionResult } from '#agent/agentRunner';
 import { convertJsonToPythonDeclaration, extractPythonCode, removePythonMarkdownWrapper } from '#agent/codeGenAgentUtils';
@@ -21,6 +16,7 @@ import { withActiveSpan } from '#o11y/trace';
 import { errorToString } from '#utils/errors';
 import { appContext } from '../applicationContext';
 import { agentContext, agentContextStorage, llms } from './agentContextLocalStorage';
+import { HitlCounters, checkHumanInTheLoop } from './humanInTheLoopChecks';
 
 const stopSequences = ['</response>'];
 
@@ -60,9 +56,7 @@ export async function runCodeGenAgent(agent: AgentContext): Promise<AgentExecuti
 		hilBudget = 2;
 	}
 
-	let countSinceHil = 0;
-	let costSinceHil = 0;
-	let previousCost = 0;
+	let hitlCounters: HitlCounters = { iteration: 0, costAccumulated: 0, lastCost: 0 };
 
 	await agentStateService.save(agent);
 
@@ -94,25 +88,7 @@ export async function runCodeGenAgent(agent: AgentContext): Promise<AgentExecuti
 				const anyFunctionCallErrors = false;
 				let controlError = false;
 				try {
-					if (hilCount && countSinceHil === hilCount) {
-						agent.state = 'hil';
-						await agentStateService.save(agent);
-						await humanInTheLoop(`Agent control loop has performed ${hilCount} iterations`);
-						agent.state = 'agent';
-						await agentStateService.save(agent);
-						countSinceHil = 0;
-					}
-					countSinceHil++;
-
-					const newCosts = agentContext().cost - previousCost;
-					if (newCosts) logger.debug(`New costs $${newCosts.toFixed(2)}`);
-					previousCost = agentContext().cost;
-					costSinceHil += newCosts;
-					logger.debug(`Spent $${costSinceHil.toFixed(2)} since last input. Total cost $${agentContextStorage.getStore().cost.toFixed(2)}`);
-					if (hilBudget && costSinceHil > hilBudget) {
-						await humanInTheLoop(`Agent cost has increased by USD\$${costSinceHil.toFixed(2)}`);
-						costSinceHil = 0;
-					}
+					hitlCounters = await checkHumanInTheLoop(hitlCounters, agent, agentStateService);
 
 					const toolStatePrompt = await buildToolStatePrompt();
 

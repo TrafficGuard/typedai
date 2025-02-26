@@ -32,7 +32,7 @@ Currently, we prefer and recommend using Claude 3.5 Sonnet for the 'hard' LLM wh
 
 The autonomous agents always have four function available:
 
-- `Agent_requestFeedback`
+- `AgentFeedback_requestFeedback`
 - `Agent_completed`
 - `Agent_saveMemory`
 - `Agent_deleteMemory`

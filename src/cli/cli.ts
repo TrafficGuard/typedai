@@ -13,6 +13,7 @@ export interface CliOptions {
 }
 
 export function parseProcessArgs(): CliOptions {
+	logger.info(process.argv);
 	const scriptPath = process.argv[1];
 	let scriptName = scriptPath.split(path.sep).at(-1);
 	scriptName = scriptName.substring(0, scriptName.length - 3);
@@ -23,7 +24,9 @@ export function parseProcessArgs(): CliOptions {
  * Parse function class names from -f=FunctionClass,... command line argument
  */
 function parseFunctionArgument(args: string[]): string[] | undefined {
+	console.log(args);
 	const toolArg = args.find((arg) => arg.startsWith('-f='));
+	logger.info(`Function arg: ${toolArg}`);
 	if (!toolArg) return undefined;
 	return toolArg
 		.substring(3)
@@ -55,14 +58,14 @@ export function parseUserCliArgs(scriptName: string, scriptArgs: string[]): CliO
 	let initialPrompt = promptArgs.slice(i).join(' ');
 
 	logger.debug({ functionClasses }, 'Parsed function classes');
-	logger.info(initialPrompt);
+	// logger.info(initialPrompt);
 
 	// If no prompt provided then load from file
 	if (!initialPrompt.trim()) {
 		if (existsSync(`src/cli/${scriptName}-in`)) initialPrompt = readFileSync(`src/cli/${scriptName}-in`, 'utf-8');
 	}
 
-	logger.info(initialPrompt);
+	// logger.info(initialPrompt);
 
 	const resumeAgentId = resumeLastRun ? getLastRunAgentId(scriptName) : undefined;
 

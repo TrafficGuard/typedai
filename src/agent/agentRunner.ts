@@ -1,7 +1,8 @@
 import { LlmFunctions } from '#agent/LlmFunctions';
 import { createContext, llms } from '#agent/agentContextLocalStorage';
 import { AgentCompleted, AgentContext, AgentLLMs, AgentType } from '#agent/agentContextTypes';
-import { AGENT_REQUEST_FEEDBACK } from '#agent/agentFunctions';
+import { AGENT_REQUEST_FEEDBACK } from '#agent/agentFeedback';
+import { AGENT_COMPLETED_PARAM_NAME } from '#agent/agentFunctions';
 import { runCodeGenAgent } from '#agent/codeGenAgentRunner';
 import { runXmlAgent } from '#agent/xmlAgentRunner';
 import { FUNC_SEP } from '#functionSchema/functions';
@@ -15,6 +16,8 @@ import { appContext } from '../applicationContext';
 export const SUPERVISOR_RESUMED_FUNCTION_NAME: string = `Supervisor${FUNC_SEP}Resumed`;
 export const SUPERVISOR_CANCELLED_FUNCTION_NAME: string = `Supervisor${FUNC_SEP}Cancelled`;
 const FUNCTION_OUTPUT_SUMMARIZE_MIN_LENGTH = 2000;
+
+export type RunWorkflowConfig = Partial<RunAgentConfig>;
 
 /**
  * Configuration for running an autonomous agent
@@ -39,7 +42,7 @@ export interface RunAgentConfig {
 	/** Settings for requiring a human-in-the-loop */
 	humanInLoop?: { budget?: number; count?: number; functionErrorCount?: number };
 	/** The default LLMs available to use */
-	llms: AgentLLMs;
+	llms?: AgentLLMs;
 	/** The agent to resume */
 	resumeAgentId?: string;
 	/** The base path of the context FileSystem. Defaults to the process working directory */
@@ -79,6 +82,14 @@ async function runAgent(agent: AgentContext): Promise<AgentExecution> {
 		delete agentExecutions[agent.agentId];
 	});
 	return execution;
+}
+
+export async function startAgentAndWaitForCompletion(config: RunAgentConfig): Promise<string> {
+	const agentExecution = await startAgent(config);
+	await agentExecution.execution;
+	const agent = await appContext().agentStateService.load(agentExecution.agentId);
+	if (agent.state !== 'completed') throw new Error(`Agent has completed executing in state "${agent.state}"`);
+	return agent.functionCallHistory.at(-1).parameters[AGENT_COMPLETED_PARAM_NAME];
 }
 
 export async function startAgentAndWait(config: RunAgentConfig): Promise<string> {

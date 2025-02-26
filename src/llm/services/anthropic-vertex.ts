@@ -28,12 +28,17 @@ export function anthropicVertexLLMRegistry(): Record<string, () => LLM> {
 	return {
 		[`${ANTHROPIC_VERTEX_SERVICE}:claude-3-5-haiku`]: Claude3_5_Haiku_Vertex,
 		[`${ANTHROPIC_VERTEX_SERVICE}:claude-3-5-sonnet`]: Claude3_5_Sonnet_Vertex,
+		[`${ANTHROPIC_VERTEX_SERVICE}:claude-3-7-sonnet`]: Claude3_7_Sonnet_Vertex,
 	};
 }
 
 // Supported image types image/jpeg', 'image/png', 'image/gif' or 'image/webp'
 export function Claude3_5_Sonnet_Vertex() {
 	return new AnthropicVertexLLM('Claude 3.5 Sonnet (Vertex)', 'claude-3-5-sonnet-v2@20241022', 3, 15);
+}
+
+export function Claude3_7_Sonnet_Vertex() {
+	return new AnthropicVertexLLM('Claude 3.7 Sonnet (Vertex)', 'claude-3-7-sonnet@20250219', 3, 15);
 }
 
 export function Claude3_5_Haiku_Vertex() {
@@ -46,15 +51,6 @@ function inputCostFunction(dollarsPerMillionTokens: number): InputCostFunction {
 		(usage.cache_creation_input_tokens * dollarsPerMillionTokens * 1.25) / 1_000_000 +
 		(usage.cache_read_input_tokens * dollarsPerMillionTokens * 0.1) / 1_000_000;
 }
-
-// export function Claude3_Opus_Vertex() {
-// 	return new AnthropicVertexLLM(
-// 		'Claude 3 Opus (Vertex)',
-// 		'claude-3-opus@20240229',
-// 		(input: string) => (input.length * 15) / (1_000_000 * 3.5),
-// 		(output: string) => (output.length * 75) / (1_000_000 * 3.5),
-// 	);
-// }
 
 export function ClaudeVertexLLMs(): AgentLLMs {
 	const hard = Claude3_5_Sonnet_Vertex();
@@ -105,8 +101,9 @@ class AnthropicVertexLLM extends BaseLLM {
 	// {"error":{"code":400,"message":"Project `1234567890` is not allowed to use Publisher Model `projects/project-id/locations/us-central1/publishers/anthropic/models/claude-3-haiku@20240307`","status":"FAILED_PRECONDITION"}}
 	@cacheRetry({ backOffMs: 5000 })
 	async generateTextFromMessages(messages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
-		return await withActiveSpan(`generateTextFromMessages ${opts?.id ?? ''}`, async (span) => {
-			const maxOutputTokens = this.model.includes('3-5') ? 8192 : 4096;
+		const description = opts?.id ?? '';
+		return await withActiveSpan(`generateTextFromMessages ${description}`, async (span) => {
+			let maxOutputTokens = 8192;
 
 			const userMsg = messages.findLast((message) => message.role === 'user');
 
@@ -116,14 +113,17 @@ class AnthropicVertexLLM extends BaseLLM {
 				model: this.model,
 				service: this.service,
 				caller: agentContext()?.callStack.at(-1) ?? '',
+				description,
 			});
 			if (opts?.id) span.setAttribute('id', opts.id);
 
 			const llmCallSave: Promise<LlmCall> = appContext().llmCallService.saveRequest({
 				messages,
 				llmId: this.getId(),
+				userId: currentUser().id,
 				agentId: agentContext()?.agentId,
 				callStack: this.callStack(agentContext()),
+				description,
 			});
 			const requestTime = Date.now();
 
@@ -242,12 +242,24 @@ class AnthropicVertexLLM extends BaseLLM {
 						content,
 					};
 				});
+				// https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking#important-considerations-when-using-extended-thinking
+				// Your budget_tokens must always be less than the max_tokens specified.
+				// Working with the thinking budget: The minimum budget is 1,024 tokens.
+				// Streaming is required when max_tokens is greater than 21,333
+				// For thinking budgets above 32K: We recommend using batch processing
+				let thinking: Anthropic.Messages.ThinkingConfigEnabled | undefined = undefined;
+				if (opts?.thinking === 'low') thinking = { type: 'enabled', budget_tokens: 1024 };
+				else if (opts?.thinking === 'medium') thinking = { type: 'enabled', budget_tokens: 6000 };
+				else if (opts?.thinking === 'high') thinking = { type: 'enabled', budget_tokens: 13000 };
+				if (thinking) maxOutputTokens += thinking.budget_tokens;
+
 				message = await this.api().messages.create({
 					system: systemMessage,
 					messages: anthropicMessages,
 					model: this.model,
 					max_tokens: maxOutputTokens,
 					stop_sequences: opts?.stopSequences,
+					thinking,
 				});
 			} catch (e) {
 				if (this.isRetryableError(e)) {
@@ -268,9 +280,14 @@ class AnthropicVertexLLM extends BaseLLM {
 
 			if (!message.content.length) throw new Error(`Response Message did not have any content: ${JSON.stringify(message)}`);
 
-			if (message.content[0].type !== 'text') throw new Error(`Message content type was not text. Was ${message.content[0].type}`);
+			if (message.content[0].type !== 'text' && message.content[0].type !== 'thinking')
+				throw new Error(`Message content type was not text or thinking. Was ${message.content[0].type}`);
 
-			const responseText = (message.content[0] as TextBlock).text;
+			let responseText = '';
+			for (const content of message.content) {
+				if (content.type === 'text') responseText += content.text;
+				if (content.type === 'thinking') responseText += content.thinking;
+			}
 
 			const finishTime = Date.now();
 			const timeToFirstToken = finishTime - requestTime;
@@ -318,7 +335,7 @@ class AnthropicVertexLLM extends BaseLLM {
 			if (message.stop_reason === 'max_tokens') {
 				// TODO we can replay with request with the current response appended so the LLM can complete it
 				logger.error('= RESPONSE exceeded max tokens ===============================');
-				logger.debug(responseText);
+				// logger.debug(responseText);
 				throw new MaxTokensError(maxOutputTokens, responseText);
 			}
 			return responseText;

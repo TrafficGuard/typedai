@@ -1,5 +1,6 @@
 import { llms } from '#agent/agentContextLocalStorage';
 import { LiveFiles } from '#agent/liveFiles';
+import { Jira } from '#functions/jira';
 import { FileSystemRead } from '#functions/storage/FileSystemRead';
 import { FileSystemWrite } from '#functions/storage/FileSystemWrite';
 import { Perplexity } from '#functions/web/perplexity';
@@ -23,6 +24,7 @@ const functionAliases: Record<string, string> = {
 	pp: Perplexity.name,
 	npm: NpmPackages.name,
 	ts: TypescriptTools.name,
+	jira: Jira.name,
 	live: LiveFiles.name,
 };
 

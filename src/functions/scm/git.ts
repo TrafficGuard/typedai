@@ -77,10 +77,11 @@ export class Git implements VersionControlSystem {
 	 * Returns the diff between the current branch head and the source branch
 	 * @param sourceBranch
 	 */
+	@span({ sourceBranch: 0 })
 	async getBranchDiff(sourceBranch: string = this.previousBranch): Promise<string> {
 		// git diff $(git merge-base <source-branch> HEAD) HEAD
 		if (!sourceBranch) throw new Error('Source branch is required');
-		const result = await execCommand(`git diff $(git merge-base ${sourceBranch} HEAD) HEAD`);
+		const result = await execCommand(`git --no-pager diff $(git merge-base ${sourceBranch} HEAD) HEAD`);
 		failOnError('Error getting branch diff', result);
 		return result.stdout;
 	}
@@ -91,7 +92,7 @@ export class Git implements VersionControlSystem {
 	 */
 	@span()
 	async getDiff(commitSha?: string): Promise<string> {
-		const result = await execCommand(`git diff ${commitSha ?? 'HEAD^'}..HEAD`);
+		const result = await execCommand(`git --no-pager diff ${commitSha ?? 'HEAD^'}..HEAD`);
 		failOnError('Error getting diff', result);
 		return result.stdout;
 	}

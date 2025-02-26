@@ -31,7 +31,7 @@ export function buildPrompt(args: {
 export class SoftwareDeveloperAgent {
 	/**
 	 * Runs the software developer agent to complete the user request/requirements. This will find the appropriate Git project/repository, clone it, make the changes, compile and test if applicable, commit and create a pull/merge request to review.
-	 * @param requirements the requirements to implement. Provide ALL the details that might be required by this agent to complete the requirements task. Do not refer to details in memory etc, you must provide the actual details.
+	 * @param requirements the requirements to implement. Provide ALL the details that might be required by this agent to complete the requirements task. Do not refer to details in memory etc, or that would require functions to look up. You must provide the actual details.
 	 * @param scmFullProjectPath (Optional) The full path to the GitHub/GitLab etc. repository, if definitely known. (e.g.  org/repo or group1/group2/project). Otherwise, leave blank, and it will be determined by searching through all the available projects.
 	 * @returns the Merge/Pull request URL if one was created
 	 */

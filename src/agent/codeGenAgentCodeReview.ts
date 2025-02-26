@@ -14,7 +14,7 @@ Your task is to review the code provided to ensure it follows the following inst
 - Always code defensively, checking values are the type and format as expected
 - For any operation involving user-specified items, refer to 'Interpreting User Requests' items to code defensively, ensuring flexible and context-aware handling.
 - The script should return a Dict with any values you want to have available to view/process next. You don't need to do everything here.
-- When calling Agent_completed or Agent_requestFeedback you must directly return its result. (Ensure any required information has already been stored to memory)
+- When calling Agent_completed or AgentFeedback_requestFeedback you must directly return its result. (Ensure any required information has already been stored to memory)
 - This script may be running on repositories where the source code files are TypeScript, Java, Terraform, PHP, C#, C++, Ruby etc. Do not assume Python files.
 - You can directly analyze and return contents from memory tags and . If you need to analyze unstructured data then include it to a return Dict value to view in the next step.
 - All maths must be done in Python code
@@ -51,7 +51,7 @@ print(f"Identified {len(terraform_projects)} potential Terraform projects")
 
 # If we couldn't identify any Terraform projects, we might need more information
 if not terraform_projects:
-    return await Agent_requestFeedback("I couldn't identify any Terraform projects based on project names and descriptions. Do you have any additional information on how Terraform projects are typically named or organized in your GitLab repository?")
+    return await AgentFeedback_requestFeedback("I couldn't identify any Terraform projects based on project names and descriptions. Do you have any additional information on how Terraform projects are typically named or organized in your GitLab repository?")
 
 await Agent_saveMemory("potential_terraform_projects", json.dumps(potential_terraform_projects, cls=JsProxyEncoder)
 

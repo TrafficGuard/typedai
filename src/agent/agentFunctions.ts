@@ -6,10 +6,6 @@ export const AGENT_SAVE_MEMORY = 'Agent_saveMemory';
 
 export const AGENT_COMPLETED_NAME = 'Agent_completed';
 
-export const AGENT_REQUEST_FEEDBACK = 'Agent_requestFeedback';
-
-export const REQUEST_FEEDBACK_PARAM_NAME = 'request';
-
 export const AGENT_SAVE_MEMORY_CONTENT_PARAM_NAME = 'content';
 
 export const AGENT_COMPLETED_PARAM_NAME = 'note';
@@ -19,18 +15,6 @@ export const AGENT_COMPLETED_PARAM_NAME = 'note';
  */
 @funcClass(__filename)
 export class Agent {
-	/**
-	 * Request feedback/interaction from a supervisor when a decision or approval needs to be made, or additional details are required, before proceeding with the plan.
-	 * Minimise calls to requestFeedback by attempting/verifying possible options first.
-	 * @param {string} request Notes on what additional information/decision is required. Be specific on what you have been doing up to this point, and provide relevant information to help with the decision/feedback.
-	 */
-	@func()
-	async requestFeedback(request: string): Promise<string> {
-		// arg name must match REQUEST_FEEDBACK_PARAM_NAME
-		logger.info(`Feedback requested: ${request}`);
-		return ''; // This will be replaced by the supervisor feedback
-	}
-
 	/**
 	 * Notifies that the user request has completed and there is no more work to be done, or that no more useful progress can be made with the functions.
 	 * @param {string} note A detailed description that answers/completes the user request.

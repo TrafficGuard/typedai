@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { DocumentSnapshot, Firestore } from '@google-cloud/firestore';
 import { CreateLlmRequest, LlmCall, LlmRequest } from '#llm/llmCallService/llmCall';
 import { LlmCallService } from '#llm/llmCallService/llmCallService';
+import { currentUser } from '#user/userService/userContext';
 import { firestoreDb } from './firestore';
 
 // TODO add composite index LlmCall	agentId Ascending requestTime Descending __name__ Descending
@@ -51,6 +52,14 @@ export class FirestoreLlmCallService implements LlmCallService {
 	}
 
 	async saveResponse(llmCall: LlmCall): Promise<void> {
+		const messages = llmCall.messages;
+		// If we've pre-filled the assistant response, then remove that message
+		if (messages.at(-1).role === 'assistant') {
+			messages.pop();
+		}
+		messages.push({ role: 'assistant', content: llmCall.responseText });
+		llmCall.responseText = undefined;
+
 		const llmResponseDocRef = this.db.doc(`LlmCall/${llmCall.id}`);
 		await llmResponseDocRef.set(llmCall);
 	}
@@ -62,5 +71,15 @@ export class FirestoreLlmCallService implements LlmCallService {
 			return null;
 		}
 		return this.deserialize(docSnap.id, docSnap.data());
+	}
+
+	async getLlmCallsByDescription(description: string): Promise<LlmCall[]> {
+		const querySnapshot = await this.db
+			.collection('LlmCall')
+			.where('userId', '==', currentUser().id)
+			.where('description', '==', description)
+			.orderBy('requestTime', 'desc')
+			.get();
+		return querySnapshot.docs.map((doc) => this.deserialize(doc.id, doc.data()));
 	}
 }

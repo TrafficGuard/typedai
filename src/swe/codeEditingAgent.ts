@@ -144,7 +144,7 @@ Then respond in following format:
 		// Store in memory for now while we see how the prompt performs
 		const branchName = await getFileSystem().vcs.getBranchName();
 
-		const reviewItems: string[] = await this.reviewChanges(requirements, gitBase);
+		const reviewItems: string[] = await this.reviewChanges(requirements, gitBase, fileSelection);
 		if (reviewItems.length) {
 			logger.info(reviewItems, 'Code review results');
 			agentContext().memory[`${branchName}--review`] = JSON.stringify(reviewItems);
@@ -405,8 +405,8 @@ Then respond in following format:
 	}
 
 	@span()
-	async reviewChanges(requirements: string, sourceBranchOrCommit: string): Promise<string[]> {
-		return reviewChanges(requirements, sourceBranchOrCommit);
+	async reviewChanges(requirements: string, sourceBranchOrCommit: string, fileSelection: string[]): Promise<string[]> {
+		return reviewChanges(requirements, sourceBranchOrCommit, fileSelection);
 	}
 
 	@cacheRetry()

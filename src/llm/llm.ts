@@ -50,6 +50,7 @@ export interface GenerateTextOptions extends GenerateOptions {
 	type?: 'text' | 'json';
 	/** Identifier used in trace spans, UI etc */
 	id?: string;
+	thinking?: 'low' | 'medium' | 'high'; // For openai o series and Claude Sonnet 3.7
 }
 
 /**

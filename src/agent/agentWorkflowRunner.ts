@@ -1,7 +1,7 @@
 import { Span } from '@opentelemetry/api';
 import { agentContext, agentContextStorage, createContext } from '#agent/agentContextLocalStorage';
 import { AgentContext } from '#agent/agentContextTypes';
-import { RunAgentConfig } from '#agent/agentRunner';
+import { RunAgentConfig, RunWorkflowConfig } from '#agent/agentRunner';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { errorToString } from '#utils/errors';
@@ -14,7 +14,7 @@ import { appContext } from '../applicationContext';
  * @param workflow
  * @returns the agentId
  */
-export async function runAgentWorkflow(config: RunAgentConfig, workflow: (agent: AgentContext) => any): Promise<string> {
+export async function runAgentWorkflow(config: RunWorkflowConfig, workflow: (agent: AgentContext) => any): Promise<string> {
 	let context: AgentContext = createContext(config);
 	context.state = 'workflow';
 	await appContext().agentStateService.save(context);

@@ -1,12 +1,9 @@
-import { MultiLlama3_70B } from '#llm/multi-agent/fastLlama70b';
-import { cerebrasLlama3_3_70b } from '#llm/services/cerebras';
 import { deepinfraDeepSeekR1_Distill_Llama70b } from '#llm/services/deepinfra';
 import { sambanovaLlama3_3_70b_R1_Distill } from '#llm/services/sambanova';
 import { togetherLlama3_70B_R1_Distill } from '#llm/services/together';
 import { logger } from '#o11y/logger';
 import { BaseLLM } from '../base-llm';
 import { GenerateTextOptions, LLM, LlmMessage } from '../llm';
-import { fireworksLlama3_70B } from '../services/fireworks';
 import { groqLlama3_3_70B_R1_Distill } from '../services/groq';
 
 /**

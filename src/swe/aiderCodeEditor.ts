@@ -6,8 +6,8 @@ import { promisify } from 'util';
 import { addCost, agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { LLM } from '#llm/llm';
-import { Claude3_5_Sonnet } from '#llm/services/anthropic';
-import { Claude3_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
+import { Claude3_7_Sonnet } from '#llm/services/anthropic';
+import { Claude3_7_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { deepSeekV3 } from '#llm/services/deepseek';
 import { GPT4o } from '#llm/services/openai';
 import { logger } from '#o11y/logger';
@@ -48,7 +48,7 @@ export class AiderCodeEditor {
 		let llm: LLM;
 
 		if (process.env.GCLOUD_PROJECT && process.env.GCLOUD_CLAUDE_REGION) {
-			llm = Claude3_5_Sonnet_Vertex();
+			llm = Claude3_7_Sonnet_Vertex();
 			modelArg = `--model vertex_ai/${llm.getModel()}`;
 			span.setAttribute('model', 'sonnet');
 			env = { VERTEXAI_PROJECT: process.env.GCLOUD_PROJECT, VERTEXAI_LOCATION: process.env.GCLOUD_CLAUDE_REGION };
@@ -56,7 +56,7 @@ export class AiderCodeEditor {
 			modelArg = '--sonnet';
 			env = { ANTHROPIC_API_KEY: anthropicKey };
 			span.setAttribute('model', 'sonnet');
-			llm = Claude3_5_Sonnet();
+			llm = Claude3_7_Sonnet();
 		} else if (deepSeekKey) {
 			modelArg = '--model deepseek/deepseek-chat';
 			env = { DEEPSEEK_API_KEY: deepSeekKey };

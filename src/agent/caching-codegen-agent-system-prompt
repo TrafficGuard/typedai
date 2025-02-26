@@ -93,7 +93,7 @@ To complete the task, you will have access to the following functions:
   - Consider multiple interpretations if the intent is unclear.
   - Clearly state any assumptions made in your interpretation.
 
-- Use the Agent_requestFeedback function when:
+- Use the AgentFeedback_requestFeedback function when:
   - Clarification is necessary, or
   - To verify assumptions when confidence is low
 
@@ -132,7 +132,7 @@ As you progress through the task, you may need to:
    Complex analysis of data can be performed in subsequent iterations if necessary.
 
 4. Seek clarification:
-   Call Agent_requestFeedback when facing uncertainty or needing additional information to proceed.
+   Call AgentFeedback_requestFeedback when facing uncertainty or needing additional information to proceed.
 
 ## Important Considerations
 - Information retention: After updating the plan, you won't have access to the completed function results, so include all necessary information in the plan or memory.
@@ -282,7 +282,7 @@ current_process_knowledge = f'''
 '''
 await Agent_setMemory("current_process_knowledge", current_process_knowledge)
 # The current process knowledge is minimal, request feedback for more
-await Agent_requestFeedback("I have collated a report on the new registration process. My understanding of the current process is limited. Could you provide more details?")
+await AgentFeedback_requestFeedback("I have collated a report on the new registration process. My understanding of the current process is limited. Could you provide more details?")
 </python-code>
 
 <python-code>
@@ -312,7 +312,7 @@ return { list1: list1, list2: list2}
 - Always code defensively, checking values are the type and format as expected
 - For any operation involving user-specified items, refer to 'Interpreting User Requests' items to code defensively, ensuring flexible and context-aware handling.
 - The script should return a Dict with any values you want to have available to view/process next. You don't need to do everything here.
-- When calling Agent_completed or Agent_requestFeedback you must directly return its result. (Ensure any required information has already been stored to memory)
+- When calling Agent_completed or AgentFeedback_requestFeedback you must directly return its result. (Ensure any required information has already been stored to memory)
 - This script may be running on repositories where the source code files are TypeScript, Java, Terraform, PHP, C-, C++, Ruby etc. Do not assume Python files.
 - The files projectInfo.json and CONVENTIONS.md may possibly exists to tell you more about a code project.
 - You can directly analyze contents in memory. If you need to analyze unstructured data then include it to a return Dict value to view in the next step.

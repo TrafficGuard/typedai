@@ -153,7 +153,7 @@ export class AgentDetailsComponent implements OnInit {
                 if (response) {
                     this.snackBar.open('Agent resumed successfully', 'Close', { duration: 3000 });
                     this.hilForm.reset();
-                    // Optionally reload or update agent details
+                    this.refreshAgentDetails();
                 }
             });
     }
@@ -180,6 +180,7 @@ export class AgentDetailsComponent implements OnInit {
             if (response) {
                 this.snackBar.open('Agent resumed successfully', 'Close', { duration: 3000 });
                 this.errorForm.reset();
+                this.refreshAgentDetails();
             }
         });
     }

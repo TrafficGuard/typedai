@@ -2,16 +2,9 @@ import { expect } from 'chai';
 import sinon from 'sinon';
 import { LlmFunctions } from '#agent/LlmFunctions';
 import { AgentContext, AgentLLMs } from '#agent/agentContextTypes';
-import { AGENT_COMPLETED_NAME, AGENT_REQUEST_FEEDBACK, REQUEST_FEEDBACK_PARAM_NAME } from '#agent/agentFunctions';
-import {
-	RunAgentConfig,
-	SUPERVISOR_CANCELLED_FUNCTION_NAME,
-	SUPERVISOR_RESUMED_FUNCTION_NAME,
-	cancelAgent,
-	provideFeedback,
-	startAgent,
-	startAgentAndWait,
-} from '#agent/agentRunner';
+import { AGENT_REQUEST_FEEDBACK, REQUEST_FEEDBACK_PARAM_NAME } from '#agent/agentFeedback';
+import { AGENT_COMPLETED_NAME } from '#agent/agentFunctions';
+import { RunAgentConfig, SUPERVISOR_CANCELLED_FUNCTION_NAME, cancelAgent, provideFeedback, startAgent, startAgentAndWait } from '#agent/agentRunner';
 import { XML_AGENT_SPAN } from '#agent/xmlAgentRunner';
 import { TEST_FUNC_NOOP, TEST_FUNC_SKY_COLOUR, TEST_FUNC_SUM, THROW_ERROR_TEXT, TestFunctions } from '#functions/testFunctions';
 import { MockLLM } from '#llm/services/mock-llm';

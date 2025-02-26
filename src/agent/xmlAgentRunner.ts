@@ -1,21 +1,21 @@
 import { readFileSync } from 'fs';
 import { Span, SpanStatusCode } from '@opentelemetry/api';
-import { ConsoleCompletedHandler, runAgentCompleteHandler, stateNotificationMessage } from '#agent/agentCompletion';
+import { runAgentCompleteHandler } from '#agent/agentCompletion';
 import { AgentContext } from '#agent/agentContextTypes';
-import { AGENT_COMPLETED_NAME, AGENT_REQUEST_FEEDBACK } from '#agent/agentFunctions';
+import { AGENT_REQUEST_FEEDBACK } from '#agent/agentFeedback';
+import { AGENT_COMPLETED_NAME } from '#agent/agentFunctions';
 import { buildFunctionCallHistoryPrompt, buildMemoryPrompt, buildToolStatePrompt, updateFunctionSchemas } from '#agent/agentPromptUtils';
 import { AgentExecution, formatFunctionError, formatFunctionResult, summariseLongFunctionOutput } from '#agent/agentRunner';
-import { humanInTheLoop, notifySupervisor } from '#agent/humanInTheLoop';
 import { getServiceName } from '#fastify/trace-init/trace-init';
 import { FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
 import { FunctionResponse } from '#llm/llm';
 import { parseFunctionCallsXml } from '#llm/responseParsers';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
-import { envVar } from '#utils/env-var';
 import { errorToString } from '#utils/errors';
 import { appContext } from '../applicationContext';
-import { agentContext, agentContextStorage, llms } from './agentContextLocalStorage';
+import { agentContextStorage, llms } from './agentContextLocalStorage';
+import { HitlCounters, checkHumanInTheLoop } from './humanInTheLoopChecks';
 
 export const XML_AGENT_SPAN = 'XmlAgent';
 
@@ -51,9 +51,7 @@ export async function runXmlAgent(agent: AgentContext): Promise<AgentExecution> 
 		hilBudget = 2;
 	}
 
-	let countSinceHil = 0;
-	let costSinceHil = 0;
-	let previousCost = 0;
+	let hitlCounters: HitlCounters = { iteration: 0, costAccumulated: 0, lastCost: 0 };
 	/** How many function calls have returned an error since the last human-in-the-loop check */
 	let functionErrorCount = 0;
 
@@ -79,25 +77,7 @@ export async function runXmlAgent(agent: AgentContext): Promise<AgentExecution> 
 				let anyFunctionCallErrors = false;
 				let controlError = false;
 				try {
-					if (hilCount && countSinceHil === hilCount) {
-						agent.state = 'hil';
-						await agentStateService.save(agent);
-						await humanInTheLoop(`Agent control loop has performed ${hilCount} iterations`);
-						agent.state = 'agent';
-						await agentStateService.save(agent);
-						countSinceHil = 0;
-					}
-					countSinceHil++;
-
-					const newCosts = agentContext().cost - previousCost;
-					if (newCosts) logger.debug(`New costs $${newCosts.toFixed(2)}`);
-					previousCost = agentContext().cost;
-					costSinceHil += newCosts;
-					logger.debug(`Spent $${costSinceHil.toFixed(2)} since last input. Total cost $${agentContextStorage.getStore().cost.toFixed(2)}`);
-					if (hilBudget && costSinceHil > hilBudget) {
-						await humanInTheLoop(`Agent cost has increased by USD\$${costSinceHil.toFixed(2)}`);
-						costSinceHil = 0;
-					}
+					hitlCounters = await checkHumanInTheLoop(hitlCounters, agent, agentStateService);
 
 					const filePrompt = await buildToolStatePrompt();
 

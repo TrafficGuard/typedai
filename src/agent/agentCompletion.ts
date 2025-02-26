@@ -24,7 +24,7 @@ export async function runAgentCompleteHandler(agent: AgentContext): Promise<void
 export function completedNotificationMessage(agent: AgentContext) {
 	const uiUrl = envVar('UI_URL');
 	let message = stateNotificationMessage(agent);
-	message += `\n${uiUrl}/agent/${agent.agentId}`;
+	message += `\n${uiUrl}/ui/agents/${agent.agentId}`;
 	return message;
 }
 

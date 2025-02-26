@@ -28,4 +28,8 @@ export class InMemoryLlmCallService implements LlmCallService {
 	async saveResponse(llmCall: LlmCall): Promise<void> {
 		this.llmCallStore.set(llmCall.id, llmCall);
 	}
+
+	getLlmCallsByDescription(description: string): Promise<LlmCall[]> {
+		return Promise.resolve(Array.from(this.llmCallStore.values()).filter((llmCall) => llmCall.description === description));
+	}
 }
