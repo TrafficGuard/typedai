@@ -14,11 +14,18 @@ export function deepseekLLMRegistry(): Record<string, () => LLM> {
 }
 
 export function deepSeekV3(): LLM {
-	return new DeepSeekLLM('DeepSeek v3', 'deepseek-chat', 64000, perMilTokens(0.14), perMilTokens(0.28));
+	return new DeepSeekLLM('DeepSeek v3', 'deepseek-chat', 64000, inputCostFunction(0.27, 0.07), perMilTokens(1.1));
 }
 
 export function deepSeekR1(): LLM {
-	return new DeepSeekLLM('DeepSeek R1', 'deepseek-reasoner', 64000, perMilTokens(0.55), perMilTokens(2.19));
+	return new DeepSeekLLM('DeepSeek R1', 'deepseek-reasoner', 64000, inputCostFunction(0.55, 0.14), perMilTokens(2.19));
+}
+
+function inputCostFunction(cacheMissMTok: number, cacheHitMTok: number): InputCostFunction {
+	// TODO DeepSeek API provides off-peak pricing discounts during 16:30-00:30 UTC each day. The completion timestamp of each request determines its pricing tier.
+	return (input: string, tokens: number, usage: any) => {
+		return (usage.deepseek.promptCacheMissTokens * cacheMissMTok) / 1_000_000 + (usage.deepseek.promptCacheHitTokens * cacheHitMTok) / 1_000_000;
+	};
 }
 
 /**

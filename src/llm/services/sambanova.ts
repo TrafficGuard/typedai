@@ -23,7 +23,7 @@ export function sambanovaLlama3_3_70b(): LLM {
 }
 
 export function sambanovaLlama3_3_70b_R1_Distill(): LLM {
-	return new SambanovaLLM('Llama 3.3 70b R1 Distill (Sambanova)', 'DeepSeek-R1-Distill-Llama-70B', 8_192, perMilTokens(0.7), perMilTokens(1.5));
+	return new SambanovaLLM('Llama 3.3 70b R1 Distill (Sambanova)', 'DeepSeek-R1-Distill-Llama-70B', 128_000, perMilTokens(0.7), perMilTokens(1.4));
 }
 
 /**
