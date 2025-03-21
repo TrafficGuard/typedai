@@ -14,18 +14,45 @@ export function deepseekLLMRegistry(): Record<string, () => LLM> {
 }
 
 export function deepSeekV3(): LLM {
-	return new DeepSeekLLM('DeepSeek v3', 'deepseek-chat', 64000, inputCostFunction(0.27, 0.07), perMilTokens(1.1));
+	return new DeepSeekLLM('DeepSeek v3', 'deepseek-chat', 64_000, inputCostFunction(0.27, 0.07, 0.135, 0.035), outputCostFunction(1.1, 0.55));
 }
 
 export function deepSeekR1(): LLM {
-	return new DeepSeekLLM('DeepSeek R1', 'deepseek-reasoner', 64000, inputCostFunction(0.55, 0.14), perMilTokens(2.19));
+	return new DeepSeekLLM('DeepSeek R1', 'deepseek-reasoner', 64_000, inputCostFunction(0.55, 0.14, 0.135, 0.035), outputCostFunction(2.19, 0.55));
 }
 
-function inputCostFunction(cacheMissMTok: number, cacheHitMTok: number): InputCostFunction {
-	// TODO DeepSeek API provides off-peak pricing discounts during 16:30-00:30 UTC each day. The completion timestamp of each request determines its pricing tier.
-	return (input: string, tokens: number, usage: any) => {
-		return (usage.deepseek.promptCacheMissTokens * cacheMissMTok) / 1_000_000 + (usage.deepseek.promptCacheHitTokens * cacheHitMTok) / 1_000_000;
+// The DeepSeek API provides off-peak pricing discounts during 16:30-00:30 UTC each day. The completion timestamp of each request determines its pricing tier.
+// https://api-docs.deepseek.com/quick_start/pricing
+
+function inputCostFunction(cacheMissMTok: number, cacheHitMTok: number, offPeakCacheMissMTok: number, offPeakCacheHitMTok: number): InputCostFunction {
+	return (input: string, tokens: number, usage: any, completionTime: Date) => {
+		const cacheMissTokens = usage.deepseek.promptCacheMissTokens;
+		const cacheHitTokens = usage.deepseek.promptCacheHitTokens;
+		return isTimeBetween1630And0030(completionTime)
+			? (cacheMissTokens * offPeakCacheMissMTok) / 1_000_000 + (cacheHitTokens * offPeakCacheHitMTok) / 1_000_000
+			: (cacheMissTokens * cacheMissMTok) / 1_000_000 + (cacheHitTokens * cacheHitMTok) / 1_000_000;
 	};
+}
+
+function outputCostFunction(outputMTok: number, offPeakOutputMTok: number): InputCostFunction {
+	return (input: string, tokens: number, usage: any, completionTime: Date) => {
+		return (tokens * (isTimeBetween1630And0030(completionTime) ? offPeakOutputMTok : outputMTok)) / 1_000_000;
+	};
+}
+
+export function isTimeBetween1630And0030(date: Date): boolean {
+	const hours = date.getUTCHours();
+	const minutes = date.getUTCMinutes();
+
+	// Convert the time to minutes since midnight
+	const timeInMinutes = hours * 60 + minutes;
+
+	// Define the range
+	const startTime = 16 * 60 + 30; // 16:30 UTC
+	const endTime = 24 * 60 + 30; // 00:30 UTC (next day)
+
+	// Check if the time is within the range
+	return timeInMinutes >= startTime || timeInMinutes < endTime - 24 * 60;
 }
 
 /**
