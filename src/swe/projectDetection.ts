@@ -89,9 +89,16 @@ export async function detectProjectInfo(requirements?: string): Promise<ProjectI
 		const info = parseProjectInfo(projectInfoJson);
 		if (info !== null) return info;
 	} else if (await fileSystem.fileExists(join(fileSystem.getVcsRoot(), 'projectInfo.json'))) {
-		throw new Error(
-			'TODO handle if we are in a directory inside a repository. Look for the projectInfo.json in the repo root folder and see if any entry exists for the current folder or above ',
-		);
+		// logger.info('current dir ' + fileSystem.getWorkingDirectory());
+		// logger.info('fileSystem.getVcsRoot() ' + fileSystem.getVcsRoot());
+		// process.exit(1);
+		// throw new Error(
+		// 	'TODO handle if we are in a directory inside a repository. Look for the projectInfo.json in the repo root folder and see if any entry exists for the current folder or above ',
+		// );
+		logger.info('Found projectInfo.json in repository root folder');
+		const projectInfoJson = await fileSystem.readFile(join(fileSystem.getVcsRoot(), 'projectInfo.json'));
+		const info = parseProjectInfo(projectInfoJson);
+		if (info !== null) return info;
 	}
 
 	logger.info('Detecting project info...');
