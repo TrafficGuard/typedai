@@ -131,7 +131,7 @@ export async function runCodeGenAgent(agent: AgentContext): Promise<AgentExecuti
 					}
 
 					// Review the generated function calling code
-					llmPythonCode = removePythonMarkdownWrapper(await reviewPythonCode(agentPlanResponse));
+					llmPythonCode = await reviewPythonCode(agentPlanResponse, functionsXml);
 
 					agent.state = 'functions';
 					await agentStateService.save(agent);
@@ -145,7 +145,7 @@ export async function runCodeGenAgent(agent: AgentContext): Promise<AgentExecuti
 					for (const schema of funcSchemas) {
 						const [className, method] = schema.name.split(FUNC_SEP);
 						jsGlobals[schema.name] = async (...args) => {
-							logger.info(`args ${JSON.stringify(args)}`);
+							// logger.info(`args ${JSON.stringify(args)}`); // Can be very verbose
 							// The system prompt instructs the generated code to use positional arguments.
 							// If the generated code mistakenly uses named arguments then there will an arg
 							// which is an object with the property names matching the parameter names. This will cause an error

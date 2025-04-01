@@ -97,10 +97,6 @@ The FileStore should be used for storage of large content (500 words or more) re
   - Consider multiple interpretations if the intent is unclear.
   - Clearly state any assumptions made in your interpretation.
 
-- Use the AgentFeedback_requestFeedback function when:
-  - Clarification is necessary, or
-  - To verify assumptions when confidence is low
-
 Example scenario:
 If a user requests an action involving a specific item (e.g., "read the file agentcontext.ts"):
 - Don't assume the exact naming or location.
@@ -136,7 +132,8 @@ As you progress through the task, you may need to:
    Complex analysis of data can be performed in subsequent iterations if necessary.
 
 4. Seek clarification:
-   Call AgentFeedback_requestFeedback when facing uncertainty or needing additional information to proceed.
+   Call AgentFeedback_requestFeedback when facing uncertainty or needing additional blocking information to proceed.
+   Do not ask for permission to proceed if you have the required information unless the user request has explicitly asked for it at a certain point.
 
 ## Important Considerations
 - Information retention: After updating the plan, you won't have access to complete function results, so include all necessary information in the plan or memory.
@@ -295,13 +292,14 @@ Otherwise return any values to analyse further.
 # The files projectInfo.json and CONVENTIONS.md may possibly exists to tell you more about a code project.
 # You can directly analyze and return text/data/contents from <memory> and <script-result> tags. If you need to analyze unstructured data then include it to a return Dict value to view in the next step.
 # All maths must be done in Python code
-# If calling `json.dumps` it must also be passed the arg cls=JsProxyEncoder. i.e. json.dumps(data, cls=JsProxyEncoder)
+# If calling `json.dumps` it must also be passed the arg cls=JsProxyEncoder. i.e. json.dumps(data, cls=JsProxyEncoder). You can assume the JsProxyEncoder class is available in the execution environment
 # If accessing properties from object types returned from functions, you must add a comment declaring what information provided indicated that particular property exists on the object. Do not assume property names on returned objects.
 # Output in a comment what you know with complete confidence about a value returned from a function
 # Do NOT assume anything about the structure of the results from functions. Return values that require further analysis
 # The script can return a Dict with any values you want to have available to view/process next. You don't need to do everything here.
 # If you do process an object/collection and the result is unexpected (empty or otherwise), then return the original object/collection so it can be inspected in the next step.
 # Always use positional arguments when calling functions
+# Assume the objects returns from function calls match the type hints
 # Example:
 # Check if the desired content is in memory from a previous step. Result: (None found/Found ...)
 # Get the two lists asked for in the next step details

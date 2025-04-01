@@ -117,7 +117,7 @@ export function extractTag(response: string, tagName: string): any {
 	const regexXml = new RegExp(`<${tagName}>(.*)<\/${tagName}>`, 'is');
 	const matchXml = regexXml.exec(resultText);
 
-	if (!matchXml) throw new Error(`Could not find <${tagName}></${tagName}> in the response \n${resultText}`);
+	if (!matchXml) throw new Error(`Could not find <${tagName}></${tagName}> in the response \n${response}`);
 
 	return matchXml[1].trim();
 }

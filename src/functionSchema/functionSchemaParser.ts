@@ -125,14 +125,10 @@ export function functionSchemaParser(sourceFilePath: string): Record<string, Fun
 			let paramIndex = 0;
 			jsDocs.getTags().forEach((tag: JSDocTag) => {
 				if (tag.getTagName() === 'returns' || tag.getTagName() === 'return') {
-					let type = method.getReturnType();
-					// Unwrap Promise types
-					if (returnType.startsWith('Promise<')) {
-						type = method.getReturnType().getTypeArguments()[0];
-					}
-
-					returnType = type.getText();
-					if (type.isInterface()) {
+					returnType = method.getReturnType().getText();
+					// Remove Promise wrapper if present
+					if (returnType.startsWith('Promise<') && returnType.endsWith('>')) {
+						returnType = returnType.slice(8, -1);
 					}
 
 					returns = tag.getText().replace('@returns', '').replace('@return', '').trim();
@@ -231,9 +227,6 @@ function getFileUpdatedTimestamp(filePath: string): Date | null {
 
 export function generatePythonClass(type: Type) {
 	if (type.isInterface()) {
-
-	}
-	else if(type.isTypeParameter()) {
-
+	} else if (type.isTypeParameter()) {
 	}
 }

@@ -42,6 +42,13 @@ export class TestClass {
 	methodWithOptionalParam(arg1: string, arg2?: number): void {}
 
 	/**
+	 * Method with a parameter without a param tag, which is hidden from the LLM
+	 * @param arg1 First argument
+	 */
+	@func()
+	methodWithHiddenParam(arg1: string, arg2?: number): void {}
+
+	/**
 	 * Method with return type
 	 * @returns A string value
 	 */
@@ -117,6 +124,15 @@ describe('functionDefinitionParser', () => {
 					{ index: 0, name: 'arg1', type: 'string', description: 'First argument' },
 					{ index: 1, name: 'arg2', type: 'number', description: 'Optional second argument', optional: true },
 				],
+			});
+		});
+
+		it('should skip args without a @param doc', () => {
+			expect(functionSchemas.TestClass_methodWithHiddenParam).to.deep.equal({
+				class: 'TestClass',
+				name: 'TestClass_methodWithHiddenParam',
+				description: 'Method with a parameter without a param tag, which is hidden from the LLM',
+				parameters: [{ index: 0, name: 'arg1', type: 'string', description: 'First argument' }],
 			});
 		});
 

@@ -7,7 +7,8 @@ import { AGENT_REQUEST_FEEDBACK } from '#agent/agentFeedback';
 import { AGENT_COMPLETED_NAME, AGENT_SAVE_MEMORY_CONTENT_PARAM_NAME } from '#agent/agentFunctions';
 import { buildFunctionCallHistoryPrompt, buildMemoryPrompt, buildToolStatePrompt, updateFunctionSchemas } from '#agent/agentPromptUtils';
 import { AgentExecution, formatFunctionError, formatFunctionResult } from '#agent/agentRunner';
-import { convertJsonToPythonDeclaration, extractPythonCode } from '#agent/codeGenAgentUtils';
+import { reviewPythonCode } from '#agent/codeGenAgentCodeReview';
+import { convertJsonToPythonDeclaration, extractPythonCode, removePythonMarkdownWrapper } from '#agent/codeGenAgentUtils';
 import { humanInTheLoop, notifySupervisor } from '#agent/humanInTheLoop';
 import { getServiceName } from '#fastify/trace-init/trace-init';
 import { FUNC_SEP, FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
@@ -24,9 +25,10 @@ export const CODEGEN_AGENT_SPAN = 'Codegen Agent';
 let pyodide: PyodideInterface;
 
 /*
+ * EXPERIMENTAL
+ *
  * The aim of the cachingCodegen agent compared to the codegenAgent is to utilise context caching in Claude/OpenAI/DeepSeek.
- * This will require using the new methods on the LLM interface which have a message history. This message history
- * will be treated in some ways like a stack.
+ * by using the user/assistant messages like a stack.
  *
  * Message stack:
  * system prompt
@@ -185,8 +187,12 @@ export async function runCachingCodegenAgent(agent: AgentContext): Promise<Agent
 						temperature: 0.7,
 					})}`;
 					console.log(agentCodeResponse);
+
 					agent.messages[8] = { role: 'assistant', content: agentCodeResponse };
-					const llmPythonCode = extractPythonCode(agentCodeResponse);
+					let llmPythonCode = extractPythonCode(agentCodeResponse);
+
+					// Review the generated code
+					llmPythonCode = await reviewPythonCode(agentPlanResponse, functionsXml);
 
 					// Function calling ----------------
 
