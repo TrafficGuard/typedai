@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { expect } from 'chai';
 import sinon from 'sinon';
+import { resetFirestoreEmulator } from '#firestore/resetFirestoreEmulator';
 import { system, user } from '#llm/llm';
 import { CreateLlmRequest, LlmCall } from '#llm/llmCallService/llmCall';
 import { LlmCallService } from '#llm/llmCallService/llmCallService';
@@ -21,23 +22,7 @@ describe('FirestoreLlmCallService', () => {
 
 	beforeEach(async () => {
 		service = new FirestoreLlmCallService();
-
-		try {
-			const response = await instance.post('reset');
-
-			// Axios throws an error for responses outside the 2xx range, so the following check is optional
-			// and generally not needed unless you configure axios to not throw on certain status codes.
-			if (response.status !== 200) {
-				logger.error('Failed to reset emulator data:', response.status, response.statusText);
-			}
-		} catch (error) {
-			// Axios encapsulates the response error as error.response
-			if (error.response) {
-				logger.error('Failed to reset emulator data:', error.response.status, error.response.statusText);
-			} else {
-				logger.error(error, 'Error resetting emulator data:');
-			}
-		}
+		await resetFirestoreEmulator();
 	});
 
 	describe('saveRequest and getCall', () => {
