@@ -41,6 +41,7 @@ export function groqLlama3_3_70B_R1_Distill(): LLM {
 /**
  * Qwen QWQ 32B model from Groq
  * Pricing: $0.29/M input tokens, $0.39/M output tokens
+ * https://groq.com/a-guide-to-reasoning-with-qwen-qwq-32b/
  */
 export function groqQwenQwq32b(): LLM {
 	return new GroqLLM('Qwen QWQ 32b (Groq)', 'qwen-qwq-32b', 128_000, perMilTokens(0.29), perMilTokens(0.39));

@@ -11,22 +11,22 @@ export const VERTEX_SERVICE = 'vertex';
 
 export function vertexLLMRegistry(): Record<string, () => LLM> {
 	return {
-		[`${VERTEX_SERVICE}:gemini-2.0-pro`]: Gemini_2_0_Experimental,
 		[`${VERTEX_SERVICE}:gemini-2.0-flash-thinking`]: Gemini_2_0_Flash_Thinking,
 		[`${VERTEX_SERVICE}:gemini-2.0-flash-lite`]: Gemini_2_0_Flash_Lite,
 		[`${VERTEX_SERVICE}:gemini-2.0-flash`]: Gemini_2_0_Flash,
+		[`${VERTEX_SERVICE}:gemini-2.5-pro`]: Gemini_2_5_Pro,
 	};
 }
 
 // https://cloud.google.com/vertex-ai/generative-ai/pricing#token-based-pricing
 
-export function Gemini_2_0_Experimental() {
+export function Gemini_2_5_Pro() {
 	return new VertexLLM(
-		'Gemini experimental',
-		'gemini-2.0-pro-exp-02-05',
+		'Gemini 2.5 Pro',
+		'gemini-2.5-pro-exp-03-25',
 		1_000_000,
-		(input: string) => (input.length * 0.0036) / 1000,
-		(output: string) => (output.length * 0.018) / 1000,
+		(input: string) => 0,
+		(output: string) => 0,
 	);
 }
 
