@@ -15,6 +15,7 @@ import { mockLLMRegistry } from '#llm/services/mock-llm';
 import { nebiusLLMRegistry } from '#llm/services/nebius';
 import { ollamaLLMRegistry } from '#llm/services/ollama';
 import { openAiLLMRegistry } from '#llm/services/openai';
+import { openrouterLLMRegistry } from '#llm/services/openrouter';
 import { perplexityLLMRegistry } from '#llm/services/perplexity-llm';
 import { sambanovaLLMRegistry } from '#llm/services/sambanova';
 import { togetherLLMRegistry } from '#llm/services/together';
@@ -41,6 +42,7 @@ export const LLM_FACTORY: Record<string, () => LLM> = {
 	...deepSeekFallbackRegistry(),
 	...MoA_reasoningLLMRegistry(),
 	...CePO_LLMRegistry(),
+	...openrouterLLMRegistry(),
 	...mockLLMRegistry(),
 };
 
