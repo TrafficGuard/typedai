@@ -20,6 +20,39 @@ export interface CodeReviewConfig {
 	examples: IExample[];
 }
 
+/**
+ * Represents the structure of the entire Firestore document
+ * used for caching clean code reviews for a Merge Request.
+ */
+export type MergeRequestFingerprintCache = {
+	/** Unix timestamp (milliseconds) of the last update */
+	lastUpdated: number;
+	/** Set containing the unique fingerprint hashes marked as clean */
+	fingerprints: Set<string>;
+};
+
+/**
+ * Default empty cache structure used when no cache exists or on error.
+ * Note: Creates a new Set each time to avoid shared references.
+ */
+export const EMPTY_CACHE = (): MergeRequestFingerprintCache => ({
+	lastUpdated: 0,
+	fingerprints: new Set<string>(),
+});
+
+// Interface for review results might also live here or near GitLabCodeReview
+export interface DiffReviewComment {
+	lineNumber: number;
+	comment: string; // Markdown format expected
+}
+
+export interface DiffReview {
+	code: string; // The code snippet sent to the LLM
+	comments: DiffReviewComment[];
+	// mrDiff: MergeRequestDiffSchema; // Assuming this type comes from GitLab client library
+	// reviewConfig: CodeReviewConfig; // Assuming CodeReviewConfig is defined
+}
+
 export function codeReviewToXml(codeReview: CodeReviewConfig): string {
 	let xml = '<code-review-config>';
 

@@ -1,3 +1,4 @@
+import { MergeRequestFingerprintCache } from '#firestore/firestoreCodeReviewService';
 import { CodeReviewConfig } from '#swe/codeReview/codeReviewModel';
 import { CodeReviewService } from '#swe/codeReview/codeReviewService';
 
@@ -31,5 +32,17 @@ export class InMemoryCodeReviewService implements CodeReviewService {
 
 	async deleteCodeReviewConfig(id: string): Promise<void> {
 		this.store.delete(id);
+	}
+
+	cleanupExpiredFingerprints(projectId: string | number, mrIid: number): Promise<void> {
+		return Promise.resolve(undefined);
+	}
+
+	getMergeRequestReviewCache(projectId: string | number, mrIid: number): Promise<MergeRequestFingerprintCache> {
+		return Promise.resolve(undefined);
+	}
+
+	updateMergeRequestReviewCache(projectId: string | number, mrIid: number, fingerprintsToSave: MergeRequestFingerprintCache): Promise<void> {
+		return Promise.resolve(undefined);
 	}
 }
