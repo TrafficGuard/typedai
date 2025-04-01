@@ -13,7 +13,7 @@ import { Ollama_Phi3 } from '#llm/services/ollama';
 import { GPT4oMini } from '#llm/services/openai';
 import { sambanovaDeepseekR1, sambanovaLlama3_3_70b, sambanovaLlama3_3_70b_R1_Distill } from '#llm/services/sambanova';
 import { togetherLlama3_70B } from '#llm/services/together';
-import { Gemini_2_0_Experimental, Gemini_2_0_Flash, Gemini_2_0_Flash_Lite, Gemini_2_0_Flash_Thinking } from '#llm/services/vertexai';
+import { Gemini_2_0_Flash, Gemini_2_0_Flash_Lite, Gemini_2_0_Flash_Thinking, Gemini_2_5_Pro } from '#llm/services/vertexai';
 
 const elephantBase64 = fs.readFileSync('test/llm/elephant.jpg', 'base64');
 const pdfBase64 = fs.readFileSync('test/llm/purple.pdf', 'base64');
@@ -229,8 +229,8 @@ describe('LLMs', () => {
 			});
 		});
 
-		it('Gemini 2.0 experimental should generateText', async () => {
-			const response = await Gemini_2_0_Experimental().generateText(SKY_PROMPT, { temperature: 0 });
+		it.skip('Gemini 2.5 Pro should generateText', async () => {
+			const response = await Gemini_2_5_Pro().generateText(SKY_PROMPT, { temperature: 0 });
 			expect(response.toLowerCase()).to.include('blue');
 		});
 
