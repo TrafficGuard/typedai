@@ -190,6 +190,21 @@ export async function resumeCompleted(agentId: string, executionId: string, inst
 	await runAgent(agent);
 }
 
+/**
+ * Restart a chatbot agent that was in the completed state
+ */
+export async function resumeCompletedWithUpdatedUserRequest(agentId: string, executionId: string, userRequest: string): Promise<void> {
+	const agent = await appContext().agentStateService.load(agentId);
+	if (agent.executionId !== executionId) throw new Error('Invalid executionId. Agent has already been resumed');
+
+	agent.inputPrompt = agent.inputPrompt.replace(agent.userPrompt, userRequest);
+	agent.userPrompt = userRequest;
+
+	agent.state = 'agent';
+	await appContext().agentStateService.save(agent);
+	await runAgent(agent);
+}
+
 export async function provideFeedback(agentId: string, executionId: string, feedback: string): Promise<void> {
 	const agent = await appContext().agentStateService.load(agentId);
 	if (agent.executionId !== executionId) throw new Error('Invalid executionId. Agent has already been provided feedback');
