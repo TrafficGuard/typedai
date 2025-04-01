@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'fs';
 import fs, { writeFile } from 'node:fs';
-import path, {join} from 'path';
+import path, { join } from 'path';
 import { promisify } from 'util';
 import { ClassDeclaration, Decorator, JSDoc, JSDocTag, MethodDeclaration, ParameterDeclaration, Project, Type } from 'ts-morph';
 import { logger } from '#o11y/logger';
@@ -96,7 +96,7 @@ export function functionSchemaParser(sourceFilePath: string): Record<string, Fun
 	logger.info(`Generating schema for ${sourceFilePath}`);
 	const project = new Project();
 	// create the temp file in the same dir as the source file so the imports are resolved
-	const tempPath = join(sourceFilePath, '..', 'temp.ts')
+	const tempPath = join(sourceFilePath, '..', 'temp.ts');
 	const sourceFile = project.createSourceFile(tempPath, readFileSync(sourceFilePath, 'utf8'));
 
 	const classes = sourceFile.getClasses();
@@ -125,16 +125,14 @@ export function functionSchemaParser(sourceFilePath: string): Record<string, Fun
 			let paramIndex = 0;
 			jsDocs.getTags().forEach((tag: JSDocTag) => {
 				if (tag.getTagName() === 'returns' || tag.getTagName() === 'return') {
-
 					let type = method.getReturnType();
 					// Unwrap Promise types
 					if (returnType.startsWith('Promise<')) {
-						type = method.getReturnType().getTypeArguments()[0]
+						type = method.getReturnType().getTypeArguments()[0];
 					}
 
 					returnType = type.getText();
-					if(type.isInterface()) {
-
+					if (type.isInterface()) {
 					}
 
 					returns = tag.getText().replace('@returns', '').replace('@return', '').trim();

@@ -9,8 +9,8 @@ export interface SerializedLLM {
 	model: string;
 }
 
-export type InputCostFunction = (input: string, inputTokens: number, usage?: any) => number;
-export type OutputCostFunction = (output: string, outputTokens: number) => number;
+export type InputCostFunction = (input: string, inputTokens: number, usage?: any, completionTime?: Date) => number;
+export type OutputCostFunction = (output: string, outputTokens: number, completionTime?: Date) => number;
 
 export function perMilTokens(dollarsPerMillionTokens: number): InputCostFunction {
 	return (_, tokens) => (tokens * dollarsPerMillionTokens) / 1_000_000;
