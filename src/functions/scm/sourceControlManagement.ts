@@ -15,6 +15,8 @@ export interface MergeRequest {
 export interface SourceControlManagement {
 	getProjects(): Promise<GitProject[]>;
 
+	getProject(projectId: string | number): Promise<GitProject>;
+
 	cloneProject(projectPathWithNamespace: string, branchOrCommit?: string): Promise<string>;
 
 	createMergeRequest(projectId: string | number, title: string, description: string, sourceBranch: string, targetBranch: string): Promise<MergeRequest>;

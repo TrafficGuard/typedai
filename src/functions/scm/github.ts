@@ -1,13 +1,13 @@
 import { existsSync } from 'fs';
-import path, { join } from 'path';
+import { join } from 'path';
 import { request } from '@octokit/request';
-import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { MergeRequest, SourceControlManagement } from '#functions/scm/sourceControlManagement';
 import { logger } from '#o11y/logger';
 import { functionConfig } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
-import { checkExecResult, execCmd, execCommand, failOnError, runShellCommand, spawnCommand } from '#utils/exec';
+import { execCommand, failOnError, spawnCommand } from '#utils/exec';
 import { systemDir } from '../../appVars';
 import { GitProject } from './gitProject';
 
@@ -145,6 +145,25 @@ export class GitHub implements SourceControlManagement {
 			url: response.data.url,
 			title: response.data.title,
 		};
+	}
+
+	async getProject(projectId: string | number): Promise<GitProject> {
+		try {
+			logger.info(`Getting project ${projectId}`);
+			const response = await this.request()(`GET /repos/${projectId}`, {
+				type: 'all',
+				sort: 'updated',
+				direction: 'desc',
+				per_page: 100,
+				headers: {
+					'X-GitHub-Api-Version': '2022-11-28',
+				},
+			});
+			return convertGitHubToGitProject(response.data as GitHubRepository);
+		} catch (error) {
+			logger.error(error, 'Failed to get project');
+			throw new Error(`Failed to get project: ${error.message}`);
+		}
 	}
 
 	@func()
