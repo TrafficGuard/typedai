@@ -104,8 +104,10 @@ class AnthropicVertexLLM extends BaseLLM {
 		const description = opts?.id ?? '';
 		return await withActiveSpan(`generateTextFromMessages ${description}`, async (span) => {
 			let maxOutputTokens = 8192;
+			// Don't mutate the messages arg array
+			const localMessages = [...messages];
 
-			const userMsg = messages.findLast((message) => message.role === 'user');
+			const userMsg = localMessages.findLast((message) => message.role === 'user');
 
 			span.setAttributes({
 				userPrompt: userMsg.content.toString(),
@@ -118,25 +120,24 @@ class AnthropicVertexLLM extends BaseLLM {
 			if (opts?.id) span.setAttribute('id', opts.id);
 
 			const llmCallSave: Promise<LlmCall> = appContext().llmCallService.saveRequest({
-				messages,
+				messages: localMessages,
 				llmId: this.getId(),
 				userId: currentUser().id,
 				agentId: agentContext()?.agentId,
 				callStack: this.callStack(agentContext()),
 				description,
 			});
+
 			const requestTime = Date.now();
 
-			let message: Message;
-			let systemMessage: string | undefined = undefined;
+			let generatedMessage: Message;
+			let systemMessageContent: string | undefined = undefined;
 
 			try {
-				if (messages[0].role === 'system') {
-					const message = messages.splice(0, 1)[0];
-					// systemMessage = [{ type: 'text', text: message.content as string }];
-					systemMessage = message.content.toString();
-					// if(source.cache)
-					// 	systemMessage[0].cacheControl = 'ephemeral'
+				const firstMessage = localMessages[0];
+				if (firstMessage?.role === 'system') {
+					systemMessageContent = firstMessage.content.toString();
+					localMessages.shift(); // removes first element
 				}
 
 				/*
@@ -167,7 +168,7 @@ class AnthropicVertexLLM extends BaseLLM {
 				  }
 				}
 				 */
-				const anthropicMessages: MessageParam[] = messages.map((message) => {
+				const anthropicMessages: MessageParam[] = localMessages.map((message) => {
 					let content: string | Array<TextBlockParam | ImageBlockParam | BetaBase64PDFBlock>;
 
 					if (typeof message.content === 'string') {
@@ -257,8 +258,8 @@ class AnthropicVertexLLM extends BaseLLM {
 					maxOutputTokens += thinking.budget_tokens;
 				}
 
-				message = await this.api().messages.create({
-					system: systemMessage,
+				generatedMessage = await this.api().messages.create({
+					system: systemMessageContent,
 					messages: anthropicMessages,
 					model: this.model,
 					max_tokens: maxOutputTokens,
@@ -273,22 +274,22 @@ class AnthropicVertexLLM extends BaseLLM {
 			}
 
 			// This started happening randomly!
-			if (typeof message === 'string') {
-				message = JSON.parse(message);
+			if (typeof generatedMessage === 'string') {
+				generatedMessage = JSON.parse(generatedMessage);
 			}
 
-			const errorMessage = message as any;
+			const errorMessage = generatedMessage as any;
 			if (errorMessage.type === 'error') {
 				throw new Error(`${errorMessage.error.type} ${errorMessage.error.message}`);
 			}
 
-			if (!message.content.length) throw new Error(`Response Message did not have any content: ${JSON.stringify(message)}`);
+			if (!generatedMessage.content.length) throw new Error(`Response Message did not have any content: ${JSON.stringify(generatedMessage)}`);
 
-			if (message.content[0].type !== 'text' && message.content[0].type !== 'thinking')
-				throw new Error(`Message content type was not text or thinking. Was ${message.content[0].type}`);
+			if (generatedMessage.content[0].type !== 'text' && generatedMessage.content[0].type !== 'thinking')
+				throw new Error(`Message content type was not text or thinking. Was ${generatedMessage.content[0].type}`);
 
 			let responseText = '';
-			for (const content of message.content) {
+			for (const content of generatedMessage.content) {
 				if (content.type === 'text') responseText += content.text;
 				if (content.type === 'thinking') responseText += content.thinking;
 			}
@@ -298,9 +299,9 @@ class AnthropicVertexLLM extends BaseLLM {
 
 			const llmCall: LlmCall = await llmCallSave;
 
-			const inputTokens = message.usage.input_tokens;
-			const outputTokens = message.usage.output_tokens;
-			const usage = message.usage;
+			const inputTokens = generatedMessage.usage.input_tokens;
+			const outputTokens = generatedMessage.usage.output_tokens;
+			const usage = generatedMessage.usage;
 
 			const inputCost = this.calculateInputCost(null, inputTokens, usage);
 
@@ -328,15 +329,14 @@ class AnthropicVertexLLM extends BaseLLM {
 			});
 
 			try {
-				// Need to re-add the system message as we sliced it off earlier
-				if (systemMessage) llmCall.messages.unshift({ role: 'system', content: systemMessage });
+				llmCall.messages = [...messages, { role: 'assistant', content: responseText }];
 				await appContext()?.llmCallService.saveResponse(llmCall);
 			} catch (e) {
 				// queue to save
 				logger.error(e);
 			}
 
-			if (message.stop_reason === 'max_tokens') {
+			if (generatedMessage.stop_reason === 'max_tokens') {
 				// TODO we can replay with request with the current response appended so the LLM can complete it
 				logger.error('= RESPONSE exceeded max tokens ===============================');
 				// logger.debug(responseText);
