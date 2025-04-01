@@ -6,7 +6,8 @@ import { AgentContext } from '#agent/agentContextTypes';
 import { AGENT_REQUEST_FEEDBACK, REQUEST_FEEDBACK_PARAM_NAME } from '#agent/agentFeedback';
 import { AGENT_COMPLETED_NAME, AGENT_COMPLETED_PARAM_NAME, AGENT_SAVE_MEMORY_CONTENT_PARAM_NAME } from '#agent/agentFunctions';
 import { buildFunctionCallHistoryPrompt, buildMemoryPrompt, buildToolStatePrompt, updateFunctionSchemas } from '#agent/agentPromptUtils';
-import { AgentExecution, formatFunctionError, formatFunctionResult } from '#agent/agentRunner';
+import { AgentExecution } from '#agent/agentRunner';
+import { reviewPythonCode } from '#agent/codeGenAgentCodeReview';
 import { convertJsonToPythonDeclaration, extractPythonCode, removePythonMarkdownWrapper } from '#agent/codeGenAgentUtils';
 import { humanInTheLoop } from '#agent/humanInTheLoop';
 import { getServiceName } from '#fastify/trace-init/trace-init';
@@ -15,7 +16,7 @@ import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { errorToString } from '#utils/errors';
 import { appContext } from '../applicationContext';
-import { agentContext, agentContextStorage, llms } from './agentContextLocalStorage';
+import { agentContextStorage, llms } from './agentContextLocalStorage';
 import { HitlCounters, checkHumanInTheLoop } from './humanInTheLoopChecks';
 
 const stopSequences = ['</response>'];
@@ -114,6 +115,7 @@ export async function runCodeGenAgent(agent: AgentContext): Promise<AgentExecuti
 							id: 'Codegen agent plan',
 							stopSequences,
 							temperature: 0.5,
+							thinking: 'medium',
 						});
 						llmPythonCode = extractPythonCode(agentPlanResponse);
 					} catch (e) {
@@ -123,9 +125,13 @@ export async function runCodeGenAgent(agent: AgentContext): Promise<AgentExecuti
 							id: 'Codegen agent plan retry',
 							stopSequences,
 							temperature: 0.5,
+							thinking: 'medium',
 						});
 						llmPythonCode = extractPythonCode(agentPlanResponse);
 					}
+
+					// Review the generated function calling code
+					llmPythonCode = removePythonMarkdownWrapper(await reviewPythonCode(agentPlanResponse));
 
 					agent.state = 'functions';
 					await agentStateService.save(agent);
@@ -139,6 +145,7 @@ export async function runCodeGenAgent(agent: AgentContext): Promise<AgentExecuti
 					for (const schema of funcSchemas) {
 						const [className, method] = schema.name.split(FUNC_SEP);
 						jsGlobals[schema.name] = async (...args) => {
+							logger.info(`args ${JSON.stringify(args)}`);
 							// The system prompt instructs the generated code to use positional arguments.
 							// If the generated code mistakenly uses named arguments then there will an arg
 							// which is an object with the property names matching the parameter names. This will cause an error
@@ -147,8 +154,30 @@ export async function runCodeGenAgent(agent: AgentContext): Promise<AgentExecuti
 							args = args.map((arg) => (typeof arg?.toJs === 'function' ? arg.toJs() : arg));
 
 							// Convert arg array to parameters name/value map
-							const parameters: { [key: string]: any } = {};
-							for (let index = 0; index < args.length; index++) parameters[schema.parameters[index].name] = args[index];
+
+							// The instructions are to generate code using positional arguments, but sometimes the AI will still generate keyword arguments
+							// Handle the case of keyword args, which will have a single object arg with the keywords
+							let isKeywordArgs = false;
+							if (args.length === 1 && typeof args[0] === 'object' && args[0] !== null) {
+								const keywordArgs = args[0];
+								const parameterNames = schema.parameters.map((p) => p.name);
+								for (const key in Object.keys(keywordArgs)) {
+									if (parameterNames.includes(key)) {
+										isKeywordArgs = true;
+									} else {
+										isKeywordArgs = false;
+										break;
+									}
+								}
+							}
+
+							let parameters: { [key: string]: any } = {};
+							if (isKeywordArgs) {
+								parameters = args[0];
+							} else {
+								// positional args
+								for (let index = 0; index < args.length; index++) parameters[schema.parameters[index].name] = args[index];
+							}
 
 							try {
 								const functionResponse = await functionInstances[className][method](...args);
@@ -218,7 +247,7 @@ ${llmPythonCode
 	.join('\n')}
 
 main()`.trim();
-
+					let pythonError: Error | null = null;
 					try {
 						try {
 							// Initial execution attempt
@@ -245,25 +274,27 @@ main()`.trim();
 							}
 						}
 						logger.info(pythonScriptResult, 'Script result');
-
-						const lastFunctionCall = agent.functionCallHistory[agent.functionCallHistory.length - 1];
-
-						// Should force completed/requestFeedback to exit the script - throw a particular Error class
-						if (lastFunctionCall.function_name === AGENT_COMPLETED_NAME) {
-							logger.info(`Task completed: ${lastFunctionCall.parameters[AGENT_COMPLETED_PARAM_NAME]}`);
-							agent.state = 'completed';
-							completed = true;
-						} else if (lastFunctionCall.function_name === AGENT_REQUEST_FEEDBACK) {
-							logger.info(`Feedback requested: ${lastFunctionCall.parameters[REQUEST_FEEDBACK_PARAM_NAME]}`);
-							agent.state = 'feedback';
-							requestFeedback = true;
-						} else {
-							if (!anyFunctionCallErrors && !completed && !requestFeedback) agent.state = 'agent';
-						}
 					} catch (e) {
 						logger.info(e, `Caught function error ${e.message}`);
+						pythonError = e;
 						functionErrorCount++;
 					}
+
+					const lastFunctionCall = agent.functionCallHistory.length ? agent.functionCallHistory[agent.functionCallHistory.length - 1] : null;
+					logger.info(`Last function call was ${lastFunctionCall?.function_name}`);
+					// Should force completed/requestFeedback to exit the script - throw a particular Error class
+					if (lastFunctionCall?.function_name === AGENT_COMPLETED_NAME) {
+						logger.info(`Task completed: ${lastFunctionCall.parameters[AGENT_COMPLETED_PARAM_NAME]}`);
+						agent.state = 'completed';
+						completed = true;
+					} else if (lastFunctionCall?.function_name === AGENT_REQUEST_FEEDBACK) {
+						logger.info(`Feedback requested: ${lastFunctionCall.parameters[REQUEST_FEEDBACK_PARAM_NAME]}`);
+						agent.state = 'feedback';
+						requestFeedback = true;
+					} else {
+						if (!anyFunctionCallErrors && !completed && !requestFeedback) agent.state = 'agent';
+					}
+
 					// Function invocations are complete
 					// span.setAttribute('functionCalls', pythonCode.map((functionCall) => functionCall.function_name).join(', '));
 
@@ -274,7 +305,11 @@ main()`.trim();
 					agent.invoking = [];
 					const currentFunctionCallHistory = buildFunctionCallHistoryPrompt('results', 10000, currentFunctionHistorySize);
 
-					currentPrompt = `${oldFunctionCallHistory}\n${currentFunctionCallHistory}${buildMemoryPrompt()}${toolStatePrompt}\n${userRequestXml}\n${agentPlanResponse}\n<script-result>${pythonScriptResult}</script-result>\nReview the results of the script and make any observations about the output/errors, then proceed with the response.`;
+					const scriptResult = pythonError
+						? `<python-script>\n${pythonScript}\n</python-script>\n<script-error>\n${pythonError.message}\n</script-error>`
+						: `<script-result>${pythonScriptResult}</script-result>`;
+
+					currentPrompt = `${oldFunctionCallHistory}\n${currentFunctionCallHistory}${buildMemoryPrompt()}${toolStatePrompt}\n${userRequestXml}\n${agentPlanResponse}\n${scriptResult}\nReview the results of the script and make any observations about the output/errors, then proceed with the response.`;
 					currentFunctionHistorySize = agent.functionCallHistory.length;
 				} catch (e) {
 					span.setStatus({ code: SpanStatusCode.ERROR, message: e.toString() });
@@ -288,6 +323,7 @@ main()`.trim();
 					agent.iterations++;
 					await agentStateService.save(agent);
 				}
+
 				// return if the control loop should continue
 				return !(completed || requestFeedback || anyFunctionCallErrors || controlError);
 			});

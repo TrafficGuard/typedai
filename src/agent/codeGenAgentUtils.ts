@@ -43,8 +43,8 @@ export function convertTypeScriptToPython(tsType: string): string {
 
 	let pyType = tsType;
 
-	for (const [tsType, pyTypeEquivalent] of Object.entries(typeMappings)) {
-		const regex = new RegExp(`\\b${tsType}\\b`, 'g'); // Boundary to match whole words
+	for (const [mappedTsType, pyTypeEquivalent] of Object.entries(typeMappings)) {
+		const regex = new RegExp(`\\b${mappedTsType}\\b`, 'g'); // Boundary to match whole words
 		pyType = pyType.replace(regex, pyTypeEquivalent);
 	}
 	return pyType;

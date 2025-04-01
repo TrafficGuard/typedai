@@ -1,8 +1,8 @@
 import { readFileSync, writeFileSync } from 'fs';
 import fs, { writeFile } from 'node:fs';
-import path from 'path';
+import path, {join} from 'path';
 import { promisify } from 'util';
-import { ClassDeclaration, Decorator, JSDoc, JSDocTag, MethodDeclaration, ParameterDeclaration, Project } from 'ts-morph';
+import { ClassDeclaration, Decorator, JSDoc, JSDocTag, MethodDeclaration, ParameterDeclaration, Project, Type } from 'ts-morph';
 import { logger } from '#o11y/logger';
 import { systemDir } from '../appVars';
 import { FUNC_DECORATOR_NAME } from './functionDecorators';
@@ -95,7 +95,9 @@ export function functionSchemaParser(sourceFilePath: string): Record<string, Fun
 
 	logger.info(`Generating schema for ${sourceFilePath}`);
 	const project = new Project();
-	const sourceFile = project.createSourceFile('temp.ts', readFileSync(sourceFilePath, 'utf8'));
+	// create the temp file in the same dir as the source file so the imports are resolved
+	const tempPath = join(sourceFilePath, '..', 'temp.ts')
+	const sourceFile = project.createSourceFile(tempPath, readFileSync(sourceFilePath, 'utf8'));
 
 	const classes = sourceFile.getClasses();
 
@@ -123,11 +125,18 @@ export function functionSchemaParser(sourceFilePath: string): Record<string, Fun
 			let paramIndex = 0;
 			jsDocs.getTags().forEach((tag: JSDocTag) => {
 				if (tag.getTagName() === 'returns' || tag.getTagName() === 'return') {
-					returnType = method.getReturnType().getText();
-					// Remove Promise wrapper if present
-					if (returnType.startsWith('Promise<') && returnType.endsWith('>')) {
-						returnType = returnType.slice(8, -1);
+
+					let type = method.getReturnType();
+					// Unwrap Promise types
+					if (returnType.startsWith('Promise<')) {
+						type = method.getReturnType().getTypeArguments()[0]
 					}
+
+					returnType = type.getText();
+					if(type.isInterface()) {
+
+					}
+
 					returns = tag.getText().replace('@returns', '').replace('@return', '').trim();
 					// Remove type information from returns if present
 					if (returns.startsWith('{') && returns.includes('}')) {
@@ -188,10 +197,11 @@ export function functionSchemaParser(sourceFilePath: string): Record<string, Fun
 				if (param.isOptional() || param.hasInitializer()) {
 					paramDef.optional = true;
 				}
-				if (!paramDef.description) {
-					logger.warn(`No description for param ${className}_${methodName}.${param.getName()}`);
+				if (paramDef.description) {
+					params.push(paramDef);
+				} else {
+					logger.info(`No description for param ${className}_${methodName}.${param.getName()}`);
 				}
-				params.push(paramDef);
 			});
 
 			const funcDef: FunctionSchema = {
@@ -218,5 +228,14 @@ function getFileUpdatedTimestamp(filePath: string): Date | null {
 		return stats.mtime; // mtime is the "modified time"
 	} catch (error) {
 		return null;
+	}
+}
+
+export function generatePythonClass(type: Type) {
+	if (type.isInterface()) {
+
+	}
+	else if(type.isTypeParameter()) {
+
 	}
 }
