@@ -1,8 +1,9 @@
 import { llms } from '#agent/agentContextLocalStorage';
 import { LiveFiles } from '#agent/liveFiles';
 import { Jira } from '#functions/jira';
-import { FileSystemRead } from '#functions/storage/FileSystemRead';
-import { FileSystemWrite } from '#functions/storage/FileSystemWrite';
+import { FileSystemList } from '#functions/storage/fileSystemList';
+import { FileSystemRead } from '#functions/storage/fileSystemRead';
+import { FileSystemWrite } from '#functions/storage/fileSystemWrite';
 import { Perplexity } from '#functions/web/perplexity';
 import { PublicWeb } from '#functions/web/web';
 import { LLM } from '#llm/llm';
@@ -19,6 +20,7 @@ const functionAliases: Record<string, string> = {
 	swe: SoftwareDeveloperAgent.name,
 	code: CodeEditingAgent.name,
 	fs: FileSystemRead.name,
+	fsl: FileSystemList.name,
 	fsw: FileSystemWrite.name,
 	web: PublicWeb.name,
 	pp: Perplexity.name,
@@ -56,7 +58,7 @@ export async function resolveFunctionClasses(requestedFunctions: string[]): Prom
 					functionAliases,
 				)
 					.map(([k, v]) => `${k} -> ${v}`)
-					.join(', ')}`,
+					.join(', ')}\nCheck the alias is correct and the function class is registered in the function registry.`,
 			);
 		}
 
@@ -70,7 +72,7 @@ export async function resolveFunctionClasses(requestedFunctions: string[]): Prom
 async function buildFunctionMatches(requested: string, registryMap: Map<string, any>, llm: LLM): Promise<FunctionMatch> {
 	const requestedLower = requested.toLowerCase();
 
-	// Try exact match first (case insensitive)
+	// Try exact match first (case-insensitive)
 	const exactMatch = Array.from(registryMap.keys()).find((key) => key.toLowerCase() === requestedLower);
 	if (exactMatch) {
 		return {
