@@ -1,7 +1,7 @@
 import { Agent } from '#agent/agentFunctions';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { FUNC_SEP, FunctionSchema, getFunctionSchemas } from '#functionSchema/functions';
-import { FileSystemRead } from '#functions/storage/FileSystemRead';
+import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { ToolType, toolType } from '#functions/toolType';
 import { FunctionCall } from '#llm/llm';
 import { logger } from '#o11y/logger';
