@@ -48,7 +48,7 @@ export class MockLLM extends BaseLLM {
 
 	// @logTextGeneration
 	async _generateText(systemPrompt: string | undefined, userPrompt: string, opts?: GenerateTextOptions): Promise<string> {
-		logger.info(`MockLLM ${opts?.id ?? '<no id>'} ${userPrompt}`);
+		// logger.info(`MockLLM ${opts?.id ?? '<no id>'} ${userPrompt}`);
 
 		if (!opts?.id) logger.info(new Error(`No id set for prompt ${userPrompt}`));
 
@@ -77,7 +77,7 @@ export class MockLLM extends BaseLLM {
 
 			// remove the first item from this.responses
 			const { response: responseText, callback } = this.responses.shift()!;
-			logger.info(`this.responses.length ${this.responses.length}`);
+			// logger.info(`this.responses.length ${this.responses.length}`);
 			// Call the callback function if it exists
 			if (callback) {
 				callback(userPrompt);
