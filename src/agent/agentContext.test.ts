@@ -5,7 +5,7 @@ import { createContext } from '#agent/agentContextLocalStorage';
 import { AgentContext } from '#agent/agentContextTypes';
 import { RunAgentConfig } from '#agent/agentRunner';
 import { deserializeAgentContext, serializeContext } from '#agent/agentSerialization';
-import { FileSystemRead } from '#functions/storage/fileSystemRead';
+// import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { LlmTools } from '#functions/util';
 import { GPT4o } from '#llm/services/openai';
 import { appContext } from '../applicationContext';
@@ -26,7 +26,7 @@ describe('agentContext', () => {
 				xhard: GPT4o(),
 			};
 			// We want to check that the FileSystem gets re-added by the resetFileSystemFunction function
-			const functions = new LlmFunctions(LlmTools, FileSystemRead);
+			const functions = new LlmFunctions(LlmTools); // FileSystemRead
 
 			const config: RunAgentConfig = {
 				agentName: 'SWE',
