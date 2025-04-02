@@ -61,7 +61,7 @@ async function buildLiveFilesPrompt(): Promise<string> {
 	if (!agent.functions.getFunctionClassNames().includes(LiveFiles.name)) return '';
 
 	const liveFiles = agentContext().liveFiles;
-	if (!liveFiles?.length) return '';
+	if (!liveFiles?.length) return '\n<live_files>\n<!-- No files selected. Live files will have their contents displayed here -->\n</live_files>';
 
 	return `\n<live_files>
 ${await getFileSystem().readFilesAsXml(liveFiles)}
@@ -70,6 +70,7 @@ ${await getFileSystem().readFilesAsXml(liveFiles)}
 }
 
 /**
+ * @param type if we are building for history or the last execution results
  * @param maxLength {number} The maximum length of the returned string
  * @param fromIndex {number} The index of the function calls history to build from. Defaults from the start of the array.
  * @param toIndex {number} The index of the function calls history to build to. Defaults to the end of the array.

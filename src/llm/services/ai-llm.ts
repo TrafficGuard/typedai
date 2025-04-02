@@ -108,8 +108,8 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				const finishTime = Date.now();
 				const llmCall: LlmCall = await llmCallSave;
 
-				const inputCost = this.calculateInputCost('', result.usage.promptTokens, result.providerMetadata);
-				const outputCost = this.calculateOutputCost(responseText, result.usage.completionTokens);
+				const inputCost = this.calculateInputCost('', result.usage.promptTokens, result.providerMetadata, result.response.timestamp);
+				const outputCost = this.calculateOutputCost(responseText, result.usage.completionTokens, result.response.timestamp);
 				const cost = inputCost + outputCost;
 
 				llmCall.responseText = responseText;

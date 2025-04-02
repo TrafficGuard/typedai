@@ -56,6 +56,7 @@
     "@ai-sdk/cerebras": "^0.1.0",
     "@ai-sdk/deepinfra": "^0.1.0",
     "@ai-sdk/deepseek": "^0.1.0",
+    "@ai-sdk/google": "^1.2.5",
     "@ai-sdk/google-vertex": "^2.0.12",
     "@ai-sdk/groq": "^1.1.0",
     "@ai-sdk/openai": "^1.1.0",

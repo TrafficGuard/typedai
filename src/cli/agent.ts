@@ -1,7 +1,8 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
+import { AgentFeedback } from '#agent/agentFeedback';
 import { provideFeedback, resumeCompleted, resumeError, resumeHil, startAgentAndWait } from '#agent/agentRunner';
-import { FileSystemRead } from '#functions/storage/FileSystemRead';
+import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { appContext, initApplicationContext } from '../applicationContext';
@@ -23,6 +24,7 @@ export async function main() {
 		// Default to FileSystemRead if no functions specified
 		functions = [FileSystemRead];
 	}
+	functions.push(AgentFeedback);
 	logger.info(`Available tools ${functions.map((f) => f.name).join(', ')}`);
 
 	if (resumeAgentId) {

@@ -7,6 +7,7 @@ export interface LLMServicesConfig {
 	deepinfraKey?: string;
 	deepseekKey?: string;
 	fireworksKey?: string;
+	geminiKey?: string;
 	groqKey?: string;
 	nebiusKey?: string;
 	openaiKey?: string;
