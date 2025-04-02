@@ -1,5 +1,6 @@
 import { llms } from '#agent/agentContextLocalStorage';
 import { LiveFiles } from '#agent/liveFiles';
+import { CustomFunctions } from '#functions/customFunctions';
 import { Jira } from '#functions/jira';
 import { FileSystemList } from '#functions/storage/fileSystemList';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
@@ -28,6 +29,7 @@ const functionAliases: Record<string, string> = {
 	ts: TypescriptTools.name,
 	jira: Jira.name,
 	live: LiveFiles.name,
+	custom: CustomFunctions.name,
 };
 
 interface FunctionMatch {

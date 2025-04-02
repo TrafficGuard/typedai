@@ -1,6 +1,7 @@
 import { AgentFeedback } from '#agent/agentFeedback';
 import { LiveFiles } from '#agent/liveFiles';
 import { GoogleCloud } from '#functions/cloud/google/google-cloud';
+import { CustomFunctions } from '#functions/customFunctions';
 import { ImageGen } from '#functions/image';
 import { Jira } from '#functions/jira';
 import { GitHub } from '#functions/scm/github';
@@ -43,6 +44,7 @@ export function functionRegistry(): Array<new () => any> {
 		PublicWeb,
 		NpmPackages,
 		TypescriptTools,
+		CustomFunctions,
 		// Add your own classes below this line
 	];
 }
