@@ -14,6 +14,7 @@ import {
 import { DeepPartial } from 'ai';
 import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
+import { GITLAB_SHARED_REPOS_PATH } from '#functions/scm/sourceControlManagementTypes';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import { CodeReviewConfig } from '#swe/codeReview/codeReviewModel';
@@ -21,8 +22,6 @@ import { getProjectInfo } from '#swe/projectDetection';
 import { currentUser, functionConfig } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
 import { execCommand, failOnError } from '#utils/exec';
-import { systemDir } from '../../appVars';
-
 import { GitProject } from './gitProject';
 import { MergeRequest, SourceControlManagement } from './sourceControlManagement';
 
@@ -187,7 +186,7 @@ export class GitLab implements SourceControlManagement {
 	@func()
 	async cloneProject(projectPathWithNamespace: string): Promise<string> {
 		if (!projectPathWithNamespace) throw new Error('Parameter "projectPathWithNamespace" must be truthy');
-		const path = join(systemDir(), 'gitlab', projectPathWithNamespace);
+		const path = join(GITLAB_SHARED_REPOS_PATH, projectPathWithNamespace);
 		const fss = getFileSystem();
 
 		// If the project already exists pull updates from the main/dev branch

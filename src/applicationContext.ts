@@ -1,20 +1,6 @@
-import { AgentStateService } from '#agent/agentStateService/agentStateService';
-import { ChatService } from '#chat/chatTypes';
-import { LlmCallService } from '#llm/llmCallService/llmCallService';
 import { inMemoryApplicationContext } from '#modules/memory/inMemoryApplicationContext';
 import { logger } from '#o11y/logger';
-import { CodeReviewService } from '#swe/codeReview/codeReviewService';
-import { UserService } from '#user/userService/userService';
-import { FunctionCacheService } from './cache/functionCacheService';
-
-export interface ApplicationContext {
-	agentStateService: AgentStateService;
-	userService: UserService;
-	chatService: ChatService;
-	llmCallService: LlmCallService;
-	functionCacheService: FunctionCacheService;
-	codeReviewService: CodeReviewService;
-}
+import { ApplicationContext } from './applicationTypes';
 
 export let applicationContext: ApplicationContext;
 

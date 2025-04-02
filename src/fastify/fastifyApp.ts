@@ -15,7 +15,7 @@ import * as HttpStatus from 'http-status-codes';
 import { googleIapMiddleware, jwtAuthMiddleware, singleUserMiddleware } from '#fastify/authenticationMiddleware';
 import { logger } from '#o11y/logger';
 import { User } from '#user/user';
-import { AppFastifyInstance } from '../server';
+import { AppFastifyInstance } from '../applicationTypes';
 import { loadOnRequestHooks } from './hooks';
 
 const NODE_ENV = process.env.NODE_ENV ?? 'local';

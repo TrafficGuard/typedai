@@ -2,10 +2,12 @@ import fs from 'node:fs';
 import util from 'util';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
+import { GITHUB_SHARED_REPOS_PATH, GITLAB_SHARED_REPOS_PATH } from '#functions/scm/sourceControlManagementTypes';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import { execCmd, execCommand, failOnError } from '#utils/exec';
+import { execCommand, failOnError } from '#utils/exec';
+import { agentDir } from '../../appVars';
 import { VersionControlSystem } from './versionControlSystem';
 const exec = util.promisify(require('child_process').exec);
 
@@ -16,10 +18,29 @@ export class Git implements VersionControlSystem {
 
 	constructor(private fileSystem: FileSystemService) {}
 
-	async clone(repoURL: string, commitOrBranch = ''): Promise<void> {
+	/**
+	 * Clones a public Git repository which doesn't require authentication
+	 * @param repoURL The full repository URL
+	 * @param commitOrBranch The optional branch to clone. Defaults to the repo default branch.
+	 */
+	@func()
+	async clone(repoURL: string, commitOrBranch = ''): Promise<string> {
+		const fss = getFileSystem();
+		// TODO if (use shared repos) {} else setWorkingDirectory(agentDir())
+		if (repoURL.toLowerCase().includes('gitlab')) {
+			fss.setWorkingDirectory(GITLAB_SHARED_REPOS_PATH);
+		} else if (repoURL.toLowerCase().includes('github')) {
+			fss.setWorkingDirectory(GITHUB_SHARED_REPOS_PATH);
+		} else {
+			fss.setWorkingDirectory(agentDir());
+		}
+
 		await fs.promises.mkdir(getFileSystem().getWorkingDirectory(), { recursive: true });
 		const { exitCode, stdout, stderr } = await execCommand(`git clone ${repoURL} ${commitOrBranch}`);
 		if (exitCode > 0) throw new Error(`${stdout}\n${stderr}`);
+		return stdout;
+		// TODO @return The path to the repository.
+		// need to get extract the repo name from the URL and add it to the working directory
 	}
 
 	/**

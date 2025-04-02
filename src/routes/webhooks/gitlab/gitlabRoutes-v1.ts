@@ -3,14 +3,13 @@ import { FastifyReply } from 'fastify';
 import { RunAgentConfig } from '#agent/agentRunner';
 import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
 import { send, sendSuccess } from '#fastify/index';
-import { GitLab } from '#functions/scm/gitlab';
 import { GitLabCodeReview } from '#functions/scm/gitlab-code-review';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { envVar } from '#utils/env-var';
 import { appContext } from '../../../applicationContext';
+import { AppFastifyInstance } from '../../../applicationTypes';
 import { envVarHumanInLoopSettings } from '../../../cli/cliHumanInLoop';
-import { AppFastifyInstance } from '../../../server';
 
 const basePath = '/api/webhooks';
 

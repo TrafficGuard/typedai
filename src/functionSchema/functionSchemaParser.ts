@@ -3,9 +3,9 @@ import fs, { writeFile } from 'node:fs';
 import path, { join } from 'path';
 import { promisify } from 'util';
 import { ClassDeclaration, Decorator, JSDoc, JSDocTag, MethodDeclaration, ParameterDeclaration, Project, Type } from 'ts-morph';
+import { FUNC_DECORATOR_NAME } from '#functionSchema/functionSchemaTypes';
 import { logger } from '#o11y/logger';
 import { systemDir } from '../appVars';
-import { FUNC_DECORATOR_NAME } from './functionDecorators';
 import { FunctionParameter, FunctionSchema } from './functions';
 
 const writeFileAsync = promisify(writeFile);

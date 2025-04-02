@@ -22,7 +22,7 @@ export function sambanovaDeepseekR1(): LLM {
 }
 
 export function sambanovaDeepseekV3(): LLM {
-	return new SambanovaLLM('DeepSeek V3 (Sambanova)', 'DeepSeek-V3', 8_192, perMilTokens(1), perMilTokens(1.5));
+	return new SambanovaLLM('DeepSeek V3 (Sambanova)', 'DeepSeek-V3-0324', 8_192, perMilTokens(1), perMilTokens(1.5));
 }
 
 export function sambanovaLlama3_3_70b(): LLM {

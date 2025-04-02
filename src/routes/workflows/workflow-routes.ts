@@ -11,7 +11,7 @@ import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { queryWorkflow } from '#swe/discovery/selectFilesAgent';
 import { SelectFilesResponse, selectFilesToEdit } from '#swe/discovery/selectFilesToEdit';
 import { systemDir, typedaiDirName } from '../../appVars';
-import { AppFastifyInstance } from '../../server';
+import { AppFastifyInstance } from '../../applicationTypes';
 
 function findRepositories(dir: string): string[] {
 	const repos: string[] = [];

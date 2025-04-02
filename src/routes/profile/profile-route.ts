@@ -4,7 +4,7 @@ import { send } from '#fastify/index';
 import { logger } from '#o11y/logger';
 import { User } from '#user/user';
 import { currentUser } from '#user/userService/userContext';
-import { AppFastifyInstance } from '../../server';
+import { AppFastifyInstance } from '../../applicationTypes';
 
 const basePath = '/api/profile';
 

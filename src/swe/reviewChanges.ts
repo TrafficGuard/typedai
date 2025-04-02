@@ -1,6 +1,6 @@
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
-import { buildPrompt } from '#swe/softwareDeveloperAgent';
+import { buildPrompt } from '#swe/prompt';
 
 /**
  * @param requirements

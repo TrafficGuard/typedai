@@ -1,7 +1,7 @@
 import { Type } from '@sinclair/typebox';
 import { send } from '#fastify/index';
 import { logger } from '#o11y/logger';
-import { AppFastifyInstance } from '../../../server';
+import { AppFastifyInstance } from '../../../applicationTypes';
 
 const basePath = '/api/webhooks';
 

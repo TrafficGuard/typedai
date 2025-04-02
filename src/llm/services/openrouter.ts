@@ -1,5 +1,4 @@
-import { OpenAIProvider } from '@ai-sdk/openai';
-import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { OpenAIProvider, createOpenAI } from '@ai-sdk/openai';
 import { InputCostFunction, OutputCostFunction, perMilTokens } from '#llm/base-llm';
 import { currentUser } from '#user/userService/userContext';
 import { LLM } from '../llm';
@@ -21,6 +20,7 @@ export function openRouterGemini2_5_Pro(): LLM {
 
 /**
  * https://inference-docs.openrouter.ai/introduction
+ * Next release of OpenRouter provider should work instead of using OpenAIProvider
  */
 export class OpenRouterLLM extends AiLLM<OpenAIProvider> {
 	constructor(displayName: string, model: string, maxInputTokens: number, calculateInputCost: InputCostFunction, calculateOutputCost: OutputCostFunction) {
@@ -28,7 +28,8 @@ export class OpenRouterLLM extends AiLLM<OpenAIProvider> {
 	}
 
 	protected provider(): any {
-		return createOpenRouter({
+		return createOpenAI({
+			baseURL: 'https://openrouter.ai/api/v1',
 			apiKey: this.apiKey(),
 			headers: {
 				'HTTP-Referer': 'https://typedai.dev', // Optional. Site URL for rankings on openrouter.ai.

@@ -1,15 +1,12 @@
 import { Type } from '@sinclair/typebox';
 import { LlmFunctions } from '#agent/LlmFunctions';
-import { AgentContext } from '#agent/agentContextTypes';
 import { cancelAgent, provideFeedback, resumeCompleted, resumeError, resumeHil } from '#agent/agentRunner';
 import { serializeContext } from '#agent/agentSerialization';
 import { forceStopAgent } from '#agent/forceStopAgent';
-import { runXmlAgent } from '#agent/xmlAgentRunner';
 import { send, sendBadRequest } from '#fastify/index';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
-import { appContext } from '../../applicationContext';
-import { AppFastifyInstance } from '../../server';
+import { AppFastifyInstance } from '../../applicationTypes';
 
 const v1BasePath = '/api/agent/v1';
 export async function agentExecutionRoutes(fastify: AppFastifyInstance) {

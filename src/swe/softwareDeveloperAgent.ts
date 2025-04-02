@@ -1,7 +1,6 @@
-import { addNote, agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
+import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { GitProject } from '#functions/scm/gitProject';
-import { GitLabProject } from '#functions/scm/gitlab';
 import { MergeRequest, getSourceControlManagementTool } from '#functions/scm/sourceControlManagement';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
@@ -9,19 +8,9 @@ import { createBranchName } from '#swe/createBranchName';
 import { generatePullRequestTitleDescription } from '#swe/pullRequestTitleDescription';
 import { selectProject } from '#swe/selectProject';
 import { summariseRequirements } from '#swe/summariseRequirements';
-import { ExecResult, execCommand, failOnError, runShellCommand } from '#utils/exec';
 import { cacheRetry } from '../cache/cacheRetry';
 import { CodeEditingAgent } from './codeEditingAgent';
 import { ProjectInfo, detectProjectInfo } from './projectDetection';
-import { basePrompt } from './prompt';
-
-export function buildPrompt(args: {
-	information: string;
-	requirements: string;
-	action: string;
-}): string {
-	return `${basePrompt}\n\n${args.information}\n\nThe requirements of the task are as follows:\n<requirements>\n${args.requirements}\n</requirements>\n\nThe action to be performed is as follows:\n<action>\n${args.action}\n</action>\n`;
-}
 
 /**
  * Workflow for completing requirements. This will look up the appropriate project in source control, clone, make the changes and create a pull/merge request.

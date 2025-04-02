@@ -126,8 +126,8 @@ export interface AgentContext {
 interface TextPart  { type: "text" , text: string }
 interface ImagePart { type: "image", image: string | URL, mimeType?: string }
 interface FilePart  { type: "file", data: string | URL, mimeType: string }
-export type LlmMessage = {
 
+export interface LlmMessage {
     content: string | Array<TextPart | ImagePart | FilePart>;
     /** The LLM which generated the text (only when role=assistant) */
     llmId?: string;
@@ -135,7 +135,7 @@ export type LlmMessage = {
     cache?: 'ephemeral';
     /** Time the message was sent */
     time?: number;
-};
+}
 
 export interface LlmCall {
     id: string;

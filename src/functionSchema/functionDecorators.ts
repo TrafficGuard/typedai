@@ -5,8 +5,6 @@ import { getTracer, setFunctionSpanAttributes, withActiveSpan } from '#o11y/trac
 import { functionSchemaParser } from './functionSchemaParser';
 import { FUNC_SEP, FunctionSchema, getFunctionSchemas, setFunctionSchemas } from './functions';
 
-export const FUNC_DECORATOR_NAME = 'func';
-
 let _functionFactory = {};
 
 export function functionFactory() {

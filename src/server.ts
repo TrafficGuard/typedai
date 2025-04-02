@@ -1,6 +1,6 @@
 import { logger } from '#o11y/logger';
-import { ApplicationContext, initApplicationContext } from './applicationContext';
-import { TypeBoxFastifyInstance, initFastify } from './fastify';
+import { initApplicationContext } from './applicationContext';
+import { initFastify } from './fastify';
 import { functionRegistry } from './functionRegistry';
 import { agentDetailsRoutes } from './routes/agent/agent-details-routes';
 import { agentExecutionRoutes } from './routes/agent/agent-execution-routes';
@@ -14,8 +14,6 @@ import { codeReviewRoutes } from './routes/scm/codeReviewRoutes';
 import { gitlabRoutesV1 } from './routes/webhooks/gitlab/gitlabRoutes-v1';
 import { jiraRoutes } from './routes/webhooks/jira/jira-routes';
 import { workflowRoutes } from './routes/workflows/workflow-routes';
-
-export interface AppFastifyInstance extends TypeBoxFastifyInstance, ApplicationContext {}
 
 // Ensures all the functions are registered
 functionRegistry();

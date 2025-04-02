@@ -1,7 +1,7 @@
 import { llms } from '#agent/agentContextLocalStorage';
 import { GitProject } from '#functions/scm/gitProject';
 import { SourceControlManagement, getSourceControlManagementTool } from '#functions/scm/sourceControlManagement';
-import { buildPrompt } from '#swe/softwareDeveloperAgent';
+import { buildPrompt } from '#swe/prompt';
 
 export async function selectProject(requirements: string): Promise<GitProject> {
 	const scm: SourceControlManagement = getSourceControlManagementTool();

@@ -5,8 +5,8 @@ import { AgentExecution, agentExecutions } from '#agent/agentRunner';
 import { serializeContext } from '#agent/agentSerialization';
 import { send, sendBadRequest, sendSuccess } from '#fastify/index';
 import { logger } from '#o11y/logger';
+import { AppFastifyInstance } from '../../applicationTypes';
 import { functionRegistry } from '../../functionRegistry';
-import { AppFastifyInstance } from '../../server';
 
 const basePath = '/api/agent/v1';
 export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
