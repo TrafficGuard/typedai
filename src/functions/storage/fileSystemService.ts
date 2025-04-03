@@ -331,20 +331,43 @@ export class FileSystemService {
 	}
 
 	/**
-	 * Gets the contents of a list of local files, which must be relative to the current working directory
-	 * @param {Array<string>} filePaths The files paths to read the contents
-	 * @returns {Promise<Map<string, string>>} the contents of the files in a Map object keyed by the file path
+	 * Gets the contents of a list of local files. Input paths can be absolute or relative to the service's working directory.
+	 * @param {Array<string>} filePaths The files paths to read the contents of.
+	 * @returns {Promise<Map<string, string>>} the contents of the files in a Map object keyed by the file path *relative* to the service's working directory.
 	 */
 	async readFiles(filePaths: string[]): Promise<Map<string, string>> {
-		// If all entries are a single character, then likely a string converted to an array of characters
 		const mapResult = new Map<string, string>();
-		for (const relativeFilePath of filePaths) {
-			const filePath = path.join(this.getWorkingDirectory(), relativeFilePath);
+		const serviceCwd = this.getWorkingDirectory(); // Get the CWD once for efficiency
+
+		for (const inputPath of filePaths) {
+			// Renamed variable for clarity
+			let absolutePathToRead: string;
+
+			// Check if the provided path is already absolute
+			if (path.isAbsolute(inputPath)) {
+				// If absolute, use it directly (but ensure it's within the basePath for security)
+				// Note: You might want stricter checking against `this.basePath` depending on security needs.
+				// For now, we assume the CLI provides paths within the intended project.
+				absolutePathToRead = inputPath;
+			} else {
+				// If relative, resolve it against the service's working directory
+				absolutePathToRead = path.resolve(serviceCwd, inputPath); // Use resolve for better handling of '.' and '..'
+			}
+
+			// Prevent reading files outside the intended base directory
+			if (!absolutePathToRead.startsWith(this.basePath)) {
+				this.log.warn(`Attempted to read file outside basePath: ${absolutePathToRead} (input: ${inputPath})`);
+				continue; // Skip this file
+			}
+
 			try {
-				const contents = await fs.readFile(filePath, 'utf8');
-				mapResult.set(path.relative(this.getWorkingDirectory(), filePath), contents);
+				const contents = await fs.readFile(absolutePathToRead, 'utf8');
+				// Always store the key relative to the service's working directory for consistency
+				const relativeKey = path.relative(serviceCwd, absolutePathToRead);
+				mapResult.set(relativeKey, contents);
 			} catch (e) {
-				this.log.warn(`readFiles Error reading ${filePath} (${relativeFilePath}) ${e.message}`);
+				// Log the path we actually tried to read
+				this.log.warn(`readFiles Error reading ${absolutePathToRead} (input: ${inputPath}) ${e.message}`);
 			}
 		}
 		return mapResult;
@@ -629,7 +652,7 @@ export class FileSystemService {
 			}
 			const gitRoot = result.stdout.trim();
 			// Store the new Git root in the cache
-			logger.info(`Adding git root ${gitRoot}`);
+			logger.debug(`Adding git root ${gitRoot}`);
 			gitRoots.add(gitRoot);
 			return gitRoot;
 		} catch (e) {
