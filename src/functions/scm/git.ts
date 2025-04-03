@@ -16,7 +16,7 @@ export class Git implements VersionControlSystem {
 	/** The branch name before calling switchToBranch. This enables getting the diff between the current and previous branch */
 	previousBranch: string | undefined;
 
-	constructor(private fileSystem: FileSystemService) {}
+	constructor(private fileSystem: FileSystemService = getFileSystem()) {}
 
 	/**
 	 * Clones a public Git repository which doesn't require authentication

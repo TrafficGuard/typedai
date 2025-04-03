@@ -266,18 +266,21 @@ export function formatFunctionError(functionName: string, error: any): string {
  */
 async function checkRepoHomeAndWorkingDirectory(agent: AgentContext) {
 	const fss = agent.fileSystem;
-	if (fss) {
-		const currentRepoDir = process.env.TYPEDAI_HOME || process.cwd();
-		if (!agent.typedAiRepoDir) {
-			// Migration for old agents
-			agent.typedAiRepoDir = currentRepoDir;
-			if (!(await fss.fileExists(fss.getWorkingDirectory()))) throw new Error(`Working directory ${fss.getWorkingDirectory()} does not exist`);
-		} else if (agent.typedAiRepoDir !== currentRepoDir) {
-			if (fss.getWorkingDirectory().startsWith(agent.typedAiRepoDir)) {
-				const updatedDir = fss.getWorkingDirectory().replace(agent.typedAiRepoDir, currentRepoDir);
-				fss.setWorkingDirectory(updatedDir);
-			}
-			agent.typedAiRepoDir = currentRepoDir;
+	if (!fss) return;
+
+	const currentRepoDir = process.env.TYPEDAI_HOME || process.cwd();
+	if (!agent.typedAiRepoDir) {
+		// Migration for old agents
+		agent.typedAiRepoDir = currentRepoDir;
+	} else if (agent.typedAiRepoDir !== currentRepoDir) {
+		if (fss.getWorkingDirectory().startsWith(agent.typedAiRepoDir)) {
+			const originalDir = fss.getWorkingDirectory();
+			const updatedDir = originalDir.replace(agent.typedAiRepoDir, currentRepoDir);
+			logger.info(`Updating working directory from ${originalDir} to ${updatedDir}`);
+			fss.setWorkingDirectory(updatedDir);
 		}
+		agent.typedAiRepoDir = currentRepoDir;
 	}
+	const workDirExists = await fss.fileExists(fss.getWorkingDirectory());
+	if (!workDirExists) throw new Error(`Working directory ${fss.getWorkingDirectory()} does not exist`);
 }
