@@ -101,6 +101,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 					presencePenalty: opts?.presencePenalty,
 					stopSequences: opts?.stopSequences,
 					maxRetries: opts?.maxRetries,
+					maxTokens: opts?.maxTokens,
 					providerOptions,
 				});
 

@@ -44,6 +44,8 @@ export interface GenerateOptions {
 	stopSequences?: string[];
 
 	maxRetries?: number;
+
+	maxTokens?: number;
 }
 
 export interface GenerateTextOptions extends GenerateOptions {
