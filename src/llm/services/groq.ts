@@ -2,7 +2,7 @@ import { GroqProvider, createGroq } from '@ai-sdk/groq';
 import { InputCostFunction, OutputCostFunction, perMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
 import { currentUser } from '#user/userService/userContext';
-import { LLM } from '../llm';
+import { GenerateTextOptions, LLM, LlmMessage } from '../llm';
 
 export const GROQ_SERVICE = 'groq';
 
@@ -61,6 +61,18 @@ export class GroqLLM extends AiLLM<GroqProvider> {
 
 	protected apiKey(): string {
 		return currentUser().llmConfig.groqKey || process.env.GROQ_API_KEY;
+	}
+
+	async generateTextFromMessages(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
+		const genOpts = { ...opts };
+		// https://groq.com/a-guide-to-reasoning-with-qwen-qwq-32b/
+		// https://console.groq.com/docs/model/qwen-qwq-32b
+		if (this.getModel() === 'qwen-qwq-32b') {
+			genOpts.temperature = 0.6;
+			genOpts.maxTokens = 131072;
+			genOpts.topP = 0.95;
+		}
+		return super.generateTextFromMessages(llmMessages, genOpts);
 	}
 
 	provider(): GroqProvider {
