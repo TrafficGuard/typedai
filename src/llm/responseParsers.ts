@@ -110,7 +110,7 @@ export function extractJsonResult(rawText: string): any {
  * @param response response from the LLM
  * @param tagName the name of the XML tag to extract the contents of
  */
-export function extractTag(response: string, tagName: string): any {
+export function extractTag(response: string, tagName: string): string {
 	const index = response.lastIndexOf(`<${tagName}>`);
 	if (index < 0) throw new Error(`Could not find <${tagName}> in response`);
 	const resultText = response.slice(index);
