@@ -47,7 +47,12 @@ export class AiderCodeEditor {
 
 		let llm: LLM;
 
-		if (process.env.GCLOUD_PROJECT && process.env.GCLOUD_CLAUDE_REGION) {
+		if (process.env.GEMINI_API_KEY) {
+			// llm = gemini2_5_Pro();
+			modelArg = '--model gemini/gemini-2.5-pro-exp-03-25';
+			span.setAttribute('model', 'gemini 2.5 Pro');
+			env = { GEMINI_API_KEY: process.env.GEMINI_API_KEY };
+		} else if (process.env.GCLOUD_PROJECT && process.env.GCLOUD_CLAUDE_REGION) {
 			llm = Claude3_7_Sonnet_Vertex();
 			modelArg = `--model vertex_ai/${llm.getModel()}`;
 			span.setAttribute('model', 'sonnet');
