@@ -74,6 +74,8 @@ export interface AgentContext {
 	childAgents?: string[];
 	/** Id of the running execution. This changes after the agent restarts due to an error, pausing, human in loop, completion etc */
 	executionId: string;
+	/** The path to the TypedAI repo. i.e. TYPEDAI_HOME env variable or process.cwd() of the most recent execution. If the agent re-starts on a machine with a different value then the file system working directory can be updated. */
+	typedAiRepoDir: string;
 	/** Current OpenTelemetry traceId */
 	traceId: string;
 	/** Display name */

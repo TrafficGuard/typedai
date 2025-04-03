@@ -55,6 +55,7 @@ export function createContext(config: RunAgentConfig | RunWorkflowConfig): Agent
 		agentId: config.resumeAgentId || randomUUID(),
 		parentAgentId: config.parentAgentId,
 		executionId: randomUUID(),
+		typedAiRepoDir: process.env.TYPEDAI_HOME || process.cwd(),
 		childAgents: [],
 		traceId: '',
 		metadata: config.metadata ?? {},

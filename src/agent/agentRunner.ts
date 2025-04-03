@@ -66,6 +66,9 @@ export const agentExecutions: Record<string, AgentExecution> = {};
 
 async function runAgent(agent: AgentContext): Promise<AgentExecution> {
 	let execution: AgentExecution;
+
+	await checkRepoHomeAndWorkingDirectory(agent);
+
 	switch (agent.type) {
 		case 'xml':
 			execution = await runXmlAgent(agent);
@@ -255,4 +258,26 @@ export function formatFunctionError(functionName: string, error: any): string {
         ${errorToString(error, false)}
         ${CDATA_END}</error>
         </function_results>`;
+}
+
+/**
+ * If the agent has been restarted on a different machine then update the working directory if required
+ * @param agent
+ */
+async function checkRepoHomeAndWorkingDirectory(agent: AgentContext) {
+	const fss = agent.fileSystem;
+	if (fss) {
+		const currentRepoDir = process.env.TYPEDAI_HOME || process.cwd();
+		if (!agent.typedAiRepoDir) {
+			// Migration for old agents
+			agent.typedAiRepoDir = currentRepoDir;
+			if (!(await fss.fileExists(fss.getWorkingDirectory()))) throw new Error(`Working directory ${fss.getWorkingDirectory()} does not exist`);
+		} else if (agent.typedAiRepoDir !== currentRepoDir) {
+			if (fss.getWorkingDirectory().startsWith(agent.typedAiRepoDir)) {
+				const updatedDir = fss.getWorkingDirectory().replace(agent.typedAiRepoDir, currentRepoDir);
+				fss.setWorkingDirectory(updatedDir);
+			}
+			agent.typedAiRepoDir = currentRepoDir;
+		}
+	}
 }

@@ -1,5 +1,6 @@
 import { llms } from '#agent/agentContextLocalStorage';
 import { removePythonMarkdownWrapper } from '#agent/codeGenAgentUtils';
+import { extractTag } from '#llm/responseParsers';
 
 export async function reviewPythonCode(agentPlanResponse: string, functionsXml: string): Promise<string> {
 	const prompt = `${functionsXml}
@@ -31,6 +32,11 @@ ${agentPlanResponse}
 
 First think through your review of the code in the <python-code> tags against all the review instructions, then output the updated code wrapped in <result></result> tags. If there are no changes to make then output the existing code as is in the result tags.
 `;
-	const response = await llms().hard.generateTextWithResult(prompt, { id: 'Review agent python code', temperature: 0.8 });
+	let response = await llms().hard.generateText(prompt, { id: 'Review agent python code', temperature: 0.8 });
+	try {
+		response = extractTag(response, 'result');
+	} catch (e) {
+		if (!response.trim().startsWith('```python')) throw e;
+	}
 	return removePythonMarkdownWrapper(response);
 }
