@@ -9,7 +9,6 @@ import { buildFunctionCallHistoryPrompt, buildMemoryPrompt, buildToolStatePrompt
 import { AgentExecution } from '#agent/agentRunner';
 import { reviewPythonCode } from '#agent/codeGenAgentCodeReview';
 import { convertJsonToPythonDeclaration, extractPythonCode, removePythonMarkdownWrapper } from '#agent/codeGenAgentUtils';
-import { humanInTheLoop } from '#agent/humanInTheLoop';
 import { getServiceName } from '#fastify/trace-init/trace-init';
 import { FUNC_SEP, FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
 import { logger } from '#o11y/logger';
@@ -147,40 +146,65 @@ export async function runCodeGenAgent(agent: AgentContext): Promise<AgentExecuti
 						jsGlobals[schema.name] = async (...args) => {
 							// logger.info(`args ${JSON.stringify(args)}`); // Can be very verbose
 							// The system prompt instructs the generated code to use positional arguments.
-							// If the generated code mistakenly uses named arguments then there will an arg
-							// which is an object with the property names matching the parameter names. This will cause an error
+							// however the generated code may use keyword args so we need to handle that case too.
 
 							// Un-proxy any JsProxy objects. https://pyodide.org/en/stable/usage/type-conversions.html
 							args = args.map((arg) => (typeof arg?.toJs === 'function' ? arg.toJs() : arg));
 
-							// Convert arg array to parameters name/value map
+							let finalArgs: any[]; // This will hold the arguments in the correct positional order for the JS call
+							const parameters: { [key: string]: any } = {}; // For logging history
 
-							// The instructions are to generate code using positional arguments, but sometimes the AI will still generate keyword arguments
-							// Handle the case of keyword args, which will have a single object arg with the keywords
+							const expectedParamNames = schema.parameters.map((p) => p.name);
+
+							// --- Argument Handling Logic ---
 							let isKeywordArgs = false;
-							if (args.length === 1 && typeof args[0] === 'object' && args[0] !== null) {
-								const keywordArgs = args[0];
-								const parameterNames = schema.parameters.map((p) => p.name);
-								for (const key in Object.keys(keywordArgs)) {
-									if (parameterNames.includes(key)) {
-										isKeywordArgs = true;
-									} else {
-										isKeywordArgs = false;
-										break;
-									}
+							// Check if the call *looks* like keyword arguments:
+							// 1. Exactly one argument was received from Pyodide.
+							// 2. That argument, after .toJs(), is a plain JavaScript object (not null, not an array).
+							// 3. The keys of that object are all valid parameter names for the target function.
+							if (args.length === 1 && typeof args[0] === 'object' && args[0] !== null && !Array.isArray(args[0])) {
+								const potentialKwargs = args[0];
+								const receivedKeys = Object.keys(potentialKwargs);
+
+								// Check if *all* received keys are actual parameter names for this function
+								// AND ensure there's at least one key (don't treat {} as kwargs)
+								if (receivedKeys.length > 0 && receivedKeys.every((key) => expectedParamNames.includes(key))) {
+									isKeywordArgs = true;
+									logger.debug(`Detected keyword arguments for ${schema.name}: ${JSON.stringify(potentialKwargs)}`);
 								}
 							}
 
-							let parameters: { [key: string]: any } = {};
 							if (isKeywordArgs) {
-								parameters = args[0];
+								const keywordArgs = args[0];
+								finalArgs = [];
+								// Reconstruct the arguments array in the order defined by the schema
+								for (const paramSchema of schema.parameters) {
+									const paramName = paramSchema.name;
+									// Get the value from the keyword args object, use undefined if missing
+									finalArgs.push(keywordArgs[paramName]);
+									// Populate parameters for logging history (only include provided keys)
+									if (Object.hasOwn(keywordArgs, paramName)) {
+										parameters[paramName] = keywordArgs[paramName];
+									}
+								}
 							} else {
-								// positional args
-								for (let index = 0; index < args.length; index++) parameters[schema.parameters[index].name] = args[index];
+								// Assume positional arguments - use args directly
+								finalArgs = args;
+								logger.debug(`Assuming positional arguments for ${schema.name}: ${JSON.stringify(finalArgs)}`);
+								// Populate parameters for logging history based on position
+								for (let i = 0; i < finalArgs.length; i++) {
+									if (expectedParamNames[i]) {
+										// Check if a parameter name exists for this position
+										parameters[expectedParamNames[i]] = finalArgs[i];
+									} else {
+										// Handle extra positional args if necessary (though generally discouraged)
+										parameters[`arg_${i}`] = finalArgs[i]; // Log as generic arg_N
+									}
+								}
 							}
-
+							// --- End Argument Handling Logic ---
 							try {
-								const functionResponse = await functionInstances[className][method](...args);
+								const functionResponse = await functionInstances[className][method](...finalArgs);
 								// To minimise the function call history size becoming too large (i.e. expensive)
 								// we'll create a summary for responses which are quite long
 								// const outputSummary = await summariseLongFunctionOutput(functionResponse)
