@@ -180,6 +180,31 @@ export class FileSystemService {
 	}
 
 	/**
+	 * Searches for files on the filesystem (using ripgrep) with contents matching the search regex.
+	 * The number of lines before/after the matching content will be included for context.
+	 * The response format will be like
+	 * <code>
+	 * dir/subdir/filename
+	 * 26-foo();
+	 * 27-matchedString();
+	 * 28-bar();
+	 * </code>
+	 * @param contentsRegex the regular expression to search the content all the files recursively for
+	 * @param linesBeforeAndAfter the number of lines above/below the matching lines to include in the output
+	 * @returns the matching lines from each files with additional lines above/below for context.
+	 */
+	async searchExtractsMatchingContents(contentsRegex: string, linesBeforeAndAfter = 0): Promise<string> {
+		// --count Only show count of line matches for each file
+		// rg likes this spawnCommand. Doesn't work it others execs
+		const results = await spawnCommand(`rg ${arg(contentsRegex)} -C ${linesBeforeAndAfter}`);
+		if (results.stderr.includes('command not found: rg')) {
+			throw new Error('Command not found: rg. Install ripgrep');
+		}
+		if (results.exitCode > 0) throw new Error(results.stderr);
+		return results.stdout;
+	}
+
+	/**
 	 * Searches for files on the filesystem where the filename matches the regex.
 	 * @param fileNameRegex the regular expression to match the filename.
 	 * @returns the list of filenames matching the regular expression.
@@ -337,21 +362,23 @@ export class FileSystemService {
 	 */
 	async readFiles(filePaths: string[]): Promise<Map<string, string>> {
 		const mapResult = new Map<string, string>();
-		const serviceCwd = this.getWorkingDirectory(); // Get the CWD once for efficiency
+		const serviceCwd = this.getWorkingDirectory();
 
 		for (const inputPath of filePaths) {
-			// Renamed variable for clarity
 			let absolutePathToRead: string;
 
-			// Check if the provided path is already absolute
-			if (path.isAbsolute(inputPath)) {
+			// Determine the absolute path to read based on the input path format
+			if (inputPath.startsWith('/')) {
+				// Handle paths starting with '/' as relative to basePath
+				absolutePathToRead = path.resolve(this.basePath, inputPath.slice(1));
+			} else if (!path.isAbsolute(inputPath)) {
+				// Handle relative paths (not starting with '/' or absolute)
+				absolutePathToRead = path.resolve(serviceCwd, inputPath);
+			} else {
+				// Implicitly handles only true absolute paths not starting with '/'
 				// If absolute, use it directly (but ensure it's within the basePath for security)
 				// Note: You might want stricter checking against `this.basePath` depending on security needs.
-				// For now, we assume the CLI provides paths within the intended project.
 				absolutePathToRead = inputPath;
-			} else {
-				// If relative, resolve it against the service's working directory
-				absolutePathToRead = path.resolve(serviceCwd, inputPath); // Use resolve for better handling of '.' and '..'
 			}
 
 			// Prevent reading files outside the intended base directory
@@ -405,11 +432,11 @@ export class FileSystemService {
 	 */
 	async fileExists(filePath: string): Promise<boolean> {
 		// TODO remove the basePath checks. Either absolute or relative to this.cwd
-		logger.debug(`fileExists: ${filePath}`);
+		logger.info(`fileExists: ${filePath}`);
 		// Check if we've been given an absolute path
 		if (filePath.startsWith(this.basePath)) {
 			try {
-				logger.debug(`fileExists: ${filePath}`);
+				logger.debug(`fileExists check on: ${filePath}`);
 				await fs.access(filePath);
 				return true;
 			} catch {}
@@ -419,7 +446,7 @@ export class FileSystemService {
 		// logger.info(`getWorkingDirectory() ${this.getWorkingDirectory()}`);
 		const path = filePath.startsWith('/') ? resolve(this.basePath, filePath.slice(1)) : resolve(this.workingDirectory, filePath);
 		try {
-			// logger.info(`fileExists: ${path}`);
+			logger.debug(`fileExists check on: ${path}`);
 			await fs.access(path);
 			return true;
 		} catch {

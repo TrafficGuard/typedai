@@ -24,6 +24,24 @@ describe('responseParsers', () => {
 			expect(object).to.deep.equal({ foo: 'bar' });
 		});
 
+		it('Should extract the Markdown formatted JSON when there is other text preceding it including triple ticks', async () => {
+			const object = extractJsonResult(`\`\`\`think\nsomething. reasoning from the LLM
+\`\`\`json
+{ "foo": "bar" }
+\`\`\``);
+			expect(object).to.deep.equal({ foo: 'bar' });
+		});
+
+		it('Should extract the JSON when there is <json> tags and json markdown', async () => {
+			const object = extractJsonResult(`reasoning from the LLM
+			<json>
+\`\`\`json
+{ "foo": "bar" }
+\`\`\`
+</json>`);
+			expect(object).to.deep.equal({ foo: 'bar' });
+		});
+
 		it('Should extract the JSON when there is other text preceding it and Markdown type is uppercase JSON', async () => {
 			const object = extractJsonResult(`reasoning from the LLM
 \`\`\`JSON
@@ -45,14 +63,6 @@ describe('responseParsers', () => {
 	{
 	"url": "https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/gemini",
 	"title": "Gemini API | Generative AI on Vertex AI"
-	},
-	{
-	"url": "https://www.googlecloudcommunity.com/gc/AI-ML/Are-AI-Studio-s-1-0-pro-vision-001-and-API-s-gemini-1-0-pro/m-p/728894",
-	"title": "Re: Are AI Studio's 1.0-pro-vision-001 and API's g..."
-	},
-	{
-	"url": "https://m.facebook.com/groups/gaitech/posts/1114669493050598/",
-	"title": "Generative AI 技術交流中心| 愛好AI Engineer 週報#09 期"
 	}
 ]
 </json>`);

@@ -145,12 +145,18 @@ describe('FileSystem', () => {
 		});
 		it('should include files in the src directory', async () => {
 			fileSystem.setWorkingDirectory('./src');
-			let xml: string = await fileSystem.readFilesAsXml('./index.ts');
-			expect(xml).to.include('file_path="index.ts"');
-			xml = await fileSystem.readFilesAsXml('/index.ts');
-			expect(xml).to.include('file_path="index.ts"');
-			xml = await fileSystem.readFilesAsXml('index.ts');
-			expect(xml).to.include('file_path="index.ts"');
+			// Test relative path from CWD (<root>/src)
+			const xml1: string = await fileSystem.readFilesAsXml('./index.ts');
+			expect(xml1).to.include('file_path="index.ts"');
+
+			// Test path relative to basePath (<root>/index.ts)
+			// The resulting file_path should be relative to the CWD (<root>/src)
+			const xml2: string = await fileSystem.readFilesAsXml('/index.ts');
+			expect(xml2).to.include('file_path="../index.ts"');
+
+			// Test implicit relative path from CWD (<root>/src)
+			const xml3: string = await fileSystem.readFilesAsXml('index.ts');
+			expect(xml3).to.include('file_path="index.ts"');
 		});
 	});
 
