@@ -197,4 +197,14 @@ export abstract class BaseLLM implements LLM {
 
 		return arr.slice(0, i + 1).join(' > ');
 	}
+
+	// generateMessage(userPrompt: string, opts?: GenerateTextOptions): Promise<LlmMessage>;
+	// generateMessage(messages: [systemPrompt: string, userPrompt: string], opts?: GenerateTextOptions): Promise<LlmMessage>;
+	// generateMessage(messages: LlmMessage[] | ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage>;
+	// generateMessage(
+	// 	messages: string | [systemPrompt: string, userPrompt: string] | LlmMessage[] | ReadonlyArray<LlmMessage>,
+	// 	opts?: GenerateTextOptions,
+	// ): Promise<LlmMessage> {
+	// 	return Promise.resolve(undefined);
+	// }
 }

@@ -45,12 +45,6 @@ const config: CePOConfig = {
 
 //  https://github.com/codelion/optillm/blob/main/optillm/cepo/README.md
 
-export function CePO_LLMRegistry(): Record<string, () => LLM> {
-	const registry = {};
-	registry[`CePO:${cerebrasLlama3_3_70b().getId()}`] = () => CePO_Cerebras_Llama70b();
-	return registry;
-}
-
 export function CePO_Cerebras_Llama70b(): LLM {
 	return new CePO_LLM(() => cerebrasLlama3_3_70b(), 'CePO (Llama 3.3 70b Cerebras)');
 }
@@ -86,9 +80,9 @@ export class CePO_LLM extends BaseLLM {
 	 */
 	constructor(llmProvider?: () => LLM, name?: string) {
 		super(
-			name ?? '(CePO)',
-			'CePO',
-			llmProvider().getId(),
+			name ?? `CePO ${llmProvider().getId()}`,
+			'multi',
+			`CePO-${llmProvider().getId()}`,
 			128_000,
 			() => 0,
 			() => 0,

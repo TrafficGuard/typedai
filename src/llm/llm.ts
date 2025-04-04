@@ -113,13 +113,25 @@ export type ImagePartExt = ImagePart & AttachmentInfo;
 /** Extension of the 'ai' package UserContent type */
 export type UserContentExt = string | Array<TextPart | ImagePartExt | FilePartExt>;
 
+export interface GenerationStats {
+	requestTime: number;
+	timeToFirstToken: number;
+	totalTime: number;
+	inputTokens: number;
+	outputTokens: number;
+	cost: number;
+	llm: string;
+}
+
 export type LlmMessage = CoreMessage & {
-	/** The LLM which generated the text (only when role=assistant) */
+	/** @deprecated The LLM which generated the text (only when role=assistant) */
 	llmId?: string;
 	/** Set the cache_control flag with Claude models */
 	cache?: 'ephemeral';
-	/** Time the message was sent */
+	/** @deprecated Time the message was sent */
 	time?: number;
+	/** Stats on message generation (i.e when role=assistant) */
+	stats?: GenerationStats;
 };
 
 export function userContentText(userContent: UserContent | any): string {
@@ -181,6 +193,11 @@ export interface LLM {
 	generateTextWithResult(prompt: string, opts?: GenerateTextOptions): Promise<string>;
 	generateTextWithResult(systemPrompt: string, prompt: string, opts?: GenerateTextOptions): Promise<string>;
 	generateTextWithResult(messages: LlmMessage[] | ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<string>;
+
+	/** Not yet implemented. For generation which can also include images etc */
+	// generateMessage(userPrompt: string, opts?: GenerateTextOptions): Promise<LlmMessage>;
+	// generateMessage(messages: [systemPrompt: string, userPrompt: string], opts?: GenerateTextOptions): Promise<LlmMessage>;
+	// generateMessage(messages: LlmMessage[] | ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage>;
 
 	/**
 	 * Streams text from the LLM
