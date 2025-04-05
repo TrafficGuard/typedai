@@ -6,6 +6,7 @@ import { AgentStateService } from '#agent/agentStateService/agentStateService';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
+import { User } from '#user/user';
 import { currentUser } from '#user/userService/userContext';
 import { firestoreDb } from './firestore';
 
@@ -27,9 +28,7 @@ export class FirestoreAgentStateService implements AgentStateService {
 				const parentDocRef = this.db.doc(`AgentContext/${state.parentAgentId}`);
 				const parentDoc = await transaction.get(parentDocRef);
 
-				if (!parentDoc.exists) {
-					throw new Error(`Parent agent ${state.parentAgentId} not found`);
-				}
+				if (!parentDoc.exists) throw new Error(`Parent agent ${state.parentAgentId} not found`);
 
 				const parentData = parentDoc.data();
 				const childAgents = new Set(parentData.childAgents || []);
@@ -57,8 +56,22 @@ export class FirestoreAgentStateService implements AgentStateService {
 	}
 
 	async updateState(ctx: AgentContext, state: AgentRunningState): Promise<void> {
-		ctx.state = state;
-		await this.save(ctx);
+		const now = Date.now();
+
+		const docRef = this.db.doc(`AgentContext/${ctx.agentId}`);
+		try {
+			// Update only the state and lastUpdate fields in Firestore for efficiency
+			await docRef.update({
+				state: state,
+				lastUpdate: now,
+			});
+			// Update the state in the context object provided directly for immediate consistency once the firestore update completes
+			ctx.state = state;
+			ctx.lastUpdate = now;
+		} catch (error) {
+			logger.error(error, `Error updating state for agent ${ctx.agentId} to ${state}`);
+			throw error;
+		}
 	}
 
 	@span({ agentId: 0 })
@@ -78,7 +91,7 @@ export class FirestoreAgentStateService implements AgentStateService {
 	@span()
 	async list(): Promise<AgentContext[]> {
 		// TODO limit the fields retrieved for performance, esp while functionCallHistory and memory is on the AgentContext object
-		const keys: Array<keyof AgentContext> = ['agentId', 'name', 'state', 'cost', 'error', 'lastUpdate', 'userPrompt', 'inputPrompt'];
+		const keys: Array<keyof AgentContext> = ['agentId', 'name', 'state', 'cost', 'error', 'lastUpdate', 'userPrompt', 'inputPrompt', 'user'];
 		const querySnapshot = await this.db
 			.collection('AgentContext')
 			.where('user', '==', currentUser().id)
@@ -90,22 +103,51 @@ export class FirestoreAgentStateService implements AgentStateService {
 
 	@span()
 	async listRunning(): Promise<AgentContext[]> {
-		// Needs an index TODO https://cloud.google.com/firestore/docs/query-data/multiple-range-fields
-		const querySnapshot = await this.db.collection('AgentContext').where('state', '!=', 'completed').orderBy('lastUpdate', 'desc').get();
+		// Define terminal states to exclude from the "running" list
+		const terminalStates: AgentRunningState[] = ['completed', 'shutdown', 'timeout']; // TODO add error and maybe others. Might be better to invert the list and use the IN operator
+		// NOTE: This query requires a composite index in Firestore.
+		// Example gcloud command:
+		// gcloud firestore indexes composite create --collection-group=AgentContext --query-scope=COLLECTION --field-config field-path=state,operator=NOT_EQUAL --field-config field-path=lastUpdate,order=DESCENDING
+		// Or more specifically for 'not-in':
+		// gcloud firestore indexes composite create --collection-group=AgentContext --query-scope=COLLECTION --field-config field-path=state,operator=NOT_EQUAL --field-config field-path=lastUpdate,order=DESCENDING
+		// Or more specifically for 'not-in':
+		// gcloud firestore indexes composite create --collection-group=AgentContext --query-scope=COLLECTION --field-config field-path=state,array-contains=Any --field-config field-path=lastUpdate,order=DESCENDING
+		// Firestore usually guides index creation in the console based on query errors.
+		// NOTE: Firestore requires the first orderBy clause to be on the field used in an inequality filter (like 'not-in').
+		// Therefore, we order by 'state' first, then by 'lastUpdate'. This ensures the query works reliably,
+		// although the primary desired sort order is by 'lastUpdate'.
+		const querySnapshot = await this.db
+			.collection('AgentContext')
+			.where('state', 'not-in', terminalStates) // Use 'not-in' to exclude multiple terminal states
+			.orderBy('state') // Order by the inequality filter field first (Firestore requirement)
+			.orderBy('lastUpdate', 'desc') // Then order by the desired field
+			.get();
 		return this.deserializeQuery(querySnapshot);
 	}
 
 	private async deserializeQuery(querySnapshot: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData, FirebaseFirestore.DocumentData>) {
-		const contexts: AgentContext[] = [];
+		const contexts: Partial<AgentContext>[] = []; // Use Partial<AgentContext> for list view summary
 		for (const doc of querySnapshot.docs) {
 			const data = doc.data();
-			// TODO need to await for deserialization in multi-user environment
-			contexts.push({
-				...data,
+			// Construct a partial context suitable for list views
+			const partialContext: Partial<AgentContext> = {
 				agentId: doc.id,
-			} as AgentContext);
+				name: data.name,
+				state: data.state,
+				cost: data.cost,
+				error: data.error,
+				lastUpdate: data.lastUpdate,
+				userPrompt: data.userPrompt,
+				inputPrompt: data.inputPrompt,
+				// Assign the user ID stored in Firestore. Assume it's stored as a string ID.
+				// Create a minimal User object containing only the ID for type compatibility.
+				user: data.user ? ({ id: data.user } as User) : undefined,
+			};
+			contexts.push(partialContext);
 		}
-		return contexts;
+		// Cast to AgentContext[] for compatibility with current method signature.
+		// Consumers of list() / listRunning() should be aware they might receive partial contexts.
+		return contexts as AgentContext[];
 	}
 
 	async clear(): Promise<void> {

@@ -3,6 +3,7 @@ import { AgentContext } from '#agent/agentContextTypes';
 import { getCompletedHandler } from '#agent/completionHandlerRegistry';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { deserializeLLMs } from '#llm/llmFactory';
+import { logger } from '#o11y/logger';
 import { currentUser } from '#user/userService/userContext';
 import { appContext } from '../applicationContext';
 
@@ -44,7 +45,7 @@ export function serializeContext(context: AgentContext): Record<string, any> {
 		} else if (key === 'user') {
 			serialized[key] = context.user.id;
 		} else if (key === 'completedHandler') {
-			context.completedHandler.agentCompletedHandlerId();
+			serialized[key] = context.completedHandler?.agentCompletedHandlerId() ?? null;
 		}
 		// otherwise throw error
 		else {
@@ -66,7 +67,6 @@ export async function deserializeAgentContext(serialized: Record<keyof AgentCont
 
 	context.fileSystem = new FileSystemService().fromJSON(serialized.fileSystem);
 	context.functions = new LlmFunctions().fromJSON(serialized.functions ?? (serialized as any).toolbox); // toolbox for backward compat
-
 	context.memory = serialized.memory;
 	context.metadata = serialized.metadata;
 	context.childAgents = serialized.childAgents || [];
@@ -76,7 +76,12 @@ export async function deserializeAgentContext(serialized: Record<keyof AgentCont
 	if (serialized.user === user.id) context.user = user;
 	else context.user = await appContext().userService.getUser(serialized.user);
 
-	context.completedHandler = getCompletedHandler(serialized.completedHandler);
+	const handlerId = serialized.completedHandler;
+	if (handlerId) {
+		context.completedHandler = getCompletedHandler(handlerId);
+		if (!context.completedHandler)
+			logger.error(`Completed handler with ID '${handlerId}' not found in registry during deserialization for agent ${serialized.agentId}.`);
+	}
 
 	// backwards compatability
 	if (!context.type) context.type = 'xml';
