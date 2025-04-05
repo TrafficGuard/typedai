@@ -38,16 +38,19 @@ export class FastMediumLLM extends BaseLLM {
 
 	async generateTextFromMessages(messages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
 		for (const llm of this.providers) {
-			if (!llm.isConfigured()) continue;
+			if (!llm.isConfigured()) {
+				logger.info(`${llm.getId()} is not configured`);
+				continue;
+			}
 
 			const combinedPrompt = messages.map((m) => m.content).join('\n');
 			const promptTokens = await countTokens(combinedPrompt);
 			if (promptTokens > llm.getMaxInputTokens()) {
-				logger.debug(`Input tokens exceed limit for ${llm.getDisplayName()}. Trying next provider.`);
+				logger.info(`Input tokens exceed limit for ${llm.getDisplayName()}. Trying next provider.`);
 				continue;
 			}
 			try {
-				logger.debug(`Trying ${llm.getDisplayName()}`);
+				logger.info(`Trying ${llm.getDisplayName()}`);
 				return await llm.generateText(messages, opts);
 			} catch (error) {
 				logger.error(`Error with ${llm.getDisplayName()}: ${error.message}. Trying next provider.`);

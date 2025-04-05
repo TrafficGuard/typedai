@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Shortcut to running `npm run <script> <arg>` from the TypedAI installation
-# Usage: `ss <script> <args>`
+# Usage: `ai <script> <args>`
 
 if [ -z "$TYPEDAI_HOME" ]; then
   echo "Error: TYPEDAI_HOME is not set."
