@@ -112,7 +112,8 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				const outputCost = this.calculateOutputCost(responseText, result.usage.completionTokens, result.response.timestamp);
 				const cost = inputCost + outputCost;
 
-				llmCall.responseText = responseText;
+				// Add the response as an assistant message
+				llmCall.messages = [...(llmCall.messages ?? []), { role: 'assistant', content: responseText }];
 				llmCall.timeToFirstToken = finishTime - requestTime;
 				llmCall.totalTime = finishTime - requestTime;
 				llmCall.cost = cost;
@@ -160,7 +161,6 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 			});
 
 			const llmCallSave: Promise<LlmCall> = appContext().llmCallService.saveRequest({
-				userPrompt: prompt,
 				messages: llmMessages,
 				llmId: this.getId(),
 				agentId: agentContext()?.agentId,
