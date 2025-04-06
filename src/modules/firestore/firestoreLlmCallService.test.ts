@@ -316,6 +316,7 @@ describe.only('FirestoreLlmCallService', () => {
 			expect(retrievedLargeCall.messages[1].content).to.equal(largeResponse.messages![1].content); // Check content from messages
 
 			// Verify reconstruction of small calls
+			const retrievedSmallCall1 = calls[2]; // <-- Add this line
 			expect(retrievedSmallCall1.chunkCount).to.equal(0);
 			expect(retrievedSmallCall1.messages).to.have.lengthOf(3); // system, user, assistant
 			expect(retrievedSmallCall1.messages[2].content).to.equal(smallResponse.messages![2].content); // Check content from messages
