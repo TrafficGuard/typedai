@@ -63,7 +63,6 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 			});
 
 			const llmCallSave: Promise<LlmCall> = appContext().llmCallService.saveRequest({
-				userPrompt: prompt,
 				messages: llmMessages,
 				llmId: this.getId(),
 				agentId: agentContext()?.agentId,
