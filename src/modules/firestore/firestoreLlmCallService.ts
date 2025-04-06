@@ -32,11 +32,7 @@ export class FirestoreLlmCallService implements LlmCallService {
 			// Ensure messages is an array, even if it was stored in chunks
 			messages: data.messages ?? [],
 			cost: data.cost,
-			userPrompt: data.userPrompt,
-			systemPrompt: data.systemPrompt,
-			// messages: data.messages, // Duplicate removed, handled by initial messages: data.messages ?? []
 			description: data.description,
-			responseText: data.responseText,
 			llmId: data.llmId,
 			requestTime: data.requestTime,
 			timeToFirstToken: data.timeToFirstToken,
@@ -84,7 +80,7 @@ export class FirestoreLlmCallService implements LlmCallService {
 	 */
 	private async _saveOrUpdateLlmCall(
 		llmCallId: string,
-		dataToSave: Omit<LlmCall, 'messages' | 'responseText' | 'id'> & { llmCallId: string },
+		dataToSave: Omit<LlmCall, 'messages' | 'id'> & { llmCallId: string },
 		messages: LlmMessage[],
 		merge: boolean,
 	): Promise<void> {
@@ -205,20 +201,13 @@ export class FirestoreLlmCallService implements LlmCallService {
 			throw new Error('LlmCall is missing both id and llmCallId');
 		}
 
-		// Prepare the final messages array, including the responseText
-		const finalMessages: LlmMessage[] = [...(llmCall.messages ?? [])];
-		// Remove potential placeholder assistant message if responseText is being added
-		if (llmCall.responseText && finalMessages.length > 0 && finalMessages.at(-1)?.role === 'assistant') {
-			finalMessages.pop();
-		}
-		if (llmCall.responseText) {
-			finalMessages.push({ role: 'assistant', content: llmCall.responseText });
-		}
+		// Messages should already contain the final assistant response
+		const finalMessages: LlmMessage[] = llmCall.messages ?? [];
 
-		// Prepare the core data object, excluding messages and responseText
+		// Prepare the core data object, excluding messages
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
-		const { messages, responseText, id, ...baseData } = llmCall; // Exclude id as well, llmCallId is the key
-		const dataToSave: Omit<LlmCall, 'messages' | 'responseText' | 'id'> & { llmCallId: string } = {
+		const { messages, id, ...baseData } = llmCall; // Exclude id as well, llmCallId is the key
+		const dataToSave: Omit<LlmCall, 'messages' | 'id'> & { llmCallId: string } = {
 			...baseData,
 			llmCallId: llmCallId, // Ensure llmCallId is explicitly included
 			userId: llmCall.userId ?? currentUser()?.id, // Ensure userId is set

@@ -102,9 +102,12 @@ describe.only('FirestoreLlmCallService', () => {
 			};
 			const savedRequest = await service.saveRequest(request);
 
+			// Add the assistant response directly to the messages array
+			const finalMessages = [...request.messages!, { role: 'assistant', content: 'Small test response' }] as LlmMessage[];
+
 			const responseData: LlmCall = {
 				...savedRequest, // Includes id, requestTime, llmCallId, userId etc.
-				responseText: 'Small test response',
+				messages: finalMessages, // Use the updated messages array
 				cost: 0.01,
 				timeToFirstToken: 50,
 				totalTime: 200,
@@ -125,13 +128,12 @@ describe.only('FirestoreLlmCallService', () => {
 			expect(retrievedCall!.messages[1].role).to.equal('user');
 			expect(retrievedCall!.messages[1].content).to.equal(request.messages![1].content);
 			expect(retrievedCall!.messages[2].role).to.equal('assistant');
-			expect(retrievedCall!.messages[2].content).to.equal(responseData.responseText);
+			expect(retrievedCall!.messages[2].content).to.equal('Small test response'); // Check content directly
 			// Verify other fields
 			expect(retrievedCall!.description).to.equal(responseData.description);
 			expect(retrievedCall!.llmId).to.equal(responseData.llmId);
 			expect(retrievedCall!.agentId).to.equal(responseData.agentId);
 			expect(retrievedCall!.callStack).to.equal(responseData.callStack);
-			expect(retrievedCall!.responseText).to.be.undefined; // Should be undefined after saveResponse processing
 			expect(retrievedCall!.cost).to.equal(responseData.cost);
 			expect(retrievedCall!.timeToFirstToken).to.equal(responseData.timeToFirstToken);
 			expect(retrievedCall!.totalTime).to.equal(responseData.totalTime);
@@ -158,16 +160,18 @@ describe.only('FirestoreLlmCallService', () => {
 			};
 			const savedRequest = await service.saveRequest(request);
 
+			// Add the assistant response directly to the messages array
+			const finalMessages = [...request.messages!, { role: 'assistant', content: largeResponseText }] as LlmMessage[];
+
 			const responseData: LlmCall = {
 				...savedRequest,
-				responseText: largeResponseText,
+				messages: finalMessages, // Use the updated messages array
 				cost: 0.5,
 				totalTime: 5000,
 			};
 
 			// Estimate expected size (approximate)
-			const finalMessages = [...request.messages!, { role: 'assistant', content: largeResponseText }] as LlmMessage[];
-			const estimatedTotalSize = estimateSize({ ...responseData, messages: finalMessages, responseText: undefined });
+			const estimatedTotalSize = estimateSize({ ...responseData }); // Estimate with final messages
 			expect(estimatedTotalSize).to.be.greaterThan(MAX_DOC_SIZE);
 
 			await service.saveResponse(responseData);
@@ -209,7 +213,6 @@ describe.only('FirestoreLlmCallService', () => {
 			expect(retrievedCall!.agentId).to.equal(request.agentId);
 			expect(retrievedCall!.cost).to.equal(responseData.cost);
 			expect(retrievedCall!.totalTime).to.equal(responseData.totalTime);
-			expect(retrievedCall!.responseText).to.be.undefined;
 		});
 
 		it('should throw an error if a single message exceeds MAX_DOC_SIZE', async () => {
@@ -243,10 +246,11 @@ describe.only('FirestoreLlmCallService', () => {
 			const savedSmallRequest = await service.saveRequest(smallRequest);
 			// Make requestTime slightly older
 			savedSmallRequest.requestTime = Date.now() - 2000;
-			await firestoreDb().doc(`LlmCall/${savedSmallRequest.id}`).set(savedSmallRequest); // Update time manually for test order
+			await firestoreDb().doc(`LlmCall/${savedSmallRequest.id}`).update({ requestTime: savedSmallRequest.requestTime }); // Update time manually for test order
+			const smallResponseMessages = [...smallRequest.messages!, { role: 'assistant', content: 'Small call response' }] as LlmMessage[];
 			const smallResponse: LlmCall = {
 				...savedSmallRequest,
-				responseText: 'Small call response',
+				messages: smallResponseMessages,
 				cost: 0.01,
 				totalTime: 100,
 			};
@@ -263,9 +267,10 @@ describe.only('FirestoreLlmCallService', () => {
 				userId: testUser.id, // Explicitly set userId
 			};
 			const savedLargeRequest = await service.saveRequest(largeRequest);
+			const largeResponseMessages = [...largeRequest.messages!, { role: 'assistant', content: generateLargeString(largeContentSize) }] as LlmMessage[];
 			const largeResponse: LlmCall = {
 				...savedLargeRequest,
-				responseText: generateLargeString(largeContentSize), // Make response large too
+				messages: largeResponseMessages, // Make response large too
 				cost: 0.2,
 				totalTime: 2000,
 			};
@@ -281,9 +286,10 @@ describe.only('FirestoreLlmCallService', () => {
 				userId: testUser.id, // Explicitly set userId
 			};
 			const savedSmallRequest2 = await service.saveRequest(smallRequest2);
+			const smallResponse2Messages = [...smallRequest2.messages!, { role: 'assistant', content: 'Small call 2 response' }] as LlmMessage[];
 			const smallResponse2: LlmCall = {
 				...savedSmallRequest2,
-				responseText: 'Small call 2 response',
+				messages: smallResponse2Messages,
 				cost: 0.03,
 				totalTime: 300,
 			};
@@ -307,18 +313,17 @@ describe.only('FirestoreLlmCallService', () => {
 			expect(retrievedLargeCall.messages[0].role).to.equal('user');
 			expect(retrievedLargeCall.messages[0].content).to.equal(largeRequest.messages![0].content);
 			expect(retrievedLargeCall.messages[1].role).to.equal('assistant');
-			expect(retrievedLargeCall.messages[1].content).to.equal(largeResponse.responseText);
+			expect(retrievedLargeCall.messages[1].content).to.equal(largeResponse.messages![1].content); // Check content from messages
 
 			// Verify reconstruction of small calls
-			const retrievedSmallCall1 = calls[2];
 			expect(retrievedSmallCall1.chunkCount).to.equal(0);
 			expect(retrievedSmallCall1.messages).to.have.lengthOf(3); // system, user, assistant
-			expect(retrievedSmallCall1.messages[2].content).to.equal(smallResponse.responseText);
+			expect(retrievedSmallCall1.messages[2].content).to.equal(smallResponse.messages![2].content); // Check content from messages
 
 			const retrievedSmallCall2 = calls[0];
 			expect(retrievedSmallCall2.chunkCount).to.equal(0);
 			expect(retrievedSmallCall2.messages).to.have.lengthOf(3); // system, user, assistant
-			expect(retrievedSmallCall2.messages[2].content).to.equal(smallResponse2.responseText);
+			expect(retrievedSmallCall2.messages[2].content).to.equal(smallResponse2.messages![2].content); // Check content from messages
 		});
 	});
 
@@ -334,7 +339,8 @@ describe.only('FirestoreLlmCallService', () => {
 				userId: testUser.id, // Explicitly set userId
 			};
 			const savedRequest = await service.saveRequest(request);
-			const response: LlmCall = { ...savedRequest, responseText: 'deleted response' };
+			const responseMessages = [...request.messages!, { role: 'assistant', content: 'deleted response' }] as LlmMessage[];
+			const response: LlmCall = { ...savedRequest, messages: responseMessages };
 			await service.saveResponse(response);
 
 			// Act: Delete the call
@@ -355,7 +361,8 @@ describe.only('FirestoreLlmCallService', () => {
 				userId: testUser.id, // Explicitly set userId
 			};
 			const savedRequest = await service.saveRequest(request);
-			const response: LlmCall = { ...savedRequest, responseText: generateLargeString(largeContentSize) };
+			const responseMessages = [...request.messages!, { role: 'assistant', content: generateLargeString(largeContentSize) }] as LlmMessage[];
+			const response: LlmCall = { ...savedRequest, messages: responseMessages };
 			await service.saveResponse(response); // This will create chunks
 
 			// Verify chunks exist before delete

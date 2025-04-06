@@ -5,10 +5,6 @@ export interface LlmRequest {
 	id: string;
 	/** From the GenerateTextOptions.id field */
 	description?: string;
-	/** @deprecated Legacy simple prompting. Use #{messages} */
-	systemPrompt?: string;
-	/** @deprecated Legacy simple prompting. Use #{messages} */
-	userPrompt?: string;
 
 	messages?: LlmMessage[];
 	/** Populated when called by an agent */
@@ -26,8 +22,6 @@ export interface LlmRequest {
 
 // New fields need to be added in FirestoreLlmCallService.getLlmResponsesByAgentId
 export interface LlmCall extends LlmRequest {
-	/** @deprecated the response will be in the messages array */
-	responseText?: string;
 	/** Duration in millis until the first response from the LLM */
 	timeToFirstToken?: number;
 	/** Duration in millis for the full response */
