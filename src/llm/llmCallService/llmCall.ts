@@ -1,5 +1,4 @@
 import { LlmMessage } from '#llm/llm';
-import { CallerId } from '#llm/llmCallService/llmCallService';
 
 export interface LlmRequest {
 	/** UUID */
@@ -21,10 +20,13 @@ export interface LlmRequest {
 	llmId: string;
 	/** Time of the LLM request */
 	requestTime: number;
+	/** Internal ID used for linking chunks in Firestore due to maximum doc size limits. Matches the first chunk id. */
+	llmCallId?: string;
 }
 
 // New fields need to be added in FirestoreLlmCallService.getLlmResponsesByAgentId
 export interface LlmCall extends LlmRequest {
+	/** @deprecated the response will be in the messages array */
 	responseText?: string;
 	/** Duration in millis until the first response from the LLM */
 	timeToFirstToken?: number;
@@ -38,6 +40,8 @@ export interface LlmCall extends LlmRequest {
 	cacheCreationInputTokens?: number;
 	/** Anthropic context cache stats */
 	cacheReadInputTokens?: number;
+	/** Number of chunks the messages are split into (0 if not chunked). */
+	chunkCount?: number;
 }
 
 export type CreateLlmRequest = Omit<LlmRequest, 'id' | 'requestTime'>;
