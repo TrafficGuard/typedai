@@ -34,7 +34,7 @@ const testUser: User = {
 	functionConfig: {}, // Added missing property
 };
 
-describe.only('FirestoreLlmCallService', () => {
+describe('FirestoreLlmCallService', () => {
 	let service: FirestoreLlmCallService; // Use concrete type for testing private methods if needed, but stick to interface for usage
 
 	beforeEach(async () => {

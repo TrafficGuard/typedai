@@ -135,7 +135,7 @@ describe('FileSystem', () => {
 	describe('getMultipleFileContentsAsXml', () => {
 		const fileSystem = new FileSystemService();
 		it('should include files', async () => {
-			const paths = ['package.json', '/README.md', '/src/index.ts'];
+			const paths = ['package.json', './README.md', 'src/index.ts'];
 			const contents: string = await fileSystem.readFilesAsXml(paths);
 
 			expect(contents).to.include('file_content file_path="package.json"');
