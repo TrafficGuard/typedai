@@ -9,7 +9,7 @@ import { currentUser, functionConfig } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
 import { appContext } from '../../applicationContext';
 import { BaseLLM } from '../base-llm';
-import { GenerateTextOptions, LLM, LlmMessage } from '../llm';
+import { GenerateTextOptions, GenerationStats, LLM, LlmMessage, assistant } from '../llm';
 
 export const PERPLEXITY_SERVICE = 'perplexity';
 
@@ -94,7 +94,7 @@ export class PerplexityLLM extends BaseLLM {
 		return true;
 	}
 
-	protected generateTextFromMessages(messages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
+	protected _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
 		const description = opts?.id ?? '';
 		return withSpan(`generateText ${description}`, async (span) => {
 			// Perplexity only support string content, convert TextPart's to string, fail if any FilePart or ImagePart are found
@@ -173,10 +173,27 @@ export class PerplexityLLM extends BaseLLM {
 				const responseText = response.choices[0].message.content + citationContent;
 
 				const llmCall: LlmCall = await llmCallSave;
-				llmCall.responseText = responseText;
+				llmCall.messages = [...messages, assistant(responseText)];
 				llmCall.timeToFirstToken = timeToFirstToken;
 				llmCall.totalTime = finishTime - requestTime;
 				llmCall.cost = cost;
+
+				const stats: GenerationStats = {
+					llmId: this.getId(),
+					cost,
+					inputTokens: promptTokens,
+					outputTokens: completionTokens,
+					requestTime,
+					timeToFirstToken: llmCall.timeToFirstToken,
+					totalTime: llmCall.totalTime,
+				};
+				const message: LlmMessage = {
+					role: 'assistant',
+					content: responseText,
+					stats,
+				};
+
+				llmCall.messages = [...llmCall.messages, message];
 
 				try {
 					await appContext().llmCallService.saveResponse(llmCall);
@@ -196,9 +213,9 @@ export class PerplexityLLM extends BaseLLM {
 				});
 				if (thinkingTokens) span.setAttribute('thinkingTokens', thinkingTokens);
 
-				return responseText;
+				return message;
 			} catch (e) {
-				log.error(e, `Perplexity error during generateTextFromMessages. Messages: ${JSON.stringify(messages)}`);
+				log.error(e, `Perplexity error during generateMessage. Messages: ${JSON.stringify(messages)}`);
 				throw e;
 			}
 		});

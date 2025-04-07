@@ -7,6 +7,7 @@ import { AGENT_COMPLETED_NAME, AGENT_SAVE_MEMORY } from '#agent/agentFunctions';
 import { RunAgentConfig, SUPERVISOR_CANCELLED_FUNCTION_NAME, cancelAgent, provideFeedback, startAgent, startAgentAndWait } from '#agent/agentRunner';
 import { convertTypeScriptToPython } from '#agent/codeGenAgentUtils';
 import { TEST_FUNC_NOOP, TEST_FUNC_SKY_COLOUR, TEST_FUNC_SUM, TEST_FUNC_THROW_ERROR, TestFunctions } from '#functions/testFunctions';
+import { lastText } from '#llm/llm';
 import { MockLLM, mockLLM, mockLLMs } from '#llm/services/mock-llm';
 import { logger } from '#o11y/logger';
 import { setTracer } from '#o11y/trace';
@@ -320,7 +321,7 @@ describe('codegenAgentRunner', () => {
 			const skyCall = calls[2];
 			// console.log(calls.map(call => call.callStack))
 			expect(skyCall.callStack).to.equal('skyColour > generateText');
-			expect(skyCall.responseText).to.equal('blue');
+			expect(lastText(skyCall.messages)).to.equal('blue');
 		});
 	});
 

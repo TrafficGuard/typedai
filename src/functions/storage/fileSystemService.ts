@@ -1,8 +1,7 @@
-import { access, existsSync, lstat, mkdir, readFile, readFileSync, readdir, readdirSync, stat, writeFileSync } from 'node:fs';
+import { access, existsSync, lstat, mkdir, readFile, readdir, stat, writeFile } from 'node:fs';
 import { resolve } from 'node:path';
 import path, { join, relative } from 'path';
 import { promisify } from 'util';
-// import { glob } from 'glob-gitignore';
 import ignore, { Ignore } from 'ignore';
 import Pino from 'pino';
 import { agentContext } from '#agent/agentContextLocalStorage';
@@ -11,8 +10,8 @@ import { Git } from '#functions/scm/git';
 import { VersionControlSystem } from '#functions/scm/versionControlSystem';
 import { LlmTools } from '#functions/util';
 import { logger } from '#o11y/logger';
-import { getActiveSpan, span } from '#o11y/trace';
-import { execCmd, execCmdSync, spawnCommand } from '#utils/exec';
+import { getActiveSpan } from '#o11y/trace';
+import { execCmdSync, spawnCommand } from '#utils/exec';
 import { CDATA_END, CDATA_START, needsCDATA } from '#utils/xml-utils';
 import { TYPEDAI_FS } from '../../appVars';
 
@@ -23,6 +22,7 @@ const fs = {
 	access: promisify(access),
 	mkdir: promisify(mkdir),
 	lstat: promisify(lstat),
+	writeFile: promisify(writeFile),
 };
 
 // import fg from 'fast-glob';
@@ -32,6 +32,8 @@ type FileFilter = (filename: string) => boolean;
 
 // Cache paths to Git repositories and .gitignore files
 const gitRoots = new Set<string>();
+/** Maps a directory to a git root */
+const gitRootMapping = new Map<string, string>();
 const gitIgnorePaths = new Set<string>();
 
 /**
@@ -82,8 +84,6 @@ export class FileSystemService {
 		this.workingDirectory = this.basePath;
 
 		this.log = logger.child({ FileSystem: this.basePath });
-
-		if (this.getVcsRoot()) this.vcs = new Git(this);
 	}
 
 	toJSON() {
@@ -130,14 +130,13 @@ export class FileSystemService {
 			if (existsSync(relativePath)) {
 				this.workingDirectory = relativePath;
 			} else {
-				throw new Error(`New working directory ${dir} does not exist (current working directory ${this.workingDirectory}`);
+				throw new Error(`New working directory ${dir} does not exist (current working directory ${this.workingDirectory})`);
 			}
 		}
 
 		// After setting the working directory, update the vcs (version control system) property
 		logger.info(`setWorkingDirectory ${this.workingDirectory}`);
-		const vcsRoot = this.getVcsRoot();
-		this.vcs = vcsRoot ? new Git(this) : null;
+		this.vcs = null; // lazy loaded in getVcs()
 	}
 
 	/**
@@ -235,11 +234,15 @@ export class FileSystemService {
 
 		// Load .gitignore rules if present
 		const gitIgnorePath = path.join(readdirPath, '.gitignore');
-		if (existsSync(gitIgnorePath)) {
+		try {
+			await fs.access(gitIgnorePath);
 			let lines = await fs.readFile(gitIgnorePath, 'utf8').then((data) => data.split('\n'));
 			lines = lines.map((line) => line.trim()).filter((line) => line.length && !line.startsWith('#'), filter);
 			ig.add(lines);
 			ig.add('.git');
+		} catch {
+			// .gitignore doesn't exist or is not accessible, proceed without it
+			ig.add('.git'); // Still ignore .git even if .gitignore is missing
 		}
 
 		const files: string[] = [];
@@ -248,14 +251,16 @@ export class FileSystemService {
 			const dirents = await fs.readdir(readdirPath, { withFileTypes: true });
 			for (const dirent of dirents) {
 				const direntName = dirent.isDirectory() ? `${dirent.name}/` : dirent.name;
-				const relativePath = path.relative(this.getWorkingDirectory(), path.join(readdirPath, direntName));
+				// Calculate relative path for ignore check correctly based on the *root* working directory
+				const relativePathForIgnore = path.relative(this.getWorkingDirectory(), path.join(readdirPath, dirent.name));
 
-				if (!ig.ignores(relativePath)) {
-					files.push(dirent.name);
+				if (!ig.ignores(relativePathForIgnore) && !ig.ignores(`${relativePathForIgnore}/`)) {
+					// Push the base name (file or folder name), not the relative path
+					files.push(direntName);
 				}
 			}
 		} catch (error) {
-			console.error('Error reading directory:', error);
+			this.log.error(`Error reading directory: ${readdirPath}`, error);
 			throw error; // Re-throw the error to be caught by the caller
 		}
 
@@ -315,23 +320,29 @@ export class FileSystemService {
 	 * @returns the contents of the file(s) in format <file_contents path="dir/file1">file1 contents</file_contents><file_contents path="dir/file2">file2 contents</file_contents>
 	 */
 	async readFile(filePath: string): Promise<string> {
-		// Want to check that the activeSpan is FileSystemRead.readFile, otherwise don't add to the span attributes
-		// const span = getActiveSpan();
-		// span.setAttribute('argPath', filePath)
 		logger.debug(`readFile ${filePath}`);
 		let contents: string;
 		const relativeFullPath = path.join(this.getWorkingDirectory(), filePath);
 		logger.debug(`Checking ${filePath} and ${relativeFullPath}`);
-		// Check relative to current working directory first
-		if (existsSync(relativeFullPath)) {
-			// span.setAttribute('resolvedPath', relativeFullPath)
+
+		try {
+			// Check relative to current working directory first using async access
+			await fs.access(relativeFullPath);
+			getActiveSpan()?.setAttribute('resolvedPath', relativeFullPath);
 			contents = (await fs.readFile(relativeFullPath)).toString();
-			// Then check if it's an absolute path
-		} else if (filePath.startsWith('/') && existsSync(filePath)) {
-			// span.setAttribute('resolvedPath', filePath)
-			contents = (await fs.readFile(filePath)).toString();
-		} else {
-			throw new Error(`File ${filePath} does not exist`);
+		} catch {
+			// If relative fails, check if it's an absolute path
+			if (filePath.startsWith('/')) {
+				try {
+					await fs.access(filePath);
+					getActiveSpan()?.setAttribute('resolvedPath', relativeFullPath);
+					contents = (await fs.readFile(filePath)).toString();
+				} catch (absError) {
+					throw new Error(`File ${filePath} does not exist (checked as absolute and relative to ${this.getWorkingDirectory()})`);
+				}
+			} else {
+				throw new Error(`File ${filePath} does not exist (relative to ${this.getWorkingDirectory()})`);
+			}
 			// try {
 			// 	const matches = await this.searchFilesMatchingName(filePath);
 			//  if (matches.length === 1) {
@@ -432,7 +443,7 @@ export class FileSystemService {
 	 */
 	async fileExists(filePath: string): Promise<boolean> {
 		// TODO remove the basePath checks. Either absolute or relative to this.cwd
-		logger.info(`fileExists: ${filePath}`);
+		logger.debug(`fileExists: ${filePath}`);
 		// Check if we've been given an absolute path
 		if (filePath.startsWith(this.basePath)) {
 			try {
@@ -472,9 +483,9 @@ export class FileSystemService {
 	async writeFile(filePath: string, contents: string): Promise<void> {
 		const fileSystemPath = filePath.startsWith(this.basePath) ? filePath : join(this.getWorkingDirectory(), filePath);
 		logger.debug(`Writing file "${filePath}" to ${fileSystemPath}`);
-		const parentPath = join(filePath, '..'); // what if we're in a root folder? unlikely
-		await promisify(fs.mkdir)(parentPath, { recursive: true });
-		writeFileSync(fileSystemPath, contents);
+		const parentPath = path.dirname(fileSystemPath);
+		await fs.mkdir(parentPath, { recursive: true });
+		await fs.writeFile(fileSystemPath, contents);
 	}
 
 	/**
@@ -496,7 +507,19 @@ export class FileSystemService {
 		while (true) {
 			const gitIgnorePath = path.join(currentPath, '.gitignore');
 			const knownGitIgnore = gitIgnorePaths.has(gitIgnorePath);
-			if (knownGitIgnore || existsSync(gitIgnorePath)) {
+			let gitignoreExists = false;
+			if (knownGitIgnore) {
+				gitignoreExists = true;
+			} else {
+				try {
+					await fs.access(gitIgnorePath);
+					gitignoreExists = true;
+				} catch {
+					// File doesn't exist or not accessible
+				}
+			}
+
+			if (gitignoreExists) {
 				const lines = (await fs.readFile(gitIgnorePath, 'utf8'))
 					.split('\n')
 					.map((line) => line.trim())
@@ -648,16 +671,20 @@ export class FileSystemService {
 			const dirPath = isFile ? parts.slice(0, -1).join(path.sep) : file;
 			const fileName = isFile ? parts[parts.length - 1] : '';
 
-			if (!tree[dirPath]) {
-				tree[dirPath] = [];
-			}
+			if (!tree[dirPath]) tree[dirPath] = [];
 
-			if (isFile) {
-				tree[dirPath].push(fileName);
-			}
+			if (isFile) tree[dirPath].push(fileName);
 		});
 
 		return tree;
+	}
+
+	getVcs(): VersionControlSystem {
+		if (!this.vcs) {
+			if (this.getVcsRoot()) this.vcs = new Git(this);
+		}
+		if (!this.vcs) throw new Error('Not in a version controlled directory');
+		return this.vcs;
 	}
 
 	/**
@@ -666,24 +693,34 @@ export class FileSystemService {
 	getVcsRoot(): string | null {
 		// First, check if workingDirectory is under any known Git roots
 		if (gitRoots.has(this.workingDirectory)) return this.workingDirectory;
+		// Do we need gitRoots now that we have gitRootMapping?
+		const cachedRoot = gitRootMapping.get(this.workingDirectory);
+		if (cachedRoot) return cachedRoot;
+
+		// Check if the working directory actually exists before running git command
+		// Use the original synchronous existsSync here as it's part of the setup for the sync execCmdSync call
+		// if(!existsSync(this.workingDirectory)) {
+		//     logger.warn(`Working directory ${this.workingDirectory} does not exist. Cannot determine Git root.`);
+		//     return null;
+		// }
 
 		// If not found in cache, execute Git command
 		try {
 			// Use execCmdSync to get the Git root directory synchronously
 			// Need to pass the workingDirectory to avoid recursion with the default workingDirectory arg
 			const result = execCmdSync('git rev-parse --show-toplevel', this.workingDirectory);
-
 			if (result.error) {
-				logger.error(result.error);
+				logger.warn(result.stderr || result.error, `Git command failed in ${this.workingDirectory}. Not a git repository or git not found.`);
 				return null;
 			}
 			const gitRoot = result.stdout.trim();
-			// Store the new Git root in the cache
-			logger.debug(`Adding git root ${gitRoot}`);
+			logger.debug(`Adding git root ${gitRoot} for working dir ${this.workingDirectory}`);
 			gitRoots.add(gitRoot);
+			gitRootMapping.set(this.workingDirectory, gitRoot);
+
 			return gitRoot;
 		} catch (e) {
-			logger.error(e, 'Error checking if in a Git repo');
+			logger.error(e, `Error checking if ${this.workingDirectory} is in a Git repo`);
 			// Any unexpected errors also result in null
 			return null;
 		}

@@ -5,7 +5,7 @@ import { LlmCall } from '#llm/llmCallService/llmCall';
 import { withActiveSpan } from '#o11y/trace';
 import { appContext } from '../../applicationContext';
 import { BaseLLM } from '../base-llm';
-import { GenerateTextOptions, LLM, combinePrompts } from '../llm';
+import { GenerateTextOptions, LLM, LlmMessage, assistant, combinePrompts, system, user } from '../llm';
 
 export const OLLAMA_SERVICE = 'ollama';
 
@@ -30,11 +30,13 @@ export class OllamaLLM extends BaseLLM {
 	}
 
 	async _generateText(systemPrompt: string | undefined, userPrompt: string, opts?: GenerateTextOptions): Promise<string> {
-		console.log('generateText');
 		return withActiveSpan(`generateText ${opts?.id ?? ''}`, async (span) => {
+			const messages: LlmMessage[] = [];
+			if (systemPrompt) messages.push(system(systemPrompt));
+			messages.push(user(userPrompt));
+
 			const prompt = combinePrompts(userPrompt, systemPrompt);
 
-			if (systemPrompt) span.setAttribute('systemPrompt', systemPrompt);
 			span.setAttributes({
 				userPrompt,
 				inputChars: prompt.length,
@@ -43,8 +45,7 @@ export class OllamaLLM extends BaseLLM {
 			});
 
 			const llmCallSave: Promise<LlmCall> = appContext().llmCallService.saveRequest({
-				userPrompt,
-				systemPrompt,
+				messages,
 				llmId: this.getId(),
 				agentId: agentContext()?.agentId,
 				callStack: this.callStack(agentContext()),
@@ -64,12 +65,12 @@ export class OllamaLLM extends BaseLLM {
 			});
 
 			const responseText = response.data.response;
+			messages.push(assistant(responseText));
+
 			const timeToFirstToken = Date.now() - requestTime;
 			const finishTime = Date.now();
 
 			const llmCall: LlmCall = await llmCallSave;
-
-			llmCall.responseText = responseText;
 			llmCall.timeToFirstToken = timeToFirstToken;
 			llmCall.totalTime = finishTime - requestTime;
 			llmCall.cost = 0; // VM cost?

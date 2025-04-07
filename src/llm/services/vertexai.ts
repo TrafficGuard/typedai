@@ -20,14 +20,20 @@ export function vertexLLMRegistry(): Record<string, () => LLM> {
 
 // https://cloud.google.com/vertex-ai/generative-ai/pricing#token-based-pricing
 
+// Prompts less than 200,00 tokens: $1.25/million tokens for input, $10/million for output
+// 	Prompts more than 200,000 tokens (up to the 1,048,576 max): $2.50/million for input, $15/million for output
 export function Gemini_2_5_Pro() {
 	return new VertexLLM(
 		'Gemini 2.5 Pro',
 		'gemini-2.5-pro-exp-03-25',
 		1_000_000,
-		(input: string) => 0,
-		(output: string) => 0,
+		(input: string, inputTokens: number) => (inputTokens < 200000 ? cost(1.25, inputTokens) : cost(2.5, inputTokens)),
+		(output: string, outputTokens: number) => (outputTokens < 200000 ? cost(10, outputTokens) : cost(15, outputTokens)),
 	);
+}
+
+function cost(costPerMillionTokens: number, tokens: number) {
+	return (tokens * costPerMillionTokens) / 1_000_000;
 }
 
 export function Gemini_2_0_Flash() {

@@ -1,4 +1,4 @@
-import path from 'path';
+import path, { join } from 'path';
 import { PuppeteerBlocker } from '@cliqz/adblocker-puppeteer';
 import { Readability } from '@mozilla/readability';
 import { JSDOM } from 'jsdom';
@@ -6,6 +6,7 @@ import { agentContextStorage, getFileSystem, llms } from '#agent/agentContextLoc
 import { execCommand } from '#utils/exec';
 import { cacheRetry } from '../../cache/cacheRetry';
 const { getJson } = require('serpapi');
+import { promises as fsPromises } from 'node:fs';
 import * as autoconsent from '@duckduckgo/autoconsent';
 import fetch from 'cross-fetch';
 import puppeteer from 'puppeteer';
@@ -13,6 +14,7 @@ import { Browser } from 'puppeteer';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { sleep } from '#utils/async-utils';
+import { agentDir } from '../../appVars';
 const TurndownService = require('turndown');
 const turndownService = new TurndownService();
 
@@ -123,6 +125,32 @@ export class PublicWeb {
 	 */
 	htmlToMarkdown(html: string, url?: string): string {
 		return turndownService.turndown(html);
+	}
+
+	/**
+	 * Downloads a file from the specified URL and saves it locally.
+	 * @param url The URL of the file to download.
+	 * @returns The local file path where the file was saved.
+	 */
+	@func()
+	async downloadFile(url: string): Promise<string> {
+		logger.info(`Downloading file from ${url}`);
+		try {
+			const response = await fetch(url);
+
+			if (!response.ok) throw new Error(`Failed to download file from ${url}. Status: ${response.status} ${response.statusText}`);
+
+			const arrayBuffer = await response.arrayBuffer();
+
+			const fileName = url.substring(url.lastIndexOf('/') + 1) || 'downloaded_file';
+			const filePath = join(agentDir(), fileName);
+			await fsPromises.writeFile(filePath, Buffer.from(arrayBuffer));
+			logger.info(`File downloaded and saved to ${filePath}`);
+			return filePath;
+		} catch (error) {
+			logger.error(`Error downloading file from ${url}: ${error.message}`);
+			throw error;
+		}
 	}
 
 	/**

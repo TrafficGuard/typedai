@@ -44,3 +44,19 @@ export function functionConfig(functionClass: any): Record<string, any> {
 	if (!functionConfig) return {};
 	return functionConfig[functionClass.name] ?? {};
 }
+
+/**
+ * FOR TESTING PURPOSES ONLY. Sets the current user in the AsyncLocalStorage.
+ * @param user The user to set, or null to clear.
+ */
+export function setCurrentUser(user: User | null): void {
+	if (user) {
+		userContextStorage.enterWith(user);
+	} else {
+		// Exiting the store is tricky, re-entering with undefined might be the way
+		// but for tests, simply entering with null/undefined might suffice if the test runner isolates contexts.
+		// A more robust approach might involve explicitly managing the store's lifecycle per test.
+		// For now, let's assume setting null works for the test context.
+		userContextStorage.enterWith(undefined as any); // Or handle cleanup differently if needed
+	}
+}

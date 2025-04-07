@@ -12,8 +12,8 @@ import {
     tap,
     throwError, catchError,
 } from 'rxjs';
-import { FilePart, ImagePart, TextPart } from './ai.types';
 import {GenerateOptions} from "app/core/user/user.types";
+import {FilePartExt, ImagePartExt, TextPart} from "./ai.types";
 
 @Injectable({ providedIn: 'root' })
 export class ChatService {
@@ -179,7 +179,7 @@ export class ChatService {
                                     .filter(item => item.type === 'image' || item.type === 'file')
                                     .map(item => {
                                         if (item.type === 'image') {
-                                            const imagePart = item as ImagePart;
+                                            const imagePart = item as ImagePartExt;
 
                                             const mimeType = imagePart.mimeType || 'image/png';
                                             const base64Data = imagePart.image as string;
@@ -197,7 +197,7 @@ export class ChatService {
                                                 previewUrl: dataUrl,
                                             } as Attachment;
                                         } else if (item.type === 'file') {
-                                            const filePart = item as FilePart;
+                                            const filePart = item as FilePartExt;
 
                                             const mimeType = filePart.mimeType || 'application/octet-stream';
                                             const base64Data = filePart.data as string;
@@ -224,8 +224,8 @@ export class ChatService {
                                 id: serverChat.id,
                                 content: textContent,
                                 isMine: llmMessage.role === 'user',
-                                createdAt: new Date(llmMessage.time).toString(),
-                                llmId: llmMessage.llmId,
+                                createdAt: new Date(llmMessage.stats?.requestTime).toString(),
+                                llmId: llmMessage.stats?.llmId,
                                 attachments
                             };
 

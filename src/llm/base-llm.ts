@@ -1,7 +1,7 @@
 import { StreamTextResult } from 'ai';
 import { AgentContext } from '#agent/agentContextTypes';
 import { countTokens } from '#llm/tokens';
-import { GenerateJsonOptions, GenerateTextOptions, LLM, LlmMessage } from './llm';
+import { GenerateJsonOptions, GenerateTextOptions, LLM, LlmMessage, Prompt, SystemUserPrompt, isSystemUserPrompt, system, user } from './llm';
 import { extractJsonResult, extractTag } from './responseParsers';
 
 export interface SerializedLLM {
@@ -140,6 +140,23 @@ export abstract class BaseLLM implements LLM {
 			}
 			throw e;
 		}
+	}
+
+	/** Generate a LlmMessage response */
+	async generateMessage(prompt: Prompt, opts?: GenerateTextOptions): Promise<LlmMessage> {
+		let messages: ReadonlyArray<LlmMessage>;
+		if (typeof prompt === 'string') {
+			messages = [user(prompt)];
+		} else if (isSystemUserPrompt(prompt)) {
+			messages = [system(prompt[0]), user(prompt[1])];
+		} else {
+			messages = prompt;
+		}
+		return this._generateMessage(messages, opts);
+	}
+
+	protected _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
+		throw new Error(`_generateMessage not implemented for ${this.getId()}`);
 	}
 
 	getMaxInputTokens(): number {

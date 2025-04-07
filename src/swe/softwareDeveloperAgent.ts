@@ -52,22 +52,22 @@ export class SoftwareDeveloperAgent {
 		// If the default branch in Gitlab/GitHub isn't the branch we want to create feature branches from, then switch to it.
 		let baseBranch = gitProject.defaultBranch;
 		if (projectInfo.devBranch && projectInfo.devBranch !== baseBranch) {
-			await fileSystem.vcs.switchToBranch(projectInfo.devBranch);
+			await fileSystem.getVcs().switchToBranch(projectInfo.devBranch);
 			baseBranch = projectInfo.devBranch;
 		}
-		await fileSystem.vcs.pull();
+		await fileSystem.getVcs().pull();
 
 		const featureBranchName = await this.createBranchName(requirements);
-		await fileSystem.vcs.switchToBranch(featureBranchName);
+		await fileSystem.getVcs().switchToBranch(featureBranchName);
 
-		const initialHeadSha: string = await fileSystem.vcs.getHeadSha();
+		const initialHeadSha: string = await fileSystem.getVcs().getHeadSha();
 
 		try {
 			await new CodeEditingAgent().runCodeEditWorkflow(requirementsSummary, null, { projectInfo });
 		} catch (e) {
 			logger.warn(e.message);
 			// If no changes were made then throw an error
-			const currentHeadSha: string = await fileSystem.vcs.getHeadSha();
+			const currentHeadSha: string = await fileSystem.getVcs().getHeadSha();
 			if (initialHeadSha === currentHeadSha) {
 				throw e;
 			}

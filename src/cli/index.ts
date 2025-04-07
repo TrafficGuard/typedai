@@ -32,9 +32,9 @@ async function main() {
 
 	const maps = await generateRepositoryMaps(await detectProjectInfo());
 
-	console.log(`languageProjectMap ${maps.languageProjectMap.tokens}`);
-	console.log(`fileSystemTree ${maps.fileSystemTree.tokens}`);
-	console.log(`folderSystemTreeWithSummaries ${maps.folderSystemTreeWithSummaries.tokens}`);
+	console.log(`languageProjectMap ${maps.languageProjectMap.tokens} tokens`);
+	console.log(`fileSystemTree ${maps.fileSystemTree.tokens} tokens`);
+	console.log(`folderSystemTreeWithSummaries ${maps.folderSystemTreeWithSummaries.tokens} tokens`);
 
 	if (console.log) return;
 

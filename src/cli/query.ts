@@ -20,9 +20,9 @@ async function main() {
 	console.log(`Prompt: ${initialPrompt}`);
 
 	const config: RunAgentConfig = {
-		agentName: `Query: ${initialPrompt}`,
+		agentName: 'Query',
 		llms: agentLLMs,
-		functions: [], //FileSystem,
+		functions: [],
 		initialPrompt,
 		resumeAgentId,
 		humanInLoop: {
@@ -52,7 +52,4 @@ async function main() {
 	await shutdownTrace();
 }
 
-main().then(
-	() => console.log('done'),
-	(e) => console.error(e),
-);
+main().catch(console.error);

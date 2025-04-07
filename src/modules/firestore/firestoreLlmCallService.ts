@@ -81,7 +81,7 @@ export class FirestoreLlmCallService implements LlmCallService {
 	private async _saveOrUpdateLlmCall(
 		llmCallId: string,
 		dataToSave: Omit<LlmCall, 'messages' | 'id'> & { llmCallId: string },
-		messages: LlmMessage[],
+		messages: ReadonlyArray<LlmMessage>,
 		merge: boolean,
 	): Promise<void> {
 		const estimatedSize = this.estimateSize({ ...dataToSave, messages });
@@ -202,7 +202,7 @@ export class FirestoreLlmCallService implements LlmCallService {
 		}
 
 		// Messages should already contain the final assistant response
-		const finalMessages: LlmMessage[] = llmCall.messages ?? [];
+		const finalMessages: ReadonlyArray<LlmMessage> = llmCall.messages ?? [];
 
 		// Prepare the core data object, excluding messages
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -326,7 +326,7 @@ export class FirestoreLlmCallService implements LlmCallService {
 			logger.info(`Successfully deleted ${querySnapshot.size} documents (LlmCall and associated chunks) for ID: ${llmCallId}`);
 		} catch (e) {
 			logger.error(e, `Error deleting LlmCall documents for ID: ${llmCallId}`);
-			throw e; // Re-throw the error
+			throw e;
 		}
 	}
 }

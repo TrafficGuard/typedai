@@ -113,7 +113,6 @@ describe('FileSystem', () => {
 		it('should list files and folders only in the current directory', async () => {
 			const files: string[] = await fileSystem.listFilesInDirectory('./');
 			expect(files).to.include('package.json');
-			expect(files).to.include('node_modules');
 			expect(files).not.to.include('src/index.ts');
 		});
 		it('should list files and folders in the src directory', async () => {

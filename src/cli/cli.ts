@@ -13,7 +13,6 @@ export interface CliOptions {
 }
 
 export function parseProcessArgs(): CliOptions {
-	logger.info(process.argv);
 	const scriptPath = process.argv[1];
 	let scriptName = scriptPath.split(path.sep).at(-1);
 	scriptName = scriptName.substring(0, scriptName.length - 3);
@@ -26,7 +25,7 @@ export function parseProcessArgs(): CliOptions {
 function parseFunctionArgument(args: string[]): string[] | undefined {
 	console.log(args);
 	const toolArg = args.find((arg) => arg.startsWith('-f='));
-	logger.info(`Function arg: ${toolArg}`);
+	// logger.info(`Function arg: ${toolArg}`);
 	if (!toolArg) return undefined;
 	return toolArg
 		.substring(3)

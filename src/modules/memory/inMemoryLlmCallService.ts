@@ -32,4 +32,8 @@ export class InMemoryLlmCallService implements LlmCallService {
 	getLlmCallsByDescription(description: string): Promise<LlmCall[]> {
 		return Promise.resolve(Array.from(this.llmCallStore.values()).filter((llmCall) => llmCall.description === description));
 	}
+
+	async delete(llmCallId: string): Promise<void> {
+		this.llmCallStore.delete(llmCallId);
+	}
 }

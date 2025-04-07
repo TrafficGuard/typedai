@@ -40,11 +40,11 @@ describe.only('FirestoreLlmCallService', () => {
 	beforeEach(async () => {
 		service = new FirestoreLlmCallService(); // Instantiate the concrete class
 		await resetFirestoreEmulator();
-		setCurrentUser(testUser); // Set a mock user for tests needing userId
+		// setCurrentUser(testUser); // Set a mock user for tests needing userId
 	});
 
 	afterEach(() => {
-		setCurrentUser(null); // Clear the mock user
+		// setCurrentUser(null); // Clear the mock user
 	});
 
 	describe('saveRequest and getCall (Single Document)', () => {
@@ -61,9 +61,9 @@ describe.only('FirestoreLlmCallService', () => {
 			const savedRequest = await service.saveRequest(request);
 			expect(savedRequest).to.have.property('id');
 			expect(savedRequest).to.have.property('requestTime');
-			expect(savedRequest).to.have.property('llmCallId'); // Check llmCallId is added
+			expect(savedRequest).to.have.property('llmCallId');
 			expect(savedRequest.llmCallId).to.equal(savedRequest.id);
-			expect(savedRequest.userId).to.equal(testUser.id); // Check userId is added
+			expect(savedRequest.userId).to.equal(testUser.id);
 
 			const retrievedCall = await service.getCall(savedRequest.id);
 			expect(retrievedCall).to.not.be.null;
@@ -97,7 +97,7 @@ describe.only('FirestoreLlmCallService', () => {
 				description: 'Small test description',
 				llmId: 'small-test-llm',
 				agentId: 'small-test-agent',
-				userId: testUser.id, // Explicitly set userId
+				userId: testUser.id,
 				callStack: 'small > test > stack',
 			};
 			const savedRequest = await service.saveRequest(request);

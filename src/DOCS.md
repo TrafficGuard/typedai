@@ -1,5 +1,9 @@
 # Backend code standards
 
+# Logging
+
+When an object is logged, postfix it to the message in square brackets matching the variable name
+eg.  logger.info(user, "New registration [user]")
 
 ## Tool/function classes
 

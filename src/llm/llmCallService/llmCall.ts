@@ -6,7 +6,7 @@ export interface LlmRequest {
 	/** From the GenerateTextOptions.id field */
 	description?: string;
 
-	messages?: LlmMessage[];
+	messages: LlmMessage[] | ReadonlyArray<LlmMessage>;
 	/** Populated when called by an agent */
 	agentId?: string;
 	/** Populated when called by a user through the UI */

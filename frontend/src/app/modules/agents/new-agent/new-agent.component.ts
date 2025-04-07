@@ -87,16 +87,16 @@ export class NewAgentComponent implements OnInit {
     const presets = {
       'claude-vertex': {
         easy: 'anthropic-vertex:claude-3-5-haiku',
-        medium: 'anthropic-vertex:claude-3-5-sonnet',
-        hard: 'anthropic-vertex:claude-3-5-sonnet',
+        medium: 'anthropic-vertex:claude-3-7-sonnet',
+        hard: 'anthropic-vertex:claude-3-7-sonnet',
       },
       claude: {
         easy: 'anthropic:claude-3-5-haiku',
-        medium: 'anthropic:claude-3-5-sonnet',
-        hard: 'anthropic:claude-3-5-sonnet',
+        medium: 'anthropic:claude-3-7-sonnet',
+        hard: 'anthropic:claude-3-7-sonnet',
       },
-      gemini: { easy: 'vertex:gemini-1.5-flash', medium: 'vertex:gemini-1.5-flash', hard: 'vertex:gemini-1.5-pro' },
-      openai: { easy: 'openai:gpt-4o-mini', medium: 'openai:gpt-4o', hard: 'openai:gpt-4o' },
+      gemini: { easy: 'vertex:gemini-2.0-flash', medium: 'vertex:gemini-2.5-pro', hard: 'vertex:gemini-2.5-pro' },
+      openai: { easy: 'openai:gpt-4o-mini', medium: 'openai:o3-mini', hard: 'openai:o3-mini' },
     };
     const selection = presets[preset];
     if (selection) {

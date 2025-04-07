@@ -1,5 +1,5 @@
 // https://github.com/AgentOps-AI/tokencost/blob/main/tokencost/model_prices.json
-import { CoreMessage, FilePart, ImagePart, StreamTextResult, TextPart, UserContent } from 'ai';
+import { AssistantContent, CoreMessage, FilePart, ImagePart, StreamTextResult, TextPart, ToolCallPart, UserContent } from 'ai';
 
 // Should match fields in CallSettings in node_modules/ai/dist/index.d.ts
 export interface GenerateOptions {
@@ -120,7 +120,7 @@ export interface GenerationStats {
 	inputTokens: number;
 	outputTokens: number;
 	cost: number;
-	llm: string;
+	llmId: string;
 }
 
 export type LlmMessage = CoreMessage & {
@@ -134,8 +134,40 @@ export type LlmMessage = CoreMessage & {
 	stats?: GenerationStats;
 };
 
-export function userContentText(userContent: UserContent | any): string {
-	return typeof userContent === 'string' ? userContent : userContent.find((content) => content.type === 'text')?.text;
+export type SystemUserPrompt = [systemPrompt: string, userPrompt: string];
+
+export type Prompt = string | SystemUserPrompt | LlmMessage[] | ReadonlyArray<LlmMessage>;
+
+export function isSystemUserPrompt(prompt: Prompt): prompt is SystemUserPrompt {
+	return Array.isArray(prompt) && prompt.length === 2 && typeof prompt[0] === 'string' && typeof prompt[1] === 'string';
+}
+
+/**
+ * @param messages
+ * @return the last message contents as a string
+ */
+export function lastText(messages: LlmMessage[] | ReadonlyArray<LlmMessage>): string {
+	return toText(messages.at(-1));
+}
+
+/**
+ * Transform a LLM message to a string where the response part(s) are string types
+ * @param message
+ */
+export function toText(message: LlmMessage): string {
+	const content = message.content;
+
+	if (typeof content === 'string') return content;
+
+	let text = '';
+	for (const part of content) {
+		const type = part.type;
+		if (type === 'text') text += part.text;
+		if (type === 'reasoning') text += `${part.text}\n`;
+		else if (type === 'redacted-reasoning') text += '<redacted-reasoning>\n';
+		else if (type === 'tool-call') text += `Tool Call (${part.toolCallId} ${part.toolName} Args:${JSON.stringify(part.args)})`;
+	}
+	return text;
 }
 
 export function system(text: string, cache = false): LlmMessage {
@@ -194,10 +226,8 @@ export interface LLM {
 	generateTextWithResult(systemPrompt: string, prompt: string, opts?: GenerateTextOptions): Promise<string>;
 	generateTextWithResult(messages: LlmMessage[] | ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<string>;
 
-	/** Not yet implemented. For generation which can also include images etc */
-	// generateMessage(userPrompt: string, opts?: GenerateTextOptions): Promise<LlmMessage>;
-	// generateMessage(messages: [systemPrompt: string, userPrompt: string], opts?: GenerateTextOptions): Promise<LlmMessage>;
-	// generateMessage(messages: LlmMessage[] | ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage>;
+	/** Generate a LlmMessage response */
+	generateMessage(prompt: string | SystemUserPrompt | ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage>;
 
 	/**
 	 * Streams text from the LLM

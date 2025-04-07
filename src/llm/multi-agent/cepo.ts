@@ -1,9 +1,6 @@
 import { BaseLLM } from '#llm/base-llm';
-import { GenerateTextOptions, LLM, LlmMessage, assistant, system, user, userContentText } from '#llm/llm';
-import { MultiLlama3_70B } from '#llm/multi-agent/fastLlama70b';
-import { MultiLlama3_70B_R1_Distill } from '#llm/multi-agent/fastLlama70bR1distill';
+import { GenerateTextOptions, LLM, LlmMessage, assistant, lastText, user } from '#llm/llm';
 import { cerebrasLlama3_3_70b } from '#llm/services/cerebras';
-import { groqLlama3_3_70B, groqLlama3_3_70B_R1_Distill } from '#llm/services/groq';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 
@@ -117,7 +114,7 @@ export class CePO_LLM extends BaseLLM {
 	}
 
 	private async generatePlan(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
-		const userMessageContent = userContentText(llmMessages[llmMessages.length - 1].content);
+		const userMessageContent = lastText(llmMessages);
 		// TODO replace the last message with the planning prompt
 		const planPrompt = `To answer this question, can you come up with a concise plan to solve it step-by-step but do not provide the final answer. Also, for each step, provide your confidence in the correctness of that step as well as your ability to execute it correctly. Here is the question:\n${userMessageContent}`;
 		const messages: LlmMessage[] = [...llmMessages, user(planPrompt)];
@@ -158,7 +155,7 @@ export class CePO_LLM extends BaseLLM {
 	}
 
 	private async refinePlan(plans: string[], llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
-		const userMessageContent = userContentText(llmMessages[llmMessages.length - 1].content);
+		const userMessageContent = lastText(llmMessages);
 		const combinedPlans = plans.map((plan, index) => `Plan ${index + 1}:\n${plan}`).join('\n\n');
 
 		const refinePrompt = `Can you review the following plans and identify any inconsistencies between them. After that, can you address them and present a final step-by-step solution to the problem? Here is the question:\n${userMessageContent}`;
@@ -182,16 +179,14 @@ export class CePO_LLM extends BaseLLM {
 	}
 
 	private async generateFinalAnswer(refinedPlan: string, llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
-		const userMessageContent = userContentText(llmMessages[llmMessages.length - 1].content);
+		const userMessageContent = lastText(llmMessages);
 		const finalAnswerPrompt = `Use your final solution from above to correctly answer the question. Here is the question:\n${userMessageContent}`;
 
 		const messages: LlmMessage[] = [...llmMessages];
 		messages.push(assistant(refinedPlan));
 		messages.push(user(finalAnswerPrompt));
 
-		const finalAnswer = await this.llm.generateText(messages, { ...opts, temperature: 0 });
-
-		return finalAnswer;
+		return await this.llm.generateText(messages, { ...opts, temperature: 0 });
 	}
 
 	private async rateAnswers(answers: string[], llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
@@ -245,14 +240,12 @@ export class CePO_LLM extends BaseLLM {
 		const refinedPlan = await this.refinePlan(plans, llmMessages, opts);
 
 		// Step 4: Generate Final Answer
-		const finalAnswer = await this.generateFinalAnswer(refinedPlan, llmMessages, opts);
-
-		return finalAnswer;
+		return await this.generateFinalAnswer(refinedPlan, llmMessages, opts);
 	}
 
 	private async rateAnswersAbsolute(answers: string[], llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
 		const ratings: number[] = [];
-		const userMessageContent = userContentText(llmMessages[llmMessages.length - 1].content);
+		const userMessageContent = lastText(llmMessages);
 
 		const ratingPrompt = `Please act as an impartial judge and evaluate the quality of the response provided by an AI assistant to the user question displayed below. Your evaluation should consider correctness as a primary factor as well as other factors such as helpfulness, relevance, accuracy, depth, creativity, and level of detail of the response.
 

@@ -6,7 +6,7 @@ import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { appContext } from '../../applicationContext';
 import { BaseLLM } from '../base-llm';
-import { GenerateTextOptions, LLM, combinePrompts } from '../llm';
+import { GenerateTextOptions, LLM, LlmMessage, assistant, combinePrompts, system, user } from '../llm';
 
 export class MockLLM extends BaseLLM {
 	lastPrompt = '';
@@ -51,37 +51,31 @@ export class MockLLM extends BaseLLM {
 		logger.info(`MockLLM ${opts?.id ?? '<no id>'} ${userPrompt.substring(0, 50)}`);
 
 		// if (!opts?.id) logger.info(new Error(`No id set for prompt ${userPrompt}`));
+		const messages: LlmMessage[] = [];
+		if (systemPrompt) messages.push(system(systemPrompt));
+		messages.push(user(userPrompt));
 
 		return withActiveSpan('generateText', async (span) => {
 			const prompt = combinePrompts(userPrompt, systemPrompt);
 			this.lastPrompt = prompt;
-			if (systemPrompt) span.setAttribute('systemPrompt', systemPrompt);
-			span.setAttributes({
-				userPrompt,
-				inputChars: prompt.length,
-				model: this.model,
-				service: this.service,
-			});
 
 			if (this.responses.length === 0)
 				throw new Error(`Need to call setResponses on MockLLM before calling generateText for prompt id:${opts?.id ?? '<no id>'} prompt:${userPrompt}`);
 
 			const llmCallSave: Promise<LlmCall> = appContext().llmCallService.saveRequest({
-				userPrompt,
-				systemPrompt,
+				messages,
 				llmId: this.getId(),
 				agentId: agentContext()?.agentId,
 				callStack: this.callStack(agentContext()),
 			});
 			const requestTime = Date.now();
 
-			// remove the first item from this.responses
+			// remove the first item from this.responses - simulate the LLM call
 			const { response: responseText, callback } = this.responses.shift()!;
-			// logger.info(`this.responses.length ${this.responses.length}`);
-			// Call the callback function if it exists
-			if (callback) {
-				callback(userPrompt);
-			}
+
+			messages.push(assistant(responseText));
+
+			if (callback) callback(userPrompt);
 
 			const timeToFirstToken = 1;
 			const finishTime = Date.now();
@@ -92,7 +86,6 @@ export class MockLLM extends BaseLLM {
 			const cost = inputCost + outputCost;
 			addCost(cost);
 
-			llmCall.responseText = responseText;
 			llmCall.timeToFirstToken = timeToFirstToken;
 			llmCall.totalTime = finishTime - requestTime;
 			llmCall.cost = cost;
@@ -100,22 +93,12 @@ export class MockLLM extends BaseLLM {
 			try {
 				await appContext().llmCallService.saveResponse(llmCall);
 			} catch (e) {
-				// queue to save
 				console.error(e);
 			}
 
 			this.lastPrompt = userPrompt;
 
-			span.setAttributes({
-				response: responseText,
-				timeToFirstToken,
-				inputCost,
-				outputCost,
-				cost,
-				outputChars: responseText.length,
-			});
-
-			logger.debug(`MockLLM response ${responseText}`);
+			// logger.debug(`MockLLM response ${responseText}`);
 			return responseText;
 		});
 	}

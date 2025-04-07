@@ -5,7 +5,7 @@ import { UserContent } from 'ai';
 import { FastifyRequest } from 'fastify';
 import { Chat, ChatList } from '#chat/chatTypes';
 import { send, sendBadRequest } from '#fastify/index';
-import { FilePartExt, GenerateOptions, ImagePartExt, LLM, UserContentExt } from '#llm/llm';
+import { FilePartExt, GenerateOptions, ImagePartExt, LLM, LlmMessage, UserContentExt } from '#llm/llm';
 import { getLLM } from '#llm/llmFactory';
 import { summaryLLM } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
@@ -65,8 +65,8 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 
 		chat.messages.push({ role: 'user', content: userContent, time: Date.now() }); //, cache: cache ? 'ephemeral' : undefined // remove any previous cache marker
 
-		const generatedMessage = await llm.generateText(chat.messages, { id: 'chat', ...options });
-		chat.messages.push({ role: 'assistant', content: generatedMessage, llmId: llmId, time: Date.now() });
+		const message: LlmMessage = await llm.generateMessage(chat.messages, { id: 'chat', ...options });
+		chat.messages.push(message);
 
 		if (titlePromise) chat.title = await titlePromise;
 
@@ -100,12 +100,12 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 
 			chat.messages.push({ role: 'user', content: userContent, time: Date.now() });
 
-			const generatedMessage = await llm.generateText(chat.messages, { id: 'chat', ...options });
-			chat.messages.push({ role: 'assistant', content: generatedMessage, llmId, time: Date.now() });
+			const message = await llm.generateMessage(chat.messages, { id: 'chat', ...options });
+			chat.messages.push(message);
 
 			await fastify.chatService.saveChat(chat);
 
-			send(reply, 200, generatedMessage);
+			send(reply, 200, message);
 		},
 	);
 	fastify.get(

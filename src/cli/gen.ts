@@ -1,46 +1,30 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
 import { writeFileSync } from 'fs';
-import { agentContext, agentContextStorage, createContext } from '#agent/agentContextLocalStorage';
-import { AgentContext } from '#agent/agentContextTypes';
 import { defaultLLMs } from '#llm/services/defaultLlms';
-import { initApplicationContext } from '../applicationContext';
-import { parseProcessArgs, saveAgentId } from './cli';
+import { countTokens } from '#llm/tokens';
+import { parseProcessArgs } from './cli';
 
 // Usage:
 // npm run gen
 
 async function main() {
 	const llms = defaultLLMs();
-	await initApplicationContext();
 
 	const { initialPrompt } = parseProcessArgs();
 
-	const context: AgentContext = createContext({
-		initialPrompt,
-		agentName: 'gen',
-		llms,
-		functions: [],
-	});
-	agentContextStorage.enterWith(context);
-
-	const text = await llms.medium.generateText(initialPrompt, null, { temperature: 0.5 });
+	const llm = llms.medium;
+	const tokens = await countTokens(initialPrompt);
+	console.log(`Generating with ${llm.getId()}. Input ${tokens} tokens\n`);
+	const start = Date.now();
+	const text = await llm.generateText(initialPrompt);
+	const duration = Date.now() - start;
 
 	writeFileSync('src/cli/gen-out', text);
 
 	console.log(text);
-	console.log();
+	console.log(`\nGenerated ${await countTokens(text)} tokens by ${llm.getId()} in ${(duration / 1000).toFixed(1)} seconds`);
 	console.log('Wrote output to src/cli/gen-out');
-	console.log(`Cost USD$${agentContext().cost.toFixed(2)}`);
-
-	// Save the agent ID after a successful run
-	saveAgentId('gen', context.agentId);
 }
 
-main()
-	.then(() => {
-		console.log('done');
-	})
-	.catch((e) => {
-		console.error(e);
-	});
+main().catch(console.error);

@@ -18,4 +18,9 @@ export interface LlmCallService {
 	 * Gets the LLMS calls made by the user for a particular description (The id field in GenerateTextOpts)
 	 */
 	getLlmCallsByDescription(description: string): Promise<LlmCall[]>;
+
+	/**
+	 * @param llmCallId The ID of the LlmCall to delete.
+	 */
+	delete(llmCallId: string): Promise<void>;
 }

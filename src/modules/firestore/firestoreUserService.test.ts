@@ -4,7 +4,7 @@ import { User } from '#user/user';
 import { FirestoreUserService } from './firestoreUserService';
 
 describe('FirestoreUserService', () => {
-	let firestoreUserService: FirestoreUserService;
+	let userService: FirestoreUserService;
 
 	function createUserWithDefaults(overrides: Partial<User>): User {
 		const defaultUser: User = {
@@ -32,7 +32,7 @@ describe('FirestoreUserService', () => {
 	}
 
 	beforeEach(async () => {
-		firestoreUserService = new FirestoreUserService();
+		userService = new FirestoreUserService();
 		await resetFirestoreEmulator();
 	});
 
@@ -43,14 +43,14 @@ describe('FirestoreUserService', () => {
 				hilBudget: 100,
 				createdAt: new Date(),
 			});
-			user = await firestoreUserService.createUser(user);
-			const retrievedUser = await firestoreUserService.getUser(user.id);
+			user = await userService.createUser(user);
+			const retrievedUser = await userService.getUser(user.id);
 			expect(retrievedUser).to.deep.equal(user);
 		});
 
 		it('should throw an error if user is not found', async () => {
 			try {
-				await firestoreUserService.getUser('nonexistent');
+				await userService.getUser('nonexistent');
 				assert.fail('Should throw an Error if user is not found');
 			} catch (e) {}
 		});
@@ -61,9 +61,9 @@ describe('FirestoreUserService', () => {
 			const createUser: Partial<User> = createUserWithDefaults({
 				email: 'original@example.com',
 			});
-			const user = await firestoreUserService.createUser(createUser);
-			await firestoreUserService.updateUser({ email: 'updated@example.com' }, user.id);
-			const updatedUser = await firestoreUserService.getUser(user.id);
+			const user = await userService.createUser(createUser);
+			await userService.updateUser({ email: 'updated@example.com' }, user.id);
+			const updatedUser = await userService.getUser(user.id);
 			expect(updatedUser.email).to.equal('updated@example.com');
 		});
 	});
@@ -74,9 +74,9 @@ describe('FirestoreUserService', () => {
 				email: 'original@example.com',
 				enabled: true,
 			});
-			user = await firestoreUserService.createUser(user);
-			await firestoreUserService.disableUser(user.id);
-			const disabledUser = await firestoreUserService.getUser(user.id);
+			user = await userService.createUser(user);
+			await userService.disableUser(user.id);
+			const disabledUser = await userService.getUser(user.id);
 			expect(disabledUser.enabled).to.be.false;
 		});
 	});
@@ -89,9 +89,9 @@ describe('FirestoreUserService', () => {
 			let user2: Partial<User> = createUserWithDefaults({
 				email: 'list2@example.com',
 			});
-			user1 = await firestoreUserService.createUser(user1);
-			user2 = await firestoreUserService.createUser(user2);
-			const users = await firestoreUserService.listUsers();
+			user1 = await userService.createUser(user1);
+			user2 = await userService.createUser(user2);
+			const users = await userService.listUsers();
 			expect(users).to.have.lengthOf(2);
 			expect(users).to.deep.include.members([user1, user2]);
 		});
@@ -102,9 +102,9 @@ describe('FirestoreUserService', () => {
 			const newUser = createUserWithDefaults({
 				email: 'create@example.com',
 			});
-			const createdUser = await firestoreUserService.createUser(newUser);
+			const createdUser = await userService.createUser(newUser);
 			expect(createdUser.email).to.equal(newUser.email);
-			const retrievedUser = await firestoreUserService.getUser(createdUser.id);
+			const retrievedUser = await userService.getUser(createdUser.id);
 			expect(retrievedUser.email).to.equal(newUser.email);
 			expect(retrievedUser.llmConfig).to.exist;
 		});
@@ -113,9 +113,9 @@ describe('FirestoreUserService', () => {
 			const newUser: Partial<User> = {
 				email: 'create@example.com',
 			};
-			const createdUser = await firestoreUserService.createUser(newUser);
+			const createdUser = await userService.createUser(newUser);
 			expect(createdUser.email).to.equal(newUser.email);
-			const retrievedUser = await firestoreUserService.getUser(createdUser.id);
+			const retrievedUser = await userService.getUser(createdUser.id);
 			expect(retrievedUser.email).to.equal(newUser.email);
 			expect(retrievedUser.llmConfig).to.exist;
 		});

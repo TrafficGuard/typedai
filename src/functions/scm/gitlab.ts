@@ -200,7 +200,7 @@ export class GitLab implements SourceControlManagement {
 				// else switch to the default branch defined in the GitLab project
 				const projectInfo = await getProjectInfo();
 				if (projectInfo.devBranch) {
-					await fss.vcs.switchToBranch(projectInfo.devBranch);
+					await fss.getVcs().switchToBranch(projectInfo.devBranch);
 				} else {
 					const gitProject = await this.getProject(projectPathWithNamespace);
 					const switchResult = await execCommand(`git switch ${gitProject.defaultBranch}`, { workingDirectory: path });

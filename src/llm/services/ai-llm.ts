@@ -1,5 +1,6 @@
 import { ProviderV1 } from '@ai-sdk/provider';
 import {
+	AssistantMessage,
 	CoreMessage,
 	FinishReason,
 	GenerateTextResult,
@@ -12,7 +13,7 @@ import {
 } from 'ai';
 import { addCost, agentContext } from '#agent/agentContextLocalStorage';
 import { BaseLLM } from '#llm/base-llm';
-import { GenerateTextOptions, LlmMessage, userContentText } from '#llm/llm';
+import { GenerateTextOptions, GenerationStats, LlmMessage, toText } from '#llm/llm';
 import { LlmCall } from '#llm/llmCallService/llmCall';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
@@ -46,6 +47,11 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 	}
 
 	async generateTextFromMessages(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
+		const msg = await this.generateMessage(llmMessages, opts);
+		return toText(msg);
+	}
+
+	async _generateMessage(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<LlmMessage> {
 		const description = opts?.id ?? '';
 		return withActiveSpan(`generateTextFromMessages ${description}`, async (span) => {
 			const messages: CoreMessage[] = this.processMessages(llmMessages);
@@ -104,6 +110,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 					providerOptions,
 				});
 
+				result.response.messages;
 				const responseText = result.text;
 				const finishTime = Date.now();
 				const llmCall: LlmCall = await llmCallSave;
@@ -113,13 +120,31 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				const cost = inputCost + outputCost;
 
 				// Add the response as an assistant message
-				llmCall.messages = [...(llmCall.messages ?? []), { role: 'assistant', content: responseText }];
+
 				llmCall.timeToFirstToken = finishTime - requestTime;
 				llmCall.totalTime = finishTime - requestTime;
 				llmCall.cost = cost;
 				llmCall.inputTokens = result.usage.promptTokens;
 				llmCall.outputTokens = result.usage.completionTokens;
+
 				addCost(cost);
+
+				const stats: GenerationStats = {
+					llmId: this.getId(),
+					cost,
+					inputTokens: result.usage.promptTokens,
+					outputTokens: result.usage.completionTokens,
+					requestTime,
+					timeToFirstToken: llmCall.timeToFirstToken,
+					totalTime: llmCall.totalTime,
+				};
+				const message: LlmMessage = {
+					role: 'assistant',
+					content: responseText,
+					stats,
+				};
+
+				llmCall.messages = [...llmCall.messages, message];
 
 				span.setAttributes({
 					inputChars: prompt.length,
@@ -136,7 +161,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 					logger.error(e);
 				}
 
-				return responseText;
+				return message;
 			} catch (error) {
 				span.recordException(error);
 				throw error;

@@ -1,4 +1,5 @@
 // Types copied from the "ai" npm package so we don't need to install the entire package
+// Also the ai types depend on node.js types, which we don't want to include in the frontend project
 // filename is added to FilePart and ImagePart
 
 export type AiMessage = CoreSystemMessage | CoreUserMessage | CoreAssistantMessage | CoreToolMessage;
@@ -13,7 +14,8 @@ type LanguageModelV1ProviderMetadata = Record<string, Record<string, JSONValue>>
 type ProviderMetadata = LanguageModelV1ProviderMetadata;
 
 /**
- Data content. Can either be a base64-encoded string, a Uint8Array, an ArrayBuffer, or a Buffer.
+ Data content. Can either be a base64-encoded string, a Uint8Array, an ArrayBuffer.
+ Does not have the Buffer union type which exists on the server-side type
  */
 type DataContent = string | Uint8Array | ArrayBuffer;
 
@@ -33,6 +35,13 @@ export interface TextPart {
      */
     experimental_providerMetadata?: ProviderMetadata;
 }
+
+export type ImagePartExt = ImagePart & {
+    /** File name */
+    filename: string;
+}
+
+
 /**
  Image content part of a prompt. It contains an image.
  */
@@ -41,7 +50,7 @@ export interface ImagePart {
     /**
      Image data. Can either be:
 
-     - data: a base64-encoded string, a Uint8Array, an ArrayBuffer, or a Buffer
+     - data: a base64-encoded string, a Uint8Array, an ArrayBuffer
      - URL: a URL that points to the image
      */
     image: DataContent | URL;
@@ -58,7 +67,14 @@ export interface ImagePart {
      */
     experimental_providerMetadata?: ProviderMetadata;
 }
+
+export type FilePartExt = FilePart & {
+    /** File name */
+    filename: string;
+}
+
 /**
+ *
  File content part of a prompt. It contains a file.
  */
 export interface FilePart {
@@ -221,4 +237,4 @@ type ToolContent = Array<ToolResultPart>;
  A message that can be used in the `messages` field of a prompt.
  It can be a user message, an assistant message, or a tool message.
  */
-type CoreMessage = CoreSystemMessage | CoreUserMessage | CoreAssistantMessage | CoreToolMessage;
+export type CoreMessage = CoreSystemMessage | CoreUserMessage | CoreAssistantMessage | CoreToolMessage;

@@ -10,7 +10,7 @@ import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFile
 import { getRepositoryOverview, getTopLevelSummary } from '#swe/index/repoIndexDocBuilder';
 import { reviewChanges } from '#swe/reviewChanges';
 import { supportingInformation } from '#swe/supportingInformation';
-import { execCommand, runShellCommand } from '#utils/exec';
+import { execCommand } from '#utils/exec';
 import { appContext } from '../applicationContext';
 import { cacheRetry } from '../cache/cacheRetry';
 import { AiderCodeEditor } from './aiderCodeEditor';
@@ -66,11 +66,11 @@ export class CodeEditingAgent {
 		// NODE_ENV=development is needed to install devDependencies for Node.js projects.
 		// Set this in case the current process has NODE_ENV set to 'production'
 		const installPromise: Promise<any> = projectInfo.initialise
-			? runShellCommand(projectInfo.initialise, { envVars: { NODE_ENV: 'development' } })
+			? execCommand(projectInfo.initialise, { envVars: { NODE_ENV: 'development' } })
 			: Promise.resolve();
 
-		const headCommit = await fs.vcs.getHeadSha();
-		const currentBranch = await fs.vcs.getBranchName();
+		const headCommit = await fs.getVcs().getHeadSha();
+		const currentBranch = await fs.getVcs().getBranchName();
 		const gitBase = !projectInfo.devBranch || projectInfo.devBranch === currentBranch ? headCommit : projectInfo.devBranch;
 		logger.info(`git base ${gitBase}`);
 
@@ -142,7 +142,7 @@ Then respond in following format:
 		this.failOnCompileError(compileErrorAnalysis);
 
 		// Store in memory for now while we see how the prompt performs
-		const branchName = await getFileSystem().vcs.getBranchName();
+		const branchName = await getFileSystem().getVcs().getBranchName();
 
 		const reviewItems: string[] = await this.reviewChanges(requirements, gitBase, fileSelection);
 		if (reviewItems.length) {
@@ -182,7 +182,7 @@ Then respond in following format:
 		let compiledCommitSha: string | null = agentContext().memory.compiledCommitSha;
 
 		const fs: FileSystemService = getFileSystem();
-		const git = fs.vcs;
+		const git = fs.getVcs();
 
 		const MAX_ATTEMPTS = 5;
 		for (let i = 0; i < MAX_ATTEMPTS; i++) {
@@ -295,7 +295,7 @@ Then respond in following format:
 					await this.runStaticAnalysis(projectInfo);
 					try {
 						// Merge into the last commit if possible
-						await fs.vcs.mergeChangesIntoLatestCommit(initialSelectedFiles);
+						await fs.getVcs().mergeChangesIntoLatestCommit(initialSelectedFiles);
 					} catch (e) {}
 
 					break;
@@ -304,7 +304,7 @@ Then respond in following format:
 
 					try {
 						// Merge any successful auto-fixes to the latest commit if possible
-						await fs.vcs.mergeChangesIntoLatestCommit(initialSelectedFiles);
+						await fs.getVcs().mergeChangesIntoLatestCommit(initialSelectedFiles);
 					} catch (e) {}
 					if (i === STATIC_ANALYSIS_MAX_ATTEMPTS - 1) {
 						logger.warn(`Unable to fix static analysis errors: ${staticAnalysisErrorOutput}`);

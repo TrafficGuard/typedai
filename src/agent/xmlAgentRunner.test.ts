@@ -7,6 +7,7 @@ import { AGENT_COMPLETED_NAME } from '#agent/agentFunctions';
 import { RunAgentConfig, SUPERVISOR_CANCELLED_FUNCTION_NAME, cancelAgent, provideFeedback, startAgent, startAgentAndWait } from '#agent/agentRunner';
 import { XML_AGENT_SPAN } from '#agent/xmlAgentRunner';
 import { TEST_FUNC_NOOP, TEST_FUNC_SKY_COLOUR, TEST_FUNC_SUM, THROW_ERROR_TEXT, TestFunctions } from '#functions/testFunctions';
+import { lastText } from '#llm/llm';
 import { MockLLM } from '#llm/services/mock-llm';
 import { setTracer } from '#o11y/trace';
 import { User } from '#user/user';
@@ -228,7 +229,7 @@ describe.skip('xmlAgentRunner', () => {
 			expect(calls.length).to.equal(3);
 			const skyCall = calls[1];
 			expect(skyCall.callStack).to.equal(`${AGENT_NAME} > ${XML_AGENT_SPAN} > skyColour > generateText`);
-			expect(skyCall.responseText).to.equal('blue');
+			expect(lastText(skyCall.messages)).to.equal('blue');
 		});
 	});
 });

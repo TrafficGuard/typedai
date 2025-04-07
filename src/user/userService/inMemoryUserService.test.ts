@@ -3,7 +3,7 @@ import { InMemoryUserService } from '#modules/memory/inMemoryUserService';
 import { User } from '../user';
 
 describe('InMemoryUserService', () => {
-	const inMemoryUserService = new InMemoryUserService();
+	const userService = new InMemoryUserService();
 
 	function createUserWithDefaults(overrides: Partial<User>): User {
 		const defaultUser: User = {
@@ -45,7 +45,7 @@ describe('InMemoryUserService', () => {
 
 	beforeEach(() => {
 		// Reset the state before each test
-		inMemoryUserService.users = [];
+		userService.users = [];
 	});
 
 	describe('getUser', () => {
@@ -55,13 +55,13 @@ describe('InMemoryUserService', () => {
 				email: 'test@example.com',
 				hilBudget: 100,
 			});
-			await inMemoryUserService.createUser(user);
-			const retrievedUser = await inMemoryUserService.getUser('1');
+			await userService.createUser(user);
+			const retrievedUser = await userService.getUser('1');
 			expect(retrievedUser).to.deep.equal(user);
 		});
 
 		it('should throw an error if user is not found', (done) => {
-			inMemoryUserService.getUser('nonexistent').catch((err) => {
+			userService.getUser('nonexistent').catch((err) => {
 				expect(err).to.be.an('error');
 				done();
 			});
@@ -90,9 +90,9 @@ describe('InMemoryUserService', () => {
 				functionConfig: {},
 				createdAt: new Date(),
 			};
-			await inMemoryUserService.createUser(user);
-			await inMemoryUserService.updateUser({ email: 'updated@example.com' }, '2');
-			const updatedUser = await inMemoryUserService.getUser('2');
+			await userService.createUser(user);
+			await userService.updateUser({ email: 'updated@example.com' }, '2');
+			const updatedUser = await userService.getUser('2');
 			expect(updatedUser.email).to.equal('updated@example.com');
 		});
 	});
@@ -119,9 +119,9 @@ describe('InMemoryUserService', () => {
 				functionConfig: {},
 				createdAt: new Date(),
 			};
-			await inMemoryUserService.createUser(user);
-			await inMemoryUserService.disableUser('3');
-			const disabledUser = await inMemoryUserService.getUser('3');
+			await userService.createUser(user);
+			await userService.disableUser('3');
+			const disabledUser = await userService.getUser('3');
 			expect(disabledUser.enabled).to.be.false;
 		});
 	});
@@ -168,9 +168,9 @@ describe('InMemoryUserService', () => {
 				functionConfig: {},
 				createdAt: new Date(),
 			};
-			await inMemoryUserService.createUser(user1);
-			await inMemoryUserService.createUser(user2);
-			const users = await inMemoryUserService.listUsers();
+			await userService.createUser(user1);
+			await userService.createUser(user2);
+			const users = await userService.listUsers();
 			expect(users).to.have.lengthOf(2);
 			expect(users).to.deep.include.members([user1, user2]);
 		});
@@ -178,7 +178,7 @@ describe('InMemoryUserService', () => {
 
 	describe('updateUser error cases', () => {
 		it('should throw an error if user does not exist', (done) => {
-			inMemoryUserService.updateUser({ email: 'noone@example.com' }, 'nonexistent').catch((err) => {
+			userService.updateUser({ email: 'noone@example.com' }, 'nonexistent').catch((err) => {
 				expect(err).to.be.an('error');
 				done();
 			});
@@ -187,7 +187,7 @@ describe('InMemoryUserService', () => {
 
 	describe('disableUser error cases', () => {
 		it('should throw an error if user does not exist', (done) => {
-			inMemoryUserService.disableUser('nonexistent').catch((err) => {
+			userService.disableUser('nonexistent').catch((err) => {
 				expect(err).to.be.an('error');
 				done();
 			});
@@ -201,10 +201,10 @@ describe('InMemoryUserService', () => {
 				email: 'create@example.com',
 			};
 			const newUser = createUserWithDefaults(values);
-			const createdUser = await inMemoryUserService.createUser(newUser);
+			const createdUser = await userService.createUser(newUser);
 			expect(createdUser.id).to.equal(values.id);
 			expect(createdUser.email).to.equal(values.email);
-			const retrievedUser = await inMemoryUserService.getUser('6');
+			const retrievedUser = await userService.getUser('6');
 			expect(retrievedUser.email).to.equal(values.email);
 			expect(retrievedUser.id).to.equal(values.id);
 		});

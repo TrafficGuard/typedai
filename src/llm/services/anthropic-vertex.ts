@@ -11,7 +11,7 @@ import { appContext } from '../../applicationContext';
 import { RetryableError, cacheRetry } from '../../cache/cacheRetry';
 import { BaseLLM, InputCostFunction, perMilTokens } from '../base-llm';
 import { MaxTokensError } from '../errors';
-import { GenerateTextOptions, LLM, LlmMessage } from '../llm';
+import { GenerateTextOptions, GenerationStats, LLM, LlmMessage } from '../llm';
 
 type Message = Anthropic.Messages.Message;
 type MessageParam = Anthropic.Messages.MessageParam;
@@ -100,7 +100,7 @@ class AnthropicVertexLLM extends BaseLLM {
 	// Error when
 	// {"error":{"code":400,"message":"Project `1234567890` is not allowed to use Publisher Model `projects/project-id/locations/us-central1/publishers/anthropic/models/claude-3-haiku@20240307`","status":"FAILED_PRECONDITION"}}
 	@cacheRetry({ backOffMs: 5000 })
-	async generateTextFromMessages(messages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
+	async _generateTextFromMessages(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
 		const description = opts?.id ?? '';
 		return await withActiveSpan(`generateTextFromMessages ${description}`, async (span) => {
 			let maxOutputTokens = 8192;
@@ -290,8 +290,8 @@ class AnthropicVertexLLM extends BaseLLM {
 
 			let responseText = '';
 			for (const content of generatedMessage.content) {
+				if (content.type === 'thinking') responseText += `${content.thinking}\n`;
 				if (content.type === 'text') responseText += content.text;
-				if (content.type === 'thinking') responseText += content.thinking;
 			}
 
 			const finishTime = Date.now();
@@ -309,7 +309,6 @@ class AnthropicVertexLLM extends BaseLLM {
 			const cost = inputCost + outputCost;
 			addCost(cost);
 
-			llmCall.responseText = responseText;
 			llmCall.timeToFirstToken = timeToFirstToken;
 			llmCall.totalTime = finishTime - requestTime;
 			llmCall.cost = cost;
@@ -328,8 +327,24 @@ class AnthropicVertexLLM extends BaseLLM {
 				callStack: this.callStack(agentContext()),
 			});
 
+			const stats: GenerationStats = {
+				llmId: this.getId(),
+				cost,
+				inputTokens,
+				outputTokens,
+				requestTime,
+				timeToFirstToken: llmCall.timeToFirstToken,
+				totalTime: llmCall.totalTime,
+			};
+			const message: LlmMessage = {
+				role: 'assistant',
+				content: responseText,
+				stats,
+			};
+
+			llmCall.messages = [...llmCall.messages, message];
+
 			try {
-				llmCall.messages = [...messages, { role: 'assistant', content: responseText }];
 				await appContext()?.llmCallService.saveResponse(llmCall);
 			} catch (e) {
 				// queue to save
@@ -342,7 +357,7 @@ class AnthropicVertexLLM extends BaseLLM {
 				// logger.debug(responseText);
 				throw new MaxTokensError(maxOutputTokens, responseText);
 			}
-			return responseText;
+			return message;
 		});
 	}
 

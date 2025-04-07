@@ -1,6 +1,7 @@
 import { ExecException, ExecSyncOptions, SpawnOptionsWithoutStdio, exec, execSync, spawn } from 'child_process';
 import { existsSync, readFileSync } from 'fs';
 import { ExecOptions } from 'node:child_process';
+import fs from 'node:fs';
 import os from 'os';
 import path from 'path';
 import { promisify } from 'util';
@@ -42,7 +43,7 @@ export function execCmdSync(command: string, cwd = getFileSystem().getWorkingDir
 	if (command.startsWith('~') && home) command = home + command.substring(1);
 	try {
 		const shell = getAvailableShell();
-		logger.info(`execCmdSync ${command}\ncwd: ${cwd}\nshell: ${shell}`);
+		logger.debug(`execCmdSync ${command}\ncwd: ${cwd}\nshell: ${shell}`);
 
 		const options: ExecSyncOptions = {
 			cwd,
@@ -64,12 +65,12 @@ export function execCmdSync(command: string, cwd = getFileSystem().getWorkingDir
 			cwd,
 		};
 	} catch (error) {
-		logger.error('Error executing command:', error);
+		logger.error(error);
 		return {
 			cmd: command,
 			stdout: error.stdout?.toString() || '',
 			stderr: error.stderr?.toString() || '',
-			error,
+			error: error instanceof Error ? error : new Error(String(error)),
 			cwd,
 		};
 	}
@@ -264,6 +265,13 @@ function spawnAsync(command: string, options: SpawnOptionsWithoutStdio): Promise
 	});
 }
 
+/**
+ * This could be extracted to a class as its purpose is to have a persistent shell which
+ * can have multiple commands executed over time.
+ * This can be required when needing to source a script before executing other scripts.
+ * @param cmd
+ * @param opts
+ */
 export async function runShellCommand(cmd: string, opts?: ExecCmdOptions): Promise<ExecResult> {
 	const shell: string = process.platform === 'win32' ? 'cmd.exe' : os.platform() === 'darwin' ? '/bin/zsh' : '/bin/bash';
 	const env: Record<string, string> = opts?.envVars ? { ...process.env, ...opts.envVars } : { ...process.env };
