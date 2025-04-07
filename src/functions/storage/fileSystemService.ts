@@ -379,17 +379,13 @@ export class FileSystemService {
 			let absolutePathToRead: string;
 
 			// Determine the absolute path to read based on the input path format
-			if (inputPath.startsWith('/')) {
-				// Handle paths starting with '/' as relative to basePath
-				absolutePathToRead = path.resolve(this.basePath, inputPath.slice(1));
-			} else if (!path.isAbsolute(inputPath)) {
-				// Handle relative paths (not starting with '/' or absolute)
-				absolutePathToRead = path.resolve(serviceCwd, inputPath);
-			} else {
-				// Implicitly handles only true absolute paths not starting with '/'
-				// If absolute, use it directly (but ensure it's within the basePath for security)
-				// Note: You might want stricter checking against `this.basePath` depending on security needs.
+			if (path.isAbsolute(inputPath)) {
+				// If the input path is already absolute, use it directly.
+				// The basePath check later will ensure it's within allowed bounds.
 				absolutePathToRead = inputPath;
+			} else {
+				// If the input path is relative, resolve it against the service's current working directory.
+				absolutePathToRead = path.resolve(serviceCwd, inputPath);
 			}
 
 			// Prevent reading files outside the intended base directory
