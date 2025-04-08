@@ -27,6 +27,17 @@ export interface GenerationStats {
     llmId: string;
 }
 
+/** Server API chat message data type. Must match GenerationStats in src/llm/llm.ts */
+export interface GenerationStats {
+    requestTime: number;
+    timeToFirstToken: number;
+    totalTime: number;
+    inputTokens: number;
+    outputTokens: number;
+    cost: number;
+    llmId: string;
+}
+
 /** Server API chat message data type. Must match LlmMessage in src/llm/llm.ts */
 export type LlmMessage = CoreMessage & {
     /** Set the cache_control flag with Claude models */

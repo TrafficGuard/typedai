@@ -4,14 +4,23 @@ import {
     Attachment,
     Chat,
     ChatMessage,
+    GenerationStats,
     LlmMessage,
     NEW_CHAT_ID,
     ServerChat,
     TextContent,
 } from 'app/modules/chat/chat.types';
-import {BehaviorSubject, catchError, filter, map, Observable, of, switchMap, take, tap, throwError,} from 'rxjs';
+import {BehaviorSubject, catchError, filter, map, Observable, Observer, of, switchMap, take, tap, throwError,} from 'rxjs';
 import {GenerateOptions} from "app/core/user/user.types";
 import {FilePartExt, ImagePartExt, TextPart} from "./ai.types";
+
+/**
+ * Events emitted during message streaming
+ */
+export type StreamEvent =
+    | { type: 'chunk'; text: string }
+    | { type: 'complete'; stats: GenerationStats }
+    | { type: 'error'; error: any };
 
 @Injectable({ providedIn: 'root' })
 export class ChatService {
@@ -368,6 +377,117 @@ export class ChatService {
                     );
             })
         );
+    }
+
+    /**
+     * Streams a message from the LLM using Server-Sent Events
+     * @param chatId The chat ID
+     * @param message The user message text
+     * @param llmId The LLM ID to use
+     * @param options Optional generation options
+     * @param attachments Optional file attachments
+     * @returns Observable of StreamEvents (chunk, complete, error)
+     */
+    streamMessage(chatId: string, message: string, llmId: string, options?: GenerateOptions, attachments?: Attachment[]): Observable<StreamEvent> {
+        return new Observable((observer: Observer<StreamEvent>) => {
+            const controller = new AbortController();
+            const signal = controller.signal;
+
+            const bodyPayload = {
+                userContent: message, // Simple text for now
+                llmId: llmId,
+                options: options
+                // TODO: Handle attachments properly
+            };
+
+            fetch(`/api/chat/${chatId}/stream`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'text/event-stream'
+                },
+                body: JSON.stringify(bodyPayload),
+                signal: signal
+            })
+            .then(async response => {
+                if (!response.ok) {
+                    // Handle HTTP errors before streaming starts
+                    const errorBody = await response.text();
+                    throw new Error(`HTTP error! status: ${response.status}, body: ${errorBody}`);
+                }
+
+                if (!response.body) {
+                    throw new Error('Response body is null');
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                function processText(text: string) {
+                    buffer += text;
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || ''; // Keep the last partial line
+
+                    lines.forEach(line => {
+                        if (line.startsWith('data:')) {
+                            try {
+                                const jsonData = line.substring(5).trim();
+                                if (jsonData) {
+                                    const eventData = JSON.parse(jsonData) as StreamEvent;
+                                    observer.next(eventData);
+                                    if (eventData.type === 'complete' || eventData.type === 'error') {
+                                        observer.complete(); // Complete the observable on final events
+                                    }
+                                }
+                            } catch (e) {
+                                console.error('Failed to parse SSE data:', line, e);
+                                observer.error({ type: 'error', error: 'Failed to parse stream data' });
+                            }
+                        }
+                    });
+                }
+
+                async function readStream() {
+                    try {
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) {
+                                // Process any remaining buffer content if needed
+                                if (buffer.trim().startsWith('data:')) {
+                                    processText('\n');
+                                }
+                                // Complete the observer when the stream ends, if not already completed/errored by stream data.
+                                observer.complete();
+                                break;
+                            }
+                            processText(decoder.decode(value, { stream: true }));
+                        }
+                    } catch (error) {
+                        if ((error as DOMException).name === 'AbortError') {
+                            console.log('Stream reading aborted.');
+                        } else {
+                            console.error('Error reading stream:', error);
+                            observer.error({ type: 'error', error: error });
+                        }
+                    } finally {
+                        reader.releaseLock();
+                    }
+                }
+
+                readStream();
+            })
+            .catch(error => {
+                console.error('Fetch error in streamMessage:', error);
+                observer.error({ type: 'error', error: error });
+            });
+
+            // Return teardown logic
+            return () => {
+                console.log('Aborting fetch request for stream');
+                controller.abort();
+            };
+        });
     }
 
     sendAudioMessage(chatId: string, llmId: string, audio: Blob): Observable<Chat> {

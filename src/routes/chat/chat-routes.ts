@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { MultipartFile } from '@fastify/multipart';
 import { Type } from '@sinclair/typebox';
-import { UserContent } from 'ai';
+import { TextStreamPart, UserContent } from 'ai';
 import { FastifyRequest } from 'fastify';
 import { Chat, ChatList } from '#chat/chatTypes';
 import { send, sendBadRequest } from '#fastify/index';
@@ -63,15 +63,16 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			`<message>\n${text}\n</message>\n\n\nThe above message is the first message in a new chat conversation. Your task is to create a short title in a few words for the conversation. Respond only with the title, nothing else.`,
 		);
 
-		chat.messages.push({ role: 'user', content: userContent, time: Date.now() }); //, cache: cache ? 'ephemeral' : undefined // remove any previous cache marker
+		// Add the user message to the chat
+		chat.messages.push({ role: 'user', content: userContent, time: Date.now() });
 
-		const message: LlmMessage = await llm.generateMessage(chat.messages, { id: 'chat', ...options });
-		chat.messages.push(message);
-
+		// Set the title if available
 		if (titlePromise) chat.title = await titlePromise;
 
+		// Save the chat with just the user message
 		chat = await fastify.chatService.saveChat(chat);
 
+		// Return the chat without generating the AI response
 		send(reply, 200, chat);
 	});
 	fastify.post(
@@ -123,6 +124,120 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			send(reply, 200, chats);
 		},
 	);
+	fastify.post(
+		`${basePath}/chat/:chatId/stream`,
+		{
+			schema: {
+				params: Type.Object({
+					chatId: Type.String(),
+				}),
+				body: Type.Object({
+					userContent: Type.Any(),
+					llmId: Type.String(),
+					options: Type.Optional(Type.Any())
+				})
+			},
+		},
+		async (req, reply) => {
+			const { chatId } = req.params;
+			const { llmId, userContent, options } = req.body;
+			const userId = currentUser().id;
+
+			try {
+				// Load the chat
+				const chat = await fastify.chatService.loadChat(chatId);
+				
+				// Check authorization
+				if (chat.userId !== userId) {
+					return sendBadRequest(reply, 'Unauthorized to access this chat');
+				}
+
+				// Get the LLM
+				let llm: LLM;
+				try {
+					llm = getLLM(llmId);
+				} catch (e) {
+					return sendBadRequest(reply, `No LLM for ${llmId}`);
+				}
+				
+				// Check if LLM is configured
+				if (!llm.isConfigured()) {
+					return sendBadRequest(reply, `LLM ${llm.getId()} is not configured`);
+				}
+
+				// Add the user message to the chat
+				const userMessage: LlmMessage = { 
+					role: 'user', 
+					content: userContent, 
+					time: Date.now() 
+				};
+				chat.messages.push(userMessage);
+				
+				// Save the chat with the new user message
+				await fastify.chatService.saveChat(chat);
+
+				// Set up SSE headers
+				reply.raw.writeHead(200, {
+					'Content-Type': 'text/event-stream',
+					'Cache-Control': 'no-cache',
+					'Connection': 'keep-alive',
+				});
+
+				// Variable to accumulate the full response
+				let accumulatedText = '';
+
+				// Stream the response
+				try {
+					const generationStats = await llm.streamText(
+						chat.messages,
+						(chunk: TextStreamPart<any>) => {
+							if (chunk.type === 'text-delta') {
+								const textChunk = chunk.textDelta;
+								accumulatedText += textChunk;
+								// Send chunk to client
+								reply.raw.write(`data: ${JSON.stringify({ type: 'chunk', text: textChunk })}\n\n`);
+							}
+						},
+						{ id: `chat-${chatId}`, ...options }
+					);
+
+					// Create and save the assistant message
+					const assistantMessage: LlmMessage = {
+						role: 'assistant',
+						content: accumulatedText,
+						stats: generationStats,
+						time: Date.now(),
+					};
+					chat.messages.push(assistantMessage);
+					await fastify.chatService.saveChat(chat);
+
+					// Send completion event
+					reply.raw.write(`data: ${JSON.stringify({ type: 'complete', stats: generationStats })}\n\n`);
+					reply.raw.end();
+
+				} catch (error) {
+					logger.error({ err: error, chatId }, `Error during LLM stream for chat ${chatId}`);
+					// Send error event if possible
+					if (!reply.raw.writableEnded) {
+						try {
+							reply.raw.write(`data: ${JSON.stringify({ type: 'error', error: 'LLM stream failed' })}\n\n`);
+						} catch (writeError) {
+							logger.error({ err: writeError }, 'Failed to write error event to SSE stream');
+						} finally {
+							reply.raw.end();
+						}
+					}
+				}
+			} catch (error) {
+				logger.error({ err: error, chatId }, `Error setting up stream for chat ${chatId}`);
+				// If headers haven't been sent yet, send a regular error response
+				if (!reply.sent) {
+					send(reply, 500, { error: 'Failed to set up message stream' });
+				}
+			}
+		}
+	);
+
 	fastify.delete(
 		`${basePath}/chat/:chatId`,
 		{
