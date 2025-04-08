@@ -48,13 +48,19 @@ export interface Chat {
     messages?: ChatMessage[];
 }
 
+export interface TextContent {
+    type: string,
+    text: string
+}
+
 export interface ChatMessage {
     id?: string;
     isMine?: boolean;
-    content?: string;
     llmId?: string;
     createdAt?: string;
     generating?: boolean;
+    content?: TextContent[];
+    textContent: string;
     /** Attachments to be sent with the next message */
     attachments?: Attachment[];
 }

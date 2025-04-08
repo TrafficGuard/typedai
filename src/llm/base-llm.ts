@@ -1,7 +1,7 @@
-import { StreamTextResult } from 'ai';
+import { StreamTextResult, TextStreamPart } from 'ai';
 import { AgentContext } from '#agent/agentContextTypes';
 import { countTokens } from '#llm/tokens';
-import { GenerateJsonOptions, GenerateTextOptions, LLM, LlmMessage, Prompt, SystemUserPrompt, isSystemUserPrompt, system, user } from './llm';
+import { GenerateJsonOptions, GenerateTextOptions, GenerationStats, LLM, LlmMessage, Prompt, SystemUserPrompt, isSystemUserPrompt, system, user } from './llm';
 import { extractJsonResult, extractTag } from './responseParsers';
 
 export interface SerializedLLM {
@@ -192,7 +192,7 @@ export abstract class BaseLLM implements LLM {
 		throw new Error('Not implemented');
 	}
 
-	async streamText(llmMessages: LlmMessage[], onChunk: ({ string }) => void, opts?: GenerateTextOptions): Promise<StreamTextResult<any, any>> {
+	async streamText(llmMessages: LlmMessage[], onChunk: (chunk: TextStreamPart<any>) => void, opts?: GenerateTextOptions): Promise<GenerationStats> {
 		throw new Error('Not implemented');
 	}
 

@@ -393,14 +393,14 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
                 this.chat.messages.push({
                     id: uuidv4(),
-                    content: message,
+                    textContent: message,
                     isMine: true,
                     attachments: attachments,
                 });
 
                 const generatingMessage: ChatMessage = {
                     id: uuidv4(),
-                    content: '',
+                    textContent: '',
                     isMine: false,
                     generating: true
                 };
@@ -408,7 +408,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
                 // Animate the typing/generating indicator
                 this.generatingTimer = setInterval(() => {
-                    generatingMessage.content = generatingMessage.content.length === 3 ? '.' : generatingMessage.content + '.';
+                    generatingMessage.textContent = generatingMessage.textContent.length === 3 ? '.' : generatingMessage.textContent + '.';
                     this._changeDetectorRef.markForCheck();
                 }, 800);
 
@@ -436,7 +436,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
                     this.router.navigate([`/ui/chat/${chat.id}`]).catch(console.error);
                     return;
                 }
-
+                console.log(this.chat.messages.at(-1))
                 this.chat = clone(chat);
                 this.assignUniqueIdsToMessages(this.chat.messages);
                 clearInterval(this.generatingTimer);
@@ -619,7 +619,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
         let lastUserMessage: string;
         for (let i = messageIndex; i >= 0; i--) {
             if (this.chat.messages[i].isMine) {
-                lastUserMessage = this.chat.messages[i].content;
+                lastUserMessage = this.chat.messages[i].textContent;
                 break;
             }
         }

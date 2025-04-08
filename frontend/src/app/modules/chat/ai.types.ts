@@ -28,12 +28,24 @@ export interface TextPart {
      The text content.
      */
     text: string;
+}
+
+interface ReasoningPart {
+    type: 'reasoning';
     /**
-     Additional provider-specific metadata. They are passed through
-     to the provider from the AI SDK and enable provider-specific
-     functionality that can be fully encapsulated in the provider.
+     The reasoning text.
      */
-    experimental_providerMetadata?: ProviderMetadata;
+    text: string;
+}
+/**
+ Redacted reasoning content part of a prompt.
+ */
+interface RedactedReasoningPart {
+    type: 'redacted-reasoning';
+    /**
+     Redacted reasoning data.
+     */
+    data: string;
 }
 
 export type ImagePartExt = ImagePart & {
@@ -60,12 +72,6 @@ export interface ImagePart {
     mimeType?: string;
     /** File name */
     filename: string;
-    /**
-     Additional provider-specific metadata. They are passed through
-     to the provider from the AI SDK and enable provider-specific
-     functionality that can be fully encapsulated in the provider.
-     */
-    experimental_providerMetadata?: ProviderMetadata;
 }
 
 export type FilePartExt = FilePart & {
@@ -92,12 +98,6 @@ export interface FilePart {
     mimeType: string;
     /** File name */
     filename: string;
-    /**
-     Additional provider-specific metadata. They are passed through
-     to the provider from the AI SDK and enable provider-specific
-     functionality that can be fully encapsulated in the provider.
-     */
-    experimental_providerMetadata?: ProviderMetadata;
 }
 
 type ToolResultContent = Array<{
@@ -215,7 +215,7 @@ type CoreAssistantMessage = {
 /**
  Content of an assistant message. It can be a string or an array of text and tool call parts.
  */
-type AssistantContent = string | Array<TextPart | ToolCallPart>;
+type AssistantContent = string | Array<TextPart | ReasoningPart | RedactedReasoningPart| ToolCallPart>;
 /**
  A tool message. It contains the result of one or more tool calls.
  */
@@ -233,6 +233,8 @@ type CoreToolMessage = {
  Content of a tool message. It is an array of tool result parts.
  */
 type ToolContent = Array<ToolResultPart>;
+
+
 /**
  A message that can be used in the `messages` field of a prompt.
  It can be a user message, an assistant message, or a tool message.

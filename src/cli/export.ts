@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 import * as path from 'path';
 import * as fs from 'fs/promises'; // Use fs.promises for async operations
 import micromatch from 'micromatch';

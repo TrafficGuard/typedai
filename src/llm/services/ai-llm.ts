@@ -8,7 +8,9 @@ import {
 	LanguageModelV1,
 	ProviderMetadata,
 	StreamTextResult,
+	TextStreamPart,
 	generateText as aiGenerateText,
+	smoothStream,
 	streamText as aiStreamText,
 } from 'ai';
 import { addCost, agentContext } from '#agent/agentContextLocalStorage';
@@ -169,7 +171,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 		});
 	}
 
-	async streamText(llmMessages: LlmMessage[], onChunk: ({ string }) => void, opts?: GenerateTextOptions): Promise<StreamTextResult<any, any>> {
+	async streamText(llmMessages: LlmMessage[], onChunkCallback: (chunk: TextStreamPart<any>) => void, opts?: GenerateTextOptions): Promise<GenerationStats> {
 		return withActiveSpan(`streamText ${opts?.id ?? ''}`, async (span) => {
 			const messages: CoreMessage[] = llmMessages.map((msg) => {
 				if (msg.cache === 'ephemeral') {
@@ -193,36 +195,78 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 			});
 
 			const requestTime = Date.now();
-			try {
-				const result = aiStreamText({
-					model: this.aiModel(),
-					messages,
-					temperature: opts?.temperature,
-					topP: opts?.topP,
-					stopSequences: opts?.stopSequences,
-				});
 
-				for await (const textPart of result.textStream) {
-					onChunk({ string: textPart });
-				}
+			const firstTokenTime = 0;
 
-				const usage: LanguageModelUsage = await result.usage;
-				const metadata: ProviderMetadata = await result.experimental_providerMetadata;
-				const inputCost = this.calculateInputCost('', usage.promptTokens, metadata);
-				const outputCost = this.calculateOutputCost(await result.text, usage.completionTokens);
-				const cost = inputCost + outputCost;
-				addCost(cost);
+			console.log('streaming...');
+			const result = aiStreamText({
+				model: this.aiModel(),
+				messages,
+				temperature: opts?.temperature,
+				topP: opts?.topP,
+				stopSequences: opts?.stopSequences,
+				experimental_transform: smoothStream(),
+			});
 
-				await llmCallSave;
-
-				const finishReason: FinishReason = await result.finishReason;
-				if (finishReason !== 'stop') throw new Error(`Unexpected finish reason ${finishReason}`);
-
-				return result;
-			} catch (error) {
-				span.recordException(error);
-				throw error;
+			for await (const part of result.fullStream) {
+				onChunkCallback(part);
 			}
+
+			const [usage, finishReason, metadata, response] = await Promise.all([result.usage, result.finishReason, result.providerMetadata, result.response]);
+			const finish = Date.now();
+			const inputCost = this.calculateInputCost('', usage.promptTokens, metadata);
+			const outputCost = this.calculateOutputCost(await result.text, usage.completionTokens);
+			const cost = inputCost + outputCost;
+			addCost(cost);
+
+			const llmCall: LlmCall = await llmCallSave;
+
+			const stats: GenerationStats = {
+				llmId: this.getId(),
+				cost,
+				inputTokens: usage.promptTokens,
+				outputTokens: usage.completionTokens,
+				totalTime: finish - requestTime,
+				timeToFirstToken: firstTokenTime - requestTime,
+				requestTime,
+			};
+
+			// messages =
+			const responseMessage = response.messages[0];
+			let message: LlmMessage;
+			if (responseMessage.role === 'tool') {
+				message = {
+					role: 'tool',
+					content: responseMessage.content,
+					stats,
+				};
+			} else if (responseMessage.role === 'assistant') {
+				message = {
+					role: 'assistant',
+					content: responseMessage.content,
+					stats,
+				};
+			}
+
+			llmCall.messages = [...llmCall.messages, message];
+
+			span.setAttributes({
+				inputTokens: usage.promptTokens,
+				outputTokens: usage.completionTokens,
+				inputCost,
+				outputCost,
+				cost,
+			});
+
+			try {
+				await appContext().llmCallService.saveResponse(llmCall);
+			} catch (e) {
+				logger.error(e);
+			}
+
+			if (finishReason !== 'stop') throw new Error(`Unexpected finish reason ${finishReason}`);
+
+			return stats;
 		});
 	}
 }

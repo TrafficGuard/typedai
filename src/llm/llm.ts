@@ -1,5 +1,5 @@
 // https://github.com/AgentOps-AI/tokencost/blob/main/tokencost/model_prices.json
-import { AssistantContent, CoreMessage, FilePart, ImagePart, StreamTextResult, TextPart, ToolCallPart, UserContent } from 'ai';
+import { AssistantContent, CoreMessage, FilePart, ImagePart, StreamTextResult, TextPart, TextStreamPart, ToolCallPart, UserContent } from 'ai';
 
 // Should match fields in CallSettings in node_modules/ai/dist/index.d.ts
 export interface GenerateOptions {
@@ -163,7 +163,8 @@ export function toText(message: LlmMessage): string {
 	for (const part of content) {
 		const type = part.type;
 		if (type === 'text') text += part.text;
-		if (type === 'reasoning') text += `${part.text}\n`;
+		// else if (type === 'source') text += `${part.text}\n`;
+		else if (type === 'reasoning') text += `${part.text}\n`;
 		else if (type === 'redacted-reasoning') text += '<redacted-reasoning>\n';
 		else if (type === 'tool-call') text += `Tool Call (${part.toolCallId} ${part.toolName} Args:${JSON.stringify(part.args)})`;
 	}
@@ -237,9 +238,9 @@ export interface LLM {
 	 */
 	streamText(
 		messages: LlmMessage[] | ReadonlyArray<LlmMessage>,
-		onChunk: ({ string }) => void,
+		onChunk: (chunk: TextStreamPart<any>) => void,
 		opts?: GenerateTextOptions,
-	): Promise<StreamTextResult<any, any>>;
+	): Promise<GenerationStats>;
 
 	/**
 	 * The service provider of the LLM (OpenAI, Google, TogetherAI etc)

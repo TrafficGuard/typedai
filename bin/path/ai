@@ -10,7 +10,7 @@ fi
 
 # Check if at least one argument is passed
 if [ $# -lt 1 ]; then
-  echo "Usage: ss <script> [args]"
+  echo "Usage: ai <script> [args]"
   exit 1
 fi
 
