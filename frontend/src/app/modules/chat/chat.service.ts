@@ -511,9 +511,8 @@ export class ChatService {
                                     processText('\n');
                                 }
                                 // Complete the observer when the stream ends, if not already completed/errored by stream data.
-                                if (!observer.closed) { // Check if already completed/errored
-                                    observer.complete();
-                                }
+                                // RxJS handles multiple complete/error calls, so the check is not needed.
+                                observer.complete();
                                 break;
                             }
                             processText(decoder.decode(value, { stream: true }));
