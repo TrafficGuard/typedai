@@ -1,23 +1,4 @@
 import sinon from 'sinon';
-import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
-
-export function runCodeReviewServiceTests(
-	createService: () => CodeReviewService,
-	beforeEachHook: () => Promise<void> | void = () => {},
-	afterEachHook: () => Promise<void> | void = () => {},
-) {
-	let service: CodeReviewService;
-
-	beforeEach(async () => {
-		await beforeEachHook();
-		service = createService();
-	});
-
-	afterEach(async () => {
-		sinon.restore();
-		await afterEachHook();
-	});
-}
 import { expect } from 'chai';
 import type { CodeReviewConfig, MergeRequestFingerprintCache } from '#swe/codeReview/codeReviewModel';
 import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
@@ -82,6 +63,7 @@ export function runCodeReviewServiceTests(
 	afterEach(async () => {
 		if (hooks.afterEach) {
 			await hooks.afterEach();
+
 		}
 		// Add potential cleanup specific to the service instance if needed,
 		// though usually handled by the provider/hooks
