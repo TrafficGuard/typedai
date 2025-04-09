@@ -389,30 +389,83 @@ export class ChatService {
      * @returns Observable of StreamEvents (chunk, complete, error)
      */
     streamMessage(chatId: string, message: string, llmId: string, options?: GenerateOptions, attachments?: Attachment[]): Observable<StreamEvent> {
+        // Wrap the logic inside the Observable constructor in an async function
         return new Observable((observer: Observer<StreamEvent>) => {
             const controller = new AbortController();
             const signal = controller.signal;
 
-            const bodyPayload = {
-                userContent: message, // Simple text for now
-                llmId: llmId,
-                options: options
-                // TODO: Handle attachments properly
-            };
+            // Define the async function to prepare and execute the fetch
+            const executeFetch = async () => {
+                try {
+                    let userContentPayload: string | (TextPart | ImagePartExt | FilePartExt)[];
 
-            fetch(`/api/chat/${chatId}/stream`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'text/event-stream'
-                },
-                body: JSON.stringify(bodyPayload),
-                signal: signal
-            })
-            .then(async response => {
-                if (!response.ok) {
-                    // Handle HTTP errors before streaming starts
-                    const errorBody = await response.text();
+                    // --- Start: Attachment Handling Logic ---
+                    if (attachments && attachments.length > 0) {
+                        const userContentParts: (TextPart | ImagePartExt | FilePartExt)[] = [];
+
+                        // Process attachments asynchronously
+                        const attachmentPromises = attachments.map(async (attachment) => {
+                            try {
+                                // Read file data as base64 string
+                                const base64Data = await this.readFileAsBase64(attachment.data);
+                                if (attachment.type === 'image') {
+                                    userContentParts.push({
+                                        type: 'image',
+                                        image: base64Data, // Base64 string without prefix
+                                        mimeType: attachment.mimeType,
+                                        filename: attachment.filename,
+                                    } as ImagePartExt);
+                                } else if (attachment.type === 'file') {
+                                    userContentParts.push({
+                                        type: 'file',
+                                        data: base64Data, // Base64 string without prefix
+                                        mimeType: attachment.mimeType,
+                                        filename: attachment.filename,
+                                    } as FilePartExt);
+                                }
+                            } catch (error) {
+                                console.error(`Error reading attachment ${attachment.filename}:`, error);
+                                // Propagate the error to stop the stream setup
+                                throw new Error(`Failed to read attachment: ${attachment.filename}`);
+                            }
+                        });
+
+                        // Wait for all attachments to be processed
+                        await Promise.all(attachmentPromises);
+
+                        // Add the text message part *after* attachments
+                        userContentParts.push({ type: 'text', text: message });
+
+                        userContentPayload = userContentParts;
+                    } else {
+                        // No attachments, send only text
+                        userContentPayload = message;
+                    }
+                    // --- End: Attachment Handling Logic ---
+
+
+                    const bodyPayload = {
+                        userContent: userContentPayload, // Use the dynamically created payload
+                        llmId: llmId,
+                        options: options
+                    };
+
+                    // Proceed with the fetch call
+                    const response = await fetch(`/api/chat/${chatId}/stream`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json', // Ensure correct Content-Type for JSON payload
+                            'Accept': 'text/event-stream'
+                        },
+                        body: JSON.stringify(bodyPayload),
+                        signal: signal
+                    });
+
+                    // ... rest of the fetch and stream reading logic ...
+
+                    if (!response.ok) {
+                        // Handle HTTP errors before streaming starts
+                        const errorBody = await response.text();
                     throw new Error(`HTTP error! status: ${response.status}, body: ${errorBody}`);
                 }
 
@@ -458,7 +511,9 @@ export class ChatService {
                                     processText('\n');
                                 }
                                 // Complete the observer when the stream ends, if not already completed/errored by stream data.
-                                observer.complete();
+                                if (!observer.closed) { // Check if already completed/errored
+                                    observer.complete();
+                                }
                                 break;
                             }
                             processText(decoder.decode(value, { stream: true }));
@@ -466,9 +521,12 @@ export class ChatService {
                     } catch (error) {
                         if ((error as DOMException).name === 'AbortError') {
                             console.log('Stream reading aborted.');
+                            // Don't signal error on abort
                         } else {
                             console.error('Error reading stream:', error);
-                            observer.error({ type: 'error', error: error });
+                            if (!observer.closed) {
+                               observer.error({ type: 'error', error: error });
+                            }
                         }
                     } finally {
                         reader.releaseLock();
@@ -476,11 +534,18 @@ export class ChatService {
                 }
 
                 readStream();
-            })
-            .catch(error => {
-                console.error('Fetch error in streamMessage:', error);
-                observer.error({ type: 'error', error: error });
-            });
+
+                } catch (error) {
+                    // Catch errors from async setup (file reading, initial fetch error)
+                    console.error('Error setting up streamMessage fetch:', error);
+                    if (!observer.closed) {
+                       observer.error({ type: 'error', error: error });
+                    }
+                }
+            };
+
+            // Execute the async function
+            executeFetch();
 
             // Return teardown logic
             return () => {
@@ -543,6 +608,33 @@ export class ChatService {
             // Add other mime types and their extensions as needed
         };
         return mimeTypeMap[mimeType] || 'bin'; // Default to 'bin' if mime type is unknown
+    }
+
+    /**
+     * Reads a File object and returns its content as a base64 encoded string.
+     * @param file The File object to read.
+     * @returns A Promise that resolves with the base64 encoded string (without data URL prefix).
+     */
+    private readFileAsBase64(file: File): Promise<string> {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const result = reader.result as string;
+                // Strip the data URL prefix (e.g., "data:image/png;base64,")
+                const base64Data = result.split(',')[1];
+                if (base64Data) {
+                    resolve(base64Data);
+                } else {
+                    // Handle cases where splitting might fail or result is unexpected
+                    reject(new Error('Failed to extract base64 data from file reader result.'));
+                }
+            };
+            reader.onerror = (error) => {
+                reject(error);
+            };
+            // Read the file as a Data URL to get base64 encoding
+            reader.readAsDataURL(file);
+        });
     }
 }
 
