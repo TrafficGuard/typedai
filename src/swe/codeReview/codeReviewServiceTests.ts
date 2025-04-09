@@ -1,25 +1,24 @@
-import {CodeReviewService} from "#swe/codeReview/codeReviewService";
-import sinon from "sinon";
+import sinon from 'sinon';
+import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
 
 export function runCodeReviewServiceTests(
-    createService: () => CodeReviewService,
-    beforeEachHook: () => Promise<void> | void = () => {},
-    afterEachHook: () => Promise<void> | void = () => {},
+	createService: () => CodeReviewService,
+	beforeEachHook: () => Promise<void> | void = () => {},
+	afterEachHook: () => Promise<void> | void = () => {},
 ) {
+	let service: CodeReviewService;
 
-    let service: CodeReviewService;
+	beforeEach(async () => {
+		await beforeEachHook();
+		service = createService();
+	});
 
-    beforeEach(async () => {
-        await beforeEachHook();
-        service = createService();
-    });
-
-    afterEach(async () => {
-        sinon.restore();
-        await afterEachHook();
-    });
-
-}import { expect } from 'chai';
+	afterEach(async () => {
+		sinon.restore();
+		await afterEachHook();
+	});
+}
+import { expect } from 'chai';
 import type { CodeReviewConfig, MergeRequestFingerprintCache } from '#swe/codeReview/codeReviewModel';
 import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
 
