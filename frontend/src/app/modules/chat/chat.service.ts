@@ -523,9 +523,9 @@ export class ChatService {
                             // Don't signal error on abort
                         } else {
                             console.error('Error reading stream:', error);
-                            if (!observer.closed) {
-                               observer.error({ type: 'error', error: error });
-                            }
+                            // If an error occurs, signal it to the observer.
+                            // RxJS handles the observer state, no need to check if closed.
+                            observer.error({ type: 'error', error: error });
                         }
                     } finally {
                         reader.releaseLock();
@@ -537,9 +537,9 @@ export class ChatService {
                 } catch (error) {
                     // Catch errors from async setup (file reading, initial fetch error)
                     console.error('Error setting up streamMessage fetch:', error);
-                    if (!observer.closed) {
-                       observer.error({ type: 'error', error: error });
-                    }
+                    // If an error occurs during setup, signal it to the observer.
+                    // RxJS handles the observer state, no need to check if closed.
+                    observer.error({ type: 'error', error: error });
                 }
             };
 
