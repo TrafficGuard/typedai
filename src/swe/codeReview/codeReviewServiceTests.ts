@@ -7,11 +7,11 @@ import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
 function expectSetsEqual<T>(actual: Set<T>, expected: Set<T>): void {
 	expect(actual.size).to.equal(expected.size, `Set sizes should be equal (expected: ${expected.size}, actual: ${actual.size})`);
 	for (const item of expected) {
-		expect(actual.has(item)).to.be.true(`Expected set to contain item: ${String(item)}`);
+		expect(actual.has(item), `Expected set to contain item: ${String(item)}`).to.be.true;
 	}
 	// Also check the other way to ensure no extra items
 	for (const item of actual) {
-		expect(expected.has(item)).to.be.true(`Actual set contained unexpected item: ${String(item)}`);
+		expect(expected.has(item), `Actual set contained unexpected item: ${String(item)}`).to.be.true;
 	}
 }
 
