@@ -1,30 +1,8 @@
 import { type DocumentSnapshot, FieldValue, type Firestore, Timestamp } from '@google-cloud/firestore';
 import { logger } from '#o11y/logger';
-import { type CodeReviewConfig, EMPTY_CACHE } from '#swe/codeReview/codeReviewModel';
+import { type CodeReviewConfig, EMPTY_CACHE, type MergeRequestFingerprintCache } from '#swe/codeReview/codeReviewModel';
 import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
 import { firestoreDb } from './firestore';
-
-/**
- * Represents the structure of the entire Firestore document
- * used for caching clean code reviews for a Merge Request.
- */
-export type MergeRequestFingerprintCache = {
-	/** Unix timestamp (milliseconds) of the last update */
-	lastUpdated: number;
-	/** Set containing the unique fingerprint hashes marked as clean */
-	fingerprints: Set<string>;
-};
-
-export interface ReviewCacheLoaderSaver {
-	/** Loads the entire fingerprint cache map for a given Merge Request. */
-	getMergeRequestReviewCache(projectId: string | number, mrIid: number): Promise<MergeRequestFingerprintCache>;
-
-	/** Saves/updates the entire fingerprint cache map for a given Merge Request. */
-	updateMergeRequestReviewCache(projectId: string | number, mrIid: number, fingerprintsToSave: MergeRequestFingerprintCache): Promise<void>;
-
-	/** Optional: Method to clean up expired fingerprints within an MR document */
-	cleanupExpiredFingerprints(projectId: string | number, mrIid: number): Promise<void>;
-}
 
 export class FirestoreCodeReviewService implements CodeReviewService {
 	private db: Firestore = firestoreDb();

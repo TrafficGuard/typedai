@@ -260,14 +260,5 @@ export function runCodeReviewServiceTests(
 				expect(retrievedNonExistent.lastUpdated).to.equal(0); // Check timestamp too
 			});
 		});
-
-		// Add tests for cleanupExpiredFingerprints if/when it's added to the interface
-		// describe('Merge Request Cache Cleanup', () => {
-		// 	it('should remove expired fingerprints', async () => {
-		// 		// Setup cache with old and new fingerprints
-		// 		// Call cleanupExpiredFingerprints
-		// 		// Verify only non-expired remain
-		// 	});
-		// });
 	});
 }
