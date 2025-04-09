@@ -1,6 +1,6 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
-import { writeFileSync } from 'fs';
+import { writeFileSync } from 'node:fs';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { countTokens } from '#llm/tokens';
 import { parseProcessArgs } from './cli';

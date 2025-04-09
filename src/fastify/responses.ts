@@ -1,4 +1,4 @@
-import { FastifyReply } from 'fastify';
+import type { FastifyReply } from 'fastify';
 import * as HttpStatus from 'http-status-codes';
 
 export function send(reply: any, statusCode: number, data: Record<string, any> | string | null = null, extra: object | null = {}): void {

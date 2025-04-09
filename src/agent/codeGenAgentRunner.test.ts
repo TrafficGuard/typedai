@@ -1,10 +1,10 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
 import { LlmFunctions } from '#agent/LlmFunctions';
-import { AgentContext } from '#agent/agentContextTypes';
+import type { AgentContext } from '#agent/agentContextTypes';
 import { AGENT_REQUEST_FEEDBACK, AgentFeedback } from '#agent/agentFeedback';
 import { AGENT_COMPLETED_NAME, AGENT_SAVE_MEMORY } from '#agent/agentFunctions';
-import { RunAgentConfig, SUPERVISOR_CANCELLED_FUNCTION_NAME, cancelAgent, provideFeedback, startAgent, startAgentAndWait } from '#agent/agentRunner';
+import { type RunAgentConfig, SUPERVISOR_CANCELLED_FUNCTION_NAME, cancelAgent, provideFeedback, startAgent, startAgentAndWait } from '#agent/agentRunner';
 import { convertTypeScriptToPython } from '#agent/codeGenAgentUtils';
 import { TEST_FUNC_NOOP, TEST_FUNC_SKY_COLOUR, TEST_FUNC_SUM, TEST_FUNC_THROW_ERROR, TestFunctions } from '#functions/testFunctions';
 import { lastText } from '#llm/llm';

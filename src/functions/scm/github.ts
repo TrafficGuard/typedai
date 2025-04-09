@@ -1,15 +1,15 @@
-import { existsSync } from 'fs';
-import { join } from 'path';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { request } from '@octokit/request';
 import { agentContext } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import { MergeRequest, SourceControlManagement } from '#functions/scm/sourceControlManagement';
+import type { MergeRequest, SourceControlManagement } from '#functions/scm/sourceControlManagement';
 import { logger } from '#o11y/logger';
 import { functionConfig } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
 import { execCommand, failOnError, spawnCommand } from '#utils/exec';
 import { systemDir } from '../../appVars';
-import { GitProject } from './gitProject';
+import type { GitProject } from './gitProject';
 
 type RequestType = typeof request;
 

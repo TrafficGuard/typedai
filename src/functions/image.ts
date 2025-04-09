@@ -6,9 +6,9 @@ import { logger } from '#o11y/logger';
 import { currentUser } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
 
-import { writeFileSync } from 'fs';
-import path from 'path';
-import { FileStore } from '#functions/storage/filestore';
+import { writeFileSync } from 'node:fs';
+import path from 'node:path';
+import type { FileStore } from '#functions/storage/filestore';
 
 type ImageSize = '1792x1024' | '256x256' | '512x512' | '1024x1024' | '1024x1792';
 

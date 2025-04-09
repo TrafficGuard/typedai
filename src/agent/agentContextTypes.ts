@@ -1,7 +1,7 @@
-import { LlmFunctions } from '#agent/LlmFunctions';
-import { FileSystemService } from '#functions/storage/fileSystemService';
-import { FunctionCall, FunctionCallResult, LLM, LlmMessage } from '#llm/llm';
-import { User } from '#user/user';
+import type { LlmFunctions } from '#agent/LlmFunctions';
+import type { FileSystemService } from '#functions/storage/fileSystemService';
+import type { FunctionCall, FunctionCallResult, LLM, LlmMessage } from '#llm/llm';
+import type { User } from '#user/user';
 
 /**
  * The difficulty of a LLM generative task. Used to select an appropriate model for the cost vs capability.

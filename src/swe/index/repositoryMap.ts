@@ -1,12 +1,12 @@
-import { Dirent, readdir as nodeReaddir /* Import async readdir */ } from 'node:fs'; // Remove readdirSync
+import { type Dirent, readdir as nodeReaddir /* Import async readdir */ } from 'node:fs'; // Remove readdirSync
+import * as path from 'node:path';
 import { promisify } from 'node:util';
-import * as path from 'path';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
-import { FileSystemService } from '#functions/storage/fileSystemService';
+import type { FileSystemService } from '#functions/storage/fileSystemService';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
-import { ProjectInfo } from '#swe/projectDetection';
-import { Summary, getTopLevelSummary, loadBuildDocsSummaries } from './repoIndexDocBuilder';
+import type { ProjectInfo } from '#swe/projectDetection';
+import { type Summary, getTopLevelSummary, loadBuildDocsSummaries } from './repoIndexDocBuilder';
 
 const fs = {
 	readdir: promisify(nodeReaddir),

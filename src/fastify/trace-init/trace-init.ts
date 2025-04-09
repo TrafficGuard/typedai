@@ -1,7 +1,7 @@
 import { TraceExporter } from '@google-cloud/opentelemetry-cloud-trace-exporter';
-import { DiagConsoleLogger, DiagLogLevel, Span, diag, trace } from '@opentelemetry/api';
+import { DiagConsoleLogger, DiagLogLevel, type Span, diag, trace } from '@opentelemetry/api';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
-import { FastifyInstrumentation, FastifyRequestInfo } from '@opentelemetry/instrumentation-fastify';
+import { FastifyInstrumentation, type FastifyRequestInfo } from '@opentelemetry/instrumentation-fastify';
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { Resource } from '@opentelemetry/resources';
 import * as opentelemetry from '@opentelemetry/sdk-node';
@@ -38,8 +38,8 @@ function initTrace(): void {
 	const enabled = process.env.TRACE_AGENT_ENABLED?.toLowerCase() === 'true';
 	if (enabled) {
 		const logLevel =
-			process.env.TRACE_LOG_LEVEL && Object.values(DiagLogLevel).includes(parseInt(process.env.TRACE_LOG_LEVEL))
-				? parseInt(process.env.TRACE_LOG_LEVEL)
+			process.env.TRACE_LOG_LEVEL && Object.values(DiagLogLevel).includes(Number.parseInt(process.env.TRACE_LOG_LEVEL))
+				? Number.parseInt(process.env.TRACE_LOG_LEVEL)
 				: DiagLogLevel.ERROR;
 		diag.setLogger(new DiagConsoleLogger(), logLevel);
 
@@ -52,7 +52,7 @@ function initTrace(): void {
 		const autoInstrument = process.env.TRACE_AUTO_INSTRUMENT?.toLowerCase() === 'true';
 
 		// Sample rate: Defaults to 1% of all requests
-		const sampleRate = process.env.TRACE_SAMPLE_RATE ? parseFloat(process.env.TRACE_SAMPLE_RATE) : 0.01;
+		const sampleRate = process.env.TRACE_SAMPLE_RATE ? Number.parseFloat(process.env.TRACE_SAMPLE_RATE) : 0.01;
 		const sampler = new TraceIdRatioBasedSampler(sampleRate);
 		// Initialize the exporter. When your application is running on Google Cloud,
 		// you don't need to provide auth credentials or a project id.
@@ -90,7 +90,7 @@ function initTrace(): void {
 								span.setAttribute('test', 'foo');
 							},
 						}),
-				  ],
+					],
 		});
 
 		// initialize the SDK and register with the OpenTelemetry API

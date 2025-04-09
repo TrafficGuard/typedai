@@ -1,4 +1,4 @@
-import path, { resolve } from 'path';
+import path, { resolve } from 'node:path';
 import { expect } from 'chai';
 import { FileSystemService } from './fileSystemService';
 

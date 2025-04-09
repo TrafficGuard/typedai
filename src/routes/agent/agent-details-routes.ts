@@ -1,11 +1,11 @@
 import { Type } from '@sinclair/typebox';
-import { FastifyReply } from 'fastify';
-import { AgentContext } from '#agent/agentContextTypes';
-import { AgentExecution, agentExecutions } from '#agent/agentRunner';
+import type { FastifyReply } from 'fastify';
+import type { AgentContext } from '#agent/agentContextTypes';
+import { type AgentExecution, agentExecutions } from '#agent/agentRunner';
 import { serializeContext } from '#agent/agentSerialization';
 import { send, sendBadRequest, sendSuccess } from '#fastify/index';
 import { logger } from '#o11y/logger';
-import { AppFastifyInstance } from '../../applicationTypes';
+import type { AppFastifyInstance } from '../../applicationTypes';
 import { functionRegistry } from '../../functionRegistry';
 
 const basePath = '/api/agent/v1';

@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs';
-import path, { basename, dirname, join } from 'path';
-import { Span } from '@opentelemetry/api';
+import path, { basename, dirname, join } from 'node:path';
+import type { Span } from '@opentelemetry/api';
 import micromatch from 'micromatch';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';

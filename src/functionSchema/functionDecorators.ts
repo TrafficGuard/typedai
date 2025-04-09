@@ -1,9 +1,9 @@
-import { Span } from '@opentelemetry/api';
+import type { Span } from '@opentelemetry/api';
 import { agentContext } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
 import { getTracer, setFunctionSpanAttributes, withActiveSpan } from '#o11y/trace';
 import { functionSchemaParser } from './functionSchemaParser';
-import { FUNC_SEP, FunctionSchema, getFunctionSchemas, setFunctionSchemas } from './functions';
+import { FUNC_SEP, type FunctionSchema, getFunctionSchemas, setFunctionSchemas } from './functions';
 
 let _functionFactory = {};
 

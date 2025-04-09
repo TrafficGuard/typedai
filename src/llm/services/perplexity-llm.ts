@@ -2,14 +2,14 @@ import { InvalidPromptError } from 'ai';
 import OpenAI from 'openai';
 import { addCost, agentContext } from '#agent/agentContextLocalStorage';
 import { Perplexity } from '#functions/web/perplexity';
-import { LlmCall } from '#llm/llmCallService/llmCall';
+import type { LlmCall } from '#llm/llmCallService/llmCall';
 import { logger as log } from '#o11y/logger';
 import { withSpan } from '#o11y/trace';
 import { currentUser, functionConfig } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
 import { appContext } from '../../applicationContext';
 import { BaseLLM } from '../base-llm';
-import { GenerateTextOptions, GenerationStats, LLM, LlmMessage, Prompt, assistant, isSystemUserPrompt, system, user } from '../llm';
+import { type GenerateTextOptions, type GenerationStats, type LLM, type LlmMessage, type Prompt, assistant, isSystemUserPrompt, system, user } from '../llm';
 
 export const PERPLEXITY_SERVICE = 'perplexity';
 
@@ -247,7 +247,7 @@ export function convertCitationsToMarkdownLinks(reportText: string, citations: s
 
 	// Replace each citation ID with a markdown link
 	return reportText.replace(citationPattern, (match, id) => {
-		const citationId = parseInt(id, 10) - 1; // Convert the matched ID to a number and subtract 1 (since array indices start at 0)
+		const citationId = Number.parseInt(id, 10) - 1; // Convert the matched ID to a number and subtract 1 (since array indices start at 0)
 		if (citationId >= 0 && citationId < citations.length) {
 			// If the citation ID is valid, replace the ID with a markdown link
 			return `[${citations[citationId]}](#${citationId + 1})`;

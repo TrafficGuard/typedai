@@ -1,10 +1,10 @@
-import { ExecException, ExecSyncOptions, SpawnOptionsWithoutStdio, exec, execSync, spawn } from 'child_process';
-import { existsSync, readFileSync } from 'fs';
-import { ExecOptions } from 'node:child_process';
+import { type ExecException, type ExecSyncOptions, type SpawnOptionsWithoutStdio, exec, execSync, spawn } from 'node:child_process';
+import type { ExecOptions } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
 import fs from 'node:fs';
-import os from 'os';
-import path from 'path';
-import { promisify } from 'util';
+import os from 'node:os';
+import path from 'node:path';
+import { promisify } from 'node:util';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
@@ -303,7 +303,7 @@ export async function runShellCommand(cmd: string, opts?: ExecCmdOptions): Promi
 					const parts = commandOutput.split(commandDoneMarker);
 					stdout = parts[0];
 					const exitCodeMatch = parts[1].match(/EXIT_CODE:(\d+)/);
-					const exitCode = exitCodeMatch ? parseInt(exitCodeMatch[1], 10) : null;
+					const exitCode = exitCodeMatch ? Number.parseInt(exitCodeMatch[1], 10) : null;
 
 					// Clean up listeners
 					child.stdout.off('data', onStdoutData);

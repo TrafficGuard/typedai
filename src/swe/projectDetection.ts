@@ -1,12 +1,12 @@
-import { existsSync, readFileSync, writeFileSync } from 'fs';
-import path, { join } from 'path';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import path, { join } from 'node:path';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
 import { TypescriptTools } from '#swe/lang/nodejs/typescriptTools';
 import { PhpTools } from '#swe/lang/php/phpTools';
 import { PythonTools } from '#swe/lang/python/pythonTools';
 import { TerraformTools } from '#swe/lang/terraform/terraformTools';
-import { LanguageTools } from './lang/languageTools';
+import type { LanguageTools } from './lang/languageTools';
 
 interface ProjectDetections {
 	projects: ProjectDetection[];

@@ -1,8 +1,8 @@
-import { MergeRequestDiffSchema } from '@gitbeaker/rest';
+import type { MergeRequestDiffSchema } from '@gitbeaker/rest';
 import { expect } from 'chai';
 import sinon from 'sinon';
 import { GitLabCodeReview, getStartingLineNumber } from '#functions/scm/gitlab-code-review';
-import { CodeReviewConfig } from '#swe/codeReview/codeReviewModel';
+import type { CodeReviewConfig } from '#swe/codeReview/codeReviewModel';
 
 describe('GitLabCodeReview', () => {
 	describe('diff', () => {

@@ -1,11 +1,11 @@
 import { agentContext, getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import { FileSystemService } from '#functions/storage/fileSystemService';
+import type { FileSystemService } from '#functions/storage/fileSystemService';
 import { Perplexity } from '#functions/web/perplexity';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import { CompileErrorAnalysis, CompileErrorAnalysisDetails, analyzeCompileErrors } from '#swe/analyzeCompileErrors';
-import { SelectedFile, selectFilesAgent } from '#swe/discovery/selectFilesAgent';
+import { type CompileErrorAnalysis, type CompileErrorAnalysisDetails, analyzeCompileErrors } from '#swe/analyzeCompileErrors';
+import { type SelectedFile, selectFilesAgent } from '#swe/discovery/selectFilesAgent';
 import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
 import { getRepositoryOverview, getTopLevelSummary } from '#swe/index/repoIndexDocBuilder';
 import { reviewChanges } from '#swe/reviewChanges';
@@ -14,8 +14,8 @@ import { execCommand } from '#utils/exec';
 import { appContext } from '../applicationContext';
 import { cacheRetry } from '../cache/cacheRetry';
 import { AiderCodeEditor } from './aiderCodeEditor';
-import { SelectFilesResponse, selectFilesToEdit } from './discovery/selectFilesToEdit';
-import { ProjectInfo, detectProjectInfo } from './projectDetection';
+import { type SelectFilesResponse, selectFilesToEdit } from './discovery/selectFilesToEdit';
+import { type ProjectInfo, detectProjectInfo } from './projectDetection';
 import { basePrompt } from './prompt';
 import { summariseRequirements } from './summariseRequirements';
 

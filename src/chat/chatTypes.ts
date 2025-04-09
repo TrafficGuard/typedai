@@ -1,4 +1,4 @@
-import { LlmMessage } from '#llm/llm';
+import type { LlmMessage } from '#llm/llm';
 
 export interface Chat {
 	id: string;

@@ -1,29 +1,29 @@
-import { existsSync } from 'fs';
+import { existsSync } from 'node:fs';
 import fs from 'node:fs';
-import { join } from 'path';
-import { JobSchema, UserSchema } from '@gitbeaker/core';
+import { join } from 'node:path';
+import type { JobSchema, UserSchema } from '@gitbeaker/core';
 import {
-	CommitDiffSchema,
-	CreateMergeRequestOptions,
-	ExpandedMergeRequestSchema,
+	type CommitDiffSchema,
+	type CreateMergeRequestOptions,
+	type ExpandedMergeRequestSchema,
 	Gitlab as GitlabApi,
-	MergeRequestDiffSchema,
-	PipelineSchema,
-	ProjectSchema,
+	type MergeRequestDiffSchema,
+	type PipelineSchema,
+	type ProjectSchema,
 } from '@gitbeaker/rest';
-import { DeepPartial } from 'ai';
+import type { DeepPartial } from 'ai';
 import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { GITLAB_SHARED_REPOS_PATH } from '#functions/scm/sourceControlManagementTypes';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import { CodeReviewConfig } from '#swe/codeReview/codeReviewModel';
+import type { CodeReviewConfig } from '#swe/codeReview/codeReviewModel';
 import { getProjectInfo } from '#swe/projectDetection';
 import { currentUser, functionConfig } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
 import { execCommand, failOnError } from '#utils/exec';
-import { GitProject } from './gitProject';
-import { MergeRequest, SourceControlManagement } from './sourceControlManagement';
+import type { GitProject } from './gitProject';
+import type { MergeRequest, SourceControlManagement } from './sourceControlManagement';
 
 export interface GitLabConfig {
 	host: string;

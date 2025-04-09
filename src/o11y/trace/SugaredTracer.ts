@@ -1,4 +1,4 @@
-import { Context, Span, SpanStatusCode, Tracer, context } from '@opentelemetry/api';
+import { type Context, type Span, SpanStatusCode, type Tracer, context } from '@opentelemetry/api';
 /*
  * Copyright The OpenTelemetry Authors
  *
@@ -14,7 +14,7 @@ import { Context, Span, SpanStatusCode, Tracer, context } from '@opentelemetry/a
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { SugaredSpanOptions } from './SugaredOptions';
+import type { SugaredSpanOptions } from './SugaredOptions';
 
 const defaultOnException = (e: Error, span: Span) => {
 	span.recordException(e);

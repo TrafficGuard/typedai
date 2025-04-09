@@ -1,5 +1,5 @@
 import { BaseLLM } from '#llm/base-llm';
-import { GenerateTextOptions, LLM, LlmMessage, assistant, lastText, user } from '#llm/llm';
+import { type GenerateTextOptions, type LLM, type LlmMessage, assistant, lastText, user } from '#llm/llm';
 import { cerebrasLlama3_3_70b } from '#llm/services/cerebras';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
@@ -271,7 +271,7 @@ Begin your evaluation by providing a short explanation. Be as objective as possi
 				//maxTokens: config.bestofn_max_tokens,
 			});
 			const ratingMatch = ratingResponse.match(/Rating: \[\[(\d+)\]\]/);
-			const rating = ratingMatch ? parseInt(ratingMatch[1], 10) : 0;
+			const rating = ratingMatch ? Number.parseInt(ratingMatch[1], 10) : 0;
 			ratings.push(rating);
 		}
 
@@ -316,7 +316,7 @@ If the second response is better, reply with "Better Response: [[1]]".`;
 
 			const match = ratingResponse.match(/Better Response: \[\[(\d+)\]\]/);
 			if (match) {
-				const winner = parseInt(match[1], 10);
+				const winner = Number.parseInt(match[1], 10);
 				ratings[winner === 0 ? i : j]++;
 			}
 		}

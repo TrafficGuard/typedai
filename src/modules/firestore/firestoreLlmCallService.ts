@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { DocumentData, DocumentSnapshot, Firestore, WriteBatch } from '@google-cloud/firestore';
-import { LlmMessage } from '#llm/llm';
-import { CreateLlmRequest, LlmCall, LlmRequest } from '#llm/llmCallService/llmCall';
-import { LlmCallService } from '#llm/llmCallService/llmCallService';
+import { type DocumentData, type DocumentSnapshot, type Firestore, WriteBatch } from '@google-cloud/firestore';
+import type { LlmMessage } from '#llm/llm';
+import type { CreateLlmRequest, LlmCall, LlmRequest } from '#llm/llmCallService/llmCall';
+import type { LlmCallService } from '#llm/llmCallService/llmCallService';
 import { logger } from '#o11y/logger';
 import { currentUser } from '#user/userService/userContext';
 import { firestoreDb } from './firestore';

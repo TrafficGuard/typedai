@@ -1,5 +1,5 @@
-import { AgentCompleted, AgentContext } from '#agent/agentContextTypes';
-import { FunctionCallResult } from '#llm/llm';
+import type { AgentCompleted, AgentContext } from '#agent/agentContextTypes';
+import type { FunctionCallResult } from '#llm/llm';
 import { logger } from '#o11y/logger';
 import { envVar } from '#utils/env-var';
 

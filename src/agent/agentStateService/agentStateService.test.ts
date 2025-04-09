@@ -1,14 +1,14 @@
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 chai.use(chaiAsPromised);
 import sinon from 'sinon';
 import { LlmFunctions } from '#agent/LlmFunctions'; // Adjust path as needed
 import {
-	AgentCompleted,
-	AgentContext,
-	AgentLLMs,
-	AgentRunningState,
+	type AgentCompleted,
+	type AgentContext,
+	type AgentLLMs,
+	type AgentRunningState,
 	AgentType,
 	isExecuting,
 	// TaskLevel, // Not explicitly used in AgentContext, but used in AgentLLMs
@@ -17,14 +17,14 @@ import {
 // import { FileSystemService } from '#system/fileSystemService';
 // Assume Agent class is importable if needed for LlmFunctions default
 import { Agent } from '#agent/agentFunctions';
-import { AgentStateService } from '#agent/agentStateService/agentStateService'; // Adjust path as needed
+import type { AgentStateService } from '#agent/agentStateService/agentStateService'; // Adjust path as needed
 import { clearCompletedHandlers, getCompletedHandler, registerCompletedHandler } from '#agent/completionHandlerRegistry'; // Adjust path if needed
 import * as functionSchema from '#functionSchema/functionDecorators'; // Adjust path as needed
 import { FileSystemRead } from '#functions/storage/fileSystemRead'; // Adjust path as needed
-import { FunctionCallResult, LLM, LlmMessage } from '#llm/llm'; // Adjust path as needed
+import { type FunctionCallResult, LLM, LlmMessage } from '#llm/llm'; // Adjust path as needed
 import { MockLLM } from '#llm/services/mock-llm'; // Adjust path as needed
 import { logger } from '#o11y/logger'; // Adjust path as needed
-import { ChatSettings, LLMServicesConfig, User } from '#user/user'; // Adjust path as needed
+import type { ChatSettings, LLMServicesConfig, User } from '#user/user'; // Adjust path as needed
 import * as userContext from '#user/userService/userContext';
 import { appContext } from '../../applicationContext';
 

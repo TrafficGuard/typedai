@@ -1,7 +1,7 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
-import { promises as fs, readFileSync } from 'fs';
-import { AgentLLMs } from '#agent/agentContextTypes';
+import { promises as fs, readFileSync } from 'node:fs';
+import type { AgentLLMs } from '#agent/agentContextTypes';
 import { AGENT_COMPLETED_PARAM_NAME } from '#agent/agentFunctions';
 import { startAgentAndWait } from '#agent/agentRunner';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
@@ -9,7 +9,7 @@ import { LlmTools } from '#functions/util';
 import { Perplexity } from '#functions/web/perplexity';
 import { PublicWeb } from '#functions/web/web';
 import { lastText } from '#llm/llm';
-import { LlmCall } from '#llm/llmCallService/llmCall';
+import type { LlmCall } from '#llm/llmCallService/llmCall';
 import { Claude3_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { groqLlama3_3_70B } from '#llm/services/groq';

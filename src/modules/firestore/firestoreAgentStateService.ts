@@ -1,12 +1,12 @@
-import { DocumentSnapshot, Firestore } from '@google-cloud/firestore';
+import type { DocumentSnapshot, Firestore } from '@google-cloud/firestore';
 import { LlmFunctions } from '#agent/LlmFunctions';
-import { AgentContext, AgentRunningState, isExecuting } from '#agent/agentContextTypes';
+import { type AgentContext, type AgentRunningState, isExecuting } from '#agent/agentContextTypes';
 import { deserializeAgentContext, serializeContext } from '#agent/agentSerialization';
-import { AgentStateService } from '#agent/agentStateService/agentStateService';
+import type { AgentStateService } from '#agent/agentStateService/agentStateService';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import { User } from '#user/user';
+import type { User } from '#user/user';
 import { currentUser } from '#user/userService/userContext';
 import { firestoreDb } from './firestore';
 

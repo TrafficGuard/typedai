@@ -1,6 +1,6 @@
-import { writeFileSync } from 'fs';
-import { join } from 'path';
-import axios, { AxiosInstance } from 'axios';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import axios, { type AxiosInstance } from 'axios';
 import { llms } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { getJiraIssueType } from '#functions/jiraIssueType';

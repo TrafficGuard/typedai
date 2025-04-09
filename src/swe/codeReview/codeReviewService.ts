@@ -1,5 +1,5 @@
-import { MergeRequestFingerprintCache } from '#firestore/firestoreCodeReviewService';
-import { CodeReviewConfig } from '#swe/codeReview/codeReviewModel';
+import type { MergeRequestFingerprintCache } from '#firestore/firestoreCodeReviewService';
+import type { CodeReviewConfig } from '#swe/codeReview/codeReviewModel';
 
 export interface CodeReviewService {
 	getCodeReviewConfig(id: string): Promise<CodeReviewConfig | null>;

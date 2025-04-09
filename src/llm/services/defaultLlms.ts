@@ -1,5 +1,5 @@
-import { AgentLLMs } from '#agent/agentContextTypes';
-import { LLM } from '#llm/llm';
+import type { AgentLLMs } from '#agent/agentContextTypes';
+import type { LLM } from '#llm/llm';
 
 import { MultiLLM } from '#llm/multi-llm';
 import { Claude3_5_Haiku, Claude3_7_Sonnet } from '#llm/services/anthropic';

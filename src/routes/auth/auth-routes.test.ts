@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import { initInMemoryApplicationContext } from '../../applicationContext';
-import { AppFastifyInstance } from '../../applicationTypes';
+import type { AppFastifyInstance } from '../../applicationTypes';
 import { initFastify } from '../../fastify';
 import { authRoutes } from './auth-routes';
 

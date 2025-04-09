@@ -1,4 +1,4 @@
-import { join } from 'path';
+import { join } from 'node:path';
 import { agentContext } from '#agent/agentContextLocalStorage';
 
 export const typedaiDirName = '.typedai';

@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import path, { join } from 'path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import path, { join } from 'node:path';
 import { logger } from '#o11y/logger';
 import { systemDir } from '../appVars';
 

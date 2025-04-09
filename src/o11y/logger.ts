@@ -1,5 +1,5 @@
 import Pino from 'pino';
-import { AgentContext } from '#agent/agentContextTypes';
+import type { AgentContext } from '#agent/agentContextTypes';
 const logLevel = process.env.LOG_LEVEL || 'INFO';
 // Review config at https://github.com/simenandre/pino-cloud-logging/blob/main/src/main.ts
 
@@ -23,7 +23,7 @@ const transport =
 				options: {
 					colorize: true,
 				},
-		  }
+			}
 		: undefined;
 
 // const transportTargets = [];

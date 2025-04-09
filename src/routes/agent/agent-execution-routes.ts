@@ -6,7 +6,7 @@ import { forceStopAgent } from '#agent/forceStopAgent';
 import { send, sendBadRequest } from '#fastify/index';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
-import { AppFastifyInstance } from '../../applicationTypes';
+import type { AppFastifyInstance } from '../../applicationTypes';
 
 const v1BasePath = '/api/agent/v1';
 export async function agentExecutionRoutes(fastify: AppFastifyInstance) {

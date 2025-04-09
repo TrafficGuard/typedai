@@ -1,16 +1,16 @@
-import { randomUUID } from 'crypto';
-import { MultipartFile } from '@fastify/multipart';
+import { randomUUID } from 'node:crypto';
+import type { MultipartFile } from '@fastify/multipart';
 import { Type } from '@sinclair/typebox';
-import { TextStreamPart, UserContent } from 'ai';
-import { FastifyRequest } from 'fastify';
-import { Chat, ChatList } from '#chat/chatTypes';
+import type { TextStreamPart, UserContent } from 'ai';
+import type { FastifyRequest } from 'fastify';
+import type { Chat, ChatList } from '#chat/chatTypes';
 import { send, sendBadRequest } from '#fastify/index';
-import { FilePartExt, GenerateOptions, ImagePartExt, LLM, LlmMessage, UserContentExt } from '#llm/llm';
+import type { FilePartExt, GenerateOptions, ImagePartExt, LLM, LlmMessage, UserContentExt } from '#llm/llm';
 import { getLLM } from '#llm/llmFactory';
 import { summaryLLM } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { currentUser } from '#user/userService/userContext';
-import { AppFastifyInstance } from '../../applicationTypes';
+import type { AppFastifyInstance } from '../../applicationTypes';
 
 const basePath = '/api';
 
@@ -134,8 +134,8 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 				body: Type.Object({
 					userContent: Type.Any(),
 					llmId: Type.String(),
-					options: Type.Optional(Type.Any())
-				})
+					options: Type.Optional(Type.Any()),
+				}),
 			},
 		},
 		async (req, reply) => {
@@ -146,7 +146,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			try {
 				// Load the chat
 				const chat = await fastify.chatService.loadChat(chatId);
-				
+
 				// Check authorization
 				if (chat.userId !== userId) {
 					return sendBadRequest(reply, 'Unauthorized to access this chat');
@@ -159,20 +159,20 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 				} catch (e) {
 					return sendBadRequest(reply, `No LLM for ${llmId}`);
 				}
-				
+
 				// Check if LLM is configured
 				if (!llm.isConfigured()) {
 					return sendBadRequest(reply, `LLM ${llm.getId()} is not configured`);
 				}
 
 				// Add the user message to the chat
-				const userMessage: LlmMessage = { 
-					role: 'user', 
-					content: userContent, 
-					time: Date.now() 
+				const userMessage: LlmMessage = {
+					role: 'user',
+					content: userContent,
+					time: Date.now(),
 				};
 				chat.messages.push(userMessage);
-				
+
 				// Save the chat with the new user message
 				await fastify.chatService.saveChat(chat);
 
@@ -180,7 +180,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 				reply.raw.writeHead(200, {
 					'Content-Type': 'text/event-stream',
 					'Cache-Control': 'no-cache',
-					'Connection': 'keep-alive',
+					Connection: 'keep-alive',
 				});
 
 				// Variable to accumulate the full response
@@ -198,7 +198,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 								reply.raw.write(`data: ${JSON.stringify({ type: 'chunk', text: textChunk })}\n\n`);
 							}
 						},
-						{ id: `chat-${chatId}`, ...options }
+						{ id: `chat-${chatId}`, ...options },
 					);
 
 					// Create and save the assistant message
@@ -214,7 +214,6 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 					// Send completion event
 					reply.raw.write(`data: ${JSON.stringify({ type: 'complete', stats: generationStats })}\n\n`);
 					reply.raw.end();
-
 				} catch (error) {
 					logger.error({ err: error, chatId }, `Error during LLM stream for chat ${chatId}`);
 					// Send error event if possible
@@ -235,7 +234,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 					send(reply, 500, { error: 'Failed to set up message stream' });
 				}
 			}
-		}
+		},
 	);
 
 	fastify.delete(

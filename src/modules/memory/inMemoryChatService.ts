@@ -1,5 +1,5 @@
-import { randomUUID } from 'crypto';
-import { Chat, ChatList, ChatPreview, ChatService } from '#chat/chatTypes';
+import { randomUUID } from 'node:crypto';
+import type { Chat, ChatList, ChatPreview, ChatService } from '#chat/chatTypes';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import { currentUser } from '#user/userService/userContext';

@@ -1,6 +1,6 @@
-import { MergeRequestFingerprintCache } from '#firestore/firestoreCodeReviewService';
-import { CodeReviewConfig } from '#swe/codeReview/codeReviewModel';
-import { CodeReviewService } from '#swe/codeReview/codeReviewService';
+import type { MergeRequestFingerprintCache } from '#firestore/firestoreCodeReviewService';
+import type { CodeReviewConfig } from '#swe/codeReview/codeReviewModel';
+import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
 
 export class InMemoryCodeReviewService implements CodeReviewService {
 	private store: Map<string, CodeReviewConfig> = new Map<string, CodeReviewConfig>();

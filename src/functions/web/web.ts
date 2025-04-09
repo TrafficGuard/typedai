@@ -1,4 +1,4 @@
-import path, { join } from 'path';
+import path, { join } from 'node:path';
 import { PuppeteerBlocker } from '@cliqz/adblocker-puppeteer';
 import { Readability } from '@mozilla/readability';
 import { JSDOM } from 'jsdom';
@@ -10,7 +10,7 @@ import { promises as fsPromises } from 'node:fs';
 import * as autoconsent from '@duckduckgo/autoconsent';
 import fetch from 'cross-fetch';
 import puppeteer from 'puppeteer';
-import { Browser } from 'puppeteer';
+import type { Browser } from 'puppeteer';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { sleep } from '#utils/async-utils';

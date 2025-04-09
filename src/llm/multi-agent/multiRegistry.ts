@@ -1,4 +1,4 @@
-import { LLM } from '#llm/llm';
+import type { LLM } from '#llm/llm';
 import { CePO_Cerebras_Llama70b } from '#llm/multi-agent/cepo';
 import { FastMediumLLM } from '#llm/multi-agent/fastMedium';
 import { cerebrasLlama3_3_70b } from '#llm/services/cerebras';

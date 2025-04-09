@@ -1,10 +1,10 @@
 import { Type } from '@sinclair/typebox';
-import { FastifyReply } from 'fastify';
+import type { FastifyReply } from 'fastify';
 import { send } from '#fastify/index';
 import { logger } from '#o11y/logger';
-import { User } from '#user/user';
+import type { User } from '#user/user';
 import { currentUser } from '#user/userService/userContext';
-import { AppFastifyInstance } from '../../applicationTypes';
+import type { AppFastifyInstance } from '../../applicationTypes';
 
 const basePath = '/api/profile';
 

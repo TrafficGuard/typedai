@@ -1,22 +1,22 @@
-import { readFileSync } from 'fs';
-import { Span, SpanStatusCode } from '@opentelemetry/api';
-import { PyodideInterface, loadPyodide } from 'pyodide';
+import { readFileSync } from 'node:fs';
+import { type Span, SpanStatusCode } from '@opentelemetry/api';
+import { type PyodideInterface, loadPyodide } from 'pyodide';
 import { runAgentCompleteHandler } from '#agent/agentCompletion';
-import { AgentContext } from '#agent/agentContextTypes';
+import type { AgentContext } from '#agent/agentContextTypes';
 import { AGENT_REQUEST_FEEDBACK, REQUEST_FEEDBACK_PARAM_NAME } from '#agent/agentFeedback';
 import { AGENT_COMPLETED_NAME, AGENT_COMPLETED_PARAM_NAME, AGENT_SAVE_MEMORY_CONTENT_PARAM_NAME } from '#agent/agentFunctions';
 import { buildFunctionCallHistoryPrompt, buildMemoryPrompt, buildToolStatePrompt, updateFunctionSchemas } from '#agent/agentPromptUtils';
-import { AgentExecution } from '#agent/agentRunner';
+import type { AgentExecution } from '#agent/agentRunner';
 import { reviewPythonCode } from '#agent/codeGenAgentCodeReview';
 import { convertJsonToPythonDeclaration, extractPythonCode, removePythonMarkdownWrapper } from '#agent/codeGenAgentUtils';
 import { getServiceName } from '#fastify/trace-init/trace-init';
-import { FUNC_SEP, FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
+import { FUNC_SEP, type FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { errorToString } from '#utils/errors';
 import { appContext } from '../applicationContext';
 import { agentContextStorage, llms } from './agentContextLocalStorage';
-import { HitlCounters, checkHumanInTheLoop } from './humanInTheLoopChecks';
+import { type HitlCounters, checkHumanInTheLoop } from './humanInTheLoopChecks';
 
 const stopSequences = ['</response>'];
 

@@ -1,5 +1,5 @@
 import { LlmFunctions } from '#agent/LlmFunctions';
-import { AgentContext } from '#agent/agentContextTypes';
+import type { AgentContext } from '#agent/agentContextTypes';
 import { getCompletedHandler } from '#agent/completionHandlerRegistry';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { deserializeLLMs } from '#llm/llmFactory';

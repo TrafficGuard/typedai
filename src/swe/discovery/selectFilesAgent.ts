@@ -1,10 +1,12 @@
-import path from 'path';
+import path from 'node:path';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
-import { LLM, LlmMessage } from '#llm/llm';
+import type { LLM, LlmMessage } from '#llm/llm';
+import { extractTag } from '#llm/responseParsers';
+import { openAIo3mini } from '#llm/services/openai';
 import { logger } from '#o11y/logger';
 import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
-import { RepositoryMaps, generateRepositoryMaps } from '#swe/index/repositoryMap';
-import { ProjectInfo, detectProjectInfo } from '#swe/projectDetection';
+import { type RepositoryMaps, generateRepositoryMaps } from '#swe/index/repositoryMap';
+import { type ProjectInfo, detectProjectInfo } from '#swe/projectDetection';
 
 /*
 Agent which iteratively loads files to find the file set required for a task/query.

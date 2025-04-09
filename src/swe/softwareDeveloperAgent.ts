@@ -1,7 +1,7 @@
 import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import { GitProject } from '#functions/scm/gitProject';
-import { MergeRequest, getSourceControlManagementTool } from '#functions/scm/sourceControlManagement';
+import type { GitProject } from '#functions/scm/gitProject';
+import { type MergeRequest, getSourceControlManagementTool } from '#functions/scm/sourceControlManagement';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import { createBranchName } from '#swe/createBranchName';
@@ -10,7 +10,7 @@ import { selectProject } from '#swe/selectProject';
 import { summariseRequirements } from '#swe/summariseRequirements';
 import { cacheRetry } from '../cache/cacheRetry';
 import { CodeEditingAgent } from './codeEditingAgent';
-import { ProjectInfo, detectProjectInfo } from './projectDetection';
+import { type ProjectInfo, detectProjectInfo } from './projectDetection';
 
 /**
  * Workflow for completing requirements. This will look up the appropriate project in source control, clone, make the changes and create a pull/merge request.

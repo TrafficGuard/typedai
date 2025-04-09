@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import { expect } from 'chai';
-import { LlmMessage } from '#llm/llm';
+import type { LlmMessage } from '#llm/llm';
 import { Claude3_5_Sonnet } from '#llm/services/anthropic';
 import { Claude3_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { cerebrasLlama3_8b } from '#llm/services/cerebras';

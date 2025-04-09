@@ -1,22 +1,17 @@
-import { ProviderV1 } from '@ai-sdk/provider';
+import type { ProviderV1 } from '@ai-sdk/provider';
 import {
-	AssistantMessage,
-	CoreMessage,
-	FinishReason,
-	GenerateTextResult,
-	LanguageModelUsage,
-	LanguageModelV1,
-	ProviderMetadata,
-	StreamTextResult,
-	TextStreamPart,
+	type CoreMessage,
+	type GenerateTextResult,
+	type LanguageModelV1,
+	type TextStreamPart,
 	generateText as aiGenerateText,
-	smoothStream,
 	streamText as aiStreamText,
+	smoothStream,
 } from 'ai';
 import { addCost, agentContext } from '#agent/agentContextLocalStorage';
 import { BaseLLM } from '#llm/base-llm';
-import { GenerateTextOptions, GenerationStats, LlmMessage, toText } from '#llm/llm';
-import { LlmCall } from '#llm/llmCallService/llmCall';
+import { type GenerateTextOptions, type GenerationStats, type LlmMessage, toText } from '#llm/llm';
+import type { LlmCall } from '#llm/llmCallService/llmCall';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 // import { currentUser } from '#user/userService/userContext';
@@ -171,6 +166,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 		});
 	}
 
+	// https://sdk.vercel.ai/docs/ai-sdk-core/generating-text#streamtext
 	async streamText(llmMessages: LlmMessage[], onChunkCallback: (chunk: TextStreamPart<any>) => void, opts?: GenerateTextOptions): Promise<GenerationStats> {
 		return withActiveSpan(`streamText ${opts?.id ?? ''}`, async (span) => {
 			const messages: CoreMessage[] = llmMessages.map((msg) => {

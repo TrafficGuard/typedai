@@ -1,15 +1,16 @@
-import { readFileSync, writeFileSync } from 'fs';
 import { execSync } from 'node:child_process';
+import { readFileSync, writeFileSync } from 'node:fs';
 import fs, { readFile, unlinkSync } from 'node:fs';
-import path, { join } from 'path';
-import { promisify } from 'util';
+import path, { join } from 'node:path';
+import { promisify } from 'node:util';
 import { addCost, agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import { LLM } from '#llm/llm';
+import type { LLM } from '#llm/llm';
 import { Claude3_7_Sonnet } from '#llm/services/anthropic';
 import { Claude3_7_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { deepSeekV3 } from '#llm/services/deepseek';
 import { GPT4o } from '#llm/services/openai';
+import { Gemini_2_5_Pro } from '#llm/services/vertexai';
 import { logger } from '#o11y/logger';
 import { getActiveSpan } from '#o11y/trace';
 import { currentUser } from '#user/userService/userContext';
@@ -52,11 +53,12 @@ export class AiderCodeEditor {
 			modelArg = '--model gemini/gemini-2.5-pro-exp-03-25';
 			span.setAttribute('model', 'gemini 2.5 Pro');
 			env = { GEMINI_API_KEY: process.env.GEMINI_API_KEY };
-		} else if (process.env.GCLOUD_PROJECT && process.env.GCLOUD_CLAUDE_REGION) {
-			llm = Claude3_7_Sonnet_Vertex();
+		} else if (process.env.GCLOUD_PROJECT) {
+			//  && process.env.GCLOUD_CLAUDE_REGION
+			llm = Gemini_2_5_Pro();
 			modelArg = `--model vertex_ai/${llm.getModel()}`;
-			span.setAttribute('model', 'sonnet');
-			env = { VERTEXAI_PROJECT: process.env.GCLOUD_PROJECT, VERTEXAI_LOCATION: process.env.GCLOUD_CLAUDE_REGION };
+			span.setAttribute('model', llm.getModel());
+			env = { VERTEXAI_PROJECT: process.env.GCLOUD_PROJECT, VERTEXAI_LOCATION: process.env.GCLOUD_REGION };
 		} else if (anthropicKey) {
 			modelArg = '--sonnet';
 			env = { ANTHROPIC_API_KEY: anthropicKey };
@@ -157,7 +159,7 @@ function extractSessionCost(text: string): number {
 	const match = text.match(regex);
 
 	if (match?.[1]) {
-		return parseFloat(match[1]);
+		return Number.parseFloat(match[1]);
 	}
 
 	return 0; // Return null if no match is found

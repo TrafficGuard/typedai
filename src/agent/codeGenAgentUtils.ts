@@ -1,4 +1,4 @@
-import { FunctionParameter, FunctionSchema } from '#functionSchema/functions';
+import type { FunctionParameter, FunctionSchema } from '#functionSchema/functions';
 
 /**
  * Converts the JSON function schemas to Python function declarations with docString

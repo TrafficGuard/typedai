@@ -1,4 +1,4 @@
-import { TikTokenizer, createByModelName } from '@microsoft/tiktokenizer';
+import { type TikTokenizer, createByModelName } from '@microsoft/tiktokenizer';
 
 let tokenizer: TikTokenizer;
 

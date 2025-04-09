@@ -1,9 +1,9 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { appendFileSync } from 'node:fs';
 import { agentContext, agentContextStorage, createContext } from '#agent/agentContextLocalStorage';
-import { AgentContext } from '#agent/agentContextTypes';
+import type { AgentContext } from '#agent/agentContextTypes';
 import { Blueberry } from '#llm/multi-agent/blueberry';
 import { mockLLMs } from '#llm/services/mock-llm';
 import { Gemini_2_0_Flash } from '#llm/services/vertexai';

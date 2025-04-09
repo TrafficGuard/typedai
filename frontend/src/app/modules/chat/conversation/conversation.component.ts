@@ -2,7 +2,7 @@ import { TextFieldModule } from '@angular/cdk/text-field';
 import { DatePipe, NgClass } from '@angular/common';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
-import { EMPTY, Observable, Subscription, catchError, switchMap } from 'rxjs';
+import { EMPTY, Observable, Subscription, catchError, switchMap, of } from 'rxjs';
 import { v4 as uuidv4 } from 'uuid';
 import {
     AfterViewInit,

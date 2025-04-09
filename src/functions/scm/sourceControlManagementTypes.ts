@@ -1,4 +1,4 @@
-import { join } from 'path';
+import { join } from 'node:path';
 import { systemDir } from '../../appVars';
 
 // Defined here to avoid circular dependencies

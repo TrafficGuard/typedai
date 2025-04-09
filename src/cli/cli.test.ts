@@ -1,4 +1,4 @@
-import { existsSync } from 'fs';
+import { existsSync } from 'node:fs';
 import { unlinkSync } from 'node:fs';
 import { expect } from 'chai';
 import { systemDir } from '../appVars';

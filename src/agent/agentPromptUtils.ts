@@ -1,7 +1,7 @@
 import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
 import { LiveFiles } from '#agent/liveFiles';
 import { FileSystemService } from '#functions/storage/fileSystemService';
-import { FileMetadata, FileStore } from '#functions/storage/filestore';
+import type { FileMetadata, FileStore } from '#functions/storage/filestore';
 import { FunctionCallResult } from '#llm/llm';
 import { logger } from '#o11y/logger';
 

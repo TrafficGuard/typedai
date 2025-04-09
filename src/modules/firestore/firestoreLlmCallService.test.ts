@@ -1,11 +1,11 @@
 import { expect } from 'chai';
 import { resetFirestoreEmulator } from '#firestore/resetFirestoreEmulator';
-import { LlmMessage, system, user } from '#llm/llm';
-import { CreateLlmRequest, LlmCall } from '#llm/llmCallService/llmCall';
+import { type LlmMessage, system, user } from '#llm/llm';
+import type { CreateLlmRequest, LlmCall } from '#llm/llmCallService/llmCall';
 import { LlmCallService } from '#llm/llmCallService/llmCallService';
 import { firestoreDb } from '#modules/firestore/firestore';
 import { FirestoreLlmCallService } from '#modules/firestore/firestoreLlmCallService';
-import { User } from '#user/user'; // Import User from the correct location
+import type { User } from '#user/user'; // Import User from the correct location
 import { setCurrentUser } from '#user/userService/userContext'; // Keep setCurrentUser import
 
 // Firestore document size limit (use same constant as service)

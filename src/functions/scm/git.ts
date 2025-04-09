@@ -1,15 +1,15 @@
 import fs from 'node:fs';
-import util from 'util';
+import util from 'node:util';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { GITHUB_SHARED_REPOS_PATH, GITLAB_SHARED_REPOS_PATH } from '#functions/scm/sourceControlManagementTypes';
-import { FileSystemService } from '#functions/storage/fileSystemService';
+import type { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import { execCommand, failOnError } from '#utils/exec';
 import { agentDir } from '../../appVars';
-import { VersionControlSystem } from './versionControlSystem';
-const exec = util.promisify(require('child_process').exec);
+import type { VersionControlSystem } from './versionControlSystem';
+const exec = util.promisify(require('node:child_process').exec);
 
 @funcClass(__filename)
 export class Git implements VersionControlSystem {
@@ -104,7 +104,7 @@ export class Git implements VersionControlSystem {
 			? await execCommand(`git --no-pager diff $(git merge-base ${sourceBranch} HEAD) HEAD`)
 			: await execCommand(
 					"git --no-pager diff $(git merge-base HEAD $(git for-each-ref --format='%(refname)' refs/heads/ | grep -v $(git symbolic-ref HEAD))) HEAD",
-			  );
+				);
 
 		failOnError('Error getting branch diff', result);
 		return result.stdout;

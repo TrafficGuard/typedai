@@ -1,13 +1,13 @@
 import { access, existsSync, lstat, mkdir, readFile, readdir, stat, writeFile } from 'node:fs';
 import { resolve } from 'node:path';
-import path, { join, relative } from 'path';
-import { promisify } from 'util';
-import ignore, { Ignore } from 'ignore';
-import Pino from 'pino';
+import path, { join, relative } from 'node:path';
+import { promisify } from 'node:util';
+import ignore, { type Ignore } from 'ignore';
+import type Pino from 'pino';
 import { agentContext } from '#agent/agentContextLocalStorage';
 import { parseArrayParameterValue } from '#functionSchema/functionUtils';
 import { Git } from '#functions/scm/git';
-import { VersionControlSystem } from '#functions/scm/versionControlSystem';
+import type { VersionControlSystem } from '#functions/scm/versionControlSystem';
 import { LlmTools } from '#functions/util';
 import { logger } from '#o11y/logger';
 import { getActiveSpan } from '#o11y/trace';

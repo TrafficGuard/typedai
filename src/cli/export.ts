@@ -1,5 +1,5 @@
-import * as path from 'path';
-import * as fs from 'fs/promises'; // Use fs.promises for async operations
+import * as fs from 'node:fs/promises'; // Use fs.promises for async operations
+import * as path from 'node:path';
 import micromatch from 'micromatch';
 
 import { FileSystemService } from '#functions/storage/fileSystemService'; // Assuming this path alias works

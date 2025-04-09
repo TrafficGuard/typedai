@@ -1,7 +1,7 @@
-import { Firestore } from '@google-cloud/firestore'; // Keep Timestamp if used by other parts, not strictly needed for cache tests now
+import type { Firestore } from '@google-cloud/firestore'; // Keep Timestamp if used by other parts, not strictly needed for cache tests now
 import { expect } from 'chai';
 import { firestoreDb } from '#firestore/firestore'; // Adjust path
-import { FirestoreCodeReviewService, MergeRequestFingerprintCache } from '#firestore/firestoreCodeReviewService';
+import { FirestoreCodeReviewService, type MergeRequestFingerprintCache } from '#firestore/firestoreCodeReviewService';
 import { resetFirestoreEmulator } from '#firestore/resetFirestoreEmulator'; // Adjust path
 import { EMPTY_CACHE } from '#swe/codeReview/codeReviewModel'; // Adjust path
 

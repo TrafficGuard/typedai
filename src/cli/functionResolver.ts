@@ -7,7 +7,7 @@ import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { FileSystemWrite } from '#functions/storage/fileSystemWrite';
 import { Perplexity } from '#functions/web/perplexity';
 import { PublicWeb } from '#functions/web/web';
-import { LLM } from '#llm/llm';
+import type { LLM } from '#llm/llm';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';

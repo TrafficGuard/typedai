@@ -1,12 +1,21 @@
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import fs, { writeFile } from 'node:fs';
-import path, { join } from 'path';
-import { promisify } from 'util';
-import { ClassDeclaration, Decorator, JSDoc, JSDocTag, MethodDeclaration, ParameterDeclaration, Project, Type } from 'ts-morph';
+import path, { join } from 'node:path';
+import { promisify } from 'node:util';
+import {
+	type ClassDeclaration,
+	type Decorator,
+	type JSDoc,
+	type JSDocTag,
+	type MethodDeclaration,
+	type ParameterDeclaration,
+	Project,
+	type Type,
+} from 'ts-morph';
 import { FUNC_DECORATOR_NAME } from '#functionSchema/functionSchemaTypes';
 import { logger } from '#o11y/logger';
 import { systemDir } from '../appVars';
-import { FunctionParameter, FunctionSchema } from './functions';
+import type { FunctionParameter, FunctionSchema } from './functions';
 
 const writeFileAsync = promisify(writeFile);
 

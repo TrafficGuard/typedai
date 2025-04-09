@@ -1,7 +1,7 @@
-import path from 'path'; // Adjust path as needed
+import path from 'node:path'; // Adjust path as needed
 import chai, { expect } from 'chai';
 import chaiSubset from 'chai-subset';
-import ignore, { Ignore } from 'ignore'; // Import ignore and Ignore type
+import ignore, { type Ignore } from 'ignore'; // Import ignore and Ignore type
 import mock from 'mock-fs';
 import sinon from 'sinon';
 import { FileSystemService } from '#functions/storage/fileSystemService';

@@ -1,27 +1,27 @@
 import crypto from 'node:crypto';
 import {
-	CommitDiffSchema,
-	DiscussionSchema,
-	ExpandedMergeRequestSchema,
+	type CommitDiffSchema,
+	type DiscussionSchema,
+	type ExpandedMergeRequestSchema,
 	Gitlab as GitlabApi,
-	MergeRequestDiffSchema,
-	MergeRequestDiscussionNotePositionOptions,
-	ProjectSchema,
+	type MergeRequestDiffSchema,
+	type MergeRequestDiscussionNotePositionOptions,
+	type ProjectSchema,
 } from '@gitbeaker/rest';
 import * as micromatch from 'micromatch';
 import { llms } from '#agent/agentContextLocalStorage';
-import { MergeRequestFingerprintCache } from '#firestore/firestoreCodeReviewService';
+import type { MergeRequestFingerprintCache } from '#firestore/firestoreCodeReviewService';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import { GitLab, GitLabConfig } from '#functions/scm/gitlab';
+import { GitLab, type GitLabConfig } from '#functions/scm/gitlab';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import { CodeReviewConfig, codeReviewToXml } from '#swe/codeReview/codeReviewModel';
+import { type CodeReviewConfig, codeReviewToXml } from '#swe/codeReview/codeReviewModel';
 import { functionConfig } from '#user/userService/userContext';
 import { allSettledAndFulFilled } from '#utils/async-utils';
 import { envVar } from '#utils/env-var';
 import { appContext } from '../../applicationContext';
 import { cacheRetry } from '../../cache/cacheRetry';
-import { SourceControlManagement } from './sourceControlManagement';
+import type { SourceControlManagement } from './sourceControlManagement';
 
 /**
  * AI review of a git diff
@@ -125,7 +125,7 @@ export class GitLabCodeReview {
 		let cacheNeedsUpdate = false;
 
 		// --- Extract existing violation identifiers (no change) ---
-		const BOT_USER_ID = parseInt(process.env.GITLAB_BOT_USER_ID || '0', 10);
+		const BOT_USER_ID = Number.parseInt(process.env.GITLAB_BOT_USER_ID || '0', 10);
 		if (BOT_USER_ID === 0) logger.warn('GITLAB_BOT_USER_ID not configured.');
 		const existingViolationIdentifiers = new Set<string>();
 		for (const discussion of existingComments) {
@@ -341,7 +341,7 @@ export class GitLabCodeReview {
 		const headerMatch = mrDiff.diff.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/m);
 		let actualStartLine = 1;
 		if (headerMatch?.[1]) {
-			actualStartLine = parseInt(headerMatch[1], 10);
+			actualStartLine = Number.parseInt(headerMatch[1], 10);
 			if (actualStartLine === 0) actualStartLine = 1;
 		} else {
 			// If header is missing or malformed, log and potentially throw,
@@ -491,7 +491,7 @@ Response only in JSON format. Do not wrap the JSON in any tags.
 export function getStartingLineNumber(diff: string): number {
 	diff = diff.slice(diff.indexOf('+'));
 	diff = diff.slice(0, diff.indexOf(','));
-	return parseInt(diff);
+	return Number.parseInt(diff);
 }
 
 function getBlankLineCommenter(fileName: string): (lineNumber: number) => string {
@@ -600,7 +600,7 @@ function getCodeContext(codeWithLineComments: string, targetLineNumber: number, 
 		// Check if the *previous* line was the comment for our target number
 		if (i > 0) {
 			const prevLineMatch = lines[i - 1].match(lineNumRegex);
-			if (prevLineMatch && parseInt(prevLineMatch[1], 10) === targetLineNumber) {
+			if (prevLineMatch && Number.parseInt(prevLineMatch[1], 10) === targetLineNumber) {
 				targetLineIndex = i; // The current line `i` is the code line for targetLineNumber
 				break;
 			}

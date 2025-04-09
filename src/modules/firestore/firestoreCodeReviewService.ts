@@ -1,7 +1,7 @@
-import { DocumentSnapshot, FieldValue, Firestore, Timestamp } from '@google-cloud/firestore';
+import { type DocumentSnapshot, FieldValue, type Firestore, Timestamp } from '@google-cloud/firestore';
 import { logger } from '#o11y/logger';
-import { CodeReviewConfig, EMPTY_CACHE } from '#swe/codeReview/codeReviewModel';
-import { CodeReviewService } from '#swe/codeReview/codeReviewService';
+import { type CodeReviewConfig, EMPTY_CACHE } from '#swe/codeReview/codeReviewModel';
+import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
 import { firestoreDb } from './firestore';
 
 /**

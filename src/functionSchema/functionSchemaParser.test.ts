@@ -3,10 +3,10 @@ import { expect } from 'chai';
 import { systemDir } from '../appVars';
 import { func, funcClass } from './functionDecorators';
 import { functionSchemaParser } from './functionSchemaParser';
-import { FunctionSchema } from './functions';
+import type { FunctionSchema } from './functions';
 
 @funcClass(__filename)
-export class TestClass {
+class TestClass {
 	/**
 	 * Simple method without parameters
 	 */

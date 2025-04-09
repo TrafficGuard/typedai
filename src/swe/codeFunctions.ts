@@ -1,6 +1,6 @@
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { queryWorkflow } from '#swe/discovery/selectFilesAgent';
-import { SelectFilesResponse, selectFilesToEdit } from '#swe/discovery/selectFilesToEdit';
+import { type SelectFilesResponse, selectFilesToEdit } from '#swe/discovery/selectFilesToEdit';
 import { getProjectInfo } from '#swe/projectDetection';
 import { reviewChanges } from '#swe/reviewChanges';
 

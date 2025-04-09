@@ -1,6 +1,6 @@
 import { functionRegistry } from 'src/functionRegistry';
 import { agentContext } from '#agent/agentContextLocalStorage';
-import { GitProject } from './gitProject';
+import type { GitProject } from './gitProject';
 
 export interface MergeRequest {
 	id: number;

@@ -1,9 +1,9 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
-import { promises as fs, readFileSync } from 'fs';
-import { AgentLLMs } from '#agent/agentContextTypes';
+import { promises as fs, readFileSync } from 'node:fs';
+import type { AgentLLMs } from '#agent/agentContextTypes';
 import { AGENT_COMPLETED_PARAM_NAME } from '#agent/agentFunctions';
-import { RunAgentConfig, startAgent, startAgentAndWait } from '#agent/agentRunner';
+import { type RunAgentConfig, startAgent, startAgentAndWait } from '#agent/agentRunner';
 import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { GitLab } from '#functions/scm/gitlab';
@@ -15,7 +15,7 @@ import { LlmCall } from '#llm/llmCallService/llmCall';
 import { ClaudeLLMs } from '#llm/services/anthropic';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
-import { SWEBenchAgent, SWEInstance } from '#swe/SWEBenchAgent';
+import { SWEBenchAgent, type SWEInstance } from '#swe/SWEBenchAgent';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { sleep } from '#utils/async-utils';
 import { initFirestoreApplicationContext } from '../applicationContext';

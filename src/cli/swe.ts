@@ -1,7 +1,7 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
-import { AgentContext, AgentLLMs } from '#agent/agentContextTypes';
-import { RunAgentConfig } from '#agent/agentRunner';
+import type { AgentContext, AgentLLMs } from '#agent/agentContextTypes';
+import type { RunAgentConfig } from '#agent/agentRunner';
 import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { Perplexity } from '#functions/web/perplexity';

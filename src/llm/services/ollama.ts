@@ -1,11 +1,11 @@
 import axios from 'axios';
 import { agentContext } from '#agent/agentContextLocalStorage';
-import { AgentLLMs } from '#agent/agentContextTypes';
-import { LlmCall } from '#llm/llmCallService/llmCall';
+import type { AgentLLMs } from '#agent/agentContextTypes';
+import type { LlmCall } from '#llm/llmCallService/llmCall';
 import { withActiveSpan } from '#o11y/trace';
 import { appContext } from '../../applicationContext';
 import { BaseLLM } from '../base-llm';
-import { GenerateTextOptions, LLM, LlmMessage, assistant, combinePrompts, system, user } from '../llm';
+import { type GenerateTextOptions, type LLM, type LlmMessage, assistant, combinePrompts, system, user } from '../llm';
 
 export const OLLAMA_SERVICE = 'ollama';
 

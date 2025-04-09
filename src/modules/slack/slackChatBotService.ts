@@ -1,8 +1,8 @@
-import { App, KnownEventFromType, SayFn } from '@slack/bolt';
-import { StringIndexed } from '@slack/bolt/dist/types/helpers';
-import { MessageElement } from '@slack/web-api/dist/response/ConversationsRepliesResponse';
+import { App, type KnownEventFromType, type SayFn } from '@slack/bolt';
+import type { StringIndexed } from '@slack/bolt/dist/types/helpers';
+import type { MessageElement } from '@slack/web-api/dist/response/ConversationsRepliesResponse';
 import { getLastFunctionCallArg } from '#agent/agentCompletion';
-import { AgentCompleted, AgentContext, isExecuting } from '#agent/agentContextTypes';
+import { type AgentCompleted, type AgentContext, isExecuting } from '#agent/agentContextTypes';
 import { resumeCompleted, resumeCompletedWithUpdatedUserRequest, startAgent } from '#agent/agentRunner';
 import { GoogleCloud } from '#functions/cloud/google/google-cloud';
 import { Jira } from '#functions/jira';
@@ -13,7 +13,7 @@ import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { sleep } from '#utils/async-utils';
 import { appContext } from '../../applicationContext';
-import { ChatBotService } from '../../chatBot/chatBotService';
+import type { ChatBotService } from '../../chatBot/chatBotService';
 
 let slackApp: App<StringIndexed> | undefined;
 

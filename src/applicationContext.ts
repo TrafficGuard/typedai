@@ -1,6 +1,6 @@
 import { inMemoryApplicationContext } from '#modules/memory/inMemoryApplicationContext';
 import { logger } from '#o11y/logger';
-import { ApplicationContext } from './applicationTypes';
+import type { ApplicationContext } from './applicationTypes';
 
 export let applicationContext: ApplicationContext;
 

@@ -1,12 +1,12 @@
 import { addCost, agentContext } from '#agent/agentContextLocalStorage';
-import { AgentLLMs } from '#agent/agentContextTypes';
-import { LlmCall } from '#llm/llmCallService/llmCall';
+import type { AgentLLMs } from '#agent/agentContextTypes';
+import type { LlmCall } from '#llm/llmCallService/llmCall';
 import { Blueberry } from '#llm/multi-agent/blueberry';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { appContext } from '../../applicationContext';
 import { BaseLLM } from '../base-llm';
-import { GenerateTextOptions, LLM, LlmMessage, assistant, combinePrompts, system, user } from '../llm';
+import { type GenerateTextOptions, type LLM, type LlmMessage, assistant, combinePrompts, system, user } from '../llm';
 
 export class MockLLM extends BaseLLM {
 	lastPrompt = '';

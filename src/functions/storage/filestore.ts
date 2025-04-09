@@ -1,4 +1,4 @@
-import { GetToolType } from '#functions/toolType';
+import type { GetToolType } from '#functions/toolType';
 
 export interface FileMetadata {
 	filename: string;

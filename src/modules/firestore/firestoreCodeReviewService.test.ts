@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
-import { CodeReviewConfig } from '#swe/codeReview/codeReviewModel';
+import type { CodeReviewConfig } from '#swe/codeReview/codeReviewModel';
 import { FirestoreCodeReviewService } from './firestoreCodeReviewService';
 
 describe('FirestoreCodeReviewService', () => {

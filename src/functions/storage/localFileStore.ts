@@ -1,9 +1,9 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import { agentContext } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import { FileMetadata, FileStore } from '#functions/storage/filestore';
-import { ToolType } from '#functions/toolType';
+import type { FileMetadata, FileStore } from '#functions/storage/filestore';
+import type { ToolType } from '#functions/toolType';
 import { systemDir } from '../../appVars';
 
 /**

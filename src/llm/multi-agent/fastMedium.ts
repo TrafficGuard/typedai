@@ -4,7 +4,7 @@ import { Gemini_2_0_Flash } from '#llm/services/vertexai';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import { BaseLLM } from '../base-llm';
-import { GenerateTextOptions, LLM, LlmMessage } from '../llm';
+import type { GenerateTextOptions, LLM, LlmMessage } from '../llm';
 
 /**
  * LLM implementation for the fastest ~70b level models with fallbacks

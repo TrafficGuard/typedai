@@ -1,5 +1,5 @@
 import { BaseLLM } from '#llm/base-llm';
-import { GenerateTextOptions, LLM, LlmMessage, lastText } from '#llm/llm';
+import { type GenerateTextOptions, type LLM, type LlmMessage, lastText } from '#llm/llm';
 import { getLLM } from '#llm/llmFactory';
 import { DeepSeekR1_Together_Fireworks_Nebius_SambaNova } from '#llm/multi-agent/deepSeekR1_Fallbacks';
 import { Claude3_5_Sonnet_Vertex, Claude3_7_Sonnet_Vertex } from '#llm/services/anthropic-vertex';

@@ -1,21 +1,21 @@
-import { readFileSync } from 'fs';
-import { Span, SpanStatusCode } from '@opentelemetry/api';
+import { readFileSync } from 'node:fs';
+import { type Span, SpanStatusCode } from '@opentelemetry/api';
 import { runAgentCompleteHandler } from '#agent/agentCompletion';
-import { AgentContext } from '#agent/agentContextTypes';
+import type { AgentContext } from '#agent/agentContextTypes';
 import { AGENT_REQUEST_FEEDBACK } from '#agent/agentFeedback';
 import { AGENT_COMPLETED_NAME } from '#agent/agentFunctions';
 import { buildFunctionCallHistoryPrompt, buildMemoryPrompt, buildToolStatePrompt, updateFunctionSchemas } from '#agent/agentPromptUtils';
-import { AgentExecution, formatFunctionError, formatFunctionResult, summariseLongFunctionOutput } from '#agent/agentRunner';
+import { type AgentExecution, formatFunctionError, formatFunctionResult, summariseLongFunctionOutput } from '#agent/agentRunner';
 import { getServiceName } from '#fastify/trace-init/trace-init';
-import { FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
-import { FunctionResponse } from '#llm/llm';
+import { type FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
+import type { FunctionResponse } from '#llm/llm';
 import { parseFunctionCallsXml } from '#llm/responseParsers';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { errorToString } from '#utils/errors';
 import { appContext } from '../applicationContext';
 import { agentContextStorage, llms } from './agentContextLocalStorage';
-import { HitlCounters, checkHumanInTheLoop } from './humanInTheLoopChecks';
+import { type HitlCounters, checkHumanInTheLoop } from './humanInTheLoopChecks';
 
 export const XML_AGENT_SPAN = 'XmlAgent';
 

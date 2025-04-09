@@ -1,17 +1,17 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import { join } from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { join } from 'node:path';
 import { Type } from '@sinclair/typebox';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
-import { RunAgentConfig } from '#agent/agentRunner';
+import type { RunAgentConfig } from '#agent/agentRunner';
 import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
 import { defaultLLMs, summaryLLM } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { queryWorkflow } from '#swe/discovery/selectFilesAgent';
-import { SelectFilesResponse, selectFilesToEdit } from '#swe/discovery/selectFilesToEdit';
+import { type SelectFilesResponse, selectFilesToEdit } from '#swe/discovery/selectFilesToEdit';
 import { systemDir, typedaiDirName } from '../../appVars';
-import { AppFastifyInstance } from '../../applicationTypes';
+import type { AppFastifyInstance } from '../../applicationTypes';
 
 function findRepositories(dir: string): string[] {
 	const repos: string[] = [];

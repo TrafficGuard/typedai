@@ -1,14 +1,14 @@
-import { LlmFunctions } from '#agent/LlmFunctions';
+import type { LlmFunctions } from '#agent/LlmFunctions';
 import { createContext, llms } from '#agent/agentContextLocalStorage';
-import { AgentCompleted, AgentContext, AgentLLMs, AgentType } from '#agent/agentContextTypes';
+import type { AgentCompleted, AgentContext, AgentLLMs, AgentType } from '#agent/agentContextTypes';
 import { AGENT_REQUEST_FEEDBACK } from '#agent/agentFeedback';
 import { AGENT_COMPLETED_PARAM_NAME } from '#agent/agentFunctions';
 import { runCodeGenAgent } from '#agent/codeGenAgentRunner';
 import { runXmlAgent } from '#agent/xmlAgentRunner';
 import { FUNC_SEP } from '#functionSchema/functions';
-import { FunctionCall, FunctionCallResult } from '#llm/llm';
+import type { FunctionCall, FunctionCallResult } from '#llm/llm';
 import { logger } from '#o11y/logger';
-import { User } from '#user/user';
+import type { User } from '#user/user';
 import { errorToString } from '#utils/errors';
 import { CDATA_END, CDATA_START } from '#utils/xml-utils';
 import { appContext } from '../applicationContext';

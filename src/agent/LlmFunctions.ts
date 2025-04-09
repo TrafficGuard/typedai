@@ -1,9 +1,9 @@
 import { Agent } from '#agent/agentFunctions';
 import { functionFactory } from '#functionSchema/functionDecorators';
-import { FUNC_SEP, FunctionSchema, getFunctionSchemas } from '#functionSchema/functions';
+import { FUNC_SEP, type FunctionSchema, getFunctionSchemas } from '#functionSchema/functions';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
-import { ToolType, toolType } from '#functions/toolType';
-import { FunctionCall } from '#llm/llm';
+import { type ToolType, toolType } from '#functions/toolType';
+import type { FunctionCall } from '#llm/llm';
 import { logger } from '#o11y/logger';
 
 /**
