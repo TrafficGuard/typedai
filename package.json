@@ -45,7 +45,7 @@
     "test:unit:dev": "TS_NODE_PROJECT='./tsconfig.swc.json' node --env-file=variables/test.env ./node_modules/mocha/bin/mocha -r ts-node/register -t 0 --exit --colors \"src/**/*.test.[jt]s\"",
     "test:cli": "node --env-file=variables/test.env ./node_modules/mocha/bin/mocha -r ts-node/register \"src/cli/**/*.{test,unit}.[jt]s\" --timeout 10000",
     "format": " biome format --write ./src",
-    "lint": "   biome check --apply-unsafe ./src",
+    "lint": "   biome check --write --unsafe ./src",
     "lint:ci": "biome ci ./src",
     "prepare": "node .husky/install.mjs"
   },
