@@ -9,7 +9,7 @@ import { currentUser, functionConfig } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
 import { appContext } from '../../applicationContext';
 import { BaseLLM } from '../base-llm';
-import {GenerateTextOptions, GenerationStats, LLM, LlmMessage, assistant, Prompt} from '../llm';
+import { GenerateTextOptions, GenerationStats, LLM, LlmMessage, Prompt, assistant, isSystemUserPrompt, system, user } from '../llm';
 
 export const PERPLEXITY_SERVICE = 'perplexity';
 
@@ -100,7 +100,7 @@ export class PerplexityLLM extends BaseLLM {
 			messages = [system(prompt[0]), user(prompt[1])];
 		} else {
 			// Prompt is already LlmMessage[] or ReadonlyArray<LlmMessage>
-			messages = prompt;
+			messages = prompt; // Directly assign if it's already the correct array type
 		}
 		// Delegate to the internal implementation that handles the API call and processing
 		return this._generateMessage(messages, opts);
