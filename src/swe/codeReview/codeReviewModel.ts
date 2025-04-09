@@ -21,8 +21,8 @@ export interface CodeReviewConfig {
 }
 
 /**
- * Represents the structure of the entire Firestore document
- * used for caching clean code reviews for a Merge Request.
+ * Caches a fingerprint of a reviewed diff so a MR can be re-reviewed after
+ * new commits, and not have the unchanged diffs be re-reviewed
  */
 export type MergeRequestFingerprintCache = {
 	/** Unix timestamp (milliseconds) of the last update */

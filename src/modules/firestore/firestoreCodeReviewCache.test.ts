@@ -1,9 +1,9 @@
 import type { Firestore } from '@google-cloud/firestore'; // Keep Timestamp if used by other parts, not strictly needed for cache tests now
 import { expect } from 'chai';
-import { firestoreDb } from '#firestore/firestore'; // Adjust path
-import { FirestoreCodeReviewService, type MergeRequestFingerprintCache } from '#firestore/firestoreCodeReviewService';
-import { resetFirestoreEmulator } from '#firestore/resetFirestoreEmulator'; // Adjust path
-import { EMPTY_CACHE } from '#swe/codeReview/codeReviewModel'; // Adjust path
+import { firestoreDb } from '#firestore/firestore';
+import { FirestoreCodeReviewService } from '#firestore/firestoreCodeReviewService';
+import { resetFirestoreEmulator } from '#firestore/resetFirestoreEmulator';
+import { EMPTY_CACHE, type MergeRequestFingerprintCache } from '#swe/codeReview/codeReviewModel';
 
 // Helper for delaying execution (useful if needed for future tests, though not for current logic)
 // const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
