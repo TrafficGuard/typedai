@@ -90,13 +90,26 @@ export class PerplexityLLM extends BaseLLM {
 		return Boolean(functionConfig(Perplexity)?.key || process.env.PERPLEXITY_KEY);
 	}
 
-
+	/** Generate a LlmMessage response */
 	async generateMessage(prompt: Prompt, opts?: GenerateTextOptions): Promise<LlmMessage> {
-		// TODO implement this copying from _generateMessage where applicable
-		return super.generateMessage(prompt, opts);
+		let messages: ReadonlyArray<LlmMessage>;
+		// Normalize the different prompt types into an array of LlmMessage
+		if (typeof prompt === 'string') {
+			messages = [user(prompt)];
+		} else if (isSystemUserPrompt(prompt)) {
+			messages = [system(prompt[0]), user(prompt[1])];
+		} else {
+			// Prompt is already LlmMessage[] or ReadonlyArray<LlmMessage>
+			messages = prompt;
+		}
+		// Delegate to the internal implementation that handles the API call and processing
+		return this._generateMessage(messages, opts);
 	}
 
 	protected supportsGenerateTextFromMessages(): boolean {
+		// Although _generateMessage handles message arrays, the primary generateText methods
+		// in BaseLLM might rely on _generateText(system, user). Keeping this false maintains
+		// consistency unless generateText is refactored to use _generateMessage.
 		return false;
 	}
 
