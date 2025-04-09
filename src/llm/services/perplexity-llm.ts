@@ -9,7 +9,7 @@ import { currentUser, functionConfig } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
 import { appContext } from '../../applicationContext';
 import { BaseLLM } from '../base-llm';
-import { GenerateTextOptions, GenerationStats, LLM, LlmMessage, assistant } from '../llm';
+import {GenerateTextOptions, GenerationStats, LLM, LlmMessage, assistant, Prompt} from '../llm';
 
 export const PERPLEXITY_SERVICE = 'perplexity';
 
@@ -90,8 +90,14 @@ export class PerplexityLLM extends BaseLLM {
 		return Boolean(functionConfig(Perplexity)?.key || process.env.PERPLEXITY_KEY);
 	}
 
+
+	async generateMessage(prompt: Prompt, opts?: GenerateTextOptions): Promise<LlmMessage> {
+		// TODO implement this copying from _generateMessage where applicable
+		return super.generateMessage(prompt, opts);
+	}
+
 	protected supportsGenerateTextFromMessages(): boolean {
-		return true;
+		return false;
 	}
 
 	protected _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
