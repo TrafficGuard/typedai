@@ -4,23 +4,14 @@ import {
     Attachment,
     Chat,
     ChatMessage,
-    GenerationStats,
     LlmMessage,
     NEW_CHAT_ID,
     ServerChat,
     TextContent,
 } from 'app/modules/chat/chat.types';
-import {BehaviorSubject, catchError, filter, map, Observable, Observer, of, switchMap, take, tap, throwError,} from 'rxjs';
+import {BehaviorSubject, catchError, filter, map, Observable, of, switchMap, take, tap, throwError,} from 'rxjs';
 import {GenerateOptions} from "app/core/user/user.types";
 import {FilePartExt, ImagePartExt, TextPart} from "./ai.types";
-
-/**
- * Events emitted during message streaming
- */
-export type StreamEvent =
-    | { type: 'chunk'; text: string }
-    | { type: 'complete'; stats: GenerationStats }
-    | { type: 'error'; error: any };
 
 @Injectable({ providedIn: 'root' })
 export class ChatService {
@@ -379,181 +370,6 @@ export class ChatService {
         );
     }
 
-    /**
-     * Streams a message from the LLM using Server-Sent Events
-     * @param chatId The chat ID
-     * @param message The user message text
-     * @param llmId The LLM ID to use
-     * @param options Optional generation options
-     * @param attachments Optional file attachments
-     * @returns Observable of StreamEvents (chunk, complete, error)
-     */
-    streamMessage(chatId: string, message: string, llmId: string, options?: GenerateOptions, attachments?: Attachment[]): Observable<StreamEvent> {
-        // Wrap the logic inside the Observable constructor in an async function
-        return new Observable((observer: Observer<StreamEvent>) => {
-            const controller = new AbortController();
-            const signal = controller.signal;
-
-            // Define the async function to prepare and execute the fetch
-            const executeFetch = async () => {
-                try {
-                    let userContentPayload: string | (TextPart | ImagePartExt | FilePartExt)[];
-
-                    // --- Start: Attachment Handling Logic ---
-                    if (attachments && attachments.length > 0) {
-                        const userContentParts: (TextPart | ImagePartExt | FilePartExt)[] = [];
-
-                        // Process attachments asynchronously
-                        const attachmentPromises = attachments.map(async (attachment) => {
-                            try {
-                                // Read file data as base64 string
-                                const base64Data = await this.readFileAsBase64(attachment.data);
-                                if (attachment.type === 'image') {
-                                    userContentParts.push({
-                                        type: 'image',
-                                        image: base64Data, // Base64 string without prefix
-                                        mimeType: attachment.mimeType,
-                                        filename: attachment.filename,
-                                    } as ImagePartExt);
-                                } else if (attachment.type === 'file') {
-                                    userContentParts.push({
-                                        type: 'file',
-                                        data: base64Data, // Base64 string without prefix
-                                        mimeType: attachment.mimeType,
-                                        filename: attachment.filename,
-                                    } as FilePartExt);
-                                }
-                            } catch (error) {
-                                console.error(`Error reading attachment ${attachment.filename}:`, error);
-                                // Propagate the error to stop the stream setup
-                                throw new Error(`Failed to read attachment: ${attachment.filename}`);
-                            }
-                        });
-
-                        // Wait for all attachments to be processed
-                        await Promise.all(attachmentPromises);
-
-                        // Add the text message part *after* attachments
-                        userContentParts.push({ type: 'text', text: message });
-
-                        userContentPayload = userContentParts;
-                    } else {
-                        // No attachments, send only text
-                        userContentPayload = message;
-                    }
-                    // --- End: Attachment Handling Logic ---
-
-
-                    const bodyPayload = {
-                        userContent: userContentPayload, // Use the dynamically created payload
-                        llmId: llmId,
-                        options: options
-                    };
-
-                    // Proceed with the fetch call
-                    const response = await fetch(`/api/chat/${chatId}/stream`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json', // Ensure correct Content-Type for JSON payload
-                            'Accept': 'text/event-stream'
-                        },
-                        body: JSON.stringify(bodyPayload),
-                        signal: signal
-                    });
-
-                    // ... rest of the fetch and stream reading logic ...
-
-                    if (!response.ok) {
-                        // Handle HTTP errors before streaming starts
-                        const errorBody = await response.text();
-                    throw new Error(`HTTP error! status: ${response.status}, body: ${errorBody}`);
-                }
-
-                if (!response.body) {
-                    throw new Error('Response body is null');
-                }
-
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let buffer = '';
-
-                function processText(text: string) {
-                    buffer += text;
-                    const lines = buffer.split('\n');
-                    buffer = lines.pop() || ''; // Keep the last partial line
-
-                    lines.forEach(line => {
-                        if (line.startsWith('data:')) {
-                            try {
-                                const jsonData = line.substring(5).trim();
-                                if (jsonData) {
-                                    const eventData = JSON.parse(jsonData) as StreamEvent;
-                                    observer.next(eventData);
-                                    if (eventData.type === 'complete' || eventData.type === 'error') {
-                                        observer.complete(); // Complete the observable on final events
-                                    }
-                                }
-                            } catch (e) {
-                                console.error('Failed to parse SSE data:', line, e);
-                                observer.error({ type: 'error', error: 'Failed to parse stream data' });
-                            }
-                        }
-                    });
-                }
-
-                async function readStream() {
-                    try {
-                        while (true) {
-                            const { done, value } = await reader.read();
-                            if (done) {
-                                // Process any remaining buffer content if needed
-                                if (buffer.trim().startsWith('data:')) {
-                                    processText('\n');
-                                }
-                                // Complete the observer when the stream ends, if not already completed/errored by stream data.
-                                // RxJS handles multiple complete/error calls, so the check is not needed.
-                                observer.complete();
-                                break;
-                            }
-                            processText(decoder.decode(value, { stream: true }));
-                        }
-                    } catch (error) {
-                        if ((error as DOMException).name === 'AbortError') {
-                            console.log('Stream reading aborted.');
-                            // Don't signal error on abort
-                        } else {
-                            console.error('Error reading stream:', error);
-                            // If an error occurs, signal it to the observer.
-                            // RxJS handles the observer state, no need to check if closed.
-                            observer.error({ type: 'error', error: error });
-                        }
-                    } finally {
-                        reader.releaseLock();
-                    }
-                }
-
-                readStream();
-
-                } catch (error) {
-                    // Catch errors from async setup (file reading, initial fetch error)
-                    console.error('Error setting up streamMessage fetch:', error);
-                    // If an error occurs during setup, signal it to the observer.
-                    // RxJS handles the observer state, no need to check if closed.
-                    observer.error({ type: 'error', error: error });
-                }
-            };
-
-            // Execute the async function
-            executeFetch();
-
-            // Return teardown logic
-            return () => {
-                console.log('Aborting fetch request for stream');
-                controller.abort();
-            };
-        });
-    }
-
     sendAudioMessage(chatId: string, llmId: string, audio: Blob): Observable<Chat> {
         return this.chats$.pipe(
             take(1),
@@ -608,33 +424,6 @@ export class ChatService {
         };
         return mimeTypeMap[mimeType] || 'bin'; // Default to 'bin' if mime type is unknown
     }
-
-    /**
-     * Reads a File object and returns its content as a base64 encoded string.
-     * @param file The File object to read.
-     * @returns A Promise that resolves with the base64 encoded string (without data URL prefix).
-     */
-    private readFileAsBase64(file: File): Promise<string> {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => {
-                const result = reader.result as string;
-                // Strip the data URL prefix (e.g., "data:image/png;base64,")
-                const base64Data = result.split(',')[1];
-                if (base64Data) {
-                    resolve(base64Data);
-                } else {
-                    // Handle cases where splitting might fail or result is unexpected
-                    reject(new Error('Failed to extract base64 data from file reader result.'));
-                }
-            };
-            reader.onerror = (error) => {
-                reject(error);
-            };
-            // Read the file as a Data URL to get base64 encoding
-            reader.readAsDataURL(file);
-        });
-    }
 }
 
 
@@ -643,81 +432,81 @@ export class ChatService {
  * @param llmMessage
  */
 function convertMessage(llmMessage: LlmMessage): ChatMessage {
-        let attachments: Attachment[] = [];
-        const texts: TextContent[] = []
-        let textContent = ''
+    let attachments: Attachment[] = [];
+    const texts: TextContent[] = []
+    let textContent = ''
 
-        if (Array.isArray(llmMessage.content)) {
-            for(const content of llmMessage.content) {
-                switch(content.type) {
-                    case 'text':
-                        texts.push({
-                            type: content.type,
-                            text: content.text
-                        })
-                        textContent += content.text;
-                        break;
-                    case 'reasoning':
-                        texts.push({
-                               type: content.type,
-                                text: content.text
-                        })
-                        textContent += content.text + '\n\n';
-                        break;
-                    case 'redacted-reasoning':
-                        texts.push({
-                            type: 'reasoning',
-                            text: '<redacted>'
-                        })
-                }
+    if (Array.isArray(llmMessage.content)) {
+        for(const content of llmMessage.content) {
+            switch(content.type) {
+                case 'text':
+                    texts.push({
+                        type: content.type,
+                        text: content.text
+                    })
+                    textContent += content.text;
+                    break;
+                case 'reasoning':
+                    texts.push({
+                        type: content.type,
+                        text: content.text
+                    })
+                    textContent += content.text + '\n\n';
+                    break;
+                case 'redacted-reasoning':
+                    texts.push({
+                        type: 'reasoning',
+                        text: '<redacted>'
+                    })
             }
-
-            // Convert the FilePart and ImageParts to Attachments
-            attachments = llmMessage.content
-                .filter(item => item.type === 'image' || item.type === 'file')
-                .map(item => {
-                    if (item.type === 'image') {
-                        const imagePart = item as ImagePartExt;
-
-                        const mimeType = imagePart.mimeType || 'image/png';
-                        const base64Data = imagePart.image as string;
-                        const filename = imagePart.filename || `image_${Date.now()}.png`;
-
-                        // Create a data URL
-                        const dataUrl = `data:${mimeType};base64,${base64Data}`;
-
-                        return {
-                            type: 'image',
-                            filename: filename,
-                            size: base64Data.length,
-                            data: null,
-                            mimeType: mimeType,
-                            previewUrl: dataUrl,
-                        } as Attachment;
-                    } else if (item.type === 'file') {
-                        const filePart = item as FilePartExt;
-
-                        const mimeType = filePart.mimeType || 'application/octet-stream';
-                        const base64Data = filePart.data as string;
-                        const filename = filePart.filename || `file_${Date.now()}`;
-
-                        // Create a data URL
-                        const dataUrl = `data:${mimeType};base64,${base64Data}`;
-
-                        return {
-                            type: 'file',
-                            filename: filename,
-                            size: base64Data.length,
-                            data: null,
-                            mimeType: mimeType,
-                            previewUrl: dataUrl,
-                        } as Attachment;
-                    }
-                });
-        } else { // string content
-            texts.push({type: 'text', text: llmMessage.content});
-            textContent = llmMessage.content;
         }
+
+        // Convert the FilePart and ImageParts to Attachments
+        attachments = llmMessage.content
+            .filter(item => item.type === 'image' || item.type === 'file')
+            .map(item => {
+                if (item.type === 'image') {
+                    const imagePart = item as ImagePartExt;
+
+                    const mimeType = imagePart.mimeType || 'image/png';
+                    const base64Data = imagePart.image as string;
+                    const filename = imagePart.filename || `image_${Date.now()}.png`;
+
+                    // Create a data URL
+                    const dataUrl = `data:${mimeType};base64,${base64Data}`;
+
+                    return {
+                        type: 'image',
+                        filename: filename,
+                        size: base64Data.length,
+                        data: null,
+                        mimeType: mimeType,
+                        previewUrl: dataUrl,
+                    } as Attachment;
+                } else if (item.type === 'file') {
+                    const filePart = item as FilePartExt;
+
+                    const mimeType = filePart.mimeType || 'application/octet-stream';
+                    const base64Data = filePart.data as string;
+                    const filename = filePart.filename || `file_${Date.now()}`;
+
+                    // Create a data URL
+                    const dataUrl = `data:${mimeType};base64,${base64Data}`;
+
+                    return {
+                        type: 'file',
+                        filename: filename,
+                        size: base64Data.length,
+                        data: null,
+                        mimeType: mimeType,
+                        previewUrl: dataUrl,
+                    } as Attachment;
+                }
+            });
+    } else { // string content
+        texts.push({type: 'text', text: llmMessage.content});
+        textContent = llmMessage.content;
+    }
 
     return {
         textContent,

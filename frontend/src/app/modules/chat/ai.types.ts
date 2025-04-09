@@ -51,6 +51,8 @@ interface RedactedReasoningPart {
 export type ImagePartExt = ImagePart & {
     /** File name */
     filename: string;
+    /** File size in bytes */
+    size: number;
 }
 
 
@@ -77,6 +79,8 @@ export interface ImagePart {
 export type FilePartExt = FilePart & {
     /** File name */
     filename: string;
+    /** File size in bytes */
+    size: number;
 }
 
 /**

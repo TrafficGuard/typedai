@@ -2,7 +2,7 @@ import { TextFieldModule } from '@angular/cdk/text-field';
 import { DatePipe, NgClass } from '@angular/common';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
-import { EMPTY, Observable, Subscription, catchError, switchMap, of } from 'rxjs';
+import { EMPTY, Observable, catchError, switchMap } from 'rxjs';
 import { v4 as uuidv4 } from 'uuid';
 import {
     AfterViewInit,
@@ -27,7 +27,7 @@ import {MatMenuModule} from '@angular/material/menu';
 import {MatSidenavModule} from '@angular/material/sidenav';
 import {ActivatedRoute, Router, RouterLink, RouterModule} from '@angular/router';
 import {FuseMediaWatcherService} from '@fuse/services/media-watcher';
-import {ChatService, StreamEvent} from 'app/modules/chat/chat.service';
+import {ChatService} from 'app/modules/chat/chat.service';
 import {Chat, ChatMessage} from 'app/modules/chat/chat.types';
 import {ChatInfoComponent} from 'app/modules/chat/chat-info/chat-info.component';
 import {LLM, LlmService} from "app/modules/agents/services/llm.service";
@@ -109,9 +109,6 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     generating = false;
     generatingTimer = null;
     readonly clipboardButton = ClipboardButtonComponent;
-    
-    /** Subscription for the streaming message */
-    private messageSubscription: Subscription | null = null;
 
 
 
@@ -226,16 +223,6 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     ngOnDestroy(): void {
         this._unsubscribeAll.next(null);
         this._unsubscribeAll.complete();
-        
-        // Clean up message subscription if active
-        if (this.messageSubscription) {
-            this.messageSubscription.unsubscribe();
-        }
-        
-        // Clear generating timer if it exists
-        if (this.generatingTimer) {
-            clearInterval(this.generatingTimer);
-        }
     }
 
     ngAfterViewInit() {
@@ -378,7 +365,10 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     /**
      * Sends a message in the chat after getting the latest user preferences
      * Handles both new chat creation and message sending in existing chats
-     * Uses streaming for the AI response
+     */
+    /**
+     * Sends a message in the chat after getting the latest user preferences
+     * Handles both new chat creation and message sending in existing chats
      */
     sendMessage(): void {
         // Store message and attachments in component scope so error handler can access them
@@ -391,80 +381,87 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
             mimeType: file.type,
         }));
 
-        // Don't send empty messages
-        if (message === '' && this.selectedFiles.length === 0) {
-            return;
-        }
-
         // Get latest user preferences before sending the message
         this._getUserPreferences().pipe(
             switchMap(user => {
-                this.generating = true;
-                this.sendIcon = 'heroicons_outline:stop-circle';
+                if (message === '' && this.selectedFiles.length === 0) {
+                    return EMPTY;
+                }
 
-                // Add user message to UI immediately
-                const userMessage: ChatMessage = {
+                this.generating = true;
+                // this.sendIcon = 'heroicons_outline:stop-circle'
+
+                this.chat.messages.push({
                     id: uuidv4(),
                     textContent: message,
                     isMine: true,
                     attachments: attachments,
-                    createdAt: new Date().toISOString()
+                });
+
+                const generatingMessage: ChatMessage = {
+                    id: uuidv4(),
+                    textContent: '',
+                    isMine: false,
+                    generating: true
                 };
-                this.chat.messages.push(userMessage);
+                this.chat.messages.push(generatingMessage);
+
+                // Animate the typing/generating indicator
+                this.generatingTimer = setInterval(() => {
+                    generatingMessage.textContent = generatingMessage.textContent.length === 3 ? '.' : generatingMessage.textContent + '.';
+                    this._changeDetectorRef.markForCheck();
+                }, 800);
 
                 // Clear the input
                 this.messageInput.nativeElement.value = '';
                 this.selectedFiles = [];
-                
-                // Prepare options with thinking level if applicable
-                const options = {...user.chat, thinking: this.llmHasThinkingLevels ? this.thinkingLevel : null };
 
-                // If this is a new chat, create it first, then stream
+                const options = {...user.chat, thinking: this.llmHasThinkingLevels ? this.thinkingLevel : null }
+
+                // If this is a new chat, create it with latest user preferences
                 if (!this.chat.id || this.chat.id === NEW_CHAT_ID) {
                     this._changeDetectorRef.markForCheck();
                     return this._chatService.createChat(message, this.llmId, options, attachments);
                 }
 
-                // For existing chats, just return the user object to continue the pipe
                 this._scrollToBottom();
-                return of({ id: this.chat.id, user });
+                return this._chatService.sendMessage(this.chat.id, message, this.llmId, options, attachments);
             })
         ).subscribe({
-            next: (result: any) => {
-                // For new chats, we get a Chat object back
-                if (result.id && result.title !== undefined) {
-                    const newChatId = result.id;
-                    // Navigate to the new chat URL
-                    this.router.navigate([`/ui/chat/${newChatId}`]).then(() => {
-                        // Now initiate the stream for the first response
-                        // We need to wait until after navigation since the chat ID changes
-                        setTimeout(() => {
-                            const options = {...this.currentUser.chat, thinking: this.llmHasThinkingLevels ? this.thinkingLevel : null };
-                            this.initiateStream(newChatId, message, this.llmId, options, attachments);
-                        }, 100);
-                    }).catch(err => console.error("Navigation failed:", err));
-                } else {
-                    // For existing chats, initiate stream directly
-                    const options = {...this.currentUser.chat, thinking: this.llmHasThinkingLevels ? this.thinkingLevel : null };
-                    this.initiateStream(this.chat.id, message, this.llmId, options, attachments);
+            next: (chat: Chat) => {
+                this.generating = false;
+
+                if (!this.chat.id || this.chat.id === NEW_CHAT_ID) {
+                    clearInterval(this.generatingTimer);
+                    this.router.navigate([`/ui/chat/${chat.id}`]).catch(console.error);
+                    return;
                 }
+                console.log(this.chat.messages.at(-1))
+                this.chat = clone(chat);
+                this.assignUniqueIdsToMessages(this.chat.messages);
+                clearInterval(this.generatingTimer);
+                this.sendIcon = 'heroicons_outline:paper-airplane';
+                this._resizeMessageInput();
+                this._scrollToBottom();
+                this._changeDetectorRef.markForCheck();
             },
             error: (error) => {
                 console.error('Error sending message:', error);
                 this.generating = false;
 
-                // Remove the user message on error
-                if (this.chat.messages.length > 0) {
-                    this.chat.messages.pop(); // Remove user message
-                }
-                
+                // Remove the two pending messages
+                this.chat.messages.pop(); // Remove generating message
+                this.chat.messages.pop(); // Remove user message
+
                 // Restore the message input and files
                 this.messageInput.nativeElement.value = message;
                 this.selectedFiles = attachments.map(a => a.data);
-                
+
                 // Reset UI state
+                clearInterval(this.generatingTimer);
+
                 this.sendIcon = 'heroicons_outline:paper-airplane';
-                
+
                 // Show error message
                 this._snackBar.open(
                     'Failed to send message. Please try again.',
@@ -476,7 +473,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
                         panelClass: ['error-snackbar']
                     }
                 );
-                
+
                 this._changeDetectorRef.markForCheck();
             }
         });
@@ -494,89 +491,6 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
         });
     }
 
-    /**
-     * Initiates a streaming message request and handles the response
-     */
-    private initiateStream(chatId: string, message: string, llmId: string, options?: any, attachments?: Attachment[]): void {
-        // Add AI placeholder message
-        const aiMessagePlaceholder: ChatMessage = {
-            id: uuidv4(),
-            textContent: '', // Start empty
-            isMine: false,
-            generating: true, // Mark as streaming
-            createdAt: new Date().toISOString()
-        };
-        this.chat.messages.push(aiMessagePlaceholder);
-        this._scrollToBottom(); // Scroll after adding placeholder
-        this._changeDetectorRef.markForCheck();
-
-        // Cancel any previous stream
-        if (this.messageSubscription) {
-            this.messageSubscription.unsubscribe();
-        }
-
-        this.messageSubscription = this._chatService.streamMessage(chatId, message, llmId, options, attachments)
-            .subscribe({
-                next: (event: StreamEvent) => {
-                    const lastMessageIndex = this.chat.messages.length - 1;
-                    if (lastMessageIndex < 0 || !this.chat.messages[lastMessageIndex].generating) return; // Safety check
-
-                    const currentAiMessage = this.chat.messages[lastMessageIndex];
-
-                    switch (event.type) {
-                        case 'chunk':
-                            currentAiMessage.textContent += event.text;
-                            this._scrollToBottom(); // Keep scrolling as content arrives
-                            break;
-                        case 'complete':
-                            currentAiMessage.generating = false;
-                            // Store LLM ID from stats
-                            if (event.stats?.llmId) {
-                                currentAiMessage.llmId = event.stats.llmId;
-                            }
-                            this.generating = false;
-                            this.sendIcon = 'heroicons_outline:paper-airplane';
-                            break;
-                        case 'error':
-                            console.error('Stream error event:', event.error);
-                            currentAiMessage.textContent += '\n\n[Error receiving response]';
-                            currentAiMessage.generating = false;
-                            this.generating = false;
-                            this.sendIcon = 'heroicons_outline:paper-airplane';
-                            this._snackBar.open('Error receiving stream response.', 'Close', { duration: 3000 });
-                            break;
-                    }
-                    this._changeDetectorRef.markForCheck(); // Update UI
-                },
-                error: (error) => {
-                    // Handle Observable errors (e.g., fetch failure)
-                    console.error('Stream observable error:', error);
-                    const lastMessageIndex = this.chat.messages.length - 1;
-                    if (lastMessageIndex >= 0 && this.chat.messages[lastMessageIndex].generating) {
-                        this.chat.messages[lastMessageIndex].textContent += '\n\n[Connection Error]';
-                        this.chat.messages[lastMessageIndex].generating = false;
-                    }
-                    this.generating = false;
-                    this.sendIcon = 'heroicons_outline:paper-airplane';
-                    this._snackBar.open('Connection error during streaming.', 'Close', { duration: 3000 });
-                    this._changeDetectorRef.markForCheck();
-                },
-                complete: () => {
-                    // Ensure generating state is reset if observable completes without a 'complete' or 'error' event
-                    const lastMessageIndex = this.chat.messages.length - 1;
-                    if (lastMessageIndex >= 0 && this.chat.messages[lastMessageIndex].generating) {
-                        this.chat.messages[lastMessageIndex].generating = false;
-                    }
-                    if (this.generating) { // Only reset if it wasn't reset by a 'complete'/'error' event
-                        this.generating = false;
-                        this.sendIcon = 'heroicons_outline:paper-airplane';
-                    }
-                    console.log('Stream observable completed.');
-                    this._changeDetectorRef.markForCheck();
-                }
-            });
-    }
-
     private _scrollToBottom(): void {
         setTimeout(() => {
             const chatElement = this._elementRef.nativeElement.querySelector('.conversation-container');
@@ -591,7 +505,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     private _getUserPreferences(): Observable<User> {
         // Show loading state while fetching preferences
         this.generating = true;
-        
+
         return this.userService.get().pipe(
             catchError(error => {
                 console.error('Error fetching user preferences:', error);
@@ -691,9 +605,9 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     /**
      * Regenerates an AI message and removes all subsequent messages.
      * Uses the last user message before the selected AI message as the prompt.
-     * Uses streaming for the regenerated response.
-     * 
+     *
      * @param messageIndex - The index of the AI message to regenerate
+     * @throws Error if no user message is found before the AI message
      */
     regenerateMessage(messageIndex: number): void {
         if (!this.chat?.messages) {
@@ -703,35 +617,31 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
         // Find the last user message before the AI message we want to regenerate
         let lastUserMessage: string;
-        let lastUserMessageIndex = -1;
-        
         for (let i = messageIndex; i >= 0; i--) {
             if (this.chat.messages[i].isMine) {
                 lastUserMessage = this.chat.messages[i].textContent;
-                lastUserMessageIndex = i;
                 break;
             }
         }
 
-        if (!lastUserMessage || lastUserMessageIndex === -1) {
-            this._snackBar.open('Cannot regenerate: No user message found.', 'Close', { duration: 3000 });
+        if (!lastUserMessage) {
             return;
         }
 
         // Remove all messages from the regeneration point onwards
         this.chat.messages = this.chat.messages.slice(0, messageIndex);
-        
-        // Set UI state
+
+        // Call sendMessage with the last user message
         this.sendIcon = 'heroicons_outline:stop-circle';
         this.generating = true;
-        
-        // Get user preferences for options
-        this._getUserPreferences().subscribe(user => {
-            const options = {...user.chat, thinking: this.llmHasThinkingLevels ? this.thinkingLevel : null };
-            
-            // Use streaming for regeneration
-            this.initiateStream(this.chat.id, lastUserMessage, this.llmId, options);
-        });
+        this._chatService.regenerateMessage(this.chat.id, lastUserMessage, this.llmId)
+            .subscribe(() => {
+                this.generating = false;
+                this.sendIcon = 'heroicons_outline:paper-airplane';
+                this._scrollToBottom();
+                this._changeDetectorRef.markForCheck();
+            });
+        // TODO catch errors and set this.generating=false
     }
 
     sendAudioMessage(audioBlob: Blob): void {
@@ -770,7 +680,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     onDrop(event: DragEvent): void {
         event.preventDefault();
         event.stopPropagation();
-        
+
         const files = Array.from(event.dataTransfer?.files || []);
         this.addFiles(files);
     }
@@ -778,7 +688,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     private addFiles(files: File[]): void {
         // 10MB limit per file
         const MAX_FILE_SIZE = 10 * 1024 * 1024;
-        
+
         files.forEach(file => {
             if (file.size > MAX_FILE_SIZE) {
                 // TODO: Show error toast
@@ -790,7 +700,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
                 this.selectedFiles.push(file);
             }
         });
-        
+
         this._changeDetectorRef.markForCheck();
     }
 }
