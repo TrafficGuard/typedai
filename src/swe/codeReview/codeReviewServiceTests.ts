@@ -1,5 +1,5 @@
-import sinon from 'sinon';
 import { expect } from 'chai';
+import sinon from 'sinon';
 import type { CodeReviewConfig, MergeRequestFingerprintCache } from '#swe/codeReview/codeReviewModel';
 import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
 
@@ -63,7 +63,6 @@ export function runCodeReviewServiceTests(
 	afterEach(async () => {
 		if (hooks.afterEach) {
 			await hooks.afterEach();
-
 		}
 		// Add potential cleanup specific to the service instance if needed,
 		// though usually handled by the provider/hooks
