@@ -14,7 +14,7 @@ export async function performLocalBranchCodeReview() {
 	const codeReviewService = appContext().codeReviewService;
 	const codeReviewConfigs: CodeReviewConfig[] = (await codeReviewService.listCodeReviewConfigs()).filter((config) => config.enabled);
 
-    const allDiffs = await git.getBranchDiff()
+	const allDiffs = await git.getBranchDiff();
 }
 
 async function checkInvalidBranch() {
@@ -130,4 +130,3 @@ export function parseGitDiff(diffOutput: string): DiffInfo[] {
 
 	return diffs;
 }
-

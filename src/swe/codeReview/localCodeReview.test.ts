@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { parseGitDiff, DiffInfo } from './localCodeReview'; // Adjust path if needed
+import { DiffInfo, parseGitDiff } from './localCodeReview'; // Adjust path if needed
 
 // The sample diff output provided in the prompt
 const sampleDiffOutput = `
@@ -286,158 +286,158 @@ index 0b7e923..686a2ce 100644
  import { SummarizerAgent } from '#functions/text/summarizer';
 `;
 
-describe.only('parseGitDiff', () => {
-    it('should parse the sample git diff output correctly', () => {
-        const result = parseGitDiff(sampleDiffOutput);
+describe('parseGitDiff', () => {
+	it('should parse the sample git diff output correctly', () => {
+		const result = parseGitDiff(sampleDiffOutput);
 
-        // Expected number of files changed
-        expect(result).to.be.an('array').with.lengthOf(9);
+		// Expected number of files changed
+		expect(result).to.be.an('array').with.lengthOf(9);
 
-        // --- Check first file ---
-        const file1 = result[0];
-        expect(file1.filePath).to.equal('src/cli/files.ts');
-        // Removed: expect(file1.diff).to.equal('@@ -1,9 +1,9 @@');
-        expect(file1.diff).to.contain('+import { writeFileSync } from \'node:fs\';');
-        expect(file1.diff).to.contain('-import { writeFileSync } from \'fs\';');
-        expect(file1.diff).to.contain('+import type { AgentLLMs } from \'#agent/agentContextTypes\';');
-        expect(file1.diff).to.contain('-import { AgentLLMs } from \'#agent/agentContextTypes\';');
-        expect(file1.diff).not.to.contain('--- a/src/cli/files.ts'); // Should not include ---/+++ lines
-        expect(file1.diff).not.to.contain('index 39592e3..129ef8c 100644'); // Should not include index lines
+		// --- Check first file ---
+		const file1 = result[0];
+		expect(file1.filePath).to.equal('src/cli/files.ts');
+		// Removed: expect(file1.diff).to.equal('@@ -1,9 +1,9 @@');
+		expect(file1.diff).to.contain("+import { writeFileSync } from 'node:fs';");
+		expect(file1.diff).to.contain("-import { writeFileSync } from 'fs';");
+		expect(file1.diff).to.contain("+import type { AgentLLMs } from '#agent/agentContextTypes';");
+		expect(file1.diff).to.contain("-import { AgentLLMs } from '#agent/agentContextTypes';");
+		expect(file1.diff).not.to.contain('--- a/src/cli/files.ts'); // Should not include ---/+++ lines
+		expect(file1.diff).not.to.contain('index 39592e3..129ef8c 100644'); // Should not include index lines
 
-        // --- Check second file ---
-        const file2 = result[1];
-        expect(file2.filePath).to.equal('src/cli/functionResolver.ts');
-        // Removed: expect(file2.diff).to.equal('@@ -1,11 +1,13 @@');
-        expect(file2.diff).to.contain('+import { CustomFunctions } from \'#functions/customFunctions\';');
-        expect(file2.diff).to.contain('+import { FileSystemList } from \'#functions/storage/fileSystemList\';');
-        expect(file2.diff).to.contain('+import { FileSystemRead } from \'#functions/storage/fileSystemRead\';');
-        expect(file2.diff).to.contain('+import { FileSystemWrite } from \'#functions/storage/fileSystemWrite\';');
-        expect(file2.diff).to.contain('-import { FileSystemRead } from \'#functions/storage/FileSystemRead\';');
-        expect(file2.diff).to.contain('-import { FileSystemWrite } from \'#functions/storage/FileSystemWrite\';');
-        expect(file2.diff).to.contain('+import type { LLM } from \'#llm/llm\';');
-        expect(file2.diff).to.contain('-import { LLM } from \'#llm/llm\';');
+		// --- Check second file ---
+		const file2 = result[1];
+		expect(file2.filePath).to.equal('src/cli/functionResolver.ts');
+		// Removed: expect(file2.diff).to.equal('@@ -1,11 +1,13 @@');
+		expect(file2.diff).to.contain("+import { CustomFunctions } from '#functions/customFunctions';");
+		expect(file2.diff).to.contain("+import { FileSystemList } from '#functions/storage/fileSystemList';");
+		expect(file2.diff).to.contain("+import { FileSystemRead } from '#functions/storage/fileSystemRead';");
+		expect(file2.diff).to.contain("+import { FileSystemWrite } from '#functions/storage/fileSystemWrite';");
+		expect(file2.diff).to.contain("-import { FileSystemRead } from '#functions/storage/FileSystemRead';");
+		expect(file2.diff).to.contain("-import { FileSystemWrite } from '#functions/storage/FileSystemWrite';");
+		expect(file2.diff).to.contain("+import type { LLM } from '#llm/llm';");
+		expect(file2.diff).to.contain("-import { LLM } from '#llm/llm';");
 
-        // Check line starting @@ -19,6 +21,7 @@
-        expect(file2.diff).to.contain('@@ -19,6 +21,7 @@');
-        expect(file2.diff).to.contain('+       fsl: FileSystemList.name,');
+		// Check line starting @@ -19,6 +21,7 @@
+		expect(file2.diff).to.contain('@@ -19,6 +21,7 @@');
+		expect(file2.diff).to.contain('+       fsl: FileSystemList.name,');
 
-        // Check line starting @@ -26,6 +29,7 @@
-        expect(file2.diff).to.contain('@@ -26,6 +29,7 @@');
-        expect(file2.diff).to.contain('+       custom: CustomFunctions.name,');
+		// Check line starting @@ -26,6 +29,7 @@
+		expect(file2.diff).to.contain('@@ -26,6 +29,7 @@');
+		expect(file2.diff).to.contain('+       custom: CustomFunctions.name,');
 
-        // Check line starting @@ -56,7 +60,7 @@
-        expect(file2.diff).to.contain('@@ -56,7 +60,7 @@');
-        expect(file2.diff).to.contain('-                                       .join(\', \')}\\`,');
-        expect(file2.diff).to.contain('+                                       .join(\', \')}\\nCheck the alias is correct and the function class is registered in the function registry.\\`,');
+		// Check line starting @@ -56,7 +60,7 @@
+		expect(file2.diff).to.contain('@@ -56,7 +60,7 @@');
+		expect(file2.diff).to.contain("-                                       .join(', ')}\\`,");
+		expect(file2.diff).to.contain(
+			"+                                       .join(', ')}\\nCheck the alias is correct and the function class is registered in the function registry.\\`,",
+		);
 
-        // Check line starting @@ -70,7 +74,7 @@
-        expect(file2.diff).to.contain('@@ -70,7 +74,7 @@');
-        expect(file2.diff).to.contain('-       // Try exact match first (case insensitive)');
-        expect(file2.diff).to.contain('+       // Try exact match first (case-insensitive)');
+		// Check line starting @@ -70,7 +74,7 @@
+		expect(file2.diff).to.contain('@@ -70,7 +74,7 @@');
+		expect(file2.diff).to.contain('-       // Try exact match first (case insensitive)');
+		expect(file2.diff).to.contain('+       // Try exact match first (case-insensitive)');
 
+		// --- Check third file ---
+		const file3 = result[2];
+		expect(file3.filePath).to.equal('src/cli/gaia.ts');
+		// Removed: expect(file3.diff).to.equal('@@ -1,14 +1,15 @@');
+		expect(file3.diff).to.contain("+import { promises as fs, readFileSync } from 'node:fs';");
+		expect(file3.diff).to.contain("-import { promises as fs, readFileSync } from 'fs';");
+		expect(file3.diff).to.contain("+import type { AgentLLMs } from '#agent/agentContextTypes';");
+		expect(file3.diff).to.contain("-import { AgentLLMs } from '#agent/agentContextTypes';");
+		expect(file3.diff).to.contain("+import { FileSystemRead } from '#functions/storage/fileSystemRead';");
+		expect(file3.diff).to.contain("-import { FileSystemRead } from '#functions/storage/FileSystemRead';");
+		expect(file3.diff).to.contain("+import { lastText } from '#llm/llm';");
+		expect(file3.diff).to.contain("+import type { LlmCall } from '#llm/llmCallService/llmCall';");
+		expect(file3.diff).to.contain("-import { LlmCall } from '#llm/llmCallService/llmCall';");
 
-        // --- Check third file ---
-        const file3 = result[2];
-        expect(file3.filePath).to.equal('src/cli/gaia.ts');
-        // Removed: expect(file3.diff).to.equal('@@ -1,14 +1,15 @@');
-        expect(file3.diff).to.contain('+import { promises as fs, readFileSync } from \'node:fs\';');
-        expect(file3.diff).to.contain('-import { promises as fs, readFileSync } from \'fs\';');
-        expect(file3.diff).to.contain('+import type { AgentLLMs } from \'#agent/agentContextTypes\';');
-        expect(file3.diff).to.contain('-import { AgentLLMs } from \'#agent/agentContextTypes\';');
-        expect(file3.diff).to.contain('+import { FileSystemRead } from \'#functions/storage/fileSystemRead\';');
-        expect(file3.diff).to.contain('-import { FileSystemRead } from \'#functions/storage/FileSystemRead\';');
-        expect(file3.diff).to.contain('+import { lastText } from \'#llm/llm\';');
-        expect(file3.diff).to.contain('+import type { LlmCall } from \'#llm/llmCallService/llmCall\';');
-        expect(file3.diff).to.contain('-import { LlmCall } from \'#llm/llmCallService/llmCall\';');
+		expect(file3.diff).to.contain('@@ -110,9 +111,9 @@');
+		expect(file3.diff).to.contain("-                       .filter((call: LlmCall) => call.responseText.includes('<python-code>'))");
+		expect(file3.diff).to.contain("+                       .filter((call: LlmCall) => lastText(call.messages).includes('<python-code>'))");
+		expect(file3.diff).to.contain('-                               const match = call.responseText.match(/<python-code>(.*?)<\\/python-code>/s);');
+		expect(file3.diff).to.contain('+                               const match = lastText(call.messages).match(/<python-code>(.*?)<\\/python-code>/s);');
 
-        expect(file3.diff).to.contain('@@ -110,9 +111,9 @@');
-        expect(file3.diff).to.contain('-                       .filter((call: LlmCall) => call.responseText.includes(\'<python-code>\'))');
-        expect(file3.diff).to.contain('+                       .filter((call: LlmCall) => lastText(call.messages).includes(\'<python-code>\'))');
-        expect(file3.diff).to.contain('-                               const match = call.responseText.match(/<python-code>(.*?)<\\/python-code>/s);');
-        expect(file3.diff).to.contain('+                               const match = lastText(call.messages).match(/<python-code>(.*?)<\\/python-code>/s);');
+		// --- Check fourth file (gen.ts) ---
+		const file4 = result[3];
+		expect(file4.filePath).to.equal('src/cli/gen.ts');
+		// Removed: expect(file4.diff).to.equal('@@ -1,46 +1,30 @@');
+		expect(file4.diff).to.contain("+import { writeFileSync } from 'node:fs';");
+		expect(file4.diff).to.contain("-import { writeFileSync } from 'fs';");
+		expect(file4.diff).to.contain("+import { countTokens } from '#llm/tokens';");
+		expect(file4.diff).to.contain("-import { agentContext, agentContextStorage, createContext } from '#agent/agentContextLocalStorage';");
+		// ... check more lines if necessary
 
-        // --- Check fourth file (gen.ts) ---
-        const file4 = result[3];
-        expect(file4.filePath).to.equal('src/cli/gen.ts');
-        // Removed: expect(file4.diff).to.equal('@@ -1,46 +1,30 @@');
-        expect(file4.diff).to.contain('+import { writeFileSync } from \'node:fs\';');
-        expect(file4.diff).to.contain('-import { writeFileSync } from \'fs\';');
-        expect(file4.diff).to.contain('+import { countTokens } from \'#llm/tokens\';');
-        expect(file4.diff).to.contain('-import { agentContext, agentContextStorage, createContext } from \'#agent/agentContextLocalStorage\';');
-        // ... check more lines if necessary
+		// --- Check fifth file (index.ts) ---
+		const file5 = result[4];
+		expect(file5.filePath).to.equal('src/cli/index.ts');
+		// Removed: expect(file5.diff).to.equal('@@ -1,7 +1,7 @@');
+		expect(file5.diff).to.contain("+import type { AgentLLMs } from '#agent/agentContextTypes';");
+		expect(file5.diff).to.contain("+import type { RunAgentConfig } from '#agent/agentRunner';");
+		expect(file5.diff).to.contain("-import { AgentLLMs } from '#agent/agentContextTypes';");
+		expect(file5.diff).to.contain("-import { RunAgentConfig } from '#agent/agentRunner';");
+		expect(file5.diff).to.contain('@@ -32,9 +32,9 @@');
+		expect(file5.diff).to.contain('+       console.log(`languageProjectMap ${maps.languageProjectMap.tokens} tokens`);');
+		expect(file5.diff).to.contain('+       console.log(`fileSystemTree ${maps.fileSystemTree.tokens} tokens`);');
+		expect(file5.diff).to.contain('+       console.log(`folderSystemTreeWithSummaries ${maps.folderSystemTreeWithSummaries.tokens} tokens`);');
+		expect(file5.diff).to.contain('-       console.log(`languageProjectMap ${maps.languageProjectMap.tokens}`);');
+		expect(file5.diff).to.contain('-       console.log(`fileSystemTree ${maps.fileSystemTree.tokens}`);');
+		expect(file5.diff).to.contain('-       console.log(`folderSystemTreeWithSummaries ${maps.folderSystemTreeWithSummaries.tokens}`);');
 
-        // --- Check fifth file (index.ts) ---
-        const file5 = result[4];
-        expect(file5.filePath).to.equal('src/cli/index.ts');
-        // Removed: expect(file5.diff).to.equal('@@ -1,7 +1,7 @@');
-        expect(file5.diff).to.contain('+import type { AgentLLMs } from \'#agent/agentContextTypes\';');
-        expect(file5.diff).to.contain('+import type { RunAgentConfig } from \'#agent/agentRunner\';');
-        expect(file5.diff).to.contain('-import { AgentLLMs } from \'#agent/agentContextTypes\';');
-        expect(file5.diff).to.contain('-import { RunAgentConfig } from \'#agent/agentRunner\';');
-        expect(file5.diff).to.contain('@@ -32,9 +32,9 @@');
-        expect(file5.diff).to.contain('+       console.log(\`languageProjectMap \${maps.languageProjectMap.tokens} tokens\`);');
-        expect(file5.diff).to.contain('+       console.log(\`fileSystemTree \${maps.fileSystemTree.tokens} tokens\`);');
-        expect(file5.diff).to.contain('+       console.log(\`folderSystemTreeWithSummaries \${maps.folderSystemTreeWithSummaries.tokens} tokens\`);');
-        expect(file5.diff).to.contain('-       console.log(\`languageProjectMap \${maps.languageProjectMap.tokens}\`);');
-        expect(file5.diff).to.contain('-       console.log(\`fileSystemTree \${maps.fileSystemTree.tokens}\`);');
-        expect(file5.diff).to.contain('-       console.log(\`folderSystemTreeWithSummaries \${maps.folderSystemTreeWithSummaries.tokens}\`);');
+		// --- Check sixth file (query.ts) ---
+		const file6 = result[5];
+		expect(file6.filePath).to.equal('src/cli/query.ts');
+		// Removed: expect(file6.diff).to.equal('@@ -1,9 +1,9 @@');
+		expect(file6.diff).to.contain("+import { writeFileSync } from 'node:fs';");
+		expect(file6.diff).to.contain("-import { writeFileSync } from 'fs';");
+		expect(file6.diff).to.contain("+import type { AgentLLMs } from '#agent/agentContextTypes';");
+		expect(file6.diff).to.contain("+import type { RunAgentConfig } from '#agent/agentRunner';");
+		expect(file6.diff).to.contain("-import { AgentLLMs } from '#agent/agentContextTypes';");
+		expect(file6.diff).to.contain("-import { RunAgentConfig } from '#agent/agentRunner';");
+		expect(file6.diff).to.contain('@@ -20,9 +20,9 @@');
+		expect(file6.diff).to.contain('-               agentName: `Query: ${initialPrompt}`,');
+		expect(file6.diff).to.contain("+               agentName: 'Query',");
+		expect(file6.diff).to.contain('-               functions: [], //FileSystem,');
+		expect(file6.diff).to.contain('+               functions: [],');
+		expect(file6.diff).to.contain('@@ -52,9 +52,4 @@');
+		expect(file6.diff).to.contain('+main().catch(console.error);');
+		expect(file6.diff).to.contain('-main().then(');
+		// ... check deletions
 
+		// --- Check seventh file (research.ts) ---
+		const file7 = result[6];
+		expect(file7.filePath).to.equal('src/cli/research.ts');
+		// Removed: expect(file7.diff).to.equal('@@ -1,8 +1,8 @@');
+		expect(file7.diff).to.contain("+import { readFileSync } from 'node:fs';");
+		expect(file7.diff).to.contain("-import { readFileSync } from 'fs';");
+		expect(file7.diff).to.contain("+import type { AgentLLMs } from '#agent/agentContextTypes';");
+		expect(file7.diff).to.contain("-import { AgentLLMs } from '#agent/agentContextTypes';");
 
-        // --- Check sixth file (query.ts) ---
-        const file6 = result[5];
-        expect(file6.filePath).to.equal('src/cli/query.ts');
-        // Removed: expect(file6.diff).to.equal('@@ -1,9 +1,9 @@');
-        expect(file6.diff).to.contain('+import { writeFileSync } from \'node:fs\';');
-        expect(file6.diff).to.contain('-import { writeFileSync } from \'fs\';');
-        expect(file6.diff).to.contain('+import type { AgentLLMs } from \'#agent/agentContextTypes\';');
-        expect(file6.diff).to.contain('+import type { RunAgentConfig } from \'#agent/agentRunner\';');
-        expect(file6.diff).to.contain('-import { AgentLLMs } from \'#agent/agentContextTypes\';');
-        expect(file6.diff).to.contain('-import { RunAgentConfig } from \'#agent/agentRunner\';');
-        expect(file6.diff).to.contain('@@ -20,9 +20,9 @@');
-        expect(file6.diff).to.contain('-               agentName: \`Query: \${initialPrompt}\`,');
-        expect(file6.diff).to.contain('+               agentName: \'Query\',');
-        expect(file6.diff).to.contain('-               functions: [], //FileSystem,');
-        expect(file6.diff).to.contain('+               functions: [],');
-        expect(file6.diff).to.contain('@@ -52,9 +52,4 @@');
-        expect(file6.diff).to.contain('+main().catch(console.error);');
-        expect(file6.diff).to.contain('-main().then(');
-        // ... check deletions
+		// --- Check eighth file (slack.ts) ---
+		const file8 = result[7];
+		expect(file8.filePath).to.equal('src/cli/slack.ts');
+		// Removed: expect(file8.diff).to.equal('@@ -1,9 +1,9 @@');
+		expect(file8.diff).to.contain("+       const { SlackChatBotService } = await import('../modules/slack/slackModule.cjs');");
+		expect(file8.diff).to.contain("-import { SlackChatBotService } from '#modules/slack/slackChatBotService';");
 
-        // --- Check seventh file (research.ts) ---
-        const file7 = result[6];
-        expect(file7.filePath).to.equal('src/cli/research.ts');
-        // Removed: expect(file7.diff).to.equal('@@ -1,8 +1,8 @@');
-        expect(file7.diff).to.contain('+import { readFileSync } from \'node:fs\';');
-        expect(file7.diff).to.contain('-import { readFileSync } from \'fs\';');
-        expect(file7.diff).to.contain('+import type { AgentLLMs } from \'#agent/agentContextTypes\';');
-        expect(file7.diff).to.contain('-import { AgentLLMs } from \'#agent/agentContextTypes\';');
+		// --- Check ninth file (summarize.ts) ---
+		const file9 = result[8];
+		expect(file9.filePath).to.equal('src/cli/summarize.ts');
+		// Removed: expect(file9.diff).to.equal('@@ -1,8 +1,8 @@');
+		expect(file9.diff).to.contain("+import { writeFileSync } from 'node:fs';");
+		expect(file9.diff).to.contain("-import { writeFileSync } from 'fs';");
+		expect(file9.diff).to.contain("+import type { AgentLLMs } from '#agent/agentContextTypes';");
+		expect(file9.diff).to.contain("+import type { RunAgentConfig } from '#agent/agentRunner';");
+		expect(file9.diff).to.contain("-import { AgentLLMs } from '#agent/agentContextTypes';");
+		expect(file9.diff).to.contain("-import { RunAgentConfig } from '#agent/agentRunner';");
+	});
 
-        // --- Check eighth file (slack.ts) ---
-        const file8 = result[7];
-        expect(file8.filePath).to.equal('src/cli/slack.ts');
-        // Removed: expect(file8.diff).to.equal('@@ -1,9 +1,9 @@');
-        expect(file8.diff).to.contain('+       const { SlackChatBotService } = await import(\'../modules/slack/slackModule.cjs\');');
-        expect(file8.diff).to.contain('-import { SlackChatBotService } from \'#modules/slack/slackChatBotService\';');
+	it('should return an empty array for empty input', () => {
+		const result = parseGitDiff('');
+		expect(result).to.be.an('array').that.is.empty;
+	});
 
-        // --- Check ninth file (summarize.ts) ---
-        const file9 = result[8];
-        expect(file9.filePath).to.equal('src/cli/summarize.ts');
-        // Removed: expect(file9.diff).to.equal('@@ -1,8 +1,8 @@');
-        expect(file9.diff).to.contain('+import { writeFileSync } from \'node:fs\';');
-        expect(file9.diff).to.contain('-import { writeFileSync } from \'fs\';');
-        expect(file9.diff).to.contain('+import type { AgentLLMs } from \'#agent/agentContextTypes\';');
-        expect(file9.diff).to.contain('+import type { RunAgentConfig } from \'#agent/agentRunner\';');
-        expect(file9.diff).to.contain('-import { AgentLLMs } from \'#agent/agentContextTypes\';');
-        expect(file9.diff).to.contain('-import { RunAgentConfig } from \'#agent/agentRunner\';');
-    });
-
-    it('should return an empty array for empty input', () => {
-        const result = parseGitDiff('');
-        expect(result).to.be.an('array').that.is.empty;
-    });
-
-    it('should return an empty array if input has no @@ hunk headers', () => {
-        const diffOutput = `
+	it('should return an empty array if input has no @@ hunk headers', () => {
+		const diffOutput = `
 diff --git a/file1.txt b/file1.txt
 index 123..456 100644
 --- a/file1.txt
@@ -446,12 +446,12 @@ diff --git a/file2.txt b/file2.txt
 new file mode 100644
 index 0000000..e69de29
 `;
-        const result = parseGitDiff(diffOutput);
-        expect(result).to.be.an('array').that.is.empty;
-    });
+		const result = parseGitDiff(diffOutput);
+		expect(result).to.be.an('array').that.is.empty;
+	});
 
-    it('should handle a single file diff', () => {
-        const diffOutput = `
+	it('should handle a single file diff', () => {
+		const diffOutput = `
 diff --git a/src/cli/files.ts b/src/cli/files.ts
 index 39592e3..129ef8c 100644
 --- a/src/cli/files.ts
@@ -470,17 +470,17 @@ index 39592e3..129ef8c 100644
  import { shutdownTrace } from '#fastify/trace-init/trace-init';
  import { defaultLLMs } from '#llm/services/defaultLlms';
 `;
-        const result = parseGitDiff(diffOutput);
-        expect(result).to.be.an('array').with.lengthOf(1);
-        expect(result[0].filePath).to.equal('src/cli/files.ts');
-        // Removed: expect(result[0].diff).to.equal('@@ -1,9 +1,9 @@');
-        expect(result[0].diff).to.contain('+import { writeFileSync } from \'node:fs\';');
-        expect(result[0].newFile).to.be.false; // Add check for newFile flag
-        expect(result[0].deletedFile).to.be.false; // Add check for deletedFile flag
-    });
+		const result = parseGitDiff(diffOutput);
+		expect(result).to.be.an('array').with.lengthOf(1);
+		expect(result[0].filePath).to.equal('src/cli/files.ts');
+		// Removed: expect(result[0].diff).to.equal('@@ -1,9 +1,9 @@');
+		expect(result[0].diff).to.contain("+import { writeFileSync } from 'node:fs';");
+		expect(result[0].newFile).to.be.false; // Add check for newFile flag
+		expect(result[0].deletedFile).to.be.false; // Add check for deletedFile flag
+	});
 
-    it('should handle diffs with only additions (new file)', () => {
-        const diffOutput = `
+	it('should handle diffs with only additions (new file)', () => {
+		const diffOutput = `
 diff --git a/new_file.txt b/new_file.txt
 new file mode 100644
 index 0000000..ab12345
@@ -491,18 +491,19 @@ index 0000000..ab12345
 +This is line 2.
 +This is line 3.
 `;
-        const result = parseGitDiff(diffOutput);
-        expect(result).to.be.an('array').with.lengthOf(1);
-        expect(result[0].filePath).to.equal('new_file.txt');
-        expect(result[0].diff).to.equal('@@ -0,0 +1,3 @@\n+This is line 1.\n+This is line 2.\n+This is line 3.');
-        expect(result[0].newFile).to.be.true;
-        expect(result[0].deletedFile).to.be.false;
-        expect(result[0].oldPath).to.equal('/dev/null');
-        expect(result[0].newPath).to.equal('new_file.txt');
-    });
+		const result = parseGitDiff(diffOutput);
+		expect(result).to.be.an('array').with.lengthOf(1);
+		expect(result[0].filePath).to.equal('new_file.txt');
+		expect(result[0].diff).to.equal('@@ -0,0 +1,3 @@\n+This is line 1.\n+This is line 2.\n+This is line 3.');
+		expect(result[0].newFile).to.be.true;
+		expect(result[0].deletedFile).to.be.false;
+		expect(result[0].oldPath).to.equal('/dev/null');
+		expect(result[0].newPath).to.equal('new_file.txt');
+	});
 
-    it('should handle diffs with only deletions (deleted file)', () => { // Updated description
-        const diffOutput = `
+	it('should handle diffs with only deletions (deleted file)', () => {
+		// Updated description
+		const diffOutput = `
 diff --git a/deleted_file.log b/deleted_file.log
 deleted file mode 100644
 index fedcba9..0000000
@@ -512,15 +513,14 @@ index fedcba9..0000000
 -Log entry 1
 -Log entry 2
 `;
-        const result = parseGitDiff(diffOutput);
-        // Expect one entry for the deleted file
-        expect(result).to.be.an('array').with.lengthOf(1);
-        expect(result[0].filePath).to.equal('deleted_file.log'); // Check the correct path property (old path for deleted)
-        expect(result[0].oldPath).to.equal('deleted_file.log');
-        expect(result[0].newPath).to.equal('/dev/null');
-        expect(result[0].deletedFile).to.be.true;
-        expect(result[0].newFile).to.be.false;
-        expect(result[0].diff).to.equal('@@ -1,2 +0,0 @@\n-Log entry 1\n-Log entry 2');
-    });
-
+		const result = parseGitDiff(diffOutput);
+		// Expect one entry for the deleted file
+		expect(result).to.be.an('array').with.lengthOf(1);
+		expect(result[0].filePath).to.equal('deleted_file.log'); // Check the correct path property (old path for deleted)
+		expect(result[0].oldPath).to.equal('deleted_file.log');
+		expect(result[0].newPath).to.equal('/dev/null');
+		expect(result[0].deletedFile).to.be.true;
+		expect(result[0].newFile).to.be.false;
+		expect(result[0].diff).to.equal('@@ -1,2 +0,0 @@\n-Log entry 1\n-Log entry 2');
+	});
 });
