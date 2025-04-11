@@ -11,7 +11,7 @@ import { appContext } from '../../applicationContext';
 import { RetryableError, cacheRetry } from '../../cache/cacheRetry';
 import { BaseLLM, type InputCostFunction, perMilTokens } from '../base-llm';
 import { MaxTokensError } from '../errors';
-import type { GenerateTextOptions, GenerationStats, LLM, LlmMessage } from '../llm';
+import { type GenerateTextOptions, type GenerationStats, type LLM, type LlmMessage, toText } from '../llm';
 
 type Message = Anthropic.Messages.Message;
 type MessageParam = Anthropic.Messages.MessageParam;
@@ -97,12 +97,17 @@ class AnthropicVertexLLM extends BaseLLM {
 	// Error when
 	// {"error":{"code":400,"message":"Project `1234567890` is not allowed to use Publisher Model `projects/project-id/locations/us-central1/publishers/anthropic/models/claude-3-haiku@20240307`","status":"FAILED_PRECONDITION"}}
 
+	protected async generateTextFromMessages(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
+		const message = await this.generateMessage(llmMessages, opts);
+		return toText(message);
+	}
+
 	// Error when
 	// {"error":{"code":400,"message":"Project `1234567890` is not allowed to use Publisher Model `projects/project-id/locations/us-central1/publishers/anthropic/models/claude-3-haiku@20240307`","status":"FAILED_PRECONDITION"}}
 	@cacheRetry({ backOffMs: 5000 })
-	async _generateTextFromMessages(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
+	async generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
 		const description = opts?.id ?? '';
-		return await withActiveSpan(`generateTextFromMessages ${description}`, async (span) => {
+		return await withActiveSpan(`generateMessage ${description}`, async (span) => {
 			let maxOutputTokens = 8192;
 			// Don't mutate the messages arg array
 			const localMessages = [...messages];
