@@ -1,11 +1,11 @@
-import type { CodeReviewConfig, MergeRequestFingerprintCache } from '#swe/codeReview/codeReviewModel';
+import type { CodeReviewConfig, CodeReviewFingerprintCache } from '#swe/codeReview/codeReviewModel';
 import { EMPTY_CACHE } from '#swe/codeReview/codeReviewModel';
 import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
 
 export class InMemoryCodeReviewService implements CodeReviewService {
 	private configStore: Map<string, CodeReviewConfig> = new Map<string, CodeReviewConfig>();
 	// Store MR cache using a composite key: "projectId|mrIid"
-	private mrCacheStore: Map<string, MergeRequestFingerprintCache> = new Map<string, MergeRequestFingerprintCache>();
+	private mrCacheStore: Map<string, CodeReviewFingerprintCache> = new Map<string, CodeReviewFingerprintCache>();
 
 	private generateId(): string {
 		return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
@@ -45,16 +45,16 @@ export class InMemoryCodeReviewService implements CodeReviewService {
 	}
 
 	// --- MR Cache Methods ---
-	async getMergeRequestReviewCache(projectId: string | number, mrIid: number): Promise<MergeRequestFingerprintCache> {
+	async getMergeRequestReviewCache(projectId: string | number, mrIid: number): Promise<CodeReviewFingerprintCache> {
 		const key = this.getMRCacheKey(projectId, mrIid);
 		const cached = this.mrCacheStore.get(key);
 		// Return a copy to prevent direct modification of the stored object/Set
 		return cached ? { ...cached, fingerprints: new Set(cached.fingerprints) } : EMPTY_CACHE();
 	}
 
-	async updateMergeRequestReviewCache(projectId: string | number, mrIid: number, cacheObject: MergeRequestFingerprintCache): Promise<void> {
+	async updateMergeRequestReviewCache(projectId: string | number, mrIid: number, cacheObject: CodeReviewFingerprintCache): Promise<void> {
 		const key = this.getMRCacheKey(projectId, mrIid);
-		const dataToStore: MergeRequestFingerprintCache = {
+		const dataToStore: CodeReviewFingerprintCache = {
 			lastUpdated: Date.now(),
 			// Store a copy of the Set to prevent external modifications affecting the cache
 			fingerprints: new Set(cacheObject.fingerprints),

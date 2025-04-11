@@ -2,7 +2,7 @@ import type { MergeRequestDiffSchema } from '@gitbeaker/rest';
 import { expect } from 'chai';
 import sinon from 'sinon';
 import { GitLabCodeReview, getStartingLineNumber } from '#functions/scm/gitlab-code-review';
-import type { CodeReviewConfig } from '#swe/codeReview/codeReviewModel';
+import type { CodeReviewConfig, CodeReviewTask } from '#swe/codeReview/codeReviewModel';
 
 describe('GitLabCodeReview', () => {
 	describe('diff', () => {
@@ -214,5 +214,42 @@ describe('GitLabCodeReview', () => {
 			const result = gitLab.shouldApplyCodeReview(codeReview, diff, projectPath);
 			expect(result).to.be.true;
 		});
+	});
+
+	it('addCodeWithLineNumbers', () => {
+		const sampleDiff = `@@ -0,0 +1,9 @@
++import dotenv from 'dotenv';
++dotenv.config();
++
++function handle() {
++  console.log('handling...')
++}
++
++handle();`;
+		const expectedCode = `import dotenv from 'dotenv';
+dotenv.config();
+
+function handle() {
+  console.log('handling...')
+}
+
+handle();`;
+		const expectedCodeWithLineNums = `// 0
+import dotenv from 'dotenv';
+dotenv.config();
+// 3
+function handle() {
+  console.log('handling...')
+}
+// 7
+handle();`;
+		const mrDiff: MergeRequestDiffSchema = {
+			diff: sampleDiff,
+			new_path: 'code.ts',
+		} as MergeRequestDiffSchema;
+
+		const { code, codeWithLineNums } = new GitLabCodeReview().addCodeWithLineNumbers(mrDiff);
+		expect(code).to.equal(expectedCode);
+		expect(codeWithLineNums).to.equal(expectedCodeWithLineNums);
 	});
 });

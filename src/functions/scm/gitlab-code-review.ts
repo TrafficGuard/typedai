@@ -14,32 +14,19 @@ import { func, funcClass } from '#functionSchema/functionDecorators';
 import { GitLab, type GitLabConfig } from '#functions/scm/gitlab';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import { type CodeReviewConfig, type MergeRequestFingerprintCache, codeReviewToXml } from '#swe/codeReview/codeReviewModel';
+import {
+	type CodeReviewConfig,
+	type CodeReviewFingerprintCache,
+	type CodeReviewResult,
+	type CodeReviewTask,
+	codeReviewToXml,
+} from '#swe/codeReview/codeReviewModel';
 import { functionConfig } from '#user/userService/userContext';
 import { allSettledAndFulFilled } from '#utils/async-utils';
 import { envVar } from '#utils/env-var';
 import { appContext } from '../../applicationContext';
 import { cacheRetry } from '../../cache/cacheRetry';
 import type { SourceControlManagement } from './sourceControlManagement';
-
-/**
- * AI review of a git diff
- */
-interface CodeReviewResult {
-	task: CodeReviewTask;
-	/** Code review comments */
-	comments: Array<{ comment: string; lineNumber: number }>;
-}
-
-interface CodeReviewTask {
-	config: CodeReviewConfig;
-	diff: MergeRequestDiffSchema;
-	// Code string WITH line number comments for the LLM
-	codeWithLinesNums: string;
-	code: string;
-	// Fingerprint generated using hash WITHOUT line numbers
-	fingerprint: string;
-}
 
 // Note that the type returned from getProjects is mapped to GitProject
 export type GitLabProject = Pick<
@@ -56,11 +43,6 @@ export type GitLabProject = Pick<
 	| 'owner'
 	| 'ci_config_path'
 >;
-
-interface ReviewDiff {
-	codeWithLineNums: string;
-	code: string;
-}
 
 @funcClass(__filename)
 export class GitLabCodeReview {
@@ -99,7 +81,7 @@ export class GitLabCodeReview {
 	@cacheRetry()
 	@span()
 	async getDiffs(gitlabProjectId: string | number, mergeRequestIId: number): Promise<MergeRequestDiffSchema[]> {
-		const diffs = await this.api().MergeRequests.allDiffs(gitlabProjectId, mergeRequestIId, { perPage: 100 });
+		const diffs = await this.api().MergeRequests.allDiffs(gitlabProjectId, mergeRequestIId);
 		if (diffs.length === 100) {
 		}
 		return diffs;
@@ -108,18 +90,20 @@ export class GitLabCodeReview {
 	@span()
 	async reviewMergeRequest(gitlabProjectId: string | number, mergeRequestIId: number): Promise<void> {
 		const mergeRequest: ExpandedMergeRequestSchema = await this.api().MergeRequests.show(gitlabProjectId, mergeRequestIId);
+		// console.log(mergeRequest)
 		const diffs: MergeRequestDiffSchema[] = await this.getDiffs(gitlabProjectId, mergeRequestIId);
+		// console.log(diffs)
 		const codeReviewService = appContext().codeReviewService;
-		const codeReviewConfigs: CodeReviewConfig[] = await codeReviewService.listCodeReviewConfigs();
+		const codeReviewConfigs: CodeReviewConfig[] = (await codeReviewService.listCodeReviewConfigs()).filter((config) => config.enabled);
 		const existingComments: DiscussionSchema[] = await this.api().MergeRequestDiscussions.all(gitlabProjectId, mergeRequestIId);
 		const project = await this.gitlabSCM().getProject(gitlabProjectId);
 		const projectPath = project.fullPath;
 		// Load the hashes of the diffs we've already reviewed
-		const reviewCache: MergeRequestFingerprintCache = await codeReviewService.getMergeRequestReviewCache(gitlabProjectId, mergeRequestIId);
+		const reviewCache: CodeReviewFingerprintCache = await codeReviewService.getMergeRequestReviewCache(gitlabProjectId, mergeRequestIId);
 
-		logger.info(`Reviewing MR "${mergeRequest.title}" in project "${projectPath}" (${mergeRequest.web_url})`);
+		logger.info(`Reviewing MR "${mergeRequest.title}" in project "${projectPath}" (${mergeRequest.web_url}) with ${codeReviewConfigs.length} configs`);
 
-		const reviewUnitsToProcess: CodeReviewTask[] = [];
+		const codeReviewTasks: CodeReviewTask[] = [];
 
 		// Pre-filter and check cache ---
 		for (const diff of diffs) {
@@ -129,24 +113,14 @@ export class GitLabCodeReview {
 				// Check if the code review config rules apply for this diff
 				if (!this.shouldApplyCodeReview(codeReviewConfig, diff, projectPath)) continue;
 
-				// Check if we have already reviewed this diff
-				const reviewDiff: ReviewDiff = this.prepareCodeForReview(diff);
-				const fingerprint = generateReviewUnitFingerprint(diff.new_path, codeReviewConfig.id, reviewDiff.code);
-
-				reviewUnitsToProcess.push({
-					config: codeReviewConfig,
-					diff,
-					codeWithLinesNums: reviewDiff.codeWithLineNums,
-					fingerprint: fingerprint,
-					code: reviewDiff.code,
-				});
+				codeReviewTasks.push(this.createCodeReviewTask(codeReviewConfig, diff));
 			}
 		}
-		logger.info(`Found ${reviewUnitsToProcess.length} review units needing LLM analysis.`);
-		if (!reviewUnitsToProcess.length) return;
+		logger.info(`Found ${codeReviewTasks.length} review tasks needing LLM analysis.`);
+		if (!codeReviewTasks.length) return;
 
 		// Perform LLM Reviews
-		const codeReviewActions = reviewUnitsToProcess.map((task) => this.reviewDiff(task));
+		const codeReviewActions = codeReviewTasks.map((task) => this.reviewDiff(task));
 		const codeReviewResults = await allSettledAndFulFilled(codeReviewActions);
 
 		// Post review comments
@@ -155,11 +129,10 @@ export class GitLabCodeReview {
 
 			if (!reviewResult.comments || !reviewResult.comments.length) continue;
 
+			console.log(reviewResult.task.codeWithLineNums);
+
 			for (const comment of reviewResult.comments) {
-				logger.info(
-					{ comment: comment.comment, line: comment.lineNumber },
-					`Adding review comment for "${reviewResult.task.config.title}" in ${reviewResult.task.diff.new_path} [comment, line]`,
-				);
+				logger.info({ comment }, `Adding review comment for "${reviewResult.task.config.title}" in ${reviewResult.task.diff.new_path} [comment]`);
 
 				// Prepare comment position data
 				if (!mergeRequest.diff_refs?.base_sha || !mergeRequest.diff_refs?.head_sha || !mergeRequest.diff_refs?.start_sha) {
@@ -177,9 +150,10 @@ export class GitLabCodeReview {
 				};
 				Object.keys(position).forEach((key) => position[key] === undefined && delete position[key]);
 				const positionOptions = position.newLine ? { position } : undefined;
-
+				console.log(positionOptions);
 				try {
-					await this.api().MergeRequestDiscussions.create(gitlabProjectId, mergeRequestIId, comment.comment, positionOptions);
+					// const discussion = await this.api().MergeRequestDiscussions.create(gitlabProjectId, mergeRequestIId, comment.comment, positionOptions);
+					// console.log(discussion)
 				} catch (e) {
 					const message = e.cause?.description || e.message;
 					logger.warn(
@@ -193,62 +167,56 @@ export class GitLabCodeReview {
 		await codeReviewService.updateMergeRequestReviewCache(gitlabProjectId, mergeRequestIId, reviewCache);
 	}
 
+	createCodeReviewTask(config: CodeReviewConfig, mrDiff: MergeRequestDiffSchema): CodeReviewTask {
+		const { codeWithLineNums, code } = this.addCodeWithLineNumbers(mrDiff);
+
+		const fingerprint = generateReviewTaskFingerprint(mrDiff.new_path, config.id, code);
+		return {
+			config,
+			diff: mrDiff,
+			codeWithLineNums,
+			fingerprint,
+			code,
+		};
+	}
+
 	/**
-	 * Helper to prepare code strings from a diff for LLM review and fingerprinting.
-	 * Extracts added/context lines. Generates one version with line number comments
-	 * for the LLM.
-	 * The code without the lines is for fingerprinting/hashing the diff
-	 *
-	 * @param mrDiff The merge request diff schema object.
-	 * @returns An object containing { codeWithLines: string; codeWithoutLines: string; }
-	 * @throws Error if the diff header cannot be parsed.
+	 * Sets the codeWithLinesNums property on the task, which is a copy of the diff with line numbers added as comments
+	 * @param mrDiff
 	 */
-	prepareCodeForReview(mrDiff: MergeRequestDiffSchema): { codeWithLineNums: string; code: string } {
-		// Get the actual starting line number from the diff header @@ -old,cnt +new,cnt @@
-		const headerMatch = mrDiff.diff.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/m);
-		let actualStartLine = 1;
-		if (headerMatch?.[1]) {
-			actualStartLine = Number.parseInt(headerMatch[1], 10);
-			if (actualStartLine === 0) actualStartLine = 1;
-		} else {
-			// If header is missing or malformed, log and potentially throw,
-			// as line numbers are crucial for the LLM context.
-			logger.error({ file: mrDiff.new_path, diffHeader: mrDiff.diff.split('\n')[0] }, 'CRITICAL: Could not parse starting line number from diff header.');
-			// Throwing an error might be safer to prevent incorrect reviews/caching.
-			throw new Error(`Could not parse diff header for ${mrDiff.new_path}`);
-		}
+	addCodeWithLineNumbers(mrDiff: MergeRequestDiffSchema): { codeWithLineNums: string; code: string } {
+		// The first line of the diff has the starting line number e.g. @@ -0,0 +1,76 @@
+		let startingLineNumber = getStartingLineNumber(mrDiff.diff);
 
 		const lineCommenter = getBlankLineCommenter(mrDiff.new_path);
-		const linesWithNumbers: string[] = [];
-		const linesWithoutNumbers: string[] = [];
-		let currentLineNumber = actualStartLine;
 
-		// Split diff into lines, skip header
-		const diffLines = mrDiff.diff.split('\n');
-		let diffContentStartIndex = diffLines.findIndex((line) => line.startsWith('@@'));
-		diffContentStartIndex = diffContentStartIndex === -1 ? 0 : diffContentStartIndex + 1;
+		// Transform the diff, so it's not a diff, removing the deleted lines so only the unchanged and new lines remain
+		// i.e. the code in the latest commit
+		const diffLines: string[] = mrDiff.diff
+			.trim()
+			.split('\n')
+			.filter((line) => !line.startsWith('-'))
+			.map((line) => (line.startsWith('+') ? line.slice(1) : line));
 
-		for (let i = diffContentStartIndex; i < diffLines.length; i++) {
+		// The current state of the code
+		const rawCode = diffLines.slice(1).join('\n');
+
+		startingLineNumber -= 1;
+		diffLines[0] = lineCommenter(startingLineNumber);
+
+		// Add lines numbers
+		for (let i = 1; i < diffLines.length; i++) {
 			const line = diffLines[i];
-			if (!line.startsWith('-')) {
-				// Keep context (' ') and added ('+') lines
-				const lineContent = line.startsWith('+') ? line.slice(1) : line.slice(1); // Also remove space from context lines
-
-				// Version WITH line numbers for LLM
-				linesWithNumbers.push(lineCommenter(currentLineNumber));
-				linesWithNumbers.push(lineContent);
-
-				// Version WITHOUT line numbers for fingerprinting
-				linesWithoutNumbers.push(lineContent);
-
-				currentLineNumber++;
-			}
+			// Add the line number on blank lines
+			if (!line.trim().length) diffLines[i] = lineCommenter(startingLineNumber + i);
+			// Could add in a line number at least every 10 lines if the file type supports closing comments i.e. /* */
+			// Or add the line numbers at the end of the line in a single line comment
 		}
 
-		const codeWithLines = linesWithNumbers.join('\n');
-		const codeWithoutLines = linesWithoutNumbers.join('\n');
-
-		return { codeWithLineNums: codeWithLines, code: codeWithoutLines };
+		return {
+			code: rawCode,
+			codeWithLineNums: diffLines.join('\n'),
+		};
 	}
 
 	/**
@@ -262,7 +230,7 @@ export class GitLabCodeReview {
 
 		// If project paths are provided, then there must be a match
 		if (codeReview.projectPaths.length && !micromatch.isMatch(projectPath, codeReview.projectPaths)) {
-			logger.debug(`Project path globs ${codeReview.projectPaths} dont match ${projectPath}`);
+			console.log(`Project path globs ${codeReview.projectPaths} dont match ${projectPath}`);
 			return false;
 		}
 
@@ -309,7 +277,8 @@ Response only in JSON format. Do not wrap the JSON in any tags.
 			violations: Array<{ lineNumber: number; comment: string }>;
 		};
 		// TODO ensure response is the correct type by setting a schema or checking the results
-
+		console.log('LLM');
+		console.log(reviewComments);
 		return { task, comments: reviewComments.violations };
 	}
 
@@ -402,7 +371,7 @@ function getBlankLineCommenter(fileName: string): (lineNumber: number) => string
 }
 
 /** Generate fingerprint for caching reviews */
-function generateReviewUnitFingerprint(filePath: string, ruleId: string, diffContents: string): string {
+function generateReviewTaskFingerprint(filePath: string, ruleId: string, diffContents: string): string {
 	const data = [`file:${filePath}`, `rule:${ruleId}`, `content:${diffContents}`].join('|');
 	return crypto.createHash('sha256').update(data).digest('hex');
 }

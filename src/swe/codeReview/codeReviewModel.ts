@@ -1,3 +1,5 @@
+import type { MergeRequestDiffSchema } from '@gitbeaker/rest';
+
 interface IExample {
 	code: string;
 	reviewComment: string;
@@ -21,37 +23,46 @@ export interface CodeReviewConfig {
 }
 
 /**
- * Caches a fingerprint of a reviewed diff so a MR can be re-reviewed after
- * new commits, and not have the unchanged diffs be re-reviewed
+ * AI review of a git diff
  */
-export type MergeRequestFingerprintCache = {
+export interface CodeReviewResult {
+	task: CodeReviewTask;
+	/** Code review comments */
+	comments: Array<{ comment: string; lineNumber: number }>;
+}
+
+export interface CodeReviewTask {
+	config: CodeReviewConfig;
+	diff: MergeRequestDiffSchema;
+	// Code string with line number comments for the LLM to identify the line to post a review comment
+	codeWithLineNums: string;
+	// Raw code from the diff
+	code: string;
+	// Fingerprint generated using raw code line numbers, so it isn't affected by further MR commits moving the starting position of the code block.
+	fingerprint: string;
+}
+
+/**
+ * Caches a fingerprint of a reviewed diff so a merge/pull request can be re-reviewed after
+ * new commits, and not have the unchanged diffs be re-reviewed.
+ */
+export type CodeReviewFingerprintCache = {
 	/** Unix timestamp (milliseconds) of the last update */
 	lastUpdated: number;
 	/** Set containing the unique fingerprint hashes marked as clean */
 	fingerprints: Set<string>;
+	hashes?: Map<string, Set<string>>;
 };
 
 /**
  * Default empty cache structure used when no cache exists or on error.
  * Note: Creates a new Set each time to avoid shared references.
  */
-export const EMPTY_CACHE = (): MergeRequestFingerprintCache => ({
+export const EMPTY_CACHE = (): CodeReviewFingerprintCache => ({
 	lastUpdated: 0,
-	fingerprints: new Set<string>(),
+	fingerprints: new Set(),
+	hashes: new Map(),
 });
-
-// Interface for review results might also live here or near GitLabCodeReview
-export interface DiffReviewComment {
-	lineNumber: number;
-	comment: string; // Markdown format expected
-}
-
-export interface DiffReview {
-	code: string; // The code snippet sent to the LLM
-	comments: DiffReviewComment[];
-	// mrDiff: MergeRequestDiffSchema; // Assuming this type comes from GitLab client library
-	// reviewConfig: CodeReviewConfig; // Assuming CodeReviewConfig is defined
-}
 
 export function codeReviewToXml(codeReview: CodeReviewConfig): string {
 	let xml = '<code-review-config>';

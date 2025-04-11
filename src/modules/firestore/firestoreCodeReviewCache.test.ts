@@ -3,7 +3,7 @@ import { expect } from 'chai';
 import { firestoreDb } from '#firestore/firestore';
 import { FirestoreCodeReviewService } from '#firestore/firestoreCodeReviewService';
 import { resetFirestoreEmulator } from '#firestore/resetFirestoreEmulator';
-import { EMPTY_CACHE, type MergeRequestFingerprintCache } from '#swe/codeReview/codeReviewModel';
+import { type CodeReviewFingerprintCache, EMPTY_CACHE } from '#swe/codeReview/codeReviewModel';
 
 // Helper for delaying execution (useful if needed for future tests, though not for current logic)
 // const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -112,7 +112,7 @@ describe('FirestoreCodeReviewService (Set Cache Methods)', () => {
 		it('should create a new document with fingerprints as Array and updated lastUpdated', async () => {
 			const originalMillis = Date.now() - 10000; // An older timestamp
 			// Prepare object with a Set to pass to the service
-			const dataToSave: MergeRequestFingerprintCache = {
+			const dataToSave: CodeReviewFingerprintCache = {
 				lastUpdated: originalMillis, // This value will be ignored/overwritten by the service
 				fingerprints: new Set([FINGERPRINT_1, FINGERPRINT_2]),
 			};
@@ -152,7 +152,7 @@ describe('FirestoreCodeReviewService (Set Cache Methods)', () => {
 				});
 
 			// Data to save (passing a Set with only FP2)
-			const newData: MergeRequestFingerprintCache = {
+			const newData: CodeReviewFingerprintCache = {
 				lastUpdated: oldMillis, // Old timestamp, will be updated by service
 				fingerprints: new Set([FINGERPRINT_2]), // Only FP2 now
 			};
@@ -178,7 +178,7 @@ describe('FirestoreCodeReviewService (Set Cache Methods)', () => {
 		it('should save an empty fingerprints Array if the input Set is empty', async () => {
 			const originalMillis = Date.now() - 10000;
 			// Prepare object with an empty Set
-			const dataToSave: MergeRequestFingerprintCache = {
+			const dataToSave: CodeReviewFingerprintCache = {
 				lastUpdated: originalMillis, // Will be overwritten
 				fingerprints: new Set<string>(), // Empty Set
 			};
@@ -200,8 +200,8 @@ describe('FirestoreCodeReviewService (Set Cache Methods)', () => {
 		});
 
 		it('should handle different MRs in separate documents correctly', async () => {
-			const data1: MergeRequestFingerprintCache = { lastUpdated: 0, fingerprints: new Set([FINGERPRINT_1]) };
-			const data2: MergeRequestFingerprintCache = { lastUpdated: 0, fingerprints: new Set([FINGERPRINT_2]) };
+			const data1: CodeReviewFingerprintCache = { lastUpdated: 0, fingerprints: new Set([FINGERPRINT_1]) };
+			const data2: CodeReviewFingerprintCache = { lastUpdated: 0, fingerprints: new Set([FINGERPRINT_2]) };
 			const callTime = Date.now();
 
 			// Update both MRs

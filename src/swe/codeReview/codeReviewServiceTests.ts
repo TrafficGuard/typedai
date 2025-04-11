@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
-import type { CodeReviewConfig, MergeRequestFingerprintCache } from '#swe/codeReview/codeReviewModel';
+import type { CodeReviewConfig, CodeReviewFingerprintCache } from '#swe/codeReview/codeReviewModel';
 import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
 
 // Helper function to compare Sets for equality
@@ -182,7 +182,7 @@ export function runCodeReviewServiceTests(
 			});
 
 			it('should update and retrieve the MR review cache', async () => {
-				const initialCache: MergeRequestFingerprintCache = {
+				const initialCache: CodeReviewFingerprintCache = {
 					lastUpdated: 0, // This will be ignored on update, but needed for type
 					fingerprints: initialFingerprints,
 				};
@@ -208,7 +208,7 @@ export function runCodeReviewServiceTests(
 
 			it('should overwrite existing MR review cache on update', async () => {
 				// First update
-				const firstCache: MergeRequestFingerprintCache = { lastUpdated: 0, fingerprints: initialFingerprints };
+				const firstCache: CodeReviewFingerprintCache = { lastUpdated: 0, fingerprints: initialFingerprints };
 				await service.updateMergeRequestReviewCache(projectId, mrIid, firstCache);
 				const retrievedAfterFirst = await service.getMergeRequestReviewCache(projectId, mrIid);
 				const firstTimestamp = retrievedAfterFirst.lastUpdated;
@@ -219,7 +219,7 @@ export function runCodeReviewServiceTests(
 				await new Promise((resolve) => setTimeout(resolve, 10)); // Wait 10ms
 
 				// Second update (overwrite)
-				const secondCache: MergeRequestFingerprintCache = { lastUpdated: 0, fingerprints: updatedFingerprints };
+				const secondCache: CodeReviewFingerprintCache = { lastUpdated: 0, fingerprints: updatedFingerprints };
 				const startTime = Date.now();
 				await new Promise((resolve) => setTimeout(resolve, 1));
 				await service.updateMergeRequestReviewCache(projectId, mrIid, secondCache);
@@ -239,8 +239,8 @@ export function runCodeReviewServiceTests(
 				const projectId2 = 'other-project-456';
 				const mrIid2 = 99;
 
-				const cache1: MergeRequestFingerprintCache = { lastUpdated: 0, fingerprints: initialFingerprints };
-				const cache2: MergeRequestFingerprintCache = { lastUpdated: 0, fingerprints: updatedFingerprints };
+				const cache1: CodeReviewFingerprintCache = { lastUpdated: 0, fingerprints: initialFingerprints };
+				const cache2: CodeReviewFingerprintCache = { lastUpdated: 0, fingerprints: updatedFingerprints };
 
 				// Update caches for different MRs/Projects
 				await service.updateMergeRequestReviewCache(projectId, mrIid, cache1);

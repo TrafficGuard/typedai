@@ -1,6 +1,6 @@
 import { type DocumentSnapshot, FieldValue, type Firestore, Timestamp } from '@google-cloud/firestore';
 import { logger } from '#o11y/logger';
-import { type CodeReviewConfig, EMPTY_CACHE, type MergeRequestFingerprintCache } from '#swe/codeReview/codeReviewModel';
+import { type CodeReviewConfig, type CodeReviewFingerprintCache, EMPTY_CACHE } from '#swe/codeReview/codeReviewModel';
 import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
 import { firestoreDb } from './firestore';
 
@@ -73,7 +73,7 @@ export class FirestoreCodeReviewService implements CodeReviewService {
 	 * Converts the stored 'fingerprints' array back into a Set.
 	 * @returns The cache object with fingerprints as a Set, or a default empty cache object.
 	 */
-	async getMergeRequestReviewCache(projectId: string | number, mrIid: number): Promise<MergeRequestFingerprintCache> {
+	async getMergeRequestReviewCache(projectId: string | number, mrIid: number): Promise<CodeReviewFingerprintCache> {
 		const mrDocId = this.getMRCacheDocId(projectId, mrIid);
 		logger.debug({ mrDocId }, 'Loading merge request review cache object');
 		try {
@@ -113,7 +113,7 @@ export class FirestoreCodeReviewService implements CodeReviewService {
 	 * first converting the 'fingerprints' Set to an Array and updating 'lastUpdated'.
 	 * @param cacheObject The cache object containing the fingerprints Set.
 	 */
-	async updateMergeRequestReviewCache(projectId: string | number, mrIid: number, cacheObject: MergeRequestFingerprintCache): Promise<void> {
+	async updateMergeRequestReviewCache(projectId: string | number, mrIid: number, cacheObject: CodeReviewFingerprintCache): Promise<void> {
 		const mrDocId = this.getMRCacheDocId(projectId, mrIid);
 		const nowMillis = Date.now();
 
