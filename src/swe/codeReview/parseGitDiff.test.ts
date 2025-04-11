@@ -2,7 +2,6 @@ import { expect } from 'chai';
 import { type DiffInfo, parseGitDiff } from '#swe/codeReview/parseGitDiff';
 
 describe('parseGitDiff', () => {
-
 	const diff = `diff --git a/file1.ts b/file1.ts
 index e4c2480..fb74586 100644
 --- a/file1.ts
@@ -76,7 +75,7 @@ index ffbe9e6..0000000
 -    }
 -}
 \\ No newline at end of file
-`
+`;
 
 	let parsedDiff: DiffInfo[];
 
@@ -120,12 +119,7 @@ index ffbe9e6..0000000
 		expect(fileInfo?.deletedFile).to.be.true;
 		expect(fileInfo?.newFile).to.be.false;
 		expect(fileInfo?.diff).to.equal(
-			'@@ -1,5 +0,0 @@\n' +
-				'-async function main() {\n' +
-				'-    console.log("Hello from file3!");\n' +
-				'-}\n' +
-				'-\n' +
-				'-main().catch(console.error)',
+			'@@ -1,5 +0,0 @@\n' + '-async function main() {\n' + '-    console.log("Hello from file3!");\n' + '-}\n' + '-\n' + '-main().catch(console.error)',
 		);
 	});
 
@@ -184,7 +178,7 @@ index ffbe9e6..0000000
 				'-\n' +
 				'-export class Temp {\n' +
 				'-    async peek(): Promise<void> {\n' +
-				'-        console.log(\'peek\');\n' +
+				"-        console.log('peek');\n" +
 				'-    }\n' +
 				'-}\n' +
 				'\\ No newline at end of file',
