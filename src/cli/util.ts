@@ -2,13 +2,13 @@ import '#fastify/trace-init/trace-init'; // leave an empty line next so this doe
 
 import { LlmFunctions } from '#agent/LlmFunctions';
 import { agentContextStorage, createContext } from '#agent/agentContextLocalStorage';
-import { AgentContext, AgentLLMs } from '#agent/agentContextTypes';
-import { RunAgentConfig } from '#agent/agentRunner';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { MultiLLM } from '#llm/multi-llm';
 import { Claude3_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { GPT4o } from '#llm/services/openai';
 import { appContext } from '../applicationContext';
+import type { AgentContext, AgentLLMs } from '#agent/agentContextTypes';
+import type { RunAgentConfig } from '#agent/agentRunner';
 import { envVarHumanInLoopSettings } from './cliHumanInLoop';
 
 // For running random bits of code
