@@ -1,0 +1,78 @@
+import type { MergeRequestDiscussionNotePositionOptions } from '@gitbeaker/rest';
+import { Git } from '#functions/scm/git';
+import { logger } from '#o11y/logger';
+import { addCodeWithLineNumbers, generateReviewTaskFingerprint, reviewDiff, shouldApplyCodeReview } from '#swe/codeReview/codeReviewCommon';
+import type { CodeReviewConfig, CodeReviewTask } from '#swe/codeReview/codeReviewModel';
+import { type DiffInfo, parseGitDiff } from '#swe/codeReview/local/parseGitDiff';
+import { allSettledAndFulFilled } from '#utils/async-utils';
+import { appContext } from '../../../applicationContext';
+
+/**
+ * Performs a code review of a local branch
+ */
+export async function performLocalBranchCodeReview() {
+	const git = new Git();
+	await checkInvalidBranch();
+
+	const codeReviewService = appContext().codeReviewService;
+	const codeReviewConfigs: CodeReviewConfig[] = (await codeReviewService.listCodeReviewConfigs()).filter((config) => config.enabled);
+	const projectPath = await getProjectPath();
+	const allDiffs = parseGitDiff(await git.getBranchDiff());
+	const diffs = allDiffs.filter((diff) => !diff.deletedFile);
+
+	const codeReviewTasks: CodeReviewTask[] = [];
+
+	logger.info(`Found ${codeReviewConfigs.length} active code review configs`);
+
+	for (const diff of diffs) {
+		if (diff.deletedFile || !diff.diff || diff.diff.trim() === '') continue;
+
+		for (const config of codeReviewConfigs) {
+			if (shouldApplyCodeReview(config, projectPath, diff.newPath, diff.diff)) codeReviewTasks.push(createCodeReviewTask(config, diff));
+		}
+	}
+	logger.info(`Found ${codeReviewTasks.length} review tasks needing LLM analysis.`);
+	if (!codeReviewTasks.length) return;
+
+	// Perform LLM Reviews
+	const codeReviewActions = codeReviewTasks.map((task) => reviewDiff(task));
+	const codeReviewResults = await allSettledAndFulFilled(codeReviewActions);
+
+	// Display review comments
+	for (const reviewResult of codeReviewResults) {
+		if (!reviewResult.comments || !reviewResult.comments.length) continue;
+
+		for (const comment of reviewResult.comments) {
+			console.log();
+			console.log(`== Review comment. File: ${reviewResult.task.filePath}:${comment.lineNumber}   ================`);
+			console.log(comment.comment);
+		}
+	}
+}
+
+function createCodeReviewTask(config: CodeReviewConfig, mrDiff: DiffInfo): CodeReviewTask {
+	const { codeWithLineNums, code } = addCodeWithLineNumbers(mrDiff.diff, mrDiff.newPath);
+
+	return {
+		config,
+		filePath: mrDiff.newPath,
+		oldPath: mrDiff.oldPath,
+		codeWithLineNums,
+		fingerprint: '',
+		code,
+	};
+}
+
+async function checkInvalidBranch() {
+	const branchName = await new Git().getBranchName();
+	if (branchName === 'main' || branchName === 'master' || branchName === 'dev' || branchName === 'develop') {
+		throw new Error('Reviews should be a on a feature branch');
+	}
+}
+
+/**
+ * Get the project path from the repo origin URL
+ */
+async function getProjectPath(): Promise<string> {
+	return '';
+}

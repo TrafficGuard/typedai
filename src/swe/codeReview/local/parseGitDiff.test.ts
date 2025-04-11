@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { type DiffInfo, parseGitDiff } from '#swe/codeReview/parseGitDiff';
+import { type DiffInfo, parseGitDiff } from '#swe/codeReview/local/parseGitDiff';
 
 describe('parseGitDiff', () => {
 	const diff = `diff --git a/file1.ts b/file1.ts

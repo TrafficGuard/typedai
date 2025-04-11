@@ -1,4 +1,4 @@
-import { runCodeReviewServiceTests } from '#swe/codeReview/codeReviewServiceTests';
+import { runCodeReviewServiceTests } from '#swe/codeReview/codeReviewService.test';
 import { InMemoryCodeReviewService } from './inMemoryCodeReviewService';
 
 // --- Run Shared Tests ---

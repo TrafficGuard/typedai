@@ -1,5 +1,3 @@
-import type { MergeRequestDiffSchema } from '@gitbeaker/rest';
-
 interface IExample {
 	code: string;
 	reviewComment: string;
@@ -33,12 +31,15 @@ export interface CodeReviewResult {
 
 export interface CodeReviewTask {
 	config: CodeReviewConfig;
-	diff: MergeRequestDiffSchema;
-	// Code string with line number comments for the LLM to identify the line to post a review comment
+	/** Used by GitLabCodeReview */
+	oldPath?: string;
+	/** File path */
+	filePath: string;
+	/** Code string with line number comments for the LLM to identify the line to post a review comment */
 	codeWithLineNums: string;
-	// Raw code from the diff
+	/** Raw code from the diff */
 	code: string;
-	// Fingerprint generated using raw code line numbers, so it isn't affected by further MR commits moving the starting position of the code block.
+	/** Fingerprint generated using raw code line numbers, so it isn't affected by further MR commits moving the starting position of the code block. */
 	fingerprint: string;
 }
 
@@ -47,7 +48,7 @@ export interface CodeReviewTask {
  * new commits, and not have the unchanged diffs be re-reviewed.
  */
 export type CodeReviewFingerprintCache = {
-	/** Unix timestamp (milliseconds) of the last update */
+	/** Unix timestamp (milliseconds) */
 	lastUpdated: number;
 	/** Set containing the unique fingerprint hashes marked as clean */
 	fingerprints: Set<string>;

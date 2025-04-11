@@ -17,7 +17,6 @@ import { func, funcClass } from '#functionSchema/functionDecorators';
 import { GITLAB_SHARED_REPOS_PATH } from '#functions/scm/sourceControlManagementTypes';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import type { CodeReviewConfig } from '#swe/codeReview/codeReviewModel';
 import { getProjectInfo } from '#swe/projectDetection';
 import { currentUser, functionConfig } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
@@ -33,19 +32,6 @@ export interface GitLabConfig {
 	/** Comma seperated list of the top level groups */
 	topLevelGroups: string[];
 	groupExcludes?: Set<string>;
-}
-
-/**
- * AI review of a git diff
- */
-interface DiffReview {
-	mrDiff: MergeRequestDiffSchema;
-	/** The code being reviewed from the diff */
-	code: string;
-	/** Code review comments */
-	comments: Array<{ comment: string; lineNumber: number }>;
-	/** The code review configuration */
-	reviewConfig: CodeReviewConfig;
 }
 
 // Note that the type returned from getProjects is mapped to GitProject

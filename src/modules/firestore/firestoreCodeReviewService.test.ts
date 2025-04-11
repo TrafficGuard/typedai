@@ -2,7 +2,7 @@
 // import sinon from 'sinon'; // No longer needed for mocking Firestore internals here
 // import type { CodeReviewConfig } from '#swe/codeReview/codeReviewModel'; // Now handled by shared tests
 
-import { runCodeReviewServiceTests } from '#swe/codeReview/codeReviewServiceTests';
+import { runCodeReviewServiceTests } from '#swe/codeReview/codeReviewService.test';
 import { FirestoreCodeReviewService } from './firestoreCodeReviewService';
 import { resetFirestoreEmulator } from './resetFirestoreEmulator'; // Import the reset function
 

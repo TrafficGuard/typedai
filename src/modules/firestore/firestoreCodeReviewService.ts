@@ -1,4 +1,4 @@
-import { type DocumentSnapshot, FieldValue, type Firestore, Timestamp } from '@google-cloud/firestore';
+import type { DocumentSnapshot, Firestore } from '@google-cloud/firestore';
 import { logger } from '#o11y/logger';
 import { type CodeReviewConfig, type CodeReviewFingerprintCache, EMPTY_CACHE } from '#swe/codeReview/codeReviewModel';
 import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
@@ -111,6 +111,8 @@ export class FirestoreCodeReviewService implements CodeReviewService {
 	/**
 	 * Saves the entire provided cache object to the MR cache document,
 	 * first converting the 'fingerprints' Set to an Array and updating 'lastUpdated'.
+	 * @param projectId
+	 * @param mrIid
 	 * @param cacheObject The cache object containing the fingerprints Set.
 	 */
 	async updateMergeRequestReviewCache(projectId: string | number, mrIid: number, cacheObject: CodeReviewFingerprintCache): Promise<void> {
