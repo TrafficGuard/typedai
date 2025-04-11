@@ -44,8 +44,13 @@ export async function performLocalBranchCodeReview() {
 
 		for (const comment of reviewResult.comments) {
 			console.log();
-			console.log(`== Review comment. File: ${reviewResult.task.filePath}:${comment.lineNumber}   ================`);
+			console.log(`== Review @ ${reviewResult.task.filePath}:${comment.lineNumber}   ======================================`);
+			console.log(`-- Config: ${reviewResult.task.config.title}`);
+			console.log('-- Code --------------------------------------------------------');
+			console.log(reviewResult.task.code);
+			console.log(`\n-- Comment @ line:${comment.lineNumber} ------------------------------------------`);
 			console.log(comment.comment);
+			console.log('----------------------------------------------------------------');
 		}
 	}
 }
