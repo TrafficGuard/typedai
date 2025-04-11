@@ -271,7 +271,7 @@ export class ChatService {
                     .post<Chat>(`/api/chat/${chatId}/send`, formData, { headers: { 'enctype': 'multipart/form-data' } })
                     .pipe(
                         map((data: any) => {
-                            const llmMessage = data.data;
+                            const llmMessage = data.data as LlmMessage;
 
                             const newMessages: ChatMessage[] = [
                                 {
@@ -280,11 +280,7 @@ export class ChatService {
                                     isMine: true,
                                     attachments: attachments,
                                 },
-                                {
-                                    content: llmMessage,
-                                    textContent: '',
-                                    isMine: false,
-                                },
+                                convertMessage(llmMessage)
                             ]
                             // Find the index of the updated chat
                             const index = chats.findIndex(
