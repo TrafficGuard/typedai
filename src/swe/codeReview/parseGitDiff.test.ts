@@ -78,6 +78,116 @@ index ffbe9e6..0000000
 \\ No newline at end of file
 `
 
-	// Implement all required tests
-	it("should", () => {})
+	let parsedDiff: DiffInfo[];
+
+	before(() => {
+		parsedDiff = parseGitDiff(diff);
+	});
+
+	it('should parse the correct number of files', () => {
+		expect(parsedDiff).to.be.an('array').with.lengthOf(5);
+	});
+
+	it('should correctly parse the modified file (file1.ts)', () => {
+		const fileInfo = parsedDiff.find((f) => f.filePath === 'file1.ts');
+		expect(fileInfo).to.exist;
+		expect(fileInfo?.oldPath).to.equal('file1.ts');
+		expect(fileInfo?.newPath).to.equal('file1.ts');
+		expect(fileInfo?.deletedFile).to.be.false;
+		expect(fileInfo?.newFile).to.be.false;
+		expect(fileInfo?.diff).to.equal(
+			'@@ -1,5 +1,9 @@\n' +
+				'-import {Foo} from "./file2";\n' +
+				'+import {Foo} from "./src/file2";\n' +
+				' \n' +
+				'-class App {\n' +
+				'+export class App {\n' +
+				'     constructor(private foo: Foo) {}\n' +
+				'+\n' +
+				'+    async foobar() {\n' +
+				'+        await this.foo.bar();\n' +
+				'+    }\n' +
+				' }\n' +
+				'\\ No newline at end of file',
+		);
+	});
+
+	it('should correctly parse the deleted file (file3.ts)', () => {
+		const fileInfo = parsedDiff.find((f) => f.filePath === 'file3.ts');
+		expect(fileInfo).to.exist;
+		expect(fileInfo?.oldPath).to.equal('file3.ts');
+		expect(fileInfo?.newPath).to.equal('/dev/null');
+		expect(fileInfo?.deletedFile).to.be.true;
+		expect(fileInfo?.newFile).to.be.false;
+		expect(fileInfo?.diff).to.equal(
+			'@@ -1,5 +0,0 @@\n' +
+				'-async function main() {\n' +
+				'-    console.log("Hello from file3!");\n' +
+				'-}\n' +
+				'-\n' +
+				'-main().catch(console.error)',
+		);
+	});
+
+	it('should correctly parse the added file (main.ts)', () => {
+		const fileInfo = parsedDiff.find((f) => f.filePath === 'main.ts');
+		expect(fileInfo).to.exist;
+		expect(fileInfo?.oldPath).to.equal('/dev/null');
+		expect(fileInfo?.newPath).to.equal('main.ts');
+		expect(fileInfo?.deletedFile).to.be.false;
+		expect(fileInfo?.newFile).to.be.true;
+		expect(fileInfo?.diff).to.equal(
+			'@@ -0,0 +1,9 @@\n' +
+				'+import {App} from "./file1";\n' +
+				'+import {Foo} from "./src/file2";\n' +
+				'+\n' +
+				'+async function main() {\n' +
+				'+    console.log("Hello from main!");\n' +
+				'+    await new App(new Foo()).foobar();\n' +
+				'+}\n' +
+				'+\n' +
+				'+main().catch(console.error)',
+		);
+	});
+
+	it('should correctly parse the renamed/moved and modified file (src/file2.ts)', () => {
+		// Note: The parser identifies this based on --- and +++ lines, not the 'rename from/to' lines explicitly.
+		const fileInfo = parsedDiff.find((f) => f.filePath === 'src/file2.ts');
+		expect(fileInfo).to.exist;
+		expect(fileInfo?.oldPath).to.equal('file2.ts');
+		expect(fileInfo?.newPath).to.equal('src/file2.ts');
+		expect(fileInfo?.deletedFile).to.be.false;
+		expect(fileInfo?.newFile).to.be.false; // Not technically a new file as oldPath isn't /dev/null
+		expect(fileInfo?.diff).to.equal(
+			'@@ -7,4 +7,8 @@ export class Foo {\n' +
+				'     baz(): string {\n' +
+				'         return "42";\n' +
+				'     }\n' +
+				'+\n' +
+				'+    toString() {\n' +
+				'+        return this.baz();\n' +
+				'+    }\n' +
+				' }\n' +
+				'\\ No newline at end of file',
+		);
+	});
+
+	it('should correctly parse the second deleted file (temp.ts)', () => {
+		const fileInfo = parsedDiff.find((f) => f.filePath === 'temp.ts');
+		expect(fileInfo).to.exist;
+		expect(fileInfo?.oldPath).to.equal('temp.ts');
+		expect(fileInfo?.newPath).to.equal('/dev/null');
+		expect(fileInfo?.deletedFile).to.be.true;
+		expect(fileInfo?.newFile).to.be.false;
+		expect(fileInfo?.diff).to.equal(
+			'@@ -1,6 +0,0 @@\n' +
+				'-\n' +
+				'-export class Temp {\n' +
+				'-    async peek(): Promise<void> {\n' +
+				'-        console.log(\'peek\');\n' +
+				'-    }\n' +
+				'-}\n' +
+				'\\ No newline at end of file',
+		);
+	});
 });
