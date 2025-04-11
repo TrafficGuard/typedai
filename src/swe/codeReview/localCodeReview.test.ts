@@ -327,7 +327,7 @@ describe('parseGitDiff', () => {
 
 		// Check line starting @@ -56,7 +60,7 @@
 		expect(file2.diff).to.contain('@@ -56,7 +60,7 @@');
-		expect(file2.diff).to.contain("-                                       .join(', ')}\\`,");
+		expect(file2.diff).to.contain("-                                       .join(', ')}\`,"); // Corrected: Removed extra backslash
 		expect(file2.diff).to.contain(
 			"+                                       .join(', ')}\\nCheck the alias is correct and the function class is registered in the function registry.\\`,",
 		);
