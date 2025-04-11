@@ -14,7 +14,7 @@ import { span } from '#o11y/trace';
 import { addCodeWithLineNumbers, generateReviewTaskFingerprint, reviewDiff, shouldApplyCodeReview } from '#swe/codeReview/codeReviewCommon';
 import type { CodeReviewConfig, CodeReviewFingerprintCache, CodeReviewTask } from '#swe/codeReview/codeReviewModel';
 import { functionConfig } from '#user/userService/userContext';
-import { allSettledAndFulFilled } from '#utils/async-utils';
+import { allSettledAndFulFilled, settleAllWithInput } from '#utils/async-utils';
 import { envVar } from '#utils/env-var';
 import { appContext } from '../../applicationContext';
 import { cacheRetry } from '../../cache/cacheRetry';
@@ -116,8 +116,12 @@ export class GitLabCodeReview {
 		if (!codeReviewTasks.length) return;
 
 		// Perform LLM Reviews
-		const codeReviewActions = codeReviewTasks.map((task) => reviewDiff(task));
-		const codeReviewResults = await allSettledAndFulFilled(codeReviewActions);
+		const settled = await settleAllWithInput(codeReviewTasks, reviewDiff);
+		const codeReviewResults = settled.fulfilled;
+
+		for (const rejected of settled.rejected) {
+			logger.warn(`Error executing review ${rejected.input.config.title}. Error: ${rejected.reason.message || rejected.reason}`);
+		}
 
 		// Post review comments
 		for (const reviewResult of codeReviewResults) {

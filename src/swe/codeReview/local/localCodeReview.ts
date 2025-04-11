@@ -4,7 +4,7 @@ import { logger } from '#o11y/logger';
 import { addCodeWithLineNumbers, generateReviewTaskFingerprint, reviewDiff, shouldApplyCodeReview } from '#swe/codeReview/codeReviewCommon';
 import type { CodeReviewConfig, CodeReviewTask } from '#swe/codeReview/codeReviewModel';
 import { type DiffInfo, parseGitDiff } from '#swe/codeReview/local/parseGitDiff';
-import { allSettledAndFulFilled } from '#utils/async-utils';
+import { allSettledAndFulFilled, settleAllWithInput } from '#utils/async-utils';
 import { appContext } from '../../../applicationContext';
 
 /**
@@ -35,8 +35,12 @@ export async function performLocalBranchCodeReview() {
 	if (!codeReviewTasks.length) return;
 
 	// Perform LLM Reviews
-	const codeReviewActions = codeReviewTasks.map((task) => reviewDiff(task));
-	const codeReviewResults = await allSettledAndFulFilled(codeReviewActions);
+	const settled = await settleAllWithInput(codeReviewTasks, reviewDiff);
+	const codeReviewResults = settled.fulfilled;
+
+	for (const rejected of settled.rejected) {
+		console.log(`Error executing review ${rejected.input.config.title}. Error: ${rejected.reason.message || rejected.reason}`);
+	}
 
 	// Display review comments
 	for (const reviewResult of codeReviewResults) {
