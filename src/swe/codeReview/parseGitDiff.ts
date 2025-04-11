@@ -58,10 +58,14 @@ export function parseGitDiff(diffOutput: string): DiffInfo[] {
 			//     // currentNewPath = pathParts[3].startsWith('b/') ? pathParts[3].substring(2) : pathParts[3];
 			// }
 		} else if (processingHeader) {
+			const pathPart = line.substring(4).trim();
+			// Remove surrounding quotes if present, then remove a/ or b/ prefix
+			const cleanPath = pathPart.startsWith('"') && pathPart.endsWith('"') ? pathPart.slice(1, -1) : pathPart;
+
 			if (line.startsWith('---')) {
-				currentOldPath = line.substring(4).trim().replace(/^a\//, ''); // Remove '--- a/' prefix
+				currentOldPath = cleanPath.replace(/^a\//, '');
 			} else if (line.startsWith('+++')) {
-				currentNewPath = line.substring(4).trim().replace(/^b\//, ''); // Remove '+++ b/' prefix
+				currentNewPath = cleanPath.replace(/^b\//, '');
 				processingHeader = false; // Done with header lines for this file
 			}
 			// Ignore other header lines like 'index', 'new file mode', 'deleted file mode'
