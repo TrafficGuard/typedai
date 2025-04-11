@@ -32,8 +32,12 @@ async function getProjectPath(): Promise<string> {
 }
 
 export interface DiffInfo {
-    filePath: string;
-    diff: string;
+	filePath: string; // The definitive path (old path for deleted, new path otherwise)
+	oldPath: string;
+	newPath: string;
+	diff: string;
+	deletedFile: boolean;
+	newFile: boolean;
 }
 
 /**
@@ -44,64 +48,86 @@ export interface DiffInfo {
  * @returns An array of objects, each containing the file path and its diff string.
  */
 export function parseGitDiff(diffOutput: string): DiffInfo[] {
-    const lines = diffOutput.trim().split('\n');
-    const diffs: DiffInfo[] = [];
-    let currentFilePath: string | null = null;
-    let currentDiffLines: string[] = [];
-    let captureMode = false; // Indicates if we are past the '---'/'+++' lines and looking for '@@' or content
+	const lines = diffOutput.trim().split('\n');
+	const diffs: DiffInfo[] = [];
+	let currentOldPath: string | null = null;
+	let currentNewPath: string | null = null;
+	let currentDiffLines: string[] = [];
+	let processingHeader = false; // Flag to indicate we are processing header lines (---, +++)
 
-    for (const line of lines) {
-        if (line.startsWith('diff --git')) {
-            // Finalize the previous file's diff if necessary
-            if (currentFilePath !== null && currentDiffLines.length > 0) {
-                diffs.push({
-                    filePath: currentFilePath,
-                    diff: currentDiffLines.join('\n'),
-                });
-            }
+	for (const line of lines) {
+		if (line.startsWith('diff --git')) {
+			// Finalize the previous file's diff if necessary
+			if (currentOldPath !== null && currentNewPath !== null && currentDiffLines.length > 0) {
+				const deletedFile = currentNewPath === '/dev/null';
+				const newFile = currentOldPath === '/dev/null';
+				const filePath = deletedFile ? currentOldPath : currentNewPath; // Use old path if deleted
 
-            // Start processing a new file
-            // Extract the 'b/' path as the canonical file path
-            const pathParts = line.split(' ');
-            if (pathParts.length >= 4) {
-                // pathParts[3] should be like 'b/src/cli/files.ts'
-                currentFilePath = pathParts[3].startsWith('b/') ? pathParts[3].substring(2) : pathParts[3];
-            } else {
-                // Handle potential malformed diff --git line, though unlikely
-                currentFilePath = 'unknown_file';
-            }
-            currentDiffLines = [];
-            captureMode = false; // Reset capture mode for the new file
-        } else if (currentFilePath !== null) {
-            // Once we hit '---' or '+++', we are in the metadata/diff content section
-            // We only want to start *capturing* from the '@@' line onwards.
-            if (line.startsWith('---') || line.startsWith('+++')) {
-                captureMode = true; // We are now past the 'index' line, ready for '@@'
-                continue; // Don't include '---' or '+++' in the captured diff
-            }
+				// Only add if we have a valid file path and some diff content (starts with @@)
+				if (filePath && filePath !== '/dev/null' && currentDiffLines.some((l) => l.startsWith('@@'))) {
+					diffs.push({
+						filePath,
+						oldPath: currentOldPath,
+						newPath: currentNewPath,
+						diff: currentDiffLines.join('\n'),
+						deletedFile,
+						newFile,
+					});
+				}
+			}
 
-            if (captureMode) {
-                if (line.startsWith('@@')) {
-                    // This is the start of the actual diff content we want
-                    currentDiffLines.push(line);
-                } else if (currentDiffLines.length > 0) {
-                    // Only add subsequent lines if we have already started capturing (found '@@')
-                    currentDiffLines.push(line);
-                }
-                // Ignore lines between 'diff --git' and the first '@@' (like 'index ...')
-                // Also ignore '---' and '+++' lines themselves.
-            }
-        }
-    }
+			// Reset for the new file
+			currentOldPath = null;
+			currentNewPath = null;
+			currentDiffLines = [];
+			processingHeader = true; // Start looking for ---/+++ lines
 
-    // Add the last processed file
-    if (currentFilePath !== null && currentDiffLines.length > 0) {
-        diffs.push({
-            filePath: currentFilePath,
-            diff: currentDiffLines.join('\n'),
-        });
-    }
+			// Extract paths from the diff --git line itself (less reliable than ---/+++)
+			// Example: diff --git a/old/path b/new/path
+			// const pathParts = line.split(' ');
+			// if (pathParts.length >= 4) {
+			//     // Tentatively set paths, prefer ---/+++ lines later
+			//     // currentOldPath = pathParts[2].startsWith('a/') ? pathParts[2].substring(2) : pathParts[2];
+			//     // currentNewPath = pathParts[3].startsWith('b/') ? pathParts[3].substring(2) : pathParts[3];
+			// }
+		} else if (processingHeader) {
+			if (line.startsWith('---')) {
+				currentOldPath = line.substring(4).trim().replace(/^a\//, ''); // Remove '--- a/' prefix
+			} else if (line.startsWith('+++')) {
+				currentNewPath = line.substring(4).trim().replace(/^b\//, ''); // Remove '+++ b/' prefix
+				processingHeader = false; // Done with header lines for this file
+			}
+			// Ignore other header lines like 'index', 'new file mode', 'deleted file mode'
+		} else if (currentOldPath !== null && currentNewPath !== null) {
+			// Only capture lines after the header (---, +++) has been processed
+			// Start capturing from the first hunk header '@@'
+			if (line.startsWith('@@')) {
+				currentDiffLines.push(line);
+			} else if (currentDiffLines.length > 0) {
+				// Capture subsequent lines only if we've already started a hunk
+				currentDiffLines.push(line);
+			}
+		}
+	}
 
-    return diffs;
+	// Add the last processed file
+	if (currentOldPath !== null && currentNewPath !== null && currentDiffLines.length > 0) {
+		const deletedFile = currentNewPath === '/dev/null';
+		const newFile = currentOldPath === '/dev/null';
+		const filePath = deletedFile ? currentOldPath : currentNewPath;
+
+		if (filePath && filePath !== '/dev/null' && currentDiffLines.some((l) => l.startsWith('@@'))) {
+			diffs.push({
+				filePath,
+				oldPath: currentOldPath,
+				newPath: currentNewPath,
+				diff: currentDiffLines.join('\n'),
+				deletedFile,
+				newFile,
+			});
+		}
+	}
+
+	return diffs;
 }
 
