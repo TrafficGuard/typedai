@@ -211,9 +211,6 @@ async function selectFilesCore(
 			if (!usingHardLLM) {
 				llm = llms().hard;
 				usingHardLLM = true;
-				// If switching to hard LLM, allow it one more chance to inspect files if needed
-				// Re-run the generation immediately with the hard LLM
-				continue;
 			} else {
 				// Hard LLM also decided not to inspect more files, break the loop
 				break;
