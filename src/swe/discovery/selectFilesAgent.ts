@@ -155,8 +155,9 @@ async function selectFilesCore(
 
 	let filesToInspect = initialResponse.inspectFiles || [];
 
-	const keptFiles = new Set<{ path: string; reason: string }>();
-	const ignoredFiles = new Set<{ path: string; reason: string }>();
+	// Use Maps to store kept/ignored files to ensure uniqueness by path
+	const keptFiles = new Map<string, string>(); // path -> reason
+	const ignoredFiles = new Map<string, string>(); // path -> reason
 	const filesPendingDecision = new Set<string>(filesToInspect);
 
 	let usingHardLLM = false;
@@ -168,11 +169,13 @@ async function selectFilesCore(
 		const response: IterationResponse = await generateFileSelectionProcessingResponse(messages, filesToInspect, filesPendingDecision, iterationCount, llm);
 		logger.info(response);
 		for (const ignored of response.ignoreFiles ?? []) {
-			ignoredFiles.add(ignored);
+			// Use map set to handle potential duplicates from LLM response
+			ignoredFiles.set(ignored.path, ignored.reason);
 			filesPendingDecision.delete(ignored.path);
 		}
 		for (const kept of response.keepFiles ?? []) {
-			keptFiles.add(kept);
+			// Use map set to handle potential duplicates from LLM response
+			keptFiles.set(kept.path, kept.reason);
 			filesPendingDecision.delete(kept.path);
 		}
 
@@ -193,19 +196,34 @@ async function selectFilesCore(
 			cachedMessages[1].cache = undefined;
 		}
 
-		filesToInspect = response.inspectFiles;
+		filesToInspect = response.inspectFiles ?? []; // Ensure filesToInspect is always an array
+
+		// Add newly requested files to pending decision set
+		for (const fileToInspect of filesToInspect) {
+			filesPendingDecision.add(fileToInspect);
+		}
 
 		// We start the file selection process with the medium agent for speed/cost.
 		// Once the medium LLM has completed, then we switch to the hard LLM as a review,
 		// which may continue inspecting files until it is satisfied.
-		if (!filesToInspect || filesToInspect.length === 0) {
+		if (filesToInspect.length === 0 && filesPendingDecision.size === 0) {
 			// Use the hard LLM to review the final selection. Check on a variable and not on llms().medium === llm().hard in case they are the ame.
 			if (!usingHardLLM) {
 				llm = llms().hard;
 				usingHardLLM = true;
+				// If switching to hard LLM, allow it one more chance to inspect files if needed
+				// Re-run the generation immediately with the hard LLM
+				continue;
 			} else {
+				// Hard LLM also decided not to inspect more files, break the loop
 				break;
 			}
+		} else if (filesToInspect.length === 0 && filesPendingDecision.size > 0) {
+			// LLM didn't request new files, but some files are still pending decision.
+			// This might indicate an LLM error or hallucination in the previous step.
+			// Force the LLM to process the pending files in the next iteration.
+			logger.warn(`LLM did not request new files, but ${filesPendingDecision.size} files are pending decision. Forcing processing.`);
+			// No need to add filesToInspect, just continue the loop
 		}
 
 		// TODO if keepFiles and ignoreFiles doesnt have all of the files in filesToInspect, then get the LLM to try again
@@ -214,7 +232,11 @@ async function selectFilesCore(
 
 	if (keptFiles.size === 0) throw new Error('No files were selected to fulfill the requirements.');
 
-	const selectedFiles = Array.from(keptFiles.values());
+	// Convert the map entries back to the SelectedFile array structure
+	const selectedFiles: SelectedFile[] = Array.from(keptFiles.entries()).map(([path, reason]) => ({
+		path,
+		reason,
+	}));
 
 	return { messages, selectedFiles };
 }
