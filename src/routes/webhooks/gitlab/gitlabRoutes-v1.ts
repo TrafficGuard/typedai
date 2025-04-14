@@ -3,7 +3,7 @@ import type { FastifyReply } from 'fastify';
 import type { RunAgentConfig } from '#agent/agentRunner';
 import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
 import { send, sendSuccess } from '#fastify/index';
-import { GitLabCodeReview } from '#functions/scm/gitlab-code-review';
+import { GitLabCodeReview } from '#functions/scm/gitlabCodeReview';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { envVar } from '#utils/env-var';
