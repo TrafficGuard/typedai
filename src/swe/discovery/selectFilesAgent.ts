@@ -169,12 +169,10 @@ async function selectFilesCore(
 		const response: IterationResponse = await generateFileSelectionProcessingResponse(messages, filesToInspect, filesPendingDecision, iterationCount, llm);
 		logger.info(response);
 		for (const ignored of response.ignoreFiles ?? []) {
-			// Use map set to handle potential duplicates from LLM response
 			ignoredFiles.set(ignored.path, ignored.reason);
 			filesPendingDecision.delete(ignored.path);
 		}
 		for (const kept of response.keepFiles ?? []) {
-			// Use map set to handle potential duplicates from LLM response
 			keptFiles.set(kept.path, kept.reason);
 			filesPendingDecision.delete(kept.path);
 		}
@@ -196,7 +194,7 @@ async function selectFilesCore(
 			cachedMessages[1].cache = undefined;
 		}
 
-		filesToInspect = response.inspectFiles ?? []; // Ensure filesToInspect is always an array
+		filesToInspect = response.inspectFiles ?? [];
 
 		// Add newly requested files to pending decision set
 		for (const fileToInspect of filesToInspect) {
@@ -217,19 +215,12 @@ async function selectFilesCore(
 			}
 		} else if (filesToInspect.length === 0 && filesPendingDecision.size > 0) {
 			// LLM didn't request new files, but some files are still pending decision.
-			// This might indicate an LLM error or hallucination in the previous step.
-			// Force the LLM to process the pending files in the next iteration.
 			logger.warn(`LLM did not request new files, but ${filesPendingDecision.size} files are pending decision. Forcing processing.`);
-			// No need to add filesToInspect, just continue the loop
 		}
-
-		// TODO if keepFiles and ignoreFiles doesnt have all of the files in filesToInspect, then get the LLM to try again
-		// filesToInspect = filesToInspect.filter((path) => !keptFiles.has(path) && !ignoredFiles.has(path));
 	}
 
 	if (keptFiles.size === 0) throw new Error('No files were selected to fulfill the requirements.');
 
-	// Convert the map entries back to the SelectedFile array structure
 	const selectedFiles: SelectedFile[] = Array.from(keptFiles.entries()).map(([path, reason]) => ({
 		path,
 		reason,
