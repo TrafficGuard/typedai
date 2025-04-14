@@ -13,7 +13,7 @@ Agent which iteratively loads files to find the file set required for a task/que
 
 After each iteration the agent should accept or ignore each of the new files loaded.
 
-This agent is designed to utilise LLM prompt caching.
+This agent is designed to utilise LLM prompt caching
 */
 
 interface InitialResponse {
