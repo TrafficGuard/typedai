@@ -1,0 +1,11 @@
+#!/bin/bash
+# Use docker exec to run commands inside the container
+docker exec typedai-dev bash -c '
+    # Kill the existing Node.js process
+    kill $(pgrep node)
+
+    # Start the server again
+    cd /home/typedai && npm start &
+
+    echo "Node.js server restarted"
+'
