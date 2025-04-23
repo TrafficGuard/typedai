@@ -92,17 +92,18 @@ export class CodeEditingAgent {
 		const installedPackages: string = await projectInfo.languageTools.getInstalledPackages();
 
 		// TODO don't need this if we use the architect mode in Aider
-		const implementationDetailsPrompt = `${repositoryOverview}${installedPackages}${await fs.readFilesAsXml(fileSelection)}
+		const implementationDetailsPrompt = `${repositoryOverview}\n${installedPackages}\n${await fs.readFilesAsXml(fileSelection)}
 		<requirements>${requirements}</requirements>
 		You are a senior software engineer. Your task is to review the provided user requirements against the code provided and produce a detailed, comprehensive implementation design specification to give to a developer to implement the changes in the provided files.
 		Do not provide any details of verification commands etc as the CI/CD build will run integration tests. Only detail the changes required to the files for the pull request.
 		Check if any of the requirements have already been correctly implemented in the code as to not duplicate work.
 		Look at the existing style of the code when producing the requirements.
+		Only make changes directly related to the requirements. Any other changes will be deleted.
 		`;
 		let implementationRequirements = await llms().hard.generateText(implementationDetailsPrompt, { id: 'implementationSpecification' });
-		implementationRequirements += '\nEnsure new code is well commented.';
+		// implementationRequirements += '\nEnsure new code is well commented.';
 
-		const searchPrompt = `${repositoryOverview}${installedPackages}\n<requirement>\n${implementationRequirements}\n</requirement>
+		const searchPrompt = `${repositoryOverview}\n${installedPackages}\n<requirement>\n${implementationRequirements}\n</requirement>
 Given the requirements, if there are any specific changes which require using open source libraries, and only if it's not clear from existing code or you general knowledge what the API is, then provide search queries to look up the API usage online.
 
 Limit the queries to the minimal amount where you are uncertain of the API. You will have the opportunity to search again if there are compile errors in the code changes.
@@ -134,6 +135,8 @@ Then respond in following format:
 		} catch (e) {
 			logger.error(e, 'Error performing online queries from code requirements');
 		}
+
+		implementationRequirements += '\nOnly make changes directly related to these requirements. Any other changes will be deleted.';
 
 		await installPromise;
 

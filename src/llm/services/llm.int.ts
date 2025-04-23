@@ -229,7 +229,7 @@ describe('LLMs', () => {
 			});
 		});
 
-		it.skip('Gemini 2.5 Pro should generateText', async () => {
+		it('Gemini 2.5 Pro should generateText', async () => {
 			const response = await Gemini_2_5_Pro().generateText(SKY_PROMPT, { temperature: 0 });
 			expect(response.toLowerCase()).to.include('blue');
 		});
