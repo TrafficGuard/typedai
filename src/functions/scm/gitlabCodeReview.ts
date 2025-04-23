@@ -14,7 +14,7 @@ import { span } from '#o11y/trace';
 import { addCodeWithLineNumbers, generateReviewTaskFingerprint, reviewDiff, shouldApplyCodeReview } from '#swe/codeReview/codeReviewCommon';
 import type { CodeReviewConfig, CodeReviewFingerprintCache, CodeReviewTask } from '#swe/codeReview/codeReviewModel';
 import { functionConfig } from '#user/userService/userContext';
-import { allSettledAndFulFilled, settleAllWithInput } from '#utils/async-utils';
+import { settleAllWithInput } from '#utils/async-utils';
 import { envVar } from '#utils/env-var';
 import { appContext } from '../../applicationContext';
 import { cacheRetry } from '../../cache/cacheRetry';
