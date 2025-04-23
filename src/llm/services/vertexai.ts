@@ -15,6 +15,7 @@ export function vertexLLMRegistry(): Record<string, () => LLM> {
 		[`${VERTEX_SERVICE}:gemini-2.0-flash-lite`]: Gemini_2_0_Flash_Lite,
 		[`${VERTEX_SERVICE}:gemini-2.0-flash`]: Gemini_2_0_Flash,
 		[`${VERTEX_SERVICE}:gemini-2.5-pro`]: Gemini_2_5_Pro,
+		[`${VERTEX_SERVICE}:gemini-2.5-flash`]: Gemini_2_5_Flash,
 	};
 }
 
@@ -32,12 +33,22 @@ export function Gemini_2_5_Pro() {
 	);
 }
 
+export function Gemini_2_5_Flash() {
+	return new VertexLLM(
+		'Gemini 2.5 Flash',
+		'gemini-2.5-flash-preview-04-17',
+		1_000_000,
+		(input: string, inputTokens: number) => cost(0.15, inputTokens),
+		(output: string, outputTokens: number) => cost(0.6, outputTokens),
+	);
+}
+
 function cost(costPerMillionTokens: number, tokens: number) {
 	return (tokens * costPerMillionTokens) / 1_000_000;
 }
 
 export function Gemini_2_0_Flash() {
-	return new VertexLLM('Gemini 2.0 Flash', 'gemini-2.0-flash-001', 1_000_000, perMilTokens(0.15), perMilTokens(0.6));
+	return new VertexLLM('Gemini 2.0 Flash', 'gemini-2.0-flash-001', 1_000_000, perMilTokens(0.1), perMilTokens(0.4));
 }
 
 export function Gemini_2_0_Flash_Thinking() {
