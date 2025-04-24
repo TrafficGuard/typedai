@@ -79,6 +79,7 @@ export function createContext(config: RunAgentConfig | RunWorkflowConfig): Agent
 		cost: 0,
 		llms: config.llms, // we can't do `?? defaultLLMs()` as compiling breaks from import cycle dependencies,
 		fileSystem,
+		useSharedRepos: true,
 		functions: Array.isArray(config.functions) ? new LlmFunctions(...config.functions) : config.functions,
 		completedHandler: config.completedHandler ?? new ConsoleCompletedHandler(),
 		memory: {},

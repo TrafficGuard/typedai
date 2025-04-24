@@ -11,7 +11,7 @@ import {
 import { addCost, agentContext } from '#agent/agentContextLocalStorage';
 import { BaseLLM } from '#llm/base-llm';
 import { type GenerateTextOptions, type GenerationStats, type LlmMessage, toText } from '#llm/llm';
-import type { LlmCall } from '#llm/llmCallService/llmCall';
+import { type LlmCall, callStack } from '#llm/llmCallService/llmCall';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 // import { currentUser } from '#user/userService/userContext';
@@ -70,7 +70,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				llmId: this.getId(),
 				agentId: agentContext()?.agentId,
 				// userId: currentUser().id,
-				callStack: this.callStack(agentContext()),
+				callStack: callStack(),
 				description,
 			});
 

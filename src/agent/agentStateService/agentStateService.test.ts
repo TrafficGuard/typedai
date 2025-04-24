@@ -145,6 +145,7 @@ const createMockAgentContext = (id: string, overrides: Partial<AgentContext> = {
 		budgetRemaining: currentUser.hilBudget, // Initialize remaining budget
 		llms: defaultLlms,
 		fileSystem: null, // Assume null if FileSystemService not mocked/provided
+		useSharedRepos: true,
 		memory: { defaultMemory: 'some data' },
 		lastUpdate: now - 5000,
 		metadata: { source: 'unit-test' },

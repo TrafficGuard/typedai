@@ -20,7 +20,6 @@ import { HttpClient } from "@angular/common/http";
 import { MatSnackBar } from "@angular/material/snack-bar";
 import { Router } from "@angular/router";
 import { LlmService } from "../services/llm.service";
-import { map } from "rxjs";
 import { MatProgressSpinner } from "@angular/material/progress-spinner";
 import { MatCheckboxModule } from "@angular/material/checkbox";
 import {MatCard, MatCardContent} from "@angular/material/card";
@@ -95,7 +94,7 @@ export class NewAgentComponent implements OnInit {
         medium: 'anthropic:claude-3-7-sonnet',
         hard: 'anthropic:claude-3-7-sonnet',
       },
-      gemini: { easy: 'vertex:gemini-2.0-flash', medium: 'vertex:gemini-2.5-pro', hard: 'vertex:gemini-2.5-pro' },
+      gemini: { easy: 'vertex:gemini-2.0-flash-lite', medium: 'vertex:gemini-2.5-flash', hard: 'vertex:gemini-2.5-pro' },
       openai: { easy: 'openai:gpt-4o-mini', medium: 'openai:o3-mini', hard: 'openai:o3-mini' },
     };
     const selection = presets[preset];
@@ -153,10 +152,11 @@ export class NewAgentComponent implements OnInit {
     );
   }
 
-  // ... rest of the component
   onSubmit(): void {
     if (!this.runAgentForm.valid) return;
-    // Implement the logic to handle form submission
+
+    this.isSubmitting = true;
+
     console.log('Form submitted', this.runAgentForm.value);
     const selectedFunctions: string[] = this.functions
         .filter((_, index) => this.runAgentForm.value['function' + index])
@@ -174,6 +174,7 @@ export class NewAgentComponent implements OnInit {
           llmMedium: this.runAgentForm.value.llmMedium,
           llmHard: this.runAgentForm.value.llmHard,
         })
+        .pipe(finalize(() => this.isSubmitting = false))
         .subscribe({
           next: (response) => {
             this.snackBar.open('Agent started', 'Close', { duration: 3000 });

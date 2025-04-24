@@ -24,7 +24,7 @@ export function serializeContext(context: AgentContext): Record<string, any> {
 		else if (typeof context[key] === 'string' || typeof context[key] === 'number' || typeof context[key] === 'boolean') {
 			serialized[key] = context[key];
 		} else if (key === 'functionCallHistory') {
-			// Serialise to string as Firestore doesn't support nested entities
+			// Serialise Array to string as Firestore doesn't support nested entities
 			serialized[key] = JSON.stringify(context[key]);
 		}
 		// Assume arrays (liveFiles) can be directly de(serialised) to JSON
