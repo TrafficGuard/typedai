@@ -51,6 +51,8 @@ export function getFileSystem(): FileSystemService {
 export function createContext(config: RunAgentConfig | RunWorkflowConfig): AgentContext {
 	const fileSystem = new FileSystemService(config.fileSystemPath);
 	const hilBudget = config.humanInLoop?.budget ?? (process.env.HIL_BUDGET ? Number.parseFloat(process.env.HIL_BUDGET) : 2);
+	const hilCount = config.humanInLoop?.count ?? (process.env.HIL_COUNT ? Number.parseFloat(process.env.HIL_COUNT) : 5);
+
 	const context: AgentContext = {
 		agentId: config.resumeAgentId || randomUUID(),
 		parentAgentId: config.parentAgentId,
@@ -71,8 +73,8 @@ export function createContext(config: RunAgentConfig | RunWorkflowConfig): Agent
 		pendingMessages: [],
 		callStack: [],
 		notes: [],
-		hilBudget: hilBudget,
-		hilCount: config.humanInLoop?.count ?? (process.env.HIL_COUNT ? Number.parseFloat(process.env.HIL_COUNT) : 5),
+		hilBudget,
+		hilCount,
 		budgetRemaining: hilBudget,
 		cost: 0,
 		llms: config.llms, // we can't do `?? defaultLLMs()` as compiling breaks from import cycle dependencies,
