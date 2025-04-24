@@ -322,6 +322,7 @@ main()`.trim();
 						pythonScriptResult = JSON.stringify(pythonScriptResult);
 						// logger.info(pythonScriptResult, 'Script result');
 						// If execution succeeds reset error tracking:
+						agent.error = null;
 					} catch (e) {
 						const lineNumber = extractLineNumber(e.message);
 						const line = lineNumber ? ` on line "${pythonScript.split('\n')[lineNumber]}"` : '';
