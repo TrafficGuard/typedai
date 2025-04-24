@@ -1,13 +1,14 @@
 import { execSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
-import fs, { readFile, unlinkSync } from 'node:fs';
+import fs, { unlinkSync } from 'node:fs';
 import path, { join } from 'node:path';
 import { promisify } from 'node:util';
 import { addCost, agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import type { LLM } from '#llm/llm';
+import type { LLM, LlmMessage } from '#llm/llm';
+import type { LlmCall } from '#llm/llmCallService/llmCall';
 import { Claude3_7_Sonnet } from '#llm/services/anthropic';
-import { Claude3_7_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { deepSeekV3 } from '#llm/services/deepseek';
 import { GPT4o } from '#llm/services/openai';
 import { Gemini_2_5_Pro } from '#llm/services/vertexai';
@@ -16,6 +17,8 @@ import { getActiveSpan } from '#o11y/trace';
 import { currentUser } from '#user/userService/userContext';
 import { execCommand } from '#utils/exec';
 import { systemDir } from '../appVars';
+import { appContext } from '../applicationContext';
+import {openRouterGemini2_5_Pro} from "#llm/services/openrouter";
 
 @funcClass(__filename)
 export class AiderCodeEditor {
@@ -49,7 +52,7 @@ export class AiderCodeEditor {
 		let llm: LLM;
 
 		if (process.env.GEMINI_API_KEY) {
-			// llm = gemini2_5_Pro();
+			llm = openRouterGemini2_5_Pro();
 			modelArg = '--model gemini/gemini-2.5-pro-exp-03-25';
 			span.setAttribute('model', 'gemini 2.5 Pro');
 			env = { GEMINI_API_KEY: process.env.GEMINI_API_KEY };
@@ -105,6 +108,7 @@ export class AiderCodeEditor {
 		// Use the Python from the TypedAI .python-version as it will have aider installed
 		const fileToEditArg = filesToEdit.map((file) => `"${file}"`).join(' ');
 		logger.info(fileToEditArg);
+		const now = Date.now();
 		const cmd = `${getPythonPath()} -m aider --no-check-update --cache-prompts ${commitArgs} --no-stream --yes ${modelArg} --llm-history-file="${llmHistoryFile}" --message-file=${messageFilePath} ${fileToEditArg}`;
 
 		const { stdout, stderr, exitCode } = await execCommand(cmd, { envVars: env });
@@ -115,21 +119,26 @@ export class AiderCodeEditor {
 			const cost = extractSessionCost(stdout);
 			addCost(cost);
 			logger.debug(`Aider cost ${cost}`);
-			// const costs = llm.calculateCost(parsedInput, parsedOutput);
-			// addCost(costs[0]);
-			// logger.debug(`Aider cost ${costs[0]}`);
 
 			const llmHistory = readFileSync(llmHistoryFile).toString();
-			const parsedInput = this.parseAiderInput(llmHistory);
-			const parsedOutput = this.parseAiderOutput(llmHistory);
+			const calls = this.parseHistoryFile(llmHistory);
+			let callCount = 0;
+			for (const llmMessages of calls) {
+				const llmCall: LlmCall = {
+					id: randomUUID(),
+					llmId: llm?.getId(),
+					messages: llmMessages,
+					requestTime: now + callCount++,
+				};
+				appContext()
+					.llmCallService.saveResponse(llmCall)
+					.catch((error) => logger.error(error, 'Error saving Aider LlmCall'));
+			}
 
 			span.setAttributes({
-				inputChars: parsedInput.length,
-				outputChars: parsedOutput.length,
 				cost: cost,
 			});
-			// unlinkSync(llmHistoryFile);
-			// TODO should save them as LLMCalls
+			unlinkSync(llmHistoryFile);
 		} catch (e) {
 			logger.error(e);
 		}
@@ -137,20 +146,8 @@ export class AiderCodeEditor {
 		if (exitCode > 0) throw new Error(`${stdout} ${stderr}`);
 	}
 
-	private parseAiderInput(output: string): string {
-		return output
-			.split('\n')
-			.filter((line) => line.startsWith('SYSTEM') || line.startsWith('USER'))
-			.map((line) => line.replace(/^(SYSTEM|USER)\s/, ''))
-			.join('\n');
-	}
-
-	private parseAiderOutput(output: string): string {
-		return output
-			.split('\n')
-			.filter((line) => line.startsWith('ASSISTANT'))
-			.map((line) => line.replace(/^ASSISTANT\s/, ''))
-			.join('\n');
+	private parseHistoryFile(text: string): LlmMessage[][] {
+		return [];
 	}
 }
 
