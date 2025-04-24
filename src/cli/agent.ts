@@ -34,9 +34,10 @@ export async function main() {
 				return await resumeCompleted(resumeAgentId, agent.executionId, initialPrompt);
 			case 'error':
 				return resumeError(resumeAgentId, agent.executionId, initialPrompt);
-			case 'hil':
+			case 'hitl_threshold':
+			case 'hitl_tool':
 				return await resumeHil(resumeAgentId, agent.executionId, initialPrompt);
-			case 'feedback':
+			case 'hitl_feedback':
 				return await provideFeedback(resumeAgentId, agent.executionId, initialPrompt);
 		}
 	}

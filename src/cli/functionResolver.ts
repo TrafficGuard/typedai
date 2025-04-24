@@ -1,4 +1,5 @@
 import { llms } from '#agent/agentContextLocalStorage';
+import { AgentFeedback } from '#agent/agentFeedback';
 import { LiveFiles } from '#agent/liveFiles';
 import { CustomFunctions } from '#functions/customFunctions';
 import { Jira } from '#functions/jira';
@@ -11,6 +12,7 @@ import type { LLM } from '#llm/llm';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
+import { CodeFunctions } from '#swe/codeFunctions';
 import { NpmPackages } from '#swe/lang/nodejs/npmPackages';
 import { TypescriptTools } from '#swe/lang/nodejs/typescriptTools';
 import { SoftwareDeveloperAgent } from '#swe/softwareDeveloperAgent';
@@ -18,9 +20,11 @@ import { functionRegistry } from '../functionRegistry';
 
 // Mapping of aliases to class names for easier CLI usage
 const functionAliases: Record<string, string> = {
+	f: AgentFeedback.name,
 	swe: SoftwareDeveloperAgent.name,
 	code: CodeEditingAgent.name,
-	fs: FileSystemRead.name,
+	query: CodeFunctions.name,
+	fsr: FileSystemRead.name,
 	fsl: FileSystemList.name,
 	fsw: FileSystemWrite.name,
 	web: PublicWeb.name,

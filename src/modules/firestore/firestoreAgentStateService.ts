@@ -3,6 +3,7 @@ import { LlmFunctions } from '#agent/LlmFunctions';
 import { type AgentContext, type AgentRunningState, isExecuting } from '#agent/agentContextTypes';
 import { deserializeAgentContext, serializeContext } from '#agent/agentSerialization';
 import type { AgentStateService } from '#agent/agentStateService/agentStateService';
+import { MAX_PROPERTY_SIZE, truncateToByteLength } from '#firestore/firestoreUtils';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
@@ -18,6 +19,12 @@ export class FirestoreAgentStateService implements AgentStateService {
 
 	@span()
 	async save(state: AgentContext): Promise<void> {
+		if (state.error && Buffer.byteLength(state.error, 'utf8') > MAX_PROPERTY_SIZE) {
+			state.error = truncateToByteLength(state.error, MAX_PROPERTY_SIZE);
+		}
+		if (Buffer.byteLength(state.inputPrompt, 'utf8') > MAX_PROPERTY_SIZE) {
+			console.log(new Error(`Input prompt is greater than ${MAX_PROPERTY_SIZE} bytes`));
+		}
 		const serialized = serializeContext(state);
 		serialized.lastUpdate = Date.now();
 		const docRef = this.db.doc(`AgentContext/${state.agentId}`);

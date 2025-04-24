@@ -319,7 +319,7 @@ main()`.trim();
 							completed = true;
 						} else if (lastFunctionCall.function_name === AGENT_REQUEST_FEEDBACK) {
 							logger.info('Feedback requested');
-							agent.state = 'feedback';
+							agent.state = 'hitl_feedback';
 							requestFeedback = true;
 						} else {
 							if (!anyFunctionCallErrors && !completed && !requestFeedback) agent.state = 'agent';

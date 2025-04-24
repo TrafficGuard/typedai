@@ -2,6 +2,7 @@ import { agentContext, getFileSystem, llms } from '#agent/agentContextLocalStora
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import type { FileSystemService } from '#functions/storage/fileSystemService';
 import { Perplexity } from '#functions/web/perplexity';
+import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import { type CompileErrorAnalysis, type CompileErrorAnalysisDetails, analyzeCompileErrors } from '#swe/analyzeCompileErrors';
@@ -84,7 +85,8 @@ export class CodeEditingAgent {
 
 		await includeAlternativeAiToolFiles(fileSelection);
 
-		logger.info(fileSelection, `Initial selected files (${fileSelection.length})`);
+		const fileContents = await fs.readFilesAsXml(fileSelection);
+		logger.info(fileSelection, `Initial selected file count: ${fileSelection.length}. Tokens: ${await countTokens(fileContents)}`);
 
 		// Perform a first pass on the selected files to generate an implementation specification
 
@@ -92,7 +94,7 @@ export class CodeEditingAgent {
 		const installedPackages: string = await projectInfo.languageTools.getInstalledPackages();
 
 		// TODO don't need this if we use the architect mode in Aider
-		const implementationDetailsPrompt = `${repositoryOverview}\n${installedPackages}\n${await fs.readFilesAsXml(fileSelection)}
+		const implementationDetailsPrompt = `${repositoryOverview}\n${installedPackages}\n${fileContents}
 		<requirements>${requirements}</requirements>
 		You are a senior software engineer. Your task is to review the provided user requirements against the code provided and produce a detailed, comprehensive implementation design specification to give to a developer to implement the changes in the provided files.
 		Do not provide any details of verification commands etc as the CI/CD build will run integration tests. Only detail the changes required to the files for the pull request.

@@ -46,10 +46,10 @@ export function stateNotificationMessage(agent: AgentContext): string {
 	switch (agent.state) {
 		case 'error':
 			return `Agent error.\nName:${agent.name}\nError: ${agent.error}`;
-		case 'hil':
-			return `Agent has reached Human-in-the-loop threshold.\nName: ${agent.name}`;
-		case 'feedback':
-			return `Agent has requested feedback.\nName: ${agent.name}\n:Question: ${getLastFunctionCallArg(agent)}`;
+		case 'hitl_threshold':
+			return `Agent has reached Human-in-the-loop threshold (budget/iterations).\nName: ${agent.name}`;
+		case 'hitl_feedback':
+			return `Agent has requested feedback.\nName: ${agent.name}\nQuestion: ${getLastFunctionCallArg(agent)}`;
 		case 'completed':
 			return `Agent has completed.\nName: ${agent.name}\nNote: ${getLastFunctionCallArg(agent)}`;
 		default:

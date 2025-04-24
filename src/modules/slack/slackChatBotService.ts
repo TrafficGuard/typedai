@@ -40,10 +40,10 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 			case 'error':
 				message = `Sorry, I'm having unexpected difficulties providing a response to your request`;
 				break;
-			case 'hil':
+			case 'hitl_threshold':
 				message = `Apologies, I've been unable to produce a response with the resources I've been allocated to spend on the request`;
 				break;
-			case 'feedback':
+			case 'hitl_feedback':
 				message = getLastFunctionCallArg(agent);
 				break;
 			case 'completed':
@@ -186,7 +186,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 				});
 				await agentExec.execution;
 				const agent: AgentContext = await appContext().agentStateService.load(agentExec.agentId);
-				if (agent.state !== 'completed' && agent.state !== 'feedback') {
+				if (agent.state !== 'completed' && agent.state !== 'hitl_feedback') {
 					logger.error(`Agent did not complete. State was ${agent.state}`);
 					return;
 				}

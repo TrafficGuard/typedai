@@ -23,7 +23,7 @@ export function defaultLLMs(): AgentLLMs {
 			easy: flashLite,
 			medium: flash,
 			hard: pro,
-			xhard: new CePO_LLM(Gemini_2_5_Pro),
+			xhard: null, //new CePO_LLM(Gemini_2_5_Pro),
 		};
 	}
 

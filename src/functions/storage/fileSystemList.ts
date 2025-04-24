@@ -1,5 +1,8 @@
 import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
+import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
+import { type RepositoryMaps, generateRepositoryMaps } from '#swe/index/repositoryMap';
+import { detectProjectInfo } from '#swe/projectDetection';
 
 /**
  * Provides functions for LLMs to list and search the file system.
@@ -112,12 +115,45 @@ export class FileSystemList {
 	}
 
 	/**
-	 * Returns the filesystem structure
-	 * @param dirPath
-	 * @returns a record with the keys as the folders paths, and the list values as the files in the folder
+	 * Generates a textual representation of a directory tree structure, with summaries for key files
+	 *
+	 * This function uses listFilesRecursively to get all files and directories,
+	 * respecting .gitignore rules, and produces an indented string representation
+	 * of the file system hierarchy.
+	 *
+	 * @returns {Promise<string>} A string representation of the directory tree.
+	 *
+	 * @example
+	 * Assuming the following directory structure:
+	 * ./
+	 *  ├── file1.txt
+	 *  └── src/
+	 *      └── utils/
+	 *          └── helper.js
+	 *
+	 * The output would be:
+	 * file1.txt Summary of file1.txt
+	 * src/utils/
+	 *   helper.js Summary of helper.js
 	 */
 	@func()
-	async getFileSystemTreeStructure(dirPath = './'): Promise<Record<string, string[]>> {
-		return await getFileSystem().getFileSystemTreeStructure(dirPath);
+	async getFileSystemTreeWithFileSummaries(): Promise<string> {
+		// Ensure projectInfo is available
+		const projectInfo = await detectProjectInfo()[0];
+
+		// Generate repository maps and overview
+		const projectMaps: RepositoryMaps = await generateRepositoryMaps([projectInfo]);
+		// const repositoryOverview: string = await getRepositoryOverview();
+		return `<project_files>\n${projectMaps.fileSystemTreeWithFileSummaries.text}\n</project_files>\n`;
 	}
+
+	// /**
+	//  * Returns the filesystem structure
+	//  * @param dirPath
+	//  * @returns a record with the keys as the folders paths, and the list values as the files in the folder
+	//  */
+	// @func()
+	// async getFileSystemTreeStructure(dirPath = './'): Promise<Record<string, string[]>> {
+	// 	return await getFileSystem().getFileSystemTreeStructure(dirPath);
+	// }
 }

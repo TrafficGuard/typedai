@@ -16,6 +16,7 @@ import { Perplexity } from '#functions/web/perplexity';
 import { PublicWeb } from '#functions/web/web';
 import { Slack } from '#modules/slack/slack';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
+import { CodeFunctions } from '#swe/codeFunctions';
 import { NpmPackages } from '#swe/lang/nodejs/npmPackages';
 import { TypescriptTools } from '#swe/lang/nodejs/typescriptTools';
 import { SoftwareDeveloperAgent } from '#swe/softwareDeveloperAgent';
@@ -40,6 +41,7 @@ export function functionRegistry(): Array<new () => any> {
 		Perplexity,
 		Slack,
 		SoftwareDeveloperAgent,
+		CodeFunctions,
 		LlmTools,
 		ImageGen,
 		PublicWeb,

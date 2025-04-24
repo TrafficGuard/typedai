@@ -174,7 +174,7 @@ export async function runXmlAgent(agent: AgentContext): Promise<AgentExecution> 
 							}
 							if (functionCall.function_name === AGENT_REQUEST_FEEDBACK) {
 								logger.info('Feedback requested');
-								agent.state = 'feedback';
+								agent.state = 'hitl_feedback';
 								requestFeedback = true;
 								break;
 							}

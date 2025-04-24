@@ -26,7 +26,7 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 
 	fastify.get(`${basePath}/list/humanInLoop`, {}, async (req, reply) => {
 		const ctxs: AgentContext[] = await fastify.agentStateService.listRunning();
-		const response = ctxs.filter((ctx) => ctx.state === 'hil').map(serializeContext);
+		const response = ctxs.filter((ctx) => ctx.state === 'hitl_threshold' || ctx.state === 'hitl_tool' || ctx.state === 'hitl_feedback').map(serializeContext);
 		send(reply, 200, response);
 	});
 

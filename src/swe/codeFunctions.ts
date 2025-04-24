@@ -16,7 +16,7 @@ export class CodeFunctions {
 	}
 
 	/**
-	 *
+	 * Selects a minimal set of files to read and edit based on the requirements provided.
 	 * @param requirements
 	 */
 	@func()
