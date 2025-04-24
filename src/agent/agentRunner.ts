@@ -46,6 +46,8 @@ export interface RunAgentConfig {
 	resumeAgentId?: string;
 	/** The base path of the context FileSystem. Defaults to the process working directory */
 	fileSystemPath?: string;
+	/** Use shared repository location instead of agent-specific directory. Defaults to true. */
+	useSharedRepos?: boolean;
 	/** Additional details for the agent */
 	metadata?: Record<string, any>;
 }
