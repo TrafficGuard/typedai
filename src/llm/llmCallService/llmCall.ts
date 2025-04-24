@@ -1,3 +1,4 @@
+import { agentContext } from '#agent/agentContextLocalStorage';
 import type { LlmMessage } from '#llm/llm';
 
 export interface LlmRequest {
@@ -39,3 +40,18 @@ export interface LlmCall extends LlmRequest {
 }
 
 export type CreateLlmRequest = Omit<LlmRequest, 'id' | 'requestTime'>;
+
+export function callStack(): string {
+	const agent = agentContext();
+	if (!agent) return '';
+	const arr: string[] = agent.callStack;
+	if (!arr || arr.length === 0) return '';
+	if (arr.length === 1) return arr[0];
+	// Remove duplicates from when we call multiple in parallel, eg in findFilesToEdit
+	let i = arr.length - 1;
+	while (i > 0 && arr[i] === arr[i - 1]) {
+		i--;
+	}
+
+	return arr.slice(0, i + 1).join(' > ');
+}

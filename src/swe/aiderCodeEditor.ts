@@ -7,7 +7,7 @@ import { promisify } from 'node:util';
 import { addCost, agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import type { LLM, LlmMessage } from '#llm/llm';
-import type { LlmCall } from '#llm/llmCallService/llmCall';
+import { type LlmCall, callStack } from '#llm/llmCallService/llmCall';
 import { Claude3_7_Sonnet } from '#llm/services/anthropic';
 import { deepSeekV3 } from '#llm/services/deepseek';
 import { GPT4o } from '#llm/services/openai';
@@ -130,6 +130,7 @@ export class AiderCodeEditor {
 					llmId: llm?.getId(),
 					messages: llmMessages,
 					requestTime: now + callCount++,
+					callStack: callStack(),
 				};
 				appContext()
 					.llmCallService?.saveResponse(llmCall)

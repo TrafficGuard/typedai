@@ -212,7 +212,8 @@ export abstract class BaseLLM implements LLM {
 		return true;
 	}
 
-	protected callStack(agent?: AgentContext): string {
+	/** @deprecated Use callStack in llmCall.ts */
+	callStack(agent?: AgentContext): string {
 		if (!agent) return '';
 		const arr: string[] = agent.callStack;
 		if (!arr || arr.length === 0) return '';
