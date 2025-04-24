@@ -100,11 +100,10 @@ export class Git implements VersionControlSystem {
 	 */
 	@func()
 	async getBranchDiff(sourceBranch: string = this.previousBranch): Promise<string> {
-		const result = sourceBranch
-			? await execCommand(`git --no-pager diff $(git merge-base ${sourceBranch} HEAD) HEAD`)
-			: await execCommand(
-					"git --no-pager diff $(git merge-base HEAD $(git for-each-ref --format='%(refname)' refs/heads/ | grep -v $(git symbolic-ref HEAD))) HEAD",
-				);
+		const command = sourceBranch
+			? `git --no-pager diff $(git merge-base ${sourceBranch} HEAD) HEAD`
+			: "git --no-pager diff $(git merge-base HEAD $(git for-each-ref --format='%(refname)' refs/heads/ | grep -v $(git symbolic-ref HEAD))) HEAD";
+		const result = await execCommand(command);
 
 		failOnError('Error getting branch diff', result);
 		return result.stdout;
