@@ -287,17 +287,15 @@ ${[...Array.from(pendingFiles), ...filesToInspect].join('\n')}`;
 	}
 
 	prompt += `
-Think extensively about which files to keep or ignore based *strictly* on the requirements.
+The files that must be decided upon (kept or ignored) in this iteration are:
+${[...Array.from(pendingFiles)].join('\n')}
+
+First think extensively about which files to keep or ignore based *strictly* on the requirements.
 - For **keepFiles**: Only include a file if its contents are **demonstrably necessary** to fulfill the requirements. The 'reason' must clearly state *why* this specific file is essential.
 - For **ignoreFiles**: Include files previously inspected that are **not essential** for the task.
 - For **inspectFiles**: Only request to inspect *new* files if you have a **strong, specific reason** to believe they contain information **critical** to the task that hasn't been found yet. Avoid speculative inspection. Consider the cost – only inspect if absolutely necessary.
 
 Have you inspected enough files to confidently determine the minimal essential set? If yes, or if no further files seem strictly necessary, return an empty array for "inspectFiles".
-
-Do not select package manager lock files to inspect as they are too large.
-
-The files that must be decided upon (kept or ignored) in this iteration are:
-${[...Array.from(pendingFiles)].join('\n')}
 
 The final part of the response must be a JSON object in the following format:
 <json>
