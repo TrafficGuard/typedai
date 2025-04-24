@@ -244,19 +244,20 @@ async function initializeFileSelectionAgent(requirements: string, projectInfo?: 
 	// Do not include file contents unless they have been provided to you.
 	const initialUserPrompt = `<requirements>\n${requirements}\n</requirements>
 
-Your task is to select the minimal, complete file set from the <project_files> that will be required for completing the task/query in the requirements.
+Your task is to select the **minimal set of files absolutely essential** for completing the task/query described in the requirements, using the provided <project_files>.
+**Focus intensely on necessity.** Only select a file if you are confident its contents are **directly required** to understand the context or make the necessary changes. Avoid selecting files that are only tangentially related or provide general context unless strictly necessary for the core task.
 
 Do not select package manager lock files as they are too large.
 
-For this initial file selection step respond in the following format:
+For this initial file selection step, identify the files you need to **inspect** first to confirm their necessity. Respond in the following format:
 <think>
-<!-- extensive thinking on the file selection -->
+<!-- Rigorous thinking process justifying why each potential file is essential for the requirements. Question if each file is truly needed. -->
 </think>
 <json>
 {
   "inspectFiles": [
-  	"dir/file1", 
-	"dir1/dir2/file2"
+  	"path/to/essential/file1",
+	"path/to/another/crucial/file2"
   ]
 }
 </json>
@@ -286,20 +287,29 @@ ${[...Array.from(pendingFiles), ...filesToInspect].join('\n')}`;
 	}
 
 	prompt += `
-Think extensively about which files keep or ignore, taking into consideration instructions in the requirements. 
-Think if you have sufficiently inspected enough files to formulate a result, without excessively inspecting additional files which occurs additional costs, then return an empty array for "inspectFiles"
+Think extensively about which files to keep or ignore based *strictly* on the requirements.
+- For **keepFiles**: Only include a file if its contents are **demonstrably necessary** to fulfill the requirements. The 'reason' must clearly state *why* this specific file is essential.
+- For **ignoreFiles**: Include files previously inspected that are **not essential** for the task.
+- For **inspectFiles**: Only request to inspect *new* files if you have a **strong, specific reason** to believe they contain information **critical** to the task that hasn't been found yet. Avoid speculative inspection. Consider the cost – only inspect if absolutely necessary.
+
+Have you inspected enough files to confidently determine the minimal essential set? If yes, or if no further files seem strictly necessary, return an empty array for "inspectFiles".
+
 Do not select package manager lock files to inspect as they are too large.
+
+The files that must be decided upon (kept or ignored) in this iteration are:
+${[...Array.from(pendingFiles)].join('\n')}
+
 The final part of the response must be a JSON object in the following format:
 <json>
 {
-  keepFiles:[
-    {"path": "dir/file1", "reason": "..."}
-  ]
-  ignoreFiles:[
-    {"path": "dir/file1", "reason": "..."}
+  "keepFiles": [
+    {"path": "path/to/essential/file1", "reason": "Clearly explains why this file is indispensable for the task."}
   ],
-  inspectFiles: [
-    "dir1/dir2/file2"
+  "ignoreFiles": [
+    {"path": "path/to/nonessential/file2", "reason": "Explains why this file is not needed."}
+  ],
+  "inspectFiles": [
+    "path/to/potentially/critical/file3"
   ]
 }
 </json>
