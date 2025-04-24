@@ -34,3 +34,41 @@ export function truncateToByteLength(str: string, maxBytes: number): string {
 
 	return result;
 }
+
+/**
+ * Recursively checks if an object contains nested arrays, which are not allowed by Firestore.
+ * @param obj The object to check.
+ * @param path The current path being checked (used for error messages).
+ * @throws Error if a nested array is found.
+ */
+export function validateFirestoreObject(obj: any, path: string = ''): void {
+	if (obj === null || typeof obj !== 'object') {
+		return; // Primitive types are fine
+	}
+
+	if (Array.isArray(obj)) {
+		for (let i = 0; i < obj.length; i++) {
+			const element = obj[i];
+			const currentPath = `${path}[${i}]`;
+			if (Array.isArray(element)) {
+				throw new Error(`Firestore does not support nested arrays. Found at path: ${currentPath}`);
+			}
+			validateFirestoreObject(element, currentPath); // Recursively check elements within the array
+		}
+	} else {
+		// It's an object
+		for (const key in obj) {
+			if (Object.prototype.hasOwnProperty.call(obj, key)) {
+				const value = obj[key];
+				const currentPath = path ? `${path}.${key}` : key;
+				if (Array.isArray(value)) {
+					// Check elements within this array for nested arrays
+					validateFirestoreObject(value, currentPath);
+				} else if (typeof value === 'object' && value !== null) {
+					// Recursively check nested objects
+					validateFirestoreObject(value, currentPath);
+				}
+			}
+		}
+	}
+}

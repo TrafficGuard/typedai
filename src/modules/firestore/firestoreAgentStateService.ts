@@ -3,7 +3,7 @@ import { LlmFunctions } from '#agent/LlmFunctions';
 import { type AgentContext, type AgentRunningState, isExecuting } from '#agent/agentContextTypes';
 import { deserializeAgentContext, serializeContext } from '#agent/agentSerialization';
 import type { AgentStateService } from '#agent/agentStateService/agentStateService';
-import { MAX_PROPERTY_SIZE, truncateToByteLength } from '#firestore/firestoreUtils';
+import { MAX_PROPERTY_SIZE, truncateToByteLength, validateFirestoreObject } from '#firestore/firestoreUtils';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
@@ -27,6 +27,16 @@ export class FirestoreAgentStateService implements AgentStateService {
 		}
 		const serialized = serializeContext(state);
 		serialized.lastUpdate = Date.now();
+
+		// Add this validation step
+		try {
+			validateFirestoreObject(serialized);
+		} catch (error) {
+			logger.error({ agentId: state.agentId, error: error.message }, 'Firestore validation failed: Nested array detected.');
+			// Optionally re-throw or handle the error appropriately
+			throw new Error(`Firestore validation failed for agent ${state.agentId}: ${error.message}`);
+		}
+
 		const docRef = this.db.doc(`AgentContext/${state.agentId}`);
 
 		if (state.parentAgentId) {
