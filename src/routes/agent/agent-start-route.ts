@@ -29,7 +29,7 @@ export async function agentStartRoute(fastify: AppFastifyInstance) {
 					llmEasy: Type.String(),
 					llmMedium: Type.String(),
 					llmHard: Type.String(),
-					useSharedRepos: Type.Optional(Type.Boolean({ default: true })), // Add this line
+					useSharedRepos: Type.Optional(Type.Boolean({ default: true })),
 				}),
 			},
 		},
