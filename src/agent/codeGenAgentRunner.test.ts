@@ -174,7 +174,7 @@ describe('codegenAgentRunner', () => {
 			await startAgent(runConfig({ functions }));
 			let agent = await waitForAgent();
 			expect(agent.functionCallHistory.length).to.equal(1);
-			expect(agent.state).to.equal('feedback');
+			expect(agent.state).to.equal('hitl_feedback');
 
 			let postFeedbackPrompt: string;
 			mockLLM.addResponse(COMPLETE_FUNCTION_CALL_PLAN, (prompt) => {
