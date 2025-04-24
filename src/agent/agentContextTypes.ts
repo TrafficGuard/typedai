@@ -89,7 +89,7 @@ export interface AgentContext {
 	/** Error message & stack */
 	error?: string;
 	/** Budget spend in $USD until a human-in-the-loop is required */
-	hilBudget;
+	hilBudget: number;
 	/** Total cost of running this agent */
 	cost: number;
 	/** Budget remaining until human intervention is required */

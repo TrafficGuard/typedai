@@ -71,7 +71,7 @@ export function createContext(config: RunAgentConfig | RunWorkflowConfig): Agent
 		pendingMessages: [],
 		callStack: [],
 		notes: [],
-		hilBudget,
+		hilBudget: hilBudget,
 		hilCount: config.humanInLoop?.count ?? (process.env.HIL_COUNT ? Number.parseFloat(process.env.HIL_COUNT) : 5),
 		budgetRemaining: hilBudget,
 		cost: 0,
