@@ -138,11 +138,8 @@ export class FileSystemList {
 	 */
 	@func()
 	async getFileSystemTreeWithFileSummaries(): Promise<string> {
-		// Ensure projectInfo is available
-		const projectInfo = await detectProjectInfo()[0];
-
 		// Generate repository maps and overview
-		const projectMaps: RepositoryMaps = await generateRepositoryMaps([projectInfo]);
+		const projectMaps: RepositoryMaps = await generateRepositoryMaps(await detectProjectInfo());
 		// const repositoryOverview: string = await getRepositoryOverview();
 		return `<project_files>\n${projectMaps.fileSystemTreeWithFileSummaries.text}\n</project_files>\n`;
 	}
