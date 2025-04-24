@@ -53,6 +53,7 @@ export function stateNotificationMessage(agent: AgentContext): string {
 		case 'completed':
 			return `Agent has completed.\nName: ${agent.name}\nNote: ${getLastFunctionCallArg(agent)}`;
 		default:
+			return `Agent ${agent.name} stopped in unhandled state: ${agent.state}`;
 	}
 }
 
