@@ -98,6 +98,8 @@ export interface AgentContext {
 	llms: AgentLLMs;
 	/** Working filesystem */
 	fileSystem?: FileSystemService | null;
+	/** Determines if repositories should be cloned into a shared location (true) or the agent's private directory (false). Defaults to true. */
+	useSharedRepos: boolean;
 	/** Memory persisted over the agent's executions */
 	memory: Record<string, string>;
 	/** Time of the last database write of the state */
