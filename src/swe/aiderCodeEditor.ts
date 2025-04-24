@@ -126,12 +126,13 @@ export class AiderCodeEditor {
 			for (const llmMessages of calls) {
 				const llmCall: LlmCall = {
 					id: randomUUID(),
+					agentId: agentContext()?.agentId,
 					llmId: llm?.getId(),
 					messages: llmMessages,
 					requestTime: now + callCount++,
 				};
 				appContext()
-					.llmCallService.saveResponse(llmCall)
+					.llmCallService?.saveResponse(llmCall)
 					.catch((error) => logger.error(error, 'Error saving Aider LlmCall'));
 			}
 
@@ -156,14 +157,9 @@ export class AiderCodeEditor {
 			const lines = block.trim().split('\n');
 
 			for (const line of lines) {
-				// Skip separators and response markers
-				if (line.startsWith('-------') || line.startsWith('LLM RESPONSE')) {
-					continue;
-				}
-
 				const match = line.match(/^(SYSTEM|USER|ASSISTANT)\s?(.*)$/);
 				if (match) {
-					const role = match[1].toLowerCase() as LlmMessage['role'];
+					const role = match[1].toLowerCase() as 'system' | 'user' | 'assistant';
 					const content = match[2];
 					const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
 
@@ -182,14 +178,11 @@ export class AiderCodeEditor {
 					const lastMessage = messages[messages.length - 1];
 					lastMessage.content += `\n${line}`;
 				}
-				// Ignore lines that don't match and aren't continuations (shouldn't happen with valid aider history)
+				// Ignore lines that don't match which might include TO LLM and -------
 			}
 
-			if (messages.length > 0) {
-				turns.push(messages);
-			}
+			if (messages.length > 0) turns.push(messages);
 		}
-
 		return turns;
 	}
 }
