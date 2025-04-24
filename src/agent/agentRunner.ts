@@ -5,7 +5,7 @@ import { AGENT_REQUEST_FEEDBACK } from '#agent/agentFeedback';
 import { AGENT_COMPLETED_PARAM_NAME } from '#agent/agentFunctions';
 import { runCodeGenAgent } from '#agent/codeGenAgentRunner';
 import { runXmlAgent } from '#agent/xmlAgentRunner';
-import { FUNC_SEP } from '#functionSchema/functions';
+import { FUNC_SEP, type FunctionSchema } from '#functionSchema/functions';
 import type { FunctionCall, FunctionCallResult } from '#llm/llm';
 import { logger } from '#o11y/logger';
 import type { User } from '#user/user';
@@ -15,7 +15,6 @@ import { appContext } from '../applicationContext';
 
 export const SUPERVISOR_RESUMED_FUNCTION_NAME: string = `Supervisor${FUNC_SEP}Resumed`;
 export const SUPERVISOR_CANCELLED_FUNCTION_NAME: string = `Supervisor${FUNC_SEP}Cancelled`;
-const FUNCTION_OUTPUT_SUMMARIZE_MIN_LENGTH = 2000;
 
 export type RunWorkflowConfig = Partial<RunAgentConfig>;
 
@@ -219,14 +218,6 @@ export async function provideFeedback(agentId: string, executionId: string, feed
 	agent.state = 'agent';
 	await appContext().agentStateService.save(agent);
 	await runAgent(agent);
-}
-
-export async function summariseLongFunctionOutput(functionCall: FunctionCall, result: string): Promise<string | null> {
-	if (!result || result.length < FUNCTION_OUTPUT_SUMMARIZE_MIN_LENGTH) return null;
-
-	const prompt = `<function_name>${functionCall.function_name}</function_name>\n<output>\n${result}\n</output>\n
-	For the above function call summarise the output into a paragraph that captures key details about the output content, which might include identifiers, content summary, content structure and examples. Only responsd with the summary`;
-	return await llms().easy.generateText(prompt, { id: 'Summarise long function output' });
 }
 
 /**

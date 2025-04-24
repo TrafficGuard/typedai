@@ -7,10 +7,12 @@ import { AGENT_REQUEST_FEEDBACK, REQUEST_FEEDBACK_PARAM_NAME } from '#agent/agen
 import { AGENT_COMPLETED_NAME, AGENT_COMPLETED_PARAM_NAME, AGENT_SAVE_MEMORY_CONTENT_PARAM_NAME } from '#agent/agentFunctions';
 import { buildFunctionCallHistoryPrompt, buildMemoryPrompt, buildToolStatePrompt, updateFunctionSchemas } from '#agent/agentPromptUtils';
 import type { AgentExecution } from '#agent/agentRunner';
+import { FUNCTION_OUTPUT_THRESHOLD, SCRIPT_RETURN_VALUE_MAX_TOKENS, summarizeFunctionOutput } from '#agent/agentUtils';
 import { reviewPythonCode } from '#agent/codeGenAgentCodeReview';
 import { convertJsonToPythonDeclaration, extractPythonCode, removePythonMarkdownWrapper } from '#agent/codeGenAgentUtils';
 import { getServiceName } from '#fastify/trace-init/trace-init';
 import { FUNC_SEP, type FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
+import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { errorToString } from '#utils/errors';
@@ -70,8 +72,6 @@ export async function runCodeGenAgent(agent: AgentContext): Promise<AgentExecuti
 			parentId: agent.parentAgentId,
 			functions: agent.functions.getFunctionClassNames(),
 		});
-
-		let functionErrorCount = 0;
 
 		let currentFunctionHistorySize = agent.functionCallHistory.length;
 
@@ -215,6 +215,10 @@ export async function runCodeGenAgent(agent: AgentContext): Promise<AgentExecuti
 								if (className === 'Agent' && method === 'saveMemory') parameters[AGENT_SAVE_MEMORY_CONTENT_PARAM_NAME] = '(See <memory> entry)';
 								if (className === 'Agent' && method === 'getMemory') stdout = '(See <memory> entry)';
 
+								if (stdout && stdout.length > FUNCTION_OUTPUT_THRESHOLD) {
+									stdout = await summarizeFunctionOutput(agent, agentPlanResponse, schema, parameters, stdout);
+								}
+
 								agent.functionCallHistory.push({
 									function_name: schema.name,
 									parameters,
@@ -224,11 +228,14 @@ export async function runCodeGenAgent(agent: AgentContext): Promise<AgentExecuti
 								return functionResponse;
 							} catch (e) {
 								logger.warn(e, 'Error calling function');
-
+								let stderr = errorToString(e, false);
+								if (stderr.length > FUNCTION_OUTPUT_THRESHOLD) {
+									stderr = await summarizeFunctionOutput(agent, agentPlanResponse, schema, parameters, stderr);
+								}
 								agent.functionCallHistory.push({
 									function_name: schema.name,
 									parameters,
-									stderr: errorToString(e, false),
+									stderr,
 									// stderrSummary: outputSummary, TODO
 								});
 								throw e;
@@ -298,8 +305,27 @@ main()`.trim();
 							}
 						}
 						logger.info(pythonScriptResult, 'Script result');
+						if (typeof pythonScriptResult === 'object') {
+							for (const [k, v] of Object.entries(pythonScriptResult)) {
+								const value = JSON.stringify(v);
+								const tokens = await countTokens(JSON.stringify(v));
+								if (tokens > SCRIPT_RETURN_VALUE_MAX_TOKENS) {
+									logger.warn(`Truncated return value for ${k}`);
+									const newLength = Number.parseInt((SCRIPT_RETURN_VALUE_MAX_TOKENS * 3.5).toFixed(0));
+									if (newLength > value.length) {
+										pythonScriptResult[k] = `${value.substring(0, newLength)}... (truncated due to size)`;
+									}
+								}
+							}
+						}
+
+						pythonScriptResult = JSON.stringify(pythonScriptResult);
+						// logger.info(pythonScriptResult, 'Script result');
+						// If execution succeeds reset error tracking:
 					} catch (e) {
-						logger.info(e, `Caught function error ${e.message}`);
+						const lineNumber = extractLineNumber(e.message);
+						const line = lineNumber ? ` on line "${pythonScript.split('\n')[lineNumber]}"` : '';
+						logger.info(e, `Caught python script error${line}. ${e.message}`);
 						pythonError = e;
 						functionErrorCount++;
 					}
@@ -356,4 +382,15 @@ main()`.trim();
 		await runAgentCompleteHandler(agent);
 	});
 	return { agentId: agent.agentId, execution };
+}
+
+function extractLineNumber(text: string): number | null {
+	const regex = /File "<exec>", line\s+(\d+), in main/;
+	const match = text.match(regex);
+
+	if (match?.[1]) {
+		return Number.parseInt(match[1], 10);
+	}
+
+	return null;
 }

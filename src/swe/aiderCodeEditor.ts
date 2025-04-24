@@ -158,6 +158,11 @@ export class AiderCodeEditor {
 			const lines = block.trim().split('\n');
 
 			for (const line of lines) {
+				// Skip separators and response markers
+				if (line.startsWith('-------') || line.startsWith('LLM RESPONSE')) {
+					continue;
+				}
+
 				const match = line.match(/^(SYSTEM|USER|ASSISTANT)\s?(.*)$/);
 				if (match) {
 					const role = match[1].toLowerCase() as 'system' | 'user' | 'assistant';
@@ -179,7 +184,7 @@ export class AiderCodeEditor {
 					const lastMessage = messages[messages.length - 1];
 					lastMessage.content += `\n${line}`;
 				}
-				// Ignore lines that don't match which might include TO LLM and -------
+				// Ignore lines that don't match
 			}
 
 			if (messages.length > 0) turns.push(messages);

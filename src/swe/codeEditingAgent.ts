@@ -39,8 +39,8 @@ export class CodeEditingAgent {
 	/**
 	 * Runs a workflow which finds, edits and creates the required files to implement the requirements, and committing changes to version control.
 	 * It also compiles, formats, lints, and runs tests where applicable.
-	 * @param requirements
-	 * @param fileSelection {string[]} the files which the code editing agent will have access to. Only provide if a comprehensive analysis has been done, otherwise omit or provide null for a sub-agent to perform the file selection.
+	 * @param requirements The requirements of the task to make the code changes for.
+	 * @param fileSelection {string[]} An array of files which the code editing agent will have access to. Only provide if a comprehensive analysis has been done, otherwise omit the optional parameter.
 	 * altOptions are for programmatic use and not exposed to the autonomous agents.
 	 */
 	@func()
@@ -49,6 +49,8 @@ export class CodeEditingAgent {
 		fileSelection?: string[] | null,
 		altOptions?: { projectInfo?: ProjectInfo; workingDirectory?: string },
 	): Promise<void> {
+		if (!requirements) throw new Error('The argument "requirements" must be provided');
+
 		let projectInfo: ProjectInfo = altOptions?.projectInfo;
 		if (!projectInfo) {
 			const detected: ProjectInfo[] = await detectProjectInfo();
@@ -102,7 +104,7 @@ export class CodeEditingAgent {
 		Look at the existing style of the code when producing the requirements.
 		Only make changes directly related to the requirements. Any other changes will be deleted.
 		`;
-		let implementationRequirements = await llms().hard.generateText(implementationDetailsPrompt, { id: 'implementationSpecification' });
+		let implementationRequirements = await llms().hard.generateText(implementationDetailsPrompt, { id: 'CodeEditingAgent Implementation Specification' });
 		// implementationRequirements += '\nEnsure new code is well commented.';
 
 		const searchPrompt = `${repositoryOverview}\n${installedPackages}\n<requirement>\n${implementationRequirements}\n</requirement>

@@ -20,6 +20,7 @@ import { HttpClient } from "@angular/common/http";
 import { MatSnackBar } from "@angular/material/snack-bar";
 import { Router } from "@angular/router";
 import { LlmService } from "../services/llm.service";
+import { map, finalize } from "rxjs";
 import { MatProgressSpinner } from "@angular/material/progress-spinner";
 import { MatCheckboxModule } from "@angular/material/checkbox";
 import {MatCard, MatCardContent} from "@angular/material/card";
