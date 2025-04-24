@@ -147,7 +147,50 @@ export class AiderCodeEditor {
 	}
 
 	private parseHistoryFile(text: string): LlmMessage[][] {
-		return [];
+		const turns: LlmMessage[][] = [];
+		// Split into individual LLM turns, removing the first empty element if present
+		const turnBlocks = text.split(/^TO LLM .*$/m).filter((block) => block.trim());
+
+		for (const block of turnBlocks) {
+			const messages: LlmMessage[] = [];
+			const lines = block.trim().split('\n');
+
+			for (const line of lines) {
+				// Skip separators and response markers
+				if (line.startsWith('-------') || line.startsWith('LLM RESPONSE')) {
+					continue;
+				}
+
+				const match = line.match(/^(SYSTEM|USER|ASSISTANT)\s?(.*)$/);
+				if (match) {
+					const role = match[1].toLowerCase() as LlmMessage['role'];
+					const content = match[2];
+					const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
+
+					// If the last message has the same role, append content
+					if (lastMessage && lastMessage.role === role) {
+						lastMessage.content += '\n' + content;
+					} else {
+						// Otherwise, start a new message
+						messages.push({ role, content });
+					}
+				} else if (messages.length > 0) {
+					// Handle lines that might not start with a role but belong to the previous message
+					// (e.g., empty USER lines followed by content)
+					// This assumes multi-line content without a role prefix belongs to the last message.
+					// Aider format seems consistent with prefixing each line, but this adds robustness.
+					const lastMessage = messages[messages.length - 1];
+					lastMessage.content += '\n' + line;
+				}
+				// Ignore lines that don't match and aren't continuations (shouldn't happen with valid aider history)
+			}
+
+			if (messages.length > 0) {
+				turns.push(messages);
+			}
+		}
+
+		return turns;
 	}
 }
 
