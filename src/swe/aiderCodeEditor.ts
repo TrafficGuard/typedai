@@ -11,6 +11,7 @@ import type { LlmCall } from '#llm/llmCallService/llmCall';
 import { Claude3_7_Sonnet } from '#llm/services/anthropic';
 import { deepSeekV3 } from '#llm/services/deepseek';
 import { GPT4o } from '#llm/services/openai';
+import { openRouterGemini2_5_Pro } from '#llm/services/openrouter';
 import { Gemini_2_5_Pro } from '#llm/services/vertexai';
 import { logger } from '#o11y/logger';
 import { getActiveSpan } from '#o11y/trace';
@@ -18,7 +19,6 @@ import { currentUser } from '#user/userService/userContext';
 import { execCommand } from '#utils/exec';
 import { systemDir } from '../appVars';
 import { appContext } from '../applicationContext';
-import {openRouterGemini2_5_Pro} from "#llm/services/openrouter";
 
 @funcClass(__filename)
 export class AiderCodeEditor {
@@ -169,7 +169,7 @@ export class AiderCodeEditor {
 
 					// If the last message has the same role, append content
 					if (lastMessage && lastMessage.role === role) {
-						lastMessage.content += '\n' + content;
+						lastMessage.content += `\n${content}`;
 					} else {
 						// Otherwise, start a new message
 						messages.push({ role, content });
@@ -180,7 +180,7 @@ export class AiderCodeEditor {
 					// This assumes multi-line content without a role prefix belongs to the last message.
 					// Aider format seems consistent with prefixing each line, but this adds robustness.
 					const lastMessage = messages[messages.length - 1];
-					lastMessage.content += '\n' + line;
+					lastMessage.content += `\n${line}`;
 				}
 				// Ignore lines that don't match and aren't continuations (shouldn't happen with valid aider history)
 			}
