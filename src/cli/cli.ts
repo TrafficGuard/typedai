@@ -10,6 +10,7 @@ export interface CliOptions {
 	resumeAgentId: string | undefined;
 	/** Optional array of function class names to use */
 	functionClasses?: string[];
+	useSharedRepos?: boolean;
 }
 
 export function parseProcessArgs(): CliOptions {
@@ -50,6 +51,13 @@ export function parseUserCliArgs(scriptName: string, scriptArgs: string[]): CliO
 		}
 	}
 
+	let useSharedRepos = true;
+	const privateRepoArgIndex = scriptArgs.findIndex((arg) => arg === '--private' || arg === '-p');
+	if (privateRepoArgIndex > -1) {
+		useSharedRepos = false;
+		scriptArgs.splice(privateRepoArgIndex, 1); // Remove the flag after processing
+	}
+
 	// Extract function classes before processing prompt
 	const functionClasses = parseFunctionArgument(scriptArgs);
 	// Remove the function argument from args if present
@@ -68,7 +76,7 @@ export function parseUserCliArgs(scriptName: string, scriptArgs: string[]): CliO
 
 	const resumeAgentId = resumeLastRun ? getLastRunAgentId(scriptName) : undefined;
 
-	return { scriptName, resumeAgentId, initialPrompt, functionClasses };
+	return { scriptName, resumeAgentId, initialPrompt, functionClasses, useSharedRepos };
 }
 
 export function saveAgentId(scriptName: string, agentId: string): void {
