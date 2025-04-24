@@ -327,7 +327,6 @@ main()`.trim();
 						const line = lineNumber ? ` on line "${pythonScript.split('\n')[lineNumber]}"` : '';
 						logger.info(e, `Caught python script error${line}. ${e.message}`);
 						pythonError = e;
-						functionErrorCount++;
 					}
 
 					const lastFunctionCall = agent.functionCallHistory.length ? agent.functionCallHistory[agent.functionCallHistory.length - 1] : null;
