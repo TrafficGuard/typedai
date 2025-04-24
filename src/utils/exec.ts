@@ -121,6 +121,7 @@ export async function execCmd(command: string, cwd = getFileSystem().getWorkingD
 }
 
 export interface ExecResult {
+	command: string;
 	stdout: string;
 	stderr: string;
 	exitCode: number;
@@ -133,7 +134,7 @@ export interface ExecResult {
  */
 export function failOnError(userMessage: string, execResult: ExecResult): void {
 	if (execResult.exitCode === 0) return;
-	let errorMessage = userMessage;
+	let errorMessage = `${userMessage}. Exit code: ${execResult.exitCode}. Command: ${execResult.command}`;
 	errorMessage += execResult.stdout ? `\n${execResult.stdout}` : '';
 	if (execResult.stdout && execResult.stderr) errorMessage += '\n';
 	if (execResult.stderr) errorMessage += execResult.stderr;
@@ -169,7 +170,7 @@ export async function execCommand(command: string, opts?: ExecCmdOptions): Promi
 				exitCode: 0,
 			});
 			span.setStatus({ code: SpanStatusCode.OK });
-			return { stdout, stderr, exitCode: 0 };
+			return { stdout, stderr, exitCode: 0, command };
 		} catch (error) {
 			span.setAttributes({
 				cwd: options.cwd as string,
@@ -186,7 +187,7 @@ export async function execCommand(command: string, opts?: ExecCmdOptions): Promi
 				e.code = error.code;
 				throw e;
 			}
-			return { stdout: error.stdout, stderr: error.stderr, exitCode: error.code };
+			return { stdout: error.stdout, stderr: error.stderr, exitCode: error.code, command };
 		}
 	});
 }
@@ -208,7 +209,7 @@ export async function spawnCommand(command: string, workingDirectory?: string): 
 				exitCode: 0,
 			});
 			span.setStatus({ code: SpanStatusCode.OK });
-			return { stdout, stderr, exitCode: 0 };
+			return { stdout, stderr, exitCode: 0, command };
 		} catch (error) {
 			span.setAttributes({
 				cwd,
@@ -220,7 +221,7 @@ export async function spawnCommand(command: string, workingDirectory?: string): 
 			span.recordException(error);
 			span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
 			logger.error(error, `Error executing ${command}`);
-			return { stdout: error.stdout, stderr: error.stderr, exitCode: error.code };
+			return { stdout: error.stdout, stderr: error.stderr, exitCode: error.code, command };
 		}
 	});
 }
@@ -309,7 +310,7 @@ export async function runShellCommand(cmd: string, opts?: ExecCmdOptions): Promi
 					child.stdout.off('data', onStdoutData);
 					child.stderr.off('data', onStderrData);
 					if (stdout.endsWith('\n')) stdout = stdout.substring(0, stdout.length - 1);
-					resolve({ stdout, stderr, exitCode });
+					resolve({ stdout, stderr, exitCode, command });
 				}
 			};
 
