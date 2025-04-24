@@ -41,7 +41,7 @@ export function truncateToByteLength(str: string, maxBytes: number): string {
  * @param path The current path being checked (used for error messages).
  * @throws Error if a nested array is found.
  */
-export function validateFirestoreObject(obj: any, path: string = ''): void {
+export function validateFirestoreObject(obj: any, path = ''): void {
 	if (obj === null || typeof obj !== 'object') {
 		return; // Primitive types are fine
 	}
