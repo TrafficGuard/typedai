@@ -29,11 +29,12 @@ export async function agentStartRoute(fastify: AppFastifyInstance) {
 					llmEasy: Type.String(),
 					llmMedium: Type.String(),
 					llmHard: Type.String(),
+					useSharedRepos: Type.Optional(Type.Boolean({ default: true })), // Add this line
 				}),
 			},
 		},
 		async (req, reply) => {
-			const { name, userPrompt, functions, type, budget, count, llmEasy, llmMedium, llmHard } = req.body;
+			const { name, userPrompt, functions, type, budget, count, llmEasy, llmMedium, llmHard, useSharedRepos } = req.body;
 
 			logger.info(req.body, `Starting agent ${name}`);
 
@@ -61,6 +62,7 @@ export async function agentStartRoute(fastify: AppFastifyInstance) {
 					xhard: getLLM(llmHard),
 				},
 				functions: llmFunctions,
+				useSharedRepos: useSharedRepos,
 			});
 			const agentId: string = agentExecution.agentId;
 			send(reply, 200, { agentId });

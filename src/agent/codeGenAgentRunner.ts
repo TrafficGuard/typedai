@@ -284,7 +284,6 @@ main()`.trim();
 							// Initial execution attempt
 							const result = await pyodide.runPythonAsync(pythonScript, { globals });
 							pythonScriptResult = result?.toJs ? result.toJs() : result;
-							pythonScriptResult = JSON.stringify(pythonScriptResult);
 							if (result?.destroy) result.destroy();
 						} catch (e) {
 							// Attempt to fix Syntax/indentation errors and retry
@@ -298,7 +297,6 @@ main()`.trim();
 								// Re-try execution of fixed syntax/indentation error
 								const result = await pyodide.runPythonAsync(pythonScript, { globals });
 								pythonScriptResult = result?.toJs ? result.toJs() : result;
-								pythonScriptResult = JSON.stringify(pythonScriptResult);
 								if (result?.destroy) result.destroy();
 							} else {
 								throw e;

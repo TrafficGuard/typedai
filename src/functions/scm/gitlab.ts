@@ -1,5 +1,4 @@
-import { existsSync } from 'node:fs';
-import fs from 'node:fs';
+import { promises as fs, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { JobSchema, UserSchema } from '@gitbeaker/core';
 import {
@@ -14,13 +13,13 @@ import {
 import type { DeepPartial } from 'ai';
 import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import { GITLAB_SHARED_REPOS_PATH } from '#functions/scm/sourceControlManagementTypes';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import { getProjectInfo } from '#swe/projectDetection';
 import { currentUser, functionConfig } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
 import { execCommand, failOnError } from '#utils/exec';
+import { agentDir, systemDir } from '../../appVars';
 import type { GitProject } from './gitProject';
 import type { MergeRequest, SourceControlManagement } from './sourceControlManagement';
 
@@ -172,15 +171,19 @@ export class GitLab implements SourceControlManagement {
 	@func()
 	async cloneProject(projectPathWithNamespace: string): Promise<string> {
 		if (!projectPathWithNamespace) throw new Error('Parameter "projectPathWithNamespace" must be truthy');
-		const path = join(GITLAB_SHARED_REPOS_PATH, projectPathWithNamespace);
+
 		const fss = getFileSystem();
+		const agent = agentContext();
+		const basePath = agent.useSharedRepos ? join(systemDir(), 'gitlab') : join(agentDir(), 'gitlab');
+		const targetPath = join(basePath, projectPathWithNamespace);
+		await fs.mkdir(targetPath, { recursive: true }); // Ensure folder exists
 
 		// If the project already exists pull updates from the main/dev branch
-		if (existsSync(path) && existsSync(join(path, '.git'))) {
+		if (existsSync(targetPath) && existsSync(join(targetPath, '.git'))) {
 			const currentWorkingDir = fss.getWorkingDirectory();
 			try {
-				fss.setWorkingDirectory(path);
-				logger.info(`${projectPathWithNamespace} exists at ${path}. Pulling updates`);
+				fss.setWorkingDirectory(targetPath);
+				logger.info(`${projectPathWithNamespace} exists at ${targetPath}. Pulling updates`);
 
 				// If the repo has a projectInfo.json file with a devBranch defined, then switch to that
 				// else switch to the default branch defined in the GitLab project
@@ -189,35 +192,35 @@ export class GitLab implements SourceControlManagement {
 					await fss.getVcs().switchToBranch(projectInfo.devBranch);
 				} else {
 					const gitProject = await this.getProject(projectPathWithNamespace);
-					const switchResult = await execCommand(`git switch ${gitProject.defaultBranch}`, { workingDirectory: path });
+					const switchResult = await execCommand(`git switch ${gitProject.defaultBranch}`, { workingDirectory: targetPath });
 					if (switchResult.exitCode === 0) logger.info(`Switched to branch ${gitProject.defaultBranch}`);
 				}
 
-				const fetchResult = await execCommand(`git -C ${path} fetch`);
+				const fetchResult = await execCommand('git fetch', { workingDirectory: targetPath });
 				failOnError('Failed to fetch updates', fetchResult);
-				const pullResult = await execCommand(`git -C ${path} pull`);
+				const pullResult = await execCommand('git pull', { workingDirectory: targetPath });
 				failOnError('Failed to pull updates', pullResult);
 			} finally {
 				// Current behaviour of this function is to not change the working directory
 				fss.setWorkingDirectory(currentWorkingDir);
 			}
 		} else {
-			logger.info(`Cloning project: ${projectPathWithNamespace} to ${path}`);
-			await fs.promises.mkdir(path, { recursive: true });
-			const command = `git clone https://oauth2:${this.config().token}@${this.config().host}/${projectPathWithNamespace}.git ${path}`;
+			logger.info(`Cloning project: ${projectPathWithNamespace} to ${targetPath}`);
+			// Parent directory created above, git clone creates the final directory
+			const command = `git clone https://oauth2:${this.config().token}@${this.config().host}/${projectPathWithNamespace}.git ${targetPath}`;
 			const result = await execCommand(command, { mask: this.config().token });
 
 			if (result.stderr?.includes('remote HEAD refers to nonexistent ref')) {
 				const gitProject = await this.getProject(projectPathWithNamespace);
-				const switchResult = await execCommand(`git switch ${gitProject.defaultBranch}`, { workingDirectory: path });
+				const switchResult = await execCommand(`git switch ${gitProject.defaultBranch}`, { workingDirectory: targetPath });
 				if (switchResult.exitCode === 0) logger.info(`Switched to branch ${gitProject.defaultBranch}`);
 				failOnError(`Unable to switch to default branch ${gitProject.defaultBranch} for ${projectPathWithNamespace}`, switchResult);
 			}
 
 			failOnError(`Failed to clone ${projectPathWithNamespace}`, result);
 		}
-		agentContext().memory[`GitLab_project_${projectPathWithNamespace.replace('/', '_')}_FileSystem_directory_`] = path;
-		return path;
+		agentContext().memory[`GitLab_project_${projectPathWithNamespace.replace(/\//g, '_')}_FileSystem_directory_`] = targetPath;
+		return targetPath;
 	}
 
 	/**

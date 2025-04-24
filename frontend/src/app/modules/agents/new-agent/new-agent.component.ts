@@ -80,6 +80,7 @@ export class NewAgentComponent implements OnInit {
       llmHard: new FormControl('', Validators.required),
       budget: new FormControl(0, [Validators.required, Validators.min(0)]),
       count: new FormControl(0, [Validators.required, Validators.min(0), Validators.pattern('^[0-9]*$')]),
+      useSharedRepos: new FormControl(true),
     });
   }
   setPreset(preset: string): boolean {
@@ -174,6 +175,7 @@ export class NewAgentComponent implements OnInit {
           llmEasy: this.runAgentForm.value.llmEasy,
           llmMedium: this.runAgentForm.value.llmMedium,
           llmHard: this.runAgentForm.value.llmHard,
+          useSharedRepos: this.runAgentForm.value.useSharedRepos,
         })
         .pipe(finalize(() => this.isSubmitting = false))
         .subscribe({

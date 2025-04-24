@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { promises as fs, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { request } from '@octokit/request';
 import { agentContext } from '#agent/agentContextLocalStorage';
@@ -8,7 +8,7 @@ import { logger } from '#o11y/logger';
 import { functionConfig } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
 import { execCommand, failOnError, spawnCommand } from '#utils/exec';
-import { systemDir } from '../../appVars';
+import { agentDir, systemDir } from '../../appVars';
 import type { GitProject } from './gitProject';
 
 type RequestType = typeof request;
@@ -78,41 +78,44 @@ export class GitHub implements SourceControlManagement {
 		const org = paths[0];
 		const project = paths[1];
 
-		const path = join(systemDir(), 'github', org, project);
+		const agent = agentContext();
+		const basePath = agent.useSharedRepos ? join(systemDir(), 'github') : join(agentDir(), 'github');
+		const targetPath = join(basePath, org, project);
+		await fs.mkdir(join(targetPath, org), { recursive: true }); // Ensure the target dir exists
 
 		// TODO it cloned a project to the main branch when the default is master?
 		// If the project already exists pull updates
-		if (existsSync(path) && existsSync(join(path, '.git'))) {
-			logger.info(`${org}/${project} exists at ${path}. Pulling updates`);
+		if (existsSync(targetPath) && existsSync(join(targetPath, '.git'))) {
+			logger.info(`${org}/${project} exists at ${targetPath}. Pulling updates`);
 			// If we're resuming an agent which has already created the branch but not pushed
 			// then it won't exist remotely, so this will return a non-zero code
 			if (branchOrCommit) {
 				// Fetch all branches and commits
-				await execCommand(`git -C ${path} fetch --all`, { workingDirectory: path });
+				await execCommand(`git -C ${targetPath} fetch --all`, { workingDirectory: targetPath });
 
 				// Checkout to the branch or commit
-				const result = await execCommand(`git -C ${path} checkout ${branchOrCommit}`, { workingDirectory: path });
-				failOnError(`Failed to checkout ${branchOrCommit} in ${path}`, result);
+				const result = await execCommand(`git -C ${targetPath} checkout ${branchOrCommit}`, { workingDirectory: targetPath });
+				failOnError(`Failed to checkout ${branchOrCommit} in ${targetPath}`, result);
 
 				// if (this.checkIfBranch(branchOrCommit)) {
 				// 	const pullResult = await execCommand(`git pull`);
-				// 	failOnError(`Failed to pull ${path} after checking out ${branchOrCommit}`, pullResult);
+				// 	failOnError(`Failed to pull ${targetPath} after checking out ${branchOrCommit}`, pullResult);
 				// }
 			}
 		} else {
-			logger.info(`Cloning project: ${org}/${project} to ${path}`);
-			const command = `git clone 'https://oauth2:${this.config().token}@github.com/${projectPathWithOrg}.git' ${path}`;
+			logger.info(`Cloning project: ${org}/${project} to ${targetPath}`);
+			const command = `git clone 'https://oauth2:${this.config().token}@github.com/${projectPathWithOrg}.git' ${targetPath}`;
 			const result = await spawnCommand(command);
 			// if(result.error) throw result.error
 			failOnError(`Failed to clone ${projectPathWithOrg}`, result);
 
-			const checkoutResult = await execCommand(`git -C ${path} checkout ${branchOrCommit}`, { workingDirectory: path });
-			failOnError(`Failed to checkout ${branchOrCommit} in ${path}`, checkoutResult);
+			const checkoutResult = await execCommand(`git -C ${targetPath} checkout ${branchOrCommit}`, { workingDirectory: targetPath });
+			failOnError(`Failed to checkout ${branchOrCommit} in ${targetPath}`, checkoutResult);
 		}
-		const agent = agentContext();
-		if (agent) agentContext().memory[`GitHub_project_${org}_${project}_FileSystem_directory`] = path;
 
-		return path;
+		if (agent) agentContext().memory[`GitHub_project_${org}_${project}_FileSystem_directory`] = targetPath;
+
+		return targetPath;
 	}
 
 	async checkIfBranch(ref: string): Promise<boolean> {
