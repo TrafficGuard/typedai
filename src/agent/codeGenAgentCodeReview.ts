@@ -6,7 +6,7 @@ export async function reviewPythonCode(agentPlanResponse: string, functionsXml: 
 	const prompt = `${functionsXml}
 
 Your task is to review the code provided to ensure it follows the following instructions:
-- The built-in packages json, re, math and datetime are already imported in the script. Including additional imports is forbidden.
+- Assume the imports for built-in packages typing, json, re, math and datetime will be added to the start of the script. No import statements or other packages are allowed.
 - await on every call to functions defined previously in the <functions> block.
 - Keep the code as simple as possible. Do not manipulate the function return values unless absolutely necessary. Prefer returning the values returned from the functions directly.
 - Add comments with your reasoning.
