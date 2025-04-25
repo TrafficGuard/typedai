@@ -108,7 +108,7 @@ export async function runCodeGenAgent(agent: AgentContext): Promise<AgentExecuti
 						: currentPrompt + requestFeedbackCallResult;
 
 					let agentPlanResponse: string;
-					let llmPythonCode: string;
+					let pythonMainFnCode: string;
 					try {
 						agentPlanResponse = await agentLLM.generateText(systemPromptWithFunctions, initialPrompt, {
 							id: 'Codegen agent plan',
@@ -116,7 +116,6 @@ export async function runCodeGenAgent(agent: AgentContext): Promise<AgentExecuti
 							temperature: 0.5,
 							thinking: 'medium',
 						});
-						llmPythonCode = extractPythonCode(agentPlanResponse);
 					} catch (e) {
 						logger.warn(e, 'Error with Codegen agent plan');
 						// One re-try if the generate fails or the code can't be extracted
@@ -126,11 +125,10 @@ export async function runCodeGenAgent(agent: AgentContext): Promise<AgentExecuti
 							temperature: 0.5,
 							thinking: 'medium',
 						});
-						llmPythonCode = extractPythonCode(agentPlanResponse);
 					}
 
 					// Review the generated function calling code
-					llmPythonCode = await reviewPythonCode(agentPlanResponse, functionsXml);
+					pythonMainFnCode = await reviewPythonCode(agentPlanResponse, functionsXml);
 
 					agent.state = 'functions';
 					await agentStateService.save(agent);
@@ -254,30 +252,8 @@ export async function runCodeGenAgent(agent: AgentContext): Promise<AgentExecuti
 							logger.info(`Script stderr: ${JSON.stringify(output)}`);
 						},
 					});
-					logger.info(`llmPythonCode: ${llmPythonCode}`);
-					// Add the imports from the allowed packages being used in the script
-					pythonScript = ALLOWED_PYTHON_IMPORTS.filter((pkg) => llmPythonCode.includes(`${pkg}.`) || pkg === 'json') // always need json for JsProxyEncoder
-						.map((pkg) => `import ${pkg}\n`)
-						.join('\n');
-
-					pythonScript += `
-from typing import Any, List, Dict, Tuple, Optional, Union
-from pyodide.ffi import JsProxy
-
-class JsProxyEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, JsProxy):
-            return obj.to_py()
-        # Let the base class default method raise the TypeError
-        return super().default(obj)
-
-async def main():
-${llmPythonCode
-	.split('\n')
-	.map((line) => `    ${line}`)
-	.join('\n')}
-
-main()`.trim();
+					logger.info(`pythonMainFnCode: ${pythonMainFnCode}`);
+					pythonScript = mainFnCodeToFullScript(pythonMainFnCode);
 					let pythonError: Error | null = null;
 					try {
 						try {
@@ -290,9 +266,10 @@ main()`.trim();
 							// Otherwise let execution errors re-throw.
 							if (e.type === 'IndentationError' || e.type === 'SyntaxError') {
 								// Fix the compile issues in the script
-								const prompt = `${functionsXml}\n<python>\n${pythonScript}</python>\n<error>${e.message}</error>\nPlease adjust/reformat the Python script to fix the issue. Output only the updated code. Do no chat, do not output markdown ticks. Only the updated code.`;
-								pythonScript = await llms().hard.generateText(prompt, { id: 'Fix python script error' });
-								pythonScript = removePythonMarkdownWrapper(pythonScript);
+								const prompt = `${functionsXml}\n<python>\n${pythonMainFnCode}</python>\n<error>${e.message}</error>\nPlease adjust/reformat the Python code to fix the issue. Output only the updated code. Do no chat, do not output markdown ticks. Only the updated code.`;
+								pythonMainFnCode = await llms().hard.generateText(prompt, { id: 'Fix python script error' });
+								pythonMainFnCode = removePythonMarkdownWrapper(pythonMainFnCode);
+								pythonScript = mainFnCodeToFullScript(pythonMainFnCode);
 
 								// Re-try execution of fixed syntax/indentation error
 								const result = await pyodide.runPythonAsync(pythonScript, { globals });
@@ -354,7 +331,7 @@ main()`.trim();
 					const currentFunctionCallHistory = buildFunctionCallHistoryPrompt('results', 10000, currentFunctionHistorySize);
 
 					const scriptResult = pythonError
-						? `<python-script>\n${pythonScript}\n</python-script>\n<script-error>\n${pythonError.message}\n</script-error>`
+						? `<python-script>\n${pythonMainFnCode}\n</python-script>\n<script-error>\n${pythonError.message}\n</script-error>`
 						: `<script-result>${pythonScriptResult}</script-result>`;
 
 					currentPrompt = `${oldFunctionCallHistory}\n${currentFunctionCallHistory}${buildMemoryPrompt()}${toolStatePrompt}\n${userRequestXml}\n${agentPlanResponse}\n${scriptResult}\nReview the results of the script and make any observations about the output/errors, then proceed with the response.`;
@@ -391,4 +368,35 @@ function extractLineNumber(text: string): number | null {
 	}
 
 	return null;
+}
+
+/**
+ * Converts the python code produced by the agent LLM to the complete script which will be executed
+ * @param pythonMainFnCode python code
+ */
+function mainFnCodeToFullScript(pythonMainFnCode: string): string {
+	// Add the imports from the allowed packages being used in the script
+	let pythonScript = ALLOWED_PYTHON_IMPORTS.filter((pkg) => pythonMainFnCode.includes(`${pkg}.`) || pkg === 'json') // always need json for JsProxyEncoder
+		.map((pkg) => `import ${pkg}\n`)
+		.join('\n');
+
+	pythonScript += `
+from typing import Any, List, Dict, Tuple, Optional, Union
+from pyodide.ffi import JsProxy
+
+class JsProxyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, JsProxy):
+            return obj.to_py()
+        # Let the base class default method raise the TypeError
+        return super().default(obj)
+
+async def main():
+${pythonMainFnCode
+	.split('\n')
+	.map((line) => `    ${line}`)
+	.join('\n')}
+
+main()`.trim();
+	return pythonScript;
 }
