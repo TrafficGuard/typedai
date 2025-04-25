@@ -7,8 +7,8 @@ import { execCommand } from '#utils/exec';
 @funcClass(__filename)
 export class CommandLineInterface {
 	/**
-	 * Executes the command in the current working directory
-	 * @returns the stdout and stderr
+	 * @param command The command to execute in the current working directory
+	 * @returns an object with the stdout and stderr properties
 	 */
 	@func()
 	async execute(command: string): Promise<{ stdout: string; stderr: string }> {
