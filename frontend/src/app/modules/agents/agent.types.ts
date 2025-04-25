@@ -73,7 +73,6 @@ export type AgentRunningState =
     | 'hil'
     | 'hitl_threshold'
     | 'hitl_tool'
-    | 'feedback'
     | 'hitl_feedback'
     | 'completed'
     | 'shutdown'

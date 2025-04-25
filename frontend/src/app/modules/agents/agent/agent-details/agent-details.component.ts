@@ -214,7 +214,7 @@ export class AgentDetailsComponent implements OnInit {
                 return 'Error';
             case 'hil':
                 return 'Human-in-the-loop check';
-            case 'feedback':
+            case 'hitl_feedback':
                 return 'Agent requested feedback';
             case 'completed':
                 return 'Completed';
