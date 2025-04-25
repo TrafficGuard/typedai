@@ -187,7 +187,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				messages: llmMessages,
 				llmId: this.getId(),
 				agentId: agentContext()?.agentId,
-				callStack: this.callStack(agentContext()),
+				callStack: callStack(),
 			});
 
 			const requestTime = Date.now();

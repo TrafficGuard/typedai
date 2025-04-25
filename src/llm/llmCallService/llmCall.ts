@@ -1,5 +1,6 @@
 import { agentContext } from '#agent/agentContextLocalStorage';
 import type { LlmMessage } from '#llm/llm';
+import { logger } from '#o11y/logger';
 
 export interface LlmRequest {
 	/** UUID */
@@ -52,6 +53,6 @@ export function callStack(): string {
 	while (i > 0 && arr[i] === arr[i - 1]) {
 		i--;
 	}
-
+	logger.info(arr.slice(0, i + 1).join(' > '));
 	return arr.slice(0, i + 1).join(' > ');
 }

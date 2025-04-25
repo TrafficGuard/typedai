@@ -6,7 +6,7 @@ export async function reviewPythonCode(agentPlanResponse: string, functionsXml: 
 	const prompt = `${functionsXml}
 
 Your task is to review the code provided to ensure it follows the following instructions:
-- Assume the imports for built-in packages typing, json, re, math and datetime will be added to the start of the script. No import statements or other packages are allowed.
+- Only the built-in packages typing, json, re, math and datetime are allowed to be imported.
 - await on every call to functions defined previously in the <functions> block.
 - Keep the code as simple as possible. Do not manipulate the function return values unless absolutely necessary. Prefer returning the values returned from the functions directly.
 - Add comments with your reasoning.
@@ -32,7 +32,8 @@ ${agentPlanResponse}
 
 First think through your review of the code in the <python-code> tags against all the review instructions, then output the updated code wrapped in <result></result> tags. If there are no changes to make then output the existing code as is in the result tags.
 `;
-	let response = await llms().hard.generateText(prompt, { id: 'Review agent python code', temperature: 0.8 });
+	let response = await llms().hard.generateText(prompt, { id: 'Review agent python code', temperature: 0.5 });
+	console.log(response);
 	try {
 		response = extractTag(response, 'result');
 	} catch (e) {
