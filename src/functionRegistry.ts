@@ -2,6 +2,7 @@ import { AgentFeedback } from '#agent/agentFeedback';
 import { LiveFiles } from '#agent/liveFiles';
 import { BigQuery } from '#functions/cloud/google/bigquery';
 import { GoogleCloud } from '#functions/cloud/google/google-cloud';
+import { CommandLineInterface } from '#functions/commandLine';
 import { CustomFunctions } from '#functions/customFunctions';
 import { ImageGen } from '#functions/image';
 import { Jira } from '#functions/jira';
@@ -36,6 +37,7 @@ export function functionRegistry(): Array<new () => any> {
 		LiveFiles,
 		GitLab,
 		// GitHub, // Error: More than one function classes found implementing SourceControlManagement
+		CommandLineInterface,
 		GoogleCloud,
 		Jira,
 		Perplexity,

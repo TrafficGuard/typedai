@@ -1,6 +1,7 @@
 import { llms } from '#agent/agentContextLocalStorage';
 import { AgentFeedback } from '#agent/agentFeedback';
 import { LiveFiles } from '#agent/liveFiles';
+import { CommandLineInterface } from '#functions/commandLine';
 import { CustomFunctions } from '#functions/customFunctions';
 import { Jira } from '#functions/jira';
 import { FileSystemList } from '#functions/storage/fileSystemList';
@@ -22,6 +23,7 @@ import { functionRegistry } from '../functionRegistry';
 const functionAliases: Record<string, string> = {
 	f: AgentFeedback.name,
 	swe: SoftwareDeveloperAgent.name,
+	cli: CommandLineInterface.name,
 	code: CodeEditingAgent.name,
 	query: CodeFunctions.name,
 	fsr: FileSystemRead.name,
