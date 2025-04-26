@@ -117,6 +117,7 @@ This file is designed to import 3rd party library css/scss files into the projec
 
 For example, let's say you use FullCalendar 3rd party library. You use the vendors.scss file to import default styles of the FullCalendar into your project so it looks and works correctly. Then, you can add custom styles to the styles.scss file to overwrite those default styles to make FullCalendar compatible with your app's design.
 
+frontend/src/app/mock-api/common/navigation/data.ts contains the top-level menu items.
 
 # Angular code conventions and style guide
 
