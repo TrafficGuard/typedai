@@ -54,6 +54,22 @@ export class VibeService {
 		// No need for tap/BehaviorSubject update here unless caching is specifically required for creation results
 	}
 
+	/**
+	 * Fetches the list of available SCM projects (GitHub, GitLab) from the backend.
+	 */
+	getScmProjects(): Observable<GitProject[]> {
+		return this.http.get<GitProject[]>('/api/scm/projects');
+	}
+
+	/**
+	 * Fetches the list of branches for a given SCM project ID.
+	 * @param projectId The ID of the SCM project.
+	 */
+	getScmBranches(projectId: string | number): Observable<string[]> {
+		return this.http.get<string[]>(`/api/scm/branches?projectId=${projectId}`);
+	}
+
+
 	// Remove or adapt old methods (getVibe, listVibes, deleteVibe) if they are no longer relevant
 	// to the VibeListComponent's new purpose or if they target different endpoints/data.
 	// For example, if getVibe was for the chat view, it might be removed from here
