@@ -16,6 +16,7 @@ import { googleIapMiddleware, jwtAuthMiddleware, singleUserMiddleware } from '#f
 import { logger } from '#o11y/logger';
 import type { User } from '#user/user';
 import type { AppFastifyInstance } from '../applicationTypes';
+import { vibeRoutes } from '../routes/vibe/vibeRoutes'; // Adjust path if needed
 import { loadOnRequestHooks } from './hooks';
 
 const NODE_ENV = process.env.NODE_ENV ?? 'local';
@@ -196,6 +197,9 @@ function registerRequestDecorators(decorators: { [key: string]: any }) {
 }
 
 function registerRoutes(routes: RouteDefinition[]) {
+	// Add the new vibe routes registration
+	fastifyInstance.register(vibeRoutes, { prefix: '/api/vibe' });
+
 	for (const route of routes) {
 		// Ensure the route function itself handles prefixing if needed,
 		// or apply a prefix here if preferred (less common with function-based routes)

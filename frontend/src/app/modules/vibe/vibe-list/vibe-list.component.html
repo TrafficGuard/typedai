@@ -1,299 +1,72 @@
-<div
-    class="fixed bottom-0 top-0 w-full sm:w-96 lg:sticky lg:left-full lg:h-screen lg:w-16 lg:shadow"
->
-    <div
-        class="bg-card flex h-full w-full flex-col transition-transform duration-400 ease-drawer sm:w-96"
-        [ngClass]="{
-            '-translate-x-full shadow sm:-translate-x-96 lg:-translate-x-80':
-                opened,
-            'translate-x-0': !opened,
-        }"
-    >
-        <!-- Header -->
-        <div
-            class="quick-chat-header flex flex-0 cursor-pointer items-center justify-start"
-            (click)="toggle()"
-        >
-            <!-- Toggle -->
-            @if (!opened || (opened && !selectedVibe)) {
-                <div class="flex flex-auto items-center justify-center">
-                    <div class="flex w-16 flex-0 items-center justify-center">
-                        <mat-icon
-                            class="icon-size-6"
-                            [svgIcon]="
-                                'heroicons_outline:code-bracket'
-                            "
-                        ></mat-icon>
-                    </div>
-                    <div class="text-secondary text-lg font-medium">
-                        Vibe sessions
-                    </div>
-                    <button class="ml-auto mr-4" mat-icon-button>
-                        <mat-icon
-                            [svgIcon]="'heroicons_outline:x-mark'"
-                        ></mat-icon>
-                    </button>
-                </div>
-            }
+<div class="flex flex-col flex-auto w-full p-6 sm:p-8">
+	<div class="flex items-center justify-between mb-6">
+		<h1 class="text-3xl font-bold tracking-tight leading-none">Vibe Sessions</h1>
+		<button mat-flat-button color="primary" (click)="createNewVibe()">
+			<mat-icon svgIcon="heroicons_outline:plus"></mat-icon>
+			<span class="ml-2">New Vibe Session</span>
+		</button>
+	</div>
 
-            <!-- Contact info -->
-            @if (opened && selectedVibe) {
-                <div class="ml-3 flex flex-auto items-center">
-                    <div
-                        class="relative flex h-10 w-10 flex-0 items-center justify-center"
-                    >
-                        @if (vibe.contact.avatar) {
-                            <img
-                                class="h-full w-full rounded-full object-cover"
-                                [src]="vibe.contact.avatar"
-                                alt="Contact avatar"
-                            />
-                        }
-                        @if (!vibe.contact.avatar) {
-                            <div
-                                class="flex h-full w-full items-center justify-center rounded-full bg-gray-200 text-lg uppercase text-gray-600 dark:bg-gray-700 dark:text-gray-200"
-                            >
-                                {{ vibe.contact.name.charAt(0) }}
-                            </div>
-                        }
-                    </div>
-                    <div class="ml-4 truncate text-lg font-medium leading-5">
-                        {{ vibe.contact.name }}
-                    </div>
-                    <button class="ml-auto mr-4" mat-icon-button>
-                        <mat-icon
-                            [svgIcon]="'heroicons_outline:x-mark'"
-                        ></mat-icon>
-                    </button>
-                </div>
-            }
-        </div>
+	<div class="overflow-auto bg-card rounded-lg shadow">
+		<div *ngIf="sessions$ | async as sessions; else loadingOrError">
+			<div *ngIf="sessions.length > 0; else noSessions" class="mat-elevation-z0">
+				<!-- Use mat-elevation-z0 if shadow is handled by parent -->
+				<table mat-table [dataSource]="sessions" class="w-full" [trackBy]="trackBySessionId">
+					<!-- Title Column -->
+					<ng-container matColumnDef="title">
+						<th mat-header-cell *matHeaderCellDef>Title</th>
+						<td mat-cell *matCellDef="let session">{{ session.title }}</td>
+					</ng-container>
 
-        <!-- Content -->
-        <div class="flex flex-auto overflow-hidden border-t">
-            <!-- Chat list -->
-            <div
-                class="h-full w-16 flex-0 overflow-y-auto overscroll-y-contain sm:overflow-hidden sm:overscroll-auto"
-                fuseScrollbar
-                [fuseScrollbarOptions]="{ wheelPropagation: false }"
-            >
-                <div class="flex-auto">
-                    @for (vibe of vibes; track trackByFn($index, vibe)) {
-                        <div
-                            class="flex cursor-pointer items-center px-4 py-3"
-                            [ngClass]="{
-                                'dark:hover:bg-hover hover:bg-gray-100':
-                                    !selectedVibe ||
-                                    selectedVibe.id !== vibe.id,
-                                'bg-primary-50 dark:bg-hover':
-                                    selectedVibe && selectedVibe.id === vibe.id,
-                            }"
-                            (click)="selectVibe(vibe.id)"
-                        >
-                            <div
-                                class="relative flex h-8 w-8 flex-0 items-center justify-center"
-                            >
-                                @if (vibe.unreadCount > 0) {
-                                    <div
-                                        class="ring-bg-card absolute bottom-0 right-0 -ml-0.5 h-2 w-2 flex-0 rounded-full bg-primary text-on-primary ring-2 dark:bg-primary-500 dark:ring-gray-900"
-                                        [class.ring-primary-50]="
-                                            selectedVibe &&
-                                            selectedVibe.id === vibe.id
-                                        "
-                                    ></div>
-                                }
-                                @if (vibe.contact.avatar) {
-                                    <img
-                                        class="h-full w-full rounded-full object-cover"
-                                        [src]="vibe.contact.avatar"
-                                        alt="Contact avatar"
-                                    />
-                                }
-                                @if (!vibe.contact.avatar) {
-                                    <div
-                                        class="flex h-full w-full items-center justify-center rounded-full bg-gray-200 text-lg uppercase text-gray-600 dark:bg-gray-700 dark:text-gray-200"
-                                    >
-                                        {{ vibe.contact.name.charAt(0) }}
-                                    </div>
-                                }
-                            </div>
-                        </div>
-                    }
-                </div>
-            </div>
+					<!-- Status Column -->
+					<ng-container matColumnDef="status">
+						<th mat-header-cell *matHeaderCellDef>Status</th>
+						<td mat-cell *matCellDef="let session">{{ session.status | titlecase }}</td>
+						<!-- Use titlecase pipe or custom mapping -->
+					</ng-container>
 
-            <!-- Conversation -->
-            <div
-                class="flex flex-auto flex-col overflow-hidden border-l bg-gray-50 dark:bg-transparent"
-            >
-                @if (vibe) {
-                    <div
-                        class="flex flex-col-reverse overflow-y-auto overscroll-y-contain"
-                    >
-                        <div class="flex flex-auto shrink flex-col p-6">
-                            @for (
-                                message of vibe.messages;
-                                track trackByFn(i, message);
-                                let i = $index;
-                                let first = $first;
-                                let last = $last
-                            ) {
-                                <!-- Start of the day -->
-                                @if (
-                                    first ||
-                                    (vibe.messages[i - 1].createdAt
-                                        | date: 'd') !==
-                                        (message.createdAt | date: 'd')
-                                ) {
-                                    <div
-                                        class="-mx-6 my-3 flex items-center justify-center"
-                                    >
-                                        <div class="flex-auto border-b"></div>
-                                        <div
-                                            class="text-secondary mx-4 flex-0 text-sm font-medium leading-5"
-                                        >
-                                            {{
-                                                message.createdAt
-                                                    | date: 'longDate'
-                                            }}
-                                        </div>
-                                        <div class="flex-auto border-b"></div>
-                                    </div>
-                                }
-                                <div
-                                    class="flex flex-col"
-                                    [ngClass]="{
-                                        'items-end': message.isMine,
-                                        'items-start': !message.isMine,
-                                        'mt-0.5':
-                                            i > 0 &&
-                                            vibe.messages[i - 1].isMine ===
-                                                message.isMine,
-                                        'mt-3':
-                                            i > 0 &&
-                                            vibe.messages[i - 1].isMine !==
-                                                message.isMine,
-                                    }"
-                                >
-                                    <!-- Bubble -->
-                                    <div
-                                        class="relative max-w-3/4 rounded-lg px-3 py-2"
-                                        [ngClass]="{
-                                            'bg-blue-500 text-blue-50':
-                                                message.isMine,
-                                            'bg-gray-500 text-gray-50':
-                                                !message.isMine,
-                                        }"
-                                    >
-                                        <!-- Speech bubble tail -->
-                                        @if (
-                                            last ||
-                                            vibe.messages[i + 1].isMine !==
-                                                message.isMine
-                                        ) {
-                                            <div
-                                                class="absolute bottom-0 w-3"
-                                                [ngClass]="{
-                                                    '-right-1 -mr-px mb-px text-blue-500':
-                                                        message.isMine,
-                                                    '-left-1 -ml-px mb-px -scale-x-1 text-gray-500':
-                                                        !message.isMine,
-                                                }"
-                                            >
-                                                <ng-container
-                                                    *ngTemplateOutlet="
-                                                        speechBubbleExtension
-                                                    "
-                                                ></ng-container>
-                                            </div>
-                                        }
-                                        <!-- Message -->
-                                        <div
-                                            class="min-w-4 leading-5"
-                                            [innerHTML]="message.value"
-                                        ></div>
-                                    </div>
-                                    <!-- Time -->
-                                    @if (
-                                        first ||
-                                        last ||
-                                        vibe.messages[i + 1].isMine !==
-                                            message.isMine ||
-                                        vibe.messages[i + 1].createdAt !==
-                                            message.createdAt
-                                    ) {
-                                        <div
-                                            class="text-secondary my-0.5 text-sm font-medium"
-                                            [ngClass]="{
-                                                'mr-3': message.isMine,
-                                                'ml-3': !message.isMine,
-                                            }"
-                                        >
-                                            {{
-                                                message.createdAt
-                                                    | date: 'HH:mm'
-                                            }}
-                                        </div>
-                                    }
-                                </div>
-                            }
-                        </div>
-                    </div>
+					<!-- Created At Column -->
+					<ng-container matColumnDef="createdAt">
+						<th mat-header-cell *matHeaderCellDef>Created At</th>
+						<td mat-cell *matCellDef="let session">
+							<!-- Assuming createdAt is a Firestore Timestamp object or ISO string -->
+							{{ session.createdAt?.toDate ? (session.createdAt.toDate() | date: 'medium') : (session.createdAt | date: 'medium') }}
+						</td>
+					</ng-container>
 
-                    <!-- Message field -->
-                    <div
-                        class="flex items-end border-t bg-gray-50 p-4 dark:bg-transparent"
-                    >
-                        <mat-form-field
-                            class="fuse-mat-dense fuse-mat-rounded fuse-mat-bold w-full"
-                            [subscriptSizing]="'dynamic'"
-                        >
-                            <textarea
-                                matInput
-                                cdkTextareaAutosize
-                                #messageInput
-                            ></textarea>
-                        </mat-form-field>
-                        <div class="my-px ml-4 flex h-11 items-center">
-                            <button mat-icon-button>
-                                <mat-icon
-                                    [svgIcon]="
-                                        'heroicons_outline:paper-airplane'
-                                    "
-                                ></mat-icon>
-                            </button>
-                        </div>
-                    </div>
-                } @else {
-                    <div
-                        class="flex h-full w-full flex-auto flex-col items-center justify-center p-4"
-                    >
-                        <mat-icon
-                            class="icon-size-24"
-                            [svgIcon]="
-                                'heroicons_outline:code-bracket'
-                            "
-                        ></mat-icon>
-                        <div
-                            class="text-secondary mt-4 text-center text-xl font-medium tracking-tight"
-                        >
-                            Select a vibe session
-                        </div>
-                    </div>
-                }
-            </div>
-        </div>
-    </div>
+					<!-- Actions Column (Optional) -->
+					<ng-container matColumnDef="actions">
+						<th mat-header-cell *matHeaderCellDef>Actions</th>
+						<td mat-cell *matCellDef="let session">
+							<button mat-icon-button (click)="viewVibe(session.id); $event.stopPropagation()" aria-label="View Vibe Session">
+								<mat-icon svgIcon="heroicons_outline:eye"></mat-icon>
+							</button>
+							<!-- Add other actions like delete if needed -->
+						</td>
+					</ng-container>
+
+					<tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+					<tr
+						mat-row
+						*matRowDef="let row; columns: displayedColumns"
+						(click)="viewVibe(row.id)"
+						class="hover:bg-gray-100 dark:hover:bg-hover cursor-pointer"
+					></tr>
+					<!-- Make row clickable -->
+				</table>
+			</div>
+
+			<ng-template #noSessions>
+				<div class="p-8 text-center text-secondary">No Vibe sessions found. Create one to get started!</div>
+			</ng-template>
+		</div>
+
+		<ng-template #loadingOrError>
+			<!-- Optional: Add a loading indicator -->
+			<div class="p-8 text-center text-secondary">Loading sessions...</div>
+			<!-- Optional: Add error handling display -->
+		</ng-template>
+	</div>
 </div>
 
-<!-- Select vibe or start new template -->
-
-<!-- Speech bubble tail SVG -->
-<!-- prettier-ignore -->
-<ng-template #speechBubbleExtension>
-    <svg width="100%" height="100%" viewBox="0 0 66 66" xmlns="http://www.w3.org/2000/svg">
-        <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
-            <path d="M1.01522827,0.516204834 C-8.83532715,54.3062744 61.7609863,70.5215302 64.8009949,64.3061218 C68.8074951,54.8859711 30.1663208,52.9997559 37.5036011,0.516204834 L1.01522827,0.516204834 Z" fill="currentColor" fill-rule="nonzero"></path>
-        </g>
-    </svg>
-</ng-template>
+<!-- Remove the old complex HTML structure and #speechBubbleExtension template -->

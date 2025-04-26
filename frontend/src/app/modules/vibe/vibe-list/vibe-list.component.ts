@@ -1,325 +1,66 @@
-import { ScrollStrategy, ScrollStrategyOptions } from '@angular/cdk/overlay';
-import { TextFieldModule } from '@angular/cdk/text-field';
-import { DOCUMENT, DatePipe, NgClass, NgTemplateOutlet } from '@angular/common';
-import {
-    AfterViewInit,
-    Component,
-    ElementRef,
-    HostBinding,
-    HostListener,
-    Inject,
-    NgZone,
-    OnDestroy,
-    OnInit,
-    Renderer2,
-    ViewChild,
-    ViewEncapsulation,
-} from '@angular/core';
+import { AsyncPipe, DatePipe, NgIf, TitleCasePipe } from '@angular/common'; // Import NgIf, TitleCasePipe
+import { Component, OnDestroy, OnInit, ViewEncapsulation, ChangeDetectionStrategy } from '@angular/core'; // Add ChangeDetectionStrategy
 import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { FuseScrollbarDirective } from '@fuse/directives/scrollbar';
-import { Subject, takeUntil } from 'rxjs';
-import {Vibe} from "../vibe.types";
-import {VibeService} from "../vibe.service";
+import { MatTableModule } from '@angular/material/table'; // Import MatTableModule
+import { Router } from '@angular/router'; // Import Router
+import { Observable, Subject } from 'rxjs'; // Keep Subject if needed for unsubscribe
+import { VibeService } from '../vibe.service';
+import { VibeSession } from '../vibe.types'; // Import VibeSession
 
 @Component({
-    selector: 'vibe-list',
-    templateUrl: './vibe-list.component.html',
-    styleUrls: ['./vibe-list.component.scss'],
-    encapsulation: ViewEncapsulation.None,
-    exportAs: 'vibeList',
-    standalone: true,
-    imports: [
-        NgClass,
-        MatIconModule,
-        MatButtonModule,
-        FuseScrollbarDirective,
-        NgTemplateOutlet,
-        MatFormFieldModule,
-        MatInputModule,
-        TextFieldModule,
-        DatePipe,
-    ],
+	selector: 'vibe-list',
+	templateUrl: './vibe-list.component.html',
+	styleUrls: ['./vibe-list.component.scss'],
+	encapsulation: ViewEncapsulation.None,
+	changeDetection: ChangeDetectionStrategy.OnPush, // Use OnPush for performance
+	standalone: true,
+	imports: [
+		NgIf, // Add NgIf
+		AsyncPipe,
+		DatePipe,
+		TitleCasePipe, // Add TitleCasePipe
+		MatButtonModule,
+		MatIconModule,
+		MatTableModule, // Add MatTableModule
+		// Remove unused imports like NgClass, NgTemplateOutlet, FuseScrollbarDirective, etc.
+	],
 })
-export class VibeListComponent implements OnInit, AfterViewInit, OnDestroy {
-    @ViewChild('messageInput') messageInput: ElementRef;
-    vibe: Vibe;
-    vibes: Vibe[];
-    opened: boolean = false;
-    selectedVibe: Vibe;
-    private _mutationObserver: MutationObserver;
-    private _scrollStrategy: ScrollStrategy =
-        this._scrollStrategyOptions.block();
-    private _overlay: HTMLElement;
-    private _unsubscribeAll: Subject<any> = new Subject<any>();
+export class VibeListComponent implements OnInit, OnDestroy {
+	sessions$: Observable<VibeSession[]>;
+	displayedColumns: string[] = ['title', 'status', 'createdAt', 'actions']; // Define table columns
 
-    /**
-     * Constructor
-     */
-    constructor(
-        @Inject(DOCUMENT) private _document: Document,
-        private _elementRef: ElementRef,
-        private _renderer2: Renderer2,
-        private _ngZone: NgZone,
-        private vibeService: VibeService,
-        private _scrollStrategyOptions: ScrollStrategyOptions
-    ) {}
+	// Keep unsubscribe pattern if observables are subscribed manually (not needed for async pipe)
+	private _unsubscribeAll: Subject<any> = new Subject<any>();
 
-    // -----------------------------------------------------------------------------------------------------
-    // @ Decorated methods
-    // -----------------------------------------------------------------------------------------------------
+	constructor(
+		private vibeService: VibeService,
+		private router: Router, // Inject Router
+	) {}
 
-    /**
-     * Host binding for component classes
-     */
-    @HostBinding('class') get classList(): any {
-        return {
-            'quick-chat-opened': this.opened,
-        };
-    }
+	ngOnInit(): void {
+		this.sessions$ = this.vibeService.listVibeSessions();
+		// Remove old ngOnInit logic related to chat
+	}
 
-    /**
-     * Resize on 'input' and 'ngModelChange' events
-     *
-     * @private
-     */
-    @HostListener('input')
-    @HostListener('ngModelChange')
-    private _resizeMessageInput(): void {
-        // This doesn't need to trigger Angular's change detection by itself
-        this._ngZone.runOutsideAngular(() => {
-            setTimeout(() => {
-                // Set the height to 'auto' so we can correctly read the scrollHeight
-                this.messageInput.nativeElement.style.height = 'auto';
+	ngOnDestroy(): void {
+		// Clean up subscriptions if any were made manually
+		this._unsubscribeAll.next(null);
+		this._unsubscribeAll.complete();
+		// Remove old ngOnDestroy logic (mutation observer)
+	}
 
-                // Get the scrollHeight and subtract the vertical padding
-                this.messageInput.nativeElement.style.height = `${this.messageInput.nativeElement.scrollHeight}px`;
-            });
-        });
-    }
+	createNewVibe(): void {
+		this.router.navigate(['/ui/vibe/new']); // Navigate to the new vibe route
+	}
 
-    // -----------------------------------------------------------------------------------------------------
-    // @ Lifecycle hooks
-    // -----------------------------------------------------------------------------------------------------
+	viewVibe(sessionId: string): void {
+		// Optional: Navigate to a detail view if needed later
+		this.router.navigate(['/ui/vibe', sessionId]);
+	}
 
-    /**
-     * On init
-     */
-    ngOnInit(): void {
-        // Vibe
-        this.vibeService.vibe$
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe((chat: Vibe) => {
-                this.vibe = chat;
-            });
-
-        // Vibes
-        this.vibeService.vibes$
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe((chats: Vibe[]) => {
-                this.vibes = chats;
-            });
-
-        // Selected Vibe
-        this.vibeService.vibe$
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe((chat: Vibe) => {
-                this.selectedVibe = chat;
-            });
-    }
-
-    /**
-     * After view init
-     */
-    ngAfterViewInit(): void {
-        // Fix for Firefox.
-        //
-        // Because 'position: sticky' doesn't work correctly inside a 'position: fixed' parent,
-        // adding the '.cdk-global-scrollblock' to the html element breaks the navigation's position.
-        // This fixes the problem by reading the 'top' value from the html element and adding it as a
-        // 'marginTop' to the navigation itself.
-        this._mutationObserver = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                const mutationTarget = mutation.target as HTMLElement;
-                if (mutation.attributeName === 'class') {
-                    if (
-                        mutationTarget.classList.contains(
-                            'cdk-global-scrollblock'
-                        )
-                    ) {
-                        const top = parseInt(mutationTarget.style.top, 10);
-                        this._renderer2.setStyle(
-                            this._elementRef.nativeElement,
-                            'margin-top',
-                            `${Math.abs(top)}px`
-                        );
-                    } else {
-                        this._renderer2.setStyle(
-                            this._elementRef.nativeElement,
-                            'margin-top',
-                            null
-                        );
-                    }
-                }
-            });
-        });
-        this._mutationObserver.observe(this._document.documentElement, {
-            attributes: true,
-            attributeFilter: ['class'],
-        });
-    }
-
-    /**
-     * On destroy
-     */
-    ngOnDestroy(): void {
-        // Disconnect the mutation observer
-        this._mutationObserver.disconnect();
-
-        // Unsubscribe from all subscriptions
-        this._unsubscribeAll.next(null);
-        this._unsubscribeAll.complete();
-    }
-
-    // -----------------------------------------------------------------------------------------------------
-    // @ Public methods
-    // -----------------------------------------------------------------------------------------------------
-
-    /**
-     * Open the panel
-     */
-    open(): void {
-        // Return if the panel has already opened
-        if (this.opened) {
-            return;
-        }
-
-        // Open the panel
-        this._toggleOpened(true);
-    }
-
-    /**
-     * Close the panel
-     */
-    close(): void {
-        // Return if the panel has already closed
-        if (!this.opened) {
-            return;
-        }
-
-        // Close the panel
-        this._toggleOpened(false);
-    }
-
-    /**
-     * Toggle the panel
-     */
-    toggle(): void {
-        if (this.opened) {
-            this.close();
-        } else {
-            this.open();
-        }
-    }
-
-    /**
-     * Select the vibe
-     * @param id
-     */
-    selectVibe(id: string): void {
-        this._toggleOpened(true);
-        this.vibeService.getVibe(id).subscribe();
-    }
-
-    /**
-     * Track by function for ngFor loops
-     *
-     * @param index
-     * @param item
-     */
-    trackByFn(index: number, item: any): any {
-        return item.id || index;
-    }
-
-    // -----------------------------------------------------------------------------------------------------
-    // @ Private methods
-    // -----------------------------------------------------------------------------------------------------
-
-    /**
-     * Show the backdrop
-     *
-     * @private
-     */
-    private _showOverlay(): void {
-        // Try hiding the overlay in case there is one already opened
-        this._hideOverlay();
-
-        // Create the backdrop element
-        this._overlay = this._renderer2.createElement('div');
-
-        // Return if overlay couldn't be create for some reason
-        if (!this._overlay) {
-            return;
-        }
-
-        // Add a class to the backdrop element
-        this._overlay.classList.add('quick-chat-overlay');
-
-        // Append the backdrop to the parent of the panel
-        this._renderer2.appendChild(
-            this._elementRef.nativeElement.parentElement,
-            this._overlay
-        );
-
-        // Enable block scroll strategy
-        this._scrollStrategy.enable();
-
-        // Add an event listener to the overlay
-        this._overlay.addEventListener('click', () => {
-            this.close();
-        });
-    }
-
-    /**
-     * Hide the backdrop
-     *
-     * @private
-     */
-    private _hideOverlay(): void {
-        if (!this._overlay) {
-            return;
-        }
-
-        // If the backdrop still exists...
-        if (this._overlay) {
-            // Remove the backdrop
-            this._overlay.parentNode.removeChild(this._overlay);
-            this._overlay = null;
-        }
-
-        // Disable block scroll strategy
-        this._scrollStrategy.disable();
-    }
-
-    /**
-     * Open/close the panel
-     *
-     * @param open
-     * @private
-     */
-    private _toggleOpened(open: boolean): void {
-        // Set the opened
-        this.opened = open;
-
-        // If the panel opens, show the overlay
-        if (open) {
-            this._showOverlay();
-        }
-        // Otherwise, hide the overlay
-        else {
-            this._hideOverlay();
-        }
-    }
+	// Optional: Add trackByFn if needed for performance with *ngFor on the table rows
+	trackBySessionId(index: number, item: VibeSession): string {
+		return item.id;
+	}
 }
