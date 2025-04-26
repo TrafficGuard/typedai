@@ -4,7 +4,7 @@ import { InMemoryCodeReviewService } from '#modules/memory/inMemoryCodeReviewSer
 import { InMemoryFunctionCacheService } from '#modules/memory/inMemoryFunctionCacheService';
 import { InMemoryLlmCallService } from '#modules/memory/inMemoryLlmCallService';
 import { InMemoryUserService } from '#modules/memory/inMemoryUserService';
-import { InMemoryVibeService } from '#modules/memory/inMemoryVibeService'; // Import InMemoryVibeService
+import { InMemoryVibeService } from '#modules/memory/inMemoryVibeService';
 import type { ApplicationContext } from '../../applicationTypes';
 
 export function inMemoryApplicationContext(): ApplicationContext {

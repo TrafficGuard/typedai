@@ -4,7 +4,7 @@ import { FirestoreCodeReviewService } from '#firestore/firestoreCodeReviewServic
 import { FirestoreCacheService } from '#firestore/firestoreFunctionCacheService';
 import { FirestoreLlmCallService } from '#firestore/firestoreLlmCallService';
 import { FirestoreUserService } from '#firestore/firestoreUserService';
-import { FirestoreVibeService } from '#modules/firestore/firestoreVibeService'; // Import FirestoreVibeService
+import { FirestoreVibeService } from '#modules/firestore/firestoreVibeService';
 import type { ApplicationContext } from '../../applicationTypes';
 
 export function firestoreApplicationContext(): ApplicationContext {
