@@ -27,8 +27,8 @@ const fs = {
 };
 
 // CDATA utils needed for readFileAsXML and formatFileContentsAsXml
-import { CDATA_END, CDATA_START, needsCDATA } from '#utils/xml-utils';
-import { TYPEDAI_FS } from '../../appVars'; // Keep TYPEDAI_FS import
+// import { CDATA_END, CDATA_START, needsCDATA } from '#utils/xml-utils'; // Removed duplicate
+// import { TYPEDAI_FS } from '../../appVars'; // Removed duplicate
 
 /**
  * Interface to the file system based for an Agent which maintains the state of the working directory.
@@ -470,7 +470,8 @@ export class FileSystemService {
 			// Run command *in* the working directory
 			const result = execCmdSync('git rev-parse --show-toplevel', currentWd);
 
-			if (result.error || result.exitCode !== 0) {
+			// Check exitCode first, then error object
+			if (result.exitCode !== 0 || result.error) {
 				// Common case: not a git repo (exit code 128)
 				if (result.stderr?.includes('not a git repository')) {
 					this.log.debug(`Directory ${currentWd} is not within a Git repository.`);

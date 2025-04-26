@@ -102,7 +102,7 @@ export async function detectProjectInfo(requirements?: string): Promise<ProjectI
 	}
 
 	logger.info('Detecting project info...');
-	const tree = await fileSystem.getFileSystemTree();
+	const tree = await fileSystem.listService.getFileSystemTree();
 
 	const prompt = `<task_requirements>
 ${requirements ? `<context>\n${requirements}\n</context>\n` : ''}

@@ -89,7 +89,7 @@ describe('FileSystem', () => {
 			});
 
 			it('should list all files under the filesystem baseDir honouring .gitignore files in current and sub-directories', async () => {
-				const files: string[] = await fileSystem.listFilesRecursively();
+				const files: string[] = await fileSystem.listService.listFilesRecursively();
 
 				expect(files).to.contain('toplevel');
 				expect(files).to.contain('dir1/file1a');
@@ -100,7 +100,7 @@ describe('FileSystem', () => {
 			});
 			it('should list files and folders in working directory honouring .gitignore in current and parent directory', async () => {
 				fileSystem.setWorkingDirectory('dir1/dir2');
-				const files: string[] = await fileSystem.listFilesRecursively();
+				const files: string[] = await fileSystem.listService.listFilesRecursively();
 				// file2a is ignored by the .gitignore in the current directory
 				// file3b is ignored by the .gitignore in the parent directory
 				expect(files).to.deep.equal(['.gitignore', 'dir3/file3a']);
@@ -111,22 +111,22 @@ describe('FileSystem', () => {
 	describe('listFilesInDirectory', () => {
 		const fileSystem = new FileSystemService();
 		it('should list files and folders only in the current directory', async () => {
-			const files: string[] = await fileSystem.listFilesInDirectory('./');
+			const files: string[] = await fileSystem.listService.listFilesInDirectory('./');
 			expect(files).to.include('package.json');
 			expect(files).not.to.include('src/index.ts');
 		});
 		it('should list files and folders in the src directory', async () => {
-			let files: string[] = await fileSystem.listFilesInDirectory('./src');
+			let files: string[] = await fileSystem.listService.listFilesInDirectory('./src');
 			expect(files).to.include('index.ts');
 			expect(files).not.to.include('package.json');
 
-			files = await fileSystem.listFilesInDirectory('src');
+			files = await fileSystem.listService.listFilesInDirectory('src');
 			expect(files).to.include('index.ts');
 			expect(files).not.to.include('package.json');
 		});
 		it('should list files in the src directory when the working directory is src', async () => {
 			fileSystem.setWorkingDirectory('./src');
-			const files: string[] = await fileSystem.listFilesInDirectory('./');
+			const files: string[] = await fileSystem.listService.listFilesInDirectory('./');
 			expect(files).to.include('index.ts');
 			expect(files).not.to.include('package.json');
 		});
@@ -190,7 +190,7 @@ describe('FileSystem', () => {
 	describe('getFileSystemTree', () => {
 		it('should respect nested .gitignore files', async () => {
 			const fileSystem = new FileSystemService();
-			const tree = await fileSystem.getFileSystemTree();
+			const tree = await fileSystem.listService.getFileSystemTree();
 
 			// Check that root-level .gitignore is respected
 			expect(tree).not.to.include('node_modules');

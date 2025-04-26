@@ -40,7 +40,7 @@ export class FileSystemListService {
 	async searchFilesMatchingContents(contentsRegex: string): Promise<string> {
 		// --count Only show count of line matches for each file
 		// Ensure rg runs in the correct working directory
-		const results = await spawnCommand(`rg --count ${arg(contentsRegex)}`, { cwd: this.fsService.getWorkingDirectory() });
+		const results = await spawnCommand(`rg --count ${arg(contentsRegex)}`, this.fsService.getWorkingDirectory());
 		if (results.stderr.includes('command not found: rg')) {
 			throw new Error('Command not found: rg. Install ripgrep');
 		}
@@ -65,7 +65,7 @@ export class FileSystemListService {
 	 */
 	async searchExtractsMatchingContents(contentsRegex: string, linesBeforeAndAfter = 0): Promise<string> {
 		// Ensure rg runs in the correct working directory
-		const results = await spawnCommand(`rg ${arg(contentsRegex)} -C ${linesBeforeAndAfter}`, { cwd: this.fsService.getWorkingDirectory() });
+		const results = await spawnCommand(`rg ${arg(contentsRegex)} -C ${linesBeforeAndAfter}`, this.fsService.getWorkingDirectory());
 		if (results.stderr.includes('command not found: rg')) {
 			throw new Error('Command not found: rg. Install ripgrep');
 		}
@@ -233,7 +233,8 @@ export class FileSystemListService {
 	}
 
 	/** Loads gitignore rules walking up from startPath */
-	private async loadGitignoreRules(startPath: string, gitRoot: string | null): Promise<Ignore> {
+	// Make public so buildFolderStructure can call it
+	public async loadGitignoreRules(startPath: string, gitRoot: string | null): Promise<Ignore> {
 		const ig = ignore();
 		let currentPath = startPath;
 

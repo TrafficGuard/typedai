@@ -285,7 +285,7 @@ export class SWEBenchAgent {
 	}
 
 	private async getReadmeFiles(): Promise<string[]> {
-		const files = await getFileSystem().listFilesRecursively();
+		const files = await getFileSystem().listService.listFilesRecursively();
 		return files.filter((file) => file.toLowerCase().startsWith('readme'));
 	}
 

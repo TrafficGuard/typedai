@@ -133,7 +133,7 @@ async function processFile(filePath: string, easyLlm: any): Promise<void> {
  */
 async function processFilesInFolder(folderPath: string, fileMatchesIndexDocs: (filePath: string) => boolean): Promise<void> {
 	const fileSystem = getFileSystem();
-	const files = await fileSystem.listFilesInDirectory(folderPath);
+	const files = await fileSystem.listService.listFilesInDirectory(folderPath);
 
 	// Use the full relative path for matching
 	const filteredFiles = files.filter((file) => {
@@ -190,7 +190,7 @@ async function processFolderRecursively(
 	await withActiveSpan('processFolderRecursively', async (span: Span) => {
 		try {
 			// Get subfolder names (already updated to return names only)
-			const subFolders = await getFileSystem().listFolders(folderPath);
+			const subFolders = await getFileSystem().listService.listFolders(folderPath);
 
 			// Process subfolders
 			for (const subFolder of subFolders) {
@@ -223,7 +223,7 @@ async function processFolderRecursively(
 
 async function checkIfFolderHasProcessedFiles(folderPath: string, fileMatchesIndexDocs: (filePath: string) => boolean): Promise<boolean> {
 	const fileSystem = getFileSystem();
-	const files = await fileSystem.listFilesInDirectory(folderPath);
+	const files = await fileSystem.listService.listFilesInDirectory(folderPath);
 	const processedFiles = files.filter((file) => {
 		const fullRelativePath = path.relative(fileSystem.getWorkingDirectory(), path.join(folderPath, file));
 		return fileMatchesIndexDocs(fullRelativePath);
@@ -336,7 +336,7 @@ function sortFoldersByDepth(folders: string[]): string[] {
 
 async function getFileSummaries(folderPath: string): Promise<Summary[]> {
 	const fileSystem = getFileSystem();
-	const fileNames = await fileSystem.listFilesInDirectory(folderPath);
+	const fileNames = await fileSystem.listService.listFilesInDirectory(folderPath);
 	const summaries: Summary[] = [];
 
 	for (const fileName of fileNames) {
@@ -355,7 +355,7 @@ async function getFileSummaries(folderPath: string): Promise<Summary[]> {
 
 async function getSubFolderSummaries(folder: string): Promise<Summary[]> {
 	const fileSystem = getFileSystem();
-	const subFolders = await fileSystem.listFolders(folder);
+	const subFolders = await fileSystem.listService.listFolders(folder);
 	const summaries: Summary[] = [];
 
 	for (const subFolder of subFolders) {
@@ -463,7 +463,7 @@ export async function generateTopLevelSummary(): Promise<string> {
 
 async function getAllFolderSummaries(rootDir: string): Promise<Summary[]> {
 	const fileSystem = getFileSystem();
-	const folders = await fileSystem.getAllFoldersRecursively();
+	const folders = await fileSystem.listService.getAllFoldersRecursively();
 	const summaries: Summary[] = [];
 
 	for (const folder of folders) {
@@ -584,7 +584,7 @@ export async function loadBuildDocsSummaries(createIfNotExits = false): Promise<
 			await buildIndexDocs();
 		}
 
-		const files = await fss.listFilesRecursively(docsDir, false);
+		const files = await fss.listService.listFilesRecursively(docsDir, false);
 		logger.info(`Found ${files.length} files in ${docsDir}`);
 
 		if (files.length === 0) {

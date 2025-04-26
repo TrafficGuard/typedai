@@ -429,7 +429,7 @@ export class CodeEditingAgent {
 
 	@cacheRetry()
 	async extractFilenames(summary: string): Promise<string[]> {
-		const filenames = await getFileSystem().getFileSystemTree();
+		const filenames = await getFileSystem().listService.getFileSystemTree();
 		const prompt = buildPrompt({
 			information: `<project_files>\n${filenames}\n</project_files>`,
 			requirements: summary,

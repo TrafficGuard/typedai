@@ -68,7 +68,7 @@ export async function generateRepositoryMaps(projectInfos: ProjectInfo[]): Promi
 	}
 
 	const fss = getFileSystem();
-	const fileSystemTree = await fss.getFileSystemTree();
+	const fileSystemTree = await fss.listService.getFileSystemTree();
 
 	const folderStructure = await buildFolderStructure(fss.getWorkingDirectory(), fss);
 
@@ -88,10 +88,11 @@ export async function generateRepositoryMaps(projectInfos: ProjectInfo[]): Promi
 
 async function generateFolderTreeWithSummaries(summaries: Map<string, Summary>): Promise<string> {
 	const fileSystem = getFileSystem();
-	const treeStructure = await fileSystem.getFileSystemTreeStructure();
+	const treeStructure = await fileSystem.listService.getFileSystemTreeStructure();
 	let documentation = '';
 
-	for (const [folderPath, files] of Object.entries(treeStructure)) {
+	// Add explicit type annotation here
+	for (const [folderPath, files]: [string, string[]] of Object.entries(treeStructure)) {
 		const folderSummary = summaries.get(folderPath);
 		documentation += `${folderPath}/ (${files.length} files)  ${folderSummary ? `  ${folderSummary.short}` : ''}\n`;
 		documentation += '\n';
@@ -106,14 +107,16 @@ async function generateFolderTreeWithSummaries(summaries: Map<string, Summary>):
  */
 async function generateFileSystemTreeWithSummaries(summaries: Map<string, Summary>, includeFileSummaries: boolean): Promise<string> {
 	const fileSystem = getFileSystem();
-	const treeStructure = await fileSystem.getFileSystemTreeStructure();
+	const treeStructure = await fileSystem.listService.getFileSystemTreeStructure();
 	let documentation = '';
 
-	for (const [folderPath, files] of Object.entries(treeStructure)) {
+	// Add explicit type annotation here
+	for (const [folderPath, files]: [string, string[]] of Object.entries(treeStructure)) {
 		const folderSummary = summaries.get(folderPath);
 
 		documentation += `${folderPath}/  ${folderSummary ? `  ${folderSummary.short}` : ''}\n`;
 
+		// files is now correctly typed as string[]
 		for (const file of files) {
 			const filePath = `${folderPath}/${file}`;
 			const fileSummary = summaries.get(filePath);
@@ -151,9 +154,9 @@ export async function buildFolderStructure(dirPath: string, fileSystemService: F
 		return currentFolder; // Return current (likely empty) folder on error
 	}
 
-	// Load gitignore rules for the current directory
+	// Load gitignore rules for the current directory using the list service
 	const gitRoot = fileSystemService.getVcsRoot();
-	const ig = await fileSystemService.loadGitignoreRules(absoluteDirPath, gitRoot);
+	const ig = await fileSystemService.listService.loadGitignoreRules(absoluteDirPath, gitRoot);
 
 	const fileProcessingPromises: Promise<{ name: string; tokens: number } | null>[] = [];
 	const subDirProcessingPromises: Promise<Folder>[] = [];
