@@ -156,7 +156,7 @@ export class VibeComponent implements OnInit {
         }
         return of([]); // Return empty array if no session ID
       })
-    ).subscribe(files => {
+    ).subscribe((files: string[]) => { // Explicitly type files as string[]
       this.allFiles = files;
       // Initialize the filtered files observable based on the input control's value changes
       this.filteredFiles$ = this.addFileControl.valueChanges.pipe(
