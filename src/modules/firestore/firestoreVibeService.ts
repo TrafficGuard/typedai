@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { Firestore } from '@google-cloud/firestore';
+import { FieldValue, type Firestore } from '@google-cloud/firestore'; // Added FieldValue
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import { currentUser } from '#user/userService/userContext';
@@ -11,20 +11,23 @@ export interface VibeSession {
 	userId: string; // To associate with a user
 	title: string;
 	instructions: string;
-	repositoryProvider: 'local' | 'github' | 'gitlab';
-	repositoryIdentifier: string; // e.g., local path, 'owner/repo', 'group/project'
+	repositorySource: 'local' | 'github' | 'gitlab'; // Renamed from repositoryProvider
+	repositoryId: string; // Renamed from repositoryIdentifier e.g., local path, 'owner/repo', 'group/project'
+	repositoryName?: string; // Optional: e.g., 'my-cool-project'
 	branch: string;
 	newBranchName?: string; // Optional
 	useSharedRepos: boolean;
-	status: 'configuring' | 'designing' | 'coding' | 'reviewing' | 'completed' | 'error';
-	fileSelection?: { path: string; readOnly: boolean }[]; // Store selected files
+	status: 'initializing' | 'design' | 'coding' | 'review' | 'completed' | 'error'; // Updated status values
+	fileSelection?: { filePath: string; readOnly?: boolean }[]; // Updated fileSelection structure
 	designAnswer?: string; // Store the generated design
-	createdAt: number; // Timestamp (milliseconds since epoch)
-	updatedAt: number; // Timestamp (milliseconds since epoch)
+	createdAt: FieldValue; // Changed type to FieldValue
+	updatedAt: FieldValue; // Changed type to FieldValue
+	error?: string; // Optional error message
 }
 
 // Define a type for the data needed to create a new session
-export type CreateVibeSessionData = Omit<VibeSession, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'status'>;
+// Note: Omit now includes 'error' as it's not provided at creation
+export type CreateVibeSessionData = Omit<VibeSession, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'status' | 'error'>;
 
 // Define a type for the data allowed in updates
 export type UpdateVibeSessionData = Partial<Omit<VibeSession, 'id' | 'userId' | 'createdAt'>>;
@@ -50,21 +53,35 @@ export class FirestoreVibeService {
 	 */
 	@span()
 	async createVibeSession(userId: string, sessionData: CreateVibeSessionData): Promise<VibeSession> {
-		const now = Date.now();
-		const newSession: VibeSession = {
+		// const now = Date.now(); // Remove this line
+		const newSessionData = {
+			// Use a temporary object to satisfy type checking before adding timestamps
 			...sessionData,
 			id: randomUUID(),
 			userId: userId,
-			status: 'configuring', // Initial status
-			createdAt: now,
-			updatedAt: now,
+			status: 'initializing' as const, // Initial status updated
+			// Timestamps will be added below
+		};
+
+		const newSessionWithTimestamps = {
+			...newSessionData,
+			createdAt: FieldValue.serverTimestamp(), // Use server timestamp
+			updatedAt: FieldValue.serverTimestamp(), // Use server timestamp
 		};
 
 		try {
-			const docRef = this.db.collection(VIBE_SESSIONS_COLLECTION).doc(newSession.id);
-			await docRef.set(newSession);
-			logger.info({ sessionId: newSession.id, userId }, 'VibeSession created successfully');
-			return newSession;
+			const docRef = this.db.collection(VIBE_SESSIONS_COLLECTION).doc(newSessionData.id);
+			// Firestore types require the data passed to set() to match the structure including timestamps
+			await docRef.set(newSessionWithTimestamps);
+			logger.info({ sessionId: newSessionData.id, userId }, 'VibeSession created successfully');
+
+			// Note: Firestore returns the write result, not the document with resolved timestamps immediately.
+			// To return the full VibeSession with resolved timestamps, a subsequent get() would be needed.
+			// However, the current implementation returns the object *before* timestamps are resolved by the server.
+			// Let's return the object *as sent* to Firestore, acknowledging the timestamps are placeholders.
+			// The caller should be aware of this or we'd need to refetch.
+			// For simplicity matching existing pattern, return the object with FieldValue placeholders.
+			return newSessionWithTimestamps as VibeSession; // Cast needed as FieldValue != number/Date
 		} catch (error) {
 			logger.error(error, `Error creating VibeSession for user ${userId}`);
 			throw error;
@@ -157,7 +174,7 @@ export class FirestoreVibeService {
 
 		const updateData = {
 			...updates,
-			updatedAt: Date.now(), // Always update the timestamp
+			updatedAt: FieldValue.serverTimestamp(), // Use server timestamp
 		};
 
 		try {
