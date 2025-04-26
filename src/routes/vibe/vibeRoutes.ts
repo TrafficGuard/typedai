@@ -1,6 +1,7 @@
 import { type Static, Type } from '@sinclair/typebox';
+import type { FastifyRequest as FastifyRequestBase } from 'fastify'; // Import base FastifyRequest
 import type { AppFastifyInstance } from '#applicationTypes';
-import type { FastifyRequest } from '#fastify/fastifyApp';
+import type { FastifyRequest } from '#fastify/fastifyApp'; // Keep custom FastifyRequest for non-generic use
 import type { GitProject } from '#functions/scm/gitProject';
 import type { CreateVibeSessionData, VibeSession } from '#vibe/vibeTypes';
 
@@ -215,8 +216,11 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 				},
 			},
 		},
-		async (request: FastifyRequest<{ Querystring: { providerType: string } }>, reply) => {
-			if (!request.currentUser?.id) {
+		// Use FastifyRequestBase for generic type
+		async (request: FastifyRequestBase<{ Querystring: { providerType: string } }>, reply) => {
+			// Cast to custom FastifyRequest to access currentUser if needed, though it's added dynamically
+			const req = request as FastifyRequest;
+			if (!req.currentUser?.id) {
 				return reply.code(401).send({ error: 'Unauthorized' });
 			}
 
@@ -267,8 +271,11 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 				},
 			},
 		},
-		async (request: FastifyRequest<{ Querystring: { providerType: string; projectId: string | number } }>, reply) => {
-			if (!request.currentUser?.id) {
+		// Use FastifyRequestBase for generic type
+		async (request: FastifyRequestBase<{ Querystring: { providerType: string; projectId: string | number } }>, reply) => {
+			// Cast to custom FastifyRequest to access currentUser if needed
+			const req = request as FastifyRequest;
+			if (!req.currentUser?.id) {
 				return reply.code(401).send({ error: 'Unauthorized' });
 			}
 

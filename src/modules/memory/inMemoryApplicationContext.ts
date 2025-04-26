@@ -5,6 +5,7 @@ import { InMemoryFunctionCacheService } from '#modules/memory/inMemoryFunctionCa
 import { InMemoryLlmCallService } from '#modules/memory/inMemoryLlmCallService';
 import { InMemoryUserService } from '#modules/memory/inMemoryUserService';
 import { InMemoryVibeService } from '#modules/memory/inMemoryVibeService';
+import { ScmService } from '#functions/scm/scmService'; // Import ScmService
 import type { ApplicationContext } from '../../applicationTypes';
 
 export function inMemoryApplicationContext(): ApplicationContext {
@@ -15,6 +16,7 @@ export function inMemoryApplicationContext(): ApplicationContext {
 		llmCallService: new InMemoryLlmCallService(),
 		codeReviewService: new InMemoryCodeReviewService(),
 		functionCacheService: new InMemoryFunctionCacheService(),
-		vibeService: new InMemoryVibeService(), // Add vibeService instance
+		vibeService: new InMemoryVibeService(),
+		scmService: new ScmService(), // Add scmService instance
 	};
 }
