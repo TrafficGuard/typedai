@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
@@ -18,4 +18,16 @@ import { SelectedFile } from '../vibe.types';
 })
 export class VibeFileListComponent {
   @Input() files: SelectedFile[] = [];
+  @Output() fileDeleted = new EventEmitter<SelectedFile>();
+
+  /**
+   * Emits an event when the delete button is clicked for a file.
+   * @param file The file to be deleted.
+   */
+  deleteFile(file: SelectedFile): void {
+    // Prevent emitting delete for read-only files, although button should be disabled
+    if (!file.readOnly) {
+      this.fileDeleted.emit(file);
+    }
+  }
 }

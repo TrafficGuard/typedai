@@ -70,7 +70,11 @@
                         <p class="text-red-500 whitespace-pre-wrap">{{ session.error }}</p>
                     </div>
                     <!-- Use the new vibe-file-list component -->
-                    <vibe-file-list [files]="session.fileSelection" class="sm:col-span-2"></vibe-file-list>
+                    <vibe-file-list
+                        [files]="session.fileSelection"
+                        (fileDeleted)="handleFileDeleted($event)"
+                        class="sm:col-span-2">
+                    </vibe-file-list>
 
                     <!-- Design Proposal Section -->
                     <ng-container *ngIf="session.designAnswer">
@@ -98,7 +102,7 @@
                                     color="primary"
                                     [disabled]="designForm.invalid"
                                     (click)="acceptDesignAndFiles()">
-                                    Accept Design &amp; Files
+                                    Accept Design & Files
                                 </button>
                                 <!-- Add other actions like 'Request Changes' later if needed -->
                             </mat-card-actions>

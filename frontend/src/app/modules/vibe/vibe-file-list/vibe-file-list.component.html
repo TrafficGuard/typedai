@@ -2,10 +2,18 @@
     <div class="font-semibold mb-2">Selected Files:</div>
     <!-- Use mat-list for file display -->
     <mat-list dense>
-        <mat-list-item *ngFor="let file of files" class="h-auto! py-1">
+        <mat-list-item *ngFor="let file of files" class="h-auto! py-1 group">
             <mat-icon matListItemIcon *ngIf="file.readOnly" class="mr-2 text-gray-500" matTooltip="Read Only">lock</mat-icon>
-            <span class="text-secondary break-all">{{ file.filePath }}</span>
+            <span class="text-secondary break-all flex-grow">{{ file.filePath }}</span>
             <!-- Add file.reason display here if needed in the future -->
+            <button
+                mat-icon-button
+                class="ml-auto opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+                [disabled]="file.readOnly"
+                matTooltip="Delete File"
+                (click)="deleteFile(file)">
+                <mat-icon svgIcon="heroicons_outline:trash" class="text-red-500"></mat-icon>
+            </button>
         </mat-list-item>
     </mat-list>
 </div>

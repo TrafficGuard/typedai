@@ -11,6 +11,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatListModule } from '@angular/material/list';
+import { MatTooltipModule } from '@angular/material/tooltip'; // Import MatTooltipModule
 import { VibeService } from './vibe.service';
 import { VibeSession, SelectedFile } from './vibe.types';
 // Removed VibeListComponent import
@@ -31,10 +32,11 @@ import { VibeFileListComponent } from './vibe-file-list/vibe-file-list.component
     MatProgressBarModule,
     MatInputModule,
     MatButtonModule,
-    MatListModule, // Add MatListModule here
+    MatListModule,
+    MatTooltipModule, // Add MatTooltipModule
     RouterOutlet,
     // Removed VibeListComponent
-    VibeFileListComponent, // Add the new component here
+    VibeFileListComponent,
   ],
 })
 export class VibeComponent implements OnInit {
@@ -74,6 +76,34 @@ export class VibeComponent implements OnInit {
   acceptDesignAndFiles(): void {
     console.log('Accept button clicked');
     // Future implementation: Call vibeService to update session status/trigger next step
+  }
+
+  /**
+   * Handles the fileDeleted event from the VibeFileListComponent.
+   * @param file The file that was requested to be deleted.
+   */
+  handleFileDeleted(file: SelectedFile): void {
+    console.log('Delete requested for file:', file.filePath);
+    // TODO: Implement actual file deletion logic
+    // This might involve:
+    // 1. Calling vibeService.updateSession(sessionId, { filesToRemove: [file.filePath] })
+    // 2. Updating the local session state or relying on the observable to refresh
+    // For now, we just log it. The UI won't update automatically without further changes.
+
+    // Example of how you *might* update the observable if it were a BehaviorSubject
+    // or if you refetch, but this is just illustrative:
+    /*
+    this.session$ = this.session$.pipe(
+        map(session => {
+            if (session?.fileSelection) {
+                session.fileSelection = session.fileSelection.filter(f => f.filePath !== file.filePath);
+            }
+            return session;
+        })
+    );
+    */
+     // Or trigger a refetch if the service supports it easily
+     // this.vibeService.getVibeSession(this.currentSessionId).subscribe(...) // simplified
   }
 
   ngOnInit() {
