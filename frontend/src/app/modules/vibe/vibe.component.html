@@ -94,9 +94,9 @@
                                </mat-autocomplete>
                            </mat-form-field>
                            <button
-                               mat-flat-button
+                               mat-stroked-button
                                color="primary"
-                               [disabled]="!addFileControl.value || !allFiles.includes(addFileControl.value)"
+                               [disabled]="!addFileControl.value"
                                (click)="handleAddFile()">
                                Add
                            </button>
