@@ -40,10 +40,12 @@ import { VibeFileListComponent } from './vibe-file-list/vibe-file-list.component
 export class VibeComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private vibeService = inject(VibeService);
+  private fb = inject(FormBuilder); // Inject FormBuilder
 
   session$: Observable<VibeSession>;
+  public designForm: FormGroup; // Declare designForm property
 
-  // constructor(private fb: FormBuilder) {}
+  // constructor() {} // Removed explicit constructor if not needed for other DI
 
   /**
    * Sorts files: writable files first, then alphabetically by path.
@@ -66,8 +68,20 @@ export class VibeComponent implements OnInit {
     });
   }
 
+  /**
+   * Handles the acceptance of the design and selected files.
+   */
+  acceptDesignAndFiles(): void {
+    console.log('Accept button clicked');
+    // Future implementation: Call vibeService to update session status/trigger next step
+  }
 
   ngOnInit() {
+    // Initialize the design form
+    this.designForm = this.fb.group({
+      variations: [1, Validators.required] // Default to 1 variation, make it required
+    });
+
     this.session$ = this.route.paramMap.pipe(
       switchMap((params) => {
         const sessionId = params.get('id');
@@ -89,6 +103,6 @@ export class VibeComponent implements OnInit {
       })
     );
 
-    // this.codeForm = this.fb.group({ ... });
+    // Removed: this.codeForm = this.fb.group({ ... });
   }
 }
