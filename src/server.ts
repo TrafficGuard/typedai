@@ -11,7 +11,6 @@ import { llmCallRoutes } from './routes/llms/llm-call-routes';
 import { llmRoutes } from './routes/llms/llm-routes';
 import { profileRoute } from './routes/profile/profile-route';
 import { codeReviewRoutes } from './routes/scm/codeReviewRoutes';
-// Import the new SCM routes
 import { vibeScmRoutes } from './routes/scm/vibeScmRoutes';
 import { gitlabRoutesV1 } from './routes/webhooks/gitlab/gitlabRoutes-v1';
 import { jiraRoutes } from './routes/webhooks/jira/jira-routes';
