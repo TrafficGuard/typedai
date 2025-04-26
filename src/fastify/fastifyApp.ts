@@ -17,7 +17,6 @@ import { logger } from '#o11y/logger';
 import type { User } from '#user/user';
 import type { AppFastifyInstance } from '../applicationTypes';
 import { loadOnRequestHooks } from './hooks';
-import { vibeRoutes } from '../routes/vibe/vibeRoutes'; // Adjust path as needed
 
 const NODE_ENV = process.env.NODE_ENV ?? 'local';
 
@@ -75,10 +74,9 @@ export async function initFastify(config: FastifyConfig): Promise<AppFastifyInst
 	loadHooks();
 	if (config.instanceDecorators) registerInstanceDecorators(config.instanceDecorators);
 	if (config.requestDecorators) registerRequestDecorators(config.requestDecorators);
- 
-	// --> Add vibeRoutes here <--
-registerRoutes([...config.routes, vibeRoutes]); // Add vibeRoutes to the array
- 
+
+	registerRoutes([...config.routes]); // Add application routes to the config in server.ts
+
 	// All backend API routes start with /api/ so any unmatched at this point is a 404
 	fastifyInstance.get('/api/*', async (request, reply) => {
 		return reply.code(404).send({ error: 'Not Found' });

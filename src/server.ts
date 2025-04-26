@@ -25,6 +25,7 @@ export async function initServer(): Promise<void> {
 	const applicationContext = await initApplicationContext();
 
 	try {
+		// [AI] Registers all the fastify routes from the /routes dir
 		await initFastify({
 			routes: [
 				authRoutes,
