@@ -5,7 +5,7 @@ import ignore, { type Ignore } from 'ignore';
 import type { FileSystemService } from '#functions/storage/fileSystemService'; // Import FileSystemService type
 import { logger } from '#o11y/logger';
 import { spawnCommand } from '#utils/exec';
-import { needsCDATA, CDATA_START, CDATA_END } from '#utils/xml-utils'; // Import XML utils
+import { CDATA_END, CDATA_START, needsCDATA } from '#utils/xml-utils'; // Import XML utils
 
 const fs = {
 	readFile: promisify(readFile),
@@ -119,9 +119,7 @@ export class FileSystemListService {
 			// Use fs.access for existence check
 			await fs.access(gitIgnorePath);
 			let lines = await fs.readFile(gitIgnorePath, 'utf8').then((data) => data.split('\n'));
-			lines = lines
-				.map((line) => line.trim())
-				.filter((line) => line.length && !line.startsWith('#'));
+			lines = lines.map((line) => line.trim()).filter((line) => line.length && !line.startsWith('#'));
 			// Add rules relative to the directory containing .gitignore
 			ig.add(lines);
 			ig.add('.git'); // Always ignore .git
@@ -472,7 +470,7 @@ export class FileSystemListService {
 			sortedDirs.forEach((subDirName) => {
 				const subDirPath = path.join(dir, subDirName);
 				output += `${indent}${subDirName}/\n`;
-				buildTreeString(subDirPath, indent + '  '); // Recurse
+				buildTreeString(subDirPath, `${indent}  `); // Recurse
 			});
 
 			// Sort and add files

@@ -1,4 +1,4 @@
-import { existsSync, lstat, mkdir, readFile, stat, writeFile, statSync } from 'node:fs'; // Added statSync
+import { existsSync, lstat, mkdir, readFile, stat, statSync, writeFile } from 'node:fs'; // Added statSync
 import { resolve } from 'node:path';
 import path, { join, relative } from 'node:path';
 import { promisify } from 'node:util';
@@ -245,10 +245,9 @@ export class FileSystemService {
 				this.log.warn(`File not found: ${absolutePathToRead} (requested: ${filePath})`);
 				// Consider if searching by name should happen here or be explicit in the caller/agent
 				throw new Error(`File not found: ${filePath}`);
-			} else {
-				this.log.error(`Error reading file ${absolutePathToRead}: ${error}`);
-				throw new Error(`Error reading file ${filePath}: ${error.message}`);
 			}
+			this.log.error(`Error reading file ${absolutePathToRead}: ${error}`);
+			throw new Error(`Error reading file ${filePath}: ${error.message}`);
 		}
 	}
 
