@@ -263,7 +263,7 @@ export class GitHub implements SourceControlManagement {
 				});
 				branches.push(...response.data);
 				page++;
-			} while (response.headers.link && response.headers.link.includes('rel="next"')); // Check for pagination link
+			} while (response.headers.link?.includes('rel="next"')); // Check for pagination link
 
 			return branches.map((branch) => branch.name);
 		} catch (error) {
