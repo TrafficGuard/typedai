@@ -1,6 +1,6 @@
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { NgClass } from '@angular/common';
-import {Component, OnInit, ViewEncapsulation} from '@angular/core';
+import {Component, OnInit, ViewEncapsulation, OnDestroy, ChangeDetectorRef} from '@angular/core';
 import {
   FormControl, FormGroup,
   FormsModule,
@@ -20,7 +20,7 @@ import { HttpClient } from "@angular/common/http";
 import { MatSnackBar } from "@angular/material/snack-bar";
 import { Router } from "@angular/router";
 import { LlmService } from "../services/llm.service";
-import { map, finalize } from "rxjs";
+import { map, finalize, Subject, takeUntil } from "rxjs";
 import { MatProgressSpinner } from "@angular/material/progress-spinner";
 import { MatCheckboxModule } from "@angular/material/checkbox";
 import {MatCard, MatCardContent} from "@angular/material/card";
@@ -58,18 +58,21 @@ const defaultType/*: AgentType*/ = 'codegen';
         MatCardContent,
     ],
 })
-export class NewAgentComponent implements OnInit {
+export class NewAgentComponent implements OnInit, OnDestroy {
   functions: string[] = [];
   llms: any[] = [];
   runAgentForm: FormGroup;
   isSubmitting = false;
+  private destroy$ = new Subject<void>();
 
   constructor(
+      private http: HttpClient,
       private http: HttpClient,
       private snackBar: MatSnackBar,
       private router: Router,
       // private agentEventService: AgentEventService,
-      private llmService: LlmService
+      private llmService: LlmService,
+      private changeDetectorRef: ChangeDetectorRef
   ) {
     this.runAgentForm = new FormGroup({
       name: new FormControl('', Validators.required),
@@ -124,6 +127,16 @@ export class NewAgentComponent implements OnInit {
           functions.forEach((tool, index) => {
             (this.runAgentForm as FormGroup).addControl('function' + index, new FormControl(false));
           });
+
+          // Initial check for shared repos state
+          this.updateSharedReposState();
+
+          // Subscribe to form value changes to update shared repos state dynamically
+          this.runAgentForm.valueChanges
+              .pipe(takeUntil(this.destroy$))
+              .subscribe(() => {
+                this.updateSharedReposState();
+              });
         });
 
     this.llmService.getLlms().subscribe({
@@ -152,6 +165,46 @@ export class NewAgentComponent implements OnInit {
           this.snackBar.open('Failed to load user profile', 'Close', { duration: 3000 });
         }
     );
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  private updateSharedReposState(): void {
+    const sharedReposControl = this.runAgentForm.get('useSharedRepos');
+    if (!sharedReposControl) {
+      return; // Exit if control doesn't exist yet
+    }
+
+    let gitFunctionSelected = false;
+    for (let i = 0; i < this.functions.length; i++) {
+      const functionName = this.functions[i];
+      const controlName = 'function' + i;
+      const functionControl = this.runAgentForm.get(controlName);
+
+      if (functionControl?.value && (functionName === 'GitLab' || functionName === 'GitHub')) {
+        gitFunctionSelected = true;
+        break; // Found one, no need to check further
+      }
+    }
+
+    if (gitFunctionSelected) {
+      // Enable if it's currently disabled
+      if (sharedReposControl.disabled) {
+        sharedReposControl.enable({ emitEvent: false }); // Prevent triggering valueChanges again
+      }
+    } else {
+      // Disable and uncheck if it's currently enabled
+      if (sharedReposControl.enabled) {
+        sharedReposControl.setValue(false, { emitEvent: false }); // Uncheck
+        sharedReposControl.disable({ emitEvent: false }); // Disable
+      }
+    }
+
+    // Optional: Trigger change detection if needed, though Angular often handles it.
+    // this.changeDetectorRef.markForCheck();
   }
 
   onSubmit(): void {
