@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, ViewEncapsulation } from '@angular/core'; // Added ViewEncapsulation
 import { FormControl, ReactiveFormsModule } from '@angular/forms'; // Removed FormBuilder, FormGroup, Validators, Added FormControl
-import { map, Observable, startWith, switchMap } from 'rxjs'; // Added startWith
+import { map, Observable, of, startWith, switchMap } from 'rxjs'; // Added startWith, Added of
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule, RouterOutlet } from '@angular/router';
 import { MatAutocompleteModule } from '@angular/material/autocomplete'; // Import MatAutocompleteModule
