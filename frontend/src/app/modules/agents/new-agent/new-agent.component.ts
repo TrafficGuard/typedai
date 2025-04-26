@@ -67,7 +67,6 @@ export class NewAgentComponent implements OnInit, OnDestroy {
 
   constructor(
       private http: HttpClient,
-      private http: HttpClient,
       private snackBar: MatSnackBar,
       private router: Router,
       // private agentEventService: AgentEventService,
