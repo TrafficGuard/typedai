@@ -91,6 +91,14 @@ export class VibeService {
 		);
 	}
 
+	/**
+	 * Fetches the file system tree for a given Vibe session ID.
+	 * @param sessionId The ID of the Vibe session.
+	 */
+	getFileSystemTree(sessionId: string): Observable<string[]> {
+		return this.http.get<string[]>(`/api/vibe/sessions/${sessionId}/files`);
+	}
+
 	// Remove or adapt old methods (getVibe, listVibes, deleteVibe) if they are no longer relevant
 	// to the VibeListComponent's new purpose or if they target different endpoints/data.
 	// For example, if getVibe was for the chat view, it might be removed from here

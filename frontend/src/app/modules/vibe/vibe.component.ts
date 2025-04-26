@@ -1,8 +1,9 @@
 import { Component, inject, OnInit, ViewEncapsulation } from '@angular/core'; // Added ViewEncapsulation
-import { ReactiveFormsModule } from '@angular/forms'; // Removed FormBuilder, FormGroup, Validators
-import { map, Observable, switchMap } from 'rxjs';
+import { FormControl, ReactiveFormsModule } from '@angular/forms'; // Removed FormBuilder, FormGroup, Validators, Added FormControl
+import { map, Observable, startWith, switchMap } from 'rxjs'; // Added startWith
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule, RouterOutlet } from '@angular/router';
+import { MatAutocompleteModule } from '@angular/material/autocomplete'; // Import MatAutocompleteModule
 import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatSelectModule } from "@angular/material/select";
 import { MatCardModule } from "@angular/material/card";
@@ -35,12 +36,19 @@ import { VibeDesignProposalComponent } from './vibe-design-proposal/vibe-design-
     MatButtonModule,
     MatListModule,
     MatTooltipModule, // Add MatTooltipModule
+    MatAutocompleteModule, // Add MatAutocompleteModule here
     RouterOutlet, // Keep RouterOutlet if routing within this component is used
     VibeFileListComponent, // Keep the file list component
     VibeDesignProposalComponent, // Add the new design proposal component
   ],
 })
 export class VibeComponent implements OnInit {
+  // Form control for the file autocomplete input
+  addFileControl = new FormControl('');
+  // Full list of files available in the session's workspace
+  allFiles: string[] = [];
+  // Observable stream of files filtered based on user input
+  filteredFiles$: Observable<string[]>;
   private route = inject(ActivatedRoute);
   private vibeService = inject(VibeService);
   // Removed: private fb = inject(FormBuilder);
@@ -140,6 +148,54 @@ export class VibeComponent implements OnInit {
       })
     );
 
+    // Fetch the file system tree for the autocomplete
+    this.session$.pipe(
+      switchMap(session => {
+        if (session?.id) {
+          return this.vibeService.getFileSystemTree(session.id);
+        }
+        return of([]); // Return empty array if no session ID
+      })
+    ).subscribe(files => {
+      this.allFiles = files;
+      // Initialize the filtered files observable based on the input control's value changes
+      this.filteredFiles$ = this.addFileControl.valueChanges.pipe(
+        startWith(''), // Start with an empty string to show all files initially or handle initial state
+        map(value => this._filterFiles(value || ''))
+      );
+    });
+
     // Removed: this.codeForm = this.fb.group({ ... });
+  }
+
+  /**
+   * Filters the list of all files based on the input value.
+   * @param value The current value from the autocomplete input.
+   * @returns A filtered array of file paths.
+   */
+  private _filterFiles(value: string): string[] {
+    const filterValue = value.toLowerCase();
+    return this.allFiles.filter(file => file.toLowerCase().includes(filterValue));
+  }
+
+  /**
+   * Handles adding the selected file from the autocomplete.
+   */
+  handleAddFile(): void {
+    const selectedFile = this.addFileControl.value;
+    if (selectedFile && this.allFiles.includes(selectedFile)) {
+      console.log('Add file requested:', selectedFile);
+      // TODO: Implement logic to add the file to the session's fileSelection
+      // This might involve:
+      // 1. Getting the current session state.
+      // 2. Checking if the file is already selected.
+      // 3. Calling vibeService.updateSession(sessionId, { filesToAdd: [selectedFile] })
+      // 4. Updating the local session state or relying on the observable to refresh.
+      // 5. Resetting the input control.
+      this.addFileControl.setValue(''); // Reset input after adding
+    } else {
+      console.warn('Invalid file selected or file not found:', selectedFile);
+      // Optionally provide user feedback
+    }
   }
 }

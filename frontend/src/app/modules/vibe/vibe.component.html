@@ -76,6 +76,33 @@
                         class="sm:col-span-2">
                     </vibe-file-list>
 
+                   <!-- File Autocomplete Input -->
+                   <div class="sm:col-span-2 mt-6"> <!-- Added margin-top -->
+                       <div class="font-semibold mb-2">Add File to Session:</div>
+                       <div class="flex items-center space-x-2"> <!-- Flex container for input and button -->
+                           <mat-form-field class="flex-grow"> <!-- Input takes available space -->
+                               <mat-label>Search and select file</mat-label>
+                               <input
+                                   type="text"
+                                   matInput
+                                   [formControl]="addFileControl"
+                                   [matAutocomplete]="auto">
+                               <mat-autocomplete #auto="matAutocomplete">
+                                   <mat-option *ngFor="let file of filteredFiles$ | async" [value]="file">
+                                       {{ file }}
+                                   </mat-option>
+                               </mat-autocomplete>
+                           </mat-form-field>
+                           <button
+                               mat-flat-button
+                               color="primary"
+                               [disabled]="!addFileControl.value || !allFiles.includes(addFileControl.value)"
+                               (click)="handleAddFile()">
+                               Add
+                           </button>
+                       </div>
+                   </div>
+
                     <!-- Use the new VibeDesignProposalComponent -->
                     <vibe-design-proposal
                         *ngIf="session.designAnswer"
