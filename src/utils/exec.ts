@@ -373,3 +373,15 @@ export function shellEscape(s: string): string {
 	// return "'" + s.replace(/'/g, "'\\''") + "'";
 	return `"${s.replace(/["\\$`]/g, '\\$&')}"`;
 }
+
+/**
+ * Sanitise arguments by single quoting and escaping single quotes in the value
+ * @param arg command line argument value
+ */
+export function arg(argValue: string): string {
+	// Ensure the argument is treated as a single token, escaping potential issues.
+	// Simple quoting for common cases. More robust shell escaping might be needed
+	// depending on the complexity of regex patterns allowed.
+	// Escapes single quotes for POSIX shells (' -> '\''')
+	return `'${argValue.replace(/'/g, "'\\''")}'`;
+}

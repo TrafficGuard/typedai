@@ -4,7 +4,7 @@ import { promisify } from 'node:util';
 import ignore, { type Ignore } from 'ignore';
 import type { FileSystemService } from '#functions/storage/fileSystemService'; // Import FileSystemService type
 import { logger } from '#o11y/logger';
-import { spawnCommand } from '#utils/exec';
+import { arg, spawnCommand } from '#utils/exec'; // Import arg from exec
 import { CDATA_END, CDATA_START, needsCDATA } from '#utils/xml-utils'; // Import XML utils
 
 const fs = {
@@ -522,16 +522,4 @@ export class FileSystemListService {
 
 		return tree;
 	}
-}
-
-/**
- * Sanitise arguments by single quoting and escaping single quotes in the value
- * @param arg command line argument value
- */
-function arg(argValue: string): string {
-	// Ensure the argument is treated as a single token, escaping potential issues.
-	// Simple quoting for common cases. More robust shell escaping might be needed
-	// depending on the complexity of regex patterns allowed.
-	// Escapes single quotes for POSIX shells (' -> '\''')
-	return `'${argValue.replace(/'/g, "'\\''")}'`;
 }
