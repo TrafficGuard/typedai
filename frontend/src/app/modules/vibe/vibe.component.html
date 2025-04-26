@@ -70,10 +70,15 @@
                         <p class="text-red-500 whitespace-pre-wrap">{{ session.error }}</p>
                     </div>
                      <div *ngIf="session.fileSelection?.length" class="sm:col-span-2">
-                        <div class="font-semibold">Selected Files:</div>
-                        <ul class="list-disc list-inside text-secondary">
-                            <li *ngFor="let file of session.fileSelection">{{ file.filePath }} {{ file.readOnly ? '(Read Only)' : '' }}</li>
-                        </ul>
+                        <div class="font-semibold mb-2">Selected Files:</div>
+                        <!-- Use mat-list for file display -->
+                        <mat-list dense>
+                            <mat-list-item *ngFor="let file of session.fileSelection" class="h-auto! py-1">
+                                <mat-icon matListItemIcon *ngIf="file.readOnly" class="mr-2 text-gray-500" matTooltip="Read Only">lock</mat-icon>
+                                <span class="text-secondary break-all">{{ file.filePath }}</span>
+                                <!-- Add file.reason display here if needed in the future -->
+                            </mat-list-item>
+                        </mat-list>
                     </div>
                     <div *ngIf="session.designAnswer" class="sm:col-span-2">
                         <div class="font-semibold">Design Proposal:</div>
