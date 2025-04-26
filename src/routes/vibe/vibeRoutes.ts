@@ -62,27 +62,16 @@ const VibeSessionResponseSchema = Type.Object({
 	error: Type.Optional(Type.String()),
 });
 
-// Schema for SCM Provider response
-const ScmProviderSchema = Type.Object({
-	type: Type.String(),
-	// Add other relevant provider details if needed
+// Schema for the initialise endpoint path parameter
+const InitialiseParamsSchema = Type.Object({
+	id: Type.String({ description: 'The ID of the Vibe session to initialise' }),
 });
-const ScmProviderListResponseSchema = Type.Array(ScmProviderSchema);
 
-// Schema for GitProject response
-const GitProjectSchema = Type.Object({
-	id: Type.Union([Type.String(), Type.Number()]), // GitLab uses number, GitHub might use string or number depending on context
-	name: Type.String(),
-	namespace: Type.String(),
-	fullPath: Type.String(),
-	description: Type.Union([Type.String(), Type.Null()]),
-	defaultBranch: Type.String(),
-	// Add other relevant project details if needed
+// Schema for the initialise endpoint success response
+const InitialiseSuccessResponseSchema = Type.Object({
+	message: Type.String(),
+	clonedPathValue: Type.String(),
 });
-const GitProjectListResponseSchema = Type.Array(GitProjectSchema);
-
-// Schema for Branch list response
-const BranchListResponseSchema = Type.Array(Type.String());
 
 export async function vibeRoutes(fastify: AppFastifyInstance) {
 	// Access services from the application context attached to fastify
@@ -177,131 +166,64 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 		},
 	);
 
-	// --- GET /scm/providers ---
-	fastify.get(
-		'/scm/providers',
+	// --- POST /initialise/:id ---
+	fastify.post(
+		'/initialise/:id',
 		{
 			schema: {
+				params: InitialiseParamsSchema,
 				response: {
-					200: ScmProviderListResponseSchema,
+					200: InitialiseSuccessResponseSchema,
+					400: ErrorResponseSchema,
 					401: ErrorResponseSchema,
-				},
-			},
-		},
-		async (request: FastifyRequest, reply) => {
-			if (!request.currentUser?.id) {
-				return reply.code(401).send({ error: 'Unauthorized' });
-			}
-
-			const providers = scmService.getConfiguredProviders();
-			const response = providers.map((p) => ({ type: p.getType() })); // Map to the response schema
-			return reply.send(response);
-		},
-	);
-
-	// --- GET /scm/projects ---
-	fastify.get(
-		'/scm/projects',
-		{
-			schema: {
-				querystring: Type.Object({
-					providerType: Type.String({ description: "The type of SCM provider (e.g., 'github', 'gitlab')" }),
-				}),
-				response: {
-					200: GitProjectListResponseSchema,
-					400: ErrorResponseSchema, // For missing/invalid providerType
-					401: ErrorResponseSchema,
-					404: ErrorResponseSchema, // Provider not found/configured
+					404: ErrorResponseSchema,
 					500: ErrorResponseSchema,
 				},
 			},
 		},
-		// Use FastifyRequestBase for generic type
-		async (request: FastifyRequestBase<{ Querystring: { providerType: string } }>, reply) => {
-			// Cast to custom FastifyRequest to access currentUser if needed, though it's added dynamically
+		// Use FastifyRequestBase for generic type with Params
+		async (request: FastifyRequestBase<{ Params: Static<typeof InitialiseParamsSchema> }>, reply) => {
+			// Cast to custom FastifyRequest to access currentUser
 			const req = request as FastifyRequest;
 			if (!req.currentUser?.id) {
 				return reply.code(401).send({ error: 'Unauthorized' });
 			}
-
-			const { providerType } = request.query;
-			if (!providerType) {
-				return reply.code(400).send({ error: 'Missing providerType query parameter' });
-			}
-
-			const provider = scmService.getProvider(providerType);
-			if (!provider) {
-				return reply.code(404).send({ error: `SCM provider '${providerType}' not found or not configured.` });
-			}
+			const userId = req.currentUser.id;
+			const { id } = request.params; // Get id from validated params
 
 			try {
-				const projects: GitProject[] = await provider.getProjects();
-				// Map projects to ensure they fit the GitProjectSchema, especially the 'id' type
-				const responseProjects = projects.map((p) => ({
-					id: p.id, // Keep original type (string | number)
-					name: p.name,
-					namespace: p.namespace,
-					fullPath: p.fullPath,
-					description: p.description,
-					defaultBranch: p.defaultBranch,
-				}));
-				return reply.send(responseProjects);
-			} catch (error) {
-				fastify.log.error(error, `Error fetching projects for provider ${providerType}`);
-				return reply.code(500).send({ error: 'Failed to fetch projects' });
-			}
-		},
-	);
-
-	// --- GET /scm/branches ---
-	fastify.get(
-		'/scm/branches',
-		{
-			schema: {
-				querystring: Type.Object({
-					providerType: Type.String({ description: "The type of SCM provider (e.g., 'github', 'gitlab')" }),
-					projectId: Type.Union([Type.String(), Type.Number()], { description: 'The ID or path of the project' }),
-				}),
-				response: {
-					200: BranchListResponseSchema,
-					400: ErrorResponseSchema, // For missing parameters
-					401: ErrorResponseSchema,
-					404: ErrorResponseSchema, // Provider or project not found
-					500: ErrorResponseSchema,
-				},
-			},
-		},
-		// Use FastifyRequestBase for generic type
-		async (request: FastifyRequestBase<{ Querystring: { providerType: string; projectId: string | number } }>, reply) => {
-			// Cast to custom FastifyRequest to access currentUser if needed
-			const req = request as FastifyRequest;
-			if (!req.currentUser?.id) {
-				return reply.code(401).send({ error: 'Unauthorized' });
-			}
-
-			const { providerType, projectId } = request.query;
-			if (!providerType || projectId === undefined) {
-				// Check for undefined specifically as 0 is a valid GitLab ID
-				return reply.code(400).send({ error: 'Missing providerType or projectId query parameter' });
-			}
-
-			const provider = scmService.getProvider(providerType);
-			if (!provider) {
-				return reply.code(404).send({ error: `SCM provider '${providerType}' not found or not configured.` });
-			}
-
-			try {
-				// Ensure projectId is passed correctly (might be string or number)
-				const branches = await provider.getBranches(projectId);
-				return reply.send(branches);
-			} catch (error: any) {
-				// Basic check for project not found errors (might need refinement based on specific SCM errors)
-				if (error.message?.includes('404') || error.message?.toLowerCase().includes('not found')) {
-					fastify.log.warn(`Project not found for provider ${providerType}, projectId ${projectId}`);
-					return reply.code(404).send({ error: `Project with ID/Path '${projectId}' not found for provider '${providerType}'.` });
+				// Get the Vibe session details
+				const session = await vibeService.getVibeSession(userId, id);
+				if (!session) {
+					return reply.code(404).send({ error: 'Vibe session not found' });
 				}
-				fastify.log.error(error, `Error fetching branches for provider ${providerType}, projectId ${projectId}`);
-				return reply.code(500).send({ error: 'Failed to fetch branches' });
+
+				const { repositorySource, repositoryId, branch } = session;
+				let clonedPath: string;
+
+				if (repositorySource === 'local') {
+					fastify.log.warn(`Vibe session ${id} uses local repository source. Using repositoryId as path.`);
+					clonedPath = repositoryId; // Use the provided path directly
+				} else {
+					// Get the configured SCM provider
+					const provider = scmService.getProvider(repositorySource);
+					if (!provider) {
+						fastify.log.warn(`SCM provider '${repositorySource}' requested by session ${id} is not configured.`);
+						return reply.code(400).send({ error: `Configured SCM provider not found for source: ${repositorySource}` });
+					}
+
+					// Clone the project using the provider
+					clonedPath = await provider.cloneProject(repositoryId, branch);
+				}
+
+				// Log the result
+				fastify.log.info({ clonedPathValue: clonedPath }, 'Result from cloneProject call');
+
+				// Return success response
+				return reply.code(200).send({ message: 'Clone attempted. Check logs for path.', clonedPathValue: clonedPath });
+			} catch (error) {
+				fastify.log.error(error, 'Error during initial vibe session setup (clone attempt)');
+				return reply.code(500).send({ error: 'Failed during initial setup (clone attempt)' });
 			}
 		},
 	);
