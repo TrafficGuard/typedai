@@ -50,7 +50,10 @@ export class CodeEditingAgent {
 		altOptions?: { projectInfo?: ProjectInfo; workingDirectory?: string },
 	): Promise<void> {
 		if (!requirements) throw new Error('The argument "requirements" must be provided');
-
+		if(fileSelection && !Array.isArray(fileSelection)) {
+			logger.warn(`File selection was type ${typeof fileSelection}. Value: ${JSON.stringify(fileSelection)}`)
+			throw new Error(`If fileSelection is provided it must be an array. Was type ${typeof fileSelection}`);
+		}
 		let projectInfo: ProjectInfo = altOptions?.projectInfo;
 		if (!projectInfo) {
 			const detected: ProjectInfo[] = await detectProjectInfo();
@@ -59,11 +62,11 @@ export class CodeEditingAgent {
 		}
 		logger.info(projectInfo);
 
-		const fs: FileSystemService = getFileSystem();
+		const fss: FileSystemService = getFileSystem();
 
-		if (altOptions?.workingDirectory) fs.setWorkingDirectory(altOptions.workingDirectory);
+		if (altOptions?.workingDirectory) fss.setWorkingDirectory(altOptions.workingDirectory);
 
-		fs.setWorkingDirectory(projectInfo.baseDir);
+		fss.setWorkingDirectory(projectInfo.baseDir);
 
 		// Run in parallel to the requirements generation
 		// NODE_ENV=development is needed to install devDependencies for Node.js projects.
@@ -72,9 +75,9 @@ export class CodeEditingAgent {
 			? execCommand(projectInfo.initialise, { envVars: { NODE_ENV: 'development' } })
 			: Promise.resolve();
 
-		const headCommit = await fs.getVcs().getHeadSha();
-		const currentBranch = await fs.getVcs().getBranchName();
-		const gitBase = !projectInfo.devBranch || projectInfo.devBranch === currentBranch ? headCommit : projectInfo.devBranch;
+		const headCommit = await fss.getVcs().getHeadSha();
+		const currentBranch = await fss.getVcs().getBranchName();
+		const gitBase = headCommit; // !projectInfo.devBranch || projectInfo.devBranch === currentBranch ? headCommit : projectInfo.devBranch;
 		logger.info(`git base ${gitBase}`);
 
 		if (!fileSelection?.length) {
@@ -87,7 +90,7 @@ export class CodeEditingAgent {
 
 		await includeAlternativeAiToolFiles(fileSelection);
 
-		const fileContents = await fs.readFilesAsXml(fileSelection);
+		const fileContents = await fss.readFilesAsXml(fileSelection);
 		logger.info(fileSelection, `Initial selected file count: ${fileSelection.length}. Tokens: ${await countTokens(fileContents)}`);
 
 		// Perform a first pass on the selected files to generate an implementation specification
@@ -102,7 +105,7 @@ export class CodeEditingAgent {
 		Do not provide any details of verification commands etc as the CI/CD build will run integration tests. Only detail the changes required to the files for the pull request.
 		Check if any of the requirements have already been correctly implemented in the code as to not duplicate work.
 		Look at the existing style of the code when producing the requirements.
-		Only make changes directly related to the requirements. Any other changes will be deleted.
+		Only make changes directly related to the requirements. Any other changes will be deleted..
 		`;
 		let implementationRequirements = await llms().hard.generateText(implementationDetailsPrompt, { id: 'CodeEditingAgent Implementation Specification' });
 		// implementationRequirements += '\nEnsure new code is well commented.';
@@ -140,7 +143,10 @@ Then respond in following format:
 			logger.error(e, 'Error performing online queries from code requirements');
 		}
 
-		implementationRequirements += '\nOnly make changes directly related to these requirements. Any other changes will be deleted.';
+		implementationRequirements += '\n\nOnly make changes directly related to these requirements. Any other changes will be deleted.\n' +
+			'Do not add spurious comments like "// Adding here". Only add high level comments when there is significant complexity\n' +
+			'Follow existing code styles.';
+		console.log(`Requirements\n${implementationRequirements}`);
 
 		await installPromise;
 
