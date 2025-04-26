@@ -74,7 +74,7 @@ export type AgentRunningState =
     | 'child_agents'
     | 'timeout';
 
-export type AgentType = 'autonomous' | 'workflow' | 'xml' | 'codegen';
+export type AgentType = 'autonomous' | 'workflow';
 
 export interface AgentContext {
     /** Agent instance id - allocated when the agent is first starts */

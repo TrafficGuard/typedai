@@ -72,7 +72,7 @@ export interface AgentContext {
 	agentId: string;
 	/** The type of agent (autonomous or workflow) */
 	type: AgentType;
-	subtype: string;
+	subtype: AutonomousSubType | string;
 	/** Child agent ids */
 	childAgents?: string[];
 	/** Id of the running execution. This changes after the agent restarts due to an error, pausing, human in loop, completion etc */
