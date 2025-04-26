@@ -142,6 +142,9 @@ export interface AgentContext {
 	liveFiles: string[];
 }
 
+/**
+ * For autonomous agents we save details of each control loop iteration
+ */
 export interface AutonomousIteration {
 	agentId: string;
 	/** Starts from 1 */

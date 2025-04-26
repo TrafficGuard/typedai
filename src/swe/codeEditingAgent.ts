@@ -36,12 +36,13 @@ export class CodeEditingAgent {
 	 * Runs a workflow which 1) Finds the relevant files and generates and implementation plan. 2) Edits the files to implement the plan and commits changes to version control.
 	 * It also compiles, formats, lints, and runs tests where applicable.
 	 * @param requirements The requirements of the task to make the code changes for.
+	 * @return the diff of the changes made. Note this string may be large
 	 */
 	@func()
 	async implementUserRequirements(
 		requirements: string,
 		altOptions?: { projectInfo?: ProjectInfo; workingDirectory?: string }, // altOptions are for programmatic use and not exposed to the autonomous agents.
-	): Promise<void> {
+	): Promise<string> {
 		if (!requirements) throw new Error('The argument "requirements" must be provided');
 
 		let projectInfo: ProjectInfo = altOptions?.projectInfo;
@@ -69,7 +70,7 @@ export class CodeEditingAgent {
 		`;
 		const implementationPlan = await llms().hard.generateText(implementationDetailsPrompt, { id: 'CodeEditingAgent Implementation Plan' });
 
-		await this.implementDetailedDesignPlan(implementationPlan, fileSelection, requirements, altOptions);
+		return await this.implementDetailedDesignPlan(implementationPlan, fileSelection, requirements, altOptions);
 	}
 
 	/**
@@ -77,6 +78,7 @@ export class CodeEditingAgent {
 	 * It also compiles, formats, lints, and runs tests where applicable.
 	 * @param implementationPlan The detailed implementation plan to make the changes for
 	 * @param fileSelection {string[]} An array of files which the code editing agent will have access to.
+	 * @return the diff of the changes made. Note this string may be large
 	 */
 	@func()
 	async implementDetailedDesignPlan(
@@ -84,7 +86,7 @@ export class CodeEditingAgent {
 		fileSelection: string[],
 		requirements?: string | null, // The original requirements for when called from runCodeEditWorkflow
 		altOptions?: { projectInfo?: ProjectInfo; workingDirectory?: string }, // altOptions are for programmatic use and not exposed to the autonomous agents.
-	): Promise<void> {
+	): Promise<string> {
 		if (!implementationPlan) throw new Error('The argument "implementationPlan" must be provided');
 		if (fileSelection && !Array.isArray(fileSelection)) {
 			logger.error(`File selection was type ${typeof fileSelection}. Value: ${JSON.stringify(fileSelection)}`);
@@ -151,10 +153,10 @@ export class CodeEditingAgent {
 
 		await this.tidyDiff(gitBase, projectInfo, fileSelection);
 
-		const diff = await fss.vcs.getDiff(gitBase);
-
 		// The prompts need some work
 		// await this.testLoop(requirements, projectInfo, initialSelectedFiles);
+
+		return await fss.vcs.getDiff(gitBase);
 	} // end of runCodeEditWorkflow method
 
 	private failOnCompileError(compileErrorAnalysis: CompileErrorAnalysis) {

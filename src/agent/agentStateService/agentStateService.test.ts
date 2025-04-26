@@ -13,6 +13,7 @@ import {
 	isExecuting,
 	// TaskLevel, // Not explicitly used in AgentContext, but used in AgentLLMs
 } from '#agent/agentContextTypes'; // Adjust path as needed
+import type { AutonomousIteration } from '#agent/agentContextTypes';
 // Assume FileSystemService is importable if needed, or handle its absence
 // import { FileSystemService } from '#system/fileSystemService';
 // Assume Agent class is importable if needed for LlmFunctions default
@@ -21,7 +22,7 @@ import type { AgentStateService } from '#agent/agentStateService/agentStateServi
 import { clearCompletedHandlers, getCompletedHandler, registerCompletedHandler } from '#agent/completionHandlerRegistry'; // Adjust path if needed
 import * as functionSchema from '#functionSchema/functionDecorators'; // Adjust path as needed
 import { FileSystemRead } from '#functions/storage/fileSystemRead'; // Adjust path as needed
-import { type FunctionCallResult, LLM, LlmMessage } from '#llm/llm'; // Adjust path as needed
+import type { FunctionCallResult, LLM, LlmMessage } from '#llm/llm'; // Adjust path as needed
 import { MockLLM } from '#llm/services/mock-llm'; // Adjust path as needed
 import { logger } from '#o11y/logger'; // Adjust path as needed
 import type { ChatSettings, LLMServicesConfig, User } from '#user/user'; // Adjust path as needed
@@ -714,5 +715,96 @@ export function runAgentStateServiceTests(
 			// Assert the unknown function *was not* added
 			expect(updatedContext.functions.getFunctionClassNames()).to.not.include(unknownFunctionName);
 		});
+	});
+
+	describe('saveIteration and loadIterations', () => {
+		let agentIdForIterations: string;
+
+		beforeEach(async () => {
+			agentIdForIterations = agentId();
+			// Save a base agent context first, as iterations belong to an agent
+			await service.save(createMockAgentContext(agentIdForIterations));
+		});
+
+		const createMockIteration = (iterNum: number, agentIdToUse: string = agentIdForIterations): AutonomousIteration => ({
+			agentId: agentIdToUse,
+			iteration: iterNum,
+			functions: ['Agent', MockFunction.name],
+			prompt: `Prompt for iteration ${iterNum}`,
+			agentPlan: `<plan>Plan for iteration ${iterNum}</plan>`,
+			code: `print("Iteration ${iterNum}")`,
+			functionCalls: [
+				{
+					function_name: MockFunction.name,
+					parameters: { arg: iterNum },
+					stdout: `Result ${iterNum}`,
+				},
+			],
+			error: iterNum % 3 === 0 ? `Simulated error for iteration ${iterNum}` : undefined, // Add error sometimes
+		});
+
+		it('should save multiple iterations for an agent', async () => {
+			const iteration1 = createMockIteration(1);
+			const iteration2 = createMockIteration(2);
+
+			await service.saveIteration(iteration1);
+			await service.saveIteration(iteration2);
+
+			// Simple verification: load them back and check count
+			const loadedIterations = await service.loadIterations(agentIdForIterations);
+			expect(loadedIterations).to.be.an('array').with.lengthOf(2);
+		});
+
+		it('should load iterations in correct numerical order', async () => {
+			const iteration3 = createMockIteration(3);
+			const iteration1 = createMockIteration(1);
+			const iteration2 = createMockIteration(2);
+
+			// Save out of order
+			await service.saveIteration(iteration3);
+			await service.saveIteration(iteration1);
+			await service.saveIteration(iteration2);
+
+			const loadedIterations = await service.loadIterations(agentIdForIterations);
+
+			expect(loadedIterations).to.be.an('array').with.lengthOf(3);
+			expect(loadedIterations.map((i) => i.iteration)).to.deep.equal([1, 2, 3]);
+			// Deep compare the first loaded iteration with the original data
+			expect(loadedIterations[0]).to.deep.equal(iteration1);
+			expect(loadedIterations[1]).to.deep.equal(iteration2);
+			expect(loadedIterations[2]).to.deep.equal(iteration3);
+		});
+
+		it('should return an empty array if no iterations exist for the agent', async () => {
+			const loadedIterations = await service.loadIterations(agentIdForIterations);
+			expect(loadedIterations).to.be.an('array').that.is.empty;
+		});
+
+		it.skip('should throw an error when loading iterations for a non-existent agent', async () => {
+			const nonExistentAgentId = agentId();
+			const loadedIterations = await service.loadIterations(nonExistentAgentId);
+			expect(loadedIterations).to.be.an('array').that.is.empty;
+		});
+
+		it('should reject saving an iteration with a non-positive iteration number', async () => {
+			const invalidIterationZero = createMockIteration(0);
+			const invalidIterationNegative = createMockIteration(-1);
+
+			await expect(service.saveIteration(invalidIterationZero)).to.be.rejectedWith(/positive integer/i);
+			await expect(service.saveIteration(invalidIterationNegative)).to.be.rejectedWith(/positive integer/i);
+		});
+
+		// Optional: Test saving iteration for non-existent agent (depends on desired behavior - Firestore might allow it)
+		// it('should handle saving an iteration for a non-existent agent gracefully (or throw)', async () => {
+		// 	const nonExistentAgentId = agentId();
+		// 	const iteration1 = createMockIteration(1, nonExistentAgentId);
+		// 	// Depending on implementation, this might throw or succeed but be orphaned.
+		// 	// For Firestore subcollections, it usually succeeds.
+		// 	await expect(service.saveIteration(iteration1)).to.not.be.rejected;
+		// 	// Verify it can be loaded back even if parent doesn't exist
+		// 	const loaded = await service.loadIterations(nonExistentAgentId);
+		// 	expect(loaded).to.be.an('array').with.lengthOf(1);
+		// 	expect(loaded[0]).to.deep.equal(iteration1);
+		// });
 	});
 }

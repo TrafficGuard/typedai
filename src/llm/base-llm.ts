@@ -96,7 +96,8 @@ export abstract class BaseLLM implements LLM {
 			const hasSystemPrompt = messages[0].role === 'system';
 			const systemPrompt = hasSystemPrompt ? (messages[0].content as string) : undefined;
 			const userPrompt = hasSystemPrompt ? (messages[1].content as string) : (messages[0].content as string);
-			return this._generateText(systemPrompt, userPrompt, opts);
+			const theOpts = typeof userOrOpts === 'string' ? opts : userOrOpts;
+			return this._generateText(systemPrompt, userPrompt, theOpts);
 		}
 		return this.generateTextFromMessages(messages, options);
 	}

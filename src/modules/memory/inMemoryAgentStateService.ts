@@ -1,5 +1,5 @@
 import { LlmFunctions } from '#agent/LlmFunctions';
-import type { AgentContext, AgentRunningState } from '#agent/agentContextTypes';
+import type { AgentContext, AgentRunningState, AutonomousIteration } from '#agent/agentContextTypes';
 import { deserializeAgentContext, serializeContext } from '#agent/agentSerialization';
 import type { AgentStateService } from '#agent/agentStateService/agentStateService';
 import { functionFactory } from '#functionSchema/functionDecorators';
@@ -11,9 +11,11 @@ import { logger } from '#o11y/logger';
  */
 export class InMemoryAgentStateService implements AgentStateService {
 	stateMap: Map<string, Record<string, any>> = new Map();
+	iterationMap: Map<string, AutonomousIteration[]> = new Map();
 
 	clear(): void {
 		this.stateMap.clear();
+		this.iterationMap.clear();
 	}
 
 	async save(state: AgentContext): Promise<void> {
@@ -44,7 +46,10 @@ export class InMemoryAgentStateService implements AgentStateService {
 	}
 
 	async delete(ids: string[]): Promise<void> {
-		for (const id of ids) this.stateMap.delete(id);
+		for (const id of ids) {
+			this.stateMap.delete(id);
+			this.iterationMap.delete(id);
+		}
 	}
 
 	async updateFunctions(agentId: string, functions: string[]): Promise<void> {
@@ -64,5 +69,22 @@ export class InMemoryAgentStateService implements AgentStateService {
 		}
 
 		await this.save(agent);
+	}
+
+	async loadIterations(agentId: string): Promise<AutonomousIteration[]> {
+		return this.iterationMap.get(agentId) || [];
+	}
+
+	async saveIteration(iterationData: AutonomousIteration): Promise<void> {
+		const iterations = this.iterationMap.get(iterationData.agentId) || [];
+		// Ensure iterations are stored in order
+		const existingIndex = iterations.findIndex((iter) => iter.iteration === iterationData.iteration);
+		if (existingIndex !== -1) {
+			iterations[existingIndex] = iterationData; // Update existing iteration
+		} else {
+			iterations.push(iterationData);
+			iterations.sort((a, b) => a.iteration - b.iteration); // Sort by iteration number
+		}
+		this.iterationMap.set(iterationData.agentId, iterations);
 	}
 }

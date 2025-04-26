@@ -67,8 +67,16 @@ export function func() {
 				setFunctionSpanAttributes(span, methodName, attributeExtractors, args);
 				span.setAttribute('call', agentContext()?.callStack?.join(' > ') ?? '');
 
-				const result = originalMethod.call(this, ...args);
-				if (typeof result?.then === 'function') await result;
+				agent?.callStack?.push(methodName);
+
+				let result: any;
+				try {
+					result = originalMethod.call(this, ...args);
+					if (typeof result?.then === 'function') await result;
+				} finally {
+					agent?.callStack?.pop();
+				}
+
 				try {
 					span.setAttribute('result', JSON.stringify(result));
 				} catch (e) {

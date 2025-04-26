@@ -1,6 +1,6 @@
 import { Type } from '@sinclair/typebox';
 import type { FastifyReply } from 'fastify';
-import type { AgentContext } from '#agent/agentContextTypes';
+import type { AgentContext, AutonomousIteration } from '#agent/agentContextTypes';
 import { type AgentExecution, agentExecutions } from '#agent/agentRunner';
 import { serializeContext } from '#agent/agentSerialization';
 import { send, sendBadRequest, sendSuccess } from '#fastify/index';
@@ -46,6 +46,37 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 			const serializedContext = serializeContext(ctx);
 			serializedContext.functions = ctx.functions.getFunctionClassNames().filter((name) => name !== 'Agent');
 			send(reply, 200, serializedContext);
+		},
+	);
+
+	// Endpoint to get iterations for an agent
+	fastify.get(
+		`${basePath}/iterations/:agentId`,
+		{
+			schema: {
+				params: Type.Object({
+					agentId: Type.String(),
+				}),
+				// Define response schema if needed for validation/documentation
+				// response: {
+				// 	200: Type.Array(AutonomousIterationSchema) // Assuming AutonomousIterationSchema exists
+				// }
+			},
+		},
+		async (req, reply) => {
+			const agentId = req.params.agentId;
+			try {
+				// Optional: Check if agent exists first?
+				// const agentExists = await fastify.agentStateService.load(agentId);
+				// if (!agentExists) return sendNotFound(reply, `Agent ${agentId} not found`);
+
+				const iterations: AutonomousIteration[] = await fastify.agentStateService.loadIterations(agentId);
+				send(reply, 200, iterations);
+			} catch (error) {
+				logger.error(error, `Error loading iterations for agent ${agentId}`);
+				// Send a generic server error, or more specific if possible
+				send(reply, 500, { error: 'Failed to load agent iterations' });
+			}
 		},
 	);
 

@@ -64,6 +64,7 @@ export interface AgentExecution {
 
 /**
  * The active running agents
+ * TODO convert to a Map
  */
 export const agentExecutions: Record<string, AgentExecution> = {};
 
@@ -125,7 +126,7 @@ export async function startAgent(config: RunAgentConfig): Promise<AgentExecution
 	await appContext().agentStateService.save(agent);
 	logger.info(`Created agent ${agent.agentId}`);
 
-	return runAgent(agent);
+	return await runAgent(agent);
 }
 
 export async function cancelAgent(agentId: string, executionId: string, feedback: string): Promise<void> {
