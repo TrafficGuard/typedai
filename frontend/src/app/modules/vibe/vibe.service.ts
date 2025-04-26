@@ -70,6 +70,13 @@ export class VibeService {
 		return this.http.get<string[]>(`/api/scm/branches?projectId=${projectId}`);
 	}
 
+	/**
+	 * Fetches a specific Vibe session by its ID from the backend.
+	 * @param id The ID of the Vibe session.
+	 */
+	getVibeSession(id: string): Observable<VibeSession> {
+		return this.http.get<VibeSession>(`/api/vibe/sessions/${id}`);
+	}
 
 	// Remove or adapt old methods (getVibe, listVibes, deleteVibe) if they are no longer relevant
 	// to the VibeListComponent's new purpose or if they target different endpoints/data.

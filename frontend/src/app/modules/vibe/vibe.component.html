@@ -1,6 +1,84 @@
-<div class="absolute inset-0 flex min-w-0 flex-col overflow-hidden">
-    <!-- Main -->
-    <div class="flex flex-auto overflow-hidden">
-        <router-outlet></router-outlet>
+<div class="flex flex-col flex-auto w-full p-6 sm:p-8">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row items-start justify-between mb-6">
+        <div class="text-4xl font-extrabold tracking-tight leading-none">Vibe Session Details</div>
+        <!-- Add actions like Edit/Delete later if needed -->
+        <!-- <div class="mt-4 sm:mt-0 sm:ml-4">
+            <button mat-flat-button [color]="'primary'">
+                <mat-icon svgIcon="heroicons_solid:pencil-alt"></mat-icon>
+                <span class="ml-2">Edit</span>
+            </button>
+        </div> -->
     </div>
+
+    <!-- Session Details Card -->
+    <ng-container *ngIf="session$ | async as session; else loadingOrError">
+        <mat-card class="w-full">
+            <mat-card-header>
+                <mat-card-title>{{ session.title }}</mat-card-title>
+                <mat-card-subtitle>ID: {{ session.id }} | Status: {{ session.status | titlecase }}</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content class="mt-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div>
+                        <div class="font-semibold">Instructions:</div>
+                        <p class="text-secondary whitespace-pre-wrap">{{ session.instructions }}</p>
+                    </div>
+                    <div>
+                        <div class="font-semibold">Repository:</div>
+                        <p class="text-secondary">
+                            Source: {{ session.repositorySource | titlecase }} <br>
+                            Identifier: {{ session.repositoryId }} <br>
+                            <ng-container *ngIf="session.repositoryName">
+                                Name: {{ session.repositoryName }} <br>
+                            </ng-container>
+                            Branch: {{ session.branch }} <br>
+                            <ng-container *ngIf="session.newBranchName">
+                                New Branch: {{ session.newBranchName }} <br>
+                            </ng-container>
+                            Shared Repo: {{ session.useSharedRepos ? 'Yes' : 'No' }}
+                        </p>
+                    </div>
+                    <div>
+                        <div class="font-semibold">Created At:</div>
+                        <!-- Assuming createdAt is a Firestore Timestamp or Date object -->
+                        <p class="text-secondary">{{ session.createdAt?.toDate ? session.createdAt.toDate() : session.createdAt | date:'medium' }}</p>
+                    </div>
+                    <div>
+                        <div class="font-semibold">Last Updated:</div>
+                        <p class="text-secondary">{{ session.updatedAt?.toDate ? session.updatedAt.toDate() : session.updatedAt | date:'medium' }}</p>
+                    </div>
+                    <div *ngIf="session.error" class="sm:col-span-2">
+                        <div class="font-semibold text-red-600">Error:</div>
+                        <p class="text-red-500 whitespace-pre-wrap">{{ session.error }}</p>
+                    </div>
+                     <div *ngIf="session.fileSelection?.length" class="sm:col-span-2">
+                        <div class="font-semibold">Selected Files:</div>
+                        <ul class="list-disc list-inside text-secondary">
+                            <li *ngFor="let file of session.fileSelection">{{ file.filePath }} {{ file.readOnly ? '(Read Only)' : '' }}</li>
+                        </ul>
+                    </div>
+                    <div *ngIf="session.designAnswer" class="sm:col-span-2">
+                        <div class="font-semibold">Design Proposal:</div>
+                        <p class="text-secondary whitespace-pre-wrap">{{ session.designAnswer }}</p>
+                    </div>
+                </div>
+            </mat-card-content>
+            <!-- Add card actions if needed -->
+            <!-- <mat-card-actions align="end">
+                <button mat-button>Action</button>
+            </mat-card-actions> -->
+        </mat-card>
+    </ng-container>
+
+    <!-- Loading/Error Template -->
+    <ng-template #loadingOrError>
+        <!-- Check if there was an error fetching, otherwise show loading -->
+        <!-- Basic loading indicator -->
+        <div class="flex justify-center items-center h-64">
+            <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            <span class="ml-4">Loading session details...</span>
+            <!-- Or show an error message if session$ observable completes with error -->
+        </div>
+    </ng-template>
 </div>

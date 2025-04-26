@@ -35,3 +35,7 @@ export function sendBadRequest(reply: FastifyReply, message = 'Bad Request'): vo
 export function sendUnauthorized(reply: FastifyReply): void {
 	send(reply, HttpStatus.UNAUTHORIZED, '', { message: 'Unauthorized' });
 }
+
+export function sendNotFound(reply: FastifyReply, message = 'Not Found'): void {
+	send(reply, HttpStatus.NOT_FOUND, '', { message: message });
+}

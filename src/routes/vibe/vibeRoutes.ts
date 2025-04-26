@@ -63,6 +63,11 @@ const VibeSessionResponseSchema = Type.Object({
 	error: Type.Optional(Type.String()),
 });
 
+// Schema for the GET /sessions/:id endpoint path parameter
+const GetVibeSessionParamsSchema = Type.Object({
+	id: Type.String({ description: 'The ID of the Vibe session to retrieve' }),
+});
+
 // Schema for the initialise endpoint path parameter
 const InitialiseParamsSchema = Type.Object({
 	id: Type.String({ description: 'The ID of the Vibe session to initialise' }),
@@ -290,5 +295,43 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 		},
 	);
 
-	// Add other vibe routes here if needed in the future (e.g., GET /sessions/:id, PUT /sessions/:id, etc.)
+	// --- GET /sessions/:id ---
+	fastify.get(
+		'/sessions/:id',
+		{
+			schema: {
+				params: GetVibeSessionParamsSchema,
+				response: {
+					200: VibeSessionResponseSchema, // Reuse the detailed schema
+					401: ErrorResponseSchema,
+					404: ErrorResponseSchema,
+					500: ErrorResponseSchema,
+				},
+			},
+		},
+		// Use FastifyRequestBase for generic type with Params
+		async (request: FastifyRequestBase<{ Params: Static<typeof GetVibeSessionParamsSchema> }>, reply) => {
+			// Cast to custom FastifyRequest to access currentUser
+			const req = request as FastifyRequest;
+			if (!req.currentUser?.id) {
+				return reply.code(401).send({ error: 'Unauthorized' });
+			}
+			const userId = req.currentUser.id;
+			const { id } = request.params; // Get id from validated params
+
+			try {
+				const session = await vibeService.getVibeSession(userId, id);
+				if (!session) {
+					return sendNotFound(reply, 'Vibe session not found');
+				}
+				// Note: Timestamps might need serialization depending on how Firestore/InMemory returns them
+				return reply.send(session);
+			} catch (error) {
+				fastify.log.error(error, `Error retrieving Vibe session ${id}`);
+				return reply.code(500).send({ error: 'Failed to retrieve Vibe session' });
+			}
+		},
+	);
+
+	// Add other vibe routes here if needed in the future (e.g., PUT /sessions/:id, etc.)
 }

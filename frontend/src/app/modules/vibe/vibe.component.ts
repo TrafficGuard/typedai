@@ -1,8 +1,8 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core'; // Import inject
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Observable } from 'rxjs';
-import { CommonModule } from "@angular/common";
-import {RouterModule, RouterOutlet} from "@angular/router";
+import { Observable, switchMap } from 'rxjs'; // Import switchMap
+import { CommonModule } from '@angular/common';
+import { ActivatedRoute, RouterModule, RouterOutlet } from '@angular/router'; // Import ActivatedRoute
 import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatSelectModule } from "@angular/material/select";
 import { MatCardModule } from "@angular/material/card";
@@ -30,24 +30,32 @@ import {VibeService} from "./vibe.service";
     MatButtonModule,
     RouterOutlet,
     // Removed VibeListComponent
-  ]
+  ],
 })
 export class VibeComponent implements OnInit {
-  codeForm!: FormGroup;
-  result: string = '';
-  isLoading = false;
-  // Removed vibes property
+  private route = inject(ActivatedRoute);
+  private vibeService = inject(VibeService);
 
-  constructor(private fb: FormBuilder, private vibeService: VibeService) {}
+  session$: Observable<VibeSession>;
+
+  // Remove constructor if fb is no longer needed, or keep if form is added later
+  // constructor(private fb: FormBuilder) {}
 
   ngOnInit() {
-    this.codeForm = this.fb.group({
-      workingDirectory: ['', Validators.required],
-      workflowType: ['code', Validators.required],
-      input: ['', Validators.required],
-    });
+    this.session$ = this.route.paramMap.pipe(
+      switchMap((params) => {
+        const sessionId = params.get('id');
+        if (!sessionId) {
+          // Handle error case - perhaps redirect or show an error message
+          console.error('Vibe Session ID not found in route parameters');
+          // For now, return an empty observable or throw an error
+          return new Observable<VibeSession>(); // Or throwError(() => new Error('Session ID missing'))
+        }
+        return this.vibeService.getVibeSession(sessionId);
+      }),
+    );
 
-    // Removed the call to this.vibeService.listVibes() and related logic
-    // TODO: Add logic here if this component needs to fetch data for the form (e.g., repo list for dropdown)
+    // Remove the old form initialization
+    // this.codeForm = this.fb.group({ ... });
   }
 }
