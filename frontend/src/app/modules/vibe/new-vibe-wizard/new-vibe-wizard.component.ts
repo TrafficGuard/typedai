@@ -6,13 +6,13 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatSelectModule } from '@angular/material/select'; // Import MatSelectModule
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner'; // Import MatProgressSpinnerModule
+import { MatSelectModule } from '@angular/material/select';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Router } from '@angular/router';
 import { VibeService, CreateVibeSessionPayload } from '../vibe.service';
 import { VibeSession } from '../vibe.types';
-import { WorkflowsService } from '../../workflows/workflows.service'; // Import WorkflowsService
-import { GitProject } from '../../../../../../../src/functions/scm/gitProject'; // Adjust path as needed
+import { WorkflowsService } from '../../workflows/workflows.service';
+import { GitProject } from '../../../../../../src/functions/scm/gitProject'; // Adjust path as needed
 import { finalize, catchError, tap, startWith, BehaviorSubject, Observable, of } from 'rxjs';
 
 @Component({
@@ -30,7 +30,7 @@ import { finalize, catchError, tap, startWith, BehaviorSubject, Observable, of }
 		MatProgressSpinnerModule, // Add MatProgressSpinnerModule
 	],
 	templateUrl: './new-vibe-wizard.component.html',
-	styleUrls: ['./new-vibe-wizard.component.scss'], // Use styleUrls
+	styleUrls: ['./new-vibe-wizard.component.scss'],
 })
 export class NewVibeWizardComponent implements OnInit {
 	private fb = inject(FormBuilder);
@@ -201,9 +201,6 @@ export class NewVibeWizardComponent implements OnInit {
 
 		if (this.wizardForm.invalid || this.isSubmitting) {
 			return; // Prevent submission if form is invalid or already submitting
-		}
-
-			return;
 		}
 
 		this.isSubmitting = true;

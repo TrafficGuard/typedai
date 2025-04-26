@@ -1,8 +1,8 @@
-import { Injectable, inject } from '@angular/core'; // Import inject
+import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, map, Observable, of, switchMap, tap, throwError } from 'rxjs';
-import { VibeSession } from './vibe.types'; // Import VibeSession
-import { GitProject } from '../../../../../../src/functions/scm/gitProject'; // Adjust path as needed - Assuming this path is correct relative to the frontend structure
+import { VibeSession } from './vibe.types';
+import { GitProject } from '../../../../../src/functions/scm/gitProject'; // Adjust path as needed - Assuming this path is correct relative to the frontend structure
 
 // Define the shape of the data needed for creation, matching the backend API body
 export interface CreateVibeSessionPayload {
