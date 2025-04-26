@@ -38,7 +38,8 @@
       "#slack/*": ["./src/modules/slack/*"],
       "#swe/*": ["./src/swe/*"],
       "#user/*": ["./src/user/*"],
-      "#utils/*": ["./src/utils/*"]
+      "#utils/*": ["./src/utils/*"],
+      "#applicationTypes": ["./src/applicationTypes.ts"]
     },
     "types": ["node", "mocha"]
   },
