@@ -238,6 +238,13 @@ export class GitHub implements SourceControlManagement {
 	}
 
 	/**
+	 * Returns the type of this SCM provider.
+	 */
+	getType(): 'github' {
+		return 'github';
+	}
+
+	/**
 	 * Fetches the logs for a specific job in a GitHub Actions workflow.
 	 * @param projectPath The path to the project, typically in the format 'owner/repo'
 	 * @param jobId The ID of the job for which to fetch logs

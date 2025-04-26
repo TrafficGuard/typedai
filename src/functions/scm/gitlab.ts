@@ -402,4 +402,11 @@ export class GitLab implements SourceControlManagement {
 
 		return await this.api().Jobs.showLog(project.id, job.id);
 	}
+
+	/**
+	 * Returns the type of this SCM provider.
+	 */
+	getType(): 'gitlab' {
+		return 'gitlab';
+	}
 }

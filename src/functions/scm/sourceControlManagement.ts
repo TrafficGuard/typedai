@@ -29,6 +29,11 @@ export interface SourceControlManagement {
 	 * @returns {boolean} True if configured, false otherwise.
 	 */
 	isConfigured(): boolean;
+
+	/**
+	 * Returns the type of the SCM provider (e.g., 'github', 'gitlab').
+	 */
+	getType(): 'github' | 'gitlab' | string; // Allow string for potential future providers
 }
 
 function isScmObject(obj: Record<string, any>): boolean {

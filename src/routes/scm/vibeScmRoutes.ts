@@ -2,8 +2,8 @@ import * as HttpStatus from 'http-status-codes';
 import type { AppFastifyInstance } from '#applicationTypes';
 import { sendSuccess } from '#fastify/responses';
 import type { GitProject } from '#functions/scm/gitProject';
-import { GitHub } from '#functions/scm/github';
-import { GitLab } from '#functions/scm/gitlab';
+import { ScmService } from '#functions/scm/scmService';
+import type { SourceControlManagement } from '#functions/scm/sourceControlManagement';
 import { logger } from '#o11y/logger';
 
 /**
@@ -11,54 +11,67 @@ import { logger } from '#o11y/logger';
  * @param fastify - The Fastify instance.
  */
 export async function vibeScmRoutes(fastify: AppFastifyInstance): Promise<void> {
+	const scmService = new ScmService(); // Instantiate the service
+
 	fastify.get('/api/scm/projects', async (request, reply) => {
 		logger.info('Fetching SCM projects');
 		const allProjects: string[] = [];
-		const github = new GitHub();
-		const gitlab = new GitLab();
+		const configuredProviders = scmService.getConfiguredProviders();
 
-		if (github.isConfigured()) {
-			try {
-				logger.info('Fetching GitHub projects');
-				const githubProjects: GitProject[] = await github.getProjects();
-				githubProjects.forEach((project) => allProjects.push(`GitHub: ${project.fullPath}`));
-			} catch (error) {
-				logger.error(error, 'Error fetching GitHub projects');
-				// Continue execution even if GitHub fetch fails
-			}
-		} else {
-			logger.info('GitHub SCM provider not configured');
-		}
-
-		if (gitlab.isConfigured()) {
-			try {
-				logger.info('Fetching GitLab projects');
-				const gitlabProjects: GitProject[] = await gitlab.getProjects();
-				gitlabProjects.forEach((project) => allProjects.push(`GitLab: ${project.fullPath}`));
-			} catch (error) {
-				logger.error(error, 'Error fetching GitLab projects');
-				// Continue execution even if GitLab fetch fails
-			}
-		} else {
-			logger.info('GitLab SCM provider not configured');
-		}
-
-		if (allProjects.length === 0 && !github.isConfigured() && !gitlab.isConfigured()) {
+		if (!scmService.hasConfiguredProvider()) {
 			logger.warn('No SCM providers are configured');
 			return reply.code(HttpStatus.BAD_REQUEST).send({ message: 'No SCM provider configured.' });
 		}
 
+		// Use Promise.allSettled to fetch from all providers concurrently and handle potential errors
+		const results = await Promise.allSettled(
+			configuredProviders.map(async (provider: SourceControlManagement) => {
+				const providerType = provider.getType();
+				logger.info(`Fetching projects from ${providerType}`);
+				try {
+					const projects: GitProject[] = await provider.getProjects();
+					// Prefix project paths with the provider type for clarity
+					return projects.map((project) => `${providerType.charAt(0).toUpperCase() + providerType.slice(1)}: ${project.fullPath}`);
+				} catch (error) {
+					logger.error(error, `Error fetching projects from ${providerType}`);
+					// Throw error to be caught by Promise.allSettled
+					throw new Error(`Failed to fetch projects from ${providerType}`);
+				}
+			}),
+		);
+
+		// Process results, adding successfully fetched projects to the list
+		results.forEach((result, index) => {
+			const providerType = configuredProviders[index].getType();
+			if (result.status === 'fulfilled') {
+				allProjects.push(...result.value);
+			} else {
+				// Log the rejection reason, but continue processing other providers
+				logger.error(result.reason, `Skipping projects from ${providerType} due to fetch error.`);
+			}
+		});
+
+		// Check if any projects were successfully fetched after handling errors
+		if (allProjects.length === 0) {
+			logger.error('Failed to fetch projects from all configured SCM providers.');
+			return reply.code(HttpStatus.INTERNAL_SERVER_ERROR).send({ message: 'Failed to fetch projects from configured SCM providers.' });
+		}
+
 		try {
 			allProjects.sort((a, b) => a.localeCompare(b));
-			// Use sendSuccess with the combined and sorted list
-			// The second argument to sendSuccess is the data payload
-			sendSuccess(reply, allProjects as any); // Cast needed as sendSuccess expects string message by default
+			// sendSuccess expects a message string as the second argument by default.
+			// To send data, pass null or an empty string for the message and put the data in the third argument (extra options).
+			// However, the existing sendSuccess implementation seems designed to put the data directly in the second arg if it's not a string.
+			// Let's adjust the call slightly to be clearer or potentially adjust sendSuccess if needed.
+			// Assuming sendSuccess can handle an array directly based on previous usage:
+			reply.code(HttpStatus.OK).send({ statusCode: HttpStatus.OK, data: allProjects });
+			// If sendSuccess strictly needs a message:
+			// sendSuccess(reply, 'Successfully fetched projects', { data: allProjects });
 		} catch (error) {
-			logger.error(error, 'Error processing or sending SCM projects');
+			logger.error(error, 'Error sorting or sending SCM projects');
 			reply.code(HttpStatus.INTERNAL_SERVER_ERROR).send({ message: 'Internal Server Error while processing projects.' });
 		}
-	});
-
 	// Add other SCM-related routes here (e.g., get project details, create merge request)
+	// These routes could potentially also use the scmService.getProvider(type) method
 	logger.info('Registered vibe SCM routes');
 }
