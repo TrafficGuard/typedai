@@ -11,7 +11,7 @@ import type { AppFastifyInstance } from '../../applicationTypes';
 
 const v1BasePath = '/api/agent/v1';
 
-const AGENT_TYPES: Array<AgentType> = ['xml', 'codegen'];
+const AGENT_TYPES: Array<AgentType> = ['autonomous', 'workflow'];
 
 export async function agentStartRoute(fastify: AppFastifyInstance) {
 	/** Starts a new agent */
@@ -24,6 +24,7 @@ export async function agentStartRoute(fastify: AppFastifyInstance) {
 					userPrompt: Type.String(),
 					functions: Type.Array(Type.String()),
 					type: Type.String({ enum: AGENT_TYPES }),
+					subtype: Type.String(),
 					budget: Type.Number({ minimum: 0 }),
 					count: Type.Integer({ minimum: 0 }),
 					llmEasy: Type.String(),
@@ -34,7 +35,7 @@ export async function agentStartRoute(fastify: AppFastifyInstance) {
 			},
 		},
 		async (req, reply) => {
-			const { name, userPrompt, functions, type, budget, count, llmEasy, llmMedium, llmHard, useSharedRepos } = req.body;
+			const { name, userPrompt, functions, type, subtype, budget, count, llmEasy, llmMedium, llmHard, useSharedRepos } = req.body;
 
 			logger.info(req.body, `Starting agent ${name}`);
 
@@ -54,6 +55,7 @@ export async function agentStartRoute(fastify: AppFastifyInstance) {
 				agentName: name,
 				initialPrompt: userPrompt,
 				type: type as AgentType,
+				subtype: subtype,
 				humanInLoop: { budget, count },
 				llms: {
 					easy: getLLM(llmEasy),

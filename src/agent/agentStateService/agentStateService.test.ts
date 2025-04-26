@@ -152,7 +152,8 @@ const createMockAgentContext = (id: string, overrides: Partial<AgentContext> = {
 		functions: new LlmFunctions(), // Instantiate LlmFunctions
 		completedHandler: undefined,
 		pendingMessages: [],
-		type: 'codegen',
+		type: 'autonomous',
+		subtype: 'codegen',
 		iterations: 0,
 		invoking: [],
 		notes: [],

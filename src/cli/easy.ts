@@ -18,6 +18,7 @@ async function main() {
 	await initApplicationContext();
 
 	const context: AgentContext = createContext({
+		subtype: 'easy',
 		initialPrompt: '',
 		agentName: 'easy',
 		llms: mockLLMs(),

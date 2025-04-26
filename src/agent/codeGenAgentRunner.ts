@@ -30,7 +30,8 @@ const ALLOWED_PYTHON_IMPORTS = ['json', 're', 'math', 'datetime'];
 let pyodide: PyodideInterface;
 
 export async function runCodeGenAgent(agent: AgentContext): Promise<AgentExecution> {
-	if (!pyodide) pyodide = await loadPyodide();
+	pyodide ??= await loadPyodide();
+	pyodide.setDebug(true);
 
 	// Hot reload (TODO only when not deployed)
 	const codegenSystemPrompt = readFileSync('src/agent/codegen-agent-system-prompt').toString();
@@ -128,7 +129,10 @@ export async function runCodeGenAgent(agent: AgentContext): Promise<AgentExecuti
 					}
 
 					// Review the generated function calling code
+					// TODO skip a separate review call. Have the prompt make the llm output a draft,
+					// then review it, then then output the final code. And remove the review calls in the tests
 					pythonMainFnCode = await reviewPythonCode(agentPlanResponse, functionsXml);
+					pythonMainFnCode = extractPythonCode(agentPlanResponse);
 
 					agent.state = 'functions';
 					await agentStateService.save(agent);
@@ -200,13 +204,14 @@ export async function runCodeGenAgent(agent: AgentContext): Promise<AgentExecuti
 									}
 								}
 							}
-							// --- End Argument Handling Logic ---
+							// Un-proxy any Pyodide proxied objects
+							for (const [k, v] of Object.entries(parameters)) {
+								if (v?.toJs) parameters[k] = v.toJs();
+							}
+							finalArgs = finalArgs.map((arg) => (arg?.toJs ? arg.toJs() : arg));
+
 							try {
 								const functionResponse = await functionInstances[className][method](...finalArgs);
-								// To minimise the function call history size becoming too large (i.e. expensive)
-								// we'll create a summary for responses which are quite long
-								// const outputSummary = await summariseLongFunctionOutput(functionResponse)
-
 								// Don't need to duplicate the content in the function call history
 								// TODO Would be nice to save over-written memory keys for history/debugging
 								let stdout = JSON.stringify(functionResponse);

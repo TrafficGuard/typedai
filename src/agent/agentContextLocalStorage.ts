@@ -53,6 +53,8 @@ export function createContext(config: RunAgentConfig | RunWorkflowConfig): Agent
 	const hilBudget = config.humanInLoop?.budget ?? (process.env.HIL_BUDGET ? Number.parseFloat(process.env.HIL_BUDGET) : 2);
 	const hilCount = config.humanInLoop?.count ?? (process.env.HIL_COUNT ? Number.parseFloat(process.env.HIL_COUNT) : 5);
 
+	// type is optional on RunWorkflowConfig, which discriminates between RunAgentConfig and RunWorkflowConfig
+
 	const context: AgentContext = {
 		agentId: config.resumeAgentId || randomUUID(),
 		parentAgentId: config.parentAgentId,
@@ -62,7 +64,8 @@ export function createContext(config: RunAgentConfig | RunWorkflowConfig): Agent
 		traceId: '',
 		metadata: config.metadata ?? {},
 		name: config.agentName,
-		type: config.type ?? 'codegen',
+		type: (config as RunAgentConfig).type ?? 'workflow',
+		subtype: config.subtype,
 		user: config.user ?? currentUser(),
 		inputPrompt: '',
 		userPrompt: config.initialPrompt,

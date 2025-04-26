@@ -103,8 +103,9 @@ describe('FirestoreFunctionCacheService', () => {
 		it('should clear all cache entries for a specific agent', async () => {
 			agentContextStorage.enterWith(
 				createContext({
+					type: 'workflow',
+					subtype: 'test',
 					agentName: '',
-					functions: [],
 					initialPrompt: '',
 					llms: mockLLMs(),
 				}),

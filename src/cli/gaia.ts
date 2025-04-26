@@ -98,7 +98,8 @@ async function answerGaiaQuestion(task: GaiaQuestion): Promise<GaiaResult> {
 				xhard: openAIo1(),
 			},
 			agentName: `gaia-${task.task_id}`,
-			type: 'codegen',
+			type: 'autonomous',
+			subtype: 'codegen',
 			humanInLoop: {
 				budget,
 				count: 100,

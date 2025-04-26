@@ -30,6 +30,8 @@ describe('agentContext', () => {
 
 			const config: RunAgentConfig = {
 				agentName: 'SWE',
+				type: 'autonomous',
+				subtype: 'codegen',
 				llms,
 				functions,
 				user: appContext().userService.getSingleUser(),

@@ -170,6 +170,8 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 
 			try {
 				const agentExec = await startAgent({
+					type: 'autonomous',
+					subtype: 'codegen',
 					resumeAgentId: `Slack-${threadId}`,
 					initialPrompt: text,
 					llms: defaultLLMs(),

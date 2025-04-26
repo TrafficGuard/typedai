@@ -16,7 +16,7 @@ import { appContext } from '../applicationContext';
 export const SUPERVISOR_RESUMED_FUNCTION_NAME: string = `Supervisor${FUNC_SEP}Resumed`;
 export const SUPERVISOR_CANCELLED_FUNCTION_NAME: string = `Supervisor${FUNC_SEP}Cancelled`;
 
-export type RunWorkflowConfig = Partial<RunAgentConfig>;
+export type RunWorkflowConfig = Omit<RunAgentConfig, 'type' | 'functions'> & Partial<Pick<RunAgentConfig, 'functions'>>;
 
 /**
  * Configuration for running an autonomous agent
@@ -28,8 +28,10 @@ export interface RunAgentConfig {
 	parentAgentId?: string;
 	/** The name of this agent */
 	agentName: string;
-	/** The type of autonomous agent function calling. Defaults to codegen */
-	type?: AgentType;
+	/** Autonomous or workflow */
+	type: AgentType;
+	/** For autonomous agents either xml or codegen. For workflow agents it identifies the workflow type */
+	subtype: string;
 	/** The function classes the agent has available to call */
 	functions: LlmFunctions | Array<new () => any>;
 	/** Handler for when the agent finishes executing. Defaults to console output */
@@ -70,7 +72,7 @@ async function runAgent(agent: AgentContext): Promise<AgentExecution> {
 
 	await checkRepoHomeAndWorkingDirectory(agent);
 
-	switch (agent.type) {
+	switch (agent.subtype) {
 		case 'xml':
 			execution = await runXmlAgent(agent);
 			break;

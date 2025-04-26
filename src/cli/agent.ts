@@ -46,8 +46,13 @@ export async function main() {
 		initialPrompt,
 		functions,
 		llms,
-		type: 'codegen',
+		type: 'autonomous',
+		subtype: 'codegen',
 		resumeAgentId,
+		humanInLoop: {
+			count: 30,
+			budget: 30,
+		},
 	});
 	logger.info('AgentId ', agentId);
 

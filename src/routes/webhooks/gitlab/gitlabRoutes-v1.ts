@@ -1,6 +1,6 @@
 import { Type } from '@sinclair/typebox';
 import type { FastifyReply } from 'fastify';
-import type { RunAgentConfig } from '#agent/agentRunner';
+import { RunAgentConfig, type RunWorkflowConfig } from '#agent/agentRunner';
 import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
 import { send, sendSuccess } from '#fastify/index';
 import { GitLabCodeReview } from '#functions/scm/gitlabCodeReview';
@@ -37,10 +37,10 @@ export async function gitlabRoutesV1(fastify: AppFastifyInstance) {
 			const runAsUser = await appContext().userService.getUserByEmail(envVar('GITLAB_REVIEW_USER_EMAIL'));
 			if (!runAsUser) throw new Error(`Could not find user from env var GITLAB_REVIEW_USER_EMAIL with value ${envVar('GITLAB_REVIEW_USER_EMAIL')}`);
 
-			const config: RunAgentConfig = {
+			const config: RunWorkflowConfig = {
+				subtype: 'gitlab-review',
 				agentName: `MR review - ${event.object_attributes.title}`,
 				llms: defaultLLMs(),
-				functions: [],
 				user: runAsUser,
 				initialPrompt: '',
 				humanInLoop: envVarHumanInLoopSettings(),
