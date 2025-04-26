@@ -69,6 +69,9 @@ export class VibeComponent implements OnInit {
       // If both are read-only or both are writable, sort by filePath
       return a.filePath.localeCompare(b.filePath);
     });
+  } // Closing brace for sortFiles method was missing in the previous snippet, assuming it's here.
+
+  /**
    * Handles the fileDeleted event from the VibeFileListComponent.
    * @param file The file that was requested to be deleted.
    */
