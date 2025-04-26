@@ -1,8 +1,8 @@
-import { Component, inject, OnInit } from '@angular/core'; // Import inject
+import { Component, inject, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { map, Observable, switchMap } from 'rxjs'; // Import switchMap and map
+import { map, Observable, switchMap } from 'rxjs';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, RouterModule, RouterOutlet } from '@angular/router'; // Import ActivatedRoute
+import { ActivatedRoute, RouterModule, RouterOutlet } from '@angular/router';
 import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatSelectModule } from "@angular/material/select";
 import { MatCardModule } from "@angular/material/card";
@@ -10,10 +10,9 @@ import { MatProgressBarModule } from "@angular/material/progress-bar";
 import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
-import { MatListModule } from '@angular/material/list'; // Import MatListModule
+import { MatListModule } from '@angular/material/list';
 import { VibeService } from './vibe.service';
-import { VibeSession } from './vibe.types'; // Import VibeSession type
-import type { SelectedFile } from '#swe/discovery/selectFilesAgent'; // Import SelectedFile type
+import { VibeSession, SelectedFile } from './vibe.types';
 // Removed VibeListComponent import
 
 @Component({
@@ -42,7 +41,6 @@ export class VibeComponent implements OnInit {
 
   session$: Observable<VibeSession>;
 
-  // Remove constructor if fb is no longer needed, or keep if form is added later
   // constructor(private fb: FormBuilder) {}
 
   /**
@@ -89,7 +87,6 @@ export class VibeComponent implements OnInit {
       })
     );
 
-    // Remove the old form initialization
     // this.codeForm = this.fb.group({ ... });
   }
 }

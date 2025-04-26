@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, map, Observable, of, switchMap, tap, throwError } from 'rxjs';
 import { VibeSession } from './vibe.types';
-import type { SelectedFile } from '#swe/discovery/selectFilesAgent'; // Import SelectedFile type if needed elsewhere, or remove if only used in vibe.types
+// Removed invalid backend import: import type { SelectedFile } from '#swe/discovery/selectFilesAgent';
 import { GitProject } from '../../../../../src/functions/scm/gitProject'; // Adjust path as needed - Assuming this path is correct relative to the frontend structure
 
 // Define the shape of the data needed for creation, matching the backend API body
@@ -24,7 +24,8 @@ export class VibeService {
 	// BehaviorSubject to hold the currently viewed/active session
 	private currentSession = new BehaviorSubject<VibeSession | null>(null);
 
-	private http = inject(HttpClient); // Use inject
+
+	private http = inject(HttpClient);
 
 	/**
 	 * Observable for the currently active VibeSession.

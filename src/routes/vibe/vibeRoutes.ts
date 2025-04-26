@@ -1,10 +1,10 @@
 import { type Static, Type } from '@sinclair/typebox';
-import type { FastifyRequest as FastifyRequestBase } from 'fastify'; // Import base FastifyRequest
+import type { FastifyRequest as FastifyRequestBase } from 'fastify';
 import type { AppFastifyInstance } from '#applicationTypes';
 import type { FastifyRequest } from '#fastify/fastifyApp'; // Keep custom FastifyRequest for non-generic use
-import { sendNotFound } from '#fastify/responses'; // Import sendNotFound
+import { sendNotFound } from '#fastify/responses';
 import type { GitProject } from '#functions/scm/gitProject';
-import { type SelectedFile, queryWithFileSelection } from '#swe/discovery/selectFilesAgent'; // Import agent and type
+import { type SelectedFile, queryWithFileSelection } from '#swe/discovery/selectFilesAgent';
 import type { CreateVibeSessionData, VibeSession } from '#vibe/vibeTypes';
 
 // Define a TypeBox schema for the response (subset of VibeSession)
