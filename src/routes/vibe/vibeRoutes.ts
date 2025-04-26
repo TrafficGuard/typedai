@@ -33,8 +33,6 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 			// Assuming authentication middleware adds `currentUser` to the request
 			if (!request.currentUser?.id) {
 				return reply.code(401).send({ error: 'Unauthorized' });
-			}
-			const userId = request.currentUser.id;
 			const sessions = await firestoreVibeService.listVibeSessions(userId);
 
 			// Optional: Map sessions to the response schema if needed (e.g., timestamp conversion)

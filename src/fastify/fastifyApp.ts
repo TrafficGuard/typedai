@@ -198,7 +198,8 @@ function registerRequestDecorators(decorators: { [key: string]: any }) {
 
 function registerRoutes(routes: RouteDefinition[]) {
 	// Add the new vibe routes registration
-	fastifyInstance.register(vibeRoutes, { prefix: '/api/vibe' });
+	// Cast to any to resolve TS2769: AppFastifyInstance vs FastifyInstance type mismatch during registration
+	fastifyInstance.register(vibeRoutes as any, { prefix: '/api/vibe' });
 
 	for (const route of routes) {
 		// Ensure the route function itself handles prefixing if needed,
