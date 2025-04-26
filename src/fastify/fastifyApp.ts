@@ -17,7 +17,7 @@ import { logger } from '#o11y/logger';
 import type { User } from '#user/user';
 import type { AppFastifyInstance } from '../applicationTypes';
 import { loadOnRequestHooks } from './hooks';
-// import { vibeRoutes } from '../routes/vibe/vibeRoutes'; // Adjust path as needed - Removed due to missing file
+import { vibeRoutes } from '../routes/vibe/vibeRoutes'; // Adjust path as needed
 
 const NODE_ENV = process.env.NODE_ENV ?? 'local';
 
