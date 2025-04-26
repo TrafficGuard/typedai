@@ -171,13 +171,16 @@ export class VibeComponent implements OnInit, OnDestroy {
     this.session$.pipe(
       switchMap(session => {
         if (session?.id) {
+          // Fetch the file tree as a single string
           return this.vibeService.getFileSystemTree(session.id);
         }
-        return of([]); // Return empty array if no session ID or session is null
+        // Return an empty string observable if no session ID
+        return of('');
       }),
       takeUntil(this.destroy$) // Clean up subscription
-    ).subscribe((files: string[]) => {
-      this.allFiles = files;
+    ).subscribe((fileListString: string) => {
+        // Split the newline-separated string into an array of file paths
+        this.allFiles = fileListString ? fileListString.split('\n').filter(f => f.trim() !== '') : [];
       // Initialize or re-initialize the filtered files observable
       if (!this.filteredFiles$) {
         this.filteredFiles$ = this.addFileControl.valueChanges.pipe(
@@ -222,10 +225,9 @@ export class VibeComponent implements OnInit, OnDestroy {
     const selectedFile = this.addFileControl.value?.trim();
 
     if (selectedFile) {
-      console.log('File selected to add (deferring backend update):', selectedFile);
       // TODO: Implement backend update logic in a subsequent step.
       // For now, just log and reset the control.
-      this.addFileControl.setValue(''); // Reset input
+      this.addFileControl.setValue(''); // Reset input after adding
     } else {
       console.warn('Attempted to add an empty file path.');
     }
