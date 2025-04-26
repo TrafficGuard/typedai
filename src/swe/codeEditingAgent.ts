@@ -11,7 +11,6 @@ import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFile
 import { getRepositoryOverview, getTopLevelSummary } from '#swe/index/repoIndexDocBuilder';
 import { reviewChanges } from '#swe/reviewChanges';
 import { supportingInformation } from '#swe/supportingInformation';
-import { tidyDiff } from './tidyDiff';
 import { execCommand } from '#utils/exec';
 import { appContext } from '../applicationContext';
 import { cacheRetry } from '../cache/cacheRetry';
@@ -20,6 +19,7 @@ import { type SelectFilesResponse, selectFilesToEdit } from './discovery/selectF
 import { type ProjectInfo, detectProjectInfo } from './projectDetection';
 import { basePrompt } from './prompt';
 import { summariseRequirements } from './summariseRequirements';
+import { tidyDiff } from './tidyDiff';
 
 export function buildPrompt(args: {
 	information: string;
@@ -51,8 +51,8 @@ export class CodeEditingAgent {
 		altOptions?: { projectInfo?: ProjectInfo; workingDirectory?: string },
 	): Promise<void> {
 		if (!requirements) throw new Error('The argument "requirements" must be provided');
-		if(fileSelection && !Array.isArray(fileSelection)) {
-			logger.warn(`File selection was type ${typeof fileSelection}. Value: ${JSON.stringify(fileSelection)}`)
+		if (fileSelection && !Array.isArray(fileSelection)) {
+			logger.warn(`File selection was type ${typeof fileSelection}. Value: ${JSON.stringify(fileSelection)}`);
 			throw new Error(`If fileSelection is provided it must be an array. Was type ${typeof fileSelection}`);
 		}
 		let projectInfo: ProjectInfo = altOptions?.projectInfo;
@@ -144,7 +144,8 @@ Then respond in following format:
 			logger.error(e, 'Error performing online queries from code requirements');
 		}
 
-		implementationRequirements += '\n\nOnly make changes directly related to these requirements. Any other changes will be deleted.\n' +
+		implementationRequirements +=
+			'\n\nOnly make changes directly related to these requirements. Any other changes will be deleted.\n' +
 			'Do not add spurious comments like "// Adding here". Only add high level comments when there is significant complexity\n' +
 			'Follow existing code styles.';
 		console.log(`Requirements\n${implementationRequirements}`);
@@ -190,7 +191,6 @@ Then respond in following format:
 			// Log the error but don't fail the whole workflow for a tidying issue.
 		}
 		// --- End of added tidyDiff call ---
-
 
 		// The prompts need some work
 		// await this.testLoop(requirements, projectInfo, initialSelectedFiles);
