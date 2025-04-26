@@ -1,6 +1,7 @@
 import { type Static, Type } from '@sinclair/typebox';
 import type { AppFastifyInstance } from '#applicationTypes';
 import type { FastifyRequest } from '#fastify/fastifyApp';
+import type { GitProject } from '#functions/scm/gitProject';
 import type { CreateVibeSessionData, VibeSession } from '#vibe/vibeTypes';
 
 // Define a TypeBox schema for the response (subset of VibeSession)
@@ -60,9 +61,32 @@ const VibeSessionResponseSchema = Type.Object({
 	error: Type.Optional(Type.String()),
 });
 
+// Schema for SCM Provider response
+const ScmProviderSchema = Type.Object({
+	type: Type.String(),
+	// Add other relevant provider details if needed
+});
+const ScmProviderListResponseSchema = Type.Array(ScmProviderSchema);
+
+// Schema for GitProject response
+const GitProjectSchema = Type.Object({
+	id: Type.Union([Type.String(), Type.Number()]), // GitLab uses number, GitHub might use string or number depending on context
+	name: Type.String(),
+	namespace: Type.String(),
+	fullPath: Type.String(),
+	description: Type.Union([Type.String(), Type.Null()]),
+	defaultBranch: Type.String(),
+	// Add other relevant project details if needed
+});
+const GitProjectListResponseSchema = Type.Array(GitProjectSchema);
+
+// Schema for Branch list response
+const BranchListResponseSchema = Type.Array(Type.String());
+
 export async function vibeRoutes(fastify: AppFastifyInstance) {
-	// Access the vibeService from the application context attached to fastify
+	// Access services from the application context attached to fastify
 	const vibeService = fastify.vibeService;
+	const scmService = fastify.scmService;
 
 	// --- GET /sessions ---
 	fastify.get(
@@ -148,6 +172,129 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 				// Log the error and return a 500 response
 				fastify.log.error(error, 'Error creating Vibe session');
 				return reply.code(500).send({ error: 'Failed to create Vibe session' });
+			}
+		},
+	);
+
+	// --- GET /scm/providers ---
+	fastify.get(
+		'/scm/providers',
+		{
+			schema: {
+				response: {
+					200: ScmProviderListResponseSchema,
+					401: ErrorResponseSchema,
+				},
+			},
+		},
+		async (request: FastifyRequest, reply) => {
+			if (!request.currentUser?.id) {
+				return reply.code(401).send({ error: 'Unauthorized' });
+			}
+
+			const providers = scmService.getConfiguredProviders();
+			const response = providers.map((p) => ({ type: p.getType() })); // Map to the response schema
+			return reply.send(response);
+		},
+	);
+
+	// --- GET /scm/projects ---
+	fastify.get(
+		'/scm/projects',
+		{
+			schema: {
+				querystring: Type.Object({
+					providerType: Type.String({ description: "The type of SCM provider (e.g., 'github', 'gitlab')" }),
+				}),
+				response: {
+					200: GitProjectListResponseSchema,
+					400: ErrorResponseSchema, // For missing/invalid providerType
+					401: ErrorResponseSchema,
+					404: ErrorResponseSchema, // Provider not found/configured
+					500: ErrorResponseSchema,
+				},
+			},
+		},
+		async (request: FastifyRequest<{ Querystring: { providerType: string } }>, reply) => {
+			if (!request.currentUser?.id) {
+				return reply.code(401).send({ error: 'Unauthorized' });
+			}
+
+			const { providerType } = request.query;
+			if (!providerType) {
+				return reply.code(400).send({ error: 'Missing providerType query parameter' });
+			}
+
+			const provider = scmService.getProvider(providerType);
+			if (!provider) {
+				return reply.code(404).send({ error: `SCM provider '${providerType}' not found or not configured.` });
+			}
+
+			try {
+				const projects: GitProject[] = await provider.getProjects();
+				// Map projects to ensure they fit the GitProjectSchema, especially the 'id' type
+				const responseProjects = projects.map((p) => ({
+					id: p.id, // Keep original type (string | number)
+					name: p.name,
+					namespace: p.namespace,
+					fullPath: p.fullPath,
+					description: p.description,
+					defaultBranch: p.defaultBranch,
+				}));
+				return reply.send(responseProjects);
+			} catch (error) {
+				fastify.log.error(error, `Error fetching projects for provider ${providerType}`);
+				return reply.code(500).send({ error: 'Failed to fetch projects' });
+			}
+		},
+	);
+
+	// --- GET /scm/branches ---
+	fastify.get(
+		'/scm/branches',
+		{
+			schema: {
+				querystring: Type.Object({
+					providerType: Type.String({ description: "The type of SCM provider (e.g., 'github', 'gitlab')" }),
+					projectId: Type.Union([Type.String(), Type.Number()], { description: 'The ID or path of the project' }),
+				}),
+				response: {
+					200: BranchListResponseSchema,
+					400: ErrorResponseSchema, // For missing parameters
+					401: ErrorResponseSchema,
+					404: ErrorResponseSchema, // Provider or project not found
+					500: ErrorResponseSchema,
+				},
+			},
+		},
+		async (request: FastifyRequest<{ Querystring: { providerType: string; projectId: string | number } }>, reply) => {
+			if (!request.currentUser?.id) {
+				return reply.code(401).send({ error: 'Unauthorized' });
+			}
+
+			const { providerType, projectId } = request.query;
+			if (!providerType || projectId === undefined) {
+				// Check for undefined specifically as 0 is a valid GitLab ID
+				return reply.code(400).send({ error: 'Missing providerType or projectId query parameter' });
+			}
+
+			const provider = scmService.getProvider(providerType);
+			if (!provider) {
+				return reply.code(404).send({ error: `SCM provider '${providerType}' not found or not configured.` });
+			}
+
+			try {
+				// Ensure projectId is passed correctly (might be string or number)
+				const branches = await provider.getBranches(projectId);
+				return reply.send(branches);
+			} catch (error: any) {
+				// Basic check for project not found errors (might need refinement based on specific SCM errors)
+				if (error.message?.includes('404') || error.message?.toLowerCase().includes('not found')) {
+					fastify.log.warn(`Project not found for provider ${providerType}, projectId ${projectId}`);
+					return reply.code(404).send({ error: `Project with ID/Path '${projectId}' not found for provider '${providerType}'.` });
+				}
+				fastify.log.error(error, `Error fetching branches for provider ${providerType}, projectId ${projectId}`);
+				return reply.code(500).send({ error: 'Failed to fetch branches' });
 			}
 		},
 	);
