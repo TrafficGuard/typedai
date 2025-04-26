@@ -164,15 +164,17 @@ export class FirestoreVibeService {
 	async updateVibeSession(userId: string, sessionId: string, updates: UpdateVibeSessionData): Promise<void> {
 		// Security check: Ensure the requesting user matches the userId in the path
 		if (userId !== currentUser().id) {
-			logger.error({ requestedUserId: userId, currentUserId: currentUser().id, sessionId }, 'Authorization failed: Attempt to update VibeSession for another user');
+			logger.error(
+				{ requestedUserId: userId, currentUserId: currentUser().id, sessionId },
+				'Authorization failed: Attempt to update VibeSession for another user',
+			);
 			throw new Error('Not authorized to update this Vibe session');
 		}
 
-		// Remove fields that should not be directly updated or are handled internally
-		const { id: _id, userId: _userId, createdAt: _createdAt, ...validUpdates } = updates;
-
+		// The type UpdateVibeSessionData already excludes id, userId, and createdAt.
+		// We just need to add the server timestamp for updatedAt.
 		const updateData = {
-			...validUpdates,
+			...updates,
 			updatedAt: FieldValue.serverTimestamp(), // Use server timestamp
 		};
 
@@ -201,7 +203,10 @@ export class FirestoreVibeService {
 	async deleteVibeSession(userId: string, sessionId: string): Promise<void> {
 		// Security check: Ensure the requesting user matches the userId in the path
 		if (userId !== currentUser().id) {
-			logger.error({ requestedUserId: userId, currentUserId: currentUser().id, sessionId }, 'Authorization failed: Attempt to delete VibeSession for another user');
+			logger.error(
+				{ requestedUserId: userId, currentUserId: currentUser().id, sessionId },
+				'Authorization failed: Attempt to delete VibeSession for another user',
+			);
 			throw new Error('Not authorized to delete this Vibe session');
 		}
 
