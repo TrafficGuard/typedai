@@ -219,52 +219,15 @@ export class VibeComponent implements OnInit, OnDestroy {
    * Handles adding the selected file from the autocomplete.
    */
   handleAddFile(): void {
-    const selectedFile = this.addFileControl.value?.trim(); // Trim whitespace
+    const selectedFile = this.addFileControl.value?.trim();
 
-    if (!selectedFile) {
-        console.warn('No file selected.');
-        return;
+    if (selectedFile) {
+      console.log('File selected to add (deferring backend update):', selectedFile);
+      // TODO: Implement backend update logic in a subsequent step.
+      // For now, just log and reset the control.
+      this.addFileControl.setValue(''); // Reset input
+    } else {
+      console.warn('Attempted to add an empty file path.');
     }
-
-    if (!this.allFiles.includes(selectedFile)) {
-        console.warn('Invalid file selected or file not found in workspace:', selectedFile);
-        // Optionally provide user feedback (e.g., using MatSnackBar)
-        return;
-    }
-
-    this.session$.pipe(
-        take(1), // Get current session state once
-        takeUntil(this.destroy$), // Clean up subscription
-        switchMap(session => {
-            if (!session?.id) {
-                console.error('Cannot add file: Session ID is missing.');
-                return of(null); // Or throw an error
-            }
-
-            // Check if the file is already in the selection to avoid duplicates
-            if (session.fileSelection?.some(f => f.filePath === selectedFile)) {
-                console.warn(`File ${selectedFile} is already in the session.`);
-                // Optionally provide user feedback
-                this.addFileControl.setValue(''); // Clear input even if already added
-                return of(null); // Prevent API call
-            }
-
-            // Call the service to update the session
-            return this.vibeService.updateSession(session.id, { filesToAdd: [selectedFile] });
-        })
-    ).subscribe({
-        next: (updatedSession) => {
-            if (updatedSession) {
-                console.log(`File ${selectedFile} added successfully.`);
-                this.addFileControl.setValue(''); // Reset input after successful addition
-                // View updates automatically via session$ observable
-            }
-            // If of(null) was returned (e.g., file already exists), do nothing further here.
-        },
-        error: (err) => {
-            console.error(`Error adding file ${selectedFile}:`, err);
-            // Optionally provide user feedback
-        }
-    });
   }
 }

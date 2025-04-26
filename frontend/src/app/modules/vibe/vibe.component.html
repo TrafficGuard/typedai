@@ -77,14 +77,14 @@
                     </vibe-file-list>
 
                    <!-- File Autocomplete Input -->
-                   <div class="sm:col-span-2 mt-6"> <!-- Added margin-top -->
+                   <div class="sm:col-span-2 mt-6">
                        <div class="font-semibold mb-2">Add File to Session:</div>
-                       <div class="flex items-center space-x-2"> <!-- Flex container for input and button -->
-                           <mat-form-field class="flex-grow"> <!-- Input takes available space -->
-                               <mat-label>Search and select file</mat-label>
+                       <div class="flex items-center space-x-2">
+                           <mat-form-field class="flex-grow" appearance="outline">
                                <input
                                    type="text"
                                    matInput
+                                   placeholder="Add file path..."
                                    [formControl]="addFileControl"
                                    [matAutocomplete]="auto">
                                <mat-autocomplete #auto="matAutocomplete">

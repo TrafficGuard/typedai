@@ -102,11 +102,12 @@ export class VibeService {
 	}
 
 	/**
-	 * Fetches the file system tree for a given Vibe session ID.
+	 * Fetches the file system tree for a given Vibe session ID as a newline-separated string.
 	 * @param sessionId The ID of the Vibe session.
 	 */
-	getFileSystemTree(sessionId: string): Observable<string[]> {
-		return this.http.get<string[]>(`/api/vibe/sessions/${sessionId}/files`);
+	getFileSystemTree(sessionId: string): Observable<string> {
+		// The backend returns a plain text response with each file path on a new line.
+		return this.http.get(`/api/vibe/filesystem-tree/${sessionId}`, { responseType: 'text' });
 	}
 
     /**
