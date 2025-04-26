@@ -31,6 +31,8 @@ async function main() {
 
 	const config: RunAgentConfig = {
 		agentName: 'util',
+		type: 'autonomous', // Added default type
+		subtype: 'util', // Added default subtype matching agentName
 		llms: utilLLMs,
 		functions,
 		initialPrompt: '',
