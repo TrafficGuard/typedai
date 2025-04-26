@@ -268,6 +268,3 @@ export class VibeComponent implements OnInit, OnDestroy {
     });
   }
 }
-    }
-  }
-}
