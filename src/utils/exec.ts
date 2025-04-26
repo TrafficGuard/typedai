@@ -107,7 +107,7 @@ export async function execCmd(command: string, cwd = getFileSystem().getWorkingD
 					stderr,
 					error,
 					// Determine exit code: 0 for success, error code or 1 for failure
-					exitCode: error ? (error as any).code ?? 1 : 0,
+					exitCode: error ? ((error as any).code ?? 1) : 0,
 					cwd,
 				});
 			});
