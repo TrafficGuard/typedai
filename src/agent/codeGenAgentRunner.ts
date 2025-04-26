@@ -130,22 +130,16 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 					iterationData.agentPlan = agentPlanResponse; // Save the plan even on retry
 				}
 
-				// Review the generated function calling code
-				// TODO skip a separate review call. Have the prompt make the llm output a draft,
-				// then review it, then then output the final code. And remove the review calls in the tests
-				// pythonMainFnCode =
-				// await reviewPythonCode(agentPlanResponse, functionsXml); // for unit tests
 				pythonMainFnCode = extractPythonCode(agentPlanResponse);
 				pythonMainFnCode = await ensureCorrectSyntax(pythonMainFnCode, functionsXml);
-
 				iterationData.code = pythonMainFnCode;
 				pythonScript = mainFnCodeToFullScript(pythonMainFnCode);
 
-				agent.state = 'functions';
-				await agentStateService.save(agent);
-
 				const currentIterationFunctionCalls: FunctionCallResult[] = [];
 				const globals = setupPyodideFunctionCallableGlobals(agent, agentPlanResponse, currentIterationFunctionCalls);
+
+				agent.state = 'functions';
+				await agentStateService.save(agent);
 
 				try {
 					const result = await pyodide.runPythonAsync(pythonScript, { globals });
