@@ -50,18 +50,3 @@ export function getSourceControlManagementTool(): SourceControlManagement {
 	if (scms.length > 1) throw new Error('More than one function classes found implementing SourceControlManagement');
 	return scms[0];
 }
-
-/**
- * Pushes the specified branch to the 'origin' remote and sets it up to track the remote branch.
- * Throws an error if the push fails.
- * @param sourceBranch The name of the branch to push.
- */
-export async function pushBranchToOrigin(sourceBranch: string): Promise<void> {
-	const cmd = `git push --set-upstream origin '${sourceBranch}'`;
-	const { exitCode, stdout, stderr } = await execCommand(cmd);
-	if (exitCode > 0) {
-		// Combine stdout and stderr for a comprehensive error message
-		const errorMessage = `Failed to push branch '${sourceBranch}' to origin.\nstdout: ${stdout}\nstderr: ${stderr}`;
-		throw new Error(errorMessage);
-	}
-}

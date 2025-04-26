@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { request } from '@octokit/request';
 import { agentContext } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import { type MergeRequest, type SourceControlManagement, pushBranchToOrigin } from '#functions/scm/sourceControlManagement';
+import type { MergeRequest, SourceControlManagement } from '#functions/scm/sourceControlManagement';
 import { logger } from '#o11y/logger';
 import { functionConfig } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
@@ -142,7 +142,13 @@ export class GitHub implements SourceControlManagement {
 	@func()
 	async createMergeRequest(title: string, description: string, sourceBranch: string, targetBranch: string): Promise<MergeRequest> {
 		// Push the branch first
-		await pushBranchToOrigin(sourceBranch);
+		const pushCmd = `git push --set-upstream origin '${sourceBranch}'`;
+		const { exitCode: pushExitCode, stdout: pushStdout, stderr: pushStderr } = await execCommand(pushCmd);
+		if (pushExitCode > 0) {
+			// Combine stdout and stderr for a comprehensive error message
+			const errorMessage = `Failed to push branch '${sourceBranch}' to origin.\nstdout: ${pushStdout}\nstderr: ${pushStderr}`;
+			throw new Error(errorMessage);
+		}
 
 		// Determine owner and repo from the origin URL
 		const originUrlResult = await execCommand('git config --get remote.origin.url');

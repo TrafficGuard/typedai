@@ -21,7 +21,7 @@ import { envVar } from '#utils/env-var';
 import { execCommand, failOnError } from '#utils/exec';
 import { agentDir, systemDir } from '../../appVars';
 import type { GitProject } from './gitProject';
-import { type MergeRequest, type SourceControlManagement, pushBranchToOrigin } from './sourceControlManagement';
+import type { MergeRequest, SourceControlManagement } from './sourceControlManagement';
 
 export interface GitLabConfig {
 	host: string;
@@ -249,7 +249,13 @@ export class GitLab implements SourceControlManagement {
 	@func()
 	async createMergeRequest(projectId: string | number, title: string, description: string, sourceBranch: string, targetBranch: string): Promise<MergeRequest> {
 		// Push the branch first
-		await pushBranchToOrigin(sourceBranch);
+		const pushCmd = `git push --set-upstream origin '${sourceBranch}'`;
+		const { exitCode: pushExitCode, stdout: pushStdout, stderr: pushStderr } = await execCommand(pushCmd);
+		if (pushExitCode > 0) {
+			// Combine stdout and stderr for a comprehensive error message
+			const errorMessage = `Failed to push branch '${sourceBranch}' to origin.\nstdout: ${pushStdout}\nstderr: ${pushStderr}`;
+			throw new Error(errorMessage);
+		}
 
 		// Get user details for assigning the MR
 		const email = currentUser().email;
