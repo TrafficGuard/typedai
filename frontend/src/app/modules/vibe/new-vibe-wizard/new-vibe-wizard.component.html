@@ -1,0 +1,57 @@
+<h2>Create New Vibe Session</h2>
+<form [formGroup]="wizardForm" (ngSubmit)="onSubmit()">
+	<mat-form-field appearance="fill">
+		<mat-label>Title</mat-label>
+		<input matInput formControlName="title" required />
+		<mat-error *ngIf="wizardForm.get('title')?.hasError('required')">Title is required</mat-error>
+	</mat-form-field>
+
+	<mat-form-field appearance="fill">
+		<mat-label>Instructions</mat-label>
+		<textarea matInput formControlName="instructions" rows="5" required></textarea>
+		<mat-error *ngIf="wizardForm.get('instructions')?.hasError('required')">Instructions are required</mat-error>
+	</mat-form-field>
+
+	<!-- Placeholder for Repository Source Selection (e.g., Radio buttons or Select) -->
+	<p>Repository Source: [TODO: Add UI Control for repositorySource]</p>
+	<input type="hidden" formControlName="repositorySource" />
+	<!-- Temporary hidden input -->
+
+	<mat-form-field appearance="fill">
+		<mat-label>Repository Identifier</mat-label>
+		<input matInput formControlName="repositoryId" required />
+		<mat-hint>e.g., local path, 'owner/repo', 'group/project'</mat-hint>
+		<mat-error *ngIf="wizardForm.get('repositoryId')?.hasError('required')">Repository Identifier is required</mat-error>
+	</mat-form-field>
+
+	<mat-form-field appearance="fill">
+		<mat-label>Repository Name (Optional)</mat-label>
+		<input matInput formControlName="repositoryName" />
+		<mat-hint>e.g., 'my-cool-project'</mat-hint>
+	</mat-form-field>
+
+	<mat-form-field appearance="fill">
+		<mat-label>Branch</mat-label>
+		<input matInput formControlName="branch" required />
+		<mat-error *ngIf="wizardForm.get('branch')?.hasError('required')">Branch is required</mat-error>
+	</mat-form-field>
+
+	<mat-form-field appearance="fill">
+		<mat-label>New Branch Name (Optional)</mat-label>
+		<input matInput formControlName="newBranchName" />
+		<mat-hint>If blank, changes will be committed to the base branch.</mat-hint>
+	</mat-form-field>
+
+	<!-- Placeholder for useSharedRepos (e.g., Checkbox) -->
+	<p>Use Shared Repos: [TODO: Add UI Control for useSharedRepos]</p>
+	<input type="hidden" formControlName="useSharedRepos" />
+	<!-- Temporary hidden input -->
+
+	<div class="actions">
+		<button mat-raised-button color="primary" type="submit" [disabled]="wizardForm.invalid || isSubmitting">
+			{{ isSubmitting ? 'Starting...' : 'Start Vibe Session' }}
+		</button>
+		<!-- Optional: Add a cancel button -->
+		<!-- <button mat-button type="button" [routerLink]="['/vibe']">Cancel</button> -->
+	</div>
+</form>

@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { VibeListComponent } from './vibe-list/vibe-list.component';
-import { VibeComponent } from './vibe.component'; // Placeholder for new/detail view
+import { VibeComponent } from './vibe.component'; // Placeholder for detail view
+import { NewVibeWizardComponent } from './new-vibe-wizard/new-vibe-wizard.component'; // Import the new wizard component
 
 export default [
 	{
@@ -10,7 +11,7 @@ export default [
 	},
 	{
 		path: 'new',
-		component: VibeComponent, // Keep as placeholder for wizard/creation form
+		component: NewVibeWizardComponent, // Use the new wizard component
 	},
 	// Remove the '/list' route as '' now points to VibeListComponent
 	// {

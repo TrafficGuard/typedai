@@ -1,8 +1,7 @@
-import { Static, Type } from '@sinclair/typebox';
+import { type Static, Type } from '@sinclair/typebox';
 import type { AppFastifyInstance } from '#applicationTypes';
 import type { FastifyRequest } from '#fastify/fastifyApp'; // Import the correct request type
-import { FirestoreVibeService } from '#modules/firestore/firestoreVibeService'; // Adjust path if needed
-// import { VibeSession } from '#modules/firestore/firestoreVibeService'; // Import the backend type - Not strictly needed if using schema below
+import { type CreateVibeSessionData, FirestoreVibeService, type VibeSession } from '#modules/firestore/firestoreVibeService'; // Adjust path if needed, Import CreateVibeSessionData and VibeSession
 
 // Define a TypeBox schema for the response (subset of VibeSession)
 // Note: Firestore returns Timestamps, which might need conversion or specific handling
@@ -22,9 +21,49 @@ const ErrorResponseSchema = Type.Object({
 	error: Type.String(),
 });
 
+// Schema for the request body of the create endpoint
+const CreateVibeSessionRequestSchema = Type.Object({
+	title: Type.String(),
+	instructions: Type.String(),
+	repositorySource: Type.Union([Type.Literal('local'), Type.Literal('github'), Type.Literal('gitlab')]),
+	repositoryId: Type.String(),
+	repositoryName: Type.Optional(Type.Union([Type.String(), Type.Null()])), // Optional field, can be string or null
+	branch: Type.String(),
+	newBranchName: Type.Optional(Type.Union([Type.String(), Type.Null()])), // Optional field, can be string or null
+	useSharedRepos: Type.Boolean(),
+});
+
+// Schema for the successful response of the create endpoint
+const VibeSessionResponseSchema = Type.Object({
+	id: Type.String(),
+	userId: Type.String(),
+	title: Type.String(),
+	instructions: Type.String(),
+	repositorySource: Type.Union([Type.Literal('local'), Type.Literal('github'), Type.Literal('gitlab')]),
+	repositoryId: Type.String(),
+	repositoryName: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+	branch: Type.String(),
+	newBranchName: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+	useSharedRepos: Type.Boolean(),
+	status: Type.Union([
+		Type.Literal('initializing'),
+		Type.Literal('design'),
+		Type.Literal('coding'),
+		Type.Literal('review'),
+		Type.Literal('completed'),
+		Type.Literal('error'),
+	]),
+	fileSelection: Type.Optional(Type.Array(Type.Object({ filePath: Type.String(), readOnly: Type.Optional(Type.Boolean()) }))),
+	designAnswer: Type.Optional(Type.String()),
+	createdAt: Type.Any(), // Firestore timestamp, serialized differently depending on context
+	updatedAt: Type.Any(), // Firestore timestamp
+	error: Type.Optional(Type.String()),
+});
+
 export async function vibeRoutes(fastify: AppFastifyInstance) {
 	const firestoreVibeService = new FirestoreVibeService(); // Or retrieve via dependency injection if set up
 
+	// --- GET /sessions ---
 	fastify.get(
 		'/sessions',
 		{
@@ -59,5 +98,55 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 		},
 	);
 
-	// Add other vibe routes here if needed in the future (e.g., GET /sessions/:id, POST /sessions, etc.)
+	// --- POST /create ---
+	fastify.post(
+		'/create',
+		{
+			schema: {
+				body: CreateVibeSessionRequestSchema,
+				response: {
+					201: VibeSessionResponseSchema,
+					400: ErrorResponseSchema, // For validation errors
+					401: ErrorResponseSchema,
+					500: ErrorResponseSchema,
+				},
+			},
+		},
+		async (request: FastifyRequest, reply) => {
+			// Check for authenticated user
+			if (!request.currentUser?.id) {
+				return reply.code(401).send({ error: 'Unauthorized' });
+			}
+			const userId = request.currentUser.id;
+
+			// Extract validated request body
+			const sessionData = request.body as Static<typeof CreateVibeSessionRequestSchema>;
+
+			// Map request data to the service layer type
+			const createData: CreateVibeSessionData = {
+				title: sessionData.title,
+				instructions: sessionData.instructions,
+				repositorySource: sessionData.repositorySource,
+				repositoryId: sessionData.repositoryId,
+				repositoryName: sessionData.repositoryName ?? undefined, // Handle optional null -> undefined
+				branch: sessionData.branch,
+				newBranchName: sessionData.newBranchName ?? undefined, // Handle optional null -> undefined
+				useSharedRepos: sessionData.useSharedRepos,
+				// fileSelection is not part of the creation payload based on CreateVibeSessionData
+			};
+
+			try {
+				// Call the service to create the session
+				const newSession = await firestoreVibeService.createVibeSession(userId, createData);
+				// Return the newly created session with status 201
+				return reply.code(201).send(newSession);
+			} catch (error) {
+				// Log the error and return a 500 response
+				fastify.log.error(error, 'Error creating Vibe session');
+				return reply.code(500).send({ error: 'Failed to create Vibe session' });
+			}
+		},
+	);
+
+	// Add other vibe routes here if needed in the future (e.g., GET /sessions/:id, PUT /sessions/:id, etc.)
 }

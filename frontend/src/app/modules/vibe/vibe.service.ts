@@ -1,19 +1,32 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core'; // Import inject
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, map, Observable, of, switchMap, tap, throwError } from 'rxjs';
 import { VibeSession } from './vibe.types'; // Import VibeSession
+
+// Define the shape of the data needed for creation, matching the backend API body
+export interface CreateVibeSessionPayload {
+	title: string;
+	instructions: string;
+	repositorySource: 'local' | 'github' | 'gitlab';
+	repositoryId: string;
+	repositoryName?: string | null;
+	branch: string;
+	newBranchName?: string | null;
+	useSharedRepos: boolean;
+}
 
 @Injectable({
 	providedIn: 'root',
 })
 export class VibeService {
 	// Keep BehaviorSubjects if needed for caching or sharing state, otherwise remove
+	// Keep BehaviorSubjects if needed for caching or sharing state, otherwise remove
 	// private sessions: BehaviorSubject<VibeSession[]> = new BehaviorSubject<VibeSession[]>(null);
 
-	constructor(private http: HttpClient) {}
+	private http = inject(HttpClient); // Use inject
 
 	/**
-	 * Getter for sessions (if using BehaviorSubject)
+	 * Getter for sessions (if using BehaviorSubject) - Keep commented out unless needed
 	 */
 	// get sessions$(): Observable<VibeSession[]> {
 	//     return this.sessions.asObservable();
@@ -29,6 +42,16 @@ export class VibeService {
 			//     this.sessions.next(response);
 			// })
 		);
+	}
+
+	/**
+	 * Creates a new Vibe session via the backend API.
+	 * @param data The data required to create the session.
+	 * @returns An Observable emitting the newly created VibeSession.
+	 */
+	createVibeSession(data: CreateVibeSessionPayload): Observable<VibeSession> {
+		return this.http.post<VibeSession>('/api/vibe/create', data);
+		// No need for tap/BehaviorSubject update here unless caching is specifically required for creation results
 	}
 
 	// Remove or adapt old methods (getVibe, listVibes, deleteVibe) if they are no longer relevant
