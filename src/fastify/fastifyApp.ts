@@ -75,11 +75,10 @@ export async function initFastify(config: FastifyConfig): Promise<AppFastifyInst
 	loadHooks();
 	if (config.instanceDecorators) registerInstanceDecorators(config.instanceDecorators);
 	if (config.requestDecorators) registerRequestDecorators(config.requestDecorators);
-
+ 
 	// --> Add vibeRoutes here <--
-	// registerRoutes([...config.routes, vibeRoutes]); // Add vibeRoutes to the array - Removed due to missing file
-	registerRoutes(config.routes); // Register only the original routes
-
+registerRoutes([...config.routes, vibeRoutes]); // Add vibeRoutes to the array
+ 
 	// All backend API routes start with /api/ so any unmatched at this point is a 404
 	fastifyInstance.get('/api/*', async (request, reply) => {
 		return reply.code(404).send({ error: 'Not Found' });
