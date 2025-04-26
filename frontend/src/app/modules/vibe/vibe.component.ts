@@ -1,5 +1,5 @@
-import { Component, inject, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Component, inject, OnInit, ViewEncapsulation } from '@angular/core'; // Added ViewEncapsulation
+import { ReactiveFormsModule } from '@angular/forms'; // Removed FormBuilder, FormGroup, Validators
 import { map, Observable, switchMap } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule, RouterOutlet } from '@angular/router';
@@ -11,16 +11,17 @@ import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatListModule } from '@angular/material/list';
-import { MatTooltipModule } from '@angular/material/tooltip'; // Import MatTooltipModule
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { VibeService } from './vibe.service';
 import { VibeSession, SelectedFile } from './vibe.types';
-// Removed VibeListComponent import
-import { VibeFileListComponent } from './vibe-file-list/vibe-file-list.component'; // Import the new component
+import { VibeFileListComponent } from './vibe-file-list/vibe-file-list.component';
+import { VibeDesignProposalComponent } from './vibe-design-proposal/vibe-design-proposal.component'; // Import the new design proposal component
 
 @Component({
-  selector: 'vibe-detail', // Changed selector to be more specific
+  selector: 'vibe-detail',
   templateUrl: './vibe.component.html',
   styleUrls: ['./vibe.component.scss'],
+  encapsulation: ViewEncapsulation.None, // Added encapsulation if needed, adjust as per project style
   standalone: true,
   imports: [
     CommonModule,
@@ -34,20 +35,20 @@ import { VibeFileListComponent } from './vibe-file-list/vibe-file-list.component
     MatButtonModule,
     MatListModule,
     MatTooltipModule, // Add MatTooltipModule
-    RouterOutlet,
-    // Removed VibeListComponent
-    VibeFileListComponent,
+    RouterOutlet, // Keep RouterOutlet if routing within this component is used
+    VibeFileListComponent, // Keep the file list component
+    VibeDesignProposalComponent, // Add the new design proposal component
   ],
 })
 export class VibeComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private vibeService = inject(VibeService);
-  private fb = inject(FormBuilder); // Inject FormBuilder
+  // Removed: private fb = inject(FormBuilder);
 
   session$: Observable<VibeSession>;
-  public designForm: FormGroup; // Declare designForm property
+  // Removed: public designForm: FormGroup;
 
-  // constructor() {} // Removed explicit constructor if not needed for other DI
+  // constructor() {}
 
   /**
    * Sorts files: writable files first, then alphabetically by path.
@@ -68,17 +69,6 @@ export class VibeComponent implements OnInit {
       // If both are read-only or both are writable, sort by filePath
       return a.filePath.localeCompare(b.filePath);
     });
-  }
-
-  /**
-   * Handles the acceptance of the design and selected files.
-   */
-  acceptDesignAndFiles(): void {
-    console.log('Accept button clicked');
-    // Future implementation: Call vibeService to update session status/trigger next step
-  }
-
-  /**
    * Handles the fileDeleted event from the VibeFileListComponent.
    * @param file The file that was requested to be deleted.
    */
