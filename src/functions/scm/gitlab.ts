@@ -53,10 +53,26 @@ type PartialJobSchema = DeepPartial<JobSchema>;
 
 type PipelineWithJobs = PipelineSchema & { jobs: PartialJobSchema[] };
 
+import { envVar } from '#utils/env-var';
+
 @funcClass(__filename)
 export class GitLab implements SourceControlManagement {
 	_gitlab;
 	_config: GitLabConfig;
+
+	/**
+	 * Checks if the GitLab configuration (token, host, groups) is available.
+	 * @returns {boolean} True if configured, false otherwise.
+	 */
+	isConfigured(): boolean {
+		// Attempt to get config without triggering the error logging in the config() method
+		const config = functionConfig(GitLab);
+		const token = config.token || envVar('GITLAB_TOKEN');
+		const host = config.host || envVar('GITLAB_HOST');
+		const groups = config.topLevelGroups || envVar('GITLAB_GROUPS');
+
+		return !!(token && host && groups);
+	}
 
 	toJSON() {
 		this.api();

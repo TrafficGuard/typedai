@@ -22,6 +22,8 @@ export interface GitHubConfig {
 /**
  *
  */
+import { envVar } from '#utils/env-var';
+
 @funcClass(__filename)
 export class GitHub implements SourceControlManagement {
 	/** Do not access. Use request() */
@@ -52,6 +54,20 @@ export class GitHub implements SourceControlManagement {
 			});
 		}
 		return this._request;
+	}
+
+	/**
+	 * Checks if the GitHub configuration (token and username/organisation) is available.
+	 * @returns {boolean} True if configured, false otherwise.
+	 */
+	isConfigured(): boolean {
+		// Attempt to get config without triggering the error throwing in the config() method
+		const userConfig = functionConfig(GitHub) as GitHubConfig;
+		const token = userConfig.token || envVar('GITHUB_TOKEN');
+		const user = userConfig.username || process.env.GITHUB_USER;
+		const org = userConfig.organisation || process.env.GITHUB_ORG;
+
+		return !!(token && (user || org));
 	}
 
 	// Do NOT change this method

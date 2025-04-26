@@ -22,6 +22,12 @@ export interface SourceControlManagement {
 	createMergeRequest(projectId: string | number, title: string, description: string, sourceBranch: string, targetBranch: string): Promise<MergeRequest>;
 
 	getJobLogs(projectPath: string, jobId: string): Promise<string>;
+
+	/**
+	 * Checks if the necessary configuration (e.g., API tokens, host URLs) is present.
+	 * @returns {boolean} True if configured, false otherwise.
+	 */
+	isConfigured(): boolean;
 }
 
 function isScmObject(obj: Record<string, any>): boolean {
