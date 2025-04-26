@@ -20,10 +20,12 @@ import { VibeSession } from '../vibe.types';
     MatFormFieldModule,
     MatSelectModule,
     MatButtonModule,
-    MatCardModule, // Add MatCardModule here
+    MatCardModule,
+    MatInputModule, // Add MatInputModule here
+    MatIconModule, // Add MatIconModule here
   ],
 })
-export class VibeDesignProposalComponent implements OnInit {
+export class VibeDesignProposalComponent implements OnInit, OnChanges {
   @Input() session: VibeSession; // Receive session data from parent
   @Output() designAccepted = new EventEmitter<number>(); // Emit variations count on accept
 
