@@ -11,6 +11,7 @@ import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFile
 import { getRepositoryOverview, getTopLevelSummary } from '#swe/index/repoIndexDocBuilder';
 import { reviewChanges } from '#swe/reviewChanges';
 import { supportingInformation } from '#swe/supportingInformation';
+import { tidyDiff } from './tidyDiff';
 import { execCommand } from '#utils/exec';
 import { appContext } from '../applicationContext';
 import { cacheRetry } from '../cache/cacheRetry';
@@ -170,9 +171,30 @@ Then respond in following format:
 			this.failOnCompileError(compileErrorAnalysis);
 		}
 
+		// --- Add the tidyDiff call here ---
+		try {
+			// Tidy up minor issues in the final diff before finishing
+			await tidyDiff(gitBase);
+			// Optional: Re-compile after tidying to ensure no regressions were introduced.
+			// This adds safety but also cost/time. Decide based on observed reliability.
+			// try {
+			//     logger.info('Re-compiling after tidying diff...');
+			//     await this.compile(projectInfo);
+			//     logger.info('Compilation successful after tidying.');
+			// } catch (compileAfterTidyError) {
+			//     logger.error(`Compilation failed after tidying diff: ${compileAfterTidyError.message}. Proceeding anyway.`);
+			//     // Decide if this should be a fatal error or just a warning.
+			// }
+		} catch (tidyError) {
+			logger.error(`Error during diff tidying: ${tidyError.message}. Continuing workflow.`);
+			// Log the error but don't fail the whole workflow for a tidying issue.
+		}
+		// --- End of added tidyDiff call ---
+
+
 		// The prompts need some work
 		// await this.testLoop(requirements, projectInfo, initialSelectedFiles);
-	}
+	} // end of runCodeEditWorkflow method
 
 	private failOnCompileError(compileErrorAnalysis: CompileErrorAnalysis) {
 		if (compileErrorAnalysis) {
