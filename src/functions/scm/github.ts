@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { request } from '@octokit/request';
 import { agentContext } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import type { MergeRequest, SourceControlManagement } from '#functions/scm/sourceControlManagement';
+import { type MergeRequest, type SourceControlManagement, pushBranchToOrigin } from '#functions/scm/sourceControlManagement';
 import { logger } from '#o11y/logger';
 import { functionConfig } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
@@ -141,11 +141,15 @@ export class GitHub implements SourceControlManagement {
 
 	@func()
 	async createMergeRequest(title: string, description: string, sourceBranch: string, targetBranch: string): Promise<MergeRequest> {
-		// TODO git push
+		// Push the branch first
+		await pushBranchToOrigin(sourceBranch);
 
-		const originUrl = (await execCommand('git config --get remote.origin.url')).stdout;
-		const [owner, repo] = extractOwnerProject(originUrl);
+		// Determine owner and repo from the origin URL
+		const originUrlResult = await execCommand('git config --get remote.origin.url');
+		failOnError('Failed to get remote origin URL', originUrlResult);
+		const [owner, repo] = extractOwnerProject(originUrlResult.stdout);
 
+		// Create the pull request via GitHub API
 		const response = await this.request()('POST /repos/{owner}/{repo}/pulls', {
 			owner,
 			repo,

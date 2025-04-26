@@ -21,7 +21,7 @@ import { envVar } from '#utils/env-var';
 import { execCommand, failOnError } from '#utils/exec';
 import { agentDir, systemDir } from '../../appVars';
 import type { GitProject } from './gitProject';
-import type { MergeRequest, SourceControlManagement } from './sourceControlManagement';
+import { type MergeRequest, type SourceControlManagement, pushBranchToOrigin } from './sourceControlManagement';
 
 export interface GitLabConfig {
 	host: string;
@@ -248,14 +248,10 @@ export class GitLab implements SourceControlManagement {
 	 */
 	@func()
 	async createMergeRequest(projectId: string | number, title: string, description: string, sourceBranch: string, targetBranch: string): Promise<MergeRequest> {
-		// TODO if the user has changed their gitlab token, then need to update the origin URL with it
-		// Can't get the options to create the merge request
-		// -o merge_request.create -o merge_request.target='${targetBranch}' -o merge_request.remove_source_branch -o merge_request.title=${shellEscape(title)} -o merge_request.description=${shellEscape(description)}
+		// Push the branch first
+		await pushBranchToOrigin(sourceBranch);
 
-		const cmd = `git push --set-upstream origin '${sourceBranch}'`;
-		const { exitCode, stdout, stderr } = await execCommand(cmd);
-		if (exitCode > 0) throw new Error(`${stdout}\n${stderr}`);
-
+		// Get user details for assigning the MR
 		const email = currentUser().email;
 		const userResult: UserSchema | UserSchema[] = await this.api().Users.all({ search: email });
 		let user: UserSchema | undefined;
