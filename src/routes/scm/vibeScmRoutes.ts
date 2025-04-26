@@ -1,10 +1,12 @@
+import { Type, type Static } from '@sinclair/typebox';
 import * as HttpStatus from 'http-status-codes';
 import type { AppFastifyInstance } from '#applicationTypes';
-import { sendSuccess } from '#fastify/responses';
+import { sendBadRequest, sendSuccess } from '#fastify/responses';
 import type { GitProject } from '#functions/scm/gitProject';
 import { ScmService } from '#functions/scm/scmService';
 import type { SourceControlManagement } from '#functions/scm/sourceControlManagement';
 import { logger } from '#o11y/logger';
+import { parseScmProjectId } from '#functions/scm/scmUtils';
 
 /**
  * Defines routes related to Source Control Management (SCM) operations.
@@ -71,9 +73,61 @@ export async function vibeScmRoutes(fastify: AppFastifyInstance): Promise<void> 
 			logger.error(error, 'Error sorting or sending SCM projects');
 			reply.code(HttpStatus.INTERNAL_SERVER_ERROR).send({ message: 'Internal Server Error while processing projects.' });
 		}
-	}); // <-- Added missing closing parenthesis and semicolon
+	});
+
+	// Schema for the /api/scm/branches query parameters
+	const GetBranchesQuerySchema = Type.Object({
+		projectId: Type.String({ description: "Project identifier prefixed with provider type, e.g., 'GitLab:group/project' or 'GitHub:owner/repo'" }),
+	});
+	type GetBranchesQueryType = Static<typeof GetBranchesQuerySchema>;
+
+	fastify.get<{ Querystring: GetBranchesQueryType }>(
+		'/api/scm/branches',
+		{
+			schema: {
+				querystring: GetBranchesQuerySchema,
+				response: {
+					[HttpStatus.OK]: Type.Object({
+						statusCode: Type.Number(),
+						data: Type.Array(Type.String()),
+					}),
+					[HttpStatus.BAD_REQUEST]: Type.Object({
+						statusCode: Type.Number(),
+						message: Type.String(),
+					}),
+					[HttpStatus.INTERNAL_SERVER_ERROR]: Type.Object({
+						statusCode: Type.Number(),
+						message: Type.String(),
+					}),
+				},
+			},
+		},
+		async (request, reply) => {
+			const { projectId: prefixedProjectId } = request.query;
+			logger.info(`Fetching branches for project: ${prefixedProjectId}`);
+
+			try {
+				const { providerType, projectId } = parseScmProjectId(prefixedProjectId);
+				const provider = scmService.getProvider(providerType);
+
+				if (!provider) {
+					logger.warn(`SCM provider type '${providerType}' derived from '${prefixedProjectId}' is not configured or supported.`);
+					return sendBadRequest(reply, `SCM provider '${providerType}' is not configured or supported.`);
+				}
+
+				const branches = await provider.getBranches(projectId);
+				branches.sort((a, b) => a.localeCompare(b));
+				reply.code(HttpStatus.OK).send({ statusCode: HttpStatus.OK, data: branches });
+			} catch (error) {
+				logger.error(error, `Error fetching branches for project ${prefixedProjectId}`);
+				if (error.message.includes('not configured or supported') || error.message.includes('Invalid project ID format')) {
+					return sendBadRequest(reply, error.message);
+				}
+				reply.code(HttpStatus.INTERNAL_SERVER_ERROR).send({ message: `Internal Server Error while fetching branches for ${prefixedProjectId}.` });
+			}
+		},
+	);
 
 	// Add other SCM-related routes here (e.g., get project details, create merge request)
-	// These routes could potentially also use the scmService.getProvider(type) method
 	logger.info('Registered vibe SCM routes');
 }

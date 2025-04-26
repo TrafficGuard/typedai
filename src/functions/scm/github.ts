@@ -10,6 +10,7 @@ import { envVar } from '#utils/env-var';
 import { execCommand, failOnError, spawnCommand } from '#utils/exec';
 import { agentDir, systemDir } from '../../appVars';
 import type { GitProject } from './gitProject';
+import { extractOwnerProject } from './scmUtils';
 
 type RequestType = typeof request;
 
@@ -238,6 +239,40 @@ export class GitHub implements SourceControlManagement {
 	}
 
 	/**
+	 * Gets the list of branches for a given GitHub repository.
+	 * @param projectId The project identifier in the format 'owner/repo'.
+	 * @returns A promise that resolves to an array of branch names.
+	 */
+	@func()
+	async getBranches(projectId: string): Promise<string[]> {
+		try {
+			const [owner, repo] = extractOwnerProject(projectId);
+			// GitHub API might paginate results, fetch all pages if necessary
+			const branches: { name: string }[] = [];
+			let page = 1;
+			let response;
+			do {
+				response = await this.request()('GET /repos/{owner}/{repo}/branches', {
+					owner,
+					repo,
+					per_page: 100, // Max per page
+					page,
+					headers: {
+						'X-GitHub-Api-Version': '2022-11-28',
+					},
+				});
+				branches.push(...response.data);
+				page++;
+			} while (response.headers.link && response.headers.link.includes('rel="next"')); // Check for pagination link
+
+			return branches.map((branch) => branch.name);
+		} catch (error) {
+			logger.error(error, `Failed to get branches for GitHub project ${projectId}`);
+			throw new Error(`Failed to get branches for ${projectId}: ${error.message}`);
+		}
+	}
+
+	/**
 	 * Returns the type of this SCM provider.
 	 */
 	getType(): 'github' {
@@ -302,15 +337,4 @@ function convertGitHubToGitProject(repo: GitHubRepository): GitProject {
 		visibility: repo.private ? 'private' : 'public',
 		archived: repo.archived ?? false,
 	};
-}
-
-function extractOwnerProject(url: string): [string, string] {
-	// Remove trailing '.git' if present
-	const cleanUrl = url.replace(/\.git$/, '');
-
-	// Split the URL by '/' for HTTPS or ':' for SSH formats
-	const parts = cleanUrl.split(/\/|:/);
-
-	// The project name is the last part of the segments
-	return [parts[parts.length - 2], parts[parts.length - 1]];
 }

@@ -22,6 +22,7 @@ import { execCommand, failOnError } from '#utils/exec';
 import { agentDir, systemDir } from '../../appVars';
 import type { GitProject } from './gitProject';
 import type { MergeRequest, SourceControlManagement } from './sourceControlManagement';
+import type { BranchSchema } from '@gitbeaker/rest';
 
 export interface GitLabConfig {
 	host: string;
@@ -401,6 +402,23 @@ export class GitLab implements SourceControlManagement {
 		const job = await this.api().Jobs.show(project.id, jobId);
 
 		return await this.api().Jobs.showLog(project.id, job.id);
+	}
+
+	/**
+	 * Gets the list of branches for a given GitLab project.
+	 * @param projectId The full project path (e.g., 'group/subgroup/project') or the numeric project ID.
+	 * @returns A promise that resolves to an array of branch names.
+	 */
+	@func()
+	async getBranches(projectId: string | number): Promise<string[]> {
+		try {
+			// The Gitbeaker library handles pagination internally for `all()` methods
+			const branches: BranchSchema[] = await this.api().Repositories.allBranches(projectId);
+			return branches.map((branch) => branch.name);
+		} catch (error) {
+			logger.error(error, `Failed to get branches for GitLab project ${projectId}`);
+			throw new Error(`Failed to get branches for ${projectId}: ${error.message}`);
+		}
 	}
 
 	/**

@@ -25,6 +25,13 @@ export interface SourceControlManagement {
 	getJobLogs(projectPath: string, jobId: string): Promise<string>;
 
 	/**
+	 * Gets the list of branches for a given project.
+	 * @param projectId The identifier for the project (e.g., 'owner/repo' for GitHub, 'group/project' or numeric ID for GitLab).
+	 * @returns A promise that resolves to an array of branch names.
+	 */
+	getBranches(projectId: string | number): Promise<string[]>;
+
+	/**
 	 * Checks if the necessary configuration (e.g., API tokens, host URLs) is present.
 	 * @returns {boolean} True if configured, false otherwise.
 	 */
