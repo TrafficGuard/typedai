@@ -54,7 +54,7 @@ async function main() {
 	};
 
 	const agentId = await runAgentWorkflow(config, async () => {
-		await new CodeEditingAgent().runCodeEditWorkflow(config.initialPrompt);
+		await new CodeEditingAgent().implementUserRequirements(config.initialPrompt);
 	});
 
 	if (agentId) {

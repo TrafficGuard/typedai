@@ -17,7 +17,7 @@ export async function performLocalBranchCodeReview() {
 	const codeReviewService = appContext().codeReviewService;
 	const codeReviewConfigs: CodeReviewConfig[] = (await codeReviewService.listCodeReviewConfigs()).filter((config) => config.enabled);
 	const projectPath = await getProjectPath();
-	const allDiffs = parseGitDiff(await git.getBranchDiff());
+	const allDiffs = parseGitDiff(await git.getDiff());
 	const diffs = allDiffs.filter((diff) => !diff.deletedFile);
 
 	const codeReviewTasks: CodeReviewTask[] = [];

@@ -105,7 +105,7 @@ export class SWEBenchAgent {
 
 				let success = false;
 				try {
-					await codeEditingAgent.runCodeEditWorkflow(editRequirements);
+					await codeEditingAgent.implementUserRequirements(editRequirements);
 					success = true;
 				} catch (e) {
 					logger.error(e);

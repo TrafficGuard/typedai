@@ -22,12 +22,13 @@ export async function tidyDiff(baseCommitOrBranch: string): Promise<void> {
 	logger.info(`Tidying diff since ${baseCommitOrBranch}`);
 	const fs = getFileSystem();
 	const vcs = fs.getVcs();
-	const diff = await vcs.getBranchDiff(baseCommitOrBranch);
+	const diff = await vcs.getDiff(baseCommitOrBranch);
 
 	if (!diff.trim()) {
 		logger.info('No diff found to tidy.');
 		return;
 	}
+	// TODO should convert the diffs to the current code only like in the rawCode var in addCodeWithLineNumbers() in gitLabCodeReview.ts
 
 	// Note: Using a direct prompt string here instead of buildPrompt as the structure is very specific.
 	const prompt = `

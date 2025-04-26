@@ -70,7 +70,7 @@ export async function workflowRoutes(fastify: AppFastifyInstance) {
 
 				await runAgentWorkflow(config, async () => {
 					if (workingDirectory?.trim()) getFileSystem().setWorkingDirectory(workingDirectory);
-					await new CodeEditingAgent().runCodeEditWorkflow(config.initialPrompt);
+					await new CodeEditingAgent().implementUserRequirements(config.initialPrompt);
 				});
 
 				reply.send({ success: true, message: 'Code edit workflow completed successfully' });

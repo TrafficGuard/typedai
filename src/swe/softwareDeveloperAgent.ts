@@ -63,7 +63,7 @@ export class SoftwareDeveloperAgent {
 		const initialHeadSha: string = await fileSystem.getVcs().getHeadSha();
 
 		try {
-			await new CodeEditingAgent().runCodeEditWorkflow(requirementsSummary, null, { projectInfo });
+			await new CodeEditingAgent().implementUserRequirements(requirementsSummary, { projectInfo });
 		} catch (e) {
 			logger.warn(e.message);
 			// If no changes were made then throw an error

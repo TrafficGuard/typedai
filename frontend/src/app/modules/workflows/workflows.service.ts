@@ -11,7 +11,7 @@ import {environment} from "../../../environments/environment";
 export class WorkflowsService {
   constructor(private http: HttpClient) {}
 
-  runCodeEditWorkflow(workingDirectory: string, requirements: string): Observable<any> {
+  runCodeEditorImplementRequirements(workingDirectory: string, requirements: string): Observable<any> {
     return this.http.post(`/api/workflows/edit`, { workingDirectory, requirements });
   }
 

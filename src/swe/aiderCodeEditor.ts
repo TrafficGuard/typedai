@@ -130,7 +130,7 @@ export class AiderCodeEditor {
 					llmId: llm?.getId(),
 					messages: llmMessages,
 					requestTime: now + callCount++,
-					callStack: callStack(),
+					callStack: `${callStack()} > Aider`,
 				};
 				appContext()
 					.llmCallService?.saveResponse(llmCall)
