@@ -79,6 +79,7 @@ Respond ONLY with a JSON object in the following format. Provide an empty array 
 
 		logger.info(`Applying ${response.tidyPatches.length} tidy patches.`);
 		const fileWriter = new FileSystemWrite();
+		let appliedPatches = false; // Flag to track if any changes were made
 
 		for (const patch of response.tidyPatches) {
 			if (!patch.filePath || typeof patch.search !== 'string' || typeof patch.replace !== 'string') {
@@ -89,6 +90,7 @@ Respond ONLY with a JSON object in the following format. Provide an empty array 
 				logger.info(`Applying tidy patch to ${patch.filePath}`);
 				// Use the existing patchEditFile function which handles file reading/writing and search/replace.
 				await fileWriter.patchEditFile(patch.filePath, patch.search, patch.replace);
+				appliedPatches = true; // Mark that a patch was successfully applied
 			} catch (editError) {
 				logger.error(`Failed to apply tidy patch to ${patch.filePath}: ${editError.message}`, {
 					search: patch.search,
@@ -100,12 +102,13 @@ Respond ONLY with a JSON object in the following format. Provide an empty array 
 
 		// Commit the tidying changes
 		try {
-			const changedFiles = await vcs.getChangedFiles();
-			if (changedFiles.length > 0) {
-				await vcs.commit('Apply automated code tidying', changedFiles);
+			// Check if any patches were successfully applied before committing
+			if (appliedPatches) {
+				// Call commit with only the message, assuming it handles staging or commits all changes.
+				await vcs.commit('Apply automated code tidying');
 				logger.info('Committed tidying changes.');
 			} else {
-				logger.info('No files were changed by tidying patches.');
+				logger.info('No files were successfully changed by tidying patches.');
 			}
 		} catch (commitError) {
 			logger.error(`Failed to commit tidying changes: ${commitError.message}`);
