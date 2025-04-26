@@ -231,11 +231,11 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 				const { newBranchName } = session;
 				if (newBranchName) {
 					try {
-						fastify.log.info({ newBranchName, sessionId: id }, `Attempting to create and switch to new branch.`);
+						fastify.log.info({ newBranchName, sessionId: id }, 'Attempting to create and switch to new branch.');
 						const vcs = fileSystemService.getVcs(); // Throws if not a VCS repo
 						await vcs.createBranch(newBranchName);
 						await vcs.switchToBranch(newBranchName);
-						fastify.log.info({ newBranchName, sessionId: id }, `Successfully created and switched to branch.`);
+						fastify.log.info({ newBranchName, sessionId: id }, 'Successfully created and switched to branch.');
 					} catch (branchError) {
 						fastify.log.error(branchError, `Failed to create or switch to new branch '${newBranchName}' for session ${id}. Proceeding on original branch.`);
 						// Decide if this is a fatal error or just a warning. For now, log and continue.

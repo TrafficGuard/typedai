@@ -1,4 +1,6 @@
 import { ScmService } from '#functions/scm/scmService'; // Import ScmService
+import { FileSystemList } from '#functions/storage/fileSystemList';
+import { FileSystemService } from '#functions/storage/fileSystemService';
 import { InMemoryAgentStateService } from '#modules/memory/inMemoryAgentStateService';
 import { InMemoryChatService } from '#modules/memory/inMemoryChatService';
 import { InMemoryCodeReviewService } from '#modules/memory/inMemoryCodeReviewService';
