@@ -1,6 +1,6 @@
 import { addCost, agentContext } from '#agent/agentContextLocalStorage';
 import type { AgentLLMs } from '#agent/agentContextTypes';
-import type { LlmCall } from '#llm/llmCallService/llmCall';
+import { type LlmCall, callStack } from '#llm/llmCallService/llmCall';
 import { Blueberry } from '#llm/multi-agent/blueberry';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
@@ -55,7 +55,7 @@ export class MockLLM extends BaseLLM {
 		if (systemPrompt) messages.push(system(systemPrompt));
 		messages.push(user(userPrompt));
 
-		return withActiveSpan('generateText', async (span) => {
+		return withActiveSpan(`generateText ${opts?.id}`, async (span) => {
 			const prompt = combinePrompts(userPrompt, systemPrompt);
 			this.lastPrompt = prompt;
 
@@ -66,12 +66,14 @@ export class MockLLM extends BaseLLM {
 				messages,
 				llmId: this.getId(),
 				agentId: agentContext()?.agentId,
-				callStack: this.callStack(agentContext()),
+				callStack: callStack(),
 			});
 			const requestTime = Date.now();
 
 			// remove the first item from this.responses - simulate the LLM call
 			const { response: responseText, callback } = this.responses.shift()!;
+
+			// console.log('\n' + opts?.id + ' >>>>>>>>>>>>>>>>>>>>>>>>>>>\n' +responseText + '\n<<<<<<<<<<<<<<<<<<<<<<<\n')
 
 			messages.push(assistant(responseText));
 

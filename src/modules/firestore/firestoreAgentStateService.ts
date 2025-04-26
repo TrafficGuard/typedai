@@ -1,6 +1,6 @@
 import type { DocumentSnapshot, Firestore } from '@google-cloud/firestore';
 import { LlmFunctions } from '#agent/LlmFunctions';
-import { type AgentContext, type AgentRunningState, isExecuting } from '#agent/agentContextTypes';
+import { type AgentContext, type AgentRunningState, type AutonomousIteration, isExecuting } from '#agent/agentContextTypes';
 import { deserializeAgentContext, serializeContext } from '#agent/agentSerialization';
 import type { AgentStateService } from '#agent/agentStateService/agentStateService';
 import { MAX_PROPERTY_SIZE, truncateToByteLength, validateFirestoreObject } from '#firestore/firestoreUtils';
@@ -227,5 +227,67 @@ export class FirestoreAgentStateService implements AgentStateService {
 		}
 
 		await this.save(agent);
+	}
+
+	@span()
+	async saveIteration(iterationData: AutonomousIteration): Promise<void> {
+		// Validate iteration number
+		if (!Number.isInteger(iterationData.iteration) || iterationData.iteration <= 0) {
+			throw new Error('Iteration number must be a positive integer.');
+		}
+
+		// Ensure large fields are handled (optional, depending on expected size vs limits)
+		// Example: Truncate prompt or code if necessary, similar to how errors are handled in save()
+		// if (Buffer.byteLength(iterationData.prompt, 'utf8') > MAX_PROPERTY_SIZE) { ... }
+
+		const iterationDocRef = this.db.collection('AgentContext').doc(iterationData.agentId).collection('iterations').doc(String(iterationData.iteration));
+
+		// Add validation before saving if needed (e.g., using validateFirestoreObject)
+		// try {
+		//     validateFirestoreObject(iterationData);
+		// } catch (error) {
+		//     logger.error({ agentId: iterationData.agentId, iteration: iterationData.iteration, error: error.message }, 'Firestore validation failed for iteration.');
+		//     throw new Error(`Firestore validation failed for agent ${iterationData.agentId}, iteration ${iterationData.iteration}: ${error.message}`);
+		// }
+
+		try {
+			await iterationDocRef.set(iterationData);
+			logger.debug({ agentId: iterationData.agentId, iteration: iterationData.iteration }, 'Saved agent iteration');
+		} catch (error) {
+			logger.error(error, `Error saving iteration ${iterationData.iteration} for agent ${iterationData.agentId}`);
+			throw error;
+		}
+	}
+
+	@span()
+	async loadIterations(agentId: string): Promise<AutonomousIteration[]> {
+		const agent = await this.load(agentId);
+		if (!agent) throw new Error('Agent Id does not exist');
+		if (agent.user.id !== currentUser().id) throw new Error('Not your agent');
+
+		const iterationsColRef = this.db.collection('AgentContext').doc(agentId).collection('iterations');
+		// Order by the document ID (which is the iteration number as a string)
+		// Firestore sorts strings lexicographically, which works for numbers if they don't have leading zeros
+		// and have the same number of digits. For simple iteration counts (1, 2, ..., 10, 11...), this works.
+		// If very large iteration numbers or inconsistent formatting were expected,
+		// storing the iteration number as a field and ordering by that would be more robust.
+		const querySnapshot = await iterationsColRef.orderBy('__name__').get(); // Order by document ID (iteration number)
+
+		const iterations: AutonomousIteration[] = [];
+		querySnapshot.forEach((doc) => {
+			// Basic validation might be good here
+			const data = doc.data();
+			if (data && typeof data.iteration === 'number') {
+				if (!data.error) data.error = undefined;
+				iterations.push(data as AutonomousIteration);
+			} else {
+				logger.warn({ agentId, iterationId: doc.id }, 'Skipping invalid iteration data during load');
+			}
+		});
+
+		// Ensure sorting numerically as Firestore sorts document IDs lexicographically
+		iterations.sort((a, b) => a.iteration - b.iteration);
+
+		return iterations;
 	}
 }
