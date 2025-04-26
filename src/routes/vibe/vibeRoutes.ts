@@ -1,7 +1,7 @@
+import { Static, Type } from '@sinclair/typebox';
 import type { AppFastifyInstance } from '#applicationTypes';
 import type { FastifyRequest } from '#fastify/fastifyApp'; // Import the correct request type
 import { FirestoreVibeService } from '#modules/firestore/firestoreVibeService'; // Adjust path if needed
-import { Static, Type } from '@sinclair/typebox';
 // import { VibeSession } from '#modules/firestore/firestoreVibeService'; // Import the backend type - Not strictly needed if using schema below
 
 // Define a TypeBox schema for the response (subset of VibeSession)

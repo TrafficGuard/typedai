@@ -29,14 +29,14 @@ import {VibeService} from "./vibe.service";
     MatInputModule,
     MatButtonModule,
     RouterOutlet,
-    VibeListComponent,
+    // Removed VibeListComponent
   ]
 })
 export class VibeComponent implements OnInit {
   codeForm!: FormGroup;
   result: string = '';
   isLoading = false;
-  vibes: string[] = [];
+  // Removed vibes property
 
   constructor(private fb: FormBuilder, private vibeService: VibeService) {}
 
