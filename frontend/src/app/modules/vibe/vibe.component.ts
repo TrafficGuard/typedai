@@ -8,13 +8,14 @@ import { MatSelectModule } from "@angular/material/select";
 import { MatCardModule } from "@angular/material/card";
 import { MatProgressBarModule } from "@angular/material/progress-bar";
 import { MatInputModule } from '@angular/material/input';
-import {MatIconModule} from "@angular/material/icon";
-import {MatButtonModule} from "@angular/material/button";
-import {VibeService} from "./vibe.service";
+import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+import { VibeService } from './vibe.service';
+import { VibeSession } from './vibe.types'; // Import VibeSession type
 // Removed VibeListComponent import
 
 @Component({
-  selector: 'app-vibe', // Changed selector to be more specific
+  selector: 'vibe-detail', // Changed selector to be more specific
   templateUrl: './vibe.component.html',
   styleUrls: ['./vibe.component.scss'],
   standalone: true,
