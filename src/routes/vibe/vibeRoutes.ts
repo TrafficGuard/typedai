@@ -1,7 +1,7 @@
 import { type Static, Type } from '@sinclair/typebox';
 import type { AppFastifyInstance } from '#applicationTypes';
 import type { FastifyRequest } from '#fastify/fastifyApp';
-import type { CreateVibeSessionData, VibeSession } from '#vibe/vibeTypes'; // Import types from central location
+import type { CreateVibeSessionData, VibeSession } from '#vibe/vibeTypes';
 
 // Define a TypeBox schema for the response (subset of VibeSession)
 // Note: Firestore returns Timestamps, which might need conversion or specific handling

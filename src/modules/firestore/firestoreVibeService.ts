@@ -3,7 +3,7 @@ import { FieldValue, type Firestore } from '@google-cloud/firestore';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import { currentUser } from '#user/userService/userContext';
-import type { VibeService, VibeSession, CreateVibeSessionData, UpdateVibeSessionData } from '#vibe/vibeTypes'; // Import the interface and types
+import type { CreateVibeSessionData, UpdateVibeSessionData, VibeService, VibeSession } from '#vibe/vibeTypes'; // Import the interface and types
 import { firestoreDb } from './firestore';
 
 const VIBE_SESSIONS_COLLECTION = 'vibeSessions';
@@ -11,7 +11,7 @@ const VIBE_SESSIONS_COLLECTION = 'vibeSessions';
 /**
  * Firestore implementation for managing VibeSession data.
  */
-export class FirestoreVibeService implements VibeService { // Implement the VibeService interface
+export class FirestoreVibeService implements VibeService {
 	private db: Firestore;
 
 	constructor() {

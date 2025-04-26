@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { logger } from '#o11y/logger';
 import { currentUser } from '#user/userService/userContext';
-import type { VibeService, VibeSession, CreateVibeSessionData, UpdateVibeSessionData } from '#vibe/vibeTypes';
+import type { CreateVibeSessionData, UpdateVibeSessionData, VibeService, VibeSession } from '#vibe/vibeTypes';
 
 /**
  * In-memory implementation of the VibeService for testing or local development.
