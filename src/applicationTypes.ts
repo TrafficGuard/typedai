@@ -5,6 +5,8 @@ import type { ScmService } from '#functions/scm/scmService';
 import type { LlmCallService } from '#llm/llmCallService/llmCallService';
 import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
 import type { UserService } from '#user/userService/userService';
+import type { FileSystemList } from '#functions/storage/fileSystemList';
+import type { FileSystemService } from '#functions/storage/fileSystemService';
 import type { VibeService } from '#vibe/vibeTypes';
 import type { FunctionCacheService } from './cache/functionCacheService';
 
@@ -17,6 +19,8 @@ export interface ApplicationContext {
 	codeReviewService: CodeReviewService;
 	vibeService: VibeService;
 	scmService: ScmService; // Add scmService
+	fileSystemService: FileSystemService;
+	fileSystemList: FileSystemList;
 }
 
 export interface AppFastifyInstance extends TypeBoxFastifyInstance, ApplicationContext {}

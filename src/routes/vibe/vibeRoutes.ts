@@ -77,6 +77,7 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 	// Access services from the application context attached to fastify
 	const vibeService = fastify.vibeService;
 	const scmService = fastify.scmService;
+	const fileSystemService = fastify.fileSystemService;
 
 	// --- GET /sessions ---
 	fastify.get(
@@ -216,13 +217,36 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 					clonedPath = await provider.cloneProject(repositoryId, branch);
 				}
 
-				// Log the result
-				fastify.log.info({ clonedPathValue: clonedPath }, 'Result from cloneProject call');
+				// Validate clonedPath
+				if (!clonedPath || typeof clonedPath !== 'string') {
+					fastify.log.error({ clonedPath, sessionId: id }, 'Invalid cloned path received after clone/local setup.');
+					return reply.code(500).send({ error: 'Failed to determine repository path after setup.' });
+				}
 
-				// Return success response
-				return reply.code(200).send({ message: 'Clone attempted. Check logs for path.', clonedPathValue: clonedPath });
+				// Log the result and set working directory
+				fastify.log.info({ clonedPathValue: clonedPath, sessionId: id }, 'Repository path determined. Setting working directory.');
+				await fileSystemService.setWorkingDirectory(clonedPath);
+
+				// Handle optional new branch creation
+				const { newBranchName } = session;
+				if (newBranchName) {
+					try {
+						fastify.log.info({ newBranchName, sessionId: id }, `Attempting to create and switch to new branch.`);
+						const vcs = fileSystemService.getVcs(); // Throws if not a VCS repo
+						await vcs.createBranch(newBranchName);
+						await vcs.switchToBranch(newBranchName);
+						fastify.log.info({ newBranchName, sessionId: id }, `Successfully created and switched to branch.`);
+					} catch (branchError) {
+						fastify.log.error(branchError, `Failed to create or switch to new branch '${newBranchName}' for session ${id}. Proceeding on original branch.`);
+						// Decide if this is a fatal error or just a warning. For now, log and continue.
+						// return reply.code(500).send({ error: `Failed to create or switch to branch: ${branchError.message}` });
+					}
+				}
+
+				// Return success response (temporary, might change based on Vibe logic)
+				return reply.code(200).send({ message: 'Initialisation complete. Working directory set.', clonedPathValue: clonedPath });
 			} catch (error) {
-				fastify.log.error(error, 'Error during initial vibe session setup (clone attempt)');
+				fastify.log.error(error, `Error during initial vibe session setup for session ${id}`);
 				return reply.code(500).send({ error: 'Failed during initial setup (clone attempt)' });
 			}
 		},
