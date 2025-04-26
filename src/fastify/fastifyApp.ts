@@ -38,7 +38,7 @@ export type TypeBoxFastifyInstance = FastifyInstance<
 export type RouteDefinition = (fastify: AppFastifyInstance) => Promise<void>;
 
 /** Our Fastify request type used in the application */
-interface FastifyRequest extends FastifyRequestBase {
+export interface FastifyRequest extends FastifyRequestBase {
 	currentUser?: User;
 }
 
