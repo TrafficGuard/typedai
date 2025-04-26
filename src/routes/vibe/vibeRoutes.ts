@@ -1,7 +1,7 @@
 import { type Static, Type } from '@sinclair/typebox';
 import type { AppFastifyInstance } from '#applicationTypes';
-import type { FastifyRequest } from '#fastify/fastifyApp'; // Import the correct request type
-import { type CreateVibeSessionData, FirestoreVibeService, type VibeSession } from '#modules/firestore/firestoreVibeService'; // Adjust path if needed, Import CreateVibeSessionData and VibeSession
+import type { FastifyRequest } from '#fastify/fastifyApp';
+import type { CreateVibeSessionData, VibeSession } from '#vibe/vibeTypes'; // Import types from central location
 
 // Define a TypeBox schema for the response (subset of VibeSession)
 // Note: Firestore returns Timestamps, which might need conversion or specific handling
@@ -61,7 +61,8 @@ const VibeSessionResponseSchema = Type.Object({
 });
 
 export async function vibeRoutes(fastify: AppFastifyInstance) {
-	const firestoreVibeService = new FirestoreVibeService(); // Or retrieve via dependency injection if set up
+	// Access the vibeService from the application context attached to fastify
+	const vibeService = fastify.vibeService;
 
 	// --- GET /sessions ---
 	fastify.get(
@@ -84,9 +85,11 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 
 			// Get userId from the authenticated user
 			const userId = request.currentUser.id;
-			const sessions = await firestoreVibeService.listVibeSessions(userId);
+			// Use the injected service
+			const sessions = await vibeService.listVibeSessions(userId);
 
 			// Optional: Map sessions to the response schema if needed (e.g., timestamp conversion)
+			// Note: Timestamps might need serialization depending on how Firestore/InMemory returns them
 			// const responseSessions = sessions.map(session => ({
 			//     id: session.id,
 			//     title: session.title,
@@ -136,9 +139,10 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 			};
 
 			try {
-				// Call the service to create the session
-				const newSession = await firestoreVibeService.createVibeSession(userId, createData);
+				// Use the injected service
+				const newSession = await vibeService.createVibeSession(userId, createData);
 				// Return the newly created session with status 201
+				// Note: Timestamps might need serialization depending on how Firestore/InMemory returns them
 				return reply.code(201).send(newSession);
 			} catch (error) {
 				// Log the error and return a 500 response

@@ -1,9 +1,11 @@
 import { FirestoreAgentStateService } from '#firestore/firestoreAgentStateService';
 import { FirestoreChatService } from '#firestore/firestoreChatService';
 import { FirestoreCodeReviewService } from '#firestore/firestoreCodeReviewService';
+import { FirestoreCodeReviewService } from '#firestore/firestoreCodeReviewService';
 import { FirestoreCacheService } from '#firestore/firestoreFunctionCacheService';
 import { FirestoreLlmCallService } from '#firestore/firestoreLlmCallService';
 import { FirestoreUserService } from '#firestore/firestoreUserService';
+import { FirestoreVibeService } from '#modules/firestore/firestoreVibeService'; // Import FirestoreVibeService
 import type { ApplicationContext } from '../../applicationTypes';
 
 export function firestoreApplicationContext(): ApplicationContext {
@@ -14,5 +16,6 @@ export function firestoreApplicationContext(): ApplicationContext {
 		llmCallService: new FirestoreLlmCallService(),
 		functionCacheService: new FirestoreCacheService(),
 		codeReviewService: new FirestoreCodeReviewService(),
+		vibeService: new FirestoreVibeService(), // Add vibeService instance
 	};
 }

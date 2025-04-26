@@ -1,44 +1,17 @@
 import { randomUUID } from 'node:crypto';
-import { FieldValue, type Firestore } from '@google-cloud/firestore'; // Added FieldValue
+import { FieldValue, type Firestore } from '@google-cloud/firestore';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import { currentUser } from '#user/userService/userContext';
+import type { VibeService, VibeSession, CreateVibeSessionData, UpdateVibeSessionData } from '#vibe/vibeTypes'; // Import the interface and types
 import { firestoreDb } from './firestore';
-
-// --- VibeSession interface and related types defined above ---
-export interface VibeSession {
-	id: string; // Primary key, ideally a UUID
-	userId: string; // To associate with a user
-	title: string;
-	instructions: string;
-	repositorySource: 'local' | 'github' | 'gitlab'; // Renamed from repositoryProvider
-	repositoryId: string; // Renamed from repositoryIdentifier e.g., local path, 'owner/repo', 'group/project'
-	repositoryName?: string; // Optional: e.g., 'my-cool-project'
-	branch: string;
-	newBranchName?: string; // Optional
-	useSharedRepos: boolean;
-	status: 'initializing' | 'design' | 'coding' | 'review' | 'completed' | 'error'; // Updated status values
-	fileSelection?: { filePath: string; readOnly?: boolean }[]; // Updated fileSelection structure
-	designAnswer?: string; // Store the generated design
-	createdAt: FieldValue; // Changed type to FieldValue
-	updatedAt: FieldValue; // Changed type to FieldValue
-	error?: string; // Optional error message
-}
-
-// Define a type for the data needed to create a new session
-// Note: Omit now includes 'error' as it's not provided at creation
-export type CreateVibeSessionData = Omit<VibeSession, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'status' | 'error'>;
-
-// Define a type for the data allowed in updates
-export type UpdateVibeSessionData = Partial<Omit<VibeSession, 'id' | 'userId' | 'createdAt'>>;
-// --- End Interface Definitions ---
 
 const VIBE_SESSIONS_COLLECTION = 'vibeSessions';
 
 /**
- * Service for managing VibeSession data in Firestore.
+ * Firestore implementation for managing VibeSession data.
  */
-export class FirestoreVibeService {
+export class FirestoreVibeService implements VibeService { // Implement the VibeService interface
 	private db: Firestore;
 
 	constructor() {
