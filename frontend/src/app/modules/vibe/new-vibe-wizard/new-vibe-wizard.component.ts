@@ -67,9 +67,9 @@ export class NewVibeWizardComponent implements OnInit {
 					console.log('Vibe session created:', createdSession);
 					// Navigate to a relevant view, e.g., the session detail or initialization step
 					// Using placeholder '/vibe/:id' for now, adjust as needed
-					this.router.navigate(['/vibe', createdSession.id]);
+					// this.router.navigate(['/vibe', createdSession.id]);
 					// Requirement specified '/vibe/initialise/:id', adjust if that route exists/is planned
-					// this.router.navigate(['/vibe', 'initialise', createdSession.id]);
+					this.router.navigate(['/vibe', 'initialise', createdSession.id]);
 				},
 				error: (err) => {
 					console.error('Error creating Vibe session:', err);
