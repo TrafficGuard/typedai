@@ -61,7 +61,8 @@ export class FileSystemRead {
 	 */
 	@func()
 	async searchFilesMatchingContents(contentsRegex: string): Promise<string> {
-		return await getFileSystem().searchFilesMatchingContents(contentsRegex);
+		// Delegate to the list service instance within FileSystemService
+		return await getFileSystem().listService.searchFilesMatchingContents(contentsRegex);
 	}
 
 	/**
@@ -71,7 +72,8 @@ export class FileSystemRead {
 	 */
 	@func()
 	async searchFilesMatchingName(fileNameRegex: string): Promise<string[]> {
-		return await getFileSystem().searchFilesMatchingName(fileNameRegex);
+		// Delegate to the list service
+		return await getFileSystem().listService.searchFilesMatchingName(fileNameRegex);
 	}
 
 	/**
@@ -82,7 +84,8 @@ export class FileSystemRead {
 	 */
 	@func()
 	async listFilesInDirectory(dirPath = '.'): Promise<string[]> {
-		return await getFileSystem().listFilesInDirectory(dirPath);
+		// Delegate to the list service
+		return await getFileSystem().listService.listFilesInDirectory(dirPath);
 	}
 
 	/**
@@ -92,7 +95,8 @@ export class FileSystemRead {
 	 */
 	@func()
 	async listFilesRecursively(dirPath = './', useGitIgnore = true): Promise<string[]> {
-		return await getFileSystem().listFilesRecursively(dirPath, useGitIgnore);
+		// Delegate to the list service
+		return await getFileSystem().listService.listFilesRecursively(dirPath, useGitIgnore);
 	}
 
 	/**
@@ -164,7 +168,8 @@ export class FileSystemRead {
 	 */
 	@func()
 	async getFileSystemTree(dirPath = './'): Promise<string> {
-		return await getFileSystem().getFileSystemTree(dirPath);
+		// Delegate to the list service
+		return await getFileSystem().listService.getFileSystemTree(dirPath);
 	}
 
 	/**
@@ -174,6 +179,7 @@ export class FileSystemRead {
 	 */
 	@func()
 	async getFileSystemTreeStructure(dirPath = './'): Promise<Record<string, string[]>> {
-		return await getFileSystem().getFileSystemTreeStructure(dirPath);
+		// Delegate to the list service
+		return await getFileSystem().listService.getFileSystemTreeStructure(dirPath);
 	}
 }

@@ -84,6 +84,7 @@ export interface ExecResults {
 	stdout: string;
 	stderr: string;
 	error: ExecException | null;
+	exitCode: number; // Add exitCode property
 	cwd?: string;
 }
 

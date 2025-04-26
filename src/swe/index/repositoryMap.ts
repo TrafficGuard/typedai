@@ -91,8 +91,8 @@ async function generateFolderTreeWithSummaries(summaries: Map<string, Summary>):
 	const treeStructure = await fileSystem.listService.getFileSystemTreeStructure();
 	let documentation = '';
 
-	// Add explicit type annotation here
-	for (const [folderPath, files]: [string, string[]] of Object.entries(treeStructure)) {
+	// Remove type annotation from loop variable
+	for (const [folderPath, files] of Object.entries(treeStructure)) {
 		const folderSummary = summaries.get(folderPath);
 		documentation += `${folderPath}/ (${files.length} files)  ${folderSummary ? `  ${folderSummary.short}` : ''}\n`;
 		documentation += '\n';
@@ -110,8 +110,8 @@ async function generateFileSystemTreeWithSummaries(summaries: Map<string, Summar
 	const treeStructure = await fileSystem.listService.getFileSystemTreeStructure();
 	let documentation = '';
 
-	// Add explicit type annotation here
-	for (const [folderPath, files]: [string, string[]] of Object.entries(treeStructure)) {
+	// Remove type annotation from loop variable
+	for (const [folderPath, files] of Object.entries(treeStructure)) {
 		const folderSummary = summaries.get(folderPath);
 
 		documentation += `${folderPath}/  ${folderSummary ? `  ${folderSummary.short}` : ''}\n`;
