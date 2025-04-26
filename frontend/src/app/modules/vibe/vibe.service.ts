@@ -1,8 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, map, Observable, of, switchMap, tap, throwError } from 'rxjs';
-import { VibeSession } from './vibe.types';
-// Removed invalid backend import: import type { SelectedFile } from '#swe/discovery/selectFilesAgent';
+import { BehaviorSubject, map, Observable, of, switchMap, take, tap, throwError } from 'rxjs'; // Added take
+import { VibeSession, SelectedFile } from './vibe.types'; // Restored SelectedFile import if needed locally, or adjust if type comes from elsewhere
 import { GitProject } from '../../../../../src/functions/scm/gitProject'; // Adjust path as needed - Assuming this path is correct relative to the frontend structure
 
 // Define the shape of the data needed for creation, matching the backend API body
@@ -16,6 +15,17 @@ export interface CreateVibeSessionPayload {
 	newBranchName?: string | null;
 	useSharedRepos: boolean;
 }
+
+// Define the shape of the data needed for updating, matching the backend API body
+export interface UpdateVibeSessionPayload {
+    filesToAdd?: string[];
+    filesToRemove?: string[];
+    // Add other updatable fields as needed, e.g.:
+    // instructions?: string;
+    // designDecision?: 'accepted' | 'rejected';
+    // variations?: number;
+}
+
 
 @Injectable({
 	providedIn: 'root',
@@ -98,6 +108,21 @@ export class VibeService {
 	getFileSystemTree(sessionId: string): Observable<string[]> {
 		return this.http.get<string[]>(`/api/vibe/sessions/${sessionId}/files`);
 	}
+
+    /**
+     * Updates a specific Vibe session by its ID using a PATCH request.
+     * @param id The ID of the Vibe session to update.
+     * @param payload The data to update.
+     */
+    updateSession(id: string, payload: UpdateVibeSessionPayload): Observable<VibeSession> {
+        return this.http.patch<VibeSession>(`/api/vibe/sessions/${id}`, payload).pipe(
+            tap((updatedSession) => {
+                // Update the BehaviorSubject with the updated session data
+                this.currentSession.next(updatedSession);
+            })
+        );
+    }
+
 
 	// Remove or adapt old methods (getVibe, listVibes, deleteVibe) if they are no longer relevant
 	// to the VibeListComponent's new purpose or if they target different endpoints/data.

@@ -1,9 +1,9 @@
-import { Component, inject, OnInit, ViewEncapsulation } from '@angular/core'; // Added ViewEncapsulation
-import { FormControl, ReactiveFormsModule } from '@angular/forms'; // Removed FormBuilder, FormGroup, Validators, Added FormControl
-import { map, Observable, of, startWith, switchMap } from 'rxjs'; // Added startWith, Added of
+import { Component, inject, OnInit, OnDestroy, ViewEncapsulation } from '@angular/core'; // Added OnDestroy
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { map, Observable, of, startWith, switchMap, take, Subject, takeUntil } from 'rxjs'; // Added take, Subject, takeUntil
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule, RouterOutlet } from '@angular/router';
-import { MatAutocompleteModule } from '@angular/material/autocomplete'; // Import MatAutocompleteModule
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatSelectModule } from "@angular/material/select";
 import { MatCardModule } from "@angular/material/card";
@@ -39,10 +39,12 @@ import { VibeDesignProposalComponent } from './vibe-design-proposal/vibe-design-
     MatAutocompleteModule, // Add MatAutocompleteModule here
     RouterOutlet, // Keep RouterOutlet if routing within this component is used
     VibeFileListComponent, // Keep the file list component
-    VibeDesignProposalComponent, // Add the new design proposal component
+    VibeDesignProposalComponent,
   ],
 })
-export class VibeComponent implements OnInit {
+export class VibeComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>(); // Subject to manage subscription cleanup
+
   // Form control for the file autocomplete input
   addFileControl = new FormControl('');
   // Full list of files available in the session's workspace
@@ -85,11 +87,27 @@ export class VibeComponent implements OnInit {
    */
   handleFileDeleted(file: SelectedFile): void {
     console.log('Delete requested for file:', file.filePath);
-    // TODO: Implement actual file deletion logic
-    // This might involve:
-    // 1. Calling vibeService.updateSession(sessionId, { filesToRemove: [file.filePath] })
-    // 2. Updating the local session state or relying on the observable to refresh
-    // For now, we just log it. The UI won't update automatically without further changes.
+    this.session$.pipe(
+      take(1), // Take the current session value once
+      takeUntil(this.destroy$), // Clean up subscription
+      switchMap(session => {
+        if (!session?.id) {
+          console.error('Cannot delete file: Session ID is missing.');
+          return of(null); // Or throw an error
+        }
+        // Call the service to update the session
+        return this.vibeService.updateSession(session.id, { filesToRemove: [file.filePath] });
+      })
+    ).subscribe({
+      next: (updatedSession) => {
+        if (updatedSession) {
+          console.log(`File ${file.filePath} removed successfully.`);
+          // The session$ observable will automatically update the view
+          // because updateSession in the service updates the BehaviorSubject.
+        }
+      },
+      error: (err) => console.error(`Error removing file ${file.filePath}:`, err)
+    });
 
     // Example of how you *might* update the observable if it were a BehaviorSubject
     // or if you refetch, but this is just illustrative:
@@ -107,7 +125,7 @@ export class VibeComponent implements OnInit {
      // this.vibeService.getVibeSession(this.currentSessionId).subscribe(...) // simplified
   }
 
-   /**
+  /**
    * Handles the designAccepted event from the VibeDesignProposalComponent.
    * @param variations The number of variations selected by the user.
    */
@@ -145,27 +163,46 @@ export class VibeComponent implements OnInit {
           session.fileSelection = this.sortFiles(session.fileSelection);
         }
         return session; // Return the potentially modified session
-      })
+      }),
+      takeUntil(this.destroy$) // Clean up subscription
     );
 
-    // Fetch the file system tree for the autocomplete
+    // Fetch the file system tree for the autocomplete when the session is available
     this.session$.pipe(
       switchMap(session => {
         if (session?.id) {
           return this.vibeService.getFileSystemTree(session.id);
         }
-        return of([]); // Return empty array if no session ID
-      })
-    ).subscribe((files: string[]) => { // Explicitly type files as string[]
+        return of([]); // Return empty array if no session ID or session is null
+      }),
+      takeUntil(this.destroy$) // Clean up subscription
+    ).subscribe((files: string[]) => {
       this.allFiles = files;
-      // Initialize the filtered files observable based on the input control's value changes
-      this.filteredFiles$ = this.addFileControl.valueChanges.pipe(
-        startWith(''), // Start with an empty string to show all files initially or handle initial state
-        map(value => this._filterFiles(value || ''))
-      );
+      // Initialize or re-initialize the filtered files observable
+      if (!this.filteredFiles$) {
+        this.filteredFiles$ = this.addFileControl.valueChanges.pipe(
+          startWith(''),
+          map(value => this._filterFiles(value || '')),
+          takeUntil(this.destroy$) // Clean up inner subscription
+        );
+      }
     });
 
+    // Initialize filteredFiles$ here if not done above, ensuring it's set up
+    if (!this.filteredFiles$) {
+       this.filteredFiles$ = this.addFileControl.valueChanges.pipe(
+         startWith(''),
+         map(value => this._filterFiles(value || '')),
+         takeUntil(this.destroy$) // Clean up inner subscription
+       );
+    }
+
     // Removed: this.codeForm = this.fb.group({ ... });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   /**
@@ -182,20 +219,55 @@ export class VibeComponent implements OnInit {
    * Handles adding the selected file from the autocomplete.
    */
   handleAddFile(): void {
-    const selectedFile = this.addFileControl.value;
-    if (selectedFile && this.allFiles.includes(selectedFile)) {
-      console.log('Add file requested:', selectedFile);
-      // TODO: Implement logic to add the file to the session's fileSelection
-      // This might involve:
-      // 1. Getting the current session state.
-      // 2. Checking if the file is already selected.
-      // 3. Calling vibeService.updateSession(sessionId, { filesToAdd: [selectedFile] })
-      // 4. Updating the local session state or relying on the observable to refresh.
-      // 5. Resetting the input control.
-      this.addFileControl.setValue(''); // Reset input after adding
-    } else {
-      console.warn('Invalid file selected or file not found:', selectedFile);
-      // Optionally provide user feedback
+    const selectedFile = this.addFileControl.value?.trim(); // Trim whitespace
+
+    if (!selectedFile) {
+        console.warn('No file selected.');
+        return;
+    }
+
+    if (!this.allFiles.includes(selectedFile)) {
+        console.warn('Invalid file selected or file not found in workspace:', selectedFile);
+        // Optionally provide user feedback (e.g., using MatSnackBar)
+        return;
+    }
+
+    this.session$.pipe(
+        take(1), // Get current session state once
+        takeUntil(this.destroy$), // Clean up subscription
+        switchMap(session => {
+            if (!session?.id) {
+                console.error('Cannot add file: Session ID is missing.');
+                return of(null); // Or throw an error
+            }
+
+            // Check if the file is already in the selection to avoid duplicates
+            if (session.fileSelection?.some(f => f.filePath === selectedFile)) {
+                console.warn(`File ${selectedFile} is already in the session.`);
+                // Optionally provide user feedback
+                this.addFileControl.setValue(''); // Clear input even if already added
+                return of(null); // Prevent API call
+            }
+
+            // Call the service to update the session
+            return this.vibeService.updateSession(session.id, { filesToAdd: [selectedFile] });
+        })
+    ).subscribe({
+        next: (updatedSession) => {
+            if (updatedSession) {
+                console.log(`File ${selectedFile} added successfully.`);
+                this.addFileControl.setValue(''); // Reset input after successful addition
+                // View updates automatically via session$ observable
+            }
+            // If of(null) was returned (e.g., file already exists), do nothing further here.
+        },
+        error: (err) => {
+            console.error(`Error adding file ${selectedFile}:`, err);
+            // Optionally provide user feedback
+        }
+    });
+  }
+}
     }
   }
 }
