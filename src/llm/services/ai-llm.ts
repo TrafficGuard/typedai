@@ -77,19 +77,32 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 			const requestTime = Date.now();
 			try {
 				const providerOptions: any = {};
-				// https://sdk.vercel.ai/docs/guides/sonnet-3-7#reasoning-ability
-				// https://sdk.vercel.ai/docs/guides/o3#refining-reasoning-effort
 				if (opts?.thinking) {
+					// https://sdk.vercel.ai/docs/guides/o3#refining-reasoning-effort
 					if (this.getService() === 'openai' && this.model.startsWith('o')) providerOptions.openai = { reasoningEffort: opts.thinking };
-
+					let thinkingBudget: number;
+					// https://sdk.vercel.ai/docs/guides/sonnet-3-7#reasoning-ability
+					// https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
 					if (this.getModel().includes('claude-3-7')) {
-						let budgetTokens = 1024; // low
-						if (opts.thinking === 'medium') budgetTokens = 6000;
-						if (opts.thinking === 'high') budgetTokens = 13000;
+						if (opts.thinking === 'low') thinkingBudget = 1024;
+						if (opts.thinking === 'medium') thinkingBudget = 6000;
+						else if (opts.thinking === 'high') thinkingBudget = 13000;
 						providerOptions.anthropic = {
-							thinking: { type: 'enabled', budgetTokens },
+							thinking: { type: 'enabled', budgetTokens: thinkingBudget },
 						};
 						// maxOutputTokens += budgetTokens;
+						// Streaming is required when max_tokens is greater than 21,333
+					}
+					// https://cloud.google.com/vertex-ai/generative-ai/docs/thinking#budget
+					else if (this.getId().includes('gemini-2.5-flash')) {
+						if (opts.thinking === 'low') thinkingBudget = 8192;
+						else if (opts.thinking === 'medium') thinkingBudget = 16384;
+						else if (opts.thinking === 'high') thinkingBudget = 24576;
+						providerOptions.vertex = {
+							thinkingConfig: {
+								thinkingBudget,
+							},
+						};
 					}
 				}
 
