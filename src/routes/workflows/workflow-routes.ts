@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import { join } from 'node:path';
 import { Type } from '@sinclair/typebox';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
-import type { RunAgentConfig } from '#agent/agentRunner';
+import { RunAgentConfig, type RunWorkflowConfig } from '#agent/agentRunner';
 import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
 import { defaultLLMs, summaryLLM } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
@@ -58,10 +58,10 @@ export async function workflowRoutes(fastify: AppFastifyInstance) {
 			}
 
 			try {
-				const config: RunAgentConfig = {
+				const config: RunWorkflowConfig = {
 					agentName,
+					subtype: 'code',
 					llms: defaultLLMs(),
-					functions: [],
 					initialPrompt: requirements,
 					humanInLoop: {
 						budget: 2,
@@ -94,10 +94,10 @@ export async function workflowRoutes(fastify: AppFastifyInstance) {
 		async (request, reply) => {
 			let { workingDirectory, query } = request.body as { workingDirectory: string; query: string };
 			try {
-				const config: RunAgentConfig = {
+				const config: RunWorkflowConfig = {
 					agentName: `Query: ${query}`,
+					subtype: 'query',
 					llms: defaultLLMs(),
-					functions: [], //FileSystem,
 					initialPrompt: '',
 					humanInLoop: {
 						budget: 2,
@@ -140,10 +140,10 @@ export async function workflowRoutes(fastify: AppFastifyInstance) {
 		(request, reply) => {
 			const { workingDirectory, requirements } = request.body as { workingDirectory: string; requirements: string };
 			try {
-				const config: RunAgentConfig = {
+				const config: RunWorkflowConfig = {
 					agentName: `Select Files: ${requirements}`,
+					subtype: 'selectFiles',
 					llms: defaultLLMs(),
-					functions: [],
 					initialPrompt: '',
 					humanInLoop: {
 						budget: 2,

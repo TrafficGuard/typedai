@@ -3,7 +3,7 @@ import '#fastify/trace-init/trace-init'; // leave an empty line next so this doe
 import { promises as fs, readFileSync } from 'node:fs';
 import type { AgentLLMs } from '#agent/agentContextTypes';
 import { AGENT_COMPLETED_PARAM_NAME } from '#agent/agentFunctions';
-import { type RunAgentConfig, startAgent, startAgentAndWait } from '#agent/agentRunner';
+import { type RunAgentConfig, type RunWorkflowConfig, startAgent, startAgentAndWait } from '#agent/agentRunner';
 import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { GitLab } from '#functions/scm/gitlab';
@@ -42,10 +42,10 @@ async function main() {
 
 	console.log(`Prompt: ${initialPrompt}`);
 
-	const config: RunAgentConfig = {
+	const config: RunWorkflowConfig = {
 		agentName: `SWE-Bench ${instance.instance_id}`,
+		subtype: 'code',
 		llms: agentLlms,
-		functions: [], //FileSystem,
 		initialPrompt,
 		resumeAgentId,
 		humanInLoop: {

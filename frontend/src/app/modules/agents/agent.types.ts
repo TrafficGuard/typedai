@@ -7,13 +7,6 @@ export interface AgentPagination {
     endIndex: number;
 }
 
-export interface AgentType {
-    id: string;
-    parentId: string;
-    name: string;
-    slug: string;
-}
-
 export interface AgentTag {
     id?: string;
     title?: string;
@@ -52,9 +45,10 @@ export interface FunctionCallResult extends FunctionCall {
 }
 
 /**
- * agent - waiting for the agent LLM call(s) to generate control loop update
- * functions - waiting for the planned function call(s) to complete
- * error - the agent control loop has errored
+ * workflow - fixed workflow agent running
+ * agent - waiting for the autonomous agent LLM call(s) to generate control loop update
+ * functions - waiting for the autonomous agent planned function call(s) to complete
+ * error - the agent has errored
  * hil - deprecated for humanInLoop_agent and humanInLoop_tool
  * hitl_threshold - If the agent has reached budget or iteration thresholds. At this point the agent is not executing any LLM/function calls.
  * hitl_tool - When a function has request HITL in the function calling part of the control loop
@@ -67,6 +61,7 @@ export interface FunctionCallResult extends FunctionCall {
  * timeout - for chat agents when there hasn't been a user input for a configured amount of time
  */
 export type AgentRunningState =
+    | 'workflow'
     | 'agent'
     | 'functions'
     | 'error'
@@ -79,9 +74,13 @@ export type AgentRunningState =
     | 'child_agents'
     | 'timeout';
 
+export type AgentType = 'autonomous' | 'workflow' | 'xml' | 'codegen';
+
 export interface AgentContext {
     /** Agent instance id - allocated when the agent is first starts */
     agentId: string;
+    type: AgentType;
+    subtype: string;
     /** Id of the running execution. This changes after the control loop restarts after an exit due to pausing, human in loop etc */
     executionId: string;
     traceId: string;
@@ -91,7 +90,6 @@ export interface AgentContext {
     /** Empty string in single-user mode */
     userId: string;
     userEmail?: string;
-    type: AgentType;
     state: AgentRunningState;
     inputPrompt: string;
     userPrompt: string;

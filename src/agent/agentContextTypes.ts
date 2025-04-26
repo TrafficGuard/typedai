@@ -13,7 +13,8 @@ import type { User } from '#user/user';
  *
  */
 export type TaskLevel = 'easy' | 'medium' | 'hard' | 'xhard';
-export type AgentType = 'xml' | 'codegen';
+export type AgentType = 'autonomous' | 'workflow';
+export type AutonomousSubType = 'xml' | 'codegen';
 
 export interface AgentCompleted {
 	notifyCompleted(agentContext: AgentContext): Promise<void>;
@@ -22,9 +23,10 @@ export interface AgentCompleted {
 }
 
 /**
+ * workflow - fixed workflow agent running
  * agent - autonomous agent waiting for the agent LLM call(s) to generate control loop update
- * functions - waiting for function call(s) to complete
- * error - the agent control loop has errored or force stopped
+ * functions - waiting for autonomous agent function call(s) to complete
+ * error - the agent has errored or force stopped
  * hil - deprecated for humanInLoop_agent and humanInLoop_tool
  * hitl_threshold - If the agent has reached budget or iteration thresholds. At this point the agent is not executing any LLM/function calls.
  * hitl_tool - When a function has request real-time HITL in the function calling part of the control loop
@@ -68,6 +70,9 @@ export type AgentLLMs = Record<TaskLevel, LLM>;
 export interface AgentContext {
 	/** Primary Key - Agent instance id. Allocated when the agent is first starts */
 	agentId: string;
+	/** The type of agent (autonomous or workflow) */
+	type: AgentType;
+	subtype: string;
 	/** Child agent ids */
 	childAgents?: string[];
 	/** Id of the running execution. This changes after the agent restarts due to an error, pausing, human in loop, completion etc */
@@ -117,9 +122,6 @@ export interface AgentContext {
 	pendingMessages: string[];
 
 	// Autonomous agent specific properties --------------------
-
-	/** The type of autonomous agent function calling.*/
-	type: AgentType;
 	/** The number of completed iterations of the agent control loop */
 	iterations: number;
 	/** The function calls the agent is about to call (xml only) */
@@ -138,4 +140,22 @@ export interface AgentContext {
 	hilCount;
 	/** Files which are always provided in the agent control loop prompt */
 	liveFiles: string[];
+}
+
+export interface AutonomousIteration {
+	agentId: string;
+	/** Starts from 1 */
+	iteration: number;
+	/** The function class names available */
+	functions: string[];
+	/** Input prompt */
+	prompt: string;
+	/** Generated agent plan */
+	agentPlan: string;
+	/** Generated code (for code gen agents) */
+	code: string;
+	/** Function calls executed this iteration */
+	functionCalls: FunctionCallResult[];
+	/** Any error */
+	error?: string;
 }

@@ -74,7 +74,7 @@ export class NewAgentComponent implements OnInit {
     this.runAgentForm = new FormGroup({
       name: new FormControl('', Validators.required),
       userPrompt: new FormControl('', Validators.required),
-      type: new FormControl(defaultType, Validators.required),
+      subtype: new FormControl(defaultType, Validators.required),
       llmEasy: new FormControl('', Validators.required),
       llmMedium: new FormControl('', Validators.required),
       llmHard: new FormControl('', Validators.required),
@@ -167,7 +167,8 @@ export class NewAgentComponent implements OnInit {
         .post<StartAgentResponse>(`/api/agent/v1/start`, {
           name: this.runAgentForm.value.name,
           userPrompt: this.runAgentForm.value.userPrompt,
-          type: this.runAgentForm.value.type,
+          type: 'autonomous',
+          subtype: this.runAgentForm.value.subtype,
           // systemPrompt: this.runAgentForm.value.systemPrompt,
           functions: selectedFunctions,
           budget: this.runAgentForm.value.budget,

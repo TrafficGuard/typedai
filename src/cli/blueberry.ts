@@ -16,6 +16,7 @@ async function main() {
 	const { initialPrompt } = parseProcessArgs();
 
 	const context: AgentContext = createContext({
+		subtype: 'blueberry',
 		initialPrompt,
 		agentName: 'blueberry',
 		llms: mockLLMs(),

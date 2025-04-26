@@ -20,6 +20,8 @@ export async function main() {
 	const { initialPrompt, resumeAgentId } = parseProcessArgs();
 
 	const agentId = await startAgentAndWait({
+		type: 'autonomous',
+		subtype: 'codegen',
 		agentName: 'researcher',
 		initialPrompt,
 		systemPrompt,

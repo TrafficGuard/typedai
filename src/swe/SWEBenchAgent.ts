@@ -73,11 +73,11 @@ export class SWEBenchAgent {
 		return await runAgentWorkflow(
 			{
 				agentName: `swe-bench ${task.instance_id}`,
+				subtype: 'swe-bench',
 				llms: defaultLLMs(),
 				humanInLoop: {
 					budget: 2,
 				},
-				functions: [],
 				initialPrompt: '',
 			},
 			async (agent) => {
