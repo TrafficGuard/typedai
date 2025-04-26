@@ -96,11 +96,25 @@ export class VibeComponent implements OnInit {
      // this.vibeService.getVibeSession(this.currentSessionId).subscribe(...) // simplified
   }
 
+   /**
+   * Handles the designAccepted event from the VibeDesignProposalComponent.
+   * @param variations The number of variations selected by the user.
+   */
+  handleDesignAccepted(variations: number): void {
+    console.log('Design accepted in VibeComponent with variations:', variations);
+    // TODO: Implement logic to proceed with the selected variations
+    // This might involve calling vibeService.updateSession(...) or similar
+    // Example:
+    // this.session$.pipe(take(1)).subscribe(session => {
+    //   if (session) {
+    //     this.vibeService.proceedWithDesign(session.id, variations).subscribe(...);
+    //   }
+    // });
+  }
+
+
   ngOnInit() {
-    // Initialize the design form
-    this.designForm = this.fb.group({
-      variations: [1, Validators.required] // Default to 1 variation, make it required
-    });
+    // Removed: designForm initialization
 
     this.session$ = this.route.paramMap.pipe(
       switchMap((params) => {
