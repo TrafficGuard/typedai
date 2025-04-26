@@ -1,5 +1,4 @@
 import { type Static, Type } from '@sinclair/typebox';
-import { type Static, Type } from '@sinclair/typebox';
 import type { FastifyRequest as FastifyRequestBase } from 'fastify'; // Import base FastifyRequest
 import type { AppFastifyInstance } from '#applicationTypes';
 import type { FastifyRequest } from '#fastify/fastifyApp'; // Keep custom FastifyRequest for non-generic use
