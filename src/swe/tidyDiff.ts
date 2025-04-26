@@ -17,7 +17,7 @@ interface TidyPatch {
  * introduced in the diff, using a patch-like mechanism.
  * @param baseCommitOrBranch The git commit sha or branch name to diff against.
  */
-@span()
+// @span() // Decorators cannot be applied directly to exported functions like this. Manual span needed if tracing is required.
 export async function tidyDiff(baseCommitOrBranch: string): Promise<void> {
 	logger.info(`Tidying diff since ${baseCommitOrBranch}`);
 	const fs = getFileSystem();
