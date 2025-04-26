@@ -70,10 +70,11 @@ export class FirestoreVibeService {
 		};
 
 		try {
-			const docRef = this.db.collection(VIBE_SESSIONS_COLLECTION).doc(newSessionData.id);
+			// Use the user-specific path
+			const docRef = this.db.collection('users').doc(userId).collection(VIBE_SESSIONS_COLLECTION).doc(newSessionData.id);
 			// Firestore types require the data passed to set() to match the structure including timestamps
 			await docRef.set(newSessionWithTimestamps);
-			logger.info({ sessionId: newSessionData.id, userId }, 'VibeSession created successfully');
+			logger.info({ sessionId: newSessionData.id, userId }, 'VibeSession created successfully in user subcollection');
 
 			// Note: Firestore returns the write result, not the document with resolved timestamps immediately.
 			// To return the full VibeSession with resolved timestamps, a subsequent get() would be needed.
@@ -89,36 +90,36 @@ export class FirestoreVibeService {
 	}
 
 	/**
-	 * Retrieves a specific VibeSession by its ID.
-	 * Ensures the session belongs to the current user.
-	 * @param id The ID of the VibeSession to retrieve.
+	 * Retrieves a specific VibeSession by its ID for a given user.
+	 * @param userId The ID of the user owning the session.
+	 * @param sessionId The ID of the VibeSession to retrieve.
 	 * @returns The VibeSession if found and authorized, otherwise null.
 	 */
 	@span()
-	async getVibeSession(id: string): Promise<VibeSession | null> {
+	async getVibeSession(userId: string, sessionId: string): Promise<VibeSession | null> {
+		// Security check: Ensure the requesting user matches the userId in the path
+		if (userId !== currentUser().id) {
+			logger.warn({ requestedUserId: userId, currentUserId: currentUser().id, sessionId }, 'Attempt to get VibeSession for another user');
+			// Returning null is less revealing than throwing an error.
+			return null;
+		}
+
 		try {
-			const docRef = this.db.collection(VIBE_SESSIONS_COLLECTION).doc(id);
+			const docRef = this.db.collection('users').doc(userId).collection(VIBE_SESSIONS_COLLECTION).doc(sessionId);
 			const docSnap = await docRef.get();
 
 			if (!docSnap.exists) {
-				logger.warn({ sessionId: id }, 'VibeSession not found');
+				logger.warn({ userId, sessionId }, 'VibeSession not found in user subcollection');
 				return null;
 			}
 
+			// The path already scopes to the user, so the internal userId check is redundant here.
+			// The check against currentUser().id at the beginning handles authorization.
 			const session = docSnap.data() as VibeSession;
-
-			// Authorization check
-			if (session.userId !== currentUser().id) {
-				logger.warn({ sessionId: id, currentUserId: currentUser().id, ownerId: session.userId }, 'User not authorized to access VibeSession');
-				// Throw or return null based on desired behavior for unauthorized access
-				// Returning null is less revealing than throwing an error.
-				return null;
-				// throw new Error('Not authorized to access this Vibe session');
-			}
 
 			return session;
 		} catch (error) {
-			logger.error(error, `Error retrieving VibeSession ${id}`);
+			logger.error(error, `Error retrieving VibeSession ${sessionId} for user ${userId}`);
 			throw error;
 		}
 	}
@@ -137,7 +138,8 @@ export class FirestoreVibeService {
 		}
 
 		try {
-			const querySnapshot = await this.db.collection(VIBE_SESSIONS_COLLECTION).where('userId', '==', userId).orderBy('createdAt', 'desc').get();
+			// Query the user-specific subcollection directly
+			const querySnapshot = await this.db.collection('users').doc(userId).collection(VIBE_SESSIONS_COLLECTION).orderBy('createdAt', 'desc').get();
 
 			const sessions: VibeSession[] = [];
 			querySnapshot.forEach((doc) => {
@@ -153,65 +155,65 @@ export class FirestoreVibeService {
 	}
 
 	/**
-	 * Updates specified fields of a VibeSession.
-	 * Ensures the session belongs to the current user before updating.
-	 * @param id The ID of the VibeSession to update.
+	 * Updates specified fields of a VibeSession for a given user.
+	 * @param userId The ID of the user owning the session.
+	 * @param sessionId The ID of the VibeSession to update.
 	 * @param updates An object containing the fields to update.
 	 */
 	@span()
-	async updateVibeSession(id: string, updates: UpdateVibeSessionData): Promise<void> {
-		// First, verify ownership before attempting update
-		const existingSession = await this.getVibeSession(id);
-		if (!existingSession) {
-			// getVibeSession handles logging and authorization checks
-			throw new Error(`VibeSession ${id} not found or user not authorized.`);
-		}
-		// Redundant check, but ensures currentUser() context hasn't changed unexpectedly
-		if (existingSession.userId !== currentUser().id) {
-			logger.error({ sessionId: id, currentUserId: currentUser().id }, 'Authorization failed during update attempt');
+	async updateVibeSession(userId: string, sessionId: string, updates: UpdateVibeSessionData): Promise<void> {
+		// Security check: Ensure the requesting user matches the userId in the path
+		if (userId !== currentUser().id) {
+			logger.error({ requestedUserId: userId, currentUserId: currentUser().id, sessionId }, 'Authorization failed: Attempt to update VibeSession for another user');
 			throw new Error('Not authorized to update this Vibe session');
 		}
 
+		// Remove fields that should not be directly updated or are handled internally
+		const { id: _id, userId: _userId, createdAt: _createdAt, ...validUpdates } = updates;
+
 		const updateData = {
-			...updates,
+			...validUpdates,
 			updatedAt: FieldValue.serverTimestamp(), // Use server timestamp
 		};
 
 		try {
-			const docRef = this.db.collection(VIBE_SESSIONS_COLLECTION).doc(id);
+			// Use the user-specific path
+			const docRef = this.db.collection('users').doc(userId).collection(VIBE_SESSIONS_COLLECTION).doc(sessionId);
 			await docRef.update(updateData);
-			logger.info({ sessionId: id, userId: currentUser().id }, 'VibeSession updated successfully');
+			logger.info({ sessionId, userId }, 'VibeSession updated successfully in user subcollection');
 		} catch (error) {
-			logger.error(error, `Error updating VibeSession ${id}`);
+			// Check if the error is due to the document not existing (e.g., Firestore error code 5)
+			if ((error as any)?.code === 5) {
+				logger.warn({ userId, sessionId }, 'Attempted to update non-existent VibeSession');
+				throw new Error(`VibeSession ${sessionId} not found for user ${userId}.`);
+			}
+			logger.error(error, `Error updating VibeSession ${sessionId} for user ${userId}`);
 			throw error;
 		}
 	}
 
 	/**
-	 * Deletes a VibeSession by its ID.
-	 * Ensures the session belongs to the current user before deleting.
-	 * @param id The ID of the VibeSession to delete.
+	 * Deletes a VibeSession by its ID for a given user.
+	 * @param userId The ID of the user owning the session.
+	 * @param sessionId The ID of the VibeSession to delete.
 	 */
 	@span()
-	async deleteVibeSession(id: string): Promise<void> {
-		// First, verify ownership before attempting deletion
-		const existingSession = await this.getVibeSession(id);
-		if (!existingSession) {
-			// getVibeSession handles logging and authorization checks
-			throw new Error(`VibeSession ${id} not found or user not authorized.`);
-		}
-		// Redundant check
-		if (existingSession.userId !== currentUser().id) {
-			logger.error({ sessionId: id, currentUserId: currentUser().id }, 'Authorization failed during delete attempt');
+	async deleteVibeSession(userId: string, sessionId: string): Promise<void> {
+		// Security check: Ensure the requesting user matches the userId in the path
+		if (userId !== currentUser().id) {
+			logger.error({ requestedUserId: userId, currentUserId: currentUser().id, sessionId }, 'Authorization failed: Attempt to delete VibeSession for another user');
 			throw new Error('Not authorized to delete this Vibe session');
 		}
 
 		try {
-			const docRef = this.db.collection(VIBE_SESSIONS_COLLECTION).doc(id);
+			// Use the user-specific path
+			const docRef = this.db.collection('users').doc(userId).collection(VIBE_SESSIONS_COLLECTION).doc(sessionId);
+			// Note: Firestore delete operation doesn't error if the document doesn't exist.
+			// If we need to confirm existence before delete, a get() would be needed first.
 			await docRef.delete();
-			logger.info({ sessionId: id, userId: currentUser().id }, 'VibeSession deleted successfully');
+			logger.info({ sessionId, userId }, 'VibeSession deleted successfully from user subcollection');
 		} catch (error) {
-			logger.error(error, `Error deleting VibeSession ${id}`);
+			logger.error(error, `Error deleting VibeSession ${sessionId} for user ${userId}`);
 			throw error;
 		}
 	}
