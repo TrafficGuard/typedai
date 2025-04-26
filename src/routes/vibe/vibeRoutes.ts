@@ -3,6 +3,7 @@ import type { FastifyRequest as FastifyRequestBase } from 'fastify'; // Import b
 import type { AppFastifyInstance } from '#applicationTypes';
 import type { FastifyRequest } from '#fastify/fastifyApp'; // Keep custom FastifyRequest for non-generic use
 import type { GitProject } from '#functions/scm/gitProject';
+import { type SelectedFile, selectFilesAgent } from '#swe/discovery/selectFilesAgent'; // Import agent and type
 import type { CreateVibeSessionData, VibeSession } from '#vibe/vibeTypes';
 
 // Define a TypeBox schema for the response (subset of VibeSession)
@@ -67,10 +68,12 @@ const InitialiseParamsSchema = Type.Object({
 	id: Type.String({ description: 'The ID of the Vibe session to initialise' }),
 });
 
-// Schema for the initialise endpoint success response
+// Schema for the initialise endpoint success response (updated)
 const InitialiseSuccessResponseSchema = Type.Object({
 	message: Type.String(),
-	clonedPathValue: Type.String(),
+	sessionId: Type.String(),
+	status: Type.String(), // Reflect the status after initialization steps
+	// clonedPathValue is internal, not usually returned to client
 });
 
 export async function vibeRoutes(fastify: AppFastifyInstance) {
@@ -243,11 +246,46 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 					}
 				}
 
-				// Return success response (temporary, might change based on Vibe logic)
-				return reply.code(200).send({ message: 'Initialisation complete. Working directory set.', clonedPathValue: clonedPath });
+				// --- File Selection Step ---
+				fastify.log.info({ sessionId: id }, 'Starting file selection process.');
+				await vibeService.updateVibeSession(userId, id, { status: 'selecting_files' });
+
+				let selectedFiles: SelectedFile[];
+				try {
+					// Run the file selection agent using the session instructions
+					// Note: This runs synchronously in the request handler. For long-running tasks,
+					// consider moving this to a background job queue.
+					selectedFiles = await selectFilesAgent(session.instructions /*, projectInfo */); // Pass projectInfo if available/needed
+					fastify.log.info({ sessionId: id, fileCount: selectedFiles.length }, 'File selection agent completed.');
+
+					// Update the session with selected files and set status to 'design'
+					await vibeService.updateVibeSession(userId, id, {
+						fileSelection: selectedFiles,
+						status: 'design',
+					});
+					fastify.log.info({ sessionId: id }, 'Vibe session updated with selected files and status set to design.');
+				} catch (fileAgentError) {
+					fastify.log.error(fileAgentError, `Error during file selection for session ${id}`);
+					// Update session status to error
+					await vibeService.updateVibeSession(userId, id, { status: 'error', error: `File selection failed: ${fileAgentError.message}` });
+					return reply.code(500).send({ error: 'Failed during file selection phase.' });
+				}
+
+				// Return success response indicating initialization and file selection are done
+				return reply.code(200).send({
+					message: 'Initialization and file selection complete. Session ready for design phase.',
+					sessionId: id,
+					status: 'design', // Reflect the final status after this step
+				});
 			} catch (error) {
 				fastify.log.error(error, `Error during initial vibe session setup for session ${id}`);
-				return reply.code(500).send({ error: 'Failed during initial setup (clone attempt)' });
+				// Attempt to update session status to error if possible (session might not exist or other issues)
+				try {
+					await vibeService.updateVibeSession(userId, id, { status: 'error', error: `Initial setup failed: ${error.message}` });
+				} catch (updateError) {
+					fastify.log.error(updateError, `Failed to update session ${id} status to error after initial setup failure.`);
+				}
+				return reply.code(500).send({ error: 'Failed during initial setup (repository handling or file selection trigger)' });
 			}
 		},
 	);

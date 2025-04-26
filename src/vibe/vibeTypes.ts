@@ -1,4 +1,5 @@
 import type { FieldValue } from '@google-cloud/firestore';
+import type { SelectedFile } from '#swe/discovery/selectFilesAgent'; // Import SelectedFile
 
 // --- VibeSession interface and related types ---
 export interface VibeSession {
@@ -12,8 +13,8 @@ export interface VibeSession {
 	branch: string;
 	newBranchName?: string; // Optional
 	useSharedRepos: boolean;
-	status: 'initializing' | 'design' | 'coding' | 'review' | 'completed' | 'error'; // Updated status values
-	fileSelection?: { filePath: string; readOnly?: boolean }[]; // Updated fileSelection structure
+	status: 'initializing' | 'selecting_files' | 'design' | 'coding' | 'review' | 'completed' | 'error'; // Added 'selecting_files' status
+	fileSelection?: SelectedFile[]; // Use SelectedFile[] type
 	designAnswer?: string; // Store the generated design
 	createdAt: FieldValue | Date; // Allow Date for in-memory, FieldValue for Firestore
 	updatedAt: FieldValue | Date; // Allow Date for in-memory, FieldValue for Firestore
