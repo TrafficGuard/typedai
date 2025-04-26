@@ -4,7 +4,7 @@ import { promisify } from 'node:util';
 import ignore, { type Ignore } from 'ignore';
 import type { FileSystemService } from '#functions/storage/fileSystemService'; // Import FileSystemService type
 import { logger } from '#o11y/logger';
-import { arg, spawnCommand } from '#utils/exec'; // Import arg from exec
+import { spawnCommand } from '#utils/exec'; // spawnCommand includes arg handling
 import { CDATA_END, CDATA_START, needsCDATA } from '#utils/xml-utils'; // Import XML utils
 
 const fs = {

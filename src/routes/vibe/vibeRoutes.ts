@@ -74,6 +74,11 @@ const InitialiseParamsSchema = Type.Object({
 	id: Type.String({ description: 'The ID of the Vibe session to initialise' }),
 });
 
+// Schema for the filesystem-tree endpoint path parameter
+const FileSystemTreeParamsSchema = Type.Object({
+	id: Type.String({ description: 'The ID of the Vibe session for which to get the filesystem tree' }),
+});
+
 // Schema for the initialise endpoint success response (updated)
 const InitialiseSuccessResponseSchema = Type.Object({
 	message: Type.String(),
@@ -330,6 +335,75 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 			} catch (error) {
 				fastify.log.error(error, `Error retrieving Vibe session ${id}`);
 				return reply.code(500).send({ error: 'Failed to retrieve Vibe session' });
+			}
+		},
+	);
+
+	// --- GET /filesystem-tree/:id ---
+	fastify.get(
+		'/filesystem-tree/:id',
+		{
+			schema: {
+				params: FileSystemTreeParamsSchema,
+				response: {
+					200: { type: 'string', description: 'Filesystem tree structure as plain text' }, // Explicitly define plain text response
+					401: ErrorResponseSchema,
+					404: ErrorResponseSchema,
+					409: ErrorResponseSchema, // For cases like session not initialized
+					500: ErrorResponseSchema,
+				},
+			},
+		},
+		// Use FastifyRequestBase for generic type with Params
+		async (request: FastifyRequestBase<{ Params: Static<typeof FileSystemTreeParamsSchema> }>, reply) => {
+			// Cast to custom FastifyRequest to access currentUser
+			const req = request as FastifyRequest;
+			if (!req.currentUser?.id) {
+				return reply.code(401).send({ error: 'Unauthorized' });
+			}
+			const userId = req.currentUser.id;
+			const { id } = request.params; // Get id from validated params
+
+			try {
+				const session = await vibeService.getVibeSession(userId, id);
+				if (!session) {
+					return sendNotFound(reply, 'Vibe session not found');
+				}
+
+				let targetPath: string;
+				if (session.repositorySource === 'local') {
+					// For local sources, the repositoryId is the direct path
+					targetPath = session.repositoryId;
+					fastify.log.info({ sessionId: id, path: targetPath }, 'Using local repository path for filesystem tree.');
+				} else {
+					// For remote sources, assume initialization has happened and the fileSystemService
+					// working directory is correctly set. This is fragile and relies on prior state.
+					// A more robust solution might store the cloned path in the session.
+					if (session.status === 'initializing' || session.status === 'selecting_files') {
+						fastify.log.warn({ sessionId: id, status: session.status }, 'Filesystem tree requested for session before initialization complete.');
+						return reply.code(409).send({ error: 'Session initialization not complete. Filesystem tree unavailable.' });
+					}
+					// Use the *current* working directory of the shared file system service.
+					targetPath = fileSystemService.getWorkingDirectory();
+					fastify.log.warn(
+						{ sessionId: id, path: targetPath, source: session.repositorySource },
+						'Using current FileSystemService working directory for remote repository filesystem tree. Ensure it matches the session context.',
+					);
+				}
+
+				// Generate the tree structure for the determined path
+				// getFileSystemTree handles path resolution (absolute vs relative) and security checks.
+				const tree = await fileSystemService.listService.getFileSystemTree(targetPath);
+
+				// Send the tree as plain text
+				return reply.type('text/plain').send(tree);
+			} catch (error) {
+				fastify.log.error(error, `Error generating filesystem tree for Vibe session ${id}`);
+				// Distinguish between file system errors and other errors if needed
+				if (error.message?.includes('Access denied') || error.message?.includes('Cannot generate tree outside')) {
+					return reply.code(403).send({ error: `Filesystem access error: ${error.message}` });
+				}
+				return reply.code(500).send({ error: 'Failed to generate filesystem tree' });
 			}
 		},
 	);
