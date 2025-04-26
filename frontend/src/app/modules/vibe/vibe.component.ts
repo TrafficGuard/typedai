@@ -11,10 +11,10 @@ import { MatInputModule } from '@angular/material/input';
 import {MatIconModule} from "@angular/material/icon";
 import {MatButtonModule} from "@angular/material/button";
 import {VibeService} from "./vibe.service";
-import {VibeListComponent} from "./vibe-list/vibe-list.component";
+// Removed VibeListComponent import
 
 @Component({
-  selector: 'app-code',
+  selector: 'app-vibe', // Changed selector to be more specific
   templateUrl: './vibe.component.html',
   styleUrls: ['./vibe.component.scss'],
   standalone: true,
@@ -47,17 +47,7 @@ export class VibeComponent implements OnInit {
       input: ['', Validators.required],
     });
 
-    this.vibeService.listVibes().subscribe({
-      next: (repos: string[]) => {
-        this.vibes = repos;
-        if (repos.length > 0) {
-          this.codeForm.patchValue({ workingDirectory: repos[0] });
-        }
-      },
-      error: (error: any) => {
-        console.error('Error fetching vibes:', error);
-        this.result = 'Error fetching vibes. Please try again later.';
-      },
-    });
+    // Removed the call to this.vibeService.listVibes() and related logic
+    // TODO: Add logic here if this component needs to fetch data for the form (e.g., repo list for dropdown)
   }
 }
