@@ -1,4 +1,5 @@
 import type { AppFastifyInstance } from '#applicationTypes';
+import type { FastifyRequest } from '#fastify/fastifyApp'; // Import the correct request type
 import { FirestoreVibeService } from '#modules/firestore/firestoreVibeService'; // Adjust path if needed
 import { Static, Type } from '@sinclair/typebox';
 // import { VibeSession } from '#modules/firestore/firestoreVibeService'; // Import the backend type - Not strictly needed if using schema below
@@ -16,6 +17,11 @@ const VibeSessionListResponseSchema = Type.Array(
 	}),
 );
 
+// Define a schema for error responses
+const ErrorResponseSchema = Type.Object({
+	error: Type.String(),
+});
+
 export async function vibeRoutes(fastify: AppFastifyInstance) {
 	const firestoreVibeService = new FirestoreVibeService(); // Or retrieve via dependency injection if set up
 
@@ -26,10 +32,12 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 				// Add response schema for validation and documentation
 				response: {
 					200: VibeSessionListResponseSchema,
+					401: ErrorResponseSchema, // Add schema for 401
 				},
 			},
 		},
-		async (request, reply) => {
+		// Explicitly type the request parameter
+		async (request: FastifyRequest, reply) => {
 			// Assuming authentication middleware adds `currentUser` to the request
 			if (!request.currentUser?.id) {
 				return reply.code(401).send({ error: 'Unauthorized' });
