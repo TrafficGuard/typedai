@@ -62,9 +62,9 @@ export class GitHub implements SourceControlManagement {
 	isConfigured(): boolean {
 		// Attempt to get config without triggering the error throwing in the config() method
 		const userConfig = functionConfig(GitHub) as GitHubConfig;
-		const token = userConfig.token || envVar('GITHUB_TOKEN');
-		const user = userConfig.username || process.env.GITHUB_USER;
-		const org = userConfig.organisation || process.env.GITHUB_ORG;
+		const token = userConfig?.token || envVar('GITHUB_TOKEN');
+		const user = userConfig?.username || process.env.GITHUB_USER;
+		const org = userConfig?.organisation || process.env.GITHUB_ORG;
 
 		return !!(token && (user || org));
 	}

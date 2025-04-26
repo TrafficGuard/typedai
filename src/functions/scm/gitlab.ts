@@ -64,10 +64,10 @@ export class GitLab implements SourceControlManagement {
 	 */
 	isConfigured(): boolean {
 		// Attempt to get config without triggering the error logging in the config() method
-		const config = functionConfig(GitLab);
-		const token = config.token || envVar('GITLAB_TOKEN');
-		const host = config.host || envVar('GITLAB_HOST');
-		const groups = config.topLevelGroups || envVar('GITLAB_GROUPS');
+		const config = functionConfig(GitLab) as GitLabConfig;
+		const token = config?.token || envVar('GITLAB_TOKEN');
+		const host = config?.host || envVar('GITLAB_HOST');
+		const groups = config?.topLevelGroups || envVar('GITLAB_GROUPS');
 
 		return !!(token && host && groups);
 	}
