@@ -207,6 +207,8 @@ export async function runCodeGenAgent(agent: AgentContext): Promise<AgentExecuti
 							// Un-proxy any Pyodide proxied objects
 							for (const [k, v] of Object.entries(parameters)) {
 								if (v?.toJs) parameters[k] = v.toJs();
+							}
+							finalArgs = finalArgs.map((arg) => (arg?.toJs ? arg.toJs() : arg));
 
 							try {
 								const functionResponse = await functionInstances[className][method](...finalArgs);
