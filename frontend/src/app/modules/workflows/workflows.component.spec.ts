@@ -63,7 +63,7 @@
 //     });
 //
 //     const mockResponse = { changes: ['file1.ts', 'file2.ts'] };
-//     codeService.runCodeEditWorkflow.mockReturnValue(of(mockResponse));
+//     codeService.runCodeEditorImplementRequirements.mockReturnValue(of(mockResponse));
 //
 //     component.onSubmit();
 //

@@ -3,6 +3,8 @@
  * @param paramValue
  */
 export function parseArrayParameterValue(paramValue: string): string[] {
+	if (!paramValue) return [];
+	if (typeof paramValue !== 'string') throw new Error(`paramValue should be string. Was ${typeof paramValue}`);
 	paramValue = paramValue.trim();
 	if (paramValue.startsWith('[')) {
 		try {

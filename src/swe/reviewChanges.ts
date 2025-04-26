@@ -21,7 +21,7 @@ export async function reviewChanges(requirements: string, sourceBranchOrCommit: 
 	// TODO we'll need to be smarter about what the source branch/commit is to review from
 	// as there might not a source branch to compare against, so we need the base commit.
 	// Otherwise just review the current files.
-	const diff = await getFileSystem().getVcs().getBranchDiff(sourceBranchOrCommit);
+	const diff = await getFileSystem().getVcs().getDiff(sourceBranchOrCommit);
 	const prompt = buildPrompt({
 		information: `${sourceFiles}\n\nThe following is the git diff of the changes made so far to meet the requirements:\n<diff>\n${diff}\n</diff>`,
 		requirements,

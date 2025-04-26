@@ -31,7 +31,7 @@ async function main() {
 	};
 
 	const agentId = await runAgentWorkflow(config, async () => {
-		await new CodeEditingAgent().runCodeEditWorkflow(config.initialPrompt);
+		await new CodeEditingAgent().implementUserRequirements(config.initialPrompt);
 		// await (agentContext().functions.getFunctionInstanceMap().Agent as Agent).saveMemory('memKey', 'content');
 		// return llms().easy.generateText('What colour is the sky. Respond in one word.');
 	});

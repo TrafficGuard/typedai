@@ -9,6 +9,7 @@ import { type CompileErrorAnalysis, type CompileErrorAnalysisDetails, analyzeCom
 import { type SelectedFile, selectFilesAgent } from '#swe/discovery/selectFilesAgent';
 import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
 import { getRepositoryOverview, getTopLevelSummary } from '#swe/index/repoIndexDocBuilder';
+import { onlineResearch } from '#swe/onlineResearch';
 import { reviewChanges } from '#swe/reviewChanges';
 import { supportingInformation } from '#swe/supportingInformation';
 import { execCommand } from '#utils/exec';
@@ -16,9 +17,10 @@ import { appContext } from '../applicationContext';
 import { cacheRetry } from '../cache/cacheRetry';
 import { AiderCodeEditor } from './aiderCodeEditor';
 import { type SelectFilesResponse, selectFilesToEdit } from './discovery/selectFilesToEdit';
-import { type ProjectInfo, detectProjectInfo } from './projectDetection';
+import { type ProjectInfo, detectProjectInfo, getProjectInfo } from './projectDetection';
 import { basePrompt } from './prompt';
 import { summariseRequirements } from './summariseRequirements';
+import { tidyDiff } from './tidyDiff';
 
 export function buildPrompt(args: {
 	information: string;
@@ -30,72 +32,33 @@ export function buildPrompt(args: {
 
 @funcClass(__filename)
 export class CodeEditingAgent {
-	//* @param projectInfo details of the project, lang/runtime etc
-
-	// async addSourceCodeFile(path: string, contents): Promise<void> {}
-
-	// No @param doc for projectInfo as its only for passing programmatically. We don't want the LLM hallucinating it
-
 	/**
-	 * Runs a workflow which finds, edits and creates the required files to implement the requirements, and committing changes to version control.
+	 * Runs a workflow which 1) Finds the relevant files and generates and implementation plan. 2) Edits the files to implement the plan and commits changes to version control.
 	 * It also compiles, formats, lints, and runs tests where applicable.
 	 * @param requirements The requirements of the task to make the code changes for.
-	 * @param fileSelection {string[]} An array of files which the code editing agent will have access to. Only provide if a comprehensive analysis has been done, otherwise omit the optional parameter.
-	 * altOptions are for programmatic use and not exposed to the autonomous agents.
 	 */
 	@func()
-	async runCodeEditWorkflow(
+	async implementUserRequirements(
 		requirements: string,
-		fileSelection?: string[] | null,
-		altOptions?: { projectInfo?: ProjectInfo; workingDirectory?: string },
+		altOptions?: { projectInfo?: ProjectInfo; workingDirectory?: string }, // altOptions are for programmatic use and not exposed to the autonomous agents.
 	): Promise<void> {
 		if (!requirements) throw new Error('The argument "requirements" must be provided');
 
 		let projectInfo: ProjectInfo = altOptions?.projectInfo;
-		if (!projectInfo) {
-			const detected: ProjectInfo[] = await detectProjectInfo();
-			if (detected.length !== 1) throw new Error('projectInfo array must have one item');
-			projectInfo = detected[0];
-		}
-		logger.info(projectInfo);
+		projectInfo ??= await getProjectInfo();
 
-		const fs: FileSystemService = getFileSystem();
+		const fss: FileSystemService = getFileSystem();
+		if (altOptions?.workingDirectory) fss.setWorkingDirectory(altOptions.workingDirectory);
+		fss.setWorkingDirectory(projectInfo.baseDir);
 
-		if (altOptions?.workingDirectory) fs.setWorkingDirectory(altOptions.workingDirectory);
-
-		fs.setWorkingDirectory(projectInfo.baseDir);
-
-		// Run in parallel to the requirements generation
-		// NODE_ENV=development is needed to install devDependencies for Node.js projects.
-		// Set this in case the current process has NODE_ENV set to 'production'
-		const installPromise: Promise<any> = projectInfo.initialise
-			? execCommand(projectInfo.initialise, { envVars: { NODE_ENV: 'development' } })
-			: Promise.resolve();
-
-		const headCommit = await fs.getVcs().getHeadSha();
-		const currentBranch = await fs.getVcs().getBranchName();
-		const gitBase = !projectInfo.devBranch || projectInfo.devBranch === currentBranch ? headCommit : projectInfo.devBranch;
-		logger.info(`git base ${gitBase}`);
-
-		if (!fileSelection?.length) {
-			// Find the initial set of files required for editing
-			// const filesResponse: SelectFilesResponse = await this.selectFilesToEdit(requirements, projectInfo);
-			// fileSelection = [...filesResponse.primaryFiles.map((selected) => selected.path), ...filesResponse.secondaryFiles.map((selected) => selected.path)];
-			const selectFiles = await this.selectFiles(requirements, projectInfo);
-			fileSelection = selectFiles.map((sf) => sf.path);
-		}
-
-		await includeAlternativeAiToolFiles(fileSelection);
-
-		const fileContents = await fs.readFilesAsXml(fileSelection);
+		const selectFiles = await this.selectFiles(requirements, projectInfo);
+		const fileSelection = selectFiles.map((sf) => sf.path);
+		const fileContents = await fss.readFilesAsXml(fileSelection);
 		logger.info(fileSelection, `Initial selected file count: ${fileSelection.length}. Tokens: ${await countTokens(fileContents)}`);
-
-		// Perform a first pass on the selected files to generate an implementation specification
 
 		const repositoryOverview: string = await getRepositoryOverview();
 		const installedPackages: string = await projectInfo.languageTools.getInstalledPackages();
 
-		// TODO don't need this if we use the architect mode in Aider
 		const implementationDetailsPrompt = `${repositoryOverview}\n${installedPackages}\n${fileContents}
 		<requirements>${requirements}</requirements>
 		You are a senior software engineer. Your task is to review the provided user requirements against the code provided and produce a detailed, comprehensive implementation design specification to give to a developer to implement the changes in the provided files.
@@ -104,59 +67,81 @@ export class CodeEditingAgent {
 		Look at the existing style of the code when producing the requirements.
 		Only make changes directly related to the requirements. Any other changes will be deleted.
 		`;
-		let implementationRequirements = await llms().hard.generateText(implementationDetailsPrompt, { id: 'CodeEditingAgent Implementation Specification' });
-		// implementationRequirements += '\nEnsure new code is well commented.';
+		const implementationPlan = await llms().hard.generateText(implementationDetailsPrompt, { id: 'CodeEditingAgent Implementation Plan' });
 
-		const searchPrompt = `${repositoryOverview}\n${installedPackages}\n<requirement>\n${implementationRequirements}\n</requirement>
-Given the requirements, if there are any specific changes which require using open source libraries, and only if it's not clear from existing code or you general knowledge what the API is, then provide search queries to look up the API usage online.
+		await this.implementDetailedDesignPlan(implementationPlan, fileSelection, requirements, altOptions);
+	}
 
-Limit the queries to the minimal amount where you are uncertain of the API. You will have the opportunity to search again if there are compile errors in the code changes.
-
-First discuss what 3rd party API usages would be required in the changes, if any. Then taking into account propose queries for online research, which must contain all the required context (e.g. language, library). For example if the requirements were "Update the Bigtable table results to include the table size" and from the repository information we could determine that it is a node.js project, then a suitable query would be "With the Google Cloud Node.js sdk verion X.Y.Z how can I get the size of a Bigtable table?"
-(If there is no 3rd party API usage that is not already done in the provided files then return an empty array for the searchQueries property)
-
-Then respond in following format:
-<json>
-{
-	"searchQueries": ["query 1", "query 2"]
-}
-</json> 
-`;
-		try {
-			const queries = (await llms().medium.generateJson(searchPrompt, { id: 'online queries from requirements' })) as { searchQueries: string[] };
-			if (queries.searchQueries.length > 0) {
-				logger.info(`Researching ${queries.searchQueries.join(', ')}`);
-				const perplexity = new Perplexity();
-
-				let webResearch = '<online-research>';
-				for (const query of queries.searchQueries) {
-					const result = await perplexity.research(query, false);
-					webResearch += `<research>\n${query}\n\n${result}\n</research>`;
-				}
-				webResearch += '</online-research>\n';
-				implementationRequirements = webResearch + implementationRequirements;
-			}
-		} catch (e) {
-			logger.error(e, 'Error performing online queries from code requirements');
+	/**
+	 * Edits the files to implement the plan and commits changes to version control
+	 * It also compiles, formats, lints, and runs tests where applicable.
+	 * @param implementationPlan The detailed implementation plan to make the changes for
+	 * @param fileSelection {string[]} An array of files which the code editing agent will have access to.
+	 */
+	@func()
+	async implementDetailedDesignPlan(
+		implementationPlan: string,
+		fileSelection: string[],
+		requirements?: string | null, // The original requirements for when called from runCodeEditWorkflow
+		altOptions?: { projectInfo?: ProjectInfo; workingDirectory?: string }, // altOptions are for programmatic use and not exposed to the autonomous agents.
+	): Promise<void> {
+		if (!implementationPlan) throw new Error('The argument "implementationPlan" must be provided');
+		if (fileSelection && !Array.isArray(fileSelection)) {
+			logger.error(`File selection was type ${typeof fileSelection}. Value: ${JSON.stringify(fileSelection)}`);
+			throw new Error(`If fileSelection is provided it must be an array. Was type ${typeof fileSelection}`);
 		}
+		let projectInfo: ProjectInfo = altOptions?.projectInfo;
+		projectInfo ??= await getProjectInfo();
 
-		implementationRequirements += '\nOnly make changes directly related to these requirements. Any other changes will be deleted.';
+		const fss: FileSystemService = getFileSystem();
+		if (altOptions?.workingDirectory) fss.setWorkingDirectory(altOptions.workingDirectory);
+		fss.setWorkingDirectory(projectInfo.baseDir);
 
-		await installPromise;
+		// Run in parallel to the requirements generation
+		// NODE_ENV=development is needed to install devDependencies for Node.js projects.
+		// Set this in case the current process has NODE_ENV set to 'production'
+		const installPromise: Promise<any> = projectInfo.initialise
+			? execCommand(projectInfo.initialise, { envVars: { NODE_ENV: 'development' } })
+			: Promise.resolve();
+
+		const headCommit = await fss.getVcs().getHeadSha();
+		const currentBranch = await fss.getVcs().getBranchName();
+		const gitBase = headCommit; // !projectInfo.devBranch || projectInfo.devBranch === currentBranch ? headCommit : projectInfo.devBranch;
+		logger.info(`git base ${gitBase}`);
+
+		await includeAlternativeAiToolFiles(fileSelection);
+
+		const fileContents = await fss.readFilesAsXml(fileSelection);
+		logger.info(fileSelection, `Initial selected file count: ${fileSelection.length}. Tokens: ${await countTokens(fileContents)}`);
+
+		const repositoryOverview: string = await getRepositoryOverview();
+		const installedPackages: string = await projectInfo.languageTools.getInstalledPackages();
+
+		// implementationRequirements += '\nEnsure new code is well commented.';
+		implementationPlan = await this.onlineResearch(repositoryOverview, installedPackages, implementationPlan);
+
+		implementationPlan +=
+			'\n\nOnly make changes directly related to these requirements. Any other changes will be deleted.\n' +
+			'Do not add spurious comments like "// Adding here". Only add high level comments when there is significant complexity\n' +
+			'Follow existing code styles.';
+		console.log(`Implementation Plan:\n${implementationPlan}`);
+
+		await installPromise; // Complete parallel project setup
 
 		// Edit/compile loop ----------------------------------------
-		let compileErrorAnalysis: CompileErrorAnalysis | null = await this.editCompileLoop(projectInfo, fileSelection, implementationRequirements);
+		let compileErrorAnalysis: CompileErrorAnalysis | null = await this.editCompileLoop(projectInfo, fileSelection, implementationPlan);
 		this.failOnCompileError(compileErrorAnalysis);
 
 		// Store in memory for now while we see how the prompt performs
 		const branchName = await getFileSystem().getVcs().getBranchName();
 
-		const reviewItems: string[] = await this.reviewChanges(requirements, gitBase, fileSelection);
+		// If called from runCodeEditWorkflow() then review from the original requirements
+		const reviewItems: string[] = await this.reviewChanges(requirements || implementationPlan, gitBase, fileSelection);
 		if (reviewItems.length) {
 			logger.info(reviewItems, 'Code review results');
 			agentContext().memory[`${branchName}--review`] = JSON.stringify(reviewItems);
 
-			let reviewRequirements = `${implementationRequirements}\n\n# Code Review Results:\n\nThe initial completed implementation changes have been reviewed. Only the following code review items remain to finalize the requirements:`;
+			let reviewRequirements = `${implementationPlan}\n\n# Code Review Results:\n\nThe initial completed implementation changes have been reviewed. Only the following code review items remain to finalize the requirements:`;
 			for (const reviewItem of reviewItems) {
 				reviewRequirements += `\n- ${reviewItem}`;
 			}
@@ -164,9 +149,13 @@ Then respond in following format:
 			this.failOnCompileError(compileErrorAnalysis);
 		}
 
+		await this.tidyDiff(gitBase, projectInfo, fileSelection);
+
+		const diff = await fss.vcs.getDiff(gitBase);
+
 		// The prompts need some work
 		// await this.testLoop(requirements, projectInfo, initialSelectedFiles);
-	}
+	} // end of runCodeEditWorkflow method
 
 	private failOnCompileError(compileErrorAnalysis: CompileErrorAnalysis) {
 		if (compileErrorAnalysis) {
@@ -408,12 +397,32 @@ Then respond in following format:
 	@cacheRetry({ scope: 'agent' })
 	@span()
 	async summariseRequirements(requirements: string): Promise<string> {
-		return summariseRequirements(requirements);
+		return await summariseRequirements(requirements);
 	}
 
 	@span()
 	async reviewChanges(requirements: string, sourceBranchOrCommit: string, fileSelection: string[]): Promise<string[]> {
-		return reviewChanges(requirements, sourceBranchOrCommit, fileSelection);
+		return await reviewChanges(requirements, sourceBranchOrCommit, fileSelection);
+	}
+
+	@span()
+	async onlineResearch(repositoryOverview: string, installedPackages: string, implementationPlan: string): Promise<string> {
+		return await onlineResearch(repositoryOverview, installedPackages, implementationPlan);
+	}
+
+	@span()
+	async tidyDiff(gitBase: string, projectInfo: ProjectInfo, initialSelectedFiles: string[]): Promise<void> {
+		// Tidy up minor issues in the final diff before finishing
+		try {
+			await tidyDiff(gitBase);
+			await this.runStaticAnalysis(projectInfo);
+			await this.compile(projectInfo);
+			// Maybe a more robust way to do this
+			await getFileSystem().getVcs().mergeChangesIntoLatestCommit(initialSelectedFiles);
+		} catch (compileAfterTidyError) {
+			logger.error(`Compilation failed after tidying diff: ${compileAfterTidyError.message}.`);
+			// TODO revert the changes if they cause a compile error after tidying or do the full edit/compile cycle again?
+		}
 	}
 
 	@cacheRetry()

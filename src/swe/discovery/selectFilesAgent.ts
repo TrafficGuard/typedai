@@ -48,6 +48,11 @@ export async function selectFilesAgent(requirements: string, projectInfo?: Proje
 }
 
 export async function queryWorkflow(query: string, projectInfo?: ProjectInfo): Promise<string> {
+	const { files, answer } = await queryWithFileSelection(query, projectInfo);
+	return answer;
+}
+
+export async function queryWithFileSelection(query: string, projectInfo?: ProjectInfo): Promise<{ files: SelectedFile[]; answer: string }> {
 	const { messages, selectedFiles } = await selectFilesCore(query, projectInfo);
 
 	// Construct the final prompt for answering the query
@@ -71,7 +76,7 @@ Respond in the following structure, with the answer in Markdown format inside th
 		answer = extractTag(answer, 'result');
 	} catch {}
 
-	return answer.trim();
+	return { answer: answer.trim(), files: selectedFiles };
 }
 
 /**

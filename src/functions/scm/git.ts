@@ -67,28 +67,27 @@ export class Git implements VersionControlSystem {
 	}
 
 	/**
-	 * Returns the diff between the current branch head and the source branch
-	 * @param sourceBranch
+	 * Returns the diff from the merge-base (common ancestor) of HEAD and a reference, up to HEAD.
+	 * This effectively shows changes introduced on the current branch relative to that base.
+	 *
+	 * @param baseRef Optional commit SHA or branch name.
+	 *                - If provided: Uses `git merge-base <baseRef> HEAD` to find the diff start point.
+	 *                - If omitted: Attempts to guess the source branch (e.g., main, develop)
+	 *                  by inspecting other local branches and uses that for the merge-base calculation.
+	 *                  Note: Guessing the source branch may be unreliable in some cases.
+	 * @returns The git diff.
 	 */
 	@func()
-	async getBranchDiff(sourceBranch: string = this.previousBranch): Promise<string> {
-		const command = sourceBranch
-			? `git --no-pager diff $(git merge-base ${sourceBranch} HEAD) HEAD`
-			: "git --no-pager diff $(git merge-base HEAD $(git for-each-ref --format='%(refname)' refs/heads/ | grep -v $(git symbolic-ref HEAD))) HEAD";
+	async getDiff(baseRef?: string): Promise<string> {
+		const command: string = baseRef?.length
+			? `git --no-pager diff $(git merge-base ${baseRef} HEAD) HEAD`
+			: // attempt to guess the source branch and find its merge-base with HEAD
+				"git --no-pager diff $(git merge-base HEAD $(git for-each-ref --format='%(refname)' refs/heads/ | grep -v $(git symbolic-ref HEAD))) HEAD";
+
 		const result = await execCommand(command);
 
-		failOnError('Error getting branch diff', result);
-		return result.stdout;
-	}
-
-	/**
-	 * Returns the diff between the head commit either the previous commit, or the commit provided by the commitSha argument.
-	 * @param commitSha
-	 */
-	@span()
-	async getDiff(commitSha?: string): Promise<string> {
-		const result = await execCommand(`git --no-pager diff ${commitSha ?? 'HEAD^'}..HEAD`);
-		failOnError('Error getting diff', result);
+		// Ensure failOnError handles potential errors from merge-base (if refs don't exist/relate) or diff
+		failOnError(`Error getting diff against base '${baseRef}'`, result);
 		return result.stdout;
 	}
 
