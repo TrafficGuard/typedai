@@ -14,6 +14,7 @@ import { MatListModule } from '@angular/material/list';
 import { VibeService } from './vibe.service';
 import { VibeSession, SelectedFile } from './vibe.types';
 // Removed VibeListComponent import
+import { VibeFileListComponent } from './vibe-file-list/vibe-file-list.component'; // Import the new component
 
 @Component({
   selector: 'vibe-detail', // Changed selector to be more specific
@@ -33,6 +34,7 @@ import { VibeSession, SelectedFile } from './vibe.types';
     MatListModule, // Add MatListModule here
     RouterOutlet,
     // Removed VibeListComponent
+    VibeFileListComponent, // Add the new component here
   ],
 })
 export class VibeComponent implements OnInit {
