@@ -22,7 +22,6 @@ export interface GitHubConfig {
 /**
  *
  */
-import { envVar } from '#utils/env-var';
 
 @funcClass(__filename)
 export class GitHub implements SourceControlManagement {

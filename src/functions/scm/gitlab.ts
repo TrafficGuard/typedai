@@ -53,8 +53,6 @@ type PartialJobSchema = DeepPartial<JobSchema>;
 
 type PipelineWithJobs = PipelineSchema & { jobs: PartialJobSchema[] };
 
-import { envVar } from '#utils/env-var';
-
 @funcClass(__filename)
 export class GitLab implements SourceControlManagement {
 	_gitlab;
