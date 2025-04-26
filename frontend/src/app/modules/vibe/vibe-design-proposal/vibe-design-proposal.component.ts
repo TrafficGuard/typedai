@@ -1,11 +1,13 @@
-import { Component, EventEmitter, Input, OnInit, Output, inject } from '@angular/core';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Component, EventEmitter, Input, OnInit, Output, inject, SimpleChanges, OnChanges } from '@angular/core';
+import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatSelectModule } from "@angular/material/select";
 import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card'; // Import MatCardModule
-import { VibeSession } from '../vibe.types'; // Adjust path as necessary
+import { MatCardModule } from '@angular/material/card';
+import { MatInputModule } from '@angular/material/input'; // Import MatInputModule
+import { MatIconModule } from '@angular/material/icon'; // Import MatIconModule
+import { VibeSession } from '../vibe.types';
 
 @Component({
   selector: 'vibe-design-proposal',
