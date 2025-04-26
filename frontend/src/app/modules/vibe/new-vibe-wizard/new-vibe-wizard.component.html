@@ -12,10 +12,16 @@
 		<mat-error *ngIf="wizardForm.get('instructions')?.hasError('required')">Instructions are required</mat-error>
 	</mat-form-field>
 
-	<!-- Placeholder for Repository Source Selection (e.g., Radio buttons or Select) -->
-	<p>Repository Source: [TODO: Add UI Control for repositorySource]</p>
-	<input type="hidden" formControlName="repositorySource" />
-	<!-- Temporary hidden input -->
+	<div class="form-field-spacing">
+		<mat-label>Repository Source</mat-label>
+		<mat-radio-group formControlName="repositorySource" aria-label="Select repository source">
+			<mat-radio-button value="local">Local Folder</mat-radio-button>
+			<mat-radio-button value="github">GitHub</mat-radio-button>
+			<mat-radio-button value="gitlab">GitLab</mat-radio-button>
+			<!-- Add more sources if needed -->
+		</mat-radio-group>
+		<mat-error *ngIf="wizardForm.get('repositorySource')?.hasError('required')">Repository source is required</mat-error>
+	</div>
 
 	<mat-form-field appearance="fill">
 		<mat-label>Repository Identifier</mat-label>
@@ -42,10 +48,10 @@
 		<mat-hint>If blank, changes will be committed to the base branch.</mat-hint>
 	</mat-form-field>
 
-	<!-- Placeholder for useSharedRepos (e.g., Checkbox) -->
-	<p>Use Shared Repos: [TODO: Add UI Control for useSharedRepos]</p>
-	<input type="hidden" formControlName="useSharedRepos" />
-	<!-- Temporary hidden input -->
+	<div class="form-field-spacing">
+		<mat-checkbox formControlName="useSharedRepos">Use Shared Repositories</mat-checkbox>
+		<mat-hint>Allow the agent to access repositories shared across users.</mat-hint>
+	</div>
 
 	<div class="actions">
 		<button mat-raised-button color="primary" type="submit" [disabled]="wizardForm.invalid || isSubmitting">

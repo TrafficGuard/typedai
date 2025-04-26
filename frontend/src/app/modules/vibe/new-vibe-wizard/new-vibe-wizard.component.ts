@@ -4,7 +4,8 @@ import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angula
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
-// Import other Material modules as needed later (e.g., MatSelectModule, MatRadioModule, MatCheckboxModule)
+import { MatRadioModule } from '@angular/material/radio'; // Import MatRadioModule
+import { MatCheckboxModule } from '@angular/material/checkbox'; // Import MatCheckboxModule
 import { Router } from '@angular/router';
 import { VibeService, CreateVibeSessionPayload } from '../vibe.service'; // Import payload type
 import { VibeSession } from '../vibe.types';
@@ -19,7 +20,8 @@ import { finalize } from 'rxjs';
 		MatFormFieldModule,
 		MatInputModule,
 		MatButtonModule,
-		// Add other Material modules here later
+		MatRadioModule, // Add MatRadioModule
+		MatCheckboxModule, // Add MatCheckboxModule
 	],
 	templateUrl: './new-vibe-wizard.component.html',
 	styleUrl: './new-vibe-wizard.component.scss',
