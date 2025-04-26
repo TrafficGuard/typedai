@@ -3,6 +3,10 @@
     "compileOnSave": false,
     "compilerOptions": {
         "baseUrl": "./src",
+        "paths": {
+            "#*": ["../src/*"], // Map # prefix to backend src
+            "#swe/*": ["../src/swe/*"] // Specific mapping for #swe
+        },
         "outDir": "./dist/out-tsc",
         "esModuleInterop": true,
         "sourceMap": true,

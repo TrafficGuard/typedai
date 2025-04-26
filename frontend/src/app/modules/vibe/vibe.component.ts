@@ -1,6 +1,6 @@
 import { Component, inject, OnInit } from '@angular/core'; // Import inject
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Observable, switchMap } from 'rxjs'; // Import switchMap
+import { map, Observable, switchMap } from 'rxjs'; // Import switchMap and map
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule, RouterOutlet } from '@angular/router'; // Import ActivatedRoute
 import { MatFormFieldModule } from "@angular/material/form-field";
