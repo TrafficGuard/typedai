@@ -7,7 +7,13 @@ export const ROUTES = {
     AUTH_SIGNUP: '/api/auth/signup',
     AUTH_CONFIRM_EMAIL: '/api/auth/confirm-email',
 
-    // Add Vibe Routes
-    VIBE_CREATE: '/api/vibe/create',
-    VIBE_INITIALISE: '/api/vibe/initialise/:id', // Keep :id placeholder
+    // Vibe Routes
+    VIBE_BASE: '/api/vibe',
+    VIBE_CREATE: '/api/vibe/create', // POST
+    VIBE_INITIALISE: '/api/vibe/initialise/:id', // POST {id}
+    VIBE_LIST: '/api/vibe/sessions', // GET
+    VIBE_GET: '/api/vibe/session/:id', // GET {id}
+    VIBE_UPDATE: '/api/vibe/session/:id', // PATCH {id}
+    VIBE_DELETE: '/api/vibe/session/:id', // DELETE {id}
+    VIBE_QUERY: '/api/vibe/query/:id', // POST {id}
 };
