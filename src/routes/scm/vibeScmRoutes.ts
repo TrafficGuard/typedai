@@ -71,6 +71,8 @@ export async function vibeScmRoutes(fastify: AppFastifyInstance): Promise<void> 
 			logger.error(error, 'Error sorting or sending SCM projects');
 			reply.code(HttpStatus.INTERNAL_SERVER_ERROR).send({ message: 'Internal Server Error while processing projects.' });
 		}
+	}); // <-- Added missing closing parenthesis and semicolon
+
 	// Add other SCM-related routes here (e.g., get project details, create merge request)
 	// These routes could potentially also use the scmService.getProvider(type) method
 	logger.info('Registered vibe SCM routes');

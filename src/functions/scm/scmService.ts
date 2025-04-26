@@ -21,10 +21,9 @@ export class ScmService {
 				if (provider.isConfigured()) {
 					logger.info(`SCM provider '${provider.getType()}' is configured.`);
 					return true;
-				} else {
-					logger.info(`SCM provider '${provider.getType()}' is not configured.`);
-					return false;
 				}
+				logger.info(`SCM provider '${provider.getType()}' is not configured.`);
+				return false;
 			} catch (error) {
 				logger.error(error, `Error checking configuration for SCM provider '${provider.getType()}'`);
 				return false;
