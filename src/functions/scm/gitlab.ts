@@ -10,6 +10,7 @@ import {
 	type PipelineSchema,
 	type ProjectSchema,
 } from '@gitbeaker/rest';
+import type { BranchSchema } from '@gitbeaker/rest';
 import type { DeepPartial } from 'ai';
 import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
@@ -22,7 +23,6 @@ import { execCommand, failOnError } from '#utils/exec';
 import { agentDir, systemDir } from '../../appVars';
 import type { GitProject } from './gitProject';
 import type { MergeRequest, SourceControlManagement } from './sourceControlManagement';
-import type { BranchSchema } from '@gitbeaker/rest';
 
 export interface GitLabConfig {
 	host: string;

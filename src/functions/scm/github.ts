@@ -1,6 +1,7 @@
 import { promises as fs, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { request } from '@octokit/request';
+import type { Endpoints } from '@octokit/types';
 import { agentContext } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import type { MergeRequest, SourceControlManagement } from '#functions/scm/sourceControlManagement';
@@ -250,7 +251,7 @@ export class GitHub implements SourceControlManagement {
 			// GitHub API might paginate results, fetch all pages if necessary
 			const branches: { name: string }[] = [];
 			let page = 1;
-			let response;
+			let response: Endpoints['GET /repos/{owner}/{repo}/branches']['response'];
 			do {
 				response = await this.request()('GET /repos/{owner}/{repo}/branches', {
 					owner,
