@@ -18,6 +18,23 @@
                 <mat-card-title>{{ session.title }}</mat-card-title>
                 <mat-card-subtitle>ID: {{ session.id }} | Status: {{ session.status | titlecase }}</mat-card-subtitle>
             </mat-card-header>
+
+            <!-- Status specific messages -->
+             <div *ngIf="session.status === 'initializing'" class="p-4 m-4 border rounded bg-blue-50 border-blue-200 text-blue-700">
+                <div class="flex items-center">
+                    <mat-icon class="mr-2" svgIcon="heroicons_outline:information-circle"></mat-icon>
+                    <span>Initializing session, cloning repository and setting up workspace...</span>
+                </div>
+                <mat-progress-bar mode="indeterminate" class="mt-2"></mat-progress-bar>
+            </div>
+             <div *ngIf="session.status === 'selecting_files'" class="p-4 m-4 border rounded bg-purple-50 border-purple-200 text-purple-700">
+                 <div class="flex items-center">
+                    <mat-icon class="mr-2" svgIcon="heroicons_outline:document-search"></mat-icon>
+                    <span>Analyzing instructions and selecting relevant files...</span>
+                 </div>
+                <mat-progress-bar mode="indeterminate" class="mt-2"></mat-progress-bar>
+            </div>
+
             <mat-card-content class="mt-4">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div>
@@ -73,12 +90,12 @@
 
     <!-- Loading/Error Template -->
     <ng-template #loadingOrError>
-        <!-- Check if there was an error fetching, otherwise show loading -->
+        <!-- Check if there was an error fetching (e.g., using catchError in the observable pipe), otherwise show loading -->
         <!-- Basic loading indicator -->
         <div class="flex justify-center items-center h-64">
-            <mat-progress-bar mode="indeterminate"></mat-progress-bar>
-            <span class="ml-4">Loading session details...</span>
-            <!-- Or show an error message if session$ observable completes with error -->
+             <!-- Consider adding error handling display here if session$ errors out -->
+            <mat-progress-bar mode="indeterminate" class="w-64"></mat-progress-bar>
+            <span class="ml-4 text-secondary">Loading session details...</span>
         </div>
     </ng-template>
 </div>

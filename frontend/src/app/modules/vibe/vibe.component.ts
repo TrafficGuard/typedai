@@ -10,8 +10,10 @@ import { MatProgressBarModule } from "@angular/material/progress-bar";
 import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { MatListModule } from '@angular/material/list'; // Import MatListModule
 import { VibeService } from './vibe.service';
 import { VibeSession } from './vibe.types'; // Import VibeSession type
+import type { SelectedFile } from '#swe/discovery/selectFilesAgent'; // Import SelectedFile type
 // Removed VibeListComponent import
 
 @Component({
@@ -29,6 +31,7 @@ import { VibeSession } from './vibe.types'; // Import VibeSession type
     MatProgressBarModule,
     MatInputModule,
     MatButtonModule,
+    MatListModule, // Add MatListModule here
     RouterOutlet,
     // Removed VibeListComponent
   ],
@@ -42,6 +45,28 @@ export class VibeComponent implements OnInit {
   // Remove constructor if fb is no longer needed, or keep if form is added later
   // constructor(private fb: FormBuilder) {}
 
+  /**
+   * Sorts files: writable files first, then alphabetically by path.
+   * @param files Array of SelectedFile objects.
+   * @returns Sorted array of SelectedFile objects.
+   */
+  sortFiles(files: SelectedFile[]): SelectedFile[] {
+    if (!files) return [];
+    return files.sort((a, b) => {
+      // Prioritize writable files (!readOnly means writable)
+      const readOnlyCompare = (!a.readOnly ? 1 : 0) - (!b.readOnly ? 1 : 0);
+      if (readOnlyCompare !== 0) {
+        // If one is read-only and the other isn't, sort by that first (writable first)
+        // We multiply by -1 because we want writable (true, represented as 1) to come before read-only (false, represented as 0).
+        // So, 1 - 0 = 1. We want this case to be negative for sorting. 0 - 1 = -1. We want this case to be positive.
+        return readOnlyCompare * -1;
+      }
+      // If both are read-only or both are writable, sort by filePath
+      return a.filePath.localeCompare(b.filePath);
+    });
+  }
+
+
   ngOnInit() {
     this.session$ = this.route.paramMap.pipe(
       switchMap((params) => {
@@ -54,6 +79,14 @@ export class VibeComponent implements OnInit {
         }
         return this.vibeService.getVibeSession(sessionId);
       }),
+      // Add map operator here to sort files within the stream
+      map((session) => {
+        if (session?.fileSelection) {
+          // Sort the files and update the session object in the stream
+          session.fileSelection = this.sortFiles(session.fileSelection);
+        }
+        return session; // Return the potentially modified session
+      })
     );
 
     // Remove the old form initialization
