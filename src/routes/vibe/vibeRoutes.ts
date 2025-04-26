@@ -1,9 +1,10 @@
 import { type Static, Type } from '@sinclair/typebox';
+import { type Static, Type } from '@sinclair/typebox';
 import type { FastifyRequest as FastifyRequestBase } from 'fastify'; // Import base FastifyRequest
 import type { AppFastifyInstance } from '#applicationTypes';
 import type { FastifyRequest } from '#fastify/fastifyApp'; // Keep custom FastifyRequest for non-generic use
 import type { GitProject } from '#functions/scm/gitProject';
-import { type SelectedFile, selectFilesAgent } from '#swe/discovery/selectFilesAgent'; // Import agent and type
+import { type SelectedFile, queryWithFileSelection } from '#swe/discovery/selectFilesAgent'; // Import agent and type
 import type { CreateVibeSessionData, VibeSession } from '#vibe/vibeTypes';
 
 // Define a TypeBox schema for the response (subset of VibeSession)
@@ -246,34 +247,34 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 					}
 				}
 
-				// --- File Selection Step ---
-				fastify.log.info({ sessionId: id }, 'Starting file selection process.');
-				await vibeService.updateVibeSession(userId, id, { status: 'selecting_files' });
+				// --- File Selection and Design Generation Step ---
+				fastify.log.info({ sessionId: id }, 'Starting file selection and design generation.');
+				await vibeService.updateVibeSession(userId, id, { status: 'selecting_files' }); // Keep status as selecting_files during the process
 
-				let selectedFiles: SelectedFile[];
 				try {
-					// Run the file selection agent using the session instructions
+					// Run the agent to select files and generate the initial design/answer
 					// Note: This runs synchronously in the request handler. For long-running tasks,
 					// consider moving this to a background job queue.
-					selectedFiles = await selectFilesAgent(session.instructions /*, projectInfo */); // Pass projectInfo if available/needed
-					fastify.log.info({ sessionId: id, fileCount: selectedFiles.length }, 'File selection agent completed.');
+					const { files: selectedFiles, answer: designAnswer } = await queryWithFileSelection(session.instructions /*, projectInfo */); // Pass projectInfo if available/needed
+					fastify.log.info({ sessionId: id, fileCount: selectedFiles.length }, 'File selection and design generation complete.');
 
-					// Update the session with selected files and set status to 'design'
+					// Update the session with selected files, the design answer, and set status to 'design'
 					await vibeService.updateVibeSession(userId, id, {
 						fileSelection: selectedFiles,
+						designAnswer: designAnswer, // Add the design answer
 						status: 'design',
 					});
-					fastify.log.info({ sessionId: id }, 'Vibe session updated with selected files and status set to design.');
+					fastify.log.info({ sessionId: id }, 'Vibe session updated with selected files, design, and status set to design.');
 				} catch (fileAgentError) {
-					fastify.log.error(fileAgentError, `Error during file selection for session ${id}`);
+					fastify.log.error(fileAgentError, `Error during file selection or design generation for session ${id}`);
 					// Update session status to error
 					await vibeService.updateVibeSession(userId, id, { status: 'error', error: `File selection failed: ${fileAgentError.message}` });
 					return reply.code(500).send({ error: 'Failed during file selection phase.' });
 				}
 
-				// Return success response indicating initialization and file selection are done
+				// Return success response indicating initialization, file selection, and design generation are done
 				return reply.code(200).send({
-					message: 'Initialization and file selection complete. Session ready for design phase.',
+					message: 'Initialization complete. File selection and design generated.',
 					sessionId: id,
 					status: 'design', // Reflect the final status after this step
 				});
