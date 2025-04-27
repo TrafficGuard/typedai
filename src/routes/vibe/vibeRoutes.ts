@@ -79,6 +79,34 @@ const FileSystemTreeParamsSchema = Type.Object({
 	id: Type.String({ description: 'The ID of the Vibe session for which to get the filesystem tree' }),
 });
 
+// Schema for the PATCH /sessions/:id endpoint path parameter
+const UpdateVibeSessionParamsSchema = Type.Object({
+	id: Type.String({ description: 'The ID of the Vibe session to update' }),
+});
+
+// Schema for the PATCH /sessions/:id request body (allows partial updates)
+// Note: fileSelection replaces the entire array if provided.
+const UpdateVibeSessionPayloadSchema = Type.Partial(
+	Type.Object({
+		title: Type.String(),
+		instructions: Type.String(),
+		status: Type.Union([
+			Type.Literal('initializing'),
+			Type.Literal('selecting_files'), // Added selecting_files
+			Type.Literal('design'),
+			Type.Literal('coding'),
+			Type.Literal('review'),
+			Type.Literal('completed'),
+			Type.Literal('error'),
+		]),
+		fileSelection: Type.Array(Type.Object({ filePath: Type.String(), readOnly: Type.Optional(Type.Boolean()) })),
+		designAnswer: Type.String(),
+		error: Type.String(),
+		// Add other updatable fields from VibeSession here if needed
+	}),
+	{ additionalProperties: false }, // Disallow extra properties
+);
+
 // Schema for the initialise endpoint success response (updated)
 const InitialiseSuccessResponseSchema = Type.Object({
 	message: Type.String(),
@@ -408,5 +436,68 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 		},
 	);
 
-	// Add other vibe routes here if needed in the future (e.g., PUT /sessions/:id, etc.)
+	// --- PATCH /sessions/:id ---
+	fastify.patch(
+		'/sessions/:id',
+		{
+			schema: {
+				params: UpdateVibeSessionParamsSchema,
+				body: UpdateVibeSessionPayloadSchema,
+				response: {
+					200: VibeSessionResponseSchema, // Return the updated session
+					400: ErrorResponseSchema, // Validation errors
+					401: ErrorResponseSchema,
+					404: ErrorResponseSchema,
+					500: ErrorResponseSchema,
+				},
+			},
+		},
+		// Use FastifyRequestBase for generic type with Params and Body
+		async (request: FastifyRequestBase<{ Params: Static<typeof UpdateVibeSessionParamsSchema>; Body: Static<typeof UpdateVibeSessionPayloadSchema> }>, reply) => {
+			// Cast to custom FastifyRequest to access currentUser
+			const req = request as FastifyRequest;
+			if (!req.currentUser?.id) {
+				return reply.code(401).send({ error: 'Unauthorized' });
+			}
+			const userId = req.currentUser.id;
+			const { id } = request.params; // Get id from validated params
+			const updates = request.body; // Get validated update payload
+
+			// Check if the update payload is empty
+			if (Object.keys(updates).length === 0) {
+				return reply.code(400).send({ error: 'Update payload cannot be empty' });
+			}
+
+			try {
+				// First, verify the session exists and belongs to the user
+				const existingSession = await vibeService.getVibeSession(userId, id);
+				if (!existingSession) {
+					return sendNotFound(reply, 'Vibe session not found');
+				}
+
+				// Call the update service method
+				// The service layer should handle the actual update logic (e.g., merging, validation)
+				// Note: UpdateVibeSessionData allows partial updates, matching our payload schema.
+				await vibeService.updateVibeSession(userId, id, updates);
+
+				// Fetch the updated session to return the latest state
+				const updatedSession = await vibeService.getVibeSession(userId, id);
+				if (!updatedSession) {
+					// This should ideally not happen if the update succeeded, but handle defensively
+					fastify.log.error(`Session ${id} not found after successful update.`);
+					return reply.code(500).send({ error: 'Failed to retrieve session after update' });
+				}
+
+				// Return the updated session
+				// Note: Timestamps might need serialization
+				return reply.code(200).send(updatedSession);
+			} catch (error) {
+				fastify.log.error(error, `Error updating Vibe session ${id}`);
+				// Add more specific error handling if needed (e.g., validation errors from service)
+				return reply.code(500).send({ error: 'Failed to update Vibe session' });
+			}
+		},
+	);
+
+	// Add other vibe routes here if needed in the future
 }
