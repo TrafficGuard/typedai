@@ -99,7 +99,14 @@ const UpdateVibeSessionPayloadSchema = Type.Partial(
 			Type.Literal('completed'),
 			Type.Literal('error'),
 		]),
-		fileSelection: Type.Array(Type.Object({ filePath: Type.String(), readOnly: Type.Optional(Type.Boolean()) })),
+		// Align with SelectedFile interface: path, reason, readonly?
+		fileSelection: Type.Array(
+			Type.Object({
+				path: Type.String(),
+				reason: Type.String(),
+				readOnly: Type.Optional(Type.Boolean()),
+			}),
+		),
 		designAnswer: Type.String(),
 		error: Type.String(),
 		// Add other updatable fields from VibeSession here if needed
@@ -453,7 +460,10 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 			},
 		},
 		// Use FastifyRequestBase for generic type with Params and Body
-		async (request: FastifyRequestBase<{ Params: Static<typeof UpdateVibeSessionParamsSchema>; Body: Static<typeof UpdateVibeSessionPayloadSchema> }>, reply) => {
+		async (
+			request: FastifyRequestBase<{ Params: Static<typeof UpdateVibeSessionParamsSchema>; Body: Static<typeof UpdateVibeSessionPayloadSchema> }>,
+			reply,
+		) => {
 			// Cast to custom FastifyRequest to access currentUser
 			const req = request as FastifyRequest;
 			if (!req.currentUser?.id) {
