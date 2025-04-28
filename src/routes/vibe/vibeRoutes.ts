@@ -117,6 +117,11 @@ const UpdateVibeSessionPayloadSchema = Type.Partial(
 	{ additionalProperties: false }, // Disallow extra properties
 );
 
+// Schema for the DELETE /sessions/:id endpoint path parameter
+const DeleteVibeSessionParamsSchema = Type.Object({
+	id: Type.String({ description: 'The ID of the Vibe session to delete' }),
+});
+
 // Schema for the initialise endpoint success response (updated)
 const InitialiseSuccessResponseSchema = Type.Object({
 	message: Type.String(),
@@ -499,6 +504,51 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 				fastify.log.error(error, `Error updating Vibe session ${id}`);
 				// Add more specific error handling if needed (e.g., validation errors from service)
 				return reply.code(500).send({ error: 'Failed to update Vibe session' });
+			}
+		},
+	);
+
+	// --- DELETE /sessions/:id ---
+	fastify.delete(
+		'/sessions/:id',
+		{
+			schema: {
+				params: DeleteVibeSessionParamsSchema,
+				response: {
+					204: Type.Null({ description: 'Session deleted successfully' }), // 204 No Content is typical for DELETE
+					401: ErrorResponseSchema,
+					404: ErrorResponseSchema,
+					500: ErrorResponseSchema,
+				},
+			},
+		},
+		// Use FastifyRequestBase for generic type with Params
+		async (request: FastifyRequestBase<{ Params: Static<typeof DeleteVibeSessionParamsSchema> }>, reply) => {
+			// Cast to custom FastifyRequest to access currentUser
+			const req = request as FastifyRequest;
+			if (!req.currentUser?.id) {
+				return reply.code(401).send({ error: 'Unauthorized' });
+			}
+			const userId = req.currentUser.id;
+			const { id } = request.params; // Get id from validated params
+
+			try {
+				// First, verify the session exists and belongs to the user before attempting delete
+				// (vibeService.deleteVibeSession might handle this internally, but checking first is good practice)
+				const existingSession = await vibeService.getVibeSession(userId, id);
+				if (!existingSession) {
+					return sendNotFound(reply, 'Vibe session not found');
+				}
+
+				// Call the service method to delete the session
+				await vibeService.deleteVibeSession(userId, id);
+
+				// Return a 204 No Content response on successful deletion
+				return reply.code(204).send();
+			} catch (error) {
+				fastify.log.error(error, `Error deleting Vibe session ${id}`);
+				// Add more specific error handling if needed
+				return reply.code(500).send({ error: 'Failed to delete Vibe session' });
 			}
 		},
 	);

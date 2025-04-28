@@ -14,6 +14,6 @@ export const ROUTES = {
     VIBE_LIST: '/api/vibe/sessions', // GET
     VIBE_GET: '/api/vibe/session/:id', // GET {id}
     VIBE_UPDATE: '/api/vibe/session/:id', // PATCH {id}
-    VIBE_DELETE: '/api/vibe/session/:id', // DELETE {id}
+    VIBE_DELETE_SESSION: '/api/vibe/sessions/:id', // DELETE {id} - Renamed for consistency
     VIBE_QUERY: '/api/vibe/query/:id', // POST {id}
 };
