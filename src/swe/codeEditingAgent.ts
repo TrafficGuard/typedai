@@ -119,8 +119,8 @@ export class CodeEditingAgent {
 		const repositoryOverview: string = await getRepositoryOverview();
 		const installedPackages: string = await projectInfo.languageTools.getInstalledPackages();
 
-		// implementationRequirements += '\nEnsure new code is well commented.';
-		implementationPlan = await this.onlineResearch(repositoryOverview, installedPackages, implementationPlan);
+		const onlineResearch = await this.onlineResearch(repositoryOverview, installedPackages, implementationPlan);
+		if (onlineResearch) implementationPlan += onlineResearch;
 
 		implementationPlan +=
 			'\n\nOnly make changes directly related to these requirements. Any other changes will be deleted.\n' +
