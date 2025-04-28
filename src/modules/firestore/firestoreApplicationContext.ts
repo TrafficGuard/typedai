@@ -4,8 +4,6 @@ import { FirestoreCodeReviewService } from '#firestore/firestoreCodeReviewServic
 import { FirestoreCacheService } from '#firestore/firestoreFunctionCacheService';
 import { FirestoreLlmCallService } from '#firestore/firestoreLlmCallService';
 import { FirestoreUserService } from '#firestore/firestoreUserService';
-import { FileSystemList } from '#functions/storage/fileSystemList';
-import { FileSystemService } from '#functions/storage/fileSystemService';
 import { FirestoreVibeService } from '#modules/firestore/firestoreVibeService';
 import type { ApplicationContext } from '../../applicationTypes';
 
@@ -18,7 +16,5 @@ export function firestoreApplicationContext(): ApplicationContext {
 		functionCacheService: new FirestoreCacheService(),
 		codeReviewService: new FirestoreCodeReviewService(),
 		vibeService: new FirestoreVibeService(),
-		fileSystemService: new FileSystemService(),
-		fileSystemList: new FileSystemList(),
 	};
 }

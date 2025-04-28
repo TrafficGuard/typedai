@@ -23,5 +23,21 @@ export interface SelectedFile {
 	reason?: string; // Optional reason if needed
 }
 
-// Keep the old Vibe type if it's used elsewhere, otherwise remove it.
-// export interface Vibe { }
+/**
+ * Common interface between projects in GitLab, GitHub etc
+ * Must match GitProject in src/functions/scm/gitProject.ts
+ */
+export interface GitProject {
+	id: number;
+	/** The project name */
+	name: string;
+	/** Group/organisation/user */
+	namespace: string;
+	/** The full path of the project with the namespace and name */
+	fullPath: string;
+	description: string | null;
+	defaultBranch: string;
+	visibility: string;
+	archived: boolean;
+	extra?: Record<string, any>;
+}

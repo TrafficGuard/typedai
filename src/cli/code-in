@@ -1,0 +1,24 @@
+    1.  **Initial Error:** The Vibe page (`/ui/vibe`) fails because the frontend receives a 404 Not Found error when requesting `GET /api/vibe/sessions` from the backend.
+    2.  **Frontend (`vibe.service.ts`):**
+        *   The `listVibeSessions()` function correctly attempts to call `GET /api/vibe/sessions`.
+        *   The `getVibeSession()` and `updateSession()` functions *incorrectly* attempt to call `GET /api/vibe/sessions/:id` and `PATCH /api/vibe/sessions/:id` (using plural `sessions`).
+    3.  **Shared Routes (`shared/routes.ts`):**
+        *   Defines the list route `VIBE_LIST` as `/api/vibe/sessions` (plural).
+        *   Defines single item routes (`VIBE_GET`, `VIBE_UPDATE`, `VIBE_DELETE`) using `/api/vibe/session/:id` (singular `session`).
+    4.  **Backend (`src/routes/vibe/vibeRoutes.ts`):** (Based on inspecting the live file content)
+        *   The route for listing sessions (`GET`) appears to be incorrectly registered (e.g., maybe as `/api/vibe/session` or is missing). It needs to be registered as `/api/vibe/sessions`.
+        *   The routes for single sessions (`GET`, `PATCH`, `DELETE`) appear to be correctly registered using the singular form: `/api/vibe/session/:id`.
+
+    **Conclusion:** The 404 error is caused by a mismatch between the route path expected by the frontend (`/api/vibe/sessions`) and the path actually registered in the backend (`src/routes/vibe/vibeRoutes.ts`). Additionally, there's an inconsistency in the frontend service for single-session operations.
+
+    **Proposed Fix:**
+
+    1.  **In `src/routes/vibe/vibeRoutes.ts`:**
+        *   Locate the route registration for listing Vibe sessions (likely a `fastify.get(...)` call).
+        *   Ensure the path used for registration is exactly `/api/vibe/sessions` (plural), matching `shared/routes.ts` and the frontend call.
+        *   Verify that the routes for single sessions (GET, PATCH, DELETE by ID) are registered using `/api/vibe/session/:id` (singular).
+
+    2.  **In `frontend/src/app/modules/vibe/vibe.service.ts`:**
+        *   In the `getVibeSession(id: string)` method, change the URL from `` `/api/vibe/sessions/${id}` `` to `` `/api/vibe/session/${id}` `` (singular `session`).
+        *   In the `updateSession(id: string, payload: ...)` method, change the URL from `` `/api/vibe/sessions/${id}` `` to `` `/api/vibe/session/${id}` `` (singular `session`).
+        *   (Check if a `deleteSession` method exists and correct its path similarly if needed).

@@ -67,13 +67,12 @@ export function execCmdSync(command: string, cwd = getFileSystem().getWorkingDir
 		};
 	} catch (error) {
 		logger.error(error);
-		// Ensure exitCode is included in the error case as well
 		return {
 			cmd: command,
 			stdout: error.stdout?.toString() || '',
 			stderr: error.stderr?.toString() || '',
 			error: error instanceof Error ? error : new Error(String(error)),
-			exitCode: error.code ?? 1, // Use error code or default to 1
+			exitCode: error.code ?? 1,
 			cwd,
 		};
 	}
@@ -84,7 +83,7 @@ export interface ExecResults {
 	stdout: string;
 	stderr: string;
 	error: ExecException | null;
-	exitCode: number; // Add exitCode property
+	exitCode: number;
 	cwd?: string;
 }
 

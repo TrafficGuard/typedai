@@ -75,7 +75,7 @@ export async function initFastify(config: FastifyConfig): Promise<AppFastifyInst
 	if (config.instanceDecorators) registerInstanceDecorators(config.instanceDecorators);
 	if (config.requestDecorators) registerRequestDecorators(config.requestDecorators);
 
-	registerRoutes([...config.routes]); // Add application routes to the config in server.ts
+	registerRoutes(config.routes); // New application routes must be added the config in server.ts
 
 	// All backend API routes start with /api/ so any unmatched at this point is a 404
 	fastifyInstance.get('/api/*', async (request, reply) => {
@@ -197,8 +197,6 @@ function registerRequestDecorators(decorators: { [key: string]: any }) {
 
 function registerRoutes(routes: RouteDefinition[]) {
 	for (const route of routes) {
-		// Ensure the route function itself handles prefixing if needed,
-		// or apply a prefix here if preferred (less common with function-based routes)
 		fastifyInstance.register(route as any);
 	}
 }

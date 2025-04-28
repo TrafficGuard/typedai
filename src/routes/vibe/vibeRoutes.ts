@@ -1,8 +1,10 @@
 import { type Static, Type } from '@sinclair/typebox';
 import type { FastifyRequest as FastifyRequestBase } from 'fastify';
+import { getFileSystem } from '#agent/agentContextLocalStorage';
 import type { FastifyRequest } from '#fastify/fastifyApp';
 import { sendNotFound } from '#fastify/responses';
 import type { SourceControlManagement } from '#functions/scm/sourceControlManagement';
+import { FileSystemService } from '#functions/storage/fileSystemService';
 import { queryWithFileSelection } from '#swe/discovery/selectFilesAgent';
 import type { CreateVibeSessionData } from '#vibe/vibeTypes';
 import type { AppFastifyInstance } from '../../applicationTypes';
@@ -131,7 +133,6 @@ const InitialiseSuccessResponseSchema = Type.Object({
 export async function vibeRoutes(fastify: AppFastifyInstance) {
 	// Access services from the application context attached to fastify
 	const vibeService = fastify.vibeService;
-	const fileSystemService = fastify.fileSystemService;
 
 	// --- GET /sessions ---
 	fastify.get(
@@ -271,14 +272,14 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 
 				// Log the result and set working directory
 				fastify.log.info({ clonedPathValue: clonedPath, sessionId: id }, 'Repository path determined. Setting working directory.');
-				fileSystemService.setWorkingDirectory(clonedPath);
+				getFileSystem().setWorkingDirectory(clonedPath);
 
 				// Handle optional new branch creation
 				const { newBranchName } = session;
 				if (newBranchName) {
 					try {
 						fastify.log.info({ newBranchName, sessionId: id }, 'Attempting to create and switch to new branch.');
-						const vcs = fileSystemService.getVcs(); // Throws if not a VCS repo
+						const vcs = getFileSystem().getVcs(); // Throws if not a VCS repo
 						await vcs.createBranch(newBranchName);
 						await vcs.switchToBranch(newBranchName);
 						fastify.log.info({ newBranchName, sessionId: id }, 'Successfully created and switched to branch.');
@@ -395,7 +396,7 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 			}
 			const userId = req.currentUser.id;
 			const { id } = request.params; // Get id from validated params
-
+			const fileSystemService = new FileSystemService();
 			try {
 				const session = await vibeService.getVibeSession(userId, id);
 				if (!session) {

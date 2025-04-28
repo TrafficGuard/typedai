@@ -1,5 +1,3 @@
-import { FileSystemList } from '#functions/storage/fileSystemList';
-import { FileSystemService } from '#functions/storage/fileSystemService';
 import { InMemoryAgentStateService } from '#modules/memory/inMemoryAgentStateService';
 import { InMemoryChatService } from '#modules/memory/inMemoryChatService';
 import { InMemoryCodeReviewService } from '#modules/memory/inMemoryCodeReviewService';
@@ -18,7 +16,5 @@ export function inMemoryApplicationContext(): ApplicationContext {
 		codeReviewService: new InMemoryCodeReviewService(),
 		functionCacheService: new InMemoryFunctionCacheService(),
 		vibeService: new InMemoryVibeService(),
-		fileSystemService: new FileSystemService(),
-		fileSystemList: new FileSystemList(),
 	};
 }

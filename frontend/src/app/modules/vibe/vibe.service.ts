@@ -1,8 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, map, Observable, of, switchMap, take, tap, throwError } from 'rxjs'; // Added take
-import { VibeSession, SelectedFile } from './vibe.types'; // Restored SelectedFile import if needed locally, or adjust if type comes from elsewhere
-import { GitProject } from '../../../../../src/functions/scm/gitProject'; // Adjust path as needed - Assuming this path is correct relative to the frontend structure
+import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { VibeSession } from './vibe.types';
+import { GitProject } from './vibe.types';
 
 // Define the shape of the data needed for creation, matching the backend API body
 export interface CreateVibeSessionPayload {

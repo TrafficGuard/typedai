@@ -38,7 +38,6 @@ export class FileSystemList {
 	 */
 	@func()
 	async searchFilesMatchingContents(contentsRegex: string): Promise<string> {
-		// Delegate to the list service instance within FileSystemService
 		return await getFileSystem().searchFilesMatchingContents(contentsRegex);
 	}
 
@@ -49,7 +48,6 @@ export class FileSystemList {
 	 */
 	@func()
 	async searchFilesMatchingName(fileNameRegex: string): Promise<string[]> {
-		// Delegate to the list service
 		return await getFileSystem().searchFilesMatchingName(fileNameRegex);
 	}
 
@@ -61,7 +59,6 @@ export class FileSystemList {
 	 */
 	@func()
 	async listFilesInDirectory(dirPath = '.'): Promise<string[]> {
-		// Delegate to the list service
 		return await getFileSystem().listFilesInDirectory(dirPath);
 	}
 
@@ -72,7 +69,6 @@ export class FileSystemList {
 	 */
 	@func()
 	async listFilesRecursively(dirPath = './', useGitIgnore = true): Promise<string[]> {
-		// Delegate to the list service
 		return await getFileSystem().listFilesRecursively(dirPath, useGitIgnore);
 	}
 
@@ -115,7 +111,6 @@ export class FileSystemList {
 	 */
 	@func()
 	async getFileSystemTree(dirPath = './'): Promise<string> {
-		// Delegate to the list service
 		return await getFileSystem().getFileSystemTree(dirPath);
 	}
 

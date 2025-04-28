@@ -91,7 +91,6 @@ async function generateFolderTreeWithSummaries(summaries: Map<string, Summary>):
 	const treeStructure = await fileSystem.getFileSystemTreeStructure();
 	let documentation = '';
 
-	// Remove type annotation from loop variable
 	for (const [folderPath, files] of Object.entries(treeStructure)) {
 		const folderSummary = summaries.get(folderPath);
 		documentation += `${folderPath}/ (${files.length} files)  ${folderSummary ? `  ${folderSummary.short}` : ''}\n`;
@@ -110,13 +109,11 @@ async function generateFileSystemTreeWithSummaries(summaries: Map<string, Summar
 	const treeStructure = await fileSystem.getFileSystemTreeStructure();
 	let documentation = '';
 
-	// Remove type annotation from loop variable
 	for (const [folderPath, files] of Object.entries(treeStructure)) {
 		const folderSummary = summaries.get(folderPath);
 
 		documentation += `${folderPath}/  ${folderSummary ? `  ${folderSummary.short}` : ''}\n`;
 
-		// files is now correctly typed as string[]
 		for (const file of files) {
 			const filePath = `${folderPath}/${file}`;
 			const fileSummary = summaries.get(filePath);
@@ -154,7 +151,7 @@ export async function buildFolderStructure(dirPath: string, fileSystemService: F
 		return currentFolder; // Return current (likely empty) folder on error
 	}
 
-	// Load gitignore rules for the current directory using the list service
+	// Load gitignore rules for the current directory
 	const gitRoot = fileSystemService.getVcsRoot();
 	const ig = await fileSystemService.loadGitignoreRules(absoluteDirPath, gitRoot);
 
