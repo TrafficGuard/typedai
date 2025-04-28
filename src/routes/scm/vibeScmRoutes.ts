@@ -1,11 +1,11 @@
 import { type Static, Type } from '@sinclair/typebox';
 import * as HttpStatus from 'http-status-codes';
-import type { AppFastifyInstance } from '#applicationTypes';
 import { sendBadRequest, sendJSON, sendServerError } from '#fastify/responses';
 import type { GitProject } from '#functions/scm/gitProject';
 import { parseScmProjectId } from '#functions/scm/scmUtils';
 import type { SourceControlManagement } from '#functions/scm/sourceControlManagement';
 import { logger } from '#o11y/logger';
+import type { AppFastifyInstance } from '../../applicationTypes';
 import { getFunctionsByType } from '../../functionRegistry';
 
 /**

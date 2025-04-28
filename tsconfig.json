@@ -40,7 +40,6 @@
       "#user/*": ["./src/user/*"],
       "#utils/*": ["./src/utils/*"],
       "#vibe/*": ["./src/vibe/*"],
-      "#applicationTypes": ["./src/applicationTypes.ts"]
     },
     "types": ["node", "mocha"]
   },
