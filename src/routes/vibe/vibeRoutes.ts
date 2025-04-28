@@ -4,8 +4,11 @@ import type { AppFastifyInstance } from '#applicationTypes';
 import type { FastifyRequest } from '#fastify/fastifyApp'; // Keep custom FastifyRequest for non-generic use
 import { sendNotFound } from '#fastify/responses';
 import type { GitProject } from '#functions/scm/gitProject';
+import type { SourceControlManagement } from '#functions/scm/sourceControlManagement';
 import { type SelectedFile, queryWithFileSelection } from '#swe/discovery/selectFilesAgent';
+import { currentUser } from '#user/userService/userContext';
 import type { CreateVibeSessionData, VibeSession } from '#vibe/vibeTypes';
+import { getFunctionsByType } from '../../functionRegistry';
 
 // Define a TypeBox schema for the response (subset of VibeSession)
 // Note: Firestore returns Timestamps, which might need conversion or specific handling
@@ -125,7 +128,6 @@ const InitialiseSuccessResponseSchema = Type.Object({
 export async function vibeRoutes(fastify: AppFastifyInstance) {
 	// Access services from the application context attached to fastify
 	const vibeService = fastify.vibeService;
-	const scmService = fastify.scmService;
 	const fileSystemService = fastify.fileSystemService;
 
 	// --- GET /sessions ---
@@ -145,7 +147,7 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 			// Assuming authentication middleware adds `currentUser` to the request
 			if (!request.currentUser?.id) {
 				return reply.code(401).send({ error: 'Unauthorized' });
-			} // <-- Added missing closing brace
+			}
 
 			// Get userId from the authenticated user
 			const userId = request.currentUser.id;
@@ -231,39 +233,31 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 				},
 			},
 		},
-		// Use FastifyRequestBase for generic type with Params
+
 		async (request: FastifyRequestBase<{ Params: Static<typeof InitialiseParamsSchema> }>, reply) => {
 			// Cast to custom FastifyRequest to access currentUser
 			const req = request as FastifyRequest;
-			if (!req.currentUser?.id) {
-				return reply.code(401).send({ error: 'Unauthorized' });
-			}
+
 			const userId = req.currentUser.id;
 			const { id } = request.params; // Get id from validated params
 
 			try {
-				// Get the Vibe session details
 				const session = await vibeService.getVibeSession(userId, id);
-				if (!session) {
-					return reply.code(404).send({ error: 'Vibe session not found' });
-				}
+				if (!session) return reply.code(404).send({ error: 'Vibe session not found' });
 
 				const { repositorySource, repositoryId, branch } = session;
 				let clonedPath: string;
 
 				if (repositorySource === 'local') {
-					fastify.log.warn(`Vibe session ${id} uses local repository source. Using repositoryId as path.`);
 					clonedPath = repositoryId; // Use the provided path directly
 				} else {
-					// Get the configured SCM provider
-					const provider = scmService.getProvider(repositorySource);
-					if (!provider) {
+					const scms = getFunctionsByType('scm').map((tool) => new tool()) as SourceControlManagement[];
+					const scm = scms.find((scm) => scm.getScmType() === repositorySource);
+					if (!scm.isConfigured()) {
 						fastify.log.warn(`SCM provider '${repositorySource}' requested by session ${id} is not configured.`);
 						return reply.code(400).send({ error: `Configured SCM provider not found for source: ${repositorySource}` });
 					}
-
-					// Clone the project using the provider
-					clonedPath = await provider.cloneProject(repositoryId, branch);
+					clonedPath = await scm.cloneProject(repositoryId, branch);
 				}
 
 				// Validate clonedPath
@@ -274,7 +268,7 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 
 				// Log the result and set working directory
 				fastify.log.info({ clonedPathValue: clonedPath, sessionId: id }, 'Repository path determined. Setting working directory.');
-				await fileSystemService.setWorkingDirectory(clonedPath);
+				fileSystemService.setWorkingDirectory(clonedPath);
 
 				// Handle optional new branch creation
 				const { newBranchName } = session;
