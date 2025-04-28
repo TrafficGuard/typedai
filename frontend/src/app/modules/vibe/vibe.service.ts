@@ -124,6 +124,24 @@ export class VibeService {
         );
     }
 
+    /**
+     * Deletes a specific Vibe session by its ID.
+     * @param id The ID of the Vibe session to delete.
+     */
+    deleteVibeSession(id: string): Observable<void> {
+        // Use the correct route from shared/routes.ts
+        return this.http.delete<void>(`/api/vibe/sessions/${id}`).pipe(
+            tap(() => {
+                // If the deleted session is the current session, clear the BehaviorSubject
+                if (this.currentSession.value?.id === id) {
+                    this.currentSession.next(null);
+                }
+                // Optionally, trigger a refresh of the session list if one is maintained elsewhere
+                // e.g., if you have a sessions BehaviorSubject: this.listVibeSessions().pipe(take(1)).subscribe();
+            })
+        );
+    }
+
 
 	// Remove or adapt old methods (getVibe, listVibes, deleteVibe) if they are no longer relevant
 	// to the VibeListComponent's new purpose or if they target different endpoints/data.
