@@ -1,5 +1,10 @@
 # Backend code standards
 
+# Built-in packages
+
+Always use async file system operations
+import { promises as fs } from 'node:fs';
+
 # Logging
 
 When an object is logged, postfix it to the message in square brackets matching the variable name

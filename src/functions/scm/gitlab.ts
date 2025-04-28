@@ -14,6 +14,7 @@ import type { BranchSchema } from '@gitbeaker/rest';
 import type { DeepPartial } from 'ai';
 import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
+import type { ToolType } from '#functions/toolType';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import { getProjectInfo } from '#swe/projectDetection';
@@ -78,6 +79,10 @@ export class GitLab implements SourceControlManagement {
 		return {
 			host: this.config().host,
 		};
+	}
+
+	getToolType(): ToolType {
+		return 'scm';
 	}
 
 	private config(): GitLabConfig {

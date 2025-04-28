@@ -1,7 +1,6 @@
 import type { AgentStateService } from '#agent/agentStateService/agentStateService';
 import type { ChatService } from '#chat/chatTypes';
 import type { TypeBoxFastifyInstance } from '#fastify/fastifyApp';
-import type { ScmService } from '#functions/scm/scmService';
 import type { FileSystemList } from '#functions/storage/fileSystemList';
 import type { FileSystemService } from '#functions/storage/fileSystemService';
 import type { LlmCallService } from '#llm/llmCallService/llmCallService';
@@ -18,7 +17,6 @@ export interface ApplicationContext {
 	functionCacheService: FunctionCacheService;
 	codeReviewService: CodeReviewService;
 	vibeService: VibeService;
-	scmService: ScmService; // Add scmService
 	fileSystemService: FileSystemService;
 	fileSystemList: FileSystemList;
 }

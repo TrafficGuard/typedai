@@ -13,6 +13,12 @@ export function send(reply: any, statusCode: number, data: Record<string, any> |
 	reply.send(payload);
 }
 
+export function sendJSON(reply: any, object: any): void {
+	reply.header('Content-Type', 'text/json; charset=utf-8');
+	reply.status(200);
+	reply.send(JSON.stringify(object));
+}
+
 export function sendHTML(reply: any, html: string): void {
 	reply.header('Content-Type', 'text/html; charset=utf-8');
 	reply.status(200);
@@ -38,4 +44,8 @@ export function sendUnauthorized(reply: FastifyReply): void {
 
 export function sendNotFound(reply: FastifyReply, message = 'Not Found'): void {
 	send(reply, HttpStatus.NOT_FOUND, '', { message: message });
+}
+
+export function sendServerError(reply: FastifyReply, message = 'Server error'): void {
+	send(reply, HttpStatus.INTERNAL_SERVER_ERROR, '', { message: message });
 }

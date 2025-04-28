@@ -36,6 +36,7 @@ export class VibeDesignProposalComponent implements OnInit, OnChanges {
   private initialDesignAnswer: string | null = null;
 
   ngOnInit(): void {
+    // Initialize the design form
     this.initializeForm();
   }
 

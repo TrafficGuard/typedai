@@ -2,9 +2,12 @@ import { promises as fs, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { request } from '@octokit/request';
 import type { Endpoints } from '@octokit/types';
+import { result } from 'lodash';
 import { agentContext } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import type { MergeRequest, SourceControlManagement } from '#functions/scm/sourceControlManagement';
+import type { ToolType } from '#functions/toolType';
+import { user } from '#llm/llm';
 import { logger } from '#o11y/logger';
 import { functionConfig } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
@@ -24,7 +27,6 @@ export interface GitHubConfig {
 /**
  *
  */
-
 @funcClass(__filename)
 export class GitHub implements SourceControlManagement {
 	/** Do not access. Use request() */
@@ -276,7 +278,7 @@ export class GitHub implements SourceControlManagement {
 	/**
 	 * Returns the type of this SCM provider.
 	 */
-	getType(): 'github' {
+	getType(): string {
 		return 'github';
 	}
 
@@ -306,6 +308,10 @@ export class GitHub implements SourceControlManagement {
 			logger.error(`Failed to get job logs for job ${jobId} in project ${projectPath}`, error);
 			throw new Error(`Failed to get job logs: ${error.message}`);
 		}
+	}
+
+	getToolType(): ToolType {
+		return 'scm';
 	}
 }
 

@@ -1,6 +1,6 @@
 import { functionRegistry } from 'src/functionRegistry';
 import { agentContext } from '#agent/agentContextLocalStorage';
-import { execCommand } from '#utils/exec';
+import { type GetToolType, ToolType } from '#functions/toolType';
 import type { GitProject } from './gitProject';
 
 export interface MergeRequest {
@@ -13,11 +13,16 @@ export interface MergeRequest {
 /**
  * Source Code Management system (GitHub, Gitlab, BitBucket etc)
  */
-export interface SourceControlManagement {
+export interface SourceControlManagement extends GetToolType {
 	getProjects(): Promise<GitProject[]>;
 
 	getProject(projectId: string | number): Promise<GitProject>;
 
+	/**
+	 * @param projectPathWithNamespace
+	 * @param branchOrCommit
+	 * @returns the directory path where the project was successfully cloned.
+	 */
 	cloneProject(projectPathWithNamespace: string, branchOrCommit?: string): Promise<string>;
 
 	createMergeRequest(projectId: string | number, title: string, description: string, sourceBranch: string, targetBranch: string): Promise<MergeRequest>;
@@ -40,7 +45,7 @@ export interface SourceControlManagement {
 	/**
 	 * Returns the type of the SCM provider (e.g., 'github', 'gitlab').
 	 */
-	getType(): 'github' | 'gitlab' | string; // Allow string for potential future providers
+	getType(): string;
 }
 
 function isScmObject(obj: Record<string, any>): boolean {
@@ -48,8 +53,8 @@ function isScmObject(obj: Record<string, any>): boolean {
 }
 
 /**
- * Gets the function class implementing SourceControlManagement.
- * It first searches the agents functions, then falls back to searching the function registry.
+ * Gets the function class implementing SourceControlManagement from the AgentContext
+ * It first searches the agents functions, then falls back to searching the function registry for a single match.
  */
 export function getSourceControlManagementTool(): SourceControlManagement {
 	const scm = agentContext().functions.getFunctionInstances().find(isScmObject) as SourceControlManagement;

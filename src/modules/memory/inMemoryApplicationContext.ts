@@ -1,4 +1,3 @@
-import { ScmService } from '#functions/scm/scmService'; // Import ScmService
 import { FileSystemList } from '#functions/storage/fileSystemList';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { InMemoryAgentStateService } from '#modules/memory/inMemoryAgentStateService';
@@ -19,7 +18,6 @@ export function inMemoryApplicationContext(): ApplicationContext {
 		codeReviewService: new InMemoryCodeReviewService(),
 		functionCacheService: new InMemoryFunctionCacheService(),
 		vibeService: new InMemoryVibeService(),
-		scmService: new ScmService(),
 		fileSystemService: new FileSystemService(),
 		fileSystemList: new FileSystemList(),
 	};

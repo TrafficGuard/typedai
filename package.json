@@ -34,7 +34,7 @@
     "build": "    tsc",
     "build:dev": "tsc -project tsconfig.swc.json",
     "initTiktokenizer": "node --env-file=variables/local.env -r ts-node/register src/initTiktokenizer.ts",
-    "functionSchemas": "node --env-file=variables/local.env -r ts-node/register src/generateFunctionSchemas.ts",
+    "functionSchemas": "node --env-file=variables/local.env -r ts-node/register src/functionSchema/generateFunctionSchemas.ts",
     "start": "      node -r ts-node/register src/index.ts",
     "start:local": "node -r ts-node/register --env-file=variables/local.env --inspect=0.0.0.0:9229 src/index.ts",
     "emulators": "gcloud emulators firestore start --host-port=127.0.0.1:8243",

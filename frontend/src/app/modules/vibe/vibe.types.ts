@@ -9,11 +9,11 @@ export interface VibeSession {
 	branch: string;
 	newBranchName?: string | null;
 	useSharedRepos: boolean;
-	fileSelection?: SelectedFile[]; // Add fileSelection
-	designAnswer?: string; // Add designAnswer
+	fileSelection?: SelectedFile[];
+	designAnswer?: string;
 	createdAt: any; // Use 'any' or 'string' or 'Date' depending on how Firestore Timestamps are serialized/received
-	updatedAt: any; // Add updatedAt
-	error?: string; // Add error
+	updatedAt: any;
+	error?: string;
 }
 
 // Define SelectedFile type locally for the frontend

@@ -1,10 +1,10 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
-import { loadPyodide } from 'pyodide';
+import { type PyodideInterface, loadPyodide } from 'pyodide';
 import { PublicWeb } from '#functions/web/web';
 import { logger } from '#o11y/logger';
 
-let pyodide: any;
+let pyodide: PyodideInterface;
 export async function main() {
 	pyodide = await loadPyodide();
 	pyodide.setDebug(true);
