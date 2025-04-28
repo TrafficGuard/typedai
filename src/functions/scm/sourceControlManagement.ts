@@ -45,11 +45,11 @@ export interface SourceControlManagement extends GetToolType {
 	/**
 	 * Returns the type of the SCM provider (e.g., 'github', 'gitlab').
 	 */
-	getType(): string;
+	getScmType(): string;
 }
 
 function isScmObject(obj: Record<string, any>): boolean {
-	return obj && typeof obj.getProjects === 'function' && typeof obj.cloneProject === 'function' && typeof obj.createMergeRequest === 'function';
+	return obj && typeof obj.getScmType === 'function';
 }
 
 /**

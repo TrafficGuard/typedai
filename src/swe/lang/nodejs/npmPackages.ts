@@ -127,7 +127,7 @@ export class NpmPackages {
 		if (!(await fileSystem.fileExists(`node_modules/${npmPackageName}`))) {
 			return '';
 		}
-		const files = await fileSystem.listService.listFilesRecursively(`node_modules/${npmPackageName}`);
+		const files = await fileSystem.listFilesRecursively(`node_modules/${npmPackageName}`);
 		const dtsFiles = files.filter((filename) => filename.endsWith('.d.ts'));
 		return fileSystem.readFilesAsXml(dtsFiles);
 	}

@@ -68,9 +68,9 @@ describe('buildFolderStructure', () => {
 		sinon.stub(fileSystemService, 'getVcsRoot').returns('/mock-repo'); // Force detection of git root
 
 		// Stub loadGitignoreRules on the listService to simulate reading the mock .gitignore
-		sinon.stub(fileSystemService.listService, 'loadGitignoreRules').callsFake(async (startPath: string, gitRoot: string | null): Promise<Ignore> => {
+		sinon.stub(fileSystemService, 'loadGitignoreRules').callsFake(async (startPath: string, gitRoot: string | null): Promise<Ignore> => {
 			const ig = ignore();
-			// logger.debug(`Stub listService.loadGitignoreRules called with: startPath='${startPath}', gitRoot='${gitRoot}'`); // Optional: Add for debugging stub calls
+			// logger.debug(`Stub loadGitignoreRules called with: startPath='${startPath}', gitRoot='${gitRoot}'`); // Optional: Add for debugging stub calls
 
 			// Always add the default .git ignore rule first
 			ig.add('.git/');

@@ -427,7 +427,7 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 
 				// Generate the tree structure for the determined path
 				// getFileSystemTree handles path resolution (absolute vs relative) and security checks.
-				const tree = await fileSystemService.listService.getFileSystemTree(targetPath);
+				const tree = await fileSystemService.getFileSystemTree(targetPath);
 
 				// Send the tree as plain text
 				return reply.type('text/plain').send(tree);

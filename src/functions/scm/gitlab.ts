@@ -429,7 +429,7 @@ export class GitLab implements SourceControlManagement {
 	/**
 	 * Returns the type of this SCM provider.
 	 */
-	getType(): 'gitlab' {
+	getScmType(): 'gitlab' {
 		return 'gitlab';
 	}
 }

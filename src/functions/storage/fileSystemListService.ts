@@ -2,10 +2,8 @@ import { access, lstat, mkdir, readFile, readdir, stat, writeFile } from 'node:f
 import path, { join, relative } from 'node:path';
 import { promisify } from 'node:util';
 import ignore, { type Ignore } from 'ignore';
-import type { FileSystemService } from '#functions/storage/fileSystemService'; // Import FileSystemService type
-import { logger } from '#o11y/logger';
+import type { FileSystemService } from '#functions/storage/fileSystemService';
 import { arg, spawnCommand } from '#utils/exec';
-import { CDATA_END, CDATA_START, needsCDATA } from '#utils/xml-utils'; // Import XML utils
 
 const fs = {
 	readFile: promisify(readFile),
@@ -40,7 +38,7 @@ export class FileSystemListService {
 	async searchFilesMatchingContents(contentsRegex: string): Promise<string> {
 		// --count Only show count of line matches for each file
 		// Ensure rg runs in the correct working directory
-		const results = await spawnCommand(`rg --count ${arg(contentsRegex)}`, this.fsService.getWorkingDirectory());
+		const results = await spawnCommand(`rg --count ${arg(contentsRegex)}`);
 		if (results.stderr.includes('command not found: rg')) {
 			throw new Error('Command not found: rg. Install ripgrep');
 		}
@@ -65,7 +63,7 @@ export class FileSystemListService {
 	 */
 	async searchExtractsMatchingContents(contentsRegex: string, linesBeforeAndAfter = 0): Promise<string> {
 		// Ensure rg runs in the correct working directory
-		const results = await spawnCommand(`rg ${arg(contentsRegex)} -C ${linesBeforeAndAfter}`, this.fsService.getWorkingDirectory());
+		const results = await spawnCommand(`rg ${arg(contentsRegex)} -C ${linesBeforeAndAfter}`);
 		if (results.stderr.includes('command not found: rg')) {
 			throw new Error('Command not found: rg. Install ripgrep');
 		}
@@ -231,8 +229,7 @@ export class FileSystemListService {
 	}
 
 	/** Loads gitignore rules walking up from startPath */
-	// Make public so buildFolderStructure can call it
-	public async loadGitignoreRules(startPath: string, gitRoot: string | null): Promise<Ignore> {
+	async loadGitignoreRules(startPath: string, gitRoot: string | null): Promise<Ignore> {
 		const ig = ignore();
 		let currentPath = startPath;
 

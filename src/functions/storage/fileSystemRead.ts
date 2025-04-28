@@ -62,7 +62,7 @@ export class FileSystemRead {
 	@func()
 	async searchFilesMatchingContents(contentsRegex: string): Promise<string> {
 		// Delegate to the list service instance within FileSystemService
-		return await getFileSystem().listService.searchFilesMatchingContents(contentsRegex);
+		return await getFileSystem().searchFilesMatchingContents(contentsRegex);
 	}
 
 	/**
@@ -73,7 +73,7 @@ export class FileSystemRead {
 	@func()
 	async searchFilesMatchingName(fileNameRegex: string): Promise<string[]> {
 		// Delegate to the list service
-		return await getFileSystem().listService.searchFilesMatchingName(fileNameRegex);
+		return await getFileSystem().searchFilesMatchingName(fileNameRegex);
 	}
 
 	/**
@@ -85,7 +85,7 @@ export class FileSystemRead {
 	@func()
 	async listFilesInDirectory(dirPath = '.'): Promise<string[]> {
 		// Delegate to the list service
-		return await getFileSystem().listService.listFilesInDirectory(dirPath);
+		return await getFileSystem().listFilesInDirectory(dirPath);
 	}
 
 	/**
@@ -96,7 +96,7 @@ export class FileSystemRead {
 	@func()
 	async listFilesRecursively(dirPath = './', useGitIgnore = true): Promise<string[]> {
 		// Delegate to the list service
-		return await getFileSystem().listService.listFilesRecursively(dirPath, useGitIgnore);
+		return await getFileSystem().listFilesRecursively(dirPath, useGitIgnore);
 	}
 
 	/**
@@ -169,7 +169,7 @@ export class FileSystemRead {
 	@func()
 	async getFileSystemTree(dirPath = './'): Promise<string> {
 		// Delegate to the list service
-		return await getFileSystem().listService.getFileSystemTree(dirPath);
+		return await getFileSystem().getFileSystemTree(dirPath);
 	}
 
 	/**
@@ -180,6 +180,6 @@ export class FileSystemRead {
 	@func()
 	async getFileSystemTreeStructure(dirPath = './'): Promise<Record<string, string[]>> {
 		// Delegate to the list service
-		return await getFileSystem().listService.getFileSystemTreeStructure(dirPath);
+		return await getFileSystem().getFileSystemTreeStructure(dirPath);
 	}
 }

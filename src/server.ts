@@ -26,7 +26,7 @@ export async function initServer(): Promise<void> {
 	const applicationContext = await initApplicationContext();
 
 	try {
-		// [AI] Registers all the fastify routes from the /routes dir
+		// [DOC] All fastify routes from the /routes dir must be registered here in initFastify()
 		await initFastify({
 			routes: [
 				authRoutes,
@@ -41,8 +41,7 @@ export async function initServer(): Promise<void> {
 				chatRoutes,
 				workflowRoutes,
 				jiraRoutes,
-				vibeScmRoutes, // Add the new SCM routes here
-				// Add your routes below this line
+				vibeScmRoutes,
 			],
 			instanceDecorators: applicationContext, // This makes all properties on the ApplicationContext interface available on the fastify instance in the routes
 			requestDecorators: {},

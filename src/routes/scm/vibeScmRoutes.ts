@@ -26,7 +26,7 @@ export async function vibeScmRoutes(fastify: AppFastifyInstance): Promise<void> 
 		// Use Promise.allSettled to fetch from all providers concurrently and handle potential errors
 		const results = await Promise.allSettled(
 			scms.map(async (provider: SourceControlManagement) => {
-				const providerType = provider.getType();
+				const providerType = provider.getScmType();
 				logger.info(`Fetching projects from ${providerType}`);
 				try {
 					const projects: GitProject[] = await provider.getProjects();
@@ -41,7 +41,7 @@ export async function vibeScmRoutes(fastify: AppFastifyInstance): Promise<void> 
 		// Process results, adding successfully fetched projects to the list
 		let getProjectsError = false;
 		results.forEach((result, index) => {
-			const providerType = scms[index].getType();
+			const providerType = scms[index].getScmType();
 			if (result.status === 'fulfilled') {
 				allProjects.push(...result.value);
 			} else {
@@ -121,5 +121,5 @@ function getConfiguredSCMs(): SourceControlManagement[] {
 }
 
 function getSCM(scmType: string): SourceControlManagement | undefined {
-	return getConfiguredSCMs().find((scm) => scm.getType() === scmType);
+	return getConfiguredSCMs().find((scm) => scm.getScmType() === scmType);
 }

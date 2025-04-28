@@ -9,21 +9,16 @@ export async function main() {
 	pyodide = await loadPyodide();
 	pyodide.setDebug(true);
 	pyodide.setStdout({
-		batched: (output) => {
-			console.log(`Py stdout: ${JSON.stringify(output)}`);
-		},
+		batched: (output) => {},
 	});
 	pyodide.setStderr({
-		batched: (output) => {
-			console.log(`Py stderr: ${JSON.stringify(output)}`);
-		},
+		batched: (output) => {},
 	});
 
 	const globals = pyodide.toPy({
 		web: async () => {
 			logger.info('web()');
 			const result = await new PublicWeb().takeScreenshotAndLogs('http://localhost:4200/ui/vibe');
-			console.log(typeof result);
 			if (typeof result === 'object') {
 				for (const [k, v] of Object.entries(result)) {
 					console.log(typeof k);
@@ -35,14 +30,11 @@ export async function main() {
 	const pythonScript = `from typing import Any, List, Dict, Tuple, Optional, Union
 async def main():
 	try:
-		print("Calling web()...")
 		result: Dict[str, Any] = await web()
-		print("Called web()")
 		# Check if the function returned the expected keys based on its description.
 		# Description states: Returns: >} A Buffer containing the screenshot image data in .png format, and the browser logs
 		# Description states: -> { image: Buffer; logs: str[]; }
 		# Therefore, we expect 'image' and 'logs' keys.
-		print("Successfully captured screenshot and logs.")
 		return {"status": "success", "logs": result.logs}
 		#else:
 		#	print(f"Function call succeeded but returned unexpected format: {type(result)}")

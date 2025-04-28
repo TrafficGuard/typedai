@@ -103,8 +103,8 @@ export async function execCmd(command: string, cwd = getFileSystem().getWorkingD
 			exec(command, { cwd, shell }, (error, stdout, stderr) => {
 				resolve({
 					cmd: command,
-					stdout,
-					stderr,
+					stdout: formatAnsiWithMarkdownLinks(stdout),
+					stderr: formatAnsiWithMarkdownLinks(stderr),
 					error,
 					// Determine exit code: 0 for success, error code or 1 for failure
 					exitCode: error ? ((error as any).code ?? 1) : 0,
@@ -165,8 +165,9 @@ export async function execCommand(command: string, opts?: ExecCmdOptions): Promi
 		const options: ExecOptions = { cwd: opts?.workingDirectory ?? getFileSystem().getWorkingDirectory(), shell, env };
 		try {
 			logger.info(`${options.cwd} % ${command}`);
-			const { stdout, stderr } = await execAsync(command, options);
-
+			let { stdout, stderr } = await execAsync(command, options);
+			stdout = formatAnsiWithMarkdownLinks(stdout);
+			stderr = formatAnsiWithMarkdownLinks(stderr);
 			span.setAttributes({
 				cwd: options.cwd as string,
 				shell,
@@ -181,8 +182,8 @@ export async function execCommand(command: string, opts?: ExecCmdOptions): Promi
 			span.setAttributes({
 				cwd: options.cwd as string,
 				command,
-				stdout: error.stdout,
-				stderr: error.stderr,
+				stdout: formatAnsiWithMarkdownLinks(error.stdout),
+				stderr: formatAnsiWithMarkdownLinks(error.stderr),
 				exitCode: error.code,
 			});
 			span.recordException(error);
@@ -205,8 +206,9 @@ export async function spawnCommand(command: string, workingDirectory?: string): 
 		const options: SpawnOptionsWithoutStdio = { cwd, shell, env: process.env };
 		try {
 			logger.info(`${options.cwd} % ${command}`);
-			const { stdout, stderr, code } = await spawnAsync(command, options);
-
+			let { stdout, stderr, code } = await spawnAsync(command, options);
+			stdout = formatAnsiWithMarkdownLinks(stdout);
+			stderr = formatAnsiWithMarkdownLinks(stderr);
 			span.setAttributes({
 				cwd,
 				command,
@@ -220,8 +222,8 @@ export async function spawnCommand(command: string, workingDirectory?: string): 
 			span.setAttributes({
 				cwd,
 				command,
-				stdout: error.stdout,
-				stderr: error.stderr,
+				stdout: formatAnsiWithMarkdownLinks(error.stdout),
+				stderr: formatAnsiWithMarkdownLinks(error.stderr),
 				exitCode: error.code,
 			});
 			span.recordException(error);
@@ -376,7 +378,7 @@ export function shellEscape(s: string): string {
 
 /**
  * Sanitise arguments by single quoting and escaping single quotes in the value
- * @param arg command line argument value
+ * @param argValue command line argument value
  */
 export function arg(argValue: string): string {
 	// Ensure the argument is treated as a single token, escaping potential issues.
@@ -384,4 +386,45 @@ export function arg(argValue: string): string {
 	// depending on the complexity of regex patterns allowed.
 	// Escapes single quotes for POSIX shells (' -> '\''')
 	return `'${argValue.replace(/'/g, "'\\''")}'`;
+}
+
+/**
+ * Removes most ANSI escape codes (like colors, formatting) from a string,
+ * but specifically converts OSC 8 hyperlinks into Markdown format `[Text](URL)`.
+ *
+ * @param text The input string potentially containing ANSI codes.
+ * @returns The string with non-link ANSI codes removed and links formatted as Markdown,
+ *          or the original string if input is null/undefined/empty.
+ */
+export function formatAnsiWithMarkdownLinks(text: string | null | undefined): string {
+	if (!text) return text ?? '';
+
+	// Regular expression to specifically match OSC 8 hyperlinks.
+	// It captures the URL (group 1) and the Link Text (group 2).
+	// Format: \x1B]8;;URL\x1B\\Text\x1B]8;;\x1B\\
+	// Using \x1B for ESC
+	// biome-ignore lint/suspicious/noControlCharactersInRegex: expected
+	const osc8Regex = /\x1B]8;;(.*?)\x1B\\(.*?)\x1B]8;;\x1B\\/g;
+
+	// First pass: Replace OSC 8 links with Markdown format.
+	// We use the captured groups: $2 is the text, $1 is the URL.
+	let processedText = text.replace(osc8Regex, '[$2]($1)');
+
+	// Regular expression to match *other* common ANSI escape codes
+	// (like SGR for colors/styles: \x1B[...m, and other CSI sequences).
+	// This regex is designed *not* to match the already-processed Markdown links.
+	// It's the same comprehensive regex used before for stripping.
+	const ansiStripRegex = new RegExp(
+		[
+			'[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)',
+			'(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))',
+		].join('|'),
+		'g',
+	);
+
+	// Second pass: Remove all remaining ANSI codes (colors, formatting, etc.)
+	// from the string that now contains Markdown links.
+	processedText = processedText.replace(ansiStripRegex, '');
+
+	return processedText;
 }

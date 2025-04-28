@@ -240,7 +240,7 @@ export class PublicWeb {
 
 	/**
 	 * Takes a screenshot of a web page while hiding cookie banners
-	 * @param url The URL of the web page to screenshot. Must be a complete URL with https://
+	 * @param url The URL of the web page to screenshot. Must be a complete URL with http(s)://
 	 * @returns {Promise<{ image: Buffer; logs: string[] }>} A Buffer containing the screenshot image data in .png format, and the browser logs
 	 */
 	@func()
@@ -262,9 +262,34 @@ export class PublicWeb {
 			// });
 
 			const logs: string[] = [];
-			//
+
+			function formatStackTrace(e: any[]) {
+				if (!e) return '';
+				let stackTrace = '';
+				for (const elem of e) {
+					let line = elem.url;
+					if (typeof line === 'string') {
+						const i = line.indexOf('/.angular/cache/');
+						if (i !== -1) {
+							line = line.substring(i + 16);
+							// Strip the Angular version folder
+							line = line.substring(line.indexOf('/'));
+						}
+					} else line = JSON.stringify(elem.url);
+					line ??= '';
+					if (elem.lineNumber) line += `:${elem.lineNumber}`;
+
+					stackTrace += `\t${line}`;
+				}
+				return stackTrace;
+			}
+
 			page
-				.on('console', (message) => logs.push(`${message.type().substr(0, 3).toUpperCase()} ${message.text()}`))
+				.on('console', (message) =>
+					logs.push(
+						`${message.type().substr(0, 3).toUpperCase()} ${message.text()} location:${message.location()?.url} trace:${formatStackTrace(message.stackTrace())}`,
+					),
+				)
 				.on('pageerror', ({ message }) => logs.push(message))
 				.on('requestfailed', (request) => logs.push(`${request.failure().errorText} ${request.url()}`));
 

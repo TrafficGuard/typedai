@@ -1,34 +1,40 @@
-import { existsSync, lstat, mkdir, readFile, stat, statSync, writeFile } from 'node:fs'; // Added statSync
+import { access, existsSync, lstat, mkdir, readFile, readdir, stat, writeFile } from 'node:fs';
 import { resolve } from 'node:path';
 import path, { join, relative } from 'node:path';
 import { promisify } from 'node:util';
-// import ignore, { type Ignore } from 'ignore'; // No longer used directly here
+import ignore, { type Ignore } from 'ignore';
 import type Pino from 'pino';
 import { agentContext } from '#agent/agentContextLocalStorage';
 import { parseArrayParameterValue } from '#functionSchema/functionUtils';
 import { Git } from '#functions/scm/git';
 import type { VersionControlSystem } from '#functions/scm/versionControlSystem';
-import { FileSystemListService } from '#functions/storage/fileSystemListService'; // Import the new service
 import { LlmTools } from '#functions/util';
 import { logger } from '#o11y/logger';
 import { getActiveSpan } from '#o11y/trace';
-import { execCmdSync } from '#utils/exec'; // spawnCommand no longer used here
+import { arg, execCmdSync, spawnCommand } from '#utils/exec';
 import { CDATA_END, CDATA_START, needsCDATA } from '#utils/xml-utils';
 import { TYPEDAI_FS } from '../../appVars';
 
 const fs = {
 	readFile: promisify(readFile),
 	stat: promisify(stat),
-	// readdir: promisify(readdir), // Moved to list service logic
-	// access: promisify(access), // No longer used directly here
+	readdir: promisify(readdir),
+	access: promisify(access),
 	mkdir: promisify(mkdir),
 	lstat: promisify(lstat),
 	writeFile: promisify(writeFile),
 };
 
-// CDATA utils needed for readFileAsXML and formatFileContentsAsXml
-// import { CDATA_END, CDATA_START, needsCDATA } from '#utils/xml-utils'; // Removed duplicate
-// import { TYPEDAI_FS } from '../../appVars'; // Removed duplicate
+// import fg from 'fast-glob';
+// const globAsync = promisify(glob);
+
+type FileFilter = (filename: string) => boolean;
+
+// Cache paths to Git repositories and .gitignore files
+const gitRoots = new Set<string>();
+/** Maps a directory to a git root */
+const gitRootMapping = new Map<string, string>();
+const gitIgnorePaths = new Set<string>();
 
 /**
  * Interface to the file system based for an Agent which maintains the state of the working directory.
@@ -45,56 +51,39 @@ const fs = {
  * By default, the basePath is the current working directory of the process.
  */
 export class FileSystemService {
-	/** The filesystem path for the root of operations for this service instance. */
-	public basePath: string;
-	/** The current working directory, relative to which operations are performed. Must be within basePath. */
+	/** The filesystem path */
 	private workingDirectory = '';
-	/** The service handling file listing and searching. */
-	public listService: FileSystemListService;
-	/** Version control system instance, lazy-loaded. */
 	vcs: VersionControlSystem | null = null;
-	/** Logger instance. */
 	log: Pino.Logger;
 
 	/**
-	 * @param basePath The root folder allowed to be accessed by this file system instance. Defaults to process.cwd() or specific env/args.
+	 * @param basePath The root folder allowed to be accessed by this file system instance. This should only be accessed by system level
+	 * functions. Generally getWorkingDirectory() should be used
 	 */
-	constructor(basePath?: string) {
-		let resolvedBasePath = basePath ?? process.cwd();
+	constructor(public basePath?: string) {
+		this.basePath ??= process.cwd();
 
-		// Override basePath from args or env vars if provided
 		const args = process.argv;
-		const fsArg = args.find((arg) => arg.startsWith('--fs=')); // e.g., --fs=/path/to/use
-		const fsEnvVar = process.env[TYPEDAI_FS]; // Environment variable override
-
+		const fsArg = args.find((arg) => arg.startsWith('--fs='));
+		const fsEnvVar = process.env[TYPEDAI_FS];
 		if (fsArg) {
 			const fsPath = fsArg.slice(5);
 			if (existsSync(fsPath)) {
-				resolvedBasePath = fsPath;
-				logger.info(`Overriding basePath with --fs argument: ${fsPath}`);
+				this.basePath = fsPath;
+				logger.info(`Setting basePath to ${fsPath}`);
 			} else {
-				// Log warning but proceed with default/previous basePath
-				logger.warn(`Ignoring invalid --fs arg value: ${fsPath} does not exist.`);
-				// Potentially throw an error if the arg must be valid:
-				// throw new Error(`Invalid --fs arg value. ${fsPath} does not exist`);
+				throw new Error(`Invalid -fs arg value. ${fsPath} does not exist`);
 			}
 		} else if (fsEnvVar) {
 			if (existsSync(fsEnvVar)) {
-				resolvedBasePath = fsEnvVar;
-				logger.info(`Overriding basePath with ${TYPEDAI_FS} environment variable: ${fsEnvVar}`);
+				this.basePath = fsEnvVar;
 			} else {
-				// Log warning but proceed with default/previous basePath
-				logger.warn(`Ignoring invalid ${TYPEDAI_FS} env var: ${fsEnvVar} does not exist.`);
-				// Potentially throw an error if the env var must be valid:
-				// throw new Error(`Invalid ${TYPEDAI_FS} env var. ${fsEnvVar} does not exist`);
+				throw new Error(`Invalid ${TYPEDAI_FS} env var. ${fsEnvVar} does not exist`);
 			}
 		}
+		this.workingDirectory = this.basePath;
 
-		this.basePath = path.resolve(resolvedBasePath); // Ensure basePath is absolute and normalized
-		this.workingDirectory = this.basePath; // Start working directory at the base path
-		this.log = logger.child({ FileSystemBasePath: this.basePath });
-		this.listService = new FileSystemListService(this); // Initialize the list service, passing this instance
-		this.log.info(`FileSystemService initialized. BasePath: ${this.basePath}, WorkingDirectory: ${this.workingDirectory}`);
+		this.log = logger.child({ FileSystem: this.basePath });
 	}
 
 	toJSON() {
@@ -120,59 +109,43 @@ export class FileSystemService {
 	/**
 	 * Set the working directory. The dir argument may be an absolute filesystem path, otherwise relative to the current working directory.
 	 * If the dir starts with / it will first be checked as an absolute directory, then as relative path to the working directory.
-	 * @param dir The new working directory path. Can be absolute or relative to the current working directory.
-	 *            Must resolve to a path within the service's `basePath`.
+	 * @param dir the new working directory
 	 */
 	setWorkingDirectory(dir: string): void {
-		if (!dir) throw new Error('Target directory must be provided');
-
-		let targetPath: string;
-
-		if (path.isAbsolute(dir)) {
-			targetPath = path.resolve(dir); // Resolve to normalize (e.g., remove trailing slashes)
-		} else {
-			// Resolve relative to the current working directory
-			targetPath = path.resolve(this.workingDirectory, dir);
-		}
-
-		// Security Check: Ensure the target path is within the basePath
-		if (!targetPath.startsWith(this.basePath)) {
-			throw new Error(`Cannot set working directory outside of base path. Attempted: ${targetPath} (Base: ${this.basePath})`);
-		}
-
-		// Check if the target directory exists
-		if (!existsSync(targetPath)) {
-			throw new Error(`Target working directory "${dir}" (resolved to "${targetPath}") does not exist.`);
-		}
-
-		// Check if it's actually a directory
-		try {
-			const stats = statSync(targetPath); // Use sync version for simplicity here
-			if (!stats.isDirectory()) {
-				throw new Error(`Target working directory "${targetPath}" is not a directory.`);
+		if (!dir) throw new Error('dir must be provided');
+		let relativeDir = dir;
+		let isAbsolute = false;
+		// Check absolute directory path
+		if (dir.startsWith('/')) {
+			if (existsSync(dir)) {
+				this.workingDirectory = dir;
+				isAbsolute = true;
+			} else {
+				// try it as a relative path
+				relativeDir = dir.substring(1);
 			}
-		} catch (e) {
-			// Handle potential stat errors (e.g., permissions)
-			throw new Error(`Error accessing target working directory "${targetPath}": ${e.message}`);
+		}
+		if (!isAbsolute) {
+			const relativePath = path.join(this.getWorkingDirectory(), relativeDir);
+			if (existsSync(relativePath)) {
+				this.workingDirectory = relativePath;
+			} else {
+				throw new Error(`New working directory ${dir} does not exist (current working directory ${this.workingDirectory})`);
+			}
 		}
 
-		// Update the working directory
-		this.workingDirectory = targetPath;
-		this.log.info(`Working directory set to: ${this.workingDirectory}`);
-
-		// Reset VCS instance as the context has changed
+		// After setting the working directory, update the vcs (version control system) property
+		logger.info(`setWorkingDirectory ${this.workingDirectory}`);
 		this.vcs = null; // lazy loaded in getVcs()
 	}
 
 	/**
 	 * Returns the file contents of all the files under the provided directory path
 	 * @param dirPath the directory to return all the files contents under
-	 * @returns the contents of the file(s) as a Map keyed by the file path relative to the working directory.
+	 * @returns the contents of the file(s) as a Map keyed by the file path
 	 */
 	async getFileContentsRecursively(dirPath: string, useGitIgnore = true): Promise<Map<string, string>> {
-		// Delegate listing to the list service
-		const filenames = await this.listService.listFilesRecursively(dirPath, useGitIgnore);
-		// Read the listed files using the current service's readFiles method
+		const filenames = await this.listFilesRecursively(dirPath, useGitIgnore);
 		return await this.readFiles(filenames);
 	}
 
@@ -180,116 +153,255 @@ export class FileSystemService {
 	 * Returns the file contents of all the files recursively under the provided directory path
 	 * @param dirPath the directory to return all the files contents under
 	 * @param storeToMemory if the file contents should be stored to memory. The key will be in the format file-contents-<FileSystem.workingDirectory>-<dirPath>
-	 * @returns the contents of the file(s) in format <file_contents path="dir/file1">...</file_contents><file_contents path="dir/file2">...</file_contents>
+	 * @returns the contents of the file(s) in format <file_contents path="dir/file1">file1 contents</file_contents><file_contents path="dir/file2">file2 contents</file_contents>
 	 */
 	async getFileContentsRecursivelyAsXml(dirPath: string, storeToMemory: boolean, filter: (path: string) => boolean = () => true): Promise<string> {
-		// Delegate listing to the list service
-		const filenames = (await this.listService.listFilesRecursively(dirPath)).filter(filter);
-		// Read files using this service's readFilesAsXml method
+		const filenames = (await this.listFilesRecursively(dirPath)).filter(filter);
 		const contents = await this.readFilesAsXml(filenames);
-		// Store in memory if requested
-		if (storeToMemory) {
-			// Ensure key reflects the actual directory path used for listing relative to working dir
-			const memoryKeyPath = path.normalize(dirPath); // Normalize './' etc.
-			// Use path.join to create a platform-independent key if needed, though relative path might be sufficient
-			const fullMemoryKeyPath = path.join(this.getWorkingDirectory(), memoryKeyPath);
-			agentContext().memory[`file-contents-${fullMemoryKeyPath}`] = contents; // Use full path for key? Or relative? Let's stick to relative for now.
-			// Reverting to relative path based on original code's apparent intent:
-			agentContext().memory[`file-contents-${memoryKeyPath}`] = contents;
-		}
+		if (storeToMemory) agentContext().memory[`file-contents-${join(this.getWorkingDirectory(), dirPath)}`] = contents;
 		return contents;
 	}
 
-	// --- Methods below are kept in FileSystemService ---
-	// searchFilesMatchingContents, searchExtractsMatchingContents, searchFilesMatchingName,
-	// listFilesInDirectory, listFilesRecursively, listFilesRecurse, loadGitignoreRules,
-	// listFolders, getAllFoldersRecursively, getFileSystemTree, getFileSystemTreeStructure
-	// are now primarily handled by FileSystemListService.
+	/**
+	 * Searches for files on the filesystem (using ripgrep) with contents matching the search regex.
+	 * @param contentsRegex the regular expression to search the content all the files recursively for
+	 * @returns the list of filenames (with postfix :<match_count>) which have contents matching the regular expression.
+	 */
+	async searchFilesMatchingContents(contentsRegex: string): Promise<string> {
+		// --count Only show count of line matches for each file
+		// rg likes this spawnCommand. Doesn't work it others execs
+		const results = await spawnCommand(`rg --count ${arg(contentsRegex)}`);
+		if (results.stderr.includes('command not found: rg')) {
+			throw new Error('Command not found: rg. Install ripgrep');
+		}
+		if (results.exitCode > 0) throw new Error(results.stderr);
+		return results.stdout;
+	}
+
+	/**
+	 * Searches for files on the filesystem (using ripgrep) with contents matching the search regex.
+	 * The number of lines before/after the matching content will be included for context.
+	 * The response format will be like
+	 * <code>
+	 * dir/subdir/filename
+	 * 26-foo();
+	 * 27-matchedString();
+	 * 28-bar();
+	 * </code>
+	 * @param contentsRegex the regular expression to search the content all the files recursively for
+	 * @param linesBeforeAndAfter the number of lines above/below the matching lines to include in the output
+	 * @returns the matching lines from each files with additional lines above/below for context.
+	 */
+	async searchExtractsMatchingContents(contentsRegex: string, linesBeforeAndAfter = 0): Promise<string> {
+		// --count Only show count of line matches for each file
+		// rg likes this spawnCommand. Doesn't work it others execs
+		const results = await spawnCommand(`rg ${arg(contentsRegex)} -C ${linesBeforeAndAfter}`);
+		if (results.stderr.includes('command not found: rg')) {
+			throw new Error('Command not found: rg. Install ripgrep');
+		}
+		if (results.exitCode > 0) throw new Error(results.stderr);
+		return results.stdout;
+	}
+
+	/**
+	 * Searches for files on the filesystem where the filename matches the regex.
+	 * @param fileNameRegex the regular expression to match the filename.
+	 * @returns the list of filenames matching the regular expression.
+	 */
+	async searchFilesMatchingName(fileNameRegex: string): Promise<string[]> {
+		const regex = new RegExp(fileNameRegex);
+		const files = await this.listFilesRecursively();
+		return files.filter((file) => regex.test(file.substring(file.lastIndexOf(path.sep) + 1)));
+	}
+
+	/**
+	 * Lists the file and folder names in a single directory.
+	 * Folder names will end with a /
+	 * @param dirPath the folder to list the files in. Defaults to the working directory
+	 * @returns the list of file and folder names
+	 */
+	async listFilesInDirectory(dirPath = '.'): Promise<string[]> {
+		const filter: FileFilter = (name) => true;
+		const ig = ignore();
+
+		// Determine the correct path based on whether dirPath is absolute or relative
+		let readdirPath: string;
+		if (path.isAbsolute(dirPath)) {
+			readdirPath = dirPath;
+		} else {
+			readdirPath = path.join(this.getWorkingDirectory(), dirPath);
+		}
+
+		// Load .gitignore rules if present
+		const gitIgnorePath = path.join(readdirPath, '.gitignore');
+		try {
+			await fs.access(gitIgnorePath);
+			let lines = await fs.readFile(gitIgnorePath, 'utf8').then((data) => data.split('\n'));
+			lines = lines.map((line) => line.trim()).filter((line) => line.length && !line.startsWith('#'), filter);
+			ig.add(lines);
+			ig.add('.git');
+		} catch {
+			// .gitignore doesn't exist or is not accessible, proceed without it
+			ig.add('.git'); // Still ignore .git even if .gitignore is missing
+		}
+
+		const files: string[] = [];
+
+		try {
+			const dirents = await fs.readdir(readdirPath, { withFileTypes: true });
+			for (const dirent of dirents) {
+				const direntName = dirent.isDirectory() ? `${dirent.name}/` : dirent.name;
+				// Calculate relative path for ignore check correctly based on the *root* working directory
+				const relativePathForIgnore = path.relative(this.getWorkingDirectory(), path.join(readdirPath, dirent.name));
+
+				if (!ig.ignores(relativePathForIgnore) && !ig.ignores(`${relativePathForIgnore}/`)) {
+					// Push the base name (file or folder name), not the relative path
+					files.push(direntName);
+				}
+			}
+		} catch (error) {
+			this.log.error(`Error reading directory: ${readdirPath}`, error);
+			throw error; // Re-throw the error to be caught by the caller
+		}
+
+		return files;
+	}
+
+	/**
+	 * List all the files recursively under the given path, excluding any paths in a .gitignore file if it exists
+	 * @param dirPath
+	 * @returns the list of files
+	 */
+	async listFilesRecursively(dirPath = './', useGitIgnore = true): Promise<string[]> {
+		this.log.debug(`listFilesRecursively cwd: ${this.workingDirectory}`);
+
+		const startPath = path.isAbsolute(dirPath) ? dirPath : path.join(this.getWorkingDirectory(), dirPath);
+		// TODO check isn't going higher than this.basePath
+
+		const gitRoot = useGitIgnore ? this.getVcsRoot() : null;
+		const ig: Ignore = useGitIgnore ? await this.loadGitignoreRules(startPath, gitRoot) : ignore();
+
+		const files: string[] = await this.listFilesRecurse(this.workingDirectory, startPath, ig, useGitIgnore, gitRoot);
+		return files.map((file) => path.relative(this.workingDirectory, file));
+	}
+
+	async listFilesRecurse(
+		rootPath: string,
+		dirPath: string,
+		parentIg: Ignore,
+		useGitIgnore: boolean,
+		gitRoot: string | null,
+		filter: (file: string) => boolean = (name) => true,
+	): Promise<string[]> {
+		const files: string[] = [];
+
+		const ig = useGitIgnore ? await this.loadGitignoreRules(dirPath, gitRoot) : ignore();
+		const mergedIg = ignore().add(parentIg).add(ig);
+
+		const dirents = await fs.readdir(dirPath, { withFileTypes: true });
+		for (const dirent of dirents) {
+			const relativePath = path.relative(rootPath, path.join(dirPath, dirent.name));
+			if (dirent.isDirectory()) {
+				if (!useGitIgnore || (!mergedIg.ignores(relativePath) && !mergedIg.ignores(`${relativePath}/`))) {
+					files.push(...(await this.listFilesRecurse(rootPath, path.join(dirPath, dirent.name), mergedIg, useGitIgnore, gitRoot, filter)));
+				}
+			} else {
+				if (!useGitIgnore || !mergedIg.ignores(relativePath)) {
+					files.push(path.join(dirPath, dirent.name));
+				}
+			}
+		}
+		return files;
+	}
 
 	/**
 	 * Gets the contents of a local file on the file system. If the user has only provided a filename you may need to find the full path using the searchFilesMatchingName function.
 	 * @param filePath The file path to read the contents of (e.g. src/index.ts)
-	 * @returns the contents of the file as a string.
+	 * @returns the contents of the file(s) in format <file_contents path="dir/file1">file1 contents</file_contents><file_contents path="dir/file2">file2 contents</file_contents>
 	 */
 	async readFile(filePath: string): Promise<string> {
-		this.log.debug(`readFile requested for: ${filePath}`);
-		let absolutePathToRead: string;
-		const serviceCwd = this.getWorkingDirectory();
-
-		// Determine the absolute path
-		if (path.isAbsolute(filePath)) {
-			absolutePathToRead = path.resolve(filePath); // Normalize
-		} else {
-			absolutePathToRead = path.resolve(serviceCwd, filePath);
-		}
-
-		// Security Check: Ensure the path is within the basePath
-		if (!absolutePathToRead.startsWith(this.basePath)) {
-			throw new Error(`Access denied: Cannot read file outside of base path: ${absolutePathToRead} (requested: ${filePath})`);
-		}
-
-		this.log.debug(`Attempting to read absolute path: ${absolutePathToRead}`);
-		getActiveSpan()?.setAttributes({
-			'file.path.requested': filePath,
-			'file.path.absolute': absolutePathToRead,
-			'file.path.relative': path.relative(serviceCwd, absolutePathToRead),
-		});
+		logger.debug(`readFile ${filePath}`);
+		let contents: string;
+		const relativeFullPath = path.join(this.getWorkingDirectory(), filePath);
+		logger.debug(`Checking ${filePath} and ${relativeFullPath}`);
 
 		try {
-			// Use the promisified fs.readFile
-			const contents = await fs.readFile(absolutePathToRead, 'utf8');
-			getActiveSpan()?.setAttribute('file.size', contents.length);
-			return contents;
-		} catch (error) {
-			if (error.code === 'ENOENT') {
-				this.log.warn(`File not found: ${absolutePathToRead} (requested: ${filePath})`);
-				// Consider if searching by name should happen here or be explicit in the caller/agent
-				throw new Error(`File not found: ${filePath}`);
+			// Check relative to current working directory first using async access
+			await fs.access(relativeFullPath);
+			getActiveSpan()?.setAttribute('resolvedPath', relativeFullPath);
+			contents = (await fs.readFile(relativeFullPath)).toString();
+		} catch {
+			// If relative fails, check if it's an absolute path
+			if (filePath.startsWith('/')) {
+				try {
+					await fs.access(filePath);
+					getActiveSpan()?.setAttribute('resolvedPath', relativeFullPath);
+					contents = (await fs.readFile(filePath)).toString();
+				} catch (absError) {
+					throw new Error(`File ${filePath} does not exist (checked as absolute and relative to ${this.getWorkingDirectory()})`);
+				}
+			} else {
+				throw new Error(`File ${filePath} does not exist (relative to ${this.getWorkingDirectory()})`);
 			}
-			this.log.error(`Error reading file ${absolutePathToRead}: ${error}`);
-			throw new Error(`Error reading file ${filePath}: ${error.message}`);
+			// try {
+			// 	const matches = await this.searchFilesMatchingName(filePath);
+			//  if (matches.length === 1) {
+			// 		fullPath = matches[0];
+			// 	}
+			// } catch (e) {
+			// 	console.log(e);
+			// }
 		}
+
+		getActiveSpan()?.setAttribute('size', contents.length);
+		return contents;
 	}
 
 	/**
 	 * Gets the contents of a local file on the file system and returns it in XML tags
-	 * @param filePath The file path (relative or absolute) to read the contents of.
-	 * @returns the contents of the file wrapped in XML tags, using the path relative to the working directory in the attribute.
+	 * @param filePath The file path to read the contents of (e.g. src/index.ts)
+	 * @returns the contents of the file(s) in format <file_contents path="dir/file1">file1 contents</file_contents>
 	 */
 	async readFileAsXML(filePath: string): Promise<string> {
-		const contents = await this.readFile(filePath); // readFile handles path resolution, security, and reading
-		// Determine the relative path for the XML attribute based on the resolved path
-		const serviceCwd = this.getWorkingDirectory();
-		const absolutePath = path.isAbsolute(filePath) ? path.resolve(filePath) : path.resolve(serviceCwd, filePath);
-		const relativePath = path.relative(serviceCwd, absolutePath);
-
-		const cdata = needsCDATA(contents);
-		return cdata
-			? `<file_content file_path="${relativePath}">${CDATA_START}\n${contents}\n${CDATA_END}</file_content>\n`
-			: `<file_content file_path="${relativePath}">\n${contents}\n</file_content>\n`;
+		return `<file_content file_path="${filePath}">\n${await this.readFile(filePath)}\n</file_contents>\n`;
 	}
 
 	/**
-	 * Gets the contents of multiple local files. Input paths can be absolute or relative.
-	 * @param filePaths An array of file paths to read. Paths can be relative to the working directory or absolute.
-	 * @returns A Map where keys are file paths relative to the working directory and values are file contents. Skips files outside basePath or unreadable files.
+	 * Gets the contents of a list of local files. Input paths can be absolute or relative to the service's working directory.
+	 * @param {Array<string>} filePaths The files paths to read the contents of.
+	 * @returns {Promise<Map<string, string>>} the contents of the files in a Map object keyed by the file path *relative* to the service's working directory.
 	 */
 	async readFiles(filePaths: string[]): Promise<Map<string, string>> {
 		const mapResult = new Map<string, string>();
 		const serviceCwd = this.getWorkingDirectory();
 
 		for (const inputPath of filePaths) {
-			try {
-				// Use the single readFile method which handles resolution, security, and errors
-				const contents = await this.readFile(inputPath);
+			let absolutePathToRead: string;
 
-				// Determine the relative path for the map key, consistent with readFileAsXML
-				const absolutePath = path.isAbsolute(inputPath) ? path.resolve(inputPath) : path.resolve(serviceCwd, inputPath);
-				const relativeKey = path.relative(serviceCwd, absolutePath);
+			// Determine the absolute path to read based on the input path format
+			if (path.isAbsolute(inputPath)) {
+				// If the input path is already absolute, use it directly.
+				// The basePath check later will ensure it's within allowed bounds.
+				absolutePathToRead = inputPath;
+			} else {
+				// If the input path is relative, resolve it against the service's current working directory.
+				absolutePathToRead = path.resolve(serviceCwd, inputPath);
+			}
+
+			// Prevent reading files outside the intended base directory
+			if (!absolutePathToRead.startsWith(this.basePath)) {
+				this.log.warn(`Attempted to read file outside basePath: ${absolutePathToRead} (input: ${inputPath})`);
+				continue; // Skip this file
+			}
+
+			try {
+				const contents = await fs.readFile(absolutePathToRead, 'utf8');
+				// Always store the key relative to the service's working directory for consistency
+				const relativeKey = path.relative(serviceCwd, absolutePathToRead);
 				mapResult.set(relativeKey, contents);
-			} catch (error) {
-				// Log the error from readFile and continue with the next file
-				this.log.warn(`Skipping file in readFiles due to error: ${error.message} (input: ${inputPath})`);
+			} catch (e) {
+				// Log the path we actually tried to read
+				this.log.warn(`readFiles Error reading ${absolutePathToRead} (input: ${inputPath}) ${e.message}`);
 			}
 		}
 		return mapResult;
@@ -322,41 +434,29 @@ export class FileSystemService {
 
 	/**
 	 * Check if a file exists. A filePath starts with / is it relative to FileSystem.basePath, otherwise its relative to FileSystem.workingDirectory
-	 * Checks if a file exists at the given path (relative or absolute).
-	 * @param filePath The file path to check. Path can be relative to the working directory or absolute.
-	 * @returns true if the file exists and is accessible within the basePath, false otherwise.
+	 * @param filePath The file path to check
+	 * @returns true if the file exists, else false
 	 */
 	async fileExists(filePath: string): Promise<boolean> {
-		this.log.debug(`fileExists check requested for: ${filePath}`);
-		let absolutePathToCheck: string;
-		const serviceCwd = this.getWorkingDirectory();
-
-		// Determine the absolute path
-		if (path.isAbsolute(filePath)) {
-			absolutePathToCheck = path.resolve(filePath);
-		} else {
-			absolutePathToCheck = path.resolve(serviceCwd, filePath);
+		// TODO remove the basePath checks. Either absolute or relative to this.cwd
+		logger.debug(`fileExists: ${filePath}`);
+		// Check if we've been given an absolute path
+		if (filePath.startsWith(this.basePath)) {
+			try {
+				logger.debug(`fileExists check on: ${filePath}`);
+				await fs.access(filePath);
+				return true;
+			} catch {}
 		}
-
-		// Security Check: Ensure the path is within the basePath
-		if (!absolutePathToCheck.startsWith(this.basePath)) {
-			this.log.warn(`fileExists check outside basePath denied: ${absolutePathToCheck} (requested: ${filePath})`);
-			return false; // File is outside allowed scope
-		}
-
-		this.log.debug(`Checking existence of absolute path: ${absolutePathToCheck}`);
+		// logger.info(`basePath ${this.basePath}`);
+		// logger.info(`this.workingDirectory ${this.workingDirectory}`);
+		// logger.info(`getWorkingDirectory() ${this.getWorkingDirectory()}`);
+		const path = filePath.startsWith('/') ? resolve(this.basePath, filePath.slice(1)) : resolve(this.workingDirectory, filePath);
 		try {
-			// Use stat to check existence and accessibility
-			await fs.stat(absolutePathToCheck);
-			this.log.debug(`File exists: ${absolutePathToCheck}`);
+			logger.debug(`fileExists check on: ${path}`);
+			await fs.access(path);
 			return true;
-		} catch (error) {
-			if (error.code === 'ENOENT') {
-				this.log.debug(`File does not exist: ${absolutePathToCheck}`);
-			} else {
-				// Log other errors (like permission errors) but still return false
-				this.log.warn(`Error checking file existence for ${absolutePathToCheck}: ${error.message}`);
-			}
+		} catch {
 			return false;
 		}
 	}
@@ -373,51 +473,15 @@ export class FileSystemService {
 
 	/**
 	 * Writes to a file. If the file exists it will overwrite the contents. This will create any parent directories required,
-	 * Writes content to a file. Creates parent directories if needed. Overwrites if file exists.
-	 * @param filePath The file path (relative or absolute). Must resolve to a path within `basePath`.
-	 * @param contents The string content to write.
+	 * @param filePath The file path (either full filesystem path or relative to current working directory)
+	 * @param contents The contents to write to the file
 	 */
 	async writeFile(filePath: string, contents: string): Promise<void> {
-		this.log.debug(`writeFile requested for: ${filePath}`);
-		let absolutePathToWrite: string;
-		const serviceCwd = this.getWorkingDirectory();
-
-		// Determine the absolute path
-		if (path.isAbsolute(filePath)) {
-			absolutePathToWrite = path.resolve(filePath);
-		} else {
-			absolutePathToWrite = path.resolve(serviceCwd, filePath);
-		}
-
-		// Security Check: Ensure the path is within the basePath
-		if (!absolutePathToWrite.startsWith(this.basePath)) {
-			throw new Error(`Access denied: Cannot write file outside of base path: ${absolutePathToWrite} (requested: ${filePath})`);
-		}
-
-		this.log.debug(`Attempting to write to absolute path: ${absolutePathToWrite}`);
-		getActiveSpan()?.setAttributes({
-			'file.path.requested': filePath,
-			'file.path.absolute': absolutePathToWrite,
-			'file.path.relative': path.relative(serviceCwd, absolutePathToWrite),
-			'file.size': contents.length, // Log size being written
-		});
-
-		try {
-			// Ensure parent directory exists
-			const parentPath = path.dirname(absolutePathToWrite);
-			// Check if parent is different from file path itself (handles writing to root case if ever needed, though unlikely)
-			if (parentPath !== absolutePathToWrite) {
-				// Use the promisified mkdir
-				await fs.mkdir(parentPath, { recursive: true });
-			}
-
-			// Write the file using the promisified writeFile
-			await fs.writeFile(absolutePathToWrite, contents, 'utf8');
-			this.log.info(`Successfully wrote file: ${absolutePathToWrite}`);
-		} catch (error) {
-			this.log.error(`Error writing file ${absolutePathToWrite}: ${error}`);
-			throw new Error(`Error writing file ${filePath}: ${error.message}`);
-		}
+		const fileSystemPath = filePath.startsWith(this.basePath) ? filePath : join(this.getWorkingDirectory(), filePath);
+		logger.debug(`Writing file "${filePath}" to ${fileSystemPath}`);
+		const parentPath = path.dirname(fileSystemPath);
+		await fs.mkdir(parentPath, { recursive: true });
+		await fs.writeFile(fileSystemPath, contents);
 	}
 
 	/**
@@ -431,7 +495,185 @@ export class FileSystemService {
 		await this.writeFile(filePath, updatedContent);
 	}
 
-	// --- VCS Methods ---
+	async loadGitignoreRules(startPath: string, gitRoot: string | null): Promise<Ignore> {
+		const ig = ignore();
+		let currentPath = startPath;
+
+		// Continue until git root or filesystem root
+		while (true) {
+			const gitIgnorePath = path.join(currentPath, '.gitignore');
+			const knownGitIgnore = gitIgnorePaths.has(gitIgnorePath);
+			let gitignoreExists = false;
+			if (knownGitIgnore) {
+				gitignoreExists = true;
+			} else {
+				try {
+					await fs.access(gitIgnorePath);
+					gitignoreExists = true;
+				} catch {
+					// File doesn't exist or not accessible
+				}
+			}
+
+			if (gitignoreExists) {
+				const lines = (await fs.readFile(gitIgnorePath, 'utf8'))
+					.split('\n')
+					.map((line) => line.trim())
+					.filter((line) => line.length && !line.startsWith('#'));
+				ig.add(lines);
+
+				if (!knownGitIgnore) gitIgnorePaths.add(gitIgnorePath);
+			}
+
+			// Check if we've reached the git root directory
+			if (gitRoot && currentPath === gitRoot) {
+				break;
+			}
+
+			// Determine the parent directory
+			const parentPath = path.dirname(currentPath);
+
+			// If we've reached the filesystem root, stop
+			if (parentPath === currentPath) {
+				break;
+			}
+
+			// Move to the parent directory for the next iteration
+			currentPath = parentPath;
+		}
+
+		ig.add('.git');
+		return ig;
+	}
+
+	async listFolders(dirPath = './'): Promise<string[]> {
+		const workingDir = this.getWorkingDirectory();
+		if (!path.isAbsolute(dirPath)) {
+			dirPath = path.join(workingDir, dirPath);
+		}
+		try {
+			const items = await fs.readdir(dirPath);
+			const folders: string[] = [];
+
+			for (const item of items) {
+				const itemPath = path.join(dirPath, item);
+				const stat = await fs.stat(itemPath);
+				if (stat.isDirectory()) {
+					folders.push(item); // Return only the subfolder name
+				}
+			}
+			return folders;
+		} catch (error) {
+			console.error('Error reading directory:', error);
+			return [];
+		}
+	}
+
+	/**
+	 * Recursively lists all folders under the given root directory.
+	 * @param dir The root directory to start the search from. Defaults to the current working directory.
+	 * @returns A promise that resolves to an array of folder paths relative to the working directory.
+	 */
+	async getAllFoldersRecursively(dir = './'): Promise<string[]> {
+		const workingDir = this.getWorkingDirectory();
+		const startPath = path.join(workingDir, dir);
+
+		const gitRoot = this.getVcsRoot();
+		const ig = await this.loadGitignoreRules(startPath, gitRoot);
+
+		const folders: string[] = [];
+
+		const recurse = async (currentPath: string) => {
+			const relativePath = path.relative(workingDir, currentPath);
+			if (!relativePath || (!ig.ignores(relativePath) && !ig.ignores(`${relativePath}/`))) {
+				folders.push(relativePath);
+
+				const dirents = await fs.readdir(currentPath, { withFileTypes: true });
+				for (const dirent of dirents) {
+					if (dirent.isDirectory()) {
+						const childPath = path.join(currentPath, dirent.name);
+						await recurse(childPath);
+					}
+				}
+			}
+		};
+		await recurse(startPath);
+		// Remove the root directory from the list if it was included
+		return folders.filter((folder) => folder !== '.');
+	}
+
+	/**
+	 * Generates a textual representation of a directory tree structure.
+	 *
+	 * This function uses listFilesRecursively to get all files and directories,
+	 * respecting .gitignore rules, and produces an indented string representation
+	 * of the file system hierarchy.
+	 *
+	 * @param {string} dirPath - The path of the directory to generate the tree for, defaulting to working directory
+	 * @returns {Promise<string>} A string representation of the directory tree.
+	 *
+	 * @example
+	 * Assuming the following directory structure:
+	 * ./
+	 *  ├── file1.txt
+	 *  ├── images/
+	 *  │   ├── logo.png
+	 *  └── src/
+	 *      └── utils/
+	 *          └── helper.js
+	 *
+	 * The output would be:
+	 * file1.txt
+	 * images/
+	 *   logo.png
+	 * src/utils/
+	 *   helper.js
+	 */
+	async getFileSystemTree(dirPath = './'): Promise<string> {
+		const files = await this.listFilesRecursively(dirPath);
+		const tree = new Map<string, string>();
+
+		files.forEach((file) => {
+			const parts = file.split(path.sep);
+			const isFile = !file.endsWith('/');
+			const dirPath = isFile ? parts.slice(0, -1).join(path.sep) : file;
+			const fileName = isFile ? parts[parts.length - 1] : '';
+
+			if (!tree.has(dirPath)) {
+				tree.set(dirPath, `${dirPath}${dirPath ? '/' : ''}\n`);
+			}
+
+			if (isFile) {
+				const existingContent = tree.get(dirPath) || '';
+				tree.set(dirPath, `${existingContent}  ${fileName}\n`);
+			}
+		});
+
+		return Array.from(tree.values()).join('');
+	}
+
+	/**
+	 * Returns the filesystem structure
+	 * @param dirPath
+	 * @returns a record with the keys as the folders paths, and the list values as the files in the folder
+	 */
+	async getFileSystemTreeStructure(dirPath = './'): Promise<Record<string, string[]>> {
+		const files = await this.listFilesRecursively(dirPath);
+		const tree: Record<string, string[]> = {};
+
+		files.forEach((file) => {
+			const parts = file.split(path.sep);
+			const isFile = !file.endsWith('/');
+			const dirPath = isFile ? parts.slice(0, -1).join(path.sep) : file;
+			const fileName = isFile ? parts[parts.length - 1] : '';
+
+			if (!tree[dirPath]) tree[dirPath] = [];
+
+			if (isFile) tree[dirPath].push(fileName);
+		});
+
+		return tree;
+	}
 
 	getVcs(): VersionControlSystem {
 		if (!this.vcs) {
@@ -442,61 +684,41 @@ export class FileSystemService {
 	}
 
 	/**
-	 * Gets the root directory of the Git repository containing the current working directory.
-	 * Returns null if not in a Git repository or if git command fails.
-	 * Caches results based on working directory.
+	 * Gets the version control service (Git) repository root folder, if the current working directory is in a Git repo, else null.
 	 */
 	getVcsRoot(): string | null {
-		const currentWd = this.getWorkingDirectory();
-
-		// Check cache first
-		// The cache key is the working directory path.
-		if (FileSystemService.gitRootCache.has(currentWd)) {
-			const cachedValue = FileSystemService.gitRootCache.get(currentWd);
-			// Return null if explicitly cached as null, otherwise return the cached path
-			return cachedValue === undefined ? null : cachedValue;
-		}
+		// First, check if workingDirectory is under any known Git roots
+		if (gitRoots.has(this.workingDirectory)) return this.workingDirectory;
+		// Do we need gitRoots now that we have gitRootMapping?
+		const cachedRoot = gitRootMapping.get(this.workingDirectory);
+		if (cachedRoot) return cachedRoot;
 
 		// Check if the working directory actually exists before running git command
-		if (!existsSync(currentWd)) {
-			this.log.warn(`Working directory ${currentWd} does not exist. Cannot determine Git root.`);
-			FileSystemService.gitRootCache.set(currentWd, null); // Cache the null result
-			return null;
-		}
+		// Use the original synchronous existsSync here as it's part of the setup for the sync execCmdSync call
+		// if(!existsSync(this.workingDirectory)) {
+		//     logger.warn(`Working directory ${this.workingDirectory} does not exist. Cannot determine Git root.`);
+		//     return null;
+		// }
 
-		// Execute Git command to find the root
+		// If not found in cache, execute Git command
 		try {
-			// Run command *in* the working directory
-			const result = execCmdSync('git rev-parse --show-toplevel', currentWd);
-
-			// Check exitCode first, then error object
-			if (result.exitCode !== 0 || result.error) {
-				// Common case: not a git repo (exit code 128)
-				if (result.stderr?.includes('not a git repository')) {
-					this.log.debug(`Directory ${currentWd} is not within a Git repository.`);
-				} else {
-					// Other errors
-					this.log.warn(result.stderr || result.error?.message, `Git command failed in ${currentWd}. Cannot determine Git root.`);
-				}
-				FileSystemService.gitRootCache.set(currentWd, null); // Cache the null result
+			// Use execCmdSync to get the Git root directory synchronously
+			// Need to pass the workingDirectory to avoid recursion with the default workingDirectory arg
+			const result = execCmdSync('git rev-parse --show-toplevel', this.workingDirectory);
+			if (result.error) {
+				logger.warn(result.stderr || result.error, `Git command failed in ${this.workingDirectory}. Not a git repository or git not found.`);
 				return null;
 			}
-
 			const gitRoot = result.stdout.trim();
-			this.log.debug(`Determined Git root for ${currentWd} is ${gitRoot}`);
-			FileSystemService.gitRootCache.set(currentWd, gitRoot); // Cache the found root path
+			logger.debug(`Adding git root ${gitRoot} for working dir ${this.workingDirectory}`);
+			gitRoots.add(gitRoot);
+			gitRootMapping.set(this.workingDirectory, gitRoot);
+
 			return gitRoot;
 		} catch (e) {
-			this.log.error(e, `Error executing git command in ${currentWd}`);
-			FileSystemService.gitRootCache.set(currentWd, null); // Cache null on unexpected error
+			logger.error(e, `Error checking if ${this.workingDirectory} is in a Git repo`);
+			// Any unexpected errors also result in null
 			return null;
 		}
 	}
-
-	// Static cache for Git roots to avoid re-running the command frequently
-	// Key: Absolute working directory path, Value: Absolute Git root path or null
-	private static gitRootCache = new Map<string, string | null>();
 }
-
-// Helper function (consider moving to utils if used elsewhere)
-// import { statSync } from 'node:fs'; // Already imported at the top
