@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import path, { join } from 'path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import path, { join } from 'node:path';
 import { logger } from '#o11y/logger';
 import { systemDir } from '../appVars';
 
@@ -10,10 +10,10 @@ export interface CliOptions {
 	resumeAgentId: string | undefined;
 	/** Optional array of function class names to use */
 	functionClasses?: string[];
+	useSharedRepos?: boolean;
 }
 
 export function parseProcessArgs(): CliOptions {
-	logger.info(process.argv);
 	const scriptPath = process.argv[1];
 	let scriptName = scriptPath.split(path.sep).at(-1);
 	scriptName = scriptName.substring(0, scriptName.length - 3);
@@ -26,7 +26,7 @@ export function parseProcessArgs(): CliOptions {
 function parseFunctionArgument(args: string[]): string[] | undefined {
 	console.log(args);
 	const toolArg = args.find((arg) => arg.startsWith('-f='));
-	logger.info(`Function arg: ${toolArg}`);
+	// logger.info(`Function arg: ${toolArg}`);
 	if (!toolArg) return undefined;
 	return toolArg
 		.substring(3)
@@ -51,6 +51,13 @@ export function parseUserCliArgs(scriptName: string, scriptArgs: string[]): CliO
 		}
 	}
 
+	let useSharedRepos = true;
+	const privateRepoArgIndex = scriptArgs.findIndex((arg) => arg === '--private' || arg === '-p');
+	if (privateRepoArgIndex > -1) {
+		useSharedRepos = false;
+		scriptArgs.splice(privateRepoArgIndex, 1); // Remove the flag after processing
+	}
+
 	// Extract function classes before processing prompt
 	const functionClasses = parseFunctionArgument(scriptArgs);
 	// Remove the function argument from args if present
@@ -69,7 +76,7 @@ export function parseUserCliArgs(scriptName: string, scriptArgs: string[]): CliO
 
 	const resumeAgentId = resumeLastRun ? getLastRunAgentId(scriptName) : undefined;
 
-	return { scriptName, resumeAgentId, initialPrompt, functionClasses };
+	return { scriptName, resumeAgentId, initialPrompt, functionClasses, useSharedRepos };
 }
 
 export function saveAgentId(scriptName: string, agentId: string): void {

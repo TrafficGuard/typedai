@@ -1,8 +1,9 @@
 import { LlmFunctions } from '#agent/LlmFunctions';
-import { AgentContext } from '#agent/agentContextTypes';
+import type { AgentContext } from '#agent/agentContextTypes';
 import { getCompletedHandler } from '#agent/completionHandlerRegistry';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { deserializeLLMs } from '#llm/llmFactory';
+import { logger } from '#o11y/logger';
 import { currentUser } from '#user/userService/userContext';
 import { appContext } from '../applicationContext';
 
@@ -22,8 +23,11 @@ export function serializeContext(context: AgentContext): Record<string, any> {
 		// Copy primitive properties across
 		else if (typeof context[key] === 'string' || typeof context[key] === 'number' || typeof context[key] === 'boolean') {
 			serialized[key] = context[key];
+		} else if (key === 'functionCallHistory') {
+			// Serialise Array to string as Firestore doesn't support nested entities
+			serialized[key] = JSON.stringify(context[key]);
 		}
-		// Assume arrays (functionCallHistory, liveFiles) can be directly de(serialised) to JSON
+		// Assume arrays (liveFiles) can be directly de(serialised) to JSON
 		else if (Array.isArray(context[key])) {
 			serialized[key] = context[key];
 		}
@@ -44,7 +48,7 @@ export function serializeContext(context: AgentContext): Record<string, any> {
 		} else if (key === 'user') {
 			serialized[key] = context.user.id;
 		} else if (key === 'completedHandler') {
-			context.completedHandler.agentCompletedHandlerId();
+			serialized[key] = context.completedHandler?.agentCompletedHandlerId() ?? null;
 		}
 		// otherwise throw error
 		else {
@@ -63,10 +67,11 @@ export async function deserializeAgentContext(serialized: Record<keyof AgentCont
 			context[key] = serialized[key];
 		}
 	}
+	// handle array or string
+	if (typeof serialized.functionCallHistory === 'string') context.functionCallHistory = JSON.parse(serialized.functionCallHistory);
 
 	context.fileSystem = new FileSystemService().fromJSON(serialized.fileSystem);
 	context.functions = new LlmFunctions().fromJSON(serialized.functions ?? (serialized as any).toolbox); // toolbox for backward compat
-
 	context.memory = serialized.memory;
 	context.metadata = serialized.metadata;
 	context.childAgents = serialized.childAgents || [];
@@ -76,11 +81,20 @@ export async function deserializeAgentContext(serialized: Record<keyof AgentCont
 	if (serialized.user === user.id) context.user = user;
 	else context.user = await appContext().userService.getUser(serialized.user);
 
-	context.completedHandler = getCompletedHandler(serialized.completedHandler);
+	const handlerId = serialized.completedHandler;
+	if (handlerId) {
+		context.completedHandler = getCompletedHandler(handlerId);
+		if (!context.completedHandler)
+			logger.error(`Completed handler with ID '${handlerId}' not found in registry during deserialization for agent ${serialized.agentId}.`);
+	}
 
 	// backwards compatability
-	if (!context.type) context.type = 'xml';
-	if ((context.type as string) === 'python') context.type = 'codegen';
+	if ((context.type as any) === 'codegen') {
+		context.type = 'autonomous';
+		context.subtype = 'codegen';
+	}
+	if (!context.type) context.type = 'autonomous';
+	if (context.type === 'autonomous' && !context.subtype) context.subtype = 'codegen';
 	if (!context.iterations) context.iterations = 0;
 
 	// Need to default empty parameters. Seems to get lost in Firestore

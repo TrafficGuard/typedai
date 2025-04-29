@@ -1,5 +1,5 @@
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import { LanguageTools } from '../languageTools';
+import type { LanguageTools } from '../languageTools';
 
 @funcClass(__filename)
 export class PhpTools implements LanguageTools {

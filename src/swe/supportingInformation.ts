@@ -1,5 +1,5 @@
 import { getFileSystem } from '#agent/agentContextLocalStorage';
-import { ProjectInfo } from '#swe/projectDetection';
+import type { ProjectInfo } from '#swe/projectDetection';
 
 export async function supportingInformation(projectInfo: ProjectInfo): Promise<string> {
 	let info = '';

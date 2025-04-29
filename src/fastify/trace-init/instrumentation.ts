@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-import { Span, context, diag, isSpanContextValid, trace } from '@opentelemetry/api';
-import { InstrumentationBase, InstrumentationConfig, InstrumentationNodeModuleDefinition, safeExecuteInTheMiddle } from '@opentelemetry/instrumentation';
+import { type Span, context, diag, isSpanContextValid, trace } from '@opentelemetry/api';
+import { InstrumentationBase, type InstrumentationConfig, InstrumentationNodeModuleDefinition, safeExecuteInTheMiddle } from '@opentelemetry/instrumentation';
 // import { VERSION } from './version';
 
 // -----------------------------------------------------------------------------

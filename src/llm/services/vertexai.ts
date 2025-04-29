@@ -1,45 +1,57 @@
-import { GoogleVertexProvider, createVertex } from '@ai-sdk/google-vertex';
-import { HarmBlockThreshold, HarmCategory, SafetySetting } from '@google-cloud/vertexai';
+import { type GoogleVertexProvider, createVertex } from '@ai-sdk/google-vertex';
+import { HarmBlockThreshold, HarmCategory, type SafetySetting } from '@google-cloud/vertexai';
 import axios from 'axios';
-import { InputCostFunction, OutputCostFunction, perMilTokens } from '#llm/base-llm';
+import { type InputCostFunction, type OutputCostFunction, perMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
 import { currentUser } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
-import { LLM, combinePrompts } from '../llm';
+import { type LLM, combinePrompts } from '../llm';
 
 export const VERTEX_SERVICE = 'vertex';
 
 export function vertexLLMRegistry(): Record<string, () => LLM> {
 	return {
-		[`${VERTEX_SERVICE}:gemini-2.0-pro`]: Gemini_2_0_Experimental,
-		[`${VERTEX_SERVICE}:gemini-2.0-flash-thinking`]: Gemini_2_0_Flash_Thinking,
 		[`${VERTEX_SERVICE}:gemini-2.0-flash-lite`]: Gemini_2_0_Flash_Lite,
 		[`${VERTEX_SERVICE}:gemini-2.0-flash`]: Gemini_2_0_Flash,
+		[`${VERTEX_SERVICE}:gemini-2.5-pro`]: Gemini_2_5_Pro,
+		[`${VERTEX_SERVICE}:gemini-2.5-flash`]: Gemini_2_5_Flash,
 	};
 }
 
 // https://cloud.google.com/vertex-ai/generative-ai/pricing#token-based-pricing
 
-export function Gemini_2_0_Experimental() {
+// Prompts less than 200,00 tokens: $1.25/million tokens for input, $10/million for output
+// 	Prompts more than 200,000 tokens (up to the 1,048,576 max): $2.50/million for input, $15/million for output
+export function Gemini_2_5_Pro() {
 	return new VertexLLM(
-		'Gemini experimental',
-		'gemini-2.0-pro-exp-02-05',
+		'Gemini 2.5 Pro',
+		'gemini-2.5-pro-exp-03-25',
 		1_000_000,
-		(input: string) => (input.length * 0.0036) / 1000,
-		(output: string) => (output.length * 0.018) / 1000,
+		(input: string, inputTokens: number) => (inputTokens < 200000 ? cost(1.25, inputTokens) : cost(2.5, inputTokens)),
+		(output: string, outputTokens: number) => (outputTokens < 200000 ? cost(10, outputTokens) : cost(15, outputTokens)),
+	);
+}
+
+export function Gemini_2_5_Flash() {
+	return new VertexLLM(
+		'Gemini 2.5 Flash',
+		'gemini-2.5-flash-preview-04-17',
+		1_000_000,
+		(input: string, inputTokens: number) => cost(0.15, inputTokens),
+		(output: string, outputTokens: number) => cost(0.6, outputTokens),
 	);
 }
 
 export function Gemini_2_0_Flash() {
-	return new VertexLLM('Gemini 2.0 Flash', 'gemini-2.0-flash-001', 1_000_000, perMilTokens(0.15), perMilTokens(0.6));
-}
-
-export function Gemini_2_0_Flash_Thinking() {
-	return new VertexLLM('Gemini 2.0 Flash Thinking Experimental', 'gemini-2.0-flash-thinking-exp-01-21', 1_000_000, perMilTokens(0.15), perMilTokens(0.6));
+	return new VertexLLM('Gemini 2.0 Flash', 'gemini-2.0-flash-001', 1_000_000, perMilTokens(0.1), perMilTokens(0.4));
 }
 
 export function Gemini_2_0_Flash_Lite() {
-	return new VertexLLM('Gemini 2.0 Flash Lite', 'gemini-2.0-flash-lite-preview-02-05', 1_000_000, perMilTokens(0.075), perMilTokens(0.3));
+	return new VertexLLM('Gemini 2.0 Flash Lite', 'gemini-2.0-flash-lite', 1_000_000, perMilTokens(0.075), perMilTokens(0.3));
+}
+
+function cost(costPerMillionTokens: number, tokens: number) {
+	return (tokens * costPerMillionTokens) / 1_000_000;
 }
 
 /**

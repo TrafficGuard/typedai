@@ -3,7 +3,7 @@ import { sambanovaDeepseekR1 } from '#llm/services/sambanova';
 import { togetherDeepSeekR1 } from '#llm/services/together';
 import { logger } from '#o11y/logger';
 import { BaseLLM } from '../base-llm';
-import { GenerateTextOptions, LLM, LlmMessage } from '../llm';
+import type { GenerateTextOptions, LLM, LlmMessage } from '../llm';
 import { fireworksDeepSeekR1 } from '../services/fireworks';
 
 export function deepSeekFallbackRegistry(): Record<string, () => LLM> {

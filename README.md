@@ -27,7 +27,7 @@ Included are capable software engineering agents, which have assisted building t
 - [Pull request code review agent](https://typedai.dev/code-review/)
 - [AI chat interface](https://typedai.dev/chat/)
 - [Slack chatbot](https://typedai.dev/chatbot/)
-- Supports many LLM services - OpenAI, Anthropic (native & Vertex), Gemini, Groq, Fireworks, Together.ai, DeepSeek, Ollama, Cerebras, X.ai
+- Supports many LLM services - OpenAI, Anthropic (native & Vertex), Gemini, Groq, Fireworks, Together.ai, DeepSeek, Ollama, Cerebras, SambaNova, OpenRouter, X.ai
 - Multi-agent [extend-reasoning implementations](https://github.com/TrafficGuard/typedai/tree/main/src/llm/multi-agent) of the LLM interface
 - Configurable Human-in-the-loop settings
 - [Functional callable tools/integrations](https://typedai.dev/integrations/) (Filesystem, Jira, Slack, Perplexity, Google Cloud, Gitlab, GitHub etc)

@@ -1,12 +1,12 @@
-import fs, { existsSync, readFileSync } from 'node:fs';
-import { join } from 'path';
-import { promisify } from 'util';
+import fs, { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { promisify } from 'node:util';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
-import { ExecResult, execCommand, failOnError, runShellCommand } from '#utils/exec';
+import { type ExecResult, execCommand, failOnError } from '#utils/exec';
 import { typedaiDirName } from '../../../appVars';
-import { LanguageTools } from '../languageTools';
+import type { LanguageTools } from '../languageTools';
 
 // https://typescript.tv/errors/
 
@@ -22,7 +22,7 @@ export class TypescriptTools implements LanguageTools {
 	async runNpmScript(script: string, args: string[] = []): Promise<string> {
 		const packageJson = JSON.parse(await getFileSystem().readFile('package.json'));
 		if (!packageJson.scripts[script]) throw new Error(`Npm script ${script} doesn't exist in package.json`);
-		const result = await runShellCommand(`npm run ${script}`);
+		const result = await execCommand(`npm run ${script}`);
 		failOnError(`Error running npm run ${script}`, result);
 		return `${result.stdout}${result.stderr ? `\n${result.stderr}` : ''}`;
 	}
@@ -71,11 +71,11 @@ export class TypescriptTools implements LanguageTools {
 		const nvmPrefix: string = (await fss.fileExists('.nvmrc')) ? 'unset NPM_CONFIG_PREFIX && nvm use && ' : '';
 		// NODE_ENV=development is required other if it's set to production the devDependencies won't be installed
 		if (existsSync(join(fss.getWorkingDirectory(), 'yarn.lock'))) {
-			result = await runShellCommand(`${nvmPrefix}yarn add ${packageName}`, { envVars: { NODE_ENV: 'development' } });
+			result = await execCommand(`${nvmPrefix}yarn add ${packageName}`, { envVars: { NODE_ENV: 'development' } });
 		} else if (existsSync(join(fss.getWorkingDirectory(), 'pnpm-lock.yaml'))) {
-			result = await runShellCommand(`${nvmPrefix}pnpm install ${packageName}`, { envVars: { NODE_ENV: 'development' } });
+			result = await execCommand(`${nvmPrefix}pnpm install ${packageName}`, { envVars: { NODE_ENV: 'development' } });
 		} else {
-			result = await runShellCommand(`${nvmPrefix}npm install ${packageName}`, { envVars: { NODE_ENV: 'development' } });
+			result = await execCommand(`${nvmPrefix}npm install ${packageName}`, { envVars: { NODE_ENV: 'development' } });
 		}
 
 		if (result.exitCode > 0) throw new Error(`${result.stdout}\n${result.stderr}`);

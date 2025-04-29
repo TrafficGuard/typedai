@@ -1,21 +1,21 @@
-import { readFileSync } from 'fs';
-import * as http from 'node:http';
+import { readFileSync } from 'node:fs';
+import type * as http from 'node:http';
 import { join } from 'node:path';
-import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
+import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import fastify, {
-	FastifyBaseLogger,
-	FastifyInstance,
-	FastifyReply,
-	FastifyRequest as FastifyRequestBase,
-	RawReplyDefaultExpression,
-	RawRequestDefaultExpression,
+	type FastifyBaseLogger,
+	type FastifyInstance,
+	type FastifyReply,
+	type FastifyRequest as FastifyRequestBase,
+	type RawReplyDefaultExpression,
+	type RawRequestDefaultExpression,
 } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
 import * as HttpStatus from 'http-status-codes';
 import { googleIapMiddleware, jwtAuthMiddleware, singleUserMiddleware } from '#fastify/authenticationMiddleware';
 import { logger } from '#o11y/logger';
-import { User } from '#user/user';
-import { AppFastifyInstance } from '../server';
+import type { User } from '#user/user';
+import type { AppFastifyInstance } from '../applicationTypes';
 import { loadOnRequestHooks } from './hooks';
 
 const NODE_ENV = process.env.NODE_ENV ?? 'local';
@@ -37,7 +37,7 @@ export type TypeBoxFastifyInstance = FastifyInstance<
 export type RouteDefinition = (fastify: AppFastifyInstance) => Promise<void>;
 
 /** Our Fastify request type used in the application */
-interface FastifyRequest extends FastifyRequestBase {
+export interface FastifyRequest extends FastifyRequestBase {
 	currentUser?: User;
 }
 
@@ -74,7 +74,8 @@ export async function initFastify(config: FastifyConfig): Promise<AppFastifyInst
 	loadHooks();
 	if (config.instanceDecorators) registerInstanceDecorators(config.instanceDecorators);
 	if (config.requestDecorators) registerRequestDecorators(config.requestDecorators);
-	registerRoutes(config.routes);
+
+	registerRoutes(config.routes); // New application routes must be added the config in server.ts
 
 	// All backend API routes start with /api/ so any unmatched at this point is a 404
 	fastifyInstance.get('/api/*', async (request, reply) => {
@@ -105,7 +106,7 @@ export async function initFastify(config: FastifyConfig): Promise<AppFastifyInst
 		const envVars = ['PORT', 'SERVER_PORT'];
 		for (const envVar of envVars) {
 			try {
-				port = parseInt(process.env[envVar] ?? '');
+				port = Number.parseInt(process.env[envVar] ?? '');
 				break;
 			} catch (e) {}
 		}

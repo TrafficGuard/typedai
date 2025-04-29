@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import { LLM } from '#llm/llm';
+import type { LLM } from '#llm/llm';
 
 /**
  * Generates documentation for the scripts in the package.json file, assuming it exists, in a Markdown formatted list.

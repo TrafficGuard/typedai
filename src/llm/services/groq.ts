@@ -1,8 +1,8 @@
-import { GroqProvider, createGroq } from '@ai-sdk/groq';
-import { InputCostFunction, OutputCostFunction, perMilTokens } from '#llm/base-llm';
+import { type GroqProvider, createGroq } from '@ai-sdk/groq';
+import { type InputCostFunction, type OutputCostFunction, perMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
 import { currentUser } from '#user/userService/userContext';
-import { LLM } from '../llm';
+import type { GenerateTextOptions, LLM, LlmMessage } from '../llm';
 
 export const GROQ_SERVICE = 'groq';
 
@@ -41,6 +41,7 @@ export function groqLlama3_3_70B_R1_Distill(): LLM {
 /**
  * Qwen QWQ 32B model from Groq
  * Pricing: $0.29/M input tokens, $0.39/M output tokens
+ * https://groq.com/a-guide-to-reasoning-with-qwen-qwq-32b/
  */
 export function groqQwenQwq32b(): LLM {
 	return new GroqLLM('Qwen QWQ 32b (Groq)', 'qwen-qwq-32b', 128_000, perMilTokens(0.29), perMilTokens(0.39));
@@ -60,6 +61,18 @@ export class GroqLLM extends AiLLM<GroqProvider> {
 
 	protected apiKey(): string {
 		return currentUser().llmConfig.groqKey || process.env.GROQ_API_KEY;
+	}
+
+	async generateTextFromMessages(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
+		const genOpts = { ...opts };
+		// https://groq.com/a-guide-to-reasoning-with-qwen-qwq-32b/
+		// https://console.groq.com/docs/model/qwen-qwq-32b
+		if (this.getModel() === 'qwen-qwq-32b') {
+			genOpts.temperature = 0.6;
+			genOpts.maxTokens = 131072;
+			genOpts.topP = 0.95;
+		}
+		return super.generateTextFromMessages(llmMessages, genOpts);
 	}
 
 	provider(): GroqProvider {

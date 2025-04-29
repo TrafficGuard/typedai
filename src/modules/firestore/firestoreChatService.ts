@@ -1,6 +1,6 @@
-import { randomUUID } from 'crypto';
-import { Firestore } from '@google-cloud/firestore';
-import { CHAT_PREVIEW_KEYS, Chat, ChatPreview, ChatService } from '#chat/chatTypes';
+import { randomUUID } from 'node:crypto';
+import type { Firestore } from '@google-cloud/firestore';
+import { CHAT_PREVIEW_KEYS, type Chat, type ChatPreview, type ChatService } from '#chat/chatTypes';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import { currentUser } from '#user/userService/userContext';

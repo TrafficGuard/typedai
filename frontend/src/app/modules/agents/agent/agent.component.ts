@@ -77,6 +77,9 @@ export class AgentComponent implements OnInit {
                 details => {
                     this.agentDetails = (details as any).data;
 
+                    if(typeof this.agentDetails.functionCallHistory === 'string')
+                        this.agentDetails.functionCallHistory = JSON.parse(this.agentDetails.functionCallHistory);
+
                     this.agentDetails.output = null;
                     if (this.agentDetails && this.agentDetails.state === 'completed') {
                         // If the agent has been cancelled after an error then display the error

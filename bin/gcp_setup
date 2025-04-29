@@ -8,6 +8,23 @@ echo Project: $GCLOUD_PROJECT
 echo Region: $GCLOUD_REGION
 echo Database name: $FIRESTORE_DATABASE
 
+echo "Checking if project $GCLOUD_PROJECT exists..."
+if ! gcloud projects describe $GCLOUD_PROJECT > /dev/null 2>&1; then
+  echo "Project $GCLOUD_PROJECT does not exist. Creating it..."
+  # Note: Creating a project might require specific permissions.
+  # You might also need to link a billing account manually afterwards.
+  gcloud projects create $GCLOUD_PROJECT
+  echo "Project $GCLOUD_PROJECT created."
+  # Optional: Add a sleep here if needed for project creation to propagate fully
+  # sleep 15
+else
+  echo "Project $GCLOUD_PROJECT already exists."
+fi
+
+# Set the active project for subsequent gcloud commands in this script session
+gcloud config set project $GCLOUD_PROJECT
+
+echo "Enabling necessary APIs..."
 gcloud services enable aiplatform.googleapis.com --project=$GCLOUD_PROJECT
 gcloud services enable firestore.googleapis.com --project=$GCLOUD_PROJECT
 

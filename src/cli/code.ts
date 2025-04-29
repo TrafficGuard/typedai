@@ -1,7 +1,7 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
-import { AgentLLMs } from '#agent/agentContextTypes';
-import { RunAgentConfig } from '#agent/agentRunner';
+import type { AgentLLMs } from '#agent/agentContextTypes';
+import type { RunAgentConfig, RunWorkflowConfig } from '#agent/agentRunner';
 import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { GitLab } from '#functions/scm/gitlab';
@@ -19,8 +19,9 @@ async function main() {
 
 	console.log(`Prompt: ${initialPrompt}`);
 
-	const config: RunAgentConfig = {
+	const config: RunWorkflowConfig = {
 		agentName: 'cli-code',
+		subtype: 'code',
 		llms: agentLlms,
 		functions: [GitLab], //FileSystem,
 		initialPrompt,
@@ -31,7 +32,7 @@ async function main() {
 	};
 
 	const agentId = await runAgentWorkflow(config, async () => {
-		await new CodeEditingAgent().runCodeEditWorkflow(config.initialPrompt);
+		await new CodeEditingAgent().implementUserRequirements(config.initialPrompt);
 		// await (agentContext().functions.getFunctionInstanceMap().Agent as Agent).saveMemory('memKey', 'content');
 		// return llms().easy.generateText('What colour is the sky. Respond in one word.');
 	});

@@ -112,16 +112,26 @@
                                     <!-- Message -->
                                     <div class="min-w-4 leading-5">
                                         @if (!message.generating) {
-                                            <clipboard-button [offset]="-0.3" [cdkCopyToClipboard]="message.content"></clipboard-button>
+                                            <clipboard-button [offset]="-0.3" [cdkCopyToClipboard]="message.textContent"></clipboard-button>
                                         }
-
-                                        <markdown
-                                            mermaid
-                                            clipboard
-                                            [clipboardButtonComponent]="clipboardButton"
-                                            [data]="message.content"
-                                            ngPreserveWhitespaces
-                                        ></markdown>
+                                        @if (!message.content || message.content.length === 0) {
+                                            <markdown
+                                                    mermaid
+                                                    clipboard
+                                                    [clipboardButtonComponent]="clipboardButton"
+                                                    [data]="message.textContent"
+                                                    ngPreserveWhitespaces
+                                            ></markdown>
+                                        }
+                                        @for (content of message.content; track content.text) {
+                                            <markdown
+                                                    mermaid
+                                                    clipboard
+                                                    [clipboardButtonComponent]="clipboardButton"
+                                                    [data]="content.text"
+                                                    ngPreserveWhitespaces
+                                            ></markdown>
+                                        }
                                         <!-- Display non-image attachments -->
                                         @if (message.attachments && message.attachments.length > 0) {
                                             <div class="mt-2">
@@ -187,8 +197,9 @@
                     </div>
                 </div>
 
-                <!-- Message field -->
-                <div class="flex items-start border-t bg-gray-50 p-4 dark:bg-transparent">
+                <!-- Message field. Don't display if we're viewing someone else's shared conversation -->
+                @if (!chat.shareable || currentUser.id === chat.userId) {
+                    <div class="flex items-start border-t bg-gray-50 p-4 dark:bg-transparent">
                     <!-- Left Side: Buttons and mat-select -->
                     <div class="flex flex-col items-start mr-4 -mt-2">
                         <!-- Buttons -->
@@ -279,6 +290,7 @@
                         </button>
                     </div>
                 </div>
+                }
             </mat-drawer-content>
         </mat-drawer-container>
     } @else {

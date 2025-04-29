@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { Chat, ChatService } from '#chat/chatTypes';
+import type { Chat, ChatService } from '#chat/chatTypes';
 import { SINGLE_USER_ID } from '#modules/memory/inMemoryUserService';
 
 export function runChatServiceTests(createService: () => ChatService, beforeEachHook: () => Promise<void> | void = () => {}) {

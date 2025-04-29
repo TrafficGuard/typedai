@@ -1,7 +1,7 @@
 import { FUNC_SEP } from '#functionSchema/functions';
 import { logger } from '#o11y/logger';
 import { appContext } from '../applicationContext';
-import { CacheScope } from './functionCacheService';
+import type { CacheScope } from './functionCacheService';
 
 interface CacheRetryOptions {
 	retries: number;

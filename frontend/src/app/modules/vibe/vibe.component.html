@@ -1,0 +1,129 @@
+<div class="flex flex-col flex-auto w-full p-6 sm:p-8">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row items-start justify-between mb-6">
+        <div class="text-4xl font-extrabold tracking-tight leading-none">Vibe Session Details</div>
+        <!-- Add actions like Edit/Delete later if needed -->
+        <!-- <div class="mt-4 sm:mt-0 sm:ml-4">
+            <button mat-flat-button [color]="'primary'">
+                <mat-icon svgIcon="heroicons_solid:pencil-alt"></mat-icon>
+                <span class="ml-2">Edit</span>
+            </button>
+        </div> -->
+    </div>
+
+    <!-- Session Details Card -->
+    <ng-container *ngIf="session$ | async as session; else loadingOrError">
+        <mat-card class="w-full">
+            <mat-card-header>
+                <mat-card-title>{{ session.title }}</mat-card-title>
+                <mat-card-subtitle>ID: {{ session.id }} | Status: {{ session.status | titlecase }}</mat-card-subtitle>
+            </mat-card-header>
+
+            <!-- Status specific messages -->
+             <div *ngIf="session.status === 'initializing'" class="p-4 m-4 border rounded bg-blue-50 border-blue-200 text-blue-700">
+                <div class="flex items-center">
+                    <mat-icon class="mr-2" svgIcon="heroicons_outline:information-circle"></mat-icon>
+                    <span>Initializing session, cloning repository and setting up workspace...</span>
+                </div>
+                <mat-progress-bar mode="indeterminate" class="mt-2"></mat-progress-bar>
+            </div>
+             <div *ngIf="session.status === 'selecting_files'" class="p-4 m-4 border rounded bg-purple-50 border-purple-200 text-purple-700">
+                 <div class="flex items-center">
+                    <mat-icon class="mr-2" svgIcon="heroicons_outline:document-search"></mat-icon>
+                    <span>Analyzing instructions and selecting relevant files...</span>
+                 </div>
+                <mat-progress-bar mode="indeterminate" class="mt-2"></mat-progress-bar>
+            </div>
+
+            <mat-card-content class="mt-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div>
+                        <div class="font-semibold">Instructions:</div>
+                        <p class="text-secondary whitespace-pre-wrap">{{ session.instructions }}</p>
+                    </div>
+                    <div>
+                        <div class="font-semibold">Repository:</div>
+                        <p class="text-secondary">
+                            Source: {{ session.repositorySource | titlecase }} <br>
+                            Identifier: {{ session.repositoryId }} <br>
+                            <ng-container *ngIf="session.repositoryName">
+                                Name: {{ session.repositoryName }} <br>
+                            </ng-container>
+                            Branch: {{ session.branch }} <br>
+                            <ng-container *ngIf="session.newBranchName">
+                                New Branch: {{ session.newBranchName }} <br>
+                            </ng-container>
+                            Shared Repo: {{ session.useSharedRepos ? 'Yes' : 'No' }}
+                        </p>
+                    </div>
+                    <div>
+                        <div class="font-semibold">Created At:</div>
+                        <!-- Assuming createdAt is a Firestore Timestamp or Date object -->
+                        <p class="text-secondary">{{ session.createdAt?.toDate ? session.createdAt.toDate() : session.createdAt | date:'medium' }}</p>
+                    </div>
+                    <div>
+                        <div class="font-semibold">Last Updated:</div>
+                        <p class="text-secondary">{{ session.updatedAt?.toDate ? session.updatedAt.toDate() : session.updatedAt | date:'medium' }}</p>
+                    </div>
+                    <div *ngIf="session.error" class="sm:col-span-2">
+                        <div class="font-semibold text-red-600">Error:</div>
+                        <p class="text-red-500 whitespace-pre-wrap">{{ session.error }}</p>
+                    </div>
+                    <!-- Use the new vibe-file-list component -->
+                    <vibe-file-list
+                        [files]="session.fileSelection"
+                        (fileDeleted)="handleFileDeleted($event)"
+                        class="sm:col-span-2">
+                    </vibe-file-list>
+
+                   <!-- File Autocomplete Input -->
+                   <div class="sm:col-span-2 mt-6">
+                       <div class="font-semibold mb-2">Add File to Session:</div>
+                       <div class="flex items-center space-x-2">
+                           <mat-form-field class="flex-grow" appearance="outline">
+                               <input
+                                   type="text"
+                                   matInput
+                                   placeholder="Add file path..."
+                                   [formControl]="addFileControl"
+                                   [matAutocomplete]="auto">
+                               <mat-autocomplete #auto="matAutocomplete">
+                                   <mat-option *ngFor="let file of filteredFiles$ | async" [value]="file">
+                                       {{ file }}
+                                   </mat-option>
+                               </mat-autocomplete>
+                           </mat-form-field>
+                           <button
+                               mat-stroked-button
+                               color="primary"
+                               [disabled]="!addFileControl.value"
+                               (click)="handleAddFile()">
+                               Add
+                           </button>
+                       </div>
+                   </div>
+
+                    <!-- Use the new VibeDesignProposalComponent -->
+                    <vibe-design-proposal
+                        *ngIf="session.designAnswer"
+                        [session]="session"
+                        (designAccepted)="handleDesignAccepted($event)"
+                        class="sm:col-span-2">
+                    </vibe-design-proposal>
+
+                </div>
+            </mat-card-content>
+        </mat-card>
+    </ng-container>
+
+    <!-- Loading/Error Template -->
+    <ng-template #loadingOrError>
+        <!-- Check if there was an error fetching (e.g., using catchError in the observable pipe), otherwise show loading -->
+        <!-- Basic loading indicator -->
+        <div class="flex justify-center items-center h-64">
+             <!-- Consider adding error handling display here if session$ errors out -->
+            <mat-progress-bar mode="indeterminate" class="w-64"></mat-progress-bar>
+            <span class="ml-4 text-secondary">Loading session details...</span>
+        </div>
+    </ng-template>
+</div>

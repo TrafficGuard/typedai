@@ -1,0 +1,15 @@
+form {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem; /* Add some spacing between fields */
+}
+
+mat-form-field {
+	width: 100%; /* Make form fields take full width */
+}
+
+.actions {
+	margin-top: 1rem;
+	display: flex;
+	gap: 0.5rem;
+}

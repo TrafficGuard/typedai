@@ -1,5 +1,5 @@
 import { BaseLLM } from '#llm/base-llm';
-import { GenerateTextOptions, LLM } from '#llm/llm';
+import type { GenerateTextOptions, LLM } from '#llm/llm';
 import { Claude3_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { fireworksLlama3_405B } from '#llm/services/fireworks';
 import { GPT4o } from '#llm/services/openai';

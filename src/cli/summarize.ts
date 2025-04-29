@@ -1,8 +1,8 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
-import { writeFileSync } from 'fs';
-import { AgentLLMs } from '#agent/agentContextTypes';
-import { RunAgentConfig } from '#agent/agentRunner';
+import { writeFileSync } from 'node:fs';
+import type { AgentLLMs } from '#agent/agentContextTypes';
+import type { RunAgentConfig, RunWorkflowConfig } from '#agent/agentRunner';
 import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { SummarizerAgent } from '#functions/text/summarizer';
@@ -18,10 +18,10 @@ async function main() {
 
 	console.log(`Prompt: ${initialPrompt}`);
 
-	const config: RunAgentConfig = {
+	const config: RunWorkflowConfig = {
 		agentName: `Summarize: ${initialPrompt.substring(0, initialPrompt.length > 20 ? 20 : initialPrompt.length)}`,
+		subtype: 'summarize',
 		llms: agentLlms,
-		functions: [], //FileSystem,
 		initialPrompt,
 		resumeAgentId,
 		humanInLoop: {

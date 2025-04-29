@@ -3,7 +3,7 @@ import { funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { getPythonPath } from '#swe/aiderCodeEditor';
 import { execCmd, execCommand } from '#utils/exec';
-import { LanguageTools } from '../languageTools';
+import type { LanguageTools } from '../languageTools';
 
 @funcClass(__filename)
 export class PythonTools implements LanguageTools {

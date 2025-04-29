@@ -2,8 +2,8 @@ import '#fastify/trace-init/trace-init'; // leave an empty line next so this doe
 
 import { LlmFunctions } from '#agent/LlmFunctions';
 import { agentContextStorage, createContext } from '#agent/agentContextLocalStorage';
-import { AgentContext, AgentLLMs } from '#agent/agentContextTypes';
-import { RunAgentConfig } from '#agent/agentRunner';
+import type { AgentContext, AgentLLMs } from '#agent/agentContextTypes';
+import type { RunWorkflowConfig } from '#agent/agentRunner';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { MultiLLM } from '#llm/multi-llm';
 import { Claude3_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
@@ -29,8 +29,9 @@ async function main() {
 	const functions = new LlmFunctions();
 	functions.addFunctionClass(FileSystemService);
 
-	const config: RunAgentConfig = {
+	const config: RunWorkflowConfig = {
 		agentName: 'util',
+		subtype: 'util',
 		llms: utilLLMs,
 		functions,
 		initialPrompt: '',

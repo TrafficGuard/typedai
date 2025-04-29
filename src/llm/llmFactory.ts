@@ -1,7 +1,7 @@
-import { AgentLLMs } from '#agent/agentContextTypes';
-import { LLM } from '#llm/llm';
-import { CePO_LLMRegistry } from '#llm/multi-agent/cepo';
+import type { AgentLLMs } from '#agent/agentContextTypes';
+import type { LLM } from '#llm/llm';
 import { deepSeekFallbackRegistry } from '#llm/multi-agent/deepSeekR1_Fallbacks';
+import { multiAgentLLMRegistry } from '#llm/multi-agent/multiRegistry';
 import { MoA_reasoningLLMRegistry } from '#llm/multi-agent/reasoning-debate';
 import { MultiLLM } from '#llm/multi-llm';
 import { anthropicLLMRegistry } from '#llm/services/anthropic';
@@ -15,6 +15,7 @@ import { mockLLMRegistry } from '#llm/services/mock-llm';
 import { nebiusLLMRegistry } from '#llm/services/nebius';
 import { ollamaLLMRegistry } from '#llm/services/ollama';
 import { openAiLLMRegistry } from '#llm/services/openai';
+import { openrouterLLMRegistry } from '#llm/services/openrouter';
 import { perplexityLLMRegistry } from '#llm/services/perplexity-llm';
 import { sambanovaLLMRegistry } from '#llm/services/sambanova';
 import { togetherLLMRegistry } from '#llm/services/together';
@@ -40,7 +41,8 @@ export const LLM_FACTORY: Record<string, () => LLM> = {
 	...ollamaLLMRegistry(),
 	...deepSeekFallbackRegistry(),
 	...MoA_reasoningLLMRegistry(),
-	...CePO_LLMRegistry(),
+	...multiAgentLLMRegistry(),
+	...openrouterLLMRegistry(),
 	...mockLLMRegistry(),
 };
 

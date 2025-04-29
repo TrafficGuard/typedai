@@ -1,4 +1,4 @@
-import { FastifyInstance } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import { DEFAULT_HEALTHCHECK } from '#fastify/fastifyApp';
 import { sendBadRequest } from './responses';
 

@@ -1,9 +1,10 @@
-import { ExecException, ExecSyncOptions, SpawnOptionsWithoutStdio, exec, execSync, spawn } from 'child_process';
-import { existsSync, readFileSync } from 'fs';
-import { ExecOptions } from 'node:child_process';
-import os from 'os';
-import path from 'path';
-import { promisify } from 'util';
+import { type ExecException, type ExecSyncOptions, type SpawnOptionsWithoutStdio, exec, execSync, spawn } from 'node:child_process';
+import type { ExecOptions } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { promisify } from 'node:util';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
@@ -42,7 +43,7 @@ export function execCmdSync(command: string, cwd = getFileSystem().getWorkingDir
 	if (command.startsWith('~') && home) command = home + command.substring(1);
 	try {
 		const shell = getAvailableShell();
-		logger.info(`execCmdSync ${command}\ncwd: ${cwd}\nshell: ${shell}`);
+		logger.debug(`execCmdSync ${command}\ncwd: ${cwd}\nshell: ${shell}`);
 
 		const options: ExecSyncOptions = {
 			cwd,
@@ -61,15 +62,17 @@ export function execCmdSync(command: string, cwd = getFileSystem().getWorkingDir
 			stdout,
 			stderr: '',
 			error: null,
+			exitCode: 0, // Add exitCode for success
 			cwd,
 		};
 	} catch (error) {
-		logger.error('Error executing command:', error);
+		logger.error(error);
 		return {
 			cmd: command,
 			stdout: error.stdout?.toString() || '',
 			stderr: error.stderr?.toString() || '',
-			error,
+			error: error instanceof Error ? error : new Error(String(error)),
+			exitCode: error.code ?? 1,
 			cwd,
 		};
 	}
@@ -80,6 +83,7 @@ export interface ExecResults {
 	stdout: string;
 	stderr: string;
 	error: ExecException | null;
+	exitCode: number;
 	cwd?: string;
 }
 
@@ -98,9 +102,11 @@ export async function execCmd(command: string, cwd = getFileSystem().getWorkingD
 			exec(command, { cwd, shell }, (error, stdout, stderr) => {
 				resolve({
 					cmd: command,
-					stdout,
-					stderr,
+					stdout: formatAnsiWithMarkdownLinks(stdout),
+					stderr: formatAnsiWithMarkdownLinks(stderr),
 					error,
+					// Determine exit code: 0 for success, error code or 1 for failure
+					exitCode: error ? ((error as any).code ?? 1) : 0,
 					cwd,
 				});
 			});
@@ -120,6 +126,7 @@ export async function execCmd(command: string, cwd = getFileSystem().getWorkingD
 }
 
 export interface ExecResult {
+	command: string;
 	stdout: string;
 	stderr: string;
 	exitCode: number;
@@ -132,7 +139,7 @@ export interface ExecResult {
  */
 export function failOnError(userMessage: string, execResult: ExecResult): void {
 	if (execResult.exitCode === 0) return;
-	let errorMessage = userMessage;
+	let errorMessage = `${userMessage}. Exit code: ${execResult.exitCode}. Command: ${execResult.command}`;
 	errorMessage += execResult.stdout ? `\n${execResult.stdout}` : '';
 	if (execResult.stdout && execResult.stderr) errorMessage += '\n';
 	if (execResult.stderr) errorMessage += execResult.stderr;
@@ -157,8 +164,9 @@ export async function execCommand(command: string, opts?: ExecCmdOptions): Promi
 		const options: ExecOptions = { cwd: opts?.workingDirectory ?? getFileSystem().getWorkingDirectory(), shell, env };
 		try {
 			logger.info(`${options.cwd} % ${command}`);
-			const { stdout, stderr } = await execAsync(command, options);
-
+			let { stdout, stderr } = await execAsync(command, options);
+			stdout = formatAnsiWithMarkdownLinks(stdout);
+			stderr = formatAnsiWithMarkdownLinks(stderr);
 			span.setAttributes({
 				cwd: options.cwd as string,
 				shell,
@@ -168,13 +176,13 @@ export async function execCommand(command: string, opts?: ExecCmdOptions): Promi
 				exitCode: 0,
 			});
 			span.setStatus({ code: SpanStatusCode.OK });
-			return { stdout, stderr, exitCode: 0 };
+			return { stdout, stderr, exitCode: 0, command };
 		} catch (error) {
 			span.setAttributes({
 				cwd: options.cwd as string,
 				command,
-				stdout: error.stdout,
-				stderr: error.stderr,
+				stdout: formatAnsiWithMarkdownLinks(error.stdout),
+				stderr: formatAnsiWithMarkdownLinks(error.stderr),
 				exitCode: error.code,
 			});
 			span.recordException(error);
@@ -185,7 +193,7 @@ export async function execCommand(command: string, opts?: ExecCmdOptions): Promi
 				e.code = error.code;
 				throw e;
 			}
-			return { stdout: error.stdout, stderr: error.stderr, exitCode: error.code };
+			return { stdout: error.stdout, stderr: error.stderr, exitCode: error.code, command };
 		}
 	});
 }
@@ -197,8 +205,9 @@ export async function spawnCommand(command: string, workingDirectory?: string): 
 		const options: SpawnOptionsWithoutStdio = { cwd, shell, env: process.env };
 		try {
 			logger.info(`${options.cwd} % ${command}`);
-			const { stdout, stderr, code } = await spawnAsync(command, options);
-
+			let { stdout, stderr, code } = await spawnAsync(command, options);
+			stdout = formatAnsiWithMarkdownLinks(stdout);
+			stderr = formatAnsiWithMarkdownLinks(stderr);
 			span.setAttributes({
 				cwd,
 				command,
@@ -207,19 +216,19 @@ export async function spawnCommand(command: string, workingDirectory?: string): 
 				exitCode: 0,
 			});
 			span.setStatus({ code: SpanStatusCode.OK });
-			return { stdout, stderr, exitCode: 0 };
+			return { stdout, stderr, exitCode: 0, command };
 		} catch (error) {
 			span.setAttributes({
 				cwd,
 				command,
-				stdout: error.stdout,
-				stderr: error.stderr,
+				stdout: formatAnsiWithMarkdownLinks(error.stdout),
+				stderr: formatAnsiWithMarkdownLinks(error.stderr),
 				exitCode: error.code,
 			});
 			span.recordException(error);
 			span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
 			logger.error(error, `Error executing ${command}`);
-			return { stdout: error.stdout, stderr: error.stderr, exitCode: error.code };
+			return { stdout: error.stdout, stderr: error.stderr, exitCode: error.code, command };
 		}
 	});
 }
@@ -264,6 +273,13 @@ function spawnAsync(command: string, options: SpawnOptionsWithoutStdio): Promise
 	});
 }
 
+/**
+ * This could be extracted to a class as its purpose is to have a persistent shell which
+ * can have multiple commands executed over time.
+ * This can be required when needing to source a script before executing other scripts.
+ * @param cmd
+ * @param opts
+ */
 export async function runShellCommand(cmd: string, opts?: ExecCmdOptions): Promise<ExecResult> {
 	const shell: string = process.platform === 'win32' ? 'cmd.exe' : os.platform() === 'darwin' ? '/bin/zsh' : '/bin/bash';
 	const env: Record<string, string> = opts?.envVars ? { ...process.env, ...opts.envVars } : { ...process.env };
@@ -295,13 +311,13 @@ export async function runShellCommand(cmd: string, opts?: ExecCmdOptions): Promi
 					const parts = commandOutput.split(commandDoneMarker);
 					stdout = parts[0];
 					const exitCodeMatch = parts[1].match(/EXIT_CODE:(\d+)/);
-					const exitCode = exitCodeMatch ? parseInt(exitCodeMatch[1], 10) : null;
+					const exitCode = exitCodeMatch ? Number.parseInt(exitCodeMatch[1], 10) : null;
 
 					// Clean up listeners
 					child.stdout.off('data', onStdoutData);
 					child.stderr.off('data', onStderrData);
 					if (stdout.endsWith('\n')) stdout = stdout.substring(0, stdout.length - 1);
-					resolve({ stdout, stderr, exitCode });
+					resolve({ stdout, stderr, exitCode, command });
 				}
 			};
 
@@ -357,4 +373,57 @@ export async function runShellCommand(cmd: string, opts?: ExecCmdOptions): Promi
 export function shellEscape(s: string): string {
 	// return "'" + s.replace(/'/g, "'\\''") + "'";
 	return `"${s.replace(/["\\$`]/g, '\\$&')}"`;
+}
+
+/**
+ * Sanitise arguments by single quoting and escaping single quotes in the value
+ * @param argValue command line argument value
+ */
+export function arg(argValue: string): string {
+	// Ensure the argument is treated as a single token, escaping potential issues.
+	// Simple quoting for common cases. More robust shell escaping might be needed
+	// depending on the complexity of regex patterns allowed.
+	// Escapes single quotes for POSIX shells (' -> '\''')
+	return `'${argValue.replace(/'/g, "'\\''")}'`;
+}
+
+/**
+ * Removes most ANSI escape codes (like colors, formatting) from a string,
+ * but specifically converts OSC 8 hyperlinks into Markdown format `[Text](URL)`.
+ *
+ * @param text The input string potentially containing ANSI codes.
+ * @returns The string with non-link ANSI codes removed and links formatted as Markdown,
+ *          or the original string if input is null/undefined/empty.
+ */
+export function formatAnsiWithMarkdownLinks(text: string | null | undefined): string {
+	if (!text) return text ?? '';
+
+	// Regular expression to specifically match OSC 8 hyperlinks.
+	// It captures the URL (group 1) and the Link Text (group 2).
+	// Format: \x1B]8;;URL\x1B\\Text\x1B]8;;\x1B\\
+	// Using \x1B for ESC
+	// biome-ignore lint/suspicious/noControlCharactersInRegex: expected
+	const osc8Regex = /\x1B]8;;(.*?)\x1B\\(.*?)\x1B]8;;\x1B\\/g;
+
+	// First pass: Replace OSC 8 links with Markdown format.
+	// We use the captured groups: $2 is the text, $1 is the URL.
+	let processedText = text.replace(osc8Regex, '[$2]($1)');
+
+	// Regular expression to match *other* common ANSI escape codes
+	// (like SGR for colors/styles: \x1B[...m, and other CSI sequences).
+	// This regex is designed *not* to match the already-processed Markdown links.
+	// It's the same comprehensive regex used before for stripping.
+	const ansiStripRegex = new RegExp(
+		[
+			'[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)',
+			'(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))',
+		].join('|'),
+		'g',
+	);
+
+	// Second pass: Remove all remaining ANSI codes (colors, formatting, etc.)
+	// from the string that now contains Markdown links.
+	processedText = processedText.replace(ansiStripRegex, '');
+
+	return processedText;
 }

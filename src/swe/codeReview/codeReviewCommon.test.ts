@@ -1,10 +1,9 @@
-import { MergeRequestDiffSchema } from '@gitbeaker/rest';
+import type { MergeRequestDiffSchema } from '@gitbeaker/rest';
 import { expect } from 'chai';
-import sinon from 'sinon';
-import { CodeReviewConfig } from '#swe/codeReview/codeReviewModel';
-import { GitLab, getStartingLineNumber } from './gitlab';
+import { addCodeWithLineNumbers, getStartingLineNumber, shouldApplyCodeReview } from '#swe/codeReview/codeReviewCommon';
+import type { CodeReviewConfig, CodeReviewTask } from '#swe/codeReview/codeReviewModel';
 
-describe('GitLab', () => {
+describe('GitLabCodeReview', () => {
 	describe('diff', () => {
 		it('should get the starting line number', async () => {
 			expect(getStartingLineNumber(' @@ -0,0 +1,76 @@\n+async function()[]\n{')).to.equal(1);
@@ -28,8 +27,7 @@ describe('GitLab', () => {
 
 			const projectPath = 'some/project/path';
 
-			const gitLab = new GitLab();
-			const result = gitLab.applyCodeReview(codeReview, diff, projectPath);
+			const result = shouldApplyCodeReview(codeReview, projectPath, diff.new_path, diff.diff);
 			expect(result).to.be.false;
 		});
 
@@ -48,8 +46,7 @@ describe('GitLab', () => {
 
 			const projectPath = 'some/other/project';
 
-			const gitLab = new GitLab();
-			const result = gitLab.applyCodeReview(codeReview, diff, projectPath);
+			const result = shouldApplyCodeReview(codeReview, projectPath, diff.new_path, diff.diff);
 			expect(result).to.be.false;
 		});
 
@@ -68,8 +65,7 @@ describe('GitLab', () => {
 
 			const projectPath = 'some/project/path';
 
-			const gitLab = new GitLab();
-			const result = gitLab.applyCodeReview(codeReview, diff, projectPath);
+			const result = shouldApplyCodeReview(codeReview, projectPath, diff.new_path, diff.diff);
 			expect(result).to.be.false;
 		});
 
@@ -88,8 +84,7 @@ describe('GitLab', () => {
 
 			const projectPath = 'some/project/path';
 
-			const gitLab = new GitLab();
-			const result = gitLab.applyCodeReview(codeReview, diff, projectPath);
+			const result = shouldApplyCodeReview(codeReview, projectPath, diff.new_path, diff.diff);
 			expect(result).to.be.false;
 		});
 
@@ -108,8 +103,7 @@ describe('GitLab', () => {
 
 			const projectPath = 'some/project/path';
 
-			const gitLab = new GitLab();
-			const result = gitLab.applyCodeReview(codeReview, diff, projectPath);
+			const result = shouldApplyCodeReview(codeReview, projectPath, diff.new_path, diff.diff);
 			expect(result).to.be.true;
 		});
 
@@ -128,8 +122,7 @@ describe('GitLab', () => {
 
 			const projectPath = 'any/project/path';
 
-			const gitLab = new GitLab();
-			const result = gitLab.applyCodeReview(codeReview, diff, projectPath);
+			const result = shouldApplyCodeReview(codeReview, projectPath, diff.new_path, diff.diff);
 			expect(result).to.be.true;
 		});
 
@@ -149,8 +142,7 @@ describe('GitLab', () => {
 
 			const projectPath = 'some/project/path';
 
-			const gitLab = new GitLab();
-			const result = gitLab.applyCodeReview(codeReview, diff, projectPath);
+			const result = shouldApplyCodeReview(codeReview, projectPath, diff.new_path, diff.diff);
 			expect(result).to.be.false;
 		});
 
@@ -170,8 +162,7 @@ describe('GitLab', () => {
 
 			const projectPath = 'some/project/path';
 
-			const gitLab = new GitLab();
-			const result = gitLab.applyCodeReview(codeReview, diff, projectPath);
+			const result = shouldApplyCodeReview(codeReview, projectPath, diff.new_path, diff.diff);
 			expect(result).to.be.false;
 		});
 
@@ -190,8 +181,7 @@ describe('GitLab', () => {
 
 			const projectPath = 'some/project/path';
 
-			const gitLab = new GitLab();
-			const result = gitLab.applyCodeReview(codeReview, diff, projectPath);
+			const result = shouldApplyCodeReview(codeReview, projectPath, diff.new_path, diff.diff);
 			expect(result).to.be.true;
 		});
 
@@ -210,35 +200,45 @@ describe('GitLab', () => {
 
 			const projectPath = 'some/project/path';
 
-			const gitLab = new GitLab();
-			const result = gitLab.applyCodeReview(codeReview, diff, projectPath);
+			const result = shouldApplyCodeReview(codeReview, projectPath, diff.new_path, diff.diff);
 			expect(result).to.be.true;
 		});
 	});
 
-	// describe('getJobLogs', () => {
-	// 	let gitLab: GitLab;
-	// 	let apiStub: sinon.SinonStubbedInstance<Gitlab>;
-	//
-	// 	beforeEach(() => {
-	// 		gitLabServer = new GitLabServer();
-	// 		apiStub = sinon.createStubInstance(Gitlab);
-	// 		gitLabServer.api = apiStub;
-	// 	});
-	//
-	// 	it('should get the job logs', async () => {
-	// 		const projectPath = 'some/project';
-	// 		const jobId = 123;
-	// 		const project = { id: 1 };
-	// 		const job = { id: jobId };
-	// 		const logs = 'Job logs content';
-	//
-	// 		apiStub.Projects.show.resolves(project);
-	// 		apiStub.Jobs.show.resolves(job);
-	// 		apiStub.Jobs.trace.resolves(logs);
-	//
-	// 		const result = await gitLab.getJobLogs(projectPath, jobId);
-	// 		expect(result).to.equal(logs);
-	// 	});
-	// });
+	it('addCodeWithLineNumbers', () => {
+		const sampleDiff = `@@ -0,0 +1,9 @@
++import dotenv from 'dotenv';
++dotenv.config();
++
++function handle() {
++  console.log('handling...')
++}
++
++handle();`;
+		const expectedCode = `import dotenv from 'dotenv';
+dotenv.config();
+
+function handle() {
+  console.log('handling...')
+}
+
+handle();`;
+		const expectedCodeWithLineNums = `// 0
+import dotenv from 'dotenv';
+dotenv.config();
+// 3
+function handle() {
+  console.log('handling...')
+}
+// 7
+handle();`;
+		const mrDiff: MergeRequestDiffSchema = {
+			diff: sampleDiff,
+			new_path: 'code.ts',
+		} as MergeRequestDiffSchema;
+
+		const { code, codeWithLineNums } = addCodeWithLineNumbers(mrDiff.diff, mrDiff.new_path);
+		expect(code).to.equal(expectedCode);
+		expect(codeWithLineNums).to.equal(expectedCodeWithLineNums);
+	});
 });

@@ -2,13 +2,18 @@
  * Version control system
  */
 export interface VersionControlSystem {
-	getBranchDiff(sourceBranch: string): Promise<string>;
-
 	/**
-	 * Gets the diff between the head commit and the provided commit, otherwise the previous commit
-	 * @param commitSha the commit to get the diff from. Optional, defaults to the previous commit.
+	 * Returns the diff from the merge-base (common ancestor) of HEAD and a reference, up to HEAD.
+	 * This effectively shows changes introduced on the current branch relative to that base.
+	 *
+	 * @param baseRef Optional commit SHA or branch name.
+	 *                - If provided: Uses `git merge-base <baseRef> HEAD` to find the diff start point.
+	 *                - If omitted: Attempts to guess the source branch (e.g., main, develop)
+	 *                  by inspecting other local branches and uses that for the merge-base calculation.
+	 *                  Note: Guessing the source branch may be unreliable in some cases.
+	 * @returns The git diff.
 	 */
-	getDiff(commitSha?: string): Promise<string>;
+	getDiff(baseRef?: string): Promise<string>;
 
 	/**
 	 * Creates a new branch, or if it already exists then switches to it

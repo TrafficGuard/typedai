@@ -213,8 +213,9 @@ export class AgentDetailsComponent implements OnInit {
             case 'error':
                 return 'Error';
             case 'hil':
+            case 'hitl_threshold':
                 return 'Human-in-the-loop check';
-            case 'feedback':
+            case 'hitl_feedback':
                 return 'Agent requested feedback';
             case 'completed':
                 return 'Completed';

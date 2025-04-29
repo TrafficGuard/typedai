@@ -1,6 +1,8 @@
-import { createByModelName } from '@microsoft/tiktokenizer';
+import { type TikTokenizer, createByModelName } from '@microsoft/tiktokenizer';
+
+let tokenizer: TikTokenizer;
 
 export async function countTokens(text: string): Promise<number> {
-	const tokenizer = await createByModelName('gpt-4o');
+	tokenizer ??= await createByModelName('gpt-4o');
 	return tokenizer.encode(text).length;
 }

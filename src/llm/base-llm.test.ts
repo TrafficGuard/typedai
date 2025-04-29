@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { LlmMessage } from '#llm/llm';
+import type { LlmMessage } from '#llm/llm';
 import { BaseLLM } from './base-llm';
 
 // Create a concrete subclass of BaseLLM for testing

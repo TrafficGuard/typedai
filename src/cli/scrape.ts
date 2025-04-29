@@ -12,10 +12,9 @@ async function url2markdown(url: string) {
 	console.log(`${url}\n`);
 	agentContextStorage.enterWith(
 		createContext({
+			subtype: 'scrape',
 			initialPrompt: '',
 			agentName: '',
-			llms: defaultLLMs(), // Requires Google Cloud and Claude model setup
-			functions: [],
 		}),
 	);
 

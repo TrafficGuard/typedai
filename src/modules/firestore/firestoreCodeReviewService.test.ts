@@ -1,144 +1,64 @@
-import { expect } from 'chai';
-import sinon from 'sinon';
-import { CodeReviewConfig } from '#swe/codeReview/codeReviewModel';
+// import { expect } from 'chai'; // Now handled by shared tests
+// import sinon from 'sinon'; // No longer needed for mocking Firestore internals here
+// import type { CodeReviewConfig } from '#swe/codeReview/codeReviewModel'; // Now handled by shared tests
+
+import { runCodeReviewServiceTests } from '#swe/codeReview/codeReviewService.test';
 import { FirestoreCodeReviewService } from './firestoreCodeReviewService';
+import { resetFirestoreEmulator } from './resetFirestoreEmulator'; // Import the reset function
 
-describe('FirestoreCodeReviewService', () => {
-	let service: FirestoreCodeReviewService;
-	let mockFirestore: any;
+// --- Firestore Test Setup ---
 
-	beforeEach(() => {
-		mockFirestore = {
-			doc: sinon.stub(),
-			collection: sinon.stub(),
+// Determine if running against emulator (adjust logic as needed based on your env vars)
+const useEmulator = !!process.env.FIRESTORE_EMULATOR_HOST;
+
+const hooks = useEmulator
+	? {
+			// Reset emulator before each test for isolation
+			beforeEach: async () => {
+				// console.log('Resetting Firestore emulator...'); // Optional: for debugging
+				await resetFirestoreEmulator();
+				// console.log('Firestore emulator reset complete.'); // Optional: for debugging
+			},
+			afterEach: () => {
+				// Optional cleanup after each test if needed, e.g., closing connections
+			},
+		}
+	: {
+			// No automatic cleanup for real Firestore, manual cleanup might be needed
+			beforeEach: () => {
+				console.warn('WARNING: Running Firestore tests against REAL Firestore database. Manual cleanup may be required.');
+			},
+			afterEach: () => {
+				// Optional cleanup
+			},
 		};
-		service = new FirestoreCodeReviewService();
-		(service as any).db = mockFirestore;
-	});
 
-	afterEach(() => {
-		sinon.restore();
-	});
+// --- Run Shared Tests ---
 
-	describe('getCodeReviewConfig', () => {
-		it('should return a code review config when it exists', async () => {
-			const mockDocRef = {
-				get: sinon.stub().resolves({
-					exists: true,
-					id: 'testId',
-					data: () => ({ description: 'Test Config' }),
-				}),
-			};
-			mockFirestore.doc.returns(mockDocRef);
+// Pass a factory function to ensure a fresh service instance potentially,
+// although for Firestore, the instance itself is usually stateless regarding data.
+// Using a factory is good practice for consistency with other implementations like InMemory.
+runCodeReviewServiceTests(() => new FirestoreCodeReviewService(), hooks);
 
-			const result = await service.getCodeReviewConfig('testId');
+// --- Optional: Add Firestore-Specific Tests Here (if any) ---
+/*
+describe('FirestoreCodeReviewService Specific Tests', () => {
+    // Add tests that are unique to the Firestore implementation,
+    // e.g., testing specific error handling related to Firestore limits,
+    // or verifying internal document structure if absolutely necessary (though discouraged).
 
-			expect(result).to.deep.equal({
-				id: 'testId',
-				description: 'Test Config',
-			});
-			expect(mockFirestore.doc.calledWith('CodeReviewConfig/testId')).to.be.true;
-		});
-
-		it('should return null when the config does not exist', async () => {
-			const mockDocRef = {
-				get: sinon.stub().resolves({
-					exists: false,
-				}),
-			};
-			mockFirestore.doc.returns(mockDocRef);
-
-			const result = await service.getCodeReviewConfig('nonExistentId');
-
-			expect(result).to.be.null;
-			expect(mockFirestore.doc.calledWith('CodeReviewConfig/nonExistentId')).to.be.true;
-		});
-	});
-
-	describe('listCodeReviewConfigs', () => {
-		it('should return an array of code review configs', async () => {
-			const mockQuerySnapshot = {
-				docs: [
-					{ id: 'id1', data: () => ({ description: 'Config 1' }) },
-					{ id: 'id2', data: () => ({ description: 'Config 2' }) },
-				],
-			};
-			const mockCollectionRef = {
-				get: sinon.stub().resolves(mockQuerySnapshot),
-			};
-			mockFirestore.collection.returns(mockCollectionRef);
-
-			const result = await service.listCodeReviewConfigs();
-
-			expect(result).to.deep.equal([
-				{ id: 'id1', description: 'Config 1' },
-				{ id: 'id2', description: 'Config 2' },
-			]);
-			expect(mockFirestore.collection.calledWith('CodeReviewConfig')).to.be.true;
-		});
-	});
-
-	describe('createCodeReviewConfig', () => {
-		it('should create a new code review config and return its id', async () => {
-			const newConfig: Omit<CodeReviewConfig, 'id'> = {
-				title: 'Test Configuration',
-				description: 'New Config',
-				enabled: true,
-				fileExtensions: {
-					include: ['.ts', '.js'],
-				},
-				requires: {
-					text: ['TODO', 'FIXME'],
-				},
-				tags: [],
-				projectPaths: [],
-				examples: [
-					{
-						code: 'console.log("Hello, world!");',
-						reviewComment: 'Consider using a logging library for better control over log levels.',
-					},
-				],
-			};
-			const mockDocRef = { id: 'newId' };
-			const mockCollectionRef = {
-				add: sinon.stub().resolves(mockDocRef),
-			};
-			mockFirestore.collection.returns(mockCollectionRef);
-
-			const result = await service.createCodeReviewConfig(newConfig);
-
-			expect(result).to.equal('newId');
-			expect(mockFirestore.collection.calledWith('CodeReviewConfig')).to.be.true;
-			expect(mockCollectionRef.add.calledWith(newConfig)).to.be.true;
-		});
-	});
-
-	describe('updateCodeReviewConfig', () => {
-		it('should update an existing code review config', async () => {
-			const updateData = { description: 'Updated Config' };
-			const mockDocRef = {
-				update: sinon.stub().resolves(),
-			};
-			mockFirestore.doc.returns(mockDocRef);
-
-			await service.updateCodeReviewConfig('existingId', updateData);
-
-			expect(mockFirestore.doc.calledWith('CodeReviewConfig/existingId')).to.be.true;
-			expect(mockDocRef.update.calledWith(updateData)).to.be.true;
-		});
-	});
-
-	describe('deleteCodeReviewConfig', () => {
-		it('should delete an existing code review config', async () => {
-			const mockDocRef = {
-				delete: sinon.stub().resolves(),
-			};
-			mockFirestore.doc.returns(mockDocRef);
-
-			await service.deleteCodeReviewConfig('existingId');
-
-			expect(mockFirestore.doc.calledWith('CodeReviewConfig/existingId')).to.be.true;
-			expect(mockDocRef.delete.calledOnce).to.be.true;
-		});
-	});
+    // Example: Test Firestore-specific error handling if getCodeReviewConfig throws
+    it('should handle Firestore errors during getCodeReviewConfig gracefully', async () => {
+        const service = new FirestoreCodeReviewService();
+        // Mock the db connection to throw an error
+        (service as any).db = {
+            doc: () => ({
+                get: sinon.stub().rejects(new Error('Firestore unavailable')),
+            }),
+        };
+        // Depending on implementation, it might re-throw or return null/empty
+        await expect(service.getCodeReviewConfig('some-id')).to.be.rejectedWith('Firestore unavailable');
+        // or expect(await service.getCodeReviewConfig('some-id')).to.be.null;
+    });
 });
+*/

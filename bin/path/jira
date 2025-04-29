@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# Shortcut to running `npm run agent -- -f=jira,swe Complete Jira ABC-123` from the TypedAI installation
+# Usage: `jira <arg>`
+
+if [ -z "$TYPEDAI_HOME" ]; then
+  echo "Error: TYPEDAI_HOME is not set."
+  exit 1
+fi
+
+# Check if exactly one argument is passed
+if [ $# -ne 1 ]; then
+  echo "Usage: jira <jira_id>"
+  exit 1
+fi
+
+# Capture the argument
+arg=$1
+
+CWD=$(pwd)
+
+# Load NVM
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+# Run the npm script with the argument and the filesystem arg
+(
+  cd "$TYPEDAI_HOME"
+  nvm use
+  npm run agent -- --fs="${CWD}" -f=jira,swe,slack "Complete Jira $arg"
+)

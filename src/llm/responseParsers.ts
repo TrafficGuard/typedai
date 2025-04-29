@@ -1,6 +1,6 @@
 import { DOMParser } from 'xmldom';
 import { logger } from '#o11y/logger';
-import { FunctionCalls } from './llm';
+import type { FunctionCalls } from './llm';
 
 /**
  * Extracts the function call details from an LLM response.
@@ -64,13 +64,9 @@ export function parseFunctionCallsXml(response: string): FunctionCalls {
 export function extractJsonResult(rawText: string): any {
 	let text = rawText.trim();
 	try {
-		if ((text.startsWith('```json') || text.startsWith('```JSON')) && text.endsWith('```')) {
-			// Gemini returns in this format
-			return JSON.parse(text.slice(7, -3));
-		}
-		if (text.startsWith('```') && text.endsWith('```')) {
-			// Gemini returns in this format
-			return JSON.parse(text.slice(3, -3));
+		const jsonMarkdownIndex = rawText.toLowerCase().lastIndexOf('```json');
+		if (jsonMarkdownIndex > -1 && text.endsWith('```')) {
+			return JSON.parse(text.slice(jsonMarkdownIndex + 7, -3));
 		}
 
 		const regex = /```[jJ][sS][oO][nN]\n({.*})\n```/s;
@@ -82,7 +78,9 @@ export function extractJsonResult(rawText: string): any {
 		const regexXml = /<json>(.*)<\/json>/is;
 		const matchXml = regexXml.exec(text);
 		if (matchXml) {
-			return JSON.parse(matchXml[1]);
+			let match = matchXml[1].trim();
+			if (match.startsWith('```json') && text.endsWith('```')) match = match.slice(7, -3);
+			return JSON.parse(match);
 		}
 
 		// Sometimes more than three trailing backticks
@@ -110,14 +108,14 @@ export function extractJsonResult(rawText: string): any {
  * @param response response from the LLM
  * @param tagName the name of the XML tag to extract the contents of
  */
-export function extractTag(response: string, tagName: string): any {
+export function extractTag(response: string, tagName: string): string {
 	const index = response.lastIndexOf(`<${tagName}>`);
 	if (index < 0) throw new Error(`Could not find <${tagName}> in response`);
 	const resultText = response.slice(index);
 	const regexXml = new RegExp(`<${tagName}>(.*)<\/${tagName}>`, 'is');
 	const matchXml = regexXml.exec(resultText);
 
-	if (!matchXml) throw new Error(`Could not find <${tagName}></${tagName}> in the response \n${resultText}`);
+	if (!matchXml) throw new Error(`Could not find <${tagName}></${tagName}> in the response \n${response}`);
 
 	return matchXml[1].trim();
 }

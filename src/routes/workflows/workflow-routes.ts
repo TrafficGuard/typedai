@@ -1,17 +1,17 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import { join } from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { join } from 'node:path';
 import { Type } from '@sinclair/typebox';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
-import { RunAgentConfig } from '#agent/agentRunner';
+import { RunAgentConfig, type RunWorkflowConfig } from '#agent/agentRunner';
 import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
 import { defaultLLMs, summaryLLM } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { queryWorkflow } from '#swe/discovery/selectFilesAgent';
-import { SelectFilesResponse, selectFilesToEdit } from '#swe/discovery/selectFilesToEdit';
+import { type SelectFilesResponse, selectFilesToEdit } from '#swe/discovery/selectFilesToEdit';
 import { systemDir, typedaiDirName } from '../../appVars';
-import { AppFastifyInstance } from '../../server';
+import type { AppFastifyInstance } from '../../applicationTypes';
 
 function findRepositories(dir: string): string[] {
 	const repos: string[] = [];
@@ -58,10 +58,10 @@ export async function workflowRoutes(fastify: AppFastifyInstance) {
 			}
 
 			try {
-				const config: RunAgentConfig = {
+				const config: RunWorkflowConfig = {
 					agentName,
+					subtype: 'code',
 					llms: defaultLLMs(),
-					functions: [],
 					initialPrompt: requirements,
 					humanInLoop: {
 						budget: 2,
@@ -70,7 +70,7 @@ export async function workflowRoutes(fastify: AppFastifyInstance) {
 
 				await runAgentWorkflow(config, async () => {
 					if (workingDirectory?.trim()) getFileSystem().setWorkingDirectory(workingDirectory);
-					await new CodeEditingAgent().runCodeEditWorkflow(config.initialPrompt);
+					await new CodeEditingAgent().implementUserRequirements(config.initialPrompt);
 				});
 
 				reply.send({ success: true, message: 'Code edit workflow completed successfully' });
@@ -94,10 +94,10 @@ export async function workflowRoutes(fastify: AppFastifyInstance) {
 		async (request, reply) => {
 			let { workingDirectory, query } = request.body as { workingDirectory: string; query: string };
 			try {
-				const config: RunAgentConfig = {
+				const config: RunWorkflowConfig = {
 					agentName: `Query: ${query}`,
+					subtype: 'query',
 					llms: defaultLLMs(),
-					functions: [], //FileSystem,
 					initialPrompt: '',
 					humanInLoop: {
 						budget: 2,
@@ -140,10 +140,10 @@ export async function workflowRoutes(fastify: AppFastifyInstance) {
 		(request, reply) => {
 			const { workingDirectory, requirements } = request.body as { workingDirectory: string; requirements: string };
 			try {
-				const config: RunAgentConfig = {
+				const config: RunWorkflowConfig = {
 					agentName: `Select Files: ${requirements}`,
+					subtype: 'selectFiles',
 					llms: defaultLLMs(),
-					functions: [],
 					initialPrompt: '',
 					humanInLoop: {
 						budget: 2,

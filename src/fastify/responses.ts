@@ -1,4 +1,4 @@
-import { FastifyReply } from 'fastify';
+import type { FastifyReply } from 'fastify';
 import * as HttpStatus from 'http-status-codes';
 
 export function send(reply: any, statusCode: number, data: Record<string, any> | string | null = null, extra: object | null = {}): void {
@@ -11,6 +11,12 @@ export function send(reply: any, statusCode: number, data: Record<string, any> |
 	}
 
 	reply.send(payload);
+}
+
+export function sendJSON(reply: any, object: any): void {
+	reply.header('Content-Type', 'text/json; charset=utf-8');
+	reply.status(200);
+	reply.send(JSON.stringify(object));
 }
 
 export function sendHTML(reply: any, html: string): void {
@@ -34,4 +40,12 @@ export function sendBadRequest(reply: FastifyReply, message = 'Bad Request'): vo
 
 export function sendUnauthorized(reply: FastifyReply): void {
 	send(reply, HttpStatus.UNAUTHORIZED, '', { message: 'Unauthorized' });
+}
+
+export function sendNotFound(reply: FastifyReply, message = 'Not Found'): void {
+	send(reply, HttpStatus.NOT_FOUND, '', { message: message });
+}
+
+export function sendServerError(reply: FastifyReply, message = 'Server error'): void {
+	send(reply, HttpStatus.INTERNAL_SERVER_ERROR, '', { message: message });
 }

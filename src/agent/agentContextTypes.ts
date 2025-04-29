@@ -1,7 +1,7 @@
-import { LlmFunctions } from '#agent/LlmFunctions';
-import { FileSystemService } from '#functions/storage/fileSystemService';
-import { FunctionCall, FunctionCallResult, LLM, LlmMessage } from '#llm/llm';
-import { User } from '#user/user';
+import type { LlmFunctions } from '#agent/LlmFunctions';
+import type { FileSystemService } from '#functions/storage/fileSystemService';
+import type { FunctionCall, FunctionCallResult, LLM, LlmMessage } from '#llm/llm';
+import type { User } from '#user/user';
 
 /**
  * The difficulty of a LLM generative task. Used to select an appropriate model for the cost vs capability.
@@ -13,7 +13,8 @@ import { User } from '#user/user';
  *
  */
 export type TaskLevel = 'easy' | 'medium' | 'hard' | 'xhard';
-export type AgentType = 'xml' | 'codegen';
+export type AgentType = 'autonomous' | 'workflow';
+export type AutonomousSubType = 'xml' | 'codegen';
 
 export interface AgentCompleted {
 	notifyCompleted(agentContext: AgentContext): Promise<void>;
@@ -22,9 +23,10 @@ export interface AgentCompleted {
 }
 
 /**
+ * workflow - fixed workflow agent running
  * agent - autonomous agent waiting for the agent LLM call(s) to generate control loop update
- * functions - waiting for function call(s) to complete
- * error - the agent control loop has errored or force stopped
+ * functions - waiting for autonomous agent function call(s) to complete
+ * error - the agent has errored or force stopped
  * hil - deprecated for humanInLoop_agent and humanInLoop_tool
  * hitl_threshold - If the agent has reached budget or iteration thresholds. At this point the agent is not executing any LLM/function calls.
  * hitl_tool - When a function has request real-time HITL in the function calling part of the control loop
@@ -41,10 +43,8 @@ export type AgentRunningState =
 	| 'agent'
 	| 'functions'
 	| 'error'
-	| 'hil'
 	| 'hitl_threshold'
 	| 'hitl_tool'
-	| 'feedback'
 	| 'hitl_feedback'
 	| 'completed'
 	| 'shutdown'
@@ -70,10 +70,15 @@ export type AgentLLMs = Record<TaskLevel, LLM>;
 export interface AgentContext {
 	/** Primary Key - Agent instance id. Allocated when the agent is first starts */
 	agentId: string;
+	/** The type of agent (autonomous or workflow) */
+	type: AgentType;
+	subtype: AutonomousSubType | string;
 	/** Child agent ids */
 	childAgents?: string[];
 	/** Id of the running execution. This changes after the agent restarts due to an error, pausing, human in loop, completion etc */
 	executionId: string;
+	/** The path to the TypedAI repo. i.e. TYPEDAI_HOME env variable or process.cwd() of the most recent execution. If the agent re-starts on a machine with a different value then the file system working directory can be updated. */
+	typedAiRepoDir: string;
 	/** Current OpenTelemetry traceId */
 	traceId: string;
 	/** Display name */
@@ -89,7 +94,7 @@ export interface AgentContext {
 	/** Error message & stack */
 	error?: string;
 	/** Budget spend in $USD until a human-in-the-loop is required */
-	hilBudget;
+	hilBudget: number;
 	/** Total cost of running this agent */
 	cost: number;
 	/** Budget remaining until human intervention is required */
@@ -98,6 +103,8 @@ export interface AgentContext {
 	llms: AgentLLMs;
 	/** Working filesystem */
 	fileSystem?: FileSystemService | null;
+	/** Determines if repositories should be cloned into a shared location (true) or the agent's private directory (false). Defaults to true. */
+	useSharedRepos: boolean;
 	/** Memory persisted over the agent's executions */
 	memory: Record<string, string>;
 	/** Time of the last database write of the state */
@@ -111,14 +118,10 @@ export interface AgentContext {
 
 	// ChatBot properties ----------------
 
-	messages: LlmMessage[];
 	/** Messages sent by users while the agent is still processing the last message */
 	pendingMessages: string[];
 
 	// Autonomous agent specific properties --------------------
-
-	/** The type of autonomous agent function calling.*/
-	type: AgentType;
 	/** The number of completed iterations of the agent control loop */
 	iterations: number;
 	/** The function calls the agent is about to call (xml only) */
@@ -127,12 +130,35 @@ export interface AgentContext {
 	notes: string[];
 	/** The initial prompt provided by the user or parent agent */
 	userPrompt: string;
-	/** The prompt the agent execution started/resumed with */
+	/** The prompt the agent execution started/resumed with for codeGen/XML agent */
 	inputPrompt: string;
+	/** The message the agent execution started/resumed with for cachingCodeGen agent */
+	messages: LlmMessage[];
 	/** Completed function calls with success/error output */
 	functionCallHistory: FunctionCallResult[];
 	/** How many iterations of the autonomous agent control loop to require human input to continue */
 	hilCount;
 	/** Files which are always provided in the agent control loop prompt */
 	liveFiles: string[];
+}
+
+/**
+ * For autonomous agents we save details of each control loop iteration
+ */
+export interface AutonomousIteration {
+	agentId: string;
+	/** Starts from 1 */
+	iteration: number;
+	/** The function class names available */
+	functions: string[];
+	/** Input prompt */
+	prompt: string;
+	/** Generated agent plan */
+	agentPlan: string;
+	/** Generated code (for code gen agents) */
+	code: string;
+	/** Function calls executed this iteration */
+	functionCalls: FunctionCallResult[];
+	/** Any error */
+	error?: string;
 }

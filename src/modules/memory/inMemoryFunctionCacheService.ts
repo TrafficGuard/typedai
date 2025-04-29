@@ -1,5 +1,5 @@
-import crypto from 'crypto';
-import { CacheScope, FunctionCacheService } from '../../cache/functionCacheService';
+import crypto from 'node:crypto';
+import type { CacheScope, FunctionCacheService } from '../../cache/functionCacheService';
 
 export class InMemoryFunctionCacheService implements FunctionCacheService {
 	private cache: Map<string, any>;

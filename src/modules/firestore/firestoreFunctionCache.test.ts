@@ -1,6 +1,6 @@
+import * as fs from 'node:fs/promises';
 import axios from 'axios';
 import { expect } from 'chai';
-import * as fs from 'fs/promises';
 import { agentContext, agentContextStorage, createContext } from '#agent/agentContextLocalStorage';
 import { mockLLMs } from '#llm/services/mock-llm';
 import { logger } from '#o11y/logger';
@@ -103,8 +103,9 @@ describe('FirestoreFunctionCacheService', () => {
 		it('should clear all cache entries for a specific agent', async () => {
 			agentContextStorage.enterWith(
 				createContext({
+					type: 'workflow',
+					subtype: 'test',
 					agentName: '',
-					functions: [],
 					initialPrompt: '',
 					llms: mockLLMs(),
 				}),

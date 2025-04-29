@@ -2,7 +2,7 @@
  * Determines the issue type for a jira
  */
 export async function getJiraIssueType(projectKey: string, title: string, description: string, relatedContentForIssueTypeDetection?: string): Promise<string> {
-	return '1';
+	return '3'; // Task
 	// Customise this for your Jira configuration
 	// Example prompt:
 	/*

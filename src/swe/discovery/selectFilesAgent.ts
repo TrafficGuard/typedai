@@ -1,17 +1,19 @@
-import path from 'path';
+import path from 'node:path';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
-import { LLM, LlmMessage } from '#llm/llm';
+import type { LLM, LlmMessage } from '#llm/llm';
+import { extractTag } from '#llm/responseParsers';
+import { openAIo3mini } from '#llm/services/openai';
 import { logger } from '#o11y/logger';
 import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
-import { RepositoryMaps, generateRepositoryMaps } from '#swe/index/repositoryMap';
-import { ProjectInfo, detectProjectInfo } from '#swe/projectDetection';
+import { type RepositoryMaps, generateRepositoryMaps } from '#swe/index/repositoryMap';
+import { type ProjectInfo, detectProjectInfo } from '#swe/projectDetection';
 
 /*
 Agent which iteratively loads files to find the file set required for a task/query.
 
 After each iteration the agent should accept or ignore each of the new files loaded.
 
-This agent is designed to utilise LLM prompt caching.
+This agent is designed to utilise LLM prompt caching
 */
 
 interface InitialResponse {
@@ -40,140 +42,41 @@ export interface FileExtract {
 	extract: string;
 }
 
-async function initializeFileSelectionAgent(requirements: string, projectInfo?: ProjectInfo): Promise<LlmMessage[]> {
-	// Ensure projectInfo is available
-	projectInfo ??= (await detectProjectInfo())[0];
-
-	// Generate repository maps and overview
-	const projectMaps: RepositoryMaps = await generateRepositoryMaps([projectInfo]);
-	const repositoryOverview: string = await getRepositoryOverview();
-	const fileSystemWithSummaries: string = `<project_files>\n${projectMaps.fileSystemTreeWithFileSummaries.text}\n</project_files>\n`;
-
-	// Construct the initial prompt
-	const systemPrompt = `${repositoryOverview}${fileSystemWithSummaries}
-
-Your task is to select the minimal, complete file set that will be required for completing the task/query in the requirements.
-
-Always respond only in the format/instructions requested.
-
-# Process Files Response Instructions
-
-When requested to respond as per the Proces Files Response Instructions you will need to keep/ignore each of the files you previously selected to inspect, giving a reason why.
-Then you can select additional files to read and inspect if required from the <project_files> provided in the system instructions.
-
-## Response Format
-Your response must finish in the following format:
-<think>
-<observations-to-requirements>
-</observations-to-requirements>
-<keep-ignore-thinking>
-</keep-ignore-thinking>
-<select-files-thinking>
-	<!-- what referenced files would need to be included for the task. You are working in an established codebase, so you should use existing files/design where possible etc -->
-</select-files-thinking>
-<requirements-solution-thinking>
-</requirements-solution-thinking>
-</think>
-<json>
-</json>
-
-## Response Format Contents
-
-The final part of the response should be a JSON object in the following format:
-<json>
-{
-  keepFiles:[
-    {"path": "dir/file1", "reason": "..."}
-  ],
-  ignoreFiles:[
-    {"path": "dir/file1", "reason": "..."}
-  ],
-  inspectFiles: [
-    "dir1/dir2/file2"
-  ]
-}
-</json>
-
-If you believe that you have all the files required for the requirements task/query, then return an empty array for inspectFiles.
-`;
-	// Do not include file contents unless they have been provided to you.
-	const initialUserPrompt = `${repositoryOverview}${fileSystemWithSummaries}
-<requirements>\n${requirements}\n</requirements>
-
-# Initial Response Instructions
-
-For this initial file selection step respond in the following format:
-<observations-related-to-requirements>
-</observations-related-to-requirements>
-<select-files-thinking>
-</select-files-thinking>
-<json>
-{
-  "inspectFiles": [
-  	"dir/file1", 
-	"dir1/dir2/file2"
-  ]
-}
-</json>
-`;
-	return [
-		// { role: 'system', content: systemPrompt, cache: 'ephemeral' },
-		{ role: 'user', content: initialUserPrompt, cache: 'ephemeral' },
-	];
+export async function selectFilesAgent(requirements: string, projectInfo?: ProjectInfo): Promise<SelectedFile[]> {
+	const { selectedFiles } = await selectFilesCore(requirements, projectInfo);
+	return selectedFiles;
 }
 
-async function generateFileSelectionProcessingResponse(
-	messages: LlmMessage[],
-	pendingFiles: string[],
-	iteration: number,
-	llm: LLM,
-): Promise<IterationResponse> {
-	const prompt = `
-${(await readFileContents(pendingFiles)).contents}
-
-The files that must be included in either the keepFiles or ignoreFiles properties are:
-${pendingFiles.join('\n')}
-
-Respond only as per the Process Files Response Instructions. The final part of the response should be a JSON object in the following format:
-<json>
-{
-  keepFiles:[
-    {"path": "dir/file1", "reason": "..."}
-  ]
-  ignoreFiles:[
-    {"path": "dir/file1", "reason": "..."}
-  ],
-  inspectFiles: [
-    "dir1/dir2/file2"
-  ]
-}
-</json>
-`;
-	const iterationMessages: LlmMessage[] = [...messages, { role: 'user', content: prompt }];
-
-	return await llm.generateTextWithJson(iterationMessages, { id: `Select Files iteration ${iteration}` });
+export async function queryWorkflow(query: string, projectInfo?: ProjectInfo): Promise<string> {
+	const { files, answer } = await queryWithFileSelection(query, projectInfo);
+	return answer;
 }
 
-/**
- * Generates the user message that we will add to the conversation, which includes the file contents the LLM wishes to inspect
- * @param response
- */
-async function processedIterativeStepUserPrompt(response: IterationResponse): Promise<LlmMessage> {
-	const ignored = response.ignoreFiles?.map((s) => s.path) ?? [];
-	const kept = response.keepFiles?.map((s) => s.path) ?? [];
+export async function queryWithFileSelection(query: string, projectInfo?: ProjectInfo): Promise<{ files: SelectedFile[]; answer: string }> {
+	const { messages, selectedFiles } = await selectFilesCore(query, projectInfo);
 
-	let ignoreText = '';
-	if (ignored.length) {
-		ignoreText = '\nRemoved the following ignored files:';
-		for (const ig of response.ignoreFiles) {
-			ignoreText += `\n${ig.path} - ${ig.reason}`;
-		}
-	}
+	// Construct the final prompt for answering the query
+	const finalPrompt = `<query>                                                                                                                                                                                                                                                                                                                                                                                           
+${query}
+</query>                                                                                                                                                                                                                                                                                                                                                                                          
+																																																																																													 
+Please provide a detailed answer to the query using the information from the available file contents, and including citations to the files where the relevant information was found.
+Respond in the following structure, with the answer in Markdown format inside the result tags  (Note only the contents of the result tag will be returned to the user):
 
-	return {
-		role: 'user',
-		content: `${(await readFileContents(kept)).contents}${ignoreText}`,
-	};
+<think></think>
+<reflection></reflection>
+<result></result>                                                                                                                                                                                                                                                                                 
+ `;
+
+	messages.push({ role: 'user', content: finalPrompt });
+
+	// Perform the additional LLM call to get the answer
+	let answer = await llms().hard.generateText(messages, { id: 'Select Files query' });
+	try {
+		answer = extractTag(answer, 'result');
+	} catch {}
+
+	return { answer: answer.trim(), files: selectedFiles };
 }
 
 /**
@@ -257,8 +160,10 @@ async function selectFilesCore(
 
 	let filesToInspect = initialResponse.inspectFiles || [];
 
-	const keptFiles = new Set<{ path: string; reason: string }>();
-	const ignoredFiles = new Set<{ path: string; reason: string }>();
+	// Use Maps to store kept/ignored files to ensure uniqueness by path
+	const keptFiles = new Map<string, string>(); // path -> reason
+	const ignoredFiles = new Map<string, string>(); // path -> reason
+	const filesPendingDecision = new Set<string>(filesToInspect);
 
 	let usingHardLLM = false;
 
@@ -266,10 +171,16 @@ async function selectFilesCore(
 		iterationCount++;
 		if (iterationCount > maxIterations) throw new Error('Maximum interaction iterations reached.');
 
-		const response: IterationResponse = await generateFileSelectionProcessingResponse(messages, filesToInspect, iterationCount, llm);
+		const response: IterationResponse = await generateFileSelectionProcessingResponse(messages, filesToInspect, filesPendingDecision, iterationCount, llm);
 		logger.info(response);
-		for (const ignored of response.ignoreFiles ?? []) ignoredFiles.add(ignored);
-		for (const kept of response.keepFiles ?? []) keptFiles.add(kept);
+		for (const ignored of response.ignoreFiles ?? []) {
+			ignoredFiles.set(ignored.path, ignored.reason);
+			filesPendingDecision.delete(ignored.path);
+		}
+		for (const kept of response.keepFiles ?? []) {
+			keptFiles.set(kept.path, kept.reason);
+			filesPendingDecision.delete(kept.path);
+		}
 
 		// Create the user message with the additional file contents to inspect
 		messages.push(await processedIterativeStepUserPrompt(response));
@@ -288,58 +199,150 @@ async function selectFilesCore(
 			cachedMessages[1].cache = undefined;
 		}
 
-		filesToInspect = response.inspectFiles;
+		filesToInspect = response.inspectFiles ?? [];
+
+		// Add newly requested files to pending decision set
+		for (const fileToInspect of filesToInspect) {
+			filesPendingDecision.add(fileToInspect);
+		}
 
 		// We start the file selection process with the medium agent for speed/cost.
 		// Once the medium LLM has completed, then we switch to the hard LLM as a review,
 		// which may continue inspecting files until it is satisfied.
-		if (!filesToInspect || filesToInspect.length === 0) {
+		if (filesToInspect.length === 0 && filesPendingDecision.size === 0) {
 			// Use the hard LLM to review the final selection. Check on a variable and not on llms().medium === llm().hard in case they are the ame.
 			if (!usingHardLLM) {
 				llm = llms().hard;
 				usingHardLLM = true;
 			} else {
+				// Hard LLM also decided not to inspect more files, break the loop
 				break;
 			}
+		} else if (filesToInspect.length === 0 && filesPendingDecision.size > 0) {
+			// LLM didn't request new files, but some files are still pending decision.
+			logger.warn(`LLM did not request new files, but ${filesPendingDecision.size} files are pending decision. Forcing processing.`);
 		}
-
-		// TODO if keepFiles and ignoreFiles doesnt have all of the files in filesToInspect, then get the LLM to try again
-		// filesToInspect = filesToInspect.filter((path) => !keptFiles.has(path) && !ignoredFiles.has(path));
 	}
 
 	if (keptFiles.size === 0) throw new Error('No files were selected to fulfill the requirements.');
 
-	const selectedFiles = Array.from(keptFiles.values());
+	const selectedFiles: SelectedFile[] = Array.from(keptFiles.entries()).map(([path, reason]) => ({
+		path,
+		reason,
+	}));
 
 	return { messages, selectedFiles };
 }
 
-export async function selectFilesAgent(requirements: string, projectInfo?: ProjectInfo): Promise<SelectedFile[]> {
-	const { selectedFiles } = await selectFilesCore(requirements, projectInfo);
-	return selectedFiles;
+async function initializeFileSelectionAgent(requirements: string, projectInfo?: ProjectInfo): Promise<LlmMessage[]> {
+	// Ensure projectInfo is available
+	projectInfo ??= (await detectProjectInfo())[0];
+
+	// Generate repository maps and overview
+	const projectMaps: RepositoryMaps = await generateRepositoryMaps([projectInfo]);
+	const repositoryOverview: string = await getRepositoryOverview();
+	const fileSystemWithSummaries: string = `<project_files>\n${projectMaps.fileSystemTreeWithFileSummaries.text}\n</project_files>\n`;
+
+	// Construct the initial prompt
+	const repoOutlineUserPrompt = `${repositoryOverview}${fileSystemWithSummaries}`;
+
+	// Do not include file contents unless they have been provided to you.
+	const initialUserPrompt = `<requirements>\n${requirements}\n</requirements>
+
+Your task is to select the **minimal set of files absolutely essential** for completing the task/query described in the requirements, using the provided <project_files>.
+**Focus intensely on necessity.** Only select a file if you are confident its contents are **directly required** to understand the context or make the necessary changes. Avoid selecting files that are only tangentially related or provide general context unless strictly necessary for the core task.
+
+Do not select package manager lock files as they are too large.
+
+For this initial file selection step, identify the files you need to **inspect** first to confirm their necessity. Respond in the following format:
+<think>
+<!-- Rigorous thinking process justifying why each potential file is essential for the requirements. Question if each file is truly needed. -->
+</think>
+<json>
+{
+  "inspectFiles": [
+  	"path/to/essential/file1",
+	"path/to/another/crucial/file2"
+  ]
+}
+</json>
+`;
+	return [
+		{ role: 'user', content: repoOutlineUserPrompt },
+		{ role: 'assistant', content: 'What is my task?', cache: 'ephemeral' },
+		{ role: 'user', content: initialUserPrompt, cache: 'ephemeral' },
+	];
 }
 
-export async function queryWorkflow(query: string, projectInfo?: ProjectInfo): Promise<string> {
-	const { messages, selectedFiles } = await selectFilesCore(query, projectInfo);
+async function generateFileSelectionProcessingResponse(
+	messages: LlmMessage[],
+	filesToInspect: string[],
+	pendingFiles: Set<string>,
+	iteration: number,
+	llm: LLM,
+): Promise<IterationResponse> {
+	let prompt = '';
 
-	// Construct the final prompt for answering the query
-	const finalPrompt = `<query>                                                                                                                                                                                                                                                                                                                                                                                           
-${query}
-</query>                                                                                                                                                                                                                                                                                                                                                                                          
-																																																																																													 
-Please provide a detailed answer to the query using the information from the available file contents, and including citations to the files where the relevant information was found.
-Respond in the following format (Note only the contents of the result tag will be returned to the user):
+	if (filesToInspect.length) prompt = (await readFileContents(filesToInspect)).contents;
 
-<think></think>
-<reflection></reflection>
-<result></result>                                                                                                                                                                                                                                                                                 
- `;
+	if (filesToInspect.length || pendingFiles.size) {
+		prompt += `
+The files that must be included in either the keepFiles or ignoreFiles properties are:
+${[...Array.from(pendingFiles), ...filesToInspect].join('\n')}`;
+	}
 
-	messages.push({ role: 'user', content: finalPrompt });
+	prompt += `
+The files that must be decided upon (kept or ignored) in this iteration are:
+${[...Array.from(pendingFiles)].join('\n')}
 
-	// Perform the additional LLM call to get the answer
-	const answer = await llms().medium.generateTextWithResult(messages, { id: 'Select Files query' });
-	return answer.trim();
+First think extensively about which files to keep or ignore based *strictly* on the requirements.
+- For **keepFiles**: Only include a file if its contents are **demonstrably necessary** to fulfill the requirements. The 'reason' must clearly state *why* this specific file is essential.
+- For **ignoreFiles**: Include files previously inspected that are **not essential** for the task.
+- For **inspectFiles**: Only request to inspect *new* files if you have a **strong, specific reason** to believe they contain information **critical** to the task that hasn't been found yet. Avoid speculative inspection. Consider the cost – only inspect if absolutely necessary.
+
+Have you inspected enough files to confidently determine the minimal essential set? If yes, or if no further files seem strictly necessary, return an empty array for "inspectFiles".
+
+The final part of the response must be a JSON object in the following format:
+<json>
+{
+  "keepFiles": [
+    {"path": "path/to/essential/file1", "reason": "Clearly explains why this file is indispensable for the task."}
+  ],
+  "ignoreFiles": [
+    {"path": "path/to/nonessential/file2", "reason": "Explains why this file is not needed."}
+  ],
+  "inspectFiles": [
+    "path/to/potentially/critical/file3"
+  ]
+}
+</json>
+`;
+
+	const iterationMessages: LlmMessage[] = [...messages, { role: 'user', content: prompt }];
+
+	return await llm.generateTextWithJson(iterationMessages, { id: `Select Files iteration ${iteration}` });
+}
+
+/**
+ * Generates the user message that we will add to the conversation, which includes the file contents the LLM wishes to inspect
+ * @param response
+ */
+async function processedIterativeStepUserPrompt(response: IterationResponse): Promise<LlmMessage> {
+	const ignored = response.ignoreFiles?.map((s) => s.path) ?? [];
+	const kept = response.keepFiles?.map((s) => s.path) ?? [];
+
+	let ignoreText = '';
+	if (ignored.length) {
+		ignoreText = '\nRemoved the following ignored files:';
+		for (const ig of response.ignoreFiles) {
+			ignoreText += `\n${ig.path} - ${ig.reason}`;
+		}
+	}
+
+	return {
+		role: 'user',
+		content: `${(await readFileContents(kept)).contents}${ignoreText}`,
+	};
 }
 
 async function readFileContents(filePaths: string[]): Promise<{ contents: string; invalidPaths: string[] }> {

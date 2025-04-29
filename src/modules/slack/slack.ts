@@ -1,8 +1,8 @@
-import axios, { AxiosResponse } from 'axios';
+import axios, { type AxiosResponse } from 'axios';
 import { completedNotificationMessage } from '#agent/agentCompletion';
-import { AgentCompleted, AgentContext } from '#agent/agentContextTypes';
+import type { AgentCompleted, AgentContext } from '#agent/agentContextTypes';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import { GetToolType, ToolType } from '#functions/toolType';
+import type { GetToolType, ToolType } from '#functions/toolType';
 import { logger } from '#o11y/logger';
 import { functionConfig } from '#user/userService/userContext';
 

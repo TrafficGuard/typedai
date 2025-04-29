@@ -1,11 +1,11 @@
 import { promises as fs } from 'node:fs';
-import path from 'path';
+import path from 'node:path';
 import { createByModelName } from '@microsoft/tiktokenizer';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
 import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
-import { RepositoryMaps, generateRepositoryMaps } from '#swe/index/repositoryMap';
-import { ProjectInfo, getProjectInfo } from '../projectDetection';
+import { type RepositoryMaps, generateRepositoryMaps } from '#swe/index/repositoryMap';
+import { type ProjectInfo, getProjectInfo } from '../projectDetection';
 
 export interface SelectFilesResponse {
 	primaryFiles: SelectedFile[];

@@ -1,9 +1,9 @@
-import { randomUUID } from 'crypto';
-import { AsyncLocalStorage } from 'async_hooks';
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { randomUUID } from 'node:crypto';
 import { LlmFunctions } from '#agent/LlmFunctions';
 import { ConsoleCompletedHandler } from '#agent/agentCompletion';
-import { AgentContext, AgentLLMs } from '#agent/agentContextTypes';
-import { RunAgentConfig, RunWorkflowConfig } from '#agent/agentRunner';
+import type { AgentContext, AgentLLMs } from '#agent/agentContextTypes';
+import type { RunAgentConfig, RunWorkflowConfig } from '#agent/agentRunner';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
 import { currentUser } from '#user/userService/userContext';
@@ -50,16 +50,22 @@ export function getFileSystem(): FileSystemService {
 
 export function createContext(config: RunAgentConfig | RunWorkflowConfig): AgentContext {
 	const fileSystem = new FileSystemService(config.fileSystemPath);
-	const hilBudget = config.humanInLoop?.budget ?? (process.env.HIL_BUDGET ? parseFloat(process.env.HIL_BUDGET) : 2);
+	const hilBudget = config.humanInLoop?.budget ?? (process.env.HIL_BUDGET ? Number.parseFloat(process.env.HIL_BUDGET) : 2);
+	const hilCount = config.humanInLoop?.count ?? (process.env.HIL_COUNT ? Number.parseFloat(process.env.HIL_COUNT) : 5);
+
+	// type is optional on RunWorkflowConfig, which discriminates between RunAgentConfig and RunWorkflowConfig
+
 	const context: AgentContext = {
 		agentId: config.resumeAgentId || randomUUID(),
 		parentAgentId: config.parentAgentId,
 		executionId: randomUUID(),
+		typedAiRepoDir: process.env.TYPEDAI_HOME || process.cwd(),
 		childAgents: [],
 		traceId: '',
 		metadata: config.metadata ?? {},
 		name: config.agentName,
-		type: config.type ?? 'codegen',
+		type: (config as RunAgentConfig).type ?? 'workflow',
+		subtype: config.subtype,
 		user: config.user ?? currentUser(),
 		inputPrompt: '',
 		userPrompt: config.initialPrompt,
@@ -71,11 +77,12 @@ export function createContext(config: RunAgentConfig | RunWorkflowConfig): Agent
 		callStack: [],
 		notes: [],
 		hilBudget,
-		hilCount: config.humanInLoop?.count ?? (process.env.HIL_COUNT ? parseFloat(process.env.HIL_COUNT) : 5),
+		hilCount,
 		budgetRemaining: hilBudget,
 		cost: 0,
 		llms: config.llms, // we can't do `?? defaultLLMs()` as compiling breaks from import cycle dependencies,
 		fileSystem,
+		useSharedRepos: true,
 		functions: Array.isArray(config.functions) ? new LlmFunctions(...config.functions) : config.functions,
 		completedHandler: config.completedHandler ?? new ConsoleCompletedHandler(),
 		memory: {},

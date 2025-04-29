@@ -1,5 +1,5 @@
-import { dirname, join } from 'path';
-import * as fs from 'fs/promises';
+import * as fs from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
 

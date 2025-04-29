@@ -1,11 +1,9 @@
-import { Span } from '@opentelemetry/api';
+import type { Span } from '@opentelemetry/api';
 import { agentContext } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
 import { getTracer, setFunctionSpanAttributes, withActiveSpan } from '#o11y/trace';
 import { functionSchemaParser } from './functionSchemaParser';
-import { FUNC_SEP, FunctionSchema, getFunctionSchemas, setFunctionSchemas } from './functions';
-
-export const FUNC_DECORATOR_NAME = 'func';
+import { FUNC_SEP, type FunctionSchema, getFunctionSchemas, setFunctionSchemas } from './functions';
 
 let _functionFactory = {};
 
@@ -69,8 +67,16 @@ export function func() {
 				setFunctionSpanAttributes(span, methodName, attributeExtractors, args);
 				span.setAttribute('call', agentContext()?.callStack?.join(' > ') ?? '');
 
-				const result = originalMethod.call(this, ...args);
-				if (typeof result?.then === 'function') await result;
+				agent?.callStack?.push(methodName);
+
+				let result: any;
+				try {
+					result = originalMethod.call(this, ...args);
+					if (typeof result?.then === 'function') await result;
+				} finally {
+					agent?.callStack?.pop();
+				}
+
 				try {
 					span.setAttribute('result', JSON.stringify(result));
 				} catch (e) {

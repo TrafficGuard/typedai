@@ -1,10 +1,10 @@
-import { DocumentSnapshot, Firestore } from '@google-cloud/firestore';
+import { type DocumentSnapshot, Firestore } from '@google-cloud/firestore';
 import * as bcrypt from 'bcrypt';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import { User } from '#user/user';
+import type { User } from '#user/user';
 import { currentUser, isSingleUser } from '#user/userService/userContext';
-import { UserService } from '#user/userService/userService';
+import type { UserService } from '#user/userService/userService';
 import { envVar } from '#utils/env-var';
 
 /*** Google Firestore implementation of UserService*/

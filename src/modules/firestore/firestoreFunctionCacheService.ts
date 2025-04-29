@@ -11,13 +11,13 @@
  * 9. Monitor Firestore usage and optimize queries to minimize read and write operations.
  */
 
-import { createHash } from 'crypto';
-import { Firestore, Timestamp } from '@google-cloud/firestore';
+import { createHash } from 'node:crypto';
+import { type Firestore, Timestamp } from '@google-cloud/firestore';
 import { agentContext } from '#agent/agentContextLocalStorage';
 import { firestoreDb } from '#firestore/firestore';
 import { logger } from '#o11y/logger';
 import { currentUser } from '#user/userService/userContext';
-import { CacheScope, FunctionCacheService } from '../../cache/functionCacheService';
+import type { CacheScope, FunctionCacheService } from '../../cache/functionCacheService';
 
 /**
  *  Firestore structure.

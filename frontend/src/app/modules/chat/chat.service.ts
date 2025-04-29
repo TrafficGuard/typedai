@@ -1,19 +1,17 @@
-import { HttpClient } from '@angular/common/http';
-import { Injectable } from '@angular/core';
-import {Attachment, Chat, ChatMessage, NEW_CHAT_ID, ServerChat} from 'app/modules/chat/chat.types';
+import {HttpClient} from '@angular/common/http';
+import {Injectable} from '@angular/core';
 import {
-    BehaviorSubject,
-    Observable,
-    filter,
-    map,
-    of,
-    switchMap,
-    take,
-    tap,
-    throwError, catchError,
-} from 'rxjs';
-import { FilePart, ImagePart, TextPart } from './ai.types';
+    Attachment,
+    Chat,
+    ChatMessage,
+    LlmMessage,
+    NEW_CHAT_ID,
+    ServerChat,
+    TextContent,
+} from 'app/modules/chat/chat.types';
+import {BehaviorSubject, catchError, filter, map, Observable, of, switchMap, take, tap, throwError,} from 'rxjs';
 import {GenerateOptions} from "app/core/user/user.types";
+import {FilePartExt, ImagePartExt, TextPart} from "./ai.types";
 
 @Injectable({ providedIn: 'root' })
 export class ChatService {
@@ -22,9 +20,7 @@ export class ChatService {
     /** Flag indicating whether chats have been loaded from the server */
     private _chatsLoaded: boolean = false;
 
-    /**
-     * Constructor
-     */
+
     constructor(private _httpClient: HttpClient) {
         // Chats will be loaded on-demand via getChats()
     }
@@ -159,84 +155,13 @@ export class ChatService {
                     const chat: Chat = {
                         id: serverChat.id,
                         title: serverChat.title,
-                        messages: serverChat.messages.map(llmMessage => {
-
-                            let textContent = '';
-                            let attachments: Attachment[] = [];
-                            // Check if content is an array
-                            if (Array.isArray(llmMessage.content)) {
-                                // Find the index of the item with type 'text'
-                                const textIndex = llmMessage.content.findIndex(item => item.type === 'text');
-                                if (textIndex !== -1) {
-                                    // Remove the 'text' item from the content array
-                                    const textPart = llmMessage.content.splice(textIndex, 1)[0] as TextPart;
-                                    // Set the 'text' content on the 'content' property
-                                    textContent = textPart.text ?? '';
-                                }
-
-                                // Convert the FilePart and ImageParts to Attachments
-                                attachments = llmMessage.content
-                                    .filter(item => item.type === 'image' || item.type === 'file')
-                                    .map(item => {
-                                        if (item.type === 'image') {
-                                            const imagePart = item as ImagePart;
-
-                                            const mimeType = imagePart.mimeType || 'image/png';
-                                            const base64Data = imagePart.image as string;
-                                            const filename = imagePart.filename || `image_${Date.now()}.png`;
-
-                                            // Create a data URL
-                                            const dataUrl = `data:${mimeType};base64,${base64Data}`;
-
-                                            return {
-                                                type: 'image',
-                                                filename: filename,
-                                                size: base64Data.length,
-                                                data: null,
-                                                mimeType: mimeType,
-                                                previewUrl: dataUrl,
-                                            } as Attachment;
-                                        } else if (item.type === 'file') {
-                                            const filePart = item as FilePart;
-
-                                            const mimeType = filePart.mimeType || 'application/octet-stream';
-                                            const base64Data = filePart.data as string;
-                                            const filename = filePart.filename || `file_${Date.now()}`;
-
-                                            // Create a data URL
-                                            const dataUrl = `data:${mimeType};base64,${base64Data}`;
-
-                                            return {
-                                                type: 'file',
-                                                filename: filename,
-                                                size: base64Data.length,
-                                                data: null,
-                                                mimeType: mimeType,
-                                                previewUrl: dataUrl,
-                                            } as Attachment;
-                                        }
-                                    });
-                            } else {
-                                textContent = llmMessage.content ?? '';
-                            }
-
-                            const uiMsg: ChatMessage = {
-                                id: serverChat.id,
-                                content: textContent,
-                                isMine: llmMessage.role === 'user',
-                                createdAt: new Date(llmMessage.time).toString(),
-                                llmId: llmMessage.llmId,
-                                attachments
-                            };
-
-                            return uiMsg;
-                        }),
+                        messages: serverChat.messages.map(convertMessage),
                         updatedAt: serverChat.updatedAt
                     }
 
                     // Set lastMessage
-                    const lastMessage = chat.messages[chat.messages.length - 1];
-                    chat.lastMessage = lastMessage ? lastMessage.content : '';
+                    // const lastMessage = chat.messages[chat.messages.length - 1];
+                    // chat.lastMessage = lastMessage ? lastMessage.content : '';
 
                     // this._chats doesn't have the messages, so we need to update it when we load a chat
                     const chats = this._chats.getValue()
@@ -346,18 +271,16 @@ export class ChatService {
                     .post<Chat>(`/api/chat/${chatId}/send`, formData, { headers: { 'enctype': 'multipart/form-data' } })
                     .pipe(
                         map((data: any) => {
-                            const llmMessage = data.data;
+                            const llmMessage = data.data as LlmMessage;
 
                             const newMessages: ChatMessage[] = [
                                 {
-                                    content: message,
+                                    content: [{type:'text',text:message}],
+                                    textContent: message,
                                     isMine: true,
                                     attachments: attachments,
                                 },
-                                {
-                                    content: llmMessage,
-                                    isMine: false,
-                                },
+                                convertMessage(llmMessage)
                             ]
                             // Find the index of the updated chat
                             const index = chats.findIndex(
@@ -421,6 +344,7 @@ export class ChatService {
                                 value: llmMessage,
                                 isMine: false,
                                 llmId: llmId,
+                                textContent: 'textContent todo'
                             };
 
                             const chat = chats[chatIndex];
@@ -496,4 +420,96 @@ export class ChatService {
         };
         return mimeTypeMap[mimeType] || 'bin'; // Default to 'bin' if mime type is unknown
     }
+}
+
+
+/**
+ * Convert the server Message type to the UI Message type
+ * @param llmMessage
+ */
+function convertMessage(llmMessage: LlmMessage): ChatMessage {
+    let attachments: Attachment[] = [];
+    const texts: TextContent[] = []
+    let textContent = ''
+
+    if (Array.isArray(llmMessage.content)) {
+        for(const content of llmMessage.content) {
+            switch(content.type) {
+                case 'text':
+                    texts.push({
+                        type: content.type,
+                        text: content.text
+                    })
+                    textContent += content.text;
+                    break;
+                case 'reasoning':
+                    texts.push({
+                        type: content.type,
+                        text: content.text
+                    })
+                    textContent += content.text + '\n\n';
+                    break;
+                case 'redacted-reasoning':
+                    texts.push({
+                        type: 'reasoning',
+                        text: '<redacted>'
+                    })
+            }
+        }
+
+        // Convert the FilePart and ImageParts to Attachments
+        attachments = llmMessage.content
+            .filter(item => item.type === 'image' || item.type === 'file')
+            .map(item => {
+                if (item.type === 'image') {
+                    const imagePart = item as ImagePartExt;
+
+                    const mimeType = imagePart.mimeType || 'image/png';
+                    const base64Data = imagePart.image as string;
+                    const filename = imagePart.filename || `image_${Date.now()}.png`;
+
+                    // Create a data URL
+                    const dataUrl = `data:${mimeType};base64,${base64Data}`;
+
+                    return {
+                        type: 'image',
+                        filename: filename,
+                        size: base64Data.length,
+                        data: null,
+                        mimeType: mimeType,
+                        previewUrl: dataUrl,
+                    } as Attachment;
+                } else if (item.type === 'file') {
+                    const filePart = item as FilePartExt;
+
+                    const mimeType = filePart.mimeType || 'application/octet-stream';
+                    const base64Data = filePart.data as string;
+                    const filename = filePart.filename || `file_${Date.now()}`;
+
+                    // Create a data URL
+                    const dataUrl = `data:${mimeType};base64,${base64Data}`;
+
+                    return {
+                        type: 'file',
+                        filename: filename,
+                        size: base64Data.length,
+                        data: null,
+                        mimeType: mimeType,
+                        previewUrl: dataUrl,
+                    } as Attachment;
+                }
+            });
+    } else { // string content
+        texts.push({type: 'text', text: llmMessage.content});
+        textContent = llmMessage.content;
+    }
+
+    return {
+        textContent,
+        content: texts,
+        isMine: llmMessage.role === 'user',
+        createdAt: new Date(llmMessage.stats?.requestTime).toString(),
+        llmId: llmMessage.stats?.llmId,
+        attachments
+    };
 }

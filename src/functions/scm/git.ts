@@ -1,26 +1,19 @@
-import fs from 'node:fs';
-import util from 'util';
+import util from 'node:util';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
-import { funcClass } from '#functionSchema/functionDecorators';
-import { FileSystemService } from '#functions/storage/fileSystemService';
+import { func, funcClass } from '#functionSchema/functionDecorators';
+import type { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import { execCmd, execCommand, failOnError } from '#utils/exec';
-import { VersionControlSystem } from './versionControlSystem';
-const exec = util.promisify(require('child_process').exec);
+import { execCommand, failOnError } from '#utils/exec';
+import type { VersionControlSystem } from './versionControlSystem';
+const exec = util.promisify(require('node:child_process').exec);
 
 @funcClass(__filename)
 export class Git implements VersionControlSystem {
 	/** The branch name before calling switchToBranch. This enables getting the diff between the current and previous branch */
 	previousBranch: string | undefined;
 
-	constructor(private fileSystem: FileSystemService) {}
-
-	async clone(repoURL: string, commitOrBranch = ''): Promise<void> {
-		await fs.promises.mkdir(getFileSystem().getWorkingDirectory(), { recursive: true });
-		const { exitCode, stdout, stderr } = await execCommand(`git clone ${repoURL} ${commitOrBranch}`);
-		if (exitCode > 0) throw new Error(`${stdout}\n${stderr}`);
-	}
+	constructor(private fileSystem: FileSystemService = getFileSystem()) {}
 
 	/**
 	 * Adds all files which are already tracked by version control to the index and commits.
@@ -74,26 +67,27 @@ export class Git implements VersionControlSystem {
 	}
 
 	/**
-	 * Returns the diff between the current branch head and the source branch
-	 * @param sourceBranch
+	 * Returns the diff from the merge-base (common ancestor) of HEAD and a reference, up to HEAD.
+	 * This effectively shows changes introduced on the current branch relative to that base.
+	 *
+	 * @param baseRef Optional commit SHA or branch name.
+	 *                - If provided: Uses `git merge-base <baseRef> HEAD` to find the diff start point.
+	 *                - If omitted: Attempts to guess the source branch (e.g., main, develop)
+	 *                  by inspecting other local branches and uses that for the merge-base calculation.
+	 *                  Note: Guessing the source branch may be unreliable in some cases.
+	 * @returns The git diff.
 	 */
-	@span({ sourceBranch: 0 })
-	async getBranchDiff(sourceBranch: string = this.previousBranch): Promise<string> {
-		// git diff $(git merge-base <source-branch> HEAD) HEAD
-		if (!sourceBranch) throw new Error('Source branch is required');
-		const result = await execCommand(`git --no-pager diff $(git merge-base ${sourceBranch} HEAD) HEAD`);
-		failOnError('Error getting branch diff', result);
-		return result.stdout;
-	}
+	@func()
+	async getDiff(baseRef?: string): Promise<string> {
+		const command: string = baseRef?.length
+			? `git --no-pager diff $(git merge-base ${baseRef} HEAD) HEAD`
+			: // attempt to guess the source branch and find its merge-base with HEAD
+				"git --no-pager diff $(git merge-base HEAD $(git for-each-ref --format='%(refname)' refs/heads/ | grep -v $(git symbolic-ref HEAD))) HEAD";
 
-	/**
-	 * Returns the diff between the head commit either the previous commit, or the commit provided by the commitSha argument.
-	 * @param commitSha
-	 */
-	@span()
-	async getDiff(commitSha?: string): Promise<string> {
-		const result = await execCommand(`git --no-pager diff ${commitSha ?? 'HEAD^'}..HEAD`);
-		failOnError('Error getting diff', result);
+		const result = await execCommand(command);
+
+		// Ensure failOnError handles potential errors from merge-base (if refs don't exist/relate) or diff
+		failOnError(`Error getting diff against base '${baseRef}'`, result);
 		return result.stdout;
 	}
 

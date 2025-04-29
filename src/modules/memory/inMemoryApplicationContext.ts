@@ -4,7 +4,8 @@ import { InMemoryCodeReviewService } from '#modules/memory/inMemoryCodeReviewSer
 import { InMemoryFunctionCacheService } from '#modules/memory/inMemoryFunctionCacheService';
 import { InMemoryLlmCallService } from '#modules/memory/inMemoryLlmCallService';
 import { InMemoryUserService } from '#modules/memory/inMemoryUserService';
-import { ApplicationContext } from '../../applicationContext';
+import { InMemoryVibeService } from '#modules/memory/inMemoryVibeService';
+import type { ApplicationContext } from '../../applicationTypes';
 
 export function inMemoryApplicationContext(): ApplicationContext {
 	return {
@@ -14,5 +15,6 @@ export function inMemoryApplicationContext(): ApplicationContext {
 		llmCallService: new InMemoryLlmCallService(),
 		codeReviewService: new InMemoryCodeReviewService(),
 		functionCacheService: new InMemoryFunctionCacheService(),
+		vibeService: new InMemoryVibeService(),
 	};
 }

@@ -1,5 +1,5 @@
 import { llms } from '#agent/agentContextLocalStorage';
-import { buildPrompt } from '#swe/softwareDeveloperAgent';
+import { buildPrompt } from '#swe/prompt';
 
 // work in progress
 export async function getTestRequirements(requirements: string, implementationRequirements: string, branchDiff: string) {

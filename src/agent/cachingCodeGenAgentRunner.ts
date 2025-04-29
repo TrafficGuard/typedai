@@ -1,16 +1,17 @@
-import { readFileSync } from 'fs';
-import { Span, SpanStatusCode } from '@opentelemetry/api';
-import { PyodideInterface, loadPyodide } from 'pyodide';
+import { readFileSync } from 'node:fs';
+import { type Span, SpanStatusCode } from '@opentelemetry/api';
+import { type PyodideInterface, loadPyodide } from 'pyodide';
 import { runAgentCompleteHandler } from '#agent/agentCompletion';
-import { AgentContext } from '#agent/agentContextTypes';
+import type { AgentContext } from '#agent/agentContextTypes';
 import { AGENT_REQUEST_FEEDBACK } from '#agent/agentFeedback';
 import { AGENT_COMPLETED_NAME, AGENT_SAVE_MEMORY_CONTENT_PARAM_NAME } from '#agent/agentFunctions';
 import { buildFunctionCallHistoryPrompt, buildMemoryPrompt, buildToolStatePrompt, updateFunctionSchemas } from '#agent/agentPromptUtils';
-import { AgentExecution, formatFunctionError, formatFunctionResult } from '#agent/agentRunner';
-import { convertJsonToPythonDeclaration, extractPythonCode } from '#agent/codeGenAgentUtils';
+import { type AgentExecution, formatFunctionError, formatFunctionResult } from '#agent/agentRunner';
+import { reviewPythonCode } from '#agent/codeGenAgentCodeReview';
+import { convertJsonToPythonDeclaration, extractPythonCode, removePythonMarkdownWrapper } from '#agent/codeGenAgentUtils';
 import { humanInTheLoop, notifySupervisor } from '#agent/humanInTheLoop';
 import { getServiceName } from '#fastify/trace-init/trace-init';
-import { FUNC_SEP, FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
+import { FUNC_SEP, type FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { errorToString } from '#utils/errors';
@@ -24,9 +25,10 @@ export const CODEGEN_AGENT_SPAN = 'Codegen Agent';
 let pyodide: PyodideInterface;
 
 /*
+ * EXPERIMENTAL
+ *
  * The aim of the cachingCodegen agent compared to the codegenAgent is to utilise context caching in Claude/OpenAI/DeepSeek.
- * This will require using the new methods on the LLM interface which have a message history. This message history
- * will be treated in some ways like a stack.
+ * by using the user/assistant messages like a stack.
  *
  * Message stack:
  * system prompt
@@ -185,8 +187,12 @@ export async function runCachingCodegenAgent(agent: AgentContext): Promise<Agent
 						temperature: 0.7,
 					})}`;
 					console.log(agentCodeResponse);
+
 					agent.messages[8] = { role: 'assistant', content: agentCodeResponse };
-					const llmPythonCode = extractPythonCode(agentCodeResponse);
+					let llmPythonCode = extractPythonCode(agentCodeResponse);
+
+					// Review the generated code
+					llmPythonCode = await reviewPythonCode(agentPlanResponse, functionsXml);
 
 					// Function calling ----------------
 
@@ -313,7 +319,7 @@ main()`.trim();
 							completed = true;
 						} else if (lastFunctionCall.function_name === AGENT_REQUEST_FEEDBACK) {
 							logger.info('Feedback requested');
-							agent.state = 'feedback';
+							agent.state = 'hitl_feedback';
 							requestFeedback = true;
 						} else {
 							if (!anyFunctionCallErrors && !completed && !requestFeedback) agent.state = 'agent';

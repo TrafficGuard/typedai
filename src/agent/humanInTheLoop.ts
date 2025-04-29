@@ -1,5 +1,5 @@
 import readline from 'readline';
-import { AgentContext } from '#agent/agentContextTypes';
+import type { AgentContext } from '#agent/agentContextTypes';
 import { Slack } from '#modules/slack/slack';
 import { logger } from '#o11y/logger';
 /**

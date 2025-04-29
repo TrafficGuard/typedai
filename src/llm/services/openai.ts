@@ -1,8 +1,8 @@
-import { OpenAIProvider, createOpenAI } from '@ai-sdk/openai';
-import { InputCostFunction, OutputCostFunction, perMilTokens } from '#llm/base-llm';
+import { type OpenAIProvider, createOpenAI } from '@ai-sdk/openai';
+import { type InputCostFunction, type OutputCostFunction, perMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
 import { currentUser } from '#user/userService/userContext';
-import { GenerateTextOptions, LLM, LlmMessage } from '../llm';
+import type { GenerateTextOptions, LLM, LlmMessage } from '../llm';
 
 export const OPENAI_SERVICE = 'openai';
 
