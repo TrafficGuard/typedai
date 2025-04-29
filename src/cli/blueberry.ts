@@ -1,8 +1,8 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
-import { writeFileSync } from 'fs';
+import { writeFileSync } from 'node:fs';
 import { agentContext, agentContextStorage, createContext } from '#agent/agentContextLocalStorage';
-import { AgentContext } from '#agent/agentContextTypes';
+import type { AgentContext } from '#agent/agentContextTypes';
 import { Blueberry } from '#llm/multi-agent/blueberry';
 import { mockLLMs } from '#llm/services/mock-llm';
 import { initApplicationContext } from '../applicationContext';
@@ -16,6 +16,7 @@ async function main() {
 	const { initialPrompt } = parseProcessArgs();
 
 	const context: AgentContext = createContext({
+		subtype: 'blueberry',
 		initialPrompt,
 		agentName: 'blueberry',
 		llms: mockLLMs(),

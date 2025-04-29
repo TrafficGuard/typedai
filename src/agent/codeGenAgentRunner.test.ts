@@ -1,13 +1,14 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
 import { LlmFunctions } from '#agent/LlmFunctions';
-import { AgentContext } from '#agent/agentContextTypes';
+import type { AgentContext } from '#agent/agentContextTypes';
 import { AGENT_REQUEST_FEEDBACK, AgentFeedback } from '#agent/agentFeedback';
 import { AGENT_COMPLETED_NAME, AGENT_SAVE_MEMORY } from '#agent/agentFunctions';
-import { RunAgentConfig, SUPERVISOR_CANCELLED_FUNCTION_NAME, cancelAgent, provideFeedback, startAgent, startAgentAndWait } from '#agent/agentRunner';
+import { type RunAgentConfig, SUPERVISOR_CANCELLED_FUNCTION_NAME, cancelAgent, provideFeedback, startAgent, startAgentAndWait } from '#agent/agentRunner';
 import { convertTypeScriptToPython } from '#agent/codeGenAgentUtils';
 import { TEST_FUNC_NOOP, TEST_FUNC_SKY_COLOUR, TEST_FUNC_SUM, TEST_FUNC_THROW_ERROR, TestFunctions } from '#functions/testFunctions';
-import { MockLLM, mockLLM, mockLLMs } from '#llm/services/mock-llm';
+import { lastText } from '#llm/llm';
+import { mockLLM, mockLLMs } from '#llm/services/mock-llm';
 import { logger } from '#o11y/logger';
 import { setTracer } from '#o11y/trace';
 import { sleep } from '#utils/async-utils';
@@ -26,9 +27,16 @@ const PY_SET_MEMORY = (key, content) => `await ${AGENT_SAVE_MEMORY}("${key}", "$
 const PYTHON_CODE_PLAN = (pythonCode: string) => `<response>\n<plan>Run some code</plan>\n<python-code>${pythonCode}</python-code>\n</response>`;
 const REQUEST_FEEDBACK_FUNCTION_CALL_PLAN = (feedback) =>
 	`<response>\n<plan>Requesting feedback</plan>\n<python-code>${PY_AGENT_REQUEST_FEEDBACK(feedback)}</python-code>\n</response>`;
+
 const COMPLETE_FUNCTION_CALL_PLAN = `<response>\n<plan>Ready to complete</plan>\n<python-code>${PY_AGENT_COMPLETED('done')}</python-code>\n</response>`;
+
 const NOOP_FUNCTION_CALL_PLAN = `<response>\n<plan>I'm going to call the noop function</plan>\n<python-code>${PY_TEST_FUNC_NOOP}</python-code>\n</response>`;
+
 const SKY_COLOUR_FUNCTION_CALL_PLAN = `<response>\n<plan>Get the sky colour</plan>\n<python-code>${PY_TEST_FUNC_SKY_COLOUR}</python-code>\n</response>`;
+
+function result(contents: string): string {
+	return `<result>${contents}</result>`;
+}
 
 describe('codegenAgentRunner', () => {
 	const ctx = initInMemoryApplicationContext();
@@ -41,7 +49,8 @@ describe('codegenAgentRunner', () => {
 			agentName: AGENT_NAME,
 			initialPrompt: 'test prompt',
 			systemPrompt: '<functions></functions>',
-			type: 'codegen',
+			type: 'autonomous',
+			subtype: 'codegen',
 			llms: mockLLMs(),
 			functions,
 			user: ctx.userService.getSingleUser(),
@@ -90,21 +99,21 @@ describe('codegenAgentRunner', () => {
 			let initialPrompt: string;
 			let secondPrompt: string;
 			let finalPrompt: string;
-			mockLLM.addResponse(
-				`<response>\n<plan>call sum 3 6</plan>\n<python-code>${PY_SET_MEMORY('memKey', 'contents')}\nreturn ${PY_TEST_FUNC_SUM(
-					3,
-					6,
-				)}</python-code>\n</response>`,
-				(p) => {
-					initialPrompt = p;
-				},
-			);
-			mockLLM.addResponse(`<response>\n<plan>call sum 42 42</plan>\n<python-code>return ${PY_TEST_FUNC_SUM(42, 42)}</python-code>\n</response>`, (p) => {
+			let code = `${PY_SET_MEMORY('memKey', 'contents')}\nreturn ${PY_TEST_FUNC_SUM(3, 6)}`;
+			mockLLM.addResponse(`<response>\n<plan>call sum 3 6</plan>\n<python-code>${code}</python-code>\n</response>`, (p) => {
+				initialPrompt = p;
+			});
+
+			code = `return ${PY_TEST_FUNC_SUM(42, 42)}`;
+			mockLLM.addResponse(`<response>\n<plan>call sum 42 42</plan>\n<python-code>${code}</python-code>\n</response>`, (p) => {
 				secondPrompt = p;
 			});
+
 			mockLLM.addResponse(COMPLETE_FUNCTION_CALL_PLAN, (p) => {
 				finalPrompt = p;
 			});
+			mockLLM.addResponse(result(PY_AGENT_COMPLETED('done')));
+
 			await startAgent(runConfig({ initialPrompt: 'Task is to 3 and 6', functions: functions }));
 			const agent = await waitForAgent();
 			// spy on sum
@@ -156,10 +165,10 @@ describe('codegenAgentRunner', () => {
 			await startAgent(runConfig({ functions }));
 			let agent = await waitForAgent();
 			expect(agent.functionCallHistory.length).to.equal(1);
-			expect(agent.state).to.equal('feedback');
+			expect(agent.state).to.equal('hitl_feedback');
 
 			let postFeedbackPrompt: string;
-			(agent.llms.hard as MockLLM).addResponse(COMPLETE_FUNCTION_CALL_PLAN, (prompt) => {
+			mockLLM.addResponse(COMPLETE_FUNCTION_CALL_PLAN, (prompt) => {
 				postFeedbackPrompt = prompt;
 			});
 			logger.info('Providing feedback...');
@@ -283,14 +292,14 @@ describe('codegenAgentRunner', () => {
 			mockLLM.addResponse(COMPLETE_FUNCTION_CALL_PLAN);
 			await startAgent(runConfig({ functions }));
 			const agent = await waitForAgent();
-			logger.info(`agent error:${agent.error}`);
 			expect(agent.state).to.equal('completed');
 
 			const calls = await appContext().llmCallService.getLlmCallsForAgent(agent.agentId);
 			expect(calls.length).to.equal(3);
+
 			const skyCall = calls[1];
-			expect(skyCall.callStack).to.equal('skyColour > generateText');
-			expect(skyCall.responseText).to.equal('blue');
+			expect(skyCall.callStack).to.equal('skyColour > generateText skyColourId');
+			expect(lastText(skyCall.messages)).to.equal('blue');
 		});
 	});
 

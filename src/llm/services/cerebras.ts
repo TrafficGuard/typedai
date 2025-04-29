@@ -1,8 +1,8 @@
 import { createCerebras } from '@ai-sdk/cerebras';
-import { OpenAIProvider } from '@ai-sdk/openai';
-import { InputCostFunction, OutputCostFunction, perMilTokens } from '#llm/base-llm';
+import type { OpenAIProvider } from '@ai-sdk/openai';
+import { type InputCostFunction, type OutputCostFunction, perMilTokens } from '#llm/base-llm';
 import { currentUser } from '#user/userService/userContext';
-import { LLM } from '../llm';
+import type { LLM } from '../llm';
 import { AiLLM } from './ai-llm';
 
 export const CEREBRAS_SERVICE = 'cerebras';

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Span, SpanOptions } from '@opentelemetry/api';
+import type { Span, SpanOptions } from '@opentelemetry/api';
 
 /**
  * Options needed for span creation

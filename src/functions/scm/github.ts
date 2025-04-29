@@ -1,15 +1,18 @@
-import { existsSync } from 'fs';
-import path, { join } from 'path';
+import { promises as fs, existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { request } from '@octokit/request';
-import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
+import type { Endpoints } from '@octokit/types';
+import { agentContext } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import { MergeRequest, SourceControlManagement } from '#functions/scm/sourceControlManagement';
+import type { MergeRequest, SourceControlManagement } from '#functions/scm/sourceControlManagement';
+import type { ToolType } from '#functions/toolType';
 import { logger } from '#o11y/logger';
 import { functionConfig } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
-import { checkExecResult, execCmd, execCommand, failOnError, runShellCommand, spawnCommand } from '#utils/exec';
-import { systemDir } from '../../appVars';
-import { GitProject } from './gitProject';
+import { execCommand, failOnError, spawnCommand } from '#utils/exec';
+import { agentDir, systemDir } from '../../appVars';
+import type { GitProject } from './gitProject';
+import { extractOwnerProject } from './scmUtils';
 
 type RequestType = typeof request;
 
@@ -54,6 +57,19 @@ export class GitHub implements SourceControlManagement {
 		return this._request;
 	}
 
+	/**
+	 * Checks if the GitHub configuration (token and username/organisation) is available.
+	 * @returns {boolean} True if configured, false otherwise.
+	 */
+	isConfigured(): boolean {
+		const userConfig = functionConfig(GitHub) as GitHubConfig;
+		const token = userConfig?.token || process.env.GITHUB_TOKEN;
+		const user = userConfig?.username || process.env.GITHUB_USER;
+		const org = userConfig?.organisation || process.env.GITHUB_ORG;
+
+		return !!(token && (user || org));
+	}
+
 	// Do NOT change this method
 	/**
 	 * Runs the integration test for the GitHub service class
@@ -78,41 +94,44 @@ export class GitHub implements SourceControlManagement {
 		const org = paths[0];
 		const project = paths[1];
 
-		const path = join(systemDir(), 'github', org, project);
+		const agent = agentContext();
+		const basePath = agent.useSharedRepos ? join(systemDir(), 'github') : join(agentDir(), 'github');
+		const targetPath = join(basePath, org, project);
+		await fs.mkdir(join(targetPath, org), { recursive: true }); // Ensure the target dir exists
 
 		// TODO it cloned a project to the main branch when the default is master?
 		// If the project already exists pull updates
-		if (existsSync(path) && existsSync(join(path, '.git'))) {
-			logger.info(`${org}/${project} exists at ${path}. Pulling updates`);
+		if (existsSync(targetPath) && existsSync(join(targetPath, '.git'))) {
+			logger.info(`${org}/${project} exists at ${targetPath}. Pulling updates`);
 			// If we're resuming an agent which has already created the branch but not pushed
 			// then it won't exist remotely, so this will return a non-zero code
 			if (branchOrCommit) {
 				// Fetch all branches and commits
-				await execCommand(`git -C ${path} fetch --all`, { workingDirectory: path });
+				await execCommand(`git -C ${targetPath} fetch --all`, { workingDirectory: targetPath });
 
 				// Checkout to the branch or commit
-				const result = await execCommand(`git -C ${path} checkout ${branchOrCommit}`, { workingDirectory: path });
-				failOnError(`Failed to checkout ${branchOrCommit} in ${path}`, result);
+				const result = await execCommand(`git -C ${targetPath} checkout ${branchOrCommit}`, { workingDirectory: targetPath });
+				failOnError(`Failed to checkout ${branchOrCommit} in ${targetPath}`, result);
 
 				// if (this.checkIfBranch(branchOrCommit)) {
 				// 	const pullResult = await execCommand(`git pull`);
-				// 	failOnError(`Failed to pull ${path} after checking out ${branchOrCommit}`, pullResult);
+				// 	failOnError(`Failed to pull ${targetPath} after checking out ${branchOrCommit}`, pullResult);
 				// }
 			}
 		} else {
-			logger.info(`Cloning project: ${org}/${project} to ${path}`);
-			const command = `git clone 'https://oauth2:${this.config().token}@github.com/${projectPathWithOrg}.git' ${path}`;
+			logger.info(`Cloning project: ${org}/${project} to ${targetPath}`);
+			const command = `git clone 'https://oauth2:${this.config().token}@github.com/${projectPathWithOrg}.git' ${targetPath}`;
 			const result = await spawnCommand(command);
 			// if(result.error) throw result.error
 			failOnError(`Failed to clone ${projectPathWithOrg}`, result);
 
-			const checkoutResult = await execCommand(`git -C ${path} checkout ${branchOrCommit}`, { workingDirectory: path });
-			failOnError(`Failed to checkout ${branchOrCommit} in ${path}`, checkoutResult);
+			const checkoutResult = await execCommand(`git -C ${targetPath} checkout ${branchOrCommit}`, { workingDirectory: targetPath });
+			failOnError(`Failed to checkout ${branchOrCommit} in ${targetPath}`, checkoutResult);
 		}
-		const agent = agentContext();
-		if (agent) agentContext().memory[`GitHub_project_${org}_${project}_FileSystem_directory`] = path;
 
-		return path;
+		if (agent) agentContext().memory[`GitHub_project_${org}_${project}_FileSystem_directory`] = targetPath;
+
+		return targetPath;
 	}
 
 	async checkIfBranch(ref: string): Promise<boolean> {
@@ -123,11 +142,21 @@ export class GitHub implements SourceControlManagement {
 
 	@func()
 	async createMergeRequest(title: string, description: string, sourceBranch: string, targetBranch: string): Promise<MergeRequest> {
-		// TODO git push
+		// Push the branch first
+		const pushCmd = `git push --set-upstream origin '${sourceBranch}'`;
+		const { exitCode: pushExitCode, stdout: pushStdout, stderr: pushStderr } = await execCommand(pushCmd);
+		if (pushExitCode > 0) {
+			// Combine stdout and stderr for a comprehensive error message
+			const errorMessage = `Failed to push branch '${sourceBranch}' to origin.\nstdout: ${pushStdout}\nstderr: ${pushStderr}`;
+			throw new Error(errorMessage);
+		}
 
-		const originUrl = (await execCommand('git config --get remote.origin.url')).stdout;
-		const [owner, repo] = extractOwnerProject(originUrl);
+		// Determine owner and repo from the origin URL
+		const originUrlResult = await execCommand('git config --get remote.origin.url');
+		failOnError('Failed to get remote origin URL', originUrlResult);
+		const [owner, repo] = extractOwnerProject(originUrlResult.stdout);
 
+		// Create the pull request via GitHub API
 		const response = await this.request()('POST /repos/{owner}/{repo}/pulls', {
 			owner,
 			repo,
@@ -145,6 +174,25 @@ export class GitHub implements SourceControlManagement {
 			url: response.data.url,
 			title: response.data.title,
 		};
+	}
+
+	async getProject(projectId: string | number): Promise<GitProject> {
+		try {
+			logger.info(`Getting project ${projectId}`);
+			const response = await this.request()(`GET /repos/${projectId}`, {
+				type: 'all',
+				sort: 'updated',
+				direction: 'desc',
+				per_page: 100,
+				headers: {
+					'X-GitHub-Api-Version': '2022-11-28',
+				},
+			});
+			return convertGitHubToGitProject(response.data as GitHubRepository);
+		} catch (error) {
+			logger.error(error, 'Failed to get project');
+			throw new Error(`Failed to get project: ${error.message}`);
+		}
 	}
 
 	@func()
@@ -191,6 +239,47 @@ export class GitHub implements SourceControlManagement {
 	}
 
 	/**
+	 * Gets the list of branches for a given GitHub repository.
+	 * @param projectId The project identifier in the format 'owner/repo'.
+	 * @returns A promise that resolves to an array of branch names.
+	 */
+	@func()
+	async getBranches(projectId: string): Promise<string[]> {
+		try {
+			const [owner, repo] = extractOwnerProject(projectId);
+			// GitHub API might paginate results, fetch all pages if necessary
+			const branches: { name: string }[] = [];
+			let page = 1;
+			let response: Endpoints['GET /repos/{owner}/{repo}/branches']['response'];
+			do {
+				response = await this.request()('GET /repos/{owner}/{repo}/branches', {
+					owner,
+					repo,
+					per_page: 100, // Max per page
+					page,
+					headers: {
+						'X-GitHub-Api-Version': '2022-11-28',
+					},
+				});
+				branches.push(...response.data);
+				page++;
+			} while (response.headers.link?.includes('rel="next"')); // Check for pagination link
+
+			return branches.map((branch) => branch.name);
+		} catch (error) {
+			logger.error(error, `Failed to get branches for GitHub project ${projectId}`);
+			throw new Error(`Failed to get branches for ${projectId}: ${error.message}`);
+		}
+	}
+
+	/**
+	 * Returns the type of this SCM provider.
+	 */
+	getScmType(): string {
+		return 'github';
+	}
+
+	/**
 	 * Fetches the logs for a specific job in a GitHub Actions workflow.
 	 * @param projectPath The path to the project, typically in the format 'owner/repo'
 	 * @param jobId The ID of the job for which to fetch logs
@@ -216,6 +305,10 @@ export class GitHub implements SourceControlManagement {
 			logger.error(`Failed to get job logs for job ${jobId} in project ${projectPath}`, error);
 			throw new Error(`Failed to get job logs: ${error.message}`);
 		}
+	}
+
+	getToolType(): ToolType {
+		return 'scm';
 	}
 }
 
@@ -248,15 +341,4 @@ function convertGitHubToGitProject(repo: GitHubRepository): GitProject {
 		visibility: repo.private ? 'private' : 'public',
 		archived: repo.archived ?? false,
 	};
-}
-
-function extractOwnerProject(url: string): [string, string] {
-	// Remove trailing '.git' if present
-	const cleanUrl = url.replace(/\.git$/, '');
-
-	// Split the URL by '/' for HTTPS or ':' for SSH formats
-	const parts = cleanUrl.split(/\/|:/);
-
-	// The project name is the last part of the segments
-	return [parts[parts.length - 2], parts[parts.length - 1]];
 }

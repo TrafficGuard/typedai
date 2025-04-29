@@ -1,7 +1,7 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
-import { AgentLLMs } from '#agent/agentContextTypes';
-import { RunAgentConfig } from '#agent/agentRunner';
+import type { AgentLLMs } from '#agent/agentContextTypes';
+import type { RunAgentConfig, RunWorkflowConfig } from '#agent/agentRunner';
 import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { defaultLLMs } from '#llm/services/defaultLlms';
@@ -19,10 +19,10 @@ async function main() {
 
 	console.log(`Prompt: ${initialPrompt}`);
 
-	const config: RunAgentConfig = {
-		agentName: 'docs',
+	const config: RunWorkflowConfig = {
+		agentName: 'repo-index',
+		subtype: 'repo-index',
 		llms: agentLlms,
-		functions: [], //FileSystem,
 		initialPrompt,
 		resumeAgentId,
 		humanInLoop: {
@@ -32,9 +32,9 @@ async function main() {
 
 	const maps = await generateRepositoryMaps(await detectProjectInfo());
 
-	console.log(`languageProjectMap ${maps.languageProjectMap.tokens}`);
-	console.log(`fileSystemTree ${maps.fileSystemTree.tokens}`);
-	console.log(`folderSystemTreeWithSummaries ${maps.folderSystemTreeWithSummaries.tokens}`);
+	console.log(`languageProjectMap ${maps.languageProjectMap.tokens} tokens`);
+	console.log(`fileSystemTree ${maps.fileSystemTree.tokens} tokens`);
+	console.log(`folderSystemTreeWithSummaries ${maps.folderSystemTreeWithSummaries.tokens} tokens`);
 
 	if (console.log) return;
 

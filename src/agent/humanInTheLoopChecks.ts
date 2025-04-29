@@ -1,4 +1,4 @@
-import { AgentContext } from '#agent/agentContextTypes';
+import type { AgentContext } from '#agent/agentContextTypes';
 import { humanInTheLoop } from '#agent/humanInTheLoop';
 import { logger } from '#o11y/logger';
 import { agentContext } from './agentContextLocalStorage';
@@ -19,9 +19,9 @@ export async function checkHumanInTheLoop(
 	// Increment iteration counter and check if we've reached the HIL threshold
 	counters.iteration++;
 	if (hilCount && counters.iteration >= hilCount) {
-		agent.state = 'hil';
+		agent.state = 'hitl_threshold';
 		await agentStateService.save(agent);
-		await humanInTheLoop(`Agent control loop has performed ${hilCount} iterations`);
+		await humanInTheLoop(`Agent control loop has performed ${hilCount} iterations. Total cost $${agentContext().cost.toFixed(2)}`);
 		agent.state = 'agent';
 		await agentStateService.save(agent);
 		counters.iteration = 0;

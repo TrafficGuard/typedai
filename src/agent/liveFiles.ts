@@ -15,10 +15,9 @@ export class LiveFiles {
 	 * @param {string[]} files the files to always include the current contents of in the prompt
 	 */
 	@func()
-	async addFiles(files: string[]): Promise<string> {
+	async addFiles(files: string[]): Promise<void> {
 		const agent = agentContext();
-		agent.liveFiles = Array.from(new Set(...agent.liveFiles, ...files));
-		return '';
+		agent.liveFiles = Array.from(new Set([...agent.liveFiles, ...files]));
 	}
 
 	/**

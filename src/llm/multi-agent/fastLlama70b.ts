@@ -1,7 +1,7 @@
 import { cerebrasLlama3_3_70b } from '#llm/services/cerebras';
 import { logger } from '#o11y/logger';
 import { BaseLLM } from '../base-llm';
-import { GenerateTextOptions, LLM, LlmMessage } from '../llm';
+import type { GenerateTextOptions, LLM, LlmMessage } from '../llm';
 import { fireworksLlama3_70B } from '../services/fireworks';
 import { groqLlama3_3_70B } from '../services/groq';
 

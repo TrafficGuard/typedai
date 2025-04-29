@@ -1,9 +1,9 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
-import { AgentContext, AgentLLMs } from '#agent/agentContextTypes';
-import { RunAgentConfig } from '#agent/agentRunner';
+import type { AgentContext, AgentLLMs } from '#agent/agentContextTypes';
+import { RunAgentConfig, type RunWorkflowConfig } from '#agent/agentRunner';
 import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
-import { FileSystemRead } from '#functions/storage/FileSystemRead';
+import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { Perplexity } from '#functions/web/perplexity';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
@@ -22,8 +22,9 @@ async function main() {
 
 	const { initialPrompt, resumeAgentId } = parseProcessArgs();
 
-	const config: RunAgentConfig = {
+	const config: RunWorkflowConfig = {
 		agentName: 'cli-SWE',
+		subtype: 'swe',
 		llms,
 		functions: [FileSystemRead, CodeEditingAgent, Perplexity],
 		initialPrompt: initialPrompt.trim(),

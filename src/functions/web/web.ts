@@ -1,4 +1,4 @@
-import path from 'path';
+import path, { join } from 'node:path';
 import { PuppeteerBlocker } from '@cliqz/adblocker-puppeteer';
 import { Readability } from '@mozilla/readability';
 import { JSDOM } from 'jsdom';
@@ -6,13 +6,15 @@ import { agentContextStorage, getFileSystem, llms } from '#agent/agentContextLoc
 import { execCommand } from '#utils/exec';
 import { cacheRetry } from '../../cache/cacheRetry';
 const { getJson } = require('serpapi');
+import { promises as fsPromises } from 'node:fs';
 import * as autoconsent from '@duckduckgo/autoconsent';
 import fetch from 'cross-fetch';
 import puppeteer from 'puppeteer';
-import { Browser } from 'puppeteer';
+import type { Browser } from 'puppeteer';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { sleep } from '#utils/async-utils';
+import { agentDir } from '../../appVars';
 const TurndownService = require('turndown');
 const turndownService = new TurndownService();
 
@@ -126,6 +128,32 @@ export class PublicWeb {
 	}
 
 	/**
+	 * Downloads a file from the specified URL and saves it locally.
+	 * @param url The URL of the file to download.
+	 * @returns The local file path where the file was saved.
+	 */
+	@func()
+	async downloadFile(url: string): Promise<string> {
+		logger.info(`Downloading file from ${url}`);
+		try {
+			const response = await fetch(url);
+
+			if (!response.ok) throw new Error(`Failed to download file from ${url}. Status: ${response.status} ${response.statusText}`);
+
+			const arrayBuffer = await response.arrayBuffer();
+
+			const fileName = url.substring(url.lastIndexOf('/') + 1) || 'downloaded_file';
+			const filePath = join(agentDir(), fileName);
+			await fsPromises.writeFile(filePath, Buffer.from(arrayBuffer));
+			logger.info(`File downloaded and saved to ${filePath}`);
+			return filePath;
+		} catch (error) {
+			logger.error(`Error downloading file from ${url}: ${error.message}`);
+			throw error;
+		}
+	}
+
+	/**
 	 * Performs a Google search and returns the URLs of the search results
 	 * @param searchTerm
 	 */
@@ -212,7 +240,7 @@ export class PublicWeb {
 
 	/**
 	 * Takes a screenshot of a web page while hiding cookie banners
-	 * @param url The URL of the web page to screenshot. Must be a complete URL with https://
+	 * @param url The URL of the web page to screenshot. Must be a complete URL with http(s)://
 	 * @returns {Promise<{ image: Buffer; logs: string[] }>} A Buffer containing the screenshot image data in .png format, and the browser logs
 	 */
 	@func()
@@ -234,9 +262,34 @@ export class PublicWeb {
 			// });
 
 			const logs: string[] = [];
-			//
+
+			function formatStackTrace(e: any[]) {
+				if (!e) return '';
+				let stackTrace = '';
+				for (const elem of e) {
+					let line = elem.url;
+					if (typeof line === 'string') {
+						const i = line.indexOf('/.angular/cache/');
+						if (i !== -1) {
+							line = line.substring(i + 16);
+							// Strip the Angular version folder
+							line = line.substring(line.indexOf('/'));
+						}
+					} else line = JSON.stringify(elem.url);
+					line ??= '';
+					if (elem.lineNumber) line += `:${elem.lineNumber}`;
+
+					stackTrace += `\t${line}`;
+				}
+				return stackTrace;
+			}
+
 			page
-				.on('console', (message) => logs.push(`${message.type().substr(0, 3).toUpperCase()} ${message.text()}`))
+				.on('console', (message) =>
+					logs.push(
+						`${message.type().substr(0, 3).toUpperCase()} ${message.text()} location:${message.location()?.url} trace:${formatStackTrace(message.stackTrace())}`,
+					),
+				)
 				.on('pageerror', ({ message }) => logs.push(message))
 				.on('requestfailed', (request) => logs.push(`${request.failure().errorText} ${request.url()}`));
 

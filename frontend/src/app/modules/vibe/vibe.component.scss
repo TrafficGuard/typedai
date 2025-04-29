@@ -1,0 +1,26 @@
+.code-card {
+  margin: 20px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 500px;
+  margin-bottom: 20px;
+}
+
+.progress-card {
+  margin: 20px;
+}
+
+.result-card {
+  margin: 20px;
+}
+
+pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}

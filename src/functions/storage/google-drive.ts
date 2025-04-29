@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import { homedir } from 'node:os';
 import * as path from 'node:path';
 import { OAuth2Client } from 'google-auth-library';
-import { drive_v3, google } from 'googleapis';
+import { type drive_v3, google } from 'googleapis';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { currentUser } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';

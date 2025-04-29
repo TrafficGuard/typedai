@@ -1,5 +1,5 @@
 import Pino from 'pino';
-import { AgentContext } from '#agent/agentContextTypes';
+import type { AgentContext } from '#agent/agentContextTypes';
 const logLevel = process.env.LOG_LEVEL || 'INFO';
 // Review config at https://github.com/simenandre/pino-cloud-logging/blob/main/src/main.ts
 
@@ -23,8 +23,39 @@ const transport =
 				options: {
 					colorize: true,
 				},
-		  }
+			}
 		: undefined;
+
+// const transportTargets = [];
+//
+// // When running locally log in a human-readable format and not JSO
+// if (process.env.LOG_PRETTY === 'true') {
+// 	transportTargets.push({
+// 		target: 'pino-pretty',
+// 		options: {
+// 			colorize: true,
+// 		},
+// 	})
+// }
+//
+// // When running locally it can be useful to have the logs sent to Cloud Logging for debugging
+// // https://github.com/metcoder95/cloud-pine
+// if (process.env.LOG_GCLOUD === 'true') {
+// 	transportTargets.push({
+// 		target: 'cloud-pine',
+// 		options: {
+// 			cloudLoggingOptions: {
+// 				skipInit: true,
+// 				sync: true,
+// 			}
+// 		}
+// 	})
+// }
+//
+// const transport = Pino.transport({
+// 	targets: transportTargets,
+// });
+// const multi = pino.multistream(targets)
 
 let agentContextFn: () => AgentContext;
 
@@ -39,7 +70,6 @@ load().catch(console.error);
 
 /**
  * Pino logger configured for a Google Cloud environment.
- *
  */
 export const logger: Pino.Logger = Pino({
 	level: logLevel,

@@ -1,17 +1,17 @@
 import { Type } from '@sinclair/typebox';
 import { LlmFunctions } from '#agent/LlmFunctions';
-import { AgentType } from '#agent/agentContextTypes';
-import { AgentExecution, startAgent } from '#agent/agentRunner';
+import type { AgentType } from '#agent/agentContextTypes';
+import { type AgentExecution, startAgent } from '#agent/agentRunner';
 import { send } from '#fastify/index';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { getLLM } from '#llm/llmFactory';
 import { logger } from '#o11y/logger';
 import { currentUser } from '#user/userService/userContext';
-import { AppFastifyInstance } from '../../server';
+import type { AppFastifyInstance } from '../../applicationTypes';
 
 const v1BasePath = '/api/agent/v1';
 
-const AGENT_TYPES: Array<AgentType> = ['xml', 'codegen'];
+const AGENT_TYPES: Array<AgentType> = ['autonomous', 'workflow'];
 
 export async function agentStartRoute(fastify: AppFastifyInstance) {
 	/** Starts a new agent */
@@ -24,16 +24,18 @@ export async function agentStartRoute(fastify: AppFastifyInstance) {
 					userPrompt: Type.String(),
 					functions: Type.Array(Type.String()),
 					type: Type.String({ enum: AGENT_TYPES }),
+					subtype: Type.String(),
 					budget: Type.Number({ minimum: 0 }),
 					count: Type.Integer({ minimum: 0 }),
 					llmEasy: Type.String(),
 					llmMedium: Type.String(),
 					llmHard: Type.String(),
+					useSharedRepos: Type.Optional(Type.Boolean({ default: true })),
 				}),
 			},
 		},
 		async (req, reply) => {
-			const { name, userPrompt, functions, type, budget, count, llmEasy, llmMedium, llmHard } = req.body;
+			const { name, userPrompt, functions, type, subtype, budget, count, llmEasy, llmMedium, llmHard, useSharedRepos } = req.body;
 
 			logger.info(req.body, `Starting agent ${name}`);
 
@@ -53,6 +55,7 @@ export async function agentStartRoute(fastify: AppFastifyInstance) {
 				agentName: name,
 				initialPrompt: userPrompt,
 				type: type as AgentType,
+				subtype: subtype,
 				humanInLoop: { budget, count },
 				llms: {
 					easy: getLLM(llmEasy),
@@ -61,6 +64,7 @@ export async function agentStartRoute(fastify: AppFastifyInstance) {
 					xhard: getLLM(llmHard),
 				},
 				functions: llmFunctions,
+				useSharedRepos: useSharedRepos,
 			});
 			const agentId: string = agentExecution.agentId;
 			send(reply, 200, { agentId });

@@ -1,6 +1,6 @@
-import { randomUUID } from 'crypto';
-import { CreateLlmRequest, LlmCall, LlmRequest } from '#llm/llmCallService/llmCall';
-import { CallerId, LlmCallService } from '#llm/llmCallService/llmCallService';
+import { randomUUID } from 'node:crypto';
+import { type CreateLlmRequest, type LlmCall, LlmRequest } from '#llm/llmCallService/llmCall';
+import { CallerId, type LlmCallService } from '#llm/llmCallService/llmCallService';
 
 export class InMemoryLlmCallService implements LlmCallService {
 	llmCallStore = new Map<string, LlmCall>();
@@ -31,5 +31,9 @@ export class InMemoryLlmCallService implements LlmCallService {
 
 	getLlmCallsByDescription(description: string): Promise<LlmCall[]> {
 		return Promise.resolve(Array.from(this.llmCallStore.values()).filter((llmCall) => llmCall.description === description));
+	}
+
+	async delete(llmCallId: string): Promise<void> {
+		this.llmCallStore.delete(llmCallId);
 	}
 }

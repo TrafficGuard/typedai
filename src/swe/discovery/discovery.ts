@@ -1,6 +1,6 @@
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
-import { SelectedFile, selectFilesToEdit } from '#swe/discovery/selectFilesToEdit';
+import { type SelectedFile, selectFilesToEdit } from '#swe/discovery/selectFilesToEdit';
 import { getProjectInfo } from '#swe/projectDetection';
 
 interface DiscoveryResult {

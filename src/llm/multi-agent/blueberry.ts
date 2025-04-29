@@ -1,5 +1,5 @@
 import { BaseLLM } from '#llm/base-llm';
-import { GenerateTextOptions, LLM } from '#llm/llm';
+import type { GenerateTextOptions, LLM } from '#llm/llm';
 import { getLLM } from '#llm/llmFactory';
 import { cerebrasLlama3_3_70b } from '#llm/services/cerebras';
 import { Gemini_2_0_Flash } from '#llm/services/vertexai';

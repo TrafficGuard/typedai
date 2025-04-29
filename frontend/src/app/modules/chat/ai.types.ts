@@ -1,4 +1,5 @@
 // Types copied from the "ai" npm package so we don't need to install the entire package
+// Also the ai types depend on node.js types, which we don't want to include in the frontend project
 // filename is added to FilePart and ImagePart
 
 export type AiMessage = CoreSystemMessage | CoreUserMessage | CoreAssistantMessage | CoreToolMessage;
@@ -13,7 +14,8 @@ type LanguageModelV1ProviderMetadata = Record<string, Record<string, JSONValue>>
 type ProviderMetadata = LanguageModelV1ProviderMetadata;
 
 /**
- Data content. Can either be a base64-encoded string, a Uint8Array, an ArrayBuffer, or a Buffer.
+ Data content. Can either be a base64-encoded string, a Uint8Array, an ArrayBuffer.
+ Does not have the Buffer union type which exists on the server-side type
  */
 type DataContent = string | Uint8Array | ArrayBuffer;
 
@@ -26,13 +28,34 @@ export interface TextPart {
      The text content.
      */
     text: string;
-    /**
-     Additional provider-specific metadata. They are passed through
-     to the provider from the AI SDK and enable provider-specific
-     functionality that can be fully encapsulated in the provider.
-     */
-    experimental_providerMetadata?: ProviderMetadata;
 }
+
+interface ReasoningPart {
+    type: 'reasoning';
+    /**
+     The reasoning text.
+     */
+    text: string;
+}
+/**
+ Redacted reasoning content part of a prompt.
+ */
+interface RedactedReasoningPart {
+    type: 'redacted-reasoning';
+    /**
+     Redacted reasoning data.
+     */
+    data: string;
+}
+
+export type ImagePartExt = ImagePart & {
+    /** File name */
+    filename: string;
+    /** File size in bytes */
+    size: number;
+}
+
+
 /**
  Image content part of a prompt. It contains an image.
  */
@@ -41,7 +64,7 @@ export interface ImagePart {
     /**
      Image data. Can either be:
 
-     - data: a base64-encoded string, a Uint8Array, an ArrayBuffer, or a Buffer
+     - data: a base64-encoded string, a Uint8Array, an ArrayBuffer
      - URL: a URL that points to the image
      */
     image: DataContent | URL;
@@ -51,14 +74,17 @@ export interface ImagePart {
     mimeType?: string;
     /** File name */
     filename: string;
-    /**
-     Additional provider-specific metadata. They are passed through
-     to the provider from the AI SDK and enable provider-specific
-     functionality that can be fully encapsulated in the provider.
-     */
-    experimental_providerMetadata?: ProviderMetadata;
 }
+
+export type FilePartExt = FilePart & {
+    /** File name */
+    filename: string;
+    /** File size in bytes */
+    size: number;
+}
+
 /**
+ *
  File content part of a prompt. It contains a file.
  */
 export interface FilePart {
@@ -76,12 +102,6 @@ export interface FilePart {
     mimeType: string;
     /** File name */
     filename: string;
-    /**
-     Additional provider-specific metadata. They are passed through
-     to the provider from the AI SDK and enable provider-specific
-     functionality that can be fully encapsulated in the provider.
-     */
-    experimental_providerMetadata?: ProviderMetadata;
 }
 
 type ToolResultContent = Array<{
@@ -199,7 +219,7 @@ type CoreAssistantMessage = {
 /**
  Content of an assistant message. It can be a string or an array of text and tool call parts.
  */
-type AssistantContent = string | Array<TextPart | ToolCallPart>;
+type AssistantContent = string | Array<TextPart | ReasoningPart | RedactedReasoningPart| ToolCallPart>;
 /**
  A tool message. It contains the result of one or more tool calls.
  */
@@ -217,8 +237,10 @@ type CoreToolMessage = {
  Content of a tool message. It is an array of tool result parts.
  */
 type ToolContent = Array<ToolResultPart>;
+
+
 /**
  A message that can be used in the `messages` field of a prompt.
  It can be a user message, an assistant message, or a tool message.
  */
-type CoreMessage = CoreSystemMessage | CoreUserMessage | CoreAssistantMessage | CoreToolMessage;
+export type CoreMessage = CoreSystemMessage | CoreUserMessage | CoreAssistantMessage | CoreToolMessage;

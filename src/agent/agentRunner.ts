@@ -1,23 +1,22 @@
-import { LlmFunctions } from '#agent/LlmFunctions';
+import type { LlmFunctions } from '#agent/LlmFunctions';
 import { createContext, llms } from '#agent/agentContextLocalStorage';
-import { AgentCompleted, AgentContext, AgentLLMs, AgentType } from '#agent/agentContextTypes';
+import type { AgentCompleted, AgentContext, AgentLLMs, AgentType } from '#agent/agentContextTypes';
 import { AGENT_REQUEST_FEEDBACK } from '#agent/agentFeedback';
 import { AGENT_COMPLETED_PARAM_NAME } from '#agent/agentFunctions';
 import { runCodeGenAgent } from '#agent/codeGenAgentRunner';
 import { runXmlAgent } from '#agent/xmlAgentRunner';
-import { FUNC_SEP } from '#functionSchema/functions';
-import { FunctionCall, FunctionCallResult } from '#llm/llm';
+import { FUNC_SEP, type FunctionSchema } from '#functionSchema/functions';
+import type { FunctionCall, FunctionCallResult } from '#llm/llm';
 import { logger } from '#o11y/logger';
-import { User } from '#user/user';
+import type { User } from '#user/user';
 import { errorToString } from '#utils/errors';
 import { CDATA_END, CDATA_START } from '#utils/xml-utils';
 import { appContext } from '../applicationContext';
 
 export const SUPERVISOR_RESUMED_FUNCTION_NAME: string = `Supervisor${FUNC_SEP}Resumed`;
 export const SUPERVISOR_CANCELLED_FUNCTION_NAME: string = `Supervisor${FUNC_SEP}Cancelled`;
-const FUNCTION_OUTPUT_SUMMARIZE_MIN_LENGTH = 2000;
 
-export type RunWorkflowConfig = Partial<RunAgentConfig>;
+export type RunWorkflowConfig = Omit<RunAgentConfig, 'type' | 'functions'> & Partial<Pick<RunAgentConfig, 'functions'>>;
 
 /**
  * Configuration for running an autonomous agent
@@ -29,8 +28,10 @@ export interface RunAgentConfig {
 	parentAgentId?: string;
 	/** The name of this agent */
 	agentName: string;
-	/** The type of autonomous agent function calling. Defaults to codegen */
-	type?: AgentType;
+	/** Autonomous or workflow */
+	type: AgentType;
+	/** For autonomous agents either xml or codegen. For workflow agents it identifies the workflow type */
+	subtype: string;
 	/** The function classes the agent has available to call */
 	functions: LlmFunctions | Array<new () => any>;
 	/** Handler for when the agent finishes executing. Defaults to console output */
@@ -47,6 +48,8 @@ export interface RunAgentConfig {
 	resumeAgentId?: string;
 	/** The base path of the context FileSystem. Defaults to the process working directory */
 	fileSystemPath?: string;
+	/** Use shared repository location instead of agent-specific directory. Defaults to true. */
+	useSharedRepos?: boolean;
 	/** Additional details for the agent */
 	metadata?: Record<string, any>;
 }
@@ -61,12 +64,16 @@ export interface AgentExecution {
 
 /**
  * The active running agents
+ * TODO convert to a Map
  */
 export const agentExecutions: Record<string, AgentExecution> = {};
 
 async function runAgent(agent: AgentContext): Promise<AgentExecution> {
 	let execution: AgentExecution;
-	switch (agent.type) {
+
+	await checkRepoHomeAndWorkingDirectory(agent);
+
+	switch (agent.subtype) {
 		case 'xml':
 			execution = await runXmlAgent(agent);
 			break;
@@ -119,7 +126,7 @@ export async function startAgent(config: RunAgentConfig): Promise<AgentExecution
 	await appContext().agentStateService.save(agent);
 	logger.info(`Created agent ${agent.agentId}`);
 
-	return runAgent(agent);
+	return await runAgent(agent);
 }
 
 export async function cancelAgent(agentId: string, executionId: string, feedback: string): Promise<void> {
@@ -190,6 +197,21 @@ export async function resumeCompleted(agentId: string, executionId: string, inst
 	await runAgent(agent);
 }
 
+/**
+ * Restart a chatbot agent that was in the completed state
+ */
+export async function resumeCompletedWithUpdatedUserRequest(agentId: string, executionId: string, userRequest: string): Promise<void> {
+	const agent = await appContext().agentStateService.load(agentId);
+	if (agent.executionId !== executionId) throw new Error('Invalid executionId. Agent has already been resumed');
+
+	agent.inputPrompt = agent.inputPrompt.replace(agent.userPrompt, userRequest);
+	agent.userPrompt = userRequest;
+
+	agent.state = 'agent';
+	await appContext().agentStateService.save(agent);
+	await runAgent(agent);
+}
+
 export async function provideFeedback(agentId: string, executionId: string, feedback: string): Promise<void> {
 	const agent = await appContext().agentStateService.load(agentId);
 	if (agent.executionId !== executionId) throw new Error('Invalid executionId. Agent has already been provided feedback');
@@ -201,14 +223,6 @@ export async function provideFeedback(agentId: string, executionId: string, feed
 	agent.state = 'agent';
 	await appContext().agentStateService.save(agent);
 	await runAgent(agent);
-}
-
-export async function summariseLongFunctionOutput(functionCall: FunctionCall, result: string): Promise<string | null> {
-	if (!result || result.length < FUNCTION_OUTPUT_SUMMARIZE_MIN_LENGTH) return null;
-
-	const prompt = `<function_name>${functionCall.function_name}</function_name>\n<output>\n${result}\n</output>\n
-	For the above function call summarise the output into a paragraph that captures key details about the output content, which might include identifiers, content summary, content structure and examples. Only responsd with the summary`;
-	return await llms().easy.generateText(prompt, { id: 'Summarise long function output' });
 }
 
 /**
@@ -240,4 +254,29 @@ export function formatFunctionError(functionName: string, error: any): string {
         ${errorToString(error, false)}
         ${CDATA_END}</error>
         </function_results>`;
+}
+
+/**
+ * If the agent has been restarted on a different machine then update the working directory if required
+ * @param agent
+ */
+async function checkRepoHomeAndWorkingDirectory(agent: AgentContext) {
+	const fss = agent.fileSystem;
+	if (!fss) return;
+
+	const currentRepoDir = process.env.TYPEDAI_HOME || process.cwd();
+	if (!agent.typedAiRepoDir) {
+		// Migration for old agents
+		agent.typedAiRepoDir = currentRepoDir;
+	} else if (agent.typedAiRepoDir !== currentRepoDir) {
+		if (fss.getWorkingDirectory().startsWith(agent.typedAiRepoDir)) {
+			const originalDir = fss.getWorkingDirectory();
+			const updatedDir = originalDir.replace(agent.typedAiRepoDir, currentRepoDir);
+			logger.info(`Updating working directory from ${originalDir} to ${updatedDir}`);
+			fss.setWorkingDirectory(updatedDir);
+		}
+		agent.typedAiRepoDir = currentRepoDir;
+	}
+	const workDirExists = await fss.fileExists(fss.getWorkingDirectory());
+	if (!workDirExists) throw new Error(`Working directory ${fss.getWorkingDirectory()} does not exist`);
 }

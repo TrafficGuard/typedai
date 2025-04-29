@@ -1,4 +1,5 @@
-import { FunctionParameter, FunctionSchema } from '#functionSchema/functions';
+import type { FunctionParameter, FunctionSchema } from '#functionSchema/functions';
+import { logger } from '#o11y/logger';
 
 /**
  * Converts the JSON function schemas to Python function declarations with docString
@@ -43,8 +44,8 @@ export function convertTypeScriptToPython(tsType: string): string {
 
 	let pyType = tsType;
 
-	for (const [tsType, pyTypeEquivalent] of Object.entries(typeMappings)) {
-		const regex = new RegExp(`\\b${tsType}\\b`, 'g'); // Boundary to match whole words
+	for (const [mappedTsType, pyTypeEquivalent] of Object.entries(typeMappings)) {
+		const regex = new RegExp(`\\b${mappedTsType}\\b`, 'g'); // Boundary to match whole words
 		pyType = pyType.replace(regex, pyTypeEquivalent);
 	}
 	return pyType;
@@ -60,7 +61,11 @@ export function pythonType(param: FunctionParameter): string {
  */
 export function extractPythonCode(llmResponse: string): string {
 	const index = llmResponse.lastIndexOf('<python-code>');
-	if (index < 0) throw new Error('Could not find <python-code> in response');
+	if (index < 0) {
+		logger.error(llmResponse);
+		throw new Error('Could not find <python-code> in response');
+	}
+
 	const resultText = llmResponse.slice(index);
 	const regexXml = /<python-code>(.*)<\/python-code>/is;
 	const matchXml = regexXml.exec(resultText);

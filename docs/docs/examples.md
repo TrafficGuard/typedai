@@ -4,7 +4,7 @@
 
 The following are the prompts used to create the function-edit-modal component to update an agents available functions
 
-> In the agent component on the details tab I want to be able to edit the functions available to the agent, similarly to how I can select them in the run agent component, by clicking on an icon button at the start of the functions list to enable the edit mode. Create a New update functions route which the agent component will call. Only use the CodeEditingAgent_runCodeEditWorkflow function to make changes to files. Think it through and you can make the edits in multiple steps
+> In the agent component on the details tab I want to be able to edit the functions available to the agent, similarly to how I can select them in the run agent component, by clicking on an icon button at the start of the functions list to enable the edit mode. Create a New update functions route which the agent component will call. Only use the CodeEditingAgent_implementUserRequirements function to make changes to files. Think it through and you can make the edits in multiple steps
 <!-- -->
 > in the agent component in the details tab, can you move the functions edit icon button to the right of the functions list, and have the function editing open in a popup modal
 <!-- -->

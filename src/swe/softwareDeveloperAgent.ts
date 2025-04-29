@@ -1,27 +1,16 @@
-import { addNote, agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
+import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import { GitProject } from '#functions/scm/gitProject';
-import { GitLabProject } from '#functions/scm/gitlab';
-import { MergeRequest, getSourceControlManagementTool } from '#functions/scm/sourceControlManagement';
+import type { GitProject } from '#functions/scm/gitProject';
+import { type MergeRequest, getSourceControlManagementTool } from '#functions/scm/sourceControlManagement';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import { createBranchName } from '#swe/createBranchName';
 import { generatePullRequestTitleDescription } from '#swe/pullRequestTitleDescription';
 import { selectProject } from '#swe/selectProject';
 import { summariseRequirements } from '#swe/summariseRequirements';
-import { ExecResult, execCommand, failOnError, runShellCommand } from '#utils/exec';
 import { cacheRetry } from '../cache/cacheRetry';
 import { CodeEditingAgent } from './codeEditingAgent';
-import { ProjectInfo, detectProjectInfo } from './projectDetection';
-import { basePrompt } from './prompt';
-
-export function buildPrompt(args: {
-	information: string;
-	requirements: string;
-	action: string;
-}): string {
-	return `${basePrompt}\n\n${args.information}\n\nThe requirements of the task are as follows:\n<requirements>\n${args.requirements}\n</requirements>\n\nThe action to be performed is as follows:\n<action>\n${args.action}\n</action>\n`;
-}
+import { type ProjectInfo, detectProjectInfo } from './projectDetection';
 
 /**
  * Workflow for completing requirements. This will look up the appropriate project in source control, clone, make the changes and create a pull/merge request.
@@ -63,22 +52,22 @@ export class SoftwareDeveloperAgent {
 		// If the default branch in Gitlab/GitHub isn't the branch we want to create feature branches from, then switch to it.
 		let baseBranch = gitProject.defaultBranch;
 		if (projectInfo.devBranch && projectInfo.devBranch !== baseBranch) {
-			await fileSystem.vcs.switchToBranch(projectInfo.devBranch);
+			await fileSystem.getVcs().switchToBranch(projectInfo.devBranch);
 			baseBranch = projectInfo.devBranch;
 		}
-		await fileSystem.vcs.pull();
+		await fileSystem.getVcs().pull();
 
 		const featureBranchName = await this.createBranchName(requirements);
-		await fileSystem.vcs.switchToBranch(featureBranchName);
+		await fileSystem.getVcs().switchToBranch(featureBranchName);
 
-		const initialHeadSha: string = await fileSystem.vcs.getHeadSha();
+		const initialHeadSha: string = await fileSystem.getVcs().getHeadSha();
 
 		try {
-			await new CodeEditingAgent().runCodeEditWorkflow(requirementsSummary, null, { projectInfo });
+			await new CodeEditingAgent().implementUserRequirements(requirementsSummary, { projectInfo });
 		} catch (e) {
 			logger.warn(e.message);
 			// If no changes were made then throw an error
-			const currentHeadSha: string = await fileSystem.vcs.getHeadSha();
+			const currentHeadSha: string = await fileSystem.getVcs().getHeadSha();
 			if (initialHeadSha === currentHeadSha) {
 				throw e;
 			}

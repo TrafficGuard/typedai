@@ -1,6 +1,6 @@
 import * as bcrypt from 'bcrypt';
-import { User } from '#user/user';
-import { UserService } from '#user/userService/userService';
+import type { User } from '#user/user';
+import type { UserService } from '#user/userService/userService';
 
 export const SINGLE_USER_ID = 'user';
 

@@ -3,7 +3,7 @@ import { sambanovaLlama3_3_70b_R1_Distill } from '#llm/services/sambanova';
 import { togetherLlama3_70B_R1_Distill } from '#llm/services/together';
 import { logger } from '#o11y/logger';
 import { BaseLLM } from '../base-llm';
-import { GenerateTextOptions, LLM, LlmMessage } from '../llm';
+import type { GenerateTextOptions, LLM, LlmMessage } from '../llm';
 import { groqLlama3_3_70B_R1_Distill } from '../services/groq';
 
 /**

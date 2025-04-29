@@ -1,8 +1,8 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
-import { WatchEventType } from 'fs';
+import type { WatchEventType } from 'node:fs';
 import fs from 'node:fs';
-import path from 'path';
+import path from 'node:path';
 import { fileExistsSync } from 'tsconfig-paths/lib/filesystem';
 import { logger } from '#o11y/logger';
 import { AiderCodeEditor } from '#swe/aiderCodeEditor';

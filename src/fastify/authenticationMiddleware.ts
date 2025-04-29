@@ -1,4 +1,4 @@
-import { FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { DEFAULT_HEALTHCHECK } from '#fastify/fastifyApp';
 import { logger } from '#o11y/logger';
 import { runWithUser } from '#user/userService/userContext';

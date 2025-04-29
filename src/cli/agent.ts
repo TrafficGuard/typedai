@@ -1,7 +1,8 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
+import { AgentFeedback } from '#agent/agentFeedback';
 import { provideFeedback, resumeCompleted, resumeError, resumeHil, startAgentAndWait } from '#agent/agentRunner';
-import { FileSystemRead } from '#functions/storage/FileSystemRead';
+import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { appContext, initApplicationContext } from '../applicationContext';
@@ -23,6 +24,7 @@ export async function main() {
 		// Default to FileSystemRead if no functions specified
 		functions = [FileSystemRead];
 	}
+	functions.push(AgentFeedback);
 	logger.info(`Available tools ${functions.map((f) => f.name).join(', ')}`);
 
 	if (resumeAgentId) {
@@ -32,9 +34,10 @@ export async function main() {
 				return await resumeCompleted(resumeAgentId, agent.executionId, initialPrompt);
 			case 'error':
 				return resumeError(resumeAgentId, agent.executionId, initialPrompt);
-			case 'hil':
+			case 'hitl_threshold':
+			case 'hitl_tool':
 				return await resumeHil(resumeAgentId, agent.executionId, initialPrompt);
-			case 'feedback':
+			case 'hitl_feedback':
 				return await provideFeedback(resumeAgentId, agent.executionId, initialPrompt);
 		}
 	}
@@ -43,8 +46,13 @@ export async function main() {
 		initialPrompt,
 		functions,
 		llms,
-		type: 'codegen',
+		type: 'autonomous',
+		subtype: 'codegen',
 		resumeAgentId,
+		humanInLoop: {
+			count: 30,
+			budget: 30,
+		},
 	});
 	logger.info('AgentId ', agentId);
 

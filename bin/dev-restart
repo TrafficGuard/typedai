@@ -1,0 +1,12 @@
+#!/bin/bash
+# This script is for when using development Dockerfile
+# so we can restart the node server in the container
+# The container-restart-server script is used to call this from the host machine
+
+# Kill the existing Node.js process
+pkill node
+
+# Start the server again
+npm start &
+
+echo "Node.js server restarted"

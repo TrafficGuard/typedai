@@ -77,6 +77,8 @@ export class SettingsAccountComponent implements OnInit {
                 xaiKey: new FormControl(''),
                 nebiusKey: new FormControl(''),
                 sambanovaKey: new FormControl(''),
+                geminiKey: new FormControl(''),
+                openrouterKey: new FormControl(''),
             }),
             chat: new FormGroup({
                 defaultLLM: new FormControl(''),

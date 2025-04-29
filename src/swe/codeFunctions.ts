@@ -1,6 +1,6 @@
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { queryWorkflow } from '#swe/discovery/selectFilesAgent';
-import { SelectFilesResponse, selectFilesToEdit } from '#swe/discovery/selectFilesToEdit';
+import { type SelectFilesResponse, selectFilesToEdit } from '#swe/discovery/selectFilesToEdit';
 import { getProjectInfo } from '#swe/projectDetection';
 import { reviewChanges } from '#swe/reviewChanges';
 
@@ -16,7 +16,7 @@ export class CodeFunctions {
 	}
 
 	/**
-	 *
+	 * Selects a minimal set of files to read and edit based on the requirements provided.
 	 * @param requirements
 	 */
 	@func()

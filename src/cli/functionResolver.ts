@@ -1,14 +1,19 @@
 import { llms } from '#agent/agentContextLocalStorage';
+import { AgentFeedback } from '#agent/agentFeedback';
 import { LiveFiles } from '#agent/liveFiles';
+import { CommandLineInterface } from '#functions/commandLine';
+import { CustomFunctions } from '#functions/customFunctions';
 import { Jira } from '#functions/jira';
-import { FileSystemRead } from '#functions/storage/FileSystemRead';
-import { FileSystemWrite } from '#functions/storage/FileSystemWrite';
+import { FileSystemList } from '#functions/storage/fileSystemList';
+import { FileSystemRead } from '#functions/storage/fileSystemRead';
+import { FileSystemWrite } from '#functions/storage/fileSystemWrite';
 import { Perplexity } from '#functions/web/perplexity';
 import { PublicWeb } from '#functions/web/web';
-import { LLM } from '#llm/llm';
+import type { LLM } from '#llm/llm';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
+import { CodeFunctions } from '#swe/codeFunctions';
 import { NpmPackages } from '#swe/lang/nodejs/npmPackages';
 import { TypescriptTools } from '#swe/lang/nodejs/typescriptTools';
 import { SoftwareDeveloperAgent } from '#swe/softwareDeveloperAgent';
@@ -16,9 +21,13 @@ import { functionRegistry } from '../functionRegistry';
 
 // Mapping of aliases to class names for easier CLI usage
 const functionAliases: Record<string, string> = {
+	f: AgentFeedback.name,
 	swe: SoftwareDeveloperAgent.name,
+	cli: CommandLineInterface.name,
 	code: CodeEditingAgent.name,
-	fs: FileSystemRead.name,
+	query: CodeFunctions.name,
+	fsr: FileSystemRead.name,
+	fsl: FileSystemList.name,
 	fsw: FileSystemWrite.name,
 	web: PublicWeb.name,
 	pp: Perplexity.name,
@@ -26,6 +35,7 @@ const functionAliases: Record<string, string> = {
 	ts: TypescriptTools.name,
 	jira: Jira.name,
 	live: LiveFiles.name,
+	custom: CustomFunctions.name,
 };
 
 interface FunctionMatch {
@@ -56,7 +66,7 @@ export async function resolveFunctionClasses(requestedFunctions: string[]): Prom
 					functionAliases,
 				)
 					.map(([k, v]) => `${k} -> ${v}`)
-					.join(', ')}`,
+					.join(', ')}\nCheck the alias is correct and the function class is registered in the function registry.`,
 			);
 		}
 
@@ -70,7 +80,7 @@ export async function resolveFunctionClasses(requestedFunctions: string[]): Prom
 async function buildFunctionMatches(requested: string, registryMap: Map<string, any>, llm: LLM): Promise<FunctionMatch> {
 	const requestedLower = requested.toLowerCase();
 
-	// Try exact match first (case insensitive)
+	// Try exact match first (case-insensitive)
 	const exactMatch = Array.from(registryMap.keys()).find((key) => key.toLowerCase() === requestedLower);
 	if (exactMatch) {
 		return {

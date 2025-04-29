@@ -1,9 +1,9 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
-import { writeFileSync } from 'fs';
+import { writeFileSync } from 'node:fs';
 import { agentContext, llms } from '#agent/agentContextLocalStorage';
-import { AgentLLMs } from '#agent/agentContextTypes';
-import { RunAgentConfig } from '#agent/agentRunner';
+import type { AgentLLMs } from '#agent/agentContextTypes';
+import type { RunAgentConfig, RunWorkflowConfig } from '#agent/agentRunner';
 import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { defaultLLMs } from '#llm/services/defaultLlms';
@@ -19,10 +19,11 @@ async function main() {
 
 	console.log(`Prompt: ${initialPrompt}`);
 
-	const config: RunAgentConfig = {
-		agentName: `Query: ${initialPrompt}`,
+	const config: RunWorkflowConfig = {
+		agentName: 'Query',
+		subtype: 'workflow',
 		llms: agentLLMs,
-		functions: [], //FileSystem,
+		functions: [],
 		initialPrompt,
 		resumeAgentId,
 		humanInLoop: {
@@ -52,7 +53,4 @@ async function main() {
 	await shutdownTrace();
 }
 
-main().then(
-	() => console.log('done'),
-	(e) => console.error(e),
-);
+main().catch(console.error);

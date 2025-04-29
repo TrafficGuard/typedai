@@ -1,7 +1,18 @@
-import { StreamTextResult } from 'ai';
-import { AgentContext } from '#agent/agentContextTypes';
+import { StreamTextResult, type TextStreamPart } from 'ai';
+import type { AgentContext } from '#agent/agentContextTypes';
 import { countTokens } from '#llm/tokens';
-import { GenerateJsonOptions, GenerateTextOptions, LLM, LlmMessage } from './llm';
+import {
+	type GenerateJsonOptions,
+	type GenerateTextOptions,
+	type GenerationStats,
+	type LLM,
+	type LlmMessage,
+	type Prompt,
+	SystemUserPrompt,
+	isSystemUserPrompt,
+	system,
+	user,
+} from './llm';
 import { extractJsonResult, extractTag } from './responseParsers';
 
 export interface SerializedLLM {
@@ -9,8 +20,8 @@ export interface SerializedLLM {
 	model: string;
 }
 
-export type InputCostFunction = (input: string, inputTokens: number, usage?: any) => number;
-export type OutputCostFunction = (output: string, outputTokens: number) => number;
+export type InputCostFunction = (input: string, inputTokens: number, usage?: any, completionTime?: Date) => number;
+export type OutputCostFunction = (output: string, outputTokens: number, completionTime?: Date) => number;
 
 export function perMilTokens(dollarsPerMillionTokens: number): InputCostFunction {
 	return (_, tokens) => (tokens * dollarsPerMillionTokens) / 1_000_000;
@@ -85,7 +96,8 @@ export abstract class BaseLLM implements LLM {
 			const hasSystemPrompt = messages[0].role === 'system';
 			const systemPrompt = hasSystemPrompt ? (messages[0].content as string) : undefined;
 			const userPrompt = hasSystemPrompt ? (messages[1].content as string) : (messages[0].content as string);
-			return this._generateText(systemPrompt, userPrompt, opts);
+			const theOpts = typeof userOrOpts === 'string' ? opts : userOrOpts;
+			return this._generateText(systemPrompt, userPrompt, theOpts);
 		}
 		return this.generateTextFromMessages(messages, options);
 	}
@@ -142,6 +154,23 @@ export abstract class BaseLLM implements LLM {
 		}
 	}
 
+	/** Generate a LlmMessage response */
+	async generateMessage(prompt: Prompt, opts?: GenerateTextOptions): Promise<LlmMessage> {
+		let messages: ReadonlyArray<LlmMessage>;
+		if (typeof prompt === 'string') {
+			messages = [user(prompt)];
+		} else if (isSystemUserPrompt(prompt)) {
+			messages = [system(prompt[0]), user(prompt[1])];
+		} else {
+			messages = prompt;
+		}
+		return this._generateMessage(messages, opts);
+	}
+
+	protected _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
+		throw new Error(`_generateMessage not implemented for ${this.getId()}`);
+	}
+
 	getMaxInputTokens(): number {
 		return this.maxInputTokens;
 	}
@@ -175,7 +204,7 @@ export abstract class BaseLLM implements LLM {
 		throw new Error('Not implemented');
 	}
 
-	async streamText(llmMessages: LlmMessage[], onChunk: ({ string }) => void, opts?: GenerateTextOptions): Promise<StreamTextResult<any, any>> {
+	async streamText(llmMessages: LlmMessage[], onChunk: (chunk: TextStreamPart<any>) => void, opts?: GenerateTextOptions): Promise<GenerationStats> {
 		throw new Error('Not implemented');
 	}
 
@@ -184,7 +213,8 @@ export abstract class BaseLLM implements LLM {
 		return true;
 	}
 
-	protected callStack(agent?: AgentContext): string {
+	/** @deprecated Use callStack in llmCall.ts */
+	callStack(agent?: AgentContext): string {
 		if (!agent) return '';
 		const arr: string[] = agent.callStack;
 		if (!arr || arr.length === 0) return '';
@@ -197,4 +227,14 @@ export abstract class BaseLLM implements LLM {
 
 		return arr.slice(0, i + 1).join(' > ');
 	}
+
+	// generateMessage(userPrompt: string, opts?: GenerateTextOptions): Promise<LlmMessage>;
+	// generateMessage(messages: [systemPrompt: string, userPrompt: string], opts?: GenerateTextOptions): Promise<LlmMessage>;
+	// generateMessage(messages: LlmMessage[] | ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage>;
+	// generateMessage(
+	// 	messages: string | [systemPrompt: string, userPrompt: string] | LlmMessage[] | ReadonlyArray<LlmMessage>,
+	// 	opts?: GenerateTextOptions,
+	// ): Promise<LlmMessage> {
+	// 	return Promise.resolve(undefined);
+	// }
 }

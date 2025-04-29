@@ -79,8 +79,8 @@ export class AgentService {
 
   /** Updates the local cache when an agent is modified */
   private updateAgentInCache(updatedAgent: AgentContext): void {
-    const agents = this._agents$.getValue();
-    const index = agents.findIndex(agent => agent.agentId === updatedAgent.agentId);
+    const agents = this._agents$.getValue() ?? [];
+    const index = agents.findIndex(agent => agent.agentId === updatedAgent.agentId) ?? -1;
     if (index !== -1) {
       const updatedAgents = [...agents];
       updatedAgents[index] = updatedAgent;

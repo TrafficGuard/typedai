@@ -1,12 +1,21 @@
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import fs, { writeFile } from 'node:fs';
-import path from 'path';
-import { promisify } from 'util';
-import { ClassDeclaration, Decorator, JSDoc, JSDocTag, MethodDeclaration, ParameterDeclaration, Project } from 'ts-morph';
+import path, { join } from 'node:path';
+import { promisify } from 'node:util';
+import {
+	type ClassDeclaration,
+	type Decorator,
+	type JSDoc,
+	type JSDocTag,
+	type MethodDeclaration,
+	type ParameterDeclaration,
+	Project,
+	type Type,
+} from 'ts-morph';
+import { FUNC_DECORATOR_NAME } from '#functionSchema/functionSchemaTypes';
 import { logger } from '#o11y/logger';
 import { systemDir } from '../appVars';
-import { FUNC_DECORATOR_NAME } from './functionDecorators';
-import { FunctionParameter, FunctionSchema } from './functions';
+import type { FunctionParameter, FunctionSchema } from './functions';
 
 const writeFileAsync = promisify(writeFile);
 
@@ -95,7 +104,9 @@ export function functionSchemaParser(sourceFilePath: string): Record<string, Fun
 
 	logger.info(`Generating schema for ${sourceFilePath}`);
 	const project = new Project();
-	const sourceFile = project.createSourceFile('temp.ts', readFileSync(sourceFilePath, 'utf8'));
+	// create the temp file in the same dir as the source file so the imports are resolved
+	const tempPath = join(sourceFilePath, '..', 'temp.ts');
+	const sourceFile = project.createSourceFile(tempPath, readFileSync(sourceFilePath, 'utf8'));
 
 	const classes = sourceFile.getClasses();
 
@@ -128,6 +139,7 @@ export function functionSchemaParser(sourceFilePath: string): Record<string, Fun
 					if (returnType.startsWith('Promise<') && returnType.endsWith('>')) {
 						returnType = returnType.slice(8, -1);
 					}
+
 					returns = tag.getText().replace('@returns', '').replace('@return', '').trim();
 					// Remove type information from returns if present
 					if (returns.startsWith('{') && returns.includes('}')) {
@@ -188,10 +200,11 @@ export function functionSchemaParser(sourceFilePath: string): Record<string, Fun
 				if (param.isOptional() || param.hasInitializer()) {
 					paramDef.optional = true;
 				}
-				if (!paramDef.description) {
-					logger.warn(`No description for param ${className}_${methodName}.${param.getName()}`);
+				if (paramDef.description) {
+					params.push(paramDef);
+				} else {
+					logger.info(`No description for param ${className}_${methodName}.${param.getName()}`);
 				}
-				params.push(paramDef);
 			});
 
 			const funcDef: FunctionSchema = {
@@ -218,5 +231,11 @@ function getFileUpdatedTimestamp(filePath: string): Date | null {
 		return stats.mtime; // mtime is the "modified time"
 	} catch (error) {
 		return null;
+	}
+}
+
+export function generatePythonClass(type: Type) {
+	if (type.isInterface()) {
+	} else if (type.isTypeParameter()) {
 	}
 }

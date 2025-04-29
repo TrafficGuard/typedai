@@ -15,24 +15,24 @@
             {{ ((call.totalTime ?? 0) / 1000).toFixed(1) }}s&nbsp;&nbsp; <strong>Tokens in/out:</strong>
             {{ call.inputTokens }}/{{ call.outputTokens }}&nbsp;&nbsp; <strong>Cost: </strong> ${{
                 call.cost?.toFixed(4)
-            }}
+            }} <strong>Tok/S:</strong> {{ (call.outputTokens / (call.totalTime / 1000)).toFixed(1) }}
         </div>
 
-        @for (message of call.messages; track message.id) {
+        @for (message of call.messages; track message.role + '-' + $index) {
             <mat-expansion-panel class="mb-1"
             >
                 <mat-expansion-panel-header>
                     <mat-panel-title [ngClass]="{ 'hidden-title': call.systemPromptExpanded }">
-                        <span>{{ message.role | titlecase }}</span>
+                        <span class="w-20">{{ message.role | titlecase }}:</span>
                         <span *ngIf="!call.systemPromptExpanded" class="expansion-preview">
-                            {{ message.content | slice : 0 : 50 }} ...
+                            {{ message.content | slice : 0 : 150 }} ...
                     </span>
                     </mat-panel-title>
                 </mat-expansion-panel-header>
                 <div style="white-space: pre-wrap">{{ message.content }}</div>
             </mat-expansion-panel>
         }
-
+<!--
         <mat-expansion-panel
                 *ngIf="call.systemPrompt"
                 (opened)="call.systemPromptExpanded = true"
@@ -106,7 +106,7 @@
             </mat-expansion-panel-header>
             <div style="white-space: pre-wrap">{{ call.responseText }}</div>
         </mat-expansion-panel>
-
+        -->
     </div>
     <div *ngIf="llmCalls.length === 0">
         <p style="padding-left: 10px">No LLM calls found for this agent.</p>

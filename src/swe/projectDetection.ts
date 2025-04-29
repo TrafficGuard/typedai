@@ -1,12 +1,12 @@
-import { existsSync, readFileSync, writeFileSync } from 'fs';
-import path, { join } from 'path';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import path, { join } from 'node:path';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
 import { TypescriptTools } from '#swe/lang/nodejs/typescriptTools';
 import { PhpTools } from '#swe/lang/php/phpTools';
 import { PythonTools } from '#swe/lang/python/pythonTools';
 import { TerraformTools } from '#swe/lang/terraform/terraformTools';
-import { LanguageTools } from './lang/languageTools';
+import type { LanguageTools } from './lang/languageTools';
 
 interface ProjectDetections {
 	projects: ProjectDetection[];
@@ -80,22 +80,29 @@ function parseProjectInfo(fileContents: string): ProjectInfo[] | null {
  */
 export async function detectProjectInfo(requirements?: string): Promise<ProjectInfo[]> {
 	logger.info('detectProjectInfo');
-	const fileSystem = getFileSystem();
-	if (await fileSystem.fileExists('projectInfo.json')) {
-		const projectInfoJson = await fileSystem.readFile('projectInfo.json');
+	const fss = getFileSystem();
+	if (await fss.fileExists('projectInfo.json')) {
+		const projectInfoJson = await fss.readFile('projectInfo.json');
 		logger.info(`loaded projectInfo.json ${projectInfoJson}`);
 		logger.info(projectInfoJson);
 		// TODO check projectInfo matches the format we expect
 		const info = parseProjectInfo(projectInfoJson);
 		if (info !== null) return info;
-	} else if (await fileSystem.fileExists(join(fileSystem.getVcsRoot(), 'projectInfo.json'))) {
-		throw new Error(
-			'TODO handle if we are in a directory inside a repository. Look for the projectInfo.json in the repo root folder and see if any entry exists for the current folder or above ',
-		);
+	} else if (await fss.fileExists(join(fss.getVcsRoot(), 'projectInfo.json'))) {
+		// logger.info('current dir ' + fileSystem.getWorkingDirectory());
+		// logger.info('fileSystem.getVcsRoot() ' + fileSystem.getVcsRoot());
+		// process.exit(1);
+		// throw new Error(
+		// 	'TODO handle if we are in a directory inside a repository. Look for the projectInfo.json in the repo root folder and see if any entry exists for the current folder or above ',
+		// );
+		logger.info('Found projectInfo.json in repository root folder');
+		const projectInfoJson = await fss.readFile(join(fss.getVcsRoot(), 'projectInfo.json'));
+		const info = parseProjectInfo(projectInfoJson);
+		if (info !== null) return info;
 	}
 
 	logger.info('Detecting project info...');
-	const tree = await fileSystem.getFileSystemTree();
+	const tree = await fss.getFileSystemTree();
 
 	const prompt = `<task_requirements>
 ${requirements ? `<context>\n${requirements}\n</context>\n` : ''}
@@ -161,14 +168,14 @@ Then the output would be:
 </task_requirements>`;
 	const projectDetections: ProjectDetections = await llms().medium.generateJson(prompt, { id: 'projectInfoFileSelection' });
 	logger.info(projectDetections, 'Project detections');
-	if (!projectDetections.projects.length) throw new Error(`Could not detect a software project within ${fileSystem.getWorkingDirectory()}`);
+	if (!projectDetections.projects.length) throw new Error(`Could not detect a software project within ${fss.getWorkingDirectory()}`);
 
 	// TODO handle more than one project in a repository
 	if (projectDetections.projects.length > 1) throw new Error('Support for multiple projects in a repository has not been completed');
 
 	const projectDetection = projectDetections.projects[0];
 	const projectDetectionFiles = projectDetection.files.filter((filename) => !filename.includes('package-lock.json') && !filename.includes('yarn.lock'));
-	const projectDetectionFileContents = await fileSystem.readFilesAsXml(projectDetectionFiles);
+	const projectDetectionFileContents = await fss.readFilesAsXml(projectDetectionFiles);
 
 	const projectScripts: ProjectScripts = await llms().medium.generateJson(
 		null,

@@ -2,9 +2,11 @@
 source ./variables/local.env
 
 export VERTEXAI_PROJECT=$GCLOUD_PROJECT
-export VERTEXAI_LOCATION=$GCLOUD_CLAUDE_REGION
+export VERTEXAI_LOCATION=$GCLOUD_REGION # $GCLOUD_CLAUDE_REGION
 echo $VERTEXAI_PROJECT $VERTEXAI_LOCATION
 export OPENAI_API_KEY=$OPENAI_API_KEY
 export DEEPSEEK_API_KEY=$DEEPSEEK_API_KEY
+export OPENROUTER_API_KEY=$OPENROUTER_API_KEY
+export GEMINI_API_KEY=$GEMINI_API_KEY
 
-aider --architect --model o3-mini --editor-model vertex_ai/claude-3-7-sonnet@20250219
+aider --model vertex_ai/gemini-2.5-pro-exp-03-25 --no-auto-accept-architect --test-cmd "npm run test:unit" --auto-test --lint-cmd "npm run lint"

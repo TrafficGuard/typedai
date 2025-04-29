@@ -1,7 +1,7 @@
-import crypto from 'crypto';
-import { Pool } from 'pg';
+import crypto from 'node:crypto';
+import type { Pool } from 'pg';
 
-import { CacheScope, FunctionCacheService } from './functionCacheService';
+import type { CacheScope, FunctionCacheService } from './functionCacheService';
 
 // AI generated. Not yet tested --------------------------
 // TypeORM doesn't work with TypeScript 5.0+ with the new decorators

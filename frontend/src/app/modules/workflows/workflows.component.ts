@@ -92,7 +92,7 @@ export class WorkflowsComponent implements OnInit {
 
     switch (workflowType) {
       case 'code':
-        operation = this.workflowsService.runCodeEditWorkflow(workingDirectory, input);
+        operation = this.workflowsService.runCodeEditorImplementRequirements(workingDirectory, input);
         break;
       case 'query':
         operation = this.workflowsService.runCodebaseQuery(workingDirectory, input);

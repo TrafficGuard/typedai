@@ -1,19 +1,17 @@
-import { ProviderV1 } from '@ai-sdk/provider';
+import type { ProviderV1 } from '@ai-sdk/provider';
 import {
-	CoreMessage,
-	FinishReason,
-	GenerateTextResult,
-	LanguageModelUsage,
-	LanguageModelV1,
-	ProviderMetadata,
-	StreamTextResult,
+	type CoreMessage,
+	type GenerateTextResult,
+	type LanguageModelV1,
+	type TextStreamPart,
 	generateText as aiGenerateText,
 	streamText as aiStreamText,
+	smoothStream,
 } from 'ai';
 import { addCost, agentContext } from '#agent/agentContextLocalStorage';
 import { BaseLLM } from '#llm/base-llm';
-import { GenerateTextOptions, LlmMessage, userContentText } from '#llm/llm';
-import { LlmCall } from '#llm/llmCallService/llmCall';
+import { type GenerateTextOptions, type GenerationStats, type LlmMessage, toText } from '#llm/llm';
+import { type LlmCall, callStack } from '#llm/llmCallService/llmCall';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 // import { currentUser } from '#user/userService/userContext';
@@ -46,6 +44,11 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 	}
 
 	async generateTextFromMessages(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
+		const msg = await this.generateMessage(llmMessages, opts);
+		return toText(msg);
+	}
+
+	async _generateMessage(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<LlmMessage> {
 		const description = opts?.id ?? '';
 		return withActiveSpan(`generateTextFromMessages ${description}`, async (span) => {
 			const messages: CoreMessage[] = this.processMessages(llmMessages);
@@ -63,31 +66,43 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 			});
 
 			const llmCallSave: Promise<LlmCall> = appContext().llmCallService.saveRequest({
-				userPrompt: prompt,
 				messages: llmMessages,
 				llmId: this.getId(),
 				agentId: agentContext()?.agentId,
 				// userId: currentUser().id,
-				callStack: this.callStack(agentContext()),
+				callStack: callStack(),
 				description,
 			});
 
 			const requestTime = Date.now();
 			try {
 				const providerOptions: any = {};
-				// https://sdk.vercel.ai/docs/guides/sonnet-3-7#reasoning-ability
-				// https://sdk.vercel.ai/docs/guides/o3#refining-reasoning-effort
 				if (opts?.thinking) {
+					// https://sdk.vercel.ai/docs/guides/o3#refining-reasoning-effort
 					if (this.getService() === 'openai' && this.model.startsWith('o')) providerOptions.openai = { reasoningEffort: opts.thinking };
-
+					let thinkingBudget: number;
+					// https://sdk.vercel.ai/docs/guides/sonnet-3-7#reasoning-ability
+					// https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
 					if (this.getModel().includes('claude-3-7')) {
-						let budgetTokens = 1024; // low
-						if (opts.thinking === 'medium') budgetTokens = 6000;
-						if (opts.thinking === 'high') budgetTokens = 13000;
+						if (opts.thinking === 'low') thinkingBudget = 1024;
+						if (opts.thinking === 'medium') thinkingBudget = 6000;
+						else if (opts.thinking === 'high') thinkingBudget = 13000;
 						providerOptions.anthropic = {
-							thinking: { type: 'enabled', budgetTokens },
+							thinking: { type: 'enabled', budgetTokens: thinkingBudget },
 						};
 						// maxOutputTokens += budgetTokens;
+						// Streaming is required when max_tokens is greater than 21,333
+					}
+					// https://cloud.google.com/vertex-ai/generative-ai/docs/thinking#budget
+					else if (this.getId().includes('gemini-2.5-flash')) {
+						if (opts.thinking === 'low') thinkingBudget = 8192;
+						else if (opts.thinking === 'medium') thinkingBudget = 16384;
+						else if (opts.thinking === 'high') thinkingBudget = 24576;
+						providerOptions.vertex = {
+							thinkingConfig: {
+								thinkingBudget,
+							},
+						};
 					}
 				}
 
@@ -101,24 +116,45 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 					presencePenalty: opts?.presencePenalty,
 					stopSequences: opts?.stopSequences,
 					maxRetries: opts?.maxRetries,
+					maxTokens: opts?.maxTokens,
 					providerOptions,
 				});
 
+				result.response.messages;
 				const responseText = result.text;
 				const finishTime = Date.now();
 				const llmCall: LlmCall = await llmCallSave;
 
-				const inputCost = this.calculateInputCost('', result.usage.promptTokens, result.providerMetadata);
-				const outputCost = this.calculateOutputCost(responseText, result.usage.completionTokens);
+				const inputCost = this.calculateInputCost('', result.usage.promptTokens, result.providerMetadata, result.response.timestamp);
+				const outputCost = this.calculateOutputCost(responseText, result.usage.completionTokens, result.response.timestamp);
 				const cost = inputCost + outputCost;
 
-				llmCall.responseText = responseText;
+				// Add the response as an assistant message
+
 				llmCall.timeToFirstToken = finishTime - requestTime;
 				llmCall.totalTime = finishTime - requestTime;
 				llmCall.cost = cost;
 				llmCall.inputTokens = result.usage.promptTokens;
 				llmCall.outputTokens = result.usage.completionTokens;
+
 				addCost(cost);
+
+				const stats: GenerationStats = {
+					llmId: this.getId(),
+					cost,
+					inputTokens: result.usage.promptTokens,
+					outputTokens: result.usage.completionTokens,
+					requestTime,
+					timeToFirstToken: llmCall.timeToFirstToken,
+					totalTime: llmCall.totalTime,
+				};
+				const message: LlmMessage = {
+					role: 'assistant',
+					content: responseText,
+					stats,
+				};
+
+				llmCall.messages = [...llmCall.messages, message];
 
 				span.setAttributes({
 					inputChars: prompt.length,
@@ -135,7 +171,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 					logger.error(e);
 				}
 
-				return responseText;
+				return message;
 			} catch (error) {
 				span.recordException(error);
 				throw error;
@@ -143,7 +179,8 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 		});
 	}
 
-	async streamText(llmMessages: LlmMessage[], onChunk: ({ string }) => void, opts?: GenerateTextOptions): Promise<StreamTextResult<any, any>> {
+	// https://sdk.vercel.ai/docs/ai-sdk-core/generating-text#streamtext
+	async streamText(llmMessages: LlmMessage[], onChunkCallback: (chunk: TextStreamPart<any>) => void, opts?: GenerateTextOptions): Promise<GenerationStats> {
 		return withActiveSpan(`streamText ${opts?.id ?? ''}`, async (span) => {
 			const messages: CoreMessage[] = llmMessages.map((msg) => {
 				if (msg.cache === 'ephemeral') {
@@ -160,44 +197,85 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 			});
 
 			const llmCallSave: Promise<LlmCall> = appContext().llmCallService.saveRequest({
-				userPrompt: prompt,
 				messages: llmMessages,
 				llmId: this.getId(),
 				agentId: agentContext()?.agentId,
-				callStack: this.callStack(agentContext()),
+				callStack: callStack(),
 			});
 
 			const requestTime = Date.now();
-			try {
-				const result = aiStreamText({
-					model: this.aiModel(),
-					messages,
-					temperature: opts?.temperature,
-					topP: opts?.topP,
-					stopSequences: opts?.stopSequences,
-				});
 
-				for await (const textPart of result.textStream) {
-					onChunk({ string: textPart });
-				}
+			const firstTokenTime = 0;
 
-				const usage: LanguageModelUsage = await result.usage;
-				const metadata: ProviderMetadata = await result.experimental_providerMetadata;
-				const inputCost = this.calculateInputCost('', usage.promptTokens, metadata);
-				const outputCost = this.calculateOutputCost(await result.text, usage.completionTokens);
-				const cost = inputCost + outputCost;
-				addCost(cost);
+			console.log('streaming...');
+			const result = aiStreamText({
+				model: this.aiModel(),
+				messages,
+				temperature: opts?.temperature,
+				topP: opts?.topP,
+				stopSequences: opts?.stopSequences,
+				experimental_transform: smoothStream(),
+			});
 
-				await llmCallSave;
-
-				const finishReason: FinishReason = await result.finishReason;
-				if (finishReason !== 'stop') throw new Error(`Unexpected finish reason ${finishReason}`);
-
-				return result;
-			} catch (error) {
-				span.recordException(error);
-				throw error;
+			for await (const part of result.fullStream) {
+				onChunkCallback(part);
 			}
+
+			const [usage, finishReason, metadata, response] = await Promise.all([result.usage, result.finishReason, result.providerMetadata, result.response]);
+			const finish = Date.now();
+			const inputCost = this.calculateInputCost('', usage.promptTokens, metadata);
+			const outputCost = this.calculateOutputCost(await result.text, usage.completionTokens);
+			const cost = inputCost + outputCost;
+			addCost(cost);
+
+			const llmCall: LlmCall = await llmCallSave;
+
+			const stats: GenerationStats = {
+				llmId: this.getId(),
+				cost,
+				inputTokens: usage.promptTokens,
+				outputTokens: usage.completionTokens,
+				totalTime: finish - requestTime,
+				timeToFirstToken: firstTokenTime - requestTime,
+				requestTime,
+			};
+
+			// messages =
+			const responseMessage = response.messages[0];
+			let message: LlmMessage;
+			if (responseMessage.role === 'tool') {
+				message = {
+					role: 'tool',
+					content: responseMessage.content,
+					stats,
+				};
+			} else if (responseMessage.role === 'assistant') {
+				message = {
+					role: 'assistant',
+					content: responseMessage.content,
+					stats,
+				};
+			}
+
+			llmCall.messages = [...llmCall.messages, message];
+
+			span.setAttributes({
+				inputTokens: usage.promptTokens,
+				outputTokens: usage.completionTokens,
+				inputCost,
+				outputCost,
+				cost,
+			});
+
+			try {
+				await appContext().llmCallService.saveResponse(llmCall);
+			} catch (e) {
+				logger.error(e);
+			}
+
+			if (finishReason !== 'stop') throw new Error(`Unexpected finish reason ${finishReason}`);
+
+			return stats;
 		});
 	}
 }

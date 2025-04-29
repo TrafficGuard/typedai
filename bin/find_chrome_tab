@@ -1,0 +1,83 @@
+#!/bin/bash
+
+# --- Configuration ---
+TARGET_URL_PREFIX="http://localhost:4200"
+# Optional: Specify Chrome binary if not standard
+# CHROME_APP_NAME="Google Chrome" # Or "Google Chrome Canary", "Chromium", "Brave Browser", etc.
+CHROME_APP_NAME="Google Chrome"
+# --- End Configuration ---
+
+# Check if running on macOS
+if [[ "$(uname)" != "Darwin" ]]; then
+  echo "This script uses AppleScript and is designed for macOS."
+  # Attempt Linux fallback (see option 2)
+  echo "Attempting Linux fallback using xdg-open..."
+  xdg-open "$TARGET_URL_PREFIX"
+  exit 1
+fi
+
+# AppleScript to find the tab and activate it, or open a new one
+osascript <<EOF
+set targetPrefix to "$TARGET_URL_PREFIX"
+set foundTab to false
+
+try
+    # Check if Chrome is running
+    if application "$CHROME_APP_NAME" is running then
+        tell application "$CHROME_APP_NAME"
+            # Loop through all windows
+            repeat with w in windows
+                set tabIndex to 0
+                # Loop through all tabs in the current window
+                repeat with t in tabs of w
+                    set tabIndex to tabIndex + 1
+                    # Check if the URL starts with the target prefix
+                    if URL of t starts with targetPrefix then
+                        # If found, activate the window and the tab
+                        set index of w to 1 -- Bring window to front
+                        set active tab index of w to tabIndex -- Activate the tab
+                        set foundTab to true
+                        exit repeat # Exit inner loop (tabs)
+                    end if
+                end repeat
+                if foundTab then exit repeat # Exit outer loop (windows)
+            end repeat
+
+            # If no tab was found after checking all windows
+            if not foundTab then
+                # Check if there are any windows open
+                if exists window 1 then
+                    # Create a new tab in the first window
+                    tell window 1 to make new tab with properties {URL:targetPrefix}
+                    set active tab index of window 1 to (count tabs of window 1)
+                else
+                    # No windows open, create a new one
+                    make new window
+                    set URL of active tab of window 1 to targetPrefix
+                end if
+            end if
+        end tell
+    else
+        # Chrome is not running, just open the URL (will launch Chrome)
+        tell application "$CHROME_APP_NAME"
+            open location targetPrefix
+        end tell
+    end if
+    # Ensure Chrome is the frontmost application
+    tell application "$CHROME_APP_NAME" to activate
+on error errMsg number errNum
+    # Basic error handling
+    display dialog "AppleScript Error: " & errMsg & " (" & errNum & ")" buttons {"OK"} default button "OK"
+    error errMsg number errNum # Re-throw error for script exit status
+end try
+EOF
+
+# Check the exit status of osascript
+if [[ $? -eq 0 ]]; then
+  echo "Successfully activated or opened tab for $TARGET_URL_PREFIX"
+else
+  echo "An error occurred while interacting with $CHROME_APP_NAME."
+  exit 1
+fi
+
+exit 0

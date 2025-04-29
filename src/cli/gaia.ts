@@ -1,14 +1,15 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
-import { promises as fs, readFileSync } from 'fs';
-import { AgentLLMs } from '#agent/agentContextTypes';
+import { promises as fs, readFileSync } from 'node:fs';
+import type { AgentLLMs } from '#agent/agentContextTypes';
 import { AGENT_COMPLETED_PARAM_NAME } from '#agent/agentFunctions';
 import { startAgentAndWait } from '#agent/agentRunner';
-import { FileSystemRead } from '#functions/storage/FileSystemRead';
+import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { LlmTools } from '#functions/util';
 import { Perplexity } from '#functions/web/perplexity';
 import { PublicWeb } from '#functions/web/web';
-import { LlmCall } from '#llm/llmCallService/llmCall';
+import { lastText } from '#llm/llm';
+import type { LlmCall } from '#llm/llmCallService/llmCall';
 import { Claude3_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { groqLlama3_3_70B } from '#llm/services/groq';
@@ -97,7 +98,8 @@ async function answerGaiaQuestion(task: GaiaQuestion): Promise<GaiaResult> {
 				xhard: openAIo1(),
 			},
 			agentName: `gaia-${task.task_id}`,
-			type: 'codegen',
+			type: 'autonomous',
+			subtype: 'codegen',
 			humanInLoop: {
 				budget,
 				count: 100,
@@ -110,9 +112,9 @@ async function answerGaiaQuestion(task: GaiaQuestion): Promise<GaiaResult> {
 
 		// Extract reasoning trace from LLM calls
 		const reasoningTrace: string[] = llmCalls
-			.filter((call: LlmCall) => call.responseText.includes('<python-code>'))
+			.filter((call: LlmCall) => lastText(call.messages).includes('<python-code>'))
 			.map((call) => {
-				const match = call.responseText.match(/<python-code>(.*?)<\/python-code>/s);
+				const match = lastText(call.messages).match(/<python-code>(.*?)<\/python-code>/s);
 				return match ? match[1].trim() : '';
 			});
 

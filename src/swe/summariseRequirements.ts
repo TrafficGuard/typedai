@@ -1,5 +1,5 @@
 import { llms } from '#agent/agentContextLocalStorage';
-import { buildPrompt } from './softwareDeveloperAgent';
+import { buildPrompt } from '#swe/prompt';
 
 export async function summariseRequirements(requirements: string): Promise<string> {
 	const prompt = buildPrompt({

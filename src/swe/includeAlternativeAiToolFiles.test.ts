@@ -1,7 +1,7 @@
-import * as fs from 'fs';
-import { dirname, join } from 'path';
+import * as fs from 'node:fs';
+import * as fsp from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { expect } from 'chai';
-import * as fsp from 'fs/promises';
 import sinon from 'sinon';
 import { includeAlternativeAiToolFiles } from './includeAlternativeAiToolFiles';
 

@@ -1,0 +1,72 @@
+<div class="flex flex-col flex-auto w-full p-6 sm:p-8">
+	<div class="flex items-center justify-between mb-6">
+		<h1 class="text-3xl font-bold tracking-tight leading-none">Vibe Sessions</h1>
+		<button mat-flat-button color="primary" (click)="createNewVibe()">
+			<mat-icon svgIcon="heroicons_outline:plus"></mat-icon>
+			<span class="ml-2">New Vibe Session</span>
+		</button>
+	</div>
+
+	<div class="overflow-auto bg-card rounded-lg shadow">
+		<div *ngIf="sessions$ | async as sessions; else loadingOrError">
+			<div *ngIf="sessions.length > 0; else noSessions" class="mat-elevation-z0">
+				<!-- Use mat-elevation-z0 if shadow is handled by parent -->
+				<table mat-table [dataSource]="sessions" class="w-full" [trackBy]="trackBySessionId">
+					<!-- Title Column -->
+					<ng-container matColumnDef="title">
+						<th mat-header-cell *matHeaderCellDef>Title</th>
+						<td mat-cell *matCellDef="let session">{{ session.title }}</td>
+					</ng-container>
+
+					<!-- Status Column -->
+					<ng-container matColumnDef="status">
+						<th mat-header-cell *matHeaderCellDef>Status</th>
+						<td mat-cell *matCellDef="let session">{{ session.status | titlecase }}</td>
+						<!-- Use titlecase pipe or custom mapping -->
+					</ng-container>
+
+					<!-- Created At Column -->
+					<ng-container matColumnDef="createdAt">
+						<th mat-header-cell *matHeaderCellDef>Created At</th>
+						<td mat-cell *matCellDef="let session">
+							<!-- Assuming createdAt is a Firestore Timestamp object or ISO string -->
+							{{ session.createdAt?.toDate ? (session.createdAt.toDate() | date: 'medium') : (session.createdAt | date: 'medium') }}
+						</td>
+					</ng-container>
+
+					<!-- Actions Column (Optional) -->
+					<ng-container matColumnDef="actions">
+						<th mat-header-cell *matHeaderCellDef>Actions</th>
+						<td mat-cell *matCellDef="let session">
+							<button mat-icon-button (click)="viewVibe(session.id); $event.stopPropagation()" aria-label="View Vibe Session">
+								<mat-icon svgIcon="heroicons_outline:eye"></mat-icon>
+							</button>
+							<!-- Add other actions like delete if needed -->
+						</td>
+					</ng-container>
+
+					<tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+					<tr
+						mat-row
+						*matRowDef="let row; columns: displayedColumns"
+						(click)="viewVibe(row.id)"
+						class="hover:bg-gray-100 dark:hover:bg-hover cursor-pointer"
+					></tr>
+					<!-- Make row clickable -->
+				</table>
+			</div>
+
+			<ng-template #noSessions>
+				<div class="p-8 text-center text-secondary">No Vibe sessions found. Create one to get started!</div>
+			</ng-template>
+		</div>
+
+		<ng-template #loadingOrError>
+			<!-- Optional: Add a loading indicator -->
+			<div class="p-8 text-center text-secondary">Loading sessions...</div>
+			<!-- Optional: Add error handling display -->
+		</ng-template>
+	</div>
+</div>
+
+<!-- Remove the old complex HTML structure and #speechBubbleExtension template -->

@@ -1,15 +1,15 @@
 import { Type } from '@sinclair/typebox';
-import { FastifyReply } from 'fastify';
-import { RunAgentConfig } from '#agent/agentRunner';
+import type { FastifyReply } from 'fastify';
+import { RunAgentConfig, type RunWorkflowConfig } from '#agent/agentRunner';
 import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
 import { send, sendSuccess } from '#fastify/index';
-import { GitLab } from '#functions/scm/gitlab';
+import { GitLabCodeReview } from '#functions/scm/gitlabCodeReview';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { envVar } from '#utils/env-var';
 import { appContext } from '../../../applicationContext';
+import type { AppFastifyInstance } from '../../../applicationTypes';
 import { envVarHumanInLoopSettings } from '../../../cli/cliHumanInLoop';
-import { AppFastifyInstance } from '../../../server';
 
 const basePath = '/api/webhooks';
 
@@ -37,10 +37,10 @@ export async function gitlabRoutesV1(fastify: AppFastifyInstance) {
 			const runAsUser = await appContext().userService.getUserByEmail(envVar('GITLAB_REVIEW_USER_EMAIL'));
 			if (!runAsUser) throw new Error(`Could not find user from env var GITLAB_REVIEW_USER_EMAIL with value ${envVar('GITLAB_REVIEW_USER_EMAIL')}`);
 
-			const config: RunAgentConfig = {
+			const config: RunWorkflowConfig = {
+				subtype: 'gitlab-review',
 				agentName: `MR review - ${event.object_attributes.title}`,
 				llms: defaultLLMs(),
-				functions: [],
 				user: runAsUser,
 				initialPrompt: '',
 				humanInLoop: envVarHumanInLoopSettings(),
@@ -50,7 +50,7 @@ export async function gitlabRoutesV1(fastify: AppFastifyInstance) {
 
 			await runAgentWorkflow(config, async (context) => {
 				logger.info(`Agent ${context.agentId} reviewing merge request ${mergeRequestId}`);
-				return new GitLab()
+				return new GitLabCodeReview()
 					.reviewMergeRequest(event.project.id, event.object_attributes.iid)
 					.then(() => {
 						logger.debug(`Competed review of merge request ${mergeRequestId}`);

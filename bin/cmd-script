@@ -1,4 +1,13 @@
 #!/bin/bash
+
+# This signal trap is so we can restart the node.js server in the container from host machine
+restart_server() {
+    echo "Restarting Node.js server..."
+    ./bin/dev-restart
+}
+# Set up signal trap
+trap restart_server SIGUSR1
+
 cd frontend && npm run start:local &
 npm run start:local &
 wait

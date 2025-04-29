@@ -43,10 +43,9 @@ export class Agent {
 	 * Updates existing content in your working memory, and continues on with the plan. You can assume the memory element now contains this key and content.
 	 * Note this will over-write any existing memory content
 	 * @param {string} key An existing key in the memory contents to update the contents of.
-	 * @param {string} content The plain text content to store in the working memory under the key
 	 */
 	@func()
-	async deleteMemory(key: string, content: string): Promise<void> {
+	async deleteMemory(key: string): Promise<void> {
 		const memory = agentContext().memory;
 		if (!memory[key]) logger.info(`deleteMemory key doesn't exist: ${key}`);
 		delete memory[key];

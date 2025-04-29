@@ -2,14 +2,14 @@ import { InvalidPromptError } from 'ai';
 import OpenAI from 'openai';
 import { addCost, agentContext } from '#agent/agentContextLocalStorage';
 import { Perplexity } from '#functions/web/perplexity';
-import { LlmCall } from '#llm/llmCallService/llmCall';
+import type { LlmCall } from '#llm/llmCallService/llmCall';
 import { logger as log } from '#o11y/logger';
 import { withSpan } from '#o11y/trace';
 import { currentUser, functionConfig } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
 import { appContext } from '../../applicationContext';
 import { BaseLLM } from '../base-llm';
-import { GenerateTextOptions, LLM, LlmMessage } from '../llm';
+import { type GenerateTextOptions, type GenerationStats, type LLM, type LlmMessage, type Prompt, assistant, isSystemUserPrompt, system, user } from '../llm';
 
 export const PERPLEXITY_SERVICE = 'perplexity';
 
@@ -90,11 +90,30 @@ export class PerplexityLLM extends BaseLLM {
 		return Boolean(functionConfig(Perplexity)?.key || process.env.PERPLEXITY_KEY);
 	}
 
-	protected supportsGenerateTextFromMessages(): boolean {
-		return true;
+	/** Generate a LlmMessage response */
+	async generateMessage(prompt: Prompt, opts?: GenerateTextOptions): Promise<LlmMessage> {
+		let messages: ReadonlyArray<LlmMessage>;
+		// Normalize the different prompt types into an array of LlmMessage
+		if (typeof prompt === 'string') {
+			messages = [user(prompt)];
+		} else if (isSystemUserPrompt(prompt)) {
+			messages = [system(prompt[0]), user(prompt[1])];
+		} else {
+			// Prompt is already LlmMessage[] or ReadonlyArray<LlmMessage>
+			messages = prompt; // Directly assign if it's already the correct array type
+		}
+		// Delegate to the internal implementation that handles the API call and processing
+		return this._generateMessage(messages, opts);
 	}
 
-	protected generateTextFromMessages(messages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
+	protected supportsGenerateTextFromMessages(): boolean {
+		// Although _generateMessage handles message arrays, the primary generateText methods
+		// in BaseLLM might rely on _generateText(system, user). Keeping this false maintains
+		// consistency unless generateText is refactored to use _generateMessage.
+		return false;
+	}
+
+	protected _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
 		const description = opts?.id ?? '';
 		return withSpan(`generateText ${description}`, async (span) => {
 			// Perplexity only support string content, convert TextPart's to string, fail if any FilePart or ImagePart are found
@@ -173,10 +192,27 @@ export class PerplexityLLM extends BaseLLM {
 				const responseText = response.choices[0].message.content + citationContent;
 
 				const llmCall: LlmCall = await llmCallSave;
-				llmCall.responseText = responseText;
+				llmCall.messages = [...messages, assistant(responseText)];
 				llmCall.timeToFirstToken = timeToFirstToken;
 				llmCall.totalTime = finishTime - requestTime;
 				llmCall.cost = cost;
+
+				const stats: GenerationStats = {
+					llmId: this.getId(),
+					cost,
+					inputTokens: promptTokens,
+					outputTokens: completionTokens,
+					requestTime,
+					timeToFirstToken: llmCall.timeToFirstToken,
+					totalTime: llmCall.totalTime,
+				};
+				const message: LlmMessage = {
+					role: 'assistant',
+					content: responseText,
+					stats,
+				};
+
+				llmCall.messages = [...llmCall.messages, message];
 
 				try {
 					await appContext().llmCallService.saveResponse(llmCall);
@@ -196,9 +232,9 @@ export class PerplexityLLM extends BaseLLM {
 				});
 				if (thinkingTokens) span.setAttribute('thinkingTokens', thinkingTokens);
 
-				return responseText;
+				return message;
 			} catch (e) {
-				log.error(e, `Perplexity error during generateTextFromMessages. Messages: ${JSON.stringify(messages)}`);
+				log.error(e, `Perplexity error during generateMessage. Messages: ${JSON.stringify(messages)}`);
 				throw e;
 			}
 		});
@@ -211,7 +247,7 @@ export function convertCitationsToMarkdownLinks(reportText: string, citations: s
 
 	// Replace each citation ID with a markdown link
 	return reportText.replace(citationPattern, (match, id) => {
-		const citationId = parseInt(id, 10) - 1; // Convert the matched ID to a number and subtract 1 (since array indices start at 0)
+		const citationId = Number.parseInt(id, 10) - 1; // Convert the matched ID to a number and subtract 1 (since array indices start at 0)
 		if (citationId >= 0 && citationId < citations.length) {
 			// If the citation ID is valid, replace the ID with a markdown link
 			return `[${citations[citationId]}](#${citationId + 1})`;

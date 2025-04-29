@@ -1,11 +1,13 @@
-import { DocumentSnapshot, Firestore } from '@google-cloud/firestore';
+import type { DocumentSnapshot, Firestore } from '@google-cloud/firestore';
 import { LlmFunctions } from '#agent/LlmFunctions';
-import { AgentContext, AgentRunningState, isExecuting } from '#agent/agentContextTypes';
+import { type AgentContext, type AgentRunningState, type AutonomousIteration, isExecuting } from '#agent/agentContextTypes';
 import { deserializeAgentContext, serializeContext } from '#agent/agentSerialization';
-import { AgentStateService } from '#agent/agentStateService/agentStateService';
+import type { AgentStateService } from '#agent/agentStateService/agentStateService';
+import { MAX_PROPERTY_SIZE, truncateToByteLength, validateFirestoreObject } from '#firestore/firestoreUtils';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
+import type { User } from '#user/user';
 import { currentUser } from '#user/userService/userContext';
 import { firestoreDb } from './firestore';
 
@@ -17,8 +19,24 @@ export class FirestoreAgentStateService implements AgentStateService {
 
 	@span()
 	async save(state: AgentContext): Promise<void> {
+		if (state.error && Buffer.byteLength(state.error, 'utf8') > MAX_PROPERTY_SIZE) {
+			state.error = truncateToByteLength(state.error, MAX_PROPERTY_SIZE);
+		}
+		if (Buffer.byteLength(state.inputPrompt, 'utf8') > MAX_PROPERTY_SIZE) {
+			console.log(new Error(`Input prompt is greater than ${MAX_PROPERTY_SIZE} bytes`));
+		}
 		const serialized = serializeContext(state);
 		serialized.lastUpdate = Date.now();
+
+		// Add this validation step
+		try {
+			validateFirestoreObject(serialized);
+		} catch (error) {
+			logger.error({ agentId: state.agentId, error: error.message }, 'Firestore validation failed: Nested array detected.');
+			// Optionally re-throw or handle the error appropriately
+			throw new Error(`Firestore validation failed for agent ${state.agentId}: ${error.message}`);
+		}
+
 		const docRef = this.db.doc(`AgentContext/${state.agentId}`);
 
 		if (state.parentAgentId) {
@@ -27,9 +45,7 @@ export class FirestoreAgentStateService implements AgentStateService {
 				const parentDocRef = this.db.doc(`AgentContext/${state.parentAgentId}`);
 				const parentDoc = await transaction.get(parentDocRef);
 
-				if (!parentDoc.exists) {
-					throw new Error(`Parent agent ${state.parentAgentId} not found`);
-				}
+				if (!parentDoc.exists) throw new Error(`Parent agent ${state.parentAgentId} not found`);
 
 				const parentData = parentDoc.data();
 				const childAgents = new Set(parentData.childAgents || []);
@@ -57,8 +73,22 @@ export class FirestoreAgentStateService implements AgentStateService {
 	}
 
 	async updateState(ctx: AgentContext, state: AgentRunningState): Promise<void> {
-		ctx.state = state;
-		await this.save(ctx);
+		const now = Date.now();
+
+		const docRef = this.db.doc(`AgentContext/${ctx.agentId}`);
+		try {
+			// Update only the state and lastUpdate fields in Firestore for efficiency
+			await docRef.update({
+				state: state,
+				lastUpdate: now,
+			});
+			// Update the state in the context object provided directly for immediate consistency once the firestore update completes
+			ctx.state = state;
+			ctx.lastUpdate = now;
+		} catch (error) {
+			logger.error(error, `Error updating state for agent ${ctx.agentId} to ${state}`);
+			throw error;
+		}
 	}
 
 	@span({ agentId: 0 })
@@ -78,7 +108,7 @@ export class FirestoreAgentStateService implements AgentStateService {
 	@span()
 	async list(): Promise<AgentContext[]> {
 		// TODO limit the fields retrieved for performance, esp while functionCallHistory and memory is on the AgentContext object
-		const keys: Array<keyof AgentContext> = ['agentId', 'name', 'state', 'cost', 'error', 'lastUpdate', 'userPrompt', 'inputPrompt'];
+		const keys: Array<keyof AgentContext> = ['agentId', 'name', 'state', 'cost', 'error', 'lastUpdate', 'userPrompt', 'inputPrompt', 'user'];
 		const querySnapshot = await this.db
 			.collection('AgentContext')
 			.where('user', '==', currentUser().id)
@@ -90,22 +120,51 @@ export class FirestoreAgentStateService implements AgentStateService {
 
 	@span()
 	async listRunning(): Promise<AgentContext[]> {
-		// Needs an index TODO https://cloud.google.com/firestore/docs/query-data/multiple-range-fields
-		const querySnapshot = await this.db.collection('AgentContext').where('state', '!=', 'completed').orderBy('lastUpdate', 'desc').get();
+		// Define terminal states to exclude from the "running" list
+		const terminalStates: AgentRunningState[] = ['completed', 'shutdown', 'timeout']; // TODO add error and maybe others. Might be better to invert the list and use the IN operator
+		// NOTE: This query requires a composite index in Firestore.
+		// Example gcloud command:
+		// gcloud firestore indexes composite create --collection-group=AgentContext --query-scope=COLLECTION --field-config field-path=state,operator=NOT_EQUAL --field-config field-path=lastUpdate,order=DESCENDING
+		// Or more specifically for 'not-in':
+		// gcloud firestore indexes composite create --collection-group=AgentContext --query-scope=COLLECTION --field-config field-path=state,operator=NOT_EQUAL --field-config field-path=lastUpdate,order=DESCENDING
+		// Or more specifically for 'not-in':
+		// gcloud firestore indexes composite create --collection-group=AgentContext --query-scope=COLLECTION --field-config field-path=state,array-contains=Any --field-config field-path=lastUpdate,order=DESCENDING
+		// Firestore usually guides index creation in the console based on query errors.
+		// NOTE: Firestore requires the first orderBy clause to be on the field used in an inequality filter (like 'not-in').
+		// Therefore, we order by 'state' first, then by 'lastUpdate'. This ensures the query works reliably,
+		// although the primary desired sort order is by 'lastUpdate'.
+		const querySnapshot = await this.db
+			.collection('AgentContext')
+			.where('state', 'not-in', terminalStates) // Use 'not-in' to exclude multiple terminal states
+			.orderBy('state') // Order by the inequality filter field first (Firestore requirement)
+			.orderBy('lastUpdate', 'desc') // Then order by the desired field
+			.get();
 		return this.deserializeQuery(querySnapshot);
 	}
 
 	private async deserializeQuery(querySnapshot: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData, FirebaseFirestore.DocumentData>) {
-		const contexts: AgentContext[] = [];
+		const contexts: Partial<AgentContext>[] = []; // Use Partial<AgentContext> for list view summary
 		for (const doc of querySnapshot.docs) {
 			const data = doc.data();
-			// TODO need to await for deserialization in multi-user environment
-			contexts.push({
-				...data,
+			// Construct a partial context suitable for list views
+			const partialContext: Partial<AgentContext> = {
 				agentId: doc.id,
-			} as AgentContext);
+				name: data.name,
+				state: data.state,
+				cost: data.cost,
+				error: data.error,
+				lastUpdate: data.lastUpdate,
+				userPrompt: data.userPrompt,
+				inputPrompt: data.inputPrompt,
+				// Assign the user ID stored in Firestore. Assume it's stored as a string ID.
+				// Create a minimal User object containing only the ID for type compatibility.
+				user: data.user ? ({ id: data.user } as User) : undefined,
+			};
+			contexts.push(partialContext);
 		}
-		return contexts;
+		// Cast to AgentContext[] for compatibility with current method signature.
+		// Consumers of list() / listRunning() should be aware they might receive partial contexts.
+		return contexts as AgentContext[];
 	}
 
 	async clear(): Promise<void> {
@@ -168,5 +227,67 @@ export class FirestoreAgentStateService implements AgentStateService {
 		}
 
 		await this.save(agent);
+	}
+
+	@span()
+	async saveIteration(iterationData: AutonomousIteration): Promise<void> {
+		// Validate iteration number
+		if (!Number.isInteger(iterationData.iteration) || iterationData.iteration <= 0) {
+			throw new Error('Iteration number must be a positive integer.');
+		}
+
+		// Ensure large fields are handled (optional, depending on expected size vs limits)
+		// Example: Truncate prompt or code if necessary, similar to how errors are handled in save()
+		// if (Buffer.byteLength(iterationData.prompt, 'utf8') > MAX_PROPERTY_SIZE) { ... }
+
+		const iterationDocRef = this.db.collection('AgentContext').doc(iterationData.agentId).collection('iterations').doc(String(iterationData.iteration));
+
+		// Add validation before saving if needed (e.g., using validateFirestoreObject)
+		// try {
+		//     validateFirestoreObject(iterationData);
+		// } catch (error) {
+		//     logger.error({ agentId: iterationData.agentId, iteration: iterationData.iteration, error: error.message }, 'Firestore validation failed for iteration.');
+		//     throw new Error(`Firestore validation failed for agent ${iterationData.agentId}, iteration ${iterationData.iteration}: ${error.message}`);
+		// }
+
+		try {
+			await iterationDocRef.set(iterationData);
+			logger.debug({ agentId: iterationData.agentId, iteration: iterationData.iteration }, 'Saved agent iteration');
+		} catch (error) {
+			logger.error(error, `Error saving iteration ${iterationData.iteration} for agent ${iterationData.agentId}`);
+			throw error;
+		}
+	}
+
+	@span()
+	async loadIterations(agentId: string): Promise<AutonomousIteration[]> {
+		const agent = await this.load(agentId);
+		if (!agent) throw new Error('Agent Id does not exist');
+		if (agent.user.id !== currentUser().id) throw new Error('Not your agent');
+
+		const iterationsColRef = this.db.collection('AgentContext').doc(agentId).collection('iterations');
+		// Order by the document ID (which is the iteration number as a string)
+		// Firestore sorts strings lexicographically, which works for numbers if they don't have leading zeros
+		// and have the same number of digits. For simple iteration counts (1, 2, ..., 10, 11...), this works.
+		// If very large iteration numbers or inconsistent formatting were expected,
+		// storing the iteration number as a field and ordering by that would be more robust.
+		const querySnapshot = await iterationsColRef.orderBy('__name__').get(); // Order by document ID (iteration number)
+
+		const iterations: AutonomousIteration[] = [];
+		querySnapshot.forEach((doc) => {
+			// Basic validation might be good here
+			const data = doc.data();
+			if (data && typeof data.iteration === 'number') {
+				if (!data.error) data.error = undefined;
+				iterations.push(data as AutonomousIteration);
+			} else {
+				logger.warn({ agentId, iterationId: doc.id }, 'Skipping invalid iteration data during load');
+			}
+		});
+
+		// Ensure sorting numerically as Firestore sorts document IDs lexicographically
+		iterations.sort((a, b) => a.iteration - b.iteration);
+
+		return iterations;
 	}
 }

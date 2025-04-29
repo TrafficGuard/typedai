@@ -1,6 +1,6 @@
 import { logger } from '#o11y/logger';
-import { ApplicationContext, initApplicationContext } from './applicationContext';
-import { TypeBoxFastifyInstance, initFastify } from './fastify';
+import { initApplicationContext } from './applicationContext';
+import { initFastify } from './fastify';
 import { functionRegistry } from './functionRegistry';
 import { agentDetailsRoutes } from './routes/agent/agent-details-routes';
 import { agentExecutionRoutes } from './routes/agent/agent-execution-routes';
@@ -11,11 +11,10 @@ import { llmCallRoutes } from './routes/llms/llm-call-routes';
 import { llmRoutes } from './routes/llms/llm-routes';
 import { profileRoute } from './routes/profile/profile-route';
 import { codeReviewRoutes } from './routes/scm/codeReviewRoutes';
+import { vibeScmRoutes } from './routes/scm/vibeScmRoutes';
 import { gitlabRoutesV1 } from './routes/webhooks/gitlab/gitlabRoutes-v1';
 import { jiraRoutes } from './routes/webhooks/jira/jira-routes';
 import { workflowRoutes } from './routes/workflows/workflow-routes';
-
-export interface AppFastifyInstance extends TypeBoxFastifyInstance, ApplicationContext {}
 
 // Ensures all the functions are registered
 functionRegistry();
@@ -27,6 +26,7 @@ export async function initServer(): Promise<void> {
 	const applicationContext = await initApplicationContext();
 
 	try {
+		// [DOC] All fastify routes from the /routes dir must be registered here in initFastify()
 		await initFastify({
 			routes: [
 				authRoutes,
@@ -41,7 +41,7 @@ export async function initServer(): Promise<void> {
 				chatRoutes,
 				workflowRoutes,
 				jiraRoutes,
-				// Add your routes below this line
+				vibeScmRoutes,
 			],
 			instanceDecorators: applicationContext, // This makes all properties on the ApplicationContext interface available on the fastify instance in the routes
 			requestDecorators: {},
