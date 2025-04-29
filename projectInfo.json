@@ -8,6 +8,6 @@
     "staticAnalysis": "npm run lint ",
     "test": "npm run test && cd frontend && npm run test",
     "languageTools": "typescript",
-    "devBranch": "v0.9.0"
+    "devBranch": "main"
   }
 ]
