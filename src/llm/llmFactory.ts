@@ -88,6 +88,6 @@ export function deserializeLLMs(obj: any): AgentLLMs {
 		easy: getLLM(obj.easy),
 		medium: getLLM(obj.medium),
 		hard: getLLM(obj.hard),
-		xhard: getLLM(obj.xhard),
+		xhard: obj.xhard ? getLLM(obj.xhard) : undefined,
 	};
 }

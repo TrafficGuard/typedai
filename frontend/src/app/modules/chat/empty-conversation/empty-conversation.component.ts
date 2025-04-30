@@ -14,8 +14,5 @@ import { MatIconModule } from '@angular/material/icon';
     imports: [MatIconModule],
 })
 export class EmptyConversationComponent {
-    /**
-     * Constructor
-     */
-    constructor() {}
+
 }

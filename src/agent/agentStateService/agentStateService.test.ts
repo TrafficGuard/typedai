@@ -478,7 +478,6 @@ export function runAgentStateServiceTests(
 			const expectedRunningStates: AgentRunningState[] = [
 				'agent', // lastUpdate: -3000
 				'child_agents', // lastUpdate: -3500
-				'error', // lastUpdate: -4000
 				'functions', // lastUpdate: -500  (Most recent within its state group)
 				'hitl_feedback', // lastUpdate: -2000
 				'hitl_threshold', // lastUpdate: -2500
@@ -731,7 +730,10 @@ export function runAgentStateServiceTests(
 			iteration: iterNum,
 			functions: ['Agent', MockFunction.name],
 			prompt: `Prompt for iteration ${iterNum}`,
+			expandedUserRequest: `Expanded request for iteration ${iterNum}`,
+			observationsReasoning: `Observations for iteration ${iterNum}`,
 			agentPlan: `<plan>Plan for iteration ${iterNum}</plan>`,
+			nextStepDetails: `Next step details for iteration ${iterNum}`,
 			code: `print("Iteration ${iterNum}")`,
 			functionCalls: [
 				{
@@ -740,6 +742,8 @@ export function runAgentStateServiceTests(
 					stdout: `Result ${iterNum}`,
 				},
 			],
+			memory: new Map<string, string>([[`memoryKey${iterNum}`, `memoryValue${iterNum}`]]),
+			toolState: new Map<string, any>([[`toolKey${iterNum}`, `toolValue${iterNum}`]]),
 			error: iterNum % 3 === 0 ? `Simulated error for iteration ${iterNum}` : undefined, // Add error sometimes
 		});
 

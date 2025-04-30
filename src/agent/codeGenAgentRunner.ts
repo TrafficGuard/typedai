@@ -5,10 +5,18 @@ import { runAgentCompleteHandler } from '#agent/agentCompletion';
 import type { AgentContext, AutonomousIteration } from '#agent/agentContextTypes';
 import { AGENT_REQUEST_FEEDBACK, REQUEST_FEEDBACK_PARAM_NAME } from '#agent/agentFeedback';
 import { AGENT_COMPLETED_NAME, AGENT_COMPLETED_PARAM_NAME, AGENT_SAVE_MEMORY_CONTENT_PARAM_NAME } from '#agent/agentFunctions';
-import { buildFunctionCallHistoryPrompt, buildMemoryPrompt, buildToolStatePrompt, updateFunctionSchemas } from '#agent/agentPromptUtils';
+import { buildFunctionCallHistoryPrompt, buildMemoryPrompt, buildToolStateMap, buildToolStatePrompt, updateFunctionSchemas } from '#agent/agentPromptUtils';
 import type { AgentExecution } from '#agent/agentRunner';
 import { FUNCTION_OUTPUT_THRESHOLD, SCRIPT_RETURN_VALUE_MAX_TOKENS, summarizeFunctionOutput } from '#agent/agentUtils';
-import { convertJsonToPythonDeclaration, extractPythonCode, removePythonMarkdownWrapper } from '#agent/codeGenAgentUtils';
+import {
+	convertJsonToPythonDeclaration,
+	extractAgentPlan,
+	extractExpandedUserRequest,
+	extractNextStepDetails,
+	extractObservationsReasoning,
+	extractPythonCode,
+	removePythonMarkdownWrapper,
+} from '#agent/codeGenAgentUtils';
 import { getServiceName } from '#fastify/trace-init/trace-init';
 import { FUNC_SEP, type FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
 import type { FunctionCallResult } from '#llm/llm';
@@ -127,8 +135,15 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 						temperature: 0.5,
 						thinking: 'medium',
 					});
-					iterationData.agentPlan = agentPlanResponse; // Save the plan even on retry
 				}
+				// Save the raw response before extracting parts
+				// iterationData.agentPlan = agentPlanResponse;
+
+				// Extract specific parts from the agent's response
+				iterationData.expandedUserRequest = extractExpandedUserRequest(agentPlanResponse);
+				iterationData.observationsReasoning = extractObservationsReasoning(agentPlanResponse);
+				iterationData.agentPlan = extractAgentPlan(agentPlanResponse); // Overwrite with extracted plan if found, otherwise keep raw
+				iterationData.nextStepDetails = extractNextStepDetails(agentPlanResponse);
 
 				pythonMainFnCode = extractPythonCode(agentPlanResponse);
 				pythonMainFnCode = await ensureCorrectSyntax(pythonMainFnCode, functionsXml);
@@ -205,6 +220,10 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				iterationData.error = agent.error;
 				logger.error(e, 'Control loop error');
 			} finally {
+				// Capture memory and tool state before saving
+				iterationData.memory = new Map(Object.entries(agent.memory)); // Convert Record to Map
+				iterationData.toolState = await buildToolStateMap(agent.functions.getFunctionInstances()); // Capture tool state
+
 				try {
 					await Promise.all([agentStateService.save(agent), agentStateService.saveIteration(iterationData as AutonomousIteration)]);
 				} catch (e) {

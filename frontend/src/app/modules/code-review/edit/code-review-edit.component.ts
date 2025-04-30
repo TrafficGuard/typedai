@@ -119,6 +119,7 @@ export class CodeReviewEditComponent implements OnInit {
         this.isLoading = false;
       },
       (error) => {
+        console.error(error);
         this.errorMessage = 'Error loading config data';
         this.isLoading = false;
       }
@@ -138,6 +139,7 @@ export class CodeReviewEditComponent implements OnInit {
             this.router.navigate(['/ui/code-reviews']).catch(console.error);
           },
           (error) => {
+            console.error(error);
             this.errorMessage = 'Error updating config';
             this.isLoading = false;
           }
@@ -149,6 +151,7 @@ export class CodeReviewEditComponent implements OnInit {
             this.router.navigate(['/ui/code-reviews']).catch(console.error);
           },
           (error) => {
+            console.error(error);
             this.errorMessage = 'Error creating config';
             this.isLoading = false;
           }

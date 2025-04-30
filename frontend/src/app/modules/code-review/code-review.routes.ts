@@ -1,5 +1,4 @@
 import { Routes } from '@angular/router';
-import { inject } from '@angular/core';
 import {CodeReviewEditComponent} from "./edit/code-review-edit.component";
 import {CodeReviewListComponent} from "./list/code-review-list.component";
 

@@ -372,7 +372,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
      */
     sendMessage(): void {
         // Store message and attachments in component scope so error handler can access them
-        let message: string = this.messageInput.nativeElement.value.trim();
+        const message: string = this.messageInput.nativeElement.value.trim();
         const attachments: Attachment[] = this.selectedFiles.map(file => ({
             type: file.type.startsWith('image/') ? 'image' : 'file',
             filename: file.name,

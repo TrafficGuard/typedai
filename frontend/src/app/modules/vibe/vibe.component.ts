@@ -2,7 +2,7 @@ import { Component, inject, OnInit, OnDestroy, ViewEncapsulation } from '@angula
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { map, Observable, of, startWith, switchMap, take, Subject, takeUntil } from 'rxjs'; // Added take, Subject, takeUntil
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, RouterModule, RouterOutlet } from '@angular/router';
+import { ActivatedRoute, RouterOutlet } from '@angular/router';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatSelectModule } from "@angular/material/select";

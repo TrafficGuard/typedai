@@ -1,0 +1,22 @@
+/* Add any specific styles for the agent iterations component here */
+/* For example, adjusting spacing or text styles within the expansion panels */
+
+/* Ensure icons are vertically aligned */
+mat-panel-description mat-icon,
+mat-card-title mat-icon {
+    vertical-align: middle;
+}
+
+/* Consistent icon sizing */
+.icon-size-5 {
+    width: 20px;
+    height: 20px;
+    font-size: 20px;
+}
+
+/* Style pre tags for better readability */
+pre {
+    font-family: monospace;
+    white-space: pre-wrap; /* Ensures long lines wrap */
+    word-wrap: break-word; /* Breaks long words if necessary */
+}

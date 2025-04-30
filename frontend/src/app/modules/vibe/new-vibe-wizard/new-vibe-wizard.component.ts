@@ -10,10 +10,9 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Router } from '@angular/router';
 import { VibeService, CreateVibeSessionPayload } from '../vibe.service';
-import { VibeSession } from '../vibe.types';
+import { GitProject, VibeSession } from '../vibe.types';
 import { WorkflowsService } from '../../workflows/workflows.service';
-import { GitProject } from '../../../../../../src/functions/scm/gitProject'; // Adjust path as needed
-import { finalize, catchError, tap, startWith, BehaviorSubject, Observable, of } from 'rxjs';
+import { finalize, catchError, BehaviorSubject, Observable, of } from 'rxjs';
 
 @Component({
 	selector: 'app-new-vibe-wizard',
