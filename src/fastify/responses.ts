@@ -34,18 +34,28 @@ export function sendSuccess(reply: FastifyReply, message = 'success'): void {
 	send(reply, HttpStatus.OK, '', { message: message });
 }
 
+// --- Modified Error Handlers ---
+
 export function sendBadRequest(reply: FastifyReply, message = 'Bad Request'): void {
-	send(reply, HttpStatus.BAD_REQUEST, '', { message: message });
+	// Directly send payload matching ErrorResponseSchema { error: string }
+	reply.status(HttpStatus.BAD_REQUEST);
+	reply.send({ error: message });
 }
 
 export function sendUnauthorized(reply: FastifyReply): void {
-	send(reply, HttpStatus.UNAUTHORIZED, '', { message: 'Unauthorized' });
+	// Directly send payload matching ErrorResponseSchema { error: string }
+	reply.status(HttpStatus.UNAUTHORIZED);
+	reply.send({ error: 'Unauthorized' });
 }
 
 export function sendNotFound(reply: FastifyReply, message = 'Not Found'): void {
-	send(reply, HttpStatus.NOT_FOUND, '', { message: message });
+	// Directly send payload matching ErrorResponseSchema { error: string }
+	reply.status(HttpStatus.NOT_FOUND);
+	reply.send({ error: message });
 }
 
 export function sendServerError(reply: FastifyReply, message = 'Server error'): void {
-	send(reply, HttpStatus.INTERNAL_SERVER_ERROR, '', { message: message });
+	// Directly send payload matching ErrorResponseSchema { error: string }
+	reply.status(HttpStatus.INTERNAL_SERVER_ERROR);
+	reply.send({ error: message });
 }

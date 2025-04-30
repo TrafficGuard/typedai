@@ -13,3 +13,51 @@ mat-form-field {
 	display: flex;
 	gap: 0.5rem;
 }
+
+// --- Add these new styles ---
+.form-field-spacing {
+  margin-bottom: 16px; // Ensure spacing between sections like radio groups
+}
+
+.radio-option-row {
+  display: flex;
+  align-items: center; // Vertically align items in the row
+  margin-bottom: 16px; // Space between rows
+
+  mat-radio-button {
+    margin-right: 16px; // Space between radio button and the inline field
+    // Ensure radio button doesn't shrink if label is long
+    flex-shrink: 0;
+  }
+}
+
+.inline-field {
+  // Adjust width as needed, or let it grow
+  flex-grow: 1; // Allow field to take available space
+  max-width: 350px; // Optional: Limit max width
+  margin-bottom: -1.25em; // Adjust to align baseline with radio button text (Material specific)
+
+  // Reduce padding/margins for a tighter inline look if desired
+  .mat-mdc-form-field-subscript-wrapper {
+     height: auto; // Allow errors/hints to show without taking up fixed space initially
+     min-height: 1.25em; // Reserve some space for potential errors/hints
+  }
+}
+
+.inline-hint {
+  margin-left: 8px;
+  font-size: 0.8em;
+  color: rgba(0, 0, 0, 0.6);
+  white-space: nowrap; // Prevent hint from wrapping unnecessarily
+}
+
+// Adjust spinner alignment if needed
+mat-spinner {
+  vertical-align: middle;
+}
+
+// Ensure full width for standard form fields if not already set by mat-form-field rule above
+// mat-form-field:not(.inline-field) {
+//    width: 100%; // This might be redundant if the general rule exists
+// }
+// --- End added styles ---

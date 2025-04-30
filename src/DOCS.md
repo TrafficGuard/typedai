@@ -14,8 +14,64 @@ eg.  logger.info(user, "New registration [user]")
 
 Function classes with the @funcClass(__filename) must only have the default constructor.
 
-Always use the Filesystem class in src/functions/storage/filesystem.ts to read/search/write to the local filesystem.
+Always use the FilesystemService class in src/functions/storage/filesystemService.ts to read/search/write to the local filesystem.
+Always assign it to a let/const with the name `fss`.
 
+## Service
+
+The ApplicationContext holds the service instances.
+
+The service interfaces will likely have multiple implementations for different databases, and an in-memory version for tests.
+
+## Service unit/integration test standards
+
+The main unit/integration test suite for a service must be shared between all implementations.
+
+fooService.ts
+```typescript
+export interface FooService {
+    fooBar(): void;
+}
+```
+fooService.tests.ts
+```typescript
+export function runFooServiceTests(
+    createService: () => FooService,
+    beforeEachHook: () => Promise<void> | void = () => {},
+    afterEachHook: () => Promise<void> | void = () => {},
+) {
+    let service: FooService;
+    
+    beforeEach(async () => {
+        await beforeEachHook();
+        service = createService();
+    });
+
+    afterEach(async () => {
+        sinon.restore();
+        await afterEachHook();
+    });
+}
+```
+firestoreFooService.test.ts
+```typescript
+import { runFooServiceTests } from '#foo/fooService.test';
+import { FirestoreFooService } from '#firestore/firestoreFooService';
+import { resetFirestoreEmulator } from '#firestore/resetFirestoreEmulator';
+
+describe('FirestoreFooService', () => {
+	runFooServiceTests(() => new FirestoreFooService(), resetFirestoreEmulator);
+});
+```
+inMemoryFooService.test.ts
+```typescript
+import { runFooServiceTests } from '#foo/fooService/fooService.test';
+import { InMemoryFooService } from '#memory/inMemoryFooService';
+
+describe('FirestoreFooService', () => {
+	runFooServiceTests(() => new InMemoryFooService(), () => {});
+});
+```
 
 
 # Unit Test Design Standards
@@ -88,3 +144,4 @@ it('should work well with async/await', async () => {
     *   **Avoid:** Creating complex, logic-filled helper functions or overly generic `beforeEach` setup / shared validation functions just to eliminate repetition, if doing so obscures the specific inputs, actions, or expected outputs relevant to individual tests.
     *   **Good Sharing:** Use simple TypeScript helper functions for creating test data objects with sensible defaults (e.g., factory functions or builders). Basic `beforeEach` hooks are acceptable for instantiating the SUT with default dependencies if that setup is truly common and simple.
     *   **Bad Sharing:** Helpers that contain conditional logic, multiple steps of interaction with the SUT, or highly generic validation routines that make it hard to see what a specific `it` block is actually testing.
+

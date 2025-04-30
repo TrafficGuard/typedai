@@ -1,3 +1,5 @@
+import type { Commit } from '#functions/scm/git';
+
 /**
  * Version control system
  */
@@ -53,4 +55,11 @@ export interface VersionControlSystem {
 	 * @return the filenames which were added
 	 */
 	getAddedFiles(commitSha?: string): Promise<string[]>;
+
+	/**
+	 * Gets the details of the most recent commits
+	 * @param n the number of commits (defaults to 2)
+	 * @returns an array of the commit details
+	 */
+	getRecentCommits(n: number): Promise<Array<Commit>>;
 }

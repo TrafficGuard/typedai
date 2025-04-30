@@ -9,4 +9,4 @@ export DEEPSEEK_API_KEY=$DEEPSEEK_API_KEY
 export OPENROUTER_API_KEY=$OPENROUTER_API_KEY
 export GEMINI_API_KEY=$GEMINI_API_KEY
 
-aider --model vertex_ai/gemini-2.5-pro-exp-03-25 --no-auto-accept-architect --test-cmd "npm run test:unit" --auto-test --lint-cmd "npm run lint"
+aider --model vertex_ai/gemini-2.5-pro-exp-03-25 --no-auto-accept-architect --test-cmd "npm run test && cd frontend && npm run build" --auto-test --lint-cmd "npm run lint"

@@ -13,5 +13,9 @@ export interface GitProject {
 	defaultBranch: string;
 	visibility: string;
 	archived: boolean;
+	/** The type of SCM provider, e.g., 'github', 'gitlab' */
+	type: string;
+	/** The hostname of the SCM provider, e.g., 'github.com' */
+	host: string;
 	extra?: Record<string, any>;
 }

@@ -1,8 +1,8 @@
+import { HttpClient, HttpParams } from '@angular/common/http'; // Import HttpParams
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
-import { VibeSession } from './vibe.types';
-import { GitProject } from './vibe.types';
+import { BehaviorSubject, type Observable, tap } from 'rxjs';
+// Import FileSystemNode if not already imported (assuming it's defined in vibe.types.ts)
+import type { FileSystemNode, GitProject, VibeSession } from './vibe.types';
 
 // Define the shape of the data needed for creation, matching the backend API body
 export interface CreateVibeSessionPayload {
@@ -11,21 +11,21 @@ export interface CreateVibeSessionPayload {
 	repositorySource: 'local' | 'github' | 'gitlab';
 	repositoryId: string;
 	repositoryName?: string | null;
-	branch: string;
-	newBranchName?: string | null;
+	targetBranch: string; // Renamed from branch
+	workingBranch: string; // Added
+	createWorkingBranch: boolean; // Added
 	useSharedRepos: boolean;
 }
 
 // Define the shape of the data needed for updating, matching the backend API body
 export interface UpdateVibeSessionPayload {
-    filesToAdd?: string[];
-    filesToRemove?: string[];
-    // Add other updatable fields as needed, e.g.:
-    // instructions?: string;
-    // designDecision?: 'accepted' | 'rejected';
-    // variations?: number;
+	filesToAdd?: string[];
+	filesToRemove?: string[];
+	// Add other updatable fields as needed, e.g.:
+	// instructions?: string;
+	// designDecision?: 'accepted' | 'rejected';
+	// variations?: number;
 }
-
 
 @Injectable({
 	providedIn: 'root',
@@ -48,17 +48,17 @@ export class VibeService {
 	 * Getter for sessions (if using BehaviorSubject) - Keep commented out unless needed
 	 */
 	get sessions$(): Observable<VibeSession[]> {
-	    return this.sessions.asObservable();
+		return this.sessions.asObservable();
 	}
 
 	/**
 	 * Fetches the list of Vibe sessions from the backend.
 	 */
 	listVibeSessions(): Observable<VibeSession[]> {
-		return this.http.get<VibeSession[]>('/api/vibe/sessions').pipe(
+		return this.http.get<VibeSession[]>('/api/vibe').pipe(
 			tap((response: VibeSession[]) => {
-			    this.sessions.next(response);
-			})
+				this.sessions.next(response);
+			}),
 		);
 	}
 
@@ -68,7 +68,7 @@ export class VibeService {
 	 * @returns An Observable emitting the newly created VibeSession.
 	 */
 	createVibeSession(data: CreateVibeSessionPayload): Observable<VibeSession> {
-		return this.http.post<VibeSession>('/api/vibe/create', data);
+		return this.http.post<VibeSession>('/api/vibe', data);
 		// No need for tap/BehaviorSubject update here unless caching is specifically required for creation results
 	}
 
@@ -80,11 +80,18 @@ export class VibeService {
 	}
 
 	/**
-	 * Fetches the list of branches for a given SCM project ID.
-	 * @param projectId The ID of the SCM project.
+	 * Fetches the list of branches for a given SCM project.
+	 * @param providerType The type of the SCM provider (e.g., 'github', 'gitlab').
+	 * @param projectId The ID or path of the SCM project.
 	 */
-	getScmBranches(projectId: string | number): Observable<string[]> {
-		return this.http.get<string[]>(`/api/scm/branches?projectId=${projectId}`);
+	getScmBranches(providerType: string, projectId: string | number): Observable<string[]> {
+		// Use HttpParams to correctly encode query parameters
+		const params = new HttpParams()
+			.set('providerType', providerType)
+			// Ensure projectId is sent as a string, as expected by the backend schema
+			.set('projectId', String(projectId));
+
+		return this.http.get<string[]>('/api/scm/branches', { params });
 	}
 
 	/**
@@ -92,7 +99,7 @@ export class VibeService {
 	 * @param id The ID of the Vibe session.
 	 */
 	getVibeSession(id: string): Observable<VibeSession> {
-		return this.http.get<VibeSession>(`/api/vibe/sessions/${id}`).pipe(
+		return this.http.get<VibeSession>(`/api/vibe/${id}`).pipe(
 			tap((session) => {
 				this.currentSession.next(session);
 				// Update the entry in $sessions
@@ -101,45 +108,53 @@ export class VibeService {
 	}
 
 	/**
-	 * Fetches the file system tree for a given Vibe session ID as a newline-separated string.
+	 * Fetches the file system tree for a given Vibe session ID.
 	 * @param sessionId The ID of the Vibe session.
+	 * @returns An Observable emitting an array of FileSystemNode objects.
 	 */
-	getFileSystemTree(sessionId: string): Observable<string> {
-		// The backend returns a plain text response with each file path on a new line.
-		return this.http.get(`/api/vibe/filesystem-tree/${sessionId}`, { responseType: 'text' });
+	getFileSystemTree(sessionId: string): Observable<FileSystemNode[]> {
+		// The backend returns a JSON array representing the tree structure.
+		return this.http.get<FileSystemNode[]>(`/api/vibe/${sessionId}/tree`);
 	}
 
-    /**
-     * Updates a specific Vibe session by its ID using a PATCH request.
-     * @param id The ID of the Vibe session to update.
-     * @param payload The data to update.
-     */
-    updateSession(id: string, payload: UpdateVibeSessionPayload): Observable<VibeSession> {
-        return this.http.patch<VibeSession>(`/api/vibe/sessions/${id}`, payload).pipe(
-            tap((updatedSession) => {
-                // Update the BehaviorSubject with the updated session data
-                this.currentSession.next(updatedSession);
-            })
-        );
-    }
+	/**
+	 * Updates a specific Vibe session by its ID using a PATCH request.
+	 * @param id The ID of the Vibe session to update.
+	 * @param payload The data to update.
+	 */
+	updateSession(id: string, payload: UpdateVibeSessionPayload): Observable<VibeSession> {
+		// Keep VibeSession return type for now, assuming tap might work or backend might change
+		return this.http.patch<VibeSession>(`/api/vibe/${id}`, payload).pipe(
+			tap((updatedSession) => {
+				// This tap might not receive data if backend returns 204
+				// Consider refetching or adjusting based on actual backend behavior
+				if (updatedSession) {
+					// Add check if updatedSession is returned
+					this.currentSession.next(updatedSession);
+				} else {
+					// Optionally refetch the session here if backend returns 204
+					// this.getVibeSession(id).subscribe();
+				}
+			}),
+		);
+	}
 
-    /**
-     * Deletes a specific Vibe session by its ID.
-     * @param id The ID of the Vibe session to delete.
-     */
-    deleteVibeSession(id: string): Observable<void> {
-        // Use the correct route from shared/routes.ts
-        return this.http.delete<void>(`/api/vibe/sessions/${id}`).pipe(
-            tap(() => {
-                // If the deleted session is the current session, clear the BehaviorSubject
-                if (this.currentSession.value?.id === id) {
-                    this.currentSession.next(null);
-                }
+	/**
+	 * Deletes a specific Vibe session by its ID.
+	 * @param id The ID of the Vibe session to delete.
+	 */
+	deleteVibeSession(id: string): Observable<void> {
+		// Use the correct route from shared/routes.ts
+		return this.http.delete<void>(`/api/vibe/${id}`).pipe(
+			tap(() => {
+				// If the deleted session is the current session, clear the BehaviorSubject
+				if (this.currentSession.value?.id === id) {
+					this.currentSession.next(null);
+				}
 				// TODO remove from sessions
-            })
-        );
-    }
-
+			}),
+		);
+	}
 
 	// Remove or adapt old methods (getVibe, listVibes, deleteVibe) if they are no longer relevant
 	// to the VibeListComponent's new purpose or if they target different endpoints/data.

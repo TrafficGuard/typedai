@@ -22,6 +22,7 @@ import { currentUser, functionConfig } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
 import { execCommand, failOnError } from '#utils/exec';
 import { agentDir, systemDir } from '../../appVars';
+import { cacheRetry } from '../../cache/cacheRetry';
 import type { GitProject } from './gitProject';
 import type { MergeRequest, SourceControlManagement } from './sourceControlManagement';
 
@@ -127,38 +128,85 @@ export class GitLab implements SourceControlManagement {
 	/**
 	 * @returns the details of all the projects available
 	 */
+	@cacheRetry({ scope: 'user', ttlSeconds: 60 })
 	@func()
 	async getProjects(): Promise<GitProject[]> {
-		const resultProjects: GitProject[] = [];
-		for (const group of this.config().topLevelGroups) {
-			const projects = await this.api().Groups.allProjects(group, {
-				orderBy: 'name',
-				perPage: 500,
-			});
-			if (projects.length === 500) throw new Error('Need to page results for GitLab.getProjects. Exceeded 500 size');
-			// console.log(`${group} ==========`);
-			projects.sort((a, b) => a.path.localeCompare(b.path));
-			projects.map((project) => this.convertGitLabToGitProject(project)).forEach((project) => resultProjects.push(project));
+		const allRawProjects: ProjectSchema[] = [];
+		const topLevelGroups = this.config().topLevelGroups;
+		logger.info(`Fetching projects for top-level groups: ${topLevelGroups.join(', ')}`);
 
-			const descendantGroups = await this.api().Groups.allDescendantGroups(group, {});
-			for (const descendantGroup of descendantGroups) {
-				if (descendantGroup.full_name.includes('Archive')) continue;
-				if (this.config().groupExcludes?.has(descendantGroup.full_path)) continue;
-
-				// console.log(`${descendantGroup.full_path} ==========`);
-				const pageSize = 100;
-				const projects = await this.api().Groups.allProjects(descendantGroup.id, {
+		// Step 1 & 2: Fetch top-level projects and descendant groups concurrently for each top-level group
+		const topLevelPromises = topLevelGroups.map(async (group) => {
+			logger.info(`Initiating fetch for top-level group: ${group}`);
+			const [projects, descendantGroups] = await Promise.all([
+				this.api().Groups.allProjects(group, {
 					orderBy: 'name',
-					perPage: 100,
-				});
-				if (projects.length >= pageSize) {
-					throw new Error(`Need pagination for projects for group ${group}. Returned more than ${pageSize}`);
-				}
-				projects.sort((a, b) => a.path.localeCompare(b.path));
-				projects.map((project) => this.convertGitLabToGitProject(project)).forEach((project) => resultProjects.push(project));
+					perPage: 500, // Keep original limit check logic
+				}) as Promise<ProjectSchema[]>,
+				this.api().Groups.allDescendantGroups(group, {}) as Promise<any[]>, // Use 'any' or a more specific type if available from Gitbeaker
+			]);
+
+			if (projects.length === 500) {
+				// Log warning instead of throwing to allow partial results, adjust if strictness is needed
+				logger.warn(`Potential pagination issue: Fetched 500 projects for top-level group ${group}. Results might be incomplete.`);
+				// throw new Error(`Need to page results for GitLab.getProjects for group ${group}. Exceeded 500 size`);
 			}
+			logger.info(`Fetched ${projects.length} projects for top-level group: ${group}`);
+			logger.info(`Fetched ${descendantGroups.length} descendant groups for top-level group: ${group}`);
+			return { group, projects, descendantGroups };
+		});
+
+		const topLevelResults = await Promise.all(topLevelPromises);
+
+		// Step 3: Collect top-level projects and all descendant groups
+		const allDescendantGroups: any[] = [];
+		for (const result of topLevelResults) {
+			allRawProjects.push(...result.projects);
+			allDescendantGroups.push(...result.descendantGroups);
 		}
 
+		// Step 4: Filter descendant groups
+		const groupExcludes = this.config().groupExcludes ?? new Set<string>();
+		const filteredDescendantGroups = allDescendantGroups.filter(
+			(descendantGroup) => !descendantGroup.full_name.includes('Archive') && !groupExcludes.has(descendantGroup.full_path),
+		);
+
+		logger.info(`Fetching projects for ${filteredDescendantGroups.length} relevant descendant groups.`);
+
+		// Step 5 & 6: Fetch projects for filtered descendant groups concurrently
+		const pageSize = 100; // Keep original limit check logic
+		const descendantPromises = filteredDescendantGroups.map(async (descendantGroup) => {
+			logger.info(`Initiating fetch for descendant group: ${descendantGroup.full_path}`);
+			const projects: ProjectSchema[] = await this.api().Groups.allProjects(descendantGroup.id, {
+				orderBy: 'name',
+				perPage: pageSize,
+			});
+
+			if (projects.length >= pageSize) {
+				logger.warn(
+					`Potential pagination issue: Fetched ${pageSize} or more projects for descendant group ${descendantGroup.full_path}. Results might be incomplete.`,
+				);
+				// Consider throwing an error as before if strictness is needed:
+				// throw new Error(`Need pagination for projects for group ${descendantGroup.full_path}. Returned more than ${pageSize}`);
+			}
+			logger.info(`Fetched ${projects.length} projects for descendant group: ${descendantGroup.full_path}`);
+			return projects; // Return the array of projects for this group
+		});
+
+		const descendantProjectArrays = await Promise.all(descendantPromises);
+
+		// Step 7: Collect all descendant projects
+		for (const projectArray of descendantProjectArrays) {
+			allRawProjects.push(...projectArray);
+		}
+
+		// Step 8 & 9: Convert all collected raw projects to GitProject format
+		const resultProjects = allRawProjects.map((project) => this.convertGitLabToGitProject(project));
+
+		// Step 10: Sort the final list by full path for consistent ordering
+		resultProjects.sort((a, b) => a.fullPath.localeCompare(b.fullPath));
+
+		logger.info(`Returning ${resultProjects.length} projects in total.`);
 		return resultProjects;
 	}
 
@@ -178,6 +226,8 @@ export class GitLab implements SourceControlManagement {
 			defaultBranch: project.default_branch,
 			visibility: project.visibility,
 			archived: project.archived || false,
+			type: 'gitlab',
+			host: this.config().host,
 			extra: { ciConfigPath: project.ci_config_path },
 		};
 	}
@@ -418,7 +468,7 @@ export class GitLab implements SourceControlManagement {
 	async getBranches(projectId: string | number): Promise<string[]> {
 		try {
 			// The Gitbeaker library handles pagination internally for `all()` methods
-			const branches: BranchSchema[] = await this.api().Repositories.allBranches(projectId);
+			const branches: BranchSchema[] = await this.api().RepositoryBranches.all(projectId);
 			return branches.map((branch) => branch.name);
 		} catch (error) {
 			logger.error(error, `Failed to get branches for GitLab project ${projectId}`);

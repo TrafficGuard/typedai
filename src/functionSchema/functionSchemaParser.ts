@@ -171,7 +171,7 @@ export function functionSchemaParser(sourceFilePath: string): Record<string, Fun
 						descriptionParts = descriptionParts.slice(1);
 						paramIndex++;
 					} else {
-						throw new Error(`JSDoc param name ${descriptionParts[0]} does not match arg name ${argName}`);
+						throw new Error(`JSDoc param name ${descriptionParts[0]} does not match arg name ${argName} for ${className}.${methodName}`);
 					}
 					if (descriptionParts[0] === '-') {
 						descriptionParts = descriptionParts.slice(1);

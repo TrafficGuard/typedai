@@ -4,9 +4,15 @@ import { func, funcClass } from '#functionSchema/functionDecorators';
 import type { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import { execCommand, failOnError } from '#utils/exec';
+import { execCmd, execCommand, failOnError } from '#utils/exec';
 import type { VersionControlSystem } from './versionControlSystem';
 const exec = util.promisify(require('node:child_process').exec);
+
+export interface Commit {
+	title: string;
+	description: string;
+	diffs: Map<string, string>;
+}
 
 @funcClass(__filename)
 export class Git implements VersionControlSystem {
@@ -156,5 +162,54 @@ export class Git implements VersionControlSystem {
 			logger.error(error);
 			throw error;
 		}
+	}
+
+	/**
+	 * Gets the details of the most recent commits
+	 * @param n the number of commits (defaults to 2)
+	 * @returns an array of the commit details
+	 */
+	async getRecentCommits(n = 2): Promise<Array<Commit>> {
+		const commits: Array<Commit> = [];
+
+		// Get the last N commit hashes
+		const getCommitsCmd = `git log -n ${n} --pretty=format:"%H"`;
+		const commitsResult = await execCommand(getCommitsCmd);
+		failOnError('Failed to get recent commits', commitsResult);
+
+		const commitHashes = commitsResult.stdout.split('\n');
+
+		for (const hash of commitHashes) {
+			// Get commit details
+			const commitDetailsCmd = `git show -s --format="%s%n%n%b" ${hash}`;
+			const detailsResult = await execCommand(commitDetailsCmd);
+			failOnError(`Failed to get details for commit ${hash}`, detailsResult);
+
+			const [title, ...descriptionLines] = detailsResult.stdout.split('\n');
+			const description = descriptionLines.join('\n').trim();
+
+			// Get commit diffs
+			const diffCmd = `git show ${hash} --name-only --pretty=format:""`;
+			const diffResult = await execCommand(diffCmd);
+			failOnError(`Failed to get diffs for commit ${hash}`, diffResult);
+
+			const changedFiles = diffResult.stdout.split('\n').filter((file) => file.trim() !== '');
+			const diffs = new Map<string, string>();
+
+			for (const file of changedFiles) {
+				const fileContentCmd = `git show ${hash}:${file}`;
+				const fileContentResult = await execCmd(fileContentCmd);
+
+				if (fileContentResult.exitCode === 0) {
+					diffs.set(file, fileContentResult.stdout);
+				} else {
+					console.warn(`Failed to get content for file ${file} in commit ${hash}`);
+				}
+			}
+
+			commits.push({ title, description, diffs });
+		}
+
+		return commits;
 	}
 }

@@ -1,47 +1,29 @@
 import { type Static, Type } from '@sinclair/typebox';
-import type { FastifyRequest as FastifyRequestBase } from 'fastify';
-import { getFileSystem } from '#agent/agentContextLocalStorage';
-import type { FastifyRequest } from '#fastify/fastifyApp';
+import type { FastifyInstance, FastifyRequest as FastifyRequestBase, RouteShorthandOptions } from 'fastify';
 import { sendNotFound } from '#fastify/responses';
-import type { SourceControlManagement } from '#functions/scm/sourceControlManagement';
-import { FileSystemService } from '#functions/storage/fileSystemService';
-import { queryWithFileSelection } from '#swe/discovery/selectFilesAgent';
 import { currentUser } from '#user/userService/userContext';
-import type { CreateVibeSessionData } from '#vibe/vibeTypes';
+import type { VibeService } from '#vibe/vibeService'; // Corrected import path
+import type {
+	CommitChangesData,
+	CreateVibeSessionData,
+	FileSystemNode,
+	UpdateCodeReviewData,
+	UpdateDesignInstructionsData,
+	UpdateVibeSessionData,
+	VibeSession,
+} from '#vibe/vibeTypes';
 import type { AppFastifyInstance } from '../../applicationTypes';
-import { getFunctionsByType } from '../../functionRegistry';
 
-// Define a TypeBox schema for the response (subset of VibeSession)
-// Note: Firestore returns Timestamps, which might need conversion or specific handling
-// For simplicity, let's assume they are handled/serializable or define a simpler schema for the API response.
-const VibeSessionListResponseSchema = Type.Array(
-	Type.Object({
-		id: Type.String(),
-		title: Type.String(),
-		status: Type.String(), // Consider using Type.Union if statuses are fixed
-		createdAt: Type.Any(), // Use Type.Any() or a more specific schema if serialization is handled (e.g., Type.String() for ISO string)
-		// Add other fields if needed by the frontend list view
-	}),
-);
-
-// Define a schema for error responses
 const ErrorResponseSchema = Type.Object({
 	error: Type.String(),
 });
 
-// Schema for the request body of the create endpoint
-const CreateVibeSessionRequestSchema = Type.Object({
-	title: Type.String(),
-	instructions: Type.String(),
-	repositorySource: Type.Union([Type.Literal('local'), Type.Literal('github'), Type.Literal('gitlab')]),
-	repositoryId: Type.String(),
-	repositoryName: Type.Optional(Type.Union([Type.String(), Type.Null()])), // Optional field, can be string or null
-	branch: Type.String(),
-	newBranchName: Type.Optional(Type.Union([Type.String(), Type.Null()])), // Optional field, can be string or null
-	useSharedRepos: Type.Boolean(),
+const ParamsSchema = Type.Object({
+	sessionId: Type.String({ description: 'The ID of the Vibe session' }),
 });
+type ParamsType = Static<typeof ParamsSchema>;
 
-// Schema for the successful response of the create endpoint
+// Response Schema for a single Vibe Session
 const VibeSessionResponseSchema = Type.Object({
 	id: Type.String(),
 	userId: Type.String(),
@@ -50,487 +32,588 @@ const VibeSessionResponseSchema = Type.Object({
 	repositorySource: Type.Union([Type.Literal('local'), Type.Literal('github'), Type.Literal('gitlab')]),
 	repositoryId: Type.String(),
 	repositoryName: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-	branch: Type.String(),
-	newBranchName: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+	targetBranch: Type.String(), // Renamed from branch
+	// newBranchName removed
+	workingBranch: Type.String(), // Added
+	createWorkingBranch: Type.Boolean(), // Added
 	useSharedRepos: Type.Boolean(),
 	status: Type.Union([
 		Type.Literal('initializing'),
-		Type.Literal('design'),
+		Type.Literal('design_review'),
 		Type.Literal('coding'),
-		Type.Literal('review'),
+		Type.Literal('code_review'),
+		Type.Literal('committing'),
+		Type.Literal('monitoring_ci'),
+		Type.Literal('ci_failed'),
 		Type.Literal('completed'),
 		Type.Literal('error'),
 	]),
-	fileSelection: Type.Optional(Type.Array(Type.Object({ filePath: Type.String(), readOnly: Type.Optional(Type.Boolean()) }))),
+	lastAgentActivity: Type.Optional(Type.Any({ description: 'Timestamp of last agent activity (serialized)' })), // Using Any for FieldValue | Date flexibility
+	fileSelection: Type.Optional(Type.Any({ description: 'Array of selected files (structure depends on SelectedFile)' })), // Define more strictly if possible based on SelectedFile structure
 	designAnswer: Type.Optional(Type.String()),
-	createdAt: Type.Any(), // Firestore timestamp, serialized differently depending on context
-	updatedAt: Type.Any(), // Firestore timestamp
+	codeDiff: Type.Optional(Type.String()),
+	commitSha: Type.Optional(Type.String()),
+	pullRequestUrl: Type.Optional(Type.String()),
+	ciCdStatus: Type.Optional(
+		Type.Union([Type.Literal('pending'), Type.Literal('running'), Type.Literal('success'), Type.Literal('failed'), Type.Literal('cancelled')]),
+	),
+	ciCdJobUrl: Type.Optional(Type.String()),
+	ciCdAnalysis: Type.Optional(Type.String()),
+	ciCdProposedFix: Type.Optional(Type.String()),
+	createdAt: Type.Any({ description: 'Timestamp of creation (serialized)' }), // Using Any for FieldValue | Date flexibility
+	updatedAt: Type.Any({ description: 'Timestamp of last update (serialized)' }), // Using Any for FieldValue | Date flexibility
 	error: Type.Optional(Type.String()),
 });
+type VibeSessionResponseType = Static<typeof VibeSessionResponseSchema>;
 
-// Schema for the GET /sessions/:id endpoint path parameter
-const GetVibeSessionParamsSchema = Type.Object({
-	id: Type.String({ description: 'The ID of the Vibe session to retrieve' }),
+const VibeSessionListResponseSchema = Type.Array(
+	Type.Pick(VibeSessionResponseSchema, ['id', 'title', 'status', 'createdAt', 'updatedAt', 'repositoryName', 'targetBranch']), // Updated branch to targetBranch
+);
+
+const CreateVibeSessionBodySchema = Type.Object({
+	title: Type.String(),
+	instructions: Type.String(),
+	repositorySource: Type.Union([Type.Literal('local'), Type.Literal('github'), Type.Literal('gitlab')]),
+	repositoryId: Type.String(),
+	repositoryName: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+	targetBranch: Type.String({ description: 'The existing branch to base the work on and merge into' }), // Renamed from branch
+	// newBranchName removed
+	workingBranch: Type.String({ description: 'The name of the branch to perform work on (can be new or existing)' }), // Added
+	createWorkingBranch: Type.Boolean({ description: 'Whether the workingBranch needs to be created' }), // Added
+	useSharedRepos: Type.Boolean(),
 });
+type CreateVibeSessionBodyType = Static<typeof CreateVibeSessionBodySchema>;
 
-// Schema for the initialise endpoint path parameter
-const InitialiseParamsSchema = Type.Object({
-	id: Type.String({ description: 'The ID of the Vibe session to initialise' }),
-});
-
-// Schema for the filesystem-tree endpoint path parameter
-const FileSystemTreeParamsSchema = Type.Object({
-	id: Type.String({ description: 'The ID of the Vibe session for which to get the filesystem tree' }),
-});
-
-// Schema for the PATCH /sessions/:id endpoint path parameter
-const UpdateVibeSessionParamsSchema = Type.Object({
-	id: Type.String({ description: 'The ID of the Vibe session to update' }),
-});
-
-// Schema for the PATCH /sessions/:id request body (allows partial updates)
-// Note: fileSelection replaces the entire array if provided.
-const UpdateVibeSessionPayloadSchema = Type.Partial(
+// PATCH /:sessionId (Update Session)
+const UpdateVibeSessionBodySchema = Type.Partial(
 	Type.Object({
+		// Fields likely updatable via a generic PATCH
 		title: Type.String(),
 		instructions: Type.String(),
 		status: Type.Union([
+			// Reflects possible target statuses, adjust if needed
 			Type.Literal('initializing'),
-			Type.Literal('selecting_files'), // Added selecting_files
-			Type.Literal('design'),
+			Type.Literal('design_review'),
 			Type.Literal('coding'),
-			Type.Literal('review'),
+			Type.Literal('code_review'),
+			Type.Literal('committing'),
+			Type.Literal('monitoring_ci'),
+			Type.Literal('ci_failed'),
 			Type.Literal('completed'),
 			Type.Literal('error'),
 		]),
-		// Align with SelectedFile interface: path, reason, readonly?
-		fileSelection: Type.Array(
-			Type.Object({
-				path: Type.String(),
-				reason: Type.String(),
-				readOnly: Type.Optional(Type.Boolean()),
-			}),
-		),
+		fileSelection: Type.Any({ description: 'Array of selected files' }), // Keep as Any for flexibility unless specific structure is enforced
 		designAnswer: Type.String(),
-		error: Type.String(),
-		// Add other updatable fields from VibeSession here if needed
+		codeDiff: Type.String(), // Added based on UpdateVibeSessionData possibility
+		commitSha: Type.String(), // Added based on UpdateVibeSessionData possibility
+		pullRequestUrl: Type.String(), // Added based on UpdateVibeSessionData possibility
+		ciCdStatus: Type.Union([
+			// Added based on UpdateVibeSessionData possibility
+			Type.Literal('pending'),
+			Type.Literal('running'),
+			Type.Literal('success'),
+			Type.Literal('failed'),
+			Type.Literal('cancelled'),
+		]),
+		ciCdJobUrl: Type.String(), // Added based on UpdateVibeSessionData possibility
+		ciCdAnalysis: Type.String(), // Added based on UpdateVibeSessionData possibility
+		ciCdProposedFix: Type.String(), // Added based on UpdateVibeSessionData possibility
+		error: Type.String(), // For setting/clearing error messages
+		// Note: Other fields like repositoryName, newBranchName, useSharedRepos could be added
+		// if direct PATCH updates are intended for them. Timestamps are usually system-managed.
 	}),
-	{ additionalProperties: false }, // Disallow extra properties
+	{ additionalProperties: false }, // Prevent unexpected fields
 );
+type UpdateVibeSessionBodyType = Static<typeof UpdateVibeSessionBodySchema>;
 
-// Schema for the DELETE /sessions/:id endpoint path parameter
-const DeleteVibeSessionParamsSchema = Type.Object({
-	id: Type.String({ description: 'The ID of the Vibe session to delete' }),
+// POST /:sessionId/update-design
+const UpdateDesignBodySchema = Type.Object({
+	instructions: Type.String(),
+});
+type UpdateDesignBodyType = Static<typeof UpdateDesignBodySchema>;
+
+// POST /:sessionId/update-code
+const UpdateCodeBodySchema = Type.Object({
+	reviewComments: Type.String(),
+});
+type UpdateCodeBodyType = Static<typeof UpdateCodeBodySchema>;
+
+// POST /:sessionId/commit
+const CommitBodySchema = Type.Object({
+	commitTitle: Type.String(),
+	commitMessage: Type.String(),
+});
+type CommitBodyType = Static<typeof CommitBodySchema>;
+
+const CommitResponseSchema = Type.Object({
+	commitSha: Type.Optional(Type.String()),
+	prUrl: Type.Optional(Type.String()),
 });
 
-// Schema for the initialise endpoint success response (updated)
-const InitialiseSuccessResponseSchema = Type.Object({
-	message: Type.String(),
-	sessionId: Type.String(),
-	status: Type.String(), // Reflect the status after initialization steps
-	// clonedPathValue is internal, not usually returned to client
+// GET /repositories/branches
+const GetBranchesQuerySchema = Type.Object({
+	source: Type.Union([Type.Literal('local'), Type.Literal('github'), Type.Literal('gitlab')], {
+		description: 'The source control management system type',
+	}),
+	id: Type.String({ description: 'The repository identifier (e.g., path for local, project ID/path for remote)' }),
+});
+type GetBranchesQueryType = Static<typeof GetBranchesQuerySchema>;
+
+const GetBranchesResponseSchema = Type.Array(Type.String());
+
+// GET /:sessionId/tree
+const GetTreeQuerySchema = Type.Object({
+	path: Type.Optional(Type.String({ description: 'Optional subdirectory path to get the tree for' })),
+});
+type GetTreeQueryType = Static<typeof GetTreeQuerySchema>;
+
+// Recursive helper for FileSystemNode schema
+const FileSystemNodeSchema = Type.Recursive((Self) =>
+	Type.Object({
+		name: Type.String(),
+		type: Type.Union([Type.Literal('file'), Type.Literal('directory')]),
+		children: Type.Optional(Type.Array(Self)),
+	}),
+);
+// The service returns an array of nodes (potentially representing the root level)
+const GetTreeResponseSchema = Type.Array(FileSystemNodeSchema);
+
+// GET /:sessionId/file
+const GetFileQuerySchema = Type.Object({
+	path: Type.String({ description: 'The full path to the file within the repository' }),
+});
+type GetFileQueryType = Static<typeof GetFileQuerySchema>;
+
+const GetFileResponseSchema = Type.Object({
+	content: Type.String(),
 });
 
+// --- Base Path ---
 const basePath = '/api/vibe';
 
+// --- Route Definitions ---
 export async function vibeRoutes(fastify: AppFastifyInstance) {
-	// Access services from the application context attached to fastify
-	const vibeService = fastify.vibeService;
+	const vibeService = fastify.vibeService; // Access service from app context
 
-	// --- GET /sessions ---
-	fastify.get(
-		`${basePath}/sessions`,
+	// --- CRUD Operations ---
+
+	// Create a new Vibe session
+	fastify.post<{ Body: CreateVibeSessionBodyType; Reply: VibeSessionResponseType | Static<typeof ErrorResponseSchema> }>(
+		basePath,
 		{
 			schema: {
-				// Add response schema for validation and documentation
-				response: {
-					200: VibeSessionListResponseSchema,
-					401: ErrorResponseSchema, // Add schema for 401
-				},
-			},
-		},
-		// Explicitly type the request parameter
-		async (request: FastifyRequest, reply) => {
-			const userId = currentUser().id;
-			const sessions = await vibeService.listVibeSessions(userId);
-
-			// Optional: Map sessions to the response schema if needed (e.g., timestamp conversion)
-			// Note: Timestamps might need serialization depending on how Firestore/InMemory returns them
-			// const responseSessions = sessions.map(session => ({
-			//     id: session.id,
-			//     title: session.title,
-			//     status: session.status,
-			//     createdAt: session.createdAt.toDate().toISOString(), // Example conversion
-			// }));
-
-			return reply.send(sessions); // Send the raw sessions or the mapped responseSessions
-		},
-	);
-
-	// --- POST /create ---
-	fastify.post(
-		`${basePath}/create`,
-		{
-			schema: {
-				body: CreateVibeSessionRequestSchema,
+				body: CreateVibeSessionBodySchema,
 				response: {
 					201: VibeSessionResponseSchema,
-					400: ErrorResponseSchema, // For validation errors
-					401: ErrorResponseSchema,
-					500: ErrorResponseSchema,
-				},
-			},
-		},
-		async (request: FastifyRequest, reply) => {
-			const userId = currentUser().id;
-
-			// Extract validated request body
-			const sessionData = request.body as Static<typeof CreateVibeSessionRequestSchema>;
-
-			// Map request data to the service layer type
-			const createData: CreateVibeSessionData = {
-				title: sessionData.title,
-				instructions: sessionData.instructions,
-				repositorySource: sessionData.repositorySource,
-				repositoryId: sessionData.repositoryId,
-				repositoryName: sessionData.repositoryName ?? undefined, // Handle optional null -> undefined
-				branch: sessionData.branch,
-				newBranchName: sessionData.newBranchName ?? undefined, // Handle optional null -> undefined
-				useSharedRepos: sessionData.useSharedRepos,
-				// fileSelection is not part of the creation payload based on CreateVibeSessionData
-			};
-
-			try {
-				// Use the injected service
-				const newSession = await vibeService.createVibeSession(userId, createData);
-				// Return the newly created session with status 201
-				// Note: Timestamps might need serialization depending on how Firestore/InMemory returns them
-				return reply.code(201).send(newSession);
-			} catch (error) {
-				// Log the error and return a 500 response
-				fastify.log.error(error, 'Error creating Vibe session');
-				return reply.code(500).send({ error: 'Failed to create Vibe session' });
-			}
-		},
-	);
-
-	// --- POST /initialise/:id ---
-	fastify.post(
-		`${basePath}/initialise/:id`,
-		{
-			schema: {
-				params: InitialiseParamsSchema,
-				response: {
-					200: InitialiseSuccessResponseSchema,
 					400: ErrorResponseSchema,
 					401: ErrorResponseSchema,
-					404: ErrorResponseSchema,
 					500: ErrorResponseSchema,
 				},
 			},
 		},
-
-		async (request: FastifyRequestBase<{ Params: Static<typeof InitialiseParamsSchema> }>, reply) => {
-			// Cast to custom FastifyRequest to access currentUser
-			const req = request as FastifyRequest;
-
+		async (request, reply) => {
 			const userId = currentUser().id;
-			const { id } = request.params; // Get id from validated params
-
 			try {
-				const session = await vibeService.getVibeSession(userId, id);
-				if (!session) return reply.code(404).send({ error: 'Vibe session not found' });
-
-				const { repositorySource, repositoryId, branch } = session;
-				let clonedPath: string;
-
-				if (repositorySource === 'local') {
-					clonedPath = repositoryId; // Use the provided path directly
-				} else {
-					const scms = getFunctionsByType('scm').map((tool) => new tool()) as SourceControlManagement[];
-					const scm = scms.find((scm) => scm.getScmType() === repositorySource);
-					if (!scm.isConfigured()) {
-						fastify.log.warn(`SCM provider '${repositorySource}' requested by session ${id} is not configured.`);
-						return reply.code(400).send({ error: `Configured SCM provider not found for source: ${repositorySource}` });
-					}
-					clonedPath = await scm.cloneProject(repositoryId, branch);
-				}
-
-				// Validate clonedPath
-				if (!clonedPath || typeof clonedPath !== 'string') {
-					fastify.log.error({ clonedPath, sessionId: id }, 'Invalid cloned path received after clone/local setup.');
-					return reply.code(500).send({ error: 'Failed to determine repository path after setup.' });
-				}
-
-				// Log the result and set working directory
-				fastify.log.info({ clonedPathValue: clonedPath, sessionId: id }, 'Repository path determined. Setting working directory.');
-				getFileSystem().setWorkingDirectory(clonedPath);
-
-				// Handle optional new branch creation
-				const { newBranchName } = session;
-				if (newBranchName) {
-					try {
-						fastify.log.info({ newBranchName, sessionId: id }, 'Attempting to create and switch to new branch.');
-						const vcs = getFileSystem().getVcs(); // Throws if not a VCS repo
-						await vcs.createBranch(newBranchName);
-						await vcs.switchToBranch(newBranchName);
-						fastify.log.info({ newBranchName, sessionId: id }, 'Successfully created and switched to branch.');
-					} catch (branchError) {
-						fastify.log.error(branchError, `Failed to create or switch to new branch '${newBranchName}' for session ${id}. Proceeding on original branch.`);
-						// Decide if this is a fatal error or just a warning. For now, log and continue.
-						// return reply.code(500).send({ error: `Failed to create or switch to branch: ${branchError.message}` });
-					}
-				}
-
-				// --- File Selection and Design Generation Step ---
-				fastify.log.info({ sessionId: id }, 'Starting file selection and design generation.');
-				await vibeService.updateVibeSession(userId, id, { status: 'selecting_files' }); // Keep status as selecting_files during the process
-
-				try {
-					// Run the agent to select files and generate the initial design/answer
-					// Note: This runs synchronously in the request handler. For long-running tasks,
-					// consider moving this to a background job queue.
-					const { files: selectedFiles, answer: designAnswer } = await queryWithFileSelection(session.instructions /*, projectInfo */); // Pass projectInfo if available/needed
-					fastify.log.info({ sessionId: id, fileCount: selectedFiles.length }, 'File selection and design generation complete.');
-
-					// Update the session with selected files, the design answer, and set status to 'design'
-					await vibeService.updateVibeSession(userId, id, {
-						fileSelection: selectedFiles,
-						designAnswer: designAnswer, // Add the design answer
-						status: 'design',
-					});
-					fastify.log.info({ sessionId: id }, 'Vibe session updated with selected files, design, and status set to design.');
-				} catch (fileAgentError) {
-					fastify.log.error(fileAgentError, `Error during file selection or design generation for session ${id}`);
-					// Update session status to error
-					await vibeService.updateVibeSession(userId, id, { status: 'error', error: `File selection failed: ${fileAgentError.message}` });
-					return reply.code(500).send({ error: 'Failed during file selection phase.' });
-				}
-
-				// Return success response indicating initialization, file selection, and design generation are done
-				return reply.code(200).send({
-					message: 'Initialization complete. File selection and design generated.',
-					sessionId: id,
-					status: 'design', // Reflect the final status after this step
-				});
-			} catch (error) {
-				fastify.log.error(error, `Error during initial vibe session setup for session ${id}`);
-				// Attempt to update session status to error if possible (session might not exist or other issues)
-				try {
-					await vibeService.updateVibeSession(userId, id, { status: 'error', error: `Initial setup failed: ${error.message}` });
-				} catch (updateError) {
-					fastify.log.error(updateError, `Failed to update session ${id} status to error after initial setup failure.`);
-				}
-				return reply.code(500).send({ error: 'Failed during initial setup (repository handling or file selection trigger)' });
+				// Map request body to CreateVibeSessionData using the new fields
+				const createData: CreateVibeSessionData = {
+					// Spread the body which now matches CreateVibeSessionData fields
+					...request.body,
+					// Handle optional fields explicitly if needed (though spread should work)
+					repositoryName: request.body.repositoryName ?? undefined,
+					// newBranchName mapping removed as it's no longer in the schema/type
+				};
+				const newSession = await vibeService.createVibeSession(userId, createData);
+				// The newSession (type VibeSession) now matches the updated VibeSessionResponseSchema
+				return reply.code(201).send(newSession);
+			} catch (error: any) {
+				fastify.log.error(error, `Error creating Vibe session for user ${userId}`);
+				return reply.code(500).send({ error: error.message || 'Failed to create Vibe session' });
 			}
 		},
 	);
 
-	// --- GET /sessions/:id ---
-	fastify.get(
-		`${basePath}/sessions/:id`,
+	// List Vibe sessions for the current user
+	fastify.get<{ Reply: Static<typeof VibeSessionListResponseSchema> | Static<typeof ErrorResponseSchema> }>(
+		basePath,
 		{
 			schema: {
-				params: GetVibeSessionParamsSchema,
 				response: {
-					200: VibeSessionResponseSchema, // Reuse the detailed schema
+					200: VibeSessionListResponseSchema,
+					401: ErrorResponseSchema,
+					500: ErrorResponseSchema,
+				},
+			},
+		},
+		async (request, reply) => {
+			const userId = currentUser().id;
+			try {
+				const sessions = await vibeService.listVibeSessions(userId);
+				// Ensure timestamps are serializable if needed before sending
+				return reply.send(sessions);
+			} catch (error: any) {
+				fastify.log.error(error, `Error listing Vibe sessions for user ${userId}`);
+				return reply.code(500).send({ error: error.message || 'Failed to list Vibe sessions' });
+			}
+		},
+	);
+
+	// Get a specific Vibe session by ID
+	fastify.get<{ Params: ParamsType; Reply: VibeSessionResponseType | Static<typeof ErrorResponseSchema> }>(
+		`${basePath}/:sessionId`,
+		{
+			schema: {
+				params: ParamsSchema,
+				response: {
+					200: VibeSessionResponseSchema,
 					401: ErrorResponseSchema,
 					404: ErrorResponseSchema,
 					500: ErrorResponseSchema,
 				},
 			},
 		},
-		// Use FastifyRequestBase for generic type with Params
-		async (request: FastifyRequestBase<{ Params: Static<typeof GetVibeSessionParamsSchema> }>, reply) => {
-			// Cast to custom FastifyRequest to access currentUser
-			const req = request as FastifyRequest;
+		async (request, reply) => {
 			const userId = currentUser().id;
-			const { id } = request.params; // Get id from validated params
-
+			const { sessionId } = request.params;
 			try {
-				const session = await vibeService.getVibeSession(userId, id);
+				const session = await vibeService.getVibeSession(userId, sessionId);
 				if (!session) {
-					return sendNotFound(reply, 'Vibe session not found');
+					return sendNotFound(reply, `Vibe session with ID ${sessionId} not found`);
 				}
-				// Note: Timestamps might need serialization depending on how Firestore/InMemory returns them
+				// Ensure timestamps are serializable if needed
 				return reply.send(session);
-			} catch (error) {
-				fastify.log.error(error, `Error retrieving Vibe session ${id}`);
-				return reply.code(500).send({ error: 'Failed to retrieve Vibe session' });
+			} catch (error: any) {
+				fastify.log.error(error, `Error getting Vibe session ${sessionId} for user ${userId}`);
+				return reply.code(500).send({ error: error.message || 'Failed to retrieve Vibe session' });
 			}
 		},
 	);
 
-	// --- GET /filesystem-tree/:id ---
-	fastify.get(
-		`${basePath}/filesystem-tree/:id`,
+	// Update a Vibe session (partial updates allowed)
+	fastify.patch<{ Params: ParamsType; Body: UpdateVibeSessionBodyType; Reply: Static<typeof ErrorResponseSchema> | null }>(
+		`${basePath}/:sessionId`,
 		{
 			schema: {
-				params: FileSystemTreeParamsSchema,
+				params: ParamsSchema,
+				body: UpdateVibeSessionBodySchema,
 				response: {
-					200: { type: 'string', description: 'Filesystem tree structure as plain text' }, // Explicitly define plain text response
-					401: ErrorResponseSchema,
-					404: ErrorResponseSchema,
-					409: ErrorResponseSchema, // For cases like session not initialized
-					500: ErrorResponseSchema,
-				},
-			},
-		},
-		// Use FastifyRequestBase for generic type with Params
-		async (request: FastifyRequestBase<{ Params: Static<typeof FileSystemTreeParamsSchema> }>, reply) => {
-			// Cast to custom FastifyRequest to access currentUser
-			const req = request as FastifyRequest;
-			const userId = currentUser().id;
-			const { id } = request.params; // Get id from validated params
-			const fileSystemService = new FileSystemService();
-			try {
-				const session = await vibeService.getVibeSession(userId, id);
-				if (!session) {
-					return sendNotFound(reply, 'Vibe session not found');
-				}
-
-				let targetPath: string;
-				if (session.repositorySource === 'local') {
-					// For local sources, the repositoryId is the direct path
-					targetPath = session.repositoryId;
-					fastify.log.info({ sessionId: id, path: targetPath }, 'Using local repository path for filesystem tree.');
-				} else {
-					// For remote sources, assume initialization has happened and the fileSystemService
-					// working directory is correctly set. This is fragile and relies on prior state.
-					// A more robust solution might store the cloned path in the session.
-					if (session.status === 'initializing' || session.status === 'selecting_files') {
-						fastify.log.warn({ sessionId: id, status: session.status }, 'Filesystem tree requested for session before initialization complete.');
-						return reply.code(409).send({ error: 'Session initialization not complete. Filesystem tree unavailable.' });
-					}
-					// Use the *current* working directory of the shared file system service.
-					targetPath = fileSystemService.getWorkingDirectory();
-					fastify.log.warn(
-						{ sessionId: id, path: targetPath, source: session.repositorySource },
-						'Using current FileSystemService working directory for remote repository filesystem tree. Ensure it matches the session context.',
-					);
-				}
-
-				// Generate the tree structure for the determined path
-				// getFileSystemTree handles path resolution (absolute vs relative) and security checks.
-				const tree = await fileSystemService.getFileSystemTree(targetPath);
-
-				// Send the tree as plain text
-				return reply.type('text/plain').send(tree);
-			} catch (error) {
-				fastify.log.error(error, `Error generating filesystem tree for Vibe session ${id}`);
-				// Distinguish between file system errors and other errors if needed
-				if (error.message?.includes('Access denied') || error.message?.includes('Cannot generate tree outside')) {
-					return reply.code(403).send({ error: `Filesystem access error: ${error.message}` });
-				}
-				return reply.code(500).send({ error: 'Failed to generate filesystem tree' });
-			}
-		},
-	);
-
-	// --- PATCH /sessions/:id ---
-	fastify.patch(
-		`${basePath}/sessions/:id`,
-		{
-			schema: {
-				params: UpdateVibeSessionParamsSchema,
-				body: UpdateVibeSessionPayloadSchema,
-				response: {
-					200: VibeSessionResponseSchema, // Return the updated session
-					400: ErrorResponseSchema, // Validation errors
+					204: Type.Null({ description: 'Update successful' }),
+					400: ErrorResponseSchema, // For invalid body data
 					401: ErrorResponseSchema,
 					404: ErrorResponseSchema,
 					500: ErrorResponseSchema,
 				},
 			},
 		},
-		// Use FastifyRequestBase for generic type with Params and Body
-		async (
-			request: FastifyRequestBase<{ Params: Static<typeof UpdateVibeSessionParamsSchema>; Body: Static<typeof UpdateVibeSessionPayloadSchema> }>,
-			reply,
-		) => {
-			// Cast to custom FastifyRequest to access currentUser
-			const req = request as FastifyRequest;
+		async (request, reply) => {
 			const userId = currentUser().id;
-			const { id } = request.params; // Get id from validated params
-			const updates = request.body; // Get validated update payload
+			const { sessionId } = request.params;
+			const updates = request.body;
 
-			// Check if the update payload is empty
 			if (Object.keys(updates).length === 0) {
 				return reply.code(400).send({ error: 'Update payload cannot be empty' });
 			}
 
 			try {
-				// First, verify the session exists and belongs to the user
-				const existingSession = await vibeService.getVibeSession(userId, id);
-				if (!existingSession) {
-					return sendNotFound(reply, 'Vibe session not found');
+				// VibeService should handle checking ownership and existence
+				await vibeService.updateVibeSession(userId, sessionId, updates as UpdateVibeSessionData); // Cast needed if schema doesn't perfectly match type
+				return reply.code(204).send();
+			} catch (error: any) {
+				// Handle specific errors like 'not found' if the service throws them
+				if (error.message?.includes('not found')) {
+					return sendNotFound(reply, `Vibe session with ID ${sessionId} not found for update`);
 				}
-
-				// Call the update service method
-				// The service layer should handle the actual update logic (e.g., merging, validation)
-				// Note: UpdateVibeSessionData allows partial updates, matching our payload schema.
-				await vibeService.updateVibeSession(userId, id, updates);
-
-				// Fetch the updated session to return the latest state
-				const updatedSession = await vibeService.getVibeSession(userId, id);
-				if (!updatedSession) {
-					// This should ideally not happen if the update succeeded, but handle defensively
-					fastify.log.error(`Session ${id} not found after successful update.`);
-					return reply.code(500).send({ error: 'Failed to retrieve session after update' });
-				}
-
-				// Return the updated session
-				// Note: Timestamps might need serialization
-				return reply.code(200).send(updatedSession);
-			} catch (error) {
-				fastify.log.error(error, `Error updating Vibe session ${id}`);
-				// Add more specific error handling if needed (e.g., validation errors from service)
-				return reply.code(500).send({ error: 'Failed to update Vibe session' });
+				fastify.log.error(error, `Error updating Vibe session ${sessionId} for user ${userId}`);
+				return reply.code(500).send({ error: error.message || 'Failed to update Vibe session' });
 			}
 		},
 	);
 
-	// --- DELETE /sessions/:id ---
-	fastify.delete(
-		`${basePath}/sessions/:id`,
+	// Delete a Vibe session
+	fastify.delete<{ Params: ParamsType; Reply: Static<typeof ErrorResponseSchema> | null }>(
+		`${basePath}/:sessionId`,
 		{
 			schema: {
-				params: DeleteVibeSessionParamsSchema,
+				params: ParamsSchema,
 				response: {
-					204: Type.Null({ description: 'Session deleted successfully' }), // 204 No Content is typical for DELETE
+					204: Type.Null({ description: 'Delete successful' }),
 					401: ErrorResponseSchema,
 					404: ErrorResponseSchema,
 					500: ErrorResponseSchema,
 				},
 			},
 		},
-		// Use FastifyRequestBase for generic type with Params
-		async (request: FastifyRequestBase<{ Params: Static<typeof DeleteVibeSessionParamsSchema> }>, reply) => {
-			// Cast to custom FastifyRequest to access currentUser
-			const req = request as FastifyRequest;
+		async (request, reply) => {
 			const userId = currentUser().id;
-			const { id } = request.params; // Get id from validated params
-
+			const { sessionId } = request.params;
 			try {
-				// First, verify the session exists and belongs to the user before attempting delete
-				// (vibeService.deleteVibeSession might handle this internally, but checking first is good practice)
-				const existingSession = await vibeService.getVibeSession(userId, id);
-				if (!existingSession) {
-					return sendNotFound(reply, 'Vibe session not found');
-				}
-
-				// Call the service method to delete the session
-				await vibeService.deleteVibeSession(userId, id);
-
-				// Return a 204 No Content response on successful deletion
+				// VibeService should handle checking ownership and existence
+				await vibeService.deleteVibeSession(userId, sessionId);
 				return reply.code(204).send();
-			} catch (error) {
-				fastify.log.error(error, `Error deleting Vibe session ${id}`);
-				// Add more specific error handling if needed
-				return reply.code(500).send({ error: 'Failed to delete Vibe session' });
+			} catch (error: any) {
+				// Handle specific errors like 'not found'
+				if (error.message?.includes('not found')) {
+					return sendNotFound(reply, `Vibe session with ID ${sessionId} not found for deletion`);
+				}
+				fastify.log.error(error, `Error deleting Vibe session ${sessionId} for user ${userId}`);
+				return reply.code(500).send({ error: error.message || 'Failed to delete Vibe session' });
 			}
 		},
 	);
 
-	// Add other vibe routes here if needed in the future
+	// --- Workflow Actions ---
+
+	// Update the design based on new instructions (triggers design agent)
+	fastify.post<{ Params: ParamsType; Body: UpdateDesignBodyType; Reply: Static<typeof ErrorResponseSchema> | null }>(
+		`${basePath}/:sessionId/update-design`,
+		{
+			schema: {
+				params: ParamsSchema,
+				body: UpdateDesignBodySchema,
+				response: {
+					202: Type.Null({ description: 'Design update accepted and processing started' }),
+					400: ErrorResponseSchema, // Invalid input
+					401: ErrorResponseSchema, // Unauthorized
+					404: ErrorResponseSchema, // Session not found
+					409: ErrorResponseSchema, // Conflict (e.g., session in wrong state)
+					500: ErrorResponseSchema, // Internal server error
+				},
+			},
+		},
+		async (request, reply) => {
+			const userId = currentUser().id;
+			const { sessionId } = request.params;
+			const data: UpdateDesignInstructionsData = request.body;
+			try {
+				await vibeService.updateDesignWithInstructions(userId, sessionId, data);
+				return reply.code(202).send();
+			} catch (error: any) {
+				fastify.log.error(error, `Error triggering design update for session ${sessionId}, user ${userId}`);
+				// Add specific status codes based on error type (e.g., 409 for wrong state)
+				return reply.code(500).send({ error: error.message || 'Failed to trigger design update' });
+			}
+		},
+	);
+
+	// Start the coding phase based on the current design (triggers coding agent)
+	fastify.post<{ Params: ParamsType; Reply: Static<typeof ErrorResponseSchema> | null }>(
+		`${basePath}/:sessionId/start-coding`,
+		{
+			schema: {
+				params: ParamsSchema,
+				response: {
+					202: Type.Null({ description: 'Coding phase start accepted and processing started' }),
+					401: ErrorResponseSchema, // Unauthorized
+					404: ErrorResponseSchema, // Session not found
+					409: ErrorResponseSchema, // Conflict (e.g., session in wrong state, no design)
+					500: ErrorResponseSchema, // Internal server error
+				},
+			},
+		},
+		async (request, reply) => {
+			const userId = currentUser().id;
+			const { sessionId } = request.params;
+			try {
+				await vibeService.startCoding(userId, sessionId);
+				return reply.code(202).send();
+			} catch (error: any) {
+				fastify.log.error(error, `Error triggering start coding for session ${sessionId}, user ${userId}`);
+				// Add specific status codes based on error type (e.g., 409 for wrong state)
+				return reply.code(500).send({ error: error.message || 'Failed to trigger start coding' });
+			}
+		},
+	);
+
+	// Update the code based on review comments (triggers coding agent)
+	fastify.post<{ Params: ParamsType; Body: UpdateCodeBodyType; Reply: Static<typeof ErrorResponseSchema> | null }>(
+		`${basePath}/:sessionId/update-code`,
+		{
+			schema: {
+				params: ParamsSchema,
+				body: UpdateCodeBodySchema,
+				response: {
+					202: Type.Null({ description: 'Code update accepted and processing started' }),
+					400: ErrorResponseSchema, // Invalid input
+					401: ErrorResponseSchema, // Unauthorized
+					404: ErrorResponseSchema, // Session not found
+					409: ErrorResponseSchema, // Conflict (e.g., session in wrong state)
+					500: ErrorResponseSchema, // Internal server error
+				},
+			},
+		},
+		async (request, reply) => {
+			const userId = currentUser().id;
+			const { sessionId } = request.params;
+			const data: UpdateCodeReviewData = request.body;
+			try {
+				await vibeService.updateCodeWithComments(userId, sessionId, data);
+				return reply.code(202).send();
+			} catch (error: any) {
+				fastify.log.error(error, `Error triggering code update for session ${sessionId}, user ${userId}`);
+				// Add specific status codes based on error type (e.g., 409 for wrong state)
+				return reply.code(500).send({ error: error.message || 'Failed to trigger code update' });
+			}
+		},
+	);
+
+	// Commit the generated code changes to the repository
+	fastify.post<{ Params: ParamsType; Body: CommitBodyType; Reply: Static<typeof CommitResponseSchema> | Static<typeof ErrorResponseSchema> }>(
+		`${basePath}/:sessionId/commit`,
+		{
+			schema: {
+				params: ParamsSchema,
+				body: CommitBodySchema,
+				response: {
+					200: CommitResponseSchema, // Success, returns commit info
+					400: ErrorResponseSchema, // Invalid input
+					401: ErrorResponseSchema, // Unauthorized
+					404: ErrorResponseSchema, // Session not found
+					409: ErrorResponseSchema, // Conflict (e.g., session in wrong state, no code changes)
+					500: ErrorResponseSchema, // Internal server error
+				},
+			},
+		},
+		async (request, reply) => {
+			const userId = currentUser().id;
+			const { sessionId } = request.params;
+			const data: CommitChangesData = request.body;
+			try {
+				const result = await vibeService.commitChanges(userId, sessionId, data);
+				return reply.code(200).send(result); // Assuming synchronous commit for now
+			} catch (error: any) {
+				fastify.log.error(error, `Error committing changes for session ${sessionId}, user ${userId}`);
+				// Add specific status codes based on error type (e.g., 409 for wrong state)
+				return reply.code(500).send({ error: error.message || 'Failed to commit changes' });
+			}
+		},
+	);
+
+	// Apply the AI-proposed fix for a CI/CD failure
+	fastify.post<{ Params: ParamsType; Reply: Static<typeof ErrorResponseSchema> | null }>(
+		`${basePath}/:sessionId/apply-cicd-fix`,
+		{
+			schema: {
+				params: ParamsSchema,
+				response: {
+					202: Type.Null({ description: 'CI/CD fix application accepted and processing started' }),
+					401: ErrorResponseSchema, // Unauthorized
+					404: ErrorResponseSchema, // Session not found
+					409: ErrorResponseSchema, // Conflict (e.g., not in ci_failed state, no fix available)
+					500: ErrorResponseSchema, // Internal server error
+				},
+			},
+		},
+		async (request, reply) => {
+			const userId = currentUser().id;
+			const { sessionId } = request.params;
+			try {
+				// VibeService should check ownership, existence, and state validity
+				await vibeService.applyCiCdFix(userId, sessionId);
+				return reply.code(202).send();
+			} catch (error: any) {
+				fastify.log.error(error, `Error applying CI/CD fix for session ${sessionId}, user ${userId}`);
+				// Consider specific error mapping for 404, 409 based on service exceptions
+				if (error.message?.includes('not found')) {
+					return sendNotFound(reply, `Vibe session with ID ${sessionId} not found`);
+				}
+				if (error.message?.includes('state') || error.message?.includes('fix')) {
+					// Basic check for state/logic errors, service should provide clearer messages
+					return reply.code(409).send({ error: error.message || 'Cannot apply CI/CD fix in current state or no fix available' });
+				}
+				return reply.code(500).send({ error: error.message || 'Failed to apply CI/CD fix' });
+			}
+		},
+	);
+
+	// --- Helper Methods ---
+
+	// Get a list of branches for a given repository
+	fastify.get<{ Querystring: GetBranchesQueryType; Reply: Static<typeof GetBranchesResponseSchema> | Static<typeof ErrorResponseSchema> }>(
+		`${basePath}/repositories/branches`,
+		{
+			schema: {
+				querystring: GetBranchesQuerySchema,
+				response: {
+					200: GetBranchesResponseSchema,
+					400: ErrorResponseSchema, // Invalid query params
+					401: ErrorResponseSchema,
+					404: ErrorResponseSchema, // Repository not found/accessible
+					500: ErrorResponseSchema,
+				},
+			},
+		},
+		async (request, reply) => {
+			const userId = currentUser().id; // Assuming userId might be needed for access control
+			const { source, id } = request.query;
+			try {
+				const branches = await vibeService.getBranchList(userId, source, id);
+				return reply.send(branches);
+			} catch (error: any) {
+				fastify.log.error(error, `Error getting branches for repo ${id} (source: ${source}), user ${userId}`);
+				// Add specific status codes (e.g., 404 if repo not found)
+				return reply.code(500).send({ error: error.message || 'Failed to get branch list' });
+			}
+		},
+	);
+
+	// Get the file system tree structure for a Vibe session repository
+	fastify.get<{ Params: ParamsType; Querystring: GetTreeQueryType; Reply: Static<typeof GetTreeResponseSchema> | Static<typeof ErrorResponseSchema> }>(
+		`${basePath}/:sessionId/tree`,
+		{
+			schema: {
+				params: ParamsSchema,
+				querystring: GetTreeQuerySchema,
+				response: {
+					200: GetTreeResponseSchema,
+					401: ErrorResponseSchema,
+					404: ErrorResponseSchema, // Session or path not found
+					409: ErrorResponseSchema, // Session not initialized/ready
+					500: ErrorResponseSchema,
+				},
+			},
+		},
+		async (request, reply) => {
+			const userId = currentUser().id;
+			const { sessionId } = request.params;
+			const { path } = request.query; // path is optional
+			try {
+				const tree = await vibeService.getFileSystemTree(userId, sessionId, path);
+				return reply.send(tree);
+			} catch (error: any) {
+				fastify.log.error(error, `Error getting file system tree for session ${sessionId} (path: ${path}), user ${userId}`);
+				// Add specific status codes (e.g., 404, 409)
+				return reply.code(500).send({ error: error.message || 'Failed to get file system tree' });
+			}
+		},
+	);
+
+	// Get the content of a specific file within a Vibe session repository
+	fastify.get<{ Params: ParamsType; Querystring: GetFileQueryType; Reply: Static<typeof GetFileResponseSchema> | Static<typeof ErrorResponseSchema> }>(
+		`${basePath}/:sessionId/file`,
+		{
+			schema: {
+				params: ParamsSchema,
+				querystring: GetFileQuerySchema,
+				response: {
+					200: GetFileResponseSchema,
+					401: ErrorResponseSchema,
+					404: ErrorResponseSchema, // Session or file not found
+					409: ErrorResponseSchema, // Session not initialized/ready
+					500: ErrorResponseSchema,
+				},
+			},
+		},
+		async (request, reply) => {
+			const userId = currentUser().id;
+			const { sessionId } = request.params;
+			const { path: filePath } = request.query; // path is required
+			try {
+				const content = await vibeService.getFileContent(userId, sessionId, filePath);
+				return reply.send({ content });
+			} catch (error: any) {
+				fastify.log.error(error, `Error getting file content for session ${sessionId} (path: ${filePath}), user ${userId}`);
+				// Add specific status codes (e.g., 404, 409)
+				return reply.code(500).send({ error: error.message || 'Failed to get file content' });
+			}
+		},
+	);
 }
