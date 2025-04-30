@@ -33,7 +33,7 @@ const FUNCTIONS = [
 	LocalFileStore,
 	LiveFiles,
 	GitLab,
-	// GitHub, // Error: More than one function classes found implementing SourceControlManagement
+	GitHub,
 	CommandLineInterface,
 	GoogleCloud,
 	Jira,
@@ -62,9 +62,10 @@ export function functionRegistry(): Array<new () => any> {
  * @param type
  * @return all the registered function classes which match the given type.
  */
-export function getFunctionsByType(type: ToolType): Array<new () => any> {
+export function getFunctionsByType(type: ToolType): Array<any> {
 	const functions = [];
-	for (const tool of FUNCTIONS) {
+	for (const func of FUNCTIONS) {
+		const tool = new func();
 		if (hasGetToolType(tool)) {
 			const toolType = tool.getToolType();
 			if (toolType === type) functions.push(tool);

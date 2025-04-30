@@ -33,7 +33,7 @@ export interface UpdateVibeSessionPayload {
 export class VibeService {
 	// BehaviorSubject to hold the currently viewed/active session
 	private currentSession = new BehaviorSubject<VibeSession | null>(null);
-
+	private sessions = new BehaviorSubject<VibeSession[] | null>(null);
 
 	private http = inject(HttpClient);
 
@@ -47,19 +47,18 @@ export class VibeService {
 	/**
 	 * Getter for sessions (if using BehaviorSubject) - Keep commented out unless needed
 	 */
-	// get sessions$(): Observable<VibeSession[]> {
-	//     return this.sessions.asObservable();
-	// }
+	get sessions$(): Observable<VibeSession[]> {
+	    return this.sessions.asObservable();
+	}
 
 	/**
 	 * Fetches the list of Vibe sessions from the backend.
 	 */
 	listVibeSessions(): Observable<VibeSession[]> {
 		return this.http.get<VibeSession[]>('/api/vibe/sessions').pipe(
-			// Optional: tap to update BehaviorSubject if used
-			// tap((response: VibeSession[]) => {
-			//     this.sessions.next(response);
-			// })
+			tap((response: VibeSession[]) => {
+			    this.sessions.next(response);
+			})
 		);
 	}
 
@@ -95,8 +94,8 @@ export class VibeService {
 	getVibeSession(id: string): Observable<VibeSession> {
 		return this.http.get<VibeSession>(`/api/vibe/sessions/${id}`).pipe(
 			tap((session) => {
-				// Update the BehaviorSubject with the fetched session
 				this.currentSession.next(session);
+				// Update the entry in $sessions
 			}),
 		);
 	}
@@ -136,8 +135,7 @@ export class VibeService {
                 if (this.currentSession.value?.id === id) {
                     this.currentSession.next(null);
                 }
-                // Optionally, trigger a refresh of the session list if one is maintained elsewhere
-                // e.g., if you have a sessions BehaviorSubject: this.listVibeSessions().pipe(take(1)).subscribe();
+				// TODO remove from sessions
             })
         );
     }

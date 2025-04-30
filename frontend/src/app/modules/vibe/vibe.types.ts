@@ -1,3 +1,6 @@
+/**
+ * State of a vibe coding session
+ */
 export interface VibeSession {
 	id: string;
 	title: string;

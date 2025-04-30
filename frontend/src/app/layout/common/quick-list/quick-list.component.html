@@ -1,0 +1,299 @@
+<div
+    class="fixed bottom-0 top-0 w-full sm:w-96 lg:sticky lg:left-full lg:h-screen lg:w-16 lg:shadow"
+>
+    <div
+        class="bg-card flex h-full w-full flex-col transition-transform duration-400 ease-drawer sm:w-96"
+        [ngClass]="{
+            '-translate-x-full shadow sm:-translate-x-96 lg:-translate-x-80':
+                opened,
+            'translate-x-0': !opened,
+        }"
+    >
+        <!-- Header -->
+        <div
+            class="quick-chat-header flex flex-0 cursor-pointer items-center justify-start"
+            (click)="toggle()"
+        >
+            <!-- Toggle -->
+            @if (!opened || (opened && !selectedChat)) {
+                <div class="flex flex-auto items-center justify-center">
+                    <div class="flex w-16 flex-0 items-center justify-center">
+                        <mat-icon
+                            class="icon-size-6"
+                            [svgIcon]="
+                                'heroicons_outline:chat-bubble-left-right'
+                            "
+                        ></mat-icon>
+                    </div>
+                    <div class="text-secondary text-lg font-medium">
+                        Team Chat
+                    </div>
+                    <button class="ml-auto mr-4" mat-icon-button>
+                        <mat-icon
+                            [svgIcon]="'heroicons_outline:x-mark'"
+                        ></mat-icon>
+                    </button>
+                </div>
+            }
+
+            <!-- Contact info -->
+            @if (opened && selectedChat) {
+                <div class="ml-3 flex flex-auto items-center">
+                    <div
+                        class="relative flex h-10 w-10 flex-0 items-center justify-center"
+                    >
+                        @if (chat.contact.avatar) {
+                            <img
+                                class="h-full w-full rounded-full object-cover"
+                                [src]="chat.contact.avatar"
+                                alt="Contact avatar"
+                            />
+                        }
+                        @if (!chat.contact.avatar) {
+                            <div
+                                class="flex h-full w-full items-center justify-center rounded-full bg-gray-200 text-lg uppercase text-gray-600 dark:bg-gray-700 dark:text-gray-200"
+                            >
+                                {{ chat.contact.name.charAt(0) }}
+                            </div>
+                        }
+                    </div>
+                    <div class="ml-4 truncate text-lg font-medium leading-5">
+                        {{ chat.contact.name }}
+                    </div>
+                    <button class="ml-auto mr-4" mat-icon-button>
+                        <mat-icon
+                            [svgIcon]="'heroicons_outline:x-mark'"
+                        ></mat-icon>
+                    </button>
+                </div>
+            }
+        </div>
+
+        <!-- Content -->
+        <div class="flex flex-auto overflow-hidden border-t">
+            <!-- Chat list -->
+            <div
+                class="h-full w-16 flex-0 overflow-y-auto overscroll-y-contain sm:overflow-hidden sm:overscroll-auto"
+                fuseScrollbar
+                [fuseScrollbarOptions]="{ wheelPropagation: false }"
+            >
+                <div class="flex-auto">
+                    @for (chat of chats; track trackByFn($index, chat)) {
+                        <div
+                            class="flex cursor-pointer items-center px-4 py-3"
+                            [ngClass]="{
+                                'dark:hover:bg-hover hover:bg-gray-100':
+                                    !selectedChat ||
+                                    selectedChat.id !== chat.id,
+                                'bg-primary-50 dark:bg-hover':
+                                    selectedChat && selectedChat.id === chat.id,
+                            }"
+                            (click)="selectChat(chat.id)"
+                        >
+                            <div
+                                class="relative flex h-8 w-8 flex-0 items-center justify-center"
+                            >
+                                @if (chat.unreadCount > 0) {
+                                    <div
+                                        class="ring-bg-card absolute bottom-0 right-0 -ml-0.5 h-2 w-2 flex-0 rounded-full bg-primary text-on-primary ring-2 dark:bg-primary-500 dark:ring-gray-900"
+                                        [class.ring-primary-50]="
+                                            selectedChat &&
+                                            selectedChat.id === chat.id
+                                        "
+                                    ></div>
+                                }
+                                @if (chat.contact.avatar) {
+                                    <img
+                                        class="h-full w-full rounded-full object-cover"
+                                        [src]="chat.contact.avatar"
+                                        alt="Contact avatar"
+                                    />
+                                }
+                                @if (!chat.contact.avatar) {
+                                    <div
+                                        class="flex h-full w-full items-center justify-center rounded-full bg-gray-200 text-lg uppercase text-gray-600 dark:bg-gray-700 dark:text-gray-200"
+                                    >
+                                        {{ chat.contact.name.charAt(0) }}
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Conversation -->
+            <div
+                class="flex flex-auto flex-col overflow-hidden border-l bg-gray-50 dark:bg-transparent"
+            >
+                @if (chat) {
+                    <div
+                        class="flex flex-col-reverse overflow-y-auto overscroll-y-contain"
+                    >
+                        <div class="flex flex-auto shrink flex-col p-6">
+                            @for (
+                                message of chat.messages;
+                                track trackByFn(i, message);
+                                let i = $index;
+                                let first = $first;
+                                let last = $last
+                            ) {
+                                <!-- Start of the day -->
+                                @if (
+                                    first ||
+                                    (chat.messages[i - 1].createdAt
+                                        | date: 'd') !==
+                                        (message.createdAt | date: 'd')
+                                ) {
+                                    <div
+                                        class="-mx-6 my-3 flex items-center justify-center"
+                                    >
+                                        <div class="flex-auto border-b"></div>
+                                        <div
+                                            class="text-secondary mx-4 flex-0 text-sm font-medium leading-5"
+                                        >
+                                            {{
+                                                message.createdAt
+                                                    | date: 'longDate'
+                                            }}
+                                        </div>
+                                        <div class="flex-auto border-b"></div>
+                                    </div>
+                                }
+                                <div
+                                    class="flex flex-col"
+                                    [ngClass]="{
+                                        'items-end': message.isMine,
+                                        'items-start': !message.isMine,
+                                        'mt-0.5':
+                                            i > 0 &&
+                                            chat.messages[i - 1].isMine ===
+                                                message.isMine,
+                                        'mt-3':
+                                            i > 0 &&
+                                            chat.messages[i - 1].isMine !==
+                                                message.isMine,
+                                    }"
+                                >
+                                    <!-- Bubble -->
+                                    <div
+                                        class="relative max-w-3/4 rounded-lg px-3 py-2"
+                                        [ngClass]="{
+                                            'bg-blue-500 text-blue-50':
+                                                message.isMine,
+                                            'bg-gray-500 text-gray-50':
+                                                !message.isMine,
+                                        }"
+                                    >
+                                        <!-- Speech bubble tail -->
+                                        @if (
+                                            last ||
+                                            chat.messages[i + 1].isMine !==
+                                                message.isMine
+                                        ) {
+                                            <div
+                                                class="absolute bottom-0 w-3"
+                                                [ngClass]="{
+                                                    '-right-1 -mr-px mb-px text-blue-500':
+                                                        message.isMine,
+                                                    '-left-1 -ml-px mb-px -scale-x-1 text-gray-500':
+                                                        !message.isMine,
+                                                }"
+                                            >
+                                                <ng-container
+                                                    *ngTemplateOutlet="
+                                                        speechBubbleExtension
+                                                    "
+                                                ></ng-container>
+                                            </div>
+                                        }
+                                        <!-- Message -->
+                                        <div
+                                            class="min-w-4 leading-5"
+                                            [innerHTML]="message.value"
+                                        ></div>
+                                    </div>
+                                    <!-- Time -->
+                                    @if (
+                                        first ||
+                                        last ||
+                                        chat.messages[i + 1].isMine !==
+                                            message.isMine ||
+                                        chat.messages[i + 1].createdAt !==
+                                            message.createdAt
+                                    ) {
+                                        <div
+                                            class="text-secondary my-0.5 text-sm font-medium"
+                                            [ngClass]="{
+                                                'mr-3': message.isMine,
+                                                'ml-3': !message.isMine,
+                                            }"
+                                        >
+                                            {{
+                                                message.createdAt
+                                                    | date: 'HH:mm'
+                                            }}
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Message field -->
+                    <div
+                        class="flex items-end border-t bg-gray-50 p-4 dark:bg-transparent"
+                    >
+                        <mat-form-field
+                            class="fuse-mat-dense fuse-mat-rounded fuse-mat-bold w-full"
+                            [subscriptSizing]="'dynamic'"
+                        >
+                            <textarea
+                                matInput
+                                cdkTextareaAutosize
+                                #messageInput
+                            ></textarea>
+                        </mat-form-field>
+                        <div class="my-px ml-4 flex h-11 items-center">
+                            <button mat-icon-button>
+                                <mat-icon
+                                    [svgIcon]="
+                                        'heroicons_outline:paper-airplane'
+                                    "
+                                ></mat-icon>
+                            </button>
+                        </div>
+                    </div>
+                } @else {
+                    <div
+                        class="flex h-full w-full flex-auto flex-col items-center justify-center p-4"
+                    >
+                        <mat-icon
+                            class="icon-size-24"
+                            [svgIcon]="
+                                'heroicons_outline:chat-bubble-bottom-center-text'
+                            "
+                        ></mat-icon>
+                        <div
+                            class="text-secondary mt-4 text-center text-xl font-medium tracking-tight"
+                        >
+                            Select a conversation
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Select chat or start new template -->
+
+<!-- Speech bubble tail SVG -->
+<!-- prettier-ignore -->
+<ng-template #speechBubbleExtension>
+    <svg width="100%" height="100%" viewBox="0 0 66 66" xmlns="http://www.w3.org/2000/svg">
+        <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+            <path d="M1.01522827,0.516204834 C-8.83532715,54.3062744 61.7609863,70.5215302 64.8009949,64.3061218 C68.8074951,54.8859711 30.1663208,52.9997559 37.5036011,0.516204834 L1.01522827,0.516204834 Z" fill="currentColor" fill-rule="nonzero"></path>
+        </g>
+    </svg>
+</ng-template>

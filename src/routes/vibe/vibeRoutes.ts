@@ -6,6 +6,7 @@ import { sendNotFound } from '#fastify/responses';
 import type { SourceControlManagement } from '#functions/scm/sourceControlManagement';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { queryWithFileSelection } from '#swe/discovery/selectFilesAgent';
+import { currentUser } from '#user/userService/userContext';
 import type { CreateVibeSessionData } from '#vibe/vibeTypes';
 import type { AppFastifyInstance } from '../../applicationTypes';
 import { getFunctionsByType } from '../../functionRegistry';
@@ -130,13 +131,15 @@ const InitialiseSuccessResponseSchema = Type.Object({
 	// clonedPathValue is internal, not usually returned to client
 });
 
+const basePath = '/api/vibe';
+
 export async function vibeRoutes(fastify: AppFastifyInstance) {
 	// Access services from the application context attached to fastify
 	const vibeService = fastify.vibeService;
 
 	// --- GET /sessions ---
 	fastify.get(
-		'/sessions',
+		`${basePath}/sessions`,
 		{
 			schema: {
 				// Add response schema for validation and documentation
@@ -148,14 +151,7 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 		},
 		// Explicitly type the request parameter
 		async (request: FastifyRequest, reply) => {
-			// Assuming authentication middleware adds `currentUser` to the request
-			if (!request.currentUser?.id) {
-				return reply.code(401).send({ error: 'Unauthorized' });
-			}
-
-			// Get userId from the authenticated user
-			const userId = request.currentUser.id;
-			// Use the injected service
+			const userId = currentUser().id;
 			const sessions = await vibeService.listVibeSessions(userId);
 
 			// Optional: Map sessions to the response schema if needed (e.g., timestamp conversion)
@@ -173,7 +169,7 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 
 	// --- POST /create ---
 	fastify.post(
-		'/create',
+		`${basePath}/create`,
 		{
 			schema: {
 				body: CreateVibeSessionRequestSchema,
@@ -186,11 +182,7 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 			},
 		},
 		async (request: FastifyRequest, reply) => {
-			// Check for authenticated user
-			if (!request.currentUser?.id) {
-				return reply.code(401).send({ error: 'Unauthorized' });
-			}
-			const userId = request.currentUser.id;
+			const userId = currentUser().id;
 
 			// Extract validated request body
 			const sessionData = request.body as Static<typeof CreateVibeSessionRequestSchema>;
@@ -224,7 +216,7 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 
 	// --- POST /initialise/:id ---
 	fastify.post(
-		'/initialise/:id',
+		`${basePath}/initialise/:id`,
 		{
 			schema: {
 				params: InitialiseParamsSchema,
@@ -242,7 +234,7 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 			// Cast to custom FastifyRequest to access currentUser
 			const req = request as FastifyRequest;
 
-			const userId = req.currentUser.id;
+			const userId = currentUser().id;
 			const { id } = request.params; // Get id from validated params
 
 			try {
@@ -336,7 +328,7 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 
 	// --- GET /sessions/:id ---
 	fastify.get(
-		'/sessions/:id',
+		`${basePath}/sessions/:id`,
 		{
 			schema: {
 				params: GetVibeSessionParamsSchema,
@@ -352,10 +344,7 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 		async (request: FastifyRequestBase<{ Params: Static<typeof GetVibeSessionParamsSchema> }>, reply) => {
 			// Cast to custom FastifyRequest to access currentUser
 			const req = request as FastifyRequest;
-			if (!req.currentUser?.id) {
-				return reply.code(401).send({ error: 'Unauthorized' });
-			}
-			const userId = req.currentUser.id;
+			const userId = currentUser().id;
 			const { id } = request.params; // Get id from validated params
 
 			try {
@@ -374,7 +363,7 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 
 	// --- GET /filesystem-tree/:id ---
 	fastify.get(
-		'/filesystem-tree/:id',
+		`${basePath}/filesystem-tree/:id`,
 		{
 			schema: {
 				params: FileSystemTreeParamsSchema,
@@ -391,10 +380,7 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 		async (request: FastifyRequestBase<{ Params: Static<typeof FileSystemTreeParamsSchema> }>, reply) => {
 			// Cast to custom FastifyRequest to access currentUser
 			const req = request as FastifyRequest;
-			if (!req.currentUser?.id) {
-				return reply.code(401).send({ error: 'Unauthorized' });
-			}
-			const userId = req.currentUser.id;
+			const userId = currentUser().id;
 			const { id } = request.params; // Get id from validated params
 			const fileSystemService = new FileSystemService();
 			try {
@@ -443,7 +429,7 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 
 	// --- PATCH /sessions/:id ---
 	fastify.patch(
-		'/sessions/:id',
+		`${basePath}/sessions/:id`,
 		{
 			schema: {
 				params: UpdateVibeSessionParamsSchema,
@@ -464,10 +450,7 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 		) => {
 			// Cast to custom FastifyRequest to access currentUser
 			const req = request as FastifyRequest;
-			if (!req.currentUser?.id) {
-				return reply.code(401).send({ error: 'Unauthorized' });
-			}
-			const userId = req.currentUser.id;
+			const userId = currentUser().id;
 			const { id } = request.params; // Get id from validated params
 			const updates = request.body; // Get validated update payload
 
@@ -509,7 +492,7 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 
 	// --- DELETE /sessions/:id ---
 	fastify.delete(
-		'/sessions/:id',
+		`${basePath}/sessions/:id`,
 		{
 			schema: {
 				params: DeleteVibeSessionParamsSchema,
@@ -525,10 +508,7 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 		async (request: FastifyRequestBase<{ Params: Static<typeof DeleteVibeSessionParamsSchema> }>, reply) => {
 			// Cast to custom FastifyRequest to access currentUser
 			const req = request as FastifyRequest;
-			if (!req.currentUser?.id) {
-				return reply.code(401).send({ error: 'Unauthorized' });
-			}
-			const userId = req.currentUser.id;
+			const userId = currentUser().id;
 			const { id } = request.params; // Get id from validated params
 
 			try {

@@ -11,7 +11,8 @@ import { llmCallRoutes } from './routes/llms/llm-call-routes';
 import { llmRoutes } from './routes/llms/llm-routes';
 import { profileRoute } from './routes/profile/profile-route';
 import { codeReviewRoutes } from './routes/scm/codeReviewRoutes';
-import { vibeScmRoutes } from './routes/scm/vibeScmRoutes';
+import { scmRoutes } from './routes/scm/scmRoutes';
+import { vibeRoutes } from './routes/vibe/vibeRoutes';
 import { gitlabRoutesV1 } from './routes/webhooks/gitlab/gitlabRoutes-v1';
 import { jiraRoutes } from './routes/webhooks/jira/jira-routes';
 import { workflowRoutes } from './routes/workflows/workflow-routes';
@@ -41,7 +42,8 @@ export async function initServer(): Promise<void> {
 				chatRoutes,
 				workflowRoutes,
 				jiraRoutes,
-				vibeScmRoutes,
+				scmRoutes,
+				vibeRoutes,
 			],
 			instanceDecorators: applicationContext, // This makes all properties on the ApplicationContext interface available on the fastify instance in the routes
 			requestDecorators: {},

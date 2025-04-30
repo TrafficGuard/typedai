@@ -3,32 +3,31 @@ import { Component, OnDestroy, OnInit, ViewEncapsulation, ChangeDetectionStrateg
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table'; // Import MatTableModule
-import { Router } from '@angular/router'; // Import Router
-import { Observable, Subject } from 'rxjs'; // Keep Subject if needed for unsubscribe
+import { Router } from '@angular/router';
+import { Observable, Subject } from 'rxjs';
 import { VibeService } from '../vibe.service';
-import { VibeSession } from '../vibe.types'; // Import VibeSession
+import { VibeSession } from '../vibe.types';
 
 @Component({
 	selector: 'vibe-list',
 	templateUrl: './vibe-list.component.html',
 	styleUrls: ['./vibe-list.component.scss'],
 	encapsulation: ViewEncapsulation.None,
-	changeDetection: ChangeDetectionStrategy.OnPush, // Use OnPush for performance
+	changeDetection: ChangeDetectionStrategy.OnPush,
 	standalone: true,
 	imports: [
-		NgIf, // Add NgIf
+		NgIf,
 		AsyncPipe,
 		DatePipe,
-		TitleCasePipe, // Add TitleCasePipe
+		TitleCasePipe,
 		MatButtonModule,
 		MatIconModule,
-		MatTableModule, // Add MatTableModule
-		// Remove unused imports like NgClass, NgTemplateOutlet, FuseScrollbarDirective, etc.
+		MatTableModule,
 	],
 })
 export class VibeListComponent implements OnInit, OnDestroy {
 	sessions$: Observable<VibeSession[]>;
-	displayedColumns: string[] = ['title', 'status', 'createdAt', 'actions']; // Define table columns
+	displayedColumns: string[] = ['title', 'status', 'createdAt', 'actions'];
 
 	// Keep unsubscribe pattern if observables are subscribed manually (not needed for async pipe)
 	private _unsubscribeAll: Subject<any> = new Subject<any>();

@@ -37,9 +37,7 @@ export type TypeBoxFastifyInstance = FastifyInstance<
 export type RouteDefinition = (fastify: AppFastifyInstance) => Promise<void>;
 
 /** Our Fastify request type used in the application */
-export interface FastifyRequest extends FastifyRequestBase {
-	currentUser?: User;
-}
+export interface FastifyRequest extends FastifyRequestBase {}
 
 export const fastifyInstance: TypeBoxFastifyInstance = fastify({
 	maxParamLength: 256,
@@ -79,9 +77,6 @@ export async function initFastify(config: FastifyConfig): Promise<AppFastifyInst
 
 	// All backend API routes start with /api/ so any unmatched at this point is a 404
 	fastifyInstance.get('/api/*', async (request, reply) => {
-		return reply.code(404).send({ error: 'Not Found' });
-	});
-	fastifyInstance.post('/api/*', async (request, reply) => {
 		return reply.code(404).send({ error: 'Not Found' });
 	});
 
