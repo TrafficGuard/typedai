@@ -195,6 +195,9 @@ export class GitHub implements SourceControlManagement {
 		}
 	}
 
+	/**
+	 * @return the projects
+	 */
 	@func()
 	async getProjects(): Promise<GitProject[]> {
 		if (this.config().username) {

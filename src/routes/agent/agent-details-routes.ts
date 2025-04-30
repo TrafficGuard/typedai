@@ -4,6 +4,7 @@ import type { AgentContext, AutonomousIteration } from '#agent/agentContextTypes
 import { type AgentExecution, agentExecutions } from '#agent/agentRunner';
 import { serializeContext } from '#agent/agentSerialization';
 import { send, sendBadRequest, sendSuccess } from '#fastify/index';
+import { sendJSON } from '#fastify/responses';
 import { logger } from '#o11y/logger';
 import type { AppFastifyInstance } from '../../applicationTypes';
 import { functionRegistry } from '../../functionRegistry';
@@ -71,7 +72,7 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 				// if (!agentExists) return sendNotFound(reply, `Agent ${agentId} not found`);
 
 				const iterations: AutonomousIteration[] = await fastify.agentStateService.loadIterations(agentId);
-				send(reply, 200, iterations);
+				sendJSON(reply, iterations);
 			} catch (error) {
 				logger.error(error, `Error loading iterations for agent ${agentId}`);
 				// Send a generic server error, or more specific if possible

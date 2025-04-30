@@ -14,7 +14,7 @@ export function send(reply: any, statusCode: number, data: Record<string, any> |
 }
 
 export function sendJSON(reply: any, object: any): void {
-	reply.header('Content-Type', 'text/json; charset=utf-8');
+	reply.header('Content-Type', 'application/json; charset=utf-8');
 	reply.status(200);
 	reply.send(JSON.stringify(object));
 }

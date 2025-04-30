@@ -3,6 +3,7 @@ import { LlmFunctions } from '#agent/LlmFunctions';
 import { type AgentContext, type AgentRunningState, type AutonomousIteration, isExecuting } from '#agent/agentContextTypes';
 import { deserializeAgentContext, serializeContext } from '#agent/agentSerialization';
 import type { AgentStateService } from '#agent/agentStateService/agentStateService';
+// Ensure validateFirestoreObject is imported if not already
 import { MAX_PROPERTY_SIZE, truncateToByteLength, validateFirestoreObject } from '#firestore/firestoreUtils';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
@@ -10,6 +11,12 @@ import { span } from '#o11y/trace';
 import type { User } from '#user/user';
 import { currentUser } from '#user/userService/userContext';
 import { firestoreDb } from './firestore';
+
+// Type specifically for Firestore storage, allowing objects for Maps
+type FirestoreAutonomousIteration = Omit<AutonomousIteration, 'memory' | 'toolState'> & {
+	memory: Record<string, string>;
+	toolState: Record<string, any>;
+};
 
 /**
  * Google Firestore implementation of AgentStateService
@@ -23,7 +30,8 @@ export class FirestoreAgentStateService implements AgentStateService {
 			state.error = truncateToByteLength(state.error, MAX_PROPERTY_SIZE);
 		}
 		if (Buffer.byteLength(state.inputPrompt, 'utf8') > MAX_PROPERTY_SIZE) {
-			console.log(new Error(`Input prompt is greater than ${MAX_PROPERTY_SIZE} bytes`));
+			// Log instead of throwing, as per original code, but maybe consider throwing if this is critical
+			logger.warn({ agentId: state.agentId }, `Input prompt is greater than ${MAX_PROPERTY_SIZE} bytes and might be truncated by Firestore`);
 		}
 		const serialized = serializeContext(state);
 		serialized.lastUpdate = Date.now();
@@ -32,7 +40,7 @@ export class FirestoreAgentStateService implements AgentStateService {
 		try {
 			validateFirestoreObject(serialized);
 		} catch (error) {
-			logger.error({ agentId: state.agentId, error: error.message }, 'Firestore validation failed: Nested array detected.');
+			logger.error({ agentId: state.agentId, error: error.message }, 'Firestore validation failed before saving AgentContext.');
 			// Optionally re-throw or handle the error appropriately
 			throw new Error(`Firestore validation failed for agent ${state.agentId}: ${error.message}`);
 		}
@@ -121,20 +129,17 @@ export class FirestoreAgentStateService implements AgentStateService {
 	@span()
 	async listRunning(): Promise<AgentContext[]> {
 		// Define terminal states to exclude from the "running" list
-		const terminalStates: AgentRunningState[] = ['completed', 'shutdown', 'timeout']; // TODO add error and maybe others. Might be better to invert the list and use the IN operator
+		const terminalStates: AgentRunningState[] = ['completed', 'shutdown', 'timeout', 'error']; // Added 'error' as it's typically terminal
 		// NOTE: This query requires a composite index in Firestore.
 		// Example gcloud command:
-		// gcloud firestore indexes composite create --collection-group=AgentContext --query-scope=COLLECTION --field-config field-path=state,operator=NOT_EQUAL --field-config field-path=lastUpdate,order=DESCENDING
-		// Or more specifically for 'not-in':
-		// gcloud firestore indexes composite create --collection-group=AgentContext --query-scope=COLLECTION --field-config field-path=state,operator=NOT_EQUAL --field-config field-path=lastUpdate,order=DESCENDING
-		// Or more specifically for 'not-in':
-		// gcloud firestore indexes composite create --collection-group=AgentContext --query-scope=COLLECTION --field-config field-path=state,array-contains=Any --field-config field-path=lastUpdate,order=DESCENDING
+		// gcloud firestore indexes composite create --collection-group=AgentContext --query-scope=COLLECTION --field-config field-path=user,order=ASCENDING --field-config field-path=state,operator=NOT_IN --field-config field-path=lastUpdate,order=DESCENDING
 		// Firestore usually guides index creation in the console based on query errors.
 		// NOTE: Firestore requires the first orderBy clause to be on the field used in an inequality filter (like 'not-in').
 		// Therefore, we order by 'state' first, then by 'lastUpdate'. This ensures the query works reliably,
 		// although the primary desired sort order is by 'lastUpdate'.
 		const querySnapshot = await this.db
 			.collection('AgentContext')
+			.where('user', '==', currentUser().id) // Filter by user first
 			.where('state', 'not-in', terminalStates) // Use 'not-in' to exclude multiple terminal states
 			.orderBy('state') // Order by the inequality filter field first (Firestore requirement)
 			.orderBy('lastUpdate', 'desc') // Then order by the desired field
@@ -180,7 +185,18 @@ export class FirestoreAgentStateService implements AgentStateService {
 		let agents = await Promise.all(
 			ids.map(async (id) => {
 				try {
-					return await this.load(id); // only need to load the childAgents property
+					// Load only necessary fields for deletion logic
+					const docRef = this.db.doc(`AgentContext/${id}`);
+					const docSnap = await docRef.get();
+					if (!docSnap.exists) return null;
+					const data = docSnap.data();
+					return {
+						agentId: id,
+						user: { id: data.user }, // Assuming user is stored as ID string
+						state: data.state,
+						parentAgentId: data.parentAgentId,
+						childAgents: data.childAgents,
+					} as Partial<AgentContext>; // Use partial type
 				} catch (error) {
 					logger.error(error, `Error loading agent ${id} for deletion`);
 					return null;
@@ -191,18 +207,20 @@ export class FirestoreAgentStateService implements AgentStateService {
 		const user = currentUser();
 
 		agents = agents
-			.filter((agent) => !!agent) // Filter out non-existent ids
-			.filter((agent) => agent.user.id === user.id) // Can only delete your own agents
-			.filter((agent) => !isExecuting(agent)) // Can only delete executing agents
+			.filter((agent): agent is Partial<AgentContext> => !!agent) // Filter out nulls (non-existent ids)
+			.filter((agent) => agent.user?.id === user.id) // Can only delete your own agents
+			.filter((agent) => !agent.state || !isExecuting(agent as AgentContext)) // Can only delete non-executing agents (handle potentially missing state)
 			.filter((agent) => !agent.parentAgentId); // Only delete parent agents. Child agents are deleted with the parent agent.
 
 		// Now delete the agents
 		const deleteBatch = this.db.batch();
 		for (const agent of agents) {
+			if (!agent.agentId) continue; // Should not happen, but safety check
 			for (const childId of agent.childAgents ?? []) {
 				deleteBatch.delete(this.db.doc(`AgentContext/${childId}`));
+				// TODO: Handle grandchild agents recursively if needed
+				// This would require loading child agents fully or implementing a recursive delete function.
 			}
-			// TODO will need to handle if child agents have child agents
 			const docRef = this.db.doc(`AgentContext/${agent.agentId}`);
 			deleteBatch.delete(docRef);
 		}
@@ -214,6 +232,9 @@ export class FirestoreAgentStateService implements AgentStateService {
 		const agent = await this.load(agentId);
 		if (!agent) {
 			throw new Error('Agent not found');
+		}
+		if (agent.user.id !== currentUser().id) {
+			throw new Error('Cannot update functions for an agent you do not own.');
 		}
 
 		agent.functions = new LlmFunctions();
@@ -238,24 +259,61 @@ export class FirestoreAgentStateService implements AgentStateService {
 
 		// Ensure large fields are handled (optional, depending on expected size vs limits)
 		// Example: Truncate prompt or code if necessary, similar to how errors are handled in save()
-		// if (Buffer.byteLength(iterationData.prompt, 'utf8') > MAX_PROPERTY_SIZE) { ... }
+		// Consider adding truncation logic here if fields like prompt, agentPlan, or code can exceed limits.
+		// e.g., if (iterationData.prompt && Buffer.byteLength(iterationData.prompt, 'utf8') > MAX_PROPERTY_SIZE) { iterationData.prompt = truncateToByteLength(iterationData.prompt, MAX_PROPERTY_SIZE - 100) + '... (truncated)'; }
+		// e.g., if (iterationData.code && Buffer.byteLength(iterationData.code, 'utf8') > MAX_PROPERTY_SIZE) { iterationData.code = truncateToByteLength(iterationData.code, MAX_PROPERTY_SIZE - 100) + '... (truncated)'; }
+		// e.g., if (iterationData.agentPlan && Buffer.byteLength(iterationData.agentPlan, 'utf8') > MAX_PROPERTY_SIZE) { iterationData.agentPlan = truncateToByteLength(iterationData.agentPlan, MAX_PROPERTY_SIZE - 100) + '... (truncated)'; }
+		// e.g., if (iterationData.error && Buffer.byteLength(iterationData.error, 'utf8') > MAX_PROPERTY_SIZE) { iterationData.error = truncateToByteLength(iterationData.error, MAX_PROPERTY_SIZE - 100) + '... (truncated)'; }
 
 		const iterationDocRef = this.db.collection('AgentContext').doc(iterationData.agentId).collection('iterations').doc(String(iterationData.iteration));
 
-		// Add validation before saving if needed (e.g., using validateFirestoreObject)
-		// try {
-		//     validateFirestoreObject(iterationData);
-		// } catch (error) {
-		//     logger.error({ agentId: iterationData.agentId, iteration: iterationData.iteration, error: error.message }, 'Firestore validation failed for iteration.');
-		//     throw new Error(`Firestore validation failed for agent ${iterationData.agentId}, iteration ${iterationData.iteration}: ${error.message}`);
-		// }
+		// Create a Firestore-compatible version of the iteration data using the specific type
+		const firestoreIterationData: FirestoreAutonomousIteration = {
+			...iterationData,
+			// Convert Maps to plain objects for Firestore
+			memory: iterationData.memory instanceof Map ? Object.fromEntries(iterationData.memory) : {},
+			toolState: iterationData.toolState instanceof Map ? Object.fromEntries(iterationData.toolState) : {},
+		};
+
+		// Add validation before saving using the converted data
+		try {
+			// Ensure all nested properties are valid for Firestore
+			validateFirestoreObject(firestoreIterationData); // Validate the Firestore-specific object
+		} catch (error) {
+			// Log detailed error including which agent/iteration failed validation
+			logger.error(
+				{
+					agentId: iterationData.agentId,
+					iteration: iterationData.iteration, // Log original iteration
+					error: error.message,
+					// Optionally log keys or a summary of the data for debugging
+					iterationDataKeys: Object.keys(firestoreIterationData), // Log keys of the object being saved
+				},
+				'Firestore validation failed for iteration data before saving.',
+			);
+			// Re-throw the validation error to prevent attempting to save invalid data
+			throw new Error(`Firestore validation failed for agent ${iterationData.agentId}, iteration ${iterationData.iteration}: ${error.message}`);
+		}
 
 		try {
-			await iterationDocRef.set(iterationData);
+			// Save the Firestore-compatible data
+			await iterationDocRef.set(firestoreIterationData); // Save the Firestore-specific object
 			logger.debug({ agentId: iterationData.agentId, iteration: iterationData.iteration }, 'Saved agent iteration');
 		} catch (error) {
-			logger.error(error, `Error saving iteration ${iterationData.iteration} for agent ${iterationData.agentId}`);
-			throw error;
+			// Log detailed error including which agent/iteration failed the save operation
+			logger.error(
+				{
+					agentId: iterationData.agentId,
+					iteration: iterationData.iteration, // Log original iteration
+					// Log the actual Firestore error
+					firestoreError: error.message, // Log the underlying Firestore error message
+					// Optionally log keys or a summary of the data for debugging
+					iterationDataKeys: Object.keys(firestoreIterationData), // Log keys of the object being saved
+				},
+				`Error saving iteration ${iterationData.iteration} for agent ${iterationData.agentId} to Firestore`,
+			);
+			// Re-throw the error so the calling code is aware of the failure
+			throw error; // Re-throw the original Firestore error
 		}
 	}
 
@@ -275,13 +333,39 @@ export class FirestoreAgentStateService implements AgentStateService {
 
 		const iterations: AutonomousIteration[] = [];
 		querySnapshot.forEach((doc) => {
-			// Basic validation might be good here
 			const data = doc.data();
 			if (data && typeof data.iteration === 'number') {
-				if (!data.error) data.error = undefined;
+				// Convert memory object back to Map if it exists and is an object
+				if (data.memory && typeof data.memory === 'object' && !(data.memory instanceof Map) && !Array.isArray(data.memory)) {
+					data.memory = new Map(Object.entries(data.memory));
+				} else if (!data.memory) {
+					// Ensure memory is at least an empty map if missing or null/undefined from DB
+					data.memory = new Map<string, string>();
+				}
+
+				// Convert toolState object back to Map if it exists and is an object
+				if (data.toolState && typeof data.toolState === 'object' && !(data.toolState instanceof Map) && !Array.isArray(data.toolState)) {
+					data.toolState = new Map(Object.entries(data.toolState));
+				} else if (!data.toolState) {
+					// Ensure toolState is at least an empty map if missing or null/undefined from DB
+					data.toolState = new Map<string, any>();
+				}
+
+				// Ensure optional fields are correctly handled (set to undefined if missing/null)
+				data.error = data.error || undefined;
+				data.agentPlan = data.agentPlan || undefined;
+				data.code = data.code || undefined;
+				data.prompt = data.prompt || undefined;
+				data.functionCalls = data.functionCalls || [];
+				data.functions = data.functions || [];
+				// expandedUserRequest, observationsReasoning, nextStepDetails might also need default handling if optional
+				data.expandedUserRequest = data.expandedUserRequest || undefined;
+				data.observationsReasoning = data.observationsReasoning || undefined;
+				data.nextStepDetails = data.nextStepDetails || undefined;
+
 				iterations.push(data as AutonomousIteration);
 			} else {
-				logger.warn({ agentId, iterationId: doc.id }, 'Skipping invalid iteration data during load');
+				logger.warn({ agentId, iterationId: doc.id }, 'Skipping invalid iteration data during load (missing or invalid iteration number)');
 			}
 		});
 

@@ -151,14 +151,24 @@ export interface AutonomousIteration {
 	iteration: number;
 	/** The function class names available */
 	functions: string[];
-	/** Input prompt */
+	/** The input prompt */
 	prompt: string;
-	/** Generated agent plan */
+	/** Extracted from <expanded_user_request></expanded_user_request>*/
+	expandedUserRequest: string;
+	/** Extracted from <observations-reasoning> */
+	observationsReasoning: string;
+	/** Generated agent plan extracted from <plan></plan> */
 	agentPlan: string;
-	/** Generated code (for code gen agents) */
+	/** Extracted from <next_step_details></next_step_details> */
+	nextStepDetails: string;
+	/** Generated code (for code gen agents extracted from <python-code></python-code>) */
 	code: string;
 	/** Function calls executed this iteration */
 	functionCalls: FunctionCallResult[];
+	/** The memory contents at the end of the iteration */
+	memory: Map<string, string>;
+	/** Tool state, LiveFile's, FileStore etc. Class name as the key */
+	toolState: Map<string, any>;
 	/** Any error */
 	error?: string;
 }

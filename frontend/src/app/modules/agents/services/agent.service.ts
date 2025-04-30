@@ -10,7 +10,7 @@ import {
   map,
   tap,
 } from 'rxjs/operators';
-import { AgentContext, AgentPagination, LlmCall } from '../agent.types';
+import { AgentContext, AgentPagination, LlmCall, AutonomousIteration } from '../agent.types';
 
 @Injectable({ providedIn: 'root' })
 export class AgentService {
@@ -74,6 +74,13 @@ export class AgentService {
   getLlmCalls(agentId: string): Observable<LlmCall[]> {
     return this._httpClient.get<{ data: LlmCall[] }>(`/api/llms/calls/agent/${agentId}`).pipe(
       map(response => response.data || [])
+    );
+  }
+
+  /** Get iterations for an autonomous agent */
+  getAgentIterations(agentId: string): Observable<AutonomousIteration[]> {
+    return this._httpClient.get<AutonomousIteration[]>(`/api/agent/v1/iterations/${agentId}`).pipe(
+      catchError(error => this.handleError('Load agent iterations', error))
     );
   }
 

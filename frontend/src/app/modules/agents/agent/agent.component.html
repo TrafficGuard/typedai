@@ -13,6 +13,10 @@
             <agent-function-calls [agentDetails]="agentDetails"></agent-function-calls>
         </mat-tab>
 
+        <mat-tab label="Iterations" *ngIf="agentDetails.type === 'autonomous'">
+            <agent-iterations [agentId]="agentId"></agent-iterations>
+        </mat-tab>
+
         <mat-tab label="LLM Calls">
             <agent-llm-calls [agentId]="agentId"></agent-llm-calls>
         </mat-tab>
