@@ -11,6 +11,7 @@ const WEBHOOKS_BASE_PATH = '/api/webhooks/';
 // Middleware function
 export function singleUserMiddleware(req: FastifyRequest, _res: any, next: () => void): void {
 	const user = appContext().userService.getSingleUser();
+	if (!user) throw new Error('Single user not found');
 	req.user = { userId: user.id, email: user.email };
 	runWithUser(user, () => {
 		next();

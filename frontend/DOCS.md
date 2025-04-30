@@ -172,3 +172,20 @@ Use the [matTooltip] binding, not the <mat-tooltip> component.
 
 8.  **Prefer DAMP over DRY (TestBed Setup):**
     *   `TestBed.configureTestingModule` can become repetitive. Extract common declarations/providers/imports into a shared `beforeEach` setup function *within the `describe` block*. However, if a specific test needs a unique provider setup (e.g., a service mock returning an error), define that specific provider override *within the `it` block's `TestBed` configuration* or just before component creation, rather than adding complexity/logic to the shared `beforeEach`. Clarity for the specific test scenario trumps absolute DRYness in `TestBed` config.
+
+# Code Styles
+
+Do not use the disabled attribute with a reactive form directive. If you set disabled to true
+when you set up this control in your component class, the disabled attribute will actually be set in the DOM for
+you. We recommend using this approach to avoid 'changed after checked' errors.
+
+Example:
+// Specify the `disabled` property at control creation time:
+form = new FormGroup({
+first: new FormControl({value: 'Nancy', disabled: true}, Validators.required),
+last: new FormControl('Drew', Validators.required)
+});
+
+// Controls can also be enabled/disabled after creation:
+form.get('first')?.enable();
+form.get('last')?.disable();

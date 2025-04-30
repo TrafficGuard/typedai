@@ -16,6 +16,9 @@ export async function includeAlternativeAiToolFiles(fileSelection: string[]) {
 	// https://aider.chat/docs/usage/conventions.html
 	const aiderConventions = 'CONVENTIONS.md';
 	// TODO read the .aider.conf.yml config file
+	// Cline .clinerules https://github.com/cline/cline/discussions/622#discussioncomment-11666441
+	// Continue.dev
+	// https://docs.continue.dev/reference?ref=blog.continue.dev#rules
 
 	const fileSelectionSet = new Set(fileSelection);
 

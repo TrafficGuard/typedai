@@ -13,6 +13,10 @@ export default [
 		path: 'new',
 		component: NewVibeWizardComponent, // Use the new wizard component
 	},
+	{
+		path: 'initialise/:id', // Matches the URL segment causing the error
+		component: VibeComponent, // Directs to the component handling individual sessions
+	},
 	// Remove the '/list' route as '' now points to VibeListComponent
 	// {
 	//     path: 'list',

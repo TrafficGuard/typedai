@@ -140,6 +140,14 @@ export class GitHub implements SourceControlManagement {
 		return result.stdout.trim().length > 0;
 	}
 
+	/**
+	 * Creates a Pull Request
+	 * @param title
+	 * @param description
+	 * @param sourceBranch
+	 * @param targetBranch
+	 * @returns the MergeRequest details
+	 */
 	@func()
 	async createMergeRequest(title: string, description: string, sourceBranch: string, targetBranch: string): Promise<MergeRequest> {
 		// Push the branch first
@@ -176,6 +184,11 @@ export class GitHub implements SourceControlManagement {
 		};
 	}
 
+	/**
+	 * Get a project details
+	 * @param projectId
+	 * @return the GitProject
+	 */
 	async getProject(projectId: string | number): Promise<GitProject> {
 		try {
 			logger.info(`Getting project ${projectId}`);
@@ -195,6 +208,9 @@ export class GitHub implements SourceControlManagement {
 		}
 	}
 
+	/**
+	 * @returns the projects available for the account
+	 */
 	@func()
 	async getProjects(): Promise<GitProject[]> {
 		if (this.config().username) {
@@ -240,35 +256,77 @@ export class GitHub implements SourceControlManagement {
 
 	/**
 	 * Gets the list of branches for a given GitHub repository.
-	 * @param projectId The project identifier in the format 'owner/repo'.
+	 * @param projectId The project identifier, either as 'owner/repo' string or the numeric repository ID as a string or number.
 	 * @returns A promise that resolves to an array of branch names.
 	 */
 	@func()
-	async getBranches(projectId: string): Promise<string[]> {
+	async getBranches(projectId: string | number): Promise<string[]> {
+		const isNumericId = /^\d+$/.test(String(projectId));
+		let owner: string | undefined;
+		let repo: string | undefined;
+		let repositoryId: number | undefined;
+
+		if (isNumericId) {
+			repositoryId = Number(projectId);
+			logger.info(`Fetching branches for GitHub repository ID: ${repositoryId}`);
+		} else {
+			try {
+				[owner, repo] = extractOwnerProject(String(projectId));
+				logger.info(`Fetching branches for GitHub repository: ${owner}/${repo}`);
+			} catch (error) {
+				logger.error(error, `Invalid projectId format: ${projectId}. Must be 'owner/repo' or a numeric ID.`);
+				throw new Error(`Invalid projectId format: ${projectId}. Must be 'owner/repo' or a numeric ID.`);
+			}
+		}
+
 		try {
-			const [owner, repo] = extractOwnerProject(projectId);
-			// GitHub API might paginate results, fetch all pages if necessary
 			const branches: { name: string }[] = [];
 			let page = 1;
-			let response: Endpoints['GET /repos/{owner}/{repo}/branches']['response'];
+			// Define the type for the response object. Using 'any' because the dynamic endpoint
+			// string prevents precise static type inference by Octokit's request function.
+			let response: any;
+
+			// Common request parameters
+			const commonParams = {
+				per_page: 100, // Max per page
+				headers: {
+					'X-GitHub-Api-Version': '2022-11-28',
+				},
+			};
+
+			// GitHub API supports getting branches by repository ID directly
+			// See: https://docs.github.com/en/rest/branches/branches?apiVersion=2022-11-28#list-branches
+			const endpoint = isNumericId ? 'GET /repositories/{repository_id}/branches' : 'GET /repos/{owner}/{repo}/branches';
+
 			do {
-				response = await this.request()('GET /repos/{owner}/{repo}/branches', {
-					owner,
-					repo,
-					per_page: 100, // Max per page
+				const requestParams: any = {
+					...commonParams,
 					page,
-					headers: {
-						'X-GitHub-Api-Version': '2022-11-28',
-					},
-				});
-				branches.push(...response.data);
+				};
+				if (isNumericId) {
+					requestParams.repository_id = repositoryId;
+				} else {
+					requestParams.owner = owner;
+					requestParams.repo = repo;
+				}
+
+				response = await this.request()(endpoint, requestParams);
+
+				// Type assertion to help TypeScript understand the response data structure
+				const responseData = response.data as { name: string }[];
+				branches.push(...responseData);
 				page++;
 			} while (response.headers.link?.includes('rel="next"')); // Check for pagination link
 
 			return branches.map((branch) => branch.name);
 		} catch (error) {
-			logger.error(error, `Failed to get branches for GitHub project ${projectId}`);
-			throw new Error(`Failed to get branches for ${projectId}: ${error.message}`);
+			const idForError = isNumericId ? `ID ${repositoryId}` : `${owner}/${repo}`;
+			logger.error(error, `Failed to get branches for GitHub project ${idForError}`);
+			// Check for 404 specifically
+			if (error.status === 404) {
+				throw new Error(`GitHub project ${idForError} not found or access denied.`);
+			}
+			throw new Error(`Failed to get branches for ${idForError}: ${error.message}`);
 		}
 	}
 
@@ -340,5 +398,7 @@ function convertGitHubToGitProject(repo: GitHubRepository): GitProject {
 		defaultBranch: repo.default_branch,
 		visibility: repo.private ? 'private' : 'public',
 		archived: repo.archived ?? false,
+		type: 'github',
+		host: 'github.com',
 	};
 }

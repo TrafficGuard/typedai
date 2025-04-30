@@ -1,5 +1,6 @@
+import crypto from 'node:crypto';
 import { Type } from '@sinclair/typebox';
-import { send } from '#fastify/index';
+import { send, sendBadRequest } from '#fastify/index';
 import { logger } from '#o11y/logger';
 import type { AppFastifyInstance } from '../../../applicationTypes';
 
@@ -16,7 +17,39 @@ export async function jiraRoutes(fastify: AppFastifyInstance) {
 		},
 		async (req, reply) => {
 			const event = req.body as any;
-			logger.info('Jira webhook %o', event);
+
+			const hmacHeader = req.headers['x-hub-signature'];
+			logger.debug(`HMAC header ${hmacHeader}`);
+			const hmacToken = process.env.JIRA_WEBHOOK_TOKEN;
+
+			const hmac = crypto.createHmac('sha256', hmacToken);
+			hmac.update(req.rawBody);
+			const digest = `sha256=${hmac.digest('hex')}`;
+
+			if (hmac && digest !== hmacHeader) {
+				logger.info('Jira webhook HMAC verification failed');
+				return sendBadRequest(reply, 'Verification failed');
+			}
+
+			logger.info(event, 'Jira webhook');
+
+			const webhookEvent: any = req.body;
+
+			// Check if this is a comment event
+			if (webhookEvent.webhookEvent === 'comment_created') {
+				const commentBody = webhookEvent.comment.body;
+
+				// Check if the comment contains our command
+				if (commentBody.includes('@ai ')) {
+					// Get issue details
+					const issueKey = webhookEvent.issue.key;
+					const commentId = webhookEvent.comment.id;
+					const authorName = webhookEvent.comment.author.displayName;
+
+					// Initialize your custom workflow here
+					// initiateAIWorkflow(issueKey, commentId, commentBody, authorName);
+				}
+			}
 
 			/*
              {

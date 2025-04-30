@@ -15,6 +15,7 @@ import { NotificationsComponent } from 'app/layout/common/notifications/notifica
 import { UserComponent } from 'app/layout/common/user/user.component';
 import { Subject, takeUntil } from 'rxjs';
 import {ShortcutsComponent} from "app/layout/common/shortcuts/shortcuts.component";
+import {QuickListComponent} from "../../../common/quick-list/quick-list.component";
 
 @Component({
     selector: 'thin-layout',
@@ -31,6 +32,7 @@ import {ShortcutsComponent} from "app/layout/common/shortcuts/shortcuts.componen
         NotificationsComponent,
         UserComponent,
         RouterOutlet,
+        QuickListComponent
     ],
 })
 export class ThinLayoutComponent implements OnInit, OnDestroy {

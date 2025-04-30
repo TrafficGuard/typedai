@@ -14,7 +14,8 @@ import { Navigation } from 'app/core/navigation/navigation.types';
 import { NotificationsComponent } from 'app/layout/common/notifications/notifications.component';
 import { UserComponent } from 'app/layout/common/user/user.component';
 import { Subject, takeUntil } from 'rxjs';
-import {ShortcutsComponent} from "app/layout/common/shortcuts/shortcuts.component";
+import { ShortcutsComponent } from "app/layout/common/shortcuts/shortcuts.component";
+import {QuickListComponent} from "../../../common/quick-list/quick-list.component";
 
 @Component({
     selector: 'compact-layout',
@@ -31,6 +32,7 @@ import {ShortcutsComponent} from "app/layout/common/shortcuts/shortcuts.componen
         UserComponent,
         RouterOutlet,
         FuseVerticalNavigationComponent,
+        QuickListComponent
     ],
 })
 export class CompactLayoutComponent implements OnInit, OnDestroy {

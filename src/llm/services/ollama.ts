@@ -93,6 +93,8 @@ export class OllamaLLM extends BaseLLM {
 	}
 }
 
+// https://ollama.com/library/qwen3
+
 export function Ollama_Qwen2_7b() {
 	return new OllamaLLM('Qwen2 7B', 'qwen2:7b', 8192);
 }

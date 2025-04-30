@@ -1,3 +1,6 @@
+/**
+ * State of a vibe coding session
+ */
 export interface VibeSession {
 	id: string;
 	title: string;
@@ -24,10 +27,24 @@ export interface SelectedFile {
 }
 
 /**
+ * Represents a node in the file system tree.
+ * Must match FileSystemNodeSchema in src/routes/vibe/vibeRoutes.ts
+ */
+export interface FileSystemNode {
+	name: string;
+	type: 'file' | 'directory';
+	children?: FileSystemNode[]; // Optional for directories
+}
+
+/**
  * Common interface between projects in GitLab, GitHub etc
  * Must match GitProject in src/functions/scm/gitProject.ts
  */
 export interface GitProject {
+	/** The type of SCM provider, e.g., 'github', 'gitlab' */
+	type: string;
+	/** The hostname of the SCM provider, e.g., 'github.com', 'gitlab.com' */
+	host: string;
 	id: number;
 	/** The project name */
 	name: string;

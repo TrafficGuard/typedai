@@ -249,8 +249,9 @@ async function initializeFileSelectionAgent(requirements: string, projectInfo?: 
 	// Do not include file contents unless they have been provided to you.
 	const initialUserPrompt = `<requirements>\n${requirements}\n</requirements>
 
-Your task is to select the **minimal set of files absolutely essential** for completing the task/query described in the requirements, using the provided <project_files>.
-**Focus intensely on necessity.** Only select a file if you are confident its contents are **directly required** to understand the context or make the necessary changes. Avoid selecting files that are only tangentially related or provide general context unless strictly necessary for the core task.
+Your task is to select the minimal set of files which are essential for completing the task/query described in the requirements, using the provided <project_files>.
+**Focus intensely on necessity.** Only select a file if you are confident its contents are **directly required** to understand the context or make the necessary changes. 
+Avoid selecting files that are only tangentially related or provide general context unless strictly necessary for the core task.
 
 Do not select package manager lock files as they are too large.
 

@@ -32,25 +32,28 @@ export function extractOwnerProject(identifier: string): [string, string] {
 }
 
 /**
- * Parses a prefixed project ID string (e.g., "GitHub:owner/repo") into its components.
- * @param prefixedProjectId The project ID string with a provider prefix.
- * @returns An object containing the provider type (lowercase) and the actual project ID.
- * @throws Error if the format is invalid.
+ * Parses a prefixed project ID string (e.g., "GitLab:group/project" or "GitHub:owner/repo")
+ * into its provider type and the actual project ID/path.
+ * @param prefixedProjectId The project identifier string with the provider prefix.
+ * @returns An object containing the provider type and the project ID.
+ * @throws Error if the format is invalid or the provider type is unsupported.
  */
 export function parseScmProjectId(prefixedProjectId: string): { providerType: string; projectId: string } {
-	const parts = prefixedProjectId.split(':');
-	if (parts.length < 2 || !parts[0] || !parts[1]) {
-		throw new Error(`Invalid project ID format: '${prefixedProjectId}'. Expected 'Provider:ProjectId' (e.g., 'GitHub:owner/repo').`);
+	const separatorIndex = prefixedProjectId.indexOf(':');
+	if (separatorIndex === -1 || separatorIndex === 0 || separatorIndex === prefixedProjectId.length - 1) {
+		logger.error(`Invalid project ID format: ${prefixedProjectId}. Expected 'ProviderType:ProjectId'.`);
+		throw new Error(`Invalid project ID format: ${prefixedProjectId}. Expected 'ProviderType:ProjectId'.`);
 	}
 
-	const providerType = parts[0].toLowerCase();
-	const projectId = parts.slice(1).join(':'); // Re-join in case projectId contains ':'
+	const providerType = prefixedProjectId.substring(0, separatorIndex);
+	const projectId = prefixedProjectId.substring(separatorIndex + 1);
 
-	// Basic validation for known providers
-	if (providerType !== 'github' && providerType !== 'gitlab') {
-		logger.warn(`Unrecognized SCM provider type '${providerType}' in project ID '${prefixedProjectId}'. Proceeding, but may cause issues.`);
-		// Depending on strictness, you might throw an error here instead.
-	}
+	// Optional: Add validation for supported provider types if needed
+	// const supportedProviders = ['GitLab', 'GitHub']; // Example
+	// if (!supportedProviders.includes(providerType)) {
+	//     logger.warn(`Unsupported SCM provider type: ${providerType}`);
+	//     throw new Error(`Unsupported SCM provider type: ${providerType}`);
+	// }
 
 	return { providerType, projectId };
 }

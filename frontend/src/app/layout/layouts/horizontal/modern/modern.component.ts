@@ -16,6 +16,7 @@ import { NotificationsComponent } from 'app/layout/common/notifications/notifica
 import { ShortcutsComponent } from "app/layout/common/shortcuts/shortcuts.component";
 import { UserComponent } from 'app/layout/common/user/user.component';
 import { Subject, takeUntil } from 'rxjs';
+import {QuickListComponent} from "../../../common/quick-list/quick-list.component";
 
 @Component({
     selector: 'modern-layout',
@@ -33,6 +34,7 @@ import { Subject, takeUntil } from 'rxjs';
         UserComponent,
         RouterOutlet,
         ShortcutsComponent,
+        QuickListComponent,
     ],
 })
 export class ModernLayoutComponent implements OnInit, OnDestroy {
@@ -78,13 +80,11 @@ export class ModernLayoutComponent implements OnInit, OnDestroy {
         this._fuseMediaWatcherService.onMediaChange$
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe(({ matchingAliases }) => {
-                // Check if the screen is small
                 this.isScreenSmall = !matchingAliases.includes('md');
             });
     }
 
     ngOnDestroy(): void {
-        // Unsubscribe from all subscriptions
         this._unsubscribeAll.next(null);
         this._unsubscribeAll.complete();
     }
