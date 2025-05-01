@@ -278,7 +278,8 @@ export class ChatService {
                                     content: [{type:'text',text:message}],
                                     textContent: message,
                                     isMine: true,
-                                    attachments: attachments,
+                                    fileAttachments: attachments?.filter(att => att.type === 'file') || [],
+                                    imageAttachments: attachments?.filter(att => att.type === 'image') || [],
                                 },
                                 convertMessage(llmMessage)
                             ]
@@ -428,7 +429,7 @@ export class ChatService {
  * @param llmMessage
  */
 function convertMessage(llmMessage: LlmMessage): ChatMessage {
-    let attachments: Attachment[] = [];
+    let allAttachments: Attachment[] = [];
     const texts: TextContent[] = []
     let textContent = ''
 
@@ -458,7 +459,7 @@ function convertMessage(llmMessage: LlmMessage): ChatMessage {
         }
 
         // Convert the FilePart and ImageParts to Attachments
-        attachments = llmMessage.content
+        allAttachments = llmMessage.content
             .filter(item => item.type === 'image' || item.type === 'file')
             .map(item => {
                 if (item.type === 'image') {
@@ -495,21 +496,25 @@ function convertMessage(llmMessage: LlmMessage): ChatMessage {
                         size: base64Data.length,
                         data: null,
                         mimeType: mimeType,
-                        previewUrl: dataUrl,
+                        previewUrl: dataUrl, // Use data URL as preview for files too, or handle differently
                     } as Attachment;
                 }
-            });
+                return null; // Should not happen due to filter
+            }).filter(att => att !== null);
     } else { // string content
         texts.push({type: 'text', text: llmMessage.content});
         textContent = llmMessage.content;
     }
-
+console.log('stats')
+    console.log(llmMessage.stats)
     return {
         textContent,
         content: texts,
         isMine: llmMessage.role === 'user',
-        createdAt: new Date(llmMessage.stats?.requestTime).toString(),
+        createdAt: llmMessage.stats?.requestTime ? new Date(llmMessage.stats.requestTime).toString() : new Date().toISOString(), // Add fallback for createdAt
         llmId: llmMessage.stats?.llmId,
-        attachments
+        fileAttachments: allAttachments.filter(att => att.type === 'file'),
+        imageAttachments: allAttachments.filter(att => att.type === 'image'),
+        stats: llmMessage.stats
     };
 }

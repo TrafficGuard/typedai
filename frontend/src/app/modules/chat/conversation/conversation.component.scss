@@ -30,6 +30,26 @@ markdown li {
   padding-bottom: 0.2em;
 }
 
+.attachment-previews {
+    .mat-icon-button {
+        // Ensure button alignment is correct if needed
+    }
+    img {
+        // Add border or other styling if desired
+        border: 1px solid var(--fuse-border);
+    }
+}
+
+// Ensure message bubble images don't overflow excessively
+.conversation-container {
+    .max-w-3\/4 { // Targeting the message bubble class
+        img {
+            display: block; // Prevent extra space below image
+            max-width: 100%; // Ensure image scales within bubble
+        }
+    }
+}
+
 //.regenerate-button {
 //    position: absolute;
 //    bottom: -24px;

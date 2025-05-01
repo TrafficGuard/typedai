@@ -57,6 +57,7 @@ export interface TextContent {
     text: string
 }
 
+/** Chat UI message */
 export interface ChatMessage {
     id?: string;
     isMine?: boolean;
@@ -65,8 +66,11 @@ export interface ChatMessage {
     generating?: boolean;
     content?: TextContent[];
     textContent: string;
-    /** Attachments to be sent with the next message */
-    attachments?: Attachment[];
+    /** File attachments to be sent with the next message */
+    fileAttachments?: Attachment[];
+    /** Image attachments to be sent with the next message */
+    imageAttachments?: Attachment[]
+    stats?: GenerationStats;
 }
 
 export interface Attachment {

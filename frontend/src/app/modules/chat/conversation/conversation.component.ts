@@ -1,5 +1,5 @@
 import { TextFieldModule } from '@angular/cdk/text-field';
-import { DatePipe, NgClass } from '@angular/common';
+import {DatePipe, NgClass, DecimalPipe, CommonModule} from '@angular/common';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { EMPTY, Observable, catchError, switchMap } from 'rxjs';
@@ -72,6 +72,7 @@ import {ClipboardModule} from "@angular/cdk/clipboard";
         ReactiveFormsModule,
         ClipboardButtonComponent,
         ClipboardModule,
+        CommonModule,
     ],
     providers: [
         provideMarkdown(),
@@ -82,7 +83,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     @ViewChild('messageInput') messageInput: ElementRef;
     @ViewChild('llmSelect') llmSelect: MatSelect;
     @ViewChild('fileInput') fileInput: ElementRef;
-    selectedFiles: File[] = [];
+    selectedAttachments: Attachment[] = [];
     chat: Chat;
     chats: Chat[];
     drawerMode: 'over' | 'side' = 'side';
@@ -289,7 +290,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     updateThinkingIcon(): void {
-        this.llmHasThinkingLevels = this.llmId.startsWith('openai:o3') || this.llmId.includes('claude-3-7')
+        this.llmHasThinkingLevels = this.llmId.startsWith('openai:o3') || this.llmId.includes('claude-3-7') || this.llmId.includes('flash-2.5')
     }
 
     toggleThinking() {
@@ -371,64 +372,75 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
      * Handles both new chat creation and message sending in existing chats
      */
     sendMessage(): void {
-        // Store message and attachments in component scope so error handler can access them
         const message: string = this.messageInput.nativeElement.value.trim();
-        const attachments: Attachment[] = this.selectedFiles.map(file => ({
-            type: file.type.startsWith('image/') ? 'image' : 'file',
-            filename: file.name,
-            size: file.size,
-            data: file,
-            mimeType: file.type,
-        }));
+        // Use selectedAttachments directly
+        const attachments: Attachment[] = [...this.selectedAttachments]; // Create a shallow copy
 
         // Get latest user preferences before sending the message
         this._getUserPreferences().pipe(
             switchMap(user => {
-                if (message === '' && this.selectedFiles.length === 0) {
+                if (message === '' && attachments.length === 0) { // Check attachments length
                     return EMPTY;
                 }
 
                 this.generating = true;
-                // this.sendIcon = 'heroicons_outline:stop-circle'
+                // this.sendIcon = 'heroicons_outline:stop-circle' // Existing comment
 
+                // Push the local message with attachments (including potential previewUrls)
                 this.chat.messages.push({
                     id: uuidv4(),
                     textContent: message,
                     isMine: true,
-                    attachments: attachments,
+                    fileAttachments: attachments.filter(att => att.type === 'file'),
+                    imageAttachments: attachments.filter(att => att.type === 'image'),
+                    createdAt: new Date().toISOString() // Add timestamp for local display consistency
                 });
 
+                // Keep the generating message logic
                 const generatingMessage: ChatMessage = {
                     id: uuidv4(),
                     textContent: '',
                     isMine: false,
-                    generating: true
+                    generating: true,
+                    createdAt: new Date().toISOString()
                 };
                 this.chat.messages.push(generatingMessage);
 
-                // Animate the typing/generating indicator
+                // Animate the typing/generating indicator (existing logic)
                 this.generatingTimer = setInterval(() => {
                     generatingMessage.textContent = generatingMessage.textContent.length === 3 ? '.' : generatingMessage.textContent + '.';
                     this._changeDetectorRef.markForCheck();
                 }, 800);
 
-                // Clear the input
+                // Clear the input and selected attachments
                 this.messageInput.nativeElement.value = '';
-                this.selectedFiles = [];
+                this.selectedAttachments = []; // Clear the selected attachments array
 
-                const options = {...user.chat, thinking: this.llmHasThinkingLevels ? this.thinkingLevel : null }
+                const options = {...user.chat, thinking: this.llmHasThinkingLevels ? this.thinkingLevel : null };
+
+                // Prepare attachments for sending (only send necessary data, not previewUrl)
+                const attachmentsToSend = attachments.map(att => ({
+                    type: att.type,
+                    filename: att.filename,
+                    size: att.size,
+                    data: att.data, // The actual File object
+                    mimeType: att.mimeType,
+                }));
 
                 // If this is a new chat, create it with latest user preferences
                 if (!this.chat.id || this.chat.id === NEW_CHAT_ID) {
                     this._changeDetectorRef.markForCheck();
-                    return this._chatService.createChat(message, this.llmId, options, attachments);
+                    // Pass attachmentsToSend to the service
+                    return this._chatService.createChat(message, this.llmId, options, attachmentsToSend);
                 }
 
                 this._scrollToBottom();
-                return this._chatService.sendMessage(this.chat.id, message, this.llmId, options, attachments);
+                // Pass attachmentsToSend to the service
+                return this._chatService.sendMessage(this.chat.id, message, this.llmId, options, attachmentsToSend);
             })
         ).subscribe({
             next: (chat: Chat) => {
+                // Ensure the received chat replaces the local one correctly
                 this.generating = false;
 
                 if (!this.chat.id || this.chat.id === NEW_CHAT_ID) {
@@ -436,9 +448,9 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
                     this.router.navigate([`/ui/chat/${chat.id}`]).catch(console.error);
                     return;
                 }
-                console.log(this.chat.messages.at(-1))
+                // Replace local chat state with server state
                 this.chat = clone(chat);
-                this.assignUniqueIdsToMessages(this.chat.messages);
+                this.assignUniqueIdsToMessages(this.chat.messages); // Re-assign IDs if needed
                 clearInterval(this.generatingTimer);
                 this.sendIcon = 'heroicons_outline:paper-airplane';
                 this._resizeMessageInput();
@@ -449,13 +461,13 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
                 console.error('Error sending message:', error);
                 this.generating = false;
 
-                // Remove the two pending messages
-                this.chat.messages.pop(); // Remove generating message
-                this.chat.messages.pop(); // Remove user message
+                // Remove the two pending messages (generating and user message)
+                this.chat.messages.pop();
+                this.chat.messages.pop();
 
-                // Restore the message input and files
+                // Restore the message input and selected attachments
                 this.messageInput.nativeElement.value = message;
-                this.selectedFiles = attachments.map(a => a.data);
+                this.selectedAttachments = attachments; // Restore the original attachments array
 
                 // Reset UI state
                 clearInterval(this.generatingTimer);
@@ -584,6 +596,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
                     // Send the audio message
                     this.sendAudioMessage(audioBlob);
+                    // TODO: Implement UI update for audio message sent
                 });
             })
             .catch(error => {
@@ -664,12 +677,15 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
         }
     }
 
-    removeFile(file: File): void {
-        const index = this.selectedFiles.indexOf(file);
-        if (index > -1) {
-            this.selectedFiles.splice(index, 1);
-            this._changeDetectorRef.markForCheck();
-        }
+    removeAttachment(attachmentToRemove: Attachment): void {
+        this.selectedAttachments = this.selectedAttachments.filter(
+            att => att !== attachmentToRemove
+        );
+        // Revoke object URL if it was created and stored elsewhere (not strictly needed for data URLs)
+        // if (attachmentToRemove.previewUrl && attachmentToRemove.previewUrl.startsWith('blob:')) {
+        //     URL.revokeObjectURL(attachmentToRemove.previewUrl);
+        // }
+        this._changeDetectorRef.markForCheck();
     }
 
     onDragOver(event: DragEvent): void {
@@ -686,21 +702,51 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     private addFiles(files: File[]): void {
-        // 10MB limit per file
-        const MAX_FILE_SIZE = 10 * 1024 * 1024;
+        const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit per file
 
         files.forEach(file => {
             if (file.size > MAX_FILE_SIZE) {
-                // TODO: Show error toast
+                // TODO: Show error toast (existing comment)
                 console.error(`File ${file.name} exceeds 10MB limit`);
                 return;
             }
-            if (!this.selectedFiles.find(f => f.name === file.name)) {
-                console.log(`Adding file ${file.name}`)
-                this.selectedFiles.push(file);
+
+            // Prevent duplicates based on name AND size (more robust)
+            if (this.selectedAttachments.find(att => att.filename === file.name && att.size === file.size)) {
+                return;
             }
+
+            const attachment: Attachment = {
+                type: file.type.startsWith('image/') ? 'image' : 'file',
+                filename: file.name,
+                size: file.size,
+                data: file, // Keep the original file data for sending
+                mimeType: file.type,
+                previewUrl: undefined // Initialize previewUrl
+            };
+
+            // Generate preview for images
+            if (attachment.type === 'image') {
+                const reader = new FileReader();
+                reader.onload = (e: ProgressEvent<FileReader>) => {
+                    // Assign the data URL to the previewUrl
+                    attachment.previewUrl = e.target.result as string;
+                    // Trigger change detection as this runs asynchronously
+                    this._changeDetectorRef.markForCheck();
+                };
+                reader.onerror = (error) => {
+                    console.error(`Error reading file ${file.name}:`, error);
+                    // Optionally remove the attachment or show an error indicator
+                    // For now, we'll leave it without a preview
+                    this._changeDetectorRef.markForCheck();
+                };
+                reader.readAsDataURL(file);
+            }
+
+            this.selectedAttachments.push(attachment);
         });
 
+        // Trigger change detection once after processing all files in the batch
         this._changeDetectorRef.markForCheck();
     }
 }
