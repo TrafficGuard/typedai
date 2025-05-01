@@ -8,7 +8,7 @@ import { withSpan } from '#o11y/trace';
 import { currentUser, functionConfig } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
 import { appContext } from '../../applicationContext';
-import { BaseLLM } from '../base-llm';
+import { BaseLLM, type LlmCostFunction } from '../base-llm';
 import { type GenerateTextOptions, type GenerationStats, type LLM, type LlmMessage, type Prompt, assistant, isSystemUserPrompt, system, user } from '../llm';
 
 export const PERPLEXITY_SERVICE = 'perplexity';
@@ -21,6 +21,26 @@ sonar-reasoning	$1	$5	$5
 sonar-pro	$3	$15	$5
 sonar	$1	$1	$5
 */
+
+function perplexityCostFunction(inputMil: number, outputMil: number): LlmCostFunction {
+	return (inputTokens: number, outputTokens: number, usage: any) => {
+		const ppUsage = usage as { num_search_queries?: number; thinking_tokens?: number };
+		const searches = ppUsage?.num_search_queries ?? 0;
+		const searchCost = searches * 0.005; // $5 per 1000 requests
+		const thinkingTokens = ppUsage?.thinking_tokens ?? 0;
+		const thinkingCost = (thinkingTokens * 3) / 1_000_000; // Assuming $3/M for thinking tokens
+
+		const inputCost = (inputTokens * inputMil) / 1_000_000;
+		const outputCost = (outputTokens * outputMil) / 1_000_000;
+		const totalCost = Number((inputCost + outputCost + searchCost + thinkingCost).toFixed(6));
+
+		return {
+			inputCost, // Note: This doesn't include search/thinking cost separately
+			outputCost, // Note: This doesn't include search/thinking cost separately
+			totalCost,
+		};
+	};
+}
 
 export function perplexityLLMRegistry(): Record<string, () => LLM> {
 	return {
@@ -35,8 +55,7 @@ export function perplexityLLM(): LLM {
 		'Perplexity',
 		'sonar',
 		127_000, // maxTokens
-		0.000001, // costPerPromptToken ($1 per million tokens)
-		0.000001, // costPerCompletionToken
+		perplexityCostFunction(1, 1), // $1/M input, $1/M output
 	);
 }
 
@@ -45,8 +64,7 @@ export function perplexityReasoningProLLM(): LLM {
 		'Perplexity Reasoning Pro',
 		'sonar-reasoning-pro',
 		127_000, // maxTokens
-		0.000002, // costPerPromptToken ($1 per million tokens)
-		0.000008, // costPerCompletionToken
+		perplexityCostFunction(2, 8), // $2/M input, $8/M output
 	);
 }
 
@@ -55,27 +73,15 @@ export function perplexityDeepResearchLLM(): LLM {
 		'Perplexity Deep Research',
 		'sonar-deep-research',
 		60_000, // maxTokens
-		0.000002, // costPerPromptToken ($1 per million tokens)
-		0.000008, // costPerCompletionToken
+		perplexityCostFunction(2, 8), // $2/M input, $8/M output
 	);
 }
 
 export class PerplexityLLM extends BaseLLM {
 	private openai: OpenAI;
-	private costPerPromptToken: number;
-	private costPerCompletionToken: number;
 
-	constructor(displayName: string, model: string, maxTokens: number, costPerPromptToken: number, costPerCompletionToken: number) {
-		super(
-			displayName,
-			PERPLEXITY_SERVICE,
-			model,
-			maxTokens,
-			(input: string) => input.length * costPerPromptToken,
-			(output: string) => output.length * costPerCompletionToken,
-		);
-		this.costPerPromptToken = costPerPromptToken;
-		this.costPerCompletionToken = costPerCompletionToken;
+	constructor(displayName: string, model: string, maxTokens: number, calculateCosts: LlmCostFunction) {
+		super(displayName, PERPLEXITY_SERVICE, model, maxTokens, calculateCosts);
 	}
 
 	private api(): OpenAI {
@@ -178,9 +184,9 @@ export class PerplexityLLM extends BaseLLM {
 				const searchCost = searches * 0.005; // $5 per 1000 requests
 				// https://docs.perplexity.ai/guides/pricing#detailed-pricing-breakdown-for-sonar-deep-research
 				const thinkingTokens = ppUsage?.thinking_tokens ?? 0;
-				const thinkingCost = (thinkingTokens * 3) / 1_000_000;
 
-				const cost = Number((promptTokens * this.costPerPromptToken + completionTokens * this.costPerCompletionToken + searchCost + thinkingCost).toFixed(6));
+				const { totalCost } = this.calculateCosts(promptTokens, completionTokens, ppUsage);
+				const cost = totalCost;
 				addCost(cost);
 
 				const timeToFirstToken = Date.now() - requestTime;

@@ -1,5 +1,5 @@
 import { type OpenAIProvider, createOpenAI } from '@ai-sdk/openai';
-import { type InputCostFunction, type OutputCostFunction, perMilTokens } from '#llm/base-llm';
+import { type LlmCostFunction, fixedCostPerMilTokens } from '#llm/base-llm';
 import { currentUser } from '#user/userService/userContext';
 import type { LLM } from '../llm';
 import { AiLLM } from './ai-llm';
@@ -18,27 +18,27 @@ export function sambanovaLLMRegistry(): Record<string, () => LLM> {
 // https://cloud.sambanova.ai/plans/pricing
 
 export function sambanovaDeepseekR1(): LLM {
-	return new SambanovaLLM('DeepSeek R1 (Sambanova)', 'DeepSeek-R1', 8_192, perMilTokens(5), perMilTokens(7));
+	return new SambanovaLLM('DeepSeek R1 (Sambanova)', 'DeepSeek-R1', 8_192, fixedCostPerMilTokens(5, 7));
 }
 
 export function sambanovaDeepseekV3(): LLM {
-	return new SambanovaLLM('DeepSeek V3 (Sambanova)', 'DeepSeek-V3-0324', 8_192, perMilTokens(1), perMilTokens(1.5));
+	return new SambanovaLLM('DeepSeek V3 (Sambanova)', 'DeepSeek-V3-0324', 8_192, fixedCostPerMilTokens(1, 1.5));
 }
 
 export function sambanovaLlama3_3_70b(): LLM {
-	return new SambanovaLLM('Llama 3.3 70b (Sambanova)', 'Meta-Llama-3.3-70B-Instruct', 8_192, perMilTokens(0.6), perMilTokens(1.2));
+	return new SambanovaLLM('Llama 3.3 70b (Sambanova)', 'Meta-Llama-3.3-70B-Instruct', 8_192, fixedCostPerMilTokens(0.6, 1.2));
 }
 
 export function sambanovaLlama3_3_70b_R1_Distill(): LLM {
-	return new SambanovaLLM('Llama 3.3 70b R1 Distill (Sambanova)', 'DeepSeek-R1-Distill-Llama-70B', 128_000, perMilTokens(0.7), perMilTokens(1.4));
+	return new SambanovaLLM('Llama 3.3 70b R1 Distill (Sambanova)', 'DeepSeek-R1-Distill-Llama-70B', 128_000, fixedCostPerMilTokens(0.7, 1.4));
 }
 
 /**
  * https://inference-docs.sambanova.ai/introduction
  */
 export class SambanovaLLM extends AiLLM<OpenAIProvider> {
-	constructor(displayName: string, model: string, maxInputTokens: number, calculateInputCost: InputCostFunction, calculateOutputCost: OutputCostFunction) {
-		super(displayName, SAMBANOVA_SERVICE, model, maxInputTokens, calculateInputCost, calculateOutputCost);
+	constructor(displayName: string, model: string, maxInputTokens: number, calculateCosts: LlmCostFunction) {
+		super(displayName, SAMBANOVA_SERVICE, model, maxInputTokens, calculateCosts);
 	}
 
 	protected provider(): any {

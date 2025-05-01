@@ -68,14 +68,7 @@ export class ReasonerDebateLLM extends BaseLLM {
 	 * @param name
 	 */
 	constructor(modelIds = '', providedMediator?: () => LLM, providedDebateLLMs?: Array<() => LLM>, name?: string) {
-		super(
-			name ?? '(MoA)',
-			'MoA',
-			modelIds,
-			128_000,
-			() => 0,
-			() => 0,
-		);
+		super(name ?? '(MoA)', 'MoA', modelIds, 128_000, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
 		if (providedMediator) this.mediator = providedMediator();
 		if (providedDebateLLMs) {
 			this.llms = providedDebateLLMs.map((factory) => factory());

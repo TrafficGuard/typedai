@@ -14,7 +14,6 @@ import { type GenerateTextOptions, type GenerationStats, type LlmMessage, toText
 import { type LlmCall, callStack } from '#llm/llmCallService/llmCall';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
-// import { currentUser } from '#user/userService/userContext';
 import { appContext } from '../../applicationContext';
 
 /**
@@ -125,9 +124,14 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				const finishTime = Date.now();
 				const llmCall: LlmCall = await llmCallSave;
 
-				const inputCost = this.calculateInputCost('', result.usage.promptTokens, result.providerMetadata, result.response.timestamp);
-				const outputCost = this.calculateOutputCost(responseText, result.usage.completionTokens, result.response.timestamp);
-				const cost = inputCost + outputCost;
+				const { inputCost, outputCost, totalCost } = this.calculateCosts(
+					result.usage.promptTokens,
+					result.usage.completionTokens,
+					result.providerMetadata,
+					result.response.timestamp,
+					result,
+				);
+				const cost = totalCost;
 
 				// Add the response as an assistant message
 
@@ -223,16 +227,15 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 
 			const [usage, finishReason, metadata, response] = await Promise.all([result.usage, result.finishReason, result.providerMetadata, result.response]);
 			const finish = Date.now();
-			const inputCost = this.calculateInputCost('', usage.promptTokens, metadata);
-			const outputCost = this.calculateOutputCost(await result.text, usage.completionTokens);
-			const cost = inputCost + outputCost;
-			addCost(cost);
+			const { inputCost, outputCost, totalCost } = this.calculateCosts(usage.promptTokens, usage.completionTokens, metadata, new Date(finish));
+
+			addCost(totalCost);
 
 			const llmCall: LlmCall = await llmCallSave;
 
 			const stats: GenerationStats = {
 				llmId: this.getId(),
-				cost,
+				cost: totalCost,
 				inputTokens: usage.promptTokens,
 				outputTokens: usage.completionTokens,
 				totalTime: finish - requestTime,
@@ -264,7 +267,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				outputTokens: usage.completionTokens,
 				inputCost,
 				outputCost,
-				cost,
+				totalCost,
 			});
 
 			try {

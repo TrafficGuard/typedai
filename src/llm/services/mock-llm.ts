@@ -2,10 +2,11 @@ import { addCost, agentContext } from '#agent/agentContextLocalStorage';
 import type { AgentLLMs } from '#agent/agentContextTypes';
 import { type LlmCall, callStack } from '#llm/llmCallService/llmCall';
 import { Blueberry } from '#llm/multi-agent/blueberry';
+import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { appContext } from '../../applicationContext';
-import { BaseLLM } from '../base-llm';
+import { BaseLLM, type LlmCostFunction } from '../base-llm';
 import { type GenerateTextOptions, type LLM, type LlmMessage, assistant, combinePrompts, system, user } from '../llm';
 
 export class MockLLM extends BaseLLM {
@@ -15,14 +16,7 @@ export class MockLLM extends BaseLLM {
 	 * @param maxInputTokens defaults to 100000
 	 */
 	constructor(maxInputTokens = 100000) {
-		super(
-			'mock',
-			'mock',
-			'mock',
-			maxInputTokens,
-			(input: string) => 0,
-			(output: string) => 0,
-		);
+		super('mock', 'mock', 'mock', maxInputTokens, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
 	}
 
 	reset() {
@@ -83,14 +77,17 @@ export class MockLLM extends BaseLLM {
 			const finishTime = Date.now();
 			const llmCall: LlmCall = await llmCallSave;
 
-			const inputCost = this.calculateInputCost(prompt, await this.countTokens(prompt));
-			const outputCost = this.calculateOutputCost(responseText, await this.countTokens(responseText));
-			const cost = inputCost + outputCost;
+			const inputTokens = await this.countTokens(prompt);
+			const outputTokens = await this.countTokens(responseText);
+			const { totalCost } = this.calculateCosts(inputTokens, outputTokens);
+			const cost = totalCost; // Will be 0
 			addCost(cost);
 
 			llmCall.timeToFirstToken = timeToFirstToken;
 			llmCall.totalTime = finishTime - requestTime;
 			llmCall.cost = cost;
+			llmCall.inputTokens = inputTokens;
+			llmCall.outputTokens = outputTokens;
 
 			try {
 				await appContext().llmCallService.saveResponse(llmCall);

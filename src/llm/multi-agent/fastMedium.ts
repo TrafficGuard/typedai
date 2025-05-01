@@ -19,8 +19,7 @@ export class FastMediumLLM extends BaseLLM {
 			'multi',
 			'fast-medium',
 			0, // Initialized later
-			() => 0,
-			() => 0,
+			() => ({ inputCost: 0, outputCost: 0, totalCost: 0 }),
 		);
 		// Define the providers and their priorities. Lower number = higher priority
 		this.providers = [cerebrasLlama3_3_70b(), sambanovaLlama3_3_70b(), Gemini_2_0_Flash()];

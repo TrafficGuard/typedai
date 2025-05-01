@@ -2,23 +2,17 @@ import axios from 'axios';
 import { agentContext } from '#agent/agentContextLocalStorage';
 import type { AgentLLMs } from '#agent/agentContextTypes';
 import type { LlmCall } from '#llm/llmCallService/llmCall';
+import { countTokens } from '#llm/tokens';
 import { withActiveSpan } from '#o11y/trace';
 import { appContext } from '../../applicationContext';
-import { BaseLLM } from '../base-llm';
+import { BaseLLM, type LlmCostFunction } from '../base-llm';
 import { type GenerateTextOptions, type LLM, type LlmMessage, assistant, combinePrompts, system, user } from '../llm';
 
 export const OLLAMA_SERVICE = 'ollama';
 
 export class OllamaLLM extends BaseLLM {
 	constructor(name: string, model: string, maxInputTokens: number) {
-		super(
-			`${name} (Ollama)`,
-			OLLAMA_SERVICE,
-			model,
-			maxInputTokens,
-			() => 0,
-			() => 0,
-		);
+		super(`${name} (Ollama)`, OLLAMA_SERVICE, model, maxInputTokens, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
 	}
 
 	isConfigured(): boolean {
@@ -71,9 +65,14 @@ export class OllamaLLM extends BaseLLM {
 			const finishTime = Date.now();
 
 			const llmCall: LlmCall = await llmCallSave;
+			const inputTokens = await countTokens(prompt);
+			const outputTokens = await countTokens(responseText);
+			const { totalCost } = this.calculateCosts(inputTokens, outputTokens); // Will be 0
 			llmCall.timeToFirstToken = timeToFirstToken;
 			llmCall.totalTime = finishTime - requestTime;
-			llmCall.cost = 0; // VM cost?
+			llmCall.cost = totalCost; // VM cost?
+			llmCall.inputTokens = inputTokens;
+			llmCall.outputTokens = outputTokens;
 
 			try {
 				await appContext().llmCallService.saveResponse(llmCall);

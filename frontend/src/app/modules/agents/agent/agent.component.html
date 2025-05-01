@@ -13,7 +13,7 @@
             <agent-function-calls [agentDetails]="agentDetails"></agent-function-calls>
         </mat-tab>
 
-        <mat-tab label="Iterations" *ngIf="agentDetails.type === 'autonomous'">
+        <mat-tab label="Iterations" *ngIf="agentDetails?.type === 'autonomous'">
             <agent-iterations [agentId]="agentId"></agent-iterations>
         </mat-tab>
 

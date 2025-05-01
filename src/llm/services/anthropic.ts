@@ -1,6 +1,6 @@
 import { type AnthropicProvider, createAnthropic } from '@ai-sdk/anthropic';
 import type { AgentLLMs } from '#agent/agentContextTypes';
-import { type InputCostFunction, OutputCostFunction, perMilTokens } from '#llm/base-llm';
+import type { LlmCostFunction } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
 import { currentUser } from '#user/userService/userContext';
 import type { LLM, LlmMessage } from '../llm';
@@ -28,11 +28,20 @@ export function Claude3_5_Haiku() {
 	return new Anthropic('Claude 3.5 Haiku', 'claude-3-5-haiku-20241022', 1, 5);
 }
 
-function inputCostFunction(dollarsPerMillionTokens: number): InputCostFunction {
-	return (_: string, tokens: number, metadata: any) =>
-		(tokens * dollarsPerMillionTokens) / 1_000_000 +
-		(metadata.anthropic.cacheCreationInputTokens * dollarsPerMillionTokens * 1.25) / 1_000_000 +
-		(metadata.anthropic.cacheReadInputTokens * dollarsPerMillionTokens * 0.1) / 1_000_000;
+function anthropicCostFunction(inputMil: number, outputMil: number): LlmCostFunction {
+	return (inputTokens: number, outputTokens: number, usage: any) => {
+		const metadata = usage as { anthropic: { cacheCreationInputTokens: number; cacheReadInputTokens: number } };
+		const inputCost =
+			(inputTokens * inputMil) / 1_000_000 +
+			(metadata.anthropic.cacheCreationInputTokens * inputMil * 1.25) / 1_000_000 +
+			(metadata.anthropic.cacheReadInputTokens * inputMil * 0.1) / 1_000_000;
+		const outputCost = (outputTokens * outputMil) / 1_000_000;
+		return {
+			inputCost,
+			outputCost,
+			totalCost: inputCost + outputCost,
+		};
+	};
 }
 
 export function ClaudeLLMs(): AgentLLMs {
@@ -47,7 +56,7 @@ export function ClaudeLLMs(): AgentLLMs {
 
 export class Anthropic extends AiLLM<AnthropicProvider> {
 	constructor(displayName: string, model: string, inputMilTokens: number, outputMilTokens: number) {
-		super(displayName, ANTHROPIC_SERVICE, model, 200_000, inputCostFunction(inputMilTokens), perMilTokens(outputMilTokens));
+		super(displayName, ANTHROPIC_SERVICE, model, 200_000, anthropicCostFunction(inputMilTokens, outputMilTokens));
 	}
 
 	protected apiKey(): string {

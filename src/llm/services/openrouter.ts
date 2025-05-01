@@ -1,5 +1,5 @@
 import { type OpenAIProvider, createOpenAI } from '@ai-sdk/openai';
-import { type InputCostFunction, type OutputCostFunction, perMilTokens } from '#llm/base-llm';
+import { type LlmCostFunction, fixedCostPerMilTokens } from '#llm/base-llm';
 import { currentUser } from '#user/userService/userContext';
 import type { LLM } from '../llm';
 import { AiLLM } from './ai-llm';
@@ -15,7 +15,7 @@ export function openrouterLLMRegistry(): Record<string, () => LLM> {
 // https://openrouter.ai/models
 
 export function openRouterGemini2_5_Pro(): LLM {
-	return new OpenRouterLLM('Gemini 2.5 Pro (OpenRouter)', 'google/gemini-2.5-pro-exp-03-25:free', 1_000_000, perMilTokens(0), perMilTokens(0));
+	return new OpenRouterLLM('Gemini 2.5 Pro (OpenRouter)', 'google/gemini-2.5-pro-exp-03-25:free', 1_000_000, fixedCostPerMilTokens(0, 0));
 }
 
 /**
@@ -23,8 +23,8 @@ export function openRouterGemini2_5_Pro(): LLM {
  * Next release of OpenRouter provider should work instead of using OpenAIProvider
  */
 export class OpenRouterLLM extends AiLLM<OpenAIProvider> {
-	constructor(displayName: string, model: string, maxInputTokens: number, calculateInputCost: InputCostFunction, calculateOutputCost: OutputCostFunction) {
-		super(displayName, OPENROUTER_SERVICE, model, maxInputTokens, calculateInputCost, calculateOutputCost);
+	constructor(displayName: string, model: string, maxInputTokens: number, calculateCosts: LlmCostFunction) {
+		super(displayName, OPENROUTER_SERVICE, model, maxInputTokens, calculateCosts);
 	}
 
 	protected provider(): any {

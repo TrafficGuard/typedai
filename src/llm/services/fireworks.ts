@@ -1,5 +1,5 @@
 import { type OpenAIProvider, createOpenAI } from '@ai-sdk/openai';
-import { type InputCostFunction, type OutputCostFunction, perMilTokens } from '#llm/base-llm';
+import { type LlmCostFunction, fixedCostPerMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
 import { currentUser } from '#user/userService/userContext';
 import type { LLM } from '../llm';
@@ -7,8 +7,8 @@ import type { LLM } from '../llm';
 export const FIREWORKS_SERVICE = 'fireworks';
 
 export class Fireworks extends AiLLM<OpenAIProvider> {
-	constructor(displayName: string, model: string, maxTokens: number, calculateInputCost: InputCostFunction, calculateOutputCost: OutputCostFunction) {
-		super(displayName, FIREWORKS_SERVICE, model, maxTokens, calculateInputCost, calculateOutputCost);
+	constructor(displayName: string, model: string, maxTokens: number, calculateCosts: LlmCostFunction) {
+		super(displayName, FIREWORKS_SERVICE, model, maxTokens, calculateCosts);
 	}
 
 	protected apiKey(): string {
@@ -38,19 +38,19 @@ export function fireworksLLMRegistry(): Record<string, () => LLM> {
 }
 
 export function fireworksLlama3_70B(): LLM {
-	return new Fireworks('LLama3 70b-i (Fireworks)', 'accounts/fireworks/models/llama-v3p1-70b-instruct', 131_072, perMilTokens(0.9), perMilTokens(0.9));
+	return new Fireworks('LLama3 70b-i (Fireworks)', 'accounts/fireworks/models/llama-v3p1-70b-instruct', 131_072, fixedCostPerMilTokens(0.9, 0.9));
 }
 
 export function fireworksLlama3_405B(): LLM {
-	return new Fireworks('LLama3 405b-i (Fireworks)', 'accounts/fireworks/models/llama-v3p1-405b-instruct', 131_072, perMilTokens(3), perMilTokens(3));
+	return new Fireworks('LLama3 405b-i (Fireworks)', 'accounts/fireworks/models/llama-v3p1-405b-instruct', 131_072, fixedCostPerMilTokens(3, 3));
 }
 
 export function fireworksDeepSeekV3(): LLM {
-	return new Fireworks('DeepSeek 3 (Fireworks)', 'accounts/fireworks/models/deepseek-v3', 131_072, perMilTokens(0.9), perMilTokens(0.9));
+	return new Fireworks('DeepSeek 3 (Fireworks)', 'accounts/fireworks/models/deepseek-v3', 131_072, fixedCostPerMilTokens(0.9, 0.9));
 }
 
 export function fireworksDeepSeekR1(): LLM {
-	return new Fireworks('DeepSeek R1 (Fireworks)', 'accounts/fireworks/models/deepseek-r1', 160_000, perMilTokens(3), perMilTokens(8));
+	return new Fireworks('DeepSeek R1 (Fireworks)', 'accounts/fireworks/models/deepseek-r1', 160_000, fixedCostPerMilTokens(3, 8));
 }
 
 // Not available in serverless

@@ -1,7 +1,8 @@
 import { type GoogleVertexProvider, createVertex } from '@ai-sdk/google-vertex';
 import { HarmBlockThreshold, HarmCategory, type SafetySetting } from '@google-cloud/vertexai';
+import { type GenerateTextResult, LanguageModelResponseMetadata } from 'ai';
 import axios from 'axios';
-import { type InputCostFunction, type OutputCostFunction, perMilTokens } from '#llm/base-llm';
+import { type LlmCostFunction, fixedCostPerMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
 import { currentUser } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
@@ -20,46 +21,69 @@ export function vertexLLMRegistry(): Record<string, () => LLM> {
 
 // https://cloud.google.com/vertex-ai/generative-ai/pricing#token-based-pricing
 
-// Prompts less than 200,00 tokens: $1.25/million tokens for input, $10/million for output
-// 	Prompts more than 200,000 tokens (up to the 1,048,576 max): $2.50/million for input, $15/million for output
+// https://cloud.google.com/vertex-ai/generative-ai/pricing#token-based-pricing
+// If a query input context is longer than 200K tokens, all tokens (input and output) are charged at long context rates.
+function gemini2_5_Pro_CostFunction(
+	inputMilLow: number,
+	outputMilLow: number,
+	inputMilHigh?: number,
+	outputMilHigh?: number,
+	threshold = 200000,
+): LlmCostFunction {
+	return (inputTokens: number, outputTokens: number) => {
+		let inputMil = inputMilLow;
+		let outputMil = outputMilLow;
+		if (inputMilHigh && outputMilHigh && inputTokens >= threshold) {
+			inputMil = inputMilHigh;
+			outputMil = outputMilHigh;
+		}
+		const inputCost = (inputTokens * inputMil) / 1_000_000;
+		const outputCost = (outputTokens * outputMil) / 1_000_000;
+		return {
+			inputCost,
+			outputCost,
+			totalCost: inputCost + outputCost,
+		};
+	};
+}
+
+function gemini2_5_Flash_CostFunction(inputMil: number, outputMil: number, reasoningOutputMil?: number): LlmCostFunction {
+	return (inputTokens: number, outputTokens: number, usage: any, date, result: GenerateTextResult<any, any>) => {
+		const isThinking = result.reasoning?.length > 0 || result.reasoningDetails?.length > 0;
+		const inputCost = (inputTokens * inputMil) / 1_000_000;
+		const outputCost = (outputTokens * (isThinking ? reasoningOutputMil : outputMil)) / 1_000_000;
+		return {
+			inputCost,
+			outputCost,
+			totalCost: inputCost + outputCost,
+		};
+	};
+}
+
+// Prompts less than 200,000 tokens: $1.25/million tokens for input, $10/million for output
+// Prompts more than 200,000 tokens (up to the 1,048,576 max): $2.50/million for input, $15/million for output
 export function Gemini_2_5_Pro() {
-	return new VertexLLM(
-		'Gemini 2.5 Pro',
-		'gemini-2.5-pro-exp-03-25',
-		1_000_000,
-		(input: string, inputTokens: number) => (inputTokens < 200000 ? cost(1.25, inputTokens) : cost(2.5, inputTokens)),
-		(output: string, outputTokens: number) => (outputTokens < 200000 ? cost(10, outputTokens) : cost(15, outputTokens)),
-	);
+	return new VertexLLM('Gemini 2.5 Pro', 'gemini-2.5-pro-exp-03-25', 1_000_000, gemini2_5_Pro_CostFunction(1.25, 10, 2.5, 15));
 }
 
 export function Gemini_2_5_Flash() {
-	return new VertexLLM(
-		'Gemini 2.5 Flash',
-		'gemini-2.5-flash-preview-04-17',
-		1_000_000,
-		(input: string, inputTokens: number) => cost(0.15, inputTokens),
-		(output: string, outputTokens: number) => cost(0.6, outputTokens),
-	);
+	return new VertexLLM('Gemini 2.5 Flash', 'gemini-2.5-flash-preview-04-17', 1_000_000, gemini2_5_Flash_CostFunction(0.15, 0.6, 3.5));
 }
 
 export function Gemini_2_0_Flash() {
-	return new VertexLLM('Gemini 2.0 Flash', 'gemini-2.0-flash-001', 1_000_000, perMilTokens(0.1), perMilTokens(0.4));
+	return new VertexLLM('Gemini 2.0 Flash', 'gemini-2.0-flash-001', 1_000_000, fixedCostPerMilTokens(0.1, 0.4));
 }
 
 export function Gemini_2_0_Flash_Lite() {
-	return new VertexLLM('Gemini 2.0 Flash Lite', 'gemini-2.0-flash-lite', 1_000_000, perMilTokens(0.075), perMilTokens(0.3));
-}
-
-function cost(costPerMillionTokens: number, tokens: number) {
-	return (tokens * costPerMillionTokens) / 1_000_000;
+	return new VertexLLM('Gemini 2.0 Flash Lite', 'gemini-2.0-flash-lite', 1_000_000, fixedCostPerMilTokens(0.075, 0.3));
 }
 
 /**
  * Vertex AI models - Gemini
  */
 class VertexLLM extends AiLLM<GoogleVertexProvider> {
-	constructor(displayName: string, model: string, maxInputToken: number, calculateInputCost: InputCostFunction, calculateOutputCost: OutputCostFunction) {
-		super(displayName, VERTEX_SERVICE, model, maxInputToken, calculateInputCost, calculateOutputCost);
+	constructor(displayName: string, model: string, maxInputToken: number, calculateCosts: LlmCostFunction) {
+		super(displayName, VERTEX_SERVICE, model, maxInputToken, calculateCosts);
 	}
 
 	protected apiKey(): string {

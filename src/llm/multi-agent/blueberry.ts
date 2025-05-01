@@ -83,14 +83,7 @@ export class Blueberry extends BaseLLM {
 	 * @param model LLM model ids to use seperated by the pipe character. The first id will be used as the mediator. The remaining will be used as the initial response/debate generation.
 	 */
 	constructor(model = 'default') {
-		super(
-			'MoA blueberry',
-			'MoA',
-			model,
-			200_000,
-			() => 0,
-			() => 0,
-		);
+		super('MoA blueberry', 'MoA', model, 200_000, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
 		if (model !== 'default') {
 			try {
 				const parts = model.split('|');

@@ -18,8 +18,7 @@ export class MultiLlama3_70B_R1_Distill extends BaseLLM {
 			'multi',
 			'fast-llama3-70b-r1-distill',
 			0, // Initialized later
-			() => 0,
-			() => 0,
+			() => ({ inputCost: 0, outputCost: 0, totalCost: 0 }),
 		);
 		// Define the providers and their priorities. Lower number = higher priority
 		this.providers = [

@@ -76,14 +76,7 @@ export class CePO_LLM extends BaseLLM {
 	 * @param name
 	 */
 	constructor(llmProvider?: () => LLM, name?: string) {
-		super(
-			name ?? `CePO ${llmProvider().getId()}`,
-			'multi',
-			`CePO-${llmProvider().getId()}`,
-			128_000,
-			() => 0,
-			() => 0,
-		);
+		super(name ?? `CePO ${llmProvider().getId()}`, 'multi', `CePO-${llmProvider().getId()}`, 128_000, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
 		this.llm = llmProvider();
 	}
 

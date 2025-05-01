@@ -1,5 +1,5 @@
 import { type OpenAIProvider, createOpenAI } from '@ai-sdk/openai';
-import { type InputCostFunction, type OutputCostFunction, perMilTokens } from '#llm/base-llm';
+import type { LlmCostFunction } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
 import { currentUser } from '#user/userService/userContext';
 import type { GenerateTextOptions, LLM, LlmMessage } from '../llm';
@@ -17,44 +17,53 @@ export function openAiLLMRegistry(): Record<string, () => LLM> {
 	};
 }
 
-export function openAIo1() {
-	return new OpenAI('OpenAI o1', 'o1', inputCost(15), perMilTokens(60));
-}
-
-export function openAIo1Preview() {
-	return new OpenAI('OpenAI o1 preview', 'o1-preview', inputCost(15), perMilTokens(60));
-}
-
-export function openAIo1mini() {
-	return new OpenAI('OpenAI o1-mini', 'o1-mini', inputCost(3), perMilTokens(12));
-}
-
-export function openAIo3mini() {
-	return new OpenAI('OpenAI o3-mini', 'o3-mini', inputCost(1.1), perMilTokens(4.4));
-}
-
-export function GPT4o() {
-	return new OpenAI('GPT4o', 'gpt-4o', inputCost(2.5), perMilTokens(10));
-}
-
-export function GPT4oMini() {
-	return new OpenAI('GPT4o mini', 'gpt-4o-mini', inputCost(0.15), perMilTokens(0.6));
-}
-
 // https://sdk.vercel.ai/providers/ai-sdk-providers/openai#prompt-caching
-function inputCost(dollarsPerMillionTokens: number): InputCostFunction {
-	return (input: string, tokens: number, experimental_providerMetadata: any) => {
-		const cachedPromptTokens = experimental_providerMetadata?.openai?.cachedPromptTokens;
-		if (cachedPromptTokens) {
-			return ((tokens - cachedPromptTokens) * dollarsPerMillionTokens) / 1_000_000 + (cachedPromptTokens * dollarsPerMillionTokens) / 2 / 1_000_000;
+function openAICostFunction(inputMil: number, outputMil: number): LlmCostFunction {
+	return (inputTokens: number, outputTokens: number, usage: any) => {
+		const metadata = usage as { openai?: { cachedPromptTokens?: number } };
+		const cachedPromptTokens = metadata?.openai?.cachedPromptTokens ?? 0;
+		let inputCost: number;
+		if (cachedPromptTokens > 0) {
+			inputCost = ((inputTokens - cachedPromptTokens) * inputMil) / 1_000_000 + (cachedPromptTokens * inputMil) / 2 / 1_000_000;
+		} else {
+			inputCost = (inputTokens * inputMil) / 1_000_000;
 		}
-		return (tokens * dollarsPerMillionTokens) / 1_000_000;
+		const outputCost = (outputTokens * outputMil) / 1_000_000;
+		return {
+			inputCost,
+			outputCost,
+			totalCost: inputCost + outputCost,
+		};
 	};
 }
 
+export function openAIo1() {
+	return new OpenAI('OpenAI o1', 'o1', openAICostFunction(15, 60));
+}
+
+export function openAIo1Preview() {
+	return new OpenAI('OpenAI o1 preview', 'o1-preview', openAICostFunction(15, 60));
+}
+
+export function openAIo1mini() {
+	return new OpenAI('OpenAI o1-mini', 'o1-mini', openAICostFunction(3, 12));
+}
+
+export function openAIo3mini() {
+	return new OpenAI('OpenAI o3-mini', 'o3-mini', openAICostFunction(1.1, 4.4));
+}
+
+export function GPT4o() {
+	return new OpenAI('GPT4o', 'gpt-4o', openAICostFunction(2.5, 10));
+}
+
+export function GPT4oMini() {
+	return new OpenAI('GPT4o mini', 'gpt-4o-mini', openAICostFunction(0.15, 0.6));
+}
+
 export class OpenAI extends AiLLM<OpenAIProvider> {
-	constructor(displayName: string, model: string, calculateInputCost: InputCostFunction, calculateOutputCost: OutputCostFunction) {
-		super(displayName, OPENAI_SERVICE, model, 128_000, calculateInputCost, calculateOutputCost);
+	constructor(displayName: string, model: string, calculateCosts: LlmCostFunction) {
+		super(displayName, OPENAI_SERVICE, model, 128_000, calculateCosts);
 	}
 
 	protected apiKey(): string {

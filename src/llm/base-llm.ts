@@ -1,4 +1,4 @@
-import { StreamTextResult, type TextStreamPart } from 'ai';
+import { type GenerateTextResult, StreamTextResult, type TextStreamPart } from 'ai';
 import type { AgentContext } from '#agent/agentContextTypes';
 import { countTokens } from '#llm/tokens';
 import {
@@ -20,11 +20,32 @@ export interface SerializedLLM {
 	model: string;
 }
 
-export type InputCostFunction = (input: string, inputTokens: number, usage?: any, completionTime?: Date) => number;
-export type OutputCostFunction = (output: string, outputTokens: number, completionTime?: Date) => number;
+/**
+ * Function signature for calculating LLM costs.
+ * @param inputTokens - The number of input tokens used.
+ * @param outputTokens - The number of output tokens generated.
+ * @param usage - Optional provider-specific usage metadata (e.g., cache info, search queries).
+ * @param completionTime - Optional timestamp when the LLM call completed.
+ * @returns An object containing the calculated inputCost, outputCost, and totalCost.
+ */
+export type LlmCostFunction = (
+	inputTokens: number,
+	outputTokens: number,
+	usage?: any,
+	completionTime?: Date,
+	result?: GenerateTextResult<any, any>,
+) => { inputCost: number; outputCost: number; totalCost: number };
 
-export function perMilTokens(dollarsPerMillionTokens: number): InputCostFunction {
-	return (_, tokens) => (tokens * dollarsPerMillionTokens) / 1_000_000;
+export function fixedCostPerMilTokens(inputMil: number, outputMil: number): LlmCostFunction {
+	return (inputTokens: number, outputTokens: number) => {
+		const inputCost = (inputTokens * inputMil) / 1_000_000;
+		const outputCost = (outputTokens * outputMil) / 1_000_000;
+		return {
+			inputCost,
+			outputCost,
+			totalCost: inputCost + outputCost,
+		};
+	};
 }
 
 export abstract class BaseLLM implements LLM {
@@ -33,8 +54,7 @@ export abstract class BaseLLM implements LLM {
 		protected readonly service: string,
 		protected model: string,
 		protected maxInputTokens: number,
-		readonly calculateInputCost: InputCostFunction,
-		readonly calculateOutputCost: OutputCostFunction,
+		readonly calculateCosts: LlmCostFunction,
 	) {}
 
 	protected _generateText(systemPrompt: string | undefined, userPrompt: string, opts?: GenerateTextOptions): Promise<string> {

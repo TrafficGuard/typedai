@@ -9,7 +9,7 @@ import { currentUser } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
 import { appContext } from '../../applicationContext';
 import { RetryableError, cacheRetry } from '../../cache/cacheRetry';
-import { BaseLLM, type InputCostFunction, perMilTokens } from '../base-llm';
+import { BaseLLM, type LlmCostFunction } from '../base-llm';
 import { MaxTokensError } from '../errors';
 import { type GenerateTextOptions, type GenerationStats, type LLM, type LlmMessage, toText } from '../llm';
 
@@ -45,11 +45,19 @@ export function Claude3_5_Haiku_Vertex() {
 	return new AnthropicVertexLLM('Claude 3.5 Haiku (Vertex)', 'claude-3-5-haiku@20241022', 1, 5);
 }
 
-function inputCostFunction(dollarsPerMillionTokens: number): InputCostFunction {
-	return (input: string, tokens: number, usage: any) =>
-		(tokens * dollarsPerMillionTokens) / 1_000_000 +
-		(usage.cache_creation_input_tokens * dollarsPerMillionTokens * 1.25) / 1_000_000 +
-		(usage.cache_read_input_tokens * dollarsPerMillionTokens * 0.1) / 1_000_000;
+function anthropicVertexCostFunction(inputMil: number, outputMil: number): LlmCostFunction {
+	return (inputTokens: number, outputTokens: number, usage: any) => {
+		const inputCost =
+			(inputTokens * inputMil) / 1_000_000 +
+			(usage.cache_creation_input_tokens * inputMil * 1.25) / 1_000_000 +
+			(usage.cache_read_input_tokens * inputMil * 0.1) / 1_000_000;
+		const outputCost = (outputTokens * outputMil) / 1_000_000;
+		return {
+			inputCost,
+			outputCost,
+			totalCost: inputCost + outputCost,
+		};
+	};
 }
 
 export function ClaudeVertexLLMs(): AgentLLMs {
@@ -69,13 +77,8 @@ export function ClaudeVertexLLMs(): AgentLLMs {
 class AnthropicVertexLLM extends BaseLLM {
 	client: AnthropicVertex | undefined;
 
-	constructor(
-		displayName: string,
-		model: string,
-		private inputTokensMil: number,
-		private outputTokenMil: number,
-	) {
-		super(displayName, ANTHROPIC_VERTEX_SERVICE, model, 200_000, inputCostFunction(inputTokensMil), perMilTokens(outputTokenMil));
+	constructor(displayName: string, model: string, inputTokensMil: number, outputTokenMil: number) {
+		super(displayName, ANTHROPIC_VERTEX_SERVICE, model, 200_000, anthropicVertexCostFunction(inputTokensMil, outputTokenMil));
 	}
 
 	private api(): AnthropicVertex {
@@ -308,10 +311,8 @@ class AnthropicVertexLLM extends BaseLLM {
 			const outputTokens = generatedMessage.usage.output_tokens;
 			const usage = generatedMessage.usage;
 
-			const inputCost = this.calculateInputCost(null, inputTokens, usage);
-
-			const outputCost = (outputTokens * this.outputTokenMil) / 1_000_000;
-			const cost = inputCost + outputCost;
+			const { inputCost, outputCost, totalCost } = this.calculateCosts(inputTokens, outputTokens, usage);
+			const cost = totalCost;
 			addCost(cost);
 
 			llmCall.timeToFirstToken = timeToFirstToken;

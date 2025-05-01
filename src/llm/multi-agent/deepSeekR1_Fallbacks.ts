@@ -29,8 +29,7 @@ export class DeepSeekR1_Fallbacks extends BaseLLM {
 			'DeepSeekFallback',
 			'deepseek-r1-together-fireworks-nebius-sambanova',
 			0, // Initialized later
-			() => 0,
-			() => 0,
+			() => ({ inputCost: 0, outputCost: 0, totalCost: 0 }),
 		);
 	}
 
