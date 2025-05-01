@@ -1,11 +1,11 @@
-import path from 'node:path'; // Adjust path as needed
+import path from 'node:path';
 import chai, { expect } from 'chai';
 import chaiSubset from 'chai-subset';
-import ignore, { type Ignore } from 'ignore'; // Import ignore and Ignore type
+import ignore, { type Ignore } from 'ignore';
 import mock from 'mock-fs';
 import sinon from 'sinon';
 import { FileSystemService } from '#functions/storage/fileSystemService';
-import * as tokens from '#llm/tokens'; // Import the module containing countTokens
+import * as tokens from '#llm/tokens';
 import { File, Folder, buildFolderStructure } from './repositoryMap';
 
 // Enable chai-subset
