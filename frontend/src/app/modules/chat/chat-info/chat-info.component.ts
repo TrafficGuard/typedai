@@ -16,6 +16,8 @@ import { Chat } from 'app/modules/chat/chat.types';
 import { User } from 'app/core/user/user.types';
 import { UserService } from 'app/core/user/user.service';
 import { EMPTY, Subject, catchError, takeUntil, finalize } from 'rxjs';
+import { AgentLinks, GoogleCloudLinks } from "../../agents/services/agent-links";
+import { MatTooltipModule } from "@angular/material/tooltip";
 
 @Component({
     selector: 'chat-info',
@@ -29,13 +31,14 @@ import { EMPTY, Subject, catchError, takeUntil, finalize } from 'rxjs';
         MatIconModule,
         MatSliderModule,
         MatProgressSpinnerModule,
+        MatTooltipModule,
         FormsModule
     ],
 })
 export class ChatInfoComponent implements OnDestroy {
     @Input() chat: Chat;
     @Input() drawer: MatDrawer;
-    
+    links: AgentLinks = new GoogleCloudLinks();
     settings: User['chat'];
     loading = false;
     error: string | null = null;
@@ -86,6 +89,10 @@ export class ChatInfoComponent implements OnDestroy {
      */
     onSettingChange(): void {
         this.saveSettings();
+    }
+
+    databaseUrl(): string {
+        return this.links.chatDatabaseUrl(this.chat.id);
     }
 
     ngOnDestroy(): void {

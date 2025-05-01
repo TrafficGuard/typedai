@@ -9,7 +9,9 @@ export interface AgentLinks {
 
     logsUrl(agent: AgentContext): string;
 
-    databaseUrl(agent: AgentContext): string;
+    agentDatabaseUrl(agent: AgentContext): string;
+
+    chatDatabaseUrl(chatId: string): string;
 }
 
 export class GoogleCloudLinks implements AgentLinks {
@@ -23,9 +25,15 @@ export class GoogleCloudLinks implements AgentLinks {
         return `https://console.cloud.google.com/logs/query;query=resource.type%3D%22gce_instance%22%20AND%20%2528jsonPayload.agentId%3D%22${agent.agentId}%22%20OR%20jsonPayload.parentAgentId%3D%22${agent.agentId}%22%2529;duration=PT30M?inv=1&project=${environment.gcpProject}&supportedpurview=project`
     }
 
-    databaseUrl(agent: AgentContext): string {
+    agentDatabaseUrl(agent: AgentContext): string {
         return `https://console.cloud.google.com/firestore/databases/${
             environment.firestoreDb || '(default)'
         }/data/panel/AgentContext/${agent?.agentId}?project=${environment.gcpProject}`;
+    }
+
+    chatDatabaseUrl(chatId: string): string {
+        return `https://console.cloud.google.com/firestore/databases/${
+            environment.firestoreDb || '(default)'
+        }/data/panel/Chat/${chatId}?project=${environment.gcpProject}`;
     }
 }

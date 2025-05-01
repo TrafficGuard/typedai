@@ -234,7 +234,7 @@ export class AgentDetailsComponent implements OnInit {
     }
 
     databaseUrl(agent: AgentContext): string {
-        return this.agentLinks.databaseUrl(agent);
+        return this.agentLinks.agentDatabaseUrl(agent);
     }
 
     getLlmName(llmId: string): string {
