@@ -5,6 +5,7 @@ import type { AgentLLMs } from '#agent/agentContextTypes';
 import { AGENT_COMPLETED_PARAM_NAME } from '#agent/agentFunctions';
 import { type RunAgentConfig, type RunWorkflowConfig, startAgent, startAgentAndWait } from '#agent/agentRunner';
 import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
+import { initFirestoreApplicationContext } from '#app/applicationContext';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { GitLab } from '#functions/scm/gitlab';
 import { FileSystemService } from '#functions/storage/fileSystemService';
@@ -18,7 +19,6 @@ import { logger } from '#o11y/logger';
 import { SWEBenchAgent, type SWEInstance } from '#swe/SWEBenchAgent';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { sleep } from '#utils/async-utils';
-import { initFirestoreApplicationContext } from '../applicationContext';
 import { parseProcessArgs, saveAgentId } from './cli';
 
 async function main() {

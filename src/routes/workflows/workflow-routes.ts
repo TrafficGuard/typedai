@@ -5,13 +5,13 @@ import { Type } from '@sinclair/typebox';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { RunAgentConfig, type RunWorkflowConfig } from '#agent/agentRunner';
 import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
+import { systemDir, typedaiDirName } from '#app/appVars';
+import type { AppFastifyInstance } from '#app/applicationTypes';
 import { defaultLLMs, summaryLLM } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { queryWorkflow } from '#swe/discovery/selectFilesAgent';
 import { type SelectFilesResponse, selectFilesToEdit } from '#swe/discovery/selectFilesToEdit';
-import { systemDir, typedaiDirName } from '../../appVars';
-import type { AppFastifyInstance } from '../../applicationTypes';
 
 function findRepositories(dir: string): string[] {
 	const repos: string[] = [];

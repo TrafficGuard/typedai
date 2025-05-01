@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path, { join } from 'node:path';
+import { systemDir } from '#app/appVars';
 import { logger } from '#o11y/logger';
-import { systemDir } from '../appVars';
 
 export interface CliOptions {
 	/** Name of the executed .ts file without the extension */

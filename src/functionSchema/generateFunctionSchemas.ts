@@ -1,4 +1,4 @@
-import { appContext } from '../applicationContext';
+import { appContext } from '#app/applicationContext';
 import { functionRegistry } from '../functionRegistry';
 
 // [DOC] For CLI tool to pre-build the function schemas for faster startup time

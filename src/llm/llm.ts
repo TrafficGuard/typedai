@@ -181,6 +181,10 @@ export function toText(message: LlmMessage): string {
 	return text;
 }
 
+export function text(text: string): TextPart {
+	return { type: 'text', text };
+}
+
 export function system(text: string, cache = false): LlmMessage {
 	return {
 		role: 'system',
@@ -189,10 +193,10 @@ export function system(text: string, cache = false): LlmMessage {
 	};
 }
 
-export function user(text: string, cache = false): LlmMessage {
+export function user(content: UserContentExt, cache = false): LlmMessage {
 	return {
 		role: 'user',
-		content: text,
+		content,
 		cache: cache ? 'ephemeral' : undefined,
 	};
 }

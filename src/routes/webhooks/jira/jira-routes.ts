@@ -1,8 +1,8 @@
 import crypto from 'node:crypto';
 import { Type } from '@sinclair/typebox';
+import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send, sendBadRequest } from '#fastify/index';
 import { logger } from '#o11y/logger';
-import type { AppFastifyInstance } from '../../../applicationTypes';
 
 const basePath = '/api/webhooks';
 

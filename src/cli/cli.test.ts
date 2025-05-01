@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { unlinkSync } from 'node:fs';
 import { expect } from 'chai';
-import { systemDir } from '../appVars';
+import { systemDir } from '#app/appVars';
 import { parseUserCliArgs, saveAgentId } from './cli';
 
 describe('parseProcessArgs', () => {

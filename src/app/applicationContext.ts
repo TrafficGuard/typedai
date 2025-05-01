@@ -29,7 +29,7 @@ export function appContext(): ApplicationContext {
 export async function initFirestoreApplicationContext(): Promise<ApplicationContext> {
 	if (applicationContext) throw new Error('Application context already initialized');
 	logger.info('Initializing Firestore persistence');
-	const firestoreModule = await import('./modules/firestore/firestoreModule.cjs');
+	const firestoreModule = await import('../modules/firestore/firestoreModule.cjs');
 	applicationContext = firestoreModule.firestoreApplicationContext();
 
 	await applicationContext.userService.ensureSingleUser();

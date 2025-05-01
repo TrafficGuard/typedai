@@ -1,9 +1,9 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { appContext } from '#app/applicationContext';
 import { DEFAULT_HEALTHCHECK } from '#fastify/fastifyApp';
 import { logger } from '#o11y/logger';
 import { runWithUser } from '#user/userService/userContext';
 import { ROUTES } from '../../shared/routes';
-import { appContext } from '../applicationContext';
 import { getPayloadUserId } from './jwt';
 
 const WEBHOOKS_BASE_PATH = '/api/webhooks/';

@@ -10,12 +10,12 @@ import { type AgentExecution, formatFunctionError, formatFunctionResult } from '
 import { reviewPythonCode } from '#agent/codeGenAgentCodeReview';
 import { convertJsonToPythonDeclaration, extractPythonCode, removePythonMarkdownWrapper } from '#agent/codeGenAgentUtils';
 import { humanInTheLoop, notifySupervisor } from '#agent/humanInTheLoop';
+import { appContext } from '#app/applicationContext';
 import { getServiceName } from '#fastify/trace-init/trace-init';
 import { FUNC_SEP, type FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { errorToString } from '#utils/errors';
-import { appContext } from '../applicationContext';
 import { agentContextStorage, llms } from './agentContextLocalStorage';
 
 const stopSequences = ['</response>'];

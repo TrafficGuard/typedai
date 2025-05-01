@@ -5,7 +5,7 @@ import type { LlmCallService } from '#llm/llmCallService/llmCallService';
 import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
 import type { UserService } from '#user/userService/userService';
 import type { VibeService } from '#vibe/vibeService';
-import type { FunctionCacheService } from './cache/functionCacheService';
+import type { FunctionCacheService } from '../cache/functionCacheService';
 
 export interface ApplicationContext {
 	agentStateService: AgentStateService;

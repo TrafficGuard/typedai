@@ -12,9 +12,9 @@ import {
 	Project,
 	type Type,
 } from 'ts-morph';
+import { systemDir } from '#app/appVars';
 import { FUNC_DECORATOR_NAME } from '#functionSchema/functionSchemaTypes';
 import { logger } from '#o11y/logger';
-import { systemDir } from '../appVars';
 import type { FunctionParameter, FunctionSchema } from './functions';
 
 const writeFileAsync = promisify(writeFile);

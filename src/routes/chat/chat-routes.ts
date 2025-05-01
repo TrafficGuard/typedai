@@ -3,6 +3,7 @@ import type { MultipartFile } from '@fastify/multipart';
 import { Type } from '@sinclair/typebox';
 import type { UserContent } from 'ai';
 import type { FastifyRequest } from 'fastify';
+import type { AppFastifyInstance } from '#app/applicationTypes';
 import type { Chat, ChatList } from '#chat/chatTypes';
 import { send, sendBadRequest } from '#fastify/index';
 import type { FilePartExt, GenerateOptions, ImagePartExt, LLM, LlmMessage, UserContentExt } from '#llm/llm';
@@ -10,7 +11,6 @@ import { getLLM } from '#llm/llmFactory';
 import { summaryLLM } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { currentUser } from '#user/userService/userContext';
-import type { AppFastifyInstance } from '../../applicationTypes';
 
 const basePath = '/api';
 

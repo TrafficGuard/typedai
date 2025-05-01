@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { appContext, initApplicationContext } from '../applicationContext';
+import { appContext, initApplicationContext } from '#app/applicationContext';
 import { initFastify } from '../fastify/fastifyApp';
 
 export async function createTestFastify(): Promise<FastifyInstance> {

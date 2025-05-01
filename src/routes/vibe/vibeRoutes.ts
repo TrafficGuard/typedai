@@ -1,5 +1,6 @@
 import { type Static, Type } from '@sinclair/typebox';
 import type { FastifyInstance, FastifyRequest as FastifyRequestBase, RouteShorthandOptions } from 'fastify';
+import type { AppFastifyInstance } from '#app/applicationTypes';
 import { sendNotFound } from '#fastify/responses';
 import { currentUser } from '#user/userService/userContext';
 import type { VibeService } from '#vibe/vibeService'; // Corrected import path
@@ -12,7 +13,6 @@ import type {
 	UpdateVibeSessionData,
 	VibeSession,
 } from '#vibe/vibeTypes';
-import type { AppFastifyInstance } from '../../applicationTypes';
 
 const ErrorResponseSchema = Type.Object({
 	error: Type.String(),

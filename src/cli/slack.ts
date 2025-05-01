@@ -1,5 +1,5 @@
+import { initApplicationContext } from '#app/applicationContext';
 import { sleep } from '#utils/async-utils';
-import { initApplicationContext } from '../applicationContext';
 
 async function main() {
 	await initApplicationContext();

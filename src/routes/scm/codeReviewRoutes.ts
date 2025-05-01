@@ -1,9 +1,9 @@
 import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
+import { appContext } from '#app/applicationContext';
 import { send, sendSuccess } from '#fastify/responses';
 import { logger } from '#o11y/logger';
 import type { CodeReviewConfig } from '#swe/codeReview/codeReviewModel';
-import { appContext } from '../../applicationContext';
 
 export async function codeReviewRoutes(fastify: FastifyInstance) {
 	fastify.get('/api/code-review-configs', async (request, reply) => {

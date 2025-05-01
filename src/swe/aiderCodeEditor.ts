@@ -5,6 +5,8 @@ import fs, { unlinkSync } from 'node:fs';
 import path, { join } from 'node:path';
 import { promisify } from 'node:util';
 import { addCost, agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
+import { systemDir } from '#app/appVars';
+import { appContext } from '#app/applicationContext';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import type { LLM, LlmMessage } from '#llm/llm';
 import { type LlmCall, callStack } from '#llm/llmCallService/llmCall';
@@ -17,8 +19,6 @@ import { logger } from '#o11y/logger';
 import { getActiveSpan } from '#o11y/trace';
 import { currentUser } from '#user/userService/userContext';
 import { execCommand } from '#utils/exec';
-import { systemDir } from '../appVars';
-import { appContext } from '../applicationContext';
 
 @funcClass(__filename)
 export class AiderCodeEditor {

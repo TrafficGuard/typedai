@@ -2,13 +2,13 @@ import { Type } from '@sinclair/typebox';
 import type { FastifyReply } from 'fastify';
 import { RunAgentConfig, type RunWorkflowConfig } from '#agent/agentRunner';
 import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
+import { appContext } from '#app/applicationContext';
+import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send, sendSuccess } from '#fastify/index';
 import { GitLabCodeReview } from '#functions/scm/gitlabCodeReview';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { envVar } from '#utils/env-var';
-import { appContext } from '../../../applicationContext';
-import type { AppFastifyInstance } from '../../../applicationTypes';
 import { envVarHumanInLoopSettings } from '../../../cli/cliHumanInLoop';
 
 const basePath = '/api/webhooks';

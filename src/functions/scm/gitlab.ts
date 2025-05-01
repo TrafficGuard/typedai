@@ -13,6 +13,7 @@ import {
 import type { BranchSchema } from '@gitbeaker/rest';
 import type { DeepPartial } from 'ai';
 import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
+import { agentStorageDir, systemDir } from '#app/appVars';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import type { ToolType } from '#functions/toolType';
 import { logger } from '#o11y/logger';
@@ -21,7 +22,6 @@ import { getProjectInfo } from '#swe/projectDetection';
 import { currentUser, functionConfig } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
 import { execCommand, failOnError } from '#utils/exec';
-import { agentDir, systemDir } from '../../appVars';
 import { cacheRetry } from '../../cache/cacheRetry';
 import type { GitProject } from './gitProject';
 import type { MergeRequest, SourceControlManagement } from './sourceControlManagement';
@@ -244,7 +244,7 @@ export class GitLab implements SourceControlManagement {
 
 		const fss = getFileSystem();
 		const agent = agentContext();
-		const basePath = agent.useSharedRepos ? join(systemDir(), 'gitlab') : join(agentDir(), 'gitlab');
+		const basePath = agent.useSharedRepos ? join(systemDir(), 'gitlab') : join(agentStorageDir(), 'gitlab');
 		const targetPath = join(basePath, projectPathWithNamespace);
 		await fs.mkdir(targetPath, { recursive: true }); // Ensure folder exists
 

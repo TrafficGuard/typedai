@@ -3,10 +3,10 @@ import path, { basename, dirname, join } from 'node:path';
 import type { Span } from '@opentelemetry/api';
 import micromatch from 'micromatch';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
+import { typedaiDirName } from '#app/appVars';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { errorToString } from '#utils/errors';
-import { typedaiDirName } from '../../appVars';
 
 /**
  * This module builds summary documentation for a project/repository, to assist with searching in the repository.

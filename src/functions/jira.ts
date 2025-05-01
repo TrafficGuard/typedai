@@ -2,12 +2,12 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import axios, { type AxiosInstance } from 'axios';
 import { llms } from '#agent/agentContextLocalStorage';
+import { systemDir } from '#app/appVars';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { getJiraIssueType } from '#functions/jiraIssueType';
 import { logger } from '#o11y/logger';
 import { functionConfig } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
-import { systemDir } from '../appVars';
 import { cacheRetry } from '../cache/cacheRetry';
 
 export interface JiraConfig {

@@ -1,11 +1,11 @@
 import { LlmFunctions } from '#agent/LlmFunctions';
 import type { AgentContext } from '#agent/agentContextTypes';
 import { getCompletedHandler } from '#agent/completionHandlerRegistry';
+import { appContext } from '#app/applicationContext';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { deserializeLLMs } from '#llm/llmFactory';
 import { logger } from '#o11y/logger';
 import { currentUser } from '#user/userService/userContext';
-import { appContext } from '../applicationContext';
 
 export function serializeContext(context: AgentContext): Record<string, any> {
 	const serialized = {};

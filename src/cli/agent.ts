@@ -2,10 +2,10 @@ import '#fastify/trace-init/trace-init'; // leave an empty line next so this doe
 
 import { AgentFeedback } from '#agent/agentFeedback';
 import { provideFeedback, resumeCompleted, resumeError, resumeHil, startAgentAndWait } from '#agent/agentRunner';
+import { appContext, initApplicationContext } from '#app/applicationContext';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
-import { appContext, initApplicationContext } from '../applicationContext';
 import { parseProcessArgs, saveAgentId } from './cli';
 import { resolveFunctionClasses } from './functionResolver';
 

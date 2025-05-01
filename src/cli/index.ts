@@ -3,12 +3,12 @@ import '#fastify/trace-init/trace-init'; // leave an empty line next so this doe
 import type { AgentLLMs } from '#agent/agentContextTypes';
 import type { RunAgentConfig, RunWorkflowConfig } from '#agent/agentRunner';
 import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
+import { initApplicationContext } from '#app/applicationContext';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { buildIndexDocs } from '#swe/index/repoIndexDocBuilder';
 import { generateRepositoryMaps } from '#swe/index/repositoryMap';
 import { detectProjectInfo } from '#swe/projectDetection';
-import { initApplicationContext } from '../applicationContext';
 import { parseProcessArgs, saveAgentId } from './cli';
 
 async function main() {

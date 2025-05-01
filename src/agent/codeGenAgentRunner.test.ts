@@ -6,13 +6,13 @@ import { AGENT_REQUEST_FEEDBACK, AgentFeedback } from '#agent/agentFeedback';
 import { AGENT_COMPLETED_NAME, AGENT_SAVE_MEMORY } from '#agent/agentFunctions';
 import { type RunAgentConfig, SUPERVISOR_CANCELLED_FUNCTION_NAME, cancelAgent, provideFeedback, startAgent, startAgentAndWait } from '#agent/agentRunner';
 import { convertTypeScriptToPython } from '#agent/codeGenAgentUtils';
+import { appContext, initInMemoryApplicationContext } from '#app/applicationContext';
 import { TEST_FUNC_NOOP, TEST_FUNC_SKY_COLOUR, TEST_FUNC_SUM, TEST_FUNC_THROW_ERROR, TestFunctions } from '#functions/testFunctions';
 import { lastText } from '#llm/llm';
 import { mockLLM, mockLLMs } from '#llm/services/mock-llm';
 import { logger } from '#o11y/logger';
 import { setTracer } from '#o11y/trace';
 import { sleep } from '#utils/async-utils';
-import { appContext, initInMemoryApplicationContext } from '../applicationContext';
 import { agentContextStorage } from './agentContextLocalStorage';
 
 const PY_AGENT_COMPLETED = (note: string) => `await ${AGENT_COMPLETED_NAME}("${note}")`;

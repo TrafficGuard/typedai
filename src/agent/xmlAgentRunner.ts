@@ -7,6 +7,7 @@ import { AGENT_COMPLETED_NAME } from '#agent/agentFunctions';
 import { buildFunctionCallHistoryPrompt, buildMemoryPrompt, buildToolStatePrompt, updateFunctionSchemas } from '#agent/agentPromptUtils';
 import { type AgentExecution, formatFunctionError, formatFunctionResult } from '#agent/agentRunner';
 import { FUNCTION_OUTPUT_THRESHOLD, summariseLongFunctionOutput, summarizeFunctionOutput } from '#agent/agentUtils';
+import { appContext } from '#app/applicationContext';
 import { getServiceName } from '#fastify/trace-init/trace-init';
 import { type FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
 import type { FunctionResponse } from '#llm/llm';
@@ -14,7 +15,6 @@ import { parseFunctionCallsXml } from '#llm/responseParsers';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { errorToString } from '#utils/errors';
-import { appContext } from '../applicationContext';
 import { agentContextStorage, llms } from './agentContextLocalStorage';
 import { type HitlCounters, checkHumanInTheLoop } from './humanInTheLoopChecks';
 

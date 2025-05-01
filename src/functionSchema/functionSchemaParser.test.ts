@@ -1,6 +1,6 @@
 import { unlinkSync } from 'node:fs';
 import { expect } from 'chai';
-import { systemDir } from '../appVars';
+import { systemDir } from '#app/appVars';
 import { func, funcClass } from './functionDecorators';
 import { functionSchemaParser } from './functionSchemaParser';
 import type { FunctionSchema } from './functions';

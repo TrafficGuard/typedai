@@ -70,7 +70,7 @@ export class NpmPackages {
 		await Promise.all(crawls);
 
 		logger.info(info);
-		throw new Error('Not implemented');
+		throw new Error('NpmPackages.getDocumentation Not implemented');
 	}
 
 	@cacheRetry({ retries: 1, backOffMs: 1000 })
@@ -83,7 +83,7 @@ export class NpmPackages {
 		await Promise.all(crawls);
 
 		logger.info(info);
-		throw new Error('Not implemented');
+		throw new Error('NpmPackages.downloadDocumentation Not implemented');
 	}
 
 	/**

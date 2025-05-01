@@ -5,6 +5,7 @@ import { promisify } from 'node:util';
 import ignore, { type Ignore } from 'ignore';
 import type Pino from 'pino';
 import { agentContext } from '#agent/agentContextLocalStorage';
+import { TYPEDAI_FS } from '#app/appVars';
 import { parseArrayParameterValue } from '#functionSchema/functionUtils';
 import { Git } from '#functions/scm/git';
 import type { VersionControlSystem } from '#functions/scm/versionControlSystem';
@@ -13,7 +14,6 @@ import { logger } from '#o11y/logger';
 import { getActiveSpan } from '#o11y/trace';
 import { arg, execCmdSync, spawnCommand } from '#utils/exec';
 import { CDATA_END, CDATA_START, needsCDATA } from '#utils/xml-utils';
-import { TYPEDAI_FS } from '../../appVars';
 
 const fs = {
 	readFile: promisify(readFile),

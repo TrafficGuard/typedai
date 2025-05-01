@@ -17,6 +17,7 @@ import {
 	extractPythonCode,
 	removePythonMarkdownWrapper,
 } from '#agent/codeGenAgentUtils';
+import { appContext } from '#app/applicationContext';
 import { getServiceName } from '#fastify/trace-init/trace-init';
 import { FUNC_SEP, type FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
 import type { FunctionCallResult } from '#llm/llm';
@@ -24,7 +25,6 @@ import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { errorToString } from '#utils/errors';
-import { appContext } from '../applicationContext';
 import { agentContextStorage, llms } from './agentContextLocalStorage';
 import { type HitlCounters, checkHumanInTheLoop } from './humanInTheLoopChecks';
 

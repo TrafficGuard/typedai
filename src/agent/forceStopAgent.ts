@@ -1,7 +1,7 @@
 import { agentContext, agentContextStorage } from '#agent/agentContextLocalStorage';
 import { isExecuting } from '#agent/agentContextTypes';
+import { appContext } from '#app/applicationContext';
 import { currentUser } from '#user/userService/userContext';
-import { appContext } from '../applicationContext';
 
 const agentsToStop = new Set<string>();
 

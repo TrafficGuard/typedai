@@ -3,10 +3,10 @@ import { LlmFunctions } from '#agent/LlmFunctions';
 import { cancelAgent, provideFeedback, resumeCompleted, resumeError, resumeHil } from '#agent/agentRunner';
 import { serializeContext } from '#agent/agentSerialization';
 import { forceStopAgent } from '#agent/forceStopAgent';
+import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send, sendBadRequest } from '#fastify/index';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
-import type { AppFastifyInstance } from '../../applicationTypes';
 
 const v1BasePath = '/api/agent/v1';
 export async function agentExecutionRoutes(fastify: AppFastifyInstance) {

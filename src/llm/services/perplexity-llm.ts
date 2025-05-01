@@ -1,13 +1,13 @@
 import { InvalidPromptError } from 'ai';
 import OpenAI from 'openai';
 import { addCost, agentContext } from '#agent/agentContextLocalStorage';
+import { appContext } from '#app/applicationContext';
 import { Perplexity } from '#functions/web/perplexity';
 import type { LlmCall } from '#llm/llmCallService/llmCall';
 import { logger as log } from '#o11y/logger';
 import { withSpan } from '#o11y/trace';
 import { currentUser, functionConfig } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
-import { appContext } from '../../applicationContext';
 import { BaseLLM, type LlmCostFunction } from '../base-llm';
 import { type GenerateTextOptions, type GenerationStats, type LLM, type LlmMessage, type Prompt, assistant, isSystemUserPrompt, system, user } from '../llm';
 

@@ -5,10 +5,10 @@ import { agentContext, llms } from '#agent/agentContextLocalStorage';
 import type { AgentLLMs } from '#agent/agentContextTypes';
 import type { RunAgentConfig, RunWorkflowConfig } from '#agent/agentRunner';
 import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
+import { appContext, initApplicationContext } from '#app/applicationContext';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { queryWorkflow } from '#swe/discovery/selectFilesAgent';
-import { appContext, initApplicationContext } from '../applicationContext';
 import { parseProcessArgs, saveAgentId } from './cli';
 
 async function main() {

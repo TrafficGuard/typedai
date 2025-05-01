@@ -1,11 +1,11 @@
 import type { MergeRequestDiscussionNotePositionOptions } from '@gitbeaker/rest';
+import { appContext } from '#app/applicationContext';
 import { Git } from '#functions/scm/git';
 import { logger } from '#o11y/logger';
 import { addCodeWithLineNumbers, generateReviewTaskFingerprint, reviewDiff, shouldApplyCodeReview } from '#swe/codeReview/codeReviewCommon';
 import type { CodeReviewConfig, CodeReviewTask } from '#swe/codeReview/codeReviewModel';
 import { type DiffInfo, parseGitDiff } from '#swe/codeReview/local/parseGitDiff';
 import { allSettledAndFulFilled, settleAllWithInput } from '#utils/async-utils';
-import { appContext } from '../../../applicationContext';
 
 /**
  * Performs a code review of a local branch

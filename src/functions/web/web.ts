@@ -11,10 +11,10 @@ import * as autoconsent from '@duckduckgo/autoconsent';
 import fetch from 'cross-fetch';
 import puppeteer from 'puppeteer';
 import type { Browser } from 'puppeteer';
+import { agentStorageDir } from '#app/appVars';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { sleep } from '#utils/async-utils';
-import { agentDir } from '../../appVars';
 const TurndownService = require('turndown');
 const turndownService = new TurndownService();
 
@@ -143,7 +143,7 @@ export class PublicWeb {
 			const arrayBuffer = await response.arrayBuffer();
 
 			const fileName = url.substring(url.lastIndexOf('/') + 1) || 'downloaded_file';
-			const filePath = join(agentDir(), fileName);
+			const filePath = join(agentStorageDir(), fileName);
 			await fsPromises.writeFile(filePath, Buffer.from(arrayBuffer));
 			logger.info(`File downloaded and saved to ${filePath}`);
 			return filePath;

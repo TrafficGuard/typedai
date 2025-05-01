@@ -6,13 +6,13 @@ import { AGENT_REQUEST_FEEDBACK, REQUEST_FEEDBACK_PARAM_NAME } from '#agent/agen
 import { AGENT_COMPLETED_NAME } from '#agent/agentFunctions';
 import { type RunAgentConfig, SUPERVISOR_CANCELLED_FUNCTION_NAME, cancelAgent, provideFeedback, startAgent, startAgentAndWait } from '#agent/agentRunner';
 import { XML_AGENT_SPAN } from '#agent/xmlAgentRunner';
+import { appContext, initInMemoryApplicationContext } from '#app/applicationContext';
 import { TEST_FUNC_NOOP, TEST_FUNC_SKY_COLOUR, TEST_FUNC_SUM, THROW_ERROR_TEXT, TestFunctions } from '#functions/testFunctions';
 import { lastText } from '#llm/llm';
 import { MockLLM } from '#llm/services/mock-llm';
 import { setTracer } from '#o11y/trace';
 import type { User } from '#user/user';
 import { sleep } from '#utils/async-utils';
-import { appContext, initInMemoryApplicationContext } from '../applicationContext';
 import { agentContextStorage } from './agentContextLocalStorage';
 
 const REQUEST_FEEDBACK_VALUE = 'question is...';

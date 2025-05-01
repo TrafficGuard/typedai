@@ -1,4 +1,5 @@
 import { agentContext, getFileSystem, llms } from '#agent/agentContextLocalStorage';
+import { appContext } from '#app/applicationContext';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import type { FileSystemService } from '#functions/storage/fileSystemService';
 import { Perplexity } from '#functions/web/perplexity';
@@ -13,7 +14,6 @@ import { onlineResearch } from '#swe/onlineResearch';
 import { reviewChanges } from '#swe/reviewChanges';
 import { supportingInformation } from '#swe/supportingInformation';
 import { execCommand } from '#utils/exec';
-import { appContext } from '../applicationContext';
 import { cacheRetry } from '../cache/cacheRetry';
 import { AiderCodeEditor } from './aiderCodeEditor';
 import { type SelectFilesResponse, selectFilesToEdit } from './discovery/selectFilesToEdit';

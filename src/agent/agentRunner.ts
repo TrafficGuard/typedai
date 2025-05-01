@@ -5,13 +5,13 @@ import { AGENT_REQUEST_FEEDBACK } from '#agent/agentFeedback';
 import { AGENT_COMPLETED_PARAM_NAME } from '#agent/agentFunctions';
 import { runCodeGenAgent } from '#agent/codeGenAgentRunner';
 import { runXmlAgent } from '#agent/xmlAgentRunner';
+import { appContext } from '#app/applicationContext';
 import { FUNC_SEP, type FunctionSchema } from '#functionSchema/functions';
 import type { FunctionCall, FunctionCallResult } from '#llm/llm';
 import { logger } from '#o11y/logger';
 import type { User } from '#user/user';
 import { errorToString } from '#utils/errors';
 import { CDATA_END, CDATA_START } from '#utils/xml-utils';
-import { appContext } from '../applicationContext';
 
 export const SUPERVISOR_RESUMED_FUNCTION_NAME: string = `Supervisor${FUNC_SEP}Resumed`;
 export const SUPERVISOR_CANCELLED_FUNCTION_NAME: string = `Supervisor${FUNC_SEP}Cancelled`;

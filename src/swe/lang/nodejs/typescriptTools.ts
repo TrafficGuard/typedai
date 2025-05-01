@@ -2,10 +2,10 @@ import fs, { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
+import { typedaiDirName } from '#app/appVars';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { type ExecResult, execCommand, failOnError } from '#utils/exec';
-import { typedaiDirName } from '../../../appVars';
 import type { LanguageTools } from '../languageTools';
 
 // https://typescript.tv/errors/

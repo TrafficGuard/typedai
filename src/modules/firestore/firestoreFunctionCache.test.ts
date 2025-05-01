@@ -2,10 +2,10 @@ import * as fs from 'node:fs/promises';
 import axios from 'axios';
 import { expect } from 'chai';
 import { agentContext, agentContextStorage, createContext } from '#agent/agentContextLocalStorage';
+import { initInMemoryApplicationContext } from '#app/applicationContext';
 import { mockLLMs } from '#llm/services/mock-llm';
 import { logger } from '#o11y/logger';
 import { currentUser } from '#user/userService/userContext';
-import { initInMemoryApplicationContext } from '../../applicationContext';
 import { RetryableError, cacheRetry } from '../../cache/cacheRetry';
 import { FirestoreCacheService } from './firestoreFunctionCacheService';
 

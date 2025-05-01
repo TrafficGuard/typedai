@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { agentContext } from '#agent/agentContextLocalStorage';
+import { appContext } from '#app/applicationContext';
 import type { User } from '#user/user';
-import { appContext } from '../../applicationContext';
 
 const userContextStorage = new AsyncLocalStorage<User>();
 

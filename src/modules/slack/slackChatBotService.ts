@@ -4,6 +4,7 @@ import type { MessageElement } from '@slack/web-api/dist/response/ConversationsR
 import { getLastFunctionCallArg } from '#agent/agentCompletion';
 import { type AgentCompleted, type AgentContext, isExecuting } from '#agent/agentContextTypes';
 import { resumeCompleted, resumeCompletedWithUpdatedUserRequest, startAgent } from '#agent/agentRunner';
+import { appContext } from '#app/applicationContext';
 import { GoogleCloud } from '#functions/cloud/google/google-cloud';
 import { Jira } from '#functions/jira';
 import { GitLab } from '#functions/scm/gitlab';
@@ -12,7 +13,6 @@ import { Perplexity } from '#functions/web/perplexity';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { sleep } from '#utils/async-utils';
-import { appContext } from '../../applicationContext';
 import type { ChatBotService } from '../../chatBot/chatBotService';
 
 let slackApp: App<StringIndexed> | undefined;

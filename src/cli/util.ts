@@ -4,11 +4,11 @@ import { LlmFunctions } from '#agent/LlmFunctions';
 import { agentContextStorage, createContext } from '#agent/agentContextLocalStorage';
 import type { AgentContext, AgentLLMs } from '#agent/agentContextTypes';
 import type { RunWorkflowConfig } from '#agent/agentRunner';
+import { appContext } from '#app/applicationContext';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { MultiLLM } from '#llm/multi-llm';
 import { Claude3_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { GPT4o } from '#llm/services/openai';
-import { appContext } from '../applicationContext';
 import { envVarHumanInLoopSettings } from './cliHumanInLoop';
 
 // For running random bits of code

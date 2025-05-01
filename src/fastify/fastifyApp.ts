@@ -12,10 +12,10 @@ import fastify, {
 } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
 import * as HttpStatus from 'http-status-codes';
+import type { AppFastifyInstance } from '#app/applicationTypes';
 import { googleIapMiddleware, jwtAuthMiddleware, singleUserMiddleware } from '#fastify/authenticationMiddleware';
 import { logger } from '#o11y/logger';
 import type { User } from '#user/user';
-import type { AppFastifyInstance } from '../applicationTypes';
 import { loadOnRequestHooks } from './hooks';
 
 const NODE_ENV = process.env.NODE_ENV ?? 'local';

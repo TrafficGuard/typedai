@@ -1,6 +1,6 @@
 import type { LlmFunctions } from '#agent/LlmFunctions';
 import type { FileSystemService } from '#functions/storage/fileSystemService';
-import type { FunctionCall, FunctionCallResult, LLM, LlmMessage } from '#llm/llm';
+import type { FunctionCall, FunctionCallResult, ImagePartExt, LLM, LlmMessage } from '#llm/llm';
 import type { User } from '#user/user';
 
 /**
@@ -153,6 +153,8 @@ export interface AutonomousIteration {
 	functions: string[];
 	/** The input prompt */
 	prompt: string;
+	/** Images included with the input prompt */
+	images: ImagePartExt[];
 	/** Extracted from <expanded_user_request></expanded_user_request>*/
 	expandedUserRequest: string;
 	/** Extracted from <observations-reasoning> */

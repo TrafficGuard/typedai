@@ -3,10 +3,10 @@ import type { FastifyReply } from 'fastify';
 import type { AgentContext, AutonomousIteration } from '#agent/agentContextTypes';
 import { type AgentExecution, agentExecutions } from '#agent/agentRunner';
 import { serializeContext } from '#agent/agentSerialization';
+import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send, sendBadRequest, sendSuccess } from '#fastify/index';
 import { sendJSON } from '#fastify/responses';
 import { logger } from '#o11y/logger';
-import type { AppFastifyInstance } from '../../applicationTypes';
 import { functionRegistry } from '../../functionRegistry';
 
 const basePath = '/api/agent/v1';

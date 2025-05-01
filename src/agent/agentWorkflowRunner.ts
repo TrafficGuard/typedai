@@ -2,11 +2,11 @@ import type { Span } from '@opentelemetry/api';
 import { agentContext, agentContextStorage, createContext } from '#agent/agentContextLocalStorage';
 import type { AgentContext } from '#agent/agentContextTypes';
 import { RunAgentConfig, type RunWorkflowConfig } from '#agent/agentRunner';
+import { appContext } from '#app/applicationContext';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { errorToString } from '#utils/errors';
 import { formatMillisDuration } from '#utils/time';
-import { appContext } from '../applicationContext';
 
 /**
  * Runs a workflow with an agentContext. This also persists the agent so its actions can be reviewed in the UI

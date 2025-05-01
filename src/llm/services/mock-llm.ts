@@ -1,11 +1,11 @@
 import { addCost, agentContext } from '#agent/agentContextLocalStorage';
 import type { AgentLLMs } from '#agent/agentContextTypes';
+import { appContext } from '#app/applicationContext';
 import { type LlmCall, callStack } from '#llm/llmCallService/llmCall';
 import { Blueberry } from '#llm/multi-agent/blueberry';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
-import { appContext } from '../../applicationContext';
 import { BaseLLM, type LlmCostFunction } from '../base-llm';
 import { type GenerateTextOptions, type LLM, type LlmMessage, assistant, combinePrompts, system, user } from '../llm';
 

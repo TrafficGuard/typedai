@@ -3,11 +3,11 @@ import '#fastify/trace-init/trace-init'; // leave an empty line next so this doe
 import type { AgentLLMs } from '#agent/agentContextTypes';
 import type { RunAgentConfig, RunWorkflowConfig } from '#agent/agentRunner';
 import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
+import { initApplicationContext } from '#app/applicationContext';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { performLocalBranchCodeReview } from '#swe/codeReview/local/localCodeReview';
 import { beep } from '#utils/beep';
-import { initApplicationContext } from '../applicationContext';
 import { parseProcessArgs } from './cli';
 
 async function main() {

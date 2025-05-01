@@ -9,12 +9,12 @@ import {
 	smoothStream,
 } from 'ai';
 import { addCost, agentContext } from '#agent/agentContextLocalStorage';
+import { appContext } from '#app/applicationContext';
 import { BaseLLM } from '#llm/base-llm';
 import { type GenerateTextOptions, type GenerationStats, type LlmMessage, toText } from '#llm/llm';
 import { type LlmCall, callStack } from '#llm/llmCallService/llmCall';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
-import { appContext } from '../../applicationContext';
 
 /**
  * Base class for LLM implementations using the Vercel ai package

@@ -1,5 +1,5 @@
+import { initApplicationContext } from '#app/applicationContext';
 import { logger } from '#o11y/logger';
-import { initApplicationContext } from './applicationContext';
 import { initFastify } from './fastify';
 import { functionRegistry } from './functionRegistry';
 import { agentDetailsRoutes } from './routes/agent/agent-details-routes';

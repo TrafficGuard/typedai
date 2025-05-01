@@ -20,6 +20,7 @@ import type { AutonomousIteration } from '#agent/agentContextTypes';
 import { Agent } from '#agent/agentFunctions';
 import type { AgentStateService } from '#agent/agentStateService/agentStateService'; // Adjust path as needed
 import { clearCompletedHandlers, getCompletedHandler, registerCompletedHandler } from '#agent/completionHandlerRegistry'; // Adjust path if needed
+import { appContext } from '#app/applicationContext';
 import * as functionSchema from '#functionSchema/functionDecorators'; // Adjust path as needed
 import { FileSystemRead } from '#functions/storage/fileSystemRead'; // Adjust path as needed
 import type { FunctionCallResult, LLM, LlmMessage } from '#llm/llm'; // Adjust path as needed
@@ -27,7 +28,6 @@ import { MockLLM } from '#llm/services/mock-llm'; // Adjust path as needed
 import { logger } from '#o11y/logger'; // Adjust path as needed
 import type { ChatSettings, LLMServicesConfig, User } from '#user/user'; // Adjust path as needed
 import * as userContext from '#user/userService/userContext';
-import { appContext } from '../../applicationContext';
 
 // These tests must be implementation independent so we can ensure the same
 // behaviour from various implementations of the AgentStateService interface
@@ -735,6 +735,7 @@ export function runAgentStateServiceTests(
 			agentPlan: `<plan>Plan for iteration ${iterNum}</plan>`,
 			nextStepDetails: `Next step details for iteration ${iterNum}`,
 			code: `print("Iteration ${iterNum}")`,
+			images: [],
 			functionCalls: [
 				{
 					function_name: MockFunction.name,

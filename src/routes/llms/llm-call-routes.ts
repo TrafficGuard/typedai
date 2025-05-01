@@ -1,7 +1,7 @@
 import { Type } from '@sinclair/typebox';
+import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send } from '#fastify/index';
 import type { LlmCall } from '#llm/llmCallService/llmCall';
-import type { AppFastifyInstance } from '../../applicationTypes';
 
 const basePath = '/api/llms';
 export async function llmCallRoutes(fastify: AppFastifyInstance) {

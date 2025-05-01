@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { request } from '@octokit/request';
 import type { Endpoints } from '@octokit/types';
 import { agentContext } from '#agent/agentContextLocalStorage';
+import { agentStorageDir, systemDir } from '#app/appVars';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import type { MergeRequest, SourceControlManagement } from '#functions/scm/sourceControlManagement';
 import type { ToolType } from '#functions/toolType';
@@ -10,7 +11,6 @@ import { logger } from '#o11y/logger';
 import { functionConfig } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
 import { execCommand, failOnError, spawnCommand } from '#utils/exec';
-import { agentDir, systemDir } from '../../appVars';
 import type { GitProject } from './gitProject';
 import { extractOwnerProject } from './scmUtils';
 
@@ -95,7 +95,7 @@ export class GitHub implements SourceControlManagement {
 		const project = paths[1];
 
 		const agent = agentContext();
-		const basePath = agent.useSharedRepos ? join(systemDir(), 'github') : join(agentDir(), 'github');
+		const basePath = agent.useSharedRepos ? join(systemDir(), 'github') : join(agentStorageDir(), 'github');
 		const targetPath = join(basePath, org, project);
 		await fs.mkdir(join(targetPath, org), { recursive: true }); // Ensure the target dir exists
 

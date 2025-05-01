@@ -7,6 +7,7 @@ import {
 	type MergeRequestDiscussionNotePositionOptions,
 	type ProjectSchema,
 } from '@gitbeaker/rest';
+import { appContext } from '#app/applicationContext';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { GitLab, type GitLabConfig } from '#functions/scm/gitlab';
 import { logger } from '#o11y/logger';
@@ -16,7 +17,6 @@ import type { CodeReviewConfig, CodeReviewFingerprintCache, CodeReviewTask } fro
 import { functionConfig } from '#user/userService/userContext';
 import { settleAllWithInput } from '#utils/async-utils';
 import { envVar } from '#utils/env-var';
-import { appContext } from '../../applicationContext';
 import { cacheRetry } from '../../cache/cacheRetry';
 import type { SourceControlManagement } from './sourceControlManagement';
 

@@ -4,6 +4,7 @@ import { promises as fs, readFileSync } from 'node:fs';
 import type { AgentLLMs } from '#agent/agentContextTypes';
 import { AGENT_COMPLETED_PARAM_NAME } from '#agent/agentFunctions';
 import { startAgentAndWait } from '#agent/agentRunner';
+import { appContext, initFirestoreApplicationContext } from '#app/applicationContext';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { LlmTools } from '#functions/util';
 import { Perplexity } from '#functions/web/perplexity';
@@ -17,7 +18,6 @@ import { openAIo1 } from '#llm/services/openai';
 import { Gemini_2_0_Flash } from '#llm/services/vertexai';
 import { logger } from '#o11y/logger';
 import { sleep } from '#utils/async-utils';
-import { appContext, initFirestoreApplicationContext } from '../applicationContext';
 
 const SYSTEM_PROMPT = `Finish your answer with the following template: FINAL ANSWER: [YOUR FINAL ANSWER]. YOUR FINAL ANSWER should be a number OR as few words as possible OR a comma separated list of numbers and/or strings. If you are asked for a number, don't use comma to write your number neither use units such as $ or percent sign unless specified otherwise. If you are asked for a string, don't use articles, neither abbreviations (e.g. for cities), and write the digits in plain text unless specified otherwise. If you are asked for a comma separated list, apply the above rules depending of whether the element to be put in the list is a number or a string.`;
 
