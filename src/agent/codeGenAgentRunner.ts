@@ -5,9 +5,9 @@ import { runAgentCompleteHandler } from '#agent/agentCompletion';
 import type { AgentContext, AutonomousIteration } from '#agent/agentContextTypes';
 import { AGENT_REQUEST_FEEDBACK, REQUEST_FEEDBACK_PARAM_NAME } from '#agent/agentFeedback';
 import { AGENT_COMPLETED_NAME, AGENT_COMPLETED_PARAM_NAME, AGENT_SAVE_MEMORY_CONTENT_PARAM_NAME } from '#agent/agentFunctions';
-import { buildFunctionCallHistoryPrompt, buildMemoryPrompt, buildToolStateMap, buildToolStatePrompt, updateFunctionSchemas } from '#agent/agentPromptUtils';
+import { buildMemoryPrompt, buildToolStateMap, buildToolStatePrompt, updateFunctionSchemas } from '#agent/agentPromptUtils';
 import type { AgentExecution } from '#agent/agentRunner';
-import { FUNCTION_OUTPUT_THRESHOLD, SCRIPT_RETURN_VALUE_MAX_TOKENS, summarizeFunctionOutput } from '#agent/agentUtils';
+import { FUNCTION_OUTPUT_THRESHOLD, summarizeFunctionOutput } from '#agent/agentUtils';
 import {
 	convertJsonToPythonDeclaration,
 	extractAgentPlan,
@@ -17,15 +17,17 @@ import {
 	extractPythonCode,
 	removePythonMarkdownWrapper,
 } from '#agent/codeGenAgentUtils';
+import { cloneAndTruncateBuffers } from '#agent/trimObject';
 import { appContext } from '#app/applicationContext';
 import { getServiceName } from '#fastify/trace-init/trace-init';
 import { FUNC_SEP, type FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
-import type { FunctionCallResult } from '#llm/llm';
-import { countTokens } from '#llm/tokens';
+import type { FileStore } from '#functions/storage/filestore';
+import { type FunctionCallResult, type ImagePartExt, type LlmMessage, type UserContentExt, system, text, toText, user } from '#llm/llm';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { errorToString } from '#utils/errors';
 import { agentContextStorage, llms } from './agentContextLocalStorage';
+import { checkForImageSources } from './agentImageUtils'; // Add this import
 import { type HitlCounters, checkHumanInTheLoop } from './humanInTheLoopChecks';
 
 const stopSequences = ['</response>'];
@@ -66,12 +68,17 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 	agentContextStorage.enterWith(agent);
 	const agentStateService = appContext().agentStateService;
 	const userRequestXml = `<user_request>\n${agent.userPrompt}\n</user_request>`;
-	let currentPrompt = agent.inputPrompt;
-	logger.info(`currentPrompt ${currentPrompt}`);
 
 	let hitlCounters: HitlCounters = { iteration: 0, costAccumulated: 0, lastCost: 0 };
 
 	let currentFunctionHistorySize = agent.functionCallHistory.length;
+
+	// Store the agent's response from the previous iteration to include in the next prompt
+	let previousAgentPlanResponse = '';
+	// Store the script result from the previous iteration
+	let previousScriptResult = '';
+	// Store image parts detected in the last script result, to be included in the *next* prompt
+	let imageParts: ImagePartExt[] = [];
 
 	let shouldContinue = true;
 	while (shouldContinue) {
@@ -82,45 +89,68 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 			let completed = false;
 			let requestFeedback = false;
 			let controlLoopError: Error | null = null;
+			let currentImageParts: ImagePartExt[] = []; // Reset image parts for this iteration's script result processing
 
 			const iterationData: Partial<AutonomousIteration> = {
 				agentId: agent.agentId,
-				iteration: agent.iterations + 1, // Iteration number for this loop run
+				iteration: agent.iterations,
 				functions: agent.functions.getFunctionClassNames(),
 			};
 
 			try {
 				hitlCounters = await checkHumanInTheLoop(hitlCounters, agent, agentStateService);
 
-				// Build the prompt ----------
 				// Might need to reload the agent for dynamic updating of the tools
 				const functionsXml = convertJsonToPythonDeclaration(getAllFunctionSchemas(agent.functions.getFunctionInstances()));
 				const systemPromptWithFunctions = updateFunctionSchemas(codegenSystemPrompt, functionsXml);
 				const toolStatePrompt = await buildToolStatePrompt();
-				// If the last function was requestFeedback then we'll remove it from function history add it as function results
-				let historyToIndex = agent.functionCallHistory.length ? agent.functionCallHistory.length - 1 : 0;
-				let requestFeedbackCallResult = '';
+
+				// Add function call history (handle potential requestFeedback at the end)
+				let historyEndIndex = agent.functionCallHistory.length;
+				let requestFeedbackCallResult: FunctionCallResult | null = null;
 				if (agent.functionCallHistory.length && agent.functionCallHistory.at(-1).function_name === AGENT_REQUEST_FEEDBACK) {
-					historyToIndex--;
-					requestFeedbackCallResult = buildFunctionCallHistoryPrompt('results', 10000, historyToIndex + 1, historyToIndex + 2);
+					historyEndIndex--;
+					requestFeedbackCallResult = agent.functionCallHistory[historyEndIndex]; // Get the feedback call
 				}
-				const oldFunctionCallHistory = buildFunctionCallHistoryPrompt('history', 10000, 0, historyToIndex);
 
-				const isNewAgent = agent.iterations === 0 && agent.functionCallHistory.length === 0;
-				// For the initial prompt we create the empty memory, functional calls and default tool state content. Subsequent iterations already have it
-				const initialPrompt = isNewAgent
-					? oldFunctionCallHistory + buildMemoryPrompt() + toolStatePrompt + currentPrompt
-					: currentPrompt + requestFeedbackCallResult;
-				iterationData.prompt = initialPrompt;
-				// -----
+				// Build the agent planning prompt messages
+				const agentMessages: LlmMessage[] = [];
+				agentMessages.push(system(systemPromptWithFunctions));
 
-				let agentPlanResponse: string;
-				let pythonMainFnCode: string;
-				let pythonScript: string;
-				let pythonScriptResult: any;
+				// Build the main control loop prompt message content
+				const agentUserMessageContent: UserContentExt = [];
+				agentUserMessageContent.push(text(buildMemoryPrompt()));
+				if (toolStatePrompt) agentUserMessageContent.push(text(toolStatePrompt));
+				agentUserMessageContent.push(text(userRequestXml));
 
+				// Add previous agent response and script result (if not the first iteration)
+				if (agent.iterations > 0) {
+					agentUserMessageContent.push(text(previousAgentPlanResponse)); // The <response>...</response> block
+					agentUserMessageContent.push(text(previousScriptResult)); // The <script-result>...</script-result> or <script-error>...</script-error>
+					// Add images detected in the previous script result
+					if (imageParts.length > 0) {
+						logger.debug(`Adding ${imageParts.length} image(s) from previous iteration to prompt.`);
+						agentUserMessageContent.push(...imageParts); // Add images collected at the end of the last loop
+					}
+				}
+
+				if (requestFeedbackCallResult)
+					agentUserMessageContent.push(
+						text(`<function-result name="${AGENT_REQUEST_FEEDBACK}">${JSON.stringify(requestFeedbackCallResult)}</function-result>`),
+					);
+
+				agentUserMessageContent.push(
+					text('Review the results of the script and make any observations about the output/errors, then proceed with the response.'),
+				);
+
+				agentMessages.push(user(agentUserMessageContent));
+
+				iterationData.prompt = agentMessages.map(toText).join('\n');
+				iterationData.images = imageParts.map((img) => structuredClone(img));
+
+				let agentPlanResponseMessage: LlmMessage;
 				try {
-					agentPlanResponse = await agent.llms.hard.generateText(systemPromptWithFunctions, initialPrompt, {
+					agentPlanResponseMessage = await agent.llms.hard.generateMessage(agentMessages, {
 						id: 'Codegen agent plan',
 						stopSequences,
 						temperature: 0.5,
@@ -128,57 +158,59 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 					});
 				} catch (e) {
 					logger.warn(e, 'Error with Codegen agent plan');
-					// One re-try if the generate fails or the code can't be extracted
-					agentPlanResponse = await agent.llms.hard.generateText(systemPromptWithFunctions, initialPrompt, {
+					agentPlanResponseMessage = await agent.llms.hard.generateMessage(agentMessages, {
 						id: 'Codegen agent plan retry',
 						stopSequences,
 						temperature: 0.5,
 						thinking: 'medium',
 					});
 				}
-				// Save the raw response before extracting parts
-				// iterationData.agentPlan = agentPlanResponse;
-
-				// Extract specific parts from the agent's response
+				const agentPlanResponse = toText(agentPlanResponseMessage);
+				iterationData.stats = agentPlanResponseMessage.stats;
 				iterationData.expandedUserRequest = extractExpandedUserRequest(agentPlanResponse);
 				iterationData.observationsReasoning = extractObservationsReasoning(agentPlanResponse);
 				iterationData.agentPlan = extractAgentPlan(agentPlanResponse); // Overwrite with extracted plan if found, otherwise keep raw
 				iterationData.nextStepDetails = extractNextStepDetails(agentPlanResponse);
 
-				pythonMainFnCode = extractPythonCode(agentPlanResponse);
+				let pythonScriptResult: any;
+				let pythonScriptResultString: string | null = null; // To store the stringified result for the next prompt
+
+				// Store for the next iteration's prompt, wrapped in expected tags
+				previousAgentPlanResponse = `<response>\n${agentPlanResponse}\n</response>`;
+
+				// Extract the code, compile and fix if required
+				let pythonMainFnCode = extractPythonCode(agentPlanResponse);
 				pythonMainFnCode = await ensureCorrectSyntax(pythonMainFnCode, functionsXml);
 				iterationData.code = pythonMainFnCode;
-				pythonScript = mainFnCodeToFullScript(pythonMainFnCode);
+				const pythonScript = mainFnCodeToFullScript(pythonMainFnCode);
 
 				const currentIterationFunctionCalls: FunctionCallResult[] = [];
+				// Configure the objects for the Python global scope which proxy to the available @func class methods
 				const globals = setupPyodideFunctionCallableGlobals(agent, agentPlanResponse, currentIterationFunctionCalls);
 
-				agent.state = 'functions';
-				await agentStateService.save(agent);
+				await agentStateService.updateState(agent, 'functions');
 
 				try {
 					const result = await pyodide.runPythonAsync(pythonScript, { globals });
-					pythonScriptResult = result?.toJs ? result.toJs() : result;
+					// The dict_converter converts to regular JS objects instead of the default Map objects
+					pythonScriptResult = result?.toJs ? result.toJs({ dict_converter: Object.fromEntries }) : result;
 					if (result?.destroy) result.destroy();
 
-					if (typeof pythonScriptResult === 'object') {
-						for (const [k, v] of Object.entries(pythonScriptResult)) {
-							const value = JSON.stringify(v);
-							const tokens = await countTokens(JSON.stringify(v));
-							if (tokens > SCRIPT_RETURN_VALUE_MAX_TOKENS) {
-								logger.warn(`Truncated return value for ${k}`);
-								const newLength = Number.parseInt((SCRIPT_RETURN_VALUE_MAX_TOKENS * 3.5).toFixed(0));
-								if (newLength > value.length) {
-									pythonScriptResult[k] = `${value.substring(0, newLength)}... (truncated due to size)`;
-								}
-							}
-						}
+					// --- Check for images BEFORE stringifying/truncating ---
+					if (typeof pythonScriptResult === 'object' && pythonScriptResult !== null) {
+						// Reset images for this iteration before checking
+						currentImageParts = []; // Use a temporary variable for this iteration's images
+						const fileStore: FileStore | null = agent.functions.getFunctionType('filestore');
+						currentImageParts = await checkForImageSources(pythonScriptResult, fileStore); // Pass result and filestore
+						// Store the detected images for the *next* iteration's prompt
+						imageParts = currentImageParts;
+					} else {
+						// If not an object, clear image parts for the next iteration
+						imageParts = [];
 					}
+					pythonScriptResultString = cloneAndTruncateBuffers(pythonScriptResult);
 
-					pythonScriptResult = JSON.stringify(pythonScriptResult);
-					// logger.info(pythonScriptResult, 'Script result');
-					// If execution succeeds reset error tracking:
-					agent.error = null;
+					agent.error = null; // If execution succeeds reset error tracking
 				} catch (e) {
 					const lineNumber = extractLineNumber(e.message);
 					const line = lineNumber ? ` on line "${pythonScript.split('\n')[lineNumber]}"` : '';
@@ -203,14 +235,11 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 					requestFeedback = true;
 				}
 
-				const currentFunctionCallHistory = buildFunctionCallHistoryPrompt('results', 10000, currentFunctionHistorySize);
-
-				const scriptResult = agent.error
+				// Store the script result string (or error) for the next iteration's prompt
+				previousScriptResult = agent.error
 					? `<python-script>\n${pythonMainFnCode}\n</python-script>\n<script-error>\n${agent.error}\n</script-error>`
-					: `<script-result>${pythonScriptResult}</script-result>`;
+					: `<script-result>${pythonScriptResultString}</script-result>`;
 
-				currentPrompt = `${oldFunctionCallHistory}\n${currentFunctionCallHistory}${buildMemoryPrompt()}${toolStatePrompt}\n${userRequestXml}\n${agentPlanResponse}\n${scriptResult}\nReview the results of the script and make any observations about the output/errors, then proceed with the response.`;
-				agent.inputPrompt = currentPrompt;
 				currentFunctionHistorySize = agent.functionCallHistory.length;
 			} catch (e) {
 				span.setStatus({ code: SpanStatusCode.ERROR, message: e.message });
@@ -220,9 +249,9 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				iterationData.error = agent.error;
 				logger.error(e, 'Control loop error');
 			} finally {
-				// Capture memory and tool state before saving
-				iterationData.memory = new Map(Object.entries(agent.memory)); // Convert Record to Map
-				iterationData.toolState = await buildToolStateMap(agent.functions.getFunctionInstances()); // Capture tool state
+				// Capture current memory and tool state before saving
+				iterationData.memory = new Map(Object.entries(agent.memory));
+				iterationData.toolState = await buildToolStateMap(agent.functions.getFunctionInstances());
 
 				try {
 					await Promise.all([agentStateService.save(agent), agentStateService.saveIteration(iterationData as AutonomousIteration)]);
@@ -232,8 +261,8 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				}
 			}
 
-			// return if the control loop should continue
-			return !(completed || requestFeedback || controlLoopError);
+			const shouldStopExecution = completed || requestFeedback || !!controlLoopError;
+			return !shouldStopExecution;
 		});
 	}
 
@@ -263,7 +292,7 @@ function mainFnCodeToFullScript(pythonMainFnCode: string): string {
 		.join('\n');
 
 	pythonScript += `
-from typing import Any, List, Dict, Tuple, Optional, Union
+from typing import Any, List, Dict, Tuple, Optional, Union, TypedDict, Callable, Iterable, Mapping, Sequence, Set, Final
 from pyodide.ffi import JsProxy
 
 class JsProxyEncoder(json.JSONEncoder):
@@ -413,8 +442,8 @@ async function initPyodide(): Promise<PyodideInterface> {
 }
 
 async function ensureCorrectSyntax(pythonMainFnCode: string, functionsXml: string): Promise<string> {
-	const MAX_ATTEMPTS = 2;
-	for (let i = 1; i < MAX_ATTEMPTS; i++) {
+	const MAX_ATTEMPTS = 1;
+	for (let i = 1; i <= MAX_ATTEMPTS; i++) {
 		const lines = mainFnCodeToFullScript(pythonMainFnCode).split('\n');
 		// Strip the main() so nothing executes
 		const main = lines.pop();
@@ -424,8 +453,6 @@ async function ensureCorrectSyntax(pythonMainFnCode: string, functionsXml: strin
 			await pyodide.runPythonAsync(script, {});
 			return pythonMainFnCode;
 		} catch (e) {
-			console.log(script);
-			console.log(e);
 			if ((e.type !== 'IndentationError' && e.type !== 'SyntaxError') || i === MAX_ATTEMPTS) throw e; // Only expect syntax/indent errors
 
 			// Fix the compile issues in the script
@@ -434,4 +461,5 @@ async function ensureCorrectSyntax(pythonMainFnCode: string, functionsXml: strin
 			pythonMainFnCode = removePythonMarkdownWrapper(pythonMainFnCode);
 		}
 	}
+	return pythonMainFnCode;
 }

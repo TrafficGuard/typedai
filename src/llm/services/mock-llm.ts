@@ -7,7 +7,7 @@ import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { BaseLLM, type LlmCostFunction } from '../base-llm';
-import { type GenerateTextOptions, type LLM, type LlmMessage, assistant, combinePrompts, system, user } from '../llm';
+import { type GenerateTextOptions, type GenerationStats, type LLM, type LlmMessage, assistant, combinePrompts, system, toText, user } from '../llm';
 
 export class MockLLM extends BaseLLM {
 	lastPrompt = '';
@@ -40,47 +40,44 @@ export class MockLLM extends BaseLLM {
 		return this.lastPrompt;
 	}
 
-	// @logTextGeneration
-	async _generateText(systemPrompt: string | undefined, userPrompt: string, opts?: GenerateTextOptions): Promise<string> {
-		logger.info(`MockLLM ${opts?.id ?? '<no id>'} ${userPrompt.substring(0, 50)}`);
+	protected async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
+		const description = opts?.id ?? '';
+		logger.info(`MockLLM ${description} processing ${messages.length} messages.`);
 
-		// if (!opts?.id) logger.info(new Error(`No id set for prompt ${userPrompt}`));
-		const messages: LlmMessage[] = [];
-		if (systemPrompt) messages.push(system(systemPrompt));
-		messages.push(user(userPrompt));
+		return withActiveSpan(`generateMessage ${description}`, async (span) => {
+			// Use the full message array for context, but might use last message for specific logic like callback
+			const fullPromptText = messages.map((m) => toText(m)).join('\n');
+			const lastUserMessage = messages.findLast((m) => m.role === 'user');
+			const userPromptForCallback = lastUserMessage ? toText(lastUserMessage) : ''; // Use last user message for callback consistency
 
-		return withActiveSpan(`generateText ${opts?.id}`, async (span) => {
-			const prompt = combinePrompts(userPrompt, systemPrompt);
-			this.lastPrompt = prompt;
+			this.lastPrompt = userPromptForCallback; // Keep track of the last user prompt for testing
 
-			if (this.responses.length === 0)
-				throw new Error(`Need to call setResponses on MockLLM before calling generateText for prompt id:${opts?.id ?? '<no id>'} prompt:${userPrompt}`);
+			if (this.responses.length === 0) {
+				throw new Error(`Need to call setResponses on MockLLM before calling generate for prompt id:${description} prompt:${userPromptForCallback}`);
+			}
 
 			const llmCallSave: Promise<LlmCall> = appContext().llmCallService.saveRequest({
-				messages,
+				messages: messages as LlmMessage[], // Cast needed as input is ReadonlyArray
 				llmId: this.getId(),
 				agentId: agentContext()?.agentId,
 				callStack: callStack(),
+				description,
 			});
 			const requestTime = Date.now();
 
-			// remove the first item from this.responses - simulate the LLM call
+			// Simulate the LLM call
 			const { response: responseText, callback } = this.responses.shift()!;
 
-			// console.log('\n' + opts?.id + ' >>>>>>>>>>>>>>>>>>>>>>>>>>>\n' +responseText + '\n<<<<<<<<<<<<<<<<<<<<<<<\n')
+			if (callback) callback(userPromptForCallback);
 
-			messages.push(assistant(responseText));
-
-			if (callback) callback(userPrompt);
-
-			const timeToFirstToken = 1;
+			const timeToFirstToken = 1; // Mock value
 			const finishTime = Date.now();
 			const llmCall: LlmCall = await llmCallSave;
 
-			const inputTokens = await this.countTokens(prompt);
+			const inputTokens = await this.countTokens(fullPromptText);
 			const outputTokens = await this.countTokens(responseText);
 			const { totalCost } = this.calculateCosts(inputTokens, outputTokens);
-			const cost = totalCost; // Will be 0
+			const cost = totalCost; // Will be 0 for MockLLM
 			addCost(cost);
 
 			llmCall.timeToFirstToken = timeToFirstToken;
@@ -89,17 +86,58 @@ export class MockLLM extends BaseLLM {
 			llmCall.inputTokens = inputTokens;
 			llmCall.outputTokens = outputTokens;
 
+			const stats: GenerationStats = {
+				llmId: this.getId(),
+				cost,
+				inputTokens,
+				outputTokens,
+				requestTime,
+				timeToFirstToken,
+				totalTime: llmCall.totalTime,
+			};
+
+			const assistantMessage: LlmMessage = {
+				role: 'assistant',
+				content: responseText,
+				stats,
+			};
+
+			// Update the call log with the response
+			llmCall.messages = [...llmCall.messages, assistantMessage];
+
+			span.setAttributes({
+				inputChars: fullPromptText.length,
+				outputChars: responseText.length,
+				inputTokens,
+				outputTokens,
+				cost,
+				model: this.model,
+				service: this.service,
+				description,
+			});
+
 			try {
 				await appContext().llmCallService.saveResponse(llmCall);
 			} catch (e) {
-				console.error(e);
+				logger.error(e, 'Failed to save MockLLM response');
 			}
 
-			this.lastPrompt = userPrompt;
-
 			// logger.debug(`MockLLM response ${responseText}`);
-			return responseText;
+			return assistantMessage;
 		});
+	}
+
+	// @logTextGeneration
+	async _generateText(systemPrompt: string | undefined, userPrompt: string, opts?: GenerateTextOptions): Promise<string> {
+		const messages: LlmMessage[] = [];
+		if (systemPrompt) messages.push(system(systemPrompt));
+		messages.push(user(userPrompt));
+
+		// Delegate the core logic to _generateMessage
+		const resultMessage = await this._generateMessage(messages, opts);
+
+		// Extract the text content
+		return toText(resultMessage);
 	}
 }
 

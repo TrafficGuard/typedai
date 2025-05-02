@@ -115,6 +115,11 @@ interface FilePart {
 export interface AttachmentInfo {
 	filename: string;
 	size: number;
+	/**
+	 * URL to large attachment data stored external from the LlmMessage (ie. in the agent's persistent directory).
+	 * When this is set the image/file data will be set to an empty string when saving to the database.
+	 */
+	externalURL?: string;
 }
 
 export type FilePartExt = FilePart & AttachmentInfo;

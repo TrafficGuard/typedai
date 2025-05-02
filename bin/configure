@@ -22,6 +22,14 @@ if [[ ! -f ./variables/local.env ]]; then
     cp ./variables/local.env.example ./variables/test.env
 fi
 
+# Populate SINGLE_USER_EMAIL from gcloud if possible
+SINGLE_USER_EMAIL=$(gcloud config get-value account 2>/dev/null)
+# Basic check if SINGLE_USER_EMAIL is an email address
+if [[ "$SINGLE_USER_EMAIL" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+  # In ./variables/local.env replace SINGLE_USER_EMAIL= with SINGLE_USER_EMAIL=${$SINGLE_USER_EMAIL}
+  sed -i '' "s/^SINGLE_USER_EMAIL=.*/SINGLE_USER_EMAIL=${SINGLE_USER_EMAIL}/g" ./variables/local.env
+  echo "Set SINGLE_USER_EMAIL to ${SINGLE_USER_EMAIL} in ./variables/local.env"
+fi
 
 # Angular setup ----------------
 

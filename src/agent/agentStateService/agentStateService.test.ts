@@ -23,7 +23,7 @@ import { clearCompletedHandlers, getCompletedHandler, registerCompletedHandler }
 import { appContext } from '#app/applicationContext';
 import * as functionSchema from '#functionSchema/functionDecorators'; // Adjust path as needed
 import { FileSystemRead } from '#functions/storage/fileSystemRead'; // Adjust path as needed
-import type { FunctionCallResult, LLM, LlmMessage } from '#llm/llm'; // Adjust path as needed
+import type { FunctionCallResult, GenerationStats, LLM, LlmMessage } from '#llm/llm'; // Adjust path as needed
 import { MockLLM } from '#llm/services/mock-llm'; // Adjust path as needed
 import { logger } from '#o11y/logger'; // Adjust path as needed
 import type { ChatSettings, LLMServicesConfig, User } from '#user/user'; // Adjust path as needed
@@ -746,6 +746,7 @@ export function runAgentStateServiceTests(
 			memory: new Map<string, string>([[`memoryKey${iterNum}`, `memoryValue${iterNum}`]]),
 			toolState: new Map<string, any>([[`toolKey${iterNum}`, `toolValue${iterNum}`]]),
 			error: iterNum % 3 === 0 ? `Simulated error for iteration ${iterNum}` : undefined, // Add error sometimes
+			stats: {} as GenerationStats,
 		});
 
 		it('should save multiple iterations for an agent', async () => {

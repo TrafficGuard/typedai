@@ -298,7 +298,8 @@ describe('codegenAgentRunner', () => {
 			expect(calls.length).to.equal(3);
 
 			const skyCall = calls[1];
-			expect(skyCall.callStack).to.equal('skyColour > generateText skyColourId');
+			// skyColour is the TestFunctions method name
+			expect(skyCall.callStack).to.equal('skyColour > generateMessage skyColourId');
 			expect(lastText(skyCall.messages)).to.equal('blue');
 		});
 	});

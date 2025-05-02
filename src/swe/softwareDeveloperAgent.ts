@@ -27,7 +27,7 @@ export class SoftwareDeveloperAgent {
 	@func()
 	async runSoftwareDeveloperWorkflow(requirements: string, scmFullProjectPath?: string): Promise<MergeRequest> {
 		const fileSystem = getFileSystem();
-		const scm = getSourceControlManagementTool();
+		const scm = await getSourceControlManagementTool();
 
 		const requirementsSummary = await this.summariseRequirements(requirements);
 
@@ -76,7 +76,7 @@ export class SoftwareDeveloperAgent {
 
 		const { title, description } = await generatePullRequestTitleDescription(requirements, baseBranch);
 
-		return await getSourceControlManagementTool().createMergeRequest(gitProject.id, title, description, featureBranchName, baseBranch);
+		return await scm.createMergeRequest(gitProject.id, title, description, featureBranchName, baseBranch);
 	}
 
 	@cacheRetry({ scope: 'agent' })

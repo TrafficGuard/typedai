@@ -58,7 +58,7 @@ export abstract class BaseLLM implements LLM {
 	) {}
 
 	protected _generateText(systemPrompt: string | undefined, userPrompt: string, opts?: GenerateTextOptions): Promise<string> {
-		throw new Error('Not implemented');
+		throw new Error(`BaseLLM._generateText Not implemented for ${this.getId()}`);
 	}
 
 	protected supportsGenerateTextFromMessages(): boolean {
@@ -221,11 +221,11 @@ export abstract class BaseLLM implements LLM {
 	}
 
 	protected generateTextFromMessages(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
-		throw new Error('Not implemented');
+		throw new Error(`BaseLLM.generateTextFromMessages Not implemented for ${this.getId()}`);
 	}
 
 	async streamText(llmMessages: LlmMessage[], onChunk: (chunk: TextStreamPart<any>) => void, opts?: GenerateTextOptions): Promise<GenerationStats> {
-		throw new Error('Not implemented');
+		throw new Error(`BaseLLM.streamText Not implemented for ${this.getId()}`);
 	}
 
 	isConfigured(): boolean {

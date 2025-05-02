@@ -1,4 +1,3 @@
-import { llms } from '#agent/agentContextLocalStorage';
 import { AgentFeedback } from '#agent/agentFeedback';
 import { LiveFiles } from '#agent/liveFiles';
 import { CommandLineInterface } from '#functions/commandLine';
@@ -50,6 +49,8 @@ interface FunctionMatch {
  * Handles exact matches, aliases, and fuzzy matching via LLM
  */
 export async function resolveFunctionClasses(requestedFunctions: string[]): Promise<Array<new () => any>> {
+	// dynamic import is required to avoid module loading dependency issues
+	const functionRegistry = (await import('../functionRegistryModule.cjs')).functionRegistry as () => Array<new () => any>;
 	const registry = functionRegistry();
 	const registryMap = new Map(registry.map((fn) => [fn.name, fn]));
 	const llm: LLM = defaultLLMs().easy;

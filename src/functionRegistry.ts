@@ -16,7 +16,7 @@ import { type ToolType, hasGetToolType } from '#functions/toolType';
 import { LlmTools } from '#functions/util';
 import { Perplexity } from '#functions/web/perplexity';
 import { PublicWeb } from '#functions/web/web';
-import { Slack } from '#modules/slack/slack';
+import { Slack } from '#slack/slack';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { CodeFunctions } from '#swe/codeFunctions';
 import { NpmPackages } from '#swe/lang/nodejs/npmPackages';

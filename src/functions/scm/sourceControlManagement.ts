@@ -1,6 +1,5 @@
-import { functionRegistry } from 'src/functionRegistry';
 import { agentContext } from '#agent/agentContextLocalStorage';
-import { type GetToolType, ToolType } from '#functions/toolType';
+import type { GetToolType } from '#functions/toolType';
 import type { GitProject } from './gitProject';
 
 export interface MergeRequest {
@@ -56,10 +55,11 @@ function isScmObject(obj: Record<string, any>): boolean {
  * Gets the function class implementing SourceControlManagement from the AgentContext
  * It first searches the agents functions, then falls back to searching the function registry for a single match.
  */
-export function getSourceControlManagementTool(): SourceControlManagement {
+export async function getSourceControlManagementTool(): Promise<SourceControlManagement> {
 	const scm = agentContext().functions.getFunctionInstances().find(isScmObject) as SourceControlManagement;
 	if (scm) return scm;
-
+	// dynamic import is required to avoid module loading dependency issues
+	const functionRegistry = (await import('../../functionRegistryModule.cjs')).functionRegistry as () => Array<new () => any>;
 	const scms = functionRegistry()
 		.map((ctor) => new ctor())
 		.filter(isScmObject);

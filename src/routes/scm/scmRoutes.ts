@@ -3,7 +3,6 @@ import * as HttpStatus from 'http-status-codes';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { sendBadRequest, sendJSON, sendServerError } from '#fastify/responses';
 import type { GitProject } from '#functions/scm/gitProject';
-import { parseScmProjectId } from '#functions/scm/scmUtils';
 import type { SourceControlManagement } from '#functions/scm/sourceControlManagement';
 import { logger } from '#o11y/logger';
 import { getFunctionsByType } from '../../functionRegistry';

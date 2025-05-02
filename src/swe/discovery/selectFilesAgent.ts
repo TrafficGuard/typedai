@@ -2,8 +2,8 @@ import path from 'node:path';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import type { LLM, LlmMessage } from '#llm/llm';
 import { extractTag } from '#llm/responseParsers';
-import { openAIo3mini } from '#llm/services/openai';
 import { logger } from '#o11y/logger';
+import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
 import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
 import { type RepositoryMaps, generateRepositoryMaps } from '#swe/index/repositoryMap';
 import { type ProjectInfo, detectProjectInfo } from '#swe/projectDetection';
@@ -182,6 +182,26 @@ async function selectFilesCore(
 			filesPendingDecision.delete(kept.path);
 		}
 
+		// Include relevant rules/documentation/guideline files
+		const justKeptPaths = response.keepFiles?.map((f) => f.path) ?? [];
+		if (justKeptPaths.length > 0) {
+			try {
+				const cwd = getFileSystem().getWorkingDirectory();
+				// Assuming projectInfo.baseDir corresponds to the VCS root for the purpose of finding config files
+				const vcsRoot = getFileSystem().getVcsRoot();
+				const alternativeFiles = await includeAlternativeAiToolFiles(justKeptPaths, { cwd, vcsRoot });
+				for (const altFile of alternativeFiles) {
+					// Add the alternative file only if it hasn't been explicitly kept or ignored already
+					if (!keptFiles.has(altFile) && !ignoredFiles.has(altFile)) {
+						keptFiles.set(altFile, 'Relevant AI tool configuration/documentation file');
+						logger.info(`Automatically included relevant AI tool file: ${altFile}`);
+					}
+				}
+			} catch (error) {
+				logger.warn(error, `Failed to check for or include alternative AI tool files based on: ${justKeptPaths.join(', ')}`);
+			}
+		}
+
 		// Create the user message with the additional file contents to inspect
 		messages.push(await processedIterativeStepUserPrompt(response));
 
@@ -210,7 +230,7 @@ async function selectFilesCore(
 		// Once the medium LLM has completed, then we switch to the hard LLM as a review,
 		// which may continue inspecting files until it is satisfied.
 		if (filesToInspect.length === 0 && filesPendingDecision.size === 0) {
-			// Use the hard LLM to review the final selection. Check on a variable and not on llms().medium === llm().hard in case they are the ame.
+			// Use the hard LLM to review the final selection. Check on a variable and not on llms().medium === llm().hard in case they are the same.
 			if (!usingHardLLM) {
 				llm = llms().hard;
 				usingHardLLM = true;

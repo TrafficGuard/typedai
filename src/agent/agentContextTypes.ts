@@ -1,6 +1,6 @@
 import type { LlmFunctions } from '#agent/LlmFunctions';
 import type { FileSystemService } from '#functions/storage/fileSystemService';
-import type { FunctionCall, FunctionCallResult, ImagePartExt, LLM, LlmMessage } from '#llm/llm';
+import type { FunctionCall, FunctionCallResult, GenerationStats, ImagePartExt, LLM, LlmMessage } from '#llm/llm';
 import type { User } from '#user/user';
 
 /**
@@ -173,4 +173,6 @@ export interface AutonomousIteration {
 	toolState: Map<string, any>;
 	/** Any error */
 	error?: string;
+	/** Plan generation stats */
+	stats: GenerationStats;
 }

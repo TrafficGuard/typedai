@@ -1,11 +1,11 @@
 import type { PerplexityProvider } from '@ai-sdk/perplexity';
 import { createPerplexity } from '@ai-sdk/perplexity';
-import type { GenerateTextResult, LanguageModelV1FinishReason, LanguageModelV1Usage } from 'ai';
+import type { GenerateTextResult } from 'ai';
 import { Perplexity } from '#functions/web/perplexity';
-import { currentUser, functionConfig } from '#user/userService/userContext';
+import { functionConfig } from '#user/userService/userContext';
 import type { LlmCostFunction } from '../base-llm';
+import type { LLM } from '../llm';
 import { AiLLM } from './ai-llm';
-import type { GenerateTextOptions, LLM, LlmMessage } from '../llm';
 
 export const PERPLEXITY_SERVICE = 'perplexity';
 
@@ -19,9 +19,9 @@ sonar	$1	$1	$5
 */
 
 function perplexityCostFunction(inputMil: number, outputMil: number): LlmCostFunction {
-	return (inputTokens: number, outputTokens: number, usage: LanguageModelV1Usage, completionTime?: Date, result?: GenerateTextResult<any, any>) => {
+	return (inputTokens: number, outputTokens: number, usage: any, completionTime?: Date, result?: GenerateTextResult<any, any>) => {
 		// Extract Perplexity specific usage from providerMetadata
-		const ppMetadata = result?.experimental_providerMetadata?.perplexity as { usage?: { numSearchQueries?: number; citationTokens?: number } } | undefined;
+		const ppMetadata = result?.providerMetadata?.perplexity as { usage?: { numSearchQueries?: number; citationTokens?: number } } | undefined;
 		const searches = ppMetadata?.usage?.numSearchQueries ?? 0;
 		// const citationTokens = ppMetadata?.usage?.citationTokens ?? 0; // Not currently used in cost calculation
 
@@ -80,7 +80,6 @@ export class PerplexityLLM extends AiLLM<PerplexityProvider> {
 	}
 
 	protected apiKey(): string {
-		// Ensure functionConfig is loaded if needed, or rely on env var
 		return functionConfig(Perplexity)?.key || process.env.PERPLEXITY_API_KEY;
 	}
 
@@ -90,23 +89,20 @@ export class PerplexityLLM extends AiLLM<PerplexityProvider> {
 		});
 		return this.aiProvider;
 	}
+}
 
-	protected async _generateTextFromMessages(
-		llmMessages: LlmMessage[],
-		opts?: GenerateTextOptions,
-	): Promise<GenerateTextResult<LanguageModelV1FinishReason>> {
-		// Let AiLLM handle the core generation
-		const result = await super._generateTextFromMessages(llmMessages, opts);
+export function convertCitationsToMarkdownLinks(reportText: string, citations: string[]): string {
+	// Create a regex pattern to match citation IDs in the report text
+	const citationPattern = /\[(\d+)]/g;
 
-		// Append sources/citations if available from Perplexity metadata
-		const sources = result.experimental_providerMetadata?.perplexity?.sources as { url: string; title: string }[] | undefined;
-		if (sources?.length) {
-			const citationContent = `\n\nSources:\n${sources.map((source, index) => `[${index + 1}] ${source.title} (${source.url})`).join('\n')}`;
-			result.text += citationContent;
+	// Replace each citation ID with a markdown link
+	return reportText.replace(citationPattern, (match, id) => {
+		const citationId = Number.parseInt(id, 10) - 1; // Convert the matched ID to a number and subtract 1 (since array indices start at 0)
+		if (citationId >= 0 && citationId < citations.length) {
+			// If the citation ID is valid, replace the ID with a markdown link
+			return `[${citations[citationId]}](#${citationId + 1})`;
 		}
-
-		// The cost calculation is handled within AiLLM using the updated perplexityCostFunction
-		// which now correctly interprets the AI SDK usage and metadata.
-		return result;
-	}
+		// If the citation ID is not valid, return the original match to keep the text unchanged
+		return match;
+	});
 }

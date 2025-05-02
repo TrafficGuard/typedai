@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { ProviderV1 } from '@ai-sdk/provider';
 import {
 	type CoreMessage,
@@ -9,10 +10,11 @@ import {
 	smoothStream,
 } from 'ai';
 import { addCost, agentContext } from '#agent/agentContextLocalStorage';
+import { cloneAndTruncateBuffers } from '#agent/trimObject';
 import { appContext } from '#app/applicationContext';
 import { BaseLLM } from '#llm/base-llm';
 import { type GenerateTextOptions, type GenerationStats, type LlmMessage, toText } from '#llm/llm';
-import { type LlmCall, callStack } from '#llm/llmCallService/llmCall';
+import { type CreateLlmRequest, type LlmCall, callStack } from '#llm/llmCallService/llmCall';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 
@@ -49,7 +51,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 
 	async _generateMessage(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<LlmMessage> {
 		const description = opts?.id ?? '';
-		return withActiveSpan(`generateTextFromMessages ${description}`, async (span) => {
+		return await withActiveSpan(`generateTextFromMessages ${description}`, async (span) => {
 			const messages: CoreMessage[] = this.processMessages(llmMessages);
 
 			// Gemini Flash 2.0 thinking max is about 42
@@ -64,14 +66,24 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				description,
 			});
 
-			const llmCallSave: Promise<LlmCall> = appContext().llmCallService.saveRequest({
-				messages: llmMessages,
+			const createLlmCallRequest: CreateLlmRequest = {
+				messages: cloneAndTruncateBuffers(llmMessages),
 				llmId: this.getId(),
 				agentId: agentContext()?.agentId,
 				// userId: currentUser().id,
 				callStack: callStack(),
 				description,
-			});
+			};
+			let llmCall: LlmCall;
+			try {
+				llmCall = await appContext().llmCallService.saveRequest(createLlmCallRequest);
+			} catch (e) {
+				llmCall = {
+					...createLlmCallRequest,
+					id: randomUUID(),
+					requestTime: Date.now(),
+				};
+			}
 
 			const requestTime = Date.now();
 			try {
@@ -122,7 +134,6 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				result.response.messages;
 				const responseText = result.text;
 				const finishTime = Date.now();
-				const llmCall: LlmCall = await llmCallSave;
 
 				const { inputCost, outputCost, totalCost } = this.calculateCosts(
 					result.usage.promptTokens,
@@ -158,7 +169,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 					stats,
 				};
 
-				llmCall.messages = [...llmCall.messages, message];
+				llmCall.messages = [...llmCall.messages, cloneAndTruncateBuffers(message)];
 
 				span.setAttributes({
 					inputChars: prompt.length,
@@ -172,7 +183,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				try {
 					await appContext().llmCallService.saveResponse(llmCall);
 				} catch (e) {
-					logger.error(e);
+					logger.warn(e, `Error saving LlmCall response ${e.message}`);
 				}
 
 				return message;

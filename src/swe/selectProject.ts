@@ -4,7 +4,7 @@ import { type SourceControlManagement, getSourceControlManagementTool } from '#f
 import { buildPrompt } from '#swe/prompt';
 
 export async function selectProject(requirements: string): Promise<GitProject> {
-	const scm: SourceControlManagement = getSourceControlManagementTool();
+	const scm: SourceControlManagement = await getSourceControlManagementTool();
 	const projects: GitProject[] = await scm.getProjects();
 	const prompt: string = buildPrompt({
 		information: `The following is a list of our projects in our git server:\n${JSON.stringify(projects)}`,

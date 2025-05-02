@@ -11,6 +11,7 @@ import { groqLlama3_3_70B } from '#llm/services/groq';
 import { nebiusDeepSeekR1 } from '#llm/services/nebius';
 import { Ollama_Phi3 } from '#llm/services/ollama';
 import { GPT4oMini } from '#llm/services/openai';
+import { perplexityLLM } from '#llm/services/perplexity-llm';
 import { sambanovaDeepseekR1, sambanovaLlama3_3_70b, sambanovaLlama3_3_70b_R1_Distill } from '#llm/services/sambanova';
 import { togetherLlama3_70B } from '#llm/services/together';
 import { Gemini_2_0_Flash, Gemini_2_0_Flash_Lite, Gemini_2_5_Pro } from '#llm/services/vertexai';
@@ -58,6 +59,15 @@ describe('LLMs', () => {
 			],
 		},
 	];
+
+	describe('Perplexity', () => {
+		const llm = perplexityLLM();
+
+		it('should generateText', async () => {
+			const response = await llm.generateText('why is the sky blue?', { temperature: 0 });
+			expect(response.toLowerCase()).to.include('blue');
+		});
+	});
 
 	describe('Anthropic', () => {
 		const llm = Claude3_5_Sonnet();

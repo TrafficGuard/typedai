@@ -25,11 +25,29 @@
                     <mat-panel-title [ngClass]="{ 'hidden-title': call.systemPromptExpanded }">
                         <span class="w-20">{{ message.role | titlecase }}:</span>
                         <span *ngIf="!call.systemPromptExpanded" class="expansion-preview">
-                            {{ message.content | slice : 0 : 150 }} ...
+                            {{ getPreviewContent(message.content) | slice : 0 : 150 }} ...
                     </span>
                     </mat-panel-title>
                 </mat-expansion-panel-header>
-                <div style="white-space: pre-wrap">{{ message.content }}</div>
+                <div style="white-space: pre-wrap">
+                    <!-- Handle string content -->
+                    <ng-container *ngIf="isStringContent(message.content)">
+                        {{ message.content }}
+                    </ng-container>
+
+                    <!-- Handle array content -->
+                    <ng-container *ngIf="isArrayContent(message.content)">
+                        <!-- Use the helper method to cast for the loop -->
+                        <div *ngFor="let part of getContentAsArray(message.content)">
+                            <ng-container [ngSwitch]="part.type">
+                                <span *ngSwitchCase="'text'">{{ part.text }}</span>
+                                <span *ngSwitchCase="'image'">[Image Part: {{ part.mimeType || 'type unknown' }}]</span>
+                                <span *ngSwitchCase="'file'">[File Part: {{ part.mimeType || 'type unknown' }}]</span>
+                                <span *ngSwitchDefault>[Unknown Part Type]</span>
+                            </ng-container>
+                        </div>
+                    </ng-container>
+                </div>
             </mat-expansion-panel>
         }
 <!--
