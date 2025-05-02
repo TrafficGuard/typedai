@@ -1,13 +1,14 @@
-import { writeFileSync } from 'node:fs';
+import { promises as fs, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import axios, { type AxiosInstance } from 'axios';
 import { llms } from '#agent/agentContextLocalStorage';
-import { systemDir } from '#app/appVars';
+import { agentStorageDir, systemDir } from '#app/appVars';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { getJiraIssueType } from '#functions/jiraIssueType';
 import { logger } from '#o11y/logger';
 import { functionConfig } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
+import { escapeXml, formatXmlContent } from '#utils/xml-utils';
 import { cacheRetry } from '../cache/cacheRetry';
 
 export interface JiraConfig {
@@ -39,42 +40,88 @@ export class Jira {
 	}
 
 	/**
-	 * Gets the description of a JIRA issue
+	 * Gets the details of a JIRA issue (title, description, comments, attachments)
 	 * @param {string} issueId - the issue id (e.g. XYZ-123)
-	 * @returns {Promise<string>} the issue description
+	 * @returns {Promise<string>} the issue details
 	 */
 	@func()
-	async getJiraDescription(issueId: string): Promise<string> {
+	async getJiraDetails(issueId: string): Promise<string> {
 		if (!issueId) throw new Error('issueId is required');
+
 		try {
 			const response = await this.axios().get(`issue/${issueId}`);
-			// const fields = response.data.fields;
+			const fields = response.data.fields;
 
-			// const summaru =
-			// console.log(response.data)
-			// console.log(response.data.fields.summary);
-			// console.log('comments ============');
-			// console.log(response.data.fields.comment.comments);
-			console.log('attachments ============');
-			console.log(response.data.fields.attachment);
-			// /rest/api/3/attachment/content/{id}
+			let xml = `<jira-issue id="${issueId}">\n`;
+			xml += `  <summary>${formatXmlContent(fields.summary)}</summary>\n`;
+			xml += `  <description>${formatXmlContent(fields.description)}</description>\n`;
 
-			// for (const attachment of response.data.fields.attachment) {
-			// 	// content.id;
-			// 	// content.content;
-			// 	// content.mimeType
-			// 	try {
-			// 		const attachmentResponse = await this.axios().get(attachment.content, { responseType: 'arraybuffer' });
-			// 		const buffer = Buffer.from(attachmentResponse.data, 'binary');
-			// 		writeFileSync(join(systemDir()), buffer);
-			// 	} catch (e) {
-			// 		logger.info(`Error getting attachment: ${e}`);
-			// 	}
-			// }
+			// Add comments
+			if (fields.comment?.comments?.length > 0) {
+				xml += '  <comments>\n';
+				for (const comment of fields.comment.comments) {
+					const author = comment.author?.emailAddress || comment.author?.displayName || 'Unknown';
+					const created = comment.created || '';
+					const updated = comment.updated || '';
+					const body = comment.body || '';
+					const isUpdated = created !== updated;
+					xml += `    <comment author="${author}" created="${created}" ${isUpdated ? `updated="${updated}"` : ''}>\n`;
+					xml += `      ${formatXmlContent(body)}\n`;
+					xml += '    </comment>\n';
+				}
+				xml += '  </comments>\n';
+			} else {
+				xml += '  <comments />\n';
+			}
 
-			return `${response.data.fields.summary}\n\n${response.data.fields.description}`;
+			// Download attachments in parallel and build XML
+			if (fields.attachment?.length > 0) {
+				xml += '  <attachments>\n';
+				const agentPath = agentStorageDir();
+				const dirPath = join(agentPath, 'jira', issueId);
+				await fs.mkdir(dirPath, { recursive: true }); // Ensure base directory exists once
+
+				const downloadPromises = fields.attachment.map(async (attachment: any) => {
+					const filename = attachment.filename as string;
+					const contentUrl = attachment.content as string;
+					const mimeType = attachment.mimeType as string;
+					const size = attachment.size as number;
+					const attachmentPath = join(dirPath, filename);
+
+					try {
+						const attachmentResponse = await this.axios().get(contentUrl, { responseType: 'arraybuffer' });
+						const buffer = Buffer.from(attachmentResponse.data, 'binary');
+						await fs.writeFile(attachmentPath, buffer);
+						return { filename, mimeType, size, attachmentPath };
+					} catch (e: any) {
+						logger.warn(e, `Failed to download attachment ${filename} from ${contentUrl}`);
+						// Return metadata even on failure, but mark status as error
+						return { filename, mimeType, size, attachmentPath: '[Not available - download error]' };
+					}
+				});
+
+				const results = await Promise.allSettled(downloadPromises);
+
+				results.forEach((result) => {
+					if (result.status === 'fulfilled') {
+						const { filename, mimeType, size, downloadStatus, attachmentPath } = result.value;
+						xml += `    <attachment filename="${escapeXml(filename)}" mimeType="${escapeXml(mimeType)}" size="${size}b" path="${escapeXml(attachmentPath)}"`;
+						xml += ' />\n';
+					} else {
+						logger.error(result.reason, 'Unexpected error during attachment processing promise.'); // Shouldn't happen as we catch errors
+					}
+				});
+
+				xml += '  </attachments>\n';
+			} else {
+				xml += '  <attachments />\n';
+			}
+
+			xml += '</jira-issue>';
+
+			return xml;
 		} catch (error) {
-			logger.error(error, `Error fetching Jira ${issueId} description:`);
+			logger.error(error, `Error fetching Jira ${issueId} description`);
 			throw error;
 		}
 	}

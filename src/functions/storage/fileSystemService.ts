@@ -13,7 +13,7 @@ import { LlmTools } from '#functions/util';
 import { logger } from '#o11y/logger';
 import { getActiveSpan } from '#o11y/trace';
 import { arg, execCmdSync, spawnCommand } from '#utils/exec';
-import { CDATA_END, CDATA_START, needsCDATA } from '#utils/xml-utils';
+import { formatXmlContent } from '#utils/xml-utils';
 
 const fs = {
 	readFile: promisify(readFile),
@@ -424,10 +424,7 @@ export class FileSystemService {
 		let result = '';
 
 		fileContents.forEach((contents, path) => {
-			const cdata = needsCDATA(contents);
-			result += cdata
-				? `<file_content file_path="${path}">${CDATA_START}\n${contents}\n${CDATA_END}</file_content>\n`
-				: `<file_content file_path="${path}">\n${contents}\n</file_content>\n`;
+			result += `<file_content file_path="${path}">${formatXmlContent(contents)}</file_content>\n`;
 		});
 		return result;
 	}
