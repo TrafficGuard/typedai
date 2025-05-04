@@ -24,7 +24,7 @@ import { appContext } from '#app/applicationContext';
 import { getServiceName } from '#fastify/trace-init/trace-init';
 import { FUNC_SEP, type FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
 import type { FileStore } from '#functions/storage/filestore';
-import { type FunctionCallResult, type ImagePartExt, type LlmMessage, type UserContentExt, system, text, toText, user } from '#llm/llm';
+import { type FunctionCallResult, type ImagePartExt, type LlmMessage, type UserContentExt, messageText, system, text, user } from '#llm/llm';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { errorToString } from '#utils/errors';
@@ -147,7 +147,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				logger.debug({ finalAgentUserMessageContent: agentUserMessageContent }, 'Final user message content before creating user message');
 				agentMessages.push(user(agentUserMessageContent));
 
-				iterationData.prompt = agentMessages.map(toText).join('\n');
+				iterationData.prompt = agentMessages.map(messageText).join('\n');
 				iterationData.images = imageParts.map((img) => structuredClone(img));
 
 				let agentPlanResponseMessage: LlmMessage;
@@ -167,7 +167,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 						thinking: 'medium',
 					});
 				}
-				const agentPlanResponse = toText(agentPlanResponseMessage);
+				const agentPlanResponse = messageText(agentPlanResponseMessage);
 				iterationData.stats = agentPlanResponseMessage.stats;
 				iterationData.expandedUserRequest = extractExpandedUserRequest(agentPlanResponse);
 				iterationData.observationsReasoning = extractObservationsReasoning(agentPlanResponse);

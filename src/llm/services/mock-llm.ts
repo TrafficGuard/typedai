@@ -7,7 +7,7 @@ import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { BaseLLM, type LlmCostFunction } from '../base-llm';
-import { type GenerateTextOptions, type GenerationStats, type LLM, type LlmMessage, assistant, combinePrompts, system, toText, user } from '../llm';
+import { type GenerateTextOptions, type GenerationStats, type LLM, type LlmMessage, assistant, combinePrompts, messageText, system, user } from '../llm';
 
 export class MockLLM extends BaseLLM {
 	lastPrompt = '';
@@ -46,9 +46,9 @@ export class MockLLM extends BaseLLM {
 
 		return withActiveSpan(`generateMessage ${description}`, async (span) => {
 			// Use the full message array for context, but might use last message for specific logic like callback
-			const fullPromptText = messages.map((m) => toText(m)).join('\n');
+			const fullPromptText = messages.map((m) => messageText(m)).join('\n');
 			const lastUserMessage = messages.findLast((m) => m.role === 'user');
-			const userPromptForCallback = lastUserMessage ? toText(lastUserMessage) : ''; // Use last user message for callback consistency
+			const userPromptForCallback = lastUserMessage ? messageText(lastUserMessage) : ''; // Use last user message for callback consistency
 
 			this.lastPrompt = userPromptForCallback; // Keep track of the last user prompt for testing
 
@@ -137,7 +137,7 @@ export class MockLLM extends BaseLLM {
 		const resultMessage = await this._generateMessage(messages, opts);
 
 		// Extract the text content
-		return toText(resultMessage);
+		return messageText(resultMessage);
 	}
 }
 

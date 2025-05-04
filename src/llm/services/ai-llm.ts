@@ -13,7 +13,7 @@ import { addCost, agentContext } from '#agent/agentContextLocalStorage';
 import { cloneAndTruncateBuffers } from '#agent/trimObject';
 import { appContext } from '#app/applicationContext';
 import { BaseLLM } from '#llm/base-llm';
-import { type GenerateTextOptions, type GenerationStats, type LlmMessage, toText } from '#llm/llm';
+import { type GenerateTextOptions, type GenerationStats, type LlmMessage, messageText } from '#llm/llm';
 import { type CreateLlmRequest, type LlmCall, callStack } from '#llm/llmCallService/llmCall';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
@@ -46,7 +46,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 
 	async generateTextFromMessages(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
 		const msg = await this.generateMessage(llmMessages, opts);
-		return toText(msg);
+		return messageText(msg);
 	}
 
 	async _generateMessage(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<LlmMessage> {

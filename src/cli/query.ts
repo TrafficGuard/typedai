@@ -10,21 +10,23 @@ import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { queryWorkflow } from '#swe/discovery/selectFilesAgent';
 import { parseProcessArgs, saveAgentId } from './cli';
+import { parsePromptWithImages } from './promptParser';
 
 async function main() {
 	const agentLLMs: AgentLLMs = defaultLLMs();
 	await initApplicationContext();
 
-	const { initialPrompt, resumeAgentId } = parseProcessArgs();
+	const { initialPrompt: rawPrompt, resumeAgentId } = parseProcessArgs();
+	const { textPrompt, userContent } = parsePromptWithImages(rawPrompt);
 
-	console.log(`Prompt: ${initialPrompt}`);
+	console.log(`Prompt: ${textPrompt}`);
 
 	const config: RunWorkflowConfig = {
 		agentName: 'Query',
 		subtype: 'workflow',
 		llms: agentLLMs,
 		functions: [],
-		initialPrompt,
+		initialPrompt: textPrompt,
 		resumeAgentId,
 		humanInLoop: {
 			budget: 2,
@@ -33,14 +35,15 @@ async function main() {
 
 	const agentId = await runAgentWorkflow(config, async () => {
 		const agent = agentContext();
+		// Use textPrompt for generating the agent name summary
 		agent.name = `Query: ${await llms().easy.generateText(
-			`<query>\n${initialPrompt}\n</query>\n\nSummarise the query into only a terse few words for a short title (8 words maximum) for the name of the AI agent completing the task. Output the short title only, nothing else.`,
+			`<query>\n${textPrompt}\n</query>\n\nSummarise the query into only a terse few words for a short title (8 words maximum) for the name of the AI agent completing the task. Output the short title only, nothing else.`,
 			{ id: 'Agent name' },
 		)}`;
 		await appContext().agentStateService.save(agent);
 
-		const response: any = await queryWorkflow(initialPrompt);
-
+		// Pass the full UserContent (text + images) to the query workflow
+		const response: any = await queryWorkflow(userContent);
 		console.log(response);
 		agent.output = response;
 

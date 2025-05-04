@@ -1,6 +1,6 @@
 // https://github.com/AgentOps-AI/tokencost/blob/main/tokencost/model_prices.json
 import {
-	AssistantContent,
+	type AssistantContent,
 	type CoreMessage,
 	type FilePart,
 	type ImagePart,
@@ -8,7 +8,8 @@ import {
 	type TextPart,
 	type TextStreamPart,
 	ToolCallPart,
-	UserContent,
+	type ToolContent,
+	type UserContent,
 } from 'ai';
 
 // Should match fields in CallSettings in node_modules/ai/dist/index.d.ts
@@ -124,9 +125,11 @@ export interface AttachmentInfo {
 
 export type FilePartExt = FilePart & AttachmentInfo;
 export type ImagePartExt = ImagePart & AttachmentInfo;
+export type TextPartExt = TextPart;
 
+export type CoreContent = AssistantContent | UserContent | ToolContent;
 /** Extension of the 'ai' package UserContent type */
-export type UserContentExt = string | Array<TextPart | ImagePartExt | FilePartExt>;
+export type UserContentExt = string | Array<TextPart | ImagePart | ImagePartExt | FilePart | FilePartExt>;
 
 export interface GenerationStats {
 	requestTime: number;
@@ -162,16 +165,21 @@ export function isSystemUserPrompt(prompt: Prompt): prompt is SystemUserPrompt {
  * @return the last message contents as a string
  */
 export function lastText(messages: LlmMessage[] | ReadonlyArray<LlmMessage>): string {
-	return toText(messages.at(-1));
+	return messageText(messages.at(-1));
 }
 
 /**
- * Transform a LLM message to a string where the response part(s) are string types
+ * Transform a LLM message to a string where the content part(s) are string types
  * @param message
  */
-export function toText(message: LlmMessage): string {
-	const content = message.content;
-
+export function messageText(message: LlmMessage): string {
+	return contentText(message.content);
+}
+/**
+ * Transform UserContent to a string where the part(s) are string types
+ * @param content
+ */
+export function contentText(content: CoreContent): string {
 	if (typeof content === 'string') return content;
 
 	let text = '';
@@ -184,6 +192,10 @@ export function toText(message: LlmMessage): string {
 		else if (type === 'tool-call') text += `Tool Call (${part.toolCallId} ${part.toolName} Args:${JSON.stringify(part.args)})`;
 	}
 	return text;
+}
+
+export function extractAttachments(content: UserContent): Array<ImagePart | FilePart> {
+	return typeof content === 'string' ? [] : content.filter((part) => part.type === 'image' || part.type === 'file');
 }
 
 export function text(text: string): TextPart {

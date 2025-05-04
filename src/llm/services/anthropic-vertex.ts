@@ -11,7 +11,7 @@ import { envVar } from '#utils/env-var';
 import { RetryableError, cacheRetry } from '../../cache/cacheRetry';
 import { BaseLLM, type LlmCostFunction } from '../base-llm';
 import { MaxTokensError } from '../errors';
-import { type GenerateTextOptions, type GenerationStats, type LLM, type LlmMessage, toText } from '../llm';
+import { type GenerateTextOptions, type GenerationStats, type LLM, type LlmMessage, messageText } from '../llm';
 
 type Message = Anthropic.Messages.Message;
 type MessageParam = Anthropic.Messages.MessageParam;
@@ -102,7 +102,7 @@ class AnthropicVertexLLM extends BaseLLM {
 
 	protected async generateTextFromMessages(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
 		const message = await this.generateMessage(llmMessages, opts);
-		return toText(message);
+		return messageText(message);
 	}
 
 	// Error when
