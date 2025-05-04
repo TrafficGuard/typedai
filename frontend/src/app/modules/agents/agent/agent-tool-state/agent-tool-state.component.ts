@@ -46,11 +46,11 @@ export class AgentToolStateComponent implements OnInit, OnChanges {
             if (toolStateMap) {
                 // Safely get LiveFilesState, default to empty array if not found
                 // Assuming LiveFilesState is string[] based on usage
-                this.liveFiles = (toolStateMap.get('LiveFiles') as string[]) || [];
+                this.liveFiles = (toolStateMap['LiveFiles'] as string[]) || [];
 
                 // Safely get FileStoreState, default to empty array if not found
                 // Assuming FileStoreState is FileMetadata[] based on usage
-                this.files = (toolStateMap.get('FileStore') as FileMetadata[]) || [];
+                this.files = (toolStateMap['FileStore'] as FileMetadata[]) || [];
             } else {
                 // Reset if toolState is not available
                 this.liveFiles = [];
