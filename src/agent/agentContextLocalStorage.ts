@@ -82,14 +82,23 @@ export function createContext(config: RunAgentConfig | RunWorkflowConfig): Agent
 		cost: 0,
 		llms: config.llms, // we can't do `?? defaultLLMs()` as compiling breaks from import cycle dependencies,
 		fileSystem,
-		useSharedRepos: true,
+		useSharedRepos: config.useSharedRepos ?? true, // Apply default if not provided in config
 		functions: Array.isArray(config.functions) ? new LlmFunctions(...config.functions) : config.functions,
 		completedHandler: config.completedHandler ?? new ConsoleCompletedHandler(),
 		memory: {},
 		invoking: [],
 		lastUpdate: Date.now(),
 		liveFiles: [],
-		toolState: new Map<string, any>(),
+		toolState: {}, // Initialize as empty object, not Map
+		vibeSessionId: (config as RunAgentConfig).vibeSessionId, // Assign from config (cast needed as it's only on RunAgentConfig)
 	};
+	// Ensure toolState is correctly initialized if needed elsewhere, maybe as {} instead of Map
+	// if (context.toolState && !(context.toolState instanceof Map)) {
+	//  context.toolState = new Map(Object.entries(context.toolState)); // Convert if loaded as object
+	// } else if (!context.toolState) {
+	//  context.toolState = new Map<string, any>();
+	// }
+	// The above toolState conversion might be better placed in deserialization logic
+
 	return context;
 }
