@@ -325,4 +325,140 @@ describe('VibeServiceImpl', () => {
 	});
 
 	// --- Tests for other methods can go here ---
+
+	// describe.skip('triggerBackgroundInitialization', () => {
+	// 	let getSessionStub: sinon.SinonStub;
+	// 	let updateSessionStub: sinon.SinonStub;
+	// 	let getUserStub: sinon.SinonStub;
+	// 	let mkdirStub: sinon.SinonStub;
+	// 	let getScmToolStub: sinon.SinonStub;
+	// 	let selectFilesAgentStub: sinon.SinonStub;
+	// 	let agentStorageRunStub: sinon.SinonStub;
+	// 	let fssInstance: sinon.SinonStubbedInstance<FileSystemService>;
+	// 	let scmInstance: sinon.SinonStubbedInstance<SourceControlManagement & { switchToBranch?: Function; createBranch?: Function }>;
+	// 	let mockAppContext: sinon.SinonStub;
+
+	// 	const mockSession = createMockSession({ status: 'initializing' });
+	// 	const mockUser = { id: userId, email: 'test@example.com', /* other fields */ };
+	// 	const mockFileSelection = [{ path: 'file1.ts', reason: 'reason1', category: 'edit' }];
+	// 	const mockVibeFileSelection = [{ filePath: 'file1.ts', reason: 'reason1', category: 'edit' }];
+	// 	const workspacePath = join(process.cwd(), 'vibe-workspaces', userId, sessionId);
+	// 	const clonedRepoPath = join(workspacePath, 'repo'); // Example cloned path
+
+	// 	beforeEach(async () => {
+	// 		// Stub repository methods
+	// 		getSessionStub = mockVibeRepo.getVibeSession.withArgs(userId, sessionId).resolves(mockSession);
+	// 		updateSessionStub = mockVibeRepo.updateVibeSession.resolves();
+
+	// 		// Stub external dependencies (using dynamic imports or direct stubbing if possible)
+	// 		// Need to figure out best way to mock these module-level functions/classes
+	// 		// This might require proxyquire or similar if not easily injectable/mockable
+
+	// 		// Mock fs.mkdir
+	// 		// mkdirStub = sinon.stub(fs, 'mkdir').resolves(); // Cannot stub fs directly easily
+
+	// 		// Mock SCM tool retrieval and methods
+	// 		scmInstance = {
+	// 			isConfigured: sinon.stub().returns(true),
+	// 			getScmType: sinon.stub().returns('mock-scm'),
+	// 			cloneProject: sinon.stub().resolves(clonedRepoPath),
+	// 			switchToBranch: sinon.stub().resolves(),
+	// 			createBranch: sinon.stub().resolves(),
+	// 			// Add other methods if needed by the interface
+	// 			getProjects: sinon.stub(),
+	// 			getProject: sinon.stub(),
+	// 			createMergeRequest: sinon.stub(),
+	// 			getJobLogs: sinon.stub(),
+	// 			getBranches: sinon.stub(),
+	// 		};
+	// 		// getScmToolStub = sinon.stub(await import('#functions/scm/sourceControlManagement'), 'getSourceControlManagementTool').resolves(scmInstance);
+
+	// 		// Mock FileSystemService
+	// 		fssInstance = sinon.createStubInstance(FileSystemService);
+	// 		fssInstance.getWorkingDirectory.returns(clonedRepoPath); // Assume WD is set correctly after clone
+	// 		// sinon.stub(await import('#functions/storage/fileSystemService'), 'FileSystemService').returns(fssInstance);
+
+	// 		// Mock selectFilesAgent
+	// 		// selectFilesAgentStub = sinon.stub(await import('#swe/discovery/selectFilesAgent'), 'selectFilesAgent').resolves(mockFileSelection);
+
+	// 		// Mock agentContextStorage.run - execute the callback immediately
+	// 		// agentStorageRunStub = sinon.stub(await import('#agent/agentContextLocalStorage'), 'agentContextStorage').value({
+	// 		// 	run: async (context, fn) => {
+	// 		// 		return await fn(context);
+	// 		// 	}
+	// 		// });
+
+	// 		// Mock appContext
+	// 		// mockAppContext = sinon.stub(await import('#app/applicationContext'), 'appContext').returns({
+	// 		// 	defaultLLMs: { easy: {}, medium: {}, hard: {}, xhard: {} }, // Mock LLMs
+	// 		// 	userService: { getUser: sinon.stub().withArgs(userId).resolves(mockUser) },
+	// 		// 	// Add other services if needed
+	// 		// });
+
+	// 		// Reset service instance to use mocks (if necessary, depends on how mocks are injected)
+	// 		// service = new VibeServiceImpl(mockVibeRepo as unknown as VibeRepository);
+	// 	});
+
+	// 	afterEach(() => {
+	// 		sinon.restore(); // Restore all stubs
+	// 	});
+
+	// 	it('should successfully initialize, clone, select files, and update status', async () => {
+	// 		// Need to properly mock module imports for this test to work
+	// 		console.warn('Skipping triggerBackgroundInitialization test due to mocking complexity');
+	// 		// await (service as any).triggerBackgroundInitialization(userId, sessionId);
+
+	// 		// // Verify mocks
+	// 		// expect(getSessionStub.calledOnce).to.be.true;
+	// 		// expect(getUserStub.calledOnceWithExactly(userId)).to.be.true;
+	// 		// expect(mkdirStub.calledOnceWith(workspacePath, { recursive: true })).to.be.true;
+	// 		// expect(getScmToolStub.calledOnce).to.be.true;
+	// 		// expect(scmInstance.cloneProject.calledOnceWith(mockSession.repositoryId, mockSession.targetBranch)).to.be.true;
+	// 		// expect(fssInstance.setWorkingDirectory.calledOnceWith(clonedRepoPath)).to.be.true;
+	// 		// expect(scmInstance.switchToBranch.calledWith(mockSession.targetBranch)).to.be.true;
+	// 		// expect(scmInstance.createBranch.calledOnceWith(mockSession.workingBranch)).to.be.true; // Assuming createWorkingBranch is true
+	// 		// expect(scmInstance.switchToBranch.calledWith(mockSession.workingBranch)).to.be.true;
+	// 		// expect(selectFilesAgentStub.calledOnceWith(mockSession.instructions)).to.be.true;
+	// 		// expect(updateSessionStub.calledOnceWithExactly(userId, sessionId, {
+	// 		// 	status: 'file_selection_review',
+	// 		// 	fileSelection: mockVibeFileSelection,
+	// 		// 	lastAgentActivity: sinon.match.number,
+	// 		// 	error: null,
+	// 		// })).to.be.true;
+	// 	});
+
+	// 	it('should handle session not found error', async () => {
+	// 		getSessionStub.resolves(null);
+	// 		// Need to properly mock module imports for this test to work
+	// 		console.warn('Skipping triggerBackgroundInitialization test due to mocking complexity');
+	// 		// await (service as any).triggerBackgroundInitialization(userId, sessionId);
+	// 		// expect(updateSessionStub.called).to.be.false; // Should exit early
+	// 	});
+
+	// 	it('should handle SCM clone error and update status', async () => {
+	// 		const cloneError = new Error('SCM clone failed');
+	// 		// scmInstance.cloneProject.rejects(cloneError);
+	// 		// Need to properly mock module imports for this test to work
+	// 		console.warn('Skipping triggerBackgroundInitialization test due to mocking complexity');
+	// 		// await (service as any).triggerBackgroundInitialization(userId, sessionId);
+	// 		// expect(updateSessionStub.calledOnceWithExactly(userId, sessionId, {
+	// 		// 	status: 'error', // Or more specific SCM error
+	// 		// 	error: cloneError.message,
+	// 		// 	lastAgentActivity: sinon.match.number,
+	// 		// })).to.be.true;
+	// 	});
+
+	// 	it('should handle selectFilesAgent error and update status', async () => {
+	// 		const agentError = new Error('File selection agent failed');
+	// 		// selectFilesAgentStub.rejects(agentError);
+	// 		// Need to properly mock module imports for this test to work
+	// 		console.warn('Skipping triggerBackgroundInitialization test due to mocking complexity');
+	// 		// await (service as any).triggerBackgroundInitialization(userId, sessionId);
+	// 		// expect(updateSessionStub.calledOnceWithExactly(userId, sessionId, {
+	// 		// 	status: 'error_file_selection',
+	// 		// 	error: agentError.message,
+	// 		// 	lastAgentActivity: sinon.match.number,
+	// 		// })).to.be.true;
+	// 	});
+	// });
 });
