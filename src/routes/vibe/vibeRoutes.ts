@@ -3,14 +3,20 @@ import type { FastifyInstance, FastifyRequest as FastifyRequestBase, RouteShorth
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { sendNotFound } from '#fastify/responses';
 import { currentUser } from '#user/userService/userContext';
-import type { VibeService } from '#vibe/vibeService'; // Corrected import path
+import type { VibeService } from '#vibe/vibeService';
+import { VibeServiceImpl } from '#vibe/vibeServiceImpl';
 import type {
 	CommitChangesData,
 	CreateVibeSessionData,
 	FileSystemNode,
+	GenerateDesignData, // Now exported from src/vibe/vibeTypes
 	UpdateCodeReviewData,
 	UpdateDesignInstructionsData,
+	UpdateDesignPromptData, // Now exported from src/vibe/vibeTypes
+	UpdateSelectionPromptData, // Now exported from src/vibe/vibeTypes
 	UpdateVibeSessionData,
+	VibePreset,
+	VibePresetConfig, // Now exported from src/vibe/vibeTypes
 	VibeSession,
 } from '#vibe/vibeTypes';
 
@@ -22,6 +28,14 @@ const ParamsSchema = Type.Object({
 	sessionId: Type.String({ description: 'The ID of the Vibe session' }),
 });
 type ParamsType = Static<typeof ParamsSchema>;
+
+// Schema for the DesignAnswer object
+const DesignAnswerSchema = Type.Object({
+	summary: Type.String(),
+	steps: Type.Array(Type.String()),
+	reasoning: Type.String(),
+	variations: Type.Optional(Type.Number()),
+});
 
 // Response Schema for a single Vibe Session
 const VibeSessionResponseSchema = Type.Object({
@@ -39,18 +53,27 @@ const VibeSessionResponseSchema = Type.Object({
 	useSharedRepos: Type.Boolean(),
 	status: Type.Union([
 		Type.Literal('initializing'),
+		Type.Literal('file_selection_review'),
+		Type.Literal('updating_selection'),
+		Type.Literal('generating_design'),
 		Type.Literal('design_review'),
+		Type.Literal('design_review_feedback'),
+		Type.Literal('design_review_details'),
+		Type.Literal('updating_design'),
 		Type.Literal('coding'),
 		Type.Literal('code_review'),
 		Type.Literal('committing'),
 		Type.Literal('monitoring_ci'),
 		Type.Literal('ci_failed'),
 		Type.Literal('completed'),
+		Type.Literal('error_file_selection'),
+		Type.Literal('error_design_generation'),
+		Type.Literal('error_coding'),
 		Type.Literal('error'),
 	]),
 	lastAgentActivity: Type.Optional(Type.Any({ description: 'Timestamp of last agent activity (serialized)' })), // Using Any for FieldValue | Date flexibility
 	fileSelection: Type.Optional(Type.Any({ description: 'Array of selected files (structure depends on SelectedFile)' })), // Define more strictly if possible based on SelectedFile structure
-	designAnswer: Type.Optional(Type.String()),
+	designAnswer: Type.Optional(DesignAnswerSchema), // Use the defined object schema
 	codeDiff: Type.Optional(Type.String()),
 	commitSha: Type.Optional(Type.String()),
 	pullRequestUrl: Type.Optional(Type.String()),
@@ -63,8 +86,50 @@ const VibeSessionResponseSchema = Type.Object({
 	createdAt: Type.Any({ description: 'Timestamp of creation (serialized)' }), // Using Any for FieldValue | Date flexibility
 	updatedAt: Type.Any({ description: 'Timestamp of last update (serialized)' }), // Using Any for FieldValue | Date flexibility
 	error: Type.Optional(Type.String()),
+	// Added VibePresetConfig schema (assuming it's an object, adjust if needed)
+	config: Type.Optional(Type.Record(Type.String(), Type.Any())),
 });
 type VibeSessionResponseType = Static<typeof VibeSessionResponseSchema>;
+
+// --- Preset Schemas ---
+
+// Define the config schema based on VibePresetConfig (Omit<CreateVibeSessionData, 'title' | 'instructions'>)
+const VibePresetConfigSchema = Type.Object(
+	{
+		repositorySource: Type.Union([Type.Literal('local'), Type.Literal('github'), Type.Literal('gitlab')]),
+		repositoryId: Type.String(),
+		repositoryName: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+		targetBranch: Type.String(),
+		workingBranch: Type.String(),
+		createWorkingBranch: Type.Boolean(),
+		useSharedRepos: Type.Boolean(),
+		// Add any other fields from CreateVibeSessionData except title/instructions if they exist
+	},
+	{ description: 'Configuration object for the preset', additionalProperties: false },
+); // Prevent extra properties
+
+const VibePresetSchema = Type.Object({
+	id: Type.String(),
+	userId: Type.String(),
+	name: Type.String(),
+	config: VibePresetConfigSchema,
+	createdAt: Type.Any({ description: 'Timestamp of creation' }),
+	updatedAt: Type.Any({ description: 'Timestamp of last update' }),
+});
+type VibePresetType = Static<typeof VibePresetSchema>;
+
+const CreatePresetBodySchema = Type.Object({
+	name: Type.String({ description: 'Name of the preset' }),
+	config: VibePresetConfigSchema,
+});
+type CreatePresetBodyType = Static<typeof CreatePresetBodySchema>;
+
+const PresetListResponseSchema = Type.Array(VibePresetSchema);
+
+const PresetParamsSchema = Type.Object({
+	presetId: Type.String({ description: 'The ID of the Vibe preset' }),
+});
+type PresetParamsType = Static<typeof PresetParamsSchema>;
 
 const VibeSessionListResponseSchema = Type.Array(
 	Type.Pick(VibeSessionResponseSchema, ['id', 'title', 'status', 'createdAt', 'updatedAt', 'repositoryName', 'targetBranch']), // Updated branch to targetBranch
@@ -91,19 +156,28 @@ const UpdateVibeSessionBodySchema = Type.Partial(
 		title: Type.String(),
 		instructions: Type.String(),
 		status: Type.Union([
-			// Reflects possible target statuses, adjust if needed
+			// Reflects all possible statuses from VibeSession
 			Type.Literal('initializing'),
+			Type.Literal('file_selection_review'),
+			Type.Literal('updating_selection'),
+			Type.Literal('generating_design'),
 			Type.Literal('design_review'),
+			Type.Literal('design_review_feedback'),
+			Type.Literal('design_review_details'),
+			Type.Literal('updating_design'),
 			Type.Literal('coding'),
 			Type.Literal('code_review'),
 			Type.Literal('committing'),
 			Type.Literal('monitoring_ci'),
 			Type.Literal('ci_failed'),
 			Type.Literal('completed'),
+			Type.Literal('error_file_selection'),
+			Type.Literal('error_design_generation'),
+			Type.Literal('error_coding'),
 			Type.Literal('error'),
 		]),
 		fileSelection: Type.Any({ description: 'Array of selected files' }), // Keep as Any for flexibility unless specific structure is enforced
-		designAnswer: Type.String(),
+		designAnswer: DesignAnswerSchema, // Use the defined object schema
 		codeDiff: Type.String(), // Added based on UpdateVibeSessionData possibility
 		commitSha: Type.String(), // Added based on UpdateVibeSessionData possibility
 		pullRequestUrl: Type.String(), // Added based on UpdateVibeSessionData possibility
@@ -150,6 +224,37 @@ const CommitResponseSchema = Type.Object({
 	prUrl: Type.Optional(Type.String()),
 });
 
+// --- Workflow Action Schemas ---
+
+// POST /:sessionId/update-selection
+const UpdateSelectionBodySchema = Type.Object({
+	prompt: Type.String({ description: 'User prompt to guide file selection refinement' }),
+});
+type UpdateSelectionBodyType = Static<typeof UpdateSelectionBodySchema>;
+
+// POST /:sessionId/generate-design
+const GenerateDesignBodySchema = Type.Object({
+	variations: Type.Optional(
+		Type.Integer({
+			minimum: 1,
+			maximum: 5,
+			description: 'Number of design variations to generate (1-5)',
+		}),
+	),
+});
+type GenerateDesignBodyType = Static<typeof GenerateDesignBodySchema>;
+
+// POST /:sessionId/update-design-prompt
+const UpdateDesignPromptBodySchema = Type.Object({
+	prompt: Type.String({ description: 'User prompt to guide design refinement' }),
+});
+type UpdateDesignPromptBodyType = Static<typeof UpdateDesignPromptBodySchema>;
+
+// Generic Accepted Response
+const AcceptedResponseSchema = Type.Object({
+	message: Type.String(),
+});
+
 // GET /repositories/branches
 const GetBranchesQuerySchema = Type.Object({
 	source: Type.Union([Type.Literal('local'), Type.Literal('github'), Type.Literal('gitlab')], {
@@ -193,9 +298,9 @@ const basePath = '/api/vibe';
 
 // --- Route Definitions ---
 export async function vibeRoutes(fastify: AppFastifyInstance) {
-	const vibeService = fastify.vibeService; // Access service from app context
+	const vibeService = new VibeServiceImpl(fastify.vibeRepository);
 
-	// --- CRUD Operations ---
+	// --- Vibe Session CRUD Operations ---
 
 	// Create a new Vibe session
 	fastify.post<{ Body: CreateVibeSessionBodyType; Reply: VibeSessionResponseType | Static<typeof ErrorResponseSchema> }>(
@@ -315,7 +420,10 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 
 			try {
 				// VibeService should handle checking ownership and existence
-				await vibeService.updateVibeSession(userId, sessionId, updates as UpdateVibeSessionData); // Cast needed if schema doesn't perfectly match type
+				// Cast 'updates' to 'any' first, then to 'UpdateVibeSessionData' to bypass stricter TS checks
+				// This is necessary because TypeBox schema (designAnswer: string) doesn't perfectly match the service type (designAnswer: DesignAnswer)
+				// The underlying service logic should handle the data correctly.
+				await vibeService.updateVibeSession(userId, sessionId, updates as any as UpdateVibeSessionData);
 				return reply.code(204).send();
 			} catch (error: any) {
 				// Handle specific errors like 'not found' if the service throws them
@@ -360,17 +468,111 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 		},
 	);
 
-	// --- Workflow Actions ---
+	// --- Vibe Preset Operations ---
 
-	// Update the design based on new instructions (triggers design agent)
-	fastify.post<{ Params: ParamsType; Body: UpdateDesignBodyType; Reply: Static<typeof ErrorResponseSchema> | null }>(
-		`${basePath}/:sessionId/update-design`,
+	// Create a new Vibe preset
+	fastify.post<{ Body: CreatePresetBodyType; Reply: VibePresetType | Static<typeof ErrorResponseSchema> }>(
+		`${basePath}/presets`,
+		{
+			schema: {
+				body: CreatePresetBodySchema,
+				response: {
+					201: VibePresetSchema,
+					400: ErrorResponseSchema,
+					401: ErrorResponseSchema,
+					500: ErrorResponseSchema,
+				},
+			},
+		},
+		async (request, reply) => {
+			const userId = currentUser().id;
+			const { name, config } = request.body;
+			if (!name || !config) {
+				return reply.code(400).send({ error: 'Missing required fields: name and config' });
+			}
+			try {
+				// Cast the request body config to the specific VibePresetConfig type expected by the service
+				const presetConfig = config as VibePresetConfig;
+				const newPreset = await vibeService.saveVibePreset(userId, name, presetConfig);
+				// The returned newPreset (type VibePreset) now includes createdAt/updatedAt, matching VibePresetSchema
+				return reply.code(201).send(newPreset);
+			} catch (error: any) {
+				fastify.log.error(error, `Error creating Vibe preset for user ${userId}`);
+				return reply.code(500).send({ error: error.message || 'Failed to create Vibe preset' });
+			}
+		},
+	);
+
+	// List Vibe presets for the current user
+	fastify.get<{ Reply: Static<typeof PresetListResponseSchema> | Static<typeof ErrorResponseSchema> }>(
+		`${basePath}/presets`,
+		{
+			schema: {
+				response: {
+					200: PresetListResponseSchema,
+					401: ErrorResponseSchema,
+					500: ErrorResponseSchema,
+				},
+			},
+		},
+		async (request, reply) => {
+			const userId = currentUser().id;
+			try {
+				const presets = await vibeService.listVibePresets(userId);
+				// The returned presets (type VibePreset[]) now include createdAt/updatedAt, matching PresetListResponseSchema
+				return reply.send(presets);
+			} catch (error: any) {
+				fastify.log.error(error, `Error listing Vibe presets for user ${userId}`);
+				return reply.code(500).send({ error: error.message || 'Failed to list Vibe presets' });
+			}
+		},
+	);
+
+	// Delete a Vibe preset
+	fastify.delete<{ Params: PresetParamsType; Reply: Static<typeof ErrorResponseSchema> | null }>(
+		`${basePath}/presets/:presetId`,
+		{
+			schema: {
+				params: PresetParamsSchema,
+				response: {
+					204: Type.Null({ description: 'Delete successful' }),
+					400: ErrorResponseSchema, // Invalid presetId format (though unlikely with string)
+					401: ErrorResponseSchema,
+					404: ErrorResponseSchema,
+					500: ErrorResponseSchema,
+				},
+			},
+		},
+		async (request, reply) => {
+			const userId = currentUser().id;
+			const { presetId } = request.params;
+			if (!presetId) {
+				return reply.code(400).send({ error: 'Preset ID is required' });
+			}
+			try {
+				await vibeService.deleteVibePreset(userId, presetId);
+				return reply.code(204).send();
+			} catch (error: any) {
+				if (error.message?.includes('not found')) {
+					return sendNotFound(reply, `Vibe preset with ID ${presetId} not found for deletion`);
+				}
+				fastify.log.error(error, `Error deleting Vibe preset ${presetId} for user ${userId}`);
+				return reply.code(500).send({ error: error.message || 'Failed to delete Vibe preset' });
+			}
+		},
+	);
+
+	// --- Vibe Workflow Actions ---
+
+	// Update file selection based on user prompt
+	fastify.post<{ Params: ParamsType; Body: UpdateSelectionBodyType; Reply: Static<typeof AcceptedResponseSchema> | Static<typeof ErrorResponseSchema> }>(
+		`${basePath}/:sessionId/update-selection`,
 		{
 			schema: {
 				params: ParamsSchema,
-				body: UpdateDesignBodySchema,
+				body: UpdateSelectionBodySchema,
 				response: {
-					202: Type.Null({ description: 'Design update accepted and processing started' }),
+					202: AcceptedResponseSchema,
 					400: ErrorResponseSchema, // Invalid input
 					401: ErrorResponseSchema, // Unauthorized
 					404: ErrorResponseSchema, // Session not found
@@ -382,26 +584,117 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 		async (request, reply) => {
 			const userId = currentUser().id;
 			const { sessionId } = request.params;
-			const data: UpdateDesignInstructionsData = request.body;
+			const { prompt } = request.body;
+			if (!prompt) {
+				return reply.code(400).send({ error: 'Prompt is required' });
+			}
+			// Pass the prompt string directly
 			try {
-				await vibeService.updateDesignWithInstructions(userId, sessionId, data);
-				return reply.code(202).send();
+				await vibeService.updateSelectionWithPrompt(userId, sessionId, prompt);
+				return reply.code(202).send({ message: 'File selection update accepted and processing started.' });
 			} catch (error: any) {
-				fastify.log.error(error, `Error triggering design update for session ${sessionId}, user ${userId}`);
+				fastify.log.error(error, `Error triggering file selection update for session ${sessionId}, user ${userId}`);
 				// Add specific status codes based on error type (e.g., 409 for wrong state)
+				if (error.message?.includes('not found')) {
+					return sendNotFound(reply, `Vibe session with ID ${sessionId} not found`);
+				}
+				if (error.message?.includes('state')) {
+					return reply.code(409).send({ error: error.message || 'Cannot update selection in current state' });
+				}
+				return reply.code(500).send({ error: error.message || 'Failed to trigger file selection update' });
+			}
+		},
+	);
+
+	// Generate detailed design (potentially with variations)
+	fastify.post<{ Params: ParamsType; Body: GenerateDesignBodyType; Reply: Static<typeof AcceptedResponseSchema> | Static<typeof ErrorResponseSchema> }>(
+		`${basePath}/:sessionId/generate-design`,
+		{
+			schema: {
+				params: ParamsSchema,
+				body: GenerateDesignBodySchema, // variations is optional
+				response: {
+					202: AcceptedResponseSchema,
+					400: ErrorResponseSchema, // Invalid input (e.g., variations out of range)
+					401: ErrorResponseSchema, // Unauthorized
+					404: ErrorResponseSchema, // Session not found
+					409: ErrorResponseSchema, // Conflict (e.g., session in wrong state)
+					500: ErrorResponseSchema, // Internal server error
+				},
+			},
+		},
+		async (request, reply) => {
+			const userId = currentUser().id;
+			const { sessionId } = request.params;
+			// variations is optional, default handled by service if needed
+			const variations = request.body.variations; // Extract variations
+			try {
+				// Pass variations number directly (or undefined)
+				await vibeService.generateDetailedDesign(userId, sessionId, variations);
+				return reply.code(202).send({ message: 'Design generation accepted and processing started.' });
+			} catch (error: any) {
+				fastify.log.error(error, `Error triggering design generation for session ${sessionId}, user ${userId}`);
+				if (error.message?.includes('not found')) {
+					return sendNotFound(reply, `Vibe session with ID ${sessionId} not found`);
+				}
+				if (error.message?.includes('state')) {
+					return reply.code(409).send({ error: error.message || 'Cannot generate design in current state' });
+				}
+				return reply.code(500).send({ error: error.message || 'Failed to trigger design generation' });
+			}
+		},
+	);
+
+	// Update the design based on user prompt (replaces previous update-design)
+	fastify.post<{ Params: ParamsType; Body: UpdateDesignPromptBodyType; Reply: Static<typeof AcceptedResponseSchema> | Static<typeof ErrorResponseSchema> }>(
+		`${basePath}/:sessionId/update-design-prompt`,
+		{
+			schema: {
+				params: ParamsSchema,
+				body: UpdateDesignPromptBodySchema,
+				response: {
+					202: AcceptedResponseSchema,
+					400: ErrorResponseSchema, // Invalid input
+					401: ErrorResponseSchema, // Unauthorized
+					404: ErrorResponseSchema, // Session not found
+					409: ErrorResponseSchema, // Conflict (e.g., session in wrong state)
+					500: ErrorResponseSchema, // Internal server error
+				},
+			},
+		},
+		async (request, reply) => {
+			const userId = currentUser().id;
+			const { sessionId } = request.params;
+			const { prompt } = request.body;
+			if (!prompt) {
+				return reply.code(400).send({ error: 'Prompt is required' });
+			}
+			// Pass the prompt string directly
+			try {
+				// Assuming vibeService.updateDesignWithPrompt exists
+				await vibeService.updateDesignWithPrompt(userId, sessionId, prompt);
+				return reply.code(202).send({ message: 'Design update accepted and processing started.' });
+			} catch (error: any) {
+				fastify.log.error(error, `Error triggering design update via prompt for session ${sessionId}, user ${userId}`);
+				if (error.message?.includes('not found')) {
+					return sendNotFound(reply, `Vibe session with ID ${sessionId} not found`);
+				}
+				if (error.message?.includes('state')) {
+					return reply.code(409).send({ error: error.message || 'Cannot update design in current state' });
+				}
 				return reply.code(500).send({ error: error.message || 'Failed to trigger design update' });
 			}
 		},
 	);
 
-	// Start the coding phase based on the current design (triggers coding agent)
-	fastify.post<{ Params: ParamsType; Reply: Static<typeof ErrorResponseSchema> | null }>(
-		`${basePath}/:sessionId/start-coding`,
+	// Execute the current design (start coding) - replaces previous start-coding
+	fastify.post<{ Params: ParamsType; Reply: Static<typeof AcceptedResponseSchema> | Static<typeof ErrorResponseSchema> }>(
+		`${basePath}/:sessionId/execute-design`,
 		{
 			schema: {
 				params: ParamsSchema,
 				response: {
-					202: Type.Null({ description: 'Coding phase start accepted and processing started' }),
+					202: AcceptedResponseSchema,
 					401: ErrorResponseSchema, // Unauthorized
 					404: ErrorResponseSchema, // Session not found
 					409: ErrorResponseSchema, // Conflict (e.g., session in wrong state, no design)
@@ -413,12 +706,18 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 			const userId = currentUser().id;
 			const { sessionId } = request.params;
 			try {
-				await vibeService.startCoding(userId, sessionId);
-				return reply.code(202).send();
+				// Assuming vibeService.executeDesign exists
+				await vibeService.executeDesign(userId, sessionId);
+				return reply.code(202).send({ message: 'Design execution accepted and processing started.' });
 			} catch (error: any) {
-				fastify.log.error(error, `Error triggering start coding for session ${sessionId}, user ${userId}`);
-				// Add specific status codes based on error type (e.g., 409 for wrong state)
-				return reply.code(500).send({ error: error.message || 'Failed to trigger start coding' });
+				fastify.log.error(error, `Error triggering design execution for session ${sessionId}, user ${userId}`);
+				if (error.message?.includes('not found')) {
+					return sendNotFound(reply, `Vibe session with ID ${sessionId} not found`);
+				}
+				if (error.message?.includes('state') || error.message?.includes('design')) {
+					return reply.code(409).send({ error: error.message || 'Cannot execute design in current state or no design available' });
+				}
+				return reply.code(500).send({ error: error.message || 'Failed to trigger design execution' });
 			}
 		},
 	);
@@ -483,43 +782,6 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 				fastify.log.error(error, `Error committing changes for session ${sessionId}, user ${userId}`);
 				// Add specific status codes based on error type (e.g., 409 for wrong state)
 				return reply.code(500).send({ error: error.message || 'Failed to commit changes' });
-			}
-		},
-	);
-
-	// Apply the AI-proposed fix for a CI/CD failure
-	fastify.post<{ Params: ParamsType; Reply: Static<typeof ErrorResponseSchema> | null }>(
-		`${basePath}/:sessionId/apply-cicd-fix`,
-		{
-			schema: {
-				params: ParamsSchema,
-				response: {
-					202: Type.Null({ description: 'CI/CD fix application accepted and processing started' }),
-					401: ErrorResponseSchema, // Unauthorized
-					404: ErrorResponseSchema, // Session not found
-					409: ErrorResponseSchema, // Conflict (e.g., not in ci_failed state, no fix available)
-					500: ErrorResponseSchema, // Internal server error
-				},
-			},
-		},
-		async (request, reply) => {
-			const userId = currentUser().id;
-			const { sessionId } = request.params;
-			try {
-				// VibeService should check ownership, existence, and state validity
-				await vibeService.applyCiCdFix(userId, sessionId);
-				return reply.code(202).send();
-			} catch (error: any) {
-				fastify.log.error(error, `Error applying CI/CD fix for session ${sessionId}, user ${userId}`);
-				// Consider specific error mapping for 404, 409 based on service exceptions
-				if (error.message?.includes('not found')) {
-					return sendNotFound(reply, `Vibe session with ID ${sessionId} not found`);
-				}
-				if (error.message?.includes('state') || error.message?.includes('fix')) {
-					// Basic check for state/logic errors, service should provide clearer messages
-					return reply.code(409).send({ error: error.message || 'Cannot apply CI/CD fix in current state or no fix available' });
-				}
-				return reply.code(500).send({ error: error.message || 'Failed to apply CI/CD fix' });
 			}
 		},
 	);

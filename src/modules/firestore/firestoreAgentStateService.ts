@@ -362,6 +362,9 @@ export class FirestoreAgentStateService implements AgentStateService {
 				data.expandedUserRequest = data.expandedUserRequest || undefined;
 				data.observationsReasoning = data.observationsReasoning || undefined;
 				data.nextStepDetails = data.nextStepDetails || undefined;
+				// Ensure optional fields potentially missing from Firestore are set
+				data.draftCode = data.draftCode || undefined;
+				data.codeReview = data.codeReview || undefined;
 
 				iterations.push(data as AutonomousIteration);
 			} else {

@@ -66,6 +66,9 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				description,
 			});
 
+			if (!opts?.id) console.log(new Error('No generateMessage id provided'));
+			logger.info(`LLM call ${opts?.id} using ${this.getId()}`);
+
 			const createLlmCallRequest: CreateLlmRequest = {
 				messages: cloneAndTruncateBuffers(llmMessages),
 				llmId: this.getId(),
@@ -143,6 +146,8 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 					result,
 				);
 				const cost = totalCost;
+
+				logger.info(`LLM response ${opts?.id}`);
 
 				// Add the response as an assistant message
 

@@ -25,6 +25,19 @@ The service interfaces will likely have multiple implementations for different d
 
 ## Service unit/integration test standards
 
+The first line of the top level describe() in a test file must be setupConditionalLoggerOutput();
+```typescript
+import {setupConditionalLoggerOutput} from "#test/testUtils";
+
+describe('ModuleName', () => {
+    setupConditionalLoggerOutput();
+    
+    // the test suite...
+});
+```
+
+
+
 The main unit/integration test suite for a service must be shared between all implementations.
 
 fooService.ts

@@ -93,6 +93,7 @@ export interface AgentContext {
 	callStack: string[];
 	/** Error message & stack */
 	error?: string;
+	output?: string;
 	/** Budget spend in $USD until a human-in-the-loop is required */
 	hilBudget: number;
 	/** Total cost of running this agent */
@@ -163,8 +164,14 @@ export interface AutonomousIteration {
 	agentPlan: string;
 	/** Extracted from <next_step_details></next_step_details> */
 	nextStepDetails: string;
-	/** Generated code (for code gen agents extracted from <python-code></python-code>) */
+	/** Initial generated code */
+	draftCode: string;
+	/** Self review of the code */
+	codeReview: string;
+	/** Generated code, after review (for code gen agents extracted from <python-code></python-code>) */
 	code: string;
+	/** The full script which was executed */
+	executedCode: string;
 	/** Function calls executed this iteration */
 	functionCalls: FunctionCallResult[];
 	/** The memory contents at the end of the iteration */

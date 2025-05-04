@@ -16,7 +16,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { VibeService } from './vibe.service';
 import { VibeSession, SelectedFile } from './vibe.types';
 import { VibeFileListComponent } from './vibe-file-list/vibe-file-list.component';
-import { VibeDesignProposalComponent } from './vibe-design-proposal/vibe-design-proposal.component'; // Import the new design proposal component
+import { VibeDesignReviewComponent } from './vibe-design-review/vibe-design-review.component';
 
 @Component({
   selector: 'vibe-detail',
@@ -39,7 +39,7 @@ import { VibeDesignProposalComponent } from './vibe-design-proposal/vibe-design-
     MatAutocompleteModule, // Add MatAutocompleteModule here
     RouterOutlet, // Keep RouterOutlet if routing within this component is used
     VibeFileListComponent, // Keep the file list component
-    VibeDesignProposalComponent,
+    VibeDesignReviewComponent,
   ],
 })
 export class VibeComponent implements OnInit, OnDestroy {

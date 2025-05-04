@@ -18,7 +18,7 @@ interface TidyPatch {
  * @param baseCommitOrBranch The git commit sha or branch name to diff against.
  */
 // @span() // Decorators cannot be applied directly to exported functions like this. Manual span needed if tracing is required.
-export async function tidyDiff(baseCommitOrBranch: string): Promise<void> {
+export async function tidyDiff(baseCommitOrBranch: string): Promise<string[]> {
 	logger.info(`Tidying diff since ${baseCommitOrBranch}`);
 	const fs = getFileSystem();
 	const vcs = fs.getVcs();
@@ -73,6 +73,8 @@ Respond ONLY with a JSON object in the following format. Provide an empty array 
 			tidyPatches: TidyPatch[];
 		};
 
+		console.log(response.tidyPatches);
+
 		if (!response || !Array.isArray(response.tidyPatches) || response.tidyPatches.length === 0) {
 			logger.info('No tidying actions identified.');
 			return;
@@ -80,18 +82,22 @@ Respond ONLY with a JSON object in the following format. Provide an empty array 
 
 		logger.info(`Applying ${response.tidyPatches.length} tidy patches.`);
 		const fileWriter = new FileSystemWrite();
-		let appliedPatches = false; // Flag to track if any changes were made
 
+		// TODO only apply the patch if the file is pristine
+		// then we can revert if the compiling fails
+
+		const patchedFiles: string[] = [];
 		for (const patch of response.tidyPatches) {
 			if (!patch.filePath || typeof patch.search !== 'string' || typeof patch.replace !== 'string') {
-				logger.warn('Skipping invalid patch:', patch);
+				logger.info('Skipping invalid patch:', patch);
 				continue;
 			}
 			try {
 				logger.info(`Applying tidy patch to ${patch.filePath}`);
 				// Use the existing patchEditFile function which handles file reading/writing and search/replace.
-				await fileWriter.patchEditFile(patch.filePath, patch.search, patch.replace);
-				appliedPatches = true; // Mark that a patch was successfully applied
+				// Disable for now
+				// await fileWriter.patchEditFile(patch.filePath, patch.search, patch.replace);
+				patchedFiles.push(patch.filePath);
 			} catch (editError) {
 				logger.error(`Failed to apply tidy patch to ${patch.filePath}: ${editError.message}`, {
 					search: patch.search,
@@ -100,23 +106,10 @@ Respond ONLY with a JSON object in the following format. Provide an empty array 
 				// Continue to the next patch even if one fails
 			}
 		}
-
-		// Commit the tidying changes
-		try {
-			// Check if any patches were successfully applied before committing
-			if (appliedPatches) {
-				// Call commit with only the message, assuming it handles staging or commits all changes.
-				await vcs.commit('Apply automated code tidying');
-				logger.info('Committed tidying changes.');
-			} else {
-				logger.info('No files were successfully changed by tidying patches.');
-			}
-		} catch (commitError) {
-			logger.error(`Failed to commit tidying changes: ${commitError.message}`);
-			// Log the error but don't throw, as the main task might still be complete.
-		}
+		console.log(patchedFiles);
+		return patchedFiles;
 	} catch (llmError) {
 		logger.error(`Error during diff tidying LLM call: ${llmError.message}`);
-		// Don't throw, allow the workflow to continue.
+		return [];
 	}
 }

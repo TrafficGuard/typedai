@@ -1,6 +1,7 @@
 import { SCRIPT_RETURN_VALUE_MAX_TOKENS } from '#agent/agentUtils';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
+import { formatAnsiWithMarkdownLinks } from '#utils/exec';
 
 // --- Helper Type Guard ---
 
@@ -39,9 +40,16 @@ function truncateBuffersRecursively(target: any, visited: Set<any> = new Set()):
 	// --- Specific Handling for JSON Buffer Representation ---
 	if (isJsonBufferRepresentation(target)) {
 		// console.log('trim trim');
-		(target as any).data = '[<data>]';
+		(target as any).data = '<bytes>';
 		// Don't recurse further into the buffer object's properties ('type', 'data')
 		visited.delete(target); // Remove from visited set after processing this node
+		return target;
+	}
+
+	// Handle byte image sources
+	if (target.type === 'image' && (target.source === 'bytes' || target.source === 'bytes') && target.specifier) {
+		target.specifier = '<bytes>';
+		visited.delete(target);
 		return target;
 	}
 
@@ -71,6 +79,16 @@ function truncateBuffersRecursively(target: any, visited: Set<any> = new Set()):
 	return target;
 }
 
+export function removeConsoleEscapeChars(obj: any): any {
+	if (!obj) return obj;
+	if (typeof obj === 'string') return formatAnsiWithMarkdownLinks(obj);
+	if (typeof obj === 'object') {
+		for (const [k, v] of Object.entries(obj)) {
+			if (typeof v === 'string') obj[k] = formatAnsiWithMarkdownLinks(v);
+		}
+	}
+	return obj;
+}
 /**
  * Clones an object and recursively truncates only the 'data' array
  * within objects matching the { type: 'Buffer', data: [...] } structure.

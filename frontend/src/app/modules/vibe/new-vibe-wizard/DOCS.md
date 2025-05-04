@@ -21,6 +21,14 @@ Working branch - Radio buttons. The user has three options for the working branc
 The default radio selection will be to create a new branch.
 There should be validation so a new branch doesn't match an existing branch
 
+When the user clicks the Start button, and the form is valid, it will make a request to start the Vibe session.
+While the session is initialising (cloning the repo and initialising the code project) the page should 
+just show a loading spinner along with the status of the Vibe Session which goes through the states
+- Cloning repository
+- Initialising project (running initialise commands from projectInfo.json)
+- Creating initial file selection
+When this completes it navigates to the vibe-file-list component route
+
 ## UI Mockup
 
 Title
@@ -28,6 +36,8 @@ Title
 
 Instructions
 [textarea]
+
+(Load preset)[Link] (opens modal dialog with VibePreset list, with Cancel and Select buttons)
 
 Repository Source [*] Local [*] GitHub [*] GitLab (GitHub and GitLab only enabled once the project have loaded)
 
@@ -43,3 +53,5 @@ Working Branch Option
 [*] Create new branch [text]
 
 [x] Clone to shared folder (Only enabled for GitHub and GitLab)
+
+(Start Vibe Session)[button]

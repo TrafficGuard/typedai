@@ -111,8 +111,6 @@ export class CodeEditingAgent {
 		const gitBase = headCommit; // !projectInfo.devBranch || projectInfo.devBranch === currentBranch ? headCommit : projectInfo.devBranch;
 		logger.info(`git base ${gitBase}`);
 
-		await includeAlternativeAiToolFiles(fileSelection);
-
 		const fileContents = await fss.readFilesAsXml(fileSelection);
 		logger.info(fileSelection, `Initial selected file count: ${fileSelection.length}. Tokens: ${await countTokens(fileContents)}`);
 
@@ -254,7 +252,9 @@ export class CodeEditingAgent {
 					codeEditorRequirements += '\nOnly make changes directly related to these requirements.';
 				}
 
-				await new AiderCodeEditor().editFilesToMeetRequirements(codeEditorRequirements, codeEditorFiles);
+				const ruleFiles = await includeAlternativeAiToolFiles(codeEditorFiles);
+
+				await new AiderCodeEditor().editFilesToMeetRequirements(codeEditorRequirements, [...codeEditorFiles, ...ruleFiles]);
 
 				// The code editor may add new files, so we want to add them to the initial file set
 				const addedFiles: string[] = await git.getAddedFiles(compiledCommitSha);

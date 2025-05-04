@@ -98,6 +98,14 @@ export class FirestoreLlmCallService implements LlmCallService {
 					}
 
 					// Check if data is not already a URL or reference and is large enough
+					// if (data && typeof data !== 'string') {
+					// 	console.log('Saving object that shouold be string ==============');
+					// 	for (const [k, v] of Object.entries(structuredClone(data))) {
+					// 		if (typeof v === 'string' && v.length > 1000) data[k] = v.substring(0, 1000);
+					// 		else if (Array.isArray(v) && v.length > 1000) data[k] = v.slice(0, 1000);
+					// 		console.log(`${k}:${v}`);
+					// 	}
+					// }
 					if (data && !(data instanceof URL) && typeof data !== 'string' && Buffer.byteLength(data as Uint8Array) > EXTERNAL_DATA_THRESHOLD) {
 						const uniqueId = randomUUID();
 						const filePath = join(msgDataPath, uniqueId);
@@ -262,9 +270,8 @@ export class FirestoreLlmCallService implements LlmCallService {
 							message.content,
 						)} bytes.`,
 					);
-					await fs.writeFile('llmCall.json', JSON.stringify(messages)).catch(console.error);
+					// await fs.writeFile('llmCall.json', JSON.stringify(messages)).catch(console.error);
 					// Note: This error might still occur if a text part is extremely large, as externalization only targets image/file parts.
-					console.log(new Error('oops too big'));
 					throw new Error(
 						`Single message in LlmCall ${llmCallId} for ${dataToSave.description}, Response:${merge}, causes chunk document to exceed maximum size limit of ${MAX_DOC_SIZE} bytes.`,
 					);
@@ -356,7 +363,24 @@ export class FirestoreLlmCallService implements LlmCallService {
 		};
 
 		const messagesToSave = messages ?? []; // Handle case where messages might be undefined
-
+		try {
+			// logger.debug({ messages: messagesToSave }, 'Messages being saved by saveRequest');
+			// Optionally stringify with custom replacer for Buffers if needed
+			logger.debug(
+				`Messages being saved: ${JSON.stringify(
+					messagesToSave,
+					(key, value) => {
+						if (value && value.type === 'Buffer' && Array.isArray(value.data)) {
+							return `<Buffer length=${value.data.length}>`;
+						}
+						return value;
+					},
+					2,
+				)}`,
+			);
+		} catch (e) {
+			logger.warn(e, 'Error logging messages in saveRequest');
+		}
 		try {
 			// Use the helper to save, passing messages separately. merge=false for new request.
 			await this._saveOrUpdateLlmCall(id, dataToSave, messagesToSave, false);

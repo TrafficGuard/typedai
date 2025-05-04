@@ -24,6 +24,7 @@ interface IterationResponse {
 	keepFiles?: SelectedFile[];
 	ignoreFiles?: SelectedFile[];
 	inspectFiles?: string[];
+	category?: 'edit' | 'reference' | 'style_example' | 'unknown'; // Added category
 }
 
 export interface SelectedFile {
@@ -33,6 +34,8 @@ export interface SelectedFile {
 	reason: string;
 	/** If the file should not need to be modified when implementing the task. Only relevant when the task is for making changes, and not just a query. */
 	readonly?: boolean;
+	/** Categorization of the file's role in the task */
+	category?: 'edit' | 'reference' | 'style_example' | 'unknown'; // Added category field
 }
 
 export interface FileExtract {
@@ -161,7 +164,8 @@ async function selectFilesCore(
 	let filesToInspect = initialResponse.inspectFiles || [];
 
 	// Use Maps to store kept/ignored files to ensure uniqueness by path
-	const keptFiles = new Map<string, string>(); // path -> reason
+	// Store reason and category for kept files
+	const keptFiles = new Map<string, { reason: string; category?: 'edit' | 'reference' | 'style_example' | 'unknown' }>(); // path -> { reason, category }
 	const ignoredFiles = new Map<string, string>(); // path -> reason
 	const filesPendingDecision = new Set<string>(filesToInspect);
 
@@ -178,7 +182,8 @@ async function selectFilesCore(
 			filesPendingDecision.delete(ignored.path);
 		}
 		for (const kept of response.keepFiles ?? []) {
-			keptFiles.set(kept.path, kept.reason);
+			// Store reason and category
+			keptFiles.set(kept.path, { reason: kept.reason, category: kept.category });
 			filesPendingDecision.delete(kept.path);
 		}
 
@@ -193,7 +198,11 @@ async function selectFilesCore(
 				for (const altFile of alternativeFiles) {
 					// Add the alternative file only if it hasn't been explicitly kept or ignored already
 					if (!keptFiles.has(altFile) && !ignoredFiles.has(altFile)) {
-						keptFiles.set(altFile, 'Relevant AI tool configuration/documentation file');
+						// Assign an object with reason and category
+						keptFiles.set(altFile, {
+							reason: 'Relevant AI tool configuration/documentation file',
+							category: 'reference', // Categorize as reference material
+						});
 						logger.info(`Automatically included relevant AI tool file: ${altFile}`);
 					}
 				}
@@ -246,12 +255,34 @@ async function selectFilesCore(
 
 	if (keptFiles.size === 0) throw new Error('No files were selected to fulfill the requirements.');
 
-	const selectedFiles: SelectedFile[] = Array.from(keptFiles.entries()).map(([path, reason]) => ({
+	// Map keptFiles entries to SelectedFile objects, including category
+	const selectedFiles: SelectedFile[] = Array.from(keptFiles.entries()).map(([path, { reason, category }]) => ({
 		path,
 		reason,
+		category, // Include the category
+		// readonly property is not explicitly handled by the LLM response in this flow, default to undefined or false if needed
 	}));
 
 	return { messages, selectedFiles };
+}
+
+// --- Mock function for updating selection based on prompt ---
+export async function updateSelectionWithPrompt(
+	currentSelection: SelectedFile[],
+	prompt: string,
+	// other relevant inputs like project context, file tree etc. can be added here
+): Promise<SelectedFile[]> {
+	// Simulate LLM call to modify selection based on prompt
+	// For mock, just return the current selection plus a dummy file
+	const newFile: SelectedFile = {
+		// Explicitly type the new object or assert type
+		path: `src/utils/added_by_prompt_${Date.now()}.ts`,
+		reason: `Added based on prompt: ${prompt}`,
+		category: 'edit',
+	};
+	const updatedSelection = [...currentSelection, newFile];
+	// Remove duplicates if necessary in a real implementation
+	return updatedSelection.filter((file, index, self) => index === self.findIndex((f) => f.path === file.path));
 }
 
 async function initializeFileSelectionAgent(requirements: string, projectInfo?: ProjectInfo): Promise<LlmMessage[]> {
@@ -373,6 +404,7 @@ async function readFileContents(filePaths: string[]): Promise<{ contents: string
 	const invalidPaths = [];
 
 	for (const filePath of filePaths) {
+		if (!filePath) continue;
 		const fullPath = path.join(fileSystem.getWorkingDirectory(), filePath);
 		try {
 			const fileContent = await fileSystem.readFile(fullPath);

@@ -1,3 +1,4 @@
+import { ImageSource } from '#agent/agentImageUtils';
 import type { FunctionParameter, FunctionSchema } from '#functionSchema/functions';
 import { logger } from '#o11y/logger';
 
@@ -30,7 +31,44 @@ fun ${def.name}(${def.parameters.map((p) => `${p.name}: ${p.optional ? `Optional
 }
 
 export function convertTypeScriptToPython(tsType: string): string {
-	const typeMappings: { [key: string]: string } = {
+	// 0. Handle base cases and trim input
+	const originalTsType = tsType.trim();
+	if (!originalTsType) {
+		return '';
+	}
+
+	// 1. Strip Promise wrapper first
+	const processedType = originalTsType.replace(/^Promise<(.+)>$/, '$1').trim();
+	if (!processedType) {
+		return 'None'; // Handle Promise<void>
+	}
+
+	// 2. Handle Unions by splitting and recursion
+	// Always try splitting by '|' and recurse on parts.
+	// This relies on subsequent steps correctly handling partial/full types.
+	if (processedType.includes('|')) {
+		// Avoid splitting if inside quotes (e.g., literal types - not handled here yet)
+		// Basic check: if no < or { are involved, split directly
+		// If < or { are involved, assume it's complex and let later steps handle maybe?
+		// Let's try splitting always for now and see if recursion handles it.
+		return processedType
+			.split('|')
+			.map((part) => convertTypeScriptToPython(part.trim())) // Recursive call for each part
+			.join(' | ');
+	}
+
+	// --- Process Single Type Part ---
+
+	// 3. Handle specific known types first (Binary, Object Literal, object keyword)
+	if (processedType === 'Uint8Array' || processedType === 'Buffer' || processedType === 'ArrayBuffer') {
+		return 'bytes';
+	}
+	if ((processedType.startsWith('{') && processedType.endsWith('}') && processedType.includes(':')) || processedType === 'object') {
+		return 'Dict[str, Any]';
+	}
+
+	// 4. Handle base keywords
+	const keywordMappings: { [key: string]: string } = {
 		string: 'str',
 		number: 'float',
 		boolean: 'bool',
@@ -38,17 +76,30 @@ export function convertTypeScriptToPython(tsType: string): string {
 		void: 'None',
 		undefined: 'None',
 		null: 'None',
-		// Include generics mapping as well
-		'Array<': 'List<',
 	};
-
-	let pyType = tsType;
-
-	for (const [mappedTsType, pyTypeEquivalent] of Object.entries(typeMappings)) {
-		const regex = new RegExp(`\\b${mappedTsType}\\b`, 'g'); // Boundary to match whole words
-		pyType = pyType.replace(regex, pyTypeEquivalent);
+	if (keywordMappings[processedType]) {
+		return keywordMappings[processedType];
 	}
-	return pyType;
+
+	// 5. Handle Generics (Array<T>, Record<string, T>) - Allow whitespace
+	// Match Array < ... >
+	// Regex: Start, 'Array', optional space, '<', optional space, capture content, optional space, '>', optional space, End
+	const arrayMatch = processedType.match(/^Array\s*<\s*(.+)\s*>\s*$/);
+	if (arrayMatch) {
+		const innerType = arrayMatch[1];
+		return `List[${convertTypeScriptToPython(innerType)}]`; // Recurse on inner type
+	}
+
+	// Match Record < string , ... >
+	// Regex: Start, 'Record', optional space, '<', optional space, 'string', optional space, ',', optional space, capture content, optional space, '>', optional space, End
+	const recordMatch = processedType.match(/^Record\s*<\s*string\s*,\s*(.+)\s*>\s*$/);
+	if (recordMatch) {
+		const valueType = recordMatch[1];
+		return `Dict[str, ${convertTypeScriptToPython(valueType)}]`; // Recurse on value type
+	}
+
+	// 6. If none matched, return the processed type as is
+	return processedType;
 }
 
 export function pythonType(param: FunctionParameter): string {
@@ -140,6 +191,22 @@ export function extractObservationsReasoning(llmResponse: string): string {
  */
 export function extractNextStepDetails(llmResponse: string): string {
 	return extractLastXmlTagContent(llmResponse, 'next_step_details');
+}
+
+/**
+ * Extracts the text within <code-review></code-review> tags.
+ * @param llmResponse response from the LLM
+ */
+export function extractCodeReview(llmResponse: string): string {
+	return extractLastXmlTagContent(llmResponse, 'code-review');
+}
+
+/**
+ * Extracts the text within <draft-python-code></draft-python-code> tags.
+ * @param llmResponse response from the LLM
+ */
+export function extractDraftPythonCode(llmResponse: string): string {
+	return extractLastXmlTagContent(llmResponse, 'draft-python-code');
 }
 
 /**

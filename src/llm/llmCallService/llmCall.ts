@@ -1,4 +1,5 @@
 import { agentContext } from '#agent/agentContextLocalStorage';
+import type { AgentContext } from '#agent/agentContextTypes';
 import type { LlmMessage } from '#llm/llm';
 import { logger } from '#o11y/logger';
 
@@ -42,8 +43,8 @@ export interface LlmCall extends LlmRequest {
 
 export type CreateLlmRequest = Omit<LlmRequest, 'id' | 'requestTime'>;
 
-export function callStack(): string {
-	const agent = agentContext();
+export function callStack(agent?: AgentContext): string {
+	agent ??= agentContext();
 	if (!agent) return '';
 	let arr: string[] = agent.callStack;
 	if (!arr || arr.length === 0) return '';

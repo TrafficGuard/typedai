@@ -3,7 +3,7 @@ import { AnthropicVertex } from '@anthropic-ai/vertex-sdk';
 import { addCost, agentContext } from '#agent/agentContextLocalStorage';
 import type { AgentLLMs } from '#agent/agentContextTypes';
 import { appContext } from '#app/applicationContext';
-import type { LlmCall } from '#llm/llmCallService/llmCall';
+import { type LlmCall, callStack } from '#llm/llmCallService/llmCall';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { currentUser } from '#user/userService/userContext';
@@ -132,7 +132,7 @@ class AnthropicVertexLLM extends BaseLLM {
 				llmId: this.getId(),
 				userId: currentUser().id,
 				agentId: agentContext()?.agentId,
-				callStack: this.callStack(agentContext()),
+				callStack: callStack(),
 				description,
 			});
 

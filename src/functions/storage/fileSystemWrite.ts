@@ -1,6 +1,7 @@
 import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { LlmTools } from '#functions/util';
+import { logger } from '#o11y/logger';
 
 /**
  * Provides functions for LLMs to write to the file system
@@ -46,7 +47,8 @@ export class FileSystemWrite {
 		if (contents.indexOf(search) !== contents.lastIndexOf(search))
 			throw new Error(`The file ${filePath} contained more than one occurrence of the search string. Expand the search string to make it unique`);
 
-		const updatedContents = contents.replace(search, replace);
-		await getFileSystem().writeFile(filePath, updatedContents);
+		logger.info('Skipping patchEdit');
+		// const updatedContents = contents.replace(search, replace);
+		// await getFileSystem().writeFile(filePath, updatedContents);
 	}
 }

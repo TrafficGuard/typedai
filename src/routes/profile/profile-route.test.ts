@@ -1,7 +1,8 @@
 import { expect } from 'chai';
 import type { FastifyInstance } from 'fastify';
 import type { User } from '#user/user';
-import { createTestFastify } from '../../test/testUtils';
+
+import { createTestFastify } from '../routeTestUtils';
 
 describe.skip('Profile Routes', () => {
 	let fastify: FastifyInstance;

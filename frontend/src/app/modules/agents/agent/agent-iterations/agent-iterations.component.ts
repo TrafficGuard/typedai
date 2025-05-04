@@ -47,12 +47,7 @@ export class AgentIterationsComponent implements OnInit, OnChanges, OnDestroy {
         private _changeDetectorRef: ChangeDetectorRef,
     ) {}
 
-    ngOnInit(): void {
-        // Initial load handled by ngOnChanges if agentId is already set
-        if (this.agentId) {
-            this.loadIterations();
-        }
-    }
+    ngOnInit(): void {}
 
     ngOnChanges(changes: SimpleChanges): void {
         if (changes.agentId) {

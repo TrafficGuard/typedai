@@ -1,7 +1,9 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
+import type { LlmFunctions } from '#agent/LlmFunctions';
 import { AgentFeedback } from '#agent/agentFeedback';
-import { provideFeedback, resumeCompleted, resumeError, resumeHil, startAgentAndWait } from '#agent/agentRunner';
+import { provideFeedback, resumeCompleted, resumeError, resumeHil, startAgent } from '#agent/agentRunner';
+import { waitForConsoleInput } from '#agent/humanInTheLoop';
 import { appContext, initApplicationContext } from '#app/applicationContext';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { defaultLLMs } from '#llm/services/defaultLlms';
@@ -17,16 +19,6 @@ export async function main() {
 
 	console.log(`Prompt: ${initialPrompt}`);
 
-	let functions: Array<new () => any>;
-	if (functionClasses?.length) {
-		functions = await resolveFunctionClasses(functionClasses);
-	} else {
-		// Default to FileSystemRead if no functions specified
-		functions = [FileSystemRead];
-	}
-	functions.push(AgentFeedback);
-	logger.info(`Available tools ${functions.map((f) => f.name).join(', ')}`);
-
 	if (resumeAgentId) {
 		const agent = await appContext().agentStateService.load(resumeAgentId);
 		switch (agent.state) {
@@ -39,9 +31,24 @@ export async function main() {
 				return await resumeHil(resumeAgentId, agent.executionId, initialPrompt);
 			case 'hitl_feedback':
 				return await provideFeedback(resumeAgentId, agent.executionId, initialPrompt);
+			default:
+				await waitForConsoleInput(`Agent is currently in the state ${agent.state}. Only resume if you know it is not `);
+				return resumeError(resumeAgentId, agent.executionId, initialPrompt);
 		}
 	}
-	const agentId = await startAgentAndWait({
+
+	let functions: LlmFunctions | Array<new () => any>;
+	if (functionClasses?.length) {
+		functions = await resolveFunctionClasses(functionClasses);
+	} else {
+		// Default to FileSystemRead if no functions specified
+		functions = [FileSystemRead];
+	}
+	functions.push(AgentFeedback);
+	logger.info(`Available tools ${functions.map((f) => f.name).join(', ')}`);
+
+	logger.info('Starting new agent');
+	const execution = await startAgent({
 		agentName: 'cli-agent',
 		initialPrompt,
 		functions,
@@ -54,9 +61,8 @@ export async function main() {
 			budget: 30,
 		},
 	});
-	logger.info('AgentId ', agentId);
-
-	saveAgentId('agent', agentId);
+	saveAgentId('agent', execution.agentId);
+	await execution.execution;
 }
 
 main().then(

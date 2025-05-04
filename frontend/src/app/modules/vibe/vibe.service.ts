@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http'; // Import HttpPar
 import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject, type Observable, tap } from 'rxjs';
 // Import FileSystemNode if not already imported (assuming it's defined in vibe.types.ts)
-import type { FileSystemNode, GitProject, VibeSession } from './vibe.types';
+import type { FileSystemNode, GitProject, VibePreset, VibePresetConfig, VibeSession } from './vibe.types';
 
 // Define the shape of the data needed for creation, matching the backend API body
 export interface CreateVibeSessionPayload {
@@ -154,6 +154,52 @@ export class VibeService {
 				// TODO remove from sessions
 			}),
 		);
+	}
+
+	/**
+	 * Sends a prompt to the backend to refine the design for a specific Vibe session.
+	 * @param sessionId The ID of the Vibe session.
+	 * @param prompt The user's instructions for refinement.
+	 * @returns An Observable that completes when the request is sent (backend returns void/202).
+	 */
+	updateDesignWithPrompt(sessionId: string, prompt: string): Observable<void> {
+		return this.http.post<void>(`/api/vibe/${sessionId}/update-design-prompt`, { prompt });
+	}
+
+	/**
+	 * Triggers the backend to start implementing the approved design for a specific Vibe session.
+	 * @param sessionId The ID of the Vibe session.
+	 * @returns An Observable that completes when the request is sent (backend returns void/202).
+	 */
+	executeDesign(sessionId: string): Observable<void> {
+		return this.http.post<void>(`/api/vibe/${sessionId}/execute-design`, {});
+	}
+
+	// --- Preset Management ---
+
+	/**
+	 * Fetches the list of Vibe presets from the backend.
+	 */
+	listVibePresets(): Observable<VibePreset[]> {
+		return this.http.get<VibePreset[]>('/api/vibe/presets');
+	}
+
+	/**
+	 * Saves a new Vibe preset to the backend.
+	 * @param name The name for the new preset.
+	 * @param config The configuration object for the preset.
+	 * @returns An Observable emitting the newly created VibePreset.
+	 */
+	saveVibePreset(name: string, config: VibePresetConfig): Observable<VibePreset> {
+		return this.http.post<VibePreset>('/api/vibe/presets', { name, config });
+	}
+
+	/**
+	 * Deletes a specific Vibe preset by its ID.
+	 * @param presetId The ID of the preset to delete.
+	 */
+	deleteVibePreset(presetId: string): Observable<void> {
+		return this.http.delete<void>(`/api/vibe/presets/${presetId}`);
 	}
 
 	// Remove or adapt old methods (getVibe, listVibes, deleteVibe) if they are no longer relevant

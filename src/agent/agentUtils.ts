@@ -23,7 +23,8 @@ export async function summarizeFunctionOutput(
 	parameters: Record<string, any>,
 	output: string,
 ): Promise<string> {
-	return await llms().medium.generateText(`${agentPlanResponse}
+	return await llms().medium.generateText(
+		`${agentPlanResponse}
 Memory keys: ${Object.keys(agent.memory).join()}
 Function call history: ${agent.functionCallHistory.map((call) => call.function_name)}
 
@@ -35,7 +36,9 @@ ${output}
 </function-ouput>
 
 Respond only with a summary of the output that will be included in the function call history of the agent. Incude key details, which may include snippets of the original output, particularly the very start and end, identifiers, structure, etc.
-The summary may be up to ${(FUNCTION_OUTPUT_THRESHOLD / 6).toFixed(0)} words long`);
+The summary may be up to ${(FUNCTION_OUTPUT_THRESHOLD / 6).toFixed(0)} words long`,
+		{ id: 'Summarize function output' },
+	);
 }
 
 /**

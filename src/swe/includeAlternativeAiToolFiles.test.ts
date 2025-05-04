@@ -2,12 +2,14 @@ import { join, normalize, resolve, sep } from 'node:path';
 import { expect } from 'chai';
 import mock from 'mock-fs';
 import sinon from 'sinon';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { includeAlternativeAiToolFiles } from './includeAlternativeAiToolFiles';
 
 // Helper to normalize paths in expected results for cross-platform compatibility
 const norm = (paths: string[]) => paths.map((p) => normalize(p));
 
 describe('includeAlternativeAiToolFiles', () => {
+	setupConditionalLoggerOutput();
 	// Use resolve to ensure absolute paths for mock-fs keys
 	const repoRoot = resolve('/mock-repo');
 	const testCwd = join(repoRoot, 'sub_dir'); // Current working directory inside the repo for tests
@@ -90,10 +92,8 @@ describe('includeAlternativeAiToolFiles', () => {
 			'.cursorrules', // Found in sub_dir
 			'CONVENTIONS.md', // Found in sub_dir
 			'DOCS.md', // Found in sub_dir
-			'.aider.conf.yml', // Found in sub_dir
 			// Files relative to cwd, found in parent ('/')
 			`..${sep}.cursorrules`,
-			`..${sep}.aider.conf.yml`,
 			`..${sep}.cursor${sep}rules${sep}root_rule.mdc`,
 			`..${sep}.cursor${sep}rules${sep}another_rule.mdc`,
 			`..${sep}.windsurfrules`,
@@ -123,10 +123,8 @@ describe('includeAlternativeAiToolFiles', () => {
 			'.cursorrules', // Found in sub_dir
 			'CONVENTIONS.md', // Found in sub_dir
 			'DOCS.md', // Found in sub_dir
-			'.aider.conf.yml', // Found in sub_dir
 			// Files relative to cwd, found in parent ('/')
 			`..${sep}.cursorrules`,
-			`..${sep}.aider.conf.yml`,
 			`..${sep}.cursor${sep}rules${sep}root_rule.mdc`,
 			`..${sep}.cursor${sep}rules${sep}another_rule.mdc`,
 			`..${sep}.windsurfrules`,
@@ -157,10 +155,8 @@ describe('includeAlternativeAiToolFiles', () => {
 			'.cursorrules', // Found in sub_dir (from sub_file1, nested_file)
 			'CONVENTIONS.md', // Found in sub_dir (from sub_file1, nested_file)
 			'DOCS.md', // Found in sub_dir (from sub_file1, nested_file)
-			'.aider.conf.yml', // Found in sub_dir (from sub_file1, nested_file)
 			// Files relative to cwd, found in parent ('/') (from all files)
 			`..${sep}.cursorrules`,
-			`..${sep}.aider.conf.yml`,
 			`..${sep}.cursor${sep}rules${sep}root_rule.mdc`,
 			`..${sep}.cursor${sep}rules${sep}another_rule.mdc`,
 			`..${sep}.windsurfrules`,
@@ -192,10 +188,8 @@ describe('includeAlternativeAiToolFiles', () => {
 			'.cursorrules', // Found in sub_dir (NOT the one from selection)
 			// 'CONVENTIONS.md' - Excluded as it was in fileSelection
 			'DOCS.md', // Found in sub_dir
-			'.aider.conf.yml', // Found in sub_dir
 			// Files relative to cwd, found in parent ('/')
 			// `..${sep}.cursorrules` - Excluded as it was in fileSelection
-			`..${sep}.aider.conf.yml`,
 			`..${sep}.cursor${sep}rules${sep}root_rule.mdc`,
 			`..${sep}.cursor${sep}rules${sep}another_rule.mdc`,
 			`..${sep}.windsurfrules`,
@@ -226,10 +220,8 @@ describe('includeAlternativeAiToolFiles', () => {
 			'.cursorrules',
 			'CONVENTIONS.md',
 			'DOCS.md',
-			'.aider.conf.yml',
 			// Files relative to cwd, found in parent ('/')
 			`..${sep}.cursorrules`,
-			`..${sep}.aider.conf.yml`,
 			`..${sep}.cursor${sep}rules${sep}root_rule.mdc`,
 			`..${sep}.cursor${sep}rules${sep}another_rule.mdc`,
 			`..${sep}.windsurfrules`,
@@ -307,15 +299,14 @@ describe('includeAlternativeAiToolFiles', () => {
 			`..${sep}QUICKSTART.md`, // From subdir config
 		]);
 
-		const aiderConfigFiles = norm([
-			'.aider.conf.yml', // Subdir config file itself
-			`..${sep}.aider.conf.yml`, // Root config file itself
-		]);
-
-		expect(additions).to.contain.all.keys(aiderConfigFiles);
+		// Check that the files *referenced* by the config files are included
 		expect(additions).to.contain.all.keys(expectedAiderReadPaths);
 
-		// Ensure non_existent.md was not added
+		// Ensure the config files themselves were NOT added
+		expect(norm(Array.from(additions))).to.not.contain('.aider.conf.yml');
+		expect(norm(Array.from(additions))).to.not.contain(`..${sep}.aider.conf.yml`);
+
+		// Ensure non_existent.md was not added (as it doesn't exist)
 		expect(norm(Array.from(additions))).to.not.contain('non_existent.md');
 	});
 });

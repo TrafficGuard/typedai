@@ -1,13 +1,20 @@
-import { existsSync } from 'node:fs';
-import { unlinkSync } from 'node:fs';
+import { existsSync, unlinkSync } from 'node:fs';
 import { expect } from 'chai';
 import { systemDir } from '#app/appVars';
-import { parseUserCliArgs, saveAgentId } from './cli';
+// Import the error type and the modified function
+import { CliArgumentError, parseUserCliArgs, saveAgentId } from './cli';
 
-describe('parseProcessArgs', () => {
+describe('parseUserCliArgs', () => {
+	const stateFilePath = `${systemDir()}/cli/test.lastRun`;
+
 	beforeEach(() => {
-		if (existsSync(`${systemDir()}/cli/test.lastRun`)) unlinkSync(`${systemDir()}/cli/test.lastRun`);
-		// if (existsSync('.typedai/cli/test')) unlinkSync('.typedai/cli/test');
+		// Ensure the state file does not exist before each test
+		if (existsSync(stateFilePath)) unlinkSync(stateFilePath);
+	});
+
+	afterEach(() => {
+		// Clean up the state file after each test
+		if (existsSync(stateFilePath)) unlinkSync(stateFilePath);
 	});
 
 	it('should parse -r flag correctly and set resumeAgentId if the state file exists', () => {
@@ -23,14 +30,21 @@ describe('parseProcessArgs', () => {
 		expect(result.initialPrompt).to.equal('some initial prompt');
 	});
 
-	it('should ignore -r if no state file exists', () => {
-		const result = parseUserCliArgs('test', ['-r', 'some', 'initial', 'prompt']);
-		expect(result.resumeAgentId).to.be.undefined;
-		expect(result.initialPrompt).to.equal('some initial prompt');
+	// Test was: 'should ignore -r if no state file exists'
+	it('should throw error if -r used and no state file exists', () => {
+		// Use expect(...).to.throw() to assert the specific error is thrown
+		expect(() => parseUserCliArgs('test', ['-r', 'some', 'initial', 'prompt'])).to.throw(CliArgumentError, 'No agentId to resume');
 	});
 
-	it('should handle multiple -r flags', () => {
+	// Test was: 'should handle multiple -r flags'
+	it('should throw error if multiple -r flags used and no state file exists', () => {
+		expect(() => parseUserCliArgs('test', ['-r', '-r', 'some', 'initial', 'prompt'])).to.throw(CliArgumentError, 'No agentId to resume');
+	});
+
+	it('should handle multiple -r flags (and resume if state file exists)', () => {
+		saveAgentId('test', 'id');
 		const result = parseUserCliArgs('test', ['-r', '-r', 'some', 'initial', 'prompt']);
+		expect(result.resumeAgentId).to.equal('id');
 		expect(result.initialPrompt).to.equal('some initial prompt');
 	});
 

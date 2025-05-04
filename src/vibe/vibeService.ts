@@ -5,8 +5,9 @@ import type {
 	UpdateCodeReviewData,
 	UpdateDesignInstructionsData,
 	UpdateVibeSessionData,
+	VibePreset,
 	VibeSession,
-} from './vibeTypes'; // Adjust path if needed, assuming it's relative
+} from './vibeTypes';
 
 /**
  * Interface for managing VibeSession data and orchestrating the Vibe Coding workflow.
@@ -58,6 +59,55 @@ export interface VibeService {
 	 */
 	deleteVibeSession(userId: string, sessionId: string): Promise<void>;
 
+	// --- Preset Management ---
+
+	/**
+	 * Saves a new Vibe Preset configuration for the user.
+	 * @param userId The ID of the user saving the preset.
+	 * @param name The user-defined name for the preset.
+	 * @param config The configuration data to save, excluding title and instructions.
+	 * @returns The newly created VibePreset object.
+	 */
+	saveVibePreset(userId: string, name: string, config: Omit<CreateVibeSessionData, 'title' | 'instructions'>): Promise<VibePreset>;
+
+	/**
+	 * Lists all Vibe Presets saved by the user.
+	 * @param userId The ID of the user whose presets to list.
+	 * @returns An array of VibePreset objects.
+	 */
+	listVibePresets(userId: string): Promise<VibePreset[]>;
+
+	/**
+	 * Deletes a specific Vibe Preset for the user.
+	 * @param userId The ID of the user owning the preset.
+	 * @param presetId The ID of the VibePreset to delete.
+	 * @returns {Promise<void>}
+	 */
+
+	/**
+	 * Saves a new Vibe Preset configuration for the user.
+	 * @param userId The ID of the user saving the preset.
+	 * @param name The user-defined name for the preset.
+	 * @param config The configuration data to save, excluding title and instructions.
+	 * @returns The newly created VibePreset object.
+	 */
+	saveVibePreset(userId: string, name: string, config: Omit<CreateVibeSessionData, 'title' | 'instructions'>): Promise<VibePreset>;
+
+	/**
+	 * Lists all Vibe Presets saved by the user.
+	 * @param userId The ID of the user whose presets to list.
+	 * @returns An array of VibePreset objects.
+	 */
+	listVibePresets(userId: string): Promise<VibePreset[]>;
+
+	/**
+	 * Deletes a specific Vibe Preset for the user.
+	 * @param userId The ID of the user owning the preset.
+	 * @param presetId The ID of the VibePreset to delete.
+	 * @returns {Promise<void>}
+	 */
+	deleteVibePreset(userId: string, presetId: string): Promise<void>;
+
 	// --- Workflow Actions ---
 
 	/**
@@ -74,14 +124,64 @@ export interface VibeService {
 	// initializeVibeSession?(userId: string, sessionId: string): Promise<void>; // Keep optional depending on trigger mechanism
 
 	/**
+	 * Updates the file selection based on user prompt.
+	 * Triggers agent, sets status to `updating_selection`.
+	 * @param userId The ID of the user owning the session.
+	 * @param sessionId The ID of the VibeSession.
+	 * @param prompt The user's prompt for refining the file selection.
+	 * @returns {Promise<void>} Resolves when the update process is queued.
+	 */
+	updateSelectionWithPrompt(userId: string, sessionId: string, prompt: string): Promise<void>;
+
+	/**
+	 * Generates a detailed design, potentially with variations.
+	 * Triggers agent, sets status to `generating_design`.
+	 * @param userId The ID of the user owning the session.
+	 * @param sessionId The ID of the VibeSession.
+	 * @param variations The number of design variations to generate (optional, defaults might apply).
+	 * @returns {Promise<void>} Resolves when the design generation is queued.
+	 */
+	generateDetailedDesign(userId: string, sessionId: string, variations: number): Promise<void>;
+
+	/**
+	 * Accepts a specific design variation and proceeds to the coding phase.
+	 * Sets status to `coding`, stores selected variations.
+	 * @param userId The ID of the user owning the session.
+	 * @param sessionId The ID of the VibeSession.
+	 * @param variations The number/index of the design variation accepted by the user.
+	 * @returns {Promise<void>} Resolves when the acceptance is processed and coding is queued.
+	 */
+	acceptDesign(userId: string, sessionId: string, variations: number): Promise<void>;
+
+	/**
+	 * Updates the design based on user prompt.
+	 * Triggers agent, sets status to `updating_design`.
+	 * Consider if `updateDesignWithInstructions` can be reused/adapted in implementation.
+	 * @param userId The ID of the user owning the session.
+	 * @param sessionId The ID of the VibeSession.
+	 * @param prompt The user's prompt for refining the design.
+	 * @returns {Promise<void>} Resolves when the design update is queued.
+	 */
+	updateDesignWithPrompt(userId: string, sessionId: string, prompt: string): Promise<void>;
+
+	/**
 	 * Updates the design ('designAnswer') based on user instructions.
 	 * Triggers an AI agent call. Updates session status if needed (e.g., back to 'design_review').
 	 * @param userId The ID of the user owning the session.
 	 * @param sessionId The ID of the VibeSession.
 	 * @param data Object containing the new instructions.
-	 * @returns {Promise<void>} Resolves when the design update is queued or complete.
 	 */
 	updateDesignWithInstructions(userId: string, sessionId: string, data: UpdateDesignInstructionsData): Promise<void>;
+
+	/**
+	 * Executes the approved design by triggering code generation.
+	 * Triggers `codeEditingAgent`, sets status to `coding`.
+	 * Consider if `startCoding` can be reused/adapted in implementation.
+	 * @param userId The ID of the user owning the session.
+	 * @param sessionId The ID of the VibeSession.
+	 * @returns {Promise<void>} Resolves when the coding process is queued.
+	 */
+	executeDesign(userId: string, sessionId: string): Promise<void>;
 
 	/**
 	 * Starts the code generation process based on the current 'fileSelection' and 'designAnswer'.

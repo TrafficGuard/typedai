@@ -11,13 +11,15 @@ import { FUNCTION_OUTPUT_THRESHOLD, summarizeFunctionOutput } from '#agent/agent
 import {
 	convertJsonToPythonDeclaration,
 	extractAgentPlan,
+	extractCodeReview,
+	extractDraftPythonCode,
 	extractExpandedUserRequest,
 	extractNextStepDetails,
 	extractObservationsReasoning,
 	extractPythonCode,
 	removePythonMarkdownWrapper,
 } from '#agent/codeGenAgentUtils';
-import { cloneAndTruncateBuffers } from '#agent/trimObject';
+import { cloneAndTruncateBuffers, removeConsoleEscapeChars } from '#agent/trimObject';
 import { appContext } from '#app/applicationContext';
 import { getServiceName } from '#fastify/trace-init/trace-init';
 import { FUNC_SEP, type FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
@@ -124,14 +126,12 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				agentUserMessageContent.push(text(userRequestXml));
 
 				// Add previous agent response and script result (if not the first iteration)
-				if (agent.iterations > 0) {
-					agentUserMessageContent.push(text(previousAgentPlanResponse)); // The <response>...</response> block
-					agentUserMessageContent.push(text(previousScriptResult)); // The <script-result>...</script-result> or <script-error>...</script-error>
-					// Add images detected in the previous script result
-					if (imageParts.length > 0) {
-						logger.debug(`Adding ${imageParts.length} image(s) from previous iteration to prompt.`);
-						agentUserMessageContent.push(...imageParts); // Add images collected at the end of the last loop
-					}
+				if (previousAgentPlanResponse) agentUserMessageContent.push(text(previousAgentPlanResponse)); // The <response>...</response> block
+				if (previousScriptResult) agentUserMessageContent.push(text(previousScriptResult)); // The <script-result>...</script-result> or <script-error>...</script-error>
+				// Add images detected in the previous script result
+				if (imageParts.length > 0) {
+					logger.debug(`Adding ${imageParts.length} image(s) from previous iteration to prompt.`);
+					agentUserMessageContent.push(...imageParts); // Add images collected at the end of the last loop
 				}
 
 				if (requestFeedbackCallResult)
@@ -139,10 +139,12 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 						text(`<function-result name="${AGENT_REQUEST_FEEDBACK}">${JSON.stringify(requestFeedbackCallResult)}</function-result>`),
 					);
 
-				agentUserMessageContent.push(
-					text('Review the results of the script and make any observations about the output/errors, then proceed with the response.'),
-				);
+				if (previousScriptResult)
+					agentUserMessageContent.push(
+						text('Review the results of the script and make any observations about the output/errors, then proceed with the response.'),
+					);
 
+				logger.debug({ finalAgentUserMessageContent: agentUserMessageContent }, 'Final user message content before creating user message');
 				agentMessages.push(user(agentUserMessageContent));
 
 				iterationData.prompt = agentMessages.map(toText).join('\n');
@@ -179,14 +181,24 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				previousAgentPlanResponse = `<response>\n${agentPlanResponse}\n</response>`;
 
 				// Extract the code, compile and fix if required
+				iterationData.draftCode = extractDraftPythonCode(agentPlanResponse);
+				iterationData.codeReview = extractCodeReview(agentPlanResponse);
 				let pythonMainFnCode = extractPythonCode(agentPlanResponse);
+				iterationData.code = pythonMainFnCode;
 				pythonMainFnCode = await ensureCorrectSyntax(pythonMainFnCode, functionsXml);
 				iterationData.code = pythonMainFnCode;
-				const pythonScript = mainFnCodeToFullScript(pythonMainFnCode);
 
 				const currentIterationFunctionCalls: FunctionCallResult[] = [];
 				// Configure the objects for the Python global scope which proxy to the available @func class methods
-				const globals = setupPyodideFunctionCallableGlobals(agent, agentPlanResponse, currentIterationFunctionCalls);
+				const functionInstances: Record<string, object> = agent.functions.getFunctionInstanceMap();
+				const functionSchemas: FunctionSchema[] = getAllFunctionSchemas(Object.values(functionInstances));
+				const globals = setupPyodideFunctionCallableGlobals(functionSchemas, agent, agentPlanResponse, currentIterationFunctionCalls);
+				const wrapperCode = generatePythonWrapper(functionSchemas, pythonMainFnCode);
+
+				const pythonScript = wrapperCode + mainFnCodeToFullScript(pythonMainFnCode);
+				iterationData.executedCode = pythonScript;
+
+				// console.log(`\n\n\n${pythonScript}\n\n`);
 
 				await agentStateService.updateState(agent, 'functions');
 
@@ -195,6 +207,13 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 					// The dict_converter converts to regular JS objects instead of the default Map objects
 					pythonScriptResult = result?.toJs ? result.toJs({ dict_converter: Object.fromEntries }) : result;
 					if (result?.destroy) result.destroy();
+
+					logger.info(`pythonScriptResult type ${typeof pythonScriptResult}`);
+					if (pythonScriptResult && typeof pythonScriptResult === 'object') {
+						for (const [k, v] of Object.entries(pythonScriptResult)) {
+							logger.info(`${k} type ${typeof v}`);
+						}
+					}
 
 					// --- Check for images BEFORE stringifying/truncating ---
 					if (typeof pythonScriptResult === 'object' && pythonScriptResult !== null) {
@@ -208,7 +227,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 						// If not an object, clear image parts for the next iteration
 						imageParts = [];
 					}
-					pythonScriptResultString = cloneAndTruncateBuffers(pythonScriptResult);
+					pythonScriptResultString = JSON.stringify(cloneAndTruncateBuffers(pythonScriptResult));
 
 					agent.error = null; // If execution succeeds reset error tracking
 				} catch (e) {
@@ -295,6 +314,12 @@ function mainFnCodeToFullScript(pythonMainFnCode: string): string {
 from typing import Any, List, Dict, Tuple, Optional, Union, TypedDict, Callable, Iterable, Mapping, Sequence, Set, Final
 from pyodide.ffi import JsProxy
 
+class ImageSource:
+    def __init__(self, type: str, source: str, data: Dict[int, str]):
+        self.type = type
+        self.source = source
+        self.data = data
+        
 class JsProxyEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, JsProxy):
@@ -312,13 +337,18 @@ main()`.trim();
 	return pythonScript;
 }
 
-function setupPyodideFunctionCallableGlobals(agent: AgentContext, agentPlanResponse: string, currentIterationFunctionCalls: FunctionCallResult[]) {
+function setupPyodideFunctionCallableGlobals(
+	functionSchemas: FunctionSchema[],
+	agent: AgentContext,
+	agentPlanResponse: string,
+	currentIterationFunctionCalls: FunctionCallResult[],
+) {
 	const functionInstances: Record<string, object> = agent.functions.getFunctionInstanceMap();
-	const funcSchemas: FunctionSchema[] = getAllFunctionSchemas(Object.values(functionInstances));
+
 	const jsGlobals = {};
-	for (const schema of funcSchemas) {
+	for (const schema of functionSchemas) {
 		const [className, method] = schema.name.split(FUNC_SEP);
-		jsGlobals[schema.name] = async (...args) => {
+		jsGlobals[`_${schema.name}`] = async (...args) => {
 			// logger.info(`args ${JSON.stringify(args)}`); // Can be very verbose
 			// The system prompt instructs the generated code to use positional arguments.
 			// however the generated code may use keyword args so we need to handle that case too.
@@ -346,6 +376,10 @@ function setupPyodideFunctionCallableGlobals(agent: AgentContext, agentPlanRespo
 				if (receivedKeys.length > 0 && receivedKeys.every((key) => expectedParamNames.includes(key))) {
 					isKeywordArgs = true;
 					logger.debug(`Detected keyword arguments for ${schema.name}: ${JSON.stringify(potentialKwargs)}`);
+				} else {
+					logger.warn(
+						`Function object arg didnt have keywords match. Had keys ${JSON.stringify(receivedKeys)}. Expected ${JSON.stringify(expectedParamNames)}`,
+					);
 				}
 			}
 
@@ -387,7 +421,8 @@ function setupPyodideFunctionCallableGlobals(agent: AgentContext, agentPlanRespo
 				const functionResponse = await functionInstances[className][method](...finalArgs);
 				// Don't need to duplicate the content in the function call history
 				// TODO Would be nice to save over-written memory keys for history/debugging
-				let stdout = JSON.stringify(functionResponse);
+				let stdout = removeConsoleEscapeChars(functionResponse);
+				stdout = JSON.stringify(cloneAndTruncateBuffers(stdout));
 				if (className === 'Agent' && method === 'saveMemory') parameters[AGENT_SAVE_MEMORY_CONTENT_PARAM_NAME] = '(See <memory> entry)';
 				if (className === 'Agent' && method === 'getMemory') stdout = '(See <memory> entry)';
 
@@ -406,7 +441,7 @@ function setupPyodideFunctionCallableGlobals(agent: AgentContext, agentPlanRespo
 				return functionResponse;
 			} catch (e) {
 				logger.warn(e, 'Error calling function');
-				let stderr = errorToString(e, false);
+				let stderr = removeConsoleEscapeChars(errorToString(e, false));
 				if (stderr.length > FUNCTION_OUTPUT_THRESHOLD) {
 					stderr = await summarizeFunctionOutput(agent, agentPlanResponse, schema, parameters, stderr);
 				}
@@ -423,6 +458,62 @@ function setupPyodideFunctionCallableGlobals(agent: AgentContext, agentPlanRespo
 		};
 	}
 	return pyodide.toPy(jsGlobals);
+}
+
+/**
+ * Generates Python code with a helper function and minimal wrappers
+ * to automatically perform a shallow conversion (.to_py(depth=1)) on JsProxy results.
+ */
+export function generatePythonWrapper(schemas: FunctionSchema[], generatedPythonCode: string): string {
+	let helperAndWrapperCode = `
+import sys
+import traceback # Keep traceback for JS call errors
+
+try:
+    from pyodide.ffi import JsProxy
+except ImportError:
+    print("Warning: pyodide.ffi.JsProxy not found.", file=sys.stderr)
+    class JsProxy: pass # Dummy class
+
+def _try_shallow_convert_proxy(result, func_name_for_log: str):
+    """
+    Internal helper: Attempts shallow conversion (.to_py(depth=1)) if result is JsProxy.
+    Returns converted value or original result.
+    """
+    if isinstance(result, JsProxy):
+        try:
+            # Attempt shallow conversion (converts top-level obj/arr)
+            return result.to_py(depth=1)
+        except Exception as e_conv:
+            # If conversion fails, log warning and return original proxy
+            print(f"Warning: Failed to shallow convert result of {func_name_for_log}: {e_conv}", file=sys.stderr)
+            return result # Fallback to the proxy
+    else:
+        # If not a proxy (e.g., primitive), return directly
+        return result
+
+`;
+
+	// --- Generate the minimal wrappers ---
+	for (const schema of schemas) {
+		const originalName = schema.name;
+		if (!generatedPythonCode.includes(originalName)) continue;
+		const internalName = `_${originalName}`;
+		// Define the wrapper function with the original name
+		helperAndWrapperCode += `
+async def ${originalName}(*args, **kwargs):
+    try:
+        raw_result = await ${internalName}(*args, **kwargs)
+        return _try_shallow_convert_proxy(raw_result, '${originalName}')
+    except Exception as e_call:
+        print(f"Error during call to underlying JS function '${internalName}': {e_call}", file=sys.stderr)
+        # Optionally print traceback for detailed debugging
+        traceback.print_exc(file=sys.stderr)
+        raise
+
+`;
+	}
+	return helperAndWrapperCode;
 }
 
 async function initPyodide(): Promise<PyodideInterface> {
@@ -442,7 +533,7 @@ async function initPyodide(): Promise<PyodideInterface> {
 }
 
 async function ensureCorrectSyntax(pythonMainFnCode: string, functionsXml: string): Promise<string> {
-	const MAX_ATTEMPTS = 1;
+	const MAX_ATTEMPTS = 5;
 	for (let i = 1; i <= MAX_ATTEMPTS; i++) {
 		const lines = mainFnCodeToFullScript(pythonMainFnCode).split('\n');
 		// Strip the main() so nothing executes

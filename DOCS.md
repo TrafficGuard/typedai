@@ -256,4 +256,32 @@ const checkPromises = filesToStat.map(async (filename) => {
 Use single line statements where reasonable. This is a good candidate is there is not much complexity, only the single if statement.
 The empty catch block can definitely be on a single line with the comment
 
+# Example
+## Original code
+```typescript
 
+// Parse the config content
+let config: any;
+try {
+    config = yaml.load(configContent);
+} catch (error: any) {
+    logger.warn(`Failed to parse YAML ${configPath}: ${error.message}`);
+    return; // Stop if parsing fails
+}
+
+```
+## Updated code
+```typescript
+
+let config: any;
+try {
+    config = yaml.load(configContent);
+} catch (error: any) {
+    logger.warn(`Failed to parse YAML ${configPath}: ${error.message}`);
+    return;
+}
+
+```
+## Notes
+This code block does a simple load, there's no business logic.
+The between the `yaml.load` and the warn message is enough for the reader to quickly understand. No further comments are required.

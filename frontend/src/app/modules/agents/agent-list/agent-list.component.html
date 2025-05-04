@@ -28,6 +28,16 @@
                         [placeholder]="'Search agents'"
                 />
             </mat-form-field>
+            <!-- Refresh Button -->
+            <button
+                    class="ml-4"
+                    mat-flat-button
+                    [matTooltip]="'Refresh List'"
+                    (click)="refreshAgents()"
+                    [disabled]="isLoading"
+            >
+                <mat-icon [svgIcon]="'heroicons_outline:arrow-path'"></mat-icon>
+            </button>
             <button
                     class="ml-4"
                     mat-flat-button
@@ -44,30 +54,20 @@
     <div class="flex flex-auto overflow-hidden">
         <div class="flex flex-auto flex-col overflow-hidden sm:mb-18 sm:overflow-y-auto">
             @if (agents$ | async; as agents) {
-
-                <div class="grid">
-                    <!-- Header -->
-                    <div class="inventory-grid text-secondary sticky top-0 z-10 grid gap-4 bg-gray-50 px-2 py-2 text-md font-semibold shadow dark:bg-black dark:bg-opacity-5 md:px-4">
-                        <div class="w-10"></div>
+                <!-- Header -->
+                <div class="inventory-grid text-secondary sticky top-0 z-10 grid gap-4 bg-gray-50 px-2 py-2 text-md font-semibold shadow dark:bg-black dark:bg-opacity-5 md:px-4">
+                    <div class="w-10"></div>
                         <div>Name</div>
                         <div>State</div>
                         <div class="hidden lg:block">Type</div>
                         <div>User Prompt</div>
                         <div class="hidden md:block">Error/Output</div>
                         <div class="hidden lg:block">Cost</div>
-                    </div>
+                </div>  <!-- Corrected closing tag position -->
 
-                    @if (agents === null) {
-                        <div class="inventory-grid grid items-center gap-4 border-b px-2 py-2 md:px-4">
-                            <div class="col-span-full text-center">
-                                Loading...
-                            </div>
-                        </div>
-                    }
-                    @else if (agents.length > 0) {
-                        <!-- Rows -->
-                        @for (agent of agents; track trackByFn($index, agent)) {
-                            <div class="inventory-grid grid items-center gap-4 border-b px-2 hover:bg-gray-50 md:px-4">
+                    @if (agents.length > 0) {
+                        @for (agent of agents; track agent.agentId) {
+                        <div class="inventory-grid grid items-center gap-4 border-b px-2 hover:bg-gray-50 md:px-4">
                                 <div class="w-10">
                                     <mat-checkbox
                                             (click)="$event.stopPropagation()"
@@ -104,19 +104,9 @@
                                     ${{ agent.cost | number: '1.2-2' }}
                                 </div>
                             </div>
-
-                            <!--
-                            <mat-paginator
-                                    class="z-10 border-b bg-gray-50 dark:bg-transparent sm:absolute sm:inset-x-0 sm:bottom-0 sm:border-b-0 sm:border-t"
-                                    [ngClass]="{ 'pointer-events-none': isLoading }"
-                                    [length]="pagination.length"
-                                    [pageIndex]="pagination.page"
-                                    [pageSize]="pagination.size"
-                                    [pageSizeOptions]="[5, 10, 25, 100]"
-                                    [showFirstLastButtons]="true"
-                            ></mat-paginator>
-                            -->
-                        }} @else {
+                        }
+                    } @else {
+                        <!-- This block executes when agents is not null BUT agents.length is 0 -->
                         <div class="border-t p-8 text-center text-3xl font-medium tracking-tight sm:p-16">
                             <div class="mb-1">There are no agents!</div>
 
@@ -129,10 +119,16 @@
                                 <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
                                 <span class="ml-2 mr-1">Add</span>
                             </button>
-
                         </div>
                     }
-                </div>
+                    <!-- Removed the third, invalid @else block here -->
+            } @else {
+                 <!-- This block executes when (agents$ | async) is null (still loading) -->
+                 <div class="p-8 text-center text-xl font-medium tracking-tight sm:p-16">
+                     <div class="col-span-full">
+                         Loading agents...
+                     </div>
+                 </div>
             }
         </div>
     </div>

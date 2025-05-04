@@ -9,8 +9,7 @@ import { envVar } from '#utils/env-var';
  */
 export async function runAgentCompleteHandler(agent: AgentContext): Promise<void> {
 	try {
-		const completionHandler = agent.completedHandler ?? new ConsoleCompletedHandler();
-		await completionHandler.notifyCompleted(agent);
+		await agent.completedHandler?.notifyCompleted(agent);
 	} catch (e) {
 		logger.warn(e, `Completion handler error for agent ${agent.agentId}`);
 		throw e;

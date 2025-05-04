@@ -1,13 +1,13 @@
 [
-  {
-    "baseDir": "./",
-    "language": "typescript",
-    "initialise": "npm install && cd frontend && npm install",
-    "compile": "npm run build && cd frontend && npm run build",
-    "format": "",
-    "staticAnalysis": "npm run lint ",
-    "test": "npm run test && cd frontend && npm run test",
-    "languageTools": "typescript",
-    "devBranch": "main"
-  }
+	{
+		"baseDir": "./",
+		"language": "typescript",
+		"initialise": "node build.js install",
+		"compile": "node build.js build",
+		"format": "",
+		"staticAnalysis": "node build.js lint",
+		"test": "node build.js test",
+		"languageTools": "typescript",
+		"devBranch": "main"
+	}
 ]

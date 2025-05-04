@@ -73,12 +73,39 @@
                             </mat-tab-group>
                         </div>
 
-                         <!-- Generated Code -->
-                        <div class="mb-3" *ngIf="iteration.code">
-                             <h4 class="font-medium text-md mb-1">Generated Code:</h4>
-                             <div class="bg-gray-100 p-2 rounded border border-gray-200 max-h-96 overflow-y-auto">
-                                <pre class="whitespace-pre-wrap text-sm">{{ iteration.code }}</pre>
-                            </div>
+                        <!-- Generated Code Tabs -->
+                        <div class="mb-3">
+                            <h4 class="font-medium text-md mb-1">Code Generation:</h4>
+                            <mat-tab-group animationDuration="0ms">
+                                <mat-tab label="Draft Generated Code">
+                                    <ng-template matTabContent>
+                                        <div class="bg-gray-100 p-2 rounded border border-gray-200 max-h-60 overflow-y-auto mt-2">
+                                            <pre class="whitespace-pre-wrap text-sm">{{ iteration.draftCode }}</pre>
+                                        </div>
+                                    </ng-template>
+                                </mat-tab>
+                                <mat-tab label="Code Review">
+                                    <ng-template matTabContent>
+                                        <div class="bg-gray-100 p-2 rounded border border-gray-200 max-h-60 overflow-y-auto mt-2">
+                                            <pre class="whitespace-pre-wrap text-sm">{{ iteration.codeReview }}</pre>
+                                        </div>
+                                    </ng-template>
+                                </mat-tab>
+                                <mat-tab label="Generated Code">
+                                    <ng-template matTabContent>
+                                        <div class="bg-gray-100 p-2 rounded border border-gray-200 max-h-60 overflow-y-auto mt-2">
+                                            <pre class="whitespace-pre-wrap text-sm">{{ iteration.code }}</pre>
+                                        </div>
+                                    </ng-template>
+                                </mat-tab>
+                                <mat-tab label="Executed Code">
+                                    <ng-template matTabContent>
+                                        <div class="bg-gray-100 p-2 rounded border border-gray-200 max-h-60 overflow-y-auto mt-2">
+                                            <pre class="whitespace-pre-wrap text-sm">{{ iteration.executedCode }}</pre>
+                                        </div>
+                                    </ng-template>
+                                </mat-tab>
+                            </mat-tab-group>
                         </div>
 
                         <!-- Function Calls -->

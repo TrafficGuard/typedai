@@ -3,6 +3,13 @@ import path, { join } from 'node:path';
 import { systemDir } from '#app/appVars';
 import { logger } from '#o11y/logger';
 
+// Define a custom error type
+export class CliArgumentError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'CliArgumentError';
+	}
+}
 export interface CliOptions {
 	/** Name of the executed .ts file without the extension */
 	scriptName: string;
@@ -17,7 +24,7 @@ export function parseProcessArgs(): CliOptions {
 	const scriptPath = process.argv[1];
 	let scriptName = scriptPath.split(path.sep).at(-1);
 	scriptName = scriptName.substring(0, scriptName.length - 3);
-	return parseUserCliArgs(scriptName, process.argv.slice(2));
+	return parseUserCliArgs(scriptName, process.argv.slice(2)); // slice shallow copies as we may want to modify the slice later
 }
 
 /**
@@ -25,7 +32,7 @@ export function parseProcessArgs(): CliOptions {
  */
 function parseFunctionArgument(args: string[]): string[] | undefined {
 	console.log(args);
-	const toolArg = args.find((arg) => arg.startsWith('-f='));
+	const toolArg = args.find((arg) => arg.startsWith('-f=') || arg.startsWith('-t='));
 	// logger.info(`Function arg: ${toolArg}`);
 	if (!toolArg) return undefined;
 	return toolArg
@@ -41,14 +48,26 @@ export function parseUserCliArgs(scriptName: string, scriptArgs: string[]): CliO
 		scriptArgs.splice(fsArgIndex, 1);
 	}
 
+	// Check if we're resuming an agent
+	let resumeAgentId: string;
 	let resumeLastRun = false;
 	let i = 0;
 	for (; i < scriptArgs.length; i++) {
 		if (scriptArgs[i] === '-r') {
 			resumeLastRun = true;
+			if (scriptArgs[i].length > 3) resumeAgentId = scriptArgs[i].substring(3);
 		} else {
 			break;
 		}
+	}
+	resumeAgentId = resumeLastRun ? resumeAgentId || getLastRunAgentId(scriptName) : undefined;
+	if (resumeLastRun && !resumeAgentId) {
+		// Throw error instead of exiting
+		throw new CliArgumentError('No agentId to resume');
+	}
+	if (resumeAgentId) {
+		// Log only if we are actually resuming
+		logger.info(`Resuming agent ${resumeAgentId}`);
 	}
 
 	let useSharedRepos = true;
@@ -73,8 +92,6 @@ export function parseUserCliArgs(scriptName: string, scriptArgs: string[]): CliO
 	}
 
 	// logger.info(initialPrompt);
-
-	const resumeAgentId = resumeLastRun ? getLastRunAgentId(scriptName) : undefined;
 
 	return { scriptName, resumeAgentId, initialPrompt, functionClasses, useSharedRepos };
 }

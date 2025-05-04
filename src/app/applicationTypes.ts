@@ -4,7 +4,7 @@ import type { TypeBoxFastifyInstance } from '#fastify/fastifyApp';
 import type { LlmCallService } from '#llm/llmCallService/llmCallService';
 import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
 import type { UserService } from '#user/userService/userService';
-import type { VibeService } from '#vibe/vibeService';
+import type { VibeRepository } from '#vibe/vibeRepository';
 import type { FunctionCacheService } from '../cache/functionCacheService';
 
 export interface ApplicationContext {
@@ -14,7 +14,7 @@ export interface ApplicationContext {
 	llmCallService: LlmCallService;
 	functionCacheService: FunctionCacheService;
 	codeReviewService: CodeReviewService;
-	vibeService: VibeService;
+	vibeRepository: VibeRepository; // For Vibe we store the Repository
 }
 
 export interface AppFastifyInstance extends TypeBoxFastifyInstance, ApplicationContext {}

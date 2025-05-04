@@ -16,12 +16,13 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatSelectModule } from '@angular/material/select';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar'; // Import MatSnackBar and MatSnackBarModule
 import { Router } from '@angular/router';
 import { BehaviorSubject, type Observable, Subscription, catchError, finalize, map, of, take } from 'rxjs';
 import { WorkflowsService } from '../../workflows/workflows.service';
 import { type CreateVibeSessionPayload, VibeService } from '../vibe.service';
-import type { GitProject, VibeSession } from '../vibe.types';
-import {MatCard, MatCardContent} from "@angular/material/card";
+import type { GitProject, VibePreset, VibePresetConfig, VibeSession } from '../vibe.types'; // Import VibePreset, VibePresetConfig
+import { MatCard, MatCardContent } from '@angular/material/card';
 
 @Component({
 	selector: 'app-new-vibe-wizard',
@@ -38,6 +39,8 @@ import {MatCard, MatCardContent} from "@angular/material/card";
 		MatProgressSpinnerModule,
 		MatCard,
 		MatCardContent,
+		MatSnackBarModule,
+		MatSelectModule, // Import MatSelectModule
 	],
 	templateUrl: './new-vibe-wizard.component.html',
 	styleUrls: ['./new-vibe-wizard.component.scss'],
@@ -47,6 +50,7 @@ export class NewVibeWizardComponent implements OnInit, OnDestroy {
 	private vibeService = inject(VibeService);
 	private workflowsService = inject(WorkflowsService);
 	private router = inject(Router);
+	private snackBar = inject(MatSnackBar); // Inject MatSnackBar
 
 	// Form and submission state
 	wizardForm!: FormGroup;
@@ -72,6 +76,12 @@ export class NewVibeWizardComponent implements OnInit, OnDestroy {
 	branches$: Observable<string[]> = this.branchesSubject.asObservable();
 	loadingBranches = false;
 	branchError: string | null = null;
+
+	// State for presets
+	presets$: Observable<VibePreset[]> = of([]);
+	loadingPresets = false;
+	presetError: string | null = null;
+
 	private formSubscriptions = new Subscription(); // To manage subscriptions
 
 	ngOnInit(): void {
@@ -94,10 +104,27 @@ export class NewVibeWizardComponent implements OnInit, OnDestroy {
 		// Initial setup for working branch based on action
 		this.updateWorkingBranchValidators(); // Set initial validators
 
+		// Initially disable useSharedRepos if the source is 'local'
+		const useSharedReposControlInitial = this.wizardForm.get('useSharedRepos');
+		if (useSharedReposControlInitial && this.wizardForm.get('selectedSource')?.value === 'local') {
+			useSharedReposControlInitial.disable({ emitEvent: false });
+		}
+
 		// Watch for changes in the source selection
 		const sourceChanges = this.wizardForm.get('selectedSource')?.valueChanges.subscribe(() => {
 			// The ngSwitch now directly uses the form value, just call the handler
 			this.onSourceChange();
+
+			// Enable/disable useSharedRepos based on the new source
+			const newSource = this.wizardForm.get('selectedSource')?.value;
+			const useSharedReposControl = this.wizardForm.get('useSharedRepos');
+			if (useSharedReposControl) {
+				if (newSource === 'local') {
+					useSharedReposControl.disable({ emitEvent: false });
+				} else {
+					useSharedReposControl.enable({ emitEvent: false });
+				}
+			}
 		});
 		this.formSubscriptions.add(sourceChanges!); // Add to subscriptions
 
@@ -115,6 +142,7 @@ export class NewVibeWizardComponent implements OnInit, OnDestroy {
 
 		// Initial data fetching
 		this.fetchRepositories();
+		this.loadPresets(); // Load presets on init
 		// Set initial branch control state (now handled within onRepoSelectionChange/updateWorkingBranchValidators)
 	}
 
@@ -167,6 +195,21 @@ export class NewVibeWizardComponent implements OnInit, OnDestroy {
 					this.repoError = this.repoError ? `${this.repoError} ${scmError}` : scmError;
 				},
 			});
+	}
+
+	loadPresets(): void {
+		this.loadingPresets = true;
+		this.presetError = null;
+		this.presets$ = this.vibeService.listVibePresets().pipe(
+			catchError((err) => {
+				console.error('Error loading presets:', err);
+				this.presetError = 'Failed to load presets.';
+				return of([]); // Return empty array on error
+			}),
+			finalize(() => {
+				this.loadingPresets = false;
+			}),
+		);
 	}
 
 	onSourceChange(): void {
@@ -344,6 +387,143 @@ export class NewVibeWizardComponent implements OnInit, OnDestroy {
 		newWorkingBranchControl.updateValueAndValidity({ emitEvent: false });
 	}
 
+	applyPreset(preset: VibePreset): void {
+		if (!preset) return;
+		console.log('Applying preset:', preset);
+
+		const config = preset.config;
+
+		// Patch the form with preset config
+		this.wizardForm.patchValue({
+			// Omit title and instructions
+			selectedSource: config.repositorySource,
+			// selectedRepo needs special handling below
+			targetBranch: config.targetBranch,
+			// Determine workingBranchAction based on config
+			workingBranchAction: config.createWorkingBranch ? 'new' : config.workingBranch === config.targetBranch ? 'target' : 'existing',
+			existingWorkingBranch: !config.createWorkingBranch && config.workingBranch !== config.targetBranch ? config.workingBranch : null,
+			newWorkingBranchName: config.createWorkingBranch ? config.workingBranch : null,
+			useSharedRepos: config.useSharedRepos,
+		});
+
+		// Handle selectedRepo based on source
+		let repoToSelect: GitProject | string | null = null;
+		if (config.repositorySource === 'local') {
+			repoToSelect = config.repositoryId; // Local uses path as ID
+		} else {
+			// Find the matching SCM project object
+			const projects = config.repositorySource === 'github' ? this.githubProjects : this.gitlabProjects;
+			repoToSelect = projects.find((p) => p.id.toString() === config.repositoryId) || null;
+
+			if (!repoToSelect) {
+				this.snackBar.open(`Preset Warning: Could not find the saved ${config.repositorySource} repository (${config.repositoryName || config.repositoryId}). Please select it manually.`, 'Close', { duration: 7000, verticalPosition: 'top' });
+				// Reset repo field to force manual selection
+				this.wizardForm.get('selectedRepo')?.setValue(null);
+			}
+		}
+
+		// Set the selectedRepo value (might be null if not found)
+		this.wizardForm.get('selectedRepo')?.setValue(repoToSelect);
+
+		// Trigger branch loading AFTER patching the form, especially selectedRepo
+		// Use setTimeout to ensure patchValue completes before triggering change detection/branch loading
+		setTimeout(() => {
+			this.onRepoSelectionChange();
+		}, 0);
+	}
+
+	savePreset(): void {
+		this.wizardForm.markAllAsTouched();
+		if (this.wizardForm.invalid) {
+			this.snackBar.open('Cannot save preset: Form is invalid.', 'Close', { duration: 3000, verticalPosition: 'top' });
+			return;
+		}
+
+		const presetName = window.prompt('Enter a name for this preset:');
+		if (!presetName) {
+			return; // User cancelled
+		}
+
+		this.isSubmitting = true; // Use submitting flag to disable button
+		const formValue = this.wizardForm.value;
+
+		// --- Logic to derive repo ID/Name (copied from onSubmit) ---
+		let repositoryId = '';
+		let repositoryName: string | undefined | null = undefined;
+
+		if (formValue.selectedSource === 'local') {
+			repositoryId = formValue.selectedRepo as string;
+			const pathParts = repositoryId.split(/[\\/]/);
+			repositoryName = pathParts.pop() || pathParts.pop() || repositoryId;
+		} else {
+			const selectedProject = formValue.selectedRepo as GitProject;
+			if (selectedProject && typeof selectedProject === 'object') {
+				repositoryId = selectedProject.id.toString();
+				repositoryName = selectedProject.name;
+			} else {
+				this.snackBar.open('Cannot save preset: Invalid repository selection.', 'Close', { duration: 5000, verticalPosition: 'top' });
+				this.isSubmitting = false;
+				return;
+			}
+		}
+		// --- End Repo ID/Name Logic ---
+
+		// --- Logic to derive working branch/create flag (copied from onSubmit) ---
+		let workingBranch: string;
+		let createWorkingBranch: boolean;
+
+		switch (formValue.workingBranchAction) {
+			case 'target':
+				workingBranch = formValue.targetBranch;
+				createWorkingBranch = false;
+				break;
+			case 'existing':
+				workingBranch = formValue.existingWorkingBranch;
+				createWorkingBranch = false;
+				break;
+			case 'new':
+				workingBranch = formValue.newWorkingBranchName;
+				createWorkingBranch = true;
+				break;
+			default:
+				this.snackBar.open('Cannot save preset: Invalid working branch option.', 'Close', { duration: 5000, verticalPosition: 'top' });
+				this.isSubmitting = false;
+				return;
+		}
+		// --- End Working Branch Logic ---
+
+		// Construct the preset config payload (Omit title and instructions)
+		const config: VibePresetConfig = {
+			repositorySource: formValue.selectedSource,
+			repositoryId: repositoryId,
+			repositoryName: repositoryName || null,
+			targetBranch: formValue.targetBranch,
+			workingBranch: workingBranch,
+			createWorkingBranch: createWorkingBranch,
+			useSharedRepos: formValue.useSharedRepos,
+		};
+
+		console.log('Saving Preset Config:', config);
+
+		this.vibeService
+			.saveVibePreset(presetName, config)
+			.pipe(
+				finalize(() => {
+					this.isSubmitting = false;
+				}),
+			)
+			.subscribe({
+				next: (savedPreset) => {
+					this.snackBar.open(`Preset "${savedPreset.name}" saved successfully!`, 'Close', { duration: 3000, verticalPosition: 'top' });
+					this.loadPresets(); // Refresh the preset list
+				},
+				error: (err) => {
+					this.snackBar.open(`Error saving preset: ${err.message || 'Unknown error'}`, 'Close', { duration: 5000, verticalPosition: 'top' });
+					console.error('Error saving preset:', err);
+				},
+			});
+	}
+
 	onSubmit(): void {
 		this.wizardForm.markAllAsTouched();
 
@@ -443,8 +623,11 @@ export class NewVibeWizardComponent implements OnInit, OnDestroy {
 					this.router.navigate(['/vibe', 'initialise', createdSession.id]);
 				},
 				error: (err) => {
-					console.error('Error creating Vibe session:', err);
-					// TODO: Add user-friendly error handling (e.g., snackbar)
+					this.snackBar.open(`Error creating Vibe session: ${err.message || 'Unknown error'}`, 'Close', {
+						duration: 5000, // Show for 5 seconds
+						verticalPosition: 'top', // Position at the top
+					});
+					console.error('Error creating Vibe session:', err); // Keep the console log for developer debugging purposes
 				},
 			});
 	}

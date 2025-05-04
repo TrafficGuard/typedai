@@ -1,5 +1,14 @@
-<ng-container *ngIf="session?.designAnswer || isEditing">
+<!-- Optional Loading Overlay -->
+<!-- <div *ngIf="isLoading" class="loading-overlay">
+    <mat-spinner diameter="50"></mat-spinner>
+</div> -->
+
+<ng-container *ngIf="session"> <!-- Check for session existence -->
+    <!-- Link to File Selection -->
+    <a [routerLink]="['/vibe', 'file-list', session?.id]" class="mb-4 inline-block text-blue-600 hover:underline">View File Selection</a>
+
     <form [formGroup]="designForm" class="sm:col-span-2">
+        <!-- Design Proposal Section -->
         <div class="flex justify-between items-center mb-2">
             <div class="font-semibold">Design Proposal:</div>
             <!-- Edit Button -->
@@ -32,20 +41,20 @@
             </mat-error>
         </mat-form-field>
 
-        <!-- Variations Selector -->
-        <mat-form-field class="w-full sm:w-1/3" *ngIf="!isEditing">
-            <mat-label>Number of Variations</mat-label>
-            <mat-select formControlName="variations">
-                <mat-option [value]="1">1</mat-option>
-                <mat-option [value]="2">2</mat-option>
-                <mat-option [value]="3">3</mat-option>
-            </mat-select>
-            <mat-error *ngIf="designForm.get('variations')?.hasError('required')">
-                Number of variations is required.
-            </mat-error>
-        </mat-form-field>
+        <!-- Variations Selector Removed -->
 
-        <!-- Actions -->
+        <!-- Refinement Prompt Section -->
+        <mat-form-field class="w-full mt-4" appearance="fill">
+            <mat-label>Update Design Instructions</mat-label>
+            <textarea matInput [formControl]="refinementPrompt" rows="3" placeholder="Enter instructions to refine the design..."></textarea>
+        </mat-form-field>
+        <div class="flex justify-end mb-4"> <!-- Align button to the right -->
+            <button mat-stroked-button color="accent" (click)="submitRefinementPrompt()" [disabled]="isLoading || !refinementPrompt.value?.trim()">
+                Submit Prompt
+            </button>
+        </div>
+
+        <!-- Main Actions -->
         <mat-card-actions align="end">
              <!-- Actions in Edit Mode -->
             <ng-container *ngIf="isEditing">
@@ -57,7 +66,7 @@
                 <button
                     mat-flat-button
                     color="primary"
-                    [disabled]="designForm.invalid"
+                    [disabled]="designForm.invalid || isLoading"
                     (click)="saveDesign()">
                     Save Changes
                 </button>
@@ -65,12 +74,13 @@
 
             <!-- Actions in Display Mode -->
             <ng-container *ngIf="!isEditing">
+                <!-- Renamed and updated action -->
                 <button
                     mat-flat-button
                     color="primary"
-                    [disabled]="designForm.invalid || isEditing"
-                    (click)="acceptDesign()">
-                    Accept Design &amp; Files
+                    [disabled]="designForm.invalid || isEditing || isLoading"
+                    (click)="acceptDesign()"> <!-- acceptDesign now calls triggerImplementation -->
+                    Implement Design
                 </button>
                 <!-- Add other actions like 'Request Changes' later if needed -->
             </ng-container>

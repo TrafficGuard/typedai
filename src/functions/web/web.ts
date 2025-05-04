@@ -11,6 +11,7 @@ import * as autoconsent from '@duckduckgo/autoconsent';
 import fetch from 'cross-fetch';
 import puppeteer from 'puppeteer';
 import type { Browser } from 'puppeteer';
+import type { ImageSource } from '#agent/agentImageUtils';
 import { agentStorageDir } from '#app/appVars';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
@@ -241,10 +242,10 @@ export class PublicWeb {
 	/**
 	 * Takes a screenshot of a web page while hiding cookie banners
 	 * @param url The URL of the web page to screenshot. Must be a complete URL with http(s)://
-	 * @returns {Promise<{ image: Buffer; logs: string[] }>} A Buffer containing the screenshot image data in .png format, and the browser logs
+	 * @returns {Promise<ImageSource>} The screenshot image data in .png format, and the browser logs
 	 */
 	@func()
-	async takeScreenshotAndLogs(url: string): Promise<{ image: Buffer; logs: string[] }> {
+	async takeScreenshotAndLogs(url: string): Promise<{ image: ImageSource; logs: string[] }> {
 		logger.info(`Taking screenshot of ${url}`);
 
 		if (!blocker) blocker = await PuppeteerBlocker.fromLists(fetch as any, ['https://secure.fanboy.co.nz/fanboy-cookiemonster.txt']);
@@ -300,8 +301,10 @@ export class PublicWeb {
 
 			const screenshot = await page.screenshot({ type: 'png' });
 
+			const array = new Uint8Array(screenshot.buffer, screenshot.byteOffset, screenshot.byteLength);
+
 			return {
-				image: screenshot,
+				image: { type: 'image', source: 'bytes', specifier: array },
 				logs,
 			};
 		} catch (error) {

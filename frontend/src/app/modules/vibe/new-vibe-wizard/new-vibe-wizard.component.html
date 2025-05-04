@@ -21,6 +21,21 @@
             <textarea matInput formControlName="instructions" rows="5" required></textarea>
         </mat-form-field>
 
+        <!-- Load Preset -->
+        <mat-form-field appearance="fill">
+            <mat-label>Load Preset</mat-label>
+            <mat-select (selectionChange)="applyPreset($event.value)">
+                <mat-option *ngIf="loadingPresets">Loading presets...</mat-option>
+                <mat-option *ngIf="presetError" [disabled]="true" class="text-warn">{{ presetError }}</mat-option>
+                <mat-option *ngIf="!(presets$ | async)?.length && !loadingPresets && !presetError" [disabled]="true">
+                    No presets saved
+                </mat-option>
+                <mat-option *ngFor="let preset of presets$ | async" [value]="preset">
+                    {{ preset.name }}
+                </mat-option>
+            </mat-select>
+        </mat-form-field>
+
         <!-- Repository Source Selection -->
         <div class="form-field-spacing">
             <mat-label>Repository Source</mat-label>
@@ -131,8 +146,7 @@
                     <mat-form-field appearance="outline" class="inline-field">
                         <mat-select
                             formControlName="existingWorkingBranch"
-                            required
-                            [disabled]="wizardForm.get('workingBranchAction')?.value !== 'existing'">
+                            required>
                             <!-- Handle loading state -->
                             <mat-option *ngIf="loadingBranches && wizardForm.get('selectedSource')?.value !== 'local'">Loading...</mat-option>
                             <!-- Show branches from observable -->
@@ -162,8 +176,7 @@
                             matInput
                             formControlName="newWorkingBranchName"
                             required
-                            placeholder="Enter new branch name"
-                            [disabled]="wizardForm.get('workingBranchAction')?.value !== 'new'"/>
+                            placeholder="Enter new branch name"/>
                         <mat-hint *ngIf="wizardForm.get('selectedSource')?.value !== 'local' && wizardForm.get('newWorkingBranchName')?.pending" align="end">Checking...</mat-hint>
                     </mat-form-field>
                     <span *ngIf="wizardForm.get('workingBranchAction')?.value === 'new'" class="inline-hint">
@@ -177,8 +190,7 @@
         <!-- Use Shared Repos -->
         <div class="form-field-spacing">
             <mat-checkbox
-                formControlName="useSharedRepos"
-                [disabled]="wizardForm.get('selectedSource')?.value === 'local'">
+                formControlName="useSharedRepos">
                 Use Shared Repositories - Allow the agent to access repositories shared across users.
             </mat-checkbox>
         </div>
@@ -188,6 +200,9 @@
             <button mat-raised-button color="primary" type="submit" [disabled]="wizardForm.invalid || isSubmitting">
                 <mat-spinner *ngIf="isSubmitting" diameter="20" style="display: inline-block; margin-right: 8px; vertical-align: middle;"></mat-spinner>
                 {{ isSubmitting ? 'Starting...' : 'Start Vibe Session' }}
+            </button>
+            <button mat-stroked-button type="button" (click)="savePreset()" [disabled]="wizardForm.invalid || isSubmitting">
+                Save as Preset
             </button>
         </div>
     </form>

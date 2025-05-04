@@ -197,13 +197,24 @@ export async function buildFolderStructure(dirPath: string, fileSystemService: F
 			fileProcessingPromises.push(filePromise);
 		} else if (dirent.isDirectory()) {
 			// Recursively process the subdirectory using the relative path
-			const subDirPromise = buildFolderStructure(itemRelativePath, fileSystemService);
+			const subDirPromise = (async (): Promise<Folder | null> => {
+				try {
+					return await buildFolderStructure(itemRelativePath, fileSystemService);
+				} catch (error) {
+					logger.error(`Error processing subdirectory ${itemRelativePath}:`, error);
+					// Return null to signify failure but allow Promise.all to continue
+					return null;
+				}
+			})();
 			subDirProcessingPromises.push(subDirPromise);
 		}
 	}
 
 	const processedFiles = await Promise.all(fileProcessingPromises);
-	const processedSubFolders = await Promise.all(subDirProcessingPromises);
+	// Wait for all subdirectory promises to settle
+	const processedSubFoldersResults = await Promise.all(subDirProcessingPromises);
+	// Filter out null results from failed subdirectory processing
+	const processedSubFolders = processedSubFoldersResults.filter((folder): folder is Folder => folder !== null);
 
 	for (const fileResult of processedFiles) {
 		if (fileResult) {
@@ -223,6 +234,5 @@ export async function buildFolderStructure(dirPath: string, fileSystemService: F
 		currentFolder.totalTokens += sub.totalTokens;
 		currentFolder.totalFiles += sub.totalFiles; // Add file counts from subfolders
 	}
-
 	return currentFolder;
 }

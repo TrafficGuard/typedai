@@ -145,7 +145,7 @@ export function buildFunctionCallHistoryPrompt(type: 'history' | 'results', maxL
  */
 export function updateFunctionSchemas(systemPrompt: string, functionSchemas: string): string {
 	const regex = /<functions>[\s\S]*?<\/functions>/g;
-	const updatedPrompt = systemPrompt.replace(regex, `<functions>${functionSchemas}</functions>`);
+	const updatedPrompt = systemPrompt.replace(regex, functionSchemas);
 	if (!updatedPrompt.includes(functionSchemas)) throw new Error('Unable to update function schemas. Regex replace failed');
 	return updatedPrompt;
 }

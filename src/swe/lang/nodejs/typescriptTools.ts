@@ -43,9 +43,9 @@ export class TypescriptTools implements LanguageTools {
 		const tsConfigExists = await fss.fileExists('tsconfig.json');
 		if (!tsConfigExists) throw new Error(`tsconfig.json not found in ${fss.getWorkingDirectory()}`);
 
-		const { exitCode, stdout, stderr } = await execCommand(`npx tsc -d --declarationDir "./${dtsFolder}" --emitDeclarationOnly`);
+		// const { exitCode, stdout, stderr } = await execCommand(`npx tsc -d --declarationDir "./${dtsFolder}" --emitDeclarationOnly`);
 		// Always returns 0 with no output?
-		logger.info(`Generating TypeScript project result: ${exitCode} ${stdout} ${stderr}`);
+		// logger.info(`Generating TypeScript project result: ${exitCode} ${stdout} ${stderr}`);
 
 		const dtsFiles = new Map();
 		// getFileSystem().setWorkingDirectory(dtsFolder)
@@ -68,7 +68,7 @@ export class TypescriptTools implements LanguageTools {
 		// TODO check Snyk etc for any major vulnerability
 		const fss = getFileSystem();
 		let result: ExecResult;
-		const nvmPrefix: string = (await fss.fileExists('.nvmrc')) ? 'unset NPM_CONFIG_PREFIX && nvm use && ' : '';
+		const nvmPrefix: string = ''; //nvm isnt working (await fss.fileExists('.nvmrc')) ? 'unset NPM_CONFIG_PREFIX && nvm use && ' : '';
 		// NODE_ENV=development is required other if it's set to production the devDependencies won't be installed
 		if (existsSync(join(fss.getWorkingDirectory(), 'yarn.lock'))) {
 			result = await execCommand(`${nvmPrefix}yarn add ${packageName}`, { envVars: { NODE_ENV: 'development' } });

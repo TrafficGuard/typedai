@@ -91,7 +91,6 @@ export async function detectProjectInfo(requirements?: string): Promise<ProjectI
 	} else if (await fss.fileExists(join(fss.getVcsRoot(), 'projectInfo.json'))) {
 		// logger.info('current dir ' + fileSystem.getWorkingDirectory());
 		// logger.info('fileSystem.getVcsRoot() ' + fileSystem.getVcsRoot());
-		// process.exit(1);
 		// throw new Error(
 		// 	'TODO handle if we are in a directory inside a repository. Look for the projectInfo.json in the repo root folder and see if any entry exists for the current folder or above ',
 		// );

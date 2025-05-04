@@ -205,7 +205,6 @@ export function runAgentStateServiceTests(
 	let service: AgentStateService;
 	let currentUserStub: sinon.SinonStub;
 	let functionFactoryStub: sinon.SinonStub;
-	let loggerWarnStub: sinon.SinonStub;
 
 	// Mock the function factory to return known classes
 	const mockFunctionFactoryContent = {
@@ -224,7 +223,6 @@ export function runAgentStateServiceTests(
 		currentUserStub = sinon.stub(userContext, 'currentUser').returns(testUser);
 		// Ensure functionFactory returns the classes needed by LlmFunctions.fromJSON and tests
 		functionFactoryStub = sinon.stub(functionSchema, 'functionFactory').returns(mockFunctionFactoryContent);
-		loggerWarnStub = sinon.stub(logger, 'warn');
 
 		// Register mock handlers needed for tests
 		clearCompletedHandlers(); // Clear any handlers from previous tests
@@ -644,12 +642,18 @@ export function runAgentStateServiceTests(
 
 	describe('updateFunctions', () => {
 		let agentId1: string;
+		let loggerWarnStub: sinon.SinonStub; // Declare here
 
 		beforeEach(async () => {
+			// Stub logger.warn specifically for this suite
+			loggerWarnStub = sinon.stub(logger, 'warn');
+
 			agentId1 = agentId();
 			// Start with default functions (like Agent) + potentially FileSystemRead based on LlmFunctions constructor/fromJSON behavior
 			await service.save(createMockAgentContext(agentId1, { functions: new LlmFunctions() }));
 		});
+
+		// No need for a specific afterEach here, as the main afterEach's sinon.restore() will handle it.
 
 		it('should update the functions for an existing agent, replacing defaults', async () => {
 			const functionNames = [MockFunction.name]; // Use class name
@@ -735,6 +739,9 @@ export function runAgentStateServiceTests(
 			agentPlan: `<plan>Plan for iteration ${iterNum}</plan>`,
 			nextStepDetails: `Next step details for iteration ${iterNum}`,
 			code: `print("Iteration ${iterNum}")`,
+			executedCode: `print("Iteration ${iterNum}")`,
+			draftCode: undefined, // Added missing property
+			codeReview: undefined, // Added missing property
 			images: [],
 			functionCalls: [
 				{
