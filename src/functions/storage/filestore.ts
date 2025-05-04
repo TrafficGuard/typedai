@@ -8,6 +8,8 @@ export interface FileMetadata {
 	lastUpdated: string;
 }
 
+export const FILE_STORE_NAME = 'FileStore';
+
 export interface FileStore extends GetToolType {
 	/**
 	 * Saves the contents to a file with the given filename and updates metadata.

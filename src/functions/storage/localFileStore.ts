@@ -80,7 +80,7 @@ export class LocalFileStore implements FileStore {
 	 * Lists all files in the current directory with their metadata.
 	 * @returns {Promise<FileMetadata[]>}
 	 */
-	@func()
+	// @func()
 	async listFiles(): Promise<FileMetadata[]> {
 		const agentId = agentContext().agentId;
 		const dirPath = path.join(this.basePath, agentId);

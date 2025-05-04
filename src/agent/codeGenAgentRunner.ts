@@ -19,11 +19,12 @@ import {
 	extractPythonCode,
 	removePythonMarkdownWrapper,
 } from '#agent/codeGenAgentUtils';
+import { LiveFiles } from '#agent/liveFiles';
 import { cloneAndTruncateBuffers, removeConsoleEscapeChars } from '#agent/trimObject';
 import { appContext } from '#app/applicationContext';
 import { getServiceName } from '#fastify/trace-init/trace-init';
 import { FUNC_SEP, type FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
-import type { FileStore } from '#functions/storage/filestore';
+import { FILE_STORE_NAME, type FileMetadata, type FileStore } from '#functions/storage/filestore';
 import { type FunctionCallResult, type ImagePartExt, type LlmMessage, type UserContentExt, messageText, system, text, user } from '#llm/llm';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
@@ -270,12 +271,33 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 			} finally {
 				// Capture current memory and tool state before saving
 				iterationData.memory = new Map(Object.entries(agent.memory));
-				iterationData.toolState = await buildToolStateMap(agent.functions.getFunctionInstances());
+				const toolStateMap = await buildToolStateMap(agent.functions.getFunctionInstances());
+				const liveFilesArray = agent.liveFiles ? [...agent.liveFiles] : [];
+				toolStateMap.set(LiveFiles.name, liveFilesArray);
+
+				// Store FileStore state
+				const fileStoreTool: FileStore | null = agent.functions.getFunctionType('filestore');
+				let fileStoreMetadataArray: FileMetadata[] | undefined;
+				if (fileStoreTool) {
+					try {
+						fileStoreMetadataArray = await fileStoreTool.listFiles();
+					} catch (e) {
+						logger.error(e, 'Error listing files from FileStore before saving agent context');
+					}
+				}
+				toolStateMap.set(FILE_STORE_NAME, fileStoreMetadataArray || []);
+
+				// Assign the consolidated map
+				iterationData.toolState = toolStateMap;
+				agent.toolState = toolStateMap;
+
+				// Update agent.fileStore based on the fetched metadata (or clear if unavailable/error)
+				agent.fileStore = fileStoreMetadataArray;
 
 				try {
 					await Promise.all([agentStateService.save(agent), agentStateService.saveIteration(iterationData as AutonomousIteration)]);
 				} catch (e) {
-					logger.error(e, 'Error saving agent state in control loop');
+					logger.error(e, 'Error saving agent state or iteration data in control loop');
 					controlLoopError = e;
 				}
 			}

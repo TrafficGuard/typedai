@@ -36,7 +36,7 @@ export function serializeContext(context: AgentContext): Record<string, any> {
 			serialized[key] = context[key].toJSON();
 		}
 		// Handle Maps (must only contain primitive/simple object values)
-		else if (key === 'memory' || key === 'metadata') {
+		else if (key === 'memory' || key === 'metadata' || key === 'fileStore') {
 			serialized[key] = context[key];
 		} else if (key === 'llms') {
 			serialized[key] = {
@@ -74,6 +74,7 @@ export async function deserializeAgentContext(serialized: Record<keyof AgentCont
 	context.functions = new LlmFunctions().fromJSON(serialized.functions ?? (serialized as any).toolbox); // toolbox for backward compat
 	context.memory = serialized.memory;
 	context.metadata = serialized.metadata;
+	context.fileStore = serialized.fileStore; // Add this line
 	context.childAgents = serialized.childAgents || [];
 	context.llms = deserializeLLMs(serialized.llms);
 
