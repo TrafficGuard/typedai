@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
-import type { LLM, LlmMessage } from '#llm/llm';
+import { ImagePartExt, type LLM, type LlmMessage, type UserContentExt, contentText, extractAttachments } from '#llm/llm';
+import { text, user } from '#llm/llm';
 import { extractTag } from '#llm/responseParsers';
 import { logger } from '#o11y/logger';
 import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
@@ -45,24 +46,26 @@ export interface FileExtract {
 	extract: string;
 }
 
-export async function selectFilesAgent(requirements: string, projectInfo?: ProjectInfo): Promise<SelectedFile[]> {
+export async function selectFilesAgent(requirements: UserContentExt, projectInfo?: ProjectInfo): Promise<SelectedFile[]> {
+	if (!requirements) throw new Error('Requirements must be provided');
 	const { selectedFiles } = await selectFilesCore(requirements, projectInfo);
 	return selectedFiles;
 }
 
-export async function queryWorkflow(query: string, projectInfo?: ProjectInfo): Promise<string> {
+export async function queryWorkflow(query: UserContentExt, projectInfo?: ProjectInfo): Promise<string> {
+	if (!query) throw new Error('query must be provided');
 	const { files, answer } = await queryWithFileSelection(query, projectInfo);
 	return answer;
 }
 
-export async function queryWithFileSelection(query: string, projectInfo?: ProjectInfo): Promise<{ files: SelectedFile[]; answer: string }> {
+export async function queryWithFileSelection(query: UserContentExt, projectInfo?: ProjectInfo): Promise<{ files: SelectedFile[]; answer: string }> {
 	const { messages, selectedFiles } = await selectFilesCore(query, projectInfo);
 
 	// Construct the final prompt for answering the query
-	const finalPrompt = `<query>                                                                                                                                                                                                                                                                                                                                                                                           
-${query}
-</query>                                                                                                                                                                                                                                                                                                                                                                                          
-																																																																																													 
+	const finalPrompt = `<query>
+${contentText(query)}
+</query>
+
 Please provide a detailed answer to the query using the information from the available file contents, and including citations to the files where the relevant information was found.
 Respond in the following structure, with the answer in Markdown format inside the result tags  (Note only the contents of the result tag will be returned to the user):
 
@@ -145,7 +148,7 @@ Respond in the following structure, with the answer in Markdown format inside th
  * @param projectInfo
  */
 async function selectFilesCore(
-	requirements: string,
+	requirements: UserContentExt,
 	projectInfo?: ProjectInfo,
 ): Promise<{
 	messages: LlmMessage[];
@@ -285,7 +288,7 @@ export async function updateSelectionWithPrompt(
 	return updatedSelection.filter((file, index, self) => index === self.findIndex((f) => f.path === file.path));
 }
 
-async function initializeFileSelectionAgent(requirements: string, projectInfo?: ProjectInfo): Promise<LlmMessage[]> {
+async function initializeFileSelectionAgent(requirements: UserContentExt, projectInfo?: ProjectInfo): Promise<LlmMessage[]> {
 	// Ensure projectInfo is available
 	projectInfo ??= (await detectProjectInfo())[0];
 
@@ -298,10 +301,10 @@ async function initializeFileSelectionAgent(requirements: string, projectInfo?: 
 	const repoOutlineUserPrompt = `${repositoryOverview}${fileSystemWithSummaries}`;
 
 	// Do not include file contents unless they have been provided to you.
-	const initialUserPrompt = `<requirements>\n${requirements}\n</requirements>
+	const initialUserPromptText = `<requirements>\n${contentText(requirements)}\n</requirements>
 
 Your task is to select the minimal set of files which are essential for completing the task/query described in the requirements, using the provided <project_files>.
-**Focus intensely on necessity.** Only select a file if you are confident its contents are **directly required** to understand the context or make the necessary changes. 
+**Focus intensely on necessity.** Only select a file if you are confident its contents are **directly required** to understand the context or make the necessary changes.
 Avoid selecting files that are only tangentially related or provide general context unless strictly necessary for the core task.
 
 Do not select package manager lock files as they are too large.
@@ -319,10 +322,12 @@ For this initial file selection step, identify the files you need to **inspect**
 }
 </json>
 `;
+	const attachments = extractAttachments(requirements);
+
 	return [
 		{ role: 'user', content: repoOutlineUserPrompt },
 		{ role: 'assistant', content: 'What is my task?', cache: 'ephemeral' },
-		{ role: 'user', content: initialUserPrompt, cache: 'ephemeral' },
+		user([text(initialUserPromptText), ...attachments], true),
 	];
 }
 

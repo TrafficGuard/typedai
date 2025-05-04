@@ -89,6 +89,7 @@ export function createContext(config: RunAgentConfig | RunWorkflowConfig): Agent
 		invoking: [],
 		lastUpdate: Date.now(),
 		liveFiles: [],
+		toolState: new Map<string, any>(),
 	};
 	return context;
 }

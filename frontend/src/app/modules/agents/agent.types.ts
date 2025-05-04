@@ -115,9 +115,19 @@ export interface AgentContext {
     functions: string[];
     /** Memory persisted over the agent's control loop iterations */
     memory: Map<string, string>;
+    /** The latest state of tools, updated at the end of each iteration */
+    toolState?: Map<string, any>;
 
     // UI generated
     output: string;
+}
+
+export interface FileMetadata {
+    filename: string;
+    description: string;
+    /** Size in bytes */
+    size: number;
+    lastUpdated: string; // Consider using Date type if appropriate after fetching
 }
 
 interface TextPart  { type: "text" , text: string }

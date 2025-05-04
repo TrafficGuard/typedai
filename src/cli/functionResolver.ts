@@ -6,6 +6,8 @@ import { Jira } from '#functions/jira';
 import { FileSystemList } from '#functions/storage/fileSystemList';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { FileSystemWrite } from '#functions/storage/fileSystemWrite';
+import { LocalFileStore } from '#functions/storage/localFileStore';
+import { LlmTools } from '#functions/util';
 import { Perplexity } from '#functions/web/perplexity';
 import { PublicWeb } from '#functions/web/web';
 import type { LLM } from '#llm/llm';
@@ -28,7 +30,9 @@ const functionAliases: Record<string, string> = {
 	fsr: FileSystemRead.name,
 	fsl: FileSystemList.name,
 	fsw: FileSystemWrite.name,
+	lfs: LocalFileStore.name,
 	web: PublicWeb.name,
+	llm: LlmTools.name,
 	pp: Perplexity.name,
 	npm: NpmPackages.name,
 	ts: TypescriptTools.name,

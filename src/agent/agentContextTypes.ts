@@ -1,5 +1,6 @@
 import type { LlmFunctions } from '#agent/LlmFunctions';
 import type { FileSystemService } from '#functions/storage/fileSystemService';
+import type { FileMetadata } from '#functions/storage/filestore';
 import type { FunctionCall, FunctionCallResult, GenerationStats, ImagePartExt, LLM, LlmMessage } from '#llm/llm';
 import type { User } from '#user/user';
 
@@ -140,7 +141,10 @@ export interface AgentContext {
 	/** How many iterations of the autonomous agent control loop to require human input to continue */
 	hilCount;
 	/** Files which are always provided in the agent control loop prompt */
-	liveFiles: string[];
+	liveFiles?: string[];
+	fileStore?: FileMetadata[];
+	/** The latest state of tools, updated at the end of each iteration */
+	toolState?: Map<string, any>;
 }
 
 /**
@@ -183,4 +187,8 @@ export interface AutonomousIteration {
 	error?: string;
 	/** Plan generation stats */
 	stats: GenerationStats;
+	/** Files which are always provided in the agent control loop prompt */
+	liveFiles?: string[];
+	/** Metadata of files in the agent's filestore at the end of the iteration */
+	fileStore?: FileMetadata[];
 }

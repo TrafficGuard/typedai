@@ -22,7 +22,8 @@ import { AgentMemoryComponent } from './agent-memory/agent-memory.component';
 import { AgentFunctionCallsComponent } from './agent-function-calls/agent-function-calls.component';
 import { AgentLlmCallsComponent } from './agent-llm-calls/agent-llm-calls.component';
 import { AgentIterationsComponent } from './agent-iterations/agent-iterations.component';
-import {AgentService} from "../services/agent.service";
+import { AgentToolStateComponent } from './agent-tool-state/agent-tool-state.component'; // Import the new component
+import { AgentService } from "../services/agent.service";
 
 @Component({
     selector: 'agent',
@@ -50,6 +51,7 @@ import {AgentService} from "../services/agent.service";
         AgentFunctionCallsComponent,
         AgentLlmCallsComponent,
         AgentIterationsComponent,
+        AgentToolStateComponent,
     ],
 })
 export class AgentComponent implements OnInit {

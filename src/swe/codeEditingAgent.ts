@@ -149,7 +149,7 @@ export class CodeEditingAgent {
 			this.failOnCompileError(compileErrorAnalysis);
 		}
 
-		await this.tidyDiff(gitBase, projectInfo, fileSelection);
+		// await this.tidyDiff(gitBase, projectInfo, fileSelection);
 
 		// The prompts need some work
 		// await this.testLoop(requirements, projectInfo, initialSelectedFiles);
