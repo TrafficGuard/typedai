@@ -67,6 +67,7 @@ export type AgentLLMs = Record<TaskLevel, LLM>;
 
 /**
  * The state of an agent.
+ * Ensure any new fields are handled in agentSerialization.ts
  */
 export interface AgentContext {
 	/** Primary Key - Agent instance id. Allocated when the agent is first starts */
@@ -144,7 +145,7 @@ export interface AgentContext {
 	liveFiles?: string[];
 	fileStore?: FileMetadata[];
 	/** The latest state of tools, updated at the end of each iteration */
-	toolState?: Map<string, any>;
+	toolState?: Record<string, any>;
 }
 
 /**

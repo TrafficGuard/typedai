@@ -31,10 +31,6 @@ export function serializeContext(context: AgentContext): Record<string, any> {
 		else if (Array.isArray(context[key])) {
 			serialized[key] = context[key];
 		}
-		// Object type check for a toJSON function
-		else if (typeof context[key] === 'object' && context[key].toJSON) {
-			serialized[key] = context[key].toJSON();
-		}
 		// Handle Maps (must only contain primitive/simple object values)
 		else if (key === 'memory' || key === 'metadata' || key === 'fileStore') {
 			serialized[key] = context[key];
@@ -50,9 +46,15 @@ export function serializeContext(context: AgentContext): Record<string, any> {
 		} else if (key === 'completedHandler') {
 			serialized[key] = context.completedHandler?.agentCompletedHandlerId() ?? null;
 		}
+		// Object type check for a toJSON function
+		else if (typeof context[key] === 'object' && context[key].toJSON) {
+			serialized[key] = context[key].toJSON();
+		} else if (typeof context[key] === 'object') {
+			serialized[key] = JSON.stringify(context[key]);
+		}
 		// otherwise throw error
 		else {
-			throw new Error(`Cant serialize context property ${key}`);
+			throw new Error(`Cant serialize context property '${key}'. Type: ${typeof context[key]} Value: ${JSON.stringify(context[key])}`);
 		}
 	}
 	return serialized;
@@ -77,6 +79,7 @@ export async function deserializeAgentContext(serialized: Record<keyof AgentCont
 	context.fileStore = serialized.fileStore; // Add this line
 	context.childAgents = serialized.childAgents || [];
 	context.llms = deserializeLLMs(serialized.llms);
+	context.toolState = serialized.toolState ? JSON.parse(serialized.toolState) : {};
 
 	const user = currentUser();
 	if (serialized.user === user.id) context.user = user;

@@ -14,14 +14,14 @@
             </ul>
         </ng-container>
         <ng-template #noLiveFiles>
-            <div class="text-gray-500 italic">No live files selected.</div>
+            <div class="text-gray-500 italic">None</div>
         </ng-template>
     </div>
 
     <!-- FileStore State Section -->
     <h4 class="text-md font-medium mt-6 mb-2">FileStore State</h4>
     <div *ngIf="!files || files.length === 0" class="text-gray-500 italic">
-        No files found in the agent's FileStore state.
+        None.
     </div>
 
     <div *ngIf="files && files.length > 0" class="overflow-auto">
