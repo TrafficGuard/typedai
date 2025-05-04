@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { LlmFunctions } from '#agent/LlmFunctions';
 import { agentContextStorage } from '#agent/agentContextLocalStorage';
 import type { AgentContext } from '#agent/agentContextTypes';
-import { runAgentWorkflow } from '#agent/workflow/workflowAgentRunner';
+import { runWorkflowAgent, startWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { appContext } from '#app/applicationContext';
 import type { SourceControlManagement } from '#functions/scm/sourceControlManagement';
 import { getSourceControlManagementTool } from '#functions/scm/sourceControlManagement';
@@ -146,14 +146,9 @@ export class VibeServiceImpl implements VibeService {
 			// Working directory is already set to the repo path within fss
 			logger.info({ sessionId, workspacePath: fss.getWorkingDirectory() }, 'Agent context running for file selection.');
 
-			await runAgentWorkflow(
-				{
-					agentName: '',
-					functions: [], // scm
-					initialPrompt: '',
-					vibeSessionId: sessionId,
-					subtype: 'selectFiles',
-				},
+			await this.runVibeWorkflowAgent(
+				session,
+				'selectFiles',
 				async () => {
 					// selectFilesAgent expects UserContentExt, pass instructions directly
 					const selection = await selectFilesAgent(session.instructions);
@@ -204,17 +199,26 @@ export class VibeServiceImpl implements VibeService {
 		}
 	}
 
-	async runVibeWorkflowAgent(vibeId: string, subtype: string, workflow: () => any): Promise<any> {
-		await runAgentWorkflow(
+	async runVibeWorkflowAgent(vibe: VibeSession, subtype: string, workflow: () => any): Promise<any> {
+		const execution = await startWorkflowAgent(
 			{
 				agentName: '',
 				functions: [], // scm
 				initialPrompt: '',
-				vibeSessionId: vibeId,
+				vibeSessionId: vibe.id,
 				subtype,
 			},
 			async () => {},
 		);
+
+		// TODO save agentId on the vibe
+
+		try {
+			await execution.execution;
+		} finally {
+			try {
+			} catch (e) {}
+		}
 	}
 
 	async getVibeSession(userId: string, sessionId: string): Promise<VibeSession | null> {
