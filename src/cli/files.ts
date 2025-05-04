@@ -4,7 +4,7 @@ import { writeFileSync } from 'node:fs';
 import { agentContext, llms } from '#agent/agentContextLocalStorage';
 import type { AgentLLMs } from '#agent/agentContextTypes';
 import type { RunAgentConfig, RunWorkflowConfig } from '#agent/orchestrator/orchestratorAgentRunner';
-import { runAgentWorkflow } from '#agent/workflow/workflowAgentRunner';
+import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { appContext, initApplicationContext } from '#app/applicationContext';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { defaultLLMs } from '#llm/services/defaultLlms';
@@ -31,7 +31,7 @@ async function main() {
 		},
 	};
 
-	await runAgentWorkflow(config, async () => {
+	await runWorkflowAgent(config, async () => {
 		const agent = agentContext();
 		agent.name = `Query: ${await llms().easy.generateText(
 			`<query>\n${initialPrompt}\n</query>\n\nSummarise the query into only a terse few words for a short title (8 words maximum) for the name of the AI agent completing the task. Output the short title only, nothing else.`,

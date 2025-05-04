@@ -76,6 +76,8 @@ export interface VibeSession {
 	ciCdProposedFix?: string; // AI-proposed code changes to fix a CI/CD failure (if applicable)
 	createdAt: number; // Time when the session was created
 	updatedAt: number; // Time when the session was last updated
+	/** History of agents ids run for this session */
+	agentHistory?: string[];
 	error?: string; // Optional field to store error messages if the status is 'error'
 }
 
@@ -99,6 +101,8 @@ export type CreateVibeSessionData = Omit<
 	| 'ciCdProposedFix' // Populated by agent
 	| 'createdAt' // Set by the system
 	| 'updatedAt' // Set by the system
+	| 'currentAgentId' // Set by the system during orchestration
+	| 'agentHistory' // Set by the system during orchestration
 	| 'error' // Set by the system on error
 >;
 

@@ -2,7 +2,7 @@ import '#fastify/trace-init/trace-init'; // leave an empty line next so this doe
 
 import type { AgentLLMs } from '#agent/agentContextTypes';
 import type { RunAgentConfig, RunWorkflowConfig } from '#agent/orchestrator/orchestratorAgentRunner';
-import { runAgentWorkflow } from '#agent/workflow/workflowAgentRunner';
+import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { initApplicationContext } from '#app/applicationContext';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { GitLab } from '#functions/scm/gitlab';
@@ -34,7 +34,7 @@ async function main() {
 		},
 	};
 
-	const agentId = await runAgentWorkflow(config, async () => {
+	const agentId = await runWorkflowAgent(config, async () => {
 		// Pass the full UserContent (text + images) to the agent
 		await new CodeEditingAgent().implementUserRequirements(contentText(userContent));
 		// await (agentContext().functions.getFunctionInstanceMap().Agent as Agent).saveMemory('memKey', 'content');

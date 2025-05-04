@@ -90,7 +90,7 @@ export function createContext(config: RunAgentConfig | RunWorkflowConfig): Agent
 		lastUpdate: Date.now(),
 		liveFiles: [],
 		toolState: {}, // Initialize as empty object, not Map
-		vibeSessionId: config.vibeSessionId, // Assign from config (cast needed as it's only on RunAgentConfig)
+		vibeSessionId: config.vibeSessionId, // Assign from config
 	};
 	// Ensure toolState is correctly initialized if needed elsewhere, maybe as {} instead of Map
 	// if (context.toolState && !(context.toolState instanceof Map)) {

@@ -1,7 +1,7 @@
 import { Type } from '@sinclair/typebox';
 import type { FastifyReply } from 'fastify';
 import { RunAgentConfig, type RunWorkflowConfig } from '#agent/orchestrator/orchestratorAgentRunner';
-import { runAgentWorkflow } from '#agent/workflow/workflowAgentRunner';
+import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { appContext } from '#app/applicationContext';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send, sendSuccess } from '#fastify/index';
@@ -48,7 +48,7 @@ export async function gitlabRoutesV1(fastify: AppFastifyInstance) {
 
 			const mergeRequestId = `project:${event.project.name}, miid:${event.object_attributes.iid}, MR:"${event.object_attributes.title}"`;
 
-			await runAgentWorkflow(config, async (context) => {
+			await runWorkflowAgent(config, async (context) => {
 				logger.info(`Agent ${context.agentId} reviewing merge request ${mergeRequestId}`);
 				return new GitLabCodeReview()
 					.reviewMergeRequest(event.project.id, event.object_attributes.iid)

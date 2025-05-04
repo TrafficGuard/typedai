@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { Type } from '@sinclair/typebox';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { RunAgentConfig, type RunWorkflowConfig } from '#agent/orchestrator/orchestratorAgentRunner';
-import { runAgentWorkflow } from '#agent/workflow/workflowAgentRunner';
+import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { systemDir, typedaiDirName } from '#app/appVars';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { defaultLLMs, summaryLLM } from '#llm/services/defaultLlms';
@@ -68,7 +68,7 @@ export async function workflowRoutes(fastify: AppFastifyInstance) {
 					},
 				};
 
-				await runAgentWorkflow(config, async () => {
+				await runWorkflowAgent(config, async () => {
 					if (workingDirectory?.trim()) getFileSystem().setWorkingDirectory(workingDirectory);
 					await new CodeEditingAgent().implementUserRequirements(config.initialPrompt);
 				});
@@ -105,7 +105,7 @@ export async function workflowRoutes(fastify: AppFastifyInstance) {
 				};
 
 				let response = '';
-				await runAgentWorkflow(config, async () => {
+				await runWorkflowAgent(config, async () => {
 					// In the UI we strip out the systemDir
 					logger.info(`systemDir ${systemDir()}`);
 					logger.info(`workinDir ${workingDirectory}`);
@@ -151,7 +151,7 @@ export async function workflowRoutes(fastify: AppFastifyInstance) {
 				};
 
 				let response: SelectFilesResponse;
-				runAgentWorkflow(config, async () => {
+				runWorkflowAgent(config, async () => {
 					if (workingDirectory?.trim()) getFileSystem().setWorkingDirectory(workingDirectory);
 					response = await selectFilesToEdit(requirements);
 				})

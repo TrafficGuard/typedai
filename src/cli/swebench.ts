@@ -4,7 +4,7 @@ import { promises as fs, readFileSync } from 'node:fs';
 import type { AgentLLMs } from '#agent/agentContextTypes';
 import { AGENT_COMPLETED_PARAM_NAME } from '#agent/orchestrator/functions/agentFunctions';
 import { type RunAgentConfig, type RunWorkflowConfig, runAgentAndWait, startAgent } from '#agent/orchestrator/orchestratorAgentRunner';
-import { runAgentWorkflow } from '#agent/workflow/workflowAgentRunner';
+import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { initFirestoreApplicationContext } from '#app/applicationContext';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { GitLab } from '#functions/scm/gitlab';
@@ -53,7 +53,7 @@ async function main() {
 		},
 	};
 
-	const agentId = await runAgentWorkflow(config, async () => {
+	const agentId = await runWorkflowAgent(config, async () => {
 		await new CodeEditingAgent().implementUserRequirements(config.initialPrompt);
 	});
 

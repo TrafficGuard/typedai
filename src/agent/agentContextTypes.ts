@@ -86,6 +86,7 @@ export interface AgentContext {
 	/** Display name */
 	name: string;
 	/** Not used yet */
+	/** The VibeSession this agent belongs to, if any */
 	parentAgentId?: string;
 	vibeSessionId?: string;
 	/** The user who created the agent */

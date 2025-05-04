@@ -1,5 +1,5 @@
 import { getFileSystem } from '#agent/agentContextLocalStorage';
-import { runAgentWorkflow } from '#agent/workflow/workflowAgentRunner';
+import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { GitHub } from '#functions/scm/github';
 import { ClaudeVertexLLMs } from '#llm/services/anthropic-vertex';
 import { defaultLLMs } from '#llm/services/defaultLlms';
@@ -70,7 +70,7 @@ export class SWEBenchAgent {
 	}
 
 	private async attemptSolution(task: SWEInstance): Promise<any> {
-		return await runAgentWorkflow(
+		return await runWorkflowAgent(
 			{
 				agentName: `swe-bench ${task.instance_id}`,
 				subtype: 'swe-bench',

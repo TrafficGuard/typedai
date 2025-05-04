@@ -1,48 +1,24 @@
 import type { Span } from '@opentelemetry/api';
 import { agentContext, agentContextStorage, createContext } from '#agent/agentContextLocalStorage';
 import type { AgentContext } from '#agent/agentContextTypes';
-import { runCodeGenAgent } from '#agent/orchestrator/codegen/codegenOrchestratorAgent';
-import { type AgentExecution, RunAgentConfig, type RunWorkflowConfig, agentExecutions } from '#agent/orchestrator/orchestratorAgentRunner';
-import { runXmlAgent } from '#agent/orchestrator/xml/xmlOrchestratorAgent';
+import { type AgentExecution, type RunWorkflowConfig, agentExecutions } from '#agent/orchestrator/orchestratorAgentRunner';
 import { appContext } from '#app/applicationContext';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { errorToString } from '#utils/errors';
 import { formatMillisDuration } from '#utils/time';
 
-async function startWorkflowAgent(agent: AgentContext): Promise<AgentExecution> {
-	let execution: AgentExecution;
-
-	switch (agent.subtype) {
-		case 'xml':
-			execution = await runXmlAgent(agent);
-			break;
-		case 'codegen':
-			execution = await runCodeGenAgent(agent);
-			break;
-		default:
-			throw new Error(`Invalid agent type ${agent.type}`);
-	}
-
-	agentExecutions[agent.agentId] = execution;
-	execution.execution.finally(() => {
-		delete agentExecutions[agent.agentId];
-	});
-	return execution;
-}
-
 /**
- * Runs a workflow with an agentContext. This also persists the agent so its actions can be reviewed in the UI
+ * Starts a workflow agent and returns the execution with the Promise of the running agent
  * @param config
  * @param workflow
- * @returns the agentId
  */
-export async function runAgentWorkflow(config: RunWorkflowConfig, workflow: (agent: AgentContext) => any): Promise<string> {
+export async function startWorkflowAgent(config: RunWorkflowConfig, workflow: (agent: AgentContext) => any): Promise<AgentExecution> {
 	let context: AgentContext = createContext(config);
-	context.state = 'workflow';
 	await appContext().agentStateService.save(context);
+	let execution: Promise<any>;
 
-	return agentContextStorage.run(context, async () => {
+	const wrappedWorkflow = async () => {
 		try {
 			const start = Date.now();
 			await withActiveSpan(config.agentName, async (span: Span) => {
@@ -59,8 +35,33 @@ export async function runAgentWorkflow(config: RunWorkflowConfig, workflow: (age
 			context.state = 'error';
 			context.error = errorToString(e);
 		} finally {
+			delete agentExecutions[context.agentId];
 			await appContext().agentStateService.save(context);
 		}
 		return context.agentId;
+	};
+
+	agentContextStorage.run(context, () => {
+		execution = wrappedWorkflow();
 	});
+
+	const agentExecution: AgentExecution = {
+		agentId: context.agentId,
+		execution,
+	};
+	agentExecutions[context.agentId] = agentExecution;
+
+	return agentExecution;
+}
+
+/**
+ * Runs a workflow agent to completion.
+ * @param config
+ * @param workflow
+ * @returns the agentId
+ */
+export async function runWorkflowAgent(config: RunWorkflowConfig, workflow: (agent: AgentContext) => any): Promise<string> {
+	const execution = await startWorkflowAgent(config, workflow);
+	await execution.execution;
+	return execution.agentId;
 }

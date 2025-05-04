@@ -61,6 +61,7 @@ export class VibeServiceImpl implements VibeService {
 			ciCdStatus: undefined,
 			ciCdJobUrl: undefined,
 			ciCdAnalysis: undefined,
+			agentHistory: [], // Initialize new field
 			// Ensure user object is included if needed by agent context later
 			// user: await appContext().userService.getUser(userId), // Example: Fetch user if needed
 		};
@@ -146,33 +147,29 @@ export class VibeServiceImpl implements VibeService {
 			// Working directory is already set to the repo path within fss
 			logger.info({ sessionId, workspacePath: fss.getWorkingDirectory() }, 'Agent context running for file selection.');
 
-			await this.runVibeWorkflowAgent(
-				session,
-				'selectFiles',
-				async () => {
-					// selectFilesAgent expects UserContentExt, pass instructions directly
-					const selection = await selectFilesAgent(session.instructions);
-					logger.info({ sessionId, fileCount: selection?.length }, 'selectFilesAgent completed.');
+			await this.runVibeWorkflowAgent(session, 'selectFiles', async () => {
+				// selectFilesAgent expects UserContentExt, pass instructions directly
+				const selection = await selectFilesAgent(session.instructions);
+				logger.info({ sessionId, fileCount: selection?.length }, 'selectFilesAgent completed.');
 
-					if (!selection || !Array.isArray(selection)) throw new Error('Invalid response structure from selectFilesAgent');
+				if (!selection || !Array.isArray(selection)) throw new Error('Invalid response structure from selectFilesAgent');
 
-					// Map the result from selectFilesAgent's SelectedFile to Vibe's SelectedFile
-					const fileSelectionResult = selection.map((sf) => ({
-						filePath: sf.path, // Map 'path' to 'filePath'
-						reason: sf.reason,
-						category: sf.category,
-						readOnly: sf.readonly, // Map 'readonly' to 'readOnly'
-					}));
+				// Map the result from selectFilesAgent's SelectedFile to Vibe's SelectedFile
+				const fileSelectionResult = selection.map((sf) => ({
+					filePath: sf.path, // Map 'path' to 'filePath'
+					reason: sf.reason,
+					category: sf.category,
+					readOnly: sf.readonly, // Map 'readonly' to 'readOnly'
+				}));
 
-					// 5. Update Session State (Success)
-					await this.vibeRepo.updateVibeSession(userId, sessionId, {
-						status: 'file_selection_review',
-						fileSelection: fileSelectionResult,
-						lastAgentActivity: Date.now(),
-						error: null, // Clear any previous error
-					});
-				},
-			);
+				// 5. Update Session State (Success)
+				await this.vibeRepo.updateVibeSession(userId, sessionId, {
+					status: 'file_selection_review',
+					fileSelection: fileSelectionResult,
+					lastAgentActivity: Date.now(),
+					error: null, // Clear any previous error
+				});
+			});
 			logger.info({ sessionId }, '[VibeServiceImpl] Background initialization finished successfully.');
 		} catch (error: any) {
 			// 6. Update Session State (Failure)
@@ -200,25 +197,31 @@ export class VibeServiceImpl implements VibeService {
 	}
 
 	async runVibeWorkflowAgent(vibe: VibeSession, subtype: string, workflow: () => any): Promise<any> {
+		// Prepare agent config, ensuring vibeSessionId is included
 		const execution = await startWorkflowAgent(
 			{
-				agentName: '',
-				functions: [], // scm
-				initialPrompt: '',
+				agentName: `vibe-${vibe.id}-${subtype}`,
+				functions: [], // TODO: Add necessary functions (e.g., SCM, FileSystem)
+				initialPrompt: vibe.instructions, // Or specific prompt for the step
 				vibeSessionId: vibe.id,
 				subtype,
+				// Assuming user is fetched earlier or passed in vibe object if needed
+				// user: vibe.user,
+				// Assuming fileSystemPath is derived correctly for the session
+				// fileSystemPath: join(process.cwd(), 'vibe-workspaces', vibe.userId, vibe.id),
 			},
-			async () => {},
+			workflow,
 		);
 
-		// TODO save agentId on the vibe
+		// Update VibeSession state immediately after starting the agent
+		const agentId = execution.agentId;
+		await this.vibeRepo.updateVibeSession(vibe.userId, vibe.id, {
+			agentHistory: [...(vibe.agentHistory || []), agentId], // Append to history
+			lastAgentActivity: Date.now(),
+		});
+		logger.info({ vibeId: vibe.id, agentId, subtype }, 'VibeSession updated with current agent and history.');
 
-		try {
-			await execution.execution;
-		} finally {
-			try {
-			} catch (e) {}
-		}
+		await execution.execution;
 	}
 
 	async getVibeSession(userId: string, sessionId: string): Promise<VibeSession | null> {
