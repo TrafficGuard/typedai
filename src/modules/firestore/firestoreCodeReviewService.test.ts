@@ -3,8 +3,9 @@
 // import type { CodeReviewConfig } from '#swe/codeReview/codeReviewModel'; // Now handled by shared tests
 
 import { runCodeReviewServiceTests } from '#swe/codeReview/codeReviewService.test';
+import { setupConditionalLoggerOutput } from '#test/testUtils'; // Import the reset function
 import { FirestoreCodeReviewService } from './firestoreCodeReviewService';
-import { resetFirestoreEmulator } from './resetFirestoreEmulator'; // Import the reset function
+import { resetFirestoreEmulator } from './resetFirestoreEmulator';
 
 // --- Firestore Test Setup ---
 

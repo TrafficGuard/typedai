@@ -17,10 +17,10 @@ export function setupConditionalLoggerOutput() {
 
 		// Stub logger methods and capture calls
 		// Ensure all relevant logger methods are stubbed
-		const methodsToStub: (keyof typeof logger)[] = ['info', 'warn', 'error', 'debug', 'trace', 'fatal']; // Add any other methods used
+		const methodsToStub: (keyof typeof logger)[] = ['info', 'warn', 'error', 'debug', 'trace', 'fatal'];
 
 		loggerStubs = methodsToStub
-			.filter((method) => typeof logger[method] === 'function') // Ensure it's a function before stubbing
+			.filter((method) => typeof logger[method] === 'function')
 			.map((method) => {
 				return sinon.stub(logger, method).callsFake((...args: any[]) => {
 					capturedLogs.push({ level: method as string, args });

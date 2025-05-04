@@ -1,6 +1,7 @@
 import { expect } from 'chai';
 import type { Chat, ChatService } from '#chat/chatTypes';
 import { SINGLE_USER_ID } from '#modules/memory/inMemoryUserService';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import type { User } from '#user/user';
 import { runWithUser } from '#user/userService/userContext';
 

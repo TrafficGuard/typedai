@@ -1,12 +1,13 @@
+import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
-import { randomUUID } from 'node:crypto';
 import { agentContextStorage } from '#agent/agentContextLocalStorage';
 import type { AgentContext } from '#agent/agentContextTypes';
 import { appContext } from '#app/applicationContext';
-import { FileSystemService } from '#functions/storage/fileSystemService';
 import type { SourceControlManagement } from '#functions/scm/sourceControlManagement';
 import { getSourceControlManagementTool } from '#functions/scm/sourceControlManagement';
+import type { VersionControlSystem } from '#functions/scm/versionControlSystem';
+import { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
 import { selectFilesAgent } from '#swe/discovery/selectFilesAgent';
 import type { VibeRepository } from '#vibe/vibeRepository';
@@ -98,9 +99,7 @@ export class VibeServiceImpl implements VibeService {
 			}
 			// Ensure user data is available if needed for agent context
 			const user = await appContext().userService.getUser(userId);
-			if (!user) {
-				throw new Error(`User ${userId} not found for Vibe session ${sessionId}`);
-			}
+			if (!user) throw new Error(`User ${userId} not found for Vibe session ${sessionId}`);
 
 			// 2. Ensure Workspace Directory Exists
 			await fs.mkdir(workspacePath, { recursive: true });
@@ -108,8 +107,7 @@ export class VibeServiceImpl implements VibeService {
 
 			// 3. SCM Setup (within an agent context scope for filesystem access)
 			logger.info({ sessionId }, '[VibeServiceImpl] Starting SCM setup...');
-			const agentContextFragment: Pick<AgentContext, 'llms' | 'fileSystem' | 'user'> = {
-				llms: appContext().defaultLLMs, // Get default LLMs from app context
+			const agentContextFragment: Pick<AgentContext, 'fileSystem' | 'user'> = {
 				fileSystem: fss,
 				user: user,
 			};
@@ -117,9 +115,7 @@ export class VibeServiceImpl implements VibeService {
 			let clonedRepoPath: string;
 			await agentContextStorage.run(agentContextFragment as AgentContext, async () => {
 				const scm = await getSourceControlManagementTool();
-				if (!scm.isConfigured()) {
-					throw new Error(`SCM provider (${scm.getScmType()}) is not configured. Cannot clone repository.`);
-				}
+				if (!scm.isConfigured()) throw new Error(`SCM provider (${scm.getScmType()}) is not configured. Cannot clone repository.`);
 
 				// Clone the project - assumes repositoryId is 'owner/repo' or similar
 				// cloneProject should ideally use the agentContext's fileSystem basePath
@@ -130,31 +126,23 @@ export class VibeServiceImpl implements VibeService {
 				fss.setWorkingDirectory(clonedRepoPath);
 				logger.info({ sessionId, newWd: fss.getWorkingDirectory() }, 'Filesystem working directory set.');
 
+				const vcs: VersionControlSystem = fss.vcs;
 				// Checkout branches
 				// Ensure we are on targetBranch first (clone might leave us there, but be explicit)
-				// Cast scm to any or check type if switchToBranch/createBranch are not on interface
-				const scmWithBranchOps = scm as SourceControlManagement & { switchToBranch?: Function; createBranch?: Function };
-
-				if (typeof scmWithBranchOps.switchToBranch !== 'function') {
-					throw new Error(`SCM tool ${scm.getScmType()} does not support switchToBranch`);
-				}
-				await scmWithBranchOps.switchToBranch(session.targetBranch);
+				await vcs.switchToBranch(session.targetBranch);
 
 				if (session.createWorkingBranch) {
-					if (typeof scmWithBranchOps.createBranch !== 'function') {
-						throw new Error(`SCM tool ${scm.getScmType()} does not support createBranch`);
-					}
 					logger.info({ sessionId, branch: session.workingBranch }, 'Creating working branch...');
-					await scmWithBranchOps.createBranch(session.workingBranch); // Assumes branching from current HEAD (targetBranch)
+					await vcs.createBranch(session.workingBranch); // Assumes branching from current HEAD (targetBranch)
 				}
 				logger.info({ sessionId, branch: session.workingBranch }, 'Switching to working branch...');
-				await scmWithBranchOps.switchToBranch(session.workingBranch);
-			});
-			logger.info({ sessionId }, '[VibeServiceImpl] SCM setup complete.');
+				await vcs.switchToBranch(session.workingBranch);
 
-			// 4. Run File Selection Agent (reuse the same agent context fragment)
-			logger.info({ sessionId }, '[VibeServiceImpl] Starting file selection agent...');
-			const fileSelectionResult = await agentContextStorage.run(agentContextFragment as AgentContext, async () => {
+				logger.info({ sessionId }, '[VibeServiceImpl] SCM setup complete.');
+
+				// 4. Run File Selection Agent (reuse the same agent context fragment)
+				logger.info({ sessionId }, '[VibeServiceImpl] Starting file selection agent...');
+
 				// Working directory is already set to the repo path within fss
 				logger.info({ sessionId, workspacePath: fss.getWorkingDirectory() }, 'Agent context running for file selection.');
 				// selectFilesAgent expects UserContentExt, pass instructions directly
@@ -165,20 +153,20 @@ export class VibeServiceImpl implements VibeService {
 					throw new Error('Invalid response structure from selectFilesAgent');
 				}
 				// Map the result from selectFilesAgent's SelectedFile to Vibe's SelectedFile
-				return selection.map((sf) => ({
+				const fileSelectionResult = selection.map((sf) => ({
 					filePath: sf.path, // Map 'path' to 'filePath'
 					reason: sf.reason,
 					category: sf.category,
 					readOnly: sf.readonly, // Map 'readonly' to 'readOnly'
 				}));
-			});
 
-			// 5. Update Session State (Success)
-			await this.vibeRepo.updateVibeSession(userId, sessionId, {
-				status: 'file_selection_review',
-				fileSelection: fileSelectionResult,
-				lastAgentActivity: Date.now(),
-				error: null, // Clear any previous error
+				// 5. Update Session State (Success)
+				await this.vibeRepo.updateVibeSession(userId, sessionId, {
+					status: 'file_selection_review',
+					fileSelection: fileSelectionResult,
+					lastAgentActivity: Date.now(),
+					error: null, // Clear any previous error
+				});
 			});
 			logger.info({ sessionId }, '[VibeServiceImpl] Background initialization finished successfully.');
 		} catch (error: any) {

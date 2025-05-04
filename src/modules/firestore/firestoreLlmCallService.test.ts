@@ -2,11 +2,10 @@ import { expect } from 'chai';
 import { resetFirestoreEmulator } from '#firestore/resetFirestoreEmulator';
 import { type LlmMessage, system, user } from '#llm/llm';
 import type { CreateLlmRequest, LlmCall } from '#llm/llmCallService/llmCall';
-import { LlmCallService } from '#llm/llmCallService/llmCallService';
 import { firestoreDb } from '#modules/firestore/firestore';
 import { FirestoreLlmCallService } from '#modules/firestore/firestoreLlmCallService';
-import type { User } from '#user/user'; // Import User from the correct location
-import { setCurrentUser } from '#user/userService/userContext'; // Keep setCurrentUser import
+import { setupConditionalLoggerOutput } from '#test/testUtils';
+import type { User } from '#user/user';
 
 // Firestore document size limit (use same constant as service)
 const MAX_DOC_SIZE = 1_000_000;
@@ -35,17 +34,15 @@ const testUser: User = {
 };
 
 describe('FirestoreLlmCallService', () => {
+	setupConditionalLoggerOutput();
 	let service: FirestoreLlmCallService; // Use concrete type for testing private methods if needed, but stick to interface for usage
 
 	beforeEach(async () => {
-		service = new FirestoreLlmCallService(); // Instantiate the concrete class
+		service = new FirestoreLlmCallService();
 		await resetFirestoreEmulator();
-		// setCurrentUser(testUser); // Set a mock user for tests needing userId
 	});
 
-	afterEach(() => {
-		// setCurrentUser(null); // Clear the mock user
-	});
+	afterEach(() => {});
 
 	describe('saveRequest and getCall (Single Document)', () => {
 		it('should save a small request and retrieve it using getCall', async () => {

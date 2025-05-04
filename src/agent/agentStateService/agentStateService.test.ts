@@ -3,7 +3,7 @@ import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 chai.use(chaiAsPromised);
 import sinon from 'sinon';
-import { LlmFunctions } from '#agent/LlmFunctions'; // Adjust path as needed
+import { LlmFunctions } from '#agent/LlmFunctions';
 import {
 	type AgentCompleted,
 	type AgentContext,
@@ -12,21 +12,18 @@ import {
 	AgentType,
 	isExecuting,
 	// TaskLevel, // Not explicitly used in AgentContext, but used in AgentLLMs
-} from '#agent/agentContextTypes'; // Adjust path as needed
+} from '#agent/agentContextTypes';
 import type { AutonomousIteration } from '#agent/agentContextTypes';
-// Assume FileSystemService is importable if needed, or handle its absence
-// import { FileSystemService } from '#system/fileSystemService';
-// Assume Agent class is importable if needed for LlmFunctions default
 import { Agent } from '#agent/agentFunctions';
-import type { AgentStateService } from '#agent/agentStateService/agentStateService'; // Adjust path as needed
-import { clearCompletedHandlers, getCompletedHandler, registerCompletedHandler } from '#agent/completionHandlerRegistry'; // Adjust path if needed
+import type { AgentStateService } from '#agent/agentStateService/agentStateService';
+import { clearCompletedHandlers, registerCompletedHandler } from '#agent/completionHandlerRegistry'; // Adjust path if needed
 import { appContext } from '#app/applicationContext';
-import * as functionSchema from '#functionSchema/functionDecorators'; // Adjust path as needed
-import { FileSystemRead } from '#functions/storage/fileSystemRead'; // Adjust path as needed
-import type { FunctionCallResult, GenerationStats, LLM, LlmMessage } from '#llm/llm'; // Adjust path as needed
-import { MockLLM } from '#llm/services/mock-llm'; // Adjust path as needed
-import { logger } from '#o11y/logger'; // Adjust path as needed
-import type { ChatSettings, LLMServicesConfig, User } from '#user/user'; // Adjust path as needed
+import * as functionSchema from '#functionSchema/functionDecorators';
+import { FileSystemRead } from '#functions/storage/fileSystemRead';
+import type { FunctionCallResult, GenerationStats } from '#llm/llm';
+import { MockLLM } from '#llm/services/mock-llm';
+import { logger } from '#o11y/logger';
+import type { ChatSettings, LLMServicesConfig, User } from '#user/user';
 import * as userContext from '#user/userService/userContext';
 
 // These tests must be implementation independent so we can ensure the same
