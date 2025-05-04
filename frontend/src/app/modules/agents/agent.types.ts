@@ -161,6 +161,7 @@ export interface LlmCall {
 
 /**
  * For autonomous agents we save details of each control loop iteration
+ * Keep in sync with src/agent/agentContextTypes.ts
  */
 export interface AutonomousIteration {
 	agentId: string;

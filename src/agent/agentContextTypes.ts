@@ -145,6 +145,7 @@ export interface AgentContext {
 
 /**
  * For autonomous agents we save details of each control loop iteration
+ * Keep in sync with frontend/src/app/modules/agents/agent.types.ts
  */
 export interface AutonomousIteration {
 	agentId: string;

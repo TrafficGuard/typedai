@@ -275,7 +275,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				try {
 					await Promise.all([agentStateService.save(agent), agentStateService.saveIteration(iterationData as AutonomousIteration)]);
 				} catch (e) {
-					logger.error(e, 'Error saving agent state in control loop');
+					logger.error(e, 'Error saving agent state or iteration data in control loop');
 					controlLoopError = e;
 				}
 			}

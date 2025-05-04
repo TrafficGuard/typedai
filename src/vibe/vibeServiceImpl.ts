@@ -70,7 +70,7 @@ export class VibeServiceImpl implements VibeService {
 		return { ...newSession }; // Return the session state *at creation*
 	}
 
-	// TODO we will need to maintain executing operations (similar to agentExections in src/agent/agentRunner.ts)
+	// TODO we will need to maintain executing operations (similar to agentExecutions in src/agent/agentRunner.ts)
 	// so certain routes can listen on the progress of a background operation
 	private async triggerBackgroundInitialization(userId: string, sessionId: string): Promise<void> {
 		logger.info({ userId, sessionId }, '[VibeServiceImpl] Starting background initialization (SCM clone, agent calls)...');
