@@ -2,8 +2,8 @@ import '#fastify/trace-init/trace-init'; // leave an empty line next so this doe
 
 import { promises as fs, readFileSync } from 'node:fs';
 import type { AgentLLMs } from '#agent/agentContextTypes';
-import { AGENT_COMPLETED_PARAM_NAME } from '#agent/agentFunctions';
-import { startAgentAndWait } from '#agent/agentRunner';
+import { AGENT_COMPLETED_PARAM_NAME } from '#agent/orchestrator/functions/agentFunctions';
+import { runAgentAndWait } from '#agent/orchestrator/orchestratorAgentRunner';
 import { appContext, initFirestoreApplicationContext } from '#app/applicationContext';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { LlmTools } from '#functions/util';
@@ -88,7 +88,7 @@ async function answerGaiaQuestion(task: GaiaQuestion): Promise<GaiaResult> {
 	if (task.Level === '3') budget = 4;
 
 	try {
-		const agentId = await startAgentAndWait({
+		const agentId = await runAgentAndWait({
 			initialPrompt: prompt,
 			// llms: ClaudeVertexLLMs(),
 			llms: {
@@ -98,7 +98,7 @@ async function answerGaiaQuestion(task: GaiaQuestion): Promise<GaiaResult> {
 				xhard: openAIo1(),
 			},
 			agentName: `gaia-${task.task_id}`,
-			type: 'autonomous',
+			type: 'orchestrator',
 			subtype: 'codegen',
 			humanInLoop: {
 				budget,

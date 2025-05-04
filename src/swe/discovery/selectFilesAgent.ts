@@ -110,7 +110,7 @@ Respond in the following structure, with the answer in Markdown format inside th
  * where #3 must always follow #2.
  *
  * To maximize caching input tokens to the LLM, new messages will be added to the previous messages with the results of the actions.
- * This should reduce cost and latency compared to using the dynamic autonomous agents to perform the task. (However that might change if we get the caching autonomous agent working)
+ * This should reduce cost and latency compared to using the dynamic orchestrator agents to perform the task. (However that might change if we get the caching orchestrator agent working)
  *
  * Example:
  * [index] - [role]: [message]

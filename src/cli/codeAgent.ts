@@ -2,10 +2,10 @@ import '#fastify/trace-init/trace-init'; // leave an empty line next so this doe
 
 import type { LlmFunctions } from '#agent/LlmFunctions';
 import { llms } from '#agent/agentContextLocalStorage';
-import { AgentFeedback } from '#agent/agentFeedback';
-import { provideFeedback, resumeCompleted, resumeError, resumeHil, startAgent } from '#agent/agentRunner';
-import { waitForConsoleInput } from '#agent/humanInTheLoop';
-import { LiveFiles } from '#agent/liveFiles';
+import { AgentFeedback } from '#agent/orchestrator/functions/agentFeedback';
+import { LiveFiles } from '#agent/orchestrator/functions/liveFiles';
+import { waitForConsoleInput } from '#agent/orchestrator/humanInTheLoop';
+import { provideFeedback, resumeCompleted, resumeError, resumeHil, startAgent } from '#agent/orchestrator/orchestratorAgentRunner';
 import { appContext, initApplicationContext } from '#app/applicationContext';
 import { FileSystemList } from '#functions/storage/fileSystemList';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
@@ -82,7 +82,7 @@ export async function main() {
 		initialPrompt: fullPrompt,
 		functions,
 		llms,
-		type: 'autonomous',
+		type: 'orchestrator',
 		subtype: 'codegen',
 		resumeAgentId,
 		humanInLoop: {

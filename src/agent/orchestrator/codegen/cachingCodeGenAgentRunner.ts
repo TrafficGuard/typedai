@@ -1,22 +1,22 @@
 import { readFileSync } from 'node:fs';
 import { type Span, SpanStatusCode } from '@opentelemetry/api';
 import { type PyodideInterface, loadPyodide } from 'pyodide';
-import { runAgentCompleteHandler } from '#agent/agentCompletion';
 import type { AgentContext } from '#agent/agentContextTypes';
-import { AGENT_REQUEST_FEEDBACK } from '#agent/agentFeedback';
-import { AGENT_COMPLETED_NAME, AGENT_SAVE_MEMORY_CONTENT_PARAM_NAME } from '#agent/agentFunctions';
 import { buildFunctionCallHistoryPrompt, buildMemoryPrompt, buildToolStatePrompt, updateFunctionSchemas } from '#agent/agentPromptUtils';
-import { type AgentExecution, formatFunctionError, formatFunctionResult } from '#agent/agentRunner';
-import { reviewPythonCode } from '#agent/codeGenAgentCodeReview';
-import { convertJsonToPythonDeclaration, extractPythonCode, removePythonMarkdownWrapper } from '#agent/codeGenAgentUtils';
-import { humanInTheLoop, notifySupervisor } from '#agent/humanInTheLoop';
+import { runAgentCompleteHandler } from '#agent/orchestrator/agentCompletion';
+import { reviewPythonCode } from '#agent/orchestrator/codegen/codeGenAgentCodeReview';
+import { convertJsonToPythonDeclaration, extractPythonCode, removePythonMarkdownWrapper } from '#agent/orchestrator/codegen/codegenOrchestratorAgentUtils';
+import { AGENT_REQUEST_FEEDBACK } from '#agent/orchestrator/functions/agentFeedback';
+import { AGENT_COMPLETED_NAME, AGENT_SAVE_MEMORY_CONTENT_PARAM_NAME } from '#agent/orchestrator/functions/agentFunctions';
+import { humanInTheLoop, notifySupervisor } from '#agent/orchestrator/humanInTheLoop';
+import { type AgentExecution, formatFunctionError, formatFunctionResult } from '#agent/orchestrator/orchestratorAgentRunner';
 import { appContext } from '#app/applicationContext';
 import { getServiceName } from '#fastify/trace-init/trace-init';
 import { FUNC_SEP, type FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { errorToString } from '#utils/errors';
-import { agentContextStorage, llms } from './agentContextLocalStorage';
+import { agentContextStorage, llms } from '../../agentContextLocalStorage';
 
 const stopSequences = ['</response>'];
 

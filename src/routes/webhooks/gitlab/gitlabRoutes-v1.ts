@@ -1,7 +1,7 @@
 import { Type } from '@sinclair/typebox';
 import type { FastifyReply } from 'fastify';
-import { RunAgentConfig, type RunWorkflowConfig } from '#agent/agentRunner';
-import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
+import { RunAgentConfig, type RunWorkflowConfig } from '#agent/orchestrator/orchestratorAgentRunner';
+import { runAgentWorkflow } from '#agent/workflow/workflowAgentRunner';
 import { appContext } from '#app/applicationContext';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send, sendSuccess } from '#fastify/index';

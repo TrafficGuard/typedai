@@ -1,7 +1,7 @@
 import { LlmFunctions } from '#agent/LlmFunctions';
-import type { AgentContext, AgentRunningState, AutonomousIteration } from '#agent/agentContextTypes';
+import type { AgentContextService } from '#agent/agentContextService/agentContextService';
+import type { AgentContext, AgentRunningState, OrchestratorIteration } from '#agent/agentContextTypes';
 import { deserializeAgentContext, serializeContext } from '#agent/agentSerialization';
-import type { AgentStateService } from '#agent/agentStateService/agentStateService';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 
@@ -9,9 +9,9 @@ import { logger } from '#o11y/logger';
  * In-memory implementation of AgentStateService for tests. Serializes/deserializes
  * to behave the same as the FireStore implementation
  */
-export class InMemoryAgentStateService implements AgentStateService {
+export class InMemoryAgentStateService implements AgentContextService {
 	stateMap: Map<string, Record<string, any>> = new Map();
-	iterationMap: Map<string, AutonomousIteration[]> = new Map();
+	iterationMap: Map<string, OrchestratorIteration[]> = new Map();
 
 	clear(): void {
 		this.stateMap.clear();
@@ -71,11 +71,11 @@ export class InMemoryAgentStateService implements AgentStateService {
 		await this.save(agent);
 	}
 
-	async loadIterations(agentId: string): Promise<AutonomousIteration[]> {
+	async loadIterations(agentId: string): Promise<OrchestratorIteration[]> {
 		return this.iterationMap.get(agentId) || [];
 	}
 
-	async saveIteration(iterationData: AutonomousIteration): Promise<void> {
+	async saveIteration(iterationData: OrchestratorIteration): Promise<void> {
 		const iterations = this.iterationMap.get(iterationData.agentId) || [];
 		// Ensure iterations are stored in order
 		const existingIndex = iterations.findIndex((iter) => iter.iteration === iterationData.iteration);

@@ -1,11 +1,11 @@
 import readline from 'readline';
 import type { AgentContext } from '#agent/agentContextTypes';
-import { Slack } from '#modules/slack/slack';
 import { logger } from '#o11y/logger';
 /**
  * Adding a human in the loop, so it doesn't consume all of your budget
  */
 import { startSpan, withSpan } from '#o11y/trace';
+import { Slack } from '#slack/slack';
 import { sleep } from '#utils/async-utils';
 import { beep } from '#utils/beep';
 
@@ -13,7 +13,7 @@ export async function waitForConsoleInput(humanInLoopReason: string) {
 	await withSpan('consoleHumanInLoop', async () => {
 		const span = startSpan('consoleHumanInLoop');
 
-		// await appContext().agentStateService.updateState(agentContextStorage.getStore(), 'humanInLoop_agent');
+		// await appContext().agentContextService.updateState(agentContextStorage.getStore(), 'humanInLoop_agent');
 
 		// Beep beep!
 		await beep();

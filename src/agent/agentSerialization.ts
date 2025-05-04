@@ -94,11 +94,12 @@ export async function deserializeAgentContext(serialized: Record<keyof AgentCont
 
 	// backwards compatability
 	if ((context.type as any) === 'codegen') {
-		context.type = 'autonomous';
+		context.type = 'orchestrator';
 		context.subtype = 'codegen';
 	}
-	if (!context.type) context.type = 'autonomous';
-	if (context.type === 'autonomous' && !context.subtype) context.subtype = 'codegen';
+	if (!context.type) context.type = 'orchestrator';
+	if (context.type === 'autonomous') context.type = 'orchestrator';
+	if (context.type === 'orchestrator' && !context.subtype) context.subtype = 'codegen';
 	if (!context.iterations) context.iterations = 0;
 
 	// Need to default empty parameters. Seems to get lost in Firestore

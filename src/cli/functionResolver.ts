@@ -1,5 +1,5 @@
-import { AgentFeedback } from '#agent/agentFeedback';
-import { LiveFiles } from '#agent/liveFiles';
+import { AgentFeedback } from '#agent/orchestrator/functions/agentFeedback';
+import { LiveFiles } from '#agent/orchestrator/functions/liveFiles';
 import { CommandLineInterface } from '#functions/commandLine';
 import { CustomFunctions } from '#functions/customFunctions';
 import { Jira } from '#functions/jira';

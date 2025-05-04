@@ -219,7 +219,7 @@ export class NewAgentComponent implements OnInit, OnDestroy {
         .post<StartAgentResponse>(`/api/agent/v1/start`, {
           name: this.runAgentForm.value.name,
           userPrompt: this.runAgentForm.value.userPrompt,
-          type: 'autonomous',
+          type: 'orchestrator',
           subtype: this.runAgentForm.value.subtype,
           // systemPrompt: this.runAgentForm.value.systemPrompt,
           functions: selectedFunctions,

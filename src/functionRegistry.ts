@@ -1,5 +1,5 @@
-import { AgentFeedback } from '#agent/agentFeedback';
-import { LiveFiles } from '#agent/liveFiles';
+import { AgentFeedback } from '#agent/orchestrator/functions/agentFeedback';
+import { LiveFiles } from '#agent/orchestrator/functions/liveFiles';
 import { BigQuery } from '#functions/cloud/google/bigquery';
 import { GoogleCloud } from '#functions/cloud/google/google-cloud';
 import { CommandLineInterface } from '#functions/commandLine';

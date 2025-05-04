@@ -1,4 +1,4 @@
-import { runAgentStateServiceTests } from '#agent/agentStateService/agentStateService.test';
+import { runAgentStateServiceTests } from '#agent/agentContextService/agentContextService.test';
 import { FirestoreAgentStateService } from '#firestore/firestoreAgentStateService';
 import { resetFirestoreEmulator } from '#firestore/resetFirestoreEmulator';
 

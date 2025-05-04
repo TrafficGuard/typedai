@@ -1,7 +1,7 @@
 import { Type } from '@sinclair/typebox';
 import { LlmFunctions } from '#agent/LlmFunctions';
 import type { AgentType } from '#agent/agentContextTypes';
-import { type AgentExecution, startAgent } from '#agent/agentRunner';
+import { type AgentExecution, startAgent } from '#agent/orchestrator/orchestratorAgentRunner';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send } from '#fastify/index';
 import { functionFactory } from '#functionSchema/functionDecorators';
@@ -11,7 +11,7 @@ import { currentUser } from '#user/userService/userContext';
 
 const v1BasePath = '/api/agent/v1';
 
-const AGENT_TYPES: Array<AgentType> = ['autonomous', 'workflow'];
+const AGENT_TYPES: Array<AgentType> = ['autonomous', 'workflow', 'orchestrator'];
 
 export async function agentStartRoute(fastify: AppFastifyInstance) {
 	/** Starts a new agent */

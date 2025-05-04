@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 // Adjust the import path as necessary
-import { convertTypeScriptToPython } from '#agent/codeGenAgentUtils';
+import { convertTypeScriptToPython } from '#agent/orchestrator/codegen/codegenOrchestratorAgentUtils';
 
 describe('codegenAgentUtils', () => {
 	describe('TypeScript to Python Type Conversion', () => {

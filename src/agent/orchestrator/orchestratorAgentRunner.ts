@@ -1,13 +1,13 @@
 import type { LlmFunctions } from '#agent/LlmFunctions';
-import { createContext, llms } from '#agent/agentContextLocalStorage';
+import { createContext } from '#agent/agentContextLocalStorage';
 import type { AgentCompleted, AgentContext, AgentLLMs, AgentType } from '#agent/agentContextTypes';
-import { AGENT_REQUEST_FEEDBACK } from '#agent/agentFeedback';
-import { AGENT_COMPLETED_PARAM_NAME } from '#agent/agentFunctions';
-import { runCodeGenAgent } from '#agent/codeGenAgentRunner';
-import { runXmlAgent } from '#agent/xmlAgentRunner';
+import { runCodeGenAgent } from '#agent/orchestrator/codegen/codegenOrchestratorAgent';
+import { AGENT_REQUEST_FEEDBACK } from '#agent/orchestrator/functions/agentFeedback';
+import { AGENT_COMPLETED_PARAM_NAME } from '#agent/orchestrator/functions/agentFunctions';
+import { runXmlAgent } from '#agent/orchestrator/xml/xmlOrchestratorAgent';
 import { appContext } from '#app/applicationContext';
-import { FUNC_SEP, type FunctionSchema } from '#functionSchema/functions';
-import type { FunctionCall, FunctionCallResult } from '#llm/llm';
+import { FUNC_SEP } from '#functionSchema/functions';
+import type { FunctionCallResult } from '#llm/llm';
 import { logger } from '#o11y/logger';
 import type { User } from '#user/user';
 import { errorToString } from '#utils/errors';
@@ -19,7 +19,7 @@ export const SUPERVISOR_CANCELLED_FUNCTION_NAME: string = `Supervisor${FUNC_SEP}
 export type RunWorkflowConfig = Omit<RunAgentConfig, 'type' | 'functions'> & Partial<Pick<RunAgentConfig, 'functions'>>;
 
 /**
- * Configuration for running an autonomous agent
+ * Configuration for running an orchestrator agent
  */
 export interface RunAgentConfig {
 	/** The user who created the agent. Uses currentUser() if not provided */
@@ -29,9 +29,9 @@ export interface RunAgentConfig {
 	vibeSessionId?: string;
 	/** The name of this agent */
 	agentName: string;
-	/** Autonomous or workflow */
+	/** Orchestrator or workflow */
 	type: AgentType;
-	/** For autonomous agents either xml or codegen. For workflow agents it identifies the workflow type */
+	/** For orchestrator agents either xml or codegen. For workflow agents it identifies the workflow type */
 	subtype: string;
 	/** The function classes the agent has available to call */
 	functions: LlmFunctions | Array<new () => any>;
@@ -69,7 +69,35 @@ export interface AgentExecution {
  */
 export const agentExecutions: Record<string, AgentExecution> = {};
 
-async function runAgent(agent: AgentContext): Promise<AgentExecution> {
+/**
+ * Starts a new orchestrator agent
+ * @param config
+ */
+export async function startAgent(config: RunAgentConfig): Promise<AgentExecution> {
+	const agent: AgentContext = createContext(config);
+
+	if (config.initialPrompt?.includes('<user_request>')) {
+		const startIndex = config.initialPrompt.indexOf('<user_request>') + '<user_request>'.length;
+		const endIndex = config.initialPrompt.indexOf('</user_request>');
+		agent.inputPrompt = config.initialPrompt;
+		agent.userPrompt = config.initialPrompt.slice(startIndex, endIndex);
+		logger.info('Extracted <user_request>');
+		logger.info(`agent.userPrompt: ${agent.userPrompt}`);
+		logger.info(`agent.inputPrompt: ${agent.inputPrompt}`);
+	} else {
+		agent.userPrompt = config.initialPrompt;
+		agent.inputPrompt = `<user_request>${config.initialPrompt}</user_request>`;
+		logger.info('Wrapping initialPrompt in <user_request>');
+		logger.info(`agent.userPrompt: ${agent.userPrompt}`);
+		logger.info(`agent.inputPrompt: ${agent.inputPrompt}`);
+	}
+	await appContext().agentStateService.save(agent);
+	logger.info(`Created agent ${agent.agentId}`);
+
+	return await _startAgent(agent);
+}
+
+async function _startAgent(agent: AgentContext): Promise<AgentExecution> {
 	let execution: AgentExecution;
 
 	await checkRepoHomeAndWorkingDirectory(agent);
@@ -100,34 +128,10 @@ export async function startAgentAndWaitForCompletion(config: RunAgentConfig): Pr
 	return agent.functionCallHistory.at(-1).parameters[AGENT_COMPLETED_PARAM_NAME];
 }
 
-export async function startAgentAndWait(config: RunAgentConfig): Promise<string> {
+export async function runAgentAndWait(config: RunAgentConfig): Promise<string> {
 	const agentExecution = await startAgent(config);
 	await agentExecution.execution;
 	return agentExecution.agentId;
-}
-
-export async function startAgent(config: RunAgentConfig): Promise<AgentExecution> {
-	const agent: AgentContext = createContext(config);
-
-	if (config.initialPrompt?.includes('<user_request>')) {
-		const startIndex = config.initialPrompt.indexOf('<user_request>') + '<user_request>'.length;
-		const endIndex = config.initialPrompt.indexOf('</user_request>');
-		agent.inputPrompt = config.initialPrompt;
-		agent.userPrompt = config.initialPrompt.slice(startIndex, endIndex);
-		logger.info('Extracted <user_request>');
-		logger.info(`agent.userPrompt: ${agent.userPrompt}`);
-		logger.info(`agent.inputPrompt: ${agent.inputPrompt}`);
-	} else {
-		agent.userPrompt = config.initialPrompt;
-		agent.inputPrompt = `<user_request>${config.initialPrompt}</user_request>`;
-		logger.info('Wrapping initialPrompt in <user_request>');
-		logger.info(`agent.userPrompt: ${agent.userPrompt}`);
-		logger.info(`agent.inputPrompt: ${agent.inputPrompt}`);
-	}
-	await appContext().agentStateService.save(agent);
-	logger.info(`Created agent ${agent.agentId}`);
-
-	return await runAgent(agent);
 }
 
 export async function cancelAgent(agentId: string, executionId: string, feedback: string): Promise<void> {
@@ -156,7 +160,7 @@ export async function resumeError(agentId: string, executionId: string, feedback
 	agent.state = 'agent';
 	agent.inputPrompt += `\nSupervisor note: ${feedback}`;
 	await appContext().agentStateService.save(agent);
-	await runAgent(agent);
+	await _startAgent(agent);
 }
 
 /**
@@ -175,7 +179,7 @@ export async function resumeHil(agentId: string, executionId: string, feedback: 
 	}
 	agent.state = 'agent';
 	await appContext().agentStateService.save(agent);
-	await runAgent(agent);
+	await _startAgent(agent);
 }
 
 /**
@@ -195,7 +199,7 @@ export async function resumeCompleted(agentId: string, executionId: string, inst
 	agent.state = 'agent';
 	agent.inputPrompt += `\nSupervisor note: The agent has been resumed from the completed state with the following instructions: ${instructions}`;
 	await appContext().agentStateService.save(agent);
-	await runAgent(agent);
+	await _startAgent(agent);
 }
 
 /**
@@ -210,7 +214,7 @@ export async function resumeCompletedWithUpdatedUserRequest(agentId: string, exe
 
 	agent.state = 'agent';
 	await appContext().agentStateService.save(agent);
-	await runAgent(agent);
+	await _startAgent(agent);
 }
 
 export async function provideFeedback(agentId: string, executionId: string, feedback: string): Promise<void> {
@@ -223,7 +227,7 @@ export async function provideFeedback(agentId: string, executionId: string, feed
 	result.stdout = feedback;
 	agent.state = 'agent';
 	await appContext().agentStateService.save(agent);
-	await runAgent(agent);
+	await _startAgent(agent);
 }
 
 /**

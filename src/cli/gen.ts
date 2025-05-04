@@ -13,11 +13,11 @@ async function main() {
 
 	const { initialPrompt } = parseProcessArgs();
 
-	const llm = llms.medium;
+	const llm = llms.hard;
 	const tokens = await countTokens(initialPrompt);
 	console.log(`Generating with ${llm.getId()}. Input ${tokens} tokens\n`);
 	const start = Date.now();
-	const text = await llm.generateText(initialPrompt);
+	const text = await llm.generateText(initialPrompt, { id: 'CLI-gen' });
 	const duration = Date.now() - start;
 
 	writeFileSync('src/cli/gen-out', text);

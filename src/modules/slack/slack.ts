@@ -1,6 +1,6 @@
 import axios, { type AxiosResponse } from 'axios';
-import { completedNotificationMessage } from '#agent/agentCompletion';
 import type { AgentCompleted, AgentContext } from '#agent/agentContextTypes';
+import { completedNotificationMessage } from '#agent/orchestrator/agentCompletion';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import type { GetToolType, ToolType } from '#functions/toolType';
 import { logger } from '#o11y/logger';

@@ -1,5 +1,5 @@
 import { getFileSystem } from '#agent/agentContextLocalStorage';
-import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
+import { runAgentWorkflow } from '#agent/workflow/workflowAgentRunner';
 import { GitHub } from '#functions/scm/github';
 import { ClaudeVertexLLMs } from '#llm/services/anthropic-vertex';
 import { defaultLLMs } from '#llm/services/defaultLlms';

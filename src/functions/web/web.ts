@@ -11,7 +11,7 @@ import * as autoconsent from '@duckduckgo/autoconsent';
 import fetch from 'cross-fetch';
 import puppeteer from 'puppeteer';
 import type { Browser } from 'puppeteer';
-import type { ImageSource } from '#agent/agentImageUtils';
+import type { ImageSource } from '#agent/orchestrator/codegen/agentImageUtils';
 import { agentStorageDir } from '#app/appVars';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';

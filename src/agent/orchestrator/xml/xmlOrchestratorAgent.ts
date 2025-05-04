@@ -1,12 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { type Span, SpanStatusCode } from '@opentelemetry/api';
-import { runAgentCompleteHandler } from '#agent/agentCompletion';
 import type { AgentContext } from '#agent/agentContextTypes';
-import { AGENT_REQUEST_FEEDBACK } from '#agent/agentFeedback';
-import { AGENT_COMPLETED_NAME } from '#agent/agentFunctions';
 import { buildFunctionCallHistoryPrompt, buildMemoryPrompt, buildToolStatePrompt, updateFunctionSchemas } from '#agent/agentPromptUtils';
-import { type AgentExecution, formatFunctionError, formatFunctionResult } from '#agent/agentRunner';
 import { FUNCTION_OUTPUT_THRESHOLD, summariseLongFunctionOutput, summarizeFunctionOutput } from '#agent/agentUtils';
+import { runAgentCompleteHandler } from '#agent/orchestrator/agentCompletion';
+import { AGENT_REQUEST_FEEDBACK } from '#agent/orchestrator/functions/agentFeedback';
+import { AGENT_COMPLETED_NAME } from '#agent/orchestrator/functions/agentFunctions';
+import { type AgentExecution, formatFunctionError, formatFunctionResult } from '#agent/orchestrator/orchestratorAgentRunner';
 import { appContext } from '#app/applicationContext';
 import { getServiceName } from '#fastify/trace-init/trace-init';
 import { type FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
@@ -15,8 +15,8 @@ import { parseFunctionCallsXml } from '#llm/responseParsers';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { errorToString } from '#utils/errors';
-import { agentContextStorage, llms } from './agentContextLocalStorage';
-import { type HitlCounters, checkHumanInTheLoop } from './humanInTheLoopChecks';
+import { agentContextStorage, llms } from '../../agentContextLocalStorage';
+import { type HitlCounters, checkHumanInTheLoop } from '../humanInTheLoopChecks';
 
 export const XML_AGENT_SPAN = 'XmlAgent';
 
@@ -24,7 +24,7 @@ const stopSequences = ['</response>'];
 
 export async function runXmlAgent(agent: AgentContext): Promise<AgentExecution> {
 	// Hot reload (TODO only when not deployed)
-	const xmlSystemPrompt = readFileSync('src/agent/xml-agent-system-prompt').toString();
+	const xmlSystemPrompt = readFileSync('src/agent/orchestrator/xml/xml-agent-system-prompt').toString();
 
 	const agentStateService = appContext().agentStateService;
 	agent.state = 'agent';

@@ -2,9 +2,9 @@ import '#fastify/trace-init/trace-init'; // leave an empty line next so this doe
 
 import { promises as fs, readFileSync } from 'node:fs';
 import type { AgentLLMs } from '#agent/agentContextTypes';
-import { AGENT_COMPLETED_PARAM_NAME } from '#agent/agentFunctions';
-import { type RunAgentConfig, type RunWorkflowConfig, startAgent, startAgentAndWait } from '#agent/agentRunner';
-import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
+import { AGENT_COMPLETED_PARAM_NAME } from '#agent/orchestrator/functions/agentFunctions';
+import { type RunAgentConfig, type RunWorkflowConfig, runAgentAndWait, startAgent } from '#agent/orchestrator/orchestratorAgentRunner';
+import { runAgentWorkflow } from '#agent/workflow/workflowAgentRunner';
 import { initFirestoreApplicationContext } from '#app/applicationContext';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { GitLab } from '#functions/scm/gitlab';

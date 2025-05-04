@@ -1,8 +1,8 @@
 import { Type } from '@sinclair/typebox';
 import { LlmFunctions } from '#agent/LlmFunctions';
-import { cancelAgent, provideFeedback, resumeCompleted, resumeError, resumeHil } from '#agent/agentRunner';
 import { serializeContext } from '#agent/agentSerialization';
 import { forceStopAgent } from '#agent/forceStopAgent';
+import { cancelAgent, provideFeedback, resumeCompleted, resumeError, resumeHil } from '#agent/orchestrator/orchestratorAgentRunner';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send, sendBadRequest } from '#fastify/index';
 import { functionFactory } from '#functionSchema/functionDecorators';

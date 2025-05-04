@@ -3,7 +3,7 @@ import '#fastify/trace-init/trace-init'; // leave an empty line next so this doe
 import { LlmFunctions } from '#agent/LlmFunctions';
 import { agentContextStorage, createContext } from '#agent/agentContextLocalStorage';
 import type { AgentContext, AgentLLMs } from '#agent/agentContextTypes';
-import type { RunWorkflowConfig } from '#agent/agentRunner';
+import type { RunWorkflowConfig } from '#agent/orchestrator/orchestratorAgentRunner';
 import { appContext } from '#app/applicationContext';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { MultiLLM } from '#llm/multi-llm';

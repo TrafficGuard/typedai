@@ -10,7 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { AgentService } from '../../services/agent.service';
-import { AutonomousIteration, FunctionCallResult } from '../../agent.types';
+import { OrchestratorIteration, FunctionCallResult } from '../../agent.types';
 
 @Component({
     selector: 'agent-iterations',
@@ -35,8 +35,8 @@ import { AutonomousIteration, FunctionCallResult } from '../../agent.types';
 export class AgentIterationsComponent implements OnInit, OnChanges, OnDestroy {
     @Input() agentId: string | null = null;
 
-    // iterations$: Observable<AutonomousIteration[]>; // Removed observable property
-    iterations: AutonomousIteration[] = []; // Use direct array property
+    // iterations$: Observable<OrchestratorIteration[]>; // Removed observable property
+    iterations: OrchestratorIteration[] = []; // Use direct array property
     isLoading: boolean = false;
     errorLoading: string | null = null;
 
@@ -121,7 +121,7 @@ export class AgentIterationsComponent implements OnInit, OnChanges, OnDestroy {
     }
 
     // Helper to toggle expansion state for potentially large content sections
-    toggleExpansion(iteration: AutonomousIteration, section: 'prompt' | 'agentPlan' | 'code' | 'functionCalls'): void {
+    toggleExpansion(iteration: OrchestratorIteration, section: 'prompt' | 'agentPlan' | 'code' | 'functionCalls'): void {
         // Directly modify the property; Angular's change detection will pick it up
         // for bindings within the *ngFor loop when the loop itself rerenders or
         // if the object reference changes (which it doesn't here).
@@ -135,7 +135,7 @@ export class AgentIterationsComponent implements OnInit, OnChanges, OnDestroy {
     }
 
     // TrackBy function for ngFor loop for performance
-    trackByIteration(index: number, iteration: AutonomousIteration): string {
+    trackByIteration(index: number, iteration: OrchestratorIteration): string {
         // Use iteration number and agentId for a unique key if available, otherwise fallback to index
         return iteration?.agentId && iteration?.iteration ? `${iteration.agentId}-${iteration.iteration}` : `${index}`;
     }

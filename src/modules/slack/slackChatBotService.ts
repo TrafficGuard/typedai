@@ -1,9 +1,9 @@
 import { App, type KnownEventFromType, type SayFn } from '@slack/bolt';
 import type { StringIndexed } from '@slack/bolt/dist/types/helpers';
 import type { MessageElement } from '@slack/web-api/dist/response/ConversationsRepliesResponse';
-import { getLastFunctionCallArg } from '#agent/agentCompletion';
 import { type AgentCompleted, type AgentContext, isExecuting } from '#agent/agentContextTypes';
-import { resumeCompleted, resumeCompletedWithUpdatedUserRequest, startAgent } from '#agent/agentRunner';
+import { getLastFunctionCallArg } from '#agent/orchestrator/agentCompletion';
+import { resumeCompleted, resumeCompletedWithUpdatedUserRequest, startAgent } from '#agent/orchestrator/orchestratorAgentRunner';
 import { appContext } from '#app/applicationContext';
 import { GoogleCloud } from '#functions/cloud/google/google-cloud';
 import { Jira } from '#functions/jira';
@@ -170,7 +170,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 
 			try {
 				const agentExec = await startAgent({
-					type: 'autonomous',
+					type: 'orchestrator',
 					subtype: 'codegen',
 					resumeAgentId: `Slack-${threadId}`,
 					initialPrompt: text,

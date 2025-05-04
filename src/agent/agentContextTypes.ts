@@ -14,8 +14,8 @@ import type { User } from '#user/user';
  *
  */
 export type TaskLevel = 'easy' | 'medium' | 'hard' | 'xhard';
-export type AgentType = 'autonomous' | 'workflow';
-export type AutonomousSubType = 'xml' | 'codegen';
+export type AgentType = 'autonomous' | 'orchestrator' | 'workflow';
+export type OrchestratorSubType = 'xml' | 'codegen';
 
 export interface AgentCompleted {
 	notifyCompleted(agentContext: AgentContext): Promise<void>;
@@ -25,8 +25,8 @@ export interface AgentCompleted {
 
 /**
  * workflow - fixed workflow agent running
- * agent - autonomous agent waiting for the agent LLM call(s) to generate control loop update
- * functions - waiting for autonomous agent function call(s) to complete
+ * agent - orchestrator agent waiting for the agent LLM call(s) to generate control loop update
+ * functions - waiting for orchestrator agent function call(s) to complete
  * error - the agent has errored or force stopped
  * hil - deprecated for humanInLoop_agent and humanInLoop_tool
  * hitl_threshold - If the agent has reached budget or iteration thresholds. At this point the agent is not executing any LLM/function calls.
@@ -72,9 +72,9 @@ export type AgentLLMs = Record<TaskLevel, LLM>;
 export interface AgentContext {
 	/** Primary Key - Agent instance id. Allocated when the agent is first starts */
 	agentId: string;
-	/** The type of agent (autonomous or workflow) */
+	/** The type of agent (orchestrator or workflow) */
 	type: AgentType;
-	subtype: AutonomousSubType | string;
+	subtype: OrchestratorSubType | string;
 	/** Child agent ids */
 	childAgents?: string[];
 	/** Id of the running execution. This changes after the agent restarts due to an error, pausing, human in loop, completion etc */
@@ -125,7 +125,7 @@ export interface AgentContext {
 	/** Messages sent by users while the agent is still processing the last message */
 	pendingMessages: string[];
 
-	// Autonomous agent specific properties --------------------
+	// Orchestrator agent specific properties --------------------
 	/** The number of completed iterations of the agent control loop */
 	iterations: number;
 	/** The function calls the agent is about to call (xml only) */
@@ -140,7 +140,7 @@ export interface AgentContext {
 	messages: LlmMessage[];
 	/** Completed function calls with success/error output */
 	functionCallHistory: FunctionCallResult[];
-	/** How many iterations of the autonomous agent control loop to require human input to continue */
+	/** How many iterations of the orchestrator agent control loop to require human input to continue */
 	hilCount;
 	/** Files which are always provided in the agent control loop prompt */
 	liveFiles?: string[];
@@ -150,10 +150,10 @@ export interface AgentContext {
 }
 
 /**
- * For autonomous agents we save details of each control loop iteration
+ * For orchestrator agents we save details of each control loop iteration
  * Keep in sync with frontend/src/app/modules/agents/agent.types.ts
  */
-export interface AutonomousIteration {
+export interface OrchestratorIteration {
 	agentId: string;
 	/** Starts from 1 */
 	iteration: number;

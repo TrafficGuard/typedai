@@ -46,8 +46,8 @@ export interface FunctionCallResult extends FunctionCall {
 
 /**
  * workflow - fixed workflow agent running
- * agent - waiting for the autonomous agent LLM call(s) to generate control loop update
- * functions - waiting for the autonomous agent planned function call(s) to complete
+ * agent - waiting for the orchestrator agent LLM call(s) to generate control loop update
+ * functions - waiting for the orchestrator agent planned function call(s) to complete
  * error - the agent has errored
  * hil - deprecated for humanInLoop_agent and humanInLoop_tool
  * hitl_threshold - If the agent has reached budget or iteration thresholds. At this point the agent is not executing any LLM/function calls.
@@ -74,7 +74,7 @@ export type AgentRunningState =
     | 'child_agents'
     | 'timeout';
 
-export type AgentType = 'autonomous' | 'workflow';
+export type AgentType = 'workflow' | 'orchestrator';
 
 export interface AgentContext {
     /** Agent instance id - allocated when the agent is first starts */
@@ -170,10 +170,10 @@ export interface LlmCall {
 }
 
 /**
- * For autonomous agents we save details of each control loop iteration
+ * For orchestrator agents we save details of each control loop iteration
  * Keep in sync with src/agent/agentContextTypes.ts
  */
-export interface AutonomousIteration {
+export interface OrchestratorIteration {
 	agentId: string;
 	/** Starts from 1 */
 	iteration: number;

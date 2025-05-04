@@ -1,13 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { type Span, SpanStatusCode } from '@opentelemetry/api';
 import { type PyodideInterface, loadPyodide } from 'pyodide';
-import { runAgentCompleteHandler } from '#agent/agentCompletion';
-import type { AgentContext, AutonomousIteration } from '#agent/agentContextTypes';
-import { AGENT_REQUEST_FEEDBACK, REQUEST_FEEDBACK_PARAM_NAME } from '#agent/agentFeedback';
-import { AGENT_COMPLETED_NAME, AGENT_COMPLETED_PARAM_NAME, AGENT_SAVE_MEMORY_CONTENT_PARAM_NAME } from '#agent/agentFunctions';
+import type { AgentContext, OrchestratorIteration } from '#agent/agentContextTypes';
 import { buildMemoryPrompt, buildToolStateMap, buildToolStatePrompt, updateFunctionSchemas } from '#agent/agentPromptUtils';
-import type { AgentExecution } from '#agent/agentRunner';
 import { FUNCTION_OUTPUT_THRESHOLD, summarizeFunctionOutput } from '#agent/agentUtils';
+import { runAgentCompleteHandler } from '#agent/orchestrator/agentCompletion';
 import {
 	convertJsonToPythonDeclaration,
 	extractAgentPlan,
@@ -18,8 +15,11 @@ import {
 	extractObservationsReasoning,
 	extractPythonCode,
 	removePythonMarkdownWrapper,
-} from '#agent/codeGenAgentUtils';
-import { LiveFiles } from '#agent/liveFiles';
+} from '#agent/orchestrator/codegen/codegenOrchestratorAgentUtils';
+import { AGENT_REQUEST_FEEDBACK, REQUEST_FEEDBACK_PARAM_NAME } from '#agent/orchestrator/functions/agentFeedback';
+import { AGENT_COMPLETED_NAME, AGENT_COMPLETED_PARAM_NAME, AGENT_SAVE_MEMORY_CONTENT_PARAM_NAME } from '#agent/orchestrator/functions/agentFunctions';
+import { LiveFiles } from '#agent/orchestrator/functions/liveFiles';
+import type { AgentExecution } from '#agent/orchestrator/orchestratorAgentRunner';
 import { cloneAndTruncateBuffers, removeConsoleEscapeChars } from '#agent/trimObject';
 import { appContext } from '#app/applicationContext';
 import { getServiceName } from '#fastify/trace-init/trace-init';
@@ -29,9 +29,9 @@ import { type FunctionCallResult, type ImagePartExt, type LlmMessage, type UserC
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { errorToString } from '#utils/errors';
-import { agentContextStorage, llms } from './agentContextLocalStorage';
-import { checkForImageSources } from './agentImageUtils'; // Add this import
-import { type HitlCounters, checkHumanInTheLoop } from './humanInTheLoopChecks';
+import { agentContextStorage, llms } from '../../agentContextLocalStorage';
+import { type HitlCounters, checkHumanInTheLoop } from '../humanInTheLoopChecks';
+import { checkForImageSources } from './agentImageUtils';
 
 const stopSequences = ['</response>'];
 
@@ -45,7 +45,7 @@ let codegenSystemPrompt: string | null = null;
 
 export async function runCodeGenAgent(agent: AgentContext): Promise<AgentExecution> {
 	pyodide ??= await initPyodide();
-	codegenSystemPrompt ??= readFileSync('src/agent/codegen-agent-system-prompt').toString();
+	codegenSystemPrompt ??= readFileSync('src/agent/orchestrator/codegen/codegen-agent-system-prompt').toString();
 
 	const agentStateService = appContext().agentStateService;
 	agent.state = 'agent';
@@ -94,7 +94,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 			let controlLoopError: Error | null = null;
 			let currentImageParts: ImagePartExt[] = []; // Reset image parts for this iteration's script result processing
 
-			const iterationData: Partial<AutonomousIteration> = {
+			const iterationData: Partial<OrchestratorIteration> = {
 				agentId: agent.agentId,
 				iteration: agent.iterations,
 				functions: agent.functions.getFunctionClassNames(),
@@ -295,7 +295,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				agent.fileStore = fileStoreMetadataArray;
 
 				try {
-					await Promise.all([agentStateService.save(agent), agentStateService.saveIteration(iterationData as AutonomousIteration)]);
+					await Promise.all([agentStateService.save(agent), agentStateService.saveIteration(iterationData as OrchestratorIteration)]);
 				} catch (e) {
 					logger.error(e, 'Error saving agent state or iteration data in control loop');
 					controlLoopError = e;

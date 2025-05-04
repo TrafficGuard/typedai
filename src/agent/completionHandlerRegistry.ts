@@ -1,5 +1,5 @@
-import { ConsoleCompletedHandler } from '#agent/agentCompletion';
 import type { AgentCompleted } from '#agent/agentContextTypes';
+import { ConsoleCompletedHandler } from '#agent/orchestrator/agentCompletion';
 import { SlackChatBotService } from '#modules/slack/slackChatBotService';
 import { logger } from '#o11y/logger';
 

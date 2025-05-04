@@ -3,8 +3,8 @@ import sinon from 'sinon';
 import { LlmFunctions } from '#agent/LlmFunctions';
 import { createContext } from '#agent/agentContextLocalStorage';
 import type { AgentContext } from '#agent/agentContextTypes';
-import type { RunAgentConfig } from '#agent/agentRunner';
 import { deserializeAgentContext, serializeContext } from '#agent/agentSerialization';
+import type { RunAgentConfig } from '#agent/orchestrator/orchestratorAgentRunner';
 import { appContext } from '#app/applicationContext';
 import { LlmTools } from '#functions/util';
 import { GPT4o } from '#llm/services/openai';
@@ -29,7 +29,7 @@ describe('agentContext', () => {
 
 			const config: RunAgentConfig = {
 				agentName: 'SWE',
-				type: 'autonomous',
+				type: 'orchestrator',
 				subtype: 'codegen',
 				llms,
 				functions,

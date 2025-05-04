@@ -3,7 +3,7 @@ import '#fastify/trace-init/trace-init'; // leave an empty line next so this doe
 import { readFileSync } from 'node:fs';
 
 import type { AgentLLMs } from '#agent/agentContextTypes';
-import { startAgentAndWait } from '#agent/agentRunner';
+import { runAgentAndWait } from '#agent/orchestrator/orchestratorAgentRunner';
 import { Perplexity } from '#functions/web/perplexity';
 import { PublicWeb } from '#functions/web/web';
 import { defaultLLMs } from '#llm/services/defaultLlms';
@@ -19,8 +19,8 @@ export async function main() {
 
 	const { initialPrompt, resumeAgentId } = parseProcessArgs();
 
-	const agentId = await startAgentAndWait({
-		type: 'autonomous',
+	const agentId = await runAgentAndWait({
+		type: 'orchestrator',
 		subtype: 'codegen',
 		agentName: 'researcher',
 		initialPrompt,

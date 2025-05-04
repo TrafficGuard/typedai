@@ -41,7 +41,7 @@ export class CodeEditingAgent {
 	@func()
 	async implementUserRequirements(
 		requirements: string,
-		altOptions?: { projectInfo?: ProjectInfo; workingDirectory?: string }, // altOptions are for programmatic use and not exposed to the autonomous agents.
+		altOptions?: { projectInfo?: ProjectInfo; workingDirectory?: string }, // altOptions are for programmatic use and not exposed to the orchestrator agents.
 	): Promise<string> {
 		if (!requirements) throw new Error('The argument "requirements" must be provided');
 
@@ -85,7 +85,7 @@ export class CodeEditingAgent {
 		implementationPlan: string,
 		fileSelection: string[],
 		requirements?: string | null, // The original requirements for when called from runCodeEditWorkflow
-		altOptions?: { projectInfo?: ProjectInfo; workingDirectory?: string }, // altOptions are for programmatic use and not exposed to the autonomous agents.
+		altOptions?: { projectInfo?: ProjectInfo; workingDirectory?: string }, // altOptions are for programmatic use and not exposed to the orchestrator agents.
 	): Promise<string> {
 		if (!implementationPlan) throw new Error('The argument "implementationPlan" must be provided');
 		if (fileSelection && !Array.isArray(fileSelection)) {

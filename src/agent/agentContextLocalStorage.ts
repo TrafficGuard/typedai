@@ -1,9 +1,9 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
 import { LlmFunctions } from '#agent/LlmFunctions';
-import { ConsoleCompletedHandler } from '#agent/agentCompletion';
 import type { AgentContext, AgentLLMs } from '#agent/agentContextTypes';
-import type { RunAgentConfig, RunWorkflowConfig } from '#agent/agentRunner';
+import { ConsoleCompletedHandler } from '#agent/orchestrator/agentCompletion';
+import type { RunAgentConfig, RunWorkflowConfig } from '#agent/orchestrator/orchestratorAgentRunner';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
 import { currentUser } from '#user/userService/userContext';

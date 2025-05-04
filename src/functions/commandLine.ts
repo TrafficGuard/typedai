@@ -1,5 +1,5 @@
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
-import { humanInTheLoop } from '#agent/humanInTheLoop';
+import { humanInTheLoop } from '#agent/orchestrator/humanInTheLoop';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { system, user } from '#llm/llm';
 import { execCommand } from '#utils/exec';

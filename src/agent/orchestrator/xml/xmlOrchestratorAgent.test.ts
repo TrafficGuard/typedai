@@ -2,10 +2,17 @@ import { expect } from 'chai';
 import sinon from 'sinon';
 import { LlmFunctions } from '#agent/LlmFunctions';
 import type { AgentContext, AgentLLMs } from '#agent/agentContextTypes';
-import { AGENT_REQUEST_FEEDBACK, REQUEST_FEEDBACK_PARAM_NAME } from '#agent/agentFeedback';
-import { AGENT_COMPLETED_NAME } from '#agent/agentFunctions';
-import { type RunAgentConfig, SUPERVISOR_CANCELLED_FUNCTION_NAME, cancelAgent, provideFeedback, startAgent, startAgentAndWait } from '#agent/agentRunner';
-import { XML_AGENT_SPAN } from '#agent/xmlAgentRunner';
+import { AGENT_REQUEST_FEEDBACK, REQUEST_FEEDBACK_PARAM_NAME } from '#agent/orchestrator/functions/agentFeedback';
+import { AGENT_COMPLETED_NAME } from '#agent/orchestrator/functions/agentFunctions';
+import {
+	type RunAgentConfig,
+	SUPERVISOR_CANCELLED_FUNCTION_NAME,
+	cancelAgent,
+	provideFeedback,
+	runAgentAndWait,
+	startAgent,
+} from '#agent/orchestrator/orchestratorAgentRunner';
+import { XML_AGENT_SPAN } from '#agent/orchestrator/xml/xmlOrchestratorAgent';
 import { appContext, initInMemoryApplicationContext } from '#app/applicationContext';
 import { TEST_FUNC_NOOP, TEST_FUNC_SKY_COLOUR, TEST_FUNC_SUM, THROW_ERROR_TEXT, TestFunctions } from '#functions/testFunctions';
 import { lastText } from '#llm/llm';
@@ -13,7 +20,7 @@ import { MockLLM } from '#llm/services/mock-llm';
 import { setTracer } from '#o11y/trace';
 import type { User } from '#user/user';
 import { sleep } from '#utils/async-utils';
-import { agentContextStorage } from './agentContextLocalStorage';
+import { agentContextStorage } from '../../agentContextLocalStorage';
 
 const REQUEST_FEEDBACK_VALUE = 'question is...';
 const REQUEST_FEEDBACK_FUNCTION_CALL = `<plan>Requesting feedback</plan>\n<function_calls><function_call><function_name>${AGENT_REQUEST_FEEDBACK}</function_name><parameters><${REQUEST_FEEDBACK_PARAM_NAME}>${REQUEST_FEEDBACK_VALUE}</${REQUEST_FEEDBACK_PARAM_NAME}></parameters></function_call></function_calls>`;
@@ -38,7 +45,7 @@ describe.skip('xmlAgentRunner', () => {
 			agentName: AGENT_NAME,
 			initialPrompt: 'test prompt',
 			systemPrompt: '<functions></functions>',
-			type: 'autonomous',
+			type: 'orchestrator',
 			subtype: 'xml',
 			llms,
 			functions,
@@ -173,7 +180,7 @@ describe.skip('xmlAgentRunner', () => {
 			const response = `<function_calls><function_call><function_name>${functionName}</function_name><parameters></parameters></function_call></function_calls>`;
 			mockLLM.setResponse(response);
 
-			const id = await startAgentAndWait(runConfig({ functions }));
+			const id = await runAgentAndWait(runConfig({ functions }));
 			const ctx = await appContext().agentStateService.load(id);
 			expect(ctx.state).to.equal('error');
 			expect(ctx.error).to.include(THROW_ERROR_TEXT);

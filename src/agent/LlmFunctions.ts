@@ -1,4 +1,4 @@
-import { Agent } from '#agent/agentFunctions';
+import { Agent } from '#agent/orchestrator/functions/agentFunctions';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { FUNC_SEP, type FunctionSchema, getFunctionSchemas } from '#functionSchema/functions';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';

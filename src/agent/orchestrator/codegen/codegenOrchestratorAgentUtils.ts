@@ -1,4 +1,4 @@
-import { ImageSource } from '#agent/agentImageUtils';
+import { ImageSource } from '#agent/orchestrator/codegen/agentImageUtils';
 import type { FunctionParameter, FunctionSchema } from '#functionSchema/functions';
 import { logger } from '#o11y/logger';
 

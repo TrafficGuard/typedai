@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
+import { LlmFunctions } from '#agent/LlmFunctions';
 import { agentContextStorage } from '#agent/agentContextLocalStorage';
 import type { AgentContext } from '#agent/agentContextTypes';
+import { runAgentWorkflow } from '#agent/workflow/workflowAgentRunner';
 import { appContext } from '#app/applicationContext';
 import type { SourceControlManagement } from '#functions/scm/sourceControlManagement';
 import { getSourceControlManagementTool } from '#functions/scm/sourceControlManagement';
@@ -112,62 +114,70 @@ export class VibeServiceImpl implements VibeService {
 				user: user,
 			};
 
-			let clonedRepoPath: string;
-			await agentContextStorage.run(agentContextFragment as AgentContext, async () => {
-				const scm = await getSourceControlManagementTool();
-				if (!scm.isConfigured()) throw new Error(`SCM provider (${scm.getScmType()}) is not configured. Cannot clone repository.`);
+			const scm = await getSourceControlManagementTool();
+			if (!scm.isConfigured()) throw new Error(`SCM provider (${scm.getScmType()}) is not configured. Cannot clone repository.`);
 
-				// Clone the project - assumes repositoryId is 'owner/repo' or similar
-				// cloneProject should ideally use the agentContext's fileSystem basePath
-				clonedRepoPath = await scm.cloneProject(session.repositoryId, session.targetBranch);
-				logger.info({ sessionId, clonedRepoPath }, 'Repository cloned/updated.');
+			// Clone the project - assumes repositoryId is 'owner/repo' or similar
+			// cloneProject should ideally use the agentContext's fileSystem basePath
+			const clonedRepoPath = await scm.cloneProject(session.repositoryId, session.targetBranch);
+			logger.info({ sessionId, clonedRepoPath }, 'Repository cloned/updated.');
 
-				// Set the filesystem's working directory to the actual cloned path
-				fss.setWorkingDirectory(clonedRepoPath);
-				logger.info({ sessionId, newWd: fss.getWorkingDirectory() }, 'Filesystem working directory set.');
+			// Set the filesystem's working directory to the actual cloned path
+			fss.setWorkingDirectory(clonedRepoPath);
+			logger.info({ sessionId, newWd: fss.getWorkingDirectory() }, 'Filesystem working directory set.');
 
-				const vcs: VersionControlSystem = fss.vcs;
-				// Checkout branches
-				// Ensure we are on targetBranch first (clone might leave us there, but be explicit)
-				await vcs.switchToBranch(session.targetBranch);
+			const vcs: VersionControlSystem = fss.vcs;
+			// Checkout branches
+			// Ensure we are on targetBranch first (clone might leave us there, but be explicit)
+			await vcs.switchToBranch(session.targetBranch);
 
-				if (session.createWorkingBranch) {
-					logger.info({ sessionId, branch: session.workingBranch }, 'Creating working branch...');
-					await vcs.createBranch(session.workingBranch); // Assumes branching from current HEAD (targetBranch)
-				}
-				logger.info({ sessionId, branch: session.workingBranch }, 'Switching to working branch...');
-				await vcs.switchToBranch(session.workingBranch);
+			if (session.createWorkingBranch) {
+				logger.info({ sessionId, branch: session.workingBranch }, 'Creating working branch...');
+				await vcs.createBranch(session.workingBranch); // Assumes branching from current HEAD (targetBranch)
+			}
+			logger.info({ sessionId, branch: session.workingBranch }, 'Switching to working branch...');
+			await vcs.switchToBranch(session.workingBranch);
 
-				logger.info({ sessionId }, '[VibeServiceImpl] SCM setup complete.');
+			logger.info({ sessionId }, '[VibeServiceImpl] SCM setup complete.');
 
-				// 4. Run File Selection Agent (reuse the same agent context fragment)
-				logger.info({ sessionId }, '[VibeServiceImpl] Starting file selection agent...');
+			// 4. Run File Selection Agent (reuse the same agent context fragment)
+			logger.info({ sessionId }, '[VibeServiceImpl] Starting file selection agent...');
 
-				// Working directory is already set to the repo path within fss
-				logger.info({ sessionId, workspacePath: fss.getWorkingDirectory() }, 'Agent context running for file selection.');
-				// selectFilesAgent expects UserContentExt, pass instructions directly
-				const selection = await selectFilesAgent(session.instructions);
-				logger.info({ sessionId, fileCount: selection?.length }, 'selectFilesAgent completed.');
+			// Working directory is already set to the repo path within fss
+			logger.info({ sessionId, workspacePath: fss.getWorkingDirectory() }, 'Agent context running for file selection.');
 
-				if (!selection || !Array.isArray(selection)) {
-					throw new Error('Invalid response structure from selectFilesAgent');
-				}
-				// Map the result from selectFilesAgent's SelectedFile to Vibe's SelectedFile
-				const fileSelectionResult = selection.map((sf) => ({
-					filePath: sf.path, // Map 'path' to 'filePath'
-					reason: sf.reason,
-					category: sf.category,
-					readOnly: sf.readonly, // Map 'readonly' to 'readOnly'
-				}));
+			await runAgentWorkflow(
+				{
+					agentName: '',
+					functions: [], // scm
+					initialPrompt: '',
+					vibeSessionId: sessionId,
+					subtype: 'selectFiles',
+				},
+				async () => {
+					// selectFilesAgent expects UserContentExt, pass instructions directly
+					const selection = await selectFilesAgent(session.instructions);
+					logger.info({ sessionId, fileCount: selection?.length }, 'selectFilesAgent completed.');
 
-				// 5. Update Session State (Success)
-				await this.vibeRepo.updateVibeSession(userId, sessionId, {
-					status: 'file_selection_review',
-					fileSelection: fileSelectionResult,
-					lastAgentActivity: Date.now(),
-					error: null, // Clear any previous error
-				});
-			});
+					if (!selection || !Array.isArray(selection)) throw new Error('Invalid response structure from selectFilesAgent');
+
+					// Map the result from selectFilesAgent's SelectedFile to Vibe's SelectedFile
+					const fileSelectionResult = selection.map((sf) => ({
+						filePath: sf.path, // Map 'path' to 'filePath'
+						reason: sf.reason,
+						category: sf.category,
+						readOnly: sf.readonly, // Map 'readonly' to 'readOnly'
+					}));
+
+					// 5. Update Session State (Success)
+					await this.vibeRepo.updateVibeSession(userId, sessionId, {
+						status: 'file_selection_review',
+						fileSelection: fileSelectionResult,
+						lastAgentActivity: Date.now(),
+						error: null, // Clear any previous error
+					});
+				},
+			);
 			logger.info({ sessionId }, '[VibeServiceImpl] Background initialization finished successfully.');
 		} catch (error: any) {
 			// 6. Update Session State (Failure)
@@ -192,6 +202,19 @@ export class VibeServiceImpl implements VibeService {
 			}
 			// Do not re-throw, as this is a background task. Error is logged and stored in session.
 		}
+	}
+
+	async runVibeWorkflowAgent(vibeId: string, subtype: string, workflow: () => any): Promise<any> {
+		await runAgentWorkflow(
+			{
+				agentName: '',
+				functions: [], // scm
+				initialPrompt: '',
+				vibeSessionId: vibeId,
+				subtype,
+			},
+			async () => {},
+		);
 	}
 
 	async getVibeSession(userId: string, sessionId: string): Promise<VibeSession | null> {

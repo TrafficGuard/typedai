@@ -4,6 +4,7 @@ import chaiAsPromised from 'chai-as-promised';
 chai.use(chaiAsPromised);
 import sinon from 'sinon';
 import { LlmFunctions } from '#agent/LlmFunctions';
+import type { AgentContextService } from '#agent/agentContextService/agentContextService';
 import {
 	type AgentCompleted,
 	type AgentContext,
@@ -13,10 +14,9 @@ import {
 	isExecuting,
 	// TaskLevel, // Not explicitly used in AgentContext, but used in AgentLLMs
 } from '#agent/agentContextTypes';
-import type { AutonomousIteration } from '#agent/agentContextTypes';
-import { Agent } from '#agent/agentFunctions';
-import type { AgentStateService } from '#agent/agentStateService/agentStateService';
+import type { OrchestratorIteration } from '#agent/agentContextTypes';
 import { clearCompletedHandlers, registerCompletedHandler } from '#agent/completionHandlerRegistry'; // Adjust path if needed
+import { Agent } from '#agent/orchestrator/functions/agentFunctions';
 import { appContext } from '#app/applicationContext';
 import * as functionSchema from '#functionSchema/functionDecorators';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
@@ -150,7 +150,7 @@ const createMockAgentContext = (id: string, overrides: Partial<AgentContext> = {
 		functions: new LlmFunctions(), // Instantiate LlmFunctions
 		completedHandler: undefined,
 		pendingMessages: [],
-		type: 'autonomous',
+		type: 'orchestrator',
 		subtype: 'codegen',
 		iterations: 0,
 		invoking: [],
@@ -195,11 +195,11 @@ const createMockAgentContext = (id: string, overrides: Partial<AgentContext> = {
 // --- Generic Test Suite ---
 
 export function runAgentStateServiceTests(
-	createService: () => AgentStateService,
+	createService: () => AgentContextService,
 	beforeEachHook: () => Promise<void> | void = () => {},
 	afterEachHook: () => Promise<void> | void = () => {},
 ) {
-	let service: AgentStateService;
+	let service: AgentContextService;
 	let currentUserStub: sinon.SinonStub;
 	let functionFactoryStub: sinon.SinonStub;
 
@@ -726,7 +726,7 @@ export function runAgentStateServiceTests(
 			await service.save(createMockAgentContext(agentIdForIterations));
 		});
 
-		const createMockIteration = (iterNum: number, agentIdToUse: string = agentIdForIterations): AutonomousIteration => ({
+		const createMockIteration = (iterNum: number, agentIdToUse: string = agentIdForIterations): OrchestratorIteration => ({
 			agentId: agentIdToUse,
 			iteration: iterNum,
 			functions: ['Agent', MockFunction.name],

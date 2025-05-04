@@ -3,8 +3,8 @@ import '#fastify/trace-init/trace-init'; // leave an empty line next so this doe
 import { writeFileSync } from 'node:fs';
 import { agentContext, llms } from '#agent/agentContextLocalStorage';
 import type { AgentLLMs } from '#agent/agentContextTypes';
-import type { RunAgentConfig, RunWorkflowConfig } from '#agent/agentRunner';
-import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
+import type { RunAgentConfig, RunWorkflowConfig } from '#agent/orchestrator/orchestratorAgentRunner';
+import { runAgentWorkflow } from '#agent/workflow/workflowAgentRunner';
 import { appContext, initApplicationContext } from '#app/applicationContext';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { defaultLLMs } from '#llm/services/defaultLlms';

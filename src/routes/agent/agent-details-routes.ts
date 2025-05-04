@@ -1,8 +1,8 @@
 import { Type } from '@sinclair/typebox';
 import type { FastifyReply } from 'fastify';
-import type { AgentContext, AutonomousIteration } from '#agent/agentContextTypes';
-import { type AgentExecution, agentExecutions } from '#agent/agentRunner';
+import type { AgentContext, OrchestratorIteration } from '#agent/agentContextTypes';
 import { serializeContext } from '#agent/agentSerialization';
+import { type AgentExecution, agentExecutions } from '#agent/orchestrator/orchestratorAgentRunner';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send, sendBadRequest, sendSuccess } from '#fastify/index';
 import { sendJSON } from '#fastify/responses';
@@ -60,7 +60,7 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 				}),
 				// Define response schema if needed for validation/documentation
 				// response: {
-				// 	200: Type.Array(AutonomousIterationSchema) // Assuming AutonomousIterationSchema exists
+				// 	200: Type.Array(OrchestratorIterationSchema) // Assuming OrchestratorIterationSchema exists
 				// }
 			},
 		},
@@ -68,10 +68,10 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 			const agentId = req.params.agentId;
 			try {
 				// Optional: Check if agent exists first?
-				// const agentExists = await fastify.agentStateService.load(agentId);
+				// const agentExists = await fastify.agentContextService.load(agentId);
 				// if (!agentExists) return sendNotFound(reply, `Agent ${agentId} not found`);
 
-				const iterations: AutonomousIteration[] = await fastify.agentStateService.loadIterations(agentId);
+				const iterations: OrchestratorIteration[] = await fastify.agentStateService.loadIterations(agentId);
 				sendJSON(reply, iterations);
 			} catch (error) {
 				logger.error(error, `Error loading iterations for agent ${agentId}`);

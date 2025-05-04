@@ -1,7 +1,7 @@
 import type { AgentContext } from '#agent/agentContextTypes';
-import { humanInTheLoop } from '#agent/humanInTheLoop';
+import { humanInTheLoop } from '#agent/orchestrator/humanInTheLoop';
 import { logger } from '#o11y/logger';
-import { agentContext } from './agentContextLocalStorage';
+import { agentContext } from '../agentContextLocalStorage';
 
 export type HitlCounters = {
 	iteration: number;

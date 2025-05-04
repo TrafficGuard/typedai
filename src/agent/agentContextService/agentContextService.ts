@@ -1,6 +1,6 @@
-import type { AgentContext, AgentRunningState, AutonomousIteration } from '#agent/agentContextTypes';
+import type { AgentContext, AgentRunningState, OrchestratorIteration } from '#agent/agentContextTypes';
 
-export interface AgentStateService {
+export interface AgentContextService {
 	save(state: AgentContext): Promise<void>;
 	updateState(ctx: AgentContext, state: AgentRunningState): Promise<void>;
 	load(agentId: string): Promise<AgentContext | null>;
@@ -26,15 +26,15 @@ export interface AgentStateService {
 	updateFunctions(agentId: string, functions: string[]): Promise<void>;
 
 	/**
-	 * Saves the details of a single autonomous agent iteration.
+	 * Saves the details of a single orchestrator agent iteration.
 	 * @param iterationData The data for the iteration.
 	 */
-	saveIteration(iterationData: AutonomousIteration): Promise<void>;
+	saveIteration(iterationData: OrchestratorIteration): Promise<void>;
 
 	/**
 	 * Loads all iterations for a given agent.
 	 * @param agentId The ID of the agent.
-	 * @returns An array of AutonomousIteration objects, ordered by iteration number.
+	 * @returns An array of OrchestratorIteration objects, ordered by iteration number.
 	 */
-	loadIterations(agentId: string): Promise<AutonomousIteration[]>;
+	loadIterations(agentId: string): Promise<OrchestratorIteration[]>;
 }

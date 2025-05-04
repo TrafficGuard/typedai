@@ -1,9 +1,9 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
 import type { LlmFunctions } from '#agent/LlmFunctions';
-import { AgentFeedback } from '#agent/agentFeedback';
-import { provideFeedback, resumeCompleted, resumeError, resumeHil, startAgent } from '#agent/agentRunner';
-import { waitForConsoleInput } from '#agent/humanInTheLoop';
+import { AgentFeedback } from '#agent/orchestrator/functions/agentFeedback';
+import { waitForConsoleInput } from '#agent/orchestrator/humanInTheLoop';
+import { provideFeedback, resumeCompleted, resumeError, resumeHil, startAgent } from '#agent/orchestrator/orchestratorAgentRunner';
 import { appContext, initApplicationContext } from '#app/applicationContext';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { defaultLLMs } from '#llm/services/defaultLlms';
@@ -53,7 +53,7 @@ export async function main() {
 		initialPrompt,
 		functions,
 		llms,
-		type: 'autonomous',
+		type: 'orchestrator',
 		subtype: 'codegen',
 		resumeAgentId,
 		humanInLoop: {
