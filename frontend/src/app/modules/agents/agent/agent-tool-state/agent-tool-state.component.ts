@@ -1,10 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, type ChangeDetectorRef, Component, Input, type OnChanges, type OnInit, type SimpleChanges } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnChanges, OnInit, SimpleChanges } from '@angular/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { type MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
-import type { AgentContext, FileMetadata } from '../../agent.types';
-import type { AgentService } from '../../services/agent.service';
+import { AgentContext, FileMetadata } from '../../agent.types';
+import { AgentService } from '../../services/agent.service'; // Changed from 'import type'
 
 @Component({
 	selector: 'agent-tool-state',
@@ -41,11 +41,11 @@ export class AgentToolStateComponent implements OnInit, OnChanges {
 			if (toolStateMap) {
 				// Safely get LiveFilesState, default to empty array if not found
 				// Assuming LiveFilesState is string[] based on usage
-				this.liveFiles = (toolStateMap.LiveFiles as string[]) || [];
+				this.liveFiles = (toolStateMap.get('LiveFiles') as string[]) || [];
 
 				// Safely get FileStoreState, default to empty array if not found
 				// Assuming FileStoreState is FileMetadata[] based on usage
-				this.files = (toolStateMap.FileStore as FileMetadata[]) || [];
+				this.files = (toolStateMap.get('FileStore') as FileMetadata[]) || [];
 			} else {
 				// Reset if toolState is not available
 				this.liveFiles = [];
