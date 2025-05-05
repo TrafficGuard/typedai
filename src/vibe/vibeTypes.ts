@@ -126,11 +126,6 @@ export type UpdateVibeSessionData = Partial<
 	}
 >;
 
-// Specific data structure for requesting an update to the design based on new instructions
-export interface UpdateDesignInstructionsData {
-	instructions: string; // User's feedback or new instructions for refining the design
-}
-
 // Specific data structure for requesting code revisions based on user review comments
 export interface UpdateCodeReviewData {
 	reviewComments: string; // User's comments or instructions for revising the code
