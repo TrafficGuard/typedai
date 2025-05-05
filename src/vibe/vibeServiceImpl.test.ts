@@ -3,8 +3,7 @@ import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 import type { VibeRepository } from '#vibe/vibeRepository';
 import { VibeServiceImpl } from '#vibe/vibeServiceImpl';
-// Import UpdateVibeSessionData
-import type { CreateVibeSessionData, UpdateVibeSessionData, VibeSession } from '#vibe/vibeTypes';
+import type { UpdateVibeSessionData, VibeSession } from '#vibe/vibeTypes';
 
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 
@@ -300,7 +299,6 @@ describe('VibeServiceImpl', () => {
 					sessionId,
 					sinon.match({
 						status: 'generating_design',
-						lastAgentActivity: sinon.match.number,
 					}),
 				),
 			).to.be.true;

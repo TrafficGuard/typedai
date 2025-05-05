@@ -3,6 +3,7 @@ import { agentContext, agentContextStorage, createContext } from '#agent/agentCo
 import type { AgentContext } from '#agent/agentContextTypes';
 import { type AgentExecution, type RunWorkflowConfig, agentExecutions } from '#agent/orchestrator/orchestratorAgentRunner';
 import { appContext } from '#app/applicationContext';
+import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { errorToString } from '#utils/errors';
@@ -15,6 +16,7 @@ import { formatMillisDuration } from '#utils/time';
  */
 export async function startWorkflowAgent(config: RunWorkflowConfig, workflow: (agent: AgentContext) => any): Promise<AgentExecution> {
 	let context: AgentContext = createContext(config);
+	if (!config.llms) context.llms = defaultLLMs();
 	await appContext().agentStateService.save(context);
 	let execution: Promise<any>;
 

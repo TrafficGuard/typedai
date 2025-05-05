@@ -29,8 +29,7 @@
 					<ng-container matColumnDef="createdAt">
 						<th mat-header-cell *matHeaderCellDef>Created At</th>
 						<td mat-cell *matCellDef="let session">
-							<!-- Assuming createdAt is a Firestore Timestamp object or ISO string -->
-							{{ session.createdAt?.toDate ? (session.createdAt.toDate() | date: 'medium') : (session.createdAt | date: 'medium') }}
+							{{ session.createdAt | date: 'medium' }}
 						</td>
 					</ng-container>
 

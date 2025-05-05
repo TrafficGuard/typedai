@@ -261,6 +261,16 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 					: `<script-result>${pythonScriptResultString}</script-result>`;
 
 				currentFunctionHistorySize = agent.functionCallHistory.length;
+
+				// If the agent hasn't already transitioned to completed or hitl_feedback then
+				// update the state to hitl_feedback if requested
+				const currentAgent = await agentStateService.load(agent.agentId);
+				if (currentAgent.hilRequested) {
+					if (agent.state === 'functions') {
+						agent.state = 'hitl_feedback';
+						requestFeedback = true;
+					}
+				}
 			} catch (e) {
 				span.setStatus({ code: SpanStatusCode.ERROR, message: e.message });
 				controlLoopError = e;

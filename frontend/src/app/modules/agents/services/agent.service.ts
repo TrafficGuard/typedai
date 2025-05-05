@@ -179,4 +179,13 @@ export class AgentService {
       catchError(error => this.handleError('resumeCompletedAgent', error))
     );
   }
+
+  /** Forcibly stops an agent */
+  forceStopAgent(agentId: string): Observable<any> {
+    return this._httpClient.post(`/api/agent/v1/force-stop`, { agentId }).pipe(
+      // Note: No cache update needed here as the backend route doesn't return updated agent state.
+      // The caller should refresh agent details if needed after a successful call.
+      catchError(error => this.handleError('forceStopAgent', error))
+    );
+  }
 }

@@ -143,6 +143,8 @@ export interface AgentContext {
 	functionCallHistory: FunctionCallResult[];
 	/** How many iterations of the orchestrator agent control loop to require human input to continue */
 	hilCount;
+	/** If the user has requested a human-in-the-loop intervention after the current control loop iteration completes */
+	hilRequested?: boolean;
 	/** Files which are always provided in the agent control loop prompt */
 	liveFiles?: string[];
 	fileStore?: FileMetadata[];

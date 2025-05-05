@@ -107,9 +107,9 @@ export function runVibeRepositoryTests(
 			expect(retrievedSession).to.be.null;
 		});
 
-		it('should list sessions for a user, ordered by createdAt descending', async () => {
-			const session1 = createMockSession(testUserId, { createdAt: Date.now() - 2000 });
-			const session2 = createMockSession(testUserId, { createdAt: Date.now() - 1000 }); // Newer
+		it('should list sessions for a user, ordered by updatedAt descending', async () => {
+			const session1 = createMockSession(testUserId, { createdAt: Date.now() - 5000, updatedAt: Date.now() - 2000 });
+			const session2 = createMockSession(testUserId, { createdAt: Date.now() - 6000, updatedAt: Date.now() - 1000 }); // Newer update with older creation
 			const sessionOtherUser = createMockSession(otherUserId);
 
 			await repo.createVibeSession(session1);

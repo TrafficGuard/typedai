@@ -46,10 +46,10 @@ export class FirestoreVibeRepository implements VibeRepository {
 		} catch (error: any) {
 			// Firestore error code 6 means ALREADY_EXISTS
 			if (error?.code === 6) {
-				logger.error({ sessionId, userId }, 'Attempted to create VibeSession with existing ID.');
-				throw new Error(`VibeSession with ID ${sessionId} already exists.`);
+				logger.error({ sessionId, userId }, 'Attempted to create VibeSession with existing ID in user subcollection.');
+				throw new Error(`VibeSession with ID ${sessionId} already exists for user ${userId}.`);
 			}
-			logger.error(error, `Error creating VibeSession ${sessionId} for user ${userId}`);
+			logger.error(error, `Error creating VibeSession ${sessionId} for user ${userId} in subcollection`);
 			throw error;
 		}
 	}
@@ -67,20 +67,27 @@ export class FirestoreVibeRepository implements VibeRepository {
 			const docSnap = await docRef.get();
 
 			if (!docSnap.exists) {
-				logger.warn({ userId, sessionId }, 'VibeSession not found in user subcollection');
+				logger.warn({ userId, sessionId }, 'VibeSession not found for user');
 				return null;
 			}
 
 			const data = docSnap.data();
+			// Ownership is implicitly checked by the path, but double-check just in case
+			if (data?.userId !== userId) {
+				logger.error({ userId, sessionId, ownerId: data?.userId }, 'Data inconsistency: VibeSession userId mismatch in user subcollection');
+				// This case should ideally not happen if data is consistent
+				return null; // Or throw an error
+			}
+
 			const session: VibeSession = {
 				...(data as VibeSession),
 			};
 
-			logger.info({ userId, sessionId }, 'VibeSession retrieved successfully');
+			logger.info({ userId, sessionId }, 'VibeSession retrieved successfully from user subcollection');
 			return session;
 		} catch (error) {
 			logger.error(error, `Error retrieving VibeSession ${sessionId} for user ${userId}`);
-			throw error; // Re-throw after logging
+			throw error;
 		}
 	}
 
@@ -100,10 +107,10 @@ export class FirestoreVibeRepository implements VibeRepository {
 				sessions.push(data as VibeSession);
 			});
 
-			logger.info({ userId, count: sessions.length }, 'Listed VibeSessions successfully');
+			logger.info({ userId, count: sessions.length }, 'Listed VibeSessions successfully from user subcollection');
 			return sessions;
 		} catch (error) {
-			logger.error(error, `Error listing VibeSessions for user ${userId}`);
+			logger.error(error, `Error listing VibeSessions for user ${userId} from subcollection`);
 			throw error;
 		}
 	}
@@ -123,13 +130,13 @@ export class FirestoreVibeRepository implements VibeRepository {
 
 		try {
 			const docRef = this.db.collection('users').doc(userId).collection(VIBE_SESSIONS_COLLECTION).doc(sessionId);
-			// Use update which fails if the document doesn't exist
+			// Use update which fails if the document doesn't exist (implicitly checks ownership via path)
 			await docRef.update(updateData);
 			logger.info({ sessionId, userId }, 'VibeSession updated successfully in user subcollection');
 		} catch (error: any) {
 			// Firestore error code 5 means NOT_FOUND
 			if (error?.code === 5) {
-				logger.warn({ userId, sessionId }, 'Attempted to update non-existent VibeSession');
+				logger.warn({ userId, sessionId }, 'Attempted to update non-existent VibeSession for user');
 				throw new Error(`VibeSession ${sessionId} not found for user ${userId}.`);
 			}
 			logger.error(error, `Error updating VibeSession ${sessionId} for user ${userId}`);
@@ -147,6 +154,7 @@ export class FirestoreVibeRepository implements VibeRepository {
 		try {
 			const docRef = this.db.collection('users').doc(userId).collection(VIBE_SESSIONS_COLLECTION).doc(sessionId);
 			// Firestore delete is idempotent (doesn't error if doc doesn't exist)
+			// Ownership is implicitly checked by the path.
 			await docRef.delete();
 			logger.info({ sessionId, userId }, 'VibeSession deleted successfully (or did not exist) from user subcollection');
 		} catch (error) {

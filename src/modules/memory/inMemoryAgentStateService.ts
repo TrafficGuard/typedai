@@ -87,4 +87,9 @@ export class InMemoryAgentStateService implements AgentContextService {
 		}
 		this.iterationMap.set(iterationData.agentId, iterations);
 	}
+
+	async requestHumanInLoopCheck(agent: AgentContext): Promise<void> {
+		agent.hilRequested = true;
+		await this.save(agent);
+	}
 }

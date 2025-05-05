@@ -56,6 +56,7 @@ export class AgentDetailsComponent implements OnInit {
     errorForm!: FormGroup;
     isSubmitting = false;
     isResumingError = false;
+    isForcingStop = false;
     userPromptExpanded = false;
     outputExpanded = false;
     allAvailableFunctions: string[] = []; // Initialize with an empty array or fetch from a service
@@ -283,6 +284,31 @@ export class AgentDetailsComponent implements OnInit {
                 this.changeDetectorRef.markForCheck();
             },
         });
+    }
+
+    forceStopAgent(): void {
+        this.isForcingStop = true;
+        this.agentService.forceStopAgent(this.agentDetails.agentId)
+            .pipe(
+                catchError((error) => {
+                    console.error('Error forcing agent stop:', error);
+                    this.snackBar.open('Error forcing agent stop', 'Close', { duration: 3000 });
+                    return of(null); // Continue the stream gracefully
+                }),
+                finalize(() => {
+                    this.isForcingStop = false;
+                    this.changeDetectorRef.markForCheck(); // Ensure button state updates
+                })
+            )
+            .subscribe((response) => {
+                // The backend endpoint returns 200 OK on success with no body,
+                // so we don't strictly need to check response, but checking for null
+                // handles the case where catchError returned null.
+                if (response !== null) {
+                    this.snackBar.open('Agent stop request sent successfully. Refreshing details...', 'Close', { duration: 4000 });
+                    this.refreshAgentDetails(); // Refresh to see potential state change
+                }
+            });
     }
 
     openResumeModal(): void {

@@ -4,6 +4,13 @@ export interface AgentContextService {
 	save(state: AgentContext): Promise<void>;
 	updateState(ctx: AgentContext, state: AgentRunningState): Promise<void>;
 	load(agentId: string): Promise<AgentContext | null>;
+
+	/**
+	 * For orchestrator agents, requests a human-in-the-loop check from the user after the current iteration
+	 * @param agent
+	 */
+	requestHumanInLoopCheck(agent: AgentContext): Promise<void>;
+
 	list(): Promise<AgentContext[]>;
 	/**
 	 * List agents which are not in a completed state
