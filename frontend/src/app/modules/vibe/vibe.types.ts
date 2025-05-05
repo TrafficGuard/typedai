@@ -1,18 +1,16 @@
 /**
  * State of a vibe coding session
+ * This must match the server API VibeSession at src/vibe/vibeTypes.ts
  */
 export interface VibeSession {
 	id: string;
 	title: string;
-	// Sync with VibeStatus in src/vibe/vibeTypes.ts
 	status:
 		| 'initializing'
 		| 'file_selection_review'
 		| 'updating_selection'
 		| 'generating_design'
 		| 'design_review'
-		// | 'design_review_feedback' // Removed - Not in backend VibeStatus
-		// | 'design_review_details' // Removed - Not in backend VibeStatus
 		| 'updating_design'
 		| 'coding'
 		| 'code_review'
@@ -33,9 +31,9 @@ export interface VibeSession {
 	useSharedRepos: boolean;
 	fileSelection?: SelectedFile[];
 	designAnswer?: string; // Note: Backend uses DesignAnswer interface, frontend might simplify or need full type
-	selectedVariations?: number; // Added to match backend VibeSession
-	createdAt: any; // Use 'any' or 'string' or 'Date' depending on how Firestore Timestamps are serialized/received
-	updatedAt: any;
+	// selectedVariations?: number; // Removed - This was added in backend but might not be needed here yet
+	createdAt: number;
+	updatedAt: number;
 	error?: string;
 	// Add other fields from backend VibeSession if needed by frontend (e.g., codeDiff, commitSha, etc.)
 }
@@ -45,7 +43,7 @@ export interface SelectedFile {
 	filePath: string; // Keep existing name 'filePath' for frontend consistency
 	readOnly?: boolean;
 	reason?: string; // Optional reason if needed
-	category?: 'edit' | 'reference' | 'style_example' | 'unknown'; // Add this line
+	// category?: 'edit' | 'reference' | 'style_example' | 'unknown'; // Removed - Not standard in backend SelectedFile
 }
 
 /**
@@ -98,7 +96,7 @@ export interface GitProject {
 
 /**
  * Represents a saved Vibe session configuration preset.
- * Must match VibePreset in vibe/vibeTypes
+ * Must match VibePreset in src/vibe/vibeTypes.ts
  */
 export interface VibePreset {
 	id: string;

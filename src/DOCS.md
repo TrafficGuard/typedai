@@ -38,7 +38,7 @@ describe('ModuleName', () => {
 
 
 
-The main unit/integration test suite for a service must be shared between all implementations.
+The main unit/integration test suite for a service/repository must be shared between all implementations.
 
 fooService.ts
 ```typescript
@@ -86,6 +86,12 @@ describe('FirestoreFooService', () => {
 });
 ```
 
+# File system mocking
+
+Use the `mock-fs` package for mocking the filesystem.
+`import mock as mockFs from 'mock-fs';`
+
+See src/swe/index/repositoryMap.unit.ts for an example of usage
 
 # Unit Test Design Standards
 

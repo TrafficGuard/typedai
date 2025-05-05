@@ -17,7 +17,8 @@ import { SelectedFile } from '../vibe.types';
   ],
 })
 export class VibeFileListComponent {
-  @Input() files: SelectedFile[] = [];
+  @Input() files: SelectedFile[] | null | undefined = []; // Allow null/undefined
+  @Input() allowDeletion: boolean = true; // Input to control deletion
   @Output() fileDeleted = new EventEmitter<SelectedFile>();
 
   /**

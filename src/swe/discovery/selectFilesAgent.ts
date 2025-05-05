@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
-import { ImagePartExt, type LLM, type LlmMessage, type UserContentExt, contentText, extractAttachments } from '#llm/llm';
+import { ImagePartExt, type LLM, type LlmMessage, type UserContentExt, assistant, contentText, extractAttachments } from '#llm/llm';
 import { text, user } from '#llm/llm';
 import { extractTag } from '#llm/responseParsers';
 import { logger } from '#o11y/logger';
@@ -25,7 +25,6 @@ interface IterationResponse {
 	keepFiles?: SelectedFile[];
 	ignoreFiles?: SelectedFile[];
 	inspectFiles?: string[];
-	category?: 'edit' | 'reference' | 'style_example' | 'unknown'; // Added category
 }
 
 export interface SelectedFile {
@@ -35,8 +34,14 @@ export interface SelectedFile {
 	reason: string;
 	/** If the file should not need to be modified when implementing the task. Only relevant when the task is for making changes, and not just a query. */
 	readonly?: boolean;
-	/** Categorization of the file's role in the task */
-	category?: 'edit' | 'reference' | 'style_example' | 'unknown'; // Added category field
+}
+
+/**
+ * When a user wants to continue on previous file selection, this provides the original file selection and the instructions on what needs to change in the file selection.
+ */
+export interface FileSelectionUpdate {
+	currentFiles?: SelectedFile[];
+	updatePrompt?: string;
 }
 
 export interface FileExtract {
@@ -46,9 +51,9 @@ export interface FileExtract {
 	extract: string;
 }
 
-export async function selectFilesAgent(requirements: UserContentExt, projectInfo?: ProjectInfo): Promise<SelectedFile[]> {
+export async function selectFilesAgent(requirements: UserContentExt, projectInfo?: ProjectInfo, options?: FileSelectionUpdate): Promise<SelectedFile[]> {
 	if (!requirements) throw new Error('Requirements must be provided');
-	const { selectedFiles } = await selectFilesCore(requirements, projectInfo);
+	const { selectedFiles } = await selectFilesCore(requirements, projectInfo, options);
 	return selectedFiles;
 }
 
@@ -150,11 +155,12 @@ Respond in the following structure, with the answer in Markdown format inside th
 async function selectFilesCore(
 	requirements: UserContentExt,
 	projectInfo?: ProjectInfo,
+	options?: FileSelectionUpdate,
 ): Promise<{
 	messages: LlmMessage[];
 	selectedFiles: SelectedFile[];
 }> {
-	const messages: LlmMessage[] = await initializeFileSelectionAgent(requirements, projectInfo);
+	const messages: LlmMessage[] = await initializeFileSelectionAgent(requirements, projectInfo, options);
 
 	const maxIterations = 10;
 	let iterationCount = 0;
@@ -167,8 +173,7 @@ async function selectFilesCore(
 	let filesToInspect = initialResponse.inspectFiles || [];
 
 	// Use Maps to store kept/ignored files to ensure uniqueness by path
-	// Store reason and category for kept files
-	const keptFiles = new Map<string, { reason: string; category?: 'edit' | 'reference' | 'style_example' | 'unknown' }>(); // path -> { reason, category }
+	const keptFiles = new Map<string, string>(); // path -> reason
 	const ignoredFiles = new Map<string, string>(); // path -> reason
 	const filesPendingDecision = new Set<string>(filesToInspect);
 
@@ -185,8 +190,7 @@ async function selectFilesCore(
 			filesPendingDecision.delete(ignored.path);
 		}
 		for (const kept of response.keepFiles ?? []) {
-			// Store reason and category
-			keptFiles.set(kept.path, { reason: kept.reason, category: kept.category });
+			keptFiles.set(kept.path, kept.reason);
 			filesPendingDecision.delete(kept.path);
 		}
 
@@ -201,11 +205,7 @@ async function selectFilesCore(
 				for (const altFile of alternativeFiles) {
 					// Add the alternative file only if it hasn't been explicitly kept or ignored already
 					if (!keptFiles.has(altFile) && !ignoredFiles.has(altFile)) {
-						// Assign an object with reason and category
-						keptFiles.set(altFile, {
-							reason: 'Relevant AI tool configuration/documentation file',
-							category: 'reference', // Categorize as reference material
-						});
+						keptFiles.set(altFile, 'Relevant AI tool configuration/documentation file');
 						logger.info(`Automatically included relevant AI tool file: ${altFile}`);
 					}
 				}
@@ -258,50 +258,34 @@ async function selectFilesCore(
 
 	if (keptFiles.size === 0) throw new Error('No files were selected to fulfill the requirements.');
 
-	// Map keptFiles entries to SelectedFile objects, including category
-	const selectedFiles: SelectedFile[] = Array.from(keptFiles.entries()).map(([path, { reason, category }]) => ({
+	const selectedFiles: SelectedFile[] = Array.from(keptFiles.entries()).map(([path, reason]) => ({
 		path,
 		reason,
-		category, // Include the category
 		// readonly property is not explicitly handled by the LLM response in this flow, default to undefined or false if needed
 	}));
 
 	return { messages, selectedFiles };
 }
 
-// --- Mock function for updating selection based on prompt ---
-export async function updateSelectionWithPrompt(
-	currentSelection: SelectedFile[],
-	prompt: string,
-	// other relevant inputs like project context, file tree etc. can be added here
-): Promise<SelectedFile[]> {
-	// Simulate LLM call to modify selection based on prompt
-	// For mock, just return the current selection plus a dummy file
-	const newFile: SelectedFile = {
-		// Explicitly type the new object or assert type
-		path: `src/utils/added_by_prompt_${Date.now()}.ts`,
-		reason: `Added based on prompt: ${prompt}`,
-		category: 'edit',
-	};
-	const updatedSelection = [...currentSelection, newFile];
-	// Remove duplicates if necessary in a real implementation
-	return updatedSelection.filter((file, index, self) => index === self.findIndex((f) => f.path === file.path));
-}
-
-async function initializeFileSelectionAgent(requirements: UserContentExt, projectInfo?: ProjectInfo): Promise<LlmMessage[]> {
-	// Ensure projectInfo is available
+async function initializeFileSelectionAgent(requirements: UserContentExt, projectInfo?: ProjectInfo, options?: FileSelectionUpdate): Promise<LlmMessage[]> {
 	projectInfo ??= (await detectProjectInfo())[0];
 
-	// Generate repository maps and overview
 	const projectMaps: RepositoryMaps = await generateRepositoryMaps([projectInfo]);
 	const repositoryOverview: string = await getRepositoryOverview();
 	const fileSystemWithSummaries: string = `<project_files>\n${projectMaps.fileSystemTreeWithFileSummaries.text}\n</project_files>\n`;
-
-	// Construct the initial prompt
 	const repoOutlineUserPrompt = `${repositoryOverview}${fileSystemWithSummaries}`;
 
+	const attachments = extractAttachments(requirements);
+
+	const messages: LlmMessage[] = [
+		// Have a separate message for repoOutlineUserPrompt for context caching
+		{ role: 'user', content: repoOutlineUserPrompt },
+		{ role: 'assistant', content: 'What is my task?', cache: 'ephemeral' },
+	];
+
+	// --- Initial Selection Prompt ---
 	// Do not include file contents unless they have been provided to you.
-	const initialUserPromptText = `<requirements>\n${contentText(requirements)}\n</requirements>
+	const userPromptText = `<requirements>\n${contentText(requirements)}\n</requirements>
 
 Your task is to select the minimal set of files which are essential for completing the task/query described in the requirements, using the provided <project_files>.
 **Focus intensely on necessity.** Only select a file if you are confident its contents are **directly required** to understand the context or make the necessary changes.
@@ -322,13 +306,22 @@ For this initial file selection step, identify the files you need to **inspect**
 }
 </json>
 `;
-	const attachments = extractAttachments(requirements);
+	messages.push(user([text(userPromptText), ...attachments], true));
 
-	return [
-		{ role: 'user', content: repoOutlineUserPrompt },
-		{ role: 'assistant', content: 'What is my task?', cache: 'ephemeral' },
-		user([text(initialUserPromptText), ...attachments], true),
-	];
+	// Construct the initial prompt based on whether it's an initial selection or an update
+	// Work in progress, may need to do this differently
+	// Need to write unit tests for it
+	if (options?.currentFiles) {
+		const filePaths = options.currentFiles.map((selection) => selection.path);
+		const fileContents = (await readFileContents(filePaths)).contents;
+		messages.push(assistant(fileContents));
+		const keepAll: IterationResponse = {
+			keepFiles: options.currentFiles,
+		};
+		messages.push(user(JSON.stringify(keepAll)));
+	}
+
+	return messages;
 }
 
 async function generateFileSelectionProcessingResponse(

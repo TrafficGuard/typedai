@@ -99,6 +99,25 @@ export class FirestoreAgentStateService implements AgentContextService {
 		}
 	}
 
+	async requestHumanInLoopCheck(agent: AgentContext): Promise<void> {
+		const now = Date.now();
+
+		const docRef = this.db.doc(`AgentContext/${agent.agentId}`);
+		try {
+			const update: Partial<AgentContext> = {
+				hilRequested: true,
+				lastUpdate: now,
+			};
+			await docRef.update(update);
+			// Update the state in the context object provided directly for immediate consistency once the firestore update completes
+			agent.hilRequested = true;
+			agent.lastUpdate = now;
+		} catch (error) {
+			logger.error(error, `Error setting hilRequested for agent ${agent.agentId}`);
+			throw error;
+		}
+	}
+
 	@span({ agentId: 0 })
 	async load(agentId: string): Promise<AgentContext | null> {
 		const docRef = this.db.doc(`AgentContext/${agentId}`);

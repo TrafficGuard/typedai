@@ -1,8 +1,8 @@
-import { AsyncPipe, DatePipe, NgIf, TitleCasePipe } from '@angular/common'; // Import NgIf, TitleCasePipe
-import { Component, OnDestroy, OnInit, ViewEncapsulation, ChangeDetectionStrategy } from '@angular/core'; // Add ChangeDetectionStrategy
+import { AsyncPipe, DatePipe, NgIf, TitleCasePipe } from '@angular/common';
+import { Component, OnDestroy, OnInit, ViewEncapsulation, ChangeDetectionStrategy } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatTableModule } from '@angular/material/table'; // Import MatTableModule
+import { MatTableModule } from '@angular/material/table';
 import { Router } from '@angular/router';
 import { Observable, Subject } from 'rxjs';
 import { VibeService } from '../vibe.service';
@@ -34,19 +34,16 @@ export class VibeListComponent implements OnInit, OnDestroy {
 
 	constructor(
 		private vibeService: VibeService,
-		private router: Router, // Inject Router
+		private router: Router,
 	) {}
 
 	ngOnInit(): void {
 		this.sessions$ = this.vibeService.listVibeSessions();
-		// Remove old ngOnInit logic related to chat
 	}
 
 	ngOnDestroy(): void {
-		// Clean up subscriptions if any were made manually
 		this._unsubscribeAll.next(null);
 		this._unsubscribeAll.complete();
-		// Remove old ngOnDestroy logic (mutation observer)
 	}
 
 	createNewVibe(): void {
@@ -54,7 +51,6 @@ export class VibeListComponent implements OnInit, OnDestroy {
 	}
 
 	viewVibe(sessionId: string): void {
-		// Optional: Navigate to a detail view if needed later
 		this.router.navigate(['/ui/vibe', sessionId]);
 	}
 

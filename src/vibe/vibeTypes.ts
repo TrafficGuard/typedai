@@ -120,13 +120,11 @@ export type UpdateVibeSessionData = Partial<
 		| 'createWorkingBranch' // Flag is immutable after creation/start
 		| 'createdAt' // Immutable
 		// Note: fileSelection uses MODIFIED SelectedFile
-	>
+	> & {
+		filesToAdd?: string[]; // Array of file paths to add
+		filesToRemove?: string[]; // Array of file paths to remove
+	}
 >;
-
-// Specific data structure for requesting an update to the design based on new instructions
-export interface UpdateDesignInstructionsData {
-	instructions: string; // User's feedback or new instructions for refining the design
-}
 
 // Specific data structure for requesting code revisions based on user review comments
 export interface UpdateCodeReviewData {

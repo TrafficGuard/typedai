@@ -323,7 +323,7 @@ export class FileSystemService {
 		logger.debug(`readFile ${filePath}`);
 		let contents: string;
 		const relativeFullPath = path.join(this.getWorkingDirectory(), filePath);
-		logger.debug(`Checking ${filePath} and ${relativeFullPath}`);
+		// logger.debug(`Checking ${filePath} and ${relativeFullPath}`);
 
 		try {
 			// Check relative to current working directory first using async access

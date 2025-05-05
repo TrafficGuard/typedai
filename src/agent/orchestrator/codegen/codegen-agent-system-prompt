@@ -332,7 +332,7 @@ Valid base Dict values ( with "type": "image" added ) are:
 - If f-strings *are* used, any literal curly braces `{` or `}` intended as part of the string content *must* be escaped by doubling them (`{{` and `}}`)
 - Output in a comment what you know with complete confidence about a value returned from a function
 - Do NOT assume anything about the value of the results from functions other than from the function docs and type hints. Return values that require further analysis of the values
-- The script can return a Dict with any values you want to have available to view/process next. You don't need to do everything here.
+- The script can return a Dict with any values you need to have available to view/process to make a decision for the next step.
 - If you do process an object/collection and the result is unexpected (empty or otherwise), then return the original object/collection so it can be inspected in the next step.
 - Always use positional arguments when calling functions
 - Assume the objects returns from function calls match the type hints.

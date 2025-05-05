@@ -69,18 +69,54 @@
                         <div class="font-semibold text-red-600">Error:</div>
                         <p class="text-red-500 whitespace-pre-wrap">{{ session.error }}</p>
                     </div>
-                    <!-- Use the new vibe-file-list component -->
+
+                    <!-- File Selection Review State -->
+                    <ng-container *ngIf="currentSession?.status === 'file_selection_review'">
+                        <div class="sm:col-span-2 mt-6 p-4 border rounded bg-yellow-50 border-yellow-200">
+                            <h2 class="text-xl font-semibold mb-3 text-yellow-800">Review File Selection</h2>
+                            <p class="text-yellow-700 mb-4">Review the files selected by the AI. You can approve the selection to proceed with design generation, or provide instructions to update the selection.</p>
+
+                            <!-- File List (Read-Only in this state) -->
+                            <vibe-file-list
+                                [files]="currentSession.fileSelection"
+                                [allowDeletion]="false"
+                                class="mb-4">
+                            </vibe-file-list>
+
+                            <!-- Action Buttons -->
+                            <div class="flex items-center space-x-2">
+                                <button
+                                    mat-raised-button
+                                    color="primary"
+                                    (click)="approveSelection()"
+                                    [disabled]="isProcessingAction">
+                                    Approve Selection & Generate Design
+                                </button>
+                                <button
+                                    mat-button
+                                    (click)="requestSelectionUpdate()"
+                                    [disabled]="isProcessingAction">
+                                    Update Selection...
+                                </button>
+                                <mat-spinner *ngIf="isProcessingAction" diameter="24" class="ml-2"></mat-spinner>
+                            </div>
+                        </div>
+                    </ng-container>
+
+                    <!-- File List (Only shown when NOT in file_selection_review state) -->
                     <vibe-file-list
-                        [files]="session.fileSelection"
+                        *ngIf="currentSession?.status !== 'file_selection_review'"
+                        [files]="currentSession?.fileSelection"
                         (fileDeleted)="handleFileDeleted($event)"
+                        [allowDeletion]="true"
                         class="sm:col-span-2">
                     </vibe-file-list>
 
-                   <!-- File Autocomplete Input -->
-                   <div class="sm:col-span-2 mt-6">
-                       <div class="font-semibold mb-2">Add File to Session:</div>
-                       <div class="flex items-center space-x-2">
-                           <mat-form-field class="flex-grow" appearance="outline">
+                    <!-- File Autocomplete Input (Only shown when NOT in file_selection_review or initializing states) -->
+                    <div *ngIf="currentSession?.status !== 'file_selection_review' && currentSession?.status !== 'initializing'" class="sm:col-span-2 mt-6">
+                        <div class="font-semibold mb-2">Add File to Session:</div>
+                        <div class="flex items-center space-x-2">
+                            <mat-form-field class="flex-grow" appearance="outline">
                                <input
                                    type="text"
                                    matInput

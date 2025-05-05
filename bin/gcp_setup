@@ -62,4 +62,12 @@ gcloud firestore indexes composite create \
 --field-config="field-path=requestTime,order=descending" \
 --field-config="field-path=__name__,order=descending"
 
+gcloud firestore indexes composite create \
+--project=$GCLOUD_PROJECT \
+--database="$FIRESTORE_DATABASE" \
+--collection-group="VibeSession" \
+--field-config="field-path=userId,order=ascending" \
+--field-config="field-path=updatedAt,order=descending" \
+--field-config="field-path=__name__,order=descending"
+
 echo "Done"

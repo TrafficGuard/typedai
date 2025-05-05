@@ -98,7 +98,7 @@
 
     <mat-card class="p-8">
         <div>
-            <mat-icon (click)="refreshAgentDetails()" class="mr-3" [matTooltip]="'Reload'">refresh</mat-icon>
+            <mat-icon (click)="refreshAgentDetails()" class="mr-3 cursor-pointer" [matTooltip]="'Reload'">refresh</mat-icon>
             <a href="{{ databaseUrl(agentDetails) }}" target="_blank" class="mr-3" [matTooltip]="'View database entry'">
                 <mat-icon svgIcon="feather:database" class="scale-75"></mat-icon>
             </a>
@@ -108,6 +108,15 @@
             <a href="{{ logsUrl(agentDetails) }}" target="_blank" class="mr-3" [matTooltip]="'View logs'">
                 <mat-icon>reorder</mat-icon>
             </a>
+            <button
+                mat-icon-button
+                color="warn"
+                (click)="forceStopAgent()"
+                [disabled]="isForcingStop"
+                [matTooltip]="'Force Stop Agent (Use with caution)'"
+                class="mr-3">
+                <mat-icon>stop_circle</mat-icon>
+            </button>
         </div>
 
         <div class="mb-8 flex flex-row space-x-20 items-center sm:mb-0 sm:items-start">

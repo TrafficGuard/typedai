@@ -9,10 +9,10 @@
             <button
                 mat-icon-button
                 class="ml-auto opacity-0 group-hover:opacity-100 transition-opacity duration-150"
-                [disabled]="file.readOnly"
-                matTooltip="Delete File"
+                [disabled]="file.readOnly || !allowDeletion"
+                [matTooltip]="allowDeletion ? 'Delete File' : 'Deletion disabled in current state'"
                 (click)="deleteFile(file)">
-                <mat-icon svgIcon="heroicons_outline:trash" class="text-red-500"></mat-icon>
+                <mat-icon svgIcon="heroicons_outline:trash" [class.text-red-500]="allowDeletion" [class.text-gray-400]="!allowDeletion"></mat-icon>
             </button>
         </mat-list-item>
     </mat-list>

@@ -1,14 +1,11 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
-import type { LlmFunctions } from '#agent/LlmFunctions';
-import { llms } from '#agent/agentContextLocalStorage';
 import { AgentFeedback } from '#agent/orchestrator/functions/agentFeedback';
 import { LiveFiles } from '#agent/orchestrator/functions/liveFiles';
 import { waitForConsoleInput } from '#agent/orchestrator/humanInTheLoop';
 import { provideFeedback, resumeCompleted, resumeError, resumeHil, startAgent } from '#agent/orchestrator/orchestratorAgentRunner';
 import { appContext, initApplicationContext } from '#app/applicationContext';
 import { FileSystemList } from '#functions/storage/fileSystemList';
-import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { Perplexity } from '#functions/web/perplexity';
 import { PublicWeb } from '#functions/web/web';
 import { defaultLLMs } from '#llm/services/defaultLlms';
@@ -16,7 +13,6 @@ import { logger } from '#o11y/logger';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { CodeFunctions } from '#swe/codeFunctions';
 import { parseProcessArgs, saveAgentId } from './cli';
-import { resolveFunctionClasses } from './functionResolver';
 
 export async function main() {
 	const llms = defaultLLMs();

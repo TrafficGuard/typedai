@@ -3,7 +3,6 @@ import type {
 	CreateVibeSessionData,
 	FileSystemNode,
 	UpdateCodeReviewData,
-	UpdateDesignInstructionsData,
 	UpdateVibeSessionData,
 	VibePreset,
 	VibeSession,
@@ -154,24 +153,22 @@ export interface VibeService {
 	acceptDesign(userId: string, sessionId: string, variations: number): Promise<void>;
 
 	/**
-	 * Updates the design based on user prompt.
-	 * Triggers agent, sets status to `updating_design`.
-	 * Consider if `updateDesignWithInstructions` can be reused/adapted in implementation.
+	 * Updates the design from manual user edits
 	 * @param userId The ID of the user owning the session.
 	 * @param sessionId The ID of the VibeSession.
-	 * @param prompt The user's prompt for refining the design.
-	 * @returns {Promise<void>} Resolves when the design update is queued.
+	 * @param updatedDesign The updated design provided by the user
+	 * @returns {Promise<void>} Resolves when updated design is saved to the repository.
 	 */
-	updateDesignWithPrompt(userId: string, sessionId: string, prompt: string): Promise<void>;
+	updateDesign(userId: string, sessionId: string, updatedDesign: string): Promise<void>;
 
 	/**
-	 * Updates the design ('designAnswer') based on user instructions.
+	 * Updates the design ('designAnswer') based on user instructions for an LLM agent to update.
 	 * Triggers an AI agent call. Updates session status if needed (e.g., back to 'design_review').
 	 * @param userId The ID of the user owning the session.
 	 * @param sessionId The ID of the VibeSession.
-	 * @param data Object containing the new instructions.
+	 * @param designUpdateInstructions Instructions on how to update the design.
 	 */
-	updateDesignWithInstructions(userId: string, sessionId: string, data: UpdateDesignInstructionsData): Promise<void>;
+	updateDesignFromInstructions(userId: string, sessionId: string, designUpdateInstructions: string): Promise<void>;
 
 	/**
 	 * Executes the approved design by triggering code generation.

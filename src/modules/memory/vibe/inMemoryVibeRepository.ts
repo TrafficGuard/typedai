@@ -172,7 +172,7 @@ export class InMemoryVibeRepository implements VibeService {
 		this.executeDesign(userId, sessionId);
 	}
 
-	async updateDesignWithPrompt(userId: string, sessionId: string, prompt: string): Promise<void> {
+	async updateDesign(userId: string, sessionId: string, prompt: string): Promise<void> {
 		logger.warn(`InMemoryVibeRepository.updateDesignWithPrompt not implemented for session ${sessionId}`);
 		await this.updateVibeSession(userId, sessionId, { status: 'updating_design' });
 		// Simulate agent work
@@ -186,7 +186,7 @@ export class InMemoryVibeRepository implements VibeService {
 		}, 3000);
 	}
 
-	async updateDesignWithInstructions(userId: string, sessionId: string, data: UpdateDesignInstructionsData): Promise<void> {
+	async updateDesignFromInstructions(userId: string, sessionId: string, data: UpdateDesignInstructionsData): Promise<void> {
 		logger.warn(`InMemoryVibeRepository.updateDesignWithInstructions not implemented for session ${sessionId}`);
 		await this.updateVibeSession(userId, sessionId, { status: 'updating_design' });
 		// Simulate agent work

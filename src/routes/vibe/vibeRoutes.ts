@@ -9,14 +9,13 @@ import type {
 	CommitChangesData,
 	CreateVibeSessionData,
 	FileSystemNode,
-	GenerateDesignData, // Now exported from src/vibe/vibeTypes
+	GenerateDesignData,
 	UpdateCodeReviewData,
-	UpdateDesignInstructionsData,
-	UpdateDesignPromptData, // Now exported from src/vibe/vibeTypes
-	UpdateSelectionPromptData, // Now exported from src/vibe/vibeTypes
+	UpdateDesignPromptData,
+	UpdateSelectionPromptData,
 	UpdateVibeSessionData,
 	VibePreset,
-	VibePresetConfig, // Now exported from src/vibe/vibeTypes
+	VibePresetConfig,
 	VibeSession,
 } from '#vibe/vibeTypes';
 
@@ -202,7 +201,7 @@ type UpdateVibeSessionBodyType = Static<typeof UpdateVibeSessionBodySchema>;
 
 // POST /:sessionId/update-design
 const UpdateDesignBodySchema = Type.Object({
-	instructions: Type.String(),
+	design: Type.String(),
 });
 type UpdateDesignBodyType = Static<typeof UpdateDesignBodySchema>;
 
@@ -244,7 +243,7 @@ const GenerateDesignBodySchema = Type.Object({
 });
 type GenerateDesignBodyType = Static<typeof GenerateDesignBodySchema>;
 
-// POST /:sessionId/update-design-prompt
+// POST /:sessionId/update-design-instructions
 const UpdateDesignPromptBodySchema = Type.Object({
 	prompt: Type.String({ description: 'User prompt to guide design refinement' }),
 });
@@ -645,7 +644,49 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 		},
 	);
 
-	// Update the design based on user prompt (replaces previous update-design)
+	/** Update a design from a manual edit by the user */
+	fastify.post<{ Params: ParamsType; Body: UpdateDesignBodyType; Reply: Static<typeof AcceptedResponseSchema> | Static<typeof ErrorResponseSchema> }>(
+		`${basePath}/:sessionId/update-design`,
+		{
+			schema: {
+				params: ParamsSchema,
+				body: UpdateDesignPromptBodySchema,
+				response: {
+					202: AcceptedResponseSchema,
+					400: ErrorResponseSchema, // Invalid input
+					401: ErrorResponseSchema, // Unauthorized
+					404: ErrorResponseSchema, // Session not found
+					409: ErrorResponseSchema, // Conflict (e.g., session in wrong state)
+					500: ErrorResponseSchema, // Internal server error
+				},
+			},
+		},
+		async (request, reply) => {
+			const userId = currentUser().id;
+			const { sessionId } = request.params;
+			const { design } = request.body;
+			if (!prompt) {
+				return reply.code(400).send({ error: 'Prompt is required' });
+			}
+			// Pass the prompt string directly
+			try {
+				// Assuming vibeService.updateDesignWithPrompt exists
+				await vibeService.updateDesign(userId, sessionId, design);
+				return reply.code(202).send({ message: 'Design update accepted and processing started.' });
+			} catch (error: any) {
+				fastify.log.error(error, `Error triggering design update via prompt for session ${sessionId}, user ${userId}`);
+				if (error.message?.includes('not found')) {
+					return sendNotFound(reply, `Vibe session with ID ${sessionId} not found`);
+				}
+				if (error.message?.includes('state')) {
+					return reply.code(409).send({ error: error.message || 'Cannot update design in current state' });
+				}
+				return reply.code(500).send({ error: error.message || 'Failed to trigger design update' });
+			}
+		},
+	);
+
+	// Update the design based on user instructions
 	fastify.post<{ Params: ParamsType; Body: UpdateDesignPromptBodyType; Reply: Static<typeof AcceptedResponseSchema> | Static<typeof ErrorResponseSchema> }>(
 		`${basePath}/:sessionId/update-design-prompt`,
 		{
@@ -669,10 +710,8 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 			if (!prompt) {
 				return reply.code(400).send({ error: 'Prompt is required' });
 			}
-			// Pass the prompt string directly
 			try {
-				// Assuming vibeService.updateDesignWithPrompt exists
-				await vibeService.updateDesignWithPrompt(userId, sessionId, prompt);
+				await vibeService.updateDesignFromInstructions(userId, sessionId, prompt);
 				return reply.code(202).send({ message: 'Design update accepted and processing started.' });
 			} catch (error: any) {
 				fastify.log.error(error, `Error triggering design update via prompt for session ${sessionId}, user ${userId}`);
