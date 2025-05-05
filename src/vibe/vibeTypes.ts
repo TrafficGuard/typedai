@@ -1,15 +1,3 @@
-import type { FieldValue } from '@google-cloud/firestore';
-import type { SelectedFile as OriginalSelectedFile } from '#swe/discovery/selectFilesAgent'; // Keep original import alias if needed
-
-// Represents a node in a file system tree (example structure)
-export interface FileSystemNode {
-	path: string;
-	name: string;
-	type: 'file' | 'directory';
-	children?: FileSystemNode[];
-	summary?: string; // Optional summary from indexing agent
-}
-
 // --- Modified SelectedFile interface ---
 // NOTE: This modifies the import/usage from '#swe/discovery/selectFilesAgent'
 // NOTE: This should align with the definition in '#swe/discovery/selectFilesAgent'
@@ -25,8 +13,8 @@ export interface SelectedFile {
 // Define the possible statuses as a type for better reusability and clarity
 export type VibeStatus =
 	| 'initializing' // Session created, preparing workspace
-	| 'file_selection_review' // Waiting for user approval on the selected files - NEW
-	| 'updating_selection' // AI is updating the file selection based on feedback - NEW
+	| 'updating_file_selection' // AI is updating the file selection based
+	| 'file_selection_review' // Waiting for user approval on the selected files
 	| 'generating_design' // AI is generating the implementation plan - NEW
 	| 'design_review' // Waiting for user approval on the AI-generated design/plan
 	| 'design_review_details' // User is viewing design details (e.g., diff) - NEW (Was design_review_feedback?)
@@ -145,16 +133,6 @@ export interface VibePreset {
 	config: Omit<CreateVibeSessionData, 'title' | 'instructions'>;
 	createdAt: number;
 	updatedAt: number;
-}
-
-// --- File System Node ---
-// Moved from top to avoid potential conflicts if imported elsewhere
-export interface FileSystemNode {
-	path: string;
-	name: string;
-	type: 'file' | 'directory';
-	children?: FileSystemNode[];
-	summary?: string; // Optional summary from indexing agent
 }
 
 // --- Added missing workflow data type definitions ---

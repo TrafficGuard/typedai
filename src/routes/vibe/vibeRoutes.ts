@@ -1,14 +1,14 @@
 import { type Static, Type } from '@sinclair/typebox';
 import type { FastifyInstance, FastifyRequest as FastifyRequestBase, RouteShorthandOptions } from 'fastify';
 import type { AppFastifyInstance } from '#app/applicationTypes';
-import { sendNotFound } from '#fastify/responses';
+import { sendJSON, sendNotFound } from '#fastify/responses';
+import { FileSystemNode } from '#functions/storage/fileSystemService';
 import { currentUser } from '#user/userService/userContext';
 import type { VibeService } from '#vibe/vibeService';
 import { VibeServiceImpl } from '#vibe/vibeServiceImpl';
 import type {
 	CommitChangesData,
 	CreateVibeSessionData,
-	FileSystemNode,
 	GenerateDesignData,
 	UpdateCodeReviewData,
 	UpdateDesignPromptData,
@@ -53,7 +53,7 @@ const VibeSessionResponseSchema = Type.Object({
 	status: Type.Union([
 		Type.Literal('initializing'),
 		Type.Literal('file_selection_review'),
-		Type.Literal('updating_selection'),
+		Type.Literal('updating_file_selection'),
 		Type.Literal('generating_design'),
 		Type.Literal('design_review'),
 		Type.Literal('design_review_feedback'),
@@ -158,7 +158,7 @@ const UpdateVibeSessionBodySchema = Type.Partial(
 			// Reflects all possible statuses from VibeSession
 			Type.Literal('initializing'),
 			Type.Literal('file_selection_review'),
-			Type.Literal('updating_selection'),
+			Type.Literal('updating_file_selection'),
 			Type.Literal('generating_design'),
 			Type.Literal('design_review'),
 			Type.Literal('design_review_feedback'),
@@ -260,6 +260,7 @@ const GetBranchesQuerySchema = Type.Object({
 		description: 'The source control management system type',
 	}),
 	id: Type.String({ description: 'The repository identifier (e.g., path for local, project ID/path for remote)' }),
+	sessionId: Type.String({ description: 'VibeSession id' }),
 });
 type GetBranchesQueryType = Static<typeof GetBranchesQuerySchema>;
 
@@ -844,9 +845,9 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 		},
 		async (request, reply) => {
 			const userId = currentUser().id; // Assuming userId might be needed for access control
-			const { source, id } = request.query;
+			const { source, id, sessionId } = request.query;
 			try {
-				const branches = await vibeService.getBranchList(userId, source, id);
+				const branches = await vibeService.getBranchList(userId, sessionId, source, id);
 				return reply.send(branches);
 			} catch (error: any) {
 				fastify.log.error(error, `Error getting branches for repo ${id} (source: ${source}), user ${userId}`);
@@ -878,7 +879,7 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 			const { path } = request.query; // path is optional
 			try {
 				const tree = await vibeService.getFileSystemTree(userId, sessionId, path);
-				return reply.send(tree);
+				return sendJSON(reply, tree);
 			} catch (error: any) {
 				fastify.log.error(error, `Error getting file system tree for session ${sessionId} (path: ${path}), user ${userId}`);
 				// Add specific status codes (e.g., 404, 409)

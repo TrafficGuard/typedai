@@ -1,12 +1,5 @@
-import type {
-	CommitChangesData,
-	CreateVibeSessionData,
-	FileSystemNode,
-	UpdateCodeReviewData,
-	UpdateVibeSessionData,
-	VibePreset,
-	VibeSession,
-} from './vibeTypes';
+import type { FileSystemNode } from '#functions/storage/fileSystemService';
+import type { CommitChangesData, CreateVibeSessionData, UpdateCodeReviewData, UpdateVibeSessionData, VibePreset, VibeSession } from './vibeTypes';
 
 /**
  * Interface for managing VibeSession data and orchestrating the Vibe Coding workflow.
@@ -219,11 +212,12 @@ export interface VibeService {
 	 * Retrieves the list of branches for a given repository.
 	 * Needed for the UI during session creation.
 	 * @param userId The ID of the user making the request.
+	 * @param sessionId
 	 * @param repositorySource The source type ('local', 'github', 'gitlab').
 	 * @param repositoryId The specific repository identifier.
 	 * @returns A promise resolving to an array of branch names.
 	 */
-	getBranchList(userId: string, repositorySource: 'local' | 'github' | 'gitlab', repositoryId: string): Promise<string[]>;
+	getBranchList(userId: string, sessionId: string, repositorySource: 'local' | 'github' | 'gitlab', repositoryId: string): Promise<string[]>;
 
 	/**
 	 * Retrieves the file system tree structure for the checked-out repository within a session's workspace.
@@ -231,9 +225,9 @@ export interface VibeService {
 	 * @param userId The ID of the user owning the session.
 	 * @param sessionId The ID of the VibeSession.
 	 * @param directoryPath The subdirectory to list (optional, defaults to root).
-	 * @returns A promise resolving to an array of FileSystemNode objects.
+	 * @returns A promise resolving to the FileSystemNode root object.
 	 */
-	getFileSystemTree(userId: string, sessionId: string, directoryPath?: string): Promise<FileSystemNode[]>;
+	getFileSystemTree(userId: string, sessionId: string, directoryPath?: string): Promise<FileSystemNode>;
 
 	/**
 	 * Retrieves the content of a specific file within the session's workspace.

@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
+import type { FileSystemNode } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
 import type { VibeService } from '#vibe/vibeService';
 import type {
 	CommitChangesData,
 	CreateVibeSessionData,
-	FileSystemNode,
 	UpdateCodeReviewData,
 	UpdateDesignInstructionsData,
 	UpdateVibeSessionData,
@@ -134,7 +134,7 @@ export class InMemoryVibeRepository implements VibeService {
 	// --- Workflow Actions (Stubs) ---
 	async updateSelectionWithPrompt(userId: string, sessionId: string, prompt: string): Promise<void> {
 		logger.warn(`InMemoryVibeRepository.updateSelectionWithPrompt not implemented for session ${sessionId}`);
-		await this.updateVibeSession(userId, sessionId, { status: 'updating_selection' });
+		await this.updateVibeSession(userId, sessionId, { status: 'updating_file_selection' });
 		// Simulate agent work
 		setTimeout(async () => {
 			try {

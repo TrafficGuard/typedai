@@ -175,7 +175,7 @@ export class VibeDesignReviewComponent implements OnInit, OnChanges {
         next: () => {
           // Navigate to the next step, e.g., coding view
           // Adjust the route as necessary based on your application structure
-          this.router.navigate(['/vibe', 'coding', sessionId]);
+          this.router.navigate(['/ui/vibe', 'coding', sessionId]);
           this.snackBar.open('Design accepted. Starting implementation...', 'Close', { duration: 3000 });
         },
         error: (err) => {

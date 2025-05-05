@@ -8,7 +8,7 @@ export interface VibeSession {
 	status:
 		| 'initializing'
 		| 'file_selection_review'
-		| 'updating_selection'
+		| 'updating_file_selection'
 		| 'generating_design'
 		| 'design_review'
 		| 'updating_design'

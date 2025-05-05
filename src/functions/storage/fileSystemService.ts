@@ -1,6 +1,5 @@
 import { access, existsSync, lstat, mkdir, readFile, readdir, stat, writeFile } from 'node:fs';
-import { resolve } from 'node:path';
-import path, { join, relative } from 'node:path';
+import path, { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import ignore, { type Ignore } from 'ignore';
 import type Pino from 'pino';
@@ -27,6 +26,14 @@ const fs = {
 
 // import fg from 'fast-glob';
 // const globAsync = promisify(glob);
+
+export interface FileSystemNode {
+	path: string;
+	name: string;
+	type: 'file' | 'directory';
+	children?: FileSystemNode[];
+	summary?: string; // Optional summary from indexing agent
+}
 
 type FileFilter = (filename: string) => boolean;
 
@@ -670,6 +677,153 @@ export class FileSystemService {
 		});
 
 		return tree;
+	}
+
+	/**
+	 * Generates a hierarchical representation of the file system structure starting from a given path,
+	 * respecting .gitignore rules if enabled.
+	 *
+	 * @param dirPath The starting directory path, relative to the working directory or absolute. Defaults to the working directory.
+	 * @param useGitIgnore Whether to respect .gitignore rules. Defaults to true.
+	 * @returns A Promise resolving to the root FileSystemNode representing the requested directory structure, or null if the path is not a directory.
+	 */
+	async getFileSystemNodes(dirPath = './', useGitIgnore = true): Promise<FileSystemNode | null> {
+		const serviceWorkingDir = this.getWorkingDirectory();
+		this.log.debug(`getFileSystemNodes cwd: ${serviceWorkingDir}, requested path: ${dirPath}, useGitIgnore: ${useGitIgnore}`);
+
+		const startPathAbs = path.isAbsolute(dirPath) ? dirPath : path.resolve(serviceWorkingDir, dirPath);
+
+		// Security check: Ensure the resolved path is within the basePath
+		if (!startPathAbs.startsWith(this.basePath)) {
+			this.log.warn(`Attempted to access path outside basePath: ${startPathAbs} (input: ${dirPath})`);
+			return null; // Or throw an error, depending on desired strictness
+		}
+
+		let startStat: any;
+		try {
+			startStat = await fs.lstat(startPathAbs);
+		} catch (e) {
+			this.log.warn(`Path not found or inaccessible: ${startPathAbs} (input: ${dirPath})`);
+			return null; // Path doesn't exist
+		}
+
+		if (!startStat.isDirectory()) {
+			this.log.warn(`Path is not a directory: ${startPathAbs} (input: ${dirPath})`);
+			return null; // Path is a file, not a directory
+		}
+
+		const gitRoot = useGitIgnore ? this.getVcsRoot() : null;
+		// Load ignore rules applicable *at* the starting directory level initially
+		const rootIg: Ignore = useGitIgnore ? await this.loadGitignoreRules(startPathAbs, gitRoot) : ignore();
+
+		const rootNode: FileSystemNode = {
+			// Ensure path is relative to the service's working directory
+			path: path.relative(serviceWorkingDir, startPathAbs) || '.', // Use '.' if startPathAbs is the working dir
+			name: path.basename(startPathAbs),
+			type: 'directory',
+			children: [],
+		};
+
+		// Start the recursive build from the resolved absolute path
+		rootNode.children = await this.buildNodeTreeRecursive(startPathAbs, serviceWorkingDir, rootIg, useGitIgnore, gitRoot);
+
+		return rootNode;
+	}
+
+	/**
+	 * Recursive helper function to build the FileSystemNode tree.
+	 * @param currentPathAbs Absolute path of the directory currently being processed.
+	 * @param serviceWorkingDir Absolute path of the service's working directory (for relative path calculation).
+	 * @param parentIg Ignore rules inherited from the parent directory.
+	 * @param useGitIgnore Whether to respect .gitignore rules.
+	 * @param gitRoot Absolute path to the git repository root, if applicable.
+	 * @returns A Promise resolving to an array of FileSystemNode children for the current directory.
+	 */
+	private async buildNodeTreeRecursive(
+		currentPathAbs: string,
+		serviceWorkingDir: string,
+		parentIg: Ignore,
+		useGitIgnore: boolean,
+		gitRoot: string | null,
+	): Promise<FileSystemNode[]> {
+		const children: FileSystemNode[] = [];
+		let currentLevelIg = parentIg; // Start with rules from parent
+
+		// Load .gitignore rules specific to this directory, if applicable, and combine them
+		if (useGitIgnore) {
+			try {
+				// Check if a .gitignore exists *in this specific directory*
+				const gitIgnorePath = path.join(currentPathAbs, '.gitignore');
+				await fs.access(gitIgnorePath); // Check existence first
+
+				// If it exists, load its rules. loadGitignoreRules handles caching.
+				// We only need the rules *from this level*, not cumulative from root again.
+				const specificIg = ignore();
+				const lines = (await fs.readFile(gitIgnorePath, 'utf8'))
+					.split('\n')
+					.map((line) => line.trim())
+					.filter((line) => line.length && !line.startsWith('#'));
+				specificIg.add(lines);
+
+				// Combine parent rules with specific rules for this directory
+				// ignore.js handles precedence: later rules override earlier ones if conflicting.
+				currentLevelIg = ignore().add(parentIg).add(specificIg);
+			} catch {
+				// No .gitignore in this specific directory, or not accessible.
+				// Keep using the rules inherited from the parent (currentLevelIg = parentIg).
+			}
+		}
+
+		try {
+			const dirents = await fs.readdir(currentPathAbs, { withFileTypes: true });
+
+			for (const dirent of dirents) {
+				const direntName = dirent.name;
+				// Always ignore .git directory
+				if (useGitIgnore && direntName === '.git') {
+					continue;
+				}
+
+				const direntPathAbs = path.join(currentPathAbs, direntName);
+				// Calculate path relative to the *service's working directory* for ignore checks and node path
+				const direntPathRel = path.relative(serviceWorkingDir, direntPathAbs);
+
+				// Check if the item should be ignored using the combined rules for this level
+				// Need to check both the path and the path ending with '/' for directories
+				if (useGitIgnore && (currentLevelIg.ignores(direntPathRel) || (dirent.isDirectory() && currentLevelIg.ignores(`${direntPathRel}/`)))) {
+					// this.log.trace(`Ignoring ${direntPathRel}`);
+					continue; // Skip ignored item
+				}
+
+				const node: FileSystemNode = {
+					path: direntPathRel, // Path relative to service working dir
+					name: direntName,
+					type: dirent.isDirectory() ? 'directory' : 'file',
+				};
+
+				if (dirent.isDirectory()) {
+					// Recursively get children for subdirectories, passing down the combined ignore rules for this level
+					node.children = await this.buildNodeTreeRecursive(direntPathAbs, serviceWorkingDir, currentLevelIg, useGitIgnore, gitRoot);
+				}
+
+				children.push(node);
+			}
+		} catch (error) {
+			// Log error but potentially continue if possible, or rethrow depending on desired behavior
+			this.log.error(`Error reading directory ${currentPathAbs}: ${error.message}`);
+			// Depending on strictness, you might want to throw here or return partial results
+			// For now, just log and return the children found so far
+		}
+
+		// Sort children: directories first, then files, alphabetically within each group
+		children.sort((a, b) => {
+			if (a.type === b.type) {
+				return a.name.localeCompare(b.name); // Alphabetical sort within type
+			}
+			return a.type === 'directory' ? -1 : 1; // Directories first
+		});
+
+		return children;
 	}
 
 	getVcs(): VersionControlSystem {

@@ -7,7 +7,6 @@ import type {
 	CommitChangesData,
 	CreateVibeSessionData,
 	DesignAnswer,
-	FileSystemNode,
 	SelectedFile,
 	UpdateCodeReviewData,
 	UpdateVibeSessionData,
@@ -15,8 +14,14 @@ import type {
 	VibeSession,
 } from '#vibe/vibeTypes';
 
+import { getFileSystem } from '#agent/agentContextLocalStorage';
+import { GitHub } from '#functions/scm/github';
+import { GitLab } from '#functions/scm/gitlab';
+import { type FileSystemNode, FileSystemService } from '#functions/storage/fileSystemService';
+import { execCommand, failOnError } from '#utils/exec';
 import type { VibeDesignGeneration } from '#vibe/vibeDesignGeneration';
 import { VibeFileSelection } from '#vibe/vibeFileSelection';
+import { getVibeRepositoryPath } from '#vibe/vibeRepositoryPath';
 
 /**
  * Main implementation of the VibeService.
@@ -150,25 +155,39 @@ export class VibeServiceImpl implements VibeService {
 
 	// --- Helper / Supporting Methods ---
 
-	async getBranchList(userId: string, repositorySource: 'local' | 'github' | 'gitlab', repositoryId: string): Promise<string[]> {
+	async getBranchList(userId: string, sessionId: string, repositorySource: 'local' | 'github' | 'gitlab', repositoryId: string): Promise<string[]> {
 		logger.debug({ userId, repositorySource, repositoryId }, '[VibeServiceImpl] getBranchList called');
-		// TODO: Implement SCM interaction
-		logger.warn('[VibeServiceImpl] getBranchList - SCM interaction not implemented.');
-		return ['main', 'develop', 'feat/placeholder-impl'];
+		const vibe = await this.vibeRepo.getVibeSession(userId, sessionId);
+		if (vibe.repositorySource === 'local') {
+			const path = getVibeRepositoryPath(vibe);
+			const result = await execCommand('git branch', { workingDirectory: path });
+			failOnError('Error listing branches', result);
+			return result.stdout
+				.trim()
+				.split('\n')
+				.map((s) => s.trim());
+		}
+		if (vibe.repositorySource === 'github') {
+			return await new GitHub().getBranches(vibe.repositoryId);
+		}
+		if (vibe.repositorySource === 'gitlab') {
+			return await new GitLab().getBranches(vibe.repositoryId);
+		}
+		throw new Error(`Unsupported SCM ${vibe.repositorySource}`);
 	}
 
-	async getFileSystemTree(userId: string, sessionId: string, directoryPath?: string): Promise<FileSystemNode[]> {
+	async getFileSystemTree(userId: string, sessionId: string, directoryPath?: string): Promise<FileSystemNode> {
 		logger.debug({ userId, sessionId, directoryPath }, '[VibeServiceImpl] getFileSystemTree called');
-		// TODO: Implement interaction with FileSystemService for the session's workspace
-		logger.warn('[VibeServiceImpl] getFileSystemTree - Filesystem interaction not implemented.');
-		return [{ path: 'placeholder.txt', name: 'placeholder.txt', type: 'file' }];
+		const vibe = await this.vibeRepo.getVibeSession(userId, sessionId);
+		const path = getVibeRepositoryPath(vibe);
+		return await new FileSystemService(path).getFileSystemNodes();
 	}
 
 	async getFileContent(userId: string, sessionId: string, filePath: string): Promise<string> {
 		logger.debug({ userId, sessionId, filePath }, '[VibeServiceImpl] getFileContent called');
-		// TODO: Implement interaction with FileSystemService for the session's workspace
-		logger.warn('[VibeServiceImpl] getFileContent - Filesystem interaction not implemented.');
-		return `// Placeholder content for ${filePath}`;
+		const vibe = await this.vibeRepo.getVibeSession(userId, sessionId);
+		const path = getVibeRepositoryPath(vibe);
+		return await new FileSystemService(path).readFile(filePath);
 	}
 
 	// applyCiCdFix is optional in the interface, so no placeholder needed unless implemented

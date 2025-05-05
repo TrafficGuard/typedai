@@ -19,9 +19,9 @@ export class VibeFileSelection {
 			throw new Error(`Invalid session status: Cannot update selection in current state '${session.status}'. Expected 'file_selection_review'.`);
 		}
 
-		// 2. Update status to 'updating_selection' in repo
+		// 2. Update status to 'updating_file_selection' in repo
 		logger.info({ sessionId }, '[VibeServiceImpl] Updating session status to updating_selection...');
-		await this.vibeRepo.updateVibeSession(userId, sessionId, { status: 'updating_selection', lastAgentActivity: Date.now() });
+		await this.vibeRepo.updateVibeSession(userId, sessionId, { status: 'updating_file_selection', lastAgentActivity: Date.now() });
 
 		// 3. Trigger agent asynchronously using runVibeWorkflowAgent
 		logger.info({ sessionId }, '[VibeServiceImpl] Triggering background agent for file selection update via runVibeWorkflowAgent.');

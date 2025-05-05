@@ -20,9 +20,10 @@ export interface SourceControlManagement extends GetToolType {
 	/**
 	 * @param projectPathWithNamespace
 	 * @param branchOrCommit
+	 * @param targetDirectory dir to clone to
 	 * @returns the directory path where the project was successfully cloned.
 	 */
-	cloneProject(projectPathWithNamespace: string, branchOrCommit?: string): Promise<string>;
+	cloneProject(projectPathWithNamespace: string, branchOrCommit?: string, targetDirectory?: string): Promise<string>;
 
 	createMergeRequest(projectId: string | number, title: string, description: string, sourceBranch: string, targetBranch: string): Promise<MergeRequest>;
 

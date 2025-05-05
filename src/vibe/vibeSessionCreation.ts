@@ -4,13 +4,16 @@ import { join } from 'node:path';
 import type { AgentContext } from '#agent/agentContextTypes';
 import { systemDir } from '#app/appVars';
 import { appContext } from '#app/applicationContext';
-import { getSourceControlManagementTool } from '#functions/scm/sourceControlManagement';
+import { GitHub } from '#functions/scm/github';
+import { GitLab } from '#functions/scm/gitlab';
+import { type SourceControlManagement, getSourceControlManagementTool } from '#functions/scm/sourceControlManagement';
 import type { VersionControlSystem } from '#functions/scm/versionControlSystem';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
 import { selectFilesAgent } from '#swe/discovery/selectFilesAgent';
 import { runVibeWorkflowAgent } from '#vibe/vibeAgentRunner';
 import type { VibeRepository } from '#vibe/vibeRepository';
+import { getVibeRepositoryPath } from '#vibe/vibeRepositoryPath';
 import type { CreateVibeSessionData, VibeSession } from '#vibe/vibeTypes';
 
 export class VibeSessionCreation {
@@ -80,56 +83,40 @@ export class VibeSessionCreation {
 			const user = await appContext().userService.getUser(userId);
 			if (!user) throw new Error(`User ${userId} not found for Vibe session ${sessionId}`);
 
-			// Calculate Workspace Path based on session settings
-			if (!session.useSharedRepos) {
-				// Use session-specific workspace
-				workspacePath = join(systemDir(), 'vibe', session.id);
-				logger.info({ sessionId, useSharedRepos: false, workspacePath }, 'Calculated session-specific workspace path.');
-			} else {
-				// Use shared repository workspace
-				logger.info(
-					{ sessionId, useSharedRepos: true, repositorySource: session.repositorySource, repositoryId: session.repositoryId },
-					'Calculating shared repository workspace path...',
-				);
-				if (session.repositorySource !== 'github' && session.repositorySource !== 'gitlab') {
-					throw new Error(`Invalid repositorySource "${session.repositorySource}" for shared repository. Must be 'github' or 'gitlab'.`);
-				}
-				const repoIdParts = session.repositoryId.split('/');
-				if (repoIdParts.length !== 2 || !repoIdParts[0] || !repoIdParts[1]) {
-					throw new Error(`Invalid repositoryId format "${session.repositoryId}" for shared repository. Expected "namespace/repoName".`);
-				}
-				const [namespace, repoName] = repoIdParts;
-				workspacePath = join(systemDir(), session.repositorySource, namespace, repoName);
-				logger.info({ sessionId, namespace, repoName, workspacePath }, 'Calculated shared workspace path.');
-			}
-
-			// 2. Ensure Workspace Directory Exists (Target for clone)
-			logger.info({ sessionId, workspacePath }, 'Ensuring target workspace directory exists...');
+			// Ensure the path
+			workspacePath = getVibeRepositoryPath(session);
+			fss = new FileSystemService(workspacePath);
 			await fs.mkdir(workspacePath, { recursive: true });
-			logger.info({ sessionId, workspacePath }, 'Target workspace directory ensured.');
 
-			// 3. SCM Setup
+			// 3. Repository Setup
 			logger.info({ sessionId }, '[VibeServiceImpl] Starting SCM setup...');
-			const scm = await getSourceControlManagementTool();
-			if (!scm.isConfigured()) throw new Error(`SCM provider (${scm.getScmType()}) is not configured. Cannot clone repository.`);
+
+			let scm: SourceControlManagement;
+			if (session.repositorySource === 'gitlab') scm = new GitLab();
+			if (session.repositorySource === 'github') scm = new GitHub();
 
 			// Clone the project - assumes repositoryId is 'owner/repo' or similar
-			// cloneProject should ideally use the agentContext's fileSystem basePath
-			const clonedRepoPath = await scm.cloneProject(session.repositoryId, session.targetBranch);
-			// Verify the path returned by cloneProject. Ideally, it matches workspacePath.
-			if (clonedRepoPath !== workspacePath) {
-				logger.warn(
-					{ sessionId, clonedRepoPath, expectedPath: workspacePath },
-					'Cloned repository path differs from calculated workspace path. Using actual cloned path.',
-				);
-				// If cloneProject creates a subdirectory (e.g., workspacePath/repoName), clonedRepoPath will be different.
-				// We MUST use clonedRepoPath for the FileSystemService.
+			if (scm) {
+				const clonedRepoPath = await scm.cloneProject(session.repositoryId, session.targetBranch, workspacePath);
+				// Verify the path returned by cloneProject. Ideally, it matches workspacePath.
+				if (clonedRepoPath !== workspacePath) {
+					logger.warn(
+						{ sessionId, clonedRepoPath, expectedPath: workspacePath },
+						'Cloned repository path differs from calculated workspace path. Using actual cloned path.',
+					);
+					// If cloneProject creates a subdirectory (e.g., workspacePath/repoName), clonedRepoPath will be different.
+					// We MUST use clonedRepoPath for the FileSystemService.
+				} else {
+					logger.info({ sessionId, clonedRepoPath }, 'Repository cloned/updated into calculated workspace path.');
+				}
 			} else {
-				logger.info({ sessionId, clonedRepoPath }, 'Repository cloned/updated into calculated workspace path.');
+				// Ensure we are on targetBranch first
+				await fss.vcs.switchToBranch(session.targetBranch);
+				await fss.vcs.pull();
 			}
 
 			// Initialize FileSystemService rooted in the *actual* cloned path
-			fss = new FileSystemService(clonedRepoPath);
+
 			logger.info({ sessionId, repoPath: fss.getWorkingDirectory() }, 'FileSystemService initialized for repository path.');
 
 			// Prepare agent context fragment *after* fss is initialized
@@ -138,25 +125,21 @@ export class VibeSessionCreation {
 				user: user,
 			};
 
-			const vcs: VersionControlSystem = fss.vcs;
-			// Checkout branches
-			// Ensure we are on targetBranch first (clone might leave us there, but be explicit)
-			await vcs.switchToBranch(session.targetBranch);
-
+			// Branch setup
 			if (session.createWorkingBranch) {
 				logger.info({ sessionId, branch: session.workingBranch }, 'Creating working branch...');
-				await vcs.createBranch(session.workingBranch); // Assumes branching from current HEAD (targetBranch)
+				await fss.vcs.createBranch(session.workingBranch);
 			}
 			logger.info({ sessionId, branch: session.workingBranch }, 'Switching to working branch...');
-			await vcs.switchToBranch(session.workingBranch);
+			await fss.vcs.switchToBranch(session.workingBranch);
 
 			logger.info({ sessionId }, '[VibeServiceImpl] SCM setup complete.');
 
 			// 4. Run File Selection Agent (reuse the same agent context fragment)
 			logger.info({ sessionId }, '[VibeServiceImpl] Starting file selection agent...');
 
-			// Working directory is already set to the repo path within fss
-			logger.info({ sessionId, workspacePath: fss.getWorkingDirectory() }, 'Agent context running for file selection.');
+			await this.vibeRepo.updateVibeSession(userId, sessionId, { status: 'updating_file_selection' });
+			session.status = 'updating_file_selection';
 
 			await runVibeWorkflowAgent(session, 'selectFiles', this.vibeRepo, async () => {
 				// selectFilesAgent expects UserContentExt, pass instructions directly

@@ -1,16 +1,11 @@
-import { promises as fs, existsSync } from 'node:fs';
-import { join } from 'node:path';
 import { request } from '@octokit/request';
-import type { Endpoints } from '@octokit/types';
-import { agentContext } from '#agent/agentContextLocalStorage';
-import { agentStorageDir, systemDir } from '#app/appVars';
 import { func, funcClass } from '#functionSchema/functionDecorators';
+import { AbstractSCM } from '#functions/scm/abstractSCM';
 import type { MergeRequest, SourceControlManagement } from '#functions/scm/sourceControlManagement';
-import type { ToolType } from '#functions/toolType';
 import { logger } from '#o11y/logger';
 import { functionConfig } from '#user/userService/userContext';
 import { envVar } from '#utils/env-var';
-import { execCommand, failOnError, spawnCommand } from '#utils/exec';
+import { execCommand, failOnError } from '#utils/exec';
 import type { GitProject } from './gitProject';
 import { extractOwnerProject } from './scmUtils';
 
@@ -26,7 +21,7 @@ export interface GitHubConfig {
  *
  */
 @funcClass(__filename)
-export class GitHub implements SourceControlManagement {
+export class GitHub extends AbstractSCM implements SourceControlManagement {
 	/** Do not access. Use request() */
 	private _request;
 	/** Do not access. Use config() */
@@ -82,56 +77,14 @@ export class GitHub implements SourceControlManagement {
 	}
 
 	/**
-	 * Clones a GitHub project to the local filesystem at a system controlled location.
-	 * To use this project the function FileSystem.setWorkingDirectory must be called after with the returned value.
-	 * @param projectPathWithOrg The repo to clone, in the format organisation/project
-	 * @returns the file system path where the repository is located
+	 * Clones a project from GitHub to the file system.
+	 * To use this project the function FileSystem.setWorkingDirectory must be called after with the returned value
+	 * @param projectPathWithNamespace the full project path in GitLab
+	 * @returns the file system path where the repository is located. You will need to call FileSystem_setWorkingDirectory() with this result to work with the project.
 	 */
 	@func()
-	async cloneProject(projectPathWithOrg: string, branchOrCommit: string): Promise<string> {
-		const paths = projectPathWithOrg.split('/');
-		if (paths.length !== 2) throw new Error(`${projectPathWithOrg} must be in the format organisation/project`);
-		const org = paths[0];
-		const project = paths[1];
-
-		const agent = agentContext();
-		const basePath = agent.useSharedRepos ? join(systemDir(), 'github') : join(agentStorageDir(), 'github');
-		const targetPath = join(basePath, org, project);
-		await fs.mkdir(join(targetPath, org), { recursive: true }); // Ensure the target dir exists
-
-		// TODO it cloned a project to the main branch when the default is master?
-		// If the project already exists pull updates
-		if (existsSync(targetPath) && existsSync(join(targetPath, '.git'))) {
-			logger.info(`${org}/${project} exists at ${targetPath}. Pulling updates`);
-			// If we're resuming an agent which has already created the branch but not pushed
-			// then it won't exist remotely, so this will return a non-zero code
-			if (branchOrCommit) {
-				// Fetch all branches and commits
-				await execCommand(`git -C ${targetPath} fetch --all`, { workingDirectory: targetPath });
-
-				// Checkout to the branch or commit
-				const result = await execCommand(`git -C ${targetPath} checkout ${branchOrCommit}`, { workingDirectory: targetPath });
-				failOnError(`Failed to checkout ${branchOrCommit} in ${targetPath}`, result);
-
-				// if (this.checkIfBranch(branchOrCommit)) {
-				// 	const pullResult = await execCommand(`git pull`);
-				// 	failOnError(`Failed to pull ${targetPath} after checking out ${branchOrCommit}`, pullResult);
-				// }
-			}
-		} else {
-			logger.info(`Cloning project: ${org}/${project} to ${targetPath}`);
-			const command = `git clone 'https://oauth2:${this.config().token}@github.com/${projectPathWithOrg}.git' ${targetPath}`;
-			const result = await spawnCommand(command);
-			// if(result.error) throw result.error
-			failOnError(`Failed to clone ${projectPathWithOrg}`, result);
-
-			const checkoutResult = await execCommand(`git -C ${targetPath} checkout ${branchOrCommit}`, { workingDirectory: targetPath });
-			failOnError(`Failed to checkout ${branchOrCommit} in ${targetPath}`, checkoutResult);
-		}
-
-		if (agent) agentContext().memory[`GitHub_project_${org}_${project}_FileSystem_directory`] = targetPath;
-
-		return targetPath;
+	async cloneProject(projectPathWithNamespace: string, branchOrCommit?: string, targetDirectory?: string): Promise<string> {
+		return await this.cloneGitProject(projectPathWithNamespace, this.config().token, 'github.com', branchOrCommit, targetDirectory);
 	}
 
 	async checkIfBranch(ref: string): Promise<boolean> {
@@ -363,10 +316,6 @@ export class GitHub implements SourceControlManagement {
 			logger.error(`Failed to get job logs for job ${jobId} in project ${projectPath}`, error);
 			throw new Error(`Failed to get job logs: ${error.message}`);
 		}
-	}
-
-	getToolType(): ToolType {
-		return 'scm';
 	}
 }
 
