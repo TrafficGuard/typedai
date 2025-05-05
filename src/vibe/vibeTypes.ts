@@ -175,6 +175,11 @@ export interface UpdateDesignPromptData {
 	prompt: string;
 }
 
+/** Data for updating the design based on detailed instructions */
+export interface UpdateDesignInstructionsData {
+	instructions: string;
+}
+
 /** Configuration part of a Vibe Preset (derived from CreateVibeSessionData) */
 export type VibePresetConfig = Omit<CreateVibeSessionData, 'title' | 'instructions'>;
 

@@ -128,6 +128,8 @@ export class CodeEditingAgent {
 
 		await installPromise; // Complete parallel project setup
 
+		console.log(implementationPlan);
+
 		// Edit/compile loop ----------------------------------------
 		let compileErrorAnalysis: CompileErrorAnalysis | null = await this.editCompileLoop(projectInfo, fileSelection, implementationPlan);
 		this.failOnCompileError(compileErrorAnalysis);

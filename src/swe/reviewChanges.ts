@@ -37,7 +37,7 @@ export async function reviewChanges(requirements: string, sourceBranchOrCommit: 
 			'- Is the code following the existing conventions of configuration, variable/function use and descriptive naming?' +
 			'- Does new code have comments? The exception is to skip comments when the only valid comment is trivial/tautological' +
 			'- Review the style of the code changes in the diff carefully against the original code.  Do the changes follow all the style conventions of the original code? Explain why.\n' +
-			'- Are there any changes unrelated to the requirements which should be reverted? \n' +
+			// '- Are there any changes unrelated to the requirements which should be reverted? \n' +
 			'' +
 			'After provding your reviews points then finally respond with a JSON array in the following format with the surrounding json tags:' +
 			'<json>' +
