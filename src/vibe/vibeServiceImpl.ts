@@ -1,17 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
-import { LlmFunctions } from '#agent/LlmFunctions';
 import { agentContextStorage } from '#agent/agentContextLocalStorage';
 import type { AgentContext } from '#agent/agentContextTypes';
-import { runWorkflowAgent, startWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
+import { startWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
+import { systemDir } from '#app/appVars';
 import { appContext } from '#app/applicationContext';
-import type { SourceControlManagement } from '#functions/scm/sourceControlManagement';
 import { getSourceControlManagementTool } from '#functions/scm/sourceControlManagement';
 import type { VersionControlSystem } from '#functions/scm/versionControlSystem';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
-import { selectFilesAgent } from '#swe/discovery/selectFilesAgent';
+import { type SelectedFile as OriginalSelectedFile, selectFilesAgent } from '#swe/discovery/selectFilesAgent'; // Assuming OriginalSelectedFile type export
 import type { VibeRepository } from '#vibe/vibeRepository';
 import type { VibeService } from '#vibe/vibeService';
 import type {
@@ -84,14 +83,11 @@ export class VibeServiceImpl implements VibeService {
 	 * This method is designed to run asynchronously and handles its own errors.
 	 */
 	private async triggerBackgroundInitialization(userId: string, sessionId: string): Promise<void> {
-		// Determine workspace path relative to a base Vibe workspace directory
-		// TODO: Make the base path configurable ('./vibe-workspaces' is just an example)
-		const baseWorkspaceDir = join(process.cwd(), 'vibe-workspaces'); // Or use systemDir() etc.
-		const workspacePath = join(baseWorkspaceDir, userId, sessionId);
+		let workspacePath: string; // Declare workspacePath here
 		let fss: FileSystemService | null = null; // Define fss here to be accessible in finally block if needed
 
 		try {
-			logger.info({ userId, sessionId, workspacePath }, '[VibeServiceImpl] Starting background initialization...');
+			logger.info({ userId, sessionId }, '[VibeServiceImpl] Starting background initialization...');
 
 			// 1. Get Session Data
 			const session = await this.vibeRepo.getVibeSession(userId, sessionId);
@@ -104,28 +100,63 @@ export class VibeServiceImpl implements VibeService {
 			const user = await appContext().userService.getUser(userId);
 			if (!user) throw new Error(`User ${userId} not found for Vibe session ${sessionId}`);
 
-			// 2. Ensure Workspace Directory Exists
+			// Calculate Workspace Path based on session settings
+			if (!session.useSharedRepos) {
+				// Use session-specific workspace
+				workspacePath = join(systemDir(), 'vibe', session.id);
+				logger.info({ sessionId, useSharedRepos: false, workspacePath }, 'Calculated session-specific workspace path.');
+			} else {
+				// Use shared repository workspace
+				logger.info(
+					{ sessionId, useSharedRepos: true, repositorySource: session.repositorySource, repositoryId: session.repositoryId },
+					'Calculating shared repository workspace path...',
+				);
+				if (session.repositorySource !== 'github' && session.repositorySource !== 'gitlab') {
+					throw new Error(`Invalid repositorySource "${session.repositorySource}" for shared repository. Must be 'github' or 'gitlab'.`);
+				}
+				const repoIdParts = session.repositoryId.split('/');
+				if (repoIdParts.length !== 2 || !repoIdParts[0] || !repoIdParts[1]) {
+					throw new Error(`Invalid repositoryId format "${session.repositoryId}" for shared repository. Expected "namespace/repoName".`);
+				}
+				const [namespace, repoName] = repoIdParts;
+				workspacePath = join(systemDir(), session.repositorySource, namespace, repoName);
+				logger.info({ sessionId, namespace, repoName, workspacePath }, 'Calculated shared workspace path.');
+			}
+
+			// 2. Ensure Workspace Directory Exists (Target for clone)
+			logger.info({ sessionId, workspacePath }, 'Ensuring target workspace directory exists...');
 			await fs.mkdir(workspacePath, { recursive: true });
-			fss = new FileSystemService(workspacePath); // Filesystem rooted in the specific session workspace
+			logger.info({ sessionId, workspacePath }, 'Target workspace directory ensured.');
 
-			// 3. SCM Setup (within an agent context scope for filesystem access)
+			// 3. SCM Setup
 			logger.info({ sessionId }, '[VibeServiceImpl] Starting SCM setup...');
-			const agentContextFragment: Pick<AgentContext, 'fileSystem' | 'user'> = {
-				fileSystem: fss,
-				user: user,
-			};
-
 			const scm = await getSourceControlManagementTool();
 			if (!scm.isConfigured()) throw new Error(`SCM provider (${scm.getScmType()}) is not configured. Cannot clone repository.`);
 
 			// Clone the project - assumes repositoryId is 'owner/repo' or similar
 			// cloneProject should ideally use the agentContext's fileSystem basePath
 			const clonedRepoPath = await scm.cloneProject(session.repositoryId, session.targetBranch);
-			logger.info({ sessionId, clonedRepoPath }, 'Repository cloned/updated.');
+			// Verify the path returned by cloneProject. Ideally, it matches workspacePath.
+			if (clonedRepoPath !== workspacePath) {
+				logger.warn(
+					{ sessionId, clonedRepoPath, expectedPath: workspacePath },
+					'Cloned repository path differs from calculated workspace path. Using actual cloned path.',
+				);
+				// If cloneProject creates a subdirectory (e.g., workspacePath/repoName), clonedRepoPath will be different.
+				// We MUST use clonedRepoPath for the FileSystemService.
+			} else {
+				logger.info({ sessionId, clonedRepoPath }, 'Repository cloned/updated into calculated workspace path.');
+			}
 
-			// Set the filesystem's working directory to the actual cloned path
-			fss.setWorkingDirectory(clonedRepoPath);
-			logger.info({ sessionId, newWd: fss.getWorkingDirectory() }, 'Filesystem working directory set.');
+			// Initialize FileSystemService rooted in the *actual* cloned path
+			fss = new FileSystemService(clonedRepoPath);
+			logger.info({ sessionId, repoPath: fss.getWorkingDirectory() }, 'FileSystemService initialized for repository path.');
+
+			// Prepare agent context fragment *after* fss is initialized
+			const agentContextFragment: Pick<AgentContext, 'fileSystem' | 'user'> = {
+				fileSystem: fss,
+				user: user,
+			};
 
 			const vcs: VersionControlSystem = fss.vcs;
 			// Checkout branches
@@ -158,7 +189,7 @@ export class VibeServiceImpl implements VibeService {
 				const fileSelectionResult = selection.map((sf) => ({
 					filePath: sf.path, // Map 'path' to 'filePath'
 					reason: sf.reason,
-					category: sf.category,
+					// category: sf.category, // Category removed from agent response
 					readOnly: sf.readonly, // Map 'readonly' to 'readOnly'
 				}));
 
@@ -177,11 +208,13 @@ export class VibeServiceImpl implements VibeService {
 			try {
 				// Determine a more specific error status if possible
 				let errorStatus: VibeSession['status'] = 'error';
-				if (error.message?.includes('selectFilesAgent')) {
-					errorStatus = 'error_file_selection';
+				if (error.message?.includes('repositorySource') || error.message?.includes('repositoryId format')) {
+					errorStatus = 'error'; // Or potentially a new status like 'error_configuration'
 				} else if (error.message?.includes('SCM') || error.message?.includes('clone') || error.message?.includes('branch')) {
-					// Assuming SCM errors happen before agent runs
-					errorStatus = 'error'; // Or a more specific SCM error status if defined
+					// Keep existing SCM error logic
+					errorStatus = 'error'; // Or a specific SCM error status
+				} else if (error.message?.includes('selectFilesAgent')) {
+					errorStatus = 'error_file_selection';
 				}
 
 				await this.vibeRepo.updateVibeSession(userId, sessionId, {
@@ -277,88 +310,164 @@ export class VibeServiceImpl implements VibeService {
 		await this.vibeRepo.deleteVibePreset(userId, presetId);
 	}
 
-	// --- Workflow Orchestration Actions (Placeholders - Need Implementation) ---
+	// --- Workflow Orchestration Actions ---
 
 	async updateSelectionWithPrompt(userId: string, sessionId: string, prompt: string): Promise<void> {
 		logger.info({ userId, sessionId, prompt }, '[VibeServiceImpl] updateSelectionWithPrompt called');
-		try {
-			// 1. Get session & validate
-			logger.debug({ userId, sessionId }, '[VibeServiceImpl] Getting session for selection update...');
-			const session = await this.vibeRepo.getVibeSession(userId, sessionId);
-			if (!session) {
-				throw new Error(`VibeSession ${sessionId} not found for user ${userId}.`);
-			}
-			if (session.userId !== userId) {
-				// This check might be redundant if the repository enforces user scope, but good practice
-				throw new Error('User not authorized for this session.');
-			}
-			if (session.status !== 'file_selection_review') {
-				throw new Error(`Invalid session status: Cannot update selection in current state '${session.status}'. Expected 'file_selection_review'.`);
-			}
-
-			// 2. Update status to 'updating_selection' in repo
-			logger.info({ sessionId }, '[VibeServiceImpl] Updating session status to updating_selection...');
-			await this.vibeRepo.updateVibeSession(userId, sessionId, { status: 'updating_selection', lastAgentActivity: Date.now() });
-
-			// 3. Trigger agent asynchronously
-			// TODO: Trigger runSelectFilesAgent asynchronously with session details and prompt.
-			// The agent's callback/result handler would then update the repo with the new
-			// fileSelection and set the status back to 'file_selection_review' or 'error_file_selection'.
-			logger.warn({ sessionId }, '[VibeServiceImpl] Agent triggering for updateSelectionWithPrompt is not implemented.');
-
-			// Placeholder for async agent call simulation (remove when agent is integrated)
-			// Simulating a delay and potential error for now
-			// await new Promise(resolve => setTimeout(resolve, 1500));
-			// logger.info({ sessionId }, "[VibeServiceImpl] Placeholder agent call finished.");
-			// await this.vibeRepo.updateVibeSession(userId, sessionId, { status: 'file_selection_review', fileSelection: [{ filePath: 'updated.ts', category: 'edit', reason: 'Updated by prompt' }], lastAgentActivity: Date.now() });
-		} catch (error) {
-			logger.error(error, `[VibeServiceImpl] Failed to update selection with prompt for session ${sessionId}`);
-			// Optionally update session status to error here if appropriate and not already handled
-			// await this.vibeRepo.updateVibeSession(userId, sessionId, { status: 'error_file_selection', error: error.message, lastAgentActivity: Date.now() });
-			throw error; // Re-throw the error to be handled by the caller
+		// 1. Get session & validate
+		logger.debug({ userId, sessionId }, '[VibeServiceImpl] Getting session for selection update...');
+		const session = await this.vibeRepo.getVibeSession(userId, sessionId);
+		if (!session) throw new Error(`VibeSession ${sessionId} not found for user ${userId}.`);
+		if (session.userId !== userId) throw new Error('User not authorized for this session.'); // Redundant check if repo enforces scope, but good practice
+		if (session.status !== 'file_selection_review') {
+			throw new Error(`Invalid session status: Cannot update selection in current state '${session.status}'. Expected 'file_selection_review'.`);
 		}
+
+		// 2. Update status to 'updating_selection' in repo
+		logger.info({ sessionId }, '[VibeServiceImpl] Updating session status to updating_selection...');
+		await this.vibeRepo.updateVibeSession(userId, sessionId, { status: 'updating_selection', lastAgentActivity: Date.now() });
+
+		// 3. Trigger agent asynchronously using runVibeWorkflowAgent
+		logger.info({ sessionId }, '[VibeServiceImpl] Triggering background agent for file selection update via runVibeWorkflowAgent.');
+		// No await - runs in background
+		this._runFileSelectionUpdateAgent(userId, session, prompt);
 	}
 
-	async generateDetailedDesign(userId: string, sessionId: string, variations: number): Promise<void> {
+	/**
+	 * Runs the file selection agent asynchronously using runVibeWorkflowAgent.
+	 */
+	private _runFileSelectionUpdateAgent(userId: string, session: VibeSession, prompt: string): void {
+		const sessionId = session.id;
+		logger.info({ userId, sessionId }, '[VibeServiceImpl] Scheduling background file selection update agent via runVibeWorkflowAgent...');
+
+		// Define the workflow function to be executed by the agent runner
+		const workflow = async () => {
+			// Agent context is available here via agentContext() which is set by runVibeWorkflowAgent
+			const currentAgentContext = agentContextStorage.getStore(); // Get the full context
+			if (!currentAgentContext) throw new Error('Agent context not available in workflow.');
+			// We don't need to manually set up FSS or user context here, it's provided by the runner.
+
+			// Prepare inputs using session data and prompt
+			const instructions = session.instructions;
+			const currentSelection: SelectedFile[] = session.fileSelection || [];
+			const agentInputFiles: OriginalSelectedFile[] = currentSelection.map((sf) => ({
+				path: sf.filePath, // Map 'filePath' to 'path'
+				reason: sf.reason,
+				// category: sf.category, // Category removed
+				readonly: sf.readOnly, // Map 'readOnly' to 'readonly'
+			}));
+
+			logger.debug({ sessionId }, 'Preparing inputs for selectFilesAgent within workflow...');
+			// Call selectFilesAgent with the corrected signature (3 arguments: requirements, projectInfo, options)
+			// Pass undefined for projectInfo for now, assuming selectFilesAgent handles it internally if needed.
+			// The agent context (including fileSystem) is implicitly available to selectFilesAgent via agentContextStorage
+			const updatedSelectionRaw = await selectFilesAgent(instructions, undefined, { currentFiles: agentInputFiles, updatePrompt: prompt });
+
+			// Map results
+			if (!updatedSelectionRaw || !Array.isArray(updatedSelectionRaw)) {
+				throw new Error('Invalid response structure from selectFilesAgent during update.');
+			}
+			const mappedResult: SelectedFile[] = updatedSelectionRaw.map((sf) => ({
+				filePath: sf.path, // Map 'path' back to 'filePath'
+				reason: sf.reason,
+				// category: sf.category, // Category removed
+				readOnly: sf.readonly, // Map 'readonly' back to 'readOnly'
+			}));
+			logger.info({ sessionId, count: mappedResult.length }, 'selectFilesAgent completed and result mapped within workflow.');
+
+			// Update Repo (Success) - Use userId and sessionId from outer scope
+			await this.vibeRepo.updateVibeSession(userId, sessionId, {
+				fileSelection: mappedResult,
+				status: 'file_selection_review',
+				lastAgentActivity: Date.now(),
+				error: null,
+			});
+			logger.info({ sessionId }, 'Successfully updated file selection and status within workflow.');
+		};
+
+		// Run the workflow using runVibeWorkflowAgent
+		// This handles setting up the agent context, running the workflow, and basic error handling/logging
+		this.runVibeWorkflowAgent(session, 'updateFileSelection', workflow).catch((error) => {
+			// Catch errors specifically from the runVibeWorkflowAgent promise itself
+			// (e.g., if the agent runner fails to start)
+			// Errors *within* the workflow are typically handled by the runner or the workflow itself
+			logger.error(error, `[VibeServiceImpl] Error occurred during runVibeWorkflowAgent for session ${sessionId}`);
+			// Attempt to update session status to error
+			this.vibeRepo
+				.updateVibeSession(userId, sessionId, {
+					status: 'error_file_selection',
+					error: error instanceof Error ? error.message : String(error),
+					lastAgentActivity: Date.now(),
+				})
+				.catch((updateError) => {
+					logger.error(updateError, `[VibeServiceImpl] Failed to update session ${sessionId} status to error after agent runner failure.`);
+				});
+		});
+	}
+
+	async generateDetailedDesign(userId: string, sessionId: string, variations = 1): Promise<void> {
+		// Ensure variations is at least 1
+		variations = Math.max(1, variations);
 		logger.info({ userId, sessionId, variations }, '[VibeServiceImpl] generateDetailedDesign called');
-		try {
-			// 1. Get session & validate
-			const session = await this.vibeRepo.getVibeSession(userId, sessionId);
-			if (!session) {
-				throw new Error(`VibeSession ${sessionId} not found for user ${userId}.`);
-			}
-			if (session.userId !== userId) {
-				// This check might be redundant if the repository enforces user scope, but good practice
-				throw new Error('User not authorized for this session.');
-			}
-			if (session.status !== 'file_selection_review') {
-				throw new Error(`Invalid session status: Cannot generate design in current state '${session.status}'. Expected 'file_selection_review'.`);
-			}
-			if (!session.fileSelection || session.fileSelection.length === 0) {
-				throw new Error('Cannot generate design: File selection is missing or empty.');
-			}
 
-			// 2. Update status to 'generating_design' in repo
-			logger.info({ sessionId }, '[VibeServiceImpl] Updating session status to generating_design...');
-			await this.vibeRepo.updateVibeSession(userId, sessionId, { status: 'generating_design', lastAgentActivity: Date.now() });
-
-			// 3. Trigger agent asynchronously
-			// TODO: Trigger runDesignGenerationAgent asynchronously with session.fileSelection and variations.
-			// The agent's callback/result handler would then update the repo with the new
-			// designAnswer and set the status to 'design_review' or 'error_design_generation'.
-			logger.info({ sessionId }, '[VibeServiceImpl] Design generation process initiated.');
-
-			// Placeholder for async agent call simulation (remove when agent is integrated)
-			// Simulating a delay and potential error for now
-			// await new Promise(resolve => setTimeout(resolve, 1500));
-			// logger.info({ sessionId }, "[VibeServiceImpl] Placeholder agent call finished.");
-			// await this.vibeRepo.updateVibeSession(userId, sessionId, { status: 'design_review', designAnswer: { summary: 'Generated design', steps: [], reasoning: '' }, lastAgentActivity: Date.now() });
-		} catch (error) {
-			logger.error(error, `[VibeServiceImpl] Failed to generate detailed design for session ${sessionId}`);
-			// Optionally update session status to error here if appropriate and not already handled
-			// await this.vibeRepo.updateVibeSession(userId, sessionId, { status: 'error_design_generation', error: error.message, lastAgentActivity: Date.now() });
-			throw error; // Re-throw the error to be handled by the caller
+		// 1. Get session & validate
+		const session = await this.vibeRepo.getVibeSession(userId, sessionId);
+		if (!session) throw new Error(`VibeSession ${sessionId} not found for user ${userId}.`);
+		if (session.userId !== userId) throw new Error('User not authorized for this session.');
+		if (session.status !== 'file_selection_review') {
+			throw new Error(`Invalid session status: Cannot generate design in current state '${session.status}'. Expected 'file_selection_review'.`);
 		}
+		if (!session.fileSelection || session.fileSelection.length === 0) {
+			throw new Error('Cannot generate design: File selection is missing or empty.');
+		}
+
+		// 2. Update status to 'generating_design' in repo
+		logger.info({ sessionId }, '[VibeServiceImpl] Updating session status to generating_design...');
+		await this.vibeRepo.updateVibeSession(userId, sessionId, { status: 'generating_design', lastAgentActivity: Date.now() });
+
+		// 3. Trigger agent asynchronously
+		const workflow = async () => {
+			logger.info({ sessionId }, 'Starting background design generation workflow...');
+			// Use the session object captured from the outer scope
+			const currentSession = session;
+
+			// Placeholder/Mock Design Agent
+			const mockGenerateDesignAgent = async (instructions: string, files: SelectedFile[], vars: number): Promise<DesignAnswer> => {
+				logger.debug({ sessionId, fileCount: files.length, vars }, 'Mock design agent running...');
+				await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate work
+				return {
+					summary: 'Mock Design Summary',
+					steps: ['Mock Step 1', 'Mock Step 2'],
+					reasoning: `This is mock reasoning based on instructions ("${instructions.substring(0, 50)}...") and ${files.length} files. Variations requested: ${vars}.`,
+				};
+			};
+
+			const designAnswer = await mockGenerateDesignAgent(currentSession.instructions, currentSession.fileSelection!, variations);
+			logger.info({ sessionId }, 'Mock design agent completed.');
+
+			// Update session on success
+			await this.vibeRepo.updateVibeSession(userId, sessionId, {
+				status: 'design_review',
+				designAnswer: designAnswer,
+				error: null, // Clear previous error
+				lastAgentActivity: Date.now(),
+			});
+			logger.info({ sessionId }, 'Successfully generated mock design and updated session status.');
+		};
+
+		// Run the workflow using runVibeWorkflowAgent
+		this.runVibeWorkflowAgent(session, 'generateDesign', workflow).catch(async (error) => {
+			logger.error(error, `[VibeServiceImpl] Error occurred during runVibeWorkflowAgent for design generation session ${sessionId}`);
+			try {
+				await this.vibeRepo.updateVibeSession(userId, sessionId, {
+					status: 'error_design_generation',
+					error: error instanceof Error ? error.message : String(error),
+					lastAgentActivity: Date.now(),
+				});
+			} catch (updateError) {
+				logger.error(updateError, `[VibeServiceImpl] Failed to update session ${sessionId} status to error after agent runner failure.`);
+			}
+		});
 	}
 
 	async updateDesignWithPrompt(userId: string, sessionId: string, prompt: string): Promise<void> {
@@ -476,7 +585,7 @@ export class VibeServiceImpl implements VibeService {
 		// throw new Error('commitChanges - Not Implemented');
 	}
 
-	// --- Helper / Supporting Methods (Placeholders - Need Implementation) ---
+	// --- Helper / Supporting Methods ---
 
 	async getBranchList(userId: string, repositorySource: 'local' | 'github' | 'gitlab', repositoryId: string): Promise<string[]> {
 		logger.debug({ userId, repositorySource, repositoryId }, '[VibeServiceImpl] getBranchList called');

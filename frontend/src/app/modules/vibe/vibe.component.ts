@@ -1,10 +1,12 @@
-import { Component, inject, OnInit, OnDestroy, ViewEncapsulation } from '@angular/core'; // Added OnDestroy
+import { Component, inject, OnInit, OnDestroy, ViewEncapsulation } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { map, Observable, of, startWith, switchMap, take, Subject, takeUntil } from 'rxjs'; // Added take, Subject, takeUntil
+import { map, Observable, of, startWith, switchMap, take, Subject, takeUntil, finalize, tap } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterOutlet } from '@angular/router';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatFormFieldModule } from "@angular/material/form-field";
+import { MatSnackBar } from '@angular/material/snack-bar'; // Added MatSnackBar
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner'; // Added MatProgressSpinnerModule
 import { MatSelectModule } from "@angular/material/select";
 import { MatCardModule } from "@angular/material/card";
 import { MatProgressBarModule } from "@angular/material/progress-bar";
@@ -36,27 +38,28 @@ import { VibeDesignReviewComponent } from './vibe-design-review/vibe-design-revi
     MatButtonModule,
     MatListModule,
     MatTooltipModule, // Add MatTooltipModule
-    MatAutocompleteModule, // Add MatAutocompleteModule here
-    RouterOutlet, // Keep RouterOutlet if routing within this component is used
-    VibeFileListComponent, // Keep the file list component
+    MatAutocompleteModule,
+    RouterOutlet,
+    VibeFileListComponent,
     VibeDesignReviewComponent,
+    MatProgressSpinnerModule, // Add MatProgressSpinnerModule here
   ],
 })
 export class VibeComponent implements OnInit, OnDestroy {
-  private destroy$ = new Subject<void>(); // Subject to manage subscription cleanup
+  private destroy$ = new Subject<void>();
 
   // Form control for the file autocomplete input
   addFileControl = new FormControl('');
   // Full list of files available in the session's workspace
   allFiles: string[] = [];
-  // Observable stream of files filtered based on user input
   filteredFiles$: Observable<string[]>;
   private route = inject(ActivatedRoute);
   private vibeService = inject(VibeService);
-  // Removed: private fb = inject(FormBuilder);
+  private snackBar = inject(MatSnackBar); // Inject MatSnackBar
 
   session$: Observable<VibeSession>;
-  // Removed: public designForm: FormGroup;
+  currentSession: VibeSession | null = null; // Store the current session
+  isProcessingAction: boolean = false; // Flag for loading state
 
   // constructor() {}
 
@@ -164,11 +167,14 @@ export class VibeComponent implements OnInit, OnDestroy {
         }
         return session; // Return the potentially modified session
       }),
-      takeUntil(this.destroy$) // Clean up subscription
+      tap(session => this.currentSession = session), // Store the current session
+      takeUntil(this.destroy$)
     );
 
     // Fetch the file system tree for the autocomplete when the session is available
     this.session$.pipe(
+      // Use take(1) or first() if you only need the initial session's tree
+      // If the tree can change, keep switchMap but ensure it handles null session
       switchMap(session => {
         if (session?.id) {
           // Fetch the file tree as a single string
@@ -224,12 +230,105 @@ export class VibeComponent implements OnInit, OnDestroy {
   handleAddFile(): void {
     const selectedFile = this.addFileControl.value?.trim();
 
-    if (selectedFile) {
-      // TODO: Implement backend update logic in a subsequent step.
-      // For now, just log and reset the control.
-      this.addFileControl.setValue(''); // Reset input after adding
-    } else {
+    if (!selectedFile) {
       console.warn('Attempted to add an empty file path.');
+      this.snackBar.open('Please select a valid file path.', 'Close', { duration: 3000 });
+      return;
+    }
+
+    if (!this.currentSession?.id) {
+      console.error('Cannot add file: Session ID is missing.');
+      this.snackBar.open('Cannot add file: Session is not loaded.', 'Close', { duration: 3000 });
+      return;
+    }
+
+    this.isProcessingAction = true;
+    const sessionId = this.currentSession.id;
+
+    this.vibeService.updateSession(sessionId, { filesToAdd: [selectedFile] }).pipe(
+      take(1), // Take only the first response
+      finalize(() => this.isProcessingAction = false), // Ensure loading state is reset
+      takeUntil(this.destroy$) // Clean up subscription on component destroy
+    ).subscribe({
+      next: () => {
+        console.log(`File ${selectedFile} add request sent.`);
+        this.snackBar.open('File add request sent. Session will update.', 'Close', { duration: 3000 });
+        this.addFileControl.setValue(''); // Reset input after successful request
+        // No need to manually trigger refresh, service update should handle it via BehaviorSubject
+      },
+      error: (err) => {
+        console.error(`Error adding file ${selectedFile}:`, err);
+        this.snackBar.open(`Error adding file: ${err.message || 'Unknown error'}`, 'Close', { duration: 5000 });
+      }
+    });
+  }
+
+  /**
+   * Approves the current file selection and triggers design generation.
+   */
+  approveSelection(): void {
+    this.isProcessingAction = true;
+    if (!this.currentSession || this.currentSession.status !== 'file_selection_review') {
+      console.error('approveSelection called in invalid state or session missing:', this.currentSession?.status);
+      this.snackBar.open('Invalid state or session missing', 'Close', { duration: 3000 });
+      this.isProcessingAction = false;
+      return;
+    }
+
+    const sessionId = this.currentSession.id; // Capture session ID
+
+    this.vibeService.approveFileSelection(sessionId).pipe(
+      finalize(() => this.isProcessingAction = false),
+      takeUntil(this.destroy$)
+    ).subscribe({
+      next: () => {
+        console.log('File selection approved successfully.');
+        this.snackBar.open('File selection approved. Generating design...', 'Close', { duration: 3000 });
+        // Trigger session refresh
+        this.vibeService.getVibeSession(sessionId).pipe(take(1)).subscribe();
+      },
+      error: (err) => {
+        console.error('Error approving file selection:', err);
+        this.snackBar.open(`Error approving selection: ${err.message || 'Unknown error'}`, 'Close', { duration: 5000 });
+      }
+    });
+  }
+
+  /**
+   * Requests an update to the file selection based on user prompt.
+   */
+  requestSelectionUpdate(): void {
+    this.isProcessingAction = true;
+    if (!this.currentSession || this.currentSession.status !== 'file_selection_review') {
+      console.error('requestSelectionUpdate called in invalid state or session missing:', this.currentSession?.status);
+      this.snackBar.open('Invalid state or session missing', 'Close', { duration: 3000 });
+      this.isProcessingAction = false;
+      return;
+    }
+
+    const prompt = window.prompt("Enter instructions to update file selection:");
+
+    if (prompt !== null && prompt.trim() !== '') {
+      const sessionId = this.currentSession.id; // Capture session ID
+      this.vibeService.updateFileSelection(sessionId, prompt).pipe(
+        finalize(() => this.isProcessingAction = false),
+        takeUntil(this.destroy$)
+      ).subscribe({
+        next: () => {
+          console.log('File selection update requested successfully.');
+          this.snackBar.open('File selection update requested...', 'Close', { duration: 3000 });
+          // Trigger session refresh
+          this.vibeService.getVibeSession(sessionId).pipe(take(1)).subscribe();
+        },
+        error: (err) => {
+          console.error('Error requesting file selection update:', err);
+          this.snackBar.open(`Error requesting update: ${err.message || 'Unknown error'}`, 'Close', { duration: 5000 });
+        }
+      });
+    } else {
+      // User cancelled or entered empty prompt
+      console.log('File selection update cancelled by user.');
+      this.isProcessingAction = false;
     }
   }
 }

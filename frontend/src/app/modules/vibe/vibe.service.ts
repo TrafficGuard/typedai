@@ -1,6 +1,6 @@
-import { HttpClient, HttpParams } from '@angular/common/http'; // Import HttpParams
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { BehaviorSubject, type Observable, tap } from 'rxjs';
+import { BehaviorSubject, type Observable, tap, catchError, throwError } from 'rxjs';
 // Import FileSystemNode if not already imported (assuming it's defined in vibe.types.ts)
 import type { FileSystemNode, GitProject, VibePreset, VibePresetConfig, VibeSession } from './vibe.types';
 
@@ -11,9 +11,9 @@ export interface CreateVibeSessionPayload {
 	repositorySource: 'local' | 'github' | 'gitlab';
 	repositoryId: string;
 	repositoryName?: string | null;
-	targetBranch: string; // Renamed from branch
-	workingBranch: string; // Added
-	createWorkingBranch: boolean; // Added
+	targetBranch: string;
+	workingBranch: string;
+	createWorkingBranch: boolean;
 	useSharedRepos: boolean;
 }
 
@@ -50,6 +50,8 @@ export class VibeService {
 	get sessions$(): Observable<VibeSession[]> {
 		return this.sessions.asObservable();
 	}
+
+	// HTTP calls must match the backend API endpoints defined in src/routes/vibe/vibeRoutes.ts
 
 	/**
 	 * Fetches the list of Vibe sessions from the backend.
@@ -173,6 +175,37 @@ export class VibeService {
 	 */
 	executeDesign(sessionId: string): Observable<void> {
 		return this.http.post<void>(`/api/vibe/${sessionId}/execute-design`, {});
+	}
+
+	/**
+	 * Approves the current file selection and triggers design generation.
+	 * @param sessionId The ID of the Vibe session.
+	 * @returns An Observable that completes when the request is accepted (backend returns 202).
+	 */
+	approveFileSelection(sessionId: string): Observable<void> {
+		return this.http.post<void>(`/api/vibe/${sessionId}/generate-design`, {}).pipe(
+			tap(() => {}), // Placeholder tap if needed, or remove tap entirely if no other side effects
+			catchError((error) => {
+				// Consider adding console.error or other basic logging if needed
+				return throwError(() => error);
+			}),
+		);
+	}
+
+	/**
+	 * Sends a prompt to the backend to update the file selection for a specific Vibe session.
+	 * @param sessionId The ID of the Vibe session.
+	 * @param prompt The user's instructions for updating the selection.
+	 * @returns An Observable that completes when the request is accepted (backend returns 202).
+	 */
+	updateFileSelection(sessionId: string, prompt: string): Observable<void> {
+		return this.http.post<void>(`/api/vibe/${sessionId}/update-selection`, { prompt }).pipe(
+			tap(() => {}), // Placeholder tap if needed, or remove tap entirely if no other side effects
+			catchError((error) => {
+				// Consider adding console.error or other basic logging if needed
+				return throwError(() => error);
+			}),
+		);
 	}
 
 	// --- Preset Management ---

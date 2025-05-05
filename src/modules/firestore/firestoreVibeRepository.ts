@@ -1,22 +1,10 @@
-import { randomUUID } from 'node:crypto';
-import { FieldValue, type Firestore } from '@google-cloud/firestore';
+import type { Firestore } from '@google-cloud/firestore';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-// Removed currentUser import
-import type { VibeRepository } from '#vibe/vibeRepository'; // Import VibeRepository
-// Remove VibeService import
-import type {
-	// Remove CommitChangesData, CreateVibeSessionData
-	// Remove DesignAnswer, FileSystemNode, UpdateCodeReviewData, UpdateDesignInstructionsData
-	UpdateVibeSessionData,
-	VibePreset,
-	// Remove SelectedFile as VibeSelectedFile
-	VibeSession,
-	// Remove VibeStatus
-} from '#vibe/vibeTypes';
-import { firestoreDb } from './firestore';
+import type { VibeRepository } from '#vibe/vibeRepository';
 
-// Remove mockAgentRunner object
+import type { UpdateVibeSessionData, VibePreset, VibeSession } from '#vibe/vibeTypes';
+import { firestoreDb } from './firestore';
 
 const VIBE_SESSIONS_COLLECTION = 'vibeSessions';
 const VIBE_PRESETS_COLLECTION = 'vibePresets';
@@ -25,7 +13,6 @@ const VIBE_PRESETS_COLLECTION = 'vibePresets';
  * Firestore implementation for managing VibeSession and VibePreset data persistence.
  */
 export class FirestoreVibeRepository implements VibeRepository {
-	// Implement VibeRepository
 	private db: Firestore;
 
 	constructor() {
@@ -39,12 +26,10 @@ export class FirestoreVibeRepository implements VibeRepository {
 	 */
 	@span()
 	async createVibeSession(session: VibeSession): Promise<string> {
-		if (!session.id || !session.userId) {
-			throw new Error('Session ID and User ID must be provided');
-		}
+		if (!session.id || !session.userId) throw new Error('Session ID and User ID must be provided');
+
 		const { id: sessionId, userId } = session;
 
-		// Prepare data with server timestamps if not already present
 		const sessionToSave: VibeSession = {
 			...session,
 			createdAt: Date.now(),
@@ -65,7 +50,7 @@ export class FirestoreVibeRepository implements VibeRepository {
 				throw new Error(`VibeSession with ID ${sessionId} already exists.`);
 			}
 			logger.error(error, `Error creating VibeSession ${sessionId} for user ${userId}`);
-			throw error; // Re-throw other errors
+			throw error;
 		}
 	}
 
@@ -77,8 +62,6 @@ export class FirestoreVibeRepository implements VibeRepository {
 	 */
 	@span()
 	async getVibeSession(userId: string, sessionId: string): Promise<VibeSession | null> {
-		// Authorization check removed - assumed to happen upstream.
-		// Repository trusts the provided userId to define the scope.
 		try {
 			const docRef = this.db.collection('users').doc(userId).collection(VIBE_SESSIONS_COLLECTION).doc(sessionId);
 			const docSnap = await docRef.get();
@@ -88,14 +71,9 @@ export class FirestoreVibeRepository implements VibeRepository {
 				return null;
 			}
 
-			// Convert Firestore Timestamp to number (milliseconds since epoch) for consistency
 			const data = docSnap.data();
 			const session: VibeSession = {
-				...(data as Omit<VibeSession, 'createdAt' | 'updatedAt' | 'lastAgentActivity'>), // Cast basic structure
-				// Explicitly convert timestamps
-				createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : data.createdAt,
-				updatedAt: data.updatedAt?.toMillis ? data.updatedAt.toMillis() : data.updatedAt,
-				lastAgentActivity: data.lastAgentActivity?.toMillis ? data.lastAgentActivity.toMillis() : data.lastAgentActivity,
+				...(data as VibeSession),
 			};
 
 			logger.info({ userId, sessionId }, 'VibeSession retrieved successfully');
@@ -113,28 +91,20 @@ export class FirestoreVibeRepository implements VibeRepository {
 	 */
 	@span()
 	async listVibeSessions(userId: string): Promise<VibeSession[]> {
-		// Authorization check removed - assumed to happen upstream.
-		// Repository trusts the provided userId to define the scope.
 		try {
 			const querySnapshot = await this.db.collection('users').doc(userId).collection(VIBE_SESSIONS_COLLECTION).orderBy('createdAt', 'desc').get();
 
 			const sessions: VibeSession[] = [];
 			querySnapshot.forEach((doc) => {
 				const data = doc.data();
-				// Convert Firestore Timestamps to numbers
-				sessions.push({
-					...(data as Omit<VibeSession, 'createdAt' | 'updatedAt' | 'lastAgentActivity'>),
-					createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : data.createdAt,
-					updatedAt: data.updatedAt?.toMillis ? data.updatedAt.toMillis() : data.updatedAt,
-					lastAgentActivity: data.lastAgentActivity?.toMillis ? data.lastAgentActivity.toMillis() : data.lastAgentActivity,
-				});
+				sessions.push(data as VibeSession);
 			});
 
 			logger.info({ userId, count: sessions.length }, 'Listed VibeSessions successfully');
 			return sessions;
 		} catch (error) {
 			logger.error(error, `Error listing VibeSessions for user ${userId}`);
-			throw error; // Re-throw after logging
+			throw error;
 		}
 	}
 
@@ -146,13 +116,9 @@ export class FirestoreVibeRepository implements VibeRepository {
 	 */
 	@span()
 	async updateVibeSession(userId: string, sessionId: string, updates: UpdateVibeSessionData): Promise<void> {
-		// Authorization check removed - assumed to happen upstream.
-		// Repository trusts the provided userId to define the scope.
-
-		// Prepare update data, ensuring updatedAt is set to server timestamp
 		const updateData = {
 			...updates,
-			updatedAt: FieldValue.serverTimestamp(),
+			updatedAt: Date.now(),
 		};
 
 		try {
@@ -167,7 +133,7 @@ export class FirestoreVibeRepository implements VibeRepository {
 				throw new Error(`VibeSession ${sessionId} not found for user ${userId}.`);
 			}
 			logger.error(error, `Error updating VibeSession ${sessionId} for user ${userId}`);
-			throw error; // Re-throw other errors
+			throw error;
 		}
 	}
 
@@ -178,8 +144,6 @@ export class FirestoreVibeRepository implements VibeRepository {
 	 */
 	@span()
 	async deleteVibeSession(userId: string, sessionId: string): Promise<void> {
-		// Authorization check removed - assumed to happen upstream.
-		// Repository trusts the provided userId to define the scope.
 		try {
 			const docRef = this.db.collection('users').doc(userId).collection(VIBE_SESSIONS_COLLECTION).doc(sessionId);
 			// Firestore delete is idempotent (doesn't error if doc doesn't exist)
@@ -187,7 +151,7 @@ export class FirestoreVibeRepository implements VibeRepository {
 			logger.info({ sessionId, userId }, 'VibeSession deleted successfully (or did not exist) from user subcollection');
 		} catch (error) {
 			logger.error(error, `Error deleting VibeSession ${sessionId} for user ${userId}`);
-			throw error; // Re-throw after logging
+			throw error;
 		}
 	}
 
@@ -200,18 +164,13 @@ export class FirestoreVibeRepository implements VibeRepository {
 	 */
 	@span()
 	async saveVibePreset(preset: VibePreset): Promise<string> {
-		if (!preset.id || !preset.userId || !preset.name) {
-			throw new Error('Preset ID, User ID, and Name must be provided');
-		}
+		if (!preset.id || !preset.userId || !preset.name) throw new Error('Preset ID, User ID, and Name must be provided');
 		const { id: presetId, userId, name } = preset;
-		// Authorization check removed - assumed to happen upstream.
-		// Repository trusts the userId within the preset object for path construction.
 
-		// Prepare data with server timestamps if not already present
 		const presetToSave = {
 			...preset,
-			createdAt: preset.createdAt ?? FieldValue.serverTimestamp(),
-			updatedAt: preset.updatedAt ?? FieldValue.serverTimestamp(),
+			createdAt: preset.createdAt ?? Date.now(),
+			updatedAt: Date.now(),
 		};
 
 		try {
@@ -227,7 +186,7 @@ export class FirestoreVibeRepository implements VibeRepository {
 				throw new Error(`VibePreset with ID ${presetId} already exists.`);
 			}
 			logger.error(error, `Error saving VibePreset '${name}' for user ${userId}`);
-			throw error; // Re-throw other errors
+			throw error;
 		}
 	}
 
@@ -238,27 +197,19 @@ export class FirestoreVibeRepository implements VibeRepository {
 	 */
 	@span()
 	async listVibePresets(userId: string): Promise<VibePreset[]> {
-		// Authorization check removed - assumed to happen upstream.
-		// Repository trusts the provided userId to define the scope.
 		try {
 			const querySnapshot = await this.db.collection('users').doc(userId).collection(VIBE_PRESETS_COLLECTION).orderBy('createdAt', 'desc').get();
 
 			const presets: VibePreset[] = [];
 			querySnapshot.forEach((doc) => {
-				const data = doc.data();
-				// Convert Firestore Timestamps to numbers
-				presets.push({
-					...(data as Omit<VibePreset, 'createdAt' | 'updatedAt'>),
-					createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : data.createdAt,
-					updatedAt: data.updatedAt?.toMillis ? data.updatedAt.toMillis() : data.updatedAt,
-				});
+				presets.push(doc.data() as VibePreset);
 			});
 
 			logger.info({ userId, count: presets.length }, 'Listed VibePresets successfully for user');
 			return presets;
 		} catch (error) {
 			logger.error(error, `Error listing VibePresets for user ${userId}`);
-			throw error; // Re-throw after logging
+			throw error;
 		}
 	}
 
@@ -269,8 +220,6 @@ export class FirestoreVibeRepository implements VibeRepository {
 	 */
 	@span()
 	async deleteVibePreset(userId: string, presetId: string): Promise<void> {
-		// Authorization check removed - assumed to happen upstream.
-		// Repository trusts the provided userId to define the scope.
 		try {
 			const docRef = this.db.collection('users').doc(userId).collection(VIBE_PRESETS_COLLECTION).doc(presetId);
 			// Firestore delete is idempotent
@@ -278,14 +227,7 @@ export class FirestoreVibeRepository implements VibeRepository {
 			logger.info({ presetId, userId }, 'VibePreset deleted successfully (or did not exist) from user subcollection');
 		} catch (error) {
 			logger.error(error, `Error deleting VibePreset ${presetId} for user ${userId}`);
-			throw error; // Re-throw after logging
+			throw error;
 		}
 	}
-
-	// --- REMOVED Workflow Actions ---
-	// All methods related to workflow orchestration (updateSelectionWithPrompt, generateDetailedDesign,
-	// updateDesignWithPrompt, updateDesignWithInstructions, executeDesign, startCoding,
-	// updateCodeWithComments, commitChanges, getBranchList, getFileSystemTree, getFileContent,
-	// applyCiCdFix) have been removed from this repository implementation.
-	// They belong in the VibeService implementation.
 }

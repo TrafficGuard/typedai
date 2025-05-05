@@ -3,7 +3,8 @@ import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 import type { VibeRepository } from '#vibe/vibeRepository';
 import { VibeServiceImpl } from '#vibe/vibeServiceImpl';
-import type { CreateVibeSessionData, VibeSession } from '#vibe/vibeTypes';
+// Import UpdateVibeSessionData
+import type { CreateVibeSessionData, UpdateVibeSessionData, VibeSession } from '#vibe/vibeTypes';
 
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 
@@ -62,7 +63,59 @@ describe('VibeServiceImpl', () => {
 		return { ...defaults, ...overrides };
 	};
 
-	// --- Tests for existing methods can go here ---
+	// --- Tests for existing methods ---
+
+	describe('updateVibeSession', () => {
+		it('should pass filesToAdd and filesToRemove to the repository', async () => {
+			const payload: UpdateVibeSessionData = {
+				status: 'file_selection_review', // Example other field
+				filesToAdd: ['new.ts'],
+				filesToRemove: ['old.ts'],
+			};
+			mockVibeRepo.updateVibeSession.resolves(); // Assume repo update succeeds
+
+			await service.updateVibeSession(userId, sessionId, payload);
+
+			// Verify that the repository's update method was called with the exact payload
+			expect(mockVibeRepo.updateVibeSession.calledOnce).to.be.true;
+			// Use sinon.match to check the structure and specific file fields
+			expect(
+				mockVibeRepo.updateVibeSession.calledOnceWith(
+					userId,
+					sessionId,
+					sinon.match({
+						status: 'file_selection_review',
+						filesToAdd: ['new.ts'],
+						filesToRemove: ['old.ts'],
+						// Do not match updatedAt here as it's added by the repo layer
+					}),
+				),
+			).to.be.true;
+		});
+
+		it('should only pass other fields if file fields are absent', async () => {
+			const payload: UpdateVibeSessionData = {
+				status: 'design_review',
+			};
+			mockVibeRepo.updateVibeSession.resolves();
+
+			await service.updateVibeSession(userId, sessionId, payload);
+
+			expect(mockVibeRepo.updateVibeSession.calledOnce).to.be.true;
+			expect(
+				mockVibeRepo.updateVibeSession.calledOnceWith(
+					userId,
+					sessionId,
+					sinon.match({
+						status: 'design_review',
+						// Ensure file fields are not present by not including them in the match object
+					}),
+				),
+			).to.be.true;
+		});
+
+		// Add tests for error handling if needed (e.g., repo throws error)
+	});
 
 	describe('acceptDesign', () => {
 		const variations = 1;
