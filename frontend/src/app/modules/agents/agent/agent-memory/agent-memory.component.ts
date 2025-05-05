@@ -20,7 +20,13 @@ export class AgentMemoryComponent {
     @Input() agentDetails!: AgentContext | null;
 
     convertMemoryValue(value: any): string {
-        return JSON.stringify(value, null, 2);
+        // Stringify the value with pretty printing
+        const jsonString = JSON.stringify(value, null, 2);
+        // Replace escaped newlines (\\n) from JSON stringification with actual newlines (\n)
+        const stringWithNewlines = jsonString.replace(/\\n/g, '\n');
+        // Replace actual newlines (\n) with HTML line break tags (<br/>)
+        const htmlString = stringWithNewlines.replace(/\n/g, '<br/>');
+        return htmlString;
     }
 
     memoryExpanded: { [key: string]: boolean } = {};

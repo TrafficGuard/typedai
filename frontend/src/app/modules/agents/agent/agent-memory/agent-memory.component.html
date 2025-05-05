@@ -8,7 +8,8 @@
         {{ entry.key }}
       </mat-panel-title>
     </mat-expansion-panel-header>
-    <div style="white-space: pre-wrap">{{ convertMemoryValue(entry.value) }}</div>
+    <!-- Use [innerHTML] to render <br/> tags and remove white-space style -->
+    <div [innerHTML]="convertMemoryValue(entry.value)"></div>
   </mat-expansion-panel>
 </div>
 </mat-card>
