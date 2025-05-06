@@ -81,6 +81,11 @@ export class AgentComponent implements OnInit {
                 details => {
                     this.agentDetails = (details as any).data;
 
+                    if(typeof this.agentDetails.toolState === 'string') {
+                        this.agentDetails.toolState = new Map(Object.entries(JSON.parse(this.agentDetails.toolState)));
+                    }
+                    this.agentDetails.toolState ??= new Map();
+
                     if(typeof this.agentDetails.functionCallHistory === 'string')
                         this.agentDetails.functionCallHistory = JSON.parse(this.agentDetails.functionCallHistory);
 
