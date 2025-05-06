@@ -6,7 +6,7 @@
 /vibe/:sessionId
 frontend/src/app/modules/vibe/vibe.component.ts is responsible for checking the state of the VibeSession and showing the appropriate component
 VibeStatus in vibeTypes.ts
-When the status is `file_selection_review` or `updating_selection` then vibe-file-list component will display.
+When the status is `file_selection_review` or `updating_file_selection` then vibe.component.html will display the vibe-file-list component.
 
 ## OnLoad
 - Fetch the VibeSession data

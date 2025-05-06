@@ -156,7 +156,7 @@ export class CodeEditingAgent {
 		// The prompts need some work
 		// await this.testLoop(requirements, projectInfo, initialSelectedFiles);
 
-		return await fss.vcs.getDiff(gitBase);
+		return await fss.getVcs().getDiff(gitBase);
 	} // end of runCodeEditWorkflow method
 
 	private failOnCompileError(compileErrorAnalysis: CompileErrorAnalysis) {

@@ -23,7 +23,20 @@ The ApplicationContext holds the service instances.
 
 The service interfaces will likely have multiple implementations for different databases, and an in-memory version for tests.
 
-## Service unit/integration test standards
+# Agent Context
+
+Calls to the `agentContext()` will return an instance of AgentContext from running in a workflow in the agentContextStorage
+```typescript
+import { agentContext, agentContextStorage, getFileSystem } from '#agent/agentContextLocalStorage';
+
+agentContextStorage.run(context, (agent) => {
+    foo();
+});
+
+function foo() {
+    const agent = agentContext();
+}
+```
 
 The first line of the top level describe() in a test file must be setupConditionalLoggerOutput();
 ```typescript

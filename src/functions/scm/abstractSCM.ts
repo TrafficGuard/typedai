@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
+import type { AgentContext } from '#agent/agentContextTypes';
 import { agentStorageDir, systemDir } from '#app/appVars';
 import type { GitProject } from '#functions/scm/gitProject';
 import type { MergeRequest, SourceControlManagement } from '#functions/scm/sourceControlManagement';
@@ -15,10 +16,16 @@ export abstract class AbstractSCM implements SourceControlManagement {
 		if (!projectPathWithNamespace) throw new Error('Parameter "projectPathWithNamespace" must be truthy');
 
 		const fss = getFileSystem();
-		const agent = agentContext();
-		const basePath = agent.useSharedRepos ? join(systemDir(), this.getScmType()) : join(agentStorageDir(), this.getScmType());
-		const targetPath = targetDirectory ?? join(basePath, projectPathWithNamespace);
-		await fs.mkdir(targetPath, { recursive: true }); // Ensure folder exists
+		const agent: AgentContext | null = agentContext();
+
+		let targetPath: string;
+		if (targetDirectory) {
+			targetPath = targetDirectory;
+		} else {
+			const basePath = agent.useSharedRepos ? join(systemDir(), this.getScmType()) : join(agentStorageDir(), this.getScmType());
+			targetPath = targetDirectory ?? join(basePath, projectPathWithNamespace);
+		}
+		await fs.mkdir(targetPath, { recursive: true });
 
 		// If the project already exists pull updates from the main/dev branch
 		if (existsSync(targetPath) && existsSync(join(targetPath, '.git'))) {
@@ -64,7 +71,8 @@ export abstract class AbstractSCM implements SourceControlManagement {
 
 			failOnError(`Failed to clone ${projectPathWithNamespace}`, result);
 		}
-		agentContext().memory[`${this.getScmType()}_project_${projectPathWithNamespace.replace(/\//g, '_')}_FileSystem_directory_`] = targetPath;
+		if (agent) agent.memory[`${this.getScmType()}_project_${projectPathWithNamespace.replace(/\//g, '_')}_FileSystem_directory_`] = targetPath;
+
 		return targetPath;
 	}
 

@@ -1,9 +1,9 @@
 export {
 	fastifyInstance as fastifyApp,
 	initFastify,
-	TypeBoxFastifyInstance,
-	FastifyConfig,
-	RouteDefinition,
+	type TypeBoxFastifyInstance,
+	type FastifyConfig,
+	type RouteDefinition,
 } from './fastifyApp';
 
 export {

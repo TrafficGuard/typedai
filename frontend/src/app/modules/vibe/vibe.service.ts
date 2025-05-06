@@ -9,7 +9,7 @@ export interface CreateVibeSessionPayload {
 	title: string;
 	instructions: string;
 	repositorySource: 'local' | 'github' | 'gitlab';
-	repositoryId: string;
+	repositoryFullPath: string;
 	repositoryName?: string | null;
 	targetBranch: string;
 	workingBranch: string;

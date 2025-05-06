@@ -33,7 +33,8 @@ export interface SelectedFile {
 	/** The reason why this file needs to in the file selection */
 	reason: string;
 	/** If the file should not need to be modified when implementing the task. Only relevant when the task is for making changes, and not just a query. */
-	readonly?: boolean;
+	readOnly?: boolean;
+	category?: 'edit' | 'reference' | 'style_example' | 'unknown';
 }
 
 /**
@@ -261,7 +262,7 @@ async function selectFilesCore(
 	const selectedFiles: SelectedFile[] = Array.from(keptFiles.entries()).map(([path, reason]) => ({
 		path,
 		reason,
-		// readonly property is not explicitly handled by the LLM response in this flow, default to undefined or false if needed
+		// readOnly property is not explicitly handled by the LLM response in this flow, default to undefined or false if needed
 	}));
 
 	return { messages, selectedFiles };

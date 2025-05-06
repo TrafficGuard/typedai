@@ -109,7 +109,7 @@ export class AiderCodeEditor {
 		const fileToEditArg = filesToEdit.map((file) => `"${file}"`).join(' ');
 		logger.info(fileToEditArg);
 		const now = Date.now();
-		const cmd = `${getPythonPath()} -m aider --no-check-update --cache-prompts ${commitArgs} --no-stream --yes ${modelArg} --llm-history-file="${llmHistoryFile}" --message-file=${messageFilePath} ${fileToEditArg}`;
+		const cmd = `${getPythonPath()} -m aider --no-check-update --cache-prompts ${commitArgs} --no-stream --no-suggest-shell-commands --no-detect-urls --yes ${modelArg} --llm-history-file="${llmHistoryFile}" --message-file=${messageFilePath} ${fileToEditArg}`;
 
 		const { stdout, stderr, exitCode } = await execCommand(cmd, { envVars: env });
 		if (stdout) logger.info(stdout);
@@ -193,15 +193,14 @@ export class AiderCodeEditor {
 	}
 }
 
-function extractSessionCost(text: string): number {
+/**
+ * @param aiderStdOut
+ * @returns the LLM cost, or zero if it could not be extracted
+ */
+function extractSessionCost(aiderStdOut: string): number {
 	const regex = /Cost:.*\$(\d+(?:\.\d+)?) session/;
-	const match = text.match(regex);
-
-	if (match?.[1]) {
-		return Number.parseFloat(match[1]);
-	}
-
-	return 0; // Return null if no match is found
+	const match = aiderStdOut.match(regex);
+	return match?.[1] ? Number.parseFloat(match[1]) : 0;
 }
 
 export function getPythonPath() {

@@ -76,7 +76,7 @@ export async function deserializeAgentContext(serialized: Record<keyof AgentCont
 	context.functions = new LlmFunctions().fromJSON(serialized.functions ?? (serialized as any).toolbox); // toolbox for backward compat
 	context.memory = serialized.memory;
 	context.metadata = serialized.metadata;
-	context.fileStore = serialized.fileStore; // Add this line
+	context.fileStore = serialized.fileStore;
 	context.childAgents = serialized.childAgents || [];
 	context.llms = deserializeLLMs(serialized.llms);
 	context.toolState = serialized.toolState ? JSON.parse(serialized.toolState) : {};

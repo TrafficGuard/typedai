@@ -47,10 +47,10 @@ export class VibeFileSelection {
 			const instructions = session.instructions;
 			const currentSelection: SelectedFile[] = session.fileSelection || [];
 			const agentInputFiles: OriginalSelectedFile[] = currentSelection.map((sf) => ({
-				path: sf.filePath, // Map 'filePath' to 'path'
+				path: sf.filePath, // Map 'filePath' to 'path' TODO should make the properties the same name
 				reason: sf.reason,
-				// category: sf.category, // Category removed
-				readonly: sf.readOnly, // Map 'readOnly' to 'readonly'
+				category: sf.category,
+				readOnly: sf.readOnly,
 			}));
 
 			logger.debug({ sessionId }, 'Preparing inputs for selectFilesAgent within workflow...');
@@ -66,8 +66,8 @@ export class VibeFileSelection {
 			const mappedResult: SelectedFile[] = updatedSelectionRaw.map((sf) => ({
 				filePath: sf.path, // Map 'path' back to 'filePath'
 				reason: sf.reason,
-				// category: sf.category, // Category removed
-				readOnly: sf.readonly, // Map 'readonly' back to 'readOnly'
+				category: sf.category,
+				readOnly: sf.readOnly, // Map 'readonly' back to 'readOnly'
 			}));
 			logger.info({ sessionId, count: mappedResult.length }, 'selectFilesAgent completed and result mapped within workflow.');
 

@@ -5,8 +5,8 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterOutlet } from '@angular/router';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatFormFieldModule } from "@angular/material/form-field";
-import { MatSnackBar } from '@angular/material/snack-bar'; // Added MatSnackBar
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner'; // Added MatProgressSpinnerModule
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from "@angular/material/select";
 import { MatCardModule } from "@angular/material/card";
 import { MatProgressBarModule } from "@angular/material/progress-bar";
@@ -16,7 +16,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatListModule } from '@angular/material/list';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { VibeService } from './vibe.service';
-import { VibeSession, SelectedFile } from './vibe.types';
+import {VibeSession, SelectedFile, type FileSystemNode} from './vibe.types';
 import { VibeFileListComponent } from './vibe-file-list/vibe-file-list.component';
 import { VibeDesignReviewComponent } from './vibe-design-review/vibe-design-review.component';
 
@@ -37,12 +37,12 @@ import { VibeDesignReviewComponent } from './vibe-design-review/vibe-design-revi
     MatInputModule,
     MatButtonModule,
     MatListModule,
-    MatTooltipModule, // Add MatTooltipModule
+    MatTooltipModule,
     MatAutocompleteModule,
     RouterOutlet,
     VibeFileListComponent,
     VibeDesignReviewComponent,
-    MatProgressSpinnerModule, // Add MatProgressSpinnerModule here
+    MatProgressSpinnerModule,
   ],
 })
 export class VibeComponent implements OnInit, OnDestroy {
@@ -51,11 +51,12 @@ export class VibeComponent implements OnInit, OnDestroy {
   // Form control for the file autocomplete input
   addFileControl = new FormControl('');
   // Full list of files available in the session's workspace
+  rootNode: FileSystemNode;
   allFiles: string[] = [];
   filteredFiles$: Observable<string[]>;
   private route = inject(ActivatedRoute);
   private vibeService = inject(VibeService);
-  private snackBar = inject(MatSnackBar); // Inject MatSnackBar
+  private snackBar = inject(MatSnackBar);
 
   session$: Observable<VibeSession>;
   currentSession: VibeSession | null = null; // Store the current session
@@ -82,7 +83,7 @@ export class VibeComponent implements OnInit, OnDestroy {
       // If both are read-only or both are writable, sort by filePath
       return a.filePath.localeCompare(b.filePath);
     });
-  } // Closing brace for sortFiles method was missing in the previous snippet, assuming it's here.
+  }
 
   /**
    * Handles the fileDeleted event from the VibeFileListComponent.
@@ -181,12 +182,14 @@ export class VibeComponent implements OnInit, OnDestroy {
           return this.vibeService.getFileSystemTree(session.id);
         }
         // Return an empty string observable if no session ID
-        return of('');
+        return of(null);
       }),
       takeUntil(this.destroy$) // Clean up subscription
-    ).subscribe((fileListString: string) => {
+    ).subscribe((fileSystemNode: FileSystemNode | null) => {
+        console.log(fileSystemNode)
+        this.rootNode = fileSystemNode;
         // Split the newline-separated string into an array of file paths
-        this.allFiles = fileListString ? fileListString.split('\n').filter(f => f.trim() !== '') : [];
+        this.allFiles = [];//fileListString ? fileListString.split('\n').filter(f => f.trim() !== '') : [];
       // Initialize or re-initialize the filtered files observable
       if (!this.filteredFiles$) {
         this.filteredFiles$ = this.addFileControl.valueChanges.pipe(

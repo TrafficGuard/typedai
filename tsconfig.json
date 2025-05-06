@@ -23,6 +23,7 @@
     "allowImportingTsExtensions": false,
     "noEmit": false,
     "baseUrl": "./",
+    "isolatedModules": true,
     "paths": {
       "#app/*": ["./src/app/*"],
       "#agent/*": ["./src/agent/*"],
@@ -41,7 +42,7 @@
       "#test/*": ["./src/test/*"],
       "#user/*": ["./src/user/*"],
       "#utils/*": ["./src/utils/*"],
-      "#vibe/*": ["./src/vibe/*"],
+      "#vibe/*": ["./src/vibe/*"]
     },
     "types": ["node", "mocha"]
   },

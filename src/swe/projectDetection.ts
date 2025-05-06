@@ -17,6 +17,7 @@ type LanguageRuntime = 'nodejs' | 'typescript' | 'php' | 'python' | 'terraform' 
 interface ProjectDetection {
 	baseDir: string;
 	language: LanguageRuntime;
+	primary: boolean;
 	files: string[];
 	/** The base development branch to make new branches from */
 	devBranch: string;
@@ -32,6 +33,8 @@ interface ProjectScripts {
 
 export interface ProjectInfo extends ProjectScripts {
 	baseDir: string;
+	/** If this is the primary project in the repository */
+	primary?: boolean;
 	language: LanguageRuntime | '';
 	languageTools: LanguageTools | null;
 	/** The base development branch to make new branches from */
@@ -47,6 +50,7 @@ export async function getProjectInfo(): Promise<ProjectInfo | null> {
 	if (existsSync(infoPath)) {
 		const infos = parseProjectInfo(readFileSync(infoPath).toString());
 		if (infos.length === 1) return infos[0];
+		// if (infos.length > 1) return infos.find(project => project.)
 	} else {
 		const infos = await detectProjectInfo();
 		if (infos.length === 1) return infos[0];
@@ -120,7 +124,9 @@ interface ProjectDetections {
   /** The folder which contains all the project configuration files (eg. package.json for node.js, pom.xml for Java). Often the root folder ("./") but not always */
   baseDir: string;
   /** The programming language/runtime of the project */
-  language: 'java' | 'nodejs' | 'csharp' | 'ruby' | 'python' | 'terraform';
+  language: 'java' | 'nodejs' | 'csharp' | 'ruby' | 'python' | 'terraform'; // etc
+  /** If this project is the primary project in the repository */
+  primary: boolean;
   /** The files to read to determine the shell commands to compile, run lint/formating and test the code. Do not include lock files for 3rd party code such as package-lock.json */
   files: string[],
 }
@@ -164,13 +170,51 @@ Then the output would be:
 }
 </output>
 </example>
+
+<example>
+For example, if the list of files in the repository was:
+<input>
+README.md
+setup.py
+requirements.txt
+pytest.ini
+Dockerfile
+CONTRIBUTING.md
+benchmark/README.md
+benchmark/Dockerfile
+benchmark/docker.sh
+benchmark/test_benchmark.py
+benchmark/test_utils.py
+src/main.py
+src/commands.py
+src/utils.py
+src/models.py
+</input>
+Then the output would be:
+<output>
+{
+	"projects": [{
+		"baseDir": "./",
+		"language": "python",
+		"primary": true,
+		"files": ["README.md", "setup.py", "pytest.ini", "sec/main.py"]
+	}, {
+		"baseDir": "./benchmark",
+		"language": "python",
+		"files": ["benchmark/README.md", "benchmark/docker.sh", "benchmark/Dockerfile"]
+	}]
+}
+</output>
+</example>
+
 </task_requirements>`;
 	const projectDetections: ProjectDetections = await llms().medium.generateJson(prompt, { id: 'projectInfoFileSelection' });
 	logger.info(projectDetections, 'Project detections');
 	if (!projectDetections.projects.length) throw new Error(`Could not detect a software project within ${fss.getWorkingDirectory()}`);
 
 	// TODO handle more than one project in a repository
-	if (projectDetections.projects.length > 1) throw new Error('Support for multiple projects in a repository has not been completed');
+	if (projectDetections.projects.length > 1 && !projectDetections.projects.some((project) => project.primary))
+		throw new Error('Support for multiple projects without a primary project in a repository has not been completed');
 
 	const projectDetection = projectDetections.projects[0];
 	const projectDetectionFiles = projectDetection.files.filter((filename) => !filename.includes('package-lock.json') && !filename.includes('yarn.lock'));

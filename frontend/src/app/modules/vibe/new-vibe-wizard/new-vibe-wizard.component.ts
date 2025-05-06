@@ -595,7 +595,7 @@ export class NewVibeWizardComponent implements OnInit, OnDestroy {
 			title: formValue.title,
 			instructions: formValue.instructions,
 			repositorySource: formValue.selectedSource,
-			repositoryId: repositoryId,
+			repositoryFullPath: repositoryId,
 			repositoryName: repositoryName || null,
 			targetBranch: formValue.targetBranch,
 			workingBranch: workingBranch, // Use the derived value

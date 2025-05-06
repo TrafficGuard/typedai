@@ -60,7 +60,7 @@ const gitIgnorePaths = new Set<string>();
 export class FileSystemService {
 	/** The filesystem path */
 	private workingDirectory = '';
-	vcs: VersionControlSystem | null = null;
+	private vcs: VersionControlSystem | null = null;
 	log: Pino.Logger;
 
 	/**

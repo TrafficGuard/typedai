@@ -1,17 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
-import { join } from 'node:path';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
 import type { AgentContext } from '#agent/agentContextTypes';
-import { systemDir } from '#app/appVars';
 import { appContext } from '#app/applicationContext';
 import { GitHub } from '#functions/scm/github';
 import { GitLab } from '#functions/scm/gitlab';
-import { type SourceControlManagement, getSourceControlManagementTool } from '#functions/scm/sourceControlManagement';
-import type { VersionControlSystem } from '#functions/scm/versionControlSystem';
+import type { SourceControlManagement } from '#functions/scm/sourceControlManagement';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
-import { selectFilesAgent } from '#swe/discovery/selectFilesAgent';
+import { type SelectedFile, selectFilesAgent } from '#swe/discovery/selectFilesAgent';
 import { runVibeWorkflowAgent } from '#vibe/vibeAgentRunner';
 import type { VibeRepository } from '#vibe/vibeRepository';
 import { getVibeRepositoryPath } from '#vibe/vibeRepositoryPath';
@@ -26,7 +23,7 @@ export class VibeSessionCreation {
 		const now = Date.now();
 
 		const newSession: VibeSession = {
-			...sessionData,
+			...sessionData, // This will now include repositoryFullPath
 			id: sessionId,
 			userId: userId,
 			status: 'initializing',
@@ -51,7 +48,7 @@ export class VibeSessionCreation {
 		logger.info({ sessionId, userId }, '[VibeServiceImpl] Session created in repository. Triggering background initialization...');
 
 		// Trigger background initialization asynchronously (fire and forget)
-		this.triggerBackgroundInitialization(userId, sessionId); // No await, runs in background
+		this._runSessionInitialization(userId, sessionId); // No await, runs in background
 
 		return { ...newSession }; // Return the session state *at creation*
 	}
@@ -64,7 +61,7 @@ export class VibeSessionCreation {
 	 * 4. Updates the session state in the repository.
 	 * This method is designed to run asynchronously and handles its own errors.
 	 */
-	private async triggerBackgroundInitialization(userId: string, sessionId: string): Promise<void> {
+	async _runSessionInitialization(userId: string, sessionId: string): Promise<void> {
 		let workspacePath: string; // Declare workspacePath here
 		let fss: FileSystemService | null = null; // Define fss here to be accessible in finally block if needed
 
@@ -87,6 +84,7 @@ export class VibeSessionCreation {
 			workspacePath = getVibeRepositoryPath(session);
 			fss = new FileSystemService(workspacePath);
 			await fs.mkdir(workspacePath, { recursive: true });
+			fss.setWorkingDirectory(workspacePath);
 
 			// 3. Repository Setup
 			logger.info({ sessionId }, '[VibeServiceImpl] Starting SCM setup...');
@@ -95,9 +93,11 @@ export class VibeSessionCreation {
 			if (session.repositorySource === 'gitlab') scm = new GitLab();
 			if (session.repositorySource === 'github') scm = new GitHub();
 
-			// Clone the project - assumes repositoryId is 'owner/repo' or similar
+			// Clone the project - assumes repositoryId is 'owner/repo' or similar for SCM providers
 			if (scm) {
-				const clonedRepoPath = await scm.cloneProject(session.repositoryId, session.targetBranch, workspacePath);
+				logger.info(`Cloning project ${session.repositoryName} (${session.repositoryId}) branch: ${session.workingBranch} to ${workspacePath}`);
+				const clonedRepoPath = await scm.cloneProject(session.repositoryId, session.workingBranch, workspacePath);
+				logger.info(`Repo cloned to ${clonedRepoPath}`);
 				// Verify the path returned by cloneProject. Ideally, it matches workspacePath.
 				if (clonedRepoPath !== workspacePath) {
 					logger.warn(
@@ -116,9 +116,9 @@ export class VibeSessionCreation {
 					);
 				}
 			} else {
-				// Ensure we are on targetBranch first
-				await fss.vcs.switchToBranch(session.targetBranch);
-				await fss.vcs.pull();
+				// Local repository, ensure we are on the correct branch and pull
+				await fss.getVcs().switchToBranch(session.targetBranch); // Switch to the base branch
+				await fss.getVcs().pull(); // Pull latest changes for the base branch
 			}
 
 			// Initialize FileSystemService rooted in the *actual* cloned path
@@ -139,29 +139,32 @@ export class VibeSessionCreation {
 
 			// Branch setup
 			if (session.createWorkingBranch) {
-				logger.info({ sessionId, branch: session.workingBranch }, 'Creating working branch...');
-				await fss.vcs.createBranch(session.workingBranch);
+				logger.info({ sessionId, branch: session.workingBranch }, 'Creating and switching to new working branch...');
+				await fss.getVcs().createBranch(session.workingBranch);
+				await fss.getVcs().switchToBranch(session.workingBranch);
+			} else {
+				logger.info({ sessionId, branch: session.workingBranch }, 'Switching to existing working branch (which is the base branch)...');
+				await fss.getVcs().switchToBranch(session.workingBranch);
 			}
-			logger.info({ sessionId, branch: session.workingBranch }, 'Switching to working branch...');
-			await fss.vcs.switchToBranch(session.workingBranch);
 
 			logger.info({ sessionId }, '[VibeServiceImpl] SCM setup complete.');
 
 			// 4. Run File Selection Agent (reuse the same agent context fragment)
 			logger.info({ sessionId }, '[VibeServiceImpl] Starting file selection agent...');
 		} catch (e) {
+			console.log(e);
 			logger.error({ sessionId, error: e.message }, 'Error during session initialization.');
 			await this.vibeRepo.updateVibeSession(userId, sessionId, { status: 'error', error: `Initialisation failed. ${e.message}` });
 			return;
 		}
-		// Intial file selection
+		// Initial file selection
 		try {
 			await this.vibeRepo.updateVibeSession(userId, sessionId, { status: 'updating_file_selection' });
 			session.status = 'updating_file_selection';
 
 			await runVibeWorkflowAgent(session, 'selectFiles', this.vibeRepo, async () => {
 				getFileSystem().setWorkingDirectory(workspacePath);
-				const selection = await selectFilesAgent(session.instructions);
+				const selection: SelectedFile[] = await selectFilesAgent(session.instructions);
 				logger.info({ sessionId, fileCount: selection?.length }, 'selectFilesAgent completed.');
 
 				if (!selection || !Array.isArray(selection)) throw new Error('Invalid response structure from selectFilesAgent');
@@ -170,8 +173,8 @@ export class VibeSessionCreation {
 				const fileSelectionResult = selection.map((sf) => ({
 					filePath: sf.path, // Map 'path' to 'filePath'
 					reason: sf.reason,
-					// category: sf.category, // Category removed from agent response
-					readOnly: sf.readonly, // Map 'readonly' to 'readOnly'
+					category: sf.category,
+					readOnly: sf.readOnly,
 				}));
 
 				// 5. Update Session State (Success)
