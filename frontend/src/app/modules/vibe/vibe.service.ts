@@ -59,6 +59,9 @@ export class VibeService {
 	listVibeSessions(): Observable<VibeSession[]> {
 		return this.http.get<VibeSession[]>('/api/vibe').pipe(
 			tap((response: VibeSession[]) => {
+				for(const vibe of response) {
+					console.log(vibe.createdAt)
+				}
 				this.sessions.next(response);
 			}),
 		);
@@ -114,9 +117,9 @@ export class VibeService {
 	 * @param sessionId The ID of the Vibe session.
 	 * @returns An Observable emitting an array of FileSystemNode objects.
 	 */
-	getFileSystemTree(sessionId: string): Observable<FileSystemNode[]> {
+	getFileSystemTree(sessionId: string): Observable<FileSystemNode> {
 		// The backend returns a JSON array representing the tree structure.
-		return this.http.get<FileSystemNode[]>(`/api/vibe/${sessionId}/tree`);
+		return this.http.get<FileSystemNode>(`/api/vibe/${sessionId}/tree`);
 	}
 
 	/**

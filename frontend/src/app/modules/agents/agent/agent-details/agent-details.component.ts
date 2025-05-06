@@ -22,8 +22,9 @@ import { FunctionEditModalComponent } from '../function-edit-modal/function-edit
 import { ResumeAgentModalComponent } from '../resume-agent-modal/resume-agent-modal.component';
 import { FunctionsService } from '../../services/function.service';
 import { LlmService, LLM } from '../../services/llm.service';
-import {MatTooltip} from "@angular/material/tooltip";
-import {AgentLinks, GoogleCloudLinks} from "../../services/agent-links";
+import { MatTooltip } from "@angular/material/tooltip";
+import { AgentLinks, GoogleCloudLinks } from "../../services/agent-links";
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 @Component({
     selector: 'agent-details',
@@ -44,6 +45,7 @@ import {AgentLinks, GoogleCloudLinks} from "../../services/agent-links";
         MatCheckboxModule,
         MatRadioModule,
         MatTooltip,
+        MatProgressSpinnerModule,
     ],
     providers: [AgentService, LlmService]
 })
@@ -57,6 +59,7 @@ export class AgentDetailsComponent implements OnInit {
     isSubmitting = false;
     isResumingError = false;
     isForcingStop = false;
+    isRequestingHil = false;
     userPromptExpanded = false;
     outputExpanded = false;
     allAvailableFunctions: string[] = []; // Initialize with an empty array or fetch from a service
@@ -309,6 +312,34 @@ export class AgentDetailsComponent implements OnInit {
                     this.refreshAgentDetails(); // Refresh to see potential state change
                 }
             });
+    }
+
+    requestHilCheck(): void {
+        this.isRequestingHil = true;
+        this.agentService.requestHilCheck(this.agentDetails.agentId, this.agentDetails.executionId)
+            .pipe(
+                catchError((error) => {
+                    console.error('Error requesting HIL check:', error);
+                    this.snackBar.open('Error requesting HIL check', 'Close', { duration: 3000 });
+                    return of(null);
+                }),
+                finalize(() => {
+                    this.isRequestingHil = false;
+                    this.changeDetectorRef.markForCheck();
+                })
+            )
+            .subscribe((response) => {
+                if (response !== null) {
+                    this.snackBar.open('HIL check requested successfully. Refreshing...', 'Close', { duration: 4000 });
+                    this.refreshAgentDetails();
+                }
+            });
+    }
+
+    canRequestHil(): boolean {
+        const allowedStates: AgentRunningState[] = ['workflow', 'agent', 'functions', 'hitl_tool'];
+        // Assuming agentDetails has a property 'hilRequested' which is true if HIL has been requested but not yet processed
+        return allowedStates.includes(this.agentDetails.state) && !this.agentDetails.hilRequested;
     }
 
     openResumeModal(): void {

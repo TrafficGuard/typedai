@@ -65,7 +65,7 @@ const MIND_OVER_DATA_SYS_PROMPT = `When addressing a problem, employ "Comparativ
 `;
 
 export class Blackberry extends BaseLLM {
-	llms: LLM[] = [Claude3_5_Sonnet_Vertex(), GPT4o(), Claude3_5_Sonnet_Vertex(), fireworksLlama3_405B()];
+	llms: LLM[] = [Claude3_5_Sonnet_Vertex(), GPT4o(), Claude3_5_Sonnet_Vertex()];
 	mediator: LLM = Claude3_5_Sonnet_Vertex();
 
 	constructor() {

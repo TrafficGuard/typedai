@@ -1,6 +1,7 @@
 import { lstat, readFile, readdir } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
 import yaml from 'js-yaml';
+import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
 
 const CURSOR_RULES_FILE = '.cursorrules';
@@ -32,8 +33,9 @@ type AddFileCallback = (absolutePath: string) => void;
  * @returns Set of newly found AI tool file paths, relative to CWD.
  */
 export async function includeAlternativeAiToolFiles(fileSelection: string[], options?: { cwd?: string; vcsRoot?: string }): Promise<Set<string>> {
-	const cwd = resolve(options?.cwd ?? process.cwd());
-	const absoluteVcsRoot = options?.vcsRoot ? resolve(options.vcsRoot) : undefined;
+	const fss = getFileSystem();
+	const cwd = resolve(options?.cwd ?? fss.getWorkingDirectory());
+	const absoluteVcsRoot = options?.vcsRoot ? resolve(options.vcsRoot) : fss.getVcsRoot();
 	const originalSelectionRelative = new Set(fileSelection.map((f) => f?.trim()).filter((f): f is string => !!f));
 	const foundFilesRelative = new Set<string>();
 

@@ -246,13 +246,19 @@ export class InMemoryVibeRepository implements VibeService {
 		return ['main', 'develop', 'feature/memory-stub']; // Return mock data
 	}
 
-	async getFileSystemTree(userId: string, sessionId: string, directoryPath?: string): Promise<FileSystemNode[]> {
-		logger.warn(`InMemoryVibeRepository.getFileSystemTree not implemented for session ${sessionId}`);
-		// Return mock data
-		return [
-			{ path: 'src', name: 'src', type: 'directory', children: [{ path: 'src/mem-index.ts', name: 'mem-index.ts', type: 'file' }] },
-			{ path: 'mem-package.json', name: 'mem-package.json', type: 'file' },
-		];
+	async getFileSystemTree(userId: string, sessionId: string, directoryPath = '.'): Promise<FileSystemNode> {
+		logger.warn(`InMemoryVibeRepository.getFileSystemTree not implemented for session ${sessionId}, path ${directoryPath}`);
+		// Return mock data representing the root directory
+		const mockRoot: FileSystemNode = {
+			path: directoryPath,
+			name: directoryPath === '.' ? 'root' : directoryPath.split('/').pop() || directoryPath,
+			type: 'directory',
+			children: [
+				{ path: 'src', name: 'src', type: 'directory', children: [{ path: 'src/mem-index.ts', name: 'mem-index.ts', type: 'file' }] },
+				{ path: 'mem-package.json', name: 'mem-package.json', type: 'file' },
+			],
+		};
+		return mockRoot;
 	}
 
 	async getFileContent(userId: string, sessionId: string, filePath: string): Promise<string> {

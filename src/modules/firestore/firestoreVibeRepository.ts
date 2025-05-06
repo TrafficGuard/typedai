@@ -3,6 +3,7 @@ import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import type { VibeRepository } from '#vibe/vibeRepository';
 
+import { USERS_COLLECTION } from '#firestore/firestoreUserService';
 import type { UpdateVibeSessionData, VibePreset, VibeSession } from '#vibe/vibeTypes';
 import { firestoreDb } from './firestore';
 
@@ -38,10 +39,10 @@ export class FirestoreVibeRepository implements VibeRepository {
 		};
 
 		try {
-			const docRef = this.db.collection('users').doc(userId).collection(VIBE_SESSIONS_COLLECTION).doc(sessionId);
+			const docRef = this.db.collection(USERS_COLLECTION).doc(userId).collection(VIBE_SESSIONS_COLLECTION).doc(sessionId);
 			// Use create() to prevent overwriting existing documents with the same ID
 			await docRef.create(sessionToSave);
-			logger.info({ sessionId, userId }, 'VibeSession created successfully in user subcollection.');
+			logger.info({ sessionId, userId }, 'VibeSession created');
 			return sessionId;
 		} catch (error: any) {
 			// Firestore error code 6 means ALREADY_EXISTS
@@ -63,7 +64,7 @@ export class FirestoreVibeRepository implements VibeRepository {
 	@span()
 	async getVibeSession(userId: string, sessionId: string): Promise<VibeSession | null> {
 		try {
-			const docRef = this.db.collection('users').doc(userId).collection(VIBE_SESSIONS_COLLECTION).doc(sessionId);
+			const docRef = this.db.collection(USERS_COLLECTION).doc(userId).collection(VIBE_SESSIONS_COLLECTION).doc(sessionId);
 			const docSnap = await docRef.get();
 
 			if (!docSnap.exists) {
@@ -79,12 +80,9 @@ export class FirestoreVibeRepository implements VibeRepository {
 				return null; // Or throw an error
 			}
 
-			const session: VibeSession = {
+			return {
 				...(data as VibeSession),
 			};
-
-			logger.info({ userId, sessionId }, 'VibeSession retrieved successfully from user subcollection');
-			return session;
 		} catch (error) {
 			logger.error(error, `Error retrieving VibeSession ${sessionId} for user ${userId}`);
 			throw error;
@@ -99,7 +97,7 @@ export class FirestoreVibeRepository implements VibeRepository {
 	@span()
 	async listVibeSessions(userId: string): Promise<VibeSession[]> {
 		try {
-			const querySnapshot = await this.db.collection('users').doc(userId).collection(VIBE_SESSIONS_COLLECTION).orderBy('createdAt', 'desc').get();
+			const querySnapshot = await this.db.collection(USERS_COLLECTION).doc(userId).collection(VIBE_SESSIONS_COLLECTION).orderBy('createdAt', 'desc').get();
 
 			const sessions: VibeSession[] = [];
 			querySnapshot.forEach((doc) => {
@@ -129,7 +127,7 @@ export class FirestoreVibeRepository implements VibeRepository {
 		};
 
 		try {
-			const docRef = this.db.collection('users').doc(userId).collection(VIBE_SESSIONS_COLLECTION).doc(sessionId);
+			const docRef = this.db.collection(USERS_COLLECTION).doc(userId).collection(VIBE_SESSIONS_COLLECTION).doc(sessionId);
 			// Use update which fails if the document doesn't exist (implicitly checks ownership via path)
 			await docRef.update(updateData);
 			logger.info({ sessionId, userId }, 'VibeSession updated successfully in user subcollection');
@@ -152,7 +150,7 @@ export class FirestoreVibeRepository implements VibeRepository {
 	@span()
 	async deleteVibeSession(userId: string, sessionId: string): Promise<void> {
 		try {
-			const docRef = this.db.collection('users').doc(userId).collection(VIBE_SESSIONS_COLLECTION).doc(sessionId);
+			const docRef = this.db.collection(USERS_COLLECTION).doc(userId).collection(VIBE_SESSIONS_COLLECTION).doc(sessionId);
 			// Firestore delete is idempotent (doesn't error if doc doesn't exist)
 			// Ownership is implicitly checked by the path.
 			await docRef.delete();
@@ -182,7 +180,7 @@ export class FirestoreVibeRepository implements VibeRepository {
 		};
 
 		try {
-			const docRef = this.db.collection('users').doc(userId).collection(VIBE_PRESETS_COLLECTION).doc(presetId);
+			const docRef = this.db.collection(USERS_COLLECTION).doc(userId).collection(VIBE_PRESETS_COLLECTION).doc(presetId);
 			// Use create() to prevent overwriting
 			await docRef.create(presetToSave);
 			logger.info({ presetId, userId, presetName: name }, 'VibePreset saved successfully in user subcollection');
@@ -206,7 +204,7 @@ export class FirestoreVibeRepository implements VibeRepository {
 	@span()
 	async listVibePresets(userId: string): Promise<VibePreset[]> {
 		try {
-			const querySnapshot = await this.db.collection('users').doc(userId).collection(VIBE_PRESETS_COLLECTION).orderBy('createdAt', 'desc').get();
+			const querySnapshot = await this.db.collection(USERS_COLLECTION).doc(userId).collection(VIBE_PRESETS_COLLECTION).orderBy('createdAt', 'desc').get();
 
 			const presets: VibePreset[] = [];
 			querySnapshot.forEach((doc) => {
@@ -229,7 +227,7 @@ export class FirestoreVibeRepository implements VibeRepository {
 	@span()
 	async deleteVibePreset(userId: string, presetId: string): Promise<void> {
 		try {
-			const docRef = this.db.collection('users').doc(userId).collection(VIBE_PRESETS_COLLECTION).doc(presetId);
+			const docRef = this.db.collection(USERS_COLLECTION).doc(userId).collection(VIBE_PRESETS_COLLECTION).doc(presetId);
 			// Firestore delete is idempotent
 			await docRef.delete();
 			logger.info({ presetId, userId }, 'VibePreset deleted successfully (or did not exist) from user subcollection');

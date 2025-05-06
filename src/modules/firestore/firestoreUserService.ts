@@ -7,6 +7,8 @@ import { currentUser, isSingleUser } from '#user/userService/userContext';
 import type { UserService } from '#user/userService/userService';
 import { envVar } from '#utils/env-var';
 
+export const USERS_COLLECTION = 'Users';
+
 /*** Google Firestore implementation of UserService*/
 export class FirestoreUserService implements UserService {
 	db: Firestore;
@@ -89,7 +91,7 @@ export class FirestoreUserService implements UserService {
 
 	@span({ email: 0 })
 	async getUserByEmail(email: string): Promise<User | null> {
-		const querySnapshot = await this.db.collection('Users').where('email', '==', email).get();
+		const querySnapshot = await this.db.collection(USERS_COLLECTION).where('email', '==', email).get();
 		const users = querySnapshot.docs.map((doc) => {
 			const data = doc.data();
 			return this.docToUser(data, doc.id);
@@ -101,7 +103,7 @@ export class FirestoreUserService implements UserService {
 
 	@span({ email: 0 })
 	async createUser(user: Partial<User>): Promise<User> {
-		const docRef = this.db.collection('Users').doc();
+		const docRef = this.db.collection(USERS_COLLECTION).doc();
 		user.llmConfig ??= {};
 		try {
 			await docRef.set({ ...user });
@@ -142,7 +144,7 @@ export class FirestoreUserService implements UserService {
 
 	@span()
 	async listUsers(): Promise<User[]> {
-		const querySnapshot = await this.db.collection('Users').get();
+		const querySnapshot = await this.db.collection(USERS_COLLECTION).get();
 		return querySnapshot.docs.map((doc) => {
 			const data = doc.data() as User;
 			return this.docToUser(data, doc.id);

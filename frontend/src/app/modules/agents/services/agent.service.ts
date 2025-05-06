@@ -121,6 +121,17 @@ export class AgentService {
     );
   }
 
+  /** Requests a Human-in-the-Loop check for an agent */
+  requestHilCheck(agentId: string, executionId: string): Observable<AgentContext> {
+    return this._httpClient.post<AgentContext>(
+      `/api/agent/v1/request-hil`,
+      { agentId, executionId }
+    ).pipe(
+      tap(updatedAgent => this.updateAgentInCache(updatedAgent)),
+      catchError(error => this.handleError('requestHilCheck', error))
+    );
+  }
+
   /** Resumes an agent and updates the local cache */
   resumeAgent(agentId: string, executionId: string, feedback: string): Observable<AgentContext> {
     return this._httpClient.post<AgentContext>(`/api/agent/v1/resume-hil`, { agentId, executionId, feedback }

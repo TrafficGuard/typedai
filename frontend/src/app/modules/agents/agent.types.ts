@@ -120,6 +120,8 @@ export interface AgentContext {
 
     // UI generated
     output: string;
+    /** True if a human-in-the-loop check has been requested but not yet processed */
+    hilRequested?: boolean;
 }
 
 export interface FileMetadata {

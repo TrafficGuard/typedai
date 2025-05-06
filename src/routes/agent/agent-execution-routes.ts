@@ -1,5 +1,6 @@
 import { Type } from '@sinclair/typebox';
 import { LlmFunctions } from '#agent/LlmFunctions';
+import { isExecuting } from '#agent/agentContextTypes';
 import { serializeContext } from '#agent/agentSerialization';
 import { forceStopAgent } from '#agent/forceStopAgent';
 import { cancelAgent, provideFeedback, resumeCompleted, resumeError, resumeHil } from '#agent/orchestrator/orchestratorAgentRunner';
@@ -97,6 +98,53 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 			const updatedAgent = await fastify.agentStateService.load(agentId);
 			if (!updatedAgent) return sendBadRequest(reply, 'Agent not found');
 			send(reply, 200, serializeContext(updatedAgent));
+		},
+	);
+
+	/** Requests a human-in-the-loop check for an agent */
+	fastify.post(
+		`${v1BasePath}/request-hil`,
+		{
+			schema: {
+				body: Type.Object({
+					agentId: Type.String(),
+					executionId: Type.String(),
+				}),
+			},
+		},
+		async (req, reply) => {
+			const { agentId, executionId } = req.body;
+
+			try {
+				const agent = await fastify.agentStateService.load(agentId);
+				if (!agent) return sendBadRequest(reply, 'Agent not found');
+
+				if (agent.executionId !== executionId) {
+					return sendBadRequest(reply, `Execution ID mismatch. Agent ${agentId} is currently on execution ${agent.executionId}.`);
+				}
+
+				if (agent.hilRequested) {
+					logger.info(`HIL check already requested for agent ${agentId}, execution ${executionId}.`);
+					return send(reply, 200, serializeContext(agent));
+				}
+
+				if (!isExecuting(agent)) {
+					return sendBadRequest(reply, `Agent ${agentId} is not in an executing state (${agent.state}). Cannot request HIL check.`);
+				}
+
+				await fastify.agentStateService.requestHumanInLoopCheck(agent);
+
+				const updatedAgent = await fastify.agentStateService.load(agentId);
+				if (!updatedAgent) {
+					// This should ideally not happen if the previous load succeeded, but handle defensively
+					logger.error({ agentId, executionId }, 'Failed to reload agent after requesting HIL check');
+					return sendBadRequest(reply, 'Failed to reload agent state after requesting HIL check.');
+				}
+				send(reply, 200, serializeContext(updatedAgent));
+			} catch (error: any) {
+				logger.error({ agentId, executionId, error }, 'Error requesting HIL check');
+				sendBadRequest(reply, `Error requesting HIL check: ${error.message || 'Unknown error'}`);
+			}
 		},
 	);
 

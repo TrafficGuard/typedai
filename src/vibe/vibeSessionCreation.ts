@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
+import { getFileSystem } from '#agent/agentContextLocalStorage';
 import type { AgentContext } from '#agent/agentContextTypes';
 import { systemDir } from '#app/appVars';
 import { appContext } from '#app/applicationContext';
@@ -43,9 +44,7 @@ export class VibeSessionCreation {
 			ciCdStatus: undefined,
 			ciCdJobUrl: undefined,
 			ciCdAnalysis: undefined,
-			agentHistory: [], // Initialize new field
-			// Ensure user object is included if needed by agent context later
-			// user: await appContext().userService.getUser(userId), // Example: Fetch user if needed
+			agentHistory: [],
 		};
 
 		await this.vibeRepo.createVibeSession(newSession);
@@ -69,16 +68,17 @@ export class VibeSessionCreation {
 		let workspacePath: string; // Declare workspacePath here
 		let fss: FileSystemService | null = null; // Define fss here to be accessible in finally block if needed
 
-		try {
-			logger.info({ userId, sessionId }, '[VibeServiceImpl] Starting background initialization...');
+		logger.info({ userId, sessionId }, '[VibeServiceImpl] Starting background initialization...');
 
-			// 1. Get Session Data
-			const session = await this.vibeRepo.getVibeSession(userId, sessionId);
-			if (!session) {
-				// Session might have been deleted between creation and this point
-				logger.warn({ userId, sessionId }, 'VibeSession not found during background initialization.');
-				return; // Exit gracefully
-			}
+		// 1. Get Session Data
+		const session = await this.vibeRepo.getVibeSession(userId, sessionId);
+		if (!session) {
+			// Session might have been deleted between creation and this point
+			logger.warn({ userId, sessionId }, 'VibeSession not found during background initialization.');
+			return; // Exit gracefully
+		}
+
+		try {
 			// Ensure user data is available if needed for agent context
 			const user = await appContext().userService.getUser(userId);
 			if (!user) throw new Error(`User ${userId} not found for Vibe session ${sessionId}`);
@@ -107,7 +107,13 @@ export class VibeSessionCreation {
 					// If cloneProject creates a subdirectory (e.g., workspacePath/repoName), clonedRepoPath will be different.
 					// We MUST use clonedRepoPath for the FileSystemService.
 				} else {
-					logger.info({ sessionId, clonedRepoPath }, 'Repository cloned/updated into calculated workspace path.');
+					logger.info(
+						{
+							sessionId,
+							clonedRepoPath,
+						},
+						'Repository cloned/updated into calculated workspace path.',
+					);
 				}
 			} else {
 				// Ensure we are on targetBranch first
@@ -117,7 +123,13 @@ export class VibeSessionCreation {
 
 			// Initialize FileSystemService rooted in the *actual* cloned path
 
-			logger.info({ sessionId, repoPath: fss.getWorkingDirectory() }, 'FileSystemService initialized for repository path.');
+			logger.info(
+				{
+					sessionId,
+					repoPath: fss.getWorkingDirectory(),
+				},
+				'FileSystemService initialized for repository path.',
+			);
 
 			// Prepare agent context fragment *after* fss is initialized
 			const agentContextFragment: Pick<AgentContext, 'fileSystem' | 'user'> = {
@@ -137,12 +149,18 @@ export class VibeSessionCreation {
 
 			// 4. Run File Selection Agent (reuse the same agent context fragment)
 			logger.info({ sessionId }, '[VibeServiceImpl] Starting file selection agent...');
-
+		} catch (e) {
+			logger.error({ sessionId, error: e.message }, 'Error during session initialization.');
+			await this.vibeRepo.updateVibeSession(userId, sessionId, { status: 'error', error: `Initialisation failed. ${e.message}` });
+			return;
+		}
+		// Intial file selection
+		try {
 			await this.vibeRepo.updateVibeSession(userId, sessionId, { status: 'updating_file_selection' });
 			session.status = 'updating_file_selection';
 
 			await runVibeWorkflowAgent(session, 'selectFiles', this.vibeRepo, async () => {
-				// selectFilesAgent expects UserContentExt, pass instructions directly
+				getFileSystem().setWorkingDirectory(workspacePath);
 				const selection = await selectFilesAgent(session.instructions);
 				logger.info({ sessionId, fileCount: selection?.length }, 'selectFilesAgent completed.');
 
@@ -181,7 +199,7 @@ export class VibeSessionCreation {
 				}
 
 				await this.vibeRepo.updateVibeSession(userId, sessionId, {
-					status: errorStatus,
+					status: 'error_file_selection',
 					error: error instanceof Error ? error.message : 'Background initialization failed',
 					lastAgentActivity: Date.now(),
 				});

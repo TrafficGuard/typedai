@@ -4,7 +4,7 @@ import { togetherDeepSeekR1 } from '#llm/services/together';
 import { logger } from '#o11y/logger';
 import { BaseLLM } from '../base-llm';
 import type { GenerateTextOptions, LLM, LlmMessage } from '../llm';
-import { fireworksDeepSeekR1 } from '../services/fireworks';
+import { fireworksDeepSeekR1_Fast } from '../services/fireworks';
 
 export function deepSeekFallbackRegistry(): Record<string, () => LLM> {
 	return {
@@ -21,7 +21,7 @@ export function DeepSeekR1_Together_Fireworks_Nebius_SambaNova(): LLM {
  * Tries Together.ai first as is slightly cheaper, then falls back to Fireworks
  */
 export class DeepSeekR1_Fallbacks extends BaseLLM {
-	private llms: LLM[] = [togetherDeepSeekR1(), fireworksDeepSeekR1(), nebiusDeepSeekR1(), sambanovaDeepseekR1()];
+	private llms: LLM[] = [togetherDeepSeekR1(), fireworksDeepSeekR1_Fast(), nebiusDeepSeekR1(), sambanovaDeepseekR1()];
 
 	constructor() {
 		super(

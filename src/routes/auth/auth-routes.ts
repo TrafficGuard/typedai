@@ -3,7 +3,7 @@ import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send } from '#fastify/index';
 import { userToJwtPayload } from '#fastify/jwt';
 import { logger } from '#o11y/logger';
-import { ROUTES } from '../../../shared/routes';
+import { API_ROUTES } from '../../../shared/routes';
 
 const AUTH_ERRORS = {
 	INVALID_CREDENTIALS: 'Invalid credentials',
@@ -15,7 +15,7 @@ const basePath = '/api/auth';
 export async function authRoutes(fastify: AppFastifyInstance) {
 	// Authentication routes
 	fastify.post(
-		ROUTES.AUTH_SIGN_IN,
+		API_ROUTES.AUTH_SIGN_IN,
 		{
 			schema: {
 				body: Type.Object({
