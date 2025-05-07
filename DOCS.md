@@ -285,3 +285,16 @@ try {
 ## Notes
 This code block does a simple load, there's no business logic.
 The between the `yaml.load` and the warn message is enough for the reader to quickly understand. No further comments are required.
+
+# Example
+
+## Orignal
+```
+const maxAttempts = 3; // Max reflection attempts
+```
+## Updated
+```typescript
+const maxReflectionAttempts = 3;
+```
+## Notes
+Use descriptive variable and function names instead of commenting on generic names.
