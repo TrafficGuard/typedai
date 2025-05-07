@@ -43,7 +43,7 @@ export interface SelectedFile {
 	filePath: string; // Keep existing name 'filePath' for frontend consistency
 	readOnly?: boolean;
 	reason?: string; // Optional reason if needed
-	// category?: 'edit' | 'reference' | 'style_example' | 'unknown'; // Removed - Not standard in backend SelectedFile
+	category?: 'edit' | 'reference' | 'style_example' | 'unknown';
 }
 
 /**
@@ -51,6 +51,7 @@ export interface SelectedFile {
  * Must match FileSystemNodeSchema in src/routes/vibe/vibeRoutes.ts
  */
 export interface FileSystemNode {
+	path: string; // Add path property
 	name: string;
 	type: 'file' | 'directory';
 	children?: FileSystemNode[]; // Optional for directories

@@ -1,28 +1,53 @@
-<div *ngIf="files?.length" class="sm:col-span-2">
+<div *ngIf="files?.length; else noFiles" class="sm:col-span-2">
     <div class="font-semibold mb-2">Selected Files:</div>
-    <!-- Use mat-list for file display -->
-    <mat-list dense>
-        <mat-list-item *ngFor="let file of files" class="h-auto! py-3 group">
-            <div class="flex flex-col w-full">
+    <mat-table [dataSource]="files" class="mat-elevation-z0">
+
+        <!-- File Path Column -->
+        <ng-container matColumnDef="filePath">
+            <mat-header-cell *matHeaderCellDef> File Path </mat-header-cell>
+            <mat-cell *matCellDef="let file">
                 <div class="flex items-center">
-                    <mat-icon matListItemIcon *ngIf="file.readOnly" class="mr-2 text-gray-500" matTooltip="Read Only">lock</mat-icon>
-                    <span class="text-secondary break-all flex-grow font-medium">{{ file.filePath }}</span>
-                    <button
-                        mat-icon-button
-                        class="ml-auto opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+                    <mat-icon *ngIf="file.readOnly" class="mr-2 text-gray-500" matTooltip="Read Only">lock</mat-icon>
+                    <span class="text-secondary break-all font-medium">{{ file.filePath }}</span>
+                </div>
+            </mat-cell>
+        </ng-container>
+
+        <!-- Reason Column -->
+        <ng-container matColumnDef="reason">
+            <mat-header-cell *matHeaderCellDef> Reason </mat-header-cell>
+            <mat-cell *matCellDef="let file" class="text-xs text-gray-600 !px-4 !py-2" data-testid="file-reason"> <!-- Added padding for better spacing -->
+                {{ file.reason }}
+            </mat-cell>
+        </ng-container>
+
+        <!-- Category Column -->
+        <ng-container matColumnDef="category">
+            <mat-header-cell *matHeaderCellDef> Category </mat-header-cell>
+            <mat-cell *matCellDef="let file" class="text-xs text-gray-500 !px-4 !py-2" data-testid="file-category"> <!-- Added padding -->
+                <span *ngIf="file.category" class="capitalize">{{ file.category.replace('_', ' ') }}</span>
+            </mat-cell>
+        </ng-container>
+
+        <!-- Actions Column -->
+        <ng-container matColumnDef="actions">
+            <mat-header-cell *matHeaderCellDef class="!justify-end"> Actions </mat-header-cell> <!-- Align header to end -->
+            <mat-cell *matCellDef="let file" class="!justify-end"> <!-- Align cell content to end -->
+                <button mat-icon-button
                         [disabled]="file.readOnly || !allowDeletion"
-                        [matTooltip]="allowDeletion ? 'Delete File' : 'Deletion disabled in current state'"
+                        [matTooltip]="allowDeletion ? 'Remove File' : 'Deletion disabled in current state'"
                         (click)="deleteFile(file)">
-                        <mat-icon svgIcon="heroicons_outline:trash" [class.text-red-500]="allowDeletion" [class.text-gray-400]="!allowDeletion"></mat-icon>
-                    </button>
-                </div>
-                <div *ngIf="file.reason" class="text-xs text-gray-600 ml-8 mt-1" data-testid="file-reason">
-                    <strong>Reason:</strong> {{ file.reason }}
-                </div>
-                <div *ngIf="file.category" class="text-xs text-gray-500 ml-8 mt-1" data-testid="file-category">
-                    <strong>Category:</strong> <span class="capitalize">{{ file.category.replace('_', ' ') }}</span>
-                </div>
-            </div>
-        </mat-list-item>
-    </mat-list>
+                    <mat-icon svgIcon="heroicons_outline:trash" [class.text-red-500]="allowDeletion" [class.text-gray-400]="!allowDeletion"></mat-icon>
+                </button>
+            </mat-cell>
+        </ng-container>
+
+        <mat-header-row *matHeaderRowDef="displayedColumns"></mat-header-row>
+        <mat-row *matRowDef="let row; columns: displayedColumns;"></mat-row>
+    </mat-table>
 </div>
+<ng-template #noFiles>
+    <div class="sm:col-span-2 text-gray-500 italic">
+        No files selected.
+    </div>
+</ng-template>

@@ -1,6 +1,8 @@
 import { Component, inject, OnInit, OnDestroy, ViewEncapsulation } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { map, Observable, of, startWith, switchMap, take, Subject, takeUntil, finalize, tap } from 'rxjs';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { VibeFileTreeSelectDialogComponent } from './vibe-file-tree-select-dialog/vibe-file-tree-select-dialog.component';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterOutlet } from '@angular/router';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
@@ -43,6 +45,7 @@ import { VibeDesignReviewComponent } from './vibe-design-review/vibe-design-revi
     VibeFileListComponent,
     VibeDesignReviewComponent,
     MatProgressSpinnerModule,
+    MatDialogModule,
   ],
 })
 export class VibeComponent implements OnInit, OnDestroy {
@@ -57,6 +60,7 @@ export class VibeComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private vibeService = inject(VibeService);
   private snackBar = inject(MatSnackBar);
+  private dialog = inject(MatDialog);
 
   session$: Observable<VibeSession>;
   currentSession: VibeSession | null = null; // Store the current session
@@ -186,10 +190,29 @@ export class VibeComponent implements OnInit, OnDestroy {
       }),
       takeUntil(this.destroy$) // Clean up subscription
     ).subscribe((fileSystemNode: FileSystemNode | null) => {
-        console.log(fileSystemNode)
         this.rootNode = fileSystemNode;
-        // Split the newline-separated string into an array of file paths
-        this.allFiles = [];//fileListString ? fileListString.split('\n').filter(f => f.trim() !== '') : [];
+        this.allFiles = []; // Clear previous files
+
+        if (this.rootNode) {
+          // If the rootNode itself is a directory and has children, iterate through them.
+          // The initial parentPath for items directly under the root depends on the rootNode.name.
+          // If rootNode.name is '.' or empty, it implies the children are at the top level.
+          // Otherwise, rootNode.name is part of their path.
+          if (this.rootNode.type === 'directory' && this.rootNode.children) {
+            const initialParentPath = (this.rootNode.name === '.' || !this.rootNode.name) ? '' : this.rootNode.name;
+            for (const child of this.rootNode.children) {
+              this._extractFilePathsRecursive(child, initialParentPath, this.allFiles);
+            }
+          } else if (this.rootNode.type === 'file') {
+            // Handle the unlikely case where the root node itself is a file
+              this._extractFilePathsRecursive(this.rootNode, '', this.allFiles);
+          }
+        }
+
+        // Ensure the autocomplete updates if it already has a value
+        if (this.addFileControl.value) {
+            this.addFileControl.updateValueAndValidity({ emitEvent: true });
+        }
       // Initialize or re-initialize the filtered files observable
       if (!this.filteredFiles$) {
         this.filteredFiles$ = this.addFileControl.valueChanges.pipe(
@@ -215,6 +238,22 @@ export class VibeComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  private _extractFilePathsRecursive(node: FileSystemNode, parentPath: string, allFilesList: string[]): void {
+    // Construct the current item's full path.
+    // If parentPath is empty (e.g. for items directly under a root like '.'), don't prepend a slash.
+    const currentItemPath = parentPath ? `${parentPath}/${node.name}` : node.name;
+
+    if (node.type === 'file') {
+      allFilesList.push(currentItemPath);
+    } else if (node.type === 'directory' && node.children) {
+      // For directories, recurse for each child.
+      // The currentItemPath becomes the parentPath for its children.
+      for (const child of node.children) {
+        this._extractFilePathsRecursive(child, currentItemPath, allFilesList);
+      }
+    }
   }
 
   /**
@@ -333,5 +372,33 @@ export class VibeComponent implements OnInit, OnDestroy {
       console.log('File selection update cancelled by user.');
       this.isProcessingAction = false;
     }
+  }
+
+  openShowFilesDialog(): void {
+    if (!this.rootNode) {
+      this.snackBar.open('File tree data is not loaded yet. Please wait.', 'Close', { duration: 3000 });
+      return;
+    }
+
+    const dialogRef = this.dialog.open(VibeFileTreeSelectDialogComponent, {
+      width: '70vw', // Adjusted width
+      maxWidth: '800px',
+      maxHeight: '80vh',
+      data: { rootNode: this.rootNode }
+    });
+
+    dialogRef.afterClosed().pipe(takeUntil(this.destroy$)).subscribe(selectedFilePaths => {
+      // selectedFilePaths will be an array of strings (file paths)
+      if (selectedFilePaths && Array.isArray(selectedFilePaths) && selectedFilePaths.length > 0) {
+        console.log('Files selected from dialog:', selectedFilePaths);
+        this.snackBar.open(`${selectedFilePaths.length} file(s) selected. (Note: Adding to selection list is TODO)`, 'Close', { duration: 4000 });
+        // TODO: Implement logic to create SelectedFile objects and add them to this.currentSession.fileSelection
+        // Ensure no duplicates, then re-sort this.currentSession.fileSelection using this.sortFiles()
+      } else if (selectedFilePaths) { // It's an empty array if "Select" was clicked with no items
+        console.log('No files were selected from the dialog.');
+      } else { // Undefined if "Cancel" or backdrop click
+        console.log('File selection dialog was cancelled.');
+      }
+    });
   }
 }
