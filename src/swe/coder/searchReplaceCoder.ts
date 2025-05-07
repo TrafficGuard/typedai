@@ -546,22 +546,39 @@ export class SearchReplaceCoder {
 		const beforeText = this._stripQuotedWrapping(originalBlock, relativePath, fenceToStrip);
 		const afterText = this._stripQuotedWrapping(updatedBlock, relativePath, fenceToStrip);
 
-		if (currentContent === null) {
-			// File does not exist
-			if (!beforeText.trim()) {
-				// Intent to create new file
-				return afterText; // Caller handles actual file creation via writeFile
-			}
-			logger.warn(`File ${relativePath} not found, and SEARCH block is not empty. Cannot apply.`);
+		if (currentContent === null && !beforeText.trim()) {
+			// File does not exist, and SEARCH block is empty (intent to create new file)
+			return afterText;
+		}
+		if (currentContent === null && beforeText.trim()) {
+			// File does not exist, and SEARCH block is NOT empty. Cannot apply.
+			logger.warn(`File ${relativePath} not found, and SEARCH block is not empty. Cannot apply edit.`);
 			return undefined;
 		}
 
+		// File exists (currentContent is not null)
 		if (!beforeText.trim()) {
 			// Append to existing file if SEARCH block is empty
-			return currentContent + afterText;
+			let base = currentContent as string; // Cast as it's not null here
+
+			// If creating a new file (currentContent was null, handled above) or afterText is just a newline, result is just a newline.
+			// This specific check for currentContent === null && afterText === '\n' is not strictly needed here
+			// as currentContent is not null at this point.
+
+			// If base is not empty and doesn't end with a newline, and afterText is not empty, add a newline for separation.
+			if (base && !base.endsWith('\n') && afterText.length > 0) {
+				// Avoid double newline if afterText itself is just "\n" and base already implies a line break.
+				// If afterText is just "\n", it means an empty REPLACE block, so just add a newline to base.
+				if (afterText === '\n') {
+					return base + '\n';
+				}
+				return base + '\n' + afterText;
+			}
+			// If base ends with '\n' or afterText is empty, simple concatenation is fine.
+			return base + afterText;
 		}
 
-		return this._replaceMostSimilarChunk(currentContent, beforeText, afterText);
+		return this._replaceMostSimilarChunk(currentContent as string, beforeText, afterText);
 	}
 
 	private _prep(content: string): { text: string; lines: string[] } {

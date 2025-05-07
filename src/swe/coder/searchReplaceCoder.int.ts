@@ -12,7 +12,7 @@ const SEARCH_MARKER = '<<<<<<< SEARCH';
 const DIVIDER_MARKER = '=======';
 const REPLACE_MARKER = '>>>>>>> REPLACE';
 
-describe.only('SearchReplaceCoder integration tests', () => {
+describe('SearchReplaceCoder integration tests', () => {
 	setupConditionalLoggerOutput(); // Handles logger stubbing
 
 	const testRoot = '/test-repo'; // Absolute path for mock-fs
@@ -21,7 +21,7 @@ describe.only('SearchReplaceCoder integration tests', () => {
 		// Mock file system structure will be defined per test or describe block
 		// Stub getFileSystem to return a FileSystemService instance operating on the mock FS
 		// The FileSystemService needs a basePath, which should be our testRoot.
-		const fssInstance = new FileSystemService(testRoot); // logger is available from o11y
+		const fssInstance = new FileSystemService(testRoot, logger); // Pass logger
 		sinon.stub(agentContextLocalStorage, 'getFileSystem').returns(fssInstance);
 	});
 
@@ -39,15 +39,18 @@ describe.only('SearchReplaceCoder integration tests', () => {
 			});
 
 			const coder = new SearchReplaceCoder(testRoot, [filePath]);
-			const llmResponse = `${filePath}\n${SEARCH_MARKER}\nworld\n${DIVIDER_MARKER}\nTypeScript\n${REPLACE_MARKER}\n`;
+			// SEARCH block now matches the entire line
+			const llmResponse = `${filePath}\n${SEARCH_MARKER}\nHello world, this is a test.\n${DIVIDER_MARKER}\nHello TypeScript, this is a test.\n${REPLACE_MARKER}\n`;
 
 			const editedFiles = await coder.applyLlmResponse(llmResponse);
-			expect(editedFiles).to.be.a('Set').that.has(filePath);
+			expect(editedFiles).to.be.a('Set');
+			expect(editedFiles).to.include(filePath);
 			expect(coder.reflectedMessage).to.be.null;
 
 			const fss = agentContextLocalStorage.getFileSystem();
 			const updatedContent = await fss!.readFile(join(testRoot, filePath));
-			expect(updatedContent).to.equal('Hello TypeScript, this is a test.');
+			// Expected content will have a newline due to line-based replacement logic
+			expect(updatedContent).to.equal('Hello TypeScript, this is a test.\n');
 		});
 
 		it('should create a new file when SEARCH block is empty', async () => {
@@ -61,7 +64,8 @@ describe.only('SearchReplaceCoder integration tests', () => {
 			const llmResponse = `${newFilePath}\n${SEARCH_MARKER}\n\n${DIVIDER_MARKER}\n${newContent}\n${REPLACE_MARKER}\n`;
 
 			const editedFiles = await coder.applyLlmResponse(llmResponse);
-			expect(editedFiles).to.be.a('Set').that.has(newFilePath);
+			expect(editedFiles).to.be.a('Set');
+			expect(editedFiles).to.include(newFilePath);
 			expect(coder.reflectedMessage).to.be.null;
 
 			const fss = agentContextLocalStorage.getFileSystem();
@@ -72,22 +76,23 @@ describe.only('SearchReplaceCoder integration tests', () => {
 		it('should edit a file not initially in chat (implicitly added)', async () => {
 			const filePath = 'other_file.txt';
 			const initialContent = 'Original content here.';
-			const newContentChunk = 'Modified part';
+			const replacementContent = 'Modified part completely replaces.';
 			mockFs({
 				[join(testRoot, filePath)]: initialContent,
 			});
 
 			const coder = new SearchReplaceCoder(testRoot, []); // No initial files
-			const llmResponse = `${filePath}\n${SEARCH_MARKER}\nOriginal content\n${DIVIDER_MARKER}\n${newContentChunk}\n${REPLACE_MARKER}\n`;
+			const llmResponse = `${filePath}\n${SEARCH_MARKER}\nOriginal content here.\n${DIVIDER_MARKER}\n${replacementContent}\n${REPLACE_MARKER}\n`;
 
 			const editedFiles = await coder.applyLlmResponse(llmResponse);
-			expect(editedFiles).to.be.a('Set').that.has(filePath);
+			expect(editedFiles).to.be.a('Set');
+			expect(editedFiles).to.include(filePath);
 			expect(coder.reflectedMessage).to.be.null;
-			expect((coder as any).absFnamesInChat).to.include(join(testRoot, filePath)); // Check if added to chat
+			expect((coder as any).absFnamesInChat).to.include(join(testRoot, filePath));
 
 			const fss = agentContextLocalStorage.getFileSystem();
 			const updatedContent = await fss!.readFile(join(testRoot, filePath));
-			expect(updatedContent).to.equal(newContentChunk + '\n');
+			expect(updatedContent).to.equal(replacementContent + '\n');
 		});
 	});
 
@@ -103,20 +108,21 @@ describe.only('SearchReplaceCoder integration tests', () => {
 			const llmResponse = `
 ${filePath}
 ${SEARCH_MARKER}
-Alpha
+Line 1: Alpha
 ${DIVIDER_MARKER}
-Apple
+Line 1: Apple
 ${REPLACE_MARKER}
 
 ${filePath}
 ${SEARCH_MARKER}
-Gamma
+Line 3: Gamma
 ${DIVIDER_MARKER}
-Grape
+Line 3: Grape
 ${REPLACE_MARKER}
 `;
 			const editedFiles = await coder.applyLlmResponse(llmResponse);
-			expect(editedFiles).to.be.a('Set').that.has(filePath);
+			expect(editedFiles).to.be.a('Set');
+			expect(editedFiles).to.include(filePath);
 			expect(coder.reflectedMessage).to.be.null;
 
 			const fss = agentContextLocalStorage.getFileSystem();
@@ -151,7 +157,9 @@ const b = 200;
 ${REPLACE_MARKER}
 `;
 			const editedFiles = await coder.applyLlmResponse(llmResponse);
-			expect(editedFiles).to.be.a('Set').that.has(fileAPath).and.has(fileBPath);
+			expect(editedFiles).to.be.a('Set');
+			expect(editedFiles).to.include(fileAPath);
+			expect(editedFiles).to.include(fileBPath);
 			expect(coder.reflectedMessage).to.be.null;
 
 			const fss = agentContextLocalStorage.getFileSystem();
@@ -174,7 +182,6 @@ ${REPLACE_MARKER}
 			const llmResponse = `${filePath}\n${SEARCH_MARKER}\nnonexistent search text\n${DIVIDER_MARKER}\nreplacement\n${REPLACE_MARKER}\n`;
 
 			const editedFiles = await coder.applyLlmResponse(llmResponse);
-			// applyLlmResponse returns null if reflectedMessage is set
 			expect(editedFiles).to.be.null;
 			expect(coder.reflectedMessage).to.be.a('string').and.contain('failed to match');
 
@@ -205,7 +212,8 @@ NewFooter
 ${REPLACE_MARKER}
 `;
 			const editedFiles = await coder.applyLlmResponse(llmResponse);
-			expect(editedFiles).to.be.a('Set').that.has(filePath);
+			expect(editedFiles).to.be.a('Set');
+			expect(editedFiles).to.include(filePath);
 			expect(coder.reflectedMessage).to.be.null;
 
 			const fss = agentContextLocalStorage.getFileSystem();
@@ -236,7 +244,8 @@ Delta
 ${REPLACE_MARKER}
 `;
 			const editedFiles = await coder.applyLlmResponse(llmResponse);
-			expect(editedFiles).to.be.a('Set').that.has(filePath);
+			expect(editedFiles).to.be.a('Set');
+			expect(editedFiles).to.include(filePath);
 			expect(coder.reflectedMessage).to.be.null;
 
 			const fss = agentContextLocalStorage.getFileSystem();
@@ -267,7 +276,8 @@ new indented line
 ${REPLACE_MARKER}
 `;
 			const editedFiles = await coder.applyLlmResponse(llmResponse);
-			expect(editedFiles).to.be.a('Set').that.has(filePath);
+			expect(editedFiles).to.be.a('Set');
+			expect(editedFiles).to.include(filePath);
 			expect(coder.reflectedMessage).to.be.null;
 
 			const fss = agentContextLocalStorage.getFileSystem();

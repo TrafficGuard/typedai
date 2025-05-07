@@ -6,7 +6,7 @@ import { SearchReplaceCoder } from './searchReplaceCoder';
 // Ensure _stripFilename is imported if _findFilenameFromPrecedingLines directly uses it from utils
 import { _stripFilename } from './searchReplaceUtils';
 
-describe.only('SearchReplaceCoder', () => {
+describe('SearchReplaceCoder', () => {
 	setupConditionalLoggerOutput();
 
 	describe('_findFilename', () => {
