@@ -1,6 +1,6 @@
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import { type LlmMessage, messageText } from '#llm/llm';
+import { type LlmMessage, messageText, user as createUserMessage } from '#llm/llm'; // Added createUserMessage
 import { logger } from '#o11y/logger';
 import { ApplySearchReplace, type EditFormat } from '#swe/coder/applySearchReplace';
 
@@ -21,61 +21,70 @@ export class SearchReplaceCoder {
 
 		logger.info({ requirements, filesToEdit, readOnlyFiles }, 'editFilesToMeetRequirements');
 
-		// Instantiate ApplySearchReplace once.
-		// It will be used for both building the prompt and applying the edits.
-		// filesToEdit are passed as initialFiles to set up the context.
-		// Options for both prompt building and edit application are set here.
 		const searchReplacer = new ApplySearchReplace(rootPath, filesToEdit, {
 			editFormat,
 			autoCommits: commit,
-			dirtyCommits: true, 
+			dirtyCommits: true,
 			dryRun: false,
-			lenientLeadingWhitespace: true, // <<< Add this line
-			// language: 'typescript', 
-			// suggestShellCommands: true, 
+			lenientLeadingWhitespace: true,
 		});
 
-		// repoMapContent could be fetched or passed if available, e.g., via fileSystem.generateRepoMap()
-		const repoMapContent: string | undefined = undefined; // Or fetch if needed
+		const repoMapContent: string | undefined = undefined;
 
-		// Build the prompt using ApplySearchReplace instance.
-		// additionalFilesToChatRelativePaths is empty because filesToEdit are already handled by initialFiles in constructor.
-		const messages: LlmMessage[] = await searchReplacer.buildPrompt(requirements, filesToEdit, readOnlyFiles, repoMapContent);
+		let currentMessages: LlmMessage[] = await searchReplacer.buildPrompt(requirements, filesToEdit, readOnlyFiles, repoMapContent);
+		logger.debug({ messages: currentMessages }, 'SearchReplaceCoder: Initial prompt built for LLM');
 
-		logger.debug({ messages }, 'SearchReplaceCoder: Prompt built for LLM');
+		let attempts = 0;
+		const maxAttempts = 3; // Max reflection attempts
 
-		// Call the LLM
-		const llmResponseMsg: LlmMessage = await llms().hard.generateMessage(messages, {
-			id: 'SearchReplaceCoder.editFiles', // Unique ID for tracing/logging
-			temperature: 0.0, // Low temperature for more deterministic code editing
-			// stop: ['>>>>>>> REPLACE'], // Optional: if specific stop sequences are beneficial, though ApplySearchReplace should parse the whole block.
-		});
+		while (attempts < maxAttempts) {
+			attempts++;
+			logger.info(`SearchReplaceCoder: LLM call attempt ${attempts}/${maxAttempts}`);
 
-		const llmResponseText = messageText(llmResponseMsg);
+			const llmResponseMsgObj: LlmMessage = await llms().hard.generateMessage(currentMessages, {
+				id: `SearchReplaceCoder.editFiles.attempt${attempts}`,
+				temperature: 0.0,
+			});
 
-		// Pass empty string if llmResponseText is null/undefined to avoid errors in applyLlmResponse
-		const responseToApply = llmResponseText || '';
-		if (!llmResponseText?.trim()) {
-			logger.warn('SearchReplaceCoder: LLM returned an empty or whitespace-only response.');
-			// applyLlmResponse will likely find no edit blocks and return an empty set.
+			// Add LLM's response to the message history for the next potential turn
+			currentMessages = [...currentMessages, llmResponseMsgObj];
+
+			const llmResponseText = messageText(llmResponseMsgObj);
+			const responseToApply = llmResponseText || '';
+
+			if (!llmResponseText?.trim() && attempts === 1) { // Only warn on first attempt for empty response
+				logger.warn('SearchReplaceCoder: LLM returned an empty or whitespace-only response on first attempt.');
+			}
+
+			const editedFiles: Set<string> | null = await searchReplacer.applyLlmResponse(responseToApply, llms().hard);
+
+			if (editedFiles !== null) { // Success or no edits but no reflection needed
+				if (editedFiles.size === 0 && !searchReplacer.reflectedMessage) {
+					logger.info('SearchReplaceCoder: No edits were applied by the LLM (or no valid edit blocks found in the response).');
+				} else if (editedFiles.size > 0) {
+					logger.info({ editedFiles: Array.from(editedFiles) }, 'SearchReplaceCoder: Successfully applied edits.');
+				}
+				return; // Exit loop on success
+			}
+
+			// If editedFiles is null, it means searchReplacer.reflectedMessage is (or should be) set
+			const reflection = searchReplacer.reflectedMessage;
+			if (!reflection) {
+				logger.error('SearchReplaceCoder: applyLlmResponse returned null without a reflection message. Cannot proceed with reflection.');
+				throw new Error('Edit application failed without specific reflection message, preventing retry.');
+			}
+
+			logger.warn({ reflectedMessage: reflection }, `SearchReplaceCoder: Edit attempt ${attempts} failed. Reflecting to LLM.`);
+
+			if (attempts >= maxAttempts) {
+				logger.error(`SearchReplaceCoder: Maximum reflection attempts (${maxAttempts}) reached. Failing.`);
+				throw new Error(`Failed to apply edits after ${maxAttempts} attempts. Last reflection: ${reflection}`);
+			}
+
+			// Prepare for next attempt: add reflection to messages
+			// The reflection message is formatted as if it's user feedback on the LLM's last attempt.
+			currentMessages = [...currentMessages, createUserMessage(reflection)];
+			// Note: llmResponseMsgObj (the assistant's failed attempt) is already in currentMessages.
 		}
-
-		// Apply the edits using the same ApplySearchReplace instance
-		const editedFiles: Set<string> | null = await searchReplacer.applyLlmResponse(responseToApply, llms().hard);
-
-		if (editedFiles === null) {
-			// A reflectedMessage should be set on the searchReplacer instance if applyLlmResponse returns null
-			const reflection = searchReplacer.reflectedMessage || 'No specific reflection message provided.';
-			logger.error({ reflectedMessage: reflection }, 'SearchReplaceCoder: Failed to apply edits. LLM reflection suggested.');
-			// Throw an error to indicate failure that might require intervention or retry
-			throw new Error(`Failed to apply edits. Reflection: ${reflection}`);
-		}
-
-		if (editedFiles.size === 0 && !searchReplacer.reflectedMessage) {
-			logger.info('SearchReplaceCoder: No edits were applied by the LLM (or no valid edit blocks found in the response).');
-		} else if (editedFiles.size > 0) {
-			logger.info({ editedFiles: Array.from(editedFiles) }, 'SearchReplaceCoder: Successfully applied edits.');
-		}
-		// The 'commit' parameter is handled by the 'autoCommits' option passed to ApplySearchReplace.
 	}
 }
