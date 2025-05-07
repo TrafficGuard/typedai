@@ -4,6 +4,8 @@ import type { VersionControlSystem } from '#functions/scm/versionControlSystem';
 import type { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
 import { _stripFilename } from '#swe/coder/applySearchReplaceUtils';
+import type { LlmMessage } from '#llm/llm';
+import { platform } from 'node:os';
 
 const SEARCH_MARKER = '<<<<<<< SEARCH';
 const DIVIDER_MARKER = '=======';
@@ -32,7 +34,61 @@ interface SearchReplaceCoderOptions {
 	// initialFiles?: string[]; // Relative paths of files already in chat context
 }
 
-export class ApplySearchReplace {
+// Define an interface for the prompt options
+interface SearchReplaceCoderPromptOptions extends SearchReplaceCoderOptions {
+	language?: string;
+	suggestShellCommands?: boolean;
+	useLazyPrompt?: boolean;
+	useOvereagerPrompt?: boolean;
+	// A simple string for quad_backtick_reminder, can be enhanced later if needed
+	quadBacktickReminder?: string;
+}
+
+// Store prompt templates (based on aider's EditBlockPrompts and BasePrompts)
+const EDIT_BLOCK_PROMPTS = {
+	main_system: `Act as an expert software developer.
+Always use best practices when coding.
+Respect and use existing conventions, libraries, etc that are already present in the code base.
+{final_reminders}
+Take requests for changes to the supplied code.
+If the request is ambiguous, ask questions.
+
+Always reply to the user in {language}.
+
+Once you understand the request you MUST:
+
+1. Decide if you need to propose *SEARCH/REPLACE* edits to any files that haven't been added to the chat. You can create new files without asking!
+
+But if you need to propose edits to existing files not already added to the chat, you *MUST* tell the user their full path names and ask them to *add the files to the chat*.
+End your reply and wait for their approval.
+You can keep asking if you then decide you need to edit more files.
+
+2. Think step-by-step and explain the needed changes in a few short sentences.
+
+3. Describe each change with a *SEARCH/REPLACE block* per the examples below.
+
+All changes to files must use this *SEARCH/REPLACE block* format.
+ONLY EVER RETURN CODE IN A *SEARCH/REPLACE BLOCK*!
+{shell_cmd_prompt_section}`,
+	example_messages_template: [
+		{
+			role: 'user' as const,
+			content: 'Change get_factorial() to use math.factorial',
+		},
+		{
+			role: 'assistant' as const,
+			content: `To make this change we need to modify \`mathweb/flask/app.py\` to:
+
+1. Import the math package.
+2. Remove the existing factorial() function.
+3. Update get_factorial() to call math.factorial instead.
+
+Here are the *SEARCH/REPLACE* blocks:
+
+mathweb/flask/app.py
+{fence_0}python
+<<<<<<< SEARCH
+from flask import Flask
 	private fileSystemService: FileSystemService;
 	private vcs: VersionControlSystem | null;
 	private rootPath: string; // Absolute path to the project root (e.g., git repo root)
@@ -45,6 +101,11 @@ export class ApplySearchReplace {
 
 	// State during processing of one LLM response
 	private currentLlmResponseContent = '';
+	private language: string;
+	private suggestShellCommands: boolean;
+	private useLazyPrompt: boolean;
+	private useOvereagerPrompt: boolean;
+	private quadBacktickReminder: string;
 
 	private async _fileExists(absolutePath: string): Promise<boolean> {
 		return this.fileSystemService.fileExists(absolutePath);
@@ -67,7 +128,7 @@ export class ApplySearchReplace {
 	constructor(
 		rootPath: string, // Should be the project's root directory (e.g., git repo root)
 		initialFiles: string[] = [], // Relative paths from rootPath, for files already "in chat"
-		options: SearchReplaceCoderOptions = { editFormat: 'diff' },
+		options: SearchReplaceCoderPromptOptions = { editFormat: 'diff' }, // Use the new options type
 	) {
 		const agentFs = getFileSystem(); // Assumes agent context is appropriately set up by the caller
 		if (!agentFs) {
@@ -91,6 +152,13 @@ export class ApplySearchReplace {
 		this.autoCommits = options.autoCommits ?? true;
 		this.dirtyCommits = options.dirtyCommits ?? true;
 		this.dryRun = options.dryRun ?? false;
+
+		// Initialize new prompt-related options
+		this.language = options.language ?? 'TypeScript';
+		this.suggestShellCommands = options.suggestShellCommands ?? true;
+		this.useLazyPrompt = options.useLazyPrompt ?? false; // Default to false unless specified
+		this.useOvereagerPrompt = options.useOvereagerPrompt ?? false; // Default to false
+		this.quadBacktickReminder = options.quadBacktickReminder ?? ''; // Default to empty
 	}
 
 	private getAbsoluteFilePath(relativePath: string): string {
@@ -829,5 +897,100 @@ export class ApplySearchReplace {
 		// Fuzzy matching (replace_closest_edit_distance) is commented out in Python
 		// and would require a more complex diffing library. Not ported.
 		return undefined;
+	}
+
+	public async buildPrompt(
+		userRequest: string,
+		additionalFilesToChatRelativePaths: string[] = [],
+		readOnlyFilesRelativePaths: string[] = [],
+		repoMapContent?: string,
+	): Promise<LlmMessage[]> {
+		const messages: LlmMessage[] = [];
+
+		// --- System Prompt ---
+		let finalRemindersText = '';
+		if (this.useLazyPrompt) finalRemindersText += EDIT_BLOCK_PROMPTS.lazy_prompt;
+		if (this.useOvereagerPrompt) finalRemindersText += EDIT_BLOCK_PROMPTS.overeager_prompt;
+
+		let shellCmdPromptSection = '';
+		if (this.suggestShellCommands) {
+			shellCmdPromptSection = EDIT_BLOCK_PROMPTS.shell_cmd_prompt.replace('{platform}', platform());
+		} else {
+			shellCmdPromptSection = EDIT_BLOCK_PROMPTS.no_shell_cmd_prompt.replace('{platform}', platform());
+		}
+
+		let mainSystemContent = EDIT_BLOCK_PROMPTS.main_system
+			.replace('{language}', this.language)
+			.replace('{final_reminders}', finalRemindersText.trim())
+			.replace('{shell_cmd_prompt_section}', shellCmdPromptSection);
+
+		let systemReminderContent = EDIT_BLOCK_PROMPTS.system_reminder
+			.replace(/{fence_0}/g, this.fence[0])
+			.replace(/{fence_1}/g, this.fence[1])
+			.replace('{quad_backtick_reminder}', this.quadBacktickReminder)
+			.replace('{rename_with_shell_section}', this.suggestShellCommands ? EDIT_BLOCK_PROMPTS.rename_with_shell : '')
+			.replace('{go_ahead_tip_section}', EDIT_BLOCK_PROMPTS.go_ahead_tip)
+			.replace('{final_reminders}', finalRemindersText.trim())
+			.replace('{shell_cmd_reminder_section}', this.suggestShellCommands ? EDIT_BLOCK_PROMPTS.shell_cmd_reminder : '');
+
+		messages.push({
+			role: 'system',
+			content: `${mainSystemContent}\n\n${systemReminderContent}`,
+		});
+
+		// --- Example Messages ---
+		EDIT_BLOCK_PROMPTS.example_messages_template.forEach((msgTemplate) => {
+			messages.push({
+				role: msgTemplate.role,
+				content: msgTemplate.content
+					.replace(/{fence_0}/g, this.fence[0])
+					.replace(/{fence_1}/g, this.fence[1]),
+			});
+		});
+
+		// --- File Context ---
+		additionalFilesToChatRelativePaths.forEach((relPath) => {
+			this.absFnamesInChat.add(this.getAbsoluteFilePath(relPath));
+		});
+
+		const currentFilesInChatRelative = Array.from(this.absFnamesInChat).map((absPath) => this.getRelativeFilePath(absPath));
+
+		if (currentFilesInChatRelative.length > 0) {
+			messages.push({
+				role: 'user',
+				content: `${EDIT_BLOCK_PROMPTS.files_content_prefix}\n${currentFilesInChatRelative.join('\n')}`,
+			});
+			messages.push({ role: 'assistant', content: EDIT_BLOCK_PROMPTS.files_content_assistant_reply });
+		} else if (repoMapContent) {
+			messages.push({ role: 'user', content: EDIT_BLOCK_PROMPTS.files_no_full_files_with_repo_map });
+			messages.push({ role: 'assistant', content: EDIT_BLOCK_PROMPTS.files_no_full_files_with_repo_map_reply });
+		} else {
+			messages.push({ role: 'user', content: EDIT_BLOCK_PROMPTS.files_no_full_files });
+			// No standard assistant reply for this one in python version, so we omit it too.
+		}
+
+		if (readOnlyFilesRelativePaths.length > 0) {
+			messages.push({
+				role: 'user',
+				content: `${EDIT_BLOCK_PROMPTS.read_only_files_prefix}\n${readOnlyFilesRelativePaths.join('\n')}`,
+			});
+			// Adding a custom assistant reply for clarity, as Python's is generic or missing here.
+			messages.push({ role: 'assistant', content: 'Ok, I will treat these files as read-only and not propose changes to them.' });
+		}
+
+		// Add repo map content if provided and not already handled by files_no_full_files_with_repo_map
+		// (i.e., if there are files in chat, or no files in chat and no repo map specific message was used)
+		if (repoMapContent && (currentFilesInChatRelative.length > 0 || !EDIT_BLOCK_PROMPTS.files_no_full_files_with_repo_map)) {
+			messages.push({
+				role: 'user',
+				content: `${EDIT_BLOCK_PROMPTS.repo_content_prefix}\n${repoMapContent}`,
+			});
+			messages.push({ role: 'assistant', content: 'Ok, I will use this repository information for context.' });
+		}
+
+		// --- User Request ---
+		messages.push({ role: 'user', content: userRequest });
+
+		return messages;
 	}
 }
