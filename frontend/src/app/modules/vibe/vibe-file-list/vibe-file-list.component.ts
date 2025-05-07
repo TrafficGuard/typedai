@@ -18,12 +18,18 @@ import { SelectedFile, VibeSession } from '../vibe.types';
   ],
 })
 export class VibeFileListComponent {
-  @Input() files: SelectedFile[] | null | undefined = []; // Allow null/undefined
-  @Input() allowDeletion: boolean = true; // Input to control deletion
   @Input() session: VibeSession | null = null;
   @Output() fileDeleted = new EventEmitter<SelectedFile>();
 
   displayedColumns: string[] = ['filePath', 'reason', 'category', 'actions'];
+
+  /**
+   * Checks if the current session status makes the file list read-only.
+   * @returns True if the session status is 'file_selection_review' or 'updating_file_selection', false otherwise.
+   */
+  public get isReadOnly(): boolean {
+    return this.session?.status === 'file_selection_review' || this.session?.status === 'updating_file_selection';
+  }
 
   /**
    * Emits an event when the delete button is clicked for a file.

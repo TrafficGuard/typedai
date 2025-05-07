@@ -1,11 +1,49 @@
-<div>
-    <h2>Vibe File List Component</h2>
-    <div *ngIf="session">
-        <p>Session ID: {{ session.id }}</p>
-        <p>Status: {{ session.status }}</p>
-        <p>Instructions: {{ session.instructions }}</p>
-    </div>
-    <div *ngIf="!session">
-        <p>No session data available for VibeFileListComponent.</p>
-    </div>
+<div class="vibe-file-list-container">
+    <ng-container *ngIf="!session?.fileSelection?.length; else fileTable">
+        <p>No files selected.</p>
+    </ng-container>
+
+    <ng-template #fileTable>
+        <table mat-table [dataSource]="session!.fileSelection!" class="mat-elevation-z8">
+
+            <!-- FilePath Column -->
+            <ng-container matColumnDef="filePath">
+                <th mat-header-cell *matHeaderCellDef> File Path </th>
+                <td mat-cell *matCellDef="let file">
+                    <div class="file-path-container">
+                        <mat-icon *ngIf="file.readOnly" svgIcon="heroicons_outline:lock-closed" matTooltip="Read-only file"></mat-icon>
+                        <span>{{ file.filePath }}</span>
+                    </div>
+                </td>
+            </ng-container>
+
+            <!-- Reason Column -->
+            <ng-container matColumnDef="reason">
+                <th mat-header-cell *matHeaderCellDef> Reason </th>
+                <td mat-cell *matCellDef="let file"> {{ file.reason }} </td>
+            </ng-container>
+
+            <!-- Category Column -->
+            <ng-container matColumnDef="category">
+                <th mat-header-cell *matHeaderCellDef> Category </th>
+                <td mat-cell *matCellDef="let file"> {{ file.category }} </td>
+            </ng-container>
+
+            <!-- Actions Column -->
+            <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef> Actions </th>
+                <td mat-cell *matCellDef="let file">
+                    <button mat-icon-button
+                            [disabled]="isReadOnly || file.readOnly"
+                            [matTooltip]="isReadOnly ? 'Deletion disabled: Session is in read-only review state.' : (file.readOnly ? 'Deletion disabled: File is read-only.' : 'Remove file')"
+                            (click)="deleteFile(file)">
+                        <mat-icon svgIcon="heroicons_outline:trash"></mat-icon>
+                    </button>
+                </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
+    </ng-template>
 </div>

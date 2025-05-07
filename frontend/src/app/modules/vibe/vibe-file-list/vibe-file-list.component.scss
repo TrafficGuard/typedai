@@ -1,1 +1,33 @@
-/* Empty SCSS file for VibeFileListComponent */
+:host {
+  display: block;
+}
+
+.mat-mdc-table { // Target Material v15+ table
+  width: 100%;
+}
+
+.mat-column-reason, .mat-column-category {
+  font-size: 0.875rem;
+  color: #555;
+  padding-right: 16px; // Add some padding
+}
+
+.mat-column-filePath {
+    padding-right: 16px; // Add some padding
+}
+
+.mat-column-actions {
+  width: auto; // Allow natural width for icon button
+  padding-right: 0 !important; // Align to the very end
+  text-align: right;
+
+  .mat-mdc-icon-button { // Target Material v15+ icon button
+    margin-left: auto; // Push button to the right if cell is wider
+  }
+}
+
+.file-path-container {
+  display: flex;
+  align-items: center;
+  gap: 8px; // Space between icon and text
+}
