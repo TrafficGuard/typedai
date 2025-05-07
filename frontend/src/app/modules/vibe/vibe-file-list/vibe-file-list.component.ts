@@ -28,12 +28,12 @@ export class VibeFileListComponent {
   @Input() session: VibeSession | null = null;
   @Output() fileDeleted = new EventEmitter<SelectedFile>();
   @Output() reasonUpdated = new EventEmitter<{ file: SelectedFile, newReason: string }>();
-  @Output() categoryUpdated = new EventEmitter<{ file: SelectedFile, newCategory: string }>();
+  @Output() categoryUpdated = new EventEmitter<{ file: SelectedFile, newCategory: SelectedFile['category'] }>();
 
   displayedColumns: string[] = ['filePath', 'reason', 'category', 'actions'];
   public dialog = inject(MatDialog);
   public editingCategoryFilePath: string | null = null;
-  public availableCategories: string[] = ['edit', 'reference', 'style_example', 'unknown'];
+  public availableCategories: Array<SelectedFile['category']> = ['edit', 'reference', 'style_example', 'unknown'];
 
   /**
    * Checks if the current session status makes the file list read-only.
@@ -95,7 +95,7 @@ export class VibeFileListComponent {
    * @param file The file whose category was changed.
    * @param newCategory The new category selected for the file.
    */
-  onCategoryChange(file: SelectedFile, newCategory: string): void {
+  onCategoryChange(file: SelectedFile, newCategory: SelectedFile['category']): void {
     this.categoryUpdated.emit({ file, newCategory });
     this.editingCategoryFilePath = null;
   }

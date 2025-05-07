@@ -188,7 +188,7 @@ export class VibeComponent implements OnInit, OnDestroy {
     });
   }
 
-  public handleCategoryUpdated(event: { file: SelectedFile, newCategory: string }): void {
+  public handleCategoryUpdated(event: { file: SelectedFile, newCategory: SelectedFile['category'] }): void {
     if (!this.currentSession || !this.currentSession.id || !this.currentSession.fileSelection) {
       console.error('Cannot update category: Session, session ID, or file selection is missing.');
       this.snackBar.open('Error: Session data incomplete. Cannot update category.', 'Close', { duration: 3000 });
