@@ -24,6 +24,7 @@ export function parseProcessArgs(): CliOptions {
 	const scriptPath = process.argv[1];
 	let scriptName = scriptPath.split(path.sep).at(-1);
 	scriptName = scriptName.substring(0, scriptName.length - 3);
+	console.log(`Script name: ${scriptName}`);
 	return parseUserCliArgs(scriptName, process.argv.slice(2)); // slice shallow copies as we may want to modify the slice later
 }
 
@@ -53,7 +54,7 @@ export function parseUserCliArgs(scriptName: string, scriptArgs: string[]): CliO
 	let resumeLastRun = false;
 	let i = 0;
 	for (; i < scriptArgs.length; i++) {
-		if (scriptArgs[i] === '-r') {
+		if (scriptArgs[i].startsWith('-r')) {
 			resumeLastRun = true;
 			if (scriptArgs[i].length > 3) resumeAgentId = scriptArgs[i].substring(3);
 		} else {
@@ -82,6 +83,11 @@ export function parseUserCliArgs(scriptName: string, scriptArgs: string[]): CliO
 	// Remove the function argument from args if present
 	const promptArgs = scriptArgs.filter((arg) => !arg.startsWith('-t=') && !arg.startsWith('-f='));
 	let initialPrompt = promptArgs.slice(i).join(' ');
+
+	if (initialPrompt.startsWith('-f') || initialPrompt.startsWith('-t') || initialPrompt.startsWith('--fs') || initialPrompt.startsWith('-r'))
+		throw new Error(
+			'If running from the npm command then program argument need to be seperated by "--". e.g. "npm run agent -- -f=code,web,jira". Alternatively use the "ai" script as an alias for "npm run" which doesnt required this, and can be run from any directory.',
+		);
 
 	logger.debug({ functionClasses }, 'Parsed function classes');
 	// logger.info(initialPrompt);
