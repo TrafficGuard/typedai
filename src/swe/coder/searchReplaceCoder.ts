@@ -378,73 +378,70 @@ export class SearchReplaceCoder {
 		}
 
 		const splitRegex = new RegExp(`^((${SEARCH_MARKER}|${DIVIDER_MARKER}|${REPLACE_MARKER})[ ]*\\n)`, 'gm');
-		const rawParts = content.split(splitRegex);
-		// Filter out empty strings that can result from split if content starts/ends with delimiter or has consecutive delimiters.
-		// However, text parts can legitimately be empty. Markers are never empty.
-		// Python's re.split behaves such that if the string starts with a delimiter, the first element is empty.
-		const parts: string[] = rawParts.filter((p, index) => {
-			// Keep actual text (even if empty string) if it's a text part.
-			// Text parts are at even indices if the string doesn't start with a delimiter.
-			// Or, more simply, keep all non-undefined parts from split, then manage based on marker expectations.
-			return p !== undefined;
-		});
+		// Python's re.split with a capturing group includes the delimiters.
+		// JS .split with a capturing group also includes the captured delimiters.
+		// Example: "text1<S>text2<D>text3<R>text4".split(/(<S>|<D>|<R>)/)
+		// -> ["text1", "<S>", "text2", "<D>", "text3", "<R>", "text4"]
+		// If it starts with a delimiter: "<S>text2..." -> ["", "<S>", "text2", ...]
+		const parts = content.split(splitRegex).filter((p) => p !== undefined); // Remove undefineds from non-capturing groups if any
 
-		let currentFilePath: string | undefined = undefined; // Sticky filename
+		let currentFilePath: string | undefined = undefined;
 		let i = 0;
 
-		// Loop through parts. Expectation: [text, marker, text, marker, ..., text_after_last_marker_or_empty]
-		// or [empty_if_starts_with_marker, marker, text, marker, ...]
 		while (i < parts.length) {
-			const textBeforeCurrentMarker = parts[i];
+			const textPart = parts[i]; // This is text between markers, or before the first marker.
 
+			// Check if there are enough parts left for a marker and subsequent text
 			if (i + 1 >= parts.length) {
-				// No more parts for a marker
+				// Only a trailing text part left, no more markers
 				break;
 			}
-			const potentialSearchMarker = parts[i + 1];
+			const markerPart = parts[i + 1];
 
-			if (potentialSearchMarker.startsWith(SEARCH_MARKER)) {
-				const filePathFromPreceding = this._findFilenameFromPrecedingLines(textBeforeCurrentMarker, fenceForFilenameScan[0]);
+			if (markerPart.startsWith(SEARCH_MARKER)) {
+				// `textPart` is the content immediately preceding this SEARCH_MARKER
+				const filePathFromPreceding = this._findFilenameFromPrecedingLines(textPart, fenceForFilenameScan[0]);
 				if (filePathFromPreceding) {
 					currentFilePath = filePathFromPreceding;
 				}
 
 				if (!currentFilePath) {
-					logger.warn('Search block found without a valid preceding or sticky filename. Skipping block.', { textBeforeCurrentMarker });
-					i += 2; // Consumed textBeforeCurrentMarker and potentialSearchMarker
+					logger.warn('Search block found without a valid preceding or sticky filename. Skipping block.', { textBeforeSearch: textPart });
+					i += 2; // Advance past textPart and SEARCH_MARKER
 					continue;
 				}
 
-				// We have a SEARCH_MARKER (parts[i+1]) and a currentFilePath.
-				// Expecting: originalText (parts[i+2]), DIVIDER_MARKER (parts[i+3]), updatedText (parts[i+4]), REPLACE_MARKER (parts[i+5])
+				// We expect: originalText, DIVIDER_MARKER, updatedText, REPLACE_MARKER
+				// These are at indices i+2, i+3, i+4, i+5 respectively
 				if (i + 5 >= parts.length) {
-					logger.warn(`Malformed block for ${currentFilePath}: Incomplete block structure (not enough parts).`);
-					break; // Not enough parts for a full SEARCH/DIVIDER/REPLACE sequence
+					logger.warn(`Malformed block for ${currentFilePath}: Incomplete structure after SEARCH_MARKER.`);
+					break; // Not enough parts for a full block
 				}
 
 				const originalText = parts[i + 2];
-				const dividerMarkerActual = parts[i + 3];
+				const nextMarker1 = parts[i + 3];
 				const updatedText = parts[i + 4];
-				const replaceMarkerActual = parts[i + 5];
+				const nextMarker2 = parts[i + 5];
 
-				if (!dividerMarkerActual.startsWith(DIVIDER_MARKER)) {
-					logger.warn(`Malformed block for ${currentFilePath}: Expected DIVIDER_MARKER. Found: ${dividerMarkerActual || 'missing part'}`);
-					i += 2; // Consumed textBeforeCurrentMarker and potentialSearchMarker. Try to resync.
+				if (!nextMarker1.startsWith(DIVIDER_MARKER)) {
+					logger.warn(`Malformed block for ${currentFilePath}: Expected DIVIDER_MARKER, found ${nextMarker1}.`);
+					i += 2; // Advance past textPart and SEARCH_MARKER, try to resync
 					continue;
 				}
-				if (!replaceMarkerActual.startsWith(REPLACE_MARKER)) {
-					logger.warn(`Malformed block for ${currentFilePath}: Expected REPLACE_MARKER. Found: ${replaceMarkerActual || 'missing part'}`);
-					i += 2; // Consumed textBeforeCurrentMarker and potentialSearchMarker. Try to resync.
+				if (!nextMarker2.startsWith(REPLACE_MARKER)) {
+					logger.warn(`Malformed block for ${currentFilePath}: Expected REPLACE_MARKER, found ${nextMarker2}.`);
+					i += 4; // Advance past textPart, S_M, originalText, D_M, try to resync
 					continue;
 				}
 
 				edits.push({ filePath: currentFilePath, originalText, updatedText });
-				i += 6; // Consumed: text, S, orig, D, upd, R
+				i += 6; // Consumed: textPart, S_M, originalText, D_M, updatedText, R_M
 			} else {
-				// parts[i+1] was not a SEARCH_MARKER.
-				// This means parts[i] was some text, and parts[i+1] was some other marker or end of content.
-				// Advance past this segment to look for the next potential block.
-				i += 2; // Consumed text (parts[i]) and the non-SEARCH marker (parts[i+1])
+				// `markerPart` was not a SEARCH_MARKER. This means `textPart` was some interim text,
+				// and `markerPart` was DIVIDER or REPLACE, which is unexpected here (means malformed).
+				// Or, we are at the end.
+				// Advance by 2 to consume `textPart` and `markerPart` and look for a new SEARCH.
+				i += 2;
 			}
 		}
 		return edits;

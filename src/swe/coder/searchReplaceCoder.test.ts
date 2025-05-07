@@ -84,11 +84,14 @@ describe.only('SearchReplaceCoder', () => {
 
 		it('should skip malformed block (missing divider) and log warning', () => {
 			const response = `file.ts\n${SEARCH_MARKER}\noriginal\n${REPLACE_MARKER}\n`;
-			const loggerStub = sinon.stub(logger, 'warn');
+			// Assuming setupConditionalLoggerOutput or a global beforeEach handles logger stubbing.
+			// If not, this test would need a more careful stub management.
+			// For now, let's capture calls if a global spy/stub is available or just check behavior.
+			const warnSpy = sinon.spy(logger, 'warn'); // Use spy to check calls without replacing implementation
 			const edits = (coder as any)._parseSearchReplaceBlocks(response, ['```', '```']);
 			expect(edits).to.deep.equal([]);
-			expect(loggerStub.called).to.equal(true);
-			loggerStub.restore();
+			expect(warnSpy.called).to.equal(true); // Check if logger.warn was called
+			warnSpy.restore(); // Clean up the spy
 		});
 
 		it('should handle filename in ```lang filename``` preceding SEARCH', () => {
