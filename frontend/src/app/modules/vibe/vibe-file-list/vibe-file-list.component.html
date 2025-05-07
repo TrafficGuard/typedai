@@ -20,7 +20,13 @@
             <!-- Reason Column -->
             <ng-container matColumnDef="reason">
                 <th mat-header-cell *matHeaderCellDef> Reason </th>
-                <td mat-cell *matCellDef="let file"> {{ file.reason }} </td>
+                <td mat-cell *matCellDef="let file">
+                    <span [class.reason-text-clickable]="!isReadOnly"
+                          (click)="!isReadOnly && editReason(file)"
+                          [matTooltip]="isReadOnly ? 'Reason editing disabled in current state' : 'Click to edit reason'">
+                        {{ file.reason || '-' }}
+                    </span>
+                </td>
             </ng-container>
 
             <!-- Category Column -->

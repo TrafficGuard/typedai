@@ -31,3 +31,11 @@
   align-items: center;
   gap: 8px; // Space between icon and text
 }
+
+.reason-text-clickable {
+  cursor: pointer;
+  &:hover {
+    text-decoration: underline;
+    color: var(--fuse-primary-500, blue);
+  }
+}
