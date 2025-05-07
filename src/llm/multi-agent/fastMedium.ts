@@ -1,6 +1,6 @@
 import { cerebrasLlama3_3_70b } from '#llm/services/cerebras';
 import { sambanovaLlama3_3_70b } from '#llm/services/sambanova';
-import { Gemini_2_0_Flash } from '#llm/services/vertexai';
+import { vertexGemini_2_0_Flash } from '#llm/services/vertexai';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import { BaseLLM } from '../base-llm';
@@ -22,7 +22,7 @@ export class FastMediumLLM extends BaseLLM {
 			() => ({ inputCost: 0, outputCost: 0, totalCost: 0 }),
 		);
 		// Define the providers and their priorities. Lower number = higher priority
-		this.providers = [cerebrasLlama3_3_70b(), sambanovaLlama3_3_70b(), Gemini_2_0_Flash()];
+		this.providers = [cerebrasLlama3_3_70b(), sambanovaLlama3_3_70b(), vertexGemini_2_0_Flash()];
 
 		this.maxInputTokens = Math.max(...this.providers.map((p) => p.getMaxInputTokens()));
 	}

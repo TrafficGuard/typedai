@@ -1,5 +1,4 @@
 import { type TogetherAIProvider, createTogetherAI } from '@ai-sdk/togetherai';
-import type { LanguageModelV1 } from 'ai';
 import { type LlmCostFunction, fixedCostPerMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
 import { currentUser } from '#user/userService/userContext';
@@ -27,27 +26,22 @@ export function togetherDeepSeekR1(): LLM {
 	return new TogetherLLM('DeepSeek R1 (Together)', 'deepseek-ai/DeepSeek-R1', 64000, fixedCostPerMilTokens(3, 7));
 }
 
-type TogetherAIProviderV1 = TogetherAIProvider & {
-	languageModel: (modelId: string) => LanguageModelV1;
-};
 /**
  * Together AI models
  */
-export class TogetherLLM extends AiLLM<TogetherAIProviderV1> {
-	constructor(displayName: string, model: string, maxTokens: number, calculateCosts: LlmCostFunction) {
-		super(displayName, TOGETHER_SERVICE, model, maxTokens, calculateCosts);
+export class TogetherLLM extends AiLLM<TogetherAIProvider> {
+	constructor(displayName: string, model: string, maxOutputTokens: number, calculateCosts: LlmCostFunction) {
+		super(displayName, TOGETHER_SERVICE, model, maxOutputTokens, calculateCosts);
 	}
 
 	protected apiKey(): string {
 		return currentUser().llmConfig.togetheraiKey || process.env.TOGETHERAI_API_KEY;
 	}
 
-	provider(): TogetherAIProviderV1 {
-		// @ts-ignore
+	provider(): TogetherAIProvider {
 		this.aiProvider ??= createTogetherAI({
 			apiKey: this.apiKey(),
 		});
-		this.aiProvider.languageModel = (modelId) => this.aiProvider(modelId);
 		return this.aiProvider;
 	}
 }

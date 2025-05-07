@@ -14,7 +14,7 @@ import { Claude3_7_Sonnet } from '#llm/services/anthropic';
 import { deepSeekV3 } from '#llm/services/deepseek';
 import { GPT4o } from '#llm/services/openai';
 import { openRouterGemini2_5_Pro } from '#llm/services/openrouter';
-import { Gemini_2_5_Pro } from '#llm/services/vertexai';
+import { vertexGemini_2_5_Pro } from '#llm/services/vertexai';
 import { logger } from '#o11y/logger';
 import { getActiveSpan } from '#o11y/trace';
 import { currentUser } from '#user/userService/userContext';
@@ -69,7 +69,7 @@ export class AiderCodeEditor {
 			env = { GEMINI_API_KEY: key };
 		} else if (process.env.GCLOUD_PROJECT) {
 			//  && process.env.GCLOUD_CLAUDE_REGION
-			llm = Gemini_2_5_Pro();
+			llm = vertexGemini_2_5_Pro();
 			modelArg = `--model vertex_ai/${llm.getModel()}`;
 			span.setAttribute('model', llm.getModel());
 			env = { VERTEXAI_PROJECT: process.env.GCLOUD_PROJECT, VERTEXAI_LOCATION: process.env.GCLOUD_REGION };

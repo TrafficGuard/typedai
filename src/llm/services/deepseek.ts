@@ -67,8 +67,8 @@ export function deepSeekR1(): LLM {
  * @see https://platform.deepseek.com/api-docs/api/create-chat-completion
  */
 export class DeepSeekLLM extends AiLLM<DeepSeekProvider> {
-	constructor(displayName: string, model: string, maxTokens: number, calculateCosts: LlmCostFunction) {
-		super(displayName, DEEPSEEK_SERVICE, model, maxTokens, calculateCosts);
+	constructor(displayName: string, model: string, maxOutputTokens: number, calculateCosts: LlmCostFunction) {
+		super(displayName, DEEPSEEK_SERVICE, model, maxOutputTokens, calculateCosts);
 	}
 
 	// https://sdk.vercel.ai/providers/ai-sdk-providers/deepseek

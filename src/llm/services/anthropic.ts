@@ -67,7 +67,7 @@ export class Anthropic extends AiLLM<AnthropicProvider> {
 		return llmMessages.map((msg) => {
 			const clone = { ...msg };
 			if (msg.cache === 'ephemeral') {
-				clone.experimental_providerMetadata = { anthropic: { cacheControl: { type: 'ephemeral' } } };
+				clone.providerOptions = { anthropic: { cacheControl: { type: 'ephemeral' } } };
 			}
 			return clone;
 		});

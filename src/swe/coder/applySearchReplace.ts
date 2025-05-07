@@ -740,12 +740,12 @@ export class ApplySearchReplace {
 				// Handle blank lines:
 				// If wholeLine is blank (wholeTrimmed is empty)
 				if (!wholeTrimmed) {
-					if (!partTrimmed) { // And partLine is also blank
+					if (!partTrimmed) {
+						// And partLine is also blank
 						continue; // Both blank, this line is fine, doesn't affect offset consistency.
-					} else {
-						// wholeLine is blank, but partLine is not. This is a content mismatch.
-						return undefined;
 					}
+					// wholeLine is blank, but partLine is not. This is a content mismatch.
+					return undefined;
 				}
 				// At this point, wholeTrimmed is not empty.
 				// If partTrimmed was empty but wholeTrimmed is not, it's a mismatch (already covered by wholeTrimmed !== partTrimmed).
@@ -769,12 +769,11 @@ export class ApplySearchReplace {
 			if (!firstNonBlankLenient) {
 				// At least one non-blank line was processed and offsets were consistent.
 				return prefixToReturnForLenientMatch;
-			} else {
-				// All lines were blank (or num === 0, which is handled at the start).
-				// If num > 0 and all lines in both chunks were blank, they match with an empty effective prefix.
-				if (num > 0) {
-					return ""; // All lines in both chunks were blank.
-				}
+			}
+			// All lines were blank (or num === 0, which is handled at the start).
+			// If num > 0 and all lines in both chunks were blank, they match with an empty effective prefix.
+			if (num > 0) {
+				return ''; // All lines in both chunks were blank.
 			}
 		}
 

@@ -7,8 +7,8 @@ import type { LLM } from '../llm';
 export const FIREWORKS_SERVICE = 'fireworks';
 
 export class Fireworks extends AiLLM<OpenAIProvider> {
-	constructor(displayName: string, model: string, maxTokens: number, calculateCosts: LlmCostFunction) {
-		super(displayName, FIREWORKS_SERVICE, model, maxTokens, calculateCosts);
+	constructor(displayName: string, model: string, maxOutputTokens: number, calculateCosts: LlmCostFunction) {
+		super(displayName, FIREWORKS_SERVICE, model, maxOutputTokens, calculateCosts);
 	}
 
 	protected apiKey(): string {
