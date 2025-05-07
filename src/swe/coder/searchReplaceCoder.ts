@@ -1,8 +1,8 @@
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { type LlmMessage, messageText } from '#llm/llm';
-import { ApplySearchReplace, type EditFormat } from '#swe/coder/applySearchReplace';
 import { logger } from '#o11y/logger';
+import { ApplySearchReplace, type EditFormat } from '#swe/coder/applySearchReplace';
 
 @funcClass(__filename)
 export class SearchReplaceCoder {
@@ -14,12 +14,7 @@ export class SearchReplaceCoder {
 	 * @param commit Whether to commit the changes automatically after applying them.
 	 */
 	@func()
-	async editFilesToMeetRequirements(
-		requirements: string,
-		filesToEdit: string[],
-		readOnlyFiles: string[],
-		commit = true,
-	): Promise<void> {
+	async editFilesToMeetRequirements(requirements: string, filesToEdit: string[], readOnlyFiles: string[], commit = true): Promise<void> {
 		const fileSystem = getFileSystem();
 		const rootPath = fileSystem.getWorkingDirectory();
 		const editFormat: EditFormat = 'diff-fenced'; // A common format for AI code editing
@@ -61,7 +56,7 @@ export class SearchReplaceCoder {
 		const llmResponseText = messageText(llmResponseMsg);
 
 		// Pass empty string if llmResponseText is null/undefined to avoid errors in applyLlmResponse
-		const responseToApply = llmResponseText || "";
+		const responseToApply = llmResponseText || '';
 		if (!llmResponseText?.trim()) {
 			logger.warn('SearchReplaceCoder: LLM returned an empty or whitespace-only response.');
 			// applyLlmResponse will likely find no edit blocks and return an empty set.
@@ -73,10 +68,7 @@ export class SearchReplaceCoder {
 		if (editedFiles === null) {
 			// A reflectedMessage should be set on the searchReplacer instance if applyLlmResponse returns null
 			const reflection = searchReplacer.reflectedMessage || 'No specific reflection message provided.';
-			logger.error(
-				{ reflectedMessage: reflection },
-				'SearchReplaceCoder: Failed to apply edits. LLM reflection suggested.',
-			);
+			logger.error({ reflectedMessage: reflection }, 'SearchReplaceCoder: Failed to apply edits. LLM reflection suggested.');
 			// Throw an error to indicate failure that might require intervention or retry
 			throw new Error(`Failed to apply edits. Reflection: ${reflection}`);
 		}
@@ -84,14 +76,8 @@ export class SearchReplaceCoder {
 		if (editedFiles.size === 0 && !searchReplacer.reflectedMessage) {
 			logger.info('SearchReplaceCoder: No edits were applied by the LLM (or no valid edit blocks found in the response).');
 		} else if (editedFiles.size > 0) {
-			logger.info(
-				{ editedFiles: Array.from(editedFiles) },
-				'SearchReplaceCoder: Successfully applied edits.',
-			);
+			logger.info({ editedFiles: Array.from(editedFiles) }, 'SearchReplaceCoder: Successfully applied edits.');
 		}
 		// The 'commit' parameter is handled by the 'autoCommits' option passed to ApplySearchReplace.
 	}
-
-	// buildEditPrompt and buildArchitectPrompt methods are removed as their functionality
-	// is now integrated into editFilesToMeetRequirements via ApplySearchReplace.buildPrompt.
 }

@@ -68,4 +68,15 @@ export interface VersionControlSystem {
 	 * @returns if the file has uncommitted changes.
 	 */
 	isDirty(path: string): Promise<boolean>;
+
+	/**
+	 * @returns if the repository has any uncommitted changes.
+	 */
+	isRepoDirty(): Promise<boolean>;
+
+	/**
+	 * Revert uncommitted changes to a file
+	 * @param filePath
+	 */
+	revertFile(filePath: string): Promise<void>;
 }

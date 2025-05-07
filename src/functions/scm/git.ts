@@ -214,7 +214,22 @@ export class Git implements VersionControlSystem {
 	}
 
 	async isDirty(path: string): Promise<boolean> {
-		const { stdout } = await execCommand(`git status --porcelain "${path}"`);
-		return stdout.trim().length > 0;
+		const result = await execCommand(`git status --porcelain "${path}"`);
+		failOnError(`Error checking if ${path} is dirty`, result);
+		return result.stdout.trim().length > 0;
+	}
+
+	/**
+	 * @returns if the repository has any uncommitted changes.
+	 */
+	async isRepoDirty(): Promise<boolean> {
+		const result = await execCommand('git status --porcelain');
+		failOnError('Error checking if repository is dirty', result);
+		return result.stdout.trim().length > 0;
+	}
+
+	async revertFile(filePath: string): Promise<void> {
+		const { exitCode, stdout, stderr } = await execCommand(`git restore "${filePath}"`);
+		if (exitCode > 0) logger.warn(`Error reverting ${filePath}: ${stdout} ${stderr}`);
 	}
 }

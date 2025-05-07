@@ -98,7 +98,7 @@ export class ApplySearchReplace {
 
 		this.rootPath = path.resolve(rootPath);
 
-		this.absFnamesInChat = new Set(initialFiles.map((relPath) => this.getAbsoluteFilePath(relPath)));
+		this.absFnamesInChat = new Set(initialFiles.map((relPath) => this.getRepoFilePath(relPath)));
 
 		// The `fence` is for code block delimiters (e.g., ```).
 		// Python's Coder.choose_fence() dynamically selects this.
@@ -118,7 +118,7 @@ export class ApplySearchReplace {
 		this.quadBacktickReminder = options.quadBacktickReminder ?? ''; // Default to empty
 	}
 
-	private getAbsoluteFilePath(relativePath: string): string {
+	private getRepoFilePath(relativePath: string): string {
 		return path.resolve(this.rootPath, relativePath);
 	}
 
@@ -242,7 +242,7 @@ export class ApplySearchReplace {
 
 	/** Corresponds to Coder.allowed_to_edit */
 	private async _isAllowedToEdit(relativePath: string, originalTextIfNew: string, pathsToDirtyCommit: Set<string>): Promise<boolean> {
-		const absolutePath = this.getAbsoluteFilePath(relativePath);
+		const absolutePath = this.getRepoFilePath(relativePath);
 
 		if (this.absFnamesInChat.has(absolutePath)) {
 			await this._checkForDirtyCommit(relativePath, pathsToDirtyCommit);
@@ -275,21 +275,12 @@ export class ApplySearchReplace {
 
 	/** Corresponds to Coder.check_for_dirty_commit */
 	private async _checkForDirtyCommit(relativePath: string, pathsToDirtyCommit: Set<string>): Promise<void> {
-		if (!this.vcs || !this.dirtyCommits) {
+		if (!this.vcs || !this.dirtyCommits || !(await this.vcs.isDirty(relativePath))) {
 			return;
 		}
-		const absolutePath = this.getAbsoluteFilePath(relativePath);
 
-		// VersionControlSystem interface needs an `isDirty(filePath: string)` method.
-		// Assuming `Git.ts` implements this using `simple-git status`.
-		// Conceptual:
-		// if (await this.vcs.isDirty(absolutePath)) {
-		//   logger.info(`File ${relativePath} has uncommitted changes.`);
-		//   pathsToDirtyCommit.add(relativePath);
-		// }
-		// For now, as `isDirty(file)` is not on the interface, this check is simplified/omitted.
-		// Placeholder: In a full implementation, this would check and add to pathsToDirtyCommit.
-		// logger.debug(`Conceptual: Check if ${relativePath} is dirty. Actual check depends on VCS interface.`);
+		logger.info(`File ${relativePath} has uncommitted changes.`);
+		pathsToDirtyCommit.add(relativePath);
 	}
 
 	/** Corresponds to EditBlockCoder.apply_edits */
@@ -299,7 +290,7 @@ export class ApplySearchReplace {
 
 		for (const edit of edits) {
 			const relativePath = edit.filePath;
-			const absolutePath = this.getAbsoluteFilePath(relativePath);
+			const absolutePath = this.getRepoFilePath(relativePath);
 			let currentContent: string | null = null;
 
 			if (await this._fileExists(absolutePath)) {
@@ -374,7 +365,7 @@ export class ApplySearchReplace {
 			report += `\n## SearchReplaceNoExactMatch: This SEARCH block failed to exactly match lines in ${edit.filePath}\n`;
 			report += `<<<<<<< SEARCH\n${edit.originalText}=======\n${edit.updatedText}>>>>>>> REPLACE\n\n`;
 
-			const absolutePath = this.getAbsoluteFilePath(edit.filePath);
+			const absolutePath = this.getRepoFilePath(edit.filePath);
 			let content: string | null = null;
 			if (await this._fileExists(absolutePath)) {
 				content = await this._readText(absolutePath);
@@ -906,7 +897,7 @@ export class ApplySearchReplace {
 
 		// --- File Context ---
 		additionalFilesToChatRelativePaths.forEach((relPath) => {
-			this.absFnamesInChat.add(this.getAbsoluteFilePath(relPath));
+			this.absFnamesInChat.add(this.getRepoFilePath(relPath));
 		});
 
 		const currentFilesInChatRelative = Array.from(this.absFnamesInChat).map((absPath) => this.getRelativeFilePath(absPath));

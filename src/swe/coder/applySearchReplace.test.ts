@@ -4,6 +4,8 @@ import mockFs from 'mock-fs';
 import * as sinon from 'sinon';
 import * as agentContextLocalStorage from '#agent/agentContextLocalStorage';
 import { FileSystemService } from '#functions/storage/fileSystemService';
+import type { LLM } from '#llm/llm';
+import { MockLLM } from '#llm/services/mock-llm';
 import { logger } from '#o11y/logger';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { ApplySearchReplace } from './applySearchReplace';
@@ -16,6 +18,7 @@ const REPLACE_MARKER = '>>>>>>> REPLACE';
 
 describe('ApplySearchReplace', () => {
 	setupConditionalLoggerOutput();
+	let llm: LLM;
 
 	describe('_findFilename', () => {
 		let coder: ApplySearchReplace;
@@ -162,6 +165,7 @@ describe('ApplySearchReplace', () => {
 			// The FileSystemService needs a basePath, which should be our testRoot.
 			const fssInstance = new FileSystemService(testRoot);
 			sinon.stub(agentContextLocalStorage, 'getFileSystem').returns(fssInstance);
+			llm = new MockLLM();
 		});
 
 		afterEach(() => {
@@ -181,8 +185,7 @@ describe('ApplySearchReplace', () => {
 				// SEARCH block now matches the entire line
 				const llmResponse = `${filePath}\n${SEARCH_MARKER}\nHello world, this is a test.\n${DIVIDER_MARKER}\nHello TypeScript, this is a test.\n${REPLACE_MARKER}\n`;
 
-				const editedFiles = await coder.applyLlmResponse(llmResponse);
-				expect(editedFiles).to.be.a('Set');
+				const editedFiles = await coder.applyLlmResponse(llmResponse, llm);
 				expect(editedFiles).to.include(filePath);
 				expect(coder.reflectedMessage).to.be.null;
 
@@ -202,8 +205,7 @@ describe('ApplySearchReplace', () => {
 				const coder = new ApplySearchReplace(testRoot, []);
 				const llmResponse = `${newFilePath}\n${SEARCH_MARKER}\n\n${DIVIDER_MARKER}\n${newContent}\n${REPLACE_MARKER}\n`;
 
-				const editedFiles = await coder.applyLlmResponse(llmResponse);
-				expect(editedFiles).to.be.a('Set');
+				const editedFiles = await coder.applyLlmResponse(llmResponse, llm);
 				expect(editedFiles).to.include(newFilePath);
 				expect(coder.reflectedMessage).to.be.null;
 
@@ -223,8 +225,7 @@ describe('ApplySearchReplace', () => {
 				const coder = new ApplySearchReplace(testRoot, []); // No initial files
 				const llmResponse = `${filePath}\n${SEARCH_MARKER}\nOriginal content here.\n${DIVIDER_MARKER}\n${replacementContent}\n${REPLACE_MARKER}\n`;
 
-				const editedFiles = await coder.applyLlmResponse(llmResponse);
-				expect(editedFiles).to.be.a('Set');
+				const editedFiles = await coder.applyLlmResponse(llmResponse, llm);
 				expect(editedFiles).to.include(filePath);
 				expect(coder.reflectedMessage).to.be.null;
 				expect((coder as any).absFnamesInChat).to.include(join(testRoot, filePath));
@@ -259,8 +260,7 @@ ${DIVIDER_MARKER}
 Line 3: Grape
 ${REPLACE_MARKER}
 `;
-				const editedFiles = await coder.applyLlmResponse(llmResponse);
-				expect(editedFiles).to.be.a('Set');
+				const editedFiles = await coder.applyLlmResponse(llmResponse, llm);
 				expect(editedFiles).to.include(filePath);
 				expect(coder.reflectedMessage).to.be.null;
 
@@ -295,8 +295,7 @@ ${DIVIDER_MARKER}
 const b = 200;
 ${REPLACE_MARKER}
 `;
-				const editedFiles = await coder.applyLlmResponse(llmResponse);
-				expect(editedFiles).to.be.a('Set');
+				const editedFiles = await coder.applyLlmResponse(llmResponse, llm);
 				expect(editedFiles).to.include(fileAPath);
 				expect(editedFiles).to.include(fileBPath);
 				expect(coder.reflectedMessage).to.be.null;
@@ -320,7 +319,7 @@ ${REPLACE_MARKER}
 				const coder = new ApplySearchReplace(testRoot, [filePath]);
 				const llmResponse = `${filePath}\n${SEARCH_MARKER}\nnonexistent search text\n${DIVIDER_MARKER}\nreplacement\n${REPLACE_MARKER}\n`;
 
-				const editedFiles = await coder.applyLlmResponse(llmResponse);
+				const editedFiles = await coder.applyLlmResponse(llmResponse, llm);
 				expect(editedFiles).to.be.null;
 				expect(coder.reflectedMessage).to.be.a('string').and.contain('failed to match');
 
@@ -350,8 +349,7 @@ NewHeader
 NewFooter
 ${REPLACE_MARKER}
 `;
-				const editedFiles = await coder.applyLlmResponse(llmResponse);
-				expect(editedFiles).to.be.a('Set');
+				const editedFiles = await coder.applyLlmResponse(llmResponse, llm);
 				expect(editedFiles).to.include(filePath);
 				expect(coder.reflectedMessage).to.be.null;
 
@@ -382,8 +380,7 @@ Gamma
 Delta
 ${REPLACE_MARKER}
 `;
-				const editedFiles = await coder.applyLlmResponse(llmResponse);
-				expect(editedFiles).to.be.a('Set');
+				const editedFiles = await coder.applyLlmResponse(llmResponse, llm);
 				expect(editedFiles).to.include(filePath);
 				expect(coder.reflectedMessage).to.be.null;
 
@@ -413,8 +410,7 @@ ${DIVIDER_MARKER}
 new indented line
 ${REPLACE_MARKER}
 `;
-				const editedFiles = await coder.applyLlmResponse(llmResponse);
-				expect(editedFiles).to.be.a('Set');
+				const editedFiles = await coder.applyLlmResponse(llmResponse, llm);
 				expect(editedFiles).to.include(filePath);
 				expect(coder.reflectedMessage).to.be.null;
 
@@ -422,6 +418,88 @@ ${REPLACE_MARKER}
 				const updatedContent = await fss!.readFile(join(testRoot, filePath));
 				expect(updatedContent).to.equal('  new indented line\n  another indented line\n');
 			});
+		});
+	});
+
+	// Top level without mock-fs
+	describe('More examples', () => {
+		const componentPath = 'src/swe/coder/test/test.ts';
+		const htmlPath = 'src/swe/coder/test/test.html';
+
+		afterEach(async () => {
+			try {
+				const vcs = new FileSystemService().getVcs();
+				await vcs.revertFile(componentPath);
+				await vcs.revertFile(htmlPath);
+			} catch (e) {
+				logger.warn(e, "Error reverting test files")
+			}
+		});
+
+		it('Edit an Angular component', async () => {
+			const filePaths = [componentPath, htmlPath];
+
+			const coder = new ApplySearchReplace('.', filePaths);
+			const llmResponse = `
+${htmlPath}
+${SEARCH_MARKER}
+        </button>
+        <button class="ml-0.5"
+                mat-icon-button
+                (click)="toggleThinking()"
+                [disabled]="!llmHasThinkingLevels"
+                [matTooltip]="'Thinking level: ' + thinkingLevel.toUpperCase() + '. Click to cycle through thinking levels'">
+            <mat-icon [svgIcon]="thinkingIcon" [ngClass]="{'text-primary': sendOnEnter}"></mat-icon>
+        </button>
+    </div>
+${DIVIDER_MARKER}
+        </button>
+        <button class="ml-0.5"
+                mat-icon-button
+                (click)="toggleThinking()"
+                [disabled]="!llmHasThinkingLevels"
+                [matTooltip]="'Thinking level: ' + thinkingLevel.toUpperCase() + '. Click to cycle through thinking levels'">
+            <mat-icon [svgIcon]="thinkingIcon" [ngClass]="{'text-primary': sendOnEnter}"></mat-icon>
+        </button>
+        <button mat-icon-button matTooltip="Reformat message" (click)="reformat(message)">
+			<mat-icon>markdown</mat-icon>
+		</button>
+    </div>
+${REPLACE_MARKER}
+
+${componentPath}
+${SEARCH_MARKER}
+	removeAttachment(attachmentToRemove: Attachment): void {
+		this.selectedAttachments = this.selectedAttachments.filter((att) => att !== attachmentToRemove);
+		this._changeDetectorRef.markForCheck();
+	}
+${DIVIDER_MARKER}
+    removeAttachment(attachmentToRemove: Attachment): void {
+        this.selectedAttachments = this.selectedAttachments.filter(
+            att => att !== attachmentToRemove
+        );
+        this._changeDetectorRef.markForCheck();
+    }
+
+  	reformat(message: Message) {
+    	// TODO: Implement markdown reformatting logic
+    	console.log('Reformatting message:', message);
+	} 
+${REPLACE_MARKER}
+`;
+			const editedFiles = await coder.applyLlmResponse(llmResponse, llm);
+			console.log('editedFiles:');
+			console.log(editedFiles);
+			expect(editedFiles).to.include(htmlPath);
+			expect(editedFiles).to.include(componentPath);
+
+			expect(coder.reflectedMessage).to.be.null;
+
+			const fss = agentContextLocalStorage.getFileSystem();
+
+			const content = await fss.readFilesAsXml([componentPath, htmlPath]);
+			expect(content).to.include('reformat(message: Message)');
+			expect(content).to.include('(click)="reformat(message)"');
 		});
 	});
 });

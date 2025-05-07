@@ -46,5 +46,5 @@
     },
     "types": ["node", "mocha"]
   },
-  "exclude": ["frontend"]
+  "exclude": ["frontend", "src/swe/coder/test/*"]
 }
