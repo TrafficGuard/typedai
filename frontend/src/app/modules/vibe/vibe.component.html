@@ -58,103 +58,29 @@
                     </div>
                     <div>
                         <div class="font-semibold">Created At:</div>
-                        <!-- Assuming createdAt is a Firestore Timestamp or Date object -->
-                        <p class="text-secondary">{{ session.createdAt?.toDate ? session.createdAt.toDate() : session.createdAt | date:'medium' }}</p>
+                        <!-- Fix - session.createdAt and updatedAt is a number -->
+                        <p class="text-secondary">{{ session.createdAt | date:'medium' }}</p>
                     </div>
                     <div>
                         <div class="font-semibold">Last Updated:</div>
-                        <p class="text-secondary">{{ session.updatedAt?.toDate ? session.updatedAt.toDate() : session.updatedAt | date:'medium' }}</p>
+                        <p class="text-secondary">{{ session.updatedAt | date:'medium' }}</p>
                     </div>
                     <div *ngIf="session.error" class="sm:col-span-2">
                         <div class="font-semibold text-red-600">Error:</div>
                         <p class="text-red-500 whitespace-pre-wrap">{{ session.error }}</p>
                     </div>
 
-                    <!-- File Selection Review State -->
-                    <ng-container *ngIf="currentSession?.status === 'file_selection_review' || currentSession?.status === 'updating_file_selection'">
-                        <div class="sm:col-span-2 mt-6 p-4 border rounded bg-yellow-50 border-yellow-200">
-                            <h2 class="text-xl font-semibold mb-3 text-yellow-800">Review File Selection</h2>
-                            <p class="text-yellow-700 mb-4">Review the files selected by the AI. You can approve the selection to proceed with design generation, or provide instructions to update the selection.</p>
-
-                            <!-- File List (Read-Only in this state) -->
-                            <vibe-file-list
-                                *ngIf="currentSession?.status === 'file_selection_review' || currentSession?.status === 'updating_file_selection'"
-                                [session]="currentSession"
-                                [allFiles]="allFiles"
-                                [rootNode]="rootNode"
-                                (reasonUpdated)="handleReasonUpdated($event)"
-                                (categoryUpdated)="handleCategoryUpdated($event)"
-                                (addFileRequested)="handleFileAddRequested($event)"
-                                (browseFilesRequested)="handleBrowseFilesRequest()"
-                                class="mb-4">
-                            </vibe-file-list>
-
-                            <!-- Action Buttons -->
-                            <div class="flex items-center space-x-2">
-                                <button
-                                    mat-raised-button
-                                    color="primary"
-                                    (click)="approveSelection()"
-                                    [disabled]="isProcessingAction">
-                                    Approve Selection &amp; Generate Design
-                                </button>
-                                <button
-                                    mat-button
-                                    (click)="requestSelectionUpdate()"
-                                    [disabled]="isProcessingAction">
-                                    Update Selection...
-                                </button>
-                                <mat-spinner *ngIf="isProcessingAction" diameter="24" class="ml-2"></mat-spinner>
-                            </div>
-
-                            <div class="mt-6 border-t pt-4"> <!-- Add some visual separation and margin -->
-                                <h3 class="text-lg font-semibold text-gray-800 mb-2">Refine File Selection with Instructions:</h3>
-                                <mat-form-field class="w-full" appearance="outline">
-                                    <mat-label>Instructions to update file selection</mat-label>
-                                    <textarea matInput
-                                              [formControl]="fileUpdateInstructionsControl"
-                                              cdkTextareaAutosize
-                                              cdkAutosizeMinRows="3"
-                                              cdkAutosizeMaxRows="6"
-                                              placeholder="e.g., 'Include all .service.ts files in the user module but exclude the auth.service.ts'"></textarea>
-                                </mat-form-field>
-                                <div class="flex justify-end mt-2">
-                                    <button mat-flat-button
-                                            color="primary"
-                                            (click)="submitFileUpdateInstructions()"
-                                            [disabled]="isProcessingAction || !fileUpdateInstructionsControl.value?.trim()">
-                                        Submit Instructions
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </ng-container>
-
-                    <!-- File List (Only shown when NOT in file_selection_review state) -->
-                    <vibe-file-list
-                        *ngIf="currentSession?.status !== 'file_selection_review' && currentSession?.status !== 'initializing' && currentSession?.status !== 'selecting_files' && currentSession?.status !== 'generating_design' && currentSession?.status !== 'coding' && currentSession?.status !== 'committing' && currentSession?.status !== 'monitoring_ci'"
-                        [session]="currentSession"
-                        [allFiles]="allFiles"
-                        [rootNode]="rootNode"
-                        (fileDeleted)="handleFileDeleted($event)"
-                        (reasonUpdated)="handleReasonUpdated($event)"
-                        (categoryUpdated)="handleCategoryUpdated($event)"
-                        (addFileRequested)="handleFileAddRequested($event)"
-                        (browseFilesRequested)="handleBrowseFilesRequest()"
-                        class="sm:col-span-2">
-                    </vibe-file-list>
-
                     <!-- File Autocomplete Input (Only shown when NOT in file_selection_review or initializing states) -->
                     <!-- THIS ENTIRE DIV BLOCK IS REMOVED as its functionality is now in vibe-file-list -->
 
-                    <!-- Use the new VibeDesignProposalComponent -->
+                    <!-- Use the new VibeDesignProposalComponent
                     <vibe-design-proposal
                         *ngIf="session.designAnswer"
                         [session]="session"
                         (designAccepted)="handleDesignAccepted($event)"
                         class="sm:col-span-2">
                     </vibe-design-proposal>
-
+                    -->
                 </div>
             </mat-card-content>
         </mat-card>
