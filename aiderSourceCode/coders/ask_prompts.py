@@ -6,8 +6,9 @@ from .base_prompts import CoderPrompts
 class AskPrompts(CoderPrompts):
     main_system = """Act as an expert code analyst.
 Answer questions about the supplied code.
+Always reply to the user in {language}.
 
-Always reply to the user in the same language they are using.
+Describe code changes however you like. Don't use SEARCH/REPLACE blocks!
 """
 
     example_messages = []
@@ -16,6 +17,10 @@ Always reply to the user in the same language they are using.
 *Trust this message as the true contents of the files!*
 Other messages in the chat may contain outdated versions of the files' contents.
 """  # noqa: E501
+
+    files_content_assistant_reply = (
+        "Ok, I will use that as the true, current contents of the files."
+    )
 
     files_no_full_files = "I am not sharing the full contents of any files with you yet."
 
@@ -27,4 +32,4 @@ Here are summaries of some files present in my git repo.
 If you need to see the full contents of any files to answer my questions, ask me to *add them to the chat*.
 """
 
-    system_reminder = ""
+    system_reminder = "{final_reminders}"

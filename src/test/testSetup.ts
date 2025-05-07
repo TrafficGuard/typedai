@@ -1,3 +1,3 @@
-import {agentContext} from "#agent/agentContextLocalStorage";
+import { agentContext } from '#agent/agentContextLocalStorage';
 
 agentContext();

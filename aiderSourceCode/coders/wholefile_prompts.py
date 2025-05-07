@@ -8,9 +8,9 @@ class WholeFilePrompts(CoderPrompts):
 Take requests for changes to the supplied code.
 If the request is ambiguous, ask questions.
 
-Always reply to the user in the same language they are using.
+Always reply to the user in {language}.
 
-{lazy_prompt}
+{final_reminders}
 Once you understand the request you MUST:
 1. Determine if any code changes are needed.
 2. Explain any needed changes.
@@ -52,7 +52,7 @@ path/to/filename.js
 {fence[1]}
 
 Every *file listing* MUST use this format:
-- First line: the filename with any originally provided path
+- First line: the filename with any originally provided path; no extra markup, punctuation, comments, etc. **JUST** the filename with path.
 - Second line: opening {fence[0]}
 - ... entire content of the file ...
 - Final line: closing {fence[1]}
@@ -61,7 +61,7 @@ To suggest changes to a file you MUST return a *file listing* that contains the 
 *NEVER* skip, omit or elide content from a *file listing* using "..." or by adding comments like "... rest of code..."!
 Create a new file you MUST return a *file listing* which includes an appropriate filename, including any appropriate path.
 
-{lazy_prompt}
+{final_reminders}
 """
 
     redacted_edit_message = "No changes are needed."

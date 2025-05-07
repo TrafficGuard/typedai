@@ -4,13 +4,15 @@ import subprocess
 import sys
 import traceback
 import warnings
+import shlex
 from dataclasses import dataclass
 from pathlib import Path
 
 from grep_ast import TreeContext, filename_to_lang
-from tree_sitter_languages import get_parser  # noqa: E402
+from grep_ast.tsl import get_parser  # noqa: E402
 
 from aider.dump import dump  # noqa: F401
+from aider.run_cmd import run_cmd_subprocess  # noqa: F401
 
 # tree_sitter is throwing a FutureWarning
 warnings.simplefilter("ignore", category=FutureWarning)
@@ -35,28 +37,31 @@ class Linter:
 
     def get_rel_fname(self, fname):
         if self.root:
-            return os.path.relpath(fname, self.root)
+            try:
+                return os.path.relpath(fname, self.root)
+            except ValueError:
+                return fname
         else:
             return fname
 
     def run_cmd(self, cmd, rel_fname, code):
-        cmd += " " + rel_fname
-        cmd = cmd.split()
+        cmd += " " + shlex.quote(rel_fname)
 
-        process = subprocess.Popen(
-            cmd,
-            cwd=self.root,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            encoding=self.encoding,
-            errors="replace",
-        )
-        stdout, _ = process.communicate()
+        returncode = 0
+        stdout = ""
+        try:
+            returncode, stdout = run_cmd_subprocess(
+                cmd,
+                cwd=self.root,
+                encoding=self.encoding,
+            )
+        except OSError as err:
+            print(f"Unable to execute lint command: {err}")
+            return
         errors = stdout
-        if process.returncode == 0:
+        if returncode == 0:
             return  # zero exit status
 
-        cmd = " ".join(cmd)
         res = f"## Running: {cmd}\n\n"
         res += errors
 
@@ -76,7 +81,11 @@ class Linter:
 
     def lint(self, fname, cmd=None):
         rel_fname = self.get_rel_fname(fname)
-        code = Path(fname).read_text(self.encoding)
+        try:
+            code = Path(fname).read_text(encoding=self.encoding, errors="replace")
+        except OSError as err:
+            print(f"Unable to read {fname}: {err}")
+            return
 
         if cmd:
             cmd = cmd.strip()
@@ -141,12 +150,12 @@ class Linter:
         try:
             result = subprocess.run(
                 flake8_cmd,
-                cwd=self.root,
                 capture_output=True,
                 text=True,
                 check=False,
                 encoding=self.encoding,
                 errors="replace",
+                cwd=self.root,
             )
             errors = result.stdout + result.stderr
         except Exception as e:
@@ -198,10 +207,24 @@ def basic_lint(fname, code):
     if not lang:
         return
 
-    parser = get_parser(lang)
+    # Tree-sitter linter is not capable of working with typescript #1132
+    if lang == "typescript":
+        return
+
+    try:
+        parser = get_parser(lang)
+    except Exception as err:
+        print(f"Unable to load parser: {err}")
+        return
+
     tree = parser.parse(bytes(code, "utf-8"))
 
-    errors = traverse_tree(tree.root_node)
+    try:
+        errors = traverse_tree(tree.root_node)
+    except RecursionError:
+        print(f"Unable to lint {fname} due to RecursionError")
+        return
+
     if not errors:
         return
 

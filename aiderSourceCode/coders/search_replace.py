@@ -3,7 +3,11 @@
 import sys
 from pathlib import Path
 
-import git
+try:
+    import git
+except ImportError:
+    git = None
+
 from diff_match_patch import diff_match_patch
 from tqdm import tqdm
 
@@ -231,20 +235,6 @@ Left
 Left
 """
 
-"""
-ri = RelativeIndenter([example])
-dump(example)
-
-rel_example = ri.make_relative(example)
-dump(repr(rel_example))
-
-abs_example = ri.make_absolute(rel_example)
-dump(abs_example)
-
-
-sys.exit()
-"""
-
 
 def relative_indent(texts):
     ri = RelativeIndenter(texts)
@@ -345,7 +335,7 @@ def lines_to_chars(lines, mapping):
     return new_text
 
 
-def dmp_lines_apply(texts, remap=True):
+def dmp_lines_apply(texts):
     debug = False
     # debug = True
 
@@ -484,7 +474,7 @@ def git_cherry_pick_osr_onto_o(texts):
         # cherry pick R onto original
         try:
             repo.git.cherry_pick(replace_hash, "--minimal")
-        except git.exc.GitCommandError:
+        except (git.exc.ODBError, git.exc.GitError):
             # merge conflicts!
             return
 
@@ -522,7 +512,7 @@ def git_cherry_pick_sr_onto_so(texts):
         # cherry pick replace onto original
         try:
             repo.git.cherry_pick(replace_hash, "--minimal")
-        except git.exc.GitCommandError:
+        except (git.exc.ODBError, git.exc.GitError):
             # merge conflicts!
             return
 
@@ -650,8 +640,6 @@ def proc(dname):
         # (dmp_apply, all_preprocs),
         (dmp_lines_apply, all_preprocs),
     ]
-
-    _strategies = editblock_strategies  # noqa: F841
 
     short_names = dict(
         search_and_replace="sr",

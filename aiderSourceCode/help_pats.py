@@ -1,4 +1,7 @@
+# This needs to sync with MANIFEST.in
+
 exclude_website_pats = [
+    "**/.DS_Store",
     "examples/**",
     "_posts/**",
     "HISTORY.md",
@@ -7,4 +10,10 @@ exclude_website_pats = [
     "docs/unified-diffs.md",
     "docs/leaderboards/index.md",
     "assets/**",
+    ".jekyll-metadata",
+    "Gemfile.lock",
+    "Gemfile",
+    "_config.yml",
+    "**/OLD/**",
+    "OLD/**",
 ]
