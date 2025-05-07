@@ -337,8 +337,28 @@ export class VibeComponent implements OnInit, OnDestroy {
    * @returns A filtered array of file paths.
    */
   private _filterFiles(value: string): string[] {
-    const filterValue = value.toLowerCase();
-    return this.allFiles.filter(file => file.toLowerCase().includes(filterValue));
+    if (!value) {
+      return [];
+    }
+    const searchTerm = value.toLowerCase();
+    const filteredResults = this.allFiles.filter(filePath => {
+      const normalizedFilePath = filePath.toLowerCase();
+
+      // Direct Prefix Match
+      if (normalizedFilePath.startsWith(searchTerm)) {
+        return true;
+      }
+
+      // Segment Prefix Match
+      const pathParts = normalizedFilePath.split(/[/\\.\-_]/);
+      if (pathParts.some(part => part.startsWith(searchTerm))) {
+        return true;
+      }
+
+      return false;
+    });
+
+    return filteredResults.slice(0, 10);
   }
 
   /**
