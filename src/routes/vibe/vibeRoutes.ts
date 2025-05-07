@@ -384,13 +384,7 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 				if (!session) {
 					return sendNotFound(reply, `Vibe session with ID ${sessionId} not found`);
 				}
-				// Validate repositoryId
-				if (typeof session.repositoryId !== 'string' || session.repositoryId.trim() === '') {
-					fastify.log.error({ sessionId, userId, sessionRepositoryId: session.repositoryId }, `Vibe session ${sessionId} has invalid or missing repositoryId.`);
-					return reply.code(500).send({ error: `Data integrity issue: Vibe session ${sessionId} has an invalid repository identifier.` });
-				}
-				// Ensure timestamps are serializable if needed
-				return reply.send(session);
+				return sendJSON(reply, session);
 			} catch (error: any) {
 				fastify.log.error(error, `Error getting Vibe session ${sessionId} for user ${userId}`);
 				return reply.code(500).send({ error: error.message || 'Failed to retrieve Vibe session' });
