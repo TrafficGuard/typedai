@@ -564,7 +564,7 @@ export class SearchReplaceCoder {
 		return this._replaceMostSimilarChunk(currentContent, beforeText, afterText);
 	}
 
-	private _prepContent(content: string): { text: string; lines: string[] } {
+	private _prep(content: string): { text: string; lines: string[] } {
 		// Corresponds to prep from editblock_coder.py
 		// Ensures content ends with a newline and splits into lines (kept with newlines)
 		let processedContent = content;
