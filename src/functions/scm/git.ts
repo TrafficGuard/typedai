@@ -212,4 +212,9 @@ export class Git implements VersionControlSystem {
 
 		return commits;
 	}
+
+	async isDirty(path: string): Promise<boolean> {
+		const { stdout } = await execCommand(`git status --porcelain "${path}"`);
+		return stdout.trim().length > 0;
+	}
 }

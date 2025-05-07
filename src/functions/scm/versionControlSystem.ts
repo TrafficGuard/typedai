@@ -62,4 +62,10 @@ export interface VersionControlSystem {
 	 * @returns an array of the commit details
 	 */
 	getRecentCommits(n: number): Promise<Array<Commit>>;
+
+	/**
+	 * @param path full file path
+	 * @returns if the file has uncommitted changes.
+	 */
+	isDirty(path: string): Promise<boolean>;
 }
