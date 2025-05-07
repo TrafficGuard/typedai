@@ -20,6 +20,15 @@ import { getActiveSpan } from '#o11y/trace';
 import { currentUser } from '#user/userService/userContext';
 import { execCommand } from '#utils/exec';
 
+const GEMINI_KEYS: string[] = [];
+if (process.env.GEMINI_API_KEY) GEMINI_KEYS.push(process.env.GEMINI_API_KEY);
+for (let i = 2; i <= 9; i++) {
+	const key = process.env[`GEMINI_API_KEY_${i}`];
+	if (key) GEMINI_KEYS.push(key);
+	else break;
+}
+let geminiKeyIndex = 0;
+
 @funcClass(__filename)
 export class AiderCodeEditor {
 	/**
@@ -51,11 +60,13 @@ export class AiderCodeEditor {
 
 		let llm: LLM;
 
-		if (process.env.GEMINI_API_KEY) {
+		if (GEMINI_KEYS.length) {
+			const key = GEMINI_KEYS[geminiKeyIndex];
+			if (++geminiKeyIndex > GEMINI_KEYS.length) geminiKeyIndex = 0;
 			llm = openRouterGemini2_5_Pro();
 			modelArg = '--model gemini/gemini-2.5-pro-exp-03-25';
 			span.setAttribute('model', 'gemini 2.5 Pro');
-			env = { GEMINI_API_KEY: process.env.GEMINI_API_KEY };
+			env = { GEMINI_API_KEY: key };
 		} else if (process.env.GCLOUD_PROJECT) {
 			//  && process.env.GCLOUD_CLAUDE_REGION
 			llm = Gemini_2_5_Pro();
