@@ -1,13 +1,20 @@
-import { Component, Input, Output, EventEmitter, inject } from '@angular/core';
+import { Component, Input, Output, EventEmitter, inject, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { Observable, Subject } from 'rxjs';
+import { map, startWith, takeUntil } from 'rxjs/operators';
 import { MatTableModule } from '@angular/material/table';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { SelectedFile, VibeSession } from '../vibe.types';
+import { SelectedFile, VibeSession, type FileSystemNode } from '../vibe.types';
 import { VibeEditReasonDialogComponent } from '../vibe-edit-reason-dialog.component';
 
 import { MatSelectModule } from '@angular/material/select';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { MatButtonModule } from '@angular/material/button';
 
 @Component({
   selector: 'vibe-file-list',
@@ -16,22 +23,37 @@ import { MatSelectModule } from '@angular/material/select';
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
+    ReactiveFormsModule,
     MatTableModule,
     MatIconModule,
     MatTooltipModule,
     MatDialogModule, // Add MatDialogModule here
     VibeEditReasonDialogComponent, // Import the dialog component
     MatSelectModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatAutocompleteModule,
+    MatButtonModule,
   ],
 })
-export class VibeFileListComponent {
+export class VibeFileListComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
+
   @Input() session: VibeSession | null = null;
+  @Input() allFiles: string[] = [];
+  @Input() rootNode: FileSystemNode | null = null;
+
   @Output() fileDeleted = new EventEmitter<SelectedFile>();
   @Output() reasonUpdated = new EventEmitter<{ file: SelectedFile, newReason: string }>();
   @Output() categoryUpdated = new EventEmitter<{ file: SelectedFile, newCategory: SelectedFile['category'] }>();
+  @Output() addFileRequested = new EventEmitter<string>();
+  @Output() browseFilesRequested = new EventEmitter<void>();
 
   displayedColumns: string[] = ['filePath', 'reason', 'category', 'actions'];
   public dialog = inject(MatDialog);
+  addFileControl = new FormControl('');
+  filteredFiles$: Observable<string[]>;
   public editingCategoryFilePath: string | null = null;
   public availableCategories: Array<SelectedFile['category']> = ['edit', 'reference', 'style_example', 'unknown'];
 
@@ -106,5 +128,52 @@ export class VibeFileListComponent {
    */
   cancelCategoryEdit(): void {
     this.editingCategoryFilePath = null;
+  }
+
+  ngOnInit(): void {
+    this.filteredFiles$ = this.addFileControl.valueChanges.pipe(
+      startWith(''),
+      map(value => this._filterFiles(value || '')),
+      takeUntil(this.destroy$)
+    );
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  private _filterFiles(value: string): string[] {
+    if (!value) {
+        return [];
+    }
+    const searchTerm = value.toLowerCase();
+    const localAllFiles = this.allFiles || [];
+    const filteredResults = localAllFiles.filter(filePath => {
+        const normalizedFilePath = filePath.toLowerCase();
+        if (normalizedFilePath.startsWith(searchTerm)) {
+            return true;
+        }
+        const pathParts = normalizedFilePath.split(/[/\.\-_]/);
+        if (pathParts.some(part => part.startsWith(searchTerm))) {
+            return true;
+        }
+        return false;
+    });
+    return filteredResults.slice(0, 10);
+  }
+
+  public onHandleAddFile(): void {
+    const selectedFile = this.addFileControl.value?.trim();
+    if (selectedFile) {
+      this.addFileRequested.emit(selectedFile);
+      this.addFileControl.setValue('');
+    } else {
+      console.warn('VibeFileListComponent: Attempted to add an empty file path.');
+    }
+  }
+
+  public onBrowseFiles(): void {
+    this.browseFilesRequested.emit();
   }
 }

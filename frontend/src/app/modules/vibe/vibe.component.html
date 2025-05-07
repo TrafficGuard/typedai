@@ -78,9 +78,14 @@
 
                             <!-- File List (Read-Only in this state) -->
                             <vibe-file-list
+                                *ngIf="currentSession?.status === 'file_selection_review' || currentSession?.status === 'updating_file_selection'"
                                 [session]="currentSession"
+                                [allFiles]="allFiles"
+                                [rootNode]="rootNode"
                                 (reasonUpdated)="handleReasonUpdated($event)"
                                 (categoryUpdated)="handleCategoryUpdated($event)"
+                                (addFileRequested)="handleFileAddRequested($event)"
+                                (browseFilesRequested)="handleBrowseFilesRequest()"
                                 class="mb-4">
                             </vibe-file-list>
 
@@ -127,44 +132,20 @@
 
                     <!-- File List (Only shown when NOT in file_selection_review state) -->
                     <vibe-file-list
-                        *ngIf="currentSession?.status !== 'file_selection_review' && currentSession?.status !== 'initializing' && currentSession?.status !== 'selecting_files'"
+                        *ngIf="currentSession?.status !== 'file_selection_review' && currentSession?.status !== 'initializing' && currentSession?.status !== 'selecting_files' && currentSession?.status !== 'generating_design' && currentSession?.status !== 'coding' && currentSession?.status !== 'committing' && currentSession?.status !== 'monitoring_ci'"
                         [session]="currentSession"
+                        [allFiles]="allFiles"
+                        [rootNode]="rootNode"
                         (fileDeleted)="handleFileDeleted($event)"
                         (reasonUpdated)="handleReasonUpdated($event)"
                         (categoryUpdated)="handleCategoryUpdated($event)"
+                        (addFileRequested)="handleFileAddRequested($event)"
+                        (browseFilesRequested)="handleBrowseFilesRequest()"
                         class="sm:col-span-2">
                     </vibe-file-list>
 
                     <!-- File Autocomplete Input (Only shown when NOT in file_selection_review or initializing states) -->
-                    <div *ngIf="currentSession?.status !== 'initializing' && currentSession?.status !== 'selecting_files' && currentSession?.status !== 'generating_design' && currentSession?.status !== 'coding' && currentSession?.status !== 'committing' && currentSession?.status !== 'monitoring_ci'" class="sm:col-span-2 mt-6">
-                        <div class="font-semibold mb-2">Add File to Session:</div>
-                        <div class="flex items-center space-x-2">
-                            <mat-form-field class="flex-grow" appearance="outline">
-                               <input
-                                   type="text"
-                                   matInput
-                                   placeholder="Add file path..."
-                                   [formControl]="addFileControl"
-                                   [matAutocomplete]="auto">
-                               <mat-autocomplete #auto="matAutocomplete">
-                                   <mat-option *ngFor="let file of filteredFiles$ | async" [value]="file">
-                                       {{ file }}
-                                   </mat-option>
-                               </mat-autocomplete>
-                           </mat-form-field>
-                           <button
-                               mat-stroked-button
-                               color="primary"
-                               [disabled]="!addFileControl.value"
-                               (click)="handleAddFile()">
-                               Add
-                           </button>
-                           <button mat-stroked-button (click)="openShowFilesDialog()" class="ml-auto sm:ml-2" type="button">
-                               <mat-icon svgIcon="heroicons_outline:folder-open" class="mr-2"></mat-icon>
-                               Browse All Files
-                           </button>
-                       </div>
-                   </div>
+                    <!-- THIS ENTIRE DIV BLOCK IS REMOVED as its functionality is now in vibe-file-list -->
 
                     <!-- Use the new VibeDesignProposalComponent -->
                     <vibe-design-proposal

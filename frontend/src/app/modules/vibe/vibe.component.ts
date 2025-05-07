@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, OnDestroy, ViewEncapsulation } from '@angular/core';
-import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { map, Observable, of, startWith, switchMap, take, Subject, takeUntil, finalize, tap } from 'rxjs';
+import { ReactiveFormsModule, FormControl } from '@angular/forms'; // FormControl removed from here as it's not directly used for addFileControl anymore
+import { Observable, of, switchMap, take, Subject, takeUntil, finalize, tap, map, startWith } from 'rxjs'; // map, startWith might be needed if other autocompletes exist
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { VibeFileTreeSelectDialogComponent } from './vibe-file-tree-select-dialog/vibe-file-tree-select-dialog.component';
 import { CommonModule } from '@angular/common';
@@ -51,13 +51,11 @@ import { VibeDesignReviewComponent } from './vibe-design-review/vibe-design-revi
 export class VibeComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
-  // Form control for the file autocomplete input
-  addFileControl = new FormControl('');
   fileUpdateInstructionsControl = new FormControl('');
   // Full list of files available in the session's workspace
   rootNode: FileSystemNode;
   allFiles: string[] = [];
-  filteredFiles$: Observable<string[]>;
+  // filteredFiles$: Observable<string[]>; // Removed
   private route = inject(ActivatedRoute);
   private vibeService = inject(VibeService);
   private snackBar = inject(MatSnackBar);
@@ -333,75 +331,6 @@ export class VibeComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Filters the list of all files based on the input value.
-   * @param value The current value from the autocomplete input.
-   * @returns A filtered array of file paths.
-   */
-  private _filterFiles(value: string): string[] {
-    if (!value) {
-      return [];
-    }
-    const searchTerm = value.toLowerCase();
-    const filteredResults = this.allFiles.filter(filePath => {
-      const normalizedFilePath = filePath.toLowerCase();
-
-      // Direct Prefix Match
-      if (normalizedFilePath.startsWith(searchTerm)) {
-        return true;
-      }
-
-      // Segment Prefix Match
-      const pathParts = normalizedFilePath.split(/[/\\.\-_]/);
-      if (pathParts.some(part => part.startsWith(searchTerm))) {
-        return true;
-      }
-
-      return false;
-    });
-
-    return filteredResults.slice(0, 10);
-  }
-
-  /**
-   * Handles adding the selected file from the autocomplete.
-   */
-  handleAddFile(): void {
-    const selectedFile = this.addFileControl.value?.trim();
-
-    if (!selectedFile) {
-      console.warn('Attempted to add an empty file path.');
-      this.snackBar.open('Please select a valid file path.', 'Close', { duration: 3000 });
-      return;
-    }
-
-    if (!this.currentSession?.id) {
-      console.error('Cannot add file: Session ID is missing.');
-      this.snackBar.open('Cannot add file: Session is not loaded.', 'Close', { duration: 3000 });
-      return;
-    }
-
-    this.isProcessingAction = true;
-    const sessionId = this.currentSession.id;
-
-    this.vibeService.updateSession(sessionId, { filesToAdd: [selectedFile] }).pipe(
-      take(1), // Take only the first response
-      finalize(() => this.isProcessingAction = false), // Ensure loading state is reset
-      takeUntil(this.destroy$) // Clean up subscription on component destroy
-    ).subscribe({
-      next: () => {
-        console.log(`File ${selectedFile} add request sent.`);
-        this.snackBar.open('File add request sent. Session will update.', 'Close', { duration: 3000 });
-        this.addFileControl.setValue(''); // Reset input after successful request
-        // No need to manually trigger refresh, service update should handle it via BehaviorSubject
-      },
-      error: (err) => {
-        console.error(`Error adding file ${selectedFile}:`, err);
-        this.snackBar.open(`Error adding file: ${err.message || 'Unknown error'}`, 'Close', { duration: 5000 });
-      }
-    });
-  }
-
-  /**
    * Approves the current file selection and triggers design generation.
    */
   approveSelection(): void {
@@ -470,60 +399,77 @@ export class VibeComponent implements OnInit, OnDestroy {
     }
   }
 
-  openShowFilesDialog(): void {
+  public handleBrowseFilesRequest(): void {
     if (!this.rootNode) {
-      this.snackBar.open('File tree data is not loaded yet. Please wait.', 'Close', { duration: 3000 });
-      return;
+        this.snackBar.open('File tree data is not loaded yet. Please wait.', 'Close', { duration: 3000 });
+        return;
     }
-
     const dialogRef = this.dialog.open(VibeFileTreeSelectDialogComponent, {
-      width: '70vw', // Adjusted width
-      maxWidth: '800px',
-      maxHeight: '80vh',
-      data: { rootNode: this.rootNode }
+        width: '70vw',
+        maxWidth: '800px',
+        maxHeight: '80vh',
+        data: { rootNode: this.rootNode }
     });
 
     dialogRef.afterClosed().pipe(takeUntil(this.destroy$)).subscribe(selectedFilePaths => {
-      // selectedFilePaths will be an array of strings (file paths)
-      if (selectedFilePaths && Array.isArray(selectedFilePaths) && selectedFilePaths.length > 0) {
-        console.log('Files selected from dialog:', selectedFilePaths);
-
-        if (this.currentSession && this.currentSession.fileSelection) {
-          const existingFilePaths = new Set(this.currentSession.fileSelection.map(f => f.filePath));
-          let filesAddedCount = 0;
-
-          for (const path of selectedFilePaths) {
-            if (!existingFilePaths.has(path)) {
-              const newFile: SelectedFile = {
-                filePath: path,
-                reason: 'Added via file browser', // Default reason
-                category: 'unknown', // Default category
-                readOnly: false // Newly added files are not read-only by default
-              };
-              this.currentSession.fileSelection.push(newFile);
-              existingFilePaths.add(path); // Add to set to prevent duplicate additions from the same dialog selection
-              filesAddedCount++;
+        if (selectedFilePaths && Array.isArray(selectedFilePaths) && selectedFilePaths.length > 0) {
+            if (this.currentSession && this.currentSession.id) {
+                const filesToAdd = selectedFilePaths.filter(path =>
+                    !this.currentSession.fileSelection?.some(sf => sf.filePath === path)
+                );
+                if (filesToAdd.length > 0) {
+                    this.isProcessingAction = true;
+                    this.vibeService.updateSession(this.currentSession.id, { filesToAdd }).pipe(
+                        take(1),
+                        finalize(() => { this.isProcessingAction = false; }),
+                        takeUntil(this.destroy$)
+                    ).subscribe({
+                        next: () => {
+                            this.snackBar.open(`${filesToAdd.length} file(s) added via browser.`, 'Close', { duration: 3000 });
+                        },
+                        error: (err) => {
+                            this.snackBar.open(`Error adding files: ${err.message || 'Unknown error'}`, 'Close', { duration: 5000 });
+                        }
+                    });
+                } else {
+                    this.snackBar.open('Selected file(s) are already in the list or no new files were chosen.', 'Close', { duration: 3000 });
+                }
+            } else {
+                 this.snackBar.open('Cannot add files: Current session or session ID is not available.', 'Close', { duration: 3000 });
             }
-          }
-
-          if (filesAddedCount > 0) {
-            // Ensure sortFiles modifies in place or reassigns to trigger change detection
-            this.currentSession.fileSelection = this.sortFiles(this.currentSession.fileSelection);
-            this.snackBar.open(`${filesAddedCount} file(s) added to the selection. Remember to save changes if applicable.`, 'Close', { duration: 3500 });
-          } else {
-             this.snackBar.open(`Selected file(s) are already in the list or no new files were chosen.`, 'Close', { duration: 3000 });
-          }
-
+        } else if (selectedFilePaths && Array.isArray(selectedFilePaths) && selectedFilePaths.length === 0) {
+            this.snackBar.open('No files selected from browser.', 'Close', {duration: 2000});
         } else {
-          this.snackBar.open('Cannot add files: Current session or file selection array is not available.', 'Close', { duration: 3000 });
+            console.log('File selection dialog was cancelled.');
         }
-      } else if (selectedFilePaths && Array.isArray(selectedFilePaths) && selectedFilePaths.length === 0) {
-        // Handles case where dialog was confirmed with no selections
-        console.log('No files were selected from the dialog.');
-        this.snackBar.open('No files selected from browser.', 'Close', {duration: 2000});
-      } else {
-        // Handles case where dialog was cancelled (result is undefined)
-        console.log('File selection dialog was cancelled.');
+    });
+  }
+
+  public handleFileAddRequested(filePath: string): void {
+    if (!filePath || filePath.trim() === '') {
+      this.snackBar.open('Cannot add empty file path.', 'Close', { duration: 3000 });
+      return;
+    }
+    if (!this.currentSession?.id) {
+      this.snackBar.open('Cannot add file: Session is not loaded.', 'Close', { duration: 3000 });
+      return;
+    }
+    if (this.currentSession.fileSelection?.some(f => f.filePath === filePath)) {
+        this.snackBar.open(`File '${filePath}' is already in the selection.`, 'Close', { duration: 3000 });
+        return;
+    }
+    this.isProcessingAction = true;
+    const sessionId = this.currentSession.id;
+    this.vibeService.updateSession(sessionId, { filesToAdd: [filePath] }).pipe(
+      take(1),
+      finalize(() => { this.isProcessingAction = false; }),
+      takeUntil(this.destroy$)
+    ).subscribe({
+      next: () => {
+        this.snackBar.open(`File '${filePath}' add request sent.`, 'Close', { duration: 3000 });
+      },
+      error: (err) => {
+        this.snackBar.open(`Error adding file '${filePath}': ${err.message || 'Unknown error'}`, 'Close', { duration: 5000 });
       }
     });
   }
