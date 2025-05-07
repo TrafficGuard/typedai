@@ -43,6 +43,23 @@ export class SearchReplaceCoder {
 
 	// State during processing of one LLM response
 	private currentLlmResponseContent = '';
+
+	private async _fileExists(absolutePath: string): Promise<boolean> {
+		return this.fileSystemService.fileExists(absolutePath);
+	}
+
+	private async _readText(absolutePath: string): Promise<string | null> {
+		try {
+			return await this.fileSystemService.readFile(absolutePath);
+		} catch (e: any) {
+			logger.warn(`Failed to read file at ${absolutePath}: ${e.message}`);
+			return null;
+		}
+	}
+
+	private async _writeText(absolutePath: string, content: string): Promise<void> {
+		await this.fileSystemService.writeFile(absolutePath, content);
+	}
 	public reflectedMessage: string | null = null; // For error messages to potentially send back to LLM
 
 	constructor(
@@ -170,7 +187,7 @@ export class SearchReplaceCoder {
 
 	/** Corresponds to EditBlockCoder.get_edits */
 	private _getEdits(): EditBlock[] {
-		return this._parseSearchReplaceBlocks(this.currentLlmResponseContent, this.fence);
+		return this._findOriginalUpdateBlocks(this.currentLlmResponseContent, this.fence);
 	}
 
 	/** Corresponds to Coder.prepare_to_edit */
@@ -204,7 +221,7 @@ export class SearchReplaceCoder {
 			return true;
 		}
 
-		const fileExists = await this.fileSystemService.fileExists(absolutePath);
+		const fileExists = await this._fileExists(absolutePath);
 
 		if (!fileExists) {
 			// Python's `allowed_to_edit` prompts user. Here, we simplify.
@@ -257,22 +274,17 @@ export class SearchReplaceCoder {
 			const absolutePath = this.getAbsoluteFilePath(relativePath);
 			let currentContent: string | null = null;
 
-			if (await this.fileSystemService.fileExists(absolutePath)) {
-				try {
-					currentContent = await this.fileSystemService.readFile(absolutePath);
-				} catch (e) {
-					logger.warn(`Failed to read file ${relativePath} for applying edit, treating as null content. Error: ${e.message}`);
-					currentContent = null; // Treat as if file doesn't exist if unreadable
-				}
+			if (await this._fileExists(absolutePath)) {
+				currentContent = await this._readText(absolutePath);
 			}
 
-			let newContent = this._doReplaceTs(
+			let newContent = this._doReplace(
 				relativePath,
 				currentContent,
 				edit.originalText,
 				edit.updatedText,
 				this.fence, // Pass the coder's current fence for stripping
-				this.fileSystemService,
+				// this.fileSystemService, // Parameter removed
 			);
 
 			let appliedToPath = absolutePath;
@@ -286,18 +298,13 @@ export class SearchReplaceCoder {
 
 					const chatFileRel = this.getRelativeFilePath(chatFileAbs);
 					let fallbackContent: string | null = null;
-					if (await this.fileSystemService.fileExists(chatFileAbs)) {
-						try {
-							fallbackContent = await this.fileSystemService.readFile(chatFileAbs);
-						} catch (e) {
-							logger.warn(`Failed to read fallback file ${chatFileRel}. Error: ${e.message}`);
-							continue;
-						}
+					if (await this._fileExists(chatFileAbs)) {
+						fallbackContent = await this._readText(chatFileAbs);
 					}
 
 					if (fallbackContent !== null) {
 						// Ensure fallback file content could be read
-						const fallbackNewContent = this._doReplaceTs(chatFileRel, fallbackContent, edit.originalText, edit.updatedText, this.fence, this.fileSystemService);
+						const fallbackNewContent = this._doReplace(chatFileRel, fallbackContent, edit.originalText, edit.updatedText, this.fence /* Parameter removed */);
 						if (fallbackNewContent !== undefined) {
 							logger.info(`Applied edit originally for ${relativePath} to ${chatFileRel} as a fallback.`);
 							newContent = fallbackNewContent;
@@ -312,7 +319,7 @@ export class SearchReplaceCoder {
 			if (newContent !== undefined) {
 				if (!this.dryRun) {
 					try {
-						await this.fileSystemService.writeFile(appliedToPath, newContent);
+						await this._writeText(appliedToPath, newContent);
 					} catch (e: any) {
 						logger.error(`Failed to write applied edit to ${appliedRelPath}: ${e.message}`);
 						failed.push({ ...edit, filePath: relativePath }); // Original path for failure report
@@ -341,8 +348,8 @@ export class SearchReplaceCoder {
 
 			const absolutePath = this.getAbsoluteFilePath(edit.filePath);
 			let content: string | null = null;
-			if (await this.fileSystemService.fileExists(absolutePath)) {
-				content = await this.fileSystemService.readFile(absolutePath);
+			if (await this._fileExists(absolutePath)) {
+				content = await this._readText(absolutePath);
 			}
 
 			if (content) {
@@ -368,7 +375,7 @@ export class SearchReplaceCoder {
 	// ---- Start of parsing/replacement logic (from aider/coders/editblock_coder.py) ----
 	// These methods are direct ports or adaptations of the Python helper functions.
 
-	private _parseSearchReplaceBlocks(llmResponseContent: string, fenceForFilenameScan: [string, string]): EditBlock[] {
+	private _findOriginalUpdateBlocks(llmResponseContent: string, fenceForFilenameScan: [string, string]): EditBlock[] {
 		// Corresponds to find_original_update_blocks from editblock_coder.py
 		const edits: EditBlock[] = [];
 		if (!llmResponseContent) return edits;
@@ -411,7 +418,7 @@ export class SearchReplaceCoder {
 			const marker = parts[i + 1];
 
 			if (marker.startsWith(SEARCH_MARKER)) {
-				const filePathFromPreceding = this._findFilenameFromPrecedingLines(potentialPrecedingText, fenceForFilenameScan[0]);
+				const filePathFromPreceding = this._findFilename(potentialPrecedingText, fenceForFilenameScan[0]);
 				if (filePathFromPreceding) {
 					currentFilePath = filePathFromPreceding;
 				}
@@ -463,7 +470,7 @@ export class SearchReplaceCoder {
 	 * Corresponds to find_filename from aider's editblock_coder.py.
 	 * Uses the _stripFilename utility.
 	 */
-	private _findFilenameFromPrecedingLines(precedingContent: string, fenceOpen: string): string | undefined {
+	private _findFilename(precedingContent: string, fenceOpen: string): string | undefined {
 		// Corresponds to find_filename from aider's editblock_coder.py
 		// Process lines from bottom up from the precedingContent.
 		const lines = precedingContent.split('\n');
@@ -527,13 +534,13 @@ export class SearchReplaceCoder {
 		return result;
 	}
 
-	private _doReplaceTs(
+	private _doReplace(
 		relativePath: string, // Used for stripping filename from block, must be relative
 		currentContent: string | null,
 		originalBlock: string,
 		updatedBlock: string,
 		fenceToStrip: [string, string],
-		fileSystemService: FileSystemService, // For testability, normally this.fileSystemService
+		// fileSystemService: FileSystemService, // Parameter removed
 	): string | undefined {
 		// Corresponds to do_replace from editblock_coder.py
 		const beforeText = this._stripQuotedWrapping(originalBlock, relativePath, fenceToStrip);
@@ -764,11 +771,11 @@ export class SearchReplaceCoder {
 
 	private _replaceMostSimilarChunk(whole: string, part: string, replace: string): string | undefined {
 		// Corresponds to replace_most_similar_chunk from editblock_coder.py
-		// All inputs are full strings, expected to be normalized by _prepContent if coming from lines.
+		// All inputs are full strings, expected to be normalized by _prep if coming from lines.
 
-		const { lines: wholeLines, text: wholeText } = this._prepContent(whole);
-		const { lines: partLines, text: partText } = this._prepContent(part);
-		const { lines: replaceLines, text: replaceText } = this._prepContent(replace);
+		const { lines: wholeLines, text: wholeText } = this._prep(whole);
+		const { lines: partLines, text: partText } = this._prep(part);
+		const { lines: replaceLines, text: replaceText } = this._prep(replace);
 
 		// Try perfect match on lines
 		let result = this._perfectReplace(wholeLines, partLines, replaceLines);
