@@ -62,7 +62,7 @@ export class VibeFileListComponent implements OnInit, OnDestroy {
    * @returns True if the session status is 'file_selection_review' or 'updating_file_selection', false otherwise.
    */
   public get isReadOnly(): boolean {
-    return this.session?.status === 'file_selection_review' || this.session?.status === 'updating_file_selection';
+    return this.session?.status === 'updating_file_selection';
   }
 
   /**
@@ -176,4 +176,5 @@ export class VibeFileListComponent implements OnInit, OnDestroy {
   public onBrowseFiles(): void {
     this.browseFilesRequested.emit();
   }
+  
 }

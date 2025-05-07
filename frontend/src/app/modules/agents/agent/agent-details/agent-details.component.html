@@ -112,7 +112,7 @@
                 mat-icon-button
                 color="warn"
                 (click)="forceStopAgent()"
-                [disabled]="isForcingStop"
+                [disabled]="isForcingStop || (agentDetails.state != 'agent' && agentDetails.state !='functions')"
                 [matTooltip]="'Force Stop Agent (Use with caution)'"
                 class="mr-3">
                 <mat-icon>stop_circle</mat-icon>
