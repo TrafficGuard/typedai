@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { MatTableModule } from '@angular/material/table';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip'; // Import MatTooltipModule
-import { SelectedFile } from '../vibe.types';
+import { SelectedFile, VibeSession } from '../vibe.types';
 
 @Component({
   selector: 'vibe-file-list',
   templateUrl: './vibe-file-list.component.html',
+  styleUrls: ['./vibe-file-list.component.scss'],
   standalone: true,
   imports: [
     CommonModule,
@@ -19,6 +20,7 @@ import { SelectedFile } from '../vibe.types';
 export class VibeFileListComponent {
   @Input() files: SelectedFile[] | null | undefined = []; // Allow null/undefined
   @Input() allowDeletion: boolean = true; // Input to control deletion
+  @Input() session: VibeSession | null = null;
   @Output() fileDeleted = new EventEmitter<SelectedFile>();
 
   displayedColumns: string[] = ['filePath', 'reason', 'category', 'actions'];

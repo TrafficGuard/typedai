@@ -71,15 +71,14 @@
                     </div>
 
                     <!-- File Selection Review State -->
-                    <ng-container *ngIf="currentSession?.status === 'file_selection_review'">
+                    <ng-container *ngIf="currentSession?.status === 'file_selection_review' || currentSession?.status === 'updating_file_selection'">
                         <div class="sm:col-span-2 mt-6 p-4 border rounded bg-yellow-50 border-yellow-200">
                             <h2 class="text-xl font-semibold mb-3 text-yellow-800">Review File Selection</h2>
                             <p class="text-yellow-700 mb-4">Review the files selected by the AI. You can approve the selection to proceed with design generation, or provide instructions to update the selection.</p>
 
                             <!-- File List (Read-Only in this state) -->
                             <vibe-file-list
-                                [files]="currentSession.fileSelection"
-                                [allowDeletion]="false"
+                                [session]="currentSession"
                                 class="mb-4">
                             </vibe-file-list>
 

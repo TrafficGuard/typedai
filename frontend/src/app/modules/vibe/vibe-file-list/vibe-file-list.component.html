@@ -1,53 +1,11 @@
-<div *ngIf="files?.length; else noFiles" class="sm:col-span-2">
-    <div class="font-semibold mb-2">Selected Files:</div>
-    <mat-table [dataSource]="files" class="mat-elevation-z0">
-
-        <!-- File Path Column -->
-        <ng-container matColumnDef="filePath">
-            <mat-header-cell *matHeaderCellDef> File Path </mat-header-cell>
-            <mat-cell *matCellDef="let file">
-                <div class="flex items-center">
-                    <mat-icon *ngIf="file.readOnly" class="mr-2 text-gray-500" matTooltip="Read Only">lock</mat-icon>
-                    <span class="text-secondary break-all font-medium">{{ file.filePath }}</span>
-                </div>
-            </mat-cell>
-        </ng-container>
-
-        <!-- Reason Column -->
-        <ng-container matColumnDef="reason">
-            <mat-header-cell *matHeaderCellDef> Reason </mat-header-cell>
-            <mat-cell *matCellDef="let file" class="text-xs text-gray-600 !px-4 !py-2" data-testid="file-reason"> <!-- Added padding for better spacing -->
-                {{ file.reason }}
-            </mat-cell>
-        </ng-container>
-
-        <!-- Category Column -->
-        <ng-container matColumnDef="category">
-            <mat-header-cell *matHeaderCellDef> Category </mat-header-cell>
-            <mat-cell *matCellDef="let file" class="text-xs text-gray-500 !px-4 !py-2" data-testid="file-category"> <!-- Added padding -->
-                <span *ngIf="file.category" class="capitalize">{{ file.category.replace('_', ' ') }}</span>
-            </mat-cell>
-        </ng-container>
-
-        <!-- Actions Column -->
-        <ng-container matColumnDef="actions">
-            <mat-header-cell *matHeaderCellDef class="!justify-end"> Actions </mat-header-cell> <!-- Align header to end -->
-            <mat-cell *matCellDef="let file" class="!justify-end"> <!-- Align cell content to end -->
-                <button mat-icon-button
-                        [disabled]="file.readOnly || !allowDeletion"
-                        [matTooltip]="allowDeletion ? 'Remove File' : 'Deletion disabled in current state'"
-                        (click)="deleteFile(file)">
-                    <mat-icon svgIcon="heroicons_outline:trash" [class.text-red-500]="allowDeletion" [class.text-gray-400]="!allowDeletion"></mat-icon>
-                </button>
-            </mat-cell>
-        </ng-container>
-
-        <mat-header-row *matHeaderRowDef="displayedColumns"></mat-header-row>
-        <mat-row *matRowDef="let row; columns: displayedColumns;"></mat-row>
-    </mat-table>
-</div>
-<ng-template #noFiles>
-    <div class="sm:col-span-2 text-gray-500 italic">
-        No files selected.
+<div>
+    <h2>Vibe File List Component</h2>
+    <div *ngIf="session">
+        <p>Session ID: {{ session.id }}</p>
+        <p>Status: {{ session.status }}</p>
+        <p>Instructions: {{ session.instructions }}</p>
     </div>
-</ng-template>
+    <div *ngIf="!session">
+        <p>No session data available for VibeFileListComponent.</p>
+    </div>
+</div>
