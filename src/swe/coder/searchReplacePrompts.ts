@@ -25,3 +25,7 @@ All changes to files must use this *SEARCH/REPLACE block* format.
 ONLY EVER RETURN CODE IN A *SEARCH/REPLACE BLOCK*!
 {shell_cmd_prompt_section}`,
 }
+
+DOCS.md                                     aiderSourceCode/coders/architect_coder.py          aiderSourceCode/coders/architect_prompts.py          aiderSourceCode/coders/ask_prompts.py aiderSourceCode/coders/base_prompts.py aiderSourceCode/coders/editblock_fenced_coder.py
+aiderSourceCode/coders/editblock_fenced_prompts.py aiderSourceCode/coders/editblock_prompts.py aiderSourceCode/coders/editor_diff_fenced_coder.py aiderSourceCode/coders/editor_diff_fenced_prompts.py aiderSourceCode/main.py               src/DOCS.md                            src/llm/llm.ts
+src/swe/aiderCodeEditor.ts                         src/swe/coder/applySearchReplace.ts
