@@ -33,6 +33,7 @@ interface SearchReplaceCoderOptions {
 	dirtyCommits?: boolean; // Corresponds to Python's auto-commit of dirty files before aider edits
 	dryRun?: boolean;
 	editFormat?: EditFormat; // May influence fence selection or prompts (prompts out of scope here)
+	lenientLeadingWhitespace?: boolean; // <<< Add this line
 	// initialFiles?: string[]; // Relative paths of files already in chat context
 }
 
@@ -51,6 +52,7 @@ export class ApplySearchReplace {
 	private rootPath: string; // Absolute path to the project root (e.g., git repo root)
 	private absFnamesInChat: Set<string>; // Absolute paths of files explicitly in chat
 	private fence: [string, string];
+	private lenientLeadingWhitespace: boolean; // <<< Add this line
 
 	private autoCommits: boolean;
 	private dirtyCommits: boolean; // If true, commit uncommitted changes in targeted files before applying LLM edits
@@ -109,6 +111,7 @@ export class ApplySearchReplace {
 		this.autoCommits = options.autoCommits ?? true;
 		this.dirtyCommits = options.dirtyCommits ?? true;
 		this.dryRun = options.dryRun ?? false;
+		this.lenientLeadingWhitespace = options.lenientLeadingWhitespace ?? false; // <<< Add this line to initialize
 
 		// Initialize new prompt-related options
 		this.language = options.language ?? 'TypeScript';
@@ -683,31 +686,99 @@ export class ApplySearchReplace {
 		const num = wholeChunkLines.length;
 		if (num === 0) return ''; // Empty chunks match with empty prefix
 
-		let commonPrefixFromWhole: string | undefined = undefined;
-		let firstNonBlank = true;
+		// --- Original Strict Check (from Python version) ---
+		let commonPrefixFromWholeStrict: string | undefined = undefined;
+		let firstNonBlankStrict = true;
+		let strictCheckFailed = false;
 
 		for (let i = 0; i < num; i++) {
-			const wholeLineContent = wholeChunkLines[i].slice(0, -1); // Content without \n
-			const partLineContent = partLines[i].slice(0, -1); // Content without \n
+			const wholeLineContentNoNL = wholeChunkLines[i].slice(0, -1);
+			const partLineContentNoNL = partLines[i].slice(0, -1);
 
-			if (wholeLineContent.trimStart() !== partLineContent.trimStart()) {
-				return undefined; // Core content mismatch
+			if (wholeLineContentNoNL.trimStart() !== partLineContentNoNL.trimStart()) {
+				strictCheckFailed = true;
+				break; // Core content mismatch
 			}
 
-			if (wholeLineContent.trim()) {
-				// Only consider non-blank lines for consistent prefix
-				const currentWholePrefix = wholeLineContent.substring(0, wholeLineContent.indexOf(wholeLineContent.trimStart()));
-				if (firstNonBlank) {
-					commonPrefixFromWhole = currentWholePrefix;
-					firstNonBlank = false;
-				} else if (commonPrefixFromWhole !== currentWholePrefix) {
-					return undefined; // Prefixes from whole_lines are not consistent for this chunk
+			if (wholeLineContentNoNL.trim()) {
+				const currentWholePrefix = wholeLineContentNoNL.substring(0, wholeLineContentNoNL.indexOf(wholeLineContentNoNL.trimStart()));
+				if (firstNonBlankStrict) {
+					commonPrefixFromWholeStrict = currentWholePrefix;
+					firstNonBlankStrict = false;
+				} else if (commonPrefixFromWholeStrict !== currentWholePrefix) {
+					strictCheckFailed = true;
+					break; // Prefixes from whole_lines are not consistent for this chunk
 				}
 			}
 		}
-		// If all lines were blank, commonPrefixFromWhole is undefined. Return "" as per Python's `add.pop()` if `add` was `set([''])`.
-		// If there were non-blank lines, commonPrefixFromWhole is set.
-		return commonPrefixFromWhole === undefined ? '' : commonPrefixFromWhole;
+
+		if (!strictCheckFailed) {
+			return commonPrefixFromWholeStrict === undefined ? '' : commonPrefixFromWholeStrict;
+		}
+
+		// --- Lenient Check (if strict failed and lenientLeadingWhitespace flag is true) ---
+		if (this.lenientLeadingWhitespace) {
+			let firstNonBlankLenient = true;
+			let expectedOffset: number | undefined = undefined;
+			let prefixToReturnForLenientMatch: string | undefined = undefined;
+
+			for (let i = 0; i < num; i++) {
+				const wholeLineContentNoNL = wholeChunkLines[i].slice(0, -1);
+				const partLineContentNoNL = partLines[i].slice(0, -1); // partLines are already normalized by _normalizeAndOutdent
+
+				const wholeTrimmed = wholeLineContentNoNL.trimStart();
+				const partTrimmed = partLineContentNoNL.trimStart();
+
+				// This check is crucial. If strictCheckFailed was true due to content mismatch,
+				// this will also fail, and lenient matching won't proceed for this chunk.
+				// If strictCheckFailed was true due to inconsistent prefix in wholeChunk,
+				// this ensures the core content still matches line by line.
+				if (wholeTrimmed !== partTrimmed) {
+					return undefined;
+				}
+
+				// Handle blank lines:
+				// If wholeLine is blank (wholeTrimmed is empty)
+				if (!wholeTrimmed) {
+					if (!partTrimmed) { // And partLine is also blank
+						continue; // Both blank, this line is fine, doesn't affect offset consistency.
+					} else {
+						// wholeLine is blank, but partLine is not. This is a content mismatch.
+						return undefined;
+					}
+				}
+				// At this point, wholeTrimmed is not empty.
+				// If partTrimmed was empty but wholeTrimmed is not, it's a mismatch (already covered by wholeTrimmed !== partTrimmed).
+
+				const wholePrefixLength = wholeLineContentNoNL.length - wholeTrimmed.length;
+				const partPrefixLength = partLineContentNoNL.length - partTrimmed.length;
+				const currentOffset = wholePrefixLength - partPrefixLength;
+
+				if (firstNonBlankLenient) {
+					expectedOffset = currentOffset;
+					// Capture the actual prefix from the first non-blank line of the wholeChunk
+					prefixToReturnForLenientMatch = wholeLineContentNoNL.substring(0, wholePrefixLength);
+					firstNonBlankLenient = false;
+				} else if (currentOffset !== expectedOffset) {
+					// Offset is not consistent across non-blank lines
+					return undefined;
+				}
+			}
+
+			// If loop completes:
+			if (!firstNonBlankLenient) {
+				// At least one non-blank line was processed and offsets were consistent.
+				return prefixToReturnForLenientMatch;
+			} else {
+				// All lines were blank (or num === 0, which is handled at the start).
+				// If num > 0 and all lines in both chunks were blank, they match with an empty effective prefix.
+				if (num > 0) {
+					return ""; // All lines in both chunks were blank.
+				}
+			}
+		}
+
+		return undefined; // Both strict and lenient (if attempted) failed
 	}
 
 	private _replacePartWithMissingLeadingWhitespace(wholeLines: string[], partLines: string[], replaceLines: string[]): string | undefined {

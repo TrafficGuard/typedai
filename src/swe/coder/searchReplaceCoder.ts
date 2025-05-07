@@ -28,10 +28,11 @@ export class SearchReplaceCoder {
 		const searchReplacer = new ApplySearchReplace(rootPath, filesToEdit, {
 			editFormat,
 			autoCommits: commit,
-			dirtyCommits: true, // Corresponds to Aider's behavior of committing uncommitted changes first
+			dirtyCommits: true, 
 			dryRun: false,
-			// language: 'typescript', // Optional: specify language for prompts
-			// suggestShellCommands: true, // Optional: allow LLM to suggest shell commands
+			lenientLeadingWhitespace: true, // <<< Add this line
+			// language: 'typescript', 
+			// suggestShellCommands: true, 
 		});
 
 		// repoMapContent could be fetched or passed if available, e.g., via fileSystem.generateRepoMap()
