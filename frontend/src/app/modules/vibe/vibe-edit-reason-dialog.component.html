@@ -1,0 +1,17 @@
+<h1 mat-dialog-title>Edit Reason</h1>
+<div mat-dialog-content>
+  <mat-form-field class="w-full" appearance="outline">
+    <mat-label>Reason</mat-label>
+    <textarea matInput
+              [(ngModel)]="reasonText"
+              name="reasonText"
+              cdkTextareaAutosize
+              cdkAutosizeMinRows="3"
+              cdkAutosizeMaxRows="10"
+              placeholder="Enter reason for including this file"></textarea>
+  </mat-form-field>
+</div>
+<div mat-dialog-actions align="end">
+  <button mat-button (click)="onCancel()">Cancel</button>
+  <button mat-raised-button color="primary" (click)="onSave()" [disabled]="!reasonText || reasonText.trim() === ''">Save</button>
+</div>

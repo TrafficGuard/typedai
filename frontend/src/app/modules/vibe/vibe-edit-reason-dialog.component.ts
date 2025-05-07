@@ -1,47 +1,51 @@
-import { Component, Inject } from '@angular/core';
+import { Component, OnInit, Inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatDialogRef, MAT_DIALOG_DATA, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
+import { TextFieldModule } from '@angular/cdk/text-field'; // For cdkTextareaAutosize
 
 export interface DialogData {
   reason: string;
 }
 
 @Component({
-  selector: 'vibe-edit-reason-dialog',
-  template: `
-    <h1 mat-dialog-title>Edit Reason</h1>
-    <div mat-dialog-content>
-      <mat-form-field class="w-full">
-        <mat-label>Reason</mat-label>
-        <textarea matInput [(ngModel)]="data.reason" cdkTextareaAutosize cdkAutosizeMinRows="3" cdkAutosizeMaxRows="5"></textarea>
-      </mat-form-field>
-    </div>
-    <div mat-dialog-actions align="end">
-      <button mat-button (click)="onNoClick()">Cancel</button>
-      <button mat-flat-button color="primary" [mat-dialog-close]="data.reason" cdkFocusInitial>Save</button>
-    </div>
-  `,
+  selector: 'app-vibe-edit-reason-dialog', // Changed selector to be more standard
+  templateUrl: './vibe-edit-reason-dialog.component.html',
+  styleUrls: ['./vibe-edit-reason-dialog.component.scss'],
   standalone: true,
   imports: [
     CommonModule,
     FormsModule,
-    MatDialogModule,
+    MatDialogTitle,
+    MatDialogContent,
+    MatDialogActions,
+    MatDialogClose,
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
+    TextFieldModule
   ],
 })
-export class VibeEditReasonDialogComponent {
+export class VibeEditReasonDialogComponent implements OnInit {
+  reasonText: string = '';
+
   constructor(
     public dialogRef: MatDialogRef<VibeEditReasonDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: DialogData,
+    @Inject(MAT_DIALOG_DATA) public data: { reason: string }
   ) {}
 
-  onNoClick(): void {
+  ngOnInit(): void {
+    this.reasonText = this.data.reason || '';
+  }
+
+  onSave(): void {
+    this.dialogRef.close(this.reasonText.trim());
+  }
+
+  onCancel(): void {
     this.dialogRef.close();
   }
 }
