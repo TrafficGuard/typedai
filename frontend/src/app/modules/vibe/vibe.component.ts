@@ -486,12 +486,42 @@ export class VibeComponent implements OnInit, OnDestroy {
       // selectedFilePaths will be an array of strings (file paths)
       if (selectedFilePaths && Array.isArray(selectedFilePaths) && selectedFilePaths.length > 0) {
         console.log('Files selected from dialog:', selectedFilePaths);
-        this.snackBar.open(`${selectedFilePaths.length} file(s) selected. (Note: Adding to selection list is TODO)`, 'Close', { duration: 4000 });
-        // TODO: Implement logic to create SelectedFile objects and add them to this.currentSession.fileSelection
-        // Ensure no duplicates, then re-sort this.currentSession.fileSelection using this.sortFiles()
-      } else if (selectedFilePaths) { // It's an empty array if "Select" was clicked with no items
+
+        if (this.currentSession && this.currentSession.fileSelection) {
+          const existingFilePaths = new Set(this.currentSession.fileSelection.map(f => f.filePath));
+          let filesAddedCount = 0;
+
+          for (const path of selectedFilePaths) {
+            if (!existingFilePaths.has(path)) {
+              const newFile: SelectedFile = {
+                filePath: path,
+                reason: 'Added via file browser', // Default reason
+                category: 'unknown', // Default category
+                readOnly: false // Newly added files are not read-only by default
+              };
+              this.currentSession.fileSelection.push(newFile);
+              existingFilePaths.add(path); // Add to set to prevent duplicate additions from the same dialog selection
+              filesAddedCount++;
+            }
+          }
+
+          if (filesAddedCount > 0) {
+            // Ensure sortFiles modifies in place or reassigns to trigger change detection
+            this.currentSession.fileSelection = this.sortFiles(this.currentSession.fileSelection);
+            this.snackBar.open(`${filesAddedCount} file(s) added to the selection. Remember to save changes if applicable.`, 'Close', { duration: 3500 });
+          } else {
+             this.snackBar.open(`Selected file(s) are already in the list or no new files were chosen.`, 'Close', { duration: 3000 });
+          }
+
+        } else {
+          this.snackBar.open('Cannot add files: Current session or file selection array is not available.', 'Close', { duration: 3000 });
+        }
+      } else if (selectedFilePaths && Array.isArray(selectedFilePaths) && selectedFilePaths.length === 0) {
+        // Handles case where dialog was confirmed with no selections
         console.log('No files were selected from the dialog.');
-      } else { // Undefined if "Cancel" or backdrop click
+        this.snackBar.open('No files selected from browser.', 'Close', {duration: 2000});
+      } else {
+        // Handles case where dialog was cancelled (result is undefined)
         console.log('File selection dialog was cancelled.');
       }
     });

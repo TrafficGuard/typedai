@@ -115,7 +115,7 @@
                     </vibe-file-list>
 
                     <!-- File Autocomplete Input (Only shown when NOT in file_selection_review or initializing states) -->
-                    <div *ngIf="currentSession?.status !== 'file_selection_review' && currentSession?.status !== 'initializing'" class="sm:col-span-2 mt-6">
+                    <div *ngIf="currentSession?.status !== 'initializing' && currentSession?.status !== 'selecting_files' && currentSession?.status !== 'generating_design' && currentSession?.status !== 'coding' && currentSession?.status !== 'committing' && currentSession?.status !== 'monitoring_ci'" class="sm:col-span-2 mt-6">
                         <div class="font-semibold mb-2">Add File to Session:</div>
                         <div class="flex items-center space-x-2">
                             <mat-form-field class="flex-grow" appearance="outline">
