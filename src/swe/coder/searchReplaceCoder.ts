@@ -15,15 +15,17 @@ export class SearchReplaceCoder {
 		const readOnlyFileContents: string = await getFileSystem().readFilesAsXml(readOnlyFiles);
 		const editableFileContents: string = await getFileSystem().readFilesAsXml(filesToEdit);
 
+		const llm = llms().hard;
+
 		const editFormat: EditFormat = 'diff-fenced';
 
 		const messages: LlmMessage[] = [system(''), user(''), assistant('')];
 
-		const llmResponse: LlmMessage = await llms().hard.generateMessage(messages, { id: 'SearchReplace Coder', temperature: 0.1 });
+		const llmResponse: LlmMessage = await llm.generateMessage(messages, { id: 'SearchReplace Coder', temperature: 0.1 });
 
 		const searchReplace = new ApplySearchReplace(getFileSystem().getWorkingDirectory(), filesToEdit, { dirtyCommits: true, autoCommits: false, dryRun: false });
 
-		const editedFiles: Set<string> = await searchReplace.applyLlmResponse(messageText(llmResponse));
+		const editedFiles: Set<string> = await searchReplace.applyLlmResponse(messageText(llmResponse), llm);
 	}
 
 	buildEditPrompt(requirements: string, readOnlyFileContents: string, editableFileContents: string, editFormat: EditFormat): LlmMessage[] {
