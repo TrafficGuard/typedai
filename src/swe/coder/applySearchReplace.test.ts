@@ -432,7 +432,7 @@ ${REPLACE_MARKER}
 				await vcs.revertFile(componentPath);
 				await vcs.revertFile(htmlPath);
 			} catch (e) {
-				logger.warn(e, "Error reverting test files")
+				logger.warn(e, 'Error reverting test files');
 			}
 		});
 

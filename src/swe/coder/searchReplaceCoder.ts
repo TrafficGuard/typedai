@@ -39,7 +39,7 @@ export class SearchReplaceCoder {
 		// additionalFilesToChatRelativePaths is empty because filesToEdit are already handled by initialFiles in constructor.
 		const messages: LlmMessage[] = await searchReplacer.buildPrompt(
 			requirements,
-			[], // No additional files beyond what's in initialFiles for this call
+			filesToEdit,
 			readOnlyFiles,
 			repoMapContent,
 		);

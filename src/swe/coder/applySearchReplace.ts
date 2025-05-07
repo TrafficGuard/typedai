@@ -851,6 +851,20 @@ export class ApplySearchReplace {
 		return undefined;
 	}
 
+// Add this method inside the ApplySearchReplace class
+	private async _formatFileForPrompt(relativePath: string): Promise<string | null> {
+		const absolutePath = this.getRepoFilePath(relativePath);
+		const content = await this._readText(absolutePath);
+		if (content === null) {
+			logger.warn(`Could not read file ${relativePath} for prompt inclusion.`);
+			// Return a placeholder or skip if content is critical and unreadable
+			return `${relativePath}\n[Could not read file content]`;
+		}
+		// Determine language for fence from file extension, default to 'text'
+		const lang = path.extname(relativePath).substring(1) || 'text';
+		return `${relativePath}\n${this.fence[0]}${lang}\n${content}\n${this.fence[1]}`;
+	}
+
 	public async buildPrompt(
 		userRequest: string,
 		additionalFilesToChatRelativePaths: string[] = [],
@@ -860,6 +874,7 @@ export class ApplySearchReplace {
 		const messages: LlmMessage[] = [];
 
 		// --- System Prompt ---
+		// ... (existing system prompt setup code remains unchanged) ...
 		let finalRemindersText = '';
 		if (this.useLazyPrompt) finalRemindersText += EDIT_BLOCK_PROMPTS.lazy_prompt;
 		if (this.useOvereagerPrompt) finalRemindersText += EDIT_BLOCK_PROMPTS.overeager_prompt;
@@ -906,10 +921,14 @@ export class ApplySearchReplace {
 		const currentFilesInChatRelative = Array.from(this.absFnamesInChat).map((absPath) => this.getRelativeFilePath(absPath));
 
 		if (currentFilesInChatRelative.length > 0) {
-			messages.push({
-				role: 'user',
-				content: `${EDIT_BLOCK_PROMPTS.files_content_prefix}\n${currentFilesInChatRelative.join('\n')}`,
-			});
+			// Modified part for editable files
+			let filesContentBlock = EDIT_BLOCK_PROMPTS.files_content_prefix;
+			for (const relPath of currentFilesInChatRelative) {
+				const formattedFile = await this._formatFileForPrompt(relPath);
+				// formattedFile will include a placeholder if reading failed, so always add it.
+				filesContentBlock += `\n\n${formattedFile}`;
+			}
+			messages.push({ role: 'user', content: filesContentBlock });
 			messages.push({ role: 'assistant', content: EDIT_BLOCK_PROMPTS.files_content_assistant_reply });
 		} else if (repoMapContent) {
 			messages.push({ role: 'user', content: EDIT_BLOCK_PROMPTS.files_no_full_files_with_repo_map });
@@ -920,10 +939,14 @@ export class ApplySearchReplace {
 		}
 
 		if (readOnlyFilesRelativePaths.length > 0) {
-			messages.push({
-				role: 'user',
-				content: `${EDIT_BLOCK_PROMPTS.read_only_files_prefix}\n${readOnlyFilesRelativePaths.join('\n')}`,
-			});
+			// Modified part for read-only files
+			let readOnlyFilesContentBlock = EDIT_BLOCK_PROMPTS.read_only_files_prefix;
+			for (const relPath of readOnlyFilesRelativePaths) {
+				const formattedFile = await this._formatFileForPrompt(relPath);
+				// formattedFile will include a placeholder if reading failed, so always add it.
+				readOnlyFilesContentBlock += `\n\n${formattedFile}`;
+			}
+			messages.push({ role: 'user', content: readOnlyFilesContentBlock });
 			// Adding a custom assistant reply for clarity, as Python's is generic or missing here.
 			messages.push({ role: 'assistant', content: 'Ok, I will treat these files as read-only and not propose changes to them.' });
 		}
