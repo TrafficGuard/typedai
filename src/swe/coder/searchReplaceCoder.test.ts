@@ -49,12 +49,9 @@ describe.only('SearchReplaceCoder', () => {
 
 		beforeEach(() => {
 			coder = new SearchReplaceCoder('.');
-			// Reset any sinon spies/stubs on logger if setupConditionalLoggerOutput doesn't do it per test
-			if ((logger.warn as sinon.SinonSpy).restore) {
-				(logger.warn as sinon.SinonSpy).restore();
-			}
-			// Ensure logger.warn is a spy for tests that check its calls.
-			// setupConditionalLoggerOutput should ideally handle this. If it replaces with a stub, that's fine.
+			// setupConditionalLoggerOutput() at the top-level describe and the afterEach below
+			// should handle logger stubbing and restoration.
+			// No need to manually restore logger.warn here.
 		});
 
 		afterEach(() => {

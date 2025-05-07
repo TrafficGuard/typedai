@@ -373,6 +373,11 @@ export class SearchReplaceCoder {
 		const edits: EditBlock[] = [];
 		if (!llmResponseContent) return edits;
 		let content = llmResponseContent;
+
+		// Pre-process to ensure markers are on new lines if they are immediately preceded by non-whitespace characters.
+		// This handles cases like "filename.ext<<<<<<< SEARCH" by converting to "filename.ext\n<<<<<<< SEARCH"
+		content = content.replace(/([^\r\n])(<<<<<<< SEARCH|=======|>>>>>>> REPLACE)/g, '$1\n$2');
+		
 		if (!content.endsWith('\n')) {
 			content += '\n';
 		}
