@@ -12,7 +12,7 @@ const SEARCH_MARKER = '<<<<<<< SEARCH';
 const DIVIDER_MARKER = '=======';
 const REPLACE_MARKER = '>>>>>>> REPLACE';
 
-describe('SearchReplaceCoder integration tests', () => {
+describe.only('SearchReplaceCoder integration tests', () => {
 	setupConditionalLoggerOutput(); // Handles logger stubbing
 
 	const testRoot = '/test-repo'; // Absolute path for mock-fs
@@ -21,7 +21,7 @@ describe('SearchReplaceCoder integration tests', () => {
 		// Mock file system structure will be defined per test or describe block
 		// Stub getFileSystem to return a FileSystemService instance operating on the mock FS
 		// The FileSystemService needs a basePath, which should be our testRoot.
-		const fssInstance = new FileSystemService(testRoot, logger); // logger is available from o11y
+		const fssInstance = new FileSystemService(testRoot); // logger is available from o11y
 		sinon.stub(agentContextLocalStorage, 'getFileSystem').returns(fssInstance);
 	});
 
