@@ -39,3 +39,15 @@
     color: var(--fuse-primary-500, blue);
   }
 }
+
+.category-text-clickable {
+  cursor: pointer;
+  &:hover {
+    text-decoration: underline;
+    color: var(--fuse-primary-500, blue); // Or your theme's primary color
+  }
+}
+
+.mat-mdc-cell .mat-mdc-select { // Target Material v15+ select
+    min-width: 150px; // Adjust as needed
+}

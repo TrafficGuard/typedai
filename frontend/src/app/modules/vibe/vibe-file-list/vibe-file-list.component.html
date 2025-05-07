@@ -32,7 +32,26 @@
             <!-- Category Column -->
             <ng-container matColumnDef="category">
                 <th mat-header-cell *matHeaderCellDef> Category </th>
-                <td mat-cell *matCellDef="let file"> {{ file.category }} </td>
+                <td mat-cell *matCellDef="let file">
+                    <div (click)="$event.stopPropagation()"> <!-- Prevent row click if any -->
+                        <span *ngIf="editingCategoryFilePath !== file.filePath; else categorySelect"
+                              [class.category-text-clickable]="!isReadOnly"
+                              (click)="!isReadOnly && toggleCategoryEdit(file, $event)"
+                              [matTooltip]="isReadOnly ? 'Category editing disabled in current state' : 'Click to edit category'">
+                            {{ file.category || '-' }}
+                        </span>
+                        <ng-template #categorySelect>
+                            <mat-select [value]="file.category"
+                                        (selectionChange)="onCategoryChange(file, $event.value)"
+                                        (openedChange)="$event ? null : cancelCategoryEdit()"
+                                        placeholder="Select category">
+                                <mat-option *ngFor="let cat of availableCategories" [value]="cat">
+                                    {{ cat | titlecase }}
+                                </mat-option>
+                            </mat-select>
+                        </ng-template>
+                    </div>
+                </td>
             </ng-container>
 
             <!-- Actions Column -->

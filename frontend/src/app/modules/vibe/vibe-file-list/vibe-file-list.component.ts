@@ -7,6 +7,8 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { SelectedFile, VibeSession } from '../vibe.types';
 import { VibeEditReasonDialogComponent } from '../vibe-edit-reason-dialog.component';
 
+import { MatSelectModule } from '@angular/material/select';
+
 @Component({
   selector: 'vibe-file-list',
   templateUrl: './vibe-file-list.component.html',
@@ -19,15 +21,19 @@ import { VibeEditReasonDialogComponent } from '../vibe-edit-reason-dialog.compon
     MatTooltipModule,
     MatDialogModule, // Add MatDialogModule here
     VibeEditReasonDialogComponent, // Import the dialog component
+    MatSelectModule,
   ],
 })
 export class VibeFileListComponent {
   @Input() session: VibeSession | null = null;
   @Output() fileDeleted = new EventEmitter<SelectedFile>();
   @Output() reasonUpdated = new EventEmitter<{ file: SelectedFile, newReason: string }>();
+  @Output() categoryUpdated = new EventEmitter<{ file: SelectedFile, newCategory: string }>();
 
   displayedColumns: string[] = ['filePath', 'reason', 'category', 'actions'];
   public dialog = inject(MatDialog);
+  public editingCategoryFilePath: string | null = null;
+  public availableCategories: string[] = ['edit', 'reference', 'style_example', 'unknown'];
 
   /**
    * Checks if the current session status makes the file list read-only.
@@ -68,5 +74,37 @@ export class VibeFileListComponent {
         this.reasonUpdated.emit({ file, newReason: result.trim() });
       }
     });
+  }
+
+  /**
+   * Toggles the category editing UI for a given file.
+   * @param file The file for which to toggle category editing.
+   * @param event The mouse event that triggered the toggle.
+   */
+  toggleCategoryEdit(file: SelectedFile, event: MouseEvent): void {
+    if (this.isReadOnly) {
+      return;
+    }
+    this.editingCategoryFilePath = file.filePath;
+    event.stopPropagation(); // Prevent triggering other click listeners, e.g., on the row
+  }
+
+  /**
+   * Handles the change of a category for a file.
+   * Emits an event with the updated category and resets the editing state.
+   * @param file The file whose category was changed.
+   * @param newCategory The new category selected for the file.
+   */
+  onCategoryChange(file: SelectedFile, newCategory: string): void {
+    this.categoryUpdated.emit({ file, newCategory });
+    this.editingCategoryFilePath = null;
+  }
+
+  /**
+   * Cancels the category editing state.
+   * Called when the select dropdown is closed without a selection or focus is lost.
+   */
+  cancelCategoryEdit(): void {
+    this.editingCategoryFilePath = null;
   }
 }

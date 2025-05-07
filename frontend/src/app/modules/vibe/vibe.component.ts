@@ -188,6 +188,43 @@ export class VibeComponent implements OnInit, OnDestroy {
     });
   }
 
+  public handleCategoryUpdated(event: { file: SelectedFile, newCategory: string }): void {
+    if (!this.currentSession || !this.currentSession.id || !this.currentSession.fileSelection) {
+      console.error('Cannot update category: Session, session ID, or file selection is missing.');
+      this.snackBar.open('Error: Session data incomplete. Cannot update category.', 'Close', { duration: 3000 });
+      return;
+    }
+
+    const { file, newCategory } = event;
+    const sessionId = this.currentSession.id;
+
+    const updatedFileSelection = this.currentSession.fileSelection.map(f => {
+      if (f.filePath === file.filePath) {
+        return { ...f, category: newCategory }; // Update the category for the specific file
+      }
+      return f;
+    });
+
+    console.log(`Attempting to update category for file '${file.filePath}' to "${newCategory}" in session ${sessionId}`);
+
+    this.isProcessingAction = true;
+    this.vibeService.updateSession(sessionId, { fileSelection: updatedFileSelection }).pipe(
+      take(1),
+      finalize(() => this.isProcessingAction = false),
+      takeUntil(this.destroy$)
+    ).subscribe({
+      next: () => {
+        console.log(`Category for ${file.filePath} updated successfully in backend.`);
+        this.snackBar.open(`Category for '${file.filePath}' updated.`, 'Close', { duration: 3000 });
+        // The session$ observable should automatically update the view
+      },
+      error: (err) => {
+        console.error(`Error updating category for ${file.filePath}:`, err);
+        this.snackBar.open(`Error updating category for '${file.filePath}': ${err.message || 'Unknown error'}`, 'Close', { duration: 5000 });
+      }
+    });
+  }
+
   ngOnInit() {
     // Removed: designForm initialization
 

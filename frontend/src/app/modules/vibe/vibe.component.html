@@ -80,6 +80,7 @@
                             <vibe-file-list
                                 [session]="currentSession"
                                 (reasonUpdated)="handleReasonUpdated($event)"
+                                (categoryUpdated)="handleCategoryUpdated($event)"
                                 class="mb-4">
                             </vibe-file-list>
 
@@ -109,6 +110,7 @@
                         [session]="currentSession"
                         (fileDeleted)="handleFileDeleted($event)"
                         (reasonUpdated)="handleReasonUpdated($event)"
+                        (categoryUpdated)="handleCategoryUpdated($event)"
                         class="sm:col-span-2">
                     </vibe-file-list>
 
