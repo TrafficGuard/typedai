@@ -377,71 +377,77 @@ export class SearchReplaceCoder {
 			content += '\n';
 		}
 
-		const splitRegex = new RegExp(`^((${SEARCH_MARKER}|${DIVIDER_MARKER}|${REPLACE_MARKER})[ ]*\\n)`, 'gm');
-		// Python's re.split with a capturing group includes the delimiters.
-		// JS .split with a capturing group also includes the captured delimiters.
-		// Example: "text1<S>text2<D>text3<R>text4".split(/(<S>|<D>|<R>)/)
-		// -> ["text1", "<S>", "text2", "<D>", "text3", "<R>", "text4"]
-		// If it starts with a delimiter: "<S>text2..." -> ["", "<S>", "text2", ...]
-		const parts = content.split(splitRegex).filter((p) => p !== undefined); // Remove undefineds from non-capturing groups if any
+		// Regex to split by markers, keeping the markers.
+		// Each marker must be at the start of a line, optionally followed by spaces, then a newline.
+		const splitRegex = new RegExp(`^(${SEARCH_MARKER}|${DIVIDER_MARKER}|${REPLACE_MARKER})[ ]*\\n`, 'gm');
+		
+		// Perform the split. `split` with a capturing group inserts the captured delimiters into the array.
+		// E.g., "A<M1>B<M2>C" split by /(<M1>|<M2>)/ becomes ["A", "<M1>", "B", "<M2>", "C"]
+		// If it starts/ends with delimiter or has consecutive delimiters, empty strings can appear.
+		// E.g. "<M1>A<M2>" -> ["", "<M1>", "A", "<M2>", ""]
+		const rawParts = content.split(splitRegex);
+		// Filter out potential `undefined` values that `split` might introduce in some JS engines if a group doesn't match,
+		// and remove empty strings that result from content starting/ending with a delimiter or consecutive delimiters,
+		// UNLESS that empty string is actual content (e.g. empty search/replace block).
+		// The crucial part is that `parts[i+1]` should be a marker, and `parts[i+2]` its content.
+		// A simple filter(Boolean) might remove legitimate empty content blocks.
+		// Let's refine the loop to handle potentially empty content parts carefully.
+		const parts = rawParts.filter(p => p !== undefined);
+
 
 		let currentFilePath: string | undefined = undefined;
 		let i = 0;
 
 		while (i < parts.length) {
-			const textPart = parts[i]; // This is text between markers, or before the first marker.
+			const potentialPrecedingText = parts[i];
+			
+			if (i + 1 >= parts.length) break; // Not enough parts for a marker
+			
+			const marker = parts[i + 1];
 
-			// Check if there are enough parts left for a marker and subsequent text
-			if (i + 1 >= parts.length) {
-				// Only a trailing text part left, no more markers
-				break;
-			}
-			const markerPart = parts[i + 1];
-
-			if (markerPart.startsWith(SEARCH_MARKER)) {
-				// `textPart` is the content immediately preceding this SEARCH_MARKER
-				const filePathFromPreceding = this._findFilenameFromPrecedingLines(textPart, fenceForFilenameScan[0]);
+			if (marker.startsWith(SEARCH_MARKER)) {
+				const filePathFromPreceding = this._findFilenameFromPrecedingLines(potentialPrecedingText, fenceForFilenameScan[0]);
 				if (filePathFromPreceding) {
 					currentFilePath = filePathFromPreceding;
 				}
 
 				if (!currentFilePath) {
-					logger.warn('Search block found without a valid preceding or sticky filename. Skipping block.', { textBeforeSearch: textPart });
-					i += 2; // Advance past textPart and SEARCH_MARKER
+					logger.warn('Search block found without a valid preceding or sticky filename. Skipping block.', { textBeforeSearch: potentialPrecedingText.substring(0,100) });
+					i += 2; // Advance past potentialPrecedingText and SEARCH_MARKER
 					continue;
 				}
 
-				// We expect: originalText, DIVIDER_MARKER, updatedText, REPLACE_MARKER
-				// These are at indices i+2, i+3, i+4, i+5 respectively
+				// Expect: OriginalText, DividerMarker, UpdatedText, ReplaceMarker
+				// Indices: i+2         i+3            i+4          i+5
 				if (i + 5 >= parts.length) {
-					logger.warn(`Malformed block for ${currentFilePath}: Incomplete structure after SEARCH_MARKER.`);
-					break; // Not enough parts for a full block
+					logger.warn(`Malformed block for ${currentFilePath}: Incomplete structure after SEARCH_MARKER. Found ${parts.length - (i+1)} parts instead of 4.`);
+					break; 
 				}
 
 				const originalText = parts[i + 2];
-				const nextMarker1 = parts[i + 3];
+				const dividerMarker = parts[i + 3];
 				const updatedText = parts[i + 4];
-				const nextMarker2 = parts[i + 5];
+				const replaceMarker = parts[i + 5];
 
-				if (!nextMarker1.startsWith(DIVIDER_MARKER)) {
-					logger.warn(`Malformed block for ${currentFilePath}: Expected DIVIDER_MARKER, found ${nextMarker1}.`);
-					i += 2; // Advance past textPart and SEARCH_MARKER, try to resync
+				if (!dividerMarker.startsWith(DIVIDER_MARKER)) {
+					logger.warn(`Malformed block for ${currentFilePath}: Expected DIVIDER_MARKER, found ${dividerMarker.trim()}. Content: ${originalText.substring(0,100)}`);
+					i += 2; // Skip potentialPrecedingText and SEARCH_MARKER, try to resync
 					continue;
 				}
-				if (!nextMarker2.startsWith(REPLACE_MARKER)) {
-					logger.warn(`Malformed block for ${currentFilePath}: Expected REPLACE_MARKER, found ${nextMarker2}.`);
-					i += 4; // Advance past textPart, S_M, originalText, D_M, try to resync
+				if (!replaceMarker.startsWith(REPLACE_MARKER)) {
+					logger.warn(`Malformed block for ${currentFilePath}: Expected REPLACE_MARKER, found ${replaceMarker.trim()}. Content: ${updatedText.substring(0,100)}`);
+					// Advance past potentialPrecedingText, SEARCH_MARKER, originalText, DIVIDER_MARKER
+					i += 4; 
 					continue;
 				}
-
+				
 				edits.push({ filePath: currentFilePath, originalText, updatedText });
-				i += 6; // Consumed: textPart, S_M, originalText, D_M, updatedText, R_M
+				i += 6; // Consumed: potentialPrecedingText, S_M, originalText, D_M, updatedText, R_M
 			} else {
-				// `markerPart` was not a SEARCH_MARKER. This means `textPart` was some interim text,
-				// and `markerPart` was DIVIDER or REPLACE, which is unexpected here (means malformed).
-				// Or, we are at the end.
-				// Advance by 2 to consume `textPart` and `markerPart` and look for a new SEARCH.
-				i += 2;
+				// Current part `parts[i]` is not followed by a SEARCH_MARKER.
+				// This means `parts[i]` is some text, and `parts[i+1]` is an unexpected DIVIDER/REPLACE or end of content.
+				// Advance by 2 to look for the next SEARCH_MARKER.
+				i += 2; 
 			}
 		}
 		return edits;
@@ -453,22 +459,31 @@ export class SearchReplaceCoder {
 	 * Uses the _stripFilename utility.
 	 */
 	private _findFilenameFromPrecedingLines(precedingContent: string, fenceOpen: string): string | undefined {
-		// Corresponds to find_filename from editblock_coder.py
-		const lines = precedingContent.split('\n').reverse();
-		// Python's find_filename looks at 3 lines from the end of `processed[-2]`
-		// `processed[-2]` is the text block before the SEARCH marker.
-		const relevantLines = lines.slice(0, 3);
-
-		for (const line of relevantLines) {
-			// `_stripFilename` (from searchReplaceUtils) is used here.
+		// Corresponds to find_filename from aider's editblock_coder.py
+		// Process lines from bottom up from the precedingContent.
+		const lines = precedingContent.split('\n');
+		
+		// Take last 3 lines, or fewer if not enough lines.
+		// Python version reverses then takes up to 3.
+		// Here, we access from the end of the non-reversed array.
+		const numLinesToConsider = Math.min(lines.length, 3);
+		for (let k = 0; k < numLinesToConsider; k++) {
+			// lineIndex goes from lines.length-1 down to lines.length-numLinesToConsider
+			const lineIndex = lines.length - 1 - k;
+			const line = lines[lineIndex];
+		
 			const filename = _stripFilename(line, fenceOpen);
 			if (filename) {
 				return filename;
 			}
 			// Python's logic: if line is not a filename and not a fence, stop.
-			// This means if we see "random text", we don't look further up.
-			if (!line.trim().startsWith(fenceOpen) && line.trim() !== '') {
-				break;
+			// This means if we see "random text" on line N-1, we don't look at N-2.
+			const trimmedLine = line.trim();
+			if (!trimmedLine.startsWith(fenceOpen) && trimmedLine !== '') {
+				// If it's the last line of precedingContent (k=0) and it's not a filename/fence,
+				// then no filename is found from this line. If it's not the last line (k>0),
+				// and this line breaks the pattern, we stop searching further up.
+				return undefined; 
 			}
 		}
 		return undefined;

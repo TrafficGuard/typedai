@@ -9,75 +9,66 @@ import * as path from 'node:path';
  * @returns The cleaned filename, or undefined if no valid filename is found.
  */
 export function _stripFilename(filenameLine: string, fenceOpen: string): string | undefined {
-	let originalTrimmedLine = filenameLine.trim();
+	const originalTrimmedLine = filenameLine.trim();
+	if (originalTrimmedLine === '...') return undefined;
+
 	let filename = originalTrimmedLine;
+	let wasNameExtractedFromAfterFence = false;
 
-	if (filename === '...') return undefined;
+	const commonLangs = ['python', 'javascript', 'typescript', 'java', 'c', 'cpp', 'csharp', 'go', 'ruby', 'php', 'swift', 'kotlin', 'rust', 'scala', 'perl', 'lua', 'r', 'shell', 'bash', 'sql', 'html', 'css', 'xml', 'json', 'yaml', 'markdown', 'text', 'py', 'js', 'ts', 'md'];
 
-	// Handle cases like "path/to/file.ts ```typescript"
-	// If a fence is present, we prioritize what's *after* the fence if it looks like a filename,
-	// or what's *before* if the part after the fence is just a language.
-	const fenceIndex = filename.indexOf(fenceOpen);
+	const fenceIndex = originalTrimmedLine.indexOf(fenceOpen);
 	if (fenceIndex !== -1) {
-		const partBeforeFence = filename.substring(0, fenceIndex).trim();
-		const partAfterFenceAndLang = filename.substring(fenceIndex + fenceOpen.length).trimStart(); // "python myfile.py" or "myfile.py" or "python"
+		const partBeforeFence = originalTrimmedLine.substring(0, fenceIndex).trim();
+		const partAfterFence = originalTrimmedLine.substring(fenceIndex + fenceOpen.length).trimStart();
 
-		if (partAfterFenceAndLang.includes('\n')) {
-			// Malformed fence with newline immediately after lang, e.g. "```python\nfoo.py"
-			return undefined;
+		if (partAfterFence.includes('\n')) {
+			return undefined; // Malformed: "```python\nfoo.py"
 		}
 
-		const firstSpaceAfterLang = partAfterFenceAndLang.indexOf(' ');
-		let potentialFilenameAfterFence: string | undefined;
-		let potentialLang: string | undefined;
-
-		if (firstSpaceAfterLang !== -1) {
-			potentialLang = partAfterFenceAndLang.substring(0, firstSpaceAfterLang);
-			potentialFilenameAfterFence = partAfterFenceAndLang.substring(firstSpaceAfterLang + 1).trimStart();
-		} else {
-			// No space, so partAfterFenceAndLang is either a lang or a filename
-			// If it contains typical filename chars or is longer, assume filename. Otherwise, lang.
-			if (partAfterFenceAndLang.includes('.') || partAfterFenceAndLang.includes('/') || partAfterFenceAndLang.includes('\\') || partAfterFenceAndLang.length > 15) {
-				potentialFilenameAfterFence = partAfterFenceAndLang;
-			} else {
-				potentialLang = partAfterFenceAndLang;
+		if (fenceIndex === 0) { // Line starts with fence, e.g., "```python foo.py" or "```foo.py"
+			const firstSpaceInPartAfterFence = partAfterFence.indexOf(' ');
+			if (firstSpaceInPartAfterFence !== -1) {
+				const firstWord = partAfterFence.substring(0, firstSpaceInPartAfterFence);
+				const restOfPart = partAfterFence.substring(firstSpaceInPartAfterFence + 1).trimStart();
+				if (commonLangs.includes(firstWord.toLowerCase()) && restOfPart) {
+					filename = restOfPart;
+					wasNameExtractedFromAfterFence = true;
+				} else { // First word not a lang or no text after it, so whole part is filename
+					filename = partAfterFence;
+					wasNameExtractedFromAfterFence = true;
+				}
+			} else { // No space in partAfterFence, e.g., "```foo.py" or "```python"
+				if (commonLangs.includes(partAfterFence.toLowerCase()) && !(partAfterFence.includes('.') || partAfterFence.includes('/') || partAfterFence.includes('\\'))) {
+					return undefined; // Just a language
+				}
+				filename = partAfterFence;
+				wasNameExtractedFromAfterFence = true;
 			}
-		}
-
-		if (potentialFilenameAfterFence && potentialFilenameAfterFence.length > 0) {
-			filename = potentialFilenameAfterFence;
-		} else if (partBeforeFence && !potentialFilenameAfterFence && fenceIndex === 0) {
-			// This means the line starts with a fence, and what follows is only a language.
-			// e.g. "```python". In this case, there's no filename.
-			return undefined;
-		} else if (partBeforeFence && fenceIndex > 0) {
-			// Filename might be before the fence, e.g. "myfile.ts ```"
-			// Only use partBeforeFence if potentialFilenameAfterFence is empty or clearly just a language.
-			if (!potentialFilenameAfterFence || (potentialLang && !potentialFilenameAfterFence)) {
+		} else { // Fence is not at the start, e.g., "foo.py ```python" or "foo.py ```"
+			// Content after fence (partAfterFence) is likely just lang or empty
+			if (!partAfterFence || commonLangs.includes(partAfterFence.toLowerCase())) {
 				filename = partBeforeFence;
+				// wasNameExtractedFromAfterFence remains false
+			} else {
+				// This case is ambiguous, e.g. "file1.py ``` file2.py". Prioritize partAfterFence.
+				filename = partAfterFence;
+				wasNameExtractedFromAfterFence = true;
 			}
-			// else filename is already potentialFilenameAfterFence
-		} else if (!potentialFilenameAfterFence && !partBeforeFence) {
-			// Only fence or fence + lang
-			return undefined;
 		}
-		// If potentialFilenameAfterFence is set, filename is already updated.
 	}
+	// If fenceIndex === -1, filename remains originalTrimmedLine
 
-	// Stripping decorative characters (must happen after fence logic)
-	// The order of these replaces matters.
+	// Stripping decorative characters
 	filename = filename.replace(/:$/, ''); // Trailing colon
-	// Allow '#' if it's not at the very beginning of the *original trimmed line*
-	// OR if it's part of a filename extracted from after a fence, e.g. ```python #file.py
-	// The current `filename` might be `#file.py` from ````python #file.py`.
-	// If `originalTrimmedLine` was ````python #file.py`, then `filename` is `#file.py`.
-	// If `originalTrimmedLine` was `# file.py`, then `filename` is `file.py`.
-	if (filename.startsWith('#') && !originalTrimmedLine.startsWith(fenceOpen)) {
-		// This condition is tricky. If original line was "# file.py", filename becomes "file.py".
-		// If original line was "```python #file.py", filename becomes "#file.py".
-		// We want to strip leading '#' only if it was a comment for a non-fenced filename.
-	} else if (originalTrimmedLine.startsWith('#') && !originalTrimmedLine.startsWith(fenceOpen)) {
-		filename = filename.replace(/^#/, '').trimStart();
+
+	if (filename.startsWith('#')) {
+		if (wasNameExtractedFromAfterFence) {
+			// Keep leading # if it was part of filename after fence, e.g. ```python #file.py
+		} else {
+			// Original line was like "# file.py" (and no fence involved in its extraction), so strip #
+			filename = filename.substring(1).trimStart();
+		}
 	}
 
 	filename = filename.replace(/^`+|`+$/g, ''); // Leading/trailing backticks
@@ -85,17 +76,27 @@ export function _stripFilename(filenameLine: string, fenceOpen: string): string 
 	filename = filename.replace(/\\_/g, '_'); // Unescape \_ to _
 
 	// Final checks
-	if (!filename || filename.startsWith('<') || filename.startsWith('=')) return undefined;
+	if (!filename || filename.length === 0 || filename.startsWith('<') || filename.startsWith('=')) return undefined;
 
-	// If, after all stripping, the filename is a common language keyword and the original line started with a fence, it's not a filename.
-	if (originalTrimmedLine.startsWith(fenceOpen)) {
-		const commonLangs = ['python', 'javascript', 'typescript', 'java', 'c', 'cpp', 'csharp', 'go', 'ruby', 'php', 'swift', 'kotlin', 'rust', 'scala', 'perl', 'lua', 'r', 'shell', 'bash', 'sql', 'html', 'css', 'xml', 'json', 'yaml', 'markdown', 'text', 'py', 'js', 'ts', 'md'];
-		if (commonLangs.includes(filename.toLowerCase()) && filename.indexOf('/') === -1 && filename.indexOf('\\') === -1 && filename.indexOf('.') === -1) {
+	// If, after all stripping, the filename is a common language keyword,
+	// and it was extracted from after a fence OR the original line started with a fence,
+	// and it doesn't look like a path, it's not a filename.
+	const looksLikePath = filename.includes('.') || filename.includes('/') || filename.includes('\\');
+	if (commonLangs.includes(filename.toLowerCase()) && !looksLikePath) {
+		if (wasNameExtractedFromAfterFence || (fenceIndex !== -1 && originalTrimmedLine.startsWith(fenceOpen))) {
 			return undefined;
 		}
 	}
-	// If the line was *just* a language specifier after a fence, it should have been caught.
-	// e.g. "```python" -> filename="python". This check makes it undefined.
+	
+	// Reject if it contains spaces and doesn't look like a path (unless it was from after fence where spaces are more permissible)
+	if (filename.includes(' ') && !looksLikePath && !wasNameExtractedFromAfterFence && fenceIndex === -1) {
+	    // Example: "other text" should be rejected if it wasn't from after a fence.
+	    // "file name.txt" would be caught by !looksLikePath if '.' wasn't checked first.
+	    // This is a basic heuristic. If "other text" was the full line, it's not a filename.
+	    return undefined;
+	}
 
-	return filename.trim() || undefined;
+
+	const finalTrimmedFilename = filename.trim();
+	return finalTrimmedFilename.length > 0 ? finalTrimmedFilename : undefined;
 }

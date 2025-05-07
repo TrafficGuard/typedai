@@ -31,7 +31,7 @@ describe.only('SearchReplaceCoder', () => {
 		});
 
 		it('should return undefined if no filename found in relevant lines', () => {
-			const content = '```typescript\n```\nother text\n';
+			const content = '```typescript\n```\nother text\n'; // `other text` is last line of preceding content
 			expect((coder as any)._findFilenameFromPrecedingLines(content, '```')).to.equal(undefined);
 		});
 
@@ -49,7 +49,19 @@ describe.only('SearchReplaceCoder', () => {
 
 		beforeEach(() => {
 			coder = new SearchReplaceCoder('.');
+			// Reset any sinon spies/stubs on logger if setupConditionalLoggerOutput doesn't do it per test
+			if ((logger.warn as sinon.SinonSpy).restore) {
+				(logger.warn as sinon.SinonSpy).restore();
+			}
+			// Ensure logger.warn is a spy for tests that check its calls.
+			// setupConditionalLoggerOutput should ideally handle this. If it replaces with a stub, that's fine.
 		});
+
+		afterEach(() => {
+			// Restore any sinon modifications if not handled by setupConditionalLoggerOutput per test
+			sinon.restore();
+		});
+
 
 		it('should parse a single valid block', () => {
 			const response = `path/to/file.ts\n${SEARCH_MARKER}\noriginal content\n${DIVIDER_MARKER}\nupdated content\n${REPLACE_MARKER}\n`;
@@ -84,14 +96,12 @@ describe.only('SearchReplaceCoder', () => {
 
 		it('should skip malformed block (missing divider) and log warning', () => {
 			const response = `file.ts\n${SEARCH_MARKER}\noriginal\n${REPLACE_MARKER}\n`;
-			// Assuming setupConditionalLoggerOutput or a global beforeEach handles logger stubbing.
-			// If not, this test would need a more careful stub management.
-			// For now, let's capture calls if a global spy/stub is available or just check behavior.
-			const warnSpy = sinon.spy(logger, 'warn'); // Use spy to check calls without replacing implementation
+			// setupConditionalLoggerOutput stubs logger methods. We check if the stub was called.
+			// No need to create a new spy if logger.warn is already a sinon stub/spy.
+			const initialCallCount = (logger.warn as sinon.SinonSpy).callCount || 0;
 			const edits = (coder as any)._parseSearchReplaceBlocks(response, ['```', '```']);
 			expect(edits).to.deep.equal([]);
-			expect(warnSpy.called).to.equal(true); // Check if logger.warn was called
-			warnSpy.restore(); // Clean up the spy
+			expect((logger.warn as sinon.SinonSpy).callCount).to.be.greaterThan(initialCallCount);
 		});
 
 		it('should handle filename in ```lang filename``` preceding SEARCH', () => {
