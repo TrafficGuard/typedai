@@ -29,5 +29,17 @@ ONLY EVER RETURN CODE IN A *SEARCH/REPLACE BLOCK*!
 			role: 'user' as const,
 			content: 'Change get_factorial() to use math.factorial',
 		},
-	],
-};
+		{
+			role: 'assistant' as const,
+			content: `To make this change we need to modify \`mathweb/flask/app.py\` to:
+
+1. Import the math package.
+2. Remove the existing factorial() function.
+3. Update get_factorial() to call math.factorial instead.
+
+Here are the *SEARCH/REPLACE* blocks:
+
+mathweb/flask/app.py
+{fence_0}python
+<<<<<<< SEARCH
+from flask import Flask
