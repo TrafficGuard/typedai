@@ -19,6 +19,8 @@ export class SearchReplaceCoder {
 		const rootPath = fileSystem.getWorkingDirectory();
 		const editFormat: EditFormat = 'diff-fenced'; // A common format for AI code editing
 
+		logger.info({ requirements, filesToEdit, readOnlyFiles }, 'editFilesToMeetRequirements');
+
 		// Instantiate ApplySearchReplace once.
 		// It will be used for both building the prompt and applying the edits.
 		// filesToEdit are passed as initialFiles to set up the context.
@@ -37,12 +39,7 @@ export class SearchReplaceCoder {
 
 		// Build the prompt using ApplySearchReplace instance.
 		// additionalFilesToChatRelativePaths is empty because filesToEdit are already handled by initialFiles in constructor.
-		const messages: LlmMessage[] = await searchReplacer.buildPrompt(
-			requirements,
-			filesToEdit,
-			readOnlyFiles,
-			repoMapContent,
-		);
+		const messages: LlmMessage[] = await searchReplacer.buildPrompt(requirements, filesToEdit, readOnlyFiles, repoMapContent);
 
 		logger.debug({ messages }, 'SearchReplaceCoder: Prompt built for LLM');
 

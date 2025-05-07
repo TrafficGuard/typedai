@@ -148,7 +148,7 @@ export class ApplySearchReplace {
 					reflectedMessage: this.reflectedMessage,
 					editedFiles: Array.from(editedFilesRelativePaths),
 				});
-				console.log(this.reflectedMessage)
+				console.log(this.reflectedMessage);
 				// Even if some files were edited, the reflected message takes precedence for retry.
 				return null;
 			}
@@ -851,7 +851,7 @@ export class ApplySearchReplace {
 		return undefined;
 	}
 
-// Add this method inside the ApplySearchReplace class
+	// Add this method inside the ApplySearchReplace class
 	private async _formatFileForPrompt(relativePath: string): Promise<string | null> {
 		const absolutePath = this.getRepoFilePath(relativePath);
 		const content = await this._readText(absolutePath);
