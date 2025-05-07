@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject, type Observable, tap, catchError, throwError } from 'rxjs';
 // Import FileSystemNode if not already imported (assuming it's defined in vibe.types.ts)
-import type { FileSystemNode, GitProject, VibePreset, VibePresetConfig, VibeSession } from './vibe.types';
+import type { FileSystemNode, GitProject, VibePreset, VibePresetConfig, VibeSession, SelectedFile } from './vibe.types';
 
 // Define the shape of the data needed for creation, matching the backend API body
 export interface CreateVibeSessionPayload {
@@ -21,6 +21,7 @@ export interface CreateVibeSessionPayload {
 export interface UpdateVibeSessionPayload {
 	filesToAdd?: string[];
 	filesToRemove?: string[];
+	fileSelection?: SelectedFile[]; // Added to support updating the entire file selection
 	// Add other updatable fields as needed, e.g.:
 	// instructions?: string;
 	// designDecision?: 'accepted' | 'rejected';
