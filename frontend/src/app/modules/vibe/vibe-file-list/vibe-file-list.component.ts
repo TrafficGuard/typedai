@@ -5,7 +5,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { SelectedFile, VibeSession } from '../vibe.types';
-import { VibeEditReasonDialogComponent } from '../vibe-edit-reason-dialog';
+import { VibeEditReasonDialogComponent } from '../vibe-edit-reason-dialog/vibe-edit-reason-dialog.component';
 
 @Component({
   selector: 'vibe-file-list',
