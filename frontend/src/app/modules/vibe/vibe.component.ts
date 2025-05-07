@@ -53,6 +53,7 @@ export class VibeComponent implements OnInit, OnDestroy {
 
   // Form control for the file autocomplete input
   addFileControl = new FormControl('');
+  fileUpdateInstructionsControl = new FormControl('');
   // Full list of files available in the session's workspace
   rootNode: FileSystemNode;
   allFiles: string[] = [];
@@ -523,6 +524,45 @@ export class VibeComponent implements OnInit, OnDestroy {
       } else {
         // Handles case where dialog was cancelled (result is undefined)
         console.log('File selection dialog was cancelled.');
+      }
+    });
+  }
+
+  public submitFileUpdateInstructions(): void {
+    // Check if the component is in a state to allow this action
+    if (!this.currentSession || (this.currentSession.status !== 'file_selection_review' && this.currentSession.status !== 'updating_file_selection')) {
+      console.error('submitFileUpdateInstructions called in invalid state or session missing. Current status:', this.currentSession?.status);
+      this.snackBar.open('Cannot submit instructions: Invalid session state.', 'Close', { duration: 3000 });
+      return;
+    }
+
+    const prompt = this.fileUpdateInstructionsControl.value?.trim();
+    if (!prompt) {
+      this.snackBar.open('Please enter instructions before submitting.', 'Close', { duration: 3000 });
+      return;
+    }
+
+    const sessionId = this.currentSession.id;
+    this.isProcessingAction = true; // Indicate that an action is in progress
+
+    console.log(`Submitting file update instructions for session ${sessionId}: "${prompt}"`);
+
+    this.vibeService.updateFileSelection(sessionId, prompt).pipe(
+      take(1),
+      finalize(() => {
+        this.isProcessingAction = false; // Reset loading state regardless of outcome
+      }),
+      takeUntil(this.destroy$) // Ensure subscription cleanup
+    ).subscribe({
+      next: () => {
+        console.log('File selection update request sent successfully via form.');
+        this.snackBar.open('Update request sent. The file selection will be revised.', 'Close', { duration: 3500 });
+        this.fileUpdateInstructionsControl.reset(''); // Clear the textarea on success
+        // The session will refresh due to backend status change and polling/SSE by getVibeSession
+      },
+      error: (err) => {
+        console.error('Error requesting file selection update via form:', err);
+        this.snackBar.open(`Error sending update request: ${err.message || 'Unknown error'}`, 'Close', { duration: 5000 });
       }
     });
   }

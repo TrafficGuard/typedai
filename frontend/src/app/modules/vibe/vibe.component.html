@@ -101,6 +101,27 @@
                                 </button>
                                 <mat-spinner *ngIf="isProcessingAction" diameter="24" class="ml-2"></mat-spinner>
                             </div>
+
+                            <div class="mt-6 border-t pt-4"> <!-- Add some visual separation and margin -->
+                                <h3 class="text-lg font-semibold text-gray-800 mb-2">Refine File Selection with Instructions:</h3>
+                                <mat-form-field class="w-full" appearance="outline">
+                                    <mat-label>Instructions to update file selection</mat-label>
+                                    <textarea matInput
+                                              [formControl]="fileUpdateInstructionsControl"
+                                              cdkTextareaAutosize
+                                              cdkAutosizeMinRows="3"
+                                              cdkAutosizeMaxRows="6"
+                                              placeholder="e.g., 'Include all .service.ts files in the user module but exclude the auth.service.ts'"></textarea>
+                                </mat-form-field>
+                                <div class="flex justify-end mt-2">
+                                    <button mat-flat-button
+                                            color="primary"
+                                            (click)="submitFileUpdateInstructions()"
+                                            [disabled]="isProcessingAction || !fileUpdateInstructionsControl.value?.trim()">
+                                        Submit Instructions
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </ng-container>
 
