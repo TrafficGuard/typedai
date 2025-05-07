@@ -148,6 +148,7 @@ export class ApplySearchReplace {
 					reflectedMessage: this.reflectedMessage,
 					editedFiles: Array.from(editedFilesRelativePaths),
 				});
+				console.log(this.reflectedMessage)
 				// Even if some files were edited, the reflected message takes precedence for retry.
 				return null;
 			}
@@ -185,6 +186,8 @@ export class ApplySearchReplace {
 		}
 
 		const { editsToApply, pathsToDirtyCommit } = await this._prepareToEdit(edits);
+
+		logger.info(`Found ${editsToApply.length} edits to apply`);
 
 		if (this.vcs && this.dirtyCommits && pathsToDirtyCommit.size > 0 && !this.dryRun) {
 			const dirtyFilesArray = Array.from(pathsToDirtyCommit);
