@@ -79,6 +79,7 @@
                             <!-- File List (Read-Only in this state) -->
                             <vibe-file-list
                                 [session]="currentSession"
+                                (reasonUpdated)="handleReasonUpdated($event)"
                                 class="mb-4">
                             </vibe-file-list>
 
@@ -104,10 +105,10 @@
 
                     <!-- File List (Only shown when NOT in file_selection_review state) -->
                     <vibe-file-list
-                        *ngIf="currentSession?.status !== 'file_selection_review'"
-                        [files]="currentSession?.fileSelection"
+                        *ngIf="currentSession?.status !== 'file_selection_review' && currentSession?.status !== 'initializing' && currentSession?.status !== 'selecting_files'"
+                        [session]="currentSession"
                         (fileDeleted)="handleFileDeleted($event)"
-                        [allowDeletion]="true"
+                        (reasonUpdated)="handleReasonUpdated($event)"
                         class="sm:col-span-2">
                     </vibe-file-list>
 

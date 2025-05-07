@@ -149,6 +149,44 @@ export class VibeComponent implements OnInit, OnDestroy {
     // });
   }
 
+  public handleReasonUpdated(event: { file: SelectedFile, newReason: string }): void {
+    if (!this.currentSession || !this.currentSession.id || !this.currentSession.fileSelection) {
+      console.error('Cannot update reason: Session, session ID, or file selection is missing.');
+      this.snackBar.open('Error: Session data incomplete. Cannot update reason.', 'Close', { duration: 3000 });
+      return;
+    }
+
+    const { file, newReason } = event;
+    const sessionId = this.currentSession.id;
+
+    // Create a new array for fileSelection to ensure change detection
+    const updatedFileSelection = this.currentSession.fileSelection.map(f => {
+      if (f.filePath === file.filePath) {
+        return { ...f, reason: newReason }; // Update the reason for the specific file
+      }
+      return f;
+    });
+
+    console.log(`Attempting to update reason for file '${file.filePath}' to "${newReason}" in session ${sessionId}`);
+
+    this.isProcessingAction = true;
+    this.vibeService.updateSession(sessionId, { fileSelection: updatedFileSelection }).pipe(
+      take(1),
+      finalize(() => this.isProcessingAction = false),
+      takeUntil(this.destroy$)
+    ).subscribe({
+      next: (updatedSession) => { // Assuming updateSession might return the updated session
+        console.log(`Reason for ${file.filePath} updated successfully in backend.`);
+        this.snackBar.open(`Reason for '${file.filePath}' updated.`, 'Close', { duration: 3000 });
+        // The session$ observable should automatically update the view
+        // if vibeService.updateSession correctly updates its BehaviorSubject.
+      },
+      error: (err) => {
+        console.error(`Error updating reason for ${file.filePath}:`, err);
+        this.snackBar.open(`Error updating reason for '${file.filePath}': ${err.message || 'Unknown error'}`, 'Close', { duration: 5000 });
+      }
+    });
+  }
 
   ngOnInit() {
     // Removed: designForm initialization
