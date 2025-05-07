@@ -8,7 +8,7 @@ describe('async-utils', () => {
 			const start = Date.now();
 			await sleep(100);
 			const end = Date.now();
-			expect(end - start).to.be.gte(99); // Chai equivalent of Jest's greaterThanOrEqual
+			expect(end - start).to.be.gte(99);
 		});
 	});
 

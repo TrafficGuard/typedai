@@ -109,7 +109,7 @@ export class AiderCodeEditor {
 		const fileToEditArg = filesToEdit.map((file) => `"${file}"`).join(' ');
 		logger.info(fileToEditArg);
 		const now = Date.now();
-		const cmd = `${getPythonPath()} -m aider --no-check-update --cache-prompts ${commitArgs} --no-stream --no-suggest-shell-commands --no-detect-urls --yes ${modelArg} --llm-history-file="${llmHistoryFile}" --message-file=${messageFilePath} ${fileToEditArg}`;
+		const cmd = `${getPythonPath()} -m aider --no-check-update --cache-prompts ${commitArgs} --no-stream --yes ${modelArg} --llm-history-file="${llmHistoryFile}" --message-file=${messageFilePath} ${fileToEditArg}`;
 
 		const { stdout, stderr, exitCode } = await execCommand(cmd, { envVars: env });
 		if (stdout) logger.info(stdout);

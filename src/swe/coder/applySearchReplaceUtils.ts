@@ -1,5 +1,4 @@
 // Utility functions for search and replace logic
-import * as path from 'node:path';
 
 /**
  * Corresponds to strip_filename from aider's editblock_coder.py
@@ -15,7 +14,39 @@ export function _stripFilename(filenameLine: string, fenceOpen: string): string 
 	let filename = originalTrimmedLine;
 	let wasNameExtractedFromAfterFence = false;
 
-	const commonLangs = ['python', 'javascript', 'typescript', 'java', 'c', 'cpp', 'csharp', 'go', 'ruby', 'php', 'swift', 'kotlin', 'rust', 'scala', 'perl', 'lua', 'r', 'shell', 'bash', 'sql', 'html', 'css', 'xml', 'json', 'yaml', 'markdown', 'text', 'py', 'js', 'ts', 'md'];
+	const commonLangs = [
+		'python',
+		'javascript',
+		'typescript',
+		'java',
+		'c',
+		'cpp',
+		'csharp',
+		'go',
+		'ruby',
+		'php',
+		'swift',
+		'kotlin',
+		'rust',
+		'scala',
+		'perl',
+		'lua',
+		'r',
+		'shell',
+		'bash',
+		'sql',
+		'html',
+		'css',
+		'xml',
+		'json',
+		'yaml',
+		'markdown',
+		'text',
+		'py',
+		'js',
+		'ts',
+		'md',
+	];
 
 	const fenceIndex = originalTrimmedLine.indexOf(fenceOpen);
 	if (fenceIndex !== -1) {
@@ -26,7 +57,8 @@ export function _stripFilename(filenameLine: string, fenceOpen: string): string 
 			return undefined; // Malformed: "```python\nfoo.py"
 		}
 
-		if (fenceIndex === 0) { // Line starts with fence, e.g., "```python foo.py" or "```foo.py"
+		if (fenceIndex === 0) {
+			// Line starts with fence, e.g., "```python foo.py" or "```foo.py"
 			const firstSpaceInPartAfterFence = partAfterFence.indexOf(' ');
 			if (firstSpaceInPartAfterFence !== -1) {
 				const firstWord = partAfterFence.substring(0, firstSpaceInPartAfterFence);
@@ -34,18 +66,24 @@ export function _stripFilename(filenameLine: string, fenceOpen: string): string 
 				if (commonLangs.includes(firstWord.toLowerCase()) && restOfPart) {
 					filename = restOfPart;
 					wasNameExtractedFromAfterFence = true;
-				} else { // First word not a lang or no text after it, so whole part is filename
+				} else {
+					// First word not a lang or no text after it, so whole part is filename
 					filename = partAfterFence;
 					wasNameExtractedFromAfterFence = true;
 				}
-			} else { // No space in partAfterFence, e.g., "```foo.py" or "```python"
-				if (commonLangs.includes(partAfterFence.toLowerCase()) && !(partAfterFence.includes('.') || partAfterFence.includes('/') || partAfterFence.includes('\\'))) {
+			} else {
+				// No space in partAfterFence, e.g., "```foo.py" or "```python"
+				if (
+					commonLangs.includes(partAfterFence.toLowerCase()) &&
+					!(partAfterFence.includes('.') || partAfterFence.includes('/') || partAfterFence.includes('\\'))
+				) {
 					return undefined; // Just a language
 				}
 				filename = partAfterFence;
 				wasNameExtractedFromAfterFence = true;
 			}
-		} else { // Fence is not at the start, e.g., "foo.py ```python" or "foo.py ```"
+		} else {
+			// Fence is not at the start, e.g., "foo.py ```python" or "foo.py ```"
 			// Content after fence (partAfterFence) is likely just lang or empty
 			if (!partAfterFence || commonLangs.includes(partAfterFence.toLowerCase())) {
 				filename = partBeforeFence;
@@ -87,15 +125,14 @@ export function _stripFilename(filenameLine: string, fenceOpen: string): string 
 			return undefined;
 		}
 	}
-	
+
 	// Reject if it contains spaces and doesn't look like a path (unless it was from after fence where spaces are more permissible)
 	if (filename.includes(' ') && !looksLikePath && !wasNameExtractedFromAfterFence && fenceIndex === -1) {
-	    // Example: "other text" should be rejected if it wasn't from after a fence.
-	    // "file name.txt" would be caught by !looksLikePath if '.' wasn't checked first.
-	    // This is a basic heuristic. If "other text" was the full line, it's not a filename.
-	    return undefined;
+		// Example: "other text" should be rejected if it wasn't from after a fence.
+		// "file name.txt" would be caught by !looksLikePath if '.' wasn't checked first.
+		// This is a basic heuristic. If "other text" was the full line, it's not a filename.
+		return undefined;
 	}
-
 
 	const finalTrimmedFilename = filename.trim();
 	return finalTrimmedFilename.length > 0 ? finalTrimmedFilename : undefined;

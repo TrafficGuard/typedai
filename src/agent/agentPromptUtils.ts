@@ -31,10 +31,12 @@ export async function buildToolStatePrompt(): Promise<string> {
 function buildFileSystemPrompt(): string {
 	const functions = agentContext().functions;
 	if (!functions.getFunctionClassNames().includes(FileSystemService.name)) return '';
-	const fileSystem = getFileSystem();
+	const fss = getFileSystem();
+	const vcsRoot = fss.getVcsRoot();
 	return `\n<file_system>
-	<base_path>${fileSystem.basePath}</base_path>
-	<current_working_directory>${fileSystem.getWorkingDirectory()}</current_working_directory>
+	<base_path>${fss.basePath}</base_path>
+	<current_working_directory>${fss.getWorkingDirectory()}</current_working_directory>
+	${vcsRoot ? `<git_repository_root_dir>${vcsRoot}</git_repository_root_dir>` : ''}
 </file_system>
 `;
 }
