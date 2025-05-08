@@ -335,4 +335,154 @@ describe('VibeDesignReviewComponent', () => {
       consoleSpy.mockRestore();
     }));
   });
+
+  describe('Status Redirection Logic', () => {
+    let navigateSpy: jest.SpyInstance;
+    let snackBarOpenSpy: jest.SpyInstance;
+    let consoleWarnSpy: jest.SpyInstance;
+
+    beforeEach(() => {
+      navigateSpy = jest.spyOn(router, 'navigate').mockImplementation(async () => true);
+      snackBarOpenSpy = jest.spyOn(snackBar, 'open');
+      consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {}); // Suppress console output during test
+    });
+
+    afterEach(() => {
+      navigateSpy.mockRestore();
+      snackBarOpenSpy.mockRestore();
+      consoleWarnSpy.mockRestore();
+    });
+
+    it('should redirect if session status is not allowed on ngOnInit', () => {
+      component.session = { ...mockSession, status: 'invalid_status' } as VibeSession;
+      fixture.detectChanges(); // Triggers ngOnInit
+
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        "VibeDesignReviewComponent: Session status 'invalid_status' is not allowed. Redirecting."
+      );
+      expect(snackBarOpenSpy).toHaveBeenCalledWith(
+        'Invalid session state for design review. Redirecting...',
+        'Close',
+        { duration: 3000 }
+      );
+      expect(navigateSpy).toHaveBeenCalledWith(['/ui/vibe']);
+    });
+
+    it('should redirect if session status is not allowed on ngOnChanges', () => {
+      // Initial valid state
+      component.session = { ...mockSession, status: 'design_review_details' };
+      fixture.detectChanges(); // ngOnInit
+
+      // Clear spies from initial setup if any calls were made
+      navigateSpy.mockClear();
+      snackBarOpenSpy.mockClear();
+      consoleWarnSpy.mockClear();
+
+      // Simulate session change to invalid status
+      const newSession: VibeSession = { ...mockSession, status: 'another_invalid_status' };
+      const oldSession = component.session;
+      component.session = newSession; // Parent updates the input
+      component.ngOnChanges({
+        session: new SimpleChange(oldSession, newSession, false)
+      });
+      fixture.detectChanges(); // Apply changes and run ngOnChanges logic
+
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        "VibeDesignReviewComponent: Session status 'another_invalid_status' is not allowed. Redirecting."
+      );
+      expect(snackBarOpenSpy).toHaveBeenCalledWith(
+        'Invalid session state for design review. Redirecting...',
+        'Close',
+        { duration: 3000 }
+      );
+      expect(navigateSpy).toHaveBeenCalledWith(['/ui/vibe']);
+    });
+
+    it('should NOT redirect if session status is "design_review_details" (allowed)', () => {
+      component.session = { ...mockSession, status: 'design_review_details' };
+      fixture.detectChanges(); // ngOnInit
+      expect(navigateSpy).not.toHaveBeenCalled();
+
+      // Simulate change to another allowed status
+      const newSession: VibeSession = { ...mockSession, status: 'updating_design' };
+      const oldSession = component.session;
+      component.session = newSession;
+      component.ngOnChanges({
+        session: new SimpleChange(oldSession, newSession, false)
+      });
+      fixture.detectChanges();
+      expect(navigateSpy).not.toHaveBeenCalled(); // Still should not have been called
+    });
+
+    it('should NOT redirect if session status is "updating_design" (allowed)', () => {
+      component.session = { ...mockSession, status: 'updating_design' };
+      fixture.detectChanges(); // ngOnInit
+      expect(navigateSpy).not.toHaveBeenCalled();
+    });
+
+    it('should NOT redirect if session is initially null, then becomes valid', () => {
+      component.session = null as any;
+      fixture.detectChanges(); // ngOnInit, checkSessionStatusAndRedirect returns false
+      expect(navigateSpy).not.toHaveBeenCalled();
+
+      const validSession: VibeSession = { ...mockSession, status: 'design_review_details' };
+      const oldSession = component.session; // which is null
+      component.session = validSession; // Parent updates input
+      component.ngOnChanges({
+        session: new SimpleChange(oldSession, validSession, true) // isFirstChange = true
+      });
+      fixture.detectChanges(); // ngOnChanges, checkSessionStatusAndRedirect returns false for valid status
+
+      expect(navigateSpy).not.toHaveBeenCalled();
+      // Also check that form is initialized
+      expect(component.designForm).toBeDefined();
+      expect(component.designForm.get('designAnswer')?.value).toBe(mockSession.designAnswer.summary); // Assuming mockSession is used for validSession
+    });
+
+    it('should NOT redirect if session is undefined, then becomes valid', () => {
+        component.session = undefined as any;
+        fixture.detectChanges(); // ngOnInit
+        expect(navigateSpy).not.toHaveBeenCalled();
+
+        const validSession: VibeSession = { ...mockSession, status: 'updating_design' };
+        const oldSession = component.session; // which is undefined
+        component.session = validSession; // Parent updates input
+        component.ngOnChanges({
+          session: new SimpleChange(oldSession, validSession, true)
+        });
+        fixture.detectChanges(); // ngOnChanges
+
+        expect(navigateSpy).not.toHaveBeenCalled();
+        expect(component.designForm).toBeDefined();
+      });
+
+    it('should call initializeForm in ngOnInit even if session is null, before redirection check', () => {
+      const initializeFormSpy = jest.spyOn(component as any, 'initializeForm'); // Cast to any to spy on private method
+      component.session = null as any;
+      fixture.detectChanges(); // ngOnInit
+
+      expect(initializeFormSpy).toHaveBeenCalled();
+      expect(navigateSpy).not.toHaveBeenCalled(); // No redirection as session is null
+      initializeFormSpy.mockRestore();
+    });
+
+    it('should call initializeForm in ngOnChanges if session becomes null, after redirection check (which passes)', () => {
+      component.session = { ...mockSession, status: 'design_review_details' }; // Initial valid session
+      fixture.detectChanges();
+
+      const initializeFormSpy = jest.spyOn(component as any, 'initializeForm'); // Cast to any to spy on private method
+      navigateSpy.mockClear(); // Clear any previous calls
+
+      const oldSession = component.session;
+      component.session = null as any; // Session becomes null
+      component.ngOnChanges({
+        session: new SimpleChange(oldSession, null, false)
+      });
+      fixture.detectChanges();
+
+      expect(navigateSpy).not.toHaveBeenCalled(); // No redirection as session is null
+      expect(initializeFormSpy).toHaveBeenCalled();
+      initializeFormSpy.mockRestore();
+    });
+  });
 });

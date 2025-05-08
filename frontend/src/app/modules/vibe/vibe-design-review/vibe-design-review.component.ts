@@ -35,6 +35,8 @@ export class VibeDesignReviewComponent implements OnInit, OnChanges {
   @Input() session: VibeSession; // Receive session data from parent
   @Output() designSaved = new EventEmitter<string>(); // Emit updated design text on save
 
+  public readonly allowedStatuses: string[] = ['design_review_details', 'updating_design'];
+
   private fb = inject(FormBuilder);
   private vibeService = inject(VibeService);
   private router = inject(Router);
@@ -47,20 +49,42 @@ export class VibeDesignReviewComponent implements OnInit, OnChanges {
   public isLoading = false;
   private initialDesignAnswer: string | null = null;
 
+  private checkSessionStatusAndRedirect(): boolean {
+    if (!this.session) {
+      // If session is not yet available, don't redirect.
+      // ngOnInit or ngOnChanges will handle initialization once session is available.
+      return false;
+    }
+
+    if (!this.allowedStatuses.includes(this.session.status)) {
+      console.warn(`VibeDesignReviewComponent: Session status '${this.session.status}' is not allowed. Redirecting.`);
+      this.snackBar.open('Invalid session state for design review. Redirecting...', 'Close', { duration: 3000 });
+      this.router.navigate(['/ui/vibe']);
+      return true; // Indicates redirection occurred
+    }
+    return false; // No redirection occurred
+  }
+
   ngOnInit(): void {
+    // Call initializeForm first as per requirements
     this.initializeForm();
+
+    // Then check status and redirect if necessary
+    if (this.checkSessionStatusAndRedirect()) {
+      return; // Stop further initialization if redirected
+    }
   }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['session'] && this.session) {
-        // Optional: Check status and potentially disable actions
-        // const allowedStatuses = ['design_review_details', 'updating_design'];
-        // if (!allowedStatuses.includes(this.session.status)) {
-        //     console.warn(`VibeDesignReviewComponent loaded with unexpected status: ${this.session.status}`);
-        //     // Consider disabling form controls or showing a message
-        // }
+        // Call checkSessionStatusAndRedirect *before* initializeForm as per requirements
+        if (this.checkSessionStatusAndRedirect()) {
+            return; // Stop further processing if redirected
+        }
 
-        // Re-initialize form if session changes
+        // The existing commented-out status check can be removed as the new helper handles it.
+
+        // Re-initialize form if session changes (and status is valid)
         this.initializeForm();
 
         // If the session's designAnswer changes externally while editing, reset editing state
@@ -68,6 +92,10 @@ export class VibeDesignReviewComponent implements OnInit, OnChanges {
             this.cancelEdit();
         }
         this.cdr.markForCheck(); // Mark for check as input changed
+    } else if (changes['session'] && !this.session) {
+        // Session became null/undefined, re-initialize form (it will handle null session)
+        this.initializeForm();
+        this.cdr.markForCheck();
     }
   }
 
