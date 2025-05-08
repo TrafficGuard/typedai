@@ -850,7 +850,7 @@ export function runAgentStateServiceTests(
 				executedCode: `// Iteration ${iterationNumber} executed code\nconsole.log("Processing files");\n// Output: Files processed`,
 				draftCode: `// Draft for iteration ${iterationNumber}\nlet x = 10;`,
 				codeReview: `Looks good, but consider edge cases for LiveFiles.`,
-				images: [{ type: 'image', mediaType: 'image/png', data: 'base64encodedimagedata...' }],
+				images: [{ type: 'image', mimeType: 'image/png', image: 'base64encodedimagedata...', filename: 'test.png', size: 2000 }],
 				functionCalls: [
 					{
 						function_name: MockFunction.name,

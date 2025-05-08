@@ -122,8 +122,8 @@ export interface AgentContext {
     output: string;
     /** True if a human-in-the-loop check has been requested but not yet processed */
     hilRequested?: boolean;
-    liveFilesDirect?: string[];
-    fileStoreDirect?: FileMetadata[];
+    liveFiles?: string[];
+    fileStore?: FileMetadata[];
 }
 
 export interface FileMetadata {
@@ -207,10 +207,10 @@ export interface OrchestratorIteration {
 	memory: Map<string, string>;
 	/** Tool state, LiveFile's, FileStore etc. Class name as the key */
 	toolState: Map<string, any>;
-    /** Direct access to live files, if populated by the backend */
-    liveFilesDirect?: string[];
-    /** Direct access to file store metadata, if populated by the backend */
-    fileStoreDirect?: FileMetadata[];
+    // /** Direct access to live files, if populated by the backend */
+    // liveFiles?: string[];
+    // /** Direct access to file store metadata, if populated by the backend */
+    // fileStore?: FileMetadata[];
 	/** Any error */
 	error?: string;
 

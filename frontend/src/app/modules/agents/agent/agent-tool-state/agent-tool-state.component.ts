@@ -18,7 +18,7 @@ export class AgentToolStateComponent implements OnInit, OnChanges {
 	@Input() agentDetails!: AgentContext;
 
 	// FileStore fields
-	files: FileMetadata[] = [];
+	fileStore: FileMetadata[] = [];
 	liveFiles: string[] = [];
 
 	displayedColumns: string[] = ['filename', 'description', 'size', 'lastUpdated'];
@@ -37,12 +37,12 @@ export class AgentToolStateComponent implements OnInit, OnChanges {
 		// Check if agentDetails input has changed and has a current value
 		if (changes.agentDetails?.currentValue) {
 			// Use direct properties if available, otherwise default to empty arrays
-			this.liveFiles = this.agentDetails.liveFilesDirect || [];
-			this.files = this.agentDetails.fileStoreDirect || [];
+			this.liveFiles = this.agentDetails.liveFiles || [];
+			this.fileStore = this.agentDetails.fileStore || [];
 		} else {
 			// Reset if agentDetails is not available (e.g., initially or set to null/undefined)
 			this.liveFiles = [];
-			this.files = [];
+			this.fileStore = [];
 		}
 
 		// Trigger change detection as we might have updated the arrays

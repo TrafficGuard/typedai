@@ -20,12 +20,12 @@
 
     <!-- FileStore State Section -->
     <h4 class="text-md font-medium mt-6 mb-2">FileStore State</h4>
-    <div *ngIf="!files || files.length === 0" class="text-gray-500 italic">
+    <div *ngIf="!fileStore || fileStore.length === 0" class="text-gray-500 italic">
         None.
     </div>
 
-    <div *ngIf="files && files.length > 0" class="overflow-auto">
-        <table mat-table [dataSource]="files" class="w-full">
+    <div *ngIf="fileStore && fileStore.length > 0" class="overflow-auto">
+        <table mat-table [dataSource]="fileStore" class="w-full">
 
             <!-- Filename Column -->
             <ng-container matColumnDef="filename">
