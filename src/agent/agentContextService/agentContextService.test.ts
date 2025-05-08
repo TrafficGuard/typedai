@@ -804,6 +804,94 @@ export function runAgentStateServiceTests(
 			await expect(service.saveIteration(invalidIterationNegative)).to.be.rejectedWith(/positive integer/i);
 		});
 
+		it('should save and load an iteration with detailed memory and toolState, including LiveFiles and FileStore info', async () => {
+			const iterationNumber = 1;
+			const originalMemory = new Map<string, string>([
+				['previousSummary', 'The agent analyzed user requirements.'],
+				['currentFocus', 'Generating initial code structure.'],
+				['complexKey.with.dots', 'value for complex key'],
+			]);
+
+			const originalToolState = new Map<string, any>([
+				['LiveFiles', { monitoredFiles: ['fileA.ts', 'fileB.js', 'src/test.py'], lastCheckTimestamp: Date.now() - 10000 }],
+				[
+					'FileStore',
+					{
+						lastSavedFile: '/project/output/data.json',
+						recentUploads: ['/tmp/upload1.zip', '/tmp/upload2.tar.gz'],
+						metadataCache: {
+							'/project/output/data.json': { size: 1024, type: 'application/json' },
+						},
+					},
+				],
+				['anotherTool', { configValue: 123, isActive: true, subSettings: { detail: 'xyz' } }],
+			]);
+
+			const originalStats: GenerationStats = {
+				requestTime: Date.now() - 500,
+				timeToFirstToken: 150,
+				totalTime: 450,
+				inputTokens: 200,
+				outputTokens: 300,
+				cost: 0.0005,
+				llmId: 'mock-llm-model-for-iteration',
+			};
+
+			const originalIteration: OrchestratorIteration = {
+				agentId: agentIdForIterations,
+				iteration: iterationNumber,
+				functions: ['Agent', MockFunction.name, 'LiveFiles_tool', 'FileStore_tool'],
+				prompt: `Detailed prompt for iteration ${iterationNumber} with specific instructions.`,
+				expandedUserRequest: `Elaborated user request for iteration ${iterationNumber}.`,
+				observationsReasoning: `Observations and reasoning for iteration ${iterationNumber}: focused on file operations.`,
+				agentPlan: `<plan><step>1. Monitor files using LiveFiles.</step><step>2. Save output using FileStore.</step></plan>`,
+				nextStepDetails: `Next step involves processing ${originalToolState.get('LiveFiles').monitoredFiles.length} files.`,
+				code: `// Iteration ${iterationNumber} code\nconsole.log("Processing files");`,
+				executedCode: `// Iteration ${iterationNumber} executed code\nconsole.log("Processing files");\n// Output: Files processed`,
+				draftCode: `// Draft for iteration ${iterationNumber}\nlet x = 10;`,
+				codeReview: `Looks good, but consider edge cases for LiveFiles.`,
+				images: [{ type: 'image', mediaType: 'image/png', data: 'base64encodedimagedata...' }],
+				functionCalls: [
+					{
+						function_name: MockFunction.name,
+						parameters: { tool_input: { file: 'fileA.ts' }, iteration: iterationNumber },
+						stdout: `MockFunction result for iteration ${iterationNumber}`,
+					},
+					{
+						function_name: 'LiveFiles_tool',
+						parameters: { tool_input: { action: 'monitor', files: ['fileA.ts'] } },
+						stdout: 'Monitoring fileA.ts',
+					},
+				],
+				memory: originalMemory,
+				toolState: originalToolState,
+				error: undefined, // No error for this successful iteration
+				stats: originalStats,
+			};
+
+			await service.saveIteration(originalIteration);
+
+			const loadedIterations = await service.loadIterations(agentIdForIterations);
+
+			expect(loadedIterations).to.be.an('array').with.lengthOf(1);
+			const loadedIteration = loadedIterations[0];
+
+			// Perform a deep equality check for the entire iteration object
+			// This is the most comprehensive way to ensure all fields, including nested Maps and objects, are preserved.
+			expect(loadedIteration).to.deep.equal(originalIteration);
+
+			// Explicit checks for memory and toolState to be certain about Map reconstruction
+			expect(loadedIteration.memory).to.be.instanceOf(Map);
+			expect(loadedIteration.toolState).to.be.instanceOf(Map);
+
+			// To be absolutely sure about Map contents if deep.equal had issues (it shouldn't with Chai for Maps):
+			expect(Object.fromEntries(loadedIteration.memory)).to.deep.equal(Object.fromEntries(originalMemory));
+			expect(Object.fromEntries(loadedIteration.toolState)).to.deep.equal(Object.fromEntries(originalToolState));
+
+			// Check a nested property within toolState
+			expect(loadedIteration.toolState.get('FileStore').metadataCache['/project/output/data.json'].size).to.equal(1024);
+		});
+
 		// Optional: Test saving iteration for non-existent agent (depends on desired behavior - Firestore might allow it)
 		// it('should handle saving an iteration for a non-existent agent gracefully (or throw)', async () => {
 		// 	const nonExistentAgentId = agentId();
