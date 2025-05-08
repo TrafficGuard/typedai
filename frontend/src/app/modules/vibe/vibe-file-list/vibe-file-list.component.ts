@@ -80,7 +80,7 @@ export class VibeFileListComponent implements OnInit, OnDestroy {
 
   /**
    * Checks if the current session status makes the file list read-only.
-   * @returns True if the session status is 'file_selection_review' or 'updating_file_selection', false otherwise.
+   * @returns True if the session status is 'updating_file_selection', false otherwise.
    */
   public get isReadOnly(): boolean {
     return this.session?.status === 'updating_file_selection';
