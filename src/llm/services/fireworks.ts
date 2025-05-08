@@ -32,7 +32,7 @@ export function fireworksLLMRegistry(): Record<string, () => LLM> {
 	return {
 		[`${FIREWORKS_SERVICE}:accounts/fireworks/models/llama-v3p1-70b-instruct`]: fireworksLlama3_70B,
 		[`${FIREWORKS_SERVICE}:accounts/fireworks/models/deepseek-v3`]: fireworksDeepSeekV3,
-		[`${FIREWORKS_SERVICE}:fireworksQwen3_235bA22b`]: fireworksQwen3_235bA22b,
+		[`${FIREWORKS_SERVICE}:accounts/fireworks/models/qwen3-235b-a22b`]: fireworksQwen3_235bA22b,
 	};
 }
 
