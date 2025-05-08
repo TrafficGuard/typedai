@@ -178,13 +178,6 @@ export class VibeFileListComponent implements OnInit, OnDestroy, OnChanges {
     this.editingCategoryFilePath = null;
   }
 
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes['session']) {
-      // Deep copy the fileSelection from the session to the local editableFileSelection
-      // Handles cases where session or session.fileSelection might be null/undefined by defaulting to an empty array
-      this.editableFileSelection = JSON.parse(JSON.stringify(this.session?.fileSelection || []));
-    }
-  }
 
   ngOnInit() {
     // Removed: designForm initialization
@@ -213,7 +206,7 @@ export class VibeFileListComponent implements OnInit, OnDestroy, OnChanges {
     this.destroy$.complete();
   }
 
-  ngOnChange(): void {
+  ngOnChanges(): void {
     if (this.session?.id) {
     // Fetch the file tree as a single string
     this.vibeService.getFileSystemTree(this.session.id).subscribe((fileSystemNode: FileSystemNode | null) => {
