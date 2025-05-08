@@ -2,17 +2,18 @@
 
 **Goal:** Allow users to review, modify, and approve the file selection (which will be passed to the code editing agent) made by the AI.
 
-## Component Route
+## Parent Component Route
 /vibe/:sessionId
-frontend/src/app/modules/vibe/vibe.component.ts is responsible for checking the state of the VibeSession and showing the appropriate component
-VibeStatus in vibeTypes.ts
-When the status is `file_selection_review` or `updating_file_selection` then vibe.component.html will display the vibe-file-list component.
+frontend/src/app/modules/vibe/vibe.component.ts is responsible for checking the state of the VibeSession and displaying the appropriate sub-component.
+When the status (VibeStatus in vibeTypes.ts) is `file_selection_review` or `updating_file_selection` then vibe.component.html will display the vibe-file-list component.
+
+# vibe-file-list.component functionality
 
 ## OnLoad
 - Fetch the VibeSession data
 - Fetch the repository file tree
 
-## UI
+## Vibe File List UI
 
 ### Main screen
 
