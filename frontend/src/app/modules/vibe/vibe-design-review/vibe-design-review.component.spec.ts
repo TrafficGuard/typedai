@@ -5,6 +5,7 @@ import { SimpleChange, ChangeDetectorRef } from '@angular/core'; // For testing 
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { RouterTestingModule } from '@angular/router/testing';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner'; // Add this import
 import { Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 
@@ -65,6 +66,7 @@ describe('VibeDesignReviewComponent', () => {
         HttpClientTestingModule, // Needed for services if not fully mocked
         RouterTestingModule.withRoutes([]), // Basic router setup
         MatSnackBarModule, // Needed for MatSnackBar
+        MatProgressSpinnerModule, // Add this module here
       ],
       providers: [
         provideNoopAnimations(),
@@ -483,6 +485,24 @@ describe('VibeDesignReviewComponent', () => {
       expect(navigateSpy).not.toHaveBeenCalled(); // No redirection as session is null
       expect(initializeFormSpy).toHaveBeenCalled();
       initializeFormSpy.mockRestore();
+    });
+  });
+
+  describe('Loading Overlay', () => {
+    it('should display loading overlay when isLoading is true', () => {
+      component.isLoading = true;
+      fixture.detectChanges(); // Trigger change detection
+
+      const overlayElement = fixture.debugElement.nativeElement.querySelector('.loading-overlay');
+      expect(overlayElement).toBeTruthy(); // Check if the overlay element exists
+    });
+
+    it('should not display loading overlay when isLoading is false', () => {
+      component.isLoading = false;
+      fixture.detectChanges(); // Trigger change detection
+
+      const overlayElement = fixture.debugElement.nativeElement.querySelector('.loading-overlay');
+      expect(overlayElement).toBeFalsy(); // Check if the overlay element does not exist
     });
   });
 });

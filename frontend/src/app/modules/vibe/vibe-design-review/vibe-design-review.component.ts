@@ -6,6 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner'; // Add this import statement at the top
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
@@ -27,7 +28,7 @@ import { VibeService } from '../vibe.service';
     MatCardModule,
     MatInputModule,
     MatIconModule,
-    // MatProgressSpinnerModule, // Add if using spinner overlay
+    MatProgressSpinnerModule, // Ensure this line is uncommented
   ],
   changeDetection: ChangeDetectionStrategy.OnPush, // Use OnPush for better performance
 })
