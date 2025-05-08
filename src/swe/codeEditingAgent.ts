@@ -131,25 +131,25 @@ export class CodeEditingAgent {
 		console.log(implementationPlan);
 
 		// Edit/compile loop ----------------------------------------
-		let compileErrorAnalysis: CompileErrorAnalysis | null = await this.editCompileLoop(projectInfo, fileSelection, implementationPlan);
+		const compileErrorAnalysis: CompileErrorAnalysis | null = await this.editCompileLoop(projectInfo, fileSelection, implementationPlan);
 		this.failOnCompileError(compileErrorAnalysis);
 
 		// Store in memory for now while we see how the prompt performs
 		const branchName = await getFileSystem().getVcs().getBranchName();
 
 		// If called from runCodeEditWorkflow() then review from the original requirements
-		const reviewItems: string[] = await this.reviewChanges(requirements || implementationPlan, gitBase, fileSelection);
-		if (reviewItems.length) {
-			logger.info(reviewItems, 'Code review results');
-			agentContext().memory[`${branchName}--review`] = JSON.stringify(reviewItems);
-
-			let reviewRequirements = `${implementationPlan}\n\n# Code Review Results:\n\nThe initial completed implementation changes have been reviewed. Only the following code review items remain to finalize the requirements:`;
-			for (const reviewItem of reviewItems) {
-				reviewRequirements += `\n- ${reviewItem}`;
-			}
-			compileErrorAnalysis = await this.editCompileLoop(projectInfo, fileSelection, reviewRequirements);
-			this.failOnCompileError(compileErrorAnalysis);
-		}
+		// const reviewItems: string[] = await this.reviewChanges(requirements || implementationPlan, gitBase, fileSelection);
+		// if (reviewItems.length) {
+		// 	logger.info(reviewItems, 'Code review results');
+		// 	agentContext().memory[`${branchName}--review`] = JSON.stringify(reviewItems);
+		//
+		// 	let reviewRequirements = `${implementationPlan}\n\n# Code Review Results:\n\nThe initial completed implementation changes have been reviewed. Only the following code review items remain to finalize the requirements:`;
+		// 	for (const reviewItem of reviewItems) {
+		// 		reviewRequirements += `\n- ${reviewItem}`;
+		// 	}
+		// 	compileErrorAnalysis = await this.editCompileLoop(projectInfo, fileSelection, reviewRequirements);
+		// 	this.failOnCompileError(compileErrorAnalysis);
+		// }
 
 		// await this.tidyDiff(gitBase, projectInfo, fileSelection);
 
