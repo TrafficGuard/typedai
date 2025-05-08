@@ -1,4 +1,5 @@
 import { agentContext, getFileSystem, llms } from '#agent/agentContextLocalStorage';
+import { ForceStopError, forceStopErrorCheck } from '#agent/forceStopAgent';
 import { appContext } from '#app/applicationContext';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import type { FileSystemService } from '#functions/storage/fileSystemService';
@@ -276,6 +277,7 @@ export class CodeEditingAgent {
 
 				break;
 			} catch (e) {
+				forceStopErrorCheck(e);
 				logger.info('Compiler error');
 				logger.info(e);
 				const compileErrorOutput = e.message;

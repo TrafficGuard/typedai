@@ -4,6 +4,7 @@ import { type PyodideInterface, loadPyodide } from 'pyodide';
 import type { AgentContext, OrchestratorIteration } from '#agent/agentContextTypes';
 import { buildMemoryPrompt, buildToolStateMap, buildToolStatePrompt, updateFunctionSchemas } from '#agent/agentPromptUtils';
 import { FUNCTION_OUTPUT_THRESHOLD, summarizeFunctionOutput } from '#agent/agentUtils';
+import { ForceStopError } from '#agent/forceStopAgent';
 import { runAgentCompleteHandler } from '#agent/orchestrator/agentCompletion';
 import {
 	convertJsonToPythonDeclaration,
@@ -238,6 +239,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 					const errorString = errorToString(e);
 					iterationData.error = errorString;
 					agent.error = errorString;
+					if (e instanceof ForceStopError) controlLoopError = e;
 				} finally {
 					iterationData.functionCalls = currentIterationFunctionCalls;
 				}

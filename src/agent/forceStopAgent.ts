@@ -5,6 +5,16 @@ import { currentUser } from '#user/userService/userContext';
 
 const agentsToStop = new Set<string>();
 
+export class ForceStopError extends Error {
+	constructor() {
+		super('The user has force stopped the agent');
+	}
+}
+
+export function forceStopErrorCheck(e: any): void {
+	if (e instanceof ForceStopError) throw e;
+}
+
 /**
  * Terminates the execution of an agent as soon as possible.
  * @param agentId
