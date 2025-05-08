@@ -10,6 +10,7 @@ import { VibeFileTreeSelectDialogComponent } from '../vibe-file-tree-select-dial
 import { FileSystemNode, SelectedFile, VibeSession } from '../vibe.types';
 import { of } from 'rxjs';
 import { ActivatedRoute } from '@angular/router';
+import { SimpleChange } from '@angular/core';
 
 // Mocks
 class MatDialogMock {
@@ -202,4 +203,155 @@ describe('VibeFileListComponent', () => {
          });
      }));
   });
+
+    // Add this new describe block:
+    describe('Autocomplete Functionality', () => {
+        // vibeServiceMock, matDialogMock, matSnackBarMock are available from the outer beforeEach scope.
+        // component and fixture are also available.
+
+        beforeEach(() => {
+            // Reset or ensure specific component state for these tests if necessary
+            component.editableFileSelection = [];
+            component.allFiles = [];
+            component.addFileControl.setValue('');
+            if (!component.session) {
+                 component.session = {
+                     id: 'test-session-autocomplete',
+                     title: 'Autocomplete Test Session',
+                     instructions: 'Test autocomplete',
+                     status: 'file_selection_review',
+                     repositorySource: 'local',
+                     repositoryId: '/path/to/autocomplete/repo',
+                     branch: 'main',
+                     fileSelection: [],
+                     createdAt: Date.now(),
+                     updatedAt: Date.now(),
+                 } as VibeSession;
+            }
+            // It's important that `vibeService.getFileSystemTree` is spied upon if ngOnChanges is called.
+            // This spy is set up in the specific test for _extractFilePathsRecursive.
+        });
+
+        it('_extractFilePathsRecursive (via ngOnChanges) should correctly populate allFiles with relative paths', fakeAsync(() => {
+            const mockRootNode: FileSystemNode = {
+                name: '.', path: '.', type: 'directory', children: [
+                { name: 'src', path: 'src', type: 'directory', children: [
+                    { name: 'app', path: 'src/app', type: 'directory', children: [
+                    { name: 'component.ts', path: 'src/app/component.ts', type: 'file', children: [] }
+                    ]},
+                    { name: 'main.ts', path: 'src/main.ts', type: 'file', children: [] }
+                ]},
+                { name: 'README.md', path: 'README.md', type: 'file', children: [] }
+                ]
+            };
+
+            const vibeService = TestBed.inject(VibeService);
+            spyOn(vibeService, 'getFileSystemTree').and.returnValue(of(mockRootNode));
+
+            component.allFiles = []; // Reset before test
+
+            const newSessionInstance = { ...component.session!, id: 'trigger-ngOnChanges-for-allFiles' } as VibeSession;
+            component.session = newSessionInstance;
+            component.ngOnChanges({
+                session: new SimpleChange(null, newSessionInstance, true)
+            });
+            tick(); 
+            fixture.detectChanges();
+
+            expect(vibeService.getFileSystemTree).toHaveBeenCalledWith(newSessionInstance.id);
+            const expectedFiles = ['src/app/component.ts', 'src/main.ts', 'README.md'];
+            // Order might not be guaranteed, so check for presence and length
+            expect(component.allFiles.length).toBe(expectedFiles.length);
+            expectedFiles.forEach(ef => expect(component.allFiles).toContain(ef));
+        }));
+
+        it('_filterFiles should filter allFiles correctly for autocomplete', fakeAsync(() => {
+            component.allFiles = ['src/app/component.ts', 'src/app/service.ts', 'src/common/utils.ts', 'README.md'];
+            let filtered: string[] = [];
+
+            // Need to re-initialize filteredFiles$ if ngOnInit logic isn't re-run or if allFiles changes after init
+            // For safety, can re-assign or ensure ngOnInit's effect is captured.
+            // However, component.filteredFiles$ is initialized in ngOnInit and should react to addFileControl.valueChanges.
+            const sub = component.filteredFiles$.subscribe(f => filtered = f);
+
+            component.addFileControl.setValue('src/app');
+            tick();
+            expect(filtered.sort()).toEqual(['src/app/component.ts', 'src/app/service.ts'].sort());
+
+            component.addFileControl.setValue('comp');
+            tick();
+            expect(filtered).toEqual(['src/app/component.ts']);
+
+            component.addFileControl.setValue('utils');
+            tick();
+            expect(filtered).toEqual(['src/common/utils.ts']);
+
+            component.addFileControl.setValue('');
+            tick();
+            expect(filtered).toEqual([]); // Based on current _filterFiles logic for empty string
+
+            component.addFileControl.setValue('nonexistent');
+            tick();
+            expect(filtered).toEqual([]);
+
+            sub.unsubscribe(); // Clean up subscription
+        }));
+
+        it('onHandleAddFile() should add file to editableFileSelection and open reason dialog', fakeAsync(() => {
+            // component.editableFileSelection is reset in beforeEach
+            component.allFiles = ['src/app/new-file.ts']; 
+            component.addFileControl.setValue('src/app/new-file.ts');
+
+            const matDialog = TestBed.inject(MatDialog); // Get the mocked MatDialog
+            const dialogSpy = spyOn(matDialog, 'open').and.returnValue({ 
+                afterClosed: () => of({ reason: 'Test reason', category: 'edit' }) 
+            } as MatDialogRef<any, any>);
+
+            const matSnackBar = TestBed.inject(MatSnackBar); // Get the mocked MatSnackBar
+            const snackBarSpy = spyOn(matSnackBar, 'open');
+
+            component.onHandleAddFile();
+            tick(); 
+
+            expect(dialogSpy).toHaveBeenCalled();
+            const dialogArgs = dialogSpy.calls.mostRecent().args[1]; // Args for MatDialog.open
+            expect(dialogArgs.data.filePath).toBe('src/app/new-file.ts');
+
+            expect(component.editableFileSelection.length).toBe(1);
+            const addedFile = component.editableFileSelection[0];
+            expect(addedFile.filePath).toBe('src/app/new-file.ts');
+            expect(addedFile.reason).toBe('Test reason');
+            expect(addedFile.category).toBe('edit');
+            expect(component.addFileControl.value).toBe('');
+            expect(snackBarSpy).toHaveBeenCalledWith(jasmine.stringMatching(/File 'src\/app\/new-file.ts' added locally/), 'Close', { duration: 3000 });
+        }));
+
+        it('onHandleAddFile() should show snackbar if file already exists in editableFileSelection', () => {
+            component.editableFileSelection = [{ filePath: 'src/app/existing.ts', reason: '', category: 'edit', readOnly: false }];
+            component.addFileControl.setValue('src/app/existing.ts');
+
+            const matDialog = TestBed.inject(MatDialog);
+            const dialogSpy = spyOn(matDialog, 'open');
+            const matSnackBar = TestBed.inject(MatSnackBar);
+            const snackBarSpy = spyOn(matSnackBar, 'open');
+
+            component.onHandleAddFile();
+
+            expect(dialogSpy).not.toHaveBeenCalled();
+            expect(snackBarSpy).toHaveBeenCalledWith(jasmine.stringMatching(/File 'src\/app\/existing.ts' is already in the local selection./), 'Close', { duration: 3000 });
+        });
+
+        it('onHandleAddFile() should show snackbar if session is not loaded', () => {
+            component.session = null; // Ensure session is null for this test
+            fixture.detectChanges(); // Reflect change if component reacts to it directly
+
+            component.addFileControl.setValue('any/file.ts');
+            const matSnackBar = TestBed.inject(MatSnackBar);
+            const snackBarSpy = spyOn(matSnackBar, 'open');
+
+            component.onHandleAddFile();
+
+            expect(snackBarSpy).toHaveBeenCalledWith('Session not loaded. Cannot add file.', 'Close', { duration: 3000 });
+        });
+    });
 });
