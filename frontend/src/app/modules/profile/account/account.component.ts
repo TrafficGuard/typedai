@@ -37,10 +37,6 @@ import { CommonModule } from "@angular/common";
 })
 export class SettingsAccountComponent implements OnInit {
     accountForm: FormGroup;
-
-    /**
-     * Constructor
-     */
     $llms = new BehaviorSubject<LLM[]>([]);
 
     constructor(
@@ -49,15 +45,9 @@ export class SettingsAccountComponent implements OnInit {
         private llmService: LlmService
     ) {}
 
-    // -----------------------------------------------------------------------------------------------------
-    // @ Lifecycle hooks
-    // -----------------------------------------------------------------------------------------------------
+    // -- Lifecycle hooks -- --
 
-    /**
-     * On init
-     */
     ngOnInit(): void {
-        // Create the form using new FormGroup and new FormControl
         this.accountForm = new FormGroup({
             id: new FormControl({ value: '', disabled: true }),
             username: new FormControl(''),
