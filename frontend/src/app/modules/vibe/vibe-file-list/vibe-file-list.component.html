@@ -120,7 +120,7 @@
         <div class="flex justify-end mt-2">
             <button mat-flat-button color="primary"
                     (click)="submitFileUpdateInstructions()"
-                    [disabled]="isProcessingAction || !fileUpdateInstructionsControl.value?.trim() || isReadOnly">
+                    [disabled]="isProcessingAction || !fileUpdateInstructionsControl.value?.trim()">
                 Submit Instructions
             </button>
         </div>
@@ -130,7 +130,7 @@
         <div class="flex justify-end items-center mt-2">
             <button mat-raised-button color="accent"
                     (click)="approveSelection()"
-                    [disabled]="isProcessingAction || !session?.fileSelection?.length || isReadOnly">
+                    [disabled]="isProcessingAction || !session?.fileSelection?.length">
                 Approve Selection & Generate Design
             </button>
             <mat-spinner *ngIf="isProcessingAction" diameter="24" class="ml-2"></mat-spinner>
