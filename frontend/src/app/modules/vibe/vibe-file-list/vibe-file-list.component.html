@@ -1,11 +1,11 @@
 <div class="vibe-file-list-container">
-    <ng-container *ngIf="!editableFileSelection?.length && !isReadOnly; else fileTableOrReadOnlyMessage">
+    <ng-container *ngIf="!editableFileSelection()?.length && !isReadOnly(); else fileTableOrReadOnlyMessage">
         <p>No files selected.</p>
     </ng-container>
 
     <ng-template #fileTableOrReadOnlyMessage>
-        <ng-container *ngIf="editableFileSelection?.length; else noFilesSelected">
-            <table mat-table [dataSource]="editableFileSelection" class="mat-elevation-z8">
+        <ng-container *ngIf="editableFileSelection()?.length; else noFilesSelected">
+            <table mat-table [dataSource]="editableFileSelection()" class="mat-elevation-z8">
 
                 <!-- FilePath Column -->
                 <ng-container matColumnDef="filePath">
@@ -22,9 +22,9 @@
                 <ng-container matColumnDef="reason">
                     <th mat-header-cell *matHeaderCellDef> Reason </th>
                     <td mat-cell *matCellDef="let file">
-                        <span [class.reason-text-clickable]="!isReadOnly"
-                              (click)="!isReadOnly && editReason(file)"
-                              [matTooltip]="isReadOnly ? 'Reason editing disabled in current state' : 'Click to edit reason'">
+                        <span [class.reason-text-clickable]="!isReadOnly()"
+                              (click)="!isReadOnly() && editReason(file)"
+                              [matTooltip]="isReadOnly() ? 'Reason editing disabled in current state' : 'Click to edit reason'">
                             {{ file.reason || '-' }}
                         </span>
                     </td>
@@ -35,15 +35,15 @@
                     <th mat-header-cell *matHeaderCellDef> Category </th>
                     <td mat-cell *matCellDef="let file">
                         <div (click)="$event.stopPropagation()"> <!-- Prevent row click if any -->
-                            <span *ngIf="editingCategoryFilePath !== file.filePath; else categorySelect"
-                                  [class.category-text-clickable]="!isReadOnly"
-                                  (click)="!isReadOnly && toggleCategoryEdit(file, $event)"
-                                  [matTooltip]="isReadOnly ? 'Category editing disabled in current state' : 'Click to edit category'">
+                            <span *ngIf="editingCategoryFilePath() !== file.filePath; else categorySelect"
+                                  [class.category-text-clickable]="!isReadOnly()"
+                                  (click)="!isReadOnly() && toggleCategoryEdit(file, $event)"
+                                  [matTooltip]="isReadOnly() ? 'Category editing disabled in current state' : 'Click to edit category'">
                                 {{ file.category || '-' }}
                             </span>
                             <ng-template #categorySelect>
-                                <mat-select [value]="file.category"
-                                            (selectionChange)="onCategoryChange(file, $event.value)"
+                                <mat-select [ngModel]="file.category"
+                                            (ngModelChange)="onCategoryChange(file, $event)"
                                             (openedChange)="$event ? null : cancelCategoryEdit()"
                                             placeholder="Select category">
                                     <mat-option *ngFor="let cat of availableCategories" [value]="cat">
@@ -60,8 +60,8 @@
                     <th mat-header-cell *matHeaderCellDef> Actions </th>
                     <td mat-cell *matCellDef="let file">
                         <button mat-icon-button
-                                [disabled]="isReadOnly || file.readOnly"
-                                [matTooltip]="isReadOnly ? 'Deletion disabled: Session is in read-only review state.' : (file.readOnly ? 'Deletion disabled: File is read-only.' : 'Remove file')"
+                                [disabled]="isReadOnly() || file.readOnly"
+                                [matTooltip]="isReadOnly() ? 'Deletion disabled: Session is in read-only review state.' : (file.readOnly ? 'Deletion disabled: File is read-only.' : 'Remove file')"
                                 (click)="deleteFile(file)">
                             <mat-icon svgIcon="heroicons_outline:trash"></mat-icon>
                         </button>
@@ -73,26 +73,26 @@
             </table>
         </ng-container>
         <ng-template #noFilesSelected>
-            <p *ngIf="isReadOnly && !editableFileSelection?.length">File selection is currently under AI review. No files have been selected yet or the list is being updated.</p>
-            <p *ngIf="!isReadOnly && !editableFileSelection?.length">No files selected.</p>
+            <p *ngIf="isReadOnly() && !editableFileSelection()?.length">File selection is currently under AI review. No files have been selected yet or the list is being updated.</p>
+            <p *ngIf="!isReadOnly() && !editableFileSelection()?.length">No files selected.</p>
         </ng-template>
     </ng-template>
 
     <!-- Add/Browse Files Section - Conditionally shown based on isReadOnly -->
-    <div *ngIf="!isReadOnly" class="my-6 p-4 border rounded bg-gray-50 border-gray-200">
+    <div *ngIf="!isReadOnly()" class="my-6 p-4 border rounded bg-gray-50 border-gray-200">
         <h3 class="text-lg font-semibold text-gray-700 mb-3">Add or Browse Files</h3>
         <div class="flex items-center space-x-2">
             <mat-form-field class="flex-grow" appearance="outline">
                <mat-label>Search and add file path</mat-label>
                <input type="text" matInput placeholder="e.g., src/app/my-component.ts"
-                      [formControl]="addFileControl" [matAutocomplete]="autoFileAdd">
+                      [(ngModel)]="addFileControlValue" [matAutocomplete]="autoFileAdd">
                <mat-autocomplete #autoFileAdd="matAutocomplete">
-                   <mat-option *ngFor="let file of filteredFiles$ | async" [value]="file">
+                   <mat-option *ngFor="let file of filteredFiles()" [value]="file">
                        {{ file }}
                    </mat-option>
                </mat-autocomplete>
            </mat-form-field>
-           <button mat-stroked-button color="primary" [disabled]="!addFileControl.value?.trim()" (click)="onHandleAddFile()">
+           <button mat-stroked-button color="primary" [disabled]="!addFileControlValue()?.trim()" (click)="onHandleAddFile()">
                <mat-icon svgIcon="heroicons_outline:plus-circle" class="mr-1"></mat-icon> Add
            </button>
         </div>
@@ -105,13 +105,13 @@
    </div>
 
     <!-- File Selection Review Actions -->
-    <div *ngIf="session?.status === 'file_selection_review'" class="my-6 p-4 border-t border-gray-200">
+    <div *ngIf="session()?.status === 'file_selection_review'" class="my-6 p-4 border-t border-gray-200">
         <!-- Refine File Selection with Instructions -->
         <h3 class="text-lg font-semibold text-gray-700 mb-3">Refine File Selection with Instructions:</h3>
         <mat-form-field class="w-full" appearance="outline">
             <mat-label>Instructions to update file selection</mat-label>
             <textarea matInput
-                      [formControl]="fileUpdateInstructionsControl"
+                      [(ngModel)]="fileUpdateInstructionsValue"
                       cdkTextareaAutosize
                       cdkAutosizeMinRows="3"
                       cdkAutosizeMaxRows="6"
@@ -120,7 +120,7 @@
         <div class="flex justify-end mt-2">
             <button mat-flat-button color="primary"
                     (click)="submitFileUpdateInstructions()"
-                    [disabled]="isProcessingAction || !fileUpdateInstructionsControl.value?.trim()">
+                    [disabled]="isProcessingAction() || !fileUpdateInstructionsValue()?.trim()">
                 Submit Instructions
             </button>
         </div>
@@ -130,20 +130,20 @@
         <div class="flex justify-end items-center mt-2 space-x-2">
             <button mat-stroked-button color="primary"
                     (click)="onSaveFileSelectionChanges()"
-                    [disabled]="isProcessingAction || isReadOnly || !session?.id || !hasUnsavedChanges()"
+                    [disabled]="isProcessingAction() || isReadOnly() || !session()?.id || !hasUnsavedChanges()"
                     matTooltip="Save any local additions, deletions, or modifications to the file selection list."
                     class="mr-2">
                 Save File Selection Changes
             </button>
             <button mat-stroked-button color="warn"
                     (click)="onResetSelection()"
-                    [disabled]="isProcessingAction"
+                    [disabled]="isProcessingAction()"
                     matTooltip="Revert file selection to the original AI-generated list for this review cycle. Manual changes will be lost.">
                 Reset Selection
             </button>
             <mat-form-field appearance="outline" class="mr-2 design-variations-select" style="width: 180px;">
                 <mat-label>Design Variations</mat-label>
-                <mat-select [formControl]="designVariationsControl"
+                <mat-select [(ngModel)]="designVariationsValue"
                             matTooltip="Select the number of design proposals the AI should generate.">
                     <mat-option [value]="1">1 Variation</mat-option>
                     <mat-option [value]="2">2 Variations</mat-option>
@@ -152,10 +152,10 @@
             </mat-form-field>
             <button mat-raised-button color="accent"
                     (click)="approveSelection()"
-                    [disabled]="isProcessingAction || !editableFileSelection?.length">
+                    [disabled]="isProcessingAction() || !editableFileSelection()?.length">
                 Approve Selection &amp; Generate Design
             </button>
-            <mat-spinner *ngIf="isProcessingAction" diameter="24"></mat-spinner>
+            <mat-spinner *ngIf="isProcessingAction()" diameter="24"></mat-spinner>
         </div>
     </div>
 </div>
