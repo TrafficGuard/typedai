@@ -8,7 +8,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { MatSelectModule } from '@angular/material/select'; // Add MatSelectModule
 
-import type { SelectedFile } from '../vibe.types'; // Add this import
+import type { SelectedFile } from './vibe.types'; // Add this import
 
 export interface VibeEditReasonDialogData {
     reason: string;
