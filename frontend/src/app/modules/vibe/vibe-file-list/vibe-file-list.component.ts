@@ -306,8 +306,9 @@ export class VibeFileListComponent implements OnInit, OnDestroy {
     }
 
     const sessionId = this.session.id; // Capture session ID
+    const variations = this.designVariationsControl.value;
 
-    this.vibeService.approveFileSelection(sessionId).pipe(
+    this.vibeService.approveFileSelection(sessionId, variations).pipe(
         finalize(() => this.isProcessingAction = false),
         takeUntil(this.destroy$)
     ).subscribe({
