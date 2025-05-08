@@ -24,7 +24,7 @@
                     <div class="py-2">
                         <!-- Functions -->
                         <div class="mb-3">
-                            <h4 class="font-medium text-md mb-1">Functions Available:</h4>
+                            <h4 class="font-medium text-lg mb-1">Functions Available:</h4>
                             <mat-chip-listbox aria-label="Functions used">
                                 <mat-chip *ngFor="let func of iteration.functions">{{ func }}</mat-chip>
                             </mat-chip-listbox>
@@ -32,7 +32,7 @@
 
                         <!-- Input Prompt -->
                         <div class="mb-3">
-                            <h4 class="font-medium text-md mb-1">Input Prompt:</h4>
+                            <h4 class="font-medium text-lg mb-1">Input Prompt:</h4>
                             <div class="bg-gray-100 p-2 rounded border border-gray-200 max-h-60 overflow-y-auto">
                                 <pre class="whitespace-pre-wrap text-sm">{{ iteration.prompt || 'N/A' }}</pre>
                             </div>
@@ -40,7 +40,7 @@
 
                         <!-- Agent Reasoning/Plan Tabs -->
                         <div class="mb-3" *ngIf="iteration.expandedUserRequest || iteration.observationsReasoning || iteration.agentPlan || iteration.nextStepDetails">
-                            <h4 class="font-medium text-md mb-1">Agent Reasoning & Plan:</h4>
+                            <h4 class="font-medium text-lg mb-1">Agent Reasoning & Plan:</h4>
                             <mat-tab-group animationDuration="0ms">
                                 <mat-tab label="Expanded Request" *ngIf="iteration.expandedUserRequest">
                                     <ng-template matTabContent>
@@ -75,7 +75,7 @@
 
                         <!-- Generated Code Tabs -->
                         <div class="mb-3">
-                            <h4 class="font-medium text-md mb-1">Code Generation:</h4>
+                            <h4 class="font-medium text-lg mb-1">Code Generation:</h4>
                             <mat-tab-group animationDuration="0ms">
                                 <mat-tab label="Draft Generated Code">
                                     <ng-template matTabContent>
@@ -110,7 +110,7 @@
 
                         <!-- Function Calls -->
                         <div class="mb-3" *ngIf="iteration.functionCalls?.length > 0">
-                            <h4 class="font-medium text-md mb-1">Function Calls Executed:</h4>
+                            <h4 class="font-medium text-lg mb-1">Function Calls Executed:</h4>
                             <div class="space-y-2">
                                 <mat-card *ngFor="let call of iteration.functionCalls" class="!shadow-sm border" [ngClass]="{'border-red-300 bg-red-50': hasError(call)}">
                                     <mat-card-header class="!pt-2 !pb-1">
@@ -138,7 +138,7 @@
 
                         <!-- Memory -->
                         <div class="mb-3" *ngIf="iteration.memory && iteration.memory.size > 0">
-                            <h4 class="font-medium text-md mb-1">Memory State:</h4>
+                            <h4 class="font-medium text-lg mb-1">Memory State:</h4>
                             <mat-accordion multi>
                                 <mat-expansion-panel *ngFor="let item of iteration.memory | keyvalue" class="mb-1 !shadow-sm border">
                                      <mat-expansion-panel-header>
@@ -155,7 +155,7 @@
 
                         <!-- Tool State -->
                         <div class="mb-3" *ngIf="iteration.toolState && iteration.toolState.size > 0 && !(iteration.liveFilesDirect || iteration.fileStoreDirect)">
-                            <h4 class="font-medium text-md mb-1">Tool State (Legacy):</h4>
+                            <h4 class="font-medium text-lg mb-1">Tool State (Legacy):</h4>
                              <div class="bg-gray-100 p-2 rounded border border-gray-200 max-h-60 overflow-y-auto">
                                 <!-- Displaying as JSON for simplicity -->
                                 <pre class="whitespace-pre-wrap text-sm">{{ iteration.toolState | json }}</pre>
@@ -164,7 +164,7 @@
 
                         <!-- Live Files Direct -->
                         <div class="mb-3" *ngIf="iteration.liveFilesDirect && iteration.liveFilesDirect.length > 0">
-                            <h4 class="font-medium text-md mb-1">Live Files:</h4>
+                            <h4 class="font-medium text-lg mb-1">Live Files:</h4>
                             <mat-chip-listbox aria-label="Live files">
                                 <mat-chip *ngFor="let file of iteration.liveFilesDirect">{{ file }}</mat-chip>
                             </mat-chip-listbox>
@@ -172,7 +172,7 @@
 
                         <!-- File Store Direct -->
                         <div class="mb-3" *ngIf="iteration.fileStoreDirect && iteration.fileStoreDirect.length > 0">
-                            <h4 class="font-medium text-md mb-1">File Store:</h4>
+                            <h4 class="font-medium text-lg mb-1">File Store:</h4>
                             <div class="space-y-2">
                                 <mat-card *ngFor="let file of iteration.fileStoreDirect" class="!shadow-sm border">
                                     <mat-card-content class="!pb-2 !pt-2">
@@ -186,7 +186,7 @@
 
                         <!-- Iteration Error -->
                         <div *ngIf="iteration.error" class="mt-3 p-3 border border-red-300 rounded bg-red-50">
-                            <h4 class="font-medium text-md mb-1 text-red-700">Iteration Error:</h4>
+                            <h4 class="font-medium text-lg mb-1 text-red-700">Iteration Error:</h4>
                             <pre class="whitespace-pre-wrap text-sm text-red-800">{{ iteration.error }}</pre>
                         </div>
 
