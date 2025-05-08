@@ -1,6 +1,6 @@
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import { type LlmMessage, messageText, user as createUserMessage } from '#llm/llm'; // Added createUserMessage
+import { type LlmMessage, user as createUserMessage, messageText } from '#llm/llm'; // Added createUserMessage
 import { logger } from '#o11y/logger';
 import { ApplySearchReplace, type EditFormat } from '#swe/coder/applySearchReplace';
 
@@ -52,13 +52,15 @@ export class SearchReplaceCoder {
 			const llmResponseText = messageText(llmResponseMsgObj);
 			const responseToApply = llmResponseText || '';
 
-			if (!llmResponseText?.trim() && attempts === 1) { // Only warn on first attempt for empty response
+			if (!llmResponseText?.trim() && attempts === 1) {
+				// Only warn on first attempt for empty response
 				logger.warn('SearchReplaceCoder: LLM returned an empty or whitespace-only response on first attempt.');
 			}
 
 			const editedFiles: Set<string> | null = await searchReplacer.applyLlmResponse(responseToApply, llms().hard);
 
-			if (editedFiles !== null) { // Success or no edits but no reflection needed
+			if (editedFiles !== null) {
+				// Success or no edits but no reflection needed
 				if (editedFiles.size === 0 && !searchReplacer.reflectedMessage) {
 					logger.info('SearchReplaceCoder: No edits were applied by the LLM (or no valid edit blocks found in the response).');
 				} else if (editedFiles.size > 0) {

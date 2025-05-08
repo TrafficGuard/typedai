@@ -1,5 +1,6 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
+import { LlmFunctions } from '#agent/LlmFunctions';
 import { AgentFeedback } from '#agent/orchestrator/functions/agentFeedback';
 import { LiveFiles } from '#agent/orchestrator/functions/liveFiles';
 import { waitForConsoleInput } from '#agent/orchestrator/humanInTheLoop';
@@ -13,6 +14,7 @@ import { logger } from '#o11y/logger';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { CodeFunctions } from '#swe/codeFunctions';
 import { parseProcessArgs, saveAgentId } from './cli';
+import { resolveFunctionClasses } from './functionResolver';
 
 export async function main() {
 	const llms = defaultLLMs();
@@ -21,6 +23,7 @@ export async function main() {
 	const { initialPrompt, resumeAgentId, functionClasses } = parseProcessArgs();
 
 	console.log(`Prompt: ${initialPrompt}`);
+	console.log(`resumeAgentId: ${resumeAgentId}`);
 
 	if (resumeAgentId) {
 		const agent = await appContext().agentStateService.load(resumeAgentId);
@@ -35,22 +38,19 @@ export async function main() {
 			case 'hitl_feedback':
 				return await provideFeedback(resumeAgentId, agent.executionId, initialPrompt);
 			default:
-				await waitForConsoleInput(`Agent is currently in the state ${agent.state}. Only resume if you know it is not `);
+				await waitForConsoleInput(`Agent is currently in the state "${agent.state}". Only resume if you know it is not `);
 				return resumeError(resumeAgentId, agent.executionId, initialPrompt);
 		}
 	}
 
-	// Could let the user add additional tools
-	// let functions: LlmFunctions | Array<new () => any>;
-	// if (functionClasses?.length) {
-	//     functions = await resolveFunctionClasses(functionClasses);
-	// } else {
-	//     // Default to FileSystemRead if no functions specified
-	//     functions = [FileSystemRead];
-	// }
-	// functions.push(AgentFeedback);
-	// logger.info(`Available tools ${functions.map((f) => f.name).join(', ')}`);
-	const functions = [PublicWeb, CodeFunctions, FileSystemList, LiveFiles, AgentFeedback, Perplexity, CodeEditingAgent];
+	const functions = [AgentFeedback, PublicWeb, CodeFunctions, FileSystemList, LiveFiles, AgentFeedback, Perplexity, CodeEditingAgent];
+	// Add any additional functions provided from CLI args
+	let additionalFunctions: Array<new () => any> = [];
+	if (functionClasses?.length) {
+		additionalFunctions = await resolveFunctionClasses(functionClasses);
+	}
+	functions.push(...additionalFunctions);
+	logger.info(`Available functions ${functions.map((f) => f.name).join(', ')}`);
 
 	const fullPrompt = `${initialPrompt}Actions:
 
@@ -76,7 +76,7 @@ export async function main() {
 	const execution = await startAgent({
 		agentName,
 		initialPrompt: fullPrompt,
-		functions,
+		functions: functions,
 		llms,
 		type: 'orchestrator',
 		subtype: 'codegen',

@@ -15,8 +15,8 @@ export interface CliOptions {
 	scriptName: string;
 	initialPrompt: string;
 	resumeAgentId: string | undefined;
-	/** Optional array of function class names to use */
-	functionClasses?: string[];
+	/** Array of function class names to use */
+	functionClasses: string[];
 	useSharedRepos?: boolean;
 }
 
@@ -31,11 +31,11 @@ export function parseProcessArgs(): CliOptions {
 /**
  * Parse function class names from -f=FunctionClass,... command line argument
  */
-function parseFunctionArgument(args: string[]): string[] | undefined {
+function parseFunctionArgument(args: string[]): string[] {
 	console.log(args);
 	const toolArg = args.find((arg) => arg.startsWith('-f=') || arg.startsWith('-t='));
 	// logger.info(`Function arg: ${toolArg}`);
-	if (!toolArg) return undefined;
+	if (!toolArg) return [];
 	return toolArg
 		.substring(3)
 		.split(',')

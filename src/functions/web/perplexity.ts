@@ -22,12 +22,12 @@ export class Perplexity {
 	@func()
 	async research(researchQuery: string, saveToMemory: boolean): Promise<string> {
 		try {
-			const report: string = await perplexityDeepResearchLLM().generateText(researchQuery);
+			const report: string = await perplexityDeepResearchLLM().generateText(researchQuery, { id: 'Perplexity' });
 
 			if (saveToMemory) {
 				const summary = await llms().easy.generateText(
 					`<query>${researchQuery}</query>\nGenerate a summarised version of the research key in one short sentence at most, with only alphanumeric with underscores for spaces. Answer concisely with only the summary.`,
-					{ id: 'Summarise Perplexity search' },
+					{ id: 'Perplexity memory key' },
 				);
 				const key = `Perplexity-${summary}`;
 				agentContext().memory[key] = report;
