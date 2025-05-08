@@ -161,7 +161,7 @@ export class CePO_LLM extends BaseLLM {
 			const refinedPlan = await this.llm.generateText(messages, {
 				...opts,
 				temperature: config.planning_temperature_step3,
-				// maxTokens: config.planning_max_tokens_step3,
+				// maxOutputTokens: config.planning_max_tokens_step3,
 			});
 			logger.debug(`Refined plan: ${refinedPlan}`);
 			return refinedPlan;
@@ -261,7 +261,7 @@ Begin your evaluation by providing a short explanation. Be as objective as possi
 			const ratingResponse = await this.llm.generateText(messages, {
 				...opts,
 				temperature: config.bestofn_temperature,
-				//maxTokens: config.bestofn_max_tokens,
+				//maxOutputTokens: config.bestofn_max_tokens,
 			});
 			const ratingMatch = ratingResponse.match(/Rating: \[\[(\d+)\]\]/);
 			const rating = ratingMatch ? Number.parseInt(ratingMatch[1], 10) : 0;
@@ -304,7 +304,7 @@ If the second response is better, reply with "Better Response: [[1]]".`;
 			const ratingResponse = await this.llm.generateText(messages, {
 				...opts,
 				temperature: config.bestofn_temperature,
-				//maxTokens: config.bestofn_max_tokens,
+				//maxOutputTokens: config.bestofn_max_tokens,
 			});
 
 			const match = ratingResponse.match(/Better Response: \[\[(\d+)\]\]/);

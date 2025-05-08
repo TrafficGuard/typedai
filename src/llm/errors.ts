@@ -1,8 +1,8 @@
 export class MaxTokensError extends Error {
 	constructor(
-		public maxTokens: number,
+		public maxOutputTokens: number,
 		public responseContent: string,
 	) {
-		super(`Response exceeded the maximum token of ${maxTokens}`);
+		super(`Response exceeded the maximum token of ${maxOutputTokens}`);
 	}
 }

@@ -1,14 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import type { ProviderV1 } from '@ai-sdk/provider';
-import {
-	type CoreMessage,
-	type GenerateTextResult,
-	type LanguageModelV1,
-	type TextStreamPart,
-	generateText as aiGenerateText,
-	streamText as aiStreamText,
-	smoothStream,
-} from 'ai';
+import type { LanguageModelV1, ProviderV1 } from '@ai-sdk/provider';
+import { type CoreMessage, type GenerateTextResult, type TextStreamPart, generateText as aiGenerateText, streamText as aiStreamText, smoothStream } from 'ai';
 import { addCost, agentContext } from '#agent/agentContextLocalStorage';
 import { cloneAndTruncateBuffers } from '#agent/trimObject';
 import { appContext } from '#app/applicationContext';
@@ -130,7 +122,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 					presencePenalty: opts?.presencePenalty,
 					stopSequences: opts?.stopSequences,
 					maxRetries: opts?.maxRetries,
-					maxTokens: opts?.maxTokens,
+					maxTokens: opts?.maxOutputTokens,
 					providerOptions,
 				});
 
@@ -204,7 +196,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 		return withActiveSpan(`streamText ${opts?.id ?? ''}`, async (span) => {
 			const messages: CoreMessage[] = llmMessages.map((msg) => {
 				if (msg.cache === 'ephemeral') {
-					msg.experimental_providerMetadata = { anthropic: { cacheControl: { type: 'ephemeral' } } };
+					msg.providerOptions = { anthropic: { cacheControl: { type: 'ephemeral' } } };
 				}
 				return msg;
 			});

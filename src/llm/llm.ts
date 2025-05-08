@@ -56,7 +56,7 @@ export interface GenerateOptions {
 
 	maxRetries?: number;
 
-	maxTokens?: number;
+	maxOutputTokens?: number;
 }
 
 export interface GenerateTextOptions extends GenerateOptions {
@@ -188,7 +188,7 @@ export function contentText(content: CoreContent): string {
 		if (type === 'text') text += part.text;
 		// else if (type === 'source') text += `${part.text}\n`;
 		else if (type === 'reasoning') text += `${part.text}\n`;
-		else if (type === 'redacted-reasoning') text += '<redacted-reasoning>\n';
+		// else if (type === 'redacted-reasoning') text += '<redacted-reasoning>\n';
 		else if (type === 'tool-call') text += `Tool Call (${part.toolCallId} ${part.toolName} Args:${JSON.stringify(part.args)})`;
 	}
 	return text;

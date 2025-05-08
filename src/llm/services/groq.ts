@@ -70,8 +70,8 @@ export function groqQwen_32b_R1_Distill(): LLM {
  * https://wow.groq.com/
  */
 export class GroqLLM extends AiLLM<GroqProvider> {
-	constructor(displayName: string, model: string, maxTokens: number, calculateCosts: LlmCostFunction) {
-		super(displayName, GROQ_SERVICE, model, maxTokens, calculateCosts);
+	constructor(displayName: string, model: string, maxOutputTokens: number, calculateCosts: LlmCostFunction) {
+		super(displayName, GROQ_SERVICE, model, maxOutputTokens, calculateCosts);
 	}
 
 	protected apiKey(): string {
@@ -84,7 +84,7 @@ export class GroqLLM extends AiLLM<GroqProvider> {
 		// https://console.groq.com/docs/model/qwen-qwq-32b
 		if (this.getModel() === 'qwen-qwq-32b') {
 			genOpts.temperature = 0.6;
-			genOpts.maxTokens = 131072;
+			genOpts.maxOutputTokens = 131072;
 			genOpts.topP = 0.95;
 		}
 		return super.generateTextFromMessages(llmMessages, genOpts);

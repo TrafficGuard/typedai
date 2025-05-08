@@ -14,7 +14,7 @@ import { GPT4oMini } from '#llm/services/openai';
 import { perplexityLLM } from '#llm/services/perplexity-llm';
 import { sambanovaDeepseekR1, sambanovaLlama3_3_70b, sambanovaLlama3_3_70b_R1_Distill } from '#llm/services/sambanova';
 import { togetherLlama3_70B } from '#llm/services/together';
-import { Gemini_2_0_Flash, Gemini_2_0_Flash_Lite, Gemini_2_5_Pro } from '#llm/services/vertexai';
+import { vertexGemini_2_0_Flash, vertexGemini_2_0_Flash_Lite, vertexGemini_2_5_Pro } from '#llm/services/vertexai';
 
 const elephantBase64 = fs.readFileSync('test/llm/elephant.jpg', 'base64');
 const pdfBase64 = fs.readFileSync('test/llm/purple.pdf', 'base64');
@@ -221,7 +221,7 @@ describe('LLMs', () => {
 
 	describe('VertexAI', () => {
 		describe('Flash 2.0', () => {
-			const llm = Gemini_2_0_Flash();
+			const llm = vertexGemini_2_0_Flash();
 
 			it('should generateText', async () => {
 				const response = await llm.generateText(SKY_PROMPT, { temperature: 0 });
@@ -240,12 +240,12 @@ describe('LLMs', () => {
 		});
 
 		it('Gemini 2.5 Pro should generateText', async () => {
-			const response = await Gemini_2_5_Pro().generateText(SKY_PROMPT, { temperature: 0 });
+			const response = await vertexGemini_2_5_Pro().generateText(SKY_PROMPT, { temperature: 0 });
 			expect(response.toLowerCase()).to.include('blue');
 		});
 
 		it('Gemini 2.0 Flash Lite should generateText', async () => {
-			const response = await Gemini_2_0_Flash_Lite().generateText(SKY_PROMPT, { temperature: 0 });
+			const response = await vertexGemini_2_0_Flash_Lite().generateText(SKY_PROMPT, { temperature: 0 });
 			expect(response.toLowerCase()).to.include('blue');
 		});
 	});

@@ -43,12 +43,27 @@ async function analyzeAiSdkDependencies(): Promise<void> {
         // Read the list of entries (files/directories) within @ai-sdk
         const entries = await fs.readdir(aiSdkDir);
 
+        let providerVersion;
+        let providerUtilVersion;
+
         // Process each entry found in the @ai-sdk directory
         for (const entryName of entries) {
-            if(entryName === 'ui-utils' || entryName === 'provider' || entryName === 'provider-utils' || entryName === 'react') continue;
+            if(entryName === 'ui-utils' || entryName === 'react') continue;
             const packageJsonPath = path.join(aiSdkDir, entryName, 'package.json');
 
-            console.log(`--- Processing ${entryName} ---`);
+            if (entryName === 'provider' || entryName === 'provider-utils') {
+                const fileContent = await fs.readFile(packageJsonPath, 'utf8');
+                const packageJson: any = JSON.parse(fileContent);
+                if(entryName === 'provider-utils') {
+                    providerUtilVersion = packageJson.version
+                }
+                if(entryName === 'provider') {
+                    providerVersion = packageJson.version
+                }
+                continue;
+            }
+
+            console.log(`--- ${entryName} ---`);
 
             try {
                 // Check if the entry is likely a directory by trying to access its package.json
@@ -96,6 +111,11 @@ async function analyzeAiSdkDependencies(): Promise<void> {
             }
             console.log(''); // Add a blank line for separation between packages
         }
+
+        console.log();
+        console.log('Provider version: ', providerVersion);
+        console.log('Provider util version: ', providerUtilVersion);
+        console.log();
 
         console.log('--- Analysis Complete ---');
 
