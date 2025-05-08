@@ -11,28 +11,38 @@ import { beep } from '#utils/beep';
 
 export async function waitForConsoleInput(humanInLoopReason: string) {
 	await withSpan('consoleHumanInLoop', async () => {
-		const span = startSpan('consoleHumanInLoop');
+		// The span is created by withSpan, so the inner startSpan call was redundant.
 
 		// await appContext().agentContextService.updateState(agentContextStorage.getStore(), 'humanInLoop_agent');
-
-		// Beep beep!
-		await beep();
 
 		const rl = readline.createInterface({
 			input: process.stdin,
 			output: process.stdout,
 		});
 
-		const question = (prompt) =>
+		const question = (promptText: string): Promise<string> =>
 			new Promise((resolve) => {
-				rl.question(prompt, resolve);
+				rl.question(promptText, (answer) => resolve(answer));
 			});
 
-		await (async () => {
+		let beepIntervalId: NodeJS.Timeout | undefined;
+
+		// Beep every second until the user presses enter
+		try {
+			await beep();
+			beepIntervalId = setInterval(async () => {
+				try {
+					await beep();
+				} catch (error) {}
+			}, 1000);
+
 			logger.flush();
+
 			await question(`Human-in-the-loop check: ${humanInLoopReason} \nPress enter to continue...`);
+		} finally {
+			if (beepIntervalId) clearInterval(beepIntervalId);
 			rl.close();
-		})();
+		}
 	});
 }
 
