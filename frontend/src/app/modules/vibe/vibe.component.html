@@ -82,6 +82,12 @@
                     </vibe-design-proposal>
                     -->
                 </div>
+
+                <ng-container *ngIf="session.status === 'file_selection_review' || session.status === 'updating_file_selection' || session.status === 'design_review' || session.status === 'coding' || session.status === 'code_review' || session.status === 'ci_failed' || session.status === 'completed' || session.status === 'error_file_selection' || session.status === 'error_design_generation' || session.status === 'error_coding' || session.status === 'error'">
+                    <div class="mt-6 pt-6 border-t border-gray-200"> <!-- Visual separator -->
+                        <vibe-file-list [session]="session"></vibe-file-list>
+                    </div>
+                </ng-container>
             </mat-card-content>
         </mat-card>
     </ng-container>
