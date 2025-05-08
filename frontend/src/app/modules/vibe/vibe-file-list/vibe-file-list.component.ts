@@ -205,7 +205,7 @@ export class VibeFileListComponent implements OnInit, OnDestroy, OnChanges {
     this.destroy$.complete();
   }
 
-  ngOnChanges(): void {
+  ngOnChanges(changes: SimpleChanges): void {
     if (this.session?.id) {
     // Fetch the file tree as a single string
     this.vibeService.getFileSystemTree(this.session.id).subscribe((fileSystemNode: FileSystemNode | null) => {
