@@ -128,6 +128,13 @@
         <!-- Final Actions Section -->
         <h3 class="text-lg font-semibold text-gray-700 mt-6 mb-3">Final Actions</h3>
         <div class="flex justify-end items-center mt-2 space-x-2">
+            <button mat-stroked-button color="primary"
+                    (click)="onSaveFileSelectionChanges()"
+                    [disabled]="isProcessingAction || isReadOnly || !session?.id || !hasUnsavedChanges()"
+                    matTooltip="Save any local additions, deletions, or modifications to the file selection list."
+                    class="mr-2">
+                Save File Selection Changes
+            </button>
             <button mat-stroked-button color="warn"
                     (click)="onResetSelection()"
                     [disabled]="isProcessingAction"
