@@ -67,6 +67,7 @@ export class VibeFileListComponent implements OnInit, OnDestroy {
   public availableCategories: Array<SelectedFile['category']> = ['edit', 'reference', 'style_example', 'unknown'];
 
   fileUpdateInstructionsControl = new FormControl('');
+  public designVariationsControl = new FormControl(1);
   // Full list of files available in the session's workspace
   rootNode: FileSystemNode;
   allFiles: string[] = [];

@@ -183,3 +183,17 @@ last: new FormControl('Drew', Validators.required)
 // Controls can also be enabled/disabled after creation:
 form.get('first')?.enable();
 form.get('last')?.disable();
+
+# Style
+
+Wrong
+```typescript
+const editedFiles = await coder.applyLlmResponse(llmResponse, llm);
+expect(editedFiles).to.be.a('Set');
+expect(editedFiles).to.include(filePath);
+```
+Correct
+```typescript
+const editedFiles: Set<string> = await coder.applyLlmResponse(llmResponse, llm);
+expect(editedFiles).to.include(filePath);
+```
