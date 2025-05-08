@@ -184,10 +184,17 @@ export class VibeService {
 	/**
 	 * Approves the current file selection and triggers design generation.
 	 * @param sessionId The ID of the Vibe session.
+	 * @param variations The number of design variations to generate.
 	 * @returns An Observable that completes when the request is accepted (backend returns 202).
 	 */
-	approveFileSelection(sessionId: string): Observable<void> {
-		return this.http.post<void>(`/api/vibe/${sessionId}/generate-design`, {}).pipe(
+	approveFileSelection(sessionId: string, variations?: number | null): Observable<void> {
+		const body: { variations?: number } = {};
+
+		if (variations !== null && variations !== undefined && typeof variations === 'number' && variations >= 1 && variations <= 3) {
+			body.variations = variations;
+		}
+
+		return this.http.post<void>(`/api/vibe/${sessionId}/generate-design`, body).pipe(
 			tap(() => {}), // Placeholder tap if needed, or remove tap entirely if no other side effects
 			catchError((error) => {
 				// Consider adding console.error or other basic logging if needed

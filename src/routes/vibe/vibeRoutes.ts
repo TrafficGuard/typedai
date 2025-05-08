@@ -761,6 +761,53 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 		},
 	);
 
+	// Reset file selection to its original state for the current review cycle
+	fastify.post<{ Params: ParamsType; Reply: Static<typeof AcceptedResponseSchema> | Static<typeof ErrorResponseSchema> }>(
+		`${basePath}/:sessionId/reset-selection`,
+		{
+			schema: {
+				params: ParamsSchema, // Use existing schema for sessionId
+				// No body schema is defined as this POST action does not expect a payload
+				response: {
+					202: AcceptedResponseSchema, // For successful acceptance of the request
+					401: ErrorResponseSchema, // Standard error for unauthorized
+					404: ErrorResponseSchema, // For session not found
+					409: ErrorResponseSchema, // For invalid state (e.g., session not in 'file_selection_review' status)
+					500: ErrorResponseSchema, // For other internal server errors
+				},
+			},
+		},
+		async (request, reply) => {
+			const userId = currentUser().id;
+			const { sessionId } = request.params; // Params are correctly typed due to <Params: ParamsType>
+
+			try {
+				// Assume vibeService.resetFileSelection exists and handles the logic
+				// This method is expected to be part of the VibeService interface and implementation
+				await vibeService.resetFileSelection(userId, sessionId);
+
+				// Successfully queued/processed the reset request
+				return reply.code(202).send({ message: 'File selection reset accepted and processing.' });
+			} catch (error: any) {
+				// Log the error with context
+				fastify.log.error(error, `Error resetting file selection for session ${sessionId}, user ${userId}`);
+
+				const errorMessage = error.message || 'An unexpected error occurred while resetting file selection.';
+
+				// Specific error handling based on message content
+				if (errorMessage.toLowerCase().includes('not found')) {
+					return sendNotFound(reply, errorMessage); // Use existing helper for 404
+				}
+				if (errorMessage.toLowerCase().includes('state') || errorMessage.toLowerCase().includes('status')) {
+					// This handles cases where the session is not in a state where file selection can be reset
+					return reply.code(409).send({ error: errorMessage });
+				}
+				// Generic fallback for other errors
+				return reply.code(500).send({ error: errorMessage });
+			}
+		},
+	);
+
 	// Update the code based on review comments (triggers coding agent)
 	fastify.post<{ Params: ParamsType; Body: UpdateCodeBodyType; Reply: Static<typeof ErrorResponseSchema> | null }>(
 		`${basePath}/:sessionId/update-code`,

@@ -109,9 +109,38 @@ export class VibeFileTreeSelectDialogComponent implements OnInit, OnDestroy {
     return this.isFile(node) && this.selection.isSelected(node.path);
   }
 
+  private _doesNodeNameMatch(nodeName: string, searchTerm: string): boolean {
+    if (!searchTerm) { // If searchTerm is empty, consider it a match to show all nodes under normal circumstances, but for filtering, an empty search term means no filter applied by this specific function. The _filterTree handles empty overall filter.
+        return true; // Let _filterTree handle the "show all" case when filterText is empty.
+    }
+    const normalizedNodeName = nodeName.toLowerCase();
+
+    // Check if the whole node name starts with the search term
+    if (normalizedNodeName.startsWith(searchTerm)) {
+        return true;
+    }
+
+    // Split the node name by common separators (dot, dash, underscore)
+    // and check if any part starts with the search term.
+    const nameParts = normalizedNodeName.split(/[.\-_]/); // Note: escaped dot for regex
+    if (nameParts.some(part => part.startsWith(searchTerm))) {
+        return true;
+    }
+
+    // Add check for camelCase parts:
+    // Split by uppercase letters to get camelCase parts, then check if any part starts with the search term.
+    // e.g., "MyComponentFile" -> "my", "component", "file" (after lowercasing and splitting)
+    // This regex splits before uppercase letters, then filter out empty strings from split.
+    const camelCaseProcessedParts = normalizedNodeName.replace(/([A-Z])/g, ' $1').toLowerCase().split(' ').filter(part => part.length > 0);
+    if (camelCaseProcessedParts.some(part => part.startsWith(searchTerm))) {
+        return true;
+    }
+
+    return false;
+  }
+
   private _filterNodeRecursive(node: FileSystemNode, filterText: string): FileSystemNode | null {
-    const nodeNameLower = node.name.toLowerCase();
-    const directMatch = nodeNameLower.includes(filterText);
+    const directMatch = this._doesNodeNameMatch(node.name, filterText);
 
     if (node.type === 'directory') {
       const filteredChildren = node.children

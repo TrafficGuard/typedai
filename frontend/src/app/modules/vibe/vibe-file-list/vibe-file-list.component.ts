@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, inject, OnInit, OnDestroy } from '@angular/core';
+import { Component, Input, Output, EventEmitter, inject, OnInit, OnDestroy, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import {finalize, Observable, of, Subject, switchMap, take, tap} from 'rxjs';
@@ -47,7 +47,7 @@ import {MatSnackBar} from "@angular/material/snack-bar";
     MatProgressSpinnerModule,
   ],
 })
-export class VibeFileListComponent implements OnInit, OnDestroy {
+export class VibeFileListComponent implements OnInit, OnDestroy, OnChanges {
   private destroy$ = new Subject<void>();
 
   @Input() session: VibeSession | null = null;
@@ -65,8 +65,10 @@ export class VibeFileListComponent implements OnInit, OnDestroy {
   filteredFiles$: Observable<string[]>;
   public editingCategoryFilePath: string | null = null;
   public availableCategories: Array<SelectedFile['category']> = ['edit', 'reference', 'style_example', 'unknown'];
+  public editableFileSelection: SelectedFile[] = [];
 
   fileUpdateInstructionsControl = new FormControl('');
+  public designVariationsControl = new FormControl(1);
   // Full list of files available in the session's workspace
   rootNode: FileSystemNode;
   allFiles: string[] = [];
@@ -94,7 +96,12 @@ export class VibeFileListComponent implements OnInit, OnDestroy {
   deleteFile(file: SelectedFile): void {
     // Prevent emitting delete for read-only files, although button should be disabled
     if (!file.readOnly) {
-      this.fileDeleted.emit(file);
+      const index = this.editableFileSelection.findIndex(f => f.filePath === file.filePath);
+      if (index > -1) {
+        this.editableFileSelection.splice(index, 1);
+        this.editableFileSelection = [...this.editableFileSelection];
+        this.snackBar.open(`File '${file.filePath}' removed locally. Save changes to persist.`, 'Close', { duration: 3000 });
+      }
     }
   }
 
@@ -110,12 +117,26 @@ export class VibeFileListComponent implements OnInit, OnDestroy {
 
     const dialogRef = this.dialog.open(VibeEditReasonDialogComponent, {
       width: '450px',
-      data: { reason: file.reason || '' },
+      data: { // VibeEditReasonDialogData
+          reason: file.reason || '',
+          filePath: file.filePath,
+          currentCategory: file.category || 'unknown',
+          availableCategories: this.availableCategories
+      }
     });
 
     dialogRef.afterClosed().subscribe(result => {
-      if (typeof result === 'string') {
-        this.reasonUpdated.emit({ file, newReason: result.trim() });
+      // result is expected to be an object: { reason: string, category: SelectedFile['category'] }
+      if (result && typeof result.reason === 'string') {
+        const fileToUpdate = this.editableFileSelection.find(f => f.filePath === file.filePath);
+        if (fileToUpdate) {
+          fileToUpdate.reason = result.reason.trim();
+          if (result.category && typeof result.category === 'string') {
+            fileToUpdate.category = result.category as SelectedFile['category'];
+          }
+          this.editableFileSelection = [...this.editableFileSelection];
+          this.snackBar.open(`Details for '${file.filePath}' updated locally. Save changes to persist.`, 'Close', { duration: 3000 });
+        }
       }
     });
   }
@@ -140,7 +161,12 @@ export class VibeFileListComponent implements OnInit, OnDestroy {
    * @param newCategory The new category selected for the file.
    */
   onCategoryChange(file: SelectedFile, newCategory: SelectedFile['category']): void {
-    this.categoryUpdated.emit({ file, newCategory });
+    const fileToUpdate = this.editableFileSelection.find(f => f.filePath === file.filePath);
+    if (fileToUpdate) {
+      fileToUpdate.category = newCategory;
+      this.editableFileSelection = [...this.editableFileSelection];
+      this.snackBar.open(`Category for '${file.filePath}' updated locally to '${newCategory}'. Save changes to persist.`, 'Close', { duration: 3000 });
+    }
     this.editingCategoryFilePath = null;
   }
 
@@ -150,6 +176,14 @@ export class VibeFileListComponent implements OnInit, OnDestroy {
    */
   cancelCategoryEdit(): void {
     this.editingCategoryFilePath = null;
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['session']) {
+      // Deep copy the fileSelection from the session to the local editableFileSelection
+      // Handles cases where session or session.fileSelection might be null/undefined by defaulting to an empty array
+      this.editableFileSelection = JSON.parse(JSON.stringify(this.session?.fileSelection || []));
+    }
   }
 
   ngOnInit() {
@@ -261,12 +295,58 @@ export class VibeFileListComponent implements OnInit, OnDestroy {
 
   public onHandleAddFile(): void {
     const selectedFile = this.addFileControl.value?.trim();
-    if (selectedFile) {
-      this.addFileRequested.emit(selectedFile);
-      this.addFileControl.setValue('');
-    } else {
+    if (!selectedFile) {
       console.warn('VibeFileListComponent: Attempted to add an empty file path.');
+      // Optionally, show a snackbar for empty input
+      // this.snackBar.open('File path cannot be empty.', 'Close', { duration: 3000 });
+      return;
     }
+
+    if (!this.session || !this.session.id) {
+      this.snackBar.open('Session not loaded. Cannot add file.', 'Close', { duration: 3000 });
+      return;
+    }
+
+    if (this.editableFileSelection.some(f => f.filePath === selectedFile)) { // Check against local editableFileSelection
+      this.snackBar.open(`File '${selectedFile}' is already in the local selection.`, 'Close', { duration: 3000 });
+      return;
+    }
+
+    const dialogRef = this.dialog.open(VibeEditReasonDialogComponent, {
+      width: '450px',
+      data: { // VibeEditReasonDialogData
+        reason: '', // Initial empty reason
+        filePath: selectedFile,
+        availableCategories: this.availableCategories,
+        currentCategory: 'unknown' // Default category for new files
+      }
+    });
+
+    dialogRef.afterClosed().pipe(takeUntil(this.destroy$)).subscribe(result => {
+      // result is an object { reason: string, category: string }
+      // Ensure selectedFile is still valid here as it's from outer scope
+      if (result && typeof result.reason === 'string' && selectedFile) {
+        const { reason, category } = result;
+
+        const newFileEntry: SelectedFile = {
+          filePath: selectedFile,
+          reason: reason.trim(),
+          category: category || 'unknown',
+          readOnly: false
+        };
+
+        this.editableFileSelection.push(newFileEntry);
+        this.editableFileSelection = [...this.editableFileSelection]; // Trigger change detection
+
+        this.snackBar.open(`File '${selectedFile}' added locally. Save changes to persist.`, 'Close', { duration: 3000 });
+        this.addFileControl.setValue(''); // Clear the autocomplete input
+      } else {
+        // User cancelled the dialog or provided no reason (dialog closed without valid result)
+        console.log('VibeFileListComponent: Add file dialog cancelled or no data returned.');
+        // Optionally, clear input if dialog was cancelled but input had value
+        // if (selectedFile) this.addFileControl.setValue('');
+      }
+    });
   }
 
   public onBrowseFiles(): void {
@@ -292,34 +372,103 @@ export class VibeFileListComponent implements OnInit, OnDestroy {
     }
   }
 
+  private sortFilesForComparison(files: SelectedFile[]): Array<{ filePath: string, reason: string, category: string }> {
+    if (!files) return [];
+    // Create a shallow copy and sort by filePath for stable stringify comparison
+    // Only include filePath, reason, and category for comparison, exclude readOnly or other dynamic properties
+    return [...files]
+        .map(f => ({ filePath: f.filePath, reason: f.reason || '', category: f.category || 'unknown' }))
+        .sort((a, b) => a.filePath.localeCompare(b.filePath));
+  }
+
+  public hasUnsavedChanges(): boolean {
+    if (!this.session) { // If there's no session, but there's local data, consider it "unsaved"
+        return this.editableFileSelection && this.editableFileSelection.length > 0;
+    }
+    const localComparable = this.sortFilesForComparison(this.editableFileSelection);
+    const sessionComparable = this.sortFilesForComparison(this.session.fileSelection || []);
+    return JSON.stringify(localComparable) !== JSON.stringify(sessionComparable);
+  }
+
+  public onSaveFileSelectionChanges(): void {
+    if (!this.session || !this.session.id) {
+        this.snackBar.open('Cannot save: Session not available.', 'Close', { duration: 3000 });
+        return;
+    }
+    if (!this.hasUnsavedChanges()) {
+        this.snackBar.open('No changes to save.', 'Close', { duration: 2000 });
+        return;
+    }
+
+    this.isProcessingAction = true;
+    const sessionId = this.session.id;
+
+    // Create a deep copy of editableFileSelection for the payload
+    const selectionPayload = JSON.parse(JSON.stringify(this.editableFileSelection));
+
+    this.vibeService.updateSession(sessionId, { fileSelection: selectionPayload }).pipe(
+        take(1),
+        finalize(() => { this.isProcessingAction = false; }),
+        takeUntil(this.destroy$)
+    ).subscribe({
+        next: () => {
+            this.snackBar.open('File selection changes saved successfully.', 'Close', { duration: 3000 });
+            if (this.session) {
+                 this.session.fileSelection = JSON.parse(JSON.stringify(selectionPayload));
+            }
+        },
+        error: (err) => {
+            console.error('Error saving file selection changes:', err);
+            this.snackBar.open(`Error saving changes: ${err.message || 'Unknown error'}`, 'Close', { duration: 5000 });
+        }
+    });
+  }
+
   /**
    * Approves the current file selection and triggers design generation.
    */
-  approveSelection(): void {
-    this.isProcessingAction = true;
-    if (!this.session || this.session.status !== 'file_selection_review') {
-      console.error('approveSelection called in invalid state or session missing:', this.session?.status);
-      this.snackBar.open('Invalid state or session missing', 'Close', { duration: 3000 });
-      this.isProcessingAction = false;
-      return;
+  public approveSelection(): void {
+    if (!this.session || !this.session.id || this.session.status !== 'file_selection_review') {
+        this.snackBar.open('Cannot approve selection: Invalid session state or session missing.', 'Close', { duration: 3000 });
+        this.isProcessingAction = false;
+        return;
     }
 
-    const sessionId = this.session.id; // Capture session ID
+    if (!this.editableFileSelection || this.editableFileSelection.length === 0) {
+         this.snackBar.open('Cannot approve an empty file selection.', 'Close', { duration: 3000 });
+         this.isProcessingAction = false;
+         return;
+    }
 
-    this.vibeService.approveFileSelection(sessionId).pipe(
-        finalize(() => this.isProcessingAction = false),
+    this.isProcessingAction = true;
+    const sessionId = this.session.id;
+    const variations = this.designVariationsControl.value;
+
+    const selectionPayload = JSON.parse(JSON.stringify(this.editableFileSelection));
+
+    const saveIfNeeded$ = this.hasUnsavedChanges()
+        ? this.vibeService.updateSession(sessionId, { fileSelection: selectionPayload })
+        : of(null);
+
+    saveIfNeeded$.pipe(
+        switchMap(() => {
+            if (this.hasUnsavedChanges() && this.session) { // Check again in case save failed or was concurrent
+                 this.session.fileSelection = JSON.parse(JSON.stringify(selectionPayload));
+            }
+            this.snackBar.open('File selection current. Proceeding to generate design...', 'Close', { duration: 2000 });
+            return this.vibeService.approveFileSelection(sessionId, variations);
+        }),
+        finalize(() => { this.isProcessingAction = false; }),
         takeUntil(this.destroy$)
     ).subscribe({
-      next: () => {
-        console.log('File selection approved successfully.');
-        this.snackBar.open('File selection approved. Generating design...', 'Close', { duration: 3000 });
-        // Trigger session refresh
-        this.vibeService.getVibeSession(sessionId).pipe(take(1)).subscribe();
-      },
-      error: (err) => {
-        console.error('Error approving file selection:', err);
-        this.snackBar.open(`Error approving selection: ${err.message || 'Unknown error'}`, 'Close', { duration: 5000 });
-      }
+        next: () => {
+            console.log('File selection approved and design generation triggered.');
+            this.snackBar.open('Design generation started.', 'Close', { duration: 3000 });
+        },
+        error: (err) => {
+            console.error('Error during save or approve selection:', err);
+            this.snackBar.open(`Error: ${err.message || 'Unknown error during approval'}`, 'Close', { duration: 5000 });
+        }
     });
   }
 
@@ -374,34 +523,40 @@ export class VibeFileListComponent implements OnInit, OnDestroy {
     });
 
     dialogRef.afterClosed().pipe(takeUntil(this.destroy$)).subscribe(selectedFilePaths => {
-      if (selectedFilePaths && Array.isArray(selectedFilePaths) && selectedFilePaths.length > 0) {
-        if (this.session && this.session.id) {
-          const filesToAdd = selectedFilePaths.filter(path =>
-              !this.session.fileSelection?.some(sf => sf.filePath === path)
-          );
-          if (filesToAdd.length > 0) {
-            this.isProcessingAction = true;
-            this.vibeService.updateSession(this.session.id, { filesToAdd }).pipe(
-                take(1),
-                finalize(() => { this.isProcessingAction = false; }),
-                takeUntil(this.destroy$)
-            ).subscribe({
-              next: () => {
-                this.snackBar.open(`${filesToAdd.length} file(s) added via browser.`, 'Close', { duration: 3000 });
-              },
-              error: (err) => {
-                this.snackBar.open(`Error adding files: ${err.message || 'Unknown error'}`, 'Close', { duration: 5000 });
-              }
-            });
+      if (selectedFilePaths && Array.isArray(selectedFilePaths)) {
+        // This condition means the user confirmed the dialog,
+        // and selectedFilePaths is an array (could be empty if no files were checked).
+
+        if (selectedFilePaths.length > 0) {
+          let newFilesAddedCount = 0;
+          selectedFilePaths.forEach(path => { // path is a string representing a file path
+            const alreadyExists = this.editableFileSelection.some(sf => sf.filePath === path);
+            if (!alreadyExists) {
+              const newFileEntry: SelectedFile = {
+                filePath: path,
+                reason: 'Added via file browser', // Default reason
+                category: 'unknown', // Default category
+                readOnly: false // New files added by user are not read-only
+              };
+              this.editableFileSelection.push(newFileEntry);
+              newFilesAddedCount++;
+            }
+          });
+
+          if (newFilesAddedCount > 0) {
+            this.snackBar.open(`${newFilesAddedCount} file(s) added to selection. Remember to save changes.`, 'Close', { duration: 3000 });
+            // Ensure change detection picks up the modification to the array.
+            this.editableFileSelection = [...this.editableFileSelection];
           } else {
+            // This means selectedFilePaths.length > 0, but all selected files were already in editableFileSelection.
             this.snackBar.open('Selected file(s) are already in the list or no new files were chosen.', 'Close', { duration: 3000 });
           }
-        } else {
-          this.snackBar.open('Cannot add files: Current session or session ID is not available.', 'Close', { duration: 3000 });
+        } else { // selectedFilePaths.length === 0
+          // User confirmed the dialog but selected no files.
+          this.snackBar.open('No files selected from browser.', 'Close', {duration: 2000});
         }
-      } else if (selectedFilePaths && Array.isArray(selectedFilePaths) && selectedFilePaths.length === 0) {
-        this.snackBar.open('No files selected from browser.', 'Close', {duration: 2000});
       } else {
+        // This condition (selectedFilePaths is undefined or not an array) means the dialog was cancelled (e.g., Esc, click outside).
         console.log('File selection dialog was cancelled.');
       }
     });

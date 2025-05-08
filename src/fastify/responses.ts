@@ -13,10 +13,15 @@ export function send(reply: any, statusCode: number, data: Record<string, any> |
 	reply.send(payload);
 }
 
+// Fix JSON.toString(map) only ever outputting {}
+function mapReplacer(key: string, value: any) {
+	return value instanceof Map ? Object.fromEntries(value) : value;
+}
+
 export function sendJSON(reply: any, object: any): void {
 	reply.header('Content-Type', 'application/json; charset=utf-8');
 	reply.status(200);
-	reply.send(JSON.stringify(object));
+	reply.send(JSON.stringify(object, mapReplacer));
 }
 
 export function sendHTML(reply: any, html: string): void {
