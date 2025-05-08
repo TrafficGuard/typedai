@@ -96,7 +96,12 @@ export class VibeFileListComponent implements OnInit, OnDestroy, OnChanges {
   deleteFile(file: SelectedFile): void {
     // Prevent emitting delete for read-only files, although button should be disabled
     if (!file.readOnly) {
-      this.fileDeleted.emit(file);
+      const index = this.editableFileSelection.findIndex(f => f.filePath === file.filePath);
+      if (index > -1) {
+        this.editableFileSelection.splice(index, 1);
+        this.editableFileSelection = [...this.editableFileSelection];
+        this.snackBar.open(`File '${file.filePath}' removed locally. Save changes to persist.`, 'Close', { duration: 3000 });
+      }
     }
   }
 
@@ -112,12 +117,26 @@ export class VibeFileListComponent implements OnInit, OnDestroy, OnChanges {
 
     const dialogRef = this.dialog.open(VibeEditReasonDialogComponent, {
       width: '450px',
-      data: { reason: file.reason || '' },
+      data: { // VibeEditReasonDialogData
+          reason: file.reason || '',
+          filePath: file.filePath,
+          currentCategory: file.category || 'unknown',
+          availableCategories: this.availableCategories
+      }
     });
 
     dialogRef.afterClosed().subscribe(result => {
-      if (typeof result === 'string') {
-        this.reasonUpdated.emit({ file, newReason: result.trim() });
+      // result is expected to be an object: { reason: string, category: SelectedFile['category'] }
+      if (result && typeof result.reason === 'string') {
+        const fileToUpdate = this.editableFileSelection.find(f => f.filePath === file.filePath);
+        if (fileToUpdate) {
+          fileToUpdate.reason = result.reason.trim();
+          if (result.category && typeof result.category === 'string') {
+            fileToUpdate.category = result.category as SelectedFile['category'];
+          }
+          this.editableFileSelection = [...this.editableFileSelection];
+          this.snackBar.open(`Details for '${file.filePath}' updated locally. Save changes to persist.`, 'Close', { duration: 3000 });
+        }
       }
     });
   }
@@ -142,7 +161,12 @@ export class VibeFileListComponent implements OnInit, OnDestroy, OnChanges {
    * @param newCategory The new category selected for the file.
    */
   onCategoryChange(file: SelectedFile, newCategory: SelectedFile['category']): void {
-    this.categoryUpdated.emit({ file, newCategory });
+    const fileToUpdate = this.editableFileSelection.find(f => f.filePath === file.filePath);
+    if (fileToUpdate) {
+      fileToUpdate.category = newCategory;
+      this.editableFileSelection = [...this.editableFileSelection];
+      this.snackBar.open(`Category for '${file.filePath}' updated locally to '${newCategory}'. Save changes to persist.`, 'Close', { duration: 3000 });
+    }
     this.editingCategoryFilePath = null;
   }
 
@@ -273,6 +297,8 @@ export class VibeFileListComponent implements OnInit, OnDestroy, OnChanges {
     const selectedFile = this.addFileControl.value?.trim();
     if (!selectedFile) {
       console.warn('VibeFileListComponent: Attempted to add an empty file path.');
+      // Optionally, show a snackbar for empty input
+      // this.snackBar.open('File path cannot be empty.', 'Close', { duration: 3000 });
       return;
     }
 
@@ -281,8 +307,8 @@ export class VibeFileListComponent implements OnInit, OnDestroy, OnChanges {
       return;
     }
 
-    if (this.session.fileSelection?.some(f => f.filePath === selectedFile)) {
-      this.snackBar.open(`File '${selectedFile}' is already in the selection.`, 'Close', { duration: 3000 });
+    if (this.editableFileSelection.some(f => f.filePath === selectedFile)) { // Check against local editableFileSelection
+      this.snackBar.open(`File '${selectedFile}' is already in the local selection.`, 'Close', { duration: 3000 });
       return;
     }
 
@@ -291,49 +317,34 @@ export class VibeFileListComponent implements OnInit, OnDestroy, OnChanges {
       data: { // VibeEditReasonDialogData
         reason: '', // Initial empty reason
         filePath: selectedFile,
-        availableCategories: this.availableCategories, // this.availableCategories is already defined in the component
+        availableCategories: this.availableCategories,
         currentCategory: 'unknown' // Default category for new files
       }
     });
 
     dialogRef.afterClosed().pipe(takeUntil(this.destroy$)).subscribe(result => {
-      if (result && typeof result.reason === 'string') {
-        const { reason, category } = result; // category will be part of the result object
+      // result is an object { reason: string, category: string }
+      // Ensure selectedFile is still valid here as it's from outer scope
+      if (result && typeof result.reason === 'string' && selectedFile) {
+        const { reason, category } = result;
 
         const newFileEntry: SelectedFile = {
           filePath: selectedFile,
-          reason: reason.trim(), // Reason comes from dialog
-          category: category || 'unknown', // Category comes from dialog, default if necessary
-          readOnly: false // New files added by user are not read-only by default
+          reason: reason.trim(),
+          category: category || 'unknown',
+          readOnly: false
         };
 
-        // Re-check session validity before service call, as this is in an async callback
-        if (!this.session || !this.session.id) {
-          this.snackBar.open('Cannot add file: Session context lost.', 'Close', { duration: 3000 });
-          return;
-        }
+        this.editableFileSelection.push(newFileEntry);
+        this.editableFileSelection = [...this.editableFileSelection]; // Trigger change detection
 
-        const updatedFileSelection = [...(this.session.fileSelection || []), newFileEntry];
-        this.isProcessingAction = true;
-
-        this.vibeService.updateSession(this.session.id, { fileSelection: updatedFileSelection }).pipe(
-          take(1),
-          finalize(() => { this.isProcessingAction = false; }),
-          takeUntil(this.destroy$)
-        ).subscribe({
-          next: () => {
-            this.snackBar.open(`File '${selectedFile}' added.`, 'Close', { duration: 3000 });
-            // Session data should refresh via existing mechanisms (e.g., polling in parent or service tap)
-          },
-          error: (err) => {
-            this.snackBar.open(`Error adding file '${selectedFile}': ${err.message || 'Unknown error'}`, 'Close', { duration: 5000 });
-          }
-        });
-
+        this.snackBar.open(`File '${selectedFile}' added locally. Save changes to persist.`, 'Close', { duration: 3000 });
         this.addFileControl.setValue(''); // Clear the autocomplete input
       } else {
         // User cancelled the dialog or provided no reason (dialog closed without valid result)
         console.log('VibeFileListComponent: Add file dialog cancelled or no data returned.');
+        // Optionally, clear input if dialog was cancelled but input had value
+        // if (selectedFile) this.addFileControl.setValue('');
       }
     });
   }
