@@ -64,6 +64,7 @@ export class VibeComponent implements OnInit, OnDestroy {
 
   // constructor() {}
   private route = inject(ActivatedRoute);
+  private snackBar = inject(MatSnackBar);
 
 
   ngOnInit() {
@@ -89,5 +90,38 @@ export class VibeComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
+  public handleSelectionResetRequested(): void {
+    if (!this.currentSession) {
+      console.error('VibeComponent: Cannot handle selection reset, currentSession is null.');
+      this.snackBar.open('Error: Session data not available.', 'Close', { duration: 3000 });
+      return;
+    }
+    if (this.isProcessingAction) {
+      console.warn('VibeComponent: Action already in progress, reset request ignored.');
+      this.snackBar.open('Please wait, another action is in progress.', 'Close', { duration: 3000 });
+      return;
+    }
 
+    console.log(`VibeComponent: Selection reset requested for session ID: ${this.currentSession.id}.`);
+    this.isProcessingAction = true;
+
+    this.vibeService.resetFileSelection(this.currentSession.id).pipe(
+      take(1), // Ensure the subscription is automatically unsubscribed after one emission
+      finalize(() => {
+        this.isProcessingAction = false;
+      }),
+      takeUntil(this.destroy$) // Ensure cleanup on component destruction
+    ).subscribe({
+      next: () => {
+        console.log(`VibeComponent: File selection reset successfully initiated for session ${this.currentSession?.id}.`);
+        this.snackBar.open('File selection reset successfully. Session will refresh.', 'Close', { duration: 3500 });
+        // The session should ideally refresh via the existing polling/SSE mechanism in getVibeSession
+        // or by explicitly calling getVibeSession if needed.
+      },
+      error: (err) => {
+        console.error(`VibeComponent: Error resetting file selection for session ${this.currentSession?.id}:`, err);
+        this.snackBar.open(`Error resetting file selection: ${err.message || 'Unknown error'}`, 'Close', { duration: 5000 });
+      }
+    });
+  }
 }

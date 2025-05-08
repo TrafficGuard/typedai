@@ -212,6 +212,26 @@ export class VibeService {
 		);
 	}
 
+	/**
+	 * Requests the backend to reset the file selection for a specific Vibe session
+	 * to its original AI-selected state for the current review cycle.
+	 * @param sessionId The ID of the Vibe session.
+	 * @returns An Observable that completes when the request is accepted (backend returns 202 or similar).
+	 */
+	resetFileSelection(sessionId: string): Observable<void> {
+	  return this.http.post<void>(`/api/vibe/${sessionId}/reset-selection`, {}).pipe(
+	    tap(() => {
+	      // Optionally, trigger a refresh of the current session if needed,
+	      // though typically the component calling this would handle UI updates/refreshes.
+	      console.log(`VibeService: Reset file selection request sent for session ${sessionId}`);
+	    }),
+	    catchError((error) => {
+	      console.error(`VibeService: Error resetting file selection for session ${sessionId}`, error);
+	      return throwError(() => error);
+	    })
+	  );
+	}
+
 	// --- Preset Management ---
 
 	/**
