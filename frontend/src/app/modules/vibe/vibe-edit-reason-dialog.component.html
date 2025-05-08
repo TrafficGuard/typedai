@@ -1,4 +1,4 @@
-<h1 mat-dialog-title>Edit Reason</h1>
+<h1 mat-dialog-title>Edit Details for {{ data.filePath || 'File' }}</h1>
 <div mat-dialog-content>
   <mat-form-field class="w-full" appearance="outline">
     <mat-label>Reason</mat-label>
@@ -10,6 +10,18 @@
               cdkAutosizeMaxRows="10"
               placeholder="Enter reason for including this file"></textarea>
   </mat-form-field>
+
+    <!-- New category selection section -->
+    <div *ngIf="data.availableCategories && data.availableCategories.length > 0" class="mt-4">
+        <mat-form-field appearance="outline" class="w-full">
+            <mat-label>Category</mat-label>
+            <mat-select [formControl]="categoryControl">
+                <mat-option *ngFor="let cat of data.availableCategories" [value]="cat">
+                    {{ cat }}
+                </mat-option>
+            </mat-select>
+        </mat-form-field>
+    </div>
 </div>
 <div mat-dialog-actions align="end">
   <button mat-button (click)="onCancel()">Cancel</button>

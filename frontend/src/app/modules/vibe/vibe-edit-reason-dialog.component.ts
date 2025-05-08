@@ -1,14 +1,20 @@
 import { Component, OnInit, Inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, FormControl } from '@angular/forms'; // Add ReactiveFormsModule, FormControl
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
-import { TextFieldModule } from '@angular/cdk/text-field'; // For cdkTextareaAutosize
+import { TextFieldModule } from '@angular/cdk/text-field';
+import { MatSelectModule } from '@angular/material/select'; // Add MatSelectModule
 
-export interface DialogData {
-  reason: string;
+import type { SelectedFile } from '../vibe.types'; // Add this import
+
+export interface VibeEditReasonDialogData {
+    reason: string;
+    filePath?: string;
+    currentCategory?: SelectedFile['category'];
+    availableCategories?: Array<SelectedFile['category']>;
 }
 
 @Component({
@@ -19,6 +25,7 @@ export interface DialogData {
   imports: [
     CommonModule,
     FormsModule,
+    ReactiveFormsModule, // Add this
     MatDialogTitle,
     MatDialogContent,
     MatDialogActions,
@@ -26,23 +33,34 @@ export interface DialogData {
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
-    TextFieldModule
+    TextFieldModule,
+    MatSelectModule // Add this
   ],
 })
 export class VibeEditReasonDialogComponent implements OnInit {
   reasonText: string = '';
+  public categoryControl = new FormControl<SelectedFile['category'] | ''>(''); // Add this line
 
   constructor(
     public dialogRef: MatDialogRef<VibeEditReasonDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: { reason: string }
+    @Inject(MAT_DIALOG_DATA) public data: VibeEditReasonDialogData // Update this line
   ) {}
 
   ngOnInit(): void {
     this.reasonText = this.data.reason || '';
+    if (this.data.availableCategories && this.data.availableCategories.length > 0) {
+      this.categoryControl.setValue(this.data.currentCategory || 'unknown');
+    }
   }
 
   onSave(): void {
-    this.dialogRef.close(this.reasonText.trim());
+    const selectedCategory = (this.data.availableCategories && this.data.availableCategories.length > 0
+                             ? this.categoryControl.value
+                             : 'unknown') || 'unknown';
+    this.dialogRef.close({
+      reason: this.reasonText.trim(),
+      category: selectedCategory
+    });
   }
 
   onCancel(): void {

@@ -262,12 +262,71 @@ export class VibeFileListComponent implements OnInit, OnDestroy {
 
   public onHandleAddFile(): void {
     const selectedFile = this.addFileControl.value?.trim();
-    if (selectedFile) {
-      this.addFileRequested.emit(selectedFile);
-      this.addFileControl.setValue('');
-    } else {
+    if (!selectedFile) {
       console.warn('VibeFileListComponent: Attempted to add an empty file path.');
+      return;
     }
+
+    if (!this.session || !this.session.id) {
+      this.snackBar.open('Session not loaded. Cannot add file.', 'Close', { duration: 3000 });
+      return;
+    }
+
+    if (this.session.fileSelection?.some(f => f.filePath === selectedFile)) {
+      this.snackBar.open(`File '${selectedFile}' is already in the selection.`, 'Close', { duration: 3000 });
+      return;
+    }
+
+    const dialogRef = this.dialog.open(VibeEditReasonDialogComponent, {
+      width: '450px',
+      data: { // VibeEditReasonDialogData
+        reason: '', // Initial empty reason
+        filePath: selectedFile,
+        availableCategories: this.availableCategories, // this.availableCategories is already defined in the component
+        currentCategory: 'unknown' // Default category for new files
+      }
+    });
+
+    dialogRef.afterClosed().pipe(takeUntil(this.destroy$)).subscribe(result => {
+      if (result && typeof result.reason === 'string') {
+        const { reason, category } = result; // category will be part of the result object
+
+        const newFileEntry: SelectedFile = {
+          filePath: selectedFile,
+          reason: reason.trim(), // Reason comes from dialog
+          category: category || 'unknown', // Category comes from dialog, default if necessary
+          readOnly: false // New files added by user are not read-only by default
+        };
+
+        // Re-check session validity before service call, as this is in an async callback
+        if (!this.session || !this.session.id) {
+          this.snackBar.open('Cannot add file: Session context lost.', 'Close', { duration: 3000 });
+          return;
+        }
+
+        const updatedFileSelection = [...(this.session.fileSelection || []), newFileEntry];
+        this.isProcessingAction = true;
+
+        this.vibeService.updateSession(this.session.id, { fileSelection: updatedFileSelection }).pipe(
+          take(1),
+          finalize(() => { this.isProcessingAction = false; }),
+          takeUntil(this.destroy$)
+        ).subscribe({
+          next: () => {
+            this.snackBar.open(`File '${selectedFile}' added.`, 'Close', { duration: 3000 });
+            // Session data should refresh via existing mechanisms (e.g., polling in parent or service tap)
+          },
+          error: (err) => {
+            this.snackBar.open(`Error adding file '${selectedFile}': ${err.message || 'Unknown error'}`, 'Close', { duration: 5000 });
+          }
+        });
+
+        this.addFileControl.setValue(''); // Clear the autocomplete input
+      } else {
+        // User cancelled the dialog or provided no reason (dialog closed without valid result)
+        console.log('VibeFileListComponent: Add file dialog cancelled or no data returned.');
+      }
+    });
   }
 
   public onBrowseFiles(): void {
