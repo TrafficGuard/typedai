@@ -1,15 +1,12 @@
-<div class="flex flex-col flex-auto w-full p-6 sm:p-8">
-    <!-- Header -->
-    <div class="flex flex-col sm:flex-row items-start justify-between mb-6">
-        <div class="text-4xl font-extrabold tracking-tight leading-none">Vibe Session Details</div>
-        <!-- Add actions like Edit/Delete later if needed -->
-        <!-- <div class="mt-4 sm:mt-0 sm:ml-4">
-            <button mat-flat-button [color]="'primary'">
-                <mat-icon svgIcon="heroicons_solid:pencil-alt"></mat-icon>
-                <span class="ml-2">Edit</span>
-            </button>
-        </div> -->
+<div class="flex flex-col flex-auto w-full p-4 sm:p-4">
+    <div class="flex items-center justify-between mb-4 mx-3">
+        <h1 class="text-3xl font-medium tracking-tight leading-none">Vibe Session Details</h1>
+        <button mat-flat-button color="primary">
+            <mat-icon svgIcon="heroicons_outline:plus"></mat-icon>
+            <span class="ml-2">New Vibe Session</span>
+        </button>
     </div>
+
 
     <!-- Session Details Card -->
     <ng-container *ngIf="session$ | async as session; else loadingOrError">
@@ -36,55 +33,79 @@
             </div>
 
             <mat-card-content class="mt-4">
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <div>
-                        <div class="font-semibold">Instructions:</div>
-                        <p class="text-secondary whitespace-pre-wrap">{{ session.instructions }}</p>
-                    </div>
-                    <div>
-                        <div class="font-semibold">Repository:</div>
-                        <p class="text-secondary">
-                            Source: {{ session.repositorySource | titlecase }} <br>
-                            Identifier: {{ session.repositoryId }} <br>
-                            <ng-container *ngIf="session.repositoryName">
-                                Name: {{ session.repositoryName }} <br>
-                            </ng-container>
-                            Branch: {{ session.branch }} <br>
-                            <ng-container *ngIf="session.newBranchName">
-                                New Branch: {{ session.newBranchName }} <br>
-                            </ng-container>
-                            Shared Repo: {{ session.useSharedRepos ? 'Yes' : 'No' }}
-                        </p>
-                    </div>
-                    <div>
-                        <div class="font-semibold">Created At:</div>
-                        <!-- Fix - session.createdAt and updatedAt is a number -->
-                        <p class="text-secondary">{{ session.createdAt | date:'medium' }}</p>
-                    </div>
-                    <div>
-                        <div class="font-semibold">Last Updated:</div>
-                        <p class="text-secondary">{{ session.updatedAt | date:'medium' }}</p>
-                    </div>
-                    <div *ngIf="session.error" class="sm:col-span-2">
-                        <div class="font-semibold text-red-600">Error:</div>
-                        <p class="text-red-500 whitespace-pre-wrap">{{ session.error }}</p>
-                    </div>
 
-                    <!-- File Autocomplete Input (Only shown when NOT in file_selection_review or initializing states) -->
-                    <!-- THIS ENTIRE DIV BLOCK IS REMOVED as its functionality is now in vibe-file-list -->
+                <mat-accordion multi>
+                    <mat-expansion-panel class="mb-2">
+                        <mat-expansion-panel-header>
+                            <mat-panel-title>
+                                {{ session.title }}
+                            </mat-panel-title>
 
-                    <!-- Use the new VibeDesignProposalComponent
-                    <vibe-design-proposal
-                        *ngIf="session.designAnswer"
-                        [session]="session"
-                        (designAccepted)="handleDesignAccepted($event)"
-                        class="sm:col-span-2">
-                    </vibe-design-proposal>
-                    -->
-                </div>
+
+                            <div class="py-2">
+                                <div class="mb-3">
+                                    <h4 class="font-medium text-lg mb-1">{{ session.title }} | Status: {{ session.status | titlecase }}</h4>
+                                    <h4 class="font-medium text-lg mb-1">Instructions:</h4>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                <div>
+                                    <div class="font-semibold">Instructions:</div>
+                                    <p class="text-secondary whitespace-pre-wrap">{{ session.instructions }}</p>
+                                </div>
+                                <div>
+                                    <div class="font-semibold">Repository:</div>
+                                    <p class="text-secondary">
+                                        Source: {{ session.repositorySource | titlecase }} {{ session.repositoryId }}<br>
+                                        Target/Working Branch: {{ session.branch }} / {{ session.newBranchName }} <br>
+                                        <!--
+                                        <ng-container *ngIf="session.newBranchName">
+                                            New Branch: {{ session.newBranchName }} <br>
+                                        </ng-container>
+                                        Shared Repo: {{ session.useSharedRepos ? 'Yes' : 'No' }}
+                                        -->
+                                    </p>
+                                </div>
+                                <div>
+                                    <div class="font-semibold">Created At:</div>
+                                    <!-- Fix - session.createdAt and updatedAt is a number -->
+                                    <p class="text-secondary">{{ session.createdAt | date:'medium' }}</p>
+                                </div>
+                                <div>
+                                    <div class="font-semibold">Last Updated:</div>
+                                    <p class="text-secondary">{{ session.updatedAt | date:'medium' }}</p>
+                                </div>
+                                <div *ngIf="session.error" class="sm:col-span-2">
+                                    <div class="font-semibold text-red-600">Error:</div>
+                                    <p class="text-red-500 whitespace-pre-wrap">{{ session.error }}</p>
+                                </div>
+
+                                <!-- File Autocomplete Input (Only shown when NOT in file_selection_review or initializing states) -->
+                                <!-- THIS ENTIRE DIV BLOCK IS REMOVED as its functionality is now in vibe-file-list -->
+
+                                <!-- Use the new VibeDesignProposalComponent
+                                <vibe-design-proposal
+                                    *ngIf="session.designAnswer"
+                                    [session]="session"
+                                    (designAccepted)="handleDesignAccepted($event)"
+                                    class="sm:col-span-2">
+                                </vibe-design-proposal>
+                                -->
+                            </div>
+
+
+                            <mat-panel-description class="text-red-600 font-semibold flex items-center">
+                                <mat-icon color="warn" class="mr-1 icon-size-5">error_outline</mat-icon>
+                                Ended with error
+                            </mat-panel-description>
+                        </mat-expansion-panel-header>
+                    </mat-expansion-panel>
+                </mat-accordion>
+
 
                 <ng-container *ngIf="session.status === 'file_selection_review' || session.status === 'updating_file_selection' || session.status === 'design_review' || session.status === 'coding' || session.status === 'code_review' || session.status === 'ci_failed' || session.status === 'completed' || session.status === 'error_file_selection' || session.status === 'error_design_generation' || session.status === 'error_coding' || session.status === 'error'">
-                    <div class="mt-6 pt-6 border-t border-gray-200"> <!-- Visual separator -->
+                    <div class="mt-6 pt-6 border-gray-200">
                         <vibe-file-list [session]="session"></vibe-file-list>
                     </div>
                 </ng-container>
@@ -98,7 +119,7 @@
         <!-- Basic loading indicator -->
         <div class="flex justify-center items-center h-64">
              <!-- Consider adding error handling display here if session$ errors out -->
-            <mat-progress-bar mode="indeterminate" class="w-64"></mat-progress-bar>
+            <mat-progress-bar mode="indeterminate" class="w-64"></mat-progress-bar><br/>
             <span class="ml-4 text-secondary">Loading session details...</span>
         </div>
     </ng-template>

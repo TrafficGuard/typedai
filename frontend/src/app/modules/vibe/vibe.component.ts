@@ -21,6 +21,13 @@ import { VibeService } from './vibe.service';
 import {VibeSession, SelectedFile, type FileSystemNode} from './vibe.types';
 import { VibeFileListComponent } from './vibe-file-list/vibe-file-list.component';
 import { VibeDesignReviewComponent } from './vibe-design-review/vibe-design-review.component';
+import {MatChip, MatChipListbox} from "@angular/material/chips";
+import {
+  MatAccordion,
+  MatExpansionPanel,
+  MatExpansionPanelDescription,
+  MatExpansionPanelHeader, MatExpansionPanelTitle
+} from "@angular/material/expansion";
 
 @Component({
   selector: 'vibe-detail',
@@ -46,6 +53,13 @@ import { VibeDesignReviewComponent } from './vibe-design-review/vibe-design-revi
     VibeDesignReviewComponent,
     MatProgressSpinnerModule,
     MatDialogModule,
+    MatChip,
+    MatChipListbox,
+    MatAccordion,
+    MatExpansionPanel,
+    MatExpansionPanelDescription,
+    MatExpansionPanelHeader,
+    MatExpansionPanelTitle,
   ],
 })
 export class VibeComponent implements OnInit, OnDestroy {

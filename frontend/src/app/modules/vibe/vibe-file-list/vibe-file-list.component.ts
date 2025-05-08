@@ -56,7 +56,6 @@ export class VibeFileListComponent implements OnInit, OnDestroy, OnChanges {
   @Output() reasonUpdated = new EventEmitter<{ file: SelectedFile, newReason: string }>();
   @Output() categoryUpdated = new EventEmitter<{ file: SelectedFile, newCategory: SelectedFile['category'] }>();
   @Output() addFileRequested = new EventEmitter<string>();
-  @Output() browseFilesRequested = new EventEmitter<void>();
   @Output() selectionResetRequested = new EventEmitter<void>();
 
   displayedColumns: string[] = ['filePath', 'reason', 'category', 'actions'];
@@ -219,9 +218,8 @@ export class VibeFileListComponent implements OnInit, OnDestroy, OnChanges {
         // If rootNode.name is '.' or empty, it implies the children are at the top level.
         // Otherwise, rootNode.name is part of their path.
         if (this.rootNode.type === 'directory' && this.rootNode.children) {
-          const initialParentPath = (this.rootNode.name === '.' || !this.rootNode.name) ? '' : this.rootNode.name;
           for (const child of this.rootNode.children) {
-            this._extractFilePathsRecursive(child, initialParentPath, this.allFiles);
+            this._extractFilePathsRecursive(child, '', this.allFiles);
           }
         } else if (this.rootNode.type === 'file') {
           // Handle the unlikely case where the root node itself is a file
@@ -343,7 +341,7 @@ export class VibeFileListComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   public onBrowseFiles(): void {
-    this.browseFilesRequested.emit();
+    this.handleBrowseFilesRequest();
   }
 
 
