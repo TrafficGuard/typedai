@@ -444,34 +444,40 @@ export class VibeFileListComponent implements OnInit, OnDestroy, OnChanges {
     });
 
     dialogRef.afterClosed().pipe(takeUntil(this.destroy$)).subscribe(selectedFilePaths => {
-      if (selectedFilePaths && Array.isArray(selectedFilePaths) && selectedFilePaths.length > 0) {
-        if (this.session && this.session.id) {
-          const filesToAdd = selectedFilePaths.filter(path =>
-              !this.session.fileSelection?.some(sf => sf.filePath === path)
-          );
-          if (filesToAdd.length > 0) {
-            this.isProcessingAction = true;
-            this.vibeService.updateSession(this.session.id, { filesToAdd }).pipe(
-                take(1),
-                finalize(() => { this.isProcessingAction = false; }),
-                takeUntil(this.destroy$)
-            ).subscribe({
-              next: () => {
-                this.snackBar.open(`${filesToAdd.length} file(s) added via browser.`, 'Close', { duration: 3000 });
-              },
-              error: (err) => {
-                this.snackBar.open(`Error adding files: ${err.message || 'Unknown error'}`, 'Close', { duration: 5000 });
-              }
-            });
+      if (selectedFilePaths && Array.isArray(selectedFilePaths)) {
+        // This condition means the user confirmed the dialog,
+        // and selectedFilePaths is an array (could be empty if no files were checked).
+
+        if (selectedFilePaths.length > 0) {
+          let newFilesAddedCount = 0;
+          selectedFilePaths.forEach(path => { // path is a string representing a file path
+            const alreadyExists = this.editableFileSelection.some(sf => sf.filePath === path);
+            if (!alreadyExists) {
+              const newFileEntry: SelectedFile = {
+                filePath: path,
+                reason: 'Added via file browser', // Default reason
+                category: 'unknown', // Default category
+                readOnly: false // New files added by user are not read-only
+              };
+              this.editableFileSelection.push(newFileEntry);
+              newFilesAddedCount++;
+            }
+          });
+
+          if (newFilesAddedCount > 0) {
+            this.snackBar.open(`${newFilesAddedCount} file(s) added to selection. Remember to save changes.`, 'Close', { duration: 3000 });
+            // Ensure change detection picks up the modification to the array.
+            this.editableFileSelection = [...this.editableFileSelection];
           } else {
+            // This means selectedFilePaths.length > 0, but all selected files were already in editableFileSelection.
             this.snackBar.open('Selected file(s) are already in the list or no new files were chosen.', 'Close', { duration: 3000 });
           }
-        } else {
-          this.snackBar.open('Cannot add files: Current session or session ID is not available.', 'Close', { duration: 3000 });
+        } else { // selectedFilePaths.length === 0
+          // User confirmed the dialog but selected no files.
+          this.snackBar.open('No files selected from browser.', 'Close', {duration: 2000});
         }
-      } else if (selectedFilePaths && Array.isArray(selectedFilePaths) && selectedFilePaths.length === 0) {
-        this.snackBar.open('No files selected from browser.', 'Close', {duration: 2000});
       } else {
+        // This condition (selectedFilePaths is undefined or not an array) means the dialog was cancelled (e.g., Esc, click outside).
         console.log('File selection dialog was cancelled.');
       }
     });
