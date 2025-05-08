@@ -15,6 +15,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatButtonModule } from '@angular/material/button';
+import { TextFieldModule } from '@angular/cdk/text-field';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import {
   VibeFileTreeSelectDialogComponent
 } from "../vibe-file-tree-select-dialog/vibe-file-tree-select-dialog.component";
@@ -41,6 +43,8 @@ import {MatSnackBar} from "@angular/material/snack-bar";
     MatInputModule,
     MatAutocompleteModule,
     MatButtonModule,
+    TextFieldModule,
+    MatProgressSpinnerModule,
   ],
 })
 export class VibeFileListComponent implements OnInit, OnDestroy {

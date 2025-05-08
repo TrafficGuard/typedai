@@ -103,4 +103,37 @@
            </button>
        </div>
    </div>
+
+    <!-- File Selection Review Actions -->
+    <div *ngIf="session?.status === 'file_selection_review'" class="my-6 p-4 border-t border-gray-200">
+        <!-- Refine File Selection with Instructions -->
+        <h3 class="text-lg font-semibold text-gray-700 mb-3">Refine File Selection with Instructions:</h3>
+        <mat-form-field class="w-full" appearance="outline">
+            <mat-label>Instructions to update file selection</mat-label>
+            <textarea matInput
+                      [formControl]="fileUpdateInstructionsControl"
+                      cdkTextareaAutosize
+                      cdkAutosizeMinRows="3"
+                      cdkAutosizeMaxRows="6"
+                      placeholder="e.g., 'Include all .service.ts files in the user module but exclude the auth.service.ts'"></textarea>
+        </mat-form-field>
+        <div class="flex justify-end mt-2">
+            <button mat-flat-button color="primary"
+                    (click)="submitFileUpdateInstructions()"
+                    [disabled]="isProcessingAction || !fileUpdateInstructionsControl.value?.trim() || isReadOnly">
+                Submit Instructions
+            </button>
+        </div>
+
+        <!-- Approve Selection Section -->
+        <h3 class="text-lg font-semibold text-gray-700 mt-6 mb-3">Approve Selection</h3>
+        <div class="flex justify-end items-center mt-2">
+            <button mat-raised-button color="accent"
+                    (click)="approveSelection()"
+                    [disabled]="isProcessingAction || !session?.fileSelection?.length || isReadOnly">
+                Approve Selection & Generate Design
+            </button>
+            <mat-spinner *ngIf="isProcessingAction" diameter="24" class="ml-2"></mat-spinner>
+        </div>
+    </div>
 </div>
