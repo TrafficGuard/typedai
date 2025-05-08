@@ -6,7 +6,6 @@ import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import { execCmd, execCommand, failOnError } from '#utils/exec';
 import type { VersionControlSystem } from './versionControlSystem';
-const exec = util.promisify(require('node:child_process').exec);
 
 export interface Commit {
 	title: string;
@@ -26,6 +25,7 @@ export class Git implements VersionControlSystem {
 	 * If there are no changes
 	 * @param commitMessage
 	 */
+	// @func()
 	async addAllTrackedAndCommit(commitMessage: string): Promise<void> {
 		// If nothing has changed then return
 		const execResult = await execCommand('git status --porcelain');
@@ -81,7 +81,7 @@ export class Git implements VersionControlSystem {
 	 *                - If omitted: Attempts to guess the source branch (e.g., main, develop)
 	 *                  by inspecting other local branches and uses that for the merge-base calculation.
 	 *                  Note: Guessing the source branch may be unreliable in some cases.
-	 * @returns The git diff.
+	 * @returns The git diff. Note this could be a large string.
 	 */
 	@func()
 	async getDiff(baseRef?: string): Promise<string> {
@@ -146,18 +146,13 @@ export class Git implements VersionControlSystem {
 		failOnError(`Failed to amend current commit with outstanding changes to ${files.join(' ')}`, result);
 	}
 
-	// @func()
-	@span({ message: 0 })
+	@func()
 	async commit(commitMessage: string): Promise<void> {
 		const cwd = this.fileSystem.getWorkingDirectory();
 		try {
 			const sanitizedMessage = commitMessage.replace(/"/g, '\\"');
-			const { stderr } = await exec(`git commit -m "${sanitizedMessage}"`, {
-				cwd,
-			});
-			if (stderr.trim().length) {
-				throw new Error(stderr);
-			}
+			const result = await execCommand(`git commit -m "${sanitizedMessage}"`);
+			failOnError('Error committing changes to Git', result);
 		} catch (error) {
 			logger.error(error);
 			throw error;
@@ -169,6 +164,7 @@ export class Git implements VersionControlSystem {
 	 * @param n the number of commits (defaults to 2)
 	 * @returns an array of the commit details
 	 */
+	@func()
 	async getRecentCommits(n = 2): Promise<Array<Commit>> {
 		const commits: Array<Commit> = [];
 

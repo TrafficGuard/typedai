@@ -6,6 +6,7 @@ import { CommandLineInterface } from '#functions/commandLine';
 import { CustomFunctions } from '#functions/customFunctions';
 import { ImageGen } from '#functions/image';
 import { Jira } from '#functions/jira';
+import { Git } from '#functions/scm/git';
 import { GitHub } from '#functions/scm/github';
 import { GitLab } from '#functions/scm/gitlab';
 import { FileSystemList } from '#functions/storage/fileSystemList';
@@ -34,6 +35,7 @@ const FUNCTIONS = [
 	LiveFiles,
 	GitLab,
 	GitHub,
+	Git,
 	CommandLineInterface,
 	GoogleCloud,
 	Jira,
