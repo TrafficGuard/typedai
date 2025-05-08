@@ -207,6 +207,10 @@ export interface OrchestratorIteration {
 	memory: Map<string, string>;
 	/** Tool state, LiveFile's, FileStore etc. Class name as the key */
 	toolState: Map<string, any>;
+    /** Direct access to live files, if populated by the backend */
+    liveFilesDirect?: string[];
+    /** Direct access to file store metadata, if populated by the backend */
+    fileStoreDirect?: FileMetadata[];
 	/** Any error */
 	error?: string;
 
