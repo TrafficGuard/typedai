@@ -71,13 +71,29 @@ export class VibeFileSelection {
 			}));
 			logger.info({ sessionId, count: mappedResult.length }, 'selectFilesAgent completed and result mapped within workflow.');
 
+			let updateData: Partial<VibeSession>; // Using Partial<VibeSession> which aligns with UpdateVibeSessionData structure
+			if (mappedResult && mappedResult.length > 0) {
+				logger.info({ sessionId, count: mappedResult.length }, 'AI selected files for review.');
+				updateData = {
+					originalFileSelectionForReview: JSON.parse(JSON.stringify(mappedResult)), // Deep copy for safety
+					fileSelection: JSON.parse(JSON.stringify(mappedResult)), // Deep copy for safety
+					status: 'file_selection_review',
+					error: null, // Clear any previous error
+					lastAgentActivity: Date.now(),
+				};
+			} else {
+				logger.warn({ sessionId }, 'AI did not select any files, or an error occurred during selection.');
+				updateData = {
+					originalFileSelectionForReview: [],
+					fileSelection: [],
+					status: 'file_selection_review', // Review empty selection
+					error: null, // Assuming no error if empty is a valid review state
+					lastAgentActivity: Date.now(),
+				};
+			}
+
 			// Update Repo (Success) - Use userId and sessionId from outer scope
-			await this.vibeRepo.updateVibeSession(userId, sessionId, {
-				fileSelection: mappedResult,
-				status: 'file_selection_review',
-				lastAgentActivity: Date.now(),
-				error: null,
-			});
+			await this.vibeRepo.updateVibeSession(userId, sessionId, updateData);
 			logger.info({ sessionId }, 'Successfully updated file selection and status within workflow.');
 		};
 

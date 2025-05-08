@@ -53,6 +53,8 @@ export interface VibeSession {
 	status: VibeStatus; // Use the exported type
 	lastAgentActivity: number; // Time of the last significant action by an agent
 	fileSelection?: SelectedFile[]; // Array of files selected by the file selection agent for the task - Uses MODIFIED SelectedFile
+	/** Stores the initial AI-generated file selection for the current review cycle, used for reset functionality. */
+	originalFileSelectionForReview?: SelectedFile[];
 	designAnswer?: DesignAnswer; // Use the exported type
 	selectedVariations?: number; // Optional: Number of variations selected by the user if multiple were generated
 	codeDiff?: string; // The generated code changes in diff format
