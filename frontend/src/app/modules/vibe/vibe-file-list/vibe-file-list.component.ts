@@ -372,35 +372,103 @@ export class VibeFileListComponent implements OnInit, OnDestroy, OnChanges {
     }
   }
 
+  private sortFilesForComparison(files: SelectedFile[]): Array<{ filePath: string, reason: string, category: string }> {
+    if (!files) return [];
+    // Create a shallow copy and sort by filePath for stable stringify comparison
+    // Only include filePath, reason, and category for comparison, exclude readOnly or other dynamic properties
+    return [...files]
+        .map(f => ({ filePath: f.filePath, reason: f.reason || '', category: f.category || 'unknown' }))
+        .sort((a, b) => a.filePath.localeCompare(b.filePath));
+  }
+
+  public hasUnsavedChanges(): boolean {
+    if (!this.session) { // If there's no session, but there's local data, consider it "unsaved"
+        return this.editableFileSelection && this.editableFileSelection.length > 0;
+    }
+    const localComparable = this.sortFilesForComparison(this.editableFileSelection);
+    const sessionComparable = this.sortFilesForComparison(this.session.fileSelection || []);
+    return JSON.stringify(localComparable) !== JSON.stringify(sessionComparable);
+  }
+
+  public onSaveFileSelectionChanges(): void {
+    if (!this.session || !this.session.id) {
+        this.snackBar.open('Cannot save: Session not available.', 'Close', { duration: 3000 });
+        return;
+    }
+    if (!this.hasUnsavedChanges()) {
+        this.snackBar.open('No changes to save.', 'Close', { duration: 2000 });
+        return;
+    }
+
+    this.isProcessingAction = true;
+    const sessionId = this.session.id;
+
+    // Create a deep copy of editableFileSelection for the payload
+    const selectionPayload = JSON.parse(JSON.stringify(this.editableFileSelection));
+
+    this.vibeService.updateSession(sessionId, { fileSelection: selectionPayload }).pipe(
+        take(1),
+        finalize(() => { this.isProcessingAction = false; }),
+        takeUntil(this.destroy$)
+    ).subscribe({
+        next: () => {
+            this.snackBar.open('File selection changes saved successfully.', 'Close', { duration: 3000 });
+            if (this.session) {
+                 this.session.fileSelection = JSON.parse(JSON.stringify(selectionPayload));
+            }
+        },
+        error: (err) => {
+            console.error('Error saving file selection changes:', err);
+            this.snackBar.open(`Error saving changes: ${err.message || 'Unknown error'}`, 'Close', { duration: 5000 });
+        }
+    });
+  }
+
   /**
    * Approves the current file selection and triggers design generation.
    */
-  approveSelection(): void {
-    this.isProcessingAction = true;
-    if (!this.session || this.session.status !== 'file_selection_review') {
-      console.error('approveSelection called in invalid state or session missing:', this.session?.status);
-      this.snackBar.open('Invalid state or session missing', 'Close', { duration: 3000 });
-      this.isProcessingAction = false;
-      return;
+  public approveSelection(): void {
+    if (!this.session || !this.session.id || this.session.status !== 'file_selection_review') {
+        this.snackBar.open('Cannot approve selection: Invalid session state or session missing.', 'Close', { duration: 3000 });
+        this.isProcessingAction = false;
+        return;
     }
 
-    const sessionId = this.session.id; // Capture session ID
+    if (!this.editableFileSelection || this.editableFileSelection.length === 0) {
+         this.snackBar.open('Cannot approve an empty file selection.', 'Close', { duration: 3000 });
+         this.isProcessingAction = false;
+         return;
+    }
+
+    this.isProcessingAction = true;
+    const sessionId = this.session.id;
     const variations = this.designVariationsControl.value;
 
-    this.vibeService.approveFileSelection(sessionId, variations).pipe(
-        finalize(() => this.isProcessingAction = false),
+    const selectionPayload = JSON.parse(JSON.stringify(this.editableFileSelection));
+
+    const saveIfNeeded$ = this.hasUnsavedChanges()
+        ? this.vibeService.updateSession(sessionId, { fileSelection: selectionPayload })
+        : of(null);
+
+    saveIfNeeded$.pipe(
+        switchMap(() => {
+            if (this.hasUnsavedChanges() && this.session) { // Check again in case save failed or was concurrent
+                 this.session.fileSelection = JSON.parse(JSON.stringify(selectionPayload));
+            }
+            this.snackBar.open('File selection current. Proceeding to generate design...', 'Close', { duration: 2000 });
+            return this.vibeService.approveFileSelection(sessionId, variations);
+        }),
+        finalize(() => { this.isProcessingAction = false; }),
         takeUntil(this.destroy$)
     ).subscribe({
-      next: () => {
-        console.log('File selection approved successfully.');
-        this.snackBar.open('File selection approved. Generating design...', 'Close', { duration: 3000 });
-        // Trigger session refresh
-        this.vibeService.getVibeSession(sessionId).pipe(take(1)).subscribe();
-      },
-      error: (err) => {
-        console.error('Error approving file selection:', err);
-        this.snackBar.open(`Error approving selection: ${err.message || 'Unknown error'}`, 'Close', { duration: 5000 });
-      }
+        next: () => {
+            console.log('File selection approved and design generation triggered.');
+            this.snackBar.open('Design generation started.', 'Close', { duration: 3000 });
+        },
+        error: (err) => {
+            console.error('Error during save or approve selection:', err);
+            this.snackBar.open(`Error: ${err.message || 'Unknown error during approval'}`, 'Close', { duration: 5000 });
+        }
     });
   }
 
