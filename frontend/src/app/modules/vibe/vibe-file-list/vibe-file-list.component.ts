@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, inject, OnInit, OnDestroy } from '@angular/core';
+import { Component, Input, Output, EventEmitter, inject, OnInit, OnDestroy, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import {finalize, Observable, of, Subject, switchMap, take, tap} from 'rxjs';
@@ -47,7 +47,7 @@ import {MatSnackBar} from "@angular/material/snack-bar";
     MatProgressSpinnerModule,
   ],
 })
-export class VibeFileListComponent implements OnInit, OnDestroy {
+export class VibeFileListComponent implements OnInit, OnDestroy, OnChanges {
   private destroy$ = new Subject<void>();
 
   @Input() session: VibeSession | null = null;
@@ -65,6 +65,7 @@ export class VibeFileListComponent implements OnInit, OnDestroy {
   filteredFiles$: Observable<string[]>;
   public editingCategoryFilePath: string | null = null;
   public availableCategories: Array<SelectedFile['category']> = ['edit', 'reference', 'style_example', 'unknown'];
+  public editableFileSelection: SelectedFile[] = [];
 
   fileUpdateInstructionsControl = new FormControl('');
   public designVariationsControl = new FormControl(1);
@@ -151,6 +152,14 @@ export class VibeFileListComponent implements OnInit, OnDestroy {
    */
   cancelCategoryEdit(): void {
     this.editingCategoryFilePath = null;
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['session']) {
+      // Deep copy the fileSelection from the session to the local editableFileSelection
+      // Handles cases where session or session.fileSelection might be null/undefined by defaulting to an empty array
+      this.editableFileSelection = JSON.parse(JSON.stringify(this.session?.fileSelection || []));
+    }
   }
 
   ngOnInit() {

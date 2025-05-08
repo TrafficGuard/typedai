@@ -1,11 +1,11 @@
 <div class="vibe-file-list-container">
-    <ng-container *ngIf="!session?.fileSelection?.length && !isReadOnly; else fileTableOrReadOnlyMessage">
+    <ng-container *ngIf="!editableFileSelection?.length && !isReadOnly; else fileTableOrReadOnlyMessage">
         <p>No files selected.</p>
     </ng-container>
 
     <ng-template #fileTableOrReadOnlyMessage>
-        <ng-container *ngIf="session?.fileSelection?.length; else noFilesSelected">
-            <table mat-table [dataSource]="session!.fileSelection!" class="mat-elevation-z8">
+        <ng-container *ngIf="editableFileSelection?.length; else noFilesSelected">
+            <table mat-table [dataSource]="editableFileSelection" class="mat-elevation-z8">
 
                 <!-- FilePath Column -->
                 <ng-container matColumnDef="filePath">
@@ -73,8 +73,8 @@
             </table>
         </ng-container>
         <ng-template #noFilesSelected>
-            <p *ngIf="isReadOnly && !session?.fileSelection?.length">File selection is currently under AI review. No files have been selected yet or the list is being updated.</p>
-            <p *ngIf="!isReadOnly && !session?.fileSelection?.length">No files selected.</p>
+            <p *ngIf="isReadOnly && !editableFileSelection?.length">File selection is currently under AI review. No files have been selected yet or the list is being updated.</p>
+            <p *ngIf="!isReadOnly && !editableFileSelection?.length">No files selected.</p>
         </ng-template>
     </ng-template>
 
@@ -145,7 +145,7 @@
             </mat-form-field>
             <button mat-raised-button color="accent"
                     (click)="approveSelection()"
-                    [disabled]="isProcessingAction || !session?.fileSelection?.length">
+                    [disabled]="isProcessingAction || !editableFileSelection?.length">
                 Approve Selection & Generate Design
             </button>
             <mat-spinner *ngIf="isProcessingAction" diameter="24"></mat-spinner>
