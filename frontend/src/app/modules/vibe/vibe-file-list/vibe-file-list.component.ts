@@ -57,6 +57,7 @@ export class VibeFileListComponent implements OnInit, OnDestroy {
   @Output() categoryUpdated = new EventEmitter<{ file: SelectedFile, newCategory: SelectedFile['category'] }>();
   @Output() addFileRequested = new EventEmitter<string>();
   @Output() browseFilesRequested = new EventEmitter<void>();
+  @Output() selectionResetRequested = new EventEmitter<void>();
 
   displayedColumns: string[] = ['filePath', 'reason', 'category', 'actions'];
   public dialog = inject(MatDialog);
@@ -433,6 +434,23 @@ export class VibeFileListComponent implements OnInit, OnDestroy {
         this.snackBar.open(`Error adding file '${filePath}': ${err.message || 'Unknown error'}`, 'Close', { duration: 5000 });
       }
     });
+  }
+
+  public onResetSelection(): void {
+    if (this.isProcessingAction) {
+      this.snackBar.open('Another action is already in progress.', 'Close', { duration: 3000 });
+      return;
+    }
+    // Using a simple browser confirm dialog for now.
+    // A MatDialog would be a more polished solution for a real application.
+    if (confirm('Are you sure you want to reset the file selection? Any manual changes to the file list (additions, deletions) since the last AI update will be lost, and the list will revert to what the AI last provided for review.')) {
+      console.log('Reset selection confirmed and requested from VibeFileListComponent.');
+      this.selectionResetRequested.emit();
+      // Parent component (VibeComponent) will handle setting its own isProcessingAction state
+      // when it calls the service.
+    } else {
+      console.log('Reset selection cancelled by user.');
+    }
   }
 
   public submitFileUpdateInstructions(): void {
