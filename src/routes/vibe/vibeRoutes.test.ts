@@ -5,7 +5,7 @@ import sinon, { type SinonStub } from 'sinon';
 // TypedAI specific imports
 import { vibeRoutes } from './vibeRoutes';
 import { initFastify } from '../../fastify/fastifyApp';
-import { initInMemoryApplicationContext } from '../../memory/inMemoryApplicationContext';
+import { initInMemoryApplicationContext } from '../../app/applicationContext';
 import { VibeServiceImpl } from '../../vibe/vibeServiceImpl';
 import type { CreateVibeSessionData, VibeSession } from '../../vibe/vibeTypes';
 import * as userContext from '../../user/userService/userContext';

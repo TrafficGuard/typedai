@@ -335,11 +335,18 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 
 			if (!effectiveRepositoryId && repositoryName && (repositorySource === 'github' || repositorySource === 'gitlab')) {
 				effectiveRepositoryId = repositoryName;
-				fastify.log.info(`Vibe session creation: repositoryId was not provided for source '${repositorySource}', derived from repositoryName '${repositoryName}'.`);
+				fastify.log.info(
+					`Vibe session creation: repositoryId was not provided for source '${repositorySource}', derived from repositoryName '${repositoryName}'.`,
+				);
 			}
 
 			if (!effectiveRepositoryId) {
-				return reply.code(400).send({ error: "repositoryId is required. If using GitHub/GitLab and repositoryId is not directly provided, ensure repositoryName is supplied in 'owner/repo' format to be used as a fallback." });
+				return reply
+					.code(400)
+					.send({
+						error:
+							"repositoryId is required. If using GitHub/GitLab and repositoryId is not directly provided, ensure repositoryName is supplied in 'owner/repo' format to be used as a fallback.",
+					});
 			}
 
 			try {
