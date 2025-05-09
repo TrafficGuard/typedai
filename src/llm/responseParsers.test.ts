@@ -246,7 +246,19 @@ describe('responseParsers', () => {
 			// Current regexes with `$` will fail this if there's text after the block.
 			// This test clarifies the behavior: it expects the block to be effectively last.
 			const textWithTrailing = 'Reasoning. ```json{ "key": "val" }``` Some other text.';
-			expect(() => extractReasoningAndJson(textWithTrailing)).to.throw(Error, 'Failed to extract structured JSON.');
+			const result = extractReasoningAndJson<{ key: string }>(textWithTrailing);
+			expect(result.reasoning).to.equal('Reasoning.');
+			expect(result.object).to.deep.equal({ key: 'val' });
+			expect(result.jsonString).to.equal('{ "key": "val" }');
+		});
+
+		// Add a new test case for the specific scenario mentioned by the user with XML and trailing </thought>
+		it('Should correctly parse XML JSON block with trailing text like </thought>', () => {
+			const textWithTrailingThought = '<think>\nSome thoughts here.\n</think>\n<json>\n{\n  "inspectFiles": [\n    "production/lb.tf"\n  ]\n}\n</json>\n</thought>';
+			const result = extractReasoningAndJson<{ inspectFiles: string[] }>(textWithTrailingThought);
+			expect(result.reasoning).to.equal('<think>\nSome thoughts here.\n</think>');
+			expect(result.object).to.deep.equal({ inspectFiles: ["production/lb.tf"] });
+			expect(result.jsonString).to.equal('{\n  "inspectFiles": [\n    "production/lb.tf"\n  ]\n}');
 		});
 	});
 });

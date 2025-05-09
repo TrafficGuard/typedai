@@ -132,10 +132,10 @@ export function extractTag(response: string, tagName: string): string {
 export function extractReasoningAndJson<T>(rawText: string): { reasoning: string; object: T; jsonString: string } {
 	const text = rawText.trim();
 
-	// Pattern for ```json ... ``` at the end of the string
-	const mdRegex = /([\s\S]*?)```[jJ][sS][oO][nN]\s*([\s\S]+?)\s*```$/s;
-	// Pattern for <json> ... </json> at the end of the string
-	const xmlRegex = /([\s\S]*?)<json>\s*([\s\S]+?)\s*<\/json>$/is;
+	// Pattern for ```json ... ```
+	const mdRegex = /([\s\S]*?)```[jJ][sS][oO][nN]\s*([\s\S]+?)\s*```/s;
+	// Pattern for <json> ... </json>
+	const xmlRegex = /([\s\S]*?)<json>\s*([\s\S]+?)\s*<\/json>/is;
 
 	let match = text.match(mdRegex);
 	let jsonString: string | undefined;
