@@ -112,8 +112,8 @@ const VibePresetSchema = Type.Object({
 	userId: Type.String(),
 	name: Type.String(),
 	config: VibePresetConfigSchema,
-	createdAt: Type.Any({ description: 'Timestamp of creation' }),
-	updatedAt: Type.Any({ description: 'Timestamp of last update' }),
+	createdAt: Type.Number({ description: 'Timestamp of creation' }),
+	updatedAt: Type.Number({ description: 'Timestamp of last update' }),
 });
 type VibePresetType = Static<typeof VibePresetSchema>;
 
