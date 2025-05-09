@@ -94,7 +94,14 @@ export type CreateVibeSessionData = Omit<
 	| 'currentAgentId' // Set by the system during orchestration
 	| 'agentHistory' // Set by the system during orchestration
 	| 'error' // Set by the system on error
->;
+	// Explicitly Omit repositoryId here because we are re-defining its optionality for the creation DTO.
+	// VibeSession itself will still have repositoryId as required.
+	| 'repositoryId'
+> & {
+	// For creation, repositoryId is made optional.
+	// If not provided directly, it might be derived from repositoryName for certain sources.
+	repositoryId?: string;
+};
 
 // Data allowed for generic updates via the updateVibeSession method
 // Excludes fields that should not be directly updated or are immutable
