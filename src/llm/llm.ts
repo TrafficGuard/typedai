@@ -230,6 +230,16 @@ export function assistant(text: string): LlmMessage {
 	};
 }
 
+
+export interface GenerateTextWithJsonResponse<T> {
+	/** The generated message */
+	message: LlmMessage;
+	/** The part of the response before the JSON */
+	reasoning: string;
+	/** The JSON object */
+	object: T;
+}
+
 export interface LLM {
 	/** Generates text from a LLM */
 	generateText(userPrompt: string, opts?: GenerateTextOptions): Promise<string>;
