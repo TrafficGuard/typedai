@@ -23,7 +23,8 @@ export class VibeSessionCreation {
 		const now = Date.now();
 
 		const newSession: VibeSession = {
-			...sessionData, // This will now include repositoryFullPath
+			...sessionData,
+			repositoryId: sessionData.repositoryId!, // Explicitly set and assert non-null based on upstream logic
 			id: sessionId,
 			userId: userId,
 			status: 'initializing',

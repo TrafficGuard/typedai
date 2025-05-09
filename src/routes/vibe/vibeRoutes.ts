@@ -96,7 +96,7 @@ type VibeSessionResponseType = Static<typeof VibeSessionResponseSchema>;
 const VibePresetConfigSchema = Type.Object(
 	{
 		repositorySource: Type.Union([Type.Literal('local'), Type.Literal('github'), Type.Literal('gitlab')]),
-		repositoryId: Type.String(),
+		repositoryId: Type.Optional(Type.String()), // Made optional to match VibePresetConfig type
 		repositoryName: Type.Optional(Type.Union([Type.String(), Type.Null()])),
 		targetBranch: Type.String(),
 		workingBranch: Type.String(),
