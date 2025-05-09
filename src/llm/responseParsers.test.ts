@@ -1,6 +1,7 @@
 import { expect } from 'chai';
 
-import { extractJsonResult, extractTag, parseFunctionCallsXml } from './responseParsers';
+// Import extractReasoningAndJson
+import { extractJsonResult, extractTag, parseFunctionCallsXml, extractReasoningAndJson } from './responseParsers';
 
 describe('responseParsers', () => {
 	describe('extractJsonResult', () => {
@@ -166,6 +167,86 @@ describe('responseParsers', () => {
 					param1: 'value3',
 				},
 			});
+		});
+	});
+
+	describe('extractReasoningAndJson', () => {
+		it('Should extract reasoning and JSON from markdown format', () => {
+			const text = 'This is some reasoning.\n```json\n{ "foo": "bar" }\n```';
+			const result = extractReasoningAndJson<{ foo: string }>(text);
+			expect(result.reasoning).to.equal('This is some reasoning.');
+			expect(result.object).to.deep.equal({ foo: 'bar' });
+			expect(result.jsonString).to.equal('{ "foo": "bar" }');
+		});
+
+		it('Should extract reasoning and JSON from XML format', () => {
+			const text = 'This is XML reasoning.\n<json>\n{ "baz": 123 }\n</json>';
+			const result = extractReasoningAndJson<{ baz: number }>(text);
+			expect(result.reasoning).to.equal('This is XML reasoning.');
+			expect(result.object).to.deep.equal({ baz: 123 });
+			expect(result.jsonString).to.equal('{ "baz": 123 }');
+		});
+
+		it('Should extract reasoning and JSON from XML containing markdown JSON', () => {
+			const text = 'XML with MD reasoning.\n<json>\n```json\n{ "data": true }\n```\n</json>';
+			const result = extractReasoningAndJson<{ data: boolean }>(text);
+			expect(result.reasoning).to.equal('XML with MD reasoning.');
+			expect(result.object).to.deep.equal({ data: true });
+			expect(result.jsonString).to.equal('{ "data": true }');
+		});
+
+		it('Should handle no reasoning, just markdown JSON', () => {
+			const text = '```json\n{ "only": "json" }\n```';
+			const result = extractReasoningAndJson<{ only: string }>(text);
+			expect(result.reasoning).to.equal('');
+			expect(result.object).to.deep.equal({ only: 'json' });
+			expect(result.jsonString).to.equal('{ "only": "json" }');
+		});
+
+		it('Should handle no reasoning, just XML JSON', () => {
+			const text = '<json>\n{ "xmlOnly": "data" }\n</json>';
+			const result = extractReasoningAndJson<{ xmlOnly: string }>(text);
+			expect(result.reasoning).to.equal('');
+			expect(result.object).to.deep.equal({ xmlOnly: 'data' });
+			expect(result.jsonString).to.equal('{ "xmlOnly": "data" }');
+		});
+		
+		it('Should handle plain JSON string as input (no reasoning)', () => {
+			const text = '{ "plain": true }';
+			const result = extractReasoningAndJson<{ plain: boolean }>(text);
+			expect(result.reasoning).to.equal('');
+			expect(result.object).to.deep.equal({ plain: true });
+			expect(result.jsonString).to.equal('{ "plain": true }');
+		});
+
+		it('Should throw SyntaxError for malformed JSON in markdown block', () => {
+			const text = 'Reasoning.\n```json\n{ "foo": "bar", \n```'; // Malformed
+			expect(() => extractReasoningAndJson(text)).to.throw(SyntaxError, /Failed to parse JSON content/);
+		});
+
+		it('Should throw SyntaxError for malformed JSON in XML block', () => {
+			const text = 'Reasoning.\n<json>\n{ "foo": "bar", \n</json>'; // Malformed
+			expect(() => extractReasoningAndJson(text)).to.throw(SyntaxError, /Failed to parse JSON content/);
+		});
+		
+		it('Should throw Error if no JSON block is found and text is not plain JSON', () => {
+			const text = 'This is just some text without any JSON.';
+			expect(() => extractReasoningAndJson(text)).to.throw(Error, 'Failed to extract structured JSON.');
+		});
+
+		it('Should handle JSON with leading/trailing whitespace within blocks', () => {
+			const text = 'Reasoning. ```json  \n  { "ws": "test" }  \n  ```  ';
+			const result = extractReasoningAndJson<{ ws: string }>(text);
+			expect(result.reasoning).to.equal('Reasoning.');
+			expect(result.object).to.deep.equal({ ws: 'test' });
+			expect(result.jsonString).to.equal('{ "ws": "test" }');
+		});
+		
+		it('Should correctly parse if JSON block is not at the very end but is the last structured block', () => {
+			// Current regexes with `$` will fail this if there's text after the block.
+			// This test clarifies the behavior: it expects the block to be effectively last.
+			const textWithTrailing = 'Reasoning. ```json{ "key": "val" }``` Some other text.';
+			expect(() => extractReasoningAndJson(textWithTrailing)).to.throw(Error, 'Failed to extract structured JSON.');
 		});
 	});
 });

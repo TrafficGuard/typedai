@@ -5,6 +5,8 @@ import {
 	type GenerateJsonOptions,
 	type GenerateTextOptions,
 	type GenerationStats,
+	// Import GenerateTextWithJsonResponse
+	type GenerateTextWithJsonResponse,
 	type LLM,
 	type LlmMessage,
 	type Prompt,
@@ -12,8 +14,11 @@ import {
 	isSystemUserPrompt,
 	system,
 	user,
+	// Import assistant
+	assistant,
 } from './llm';
-import { extractJsonResult, extractTag } from './responseParsers';
+// Import extractReasoningAndJson, extractJsonResult is still used by generateJson
+import { extractJsonResult, extractTag, extractReasoningAndJson } from './responseParsers';
 
 export interface SerializedLLM {
 	service: string;
@@ -135,24 +140,35 @@ export abstract class BaseLLM implements LLM {
 		return extractTag(response, 'result');
 	}
 
-	generateTextWithJson(userPrompt: string, opts?: GenerateTextOptions): Promise<string>;
-	generateTextWithJson(systemPrompt: string, userPrompt: string, opts?: GenerateTextOptions): Promise<string>;
-	generateTextWithJson(messages: LlmMessage[], opts?: GenerateTextOptions): Promise<string>;
-	async generateTextWithJson(
+	generateTextWithJson<T>(userPrompt: string, opts?: GenerateJsonOptions): Promise<GenerateTextWithJsonResponse<T>>;
+	generateTextWithJson<T>(systemPrompt: string, userPrompt: string, opts?: GenerateJsonOptions): Promise<GenerateTextWithJsonResponse<T>>;
+	generateTextWithJson<T>(messages: LlmMessage[], opts?: GenerateJsonOptions): Promise<GenerateTextWithJsonResponse<T>>;
+	async generateTextWithJson<T>(
 		userOrSystemOrMessages: string | LlmMessage[],
-		userOrOpts?: string | GenerateTextOptions,
-		opts?: GenerateTextOptions,
-	): Promise<string> {
+		userOrOpts?: string | GenerateJsonOptions,
+		opts?: GenerateJsonOptions,
+	): Promise<GenerateTextWithJsonResponse<T>> {
 		const { messages, options } = this.parseGenerateTextParameters(userOrSystemOrMessages, userOrOpts, opts);
 		try {
-			const response = await this.generateText(messages, options);
-			return extractJsonResult(response);
+			const responseText = await this.generateText(messages, options);
+			const { reasoning, object } = extractReasoningAndJson<T>(responseText);
+			return {
+				message: assistant(responseText), // Full raw response text as an assistant message
+				reasoning,
+				object,
+			};
 		} catch (e) {
-			if (e instanceof SyntaxError) {
-				const response = await this.generateText(messages, options);
-				return extractJsonResult(response);
+			// Retry if SyntaxError (JSON parsing failed) or Error (specific structure not found by extractReasoningAndJson)
+			if (e instanceof SyntaxError || (e instanceof Error && e.message.startsWith('Failed to extract structured JSON'))) {
+				const responseText = await this.generateText(messages, options); // Second attempt
+				const { reasoning, object } = extractReasoningAndJson<T>(responseText); // Second parse attempt
+				return {
+					message: assistant(responseText),
+					reasoning,
+					object,
+				};
 			}
-			throw e;
+			throw e; // Re-throw other errors
 		}
 	}
 
