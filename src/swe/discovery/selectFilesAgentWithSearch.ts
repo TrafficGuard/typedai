@@ -4,6 +4,7 @@ import { ImagePartExt, type LLM, type LlmMessage, type UserContentExt, assistant
 import { text, user } from '#llm/llm';
 import { extractTag } from '#llm/responseParsers';
 import { logger } from '#o11y/logger';
+import { FileSystemService } from '#functions/storage/fileSystemService';
 import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
 import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
 import { type RepositoryMaps, generateRepositoryMaps } from '#swe/index/repositoryMap';
@@ -17,6 +18,11 @@ After each iteration the agent should accept or ignore each of the new files loa
 This agent is designed to utilise LLM prompt caching
 */
 
+// Constants for search result size management
+const MAX_SEARCH_TOKENS = 8000; // Maximum tokens for search results
+const APPROX_CHARS_PER_TOKEN = 4; // Approximate characters per token
+const MAX_SEARCH_CHARS = MAX_SEARCH_TOKENS * APPROX_CHARS_PER_TOKEN; // Maximum characters for search results
+
 interface InitialResponse {
 	inspectFiles?: string[];
 }
@@ -25,6 +31,7 @@ interface IterationResponse {
 	keepFiles?: SelectedFile[];
 	ignoreFiles?: SelectedFile[];
 	inspectFiles?: string[];
+	search?: string; // Regex string for searching file contents
 }
 
 export interface SelectedFile {
@@ -186,74 +193,143 @@ async function selectFilesCore(
 
 		const response: IterationResponse = await generateFileSelectionProcessingResponse(messages, filesToInspect, filesPendingDecision, iterationCount, llm);
 		logger.info(response);
-		for (const ignored of response.ignoreFiles ?? []) {
-			ignoredFiles.set(ignored.path, ignored.reason);
-			filesPendingDecision.delete(ignored.path);
-		}
-		for (const kept of response.keepFiles ?? []) {
-			keptFiles.set(kept.path, kept.reason);
-			filesPendingDecision.delete(kept.path);
-		}
 
-		// Include relevant rules/documentation/guideline files
-		const justKeptPaths = response.keepFiles?.map((f) => f.path) ?? [];
-		if (justKeptPaths.length > 0) {
+		if (response.search) {
+			const searchRegex = response.search;
+			let searchResultsText = '';
+			let searchPerformedSuccessfully = false;
+			const fs = getFileSystem();
+
 			try {
-				const cwd = getFileSystem().getWorkingDirectory();
-				// Assuming projectInfo.baseDir corresponds to the VCS root for the purpose of finding config files
-				const vcsRoot = getFileSystem().getVcsRoot();
-				const alternativeFiles = await includeAlternativeAiToolFiles(justKeptPaths, { cwd, vcsRoot });
-				for (const altFile of alternativeFiles) {
-					// Add the alternative file only if it hasn't been explicitly kept or ignored already
-					if (!keptFiles.has(altFile) && !ignoredFiles.has(altFile)) {
-						keptFiles.set(altFile, 'Relevant AI tool configuration/documentation file');
-						logger.info(`Automatically included relevant AI tool file: ${altFile}`);
-					}
+				logger.debug(`Attempting search with regex "${searchRegex}" and context 1`);
+				const extractsC1 = await fs.searchExtractsMatchingContents(searchRegex, 1);
+				if (extractsC1.length <= MAX_SEARCH_CHARS) {
+					searchResultsText = `<search_results regex="${searchRegex}" context_lines="1">\n${extractsC1}\n</search_results>\n`;
+					searchPerformedSuccessfully = true;
+					logger.debug(`Search with context 1 succeeded, length: ${extractsC1.length}`);
+				} else {
+					logger.debug(`Search with context 1 too long: ${extractsC1.length} chars`);
 				}
-			} catch (error) {
-				logger.warn(error, `Failed to check for or include alternative AI tool files based on: ${justKeptPaths.join(', ')}`);
+			} catch (e) {
+				logger.warn(e, `Error during searchExtractsMatchingContents (context 1) for regex: ${searchRegex}`);
+				searchResultsText = `<search_error regex="${searchRegex}" context_lines="1">\nError: ${e.message}\n</search_error>\n`;
+			}
+
+			if (!searchPerformedSuccessfully && !searchResultsText.includes('<search_error')) {
+				try {
+					logger.debug(`Attempting search with regex "${searchRegex}" and context 0`);
+					const extractsC0 = await fs.searchExtractsMatchingContents(searchRegex, 0);
+					if (extractsC0.length <= MAX_SEARCH_CHARS) {
+						searchResultsText = `<search_results regex="${searchRegex}" context_lines="0">\n${extractsC0}\n</search_results>\n`;
+						searchPerformedSuccessfully = true;
+						logger.debug(`Search with context 0 succeeded, length: ${extractsC0.length}`);
+					} else {
+						logger.debug(`Search with context 0 too long: ${extractsC0.length} chars`);
+					}
+				} catch (e) {
+					logger.warn(e, `Error during searchExtractsMatchingContents (context 0) for regex: ${searchRegex}`);
+					searchResultsText = `<search_error regex="${searchRegex}" context_lines="0">\nError: ${e.message}\n</search_error>\n`;
+				}
+			}
+
+			if (!searchPerformedSuccessfully && !searchResultsText.includes('<search_error')) {
+				try {
+					logger.debug(`Attempting search with regex "${searchRegex}" (file counts)`);
+					let fileMatches = await fs.searchFilesMatchingContents(searchRegex);
+					if (fileMatches.length <= MAX_SEARCH_CHARS) {
+						searchResultsText = `<search_results regex="${searchRegex}" type="file_counts">\n${fileMatches}\n</search_results>\n`;
+						searchPerformedSuccessfully = true;
+						logger.debug(`Search with file_counts succeeded, length: ${fileMatches.length}`);
+					} else {
+						const originalLength = fileMatches.length;
+						fileMatches = fileMatches.substring(0, MAX_SEARCH_CHARS);
+						searchResultsText = `<search_results regex="${searchRegex}" type="file_counts" truncated="true" original_chars="${originalLength}" truncated_chars="${MAX_SEARCH_CHARS}">\n${fileMatches}\n</search_results>\nNote: Search results were too large (${originalLength} characters, estimated ${Math.ceil(originalLength / APPROX_CHARS_PER_TOKEN)} tokens) and have been truncated to ${MAX_SEARCH_CHARS} characters (estimated ${MAX_SEARCH_TOKENS} tokens). Please use a more specific search term if needed.\n`;
+						searchPerformedSuccessfully = true;
+						logger.debug(`Search with file_counts truncated, original_length: ${originalLength}, new_length: ${fileMatches.length}`);
+					}
+				} catch (e) {
+					logger.warn(e, `Error during searchFilesMatchingContents for regex: ${searchRegex}`);
+					searchResultsText = `<search_error regex="${searchRegex}" type="file_counts">\nError: ${e.message}\n</search_error>\n`;
+				}
+			}
+
+			if (!searchPerformedSuccessfully && !searchResultsText.includes('<search_error')) {
+				if (!searchResultsText) { // If no search was successful and no error was caught
+					searchResultsText = `<search_results regex="${searchRegex}">\nNo results found or all attempts exceeded character limits.\n</search_results>\n`;
+					logger.debug(`No search results for regex "${searchRegex}" or all attempts exceeded character limits.`);
+				}
+			}
+
+			messages.push({ role: 'assistant', content: JSON.stringify({ search: searchRegex, inspectFiles: [], keepFiles: [], ignoreFiles: [] }) });
+			messages.push({ role: 'user', content: searchResultsText, cache: 'ephemeral' });
+
+			filesToInspect = []; // LLM will decide next action based on search results
+		} else {
+			// Existing logic for keepFiles, ignoreFiles, inspectFiles
+			for (const ignored of response.ignoreFiles ?? []) {
+				ignoredFiles.set(ignored.path, ignored.reason);
+				filesPendingDecision.delete(ignored.path);
+			}
+			for (const kept of response.keepFiles ?? []) {
+				keptFiles.set(kept.path, kept.reason);
+				filesPendingDecision.delete(kept.path);
+			}
+
+			const justKeptPaths = response.keepFiles?.map((f) => f.path) ?? [];
+			if (justKeptPaths.length > 0) {
+				try {
+					const cwd = getFileSystem().getWorkingDirectory();
+					const vcsRoot = getFileSystem().getVcsRoot();
+					const alternativeFiles = await includeAlternativeAiToolFiles(justKeptPaths, { cwd, vcsRoot });
+					for (const altFile of alternativeFiles) {
+						if (!keptFiles.has(altFile) && !ignoredFiles.has(altFile)) {
+							keptFiles.set(altFile, 'Relevant AI tool configuration/documentation file');
+							logger.info(`Automatically included relevant AI tool file: ${altFile}`);
+						}
+					}
+				} catch (error) {
+					logger.warn(error, `Failed to check for or include alternative AI tool files based on: ${justKeptPaths.join(', ')}`);
+				}
+			}
+
+			if ((response.inspectFiles ?? []).length > 0 || (response.keepFiles ?? []).length > 0 || (response.ignoreFiles ?? []).length > 0) {
+				messages.push(await processedIterativeStepUserPrompt(response));
+			}
+
+			const cache = (response.inspectFiles ?? []).length ? 'ephemeral' : undefined;
+			messages.push({
+				role: 'assistant',
+				content: JSON.stringify(response),
+				cache,
+			});
+
+			const cachedMessages = messages.filter((msg) => msg.cache === 'ephemeral');
+			if (cachedMessages.length > 4) {
+				cachedMessages[1].cache = undefined;
+			}
+
+			filesToInspect = response.inspectFiles ?? [];
+			for (const fileToInspect of filesToInspect) {
+				filesPendingDecision.add(fileToInspect);
 			}
 		}
 
-		// Create the user message with the additional file contents to inspect
-		messages.push(await processedIterativeStepUserPrompt(response));
-
-		// Don't cache the final result as it would only potentially be used once when generating a query answer
-		const cache = filesToInspect.length ? 'ephemeral' : undefined;
-		messages.push({
-			role: 'assistant',
-			content: JSON.stringify(response),
-			cache,
-		});
-
-		// Max of 4 cache tags with Anthropic. Clear the first one after the cached system prompt
-		const cachedMessages = messages.filter((msg) => msg.cache === 'ephemeral');
-		if (cachedMessages.length > 4) {
-			cachedMessages[1].cache = undefined;
-		}
-
-		filesToInspect = response.inspectFiles ?? [];
-
-		// Add newly requested files to pending decision set
-		for (const fileToInspect of filesToInspect) {
-			filesPendingDecision.add(fileToInspect);
-		}
-
-		// We start the file selection process with the medium agent for speed/cost.
-		// Once the medium LLM has completed, then we switch to the hard LLM as a review,
-		// which may continue inspecting files until it is satisfied.
-		if (filesToInspect.length === 0 && filesPendingDecision.size === 0) {
-			// Use the hard LLM to review the final selection. Check on a variable and not on llms().medium === llm().hard in case they are the same.
-			if (!usingHardLLM) {
-				llm = llms().hard;
-				usingHardLLM = true;
-			} else {
-				// Hard LLM also decided not to inspect more files, break the loop
-				break;
+		// LLM decision logic for switching to hard LLM or breaking
+		if (!response.search) {
+			if (filesToInspect.length === 0 && filesPendingDecision.size === 0) {
+				if (!usingHardLLM) {
+					llm = llms().hard;
+					usingHardLLM = true;
+					logger.info('Switching to hard LLM for final review.');
+				} else {
+					logger.info('Hard LLM also decided not to inspect more files. Completing selection.');
+					break;
+				}
+			} else if (filesToInspect.length === 0 && filesPendingDecision.size > 0) {
+				logger.warn(`LLM did not request new files to inspect, but ${filesPendingDecision.size} files are pending decision. Will proceed to next iteration for LLM to process pending files.`);
 			}
-		} else if (filesToInspect.length === 0 && filesPendingDecision.size > 0) {
-			// LLM didn't request new files, but some files are still pending decision.
-			logger.warn(`LLM did not request new files, but ${filesPendingDecision.size} files are pending decision. Forcing processing.`);
+		} else {
+			logger.debug('Search was performed. Proceeding to next iteration for LLM to process search results.');
 		}
 	}
 
@@ -338,20 +414,38 @@ async function generateFileSelectionProcessingResponse(
 
 	if (filesToInspect.length || pendingFiles.size) {
 		prompt += `
-The files that must be included in either the keepFiles or ignoreFiles properties are:
-${[...Array.from(pendingFiles), ...filesToInspect].join('\n')}`;
+The files whose contents were provided in this turn (if any from 'inspectFiles' in the previous turn) or are still pending decision from earlier turns are:
+${[...Array.from(pendingFiles), ...filesToInspect].filter(Boolean).join('\n')}
+These files MUST be addressed by including them in either "keepFiles" or "ignoreFiles" in your response.`;
+	} else {
+		prompt += `\nNo specific files were provided for direct inspection in this turn. Evaluate based on previous information, search results, or the project overview.`;
 	}
 
 	prompt += `
-The files that must be decided upon (kept or ignored) in this iteration are:
-${[...Array.from(pendingFiles)].join('\n')}
 
-First think extensively about which files to keep or ignore based *strictly* on the requirements.
-- For **keepFiles**: Only include a file if its contents are **demonstrably necessary** to fulfill the requirements. The 'reason' must clearly state *why* this specific file is essential.
-- For **ignoreFiles**: Include files previously inspected that are **not essential** for the task.
-- For **inspectFiles**: Only request to inspect *new* files if you have a **strong, specific reason** to believe they contain information **critical** to the task that hasn't been found yet. Avoid speculative inspection. Consider the cost – only inspect if absolutely necessary.
+You have the following actions available in your JSON response:
+1.  **Decide on Pending/Inspected Files**:
+    - "keepFiles": Array of {"path": "file/path", "reason": "why_essential"}. Only for files whose necessity is confirmed.
+    - "ignoreFiles": Array of {"path": "file/path", "reason": "why_not_needed"}. For files previously inspected or considered but found non-essential.
+    *All files listed above as pending or provided for inspection MUST be included in either "keepFiles" or "ignoreFiles".*
 
-Have you inspected enough files to confidently determine the minimal essential set? If yes, or if no further files seem strictly necessary, return an empty array for "inspectFiles".
+2.  **Request to Inspect New Files**:
+    - "inspectFiles": Array of ["path/to/new/file1", "path/to/new/file2"]. Use this if you need to see the content of specific new files identified from the project structure or previous search results. Only request if you have a strong, specific reason. Do NOT use this if you are using "search".
+
+3.  **Search File Contents**:
+    - "search": "your_regex_pattern_here". Use this if you need to find files based on their content and the existing information (project files, summaries, previous search results) is insufficient.
+    - The search results will be provided in the next turn. You can then decide to inspect files from those search results. Do NOT use this if you are using "inspectFiles".
+
+**Workflow Strategy**:
+- Prioritize deciding on any files whose contents you've already seen or that are pending decision.
+- If more information is needed:
+    - If you know the specific file paths, use "inspectFiles".
+    - If you need to discover files based on content, use "search".
+- You can use "inspectFiles" OR "search" in a single response, but not both. If "search" is used, you will evaluate its results in the next turn.
+- If you have files to keep/ignore from previous steps, always include those decisions alongside any "inspectFiles" or "search" request.
+
+Have you inspected enough files OR have enough information from searches to confidently determine the minimal essential set?
+If yes, and all pending files are decided, return empty arrays for "inspectFiles", no "search" property, and ensure "keepFiles" contains the final selection.
 
 The final part of the response must be a JSON object in the following format:
 <json>
@@ -362,9 +456,8 @@ The final part of the response must be a JSON object in the following format:
   "ignoreFiles": [
     {"path": "path/to/nonessential/file2", "reason": "Explains why this file is not needed."}
   ],
-  "inspectFiles": [
-    "path/to/potentially/critical/file3"
-  ]
+  "inspectFiles": [], // Optional: new files to inspect. Mutually exclusive with "search".
+  "search": "" // Optional: regex to search file contents. Mutually exclusive with "inspectFiles".
 }
 </json>
 `;
