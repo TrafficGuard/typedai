@@ -138,7 +138,7 @@ const CreateVibeSessionBodySchema = Type.Object({
 	title: Type.String(),
 	instructions: Type.String(),
 	repositorySource: Type.Union([Type.Literal('local'), Type.Literal('github'), Type.Literal('gitlab')]),
-	repositoryId: Type.String(),
+	repositoryId: Type.Optional(Type.String()),
 	repositoryName: Type.Optional(Type.Union([Type.String(), Type.Null()])),
 	targetBranch: Type.String({ description: 'The existing branch to base the work on and merge into' }), // Renamed from branch
 	// newBranchName removed
@@ -318,20 +318,47 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 		},
 		async (request, reply) => {
 			const userId = currentUser().id;
+			// Destructure request.body for clarity and to access potentially undefined repositoryId
+			const {
+				title,
+				instructions,
+				repositorySource,
+				repositoryId: originalRepositoryIdFromRequest,
+				repositoryName,
+				targetBranch,
+				workingBranch,
+				createWorkingBranch,
+				useSharedRepos,
+			} = request.body;
+
+			let effectiveRepositoryId = originalRepositoryIdFromRequest;
+
+			if (!effectiveRepositoryId && repositoryName && (repositorySource === 'github' || repositorySource === 'gitlab')) {
+				effectiveRepositoryId = repositoryName;
+				fastify.log.info(`Vibe session creation: repositoryId was not provided for source '${repositorySource}', derived from repositoryName '${repositoryName}'.`);
+			}
+
+			if (!effectiveRepositoryId) {
+				return reply.code(400).send({ error: "repositoryId is required. If using GitHub/GitLab and repositoryId is not directly provided, ensure repositoryName is supplied in 'owner/repo' format to be used as a fallback." });
+			}
+
 			try {
-				// Map request body to CreateVibeSessionData using the new fields
 				const createData: CreateVibeSessionData = {
-					// Spread the body which now matches CreateVibeSessionData fields
-					...request.body,
-					// Handle optional fields explicitly if needed (though spread should work)
-					repositoryName: request.body.repositoryName ?? undefined,
-					// newBranchName mapping removed as it's no longer in the schema/type
+					title,
+					instructions,
+					repositorySource,
+					repositoryId: effectiveRepositoryId, // Use the resolved ID
+					repositoryName: repositoryName ?? undefined,
+					targetBranch,
+					workingBranch,
+					createWorkingBranch,
+					useSharedRepos,
 				};
 				const newSession = await vibeService.createVibeSession(userId, createData);
 				// The newSession (type VibeSession) now matches the updated VibeSessionResponseSchema
 				return reply.code(201).send(newSession);
 			} catch (error: any) {
-				fastify.log.error(error, `Error creating Vibe session for user ${userId}`);
+				fastify.log.error(error, `Error creating Vibe session for user ${userId} [request.body]`);
 				return reply.code(500).send({ error: error.message || 'Failed to create Vibe session' });
 			}
 		},
