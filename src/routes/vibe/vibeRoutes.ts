@@ -254,13 +254,11 @@ const AcceptedResponseSchema = Type.Object({
 	message: Type.String(),
 });
 
-// GET /repositories/branches
+// GET /:sessionId/branches
+// Query schema for fetching branches, aligning with SCM standards
 const GetBranchesQuerySchema = Type.Object({
-	source: Type.Union([Type.Literal('local'), Type.Literal('github'), Type.Literal('gitlab')], {
-		description: 'The source control management system type',
-	}),
-	id: Type.String({ description: 'The repository identifier (e.g., path for local, project ID/path for remote)' }),
-	sessionId: Type.String({ description: 'VibeSession id' }),
+	providerType: Type.String({ description: "The type of SCM provider, e.g., 'local', 'gitlab', or 'github'" }),
+	projectId: Type.String({ description: 'The project identifier (repository path for local, project ID/path for remote)' }),
 });
 type GetBranchesQueryType = Static<typeof GetBranchesQuerySchema>;
 
@@ -906,29 +904,31 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 
 	// --- Helper Methods ---
 
-	// Get a list of branches for a given repository
-	fastify.get<{ Querystring: GetBranchesQueryType; Reply: Static<typeof GetBranchesResponseSchema> | Static<typeof ErrorResponseSchema> }>(
-		`${basePath}/repositories/branches`,
+	// Get a list of branches for a given repository, associated with a Vibe session
+	fastify.get<{ Params: ParamsType; Querystring: GetBranchesQueryType; Reply: Static<typeof GetBranchesResponseSchema> | Static<typeof ErrorResponseSchema> }>(
+		`${basePath}/:sessionId/branches`,
 		{
 			schema: {
-				querystring: GetBranchesQuerySchema,
+				params: ParamsSchema, // For sessionId
+				querystring: GetBranchesQuerySchema, // For providerType and projectId
 				response: {
 					200: GetBranchesResponseSchema,
 					400: ErrorResponseSchema, // Invalid query params
 					401: ErrorResponseSchema,
-					404: ErrorResponseSchema, // Repository not found/accessible
+					404: ErrorResponseSchema, // Repository or session not found/accessible
 					500: ErrorResponseSchema,
 				},
 			},
 		},
 		async (request, reply) => {
-			const userId = currentUser().id; // Assuming userId might be needed for access control
-			const { source, id, sessionId } = request.query;
+			const userId = currentUser().id;
+			const { sessionId } = request.params;
+			const { providerType, projectId } = request.query;
 			try {
-				const branches = await vibeService.getBranchList(userId, sessionId, source, id);
+				const branches = await vibeService.getBranchList(userId, sessionId, providerType, projectId);
 				return reply.send(branches);
 			} catch (error: any) {
-				fastify.log.error(error, `Error getting branches for repo ${id} (source: ${source}), user ${userId}`);
+				fastify.log.error(error, `Error getting branches for session ${sessionId}, repo ${projectId} (provider: ${providerType}), user ${userId}`);
 				// Add specific status codes (e.g., 404 if repo not found)
 				return reply.code(500).send({ error: error.message || 'Failed to get branch list' });
 			}
