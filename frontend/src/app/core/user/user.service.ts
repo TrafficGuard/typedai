@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { User } from 'app/core/user/user.types';
 import { catchError, Observable, BehaviorSubject, tap, throwError, mergeMap } from 'rxjs';
+import { API } from '#shared/api-definitions'; // Added import
 
 @Injectable({ providedIn: 'root' })
 export class UserService {
@@ -60,7 +61,7 @@ export class UserService {
      * @param user
      */
     update(user: Partial<User>): Observable<User> {
-        return this._httpClient.post<User>('/api/profile/update', { user }).pipe(
+        return this._httpClient.post<User>(API.profile.update.buildPath({}), { user }).pipe( // Changed to use API.profile.update
             tap((response) => {
                 response = (response as any).data;
                 this._user.next({...response});
