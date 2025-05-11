@@ -51,22 +51,21 @@ export interface FastifyRequest extends FastifyRequestBase {}
 // Augment FastifyReply for the new decorator
 declare module 'fastify' {
 	interface FastifyReply<
-		RawServer extends RawServerBase = RawServerDefault, // Matched to Fastify's definition
+		RawServer extends RawServerBase = RawServerDefault,
 		RawRequest extends RawRequestDefaultExpression<RawServer> = RawRequestDefaultExpression<RawServer>,
 		RawReply extends RawReplyDefaultExpression<RawServer> = RawReplyDefaultExpression<RawServer>,
 		RouteGeneric extends RouteGenericInterface = RouteGenericInterface,
 		ContextConfig = ContextConfigDefault,
 		SchemaCompiler extends FastifySchema = FastifySchema,
 		TypeProvider extends FastifyTypeProvider = FastifyTypeProviderDefault,
-        // Matched to Fastify's definition for ReplyType
         ReplyType extends FastifyReplyType = ResolveFastifyReplyType<TypeProvider, SchemaCompiler, RouteGeneric>
 	> {
-		sendJSON<TResponseSchema extends TSchema>(
+		sendJSON<ReplyType extends TSchema>(
             // Ensure `this` and the return type also include all 8 generic parameters
 			this: FastifyReply<RawServer, RawRequest, RawReply, RouteGeneric, ContextConfig, SchemaCompiler, TypeProvider, ReplyType>,
-			object: Static<TResponseSchema>,
+			object: Static<ReplyType>,
 			status?: number // Optional status, defaults in implementation
-		): FastifyReply<RawServer, RawRequest, RawReply, RouteGeneric, ContextConfig, SchemaCompiler, TypeProvider, ReplyType>; // Return this for chaining
+		): FastifyReply<RawServer, RawRequest, RawReply, RouteGeneric, ContextConfig, SchemaCompiler, TypeProvider, Static<ReplyType>> //Return this for chaining
 	}
 }
 export const fastifyInstance: TypeBoxFastifyInstance = fastify({
