@@ -60,3 +60,20 @@ export interface User {
     /** Configuration for the function callable integrations */
     functionConfig: Record<string, Record<string, any>>;
 }
+
+/**
+ * Represents the user profile data returned by the API (excluding sensitive fields).
+ */
+export type UserProfile = Omit<User, 'passwordHash'>;
+
+/**
+ * Represents the payload for updating a user's profile.
+ * Matches the structure { user: { ...details... } } expected by the backend.
+ */
+export interface UpdateUserProfilePayload {
+    user: {
+        email?: string;
+        chat?: Partial<ChatSettings>;
+        // llmConfig?: Partial<LLMServicesConfig>; // Add if llmConfig becomes updatable
+    };
+}

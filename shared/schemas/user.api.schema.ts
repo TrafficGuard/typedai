@@ -1,9 +1,11 @@
-import { Type, type Static } from '@sinclair/typebox';
+import { Type, type Static, TUnsafe } from '@sinclair/typebox';
 // Source of Truth Model Interfaces
 import type {
     User,
     ChatSettings,
     LLMServicesConfig,
+    UserProfile,
+    UpdateUserProfilePayload,
 } from '#shared/model/user.model';
 import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
 
@@ -45,23 +47,18 @@ export const UserProfileApiResponseSchema = Type.Object({
     id: Type.String(),
     email: Type.String(),
     enabled: Type.Boolean(),
-    // createdAt: Type.String({ format: 'date-time' }), // Or Type.Number() if timestamp
-    // lastLoginAt: Type.Optional(Type.String({ format: 'date-time' })),
-    // For simplicity, using Any for dates. For production, use specific format or number.
-    createdAt: Type.Any(),
-    lastLoginAt: Type.Optional(Type.Any()),
+    createdAt: Type.Unsafe<Date>(Type.String({ format: 'date-time' })), // MODIFIED for Date compatibility
+    lastLoginAt: Type.Optional(Type.Unsafe<Date>(Type.String({ format: 'date-time' }))), // MODIFIED for Date compatibility
     hilBudget: Type.Number(),
     hilCount: Type.Number(),
     llmConfig: LLMServicesConfigApiSchema,
     chat: ChatSettingsApiSchema,
     functionConfig: Type.Record(Type.String(), Type.Record(Type.String(), Type.Any())),
 });
-// type UserProfileModel = Omit<User, 'passwordHash'>; // Define this in user.model.ts if needed
-// const _userProfileApiCheck: AreTypesFullyCompatible<UserProfileModel, Static<typeof UserProfileApiResponseSchema>> = true;
+const _userProfileApiCheck: AreTypesFullyCompatible<UserProfile, Static<typeof UserProfileApiResponseSchema>> = true;
 
 
 // --- User Profile Update Schemas (for request bodies) ---
-// Based on profile-route.ts, it seems only 'email' and 'chat' settings are updatable.
 export const UpdateUserProfileApiBodySchema = Type.Object({
     user: Type.Object({ // Matches the nesting in profile-route.ts
         email: Type.Optional(Type.String()), // Assuming email can be updated
@@ -69,5 +66,4 @@ export const UpdateUserProfileApiBodySchema = Type.Object({
         // llmConfig: Type.Optional(LLMServicesConfigApiSchema), // If llmConfig is also updatable
     }),
 });
-// Define a model for this specific update payload if you want a compatibility check.
-// e.g., interface UpdateUserProfilePayload { user: { email?: string; chat?: Partial<ChatSettings> } }
+const _updateUserProfileApiBodyCheck: AreTypesFullyCompatible<UpdateUserProfilePayload, Static<typeof UpdateUserProfileApiBodySchema>> = true;
