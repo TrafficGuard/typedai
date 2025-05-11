@@ -682,7 +682,7 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 		{
 			schema: {
 				params: ParamsSchema,
-				body: UpdateDesignPromptBodySchema,
+				body: UpdateDesignBodySchema,
 				response: {
 					202: AcceptedResponseSchema,
 					400: ErrorResponseSchema, // Invalid input
@@ -697,16 +697,16 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 			const userId = currentUser().id;
 			const { sessionId } = request.params;
 			const { design } = request.body;
-			if (!prompt) {
-				return reply.code(400).send({ error: 'Prompt is required' });
+			if (!design) {
+				return reply.code(400).send({ error: 'Design is required' });
 			}
-			// Pass the prompt string directly
+			// Pass the design string directly
 			try {
-				// Assuming vibeService.updateDesignWithPrompt exists
+				// Assuming vibeService.updateDesign exists
 				await vibeService.updateDesign(userId, sessionId, design);
 				return reply.code(202).send({ message: 'Design update accepted and processing started.' });
 			} catch (error: any) {
-				fastify.log.error(error, `Error triggering design update via prompt for session ${sessionId}, user ${userId}`);
+				fastify.log.error(error, `Error triggering design update for session ${sessionId}, user ${userId}`);
 				if (error.message?.includes('not found')) {
 					return sendNotFound(reply, `Vibe session with ID ${sessionId} not found`);
 				}
