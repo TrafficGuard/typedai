@@ -216,9 +216,8 @@ export const CreatePresetApiBodySchema = Type.Object({
 
 // --- Schemas for File System Operations (from vibeRoutes.ts) ---
 export const GetBranchesQueryApiSchema = Type.Object({
-    source: Type.Union([Type.Literal('local'), Type.Literal('github'), Type.Literal('gitlab')]),
-    id: Type.String(), // repositoryId
-    sessionId: Type.String(),
+    providerType: Type.String({ description: "The type of SCM provider, e.g., 'local', 'gitlab', or 'github'" }),
+    projectId: Type.String({ description: 'The project identifier (repository path for local, project ID/path for remote)' }),
 });
 export const GetBranchesResponseApiSchema = Type.Array(Type.String());
 
