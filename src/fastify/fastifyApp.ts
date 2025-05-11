@@ -23,8 +23,9 @@ import { logger } from '#o11y/logger';
 import { loadOnRequestHooks } from './hooks';
 import {Static, TSchema} from "@sinclair/typebox";
 import {mapReplacer, sendBadRequest} from "#fastify/responses";
-import {RawServerBase} from "fastify/types/utils";
-import {FastifyReplyType, ResolveFastifyReplyType} from "fastify/types/type-provider"; // Added sendBadRequest
+// Correct imports for precise generic matching
+import { type RawServerBase } from "fastify/types/utils"; // Corrected import
+import { type FastifyReplyType, type ResolveFastifyReplyType } from "fastify/types/type-provider"; // Corrected import
 
 const NODE_ENV = process.env.NODE_ENV ?? 'local';
 
@@ -50,15 +51,15 @@ export interface FastifyRequest extends FastifyRequestBase {}
 // Augment FastifyReply for the new decorator
 declare module 'fastify' {
 	interface FastifyReply<
-		RawServer extends RawServerDefault = RawServerDefault,
+		RawServer extends RawServerBase = RawServerDefault, // Matched to Fastify's definition
 		RawRequest extends RawRequestDefaultExpression<RawServer> = RawRequestDefaultExpression<RawServer>,
 		RawReply extends RawReplyDefaultExpression<RawServer> = RawReplyDefaultExpression<RawServer>,
 		RouteGeneric extends RouteGenericInterface = RouteGenericInterface,
 		ContextConfig = ContextConfigDefault,
 		SchemaCompiler extends FastifySchema = FastifySchema,
 		TypeProvider extends FastifyTypeProvider = FastifyTypeProviderDefault,
-        // Add the 8th generic parameter to match Fastify's definition
-        ReplyType = unknown
+        // Matched to Fastify's definition for ReplyType
+        ReplyType extends FastifyReplyType = ResolveFastifyReplyType<TypeProvider, SchemaCompiler, RouteGeneric>
 	> {
 		sendJSON<TResponseSchema extends TSchema>(
             // Ensure `this` and the return type also include all 8 generic parameters
