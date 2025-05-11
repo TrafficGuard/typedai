@@ -66,11 +66,13 @@ export const CreateVibeSessionDataApiSchema = Type.Object({
     instructions: Type.String(),
     repositorySource: Type.Union([Type.Literal('local'), Type.Literal('github'), Type.Literal('gitlab')]),
     repositoryId: Type.Optional(Type.String()),
-    repositoryName: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+    repositoryName: Type.Optional(Type.String()), // MODIFIED
     targetBranch: Type.String(),
     workingBranch: Type.String(),
     createWorkingBranch: Type.Boolean(),
     useSharedRepos: Type.Boolean(),
+    originalFileSelectionForReview: Type.Optional(Type.Array(SelectedFileApiSchema)), // ADDED
+    selectedVariations: Type.Optional(Type.Number()), // ADDED
     // Note: Does not include fields auto-generated or set by the system (id, userId, status, etc.)
 });
 const _createVibeSessionDataApiCheck: AreTypesFullyCompatible<CreateVibeSessionData, Static<typeof CreateVibeSessionDataApiSchema>> = true;
@@ -83,7 +85,7 @@ export const VibeSessionApiSchema = Type.Object({
     instructions: Type.String(),
     repositorySource: Type.Union([Type.Literal('local'), Type.Literal('github'), Type.Literal('gitlab')]),
     repositoryId: Type.String(),
-    repositoryName: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+    repositoryName: Type.Optional(Type.String()), // MODIFIED
     targetBranch: Type.String(),
     workingBranch: Type.String(),
     createWorkingBranch: Type.Boolean(),
@@ -187,11 +189,13 @@ const _updateCodeReviewDataApiCheck: AreTypesFullyCompatible<UpdateCodeReviewDat
 export const VibePresetConfigApiSchema = Type.Object({
     repositorySource: Type.Union([Type.Literal('local'), Type.Literal('github'), Type.Literal('gitlab')]),
     repositoryId: Type.Optional(Type.String()),
-    repositoryName: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+    repositoryName: Type.Optional(Type.String()), // MODIFIED
     targetBranch: Type.String(),
     workingBranch: Type.String(),
     createWorkingBranch: Type.Boolean(),
     useSharedRepos: Type.Boolean(),
+    originalFileSelectionForReview: Type.Optional(Type.Array(SelectedFileApiSchema)), // ADDED
+    selectedVariations: Type.Optional(Type.Number()), // ADDED
     // Ensure this matches Omit<CreateVibeSessionData, 'title' | 'instructions'>
 });
 const _vibePresetConfigApiCheck: AreTypesFullyCompatible<VibePresetConfig, Static<typeof VibePresetConfigApiSchema>> = true;
