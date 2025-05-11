@@ -1,7 +1,7 @@
 import { type Static, Type } from '@sinclair/typebox';
 import type { FastifyInstance, FastifyRequest as FastifyRequestBase, RouteShorthandOptions } from 'fastify';
 import type { AppFastifyInstance } from '#app/applicationTypes';
-import { sendJSON, sendNotFound } from '#fastify/responses';
+import { sendNotFound } from '#fastify/responses';
 import type {
 	CommitChangesData,
 	CreateVibeSessionData,
@@ -414,7 +414,7 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 				if (!session) {
 					return sendNotFound(reply, `Vibe session with ID ${sessionId} not found`);
 				}
-				return sendJSON(reply, session);
+				return reply.sendJSON(session);
 			} catch (error: any) {
 				fastify.log.error(error, `Error getting Vibe session ${sessionId} for user ${userId}`);
 				return reply.code(500).send({ error: error.message || 'Failed to retrieve Vibe session' });
@@ -957,7 +957,7 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 			const { path } = request.query; // path is optional
 			try {
 				const tree = await vibeService.getFileSystemTree(userId, sessionId, path);
-				return sendJSON(reply, tree);
+				return reply.sendJSON(tree);
 			} catch (error: any) {
 				fastify.log.error(error, `Error getting file system tree for session ${sessionId} (path: ${path}), user ${userId}`);
 				// Add specific status codes (e.g., 404, 409)
