@@ -3,12 +3,14 @@ import type * as http from 'node:http';
 import { join } from 'node:path';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import fastify, {
+	ContextConfigDefault,
 	type FastifyBaseLogger,
 	type FastifyInstance,
-	type FastifyReply,
+	type FastifyReply as FastifyReplyBase,
 	type FastifyRequest as FastifyRequestBase,
+	FastifySchema, FastifyTypeProvider, FastifyTypeProviderDefault,
 	type RawReplyDefaultExpression,
-	type RawRequestDefaultExpression,
+	type RawRequestDefaultExpression, RawServerDefault, RouteGenericInterface,
 } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
 // src/fastify/fastifyApp.ts:14:39 - error TS1479: The current file is a CommonJS module whose imports will produce 'require' calls; however, the referenced file is an ECMAScript module and cannot be imported with 'require'. Consider writing a dynamic 'import("fastify-http-errors-enhanced")' call instead.
@@ -18,8 +20,9 @@ import * as HttpStatus from 'http-status-codes';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { googleIapMiddleware, jwtAuthMiddleware, singleUserMiddleware } from '#fastify/authenticationMiddleware';
 import { logger } from '#o11y/logger';
-import type { User } from '#shared/model/user.model';
 import { loadOnRequestHooks } from './hooks';
+import {Static, TSchema} from "@sinclair/typebox";
+import {mapReplacer} from "#fastify/responses";
 
 const NODE_ENV = process.env.NODE_ENV ?? 'local';
 
@@ -42,6 +45,25 @@ export type RouteDefinition = (fastify: AppFastifyInstance) => Promise<void>;
 /** Our Fastify request type used in the application */
 export interface FastifyRequest extends FastifyRequestBase {}
 
+// Augment FastifyReply for the new decorator
+declare module 'fastify' {
+	interface FastifyReply<
+		RawServer extends RawServerDefault = RawServerDefault,
+		RawRequest extends RawRequestDefaultExpression<RawServer> = RawRequestDefaultExpression<RawServer>,
+		RawReply extends RawReplyDefaultExpression<RawServer> = RawReplyDefaultExpression<RawServer>,
+		RouteGeneric extends RouteGenericInterface = RouteGenericInterface,
+		ContextConfig = ContextConfigDefault,
+		SchemaCompiler extends FastifySchema = FastifySchema,
+		TypeProvider extends FastifyTypeProvider = FastifyTypeProviderDefault
+		// ReplyType (the 8th generic in Fastify's definition) is for the .send() payload, not `this` context.
+	> {
+		sendJSON<TResponseSchema extends TSchema>(
+			this: FastifyReply<RawServer, RawRequest, RawReply, RouteGeneric, ContextConfig, SchemaCompiler, TypeProvider>,
+			object: Static<TResponseSchema>,
+			status?: number // Optional status, defaults in implementation
+		): FastifyReply<RawServer, RawRequest, RawReply, RouteGeneric, ContextConfig, SchemaCompiler, TypeProvider>; // Return this for chaining
+	}
+}
 export const fastifyInstance: TypeBoxFastifyInstance = fastify({
 	maxParamLength: 256,
 }).withTypeProvider<TypeBoxTypeProvider>() as AppFastifyInstance;
@@ -77,6 +99,14 @@ export async function initFastify(config: FastifyConfig): Promise<AppFastifyInst
 	loadHooks();
 	if (config.instanceDecorators) registerInstanceDecorators(config.instanceDecorators);
 	if (config.requestDecorators) registerRequestDecorators(config.requestDecorators);
+
+	// Decorate reply with sendJSON
+	fastifyInstance.decorateReply('sendJSON', function <TResponseSchema extends TSchema>(this: FastifyReplyBase, object: Static<TResponseSchema>, status = 200) {
+		this.header('Content-Type', 'application/json; charset=utf-8');
+		this.status(status);
+		this.send(JSON.stringify(object, mapReplacer));
+		return this;
+	});
 
 	registerRoutes(config.routes); // New application routes must be added the config in server.ts
 
@@ -202,7 +232,7 @@ function registerRoutes(routes: RouteDefinition[]) {
 }
 
 function setErrorHandler() {
-	fastifyInstance.setErrorHandler((error: any, req: FastifyRequest, reply: FastifyReply) => {
+	fastifyInstance.setErrorHandler((error: any, req: FastifyRequest, reply: FastifyReplyBase) => {
 		logger.error({
 			message: `Error handler: ${error.message}`,
 			error,

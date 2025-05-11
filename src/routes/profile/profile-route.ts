@@ -12,25 +12,24 @@ export async function profileRoute(fastify: AppFastifyInstance) {
 	fastify.get(API.profile.view.pathTemplate, async (req, reply) => {
 		const user: User = currentUser();
 
-		send(reply, 200, user);
+		sendJSON(reply, user);
 	});
 
 	fastify.post(
 		API.profile.update.pathTemplate,
 		{
-			schema: {
-				body: API.profile.update.schemas.body,
-			},
+			schema: API.profile.update.schema,
 		},
 		async (req, reply) => {
-			const userUpdates = (req.body as any).user;
+			const userUpdates = req.body.user;
 			logger.info('Profile update');
 			logger.info(userUpdates);
 			try {
 				const user = await fastify.userService.updateUser(userUpdates);
-				sendJSON(reply, user);
+				reply.sendJSON(user);
+				// reply.send(user) // this validates that user if of type API.profile.update.schema.response
 			} catch (error) {
-				send(reply as FastifyReply, 400, {
+				send(reply, 400, {
 					error: error instanceof Error ? error.message : 'Invalid chat settings',
 				});
 			}
