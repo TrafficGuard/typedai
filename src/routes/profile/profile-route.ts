@@ -5,6 +5,7 @@ import { send } from '#fastify/index';
 import { logger } from '#o11y/logger';
 import type { User } from '#shared/model/user.model';
 import { currentUser } from '#user/userContext';
+import {sendJSON} from "#fastify/responses";
 
 const basePath = '/api/profile';
 
@@ -43,7 +44,7 @@ export async function profileRoute(fastify: AppFastifyInstance) {
 			logger.info(userUpdates);
 			try {
 				const user = await fastify.userService.updateUser(userUpdates);
-				send(reply as FastifyReply, 200, user);
+				sendJSON(reply, user);
 			} catch (error) {
 				send(reply as FastifyReply, 400, {
 					error: error instanceof Error ? error.message : 'Invalid chat settings',
