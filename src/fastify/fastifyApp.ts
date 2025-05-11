@@ -22,7 +22,7 @@ import { googleIapMiddleware, jwtAuthMiddleware, singleUserMiddleware } from '#f
 import { logger } from '#o11y/logger';
 import { loadOnRequestHooks } from './hooks';
 import {Static, TSchema} from "@sinclair/typebox";
-import {mapReplacer} from "#fastify/responses";
+import {mapReplacer, sendBadRequest} from "#fastify/responses"; // Added sendBadRequest
 
 const NODE_ENV = process.env.NODE_ENV ?? 'local';
 
@@ -54,14 +54,16 @@ declare module 'fastify' {
 		RouteGeneric extends RouteGenericInterface = RouteGenericInterface,
 		ContextConfig = ContextConfigDefault,
 		SchemaCompiler extends FastifySchema = FastifySchema,
-		TypeProvider extends FastifyTypeProvider = FastifyTypeProviderDefault
-		// ReplyType (the 8th generic in Fastify's definition) is for the .send() payload, not `this` context.
+		TypeProvider extends FastifyTypeProvider = FastifyTypeProviderDefault,
+        // Add the 8th generic parameter to match Fastify's definition
+        ReplyType = unknown
 	> {
 		sendJSON<TResponseSchema extends TSchema>(
-			this: FastifyReply<RawServer, RawRequest, RawReply, RouteGeneric, ContextConfig, SchemaCompiler, TypeProvider>,
+            // Ensure `this` and the return type also include all 8 generic parameters
+			this: FastifyReply<RawServer, RawRequest, RawReply, RouteGeneric, ContextConfig, SchemaCompiler, TypeProvider, ReplyType>,
 			object: Static<TResponseSchema>,
 			status?: number // Optional status, defaults in implementation
-		): FastifyReply<RawServer, RawRequest, RawReply, RouteGeneric, ContextConfig, SchemaCompiler, TypeProvider>; // Return this for chaining
+		): FastifyReply<RawServer, RawRequest, RawReply, RouteGeneric, ContextConfig, SchemaCompiler, TypeProvider, ReplyType>; // Return this for chaining
 	}
 }
 export const fastifyInstance: TypeBoxFastifyInstance = fastify({
@@ -101,7 +103,7 @@ export async function initFastify(config: FastifyConfig): Promise<AppFastifyInst
 	if (config.requestDecorators) registerRequestDecorators(config.requestDecorators);
 
 	// Decorate reply with sendJSON
-	fastifyInstance.decorateReply('sendJSON', function <TResponseSchema extends TSchema>(this: FastifyReplyBase, object: Static<TResponseSchema>, status = 200) {
+	fastifyInstance.decorateReply('sendJSON', function <TResponseSchema extends TSchema>(this: FastifyReplyBase, object: Static<TResponseSchema>, status: number = HttpStatus.OK) {
 		this.header('Content-Type', 'application/json; charset=utf-8');
 		this.status(status);
 		this.send(JSON.stringify(object, mapReplacer));
@@ -112,13 +114,13 @@ export async function initFastify(config: FastifyConfig): Promise<AppFastifyInst
 
 	// All backend API routes start with /api/ so any unmatched at this point is a 404
 	fastifyInstance.get('/api/*', async (request, reply) => {
-		return reply.code(404).send({ error: 'Not Found' });
+		return reply.code(HttpStatus.NOT_FOUND).send({ error: 'Not Found' });
 	});
 
 	// When the user has refreshed the page at an Angular route URL, serve the index.html
 	fastifyInstance.get('/ui/*', async (request, reply) => {
 		// TODO serve this compressed when possible
-		return reply.header('Content-Type', 'text/html').header('Cache-Control', 'no-store, no-cache, must-revalidate').code(200).send(indexHtml);
+		return reply.header('Content-Type', 'text/html').header('Cache-Control', 'no-store, no-cache, must-revalidate').code(HttpStatus.OK).send(indexHtml);
 	});
 
 	// TODO precompress https://github.com/fastify/fastify-static?tab=readme-ov-file#precompressed
@@ -238,30 +240,18 @@ function setErrorHandler() {
 			error,
 			request: req.query,
 		});
-		reply.header('Content-Type', 'application/json; charset=utf-8');
+		// reply.header('Content-Type', 'application/json; charset=utf-8'); // sendBadRequest will set this
 
 		if (error.validation) {
-			reply.status(HttpStatus.BAD_REQUEST).send({
-				statusCode: HttpStatus.BAD_REQUEST,
-				message: error.message,
-			});
+			sendBadRequest(reply, error.message);
 			return;
 		}
 
 		if (error.code === 'FST_ERR_CTP_INVALID_MEDIA_TYPE') {
-			reply.status(HttpStatus.BAD_REQUEST).send({
-				statusCode: HttpStatus.BAD_REQUEST,
-				message: 'Invalid media type',
-			});
+			sendBadRequest(reply, 'Invalid media type');
 			return;
 		}
-
-		// TODO reportError(error);
 		logger.error(error);
-
-		reply.status(HttpStatus.INTERNAL_SERVER_ERROR).send({
-			statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-			message: NODE_ENV === 'production' ? 'An internal server error occurred. Please try again later.' : error.message,
-		});
+        sendBadRequest(reply, NODE_ENV === 'production' ? 'An internal server error occurred. Please try again later.' : error.message);
 	});
 }

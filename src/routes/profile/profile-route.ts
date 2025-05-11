@@ -1,18 +1,33 @@
 import { Type } from '@sinclair/typebox';
-import type { FastifyReply } from 'fastify';
+// FastifyReply import might not be needed if type inference for `reply` is sufficient
+// import type { FastifyReply } from 'fastify';
 import type { AppFastifyInstance } from '#app/applicationTypes';
-import { send } from '#fastify/index';
+import { sendBadRequest } from '#fastify/responses'; // Import sendBadRequest
 import { logger } from '#o11y/logger';
-import type { User } from '#shared/model/user.model';
+import type { User, UserProfile } from '#shared/model/user.model'; // Added UserProfile
 import { currentUser } from '#user/userContext';
-import {sendJSON} from "#fastify/responses";
 import { API } from '#shared/api-definitions';
 
 export async function profileRoute(fastify: AppFastifyInstance) {
 	fastify.get(API.profile.view.pathTemplate, async (req, reply) => {
 		const user: User = currentUser();
 
-		sendJSON(reply, user);
+		// Transform User to UserProfile to match the API response schema
+		const userProfileData: UserProfile = {
+			id: user.id,
+			email: user.email,
+			enabled: user.enabled,
+			createdAt: user.createdAt,
+			lastLoginAt: user.lastLoginAt,
+			hilBudget: user.hilBudget,
+			hilCount: user.hilCount,
+			llmConfig: user.llmConfig,
+			chat: user.chat,
+			functionConfig: user.functionConfig,
+		};
+
+		// Use the decorated reply.sendJSON with the schema type
+		reply.sendJSON<typeof API.profile.view.schema.response[200]>(userProfileData);
 	});
 
 	fastify.post(
@@ -23,15 +38,28 @@ export async function profileRoute(fastify: AppFastifyInstance) {
 		async (req, reply) => {
 			const userUpdates = req.body.user;
 			logger.info('Profile update');
-			logger.info(userUpdates);
+			logger.info(userUpdates); // Be cautious logging entire userUpdates if it could contain sensitive info in future
 			try {
-				const user = await fastify.userService.updateUser(userUpdates);
-				reply.sendJSON(user);
-				// reply.send(user) // this validates that user if of type API.profile.update.schema.response
+				const updatedUser: User = await fastify.userService.updateUser(userUpdates);
+
+				// Transform User to UserProfile to match the API response schema
+				const userProfileData: UserProfile = {
+					id: updatedUser.id,
+					email: updatedUser.email,
+					enabled: updatedUser.enabled,
+					createdAt: updatedUser.createdAt,
+					lastLoginAt: updatedUser.lastLoginAt,
+					hilBudget: updatedUser.hilBudget,
+					hilCount: updatedUser.hilCount,
+					llmConfig: updatedUser.llmConfig,
+					chat: updatedUser.chat,
+					functionConfig: updatedUser.functionConfig,
+				};
+				// Use the decorated reply.sendJSON with the schema type
+				reply.sendJSON<typeof API.profile.update.schema.response[200]>(userProfileData);
 			} catch (error) {
-				send(reply, 400, {
-					error: error instanceof Error ? error.message : 'Invalid chat settings',
-				});
+				// Use sendBadRequest for typed error responses
+				sendBadRequest(reply, error instanceof Error ? error.message : 'Invalid profile update data');
 			}
 		},
 	);
