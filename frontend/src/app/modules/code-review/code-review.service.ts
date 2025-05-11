@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { CodeReviewConfig } from './code-review.model';
+import { CodeReviewConfig } from "#shared/model/codeReview.model";
+
 
 interface Data<T> {
   data: T

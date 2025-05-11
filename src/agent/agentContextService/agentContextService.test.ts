@@ -3,8 +3,15 @@ import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 chai.use(chaiAsPromised);
 import sinon from 'sinon';
-import { LlmFunctions } from '#agent/LlmFunctions';
+import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import type { AgentContextService } from '#agent/agentContextService/agentContextService';
+import { Agent } from '#agent/autonomous/functions/agentFunctions';
+import { clearCompletedHandlers, registerCompletedHandler } from '#agent/completionHandlerRegistry'; // Adjust path if needed
+import { appContext } from '#app/applicationContext';
+import * as functionSchema from '#functionSchema/functionDecorators';
+import { FileSystemRead } from '#functions/storage/fileSystemRead';
+import { MockLLM } from '#llm/services/mock-llm';
+import { logger } from '#o11y/logger';
 import {
 	type AgentCompleted,
 	type AgentContext,
@@ -13,18 +20,11 @@ import {
 	AgentType,
 	isExecuting,
 	// TaskLevel, // Not explicitly used in AgentContext, but used in AgentLLMs
-} from '#agent/agentContextTypes';
-import type { OrchestratorIteration } from '#agent/agentContextTypes';
-import { clearCompletedHandlers, registerCompletedHandler } from '#agent/completionHandlerRegistry'; // Adjust path if needed
-import { Agent } from '#agent/orchestrator/functions/agentFunctions';
-import { appContext } from '#app/applicationContext';
-import * as functionSchema from '#functionSchema/functionDecorators';
-import { FileSystemRead } from '#functions/storage/fileSystemRead';
-import type { FunctionCallResult, GenerationStats } from '#llm/llm';
-import { MockLLM } from '#llm/services/mock-llm';
-import { logger } from '#o11y/logger';
-import type { ChatSettings, LLMServicesConfig, User } from '#user/user';
-import * as userContext from '#user/userService/userContext';
+} from '#shared/model/agent.model';
+import type { AutonomousIteration } from '#shared/model/agent.model';
+import type { FunctionCallResult, GenerationStats } from '#shared/model/llm.model';
+import type { ChatSettings, LLMServicesConfig, User } from '#shared/model/user.model';
+import * as userContext from '#user/userContext';
 
 // These tests must be implementation independent so we can ensure the same
 // behaviour from various implementations of the AgentStateService interface
@@ -147,10 +147,10 @@ const createMockAgentContext = (id: string, overrides: Partial<AgentContext> = {
 		memory: { defaultMemory: 'some data' },
 		lastUpdate: now - 5000,
 		metadata: { source: 'unit-test' },
-		functions: new LlmFunctions(), // Instantiate LlmFunctions
+		functions: new LlmFunctionsImpl(), // Instantiate LlmFunctions
 		completedHandler: undefined,
 		pendingMessages: [],
-		type: 'orchestrator',
+		type: 'autonomous',
 		subtype: 'codegen',
 		iterations: 0,
 		invoking: [],
@@ -172,7 +172,7 @@ const createMockAgentContext = (id: string, overrides: Partial<AgentContext> = {
 		llms: overrides.llms ?? baseContext.llms,
 		memory: overrides.memory ?? baseContext.memory,
 		metadata: overrides.metadata ?? baseContext.metadata,
-		functions: overrides.functions instanceof LlmFunctions ? overrides.functions : baseContext.functions,
+		functions: overrides.functions instanceof LlmFunctionsImpl ? overrides.functions : baseContext.functions,
 		callStack: overrides.callStack ?? baseContext.callStack,
 		pendingMessages: overrides.pendingMessages ?? baseContext.pendingMessages,
 		invoking: overrides.invoking ?? baseContext.invoking,
@@ -246,7 +246,7 @@ export function runAgentStateServiceTests(
 					stderrSummary: 'err',
 				},
 			];
-			const contextFunctions = new LlmFunctions(); // Create LlmFunctions instance
+			const contextFunctions = new LlmFunctionsImpl(); // Create LlmFunctions instance
 			contextFunctions.addFunctionInstance(mockFunctionInstance, MockFunction.name); // Add our test function
 
 			const context = createMockAgentContext(id, {
@@ -291,7 +291,7 @@ export function runAgentStateServiceTests(
 			expect(loadedContext.functionCallHistory).to.deep.equal(context.functionCallHistory);
 
 			// Verify LlmFunctions deserialization
-			expect(loadedContext.functions).to.be.instanceOf(LlmFunctions);
+			expect(loadedContext.functions).to.be.instanceOf(LlmFunctionsImpl);
 			expect(loadedContext.functions.getFunctionClassNames()).to.include(MockFunction.name); // Check the specific function added
 
 			// Verify LLM deserialization (checking one is representative)
@@ -647,7 +647,7 @@ export function runAgentStateServiceTests(
 
 			agentId1 = agentId();
 			// Start with default functions (like Agent) + potentially FileSystemRead based on LlmFunctions constructor/fromJSON behavior
-			await service.save(createMockAgentContext(agentId1, { functions: new LlmFunctions() }));
+			await service.save(createMockAgentContext(agentId1, { functions: new LlmFunctionsImpl() }));
 		});
 
 		// No need for a specific afterEach here, as the main afterEach's sinon.restore() will handle it.
@@ -658,7 +658,7 @@ export function runAgentStateServiceTests(
 
 			const loadedContextAfterUpdate = await service.load(agentId1);
 			expect(loadedContextAfterUpdate).to.not.be.null;
-			expect(loadedContextAfterUpdate.functions).to.be.instanceOf(LlmFunctions);
+			expect(loadedContextAfterUpdate.functions).to.be.instanceOf(LlmFunctionsImpl);
 
 			const updatedFunctionNames = loadedContextAfterUpdate.functions.getFunctionClassNames();
 			// Verify the specified function was added
@@ -680,10 +680,10 @@ export function runAgentStateServiceTests(
 			// Now update with an empty list
 			await service.updateFunctions(agentId1, []);
 			context = await service.load(agentId1);
-			expect(context.functions).to.be.instanceOf(LlmFunctions);
+			expect(context.functions).to.be.instanceOf(LlmFunctionsImpl);
 
 			// Get the expected default function names added by LlmFunctions constructor
-			const defaultFuncs = new LlmFunctions();
+			const defaultFuncs = new LlmFunctionsImpl();
 			// Assert that the agent's functions now only contain the defaults
 			expect(context.functions.getFunctionClassNames().sort()).to.deep.equal(defaultFuncs.getFunctionClassNames().sort());
 		});
@@ -726,7 +726,7 @@ export function runAgentStateServiceTests(
 			await service.save(createMockAgentContext(agentIdForIterations));
 		});
 
-		const createMockIteration = (iterNum: number, agentIdToUse: string = agentIdForIterations): OrchestratorIteration => ({
+		const createMockIteration = (iterNum: number, agentIdToUse: string = agentIdForIterations): AutonomousIteration => ({
 			agentId: agentIdToUse,
 			iteration: iterNum,
 			functions: ['Agent', MockFunction.name],
@@ -837,19 +837,19 @@ export function runAgentStateServiceTests(
 				llmId: 'mock-llm-model-for-iteration',
 			};
 
-			const originalIteration: OrchestratorIteration = {
+			const originalIteration: AutonomousIteration = {
 				agentId: agentIdForIterations,
 				iteration: iterationNumber,
 				functions: ['Agent', MockFunction.name, 'LiveFiles_tool', 'FileStore_tool'],
 				prompt: `Detailed prompt for iteration ${iterationNumber} with specific instructions.`,
 				expandedUserRequest: `Elaborated user request for iteration ${iterationNumber}.`,
 				observationsReasoning: `Observations and reasoning for iteration ${iterationNumber}: focused on file operations.`,
-				agentPlan: `<plan><step>1. Monitor files using LiveFiles.</step><step>2. Save output using FileStore.</step></plan>`,
+				agentPlan: '<plan><step>1. Monitor files using LiveFiles.</step><step>2. Save output using FileStore.</step></plan>',
 				nextStepDetails: `Next step involves processing ${originalToolState.get('LiveFiles').monitoredFiles.length} files.`,
 				code: `// Iteration ${iterationNumber} code\nconsole.log("Processing files");`,
 				executedCode: `// Iteration ${iterationNumber} executed code\nconsole.log("Processing files");\n// Output: Files processed`,
 				draftCode: `// Draft for iteration ${iterationNumber}\nlet x = 10;`,
-				codeReview: `Looks good, but consider edge cases for LiveFiles.`,
+				codeReview: 'Looks good, but consider edge cases for LiveFiles.',
 				images: [{ type: 'image', mimeType: 'image/png', image: 'base64encodedimagedata...', filename: 'test.png', size: 2000 }],
 				functionCalls: [
 					{

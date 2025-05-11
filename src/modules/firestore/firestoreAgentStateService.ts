@@ -1,19 +1,18 @@
 import type { DocumentSnapshot, Firestore } from '@google-cloud/firestore';
-import { LlmFunctions } from '#agent/LlmFunctions';
+import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import type { AgentContextService } from '#agent/agentContextService/agentContextService';
-import { type AgentContext, type AgentRunningState, type OrchestratorIteration, isExecuting } from '#agent/agentContextTypes';
 import { deserializeAgentContext, serializeContext } from '#agent/agentSerialization';
-// Ensure validateFirestoreObject is imported if not already
 import { MAX_PROPERTY_SIZE, truncateToByteLength, validateFirestoreObject } from '#firestore/firestoreUtils';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import type { User } from '#user/user';
-import { currentUser } from '#user/userService/userContext';
+import { type AgentContext, type AgentRunningState, type AutonomousIteration, isExecuting } from '#shared/model/agent.model';
+import type { User } from '#shared/model/user.model';
+import { currentUser } from '#user/userContext';
 import { firestoreDb } from './firestore';
 
 // Type specifically for Firestore storage, allowing objects for Maps
-type FirestoreOrchestratorIteration = Omit<OrchestratorIteration, 'memory' | 'toolState'> & {
+type FirestoreAutonomousIteration = Omit<AutonomousIteration, 'memory' | 'toolState'> & {
 	memory: Record<string, string>;
 	toolState: Record<string, any>;
 };
@@ -256,7 +255,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 			throw new Error('Cannot update functions for an agent you do not own.');
 		}
 
-		agent.functions = new LlmFunctions();
+		agent.functions = new LlmFunctionsImpl();
 		for (const functionName of functions) {
 			const FunctionClass = functionFactory()[functionName];
 			if (FunctionClass) {
@@ -270,7 +269,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 	}
 
 	@span()
-	async saveIteration(iterationData: OrchestratorIteration): Promise<void> {
+	async saveIteration(iterationData: AutonomousIteration): Promise<void> {
 		// Validate iteration number
 		if (!Number.isInteger(iterationData.iteration) || iterationData.iteration <= 0) {
 			throw new Error('Iteration number must be a positive integer.');
@@ -287,7 +286,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 		const iterationDocRef = this.db.collection('AgentContext').doc(iterationData.agentId).collection('iterations').doc(String(iterationData.iteration));
 
 		// Create a Firestore-compatible version of the iteration data using the specific type
-		const firestoreIterationData: FirestoreOrchestratorIteration = {
+		const firestoreIterationData: FirestoreAutonomousIteration = {
 			...iterationData,
 			// Convert Maps to plain objects for Firestore
 			memory: iterationData.memory instanceof Map ? Object.fromEntries(iterationData.memory) : {},
@@ -337,7 +336,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 	}
 
 	@span()
-	async loadIterations(agentId: string): Promise<OrchestratorIteration[]> {
+	async loadIterations(agentId: string): Promise<AutonomousIteration[]> {
 		const agent = await this.load(agentId);
 		if (!agent) throw new Error('Agent Id does not exist');
 		if (agent.user.id !== currentUser().id) throw new Error('Not your agent');
@@ -350,7 +349,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 		// storing the iteration number as a field and ordering by that would be more robust.
 		const querySnapshot = await iterationsColRef.orderBy('__name__').get(); // Order by document ID (iteration number)
 
-		const iterations: OrchestratorIteration[] = [];
+		const iterations: AutonomousIteration[] = [];
 		querySnapshot.forEach((doc) => {
 			const data = doc.data();
 			if (data && typeof data.iteration === 'number') {
@@ -385,7 +384,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 				data.draftCode = data.draftCode || undefined;
 				data.codeReview = data.codeReview || undefined;
 
-				iterations.push(data as OrchestratorIteration);
+				iterations.push(data as AutonomousIteration);
 			} else {
 				logger.warn({ agentId, iterationId: doc.id }, 'Skipping invalid iteration data during load (missing or invalid iteration number)');
 			}

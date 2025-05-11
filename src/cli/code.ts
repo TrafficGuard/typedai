@@ -1,13 +1,13 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
-import type { AgentLLMs } from '#agent/agentContextTypes';
-import type { RunAgentConfig, RunWorkflowConfig } from '#agent/orchestrator/orchestratorAgentRunner';
+import type { RunAgentConfig, RunWorkflowConfig } from '#agent/autonomous/autonomousAgentRunner';
 import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { initApplicationContext } from '#app/applicationContext';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { GitLab } from '#functions/scm/gitlab';
-import { contentText, messageText } from '#llm/llm';
 import { defaultLLMs } from '#llm/services/defaultLlms';
+import type { AgentLLMs } from '#shared/model/agent.model';
+import { contentText, messageText } from '#shared/model/llm.model';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { beep } from '#utils/beep';
 import { parseProcessArgs, saveAgentId } from './cli';

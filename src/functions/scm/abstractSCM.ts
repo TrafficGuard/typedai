@@ -2,12 +2,12 @@ import { promises as fs } from 'node:fs';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
-import type { AgentContext } from '#agent/agentContextTypes';
-import { agentStorageDir, systemDir } from '#app/appVars';
+import { agentStorageDir, systemDir } from '#app/appDirs';
 import type { GitProject } from '#functions/scm/gitProject';
 import type { MergeRequest, SourceControlManagement } from '#functions/scm/sourceControlManagement';
-import type { ToolType } from '#functions/toolType';
 import { logger } from '#o11y/logger';
+import type { AgentContext } from '#shared/model/agent.model';
+import type { ToolType } from '#shared/services/functions';
 import { getProjectInfo } from '#swe/projectDetection';
 import { execCommand, failOnError } from '#utils/exec';
 

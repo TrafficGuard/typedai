@@ -1,7 +1,7 @@
 import { llms } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
+import { GenerateJsonOptions, type GenerateTextOptions, type LLM } from '#shared/model/llm.model';
 import { BaseLLM } from './base-llm';
-import { GenerateJsonOptions, type GenerateTextOptions, type LLM } from './llm';
 
 /*
 https://news.ycombinator.com/item?id=39955725

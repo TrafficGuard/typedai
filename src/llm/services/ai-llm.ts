@@ -5,10 +5,11 @@ import { addCost, agentContext } from '#agent/agentContextLocalStorage';
 import { cloneAndTruncateBuffers } from '#agent/trimObject';
 import { appContext } from '#app/applicationContext';
 import { BaseLLM } from '#llm/base-llm';
-import { type GenerateTextOptions, type GenerationStats, type LlmMessage, messageText } from '#llm/llm';
-import { type CreateLlmRequest, type LlmCall, callStack } from '#llm/llmCallService/llmCall';
+import { type CreateLlmRequest, callStack } from '#llm/llmCallService/llmCall';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
+import { type GenerateTextOptions, type GenerationStats, type LlmMessage, messageText } from '#shared/model/llm.model';
+import type { LlmCall } from '../../../shared/model/llmCall.model';
 
 /**
  * Base class for LLM implementations using the Vercel ai package

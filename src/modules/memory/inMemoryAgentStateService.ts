@@ -1,9 +1,9 @@
-import { LlmFunctions } from '#agent/LlmFunctions';
+import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import type { AgentContextService } from '#agent/agentContextService/agentContextService';
-import type { AgentContext, AgentRunningState, OrchestratorIteration } from '#agent/agentContextTypes';
 import { deserializeAgentContext, serializeContext } from '#agent/agentSerialization';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
+import type { AgentContext, AgentRunningState, AutonomousIteration } from '#shared/model/agent.model';
 
 /**
  * In-memory implementation of AgentStateService for tests. Serializes/deserializes
@@ -11,7 +11,7 @@ import { logger } from '#o11y/logger';
  */
 export class InMemoryAgentStateService implements AgentContextService {
 	stateMap: Map<string, Record<string, any>> = new Map();
-	iterationMap: Map<string, OrchestratorIteration[]> = new Map();
+	iterationMap: Map<string, AutonomousIteration[]> = new Map();
 
 	clear(): void {
 		this.stateMap.clear();
@@ -58,7 +58,7 @@ export class InMemoryAgentStateService implements AgentContextService {
 			throw new Error('Agent not found');
 		}
 
-		agent.functions = new LlmFunctions();
+		agent.functions = new LlmFunctionsImpl();
 		for (const functionName of functions) {
 			const FunctionClass = functionFactory()[functionName];
 			if (FunctionClass) {
@@ -71,11 +71,11 @@ export class InMemoryAgentStateService implements AgentContextService {
 		await this.save(agent);
 	}
 
-	async loadIterations(agentId: string): Promise<OrchestratorIteration[]> {
+	async loadIterations(agentId: string): Promise<AutonomousIteration[]> {
 		return this.iterationMap.get(agentId) || [];
 	}
 
-	async saveIteration(iterationData: OrchestratorIteration): Promise<void> {
+	async saveIteration(iterationData: AutonomousIteration): Promise<void> {
 		const iterations = this.iterationMap.get(iterationData.agentId) || [];
 		// Ensure iterations are stored in order
 		const existingIndex = iterations.findIndex((iter) => iter.iteration === iterationData.iteration);

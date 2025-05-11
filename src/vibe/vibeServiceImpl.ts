@@ -1,8 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import { logger } from '#o11y/logger';
-import type { VibeRepository } from '#vibe/vibeRepository';
-import type { VibeService } from '#vibe/vibeService';
-import { VibeSessionCreation } from '#vibe/vibeSessionCreation';
 import type {
 	CommitChangesData,
 	CreateVibeSessionData,
@@ -12,12 +9,16 @@ import type {
 	UpdateVibeSessionData,
 	VibePreset,
 	VibeSession,
-} from '#vibe/vibeTypes';
+} from '#shared/model/vibe.model';
+import type { VibeRepository } from '#vibe/vibeRepository';
+import type { VibeService } from '#vibe/vibeService';
+import { VibeSessionCreation } from '#vibe/vibeSessionCreation';
 
 import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { GitHub } from '#functions/scm/github';
 import { GitLab } from '#functions/scm/gitlab';
-import { type FileSystemNode, FileSystemService } from '#functions/storage/fileSystemService';
+import { FileSystemService } from '#functions/storage/fileSystemService';
+import type { FileSystemNode } from '#shared/services/fileSystemService';
 import { execCommand, failOnError } from '#utils/exec';
 import type { VibeDesignGeneration } from '#vibe/vibeDesignGeneration';
 import { VibeFileSelection } from '#vibe/vibeFileSelection';

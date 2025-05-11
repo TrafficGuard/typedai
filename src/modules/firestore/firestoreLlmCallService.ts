@@ -3,12 +3,13 @@ import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import { join } from 'node:path';
 import type { DocumentData, DocumentSnapshot, Firestore } from '@google-cloud/firestore';
-import { agentStorageDir } from '#app/appVars';
-import type { FilePartExt, ImagePartExt, LlmMessage } from '#llm/llm';
-import type { CreateLlmRequest, LlmCall, LlmRequest } from '#llm/llmCallService/llmCall';
+import { agentStorageDir } from '#app/appDirs';
+import type { CreateLlmRequest } from '#llm/llmCallService/llmCall';
 import type { LlmCallService } from '#llm/llmCallService/llmCallService';
 import { logger } from '#o11y/logger';
-import { currentUser } from '#user/userService/userContext';
+import type { FilePartExt, ImagePartExt, LlmMessage } from '#shared/model/llm.model';
+import type { LlmCall, LlmRequest } from '#shared/model/llmCall.model';
+import { currentUser } from '#user/userContext';
 import { firestoreDb } from './firestore';
 
 // Firestore document size limit (slightly under 1 MiB)

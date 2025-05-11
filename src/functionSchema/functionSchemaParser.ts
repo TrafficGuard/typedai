@@ -12,7 +12,7 @@ import {
 	Project,
 	type Type,
 } from 'ts-morph';
-import { systemDir } from '#app/appVars';
+import { systemDir } from '#app/appDirs';
 import { FUNC_DECORATOR_NAME } from '#functionSchema/functionSchemaTypes';
 import { logger } from '#o11y/logger';
 import type { FunctionParameter, FunctionSchema } from './functions';

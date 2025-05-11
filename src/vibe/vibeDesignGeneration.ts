@@ -1,7 +1,7 @@
 import { logger } from '#o11y/logger';
+import type { DesignAnswer, SelectedFile } from '#shared/model/vibe.model';
 import { runVibeWorkflowAgent } from '#vibe/vibeAgentRunner';
 import type { VibeRepository } from '#vibe/vibeRepository';
-import type { DesignAnswer, SelectedFile } from '#vibe/vibeTypes';
 
 export class VibeDesignGeneration {
 	constructor(private vibeRepo: VibeRepository) {}

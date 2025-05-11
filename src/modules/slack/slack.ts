@@ -1,10 +1,10 @@
 import axios, { type AxiosResponse } from 'axios';
-import type { AgentCompleted, AgentContext } from '#agent/agentContextTypes';
-import { completedNotificationMessage } from '#agent/orchestrator/agentCompletion';
+import { completedNotificationMessage } from '#agent/autonomous/agentCompletion';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import type { GetToolType, ToolType } from '#functions/toolType';
 import { logger } from '#o11y/logger';
-import { functionConfig } from '#user/userService/userContext';
+import type { AgentCompleted, AgentContext } from '#shared/model/agent.model';
+import type { GetToolType, ToolType } from '#shared/services/functions';
+import { functionConfig } from '#user/userContext';
 
 export interface SlackConfig {
 	token: string;

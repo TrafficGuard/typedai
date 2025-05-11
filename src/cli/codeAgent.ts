@@ -1,10 +1,10 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
-import { LlmFunctions } from '#agent/LlmFunctions';
-import { AgentFeedback } from '#agent/orchestrator/functions/agentFeedback';
-import { LiveFiles } from '#agent/orchestrator/functions/liveFiles';
-import { waitForConsoleInput } from '#agent/orchestrator/humanInTheLoop';
-import { provideFeedback, resumeCompleted, resumeError, resumeHil, startAgent } from '#agent/orchestrator/orchestratorAgentRunner';
+import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
+import { provideFeedback, resumeCompleted, resumeError, resumeHil, startAgent } from '#agent/autonomous/autonomousAgentRunner';
+import { AgentFeedback } from '#agent/autonomous/functions/agentFeedback';
+import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
+import { waitForConsoleInput } from '#agent/autonomous/humanInTheLoop';
 import { appContext, initApplicationContext } from '#app/applicationContext';
 import { FileSystemList } from '#functions/storage/fileSystemList';
 import { Perplexity } from '#functions/web/perplexity';
@@ -13,10 +13,12 @@ import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { CodeFunctions } from '#swe/codeFunctions';
+import { registerErrorHandlers } from '../errorHandlers';
 import { parseProcessArgs, saveAgentId } from './cli';
 import { resolveFunctionClasses } from './functionResolver';
 
 export async function main() {
+	registerErrorHandlers();
 	const llms = defaultLLMs();
 	await initApplicationContext();
 
@@ -78,7 +80,7 @@ export async function main() {
 		initialPrompt: fullPrompt,
 		functions: functions,
 		llms,
-		type: 'orchestrator',
+		type: 'autonomous',
 		subtype: 'codegen',
 		resumeAgentId,
 		humanInLoop: {

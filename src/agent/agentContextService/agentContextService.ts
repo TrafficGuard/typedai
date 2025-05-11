@@ -1,4 +1,4 @@
-import type { AgentContext, AgentRunningState, OrchestratorIteration } from '#agent/agentContextTypes';
+import type { AgentContext, AgentRunningState, AutonomousIteration } from '#shared/model/agent.model';
 
 export interface AgentContextService {
 	save(state: AgentContext): Promise<void>;
@@ -6,7 +6,7 @@ export interface AgentContextService {
 	load(agentId: string): Promise<AgentContext | null>;
 
 	/**
-	 * For orchestrator agents, requests a human-in-the-loop check from the user after the current iteration
+	 * For autonomous agents, requests a human-in-the-loop check from the user after the current iteration
 	 * @param agent
 	 */
 	requestHumanInLoopCheck(agent: AgentContext): Promise<void>;
@@ -33,15 +33,15 @@ export interface AgentContextService {
 	updateFunctions(agentId: string, functions: string[]): Promise<void>;
 
 	/**
-	 * Saves the details of a single orchestrator agent iteration.
+	 * Saves the details of a single autonomous agent iteration.
 	 * @param iterationData The data for the iteration.
 	 */
-	saveIteration(iterationData: OrchestratorIteration): Promise<void>;
+	saveIteration(iterationData: AutonomousIteration): Promise<void>;
 
 	/**
 	 * Loads all iterations for a given agent.
 	 * @param agentId The ID of the agent.
-	 * @returns An array of OrchestratorIteration objects, ordered by iteration number.
+	 * @returns An array of AutonomousIteration objects, ordered by iteration number.
 	 */
-	loadIterations(agentId: string): Promise<OrchestratorIteration[]>;
+	loadIterations(agentId: string): Promise<AutonomousIteration[]>;
 }

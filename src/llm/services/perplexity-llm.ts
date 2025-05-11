@@ -2,9 +2,9 @@ import type { PerplexityProvider } from '@ai-sdk/perplexity';
 import { createPerplexity } from '@ai-sdk/perplexity';
 import type { GenerateTextResult } from 'ai';
 import { Perplexity } from '#functions/web/perplexity';
-import { functionConfig } from '#user/userService/userContext';
+import type { LLM } from '#shared/model/llm.model';
+import { functionConfig } from '#user/userContext';
 import type { LlmCostFunction } from '../base-llm';
-import type { LLM } from '../llm';
 import { AiLLM } from './ai-llm';
 
 export const PERPLEXITY_SERVICE = 'perplexity';

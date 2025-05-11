@@ -1,18 +1,18 @@
 import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
-import type { AgentContext } from '#agent/agentContextTypes';
 import { appContext } from '#app/applicationContext';
 import { GitHub } from '#functions/scm/github';
 import { GitLab } from '#functions/scm/gitlab';
 import type { SourceControlManagement } from '#functions/scm/sourceControlManagement';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
+import type { AgentContext } from '#shared/model/agent.model';
+import type { CreateVibeSessionData, VibeSession } from '#shared/model/vibe.model';
 import { type SelectedFile, selectFilesAgent } from '#swe/discovery/selectFilesAgent';
 import { runVibeWorkflowAgent } from '#vibe/vibeAgentRunner';
 import type { VibeRepository } from '#vibe/vibeRepository';
 import { getVibeRepositoryPath } from '#vibe/vibeRepositoryPath';
-import type { CreateVibeSessionData, VibeSession } from '#vibe/vibeTypes';
 
 export class VibeSessionCreation {
 	constructor(private vibeRepo: VibeRepository) {}

@@ -1,5 +1,5 @@
 import { Component, Input } from '@angular/core';
-import { AgentContext } from '../../agent.types';
+import { AgentContextApi } from '#shared/api/agent.api';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatExpansionModule } from '@angular/material/expansion';
@@ -47,5 +47,5 @@ import { MatExpansionModule } from '@angular/material/expansion';
     imports: [CommonModule, MatCardModule, MatExpansionModule],
 })
 export class AgentFunctionCallsComponent {
-    @Input() agentDetails: AgentContext | null = null;
+    @Input() agentDetails: AgentContextApi | null = null;
 }

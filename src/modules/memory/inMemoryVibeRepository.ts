@@ -1,5 +1,5 @@
+import type { UpdateVibeSessionData, VibePreset, VibeSession } from '#shared/model/vibe.model';
 import type { VibeRepository } from '#vibe/vibeRepository';
-import type { UpdateVibeSessionData, VibePreset, VibeSession } from '#vibe/vibeTypes';
 
 /**
  * In-memory implementation of VibeRepository for testing and development.

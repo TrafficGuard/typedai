@@ -4,7 +4,7 @@ import { span } from '#o11y/trace';
 import type { VibeRepository } from '#vibe/vibeRepository';
 
 import { USERS_COLLECTION } from '#firestore/firestoreUserService';
-import type { UpdateVibeSessionData, VibePreset, VibeSession } from '#vibe/vibeTypes';
+import type { UpdateVibeSessionData, VibePreset, VibeSession } from '#shared/model/vibe.model';
 import { firestoreDb } from './firestore';
 
 const VIBE_SESSIONS_COLLECTION = 'vibeSessions';

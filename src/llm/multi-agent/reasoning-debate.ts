@@ -1,5 +1,4 @@
 import { BaseLLM } from '#llm/base-llm';
-import { type GenerateTextOptions, type LLM, type LlmMessage, lastText } from '#llm/llm';
 import { getLLM } from '#llm/llmFactory';
 import { DeepSeekR1_Together_Fireworks_Nebius_SambaNova } from '#llm/multi-agent/deepSeekR1_Fallbacks';
 import { Claude3_7_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
@@ -7,6 +6,7 @@ import { deepSeekR1, deepSeekV3 } from '#llm/services/deepseek';
 import { openAIo1, openAIo3mini } from '#llm/services/openai';
 import { togetherDeepSeekR1 } from '#llm/services/together';
 import { logger } from '#o11y/logger';
+import { type GenerateTextOptions, type LLM, type LlmMessage, lastText } from '#shared/model/llm.model';
 
 // sparse multi-agent debate https://arxiv.org/abs/2406.11776
 

@@ -1,6 +1,7 @@
-import type { CodeReviewConfig, CodeReviewFingerprintCache } from '#swe/codeReview/codeReviewModel';
-import { EMPTY_CACHE } from '#swe/codeReview/codeReviewModel';
+import type { CodeReviewConfig } from '#shared/model/codeReview.model';
 import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
+import type { CodeReviewFingerprintCache } from '#swe/codeReview/codeReviewTaskModel';
+import { EMPTY_CACHE } from '#swe/codeReview/codeReviewTaskModel';
 
 export class InMemoryCodeReviewService implements CodeReviewService {
 	private configStore: Map<string, CodeReviewConfig> = new Map<string, CodeReviewConfig>();

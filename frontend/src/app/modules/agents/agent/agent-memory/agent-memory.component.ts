@@ -1,5 +1,5 @@
 import { Component, Input } from '@angular/core';
-import { AgentContext } from '../../agent.types';
+import { AgentContextApi } from '#shared/api/agent.api';
 import { MatCardModule } from '@angular/material/card';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { NgForOf, NgIf, KeyValuePipe } from '@angular/common';
@@ -17,7 +17,7 @@ import { NgForOf, NgIf, KeyValuePipe } from '@angular/common';
     ],
 })
 export class AgentMemoryComponent {
-    @Input() agentDetails!: AgentContext | null;
+    @Input() agentDetails!: AgentContextApi | null;
 
     convertMemoryValue(value: any): string {
         // Stringify the value with pretty printing

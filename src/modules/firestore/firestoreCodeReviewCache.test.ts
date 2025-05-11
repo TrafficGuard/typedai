@@ -3,7 +3,7 @@ import { expect } from 'chai';
 import { firestoreDb } from '#firestore/firestore';
 import { FirestoreCodeReviewService } from '#firestore/firestoreCodeReviewService';
 import { resetFirestoreEmulator } from '#firestore/resetFirestoreEmulator';
-import { type CodeReviewFingerprintCache, EMPTY_CACHE } from '#swe/codeReview/codeReviewModel';
+import { type CodeReviewFingerprintCache, EMPTY_CACHE } from '#swe/codeReview/codeReviewTaskModel';
 
 // Helper for delaying execution (useful if needed for future tests, though not for current logic)
 // const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));

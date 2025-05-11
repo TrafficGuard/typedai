@@ -1,11 +1,11 @@
-import { LlmFunctions } from '#agent/LlmFunctions';
-import type { AgentContext } from '#agent/agentContextTypes';
+import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import { getCompletedHandler } from '#agent/completionHandlerRegistry';
 import { appContext } from '#app/applicationContext';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { deserializeLLMs } from '#llm/llmFactory';
 import { logger } from '#o11y/logger';
-import { currentUser } from '#user/userService/userContext';
+import type { AgentContext } from '#shared/model/agent.model';
+import { currentUser } from '#user/userContext';
 
 export function serializeContext(context: AgentContext): Record<string, any> {
 	const serialized = {};
@@ -73,7 +73,7 @@ export async function deserializeAgentContext(serialized: Record<keyof AgentCont
 	if (typeof serialized.functionCallHistory === 'string') context.functionCallHistory = JSON.parse(serialized.functionCallHistory);
 
 	context.fileSystem = new FileSystemService().fromJSON(serialized.fileSystem);
-	context.functions = new LlmFunctions().fromJSON(serialized.functions ?? (serialized as any).toolbox); // toolbox for backward compat
+	context.functions = new LlmFunctionsImpl().fromJSON(serialized.functions ?? (serialized as any).toolbox); // toolbox for backward compat
 	context.memory = serialized.memory;
 	context.metadata = serialized.metadata;
 	context.fileStore = serialized.fileStore;
@@ -94,12 +94,12 @@ export async function deserializeAgentContext(serialized: Record<keyof AgentCont
 
 	// backwards compatability
 	if ((context.type as any) === 'codegen') {
-		context.type = 'orchestrator';
+		context.type = 'autonomous';
 		context.subtype = 'codegen';
 	}
-	if (!context.type) context.type = 'orchestrator';
-	if (context.type === 'autonomous') context.type = 'orchestrator';
-	if (context.type === 'orchestrator' && !context.subtype) context.subtype = 'codegen';
+	if (!context.type) context.type = 'autonomous';
+	if ((context.type as any) === 'orchestrator') context.type = 'autonomous';
+	if (context.type === 'autonomous' && !context.subtype) context.subtype = 'codegen';
 	if (!context.iterations) context.iterations = 0;
 
 	// Need to default empty parameters. Seems to get lost in Firestore

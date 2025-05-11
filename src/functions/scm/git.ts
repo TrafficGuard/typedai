@@ -1,24 +1,18 @@
-import util from 'node:util';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import type { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import { execCmd, execCommand, failOnError } from '#utils/exec';
-import type { VersionControlSystem } from './versionControlSystem';
 
-export interface Commit {
-	title: string;
-	description: string;
-	diffs: Map<string, string>;
-}
+import type { IFileSystemService } from '#shared/services/fileSystemService';
+import type { Commit, VersionControlSystem } from '#shared/services/versionControlSystem';
 
 @funcClass(__filename)
 export class Git implements VersionControlSystem {
 	/** The branch name before calling switchToBranch. This enables getting the diff between the current and previous branch */
 	previousBranch: string | undefined;
 
-	constructor(private fileSystem: FileSystemService = getFileSystem()) {}
+	constructor(private fileSystem: IFileSystemService = getFileSystem()) {}
 
 	/**
 	 * Adds all files which are already tracked by version control to the index and commits.

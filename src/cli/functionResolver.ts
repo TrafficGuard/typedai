@@ -1,5 +1,5 @@
-import { AgentFeedback } from '#agent/orchestrator/functions/agentFeedback';
-import { LiveFiles } from '#agent/orchestrator/functions/liveFiles';
+import { AgentFeedback } from '#agent/autonomous/functions/agentFeedback';
+import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
 import { CommandLineInterface } from '#functions/commandLine';
 import { CustomFunctions } from '#functions/customFunctions';
 import { Jira } from '#functions/jira';
@@ -10,9 +10,9 @@ import { LocalFileStore } from '#functions/storage/localFileStore';
 import { LlmTools } from '#functions/util';
 import { Perplexity } from '#functions/web/perplexity';
 import { PublicWeb } from '#functions/web/web';
-import type { LLM } from '#llm/llm';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
+import type { LLM } from '#shared/model/llm.model';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { CodeFunctions } from '#swe/codeFunctions';
 import { NpmPackages } from '#swe/lang/nodejs/npmPackages';

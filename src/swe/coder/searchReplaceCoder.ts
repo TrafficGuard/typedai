@@ -1,7 +1,7 @@
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import { type LlmMessage, user as createUserMessage, messageText } from '#llm/llm'; // Added createUserMessage
 import { logger } from '#o11y/logger';
+import { type LlmMessage, user as createUserMessage, messageText } from '#shared/model/llm.model'; // Added createUserMessage
 import { ApplySearchReplace, type EditFormat } from '#swe/coder/applySearchReplace';
 
 @funcClass(__filename)

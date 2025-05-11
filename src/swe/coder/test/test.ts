@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 import { ClipboardModule } from '@angular/cdk/clipboard';
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { CommonModule, NgClass } from '@angular/common';
@@ -14,6 +16,7 @@ import {
 	ViewChild,
 	ViewEncapsulation,
 } from '@angular/core';
+
 import { ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';

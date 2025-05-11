@@ -1,17 +1,17 @@
 import { Type } from '@sinclair/typebox';
-import { LlmFunctions } from '#agent/LlmFunctions';
-import type { AgentType } from '#agent/agentContextTypes';
-import { type AgentExecution, startAgent } from '#agent/orchestrator/orchestratorAgentRunner';
+import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
+import { type AgentExecution, startAgent } from '#agent/autonomous/autonomousAgentRunner';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send } from '#fastify/index';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { getLLM } from '#llm/llmFactory';
 import { logger } from '#o11y/logger';
-import { currentUser } from '#user/userService/userContext';
+import type { AgentType } from '#shared/model/agent.model';
+import { currentUser } from '#user/userContext';
 
 const v1BasePath = '/api/agent/v1';
 
-const AGENT_TYPES: Array<AgentType> = ['autonomous', 'workflow', 'orchestrator'];
+const AGENT_TYPES: Array<AgentType> = ['autonomous', 'workflow'];
 
 export async function agentStartRoute(fastify: AppFastifyInstance) {
 	/** Starts a new agent */
@@ -40,7 +40,7 @@ export async function agentStartRoute(fastify: AppFastifyInstance) {
 			logger.info(req.body, `Starting agent ${name}`);
 
 			logger.info(Object.keys(functionFactory()));
-			const llmFunctions = new LlmFunctions();
+			const llmFunctions = new LlmFunctionsImpl();
 			for (const functionClassName of functions) {
 				const functionClass = functionFactory()[functionClassName];
 				if (!functionClass) {

@@ -21,7 +21,7 @@ specifically during file selection, design proposal and review.
 *   **Frontend Types:** `frontend/src/app/modules/vibe/vibe.types.ts`
 *   **Backend Routes:** `src/routes/vibe/vibeRoutes.ts`
 *   **Backend Service Interface:** `src/vibe/vibeService.ts`
-*   **Backend Types:** `src/vibe/vibeTypes.ts`
+*   **Backend Types:** `src/vibe/vibe.model.ts`
 *   **Agents:** `src/swe/discovery/selectFilesAgent.ts`, `src/swe/codeEditingAgent.ts`
 *   **Utilities:** `src/functions/storage/fileSystemService.ts`, `src/functions/scm/git.ts`, `src/functions/scm/sourceControlManagement.ts`
 
@@ -30,7 +30,7 @@ specifically during file selection, design proposal and review.
 Based on the provided files:
 
 1.  **Session Creation:** Users initiate a session via the `NewVibeWizardComponent`. They provide a title, instructions, select a repository (local, GitHub, GitLab), target branch, and configure the working branch (`new`, `existing`, `target`). (Ref: `new-vibe-wizard.component.ts`, `vibeRoutes.ts`, `CreateVibeSessionBodySchema`).
-2.  **Backend Initialization:** Upon creation (`POST /api/vibe`), the `FirestoreVibeRepository` saves the session with status `initializing`. It then *asynchronously triggers a mock agent* (`runInitialSetupAgent`) which simulates cloning, file selection, and initial design generation. On mock completion, it updates the status to `file_selection_review` and populates `fileSelection` and `designAnswer`. (Ref: `firestoreVibeRepository.ts`, `vibeTypes.ts::VibeStatus`).
+2.  **Backend Initialization:** Upon creation (`POST /api/vibe`), the `FirestoreVibeRepository` saves the session with status `initializing`. It then *asynchronously triggers a mock agent* (`runInitialSetupAgent`) which simulates cloning, file selection, and initial design generation. On mock completion, it updates the status to `file_selection_review` and populates `fileSelection` and `designAnswer`. (Ref: `firestoreVibeRepository.ts`, `vibe.model.ts::VibeStatus`).
 3.  **Data Storage:** Sessions and Presets are stored in Firestore under user-specific subcollections. (Ref: `firestoreVibeRepository.ts`).
 4.  **Workflow Actions:** API routes exist for various workflow steps (`update-selection`, `generate-design`, `update-design-prompt`, `execute-design`), but the backend implementation (`firestoreVibeRepository.ts`) currently uses mock agent runners for these actions.
 5.  **UI Components:** Basic components exist for listing selected files (`vibe-file-list.component.ts`) and displaying/editing a design proposal (`vibe-design-proposal.component.ts`).
@@ -50,7 +50,7 @@ Based on the provided files:
 
 ## 4. Workflow / State Machine
 
-The Vibe session status (`VibeStatus` in `src/vibe/vibeTypes.ts`) will transition as follows:
+The Vibe session status (`VibeStatus` in `src/vibe/vibe.model.ts`) will transition as follows:
 
 1.  **`initializing`**: (Start) Session created. Backend clones repo, runs `selectFilesAgent`, generates initial design.
     *   *On Success:* -> `file_selection_review`
@@ -94,7 +94,7 @@ The Vibe session status (`VibeStatus` in `src/vibe/vibeTypes.ts`) will transitio
 When editing any files in the folder the file selection agent should always include
 - src/vibe/vibeService.ts
 - src/routes/vibe/vibeRoutes.ts
-- src/vibe/vibeTypes.ts
+- src/vibe/vibe.model.ts
 
 
 ## 8. Open Questions / Future Considerations

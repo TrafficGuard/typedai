@@ -2,8 +2,8 @@ import { nebiusDeepSeekR1 } from '#llm/services/nebius';
 import { sambanovaDeepseekR1 } from '#llm/services/sambanova';
 import { togetherDeepSeekR1 } from '#llm/services/together';
 import { logger } from '#o11y/logger';
+import type { GenerateTextOptions, LLM, LlmMessage } from '#shared/model/llm.model';
 import { BaseLLM } from '../base-llm';
-import type { GenerateTextOptions, LLM, LlmMessage } from '../llm';
 import { fireworksDeepSeekR1_Fast } from '../services/fireworks';
 
 export function deepSeekFallbackRegistry(): Record<string, () => LLM> {

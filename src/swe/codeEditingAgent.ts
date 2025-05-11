@@ -1,16 +1,16 @@
 import { agentContext, getFileSystem, llms } from '#agent/agentContextLocalStorage';
-import { ForceStopError, forceStopErrorCheck } from '#agent/forceStopAgent';
+import { forceStopErrorCheck } from '#agent/forceStopAgent';
 import { appContext } from '#app/applicationContext';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import type { FileSystemService } from '#functions/storage/fileSystemService';
 import { Perplexity } from '#functions/web/perplexity';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
+import type { IFileSystemService } from '#shared/services/fileSystemService';
 import { type CompileErrorAnalysis, type CompileErrorAnalysisDetails, analyzeCompileErrors } from '#swe/analyzeCompileErrors';
 import { type SelectedFile, selectFilesAgent } from '#swe/discovery/selectFilesAgent';
 import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
-import { getRepositoryOverview, getTopLevelSummary } from '#swe/index/repoIndexDocBuilder';
+import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
 import { onlineResearch } from '#swe/onlineResearch';
 import { reviewChanges } from '#swe/reviewChanges';
 import { supportingInformation } from '#swe/supportingInformation';
@@ -18,7 +18,7 @@ import { execCommand } from '#utils/exec';
 import { cacheRetry } from '../cache/cacheRetry';
 import { AiderCodeEditor } from './aiderCodeEditor';
 import { type SelectFilesResponse, selectFilesToEdit } from './discovery/selectFilesToEdit';
-import { type ProjectInfo, detectProjectInfo, getProjectInfo } from './projectDetection';
+import { type ProjectInfo, getProjectInfo } from './projectDetection';
 import { basePrompt } from './prompt';
 import { summariseRequirements } from './summariseRequirements';
 import { tidyDiff } from './tidyDiff';
@@ -42,14 +42,14 @@ export class CodeEditingAgent {
 	@func()
 	async implementUserRequirements(
 		requirements: string,
-		altOptions?: { projectInfo?: ProjectInfo; workingDirectory?: string }, // altOptions are for programmatic use and not exposed to the orchestrator agents.
+		altOptions?: { projectInfo?: ProjectInfo; workingDirectory?: string }, // altOptions are for programmatic use and not exposed to the autonomous agents.
 	): Promise<string> {
 		if (!requirements) throw new Error('The argument "requirements" must be provided');
 
 		let projectInfo: ProjectInfo = altOptions?.projectInfo;
 		projectInfo ??= await getProjectInfo();
 
-		const fss: FileSystemService = getFileSystem();
+		const fss: IFileSystemService = getFileSystem();
 		if (altOptions?.workingDirectory) fss.setWorkingDirectory(altOptions.workingDirectory);
 		fss.setWorkingDirectory(projectInfo.baseDir);
 
@@ -86,7 +86,7 @@ export class CodeEditingAgent {
 		implementationPlan: string,
 		fileSelection: string[],
 		requirements?: string | null, // The original requirements for when called from runCodeEditWorkflow
-		altOptions?: { projectInfo?: ProjectInfo; workingDirectory?: string }, // altOptions are for programmatic use and not exposed to the orchestrator agents.
+		altOptions?: { projectInfo?: ProjectInfo; workingDirectory?: string }, // altOptions are for programmatic use and not exposed to the autonomous agents.
 	): Promise<string> {
 		if (!implementationPlan) throw new Error('The argument "implementationPlan" must be provided');
 		if (fileSelection && !Array.isArray(fileSelection)) {
@@ -96,7 +96,7 @@ export class CodeEditingAgent {
 		let projectInfo: ProjectInfo = altOptions?.projectInfo;
 		projectInfo ??= await getProjectInfo();
 
-		const fss: FileSystemService = getFileSystem();
+		const fss: IFileSystemService = getFileSystem();
 		if (altOptions?.workingDirectory) fss.setWorkingDirectory(altOptions.workingDirectory);
 		fss.setWorkingDirectory(projectInfo.baseDir);
 
@@ -180,7 +180,7 @@ export class CodeEditingAgent {
 		   which don't compile, we can provide the diff since the last good commit to help identify causes of compile issues. */
 		let compiledCommitSha: string | null = agentContext().memory.compiledCommitSha;
 
-		const fs: FileSystemService = getFileSystem();
+		const fs: IFileSystemService = getFileSystem();
 		const git = fs.getVcs();
 
 		const MAX_ATTEMPTS = 5;

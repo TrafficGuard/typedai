@@ -1,6 +1,6 @@
 /**
  * State of a vibe coding session
- * This must match the server API VibeSession at src/vibe/vibeTypes.ts
+ * This must match the server API VibeSession at src/vibe/vibe.model.ts
  */
 export interface VibeSession {
 	id: string;
@@ -97,7 +97,7 @@ export interface GitProject {
 
 /**
  * Represents a saved Vibe session configuration preset.
- * Must match VibePreset in src/vibe/vibeTypes.ts
+ * Must match VibePreset in src/vibe/vibe.model.ts
  */
 export interface VibePreset {
 	id: string;

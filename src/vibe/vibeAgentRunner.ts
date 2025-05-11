@@ -1,7 +1,7 @@
 import { startWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { logger } from '#o11y/logger';
+import type { VibeSession } from '#shared/model/vibe.model';
 import type { VibeRepository } from '#vibe/vibeRepository';
-import type { VibeSession } from '#vibe/vibeTypes';
 
 export async function runVibeWorkflowAgent(vibe: VibeSession, subtype: string, vibeRepo: VibeRepository, workflow: () => any): Promise<any> {
 	// Prepare agent config, ensuring vibeSessionId is included

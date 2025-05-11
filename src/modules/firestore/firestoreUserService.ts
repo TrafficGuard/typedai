@@ -2,9 +2,9 @@ import { type DocumentSnapshot, Firestore } from '@google-cloud/firestore';
 import * as bcrypt from 'bcrypt';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import type { User } from '#user/user';
-import { currentUser, isSingleUser } from '#user/userService/userContext';
-import type { UserService } from '#user/userService/userService';
+import type { User } from '#shared/model/user.model';
+import { currentUser, isSingleUser } from '#user/userContext';
+import type { UserService } from '#user/userService';
 import { envVar } from '#utils/env-var';
 
 export const USERS_COLLECTION = 'Users';

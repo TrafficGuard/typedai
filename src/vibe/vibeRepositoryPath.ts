@@ -1,7 +1,7 @@
 import { join } from 'node:path';
-import { systemDir } from '#app/appVars';
+import { systemDir } from '#app/appDirs';
 import { logger } from '#o11y/logger';
-import type { VibeSession } from '#vibe/vibeTypes';
+import type { VibeSession } from '#shared/model/vibe.model';
 
 export function getVibeRepositoryPath(session: VibeSession): string {
 	const sessionId = session.id;

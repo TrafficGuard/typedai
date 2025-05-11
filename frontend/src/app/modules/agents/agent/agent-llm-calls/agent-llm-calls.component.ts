@@ -7,7 +7,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { environment } from 'environments/environment';
-import type { LlmCall, LlmMessage } from '../../agent.types';
+import type { LlmMessage } from '#shared/model/llm.model';
+import type { LlmCall } from '#shared/model/llmCall.model';
 import { AgentService } from '../../services/agent.service';
 
 @Component({
@@ -38,10 +39,6 @@ export class AgentLlmCallsComponent implements OnInit {
 			(calls) => {
 				this.llmCalls = calls;
 				this.llmCalls.forEach((call) => {
-					call.userPrompt = call.userPrompt?.replace('\\n', '<br/>');
-					if (call.systemPrompt) {
-						call.systemPrompt = call.systemPrompt.replace('\\n', '<br/>');
-					}
 					for (const msg of call.messages) {
 						if (typeof msg.content === 'string') msg.content = msg.content.replace('\\n', '<br/>');
 					}

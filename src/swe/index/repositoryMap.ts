@@ -5,6 +5,7 @@ import { getFileSystem } from '#agent/agentContextLocalStorage';
 import type { FileSystemService } from '#functions/storage/fileSystemService';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
+import type { IFileSystemService } from '#shared/services/fileSystemService';
 import type { ProjectInfo } from '#swe/projectDetection';
 import { type Summary, getTopLevelSummary, loadBuildDocsSummaries } from './repoIndexDocBuilder';
 
@@ -135,7 +136,7 @@ async function generateFileSystemTreeWithSummaries(summaries: Map<string, Summar
  * @param fileSystemService An instance of FileSystemService to use for file operations.
  * @returns A Promise resolving to a Folder object representing the directory structure and token counts.
  */
-export async function buildFolderStructure(dirPath: string, fileSystemService: FileSystemService): Promise<Folder> {
+export async function buildFolderStructure(dirPath: string, fileSystemService: IFileSystemService): Promise<Folder> {
 	const folderName = path.basename(dirPath) || '.';
 	const currentFolder = new Folder(folderName);
 	// Resolve path relative to the FileSystemService's *current* working directory

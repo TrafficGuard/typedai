@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path, { join } from 'node:path';
-import { systemDir } from '#app/appVars';
+import { systemDir } from '#app/appDirs';
 import { logger } from '#o11y/logger';
 
 // Define a custom error type

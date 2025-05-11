@@ -1,24 +1,24 @@
 import { type GenerateTextResult, StreamTextResult, type TextStreamPart } from 'ai';
-import type { AgentContext } from '#agent/agentContextTypes';
 import { countTokens } from '#llm/tokens';
+import type { AgentContext } from '#shared/model/agent.model';
 import {
 	type GenerateJsonOptions,
 	type GenerateTextOptions,
-	type GenerationStats,
 	// Import GenerateTextWithJsonResponse
 	type GenerateTextWithJsonResponse,
+	type GenerationStats,
 	type LLM,
 	type LlmMessage,
 	type Prompt,
 	SystemUserPrompt,
+	// Import assistant
+	assistant,
 	isSystemUserPrompt,
 	system,
 	user,
-	// Import assistant
-	assistant,
-} from './llm';
+} from '#shared/model/llm.model';
 // Import extractReasoningAndJson, extractJsonResult is still used by generateJson
-import { extractJsonResult, extractTag, extractReasoningAndJson } from './responseParsers';
+import { extractJsonResult, extractReasoningAndJson, extractTag } from './responseParsers';
 
 export interface SerializedLLM {
 	service: string;

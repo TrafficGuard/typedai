@@ -1,9 +1,18 @@
 import path from 'node:path';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
-import { ImagePartExt, type LLM, type LlmMessage, type UserContentExt, assistant, contentText, extractAttachments } from '#llm/llm';
-import { text, user } from '#llm/llm';
 import { extractTag } from '#llm/responseParsers';
 import { logger } from '#o11y/logger';
+import {
+	type GenerateTextWithJsonResponse,
+	ImagePartExt,
+	type LLM,
+	type LlmMessage,
+	type UserContentExt,
+	assistant,
+	contentText,
+	extractAttachments,
+} from '#shared/model/llm.model';
+import { text, user } from '#shared/model/llm.model';
 import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
 import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
 import { type RepositoryMaps, generateRepositoryMaps } from '#swe/index/repositoryMap';
@@ -116,7 +125,7 @@ Respond in the following structure, with the answer in Markdown format inside th
  * where #3 must always follow #2.
  *
  * To maximize caching input tokens to the LLM, new messages will be added to the previous messages with the results of the actions.
- * This should reduce cost and latency compared to using the dynamic orchestrator agents to perform the task. (However that might change if we get the caching orchestrator agent working)
+ * This should reduce cost and latency compared to using the dynamic autonomous agents to perform the task. (However that might change if we get the caching autonomous agent working)
  *
  * Example:
  * [index] - [role]: [message]
@@ -168,7 +177,8 @@ async function selectFilesCore(
 
 	let llm = llms().medium;
 
-	const initialResponse: InitialResponse = await llm.generateTextWithJson(messages, { id: 'Select Files initial' });
+	const response: GenerateTextWithJsonResponse<InitialResponse> = await llm.generateTextWithJson(messages, { id: 'Select Files initial' });
+	const initialResponse = response.object;
 	messages.push({ role: 'assistant', content: JSON.stringify(initialResponse) });
 
 	let filesToInspect = initialResponse.inspectFiles || [];
@@ -371,7 +381,10 @@ The final part of the response must be a JSON object in the following format:
 
 	const iterationMessages: LlmMessage[] = [...messages, { role: 'user', content: prompt }];
 
-	return await llm.generateTextWithJson(iterationMessages, { id: `Select Files iteration ${iteration}` });
+	const response: GenerateTextWithJsonResponse<IterationResponse> = await llm.generateTextWithJson(iterationMessages, {
+		id: `Select Files iteration ${iteration}`,
+	});
+	return response.object;
 }
 
 /**

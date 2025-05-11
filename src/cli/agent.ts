@@ -1,17 +1,19 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
-import type { LlmFunctions } from '#agent/LlmFunctions';
-import { AgentFeedback } from '#agent/orchestrator/functions/agentFeedback';
-import { waitForConsoleInput } from '#agent/orchestrator/humanInTheLoop';
-import { provideFeedback, resumeCompleted, resumeError, resumeHil, startAgent } from '#agent/orchestrator/orchestratorAgentRunner';
+import type { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
+import { provideFeedback, resumeCompleted, resumeError, resumeHil, startAgent } from '#agent/autonomous/autonomousAgentRunner';
+import { AgentFeedback } from '#agent/autonomous/functions/agentFeedback';
+import { waitForConsoleInput } from '#agent/autonomous/humanInTheLoop';
 import { appContext, initApplicationContext } from '#app/applicationContext';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
+import { registerErrorHandlers } from '../errorHandlers';
 import { parseProcessArgs, saveAgentId } from './cli';
 import { resolveFunctionClasses } from './functionResolver';
 
 export async function main() {
+	registerErrorHandlers();
 	const llms = defaultLLMs();
 	await initApplicationContext();
 
@@ -37,7 +39,7 @@ export async function main() {
 		}
 	}
 
-	let functions: LlmFunctions | Array<new () => any>;
+	let functions: LlmFunctionsImpl | Array<new () => any>;
 	if (functionClasses?.length) {
 		functions = await resolveFunctionClasses(functionClasses);
 	} else {
@@ -53,7 +55,7 @@ export async function main() {
 		initialPrompt,
 		functions,
 		llms,
-		type: 'orchestrator',
+		type: 'autonomous',
 		subtype: 'codegen',
 		resumeAgentId,
 		humanInLoop: {

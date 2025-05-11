@@ -118,6 +118,7 @@
                 <mat-icon>stop_circle</mat-icon>
             </button>
             <button
+                *ngIf="agentDetails.type === 'autonomous'"
                 mat-icon-button
                 color="primary"
                 (click)="requestHilCheck()"
@@ -138,6 +139,11 @@
             <div class="mt-2 flex flex-col">
                 <span class="mb-2 font-bold text-lg">Type</span>
                 <span class="mb-2">{{ agentDetails.type }}</span>
+            </div>
+
+            <div class="mt-2 flex flex-col">
+                <span class="mb-2 font-bold text-lg">Sub-Type</span>
+                <span class="mb-2">{{ agentDetails.subtype }}</span>
             </div>
 
             <div class="mt-2 flex flex-col">

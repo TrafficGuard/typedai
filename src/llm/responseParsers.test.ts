@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 
 // Import extractReasoningAndJson
-import { extractJsonResult, extractTag, parseFunctionCallsXml, extractReasoningAndJson } from './responseParsers';
+import { extractJsonResult, extractReasoningAndJson, extractTag, parseFunctionCallsXml } from './responseParsers';
 
 describe('responseParsers', () => {
 	describe('extractJsonResult', () => {
@@ -210,7 +210,7 @@ describe('responseParsers', () => {
 			expect(result.object).to.deep.equal({ xmlOnly: 'data' });
 			expect(result.jsonString).to.equal('{ "xmlOnly": "data" }');
 		});
-		
+
 		it('Should handle plain JSON string as input (no reasoning)', () => {
 			const text = '{ "plain": true }';
 			const result = extractReasoningAndJson<{ plain: boolean }>(text);
@@ -228,7 +228,7 @@ describe('responseParsers', () => {
 			const text = 'Reasoning.\n<json>\n{ "foo": "bar", \n</json>'; // Malformed
 			expect(() => extractReasoningAndJson(text)).to.throw(SyntaxError, /Failed to parse JSON content/);
 		});
-		
+
 		it('Should throw Error if no JSON block is found and text is not plain JSON', () => {
 			const text = 'This is just some text without any JSON.';
 			expect(() => extractReasoningAndJson(text)).to.throw(Error, 'Failed to extract structured JSON.');
@@ -241,7 +241,7 @@ describe('responseParsers', () => {
 			expect(result.object).to.deep.equal({ ws: 'test' });
 			expect(result.jsonString).to.equal('{ "ws": "test" }');
 		});
-		
+
 		it('Should correctly parse if JSON block is not at the very end but is the last structured block', () => {
 			// Current regexes with `$` will fail this if there's text after the block.
 			// This test clarifies the behavior: it expects the block to be effectively last.
@@ -254,10 +254,11 @@ describe('responseParsers', () => {
 
 		// Add a new test case for the specific scenario mentioned by the user with XML and trailing </thought>
 		it('Should correctly parse XML JSON block with trailing text like </thought>', () => {
-			const textWithTrailingThought = '<think>\nSome thoughts here.\n</think>\n<json>\n{\n  "inspectFiles": [\n    "production/lb.tf"\n  ]\n}\n</json>\n</thought>';
+			const textWithTrailingThought =
+				'<think>\nSome thoughts here.\n</think>\n<json>\n{\n  "inspectFiles": [\n    "production/lb.tf"\n  ]\n}\n</json>\n</thought>';
 			const result = extractReasoningAndJson<{ inspectFiles: string[] }>(textWithTrailingThought);
 			expect(result.reasoning).to.equal('<think>\nSome thoughts here.\n</think>');
-			expect(result.object).to.deep.equal({ inspectFiles: ["production/lb.tf"] });
+			expect(result.object).to.deep.equal({ inspectFiles: ['production/lb.tf'] });
 			expect(result.jsonString).to.equal('{\n  "inspectFiles": [\n    "production/lb.tf"\n  ]\n}');
 		});
 	});

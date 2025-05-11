@@ -1,6 +1,6 @@
 import { assert, expect } from 'chai';
 import { resetFirestoreEmulator } from '#firestore/resetFirestoreEmulator';
-import type { User } from '#user/user';
+import type { User } from '#shared/model/user.model';
 import { FirestoreUserService } from './firestoreUserService';
 
 describe('FirestoreUserService', () => {

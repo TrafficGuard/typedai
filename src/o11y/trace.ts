@@ -2,8 +2,8 @@ import type { AsyncLocalStorage } from 'node:async_hooks';
 /* eslint-disable semi */
 import type { Span, SpanContext, Tracer } from '@opentelemetry/api';
 import { trace } from '@opentelemetry/api';
-import type { AgentContext } from '#agent/agentContextTypes';
 import { logger } from '#o11y/logger';
+import type { AgentContext } from '#shared/model/agent.model';
 import { type SugaredTracer, wrapTracer } from './trace/SugaredTracer';
 
 const _fakeSpan: Partial<Span> = {

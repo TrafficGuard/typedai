@@ -1,4 +1,4 @@
-import type { UpdateVibeSessionData, VibePreset, VibeSession } from './vibeTypes';
+import type { UpdateVibeSessionData, VibePreset, VibeSession } from '#shared/model/vibe.model';
 
 /**
  * Interface defining the persistence operations for Vibe sessions and presets.

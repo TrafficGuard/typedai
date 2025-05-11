@@ -1,9 +1,9 @@
 import type { AgentContextService } from '#agent/agentContextService/agentContextService';
-import type { ChatService } from '#chat/chatTypes';
+import type { ChatService } from '#chat/chatService';
 import type { TypeBoxFastifyInstance } from '#fastify/fastifyApp';
 import type { LlmCallService } from '#llm/llmCallService/llmCallService';
 import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
-import type { UserService } from '#user/userService/userService';
+import type { UserService } from '#user/userService';
 import type { VibeRepository } from '#vibe/vibeRepository';
 import type { FunctionCacheService } from '../cache/functionCacheService';
 

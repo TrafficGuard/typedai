@@ -1,10 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { agentContext } from '#agent/agentContextLocalStorage';
-import { systemDir } from '#app/appVars';
+import { systemDir } from '#app/appDirs';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import type { FileMetadata, FileStore } from '#functions/storage/filestore';
-import type { ToolType } from '#functions/toolType';
+import type { FileStore } from '#functions/storage/filestore';
+import type { FileMetadata } from '#shared/model/files.model';
+import type { ToolType } from '#shared/services/functions';
 
 /**
  * FileStore implementation that stores files on the local file system.

@@ -4,11 +4,11 @@ import sinon from 'sinon';
 import * as agentContextLocalStorage from '#agent/agentContextLocalStorage';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { InMemoryVibeRepository } from '#modules/memory/inMemoryVibeRepository';
+import type { VibeSession, VibeStatus } from '#shared/model/vibe.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import type { VibeRepository } from '#vibe/vibeRepository';
 import { getVibeRepositoryPath } from '#vibe/vibeRepositoryPath';
 import { VibeSessionCreation } from '#vibe/vibeSessionCreation';
-import type { VibeSession, VibeStatus } from '#vibe/vibeTypes';
 
 chai.use(chaiAsPromised);
 

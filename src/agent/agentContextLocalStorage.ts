@@ -1,12 +1,13 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
-import { LlmFunctions } from '#agent/LlmFunctions';
-import type { AgentContext, AgentLLMs } from '#agent/agentContextTypes';
-import { ConsoleCompletedHandler } from '#agent/orchestrator/agentCompletion';
-import type { RunAgentConfig, RunWorkflowConfig } from '#agent/orchestrator/orchestratorAgentRunner';
+import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
+import { ConsoleCompletedHandler } from '#agent/autonomous/agentCompletion';
+import type { RunAgentConfig, RunWorkflowConfig } from '#agent/autonomous/autonomousAgentRunner';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
-import { currentUser } from '#user/userService/userContext';
+import type { AgentContext, AgentLLMs } from '#shared/model/agent.model';
+import type { IFileSystemService } from '#shared/services/fileSystemService';
+import { currentUser } from '#user/userContext';
 
 export const agentContextStorage = new AsyncLocalStorage<AgentContext>();
 
@@ -41,7 +42,7 @@ export function addNote(note: string): void {
 /**
  * @return the filesystem on the current agent context
  */
-export function getFileSystem(): FileSystemService {
+export function getFileSystem(): IFileSystemService {
 	if (!agentContextStorage.getStore()) return new FileSystemService();
 	const filesystem = agentContextStorage.getStore()?.fileSystem;
 	if (!filesystem) throw new Error('No file system available on the agent context');
@@ -83,7 +84,7 @@ export function createContext(config: RunAgentConfig | RunWorkflowConfig): Agent
 		llms: config.llms, // we can't do `?? defaultLLMs()` as compiling breaks from import cycle dependencies,
 		fileSystem,
 		useSharedRepos: config.useSharedRepos ?? true, // Apply default if not provided in config
-		functions: Array.isArray(config.functions) ? new LlmFunctions(...config.functions) : config.functions,
+		functions: Array.isArray(config.functions) ? new LlmFunctionsImpl(...config.functions) : config.functions,
 		completedHandler: config.completedHandler ?? new ConsoleCompletedHandler(),
 		memory: {},
 		invoking: [],

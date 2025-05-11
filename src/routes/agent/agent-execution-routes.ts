@@ -1,13 +1,13 @@
 import { Type } from '@sinclair/typebox';
-import { LlmFunctions } from '#agent/LlmFunctions';
-import { isExecuting } from '#agent/agentContextTypes';
+import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import { serializeContext } from '#agent/agentSerialization';
+import { cancelAgent, provideFeedback, resumeCompleted, resumeError, resumeHil } from '#agent/autonomous/autonomousAgentRunner';
 import { forceStopAgent } from '#agent/forceStopAgent';
-import { cancelAgent, provideFeedback, resumeCompleted, resumeError, resumeHil } from '#agent/orchestrator/orchestratorAgentRunner';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send, sendBadRequest } from '#fastify/index';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
+import { isExecuting } from '#shared/model/agent.model';
 
 const v1BasePath = '/api/agent/v1';
 export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
@@ -215,7 +215,7 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 				const agent = await fastify.agentStateService.load(agentId);
 				if (!agent) throw new Error('Agent not found');
 
-				agent.functions = new LlmFunctions();
+				agent.functions = new LlmFunctionsImpl();
 				for (const functionName of functions) {
 					const FunctionClass = functionFactory()[functionName];
 					if (FunctionClass) {

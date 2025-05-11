@@ -5,7 +5,7 @@ import { agentContext, agentContextStorage, createContext } from '#agent/agentCo
 import { initInMemoryApplicationContext } from '#app/applicationContext';
 import { mockLLMs } from '#llm/services/mock-llm';
 import { logger } from '#o11y/logger';
-import { currentUser } from '#user/userService/userContext';
+import { currentUser } from '#user/userContext';
 import { RetryableError, cacheRetry } from '../../cache/cacheRetry';
 import { FirestoreCacheService } from './firestoreFunctionCacheService';
 

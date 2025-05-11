@@ -3,7 +3,8 @@ import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnChanges
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
-import { AgentContext, FileMetadata } from '../../agent.types';
+import { AgentContextApi } from '#shared/api/agent.api';
+import { FileMetadata } from '#shared/model/files.model';
 import { AgentService } from '../../services/agent.service'; // Changed from 'import type'
 
 @Component({
@@ -15,7 +16,7 @@ import { AgentService } from '../../services/agent.service'; // Changed from 'im
 	imports: [CommonModule, MatTableModule, MatProgressSpinnerModule, MatSnackBarModule],
 })
 export class AgentToolStateComponent implements OnInit, OnChanges {
-	@Input() agentDetails!: AgentContext;
+	@Input() agentDetails!: AgentContextApi;
 
 	// FileStore fields
 	fileStore: FileMetadata[] = [];

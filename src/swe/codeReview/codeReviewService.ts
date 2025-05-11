@@ -1,4 +1,5 @@
-import type { CodeReviewConfig, CodeReviewFingerprintCache } from '#swe/codeReview/codeReviewModel';
+import type { CodeReviewConfig } from '#shared/model/codeReview.model';
+import type { CodeReviewFingerprintCache } from '#swe/codeReview/codeReviewTaskModel';
 
 export interface CodeReviewService {
 	getCodeReviewConfig(id: string): Promise<CodeReviewConfig | null>;

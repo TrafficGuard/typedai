@@ -1,10 +1,20 @@
 import path from 'node:path';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
-import { ImagePartExt, type LLM, type LlmMessage, type UserContentExt, assistant, contentText, extractAttachments } from '#llm/llm';
-import { text, user } from '#llm/llm';
+import { FileSystemService } from '#functions/storage/fileSystemService';
 import { extractTag } from '#llm/responseParsers';
 import { logger } from '#o11y/logger';
-import { FileSystemService } from '#functions/storage/fileSystemService';
+import {
+	type GenerateTextWithJsonResponse,
+	ImagePartExt,
+	type LLM,
+	type LlmMessage,
+	type UserContentExt,
+	assistant,
+	contentText,
+	extractAttachments,
+	messageText,
+} from '#shared/model/llm.model';
+import { text, user } from '#shared/model/llm.model';
 import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
 import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
 import { type RepositoryMaps, generateRepositoryMaps } from '#swe/index/repositoryMap';
@@ -65,13 +75,13 @@ export async function selectFilesAgent(requirements: UserContentExt, projectInfo
 	return selectedFiles;
 }
 
-export async function queryWorkflow(query: UserContentExt, projectInfo?: ProjectInfo): Promise<string> {
+export async function queryWorkflowWithSearch(query: UserContentExt, projectInfo?: ProjectInfo): Promise<string> {
 	if (!query) throw new Error('query must be provided');
-	const { files, answer } = await queryWithFileSelection(query, projectInfo);
+	const { files, answer } = await queryWithFileSelection2(query, projectInfo);
 	return answer;
 }
 
-export async function queryWithFileSelection(query: UserContentExt, projectInfo?: ProjectInfo): Promise<{ files: SelectedFile[]; answer: string }> {
+export async function queryWithFileSelection2(query: UserContentExt, projectInfo?: ProjectInfo): Promise<{ files: SelectedFile[]; answer: string }> {
 	const { messages, selectedFiles } = await selectFilesCore(query, projectInfo);
 
 	// Construct the final prompt for answering the query
@@ -123,7 +133,7 @@ Respond in the following structure, with the answer in Markdown format inside th
  * where #3 must always follow #2.
  *
  * To maximize caching input tokens to the LLM, new messages will be added to the previous messages with the results of the actions.
- * This should reduce cost and latency compared to using the dynamic orchestrator agents to perform the task. (However that might change if we get the caching orchestrator agent working)
+ * This should reduce cost and latency compared to using the dynamic autonomous agents to perform the task. (However that might change if we get the caching autonomous agent working)
  *
  * Example:
  * [index] - [role]: [message]
@@ -175,7 +185,9 @@ async function selectFilesCore(
 
 	let llm = llms().medium;
 
-	const initialResponse: InitialResponse = await llm.generateTextWithJson(messages, { id: 'Select Files initial' });
+	const response: GenerateTextWithJsonResponse<InitialResponse> = await llm.generateTextWithJson(messages, { id: 'Select Files initial' });
+	logger.info(messageText(response.message));
+	const initialResponse = response.object;
 	messages.push({ role: 'assistant', content: JSON.stringify(initialResponse) });
 
 	let filesToInspect = initialResponse.inspectFiles || [];
@@ -192,74 +204,14 @@ async function selectFilesCore(
 		if (iterationCount > maxIterations) throw new Error('Maximum interaction iterations reached.');
 
 		const response: IterationResponse = await generateFileSelectionProcessingResponse(messages, filesToInspect, filesPendingDecision, iterationCount, llm);
-		logger.info(response);
+		console.log(response);
 
 		if (response.search) {
 			const searchRegex = response.search;
-			let searchResultsText = '';
-			let searchPerformedSuccessfully = false;
-			const fs = getFileSystem();
-
-			try {
-				logger.debug(`Attempting search with regex "${searchRegex}" and context 1`);
-				const extractsC1 = await fs.searchExtractsMatchingContents(searchRegex, 1);
-				if (extractsC1.length <= MAX_SEARCH_CHARS) {
-					searchResultsText = `<search_results regex="${searchRegex}" context_lines="1">\n${extractsC1}\n</search_results>\n`;
-					searchPerformedSuccessfully = true;
-					logger.debug(`Search with context 1 succeeded, length: ${extractsC1.length}`);
-				} else {
-					logger.debug(`Search with context 1 too long: ${extractsC1.length} chars`);
-				}
-			} catch (e) {
-				logger.warn(e, `Error during searchExtractsMatchingContents (context 1) for regex: ${searchRegex}`);
-				searchResultsText = `<search_error regex="${searchRegex}" context_lines="1">\nError: ${e.message}\n</search_error>\n`;
-			}
-
-			if (!searchPerformedSuccessfully && !searchResultsText.includes('<search_error')) {
-				try {
-					logger.debug(`Attempting search with regex "${searchRegex}" and context 0`);
-					const extractsC0 = await fs.searchExtractsMatchingContents(searchRegex, 0);
-					if (extractsC0.length <= MAX_SEARCH_CHARS) {
-						searchResultsText = `<search_results regex="${searchRegex}" context_lines="0">\n${extractsC0}\n</search_results>\n`;
-						searchPerformedSuccessfully = true;
-						logger.debug(`Search with context 0 succeeded, length: ${extractsC0.length}`);
-					} else {
-						logger.debug(`Search with context 0 too long: ${extractsC0.length} chars`);
-					}
-				} catch (e) {
-					logger.warn(e, `Error during searchExtractsMatchingContents (context 0) for regex: ${searchRegex}`);
-					searchResultsText = `<search_error regex="${searchRegex}" context_lines="0">\nError: ${e.message}\n</search_error>\n`;
-				}
-			}
-
-			if (!searchPerformedSuccessfully && !searchResultsText.includes('<search_error')) {
-				try {
-					logger.debug(`Attempting search with regex "${searchRegex}" (file counts)`);
-					let fileMatches = await fs.searchFilesMatchingContents(searchRegex);
-					if (fileMatches.length <= MAX_SEARCH_CHARS) {
-						searchResultsText = `<search_results regex="${searchRegex}" type="file_counts">\n${fileMatches}\n</search_results>\n`;
-						searchPerformedSuccessfully = true;
-						logger.debug(`Search with file_counts succeeded, length: ${fileMatches.length}`);
-					} else {
-						const originalLength = fileMatches.length;
-						fileMatches = fileMatches.substring(0, MAX_SEARCH_CHARS);
-						searchResultsText = `<search_results regex="${searchRegex}" type="file_counts" truncated="true" original_chars="${originalLength}" truncated_chars="${MAX_SEARCH_CHARS}">\n${fileMatches}\n</search_results>\nNote: Search results were too large (${originalLength} characters, estimated ${Math.ceil(originalLength / APPROX_CHARS_PER_TOKEN)} tokens) and have been truncated to ${MAX_SEARCH_CHARS} characters (estimated ${MAX_SEARCH_TOKENS} tokens). Please use a more specific search term if needed.\n`;
-						searchPerformedSuccessfully = true;
-						logger.debug(`Search with file_counts truncated, original_length: ${originalLength}, new_length: ${fileMatches.length}`);
-					}
-				} catch (e) {
-					logger.warn(e, `Error during searchFilesMatchingContents for regex: ${searchRegex}`);
-					searchResultsText = `<search_error regex="${searchRegex}" type="file_counts">\nError: ${e.message}\n</search_error>\n`;
-				}
-			}
-
-			if (!searchPerformedSuccessfully && !searchResultsText.includes('<search_error')) {
-				if (!searchResultsText) { // If no search was successful and no error was caught
-					searchResultsText = `<search_results regex="${searchRegex}">\nNo results found or all attempts exceeded character limits.\n</search_results>\n`;
-					logger.debug(`No search results for regex "${searchRegex}" or all attempts exceeded character limits.`);
-				}
-			}
-
+			const searchResultsText = await searchFileSystem(searchRegex);
+			console.log('Search Results ==================');
+			console.log(searchResultsText);
+			console.log('End Search Results ==================');
 			messages.push({ role: 'assistant', content: JSON.stringify({ search: searchRegex, inspectFiles: [], keepFiles: [], ignoreFiles: [] }) });
 			messages.push({ role: 'user', content: searchResultsText, cache: 'ephemeral' });
 
@@ -326,7 +278,9 @@ async function selectFilesCore(
 					break;
 				}
 			} else if (filesToInspect.length === 0 && filesPendingDecision.size > 0) {
-				logger.warn(`LLM did not request new files to inspect, but ${filesPendingDecision.size} files are pending decision. Will proceed to next iteration for LLM to process pending files.`);
+				logger.warn(
+					`LLM did not request new files to inspect, but ${filesPendingDecision.size} files are pending decision. Will proceed to next iteration for LLM to process pending files.`,
+				);
 			}
 		} else {
 			logger.debug('Search was performed. Proceeding to next iteration for LLM to process search results.');
@@ -418,7 +372,8 @@ The files whose contents were provided in this turn (if any from 'inspectFiles' 
 ${[...Array.from(pendingFiles), ...filesToInspect].filter(Boolean).join('\n')}
 These files MUST be addressed by including them in either "keepFiles" or "ignoreFiles" in your response.`;
 	} else {
-		prompt += `\nNo specific files were provided for direct inspection in this turn. Evaluate based on previous information, search results, or the project overview.`;
+		prompt +=
+			'\nNo specific files were provided for direct inspection in this turn. Evaluate based on previous information, search results, or the project overview.';
 	}
 
 	prompt += `
@@ -464,7 +419,11 @@ The final part of the response must be a JSON object in the following format:
 
 	const iterationMessages: LlmMessage[] = [...messages, { role: 'user', content: prompt }];
 
-	return await llm.generateTextWithJson(iterationMessages, { id: `Select Files iteration ${iteration}` });
+	const response: GenerateTextWithJsonResponse<IterationResponse> = await llm.generateTextWithJson(iterationMessages, {
+		id: `Select Files iteration ${iteration}`,
+	});
+	console.log(messageText(response.message));
+	return response.object;
 }
 
 /**
@@ -511,4 +470,72 @@ ${fileContent}
 		}
 	}
 	return { contents: `${contents}</files>`, invalidPaths };
+}
+
+async function searchFileSystem(searchRegex: string) {
+	let searchResultsText = '';
+	let searchPerformedSuccessfully = false;
+	const fs = getFileSystem();
+
+	try {
+		logger.debug(`Attempting search with regex "${searchRegex}" and context 1`);
+		const extractsC1 = await fs.searchExtractsMatchingContents(searchRegex, 1);
+		if (extractsC1.length <= MAX_SEARCH_CHARS) {
+			searchResultsText = `<search_results regex="${searchRegex}" context_lines="1">\n${extractsC1}\n</search_results>\n`;
+			searchPerformedSuccessfully = true;
+			logger.debug(`Search with context 1 succeeded, length: ${extractsC1.length}`);
+		} else {
+			logger.debug(`Search with context 1 too long: ${extractsC1.length} chars`);
+		}
+	} catch (e) {
+		logger.warn(e, `Error during searchExtractsMatchingContents (context 1) for regex: ${searchRegex}`);
+		searchResultsText = `<search_error regex="${searchRegex}" context_lines="1">\nError: ${e.message}\n</search_error>\n`;
+	}
+
+	if (!searchPerformedSuccessfully && !searchResultsText.includes('<search_error')) {
+		try {
+			logger.debug(`Attempting search with regex "${searchRegex}" and context 0`);
+			const extractsC0 = await fs.searchExtractsMatchingContents(searchRegex, 0);
+			if (extractsC0.length <= MAX_SEARCH_CHARS) {
+				searchResultsText = `<search_results regex="${searchRegex}" context_lines="0">\n${extractsC0}\n</search_results>\n`;
+				searchPerformedSuccessfully = true;
+				logger.debug(`Search with context 0 succeeded, length: ${extractsC0.length}`);
+			} else {
+				logger.debug(`Search with context 0 too long: ${extractsC0.length} chars`);
+			}
+		} catch (e) {
+			logger.warn(e, `Error during searchExtractsMatchingContents (context 0) for regex: ${searchRegex}`);
+			searchResultsText = `<search_error regex="${searchRegex}" context_lines="0">\nError: ${e.message}\n</search_error>\n`;
+		}
+	}
+
+	if (!searchPerformedSuccessfully && !searchResultsText.includes('<search_error')) {
+		try {
+			logger.debug(`Attempting search with regex "${searchRegex}" (file counts)`);
+			let fileMatches = await fs.searchFilesMatchingContents(searchRegex);
+			if (fileMatches.length <= MAX_SEARCH_CHARS) {
+				searchResultsText = `<search_results regex="${searchRegex}" type="file_counts">\n${fileMatches}\n</search_results>\n`;
+				searchPerformedSuccessfully = true;
+				logger.debug(`Search with file_counts succeeded, length: ${fileMatches.length}`);
+			} else {
+				const originalLength = fileMatches.length;
+				fileMatches = fileMatches.substring(0, MAX_SEARCH_CHARS);
+				searchResultsText = `<search_results regex="${searchRegex}" type="file_counts" truncated="true" original_chars="${originalLength}" truncated_chars="${MAX_SEARCH_CHARS}">\n${fileMatches}\n</search_results>\nNote: Search results were too large (${originalLength} characters, estimated ${Math.ceil(originalLength / APPROX_CHARS_PER_TOKEN)} tokens) and have been truncated to ${MAX_SEARCH_CHARS} characters (estimated ${MAX_SEARCH_TOKENS} tokens). Please use a more specific search term if needed.\n`;
+				searchPerformedSuccessfully = true;
+				logger.debug(`Search with file_counts truncated, original_length: ${originalLength}, new_length: ${fileMatches.length}`);
+			}
+		} catch (e) {
+			logger.warn(e, `Error during searchFilesMatchingContents for regex: ${searchRegex}`);
+			searchResultsText = `<search_error regex="${searchRegex}" type="file_counts">\nError: ${e.message}\n</search_error>\n`;
+		}
+	}
+
+	if (!searchPerformedSuccessfully && !searchResultsText.includes('<search_error')) {
+		if (!searchResultsText) {
+			// If no search was successful and no error was caught
+			searchResultsText = `<search_results regex="${searchRegex}">\nNo results found or all attempts exceeded character limits.\n</search_results>\n`;
+			logger.debug(`No search results for regex "${searchRegex}" or all attempts exceeded character limits.`);
+		}
+	}
+	return searchResultsText;
 }

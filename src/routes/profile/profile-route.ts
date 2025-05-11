@@ -3,8 +3,8 @@ import type { FastifyReply } from 'fastify';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send } from '#fastify/index';
 import { logger } from '#o11y/logger';
-import type { User } from '#user/user';
-import { currentUser } from '#user/userService/userContext';
+import type { User } from '#shared/model/user.model';
+import { currentUser } from '#user/userContext';
 
 const basePath = '/api/profile';
 

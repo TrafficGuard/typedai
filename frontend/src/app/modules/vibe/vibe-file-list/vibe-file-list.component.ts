@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, OnDestroy, effect, signal, computed, output, input, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms'; // Added for ngModel
+import {FormsModule, ReactiveFormsModule} from '@angular/forms'; // Added for ngModel
 import { finalize, Observable, of, Subject, switchMap, take } from 'rxjs'; // Removed tap, map, startWith, takeUntil as signals handle reactivity
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop'; // For automatic unsubscription
 import { MatTableModule } from '@angular/material/table';

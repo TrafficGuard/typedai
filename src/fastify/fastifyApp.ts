@@ -11,11 +11,14 @@ import fastify, {
 	type RawRequestDefaultExpression,
 } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
+// src/fastify/fastifyApp.ts:14:39 - error TS1479: The current file is a CommonJS module whose imports will produce 'require' calls; however, the referenced file is an ECMAScript module and cannot be imported with 'require'. Consider writing a dynamic 'import("fastify-http-errors-enhanced")' call instead.
+//   To convert this file to an ECMAScript module, change its file extension to '.mts' or create a local package.json file with `{ "type": "module" }`.
+// import fastifyHttpErrorsEnhanced from 'fastify-http-errors-enhanced'
 import * as HttpStatus from 'http-status-codes';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { googleIapMiddleware, jwtAuthMiddleware, singleUserMiddleware } from '#fastify/authenticationMiddleware';
 import { logger } from '#o11y/logger';
-import type { User } from '#user/user';
+import type { User } from '#shared/model/user.model';
 import { loadOnRequestHooks } from './hooks';
 
 const NODE_ENV = process.env.NODE_ENV ?? 'local';
@@ -68,6 +71,8 @@ export async function initFastify(config: FastifyConfig): Promise<AppFastifyInst
       └── hooks and middlewares
       └── your services
  	*/
+	// https://www.npmjs.com/package/fastify-http-errors-enhanced
+	// await fastifyInstance.register(fastifyHttpErrorsEnhanced);
 	await loadPlugins(config);
 	loadHooks();
 	if (config.instanceDecorators) registerInstanceDecorators(config.instanceDecorators);

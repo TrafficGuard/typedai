@@ -1,8 +1,8 @@
 import { BaseLLM } from '#llm/base-llm';
-import { type GenerateTextOptions, type LLM, type LlmMessage, assistant, lastText, user } from '#llm/llm';
 import { cerebrasLlama3_3_70b } from '#llm/services/cerebras';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
+import { type GenerateTextOptions, type LLM, type LlmMessage, assistant, lastText, user } from '#shared/model/llm.model';
 
 interface CePOConfig {
 	bestofn_n: number;

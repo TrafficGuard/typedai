@@ -1,5 +1,5 @@
-import type { AgentLLMs } from '#agent/agentContextTypes';
-import type { LLM } from '#llm/llm';
+import type { AgentLLMs } from '#shared/model/agent.model';
+import type { LLM } from '#shared/model/llm.model';
 
 import { CePO_LLM } from '#llm/multi-agent/cepo';
 import { MultiLLM } from '#llm/multi-llm';

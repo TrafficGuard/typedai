@@ -4,13 +4,14 @@ import { promisify } from 'node:util';
 import ignore, { type Ignore } from 'ignore';
 import type Pino from 'pino';
 import { agentContext } from '#agent/agentContextLocalStorage';
-import { TYPEDAI_FS } from '#app/appVars';
+import { TYPEDAI_FS } from '#app/appDirs';
 import { parseArrayParameterValue } from '#functionSchema/functionUtils';
 import { Git } from '#functions/scm/git';
-import type { VersionControlSystem } from '#functions/scm/versionControlSystem';
 import { LlmTools } from '#functions/util';
 import { logger } from '#o11y/logger';
 import { getActiveSpan } from '#o11y/trace';
+import type { FileSystemNode, IFileSystemService } from '#shared/services/fileSystemService';
+import type { VersionControlSystem } from '#shared/services/versionControlSystem';
 import { arg, execCmdSync, spawnCommand } from '#utils/exec';
 import { formatXmlContent } from '#utils/xml-utils';
 
@@ -26,14 +27,6 @@ const fs = {
 
 // import fg from 'fast-glob';
 // const globAsync = promisify(glob);
-
-export interface FileSystemNode {
-	path: string;
-	name: string;
-	type: 'file' | 'directory';
-	children?: FileSystemNode[];
-	summary?: string; // Optional summary from indexing agent
-}
 
 type FileFilter = (filename: string) => boolean;
 
@@ -57,7 +50,7 @@ const gitIgnorePaths = new Set<string>();
  *
  * By default, the basePath is the current working directory of the process.
  */
-export class FileSystemService {
+export class FileSystemService implements IFileSystemService {
 	/** The filesystem path */
 	private workingDirectory = '';
 	private vcs: VersionControlSystem | null = null;
@@ -99,11 +92,16 @@ export class FileSystemService {
 			workingDirectory: this.workingDirectory,
 		};
 	}
+
 	fromJSON(obj: any): this | null {
 		if (!obj) return null;
 		this.basePath = obj.basePath;
 		this.workingDirectory = obj.workingDirectory;
 		return this;
+	}
+
+	getBasePath(): string {
+		return this.basePath;
 	}
 
 	/**
@@ -739,7 +737,7 @@ export class FileSystemService {
 	 * @param gitRoot Absolute path to the git repository root, if applicable.
 	 * @returns A Promise resolving to an array of FileSystemNode children for the current directory.
 	 */
-	private async buildNodeTreeRecursive(
+	async buildNodeTreeRecursive(
 		currentPathAbs: string,
 		serviceWorkingDir: string,
 		parentIg: Ignore,

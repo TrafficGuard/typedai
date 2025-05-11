@@ -65,7 +65,7 @@ Define the technical components and interactions for the New Vibe Session Wizard
 Frontend component behavior, Backend API endpoints and service orchestration for wizard interactions and session initiation.
 
 ### 1.3. References:
-*   `vibeTypes.ts`, `VibeService` Interface, `VibeRepository` Interface, `SCM Tool` Interface, Agent Interfaces.
+*   `vibe.model.ts`, `VibeService` Interface, `VibeRepository` Interface, `SCM Tool` Interface, Agent Interfaces.
 
 ## 2. Frontend (`NewVibeWizardComponent`) - Testable Behaviors
 
@@ -133,7 +133,7 @@ Frontend component behavior, Backend API endpoints and service orchestration for
 *   **`getBranchList(userId, source, repoId)`:** Delegates branch retrieval to the appropriate `SCM Tool` or local repository interaction logic. *(Placeholder in current code)*.
 *   *(Other service methods delegate to respective repositories or trigger other agent workflows)*.
 
-### 3.3. Data Models (`vibeTypes.ts`):
+### 3.3. Data Models (`vibe.model.ts`):
 Define shared types (`VibeSession`, `VibePreset`, `SelectedFile`, etc.) used across frontend, backend service, and repository layers.
 
 ### 3.4. Key Dependencies:

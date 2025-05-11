@@ -1,7 +1,6 @@
 import { initApplicationContext } from '#app/applicationContext';
 import { logger } from '#o11y/logger';
 import { initFastify } from './fastify';
-import { functionRegistry } from './functionRegistry';
 import { agentDetailsRoutes } from './routes/agent/agent-details-routes';
 import { agentExecutionRoutes } from './routes/agent/agent-execution-routes';
 import { agentStartRoute } from './routes/agent/agent-start-route';
@@ -17,14 +16,16 @@ import { gitlabRoutesV1 } from './routes/webhooks/gitlab/gitlabRoutes-v1';
 import { jiraRoutes } from './routes/webhooks/jira/jira-routes';
 import { workflowRoutes } from './routes/workflows/workflow-routes';
 
-// Ensures all the functions are registered
-functionRegistry();
-
 /**
  * Creates the applications services and starts the Fastify server.
  */
 export async function initServer(): Promise<void> {
 	const applicationContext = await initApplicationContext();
+
+	// Ensures all the functions are registered
+	// Load dynamically so the modules only load now
+	const functionRegistry = (await import('./functionRegistryModule.cjs')).functionRegistry as () => Array<new () => any>;
+	functionRegistry();
 
 	try {
 		// [DOC] All fastify routes from the /routes dir must be registered here in initFastify()

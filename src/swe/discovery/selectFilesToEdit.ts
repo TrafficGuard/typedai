@@ -3,6 +3,7 @@ import path from 'node:path';
 import { createByModelName } from '@microsoft/tiktokenizer';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
+import type { GenerateTextWithJsonResponse } from '#shared/model/llm.model';
 import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
 import { type RepositoryMaps, generateRepositoryMaps } from '#swe/index/repositoryMap';
 import { type ProjectInfo, getProjectInfo } from '../projectDetection';
@@ -72,7 +73,8 @@ The file paths must exist in the <project_map /> file_contents path attributes.
 </example>
 </task>
 `;
-	let selectedFiles = (await llms().medium.generateTextWithJson(prompt, { id: 'selectFilesToEdit' })) as SelectFilesResponse;
+	const response: GenerateTextWithJsonResponse<SelectFilesResponse> = await llms().medium.generateTextWithJson(prompt, { id: 'selectFilesToEdit' });
+	let selectedFiles = response.object;
 
 	selectedFiles = removeLockFiles(selectedFiles);
 

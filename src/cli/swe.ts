@@ -1,12 +1,12 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
-import type { AgentContext, AgentLLMs } from '#agent/agentContextTypes';
-import type { RunWorkflowConfig } from '#agent/orchestrator/orchestratorAgentRunner';
+import type { RunWorkflowConfig } from '#agent/autonomous/autonomousAgentRunner';
 import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { initApplicationContext } from '#app/applicationContext';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { Perplexity } from '#functions/web/perplexity';
 import { defaultLLMs } from '#llm/services/defaultLlms';
+import type { AgentContext, AgentLLMs } from '#shared/model/agent.model';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { SoftwareDeveloperAgent } from '#swe/softwareDeveloperAgent';
 import { parseProcessArgs, saveAgentId } from './cli';

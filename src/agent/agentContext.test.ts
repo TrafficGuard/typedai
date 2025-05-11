@@ -1,13 +1,13 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
-import { LlmFunctions } from '#agent/LlmFunctions';
+import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import { createContext } from '#agent/agentContextLocalStorage';
-import type { AgentContext } from '#agent/agentContextTypes';
 import { deserializeAgentContext, serializeContext } from '#agent/agentSerialization';
-import type { RunAgentConfig } from '#agent/orchestrator/orchestratorAgentRunner';
+import type { RunAgentConfig } from '#agent/autonomous/autonomousAgentRunner';
 import { appContext } from '#app/applicationContext';
 import { LlmTools } from '#functions/util';
 import { GPT4o } from '#llm/services/openai';
+import type { AgentContext } from '#shared/model/agent.model';
 import { functionRegistry } from '../functionRegistry';
 
 describe('agentContext', () => {
@@ -25,11 +25,11 @@ describe('agentContext', () => {
 				xhard: GPT4o(),
 			};
 			// We want to check that the FileSystem gets re-added by the resetFileSystemFunction function
-			const functions = new LlmFunctions(LlmTools); // FileSystemRead
+			const functions = new LlmFunctionsImpl(LlmTools); // FileSystemRead
 
 			const config: RunAgentConfig = {
 				agentName: 'SWE',
-				type: 'orchestrator',
+				type: 'autonomous',
 				subtype: 'codegen',
 				llms,
 				functions,

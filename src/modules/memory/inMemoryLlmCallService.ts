@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { type CreateLlmRequest, type LlmCall, LlmRequest } from '#llm/llmCallService/llmCall';
+import type { CreateLlmRequest } from '#llm/llmCallService/llmCall';
 import { CallerId, type LlmCallService } from '#llm/llmCallService/llmCallService';
+import { type LlmCall, LlmRequest } from '../../../shared/model/llmCall.model';
 
 export class InMemoryLlmCallService implements LlmCallService {
 	llmCallStore = new Map<string, LlmCall>();

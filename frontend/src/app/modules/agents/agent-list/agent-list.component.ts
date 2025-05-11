@@ -1,17 +1,17 @@
 import { SelectionModel } from '@angular/cdk/collections';
-import { AsyncPipe, CurrencyPipe, DecimalPipe, NgClass, NgTemplateOutlet, SlicePipe } from '@angular/common';
+import { AsyncPipe, DecimalPipe } from '@angular/common';
 import {
-	 AfterViewInit,
+	AfterViewInit,
 	ChangeDetectionStrategy,
-	 ChangeDetectorRef,
+	ChangeDetectorRef,
 	Component,
-	 OnDestroy,
-	 OnInit,
+	OnDestroy,
+	OnInit,
 	ViewChild,
 	ViewEncapsulation,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
-import { MatCheckboxChange, MatCheckboxModule } from '@angular/material/checkbox';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatOptionModule, MatRippleModule } from '@angular/material/core';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -24,11 +24,13 @@ import { MatSort, MatSortModule } from '@angular/material/sort';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterModule } from '@angular/router';
 import { fuseAnimations } from '@fuse/animations';
-import  { FuseConfirmationService } from '@fuse/services/confirmation';
-import  { AgentContext, AgentPagination, AgentTag, AgentType } from 'app/modules/agents/agent.types';
-import  { AgentService } from 'app/modules/agents/services/agent.service';
-import {  Observable, Subject, debounceTime, map, merge, switchMap, takeUntil } from 'rxjs';
-import {FormsModule, ReactiveFormsModule, UntypedFormBuilder, UntypedFormControl} from "@angular/forms";
+import { FuseConfirmationService } from '@fuse/services/confirmation';
+import { AgentContextApi } from '#shared/api/agent.api';
+import { AgentService } from 'app/modules/agents/services/agent.service';
+import { Observable, Subject, debounceTime, switchMap, takeUntil } from 'rxjs';
+import { FormsModule, ReactiveFormsModule, UntypedFormBuilder, UntypedFormControl} from "@angular/forms";
+import { AgentTag, AgentType } from "#shared/model/agent.model";
+import {Pagination} from "../../../core/types";
 
 @Component({
 	selector: 'inventory-list',
@@ -63,18 +65,18 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
 	@ViewChild(MatPaginator) private _paginator: MatPaginator;
 	@ViewChild(MatSort) private _sort: MatSort;
 
-	agents$: Observable<AgentContext[]>;
+	agents$: Observable<AgentContextApi[]>;
 
 	agentTypes: AgentType[];
 	filteredTags: AgentTag[];
 	flashMessage: 'success' | 'error' | null = null;
 	isLoading = false;
-	pagination: AgentPagination;
+	pagination: Pagination;
 	searchInputControl: UntypedFormControl = new UntypedFormControl();
 	tags: AgentTag[];
 	tagsEditMode = false;
 
-	selection = new SelectionModel<AgentContext>(true, []);
+	selection = new SelectionModel<AgentContextApi>(true, []);
 
 	private _unsubscribeAll: Subject<any> = new Subject<any>();
 
@@ -114,7 +116,7 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
 		this.isLoading = true; // Start loading on init
 		// this.agentService.refreshAgents(); // Trigger initial load via refreshAgents/loadAgents
 
-		this.agentService.agents$.pipe(takeUntil(this._unsubscribeAll)).subscribe((agents: AgentContext[]) => {
+		this.agentService.agents$.pipe(takeUntil(this._unsubscribeAll)).subscribe((agents: AgentContextApi[]) => {
 			// Set loading false when data arrives or initial state (null) is confirmed
 			this.isLoading = false;
 

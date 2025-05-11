@@ -1,6 +1,6 @@
 import { DOMParser } from 'xmldom';
 import { logger } from '#o11y/logger';
-import type { FunctionCalls } from './llm';
+import type { FunctionCalls } from '#shared/model/llm.model';
 
 /**
  * Extracts the function call details from an LLM response.
@@ -177,5 +177,7 @@ export function extractReasoningAndJson<T>(rawText: string): { reasoning: string
 	}
 
 	logger.error(`Failed to find a structured JSON block (markdown or XML) at the end of the text, and the entire text is not valid JSON. Text: ${rawText}`);
-	throw new Error('Failed to extract structured JSON. Expected ```json ... ``` or <json> ... </json> block at the end, or the entire response to be plain JSON.');
+	throw new Error(
+		'Failed to extract structured JSON. Expected ```json ... ``` or <json> ... </json> block at the end, or the entire response to be plain JSON.',
+	);
 }

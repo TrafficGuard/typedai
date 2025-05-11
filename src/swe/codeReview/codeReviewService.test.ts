@@ -1,7 +1,8 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
-import type { CodeReviewConfig, CodeReviewFingerprintCache } from '#swe/codeReview/codeReviewModel';
+import type { CodeReviewConfig } from '#shared/model/codeReview.model';
 import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
+import type { CodeReviewFingerprintCache } from '#swe/codeReview/codeReviewTaskModel';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 
 // Helper function to compare Sets for equality

@@ -1,6 +1,6 @@
 import { existsSync, unlinkSync } from 'node:fs';
 import { expect } from 'chai';
-import { systemDir } from '#app/appVars';
+import { systemDir } from '#app/appDirs';
 // Import the error type and the modified function
 import { CliArgumentError, parseUserCliArgs, saveAgentId } from './cli';
 

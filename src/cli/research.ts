@@ -2,11 +2,11 @@ import '#fastify/trace-init/trace-init'; // leave an empty line next so this doe
 
 import { readFileSync } from 'node:fs';
 
-import type { AgentLLMs } from '#agent/agentContextTypes';
-import { runAgentAndWait } from '#agent/orchestrator/orchestratorAgentRunner';
+import { runAgentAndWait } from '#agent/autonomous/autonomousAgentRunner';
 import { Perplexity } from '#functions/web/perplexity';
 import { PublicWeb } from '#functions/web/web';
 import { defaultLLMs } from '#llm/services/defaultLlms';
+import type { AgentLLMs } from '#shared/model/agent.model';
 import { parseProcessArgs, saveAgentId } from './cli';
 
 // Usage:
@@ -20,7 +20,7 @@ export async function main() {
 	const { initialPrompt, resumeAgentId } = parseProcessArgs();
 
 	const agentId = await runAgentAndWait({
-		type: 'orchestrator',
+		type: 'autonomous',
 		subtype: 'codegen',
 		agentName: 'researcher',
 		initialPrompt,

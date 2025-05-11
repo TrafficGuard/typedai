@@ -1,9 +1,9 @@
 import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
-import { LiveFiles } from '#agent/orchestrator/functions/liveFiles';
+import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
 import { FileSystemService } from '#functions/storage/fileSystemService';
-import type { FileMetadata, FileStore } from '#functions/storage/filestore';
-import { FunctionCallResult } from '#llm/llm';
+import type { FileStore } from '#functions/storage/filestore';
 import { logger } from '#o11y/logger';
+import type { FileMetadata } from '#shared/model/files.model';
 
 /**
  * @return An XML representation of the agent's memory
@@ -34,7 +34,7 @@ function buildFileSystemPrompt(): string {
 	const fss = getFileSystem();
 	const vcsRoot = fss.getVcsRoot();
 	return `\n<file_system>
-	<base_path>${fss.basePath}</base_path>
+	<base_path>${fss.getBasePath()}</base_path>
 	<current_working_directory>${fss.getWorkingDirectory()}</current_working_directory>
 	${vcsRoot ? `<git_repository_root_dir>${vcsRoot}</git_repository_root_dir>` : ''}
 </file_system>

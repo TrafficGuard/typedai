@@ -4,9 +4,9 @@ import { type GenerateTextResult, LanguageModelResponseMetadata } from 'ai';
 import axios from 'axios';
 import { type LlmCostFunction, fixedCostPerMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
-import { currentUser } from '#user/userService/userContext';
+import { type LLM, combinePrompts } from '#shared/model/llm.model';
+import { currentUser } from '#user/userContext';
 import { envVar } from '#utils/env-var';
-import { type LLM, combinePrompts } from '../llm';
 
 export const VERTEX_SERVICE = 'vertex';
 

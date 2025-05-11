@@ -2,10 +2,6 @@ import { type Static, Type } from '@sinclair/typebox';
 import type { FastifyInstance, FastifyRequest as FastifyRequestBase, RouteShorthandOptions } from 'fastify';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { sendJSON, sendNotFound } from '#fastify/responses';
-import { FileSystemNode } from '#functions/storage/fileSystemService';
-import { currentUser } from '#user/userService/userContext';
-import type { VibeService } from '#vibe/vibeService';
-import { VibeServiceImpl } from '#vibe/vibeServiceImpl';
 import type {
 	CommitChangesData,
 	CreateVibeSessionData,
@@ -17,7 +13,11 @@ import type {
 	VibePreset,
 	VibePresetConfig,
 	VibeSession,
-} from '#vibe/vibeTypes';
+} from '#shared/model/vibe.model';
+import { FileSystemNode } from '#shared/services/fileSystemService';
+import { currentUser } from '#user/userContext';
+import type { VibeService } from '#vibe/vibeService';
+import { VibeServiceImpl } from '#vibe/vibeServiceImpl';
 
 const ErrorResponseSchema = Type.Object({
 	error: Type.String(),
@@ -341,12 +341,10 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 			}
 
 			if (!effectiveRepositoryId) {
-				return reply
-					.code(400)
-					.send({
-						error:
-							"repositoryId is required. If using GitHub/GitLab and repositoryId is not directly provided, ensure repositoryName is supplied in 'owner/repo' format to be used as a fallback.",
-					});
+				return reply.code(400).send({
+					error:
+						"repositoryId is required. If using GitHub/GitLab and repositoryId is not directly provided, ensure repositoryName is supplied in 'owner/repo' format to be used as a fallback.",
+				});
 			}
 
 			try {

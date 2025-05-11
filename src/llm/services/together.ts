@@ -1,8 +1,8 @@
 import { type TogetherAIProvider, createTogetherAI } from '@ai-sdk/togetherai';
 import { type LlmCostFunction, fixedCostPerMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
-import { currentUser } from '#user/userService/userContext';
-import type { LLM } from '../llm';
+import type { LLM } from '#shared/model/llm.model';
+import { currentUser } from '#user/userContext';
 
 export const TOGETHER_SERVICE = 'together';
 

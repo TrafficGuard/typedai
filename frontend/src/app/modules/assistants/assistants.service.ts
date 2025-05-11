@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { AssistantChat, LlmMessage } from 'app/modules/assistants/assistant.types';
+import { AssistantChat } from 'app/modules/assistants/assistant.types';
 import {
     BehaviorSubject,
     Observable,
@@ -12,6 +12,7 @@ import {
     tap,
     throwError,
 } from 'rxjs';
+import {LlmMessage, messageText} from "#shared/model/llm.model";
 
 @Injectable({ providedIn: 'root' })
 export class AssistantsService {
@@ -104,7 +105,7 @@ export class AssistantsService {
                             const llmMsg = msg as LlmMessage
                             return {
                                 ...msg,
-                                value: llmMsg.text,
+                                value: messageText(llmMsg),
                                 isMine: llmMsg.role === 'user'
                             }
                         })

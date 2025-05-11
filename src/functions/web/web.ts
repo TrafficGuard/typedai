@@ -11,8 +11,8 @@ import * as autoconsent from '@duckduckgo/autoconsent';
 import fetch from 'cross-fetch';
 import puppeteer from 'puppeteer';
 import type { Browser } from 'puppeteer';
-import type { ImageSource } from '#agent/orchestrator/codegen/agentImageUtils';
-import { agentStorageDir } from '#app/appVars';
+import type { ImageSource } from '#agent/autonomous/codegen/agentImageUtils';
+import { agentStorageDir } from '#app/appDirs';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { sleep } from '#utils/async-utils';
@@ -41,7 +41,7 @@ export class PublicWeb {
 	// @cacheRetry({scope: 'global' })
 	async crawlWebsite(url: string): Promise<Map<string, string>> {
 		logger.info(`Crawling ${url}`);
-		const cwd = path.join(getFileSystem().basePath, '.cache', 'wget');
+		const cwd = path.join(getFileSystem().getBasePath(), '.cache', 'wget');
 		const { stdout, stderr, exitCode } = await execCommand(`wget -r -l 1  -k -p ${url}`, { workingDirectory: cwd });
 		if (exitCode > 0) throw new Error(`${stdout} ${stderr}`);
 

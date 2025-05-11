@@ -1,9 +1,9 @@
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
+import type { UpdateVibeSessionData, VibeSession } from '#shared/model/vibe.model';
 import type { VibeRepository } from '#vibe/vibeRepository';
 import { VibeServiceImpl } from '#vibe/vibeServiceImpl';
-import type { UpdateVibeSessionData, VibeSession } from '#vibe/vibeTypes';
 
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 

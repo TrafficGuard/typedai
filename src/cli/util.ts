@@ -1,14 +1,16 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
-import { LlmFunctions } from '#agent/LlmFunctions';
+import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import { agentContextStorage, createContext } from '#agent/agentContextLocalStorage';
-import type { AgentContext, AgentLLMs } from '#agent/agentContextTypes';
-import type { RunWorkflowConfig } from '#agent/orchestrator/orchestratorAgentRunner';
+import type { RunWorkflowConfig } from '#agent/autonomous/autonomousAgentRunner';
 import { appContext } from '#app/applicationContext';
+import { Jira } from '#functions/jira';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { MultiLLM } from '#llm/multi-llm';
 import { Claude3_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { GPT4o } from '#llm/services/openai';
+import type { AgentContext, AgentLLMs } from '#shared/model/agent.model';
+import { SearchReplaceCoder } from '#swe/coder/searchReplaceCoder';
 import { envVarHumanInLoopSettings } from './cliHumanInLoop';
 
 // For running random bits of code
@@ -26,7 +28,7 @@ const utilLLMs: AgentLLMs = {
 
 async function main() {
 	await appContext().userService.ensureSingleUser();
-	const functions = new LlmFunctions();
+	const functions = new LlmFunctionsImpl();
 	functions.addFunctionClass(FileSystemService);
 
 	const config: RunWorkflowConfig = {

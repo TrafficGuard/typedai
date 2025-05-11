@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import type sinon from 'sinon';
+import type { VibePreset, VibeSession } from '#shared/model/vibe.model';
 import type { VibeRepository } from '#vibe/vibeRepository';
-import type { VibePreset, VibeSession } from '#vibe/vibeTypes';
 
 chai.use(chaiAsPromised);
 
@@ -53,7 +53,7 @@ const createMockPreset = (userId: string, overrides: Partial<VibePreset> = {}): 
 	};
 };
 
-import type { User } from '#user/user';
+import type { User } from '#shared/model/user.model';
 
 export function runVibeRepositoryTests(
 	createRepository: () => VibeRepository,

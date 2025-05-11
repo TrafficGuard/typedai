@@ -1,6 +1,5 @@
 import fs from 'node:fs';
 import { expect } from 'chai';
-import type { LlmMessage } from '#llm/llm';
 import { Claude3_5_Sonnet } from '#llm/services/anthropic';
 import { Claude3_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { cerebrasLlama3_8b } from '#llm/services/cerebras';
@@ -15,6 +14,7 @@ import { perplexityLLM } from '#llm/services/perplexity-llm';
 import { sambanovaDeepseekR1, sambanovaLlama3_3_70b, sambanovaLlama3_3_70b_R1_Distill } from '#llm/services/sambanova';
 import { togetherLlama3_70B } from '#llm/services/together';
 import { vertexGemini_2_0_Flash, vertexGemini_2_0_Flash_Lite, vertexGemini_2_5_Pro } from '#llm/services/vertexai';
+import type { LlmMessage } from '#shared/model/llm.model';
 
 const elephantBase64 = fs.readFileSync('test/llm/elephant.jpg', 'base64');
 const pdfBase64 = fs.readFileSync('test/llm/purple.pdf', 'base64');

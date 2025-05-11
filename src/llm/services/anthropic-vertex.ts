@@ -1,17 +1,18 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { AnthropicVertex } from '@anthropic-ai/vertex-sdk';
 import { addCost, agentContext } from '#agent/agentContextLocalStorage';
-import type { AgentLLMs } from '#agent/agentContextTypes';
 import { appContext } from '#app/applicationContext';
-import { type LlmCall, callStack } from '#llm/llmCallService/llmCall';
+import { callStack } from '#llm/llmCallService/llmCall';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
-import { currentUser } from '#user/userService/userContext';
+import type { AgentLLMs } from '#shared/model/agent.model';
+import { type GenerateTextOptions, type GenerationStats, type LLM, type LlmMessage, messageText } from '#shared/model/llm.model';
+import type { LlmCall } from '#shared/model/llmCall.model';
+import { currentUser } from '#user/userContext';
 import { envVar } from '#utils/env-var';
 import { RetryableError, cacheRetry } from '../../cache/cacheRetry';
 import { BaseLLM, type LlmCostFunction } from '../base-llm';
 import { MaxTokensError } from '../errors';
-import { type GenerateTextOptions, type GenerationStats, type LLM, type LlmMessage, messageText } from '../llm';
 
 type Message = Anthropic.Messages.Message;
 type MessageParam = Anthropic.Messages.MessageParam;

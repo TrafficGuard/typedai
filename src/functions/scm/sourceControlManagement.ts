@@ -1,5 +1,5 @@
 import { agentContext } from '#agent/agentContextLocalStorage';
-import type { GetToolType } from '#functions/toolType';
+import type { GetToolType } from '#shared/services/functions';
 import type { GitProject } from './gitProject';
 
 export interface MergeRequest {

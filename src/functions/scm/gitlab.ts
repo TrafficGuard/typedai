@@ -14,7 +14,7 @@ import { func, funcClass } from '#functionSchema/functionDecorators';
 import { AbstractSCM } from '#functions/scm/abstractSCM';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import { currentUser, functionConfig } from '#user/userService/userContext';
+import { currentUser, functionConfig } from '#user/userContext';
 import { envVar } from '#utils/env-var';
 import { execCommand } from '#utils/exec';
 import { cacheRetry } from '../../cache/cacheRetry';

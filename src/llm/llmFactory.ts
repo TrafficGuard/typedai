@@ -1,5 +1,3 @@
-import type { AgentLLMs } from '#agent/agentContextTypes';
-import type { LLM } from '#llm/llm';
 import { deepSeekFallbackRegistry } from '#llm/multi-agent/deepSeekR1_Fallbacks';
 import { multiAgentLLMRegistry } from '#llm/multi-agent/multiRegistry';
 import { MoA_reasoningLLMRegistry } from '#llm/multi-agent/reasoning-debate';
@@ -22,6 +20,8 @@ import { togetherLLMRegistry } from '#llm/services/together';
 import { vertexLLMRegistry } from '#llm/services/vertexai';
 import { xaiLLMRegistry } from '#llm/services/xai';
 import { logger } from '#o11y/logger';
+import type { AgentLLMs } from '#shared/model/agent.model';
+import type { LLM } from '#shared/model/llm.model';
 
 export const LLM_FACTORY: Record<string, () => LLM> = {
 	...anthropicVertexLLMRegistry(),

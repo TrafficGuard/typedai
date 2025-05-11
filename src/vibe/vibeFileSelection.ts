@@ -1,9 +1,9 @@
 import { agentContextStorage } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
+import type { SelectedFile, VibeSession } from '#shared/model/vibe.model';
 import { type SelectedFile as OriginalSelectedFile, selectFilesAgent } from '#swe/discovery/selectFilesAgent';
 import { runVibeWorkflowAgent } from '#vibe/vibeAgentRunner';
 import type { VibeRepository } from '#vibe/vibeRepository';
-import type { SelectedFile, VibeSession } from '#vibe/vibeTypes';
 
 export class VibeFileSelection {
 	constructor(private vibeRepo: VibeRepository) {}

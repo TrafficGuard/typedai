@@ -1,7 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { CodeReviewService } from '../code-review.service';
-import { CodeReviewConfig } from '../code-review.model';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { MatTableDataSource } from '@angular/material/table';
 import { SelectionModel } from '@angular/cdk/collections';
@@ -14,6 +13,7 @@ import { CommonModule } from '@angular/common';
 import { MatTableModule } from '@angular/material/table';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatProgressBar } from "@angular/material/progress-bar";
+import { CodeReviewConfig } from "#shared/model/codeReview.model";
 
 @Component({
   selector: 'app-code-review-list',

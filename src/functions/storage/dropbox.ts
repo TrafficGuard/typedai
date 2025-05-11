@@ -1,7 +1,7 @@
 import { Dropbox } from 'dropbox';
 
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import { functionConfig } from '#user/userService/userContext';
+import { functionConfig } from '#user/userContext';
 
 /**
  * AI generated. Not tested.

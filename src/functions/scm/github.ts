@@ -3,7 +3,7 @@ import { func, funcClass } from '#functionSchema/functionDecorators';
 import { AbstractSCM } from '#functions/scm/abstractSCM';
 import type { MergeRequest, SourceControlManagement } from '#functions/scm/sourceControlManagement';
 import { logger } from '#o11y/logger';
-import { functionConfig } from '#user/userService/userContext';
+import { functionConfig } from '#user/userContext';
 import { envVar } from '#utils/env-var';
 import { execCommand, failOnError } from '#utils/exec';
 import type { GitProject } from './gitProject';

@@ -1,8 +1,6 @@
 import {ChangeDetectionStrategy, Component, ViewEncapsulation, OnInit, ChangeDetectorRef} from '@angular/core';
-import { HttpClient } from '@angular/common/http';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { ActivatedRoute, Router } from '@angular/router';
-import { environment } from 'environments/environment';
+import { ActivatedRoute } from '@angular/router';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -15,7 +13,7 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatSelectModule } from '@angular/material/select';
-import { AgentContext } from '../agent.types';
+import { AgentContextApi } from '#shared/api/agent.api';
 import { MatDialogModule } from '@angular/material/dialog';
 import { AgentDetailsComponent } from './agent-details/agent-details.component';
 import { AgentMemoryComponent } from './agent-memory/agent-memory.component';
@@ -56,7 +54,7 @@ import { AgentService } from "../services/agent.service";
 })
 export class AgentComponent implements OnInit {
     agentId: string | null = null;
-    agentDetails: AgentContext | null = null;
+    agentDetails: AgentContextApi | null = null;
 
     constructor(
         private route: ActivatedRoute,

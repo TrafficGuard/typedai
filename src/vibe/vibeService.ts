@@ -1,5 +1,5 @@
-import type { FileSystemNode } from '#functions/storage/fileSystemService';
-import type { CommitChangesData, CreateVibeSessionData, UpdateCodeReviewData, UpdateVibeSessionData, VibePreset, VibeSession } from './vibeTypes';
+import type { CommitChangesData, CreateVibeSessionData, UpdateCodeReviewData, UpdateVibeSessionData, VibePreset, VibeSession } from '#shared/model/vibe.model';
+import type { FileSystemNode } from '#shared/services/fileSystemService';
 
 /**
  * Interface for managing VibeSession data and orchestrating the Vibe Coding workflow.

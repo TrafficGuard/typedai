@@ -17,7 +17,8 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { catchError, finalize, map, of, throwError } from 'rxjs';
 import { environment } from 'environments/environment';
-import { AgentContext, AgentRunningState } from '../../agent.types';
+import { AgentContextApi } from '#shared/api/agent.api';
+
 import { FunctionEditModalComponent } from '../function-edit-modal/function-edit-modal.component';
 import { ResumeAgentModalComponent } from '../resume-agent-modal/resume-agent-modal.component';
 import { FunctionsService } from '../../services/function.service';
@@ -25,6 +26,7 @@ import { LlmService, LLM } from '../../services/llm.service';
 import { MatTooltip } from "@angular/material/tooltip";
 import { AgentLinks, GoogleCloudLinks } from "../../services/agent-links";
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import {AgentRunningState} from "#shared/model/agent.model";
 
 @Component({
     selector: 'agent-details',
@@ -50,7 +52,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
     providers: [AgentService, LlmService]
 })
 export class AgentDetailsComponent implements OnInit {
-    @Input() agentDetails!: AgentContext;
+    @Input() agentDetails!: AgentContextApi;
     @Output() refreshRequested = new EventEmitter<void>();
 
     feedbackForm!: FormGroup;
@@ -229,15 +231,15 @@ export class AgentDetailsComponent implements OnInit {
     }
 
 
-    traceUrl(agent: AgentContext): string {
+    traceUrl(agent: AgentContextApi): string {
         return this.agentLinks.traceUrl(agent);
     }
 
-    logsUrl(agent: AgentContext): string {
+    logsUrl(agent: AgentContextApi): string {
         return this.agentLinks.logsUrl(agent);
     }
 
-    databaseUrl(agent: AgentContext): string {
+    databaseUrl(agent: AgentContextApi): string {
         return this.agentLinks.agentDatabaseUrl(agent);
     }
 

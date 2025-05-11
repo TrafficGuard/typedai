@@ -1,10 +1,11 @@
 import { platform } from 'node:os';
 import * as path from 'node:path';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
-import type { VersionControlSystem } from '#functions/scm/versionControlSystem';
 import type { FileSystemService } from '#functions/storage/fileSystemService';
-import type { LLM, LlmMessage } from '#llm/llm';
 import { logger } from '#o11y/logger';
+import type { LLM, LlmMessage } from '#shared/model/llm.model';
+import type { IFileSystemService } from '#shared/services/fileSystemService';
+import type { VersionControlSystem } from '#shared/services/versionControlSystem';
 import { _stripFilename } from '#swe/coder/applySearchReplaceUtils';
 import { EDIT_BLOCK_PROMPTS } from '#swe/coder/searchReplacePrompts';
 // import { EDIT_BLOCK_PROMPTS } from '#swe/coder/searchReplacePrompts'; // Original import, replaced by direct definition below
@@ -47,7 +48,7 @@ interface SearchReplaceCoderPromptOptions extends SearchReplaceCoderOptions {
 	quadBacktickReminder?: string;
 }
 export class ApplySearchReplace {
-	private fileSystemService: FileSystemService;
+	private fileSystemService: IFileSystemService;
 	private vcs: VersionControlSystem | null;
 	private rootPath: string; // Absolute path to the project root (e.g., git repo root)
 	private absFnamesInChat: Set<string>; // Absolute paths of files explicitly in chat

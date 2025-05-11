@@ -16,7 +16,7 @@ import { type Firestore, Timestamp } from '@google-cloud/firestore';
 import { agentContext } from '#agent/agentContextLocalStorage';
 import { firestoreDb } from '#firestore/firestore';
 import { logger } from '#o11y/logger';
-import { currentUser } from '#user/userService/userContext';
+import { currentUser } from '#user/userContext';
 import type { CacheScope, FunctionCacheService } from '../../cache/functionCacheService';
 
 /**

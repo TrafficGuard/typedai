@@ -1,9 +1,10 @@
 import { expect } from 'chai';
-import type { Chat, ChatService } from '#chat/chatTypes';
+import type { ChatService } from '#chat/chatService';
 import { SINGLE_USER_ID } from '#modules/memory/inMemoryUserService';
+import type { Chat } from '#shared/model/chat.model';
+import type { User } from '#shared/model/user.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import type { User } from '#user/user';
-import { runWithUser } from '#user/userService/userContext';
+import { runWithUser } from '#user/userContext';
 
 export const SINGLE_USER: User = {
 	enabled: false,

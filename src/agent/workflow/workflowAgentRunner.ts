@@ -1,11 +1,11 @@
 import type { Span } from '@opentelemetry/api';
 import { agentContext, agentContextStorage, createContext } from '#agent/agentContextLocalStorage';
-import type { AgentContext } from '#agent/agentContextTypes';
-import { type AgentExecution, type RunWorkflowConfig, agentExecutions } from '#agent/orchestrator/orchestratorAgentRunner';
+import { type AgentExecution, type RunWorkflowConfig, agentExecutions } from '#agent/autonomous/autonomousAgentRunner';
 import { appContext } from '#app/applicationContext';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
+import type { AgentContext } from '#shared/model/agent.model';
 import { errorToString } from '#utils/errors';
 import { formatMillisDuration } from '#utils/time';
 

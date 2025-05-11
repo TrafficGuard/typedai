@@ -4,9 +4,9 @@ import mockFs from 'mock-fs';
 import * as sinon from 'sinon';
 import * as agentContextLocalStorage from '#agent/agentContextLocalStorage';
 import { FileSystemService } from '#functions/storage/fileSystemService';
-import type { LLM } from '#llm/llm';
 import { MockLLM } from '#llm/services/mock-llm';
 import { logger } from '#o11y/logger';
+import type { LLM } from '#shared/model/llm.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { ApplySearchReplace } from './applySearchReplace';
 // Ensure _stripFilename is imported if _findFilenameFromPrecedingLines directly uses it from utils

@@ -1,4 +1,5 @@
-import type { CreateLlmRequest, LlmCall } from '#llm/llmCallService/llmCall';
+import type { CreateLlmRequest } from '#llm/llmCallService/llmCall';
+import type { LlmCall } from '#shared/model/llmCall.model';
 
 export interface CallerId {
 	agentId?: string;

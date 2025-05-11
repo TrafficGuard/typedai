@@ -1,14 +1,5 @@
-import type { GetToolType } from '#functions/toolType';
-
-export interface FileMetadata {
-	filename: string;
-	description: string;
-	/** Size in bytes */
-	size: number;
-	lastUpdated: string;
-}
-
-export const FILE_STORE_NAME = 'FileStore';
+import type { FileMetadata } from '#shared/model/files.model';
+import type { GetToolType } from '#shared/services/functions';
 
 export interface FileStore extends GetToolType {
 	/**
