@@ -6,40 +6,24 @@ import { logger } from '#o11y/logger';
 import type { User } from '#shared/model/user.model';
 import { currentUser } from '#user/userContext';
 import {sendJSON} from "#fastify/responses";
-
-const basePath = '/api/profile';
+import { API } from '#shared/api-definitions';
 
 export async function profileRoute(fastify: AppFastifyInstance) {
-	fastify.get(`${basePath}/view`, async (req, reply) => {
+	fastify.get(API.profile.view.pathTemplate, async (req, reply) => {
 		const user: User = currentUser();
 
 		send(reply, 200, user);
 	});
 
 	fastify.post(
-		`${basePath}/update`,
+		API.profile.update.pathTemplate,
 		{
 			schema: {
-				body: Type.Object({
-					user: Type.Object({
-						email: Type.Optional(Type.String()),
-						chat: Type.Optional(
-							Type.Object({
-								temperature: Type.Optional(Type.Number()),
-								topP: Type.Optional(Type.Number()),
-								topK: Type.Optional(Type.Number()),
-								presencePenalty: Type.Optional(Type.Number()),
-								frequencyPenalty: Type.Optional(Type.Number()),
-								enabledLLMs: Type.Optional(Type.Record(Type.String(), Type.Boolean())),
-								defaultLLM: Type.Optional(Type.String()),
-							}),
-						),
-					}),
-				}),
+				body: API.profile.update.schemas.body,
 			},
 		},
 		async (req, reply) => {
-			const userUpdates = req.body.user;
+			const userUpdates = (req.body as any).user;
 			logger.info('Profile update');
 			logger.info(userUpdates);
 			try {
