@@ -22,7 +22,9 @@ import { googleIapMiddleware, jwtAuthMiddleware, singleUserMiddleware } from '#f
 import { logger } from '#o11y/logger';
 import { loadOnRequestHooks } from './hooks';
 import {Static, TSchema} from "@sinclair/typebox";
-import {mapReplacer, sendBadRequest} from "#fastify/responses"; // Added sendBadRequest
+import {mapReplacer, sendBadRequest} from "#fastify/responses";
+import {RawServerBase} from "fastify/types/utils";
+import {FastifyReplyType, ResolveFastifyReplyType} from "fastify/types/type-provider"; // Added sendBadRequest
 
 const NODE_ENV = process.env.NODE_ENV ?? 'local';
 
