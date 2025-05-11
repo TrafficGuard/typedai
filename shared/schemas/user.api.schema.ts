@@ -4,8 +4,7 @@ import type {
     User,
     ChatSettings,
     LLMServicesConfig,
-} from '#shared/model/user.model'; // Adjust path
-// Compatibility Checker
+} from '#shared/model/user.model';
 import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
 
 // --- ChatSettings Schema ---
