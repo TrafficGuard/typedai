@@ -60,21 +60,27 @@ function defineRoute<
     config?: { schemas?: RouteDefinition<Path, Method, PathParamsSchema, QuerySchema, BodySchema, ResponseSchemas>['schemas'] }
 ): RouteDefinition<Path, Method, PathParamsSchema, QuerySchema, BodySchema, ResponseSchemas> {
     // Implementation for buildPath
-    const buildPath = (params: PathParams<Path>): string => {
-        let builtPath = pathTemplate;
+    const buildPath = (params: PathParams<Path>): string => { // MODIFIED: Explicitly returns string
+        let resultPath: string = pathTemplate; // MODIFIED: resultPath is explicitly string
         if (params) {
+            // Iterate over the keys of params, which are known to be strings
             for (const key in params) {
-                const paramValue = params[key as keyof PathParams<Path>];
-                builtPath = builtPath.replace(`:${key}`, String(paramValue));
+                // It's good practice to check if the key is actually a property of the object
+                if (Object.prototype.hasOwnProperty.call(params, key)) {
+                    // Cast params to any to access key dynamically, or use a more specific type for params if possible
+                    const paramValue = (params as any)[key];
+                    // The replace operation is safe here as we are replacing parts of a string literal template
+                    resultPath = resultPath.replace(`:${key}`, String(paramValue));
+                }
             }
         }
-        return builtPath;
+        return resultPath;
     };
 
     return {
         method,
         pathTemplate,
-        buildPath,
+        buildPath, // Assign the correctly typed function
         schemas: config?.schemas,
     };
 }
