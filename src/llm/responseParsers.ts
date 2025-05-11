@@ -132,28 +132,33 @@ export function extractTag(response: string, tagName: string): string {
 export function extractReasoningAndJson<T>(rawText: string): { reasoning: string; object: T; jsonString: string } {
 	const text = rawText.trim();
 
-	// Pattern for ```json ... ```
-	const mdRegex = /([\s\S]*?)```[jJ][sS][oO][nN]\s*([\s\S]+?)\s*```/s;
-	// Pattern for <json> ... </json>
-	const xmlRegex = /([\s\S]*?)<json>\s*([\s\S]+?)\s*<\/json>/is;
+	// Pattern for ```json ... ``` - Greedy prefix to find the LAST block
+	const mdRegex = /([\s\S]*)```[jJ][sS][oO][nN]\s*([\s\S]+?)\s*```/s;
+	// Pattern for <json> ... </json> - Greedy prefix to find the LAST block
+	const xmlRegex = /([\s\S]*)<json>\s*([\s\S]+?)\s*<\/json>/is;
 
-	let match = text.match(mdRegex);
-	let jsonString: string | undefined;
 	let reasoning: string | undefined;
+	let jsonString: string | undefined;
 
-	if (match) {
-		reasoning = match[1].trim();
-		jsonString = match[2].trim();
+	// Try to match the XML block first, as it might encapsulate a markdown block
+	const xmlMatch = text.match(xmlRegex);
+	if (xmlMatch) {
+		reasoning = xmlMatch[1].trim();
+		const xmlContent = xmlMatch[2].trim();
+
+		// Check if the content of the <json> block is itself a ```json ... ``` block
+		const innerMdMatch = xmlContent.match(/^```[jJ][sS][oO][nN]\s*([\s\S]+?)\s*```$/s);
+		if (innerMdMatch) {
+			jsonString = innerMdMatch[1].trim();
+		} else {
+			jsonString = xmlContent; // Content is plain JSON
+		}
 	} else {
-		match = text.match(xmlRegex);
-		if (match) {
-			reasoning = match[1].trim();
-			jsonString = match[2].trim();
-			// Handle case where <json> block itself contains a ```json ... ``` block
-			const innerMdMatch = jsonString.match(/^```[jJ][sS][oO][nN]\s*([\s\S]+?)\s*```$/s);
-			if (innerMdMatch) {
-				jsonString = innerMdMatch[1].trim();
-			}
+		// No XML block found, try to match a Markdown block
+		const mdMatch = text.match(mdRegex);
+		if (mdMatch) {
+			reasoning = mdMatch[1].trim();
+			jsonString = mdMatch[2].trim();
 		}
 	}
 
@@ -167,7 +172,7 @@ export function extractReasoningAndJson<T>(rawText: string): { reasoning: string
 		}
 	}
 
-	// Fallback: If no markdown or XML block is found at the end,
+	// Fallback: If no markdown or XML block is found,
 	// try to parse the entire text as JSON, assuming no reasoning.
 	try {
 		const object = JSON.parse(text) as T;
@@ -176,8 +181,6 @@ export function extractReasoningAndJson<T>(rawText: string): { reasoning: string
 		// This catch means it's not plain JSON either.
 	}
 
-	logger.error(`Failed to find a structured JSON block (markdown or XML) at the end of the text, and the entire text is not valid JSON. Text: ${rawText}`);
-	throw new Error(
-		'Failed to extract structured JSON. Expected ```json ... ``` or <json> ... </json> block at the end, or the entire response to be plain JSON.',
-	);
+	logger.error(`Failed to find a structured JSON block (markdown or XML), and the entire text is not valid JSON. Text: ${rawText}`);
+	throw new Error('Failed to extract structured JSON. Expected ```json ... ``` or <json> ... </json> block, or the entire response to be plain JSON.');
 }
