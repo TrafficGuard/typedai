@@ -19,6 +19,8 @@ import { HttpClient } from '@angular/common/http';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatSelectModule } from "@angular/material/select";
 import { CommonModule } from "@angular/common";
+import { USER_API } from '#shared/api/user.api'; // Added
+import type { UserProfile, ChatSettings, UpdateUserProfilePayload } from '#shared/model/user.model'; // Added
 
 @Component({
     selector: 'settings-account',
@@ -50,11 +52,11 @@ export class SettingsAccountComponent implements OnInit {
     ngOnInit(): void {
         this.accountForm = new FormGroup({
             id: new FormControl({ value: '', disabled: true }),
-            username: new FormControl(''),
+            username: new FormControl(''), // Note: 'username' is not part of UserProfile from API
             email: new FormControl('', [Validators.required, Validators.email]),
-            enabled: new FormControl(false),
-            hilBudget: new FormControl(0),
-            hilCount: new FormControl(0),
+            enabled: new FormControl(false), // This will be populated from API
+            hilBudget: new FormControl(0),  // This will be populated from API
+            hilCount: new FormControl(0),   // This will be populated from API
             llmConfig: new FormGroup({
                 anthropicKey: new FormControl(''),
                 openaiKey: new FormControl(''),
@@ -72,6 +74,9 @@ export class SettingsAccountComponent implements OnInit {
             }),
             chat: new FormGroup({
                 defaultLLM: new FormControl(''),
+                // Add other ChatSettings fields if they become editable and part of the schema
+                // temperature: new FormControl(0.7), // Example
+                // topP: new FormControl(1.0),       // Example
             }),
             functionConfig: new FormGroup({
                 GitHub: new FormGroup({
@@ -110,10 +115,10 @@ export class SettingsAccountComponent implements OnInit {
 
     // Load user profile data
     private loadUserProfile(): void {
-        this.http.get('/api/profile/view').subscribe(
-            (response: any) => {
-                console.log('User profile data:', response.data);
-                this.accountForm.patchValue(response.data);
+        this.http.get<UserProfile>(USER_API.view.pathTemplate).subscribe( // Modified
+            (response: UserProfile) => { // Modified
+                console.log('User profile data:', response); // Modified
+                this.accountForm.patchValue(response); // Modified
             },
             (error) => {
                 this.snackBar.open('Failed to load user profile', 'Close', { duration: 3000 });
@@ -126,13 +131,14 @@ export class SettingsAccountComponent implements OnInit {
     onSave(): void {
         if (this.accountForm.invalid) {
             // Handle invalid form state
+            this.snackBar.open('Please correct the form errors.', 'Close', { duration: 3000 });
             return;
         }
 
-        const formData = this.accountForm.getRawValue();
+        const formValues = this.accountForm.getRawValue();
         
         // Validate defaultChatLlmId exists in available LLMs
-        const defaultLlmId = formData.chat.defaultLLM;
+        const defaultLlmId = formValues.chat.defaultLLM;
         if (defaultLlmId) {
             const availableLlms = this.$llms.getValue();
             if (!availableLlms.some(llm => llm.id === defaultLlmId)) {
@@ -141,9 +147,26 @@ export class SettingsAccountComponent implements OnInit {
             }
         }
 
-        this.http.post('/api/profile/update', { user: formData }).subscribe(
-            () => {
+        // Construct payload according to UpdateUserProfileApiBodySchema
+        const updateUserPayload: UpdateUserProfilePayload = { // Modified
+            user: {
+                email: formValues.email,
+                chat: { // Assuming ChatSettings from the form aligns with shared/model/user.model.ChatSettings
+                    defaultLLM: formValues.chat.defaultLLM,
+                    // Add other ChatSettings fields here if they are in the form and schema
+                    // For example, if temperature was editable:
+                    // temperature: formValues.chat.temperature,
+                },
+                // IMPORTANT: llmConfig and functionConfig are NOT part of UpdateUserProfileApiBodySchema.
+                // Changes to these fields in the form will NOT be saved with the current API definition.
+            },
+        };
+
+        this.http.post<UserProfile>(USER_API.update.pathTemplate, updateUserPayload).subscribe( // Modified
+            (updatedProfile: UserProfile) => { // Modified
                 this.snackBar.open('Profile updated', 'Close', { duration: 3000 });
+                // Optionally, re-patch the form with the response to ensure consistency if backend modifies data
+                this.accountForm.patchValue(updatedProfile);
             },
             (error) => {
                 this.snackBar.open('Failed to save profile.', 'Close', { duration: 3000 });
@@ -154,7 +177,8 @@ export class SettingsAccountComponent implements OnInit {
 
     // Optional: Implement a cancel method
     onCancel(): void {
-        this.accountForm.reset();
+        // this.accountForm.reset(); // Resetting might clear disabled fields like ID.
+        // Reloading profile is safer to restore original state.
         this.loadUserProfile();
     }
 }
