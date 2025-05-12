@@ -6,6 +6,7 @@ import type {
     LLMServicesConfig,
     UserProfile,
     UpdateUserProfilePayload,
+    UpdateUserProfilePayloadProps,
 } from '#shared/model/user.model';
 import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
 
@@ -60,6 +61,6 @@ const _userProfileApiCheck: AreTypesFullyCompatible<UserProfile, Static<typeof U
 
 // --- User Profile Update Schemas (for request bodies) ---
 export const UpdateUserProfileApiBodySchema = Type.Object({
-    user: Type.Pick(UserProfileApiResponseSchema, ['hilBudget', 'hilCount', 'llmConfig', 'chat', 'functionConfig'] as const)
+    user: Type.Pick(UserProfileApiResponseSchema, UpdateUserProfilePayloadProps)
 });
 const _updateUserProfileApiBodyCheck: AreTypesFullyCompatible<UpdateUserProfilePayload, Static<typeof UpdateUserProfileApiBodySchema>> = true;
