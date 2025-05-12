@@ -1,4 +1,4 @@
-import { Type, type Static, TUnsafe } from '@sinclair/typebox';
+import { Type, type Static } from '@sinclair/typebox';
 // Source of Truth Model Interfaces
 import type {
     User,
@@ -9,7 +9,7 @@ import type {
 } from '#shared/model/user.model';
 import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
 
-// --- ChatSettings Schema ---
+
 export const ChatSettingsApiSchema = Type.Object({
     enabledLLMs: Type.Optional(Type.Record(Type.String(), Type.Boolean())),
     defaultLLM: Type.Optional(Type.String()),
@@ -21,7 +21,7 @@ export const ChatSettingsApiSchema = Type.Object({
 });
 const _chatSettingsApiCheck: AreTypesFullyCompatible<ChatSettings, Static<typeof ChatSettingsApiSchema>> = true;
 
-// --- LLMServicesConfig Schema ---
+
 export const LLMServicesConfigApiSchema = Type.Object({
     vertexProjectId: Type.Optional(Type.String()),
     vertexRegion: Type.Optional(Type.String()),
@@ -60,12 +60,6 @@ const _userProfileApiCheck: AreTypesFullyCompatible<UserProfile, Static<typeof U
 
 // --- User Profile Update Schemas (for request bodies) ---
 export const UpdateUserProfileApiBodySchema = Type.Object({
-    user: Type.Object({ // Matches the nesting in profile-route.ts and UpdateUserProfilePayload
-        hilBudget: Type.Number(),
-        hilCount: Type.Number(),
-        llmConfig: LLMServicesConfigApiSchema,
-        chat: ChatSettingsApiSchema,
-        functionConfig: Type.Record(Type.String(), Type.Record(Type.String(), Type.Any())),
-    }),
+    user: Type.Pick(UserProfileApiResponseSchema, ['hilBudget', 'hilCount', 'llmConfig', 'chat', 'functionConfig'] as const)
 });
 const _updateUserProfileApiBodyCheck: AreTypesFullyCompatible<UpdateUserProfilePayload, Static<typeof UpdateUserProfileApiBodySchema>> = true;
