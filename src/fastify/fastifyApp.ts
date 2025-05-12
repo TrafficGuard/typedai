@@ -21,11 +21,12 @@ import type { AppFastifyInstance } from '#app/applicationTypes';
 import { googleIapMiddleware, jwtAuthMiddleware, singleUserMiddleware } from '#fastify/authenticationMiddleware';
 import { logger } from '#o11y/logger';
 import { loadOnRequestHooks } from './hooks';
-import {Static, TSchema} from "@sinclair/typebox";
+// TSchema is not directly used in sendJSON signature anymore but might be needed elsewhere or by mapReplacer indirectly. Static is not used here.
+import { TSchema } from "@sinclair/typebox";
 import {mapReplacer, sendBadRequest} from "#fastify/responses";
 // Correct imports for precise generic matching
-import { type RawServerBase } from "fastify/types/utils"; // Corrected import
-import { type FastifyReplyType, type ResolveFastifyReplyType } from "fastify/types/type-provider"; // Corrected import
+import { type RawServerBase } from "fastify/types/utils";
+import { type FastifyReplyType, type ResolveFastifyReplyType } from "fastify/types/type-provider";
 
 const NODE_ENV = process.env.NODE_ENV ?? 'local';
 
@@ -60,12 +61,14 @@ declare module 'fastify' {
 		TypeProvider extends FastifyTypeProvider = FastifyTypeProviderDefault,
         ReplyType extends FastifyReplyType = ResolveFastifyReplyType<TypeProvider, SchemaCompiler, RouteGeneric>
 	> {
-		sendJSON<ReplyType extends TSchema>(
-            // Ensure `this` and the return type also include all 8 generic parameters
+        // sendJSON is no longer generic itself.
+        // The `object` parameter uses `ReplyType` from the FastifyReply's own generics.
+		sendJSON(
+            // CHANGE: Use ReplyType as the 8th generic for `this` and the return type
 			this: FastifyReply<RawServer, RawRequest, RawReply, RouteGeneric, ContextConfig, SchemaCompiler, TypeProvider, ReplyType>,
-			object: Static<ReplyType>,
-			status?: number // Optional status, defaults in implementation
-		): FastifyReply<RawServer, RawRequest, RawReply, RouteGeneric, ContextConfig, SchemaCompiler, TypeProvider, Static<ReplyType>> //Return this for chaining
+			object: ReplyType, // CHANGE: Use ReplyType for the object parameter
+			status?: number
+		): FastifyReply<RawServer, RawRequest, RawReply, RouteGeneric, ContextConfig, SchemaCompiler, TypeProvider, ReplyType>;
 	}
 }
 export const fastifyInstance: TypeBoxFastifyInstance = fastify({
@@ -105,9 +108,12 @@ export async function initFastify(config: FastifyConfig): Promise<AppFastifyInst
 	if (config.requestDecorators) registerRequestDecorators(config.requestDecorators);
 
 	// Decorate reply with sendJSON
-	fastifyInstance.decorateReply('sendJSON', function <TResponseSchema extends TSchema>(this: FastifyReplyBase, object: Static<TResponseSchema>, status: number = HttpStatus.OK) {
+    // The implementation's `object` parameter can be `any` because type checking
+    // for the CALLER is handled by the augmented interface.
+	fastifyInstance.decorateReply('sendJSON', function (this: FastifyReplyBase, object: any, status: number = HttpStatus.OK) {
 		this.header('Content-Type', 'application/json; charset=utf-8');
 		this.status(status);
+        // The built-in .send() will handle final validation based on the route's schema for the given status.
 		this.send(JSON.stringify(object, mapReplacer));
 		return this;
 	});

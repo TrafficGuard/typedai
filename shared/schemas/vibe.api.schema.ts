@@ -14,7 +14,7 @@ import type {
     UpdateSelectionPromptData,
     GenerateDesignData,
     UpdateDesignPromptData,
-} from '#shared/model/vibe.model'; // Adjust path as needed
+} from '#shared/model/vibe.model';
 
 // Compatibility Checker
 import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
