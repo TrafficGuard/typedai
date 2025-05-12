@@ -73,6 +73,6 @@ export const UpdateUserProfilePayloadProps = ['hilBudget', 'hilCount', 'llmConfi
  * Matches the structure { user: { ...details... } } expected by the backend.
  */
 export interface UpdateUserProfilePayload {
-    user: Pick<User, 'hilBudget' | 'hilCount' | 'llmConfig' | 'chat' | 'functionConfig'>;
+    user: Pick<User, typeof UpdateUserProfilePayloadProps[number]>;
 }
 
