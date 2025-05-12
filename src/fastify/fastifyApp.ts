@@ -2,31 +2,35 @@ import { readFileSync } from 'node:fs';
 import type * as http from 'node:http';
 import { join } from 'node:path';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
+// TSchema is not directly used in sendJSON signature anymore but might be needed elsewhere or by mapReplacer indirectly. Static is not used here.
+import {Static, TSchema} from '@sinclair/typebox';
 import fastify, {
-	ContextConfigDefault,
+	type ContextConfigDefault,
 	type FastifyBaseLogger,
 	type FastifyInstance,
 	type FastifyReply as FastifyReplyBase,
 	type FastifyRequest as FastifyRequestBase,
-	FastifySchema, FastifyTypeProvider, FastifyTypeProviderDefault,
+	type FastifySchema,
+	type FastifyTypeProvider,
+	type FastifyTypeProviderDefault,
 	type RawReplyDefaultExpression,
-	type RawRequestDefaultExpression, RawServerDefault, RouteGenericInterface,
+	type RawRequestDefaultExpression,
+	type RawServerDefault,
+	type RouteGenericInterface,
 } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
+import type { FastifyReplyType, ResolveFastifyReplyType } from 'fastify/types/type-provider';
+// Correct imports for precise generic matching
+import type { RawServerBase } from 'fastify/types/utils';
 // src/fastify/fastifyApp.ts:14:39 - error TS1479: The current file is a CommonJS module whose imports will produce 'require' calls; however, the referenced file is an ECMAScript module and cannot be imported with 'require'. Consider writing a dynamic 'import("fastify-http-errors-enhanced")' call instead.
 //   To convert this file to an ECMAScript module, change its file extension to '.mts' or create a local package.json file with `{ "type": "module" }`.
 // import fastifyHttpErrorsEnhanced from 'fastify-http-errors-enhanced'
 import * as HttpStatus from 'http-status-codes';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { googleIapMiddleware, jwtAuthMiddleware, singleUserMiddleware } from '#fastify/authenticationMiddleware';
+import { mapReplacer, sendBadRequest } from '#fastify/responses';
 import { logger } from '#o11y/logger';
 import { loadOnRequestHooks } from './hooks';
-// TSchema is not directly used in sendJSON signature anymore but might be needed elsewhere or by mapReplacer indirectly. Static is not used here.
-import { TSchema } from "@sinclair/typebox";
-import {mapReplacer, sendBadRequest} from "#fastify/responses";
-// Correct imports for precise generic matching
-import { type RawServerBase } from "fastify/types/utils";
-import { type FastifyReplyType, type ResolveFastifyReplyType } from "fastify/types/type-provider";
 
 const NODE_ENV = process.env.NODE_ENV ?? 'local';
 
@@ -59,16 +63,13 @@ declare module 'fastify' {
 		ContextConfig = ContextConfigDefault,
 		SchemaCompiler extends FastifySchema = FastifySchema,
 		TypeProvider extends FastifyTypeProvider = FastifyTypeProviderDefault,
-        ReplyType extends FastifyReplyType = ResolveFastifyReplyType<TypeProvider, SchemaCompiler, RouteGeneric>
+		ReplyType extends FastifyReplyType = ResolveFastifyReplyType<TypeProvider, SchemaCompiler, RouteGeneric>
 	> {
-        // sendJSON is no longer generic itself.
-        // The `object` parameter uses `ReplyType` from the FastifyReply's own generics.
-		sendJSON(
-            // CHANGE: Use ReplyType as the 8th generic for `this` and the return type
+		sendJSON<ReplyType>(
 			this: FastifyReply<RawServer, RawRequest, RawReply, RouteGeneric, ContextConfig, SchemaCompiler, TypeProvider, ReplyType>,
-			object: ReplyType, // CHANGE: Use ReplyType for the object parameter
-			status?: number
-		): FastifyReply<RawServer, RawRequest, RawReply, RouteGeneric, ContextConfig, SchemaCompiler, TypeProvider, ReplyType>;
+			object: ReplyType,
+			status?: number // Optional status, defaults in implementation
+		): FastifyReply<RawServer, RawRequest, RawReply, RouteGeneric, ContextConfig, SchemaCompiler, TypeProvider, ReplyType>; // Return this for chaining
 	}
 }
 export const fastifyInstance: TypeBoxFastifyInstance = fastify({
@@ -108,12 +109,12 @@ export async function initFastify(config: FastifyConfig): Promise<AppFastifyInst
 	if (config.requestDecorators) registerRequestDecorators(config.requestDecorators);
 
 	// Decorate reply with sendJSON
-    // The implementation's `object` parameter can be `any` because type checking
-    // for the CALLER is handled by the augmented interface.
-	fastifyInstance.decorateReply('sendJSON', function (this: FastifyReplyBase, object: any, status: number = HttpStatus.OK) {
+	// The implementation's `object` parameter can be `any` because type checking
+	// for the CALLER is handled by the augmented interface.
+	fastifyInstance.decorateReply('sendJSON', function<TResponseSchema extends TSchema>(this: FastifyReplyBase, object: Static<TResponseSchema>, status: number = HttpStatus.OK) {
 		this.header('Content-Type', 'application/json; charset=utf-8');
 		this.status(status);
-        // The built-in .send() will handle final validation based on the route's schema for the given status.
+		// The built-in .send() will handle final validation based on the route's schema for the given status.
 		this.send(JSON.stringify(object, mapReplacer));
 		return this;
 	});
@@ -260,6 +261,6 @@ function setErrorHandler() {
 			return;
 		}
 		logger.error(error);
-        sendBadRequest(reply, NODE_ENV === 'production' ? 'An internal server error occurred. Please try again later.' : error.message);
+		sendBadRequest(reply, NODE_ENV === 'production' ? 'An internal server error occurred. Please try again later.' : error.message);
 	});
 }
