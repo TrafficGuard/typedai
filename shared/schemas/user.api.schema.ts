@@ -60,10 +60,12 @@ const _userProfileApiCheck: AreTypesFullyCompatible<UserProfile, Static<typeof U
 
 // --- User Profile Update Schemas (for request bodies) ---
 export const UpdateUserProfileApiBodySchema = Type.Object({
-    user: Type.Object({ // Matches the nesting in profile-route.ts
-        email: Type.Optional(Type.String()),
-        chat: Type.Optional(ChatSettingsApiSchema),
-        llmConfig: Type.Optional(LLMServicesConfigApiSchema),
+    user: Type.Object({ // Matches the nesting in profile-route.ts and UpdateUserProfilePayload
+        hilBudget: Type.Number(),
+        hilCount: Type.Number(),
+        llmConfig: LLMServicesConfigApiSchema,
+        chat: ChatSettingsApiSchema,
+        functionConfig: Type.Record(Type.String(), Type.Record(Type.String(), Type.Any())),
     }),
 });
 const _updateUserProfileApiBodyCheck: AreTypesFullyCompatible<UpdateUserProfilePayload, Static<typeof UpdateUserProfileApiBodySchema>> = true;
