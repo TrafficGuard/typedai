@@ -1,4 +1,4 @@
-import { Type, type TSchema } from '@sinclair/typebox';
+import { Type, type TSchema, type Static } from '@sinclair/typebox';
 // Vibe API Schemas
 import {
     CreateVibeSessionDataApiSchema, VibeSessionApiSchema, VibeSessionListItemApiSchema,
@@ -29,50 +29,55 @@ type PathParams<TPath extends string> =
     TPath extends `${infer _Start}:${infer Param}` ? { [K in Param]: string | number } :
     Record<string, never>;
 
-// Generic Route Definition (same as before)
+// Interface for the schema object within RouteDefinition
+// Its properties (path, querystring, body, response) remain optional.
+interface RouteSchemaConfig<
+    PathParamsSchema extends TSchema | undefined,
+    QuerySchema extends TSchema | undefined,
+    BodySchema extends TSchema | undefined,
+    ResponseSchemasMap extends Record<number, TSchema> | undefined
+> {
+    path?: PathParamsSchema;
+    querystring?: QuerySchema;
+    body?: BodySchema;
+    response?: ResponseSchemasMap;
+}
+
+// Generic Route Definition
 export interface RouteDefinition<
     TPath extends string, TMethod extends 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
     TPathParamsSchema extends TSchema | undefined = undefined,
     TQuerySchema extends TSchema | undefined = undefined,
     TBodySchema extends TSchema | undefined = undefined,
-    TResponseSchema extends TSchema | undefined = undefined
-    //,TResponseSchemas extends Record<number, TSchema> | TSchema | undefined = undefined
+    TResponseSchemasMap extends Record<number, TSchema> | undefined = undefined
 > {
     method: TMethod;
     pathTemplate: TPath;
     buildPath: (params: PathParams<TPath>) => string;
-    schema?: {
-        path?: TPathParamsSchema;
-        querystring?: TQuerySchema;
-        body?: TBodySchema;
-        response?: TResponseSchema;
-        //responses?: TResponseSchemas;
-    };
+    // Make schema itself non-optional.
+    // This ensures that API.profile.view.schema is always an object.
+    schema: RouteSchemaConfig<TPathParamsSchema, TQuerySchema, TBodySchema, TResponseSchemasMap>;
 }
 
-// Factory Function (same as before)
+// Factory Function
 export function defineRoute<
     Path extends string, Method extends 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
     PathParamsSchema extends TSchema | undefined = undefined,
     QuerySchema extends TSchema | undefined = undefined,
     BodySchema extends TSchema | undefined = undefined,
-    ResponseSchema extends TSchema | undefined = undefined,
-    ResponseSchemas extends Record<number, TSchema> | TSchema | undefined = undefined
+    ResponseSchemasMap extends Record<number, TSchema> | undefined = undefined
 >(
     method: Method, pathTemplate: Path,
-    config?: { schema?: RouteDefinition<Path, Method, PathParamsSchema, QuerySchema, BodySchema, ResponseSchema>['schema'] }//, ResponseSchemas
-): RouteDefinition<Path, Method, PathParamsSchema, QuerySchema, BodySchema, ResponseSchema> {//, ResponseSchemas
+    // config is optional. config.schema is also optional.
+    config?: { schema?: RouteSchemaConfig<PathParamsSchema, QuerySchema, BodySchema, ResponseSchemasMap> }
+): RouteDefinition<Path, Method, PathParamsSchema, QuerySchema, BodySchema, ResponseSchemasMap> {
     // Implementation for buildPath
-    const buildPath = (params: PathParams<Path>): string => { // MODIFIED: Explicitly returns string
-        let resultPath: string = pathTemplate; // MODIFIED: resultPath is explicitly string
+    const buildPath = (params: PathParams<Path>): string => {
+        let resultPath: string = pathTemplate;
         if (params) {
-            // Iterate over the keys of params, which are known to be strings
             for (const key in params) {
-                // It's good practice to check if the key is actually a property of the object
                 if (Object.prototype.hasOwnProperty.call(params, key)) {
-                    // Cast params to any to access key dynamically, or use a more specific type for params if possible
                     const paramValue = (params as any)[key];
-                    // The replace operation is safe here as we are replacing parts of a string literal template
                     resultPath = resultPath.replace(`:${key}`, String(paramValue));
                 }
             }
@@ -80,11 +85,16 @@ export function defineRoute<
         return resultPath;
     };
 
+    // Default schema to an empty object if not provided or if config.schema is undefined.
+    // This satisfies the non-optional RouteDefinition.schema.
+    // The properties within RouteSchemaConfig are already optional.
+    const routeSchema: RouteSchemaConfig<PathParamsSchema, QuerySchema, BodySchema, ResponseSchemasMap> = config?.schema ?? {};
+
     return {
         method,
         pathTemplate,
         buildPath,
-        schema: config?.schema,
+        schema: routeSchema,
     };
 }
 
@@ -95,10 +105,21 @@ const PROFILE_BASE = '/api/profile'; // Matches profile-route.ts
 export const API = {
     profile: {
         view: defineRoute('GET', `${PROFILE_BASE}/view`, {
-            schema: { response: UserProfileApiResponseSchema } // , responses: { 200: UserProfileApiResponseSchema, 500: ApiErrorResponseSchema }
+            schema: { // This is config.schema
+                response: { 
+                    200: UserProfileApiResponseSchema,
+                    // 500: ApiErrorResponseSchema // Example if you want to define other status codes
+                }
+            }
         }),
         update: defineRoute('POST', `${PROFILE_BASE}/update`, {
-            schema: { body: UpdateUserProfileApiBodySchema, response: UserProfileApiResponseSchema} // , responses: { 200: UserProfileApiResponseSchema, 400: ApiErrorResponseSchema }
+            schema: { // This is config.schema
+                body: UpdateUserProfileApiBodySchema,
+                response: { 
+                    200: UserProfileApiResponseSchema,
+                    400: ApiErrorResponseSchema 
+                }
+            }
         }),
     },
     /*
