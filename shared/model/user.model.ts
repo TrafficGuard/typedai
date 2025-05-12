@@ -66,14 +66,13 @@ export interface User {
  */
 export type UserProfile = Omit<User, 'passwordHash'>;
 
+
+export const UpdateUserProfilePayloadProps = ['hilBudget', 'hilCount', 'llmConfig', 'chat', 'functionConfig'] as const;
 /**
  * Represents the payload for updating a user's profile.
  * Matches the structure { user: { ...details... } } expected by the backend.
  */
 export interface UpdateUserProfilePayload {
-    user: {
-        email?: string;
-        chat?: Partial<ChatSettings>;
-        // llmConfig?: Partial<LLMServicesConfig>; // Add if llmConfig becomes updatable
-    };
+    user: Pick<User, 'hilBudget' | 'hilCount' | 'llmConfig' | 'chat' | 'functionConfig'>;
 }
+
