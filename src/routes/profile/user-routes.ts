@@ -17,7 +17,7 @@ export async function userRoutes(fastify: AppFastifyInstance) {
 
 			const userProfileData: UserProfile = {
 				id: user.id,
-				name: user.name,
+				name: user.name ?? '',
 				email: user.email,
 				enabled: user.enabled,
 				hilBudget: user.hilBudget,

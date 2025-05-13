@@ -17,6 +17,25 @@ import { registerErrorHandlers } from '../errorHandlers';
 import { parseProcessArgs, saveAgentId } from './cli';
 import { resolveFunctionClasses } from './functionResolver';
 
+async function resumeAgent(resumeAgentId: string, initialPrompt: string) {
+	const agent = await appContext().agentStateService.load(resumeAgentId);
+	if (!agent) throw new Error(`No agent exists with id ${resumeAgentId}`);
+	switch (agent.state) {
+		case 'completed':
+			return await resumeCompleted(resumeAgentId, agent.executionId, initialPrompt);
+		case 'error':
+			return resumeError(resumeAgentId, agent.executionId, initialPrompt);
+		case 'hitl_threshold':
+		case 'hitl_tool':
+			return await resumeHil(resumeAgentId, agent.executionId, initialPrompt);
+		case 'hitl_feedback':
+			return await provideFeedback(resumeAgentId, agent.executionId, initialPrompt);
+		default:
+			await waitForConsoleInput(`Agent is currently in the state "${agent.state}". Only resume if you know it is not `);
+			return resumeError(resumeAgentId, agent.executionId, initialPrompt);
+	}
+}
+
 export async function main() {
 	registerErrorHandlers();
 	const llms = defaultLLMs();
@@ -28,22 +47,10 @@ export async function main() {
 	console.log(`resumeAgentId: ${resumeAgentId}`);
 
 	if (resumeAgentId) {
-		const agent = await appContext().agentStateService.load(resumeAgentId);
-		if (!agent) throw new Error(`No agent exists with id ${resumeAgentId}`);
-		switch (agent.state) {
-			case 'completed':
-				return await resumeCompleted(resumeAgentId, agent.executionId, initialPrompt);
-			case 'error':
-				return resumeError(resumeAgentId, agent.executionId, initialPrompt);
-			case 'hitl_threshold':
-			case 'hitl_tool':
-				return await resumeHil(resumeAgentId, agent.executionId, initialPrompt);
-			case 'hitl_feedback':
-				return await provideFeedback(resumeAgentId, agent.executionId, initialPrompt);
-			default:
-				await waitForConsoleInput(`Agent is currently in the state "${agent.state}". Only resume if you know it is not `);
-				return resumeError(resumeAgentId, agent.executionId, initialPrompt);
-		}
+		await resumeAgent(resumeAgentId, initialPrompt);
+		console.log('Resume this agent by running:');
+		console.log(`ai codeAgent -r=${resumeAgentId}`);
+		return;
 	}
 
 	const functions = [AgentFeedback, PublicWeb, CodeFunctions, FileSystemList, LiveFiles, AgentFeedback, Perplexity, CodeEditingAgent];

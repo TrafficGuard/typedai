@@ -10,8 +10,8 @@ export interface RouteInterface {
 
 export function loadOnRequestHooks(fastify: FastifyInstance) {
 	fastify.addHook('onRequest', (request: any, reply: any, done: () => void) => {
-		const routerMethod = request.routerMethod;
-		const routerPath = request.routerPath;
+		const routerMethod = request.routeOptions.method;
+		const routerPath = request.routeOptions.url;
 		if (!(routerMethod && routerPath)) {
 			sendBadRequest(reply, 'The URL is incorrect');
 			return;

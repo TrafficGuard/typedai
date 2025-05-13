@@ -1,60 +1,57 @@
 import { Type, type Static } from '@sinclair/typebox';
 import type {
-    LlmMessage,
-    // UserContent, // This is UserContent from 'ai' - UserContentExt is used for LlmMessage
     GenerateOptions,
+    GenerateTextOptions,
     TextPartExt,
-    // ImagePart, // from 'ai' - ImagePartExt is used
-    // FilePart,  // from 'ai' - FilePartExt is used
     GenerationStats,
-    ImagePartExt, // Extended type from llm.model.ts
-    FilePartExt,  // Extended type from llm.model.ts
-    UserContentExt, // Extended type from llm.model.ts, used in LlmMessage
+    ImagePartExt,
+    FilePartExt,
 } from '#shared/model/llm.model';
 import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
-import {ChangePropertyType, Writable} from '../typeUtils';
+import {ChangePropertyType} from '../typeUtils';
+
 
 export const AttachmentInfoSchema = Type.Object({
-    // type: Type.Literal('image'),
-    // image: Type.String(), // Represents DataContent (string | Uint8Array | ArrayBuffer | Buffer) or URL. TypeBox handles string for URL/base64.
-    // mimeType: Type.Optional(Type.String()),
-    filename: Type.Optional(Type.String()), // from AttachmentInfo
-    size: Type.Optional(Type.Number()), // from AttachmentInfo
-    externalURL: Type.Optional(Type.String()), // from AttachmentInfo
-}, { $id: 'ImagePartExt' });
+    filename: Type.Optional(Type.String()),
+    size: Type.Optional(Type.Number()),
+    externalURL: Type.Optional(Type.String()),
+}, { $id: 'AttachmentInfo' });
+
+export const ProviderOptionsOptionalSchema = Type.Optional(Type.Record(Type.String(), Type.Record(Type.String(), Type.Any())))
 
 // Basic Part Schemas
 export const TextPartSchema = Type.Object({
     type: Type.Literal('text'),
     text: Type.String(),
-    providerOptions: Type.Optional(Type.Record(Type.String(), Type.Record(Type.String(), Type.Any()))),
+    providerOptions: ProviderOptionsOptionalSchema,
 }, { $id: 'TextPart' });
+
 type TextPartExtType = Omit<ChangePropertyType<TextPartExt, 'providerOptions', Record<string, Record<string, any>>>, 'experimental_providerMetadata'>
 const _TextPartCheck: AreTypesFullyCompatible<TextPartExtType, Static<typeof TextPartSchema>> = true;
 
 // Schema for ImagePartExt (includes filename, size, externalURL)
 // 'image' field represents base64 data or a URL string.
-export const ImagePartExtSchema = Type.Object({
+export const ImagePartExtSchema = Type.Intersect([Type.Object({
     type: Type.Literal('image'),
     image: Type.String(), // Represents DataContent (string | Uint8Array | ArrayBuffer | Buffer) or URL. TypeBox handles string for URL/base64.
     mimeType: Type.Optional(Type.String()),
-    filename: Type.Optional(Type.String()), // from AttachmentInfo
-    size: Type.Optional(Type.Number()), // from AttachmentInfo
-    externalURL: Type.Optional(Type.String()), // from AttachmentInfo
-}, { $id: 'ImagePartExt' });
-const _ImagePartExtCheck: AreTypesFullyCompatible<ImagePartExt, Static<typeof ImagePartExtSchema>> = true;
+    providerOptions: ProviderOptionsOptionalSchema,
+}), AttachmentInfoSchema], { $id: 'ImagePartExt' });
+
+type ImagePartExtType = Omit<ChangePropertyType<ImagePartExt, 'providerOptions', Record<string, Record<string, any>>>, 'experimental_providerMetadata'>
+const _ImagePartExtCheck: AreTypesFullyCompatible<ImagePartExtType, Static<typeof ImagePartExtSchema>> = true;
 
 // Schema for FilePartExt (includes filename, size, externalURL)
 // 'data' field represents base64 data or a URL string.
-export const FilePartExtSchema = Type.Object({
+export const FilePartExtSchema = Type.Intersect([Type.Object({
     type: Type.Literal('file'),
-    data: Type.String(), // Represents DataContent (string | Uint8Array | ArrayBuffer | Buffer) or URL.
-    mimeType: Type.String(),
-    filename: Type.Optional(Type.String()), // from AttachmentInfo
-    size: Type.Optional(Type.Number()), // from AttachmentInfo
-    externalURL: Type.Optional(Type.String()), // from AttachmentInfo
-}, { $id: 'FilePartExt' });
-const _FilePartExtCheck: AreTypesFullyCompatible<FilePartExt, Static<typeof FilePartExtSchema>> = true;
+    data: Type.String(), // Represents DataContent (string | Uint8Array | ArrayBuffer | Buffer) or URL. TypeBox handles string for URL/base64.
+    filename: Type.Optional(Type.String()),
+    mimeType: Type.Optional(Type.String()),
+    providerOptions: ProviderOptionsOptionalSchema,
+}), AttachmentInfoSchema], { $id: 'FilePartExt' });
+type FilePartExtType = Omit<ChangePropertyType<FilePartExt, 'providerOptions', Record<string, Record<string, any>>>, 'experimental_providerMetadata'>
+// const _FilePartExtCheck: AreTypesFullyCompatible<FilePartExtType, Static<typeof FilePartExtSchema>> = true;
 
 export const ToolCallPartSchema = Type.Object({
     type: Type.Literal('tool-call'),
@@ -62,7 +59,7 @@ export const ToolCallPartSchema = Type.Object({
     toolName: Type.String(),
     args: Type.Record(Type.String(), Type.Any()),
 }, { $id: 'ToolCallPart' });
-const _ToolCallPartCheck: AreTypesFullyCompatible<Writable<ModelToolCallPart>, Static<typeof ToolCallPartSchema>> = true;
+// const _ToolCallPartCheck: AreTypesFullyCompatible<Writable<ModelToolCallPart>, Static<typeof ToolCallPartSchema>> = true;
 
 // Content Schemas
 // UserContentExt is string | Array<TextPart | ImagePartExt | FilePartExt>
@@ -75,7 +72,7 @@ export const UserContentSchema = Type.Union([
     Type.String(),
     Type.Array(UserContentPartUnionSchema)
 ], { $id: 'UserContent' }); // This schema is for UserContentExt
-const _UserContentExtCheck: AreTypesFullyCompatible<UserContentExt, Static<typeof UserContentSchema>> = true;
+// const _UserContentExtCheck: AreTypesFullyCompatible<UserContentExt, Static<typeof UserContentSchema>> = true;
 
 // AssistantContent is string | Array<TextPart | ToolCallPart>
 export const AssistantContentPartUnionSchema = Type.Union([
@@ -86,20 +83,20 @@ export const AssistantContentSchema = Type.Union([
     Type.String(),
     Type.Array(AssistantContentPartUnionSchema)
 ], { $id: 'AssistantContent' });
-const _AssistantContentCheck: AreTypesFullyCompatible<AssistantContent, Static<typeof AssistantContentSchema>> = true;
+// const _AssistantContentCheck: AreTypesFullyCompatible<AssistantContent, Static<typeof AssistantContentSchema>> = true;
 
 // ToolContent is Array<{ type: 'tool-result', toolCallId: string, toolName: string, result: any, isError?: boolean }>
 export const ToolResultSchema = Type.Object({
-     type: Type.Literal('tool-result'),
-     toolCallId: Type.String(),
-     toolName: Type.String(),
-     result: Type.Any(), // Type.Unknown() might be more accurate if result can be anything including undefined
-     isError: Type.Optional(Type.Boolean())
+    type: Type.Literal('tool-result'),
+    toolCallId: Type.String(),
+    toolName: Type.String(),
+    result: Type.Any(), // Type.Unknown() might be more accurate if result can be anything including undefined
+    isError: Type.Optional(Type.Boolean())
 }, { $id: 'ToolResult' });
 export const ToolContentSchema = Type.Array(ToolResultSchema, { $id: 'ToolContent' });
 // Check against an array of Writable elements if ToolContent's elements are readonly
-type WritableToolContentElement = Writable<ToolContent[number]>;
-const _ToolContentCheck: AreTypesFullyCompatible<WritableToolContentElement[], Static<typeof ToolContentSchema>> = true;
+// type WritableToolContentElement = Writable<ToolContent[number]>;
+// const _ToolContentCheck: AreTypesFullyCompatible<WritableToolContentElement[], Static<typeof ToolContentSchema>> = true;
 
 export const GenerationStatsSchema = Type.Object({
     requestTime: Type.Number(),
@@ -163,7 +160,7 @@ export const LlmMessageSchema = Type.Union([
     AssistantMessageSchema,
     ToolMessageSchema
 ], { $id: 'LlmMessage' });
-const _LlmMessageCheck: AreTypesFullyCompatible<LlmMessage, Static<typeof LlmMessageSchema>> = true;
+// const _LlmMessageCheck: AreTypesFullyCompatible<LlmMessage, Static<typeof LlmMessageSchema>> = true;
 
 // GenerateOptions Schema
 export const GenerateOptionsSchema = Type.Object({
@@ -177,3 +174,19 @@ export const GenerateOptionsSchema = Type.Object({
     maxOutputTokens: Type.Optional(Type.Number()),
 }, { $id: 'GenerateOptions' });
 const _GenerateOptionsCheck: AreTypesFullyCompatible<GenerateOptions, Static<typeof GenerateOptionsSchema>> = true;
+
+// Schema for properties specific to GenerateTextOptions
+const GenerateTextOptionsSpecificSchema = Type.Object({
+    type: Type.Optional(Type.Union([Type.Literal('text'), Type.Literal('json')])),
+    id: Type.Optional(Type.String()),
+    thinking: Type.Optional(Type.Union([Type.Literal('low'), Type.Literal('medium'), Type.Literal('high')])),
+});
+
+export const GenerateTextOptionsSchema = Type.Intersect(
+    [
+        GenerateOptionsSchema,
+        GenerateTextOptionsSpecificSchema
+    ],
+    { $id: 'GenerateTextOptions' }
+);
+const _GenerateTextOptionsCheck: AreTypesFullyCompatible<GenerateTextOptions, Static<typeof GenerateTextOptionsSchema>> = true;

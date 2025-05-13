@@ -135,7 +135,7 @@ export async function checkForImageSources(result: Record<string, any>, fileStor
 
 							imageParts.push({
 								type: 'image',
-								image: imageData, // The actual Buffer
+								image: imageData.toString('base64'), // Convert Buffer to base64 string
 								mimeType: mimeType,
 								filename: filename,
 								size: size,
@@ -229,7 +229,7 @@ export async function checkForImageSources(result: Record<string, any>, fileStor
 				if (imageData && filename && mimeType && size !== undefined) {
 					imageParts.push({
 						type: 'image',
-						image: imageData,
+						image: imageData.toString('base64'), // Convert Buffer to base64 string
 						mimeType: mimeType,
 						filename: filename,
 						size: size,

@@ -115,8 +115,8 @@ interface FilePart {
 
 /** Additional information added to the FilePart and ImagePart objects */
 export interface AttachmentInfo {
-    filename: string;
-    size: number;
+    filename?: string;
+    size?: number;
     /**
      * URL to large attachment data stored external from the LlmMessage (ie. in the agent's persistent directory).
      * When this is set the image/file data will be set to an empty string when saving to the database.
@@ -126,8 +126,8 @@ export interface AttachmentInfo {
 
 
 // Can't have the node.jd Buffer type in the frontend
-type FilePartUI = ChangePropertyType<FilePart, 'data',  string | Uint8Array | ArrayBuffer | URL>;
-type ImagePartUI = ChangePropertyType<ImagePart, 'image',  string | Uint8Array | ArrayBuffer | URL>;
+type FilePartUI = ChangePropertyType<FilePart, 'data', string >; // | Uint8Array | ArrayBuffer | URL
+type ImagePartUI = ChangePropertyType<ImagePart, 'image', string >; // | Uint8Array | ArrayBuffer | URL
 
 export type FilePartExt = FilePartUI & AttachmentInfo;
 export type ImagePartExt = ImagePartUI & AttachmentInfo;
@@ -157,6 +157,8 @@ export type LlmMessage = CoreMessage & {
     time?: number;
     /** Stats on message generation (i.e when role=assistant) */
     stats?: GenerationStats;
+    /** Provider-specific options for the message. */
+    providerOptions?: Record<string, any>;
 };
 
 export type SystemUserPrompt = [systemPrompt: string, userPrompt: string];

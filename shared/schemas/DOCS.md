@@ -6,3 +6,4 @@ const _entityCheck: AreTypesFullyCompatible<Entity, Static<typeof EntitySchema>>
 
 If there is a compile failure on this line then there is a mismatch between the schema and the interface.
 
+The compile error `error TS2322: Type 'true' is not assignable to type 'false'` indicates a type mismatch.

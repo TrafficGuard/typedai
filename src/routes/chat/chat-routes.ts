@@ -157,7 +157,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
  */
 async function extractMessage(req: FastifyRequest<any>): Promise<{
 	llmId: string;
-	userContent: UserContent;
+	userContent: UserContentExt;
 	options?: GenerateOptions;
 }> {
 	const parts = req.parts();
@@ -207,8 +207,8 @@ async function extractMessage(req: FastifyRequest<any>): Promise<{
  * @param message
  * @param attachments
  */
-export function toUserContent(message: string, attachments: Array<FilePartExt | ImagePartExt>): UserContent {
-	if (!attachments) return message;
+export function toUserContent(message: string, attachments: Array<FilePartExt | ImagePartExt>): UserContentExt {
+	if (!attachments || attachments.length === 0) return message;
 
 	const userContent: UserContentExt = [];
 

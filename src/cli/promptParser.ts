@@ -1,5 +1,5 @@
 import type { ImagePart, TextPart, UserContent } from 'ai';
-import type { UserContentExt } from '#shared/model/llm.model';
+import type { ImagePartExt, UserContentExt } from '#shared/model/llm.model';
 
 export interface ParsedPrompt {
 	textPrompt: string;
@@ -16,7 +16,7 @@ export interface ParsedPrompt {
 export function parsePromptWithImages(rawPrompt: string): ParsedPrompt {
 	const lines = rawPrompt.split('\n');
 	const textParts: string[] = [];
-	const imageAttachments: ImagePart[] = [];
+	const imageAttachments: ImagePartExt[] = [];
 
 	for (const line of lines) {
 		if (line.startsWith('IMG:')) {
@@ -25,7 +25,7 @@ export function parsePromptWithImages(rawPrompt: string): ParsedPrompt {
 				try {
 					const url = new URL(urlString);
 					// TODO: Add filename and size if derivable or needed for specific LLMs/logging
-					imageAttachments.push({ type: 'image', image: url });
+					imageAttachments.push({ type: 'image', image: url.toString() });
 				} catch (e) {
 					console.warn(`Invalid image URL skipped: ${urlString}`);
 				}
@@ -39,7 +39,7 @@ export function parsePromptWithImages(rawPrompt: string): ParsedPrompt {
 	let userContent: UserContentExt;
 
 	if (imageAttachments.length > 0) {
-		const contentParts: Array<TextPart | ImagePart> = [{ type: 'text', text: textPrompt }];
+		const contentParts: Array<TextPart | ImagePartExt> = [{ type: 'text', text: textPrompt }];
 		contentParts.push(...imageAttachments);
 		userContent = contentParts;
 	} else {

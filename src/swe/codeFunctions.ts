@@ -3,9 +3,49 @@ import { queryWorkflow, selectFilesAgent } from '#swe/discovery/selectFilesAgent
 import { type SelectFilesResponse, selectFilesToEdit } from '#swe/discovery/selectFilesToEdit';
 import { getProjectInfo } from '#swe/projectDetection';
 import { reviewChanges } from '#swe/reviewChanges';
+import { execCommand, failOnError } from '#utils/exec';
 
 @funcClass(__filename)
 export class CodeFunctions {
+	/**
+	 * Runs the initialise command from the projectInfo.json
+	 */
+	@func()
+	async initialiseProject(): Promise<string> {
+		const projectInfo = await getProjectInfo();
+		if (!projectInfo) throw new Error('No projectInfo.json available');
+		if (!projectInfo.initialise) return 'No initialise command defined';
+		const result = await execCommand(projectInfo.initialise);
+		failOnError('Failed to initialise the project', result);
+		return `Project successfully intialised calling "${projectInfo.initialise}"`;
+	}
+
+	/**
+	 * Compiles the project using the compile command from the projectInfo.json
+	 */
+	@func()
+	async compile(): Promise<string> {
+		const projectInfo = await getProjectInfo();
+		if (!projectInfo) throw new Error('No projectInfo.json available');
+		if (!projectInfo.compile) return 'No compile command defined';
+		const result = await execCommand(projectInfo.compile);
+		failOnError('Failed to compile the project', result);
+		return `Project successfully compile calling "${projectInfo.compile}"`;
+	}
+
+	/**
+	 * Test the project using the test command from the projectInfo.json
+	 */
+	@func()
+	async test(): Promise<string> {
+		const projectInfo = await getProjectInfo();
+		if (!projectInfo) throw new Error('No projectInfo.json available');
+		if (!projectInfo.test) return 'No compile command defined';
+		const result = await execCommand(projectInfo.test);
+		failOnError('Failure testing the project', result);
+		return `Project successfully tested calling "${projectInfo.test}"`;
+	}
+
 	/**
 	 * Searches across files under the current working directory to provide an answer to the query
 	 * @param query the query

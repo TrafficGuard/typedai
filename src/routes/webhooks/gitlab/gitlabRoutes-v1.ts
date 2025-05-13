@@ -24,7 +24,7 @@ export async function gitlabRoutesV1(fastify: AppFastifyInstance) {
 		`${basePath}/gitlab`,
 		{
 			schema: {
-				body: Type.Any(),
+				body: Type.Object({}, { additionalProperties: true }),
 			},
 		},
 		async (req, reply) => {
