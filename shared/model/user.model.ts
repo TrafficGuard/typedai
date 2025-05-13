@@ -49,7 +49,6 @@ export interface User {
     passwordHash?: string; // Stored hash, not exposed to frontend
     createdAt: Date;
     lastLoginAt?: Date;
-
     hilBudget: number;
     hilCount: number;
 
@@ -61,18 +60,5 @@ export interface User {
     functionConfig: Record<string, Record<string, any>>;
 }
 
-/**
- * Represents the user profile data returned by the API (excluding sensitive fields).
- */
-export type UserProfile = Omit<User, 'passwordHash'>;
 
-
-export const UpdateUserProfilePayloadProps = ['hilBudget', 'hilCount', 'llmConfig', 'chat', 'functionConfig'] as const;
-/**
- * Represents the payload for updating a user's profile.
- * Matches the structure { user: { ...details... } } expected by the backend.
- */
-export interface UpdateUserProfilePayload {
-    user: Pick<User, typeof UpdateUserProfilePayloadProps[number]>;
-}
 

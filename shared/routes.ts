@@ -1,4 +1,5 @@
 /**
+ * @deprecated Use the new API definition routes
  * Backend route paths
  */
 export const API_ROUTES = {

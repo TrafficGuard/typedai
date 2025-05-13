@@ -1,29 +1,22 @@
-import { Type, type Static } from '@sinclair/typebox';
+import {type Static, Type} from '@sinclair/typebox';
 // Source of Truth Model Interfaces
-import type {
-    User,
-    ChatSettings,
-    LLMServicesConfig,
-    UserProfile,
-    UpdateUserProfilePayload,
-    UpdateUserProfilePayloadProps,
-} from '#shared/model/user.model';
-import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
+import type {ChatSettings, LLMServicesConfig, User} from '#shared/model/user.model';
+import type {AreTypesFullyCompatible} from '../utils/type-compatibility';
 
+// -- User model sub-component schemas -- --
 
-export const ChatSettingsApiSchema = Type.Object({
+export const ChatSettingsModelSchema = Type.Object({
     enabledLLMs: Type.Optional(Type.Record(Type.String(), Type.Boolean())),
     defaultLLM: Type.Optional(Type.String()),
-    temperature: Type.Optional(Type.Number()), // Add min/max if defined in model or desired
+    temperature: Type.Optional(Type.Number()),
     topP: Type.Optional(Type.Number()),
     topK: Type.Optional(Type.Number()),
     presencePenalty: Type.Optional(Type.Number()),
     frequencyPenalty: Type.Optional(Type.Number()),
 });
-const _chatSettingsApiCheck: AreTypesFullyCompatible<ChatSettings, Static<typeof ChatSettingsApiSchema>> = true;
+const _chatSettingsApiCheck: AreTypesFullyCompatible<ChatSettings, Static<typeof ChatSettingsModelSchema>> = true;
 
-
-export const LLMServicesConfigApiSchema = Type.Object({
+export const LLMServicesConfigModelSchema = Type.Object({
     vertexProjectId: Type.Optional(Type.String()),
     vertexRegion: Type.Optional(Type.String()),
     anthropicKey: Type.Optional(Type.String()),
@@ -40,27 +33,39 @@ export const LLMServicesConfigApiSchema = Type.Object({
     togetheraiKey: Type.Optional(Type.String()),
     xaiKey: Type.Optional(Type.String()),
 });
-const _llmServicesConfigApiCheck: AreTypesFullyCompatible<LLMServicesConfig, Static<typeof LLMServicesConfigApiSchema>> = true;
+const _llmServicesConfigApiCheck: AreTypesFullyCompatible<LLMServicesConfig, Static<typeof LLMServicesConfigModelSchema>> = true;
 
-// --- User Schema (for API responses, e.g., profile view) ---
-// Excludes sensitive fields like passwordHash
-export const UserProfileApiResponseSchema = Type.Object({
+// -- User profile schemas -- --
+export const UserProfileProps = ['id', 'email', 'enabled', 'hilBudget', 'hilCount', 'llmConfig', 'chat', 'functionConfig'] as const;
+export const UserProfileUpdateProps = ['hilBudget', 'hilCount', 'llmConfig', 'chat', 'functionConfig'] as const;
+
+/**
+ * The user profile data returned by the API (excluding sensitive fields).
+ */
+export type UserProfile = Pick<User, typeof UserProfileProps[number]>;
+/**
+ * The profile data that users can update themselves
+ */
+export type UserProfileUpdate = Pick<UserProfile, typeof UserProfileUpdateProps[number]>;
+
+
+/**
+ * The user profile data returned by the API (excluding sensitive fields).
+ */
+export const UserProfileSchema = Type.Object({
     id: Type.String(),
     email: Type.String(),
     enabled: Type.Boolean(),
-    createdAt: Type.Unsafe<Date>(Type.String({ format: 'date-time' })), // MODIFIED for Date compatibility
-    lastLoginAt: Type.Optional(Type.Unsafe<Date>(Type.String({ format: 'date-time' }))), // MODIFIED for Date compatibility
     hilBudget: Type.Number(),
     hilCount: Type.Number(),
-    llmConfig: LLMServicesConfigApiSchema,
-    chat: ChatSettingsApiSchema,
+    llmConfig: LLMServicesConfigModelSchema,
+    chat: ChatSettingsModelSchema,
     functionConfig: Type.Record(Type.String(), Type.Record(Type.String(), Type.Any())),
 });
-const _userProfileApiCheck: AreTypesFullyCompatible<UserProfile, Static<typeof UserProfileApiResponseSchema>> = true;
+const _userProfileCheck: AreTypesFullyCompatible<UserProfile, Static<typeof UserProfileSchema>> = true;
 
-
-// --- User Profile Update Schemas (for request bodies) ---
-export const UpdateUserProfileApiBodySchema = Type.Object({
-    user: Type.Pick(UserProfileApiResponseSchema, UpdateUserProfilePayloadProps)
-});
-const _updateUserProfileApiBodyCheck: AreTypesFullyCompatible<UpdateUserProfilePayload, Static<typeof UpdateUserProfileApiBodySchema>> = true;
+/**
+ * The profile data that users can update themselves
+ */
+export const UserProfileUpdateSchema = Type.Pick(UserProfileSchema, UserProfileUpdateProps)
+const _userProfileUpdateCheck: AreTypesFullyCompatible<UserProfileUpdate, Static<typeof UserProfileUpdateSchema>> = true;

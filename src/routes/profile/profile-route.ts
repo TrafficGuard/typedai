@@ -4,9 +4,9 @@ import { Type } from '@sinclair/typebox';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { sendBadRequest } from '#fastify/responses'; // Import sendBadRequest
 import { logger } from '#o11y/logger';
+import { API } from '#shared/api-definitions';
 import type { User, UserProfile } from '#shared/model/user.model'; // Added UserProfile
 import { currentUser } from '#user/userContext';
-import { API } from '#shared/api-definitions';
 
 export async function profileRoute(fastify: AppFastifyInstance) {
 	fastify.get(API.profile.view.pathTemplate, async (req, reply) => {
@@ -27,7 +27,7 @@ export async function profileRoute(fastify: AppFastifyInstance) {
 		};
 
 		// Use the decorated reply.sendJSON with the schema type
-		reply.sendJSON<typeof API.profile.view.schema.response[200]>(userProfileData);
+		reply.sendJSON<(typeof API.profile.view.schema.response)[200]>(userProfileData);
 	});
 
 	fastify.post(
@@ -56,7 +56,7 @@ export async function profileRoute(fastify: AppFastifyInstance) {
 					functionConfig: updatedUser.functionConfig,
 				};
 				// Use the decorated reply.sendJSON with the schema type
-				reply.sendJSON<typeof API.profile.update.schema.response[200]>(userProfileData);
+				reply.sendJSON<(typeof API.profile.update.schema.response)[200]>(userProfileData);
 			} catch (error) {
 				// Use sendBadRequest for typed error responses
 				sendBadRequest(reply, error instanceof Error ? error.message : 'Invalid profile update data');

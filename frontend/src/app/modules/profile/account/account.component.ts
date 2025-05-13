@@ -19,8 +19,8 @@ import { HttpClient } from '@angular/common/http';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatSelectModule } from "@angular/material/select";
 import { CommonModule } from "@angular/common";
-import { USER_API } from '#shared/api/user.api'; // Added
-import type { UserProfile, ChatSettings, UpdateUserProfilePayload } from '#shared/model/user.model'; // Added
+import { USER_API } from '#shared/api/user.api';
+import { UserProfileUpdate, UserProfile } from "#shared/schemas/user.api.schema";
 
 @Component({
     selector: 'settings-account',
@@ -54,9 +54,9 @@ export class SettingsAccountComponent implements OnInit {
             id: new FormControl({ value: '', disabled: true }),
             username: new FormControl(''), // Note: 'username' is not part of UserProfile from API
             email: new FormControl('', [Validators.required, Validators.email]),
-            enabled: new FormControl(false), // This will be populated from API
-            hilBudget: new FormControl(0),  // This will be populated from API
-            hilCount: new FormControl(0),   // This will be populated from API
+            enabled: new FormControl(false),
+            hilBudget: new FormControl(0),
+            hilCount: new FormControl(0),
             llmConfig: new FormGroup({
                 anthropicKey: new FormControl(''),
                 openaiKey: new FormControl(''),
@@ -103,17 +103,14 @@ export class SettingsAccountComponent implements OnInit {
             }),
         });
 
-        // Load the user profile data
         this.loadUserProfile();
-        
-        // Load available LLMs
+
         this.llmService.getLlms().subscribe(
             llms => this.$llms.next(llms),
             error => console.error('Error loading LLMs:', error)
         );
     }
 
-    // Load user profile data
     private loadUserProfile(): void {
         this.http.get<UserProfile>(USER_API.view.pathTemplate).subscribe( // Modified
             (response: UserProfile) => { // Modified
@@ -147,26 +144,22 @@ export class SettingsAccountComponent implements OnInit {
             }
         }
 
-        // Construct payload according to UpdateUserProfileApiBodySchema
-        const updateUserPayload: UpdateUserProfilePayload = { // Modified
-            user: {
-                email: formValues.email,
-                chat: { // Assuming ChatSettings from the form aligns with shared/model/user.model.ChatSettings
-                    defaultLLM: formValues.chat.defaultLLM,
-                    // Add other ChatSettings fields here if they are in the form and schema
-                    // For example, if temperature was editable:
-                    // temperature: formValues.chat.temperature,
-                },
-                // IMPORTANT: llmConfig and functionConfig are NOT part of UpdateUserProfileApiBodySchema.
-                // Changes to these fields in the form will NOT be saved with the current API definition.
+        const updateUserPayload: UserProfileUpdate = {
+            chat: {
+                defaultLLM: formValues.chat.defaultLLM,
+                // Add other ChatSettings fields here if they are in the form and schema
+                // For example, if temperature was editable:
+                // temperature: formValues.chat.temperature,
             },
+            hilBudget: formValues.hilBudget,
+            hilCount: formValues.hilCount,
+            llmConfig: formValues.llmConfig,
+            functionConfig: formValues.functionConfig
         };
 
-        this.http.post<UserProfile>(USER_API.update.pathTemplate, updateUserPayload).subscribe( // Modified
-            (updatedProfile: UserProfile) => { // Modified
+        this.http.post<void>(USER_API.update.pathTemplate, updateUserPayload).subscribe(
+            () => {
                 this.snackBar.open('Profile updated', 'Close', { duration: 3000 });
-                // Optionally, re-patch the form with the response to ensure consistency if backend modifies data
-                this.accountForm.patchValue(updatedProfile);
             },
             (error) => {
                 this.snackBar.open('Failed to save profile.', 'Close', { duration: 3000 });

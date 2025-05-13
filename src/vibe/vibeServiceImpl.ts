@@ -191,25 +191,31 @@ export class VibeServiceImpl implements VibeService {
 
 	// --- Helper / Supporting Methods ---
 
-	async getBranchList(userId: string, sessionId: string, repositorySource: 'local' | 'github' | 'gitlab', repositoryId: string): Promise<string[]> {
-		logger.debug({ userId, repositorySource, repositoryId }, '[VibeServiceImpl] getBranchList called');
-		const vibe = await this.vibeRepo.getVibeSession(userId, sessionId);
-		if (vibe.repositorySource === 'local') {
-			const path = getVibeRepositoryPath(vibe);
-			const result = await execCommand('git branch', { workingDirectory: path });
-			failOnError('Error listing branches', result);
+	async getBranchList(userId: string, sessionId: string, providerType: string, projectId: string): Promise<string[]> {
+		logger.debug({ userId, sessionId, providerType, projectId }, '[VibeServiceImpl] getBranchList called');
+
+		// Load session for authorization/context, but use providerType/projectId for SCM target
+		const session = await this.vibeRepo.getVibeSession(userId, sessionId);
+		if (!session) {
+			throw new Error(`Vibe session with ID ${sessionId} not found or user not authorized.`);
+		}
+
+		if (providerType === 'local') {
+			// For 'local', projectId is expected to be the full path to the repository.
+			const result = await execCommand('git branch', { workingDirectory: projectId });
+			failOnError('Error listing local branches', result);
 			return result.stdout
 				.trim()
 				.split('\n')
-				.map((s) => s.trim());
+				.map((s) => s.trim().replace(/^\* /, '')); // Remove leading '*' from current branch
 		}
-		if (vibe.repositorySource === 'github') {
-			return await new GitHub().getBranches(vibe.repositoryId);
+		if (providerType === 'github') {
+			return await new GitHub().getBranches(projectId);
 		}
-		if (vibe.repositorySource === 'gitlab') {
-			return await new GitLab().getBranches(vibe.repositoryId);
+		if (providerType === 'gitlab') {
+			return await new GitLab().getBranches(projectId);
 		}
-		throw new Error(`Unsupported SCM ${vibe.repositorySource}`);
+		throw new Error(`Unsupported SCM provider type: ${providerType}`);
 	}
 
 	async getFileSystemTree(userId: string, sessionId: string, directoryPath?: string): Promise<FileSystemNode> {

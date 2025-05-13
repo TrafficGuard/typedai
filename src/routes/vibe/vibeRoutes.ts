@@ -279,7 +279,7 @@ const FileSystemNodeSchema = Type.Recursive((Self) =>
 	}),
 );
 // The service returns an array of nodes (potentially representing the root level)
-const GetTreeResponseSchema = Type.Array(FileSystemNodeSchema);
+const GetTreeResponseSchema = FileSystemNodeSchema;
 
 // GET /:sessionId/file
 const GetFileQuerySchema = Type.Object({

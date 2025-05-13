@@ -2,8 +2,6 @@ import { readFileSync } from 'node:fs';
 import type * as http from 'node:http';
 import { join } from 'node:path';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
-// TSchema is not directly used in sendJSON signature anymore but might be needed elsewhere or by mapReplacer indirectly. Static is not used here.
-// import {Static, TSchema} from '@sinclair/typebox'; 
 import fastify, {
 	type ContextConfigDefault,
 	type FastifyBaseLogger,
@@ -20,12 +18,11 @@ import fastify, {
 } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
 import type { FastifyReplyType, ResolveFastifyReplyType } from 'fastify/types/type-provider';
-// Correct imports for precise generic matching
 import type { RawServerBase } from 'fastify/types/utils';
+import { StatusCodes } from 'http-status-codes';
 // src/fastify/fastifyApp.ts:14:39 - error TS1479: The current file is a CommonJS module whose imports will produce 'require' calls; however, the referenced file is an ECMAScript module and cannot be imported with 'require'. Consider writing a dynamic 'import("fastify-http-errors-enhanced")' call instead.
 //   To convert this file to an ECMAScript module, change its file extension to '.mts' or create a local package.json file with `{ "type": "module" }`.
 // import fastifyHttpErrorsEnhanced from 'fastify-http-errors-enhanced'
-import * as HttpStatus from 'http-status-codes';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { googleIapMiddleware, jwtAuthMiddleware, singleUserMiddleware } from '#fastify/authenticationMiddleware';
 import { sendBadRequest } from '#fastify/responses'; // mapReplacer might not be needed by sendJSON anymore
@@ -63,15 +60,12 @@ declare module 'fastify' {
 		ContextConfig = ContextConfigDefault,
 		SchemaCompiler extends FastifySchema = FastifySchema,
 		TypeProvider extends FastifyTypeProvider = FastifyTypeProviderDefault,
-		// This is the 8th generic: the resolved type of the response payload for the current route context
-		ReplyType extends FastifyReplyType = ResolveFastifyReplyType<TypeProvider, SchemaCompiler, RouteGeneric>
+		ReplyType extends FastifyReplyType = ResolveFastifyReplyType<TypeProvider, SchemaCompiler, RouteGeneric>,
 	> {
-		// sendJSON is NO LONGER GENERIC ITSELF.
-		// It uses the ReplyType from the FastifyReply<..., ReplyType> interface.
 		sendJSON(
 			this: FastifyReply<RawServer, RawRequest, RawReply, RouteGeneric, ContextConfig, SchemaCompiler, TypeProvider, ReplyType>,
-			object: ReplyType, // This now correctly refers to the 8th generic of FastifyReply
-			status?: number
+			object: ReplyType, // Refers to the 8th generic of FastifyReply
+			status?: number,
 		): FastifyReply<RawServer, RawRequest, RawReply, RouteGeneric, ContextConfig, SchemaCompiler, TypeProvider, ReplyType>;
 	}
 }
@@ -112,12 +106,10 @@ export async function initFastify(config: FastifyConfig): Promise<AppFastifyInst
 	if (config.requestDecorators) registerRequestDecorators(config.requestDecorators);
 
 	// Decorate reply with sendJSON
-	// The implementation's `object` parameter is `any` because type checking
-	// for the CALLER is handled by the augmented interface.
-	fastifyInstance.decorateReply('sendJSON', function (this: FastifyReplyBase, object: any, status: number = HttpStatus.OK) {
+	// The implementation's `object` parameter is `any` because type checking for the caller is handled by the augmented interface.
+	fastifyInstance.decorateReply('sendJSON', function (this: FastifyReplyBase, object: any, status: number = StatusCodes.OK) {
 		this.header('Content-Type', 'application/json; charset=utf-8');
 		this.status(status);
-		// Pass the object directly to Fastify's send method.
 		// Fastify will validate against the schema for the given status and then serialize.
 		this.send(object);
 		return this;
@@ -127,13 +119,13 @@ export async function initFastify(config: FastifyConfig): Promise<AppFastifyInst
 
 	// All backend API routes start with /api/ so any unmatched at this point is a 404
 	fastifyInstance.get('/api/*', async (request, reply) => {
-		return reply.code(HttpStatus.NOT_FOUND).send({ error: 'Not Found' });
+		return reply.code(StatusCodes.NOT_FOUND).send({ error: 'Not Found' });
 	});
 
 	// When the user has refreshed the page at an Angular route URL, serve the index.html
 	fastifyInstance.get('/ui/*', async (request, reply) => {
 		// TODO serve this compressed when possible
-		return reply.header('Content-Type', 'text/html').header('Cache-Control', 'no-store, no-cache, must-revalidate').code(HttpStatus.OK).send(indexHtml);
+		return reply.header('Content-Type', 'text/html').header('Cache-Control', 'no-store, no-cache, must-revalidate').code(StatusCodes.OK).send(indexHtml);
 	});
 
 	// TODO precompress https://github.com/fastify/fastify-static?tab=readme-ov-file#precompressed
@@ -177,13 +169,12 @@ function listen(port: number): void {
 }
 
 async function loadPlugins(config: FastifyConfig) {
-	// Register JWT plugin
 	await fastifyInstance.register(import('@fastify/jwt'), {
 		secret: process.env.JWT_SECRET || 'your-secret-key',
 	});
 	await fastifyInstance.register(import('@fastify/cors'), {
 		origin: ['*'], // new URL(process.env.UI_URL).origin
-		methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allow these HTTP methods
+		methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 		allowedHeaders: ['Content-Type', 'Authorization', 'X-Goog-Iap-Jwt-Assertion', 'Enctype'], // Allow these headers
 		credentials: true,
 	});

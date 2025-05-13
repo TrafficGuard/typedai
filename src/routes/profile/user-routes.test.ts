@@ -4,7 +4,7 @@ import type { User } from '#shared/model/user.model';
 
 import { createTestFastify } from '../routeTestUtils';
 
-describe.skip('Profile Routes', () => {
+describe.skip('User Routes', () => {
 	let fastify: FastifyInstance;
 	let mockUser: User;
 

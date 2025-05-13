@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { User } from 'app/core/user/user.types';
 import { catchError, Observable, BehaviorSubject, tap, throwError, mergeMap } from 'rxjs';
-import { API } from '#shared/api-definitions'; // Added import
+import { USER_API } from "#shared/api/user.api";
 
 @Injectable({ providedIn: 'root' })
 export class UserService {
@@ -42,9 +42,8 @@ export class UserService {
         }
 
         // Fetch from server if no current value
-        return this._httpClient.get<User>(`/api/profile/view`).pipe(
+        return this._httpClient.get<User>(USER_API.view.pathTemplate).pipe(
             tap((user) => {
-                user = (user as any).data
                 this._user.next(user);
             }),
             catchError(error => {
@@ -61,9 +60,8 @@ export class UserService {
      * @param user
      */
     update(user: Partial<User>): Observable<User> {
-        return this._httpClient.post<User>(API.profile.update.buildPath({}), { user }).pipe( // Changed to use API.profile.update
+        return this._httpClient.post<User>(USER_API.update.buildPath({}), { user }).pipe(
             tap((response) => {
-                response = (response as any).data;
                 this._user.next({...response});
             })
         );

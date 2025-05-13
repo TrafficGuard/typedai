@@ -8,7 +8,7 @@ import { authRoutes } from './routes/auth/auth-routes';
 import { chatRoutes } from './routes/chat/chat-routes';
 import { llmCallRoutes } from './routes/llms/llm-call-routes';
 import { llmRoutes } from './routes/llms/llm-routes';
-import { profileRoute } from './routes/profile/profile-route';
+import { userRoutes } from './routes/profile/user-routes';
 import { codeReviewRoutes } from './routes/scm/codeReviewRoutes';
 import { scmRoutes } from './routes/scm/scmRoutes';
 import { vibeRoutes } from './routes/vibe/vibeRoutes';
@@ -36,7 +36,7 @@ export async function initServer(): Promise<void> {
 				agentStartRoute,
 				agentDetailsRoutes,
 				agentExecutionRoutes,
-				profileRoute,
+				userRoutes,
 				llmRoutes,
 				llmCallRoutes,
 				codeReviewRoutes,

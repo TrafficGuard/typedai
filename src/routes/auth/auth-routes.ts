@@ -3,7 +3,7 @@ import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send } from '#fastify/index';
 import { userToJwtPayload } from '#fastify/jwt';
 import { logger } from '#o11y/logger';
-import { API_ROUTES } from '../../../shared/routes';
+import { API_ROUTES } from '#shared/routes';
 
 const AUTH_ERRORS = {
 	INVALID_CREDENTIALS: 'Invalid credentials',
