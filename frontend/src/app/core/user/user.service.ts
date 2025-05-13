@@ -3,7 +3,7 @@ import { inject, Injectable } from '@angular/core';
 import { catchError, Observable, BehaviorSubject, tap, throwError, mergeMap } from 'rxjs';
 import { USER_API } from "#shared/api/user.api";
 import { callApiRoute } from "../api-route";
-import { UserProfile } from "#shared/schemas/user.api.schema";
+import { UserProfile } from "#shared/schemas/user.schema";
 
 @Injectable({ providedIn: 'root' })
 export class UserService {

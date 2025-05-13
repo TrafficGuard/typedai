@@ -3,7 +3,7 @@ import { sendBadRequest } from '#fastify/responses';
 import { logger } from '#o11y/logger';
 import { USER_API } from '#shared/api/user.api';
 import type { User } from '#shared/model/user.model';
-import type { UserProfile, UserProfileUpdate } from '#shared/schemas/user.api.schema';
+import type { UserProfile, UserProfileUpdate } from '#shared/schemas/user.schema';
 import { currentUser } from '#user/userContext';
 
 export async function userRoutes(fastify: AppFastifyInstance) {

@@ -18,7 +18,7 @@ import type {
 // Compatibility Checker
 import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
 // Common Schemas
-import { ApiNullResponseSchema } from './common.api.schema';
+import { ApiNullResponseSchema } from './common.schema';
 import {SelectedFile} from "#shared/model/files.model";
 
 

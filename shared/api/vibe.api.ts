@@ -9,13 +9,13 @@ import {
     CommitChangesDataApiSchema, CommitResponseApiSchema,
     UpdateCodeReviewDataApiSchema,
     UpdateDesignPromptDataApiSchema,
-} from '../schemas/vibe.api.schema';
+} from '../schemas/vibe.schema';
 
 // Common API Schemas
 import {
     ApiSessionParamsSchema, ApiErrorResponseSchema, ApiMessageResponseSchema,
     ApiNullResponseSchema, ApiPresetParamsSchema,
-} from '../schemas/common.api.schema';
+} from '../schemas/common.schema';
 import {defineRoute} from "#shared/api-definitions";
 
 

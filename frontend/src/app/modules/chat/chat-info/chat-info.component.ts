@@ -17,7 +17,7 @@ import { UserService } from 'app/core/user/user.service';
 import { EMPTY, Subject, catchError, takeUntil, finalize } from 'rxjs';
 import { AgentLinks, GoogleCloudLinks } from "../../agents/services/agent-links";
 import { MatTooltipModule } from "@angular/material/tooltip";
-import {UserProfile} from "#shared/schemas/user.api.schema";
+import {UserProfile} from "#shared/schemas/user.schema";
 
 @Component({
     selector: 'chat-info',

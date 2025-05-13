@@ -3,8 +3,8 @@ import {defineRoute} from "#shared/api-definitions";
 import {
     UserProfileSchema,
     UserProfileUpdateSchema,
-} from '../schemas/user.api.schema';
-import {ApiNullResponseSchema} from "#shared/schemas/common.api.schema";
+} from '../schemas/user.schema';
+import {ApiNullResponseSchema} from "#shared/schemas/common.schema";
 
 const PROFILE_BASE = '/api/profile';
 export const USER_API = {

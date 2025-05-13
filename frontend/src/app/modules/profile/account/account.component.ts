@@ -20,7 +20,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatSelectModule } from "@angular/material/select";
 import { CommonModule } from "@angular/common";
 import { USER_API } from '#shared/api/user.api';
-import { UserProfileUpdate, UserProfile } from "#shared/schemas/user.api.schema";
+import { UserProfileUpdate, UserProfile } from "#shared/schemas/user.schema";
 
 @Component({
     selector: 'settings-account',
