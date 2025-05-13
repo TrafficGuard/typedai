@@ -78,7 +78,7 @@ export class CodeEditingAgent {
 	/**
 	 * Edits the files to implement the plan and commits changes to version control
 	 * It also compiles, formats, lints, and runs tests where applicable.
-	 * @param implementationPlan The detailed implementation plan to make the changes for
+	 * @param implementationPlan The detailed implementation plan to make the changes for. Include any git branch and commit naming conventions to follow
 	 * @param fileSelection {string[]} An array of files which the code editing agent will have access to.
 	 * @return the diff of the changes made. Note this string may be large
 	 */

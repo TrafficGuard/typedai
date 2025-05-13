@@ -14,7 +14,7 @@ export function send(reply: any, statusCode: number, data: Record<string, any> |
 }
 
 // Fix JSON.toString(map) only ever outputting {}
-function mapReplacer(_key: string, value: any) {
+export function mapReplacer(_key: string, value: any) {
 	return value instanceof Map ? Object.fromEntries(value) : value;
 }
 

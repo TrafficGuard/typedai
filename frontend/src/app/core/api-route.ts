@@ -18,9 +18,12 @@ type ArgsObject<
 > = (PathParams<TPath> extends Record<string, never> // If path string has no params
     ? { pathParams?: PathParams<TPath> }             // Then pathParams property is optional
     : { pathParams: PathParams<TPath> }              // Else, pathParams property is required
-  ) & (TBodySchema extends TSchema                    // If a body schema is defined
-    ? { body: Static<TBodySchema> }                  // Then body property is required and typed
-    : { body?: never }                               // Else, body property is not expected (and cannot be passed)
+  ) & (TBodySchema extends TSchema                    // If TBodySchema is a schema (e.g. Type.String(), Type.Object(...), Type.Unknown())
+    ? (unknown extends Static<TBodySchema>             // True if Static<TBodySchema> is 'any' or 'unknown'
+        ? { body?: Static<TBodySchema> }               // Make body optional for 'any' or 'unknown'
+        : { body: Static<TBodySchema> }                // Else, body is required
+      )
+    : { body?: never }                               // Else (TBodySchema is undefined), body property is not expected (and cannot be passed)
   );
 
 // Helper type to determine if the entire 'args' parameter for callRoute can be optional

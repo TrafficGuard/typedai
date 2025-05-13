@@ -308,10 +308,22 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				agent.fileStore = fileStoreMetadataArray;
 
 				try {
-					await Promise.all([agentStateService.save(agent), agentStateService.saveIteration(iterationData as AutonomousIteration)]);
+					await agentStateService.save(agent);
 				} catch (e) {
-					logger.error(e, 'Error saving agent state or iteration data in control loop');
+					logger.error(e, 'Error saving agent state');
 					controlLoopError = e;
+				}
+
+				try {
+					await agentStateService.saveIteration(iterationData as AutonomousIteration);
+				} catch (e) {
+					logger.error(e, 'Error saving agent iteration data in control loop');
+					for (const [k, v] of Object.entries(iterationData)) {
+						const bytes = Buffer.byteLength(JSON.stringify(v), 'utf8');
+						if (bytes > 10000) {
+							logger.info(`${k} ${bytes} bytes`);
+						}
+					}
 				}
 			}
 

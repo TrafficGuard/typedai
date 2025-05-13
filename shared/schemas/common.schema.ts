@@ -8,6 +8,10 @@ export const ApiMessageResponseSchema = Type.Object({
     message: Type.String(),
 });
 
+export const ResponseMessageSchema = Type.Object({
+    message: Type.String()
+});
+
 // Common path parameter schemas
 export const ApiSessionParamsSchema = Type.Object({
     sessionId: Type.String({ description: 'The ID of the Vibe session' }),

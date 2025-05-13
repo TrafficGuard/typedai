@@ -52,7 +52,7 @@ export class CodeReviewListComponent implements OnInit {
     this.isLoading = true;
     this.codeReviewService.getCodeReviewConfigs().subscribe(
       (configs) => {
-        this.configs$.data = configs.data;
+        this.configs$.data = configs;
         this.isLoading = false;
         this.selection.clear();
       },

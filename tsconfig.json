@@ -25,6 +25,7 @@
     "baseUrl": "./",
     "isolatedModules": true,
     "paths": {
+      "#routes/*": ["./src/routes/*"],
       "#app/*": ["./src/app/*"],
       "#agent/*": ["./src/agent/*"],
       "#chat/*": ["./src/chat/*"],

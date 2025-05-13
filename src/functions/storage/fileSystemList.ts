@@ -141,7 +141,7 @@ export class FileSystemList {
 		// Generate repository maps and overview
 		const projectMaps: RepositoryMaps = await generateRepositoryMaps(await detectProjectInfo());
 		// const repositoryOverview: string = await getRepositoryOverview();
-		return `<project_files>\n${projectMaps.fileSystemTreeWithFileSummaries.text}\n</project_files>\n`;
+		return `<project_files baseDirectory="${getFileSystem().getWorkingDirectory()}">\n${projectMaps.fileSystemTreeWithFileSummaries.text}\n</project_files>\n`;
 	}
 
 	// /**

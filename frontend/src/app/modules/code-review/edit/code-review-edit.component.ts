@@ -96,7 +96,7 @@ export class CodeReviewEditComponent implements OnInit {
     this.isLoading = true;
     this.codeReviewService.getCodeReviewConfig(this.configId!).subscribe(
       (response) => {
-        const data = response.data;
+        const data = response;
         this.editForm.patchValue(data);
 
         // Clear existing examples

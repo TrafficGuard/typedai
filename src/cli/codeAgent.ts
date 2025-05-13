@@ -29,6 +29,7 @@ export async function main() {
 
 	if (resumeAgentId) {
 		const agent = await appContext().agentStateService.load(resumeAgentId);
+		if (!agent) throw new Error(`No agent exists with id ${resumeAgentId}`);
 		switch (agent.state) {
 			case 'completed':
 				return await resumeCompleted(resumeAgentId, agent.executionId, initialPrompt);
@@ -89,13 +90,14 @@ export async function main() {
 		},
 	});
 	saveAgentId('codeAgent', execution.agentId);
-	await execution.execution;
+	try {
+		await execution.execution;
+	} catch (e) {
+		console.log(e);
+	}
 
 	console.log('Resume this agent by running:');
 	console.log(`ai codeAgent -r=${execution.agentId}`);
 }
 
-main().then(
-	() => console.log('done'),
-	(e) => console.error(e),
-);
+main().catch(console.error);

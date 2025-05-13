@@ -1,4 +1,4 @@
-interface IExample {
+export interface IExample {
     code: string;
     reviewComment: string;
 }

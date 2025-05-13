@@ -2,41 +2,38 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { CodeReviewConfig } from "#shared/model/codeReview.model";
-
-
-interface Data<T> {
-  data: T
-}
+import { callApiRoute } from '../../core/api-route';
+import { CODE_REVIEW_API } from '#shared/api/codeReview.api';
+import { CodeReviewConfigCreate, CodeReviewConfigUpdate } from '#shared/schemas/codeReview.schema';
 
 @Injectable({
   providedIn: 'root',
 })
 export class CodeReviewServiceClient {
-  private apiUrl = '/api/code-review-configs';
-
   constructor(private http: HttpClient) {}
 
-  getCodeReviewConfigs(): Observable<Data<CodeReviewConfig[]>> {
-    return this.http.get<Data<CodeReviewConfig[]>>(this.apiUrl);
+  getCodeReviewConfigs(): Observable<CodeReviewConfig[]> {
+    return callApiRoute(this.http, CODE_REVIEW_API.list);
   }
 
-  getCodeReviewConfig(id: string): Observable<Data<CodeReviewConfig>> {
-    return this.http.get<Data<CodeReviewConfig>>(`${this.apiUrl}/${id}`);
+  getCodeReviewConfig(id: string): Observable<CodeReviewConfig> {
+    return callApiRoute(this.http, CODE_REVIEW_API.getById, { pathParams: { id } });
   }
 
-  createCodeReviewConfig(config: Omit<CodeReviewConfig, 'id'>): Observable<string> {
-    return this.http.post<string>(this.apiUrl, config);
+  createCodeReviewConfig(config: CodeReviewConfigCreate): Observable<{ message: string }> {
+    return callApiRoute(this.http, CODE_REVIEW_API.create, { body: config });
   }
 
-  updateCodeReviewConfig(id: string, config: Partial<CodeReviewConfig>): Observable<void> {
-    return this.http.put<void>(`${this.apiUrl}/${id}`, config);
+  updateCodeReviewConfig(id: string, config: CodeReviewConfigUpdate): Observable<{ message: string }> {
+    return callApiRoute(this.http, CODE_REVIEW_API.update, { pathParams: { id }, body: config });
   }
 
-  deleteCodeReviewConfig(id: string): Observable<void> {
-    return this.http.delete<void>(`${this.apiUrl}/${id}`);
+  deleteCodeReviewConfig(id: string): Observable<{ message: string }> {
+    return callApiRoute(this.http, CODE_REVIEW_API.delete, { pathParams: { id } });
   }
 
+  // TODO: Refactor to use callApiRoute once a 'bulkDelete' endpoint is added to CODE_REVIEW_API.
   deleteCodeReviewConfigs(ids: string[]): Observable<void> {
-    return this.http.post<void>(`${this.apiUrl}/bulk-delete`, { ids });
+    return this.http.post<void>('/api/code-review-configs/bulk-delete', { ids });
   }
 }
