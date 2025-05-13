@@ -31,7 +31,7 @@ type ArgsCanBeOptional<TPath extends string, TBodySchema extends TSchema | undef
         : false
     : false;
 
-function callRoute<
+export function callApiRoute<
     TPath extends string,
     TMethod extends "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
     TPathParamsSchema extends TSchema | undefined,

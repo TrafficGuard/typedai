@@ -19,9 +19,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { ClipboardModule } from '@angular/cdk/clipboard';
 import { By } from '@angular/platform-browser';
-import { Attachment, ChatMessage, NEW_CHAT_ID } from '../chat.types';
-import { User } from 'app/core/user/user.types';
-import { DatePipe, DecimalPipe } from '@angular/common'; // Import necessary pipes
+import { DatePipe, DecimalPipe } from '@angular/common';
+import {UserProfile} from "#shared/schemas/user.api.schema"; // Import necessary pipes
 
 // Helper function to create a mock File object
 const createMockFile = (name: string, size: number, type: string): File => {
@@ -68,7 +67,7 @@ describe('ConversationComponent', () => {
     let mockChangeDetectorRef: jasmine.SpyObj<ChangeDetectorRef>;
     let mockNgZone: jasmine.SpyObj<NgZone>;
 
-    const mockUser: User = {
+    const mockUser: UserProfile = {
         id: 'user-1',
         name: 'Test User',
         email: 'test@example.com',
@@ -78,7 +77,7 @@ describe('ConversationComponent', () => {
         hilCount: 0,
         avatar: '',
         status: '',
-        chat: { defaultLLM: 'openai:gpt-4', thinking: 'low' }
+        chat: { defaultLLM: 'openai:gpt-4'}
     };
 
     beforeEach(async () => {
@@ -141,7 +140,7 @@ describe('ConversationComponent', () => {
         }).compileComponents();
 
         // Mock return values
-        mockLlmService.getLlms.and.returnValue(of([{ id: 'openai:gpt-4', name: 'GPT-4', supports_anthropic_beta_tools: false, supports_functions: false, supports_json: false, supports_parallel_function_calling: false, supports_system_prompt: false, supports_tools: false, supports_vision: false }]));
+        mockLlmService.getLlms.and.returnValue(of([{ isConfigured: true, id: 'openai:gpt-4', name: 'GPT-4', supports_anthropic_beta_tools: false, supports_functions: false, supports_json: false, supports_parallel_function_calling: false, supports_system_prompt: false, supports_tools: false, supports_vision: false }]));
         mockUserService.get.and.returnValue(of(mockUser));
 
         fixture = TestBed.createComponent(ConversationComponent);

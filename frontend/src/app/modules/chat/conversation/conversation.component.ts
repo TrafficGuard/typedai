@@ -1,7 +1,6 @@
 import { TextFieldModule } from '@angular/cdk/text-field';
 import {DatePipe, NgClass, DecimalPipe, CommonModule} from '@angular/common';
 import { UserService } from 'app/core/user/user.service';
-import { User } from 'app/core/user/user.types';
 import { EMPTY, Observable, catchError, switchMap } from 'rxjs';
 import { v4 as uuidv4 } from 'uuid';
 import {
@@ -44,6 +43,7 @@ import {MatTooltipModule} from "@angular/material/tooltip";
 import {ClipboardButtonComponent} from "./clipboard-button.component";
 import {FuseConfirmationService} from "../../../../@fuse/services/confirmation";
 import {ClipboardModule} from "@angular/cdk/clipboard";
+import {UserProfile} from "#shared/schemas/user.api.schema";
 
 @Component({
     selector: 'chat-conversation',
@@ -91,7 +91,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     private _unsubscribeAll: Subject<any> = new Subject<any>();
     llms: LLM[] = null;
     llmId: string;
-    currentUser: User;
+    currentUser: UserProfile;
     defaultChatLlmId: string;
 
     sendIcon: string = 'heroicons_outline:paper-airplane'
@@ -514,7 +514,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
      * Gets the latest user preferences from the server
      * @returns Observable of the user data or error
      */
-    private _getUserPreferences(): Observable<User> {
+    private _getUserPreferences(): Observable<UserProfile> {
         // Show loading state while fetching preferences
         this.generating = true;
 

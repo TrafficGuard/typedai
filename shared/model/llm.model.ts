@@ -11,7 +11,7 @@ import {
     type ToolContent,
     type UserContent,
 } from 'ai';
-import {NewType} from "../typeUtils";
+import {ChangePropertyType} from "../typeUtils";
 
 // Should match fields in CallSettings in node_modules/ai/dist/index.d.ts
 export interface GenerateOptions {
@@ -126,8 +126,8 @@ export interface AttachmentInfo {
 
 
 // Can't have the node.jd Buffer type in the frontend
-type FilePartUI = NewType<FilePart, 'data',  string | Uint8Array | ArrayBuffer | URL>;
-type ImagePartUI = NewType<ImagePart, 'image',  string | Uint8Array | ArrayBuffer | URL>;
+type FilePartUI = ChangePropertyType<FilePart, 'data',  string | Uint8Array | ArrayBuffer | URL>;
+type ImagePartUI = ChangePropertyType<ImagePart, 'image',  string | Uint8Array | ArrayBuffer | URL>;
 
 export type FilePartExt = FilePartUI & AttachmentInfo;
 export type ImagePartExt = ImagePartUI & AttachmentInfo;

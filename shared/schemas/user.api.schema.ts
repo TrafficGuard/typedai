@@ -36,7 +36,7 @@ export const LLMServicesConfigModelSchema = Type.Object({
 const _llmServicesConfigApiCheck: AreTypesFullyCompatible<LLMServicesConfig, Static<typeof LLMServicesConfigModelSchema>> = true;
 
 // -- User profile schemas -- --
-export const UserProfileProps = ['id', 'email', 'enabled', 'hilBudget', 'hilCount', 'llmConfig', 'chat', 'functionConfig'] as const;
+export const UserProfileProps = ['id', 'name', 'email', 'enabled', 'hilBudget', 'hilCount', 'llmConfig', 'chat', 'functionConfig'] as const;
 export const UserProfileUpdateProps = ['hilBudget', 'hilCount', 'llmConfig', 'chat', 'functionConfig'] as const;
 
 /**
@@ -54,6 +54,7 @@ export type UserProfileUpdate = Pick<UserProfile, typeof UserProfileUpdateProps[
  */
 export const UserProfileSchema = Type.Object({
     id: Type.String(),
+    name: Type.String(),
     email: Type.String(),
     enabled: Type.Boolean(),
     hilBudget: Type.Number(),

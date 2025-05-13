@@ -19,6 +19,7 @@ describe.skip('Vibe Routes - POST /api/vibe', () => {
 
 	const mockUser: User = {
 		id: 'test-user-id',
+		name: 'John Doe',
 		email: 'test@example.com',
 		// name: 'Test User', // name is not a property of User
 		enabled: true,

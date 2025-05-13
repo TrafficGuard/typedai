@@ -9,6 +9,7 @@ describe('FirestoreUserService', () => {
 	function createUserWithDefaults(overrides: Partial<User>): User {
 		const defaultUser: User = {
 			id: '',
+			name: 'John Doe',
 			email: '',
 			enabled: true,
 			hilBudget: 0,

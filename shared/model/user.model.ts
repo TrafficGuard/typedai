@@ -44,6 +44,7 @@ export interface ChatSettings {
 
 export interface User {
     id: string;
+    name: string;
     email: string;
     enabled: boolean;
     passwordHash?: string; // Stored hash, not exposed to frontend

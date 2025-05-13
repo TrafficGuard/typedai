@@ -9,8 +9,7 @@ import {
     TextContent,
 } from 'app/modules/chat/chat.types';
 import {BehaviorSubject, catchError, filter, map, Observable, of, switchMap, take, tap, throwError,} from 'rxjs';
-import {GenerateOptions} from "app/core/user/user.types";
-import {FilePartExt, ImagePartExt, LlmMessage} from "#shared/model/llm.model";
+import {FilePartExt, GenerateOptions, ImagePartExt, LlmMessage} from "#shared/model/llm.model";
 
 @Injectable({ providedIn: 'root' })
 export class ChatService {

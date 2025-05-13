@@ -6,6 +6,7 @@ export const SINGLE_USER_ID = 'user';
 
 const singleUser: User = {
 	enabled: false,
+	name: 'John Doe',
 	hilBudget: 0,
 	hilCount: 0,
 	llmConfig: {},
@@ -97,6 +98,7 @@ export class InMemoryUserService implements UserService {
 	createUser(user: Partial<User>): Promise<User> {
 		const newUser: User = {
 			id: user.id,
+			name: user.name,
 			email: user.email,
 			enabled: user.enabled ?? true,
 			hilBudget: user.hilBudget ?? 0,

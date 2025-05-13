@@ -8,6 +8,7 @@ describe('InMemoryUserService', () => {
 	function createUserWithDefaults(overrides: Partial<User>): User {
 		const defaultUser: User = {
 			id: '',
+			name: '',
 			email: '',
 			enabled: true,
 			hilBudget: 0,
@@ -72,6 +73,7 @@ describe('InMemoryUserService', () => {
 		it('should update user details', async () => {
 			const user: User = {
 				id: '2',
+				name: 'John Doe',
 				email: 'original@example.com',
 				enabled: true,
 				hilBudget: 100,
@@ -101,6 +103,7 @@ describe('InMemoryUserService', () => {
 		it('should disable a user', async () => {
 			const user: User = {
 				id: '3',
+				name: 'John Doe',
 				email: 'disable@example.com',
 				enabled: true,
 				hilBudget: 100,
@@ -130,6 +133,7 @@ describe('InMemoryUserService', () => {
 		it('should list all users', async () => {
 			const user1: User = {
 				id: '4',
+				name: 'John Doe',
 				email: 'list1@example.com',
 				enabled: true,
 				hilBudget: 100,
@@ -150,6 +154,7 @@ describe('InMemoryUserService', () => {
 			};
 			const user2: User = {
 				id: '5',
+				name: 'John Doe',
 				email: 'list2@example.com',
 				enabled: true,
 				hilBudget: 100,

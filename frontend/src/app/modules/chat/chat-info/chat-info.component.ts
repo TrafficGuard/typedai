@@ -13,11 +13,11 @@ import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { MatDrawer } from '@angular/material/sidenav';
 import { Chat } from 'app/modules/chat/chat.types';
-import { User } from 'app/core/user/user.types';
 import { UserService } from 'app/core/user/user.service';
 import { EMPTY, Subject, catchError, takeUntil, finalize } from 'rxjs';
 import { AgentLinks, GoogleCloudLinks } from "../../agents/services/agent-links";
 import { MatTooltipModule } from "@angular/material/tooltip";
+import {UserProfile} from "#shared/schemas/user.api.schema";
 
 @Component({
     selector: 'chat-info',
@@ -39,7 +39,7 @@ export class ChatInfoComponent implements OnDestroy {
     @Input() chat: Chat;
     @Input() drawer: MatDrawer;
     links: AgentLinks = new GoogleCloudLinks();
-    settings: User['chat'];
+    settings: UserProfile['chat'];
     loading = false;
     error: string | null = null;
     private destroy$ = new Subject<void>();
@@ -52,10 +52,6 @@ export class ChatInfoComponent implements OnDestroy {
             });
     }
 
-    /**
-     * Saves the current chat settings to the user profile
-     * Handles loading state and error display
-     */
     /**
      * Saves the current chat settings to the user profile
      * Handles loading state and error display

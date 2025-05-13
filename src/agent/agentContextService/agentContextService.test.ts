@@ -54,6 +54,7 @@ function agentId(): string {
 
 const testUser: User = {
 	id: 'test-user-123',
+	name: 'John Doe',
 	email: 'test@example.com',
 	enabled: true,
 	createdAt: new Date(Date.now() - 86400000), // Yesterday
@@ -67,6 +68,7 @@ const testUser: User = {
 
 const otherUser: User = {
 	id: 'other-user-456',
+	name: 'John Doe',
 	email: 'other@example.com',
 	enabled: true,
 	createdAt: new Date(Date.now() - 172800000), // Day before yesterday

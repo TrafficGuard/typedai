@@ -24,6 +24,7 @@ const estimateSize = (data: any): number => {
 
 const testUser: User = {
 	id: 'test-user-123',
+	name: 'John Doe',
 	email: 'test@example.com',
 	enabled: true,
 	createdAt: new Date(),

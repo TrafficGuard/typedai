@@ -17,6 +17,7 @@ export const SINGLE_USER: User = {
 		temperature: 1,
 	},
 	id: SINGLE_USER_ID,
+	name: 'John Doe',
 	email: 'user@domain.com',
 	functionConfig: {},
 	createdAt: new Date(),

@@ -1,5 +1,4 @@
 import {AgentContext} from "../model/agent.model";
-import {NewType} from "#shared/typeUtils";
+import {ChangePropertyType} from "#shared/typeUtils";
 
-
-export type AgentContextApi = NewType<AgentContext, 'functions', string[]>
+export type AgentContextApi = ChangePropertyType<AgentContext, 'functions', string[]>

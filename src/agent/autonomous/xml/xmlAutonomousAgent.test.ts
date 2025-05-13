@@ -56,6 +56,7 @@ describe.skip('xmlAgentRunner', () => {
 	function createUser(user?: Partial<User>): User {
 		const defaults: User = {
 			email: '',
+			name: 'John Doe',
 			enabled: true,
 			hilBudget: 0,
 			hilCount: 0,

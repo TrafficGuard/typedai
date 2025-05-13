@@ -14,6 +14,7 @@ describe.skip('User Routes', () => {
 		// Setup mock user data
 		mockUser = {
 			id: '1',
+			name: 'John Doe',
 			email: 'test@test.com',
 			enabled: true,
 			hilBudget: 0,

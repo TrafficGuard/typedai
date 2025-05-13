@@ -1,40 +1,29 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { User } from 'app/core/user/user.types';
 import { catchError, Observable, BehaviorSubject, tap, throwError, mergeMap } from 'rxjs';
 import { USER_API } from "#shared/api/user.api";
+import { callApiRoute } from "../api-route";
+import { UserProfile } from "#shared/schemas/user.api.schema";
 
 @Injectable({ providedIn: 'root' })
 export class UserService {
     private _httpClient = inject(HttpClient);
-    private _user: BehaviorSubject<User> = new BehaviorSubject<User>(null);
+    private _user: BehaviorSubject<UserProfile> = new BehaviorSubject<UserProfile>(null);
 
-    // -----------------------------------------------------------------------------------------------------
-    // @ Accessors
-    // -----------------------------------------------------------------------------------------------------
-
-    /**
-     * Setter & getter for user
-     *
-     * @param value
-     */
-    set user(value: User) {
-        // Store the value
+    set user(value: UserProfile) {
         this._user.next(value);
     }
 
-    get user$(): Observable<User> {
+    get user$(): Observable<UserProfile> {
         return this._user.asObservable();
     }
 
-    // -----------------------------------------------------------------------------------------------------
-    // @ Public methods
-    // -----------------------------------------------------------------------------------------------------
+    // -- Public methods -- --
 
     /**
      * Get the current signed-in user data
      */
-    get(): Observable<User> {
+    get(): Observable<UserProfile> {
         // Return the current value if it exists
         const currentUser = this._user.getValue();
         if (currentUser) {
@@ -42,8 +31,8 @@ export class UserService {
         }
 
         // Fetch from server if no current value
-        return this._httpClient.get<User>(USER_API.view.pathTemplate).pipe(
-            tap((user) => {
+        return callApiRoute(this._httpClient, USER_API.view).pipe(
+            tap((user: UserProfile) => {
                 this._user.next(user);
             }),
             catchError(error => {
@@ -56,13 +45,13 @@ export class UserService {
 
     /**
      * Update the user
-     *
-     * @param user
+     * @param userProfileUpdate
      */
-    update(user: Partial<User>): Observable<User> {
-        return this._httpClient.post<User>(USER_API.update.buildPath({}), { user }).pipe(
-            tap((response) => {
-                this._user.next({...response});
+    update(userProfileUpdate: Partial<UserProfile>): Observable<void> {
+        const userProfile = {...this._user.value, ...userProfileUpdate}
+        return callApiRoute(this._httpClient,USER_API.update, { body: userProfile }).pipe(
+            tap(() => {
+                this._user.next(userProfile);
             })
         );
     }
