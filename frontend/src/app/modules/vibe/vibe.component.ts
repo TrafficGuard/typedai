@@ -1,8 +1,7 @@
 import { Component, inject, OnInit, OnDestroy, ViewEncapsulation } from '@angular/core';
-import { ReactiveFormsModule, FormControl } from '@angular/forms'; // FormControl removed from here as it's not directly used for addFileControl anymore
-import { Observable, of, switchMap, take, Subject, takeUntil, finalize, tap, map, startWith } from 'rxjs'; // map, startWith might be needed if other autocompletes exist
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { VibeFileTreeSelectDialogComponent } from './vibe-file-tree-select-dialog/vibe-file-tree-select-dialog.component';
+import { ReactiveFormsModule, FormControl } from '@angular/forms';
+import { Observable, switchMap, take, Subject, takeUntil, finalize, tap, map, startWith } from 'rxjs';
+import { MatDialogModule } from '@angular/material/dialog';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterOutlet } from '@angular/router';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
@@ -17,23 +16,22 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatListModule } from '@angular/material/list';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { VibeService } from './vibe.service';
-import {VibeSession, SelectedFile, type FileSystemNode} from './vibe.types';
+import { VibeServiceClient } from './vibe-service-client.service';
 import { VibeFileListComponent } from './vibe-file-list/vibe-file-list.component';
-import { VibeDesignReviewComponent } from './vibe-design-review/vibe-design-review.component';
-import {MatChip, MatChipListbox} from "@angular/material/chips";
 import {
   MatAccordion,
   MatExpansionPanel,
   MatExpansionPanelDescription,
   MatExpansionPanelHeader, MatExpansionPanelTitle
 } from "@angular/material/expansion";
+import {FileSystemNode} from "#shared/services/fileSystemService";
+import {VibeSession} from "#shared/model/vibe.model";
 
 @Component({
   selector: 'vibe-detail',
   templateUrl: './vibe.component.html',
   styleUrls: ['./vibe.component.scss'],
-  encapsulation: ViewEncapsulation.None, // Added encapsulation if needed, adjust as per project style
+  encapsulation: ViewEncapsulation.None,
   standalone: true,
   imports: [
     CommonModule,
@@ -48,13 +46,9 @@ import {
     MatListModule,
     MatTooltipModule,
     MatAutocompleteModule,
-    RouterOutlet,
     VibeFileListComponent,
-    VibeDesignReviewComponent,
     MatProgressSpinnerModule,
     MatDialogModule,
-    MatChip,
-    MatChipListbox,
     MatAccordion,
     MatExpansionPanel,
     MatExpansionPanelDescription,
@@ -72,11 +66,10 @@ export class VibeComponent implements OnInit, OnDestroy {
   // filteredFiles$: Observable<string[]>; // Removed
 
   session$: Observable<VibeSession>;
-  private vibeService = inject(VibeService);
+  private vibeService = inject(VibeServiceClient);
   currentSession: VibeSession | null = null; // Store the current session
   isProcessingAction: boolean = false; // Flag for loading state
 
-  // constructor() {}
   private route = inject(ActivatedRoute);
   private snackBar = inject(MatSnackBar);
 

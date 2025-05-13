@@ -74,7 +74,7 @@ export async function main() {
 		{ id: 'CodeAgent name' },
 	);
 
-	logger.info('Starting new agent');
+	logger.info('Starting new codeAgent');
 	const execution = await startAgent({
 		agentName,
 		initialPrompt: fullPrompt,
@@ -90,6 +90,9 @@ export async function main() {
 	});
 	saveAgentId('codeAgent', execution.agentId);
 	await execution.execution;
+
+	console.log('Resume this agent by running:');
+	console.log(`ai codeAgent -r=${execution.agentId}`);
 }
 
 main().then(

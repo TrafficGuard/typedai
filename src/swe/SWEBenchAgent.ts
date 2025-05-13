@@ -295,7 +295,7 @@ export class SWEBenchAgent {
 			language: 'python',
 		};
 		const files = await selectFilesToEdit(problemStatement, pythonProjectInfo as ProjectInfo);
-		return [...files.primaryFiles.map((sf) => sf.path), ...files.secondaryFiles.map((sf) => sf.path)];
+		return [...files.primaryFiles.map((sf) => sf.filePath), ...files.secondaryFiles.map((sf) => sf.filePath)];
 	}
 
 	private async prepareEditRequirements(task: SWEInstance, readmeFiles: string[], relevantFiles: string[]): Promise<string> {

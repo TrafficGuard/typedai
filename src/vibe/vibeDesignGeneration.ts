@@ -1,5 +1,6 @@
 import { logger } from '#o11y/logger';
-import type { DesignAnswer, SelectedFile } from '#shared/model/vibe.model';
+import type { SelectedFile } from '#shared/model/files.model';
+import type { DesignAnswer } from '#shared/model/vibe.model';
 import { runVibeWorkflowAgent } from '#vibe/vibeAgentRunner';
 import type { VibeRepository } from '#vibe/vibeRepository';
 

@@ -6,7 +6,7 @@ import {
     Routes,
 } from '@angular/router';
 import { ChatComponent } from 'app/modules/chat/chat.component';
-import { ChatService } from 'app/modules/chat/chat.service';
+import { ChatServiceClient } from './chat.service';
 import { ChatsComponent } from 'app/modules/chat/chats/chats.component';
 import { ConversationComponent } from 'app/modules/chat/conversation/conversation.component';
 import { EmptyConversationComponent } from 'app/modules/chat/empty-conversation/empty-conversation.component';
@@ -22,7 +22,7 @@ const conversationResolver = (
     route: ActivatedRouteSnapshot,
     state: RouterStateSnapshot
 ) => {
-    const chatService = inject(ChatService);
+    const chatService = inject(ChatServiceClient);
     const router = inject(Router);
 
     return chatService.getChatById(route.paramMap.get('id')).pipe(
@@ -48,7 +48,7 @@ export default [
         path: '',
         component: ChatComponent,
         resolve: {
-            chats: () => inject(ChatService).getChats(),
+            chats: () => inject(ChatServiceClient).getChats(),
         },
         children: [
             {

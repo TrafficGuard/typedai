@@ -12,7 +12,7 @@ import {BehaviorSubject, catchError, filter, map, Observable, of, switchMap, tak
 import {FilePartExt, GenerateOptions, ImagePartExt, LlmMessage} from "#shared/model/llm.model";
 
 @Injectable({ providedIn: 'root' })
-export class ChatService {
+export class ChatServiceClient {
     private _chat: BehaviorSubject<Chat> = new BehaviorSubject(null);
     private _chats: BehaviorSubject<Chat[]> = new BehaviorSubject(null);
     /** Flag indicating whether chats have been loaded from the server */

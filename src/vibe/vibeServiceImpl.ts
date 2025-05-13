@@ -1,28 +1,25 @@
 import { randomUUID } from 'node:crypto';
+import { GitHub } from '#functions/scm/github';
+import { GitLab } from '#functions/scm/gitlab';
+import { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
 import type {
 	CommitChangesData,
 	CreateVibeSessionData,
 	DesignAnswer,
-	SelectedFile,
 	UpdateCodeReviewData,
 	UpdateVibeSessionData,
 	VibePreset,
 	VibeSession,
 } from '#shared/model/vibe.model';
-import type { VibeRepository } from '#vibe/vibeRepository';
-import type { VibeService } from '#vibe/vibeService';
-import { VibeSessionCreation } from '#vibe/vibeSessionCreation';
-
-import { getFileSystem } from '#agent/agentContextLocalStorage';
-import { GitHub } from '#functions/scm/github';
-import { GitLab } from '#functions/scm/gitlab';
-import { FileSystemService } from '#functions/storage/fileSystemService';
 import type { FileSystemNode } from '#shared/services/fileSystemService';
 import { execCommand, failOnError } from '#utils/exec';
 import type { VibeDesignGeneration } from '#vibe/vibeDesignGeneration';
 import { VibeFileSelection } from '#vibe/vibeFileSelection';
+import type { VibeRepository } from '#vibe/vibeRepository';
 import { getVibeRepositoryPath } from '#vibe/vibeRepositoryPath';
+import type { VibeService } from '#vibe/vibeService';
+import { VibeSessionCreation } from '#vibe/vibeSessionCreation';
 
 /**
  * Main implementation of the VibeService.

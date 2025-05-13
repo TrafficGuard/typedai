@@ -6,9 +6,10 @@ import { Perplexity } from '#functions/web/perplexity';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
+import type { SelectedFile } from '#shared/model/files.model';
 import type { IFileSystemService } from '#shared/services/fileSystemService';
 import { type CompileErrorAnalysis, type CompileErrorAnalysisDetails, analyzeCompileErrors } from '#swe/analyzeCompileErrors';
-import { type SelectedFile, selectFilesAgent } from '#swe/discovery/selectFilesAgent';
+import { selectFilesAgent } from '#swe/discovery/selectFilesAgent';
 import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
 import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
 import { onlineResearch } from '#swe/onlineResearch';
@@ -54,7 +55,7 @@ export class CodeEditingAgent {
 		fss.setWorkingDirectory(projectInfo.baseDir);
 
 		const selectFiles = await this.selectFiles(requirements, projectInfo);
-		const fileSelection = selectFiles.map((sf) => sf.path);
+		const fileSelection = selectFiles.map((sf) => sf.filePath);
 		const fileContents = await fss.readFilesAsXml(fileSelection);
 		logger.info(fileSelection, `Initial selected file count: ${fileSelection.length}. Tokens: ${await countTokens(fileContents)}`);
 

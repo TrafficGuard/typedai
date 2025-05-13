@@ -14,7 +14,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { ActivatedRoute, Router, RouterLink, RouterOutlet } from '@angular/router';
-import { ChatService } from 'app/modules/chat/chat.service';
+import { ChatServiceClient } from '../chat.service';
 import {Chat, NEW_CHAT_ID} from 'app/modules/chat/chat.types';
 import { Subject, takeUntil } from 'rxjs';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
@@ -49,7 +49,7 @@ export class ChatsComponent implements OnInit, OnDestroy {
      * Constructor
      */
     constructor(
-        private _chatService: ChatService,
+        private _chatService: ChatServiceClient,
         private snackBar: MatSnackBar,
         private _changeDetectorRef: ChangeDetectorRef,
         private confirmationService: FuseConfirmationService,

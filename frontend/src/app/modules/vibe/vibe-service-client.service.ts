@@ -1,8 +1,10 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject, type Observable, tap, catchError, throwError } from 'rxjs';
-// Import FileSystemNode if not already imported (assuming it's defined in vibe.types.ts)
-import type { FileSystemNode, GitProject, VibePreset, VibePresetConfig, VibeSession, SelectedFile } from './vibe.types';
+import {SelectedFile} from "#shared/model/files.model";
+import {VibePreset, VibePresetConfig, VibeSession} from "#shared/model/vibe.model";
+import {GitProject} from "#shared/model/git.model";
+import {FileSystemNode} from "#shared/services/fileSystemService";
 
 // Define the shape of the data needed for creation, matching the backend API body
 export interface CreateVibeSessionPayload {
@@ -31,7 +33,7 @@ export interface UpdateVibeSessionPayload {
 @Injectable({
 	providedIn: 'root',
 })
-export class VibeService {
+export class VibeServiceClient {
 	// BehaviorSubject to hold the currently viewed/active session
 	private currentSession = new BehaviorSubject<VibeSession | null>(null);
 	private sessions = new BehaviorSubject<VibeSession[] | null>(null);
@@ -60,9 +62,6 @@ export class VibeService {
 	listVibeSessions(): Observable<VibeSession[]> {
 		return this.http.get<VibeSession[]>('/api/vibe').pipe(
 			tap((response: VibeSession[]) => {
-				for(const vibe of response) {
-					console.log(vibe.createdAt)
-				}
 				this.sessions.next(response);
 			}),
 		);
@@ -87,7 +86,7 @@ export class VibeService {
 
 	/**
 	 * Fetches the list of branches for a given SCM project.
-	 * @param providerType The type of the SCM provider (e.g., 'github', 'gitlab').
+	 * @param providerType The type of the SCM provider (e.g., 'local', 'github', 'gitlab').
 	 * @param projectId The ID or path of the SCM project.
 	 */
 	getScmBranches(providerType: string, projectId: string | number): Observable<string[]> {

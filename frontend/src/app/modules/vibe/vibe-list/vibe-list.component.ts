@@ -5,8 +5,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { Router } from '@angular/router';
 import { Observable, Subject } from 'rxjs';
-import { VibeService } from '../vibe.service';
-import { VibeSession } from '../vibe.types';
+import { VibeServiceClient } from '../vibe-service-client.service';
+import {VibeSession} from "#shared/model/vibe.model";
 
 @Component({
 	selector: 'vibe-list',
@@ -33,7 +33,7 @@ export class VibeListComponent implements OnInit, OnDestroy {
 	private _unsubscribeAll: Subject<any> = new Subject<any>();
 
 	constructor(
-		private vibeService: VibeService,
+		private vibeService: VibeServiceClient,
 		private router: Router,
 	) {}
 

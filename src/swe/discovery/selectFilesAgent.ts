@@ -2,6 +2,7 @@ import path from 'node:path';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { extractTag } from '#llm/responseParsers';
 import { logger } from '#o11y/logger';
+import type { SelectedFile } from '#shared/model/files.model';
 import {
 	type GenerateTextWithJsonResponse,
 	ImagePartExt,
@@ -34,16 +35,6 @@ interface IterationResponse {
 	keepFiles?: SelectedFile[];
 	ignoreFiles?: SelectedFile[];
 	inspectFiles?: string[];
-}
-
-export interface SelectedFile {
-	/** The file path */
-	path: string;
-	/** The reason why this file needs to in the file selection */
-	reason: string;
-	/** If the file should not need to be modified when implementing the task. Only relevant when the task is for making changes, and not just a query. */
-	readOnly?: boolean;
-	category?: 'edit' | 'reference' | 'style_example' | 'unknown';
 }
 
 /**
@@ -143,13 +134,13 @@ Respond in the following structure, with the answer in Markdown format inside th
  * 0 - USER : given <task> and <filesystem-tree> and <repository-overview> select initial files for the task.
  *
  * Messages #4
- * 3 - ASSISTANT: { "selectFiles": [{"path":"file1", "reason":"contains key details"], "ignoreFiles": [{"path":"file2", "reason": "did not contain the config"}] }
+ * 3 - ASSISTANT: { "selectFiles": [{"filePath":"file1", "reason":"contains key details"], "ignoreFiles": [{"filePath":"file2", "reason": "did not contain the config"}] }
  * 2 - USER: <file_contents path="file1"></file_contents><file_contents path="file2"></file_contents>
  * 1 - ASSISTANT: { "inspectFiles": ["file1", "file2"] }
  * 0 - USER : given <task> and <filesystem-tree> and <repository-overview> select initial files for the task.
  *
  * Messages #5
- * 3 - ASSISTANT: { "selectFiles": [{"path":"file1", "reason":"contains key details"], "ignoreFiles": [{"path":"file2", "reason": "did not contain the config"}] }
+ * 3 - ASSISTANT: { "selectFiles": [{"filePath":"file1", "reason":"contains key details"], "ignoreFiles": [{"filePath":"file2", "reason": "did not contain the config"}] }
  * 2 - USER: <file_contents path="file1"></file_contents><file_contents path="file2"></file_contents>
  * 1 - ASSISTANT: { "inspectFiles": ["file1", "file2"] }
  * 0 - USER : given <task> and <filesystem-tree> and <repository-overview> select initial files for the task.
@@ -197,16 +188,16 @@ async function selectFilesCore(
 		const response: IterationResponse = await generateFileSelectionProcessingResponse(messages, filesToInspect, filesPendingDecision, iterationCount, llm);
 		logger.info(response);
 		for (const ignored of response.ignoreFiles ?? []) {
-			ignoredFiles.set(ignored.path, ignored.reason);
-			filesPendingDecision.delete(ignored.path);
+			ignoredFiles.set(ignored.filePath, ignored.reason);
+			filesPendingDecision.delete(ignored.filePath);
 		}
 		for (const kept of response.keepFiles ?? []) {
-			keptFiles.set(kept.path, kept.reason);
-			filesPendingDecision.delete(kept.path);
+			keptFiles.set(kept.filePath, kept.reason);
+			filesPendingDecision.delete(kept.filePath);
 		}
 
 		// Include relevant rules/documentation/guideline files
-		const justKeptPaths = response.keepFiles?.map((f) => f.path) ?? [];
+		const justKeptPaths = response.keepFiles?.map((f) => f.filePath) ?? [];
 		if (justKeptPaths.length > 0) {
 			try {
 				const cwd = getFileSystem().getWorkingDirectory();
@@ -269,8 +260,8 @@ async function selectFilesCore(
 
 	if (keptFiles.size === 0) throw new Error('No files were selected to fulfill the requirements.');
 
-	const selectedFiles: SelectedFile[] = Array.from(keptFiles.entries()).map(([path, reason]) => ({
-		path,
+	const selectedFiles: SelectedFile[] = Array.from(keptFiles.entries()).map(([filePath, reason]) => ({
+		filePath,
 		reason,
 		// readOnly property is not explicitly handled by the LLM response in this flow, default to undefined or false if needed
 	}));
@@ -323,7 +314,7 @@ For this initial file selection step, identify the files you need to **inspect**
 	// Work in progress, may need to do this differently
 	// Need to write unit tests for it
 	if (options?.currentFiles) {
-		const filePaths = options.currentFiles.map((selection) => selection.path);
+		const filePaths = options.currentFiles.map((selection) => selection.filePath);
 		const fileContents = (await readFileContents(filePaths)).contents;
 		messages.push(assistant(fileContents));
 		const keepAll: IterationResponse = {
@@ -367,10 +358,10 @@ The final part of the response must be a JSON object in the following format:
 <json>
 {
   "keepFiles": [
-    {"path": "path/to/essential/file1", "reason": "Clearly explains why this file is indispensable for the task."}
+    {"filePath": "path/to/essential/file1", "reason": "Clearly explains why this file is indispensable for the task."}
   ],
   "ignoreFiles": [
-    {"path": "path/to/nonessential/file2", "reason": "Explains why this file is not needed."}
+    {"filePath": "path/to/nonessential/file2", "reason": "Explains why this file is not needed."}
   ],
   "inspectFiles": [
     "path/to/potentially/critical/file3"
@@ -392,14 +383,14 @@ The final part of the response must be a JSON object in the following format:
  * @param response
  */
 async function processedIterativeStepUserPrompt(response: IterationResponse): Promise<LlmMessage> {
-	const ignored = response.ignoreFiles?.map((s) => s.path) ?? [];
-	const kept = response.keepFiles?.map((s) => s.path) ?? [];
+	const ignored = response.ignoreFiles?.map((s) => s.filePath) ?? [];
+	const kept = response.keepFiles?.map((s) => s.filePath) ?? [];
 
 	let ignoreText = '';
 	if (ignored.length) {
 		ignoreText = '\nRemoved the following ignored files:';
 		for (const ig of response.ignoreFiles) {
-			ignoreText += `\n${ig.path} - ${ig.reason}`;
+			ignoreText += `\n${ig.filePath} - ${ig.reason}`;
 		}
 	}
 

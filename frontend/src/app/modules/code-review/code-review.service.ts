@@ -11,7 +11,7 @@ interface Data<T> {
 @Injectable({
   providedIn: 'root',
 })
-export class CodeReviewService {
+export class CodeReviewServiceClient {
   private apiUrl = '/api/code-review-configs';
 
   constructor(private http: HttpClient) {}

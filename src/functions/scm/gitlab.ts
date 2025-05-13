@@ -14,11 +14,11 @@ import { func, funcClass } from '#functionSchema/functionDecorators';
 import { AbstractSCM } from '#functions/scm/abstractSCM';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
+import type { GitProject } from '#shared/model/git.model';
 import { currentUser, functionConfig } from '#user/userContext';
 import { envVar } from '#utils/env-var';
 import { execCommand } from '#utils/exec';
 import { cacheRetry } from '../../cache/cacheRetry';
-import type { GitProject } from './gitProject';
 import type { MergeRequest, SourceControlManagement } from './sourceControlManagement';
 
 export interface GitLabConfig {

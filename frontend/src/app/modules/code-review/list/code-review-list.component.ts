@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
-import { CodeReviewService } from '../code-review.service';
+import { CodeReviewServiceClient } from '../code-review.service';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { MatTableDataSource } from '@angular/material/table';
 import { SelectionModel } from '@angular/cdk/collections';
@@ -38,7 +38,7 @@ export class CodeReviewListComponent implements OnInit {
   errorMessage = '';
 
   constructor(
-    private codeReviewService: CodeReviewService,
+    private codeReviewService: CodeReviewServiceClient,
     private router: Router,
     private dialog: FuseConfirmationService,
     private snackBar: MatSnackBar

@@ -16,13 +16,14 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatSelectModule } from '@angular/material/select';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar'; // Import MatSnackBar and MatSnackBarModule
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import { BehaviorSubject, type Observable, Subscription, catchError, finalize, map, of, take } from 'rxjs';
 import { WorkflowsService } from '../../workflows/workflows.service';
-import { type CreateVibeSessionPayload, VibeService } from '../vibe.service';
-import type { GitProject, VibePreset, VibePresetConfig, VibeSession } from '../vibe.types'; // Import VibePreset, VibePresetConfig
+import { type CreateVibeSessionPayload, VibeServiceClient } from '../vibe-service-client.service';
 import { MatCard, MatCardContent } from '@angular/material/card';
+import {GitProject} from "#shared/model/git.model";
+import {VibePreset, VibePresetConfig, VibeSession} from "#shared/model/vibe.model";
 
 @Component({
 	selector: 'app-new-vibe-wizard',
@@ -47,7 +48,7 @@ import { MatCard, MatCardContent } from '@angular/material/card';
 })
 export class NewVibeWizardComponent implements OnInit, OnDestroy {
 	private fb = inject(FormBuilder);
-	private vibeService = inject(VibeService);
+	private vibeService = inject(VibeServiceClient);
 	private workflowsService = inject(WorkflowsService);
 	private router = inject(Router);
 	private snackBar = inject(MatSnackBar); // Inject MatSnackBar
@@ -72,7 +73,7 @@ export class NewVibeWizardComponent implements OnInit, OnDestroy {
 	repoError: string | null = null;
 
 	// State for branch selection
-	private branchesSubject = new BehaviorSubject<string[]>([]);
+	branchesSubject = new BehaviorSubject<string[]>([]);
 	branches$: Observable<string[]> = this.branchesSubject.asObservable();
 	loadingBranches = false;
 	branchError: string | null = null;
@@ -311,7 +312,7 @@ export class NewVibeWizardComponent implements OnInit, OnDestroy {
 	}
 
 	// Update validators based on working branch action and source type
-	private updateWorkingBranchValidators(): void {
+	updateWorkingBranchValidators(): void {
 		const action = this.wizardForm.get('workingBranchAction')?.value;
 		const targetBranchControl = this.wizardForm.get('targetBranch');
 		const existingWorkingBranchControl = this.wizardForm.get('existingWorkingBranch'); // Get new control

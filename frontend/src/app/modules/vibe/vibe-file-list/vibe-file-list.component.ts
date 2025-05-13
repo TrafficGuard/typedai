@@ -1,13 +1,12 @@
 import { Component, inject, OnInit, OnDestroy, effect, signal, computed, output, input, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {FormsModule, ReactiveFormsModule} from '@angular/forms'; // Added for ngModel
-import { finalize, Observable, of, Subject, switchMap, take } from 'rxjs'; // Removed tap, map, startWith, takeUntil as signals handle reactivity
+import { finalize, of, switchMap, take } from 'rxjs'; // Removed tap, map, startWith, takeUntil as signals handle reactivity
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop'; // For automatic unsubscription
 import { MatTableModule } from '@angular/material/table';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { SelectedFile, VibeSession, type FileSystemNode } from '../vibe.types';
 import { VibeEditReasonDialogComponent } from '../vibe-edit-reason-dialog.component';
 
 import { MatSelectModule } from '@angular/material/select';
@@ -21,8 +20,11 @@ import {
   VibeFileTreeSelectDialogComponent
 } from "../vibe-file-tree-select-dialog/vibe-file-tree-select-dialog.component";
 // ActivatedRoute is not used directly in this component anymore, parent handles session via input
-import { VibeService } from "../vibe.service";
+import { VibeServiceClient } from "../vibe-service-client.service";
 import { MatSnackBar } from "@angular/material/snack-bar";
+import {SelectedFile} from "#shared/model/files.model";
+import {FileSystemNode} from "#shared/services/fileSystemService";
+import {VibeSession} from "#shared/model/vibe.model";
 
 @Component({
   selector: 'vibe-file-list',
@@ -31,13 +33,12 @@ import { MatSnackBar } from "@angular/material/snack-bar";
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule, // Added for ngModel
-    ReactiveFormsModule, // Kept for standalone component imports, though direct FormControl use is removed
+    FormsModule,
+    ReactiveFormsModule,
     MatTableModule,
     MatIconModule,
     MatTooltipModule,
-    MatDialogModule, // Add MatDialogModule here
-    VibeEditReasonDialogComponent, // Import the dialog component
+    MatDialogModule,
     MatSelectModule,
     MatFormFieldModule,
     MatInputModule,
@@ -47,10 +48,9 @@ import { MatSnackBar } from "@angular/material/snack-bar";
     MatProgressSpinnerModule,
   ],
 })
-export class VibeFileListComponent { // Removed OnInit, OnDestroy, OnChanges
-  // --- Injected Services ---
+export class VibeFileListComponent {
   public dialog = inject(MatDialog);
-  private vibeService = inject(VibeService);
+  private vibeService = inject(VibeServiceClient);
   private snackBar = inject(MatSnackBar);
   private destroyRef = inject(DestroyRef);
 

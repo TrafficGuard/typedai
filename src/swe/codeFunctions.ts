@@ -25,7 +25,7 @@ export class CodeFunctions {
 	async findRelevantFiles(requirements: string): Promise<string[]> {
 		if (!requirements) throw new Error('Requirements must be provided');
 		const result = await selectFilesAgent(requirements);
-		return result.map((s) => s.path);
+		return result.map((s) => s.filePath);
 	}
 
 	/**

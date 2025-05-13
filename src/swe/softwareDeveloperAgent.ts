@@ -1,9 +1,9 @@
 import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import type { GitProject } from '#functions/scm/gitProject';
 import { type MergeRequest, getSourceControlManagementTool } from '#functions/scm/sourceControlManagement';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
+import type { GitProject } from '#shared/model/git.model';
 import { createBranchName } from '#swe/createBranchName';
 import { generatePullRequestTitleDescription } from '#swe/pullRequestTitleDescription';
 import { selectProject } from '#swe/selectProject';

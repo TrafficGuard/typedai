@@ -6,7 +6,6 @@ import type {
     UpdateVibeSessionData,
     DesignAnswer,
     VibeStatus,
-    SelectedFile,
     CommitChangesData,
     UpdateCodeReviewData,
     VibePreset,
@@ -20,6 +19,7 @@ import type {
 import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
 // Common Schemas
 import { ApiNullResponseSchema } from './common.api.schema';
+import {SelectedFile} from "#shared/model/files.model";
 
 
 // --- VibeStatus Schema ---

@@ -9,7 +9,7 @@ import {
   ReactiveFormsModule
 } from '@angular/forms';
 import {ActivatedRoute, Router, RouterLink} from '@angular/router';
-import {CodeReviewService} from '../code-review.service';
+import {CodeReviewServiceClient} from '../code-review.service';
 import {MatChipInputEvent, MatChipsModule} from '@angular/material/chips';
 import {CommonModule} from "@angular/common";
 import {MatSnackBarModule} from "@angular/material/snack-bar";
@@ -48,7 +48,7 @@ export class CodeReviewEditComponent implements OnInit {
 
   constructor(
     private fb: FormBuilder,
-    private codeReviewService: CodeReviewService,
+    private codeReviewService: CodeReviewServiceClient,
     private route: ActivatedRoute,
     private router: Router
   ) {

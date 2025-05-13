@@ -11,16 +11,16 @@ describe('removeNonExistingFiles', () => {
 
 		const fileSelection = {
 			primaryFiles: [
-				{ path: existingFilePath, reason: 'editing' },
-				{ path: randomFilePath, reason: 'editing' },
+				{ filePath: existingFilePath, reason: 'editing' },
+				{ filePath: randomFilePath, reason: 'editing' },
 			],
-			secondaryFiles: [{ path: randomFilePath, reason: 'reference' }],
+			secondaryFiles: [{ filePath: randomFilePath, reason: 'reference' }],
 		};
 
 		const result = await removeNonExistingFiles(fileSelection);
 
 		expect(result.primaryFiles).to.have.lengthOf(1);
-		expect(result.primaryFiles[0].path).to.equal(existingFilePath);
+		expect(result.primaryFiles[0].filePath).to.equal(existingFilePath);
 		expect(result.secondaryFiles).to.be.empty;
 	});
 });

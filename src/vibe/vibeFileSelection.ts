@@ -1,7 +1,8 @@
 import { agentContextStorage } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
-import type { SelectedFile, VibeSession } from '#shared/model/vibe.model';
-import { type SelectedFile as OriginalSelectedFile, selectFilesAgent } from '#swe/discovery/selectFilesAgent';
+import type { SelectedFile } from '#shared/model/files.model';
+import type { VibeSession } from '#shared/model/vibe.model';
+import { selectFilesAgent } from '#swe/discovery/selectFilesAgent';
 import { runVibeWorkflowAgent } from '#vibe/vibeAgentRunner';
 import type { VibeRepository } from '#vibe/vibeRepository';
 
@@ -46,37 +47,26 @@ export class VibeFileSelection {
 			// Prepare inputs using session data and prompt
 			const instructions = session.instructions;
 			const currentSelection: SelectedFile[] = session.fileSelection || [];
-			const agentInputFiles: OriginalSelectedFile[] = currentSelection.map((sf) => ({
-				path: sf.filePath, // Map 'filePath' to 'path' TODO should make the properties the same name
-				reason: sf.reason,
-				category: sf.category,
-				readOnly: sf.readOnly,
-			}));
 
 			logger.debug({ sessionId }, 'Preparing inputs for selectFilesAgent within workflow...');
 			// Call selectFilesAgent with the corrected signature (3 arguments: requirements, projectInfo, options)
 			// Pass undefined for projectInfo for now, assuming selectFilesAgent handles it internally if needed.
 			// The agent context (including fileSystem) is implicitly available to selectFilesAgent via agentContextStorage
-			const updatedSelectionRaw = await selectFilesAgent(instructions, undefined, { currentFiles: agentInputFiles, updatePrompt: prompt });
+			const updatedFileSelection = await selectFilesAgent(instructions, undefined, { currentFiles: currentSelection, updatePrompt: prompt });
 
 			// Map results
-			if (!updatedSelectionRaw || !Array.isArray(updatedSelectionRaw)) {
+			if (!updatedFileSelection || !Array.isArray(updatedFileSelection)) {
 				throw new Error('Invalid response structure from selectFilesAgent during update.');
 			}
-			const mappedResult: SelectedFile[] = updatedSelectionRaw.map((sf) => ({
-				filePath: sf.path, // Map 'path' back to 'filePath'
-				reason: sf.reason,
-				category: sf.category,
-				readOnly: sf.readOnly, // Map 'readonly' back to 'readOnly'
-			}));
-			logger.info({ sessionId, count: mappedResult.length }, 'selectFilesAgent completed and result mapped within workflow.');
+
+			logger.info({ sessionId, count: updatedFileSelection.length }, 'selectFilesAgent completed and result mapped within workflow.');
 
 			let updateData: Partial<VibeSession>; // Using Partial<VibeSession> which aligns with UpdateVibeSessionData structure
-			if (mappedResult && mappedResult.length > 0) {
-				logger.info({ sessionId, count: mappedResult.length }, 'AI selected files for review.');
+			if (updatedFileSelection && updatedFileSelection.length > 0) {
+				logger.info({ sessionId, count: updatedFileSelection.length }, 'AI selected files for review.');
 				updateData = {
-					originalFileSelectionForReview: JSON.parse(JSON.stringify(mappedResult)), // Deep copy for safety
-					fileSelection: JSON.parse(JSON.stringify(mappedResult)), // Deep copy for safety
+					originalFileSelectionForReview: JSON.parse(JSON.stringify(updatedFileSelection)), // Deep copy for safety
+					fileSelection: JSON.parse(JSON.stringify(updatedFileSelection)), // Deep copy for safety
 					status: 'file_selection_review',
 					error: null, // Clear any previous error
 					lastAgentActivity: Date.now(),

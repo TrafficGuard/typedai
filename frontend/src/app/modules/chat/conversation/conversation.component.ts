@@ -26,7 +26,7 @@ import {MatMenuModule} from '@angular/material/menu';
 import {MatSidenavModule} from '@angular/material/sidenav';
 import {ActivatedRoute, Router, RouterLink, RouterModule} from '@angular/router';
 import {FuseMediaWatcherService} from '@fuse/services/media-watcher';
-import {ChatService} from 'app/modules/chat/chat.service';
+import {ChatServiceClient} from '../chat.service';
 import {Chat, ChatMessage} from 'app/modules/chat/chat.types';
 import {ChatInfoComponent} from 'app/modules/chat/chat-info/chat-info.component';
 import {LLM, LlmService} from "app/modules/agents/services/llm.service";
@@ -119,7 +119,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
      */
     constructor(
         private _changeDetectorRef: ChangeDetectorRef,
-        private _chatService: ChatService,
+        private _chatService: ChatServiceClient,
         private _fuseMediaWatcherService: FuseMediaWatcherService,
         private _fuseConfirmationService: FuseConfirmationService,
         private _ngZone: NgZone,

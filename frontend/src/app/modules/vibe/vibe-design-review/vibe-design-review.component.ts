@@ -6,40 +6,39 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner'; // Add this import statement at the top
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
-import { VibeSession } from '../vibe.types';
-import { VibeService } from '../vibe.service';
+import { VibeServiceClient } from '../vibe-service-client.service';
+import {DesignAnswer, VibeSession} from "#shared/model/vibe.model";
 
 @Component({
-  selector: 'vibe-design-review', // Updated selector for consistency
+  selector: 'vibe-design-review',
   templateUrl: './vibe-design-review.component.html',
   styleUrls: ['./vibe-design-review.component.scss'],
   standalone: true,
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    RouterLink, // Added for file list link
+    RouterLink,
     MatFormFieldModule,
-    // MatSelectModule, // Removed
     MatButtonModule,
     MatCardModule,
     MatInputModule,
     MatIconModule,
-    MatProgressSpinnerModule, // Ensure this line is uncommented
+    MatProgressSpinnerModule,
   ],
-  changeDetection: ChangeDetectionStrategy.OnPush, // Use OnPush for better performance
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class VibeDesignReviewComponent implements OnInit, OnChanges {
-  @Input() session: VibeSession; // Receive session data from parent
-  @Output() designSaved = new EventEmitter<string>(); // Emit updated design text on save
+  @Input() session: VibeSession;
+  @Output() designSaved = new EventEmitter<string>();
 
   public readonly allowedStatuses: string[] = ['design_review_details', 'updating_design'];
 
   private fb = inject(FormBuilder);
-  private vibeService = inject(VibeService);
+  private vibeService = inject(VibeServiceClient);
   private router = inject(Router);
   private snackBar = inject(MatSnackBar);
   private cdr = inject(ChangeDetectorRef);
@@ -48,7 +47,7 @@ export class VibeDesignReviewComponent implements OnInit, OnChanges {
   public refinementPrompt = new FormControl('');
   public isEditing = false;
   public isLoading = false;
-  private initialDesignAnswer: string | null = null;
+  private initialDesignAnswer: DesignAnswer | null = null;
 
   private checkSessionStatusAndRedirect(): boolean {
     if (!this.session) {

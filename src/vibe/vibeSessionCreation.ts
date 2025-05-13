@@ -8,8 +8,9 @@ import type { SourceControlManagement } from '#functions/scm/sourceControlManage
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
 import type { AgentContext } from '#shared/model/agent.model';
+import type { SelectedFile } from '#shared/model/files.model';
 import type { CreateVibeSessionData, VibeSession } from '#shared/model/vibe.model';
-import { type SelectedFile, selectFilesAgent } from '#swe/discovery/selectFilesAgent';
+import { selectFilesAgent } from '#swe/discovery/selectFilesAgent';
 import { runVibeWorkflowAgent } from '#vibe/vibeAgentRunner';
 import type { VibeRepository } from '#vibe/vibeRepository';
 import { getVibeRepositoryPath } from '#vibe/vibeRepositoryPath';
@@ -165,23 +166,15 @@ export class VibeSessionCreation {
 
 			await runVibeWorkflowAgent(session, 'selectFiles', this.vibeRepo, async () => {
 				getFileSystem().setWorkingDirectory(workspacePath);
-				const selection: SelectedFile[] = await selectFilesAgent(session.instructions);
-				logger.info({ sessionId, fileCount: selection?.length }, 'selectFilesAgent completed.');
+				const fileSelection: SelectedFile[] = await selectFilesAgent(session.instructions);
+				logger.info({ sessionId, fileCount: fileSelection?.length }, 'selectFilesAgent completed.');
 
-				if (!selection || !Array.isArray(selection)) throw new Error('Invalid response structure from selectFilesAgent');
-
-				// Map the result from selectFilesAgent's SelectedFile to Vibe's SelectedFile
-				const fileSelectionResult = selection.map((sf) => ({
-					filePath: sf.path, // Map 'path' to 'filePath'
-					reason: sf.reason,
-					category: sf.category,
-					readOnly: sf.readOnly,
-				}));
+				if (!fileSelection || !Array.isArray(fileSelection)) throw new Error('Invalid response structure from selectFilesAgent');
 
 				// 5. Update Session State (Success)
 				await this.vibeRepo.updateVibeSession(userId, sessionId, {
 					status: 'file_selection_review',
-					fileSelection: fileSelectionResult,
+					fileSelection: fileSelection,
 					lastAgentActivity: Date.now(),
 					error: null, // Clear any previous error
 				});

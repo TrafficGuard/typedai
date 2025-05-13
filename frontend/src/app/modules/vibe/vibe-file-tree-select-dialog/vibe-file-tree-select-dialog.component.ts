@@ -5,7 +5,6 @@ import { MatTreeModule, MatTreeNestedDataSource } from '@angular/material/tree';
 import { NestedTreeControl } from '@angular/cdk/tree';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
-import { FileSystemNode } from '../vibe.types'; // Ensure this path is correct relative to the new component
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { SelectionModel } from '@angular/cdk/collections';
@@ -13,6 +12,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatInputModule } from '@angular/material/input';
 import { Subject } from 'rxjs';
 import { debounceTime, startWith, takeUntil } from 'rxjs/operators';
+import {FileSystemNode} from "#shared/services/fileSystemService";
 
 @Component({
   selector: 'app-vibe-file-tree-select-dialog',
