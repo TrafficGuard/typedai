@@ -29,16 +29,15 @@ function callRoute<
 
     switch (route.method) {
         case "GET":
-            return httpClient.get(route.buildPath(args.pathParams));
+            return httpClient.get<InferSuccessResponse<TResponseSchemasMap>>(route.buildPath(args.pathParams));
         case "POST":
-            return httpClient.post(route.buildPath(args.pathParams), args.body);
-        // case ...
-        // Default case to ensure all paths return a value if not all methods are handled.
-        // This makes TypeScript happy and is good practice.
-        default:
-            // Ensure exhaustive check or throw error for unhandled methods
-            const exhaustiveCheck: never = route.method;
-            throw new Error(`Unhandled HTTP method: ${exhaustiveCheck}`);
+            return httpClient.post<InferSuccessResponse<TResponseSchemasMap>>(route.buildPath(args.pathParams), args.body);
+        case "PATCH":
+            return httpClient.patch<InferSuccessResponse<TResponseSchemasMap>>(route.buildPath(args.pathParams), args.body);
+        case "PUT":
+            return httpClient.put<InferSuccessResponse<TResponseSchemasMap>>(route.buildPath(args.pathParams), args.body);
+        case "DELETE":
+            return httpClient.delete<InferSuccessResponse<TResponseSchemasMap>>(route.buildPath(args.pathParams), args.body);
     }
 
 }
