@@ -53,7 +53,7 @@ export function defineRoute<
 }
 
 // Path Parameter Helper
-type PathParams<TPath extends string> =
+export type PathParams<TPath extends string> =
     TPath extends `${infer _Start}:${infer Param}/${infer Rest}` ? { [K in Param]: string | number } & PathParams<Rest> :
         TPath extends `${infer _Start}:${infer Param}` ? { [K in Param]: string | number } :
             Record<string, never>;
