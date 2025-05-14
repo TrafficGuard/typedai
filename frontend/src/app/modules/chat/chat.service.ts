@@ -5,12 +5,13 @@ import { catchError, map, mapTo, tap, switchMap } from 'rxjs/operators';
 
 import { CHAT_API } from '#shared/api/chat.api';
 import type {
-    ChatList as ApiChatList, // Alias to distinguish from UI Chat
-    ChatModel as ApiChatModel, // Alias
+    ChatSchemaModel as ApiChatModel,
+    ChatListSchemaModel,
     ChatMessagePayload,
     RegenerateMessagePayload,
     ChatUpdateDetailsPayload
 } from '#shared/schemas/chat.schema';
+
 import type { LlmMessage as ApiLlmMessage } from '#shared/model/llm.model'; // Used by convertMessage
 import { UserContentExt, TextPart, ImagePartExt, FilePartExt, GenerateOptions } from '#shared/model/llm.model';
 

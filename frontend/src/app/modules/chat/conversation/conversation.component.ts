@@ -1,7 +1,7 @@
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { CommonModule } from '@angular/common';
 import { UserService } from 'app/core/user/user.service';
-import { EMPTY, Observable, catchError, switchMap, of } from 'rxjs';
+import { EMPTY, Observable, catchError } from 'rxjs';
 import { v4 as uuidv4 } from 'uuid';
 import {
     AfterViewInit,
@@ -20,9 +20,9 @@ import {
     effect,
     computed,
     Signal,
-    DestroyRef, // Added DestroyRef
+    DestroyRef,
 } from '@angular/core';
-import { toSignal, takeUntilDestroyed } from '@angular/core/rxjs-interop'; // Added takeUntilDestroyed
+import { toSignal, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {Attachment, Chat, ChatMessage, NEW_CHAT_ID} from 'app/modules/chat/chat.types';
 import {MatButtonModule} from '@angular/material/button';
 import {MatFormFieldModule} from '@angular/material/form-field';
@@ -34,11 +34,8 @@ import {MatSidenavModule} from '@angular/material/sidenav';
 import {ActivatedRoute, Router, RouterLink, RouterModule} from '@angular/router';
 import {FuseMediaWatcherService} from '@fuse/services/media-watcher';
 import {ChatServiceClient} from '../chat.service';
-// Chat and ChatMessage types are already imported from 'app/modules/chat/chat.types';
 import {ChatInfoComponent} from 'app/modules/chat/chat-info/chat-info.component';
 import {LLM, LlmService} from "app/modules/agents/services/llm.service";
-// Subject and takeUntil might be less needed - removed Subject
-// import {Subject, takeUntil} from 'rxjs';
 import {
     MarkdownModule,
     MarkdownService,
@@ -86,7 +83,6 @@ import {UserProfile} from "#shared/schemas/user.schema";
     ]
 })
 export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
-
     @ViewChild('messageInput') messageInput: ElementRef;
     @ViewChild('llmSelect') llmSelect: MatSelect;
     @ViewChild('fileInput') fileInput: ElementRef;
@@ -98,12 +94,9 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     drawerMode: WritableSignal<'over' | 'side'> = signal('side');
     drawerOpened: WritableSignal<boolean> = signal(false);
 
-    // Removed _unsubscribeAll: Subject<any> = new Subject<any>();
-
     llmsSignal: Signal<LLM[]>;
     llmId: WritableSignal<string | undefined> = signal(undefined);
     currentUserSignal: Signal<UserProfile | null>;
-    // Changed defaultChatLlmId to a computed signal
     defaultChatLlmId = computed(() => this.currentUserSignal()?.chat?.defaultLLM);
 
     sendIcon: WritableSignal<string> = signal('heroicons_outline:paper-airplane');
@@ -124,10 +117,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     recording: WritableSignal<boolean> = signal(false);
     /** If we're waiting for a response from the LLM after sending a message */
     generating: WritableSignal<boolean> = signal(false);
-    // Removed generatingTimer
-    // private generatingTimer = null; // Interval timer for "..." animation
-    // Removed pendingUserMessage
-    // private pendingUserMessage: WritableSignal<ChatMessage | null> = signal(null); // For optimistic UI update
+
     private generatingAIMessage: WritableSignal<ChatMessage | null> = signal(null); // For "..." AI message
 
     readonly clipboardButton = ClipboardButtonComponent;
@@ -136,17 +126,11 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     displayedMessages = computed(() => {
         const currentChat = this.chat();
         let messagesToShow = currentChat?.messages ? [...currentChat.messages] : [];
-        // Removed pendingUserMessage from this computed signal
-        // if (this.pendingUserMessage()) {
-        //     messagesToShow.push(this.pendingUserMessage());
-        // }
         if (this.generatingAIMessage()) {
             messagesToShow.push(this.generatingAIMessage());
         }
         return messagesToShow;
     });
-
-
 
     /**
      * For the Markdown component, the syntax highlighting support has the plugins defined
@@ -163,8 +147,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     private route = inject(ActivatedRoute);
     private userService = inject(UserService);
     private _snackBar = inject(MatSnackBar);
-    private destroyRef = inject(DestroyRef); // Injected DestroyRef
-    // Removed _changeDetectorRef = inject(ChangeDetectorRef);
+    private destroyRef = inject(DestroyRef);
     private routeParamsSignal: Signal<any>;
 
     constructor() {
@@ -180,31 +163,22 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
             const chatId = params['id'];
             if (chatId) {
                 this._chatService.loadChatById(chatId).pipe(
-                    takeUntilDestroyed(this.destroyRef), // Add takeUntilDestroyed
+                    takeUntilDestroyed(this.destroyRef),
                     catchError(err => {
                         console.error("Failed to load chat by ID", err);
-                        this.router.navigate(['/ui/chat']).catch(console.error); // Navigate away on error
+                        this.router.navigate(['/ui/chat']).catch(console.error);
                         return EMPTY;
                     })
                 ).subscribe();
             } else {
                  this._chatService.setChat({ id: NEW_CHAT_ID, messages: [], title: '', updatedAt: Date.now() });
             }
-        }); // Removed allowSignalWrites
+        });
 
         // Effect to update component state based on loaded data (user, llms, chat)
         effect(() => {
-            this.generating.set(false); // Reset generating state
-            // Removed manual timer clear
-            // if (this.generatingTimer) clearInterval(this.generatingTimer);
-            // Removed pendingUserMessage reset
-            // this.pendingUserMessage.set(null);
+            this.generating.set(false);
             this.generatingAIMessage.set(null);
-
-            const currentUser = this.currentUserSignal();
-            // defaultChatLlmId is now a computed signal, no need to set it here.
-            // this.defaultChatLlmId = currentUser?.chat?.defaultLLM; // Removed
-
             const currentChat = this.chat(); // chat signal from service
 
             if (currentChat && currentChat.messages) {
@@ -446,9 +420,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
         const messageText: string = this.messageInput.nativeElement.value.trim();
         const attachments: Attachment[] = [...this.selectedAttachments()];
 
-        if (messageText === '' && attachments.length === 0) {
-            return;
-        }
+        if (messageText === '' && attachments.length === 0)  return;
 
         const currentUser = this.currentUserSignal();
         if (!currentUser) {
@@ -490,9 +462,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
         this.selectedAttachments.set([]);
 
         const options = { ...currentUser.chat, thinking: this.llmHasThinkingLevels() ? this.thinkingLevel() : null };
-        const attachmentsToSend = attachments.map(att => ({
-            type: att.type, filename: att.filename, size: att.size, data: att.data, mimeType: att.mimeType,
-        }));
+        const attachmentsToSend: Attachment[] = attachments;
 
         let apiCall: Observable<any>;
         const currentChat = this.chat();

@@ -11,6 +11,9 @@ import { ApiNullResponseSchema } from '#shared/schemas/common.schema'; // Ensure
 
 const LlmMessagesSchema = Type.Array(LlmMessageSchema)
 
+export type LlmMessageSchemaModel = Static<typeof LlmMessageSchema>
+export type LlmMessagesSchemaModel = Static<typeof LlmMessagesSchema>
+
 // Chat Model Schemas
 export const ChatModelSchema = Type.Object({
 	id: Type.String(),
@@ -24,7 +27,7 @@ export const ChatModelSchema = Type.Object({
 }, { $id: 'Chat' });
 // DO NOT CHANGE THIS PART ----
 // LlmMessageSchema doesnt exactly map to LlmMessage, but lets assume it does for now
-type ChatHack = ChangePropertyType<Chat, 'messages', Static<typeof LlmMessagesSchema>>
+type ChatHack = ChangePropertyType<Chat, 'messages', LlmMessagesSchemaModel>
 const _ChatCheck: AreTypesFullyCompatible<ChatHack, Static<typeof ChatModelSchema>> = true;
 // -----
 
@@ -69,3 +72,6 @@ export const RegenerateMessageSchema = Type.Object({
 export type RegenerateMessagePayload = Static<typeof RegenerateMessageSchema>;
 
 // DeleteChatSuccessResponseSchema is not strictly needed if using 204 with ApiNullResponseSchema
+// Export Static types for use in frontend/backend
+export type ChatListSchemaModel = Static<typeof ChatListSchema>;
+export type ChatSchemaModel = Static<typeof ChatModelSchema>;

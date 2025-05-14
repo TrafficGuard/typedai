@@ -5,7 +5,7 @@ import type {
     TextPartExt,
     GenerationStats,
     ImagePartExt,
-    FilePartExt,
+    FilePartExt, UserContentExt,
 } from '#shared/model/llm.model';
 import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
 import {ChangePropertyType} from '../typeUtils';
@@ -15,7 +15,7 @@ export const AttachmentInfoSchema = Type.Object({
     filename: Type.Optional(Type.String()),
     size: Type.Optional(Type.Number()),
     externalURL: Type.Optional(Type.String()),
-}, { $id: 'AttachmentInfo' });
+}); // Do not provide an id as it is attached to multiple parent schemas
 
 export const ProviderOptionsOptionalSchema = Type.Optional(Type.Record(Type.String(), Type.Record(Type.String(), Type.Any())))
 
@@ -24,7 +24,7 @@ export const TextPartSchema = Type.Object({
     type: Type.Literal('text'),
     text: Type.String(),
     providerOptions: ProviderOptionsOptionalSchema,
-}, { $id: 'TextPart' });
+}); // Do not provide an id as it is attached to multiple parent schemas
 
 type TextPartExtType = Omit<ChangePropertyType<TextPartExt, 'providerOptions', Record<string, Record<string, any>>>, 'experimental_providerMetadata'>
 const _TextPartCheck: AreTypesFullyCompatible<TextPartExtType, Static<typeof TextPartSchema>> = true;
@@ -36,7 +36,7 @@ export const ImagePartExtSchema = Type.Intersect([Type.Object({
     image: Type.String(), // Represents DataContent (string | Uint8Array | ArrayBuffer | Buffer) or URL. TypeBox handles string for URL/base64.
     mimeType: Type.Optional(Type.String()),
     providerOptions: ProviderOptionsOptionalSchema,
-}), AttachmentInfoSchema], { $id: 'ImagePartExt' });
+}), AttachmentInfoSchema]); // Do not provide an id as it is attached to multiple parent schemas
 
 type ImagePartExtType = Omit<ChangePropertyType<ImagePartExt, 'providerOptions', Record<string, Record<string, any>>>, 'experimental_providerMetadata'>
 const _ImagePartExtCheck: AreTypesFullyCompatible<ImagePartExtType, Static<typeof ImagePartExtSchema>> = true;
@@ -47,11 +47,11 @@ export const FilePartExtSchema = Type.Intersect([Type.Object({
     type: Type.Literal('file'),
     data: Type.String(), // Represents DataContent (string | Uint8Array | ArrayBuffer | Buffer) or URL. TypeBox handles string for URL/base64.
     filename: Type.Optional(Type.String()),
-    mimeType: Type.Optional(Type.String()),
+    mimeType: Type.String(),
     providerOptions: ProviderOptionsOptionalSchema,
-}), AttachmentInfoSchema], { $id: 'FilePartExt' });
+}), AttachmentInfoSchema]); // Do not provide an id as it is attached to multiple parent schemas
 type FilePartExtType = Omit<ChangePropertyType<FilePartExt, 'providerOptions', Record<string, Record<string, any>>>, 'experimental_providerMetadata'>
-// const _FilePartExtCheck: AreTypesFullyCompatible<FilePartExtType, Static<typeof FilePartExtSchema>> = true;
+const _FilePartExtCheck: AreTypesFullyCompatible<FilePartExtType, Static<typeof FilePartExtSchema>> = true;
 
 export const ToolCallPartSchema = Type.Object({
     type: Type.Literal('tool-call'),
@@ -63,16 +63,16 @@ export const ToolCallPartSchema = Type.Object({
 
 // Content Schemas
 // UserContentExt is string | Array<TextPart | ImagePartExt | FilePartExt>
-export const UserContentPartUnionSchema = Type.Union([
+const UserContentPartUnionSchema = Type.Union([
     TextPartSchema,
     ImagePartExtSchema,
     FilePartExtSchema
-], { $id: 'UserContentPartUnion' });
+], { $id: 'UserContentUnion' });
 export const UserContentSchema = Type.Union([
     Type.String(),
     Type.Array(UserContentPartUnionSchema)
 ], { $id: 'UserContent' }); // This schema is for UserContentExt
-// const _UserContentExtCheck: AreTypesFullyCompatible<UserContentExt, Static<typeof UserContentSchema>> = true;
+const _UserContentExtCheck: AreTypesFullyCompatible<UserContentExt, Static<typeof UserContentSchema>> = true;
 
 // AssistantContent is string | Array<TextPart | ToolCallPart>
 export const AssistantContentPartUnionSchema = Type.Union([
@@ -107,7 +107,7 @@ export const GenerationStatsSchema = Type.Object({
     cachedInputTokens: Type.Optional(Type.Number()),
     cost: Type.Number(),
     llmId: Type.String(),
-}, { $id: 'GenerationStats' });
+}); // Do not provide an id as it is attached to multiple parent schemas
 const _GenerationStatsCheck: AreTypesFullyCompatible<GenerationStats, Static<typeof GenerationStatsSchema>> = true;
 
 // --- LlmMessage Schema redefined as a discriminated union ---
@@ -160,6 +160,7 @@ export const LlmMessageSchema = Type.Union([
     AssistantMessageSchema,
     ToolMessageSchema
 ], { $id: 'LlmMessage' });
+// We will need to do some Type conversions for it to match at some point. Dont edit this.
 // const _LlmMessageCheck: AreTypesFullyCompatible<LlmMessage, Static<typeof LlmMessageSchema>> = true;
 
 // GenerateOptions Schema

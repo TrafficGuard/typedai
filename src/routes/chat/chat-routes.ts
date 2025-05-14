@@ -1,17 +1,22 @@
 import { randomUUID } from 'node:crypto';
-import { Type, Static } from '@sinclair/typebox';
+import type { Static } from '@sinclair/typebox';
 import type { AppFastifyInstance } from '#app/applicationTypes';
-import { send, sendBadRequest } from '#fastify/index'; // Assuming sendJSON is available via AppFastifyInstance or a plugin
+import { send, sendBadRequest } from '#fastify/index';
 import { getLLM } from '#llm/llmFactory';
 import { summaryLLM } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
-import type { Chat, ChatList } from '#shared/model/chat.model';
-import type { LLM, LlmMessage, UserContentExt, GenerateOptions } from '#shared/model/llm.model';
-import { currentUser } from '#user/userContext';
-
 import { CHAT_API } from '#shared/api/chat.api';
-// Import schema types for casting, if not directly inferred by Fastify's type provider
-import { ChatMessageSendSchema, RegenerateMessageSchema, ChatParamsSchema, ChatUpdateDetailsSchema } from '#shared/schemas/chat.schema';
+import type { Chat, ChatList } from '#shared/model/chat.model';
+import type { LLM, LlmMessage } from '#shared/model/llm.model';
+import type {
+	ChatMessageSendSchema,
+	ChatParamsSchema,
+	ChatSchemaModel,
+	ChatUpdateDetailsSchema,
+	LlmMessageSchemaModel,
+	RegenerateMessageSchema,
+} from '#shared/schemas/chat.schema';
+import { currentUser } from '#user/userContext';
 
 export async function chatRoutes(fastify: AppFastifyInstance) {
 	fastify.get(
@@ -25,7 +30,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			const chat: Chat = await fastify.chatService.loadChat(chatId);
 			if (chat.userId !== userId) return sendBadRequest(reply, 'Unauthorized to view this chat');
 
-			reply.sendJSON(chat); // Use sendJSON
+			reply.sendJSON(chat as ChatSchemaModel);
 		},
 	);
 
@@ -60,7 +65,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			if (typeof userContent === 'string') {
 				textForTitle = userContent;
 			} else {
-				const textPart = userContent.find(content => content.type === 'text' && 'text' in content);
+				const textPart = userContent.find((content) => content.type === 'text' && 'text' in content);
 				if (textPart && 'text' in textPart) {
 					textForTitle = textPart.text;
 				}
@@ -81,7 +86,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 
 			chat = await fastify.chatService.saveChat(chat);
 
-			reply.code(201).sendJSON(chat); // Use sendJSON
+			reply.code(201).sendJSON(chat as ChatSchemaModel);
 		},
 	);
 
@@ -112,7 +117,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 
 			await fastify.chatService.saveChat(chat);
 
-			reply.sendJSON(responseMessage); // Use sendJSON
+			reply.sendJSON(responseMessage as LlmMessageSchemaModel);
 		},
 	);
 
@@ -141,11 +146,11 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 				return sendBadRequest(reply, `LLM ${llmId} is not configured`);
 			}
 
-			if (historyTruncateIndex <= 0 || historyTruncateIndex > chat.messages.length + 1 ) {
+			if (historyTruncateIndex <= 0 || historyTruncateIndex > chat.messages.length + 1) {
 				return sendBadRequest(reply, `Invalid historyTruncateIndex. Must be > 0 and <= ${chat.messages.length + 1}. Received: ${historyTruncateIndex}`);
 			}
 
-			chat.messages = chat.messages.slice(0, historyTruncateIndex -1 );
+			chat.messages = chat.messages.slice(0, historyTruncateIndex - 1);
 
 			chat.messages.push({ role: 'user', content: userContent, time: Date.now() });
 
@@ -154,7 +159,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			chat.updatedAt = Date.now();
 
 			await fastify.chatService.saveChat(chat);
-			reply.sendJSON(responseMessage); // Use sendJSON
+			reply.sendJSON(responseMessage as LlmMessageSchemaModel);
 		},
 	);
 
@@ -167,7 +172,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			// Assuming CHAT_API.listChats.schema.querystring would define any query params
 			// const { startAfterId } = req.query as { startAfterId?: string };
 			const chats: ChatList = await fastify.chatService.listChats(); // Pass startAfterId if defined in schema and used
-			reply.sendJSON(chats); // Use sendJSON
+			reply.sendJSON(chats);
 		},
 	);
 
@@ -215,7 +220,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			chat.updatedAt = Date.now();
 
 			const updatedChat = await fastify.chatService.saveChat(chat);
-			reply.sendJSON(updatedChat); // Use sendJSON
-		}
+			reply.sendJSON(updatedChat as ChatSchemaModel);
+		},
 	);
 }

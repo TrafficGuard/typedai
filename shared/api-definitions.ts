@@ -53,10 +53,26 @@ export function defineRoute<
 }
 
 // Path Parameter Helper
+// Helper type for recursive path parameter extraction
+type _RecursivePathParams<TPath extends string> =
+    TPath extends `${string}:${infer Param}/${infer Rest}` // Matches "...:param/...rest"
+        ? { [K in Param]: string | number } & _RecursivePathParams<Rest>
+        : TPath extends `${string}:${infer Param}` // Matches "...:param" (at the end)
+            ? { [K in Param]: string | number }
+            : {}; // No more parameters in this part of the string
+
 export type PathParams<TPath extends string> =
-    TPath extends `${infer _Start}:${infer Param}/${infer Rest}` ? { [K in Param]: string | number } & PathParams<Rest> :
-        TPath extends `${infer _Start}:${infer Param}` ? { [K in Param]: string | number } :
-            Record<string, never>;
+    // If TPath is just 'string', allow any params (for dynamic routes not known at compile time)
+    string extends TPath ? Record<string, string | number> :
+    // Otherwise, compute params. If the result of recursion is an empty object,
+    // it means TPath had no params. In that case, the type should be Record<string, never>.
+    // Otherwise, it's the computed params object.
+    _RecursivePathParams<TPath> extends infer P
+        ? keyof P extends never // Check if P is an empty object {}
+            ? Record<string, never> // Path has no parameters
+            : P // Path has parameters
+        : Record<string, never>; // Should not be reached (fallback)
+
 
 // Interface for the schema object within RouteDefinition
 // Its properties (path, querystring, body, response) remain optional and match the FastifySchema for easy assignment.
