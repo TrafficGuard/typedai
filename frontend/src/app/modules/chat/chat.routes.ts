@@ -11,6 +11,7 @@ import { ChatsComponent } from 'app/modules/chat/chats/chats.component';
 import { ConversationComponent } from 'app/modules/chat/conversation/conversation.component';
 import { EmptyConversationComponent } from 'app/modules/chat/empty-conversation/empty-conversation.component';
 import { catchError, throwError, switchMap } from 'rxjs';
+import { toObservable } from '@angular/core/rxjs-interop';
 
 /**
  * Conversation resolver
@@ -27,7 +28,7 @@ const conversationResolver = (
 
     return chatService.loadChatById(route.paramMap.get('id')).pipe(
         // After loading, switch to an observable of the chat signal's current value
-        switchMap(() => chatService.chat), // chat is a signal, switchMap will get its value once loadChatById completes
+        switchMap(() => toObservable(chatService.chat)), // chat is a signal, convert to observable
         // Error here means the requested chat is not available
         catchError((error) => {
             // Log the error
