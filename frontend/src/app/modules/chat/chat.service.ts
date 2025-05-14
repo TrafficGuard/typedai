@@ -23,26 +23,8 @@ export class ChatServiceClient {
 
     constructor(private _httpClient: HttpClient) {}
 
-    private base64ToBlob(base64: string, mimeType: string): Blob {
-        const byteCharacters = atob(base64);
-        const byteArrays = [];
-
-        const sliceSize = 512;
-        for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
-            const slice = byteCharacters.slice(offset, offset + sliceSize);
-
-            const byteNumbers = new Array(slice.length);
-            for (let i = 0; i < slice.length; i++) {
-                byteNumbers[i] = slice.charCodeAt(i);
-            }
-
-            const byteArray = new Uint8Array(byteNumbers);
-
-            byteArrays.push(byteArray);
-        }
-
-        return new Blob(byteArrays, { type: mimeType });
-    }
+    // Removed base64ToBlob method
+    // private base64ToBlob(base64: string, mimeType: string): Blob { /* ... */ }
 
     // -----------------------------------------------------------------------------------------------------
     // @ Accessors
@@ -231,6 +213,7 @@ export class ChatServiceClient {
 
         // Locally add user's message immediately for responsiveness
         const userMessageEntry: ChatMessage = {
+            // id: uuidv4(), // ID can be added by component or later if needed for specific tracking
             content: [{ type: 'text', text: message }],
             textContent: message,
             isMine: true,
@@ -253,8 +236,8 @@ export class ChatServiceClient {
                 const aiChatMessage = convertMessage(aiLlmMessage);
                 this._chat.update(currentChat => {
                     if (!currentChat) return null;
-                    // Replace the optimistic user message if it was simple, or append AI message
-                    // For simplicity, we assume the user message is already there and just append AI
+                    // Now, currentChat.messages already contains the userMessageEntry from the optimistic update above.
+                    // We just append the AI's response.
                     return {
                         ...currentChat,
                         messages: [...(currentChat.messages || []), aiChatMessage],
@@ -389,18 +372,8 @@ export class ChatServiceClient {
         );
     }
 
-    private getExtensionFromMimeType(mimeType: string): string {
-        const mimeTypeMap: { [key: string]: string } = {
-            'application/pdf': 'pdf',
-            'text/plain': 'txt',
-            'application/msword': 'doc',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
-            'image/jpeg': 'jpeg',
-            'image/png': 'png',
-            // Add other mime types and their extensions as needed
-        };
-        return mimeTypeMap[mimeType] || 'bin'; // Default to 'bin' if mime type is unknown
-    }
+    // Removed getExtensionFromMimeType method
+    // private getExtensionFromMimeType(mimeType: string): string { /* ... */ }
 }
 
 
@@ -485,8 +458,9 @@ function convertMessage(llmMessage: LlmMessage): ChatMessage {
         texts.push({type: 'text', text: llmMessage.content});
         textContent = llmMessage.content;
     }
-console.log('stats')
-    console.log(llmMessage.stats)
+// Removed console.logs
+// console.log('stats')
+// console.log(llmMessage.stats)
     return {
         textContent,
         content: texts,

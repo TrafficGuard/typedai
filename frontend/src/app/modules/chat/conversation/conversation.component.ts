@@ -1,12 +1,11 @@
 import { TextFieldModule } from '@angular/cdk/text-field';
-import {DatePipe, NgClass, DecimalPipe, CommonModule} from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { UserService } from 'app/core/user/user.service';
 import { EMPTY, Observable, catchError, switchMap, of } from 'rxjs';
 import { v4 as uuidv4 } from 'uuid';
 import {
     AfterViewInit,
     ChangeDetectionStrategy,
-    // ChangeDetectorRef, // May not be needed as much
     Component,
     ElementRef,
     HostListener,
@@ -21,8 +20,9 @@ import {
     effect,
     computed,
     Signal,
+    DestroyRef, // Added DestroyRef
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { toSignal, takeUntilDestroyed } from '@angular/core/rxjs-interop'; // Added takeUntilDestroyed
 import {Attachment, Chat, ChatMessage, NEW_CHAT_ID} from 'app/modules/chat/chat.types';
 import {MatButtonModule} from '@angular/material/button';
 import {MatFormFieldModule} from '@angular/material/form-field';
@@ -37,7 +37,8 @@ import {ChatServiceClient} from '../chat.service';
 // Chat and ChatMessage types are already imported from 'app/modules/chat/chat.types';
 import {ChatInfoComponent} from 'app/modules/chat/chat-info/chat-info.component';
 import {LLM, LlmService} from "app/modules/agents/services/llm.service";
-import {Subject, takeUntil} from 'rxjs'; // Subject and takeUntil might be less needed
+// Subject and takeUntil might be less needed - removed Subject
+// import {Subject, takeUntil} from 'rxjs';
 import {
     MarkdownModule,
     MarkdownService,
@@ -69,7 +70,7 @@ import {UserProfile} from "#shared/schemas/user.schema";
         MatButtonModule,
         MatMenuModule,
         MatTooltipModule,
-        NgClass,
+        CommonModule, // Provides NgClass, DatePipe, DecimalPipe
         MatFormFieldModule,
         MatInputModule,
         TextFieldModule,
@@ -79,7 +80,6 @@ import {UserProfile} from "#shared/schemas/user.schema";
         ReactiveFormsModule,
         ClipboardButtonComponent,
         ClipboardModule,
-        CommonModule,
     ],
     providers: [
         provideMarkdown(),
@@ -98,12 +98,13 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     drawerMode: WritableSignal<'over' | 'side'> = signal('side');
     drawerOpened: WritableSignal<boolean> = signal(false);
 
-    private _unsubscribeAll: Subject<any> = new Subject<any>(); // Keep for route param and media watcher observables for now
+    // Removed _unsubscribeAll: Subject<any> = new Subject<any>();
 
     llmsSignal: Signal<LLM[]>;
     llmId: WritableSignal<string | undefined> = signal(undefined);
     currentUserSignal: Signal<UserProfile | null>;
-    defaultChatLlmId: string | undefined; // Derived from currentUserSignal
+    // Changed defaultChatLlmId to a computed signal
+    defaultChatLlmId = computed(() => this.currentUserSignal()?.chat?.defaultLLM);
 
     sendIcon: WritableSignal<string> = signal('heroicons_outline:paper-airplane');
 
@@ -123,8 +124,10 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     recording: WritableSignal<boolean> = signal(false);
     /** If we're waiting for a response from the LLM after sending a message */
     generating: WritableSignal<boolean> = signal(false);
-    private generatingTimer = null; // Interval timer for "..." animation
-    private pendingUserMessage: WritableSignal<ChatMessage | null> = signal(null); // For optimistic UI update
+    // Removed generatingTimer
+    // private generatingTimer = null; // Interval timer for "..." animation
+    // Removed pendingUserMessage
+    // private pendingUserMessage: WritableSignal<ChatMessage | null> = signal(null); // For optimistic UI update
     private generatingAIMessage: WritableSignal<ChatMessage | null> = signal(null); // For "..." AI message
 
     readonly clipboardButton = ClipboardButtonComponent;
@@ -133,9 +136,10 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     displayedMessages = computed(() => {
         const currentChat = this.chat();
         let messagesToShow = currentChat?.messages ? [...currentChat.messages] : [];
-        if (this.pendingUserMessage()) {
-            messagesToShow.push(this.pendingUserMessage());
-        }
+        // Removed pendingUserMessage from this computed signal
+        // if (this.pendingUserMessage()) {
+        //     messagesToShow.push(this.pendingUserMessage());
+        // }
         if (this.generatingAIMessage()) {
             messagesToShow.push(this.generatingAIMessage());
         }
@@ -159,7 +163,8 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     private route = inject(ActivatedRoute);
     private userService = inject(UserService);
     private _snackBar = inject(MatSnackBar);
-    // private _changeDetectorRef = inject(ChangeDetectorRef); // Less needed
+    private destroyRef = inject(DestroyRef); // Injected DestroyRef
+    // Removed _changeDetectorRef = inject(ChangeDetectorRef);
 
     constructor() {
         this.chat = this._chatService.chat;
@@ -186,20 +191,18 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
         // Effect to update component state based on loaded data (user, llms, chat)
         effect(() => {
-            this.generating.set(false); // Reset generating state when chat or user changes
-            if (this.generatingTimer) clearInterval(this.generatingTimer);
-            this.pendingUserMessage.set(null);
+            this.generating.set(false); // Reset generating state
+            // Removed manual timer clear
+            // if (this.generatingTimer) clearInterval(this.generatingTimer);
+            // Removed pendingUserMessage reset
+            // this.pendingUserMessage.set(null);
             this.generatingAIMessage.set(null);
 
             const currentUser = this.currentUserSignal();
-            // const llms = this.llmsSignal(); // llmsSignal() is used in updateLlmSelector
-            const currentChat = this.chat(); // chat signal from service
+            // defaultChatLlmId is now a computed signal, no need to set it here.
+            // this.defaultChatLlmId = currentUser?.chat?.defaultLLM; // Removed
 
-            this.defaultChatLlmId = currentUser?.chat?.defaultLLM;
-            // this.llms = llms; // No longer needed as a class property if llmsSignal is used
-            // this.chat is already the signal from the service.
-            // We might need a local copy if we do optimistic updates directly on it,
-            // but it's better to manage pending states separately.
+            const currentChat = this.chat(); // chat signal from service
 
             if (currentChat && currentChat.messages) {
                  this.assignUniqueIdsToMessages(currentChat.messages); // Ensure messages have IDs for trackBy
@@ -215,6 +218,24 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
             })
         ).subscribe();
     }
+
+    // Effect for managing the "..." animation
+    private generatingAnimationEffect = effect((onCleanup) => {
+        const isGenerating = this.generating();
+        const aiMsg = this.generatingAIMessage();
+
+        if (isGenerating && aiMsg && aiMsg.generating) {
+            const timer = setInterval(() => {
+                this.generatingAIMessage.update(gm =>
+                    gm ? { ...gm, textContent: gm.textContent.length >= 3 ? '.' : gm.textContent + '.' } : null
+                );
+            }, 800);
+            onCleanup(() => {
+                clearInterval(timer);
+            });
+        }
+    });
+
 
     // -----------------------------------------------------------------------------------------------------
     // @ Decorated methods
@@ -252,18 +273,20 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
         };
 
         // Most initialization is now handled in constructor effects.
-        // Media watcher subscription can remain here if preferred, or move to an effect.
+        // Media watcher subscription now uses takeUntilDestroyed
         this._fuseMediaWatcherService.onMediaChange$
-            .pipe(takeUntil(this._unsubscribeAll)) // Keep for this specific observable
+            .pipe(takeUntilDestroyed(this.destroyRef)) // Using takeUntilDestroyed
             .subscribe(({ matchingAliases }) => {
                 this.drawerMode.set(matchingAliases.includes('lg') ? 'side' : 'over');
             });
     }
 
     ngOnDestroy(): void {
-        if (this.generatingTimer) clearInterval(this.generatingTimer);
-        this._unsubscribeAll.next(null); // For any remaining subscriptions like route params or media watcher
-        this._unsubscribeAll.complete();
+        // Removed manual timer clear
+        // if (this.generatingTimer) clearInterval(this.generatingTimer);
+        // Removed _unsubscribeAll cleanup
+        // this._unsubscribeAll.next(null);
+        // this._unsubscribeAll.complete();
     }
 
     ngAfterViewInit() {
@@ -311,15 +334,17 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
         }
 
         // Try to use default LLM (derived from currentUserSignal)
-        if (this.defaultChatLlmId && llmIds.includes(this.defaultChatLlmId)) {
-            this.llmId.set(this.defaultChatLlmId);
+        // Access defaultChatLlmId computed signal
+        const defaultLlm = this.defaultChatLlmId();
+        if (defaultLlm && llmIds.includes(defaultLlm)) {
+            this.llmId.set(defaultLlm);
             // this.updateThinkingIcon();
             return;
         }
 
         // If default LLM is set but not available, log warning
-        if (this.defaultChatLlmId && !llmIds.includes(this.defaultChatLlmId)) {
-            console.warn(`Default LLM ${this.defaultChatLlmId} not found in available LLMs:`, llmIds);
+        if (defaultLlm && !llmIds.includes(defaultLlm)) {
+            console.warn(`Default LLM ${defaultLlm} not found in available LLMs:`, llmIds);
         }
 
         // Fallback to first available LLM if no valid selection
@@ -413,10 +438,6 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
      * Sends a message in the chat after getting the latest user preferences
      * Handles both new chat creation and message sending in existing chats
      */
-    /**
-     * Sends a message in the chat after getting the latest user preferences
-     * Handles both new chat creation and message sending in existing chats
-     */
     sendMessage(): void {
         const messageText: string = this.messageInput.nativeElement.value.trim();
         const attachments: Attachment[] = [...this.selectedAttachments()];
@@ -440,17 +461,11 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
         this.generating.set(true);
         this.sendIcon.set('heroicons_outline:stop-circle'); // Or use a different icon for "sending"
 
-        // Optimistic UI update: add user message and a "generating" placeholder
-        const userMessageEntry: ChatMessage = {
-            id: uuidv4(),
-            textContent: messageText,
-            isMine: true,
-            fileAttachments: attachments.filter(att => att.type === 'file'),
-            imageAttachments: attachments.filter(att => att.type === 'image'),
-            createdAt: new Date().toISOString(),
-        };
-        this.pendingUserMessage.set(userMessageEntry);
+        // Removed optimistic UI update for user message (service handles this)
+        // const userMessageEntry: ChatMessage = { /* ... */ };
+        // this.pendingUserMessage.set(userMessageEntry); // Removed
 
+        // Optimistic UI update: add a "generating" placeholder for AI
         const aiGeneratingMessageEntry: ChatMessage = {
             id: uuidv4(),
             textContent: '.',
@@ -460,10 +475,9 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
         };
         this.generatingAIMessage.set(aiGeneratingMessageEntry);
 
-        if (this.generatingTimer) clearInterval(this.generatingTimer);
-        this.generatingTimer = setInterval(() => {
-            this.generatingAIMessage.update(gm => gm ? { ...gm, textContent: gm.textContent.length === 3 ? '.' : gm.textContent + '.' } : null);
-        }, 800);
+        // Removed manual timer management - handled by effect
+        // if (this.generatingTimer) clearInterval(this.generatingTimer);
+        // this.generatingTimer = setInterval(() => { /* ... */ }, 800);
 
         this._scrollToBottom(); // Scroll after adding optimistic messages
 
@@ -500,11 +514,17 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
                 // Restore input if needed, though optimistic updates are cleared by effect
                 this.messageInput.nativeElement.value = messageText;
                 this.selectedAttachments.set(attachments);
+                // Reset generating states here as well, as the main effect might not run if chat doesn't change
+                this.generating.set(false);
+                this.generatingAIMessage.set(null);
+                this.sendIcon.set('heroicons_outline:paper-airplane');
             },
             complete: () => {
                 this.generating.set(false);
-                if (this.generatingTimer) clearInterval(this.generatingTimer);
-                this.pendingUserMessage.set(null);
+                // Removed manual timer clear
+                // if (this.generatingTimer) clearInterval(this.generatingTimer);
+                // Removed pendingUserMessage clear
+                // this.pendingUserMessage.set(null);
                 this.generatingAIMessage.set(null);
                 this.sendIcon.set('heroicons_outline:paper-airplane');
                 this._resizeMessageInput();
@@ -657,17 +677,18 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
             return;
         }
 
-        // Optimistically update UI: remove messages from userMessagePromptIndex + 1 (AI response) onwards
-        // And add generating indicators
-        this.pendingUserMessage.set(currentChat.messages[userMessagePromptIndex]); // Show the user prompt
+        // Removed Optimistic update for pendingUserMessage
+        // this.pendingUserMessage.set(currentChat.messages[userMessagePromptIndex]); // Removed
+
+        // KEEP Optimistic update for generatingAIMessage
         const aiGeneratingMessageEntry: ChatMessage = {
             id: uuidv4(), textContent: '.', isMine: false, generating: true, createdAt: new Date().toISOString(),
         };
         this.generatingAIMessage.set(aiGeneratingMessageEntry);
-        if (this.generatingTimer) clearInterval(this.generatingTimer);
-        this.generatingTimer = setInterval(() => {
-            this.generatingAIMessage.update(gm => gm ? { ...gm, textContent: gm.textContent.length === 3 ? '.' : gm.textContent + '.' } : null);
-        }, 800);
+
+        // Removed manual timer management - handled by effect
+        // if (this.generatingTimer) clearInterval(this.generatingTimer);
+        // this.generatingTimer = setInterval(() => { /* ... */ }, 800);
 
 
         this.generating.set(true);
@@ -675,16 +696,22 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
         // The service's regenerateMessage should handle updating the chat signal correctly,
         // potentially by removing subsequent messages and adding the new AI response.
-        this._chatService.regenerateMessage(currentChat.id, lastUserMessageText, currentLlmId, userMessagePromptIndex +1)
+        this._chatService.regenerateMessage(currentChat.id, lastUserMessageText, currentLlmId, userMessagePromptIndex + 1)
             .subscribe({
                 error: (err) => {
                     console.error('Error regenerating message:', err);
                     this._snackBar.open('Failed to regenerate message.', 'Close', { duration: 3000 });
+                    // Reset generating states here as well
+                    this.generating.set(false);
+                    this.generatingAIMessage.set(null);
+                    this.sendIcon.set('heroicons_outline:paper-airplane');
                 },
                 complete: () => {
                     this.generating.set(false);
-                    if (this.generatingTimer) clearInterval(this.generatingTimer);
-                    this.pendingUserMessage.set(null);
+                    // Removed manual timer clear
+                    // if (this.generatingTimer) clearInterval(this.generatingTimer);
+                    // Removed pendingUserMessage clear
+                    // this.pendingUserMessage.set(null);
                     this.generatingAIMessage.set(null);
                     this.sendIcon.set('heroicons_outline:paper-airplane');
                     this._scrollToBottom();
