@@ -391,9 +391,11 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
                         },
                         error: (err) => {
                             console.error('Failed to delete chat', err);
-                            this._snackBar.open('Failed to delete chat.', 'Close', { duration: 3000 });
+                            this._snackBar.open('Failed to delete chat.', 'Close', {duration: 3000});
                         }
                     });
+                }
+            });
         }
     }
 
@@ -789,4 +791,4 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 // function clone<T>(obj: T): T {
 //     return structuredClone(obj);
 // }
-}
+
