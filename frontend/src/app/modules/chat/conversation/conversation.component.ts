@@ -165,19 +165,22 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     private _snackBar = inject(MatSnackBar);
     private destroyRef = inject(DestroyRef); // Injected DestroyRef
     // Removed _changeDetectorRef = inject(ChangeDetectorRef);
+    private routeParamsSignal: Signal<any>;
 
     constructor() {
         this.chat = this._chatService.chat;
         this.chats = this._chatService.chats;
         this.currentUserSignal = toSignal(this.userService.user$, { initialValue: null });
         this.llmsSignal = toSignal(this.llmService.getLlms(), { initialValue: [] });
+        this.routeParamsSignal = toSignal(this.route.params, { initialValue: {} });
 
         // Effect to handle route changes and load chat data
         effect(() => {
-            const params = toSignal(this.route.params, { initialValue: {} })(); // React to route param changes
+            const params = this.routeParamsSignal(); // React to route param changes
             const chatId = params['id'];
             if (chatId) {
                 this._chatService.loadChatById(chatId).pipe(
+                    takeUntilDestroyed(this.destroyRef), // Add takeUntilDestroyed
                     catchError(err => {
                         console.error("Failed to load chat by ID", err);
                         this.router.navigate(['/ui/chat']).catch(console.error); // Navigate away on error
@@ -187,7 +190,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
             } else {
                  this._chatService.setChat({ id: NEW_CHAT_ID, messages: [], title: '', updatedAt: Date.now() });
             }
-        }, { allowSignalWrites: true }); // allowSignalWrites for setChat inside effect if needed, or restructure
+        }); // Removed allowSignalWrites
 
         // Effect to update component state based on loaded data (user, llms, chat)
         effect(() => {
@@ -212,6 +215,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
         // Load initial list of chats
         this._chatService.loadChats().pipe(
+            takeUntilDestroyed(this.destroyRef), // Add takeUntilDestroyed
             catchError(err => {
                 console.error("Failed to load chats list", err);
                 return EMPTY;
