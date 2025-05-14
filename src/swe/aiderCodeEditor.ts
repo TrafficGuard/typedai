@@ -17,9 +17,9 @@ import { vertexGemini_2_5_Pro } from '#llm/services/vertexai';
 import { logger } from '#o11y/logger';
 import { getActiveSpan } from '#o11y/trace';
 import type { LLM, LlmMessage } from '#shared/model/llm.model';
+import type { LlmCall } from '#shared/model/llmCall.model';
 import { currentUser } from '#user/userContext';
 import { execCommand } from '#utils/exec';
-import type { LlmCall } from '../../shared/model/llmCall.model';
 
 const GEMINI_KEYS: string[] = [];
 if (process.env.GEMINI_API_KEY) GEMINI_KEYS.push(process.env.GEMINI_API_KEY);

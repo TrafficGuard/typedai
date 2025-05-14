@@ -105,7 +105,12 @@ export class FirestoreLlmCallService implements LlmCallService {
 						}
 
 						// Externalize Uint8Array/Buffer data
-						if (dataValue && !(dataValue instanceof URL) && typeof dataValue !== 'string' && Buffer.byteLength(dataValue as Uint8Array) > EXTERNAL_DATA_THRESHOLD) {
+						if (
+							dataValue &&
+							!(dataValue instanceof URL) &&
+							typeof dataValue !== 'string' &&
+							Buffer.byteLength(dataValue as Uint8Array) > EXTERNAL_DATA_THRESHOLD
+						) {
 							const uniqueId = randomUUID();
 							const filePath = join(msgDataPath, uniqueId);
 							await fs.writeFile(filePath, dataValue as Uint8Array);
