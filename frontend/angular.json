@@ -20,11 +20,6 @@
             "outputPath": "dist/fuse",
             "index": "src/index.html",
             "browser": "src/main.ts",
-            "sourceMap": {
-              "scripts": true,
-              "hidden": true,
-              "vendor": true
-            },
             "polyfills": [
               "zone.js"
             ],
@@ -54,6 +49,8 @@
               ]
             },
             "styles": [
+              "src/styles/splash-screen.css",
+              "src/styles/inter.css",
               "src/@fuse/styles/tailwind.scss",
               "src/@fuse/styles/themes.scss",
               "src/styles/vendors.scss",
@@ -62,18 +59,18 @@
               "src/styles/tailwind.scss"
             ],
             "scripts": [
-              "node_modules/prismjs/prism.js",
-              "node_modules/prismjs/components/prism-csharp.min.js",
-              "node_modules/prismjs/components/prism-bash.min.js",
-              "node_modules/prismjs/components/prism-css.min.js",
-              "node_modules/prismjs/components/prism-hcl.min.js",
-              "node_modules/prismjs/components/prism-javascript.min.js",
-              "node_modules/prismjs/components/prism-json.min.js",
-              "node_modules/prismjs/components/prism-python.min.js",
-              "node_modules/prismjs/components/prism-typescript.min.js",
-              "node_modules/prismjs/components/prism-yaml.min.js",
-              "node_modules/mermaid/dist/mermaid.min.js",
-              "node_modules/clipboard/dist/clipboard.min.js"
+                "node_modules/prismjs/prism.js",
+                "node_modules/prismjs/components/prism-csharp.min.js",
+                "node_modules/prismjs/components/prism-bash.min.js",
+                "node_modules/prismjs/components/prism-css.min.js",
+                "node_modules/prismjs/components/prism-hcl.min.js",
+                "node_modules/prismjs/components/prism-javascript.min.js",
+                "node_modules/prismjs/components/prism-json.min.js",
+                "node_modules/prismjs/components/prism-python.min.js",
+                "node_modules/prismjs/components/prism-typescript.min.js",
+                "node_modules/prismjs/components/prism-yaml.min.js",
+                "node_modules/mermaid/dist/mermaid.min.js",
+                "node_modules/clipboard/dist/clipboard.min.js"
             ]
           },
           "configurations": {
@@ -90,24 +87,12 @@
                   "maximumError": "90kb"
                 }
               ],
-              "outputHashing": "all",
-              "fileReplacements": [
-                {
-                  "replace": "src/environments/environment.ts",
-                  "with": "src/environments/environment.prod.ts"
-                }
-              ]
+              "outputHashing": "all"
             },
             "development": {
               "optimization": false,
               "extractLicenses": false,
-              "sourceMap": true,
-              "fileReplacements": [
-                {
-                  "replace": "src/environments/environment.ts",
-                  "with": "src/environments/environment.ts"
-                }
-              ]
+              "sourceMap": true
             }
           },
           "defaultConfiguration": "production"
@@ -147,23 +132,8 @@
             ],
             "scripts": []
           }
-        },
-        "lint": {
-          "builder": "@angular-eslint/builder:lint",
-          "options": {
-            "lintFilePatterns": [
-              "src/**/*.ts",
-              "src/**/*.html"
-            ]
-          }
         }
       }
     }
-  },
-  "cli": {
-    "analytics": "a688e248-487b-480b-869c-cdc5401886c6",
-    "schematicCollections": [
-      "@angular-eslint/schematics"
-    ]
   }
 }

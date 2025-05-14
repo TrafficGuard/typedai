@@ -18,7 +18,6 @@ import { FuseCardFace } from '@fuse/components/card/card.types';
     encapsulation: ViewEncapsulation.None,
     animations: fuseAnimations,
     exportAs: 'fuseCard',
-    standalone: true,
     imports: [],
 })
 export class FuseCardComponent implements OnChanges {
@@ -27,9 +26,9 @@ export class FuseCardComponent implements OnChanges {
     static ngAcceptInputType_flippable: BooleanInput;
     /* eslint-enable @typescript-eslint/naming-convention */
 
-    @Input() expanded = false;
+    @Input() expanded: boolean = false;
     @Input() face: FuseCardFace = 'front';
-    @Input() flippable = false;
+    @Input() flippable: boolean = false;
 
     // -----------------------------------------------------------------------------------------------------
     // @ Accessors

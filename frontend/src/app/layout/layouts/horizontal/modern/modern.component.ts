@@ -30,11 +30,11 @@ import {QuickListComponent} from "../../../common/quick-list/quick-list.componen
         MatButtonModule,
         MatIconModule,
         FuseFullscreenComponent,
-        NotificationsComponent,
+        // NotificationsComponent,
         UserComponent,
         RouterOutlet,
         ShortcutsComponent,
-        QuickListComponent,
+        // QuickListComponent,
     ],
 })
 export class ModernLayoutComponent implements OnInit, OnDestroy {

@@ -81,7 +81,8 @@ $dark-base: (
 );
 
 /* Include the core Angular Material styles */
-@include mat.core();
+@include mat.elevation-classes();
+@include mat.app-background();
 
 /* Create a base theme without any color to set the density and typography */
 @include mat.all-component-themes(

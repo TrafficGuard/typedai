@@ -9,6 +9,7 @@ import { UserProfile } from "#shared/schemas/user.schema";
 export class UserService {
     private _httpClient = inject(HttpClient);
     private _user: BehaviorSubject<UserProfile> = new BehaviorSubject<UserProfile>(null);
+    // private _user: ReplaySubject<UserProfile> = new ReplaySubject<UserProfile>(1);
 
     set user(value: UserProfile) {
         this._user.next(value);

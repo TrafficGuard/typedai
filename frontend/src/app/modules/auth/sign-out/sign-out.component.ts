@@ -8,11 +8,10 @@ import { Subject, finalize, takeUntil, takeWhile, tap, timer } from 'rxjs';
     selector: 'auth-sign-out',
     templateUrl: './sign-out.component.html',
     encapsulation: ViewEncapsulation.None,
-    standalone: true,
     imports: [RouterLink, I18nPluralPipe],
 })
 export class AuthSignOutComponent implements OnInit, OnDestroy {
-    countdown = 5;
+    countdown: number = 5;
     countdownMapping: any = {
         '=1': '# second',
         other: '# seconds',

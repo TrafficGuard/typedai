@@ -4,7 +4,7 @@ import { AuthGuard } from 'app/core/auth/guards/auth.guard';
 import { NoAuthGuard } from 'app/core/auth/guards/noAuth.guard';
 import { LayoutComponent } from 'app/layout/layout.component';
 
-// @formatter:off
+// prettier-ignore
 /* eslint-disable max-len */
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 export const appRoutes: Route[] = [
@@ -12,7 +12,7 @@ export const appRoutes: Route[] = [
     // Redirect empty path to '/chat'
     {path: '', pathMatch : 'full', redirectTo: 'ui/chat'},
 
-    // Redirect signed-in user to the '/example'
+    // Redirect signed-in user to the '/ui/chat'
     //
     // After the user signs in, the sign-in page will redirect the user to the 'signed-in-redirect'
     // path. Below is another redirection for that path to redirect the user to the desired
@@ -82,5 +82,8 @@ export const appRoutes: Route[] = [
             {path: 'workflows', loadChildren: () => import('app/modules/workflows/workflows.routes')},
             {path: 'vibe', loadChildren: () => import('app/modules/vibe/vibe.routes')},
         ]
-    }
+    },
+    // 404 & Catch all
+    // {path: '404-not-found', pathMatch: 'full', loadChildren: () => import('app/modules/admin/pages/error/error-404/error-404.routes')},
+    // {path: '**', redirectTo: '404-not-found'}
 ];
