@@ -23,7 +23,6 @@ import { UserService } from 'app/core/user/user.service';
     templateUrl: './unlock-session.component.html',
     encapsulation: ViewEncapsulation.None,
     animations: fuseAnimations,
-    standalone: true,
     imports: [
         FuseAlertComponent,
         FormsModule,
@@ -44,7 +43,7 @@ export class AuthUnlockSessionComponent implements OnInit {
         message: '',
     };
     name: string;
-    showAlert = false;
+    showAlert: boolean = false;
     unlockSessionForm: UntypedFormGroup;
     private _email: string;
 

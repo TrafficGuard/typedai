@@ -17,7 +17,6 @@ import { Subject, takeUntil } from 'rxjs';
     selector: 'fuse-horizontal-navigation-spacer-item',
     templateUrl: './spacer.component.html',
     changeDetection: ChangeDetectionStrategy.OnPush,
-    standalone: true,
     imports: [NgClass],
 })
 export class FuseHorizontalNavigationSpacerItemComponent

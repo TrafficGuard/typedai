@@ -29,10 +29,10 @@ import {QuickListComponent} from "../../../common/quick-list/quick-list.componen
         MatIconModule,
         FuseFullscreenComponent,
         ShortcutsComponent,
-        NotificationsComponent,
+        // NotificationsComponent,
         UserComponent,
         RouterOutlet,
-        QuickListComponent
+        // QuickListComponent
     ],
 })
 export class DenseLayoutComponent implements OnInit, OnDestroy {

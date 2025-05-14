@@ -24,7 +24,6 @@ import { finalize } from 'rxjs';
     templateUrl: './reset-password.component.html',
     encapsulation: ViewEncapsulation.None,
     animations: fuseAnimations,
-    standalone: true,
     imports: [
         FuseAlertComponent,
         FormsModule,
@@ -45,7 +44,7 @@ export class AuthResetPasswordComponent implements OnInit {
         message: '',
     };
     resetPasswordForm: UntypedFormGroup;
-    showAlert = false;
+    showAlert: boolean = false;
 
     /**
      * Constructor

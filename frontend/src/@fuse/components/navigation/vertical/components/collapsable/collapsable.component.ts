@@ -29,7 +29,6 @@ import { Subject, filter, takeUntil } from 'rxjs';
     templateUrl: './collapsable.component.html',
     animations: fuseAnimations,
     changeDetection: ChangeDetectionStrategy.OnPush,
-    standalone: true,
     imports: [
         NgClass,
         MatTooltipModule,
@@ -56,8 +55,8 @@ export class FuseVerticalNavigationCollapsableItemComponent
     @Input() item: FuseNavigationItem;
     @Input() name: string;
 
-    isCollapsed = true;
-    isExpanded = false;
+    isCollapsed: boolean = true;
+    isExpanded: boolean = false;
     private _fuseVerticalNavigationComponent: FuseVerticalNavigationComponent;
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 

@@ -24,7 +24,6 @@ import { Subject, takeUntil } from 'rxjs';
     selector: 'fuse-vertical-navigation-group-item',
     templateUrl: './group.component.html',
     changeDetection: ChangeDetectionStrategy.OnPush,
-    standalone: true,
     imports: [
         NgClass,
         MatIconModule,

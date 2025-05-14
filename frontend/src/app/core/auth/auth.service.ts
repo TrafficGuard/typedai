@@ -176,6 +176,11 @@ export class AuthService {
             return of(false);
         }
 
+        // Check the access token availability
+        // if (!this.accessToken) {
+        //     return of(false);
+        // }
+
         return this.signInUsingToken();
     }
 }

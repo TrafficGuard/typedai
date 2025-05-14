@@ -5,39 +5,18 @@ import { map, Observable, ReplaySubject, switchMap, take, tap } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
 export class ShortcutsService {
-    private _shortcuts: ReplaySubject<Shortcut[]> = new ReplaySubject<Shortcut[]>(1);
+    private _shortcuts: ReplaySubject<Shortcut[]> = new ReplaySubject<
+        Shortcut[]
+    >(1);
 
-    constructor(private _httpClient: HttpClient) {
-        const shortcuts: Shortcut[] = [
-            {
-                id: 'agent',
-                link: '/ui/agents/new',
-                icon: 'heroicons_outline:squares-plus',
-                description: '',
-                label: 'New Agent',
-                useRouter: true
-            },
-            {
-                id: 'agent',
-                link: '/ui/chat/new',
-                icon: 'heroicons_outline:chat-bubble-left', // chat_add_on
-                description: '',
-                label: 'New Chat',
-                useRouter: true
-            },
-            {
-                id: 'code-review',
-                link: '/ui/code-reviews/new',
-                icon: 'heroicons_outline:code-bracket-square',
-                description: '',
-                label: 'New Code Review Config',
-                useRouter: true
-            }
-        ]
-        this._shortcuts.next(shortcuts)
-    }
+    /**
+     * Constructor
+     */
+    constructor(private _httpClient: HttpClient) {}
 
-    // @ Accessors -----------------------------------------------------------
+    // -----------------------------------------------------------------------------------------------------
+    // @ Accessors
+    // -----------------------------------------------------------------------------------------------------
 
     /**
      * Getter for shortcuts
@@ -46,7 +25,9 @@ export class ShortcutsService {
         return this._shortcuts.asObservable();
     }
 
-    // @ Public methods -------------------------------------------------------
+    // -----------------------------------------------------------------------------------------------------
+    // @ Public methods
+    // -----------------------------------------------------------------------------------------------------
 
     /**
      * Get all messages

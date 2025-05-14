@@ -26,7 +26,6 @@ import { Subject, takeUntil } from 'rxjs';
     selector: 'fuse-horizontal-navigation-basic-item',
     templateUrl: './basic.component.html',
     changeDetection: ChangeDetectionStrategy.OnPush,
-    standalone: true,
     imports: [
         NgClass,
         RouterLink,

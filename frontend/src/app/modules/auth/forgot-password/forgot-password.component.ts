@@ -22,7 +22,6 @@ import { finalize } from 'rxjs';
     templateUrl: './forgot-password.component.html',
     encapsulation: ViewEncapsulation.None,
     animations: fuseAnimations,
-    standalone: true,
     imports: [
         FuseAlertComponent,
         FormsModule,
@@ -42,7 +41,7 @@ export class AuthForgotPasswordComponent implements OnInit {
         message: '',
     };
     forgotPasswordForm: UntypedFormGroup;
-    showAlert = false;
+    showAlert: boolean = false;
 
     /**
      * Constructor
