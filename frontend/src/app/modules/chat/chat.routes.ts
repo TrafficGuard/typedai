@@ -1,4 +1,4 @@
-import { inject } from '@angular/core';
+import { inject, runInInjectionContext, Injector } from '@angular/core'; // Add runInInjectionContext and Injector
 import {
     ActivatedRouteSnapshot,
     Router,
@@ -25,10 +25,11 @@ const conversationResolver = (
 ) => {
     const chatService = inject(ChatServiceClient);
     const router = inject(Router);
+    const injector = inject(Injector); // Inject the Injector
 
     return chatService.loadChatById(route.paramMap.get('id')).pipe(
         // After loading, switch to an observable of the chat signal's current value
-        switchMap(() => toObservable(chatService.chat)), // chat is a signal, convert to observable
+        switchMap(() => runInInjectionContext(injector, () => toObservable(chatService.chat))), // MODIFIED: Wrap with runInInjectionContext
         // Error here means the requested chat is not available
         catchError((error) => {
             // Log the error
@@ -69,6 +70,11 @@ export default [
                         resolve: {
                             conversation: conversationResolver,
                         },
+                        // It's generally better to load chat data within the component
+                        // or use the resolver to ensure data is ready.
+                        // If the resolver handles chat loading, this effect in ConversationComponent
+                        // might become redundant or could be simplified.
+                        // For now, keeping as is, but this is an area for potential refactor.
                     },
                 ],
             },
