@@ -73,8 +73,7 @@ export class ChatServiceClient {
 
         // Otherwise fetch from server
         return this._httpClient.get<Chat[]>('/api/chats').pipe(
-            tap((response: any) // server returns {data: {chats: []}}
-               ) => {
+            tap((response: any) => { // server returns {data: {chats: []}}
                 this._chats.set(response.data.chats);
                 this._chatsLoaded.set(true);
             }),
