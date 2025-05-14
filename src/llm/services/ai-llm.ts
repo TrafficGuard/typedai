@@ -109,7 +109,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 							thinkingConfig: {
 								thinkingBudget,
 							},
-						}
+						};
 						providerOptions.vertex = providerOpts;
 						providerOptions.google = providerOpts;
 						providerOptions.gemini = providerOpts;
