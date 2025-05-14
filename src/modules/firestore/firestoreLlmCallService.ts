@@ -107,6 +107,13 @@ export class FirestoreLlmCallService implements LlmCallService {
 					// 		console.log(`${k}:${v}`);
 					// 	}
 					// }
+					if (typeof data === 'object') {
+						console.log('=================');
+						const s = JSON.stringify(data);
+						console.log('Invalid data for externalisig large message part');
+						console.log(`keys: ${Object.keys(data)}`);
+						console.log('=================');
+					}
 					if (data && !(data instanceof URL) && typeof data !== 'string' && Buffer.byteLength(data as Uint8Array) > EXTERNAL_DATA_THRESHOLD) {
 						const uniqueId = randomUUID();
 						const filePath = join(msgDataPath, uniqueId);
@@ -271,7 +278,7 @@ export class FirestoreLlmCallService implements LlmCallService {
 							message.content,
 						)} bytes.`,
 					);
-					// await fs.writeFile('llmCall.json', JSON.stringify(messages)).catch(console.error);
+					await fs.writeFile('llmCall.json', JSON.stringify(messages)).catch(console.error);
 					// Note: This error might still occur if a text part is extremely large, as externalization only targets image/file parts.
 					throw new Error(
 						`Single message in LlmCall ${llmCallId} for ${dataToSave.description}, Response:${merge}, causes chunk document to exceed maximum size limit of ${MAX_DOC_SIZE} bytes.`,
