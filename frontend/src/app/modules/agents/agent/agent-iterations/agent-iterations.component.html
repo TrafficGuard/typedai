@@ -153,28 +153,28 @@
                             </mat-accordion>
                         </div>
 
-                        <!-- Tool State -->
-                        <div class="mb-3" *ngIf="iteration.toolState && iteration.toolState.size > 0 && !(iteration.liveFilesDirect || iteration.fileStoreDirect)">
-                            <h4 class="font-medium text-lg mb-1">Tool State (Legacy):</h4>
+                        <!-- Tool State
+                        <div class="mb-3" *ngIf="iteration.toolState && iteration.toolState.size > 0">
+                            <h4 class="font-medium text-lg mb-1">Tool State:</h4>
                              <div class="bg-gray-100 p-2 rounded border border-gray-200 max-h-60 overflow-y-auto">
-                                <!-- Displaying as JSON for simplicity -->
                                 <pre class="whitespace-pre-wrap text-sm">{{ iteration.toolState | json }}</pre>
                              </div>
                         </div>
+                        -->
 
-                        <!-- Live Files Direct -->
-                        <div class="mb-3" *ngIf="iteration.liveFilesDirect && iteration.liveFilesDirect.length > 0">
+                        <!-- Live Files  -->
+                        <div class="mb-3" *ngIf="iteration.toolState.get('LiveFiles')?.length > 0">
                             <h4 class="font-medium text-lg mb-1">Live Files:</h4>
                             <mat-chip-listbox aria-label="Live files">
-                                <mat-chip *ngFor="let file of iteration.liveFilesDirect">{{ file }}</mat-chip>
+                                <mat-chip *ngFor="let file of iteration.toolState.get('LiveFiles')">{{ file }}</mat-chip>
                             </mat-chip-listbox>
                         </div>
 
-                        <!-- File Store Direct -->
-                        <div class="mb-3" *ngIf="iteration.fileStoreDirect && iteration.fileStoreDirect.length > 0">
+                        <!-- File Store  -->
+                        <div class="mb-3" *ngIf="iteration.toolState.get('FileStore')?.length > 0">
                             <h4 class="font-medium text-lg mb-1">File Store:</h4>
                             <div class="space-y-2">
-                                <mat-card *ngFor="let file of iteration.fileStoreDirect" class="!shadow-sm border">
+                                <mat-card *ngFor="let file of iteration.toolState.get('FileStore')" class="!shadow-sm border">
                                     <mat-card-content class="!pb-2 !pt-2">
                                         <div class="text-sm"><strong>{{ file.filename }}</strong></div>
                                         <div class="text-xs text-gray-600">{{ file.description }}</div>
