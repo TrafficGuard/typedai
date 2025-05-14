@@ -85,7 +85,7 @@ export class AuthSignUpComponent implements OnInit {
 
         this.signUpForm.disable();
         this.showAlert = false;
-
+        this._authService.signUp(this.signUpForm.value).subscribe({
             next: (response) => {
                 // Navigate to the confirmation required page
                 this._router.navigateByUrl('/ui/confirmation-required').catch(console.error);
