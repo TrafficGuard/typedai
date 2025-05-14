@@ -109,6 +109,64 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			send(reply, 200, message);
 		},
 	);
+	fastify.post(
+		`${basePath}/chat/:chatId/regenerate`,
+		{
+			schema: {
+				params: Type.Object({ chatId: Type.String() }),
+				body: Type.Object({
+					text: Type.String(), // This is the prompt text to use for regeneration
+					llmId: Type.String(),
+					historyTruncateIndex: Type.Number(), // Client sends (userMessagePromptIndex + 1). This is the count of messages to retain from original chat.
+				}),
+			},
+		},
+		async (req, reply) => {
+			const { chatId } = req.params;
+			const { text: promptText, llmId, historyTruncateIndex } = req.body as { text: string; llmId: string; historyTruncateIndex: number };
+			const userId = currentUser().id;
+
+			const chat: Chat = await fastify.chatService.loadChat(chatId);
+			if (chat.userId !== userId) {
+				return sendBadRequest(reply, 'Unauthorized to regenerate this chat');
+			}
+
+			let llm: LLM;
+			try {
+				llm = getLLM(llmId);
+			} catch (e) {
+				return sendBadRequest(reply, `Cannot find LLM ${llmId}`);
+			}
+			if (!llm.isConfigured()) {
+				return sendBadRequest(reply, `LLM ${llmId} is not configured`);
+			}
+
+			// Validate historyTruncateIndex
+			// historyTruncateIndex is sent as (userMessagePromptIndex + 1) by client.
+			// It represents the length of the message history to keep, which means messages from 0 to historyTruncateIndex - 1.
+			// The message at historyTruncateIndex - 1 is the user prompt that is being regenerated.
+			if (historyTruncateIndex <= 0 || historyTruncateIndex > chat.messages.length) {
+				// If historyTruncateIndex is 0, it means slice(0, -1) which is not intended.
+				// It should be at least 1 if we are regenerating from the very first message.
+				// The promptText is the content of chat.messages[historyTruncateIndex -1]
+				return sendBadRequest(reply, `Invalid historyTruncateIndex. Must be > 0 and <= ${chat.messages.length}. Received: ${historyTruncateIndex}`);
+			}
+
+			// Truncate messages to include the user prompt being regenerated from.
+			// The promptText is the content of chat.messages[historyTruncateIndex - 1]
+			chat.messages = chat.messages.slice(0, historyTruncateIndex - 1);
+
+			// Add the user prompt (which might be the original or a modified one by the user, though current client sends original)
+			chat.messages.push({ role: 'user', content: promptText, time: Date.now() });
+
+			const message = await llm.generateMessage(chat.messages, { id: 'chat-regenerate' });
+			chat.messages.push(message);
+			chat.updatedAt = Date.now();
+
+			await fastify.chatService.saveChat(chat);
+			send(reply, 200, message); // Send back the new AI message
+		},
+	);
 	fastify.get(
 		`${basePath}/chats`,
 		{

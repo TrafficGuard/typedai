@@ -18,6 +18,7 @@ import { ChatServiceClient } from '../chat.service';
 import {Chat, NEW_CHAT_ID} from 'app/modules/chat/chat.types';
 import { Subject, takeUntil } from 'rxjs';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
+import { toObservable } from '@angular/core/rxjs-interop';
 import {MatSnackBar} from "@angular/material/snack-bar";
 
 @Component({
@@ -66,8 +67,8 @@ export class ChatsComponent implements OnInit, OnDestroy {
      */
     ngOnInit(): void {
         // Load chats if not already loaded
-        this._chatService.getChats()
-            .pipe(takeUntil(this._unsubscribeAll))
+        this._chatService.loadChats() // This ensures chats are loaded or loading
+            .pipe(takeUntil(this._unsubscribeAll)) // loadChats returns Observable<void>
             .subscribe({
                 error: (error) => {
                     this.snackBar.open('Error loading chats')
@@ -76,7 +77,7 @@ export class ChatsComponent implements OnInit, OnDestroy {
             });
 
         // Subscribe to chats updates
-        this._chatService.chats$
+        toObservable(this._chatService.chats)
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((chats: Chat[]) => {
                 this.chats = this.filteredChats = chats;
@@ -86,7 +87,7 @@ export class ChatsComponent implements OnInit, OnDestroy {
             });
 
         // Selected chat
-        this._chatService.chat$
+        toObservable(this._chatService.chat)
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((chat: Chat) => {
                 this.selectedChat = chat;
@@ -119,10 +120,10 @@ export class ChatsComponent implements OnInit, OnDestroy {
         // Create a temporary chat object to ensure the conversation component is displayed
         const tempChat = { id: NEW_CHAT_ID, messages: [], title: '', updatedAt: Date.now() };
         this._chatService.setChat(tempChat);
-        
+
         // Navigate to the new chat route
         this.router.navigate([NEW_CHAT_ID], { relativeTo: this.route }).catch(console.error);
-        
+
         // Mark for check to ensure UI updates
         this._changeDetectorRef.markForCheck();
     }

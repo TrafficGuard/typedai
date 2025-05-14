@@ -10,7 +10,7 @@ import { ChatServiceClient } from './chat.service';
 import { ChatsComponent } from 'app/modules/chat/chats/chats.component';
 import { ConversationComponent } from 'app/modules/chat/conversation/conversation.component';
 import { EmptyConversationComponent } from 'app/modules/chat/empty-conversation/empty-conversation.component';
-import { catchError, throwError } from 'rxjs';
+import { catchError, throwError, switchMap } from 'rxjs';
 
 /**
  * Conversation resolver
@@ -25,7 +25,9 @@ const conversationResolver = (
     const chatService = inject(ChatServiceClient);
     const router = inject(Router);
 
-    return chatService.getChatById(route.paramMap.get('id')).pipe(
+    return chatService.loadChatById(route.paramMap.get('id')).pipe(
+        // After loading, switch to an observable of the chat signal's current value
+        switchMap(() => chatService.chat), // chat is a signal, switchMap will get its value once loadChatById completes
         // Error here means the requested chat is not available
         catchError((error) => {
             // Log the error
@@ -48,7 +50,7 @@ export default [
         path: '',
         component: ChatComponent,
         resolve: {
-            chats: () => inject(ChatServiceClient).getChats(),
+            chats: () => inject(ChatServiceClient).loadChats(),
         },
         children: [
             {

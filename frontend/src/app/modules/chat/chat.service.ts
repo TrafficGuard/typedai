@@ -99,12 +99,12 @@ export class ChatServiceClient {
         }
 
         return this._httpClient.post<any>('/api/chat/new', formData, { headers: { 'enctype': 'multipart/form-data' } }).pipe(
-            map((response: any) => response.data as Chat), // server returns the full new chat object
-            tap((newChat: Chat) => {
+            map((response: any) => response.data as ServerChat),
+            tap((newServerChat: ServerChat) => {
                 // Convert server messages to UI messages
-                newChat.messages = newChat.messages.map(convertMessage);
-                this._chats.update(currentChats => [newChat, ...(currentChats || [])]);
-                this._chat.set(newChat); // Also set the current chat to the new one
+                const uiChat = { ...newServerChat, messages: newServerChat.messages.map(convertMessage) };
+                this._chats.update(currentChats => [uiChat, ...(currentChats || [])]);
+                this._chat.set(uiChat); // Also set the current chat to the new one
             })
         );
     }
@@ -139,12 +139,11 @@ export class ChatServiceClient {
                     id: serverChat.id,
                     title: serverChat.title,
                     messages: serverChat.messages.map(convertMessage),
-                    updatedAt: serverChat.updatedAt,
+                    updatedAt: serverChat.updatedAt, // Ensure this is number
                     userId: serverChat.userId,
                     shareable: serverChat.shareable,
                 };
                 this._chat.set(chat);
-
                 // Update this chat in the main list if it exists
                 this._chats.update(chats => {
                     const chatIndex = chats?.findIndex(c => c.id === id);
@@ -171,24 +170,25 @@ export class ChatServiceClient {
      * @param updatedProps Partial chat object with properties to update.
      */
     updateChatDetails(id: string, updatedProps: Partial<Chat>): Observable<void> {
-        return this._httpClient.patch<Chat>(`api/chat/${id}/details`, updatedProps).pipe(
-            map(response => response as Chat), // Assuming server returns the updated chat
-            tap((updatedChatFromServer) => {
-                 // Convert server messages if any (though this route might not return messages)
-                if (updatedChatFromServer.messages) {
-                    updatedChatFromServer.messages = updatedChatFromServer.messages.map(convertMessage);
-                }
+        return this._httpClient.patch<ServerChat>(`api/chat/${id}/details`, updatedProps).pipe(
+            map(response => response as ServerChat),
+            tap((updatedServerChat) => {
+                const uiChatUpdate: Partial<Chat> = {
+                    ...updatedServerChat,
+                    messages: updatedServerChat.messages ? updatedServerChat.messages.map(convertMessage) : undefined,
+                };
+
                 this._chats.update(chats => {
                     const index = chats?.findIndex(item => item.id === id);
                     if (chats && index !== -1 && index !== undefined) {
                         const newChats = [...chats];
-                        newChats[index] = { ...newChats[index], ...updatedChatFromServer };
+                        newChats[index] = { ...newChats[index], ...uiChatUpdate };
                         return newChats;
                     }
                     return chats;
                 });
                 if (this._chat()?.id === id) {
-                    this._chat.update(currentChat => ({ ...currentChat, ...updatedChatFromServer }));
+                    this._chat.update(currentChat => ({ ...currentChat, ...uiChatUpdate }));
                 }
             }),
             mapTo(undefined)
@@ -282,60 +282,56 @@ export class ChatServiceClient {
      * @param chatId
      * @param message
      * @param llmId
+     * @param historyTruncateIndex The index to truncate the history to before adding the new prompt.
+     *                             Messages from this index onwards (original array) will be effectively replaced.
      */
-    regenerateMessage(chatId: string, message: string, llmId: string): Observable<Chat> {
+    regenerateMessage(chatId: string, message: string, llmId: string, historyTruncateIndex: number): Observable<void> {
         if (!chatId?.trim() || !message?.trim() || !llmId?.trim()) {
             return throwError(() => new Error('Invalid parameters for regeneration'));
         }
 
-        return this.chats$.pipe(
-            take(1), // Not needed if we operate on current signal value
-            switchMap(() => { // Removed chats from switchMap as we use this._chat()
-                const currentChat = this._chat();
-                if (!currentChat || currentChat.id !== chatId) {
-                    return throwError(() => new Error(`Chat not found or not active: ${chatId}`));
-                }
+        const currentChat = this._chat();
+        if (!currentChat || currentChat.id !== chatId) {
+            return throwError(() => new Error(`Chat not found or not active: ${chatId}`));
+        }
 
-                // Optimistically remove messages after the point of regeneration, if desired
-                // For now, let's assume the backend handles the message history for regeneration
-
-                return this._httpClient.post<any>(`/api/chat/${chatId}/regenerate`, { text: message, llmId }).pipe(
-                    map(response => response.data as LlmMessage),
-                    tap(aiLlmMessage => {
-                        const aiChatMessage = convertMessage(aiLlmMessage);
-                        this._chat.update(chat => {
-                            if (!chat) return null;
-                            // Add the new AI message. Backend dictates history.
-                            // If frontend needs to manage history truncation, logic goes here.
-                            return {
-                                ...chat,
-                                messages: [...(chat.messages || []), aiChatMessage], // Simplified: appends. Proper regen might replace.
-                                updatedAt: Date.now(),
-                            };
-                        });
-                        // Update chat in the main list
-                        this._chats.update(chats => {
-                             const chatIndex = chats?.findIndex(c => c.id === chatId);
-                             if (chats && chatIndex !== -1 && chatIndex !== undefined) {
-                                 const newChats = [...chats];
-                                 const updatedChatInList = { ...newChats[chatIndex] };
-                                 // updatedChatInList.lastMessage = aiChatMessage.textContent;
-                                 updatedChatInList.updatedAt = Date.now();
-                                 newChats[chatIndex] = updatedChatInList;
-                                 // Move to top
-                                 newChats.splice(chatIndex, 1);
-                                 newChats.unshift(updatedChatInList);
-                                 return newChats;
-                             }
-                             return chats;
-                        });
-                    }),
-                    mapTo(undefined), // Convert to Observable<void>
-                    catchError(error => {
-                        console.error('Error regenerating message:', error);
-                        return throwError(() => new Error('Failed to regenerate message'));
-                    })
-                );
+        return this._httpClient.post<any>(`/api/chat/${chatId}/regenerate`, { text: message, llmId, historyTruncateIndex }).pipe(
+            map(response => response.data as LlmMessage), // Server returns the new AI LlmMessage
+            tap(aiLlmMessage => {
+                const aiChatMessage = convertMessage(aiLlmMessage);
+                this._chat.update(chat => {
+                    if (!chat) return null;
+                    // The backend has handled history truncation.
+                    // The new AI message is the latest. We need to reconstruct the message list
+                    // based on what the backend now considers the true state.
+                    // For simplicity, assume the service call to loadChatById or similar would refresh if full state is needed,
+                    // or the backend could return the full updated chat.
+                    // Here, we'll replace messages from historyTruncateIndex with the new AI message.
+                    // This assumes the user prompt that led to this is ALREADY in chat.messages or handled by backend.
+                    // A more robust way: backend returns the full updated Chat object.
+                    // Since it only returns LlmMessage, we'll update the current chat optimistically.
+                    const messagesUpToPrompt = chat.messages.slice(0, historyTruncateIndex); // messages before the AI response being regenerated
+                    return { ...chat, messages: [...messagesUpToPrompt, aiChatMessage], updatedAt: Date.now() };
+                });
+                 // Update chat in the main list
+                this._chats.update(chats => {
+                     const chatIndex = chats?.findIndex(c => c.id === chatId);
+                     if (chats && chatIndex !== -1 && chatIndex !== undefined) {
+                         const newChats = [...chats];
+                         const updatedChatInList = { ...newChats[chatIndex] };
+                         updatedChatInList.updatedAt = Date.now();
+                         newChats[chatIndex] = updatedChatInList;
+                         newChats.splice(chatIndex, 1);
+                         newChats.unshift(updatedChatInList);
+                         return newChats;
+                     }
+                     return chats;
+                });
+            }),
+            mapTo(undefined),
+            catchError(error => {
+                console.error('Error regenerating message:', error);
+                return throwError(() => new Error('Failed to regenerate message'));
             })
         );
     }
