@@ -2,7 +2,7 @@ import { Type } from '@sinclair/typebox';
 import {
     CreateVibeSessionDataApiSchema, VibeSessionApiSchema, VibeSessionListItemApiSchema,
     UpdateVibeSessionApiBodySchema, UpdateSelectionPromptDataApiSchema, GenerateDesignDataApiSchema,
-    VibePresetApiSchema, CreatePresetApiBodySchema, VibePresetConfigApiSchema,
+    VibePresetApiSchema, CreatePresetApiBodySchema,
     GetBranchesQueryApiSchema, GetBranchesResponseApiSchema,
     GetTreeQueryApiSchema, GetTreeResponseApiSchema,
     GetFileQueryApiSchema, GetFileResponseApiSchema,
@@ -13,7 +13,7 @@ import {
 
 // Common API Schemas
 import {
-    ApiSessionParamsSchema, ApiErrorResponseSchema, ApiMessageResponseSchema,
+    ApiSessionParamsSchema, ApiMessageResponseSchema,
     ApiNullResponseSchema, ApiPresetParamsSchema,
 } from '../schemas/common.schema';
 import {defineRoute} from "#shared/api-definitions";
@@ -45,7 +45,7 @@ export const VIBE_API = {
             schema: { body: CreatePresetApiBodySchema, response: { 201: VibePresetApiSchema } }
         }),
         listPresets: defineRoute('GET', `${VIBE_API_BASE}/presets`, {
-            schema: { response: { 200: Type.Array(VibePresetApiSchema), 500: ApiErrorResponseSchema } }
+            schema: { response: { 200: Type.Array(VibePresetApiSchema) } }
         }),
         deletePreset: defineRoute('DELETE', `${VIBE_API_BASE}/presets/:presetId`, { // Matches :presetId
             schema: { path: ApiPresetParamsSchema, response: { 204: ApiNullResponseSchema } }

@@ -13,6 +13,7 @@ import type {
     UpdateSelectionPromptData,
     GenerateDesignData,
     UpdateDesignPromptData,
+    UpdateDesignInstructionsData,
 } from '#shared/model/vibe.model';
 
 // Compatibility Checker
@@ -20,6 +21,7 @@ import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
 // Common Schemas
 import { ApiNullResponseSchema } from './common.schema';
 import {SelectedFile} from "#shared/model/files.model";
+import type { FileSystemNode } from '#shared/services/fileSystemService';
 
 
 // --- VibeStatus Schema ---
@@ -110,51 +112,48 @@ export const VibeSessionApiSchema = Type.Object({
     updatedAt: Type.Number(), // Assuming timestamp
     agentHistory: Type.Optional(Type.Array(Type.String())),
     error: Type.Optional(Type.String()),
-    // config: Type.Optional(Type.Any()), // VibePresetConfig is more specific if available
 });
-// The 'config' property in VibeSession model is not explicitly defined,
-// if it refers to VibePresetConfig, a VibePresetConfigApiSchema should be used.
-// For now, I'll omit 'config' from VibeSessionApiSchema to avoid potential mismatch
-// until VibeSession's 'config' property is clarified or if it's not part of API responses.
-// If it IS part of the API response for VibeSession, it needs to be added here.
-// Let's assume for now it's not directly part of the VibeSession API response schema.
-const _vibeSessionApiCheck: AreTypesFullyCompatible<Omit<VibeSession, 'config'>, Static<typeof VibeSessionApiSchema>> = true;
+const _vibeSessionApiCheck: AreTypesFullyCompatible<VibeSession, Static<typeof VibeSessionApiSchema>> = true;
 
 
 // --- VibeSessionListItem Schema (for list views) ---
-// Based on Pick<VibeSession, 'id' | 'title' | 'status' | 'createdAt' | 'updatedAt' | 'repositoryName' | 'targetBranch'>
-// The model in vibeRoutes.ts used: Type.Pick(VibeSessionResponseSchema, ['id', 'title', 'status', 'createdAt', 'updatedAt', 'repositoryName', 'targetBranch'])
-export const VibeSessionListItemApiSchema = Type.Pick(VibeSessionApiSchema, [
-    'id', 'title', 'status', 'createdAt', 'updatedAt', 'repositoryName', 'targetBranch'
-]);
-// type VibeSessionListItemModel = Pick<VibeSession, 'id' | 'title' | 'status' | 'createdAt' | 'updatedAt' | 'repositoryName' | 'targetBranch'>;
-// const _vibeSessionListItemApiCheck: AreTypesFullyCompatible<VibeSessionListItemModel, Static<typeof VibeSessionListItemApiSchema>> = true;
-// The above check requires VibeSessionListItem type to be exported from model, or defined locally.
-// For now, assuming the Pick from VibeSessionApiSchema is the intended structure for the API list item.
+export const VibeSessionListItemProps = ['id', 'title', 'status', 'createdAt', 'updatedAt', 'repositoryName', 'targetBranch'] as const;
+export const VibeSessionListItemApiSchema = Type.Pick(VibeSessionApiSchema, VibeSessionListItemProps);
+type VibeSessionListItemModel = Pick<VibeSession, typeof VibeSessionListItemProps[number]>;
+const _vibeSessionListItemApiCheck: AreTypesFullyCompatible<VibeSessionListItemModel, Static<typeof VibeSessionListItemApiSchema>> = true;
 
 
 // --- UpdateVibeSessionData Schema ---
-// UpdateVibeSessionData is a Partial<Omit<VibeSession, ...>> & { filesToAdd?: string[], filesToRemove?: string[] }
-// This is complex to model perfectly with TypeBox if filesToAdd/Remove are top-level with other partial VibeSession fields.
-// A simpler approach for PATCH is often a schema with only the explicitly patchable fields.
 export const UpdateVibeSessionApiBodySchema = Type.Partial(
     Type.Object({
         title: Type.String(),
         instructions: Type.String(),
+        repositoryName: Type.Optional(Type.String()),
+        useSharedRepos: Type.Boolean(),
         status: VibeStatusApiSchema,
-        fileSelection: Type.Array(SelectedFileApiSchema), // To replace the whole selection
-        designAnswer: DesignAnswerApiSchema, // To update/replace design
-        // Add other fields from VibeSession that are directly updatable via PATCH
-        // For filesToAdd/filesToRemove, these might be better as dedicated actions if they don't fit well
-        // into a direct PATCH of VibeSession fields.
-        // The model UpdateVibeSessionData has filesToAdd/filesToRemove, which are not direct properties of VibeSession.
-        // This schema will represent the VibeSession properties that can be patched.
-        // A separate schema might be needed if filesToAdd/Remove are part of the same PATCH body.
-    }), { additionalProperties: false } // Usually good for PATCH to avoid unexpected fields
+        lastAgentActivity: Type.Number(),
+        fileSelection: Type.Optional(Type.Array(SelectedFileApiSchema)),
+        originalFileSelectionForReview: Type.Optional(Type.Array(SelectedFileApiSchema)),
+        designAnswer: Type.Optional(DesignAnswerApiSchema),
+        selectedVariations: Type.Optional(Type.Number()),
+        codeDiff: Type.Optional(Type.String()),
+        commitSha: Type.Optional(Type.String()),
+        pullRequestUrl: Type.Optional(Type.String()),
+        ciCdStatus: Type.Optional(Type.Union([
+            Type.Literal('pending'), Type.Literal('running'),
+            Type.Literal('success'), Type.Literal('failed'), Type.Literal('cancelled')
+        ])),
+        ciCdJobUrl: Type.Optional(Type.String()),
+        ciCdAnalysis: Type.Optional(Type.String()),
+        ciCdProposedFix: Type.Optional(Type.String()),
+        updatedAt: Type.Number(),
+        agentHistory: Type.Optional(Type.Array(Type.String())),
+        error: Type.Optional(Type.String()),
+        filesToAdd: Type.Optional(Type.Array(Type.String())),
+        filesToRemove: Type.Optional(Type.Array(Type.String())),
+    }, { additionalProperties: false })
 );
-// The AreTypesFullyCompatible check for UpdateVibeSessionData is tricky due to its composite nature.
-// It's `Partial<Omit<VibeSession, ...>> & { filesToAdd?: string[]; filesToRemove?: string[]; }`.
-// We'd need to construct a model type that exactly matches what this schema represents for a precise check.
+const _updateVibeSessionDataApiCheck: AreTypesFullyCompatible<UpdateVibeSessionData, Static<typeof UpdateVibeSessionApiBodySchema>> = true;
 
 
 // --- Action-Specific Schemas from vibe.model.ts ---
@@ -172,6 +171,11 @@ export const UpdateDesignPromptDataApiSchema = Type.Object({
     prompt: Type.String(),
 });
 const _updateDesignPromptDataApiCheck: AreTypesFullyCompatible<UpdateDesignPromptData, Static<typeof UpdateDesignPromptDataApiSchema>> = true;
+
+export const UpdateDesignInstructionsDataApiSchema = Type.Object({
+    instructions: Type.String(),
+});
+const _updateDesignInstructionsDataApiCheck: AreTypesFullyCompatible<UpdateDesignInstructionsData, Static<typeof UpdateDesignInstructionsDataApiSchema>> = true;
 
 export const CommitChangesDataApiSchema = Type.Object({
     commitTitle: Type.String(),
@@ -214,8 +218,8 @@ export const CreatePresetApiBodySchema = Type.Object({
     name: Type.String(),
     config: VibePresetConfigApiSchema,
 });
-// type CreatePresetModel = Pick<VibePreset, 'name' | 'config'>; // Or define a specific model
-// const _createPresetApiCheck: AreTypesFullyCompatible<CreatePresetModel, Static<typeof CreatePresetApiBodySchema>> = true;
+type CreatePresetModel = Pick<VibePreset, 'name' | 'config'>;
+const _createPresetApiCheck: AreTypesFullyCompatible<CreatePresetModel, Static<typeof CreatePresetApiBodySchema>> = true;
 
 
 // --- Schemas for File System Operations (from vibeRoutes.ts) ---
@@ -226,13 +230,13 @@ export const GetBranchesQueryApiSchema = Type.Object({
 export const GetBranchesResponseApiSchema = Type.Array(Type.String());
 
 export const FileSystemNodeApiSchema = Type.Recursive(Self => Type.Object({
+    path: Type.String(), // Added path
     name: Type.String(),
     type: Type.Union([Type.Literal('file'), Type.Literal('directory')]),
     children: Type.Optional(Type.Array(Self)),
+    summary: Type.Optional(Type.String()), // Added summary
 }));
-// Assuming FileSystemNode model exists and matches this structure.
-// import type { FileSystemNode } from '#shared/services/fileSystemService'; // If model is there
-// const _fileSystemNodeApiCheck: AreTypesFullyCompatible<FileSystemNode, Static<typeof FileSystemNodeApiSchema>> = true;
+const _fileSystemNodeApiCheck: AreTypesFullyCompatible<FileSystemNode, Static<typeof FileSystemNodeApiSchema>> = true;
 
 export const GetTreeQueryApiSchema = Type.Object({
     path: Type.Optional(Type.String()),
@@ -250,7 +254,7 @@ export const GetFileResponseApiSchema = Type.Object({
 // Schema for Commit Response (from vibeRoutes.ts)
 export const CommitResponseApiSchema = Type.Object({
     commitSha: Type.Optional(Type.String()),
-    prUrl: Type.Optional(Type.String()), // pullRequestUrl in model
+    pullRequestUrl: Type.Optional(Type.String()), // Changed prUrl to pullRequestUrl
 });
-// type CommitResponseModel = { commitSha?: string; pullRequestUrl?: string };
-// const _commitResponseApiCheck: AreTypesFullyCompatible<CommitResponseModel, Static<typeof CommitResponseApiSchema>> = true;
+type CommitResponseModel = { commitSha?: string; pullRequestUrl?: string };
+const _commitResponseApiCheck: AreTypesFullyCompatible<CommitResponseModel, Static<typeof CommitResponseApiSchema>> = true;
