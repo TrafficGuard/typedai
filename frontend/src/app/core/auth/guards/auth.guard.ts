@@ -11,11 +11,8 @@ export const AuthGuard: CanActivateFn | CanActivateChildFn = (route, state) => {
         .check()
         .pipe(
             switchMap((authenticated) => {
-                console.log(`AuthGuard ${authenticated}`)
                 if (!authenticated) {
-                    console.log('Not authenticated');
                     if (environment.auth === 'single_user' || environment.auth === 'google_iap') {
-                        console.log('Single user or IAP')
                         return of(true);
                     } else {
                         // Redirect to the sign-in page with a redirectURL param

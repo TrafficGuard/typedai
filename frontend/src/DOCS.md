@@ -514,3 +514,34 @@ Both `input()` and `model()` functions are ways to define signal-based inputs in
 # When to use model inputs
 
 Use model inputs when you want a component to support two-way binding. This is typically appropriate when a component exists to modify a value based on user interaction. Most commonly, custom form controls such as a date picker or combobox should use model inputs for their primary value.
+
+
+# HTTP resource signals
+
+```typescript
+import { Component } from '@angular/core';
+import { resource } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { switchMap } from 'rxjs/operators';
+import { signal } from '@angular/core';
+
+@Component({
+  selector: 'app-resource-example',
+  template: `
+    <div *ngIf="items.loading">Loading...</div>
+    <div *ngIf="items.error">Error: {{ items.error.message }}</div>
+    <ul *ngIf="items.data">
+      <li *ngFor="let item of items.data">{{ item.name }}</li>
+    </ul>
+  `,
+})
+export class ResourceExampleComponent {
+  itemId = signal(1);
+  items = resource(() => this.itemId(), (id) => 
+    this.http.get<any[]>(`/api/items/${id}`)
+  );
+
+  constructor(private http: HttpClient) {}
+}
+```
