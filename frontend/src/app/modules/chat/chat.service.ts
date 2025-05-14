@@ -9,7 +9,7 @@ import {
     TextContent,
 } from 'app/modules/chat/chat.types';
 import {catchError, filter, map, Observable, of, switchMap, take, tap, throwError, mapTo} from 'rxjs';
-import {FilePartExt, GenerateOptions, ImagePartExt, LlmMessage} from "#shared/model/llm.model";
+import {FilePartExt, GenerateOptions, ImagePartExt, LLM, LlmMessage} from "#shared/model/llm.model";
 import { signal, WritableSignal } from '@angular/core';
 
 @Injectable({ providedIn: 'root' })
@@ -99,12 +99,13 @@ export class ChatServiceClient {
         }
 
         return this._httpClient.post<any>('/api/chat/new', formData, { headers: { 'enctype': 'multipart/form-data' } }).pipe(
-            map((response: any) => response.data as ServerChat),
-            tap((newServerChat: ServerChat) => {
+            map((response: any) => {
                 // Convert server messages to UI messages
-                const uiChat = { ...newServerChat, messages: newServerChat.messages.map(convertMessage) };
+                const newServerChat = response.data as ServerChat;
+                const uiChat: Chat = { ...newServerChat, messages: newServerChat.messages.map(convertMessage) };
                 this._chats.update(currentChats => [uiChat, ...(currentChats || [])]);
                 this._chat.set(uiChat); // Also set the current chat to the new one
+                return uiChat; // Ensure the observable emits the UI Chat type
             })
         );
     }
@@ -149,7 +150,11 @@ export class ChatServiceClient {
                     const chatIndex = chats?.findIndex(c => c.id === id);
                     if (chats && chatIndex !== -1 && chatIndex !== undefined) {
                         const newChats = [...chats];
-                        newChats[chatIndex] = chat; // Assuming ChatPreview and Chat are compatible enough for this update
+                        const updatedChatInList = { ...newChats[chatIndex] };
+                        // Assuming ChatPreview and Chat are compatible enough for this update
+                        // updatedChatInList.messages = chat.messages; // Don't add full messages to preview list
+                        updatedChatInList.updatedAt = chat.updatedAt; // Update timestamp
+                        newChats[chatIndex] = updatedChatInList;
                         return newChats;
                     }
                     return chats;
@@ -321,6 +326,7 @@ export class ChatServiceClient {
                          const updatedChatInList = { ...newChats[chatIndex] };
                          updatedChatInList.updatedAt = Date.now();
                          newChats[chatIndex] = updatedChatInList;
+                         // Move to top
                          newChats.splice(chatIndex, 1);
                          newChats.unshift(updatedChatInList);
                          return newChats;
