@@ -8,20 +8,20 @@ import {
     ServerChat,
     TextContent,
 } from 'app/modules/chat/chat.types';
-import {BehaviorSubject, catchError, filter, map, Observable, of, switchMap, take, tap, throwError,} from 'rxjs';
+import {catchError, filter, map, Observable, of, switchMap, take, tap, throwError, mapTo} from 'rxjs';
 import {FilePartExt, GenerateOptions, ImagePartExt, LlmMessage} from "#shared/model/llm.model";
+import { signal, WritableSignal } from '@angular/core';
 
 @Injectable({ providedIn: 'root' })
 export class ChatServiceClient {
-    private _chat: BehaviorSubject<Chat> = new BehaviorSubject(null);
-    private _chats: BehaviorSubject<Chat[]> = new BehaviorSubject(null);
-    /** Flag indicating whether chats have been loaded from the server */
-    private _chatsLoaded: boolean = false;
+    private readonly _chat: WritableSignal<Chat | null> = signal(null);
+    readonly chat = this._chat.asReadonly();
+    private readonly _chats: WritableSignal<Chat[] | null> = signal(null);
+    readonly chats = this._chats.asReadonly();
+    private _chatsLoaded = signal(false);
 
 
-    constructor(private _httpClient: HttpClient) {
-        // Chats will be loaded on-demand via getChats()
-    }
+    constructor(private _httpClient: HttpClient) {}
 
     private base64ToBlob(base64: string, mimeType: string): Blob {
         const byteCharacters = atob(base64);
@@ -48,25 +48,13 @@ export class ChatServiceClient {
     // @ Accessors
     // -----------------------------------------------------------------------------------------------------
 
-    /**
-     * Getter for chat
-     */
-    get chat$(): Observable<Chat> {
-        return this._chat.asObservable();
-    }
+    // chat and chats signals are exposed directly
 
     /**
-     * Getter for chats
+     * Set the current chat (primarily for internal use or specific scenarios)
      */
-    get chats$(): Observable<Chat[]> {
-        return this._chats.asObservable();
-    }
-
-    /**
-     * Set the current chat
-     */
-    setChat(chat: Chat): void {
-        this._chat.next(chat);
+    setChat(chat: Chat | null): void {
+        this._chat.set(chat);
     }
 
     // -----------------------------------------------------------------------------------------------------
@@ -74,25 +62,26 @@ export class ChatServiceClient {
     // -----------------------------------------------------------------------------------------------------
 
     /**
-     * Get chats - returns cached data if available, otherwise fetches from server
-     * @returns Observable of Chat array
+     * Load chats from the server. Updates the `chats` signal.
+     * @returns Observable<void> indicating completion or error.
      */
-    getChats(): Observable<any> {
+    loadChats(): Observable<void> {
         // Return cached chats if already loaded
-        if (this._chatsLoaded && this._chats.value) {
-            return of(this._chats.value);
+        if (this._chatsLoaded()) {
+            return of(undefined);
         }
 
         // Otherwise fetch from server
         return this._httpClient.get<Chat[]>('/api/chats').pipe(
-            tap((response: Chat[]) => {
-                response = (response as any).data.chats;
-                this._chats.next(response);
-                this._chatsLoaded = true;
+            tap((response: any) // server returns {data: {chats: []}}
+               ) => {
+                this._chats.set(response.data.chats);
+                this._chatsLoaded.set(true);
             }),
+            mapTo(undefined),
             catchError((error) => {
                 // Reset loaded flag on error to prevent caching failed state
-                this._chatsLoaded = false;
+                this._chatsLoaded.set(false);
                 return throwError(() => error);
             })
         );
@@ -111,11 +100,12 @@ export class ChatServiceClient {
         }
 
         return this._httpClient.post<any>('/api/chat/new', formData, { headers: { 'enctype': 'multipart/form-data' } }).pipe(
-            map((response: any) => {
-                const newChat: Chat = response.data;
-                const currentChats = this._chats.value || [];
-                this._chats.next([newChat, ...currentChats]);
-                return newChat;
+            map((response: any) => response.data as Chat), // server returns the full new chat object
+            tap((newChat: Chat) => {
+                // Convert server messages to UI messages
+                newChat.messages = newChat.messages.map(convertMessage);
+                this._chats.update(currentChats => [newChat, ...(currentChats || [])]);
+                this._chat.set(newChat); // Also set the current chat to the new one
             })
         );
     }
@@ -123,113 +113,86 @@ export class ChatServiceClient {
     deleteChat(chatId: string): Observable<void> {
         return this._httpClient.delete<void>(`/api/chat/${chatId}`).pipe(
             tap(() => {
-                const currentChats = this._chats.value || [];
-                this._chats.next(currentChats.filter(chat => chat.id !== chatId));
-                if (this._chat.getValue()?.id === chatId) {
-                    this._chat.next(null);
+                this._chats.update(currentChats => (currentChats || []).filter(chat => chat.id !== chatId));
+                if (this._chat()?.id === chatId) {
+                    this._chat.set(null);
                 }
             })
         );
     }
 
     /**
-     * Get chat
-     *
-     * @param id
+     * Load a specific chat by its ID. Updates the `chat` signal.
+     * @param id The ID of the chat to load.
+     * @returns Observable<void> indicating completion or error.
      */
-    getChatById(id: string): Observable<any> {
-        if(!id?.trim() || id === NEW_CHAT_ID) {
-            const chat: Chat = { messages:[], id: NEW_CHAT_ID, title: '', updatedAt: Date.now() }
-            this._chat.next(chat);
-            return this._chats
+    loadChatById(id: string): Observable<void> {
+        if (!id?.trim() || id === NEW_CHAT_ID) {
+            const newChat: Chat = { messages: [], id: NEW_CHAT_ID, title: '', updatedAt: Date.now() };
+            this._chat.set(newChat);
+            return of(undefined);
         }
-        return this._httpClient
-            .get<Chat>(`api/chat/${id}`)
-            .pipe(
-                map((response: any) => {
-                    // Update the chat
-                    const serverChat: ServerChat = response.data
 
-                    const chat: Chat = {
-                        id: serverChat.id,
-                        title: serverChat.title,
-                        messages: serverChat.messages.map(convertMessage),
-                        updatedAt: serverChat.updatedAt
+        return this._httpClient.get<any>(`api/chat/${id}`).pipe( // server returns {data: Chat}
+            map(response => response.data as ServerChat),
+            tap((serverChat: ServerChat) => {
+                const chat: Chat = {
+                    id: serverChat.id,
+                    title: serverChat.title,
+                    messages: serverChat.messages.map(convertMessage),
+                    updatedAt: serverChat.updatedAt,
+                    userId: serverChat.userId,
+                    shareable: serverChat.shareable,
+                };
+                this._chat.set(chat);
+
+                // Update this chat in the main list if it exists
+                this._chats.update(chats => {
+                    const chatIndex = chats?.findIndex(c => c.id === id);
+                    if (chats && chatIndex !== -1 && chatIndex !== undefined) {
+                        const newChats = [...chats];
+                        newChats[chatIndex] = chat; // Assuming ChatPreview and Chat are compatible enough for this update
+                        return newChats;
                     }
-
-                    // Set lastMessage
-                    // const lastMessage = chat.messages[chat.messages.length - 1];
-                    // chat.lastMessage = lastMessage ? lastMessage.content : '';
-
-                    // this._chats doesn't have the messages, so we need to update it when we load a chat
-                    const chats = this._chats.getValue()
-                    const chatIndex = chats.findIndex(chat => chat.id === id);
-                    chats[chatIndex] = chat;
-                    this._chats.next(chats);
-
-                    this._chat.next(chat);
-
-                    // Return the chat
-                    return chat;
-                }),
-                switchMap((chat: Chat) => {
-                    if (!chat) {
-                        return throwError(
-                            'Could not found chat with id of ' + id + '!'
-                        );
-                    }
-
-                    return of(chat);
-                })
-            );
+                    return chats;
+                });
+            }),
+            mapTo(undefined), // Convert Observable<Chat> to Observable<void>
+            catchError(error => {
+                this._chat.set(null); // Clear chat on error
+                return throwError(() => error);
+            })
+        );
     }
 
     /**
-     * Update chat
-     *
+     * Update chat title or other properties (not messages).
+     * This is a simplified example. A more complete implementation might involve specific fields.
      * @param id
-     * @param chat
+     * @param updatedProps Partial chat object with properties to update.
      */
-    updateChat(id: string, chat: Chat): Observable<Chat> {
-        return this.chats$.pipe(
-            take(1),
-            switchMap((chats) =>
-                this._httpClient
-                    .patch<Chat>('api/chat/chat', {
-                        id,
-                        chat,
-                    })
-                    .pipe(
-                        map((updatedChat) => {
-                            // Find the index of the updated chat
-                            const index = chats.findIndex(
-                                (item) => item.id === id
-                            );
-
-                            // Update the chat
-                            chats[index] = updatedChat;
-
-                            // Update the chats
-                            this._chats.next(chats);
-
-                            // Return the updated contact
-                            return updatedChat;
-                        }),
-                        switchMap((updatedChat) =>
-                            this.chat$.pipe(
-                                take(1),
-                                filter((item) => item && item.id === id),
-                                tap(() => {
-                                    // Update the chat if it's selected
-                                    this._chat.next(updatedChat);
-
-                                    // Return the updated chat
-                                    return updatedChat;
-                                })
-                            )
-                        )
-                    )
-            )
+    updateChatDetails(id: string, updatedProps: Partial<Chat>): Observable<void> {
+        return this._httpClient.patch<Chat>(`api/chat/${id}/details`, updatedProps).pipe(
+            map(response => response as Chat), // Assuming server returns the updated chat
+            tap((updatedChatFromServer) => {
+                 // Convert server messages if any (though this route might not return messages)
+                if (updatedChatFromServer.messages) {
+                    updatedChatFromServer.messages = updatedChatFromServer.messages.map(convertMessage);
+                }
+                this._chats.update(chats => {
+                    const index = chats?.findIndex(item => item.id === id);
+                    if (chats && index !== -1 && index !== undefined) {
+                        const newChats = [...chats];
+                        newChats[index] = { ...newChats[index], ...updatedChatFromServer };
+                        return newChats;
+                    }
+                    return chats;
+                });
+                if (this._chat()?.id === id) {
+                    this._chat.update(currentChat => ({ ...currentChat, ...updatedChatFromServer }));
+                }
+            }),
+            mapTo(undefined)
         );
     }
 
@@ -238,19 +201,19 @@ export class ChatServiceClient {
      * Reset the selected chat
      */
     resetChat(): void {
-        this._chat.next(null);
+        this._chat.set(null);
     }
 
 
     /**
-     * Send a message
-     *
+     * Send a message. Updates the `chat` signal with the new user message and the AI's response.
      * @param chatId
      * @param message
      * @param llmId LLM identifier
      * @param attachments
+     * @returns Observable<void> indicating completion of the send operation.
      */
-    sendMessage(chatId: string, message: string, llmId: string, options?: GenerateOptions, attachments?: Attachment[]): Observable<Chat> {
+    sendMessage(chatId: string, message: string, llmId: string, options?: GenerateOptions, attachments?: Attachment[]): Observable<void> {
         const formData = new FormData();
         formData.append('text', message);
         formData.append('llmId', llmId);
@@ -262,56 +225,56 @@ export class ChatServiceClient {
             });
         }
 
-        return this.chats$.pipe(
-            take(1),
-            switchMap((chats) =>
-                this._httpClient
-                    .post<Chat>(`/api/chat/${chatId}/send`, formData, { headers: { 'enctype': 'multipart/form-data' } })
-                    .pipe(
-                        map((data: any) => {
-                            const llmMessage = data.data as LlmMessage;
+        // Locally add user's message immediately for responsiveness
+        const userMessageEntry: ChatMessage = {
+            content: [{ type: 'text', text: message }],
+            textContent: message,
+            isMine: true,
+            fileAttachments: attachments?.filter(att => att.type === 'file') || [],
+            imageAttachments: attachments?.filter(att => att.type === 'image') || [],
+            createdAt: new Date().toISOString(), // Add timestamp
+        };
+        this._chat.update(currentChat => {
+            if (!currentChat) return null; // Should not happen if sending to an existing chat
+            return {
+                ...currentChat,
+                messages: [...(currentChat.messages || []), userMessageEntry],
+            };
+        });
 
-                            const newMessages: ChatMessage[] = [
-                                {
-                                    content: [{type:'text',text:message}],
-                                    textContent: message,
-                                    isMine: true,
-                                    fileAttachments: attachments?.filter(att => att.type === 'file') || [],
-                                    imageAttachments: attachments?.filter(att => att.type === 'image') || [],
-                                },
-                                convertMessage(llmMessage)
-                            ]
-                            // Find the index of the updated chat
-                            const index = chats.findIndex(
-                                (item) => item.id === chatId
-                            );
-                            if(index < 0) {
-                                console.log(`Couldn't find chat with id ${chatId} from ${chats.length} chats`);
-                            }
 
-                            // Update the chat
-                            const chat = chats[index];
-                            if(chat.messages === null || chat.messages === undefined) {
-                                console.log(`nullish messages for ${JSON.stringify(chat)} at index ${index}`)
-                                chat.messages = []
-                            }
-                            chat.messages.push(...newMessages);
-
-                            // Move the chat to the top of the list
-                            chats.splice(index, 1);
-                            chats.unshift(chat);
-
-                            // Update the chats
-                            this._chats.next(chats);
-
-                            // Update the chat if it's selected
-                            this._chat.next(chat);
-
-                            // Return the updated chat
-                            return chat;
-                        })
-                    )
-            )
+        return this._httpClient.post<any>(`/api/chat/${chatId}/send`, formData, { headers: { 'enctype': 'multipart/form-data' } }).pipe(
+            map(response => response.data as LlmMessage), // Server returns the AI's LlmMessage
+            tap((aiLlmMessage) => {
+                const aiChatMessage = convertMessage(aiLlmMessage);
+                this._chat.update(currentChat => {
+                    if (!currentChat) return null;
+                    // Replace the optimistic user message if it was simple, or append AI message
+                    // For simplicity, we assume the user message is already there and just append AI
+                    return {
+                        ...currentChat,
+                        messages: [...(currentChat.messages || []), aiChatMessage],
+                        updatedAt: Date.now(), // Update timestamp
+                    };
+                });
+                // Update the chat in the main list as well
+                this._chats.update(chats => {
+                    const chatIndex = chats?.findIndex(c => c.id === chatId);
+                    if (chats && chatIndex !== -1 && chatIndex !== undefined) {
+                        const newChats = [...chats];
+                        const updatedChatInList = { ...newChats[chatIndex] };
+                        // updatedChatInList.lastMessage = aiChatMessage.textContent; // Update last message if applicable
+                        updatedChatInList.updatedAt = Date.now();
+                        newChats[chatIndex] = updatedChatInList;
+                        // Move to top
+                        newChats.splice(chatIndex, 1);
+                        newChats.unshift(updatedChatInList);
+                        return newChats;
+                    }
+                    return chats;
+                });
+            }),
+            mapTo(undefined) // Convert to Observable<void>
         );
     }
 
@@ -327,83 +290,101 @@ export class ChatServiceClient {
         }
 
         return this.chats$.pipe(
-            take(1),
-            switchMap((chats) => {
-                const chatIndex = chats.findIndex(item => item.id === chatId);
-                if (chatIndex === -1) {
-                    return throwError(() => new Error(`Chat not found: ${chatId}`));
+            take(1), // Not needed if we operate on current signal value
+            switchMap(() => { // Removed chats from switchMap as we use this._chat()
+                const currentChat = this._chat();
+                if (!currentChat || currentChat.id !== chatId) {
+                    return throwError(() => new Error(`Chat not found or not active: ${chatId}`));
                 }
 
-                return this._httpClient
-                    .post<Chat>(`/api/chat/${chatId}/regenerate`, { text: message, llmId })
-                    .pipe(
-                        map((data: any) => {
-                            const llmMessage = data.data;
-                            const newMessage = {
-                                value: llmMessage,
-                                isMine: false,
-                                llmId: llmId,
-                                textContent: 'textContent todo'
+                // Optimistically remove messages after the point of regeneration, if desired
+                // For now, let's assume the backend handles the message history for regeneration
+
+                return this._httpClient.post<any>(`/api/chat/${chatId}/regenerate`, { text: message, llmId }).pipe(
+                    map(response => response.data as LlmMessage),
+                    tap(aiLlmMessage => {
+                        const aiChatMessage = convertMessage(aiLlmMessage);
+                        this._chat.update(chat => {
+                            if (!chat) return null;
+                            // Add the new AI message. Backend dictates history.
+                            // If frontend needs to manage history truncation, logic goes here.
+                            return {
+                                ...chat,
+                                messages: [...(chat.messages || []), aiChatMessage], // Simplified: appends. Proper regen might replace.
+                                updatedAt: Date.now(),
                             };
-
-                            const chat = chats[chatIndex];
-                            chat.messages.push(newMessage);
-                            chat.lastMessage = llmMessage;
-
-                            // Update states
-                            this._chats.next(chats);
-                            this._chat.next(chat);
-
-                            return chat;
-                        }),
-                        catchError(error => {
-                            console.error('Error regenerating message:', error);
-                            return throwError(() => new Error('Failed to regenerate message'));
-                        })
-                    );
+                        });
+                        // Update chat in the main list
+                        this._chats.update(chats => {
+                             const chatIndex = chats?.findIndex(c => c.id === chatId);
+                             if (chats && chatIndex !== -1 && chatIndex !== undefined) {
+                                 const newChats = [...chats];
+                                 const updatedChatInList = { ...newChats[chatIndex] };
+                                 // updatedChatInList.lastMessage = aiChatMessage.textContent;
+                                 updatedChatInList.updatedAt = Date.now();
+                                 newChats[chatIndex] = updatedChatInList;
+                                 // Move to top
+                                 newChats.splice(chatIndex, 1);
+                                 newChats.unshift(updatedChatInList);
+                                 return newChats;
+                             }
+                             return chats;
+                        });
+                    }),
+                    mapTo(undefined), // Convert to Observable<void>
+                    catchError(error => {
+                        console.error('Error regenerating message:', error);
+                        return throwError(() => new Error('Failed to regenerate message'));
+                    })
+                );
             })
         );
     }
 
-    sendAudioMessage(chatId: string, llmId: string, audio: Blob): Observable<Chat> {
-        return this.chats$.pipe(
-            take(1),
-            switchMap((chats) =>
-                this._httpClient
-                    .post<Chat>(`/api/chat/${chatId}/send`, { audio: audio, llmId })
-                    .pipe(
-                        map((data: any) => {
-                            const llmMessage = data.data;
+    sendAudioMessage(chatId: string, llmId: string, audio: Blob): Observable<void> {
+        const formData = new FormData();
+        formData.append('audio', audio, 'audio.webm'); // Assuming webm, adjust if needed
+        formData.append('llmId', llmId);
 
-                            // const newMessages = [
-                            //     {
-                            //         value: message,
-                            //         isMine: true,
-                            //     },
-                            //     {
-                            //         value: llmMessage,
-                            //         isMine: false,
-                            //     },
-                            // ]
-                            // // Find the index of the updated chat
-                            const index = chats.findIndex(
-                                (item) => item.id === chatId
-                            );
-                            //
-                            // // Update the chat
-                            const chat =  chats[index];
-                            // chat.messages.push(...newMessages);
-                            // // Update the chats
-                            this._chats.next(chats);
-                            //
-                            // // Update the chat if it's selected
-                            this._chat.next(chat);
-                            //
-                            // // Return the updated chat
-                            return chat;
-                        })
-                    )
-            )
+        // Optimistic update for audio could be adding a "sending audio..." message
+        // For now, similar to text, wait for server response
+
+        return this._httpClient.post<any>(`/api/chat/${chatId}/send`, formData, { headers: { 'enctype': 'multipart/form-data' } }).pipe(
+            map(response => response.data as LlmMessage),
+            tap(aiLlmMessage => {
+                const aiChatMessage = convertMessage(aiLlmMessage);
+                this._chat.update(currentChat => {
+                    if (!currentChat) return null;
+                    // Add a placeholder for user's audio message if desired, then AI response
+                    // For simplicity, just adding AI response
+                    return {
+                        ...currentChat,
+                        messages: [...(currentChat.messages || []), aiChatMessage], // Placeholder for user audio + AI response
+                        updatedAt: Date.now(),
+                    };
+                });
+                 // Update chat in the main list
+                this._chats.update(chats => {
+                     const chatIndex = chats?.findIndex(c => c.id === chatId);
+                     if (chats && chatIndex !== -1 && chatIndex !== undefined) {
+                         const newChats = [...chats];
+                         const updatedChatInList = { ...newChats[chatIndex] };
+                         // updatedChatInList.lastMessage = "Audio message response"; // Or actual text
+                         updatedChatInList.updatedAt = Date.now();
+                         newChats[chatIndex] = updatedChatInList;
+                         // Move to top
+                         newChats.splice(chatIndex, 1);
+                         newChats.unshift(updatedChatInList);
+                         return newChats;
+                     }
+                     return chats;
+                });
+            }),
+            mapTo(undefined),
+            catchError(error => {
+                console.error('Error sending audio message:', error);
+                return throwError(() => new Error('Failed to send audio message'));
+            })
         );
     }
 
