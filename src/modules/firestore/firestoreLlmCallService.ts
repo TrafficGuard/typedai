@@ -86,53 +86,57 @@ export class FirestoreLlmCallService implements LlmCallService {
 				if (!Array.isArray(message.content)) continue;
 
 				for (let i = 0; i < message.content.length; i++) {
-					// --- Handle Image/File Parts ---
-					const part = message.content[i] as ImagePartExt | FilePartExt;
-					if (part.type !== 'image' && part.type !== 'file') continue;
-					const dataField: keyof Pick<FilePartExt, 'data'> | keyof Pick<ImagePartExt, 'image'> = part.type === 'image' ? 'image' : 'data';
-					const data = (part as ImagePartExt | FilePartExt)[dataField];
+					const part = message.content[i]; // part is ContentPart
 
-					if (part.externalURL) {
-						// Already been saved to external storage
-						part[dataField] = null;
-						continue;
-					}
+					if (part.type === 'image' || part.type === 'file') {
+						const imageOrFilePart = part as ImagePartExt | FilePartExt;
+						const dataField = imageOrFilePart.type === 'image' ? 'image' : 'data';
+						const dataValue = imageOrFilePart[dataField];
 
-					// Check if data is not already a URL or reference and is large enough
-					// if (data && typeof data !== 'string') {
-					// 	console.log('Saving object that shouold be string ==============');
-					// 	for (const [k, v] of Object.entries(structuredClone(data))) {
-					// 		if (typeof v === 'string' && v.length > 1000) data[k] = v.substring(0, 1000);
-					// 		else if (Array.isArray(v) && v.length > 1000) data[k] = v.slice(0, 1000);
-					// 		console.log(`${k}:${v}`);
-					// 	}
-					// }
-					if (typeof data === 'object') {
-						console.log('=================');
-						const s = JSON.stringify(data);
-						console.log('Invalid data for externalisig large message part');
-						console.log(`keys: ${Object.keys(data)}`);
-						console.log('=================');
-					}
-					if (data && !(data instanceof URL) && typeof data !== 'string' && Buffer.byteLength(data as Uint8Array) > EXTERNAL_DATA_THRESHOLD) {
-						const uniqueId = randomUUID();
-						const filePath = join(msgDataPath, uniqueId);
-						await fs.writeFile(filePath, data as Uint8Array);
-						externalRefs.push(filePath);
-						// Replace data with reference string
-						(part as any)[dataField] = `${AGENT_REF_PREFIX}${uniqueId}`;
-						// Ensure the original part in the array is updated
-						message.content[i] = part;
-					} else if (typeof data === 'string' && data.startsWith('data:') && Buffer.byteLength(data) > EXTERNAL_DATA_THRESHOLD) {
-						// Handle large base64 strings
-						const uniqueId = randomUUID();
-						const filePath = join(msgDataPath, uniqueId);
-						// Extract base64 data (need to handle mime type if necessary, but Buffer.from handles it)
-						const buffer = Buffer.from(data.substring(data.indexOf(',') + 1), 'base64');
-						await fs.writeFile(filePath, buffer);
-						externalRefs.push(filePath);
-						(part as any)[dataField] = `${AGENT_REF_PREFIX}${uniqueId}`;
-						message.content[i] = part;
+						if (imageOrFilePart.externalURL) {
+							// Data is already external via a non-agentfs URL, clear local data field.
+							(imageOrFilePart as any)[dataField] = null;
+							continue;
+						}
+
+						// Skip if already an agentfs reference
+						if (typeof dataValue === 'string' && dataValue.startsWith(AGENT_REF_PREFIX)) {
+							continue;
+						}
+
+						// Externalize Uint8Array/Buffer data
+						if (dataValue && !(dataValue instanceof URL) && typeof dataValue !== 'string' && Buffer.byteLength(dataValue as Uint8Array) > EXTERNAL_DATA_THRESHOLD) {
+							const uniqueId = randomUUID();
+							const filePath = join(msgDataPath, uniqueId);
+							await fs.writeFile(filePath, dataValue as Uint8Array);
+							externalRefs.push(filePath);
+							(imageOrFilePart as any)[dataField] = `${AGENT_REF_PREFIX}${uniqueId}`;
+						}
+						// Externalize large base64 data URI strings
+						else if (typeof dataValue === 'string' && dataValue.startsWith('data:') && Buffer.byteLength(dataValue) > EXTERNAL_DATA_THRESHOLD) {
+							const uniqueId = randomUUID();
+							const filePath = join(msgDataPath, uniqueId);
+							const buffer = Buffer.from(dataValue.substring(dataValue.indexOf(',') + 1), 'base64');
+							await fs.writeFile(filePath, buffer);
+							externalRefs.push(filePath);
+							(imageOrFilePart as any)[dataField] = `${AGENT_REF_PREFIX}${uniqueId}`;
+						}
+					} else if (part.type === 'text') {
+						const textPart = part; // part is TextPart
+						if (typeof textPart.text === 'string') {
+							// Skip if already an agentfs reference
+							if (textPart.text.startsWith(AGENT_REF_PREFIX)) {
+								continue;
+							}
+							// Externalize large text string
+							if (Buffer.byteLength(textPart.text, 'utf8') > EXTERNAL_DATA_THRESHOLD) {
+								const uniqueId = randomUUID();
+								const filePath = join(msgDataPath, uniqueId);
+								await fs.writeFile(filePath, textPart.text, 'utf8');
+								externalRefs.push(filePath);
+								textPart.text = `${AGENT_REF_PREFIX}${uniqueId}`;
+							}
+						}
 					}
 				}
 			}
@@ -169,16 +173,35 @@ export class FirestoreLlmCallService implements LlmCallService {
 			if (!Array.isArray(message.content)) continue;
 
 			for (let i = 0; i < message.content.length; i++) {
-				const part = message.content[i];
-				if (!part.externalURL) continue;
-				if (part.type !== 'image' && part.type !== 'file') continue;
+				const part = message.content[i]; // part is ContentPart
 
-				const dataField: keyof Pick<FilePartExt, 'data'> | keyof Pick<ImagePartExt, 'image'> = part.type === 'image' ? 'image' : 'data';
-				const data = (part as ImagePartExt | FilePartExt)[dataField];
+				if (part.type === 'image' || part.type === 'file') {
+					const imageOrFilePart = part as ImagePartExt | FilePartExt;
+					const dataField = imageOrFilePart.type === 'image' ? 'image' : 'data';
+					const dataValue = imageOrFilePart[dataField];
 
-				const externalFileName = data.substring(AGENT_REF_PREFIX.length);
-				const externalFilePath = join(msgDataPath, externalFileName);
-				part[dataField] = await fs.readFile(externalFilePath);
+					if (typeof dataValue === 'string' && dataValue.startsWith(AGENT_REF_PREFIX)) {
+						const externalFileName = dataValue.substring(AGENT_REF_PREFIX.length);
+						const externalFilePath = join(msgDataPath, externalFileName);
+						try {
+							(imageOrFilePart as any)[dataField] = await fs.readFile(externalFilePath);
+						} catch (error) {
+							logger.error(error, `Failed to read external data file ${externalFilePath} for ${imageOrFilePart.type} part. Leaving reference.`);
+						}
+					}
+				} else if (part.type === 'text') {
+					const textPart = part; // part is TextPart
+					if (typeof textPart.text === 'string' && textPart.text.startsWith(AGENT_REF_PREFIX)) {
+						const externalFileName = textPart.text.substring(AGENT_REF_PREFIX.length);
+						const externalFilePath = join(msgDataPath, externalFileName);
+						try {
+							const fileBuffer = await fs.readFile(externalFilePath);
+							textPart.text = fileBuffer.toString('utf8');
+						} catch (error) {
+							logger.error(error, `Failed to read external data file ${externalFilePath} for text part. Leaving reference.`);
+						}
+					}
+				}
 			}
 		}
 		return messages;
