@@ -9,7 +9,7 @@ import { type CreateLlmRequest, callStack } from '#llm/llmCallService/llmCall';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { type GenerateTextOptions, type GenerationStats, type LlmMessage, messageText } from '#shared/model/llm.model';
-import type { LlmCall } from '../../../shared/model/llmCall.model';
+import type { LlmCall } from '#shared/model/llmCall.model';
 
 /**
  * Base class for LLM implementations using the Vercel ai package
