@@ -105,11 +105,14 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 						if (opts.thinking === 'low') thinkingBudget = 8192;
 						else if (opts.thinking === 'medium') thinkingBudget = 16384;
 						else if (opts.thinking === 'high') thinkingBudget = 24576;
-						providerOptions.vertex = {
+						const providerOpts = {
 							thinkingConfig: {
 								thinkingBudget,
 							},
-						};
+						}
+						providerOptions.vertex = providerOpts;
+						providerOptions.google = providerOpts;
+						providerOptions.gemini = providerOpts;
 					}
 				}
 
