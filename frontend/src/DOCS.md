@@ -545,3 +545,92 @@ export class ResourceExampleComponent {
   constructor(private http: HttpClient) {}
 }
 ```
+
+
+# Untagged template literals in expressions
+
+Angular 19.2 introduces an improvement related to template literals, previously unsupported in HTML templates. This enhancement simplifies how we combine variables with text in templates.
+
+In earlier versions of Angular, if we wanted to include text with an embedded variable in a template, we often had to use the traditional string concatenation operator (+). For example:
+
+```
+{{ 'Ala has ' + count + ' cats' }}
+
+{{ cartCount() === 0 ? 'Your cart is empty.' : 'You have ' + cartCount() + ' items in your cart.' }}
+```
+
+The variable count was concatenated with text using the + operator in this case. While functional, this approach introduced some rigidity and required longer, less elegant expressions in the template.
+
+Starting from version 19.2, Angular allows template literals – a modern string interpolation method that is more readable and concise. We can now use the following syntax:
+
+```
+{{ `Ala has ${count} cats` }}
+
+{{ cartCount() === 0 ? 'Your cart is empty.' : `You have ${cartCount()} items in your cart.` }}
+```
+
+Instead of using the + operator, we insert variables directly into the string using ${}. This approach is more elegant, improves readability, and makes templates more manageable to maintain, especially for longer or more complex text strings.
+
+# New Features of NgComponentOutlet
+
+NgComponentOutlet is a directive in Angular that allows the dynamic loading of components at a specified location within an application. In previous versions, its usage was limited to the .ts file. That was the case until Angular 19.1.
+
+Before this update, to dynamically load a component:
+
+We had to use Angular’s API in the TypeScript file, such as ComponentFactoryResolver, to create component instances.
+This was more complex as it required TypeScript code to manage the creation and injection of components.
+Example of the previous approach:
+```typescript
+import { Component, ComponentFactoryResolver, ViewChild, ViewContainerRef } from '@angular/core';
+
+@Component({
+selector: 'app-root',
+template: '<ng-container #dynamicContainer></ng-container>',
+})
+export class AppComponent {
+    @ViewChild('dynamicContainer', { read: ViewContainerRef }) container!: ViewContainerRef;
+    
+    constructor(private resolver: ComponentFactoryResolver) {}
+        loadComponent(component: any) {
+        const factory = this.resolver.resolveComponentFactory(component);
+        this.container.clear();
+        this.container.createComponent(factory);
+    }
+}
+```
+In the latest version of Angular, we can dynamically load components directly in the HTML file using NgComponentOutlet. We no longer need to create component instances in the TypeScript code. Here’s an example:
+```
+<ng-container
+*ngComponentOutlet="dynamicComponent"
+#outlet="ngComponentOutlet">
+</ng-container>
+```
+
+- *ngComponentOutlet=”dynamicComponent”
+    - Angular loads the component specified by the dynamicComponent variable. This variable can be a component class passed from the TypeScript file.
+- #outlet=”ngComponentOutlet”
+    - A local context (#outlet) is created, allowing interaction with the loaded component (e.g., access to the component’s instance and its API).
+
+In the .ts file, we have the following code:
+
+```typescript
+import { Component } from '@angular/core';
+import { MyDynamicComponent } from './my-dynamic.component';
+
+@Component({
+selector: 'app-root',
+templateUrl: './app.component.html',
+})
+export class AppComponent {
+dynamicComponent = MyDynamicComponent;=
+}
+```
+This has significantly simplified the process of dynamically loading components, eliminating the need to create component instances in the TypeScript code and providing greater flexibility in creating dynamic components.
+
+This directive has also gained a new property—componentInstance. With it, we now have access to the instance of the component created by the directive.
+
+With componentInstance, you can:
+
+Access the methods and properties of the component.
+Update data or pass new values to the component after it has been loaded.
+Perform operations on the loaded component, which was more difficult before because NgComponentOutlet did not provide direct access to the instance.

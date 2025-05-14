@@ -6,6 +6,8 @@ import {
     OnDestroy,
     OnInit,
     ViewEncapsulation,
+    inject, // Import inject
+    DestroyRef, // Import DestroyRef
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -16,8 +18,10 @@ import { MatSidenavModule } from '@angular/material/sidenav';
 import { ActivatedRoute, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { ChatServiceClient } from '../chat.service';
 import {Chat, NEW_CHAT_ID} from 'app/modules/chat/chat.types';
-import { Subject, takeUntil } from 'rxjs';
+// Removed Subject and takeUntil
+// import { Subject, takeUntil } from 'rxjs';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
+import { toObservable, takeUntilDestroyed } from '@angular/core/rxjs-interop'; // Import toObservable and takeUntilDestroyed
 import {MatSnackBar} from "@angular/material/snack-bar";
 
 @Component({
@@ -41,9 +45,16 @@ import {MatSnackBar} from "@angular/material/snack-bar";
 export class ChatsComponent implements OnInit, OnDestroy {
     chats: Chat[];
     filteredChats: Chat[];
-    selectedChat: Chat;
+    selectedChat: Chat | null; // Allow null as signal can be null
     hoveredChatId: string | null = null;
-    private _unsubscribeAll: Subject<any> = new Subject<any>();
+    // Removed _unsubscribeAll: Subject<any> = new Subject<any>();
+
+    // Add DestroyRef for takeUntilDestroyed
+    private destroyRef = inject(DestroyRef);
+
+    // Convert signals to observables as field initializers
+    private chats$ = toObservable(this._chatService.chats);
+    private selectedChat$ = toObservable(this._chatService.chat);
 
     /**
      * Constructor
@@ -66,29 +77,30 @@ export class ChatsComponent implements OnInit, OnDestroy {
      */
     ngOnInit(): void {
         // Load chats if not already loaded
-        this._chatService.getChats()
-            .pipe(takeUntil(this._unsubscribeAll))
+        this._chatService.loadChats() // This ensures chats are loaded or loading
+            .pipe(takeUntilDestroyed(this.destroyRef)) // Use takeUntilDestroyed
             .subscribe({
                 error: (error) => {
-                    this.snackBar.open('Error loading chats')
+                    this.snackBar.open('Error loading chats', 'Close', { duration: 3000 }); // Added Close button and duration
                     console.error('Failed to load chats:', error);
                 }
             });
 
-        // Subscribe to chats updates
-        this._chatService.chats$
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe((chats: Chat[]) => {
-                this.chats = this.filteredChats = chats;
+        // Subscribe to chats updates using the pre-converted observable
+        this.chats$
+            .pipe(takeUntilDestroyed(this.destroyRef)) // Use takeUntilDestroyed
+            .subscribe((chats: Chat[] | null) => { // Handle null case from signal
+                this.chats = chats || []; // Default to empty array if null
+                this.filteredChats = this.chats;
 
                 // Mark for check
                 this._changeDetectorRef.markForCheck();
             });
 
-        // Selected chat
-        this._chatService.chat$
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe((chat: Chat) => {
+        // Selected chat using the pre-converted observable
+        this.selectedChat$
+            .pipe(takeUntilDestroyed(this.destroyRef)) // Use takeUntilDestroyed
+            .subscribe((chat: Chat | null) => { // Handle null case from signal
                 this.selectedChat = chat;
 
                 // Mark for check
@@ -100,11 +112,14 @@ export class ChatsComponent implements OnInit, OnDestroy {
      * On destroy
      */
     ngOnDestroy(): void {
-        // Unsubscribe from all subscriptions
-        this._unsubscribeAll.next(null);
-        this._unsubscribeAll.complete();
+        // No need for _unsubscribeAll with takeUntilDestroyed
+        // this._unsubscribeAll.next(null);
+        // this._unsubscribeAll.complete();
 
         // Reset the chat
+        // Consider if this is truly needed here, or if it should be handled
+        // by the component that owns the chat view (e.g., when navigating away from a specific chat)
+        // For now, keeping it as per original logic.
         this._chatService.resetChat();
     }
 
@@ -119,10 +134,10 @@ export class ChatsComponent implements OnInit, OnDestroy {
         // Create a temporary chat object to ensure the conversation component is displayed
         const tempChat = { id: NEW_CHAT_ID, messages: [], title: '', updatedAt: Date.now() };
         this._chatService.setChat(tempChat);
-        
+
         // Navigate to the new chat route
         this.router.navigate([NEW_CHAT_ID], { relativeTo: this.route }).catch(console.error);
-        
+
         // Mark for check to ensure UI updates
         this._changeDetectorRef.markForCheck();
     }
@@ -148,14 +163,16 @@ export class ChatsComponent implements OnInit, OnDestroy {
      * Delete the current chat
      */
     deleteChat(event: MouseEvent, chat: Chat): void {
-        // event.stopPropagation();
+        // event.stopPropagation(); // Keep this if you want to prevent navigation when clicking delete icon
         this.confirmationService.open({
             message: 'Are you sure you want to delete this chat?',
         }).afterClosed().subscribe((result) => {
             console.log(result);
             if(result === 'confirmed') {
                 this._chatService.deleteChat(chat.id).subscribe(() => {
-                    // Do we need to handle if it's the currently selected chat?
+                    // The service updates the chats signal, which the subscription handles.
+                    // If the deleted chat was the selected one, the service also sets _chat to null,
+                    // which the selectedChat$ subscription handles.
                 });
             }
         });

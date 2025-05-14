@@ -28,6 +28,15 @@ export function Gemini_2_0_Flash_Lite() {
 	return new GeminiLLM('Gemini 2.0 Flash Lite', 'gemini-2.0-flash-lite-preview-02-05', 1_000_000, fixedCostPerMilTokens(0.075, 0.3));
 }
 
+const GEMINI_KEYS: string[] = [];
+if (process.env.GEMINI_API_KEY) GEMINI_KEYS.push(process.env.GEMINI_API_KEY);
+for (let i = 2; i <= 9; i++) {
+	const key = process.env[`GEMINI_API_KEY_${i}`];
+	if (key) GEMINI_KEYS.push(key);
+	else break;
+}
+let geminiKeyIndex = 0;
+
 /**
  * Gemini AI models
  */
@@ -37,7 +46,12 @@ class GeminiLLM extends AiLLM<GoogleGenerativeAIProvider> {
 	}
 
 	protected apiKey(): string {
-		return currentUser().llmConfig.geminiKey || envVar('GEMINI_API_KEY');
+		let envKey: string;
+		if (GEMINI_KEYS.length) {
+			envKey = GEMINI_KEYS[geminiKeyIndex];
+			if (++geminiKeyIndex > GEMINI_KEYS.length) geminiKeyIndex = 0;
+		}
+		return currentUser().llmConfig.geminiKey || envKey || envVar('GEMINI_API_KEY');
 	}
 
 	provider(): GoogleGenerativeAIProvider {

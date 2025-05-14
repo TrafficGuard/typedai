@@ -1,140 +1,188 @@
 import { randomUUID } from 'node:crypto';
-import type { MultipartFile } from '@fastify/multipart';
-import { Type } from '@sinclair/typebox';
-import type { UserContent } from 'ai';
-import type { FastifyRequest } from 'fastify';
+import type { Static } from '@sinclair/typebox';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send, sendBadRequest } from '#fastify/index';
 import { getLLM } from '#llm/llmFactory';
 import { summaryLLM } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
+import { CHAT_API } from '#shared/api/chat.api';
 import type { Chat, ChatList } from '#shared/model/chat.model';
-import type { FilePartExt, GenerateOptions, ImagePartExt, LLM, LlmMessage, UserContentExt } from '#shared/model/llm.model';
+import type { LLM, LlmMessage } from '#shared/model/llm.model';
+import type {
+	ChatMessageSendSchema,
+	ChatParamsSchema,
+	ChatSchemaModel,
+	ChatUpdateDetailsSchema,
+	LlmMessageSchemaModel,
+	RegenerateMessageSchema,
+} from '#shared/schemas/chat.schema';
 import { currentUser } from '#user/userContext';
-
-const basePath = '/api';
 
 export async function chatRoutes(fastify: AppFastifyInstance) {
 	fastify.get(
-		`${basePath}/chat/:chatId`,
+		CHAT_API.getById.pathTemplate,
 		{
-			schema: {
-				params: Type.Object({
-					chatId: Type.String(),
-				}),
-			},
+			schema: CHAT_API.getById.schema,
 		},
 		async (req, reply) => {
-			const { chatId } = req.params;
+			const { chatId } = req.params as Static<typeof ChatParamsSchema>;
 			const userId = currentUser().id;
 			const chat: Chat = await fastify.chatService.loadChat(chatId);
-			if (chat.userId !== userId) {
-				return sendBadRequest(reply, 'Unauthorized to view this chat');
-			}
-			send(reply, 200, chat);
+			if (chat.userId !== userId) return sendBadRequest(reply, 'Unauthorized to view this chat');
+
+			reply.sendJSON(chat as ChatSchemaModel);
 		},
 	);
 
-	fastify.post(`${basePath}/chat/new`, {}, async (req, reply) => {
-		const { llmId, userContent, options } = await extractMessage(req);
-
-		let chat: Chat = {
-			id: randomUUID(),
-			messages: [],
-			title: '',
-			updatedAt: Date.now(),
-			userId: currentUser().id,
-			shareable: false,
-			parentId: undefined,
-			rootId: undefined,
-		};
-
-		let llm: LLM;
-		try {
-			llm = getLLM(llmId);
-		} catch (e) {
-			return sendBadRequest(reply, `No LLM for ${llmId}`);
-		}
-		if (!llm.isConfigured()) return sendBadRequest(reply, `LLM ${llm.getId()} is not configured`);
-
-		const text = typeof userContent === 'string' ? userContent : userContent.find((content) => content.type === 'text')?.text;
-		const titleLLM = summaryLLM().isConfigured() ? summaryLLM() : llm;
-		const titlePromise: Promise<string> | undefined = titleLLM.generateText(
-			`<message>\n${text}\n</message>\n\n\nThe above message is the first message in a new chat conversation. Your task is to create a short title in a few words for the conversation. Respond only with the title, nothing else.`,
-			{ id: 'Chat title' },
-		);
-
-		chat.messages.push({ role: 'user', content: userContent, time: Date.now() }); //, cache: cache ? 'ephemeral' : undefined // remove any previous cache marker
-
-		const message: LlmMessage = await llm.generateMessage(chat.messages, { id: 'chat', ...options });
-		chat.messages.push(message);
-
-		if (titlePromise) chat.title = await titlePromise;
-
-		chat = await fastify.chatService.saveChat(chat);
-
-		send(reply, 200, chat);
-	});
 	fastify.post(
-		`${basePath}/chat/:chatId/send`,
+		CHAT_API.createChat.pathTemplate,
 		{
-			schema: {
-				params: Type.Object({
-					chatId: Type.String(),
-				}),
-			},
+			schema: CHAT_API.createChat.schema,
 		},
 		async (req, reply) => {
-			const { chatId } = req.params;
+			const { llmId, userContent, options } = req.body as Static<typeof ChatMessageSendSchema>;
 
-			const { llmId, userContent, options } = await extractMessage(req);
-
-			const chat: Chat = await fastify.chatService.loadChat(chatId);
+			let chat: Chat = {
+				id: randomUUID(),
+				messages: [],
+				title: '',
+				updatedAt: Date.now(),
+				userId: currentUser().id,
+				shareable: false,
+				parentId: undefined,
+				rootId: undefined,
+			};
 
 			let llm: LLM;
 			try {
 				llm = getLLM(llmId);
 			} catch (e) {
-				return sendBadRequest(reply, `Cannot find LLM ${llm.getId()}`);
+				return sendBadRequest(reply, `No LLM for ${llmId}`);
+			}
+			if (!llm.isConfigured()) return sendBadRequest(reply, `LLM ${llm.getId()} is not configured`);
+
+			let textForTitle = '';
+			if (typeof userContent === 'string') {
+				textForTitle = userContent;
+			} else {
+				const textPart = userContent.find((content) => content.type === 'text' && 'text' in content);
+				if (textPart && 'text' in textPart) {
+					textForTitle = textPart.text;
+				}
+			}
+
+			const titleLLM = summaryLLM().isConfigured() ? summaryLLM() : llm;
+			const titlePromise: Promise<string> | undefined = titleLLM.generateText(
+				`<message>\n${textForTitle}\n</message>\n\n\nThe above message is the first message in a new chat conversation. Your task is to create a short title in a few words for the conversation. Respond only with the title, nothing else.`,
+				{ id: 'Chat title' },
+			);
+
+			chat.messages.push({ role: 'user', content: userContent, time: Date.now() });
+
+			const message: LlmMessage = await llm.generateMessage(chat.messages, { id: 'chat', ...options });
+			chat.messages.push(message);
+
+			if (titlePromise) chat.title = await titlePromise;
+
+			chat = await fastify.chatService.saveChat(chat);
+
+			reply.code(201).sendJSON(chat as ChatSchemaModel);
+		},
+	);
+
+	fastify.post(
+		CHAT_API.sendMessage.pathTemplate,
+		{
+			schema: CHAT_API.sendMessage.schema,
+		},
+		async (req, reply) => {
+			const { chatId } = req.params as Static<typeof ChatParamsSchema>;
+			const { llmId, userContent, options } = req.body as Static<typeof ChatMessageSendSchema>;
+
+			const chat: Chat = await fastify.chatService.loadChat(chatId);
+			if (chat.userId !== currentUser().id) return sendBadRequest(reply, 'Unauthorized to send message to this chat');
+
+			let llm: LLM;
+			try {
+				llm = getLLM(llmId);
+			} catch (e) {
+				return sendBadRequest(reply, `Cannot find LLM ${llmId}`);
 			}
 			if (!llm.isConfigured()) return sendBadRequest(reply, `LLM ${llm.getId()} is not configured`);
 
 			chat.messages.push({ role: 'user', content: userContent, time: Date.now() });
 
-			const message = await llm.generateMessage(chat.messages, { id: 'chat', ...options });
-			chat.messages.push(message);
+			const responseMessage = await llm.generateMessage(chat.messages, { id: 'chat', ...options });
+			chat.messages.push(responseMessage);
 
 			await fastify.chatService.saveChat(chat);
 
-			send(reply, 200, message);
+			reply.sendJSON(responseMessage as LlmMessageSchemaModel);
 		},
 	);
+
+	fastify.post(
+		CHAT_API.regenerateMessage.pathTemplate,
+		{
+			schema: CHAT_API.regenerateMessage.schema,
+		},
+		async (req, reply) => {
+			const { chatId } = req.params as Static<typeof ChatParamsSchema>;
+			const { userContent, llmId, historyTruncateIndex, options } = req.body as Static<typeof RegenerateMessageSchema>;
+			const userId = currentUser().id;
+
+			const chat: Chat = await fastify.chatService.loadChat(chatId);
+			if (chat.userId !== userId) {
+				return sendBadRequest(reply, 'Unauthorized to regenerate this chat');
+			}
+
+			let llm: LLM;
+			try {
+				llm = getLLM(llmId);
+			} catch (e) {
+				return sendBadRequest(reply, `Cannot find LLM ${llmId}`);
+			}
+			if (!llm.isConfigured()) {
+				return sendBadRequest(reply, `LLM ${llmId} is not configured`);
+			}
+
+			if (historyTruncateIndex <= 0 || historyTruncateIndex > chat.messages.length + 1) {
+				return sendBadRequest(reply, `Invalid historyTruncateIndex. Must be > 0 and <= ${chat.messages.length + 1}. Received: ${historyTruncateIndex}`);
+			}
+
+			chat.messages = chat.messages.slice(0, historyTruncateIndex - 1);
+
+			chat.messages.push({ role: 'user', content: userContent, time: Date.now() });
+
+			const responseMessage = await llm.generateMessage(chat.messages, { id: 'chat-regenerate', ...options });
+			chat.messages.push(responseMessage);
+			chat.updatedAt = Date.now();
+
+			await fastify.chatService.saveChat(chat);
+			reply.sendJSON(responseMessage as LlmMessageSchemaModel);
+		},
+	);
+
 	fastify.get(
-		`${basePath}/chats`,
+		CHAT_API.listChats.pathTemplate,
 		{
-			schema: {
-				params: Type.Object({
-					startAfterId: Type.Optional(Type.String()),
-				}),
-			},
+			schema: CHAT_API.listChats.schema,
 		},
 		async (req, reply) => {
-			const { startAfterId } = req.params;
-			const chats: ChatList = await fastify.chatService.listChats(startAfterId);
-			send(reply, 200, chats);
+			// Assuming CHAT_API.listChats.schema.querystring would define any query params
+			// const { startAfterId } = req.query as { startAfterId?: string };
+			const chats: ChatList = await fastify.chatService.listChats(); // Pass startAfterId if defined in schema and used
+			reply.sendJSON(chats);
 		},
 	);
+
 	fastify.delete(
-		`${basePath}/chat/:chatId`,
+		CHAT_API.deleteChat.pathTemplate,
 		{
-			schema: {
-				params: Type.Object({
-					chatId: Type.String(),
-				}),
-			},
+			schema: CHAT_API.deleteChat.schema,
 		},
 		async (req, reply) => {
-			const { chatId } = req.params;
+			const { chatId } = req.params as Static<typeof ChatParamsSchema>;
 			const userId = currentUser().id;
 			try {
 				const chat = await fastify.chatService.loadChat(chatId);
@@ -142,101 +190,37 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 					return sendBadRequest(reply, 'Unauthorized to delete this chat');
 				}
 				await fastify.chatService.deleteChat(chatId);
-				send(reply, 200, { success: true });
+				reply.code(204).send(); // 204 No Content, no body, so no sendJSON
 			} catch (error) {
-				logger.error(`Failed to delete chat ${chatId}:`, error);
+				const errorMessage = error instanceof Error ? error.message : String(error);
+				logger.error({ err: error, chatId, userId }, `Failed to delete chat: ${errorMessage}`);
+				// Using custom 'send' helper for error, as per DOCS.md for non-2xx or non-object responses
 				send(reply, 500, { error: 'Failed to delete chat' });
 			}
 		},
 	);
-}
 
-/**
- * Extracts the chat message properties and attachments from the request
- * @param req
- */
-async function extractMessage(req: FastifyRequest<any>): Promise<{
-	llmId: string;
-	userContent: UserContentExt;
-	options?: GenerateOptions;
-}> {
-	const parts = req.parts();
+	fastify.patch(
+		CHAT_API.updateDetails.pathTemplate,
+		{
+			schema: CHAT_API.updateDetails.schema,
+		},
+		async (req, reply) => {
+			const { chatId } = req.params as Static<typeof ChatParamsSchema>;
+			const updates = req.body as Static<typeof ChatUpdateDetailsSchema>; // Use specific schema type
+			const userId = currentUser().id;
 
-	let text: string;
-	let llmId: string;
-	let options: GenerateOptions;
-	const attachments: Array<FilePartExt | ImagePartExt> = [];
-
-	for await (const part of parts) {
-		if (part.type === 'file') {
-			const file = part as MultipartFile;
-			const data = await file.toBuffer();
-
-			if (file.mimetype.startsWith('image/')) {
-				attachments.push({
-					type: 'image',
-					filename: file.filename,
-					size: data.length,
-					image: data.toString('base64'),
-					mimeType: file.mimetype,
-				});
-			} else {
-				attachments.push({
-					type: 'file',
-					filename: file.filename,
-					size: data.length,
-					data: data.toString('base64'),
-					mimeType: file.mimetype,
-				});
+			const chat = await fastify.chatService.loadChat(chatId);
+			if (chat.userId !== userId) {
+				return sendBadRequest(reply, 'Unauthorized to update this chat');
 			}
-		} else if (part.type === 'field') {
-			if (part.fieldname === 'text') {
-				text = part.value as string;
-			} else if (part.fieldname === 'llmId') {
-				llmId = part.value as string;
-			} else if (part.fieldname === 'options') {
-				options = JSON.parse(part.value as string);
-			}
-		}
-	}
-	return { llmId, userContent: toUserContent(text, attachments), options };
-}
 
-/**
- * Converts a text message and attachments from the UI to the UserContentExt type stored in the database
- * @param message
- * @param attachments
- */
-export function toUserContent(message: string, attachments: Array<FilePartExt | ImagePartExt>): UserContentExt {
-	if (!attachments || attachments.length === 0) return message;
+			if (updates.title !== undefined) chat.title = updates.title;
+			if (updates.shareable !== undefined) chat.shareable = updates.shareable;
+			chat.updatedAt = Date.now();
 
-	const userContent: UserContentExt = [];
-
-	for (const attachment of attachments) {
-		if (attachment.type === 'file') {
-			userContent.push({
-				type: 'file',
-				data: attachment.data,
-				mimeType: attachment.mimeType, // mimeType is required for files
-				filename: attachment.filename,
-				size: attachment.size,
-			});
-		} else if (attachment.type === 'image') {
-			userContent.push({
-				type: 'image',
-				image: attachment.image,
-				mimeType: attachment.mimeType, // mimeType is optional for images
-				filename: attachment.filename,
-				size: attachment.size,
-			});
-		} else {
-			throw new Error('Invalid attachment type');
-		}
-	}
-
-	userContent.push({
-		type: 'text',
-		text: message,
-	});
-	return userContent;
+			const updatedChat = await fastify.chatService.saveChat(chat);
+			reply.sendJSON(updatedChat as ChatSchemaModel);
+		},
+	);
 }

@@ -1,4 +1,4 @@
-import { inject } from '@angular/core';
+import { inject, runInInjectionContext, Injector } from '@angular/core'; // Add runInInjectionContext and Injector
 import {
     ActivatedRouteSnapshot,
     Router,
@@ -10,7 +10,8 @@ import { ChatServiceClient } from './chat.service';
 import { ChatsComponent } from 'app/modules/chat/chats/chats.component';
 import { ConversationComponent } from 'app/modules/chat/conversation/conversation.component';
 import { EmptyConversationComponent } from 'app/modules/chat/empty-conversation/empty-conversation.component';
-import { catchError, throwError } from 'rxjs';
+import { catchError, throwError, switchMap } from 'rxjs';
+import { toObservable } from '@angular/core/rxjs-interop';
 
 /**
  * Conversation resolver
@@ -24,8 +25,11 @@ const conversationResolver = (
 ) => {
     const chatService = inject(ChatServiceClient);
     const router = inject(Router);
+    const injector = inject(Injector); // Inject the Injector
 
-    return chatService.getChatById(route.paramMap.get('id')).pipe(
+    return chatService.loadChatById(route.paramMap.get('id')).pipe(
+        // After loading, switch to an observable of the chat signal's current value
+        switchMap(() => runInInjectionContext(injector, () => toObservable(chatService.chat))), // MODIFIED: Wrap with runInInjectionContext
         // Error here means the requested chat is not available
         catchError((error) => {
             // Log the error
@@ -48,7 +52,7 @@ export default [
         path: '',
         component: ChatComponent,
         resolve: {
-            chats: () => inject(ChatServiceClient).getChats(),
+            chats: () => inject(ChatServiceClient).loadChats(),
         },
         children: [
             {
@@ -66,6 +70,11 @@ export default [
                         resolve: {
                             conversation: conversationResolver,
                         },
+                        // It's generally better to load chat data within the component
+                        // or use the resolver to ensure data is ready.
+                        // If the resolver handles chat loading, this effect in ConversationComponent
+                        // might become redundant or could be simplified.
+                        // For now, keeping as is, but this is an area for potential refactor.
                     },
                 ],
             },

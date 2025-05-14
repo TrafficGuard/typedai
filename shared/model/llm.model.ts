@@ -4,10 +4,8 @@ import {
     type CoreMessage,
     type FilePart,
     type ImagePart,
-    StreamTextResult,
     type TextPart,
     type TextStreamPart,
-    ToolCallPart,
     type ToolContent,
     type UserContent,
 } from 'ai';
@@ -125,7 +123,7 @@ export interface AttachmentInfo {
 }
 
 
-// Can't have the node.jd Buffer type in the frontend
+// Can't have the node.js Buffer type in the frontend. For now, we will always base64 encode file and image data to keep the typing simple.
 type FilePartUI = ChangePropertyType<FilePart, 'data', string >; // | Uint8Array | ArrayBuffer | URL
 type ImagePartUI = ChangePropertyType<ImagePart, 'image', string >; // | Uint8Array | ArrayBuffer | URL
 
@@ -135,7 +133,7 @@ export type TextPartExt = TextPart;
 
 export type CoreContent = AssistantContent | UserContent | ToolContent;
 /** Extension of the 'ai' package UserContent type */
-export type UserContentExt = string | Array<TextPart | ImagePart | ImagePartExt | FilePart | FilePartExt>;
+export type UserContentExt = string | Array<TextPart | ImagePartExt | FilePartExt>;
 
 export interface GenerationStats {
     requestTime: number;
@@ -203,7 +201,7 @@ export function contentText(content: CoreContent): string {
     return text;
 }
 
-export function extractAttachments(content: UserContent): Array<ImagePart | FilePart | TextPart> {
+export function extractAttachments(content: UserContentExt): Array<ImagePartExt | FilePartExt | TextPart> {
     return typeof content === 'string' ? [] : content.filter((part) => part.type === 'image' || part.type === 'file');
 }
 
@@ -360,3 +358,6 @@ export function combinePrompts(userPrompt: string, systemPrompt?: string): strin
     systemPrompt = systemPrompt ? `${systemPrompt}\n` : '';
     return `${systemPrompt}${userPrompt}`;
 }
+
+// Re-export TextPart for external use
+export type { TextPart };

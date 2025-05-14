@@ -5,7 +5,7 @@ export const NEW_CHAT_ID = 'new';
 
 // Server API types -------------
 
-export type ServerChat = ChatModel
+// ServerChat is effectively ApiChatModel from shared/schemas/chat.schema.ts now
 
 // UI types -------------
 
@@ -18,8 +18,10 @@ export interface Chat {
     unreadCount?: number;
     lastMessage?: string;
     lastMessageAt?: string;
-    updatedAt: number;
+    updatedAt: number; // Ensure this is consistently a number (timestamp)
     messages?: ChatMessage[];
+    parentId?: string; // <-- Add this line
+    rootId?: string;   // <-- Add this line
 }
 
 export interface TextContent {
@@ -48,10 +50,10 @@ export interface Attachment {
     filename: string;
     /** File size in bytes */
     size: number;
-    /** The actual file data */
-    data: File;
+    /** The actual file data (only present for attachments being sent) */
+    data: File | null;
     /** Mime type of the file. */
     mimeType: string;
-    /** Optional preview URL for thumbnails etc */
+    /** Optional preview URL for thumbnails etc (for received attachments) */
     previewUrl?: string;
 }
