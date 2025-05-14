@@ -11,7 +11,7 @@ import { func, funcClass } from '#functionSchema/functionDecorators';
 import { callStack } from '#llm/llmCallService/llmCall';
 import { Claude3_7_Sonnet } from '#llm/services/anthropic';
 import { deepSeekV3 } from '#llm/services/deepseek';
-import { GPT4o } from '#llm/services/openai';
+import { GPT41 } from '#llm/services/openai';
 import { openRouterGemini2_5_Pro } from '#llm/services/openrouter';
 import { vertexGemini_2_5_Pro } from '#llm/services/vertexai';
 import { logger } from '#o11y/logger';
@@ -89,7 +89,7 @@ export class AiderCodeEditor {
 			modelArg = '';
 			env = { OPENAI_API_KEY: openaiKey };
 			span.setAttribute('model', 'openai');
-			llm = GPT4o();
+			llm = GPT41();
 		} else {
 			throw new Error(
 				'Aider code editing requires either GCLOUD_PROJECT and GCLOUD_CLAUDE_REGION env vars set or else a key for Anthropic, Deepseek or OpenAI',

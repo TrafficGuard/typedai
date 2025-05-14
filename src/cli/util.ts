@@ -8,7 +8,7 @@ import { Jira } from '#functions/jira';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { MultiLLM } from '#llm/multi-llm';
 import { Claude3_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
-import { GPT4o } from '#llm/services/openai';
+import { GPT41 } from '#llm/services/openai';
 import type { AgentContext, AgentLLMs } from '#shared/model/agent.model';
 import { SearchReplaceCoder } from '#swe/coder/searchReplaceCoder';
 import { envVarHumanInLoopSettings } from './cliHumanInLoop';
@@ -23,7 +23,7 @@ const utilLLMs: AgentLLMs = {
 	easy: sonnet,
 	medium: sonnet,
 	hard: sonnet,
-	xhard: new MultiLLM([sonnet, GPT4o()], 3),
+	xhard: new MultiLLM([sonnet, GPT41()], 3),
 };
 
 async function main() {

@@ -1,7 +1,7 @@
 import { BaseLLM } from '#llm/base-llm';
 import { Claude3_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { fireworksLlama3_405B } from '#llm/services/fireworks';
-import { GPT4o } from '#llm/services/openai';
+import { GPT41 } from '#llm/services/openai';
 import { logger } from '#o11y/logger';
 import type { GenerateTextOptions, LLM } from '#shared/model/llm.model';
 
@@ -65,7 +65,7 @@ const MIND_OVER_DATA_SYS_PROMPT = `When addressing a problem, employ "Comparativ
 `;
 
 export class Blackberry extends BaseLLM {
-	llms: LLM[] = [Claude3_5_Sonnet_Vertex(), GPT4o(), Claude3_5_Sonnet_Vertex()];
+	llms: LLM[] = [Claude3_5_Sonnet_Vertex(), GPT41(), Claude3_5_Sonnet_Vertex()];
 	mediator: LLM = Claude3_5_Sonnet_Vertex();
 
 	constructor() {
