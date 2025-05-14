@@ -28,10 +28,9 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			const { chatId } = req.params;
 			const userId = currentUser().id;
 			const chat: Chat = await fastify.chatService.loadChat(chatId);
-			if (chat.userId !== userId) {
-				return sendBadRequest(reply, 'Unauthorized to view this chat');
-			}
-			send(reply, 200, chat);
+			if (chat.userId !== userId)	return sendBadRequest(reply, 'Unauthorized to view this chat');
+
+			reply.sendJSON(chat);
 		},
 	);
 
@@ -179,7 +178,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 		async (req, reply) => {
 			const { startAfterId } = req.params;
 			const chats: ChatList = await fastify.chatService.listChats(startAfterId);
-			send(reply, 200, chats);
+			reply.sendJSON(chats);
 		},
 	);
 	fastify.delete(
