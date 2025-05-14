@@ -7,6 +7,7 @@ import {
 } from './llm.schema';
 import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
 import {ChangePropertyType} from "#shared/typeUtils";
+import { ApiNullResponseSchema } from '#shared/schemas/common.schema'; // Ensure ApiNullResponseSchema is imported
 
 const LlmMessagesSchema = Type.Array(LlmMessageSchema)
 
@@ -53,8 +54,18 @@ export const ChatMessageSendSchema = Type.Object({
 }, { $id: 'ChatMessageSend' });
 export type ChatMessagePayload = Static<typeof ChatMessageSendSchema>;
 
-// Response for DELETE /api/chat/:chatId
-export const DeleteChatSuccessResponseSchema = Type.Object({
-	success: Type.Boolean()
-}, { $id: 'DeleteChatSuccessResponse' });
-export type DeleteChatSuccessResponse = Static<typeof DeleteChatSuccessResponseSchema>;
+// Schema for the request body of PATCH /api/chat/:chatId/details
+const ChatUpdatableDetailsProps = ['title', 'shareable'] as const;
+export const ChatUpdateDetailsSchema = Type.Partial(Type.Pick(ChatModelSchema, ChatUpdatableDetailsProps), { $id: 'ChatUpdateDetails' });
+export type ChatUpdateDetailsPayload = Static<typeof ChatUpdateDetailsSchema>;
+
+// Schema for the request body of POST /api/chat/:chatId/regenerate
+export const RegenerateMessageSchema = Type.Object({
+	userContent: UserContentSchema, // Renamed 'text' to 'userContent' for consistency
+	llmId: Type.String(),
+	historyTruncateIndex: Type.Number(),
+	options: Type.Optional(GenerateOptionsSchema),
+}, { $id: 'RegenerateMessage' });
+export type RegenerateMessagePayload = Static<typeof RegenerateMessageSchema>;
+
+// DeleteChatSuccessResponseSchema is not strictly needed if using 204 with ApiNullResponseSchema

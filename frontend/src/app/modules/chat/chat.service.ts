@@ -1,16 +1,109 @@
-import {HttpClient} from '@angular/common/http';
-import {Injectable} from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Injectable, signal, WritableSignal } from '@angular/core';
+import { Observable, of, throwError, from } from 'rxjs';
+import { catchError, map, mapTo, tap, switchMap } from 'rxjs/operators';
+
+import { CHAT_API } from '#shared/api/chat.api';
+import type {
+    ChatList as ApiChatList, // Alias to distinguish from UI Chat
+    ChatModel as ApiChatModel, // Alias
+    ChatMessagePayload,
+    RegenerateMessagePayload,
+    ChatUpdateDetailsPayload
+} from '#shared/schemas/chat.schema';
+import type { LlmMessage as ApiLlmMessage } from '#shared/model/llm.model'; // Used by convertMessage
+import { UserContentExt, TextPart, ImagePartExt, FilePartExt, GenerateOptions } from '#shared/model/llm.model';
+
+import { callApiRoute } from 'app/core/api-route';
 import {
     Attachment,
     Chat,
     ChatMessage,
     NEW_CHAT_ID,
-    ServerChat,
     TextContent,
+    // ServerChat is effectively ApiChatModel now
 } from 'app/modules/chat/chat.types';
-import {catchError, filter, map, Observable, of, switchMap, take, tap, throwError, mapTo} from 'rxjs';
-import {FilePartExt, GenerateOptions, ImagePartExt, LLM, LlmMessage} from "#shared/model/llm.model";
-import { signal, WritableSignal } from '@angular/core';
+
+// Helper function to convert File to base64 string (extracting only the data part)
+async function fileToBase64(file: File): Promise<string> {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.readAsDataURL(file);
+		reader.onload = () => {
+			const result = reader.result as string;
+			resolve(result.substring(result.indexOf(',') + 1));
+		};
+		reader.onerror = error => reject(error);
+	});
+}
+
+// Helper function to prepare UserContentExt payload for API calls
+async function prepareUserContentPayload(
+	text: string,
+	attachments?: Attachment[],
+	audioBlob?: Blob,
+	audioFileName: string = 'audio.webm', // Default filename for audio
+): Promise<UserContentExt> {
+	const contentParts: Array<TextPart | ImagePartExt | FilePartExt> = [];
+
+	if (text) {
+		contentParts.push({ type: 'text', text });
+	}
+
+	if (attachments) {
+		for (const attachment of attachments) {
+            if (!attachment.data) {
+                console.warn('Attachment data is missing for sending:', attachment);
+                continue; // Skip attachments without data
+            }
+			const base64Data = await fileToBase64(attachment.data);
+			if (attachment.type === 'image') {
+				contentParts.push({
+					type: 'image',
+					image: base64Data,
+					mimeType: attachment.mimeType,
+					filename: attachment.filename,
+					size: attachment.size,
+				});
+			} else { // 'file'
+				contentParts.push({
+					type: 'file',
+					data: base64Data,
+					mimeType: attachment.mimeType,
+					filename: attachment.filename,
+					size: attachment.size,
+				});
+			}
+		}
+	}
+
+	if (audioBlob) {
+		const base64Data = await new Promise<string>((resolve, reject) => {
+			const reader = new FileReader();
+			reader.readAsDataURL(audioBlob);
+			reader.onload = () => resolve((reader.result as string).substring((reader.result as string).indexOf(',') + 1));
+			reader.onerror = error => reject(error);
+		});
+		contentParts.push({ // Represent audio as a generic file part
+			type: 'file',
+			data: base64Data,
+			mimeType: audioBlob.type,
+			filename: audioFileName,
+			size: audioBlob.size,
+		});
+	}
+
+    // If only text is present and no attachments/audio, UserContentExt can be just a string.
+	if (contentParts.length === 1 && contentParts[0].type === 'text' && !attachments?.length && !audioBlob) {
+		return contentParts[0].text;
+	}
+    // If there are no parts at all (e.g. empty text and no attachments), return empty string or handle as error if content is mandatory.
+    if (contentParts.length === 0) {
+        return '';
+    }
+	return contentParts;
+}
+
 
 @Injectable({ providedIn: 'root' })
 export class ChatServiceClient {
@@ -23,45 +116,34 @@ export class ChatServiceClient {
 
     constructor(private _httpClient: HttpClient) {}
 
-    // Removed base64ToBlob method
-    // private base64ToBlob(base64: string, mimeType: string): Blob { /* ... */ }
-
-    // -----------------------------------------------------------------------------------------------------
-    // @ Accessors
-    // -----------------------------------------------------------------------------------------------------
-
-    // chat and chats signals are exposed directly
-
-    /**
-     * Set the current chat (primarily for internal use or specific scenarios)
-     */
     setChat(chat: Chat | null): void {
         this._chat.set(chat);
     }
 
-    // -----------------------------------------------------------------------------------------------------
-    // @ Public methods
-    // -----------------------------------------------------------------------------------------------------
-
-    /**
-     * Load chats from the server. Updates the `chats` signal.
-     * @returns Observable<void> indicating completion or error.
-     */
     loadChats(): Observable<void> {
-        // Return cached chats if already loaded
         if (this._chatsLoaded()) {
             return of(undefined);
         }
-
-        // Otherwise fetch from server
-        return this._httpClient.get<Chat[]>('/api/chats').pipe(
-            tap((response: any) => { // server returns {data: {chats: []}}
-                this._chats.set(response.data.chats);
+        // callApiRoute infers response type: Observable<Static<typeof ChatListSchema>>
+        return callApiRoute(this._httpClient, CHAT_API.listChats).pipe(
+            tap((apiChatList) => { // apiChatList is Static<typeof ChatListSchema>
+                // apiChatList.chats is ChatPreviewSchema[]
+                // Map ApiChatPreview to UI Chat for the list
+                const uiChats: Chat[] = apiChatList.chats.map(preview => ({
+                    id: preview.id,
+                    title: preview.title,
+                    updatedAt: preview.updatedAt,
+                    userId: preview.userId,
+                    shareable: preview.shareable,
+                    parentId: preview.parentId,
+                    rootId: preview.rootId,
+                    // messages, unreadCount, lastMessage, lastMessageAt are not in ChatPreview
+                }));
+                this._chats.set(uiChats);
                 this._chatsLoaded.set(true);
             }),
             mapTo(undefined),
             catchError((error) => {
-                // Reset loaded flag on error to prevent caching failed state
                 this._chatsLoaded.set(false);
                 return throwError(() => error);
             })
@@ -69,45 +151,39 @@ export class ChatServiceClient {
     }
 
     createChat(message: string, llmId: string, options?: GenerateOptions, attachments?: Attachment[]): Observable<Chat> {
-        const formData = new FormData();
-        formData.append('text', message);
-        formData.append('llmId', llmId);
-        if (options) formData.append('options', JSON.stringify(options));
-
-        if (attachments && attachments.length > 0) {
-            attachments.forEach((attachment, index) => {
-                formData.append(`attachments[${index}]`, attachment.data, attachment.filename);
-            });
-        }
-
-        return this._httpClient.post<any>('/api/chat/new', formData, { headers: { 'enctype': 'multipart/form-data' } }).pipe(
-            map((response: any) => {
-                // Convert server messages to UI messages
-                const newServerChat = response.data as ServerChat;
-                const uiChat: Chat = { ...newServerChat, messages: newServerChat.messages.map(convertMessage) };
-                this._chats.update(currentChats => [uiChat, ...(currentChats || [])]);
-                this._chat.set(uiChat); // Also set the current chat to the new one
-                return uiChat; // Ensure the observable emits the UI Chat type
+        // Need to wrap the async call in 'from' and use switchMap
+        return from(prepareUserContentPayload(message, attachments)).pipe(
+            switchMap(userContent => {
+                const payload: ChatMessagePayload = { llmId, userContent, options };
+                // Returns Observable<Static<typeof ChatModelSchema>>
+                return callApiRoute(this._httpClient, CHAT_API.createChat, { body: payload }).pipe(
+                    map((newApiChat: ApiChatModel) => {
+                        const uiChat: Chat = {
+                            ...newApiChat, // Spread properties like id, title, userId, shareable, parentId, rootId, updatedAt
+                            messages: newApiChat.messages.map(msg => convertMessage(msg as ApiLlmMessage)), // msg is Static<LlmMessageSchema>
+                        };
+                        this._chats.update(currentChats => [uiChat, ...(currentChats || [])]);
+                        this._chat.set(uiChat);
+                        return uiChat;
+                    })
+                );
             })
         );
     }
 
     deleteChat(chatId: string): Observable<void> {
-        return this._httpClient.delete<void>(`/api/chat/${chatId}`).pipe(
+        // Returns Observable<null> for 204 response
+        return callApiRoute(this._httpClient, CHAT_API.deleteChat, { pathParams: { chatId } }).pipe(
             tap(() => {
                 this._chats.update(currentChats => (currentChats || []).filter(chat => chat.id !== chatId));
                 if (this._chat()?.id === chatId) {
                     this._chat.set(null);
                 }
             })
+            // No mapTo(undefined) needed as callApiRoute for 204 already returns Observable<void> (or Observable<null>)
         );
     }
 
-    /**
-     * Load a specific chat by its ID. Updates the `chat` signal.
-     * @param id The ID of the chat to load.
-     * @returns Observable<void> indicating completion or error.
-     */
     loadChatById(id: string): Observable<void> {
         if (!id?.trim() || id === NEW_CHAT_ID) {
             const newChat: Chat = { messages: [], id: NEW_CHAT_ID, title: '', updatedAt: Date.now() };
@@ -115,56 +191,55 @@ export class ChatServiceClient {
             return of(undefined);
         }
 
-        return this._httpClient.get<any>(`api/chat/${id}`).pipe( // server returns {data: Chat}
-            map(response => response.data as ServerChat),
-            tap((serverChat: ServerChat) => {
-                const chat: Chat = {
-                    id: serverChat.id,
-                    title: serverChat.title,
-                    messages: serverChat.messages.map(convertMessage),
-                    updatedAt: serverChat.updatedAt, // Ensure this is number
-                    userId: serverChat.userId,
-                    shareable: serverChat.shareable,
+        // Returns Observable<Static<typeof ChatModelSchema>>
+        return callApiRoute(this._httpClient, CHAT_API.getById, { pathParams: { chatId: id } }).pipe(
+            tap((apiChat: ApiChatModel) => {
+                const uiChat: Chat = {
+                    ...apiChat, // Spread properties like id, title, userId, shareable, parentId, rootId, updatedAt
+                    messages: apiChat.messages.map(msg => convertMessage(msg as ApiLlmMessage)),
                 };
-                this._chat.set(chat);
-                // Update this chat in the main list if it exists
+                this._chat.set(uiChat);
                 this._chats.update(chats => {
                     const chatIndex = chats?.findIndex(c => c.id === id);
                     if (chats && chatIndex !== -1 && chatIndex !== undefined) {
                         const newChats = [...chats];
-                        const updatedChatInList = { ...newChats[chatIndex] };
-                        // Assuming ChatPreview and Chat are compatible enough for this update
-                        // updatedChatInList.messages = chat.messages; // Don't add full messages to preview list
-                        updatedChatInList.updatedAt = chat.updatedAt; // Update timestamp
-                        newChats[chatIndex] = updatedChatInList;
+                        // Update the existing chat preview in the list with details from the full chat
+                        newChats[chatIndex] = {
+                            ...newChats[chatIndex], // Keep existing preview properties
+                            ...uiChat, // Overwrite with full chat properties (title, updatedAt, parentId, rootId etc.)
+                            messages: newChats[chatIndex].messages // Do NOT add full messages to the preview list
+                        };
                         return newChats;
                     }
-                    return chats;
+                    // If chat was not in the list (shouldn't happen if loadChats was called), add it?
+                    // return chats ? [...chats, uiChat] : [uiChat]; // Optional: add if not found
+                    return chats; // Current logic only updates existing.
                 });
             }),
-            mapTo(undefined), // Convert Observable<Chat> to Observable<void>
+            mapTo(undefined),
             catchError(error => {
-                this._chat.set(null); // Clear chat on error
+                this._chat.set(null);
                 return throwError(() => error);
             })
         );
     }
 
-    /**
-     * Update chat title or other properties (not messages).
-     * This is a simplified example. A more complete implementation might involve specific fields.
-     * @param id
-     * @param updatedProps Partial chat object with properties to update.
-     */
-    updateChatDetails(id: string, updatedProps: Partial<Chat>): Observable<void> {
-        return this._httpClient.patch<ServerChat>(`api/chat/${id}/details`, updatedProps).pipe(
-            map(response => response as ServerChat),
-            tap((updatedServerChat) => {
-                const uiChatUpdate: Partial<Chat> = {
-                    ...updatedServerChat,
-                    messages: updatedServerChat.messages ? updatedServerChat.messages.map(convertMessage) : undefined,
-                };
+    updateChatDetails(id: string, updatedProps: Partial<Pick<Chat, 'title' | 'shareable'>>): Observable<void> {
+        const payload: ChatUpdateDetailsPayload = {};
+        if (updatedProps.title !== undefined) payload.title = updatedProps.title;
+        if (updatedProps.shareable !== undefined) payload.shareable = updatedProps.shareable;
 
+        // Returns Observable<Static<typeof ChatModelSchema>>
+        return callApiRoute(this._httpClient, CHAT_API.updateDetails, { pathParams: { chatId: id }, body: payload }).pipe(
+            tap((updatedApiChat: ApiChatModel) => {
+                const uiChatUpdate: Partial<Chat> = {
+                    id: updatedApiChat.id, // Ensure id is part of the update object
+                    title: updatedApiChat.title,
+                    shareable: updatedApiChat.shareable,
+                    updatedAt: updatedApiChat.updatedAt,
+                    parentId: updatedApiChat.parentId,
+                    rootId: updatedApiChat.rootId,
+                };
                 this._chats.update(chats => {
                     const index = chats?.findIndex(item => item.id === id);
                     if (chats && index !== -1 && index !== undefined) {
@@ -182,293 +257,283 @@ export class ChatServiceClient {
         );
     }
 
-
-    /**
-     * Reset the selected chat
-     */
     resetChat(): void {
         this._chat.set(null);
     }
 
-
-    /**
-     * Send a message. Updates the `chat` signal with the new user message and the AI's response.
-     * @param chatId
-     * @param message
-     * @param llmId LLM identifier
-     * @param attachments
-     * @returns Observable<void> indicating completion of the send operation.
-     */
     sendMessage(chatId: string, message: string, llmId: string, options?: GenerateOptions, attachments?: Attachment[]): Observable<void> {
-        const formData = new FormData();
-        formData.append('text', message);
-        formData.append('llmId', llmId);
-        if (options) formData.append('options', JSON.stringify(options));
+        // Need to wrap the async call in 'from' and use switchMap
+        return from(prepareUserContentPayload(message, attachments)).pipe(
+            switchMap(userContent => {
+                const payload: ChatMessagePayload = { llmId, userContent, options };
 
-        if (attachments && attachments.length > 0) {
-            attachments.forEach((attachment, index) => {
-                formData.append(`attachments[${index}]`, attachment.data, attachment.filename);
-            });
-        }
-
-        // Locally add user's message immediately for responsiveness
-        const userMessageEntry: ChatMessage = {
-            // id: uuidv4(), // ID can be added by component or later if needed for specific tracking
-            content: [{ type: 'text', text: message }],
-            textContent: message,
-            isMine: true,
-            fileAttachments: attachments?.filter(att => att.type === 'file') || [],
-            imageAttachments: attachments?.filter(att => att.type === 'image') || [],
-            createdAt: new Date().toISOString(), // Add timestamp
-        };
-        this._chat.update(currentChat => {
-            if (!currentChat) return null; // Should not happen if sending to an existing chat
-            return {
-                ...currentChat,
-                messages: [...(currentChat.messages || []), userMessageEntry],
-            };
-        });
-
-
-        return this._httpClient.post<any>(`/api/chat/${chatId}/send`, formData, { headers: { 'enctype': 'multipart/form-data' } }).pipe(
-            map(response => response.data as LlmMessage), // Server returns the AI's LlmMessage
-            tap((aiLlmMessage) => {
-                const aiChatMessage = convertMessage(aiLlmMessage);
+                // Locally add user's message immediately for responsiveness
+                const userMessageEntry: ChatMessage = {
+                    // id: uuidv4(), // ID can be added by component or later if needed for specific tracking
+                    // Construct content array based on the prepared userContent
+                    content: typeof userContent === 'string'
+                        ? [{ type: 'text', text: userContent }]
+                        : userContent.map(p => {
+                            if (p.type === 'text') return { type: 'text', text: p.text };
+                            // For attachments being sent, we might just show a placeholder or filename
+                            return { type: p.type, text: (p as any).filename || 'attachment' };
+                        }),
+                    textContent: message, // Keep original text for display if needed
+                    isMine: true,
+                    // Store the original attachments being sent for potential display/preview before upload completes
+                    fileAttachments: attachments?.filter(att => att.type === 'file') || [],
+                    imageAttachments: attachments?.filter(att => att.type === 'image') || [],
+                    createdAt: new Date().toISOString(), // Add timestamp
+                };
                 this._chat.update(currentChat => {
-                    if (!currentChat) return null;
-                    // Now, currentChat.messages already contains the userMessageEntry from the optimistic update above.
-                    // We just append the AI's response.
+                    if (!currentChat) return null; // Should not happen if sending to an existing chat
                     return {
                         ...currentChat,
-                        messages: [...(currentChat.messages || []), aiChatMessage],
-                        updatedAt: Date.now(), // Update timestamp
+                        messages: [...(currentChat.messages || []), userMessageEntry],
                     };
                 });
-                // Update the chat in the main list as well
-                this._chats.update(chats => {
-                    const chatIndex = chats?.findIndex(c => c.id === chatId);
-                    if (chats && chatIndex !== -1 && chatIndex !== undefined) {
-                        const newChats = [...chats];
-                        const updatedChatInList = { ...newChats[chatIndex] };
-                        // updatedChatInList.lastMessage = aiChatMessage.textContent; // Update last message if applicable
-                        updatedChatInList.updatedAt = Date.now();
-                        newChats[chatIndex] = updatedChatInList;
-                        // Move to top
-                        newChats.splice(chatIndex, 1);
-                        newChats.unshift(updatedChatInList);
-                        return newChats;
-                    }
-                    return chats;
-                });
-            }),
-            mapTo(undefined) // Convert to Observable<void>
+
+
+                // Returns Observable<Static<typeof LlmMessageSchema>>
+                return callApiRoute(this._httpClient, CHAT_API.sendMessage, { pathParams: { chatId }, body: payload }).pipe(
+                    tap((apiLlmMessage) => { // apiLlmMessage is Static<LlmMessageSchema>
+                        const aiChatMessage = convertMessage(apiLlmMessage as ApiLlmMessage);
+                        this._chat.update(currentChat => {
+                            if (!currentChat) return null;
+                            // Now, currentChat.messages already contains the userMessageEntry from the optimistic update above.
+                            // We just append the AI's response.
+                            return {
+                                ...currentChat,
+                                messages: [...(currentChat.messages || []), aiChatMessage],
+                                updatedAt: Date.now(), // Update timestamp
+                            };
+                        });
+                        // Update the chat in the main list as well
+                        this._chats.update(chats => {
+                            const chatIndex = chats?.findIndex(c => c.id === chatId);
+                            if (chats && chatIndex !== -1 && chatIndex !== undefined) {
+                                const newChats = [...chats];
+                                const updatedChatInList = { ...newChats[chatIndex] };
+                                // updatedChatInList.lastMessage = aiChatMessage.textContent; // Update last message if applicable
+                                updatedChatInList.updatedAt = Date.now();
+                                newChats[chatIndex] = updatedChatInList;
+                                // Move to top
+                                newChats.splice(chatIndex, 1);
+                                newChats.unshift(updatedChatInList);
+                                return newChats;
+                            }
+                            return chats;
+                        });
+                    }),
+                    mapTo(undefined) // Convert to Observable<void>
+                );
+            })
         );
     }
 
-    /**
-     *
-     * @param chatId
-     * @param message
-     * @param llmId
-     * @param historyTruncateIndex The index to truncate the history to before adding the new prompt.
-     *                             Messages from this index onwards (original array) will be effectively replaced.
-     */
-    regenerateMessage(chatId: string, message: string, llmId: string, historyTruncateIndex: number): Observable<void> {
-        if (!chatId?.trim() || !message?.trim() || !llmId?.trim()) {
+    regenerateMessage(chatId: string, message: string, llmId: string, historyTruncateIndex: number, options?: GenerateOptions): Observable<void> {
+        if (!chatId?.trim() || !llmId?.trim()) {
             return throwError(() => new Error('Invalid parameters for regeneration'));
         }
-
         const currentChat = this._chat();
         if (!currentChat || currentChat.id !== chatId) {
             return throwError(() => new Error(`Chat not found or not active: ${chatId}`));
         }
 
-        return this._httpClient.post<any>(`/api/chat/${chatId}/regenerate`, { text: message, llmId, historyTruncateIndex }).pipe(
-            map(response => response.data as LlmMessage), // Server returns the new AI LlmMessage
-            tap(aiLlmMessage => {
-                const aiChatMessage = convertMessage(aiLlmMessage);
-                this._chat.update(chat => {
-                    if (!chat) return null;
-                    // The backend has handled history truncation.
-                    // The new AI message is the latest. We need to reconstruct the message list
-                    // based on what the backend now considers the true state.
-                    // For simplicity, assume the service call to loadChatById or similar would refresh if full state is needed,
-                    // or the backend could return the full updated chat.
-                    // Here, we'll replace messages from historyTruncateIndex with the new AI message.
-                    // This assumes the user prompt that led to this is ALREADY in chat.messages or handled by backend.
-                    // A more robust way: backend returns the full updated Chat object.
-                    // Since it only returns LlmMessage, we'll update the current chat optimistically.
-                    const messagesUpToPrompt = chat.messages.slice(0, historyTruncateIndex); // messages before the AI response being regenerated
-                    return { ...chat, messages: [...messagesUpToPrompt, aiChatMessage], updatedAt: Date.now() };
-                });
-                 // Update chat in the main list
-                this._chats.update(chats => {
-                     const chatIndex = chats?.findIndex(c => c.id === chatId);
-                     if (chats && chatIndex !== -1 && chatIndex !== undefined) {
-                         const newChats = [...chats];
-                         const updatedChatInList = { ...newChats[chatIndex] };
-                         updatedChatInList.updatedAt = Date.now();
-                         newChats[chatIndex] = updatedChatInList;
-                         // Move to top
-                         newChats.splice(chatIndex, 1);
-                         newChats.unshift(updatedChatInList);
-                         return newChats;
-                     }
-                     return chats;
-                });
-            }),
-            mapTo(undefined),
-            catchError(error => {
-                console.error('Error regenerating message:', error);
-                return throwError(() => new Error('Failed to regenerate message'));
+        // Need to wrap the async call in 'from' and use switchMap
+        return from(prepareUserContentPayload(message)).pipe( // 'message' is the new user prompt
+            switchMap(userContent => {
+                const payload: RegenerateMessagePayload = { userContent, llmId, historyTruncateIndex, options };
+
+                // Returns Observable<Static<typeof LlmMessageSchema>>
+                return callApiRoute(this._httpClient, CHAT_API.regenerateMessage, { pathParams: { chatId }, body: payload }).pipe(
+                    tap(apiLlmMessage => { // apiLlmMessage is Static<LlmMessageSchema>
+                        const aiChatMessage = convertMessage(apiLlmMessage as ApiLlmMessage);
+                        this._chat.update(chat => {
+                            if (!chat) return null;
+                            // The backend has handled history truncation.
+                            // The new AI message is the latest. We need to reconstruct the message list
+                            // based on what the backend now considers the true state.
+                            // For simplicity, assume the service call to loadChatById or similar would refresh if full state is needed,
+                            // or the backend could return the full updated chat.
+                            // Here, we'll replace messages from historyTruncateIndex with the new AI message.
+                            // This assumes the user prompt that led to this is ALREADY in chat.messages or handled by backend.
+                            // A more robust way: backend returns the full updated Chat object.
+                            // Since it only returns LlmMessage, we'll update the current chat optimistically.
+                            const messagesUpToPrompt = chat.messages.slice(0, historyTruncateIndex); // messages before the AI response being regenerated
+                            // If the regeneration included a new user prompt (`message` was non-empty),
+                            // we might need to add it here before the AI response.
+                            // However, the backend's RegenerateMessageSchema takes `userContent`, implying the backend
+                            // expects the user prompt as part of the regeneration request and will handle adding it to history.
+                            // So, we just append the new AI message.
+                            return { ...chat, messages: [...messagesUpToPrompt, aiChatMessage], updatedAt: Date.now() };
+                        });
+                         // Update chat in the main list
+                        this._chats.update(chats => {
+                             const chatIndex = chats?.findIndex(c => c.id === chatId);
+                             if (chats && chatIndex !== -1 && chatIndex !== undefined) {
+                                 const newChats = [...chats];
+                                 const updatedChatInList = { ...newChats[chatIndex] };
+                                 updatedChatInList.updatedAt = Date.now();
+                                 newChats[chatIndex] = updatedChatInList;
+                                 // Move to top
+                                 newChats.splice(chatIndex, 1);
+                                 newChats.unshift(updatedChatInList);
+                                 return newChats;
+                             }
+                             return chats;
+                        });
+                    }),
+                    mapTo(undefined),
+                    catchError(error => {
+                        console.error('Error regenerating message:', error);
+                        return throwError(() => new Error('Failed to regenerate message'));
+                    })
+                );
             })
         );
     }
 
-    sendAudioMessage(chatId: string, llmId: string, audio: Blob): Observable<void> {
-        const formData = new FormData();
-        formData.append('audio', audio, 'audio.webm'); // Assuming webm, adjust if needed
-        formData.append('llmId', llmId);
+    sendAudioMessage(chatId: string, llmId: string, audio: Blob, options?: GenerateOptions): Observable<void> {
+        // Need to wrap the async call in 'from' and use switchMap
+        return from(prepareUserContentPayload('', undefined, audio)).pipe( // No text, just audio
+            switchMap(userContent => {
+                const payload: ChatMessagePayload = { llmId, userContent, options };
 
-        // Optimistic update for audio could be adding a "sending audio..." message
-        // For now, similar to text, wait for server response
-
-        return this._httpClient.post<any>(`/api/chat/${chatId}/send`, formData, { headers: { 'enctype': 'multipart/form-data' } }).pipe(
-            map(response => response.data as LlmMessage),
-            tap(aiLlmMessage => {
-                const aiChatMessage = convertMessage(aiLlmMessage);
+                // Optimistic update for user's audio message (placeholder)
+                const audioUserMessage: ChatMessage = {
+                    content: [{ type: 'text', text: 'Audio message sent...' }], // Placeholder
+                    textContent: 'Audio message sent...',
+                    isMine: true,
+                    createdAt: new Date().toISOString(),
+                    // Could include a simplified Attachment representation for the audio
+                };
                 this._chat.update(currentChat => {
                     if (!currentChat) return null;
-                    // Add a placeholder for user's audio message if desired, then AI response
-                    // For simplicity, just adding AI response
-                    return {
-                        ...currentChat,
-                        messages: [...(currentChat.messages || []), aiChatMessage], // Placeholder for user audio + AI response
-                        updatedAt: Date.now(),
-                    };
+                    return { ...currentChat, messages: [...(currentChat.messages || []), audioUserMessage] };
                 });
-                 // Update chat in the main list
-                this._chats.update(chats => {
-                     const chatIndex = chats?.findIndex(c => c.id === chatId);
-                     if (chats && chatIndex !== -1 && chatIndex !== undefined) {
-                         const newChats = [...chats];
-                         const updatedChatInList = { ...newChats[chatIndex] };
-                         // updatedChatInList.lastMessage = "Audio message response"; // Or actual text
-                         updatedChatInList.updatedAt = Date.now();
-                         newChats[chatIndex] = updatedChatInList;
-                         // Move to top
-                         newChats.splice(chatIndex, 1);
-                         newChats.unshift(updatedChatInList);
-                         return newChats;
-                     }
-                     return chats;
-                });
-            }),
-            mapTo(undefined),
-            catchError(error => {
-                console.error('Error sending audio message:', error);
-                return throwError(() => new Error('Failed to send audio message'));
+
+                // Returns Observable<Static<typeof LlmMessageSchema>>
+                return callApiRoute(this._httpClient, CHAT_API.sendMessage, { pathParams: { chatId }, body: payload }).pipe(
+                    tap(apiLlmMessage => { // apiLlmMessage is Static<LlmMessageSchema>
+                        const aiChatMessage = convertMessage(apiLlmMessage as ApiLlmMessage);
+                        this._chat.update(currentChat => {
+                            if (!currentChat) return null;
+                            // Find and replace the placeholder audio message, or just append if not found/needed
+                            const messagesWithoutPlaceholder = currentChat.messages.filter(m => m.textContent !== 'Audio message sent...' || !m.isMine);
+                            return {
+                                ...currentChat,
+                                messages: [...messagesWithoutPlaceholder, aiChatMessage],
+                                updatedAt: Date.now(),
+                            };
+                        });
+                         // Update chat in the main list
+                        this._chats.update(chats => {
+                             const chatIndex = chats?.findIndex(c => c.id === chatId);
+                             if (chats && chatIndex !== -1 && chatIndex !== undefined) {
+                                 const newChats = [...chats];
+                                 const updatedChatInList = { ...newChats[chatIndex] };
+                                 // updatedChatInList.lastMessage = "Audio message response"; // Or actual text
+                                 updatedChatInList.updatedAt = Date.now();
+                                 newChats[chatIndex] = updatedChatInList;
+                                 // Move to top
+                                 newChats.splice(chatIndex, 1);
+                                 newChats.unshift(updatedChatInList);
+                                 return newChats;
+                             }
+                             return chats;
+                        });
+                    }),
+                    mapTo(undefined),
+                    catchError(error => {
+                        console.error('Error sending audio message:', error);
+                        // Revert optimistic update if needed
+                        this._chat.update(currentChat => {
+                            if (!currentChat) return null;
+                            return { ...currentChat, messages: currentChat.messages.filter(m => m.textContent !== 'Audio message sent...' || !m.isMine) };
+                        });
+                        return throwError(() => new Error('Failed to send audio message'));
+                    })
+                );
             })
         );
     }
-
-    // Removed getExtensionFromMimeType method
-    // private getExtensionFromMimeType(mimeType: string): string { /* ... */ }
 }
 
-
 /**
- * Convert the server Message type to the UI Message type
- * @param llmMessage
+ * Convert the server LlmMessage (API model) to the UI ChatMessage type
+ * @param apiLlmMessage This is effectively Static<typeof LlmMessageSchema>
  */
-function convertMessage(llmMessage: LlmMessage): ChatMessage {
-    let allAttachments: Attachment[] = [];
-    const texts: TextContent[] = []
-    let textContent = ''
+function convertMessage(apiLlmMessage: ApiLlmMessage): ChatMessage { // ApiLlmMessage from shared/model
+    let allAttachmentsUI: Attachment[] = []; // This is the UI Attachment type
+    const texts: TextContent[] = [];
+    let textContent = '';
 
-    if (Array.isArray(llmMessage.content)) {
-        for(const content of llmMessage.content) {
-            switch(content.type) {
+    const content = apiLlmMessage.content; // Content can be string or array of parts
+
+    if (Array.isArray(content)) {
+        for (const part of content) { // part is one of TextPart, ImagePartExt, FilePartExt, ToolCallPart etc.
+            switch (part.type) {
                 case 'text':
-                    texts.push({
-                        type: content.type,
-                        text: content.text
-                    })
-                    textContent += content.text;
+                    texts.push({ type: 'text', text: part.text });
+                    textContent += part.text;
                     break;
-                case 'reasoning':
-                    texts.push({
-                        type: content.type,
-                        text: content.text
-                    })
-                    textContent += content.text + '\n\n';
+                // case 'reasoning': // Assuming 'reasoning' and 'redacted-reasoning' are custom and map to text or specific UI.
+                //     texts.push({ type: 'reasoning', text: part.text });
+                //     textContent += part.text + '\n\n';
+                //     break;
+                // case 'redacted-reasoning':
+                //     texts.push({ type: 'reasoning', text: '<redacted>' });
+                //     break;
+                case 'image':
+                    const imagePart = part as ImagePartExt; // From shared/model/llm.model
+                    // Use externalURL if available, otherwise use base64 data
+                    const imgPreviewUrl = imagePart.externalURL || (typeof imagePart.image === 'string' ? `data:${imagePart.mimeType || 'image/png'};base64,${imagePart.image}` : undefined);
+
+                    allAttachmentsUI.push({
+                        type: 'image',
+                        filename: imagePart.filename || `image_${Date.now()}.png`,
+                        size: imagePart.size || (typeof imagePart.image === 'string' ? imagePart.image.length : 0), // Approx size
+                        data: null, // No raw File object for received attachments
+                        mimeType: imagePart.mimeType || 'image/png',
+                        previewUrl: imgPreviewUrl,
+                    });
+                    // Optionally add a placeholder text for images if not rendered inline
+                    // textContent += `[Image: ${imagePart.filename || 'image'}]\n`;
                     break;
-                case 'redacted-reasoning':
-                    texts.push({
-                        type: 'reasoning',
-                        text: '<redacted>'
-                    })
+                case 'file':
+                    const filePart = part as FilePartExt; // From shared/model/llm.model
+                     // Use externalURL if available, otherwise use base64 data
+                    const filePreviewUrl = filePart.externalURL || (typeof filePart.data === 'string' ? `data:${filePart.mimeType || 'application/octet-stream'};base64,${filePart.data}` : undefined);
+
+                    allAttachmentsUI.push({
+                        type: 'file',
+                        filename: filePart.filename || `file_${Date.now()}`,
+                        size: filePart.size || (typeof filePart.data === 'string' ? filePart.data.length : 0), // Approx size
+                        data: null, // No raw File object
+                        mimeType: filePart.mimeType || 'application/octet-stream',
+                        previewUrl: filePreviewUrl, // Or a generic link/icon
+                    });
+                    // textContent += `[File: ${filePart.filename || 'file'}]\n`;
+                    break;
+                // Handle other part types like 'tool-call', 'tool-result' if they need specific UI representation
             }
         }
-
-        // Convert the FilePart and ImageParts to Attachments
-        allAttachments = llmMessage.content
-            .filter(item => item.type === 'image' || item.type === 'file')
-            .map(item => {
-                if (item.type === 'image') {
-                    const imagePart = item as ImagePartExt;
-
-                    const mimeType = imagePart.mimeType || 'image/png';
-                    const base64Data = imagePart.image as string;
-                    const filename = imagePart.filename || `image_${Date.now()}.png`;
-
-                    // Create a data URL
-                    const dataUrl = `data:${mimeType};base64,${base64Data}`;
-
-                    return {
-                        type: 'image',
-                        filename: filename,
-                        size: base64Data.length,
-                        data: null,
-                        mimeType: mimeType,
-                        previewUrl: dataUrl,
-                    } as Attachment;
-                } else if (item.type === 'file') {
-                    const filePart = item as FilePartExt;
-
-                    const mimeType = filePart.mimeType || 'application/octet-stream';
-                    const base64Data = filePart.data as string;
-                    const filename = filePart.filename || `file_${Date.now()}`;
-
-                    // Create a data URL
-                    const dataUrl = `data:${mimeType};base64,${base64Data}`;
-
-                    return {
-                        type: 'file',
-                        filename: filename,
-                        size: base64Data.length,
-                        data: null,
-                        mimeType: mimeType,
-                        previewUrl: dataUrl, // Use data URL as preview for files too, or handle differently
-                    } as Attachment;
-                }
-                return null; // Should not happen due to filter
-            }).filter(att => att !== null);
-    } else { // string content
-        texts.push({type: 'text', text: llmMessage.content});
-        textContent = llmMessage.content;
+    } else if (typeof content === 'string') {
+        texts.push({ type: 'text', text: content });
+        textContent = content;
     }
-// Removed console.logs
-// console.log('stats')
-// console.log(llmMessage.stats)
+
     return {
+        id: (apiLlmMessage as any).id || undefined, // LlmMessage doesn't have an ID, but ChatMessage UI might
         textContent,
-        content: texts,
-        isMine: llmMessage.role === 'user',
-        createdAt: llmMessage.stats?.requestTime ? new Date(llmMessage.stats.requestTime).toString() : new Date().toISOString(), // Add fallback for createdAt
-        llmId: llmMessage.stats?.llmId,
-        fileAttachments: allAttachments.filter(att => att.type === 'file'),
-        imageAttachments: allAttachments.filter(att => att.type === 'image'),
-        stats: llmMessage.stats
+        content: texts.length > 0 ? texts : [{type: 'text', text: textContent}], // Ensure content array is not empty if textContent exists
+        isMine: apiLlmMessage.role === 'user',
+        createdAt: apiLlmMessage.stats?.requestTime ? new Date(apiLlmMessage.stats.requestTime).toISOString() : new Date().toISOString(),
+        llmId: apiLlmMessage.stats?.llmId,
+        fileAttachments: allAttachmentsUI.filter(att => att.type === 'file'),
+        imageAttachments: allAttachmentsUI.filter(att => att.type === 'image'),
+        stats: apiLlmMessage.stats,
+        // generating: false, // This would be set by UI during streaming
     };
 }
