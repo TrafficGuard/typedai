@@ -1,10 +1,9 @@
-import type { ImagePart, TextPart, UserContent } from 'ai';
-import type { ImagePartExt, UserContentExt } from '#shared/model/llm.model';
+import type { ImagePartExt, TextPart, UserContentExt } from '#shared/model/llm.model';
 
 export interface ParsedPrompt {
 	textPrompt: string;
-	imageAttachments: ImagePart[];
-	userContent: UserContent;
+	imageAttachments: ImagePartExt[];
+	userContent: UserContentExt;
 }
 
 /**
