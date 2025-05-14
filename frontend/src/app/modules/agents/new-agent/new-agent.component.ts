@@ -151,13 +151,14 @@ export class NewAgentComponent implements OnInit, OnDestroy {
     this.loadUserProfile();
   }
 
+  // TODO this should use the UserService in user.service.ts
   private loadUserProfile(): void {
     const profileUrl = `/api/profile/view`;
     this.http.get(profileUrl).subscribe(
         (response: any) => {
-          console.log(response.data);
-          this.runAgentForm.controls['budget'].setValue(response.data.hilBudget);
-          this.runAgentForm.controls['count'].setValue(response.data.hilCount);
+          console.log(response);
+          this.runAgentForm.controls['budget'].setValue(response.hilBudget);
+          this.runAgentForm.controls['count'].setValue(response.hilCount);
         },
         (error) => {
           console.log(error);
