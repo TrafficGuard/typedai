@@ -189,4 +189,15 @@ describe('parseMessageContent', () => {
         const result = parseMessageContent(inputString);
         expect(result).toEqual(expectedOutput);
     });
+
+    // Add the new test case here
+    it('should parse text with HTML-like tags followed by an HTML code block', () => {
+        const inputString = "<random>Hey!</random>\n```html\n<random-html>Hi!</random-html>\n```";
+        const expectedOutput: MessageChunk[] = [
+            { type: 'text', value: "<random>Hey!</random>\n" },
+            { type: 'markdown', value: "```html\n<random-html>Hi!</random-html>\n```" }
+        ];
+        const result = parseMessageContent(inputString);
+        expect(result).toEqual(expectedOutput);
+    });
 });
