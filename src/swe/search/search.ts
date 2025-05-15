@@ -1,5 +1,6 @@
 // Changed 'import type' to 'import' because enum values are used
 import { google } from '@google-cloud/discoveryengine/build/protos/protos';
+import { struct } from 'pb-util'; // Helper for converting JS objects to Struct proto
 import pino from 'pino';
 import { sleep } from '#utils/async-utils';
 import { DISCOVERY_ENGINE_DATA_STORE_ID, DISCOVERY_ENGINE_LOCATION, GCLOUD_PROJECT, getSearchServiceClient } from './config'; // Corrected relative path
@@ -29,11 +30,18 @@ export interface SearchResultItem {
  * Performs a vector search in Discovery Engine based on a natural language query.
  * @param query The natural language query string.
  * @param numResults The maximum number of results to return.
+ * @param lexicalFieldBoosts Optional: Allows specifying boosts for fields in lexical search.
+ * @param hybridAlpha Optional: Controls the weighting between semantic (1.0) and lexical (0.0) search. Must be between 0 and 1.
  * @returns A promise that resolves to an array of search result items.
  */
-export async function searchCode(query: string, numResults = 10): Promise<SearchResultItem[]> {
+export async function searchCode(
+	query: string,
+	numResults = 10,
+	lexicalFieldBoosts: Record<string, number> = { lexical_search_text: 0.7 },
+	hybridAlpha = 0.5,
+): Promise<SearchResultItem[]> {
 	const functionName = 'searchCode';
-	logger.info({ functionName, query, numResults }, `Performing search for query: "${query}"`);
+	logger.info({ functionName, query, numResults, lexicalFieldBoosts, hybridAlpha }, `Performing search for query: "${query}"`);
 
 	if (!query) {
 		logger.warn('Search query is empty.');
