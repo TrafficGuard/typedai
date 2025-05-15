@@ -1,7 +1,7 @@
 import type { FastifyReply } from 'fastify';
 import * as HttpStatus from 'http-status-codes';
 
-export function send(reply: any, statusCode: number, data: Record<string, any> | string | null = null, extra: object | null = {}): void {
+export function send(reply: FastifyReply, statusCode: number, data: Record<string, any> | string | null = null, extra: object | null = {}): void {
 	reply.header('Content-Type', 'application/json; charset=utf-8');
 	reply.status(statusCode);
 
@@ -14,19 +14,22 @@ export function send(reply: any, statusCode: number, data: Record<string, any> |
 }
 
 // Fix JSON.toString(map) only ever outputting {}
-export function mapReplacer(_key: string, value: any) {
+function mapReplacer(_key: string, value: any) {
 	return value instanceof Map ? Object.fromEntries(value) : value;
 }
 
-export function sendJSON(reply: any, object: any): void {
+export function sendJSON(reply: FastifyReply, object: any): void {
 	reply.header('Content-Type', 'application/json; charset=utf-8');
-	reply.status(200);
+	// Note: status(200) was here, but individual handlers should set their status (e.g., 200, 201)
+	// For 200, it's often the default, but explicit is fine.
+	// If reply.code() is called before this, it will take precedence.
+	// If no code is set, Fastify defaults to 200 for .send().
 	reply.send(JSON.stringify(object, mapReplacer));
 }
 
-export function sendHTML(reply: any, html: string): void {
+export function sendHTML(reply: FastifyReply, html: string): void {
 	reply.header('Content-Type', 'text/html; charset=utf-8');
-	reply.status(200);
+	reply.status(200); // Typically HTML responses are 200 OK
 	reply.send(html);
 }
 
