@@ -43,6 +43,7 @@ export interface ChatMessage {
     /** Image attachments to be sent with the next message */
     imageAttachments?: Attachment[]
     stats?: GenerationStats;
+    textChunks?: Array<{type: 'text' | 'markdown', value: string}>;
 }
 
 export interface Attachment {
