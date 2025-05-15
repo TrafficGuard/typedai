@@ -1,0 +1,41 @@
+<div class="p-4 sm:p-6 md:p-8">
+  <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+    <h1 class="text-3xl font-bold tracking-tight">Prompt Library</h1>
+    <button mat-flat-button color="primary" [routerLink]="['../new']">
+      <mat-icon svgIcon="heroicons_outline:plus-circle"></mat-icon>
+      Create New Prompt
+    </button>
+  </div>
+
+  <div *ngIf="isLoading()" class="flex justify-center items-center h-64">
+    <mat-spinner diameter="50"></mat-spinner>
+  </div>
+
+  <div *ngIf="!isLoading() && (!prompts() || prompts()!.length === 0)" class="text-center py-12">
+    <mat-icon svgIcon="heroicons_outline:document-text" class="!w-16 !h-16 text-gray-400 mb-4"></mat-icon>
+    <p class="text-xl text-gray-500">No prompts found.</p>
+    <p class="text-gray-400">Click "Create New Prompt" to get started.</p>
+  </div>
+
+  <mat-list *ngIf="!isLoading() && prompts() && prompts()!.length > 0" role="list">
+    <mat-list-item *ngFor="let prompt of prompts()" class="hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg mb-2 shadow-sm" [routerLink]="['../', prompt.id]">
+      <mat-icon matListItemIcon svgIcon="heroicons_outline:document-text"></mat-icon>
+      <div matListItemTitle class="font-semibold">{{ prompt.name }}</div>
+      <div matListItemLine class="text-sm text-gray-600 dark:text-gray-400">
+        Tags: <span *ngIf="prompt.tags && prompt.tags.length > 0; else noTags">{{ prompt.tags?.join(', ') }}</span>
+        <ng-template #noTags>N/A</ng-template>
+      </div>
+      <div matListItemLine class="text-xs text-gray-500 dark:text-gray-500">
+        Last Updated: {{ prompt.updatedAt | date:'mediumDate' }} at {{ prompt.updatedAt | date:'shortTime' }}
+      </div>
+      <div matListItemMeta class="flex items-center gap-1">
+        <button mat-icon-button [routerLink]="['../', prompt.id, 'edit']" (click)="$event.stopPropagation()" matTooltip="Edit Prompt">
+          <mat-icon svgIcon="heroicons_outline:pencil-square"></mat-icon>
+        </button>
+        <button mat-icon-button (click)="deletePrompt($event, prompt.id)" color="warn" matTooltip="Delete Prompt (placeholder)">
+          <mat-icon svgIcon="heroicons_outline:trash"></mat-icon>
+        </button>
+      </div>
+    </mat-list-item>
+  </mat-list>
+</div>
