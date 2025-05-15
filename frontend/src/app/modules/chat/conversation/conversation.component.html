@@ -106,23 +106,40 @@
                                         @if (!message.generating) {
                                             <clipboard-button [offset]="-0.3" [cdkCopyToClipboard]="message.textContent"></clipboard-button>
                                         }
-                                        @if (!message.content || message.content.length === 0) {
-                                            <markdown
-                                                mermaid
-                                                clipboard
-                                                [clipboardButtonComponent]="clipboardButton"
-                                                [data]="message.textContent"
-                                                ngPreserveWhitespaces
-                                            ></markdown>
-                                        }
-                                        @for (content of message.content; track content.text) {
-                                            <markdown
-                                                mermaid
-                                                clipboard
-                                                [clipboardButtonComponent]="clipboardButton"
-                                                [data]="content.text"
-                                                ngPreserveWhitespaces
-                                            ></markdown>
+                                        @if (message.textChunks && message.textChunks.length > 0) {
+                                            @for (chunk of message.textChunks; track $index) {
+                                                @if (chunk.type === 'markdown') {
+                                                    <markdown
+                                                        mermaid
+                                                        clipboard
+                                                        [clipboardButtonComponent]="clipboardButton"
+                                                        [data]="chunk.value"
+                                                        ngPreserveWhitespaces
+                                                    ></markdown>
+                                                } @else if (chunk.type === 'text') {
+                                                    <span [innerText]="chunk.value"></span>
+                                                }
+                                            }
+                                        } @else {
+                                            <!-- Fallback to original rendering if textChunks is not available -->
+                                            @if (!message.content || message.content.length === 0) {
+                                                <markdown
+                                                    mermaid
+                                                    clipboard
+                                                    [clipboardButtonComponent]="clipboardButton"
+                                                    [data]="message.textContent"
+                                                    ngPreserveWhitespaces
+                                                ></markdown>
+                                            }
+                                            @for (content of message.content; track content.text) {
+                                                <markdown
+                                                    mermaid
+                                                    clipboard
+                                                    [clipboardButtonComponent]="clipboardButton"
+                                                    [data]="content.text"
+                                                    ngPreserveWhitespaces
+                                                ></markdown>
+                                            }
                                         }
                                         <!-- Display non-image attachments -->
                                         @if (message.fileAttachments?.length > 0) {
