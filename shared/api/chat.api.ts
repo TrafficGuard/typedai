@@ -6,6 +6,8 @@ import {
 	ChatMessageSendSchema,
 	RegenerateMessageSchema,
 	ChatUpdateDetailsSchema,
+	ChatMarkdownRequestSchema,
+	ChatMarkdownResponseSchema,
 } from '#shared/schemas/chat.schema';
 import { LlmMessageSchema } from '#shared/schemas/llm.schema';
 import { ApiNullResponseSchema } from '#shared/schemas/common.schema';
@@ -70,6 +72,14 @@ export const CHAT_API = {
 			body: RegenerateMessageSchema,
 			response: {
 				200: LlmMessageSchema,
+			},
+		},
+	}),
+	formatAsMarkdown: defineRoute('POST', `${CHAT_BASE}/markdown`, {
+		schema: {
+			body: ChatMarkdownRequestSchema,
+			response: {
+				200: ChatMarkdownResponseSchema,
 			},
 		},
 	}),

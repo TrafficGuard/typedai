@@ -75,3 +75,15 @@ export type RegenerateMessagePayload = Static<typeof RegenerateMessageSchema>;
 // Export Static types for use in frontend/backend
 export type ChatListSchemaModel = Static<typeof ChatListSchema>;
 export type ChatSchemaModel = Static<typeof ChatModelSchema>;
+
+// Request body for POST /api/chat/markdown
+export const ChatMarkdownRequestSchema = Type.Object({
+	text: Type.String({ description: 'The text content to be formatted as Markdown.' }),
+}, { $id: 'ChatMarkdownRequest' });
+export type ChatMarkdownRequestPayload = Static<typeof ChatMarkdownRequestSchema>;
+
+// Response body for POST /api/chat/markdown
+export const ChatMarkdownResponseSchema = Type.Object({
+	markdownText: Type.String({ description: 'The Markdown formatted text.' }),
+}, { $id: 'ChatMarkdownResponse' });
+export type ChatMarkdownResponseModel = Static<typeof ChatMarkdownResponseSchema>;
