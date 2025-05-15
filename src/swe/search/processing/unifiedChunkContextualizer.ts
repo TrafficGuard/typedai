@@ -1,6 +1,6 @@
 import pino from 'pino';
-import { getLLM } from '../../../llm/llmFactory';
-import type { LLM } from '../../../../shared/model/llm.model';
+import type { LLM } from '#shared/model/llm.model';
+import {vertexGemini_2_0_Flash_Lite} from "#llm/services/vertexai";
 
 const logger = pino({ name: 'UnifiedChunkContextualizer' });
 
@@ -59,8 +59,7 @@ JSON Array:
 `;
 
   try {
-    const llm: LLM = getLLM('openai:gpt-3.5-turbo'); // Using a default fast LLM for chunk identification
-    // const llmForContext = getLLM('anthropic:claude-3-haiku-20240307'); // Alternative for context generation
+    const llm: LLM = vertexGemini_2_0_Flash_Lite(); // Using a default fast LLM for chunk identification
     const llmForContext = llm; // Using the same LLM for context generation for now
 
     logger.info({ filePath, language, llmId: llm.getId() }, 'Requesting chunk identification from LLM');

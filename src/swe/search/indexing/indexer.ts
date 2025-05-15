@@ -39,6 +39,7 @@ interface ProcessedChunkForEmbedding {
 	filePath: string;
 	functionName?: string;
 	startLine: number;
+	lexicalSearchContent: string;
 }
 
 /**
@@ -60,6 +61,7 @@ async function processFileAndGetContextualizedChunks(
 		for (const item of contextualizedItems) {
 			const processedChunk: ProcessedChunkForEmbedding = {
 				embeddingContent: item.contextualized_chunk_content,
+				lexicalSearchContent: item.contextualized_chunk_content,
 				metadata: {
 					file_path: file.filePath,
 					function_name: item.chunk_type || undefined,
@@ -123,14 +125,24 @@ function prepareDocumentProto(processedChunk: ProcessedChunkForEmbedding, embedd
 	};
 
 	// Add embedding to structData (adjust field name 'embedding_vector' as needed based on schema)
-	if (embedding.length > 0 && document.structData?.fields) {
-		document.structData.fields.embedding_vector = {
-			listValue: {
-				values: embedding.map((value) => ({ numberValue: value })),
-			},
-		};
+	if (document.structData?.fields) {
+		if (embedding.length > 0) {
+			document.structData.fields.embedding_vector = {
+				listValue: {
+					values: embedding.map((value) => ({ numberValue: value })),
+				},
+			};
+		} else {
+			logger.warn(`No embedding generated for doc ${docId}`);
+		}
+
+		if (processedChunk.lexicalSearchContent && processedChunk.lexicalSearchContent.trim() !== '') {
+			document.structData.fields.lexical_search_text = { stringValue: processedChunk.lexicalSearchContent };
+		} else {
+			logger.warn(`Document ID ${docId} has empty lexicalSearchContent. Not adding lexical_search_text field.`);
+		}
 	} else {
-		logger.warn(`No embedding generated or structData missing for doc ${docId}`);
+		logger.warn(`structData or structData.fields missing for doc ${docId}. Cannot add embedding or lexical_search_text.`);
 	}
 
 	return document;
