@@ -140,6 +140,14 @@ export function runPromptsServiceTests(createService: () => PromptsService, befo
 					expect(fetchedPrompt).to.be.null;
 				}),
 			);
+
+			it(
+				'should return null if prompt does not exist',
+				runWithTestUserContext(async () => {
+					const fetchedPrompt = await service.getPromptVersion('non-existent-prompt-id', 1, TEST_USER_ID);
+					expect(fetchedPrompt).to.be.null;
+				}),
+			);
 		});
 
 		describe('updatePrompt', () => {
