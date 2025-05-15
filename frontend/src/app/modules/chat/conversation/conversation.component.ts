@@ -823,7 +823,7 @@ export function parseMessageContent(textContent: string | undefined | null): Arr
     const chunks: Array<{type: 'text' | 'markdown', value: string}> = [];
     // Regex to find fenced code blocks (e.g., ```lang\ncode\n``` or ```\ncode\n```)
     // Note: In this string, backslashes for the regex are already escaped (e.g., \n becomes \\n for the TS regex engine).
-    const codeBlockRegex = /```(?:[a-zA-Z0-9\-+_]*)\n([\s\S]*?)\n```/g;
+    const codeBlockRegex = /```(?:[a-zA-Z0-9\-+_]*)\n([\s\S]*?)\n?```/g;
 
     let lastIndex = 0;
     let match;

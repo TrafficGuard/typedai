@@ -91,4 +91,99 @@ describe('parseMessageContent', () => {
         const result = parseMessageContent(inputString);
         expect(result).toEqual(expectedOutput);
     });
+
+    it('should parse a code block where content does not end with a newline before closing fence', () => {
+        const inputString = "```javascript\nconsole.log(\"test\");```";
+        const expectedOutput = [{ type: 'markdown', value: "```javascript\nconsole.log(\"test\");```" }];
+        const result = parseMessageContent(inputString);
+        expect(result).toEqual(expectedOutput);
+    });
+
+    it('should parse text, then a code block without final newline, then more text', () => {
+        const inputString = "Prefix\n```js\nvar x = 1;```\nSuffix";
+        const expectedOutput = [{ type: 'text', value: "Prefix\n" }, { type: 'markdown', value: "```js\nvar x = 1;```" }, { type: 'text', value: "\nSuffix" }];
+        const result = parseMessageContent(inputString);
+        expect(result).toEqual(expectedOutput);
+    });
+
+    it('should parse an empty code block (content is empty string)', () => {
+        const inputString = "```python\n```";
+        const expectedOutput = [{ type: 'markdown', value: "```python\n```" }];
+        const result = parseMessageContent(inputString);
+        expect(result).toEqual(expectedOutput);
+    });
+
+    it('should parse a code block with only a newline as content', () => {
+        const inputString = "```\n\n```"; // Lang, \n, content (\n), \n (optional), ```
+        const expectedOutput = [{ type: 'markdown', value: "```\n\n```" }];
+        const result = parseMessageContent(inputString);
+        expect(result).toEqual(expectedOutput);
+    });
+
+    it('should parse a code block with multiple newlines as content', () => {
+        const inputString = "```\n\n\n```"; // Lang, \n, content (\n\n), \n (optional), ```
+        const expectedOutput = [{ type: 'markdown', value: "```\n\n\n```" }];
+        const result = parseMessageContent(inputString);
+        expect(result).toEqual(expectedOutput);
+    });
+
+    it('should treat an unterminated code block as plain text', () => {
+        const inputString = "Hello ```javascript\nconsole.log('unterminated')";
+        const expectedOutput = [{ type: 'text', value: "Hello ```javascript\nconsole.log('unterminated')" }];
+        const result = parseMessageContent(inputString);
+        expect(result).toEqual(expectedOutput);
+    });
+
+    it('should treat a code block with missing opening newline as plain text', () => {
+        const inputString = "```javascript console.log('no opening newline');\n```";
+        const expectedOutput = [{ type: 'text', value: "```javascript console.log('no opening newline');\n```" }];
+        const result = parseMessageContent(inputString);
+        expect(result).toEqual(expectedOutput);
+    });
+
+    it('should parse a code block containing backticks in its content', () => {
+        const inputString = "```javascript\nconst greeting = `Hello, ${name}!`;\n```";
+        const expectedOutput = [{ type: 'markdown', value: "```javascript\nconst greeting = `Hello, ${name}!`;\n```" }];
+        const result = parseMessageContent(inputString);
+        expect(result).toEqual(expectedOutput);
+    });
+
+    it('should parse a code block with a language identifier containing a plus sign', () => {
+        const inputString = "```c++\n#include <iostream>\nint main() { return 0; }\n```";
+        const expectedOutput = [{ type: 'markdown', value: "```c++\n#include <iostream>\nint main() { return 0; }\n```" }];
+        const result = parseMessageContent(inputString);
+        expect(result).toEqual(expectedOutput);
+    });
+
+    it('should parse a code block with a language identifier containing an underscore and hyphen', () => {
+        const inputString = "```my-lang_v2\nsome_code_here\n```";
+        const expectedOutput = [{ type: 'markdown', value: "```my-lang_v2\nsome_code_here\n```" }];
+        const result = parseMessageContent(inputString);
+        expect(result).toEqual(expectedOutput);
+    });
+
+    it('should treat fences with more than 3 backticks as plain text (current limitation)', () => {
+        const inputString = "````javascript\nconsole.log('four backticks');\n````";
+        const expectedOutput = [{ type: 'text', value: "````javascript\nconsole.log('four backticks');\n````" }];
+        const result = parseMessageContent(inputString);
+        expect(result).toEqual(expectedOutput);
+    });
+
+    it('should treat tilde fences as plain text (current limitation)', () => {
+        const inputString = "~~~javascript\nconsole.log('tildes');\n~~~";
+        const expectedOutput = [{ type: 'text', value: "~~~javascript\nconsole.log('tildes');\n~~~" }];
+        const result = parseMessageContent(inputString);
+        expect(result).toEqual(expectedOutput);
+    });
+
+    it('should handle mixed text and code block without final newline correctly', () => {
+        const inputString = "Some leading text.\n```python\nprint('hello')```\nSome trailing text.";
+        const expectedOutput = [
+            { type: 'text', value: "Some leading text.\n" },
+            { type: 'markdown', value: "```python\nprint('hello')```" },
+            { type: 'text', value: "\nSome trailing text." }
+        ];
+        const result = parseMessageContent(inputString);
+        expect(result).toEqual(expectedOutput);
+    });
 });
