@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testin
 import { provideRouter, Router, ActivatedRoute, convertToParamMap } from '@angular/router';
 import { Location, CommonModule } from '@angular/common';
 import { signal, WritableSignal, ChangeDetectorRef } from '@angular/core';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 
 import { PromptDetailComponent } from './prompt-detail.component';
@@ -15,6 +15,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatDialogRef } from '@angular/material/dialog';
+import { FuseConfirmationService } from '@fuse/services/confirmation';
 
 
 const mockPrompt: Prompt = {
@@ -50,6 +52,7 @@ describe('PromptDetailComponent', () => {
   let router: Router;
   let location: Location;
   let promptsService: MockPromptsService;
+  let mockFuseConfirmationService: jasmine.SpyObj<FuseConfirmationService>;
   let activatedRouteMock: any;
 
   const setupComponent = (routeData: { prompt: Prompt | null } | null, params?: any) => {
@@ -59,8 +62,10 @@ describe('PromptDetailComponent', () => {
           paramMap: convertToParamMap(params || { promptId: mockPrompt.id })
         },
         parent: { snapshot: { url: [{ path: 'prompts' }] } }, // For relative navigation
-        routeConfig: { path: ':promptId' }
+        routeConfig: { path: ':promptId' } // Used for relative navigation like '../edit'
     };
+
+    mockFuseConfirmationService = jasmine.createSpyObj('FuseConfirmationService', ['open']);
 
     TestBed.configureTestingModule({
       imports: [
@@ -75,18 +80,21 @@ describe('PromptDetailComponent', () => {
         PromptDetailComponent
       ],
       providers: [
-        provideRouter([]),
+        provideRouter([]), // Basic router setup for RouterLink, Router service
         { provide: PromptsService, useClass: MockPromptsService },
+        { provide: FuseConfirmationService, useValue: mockFuseConfirmationService },
         { provide: ActivatedRoute, useValue: activatedRouteMock },
+        // Location can be spied upon if injected directly, or use provideLocationMocks()
       ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(PromptDetailComponent);
     component = fixture.componentInstance;
-    router = TestBed.inject(Router);
-    location = TestBed.inject(Location);
-    promptsService = TestBed.inject(PromptsService) as unknown as MockPromptsService;
+    router = TestBed.inject(Router); // Get the router instance
+    location = TestBed.inject(Location); // Get the location instance
+    promptsService = TestBed.inject(PromptsService) as unknown as MockPromptsService; // Get the service instance
 
+    // Spy on router navigation and location.back after TestBed is configured and instances are created
     spyOn(router, 'navigate').and.stub();
     spyOn(location, 'back').and.stub();
   };
@@ -117,7 +125,6 @@ describe('PromptDetailComponent', () => {
   describe('Data Loading and Display', () => {
     it('should load and display prompt details when resolver provides data', fakeAsync(() => {
       setupComponent({ prompt: mockPrompt });
-      // Simulate resolver has set this signal before component initializes fully with data
       promptsService.selectedPrompt.set(mockPrompt);
 
       fixture.detectChanges(); // ngOnInit
@@ -132,7 +139,6 @@ describe('PromptDetailComponent', () => {
 
       const tagElements = fixture.nativeElement.querySelectorAll('mat-chip');
       expect(tagElements.length).toBe(mockPrompt.tags.length);
-      // Note: mat-chip content might have extra spaces or sub-elements.
       expect(tagElements[0].textContent?.trim()).toBe(mockPrompt.tags[0]);
 
       const messageElements = fixture.nativeElement.querySelectorAll('div.p-4.border.rounded-md.bg-gray-50');
@@ -143,8 +149,7 @@ describe('PromptDetailComponent', () => {
 
     it('should navigate to /prompts if resolver returns null for a promptId in URL', fakeAsync(() => {
       setupComponent({ prompt: null }, { promptId: 'nonexistent' });
-      // Resolver sets selectedPrompt to null, which is the default for the mock
-      // promptsService.selectedPrompt.set(null); // Already default
+      promptsService.selectedPrompt.set(null);
 
       fixture.detectChanges(); // ngOnInit
       tick(); // Process observables
@@ -166,6 +171,7 @@ describe('PromptDetailComponent', () => {
 
     it('should navigate to edit page on editPrompt() call', () => {
       component.editPrompt();
+      // Ensure ActivatedRoute is correctly injected for relative navigation
       expect(router.navigate).toHaveBeenCalledWith(['../edit'], { relativeTo: TestBed.inject(ActivatedRoute) });
     });
 
@@ -183,16 +189,75 @@ describe('PromptDetailComponent', () => {
 
     it('should call goBack when back button is clicked', () => {
         spyOn(component, 'goBack').and.callThrough();
-        // The back button is the first mat-stroked-button in the header
         const backButton: HTMLButtonElement = fixture.nativeElement.querySelector('.flex.justify-between.items-center button[mat-stroked-button]');
         backButton.click();
         expect(component.goBack).toHaveBeenCalled();
     });
   });
 
+  describe('deleteCurrentPrompt', () => {
+    beforeEach(fakeAsync(() => {
+        setupComponent({ prompt: mockPrompt });
+        promptsService.selectedPrompt.set(mockPrompt); // Ensure the prompt signal is set
+        fixture.detectChanges();
+        tick();
+        fixture.detectChanges();
+    }));
+
+    it('should call promptsService.deletePrompt and navigate on confirmation', fakeAsync(() => {
+        mockFuseConfirmationService.open.and.returnValue({
+            afterClosed: () => of('confirmed'),
+        } as MatDialogRef<any>);
+        promptsService.deletePrompt.and.returnValue(of(undefined)); // Mock the service call
+
+        component.deleteCurrentPrompt();
+        tick(); // For afterClosed observable
+
+        expect(mockFuseConfirmationService.open).toHaveBeenCalled();
+        expect(promptsService.deletePrompt).toHaveBeenCalledWith(mockPrompt.id);
+        
+        tick(); // For deletePrompt observable and subsequent navigation
+        expect(router.navigate).toHaveBeenCalledWith(['/prompts']);
+    }));
+
+    it('should NOT call promptsService.deletePrompt or navigate on cancellation', fakeAsync(() => {
+        mockFuseConfirmationService.open.and.returnValue({
+            afterClosed: () => of('cancelled'),
+        } as MatDialogRef<any>);
+
+        component.deleteCurrentPrompt();
+        tick();
+
+        expect(mockFuseConfirmationService.open).toHaveBeenCalled();
+        expect(promptsService.deletePrompt).not.toHaveBeenCalled();
+        expect(router.navigate).not.toHaveBeenCalled();
+    }));
+
+    it('should set isDeleting to false if deletePrompt errors and not navigate', fakeAsync(() => {
+        mockFuseConfirmationService.open.and.returnValue({
+            afterClosed: () => of('confirmed'),
+        } as MatDialogRef<any>);
+        promptsService.deletePrompt.and.returnValue(throwError(() => new Error('Deletion failed')));
+
+        component.deleteCurrentPrompt();
+        tick(); // for afterClosed
+        
+        expect(component.isDeleting()).toBe(true);
+        
+        try {
+            tick(); // for deletePrompt observable
+        } catch (e) {
+            // Expected error
+        }
+        fixture.detectChanges();
+        expect(component.isDeleting()).toBe(false);
+        expect(router.navigate).not.toHaveBeenCalled();
+    }));
+  });
+
   it('should display "Prompt Not Found" message if prompt is null and not loading', fakeAsync(() => {
     setupComponent({ prompt: null }, {promptId: 'someid'});
-    promptsService.selectedPrompt.set(null); // Ensure service state matches resolved data
+    promptsService.selectedPrompt.set(null);
 
     fixture.detectChanges(); // ngOnInit
     tick(); // process route.data
@@ -209,7 +274,6 @@ describe('PromptDetailComponent', () => {
   it('ngOnDestroy should complete the destroy subject', () => {
     setupComponent({ prompt: mockPrompt });
     fixture.detectChanges();
-    // Access private member for spying
     const destroy$ = component['destroy$'];
     spyOn(destroy$, 'next').and.callThrough();
     spyOn(destroy$, 'complete').and.callThrough();

@@ -7,11 +7,13 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { signal, WritableSignal } from '@angular/core';
 import { of, throwError } from 'rxjs';
+import { MatDialogRef } from '@angular/material/dialog';
 
 import { PromptListComponent } from './prompt-list.component';
 import { PromptsService } from '../prompts.service';
 import { PromptPreview } from '#shared/model/prompts.model';
 import { provideNoopAnimations } from '@angular/platform-browser/animations'; // Import for animations
+import { FuseConfirmationService } from '@fuse/services/confirmation';
 
 // Helper to delay observable for fakeAsync
 import { timer } from 'rxjs';
@@ -24,8 +26,8 @@ describe('PromptListComponent', () => {
   let component: PromptListComponent;
   let fixture: ComponentFixture<PromptListComponent>;
   let mockPromptsService: jasmine.SpyObj<PromptsService>;
+  let mockFuseConfirmationService: jasmine.SpyObj<FuseConfirmationService>;
   let promptsSignal: WritableSignal<PromptPreview[] | null>;
-  let consoleLogSpy: jasmine.Spy;
 
   const mockPrompts: PromptPreview[] = [
     { id: '1', name: 'Test Prompt 1', tags: ['test', 'tag1'], updatedAt: Date.now(), revisionId: 1, userId: 'user1' },
@@ -34,12 +36,10 @@ describe('PromptListComponent', () => {
 
   beforeEach(async () => {
     promptsSignal = signal<PromptPreview[] | null>(null);
-    // Ensure all methods that could be called are spied on, even if not directly tested in every test
     mockPromptsService = jasmine.createSpyObj('PromptsService', ['loadPrompts', 'deletePrompt', 'getPromptById', 'setSelectedPromptFromPreview', 'clearSelectedPrompt'], {
-      prompts: promptsSignal.asReadonly(), // Use the signal here
+      prompts: promptsSignal.asReadonly(),
     });
-    // Mock return value for deletePrompt as it's called in a placeholder way
-    mockPromptsService.deletePrompt.and.returnValue(of(undefined));
+    mockFuseConfirmationService = jasmine.createSpyObj('FuseConfirmationService', ['open']);
 
 
     await TestBed.configureTestingModule({
@@ -48,6 +48,7 @@ describe('PromptListComponent', () => {
       ],
       providers: [
         { provide: PromptsService, useValue: mockPromptsService },
+        { provide: FuseConfirmationService, useValue: mockFuseConfirmationService },
         DatePipe, // DatePipe is used in the template
         provideNoopAnimations(), // For Material components that might use animations
       ],
@@ -55,7 +56,6 @@ describe('PromptListComponent', () => {
 
     fixture = TestBed.createComponent(PromptListComponent);
     component = fixture.componentInstance;
-    consoleLogSpy = spyOn(console, 'log'); // Spy on console.log for the placeholder delete
   });
 
   it('should create', () => {
@@ -138,31 +138,71 @@ describe('PromptListComponent', () => {
     expect(createButton.getAttribute('ng-reflect-router-link')).toBe('../,new');
   });
 
-  it('should call window.confirm and log on delete button click when confirmed', () => {
-    spyOn(window, 'confirm').and.returnValue(true);
-    mockPromptsService.loadPrompts.and.returnValue(of(undefined));
-    promptsSignal.set([mockPrompts[0]]);
-    fixture.detectChanges();
+  describe('deletePrompt', () => {
+    const mockEvent = new MouseEvent('click');
+    const promptToDelete = mockPrompts[0];
 
-    const deleteButton = fixture.nativeElement.querySelector('button[mattooltip="Delete Prompt (placeholder)"]');
-    deleteButton.click();
+    beforeEach(() => {
+        mockPromptsService.loadPrompts.and.returnValue(of(undefined));
+        promptsSignal.set(mockPrompts);
+        fixture.detectChanges();
+    });
 
-    expect(window.confirm).toHaveBeenCalledWith('Are you sure you want to delete this prompt? (Placeholder)');
-    expect(consoleLogSpy).toHaveBeenCalledWith('Attempting to delete prompt (placeholder):', mockPrompts[0].id);
-    expect(mockPromptsService.deletePrompt).not.toHaveBeenCalled(); // As per current component implementation
-  });
+    it('should call promptsService.deletePrompt when confirmation is confirmed', fakeAsync(() => {
+      mockFuseConfirmationService.open.and.returnValue({
+        afterClosed: () => of('confirmed'),
+      } as MatDialogRef<any>);
+      mockPromptsService.deletePrompt.and.returnValue(of(undefined));
 
-  it('should NOT call deletePrompt service method if confirmation is false', () => {
-    spyOn(window, 'confirm').and.returnValue(false);
-    mockPromptsService.loadPrompts.and.returnValue(of(undefined));
-    promptsSignal.set([mockPrompts[0]]);
-    fixture.detectChanges();
+      expect(component.isDeletingSignal()).toBe(false);
+      component.deletePrompt(mockEvent, promptToDelete);
+      tick(); // for afterClosed observable
 
-    const deleteButton = fixture.nativeElement.querySelector('button[mattooltip="Delete Prompt (placeholder)"]');
-    deleteButton.click();
+      expect(mockFuseConfirmationService.open).toHaveBeenCalled();
+      expect(component.isDeletingSignal()).toBe(true); // Assuming signal updates immediately or before service call completes
 
-    expect(window.confirm).toHaveBeenCalled();
-    expect(consoleLogSpy).not.toHaveBeenCalledWith('Attempting to delete prompt (placeholder):', mockPrompts[0].id);
-    expect(mockPromptsService.deletePrompt).not.toHaveBeenCalled();
+      tick(); // for deletePrompt observable if it involves async operations internally before signal update
+      fixture.detectChanges();
+
+      expect(mockPromptsService.deletePrompt).toHaveBeenCalledWith(promptToDelete.id);
+      // Assuming isDeletingSignal is set back to false after completion
+      // This might need another tick if deletePrompt is async and updates signal in finalize/tap
+      // For simplicity, if deletePrompt is synchronous in its signal update:
+      // tick(); // If deletePrompt itself is async and updates the signal upon completion
+      // expect(component.isDeletingSignal()).toBe(false);
+    }));
+
+    it('should NOT call promptsService.deletePrompt when confirmation is cancelled', fakeAsync(() => {
+      mockFuseConfirmationService.open.and.returnValue({
+        afterClosed: () => of('cancelled'),
+      } as MatDialogRef<any>);
+
+      component.deletePrompt(mockEvent, promptToDelete);
+      tick();
+
+      expect(mockFuseConfirmationService.open).toHaveBeenCalled();
+      expect(mockPromptsService.deletePrompt).not.toHaveBeenCalled();
+      expect(component.isDeletingSignal()).toBe(false);
+    }));
+
+    it('should set isDeletingSignal to false if deletePrompt errors', fakeAsync(() => {
+        mockFuseConfirmationService.open.and.returnValue({
+            afterClosed: () => of('confirmed'),
+        } as MatDialogRef<any>);
+        mockPromptsService.deletePrompt.and.returnValue(throwError(() => new Error('Deletion failed')));
+
+        component.deletePrompt(mockEvent, promptToDelete);
+        tick(); // for afterClosed
+        
+        expect(component.isDeletingSignal()).toBe(true);
+        
+        try {
+            tick(); // for deletePrompt observable
+        } catch (e) {
+            // Expected error
+        }
+        fixture.detectChanges();
+        expect(component.isDeletingSignal()).toBe(false);
+    }));
   });
 });

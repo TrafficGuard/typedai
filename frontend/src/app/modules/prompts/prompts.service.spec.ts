@@ -5,7 +5,7 @@ import { PROMPT_API } from '#shared/api/prompts.api';
 import type { Prompt, PromptPreview } from '#shared/model/prompts.model';
 import type { PromptListSchemaModel, PromptSchemaModel, PromptCreatePayload, PromptUpdatePayload } from '#shared/schemas/prompts.schema';
 import { signal } from '@angular/core';
-import { of } from 'rxjs';
+import { of, firstValueFrom, filter, first } from 'rxjs';
 import { ApplicationRef } from '@angular/core';
 
 describe('PromptsService', () => {
@@ -104,13 +104,55 @@ describe('PromptsService', () => {
   });
 
   describe('deletePrompt', () => {
-    it('should send a DELETE request to delete a prompt', () => {
-      const promptId = '1';
-      service.deletePrompt(promptId).subscribe();
+    it('should send a DELETE request and update signals on successful deletion of selected prompt', async () => {
+        const promptIdToDelete = '1';
+        const initialPrompts: PromptPreview[] = [
+            { id: '1', name: 'Prompt 1', userId: 'user1', revisionId: 1, tags: [], updatedAt: Date.now() },
+            { id: '2', name: 'Prompt 2', userId: 'user1', revisionId: 1, tags: [], updatedAt: Date.now() },
+        ];
+        const initialSelectedPrompt: Prompt = { id: '1', name: 'Prompt 1', messages: [{role: 'user', content: 'test'}], options: {temperature: 1}, revisionId: 1, tags: [], userId: 'user1', updatedAt: Date.now() };
 
-      const req = httpMock.expectOne(PROMPT_API.deletePrompt.buildPath({ promptId }));
-      expect(req.request.method).toBe('DELETE');
-      req.flush(null, { status: 204, statusText: 'No Content' }); 
+        service['_prompts'].set(initialPrompts);
+        service['_selectedPrompt'].set(initialSelectedPrompt);
+
+        const deletePromise = firstValueFrom(service.deletePrompt(promptIdToDelete));
+
+        const req = httpMock.expectOne(PROMPT_API.deletePrompt.buildPath({ promptId: promptIdToDelete }));
+        expect(req.request.method).toBe('DELETE');
+        req.flush(null, { status: 204, statusText: 'No Content' });
+
+        await deletePromise;
+        await firstValueFrom(TestBed.inject(ApplicationRef).isStable.pipe(filter(stable => stable), first()));
+
+        expect(service.prompts()?.length).toBe(1);
+        expect(service.prompts()?.find(p => p.id === promptIdToDelete)).toBeUndefined();
+        expect(service.selectedPrompt()).toBeNull();
+    });
+
+    it('should update prompts signal when deleting a non-selected prompt', async () => {
+        const promptIdToDelete = '2';
+            const initialPrompts: PromptPreview[] = [
+            { id: '1', name: 'Prompt 1', userId: 'user1', revisionId: 1, tags: [], updatedAt: Date.now() },
+            { id: '2', name: 'Prompt 2', userId: 'user1', revisionId: 1, tags: [], updatedAt: Date.now() },
+        ];
+        const initialSelectedPrompt: Prompt = { id: '1', name: 'Prompt 1', messages: [{role: 'user', content: 'test'}], options: {temperature: 1}, revisionId: 1, tags: [], userId: 'user1', updatedAt: Date.now() };
+
+
+        service['_prompts'].set(initialPrompts);
+        service['_selectedPrompt'].set(initialSelectedPrompt);
+
+
+        const deletePromise = firstValueFrom(service.deletePrompt(promptIdToDelete));
+
+        const req = httpMock.expectOne(PROMPT_API.deletePrompt.buildPath({ promptId: promptIdToDelete }));
+        req.flush(null, { status: 204, statusText: 'No Content' });
+
+        await deletePromise;
+        await firstValueFrom(TestBed.inject(ApplicationRef).isStable.pipe(filter(stable => stable), first()));
+
+        expect(service.prompts()?.length).toBe(1);
+        expect(service.prompts()?.[0].id).toBe('1');
+        expect(service.selectedPrompt()?.id).toBe('1'); // Selected prompt should remain unchanged
     });
   });
 
