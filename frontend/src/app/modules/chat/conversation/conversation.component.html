@@ -23,7 +23,7 @@
                 <!-- Header -->
                 <div class="flex h-18 flex-0 items-center border-b bg-gray-50 px-4 dark:bg-transparent md:px-6">
                     <!-- Back button -->
-                    @if (chats() && chats().length > 0) {
+                    @if (chats()?.length > 0) {
                         <a
                             class="md:-ml-2 lg:hidden"
                             mat-icon-button
