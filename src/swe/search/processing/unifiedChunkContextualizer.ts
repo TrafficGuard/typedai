@@ -59,7 +59,10 @@ JSON Array:
 `;
 
   try {
-    const llm: LLM = getLLM('openai:gpt-3.5-turbo'); // Using a default fast LLM
+    const llm: LLM = getLLM('openai:gpt-3.5-turbo'); // Using a default fast LLM for chunk identification
+    // const llmForContext = getLLM('anthropic:claude-3-haiku-20240307'); // Alternative for context generation
+    const llmForContext = llm; // Using the same LLM for context generation for now
+
     logger.info({ filePath, language, llmId: llm.getId() }, 'Requesting chunk identification from LLM');
 
     const rawLlmResponse = await llm.generateText(prompt);
@@ -102,22 +105,50 @@ JSON Array:
       return [];
     }
 
-    const contextualizedChunks: ContextualizedChunkItem[] = rawChunks.map(chunk => ({
-      original_chunk_content: chunk.original_chunk_content,
-      generated_context: '', // Placeholder for this iteration
-      contextualized_chunk_content: chunk.original_chunk_content, // Placeholder for this iteration
-      source_location: {
-        start_line: chunk.start_line,
-        end_line: chunk.end_line,
-      },
-      chunk_type: chunk.chunk_type,
-    }));
+    const contextGenerationPromises = rawChunks.map(async (chunk) => {
+      const contextPrompt = `
+<document>
+${fileContent}
+</document>
+Here is the chunk we want to situate within the whole document
+<chunk>
+${chunk.original_chunk_content}
+</chunk>
+Please give a short succinct context to situate this chunk within the overall document for the purposes of improving search retrieval of the chunk. Answer only with the succinct context and nothing else.
+`;
+      try {
+        logger.info({ filePath, chunk_start_line: chunk.start_line, llmId: llmForContext.getId() }, 'Requesting context for chunk from LLM');
+        const generated_context_for_chunk = await llmForContext.generateText(contextPrompt);
+        logger.info({ filePath, chunk_start_line: chunk.start_line, contextLength: generated_context_for_chunk.length }, 'Received context for chunk');
+        return { ...chunk, generated_context: generated_context_for_chunk.trim() };
+      } catch (error) {
+        logger.error({ filePath, chunk_start_line: chunk.start_line, error }, 'Failed to generate context for chunk');
+        return { ...chunk, generated_context: "" }; // Assign empty context on error
+      }
+    });
 
-    logger.info({ filePath, count: contextualizedChunks.length }, 'Mapped raw chunks to ContextualizedChunkItem objects');
+    const chunksWithGeneratedContext = await Promise.all(contextGenerationPromises);
+
+    const contextualizedChunks: ContextualizedChunkItem[] = chunksWithGeneratedContext.map(processedChunk => {
+      const original_chunk_content = processedChunk.original_chunk_content;
+      const generated_context = processedChunk.generated_context;
+      return {
+        original_chunk_content: original_chunk_content,
+        generated_context: generated_context,
+        contextualized_chunk_content: generated_context ? `${generated_context}\n\n${original_chunk_content}` : original_chunk_content,
+        source_location: {
+          start_line: processedChunk.start_line,
+          end_line: processedChunk.end_line,
+        },
+        chunk_type: processedChunk.chunk_type,
+      };
+    });
+
+    logger.info({ filePath, count: contextualizedChunks.length }, 'Mapped chunks with generated context to ContextualizedChunkItem objects');
     return contextualizedChunks;
 
   } catch (error) {
-    logger.error({ filePath, error }, 'Error during LLM call or overall processing for chunk identification');
+    logger.error({ filePath, error }, 'Error during LLM call or overall processing for chunk identification or context generation');
     return [];
   }
 }
