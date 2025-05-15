@@ -1,9 +1,9 @@
 import {type Static, Type} from '@sinclair/typebox';
-import type {Prompt, PromptPreview} from '../../model/prompts.model.ts';
-import {GenerateOptionsSchema, LlmMessagesSchema, type LlmMessagesSchemaModel} from './llm.schema.ts';
-import type {AreTypesFullyCompatible} from '../utils/type-compatibility.ts';
-import type {ChangePropertyType} from '../../typeUtils.ts';
-import {ApiNullResponseSchema} from './common.schema.ts'; // As per requirement, though not directly used in these schemas
+import type {Prompt, PromptPreview} from '../model/prompts.model';
+import {GenerateOptionsSchema, LlmMessagesSchema, type LlmMessagesSchemaModel} from './llm.schema';
+import type {AreTypesFullyCompatible} from '../utils/type-compatibility';
+import type {ChangePropertyType} from '../typeUtils';
+import {ApiNullResponseSchema} from './common.schema'; // As per requirement, though not directly used in these schemas
 
 // --- Prompt Schema ---
 export const PromptSchema = Type.Object({
