@@ -1,0 +1,24 @@
+@import 'cdk'; // For cdkTextareaAutosize
+
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%; // Ensure host takes full height for scrolling
+}
+
+mat-card-content {
+  textarea {
+    min-height: 80px;
+    resize: vertical;
+  }
+}
+.mat-chip-grid {
+    width: 100%;
+}
+
+// Ensure spinner color is visible on primary button
+button[mat-flat-button][color="primary"] {
+    mat-spinner ::ng-deep circle {
+        stroke: currentColor;
+    }
+}

@@ -1,0 +1,110 @@
+<div class="p-4 sm:p-6 md:p-8 flex flex-col flex-auto">
+  <div *ngIf="isLoading()" class="flex flex-auto justify-center items-center">
+    <mat-spinner diameter="50"></mat-spinner>
+  </div>
+
+  <ng-container *ngIf="!isLoading()">
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-3xl font-bold tracking-tight">{{ isEditMode() ? 'Edit Prompt' : 'Create New Prompt' }}</h1>
+      <button mat-stroked-button (click)="goBack()" type="button">
+        <mat-icon svgIcon="heroicons_outline:arrow-left"></mat-icon>
+        Back
+      </button>
+    </div>
+
+    <form [formGroup]="promptForm" (ngSubmit)="onSubmit()" class="space-y-6 flex-auto flex flex-col">
+      <div class="flex-auto space-y-6 overflow-y-auto pr-2">
+        <mat-card appearance="outlined">
+            <mat-card-header>
+            <mat-card-title>Prompt Details</mat-card-title>
+            </mat-card-header>
+            <mat-card-content class="pt-4 space-y-4">
+            <mat-form-field class="w-full">
+                <mat-label>Name</mat-label>
+                <input matInput formControlName="name" required>
+                <mat-error *ngIf="promptForm.get('name')?.hasError('required')">Name is required.</mat-error>
+            </mat-form-field>
+
+            <mat-form-field class="w-full">
+                <mat-label>Tags</mat-label>
+                <mat-chip-grid #chipGrid aria-label="Enter tags" formArrayName="tags">
+                    <mat-chip-row *ngFor="let tagControl of tagsFormArray.controls; let i = index" (removed)="removeTagAtIndex(i)" [editable]="true" [removable]="true">
+                        {{tagControl.value}}
+                        <button matChipRemove [attr.aria-label]="'remove ' + tagControl.value">
+                            <mat-icon>cancel</mat-icon>
+                        </button>
+                    </mat-chip-row>
+                </mat-chip-grid>
+                <input placeholder="New tag..."
+                        [formControl]="tagCtrl"
+                        [matChipInputFor]="chipGrid"
+                        [matChipInputSeparatorKeyCodes]="separatorKeysCodes"
+                        [matChipInputAddOnBlur]="true"
+                        (matChipInputTokenEnd)="addTagFromInput($event)"/>
+            </mat-form-field>
+            </mat-card-content>
+        </mat-card>
+
+        <mat-card appearance="outlined" formArrayName="messages">
+            <mat-card-header>
+            <mat-card-title>Messages</mat-card-title>
+            <button mat-icon-button type="button" (click)="addMessage()" matTooltip="Add Message" class="ml-auto">
+                <mat-icon svgIcon="heroicons_outline:plus-circle"></mat-icon>
+            </button>
+            </mat-card-header>
+            <mat-card-content class="pt-4 space-y-4">
+            <div *ngIf="messagesFormArray.controls.length === 0" class="text-center text-gray-500 py-4">
+                No messages yet. Click the '+' button to add one.
+                <mat-error *ngIf="promptForm.get('messages')?.hasError('minlength') && promptForm.get('messages')?.touched">At least one message is required.</mat-error>
+            </div>
+            <div *ngFor="let msgGroup of messagesFormArray.controls; let i = index" [formGroupName]="i" class="p-4 border rounded-md space-y-2 relative bg-white dark:bg-gray-800">
+                <button mat-icon-button type="button" (click)="removeMessage(i)" matTooltip="Remove Message" class="absolute top-2 right-2 text-gray-500 hover:text-red-500 z-10">
+                    <mat-icon svgIcon="heroicons_outline:trash"></mat-icon>
+                </button>
+                <mat-form-field class="w-full">
+                <mat-label>Role</mat-label>
+                <mat-select formControlName="role" required>
+                    <mat-option *ngFor="let role of llmMessageRoles" [value]="role.value">{{ role.viewValue }}</mat-option>
+                </mat-select>
+                <mat-error *ngIf="msgGroup.get('role')?.hasError('required')">Role is required.</mat-error>
+                </mat-form-field>
+                <mat-form-field class="w-full">
+                <mat-label>Content</mat-label>
+                <textarea matInput formControlName="content" cdkTextareaAutosize #autosize="cdkTextareaAutosize" cdkAutosizeMinRows="3" required></textarea>
+                <mat-error *ngIf="msgGroup.get('content')?.hasError('required')">Content is required.</mat-error>
+                </mat-form-field>
+            </div>
+            </mat-card-content>
+        </mat-card>
+
+        <mat-card appearance="outlined" formGroupName="options">
+            <mat-card-header>
+            <mat-card-title>LLM Options</mat-card-title>
+            </mat-card-header>
+            <mat-card-content class="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <mat-form-field>
+                <mat-label>Temperature</mat-label>
+                <input matInput type="number" step="0.1" formControlName="temperature">
+                <mat-error *ngIf="promptForm.get('options.temperature')?.hasError('min') || promptForm.get('options.temperature')?.hasError('max')">Must be between 0 and 2.</mat-error>
+                <mat-error *ngIf="promptForm.get('options.temperature')?.hasError('pattern')">Must be a valid number.</mat-error>
+            </mat-form-field>
+            <mat-form-field>
+                <mat-label>Max Tokens</mat-label>
+                <input matInput type="number" step="1" formControlName="maxTokens">
+                <mat-error *ngIf="promptForm.get('options.maxTokens')?.hasError('min')">Must be at least 1.</mat-error>
+                <mat-error *ngIf="promptForm.get('options.maxTokens')?.hasError('pattern')">Must be a valid integer.</mat-error>
+            </mat-form-field>
+            </mat-card-content>
+        </mat-card>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-4 mt-auto border-t border-gray-200 dark:border-gray-700">
+        <button mat-stroked-button type="button" (click)="goBack()" [disabled]="isSaving()">Cancel</button>
+        <button mat-flat-button color="primary" type="submit" [disabled]="isSaving() || promptForm.invalid">
+          <mat-spinner *ngIf="isSaving()" diameter="20" class="!text-white mr-2"></mat-spinner>
+          {{ isSaving() ? 'Saving...' : (isEditMode() ? 'Save Changes' : 'Create Prompt') }}
+        </button>
+      </div>
+    </form>
+  </ng-container>
+</div>
