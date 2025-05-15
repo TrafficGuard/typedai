@@ -1,0 +1,159 @@
+import { TestBed } from '@angular/core/testing';
+import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
+import { PromptsService } from './prompts.service';
+import { PROMPT_API } from '#shared/api/prompts.api';
+import type { Prompt, PromptPreview } from '#shared/model/prompts.model';
+import type { PromptListSchemaModel, PromptSchemaModel, PromptCreatePayload, PromptUpdatePayload } from '#shared/schemas/prompts.schema';
+import { signal } from '@angular/core';
+import { of } from 'rxjs';
+import { ApplicationRef } from '@angular/core';
+
+describe('PromptsService', () => {
+  let service: PromptsService;
+  let httpMock: HttpTestingController;
+
+  const mockPromptList: PromptListSchemaModel = {
+    prompts: [
+      { id: '1', name: 'Prompt 1', tags: [], updatedAt: Date.now(), revisionId: 1, userId: 'user1' },
+      { id: '2', name: 'Prompt 2', tags: ['test'], updatedAt: Date.now(), revisionId: 1, userId: 'user1' },
+    ],
+  };
+
+  const mockPrompt: Prompt = {
+    id: '1',
+    name: 'Prompt 1',
+    userId: 'user1',
+    revisionId: 1,
+    tags: [],
+    messages: [{ role: 'user', content: 'Hello' }],
+    options: { temperature: 1.0 },
+    updatedAt: Date.now()
+  };
+  const mockPromptSchemaModel = mockPrompt as PromptSchemaModel;
+
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule],
+      providers: [PromptsService],
+    });
+    service = TestBed.inject(PromptsService);
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => {
+    httpMock.verify(); 
+  });
+
+  it('should be created', () => {
+    expect(service).toBeTruthy();
+  });
+
+  describe('loadPrompts', () => {
+    it('should fetch prompts and update the prompts signal', () => {
+      service.loadPrompts().subscribe();
+
+      const req = httpMock.expectOne(PROMPT_API.listPrompts.buildPath());
+      expect(req.request.method).toBe('GET');
+      req.flush(mockPromptList);
+
+      expect(service.prompts()).toEqual(mockPromptList.prompts);
+    });
+  });
+
+  describe('getPromptById', () => {
+    it('should fetch a prompt by ID and update the selectedPrompt signal', () => {
+      const promptId = '1';
+      service.getPromptById(promptId).subscribe();
+
+      const req = httpMock.expectOne(PROMPT_API.getPromptById.buildPath({ promptId }));
+      expect(req.request.method).toBe('GET');
+      req.flush(mockPromptSchemaModel);
+
+      expect(service.selectedPrompt()).toEqual(mockPromptSchemaModel as Prompt);
+    });
+  });
+
+  describe('createPrompt', () => {
+    it('should send a POST request to create a prompt', () => {
+      const payload: PromptCreatePayload = { name: 'New Prompt', messages: [{role: 'user', content: 'Hi'}] };
+      service.createPrompt(payload).subscribe(response => {
+        expect(response).toEqual(mockPromptSchemaModel);
+      });
+
+      const req = httpMock.expectOne(PROMPT_API.createPrompt.buildPath());
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual(payload);
+      req.flush(mockPromptSchemaModel);
+    });
+  });
+
+  describe('updatePrompt', () => {
+    it('should send a PATCH request to update a prompt', () => {
+      const promptId = '1';
+      const payload: PromptUpdatePayload = { name: 'Updated Prompt' };
+      service.updatePrompt(promptId, payload).subscribe(response => {
+        expect(response).toEqual(mockPromptSchemaModel); 
+      });
+
+      const req = httpMock.expectOne(PROMPT_API.updatePrompt.buildPath({ promptId }));
+      expect(req.request.method).toBe('PATCH');
+      expect(req.request.body).toEqual(payload);
+      req.flush(mockPromptSchemaModel);
+    });
+  });
+
+  describe('deletePrompt', () => {
+    it('should send a DELETE request to delete a prompt', () => {
+      const promptId = '1';
+      service.deletePrompt(promptId).subscribe();
+
+      const req = httpMock.expectOne(PROMPT_API.deletePrompt.buildPath({ promptId }));
+      expect(req.request.method).toBe('DELETE');
+      req.flush(null, { status: 204, statusText: 'No Content' }); 
+    });
+  });
+
+  describe('clearSelectedPrompt', () => {
+    it('should set selectedPrompt signal to null', () => {
+      service['_selectedPrompt'].set(mockPrompt); 
+      expect(service.selectedPrompt()).not.toBeNull();
+
+      service.clearSelectedPrompt();
+      expect(service.selectedPrompt()).toBeNull();
+    });
+  });
+
+  describe('setSelectedPromptFromPreview', () => {
+    it('should set selectedPrompt to null if preview is null', () => {
+      service['_selectedPrompt'].set(mockPrompt); 
+      service.setSelectedPromptFromPreview(null);
+      expect(service.selectedPrompt()).toBeNull();
+    });
+
+    it('should call getPromptById and update selectedPrompt if preview is provided', (done) => {
+      const preview: PromptPreview = { id: '123', name: 'Preview', tags:[], updatedAt: Date.now(), revisionId: 1, userId: 'user1' };
+
+      // Since getPromptById is an async operation that updates a signal,
+      // we need to subscribe to selectedPrompt to check its value after the call.
+      let selectedPromptValue: Prompt | null = null;
+      const sub = service.selectedPrompt.subscribe(val => selectedPromptValue = val);
+
+      service.setSelectedPromptFromPreview(preview);
+
+      const req = httpMock.expectOne(PROMPT_API.getPromptById.buildPath({ promptId: '123' }));
+      expect(req.request.method).toBe('GET');
+      req.flush(mockPromptSchemaModel); // This will trigger the tap operator in getPromptById
+
+      // Wait for effects to propagate
+      // Using ApplicationRef.isStable to wait for async operations triggered by signal changes.
+      TestBed.inject(ApplicationRef).isStable.subscribe(isStable => {
+        if (isStable) {
+          expect(selectedPromptValue).toEqual(mockPromptSchemaModel as Prompt);
+          sub.unsubscribe();
+          done();
+        }
+      });
+    });
+  });
+});
