@@ -815,39 +815,39 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 }
 
-function parseMessageContent(textContent: string | undefined | null): Array<{type: 'text' | 'markdown', value: string}> {
+export function parseMessageContent(textContent: string | undefined | null): Array<{type: 'text' | 'markdown', value: string}> {
     if (!textContent) {
-    return [];
-}
-
-const chunks: Array<{type: 'text' | 'markdown', value: string}> = [];
-// Regex to find fenced code blocks (e.g., ```lang\ncode\n``` or ```\ncode\n```)
-// Note: In this string, backslashes for the regex are already escaped (e.g., \n becomes \\n for the TS regex engine).
-const codeBlockRegex = /```(?:[a-zA-Z0-9\-+_]*)\n([\s\S]*?)\n```/g;
-
-let lastIndex = 0;
-let match;
-
-while ((match = codeBlockRegex.exec(textContent)) !== null) {
-    // Add text before the code block
-    if (match.index > lastIndex) {
-        chunks.push({ type: 'text', value: textContent.substring(lastIndex, match.index) });
+        return [];
     }
-    // Add the code block itself (including the fences for the markdown component)
-    chunks.push({ type: 'markdown', value: match[0] });
-    lastIndex = codeBlockRegex.lastIndex;
-}
 
-// Add any remaining text after the last code block
-if (lastIndex < textContent.length) {
-    chunks.push({ type: 'text', value: textContent.substring(lastIndex) });
-}
+    const chunks: Array<{type: 'text' | 'markdown', value: string}> = [];
+    // Regex to find fenced code blocks (e.g., ```lang\ncode\n``` or ```\ncode\n```)
+    // Note: In this string, backslashes for the regex are already escaped (e.g., \n becomes \\n for the TS regex engine).
+    const codeBlockRegex = /```(?:[a-zA-Z0-9\-+_]*)\n([\s\S]*?)\n```/g;
 
-// If no code blocks were found, and textContent is not empty, the entire content is text
-if (chunks.length === 0 && textContent.length > 0) {
-    chunks.push({ type: 'text', value: textContent });
-}
+    let lastIndex = 0;
+    let match;
 
-return chunks;
+    while ((match = codeBlockRegex.exec(textContent)) !== null) {
+        // Add text before the code block
+        if (match.index > lastIndex) {
+            chunks.push({ type: 'text', value: textContent.substring(lastIndex, match.index) });
+        }
+        // Add the code block itself (including the fences for the markdown component)
+        chunks.push({ type: 'markdown', value: match[0] });
+        lastIndex = codeBlockRegex.lastIndex;
+    }
+
+    // Add any remaining text after the last code block
+    if (lastIndex < textContent.length) {
+        chunks.push({ type: 'text', value: textContent.substring(lastIndex) });
+    }
+
+    // If no code blocks were found, and textContent is not empty, the entire content is text
+    if (chunks.length === 0 && textContent.length > 0) {
+        chunks.push({ type: 'text', value: textContent });
+    }
+
+    return chunks;
 }
 
