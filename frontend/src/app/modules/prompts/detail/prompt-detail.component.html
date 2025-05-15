@@ -15,6 +15,11 @@
           <mat-icon svgIcon="heroicons_outline:pencil-square"></mat-icon>
           Edit
         </button>
+        <button mat-stroked-button color="warn" (click)="deleteCurrentPrompt()" [disabled]="isDeletingSignal() || !prompt()" type="button">
+            <mat-icon *ngIf="!isDeletingSignal()" svgIcon="heroicons_outline:trash"></mat-icon>
+            <mat-progress-spinner *ngIf="isDeletingSignal()" [diameter]="20" mode="indeterminate" class="mr-1"></mat-progress-spinner>
+            {{ isDeletingSignal() ? 'Deleting...' : 'Delete' }}
+        </button>
       </div>
     </div>
 

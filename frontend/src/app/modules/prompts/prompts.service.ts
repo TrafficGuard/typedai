@@ -53,7 +53,15 @@ export class PromptsService {
     }
 
     deletePrompt(promptId: string): Observable<void> {
-        return callApiRoute(this.httpClient, PROMPT_API.deletePrompt, { pathParams: { promptId } });
+        return callApiRoute(this.httpClient, PROMPT_API.deletePrompt, { pathParams: { promptId } }).pipe(
+            tap(() => {
+                this._prompts.update(currentPrompts => (currentPrompts || []).filter(p => p.id !== promptId));
+                if (this._selectedPrompt()?.id === promptId) {
+                    this._selectedPrompt.set(null);
+                }
+            })
+            // callApiRoute for DELETE 204 already returns Observable<void>
+        );
     }
 
     clearSelectedPrompt(): void {

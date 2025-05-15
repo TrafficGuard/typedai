@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common'; // Add DatePipe
 import { RouterModule } from '@angular/router';
 import { PromptsService } from '../prompts.service';
@@ -7,8 +7,9 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip'; // For tooltips
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner'; // For loading
-import { finalize } from 'rxjs';
+import { filter, finalize } from 'rxjs/operators';
 import { PromptPreview } from '#shared/model/prompts.model';
+import { FuseConfirmationService } from '@fuse/services/confirmation';
 
 
 @Component({
@@ -29,9 +30,12 @@ import { PromptPreview } from '#shared/model/prompts.model';
 })
 export class PromptListComponent implements OnInit {
   private promptsService = inject(PromptsService);
+  private confirmationService = inject(FuseConfirmationService);
+  private cdr = inject(ChangeDetectorRef);
 
   prompts = this.promptsService.prompts;
   isLoading = signal(true);
+  isDeletingSignal = signal<string | null>(null); // Tracks ID of prompt being deleted
 
   ngOnInit(): void {
     this.promptsService.loadPrompts().pipe(
@@ -41,12 +45,36 @@ export class PromptListComponent implements OnInit {
     });
   }
 
-  deletePrompt(event: MouseEvent, promptId: string): void {
-    event.stopPropagation(); // Prevent navigation if on a clickable list item
-    // Placeholder for actual deletion logic with confirmation
-    if (confirm('Are you sure you want to delete this prompt? (Placeholder)')) {
-      console.log('Attempting to delete prompt (placeholder):', promptId);
-      // this.promptsService.deletePrompt(promptId).subscribe(...);
-    }
+  deletePrompt(event: MouseEvent, prompt: PromptPreview): void {
+    event.stopPropagation();
+
+    this.confirmationService.open({
+        title: 'Delete Prompt',
+        message: `Are you sure you want to delete "${prompt.name}"? This action cannot be undone.`,
+        actions: {
+            confirm: {
+                label: 'Delete',
+                color: 'warn',
+            },
+        },
+    }).afterClosed().pipe(
+        filter(status => status === 'confirmed')
+    ).subscribe(() => {
+        this.isDeletingSignal.set(prompt.id);
+        this.cdr.detectChanges();
+        this.promptsService.deletePrompt(prompt.id).pipe(
+            finalize(() => {
+                this.isDeletingSignal.set(null);
+                this.cdr.detectChanges();
+            })
+        ).subscribe({
+            next: () => {
+                console.log(`Prompt "${prompt.name}" deleted successfully.`);
+            },
+            error: (err) => {
+                console.error(`Error deleting prompt "${prompt.name}":`, err);
+            }
+        });
+    });
   }
 }

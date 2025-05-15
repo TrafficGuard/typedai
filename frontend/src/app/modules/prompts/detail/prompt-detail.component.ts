@@ -11,7 +11,8 @@ import { MatDividerModule } from '@angular/material/divider';
 import { PromptsService } from '../prompts.service';
 import type { Prompt } from '#shared/model/prompts.model';
 import { Subject } from 'rxjs';
-import { takeUntil, tap, finalize } from 'rxjs/operators';
+import { takeUntil, tap, finalize, filter } from 'rxjs/operators';
+import { FuseConfirmationService } from '@fuse/services/confirmation';
 
 @Component({
   selector: 'app-prompt-detail',
@@ -32,13 +33,16 @@ import { takeUntil, tap, finalize } from 'rxjs/operators';
 })
 export class PromptDetailComponent implements OnInit, OnDestroy {
   private promptsService = inject(PromptsService);
+  private promptsService = inject(PromptsService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private location = inject(Location);
   private cdr = inject(ChangeDetectorRef);
+  private confirmationService = inject(FuseConfirmationService);
 
   prompt = this.promptsService.selectedPrompt;
   isLoading = signal(true);
+  isDeletingSignal = signal(false);
   private destroy$ = new Subject<void>();
 
   ngOnInit(): void {
@@ -69,6 +73,43 @@ export class PromptDetailComponent implements OnInit, OnDestroy {
 
   goBack(): void {
     this.location.back();
+  }
+
+  deleteCurrentPrompt(): void {
+    const currentPrompt = this.prompt();
+    if (!currentPrompt) {
+        return;
+    }
+
+    this.confirmationService.open({
+        title: 'Delete Prompt',
+        message: `Are you sure you want to delete "${currentPrompt.name}"? This action cannot be undone.`,
+        actions: {
+            confirm: {
+                label: 'Delete',
+                color: 'warn',
+            },
+        },
+    }).afterClosed().pipe(
+        filter(status => status === 'confirmed')
+    ).subscribe(() => {
+        this.isDeletingSignal.set(true);
+        this.cdr.detectChanges();
+        this.promptsService.deletePrompt(currentPrompt.id).pipe(
+            finalize(() => {
+                this.isDeletingSignal.set(false);
+                this.cdr.detectChanges();
+            })
+        ).subscribe({
+            next: () => {
+                console.log(`Prompt "${currentPrompt.name}" deleted successfully.`);
+                this.router.navigate(['/prompts']);
+            },
+            error: (err) => {
+                console.error(`Error deleting prompt "${currentPrompt.name}":`, err);
+            }
+        });
+    });
   }
 
   ngOnDestroy(): void {

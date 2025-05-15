@@ -32,8 +32,9 @@
         <button mat-icon-button [routerLink]="['../', prompt.id, 'edit']" (click)="$event.stopPropagation()" matTooltip="Edit Prompt">
           <mat-icon svgIcon="heroicons_outline:pencil-square"></mat-icon>
         </button>
-        <button mat-icon-button (click)="deletePrompt($event, prompt.id)" color="warn" matTooltip="Delete Prompt (placeholder)">
-          <mat-icon svgIcon="heroicons_outline:trash"></mat-icon>
+        <button mat-icon-button color="warn" (click)="deletePrompt($event, prompt)" [disabled]="isDeletingSignal() === prompt.id" matTooltip="Delete Prompt" class="ml-1">
+            <mat-icon *ngIf="isDeletingSignal() !== prompt.id" svgIcon="heroicons_outline:trash"></mat-icon>
+            <mat-progress-spinner *ngIf="isDeletingSignal() === prompt.id" [diameter]="20" mode="indeterminate"></mat-progress-spinner>
         </button>
       </div>
     </mat-list-item>
