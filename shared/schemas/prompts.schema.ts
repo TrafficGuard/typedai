@@ -30,6 +30,12 @@ export const PromptPreviewSchema = Type.Pick(PromptSchema, PromptPreviewProps, {
 
 const _PromptPreviewCheck: AreTypesFullyCompatible<PromptPreview, Static<typeof PromptPreviewSchema>> = true;
 
+// --- PromptList Schema ---
+export const PromptListSchema = Type.Object({
+    prompts: Type.Array(PromptPreviewSchema),
+    hasMore: Type.Boolean()
+}, { $id: 'PromptList' });
+
 // --- API Specific Schemas ---
 export const PromptParamsSchema = Type.Object({
     promptId: Type.String()
@@ -66,3 +72,4 @@ export type PromptParams = Static<typeof PromptParamsSchema>;
 export type PromptCreatePayload = Static<typeof PromptCreateSchema>;
 export type PromptUpdatePayload = Static<typeof PromptUpdateSchema>;
 export type PromptRevisionParams = Static<typeof PromptRevisionParamsSchema>;
+export type PromptListSchemaModel = Static<typeof PromptListSchema>;
