@@ -128,7 +128,10 @@ export async function searchCode(
 	}
 
 	if (Object.keys(requestParamsInternal).length > 0) {
-		searchRequest.params = struct.encode(requestParamsInternal);
+		const encodedParams = struct.encode(requestParamsInternal);
+		if (encodedParams.fields) {
+			searchRequest.params = encodedParams.fields;
+		}
 	}
 
 	for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
