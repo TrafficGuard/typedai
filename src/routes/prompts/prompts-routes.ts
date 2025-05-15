@@ -27,10 +27,14 @@ export async function promptRoutes(fastify: AppFastifyInstance) {
         async (req, reply) => {
             const userId = currentUser().id;
             try {
-                // As per requirement: service returns PromptList { prompts: PromptPreview[], hasMore: boolean }
-                const promptList = await fastify.promptsService.listPromptsForUser(userId);
-                // The schema for response is PromptListSchema, so cast to PromptListSchemaModel
-                sendJSON(reply, promptList as PromptListSchemaModel);
+                // Service returns PromptPreview[]
+                const prompts = await fastify.promptsService.listPromptsForUser(userId);
+                // Construct the PromptListSchemaModel structure
+                const promptList: PromptListSchemaModel = {
+                    prompts: prompts as any, // Cast to any to satisfy schema, actual type is PromptPreview[]
+                    hasMore: false, // Assuming no pagination for now, or service needs update
+                };
+                sendJSON(reply, promptList);
             } catch (error: any) {
                 logger.error({ err: error, userId }, 'Error listing prompts');
                 const message = error.message || 'Error listing prompts';
