@@ -1,12 +1,12 @@
-import { expect } from 'chai';
 import { randomUUID } from 'node:crypto';
-import type { PromptsService } from './promptService';
+import { expect } from 'chai';
+import { SINGLE_USER_ID } from '#modules/memory/inMemoryUserService';
+import { system, user } from '#shared/model/llm.model';
 import type { Prompt } from '#shared/model/prompts.model';
 import type { User } from '#shared/model/user.model';
-import { system, user } from '#shared/model/llm.model';
-import { SINGLE_USER_ID } from '#modules/memory/inMemoryUserService';
-import { runWithUser } from '#user/userContext';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
+import { runWithUser } from '#user/userContext';
+import type { PromptsService } from './promptService';
 
 // Test User Definitions
 export const TEST_USER_ID = SINGLE_USER_ID; // Using SINGLE_USER_ID for consistency
@@ -32,7 +32,7 @@ export const TEST_USER: User = {
 };
 
 // Helper for Sample Prompt Data
-const getSamplePromptData = (nameSuffix: string = ''): Omit<Prompt, 'id' | 'revisionId' | 'userId'> => ({
+const getSamplePromptData = (nameSuffix = ''): Omit<Prompt, 'id' | 'revisionId' | 'userId'> => ({
 	name: `Test Prompt ${nameSuffix} ${randomUUID()}`, // Unique name for each call
 	parentId: undefined,
 	appId: undefined,
@@ -41,10 +41,7 @@ const getSamplePromptData = (nameSuffix: string = ''): Omit<Prompt, 'id' | 'revi
 	options: { temperature: 0.5, maxOutputTokens: 100, topK: 40 },
 });
 
-export function runPromptsServiceTests(
-	createService: () => PromptsService,
-	beforeEachHook: () => Promise<void> | void = () => {},
-) {
+export function runPromptsServiceTests(createService: () => PromptsService, beforeEachHook: () => Promise<void> | void = () => {}) {
 	setupConditionalLoggerOutput();
 	let service: PromptsService;
 
@@ -208,7 +205,7 @@ export function runPromptsServiceTests(
 					expect(previews).to.be.an('array').with.lengthOf(2);
 
 					// Verify structure of previews and that they match created prompts (order might not be guaranteed)
-					const previewNames = previews.map(p => p.name);
+					const previewNames = previews.map((p) => p.name);
 					expect(previewNames).to.include.members([prompt1Data.name, prompt2Data.name]);
 
 					for (const preview of previews) {

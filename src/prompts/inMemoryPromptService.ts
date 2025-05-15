@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import type { Prompt, PromptPreview } from '#shared/model/prompts.model';
 import type { PromptsService } from './promptService';
 
@@ -41,7 +41,7 @@ export class InMemoryPromptService implements PromptsService {
 			return null;
 		}
 
-		const promptVersion = revisions.find(p => p.revisionId === revisionId);
+		const promptVersion = revisions.find((p) => p.revisionId === revisionId);
 		if (!promptVersion || promptVersion.userId !== userId) {
 			return null;
 		}
@@ -92,12 +92,7 @@ export class InMemoryPromptService implements PromptsService {
 	/**
 	 * Updates an existing prompt.
 	 */
-	async updatePrompt(
-		promptId: string,
-		updates: Partial<Omit<Prompt, 'id' | 'userId' | 'revisionId'>>,
-		userId: string,
-		newVersion: boolean,
-	): Promise<Prompt> {
+	async updatePrompt(promptId: string, updates: Partial<Omit<Prompt, 'id' | 'userId' | 'revisionId'>>, userId: string, newVersion: boolean): Promise<Prompt> {
 		const revisions = this.promptRevisions.get(promptId);
 		if (!revisions || revisions.length === 0) {
 			throw new Error(`Prompt with ID ${promptId} not found.`);
@@ -124,22 +119,21 @@ export class InMemoryPromptService implements PromptsService {
 			newRevision.revisionId = latestRevisionInArray.revisionId + 1;
 			revisions.push(newRevision); // Add to the existing array of revisions
 			return this._deepCopyPrompt(newRevision);
-		} else {
-			// Update the latest revision in place
-			const targetRevision = latestRevisionInArray;
-
-			targetRevision.name = updates.name ?? targetRevision.name;
-            // For optional fields, allow setting to null if provided, otherwise keep existing
-			if (updates.parentId !== undefined) targetRevision.parentId = updates.parentId;
-			if (updates.appId !== undefined) targetRevision.appId = updates.appId;
-
-			if (updates.tags) targetRevision.tags = [...updates.tags];
-			if (updates.messages) targetRevision.messages = JSON.parse(JSON.stringify(updates.messages));
-			if (updates.options) targetRevision.options = { ...updates.options }; // Shallow copy of new options
-
-			// No change to revisionId, object already in map is mutated
-			return this._deepCopyPrompt(targetRevision);
 		}
+		// Update the latest revision in place
+		const targetRevision = latestRevisionInArray;
+
+		targetRevision.name = updates.name ?? targetRevision.name;
+		// For optional fields, allow setting to null if provided, otherwise keep existing
+		if (updates.parentId !== undefined) targetRevision.parentId = updates.parentId;
+		if (updates.appId !== undefined) targetRevision.appId = updates.appId;
+
+		if (updates.tags) targetRevision.tags = [...updates.tags];
+		if (updates.messages) targetRevision.messages = JSON.parse(JSON.stringify(updates.messages));
+		if (updates.options) targetRevision.options = { ...updates.options }; // Shallow copy of new options
+
+		// No change to revisionId, object already in map is mutated
+		return this._deepCopyPrompt(targetRevision);
 	}
 
 	/**
