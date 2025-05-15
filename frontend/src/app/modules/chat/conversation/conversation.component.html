@@ -106,7 +106,7 @@
                                         @if (!message.generating) {
                                             <clipboard-button [offset]="-0.3" [cdkCopyToClipboard]="message.textContent"></clipboard-button>
                                         }
-                                        @if (message.textChunks && message.textChunks.length > 0) {
+                                        @if (message.textChunks.length > 0) {
                                             @for (chunk of message.textChunks; track $index) {
                                                 @if (chunk.type === 'markdown') {
                                                     <markdown
