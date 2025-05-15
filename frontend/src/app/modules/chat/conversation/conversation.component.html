@@ -117,7 +117,7 @@
                                                         ngPreserveWhitespaces
                                                     ></markdown>
                                                 } @else if (chunk.type === 'text') {
-                                                    <span [innerText]="chunk.value"></span>
+                                                    <span [innerHTML]="chunk.value | safeHtml"></span>
                                                 }
                                             }
                                         } @else {

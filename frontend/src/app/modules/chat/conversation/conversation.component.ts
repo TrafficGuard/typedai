@@ -49,6 +49,7 @@ import {ClipboardButtonComponent} from "./clipboard-button.component";
 import {FuseConfirmationService} from "../../../../@fuse/services/confirmation";
 import {ClipboardModule} from "@angular/cdk/clipboard";
 import {UserProfile} from "#shared/schemas/user.schema";
+import { SafeHtmlPipe } from 'app/core/pipes/safe-html.pipe';
 
 @Component({
     selector: 'chat-conversation',
@@ -77,6 +78,7 @@ import {UserProfile} from "#shared/schemas/user.schema";
         ReactiveFormsModule,
         ClipboardButtonComponent,
         ClipboardModule,
+        SafeHtmlPipe,
     ],
     providers: [
         provideMarkdown(),
