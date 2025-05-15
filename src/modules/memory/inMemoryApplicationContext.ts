@@ -6,6 +6,8 @@ import { InMemoryFunctionCacheService } from '#modules/memory/inMemoryFunctionCa
 import { InMemoryLlmCallService } from '#modules/memory/inMemoryLlmCallService';
 import { InMemoryUserService } from '#modules/memory/inMemoryUserService';
 import { InMemoryVibeRepository } from '#modules/memory/inMemoryVibeRepository';
+import { InMemoryPromptService } from '../../prompts/inMemoryPromptService';
+import type { PromptsService } from '../../prompts/promptService';
 
 export function inMemoryApplicationContext(): ApplicationContext {
 	return {
@@ -15,6 +17,7 @@ export function inMemoryApplicationContext(): ApplicationContext {
 		llmCallService: new InMemoryLlmCallService(),
 		codeReviewService: new InMemoryCodeReviewService(),
 		functionCacheService: new InMemoryFunctionCacheService(),
+		promptsService: new InMemoryPromptService(),
 		vibeRepository: new InMemoryVibeRepository(), // For Vibe we store the Repository
 	};
 }
