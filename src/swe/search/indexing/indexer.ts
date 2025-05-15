@@ -6,10 +6,8 @@ import { struct } from 'pb-util'; // Helper for converting JS objects to Struct 
 import pino from 'pino';
 import { settleAllWithInput, sleep } from '#utils/async-utils';
 import { INDEXER_EMBEDDING_PROCESSING_BATCH_SIZE, getDiscoveryEngineDataStorePath, getDocumentServiceClient } from '../config';
-import { type CodeChunk, chunkCodeByFunction } from '../processing/chunker';
 import { type CodeFile, loadCodeFiles } from '../processing/codeLoader';
-import { type ContextualizedChunk, contextualizeChunk } from '../processing/contextualizer';
-import { generateChunkContext, translateCodeToNaturalLanguage } from '../processing/translator';
+import { type ContextualizedChunkItem, generateContextualizedChunksFromFile } from '../processing/unifiedChunkContextualizer';
 import { type TextEmbeddingService, getEmbeddingService } from './embedder';
 
 const logger = pino({ name: 'Indexer' });
@@ -24,71 +22,83 @@ const FILE_PROCESSING_PARALLEL_BATCH_SIZE = 5;
 /**
  * Creates a unique ID for a code chunk document.
  * Example: base64(filePath:functionName:startLine)
- * @param chunk The code chunk.
+ * @param filePath The path to the file.
+ * @param functionName The name of the function, if applicable.
+ * @param startLine The starting line number of the chunk.
  * @returns A unique string ID.
  */
-function createDocumentId(chunk: CodeChunk): string {
-	const identifier = `${chunk.filePath}:${chunk.functionName || 'file'}:${chunk.startLine}`;
+function createDocumentId(filePath: string, functionName: string | undefined, startLine: number): string {
+	const identifier = `${filePath}:${functionName || 'file'}:${startLine}`;
 	// Use base64 encoding for safe IDs
 	return Buffer.from(identifier).toString('base64url');
 }
 
+interface ProcessedChunkForEmbedding {
+	embeddingContent: string;
+	metadata: Record<string, any>;
+	filePath: string;
+	functionName?: string;
+	startLine: number;
+}
+
 /**
- * Processes a single code file to extract and contextualize code chunks.
- * This function encapsulates chunking, translation, and contextualization for one file.
+ * Processes a single code file to extract and contextualize code chunks using the unified contextualizer.
  * @param file The code file to process.
- * @param globalFailedChunksCounter An object to track the count of chunks that fail processing across all files.
- * @returns A promise that resolves to an array of contextualized chunks from the file, or an empty array if processing fails.
+ * @param globalFailedChunksCounter An object to track the count of chunks that fail processing across all files (currently unused here, primarily for embedding failures).
+ * @returns A promise that resolves to an array of processed chunks ready for embedding, or an empty array if processing fails.
  */
-async function processFileAndGetContextualizedChunks(file: CodeFile, globalFailedChunksCounter: { count: number }): Promise<ContextualizedChunk[]> {
-	logger.info(`Starting processing for file: ${file.filePath}`);
-	const contextualizedChunksForThisFile: ContextualizedChunk[] = [];
+async function processFileAndGetContextualizedChunks(
+	file: CodeFile,
+	globalFailedChunksCounter: { count: number },
+): Promise<ProcessedChunkForEmbedding[]> {
+	logger.info(`Starting unified processing for file: ${file.filePath}`);
+	const processedChunksForEmbedding: ProcessedChunkForEmbedding[] = [];
 
 	try {
-		// 2. Chunk Code
-		const chunks = chunkCodeByFunction(file.filePath, file.content, file.language);
+		const contextualizedItems: ContextualizedChunkItem[] = await generateContextualizedChunksFromFile(file.filePath, file.content, file.language);
 
-		for (const chunk of chunks) {
-			try {
-				// 3. Translate Code to NL
-				const nlDescription = await translateCodeToNaturalLanguage(chunk.content, chunk.language);
-
-				// 3.5 Generate Chunk-Specific Context
-				const chunkSpecificContext = await generateChunkContext(chunk.content, file.content, chunk.language);
-
-				// 4. Contextualize
-				const contextualizedChunk = contextualizeChunk(chunk, nlDescription, chunkSpecificContext);
-				contextualizedChunksForThisFile.push(contextualizedChunk);
-			} catch (chunkError: any) {
-				logger.error(
-					{ err: { message: chunkError.message, stack: chunkError.stack }, filePath: file.filePath, chunkId: createDocumentId(chunk) },
-					`Error processing chunk (pre-embedding) for file ${file.filePath}. Skipping chunk.`,
-				);
-				globalFailedChunksCounter.count++;
-			}
+		for (const item of contextualizedItems) {
+			const processedChunk: ProcessedChunkForEmbedding = {
+				embeddingContent: item.contextualized_chunk_content,
+				metadata: {
+					file_path: file.filePath,
+					function_name: item.chunk_type || undefined,
+					start_line: item.source_location.start_line,
+					end_line: item.source_location.end_line,
+					language: file.language,
+					natural_language_description: item.generated_context, // This is the "situating context"
+					chunk_specific_context: item.generated_context, // Also the "situating context"
+					original_code: item.original_chunk_content,
+				},
+				filePath: file.filePath,
+				functionName: item.chunk_type || undefined,
+				startLine: item.source_location.start_line,
+			};
+			processedChunksForEmbedding.push(processedChunk);
 		}
-		logger.info(`Finished processing for file: ${file.filePath}. Found ${contextualizedChunksForThisFile.length} contextualized chunks.`);
-		return contextualizedChunksForThisFile;
+
+		logger.info(`Finished unified processing for file: ${file.filePath}. Found ${processedChunksForEmbedding.length} processed chunks for embedding.`);
+		return processedChunksForEmbedding;
 	} catch (fileProcessingError: any) {
 		logger.error(
 			{ err: { message: fileProcessingError.message, stack: fileProcessingError.stack }, filePath: file.filePath },
-			`Critical error processing file ${file.filePath} in parallel helper. Skipping this file.`,
+			`Critical error processing file ${file.filePath} using unified chunk contextualizer. Skipping this file.`,
 		);
 		return []; // Return empty array, promise will be fulfilled
 	}
 }
 
 /**
- * Prepares a Discovery Engine Document proto from a contextualized chunk.
- * @param contextualizedChunk The processed chunk data.
+ * Prepares a Discovery Engine Document proto from a processed chunk.
+ * @param processedChunk The processed chunk data ready for embedding.
  * @param embedding The generated vector embedding.
  * @returns A Discovery Engine Document object.
  */
-function prepareDocumentProto(contextualizedChunk: ContextualizedChunk, embedding: number[]): google.cloud.discoveryengine.v1beta.IDocument {
-	const docId = createDocumentId(contextualizedChunk.originalChunk);
+function prepareDocumentProto(processedChunk: ProcessedChunkForEmbedding, embedding: number[]): google.cloud.discoveryengine.v1beta.IDocument {
+	const docId = createDocumentId(processedChunk.filePath, processedChunk.functionName, processedChunk.startLine);
 
 	// Convert metadata JS object to Google Struct proto
-	const jsonData = struct.encode(contextualizedChunk.metadata);
+	const jsonData = struct.encode(processedChunk.metadata);
 
 	const document: google.cloud.discoveryengine.v1beta.IDocument = {
 		id: docId,
@@ -152,10 +162,10 @@ export async function runIndexingPipeline(sourceDir: string): Promise<void> {
 	let totalChunks = 0;
 	let successfullyProcessedAndEmbeddedChunks = 0; // Chunks that made it to a documentProto
 	const documentsToIndex: google.cloud.discoveryengine.v1beta.IDocument[] = [];
-	const contextualizedChunksToEmbed: ContextualizedChunk[] = [];
+	const processedChunksReadyForEmbedding: ProcessedChunkForEmbedding[] = [];
 
 	async function processAndIndexEmbeddingBatch(
-		chunksToProcess: ContextualizedChunk[],
+		chunksToProcess: ProcessedChunkForEmbedding[],
 		service: TextEmbeddingService,
 		documentsTarget: google.cloud.discoveryengine.v1beta.IDocument[],
 		globalFailedChunksCounter: { count: number },
@@ -163,7 +173,7 @@ export async function runIndexingPipeline(sourceDir: string): Promise<void> {
 		if (chunksToProcess.length === 0) {
 			return;
 		}
-		logger.info(`Processing batch of ${chunksToProcess.length} contextualized chunks for embedding...`);
+		logger.info(`Processing batch of ${chunksToProcess.length} processed chunks for embedding...`);
 
 		const textsToEmbed = chunksToProcess.map((c) => c.embeddingContent);
 		const embeddingsBatchResults = await service.generateEmbeddings(textsToEmbed, 'CODE_RETRIEVAL_DOCUMENT');
@@ -171,15 +181,17 @@ export async function runIndexingPipeline(sourceDir: string): Promise<void> {
 		let successfullyEmbeddedInBatch = 0;
 		for (let i = 0; i < embeddingsBatchResults.length; i++) {
 			const embeddingVector = embeddingsBatchResults[i];
-			const currentCtxChunk = chunksToProcess[i];
+			const currentProcessedChunk = chunksToProcess[i];
 
 			if (embeddingVector && embeddingVector.length > 0) {
-				const docProto = prepareDocumentProto(currentCtxChunk, embeddingVector);
+				const docProto = prepareDocumentProto(currentProcessedChunk, embeddingVector);
 				documentsTarget.push(docProto);
 				logger.debug(`Prepared document for indexing: ${docProto.id}`);
 				successfullyEmbeddedInBatch++;
 			} else {
-				logger.warn(`Skipping chunk ${createDocumentId(currentCtxChunk.originalChunk)} due to embedding failure or empty embedding.`);
+				logger.warn(
+					`Skipping chunk ${createDocumentId(currentProcessedChunk.filePath, currentProcessedChunk.functionName, currentProcessedChunk.startLine)} due to embedding failure or empty embedding.`,
+				);
 				globalFailedChunksCounter.count++; // Increment global failed count
 			}
 		}
@@ -197,17 +209,17 @@ export async function runIndexingPipeline(sourceDir: string): Promise<void> {
 
 		const settledFileResults = await settleAllWithInput(fileBatch, (currentFile) => processFileAndGetContextualizedChunks(currentFile, failedChunksCount));
 
-		const chunksFromBatch: ContextualizedChunk[] = [];
+		const chunksFromBatch: ProcessedChunkForEmbedding[] = [];
 		for (const result of settledFileResults.fulfilledInputs) {
 			// result is [originalInput, resolvedValue]
 			// const [fileProcessed, chunksFromThisFile] = result; // originalInput is fileProcessed
-			const chunksFromThisFile = result[1]; // resolvedValue is ContextualizedChunk[]
+			const chunksFromThisFile = result[1]; // resolvedValue is ProcessedChunkForEmbedding[]
 			if (chunksFromThisFile.length > 0) {
 				chunksFromBatch.push(...chunksFromThisFile);
 			}
 		}
-		contextualizedChunksToEmbed.push(...chunksFromBatch);
-		totalChunks += chunksFromBatch.length; // Accumulate total contextualized chunks
+		processedChunksReadyForEmbedding.push(...chunksFromBatch);
+		totalChunks += chunksFromBatch.length; // Accumulate total processed chunks
 
 		for (const result of settledFileResults.rejected) {
 			const { input: fileFailed, reason } = result;
@@ -220,10 +232,10 @@ export async function runIndexingPipeline(sourceDir: string): Promise<void> {
 
 		// Check if current embedding batch is ready or if it's the last file batch
 		if (
-			contextualizedChunksToEmbed.length >= INDEXER_EMBEDDING_PROCESSING_BATCH_SIZE ||
-			(i + FILE_PROCESSING_PARALLEL_BATCH_SIZE >= codeFiles.length && contextualizedChunksToEmbed.length > 0)
+			processedChunksReadyForEmbedding.length >= INDEXER_EMBEDDING_PROCESSING_BATCH_SIZE ||
+			(i + FILE_PROCESSING_PARALLEL_BATCH_SIZE >= codeFiles.length && processedChunksReadyForEmbedding.length > 0)
 		) {
-			await processAndIndexEmbeddingBatch(contextualizedChunksToEmbed, embedderService, documentsToIndex, failedChunksCount);
+			await processAndIndexEmbeddingBatch(processedChunksReadyForEmbedding, embedderService, documentsToIndex, failedChunksCount);
 			// After processing embeddings, check if documentsToIndex needs to be flushed to Discovery Engine
 			if (documentsToIndex.length >= BATCH_SIZE || (i + FILE_PROCESSING_PARALLEL_BATCH_SIZE >= codeFiles.length && documentsToIndex.length > 0)) {
 				logger.info(`Indexing batch of ${documentsToIndex.length} documents to Discovery Engine...`);
