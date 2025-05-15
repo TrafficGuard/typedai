@@ -114,6 +114,10 @@ async function runNpmScriptOrCommandInDirs(scriptOrCommandName, directories) {
         const resolvedPath = path.resolve(dirInfo.path);
         // Use the base script/command name for the task identifier for consistency
         const taskName = `${dirInfo.name}-${scriptOrCommandName}`; // e.g., "frontend-build", "root-install"
+
+        if(dirInfo.path.includes('frontend') && scriptOrCommandName === 'test')
+            scriptOrCommandName = 'test:ci'
+
         return runCommand(fullBaseCommand, resolvedPath, taskName);
     });
 
