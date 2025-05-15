@@ -124,6 +124,9 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
     readonly clipboardButton = ClipboardButtonComponent;
 
+    // Add this property to track the previous chat ID
+    private previousChatId: string | null | undefined = undefined;
+
     // Computed signal for displaying messages (service messages + pending messages)
     displayedMessages = computed(() => {
         const currentChat = this.chat();
@@ -193,14 +196,23 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
         // Effect to update component state based on loaded data (user, llms, chat)
         effect(() => {
-            this.generating.set(false);
-            this.generatingAIMessage.set(null);
             const currentChat = this.chat(); // chat signal from service
+            const currentChatId = currentChat?.id;
+
+            // Only reset generating states if the chat ID has actually changed,
+            // or if the chat becomes null (e.g., after a reset).
+            if (currentChatId !== this.previousChatId) {
+                this.generating.set(false);
+                this.generatingAIMessage.set(null);
+            }
 
             if (currentChat && currentChat.messages) {
                  this.assignUniqueIdsToMessages(currentChat.messages); // Ensure messages have IDs for trackBy
             }
             this.updateLlmSelector();
+
+            // Update previousChatId for the next run
+            this.previousChatId = currentChatId;
         });
 
         // Load initial list of chats
@@ -850,4 +862,3 @@ export function parseMessageContent(textContent: string | undefined | null): Arr
 
     return chunks;
 }
-
