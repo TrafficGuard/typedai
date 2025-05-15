@@ -1,0 +1,10 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%; // Ensures the component can manage its own height for scrolling content
+}
+
+mat-card-content pre {
+  font-family: inherit; // Ensures <pre> tags use the application's standard font
+  word-wrap: break-word; // Ensures long lines without spaces will wrap
+}
