@@ -6,6 +6,7 @@ import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
 import type { UserService } from '#user/userService';
 import type { VibeRepository } from '#vibe/vibeRepository';
 import type { FunctionCacheService } from '../cache/functionCacheService';
+import type { PromptsService } from '../prompts/promptService';
 
 export interface ApplicationContext {
 	agentStateService: AgentContextService;
