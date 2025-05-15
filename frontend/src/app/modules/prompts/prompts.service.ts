@@ -2,14 +2,14 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
-import { callApiRoute } from '../../../core/api-route';
-import { PROMPT_API } from '#shared/api/prompts.api.ts';
+import { callApiRoute } from 'app/core/api-route';
+import { PROMPT_API } from '#shared/api/prompts.api';
 import type {
     PromptSchemaModel,
     PromptListSchemaModel,
     PromptCreatePayload,
     PromptUpdatePayload,
-} from '#shared/schemas/prompts.schema.ts';
+} from '#shared/schemas/prompts.schema';
 
 /** Calls the Prompt API routes */
 @Injectable({ providedIn: 'root' })
