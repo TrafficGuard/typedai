@@ -1,9 +1,9 @@
-import { Firestore, FieldValue, Timestamp, WriteBatch } from '@google-cloud/firestore';
+import { FieldValue, Firestore, type Timestamp, type WriteBatch } from '@google-cloud/firestore';
 import { logger } from '#o11y/logger';
-import type { Prompt, PromptPreview } from '#shared/model/prompts.model';
-import type { PromptsService } from './promptService';
-import { envVar } from '#utils/env-var';
 import type { GenerateOptions, LlmMessage } from '#shared/model/llm.model';
+import type { Prompt, PromptPreview } from '#shared/model/prompts.model';
+import { envVar } from '#utils/env-var';
+import type { PromptsService } from './promptService';
 
 const PROMPTS_COLLECTION = 'Prompts';
 const REVISIONS_SUBCOLLECTION = 'Revisions';
@@ -189,12 +189,7 @@ export class FirebasePromptService implements PromptsService {
 		return this._toPrompt(newPromptId, revisionDocData);
 	}
 
-	async updatePrompt(
-		promptId: string,
-		updates: Partial<Omit<Prompt, 'id' | 'userId' | 'revisionId'>>,
-		userId: string,
-		newVersion: boolean,
-	): Promise<Prompt> {
+	async updatePrompt(promptId: string, updates: Partial<Omit<Prompt, 'id' | 'userId' | 'revisionId'>>, userId: string, newVersion: boolean): Promise<Prompt> {
 		const promptGroupRef = this.db.collection(PROMPTS_COLLECTION).doc(promptId);
 
 		return this.db.runTransaction(async (transaction) => {
@@ -235,8 +230,8 @@ export class FirebasePromptService implements PromptsService {
 					// For optional fields that can be explicitly nulled:
 					// If updates.appId is undefined, it means "don't change appId", so use baseRevisionData.appId.
 					// If updates.appId is provided (even if null), use it (mapping undefined within updates to null for DB).
-					appId: updates.appId === undefined ? baseRevisionData.appId : updates.appId ?? null,
-					parentId: updates.parentId === undefined ? baseRevisionData.parentId : updates.parentId ?? null,
+					appId: updates.appId === undefined ? baseRevisionData.appId : (updates.appId ?? null),
+					parentId: updates.parentId === undefined ? baseRevisionData.parentId : (updates.parentId ?? null),
 					tags: updates.tags ?? baseRevisionData.tags,
 					messages: updates.messages ?? baseRevisionData.messages,
 					options: updates.options ?? baseRevisionData.options,
@@ -272,8 +267,8 @@ export class FirebasePromptService implements PromptsService {
 					// createdAt remains the same as baseRevisionData.createdAt (original creation time of this revision)
 					// Apply updates
 					name: updates.name ?? baseRevisionData.name,
-					appId: updates.appId === undefined ? baseRevisionData.appId : updates.appId ?? null,
-					parentId: updates.parentId === undefined ? baseRevisionData.parentId : updates.parentId ?? null,
+					appId: updates.appId === undefined ? baseRevisionData.appId : (updates.appId ?? null),
+					parentId: updates.parentId === undefined ? baseRevisionData.parentId : (updates.parentId ?? null),
 					tags: updates.tags ?? baseRevisionData.tags,
 					messages: updates.messages ?? baseRevisionData.messages,
 					options: updates.options ?? baseRevisionData.options,
@@ -282,7 +277,6 @@ export class FirebasePromptService implements PromptsService {
 				updatedRevisionDocData.promptId = promptId; // or baseRevisionData.promptId
 				updatedRevisionDocData.userId = userId; // or baseRevisionData.userId
 				updatedRevisionDocData.revisionId = targetRevisionId; // or baseRevisionData.revisionId
-
 
 				transaction.set(targetRevisionRef, updatedRevisionDocData); // Overwrite the revision document with merged data
 				transaction.update(promptGroupRef, {
