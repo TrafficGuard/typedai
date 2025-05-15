@@ -37,6 +37,7 @@
       "#model/*": ["./src/model/*"],
       "#modules/*": ["./src/modules/*"],
       "#o11y/*": ["./src/o11y/*"],
+      "#prompts/*": ["./src/prompts/*"],
       "#services/*": ["./src/services/*"],
       "#shared/*": ["./shared/*"],
       "#slack/*": ["./src/modules/slack/*"],

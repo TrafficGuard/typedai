@@ -30,6 +30,15 @@ for (let i = 2; i <= 9; i++) {
 }
 let geminiKeyIndex = 0;
 
+const GCLOUD_PROJECTS: string[] = [];
+if (process.env.GCLOUD_PROJECT) GCLOUD_PROJECTS.push(process.env.GCLOUD_PROJECT);
+for (let i = 2; i <= 9; i++) {
+	const key = process.env[`GCLOUD_PROJECT_${i}`];
+	if (key) GCLOUD_PROJECTS.push(key);
+	else break;
+}
+let gcloudProjectIndex = 0;
+
 @funcClass(__filename)
 export class AiderCodeEditor {
 	/**
@@ -68,12 +77,14 @@ export class AiderCodeEditor {
 			modelArg = '--model gemini/gemini-2.5-pro-exp-03-25';
 			span.setAttribute('model', 'gemini 2.5 Pro');
 			env = { GEMINI_API_KEY: key };
-		} else if (process.env.GCLOUD_PROJECT) {
+		} else if (GCLOUD_PROJECTS.length) {
 			//  && process.env.GCLOUD_CLAUDE_REGION
+			const gcloudProject = GCLOUD_PROJECTS[gcloudProjectIndex];
+			if (++gcloudProjectIndex > GCLOUD_PROJECTS.length) gcloudProjectIndex = 0;
 			llm = vertexGemini_2_5_Pro();
 			modelArg = `--model vertex_ai/${llm.getModel()}`;
 			span.setAttribute('model', llm.getModel());
-			env = { VERTEXAI_PROJECT: process.env.GCLOUD_PROJECT, VERTEXAI_LOCATION: process.env.GCLOUD_REGION };
+			env = { VERTEXAI_PROJECT: gcloudProject, VERTEXAI_LOCATION: process.env.GCLOUD_REGION };
 		} else if (anthropicKey) {
 			modelArg = '--sonnet';
 			env = { ANTHROPIC_API_KEY: anthropicKey };

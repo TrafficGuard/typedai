@@ -71,8 +71,8 @@ export async function generateRepositoryMaps(projectInfos: ProjectInfo[]): Promi
 	const fss = getFileSystem();
 	const fileSystemTree = await fss.getFileSystemTree();
 
-	const folderStructure = await buildFolderStructure(fss.getWorkingDirectory(), fss);
 
+	// const folderStructure = await buildFolderStructure(fss.getWorkingDirectory(), fss);
 	const folderSystemTreeWithSummaries = await generateFolderTreeWithSummaries(summaries);
 	const fileSystemTreeWithFolderSummaries = await generateFileSystemTreeWithSummaries(summaries, false);
 	const fileSystemTreeWithFileSummaries = await generateFileSystemTreeWithSummaries(summaries, true);

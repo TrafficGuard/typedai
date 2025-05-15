@@ -1,8 +1,6 @@
 import { inMemoryApplicationContext } from '#modules/memory/inMemoryApplicationContext';
 import { logger } from '#o11y/logger';
 import type { ApplicationContext } from './applicationTypes';
-import { FirebasePromptService } from '../prompts/firebasePromptService';
-import { InMemoryPromptService } from '../prompts/inMemoryPromptService';
 
 export let applicationContext: ApplicationContext;
 
@@ -33,7 +31,6 @@ export async function initFirestoreApplicationContext(): Promise<ApplicationCont
 	logger.info('Initializing Firestore persistence');
 	const firestoreModule = await import('../modules/firestore/firestoreModule.cjs');
 	applicationContext = firestoreModule.firestoreApplicationContext();
-	applicationContext.promptsService = new FirebasePromptService();
 	await applicationContext.userService.ensureSingleUser();
 	return applicationContext;
 }
@@ -41,7 +38,6 @@ export async function initFirestoreApplicationContext(): Promise<ApplicationCont
 export function initInMemoryApplicationContext(): ApplicationContext {
 	// if (applicationContext) throw new Error('Application context already initialized');
 	applicationContext = inMemoryApplicationContext();
-	applicationContext.promptsService = new InMemoryPromptService();
 	applicationContext.userService.ensureSingleUser().catch();
 	return applicationContext;
 }

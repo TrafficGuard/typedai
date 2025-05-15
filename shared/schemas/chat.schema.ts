@@ -1,18 +1,8 @@
-import { Type, type Static } from '@sinclair/typebox';
-import type { Chat, ChatPreview, ChatList } from '#shared/model/chat.model';
-import {
-	LlmMessageSchema,
-	UserContentSchema,
-	GenerateOptionsSchema
-} from './llm.schema';
-import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
+import {type Static, Type} from '@sinclair/typebox';
+import type {Chat, ChatList, ChatPreview} from '#shared/model/chat.model';
+import {GenerateOptionsSchema, LlmMessagesSchema, LlmMessagesSchemaModel, UserContentSchema} from './llm.schema';
+import type {AreTypesFullyCompatible} from '../utils/type-compatibility';
 import {ChangePropertyType} from "#shared/typeUtils";
-import { ApiNullResponseSchema } from '#shared/schemas/common.schema'; // Ensure ApiNullResponseSchema is imported
-
-const LlmMessagesSchema = Type.Array(LlmMessageSchema)
-
-export type LlmMessageSchemaModel = Static<typeof LlmMessageSchema>
-export type LlmMessagesSchemaModel = Static<typeof LlmMessagesSchema>
 
 // Chat Model Schemas
 export const ChatModelSchema = Type.Object({

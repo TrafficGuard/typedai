@@ -1,9 +1,9 @@
 import { FieldValue, Firestore, type Timestamp, type WriteBatch } from '@google-cloud/firestore';
 import { logger } from '#o11y/logger';
+import type { PromptsService } from '#prompts/promptsService';
 import type { GenerateOptions, LlmMessage } from '#shared/model/llm.model';
 import type { Prompt, PromptPreview } from '#shared/model/prompts.model';
 import { envVar } from '#utils/env-var';
-import type { PromptsService } from './promptService';
 
 const PROMPTS_COLLECTION = 'Prompts';
 const REVISIONS_SUBCOLLECTION = 'Revisions';

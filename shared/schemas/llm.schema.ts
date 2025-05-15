@@ -1,13 +1,14 @@
-import { Type, type Static } from '@sinclair/typebox';
+import {type Static, Type} from '@sinclair/typebox';
 import type {
+    FilePartExt,
     GenerateOptions,
     GenerateTextOptions,
-    TextPartExt,
     GenerationStats,
     ImagePartExt,
-    FilePartExt, UserContentExt,
+    TextPartExt,
+    UserContentExt,
 } from '#shared/model/llm.model';
-import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
+import type {AreTypesFullyCompatible} from '../utils/type-compatibility';
 import {ChangePropertyType} from '../typeUtils';
 
 
@@ -191,3 +192,8 @@ export const GenerateTextOptionsSchema = Type.Intersect(
     { $id: 'GenerateTextOptions' }
 );
 const _GenerateTextOptionsCheck: AreTypesFullyCompatible<GenerateTextOptions, Static<typeof GenerateTextOptionsSchema>> = true;
+
+export const LlmMessagesSchema = Type.Array(LlmMessageSchema)
+
+export type LlmMessageSchemaModel = Static<typeof LlmMessageSchema>
+export type LlmMessagesSchemaModel = Static<typeof LlmMessagesSchema>

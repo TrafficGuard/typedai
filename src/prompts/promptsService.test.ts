@@ -6,7 +6,7 @@ import type { Prompt } from '#shared/model/prompts.model';
 import type { User } from '#shared/model/user.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { runWithUser } from '#user/userContext';
-import type { PromptsService } from './promptService';
+import type { PromptsService } from './promptsService';
 
 // Test User Definitions
 export const TEST_USER_ID = SINGLE_USER_ID; // Using SINGLE_USER_ID for consistency

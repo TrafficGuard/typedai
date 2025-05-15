@@ -2,11 +2,11 @@ import type { AgentContextService } from '#agent/agentContextService/agentContex
 import type { ChatService } from '#chat/chatService';
 import type { TypeBoxFastifyInstance } from '#fastify/fastifyApp';
 import type { LlmCallService } from '#llm/llmCallService/llmCallService';
+import type { PromptsService } from '#prompts/promptsService';
 import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
 import type { UserService } from '#user/userService';
 import type { VibeRepository } from '#vibe/vibeRepository';
 import type { FunctionCacheService } from '../cache/functionCacheService';
-import type { PromptsService } from '../prompts/promptService';
 
 export interface ApplicationContext {
 	agentStateService: AgentContextService;

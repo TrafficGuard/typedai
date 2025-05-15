@@ -4,10 +4,9 @@ import { InMemoryChatService } from '#modules/memory/inMemoryChatService';
 import { InMemoryCodeReviewService } from '#modules/memory/inMemoryCodeReviewService';
 import { InMemoryFunctionCacheService } from '#modules/memory/inMemoryFunctionCacheService';
 import { InMemoryLlmCallService } from '#modules/memory/inMemoryLlmCallService';
+import { InMemoryPromptService } from '#modules/memory/inMemoryPromptService';
 import { InMemoryUserService } from '#modules/memory/inMemoryUserService';
 import { InMemoryVibeRepository } from '#modules/memory/inMemoryVibeRepository';
-import { InMemoryPromptService } from '../../prompts/inMemoryPromptService';
-import type { PromptsService } from '../../prompts/promptService';
 
 export function inMemoryApplicationContext(): ApplicationContext {
 	return {

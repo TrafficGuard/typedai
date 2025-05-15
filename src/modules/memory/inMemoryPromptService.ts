@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import type { PromptsService } from '#prompts/promptsService';
 import type { Prompt, PromptPreview } from '#shared/model/prompts.model';
-import type { PromptsService } from './promptService';
 
 export class InMemoryPromptService implements PromptsService {
 	// Storage for prompts: Map<promptGroupId, PromptRevisions[]>

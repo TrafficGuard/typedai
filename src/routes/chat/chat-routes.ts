@@ -8,14 +8,8 @@ import { logger } from '#o11y/logger';
 import { CHAT_API } from '#shared/api/chat.api';
 import type { Chat, ChatList } from '#shared/model/chat.model';
 import type { LLM, LlmMessage } from '#shared/model/llm.model';
-import type {
-	ChatMessageSendSchema,
-	ChatParamsSchema,
-	ChatSchemaModel,
-	ChatUpdateDetailsSchema,
-	LlmMessageSchemaModel,
-	RegenerateMessageSchema,
-} from '#shared/schemas/chat.schema';
+import type { ChatMessageSendSchema, ChatParamsSchema, ChatSchemaModel, ChatUpdateDetailsSchema, RegenerateMessageSchema } from '#shared/schemas/chat.schema';
+import type { LlmMessageSchemaModel } from '#shared/schemas/llm.schema';
 import { currentUser } from '#user/userContext';
 
 export async function chatRoutes(fastify: AppFastifyInstance) {
