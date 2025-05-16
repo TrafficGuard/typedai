@@ -2,7 +2,7 @@ import { cerebrasQwen3_32b } from '#llm/services/cerebras';
 import { vertexGemini_2_5_Flash } from '#llm/services/vertexai';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
-import { type GenerateTextOptions, type LLM, type LlmMessage, messageContentIfTextOnly } from '#shared/model/llm.model';
+import { type GenerateTextOptions, type LLM, type LlmMessage, messageContentIfTextOnly, messageText } from '#shared/model/llm.model';
 import { BaseLLM } from '../base-llm';
 
 /**
@@ -33,6 +33,11 @@ export class FastMediumLLM extends BaseLLM {
 
 	protected supportsGenerateTextFromMessages(): boolean {
 		return true;
+	}
+
+	protected async generateTextFromMessages(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
+		const message = await this._generateMessage(llmMessages, opts);
+		return messageText(message);
 	}
 
 	async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
