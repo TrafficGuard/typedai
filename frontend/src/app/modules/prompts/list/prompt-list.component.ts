@@ -10,6 +10,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { filter, finalize } from 'rxjs/operators';
 import { PromptPreview } from '#shared/model/prompts.model';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
+import { PROMPTS_ROUTES } from '../prompt.paths';
 
 @Component({
   selector: 'app-prompt-list',
@@ -36,6 +37,8 @@ export class PromptListComponent implements OnInit {
   prompts = this.promptsService.prompts;
   isLoading = signal(true);
   isDeletingSignal = signal<string | null>(null); // Tracks ID of prompt being deleted
+
+  public readonly newPromptPath = PROMPTS_ROUTES.new();
 
   ngOnInit(): void {
     this.promptsService.loadPrompts().pipe(
@@ -79,8 +82,6 @@ export class PromptListComponent implements OnInit {
   }
 
   editPrompt(promptId: string): void {
-      const route = `/ui/prompts/${promptId}/edit`
-      console.log(`edit click ${route}...`);
-      this.router.navigate([route]).catch(console.error);
+      this.router.navigate(PROMPTS_ROUTES.edit(promptId)).catch(console.error);
   }
 }

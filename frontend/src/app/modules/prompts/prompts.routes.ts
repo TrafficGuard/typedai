@@ -10,6 +10,7 @@ import { PromptsService } from './prompts.service';
 import type { Prompt } from '#shared/model/prompts.model';
 import type { PromptSchemaModel } from '#shared/schemas/prompts.schema';
 import { PromptDetailComponent } from './detail/prompt-detail.component';
+import { PROMPTS_ROUTES } from './prompt.paths';
 
 
 export const promptResolver: ResolveFn<Prompt | null> = (
@@ -38,22 +39,22 @@ const promptRoutes: Routes = [
     component: PromptsComponent,
     children: [
       {
-        path: '',
+        path: PROMPTS_ROUTES.PATH_LIST, // This is ''
         component: PromptListComponent,
         pathMatch: 'full'
       },
       {
-        path: 'new',
+        path: PROMPTS_ROUTES.PATH_NEW,
         component: PromptFormComponent,
         resolve: { prompt: promptResolver }
       },
       {
-        path: ':promptId/edit',
+        path: PROMPTS_ROUTES.PATH_EDIT, // This is ':promptId/edit'
         component: PromptFormComponent,
         resolve: { prompt: promptResolver }
       },
       { // New route for viewing details
-        path: ':promptId',
+        path: PROMPTS_ROUTES.PATH_DETAIL, // This is ':promptId'
         component: PromptDetailComponent,
         resolve: { prompt: promptResolver }
       }
