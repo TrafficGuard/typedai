@@ -14,7 +14,7 @@ import type {
 } from '#shared/schemas/chat.schema';
 
 import type { LlmMessage as ApiLlmMessage } from '#shared/model/llm.model';
-import { UserContentExt, TextPart, ImagePartExt, FilePartExt, GenerateOptions } from '#shared/model/llm.model';
+import { UserContentExt, TextPart, ImagePartExt, FilePartExt, CallSettings } from '#shared/model/llm.model';
 
 import { callApiRoute } from 'app/core/api-route';
 import {
@@ -152,7 +152,7 @@ export class ChatServiceClient {
         );
     }
 
-    createChat(message: string, llmId: string, options?: GenerateOptions, attachments?: Attachment[]): Observable<Chat> {
+    createChat(message: string, llmId: string, options?: CallSettings, attachments?: Attachment[]): Observable<Chat> {
         // Need to wrap the async call in 'from' and use switchMap
         return from(prepareUserContentPayload(message, attachments)).pipe(
             switchMap(userContent => {
@@ -263,7 +263,7 @@ export class ChatServiceClient {
         this._chat.set(null);
     }
 
-    sendMessage(chatId: string, message: string, llmId: string, options?: GenerateOptions, attachments?: Attachment[]): Observable<void> {
+    sendMessage(chatId: string, message: string, llmId: string, options?: CallSettings, attachments?: Attachment[]): Observable<void> {
         // Need to wrap the async call in 'from' and use switchMap
         return from(prepareUserContentPayload(message, attachments)).pipe(
             switchMap(userContent => {
@@ -333,7 +333,7 @@ export class ChatServiceClient {
         );
     }
 
-    regenerateMessage(chatId: string, message: string, llmId: string, historyTruncateIndex: number, options?: GenerateOptions): Observable<void> {
+    regenerateMessage(chatId: string, message: string, llmId: string, historyTruncateIndex: number, options?: CallSettings): Observable<void> {
         if (!chatId?.trim() || !llmId?.trim()) {
             return throwError(() => new Error('Invalid parameters for regeneration'));
         }
@@ -396,7 +396,7 @@ export class ChatServiceClient {
         );
     }
 
-    sendAudioMessage(chatId: string, llmId: string, audio: Blob, options?: GenerateOptions): Observable<void> {
+    sendAudioMessage(chatId: string, llmId: string, audio: Blob, options?: CallSettings): Observable<void> {
         // Need to wrap the async call in 'from' and use switchMap
         return from(prepareUserContentPayload('', undefined, audio)).pipe( // No text, just audio
             switchMap(userContent => {

@@ -1,7 +1,7 @@
 import {type Static, Type} from '@sinclair/typebox';
 import type {
     FilePartExt,
-    GenerateOptions,
+    CallSettings,
     GenerateTextOptions,
     GenerationStats,
     ImagePartExt,
@@ -165,7 +165,7 @@ export const LlmMessageSchema = Type.Union([
 // const _LlmMessageCheck: AreTypesFullyCompatible<LlmMessage, Static<typeof LlmMessageSchema>> = true;
 
 // GenerateOptions Schema
-export const GenerateOptionsSchema = Type.Object({
+export const CallSettingsSchema = Type.Object({
     temperature: Type.Optional(Type.Number()),
     topP: Type.Optional(Type.Number()),
     topK: Type.Optional(Type.Number()),
@@ -174,8 +174,8 @@ export const GenerateOptionsSchema = Type.Object({
     stopSequences: Type.Optional(Type.Array(Type.String())),
     maxRetries: Type.Optional(Type.Number()),
     maxOutputTokens: Type.Optional(Type.Number()),
-}, { $id: 'GenerateOptions' });
-const _GenerateOptionsCheck: AreTypesFullyCompatible<GenerateOptions, Static<typeof GenerateOptionsSchema>> = true;
+}, { $id: 'CallSettings' });
+const _CallSettingsCheck: AreTypesFullyCompatible<CallSettings, Static<typeof CallSettingsSchema>> = true;
 
 // Schema for properties specific to GenerateTextOptions
 const GenerateTextOptionsSpecificSchema = Type.Object({
@@ -186,7 +186,7 @@ const GenerateTextOptionsSpecificSchema = Type.Object({
 
 export const GenerateTextOptionsSchema = Type.Intersect(
     [
-        GenerateOptionsSchema,
+        CallSettingsSchema,
         GenerateTextOptionsSpecificSchema
     ],
     { $id: 'GenerateTextOptions' }

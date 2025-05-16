@@ -29,7 +29,7 @@ const mockPrompt: Prompt = {
     { role: 'user', content: 'User message' },
     { role: 'assistant', content: 'Assistant response' },
   ],
-  options: { temperature: 0.7, maxTokens: 100 },
+  settings: { temperature: 0.7, maxTokens: 100 },
   updatedAt: Date.now(),
 };
 
@@ -215,7 +215,7 @@ describe('PromptDetailComponent', () => {
 
         expect(mockFuseConfirmationService.open).toHaveBeenCalled();
         expect(promptsService.deletePrompt).toHaveBeenCalledWith(mockPrompt.id);
-        
+
         tick(); // For deletePrompt observable and subsequent navigation
         expect(router.navigate).toHaveBeenCalledWith(['/prompts']);
     }));
@@ -241,9 +241,9 @@ describe('PromptDetailComponent', () => {
 
         component.deleteCurrentPrompt();
         tick(); // for afterClosed
-        
+
         expect(component.isDeleting()).toBe(true);
-        
+
         try {
             tick(); // for deletePrompt observable
         } catch (e) {

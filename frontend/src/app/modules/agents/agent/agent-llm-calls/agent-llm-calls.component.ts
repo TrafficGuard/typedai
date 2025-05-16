@@ -107,19 +107,14 @@ export class AgentLlmCallsComponent implements OnInit {
     openInPromptStudio(call: LlmCall): void {
         // Use Partial<AppPrompt> for clarity, as we are not creating a full Prompt object here.
         const promptData: Partial<AppPrompt> = {
-            // Do NOT set 'id' here, as this is for a NEW prompt.
-            // The backend will assign a new ID upon creation.
-            name: `From LLM Call - ${call.description || call.id.substring(0, 8)}`, // Suggest a descriptive name
-            messages: call.messages as LlmMessage[], // Ensure LlmMessage structure is compatible
-            settings: { // Be explicit about which settings are passed
+            name: call.description || call.id,
+            appId: call.id,
+            messages: call.messages as LlmMessage[],
+            settings: {
                 llmId: call.llmId,
-                temperature: call.settings?.temperature,
-                maxOutputTokens: call.settings?.maxOutputTokens,
-                // Add other relevant CallSettings properties if they exist on call.settings
-                // and are valid for Prompt settings.
+                ... call.settings,
             },
-            tags: [`llm-call-source:${call.id}`] // Make the tag more specific
-            // userId and revisionId are typically handled by the backend or default logic for new prompts.
+            tags: [call.id]
         };
 
         console.log('AgentLlmCallsComponent: Navigating to Prompt Studio with state (llmCallData):', promptData);

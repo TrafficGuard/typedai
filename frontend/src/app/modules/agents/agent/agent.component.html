@@ -6,23 +6,33 @@
         </mat-tab>
 
         <mat-tab label="Memory">
-            <agent-memory [agentDetails]="agentDetails"></agent-memory>
+            @defer {
+                <agent-memory [agentDetails]="agentDetails"></agent-memory>
+            }
         </mat-tab>
 
         <mat-tab label="Function Calls">
-            <agent-function-calls [agentDetails]="agentDetails"></agent-function-calls>
+            @defer {
+                <agent-function-calls [agentDetails]="agentDetails"></agent-function-calls>
+            }
         </mat-tab>
 
         <mat-tab label="Iterations" *ngIf="agentDetails?.type === 'autonomous'">
-            <agent-iterations [agentId]="agentId"></agent-iterations>
+            @defer {
+                <agent-iterations [agentId]="agentId"></agent-iterations>
+            }
         </mat-tab>
 
         <mat-tab label="Tool State">
-            <agent-tool-state [agentDetails]="agentDetails"></agent-tool-state>
+            @defer {
+                <agent-tool-state [agentDetails]="agentDetails"></agent-tool-state>
+            }
         </mat-tab>
 
         <mat-tab label="LLM Calls">
-            <agent-llm-calls [agentId]="agentId"></agent-llm-calls>
+            @defer {
+                <agent-llm-calls [agentId]="agentId"></agent-llm-calls>
+            }
         </mat-tab>
 
     </mat-tab-group>

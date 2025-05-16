@@ -38,7 +38,7 @@ const getSamplePromptData = (nameSuffix = ''): Omit<Prompt, 'id' | 'revisionId' 
 	appId: undefined,
 	tags: ['test', `tag-${nameSuffix}`],
 	messages: [system('System message content'), user('User message content')],
-	options: { temperature: 0.5, maxOutputTokens: 100, topK: 40 },
+	settings: { temperature: 0.5, maxOutputTokens: 100, topK: 40 },
 });
 
 export function runPromptsServiceTests(createService: () => PromptsService, beforeEachHook: () => Promise<void> | void = () => {}) {
@@ -68,7 +68,7 @@ export function runPromptsServiceTests(createService: () => PromptsService, befo
 					expect(createdPrompt.name).to.equal(sampleData.name);
 					expect(createdPrompt.tags).to.deep.equal(sampleData.tags);
 					expect(createdPrompt.messages).to.deep.equal(sampleData.messages);
-					expect(createdPrompt.options).to.deep.equal(sampleData.options);
+					expect(createdPrompt.settings).to.deep.equal(sampleData.settings);
 					expect(createdPrompt.parentId).to.be.undefined;
 					expect(createdPrompt.appId).to.be.undefined;
 				}),
@@ -164,7 +164,7 @@ export function runPromptsServiceTests(createService: () => PromptsService, befo
 					expect(updatedPrompt.tags).to.deep.equal(['new-tag']);
 					// Ensure other fields are preserved
 					expect(updatedPrompt.messages).to.deep.equal(initialData.messages);
-					expect(updatedPrompt.options).to.deep.equal(initialData.options);
+					expect(updatedPrompt.settings).to.deep.equal(initialData.settings);
 				}),
 			);
 
@@ -222,7 +222,7 @@ export function runPromptsServiceTests(createService: () => PromptsService, befo
 						expect(preview.id).to.be.a('string');
 						expect(preview.name).to.be.a('string');
 						expect(preview.revisionId).to.be.a('number'); // Should be latest revision
-						expect(preview.options).to.be.an('object');
+						expect(preview.settings).to.be.an('object');
 						expect(preview.tags).to.be.an('array');
 
 						// Check if it's one of the created prompts

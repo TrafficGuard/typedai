@@ -102,13 +102,13 @@
                                             <mat-panel-title  class="!text-sm !font-semibold">
                                                 {{ msgGroup.get('role')?.value | titlecase }}
                                                 <span *ngIf="!messagePanel.expanded"  [@summaryFade]>
-                                            <span *ngIf="msgGroup.get('content')?.value" class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2 truncate">
-                                                - {{ (msgGroup.get('content')?.value || '') | slice:0:50 }}{{ (msgGroup.get('content')?.value?.length || 0) > 50 ? '...' : '' }}
-                                            </span>
-                                            <span *ngIf="!msgGroup.get('content')?.value" class="text-sm font-normal text-red-500 dark:text-red-400 ml-2 italic">
-                                                - No content
-                                            </span>
-                                            </span>
+                                                    <span *ngIf="msgGroup.get('content')?.value" class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2 truncate">
+                                                        - {{ (msgGroup.get('content')?.value || '') | slice:0:50 }}{{ (msgGroup.get('content')?.value?.length || 0) > 50 ? '...' : '' }}
+                                                    </span>
+                                                    <span *ngIf="!msgGroup.get('content')?.value" class="text-sm font-normal text-red-500 dark:text-red-400 ml-2 italic">
+                                                        - No content
+                                                    </span>
+                                                </span>
                                         </mat-panel-title>
                                         </mat-expansion-panel-header>
 

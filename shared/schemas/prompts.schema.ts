@@ -1,13 +1,13 @@
 import {type Static, Type} from '@sinclair/typebox';
 import type {Prompt, PromptPreview} from '../model/prompts.model';
-import {GenerateOptionsSchema, LlmMessagesSchema, type LlmMessagesSchemaModel} from './llm.schema';
+import {CallSettingsSchema, LlmMessagesSchema, type LlmMessagesSchemaModel} from './llm.schema';
 import type {AreTypesFullyCompatible} from '../utils/type-compatibility';
 import type {ChangePropertyType} from '../typeUtils';
 import {ApiNullResponseSchema} from './common.schema'; // As per requirement, though not directly used in these schemas
 
 // --- Prompt Options Schema ---
 const PromptOptionsSchema = Type.Intersect([
-    GenerateOptionsSchema,
+    CallSettingsSchema,
     Type.Object({
         llmId: Type.Optional(Type.String())
     })
@@ -23,7 +23,7 @@ export const PromptSchema = Type.Object({
     appId: Type.Optional(Type.String()),
     tags: Type.Array(Type.String()),
     messages: LlmMessagesSchema,
-    options: PromptOptionsSchema, // Use the new PromptOptionsSchema
+    settings: PromptOptionsSchema,
 }, { $id: 'Prompt' });
 
 // DO NOT CHANGE THIS PART ----
@@ -33,7 +33,7 @@ const _PromptCheck: AreTypesFullyCompatible<PromptHack, Static<typeof PromptSche
 // -----
 
 // --- PromptPreview Schema ---
-const PromptPreviewProps = ['id', 'userId', 'parentId', 'revisionId', 'name', 'appId', 'tags', 'options'] as const;
+const PromptPreviewProps = ['id', 'userId', 'parentId', 'revisionId', 'name', 'appId', 'tags', 'settings'] as const;
 export const PromptPreviewSchema = Type.Pick(PromptSchema, PromptPreviewProps, { $id: 'PromptPreview' });
 
 const _PromptPreviewCheck: AreTypesFullyCompatible<PromptPreview, Static<typeof PromptPreviewSchema>> = true;
