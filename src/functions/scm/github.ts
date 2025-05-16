@@ -17,6 +17,28 @@ export interface GitHubConfig {
 	token: string;
 }
 
+export interface GitHubIssue {
+	id: number;
+	number: number; // Issue number in the repository
+	url: string; // HTML URL to the issue
+	apiUrl: string; // API URL for the issue
+	title: string;
+	state: string; // e.g., "open", "closed"
+}
+
+export interface GitHubIssueComment {
+	id: number;
+	html_url: string; // HTML URL to the comment
+	body: string;
+	user: {
+		// Basic user information
+		login: string;
+		id: number;
+	} | null; // User can be null for some system-generated comments
+	created_at: string;
+	updated_at: string;
+}
+
 /**
  *
  */
@@ -74,6 +96,99 @@ export class GitHub extends AbstractSCM implements SourceControlManagement {
 		const result = await execCommand('npm run test:integration');
 		failOnError('Test failed', result);
 		return result.stdout;
+	}
+
+	/**
+	 * Creates an issue in a GitHub repository.
+	 * @param projectPathWithNamespace The full path of the project, e.g., 'owner/repo'.
+	 * @param title The title of the issue.
+	 * @param body Optional description for the issue.
+	 * @param labels Optional array of labels to add to the issue.
+	 * @param assignees Optional array of GitHub usernames to assign to the issue.
+	 * @returns A promise that resolves to the created GitHubIssue object.
+	 */
+	@func()
+	async createIssue(projectPathWithNamespace: string, title: string, body?: string, labels?: string[], assignees?: string[]): Promise<GitHubIssue> {
+		try {
+			const [owner, repo] = extractOwnerProject(projectPathWithNamespace);
+
+			const requestPayload: {
+				title: string;
+				body?: string;
+				labels?: string[];
+				assignees?: string[];
+			} = { title };
+
+			if (body) {
+				requestPayload.body = body;
+			}
+			if (labels && labels.length > 0) {
+				requestPayload.labels = labels;
+			}
+			if (assignees && assignees.length > 0) {
+				requestPayload.assignees = assignees;
+			}
+
+			const response = await this.request()('POST /repos/{owner}/{repo}/issues', {
+				owner,
+				repo,
+				...requestPayload,
+				headers: {
+					'X-GitHub-Api-Version': '2022-11-28',
+				},
+			});
+
+			return {
+				id: response.data.id,
+				number: response.data.number,
+				url: response.data.html_url,
+				apiUrl: response.data.url,
+				title: response.data.title,
+				state: response.data.state,
+			};
+		} catch (error: any) {
+			logger.error(error, `Failed to create issue for ${projectPathWithNamespace} with title "${title}"`);
+			throw new Error(`Failed to create GitHub issue in '${projectPathWithNamespace}': ${error.message || error}`);
+		}
+	}
+
+	/**
+	 * Posts a comment on a GitHub issue.
+	 * @param projectPathWithNamespace The full path of the project, e.g., 'owner/repo'.
+	 * @param issueNumber The number of the issue to comment on.
+	 * @param body The content of the comment.
+	 * @returns A promise that resolves to the created GitHubIssueComment object.
+	 */
+	@func()
+	async postCommentOnIssue(projectPathWithNamespace: string, issueNumber: number, body: string): Promise<GitHubIssueComment> {
+		try {
+			const [owner, repo] = extractOwnerProject(projectPathWithNamespace);
+
+			const requestPayload = { body };
+
+			const response = await this.request()('POST /repos/{owner}/{repo}/issues/{issue_number}/comments', {
+				owner,
+				repo,
+				issue_number: issueNumber,
+				...requestPayload,
+				headers: {
+					'X-GitHub-Api-Version': '2022-11-28',
+					Accept: 'application/vnd.github.v3+json',
+				},
+			});
+
+			return {
+				id: response.data.id,
+				html_url: response.data.html_url,
+				body: response.data.body,
+				user: response.data.user ? { login: response.data.user.login, id: response.data.user.id } : null,
+				created_at: response.data.created_at,
+				updated_at: response.data.updated_at,
+			};
+		} catch (error: any) {
+			logger.error(error, `Failed to post comment on issue #${issueNumber} in ${projectPathWithNamespace}`);
+			throw new Error(`Failed to post GitHub comment on issue #${issueNumber} in '${projectPathWithNamespace}': ${error.message || error}`);
+		}
 	}
 
 	/**
@@ -280,6 +395,40 @@ export class GitHub extends AbstractSCM implements SourceControlManagement {
 				throw new Error(`GitHub project ${idForError} not found or access denied.`);
 			}
 			throw new Error(`Failed to get branches for ${idForError}: ${error.message}`);
+		}
+	}
+
+	/**
+	 * Runs an E2E test for creating an issue in a GitHub repository.
+	 * This method will attempt to create a real issue in a pre-defined test repository.
+	 * @returns A promise that resolves to the created GitHubIssue object.
+	 */
+	@func()
+	async testCreateIssueE2E(): Promise<GitHubIssue> {
+		const projectPathWithNamespace = 'trafficguard/test';
+		const title = 'E2E Test: New Issue via Agent';
+		const body = 'This issue was created by an automated E2E test. If you see this, the test was successful.';
+		const labels = ['e2e-test', 'automated'];
+
+		try {
+			logger.info(`Attempting to create E2E test issue in repository '${projectPathWithNamespace}' with title '${title}'`);
+			const createdIssue = await this.createIssue(projectPathWithNamespace, title, body, labels);
+
+			logger.info(
+				`Successfully created E2E test issue: #${createdIssue.number} - '${createdIssue.title}' in '${projectPathWithNamespace}'. URL: ${createdIssue.url}`,
+			);
+
+			if (!createdIssue || createdIssue.title !== title || createdIssue.state !== 'open') {
+				const errorMsg = `E2E Test Failed: Issue creation result did not match expectations. Result: ${JSON.stringify(createdIssue)}`;
+				logger.error(errorMsg);
+				throw new Error(errorMsg);
+			}
+			logger.info('E2E Test: createIssue verification passed (title and state).');
+
+			return createdIssue;
+		} catch (error: any) {
+			logger.error(error, `E2E test 'testCreateIssueE2E' failed for project '${projectPathWithNamespace}'`);
+			throw new Error(`E2E test 'testCreateIssueE2E' failed: ${error.message || error}`);
 		}
 	}
 
