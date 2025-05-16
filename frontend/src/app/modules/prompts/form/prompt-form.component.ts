@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, Location, TitleCasePipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, FormControl, FormsModule } from '@angular/forms'; // Add FormsModule
+import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, FormControl } from '@angular/forms'; // Add FormsModule
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCardModule } from '@angular/material/card';
@@ -35,7 +35,7 @@ import { takeUntil, finalize, tap, filter } from 'rxjs/operators';
     CommonModule,
     RouterModule,
     ReactiveFormsModule,
-    FormsModule, // Add FormsModule here
+    // FormsModule, // Add FormsModule here
     MatButtonModule,
     MatButtonToggleModule,
     MatCardModule,
@@ -88,9 +88,10 @@ export class PromptFormComponent implements OnInit, OnDestroy {
     this.promptForm = this.fb.group({
       name: ['', Validators.required],
       tags: this.fb.array([]),
-      selectedModel:  ['', Validators.required],
+      // selectedModel:  ['', Validators.required], // Moved to options
       messages: this.fb.array([], Validators.minLength(1)),
       options: this.fb.group({
+        selectedModel: [this.availableModels.length > 0 ? this.availableModels[0] : '', Validators.required],
         temperature: [1.0, [Validators.required, Validators.min(0), Validators.max(2)]],
         maxTokens: [2048, [Validators.required, Validators.min(1), Validators.max(8192)]],
       }),
@@ -162,10 +163,20 @@ export class PromptFormComponent implements OnInit, OnDestroy {
   }
 
   populateForm(prompt: Prompt): void {
+    const defaultOptions = {
+      selectedModel: this.availableModels.length > 0 ? this.availableModels[0] : '',
+      temperature: 1.0,
+      maxTokens: 2048,
+    };
+
     this.promptForm.patchValue({
       name: prompt.name,
-      options: prompt.options || { temperature: 1.0, maxTokens: 2048 }, // Provide defaults for options
+      // options are handled more specifically below to merge with defaults
     });
+
+    // Explicitly patch options to merge existing prompt.options with defaults for missing fields
+    const optionsToPatch = { ...defaultOptions, ...(prompt.options || {}) };
+    this.promptForm.get('options')?.patchValue(optionsToPatch);
 
     this.tagsFormArray.clear();
     (prompt.tags || []).forEach(tag => this.tagsFormArray.push(this.fb.control(tag)));

@@ -92,7 +92,7 @@
                     <div class="parameter-item">
                     <mat-form-field appearance="outline" class="model-selector">
                         <mat-label>Model</mat-label>
-                        <mat-select formControlName="selectedModel" name="toolbarSelectedModel">
+                        <mat-select formControlName="selectedModel">
                             <mat-option *ngFor="let model of availableModels" [value]="model">{{ model }}</mat-option>
                         </mat-select>
                     </mat-form-field>
