@@ -1,6 +1,6 @@
 import { Component, OnInit, inject, signal, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common'; // Add DatePipe
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { PromptsService } from '../prompts.service';
 import { MatListModule } from '@angular/material/list';
 import { MatButtonModule } from '@angular/material/button';
@@ -32,6 +32,7 @@ export class PromptListComponent implements OnInit {
   private promptsService = inject(PromptsService);
   private confirmationService = inject(FuseConfirmationService);
   private cdr = inject(ChangeDetectorRef);
+  private router = inject(Router);
 
   prompts = this.promptsService.prompts;
   isLoading = signal(true);
@@ -76,5 +77,9 @@ export class PromptListComponent implements OnInit {
             }
         });
     });
+  }
+
+  navigateToEditPrompt(promptId: string): void {
+    this.router.navigate(['/ui', 'prompt', promptId, 'edit']);
   }
 }

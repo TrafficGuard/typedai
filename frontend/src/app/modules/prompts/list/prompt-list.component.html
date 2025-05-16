@@ -29,7 +29,7 @@
         Last Updated: {{ prompt.updatedAt | date:'mediumDate' }} at {{ prompt.updatedAt | date:'shortTime' }}
       </div>
       <div matListItemMeta class="flex items-center gap-1">
-        <button mat-icon-button [routerLink]="['/ui', 'prompt', prompt.id, 'edit']" (click)="$event.stopPropagation()" matTooltip="Edit Prompt">
+        <button mat-icon-button (click)="navigateToEditPrompt(prompt.id); $event.stopPropagation()" matTooltip="Edit Prompt">
           <mat-icon svgIcon="heroicons_outline:pencil-square"></mat-icon>
         </button>
         <button mat-icon-button color="warn" (click)="deletePrompt($event, prompt)" [disabled]="isDeletingSignal() === prompt.id" matTooltip="Delete Prompt" class="ml-1">
