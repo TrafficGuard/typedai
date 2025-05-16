@@ -23,8 +23,15 @@ import { MatSliderModule } from '@angular/material/slider';
 
 import { PromptFormComponent } from './prompt-form.component';
 import { PromptsService } from '../prompts.service';
+import { LlmService, LLM as AppLLM } from '../../agents/services/llm.service';
 import type { Prompt } from '#shared/model/prompts.model';
 import type { PromptSchemaModel } from '#shared/schemas/prompts.schema';
+
+const mockLlms: AppLLM[] = [
+  { id: 'llm-1', name: 'LLM One', isConfigured: true },
+  { id: 'llm-2', name: 'LLM Two', isConfigured: true },
+  { id: 'llm-3', name: 'LLM Three (Not Configured)', isConfigured: false },
+];
 
 const mockPrompt: Prompt = {
   id: 'test-prompt-123',
@@ -36,7 +43,7 @@ const mockPrompt: Prompt = {
     { role: 'user', content: 'Hello there' },
     { role: 'assistant', content: 'Hi user!' }
   ],
-  options: { temperature: 0.7, maxTokens: 100 },
+  options: { temperature: 0.7, maxTokens: 100, selectedModel: 'llm-1' },
   updatedAt: Date.now()
 };
 const mockPromptSchema = mockPrompt as PromptSchemaModel;
@@ -46,6 +53,7 @@ describe('PromptFormComponent', () => {
   let component: PromptFormComponent;
   let fixture: ComponentFixture<PromptFormComponent>;
   let mockPromptsService: jasmine.SpyObj<PromptsService>;
+  let mockLlmService: jasmine.SpyObj<LlmService>;
   let mockRouter: jasmine.SpyObj<Router>;
   let mockLocation: jasmine.SpyObj<Location>;
   let mockActivatedRoute: any;
@@ -59,9 +67,9 @@ describe('PromptFormComponent', () => {
       'getPromptById',
       'clearSelectedPrompt',
     ]);
-    // Mock the selectedPrompt signal if it's directly accessed by the component
-    // For this component, it primarily relies on route.data for initial load.
-    // (mockPromptsService as any).selectedPrompt = signal<Prompt | null>(null);
+
+    mockLlmService = jasmine.createSpyObj('LlmService', ['getLlms', 'clearCache']);
+    mockLlmService.getLlms.and.returnValue(of(mockLlms));
 
 
     mockRouter = jasmine.createSpyObj('Router', ['navigate']);
@@ -88,6 +96,7 @@ describe('PromptFormComponent', () => {
       providers: [
         FormBuilder,
         { provide: PromptsService, useValue: mockPromptsService },
+        { provide: LlmService, useValue: mockLlmService },
         { provide: Router, useValue: mockRouter },
         { provide: Location, useValue: mockLocation },
         { provide: ActivatedRoute, useValue: mockActivatedRoute },
@@ -107,103 +116,106 @@ describe('PromptFormComponent', () => {
   });
 
   describe('New Mode', () => {
-    beforeEach(() => {
+    beforeEach(fakeAsync(() => { // Make beforeEach fakeAsync
       mockActivatedRoute.data = of({ prompt: null });
       mockActivatedRoute.snapshot.paramMap = convertToParamMap({});
-      fixture.detectChanges(); // ngOnInit
-    });
+      fixture.detectChanges(); // ngOnInit -> triggers getLlms
+      tick(); // Complete getLlms
+      fixture.detectChanges(); // Apply LLMs and processRouteData
+    }));
 
-    it('should initialize form for new prompt', fakeAsync(() => {
-      tick(); // Allow microtasks from signal updates in ngOnInit to complete
-      fixture.detectChanges();
+    it('should initialize form for new prompt with default LLM selected', () => {
       expect(component.isEditMode()).toBeFalse();
       expect(component.promptForm).toBeDefined();
       expect(component.promptForm.get('name')?.value).toBe('');
       expect(component.messagesFormArray.length).toBe(1);
       expect(component.messagesFormArray.at(0).get('role')?.value).toBe('user');
+      expect(component.promptForm.get('options.selectedModel')?.value).toBe(mockLlms.find(l => l.isConfigured)?.id); // First configured LLM
       expect(component.isLoading()).toBeFalse();
-    }));
+    });
 
-    it('should call promptsService.clearSelectedPrompt', fakeAsync(() => {
-      tick();
-      fixture.detectChanges();
+    it('should call promptsService.clearSelectedPrompt', () => {
+      // This is called within processRouteData if not in edit mode
       expect(mockPromptsService.clearSelectedPrompt).toHaveBeenCalled();
-    }));
+    });
 
-    it('onSubmit should call promptsService.createPrompt with correct payload', fakeAsync(() => {
-      tick(); fixture.detectChanges(); // Initial tick for ngOnInit
+    it('onSubmit should call promptsService.createPrompt with correct payload including selectedModel', fakeAsync(() => {
       mockPromptsService.createPrompt.and.returnValue(of(mockPromptSchema));
+      const selectedModelId = mockLlms.find(l => l.isConfigured)!.id;
       component.promptForm.patchValue({
         name: 'New Prompt Name',
-        options: { temperature: 0.5, maxTokens: 500 }
+        options: { temperature: 0.5, maxTokens: 500, selectedModel: selectedModelId }
       });
       component.messagesFormArray.at(0).patchValue({ role: 'user', content: 'User message' });
       component.tagsFormArray.push(new FormBuilder().control('newTag'));
       fixture.detectChanges();
 
       component.onSubmit();
-      tick(); // For async operations in submit if any
+      tick();
 
       expect(mockPromptsService.createPrompt).toHaveBeenCalledWith(jasmine.objectContaining({
         name: 'New Prompt Name',
         messages: [{ role: 'user', content: 'User message' }],
         tags: ['newTag'],
-        options: { temperature: 0.5, maxTokens: 500 }
+        options: { temperature: 0.5, maxTokens: 500, selectedModel: selectedModelId }
       }));
-      expect(mockRouter.navigate).toHaveBeenCalledWith(['/prompts']);
+      expect(mockRouter.navigate).toHaveBeenCalledWith(['/ui/prompts']);
     }));
   });
 
   describe('Edit Mode', () => {
-     beforeEach(() => {
-         mockActivatedRoute.data = of({ prompt: mockPrompt });
+     beforeEach(fakeAsync(() => { // Make beforeEach fakeAsync
+         mockActivatedRoute.data = of({ prompt: mockPrompt }); // mockPrompt has options.selectedModel = 'llm-1'
          mockActivatedRoute.snapshot.paramMap = convertToParamMap({ promptId: mockPrompt.id });
-         fixture.detectChanges(); // ngOnInit
-     });
+         fixture.detectChanges(); // ngOnInit -> triggers getLlms
+         tick(); // Complete getLlms
+         fixture.detectChanges(); // Apply LLMs and processRouteData
+     }));
 
-     it('should initialize form for edit prompt and call populateForm', fakeAsync(() => {
-         tick(); fixture.detectChanges();
+     it('should initialize form for edit prompt and call populateForm', () => {
          expect(component.isEditMode()).toBeTrue();
          expect(component.promptIdSignal()).toBe(mockPrompt.id);
          expect(component.promptForm.get('name')?.value).toBe(mockPrompt.name);
+         expect(component.promptForm.get('options.selectedModel')?.value).toBe(mockPrompt.options.selectedModel);
          expect(component.messagesFormArray.length).toBe(mockPrompt.messages.length);
          expect(component.tagsFormArray.length).toBe(mockPrompt.tags.length);
          expect(component.isLoading()).toBeFalse();
-     }));
+     });
 
      it('onSubmit should call promptsService.updatePrompt with correct payload', fakeAsync(() => {
-         tick(); fixture.detectChanges();
          mockPromptsService.updatePrompt.and.returnValue(of(mockPromptSchema));
          const updatedName = 'Updated Prompt Name';
          component.promptForm.get('name')?.setValue(updatedName);
+         // selectedModel should already be set from mockPrompt
          fixture.detectChanges();
 
          component.onSubmit();
          tick();
 
          expect(mockPromptsService.updatePrompt).toHaveBeenCalledWith(mockPrompt.id, jasmine.objectContaining({
-             name: updatedName
+             name: updatedName,
+             options: jasmine.objectContaining({ selectedModel: mockPrompt.options.selectedModel })
          }));
-         expect(mockRouter.navigate).toHaveBeenCalledWith(['/prompts']);
+         expect(mockRouter.navigate).toHaveBeenCalledWith(['/ui/prompts']);
      }));
 
      it('should navigate if promptId in params but resolver returns null', fakeAsync(() => {
-         mockActivatedRoute.data = of({ prompt: null });
+         mockActivatedRoute.data = of({ prompt: null }); // Resolver returns null
          mockActivatedRoute.snapshot.paramMap = convertToParamMap({ promptId: 'some-id-that-failed' });
          spyOn(console, 'error');
-         fixture.detectChanges(); // ngOnInit
-         tick();
-         fixture.detectChanges();
+         fixture.detectChanges(); // ngOnInit -> getLlms
+         tick(); // Complete getLlms
+         fixture.detectChanges(); // processRouteData
 
          expect(console.error).toHaveBeenCalledWith('Prompt not found for editing, navigating back.');
-         expect(mockRouter.navigate).toHaveBeenCalledWith(['/prompts']);
+         expect(mockRouter.navigate).toHaveBeenCalledWith(['/ui/prompts']);
      }));
   });
 
 
   it('should add and remove messages from FormArray', fakeAsync(() => {
     mockActivatedRoute.data = of({ prompt: null });
-    fixture.detectChanges(); tick(); fixture.detectChanges();
+    fixture.detectChanges(); tick(); fixture.detectChanges(); // For ngOnInit, getLlms, processRouteData
 
     component.addMessage('system', 'System message');
     fixture.detectChanges();
@@ -218,7 +230,7 @@ describe('PromptFormComponent', () => {
 
   it('should add and remove tags from FormArray', fakeAsync(() => {
      mockActivatedRoute.data = of({ prompt: null });
-     fixture.detectChanges(); tick(); fixture.detectChanges();
+     fixture.detectChanges(); tick(); fixture.detectChanges(); // For ngOnInit, getLlms, processRouteData
 
      const chipInputEl = document.createElement('input'); // Mock chip input element
      const chipInputEvent = { value: '  newTag  ', chipInput: { clear: jasmine.createSpy(), inputElement: chipInputEl } } as unknown as MatChipInputEvent;
@@ -236,7 +248,7 @@ describe('PromptFormComponent', () => {
 
   it('should not submit if form is invalid', fakeAsync(() => {
     mockActivatedRoute.data = of({ prompt: null });
-    fixture.detectChanges(); tick(); fixture.detectChanges();
+    fixture.detectChanges(); tick(); fixture.detectChanges(); // For ngOnInit, getLlms, processRouteData
     component.promptForm.get('name')?.setValue(''); // Make form invalid
     fixture.detectChanges();
     component.onSubmit();
@@ -253,9 +265,9 @@ describe('PromptFormComponent', () => {
   describe('Toolbar UI and Basic Functionality', () => {
     beforeEach(fakeAsync(() => {
       mockActivatedRoute.data = of({ prompt: null });
-      fixture.detectChanges(); // ngOnInit
-      tick();
-      fixture.detectChanges();
+      fixture.detectChanges(); // ngOnInit -> getLlms
+      tick(); // Complete getLlms
+      fixture.detectChanges(); // processRouteData
     }));
 
     it('should display the "Prompt Studio" title', () => {
@@ -312,10 +324,18 @@ describe('PromptFormComponent', () => {
   describe('LLM Options Validation', () => {
     beforeEach(fakeAsync(() => {
       mockActivatedRoute.data = of({ prompt: null });
-      fixture.detectChanges(); // ngOnInit
-      tick();
-      fixture.detectChanges();
+      fixture.detectChanges(); // ngOnInit -> getLlms
+      tick(); // Complete getLlms
+      fixture.detectChanges(); // processRouteData
     }));
+
+    it('selectedModel control should be required', () => {
+      const modelControl = component.promptForm.get('options.selectedModel');
+      modelControl?.setValue(null);
+      expect(modelControl?.hasError('required')).toBeTrue();
+      modelControl?.setValue(mockLlms.find(l => l.isConfigured)!.id);
+      expect(modelControl?.valid).toBeTrue();
+    });
 
     describe('temperature control', () => {
       let tempControl: any;
@@ -375,9 +395,9 @@ describe('PromptFormComponent', () => {
   describe('Submit Button UI', () => {
     beforeEach(fakeAsync(() => {
       mockActivatedRoute.data = of({ prompt: null });
-      fixture.detectChanges(); // ngOnInit
-      tick();
-      fixture.detectChanges();
+      fixture.detectChanges(); // ngOnInit -> getLlms
+      tick(); // Complete getLlms
+      fixture.detectChanges(); // processRouteData
     }));
 
     it('should display the shortcut chip when not saving', () => {
@@ -440,25 +460,38 @@ describe('PromptFormComponent', () => {
   describe('LLM Options Parameters', () => {
     let optionsGroup: FormGroup;
 
-    beforeEach(() => {
-      fixture.detectChanges(); // Ensure view is stable if ngOnInit was called by TestBed
+    beforeEach(fakeAsync(() => { // Make beforeEach fakeAsync
+      mockActivatedRoute.data = of({ prompt: null });
+      fixture.detectChanges(); // ngOnInit -> getLlms
+      tick(); // Complete getLlms
+      fixture.detectChanges(); // processRouteData
       optionsGroup = component.promptForm.get('options') as FormGroup;
+    }));
+    
+    it('should render model selector dropdown', () => {
+        expect(optionsGroup).toBeTruthy('Options form group should exist');
+        const modelSelect = fixture.debugElement.query(By.css('mat-select[formControlName="selectedModel"]'));
+        expect(modelSelect).toBeTruthy();
+        // Check if options are populated (assuming at least one configured LLM)
+        // This requires opening the select, which can be complex in tests.
+        // For now, just check if the component's availableModels has items.
+        expect(component.availableModels.filter(m => m.isConfigured).length).toBeGreaterThan(0);
     });
 
     it('should render temperature slider and input', () => {
       expect(optionsGroup).toBeTruthy('Options form group should exist');
-      const tempSlider = fixture.debugElement.query(By.css('mat-slider[formControlName="temperature"]'));
-      expect(tempSlider).toBeTruthy();
+      const tempSlider = fixture.debugElement.query(By.css('mat-slider[aria-labelledby="temperature-label"]'));
+      expect(tempSlider).toBeTruthy('Temperature slider should exist');
       const tempInput = fixture.debugElement.query(By.css('div.parameter-item input[formControlName="temperature"][type="number"]'));
-      expect(tempInput).toBeTruthy();
+      expect(tempInput).toBeTruthy('Temperature input should exist');
     });
 
     it('should render maxTokens slider and input', () => {
       expect(optionsGroup).toBeTruthy('Options form group should exist');
-      const tokensSlider = fixture.debugElement.query(By.css('mat-slider[formControlName="maxTokens"]'));
-      expect(tokensSlider).toBeTruthy();
+      const tokensSlider = fixture.debugElement.query(By.css('mat-slider[aria-labelledby="maxTokens-label"]'));
+      expect(tokensSlider).toBeTruthy('Max tokens slider should exist');
       const tokensInput = fixture.debugElement.query(By.css('div.parameter-item input[formControlName="maxTokens"][type="number"]'));
-      expect(tokensInput).toBeTruthy();
+      expect(tokensInput).toBeTruthy('Max tokens input should exist');
     });
 
     it('temperature slider and input should be bound to the same form control', () => {
@@ -467,14 +500,14 @@ describe('PromptFormComponent', () => {
       expect(tempControl).toBeTruthy('Temperature form control should exist');
       const tempInputDebugEl = fixture.debugElement.query(By.css('div.parameter-item input[formControlName="temperature"][type="number"]'));
 
-      tempControl.setValue(0.5);
+      tempControl?.setValue(0.5);
       fixture.detectChanges();
       expect(tempInputDebugEl.nativeElement.value).toBe('0.5');
 
       tempInputDebugEl.nativeElement.value = '0.8';
       tempInputDebugEl.nativeElement.dispatchEvent(new Event('input'));
       fixture.detectChanges();
-      expect(tempControl.value).toBe(0.8);
+      expect(tempControl?.value).toBe(0.8); // Form control stores number
     });
 
     it('maxTokens slider and input should be bound to the same form control', () => {
@@ -483,14 +516,14 @@ describe('PromptFormComponent', () => {
       expect(maxTokensControl).toBeTruthy('MaxTokens form control should exist');
       const maxTokensInputDebugEl = fixture.debugElement.query(By.css('div.parameter-item input[formControlName="maxTokens"][type="number"]'));
 
-      maxTokensControl.setValue(1024);
+      maxTokensControl?.setValue(1024);
       fixture.detectChanges();
       expect(maxTokensInputDebugEl.nativeElement.value).toBe('1024');
 
       maxTokensInputDebugEl.nativeElement.value = '512';
       maxTokensInputDebugEl.nativeElement.dispatchEvent(new Event('input'));
       fixture.detectChanges();
-      expect(maxTokensControl.value).toBe(512);
+      expect(maxTokensControl?.value).toBe(512); // Form control stores number
     });
   });
 });

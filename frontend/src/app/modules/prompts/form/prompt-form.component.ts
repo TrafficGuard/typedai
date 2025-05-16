@@ -21,11 +21,12 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 
 
 import { PromptsService } from '../prompts.service';
+import { LlmService, LLM as AppLLM } from '../../agents/services/llm.service'; // Renamed LLM to AppLLM to avoid conflict
 import type { Prompt } from '#shared/model/prompts.model'; // Ensure Prompt is imported directly
 import type { LlmMessage, GenerateOptions } from '#shared/model/llm.model';
 import type { PromptCreatePayload, PromptUpdatePayload, PromptSchemaModel } from '#shared/schemas/prompts.schema';
 
-import { Subject, Observable } from 'rxjs';
+import { Subject, Observable, forkJoin } from 'rxjs';
 import { takeUntil, finalize, tap, filter } from 'rxjs/operators';
 
 @Component({
@@ -64,6 +65,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   private location = inject(Location);
   private cdr = inject(ChangeDetectorRef);
+  private llmService = inject(LlmService);
 
   promptForm!: FormGroup;
   isEditMode = signal(false);
@@ -81,42 +83,66 @@ export class PromptFormComponent implements OnInit, OnDestroy {
     {value: 'assistant', viewValue: 'Assistant'}
   ];
 
-  public selectedModel: string = 'claude-3-opus'; // Placeholder, a common modern model
-  public availableModels: string[] = ['claude-3-opus', 'gpt-4-turbo', 'gemini-1.5-pro', 'default-model']; // Placeholder
+  public selectedModel: string = 'claude-3-opus'; // Placeholder, a common modern model for the toolbar
+  public availableModels: AppLLM[] = []; // Will be populated by LlmService
 
   ngOnInit(): void {
     this.promptForm = this.fb.group({
       name: ['', Validators.required],
       tags: this.fb.array([]),
-      // selectedModel:  ['', Validators.required], // Moved to options
       messages: this.fb.array([], Validators.minLength(1)),
       options: this.fb.group({
-        selectedModel: [this.availableModels.length > 0 ? this.availableModels[0] : '', Validators.required],
-        temperature: [1.0, [Validators.required, Validators.min(0), Validators.max(2)]],
-        maxTokens: [2048, [Validators.required, Validators.min(1), Validators.max(8192)]],
+        selectedModel: [null, Validators.required], // Initialize with null, will be set after LLMs load
+        temperature: [1.0, [Validators.required, Validators.min(0), Validators.max(2), Validators.pattern(/^\d*(\.\d+)?$/)]],
+        maxTokens: [2048, [Validators.required, Validators.min(1), Validators.max(8192), Validators.pattern(/^[0-9]*$/)]],
       }),
     });
 
+    this.isLoading.set(true);
+    // Fetch LLMs and then process route data
+    this.llmService.getLlms().pipe(
+      takeUntil(this.destroy$)
+    ).subscribe({
+      next: (llms) => {
+        this.availableModels = llms.filter(llm => llm.isConfigured);
+        // Now that LLMs are loaded, process route data for prompt editing or creation
+        this.processRouteData();
+      },
+      error: (err) => {
+        console.error('Failed to load LLMs', err);
+        this.availableModels = []; // Ensure it's an empty array on error
+        this.processRouteData(); // Still process route data to show form, though model selection might be empty
+      }
+    });
+  }
+
+  private processRouteData(): void {
     this.route.data.pipe(
-    takeUntil(this.destroy$)
+      takeUntil(this.destroy$)
     ).subscribe(data => {
-        const resolvedPrompt = data['prompt'] as Prompt | null;
-        if (resolvedPrompt && resolvedPrompt.id) { // Check if id exists
-            this.promptIdSignal.set(resolvedPrompt.id);
-            this.isEditMode.set(true);
-            this.populateForm(resolvedPrompt);
-        } else {
-            if (this.route.snapshot.paramMap.get('promptId') && !resolvedPrompt) {
-                console.error('Prompt not found for editing, navigating back.');
-                this.router.navigate(['/ui/prompts']).catch(console.error);
-                return;
-            }
-            this.isEditMode.set(false);
-            this.promptsService.clearSelectedPrompt();
-            this.addMessage('user', ''); // Add one initial user message
+      const resolvedPrompt = data['prompt'] as Prompt | null;
+      if (resolvedPrompt && resolvedPrompt.id) {
+        this.promptIdSignal.set(resolvedPrompt.id);
+        this.isEditMode.set(true);
+        this.populateForm(resolvedPrompt);
+      } else {
+        if (this.route.snapshot.paramMap.get('promptId') && !resolvedPrompt) {
+          console.error('Prompt not found for editing, navigating back.');
+          this.router.navigate(['/ui/prompts']).catch(console.error);
+          this.isLoading.set(false);
+          this.cdr.detectChanges();
+          return;
         }
-        this.isLoading.set(false);
-        this.cdr.detectChanges(); // Trigger change detection after async data loading
+        this.isEditMode.set(false);
+        this.promptsService.clearSelectedPrompt();
+        this.addMessage('user', ''); // Add one initial user message
+        // Set default model if creating new and models are available
+        if (this.availableModels.length > 0) {
+          this.promptForm.get('options.selectedModel')?.setValue(this.availableModels[0].id);
+        }
+      }
+      this.isLoading.set(false);
+      this.cdr.detectChanges();
     });
   }
 
@@ -163,19 +189,37 @@ export class PromptFormComponent implements OnInit, OnDestroy {
   }
 
   populateForm(prompt: Prompt): void {
-    const defaultOptions = {
-      selectedModel: this.availableModels.length > 0 ? this.availableModels[0] : '',
+    const defaultOptions: GenerateOptions & { selectedModel?: string | null } = {
+      selectedModel: this.availableModels.length > 0 ? this.availableModels[0].id : null,
       temperature: 1.0,
       maxTokens: 2048,
     };
 
     this.promptForm.patchValue({
       name: prompt.name,
-      // options are handled more specifically below to merge with defaults
     });
 
-    // Explicitly patch options to merge existing prompt.options with defaults for missing fields
-    const optionsToPatch = { ...defaultOptions, ...(prompt.options || {}) };
+    // Merge prompt options with defaults. Ensure selectedModel from prompt is used if valid.
+    const promptOptions = prompt.options || {};
+    let selectedModelToPatch = defaultOptions.selectedModel;
+
+    if (promptOptions.selectedModel && this.availableModels.find(m => m.id === promptOptions.selectedModel)) {
+      selectedModelToPatch = promptOptions.selectedModel;
+    } else if (promptOptions.selectedModel) {
+      // Prompt has a selected model, but it's not in the available list (e.g. LLM was removed)
+      // Keep the invalid model for now, or clear it, or default it.
+      // For now, let's try to keep it, validation should catch it if it's problematic.
+      // Or, more safely, default to the first available if the saved one is no longer valid.
+      console.warn(`Prompt's saved model "${promptOptions.selectedModel}" is not available. Defaulting.`);
+      // selectedModelToPatch will remain defaultOptions.selectedModel (first available or null)
+    }
+
+
+    const optionsToPatch = {
+      ...defaultOptions,
+      ...promptOptions,
+      selectedModel: selectedModelToPatch
+    };
     this.promptForm.get('options')?.patchValue(optionsToPatch);
 
     this.tagsFormArray.clear();
