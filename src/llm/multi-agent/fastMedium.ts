@@ -23,6 +23,8 @@ export class FastMediumLLM extends BaseLLM {
 		);
 		// Define the providers and their priorities. Lower number = higher priority
 		this.providers = [cerebrasQwen3_32b(), vertexGemini_2_5_Flash()];
+		this.cerebras = this.providers[0];
+		this.gemini = this.providers[1];
 
 		this.maxInputTokens = Math.max(...this.providers.map((p) => p.getMaxInputTokens()));
 	}
