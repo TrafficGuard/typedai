@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, signal, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, Location, TitleCasePipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
+import { trigger, state, style, transition, animate } from '@angular/animations';
 import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, FormControl } from '@angular/forms'; // Add FormsModule
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -18,7 +19,7 @@ import { MatSliderModule } from '@angular/material/slider';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
-
+import { CdkTextareaAutosize } from '@angular/cdk/text-field'; // Import CdkTextareaAutosize
 
 import { PromptsService } from '../prompts.service';
 import { LlmService, LLM as AppLLM } from '../../agents/services/llm.service'; // Renamed LLM to AppLLM to avoid conflict
@@ -52,11 +53,23 @@ import { takeUntil, finalize, tap, filter } from 'rxjs/operators';
     MatSlideToggleModule,
     MatToolbarModule,
     MatTooltipModule,
-    TitleCasePipe
+    TitleCasePipe,
+    CdkTextareaAutosize // Add CdkTextareaAutosize here
   ],
   templateUrl: './prompt-form.component.html',
   styleUrls: ['./prompt-form.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  animations: [
+    trigger('summaryFade', [
+      transition(':enter', [
+        style({ opacity: 0 }),
+        animate('250ms cubic-bezier(0.4, 0.0, 0.2, 1)', style({ opacity: 1 })),
+      ]),
+      transition(':leave', [
+        animate('250ms cubic-bezier(0.4, 0.0, 0.2, 1)', style({ opacity: 0 })),
+      ]),
+    ]),
+  ],
 })
 export class PromptFormComponent implements OnInit, OnDestroy {
   private promptsService = inject(PromptsService);
@@ -85,6 +98,15 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 
   public selectedModel: string = 'claude-3-opus'; // Placeholder, a common modern model for the toolbar
   public availableModels: AppLLM[] = []; // Will be populated by LlmService
+
+  // Signals for card collapsibility (matching HTML usage)
+  // detailsCollapsed = signal(false); // REMOVED: Using mat-expansion-panel's internal state
+  // messagesCollapsed = signal(false); // For the entire "Messages" card - REMOVED
+  optionsCollapsed = signal(false);
+
+  // Signal for individual message item collapsibility - REMOVED
+  // messageItemCollapsedStates = signal<boolean[]>([]);
+
 
   ngOnInit(): void {
     this.promptForm = this.fb.group({
@@ -163,11 +185,13 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 
   addMessage(role: LlmMessage['role'] = 'user', content: string = ''): void {
     this.messagesFormArray.push(this.createMessageGroup(role, content));
+    // messageItemCollapsedStates logic removed
     this.cdr.detectChanges();
   }
 
   removeMessage(index: number): void {
     this.messagesFormArray.removeAt(index);
+    // messageItemCollapsedStates logic removed
     this.cdr.detectChanges();
   }
 
@@ -222,10 +246,16 @@ export class PromptFormComponent implements OnInit, OnDestroy {
     (prompt.tags || []).forEach(tag => this.tagsFormArray.push(this.fb.control(tag)));
 
     this.messagesFormArray.clear();
-    (prompt.messages || []).forEach(msg => this.messagesFormArray.push(this.createMessageGroup(msg.role, msg.content as string)));
+    // messageItemCollapsedStates logic removed
+    (prompt.messages || []).forEach(msg => {
+      this.messagesFormArray.push(this.createMessageGroup(msg.role, msg.content as string));
+      // messageItemCollapsedStates logic removed
+    });
+    // messageItemCollapsedStates logic removed
+
 
     if (this.messagesFormArray.length === 0) {
-        this.addMessage('user', ''); // Ensure at least one message editor
+        this.addMessage('user', ''); // Ensure at least one message editor, addMessage handles its own collapsed state
     }
     this.isLoading.set(false);
     this.cdr.detectChanges();
@@ -235,6 +265,13 @@ export class PromptFormComponent implements OnInit, OnDestroy {
     if (this.promptForm.invalid) {
       this.promptForm.markAllAsTouched();
       console.warn('Form is invalid:', this.promptForm.errors, this.messagesFormArray.errors);
+      // Optionally scroll to the first invalid field
+      const firstInvalidControl: HTMLElement = document.querySelector(
+        'form .mat-form-field.ng-invalid'
+      )!;
+      if (firstInvalidControl) {
+        firstInvalidControl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
       return;
     }
     this.isSaving.set(true);
@@ -279,6 +316,32 @@ export class PromptFormComponent implements OnInit, OnDestroy {
     console.log('Copy model name clicked for:', this.selectedModel);
     // Placeholder action
   }
+
+  // Toggle methods for card collapsibility (matching HTML usage)
+  // toggleDetails(): void { // REMOVED: Using mat-expansion-panel's internal state
+  //   this.detailsCollapsed.update(v => !v);
+  // }
+
+  // toggleMessages(): void { // This is for the entire Messages card - REMOVED
+  //   this.messagesCollapsed.update(v => !v);
+  // }
+
+  toggleOptions(): void {
+    this.optionsCollapsed.update(v => !v);
+  }
+
+  // Toggle method for individual message items - REMOVED
+  // toggleMessageItemCollapse(index: number): void {
+  //   this.messageItemCollapsedStates.update(states => {
+  //     const newStates = [...states];
+  //     // Ensure the index exists before toggling
+  //     if (index >= 0 && index < newStates.length) {
+  //       newStates[index] = !newStates[index];
+  //     }
+  //     return newStates;
+  //   });
+  // }
+
 
   ngOnDestroy(): void {
     this.destroy$.next();

@@ -1,7 +1,15 @@
 //@import 'cdk'; // For cdkTextareaAutosize
-
+/*
+div.mat-expansion-panel-body {
+    padding-top: 0px;
+    padding-right: 16px;
+    padding-bottom: 10px;
+    padding-left: 26px
+}
+*/
 :host {
   display: block; // Recommended for component host elements
+
 
   .prompt-form-page-container {
     // This class wraps the toolbar and content area.
@@ -289,5 +297,16 @@ button[mat-flat-button][color="primary"] {
         }
       }
     }
+  }
+
+  // Styles for individual message panels
+  .message-role-select {
+    width: 150px !important; // Fixed width for role dropdown
+    flex-shrink: 0; // Prevent shrinking if space is tight
+  }
+
+  .message-tokens-display {
+    margin-top: 0.5rem; // Add some space above the token display
+    padding-left: 2px; // Align with form field text
   }
 }
