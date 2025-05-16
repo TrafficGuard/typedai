@@ -88,7 +88,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
   public availableModels: AppLLM[] = []; // Will be populated by LlmService
 
   // Signals for card collapsibility (matching HTML usage)
-  detailsCollapsed = signal(false);
+  // detailsCollapsed = signal(false); // REMOVED: Using mat-expansion-panel's internal state
   messagesCollapsed = signal(false); // For the entire "Messages" card
   optionsCollapsed = signal(false);
 
@@ -310,9 +310,9 @@ export class PromptFormComponent implements OnInit, OnDestroy {
   }
 
   // Toggle methods for card collapsibility (matching HTML usage)
-  toggleDetails(): void {
-    this.detailsCollapsed.update(v => !v);
-  }
+  // toggleDetails(): void { // REMOVED: Using mat-expansion-panel's internal state
+  //   this.detailsCollapsed.update(v => !v);
+  // }
 
   toggleMessages(): void { // This is for the entire Messages card
     this.messagesCollapsed.update(v => !v);

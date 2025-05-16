@@ -18,37 +18,42 @@
           <div class="flex-auto space-y-6 pr-2">
 
           <mat-accordion>
-              <mat-expansion-panel class="mb-1 !shadow-sm border">
+              <!-- Prompt Details - Now using mat-expansion-panel's internal state -->
+              <mat-expansion-panel class="mb-1 !shadow-sm border" #detailsPanel>
                   <mat-expansion-panel-header>
                       <mat-panel-title class="!text-sm !font-semibold">
                           Prompt Details
-                          {{ detailsCollapsed() ? '' : promptForm.get('name')?.value || 'N/A' }}
-                          <mat-chip-listbox *ngIf="!detailsCollapsed() && tagsFormArray.controls.length > 0" aria-label="Prompt tags" class="inline-flex flex-wrap gap-1">
-                              <mat-chip *ngFor="let tagControl of tagsFormArray.controls"
+                          <!-- Display summary only when the panel is NOT expanded -->
+                          <ng-container *ngIf="!detailsPanel.expanded">
+                            {{ promptForm.get('name')?.value || 'N/A' }}
+                            <mat-chip-listbox *ngIf="tagsFormArray.controls.length > 0" aria-label="Prompt tags" class="inline-flex flex-wrap gap-1 ml-2">
+                                <mat-chip *ngFor="let tagControl of tagsFormArray.controls; let i = index"
                                         class="text-xs !h-5 !min-h-[20px] !px-2 !py-0.5 !m-0"
                                         disabled="true" color="accent" selected> <!-- Static look -->
                                   {{tagControl.value}}
-                              </mat-chip>
-                          </mat-chip-listbox>
+                                </mat-chip>
+                            </mat-chip-listbox>
+                          </ng-container>
                       </mat-panel-title>
                   </mat-expansion-panel-header>
 
-                      <mat-form-field class="w-full">
-                          <mat-label>Name</mat-label>
-                          <input matInput formControlName="name" required>
-                          <mat-error *ngIf="promptForm.get('name')?.hasError('required')">Name is required.</mat-error>
-                      </mat-form-field>
+                  <!-- Content of the expansion panel -->
+                  <mat-form-field class="w-full">
+                      <mat-label>Name</mat-label>
+                      <input matInput formControlName="name" required>
+                      <mat-error *ngIf="promptForm.get('name')?.hasError('required')">Name is required.</mat-error>
+                  </mat-form-field>
 
-                      <mat-form-field class="w-full">
-                          <mat-label>Tags</mat-label>
-                          <mat-chip-grid #chipGrid aria-label="Enter tags" formArrayName="tags">
-                              <mat-chip-row *ngFor="let tagControl of tagsFormArray.controls; let i = index" (removed)="removeTagAtIndex(i)" [editable]="true" [removable]="true">
-                                  {{tagControl.value}}
-                                  <button matChipRemove [attr.aria-label]="'remove ' + tagControl.value">
-                                      <mat-icon>cancel</mat-icon>
-                                  </button>
-                              </mat-chip-row>
-                          </mat-chip-grid>
+                  <mat-form-field class="w-full">
+                      <mat-label>Tags</mat-label>
+                      <mat-chip-grid #chipGrid aria-label="Enter tags" formArrayName="tags">
+                          <mat-chip-row *ngFor="let tagControl of tagsFormArray.controls; let i = index" (removed)="removeTagAtIndex(i)" [editable="true" [removable]="true">
+                              {{tagControl.value}}
+                              <button matChipRemove [attr.aria-label]="'remove ' + tagControl.value">
+                                  <mat-icon>cancel</mat-icon>
+                              </button>
+                          </mat-chip-row>
+                      </mat-chip-grid>
                           <input placeholder="New tag..."
                                  [formControl]="tagCtrl"
                                  [matChipInputFor]="chipGrid"
