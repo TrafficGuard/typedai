@@ -7,6 +7,9 @@ div.mat-expansion-panel-body {
     padding-left: 26px
 }
 */
+.mat-expansion-panel-header.mat-expanded {
+    height: 48px;
+}
 :host {
   display: block; // Recommended for component host elements
 
@@ -305,8 +308,4 @@ button[mat-flat-button][color="primary"] {
     flex-shrink: 0; // Prevent shrinking if space is tight
   }
 
-  .message-tokens-display {
-    margin-top: 0.5rem; // Add some space above the token display
-    padding-left: 2px; // Align with form field text
-  }
 }

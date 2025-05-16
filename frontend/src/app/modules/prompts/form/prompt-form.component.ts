@@ -61,30 +61,13 @@ import { takeUntil, finalize, tap, filter } from 'rxjs/operators';
     changeDetection: ChangeDetectionStrategy.OnPush,
     animations: [
         trigger('summaryFade', [
-            state('visible', style({
-                opacity: 1,
-                height: '*', // Auto height when visible
-                overflow: 'hidden'
-            })),
-            state('hidden', style({
-                opacity: 0,
-                height: '0px', // Collapse height when hidden
-                overflow: 'hidden'
-            })),
-            // Transition when the summary becomes visible (e.g., panel collapses)
-            transition('hidden => visible', [
-                animate('250ms cubic-bezier(0.4, 0.0, 0.2, 1)')
+            transition(':enter', [
+                style({ opacity: 0 }),
+                animate('250ms cubic-bezier(0.4, 0.0, 0.2, 1)', style({ opacity: 1 })),
             ]),
-            // Transition when the summary becomes hidden (e.g., panel expands)
-            transition('visible => hidden', [
-                animate('250ms cubic-bezier(0.4, 0.0, 0.2, 1)')
-            ]),
-            // This :leave transition is for cases where the element hosting @summaryFade
-            // is actually removed from the DOM (e.g., a message item in an *ngFor is deleted).
             transition(':leave', [
-                // Animate from whatever its current style is to the 'hidden' style
-                animate('250ms cubic-bezier(0.4, 0.0, 0.2, 1)', style({ opacity: 0, height: '0px' }))
-            ])
+                animate('250ms cubic-bezier(0.4, 0.0, 0.2, 1)', style({ opacity: 0 })),
+            ]),
         ]),
     ],
 })
