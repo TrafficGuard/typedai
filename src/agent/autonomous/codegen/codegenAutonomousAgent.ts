@@ -310,24 +310,52 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				agent.fileStore = fileStoreMetadataArray;
 
 				try {
-					await agentStateService.save(agent);
+					await agentStateService.save(agent); // Save agent state with potentially updated agent.cost
 				} catch (e) {
-					logger.error(e, 'Error saving agent state');
+					logger.error(e, 'Error saving agent state [e]');
 					controlLoopError = e;
 				}
 
+				// Generate and set iteration summary
 				try {
-					// iterationData.summary = await llms().easy.generateMessage('', {id: 'Iteration summary'});
+					// Ensure required fields for summary are available
+					const planForSummary = iterationData.agentPlan || "No plan provided.";
+					const observationsForSummary = iterationData.observationsReasoning || "No observations.";
+					// previousScriptResult is already XML-tagged or contains an error message
+					const scriptResultForSummary = previousScriptResult || "No script result recorded for this iteration.";
+
+					const summaryPromptContent = `Create a concise summary for the agent's last iteration.
+User Request: ${agent.userPrompt}
+Agent Plan:
+${planForSummary}
+Observations & Reasoning:
+${observationsForSummary}
+Script Result/Error:
+${scriptResultForSummary}
+Focus on the outcome and next step if clear.`;
+
+					const summaryMessage = await llms().easy.generateMessage(
+						[{ role: 'user', content: summaryPromptContent }],
+						{ id: 'IterationSummary', temperature: 0.3, thinking: 'low' }
+					);
+					iterationData.summary = messageText(summaryMessage);
+					if (summaryMessage.stats?.cost) {
+						agent.cost += summaryMessage.stats.cost; // Accumulate cost to agent
+					}
 				} catch(e) {
-					logger.error(e, 'Error creating iteration summary')
+					logger.error(e, 'Error creating iteration summary [e]');
+					iterationData.summary = "Failed to generate iteration summary."; // Fallback summary
 				}
 
-
+				// Save iteration data
 				try {
-					iterationData.cost = agent.cost = initialCost
+					// Calculate cost for this iteration: current total agent cost minus cost at start of this iteration
+					// initialCost was agent.cost at the start of this iteration's try block
+					// agent.cost has been updated by the main LLM call and the summary LLM call
+					iterationData.cost = agent.cost - initialCost;
 					await agentStateService.saveIteration(iterationData as AutonomousIteration);
 				} catch (e) {
-					logger.error(e, 'Error saving agent iteration data in control loop');
+					logger.error(e, 'Error saving agent iteration data in control loop [e]');
 					for (const [k, v] of Object.entries(iterationData)) {
 						const bytes = Buffer.byteLength(JSON.stringify(v), 'utf8');
 						if (bytes > 10000) {
