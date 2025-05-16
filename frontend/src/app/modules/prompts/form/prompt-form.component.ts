@@ -88,7 +88,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
         } else {
             if (this.route.snapshot.paramMap.get('promptId') && !resolvedPrompt) {
                 console.error('Prompt not found for editing, navigating back.');
-                this.router.navigate(['/prompts']);
+                this.router.navigate(['/ui/prompts']).catch(console.error);
                 return;
             }
             this.isEditMode.set(false);
@@ -193,7 +193,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
     })
     ).subscribe({
       next: (savedPrompt) => {
-        this.router.navigate(['/prompts']); // Navigate to list, detail view can be next phase
+        this.router.navigate(['/ui/prompts']).catch(console.error); // Navigate to list, detail view can be next phase
       },
       error: (err) => {
         console.error('Failed to save prompt', err);
