@@ -1,6 +1,7 @@
 import { initApplicationContext } from '#app/applicationContext';
 import { logger } from '#o11y/logger';
 import { promptRoutes } from '#routes/prompts/prompts-routes';
+import { githubRoutes } from '#routes/webhooks/github/github-routes';
 import { initFastify } from './fastify';
 import { agentDetailsRoutes } from './routes/agent/agent-details-routes';
 import { agentExecutionRoutes } from './routes/agent/agent-execution-routes';
@@ -34,6 +35,7 @@ export async function initServer(): Promise<void> {
 			routes: [
 				authRoutes,
 				gitlabRoutesV1,
+				githubRoutes,
 				agentStartRoute,
 				agentDetailsRoutes,
 				agentExecutionRoutes,

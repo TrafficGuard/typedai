@@ -192,6 +192,55 @@ export class GitHub extends AbstractSCM implements SourceControlManagement {
 	}
 
 	/**
+	 * Gets all comments for a specific GitHub issue.
+	 * @param projectPathWithNamespace The full path of the project, e.g., 'owner/repo'.
+	 * @param issueNumber The number of the issue to get comments for.
+	 * @returns A promise that resolves to an array of GitHubIssueComment objects.
+	 */
+	@func()
+	async getIssueComments(projectPathWithNamespace: string, issueNumber: number): Promise<GitHubIssueComment[]> {
+		try {
+			const [owner, repo] = extractOwnerProject(projectPathWithNamespace);
+			const allComments: GitHubIssueComment[] = [];
+			let page = 1;
+			let response: any;
+
+			do {
+				response = await this.request()('GET /repos/{owner}/{repo}/issues/{issue_number}/comments', {
+					owner,
+					repo,
+					issue_number: issueNumber,
+					per_page: 100,
+					page,
+					headers: {
+						'X-GitHub-Api-Version': '2022-11-28',
+						Accept: 'application/vnd.github.v3+json',
+					},
+				});
+
+				const rawComments = response.data as any[];
+				for (const rawComment of rawComments) {
+					const comment: GitHubIssueComment = {
+						id: rawComment.id,
+						html_url: rawComment.html_url,
+						body: rawComment.body,
+						user: rawComment.user ? { login: rawComment.user.login, id: rawComment.user.id } : null,
+						created_at: rawComment.created_at,
+						updated_at: rawComment.updated_at,
+					};
+					allComments.push(comment);
+				}
+				page++;
+			} while (response.headers.link?.includes('rel="next"'));
+
+			return allComments;
+		} catch (error: any) {
+			logger.error(error, `Failed to get comments for issue #${issueNumber} in ${projectPathWithNamespace}`);
+			throw new Error(`Failed to get GitHub comments for issue #${issueNumber} in '${projectPathWithNamespace}': ${error.message || error}`);
+		}
+	}
+
+	/**
 	 * Clones a project from GitHub to the file system.
 	 * To use this project the function FileSystem.setWorkingDirectory must be called after with the returned value
 	 * @param projectPathWithNamespace the full project path in GitLab
