@@ -1,7 +1,15 @@
 import pino from 'pino';
-import type { CodeChunk } from './chunker';
 
 const logger = pino({ name: 'Contextualizer' });
+
+export interface CodeChunk {
+	filePath: string;
+	functionName?: string; // Optional, as not all code is in functions
+	startLine: number;
+	endLine: number;
+	content: string;
+	language: string;
+}
 
 export interface ContextualizedChunk {
 	originalChunk: CodeChunk;
