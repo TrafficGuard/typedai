@@ -1,12 +1,22 @@
 import { Component, OnInit, inject, signal, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatCardModule } from '@angular/material/card';
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatExpansionModule } from '@angular/material/expansion';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSelectModule } from '@angular/material/select';
+import { MatSliderModule } from '@angular/material/slider';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatToolbarModule } from '@angular/material/toolbar';
+import { TextFieldModule } from '@angular/cdk/text-field';
 
 import { PromptsService } from '../prompts.service';
 import type { Prompt } from '#shared/model/prompts.model';
@@ -21,12 +31,26 @@ import { PROMPTS_ROUTES } from '../prompt.paths';
   imports: [
     CommonModule,
     RouterModule,
-    MatProgressSpinnerModule,
-    MatCardModule,
+    // Angular Forms
+    FormsModule,
+    ReactiveFormsModule,
+    // Angular Material (alphabetized)
     MatButtonModule,
-    MatIconModule,
+    MatButtonToggleModule,
+    MatCardModule,
     MatChipsModule,
-    MatDividerModule
+    MatDividerModule,
+    MatExpansionModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatInputModule,
+    MatProgressSpinnerModule,
+    MatSelectModule,
+    MatSliderModule,
+    MatSlideToggleModule,
+    MatToolbarModule,
+    // Angular CDK
+    TextFieldModule
   ],
   templateUrl: './prompt-detail.component.html',
   styleUrls: ['./prompt-detail.component.scss'],
