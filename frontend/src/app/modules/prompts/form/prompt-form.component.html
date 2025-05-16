@@ -18,17 +18,16 @@
           <div class="flex-auto space-y-6 pr-2">
 
           <mat-accordion>
-              <!-- Prompt Details - Now using mat-expansion-panel's internal state -->
               <mat-expansion-panel class="mb-1 !shadow-sm border" #detailsPanel>
                   <mat-expansion-panel-header>
                       <mat-panel-title class="!text-sm !font-semibold">
-                          Prompt Details
+                          Prompt Details:
                           <!-- Display summary only when the panel is NOT expanded -->
                           <ng-container *ngIf="!detailsPanel.expanded">
-                            {{ promptForm.get('name')?.value || 'N/A' }}
-                            <mat-chip-listbox *ngIf="tagsFormArray.controls.length > 0" aria-label="Prompt tags" class="inline-flex flex-wrap gap-1 ml-2">
+                              <span class="ml-2">{{ promptForm.get('name')?.value || 'N/A' }}</span>
+                            <mat-chip-listbox *ngIf="tagsFormArray.controls.length > 0" aria-label="Prompt tags" class="inline-flex flex-wrap gap-1 ml-3">
                                 <mat-chip *ngFor="let tagControl of tagsFormArray.controls; let i = index"
-                                        class="text-xs !h-5 !min-h-[20px] !px-2 !py-0.5 !m-0"
+                                        class="text-xs !h-5 !min-h-[20px] !px-2 !py-0.5 !m-0 ml-2"
                                         disabled="true" color="accent" selected> <!-- Static look -->
                                   {{tagControl.value}}
                                 </mat-chip>
