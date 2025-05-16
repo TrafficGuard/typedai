@@ -336,7 +336,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
     this.isSaving.set(true);
     const formValue = this.promptForm.value;
 
-    const finalMessages: LlmMessage[] = [];
+    const finalMessages: PromptSchemaModel['messages'] = [];
 
     // Add system message if included and has content
     if (formValue.includeSystemMessage && formValue.systemMessageContent && formValue.systemMessageContent.trim() !== '') {
@@ -423,7 +423,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
   //     }
   //     return newStates;
   //   });
-  // }
+  }
 
   /**
    * Calculates the display index for a user/assistant message based on its index in the messagesFormArray.
