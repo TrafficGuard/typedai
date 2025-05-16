@@ -94,7 +94,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
       options: this.fb.group({
         selectedModel: [null, Validators.required], // Initialize with null, will be set after LLMs load
         temperature: [1.0, [Validators.required, Validators.min(0), Validators.max(2), Validators.pattern(/^\d*(\.\d+)?$/)]],
-        maxTokens: [2048, [Validators.required, Validators.min(1), Validators.max(8192), Validators.pattern(/^[0-9]*$/)]],
+        maxOutputTokens: [2048, [Validators.required, Validators.min(1), Validators.max(8192), Validators.pattern(/^[0-9]*$/)]],
       }),
     });
 
@@ -192,7 +192,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
     const defaultOptions: GenerateOptions & { selectedModel?: string | null } = {
       selectedModel: this.availableModels.length > 0 ? this.availableModels[0].id : null,
       temperature: 1.0,
-      maxTokens: 2048,
+      maxOutputTokens: 2048,
     };
 
     this.promptForm.patchValue({

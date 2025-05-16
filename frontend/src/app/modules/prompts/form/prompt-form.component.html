@@ -116,17 +116,17 @@
                   </div>
 
                   <div class="parameter-item">
-                    <label id="maxTokens-label" class="parameter-label">Max Tokens</label>
+                    <label id="maxOutputTokens-label" class="parameter-label">Max Tokens</label>
                     <div class="slider-input-group">
                       <mat-slider min="1" max="8192" step="1" discrete="true"
-                                  [value]="promptForm.get('options.maxTokens')?.value"
-                                  (input)="promptForm.get('options.maxTokens')?.setValue($event.value)"
-                                  aria-labelledby="maxTokens-label"
+                                  [value]="promptForm.get('options.maxOutputTokens')?.value"
+                                  (input)="promptForm.get('options.maxOutputTokens')?.setValue($event.value)"
+                                  aria-labelledby="maxOutputTokens-label"
                                   class="parameter-slider">
                         <input matSliderThumb>
                       </mat-slider>
                       <mat-form-field appearance="outline" class="parameter-input">
-                        <input matInput type="number" formControlName="maxTokens" min="1" max="8192" step="1">
+                        <input matInput type="number" formControlName="maxOutputTokens" min="1" max="8192" step="1">
                       </mat-form-field>
                     </div>
                   </div>
