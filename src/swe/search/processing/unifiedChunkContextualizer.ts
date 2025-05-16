@@ -114,7 +114,7 @@ Please give a short succinct context to situate this chunk within the overall do
 `;
 			try {
 				logger.info({ filePath, chunk_start_line: chunk.start_line, llmId: llmForContext.getId() }, 'Requesting context for chunk from LLM');
-				const generated_context_for_chunk = await llmForContext.generateText(contextPrompt, {id:'Generated Context For Chunk'});
+				const generated_context_for_chunk = await llmForContext.generateText(contextPrompt, { id: 'Chunk Context Generation' });
 				logger.info({ filePath, chunk_start_line: chunk.start_line, contextLength: generated_context_for_chunk.length }, 'Received context for chunk');
 				return { ...chunk, generated_context: generated_context_for_chunk.trim() };
 			} catch (error) {
