@@ -600,6 +600,27 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
         if (event.key === 't' && event.ctrlKey && this.llmHasThinkingLevels()) {
             this.toggleThinking();
         }
+
+        if (event.key === 'f' && event.ctrlKey) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const currentText = this.messageInput.nativeElement.value;
+            if (currentText && currentText.trim() !== '') {
+                this._chatService.formatMessageAsMarkdown(currentText)
+                    .pipe(takeUntilDestroyed(this.destroyRef))
+                    .subscribe({
+                        next: (formattedText: string) => {
+                            this.messageInput.nativeElement.value = formattedText;
+                            this._resizeMessageInput();
+                        },
+                        error: (err) => {
+                            console.error('Error formatting message:', err);
+                            this._snackBar.open('Failed to format message as Markdown.', 'Close', { duration: 3000 });
+                        }
+                    });
+            }
+        }
     }
 
     toggleSendOnEnter(): void {
