@@ -2,20 +2,18 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, signal, WritableSignal } from '@angular/core';
 import { Observable, of, throwError, from } from 'rxjs';
 import { catchError, map, mapTo, tap, switchMap } from 'rxjs/operators';
-import type { Static } from '@sinclair/typebox';
 
 import { CHAT_API } from '#shared/api/chat.api';
 import type {
     ChatSchemaModel as ApiChatModel,
-    ChatListSchemaModel,
     ChatMessagePayload,
     RegenerateMessagePayload,
     ChatUpdateDetailsPayload,
-    ChatMarkdownRequestSchema,
-    ChatMarkdownResponseSchema,
+    ChatMarkdownRequestPayload,
+    ChatMarkdownResponseModel,
 } from '#shared/schemas/chat.schema';
 
-import type { LlmMessage as ApiLlmMessage } from '#shared/model/llm.model'; // Used by convertMessage
+import type { LlmMessage as ApiLlmMessage } from '#shared/model/llm.model';
 import { UserContentExt, TextPart, ImagePartExt, FilePartExt, GenerateOptions } from '#shared/model/llm.model';
 
 import { callApiRoute } from 'app/core/api-route';
@@ -464,9 +462,9 @@ export class ChatServiceClient {
     }
 
     public formatMessageAsMarkdown(text: string): Observable<string> {
-        const payload: Static<typeof ChatMarkdownRequestSchema> = { text };
+        const payload: ChatMarkdownRequestPayload = { text };
         return callApiRoute(this._httpClient, CHAT_API.formatAsMarkdown, { body: payload }).pipe(
-            map((response: Static<typeof ChatMarkdownResponseSchema>) => response.markdownText),
+            map((response: ChatMarkdownResponseModel) => response.markdownText),
             catchError((error) => {
                 console.error('Failed to format message as Markdown:', error);
                 // Consider returning a more specific error or an empty string observable

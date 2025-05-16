@@ -1,6 +1,17 @@
-You should use signals instead of @Input/@Ouput and observables where possible.
+# API schemas
+
+Angular services should always use RouteDefinitions from the shared/api folder when calling server routes.
+
+## Model/schema types
+
+Don't convert a TypeBox schema to a plain interface with `import type { Static } from '@sinclair/typebox';` This is incorrect.
+
+The correct style is to important a plain interface that represents the schema.
+
 
 # Angular Signals
+
+You should use signals instead of @Input/@Ouput and observables where possible.
 
 A **signal** is a wrapper around a value that notifies interested consumers when that value changes. Signals can contain any value, from primitives to complex data structures.
 

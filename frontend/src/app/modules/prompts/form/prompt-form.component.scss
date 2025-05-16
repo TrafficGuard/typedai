@@ -1,7 +1,15 @@
 //@import 'cdk'; // For cdkTextareaAutosize
-
+/*
+div.mat-expansion-panel-body {
+    padding-top: 0px;
+    padding-right: 16px;
+    padding-bottom: 10px;
+    padding-left: 26px
+}
+*/
 :host {
   display: block; // Recommended for component host elements
+
 
   .prompt-form-page-container {
     // This class wraps the toolbar and content area.
