@@ -241,4 +241,53 @@ button[mat-flat-button][color="primary"] {
       border-radius: 20px;
     }
   }
+
+  // Added styles for parameters section
+  .parameters-section {
+    margin-top: 20px;
+    padding: 15px;
+    border: 1px solid var(--fuse-border, #e0e0e0);
+    border-radius: 8px;
+    background-color: var(--fuse-card-background, #ffffff);
+
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 500;
+      margin-bottom: 15px;
+      color: var(--fuse-text-primary, #333333);
+    }
+  }
+
+  .parameter-item {
+    margin-bottom: 20px;
+
+    .parameter-label {
+      display: block;
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+      font-weight: 500;
+      color: var(--fuse-text-secondary, #555555);
+    }
+
+    .slider-input-group {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+
+      .parameter-slider {
+        flex-grow: 1;
+      }
+
+      .parameter-input {
+        width: 80px;
+        .mat-mdc-form-field-subscript-wrapper {
+          display: none;
+        }
+        input[type=number] {
+          text-align: right;
+          padding-right: 8px;
+        }
+      }
+    }
+  }
 }

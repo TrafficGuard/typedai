@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
-import { FormBuilder, ReactiveFormsModule, FormArray } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, FormArray, FormGroup } from '@angular/forms';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { By } from '@angular/platform-browser';
 import { Location, CommonModule } from '@angular/common';
@@ -18,6 +18,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatToolbarModule } from '@angular/material/toolbar';
+import { MatSliderModule } from '@angular/material/slider';
 
 
 import { PromptFormComponent } from './prompt-form.component';
@@ -82,7 +83,7 @@ describe('PromptFormComponent', () => {
         CommonModule,
         MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule,
         MatChipsModule, MatProgressSpinnerModule, MatCardModule, MatSelectModule, MatTooltipModule,
-        MatToolbarModule, MatSelectModule
+        MatToolbarModule, MatSelectModule, MatSliderModule
       ],
       providers: [
         FormBuilder,
@@ -433,6 +434,63 @@ describe('PromptFormComponent', () => {
       expect(viewCodeButtonEl.nativeElement.textContent).toContain('View code');
       const iconEl = viewCodeButtonEl.query(By.css('mat-icon'));
       expect(iconEl.nativeElement.textContent.trim()).toBe('code');
+    });
+  });
+
+  describe('LLM Options Parameters', () => {
+    let optionsGroup: FormGroup;
+
+    beforeEach(() => {
+      fixture.detectChanges(); // Ensure view is stable if ngOnInit was called by TestBed
+      optionsGroup = component.promptForm.get('options') as FormGroup;
+    });
+
+    it('should render temperature slider and input', () => {
+      expect(optionsGroup).toBeTruthy('Options form group should exist');
+      const tempSlider = fixture.debugElement.query(By.css('mat-slider[formControlName="temperature"]'));
+      expect(tempSlider).toBeTruthy();
+      const tempInput = fixture.debugElement.query(By.css('div.parameter-item input[formControlName="temperature"][type="number"]'));
+      expect(tempInput).toBeTruthy();
+    });
+
+    it('should render maxTokens slider and input', () => {
+      expect(optionsGroup).toBeTruthy('Options form group should exist');
+      const tokensSlider = fixture.debugElement.query(By.css('mat-slider[formControlName="maxTokens"]'));
+      expect(tokensSlider).toBeTruthy();
+      const tokensInput = fixture.debugElement.query(By.css('div.parameter-item input[formControlName="maxTokens"][type="number"]'));
+      expect(tokensInput).toBeTruthy();
+    });
+
+    it('temperature slider and input should be bound to the same form control', () => {
+      expect(optionsGroup).toBeTruthy('Options form group should exist');
+      const tempControl = optionsGroup.get('temperature');
+      expect(tempControl).toBeTruthy('Temperature form control should exist');
+      const tempInputDebugEl = fixture.debugElement.query(By.css('div.parameter-item input[formControlName="temperature"][type="number"]'));
+
+      tempControl.setValue(0.5);
+      fixture.detectChanges();
+      expect(tempInputDebugEl.nativeElement.value).toBe('0.5');
+
+      tempInputDebugEl.nativeElement.value = '0.8';
+      tempInputDebugEl.nativeElement.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      expect(tempControl.value).toBe(0.8);
+    });
+
+    it('maxTokens slider and input should be bound to the same form control', () => {
+      expect(optionsGroup).toBeTruthy('Options form group should exist');
+      const maxTokensControl = optionsGroup.get('maxTokens');
+      expect(maxTokensControl).toBeTruthy('MaxTokens form control should exist');
+      const maxTokensInputDebugEl = fixture.debugElement.query(By.css('div.parameter-item input[formControlName="maxTokens"][type="number"]'));
+
+      maxTokensControl.setValue(1024);
+      fixture.detectChanges();
+      expect(maxTokensInputDebugEl.nativeElement.value).toBe('1024');
+
+      maxTokensInputDebugEl.nativeElement.value = '512';
+      maxTokensInputDebugEl.nativeElement.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      expect(maxTokensControl.value).toBe(512);
     });
   });
 });
