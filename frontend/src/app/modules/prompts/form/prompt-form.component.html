@@ -7,7 +7,7 @@
         </button>
     </div>
 
-    <div class="bg-card rounded-lg shadow">
+    <div class="bg-card rounded-lg shadow p-4">
       <div *ngIf="isLoading()" class="flex flex-auto justify-center items-center p-8">
         <mat-spinner diameter="50"></mat-spinner>
       </div>
@@ -69,7 +69,12 @@
             <!-- Messages Section -->
             <div class="space-y-4"> <!-- Container for the messages section -->
                 <div class="flex justify-between items-center">
-                    <h3 class="text-xl font-semibold">Messages</h3>
+                    <h3 class="text-xl font-semibold">
+                        Messages
+                        <mat-slide-toggle formControlName="includeSystemMessage" class="ml-6">
+                            Include System Message
+                        </mat-slide-toggle>
+                    </h3>
                     <button mat-icon-button type="button" (click)="addMessage()" matTooltip="Add User/Assistant Message">
                         <mat-icon svgIcon="heroicons_outline:plus-circle"></mat-icon>
                     </button>
@@ -77,9 +82,7 @@
 
                 <!-- System Message Toggle -->
                 <div class="px-1 mb-4">
-                    <mat-slide-toggle formControlName="includeSystemMessage">
-                        Include System Message
-                    </mat-slide-toggle>
+
                 </div>
 
                 <!-- System Message Content Field -->
@@ -108,12 +111,11 @@
                         <mat-expansion-panel-header [ngClass]="{'h-1': messagePanel.expanded}">
                             <mat-panel-title *ngIf="!messagePanel.expanded" [@summaryFade] class="!text-sm !font-semibold">
                                 <span>{{ msgGroup.get('role')?.value | titlecase }}</span>
-                                <span> Message {{ getDisplayMessageIndex(i) }}</span>
                                 <span *ngIf="msgGroup.get('content')?.value" class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2 truncate">
-                                    - {{ (msgGroup.get('content')?.value || '') | slice:0:50 }}{{ (msgGroup.get('content')?.value?.length || 0) > 50 ? '...' : '' }}
+                                    {{ (msgGroup.get('content')?.value || '') | slice:0:50 }}{{ (msgGroup.get('content')?.value?.length || 0) > 50 ? '...' : '' }}
                                 </span>
                                 <span *ngIf="!msgGroup.get('content')?.value" class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2 italic">
-                                    - No content
+                                    (No content)
                                 </span>
                             </mat-panel-title>
                              <mat-panel-title *ngIf="messagePanel.expanded" class="!text-sm !font-semibold">
@@ -125,12 +127,14 @@
                         <!-- Content of the expansion panel (form fields) -->
                         <div class="pr-4  dark:border-gray-700 space-y-4" [ngClass]="{'pt-0': messagePanel.expanded, '-mt-8': messagePanel.expanded}">
                             <div class="flex justify-between items-start">
+                                <!--
                                 <mat-form-field class="message-role-select w-50">
                                     <mat-select formControlName="role" required>
                                         <mat-option *ngFor="let role of llmMessageRoles" [value]="role.value">{{ role.viewValue }}</mat-option>
                                     </mat-select>
                                     <mat-error *ngIf="msgGroup.get('role')?.hasError('required')">Role is required.</mat-error>
                                 </mat-form-field>
+                                -->
                                 <button mat-icon-button type="button" (click)="removeMessage(i)" matTooltip="Remove Message" class="ml-2 pt-4 text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400">
                                     <mat-icon svgIcon="heroicons_outline:trash"></mat-icon>
                                 </button>
