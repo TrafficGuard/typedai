@@ -88,6 +88,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
     this.promptForm = this.fb.group({
       name: ['', Validators.required],
       tags: this.fb.array([]),
+      selectedModel:  ['', Validators.required],
       messages: this.fb.array([], Validators.minLength(1)),
       options: this.fb.group({
         temperature: [1.0, [Validators.required, Validators.min(0), Validators.max(2)]],
@@ -225,11 +226,6 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 
   public copyModelName(): void {
     console.log('Copy model name clicked for:', this.selectedModel);
-    // Placeholder action
-  }
-
-  public viewCode(): void {
-    console.log('View code clicked. This is a placeholder action.');
     // Placeholder action
   }
 

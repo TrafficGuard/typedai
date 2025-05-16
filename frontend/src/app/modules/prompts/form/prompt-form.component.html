@@ -1,51 +1,24 @@
-<div class="prompt-form-page-container">
-  <mat-toolbar class="app-toolbar">
-    <span class="playground-title">Prompt Studio</span>
-    <span class="toolbar-spacer"></span> <!-- Pushes items to the right -->
+<div class="flex flex-col flex-auto w-full p-4 sm:p-4">
+    <div class="flex items-center justify-between mb-4 mx-3">
+        <h1 class="text-3xl font-medium tracking-tight leading-none">Prompt Studio</h1>
+        <button mat-stroked-button (click)="goBack()" type="button">
+            <mat-icon svgIcon="heroicons_outline:arrow-left"></mat-icon>
+            <span class="ml-2">Back</span>
+        </button>
+    </div>
 
-    <mat-form-field appearance="outline" class="model-selector">
-      <mat-label>Model</mat-label>
-      <mat-select [(ngModel)]="selectedModel" name="toolbarSelectedModel"> <!-- Added name attribute for ngModel -->
-        <mat-option *ngFor="let model of availableModels" [value]="model">{{ model }}</mat-option>
-      </mat-select>
-    </mat-form-field>
-    <button mat-icon-button aria-label="Copy model name" matTooltip="Copy model name (Placeholder)">
-      <mat-icon>content_copy</mat-icon>
-    </button>
-  </mat-toolbar>
-  <div class="prompt-form-content-area">
-    <div class="p-4 sm:p-6 md:p-8 flex flex-col flex-auto">
+    <div class="overflow-auto bg-card rounded-lg shadow">
       <div *ngIf="isLoading()" class="flex flex-auto justify-center items-center">
         <mat-spinner diameter="50"></mat-spinner>
       </div>
 
       <ng-container *ngIf="!isLoading()">
-        <!-- New Toolbar -->
-        <mat-toolbar class="prompt-form-toolbar mb-4"> <!-- Reduced mb from 6 to 4 for tighter spacing -->
-          <span class="toolbar-title">Prompt Studio</span>
-          <span class="toolbar-spacer"></span>
 
-          <mat-form-field appearance="outline" class="model-selector">
-            <mat-label>Model</mat-label>
-            <mat-select [(ngModel)]="selectedModel" name="selectedModelCtrl" matTooltip="Select the target model (placeholder)">
-              <mat-option *ngFor="let model of availableModels" [value]="model.value">
-                {{ model.viewValue }}
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
-          <button mat-icon-button aria-label="Copy model name" (click)="copyModelName()" matTooltip="Copy model name (placeholder)">
-            <mat-icon svgIcon="heroicons_outline:clipboard-document"></mat-icon>
-          </button>
-
-        </mat-toolbar>
-
+          <!--
         <div class="flex items-center justify-between mb-4 mx-3">
           <h1 class="text-3xl font-medium tracking-tight leading-none">{{ isEditMode() ? 'Edit Prompt' : 'Create New Prompt' }}</h1>
-          <button mat-stroked-button (click)="goBack()" type="button">
-            <mat-icon svgIcon="heroicons_outline:arrow-left"></mat-icon>
-            <span class="ml-2">Back</span>
-          </button>
         </div>
+        -->
 
         <form [formGroup]="promptForm" (ngSubmit)="onSubmit()" class="space-y-6 flex-auto flex flex-col">
           <div class="flex-auto space-y-6 overflow-y-auto pr-2">
@@ -114,7 +87,16 @@
 
             <mat-card appearance="outlined" formGroupName="options">
                 <div class="parameters-section">
-                  <h3 class="section-title">LLM Options</h3>
+                  <h3 class="section-title">Generation Options</h3>
+
+                    <div class="parameter-item">
+                    <mat-form-field appearance="outline" class="model-selector">
+                        <mat-label>Model</mat-label>
+                        <mat-select formControlName="selectedModel" name="toolbarSelectedModel">
+                            <mat-option *ngFor="let model of availableModels" [value]="model">{{ model }}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                    </div>
 
                   <div class="parameter-item">
                     <label id="temperature-label" class="parameter-label">Temperature</label>
@@ -144,17 +126,19 @@
             <button mat-flat-button color="primary" type="submit" [disabled]="isSaving() || promptForm.invalid" class="submit-button">
               <mat-spinner *ngIf="isSaving()" diameter="20" class="!text-white mr-2"></mat-spinner>
               <span>{{ isSaving() ? 'Saving...' : (isEditMode() ? 'Save Changes' : 'Create Prompt') }}</span>
-              <mat-chip-listbox aria-label="Submit shortcut" class="ml-2 shrink-0" *ngIf="!isSaving()"> <!-- Added shrink-0 -->
-                <mat-chip selectable="false" focusable="false" class="submit-shortcut-chip"> <!-- Added class -->
+
+                <!--
+              <mat-chip-listbox aria-label="Submit shortcut" class="ml-2 shrink-0" *ngIf="!isSaving()">
+                <mat-chip selectable="false" focusable="false" class="submit-shortcut-chip">
                   <mat-icon svgIcon="heroicons_outline:command-line" class="icon-xs"></mat-icon>
-                  <span class="mx-px font-mono">+</span> <!-- Added font-mono for + -->
+                  <span class="mx-px font-mono">+</span>
                   <mat-icon svgIcon="heroicons_outline:arrow-uturn-left" class="icon-xs"></mat-icon>
                 </mat-chip>
               </mat-chip-listbox>
+                -->
             </button>
           </div>
         </form>
       </ng-container>
-    </div>
   </div>
 </div>
