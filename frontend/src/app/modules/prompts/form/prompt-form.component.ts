@@ -24,7 +24,7 @@ import { CdkTextareaAutosize } from '@angular/cdk/text-field'; // Import CdkText
 import { PromptsService } from '../prompts.service';
 import { LlmService, LLM as AppLLM } from '../../agents/services/llm.service'; // Renamed LLM to AppLLM to avoid conflict
 import type { Prompt } from '#shared/model/prompts.model'; // Ensure Prompt is imported directly
-import type { LlmMessage, GenerateOptions } from '#shared/model/llm.model';
+import type { LlmMessage, CallSettings } from '#shared/model/llm.model';
 import type { PromptCreatePayload, PromptUpdatePayload, PromptSchemaModel } from '#shared/schemas/prompts.schema';
 
 import { Subject, Observable, forkJoin } from 'rxjs';
@@ -100,13 +100,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
     public availableModels: AppLLM[] = []; // Will be populated by LlmService
 
     // Signals for card collapsibility (matching HTML usage)
-    // detailsCollapsed = signal(false); // REMOVED: Using mat-expansion-panel's internal state
-    // messagesCollapsed = signal(false); // For the entire "Messages" card - REMOVED
     optionsCollapsed = signal(false);
-
-    // Signal for individual message item collapsibility - REMOVED
-    // messageItemCollapsedStates = signal<boolean[]>([]);
-
 
     ngOnInit(): void {
         this.promptForm = this.fb.group({
@@ -171,10 +165,11 @@ export class PromptFormComponent implements OnInit, OnDestroy {
             takeUntil(this.destroy$)
         ).subscribe(data => {
             const resolvedPrompt = data['prompt'] as Prompt | null;
+            console.log(resolvedPrompt)
             // Check for state passed via router navigation (e.g., from LlmCall)
             const navigationState = this.router.getCurrentNavigation()?.extras.state;
             const llmCallDataForPrompt = navigationState?.['llmCallData'] as Partial<Prompt> | undefined;
-
+            console.log(llmCallDataForPrompt)
             if (resolvedPrompt && resolvedPrompt.id) {
                 this.promptIdSignal.set(resolvedPrompt.id);
                 this.isEditMode.set(true);
@@ -193,7 +188,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
                 this.promptForm.get('includeSystemMessage')?.setValue(!!hasSystemMessage, { emitEvent: true });
 
                 // Set default model if not provided by LlmCall or if provided one is not available
-                const optionsLlmId = llmCallDataForPrompt.options?.llmId;
+                const optionsLlmId = llmCallDataForPrompt.settings?.llmId;
                 if (optionsLlmId && this.availableModels.find(m => m.id === optionsLlmId)) {
                     this.promptForm.get('options.llmId')?.setValue(optionsLlmId, { emitEvent: false });
                 } else if (this.availableModels.length > 0) {
@@ -321,7 +316,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
     }
 
     populateForm(prompt: Prompt): void {
-        const defaultOptions: GenerateOptions & { llmId?: string | null } = { // Changed from selectedModel
+        const defaultOptions: CallSettings & { llmId?: string | null } = { // Changed from selectedModel
             llmId: this.availableModels.length > 0 ? this.availableModels[0].id : null, // Changed from selectedModel
             temperature: 1.0,
             maxOutputTokens: 2048,
@@ -331,7 +326,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
             name: prompt.name,
         }, { emitEvent: false }); // Prevent valueChanges from firing prematurely
 
-        const promptOptions = prompt.options || {};
+        const promptOptions = prompt.settings || {};
         let llmIdToPatch = defaultOptions.llmId; // Changed from selectedModelToPatch
 
         // Use prompt.options.llmId directly
@@ -464,7 +459,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
             role: msg.role,
             content: msg.content
         }));
-        const generationOptions: GenerateOptions = formValue.options;
+        const generationOptions: CallSettings = formValue.options;
 
         console.log('Messages for generation:', messagesToGenerate);
         console.log('Options for generation:', generationOptions);

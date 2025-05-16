@@ -10,8 +10,8 @@ import { environment } from 'environments/environment';
 import type { LlmMessage } from '#shared/model/llm.model';
 import type { LlmCall } from '#shared/model/llmCall.model';
 import { AgentService } from '../../services/agent.service';
-import { Router } from '@angular/router'; // Add this import
-import type { Prompt } from '#shared/model/prompts.model'; // Import Prompt type
+import { Router } from '@angular/router';
+import type { Prompt } from '#shared/model/prompts.model';
 
 @Component({
 	selector: 'agent-llm-calls',
@@ -106,23 +106,21 @@ export class AgentLlmCallsComponent implements OnInit {
 	}
 
     openInPromptStudio(call: LlmCall): void {
-        // Construct a partial Prompt object from the LlmCall
-        // The Prompt Studio will treat this as a new prompt pre-filled with this data.
-        const promptDataForStudio: Partial<Prompt> = {
-            name: `From LlmCall: ${call.description || call.id.substring(0, 8)}`, // Create a descriptive name
-            messages: call.messages as LlmMessage[], // Cast ReadonlyArray to LlmMessage[] if necessary
-            options: {
+        const prompt: Prompt = {
+            userId: '',
+            revisionId: 1,
+            name: call.description || call.id,
+            id: call.id,
+            messages: call.messages as LlmMessage[],
+            settings: {
                 llmId: call.llmId,
-                temperature: call.temperature,
-                maxOutputTokens: call.maxOutputTokens,
-                // Add other relevant options if they exist on LlmCall and are supported by GenerateOptions
+                ...call.settings
             },
-            tags: ['llm-call', call.agentId ? `agent-${call.agentId}` : 'unknown-agent'], // Example tags
+            tags: [call.id]
         };
 
-        // Navigate to the prompt form (new prompt route) with state
         this.router.navigate(['/ui/prompts/new'], {
-            state: { llmCallData: promptDataForStudio }
+            state: { llmCallData: prompt }
         }).catch(err => console.error('Failed to navigate to Prompt Studio:', err));
     }
 }
