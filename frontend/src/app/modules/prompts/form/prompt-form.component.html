@@ -23,113 +23,125 @@
         <form [formGroup]="promptForm" (ngSubmit)="onSubmit()" class="space-y-6 flex-auto flex flex-col">
           <div class="flex-auto space-y-6 pr-2">
             <mat-card appearance="outlined">
-                <mat-card-header>
-                <mat-card-title>Prompt Details</mat-card-title>
+                <mat-card-header class="flex justify-between items-center">
+                    <mat-card-title>Prompt Details</mat-card-title>
+                    <button mat-icon-button type="button" (click)="toggleDetails()" matTooltip="{{ detailsCollapsed() ? 'Expand' : 'Collapse' }}">
+                        <mat-icon [svgIcon]="detailsCollapsed() ? 'heroicons_outline:chevron-down' : 'heroicons_outline:chevron-up'"></mat-icon>
+                    </button>
                 </mat-card-header>
-                <mat-card-content class="pt-4 space-y-4">
-                <mat-form-field class="w-full">
-                    <mat-label>Name</mat-label>
-                    <input matInput formControlName="name" required>
-                    <mat-error *ngIf="promptForm.get('name')?.hasError('required')">Name is required.</mat-error>
-                </mat-form-field>
+                <mat-card-content class="pt-4 space-y-4" *ngIf="!detailsCollapsed()">
+                    <mat-form-field class="w-full">
+                        <mat-label>Name</mat-label>
+                        <input matInput formControlName="name" required>
+                        <mat-error *ngIf="promptForm.get('name')?.hasError('required')">Name is required.</mat-error>
+                    </mat-form-field>
 
-                <mat-form-field class="w-full">
-                    <mat-label>Tags</mat-label>
-                    <mat-chip-grid #chipGrid aria-label="Enter tags" formArrayName="tags">
-                        <mat-chip-row *ngFor="let tagControl of tagsFormArray.controls; let i = index" (removed)="removeTagAtIndex(i)" [editable]="true" [removable]="true">
-                            {{tagControl.value}}
-                            <button matChipRemove [attr.aria-label]="'remove ' + tagControl.value">
-                                <mat-icon>cancel</mat-icon>
-                            </button>
-                        </mat-chip-row>
-                    </mat-chip-grid>
-                    <input placeholder="New tag..."
-                            [formControl]="tagCtrl"
-                            [matChipInputFor]="chipGrid"
-                            [matChipInputSeparatorKeyCodes]="separatorKeysCodes"
-                            [matChipInputAddOnBlur]="true"
-                            (matChipInputTokenEnd)="addTagFromInput($event)"/>
-                </mat-form-field>
+                    <mat-form-field class="w-full">
+                        <mat-label>Tags</mat-label>
+                        <mat-chip-grid #chipGrid aria-label="Enter tags" formArrayName="tags">
+                            <mat-chip-row *ngFor="let tagControl of tagsFormArray.controls; let i = index" (removed)="removeTagAtIndex(i)" [editable]="true" [removable]="true">
+                                {{tagControl.value}}
+                                <button matChipRemove [attr.aria-label]="'remove ' + tagControl.value">
+                                    <mat-icon>cancel</mat-icon>
+                                </button>
+                            </mat-chip-row>
+                        </mat-chip-grid>
+                        <input placeholder="New tag..."
+                                [formControl]="tagCtrl"
+                                [matChipInputFor]="chipGrid"
+                                [matChipInputSeparatorKeyCodes]="separatorKeysCodes"
+                                [matChipInputAddOnBlur]="true"
+                                (matChipInputTokenEnd)="addTagFromInput($event)"/>
+                    </mat-form-field>
                 </mat-card-content>
             </mat-card>
 
             <mat-card appearance="outlined" formArrayName="messages">
-                <mat-card-header>
-                <mat-card-title>Messages</mat-card-title>
-                <button mat-icon-button type="button" (click)="addMessage()" matTooltip="Add Message" class="ml-auto">
-                    <mat-icon svgIcon="heroicons_outline:plus-circle"></mat-icon>
-                </button>
+                <mat-card-header class="flex justify-between items-center">
+                    <mat-card-title>Messages</mat-card-title>
+                    <div class="flex items-center">
+                        <button mat-icon-button type="button" (click)="addMessage()" matTooltip="Add Message" class="ml-auto">
+                            <mat-icon svgIcon="heroicons_outline:plus-circle"></mat-icon>
+                        </button>
+                        <button mat-icon-button type="button" (click)="toggleMessages()" matTooltip="{{ messagesCollapsed() ? 'Expand' : 'Collapse' }}">
+                            <mat-icon [svgIcon]="messagesCollapsed() ? 'heroicons_outline:chevron-down' : 'heroicons_outline:chevron-up'"></mat-icon>
+                        </button>
+                    </div>
                 </mat-card-header>
-                <mat-card-content class="pt-4 space-y-4">
-                <div *ngIf="messagesFormArray.controls.length === 0" class="text-center text-gray-500 py-4">
-                    No messages yet. Click the '+' button to add one.
-                    <mat-error *ngIf="promptForm.get('messages')?.hasError('minlength') && promptForm.get('messages')?.touched">At least one message is required.</mat-error>
-                </div>
-                <div *ngFor="let msgGroup of messagesFormArray.controls; let i = index" [formGroupName]="i" class="p-4 border rounded-md space-y-2 relative bg-white dark:bg-gray-800">
-                    <button mat-icon-button type="button" (click)="removeMessage(i)" matTooltip="Remove Message" class="absolute top-2 right-2 text-gray-500 hover:text-red-500 z-10">
-                        <mat-icon svgIcon="heroicons_outline:trash"></mat-icon>
-                    </button>
-                    <mat-form-field class="w-full">
-                    <mat-label>Role</mat-label>
-                    <mat-select formControlName="role" required>
-                        <mat-option *ngFor="let role of llmMessageRoles" [value]="role.value">{{ role.viewValue }}</mat-option>
-                    </mat-select>
-                    <mat-error *ngIf="msgGroup.get('role')?.hasError('required')">Role is required.</mat-error>
-                    </mat-form-field>
-                    <mat-form-field class="w-full">
-                    <mat-label>Content</mat-label>
-                    <textarea matInput formControlName="content" cdkTextareaAutosize #autosize="cdkTextareaAutosize" cdkAutosizeMinRows="3" required></textarea>
-                    <mat-error *ngIf="msgGroup.get('content')?.hasError('required')">Content is required.</mat-error>
-                    </mat-form-field>
-                </div>
+                <mat-card-content class="pt-4 space-y-4" *ngIf="!messagesCollapsed()">
+                    <div *ngIf="messagesFormArray.controls.length === 0" class="text-center text-gray-500 py-4">
+                        No messages yet. Click the '+' button to add one.
+                        <mat-error *ngIf="promptForm.get('messages')?.hasError('minlength') && promptForm.get('messages')?.touched">At least one message is required.</mat-error>
+                    </div>
+                    <div *ngFor="let msgGroup of messagesFormArray.controls; let i = index" [formGroupName]="i" class="p-4 border rounded-md space-y-2 relative bg-white dark:bg-gray-800">
+                        <button mat-icon-button type="button" (click)="removeMessage(i)" matTooltip="Remove Message" class="absolute top-2 right-2 text-gray-500 hover:text-red-500 z-10">
+                            <mat-icon svgIcon="heroicons_outline:trash"></mat-icon>
+                        </button>
+                        <mat-form-field class="w-full">
+                            <mat-label>Role</mat-label>
+                            <mat-select formControlName="role" required>
+                                <mat-option *ngFor="let role of llmMessageRoles" [value]="role.value">{{ role.viewValue }}</mat-option>
+                            </mat-select>
+                            <mat-error *ngIf="msgGroup.get('role')?.hasError('required')">Role is required.</mat-error>
+                        </mat-form-field>
+                        <mat-form-field class="w-full">
+                            <mat-label>Content</mat-label>
+                            <textarea matInput formControlName="content" cdkTextareaAutosize #autosize="cdkTextareaAutosize" cdkAutosizeMinRows="3" required></textarea>
+                            <mat-error *ngIf="msgGroup.get('content')?.hasError('required')">Content is required.</mat-error>
+                        </mat-form-field>
+                    </div>
                 </mat-card-content>
             </mat-card>
 
             <mat-card appearance="outlined">
-                <div class="parameters-section" formGroupName="options">
-                  <h3 class="section-title">Generation Options</h3>
+                <mat-card-header class="flex justify-between items-center">
+                    <mat-card-title>Generation Options</mat-card-title>
+                    <button mat-icon-button type="button" (click)="toggleOptions()" matTooltip="{{ optionsCollapsed() ? 'Expand' : 'Collapse' }}">
+                        <mat-icon [svgIcon]="optionsCollapsed() ? 'heroicons_outline:chevron-down' : 'heroicons_outline:chevron-up'"></mat-icon>
+                    </button>
+                </mat-card-header>
+                <div class="parameters-section" formGroupName="options" *ngIf="!optionsCollapsed()">
+                    <div class="parameter-item">
+                        <mat-form-field appearance="outline" class="model-selector">
+                            <mat-label>Model</mat-label>
+                            <mat-select formControlName="llmId"> <!-- Changed from selectedModel -->
+                                <mat-option *ngFor="let model of availableModels" [value]="model.id">{{ model.name }}</mat-option>
+                            </mat-select>
+                            <mat-error *ngIf="promptForm.get('options.llmId')?.hasError('required')">Model is required.</mat-error> <!-- Changed from options.selectedModel -->
+                        </mat-form-field>
+                    </div>
 
                     <div class="parameter-item">
-                    <mat-form-field appearance="outline" class="model-selector">
-                        <mat-label>Model</mat-label>
-                        <mat-select formControlName="llmId"> <!-- Changed from selectedModel -->
-                            <mat-option *ngFor="let model of availableModels" [value]="model.id">{{ model.name }}</mat-option>
-                        </mat-select>
-                        <mat-error *ngIf="promptForm.get('options.llmId')?.hasError('required')">Model is required.</mat-error> <!-- Changed from options.selectedModel -->
-                    </mat-form-field>
+                        <label id="temperature-label" class="parameter-label">Temperature</label>
+                        <div class="slider-input-group">
+                            <mat-slider min="0" max="2" step="0.1" discrete="true"
+                                        [value]="promptForm.get('options.temperature')?.value"
+                                        (input)="promptForm.get('options.temperature')?.setValue($event.value)"
+                                        aria-labelledby="temperature-label"
+                                        class="parameter-slider">
+                                <input matSliderThumb>
+                            </mat-slider>
+                            <mat-form-field appearance="outline" class="parameter-input">
+                                <input matInput type="number" formControlName="temperature" min="0" max="2" step="0.1">
+                            </mat-form-field>
+                        </div>
                     </div>
 
-                  <div class="parameter-item">
-                    <label id="temperature-label" class="parameter-label">Temperature</label>
-                    <div class="slider-input-group">
-                      <mat-slider min="0" max="2" step="0.1" discrete="true"
-                                  [value]="promptForm.get('options.temperature')?.value"
-                                  (input)="promptForm.get('options.temperature')?.setValue($event.value)"
-                                  aria-labelledby="temperature-label"
-                                  class="parameter-slider">
-                        <input matSliderThumb>
-                      </mat-slider>
-                      <mat-form-field appearance="outline" class="parameter-input">
-                        <input matInput type="number" formControlName="temperature" min="0" max="2" step="0.1">
-                      </mat-form-field>
+                    <div class="parameter-item">
+                        <label id="maxOutputTokens-label" class="parameter-label">Max Tokens</label>
+                        <div class="slider-input-group">
+                            <mat-slider min="1" max="8192" step="1" discrete="true"
+                                        [value]="promptForm.get('options.maxOutputTokens')?.value"
+                                        (input)="promptForm.get('options.maxOutputTokens')?.setValue($event.value)"
+                                        aria-labelledby="maxOutputTokens-label"
+                                        class="parameter-slider">
+                                <input matSliderThumb>
+                            </mat-slider>
+                            <mat-form-field appearance="outline" class="parameter-input">
+                                <input matInput type="number" formControlName="maxOutputTokens" min="1" max="8192" step="1">
+                            </mat-form-field>
+                        </div>
                     </div>
-                  </div>
-
-                  <div class="parameter-item">
-                    <label id="maxOutputTokens-label" class="parameter-label">Max Tokens</label>
-                    <div class="slider-input-group">
-                      <mat-slider min="1" max="8192" step="1" discrete="true"
-                                  [value]="promptForm.get('options.maxOutputTokens')?.value"
-                                  (input)="promptForm.get('options.maxOutputTokens')?.setValue($event.value)"
-                                  aria-labelledby="maxOutputTokens-label"
-                                  class="parameter-slider">
-                        <input matSliderThumb>
-                      </mat-slider>
-                      <mat-form-field appearance="outline" class="parameter-input">
-                        <input matInput type="number" formControlName="maxOutputTokens" min="1" max="8192" step="1">
-                      </mat-form-field>
-                    </div>
-                  </div>
                 </div>
             </mat-card>
           </div>
@@ -155,3 +167,4 @@
       </ng-container>
   </div>
 </div>
+```
