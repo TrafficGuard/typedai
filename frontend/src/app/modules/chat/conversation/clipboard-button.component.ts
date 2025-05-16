@@ -9,7 +9,7 @@ import {MatTooltip} from "@angular/material/tooltip";
                        [matTooltip]="'Copy to clipboard'"
                        class="mat-primary clipboard-button"
                        aria-label="Copy to clipboard">
-        <mat-icon [svgIcon]="'content_paste'" class="icon-size-4"></mat-icon>
+        <mat-icon [svgIcon]="'content_paste'" class="icon-size-4 -mt-6 -mr-6"></mat-icon>
     </button>`,
     styles: `button.clipboard-button {
       /* position: absolute; */ /* Removed */
