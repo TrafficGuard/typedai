@@ -56,16 +56,16 @@ export class FastMediumLLM extends BaseLLM {
 				text += `${msgText}\n`;
 			}
 			tokens = await countTokens(text);
-			if (tokens > this.getMaxInputTokens() * 0.9) useCerebras = false;
+			if (tokens > this.getMaxInputTokens() * 0.4) useCerebras = false;
 		} else {
 			useCerebras = false;
 		}
 
 		try {
-			if (useCerebras) return await this.cerebras.generateMessage(messages);
+			if (useCerebras) return await this.cerebras.generateMessage(messages, opts);
 		} catch (e) {
 			logger.warn(e, `Error calling ${this.cerebras.getId()} with ${tokens} tokens`);
-			return await this.gemini.generateMessage(messages);
+			return await this.gemini.generateMessage(messages, opts);
 		}
 
 		// for (const llm of this.providers) {
