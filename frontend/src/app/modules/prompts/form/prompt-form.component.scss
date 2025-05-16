@@ -141,4 +141,53 @@ button[mat-flat-button][color="primary"] {
       margin-bottom: 1rem;
     }
   }
+
+  .submit-button {
+    border-radius: 20px !important;
+    padding-left: 16px !important;
+    padding-right: 8px !important;
+
+    display: inline-flex;
+    align-items: center;
+    overflow: hidden; // Prevent chip from breaking layout on smaller buttons
+
+    .mat-mdc-chip-set { // Targets mat-chip-listbox generated element
+      background-color: transparent !important;
+      padding: 0 !important;
+      display: inline-flex; // Ensure it aligns properly
+      align-items: center;
+    }
+
+    .submit-shortcut-chip.mat-mdc-chip { // Target the specific chip
+      background-color: rgba(255, 255, 255, 0.2) !important; // Light overlay for primary button
+      color: currentColor !important; // Inherit text color from button
+      padding: 2px 6px !important;
+      min-height: auto !important;
+      height: auto !important;
+      font-size: 0.75rem;
+      line-height: 1; // Ensure consistent height
+      display: inline-flex;
+      align-items: center;
+
+      .mat-icon {
+        font-size: 14px !important;
+        height: 14px !important;
+        width: 14px !important;
+        vertical-align: middle;
+      }
+      .icon-xs { // For even smaller icons if needed
+        font-size: 12px !important;
+        height: 12px !important;
+        width: 12px !important;
+      }
+      span.mx-px {
+        margin-left: 2px;
+        margin-right: 2px;
+      }
+    }
+
+    .mat-mdc-button-persistent-ripple::before {
+      border-radius: 20px;
+    }
+  }
 }

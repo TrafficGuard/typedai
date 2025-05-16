@@ -156,9 +156,16 @@
 
       <div class="flex justify-end gap-2 pt-4 mt-auto border-t border-gray-200 dark:border-gray-700">
         <button mat-stroked-button type="button" (click)="goBack()" [disabled]="isSaving()">Cancel</button>
-        <button mat-flat-button color="primary" type="submit" [disabled]="isSaving() || promptForm.invalid">
+        <button mat-flat-button color="primary" type="submit" [disabled]="isSaving() || promptForm.invalid" class="submit-button">
           <mat-spinner *ngIf="isSaving()" diameter="20" class="!text-white mr-2"></mat-spinner>
-          {{ isSaving() ? 'Saving...' : (isEditMode() ? 'Save Changes' : 'Create Prompt') }}
+          <span>{{ isSaving() ? 'Saving...' : (isEditMode() ? 'Save Changes' : 'Create Prompt') }}</span>
+          <mat-chip-listbox aria-label="Submit shortcut" class="ml-2 shrink-0" *ngIf="!isSaving()"> <!-- Added shrink-0 -->
+            <mat-chip selectable="false" focusable="false" class="submit-shortcut-chip"> <!-- Added class -->
+              <mat-icon svgIcon="heroicons_outline:command-line" class="icon-xs"></mat-icon>
+              <span class="mx-px font-mono">+</span> <!-- Added font-mono for + -->
+              <mat-icon svgIcon="heroicons_outline:arrow-uturn-left" class="icon-xs"></mat-icon>
+            </mat-chip>
+          </mat-chip-listbox>
         </button>
       </div>
     </form>
