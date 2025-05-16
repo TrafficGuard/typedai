@@ -101,11 +101,11 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 
   // Signals for card collapsibility (matching HTML usage)
   // detailsCollapsed = signal(false); // REMOVED: Using mat-expansion-panel's internal state
-  messagesCollapsed = signal(false); // For the entire "Messages" card
+  // messagesCollapsed = signal(false); // For the entire "Messages" card - REMOVED
   optionsCollapsed = signal(false);
 
-  // Signal for individual message item collapsibility
-  messageItemCollapsedStates = signal<boolean[]>([]);
+  // Signal for individual message item collapsibility - REMOVED
+  // messageItemCollapsedStates = signal<boolean[]>([]);
 
 
   ngOnInit(): void {
@@ -185,17 +185,13 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 
   addMessage(role: LlmMessage['role'] = 'user', content: string = ''): void {
     this.messagesFormArray.push(this.createMessageGroup(role, content));
-    this.messageItemCollapsedStates.update(states => [...states, false]); // Default new messages to expanded
+    // messageItemCollapsedStates logic removed
     this.cdr.detectChanges();
   }
 
   removeMessage(index: number): void {
     this.messagesFormArray.removeAt(index);
-    this.messageItemCollapsedStates.update(states => {
-      const newStates = [...states];
-      newStates.splice(index, 1);
-      return newStates;
-    });
+    // messageItemCollapsedStates logic removed
     this.cdr.detectChanges();
   }
 
@@ -250,12 +246,12 @@ export class PromptFormComponent implements OnInit, OnDestroy {
     (prompt.tags || []).forEach(tag => this.tagsFormArray.push(this.fb.control(tag)));
 
     this.messagesFormArray.clear();
-    const initialItemCollapsedStates: boolean[] = []; // For individual messages
+    // messageItemCollapsedStates logic removed
     (prompt.messages || []).forEach(msg => {
       this.messagesFormArray.push(this.createMessageGroup(msg.role, msg.content as string));
-      initialItemCollapsedStates.push(false); // Default existing messages to expanded
+      // messageItemCollapsedStates logic removed
     });
-    this.messageItemCollapsedStates.set(initialItemCollapsedStates);
+    // messageItemCollapsedStates logic removed
 
 
     if (this.messagesFormArray.length === 0) {
@@ -326,25 +322,25 @@ export class PromptFormComponent implements OnInit, OnDestroy {
   //   this.detailsCollapsed.update(v => !v);
   // }
 
-  toggleMessages(): void { // This is for the entire Messages card
-    this.messagesCollapsed.update(v => !v);
-  }
+  // toggleMessages(): void { // This is for the entire Messages card - REMOVED
+  //   this.messagesCollapsed.update(v => !v);
+  // }
 
   toggleOptions(): void {
     this.optionsCollapsed.update(v => !v);
   }
 
-  // Toggle method for individual message items
-  toggleMessageItemCollapse(index: number): void {
-    this.messageItemCollapsedStates.update(states => {
-      const newStates = [...states];
-      // Ensure the index exists before toggling
-      if (index >= 0 && index < newStates.length) {
-        newStates[index] = !newStates[index];
-      }
-      return newStates;
-    });
-  }
+  // Toggle method for individual message items - REMOVED
+  // toggleMessageItemCollapse(index: number): void {
+  //   this.messageItemCollapsedStates.update(states => {
+  //     const newStates = [...states];
+  //     // Ensure the index exists before toggling
+  //     if (index >= 0 && index < newStates.length) {
+  //       newStates[index] = !newStates[index];
+  //     }
+  //     return newStates;
+  //   });
+  // }
 
 
   ngOnDestroy(): void {
