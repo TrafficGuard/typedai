@@ -22,3 +22,79 @@ button[mat-flat-button][color="primary"] {
         stroke: currentColor;
     }
 }
+
+// Add these styles, preferably inside :host { ... } or ensure they are properly scoped.
+.prompt-form-toolbar {
+  // Use existing theme variables if available, otherwise use fallback colors.
+  // Assuming a light theme context as per the screenshot.
+  background-color: #ffffff; // Fallback: white background
+  color: #333333; // Fallback: dark text
+  border-bottom: 1px solid #e0e0e0; // Fallback: light grey border
+
+  // If your project uses Fuse theme variables, prefer them:
+  // background-color: var(--fuse-toolbar-background, #ffffff);
+  // color: var(--fuse-toolbar-foreground, #333333);
+  // border-bottom: 1px solid var(--fuse-border, #e0e0e0);
+
+  display: flex; // Ensure flex layout for children
+  align-items: center; // Vertically align items in the toolbar
+
+  .toolbar-title {
+    font-size: 1.25rem;
+    font-weight: 500;
+    margin-right: 20px;
+  }
+
+  .toolbar-spacer {
+    flex: 1 1 auto;
+  }
+
+  .model-selector {
+    width: 250px; // Adjust as needed
+    margin-right: 8px;
+    margin-left: 8px; // Add some space before it too
+
+    // Styling for mat-form-field with appearance="outline" in a toolbar context
+    // to make it align better with buttons and have a more compact look.
+    // These styles target Material's generated classes, so they might need ::ng-deep
+    // if component's ViewEncapsulation is emulated (default).
+    // For simplicity in this plan, ::ng-deep is omitted but may be needed by the agent.
+    .mat-mdc-form-field-flex {
+      height: 40px !important; // Attempt to match button height. Use !important if needed.
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+      align-items: center !important;
+    }
+    .mat-mdc-floating-label {
+      // Adjust based on visual inspection after styles are applied.
+      // This is tricky without ::ng-deep and depends on exact DOM.
+      // A simpler approach might be to set a fixed height on the form field
+      // and ensure the label is positioned correctly by Material defaults.
+      // For now, let's rely on Material's default label positioning with adjusted wrapper height.
+    }
+    .mat-mdc-form-field-subscript-wrapper {
+      display: none !important; // Hide the default empty space below the outline
+    }
+    .mat-mdc-select-value {
+      line-height: normal !important; // Reset line-height if needed for centering
+      display: flex;
+      align-items: center;
+      height: 100%;
+    }
+    input.mat-mdc-input-element, .mat-mdc-select-value-text {
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+    }
+  }
+
+  .view-code-button {
+    // mat-stroked-button provides most styling.
+    .mat-icon {
+      margin-right: 6px; // Space between icon and text
+    }
+  }
+
+  button[mat-icon-button] {
+    color: inherit; // Ensure icon color matches toolbar text
+  }
+}

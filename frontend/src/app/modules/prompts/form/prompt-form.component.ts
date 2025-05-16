@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, FormControl } from '@angular/forms';
+import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, FormControl, FormsModule } from '@angular/forms'; // Add FormsModule
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCardModule } from '@angular/material/card';
@@ -34,6 +34,7 @@ import { takeUntil, finalize, tap, filter } from 'rxjs/operators';
     CommonModule,
     RouterModule,
     ReactiveFormsModule,
+    FormsModule, // Add FormsModule here
     MatButtonModule,
     MatButtonToggleModule,
     MatCardModule,
@@ -76,6 +77,13 @@ export class PromptFormComponent implements OnInit, OnDestroy {
     {value: 'system', viewValue: 'System'},
     {value: 'user', viewValue: 'User'},
     {value: 'assistant', viewValue: 'Assistant'}
+  ];
+
+  public selectedModel: string = 'placeholder-model/name-here';
+
+  public availableModels: Array<{value: string, viewValue: string}> = [
+    { value: 'placeholder-model/name-here', viewValue: 'placeholder-model/name-here' },
+    { value: 'another-model/v2', viewValue: 'another-model/v2' },
   ];
 
   ngOnInit(): void {
@@ -215,6 +223,16 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 
   goBack(): void {
     this.location.back();
+  }
+
+  public copyModelName(): void {
+    console.log('Copy model name clicked for:', this.selectedModel);
+    // Placeholder action
+  }
+
+  public viewCode(): void {
+    console.log('View code clicked. This is a placeholder action.');
+    // Placeholder action
   }
 
   ngOnDestroy(): void {

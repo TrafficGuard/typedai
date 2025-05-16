@@ -4,6 +4,29 @@
   </div>
 
   <ng-container *ngIf="!isLoading()">
+    <!-- New Toolbar -->
+    <mat-toolbar class="prompt-form-toolbar mb-4"> <!-- Reduced mb from 6 to 4 for tighter spacing -->
+      <span class="toolbar-title">Prompt Studio</span>
+      <span class="toolbar-spacer"></span>
+
+      <mat-form-field appearance="outline" class="model-selector">
+        <mat-label>Model</mat-label>
+        <mat-select [(ngModel)]="selectedModel" name="selectedModelCtrl" matTooltip="Select the target model (placeholder)">
+          <mat-option *ngFor="let model of availableModels" [value]="model.value">
+            {{ model.viewValue }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+      <button mat-icon-button aria-label="Copy model name" (click)="copyModelName()" matTooltip="Copy model name (placeholder)">
+        <mat-icon svgIcon="heroicons_outline:clipboard-document"></mat-icon>
+      </button>
+
+      <button mat-stroked-button class="view-code-button" (click)="viewCode()" matTooltip="View code (placeholder)">
+        <mat-icon svgIcon="heroicons_outline:code-bracket"></mat-icon>
+        View code
+      </button>
+    </mat-toolbar>
+
     <div class="flex justify-between items-center mb-6">
       <h1 class="text-3xl font-bold tracking-tight">{{ isEditMode() ? 'Edit Prompt' : 'Create New Prompt' }}</h1>
       <button mat-stroked-button (click)="goBack()" type="button">
