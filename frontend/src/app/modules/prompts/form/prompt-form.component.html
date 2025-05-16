@@ -83,12 +83,12 @@
                 <mat-accordion multi="true" *ngIf="messagesFormArray.controls.length > 0" formArrayName="messages">
                     <mat-expansion-panel *ngFor="let msgGroup of messagesFormArray.controls; let i = index" [formGroupName]="i" class="mb-2 !shadow-sm border dark:border-gray-700 bg-white dark:bg-gray-850 rounded-md overflow-hidden" #messagePanel="matExpansionPanel">
                         <mat-expansion-panel-header class="hover:bg-gray-50 dark:hover:bg-gray-800">
-                            <mat-panel-title class="!text-sm !font-semibold">
+                            <mat-panel-title *ngIf="!messagePanel.expanded" [@summaryFade] class="!text-sm !font-semibold">
                                 Message {{ i + 1 }} : {{ msgGroup.get('role')?.value | titlecase }}
-                                <span *ngIf="!messagePanel.expanded && msgGroup.get('content')?.value" class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2 truncate">
+                                <span *ngIf="msgGroup.get('content')?.value" class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2 truncate">
                                     - {{ (msgGroup.get('content')?.value || '') | slice:0:50 }}{{ (msgGroup.get('content')?.value?.length || 0) > 50 ? '...' : '' }}
                                 </span>
-                                <span *ngIf="!messagePanel.expanded && !msgGroup.get('content')?.value" class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2 italic">
+                                <span *ngIf="!msgGroup.get('content')?.value" class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2 italic">
                                     - No content
                                 </span>
                             </mat-panel-title>
