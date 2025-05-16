@@ -1,28 +1,28 @@
-import { cerebrasLlama3_3_70b } from '#llm/services/cerebras';
-import { sambanovaLlama3_3_70b } from '#llm/services/sambanova';
-import { vertexGemini_2_0_Flash } from '#llm/services/vertexai';
+import { cerebrasQwen3_32b } from '#llm/services/cerebras';
+import { vertexGemini_2_5_Flash } from '#llm/services/vertexai';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
-import type { GenerateTextOptions, LLM, LlmMessage } from '#shared/model/llm.model';
+import { type GenerateTextOptions, type LLM, type LlmMessage, messageContentIfTextOnly } from '#shared/model/llm.model';
 import { BaseLLM } from '../base-llm';
 
 /**
- * LLM implementation for the fastest ~70b level models with fallbacks
- * https://artificialanalysis.ai/?models_selected=o1-mini&models=gemini-2-0-flash%2Cgroq_llama-3-3-instruct-70b%2Cgroq_deepseek-r1-distill-llama-70b%2Cgroq_deepseek-r1-distill-qwen-32b%2Cgroq_qwq-32b%2Ccerebras_llama-3-3-instruct-70b%2Ccerebras_deepseek-r1-distill-llama-70b%2Csambanova_llama-3-3-instruct-70b%2Csambanova_deepseek-r1-distill-llama-70b%2Csambanova_qwen2-5-72b-instruct%2Csambanova_qwq-32b&endpoints=cerebras_llama-3-3-instruct-70b%2Cfireworks_llama-3-3-instruct-70b%2Cgroq_llama-3-3-instruct-70b_spec-decoding%2Cgroq_llama-3-3-instruct-70b%2Csambanova_llama-3-3-instruct-70b%2Ctogetherai_llama-3-3-instruct-70b#intelligence-vs-output-speed
+ * LLM implementation for medium level LLM using a fast provider if available and applicable, else falling back to the standard medium LLM
  */
 export class FastMediumLLM extends BaseLLM {
 	private readonly providers: LLM[];
+	private readonly cerebras: LLM;
+	private readonly gemini: LLM;
 
 	constructor() {
 		super(
-			'Fast Medium',
+			'Fast Medium (Cerebras Qwen3 32b - Gemini 2.5 Flash)',
 			'multi',
 			'fast-medium',
 			0, // Initialized later
 			() => ({ inputCost: 0, outputCost: 0, totalCost: 0 }),
 		);
 		// Define the providers and their priorities. Lower number = higher priority
-		this.providers = [cerebrasLlama3_3_70b(), sambanovaLlama3_3_70b(), vertexGemini_2_0_Flash()];
+		this.providers = [cerebrasQwen3_32b(), vertexGemini_2_5_Flash()];
 
 		this.maxInputTokens = Math.max(...this.providers.map((p) => p.getMaxInputTokens()));
 	}
@@ -35,26 +35,51 @@ export class FastMediumLLM extends BaseLLM {
 		return true;
 	}
 
-	async generateTextFromMessages(messages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
-		for (const llm of this.providers) {
-			if (!llm.isConfigured()) {
-				logger.info(`${llm.getId()} is not configured`);
-				continue;
+	async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
+		let useCerebras = true; // Default to using Gemini
+		let tokens = 0;
+		if (this.cerebras.isConfigured()) {
+			let text = '';
+			for (const msg of messages) {
+				const msgText: string | null = messageContentIfTextOnly(msg);
+				if (msgText === null) {
+					useCerebras = false;
+					break;
+				}
+				text += `${msgText}\n`;
 			}
-
-			const combinedPrompt = messages.map((m) => m.content).join('\n');
-			const promptTokens = await countTokens(combinedPrompt);
-			if (promptTokens > llm.getMaxInputTokens()) {
-				logger.info(`Input tokens exceed limit for ${llm.getDisplayName()}. Trying next provider.`);
-				continue;
-			}
-			try {
-				logger.info(`Trying ${llm.getDisplayName()}`);
-				return await llm.generateText(messages, opts);
-			} catch (error) {
-				logger.error(`Error with ${llm.getDisplayName()}: ${error.message}. Trying next provider.`);
-			}
+			tokens = await countTokens(text);
+			if (tokens > this.getMaxInputTokens() * 0.9) useCerebras = false;
+		} else {
+			useCerebras = false;
 		}
+
+		try {
+			if (useCerebras) return await this.cerebras.generateMessage(messages);
+		} catch (e) {
+			logger.warn(e, `Error calling ${this.cerebras.getId()} with ${tokens} tokens`);
+			return await this.gemini.generateMessage(messages);
+		}
+
+		// for (const llm of this.providers) {
+		// 	if (!llm.isConfigured()) {
+		// 		logger.info(`${llm.getId()} is not configured`);
+		// 		continue;
+		// 	}
+		//
+		// 	const combinedPrompt = messages.map((m) => m.content).join('\n');
+		// 	const promptTokens = await countTokens(combinedPrompt);
+		// 	if (promptTokens > llm.getMaxInputTokens()) {
+		// 		logger.info(`Input tokens exceed limit for ${llm.getDisplayName()}. Trying next provider.`);
+		// 		continue;
+		// 	}
+		// 	try {
+		// 		logger.info(`Trying ${llm.getDisplayName()}`);
+		// 		return await llm.generateText(messages, opts);
+		// 	} catch (error) {
+		// 		logger.error(`Error with ${llm.getDisplayName()}: ${error.message}. Trying next provider.`);
+		// 	}
+		// }
 		throw new Error('All providers failed.');
 	}
 }

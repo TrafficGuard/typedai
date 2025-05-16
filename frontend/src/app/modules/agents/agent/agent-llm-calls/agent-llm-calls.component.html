@@ -1,7 +1,7 @@
 <mat-card class="p-5">
     <div *ngFor="let call of llmCalls; let i = index" class="pb-6">
         <div id="{{ call.id }}" class="pb-2">
-
+            <mat-icon *ngIf="call.error" color="warn" class="mr-1 icon-size-5">error_outline</mat-icon>
             <span class="mb-3 pt-3 font-medium text-xl">{{ call.callStack }} {{ call.description }}</span>
 
             <a href="{{ llmCallUrl(call) }}" style="font-size: x-small" target="_blank">
@@ -25,6 +25,7 @@
                     <mat-panel-title [ngClass]="{ 'hidden-title': call.systemPromptExpanded }">
                         <span class="w-20">{{ message.role | titlecase }}:</span>
                         <span *ngIf="!call.systemPromptExpanded" class="expansion-preview">
+                            <mat-icon *ngIf="message.role === 'error'" color="warn" class="mr-1 icon-size-5">error_outline</mat-icon>
                             {{ getPreviewContent(message.content) | slice : 0 : 150 }} ...
                     </span>
                     </mat-panel-title>

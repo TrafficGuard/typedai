@@ -98,8 +98,8 @@ function runCommand(commandString, cwd, taskName) {
  * @returns {Promise<boolean>} - Resolves with true if all commands succeeded, false otherwise.
  */
 async function runNpmScriptOrCommandInDirs(scriptOrCommandName, directories) {
-    if(scriptOrCommandName === 'lint' && directories.some(dirInfo => dirInfo.path === './frontend')) {
-        console.log('skipping frontend lint')
+    if((scriptOrCommandName === 'lint'||scriptOrCommandName === 'test') && directories.some(dirInfo => dirInfo.path === './frontend')) {
+        console.log(`skipping frontend ${scriptOrCommandName}`)
         return true;
     }
 

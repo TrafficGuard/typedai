@@ -42,6 +42,10 @@ export class AgentLlmCallsComponent implements OnInit {
 					for (const msg of call.messages) {
 						if (typeof msg.content === 'string') msg.content = msg.content.replace('\\n', '<br/>');
 					}
+                    // Add any error as a message for display
+                    if(call.error) {
+                        (call.messages as LlmMessage[]).push({role: 'error', content: call.error} as unknown as LlmMessage)
+                    }
 				});
 			},
 			(error) => {

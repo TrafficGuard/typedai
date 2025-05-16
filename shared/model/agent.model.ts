@@ -166,6 +166,10 @@ export interface AutonomousIteration {
     agentId: string;
     /** Starts from 1 */
     iteration: number;
+    /** The LLM and other costs for this iteration */
+    cost: number;
+    /** A summary of what was done/attempted */
+    summary: string;
     /** The function class names available */
     functions: string[];
     /** The input prompt */

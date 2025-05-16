@@ -36,4 +36,6 @@ export interface LlmCall extends LlmRequest {
     cacheReadInputTokens?: number;
     /** Number of chunks the messages are split into (0 if not chunked). */
     chunkCount?: number;
+
+    error?: string;
 }

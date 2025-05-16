@@ -43,11 +43,19 @@ const vibeNav: FuseNavigationItem = {
     link: '/ui/vibe',
 }
 
+const promptsNav: FuseNavigationItem = {
+    id: 'prompts',
+    title: 'Prompts',
+    type: 'basic',
+    icon: 'mat_outline:library_books',
+    link: '/ui/prompts',
+}
+
 const codeReviewNav: FuseNavigationItem =     {
     id: 'codereviews',
     title: 'Code review',
     type: 'basic',
-    icon: 'heroicons_outline:code-bracket-square',
+    icon: 'mat_outline:rate_review',
     link: '/ui/code-reviews',
 }
 
@@ -57,6 +65,7 @@ export const defaultNavigation: FuseNavigationItem[] = [
     newAgentNav,
     workflowsNav,
     vibeNav,
+    promptsNav,
     codeReviewNav,
 ];
 
@@ -69,6 +78,7 @@ if (environment.modules?.trim().length) {
     if(modules.includes('agents')) defaultNavigation.push(newAgentNav);
     if(modules.includes('workflows')) defaultNavigation.push(workflowsNav);
     if(modules.includes('vibe')) defaultNavigation.push(vibeNav);
+    if(modules.includes('prompts')) defaultNavigation.push(promptsNav);
     if(modules.includes('codeReview')) defaultNavigation.push(codeReviewNav);
 }
 

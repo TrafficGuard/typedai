@@ -309,49 +309,46 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				// Update agent.fileStore based on the fetched metadata (or clear if unavailable/error)
 				agent.fileStore = fileStoreMetadataArray;
 
-				try {
-					await agentStateService.save(agent); // Save agent state with potentially updated agent.cost
-				} catch (e) {
-					logger.error(e, 'Error saving agent state [e]');
-					controlLoopError = e;
-				}
-
 				// Generate and set iteration summary
 				try {
 					// Ensure required fields for summary are available
-					const planForSummary = iterationData.agentPlan || "No plan provided.";
-					const observationsForSummary = iterationData.observationsReasoning || "No observations.";
+					const planForSummary = iterationData.agentPlan || 'No plan provided.';
+					const observationsForSummary = iterationData.observationsReasoning || 'No observations.';
 					// previousScriptResult is already XML-tagged or contains an error message
-					const scriptResultForSummary = previousScriptResult || "No script result recorded for this iteration.";
+					const scriptResultForSummary = previousScriptResult || 'No script result recorded for this iteration.';
 
-					const summaryPromptContent = `Create a concise summary for the agent's last iteration.
+					const summaryPromptContent = `Create a concise summary in a scentence or two for the agent's last iteration.
 User Request: ${agent.userPrompt}
 Agent Plan:
 ${planForSummary}
 Observations & Reasoning:
 ${observationsForSummary}
+Generated Code:
+${iterationData.code}
 Script Result/Error:
-${scriptResultForSummary}
+${scriptResultForSummary.length > 50000 ? scriptResultForSummary.substring(0, 50000) : scriptResultForSummary}
 Focus on the outcome and next step if clear.`;
 
-					const summaryMessage = await llms().easy.generateMessage(
-						[{ role: 'user', content: summaryPromptContent }],
-						{ id: 'IterationSummary', temperature: 0.3, thinking: 'low' }
-					);
+					const summaryMessage = await llms().easy.generateMessage([{ role: 'user', content: summaryPromptContent }], {
+						id: 'IterationSummary',
+						temperature: 0.3,
+						thinking: 'low',
+					});
 					iterationData.summary = messageText(summaryMessage);
-					if (summaryMessage.stats?.cost) {
-						agent.cost += summaryMessage.stats.cost; // Accumulate cost to agent
-					}
-				} catch(e) {
+				} catch (e) {
 					logger.error(e, 'Error creating iteration summary [e]');
-					iterationData.summary = "Failed to generate iteration summary."; // Fallback summary
+					iterationData.summary = 'Failed to generate iteration summary.';
+				}
+
+				try {
+					await agentStateService.save(agent);
+				} catch (e) {
+					logger.error(e, 'Error saving agent state [e]');
+					controlLoopError = e;
 				}
 
 				// Save iteration data
 				try {
-					// Calculate cost for this iteration: current total agent cost minus cost at start of this iteration
-					// initialCost was agent.cost at the start of this iteration's try block
-					// agent.cost has been updated by the main LLM call and the summary LLM call
 					iterationData.cost = agent.cost - initialCost;
 					await agentStateService.saveIteration(iterationData as AutonomousIteration);
 				} catch (e) {

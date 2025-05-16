@@ -57,6 +57,7 @@ export class FirestoreLlmCallService implements LlmCallService {
 			chunkCount: data.chunkCount ?? 0,
 			// Include llmCallId which might be needed internally, though id is the primary identifier
 			llmCallId: data.llmCallId ?? id,
+			error: data.error,
 		};
 	}
 

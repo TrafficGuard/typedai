@@ -43,7 +43,7 @@ const mockPrompt: Prompt = {
     { role: 'user', content: 'Hello there' },
     { role: 'assistant', content: 'Hi user!' }
   ],
-  options: { temperature: 0.7, maxTokens: 100, selectedModel: 'llm-1' },
+  options: { temperature: 0.7, maxOutputTokens: 100, selectedModel: 'llm-1' },
   updatedAt: Date.now()
 };
 const mockPromptSchema = mockPrompt as PromptSchemaModel;
@@ -144,7 +144,7 @@ describe('PromptFormComponent', () => {
       const selectedModelId = mockLlms.find(l => l.isConfigured)!.id;
       component.promptForm.patchValue({
         name: 'New Prompt Name',
-        options: { temperature: 0.5, maxTokens: 500, selectedModel: selectedModelId }
+        options: { temperature: 0.5, maxOutputTokens: 500, selectedModel: selectedModelId }
       });
       component.messagesFormArray.at(0).patchValue({ role: 'user', content: 'User message' });
       component.tagsFormArray.push(new FormBuilder().control('newTag'));
@@ -157,7 +157,7 @@ describe('PromptFormComponent', () => {
         name: 'New Prompt Name',
         messages: [{ role: 'user', content: 'User message' }],
         tags: ['newTag'],
-        options: { temperature: 0.5, maxTokens: 500, selectedModel: selectedModelId }
+        options: { temperature: 0.5, maxOutputTokens: 500, selectedModel: selectedModelId }
       }));
       expect(mockRouter.navigate).toHaveBeenCalledWith(['/ui/prompts']);
     }));
@@ -364,30 +364,30 @@ describe('PromptFormComponent', () => {
       });
     });
 
-    describe('maxTokens control', () => {
-      let maxTokensControl: any;
+    describe('maxOutputTokens control', () => {
+      let maxOutputTokensControl: any;
       beforeEach(() => {
-        maxTokensControl = component.promptForm.get('options.maxTokens');
+        maxOutputTokensControl = component.promptForm.get('options.maxOutputTokens');
       });
 
       it('should be invalid for value < 1', () => {
-        maxTokensControl?.setValue(0);
-        expect(maxTokensControl?.hasError('min')).toBeTrue();
+        maxOutputTokensControl?.setValue(0);
+        expect(maxOutputTokensControl?.hasError('min')).toBeTrue();
       });
 
       it('should be invalid for non-integer pattern (text)', () => {
-        maxTokensControl?.setValue('abc');
-        expect(maxTokensControl?.hasError('pattern')).toBeTrue();
+        maxOutputTokensControl?.setValue('abc');
+        expect(maxOutputTokensControl?.hasError('pattern')).toBeTrue();
       });
-      
+
       it('should be invalid for non-integer pattern (float)', () => {
-        maxTokensControl?.setValue(10.5);
-        expect(maxTokensControl?.hasError('pattern')).toBeTrue();
+        maxOutputTokensControl?.setValue(10.5);
+        expect(maxOutputTokensControl?.hasError('pattern')).toBeTrue();
       });
 
       it('should be valid for a correct integer value like 2048', () => {
-        maxTokensControl?.setValue(2048);
-        expect(maxTokensControl?.valid).toBeTrue();
+        maxOutputTokensControl?.setValue(2048);
+        expect(maxOutputTokensControl?.valid).toBeTrue();
       });
     });
   });
@@ -410,7 +410,7 @@ describe('PromptFormComponent', () => {
     it('should not display the shortcut chip when saving', fakeAsync(() => {
       component.isSaving.set(true);
       fixture.detectChanges();
-      tick(); 
+      tick();
       fixture.detectChanges();
       const chipListbox = fixture.nativeElement.querySelector('button[type="submit"] mat-chip-listbox');
       expect(chipListbox).toBeFalsy();
@@ -467,7 +467,7 @@ describe('PromptFormComponent', () => {
       fixture.detectChanges(); // processRouteData
       optionsGroup = component.promptForm.get('options') as FormGroup;
     }));
-    
+
     it('should render model selector dropdown', () => {
         expect(optionsGroup).toBeTruthy('Options form group should exist');
         const modelSelect = fixture.debugElement.query(By.css('mat-select[formControlName="selectedModel"]'));
@@ -486,11 +486,11 @@ describe('PromptFormComponent', () => {
       expect(tempInput).toBeTruthy('Temperature input should exist');
     });
 
-    it('should render maxTokens slider and input', () => {
+    it('should render maxOutputTokens slider and input', () => {
       expect(optionsGroup).toBeTruthy('Options form group should exist');
-      const tokensSlider = fixture.debugElement.query(By.css('mat-slider[aria-labelledby="maxTokens-label"]'));
+      const tokensSlider = fixture.debugElement.query(By.css('mat-slider[aria-labelledby="maxOutputTokens-label"]'));
       expect(tokensSlider).toBeTruthy('Max tokens slider should exist');
-      const tokensInput = fixture.debugElement.query(By.css('div.parameter-item input[formControlName="maxTokens"][type="number"]'));
+      const tokensInput = fixture.debugElement.query(By.css('div.parameter-item input[formControlName="maxOutputTokens"][type="number"]'));
       expect(tokensInput).toBeTruthy('Max tokens input should exist');
     });
 
@@ -510,20 +510,20 @@ describe('PromptFormComponent', () => {
       expect(tempControl?.value).toBe(0.8); // Form control stores number
     });
 
-    it('maxTokens slider and input should be bound to the same form control', () => {
+    it('maxOutputTokens slider and input should be bound to the same form control', () => {
       expect(optionsGroup).toBeTruthy('Options form group should exist');
-      const maxTokensControl = optionsGroup.get('maxTokens');
-      expect(maxTokensControl).toBeTruthy('MaxTokens form control should exist');
-      const maxTokensInputDebugEl = fixture.debugElement.query(By.css('div.parameter-item input[formControlName="maxTokens"][type="number"]'));
+      const maxOutputTokensControl = optionsGroup.get('maxOutputTokens');
+      expect(maxOutputTokensControl).toBeTruthy('MaxTokens form control should exist');
+      const maxOutputTokensInputDebugEl = fixture.debugElement.query(By.css('div.parameter-item input[formControlName="maxOutputTokens"][type="number"]'));
 
-      maxTokensControl?.setValue(1024);
+      maxOutputTokensControl?.setValue(1024);
       fixture.detectChanges();
-      expect(maxTokensInputDebugEl.nativeElement.value).toBe('1024');
+      expect(maxOutputTokensInputDebugEl.nativeElement.value).toBe('1024');
 
-      maxTokensInputDebugEl.nativeElement.value = '512';
-      maxTokensInputDebugEl.nativeElement.dispatchEvent(new Event('input'));
+      maxOutputTokensInputDebugEl.nativeElement.value = '512';
+      maxOutputTokensInputDebugEl.nativeElement.dispatchEvent(new Event('input'));
       fixture.detectChanges();
-      expect(maxTokensControl?.value).toBe(512); // Form control stores number
+      expect(maxOutputTokensControl?.value).toBe(512); // Form control stores number
     });
   });
 });

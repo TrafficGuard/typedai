@@ -10,6 +10,7 @@ import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { type GenerateTextOptions, type GenerationStats, type LlmMessage, messageText } from '#shared/model/llm.model';
 import type { LlmCall } from '#shared/model/llmCall.model';
+import { errorToString } from '#utils/errors';
 
 /**
  * Base class for LLM implementations using the Vercel ai package
@@ -189,6 +190,13 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 
 				return message;
 			} catch (error) {
+				llmCall.error = errorToString(error);
+				try {
+					await appContext().llmCallService.saveResponse(llmCall);
+				} catch (e) {
+					logger.warn(e, `Error saving LlmCall response with error ${e.message}`);
+				}
+
 				span.recordException(error);
 				throw error;
 			}

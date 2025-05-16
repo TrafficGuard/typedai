@@ -37,6 +37,8 @@ const REQUEST_FEEDBACK_FUNCTION_CALL_PLAN = (feedback) =>
 
 const COMPLETE_FUNCTION_CALL_PLAN = `<response>\n<plan>Ready to complete</plan>\n<python-code>${PY_AGENT_COMPLETED('done')}</python-code>\n</response>`;
 
+const ITERATION_SUMMARY_RESPONSE = '';
+
 const NOOP_FUNCTION_CALL_PLAN = `<response>\n<plan>I'm going to call the noop function</plan>\n<python-code>${PY_TEST_FUNC_NOOP}</python-code>\n</response>`;
 
 const SKY_COLOUR_FUNCTION_CALL_PLAN = `<response>\n<plan>Get the sky colour</plan>\n<python-code>${PY_TEST_FUNC_SKY_COLOUR}</python-code>\n</response>`;
@@ -157,6 +159,7 @@ describe('codegenAgentRunner', () => {
 		it('should be able to complete on the second function call', async () => {
 			functions.addFunctionClass(TestFunctions);
 			mockLLM.addResponse(NOOP_FUNCTION_CALL_PLAN);
+			mockLLM.addResponse(ITERATION_SUMMARY_RESPONSE);
 			mockLLM.addResponse(COMPLETE_FUNCTION_CALL_PLAN);
 			await startAgent(runConfig({ functions }));
 			const agent = await waitForAgent();
@@ -296,13 +299,15 @@ describe('codegenAgentRunner', () => {
 			functions.addFunctionClass(TestFunctions);
 			mockLLM.addResponse(SKY_COLOUR_FUNCTION_CALL_PLAN);
 			mockLLM.addResponse('blue');
+			mockLLM.addResponse(ITERATION_SUMMARY_RESPONSE);
 			mockLLM.addResponse(COMPLETE_FUNCTION_CALL_PLAN);
+			mockLLM.addResponse(ITERATION_SUMMARY_RESPONSE);
 			await startAgent(runConfig({ functions }));
 			const agent = await waitForAgent();
 			expect(agent.state).to.equal('completed');
 
 			const calls = await appContext().llmCallService.getLlmCallsForAgent(agent.agentId);
-			expect(calls.length).to.equal(3);
+			expect(calls.length).to.equal(4);
 
 			const skyCall = calls[1];
 			// skyColour is the TestFunctions method name

@@ -8,7 +8,6 @@ import type { IFileSystemService } from '#shared/services/fileSystemService';
 import type { VersionControlSystem } from '#shared/services/versionControlSystem';
 import { _stripFilename } from '#swe/coder/applySearchReplaceUtils';
 import { EDIT_BLOCK_PROMPTS } from '#swe/coder/searchReplacePrompts';
-// import { EDIT_BLOCK_PROMPTS } from '#swe/coder/searchReplacePrompts'; // Original import, replaced by direct definition below
 
 const SEARCH_MARKER = '<<<<<<< SEARCH';
 const DIVIDER_MARKER = '=======';
@@ -21,7 +20,7 @@ const REPLACE_MARKER = '>>>>>>> REPLACE';
 const DEFAULT_FENCE_OPEN = '```';
 const DEFAULT_FENCE_CLOSE = '```';
 
-interface EditBlock {
+export interface EditBlock {
 	filePath: string; // Relative to rootPath
 	originalText: string;
 	updatedText: string;
@@ -120,6 +119,10 @@ export class ApplySearchReplace {
 		this.useLazyPrompt = options.useLazyPrompt ?? false; // Default to false unless specified
 		this.useOvereagerPrompt = options.useOvereagerPrompt ?? false; // Default to false
 		this.quadBacktickReminder = options.quadBacktickReminder ?? ''; // Default to empty
+	}
+
+	getFence() {
+		return this.fence;
 	}
 
 	private getRepoFilePath(relativePath: string): string {
@@ -401,7 +404,7 @@ export class ApplySearchReplace {
 	// ---- Start of parsing/replacement logic (from aider/coders/editblock_coder.py) ----
 	// These methods are direct ports or adaptations of the Python helper functions.
 
-	private _findOriginalUpdateBlocks(llmResponseContent: string, fenceForFilenameScan: [string, string]): EditBlock[] {
+	_findOriginalUpdateBlocks(llmResponseContent: string, fenceForFilenameScan: [string, string]): EditBlock[] {
 		// Corresponds to find_original_update_blocks from editblock_coder.py
 		const edits: EditBlock[] = [];
 		if (!llmResponseContent) return edits;

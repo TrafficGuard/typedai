@@ -82,7 +82,7 @@ export class AiderCodeEditor {
 			const gcloudProject = GCLOUD_PROJECTS[gcloudProjectIndex];
 			if (++gcloudProjectIndex > GCLOUD_PROJECTS.length) gcloudProjectIndex = 0;
 			llm = vertexGemini_2_5_Pro();
-			modelArg = `--model vertex_ai/${llm.getModel()}`;
+			modelArg = `--model vertex_ai/${llm.getModel()} --editor-model vertex_ai/gemini-2.5-flash-preview-04-17 --weak-model vertex_ai/gemini-2.5-flash-preview-04-17`;
 			span.setAttribute('model', llm.getModel());
 			env = { VERTEXAI_PROJECT: gcloudProject, VERTEXAI_LOCATION: process.env.GCLOUD_REGION };
 		} else if (anthropicKey) {

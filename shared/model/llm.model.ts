@@ -182,6 +182,27 @@ export function lastText(messages: LlmMessage[] | ReadonlyArray<LlmMessage>): st
 export function messageText(message: LlmMessage): string {
     return contentText(message.content);
 }
+
+
+/**
+ * @param message
+ * @returns if a message contents is text only, then returns the text, else returns null;
+ */
+export function messageContentIfTextOnly(message: LlmMessage): string | null {
+    let text = ''
+    if(typeof message.content === 'string') return message.content;
+
+    for(const part of message.content) {
+        const type = part.type;
+        if(part.type === 'image' || part.type === 'file')  return null;
+        else if (type === 'text') text += part.text;
+        else if (type === 'reasoning') text += `${part.text}\n`;
+        // else if (type === 'redacted-reasoning') text += '<redacted-reasoning>\n';
+        else if (type === 'tool-call') text += `Tool Call (${part.toolCallId} ${part.toolName} Args:${JSON.stringify(part.args)})`;
+    }
+    return text
+}
+
 /**
  * Transform UserContent to a string where the part(s) are string types
  * @param content

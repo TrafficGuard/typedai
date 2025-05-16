@@ -1,15 +1,14 @@
-import type { AgentLLMs } from '#shared/model/agent.model';
-import type { LLM } from '#shared/model/llm.model';
-
-import { CePO_LLM } from '#llm/multi-agent/cepo';
+import { FastMediumLLM } from '#llm/multi-agent/fastMedium';
 import { MultiLLM } from '#llm/multi-llm';
 import { Claude3_5_Haiku, Claude3_7_Sonnet } from '#llm/services/anthropic';
 import { vertexGemini_2_0_Flash_Lite, vertexGemini_2_5_Flash, vertexGemini_2_5_Pro } from '#llm/services/vertexai';
+import type { AgentLLMs } from '#shared/model/agent.model';
+import type { LLM } from '#shared/model/llm.model';
 
 let _summaryLLM: LLM;
 
 export function summaryLLM(): LLM {
-	if (!_summaryLLM) defaultLLMs();
+	_summaryLLM ??= defaultLLMs().easy;
 	return _summaryLLM;
 }
 
@@ -21,9 +20,9 @@ export function defaultLLMs(): AgentLLMs {
 		_summaryLLM = flashLite;
 		return {
 			easy: flashLite,
-			medium: flash,
+			medium: new FastMediumLLM(),
 			hard: pro,
-			xhard: null, //new CePO_LLM(Gemini_2_5_Pro),
+			xhard: null,
 		};
 	}
 

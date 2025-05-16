@@ -2,7 +2,7 @@ import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { type LlmMessage, user as createUserMessage, messageText } from '#shared/model/llm.model';
-import { ApplySearchReplace, type EditFormat } from '#swe/coder/applySearchReplace';
+import { ApplySearchReplace, type EditBlock, type EditFormat } from '#swe/coder/applySearchReplace';
 
 @funcClass(__filename)
 export class SearchReplaceCoder {
@@ -12,9 +12,10 @@ export class SearchReplaceCoder {
 	 * @param filesToEdit Relative paths of files that can be edited. These will be included in the chat context.
 	 * @param readOnlyFiles Relative paths of files to be used as read-only context.
 	 * @param commit Whether to commit the changes automatically after applying them.
+	 * @param dirtyCommits If files which have uncommitted changes should be committed before applying changes.
 	 */
 	@func()
-	async editFilesToMeetRequirements(requirements: string, filesToEdit: string[], readOnlyFiles: string[], commit = true): Promise<void> {
+	async editFilesToMeetRequirements(requirements: string, filesToEdit: string[], readOnlyFiles: string[], commit = true, dirtyCommits = true): Promise<void> {
 		const fileSystem = getFileSystem();
 		const rootPath = fileSystem.getWorkingDirectory();
 		const editFormat: EditFormat = 'diff-fenced'; // A common format for AI code editing
@@ -24,7 +25,7 @@ export class SearchReplaceCoder {
 		const searchReplacer = new ApplySearchReplace(rootPath, filesToEdit, {
 			editFormat,
 			autoCommits: commit,
-			dirtyCommits: true,
+			dirtyCommits: dirtyCommits,
 			dryRun: false,
 			lenientLeadingWhitespace: true,
 		});
@@ -57,6 +58,11 @@ export class SearchReplaceCoder {
 				logger.warn('SearchReplaceCoder: LLM returned an empty or whitespace-only response on first attempt.');
 			}
 
+			console.log(responseToApply);
+			const edits = searchReplacer._findOriginalUpdateBlocks(responseToApply, searchReplacer.getFence());
+
+			await checkForExistingFiles(edits);
+
 			const editedFiles: Set<string> | null = await searchReplacer.applyLlmResponse(responseToApply, llms().hard);
 
 			if (editedFiles !== null) {
@@ -87,6 +93,38 @@ export class SearchReplaceCoder {
 			// The reflection message is formatted as if it's user feedback on the LLM's last attempt.
 			currentMessages = [...currentMessages, createUserMessage(reflection)];
 			// Note: llmResponseMsgObj (the assistant's failed attempt) is already in currentMessages.
+		}
+	}
+}
+
+const SEP = '/';
+
+/**
+ * Sometimes the AI writes the file to the wrong place
+ * @param edits
+ */
+async function checkForExistingFiles(edits: EditBlock[]) {
+	const fss = getFileSystem();
+
+	const paths = await fss.listFilesRecursively();
+	const pathSet = new Set<string>(paths);
+	const allFileNames = new Set<string>();
+	for (const path of paths) {
+		const sepIdx = path.lastIndexOf(SEP);
+		allFileNames.add(sepIdx < 0 ? path : path.substring(path.lastIndexOf(SEP) + 1));
+	}
+
+	for (const edit of edits) {
+		const editFilePath = edit.filePath;
+		if (await fss.fileExists(editFilePath)) continue; // Editing an existing file is ok
+
+		const sepIdx = editFilePath.lastIndexOf(SEP);
+		const editFileName = sepIdx < 0 ? editFilePath : editFilePath.substring(editFilePath.lastIndexOf(SEP) + 1);
+
+		const matchingFiles = paths.filter((path) => path.endsWith(editFileName));
+
+		if (allFileNames.has(editFileName)) {
+			// logger.info(`Found existing file ${}`)
 		}
 	}
 }

@@ -92,8 +92,8 @@ export async function main() {
 		subtype: 'codegen',
 		resumeAgentId,
 		humanInLoop: {
-			count: 10,
-			budget: 10,
+			count: 40,
+			budget: 20,
 		},
 	});
 	saveAgentId('codeAgent', execution.agentId);
