@@ -5,6 +5,14 @@ import type {AreTypesFullyCompatible} from '../utils/type-compatibility';
 import type {ChangePropertyType} from '../typeUtils';
 import {ApiNullResponseSchema} from './common.schema'; // As per requirement, though not directly used in these schemas
 
+// --- Prompt Options Schema ---
+const PromptOptionsSchema = Type.Intersect([
+    GenerateOptionsSchema,
+    Type.Object({
+        llmId: Type.Optional(Type.String())
+    })
+], { $id: 'PromptOptions' });
+
 // --- Prompt Schema ---
 export const PromptSchema = Type.Object({
     id: Type.String(),
@@ -15,7 +23,7 @@ export const PromptSchema = Type.Object({
     appId: Type.Optional(Type.String()),
     tags: Type.Array(Type.String()),
     messages: LlmMessagesSchema,
-    options: GenerateOptionsSchema,
+    options: PromptOptionsSchema, // Use the new PromptOptionsSchema
 }, { $id: 'Prompt' });
 
 // DO NOT CHANGE THIS PART ----
@@ -44,7 +52,7 @@ export const PromptParamsSchema = Type.Object({
 export const PromptCreateSchema = Type.Object({
     name: Type.String(),
     messages: LlmMessagesSchema,
-    options: GenerateOptionsSchema,
+    options: PromptOptionsSchema, // Use the new PromptOptionsSchema
     tags: Type.Optional(Type.Array(Type.String())),
     parentId: Type.Optional(Type.String())
     // appId is usually system-assigned or derived, not part of create payload typically.
@@ -54,7 +62,7 @@ export const PromptCreateSchema = Type.Object({
 export const PromptUpdateSchema = Type.Partial(Type.Object({
     name: Type.String(),
     messages: LlmMessagesSchema, // Entire messages array is replaced if provided
-    options: GenerateOptionsSchema,
+    options: PromptOptionsSchema, // Use the new PromptOptionsSchema
     tags: Type.Array(Type.String()) // Entire tags array is replaced if provided
     // parentId, revisionId, appId are generally not updatable via a generic update payload.
 }), { $id: 'PromptUpdate' });

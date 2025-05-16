@@ -92,10 +92,10 @@
                     <div class="parameter-item">
                     <mat-form-field appearance="outline" class="model-selector">
                         <mat-label>Model</mat-label>
-                        <mat-select formControlName="selectedModel">
+                        <mat-select formControlName="llmId"> <!-- Changed from selectedModel -->
                             <mat-option *ngFor="let model of availableModels" [value]="model.id">{{ model.name }}</mat-option>
                         </mat-select>
-                        <mat-error *ngIf="promptForm.get('options.selectedModel')?.hasError('required')">Model is required.</mat-error>
+                        <mat-error *ngIf="promptForm.get('options.llmId')?.hasError('required')">Model is required.</mat-error> <!-- Changed from options.selectedModel -->
                     </mat-form-field>
                     </div>
 

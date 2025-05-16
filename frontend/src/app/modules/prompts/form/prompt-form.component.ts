@@ -92,7 +92,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
       tags: this.fb.array([]),
       messages: this.fb.array([], Validators.minLength(1)),
       options: this.fb.group({
-        selectedModel: [null, Validators.required], // Initialize with null, will be set after LLMs load
+        llmId: [null, Validators.required], // Changed from selectedModel to llmId
         temperature: [1.0, [Validators.required, Validators.min(0), Validators.max(2), Validators.pattern(/^\d*(\.\d+)?$/)]],
         maxOutputTokens: [2048, [Validators.required, Validators.min(1), Validators.max(8192), Validators.pattern(/^[0-9]*$/)]],
       }),
@@ -138,7 +138,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
         this.addMessage('user', ''); // Add one initial user message
         // Set default model if creating new and models are available
         if (this.availableModels.length > 0) {
-          this.promptForm.get('options.selectedModel')?.setValue(this.availableModels[0].id);
+          this.promptForm.get('options.llmId')?.setValue(this.availableModels[0].id); // Changed from selectedModel
         }
       }
       this.isLoading.set(false);
@@ -189,8 +189,8 @@ export class PromptFormComponent implements OnInit, OnDestroy {
   }
 
   populateForm(prompt: Prompt): void {
-    const defaultOptions: GenerateOptions & { selectedModel?: string | null } = {
-      selectedModel: this.availableModels.length > 0 ? this.availableModels[0].id : null,
+    const defaultOptions: GenerateOptions & { llmId?: string | null } = { // Changed from selectedModel
+      llmId: this.availableModels.length > 0 ? this.availableModels[0].id : null, // Changed from selectedModel
       temperature: 1.0,
       maxOutputTokens: 2048,
     };
@@ -199,26 +199,22 @@ export class PromptFormComponent implements OnInit, OnDestroy {
       name: prompt.name,
     });
 
-    // Merge prompt options with defaults. Ensure selectedModel from prompt is used if valid.
     const promptOptions = prompt.options || {};
-    let selectedModelToPatch = defaultOptions.selectedModel;
+    let llmIdToPatch = defaultOptions.llmId; // Changed from selectedModelToPatch
 
-    if (promptOptions.selectedModel && this.availableModels.find(m => m.id === promptOptions.selectedModel)) {
-      selectedModelToPatch = promptOptions.selectedModel;
-    } else if (promptOptions.selectedModel) {
-      // Prompt has a selected model, but it's not in the available list (e.g. LLM was removed)
-      // Keep the invalid model for now, or clear it, or default it.
-      // For now, let's try to keep it, validation should catch it if it's problematic.
-      // Or, more safely, default to the first available if the saved one is no longer valid.
-      console.warn(`Prompt's saved model "${promptOptions.selectedModel}" is not available. Defaulting.`);
-      // selectedModelToPatch will remain defaultOptions.selectedModel (first available or null)
+    // Use prompt.options.llmId directly
+    if (promptOptions.llmId && this.availableModels.find(m => m.id === promptOptions.llmId)) {
+      llmIdToPatch = promptOptions.llmId;
+    } else if (promptOptions.llmId) {
+      // Prompt has a saved llmId, but it's not in the available list
+      console.warn(`Prompt's saved LLM ID "${promptOptions.llmId}" is not available. Defaulting.`);
+      // llmIdToPatch will remain defaultOptions.llmId (first available or null)
     }
 
-
     const optionsToPatch = {
-      ...defaultOptions,
-      ...promptOptions,
-      selectedModel: selectedModelToPatch
+      ...defaultOptions, // provides defaults for temperature, maxOutputTokens
+      ...promptOptions,   // provides saved values from prompt, potentially overriding defaults
+      llmId: llmIdToPatch // ensures llmId is correctly set based on availability
     };
     this.promptForm.get('options')?.patchValue(optionsToPatch);
 

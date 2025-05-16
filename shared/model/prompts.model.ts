@@ -19,8 +19,8 @@ export interface Prompt {
     tags: string[];
     /** The LLM prompt messages */
     messages: LlmMessage[];
-    /** The options (temperature, topP etc) to generate the response with */
-    options: GenerateOptions
+    /** The options (temperature, topP etc) to generate the response with, including the default LLM ID */
+    options: GenerateOptions & { llmId?: string };
 }
 
 /**
