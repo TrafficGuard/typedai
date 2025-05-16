@@ -165,8 +165,9 @@
 
                                             <!-- Info Button: shown only for AI messages with stats -->
                                             @if (!message.isMine && message.stats) {
+                                                <!-- Removed 'regenerate-button' and absolute positioning classes like 'absolute bottom-3 left-2' -->
                                                 <button mat-icon-button
-                                                        class="mat-primary p-0 m-0" <!-- Removed 'regenerate-button' and absolute positioning classes like 'absolute bottom-3 left-2' -->
+                                                        class="mat-primary p-0 m-0"
                                                         [matTooltip]="'Duration: ' + (message.stats.totalTime / 1000).toFixed(0) + 's Input tokens: ' + message.stats.inputTokens + ' Output tokens: ' + message.stats.outputTokens + ' Cost: $' + (message.stats.cost | number:'1.4-4')"
                                                         aria-label="Message generation stats">
                                                     <mat-icon [svgIcon]="'info'" class="icon-size-4 p-0 m-0"></mat-icon>
@@ -264,7 +265,7 @@
                                             }
                                             <div class="flex flex-col overflow-hidden mr-1">
                                                  <span class="text-xs font-medium truncate max-w-[120px]" [matTooltip]="attachment.filename">{{attachment.filename}}</span>
-                                                 <span class="text-xs text-gray-500">{{ (attachment.size / 1024) | number:'1.0-1' }} KB</span>
+                                                 <span class="text-xs text-gray-500">{{ (attachment.size / 1024) | number:'1.0-1' }} KB)</span>
                                             </div>
                                             <button
                                                     class="absolute -top-2 -right-2 w-5 h-5 min-h-0 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center"

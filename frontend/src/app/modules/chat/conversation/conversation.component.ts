@@ -200,7 +200,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
             const currentChatId = currentChat?.id;
 
             // Only reset generating states if the chat ID has actually changed,
-            // or if the chat becomes null (e.g., after a reset).
+            // or if the chat becomes null (e.e., after a reset).
             if (currentChatId !== this.previousChatId) {
                 this.generating.set(false);
                 this.generatingAIMessage.set(null);
