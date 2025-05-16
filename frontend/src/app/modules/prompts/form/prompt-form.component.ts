@@ -1,5 +1,5 @@
 import { Component, OnInit, inject, signal, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule, Location } from '@angular/common';
+import { CommonModule, Location, TitleCasePipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, FormControl, FormsModule } from '@angular/forms'; // Add FormsModule
 import { MatButtonModule } from '@angular/material/button';
@@ -49,7 +49,8 @@ import { takeUntil, finalize, tap, filter } from 'rxjs/operators';
     MatSliderModule,
     MatSlideToggleModule,
     MatToolbarModule,
-    MatTooltipModule
+    MatTooltipModule,
+    TitleCasePipe
   ],
   templateUrl: './prompt-form.component.html',
   styleUrls: ['./prompt-form.component.scss'],
