@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, Location, TitleCasePipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { trigger, state, style, transition, animate } from '@angular/animations';
+import { trigger, state, style, transition, animate } from '@angular/animations'; // Ensure state is imported
 import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, FormControl } from '@angular/forms'; // Add FormsModule
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -61,14 +61,30 @@ import { takeUntil, finalize, tap, filter } from 'rxjs/operators';
     changeDetection: ChangeDetectionStrategy.OnPush,
     animations: [
         trigger('summaryFade', [
-            transition(':enter', [
-                style({ opacity: 0 }),
-                animate('250ms cubic-bezier(0.4, 0.0, 0.2, 1)', style({ opacity: 1 })),
+            state('visible', style({
+                opacity: 1,
+                height: '*', // Auto height when visible
+                overflow: 'hidden'
+            })),
+            state('hidden', style({
+                opacity: 0,
+                height: '0px', // Collapse height when hidden
+                overflow: 'hidden'
+            })),
+            // Transition when the summary becomes visible (e.g., panel collapses)
+            transition('hidden => visible', [
+                animate('250ms cubic-bezier(0.4, 0.0, 0.2, 1)')
             ]),
+            // Transition when the summary becomes hidden (e.g., panel expands)
+            transition('visible => hidden', [
+                animate('250ms cubic-bezier(0.4, 0.0, 0.2, 1)')
+            ]),
+            // This :leave transition is for cases where the element hosting @summaryFade
+            // is actually removed from the DOM (e.g., a message item in an *ngFor is deleted).
             transition(':leave', [
-                style({ opacity: 1 }), // Add this line to define the starting state for leave
-                animate('250ms cubic-bezier(0.4, 0.0, 0.2, 1)', style({ opacity: 0 })),
-            ]),
+                // Animate from whatever its current style is to the 'hidden' style
+                animate('250ms cubic-bezier(0.4, 0.0, 0.2, 1)', style({ opacity: 0, height: '0px' }))
+            ])
         ]),
     ],
 })

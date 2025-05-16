@@ -22,9 +22,9 @@
                             <mat-expansion-panel-header>
                                 <mat-panel-title class="!text-sm !font-semibold">
                                     Prompt Details:
-                                    <!-- Display summary only when the panel is NOT expanded -->
-                                    <ng-container *ngIf="!detailsPanel.expanded">
-                              <span [@summaryFade]>
+                                    <!-- Display summary based on panel expansion state -->
+                                    <ng-container>
+                              <span [@summaryFade]="detailsPanel.expanded ? 'hidden' : 'visible'">
                                   <span class="ml-2">{{ promptForm.get('name')?.value || 'N/A' }}</span>
                                   <mat-chip-listbox *ngIf="tagsFormArray.controls.length > 0" aria-label="Prompt tags" class="inline-flex flex-wrap gap-1 ml-3">
                                      <mat-chip *ngFor="let tagControl of tagsFormArray.controls; let i = index"
@@ -88,8 +88,9 @@
                         <mat-accordion multi="true" *ngIf="messagesFormArray.controls.length > 0" formArrayName="messages">
                             <mat-expansion-panel *ngFor="let msgGroup of messagesFormArray.controls; let i = index" [formGroupName]="i" class="mb-2 !shadow-sm border dark:border-gray-700 bg-white dark:bg-gray-850 rounded-md overflow-hidden" #messagePanel="matExpansionPanel">
                                 <mat-expansion-panel-header>
-                                    <mat-panel-title *ngIf="!messagePanel.expanded" class="!text-sm !font-semibold">
-                                        <span [@summaryFade]>
+                                    <!-- Display summary based on panel expansion state -->
+                                    <mat-panel-title class="!text-sm !font-semibold">
+                                        <span [@summaryFade]="messagePanel.expanded ? 'hidden' : 'visible'">
                                             {{ msgGroup.get('role')?.value | titlecase }}
                                             <span *ngIf="msgGroup.get('content')?.value" class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2 truncate">
                                                 - {{ (msgGroup.get('content')?.value || '') | slice:0:50 }}{{ (msgGroup.get('content')?.value?.length || 0) > 50 ? '...' : '' }}
