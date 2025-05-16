@@ -71,7 +71,7 @@
                         <div class="flex justify-between items-center">
                             <h3 class="text-xl font-semibold pb-4">
                                 Messages
-                                <mat-slide-toggle  class="ml-6"><!-- formControlName="includeSystemMessage" -->
+                                <mat-slide-toggle formControlName="includeSystemMessage" class="ml-6">
                                     Include System Message
                                 </mat-slide-toggle>
                             </h3>
@@ -120,7 +120,11 @@
                                     <mat-error *ngIf="msgGroup.get('content')?.hasError('required')">Content is required.</mat-error>
                                 </mat-form-field>
                                 <!-- Moved button here and adjusted classes -->
-                                <button mat-icon-button type="button" (click)="removeMessage(i)" matTooltip="Remove Message" class="mt-2 text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400">
+                                <button mat-icon-button type="button"
+                                        *ngIf="msgGroup.get('role')?.value !== 'system'" <!-- Only show for non-system messages -->
+                                        (click)="removeMessage(i)"
+                                        matTooltip="Remove Message"
+                                        class="mt-2 text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400">
                                     <mat-icon svgIcon="heroicons_outline:trash"></mat-icon>
                                 </button>
                             </div>
@@ -211,3 +215,4 @@
         </ng-container>
     </div>
 </div>
+```

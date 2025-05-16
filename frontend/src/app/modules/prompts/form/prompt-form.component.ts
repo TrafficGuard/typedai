@@ -112,6 +112,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
         this.promptForm = this.fb.group({
             name: ['', Validators.required],
             tags: this.fb.array([]),
+            includeSystemMessage: [false], // Add this line
             messages: this.fb.array([], Validators.minLength(1)),
             options: this.fb.group({
                 llmId: [null, Validators.required], // Changed from selectedModel to llmId
@@ -119,6 +120,33 @@ export class PromptFormComponent implements OnInit, OnDestroy {
                 maxOutputTokens: [2048, [Validators.required, Validators.min(1), Validators.max(8192), Validators.pattern(/^[0-9]*$/)]],
             }),
         });
+
+        // After promptForm initialization, subscribe to includeSystemMessage changes
+        this.promptForm.get('includeSystemMessage')?.valueChanges.pipe(
+            takeUntil(this.destroy$)
+        ).subscribe(include => {
+            const messages = this.messagesFormArray;
+            const systemMessageExists = messages.length > 0 && messages.at(0).get('role')?.value === 'system';
+
+            if (include) {
+                if (!systemMessageExists) {
+                    // Add system message at the beginning
+                    messages.insert(0, this.createMessageGroup('system', ''));
+                    this.cdr.detectChanges();
+                }
+            } else {
+                if (systemMessageExists) {
+                    // Remove system message from the beginning
+                    messages.removeAt(0);
+                    // If removing the last message and it was the system message, add a default user message
+                    if (messages.length === 0) {
+                         this.addMessage('user', '');
+                    }
+                    this.cdr.detectChanges();
+                }
+            }
+        });
+
 
         this.isLoading.set(true);
         // Fetch LLMs and then process route data
@@ -157,10 +185,21 @@ export class PromptFormComponent implements OnInit, OnDestroy {
                 }
                 this.isEditMode.set(false);
                 this.promptsService.clearSelectedPrompt();
-                this.addMessage('user', ''); // Add one initial user message
+
+                // Set default includeSystemMessage state and trigger listener
+                this.promptForm.get('includeSystemMessage')?.setValue(false, { emitEvent: true }); // emitEvent true to ensure listener runs
+
+                // Add one initial user message if the system message wasn't added by the listener
+                // The listener for includeSystemMessage=false will ensure no system message is present.
+                // We only need to add a user message if the array is empty *after* the listener runs.
+                 if (this.messagesFormArray.length === 0) {
+                     this.addMessage('user', '');
+                 }
+
+
                 // Set default model if creating new and models are available
                 if (this.availableModels.length > 0) {
-                    this.promptForm.get('options.llmId')?.setValue(this.availableModels[0].id); // Changed from selectedModel
+                    this.promptForm.get('options.llmId')?.setValue(this.availableModels[0].id, { emitEvent: false }); // Changed from selectedModel
                 }
             }
             this.isLoading.set(false);
@@ -184,14 +223,38 @@ export class PromptFormComponent implements OnInit, OnDestroy {
     }
 
     addMessage(role: LlmMessage['role'] = 'user', content: string = ''): void {
-        this.messagesFormArray.push(this.createMessageGroup(role, content));
-        // messageItemCollapsedStates logic removed
+        // If adding a system message, ensure it's at the beginning
+        if (role === 'system') {
+             // Check if a system message already exists at index 0
+             const systemMessageExistsAtIndex0 = this.messagesFormArray.length > 0 && this.messagesFormArray.at(0).get('role')?.value === 'system';
+             if (!systemMessageExistsAtIndex0) {
+                this.messagesFormArray.insert(0, this.createMessageGroup(role, content));
+             } else {
+                 // If it exists, maybe update its content or just ignore adding a duplicate?
+                 // For now, let's assume the toggle manages the *first* system message.
+                 // If addMessage('system', ...) is called manually elsewhere, this might need refinement.
+                 // For the current use case (toggle), inserting at 0 is correct if it's missing.
+                 // If it exists, we don't add another one via this method.
+                 console.warn('Attempted to add a system message when one already exists at index 0.');
+             }
+        } else {
+            // Add other messages to the end
+            this.messagesFormArray.push(this.createMessageGroup(role, content));
+        }
         this.cdr.detectChanges();
     }
 
     removeMessage(index: number): void {
+        // Prevent removing the system message using this button
+        if (this.messagesFormArray.at(index).get('role')?.value === 'system') {
+            console.warn('Attempted to remove system message using the remove button.');
+            return;
+        }
         this.messagesFormArray.removeAt(index);
-        // messageItemCollapsedStates logic removed
+        // If removing the last non-system message and includeSystemMessage is false, add a default user message
+        if (this.messagesFormArray.length === 0 && !this.promptForm.get('includeSystemMessage')?.value) {
+             this.addMessage('user', '');
+        }
         this.cdr.detectChanges();
     }
 
@@ -221,7 +284,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 
         this.promptForm.patchValue({
             name: prompt.name,
-        });
+        }, { emitEvent: false }); // Prevent valueChanges from firing prematurely
 
         const promptOptions = prompt.options || {};
         let llmIdToPatch = defaultOptions.llmId; // Changed from selectedModelToPatch
@@ -240,23 +303,42 @@ export class PromptFormComponent implements OnInit, OnDestroy {
             ...promptOptions,   // provides saved values from prompt, potentially overriding defaults
             llmId: llmIdToPatch // ensures llmId is correctly set based on availability
         };
-        this.promptForm.get('options')?.patchValue(optionsToPatch);
+        this.promptForm.get('options')?.patchValue(optionsToPatch, { emitEvent: false });
 
         this.tagsFormArray.clear();
         (prompt.tags || []).forEach(tag => this.tagsFormArray.push(this.fb.control(tag)));
 
-        this.messagesFormArray.clear();
-        // messageItemCollapsedStates logic removed
-        (prompt.messages || []).forEach(msg => {
-            this.messagesFormArray.push(this.createMessageGroup(msg.role, msg.content as string));
-            // messageItemCollapsedStates logic removed
-        });
-        // messageItemCollapsedStates logic removed
+        this.messagesFormArray.clear(); // Clear previous messages
 
+        const systemMessages = (prompt.messages || []).filter(msg => msg.role === 'system');
+        const otherMessages = (prompt.messages || []).filter(msg => msg.role !== 'system');
 
-        if (this.messagesFormArray.length === 0) {
-            this.addMessage('user', ''); // Ensure at least one message editor, addMessage handles its own collapsed state
+        let initialIncludeSystemMessage = false;
+        let systemMessageContent: string = '';
+
+        if (systemMessages.length > 0) {
+            initialIncludeSystemMessage = true;
+            systemMessageContent = systemMessages[0].content as string; // Take the content of the first system message
+            // Add the system message directly to the array at index 0
+            this.messagesFormArray.push(this.createMessageGroup('system', systemMessageContent));
         }
+
+        // Add other messages after the system message (if added)
+        otherMessages.forEach(msg => {
+            this.messagesFormArray.push(this.createMessageGroup(msg.role, msg.content as string));
+        });
+
+        // Set includeSystemMessage form control value *without* emitting event initially
+        // The valueChanges listener is primarily for user interaction *after* load.
+        this.promptForm.get('includeSystemMessage')?.setValue(initialIncludeSystemMessage, { emitEvent: false });
+
+
+        // Ensure at least one message editor if the array is empty after population
+        // This happens if the prompt had no messages and includeSystemMessage was false
+        if (this.messagesFormArray.length === 0) {
+            this.addMessage('user', ''); // addMessage handles its own collapsed state
+        }
+
         this.isLoading.set(false);
         this.cdr.detectChanges();
     }
@@ -277,10 +359,13 @@ export class PromptFormComponent implements OnInit, OnDestroy {
         this.isSaving.set(true);
         const formValue = this.promptForm.value;
 
+        // Filter out the includeSystemMessage control value from the payload
+        const payloadMessages = formValue.messages.map((msg: {role: LlmMessage['role'], content: string}) => ({role: msg.role, content: msg.content}));
+
         const payload: PromptCreatePayload | PromptUpdatePayload = {
             name: formValue.name,
             tags: formValue.tags,
-            messages: formValue.messages.map((msg: {role: LlmMessage['role'], content: string}) => ({role: msg.role, content: msg.content})),
+            messages: payloadMessages, // Use the filtered messages
             options: formValue.options,
         };
 
