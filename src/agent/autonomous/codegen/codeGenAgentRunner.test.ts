@@ -307,7 +307,7 @@ describe('codegenAgentRunner', () => {
 			expect(agent.state).to.equal('completed');
 
 			const calls = await appContext().llmCallService.getLlmCallsForAgent(agent.agentId);
-			expect(calls.length).to.equal(4);
+			expect(calls.length).to.equal(5);
 
 			const skyCall = calls[1];
 			// skyColour is the TestFunctions method name

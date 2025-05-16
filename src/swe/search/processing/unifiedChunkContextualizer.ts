@@ -60,7 +60,7 @@ JSON Array:
 
 		logger.info({ filePath, language, llmId: llm.getId() }, 'Requesting chunk identification from LLM');
 
-		const rawLlmResponse = await llm.generateText(prompt);
+		const rawLlmResponse = await llm.generateText(prompt, { id: 'Contextualized Chunking' });
 		logger.info({ filePath, rawLlmResponseLength: rawLlmResponse.length }, 'Received raw response from LLM for chunk identification');
 		// For debugging, you might want to log the full rawLlmResponse, but be cautious with large responses.
 		// logger.debug({ filePath, rawLlmResponse }, 'Full raw response from LLM');
