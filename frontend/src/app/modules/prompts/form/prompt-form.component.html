@@ -82,7 +82,7 @@
 
                 <mat-accordion multi="true" *ngIf="messagesFormArray.controls.length > 0" formArrayName="messages">
                     <mat-expansion-panel *ngFor="let msgGroup of messagesFormArray.controls; let i = index" [formGroupName]="i" class="mb-2 !shadow-sm border dark:border-gray-700 bg-white dark:bg-gray-850 rounded-md overflow-hidden" #messagePanel="matExpansionPanel">
-                        <mat-expansion-panel-header class="border-b-0 h-1">
+                        <mat-expansion-panel-header class="border-b-0" [ngClass]="{'h-1': messagePanel.expanded}">
                             <mat-panel-title *ngIf="!messagePanel.expanded" [@summaryFade] class="!text-sm !font-semibold">
                                 Message {{ i + 1 }} : {{ msgGroup.get('role')?.value | titlecase }}
                                 <span *ngIf="msgGroup.get('content')?.value" class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2 truncate">
