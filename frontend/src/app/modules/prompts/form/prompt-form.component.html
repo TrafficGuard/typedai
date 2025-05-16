@@ -46,7 +46,7 @@
                   <mat-form-field class="w-full">
                       <mat-label>Tags</mat-label>
                       <mat-chip-grid #chipGrid aria-label="Enter tags" formArrayName="tags">
-                          <mat-chip-row *ngFor="let tagControl of tagsFormArray.controls; let i = index" (removed)="removeTagAtIndex(i)" [editable="true" [removable]="true">
+                          <mat-chip-row *ngFor="let tagControl of tagsFormArray.controls; let i = index" (removed)="removeTagAtIndex(i)" [editable]="true" [removable]="true">
                               {{tagControl.value}}
                               <button matChipRemove [attr.aria-label]="'remove ' + tagControl.value">
                                   <mat-icon>cancel</mat-icon>
