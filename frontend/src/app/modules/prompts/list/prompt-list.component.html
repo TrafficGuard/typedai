@@ -1,42 +1,86 @@
-<div class="p-4 sm:p-6 md:p-8">
-  <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-    <h1 class="text-3xl font-bold tracking-tight">Prompt Library</h1>
-    <button mat-flat-button color="primary" [routerLink]="newPromptPath">
-      <mat-icon svgIcon="heroicons_outline:plus-circle"></mat-icon>
-      Create New Prompt
-    </button>
-  </div>
+<div class="flex flex-col flex-auto w-full p-4 sm:p-4">
+	<div class="flex items-center justify-between mb-4 mx-3">
+		<h1 class="text-3xl font-medium tracking-tight leading-none">Prompt Library</h1>
+		<button mat-flat-button color="primary" [routerLink]="newPromptPath">
+			<mat-icon svgIcon="heroicons_outline:plus"></mat-icon>
+			<span class="ml-2">Create New Prompt</span>
+		</button>
+	</div>
 
-  <div *ngIf="isLoading()" class="flex justify-center items-center h-64">
-    <mat-spinner diameter="50"></mat-spinner>
-  </div>
+	<div class="overflow-auto bg-card rounded-lg shadow">
+		<!-- Loading State -->
+		<div *ngIf="isLoading()" class="flex justify-center items-center h-64 p-8 text-center text-secondary">
+			<mat-spinner diameter="50"></mat-spinner>
+		</div>
 
-  <div *ngIf="!isLoading() && (!prompts() || prompts()!.length === 0)" class="text-center py-12">
-    <mat-icon svgIcon="heroicons_outline:document-text" class="!w-16 !h-16 text-gray-400 mb-4"></mat-icon>
-    <p class="text-xl text-gray-500">No prompts found.</p>
-    <p class="text-gray-400">Click "Create New Prompt" to get started.</p>
-  </div>
+		<!-- Content when not loading -->
+		<div *ngIf="!isLoading()">
+			<!-- Table if prompts exist -->
+			<div *ngIf="prompts() && prompts()!.length > 0; else noPrompts" class="mat-elevation-z0">
+				<table mat-table [dataSource]="prompts()" class="w-full" [trackBy]="trackByPromptId">
+					<!-- Name Column -->
+					<ng-container matColumnDef="name">
+						<th mat-header-cell *matHeaderCellDef>Name</th>
+						<td mat-cell *matCellDef="let prompt">{{ prompt.name }}</td>
+					</ng-container>
 
-  <mat-list *ngIf="!isLoading() && prompts() && prompts()!.length > 0" role="list">
-    <mat-list-item *ngFor="let prompt of prompts()" class="hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg mb-2 shadow-sm">
-      <mat-icon matListItemIcon svgIcon="heroicons_outline:document-text"></mat-icon>
-      <div matListItemTitle class="font-semibold">{{ prompt.name }}</div>
-      <div matListItemLine class="text-sm text-gray-600 dark:text-gray-400">
-        Tags: <span *ngIf="prompt.tags && prompt.tags.length > 0; else noTags">{{ prompt.tags?.join(', ') }}</span>
-        <ng-template #noTags>N/A</ng-template>
-      </div>
-      <div matListItemLine class="text-xs text-gray-500 dark:text-gray-500">
-        Last Updated: {{ prompt.updatedAt | date:'mediumDate' }} at {{ prompt.updatedAt | date:'shortTime' }}
-      </div>
-      <div matListItemMeta class="flex items-center gap-1">
-        <button mat-icon-button (click)="editPrompt(prompt.id); $event.stopPropagation()" matTooltip="Edit Prompt">
-          <mat-icon svgIcon="heroicons_outline:pencil-square"></mat-icon>
-        </button>
-        <button mat-icon-button color="warn" (click)="deletePrompt($event, prompt)" [disabled]="isDeletingSignal() === prompt.id" matTooltip="Delete Prompt" class="ml-1">
-            <mat-icon *ngIf="isDeletingSignal() !== prompt.id" svgIcon="heroicons_outline:trash"></mat-icon>
-            <mat-progress-spinner *ngIf="isDeletingSignal() === prompt.id" [diameter]="20" mode="indeterminate"></mat-progress-spinner>
-        </button>
-      </div>
-    </mat-list-item>
-  </mat-list>
+					<!-- Tags Column -->
+					<ng-container matColumnDef="tags">
+						<th mat-header-cell *matHeaderCellDef>Tags</th>
+						<td mat-cell *matCellDef="let prompt">
+							<span *ngIf="prompt.tags && prompt.tags.length > 0; else noTagsInCell">{{ prompt.tags?.join(', ') }}</span>
+							<ng-template #noTagsInCell>N/A</ng-template>
+						</td>
+					</ng-container>
+
+					<!-- Last Updated Column -->
+					<ng-container matColumnDef="updatedAt">
+						<th mat-header-cell *matHeaderCellDef>Last Updated</th>
+						<td mat-cell *matCellDef="let prompt">
+							{{ prompt.updatedAt | date: 'mediumDate' }} at {{ prompt.updatedAt | date: 'shortTime' }}
+						</td>
+					</ng-container>
+
+					<!-- Actions Column -->
+					<ng-container matColumnDef="actions">
+						<th mat-header-cell *matHeaderCellDef>Actions</th>
+						<td mat-cell *matCellDef="let prompt">
+							<button mat-icon-button (click)="editPrompt(prompt.id); $event.stopPropagation()" matTooltip="Edit Prompt" aria-label="Edit Prompt">
+								<mat-icon svgIcon="heroicons_outline:pencil-square"></mat-icon>
+							</button>
+							<button
+								mat-icon-button
+								color="warn"
+								(click)="deletePrompt($event, prompt)"
+								[disabled]="isDeletingSignal() === prompt.id"
+								matTooltip="Delete Prompt"
+								aria-label="Delete Prompt"
+								class="ml-1"
+							>
+								<mat-icon *ngIf="isDeletingSignal() !== prompt.id" svgIcon="heroicons_outline:trash"></mat-icon>
+								<mat-progress-spinner *ngIf="isDeletingSignal() === prompt.id" [diameter]="20" mode="indeterminate"></mat-progress-spinner>
+							</button>
+						</td>
+					</ng-container>
+
+					<tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+					<tr
+						mat-row
+						*matRowDef="let row; columns: displayedColumns"
+						(click)="editPrompt(row.id)"
+						class="hover:bg-gray-100 dark:hover:bg-hover cursor-pointer"
+					></tr>
+				</table>
+			</div>
+
+			<!-- Message if no prompts -->
+			<ng-template #noPrompts>
+				<div class="p-8 text-center text-secondary">
+					<mat-icon svgIcon="heroicons_outline:document-text" class="!w-16 !h-16 text-gray-400 mb-4"></mat-icon>
+					<p class="text-xl text-gray-500">No prompts found.</p>
+					<p class="text-gray-400">Click "Create New Prompt" to get started.</p>
+				</div>
+			</ng-template>
+		</div>
+	</div>
 </div>
