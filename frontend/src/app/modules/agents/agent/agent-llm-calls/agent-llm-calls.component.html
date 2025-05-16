@@ -4,9 +4,12 @@
             <mat-icon *ngIf="call.error" color="warn" class="mr-1 icon-size-5">error_outline</mat-icon>
             <span class="mb-3 pt-3 font-medium text-xl">{{ call.callStack }} {{ call.description }}</span>
 
-            <a href="{{ llmCallUrl(call) }}" style="font-size: x-small" target="_blank">
+            <a href="{{ llmCallUrl(call) }}" style="font-size: x-small" target="_blank" mat-icon-button matTooltip="Open in Firestore">
                 <mat-icon>storage</mat-icon>
             </a>
+            <button mat-icon-button (click)="openInPromptStudio(call)" matTooltip="Open in Prompt Studio" style="font-size: x-small">
+                <mat-icon>edit_document</mat-icon> <!-- Or 'content_copy', 'open_in_new', 'launch' -->
+            </button>
         </div>
 
         <div class="mb-1">
@@ -44,7 +47,11 @@
                                 <span *ngSwitchCase="'text'">{{ part.text }}</span>
                                 <span *ngSwitchCase="'image'">[Image Part: {{ part.mimeType || 'type unknown' }}]</span>
                                 <span *ngSwitchCase="'file'">[File Part: {{ part.mimeType || 'type unknown' }}]</span>
-                                <span *ngSwitchDefault>[Unknown Part Type]</span>
+                                <ng-container *ngSwitchDefault>
+                                    <!-- Attempt to display unknown part content if it's a string -->
+                                    <span *ngIf="isStringContent(part)">{{ part }}</span>
+                                    <span *ngIf="!isStringContent(part)">[Unknown Part Type: {{ part.type || 'N/A' }}]</span>
+                                </ng-container>
                             </ng-container>
                         </div>
                     </ng-container>

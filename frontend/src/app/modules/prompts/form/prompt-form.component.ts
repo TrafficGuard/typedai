@@ -171,11 +171,39 @@ export class PromptFormComponent implements OnInit, OnDestroy {
             takeUntil(this.destroy$)
         ).subscribe(data => {
             const resolvedPrompt = data['prompt'] as Prompt | null;
+            // Check for state passed via router navigation (e.g., from LlmCall)
+            const navigationState = this.router.getCurrentNavigation()?.extras.state;
+            const llmCallDataForPrompt = navigationState?.['llmCallData'] as Partial<Prompt> | undefined;
+
             if (resolvedPrompt && resolvedPrompt.id) {
                 this.promptIdSignal.set(resolvedPrompt.id);
                 this.isEditMode.set(true);
                 this.populateForm(resolvedPrompt);
-            } else {
+            } else if (llmCallDataForPrompt) { // Check for LlmCall data first for "new from LlmCall"
+                this.isEditMode.set(false);
+                this.promptsService.clearSelectedPrompt(); // Ensure no previous selection interferes
+                this.promptIdSignal.set(null); // Explicitly not editing an existing prompt ID
+
+                // Populate form with data from LlmCall
+                // populateForm expects a full Prompt, but we can pass a Partial and handle defaults
+                this.populateForm(llmCallDataForPrompt as Prompt); // Cast as Prompt, populateForm should handle missing fields gracefully or be adjusted
+
+                // Ensure includeSystemMessage is set based on the messages from LlmCall
+                const hasSystemMessage = llmCallDataForPrompt.messages?.some(m => m.role === 'system');
+                this.promptForm.get('includeSystemMessage')?.setValue(!!hasSystemMessage, { emitEvent: true });
+
+                // Set default model if not provided by LlmCall or if provided one is not available
+                const optionsLlmId = llmCallDataForPrompt.options?.llmId;
+                if (optionsLlmId && this.availableModels.find(m => m.id === optionsLlmId)) {
+                    this.promptForm.get('options.llmId')?.setValue(optionsLlmId, { emitEvent: false });
+                } else if (this.availableModels.length > 0) {
+                    this.promptForm.get('options.llmId')?.setValue(this.availableModels[0].id, { emitEvent: false });
+                    if (optionsLlmId) {
+                        console.warn(`LLM ID "${optionsLlmId}" from LlmCall data is not available. Defaulting.`);
+                    }
+                }
+
+            } else { // Standard "new prompt" or error case
                 if (this.route.snapshot.paramMap.get('promptId') && !resolvedPrompt) {
                     console.error('Prompt not found for editing, navigating back.');
                     this.router.navigate(['/ui/prompts']).catch(console.error);
@@ -185,20 +213,16 @@ export class PromptFormComponent implements OnInit, OnDestroy {
                 }
                 this.isEditMode.set(false);
                 this.promptsService.clearSelectedPrompt();
+                this.promptIdSignal.set(null);
 
-                // Set default includeSystemMessage state and trigger listener
-                this.promptForm.get('includeSystemMessage')?.setValue(false, { emitEvent: true }); // emitEvent true to ensure listener runs
+                this.promptForm.get('includeSystemMessage')?.setValue(false, { emitEvent: true });
 
-                // Add one initial user message if the array is empty *after* the listener runs.
-                // The listener for includeSystemMessage=false will ensure no system message is present.
-                 if (this.messagesFormArray.length === 0) {
-                     this.addMessage('user', ''); // Explicitly add user role here
-                 }
+                if (this.messagesFormArray.length === 0) {
+                    this.addMessage('user', '');
+                }
 
-
-                // Set default model if creating new and models are available
                 if (this.availableModels.length > 0) {
-                    this.promptForm.get('options.llmId')?.setValue(this.availableModels[0].id, { emitEvent: false }); // Changed from selectedModel
+                    this.promptForm.get('options.llmId')?.setValue(this.availableModels[0].id, { emitEvent: false });
                 }
             }
             this.isLoading.set(false);
