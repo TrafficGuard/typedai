@@ -1,4 +1,4 @@
-<div class="flex flex-col flex-auto w-full p-4 sm:p-4">
+<div class="flex flex-col flex-auto w-full p-4 sm:p-4" xmlns="http://www.w3.org/1999/html">
     <div class="flex items-center justify-between mb-4 mx-3">
         <h1 class="text-3xl font-medium tracking-tight leading-none">Prompt Studio</h1>
         <button mat-stroked-button (click)="goBack()" type="button">
@@ -23,15 +23,18 @@
                       <mat-panel-title class="!text-sm !font-semibold">
                           Prompt Details:
                           <!-- Display summary only when the panel is NOT expanded -->
-                          <ng-container *ngIf="!detailsPanel.expanded" [@summaryFade]>
-                              <span class="ml-2">{{ promptForm.get('name')?.value || 'N/A' }}</span>
-                            <mat-chip-listbox *ngIf="tagsFormArray.controls.length > 0" aria-label="Prompt tags" class="inline-flex flex-wrap gap-1 ml-3">
-                                <mat-chip *ngFor="let tagControl of tagsFormArray.controls; let i = index"
-                                        class="text-xs !h-5 !min-h-[20px] !px-2 !py-0.5 !m-0 ml-2"
-                                        disabled="true" color="accent" selected> <!-- Static look -->
-                                  {{tagControl.value}}
-                                </mat-chip>
-                            </mat-chip-listbox>
+                          <ng-container *ngIf="!detailsPanel.expanded">
+                              <span [@summaryFade]>
+                                  <span class="ml-2">{{ promptForm.get('name')?.value || 'N/A' }}</span>
+                                  <mat-chip-listbox *ngIf="tagsFormArray.controls.length > 0" aria-label="Prompt tags" class="inline-flex flex-wrap gap-1 ml-3">
+                                     <mat-chip *ngFor="let tagControl of tagsFormArray.controls; let i = index"
+                                                class="text-xs !h-5 !min-h-[20px] !px-2 !py-0.5 !m-0 ml-2"
+                                                disabled="true" color="accent" selected> <!-- Static look -->
+                                          {{tagControl.value}}
+                                     </mat-chip>
+                                  </mat-chip-listbox>
+                              </span>
+
                           </ng-container>
                       </mat-panel-title>
                   </mat-expansion-panel-header>
