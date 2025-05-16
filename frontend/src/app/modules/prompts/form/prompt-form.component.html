@@ -7,7 +7,7 @@
         </button>
     </div>
 
-    <div class="overflow-auto bg-card rounded-lg shadow">
+    <div class="bg-card rounded-lg shadow">
       <div *ngIf="isLoading()" class="flex flex-auto justify-center items-center">
         <mat-spinner diameter="50"></mat-spinner>
       </div>
@@ -21,7 +21,7 @@
         -->
 
         <form [formGroup]="promptForm" (ngSubmit)="onSubmit()" class="space-y-6 flex-auto flex flex-col">
-          <div class="flex-auto space-y-6 overflow-y-auto pr-2">
+          <div class="flex-auto space-y-6 pr-2">
             <mat-card appearance="outlined">
                 <mat-card-header>
                 <mat-card-title>Prompt Details</mat-card-title>
