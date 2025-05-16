@@ -105,8 +105,30 @@ export class PromptFormComponent implements OnInit, OnDestroy {
     optionsCollapsed = signal(false);
 
     ngOnInit(): void {
-        // Capture navigation state early before any async operations
-        this.initialNavigationState = this.router.getCurrentNavigation()?.extras.state;
+        // Attempt to get navigation state.
+        // history.state is generally reliable for state passed via router.navigate.
+        const navStateFromHistory = history.state;
+        console.log('PromptFormComponent ngOnInit - navStateFromHistory:', navStateFromHistory);
+
+        const currentNavigation = this.router.getCurrentNavigation();
+        const navStateFromRouter = currentNavigation?.extras.state;
+        console.log('PromptFormComponent ngOnInit - currentNavigation object:', currentNavigation);
+        console.log('PromptFormComponent ngOnInit - navStateFromRouter (from currentNavigation.extras.state):', navStateFromRouter);
+
+        // Prioritize state from getCurrentNavigation if it specifically contains our 'llmCallData',
+        // otherwise, use history.state if it contains 'llmCallData'.
+        if (navStateFromRouter && navStateFromRouter['llmCallData']) {
+            this.initialNavigationState = navStateFromRouter;
+            console.log('PromptFormComponent ngOnInit - Using initialNavigationState from Router extras.state:', this.initialNavigationState);
+        } else if (navStateFromHistory && navStateFromHistory['llmCallData']) {
+            // Ensure we are not picking up unrelated state from history by checking for our specific key.
+            this.initialNavigationState = navStateFromHistory;
+            console.log('PromptFormComponent ngOnInit - Using initialNavigationState from history.state (fallback):', this.initialNavigationState);
+        } else {
+            this.initialNavigationState = undefined;
+            console.log('PromptFormComponent ngOnInit - No "llmCallData" key found in navigation state from either source.');
+        }
+
 
         this.promptForm = this.fb.group({
             name: ['', Validators.required],

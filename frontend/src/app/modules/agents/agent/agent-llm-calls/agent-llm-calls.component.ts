@@ -11,7 +11,7 @@ import type { LlmMessage } from '#shared/model/llm.model';
 import type { LlmCall } from '#shared/model/llmCall.model';
 import { AgentService } from '../../services/agent.service';
 import { Router } from '@angular/router';
-import type { Prompt } from '#shared/model/prompts.model';
+import type { Prompt as AppPrompt } from '#shared/model/prompts.model'; // Use an alias if 'Prompt' is ambiguous
 
 @Component({
 	selector: 'agent-llm-calls',
@@ -105,21 +105,27 @@ export class AgentLlmCallsComponent implements OnInit {
 	}
 
     openInPromptStudio(call: LlmCall): void {
-        const prompt: Prompt = {
-            userId: '',
-            revisionId: 1,
-            name: call.description || call.id,
-            id: call.id,
-            messages: call.messages as LlmMessage[],
-            settings: {
+        // Use Partial<AppPrompt> for clarity, as we are not creating a full Prompt object here.
+        const promptData: Partial<AppPrompt> = {
+            // Do NOT set 'id' here, as this is for a NEW prompt.
+            // The backend will assign a new ID upon creation.
+            name: `From LLM Call - ${call.description || call.id.substring(0, 8)}`, // Suggest a descriptive name
+            messages: call.messages as LlmMessage[], // Ensure LlmMessage structure is compatible
+            settings: { // Be explicit about which settings are passed
                 llmId: call.llmId,
-                ...call.settings
+                temperature: call.settings?.temperature,
+                maxOutputTokens: call.settings?.maxOutputTokens,
+                // Add other relevant CallSettings properties if they exist on call.settings
+                // and are valid for Prompt settings.
             },
-            tags: [call.id]
+            tags: [`llm-call-source:${call.id}`] // Make the tag more specific
+            // userId and revisionId are typically handled by the backend or default logic for new prompts.
         };
 
+        console.log('AgentLlmCallsComponent: Navigating to Prompt Studio with state (llmCallData):', promptData);
+
         this.router.navigate(['/ui/prompts/new'], {
-            state: { llmCallData: prompt }
+            state: { llmCallData: promptData } // The key is 'llmCallData'
         }).catch(err => console.error('Failed to navigate to Prompt Studio:', err));
     }
 }
