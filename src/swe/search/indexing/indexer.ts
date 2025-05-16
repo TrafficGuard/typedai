@@ -48,10 +48,7 @@ interface ProcessedChunkForEmbedding {
  * @param globalFailedChunksCounter An object to track the count of chunks that fail processing across all files (currently unused here, primarily for embedding failures).
  * @returns A promise that resolves to an array of processed chunks ready for embedding, or an empty array if processing fails.
  */
-async function processFileAndGetContextualizedChunks(
-	file: CodeFile,
-	globalFailedChunksCounter: { count: number },
-): Promise<ProcessedChunkForEmbedding[]> {
+async function processFileAndGetContextualizedChunks(file: CodeFile, globalFailedChunksCounter: { count: number }): Promise<ProcessedChunkForEmbedding[]> {
 	logger.info(`Starting unified processing for file: ${file.filePath}`);
 	const processedChunksForEmbedding: ProcessedChunkForEmbedding[] = [];
 

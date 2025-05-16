@@ -117,14 +117,14 @@ export async function searchCode(
 		// The actual key name 'alpha' or 'hybrid_alpha' or similar needs to be confirmed
 		// from Discovery Engine documentation for use with the 'params' field.
 		// Based on Perplexity research, 'alpha' is a common term.
-		requestParamsInternal['alpha'] = hybridAlpha;
+		requestParamsInternal.alpha = hybridAlpha;
 	}
 
 	if (lexicalFieldBoosts && Object.keys(lexicalFieldBoosts).length > 0) {
 		// The actual key name 'field_boosts' or 'fieldBoosts' or similar needs to be confirmed
 		// from Discovery Engine documentation for use with the 'params' field.
 		// Based on Perplexity research, 'field_boosts' is a common term.
-		requestParamsInternal['field_boosts'] = lexicalFieldBoosts;
+		requestParamsInternal.field_boosts = lexicalFieldBoosts;
 	}
 
 	if (Object.keys(requestParamsInternal).length > 0) {
@@ -136,7 +136,10 @@ export async function searchCode(
 
 	for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
 		try {
-			logger.info({ functionName, query, attempt: attempt + 1, maxRetries: MAX_RETRIES, lexicalFieldBoosts, hybridAlpha }, `Attempting search (attempt ${attempt + 1}/${MAX_RETRIES})...`);
+			logger.info(
+				{ functionName, query, attempt: attempt + 1, maxRetries: MAX_RETRIES, lexicalFieldBoosts, hybridAlpha },
+				`Attempting search (attempt ${attempt + 1}/${MAX_RETRIES})...`,
+			);
 			logger.debug({ functionName, query, attempt: attempt + 1, searchRequest: JSON.stringify(searchRequest, null, 2) }, 'Sending search request');
 
 			// 3. Call the Search API
