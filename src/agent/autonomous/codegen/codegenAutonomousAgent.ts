@@ -96,6 +96,8 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 			let controlLoopError: Error | null = null;
 			let currentImageParts: ImagePartExt[] = []; // Reset image parts for this iteration's script result processing
 
+			const initialCost = agent.cost;
+
 			const iterationData: Partial<AutonomousIteration> = {
 				agentId: agent.agentId,
 				iteration: agent.iterations,
@@ -315,6 +317,14 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				}
 
 				try {
+					// iterationData.summary = await llms().easy.generateMessage('', {id: 'Iteration summary'});
+				} catch(e) {
+					logger.error(e, 'Error creating iteration summary')
+				}
+
+
+				try {
+					iterationData.cost = agent.cost = initialCost
 					await agentStateService.saveIteration(iterationData as AutonomousIteration);
 				} catch (e) {
 					logger.error(e, 'Error saving agent iteration data in control loop');
