@@ -50,7 +50,7 @@ export class AiderCodeEditor {
 	async editFilesToMeetRequirements(requirements: string, filesToEdit: string[], commit = true): Promise<void> {
 		const span = getActiveSpan();
 		const messageFilePath = '.aider-requirements';
-		logger.debug(requirements);
+		logger.info(requirements);
 		logger.debug(filesToEdit);
 		// TODO insert additional info into the prompt
 		// We could have languageTools.getPrompt()

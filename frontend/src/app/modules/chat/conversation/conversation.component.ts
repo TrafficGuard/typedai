@@ -49,6 +49,7 @@ import {ClipboardButtonComponent} from "./clipboard-button.component";
 import {FuseConfirmationService} from "../../../../@fuse/services/confirmation";
 import {ClipboardModule} from "@angular/cdk/clipboard";
 import {UserProfile} from "#shared/schemas/user.schema";
+import { SafeHtmlPipe } from 'app/core/pipes/safe-html.pipe';
 
 @Component({
     selector: 'chat-conversation',
@@ -77,6 +78,7 @@ import {UserProfile} from "#shared/schemas/user.schema";
         ReactiveFormsModule,
         ClipboardButtonComponent,
         ClipboardModule,
+        SafeHtmlPipe,
     ],
     providers: [
         provideMarkdown(),
@@ -122,12 +124,29 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
     readonly clipboardButton = ClipboardButtonComponent;
 
+    // Add this property to track the previous chat ID
+    private previousChatId: string | null | undefined = undefined;
+
     // Computed signal for displaying messages (service messages + pending messages)
     displayedMessages = computed(() => {
         const currentChat = this.chat();
         let messagesToShow = currentChat?.messages ? [...currentChat.messages] : [];
+
+        // Parse messages to populate textChunks
+        messagesToShow = messagesToShow.map(msg => ({
+            ...msg,
+            textChunks:  parseMessageContent(msg.textContent) // Populate textChunks here
+        }));
+
         if (this.generatingAIMessage()) {
-            messagesToShow.push(this.generatingAIMessage());
+            const generatingMsg = this.generatingAIMessage();
+            if (generatingMsg) {
+                 messagesToShow.push({
+                    ...generatingMsg,
+                    // Ensure generating message also has textChunks, populated by parseMessageContent
+                    textChunks:  parseMessageContent(generatingMsg.textContent)
+                 });
+            }
         }
         return messagesToShow;
     });
@@ -177,14 +196,23 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
         // Effect to update component state based on loaded data (user, llms, chat)
         effect(() => {
-            this.generating.set(false);
-            this.generatingAIMessage.set(null);
             const currentChat = this.chat(); // chat signal from service
+            const currentChatId = currentChat?.id;
+
+            // Only reset generating states if the chat ID has actually changed,
+            // or if the chat becomes null (e.g., after a reset).
+            if (currentChatId !== this.previousChatId) {
+                this.generating.set(false);
+                this.generatingAIMessage.set(null);
+            }
 
             if (currentChat && currentChat.messages) {
                  this.assignUniqueIdsToMessages(currentChat.messages); // Ensure messages have IDs for trackBy
             }
             this.updateLlmSelector();
+
+            // Update previousChatId for the next run
+            this.previousChatId = currentChatId;
         });
 
         // Load initial list of chats
@@ -205,7 +233,12 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
         if (isGenerating && aiMsg && aiMsg.generating) {
             const timer = setInterval(() => {
                 this.generatingAIMessage.update(gm =>
-                    gm ? { ...gm, textContent: gm.textContent.length >= 3 ? '.' : gm.textContent + '.' } : null
+                    gm ? {
+                        ...gm,
+                        textContent: gm.textContent.length >= 3 ? '.' : gm.textContent + '.',
+                        // Update textChunks based on the new textContent
+                        textChunks:  parseMessageContent(gm.textContent.length >= 3 ? '.' : gm.textContent + '.')
+                    } : null
                 );
             }, 800);
             onCleanup(() => {
@@ -444,10 +477,11 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
         // Optimistic UI update: add a "generating" placeholder for AI
         const aiGeneratingMessageEntry: ChatMessage = {
             id: uuidv4(),
-            textContent: '.',
+            textContent: '.', // Initial placeholder text
             isMine: false,
             generating: true,
             createdAt: new Date().toISOString(),
+            textChunks:  parseMessageContent('.') // Initialize textChunks
         };
         this.generatingAIMessage.set(aiGeneratingMessageEntry);
 
@@ -656,7 +690,12 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
         // KEEP Optimistic update for generatingAIMessage
         const aiGeneratingMessageEntry: ChatMessage = {
-            id: uuidv4(), textContent: '.', isMine: false, generating: true, createdAt: new Date().toISOString(),
+            id: uuidv4(),
+            textContent: '.', // Initial placeholder text
+            isMine: false,
+            generating: true,
+            createdAt: new Date().toISOString(),
+            textChunks:  parseMessageContent('.') // Initialize textChunks
         };
         this.generatingAIMessage.set(aiGeneratingMessageEntry);
 
@@ -788,8 +827,38 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 }
 
-// structuredClone is globally available in modern environments.
-// function clone<T>(obj: T): T {
-//     return structuredClone(obj);
-// }
+export function parseMessageContent(textContent: string | undefined | null): Array<{type: 'text' | 'markdown', value: string}> {
+    if (!textContent) {
+        return [];
+    }
 
+    const chunks: Array<{type: 'text' | 'markdown', value: string}> = [];
+    // Regex to find fenced code blocks (e.g., ```lang\ncode\n``` or ```\ncode\n```)
+    // Note: In this string, backslashes for the regex are already escaped (e.g., \n becomes \\n for the TS regex engine).
+    const codeBlockRegex = /```(?:[a-zA-Z0-9\-+_]*)\n([\s\S]*?)\n?```/g;
+
+    let lastIndex = 0;
+    let match;
+
+    while ((match = codeBlockRegex.exec(textContent)) !== null) {
+        // Add text before the code block
+        if (match.index > lastIndex) {
+            chunks.push({ type: 'text', value: textContent.substring(lastIndex, match.index) });
+        }
+        // Add the code block itself (including the fences for the markdown component)
+        chunks.push({ type: 'markdown', value: match[0] });
+        lastIndex = codeBlockRegex.lastIndex;
+    }
+
+    // Add any remaining text after the last code block
+    if (lastIndex < textContent.length) {
+        chunks.push({ type: 'text', value: textContent.substring(lastIndex) });
+    }
+
+    // If no code blocks were found, and textContent is not empty, the entire content is text
+    if (chunks.length === 0 && textContent.length > 0) {
+        chunks.push({ type: 'text', value: textContent });
+    }
+
+    return chunks;
+}

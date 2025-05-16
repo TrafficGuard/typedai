@@ -39,7 +39,6 @@ export class CodeEditingAgent {
 	 * Runs a workflow which 1) Finds the relevant files and generates and implementation plan. 2) Edits the files to implement the plan and commits changes to version control.
 	 * It also compiles, formats, lints, and runs tests where applicable.
 	 * @param requirements The requirements of the task to make the code changes for.
-
 	 */
 	@func()
 	async implementUserRequirements(
@@ -158,7 +157,7 @@ export class CodeEditingAgent {
 		// The prompts need some work
 		// await this.testLoop(requirements, projectInfo, initialSelectedFiles);
 
-		await fss.getVcs().getDiff(gitBase);
+		// return await fss.getVcs().getDiff(gitBase);
 	} // end of runCodeEditWorkflow method
 
 	private failOnCompileError(compileErrorAnalysis: CompileErrorAnalysis) {

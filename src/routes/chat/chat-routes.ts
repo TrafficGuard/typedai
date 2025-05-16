@@ -8,8 +8,17 @@ import { logger } from '#o11y/logger';
 import { CHAT_API } from '#shared/api/chat.api';
 import type { Chat, ChatList } from '#shared/model/chat.model';
 import type { LLM, LlmMessage } from '#shared/model/llm.model';
-import type { ChatMessageSendSchema, ChatParamsSchema, ChatSchemaModel, ChatUpdateDetailsSchema, RegenerateMessageSchema } from '#shared/schemas/chat.schema';
 import type { LlmMessageSchemaModel } from '#shared/schemas/llm.schema';
+import type {
+	ChatMessageSendSchema,
+	ChatParamsSchema,
+	ChatSchemaModel,
+	ChatUpdateDetailsSchema,
+	RegenerateMessageSchema,
+	ChatMarkdownRequestSchema,
+	ChatMarkdownResponseModel,
+} from '#shared/schemas/chat.schema';
+
 import { currentUser } from '#user/userContext';
 
 export async function chatRoutes(fastify: AppFastifyInstance) {
@@ -215,6 +224,38 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 
 			const updatedChat = await fastify.chatService.saveChat(chat);
 			reply.sendJSON(updatedChat as ChatSchemaModel);
+		},
+	);
+
+	fastify.post(
+		CHAT_API.formatAsMarkdown.pathTemplate,
+		{
+			schema: CHAT_API.formatAsMarkdown.schema,
+		},
+		async (req, reply) => {
+			currentUser(); // Ensures user is authenticated, will throw if not
+
+			const { text } = req.body as Static<typeof ChatMarkdownRequestSchema>;
+
+			const llmToUse = summaryLLM();
+			if (!llmToUse.isConfigured()) {
+				logger.error('Markdown formatting: summaryLLM is not configured.');
+				return send(reply, 503, { error: 'Markdown formatting service is currently unavailable due to LLM configuration.' });
+			}
+
+			const prompt = `Please reformat the following text with appropriate Markdown tags. Your response should only contain the Markdown formatted text and nothing else. Do not include any preamble or explanation.
+<text_to_format>
+${text}
+</text_to_format>`;
+
+			try {
+				const markdownText = await llmToUse.generateText(prompt, { id: 'markdown-format' });
+				reply.sendJSON({ markdownText } as ChatMarkdownResponseModel);
+			} catch (error) {
+				const errorMessage = error instanceof Error ? error.message : String(error);
+				logger.error({ err: error, inputTextLength: text.length }, `Failed to format text as Markdown: ${errorMessage}`);
+				send(reply, 500, { error: 'Failed to format text as Markdown.' });
+			}
 		},
 	);
 }

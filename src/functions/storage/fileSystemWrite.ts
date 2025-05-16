@@ -33,7 +33,7 @@ export class FileSystemWrite {
 	}
 
 	/**
-	 * Edits a file using a search and replace. Provide the minimal lines of text from the file contents as the unique search string
+	 * Edits a file using a search and replace. Provide the minimal lines of text from the file contents as the unique search string.
 	 * @param filePath The file to edit
 	 * @param search The lines of text in the file to replace. Note that all the whitespace must be identical.
 	 * @param replace The new text to use as a replacement
