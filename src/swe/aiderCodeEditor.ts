@@ -4,6 +4,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import fs, { unlinkSync } from 'node:fs';
 import path, { join } from 'node:path';
 import { promisify } from 'node:util';
+import { now } from 'lodash';
 import { addCost, agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
 import { systemDir } from '#app/appDirs';
 import { appContext } from '#app/applicationContext';
@@ -148,6 +149,7 @@ export class AiderCodeEditor {
 			let callCount = 0;
 			for (const llmMessages of calls) {
 				const llmCall: LlmCall = {
+					settings: undefined,
 					id: randomUUID(),
 					agentId: agentContext()?.agentId,
 					llmId: llm?.getId(),

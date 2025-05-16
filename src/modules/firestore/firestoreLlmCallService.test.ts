@@ -55,6 +55,7 @@ describe('FirestoreLlmCallService', () => {
 				agentId: 'test-agent',
 				userId: testUser.id, // Explicitly set userId
 				callStack: 'test > call > stack',
+				settings: undefined,
 			};
 
 			const savedRequest = await service.saveRequest(request);
@@ -98,6 +99,7 @@ describe('FirestoreLlmCallService', () => {
 				agentId: 'small-test-agent',
 				userId: testUser.id,
 				callStack: 'small > test > stack',
+				settings: undefined,
 			};
 			const savedRequest = await service.saveRequest(request);
 
@@ -156,6 +158,7 @@ describe('FirestoreLlmCallService', () => {
 				llmId: 'large-test-llm',
 				agentId: 'large-test-agent',
 				userId: testUser.id, // Explicitly set userId
+				settings: undefined,
 			};
 			const savedRequest = await service.saveRequest(request);
 
@@ -221,6 +224,7 @@ describe('FirestoreLlmCallService', () => {
 				description: 'Oversized message test',
 				llmId: 'oversize-llm',
 				userId: testUser.id, // Explicitly set userId
+				settings: undefined,
 			};
 
 			// The error should be thrown during saveRequest because the initial message is too large
@@ -241,6 +245,7 @@ describe('FirestoreLlmCallService', () => {
 				description: 'Small call description',
 				llmId: 'small-llm',
 				userId: testUser.id, // Explicitly set userId
+				settings: undefined,
 			};
 			const savedSmallRequest = await service.saveRequest(smallRequest);
 			// Make requestTime slightly older
@@ -264,6 +269,7 @@ describe('FirestoreLlmCallService', () => {
 				description: 'Large call description',
 				llmId: 'large-llm',
 				userId: testUser.id, // Explicitly set userId
+				settings: undefined,
 			};
 			const savedLargeRequest = await service.saveRequest(largeRequest);
 			const largeResponseMessages = [...largeRequest.messages!, { role: 'assistant', content: generateLargeString(largeContentSize) }] as LlmMessage[];
@@ -283,6 +289,7 @@ describe('FirestoreLlmCallService', () => {
 				description: 'Small call 2 description',
 				llmId: 'small-llm-2',
 				userId: testUser.id, // Explicitly set userId
+				settings: undefined,
 			};
 			const savedSmallRequest2 = await service.saveRequest(smallRequest2);
 			const smallResponse2Messages = [...smallRequest2.messages!, { role: 'assistant', content: 'Small call 2 response' }] as LlmMessage[];
@@ -337,6 +344,7 @@ describe('FirestoreLlmCallService', () => {
 				description: 'delete test',
 				llmId: 'delete-llm',
 				userId: testUser.id, // Explicitly set userId
+				settings: undefined,
 			};
 			const savedRequest = await service.saveRequest(request);
 			const responseMessages = [...request.messages!, { role: 'assistant', content: 'deleted response' }] as LlmMessage[];
@@ -358,7 +366,8 @@ describe('FirestoreLlmCallService', () => {
 				messages: [user(generateLargeString(largeContentSize))],
 				description: 'delete chunked test',
 				llmId: 'delete-chunked-llm',
-				userId: testUser.id, // Explicitly set userId
+				userId: testUser.id,
+				settings: undefined,
 			};
 			const savedRequest = await service.saveRequest(request);
 			const responseMessages = [...request.messages!, { role: 'assistant', content: generateLargeString(largeContentSize) }] as LlmMessage[];

@@ -7,6 +7,7 @@ import type { AgentLLMs } from '#shared/model/agent.model';
 import { type GenerateTextOptions, type LLM, type LlmMessage, assistant, combinePrompts, system, user } from '#shared/model/llm.model';
 import type { LlmCall } from '#shared/model/llmCall.model';
 import { BaseLLM } from '../base-llm';
+import {callStack} from "#llm/llmCallService/llmCall";
 
 export const OLLAMA_SERVICE = 'ollama';
 
@@ -42,7 +43,8 @@ export class OllamaLLM extends BaseLLM {
 				messages,
 				llmId: this.getId(),
 				agentId: agentContext()?.agentId,
-				callStack: this.callStack(agentContext()),
+				callStack: callStack(),
+				settings: opts,
 			});
 			const requestTime = Date.now();
 
