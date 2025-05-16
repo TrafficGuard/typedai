@@ -80,6 +80,8 @@ export class PromptFormComponent implements OnInit, OnDestroy {
     private cdr = inject(ChangeDetectorRef);
     private llmService = inject(LlmService);
 
+    private initialNavigationState: { [k: string]: any; } | undefined;
+
     promptForm!: FormGroup;
     isEditMode = signal(false);
     promptIdSignal = signal<string | null>(null); // Renamed to avoid conflict with component property
@@ -103,6 +105,9 @@ export class PromptFormComponent implements OnInit, OnDestroy {
     optionsCollapsed = signal(false);
 
     ngOnInit(): void {
+        // Capture navigation state early before any async operations
+        this.initialNavigationState = this.router.getCurrentNavigation()?.extras.state;
+
         this.promptForm = this.fb.group({
             name: ['', Validators.required],
             tags: this.fb.array([]),
@@ -165,11 +170,11 @@ export class PromptFormComponent implements OnInit, OnDestroy {
             takeUntil(this.destroy$)
         ).subscribe(data => {
             const resolvedPrompt = data['prompt'] as Prompt | null;
-            console.log(resolvedPrompt)
+            console.log('processRouteData - resolvedPrompt:', resolvedPrompt);
             // Check for state passed via router navigation (e.g., from LlmCall)
-            const navigationState = this.router.getCurrentNavigation()?.extras.state;
-            const llmCallDataForPrompt = navigationState?.['llmCallData'] as Partial<Prompt> | undefined;
-            console.log(llmCallDataForPrompt)
+            // Use the captured initialNavigationState
+            const llmCallDataForPrompt = this.initialNavigationState?.['llmCallData'] as Partial<Prompt> | undefined;
+            console.log('processRouteData - llmCallDataForPrompt from initialNavigationState:', llmCallDataForPrompt);
             if (resolvedPrompt && resolvedPrompt.id) {
                 this.promptIdSignal.set(resolvedPrompt.id);
                 this.isEditMode.set(true);

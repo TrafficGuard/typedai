@@ -42,10 +42,9 @@ export class AgentLlmCallsComponent implements OnInit {
 			(calls) => {
 				this.llmCalls = calls;
 				this.llmCalls.forEach((call) => {
-					for (const msg of call.messages) {
-						if (typeof msg.content === 'string') msg.content = msg.content.replace('\\n', '<br/>');
-					}
                     // Add any error as a message for display
+                    // Note: This modifies the 'messages' array that will be sent to Prompt Studio.
+                    // Consider if 'error' role messages should be part of the prompt data.
                     if(call.error) {
                         (call.messages as LlmMessage[]).push({role: 'error', content: call.error} as unknown as LlmMessage)
                     }
