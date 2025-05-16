@@ -1,16 +1,15 @@
 import { Component, OnInit, inject, signal, ChangeDetectorRef } from '@angular/core';
-import { CommonModule, DatePipe } from '@angular/common'; // Add DatePipe
+import { CommonModule, DatePipe } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { PromptsService } from '../prompts.service';
 import { MatListModule } from '@angular/material/list';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip'; // For tooltips
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner'; // For loading
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { filter, finalize } from 'rxjs/operators';
 import { PromptPreview } from '#shared/model/prompts.model';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
-
 
 @Component({
   selector: 'app-prompt-list',
@@ -18,7 +17,7 @@ import { FuseConfirmationService } from '@fuse/services/confirmation';
   imports: [
     CommonModule,
     RouterModule,
-    DatePipe, // Add DatePipe
+    DatePipe,
     MatListModule,
     MatButtonModule,
     MatIconModule,
@@ -79,7 +78,9 @@ export class PromptListComponent implements OnInit {
     });
   }
 
-  navigateToEditPrompt(promptId: string): void {
-    this.router.navigate(['/ui', 'prompt', promptId, 'edit']);
+  editPrompt(promptId: string): void {
+      const route = `/ui/prompts/${promptId}/edit`
+      console.log(`edit click ${route}...`);
+      this.router.navigate([route]).catch(console.error);
   }
 }

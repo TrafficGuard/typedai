@@ -33,7 +33,6 @@ import { FuseConfirmationService } from '@fuse/services/confirmation';
 })
 export class PromptDetailComponent implements OnInit, OnDestroy {
   private promptsService = inject(PromptsService);
-  private promptsService = inject(PromptsService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private location = inject(Location);
@@ -53,7 +52,7 @@ export class PromptDetailComponent implements OnInit, OnDestroy {
             const resolvedPrompt = data['prompt'] as Prompt | null;
             if (!resolvedPrompt && this.route.snapshot.paramMap.get('promptId')) {
                 console.error('Prompt not found by resolver, navigating to list.');
-                this.router.navigate(['/prompts']);
+                this.router.navigate(['/ui/prompts']).catch(console.error);
             }
             // The promptsService.selectedPrompt signal should have been updated by the resolver
             // if data['prompt'] is not null.
@@ -67,7 +66,7 @@ export class PromptDetailComponent implements OnInit, OnDestroy {
 
   editPrompt(): void {
     if (this.prompt()?.id) {
-      this.router.navigate(['../edit'], { relativeTo: this.route });
+      this.router.navigate(['/ui/prompts/edit'], { relativeTo: this.route });
     }
   }
 
@@ -103,7 +102,7 @@ export class PromptDetailComponent implements OnInit, OnDestroy {
         ).subscribe({
             next: () => {
                 console.log(`Prompt "${currentPrompt.name}" deleted successfully.`);
-                this.router.navigate(['/prompts']);
+                this.router.navigate(['/ui/prompts/']).catch(console.error);
             },
             error: (err) => {
                 console.error(`Error deleting prompt "${currentPrompt.name}":`, err);
