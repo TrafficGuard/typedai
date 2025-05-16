@@ -78,6 +78,7 @@
     "@fastify/type-provider-typebox": "^4.0.0",
     "@firebase/rules-unit-testing": "^4.0.1",
     "@gitbeaker/rest": "^39.34.3",
+    "@google-cloud/aiplatform": "^4.1.0",
     "@google-cloud/bigquery": "^7.9.1",
     "@google-cloud/datastore": "^8.7.0",
     "@google-cloud/discoveryengine": "^2.0.1",

@@ -25,8 +25,8 @@ export class FirestoreAgentStateService implements AgentContextService {
 
 	@span()
 	async save(state: AgentContext): Promise<void> {
-		if (state.error && Buffer.byteLength(state.error, 'utf8') > MAX_PROPERTY_SIZE) {
-			state.error = truncateToByteLength(state.error, MAX_PROPERTY_SIZE);
+		if (state.error && Buffer.byteLength(state.error, 'utf8') > MAX_PROPERTY_SIZE / 2) {
+			state.error = truncateToByteLength(state.error, MAX_PROPERTY_SIZE / 2);
 		}
 		if (Buffer.byteLength(state.inputPrompt, 'utf8') > MAX_PROPERTY_SIZE) {
 			// Log instead of throwing, as per original code, but maybe consider throwing if this is critical

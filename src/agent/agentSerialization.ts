@@ -93,6 +93,11 @@ export async function deserializeAgentContext(serialized: Record<keyof AgentCont
 	}
 
 	// backwards compatability
+
+	context.toolState ??= {};
+	if (context.liveFiles) context.toolState.LiveFiles = context.liveFiles;
+	if (context.fileStore) context.toolState.FileStore = context.fileStore;
+
 	if ((context.type as any) === 'codegen') {
 		context.type = 'autonomous';
 		context.subtype = 'codegen';

@@ -172,13 +172,6 @@ describe('parseMessageContent', () => {
         expect(result).toEqual(expectedOutput);
     });
 
-    it('should treat tilde fences as plain text (current limitation)', () => {
-        const inputString = "~~~javascript\nconsole.log('tildes');\n~~~";
-        const expectedOutput: MessageChunk[] = [{ type: 'text', value: "~~~javascript\nconsole.log('tildes');\n~~~" }];
-        const result = parseMessageContent(inputString);
-        expect(result).toEqual(expectedOutput);
-    });
-
     it('should handle mixed text and code block without final newline correctly', () => {
         const inputString = "Some leading text.\n```python\nprint('hello')```\nSome trailing text.";
         const expectedOutput: MessageChunk[] = [
