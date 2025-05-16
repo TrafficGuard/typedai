@@ -206,6 +206,10 @@
                         </div>
 
                         <div class="flex justify-end gap-2 pt-4 mt-auto border-gray-200 dark:border-gray-700">
+                            <button mat-stroked-button color="accent" type="button" (click)="onGenerate()" [disabled]="promptForm.invalid || isSaving()">
+                                <mat-icon svgIcon="heroicons_outline:bolt" class="mr-2"></mat-icon>
+                                Generate
+                            </button>
                             <button mat-stroked-button type="button" (click)="goBack()" [disabled]="isSaving()">Cancel</button>
                             <button mat-flat-button color="primary" type="submit" [disabled]="isSaving() || promptForm.invalid" class="submit-button">
                                 <mat-spinner *ngIf="isSaving()" diameter="20" class="!text-white mr-2"></mat-spinner>

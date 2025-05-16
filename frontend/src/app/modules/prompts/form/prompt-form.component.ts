@@ -414,6 +414,46 @@ export class PromptFormComponent implements OnInit, OnDestroy {
         });
     }
 
+    onGenerate(): void {
+        if (this.promptForm.invalid) {
+            this.promptForm.markAllAsTouched();
+            console.warn('Cannot generate, form is invalid.');
+            // Optionally scroll to the first invalid field
+            const firstInvalidControl: HTMLElement = document.querySelector(
+                'form .mat-form-field.ng-invalid'
+            )!;
+            if (firstInvalidControl) {
+                firstInvalidControl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            return;
+        }
+
+        const formValue = this.promptForm.value;
+        console.log('Generate button clicked. Form value:', formValue);
+        // Placeholder for actual generation logic
+        // This would typically involve:
+        // 1. Getting the messages and options from the form.
+        // 2. Calling a service method to send these to the backend LLM API.
+        // 3. Handling the response (streaming or complete) and displaying it in the right-hand panel.
+
+        const messagesToGenerate: LlmMessage[] = formValue.messages.map((msg: {role: LlmMessage['role'], content: string}) => ({
+            role: msg.role,
+            content: msg.content
+        }));
+        const generationOptions: GenerateOptions = formValue.options;
+
+        console.log('Messages for generation:', messagesToGenerate);
+        console.log('Options for generation:', generationOptions);
+
+        // Example:
+        // this.isGenerating.set(true); // You'd need to define this signal
+        // this.llmService.generate(messagesToGenerate, generationOptions)
+        //   .pipe(finalize(() => this.isGenerating.set(false)))
+        //   .subscribe(response => {
+        //      // Update the right-hand panel with the response
+        //   });
+    }
+
     goBack(): void {
         this.location.back();
     }
