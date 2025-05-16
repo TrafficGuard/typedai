@@ -16,6 +16,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatToolbarModule } from '@angular/material/toolbar';
 
 
 import { PromptFormComponent } from './prompt-form.component';
@@ -79,7 +80,8 @@ describe('PromptFormComponent', () => {
         NoopAnimationsModule,
         CommonModule,
         MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule,
-        MatChipsModule, MatProgressSpinnerModule, MatCardModule, MatSelectModule, MatTooltipModule
+        MatChipsModule, MatProgressSpinnerModule, MatCardModule, MatSelectModule, MatTooltipModule,
+        MatToolbarModule
       ],
       providers: [
         FormBuilder,
@@ -244,6 +246,153 @@ describe('PromptFormComponent', () => {
   it('goBack should call location.back', () => {
     component.goBack();
     expect(mockLocation.back).toHaveBeenCalled();
+  });
+
+  describe('Toolbar UI and Basic Functionality', () => {
+    beforeEach(fakeAsync(() => {
+      mockActivatedRoute.data = of({ prompt: null });
+      fixture.detectChanges(); // ngOnInit
+      tick();
+      fixture.detectChanges();
+    }));
+
+    it('should display the "Prompt Studio" title', () => {
+      const toolbarElement = fixture.nativeElement.querySelector('mat-toolbar');
+      expect(toolbarElement).toBeTruthy();
+      // Assuming the title is directly in the toolbar or a prominent span
+      const titleElement = fixture.nativeElement.querySelector('mat-toolbar span[title="Prompt Studio"]');
+      if (titleElement) {
+        expect(titleElement.textContent).toContain('Prompt Studio');
+      } else {
+        // Fallback if not found via title attribute, check general text content
+        expect(toolbarElement.textContent).toContain('Prompt Studio');
+      }
+    });
+
+    it('should display the model mat-select', () => {
+      const selectElement = fixture.nativeElement.querySelector('mat-toolbar mat-select[name="selectedModelCtrl"]');
+      expect(selectElement).toBeTruthy();
+    });
+
+    it('should display the "Copy model name" button', () => {
+      const copyButton = fixture.nativeElement.querySelector('mat-toolbar button[aria-label="Copy model name"]');
+      expect(copyButton).toBeTruthy();
+    });
+
+    it('should display the "View code" button', () => {
+      const allToolbarButtons = fixture.nativeElement.querySelectorAll('mat-toolbar button');
+      const viewCodeButton = Array.from(allToolbarButtons).find((btn: Element) =>
+        btn.textContent?.trim().includes('View code') || (btn as HTMLButtonElement).getAttribute('aria-label')?.includes('View code')
+      );
+      expect(viewCodeButton).toBeTruthy('Expected "View code" button to be present');
+    });
+
+    it('should have selectedModel initialized correctly', () => {
+      // Assuming selectedModel is a public property as per prompt. If it's a signal, this would be component.selectedModel()
+      expect(component.selectedModel).toBe('placeholder-model/name-here');
+    });
+
+    it('copyModelName() should execute without error and log to console', () => {
+      spyOn(console, 'log');
+      component.copyModelName();
+      // Assuming selectedModel is a property. If signal, use component.selectedModel()
+      expect(console.log).toHaveBeenCalledWith('Copying model name:', component.selectedModel);
+    });
+
+    it('viewCode() should execute without error and log to console', () => {
+      spyOn(console, 'log');
+      component.viewCode();
+      // Assuming selectedModel is a property. If signal, use component.selectedModel()
+      expect(console.log).toHaveBeenCalledWith('Viewing code for model:', component.selectedModel);
+    });
+  });
+
+  describe('LLM Options Validation', () => {
+    beforeEach(fakeAsync(() => {
+      mockActivatedRoute.data = of({ prompt: null });
+      fixture.detectChanges(); // ngOnInit
+      tick();
+      fixture.detectChanges();
+    }));
+
+    describe('temperature control', () => {
+      let tempControl: any;
+      beforeEach(() => {
+        tempControl = component.promptForm.get('options.temperature');
+      });
+
+      it('should be invalid for value < 0', () => {
+        tempControl?.setValue(-0.1);
+        expect(tempControl?.hasError('min')).toBeTrue();
+      });
+
+      it('should be invalid for value > 2', () => {
+        tempControl?.setValue(2.1);
+        expect(tempControl?.hasError('max')).toBeTrue();
+      });
+
+      it('should be invalid for non-numeric pattern', () => {
+        tempControl?.setValue('abc');
+        expect(tempControl?.hasError('pattern')).toBeTrue();
+      });
+
+      it('should be valid for a correct value like 1.0', () => {
+        tempControl?.setValue(1.0);
+        expect(tempControl?.valid).toBeTrue();
+      });
+    });
+
+    describe('maxTokens control', () => {
+      let maxTokensControl: any;
+      beforeEach(() => {
+        maxTokensControl = component.promptForm.get('options.maxTokens');
+      });
+
+      it('should be invalid for value < 1', () => {
+        maxTokensControl?.setValue(0);
+        expect(maxTokensControl?.hasError('min')).toBeTrue();
+      });
+
+      it('should be invalid for non-integer pattern (text)', () => {
+        maxTokensControl?.setValue('abc');
+        expect(maxTokensControl?.hasError('pattern')).toBeTrue();
+      });
+      
+      it('should be invalid for non-integer pattern (float)', () => {
+        maxTokensControl?.setValue(10.5);
+        expect(maxTokensControl?.hasError('pattern')).toBeTrue();
+      });
+
+      it('should be valid for a correct integer value like 2048', () => {
+        maxTokensControl?.setValue(2048);
+        expect(maxTokensControl?.valid).toBeTrue();
+      });
+    });
+  });
+
+  describe('Submit Button UI', () => {
+    beforeEach(fakeAsync(() => {
+      mockActivatedRoute.data = of({ prompt: null });
+      fixture.detectChanges(); // ngOnInit
+      tick();
+      fixture.detectChanges();
+    }));
+
+    it('should display the shortcut chip when not saving', () => {
+      component.isSaving.set(false);
+      fixture.detectChanges();
+      const chipListbox = fixture.nativeElement.querySelector('button[type="submit"] mat-chip-listbox');
+      expect(chipListbox).toBeTruthy();
+    });
+
+    it('should not display the shortcut chip when saving', fakeAsync(() => {
+      component.isSaving.set(true);
+      fixture.detectChanges();
+      tick(); 
+      fixture.detectChanges();
+      const chipListbox = fixture.nativeElement.querySelector('button[type="submit"] mat-chip-listbox');
+      expect(chipListbox).toBeFalsy();
+    }));
   });
 
   it('ngOnDestroy should complete destroy$ subject', () => {
