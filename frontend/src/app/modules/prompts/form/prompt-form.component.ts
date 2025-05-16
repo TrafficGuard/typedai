@@ -423,7 +423,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
   //     }
   //     return newStates;
   //   });
-  }
+  // } // REMOVED MISPLACED CLOSING BRACE
 
   /**
    * Calculates the display index for a user/assistant message based on its index in the messagesFormArray.
