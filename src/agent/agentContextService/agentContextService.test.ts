@@ -753,6 +753,7 @@ export function runAgentStateServiceTests(
 			toolState: new Map<string, any>([[`toolKey${iterNum}`, `toolValue${iterNum}`]]),
 			error: iterNum % 3 === 0 ? `Simulated error for iteration ${iterNum}` : undefined, // Add error sometimes
 			stats: {} as GenerationStats,
+			cost: 0.001, // Added missing property
 		});
 
 		it('should save multiple iterations for an agent', async () => {
@@ -869,6 +870,7 @@ export function runAgentStateServiceTests(
 				toolState: originalToolState,
 				error: undefined, // No error for this successful iteration
 				stats: originalStats,
+				cost: 0.002, // Added missing property
 			};
 
 			await service.saveIteration(originalIteration);
