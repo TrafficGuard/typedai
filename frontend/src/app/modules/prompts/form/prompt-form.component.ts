@@ -140,7 +140,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
                     messages.removeAt(0);
                     // If removing the last message and it was the system message, add a default user message
                     if (messages.length === 0) {
-                         this.addMessage('user', '');
+                         this.addMessage('user', ''); // Explicitly add user role here
                     }
                     this.cdr.detectChanges();
                 }
@@ -189,11 +189,10 @@ export class PromptFormComponent implements OnInit, OnDestroy {
                 // Set default includeSystemMessage state and trigger listener
                 this.promptForm.get('includeSystemMessage')?.setValue(false, { emitEvent: true }); // emitEvent true to ensure listener runs
 
-                // Add one initial user message if the system message wasn't added by the listener
+                // Add one initial user message if the array is empty *after* the listener runs.
                 // The listener for includeSystemMessage=false will ensure no system message is present.
-                // We only need to add a user message if the array is empty *after* the listener runs.
                  if (this.messagesFormArray.length === 0) {
-                     this.addMessage('user', '');
+                     this.addMessage('user', ''); // Explicitly add user role here
                  }
 
 
@@ -222,24 +221,46 @@ export class PromptFormComponent implements OnInit, OnDestroy {
         });
     }
 
-    addMessage(role: LlmMessage['role'] = 'user', content: string = ''): void {
-        // If adding a system message, ensure it's at the beginning
-        if (role === 'system') {
-             // Check if a system message already exists at index 0
+    // Modified signature: role is now optional
+    addMessage(role?: LlmMessage['role'], content: string = ''): void {
+        let newRole: LlmMessage['role'];
+
+        if (role) {
+            // If a role is explicitly passed (e.g., for initial setup or system message toggle)
+            newRole = role;
+        } else {
+            // Determine role based on the last message if no role is passed (e.g., from the '+' button)
+            const messages = this.messagesFormArray;
+            if (messages.length === 0) {
+                // This case should ideally be handled by initial setup or the toggle listener
+                // but as a fallback, default to 'user' if somehow empty and no role is passed.
+                newRole = 'user';
+            } else {
+                const lastMessageGroup = messages.at(messages.length - 1);
+                const lastMessageRole = lastMessageGroup.get('role')?.value;
+
+                if (lastMessageRole === 'system' || lastMessageRole === 'assistant') {
+                    newRole = 'user';
+                } else if (lastMessageRole === 'user') {
+                    newRole = 'assistant';
+                } else {
+                    // Fallback for any unexpected role, though ideally roles are constrained
+                    newRole = 'user';
+                }
+            }
+        }
+
+        // Special handling for 'system' role (should always be at the beginning and managed by toggle)
+        if (newRole === 'system') {
              const systemMessageExistsAtIndex0 = this.messagesFormArray.length > 0 && this.messagesFormArray.at(0).get('role')?.value === 'system';
              if (!systemMessageExistsAtIndex0) {
-                this.messagesFormArray.insert(0, this.createMessageGroup(role, content));
+                this.messagesFormArray.insert(0, this.createMessageGroup(newRole, content));
              } else {
-                 // If it exists, maybe update its content or just ignore adding a duplicate?
-                 // For now, let's assume the toggle manages the *first* system message.
-                 // If addMessage('system', ...) is called manually elsewhere, this might need refinement.
-                 // For the current use case (toggle), inserting at 0 is correct if it's missing.
-                 // If it exists, we don't add another one via this method.
                  console.warn('Attempted to add a system message when one already exists at index 0.');
              }
         } else {
-            // Add other messages to the end
-            this.messagesFormArray.push(this.createMessageGroup(role, content));
+            // Add user/assistant messages to the end
+            this.messagesFormArray.push(this.createMessageGroup(newRole, content));
         }
         this.cdr.detectChanges();
     }
@@ -253,7 +274,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
         this.messagesFormArray.removeAt(index);
         // If removing the last non-system message and includeSystemMessage is false, add a default user message
         if (this.messagesFormArray.length === 0 && !this.promptForm.get('includeSystemMessage')?.value) {
-             this.addMessage('user', '');
+             this.addMessage('user', ''); // Explicitly add user role here
         }
         this.cdr.detectChanges();
     }
@@ -336,7 +357,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
         // Ensure at least one message editor if the array is empty after population
         // This happens if the prompt had no messages and includeSystemMessage was false
         if (this.messagesFormArray.length === 0) {
-            this.addMessage('user', ''); // addMessage handles its own collapsed state
+            this.addMessage('user', ''); // addMessage handles its own collapsed state, explicitly add user role
         }
 
         this.isLoading.set(false);
