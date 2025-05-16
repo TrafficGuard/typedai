@@ -159,7 +159,7 @@
 
                                     <!-- Buttons container: shown for all non-generating messages -->
                                     @if (!message.generating) {
-                                        <div class="absolute bottom-0 right-1 flex items-center space-x-1 mt-4" style="line-height: 1;">
+                                        <div class="absolute bottom-1 right-1 flex items-center space-x-1" style="line-height: 1;"> <!-- Changed classes: bottom-0 mt-4 to bottom-1, removed mt-4 -->
                                             <!-- Info Button: shown only for AI messages with stats -->
                                             @if (!message.isMine && message.stats) {
                                                 <!-- Removed 'regenerate-button' and absolute positioning classes like 'absolute bottom-3 left-2' -->
@@ -171,7 +171,7 @@
                                                 </button>
                                             }
                                             <!-- Clipboard Button: always shown if container is shown -->
-                                            <clipboard-button [cdkCopyToClipboard]="message.textContent" class=""></clipboard-button>
+                                            <clipboard-button [cdkCopyToClipboard]="message.textContent" class=""></clipboard-button> <!-- class="" can be removed if desired -->
                                         </div>
                                     }
                                     <!-- The commented-out regenerate button remains unchanged -->

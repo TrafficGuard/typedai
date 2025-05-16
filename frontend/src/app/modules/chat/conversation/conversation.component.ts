@@ -1,5 +1,5 @@
 import { TextFieldModule } from '@angular/cdk/text-field';
-import { CommonModule } from '@angular/common';
+import { CommonModule, NgClass } from '@angular/common'; // Import NgClass
 import { UserService } from 'app/core/user/user.service';
 import { EMPTY, Observable, catchError } from 'rxjs';
 import { v4 as uuidv4 } from 'uuid';
@@ -79,6 +79,7 @@ import { SafeHtmlPipe } from 'app/core/pipes/safe-html.pipe';
         ClipboardButtonComponent,
         ClipboardModule,
         SafeHtmlPipe,
+        NgClass, // Added NgClass to imports
     ],
     providers: [
         provideMarkdown(),
