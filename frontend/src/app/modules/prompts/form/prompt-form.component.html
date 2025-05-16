@@ -39,11 +39,11 @@
 
         </mat-toolbar>
 
-        <div class="flex justify-between items-center mb-6">
-          <h1 class="text-3xl font-bold tracking-tight">{{ isEditMode() ? 'Edit Prompt' : 'Create New Prompt' }}</h1>
+        <div class="flex items-center justify-between mb-4 mx-3">
+          <h1 class="text-3xl font-medium tracking-tight leading-none">{{ isEditMode() ? 'Edit Prompt' : 'Create New Prompt' }}</h1>
           <button mat-stroked-button (click)="goBack()" type="button">
             <mat-icon svgIcon="heroicons_outline:arrow-left"></mat-icon>
-            Back
+            <span class="ml-2">Back</span>
           </button>
         </div>
 
