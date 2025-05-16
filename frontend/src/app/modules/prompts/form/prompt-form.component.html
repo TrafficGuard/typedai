@@ -23,7 +23,7 @@
                       <mat-panel-title class="!text-sm !font-semibold">
                           Prompt Details:
                           <!-- Display summary only when the panel is NOT expanded -->
-                          <ng-container *ngIf="!detailsPanel.expanded">
+                          <ng-container *ngIf="!detailsPanel.expanded" @summaryFade>
                               <span class="ml-2">{{ promptForm.get('name')?.value || 'N/A' }}</span>
                             <mat-chip-listbox *ngIf="tagsFormArray.controls.length > 0" aria-label="Prompt tags" class="inline-flex flex-wrap gap-1 ml-3">
                                 <mat-chip *ngFor="let tagControl of tagsFormArray.controls; let i = index"

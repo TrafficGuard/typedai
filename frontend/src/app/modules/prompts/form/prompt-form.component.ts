@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, signal, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, Location, TitleCasePipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
+import { trigger, state, style, transition, animate } from '@angular/animations';
 import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, FormControl } from '@angular/forms'; // Add FormsModule
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -58,6 +59,17 @@ import { takeUntil, finalize, tap, filter } from 'rxjs/operators';
   templateUrl: './prompt-form.component.html',
   styleUrls: ['./prompt-form.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  animations: [
+    trigger('summaryFade', [
+      transition(':enter', [
+        style({ opacity: 0 }),
+        animate('225ms cubic-bezier(0.4, 0.0, 0.2, 1)', style({ opacity: 1 })),
+      ]),
+      transition(':leave', [
+        animate('225ms cubic-bezier(0.4, 0.0, 0.2, 1)', style({ opacity: 0 })),
+      ]),
+    ]),
+  ],
 })
 export class PromptFormComponent implements OnInit, OnDestroy {
   private promptsService = inject(PromptsService);
