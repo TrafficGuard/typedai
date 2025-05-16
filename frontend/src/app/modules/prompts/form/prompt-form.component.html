@@ -16,57 +16,48 @@
 
         <form [formGroup]="promptForm" (ngSubmit)="onSubmit()" class="space-y-6 flex-auto flex flex-col">
           <div class="flex-auto space-y-6 pr-2">
-            <mat-card appearance="outlined">
-                <mat-card-header class="flex justify-between items-center"> <!-- Ensure items-center for vertical alignment -->
-                    <mat-card-title>Prompt Details</mat-card-title>
-                    <button mat-icon-button type="button" (click)="toggleDetails()" matTooltip="{{ detailsCollapsed() ? 'Expand Details' : 'Collapse Details' }}">
-                        <mat-icon [svgIcon]="detailsCollapsed() ? 'heroicons_outline:chevron-down' : 'heroicons_outline:chevron-up'"></mat-icon>
-                    </button>
-                </mat-card-header>
 
-                <!-- Collapsed View for Prompt Details -->
-                <div *ngIf="detailsCollapsed()" class="px-4 pb-4 text-sm space-y-1">
-                    <div><strong>Name:</strong> {{ promptForm.get('name')?.value || 'N/A' }}</div>
-                    <div>
-                        <strong class="mr-1">Tags:</strong>
-                        <span *ngIf="tagsFormArray.controls.length === 0" class="text-gray-500 italic">No tags</span>
-                        <mat-chip-listbox *ngIf="tagsFormArray.controls.length > 0" aria-label="Prompt tags" class="inline-flex flex-wrap gap-1">
-                            <mat-chip *ngFor="let tagControl of tagsFormArray.controls"
-                                      class="text-xs !h-5 !min-h-[20px] !px-2 !py-0.5 !m-0"
-                                      disabled="true" color="accent" selected> <!-- Static look -->
-                                {{tagControl.value}}
-                            </mat-chip>
-                        </mat-chip-listbox>
-                    </div>
-                </div>
+          <mat-accordion>
+              <mat-expansion-panel class="mb-1 !shadow-sm border">
+                  <mat-expansion-panel-header>
+                      <mat-panel-title class="!text-sm !font-semibold">
+                          Prompt Details
+                          {{ detailsCollapsed() ? '' : promptForm.get('name')?.value || 'N/A' }}
+                          <mat-chip-listbox *ngIf="!detailsCollapsed() && tagsFormArray.controls.length > 0" aria-label="Prompt tags" class="inline-flex flex-wrap gap-1">
+                              <mat-chip *ngFor="let tagControl of tagsFormArray.controls"
+                                        class="text-xs !h-5 !min-h-[20px] !px-2 !py-0.5 !m-0"
+                                        disabled="true" color="accent" selected> <!-- Static look -->
+                                  {{tagControl.value}}
+                              </mat-chip>
+                          </mat-chip-listbox>
+                      </mat-panel-title>
+                  </mat-expansion-panel-header>
 
-                <!-- Expanded View for Prompt Details (Original Content) -->
-                <mat-card-content class="pt-4 space-y-4" *ngIf="!detailsCollapsed()">
-                    <mat-form-field class="w-full">
-                        <mat-label>Name</mat-label>
-                        <input matInput formControlName="name" required>
-                        <mat-error *ngIf="promptForm.get('name')?.hasError('required')">Name is required.</mat-error>
-                    </mat-form-field>
+                      <mat-form-field class="w-full">
+                          <mat-label>Name</mat-label>
+                          <input matInput formControlName="name" required>
+                          <mat-error *ngIf="promptForm.get('name')?.hasError('required')">Name is required.</mat-error>
+                      </mat-form-field>
 
-                    <mat-form-field class="w-full">
-                        <mat-label>Tags</mat-label>
-                        <mat-chip-grid #chipGrid aria-label="Enter tags" formArrayName="tags">
-                            <mat-chip-row *ngFor="let tagControl of tagsFormArray.controls; let i = index" (removed)="removeTagAtIndex(i)" [editable]="true" [removable]="true">
-                                {{tagControl.value}}
-                                <button matChipRemove [attr.aria-label]="'remove ' + tagControl.value">
-                                    <mat-icon>cancel</mat-icon>
-                                </button>
-                            </mat-chip-row>
-                        </mat-chip-grid>
-                        <input placeholder="New tag..."
-                                [formControl]="tagCtrl"
-                                [matChipInputFor]="chipGrid"
-                                [matChipInputSeparatorKeyCodes]="separatorKeysCodes"
-                                [matChipInputAddOnBlur]="true"
-                                (matChipInputTokenEnd)="addTagFromInput($event)"/>
-                    </mat-form-field>
-                </mat-card-content>
-            </mat-card>
+                      <mat-form-field class="w-full">
+                          <mat-label>Tags</mat-label>
+                          <mat-chip-grid #chipGrid aria-label="Enter tags" formArrayName="tags">
+                              <mat-chip-row *ngFor="let tagControl of tagsFormArray.controls; let i = index" (removed)="removeTagAtIndex(i)" [editable]="true" [removable]="true">
+                                  {{tagControl.value}}
+                                  <button matChipRemove [attr.aria-label]="'remove ' + tagControl.value">
+                                      <mat-icon>cancel</mat-icon>
+                                  </button>
+                              </mat-chip-row>
+                          </mat-chip-grid>
+                          <input placeholder="New tag..."
+                                 [formControl]="tagCtrl"
+                                 [matChipInputFor]="chipGrid"
+                                 [matChipInputSeparatorKeyCodes]="separatorKeysCodes"
+                                 [matChipInputAddOnBlur]="true"
+                                 (matChipInputTokenEnd)="addTagFromInput($event)"/>
+                      </mat-form-field>
+              </mat-expansion-panel>
+          </mat-accordion>
 
             <!-- Messages Card - uses toggleMessages() and messagesCollapsed() for the card itself -->
             <mat-card appearance="outlined" formArrayName="messages">
