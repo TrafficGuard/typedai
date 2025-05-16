@@ -1,7 +1,7 @@
 import {ChangeDetectionStrategy, Component, Input, ViewEncapsulation} from "@angular/core"; // Added Input
 import {MatButtonModule} from "@angular/material/button";
 import {MatIconModule} from "@angular/material/icon";
-import {MatTooltip} from "@angular/material/tooltip";
+import {MatTooltipModule} from "@angular/material/tooltip"; // Changed MatTooltip to MatTooltipModule
 import {NgClass} from "@angular/common"; // Import NgClass
 
 @Component({
@@ -25,7 +25,7 @@ import {NgClass} from "@angular/common"; // Import NgClass
     imports: [
         MatIconModule,
         MatButtonModule,
-        MatTooltip,
+        MatTooltipModule, // Changed MatTooltip to MatTooltipModule
         NgClass // Added NgClass to imports
     ],
 })
