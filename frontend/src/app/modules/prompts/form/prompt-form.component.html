@@ -17,20 +17,20 @@
             <form [formGroup]="promptForm" (ngSubmit)="onSubmit()" class="space-y-6 flex-auto flex flex-col">
                 <div class="flex-auto space-y-6 pr-2">
 
-                    <mat-accordion>
-                        <mat-expansion-panel class="mb-1 !shadow-sm border" #detailsPanel>
-                            <mat-expansion-panel-header>
-                                <mat-panel-title class="!text-sm !font-semibold">
-                                    Prompt Details:
-                                    <!-- Display summary based on panel expansion state -->
-                                    <ng-container>
-                              <span [@summaryFade]="detailsPanel.expanded ? 'hidden' : 'visible'">
+          <mat-accordion>
+              <mat-expansion-panel class="mb-1 !shadow-sm border" #detailsPanel>
+                  <mat-expansion-panel-header>
+                      <mat-panel-title class="!text-sm !font-semibold">
+                          Prompt Details:
+                          <!-- Display summary only when the panel is NOT expanded -->
+                          <ng-container *ngIf="!detailsPanel.expanded">
+                              <span [@summaryFade]>
                                   <span class="ml-2">{{ promptForm.get('name')?.value || 'N/A' }}</span>
                                   <mat-chip-listbox *ngIf="tagsFormArray.controls.length > 0" aria-label="Prompt tags" class="inline-flex flex-wrap gap-1 ml-3">
                                      <mat-chip *ngFor="let tagControl of tagsFormArray.controls; let i = index"
-                                               class="text-xs !h-5 !min-h-[20px] !px-2 !py-0.5 !m-0 ml-2"
-                                               disabled="true" color="accent" selected> <!-- Static look -->
-                                         {{tagControl.value}}
+                                                class="text-xs !h-5 !min-h-[20px] !px-2 !py-0.5 !m-0 ml-2"
+                                                disabled="true" color="accent" selected> <!-- Static look -->
+                                          {{tagControl.value}}
                                      </mat-chip>
                                   </mat-chip-listbox>
                               </span>
@@ -85,42 +85,47 @@
                             <mat-error *ngIf="promptForm.get('messages')?.hasError('minlength') && promptForm.get('messages')?.touched" class="block mt-1">At least one message is required.</mat-error>
                         </div>
 
-                        <mat-accordion multi="true" *ngIf="messagesFormArray.controls.length > 0" formArrayName="messages">
-                            <mat-expansion-panel *ngFor="let msgGroup of messagesFormArray.controls; let i = index" [formGroupName]="i" class="mb-2 !shadow-sm border dark:border-gray-700 bg-white dark:bg-gray-850 rounded-md overflow-hidden" #messagePanel="matExpansionPanel">
-                                <mat-expansion-panel-header>
-                                    <!-- Display summary based on panel expansion state -->
-                                    <mat-panel-title class="!text-sm !font-semibold">
-                                        <span [@summaryFade]="messagePanel.expanded ? 'hidden' : 'visible'">
-                                            {{ msgGroup.get('role')?.value | titlecase }}
-                                            <span *ngIf="msgGroup.get('content')?.value" class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2 truncate">
-                                                - {{ (msgGroup.get('content')?.value || '') | slice:0:50 }}{{ (msgGroup.get('content')?.value?.length || 0) > 50 ? '...' : '' }}
-                                            </span>
-                                            <span *ngIf="!msgGroup.get('content')?.value" class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2 italic">
-                                                - No content
-                                            </span>
-                                        </span>
-                                    </mat-panel-title>
-                                </mat-expansion-panel-header>
+                <mat-accordion multi="true" *ngIf="messagesFormArray.controls.length > 0" formArrayName="messages">
+                    <mat-expansion-panel *ngFor="let msgGroup of messagesFormArray.controls; let i = index" [formGroupName]="i" class="mb-2 !shadow-sm border dark:border-gray-700 bg-white dark:bg-gray-850 rounded-md overflow-hidden" #messagePanel="matExpansionPanel">
+                        <mat-expansion-panel-header>
+                            <mat-panel-title *ngIf="!messagePanel.expanded" [@summaryFade] class="!text-sm !font-semibold">
+                                Message {{ i + 1 }} : {{ msgGroup.get('role')?.value | titlecase }}
+                                <span *ngIf="msgGroup.get('content')?.value" class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2 truncate">
+                                    - {{ (msgGroup.get('content')?.value || '') | slice:0:50 }}{{ (msgGroup.get('content')?.value?.length || 0) > 50 ? '...' : '' }}
+                                </span>
+                                <span *ngIf="!msgGroup.get('content')?.value" class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2 italic">
+                                    - No content
+                                </span>
+                            </mat-panel-title>
+                        </mat-expansion-panel-header>
 
-                                <!-- Content of the expansion panel (form fields) -->
-                                <div class="pr-4  dark:border-gray-700 space-y-4" [ngClass]="{'pt-0': messagePanel.expanded, '-mt-8': messagePanel.expanded}">
+                        <!-- Content of the expansion panel (form fields) -->
+                        <div class="pr-4  dark:border-gray-700 space-y-4" [ngClass]="{'pt-0': messagePanel.expanded, '-mt-8': messagePanel.expanded}">
+                            <div class="flex justify-between items-start">
+                                <!--
+                                <mat-form-field class="message-role-select w-50">
 
-                                    <mat-form-field class="w-full">
-                                        <textarea matInput formControlName="content" cdkTextareaAutosize cdkAutosizeMinRows="3" required></textarea>
-                                        <mat-error *ngIf="msgGroup.get('content')?.hasError('required')">Content is required.</mat-error>
-                                    </mat-form-field>
-
-                                    <button mat-icon-button type="button" (click)="removeMessage(i)" matTooltip="Remove Message" class="ml-2 pt-4 text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400">
-                                        <mat-icon svgIcon="heroicons_outline:trash"></mat-icon>
-                                    </button>
-
-                                    <div class="text-sm text-gray-500 dark:text-gray-400 message-tokens-display">
-                                        Tokens: N/A
-                                    </div>
-                                </div>
-                            </mat-expansion-panel>
-                        </mat-accordion>
-                    </div>
+                                    <mat-select formControlName="role" required>
+                                        <mat-option *ngFor="let role of llmMessageRoles" [value]="role.value">{{ role.viewValue }}</mat-option>
+                                    </mat-select>
+                                    <mat-error *ngIf="msgGroup.get('role')?.hasError('required')">Role is required.</mat-error>
+                                </mat-form-field>
+                                -->
+                                <button mat-icon-button type="button" (click)="removeMessage(i)" matTooltip="Remove Message" class="ml-2 pt-4 text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400">
+                                    <mat-icon svgIcon="heroicons_outline:trash"></mat-icon>
+                                </button>
+                            </div>
+                            <mat-form-field class="w-full">
+                                <textarea matInput formControlName="content" cdkTextareaAutosize cdkAutosizeMinRows="3" required></textarea>
+                                <mat-error *ngIf="msgGroup.get('content')?.hasError('required')">Content is required.</mat-error>
+                            </mat-form-field>
+                            <div class="text-sm text-gray-500 dark:text-gray-400 message-tokens-display">
+                                Tokens: N/A
+                            </div>
+                        </div>
+                    </mat-expansion-panel>
+                </mat-accordion>
+            </div>
 
                     <!-- Generation Options Card - uses toggleOptions() and optionsCollapsed() -->
 
