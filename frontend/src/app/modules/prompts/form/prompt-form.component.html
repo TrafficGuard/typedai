@@ -88,7 +88,7 @@
                     </div>
 
                     <!-- Start of individual messages loop - NOW MAKE EACH MESSAGE COLLAPSIBLE -->
-                    <div *ngFor="let msgGroup of messagesFormArray.controls; let i = index" [formGroupName]="i" class="p-4 border rounded-md shadow-sm bg-card dark:bg-gray-850"> {/* Adjusted background from bg-white */}
+                    <div *ngFor="let msgGroup of messagesFormArray.controls; let i = index" [formGroupName]="i" class="p-4 border rounded-md shadow-sm bg-card dark:bg-gray-850"> <!-- Adjusted background from bg-white -->
                         <div class="flex items-center justify-between mb-2">
                             <div class="flex items-center">
                                 <button mat-icon-button type="button" (click)="toggleMessageItemCollapse(i)" [matTooltip]="messageItemCollapsedStates()[i] ? 'Expand Message' : 'Collapse Message'" class="mr-1 text-gray-600 dark:text-gray-400">
@@ -132,7 +132,7 @@
                 <mat-card-header class="flex justify-between items-center">
                     <mat-card-title>Generation Options</mat-card-title>
                     <button mat-icon-button type="button" (click)="toggleOptions()" matTooltip="{{ optionsCollapsed() ? 'Expand Options' : 'Collapse Options' }}">
-                        <mat-icon [svgIcon]="optionsCollapsed() ? 'heroicons_outline:chevron-down' : 'heroicons_outline:chevron- Circup'"></mat-icon>
+                        <mat-icon [svgIcon]="optionsCollapsed() ? 'heroicons_outline:chevron-down' : 'heroicons_outline:chevron-up'"></mat-icon>
                     </button>
                 </mat-card-header>
                 <!-- Content for Generation Options already wrapped with *ngIf="!optionsCollapsed()" -->
