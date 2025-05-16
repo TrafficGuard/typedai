@@ -93,8 +93,8 @@ export class PromptFormComponent implements OnInit, OnDestroy {
       tags: this.fb.array([]),
       messages: this.fb.array([], Validators.minLength(1)),
       options: this.fb.group({
-        temperature: [1.0, [Validators.min(0), Validators.max(2), Validators.pattern(/^\d*(\.\d+)?$/)]],
-        maxTokens: [2048, [Validators.min(1), Validators.pattern(/^[1-9]\d*$/)]],
+        temperature: [1.0, [Validators.required, Validators.min(0), Validators.max(2), Validators.pattern(/^\d*(\.\d+)?$/)]],
+        maxTokens: [2048, [Validators.required, Validators.min(1), Validators.pattern(/^[1-9]\d*$/)]],
       }),
     });
 

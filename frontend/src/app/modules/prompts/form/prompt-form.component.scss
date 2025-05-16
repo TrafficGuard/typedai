@@ -97,4 +97,48 @@ button[mat-flat-button][color="primary"] {
   button[mat-icon-button] {
     color: inherit; // Ensure icon color matches toolbar text
   }
+
+  // Styles for LLM Options card
+  .parameter-item {
+    .parameter-label {
+      display: block;
+      font-size: 0.875rem; // text-sm
+      margin-bottom: 0.5rem; // mb-2
+      font-weight: 500;
+      color: var(--fuse-text-secondary, #6b7280); // text-gray-500 or theme equivalent
+    }
+
+    .slider-input-group {
+      display: flex;
+      align-items: center;
+      gap: 1rem; // space-x-4 or gap-4
+
+      .parameter-slider {
+        flex-grow: 1;
+      }
+
+      .parameter-input {
+        width: 90px; // Slightly increased width
+        .mat-mdc-form-field-subscript-wrapper {
+          display: none !important; // Hide empty space below input for a cleaner look
+        }
+        input[type="number"] {
+          text-align: right; // Align number input to the right
+        }
+      }
+    }
+    mat-error { // Common styling for error messages in this section
+      display: block; // Ensure errors take full width if needed
+      font-size: 0.75rem; // text-xs
+      margin-top: 0.25rem; // mt-1
+      color: var(--mat-form-field-error-text-color); // Use Material's error color
+    }
+  }
+
+  mat-card[formGroupName="options"] {
+    mat-divider {
+      margin-top: 0.5rem; // Add some space around the divider
+      margin-bottom: 1rem;
+    }
+  }
 }
