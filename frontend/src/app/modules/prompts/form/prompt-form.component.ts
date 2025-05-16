@@ -80,12 +80,8 @@ export class PromptFormComponent implements OnInit, OnDestroy {
     {value: 'assistant', viewValue: 'Assistant'}
   ];
 
-  public selectedModel: string = 'placeholder-model/name-here';
-
-  public availableModels: Array<{value: string, viewValue: string}> = [
-    { value: 'placeholder-model/name-here', viewValue: 'placeholder-model/name-here' },
-    { value: 'another-model/v2', viewValue: 'another-model/v2' },
-  ];
+  public selectedModel: string = 'claude-3-opus'; // Placeholder, a common modern model
+  public availableModels: string[] = ['claude-3-opus', 'gpt-4-turbo', 'gemini-1.5-pro', 'default-model']; // Placeholder
 
   ngOnInit(): void {
     this.promptForm = this.fb.group({

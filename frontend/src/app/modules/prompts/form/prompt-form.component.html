@@ -1,173 +1,196 @@
-<div class="p-4 sm:p-6 md:p-8 flex flex-col flex-auto">
-  <div *ngIf="isLoading()" class="flex flex-auto justify-center items-center">
-    <mat-spinner diameter="50"></mat-spinner>
-  </div>
+<div class="prompt-form-page-container">
+  <mat-toolbar class="app-toolbar">
+    <span class="playground-title">Prompt Studio</span>
+    <span class="toolbar-spacer"></span> <!-- Pushes items to the right -->
 
-  <ng-container *ngIf="!isLoading()">
-    <!-- New Toolbar -->
-    <mat-toolbar class="prompt-form-toolbar mb-4"> <!-- Reduced mb from 6 to 4 for tighter spacing -->
-      <span class="toolbar-title">Prompt Studio</span>
-      <span class="toolbar-spacer"></span>
+    <mat-form-field appearance="outline" class="model-selector">
+      <mat-label>Model</mat-label>
+      <mat-select [(ngModel)]="selectedModel" name="toolbarSelectedModel"> <!-- Added name attribute for ngModel -->
+        <mat-option *ngFor="let model of availableModels" [value]="model">{{ model }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+    <button mat-icon-button aria-label="Copy model name" matTooltip="Copy model name (Placeholder)">
+      <mat-icon>content_copy</mat-icon>
+    </button>
 
-      <mat-form-field appearance="outline" class="model-selector">
-        <mat-label>Model</mat-label>
-        <mat-select [(ngModel)]="selectedModel" name="selectedModelCtrl" matTooltip="Select the target model (placeholder)">
-          <mat-option *ngFor="let model of availableModels" [value]="model.value">
-            {{ model.viewValue }}
-          </mat-option>
-        </mat-select>
-      </mat-form-field>
-      <button mat-icon-button aria-label="Copy model name" (click)="copyModelName()" matTooltip="Copy model name (placeholder)">
-        <mat-icon svgIcon="heroicons_outline:clipboard-document"></mat-icon>
-      </button>
+    <button mat-stroked-button class="view-code-button" matTooltip="View code (Placeholder)">
+      <mat-icon>code</mat-icon> <!-- Standard Material icon -->
+      View code
+    </button>
+  </mat-toolbar>
+  <div class="prompt-form-content-area">
+    <div class="p-4 sm:p-6 md:p-8 flex flex-col flex-auto">
+      <div *ngIf="isLoading()" class="flex flex-auto justify-center items-center">
+        <mat-spinner diameter="50"></mat-spinner>
+      </div>
 
-      <button mat-stroked-button class="view-code-button" (click)="viewCode()" matTooltip="View code (placeholder)">
-        <mat-icon svgIcon="heroicons_outline:code-bracket"></mat-icon>
-        View code
-      </button>
-    </mat-toolbar>
+      <ng-container *ngIf="!isLoading()">
+        <!-- New Toolbar -->
+        <mat-toolbar class="prompt-form-toolbar mb-4"> <!-- Reduced mb from 6 to 4 for tighter spacing -->
+          <span class="toolbar-title">Prompt Studio</span>
+          <span class="toolbar-spacer"></span>
 
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-3xl font-bold tracking-tight">{{ isEditMode() ? 'Edit Prompt' : 'Create New Prompt' }}</h1>
-      <button mat-stroked-button (click)="goBack()" type="button">
-        <mat-icon svgIcon="heroicons_outline:arrow-left"></mat-icon>
-        Back
-      </button>
-    </div>
+          <mat-form-field appearance="outline" class="model-selector">
+            <mat-label>Model</mat-label>
+            <mat-select [(ngModel)]="selectedModel" name="selectedModelCtrl" matTooltip="Select the target model (placeholder)">
+              <mat-option *ngFor="let model of availableModels" [value]="model.value">
+                {{ model.viewValue }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+          <button mat-icon-button aria-label="Copy model name" (click)="copyModelName()" matTooltip="Copy model name (placeholder)">
+            <mat-icon svgIcon="heroicons_outline:clipboard-document"></mat-icon>
+          </button>
 
-    <form [formGroup]="promptForm" (ngSubmit)="onSubmit()" class="space-y-6 flex-auto flex flex-col">
-      <div class="flex-auto space-y-6 overflow-y-auto pr-2">
-        <mat-card appearance="outlined">
-            <mat-card-header>
-            <mat-card-title>Prompt Details</mat-card-title>
-            </mat-card-header>
-            <mat-card-content class="pt-4 space-y-4">
-            <mat-form-field class="w-full">
-                <mat-label>Name</mat-label>
-                <input matInput formControlName="name" required>
-                <mat-error *ngIf="promptForm.get('name')?.hasError('required')">Name is required.</mat-error>
-            </mat-form-field>
+          <button mat-stroked-button class="view-code-button" (click)="viewCode()" matTooltip="View code (placeholder)">
+            <mat-icon svgIcon="heroicons_outline:code-bracket"></mat-icon>
+            View code
+          </button>
+        </mat-toolbar>
 
-            <mat-form-field class="w-full">
-                <mat-label>Tags</mat-label>
-                <mat-chip-grid #chipGrid aria-label="Enter tags" formArrayName="tags">
-                    <mat-chip-row *ngFor="let tagControl of tagsFormArray.controls; let i = index" (removed)="removeTagAtIndex(i)" [editable]="true" [removable]="true">
-                        {{tagControl.value}}
-                        <button matChipRemove [attr.aria-label]="'remove ' + tagControl.value">
-                            <mat-icon>cancel</mat-icon>
-                        </button>
-                    </mat-chip-row>
-                </mat-chip-grid>
-                <input placeholder="New tag..."
-                        [formControl]="tagCtrl"
-                        [matChipInputFor]="chipGrid"
-                        [matChipInputSeparatorKeyCodes]="separatorKeysCodes"
-                        [matChipInputAddOnBlur]="true"
-                        (matChipInputTokenEnd)="addTagFromInput($event)"/>
-            </mat-form-field>
-            </mat-card-content>
-        </mat-card>
+        <div class="flex justify-between items-center mb-6">
+          <h1 class="text-3xl font-bold tracking-tight">{{ isEditMode() ? 'Edit Prompt' : 'Create New Prompt' }}</h1>
+          <button mat-stroked-button (click)="goBack()" type="button">
+            <mat-icon svgIcon="heroicons_outline:arrow-left"></mat-icon>
+            Back
+          </button>
+        </div>
 
-        <mat-card appearance="outlined" formArrayName="messages">
-            <mat-card-header>
-            <mat-card-title>Messages</mat-card-title>
-            <button mat-icon-button type="button" (click)="addMessage()" matTooltip="Add Message" class="ml-auto">
-                <mat-icon svgIcon="heroicons_outline:plus-circle"></mat-icon>
-            </button>
-            </mat-card-header>
-            <mat-card-content class="pt-4 space-y-4">
-            <div *ngIf="messagesFormArray.controls.length === 0" class="text-center text-gray-500 py-4">
-                No messages yet. Click the '+' button to add one.
-                <mat-error *ngIf="promptForm.get('messages')?.hasError('minlength') && promptForm.get('messages')?.touched">At least one message is required.</mat-error>
-            </div>
-            <div *ngFor="let msgGroup of messagesFormArray.controls; let i = index" [formGroupName]="i" class="p-4 border rounded-md space-y-2 relative bg-white dark:bg-gray-800">
-                <button mat-icon-button type="button" (click)="removeMessage(i)" matTooltip="Remove Message" class="absolute top-2 right-2 text-gray-500 hover:text-red-500 z-10">
-                    <mat-icon svgIcon="heroicons_outline:trash"></mat-icon>
+        <form [formGroup]="promptForm" (ngSubmit)="onSubmit()" class="space-y-6 flex-auto flex flex-col">
+          <div class="flex-auto space-y-6 overflow-y-auto pr-2">
+            <mat-card appearance="outlined">
+                <mat-card-header>
+                <mat-card-title>Prompt Details</mat-card-title>
+                </mat-card-header>
+                <mat-card-content class="pt-4 space-y-4">
+                <mat-form-field class="w-full">
+                    <mat-label>Name</mat-label>
+                    <input matInput formControlName="name" required>
+                    <mat-error *ngIf="promptForm.get('name')?.hasError('required')">Name is required.</mat-error>
+                </mat-form-field>
+
+                <mat-form-field class="w-full">
+                    <mat-label>Tags</mat-label>
+                    <mat-chip-grid #chipGrid aria-label="Enter tags" formArrayName="tags">
+                        <mat-chip-row *ngFor="let tagControl of tagsFormArray.controls; let i = index" (removed)="removeTagAtIndex(i)" [editable]="true" [removable]="true">
+                            {{tagControl.value}}
+                            <button matChipRemove [attr.aria-label]="'remove ' + tagControl.value">
+                                <mat-icon>cancel</mat-icon>
+                            </button>
+                        </mat-chip-row>
+                    </mat-chip-grid>
+                    <input placeholder="New tag..."
+                            [formControl]="tagCtrl"
+                            [matChipInputFor]="chipGrid"
+                            [matChipInputSeparatorKeyCodes]="separatorKeysCodes"
+                            [matChipInputAddOnBlur]="true"
+                            (matChipInputTokenEnd)="addTagFromInput($event)"/>
+                </mat-form-field>
+                </mat-card-content>
+            </mat-card>
+
+            <mat-card appearance="outlined" formArrayName="messages">
+                <mat-card-header>
+                <mat-card-title>Messages</mat-card-title>
+                <button mat-icon-button type="button" (click)="addMessage()" matTooltip="Add Message" class="ml-auto">
+                    <mat-icon svgIcon="heroicons_outline:plus-circle"></mat-icon>
                 </button>
-                <mat-form-field class="w-full">
-                <mat-label>Role</mat-label>
-                <mat-select formControlName="role" required>
-                    <mat-option *ngFor="let role of llmMessageRoles" [value]="role.value">{{ role.viewValue }}</mat-option>
-                </mat-select>
-                <mat-error *ngIf="msgGroup.get('role')?.hasError('required')">Role is required.</mat-error>
-                </mat-form-field>
-                <mat-form-field class="w-full">
-                <mat-label>Content</mat-label>
-                <textarea matInput formControlName="content" cdkTextareaAutosize #autosize="cdkTextareaAutosize" cdkAutosizeMinRows="3" required></textarea>
-                <mat-error *ngIf="msgGroup.get('content')?.hasError('required')">Content is required.</mat-error>
-                </mat-form-field>
-            </div>
-            </mat-card-content>
-        </mat-card>
-
-        <mat-card appearance="outlined" formGroupName="options">
-            <mat-card-header>
-            <mat-card-title>LLM Options</mat-card-title>
-            </mat-card-header>
-            <mat-divider></mat-divider> <!-- Add divider -->
-            <mat-card-content class="pt-4 flex flex-col space-y-6"> <!-- Changed layout -->
-
-            <!-- Temperature Parameter Item -->
-            <div class="parameter-item">
-                <label class="parameter-label">Temperature</label>
-                <div class="slider-input-group">
-                    <mat-slider min="0" max="2" step="0.1" discrete="true" class="parameter-slider flex-auto">
-                        <input matSliderThumb formControlName="temperature">
-                    </mat-slider>
-                    <mat-form-field appearance="outline" class="parameter-input">
-                        <input matInput type="number" step="0.1" formControlName="temperature" required>
+                </mat-card-header>
+                <mat-card-content class="pt-4 space-y-4">
+                <div *ngIf="messagesFormArray.controls.length === 0" class="text-center text-gray-500 py-4">
+                    No messages yet. Click the '+' button to add one.
+                    <mat-error *ngIf="promptForm.get('messages')?.hasError('minlength') && promptForm.get('messages')?.touched">At least one message is required.</mat-error>
+                </div>
+                <div *ngFor="let msgGroup of messagesFormArray.controls; let i = index" [formGroupName]="i" class="p-4 border rounded-md space-y-2 relative bg-white dark:bg-gray-800">
+                    <button mat-icon-button type="button" (click)="removeMessage(i)" matTooltip="Remove Message" class="absolute top-2 right-2 text-gray-500 hover:text-red-500 z-10">
+                        <mat-icon svgIcon="heroicons_outline:trash"></mat-icon>
+                    </button>
+                    <mat-form-field class="w-full">
+                    <mat-label>Role</mat-label>
+                    <mat-select formControlName="role" required>
+                        <mat-option *ngFor="let role of llmMessageRoles" [value]="role.value">{{ role.viewValue }}</mat-option>
+                    </mat-select>
+                    <mat-error *ngIf="msgGroup.get('role')?.hasError('required')">Role is required.</mat-error>
+                    </mat-form-field>
+                    <mat-form-field class="w-full">
+                    <mat-label>Content</mat-label>
+                    <textarea matInput formControlName="content" cdkTextareaAutosize #autosize="cdkTextareaAutosize" cdkAutosizeMinRows="3" required></textarea>
+                    <mat-error *ngIf="msgGroup.get('content')?.hasError('required')">Content is required.</mat-error>
                     </mat-form-field>
                 </div>
-                <mat-error *ngIf="promptForm.get('options.temperature')?.hasError('required') && (promptForm.get('options.temperature')?.touched || promptForm.get('options.temperature')?.dirty)" class="text-xs mt-1">
-                    Temperature is required.
-                </mat-error>
-                <mat-error *ngIf="promptForm.get('options.temperature')?.hasError('min') || promptForm.get('options.temperature')?.hasError('max')" class="text-xs mt-1">
-                    Must be between 0 and 2.
-                </mat-error>
-                <mat-error *ngIf="promptForm.get('options.temperature')?.hasError('pattern')" class="text-xs mt-1">
-                    Must be a valid number.
-                </mat-error>
-            </div>
+                </mat-card-content>
+            </mat-card>
 
-            <!-- Max Tokens Parameter Item -->
-            <div class="parameter-item">
-                <label class="parameter-label">Max Tokens</label>
-                <div class="slider-input-group">
-                    <mat-slider min="1" max="16384" step="1" discrete="true" class="parameter-slider flex-auto">
-                        <input matSliderThumb formControlName="maxTokens">
-                    </mat-slider>
-                    <mat-form-field appearance="outline" class="parameter-input">
-                        <input matInput type="number" step="1" formControlName="maxTokens" required>
-                    </mat-form-field>
+            <mat-card appearance="outlined" formGroupName="options">
+                <mat-card-header>
+                <mat-card-title>LLM Options</mat-card-title>
+                </mat-card-header>
+                <mat-divider></mat-divider> <!-- Add divider -->
+                <mat-card-content class="pt-4 flex flex-col space-y-6"> <!-- Changed layout -->
+
+                <!-- Temperature Parameter Item -->
+                <div class="parameter-item">
+                    <label class="parameter-label">Temperature</label>
+                    <div class="slider-input-group">
+                        <mat-slider min="0" max="2" step="0.1" discrete="true" class="parameter-slider flex-auto">
+                            <input matSliderThumb formControlName="temperature">
+                        </mat-slider>
+                        <mat-form-field appearance="outline" class="parameter-input">
+                            <input matInput type="number" step="0.1" formControlName="temperature" required>
+                        </mat-form-field>
+                    </div>
+                    <mat-error *ngIf="promptForm.get('options.temperature')?.hasError('required') && (promptForm.get('options.temperature')?.touched || promptForm.get('options.temperature')?.dirty)" class="text-xs mt-1">
+                        Temperature is required.
+                    </mat-error>
+                    <mat-error *ngIf="promptForm.get('options.temperature')?.hasError('min') || promptForm.get('options.temperature')?.hasError('max')" class="text-xs mt-1">
+                        Must be between 0 and 2.
+                    </mat-error>
+                    <mat-error *ngIf="promptForm.get('options.temperature')?.hasError('pattern')" class="text-xs mt-1">
+                        Must be a valid number.
+                    </mat-error>
                 </div>
-                <mat-error *ngIf="promptForm.get('options.maxTokens')?.hasError('required') && (promptForm.get('options.maxTokens')?.touched || promptForm.get('options.maxTokens')?.dirty)" class="text-xs mt-1">
-                    Max tokens is required.
-                </mat-error>
-                <mat-error *ngIf="promptForm.get('options.maxTokens')?.hasError('min')" class="text-xs mt-1">
-                    Must be at least 1.
-                </mat-error>
-                <mat-error *ngIf="promptForm.get('options.maxTokens')?.hasError('pattern')" class="text-xs mt-1">
-                    Must be a valid integer.
-                </mat-error>
-            </div>
-            </mat-card-content>
-        </mat-card>
-      </div>
 
-      <div class="flex justify-end gap-2 pt-4 mt-auto border-t border-gray-200 dark:border-gray-700">
-        <button mat-stroked-button type="button" (click)="goBack()" [disabled]="isSaving()">Cancel</button>
-        <button mat-flat-button color="primary" type="submit" [disabled]="isSaving() || promptForm.invalid" class="submit-button">
-          <mat-spinner *ngIf="isSaving()" diameter="20" class="!text-white mr-2"></mat-spinner>
-          <span>{{ isSaving() ? 'Saving...' : (isEditMode() ? 'Save Changes' : 'Create Prompt') }}</span>
-          <mat-chip-listbox aria-label="Submit shortcut" class="ml-2 shrink-0" *ngIf="!isSaving()"> <!-- Added shrink-0 -->
-            <mat-chip selectable="false" focusable="false" class="submit-shortcut-chip"> <!-- Added class -->
-              <mat-icon svgIcon="heroicons_outline:command-line" class="icon-xs"></mat-icon>
-              <span class="mx-px font-mono">+</span> <!-- Added font-mono for + -->
-              <mat-icon svgIcon="heroicons_outline:arrow-uturn-left" class="icon-xs"></mat-icon>
-            </mat-chip>
-          </mat-chip-listbox>
-        </button>
-      </div>
-    </form>
-  </ng-container>
+                <!-- Max Tokens Parameter Item -->
+                <div class="parameter-item">
+                    <label class="parameter-label">Max Tokens</label>
+                    <div class="slider-input-group">
+                        <mat-slider min="1" max="16384" step="1" discrete="true" class="parameter-slider flex-auto">
+                            <input matSliderThumb formControlName="maxTokens">
+                        </mat-slider>
+                        <mat-form-field appearance="outline" class="parameter-input">
+                            <input matInput type="number" step="1" formControlName="maxTokens" required>
+                        </mat-form-field>
+                    </div>
+                    <mat-error *ngIf="promptForm.get('options.maxTokens')?.hasError('required') && (promptForm.get('options.maxTokens')?.touched || promptForm.get('options.maxTokens')?.dirty)" class="text-xs mt-1">
+                        Max tokens is required.
+                    </mat-error>
+                    <mat-error *ngIf="promptForm.get('options.maxTokens')?.hasError('min')" class="text-xs mt-1">
+                        Must be at least 1.
+                    </mat-error>
+                    <mat-error *ngIf="promptForm.get('options.maxTokens')?.hasError('pattern')" class="text-xs mt-1">
+                        Must be a valid integer.
+                    </mat-error>
+                </div>
+                </mat-card-content>
+            </mat-card>
+          </div>
+
+          <div class="flex justify-end gap-2 pt-4 mt-auto border-t border-gray-200 dark:border-gray-700">
+            <button mat-stroked-button type="button" (click)="goBack()" [disabled]="isSaving()">Cancel</button>
+            <button mat-flat-button color="primary" type="submit" [disabled]="isSaving() || promptForm.invalid" class="submit-button">
+              <mat-spinner *ngIf="isSaving()" diameter="20" class="!text-white mr-2"></mat-spinner>
+              <span>{{ isSaving() ? 'Saving...' : (isEditMode() ? 'Save Changes' : 'Create Prompt') }}</span>
+              <mat-chip-listbox aria-label="Submit shortcut" class="ml-2 shrink-0" *ngIf="!isSaving()"> <!-- Added shrink-0 -->
+                <mat-chip selectable="false" focusable="false" class="submit-shortcut-chip"> <!-- Added class -->
+                  <mat-icon svgIcon="heroicons_outline:command-line" class="icon-xs"></mat-icon>
+                  <span class="mx-px font-mono">+</span> <!-- Added font-mono for + -->
+                  <mat-icon svgIcon="heroicons_outline:arrow-uturn-left" class="icon-xs"></mat-icon>
+                </mat-chip>
+              </mat-chip-listbox>
+            </button>
+          </div>
+        </form>
+      </ng-container>
+    </div>
+  </div>
 </div>

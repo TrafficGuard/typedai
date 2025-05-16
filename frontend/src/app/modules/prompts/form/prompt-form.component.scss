@@ -1,9 +1,60 @@
 //@import 'cdk'; // For cdkTextareaAutosize
 
 :host {
-  display: flex;
-  flex-direction: column;
-  height: 100%; // Ensure host takes full height for scrolling
+  display: block; // Recommended for component host elements
+
+  .prompt-form-page-container {
+    // This class wraps the toolbar and content area.
+    // No specific styles needed here unless for overall layout like height: 100%.
+  }
+
+  .app-toolbar {
+    background-color: var(--fuse-toolbar-background, #ffffff); // Use theme variable if available, else fallback
+    color: var(--fuse-toolbar-foreground, #333333);
+    border-bottom: 1px solid var(--fuse-border, #e0e0e0); // Use theme variable
+
+    .playground-title {
+      font-size: 1.25rem;
+      font-weight: 500;
+      margin-right: 20px;
+    }
+
+    .toolbar-spacer {
+      flex: 1 1 auto;
+    }
+
+    .model-selector {
+      width: auto;
+      min-width: 200px;
+      max-width: 300px;
+      margin-right: 8px;
+      // For MDC components, targeting internal parts for height/padding in a toolbar context:
+      .mat-mdc-form-field-flex {
+        height: 40px; // Typical toolbar item height
+        align-items: center;
+      }
+      // Hide error/hint space which is usually not wanted in a toolbar select
+      .mat-mdc-form-field-subscript-wrapper {
+        display: none;
+      }
+      // Adjust padding for the input itself if default is too large
+       .mat-mdc-select-value-text {
+         padding-top: 0; // Adjust as needed
+         padding-bottom: 0; // Adjust as needed
+       }
+    }
+
+    .view-code-button {
+      // Uses default mat-stroked-button styling, add overrides if needed
+      .mat-icon {
+        margin-right: 4px;
+      }
+    }
+  }
+
+  .prompt-form-content-area {
+    padding: 20px; // Add padding around the main form content below the toolbar
+  }
 }
 
 mat-card-content {

@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { FormBuilder, ReactiveFormsModule, FormArray } from '@angular/forms';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
+import { By } from '@angular/platform-browser';
 import { Location, CommonModule } from '@angular/common';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
@@ -81,7 +82,7 @@ describe('PromptFormComponent', () => {
         CommonModule,
         MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule,
         MatChipsModule, MatProgressSpinnerModule, MatCardModule, MatSelectModule, MatTooltipModule,
-        MatToolbarModule
+        MatToolbarModule, MatSelectModule
       ],
       providers: [
         FormBuilder,
@@ -401,5 +402,37 @@ describe('PromptFormComponent', () => {
      component.ngOnDestroy();
      expect(component['destroy$'].next).toHaveBeenCalled();
      expect(component['destroy$'].complete).toHaveBeenCalled();
+  });
+
+  describe('Toolbar', () => {
+    it('should render the toolbar', () => {
+      const toolbarEl = fixture.debugElement.query(By.css('mat-toolbar.app-toolbar'));
+      expect(toolbarEl).toBeTruthy();
+    });
+
+    it('should display the title "Prompt Studio" in the toolbar', () => {
+      const titleEl = fixture.debugElement.query(By.css('mat-toolbar.app-toolbar .playground-title'));
+      expect(titleEl.nativeElement.textContent.trim()).toBe('Prompt Studio');
+    });
+
+    it('should render the model selector dropdown', () => {
+      const selectEl = fixture.debugElement.query(By.css('mat-toolbar.app-toolbar mat-select[name="toolbarSelectedModel"]'));
+      expect(selectEl).toBeTruthy();
+    });
+
+    it('should render the copy model name button', () => {
+      const copyButtonEl = fixture.debugElement.query(By.css('mat-toolbar.app-toolbar button[aria-label="Copy model name"]'));
+      expect(copyButtonEl).toBeTruthy();
+      const iconEl = copyButtonEl.query(By.css('mat-icon'));
+      expect(iconEl.nativeElement.textContent.trim()).toBe('content_copy');
+    });
+
+    it('should render the "View code" button', () => {
+      const viewCodeButtonEl = fixture.debugElement.query(By.css('mat-toolbar.app-toolbar button.view-code-button'));
+      expect(viewCodeButtonEl).toBeTruthy();
+      expect(viewCodeButtonEl.nativeElement.textContent).toContain('View code');
+      const iconEl = viewCodeButtonEl.query(By.css('mat-icon'));
+      expect(iconEl.nativeElement.textContent.trim()).toBe('code');
+    });
   });
 });
