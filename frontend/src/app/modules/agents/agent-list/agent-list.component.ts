@@ -10,7 +10,6 @@ import {
 	ViewChild,
 	ViewEncapsulation,
 } from '@angular/core';
-// import { Static } from '@sinclair/typebox'; // No longer needed for AgentContext here
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatOptionModule, MatRippleModule } from '@angular/material/core';
@@ -26,8 +25,6 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterModule } from '@angular/router';
 import { fuseAnimations } from '@fuse/animations';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
-// import { AgentContextApi } from '#shared/api/agent.api'; // No longer directly used for agents$ type
-// import { AgentContextSchema } from '#shared/schemas/agent.schema'; // No longer needed for Static AgentContext
 import { AgentService } from 'app/modules/agents/services/agent.service';
 import { Observable, Subject, debounceTime, switchMap, takeUntil } from 'rxjs';
 import { FormsModule, ReactiveFormsModule, UntypedFormBuilder, UntypedFormControl} from "@angular/forms";
@@ -316,7 +313,7 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
 	 * @param index
 	 * @param item
 	 */
-	trackByFn(index: number, item: any): any {
+	trackByFn(index: number, item: AgentContext): string | number {
 		return item.agentId || index; // Use agentId for tracking
 	}
 }
