@@ -48,9 +48,11 @@ export function serializeContext(context: AgentContext): Static<typeof AgentCont
 	serializedData.useSharedRepos = context.useSharedRepos ?? true;
 	serializedData.memory = context.memory ?? {};
 
+	// Serialize complex objects into their JSON representation
 	serializedData.functions = context.functions ? context.functions.toJSON() : { functionClasses: [] };
 	serializedData.fileSystem = context.fileSystem ? context.fileSystem.toJSON() : null;
-	serializedData.user = context.user ? context.user.id : undefined;
+	// Serialize User object to just its ID
+	serializedData.user = context.user ? context.user.id : 'anonymous-serialized-id-missing'; // Ensure user is serialized as ID
 
 	serializedData.llms = {};
 	if (context.llms?.easy) serializedData.llms.easy = context.llms.easy.getId();
@@ -68,17 +70,17 @@ export function deserializeContext(data: Static<typeof AgentContextSchema>): Age
 	const functionsImpl = new LlmFunctionsImpl().fromJSON(data.functions);
 	const fileSystemImpl: IFileSystemService | null = data.fileSystem ? new FileSystemService().fromJSON(data.fileSystem) : null;
 
-	// Create a placeholder User object. For a full User object, async fetching would be needed.
-	// data.user is expected to be the user ID string.
-	const userId = typeof data.user === 'string' ? data.user : 'anonymous-deserialized-id-missing';
-	const userName = userId === 'anonymous-deserialized-id-missing' ? 'Anonymous Deserialized User (ID Missing)' : 'Deserialized User';
-	const userEmail = userId === 'anonymous-deserialized-id-missing' ? 'anon-deserialized-missing@example.com' : 'deserialized@example.com';
+	// Create a placeholder User object from the serialized ID.
+	// In a real application, you might fetch the full User object asynchronously here.
+	const userId = data.user; // data.user is the ID string from the schema
+	const userName = userId === 'anonymous-serialized-id-missing' ? 'Anonymous Deserialized User (ID Missing)' : 'Deserialized User';
+	const userEmail = userId === 'anonymous-serialized-id-missing' ? 'anon-deserialized-missing@example.com' : 'deserialized@example.com';
 
 	const userImpl: User = {
 		id: userId,
 		name: userName, // Placeholder
 		email: userEmail, // Placeholder
-		enabled: !!data.user, // true if user ID was present, false otherwise
+		enabled: userId !== 'anonymous-serialized-id-missing', // Assume enabled if ID is present
 		createdAt: new Date(), // Default
 		lastLoginAt: undefined, // Default
 		hilBudget: data.hilBudget ?? 0, // Default from schema or 0
@@ -118,7 +120,7 @@ export function deserializeContext(data: Static<typeof AgentContextSchema>): Age
 		name: data.name,
 		parentAgentId: data.parentAgentId,
 		vibeSessionId: data.vibeSessionId,
-		user: userImpl,
+		user: userImpl, // Assign the created User object
 		state: data.state as AgentRunningState,
 		callStack: data.callStack ?? [],
 		error: data.error,

@@ -113,20 +113,21 @@ export interface AgentContext {
     budgetRemaining: number;
     /** Pre-configured LLMs by task difficulty level for the agent. Specific LLMs can always be instantiated if required. */
     llms: AgentLLMs;
-    /** Working filesystem */
-    // fileSystem?: IFileSystemService | null;
+    /** Working filesystem. Can be null if not initialized or applicable. */
+    fileSystem: IFileSystemService | null;
     /** Determines if repositories should be cloned into a shared location (true) or the agent's private directory (false). Defaults to true. */
     useSharedRepos: boolean;
     /** Memory persisted over the agent's executions */
     memory: Record<string, string>;
     /** Time of the last database write of the state */
     lastUpdate: number;
-    /** Agent custom fields */
+    /** Agent custom fields. Always present, can be an empty object. */
     metadata: Record<string, any>;
 
     /** The functions available to the agent */
-    // functions: LlmFunctions;
-    // completedHandler?: AgentCompleted;
+    functions: LlmFunctions;
+    /** Handler for when the agent completes its task. */
+    completedHandler?: AgentCompleted;
 
     // ChatBot properties ----------------
 

@@ -1,5 +1,5 @@
 import { Type, type Static } from '@sinclair/typebox';
-import type { AgentContext, AutonomousIteration, AgentRunningState, TaskLevel } from '../model/agent.model';
+import type { AgentContext, AutonomousIteration, AgentRunningState, TaskLevel, AgentLLMs, LlmFunctions, AgentCompleted } from '../model/agent.model';
 import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
 import type { FunctionCall, FunctionCallResult, LlmMessage, ImagePartExt, GenerationStats, TextPart, FilePartExt } from '../model/llm.model';
 import type { FileMetadata } from '../model/files.model';
@@ -7,6 +7,7 @@ import type { User } from '../model/user.model';
 import {LlmMessagesSchema, LlmMessagesSchemaModel} from './llm.schema'
 import { ChangePropertyType } from '#shared/typeUtils';
 import { UserProfileSchema, UserSchema } from './user.schema';
+import type { IFileSystemService } from '#shared/services/fileSystemService'; // Import IFileSystemService for type comparison
 
 export const AgentTypeSchema = Type.Union([Type.Literal('autonomous'), Type.Literal('workflow')], { $id: 'AgentType' });
 export const AutonomousSubTypeSchema = Type.Union([Type.Literal('xml'), Type.Literal('codegen'), Type.String()], { $id: 'AutonomousSubType' }); // string for custom subtypes
@@ -77,10 +78,6 @@ const FilePartExtSchema = Type.Object({
     // If FilePartExt actually uses `file: string` for content, this needs adjustment.
     // Based on `FilePart { type: 'file'; image: DataContent | URL; mimeType: string; }`
     // and `FilePartUI = ChangePropertyType<FilePart, 'data', string >`, this implies `FilePart` should have `data`.
-    // Let's assume `FilePartExt` has `data: string` for content.
-    // If `FilePart` has `file: DataContent | URL`, then `FilePartExt` would have `file: string`.
-    // The type `FilePart` in `ai` package has `file: DataContent | URL`.
-    // So `FilePartExt` (if it's based on `FilePart`) should have `file: string`.
     // Let's use `file` as the property name for content, matching `FilePart`.
     // Aligning with llm.model.ts and llm.schema.ts which use 'data'.
     data: Type.String(), // Content of the file
@@ -134,8 +131,8 @@ export const AgentContextSchema = Type.Object({
     name: Type.String(),
     parentAgentId: Type.Optional(Type.String()),
     vibeSessionId: Type.Optional(Type.String()),
-    // user: Type.Object({}), // Representing user ID, will be changed to Type.Optional(Type.String())
-    user: UserSchema,
+    // The schema represents the serialized form, where user is just the ID string
+    user: Type.String(), // Changed from UserSchema to Type.String()
     state: AgentRunningStateSchema,
     callStack: Type.Array(Type.String()),
     error: Type.Optional(Type.String()),
@@ -150,19 +147,22 @@ export const AgentContextSchema = Type.Object({
         xhard: Type.Optional(Type.String()),
     }),
 
-    // fileSystem: Type.Optional(Type.Union([Type.Object({ // Represents IFileSystemService.toJSON()
-    //     basePath: Type.String(),
-    //     workingDirectory: Type.String(),
-    // }), Type.Null()])),
+    // Represents IFileSystemService.toJSON()
+    fileSystem: Type.Optional(Type.Union([Type.Object({
+        basePath: Type.String(),
+        workingDirectory: Type.String(),
+    }), Type.Null()])),
     useSharedRepos: Type.Boolean(),
     memory: Type.Record(Type.String(), Type.String()),
     lastUpdate: Type.Number(),
     metadata: Type.Record(Type.String(), Type.Any()),
-    // functions: Type.Object({ // Represents LlmFunctions.toJSON()
-    //     functionClasses: Type.Array(Type.String()),
-    // }),
+    // Represents LlmFunctions.toJSON()
+    functions: Type.Object({
+        functionClasses: Type.Array(Type.String()),
+    }),
 
-    // completedHandlerId: Type.Optional(Type.String()), // Serialized as handler ID
+    // Serialized as handler ID
+    completedHandlerId: Type.Optional(Type.String()),
 
     pendingMessages: Type.Array(Type.String()),
 
@@ -191,31 +191,60 @@ export const AgentContextSchema = Type.Object({
     // name: string; -> Type.String()
     // parentAgentId?: string; -> Type.Optional(Type.String())
     // vibeSessionId?: string; -> Type.Optional(Type.String())
-    // user: User; -> This is the main problem for AgentContextSchema.user being Type.String()
-    // For the check to pass with `user: Type.String()` in schema, `AgentContext.user` must be `string`.
-    // If `AgentContext.user` is `User` object, schema needs `UserSchema`.
-    // Let's assume the original `user: Type.Optional(Type.String())` in schema meant user ID.
-    // This requires `AgentContext.user` to be `string | User` or the check to be against a serialized form.
-    // user: Type.Object({ // This was the duplicate, removed. The one above (Type.Optional(Type.String())) is used.
-    //     id: Type.String(),
-    //     name: Type.String(),
-    //     email: Type.String(),
-    //     enabled: Type.Boolean(),
-    //     passwordHash: Type.Optional(Type.String()),
-    //     createdAt: Type.Any(), 
-    //     lastLoginAt: Type.Optional(Type.Any()), 
-    //     hilBudget: Type.Number(),
-    //     hilCount: Type.Number(),
-    // }),
+    // user: User; -> Serialized as string ID in schema
+    // state: AgentRunningState; -> AgentRunningStateSchema
+    // callStack: string[]; -> Type.Array(Type.String())
+    // error?: string; -> Type.Optional(Type.String())
+    // output?: string; -> Type.Optional(Type.String())
+    // hilBudget: number; -> Type.Number()
+    // cost: number; -> Type.Number()
+    // budgetRemaining: number; -> Type.Number()
+    // llms: AgentLLMs; -> Serialized as object of string IDs in schema
+    // fileSystem: IFileSystemService | null; -> Serialized as object or null in schema
+    // useSharedRepos: boolean; -> Type.Boolean()
+    // memory: Record<string, string>; -> Type.Record(Type.String(), Type.String())
+    // lastUpdate: number; -> Type.Number()
+    // metadata: Record<string, any>; -> Type.Record(Type.String(), Type.Any())
+    // functions: LlmFunctions; -> Serialized as object in schema
+    // completedHandler?: AgentCompleted; -> Serialized as string ID in schema
+    // pendingMessages: string[]; -> Type.Array(Type.String())
+    // iterations: number; -> Type.Number()
+    // invoking: FunctionCall[]; -> Type.Array(FunctionCallSchema)
+    // notes: string[]; -> Type.Array(Type.String())
+    // userPrompt: string; -> Type.String()
+    // inputPrompt: string; -> Type.String()
+    // messages: LlmMessage[]; -> Serialized as array of LlmMessageSchemaModel in schema
+    // functionCallHistory: FunctionCallResult[]; -> Type.Array(FunctionCallResultSchema)
+    // hilCount: number; -> Type.Number()
+    // hilRequested?: boolean; -> Type.Optional(Type.Boolean())
+    // liveFiles?: string[]; -> Type.Optional(Type.Array(Type.String()))
+    // fileStore?: FileMetadata[]; -> Type.Optional(Type.Array(FileMetadataSchema))
+    // toolState?: Record<string, any>; -> Type.Optional(Type.Record(Type.String(), Type.Any()))
 });
 
-// This check will likely still fail if AgentContext contains methods or complex non-data objects
-// not perfectly mirrored by Static<AgentContextSchema> (e.g. user (User object vs string ID), llms (LLM instances vs string IDs), functions, fileSystem, completedHandler (instances vs string ID)).
-// Also, Date objects in User model vs. schema representation (e.g. number for timestamp or string for ISO) will cause issues.
-// For User.createdAt and User.lastLoginAt to pass, they'd need to be Type.Number() if AgentContext serializes them as timestamps,
-// or Type.String() if ISO strings. For now, the check might remain false.
-type AgentContextHack = ChangePropertyType<AgentContext, 'messages', LlmMessagesSchemaModel>
-const _agentContextCheck: AreTypesFullyCompatible<AgentContext, Static<typeof AgentContextSchema>> = true;
+// Define a type for AgentContext where fields that are transformed during serialization
+// are represented by their serialized schema's static type.
+type AgentContextBaseForCheck = Omit<AgentContext,
+    'messages' |
+    'llms' |
+    'functions' |
+    'fileSystem' |
+    'completedHandler' | // Omit the original field name for handler
+    'user' // Omit the original user object
+>;
+
+type AgentContextWithSerializedParts = AgentContextBaseForCheck & {
+    messages: LlmMessagesSchemaModel; // Static type from LlmMessagesSchema
+    llms: Static<typeof AgentContextSchema.properties.llms>;
+    functions: Static<typeof AgentContextSchema.properties.functions>;
+    fileSystem: Static<typeof AgentContextSchema.properties.fileSystem>;
+    completedHandlerId: Static<typeof AgentContextSchema.properties.completedHandlerId>; // Use 'completedHandlerId'
+    user: Static<typeof AgentContextSchema.properties.user>; // Use the serialized user ID type
+};
+
+type AgentContextForCheck = AgentContextWithSerializedParts;
+
+const _agentContextCheck: AreTypesFullyCompatible<AgentContextForCheck, Static<typeof AgentContextSchema>> = true;
 
 export const AutonomousIterationSchema = Type.Object({
     agentId: Type.String(),

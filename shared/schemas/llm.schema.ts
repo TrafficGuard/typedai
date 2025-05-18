@@ -7,6 +7,7 @@ import type {
     ImagePartExt,
     TextPartExt,
     UserContentExt,
+    LlmMessage, // Import LlmMessage
 } from '#shared/model/llm.model';
 import type {AreTypesFullyCompatible} from '../utils/type-compatibility';
 import {ChangePropertyType} from '../typeUtils';
@@ -162,10 +163,10 @@ export const LlmMessageSchema = Type.Union([
     SystemMessageSchema,
     UserMessageSchema,
     AssistantMessageSchema,
-    // ToolMessageSchema
+    ToolMessageSchema // Added ToolMessageSchema
 ], { $id: 'LlmMessage' });
 // We will need to do some Type conversions for it to match at some point. Dont edit this.
-// const _LlmMessageCheck: AreTypesFullyCompatible<LlmMessage, Static<typeof LlmMessageSchema>> = true;
+const _LlmMessageCheck: AreTypesFullyCompatible<LlmMessage, Static<typeof LlmMessageSchema>> = true;
 
 // GenerateOptions Schema
 export const CallSettingsSchema = Type.Object({
