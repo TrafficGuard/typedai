@@ -27,12 +27,12 @@ import { takeUntil, tap, finalize, filter } from 'rxjs/operators';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { PROMPTS_ROUTES } from '../prompt.paths';
 
-// Interface for processed messages with attachments for UI display
-interface DisplayablePromptMessage extends LlmMessage {
+// Type for processed messages with attachments for UI display
+type DisplayablePromptMessage = LlmMessage & {
   textContentForDisplay: string;
   uiImageAttachments?: Attachment[];
   uiFileAttachments?: Attachment[];
-}
+};
 
 @Component({
   selector: 'app-prompt-detail',
