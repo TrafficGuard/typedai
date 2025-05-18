@@ -103,9 +103,10 @@
                                 >
                                     <!-- Message -->
                                     <div class="min-w-4 leading-5">
-                                        @if (!message.generating) {
+                                        <!-- REMOVE OLD CLIPBOARD BUTTON FROM HERE -->
+                                        <!-- @if (!message.generating) {
                                             <clipboard-button [offset]="-0.3" [cdkCopyToClipboard]="message.textContent"></clipboard-button>
-                                        }
+                                        } -->
                                         @if (message.textChunks.length > 0) {
                                             @for (chunk of message.textChunks; track $index) {
                                                 @if (chunk.type === 'markdown') {
@@ -154,29 +155,37 @@
                                                 }
                                             </div>
                                         }
+                                    </div> <!-- End of Message Content div -->
 
-                                        <!-- Buttons for AI messages (Cost, Regenerate, Branch) -->
-                                        @if (!message.isMine && !message.generating) {
-                                            @if (message.stats) {
+                                    <!-- Buttons container: shown for all non-generating messages -->
+                                    @if (!message.generating) {
+                                        <div class="absolute bottom-1 right-1 flex items-center space-x-1" style="line-height: 1;"> <!-- Changed classes: bottom-0 mt-4 to bottom-1, removed mt-4 -->
+                                            <!-- Info Button: shown only for AI messages with stats -->
+                                            @if (!message.isMine && message.stats) {
+                                                <!-- Removed 'regenerate-button' and absolute positioning classes like 'absolute bottom-3 left-2' -->
                                                 <button mat-icon-button
-                                                        class="regenerate-button mat-primary p-0 m-0"
+                                                        class="mat-primary p-0 m-0"
                                                         [matTooltip]="'Duration: ' + (message.stats.totalTime / 1000).toFixed(0) + 's Input tokens: ' + message.stats.inputTokens + ' Output tokens: ' + message.stats.outputTokens + ' Cost: $' + (message.stats.cost | number:'1.4-4')"
                                                         aria-label="Message generation stats">
-                                                    <mat-icon [svgIcon]="'info'" class="icon-size-4 p-0 m-0"></mat-icon>
+                                                    <mat-icon [svgIcon]="'info'" class="icon-size-3 p-0 m-0"></mat-icon>
                                                 </button>
                                             }
-                                            <!-- Regenerate button example, ensure regenerateMessage(i) uses correct index if displayedMessages() is different from chat().messages -->
-                                            <!--
-                                            <button mat-icon-button
-                                                    class="regenerate-button mat-primary"
-                                                    matTooltip="Regenerate response"
-                                                    aria-label="Regenerate AI response"
-                                                    (click)="regenerateMessage(i)">
-                                                <mat-icon [svgIcon]="'heroicons_outline:arrow-path'" class="icon-size-4"></mat-icon>
-                                            </button>
-                                            -->
-                                        }
-                                    </div>
+                                            <!-- Clipboard Button: always shown if container is shown -->
+                                            <clipboard-button [cdkCopyToClipboard]="message.textContent" class=""></clipboard-button> <!-- class="" can be removed if desired -->
+                                        </div>
+                                    }
+                                    <!-- The commented-out regenerate button remains unchanged -->
+                                    <!--
+                                    @if (!message.isMine && !message.generating) {
+                                        <button mat-icon-button
+                                                class="regenerate-button mat-primary"
+                                                matTooltip="Regenerate response"
+                                                aria-label="Regenerate AI response"
+                                                (click)="regenerateMessage(i)">
+                                            <mat-icon [svgIcon]="'heroicons_outline:arrow-path'" class="icon-size-4"></mat-icon>
+                                        </button>
+                                    }
+                                    -->
                                 </div>
                                 <!-- Time (conditionally displayed) -->
                             </div>
@@ -255,7 +264,7 @@
                                             }
                                             <div class="flex flex-col overflow-hidden mr-1">
                                                  <span class="text-xs font-medium truncate max-w-[120px]" [matTooltip]="attachment.filename">{{attachment.filename}}</span>
-                                                 <span class="text-xs text-gray-500">{{ (attachment.size / 1024) | number:'1.0-1' }} KB</span>
+                                                 <span class="text-xs text-gray-500">{{ (attachment.size / 1024) | number:'1.0-1' }} KB)</span>
                                             </div>
                                             <button
                                                     class="absolute -top-2 -right-2 w-5 h-5 min-h-0 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center"
