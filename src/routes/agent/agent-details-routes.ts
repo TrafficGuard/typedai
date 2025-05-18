@@ -70,7 +70,7 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 	fastify.post(AGENT_API.delete.pathTemplate, { schema: AGENT_API.delete.schema }, async (req, reply) => {
 		const { agentIds } = req.body as Static<typeof AGENT_API.delete.schema.body>;
 		try {
-			await fastify.agentStateService.delete(agentIds);
+			await fastify.agentStateService.delete(agentIds ?? []);
 			reply.code(204).send(); // For ApiNullResponseSchema
 		} catch (error) {
 			logger.error('Error deleting agents:', error);
