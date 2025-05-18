@@ -42,31 +42,26 @@ export class FastMediumLLM extends BaseLLM {
 		return messageText(message);
 	}
 
-	async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
-		let useCerebras = true; // Default to using Gemini
-		let tokens = 0;
-		if (this.cerebras.isConfigured()) {
-			let text = '';
-			for (const msg of messages) {
-				const msgText: string | null = messageContentIfTextOnly(msg);
-				if (msgText === null) {
-					useCerebras = false;
-					break;
-				}
-				text += `${msgText}\n`;
-			}
-			tokens = await countTokens(text);
-			if (tokens > this.getMaxInputTokens() * 0.4) useCerebras = false;
-		} else {
-			useCerebras = false;
+	async useCerebras(messages: ReadonlyArray<LlmMessage>): Promise<boolean> {
+		if (!this.cerebras.isConfigured()) return false;
+		let text = '';
+		for (const msg of messages) {
+			const msgText: string | null = messageContentIfTextOnly(msg);
+			if (msgText === null) return false;
+			text += `${msgText}\n`;
 		}
+		const tokens = await countTokens(text);
+		logger.info(`====== Cerebras tokens: ${tokens}`);
+		return tokens < this.cerebras.getMaxInputTokens() * 0.5;
+	}
 
+	async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
 		try {
-			if (useCerebras) return await this.cerebras.generateMessage(messages, opts);
+			if (await this.useCerebras(messages)) return await this.cerebras.generateMessage(messages, opts);
 		} catch (e) {
-			logger.warn(e, `Error calling ${this.cerebras.getId()} with ${tokens} tokens`);
-			return await this.gemini.generateMessage(messages, opts);
+			logger.warn(e, `Error calling ${this.cerebras.getId()}`);
 		}
+		return await this.gemini.generateMessage(messages, opts);
 
 		// for (const llm of this.providers) {
 		// 	if (!llm.isConfigured()) {
@@ -87,6 +82,5 @@ export class FastMediumLLM extends BaseLLM {
 		// 		logger.error(`Error with ${llm.getDisplayName()}: ${error.message}. Trying next provider.`);
 		// 	}
 		// }
-		throw new Error('All providers failed.');
 	}
 }
