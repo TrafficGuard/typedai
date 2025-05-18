@@ -156,9 +156,10 @@
                                         <div class="absolute bottom-1 right-1 flex items-center space-x-1" style="line-height: 1;">
                                             <!-- Info Button: shown only for AI messages with stats -->
                                             @if (!message.isMine && message.stats) {
+                                                @let stats = message.stats;
                                                 <button mat-icon-button
                                                         class="mat-primary p-0 m-0"
-                                                        [matTooltip]="'Duration: ' + (message.stats.totalTime / 1000).toFixed(0) + 's Input tokens: ' + message.stats.inputTokens + ' Output tokens: ' + message.stats.outputTokens + ' Cost: $' + (message.stats.cost | number:'1.4-4')"
+                                                        [matTooltip]="'Duration: ' + (stats.totalTime / 1000).toFixed(0) + 's Input tokens: ' + stats.inputTokens + ' Output tokens: ' + stats.outputTokens + (stats.cachedInputTokens ? ' Cached input tokens: ' + stats.cachedInputTokens : '')+ ' Cost: $' + (message.stats.cost | number:'1.4-4')"
                                                         aria-label="Message generation stats">
                                                     <mat-icon [svgIcon]="'info'" class="icon-size-3 p-0 m-0"></mat-icon>
                                                 </button>
