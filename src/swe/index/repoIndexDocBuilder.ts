@@ -135,7 +135,7 @@ async function processFile(filePath: string, easyLlm: any): Promise<void> {
 
 		// Add this check
 		if (!sourceFileStats.isFile()) {
-			logger.debug(`Path ${relativeFilePath} is a directory, not a file. Skipping file processing.`);
+			logger.info(`Path ${relativeFilePath} is a directory, not a file. Skipping file processing.`);
 			return;
 		}
 
@@ -178,10 +178,11 @@ async function processFile(filePath: string, easyLlm: any): Promise<void> {
  */
 async function processFilesInFolder(folderPath: string, fileMatchesIndexDocs: (filePath: string) => boolean): Promise<void> {
 	const fileSystem = getFileSystem();
-	const files = await fileSystem.listFilesInDirectory(folderPath);
+	// Lists the file and folder names in a single directory. Folder names will end with a /
+	const filesAndFolders = await fileSystem.listFilesInDirectory(folderPath);
 
 	// Use the full relative path for matching
-	const filteredFiles = files.filter((file) => {
+	const filteredFiles = filesAndFolders.filter((file) => {
 		const fullRelativePath = path.relative(fileSystem.getWorkingDirectory(), path.join(folderPath, file));
 		return fileMatchesIndexDocs(fullRelativePath);
 	});
