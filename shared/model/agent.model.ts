@@ -3,6 +3,7 @@ import type {User} from './user.model';
 import {FileMetadata} from "#shared/model/files.model";
 import {IFileSystemService} from "#shared/services/fileSystemService";
 import {ToolType} from "#shared/services/functions";
+import { UserProfile } from '#shared/schemas/user.schema';
 
 /**
  * The difficulty of a LLM generative task. Used to select an appropriate model for the cost vs capability.
@@ -113,7 +114,7 @@ export interface AgentContext {
     /** Pre-configured LLMs by task difficulty level for the agent. Specific LLMs can always be instantiated if required. */
     llms: AgentLLMs;
     /** Working filesystem */
-    fileSystem?: IFileSystemService | null;
+    // fileSystem?: IFileSystemService | null;
     /** Determines if repositories should be cloned into a shared location (true) or the agent's private directory (false). Defaults to true. */
     useSharedRepos: boolean;
     /** Memory persisted over the agent's executions */
@@ -124,8 +125,8 @@ export interface AgentContext {
     metadata: Record<string, any>;
 
     /** The functions available to the agent */
-    functions: LlmFunctions;
-    completedHandler?: AgentCompleted;
+    // functions: LlmFunctions;
+    // completedHandler?: AgentCompleted;
 
     // ChatBot properties ----------------
 

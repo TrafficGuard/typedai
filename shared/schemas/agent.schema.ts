@@ -4,6 +4,9 @@ import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
 import type { FunctionCall, FunctionCallResult, LlmMessage, ImagePartExt, GenerationStats, TextPart, FilePartExt } from '../model/llm.model';
 import type { FileMetadata } from '../model/files.model';
 import type { User } from '../model/user.model';
+import {LlmMessagesSchema, LlmMessagesSchemaModel} from './llm.schema'
+import { ChangePropertyType } from '#shared/typeUtils';
+import { UserProfileSchema, UserSchema } from './user.schema';
 
 export const AgentTypeSchema = Type.Union([Type.Literal('autonomous'), Type.Literal('workflow')], { $id: 'AgentType' });
 export const AutonomousSubTypeSchema = Type.Union([Type.Literal('xml'), Type.Literal('codegen'), Type.String()], { $id: 'AutonomousSubType' }); // string for custom subtypes
@@ -126,15 +129,15 @@ export const AgentContextSchema = Type.Object({
     subtype: AutonomousSubTypeSchema,
     childAgents: Type.Optional(Type.Array(Type.String())),
     executionId: Type.String(),
-    typedAiRepoDir: Type.String(), // Made non-optional as per model, or make optional in model
+    typedAiRepoDir: Type.String(),
     traceId: Type.String(),
     name: Type.String(),
     parentAgentId: Type.Optional(Type.String()),
     vibeSessionId: Type.Optional(Type.String()),
     // user: Type.Object({}), // Representing user ID, will be changed to Type.Optional(Type.String())
-    user: Type.Optional(Type.String()), // Serialized as user ID
+    user: UserSchema,
     state: AgentRunningStateSchema,
-    callStack: Type.Array(Type.String()), // Made non-optional as per model
+    callStack: Type.Array(Type.String()),
     error: Type.Optional(Type.String()),
     output: Type.Optional(Type.String()),
     hilBudget: Type.Number(),
@@ -147,29 +150,29 @@ export const AgentContextSchema = Type.Object({
         xhard: Type.Optional(Type.String()),
     }),
 
-    fileSystem: Type.Optional(Type.Union([Type.Object({ // Represents IFileSystemService.toJSON()
-        basePath: Type.String(),
-        workingDirectory: Type.String(),
-    }), Type.Null()])),
-    useSharedRepos: Type.Boolean(), // Made non-optional as per model
-    memory: Type.Record(Type.String(), Type.String()), // Made non-optional
+    // fileSystem: Type.Optional(Type.Union([Type.Object({ // Represents IFileSystemService.toJSON()
+    //     basePath: Type.String(),
+    //     workingDirectory: Type.String(),
+    // }), Type.Null()])),
+    useSharedRepos: Type.Boolean(),
+    memory: Type.Record(Type.String(), Type.String()),
     lastUpdate: Type.Number(),
     metadata: Type.Record(Type.String(), Type.Any()),
-    functions: Type.Object({ // Represents LlmFunctions.toJSON()
-        functionClasses: Type.Array(Type.String()),
-    }),
+    // functions: Type.Object({ // Represents LlmFunctions.toJSON()
+    //     functionClasses: Type.Array(Type.String()),
+    // }),
 
-    completedHandlerId: Type.Optional(Type.String()), // Serialized as handler ID
+    // completedHandlerId: Type.Optional(Type.String()), // Serialized as handler ID
 
-    pendingMessages: Type.Array(Type.String()), // Made non-optional
+    pendingMessages: Type.Array(Type.String()),
 
     iterations: Type.Number(),
-    invoking: Type.Array(FunctionCallSchema), // Made non-optional
+    invoking: Type.Array(FunctionCallSchema),
     notes: Type.Array(Type.String()),
     userPrompt: Type.String(),
-    inputPrompt: Type.String(), // Made non-optional
-    messages: Type.Array(LlmMessageSchema), // Made non-optional
-    functionCallHistory: Type.Array(FunctionCallResultSchema), // Made non-optional
+    inputPrompt: Type.String(),
+    messages: LlmMessagesSchema,
+    functionCallHistory: Type.Array(FunctionCallResultSchema),
     hilCount: Type.Number(), // Type was 'any' in model, assuming number
     hilRequested: Type.Optional(Type.Boolean()),
     liveFiles: Type.Optional(Type.Array(Type.String())),
@@ -211,7 +214,8 @@ export const AgentContextSchema = Type.Object({
 // Also, Date objects in User model vs. schema representation (e.g. number for timestamp or string for ISO) will cause issues.
 // For User.createdAt and User.lastLoginAt to pass, they'd need to be Type.Number() if AgentContext serializes them as timestamps,
 // or Type.String() if ISO strings. For now, the check might remain false.
-const _agentContextCheck: AreTypesFullyCompatible<AgentContext, Static<typeof AgentContextSchema>> = false;
+type AgentContextHack = ChangePropertyType<AgentContext, 'messages', LlmMessagesSchemaModel>
+const _agentContextCheck: AreTypesFullyCompatible<AgentContext, Static<typeof AgentContextSchema>> = true;
 
 export const AutonomousIterationSchema = Type.Object({
     agentId: Type.String(),

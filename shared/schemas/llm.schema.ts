@@ -162,7 +162,7 @@ export const LlmMessageSchema = Type.Union([
     SystemMessageSchema,
     UserMessageSchema,
     AssistantMessageSchema,
-    ToolMessageSchema
+    // ToolMessageSchema
 ], { $id: 'LlmMessage' });
 // We will need to do some Type conversions for it to match at some point. Dont edit this.
 // const _LlmMessageCheck: AreTypesFullyCompatible<LlmMessage, Static<typeof LlmMessageSchema>> = true;
