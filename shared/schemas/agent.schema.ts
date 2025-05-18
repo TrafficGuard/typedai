@@ -1,4 +1,6 @@
 import { Type, type Static } from '@sinclair/typebox';
+import type { AgentContext, AutonomousIteration } from '../../model/agent.model';
+import type { AreTypesFullyCompatible } from '../../utils/type-compatibility';
 
 export const AgentTypeSchema = Type.Union([Type.Literal('autonomous'), Type.Literal('workflow')], { $id: 'AgentType' });
 export const AutonomousSubTypeSchema = Type.Union([Type.Literal('xml'), Type.Literal('codegen'), Type.String()], { $id: 'AutonomousSubType' });
@@ -54,6 +56,8 @@ export const AgentContextSchema = Type.Object({
     user: Type.Optional(Type.String()), // User ID
 });
 
+const _agentContextCheck: AreTypesFullyCompatible<AgentContext, Static<typeof AgentContextSchema>> = true;
+
 export const AutonomousIterationSchema = Type.Object({
     agentId: Type.String(),
     iteration: Type.Number(),
@@ -77,6 +81,8 @@ export const AutonomousIterationSchema = Type.Object({
     stats: Type.Any(), // Represents GenerationStats - using Type.Any() for simplicity
     liveFiles: Type.Optional(Type.Array(Type.String())),
 });
+
+const _autonomousIterationCheck: AreTypesFullyCompatible<AutonomousIteration, Static<typeof AutonomousIterationSchema>> = true;
 
 export const AgentIdParamsSchema = Type.Object({
     agentId: Type.String({ description: 'The ID of the agent' }),
