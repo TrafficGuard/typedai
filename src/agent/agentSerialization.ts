@@ -71,36 +71,30 @@ export function deserializeContext(data: Static<typeof AgentContextSchema>): Age
 	const fileSystemImpl: IFileSystemService | null = data.fileSystem ? new FileSystemService().fromJSON(data.fileSystem) : null;
 
 	// Create a placeholder User object. For a full User object, async fetching would be needed.
-	const userImpl: User = data.user
-		? ({
-				id: data.user,
-				name: 'Deserialized User', // Placeholder
-				email: 'deserialized@example.com', // Placeholder
-				enabled: true, // Default
-				createdAt: new Date(), // Default
-				hilBudget: 0, // Default
-				hilCount: 0, // Default
-				llmConfig: {}, // Default
-				chat: {}, // Default
-				functionConfig: {}, // Default
-			} as User)
-		: ({
-				id: 'anonymous-deserialized',
-				name: 'Anonymous Deserialized User',
-				email: 'anon-deserialized@example.com',
-				enabled: false,
-				createdAt: new Date(),
-				hilBudget: 0,
-				hilCount: 0,
-				llmConfig: {},
-				chat: {},
-				functionConfig: {},
-			} as User);
+	// data.user is expected to be the user ID string.
+	const userId = typeof data.user === 'string' ? data.user : 'anonymous-deserialized-id-missing';
+	const userName = userId === 'anonymous-deserialized-id-missing' ? 'Anonymous Deserialized User (ID Missing)' : 'Deserialized User';
+	const userEmail = userId === 'anonymous-deserialized-id-missing' ? 'anon-deserialized-missing@example.com' : 'deserialized@example.com';
+
+	const userImpl: User = {
+		id: userId,
+		name: userName, // Placeholder
+		email: userEmail, // Placeholder
+		enabled: !!data.user, // true if user ID was present, false otherwise
+		createdAt: new Date(), // Default
+		lastLoginAt: undefined, // Default
+		hilBudget: data.hilBudget ?? 0, // Default from schema or 0
+		hilCount: data.hilCount ?? 0, // Default from schema or 0
+		llmConfig: {}, // Default
+		chat: {}, // Default
+		functionConfig: {}, // Default
+	};
+
 
 	const llmsImpl = deserializeLLMs(data.llms as Record<keyof AgentLLMs, string | undefined>);
 
 	let completedHandlerImpl: AgentCompleted | undefined = undefined;
-	if (data.completedHandlerId) {
+	if (data.completedHandlerId) { // Use completedHandlerId from schema
 		completedHandlerImpl = getCompletedHandler(data.completedHandlerId);
 		if (!completedHandlerImpl) {
 			logger.warn(`Unknown completedHandlerId during deserialization: ${data.completedHandlerId}, defaulting to ConsoleCompletedHandler`);

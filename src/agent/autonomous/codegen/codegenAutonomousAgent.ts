@@ -285,7 +285,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				logger.error(e, 'Control loop error');
 			} finally {
 				// Capture current memory and tool state before saving
-				iterationData.memory = new Map(Object.entries(agent.memory));
+				iterationData.memory = { ...agent.memory }; // agent.memory is Record, so spread to clone
 				const toolStateMap = await buildToolStateMap(agent.functions.getFunctionInstances());
 				const liveFilesArray = agent.liveFiles ? [...agent.liveFiles] : [];
 				toolStateMap.set(LiveFiles.name, liveFilesArray);

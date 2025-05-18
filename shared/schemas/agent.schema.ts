@@ -130,8 +130,8 @@ export const AgentContextSchema = Type.Object({
     name: Type.String(),
     parentAgentId: Type.Optional(Type.String()),
     vibeSessionId: Type.Optional(Type.String()),
-    user: Type.Object({ // Assuming serialized User just has id, or define full UserSchema
-    }),
+    // user: Type.Object({}), // Representing user ID, will be changed to Type.Optional(Type.String())
+    user: Type.Optional(Type.String()), // Serialized as user ID
     state: AgentRunningStateSchema,
     callStack: Type.Array(Type.String()), // Made non-optional as per model
     error: Type.Optional(Type.String()),
@@ -139,7 +139,12 @@ export const AgentContextSchema = Type.Object({
     hilBudget: Type.Number(),
     cost: Type.Number(),
     budgetRemaining: Type.Number(),
-    llms: Type.Any(), // Placeholder for AgentLLMs due to LLM interface complexity vs. ID serialization
+    llms: Type.Object({ // Serialized LLM IDs
+        easy: Type.Optional(Type.String()),
+        medium: Type.Optional(Type.String()),
+        hard: Type.Optional(Type.String()),
+        xhard: Type.Optional(Type.String()),
+    }),
 
     fileSystem: Type.Optional(Type.Null(Type.Object({ // Represents IFileSystemService.toJSON()
         basePath: Type.String(),
@@ -153,7 +158,7 @@ export const AgentContextSchema = Type.Object({
         functionClasses: Type.Array(Type.String()),
     }),
 
-    completedHandler: Type.Optional(Type.Any()), // Was completedHandlerId, changed to match model property
+    completedHandlerId: Type.Optional(Type.String()), // Serialized as handler ID
 
     pendingMessages: Type.Array(Type.String()), // Made non-optional
 
@@ -187,24 +192,24 @@ export const AgentContextSchema = Type.Object({
     // If `AgentContext.user` is `User` object, schema needs `UserSchema`.
     // Let's assume the original `user: Type.Optional(Type.String())` in schema meant user ID.
     // This requires `AgentContext.user` to be `string | User` or the check to be against a serialized form.
-    // To make the check pass with minimal changes to AgentContext, we'd need UserSchema.
-    // For now, I'll adjust AgentContextSchema.user to be more representative of a User object for the check.
-    // This means the original `user: Type.Optional(Type.String())` in the schema was a simplification.
-    user: Type.Object({
-        id: Type.String(),
-        name: Type.String(),
-        email: Type.String(),
-        enabled: Type.Boolean(),
-        passwordHash: Type.Optional(Type.String()),
-        createdAt: Type.Any(), // Placeholder for Date, ideally Type.Date() or ISO string/timestamp
-        lastLoginAt: Type.Optional(Type.Any()), // Placeholder for Date
-        hilBudget: Type.Number(),
-        hilCount: Type.Number(),
-    }),
+    // user: Type.Object({ // This was the duplicate, removed. The one above (Type.Optional(Type.String())) is used.
+    //     id: Type.String(),
+    //     name: Type.String(),
+    //     email: Type.String(),
+    //     enabled: Type.Boolean(),
+    //     passwordHash: Type.Optional(Type.String()),
+    //     createdAt: Type.Any(), 
+    //     lastLoginAt: Type.Optional(Type.Any()), 
+    //     hilBudget: Type.Number(),
+    //     hilCount: Type.Number(),
+    // }),
 });
 
 // This check will likely still fail if AgentContext contains methods or complex non-data objects
-// not perfectly mirrored by Static<AgentContextSchema> (e.g. user (Date fields), llms, functions, fileSystem, completedHandler).
+// not perfectly mirrored by Static<AgentContextSchema> (e.g. user (User object vs string ID), llms (LLM instances vs string IDs), functions, fileSystem, completedHandler (instances vs string ID)).
+// Also, Date objects in User model vs. schema representation (e.g. number for timestamp or string for ISO) will cause issues.
+// For User.createdAt and User.lastLoginAt to pass, they'd need to be Type.Number() if AgentContext serializes them as timestamps,
+// or Type.String() if ISO strings. For now, the check might remain false.
 const _agentContextCheck: AreTypesFullyCompatible<AgentContext, Static<typeof AgentContextSchema>> = true;
 
 export const AutonomousIterationSchema = Type.Object({
