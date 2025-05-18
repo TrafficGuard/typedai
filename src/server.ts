@@ -12,10 +12,10 @@ import { promptRoutes } from '#routes/prompts/prompts-routes';
 import { codeReviewRoutes } from '#routes/scm/codeReviewRoutes';
 import { scmRoutes } from '#routes/scm/scmRoutes';
 import { vibeRoutes } from '#routes/vibe/vibeRoutes';
+import { githubRoutes } from '#routes/webhooks/github/github-routes';
 import { gitlabRoutesV1 } from '#routes/webhooks/gitlab/gitlabRoutes-v1';
 import { jiraRoutes } from '#routes/webhooks/jira/jira-routes';
 import { workflowRoutes } from '#routes/workflows/workflow-routes';
-import { githubRoutes } from '#routes/webhooks/github/github-routes';
 import { initFastify } from './fastify';
 
 /**
