@@ -10,6 +10,7 @@ import {
 	ViewChild,
 	ViewEncapsulation,
 } from '@angular/core';
+import { Static } from '@sinclair/typebox'; // Added Static import
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatOptionModule, MatRippleModule } from '@angular/material/core';
@@ -25,7 +26,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterModule } from '@angular/router';
 import { fuseAnimations } from '@fuse/animations';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
-import { AgentContextApi } from '#shared/api/agent.api';
+// import { AgentContextApi } from '#shared/api/agent.api'; // No longer directly used for agents$ type
+import { AgentContextSchema } from '#shared/schemas/agent.schema'; // Import for Static type
 import { AgentService } from 'app/modules/agents/services/agent.service';
 import { Observable, Subject, debounceTime, switchMap, takeUntil } from 'rxjs';
 import { FormsModule, ReactiveFormsModule, UntypedFormBuilder, UntypedFormControl} from "@angular/forms";
@@ -65,7 +67,7 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
 	@ViewChild(MatPaginator) private _paginator: MatPaginator;
 	@ViewChild(MatSort) private _sort: MatSort;
 
-	agents$: Observable<AgentContextApi[]>;
+	agents$: Observable<Static<typeof AgentContextSchema>[]>;
 
 	agentTypes: AgentType[];
 	filteredTags: AgentTag[];
@@ -76,7 +78,7 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
 	tags: AgentTag[];
 	tagsEditMode = false;
 
-	selection = new SelectionModel<AgentContextApi>(true, []);
+	selection = new SelectionModel<Static<typeof AgentContextSchema>>(true, []);
 
 	private _unsubscribeAll: Subject<any> = new Subject<any>();
 
@@ -116,7 +118,7 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
 		this.isLoading = true; // Start loading on init
 		// this.agentService.refreshAgents(); // Trigger initial load via refreshAgents/loadAgents
 
-		this.agentService.agents$.pipe(takeUntil(this._unsubscribeAll)).subscribe((agents: AgentContextApi[]) => {
+		this.agentService.agents$.pipe(takeUntil(this._unsubscribeAll)).subscribe((agents: Static<typeof AgentContextSchema>[]) => {
 			// Set loading false when data arrives or initial state (null) is confirmed
 			this.isLoading = false;
 
