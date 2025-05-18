@@ -44,7 +44,7 @@ export async function buildIndexDocs(): Promise<void> {
 		try {
 			// Load and parse projectInfo.json
 			const projectInfoPath = path.join(process.cwd(), 'projectInfo.json');
-			let projectInfoData;
+			let projectInfoData: string;
 			try {
 				projectInfoData = await fs.readFile(projectInfoPath, 'utf-8');
 			} catch (e: any) {
@@ -159,7 +159,7 @@ async function processFile(filePath: string, easyLlm: any): Promise<void> {
 	let fileContents: string;
 	try {
 		fileContents = await fs.readFile(filePath, 'utf-8');
-	} catch(e) {
+	} catch (e) {
 		logger.error(`Error reading file ${filePath}. ${e.message}`);
 		throw e;
 	}
@@ -360,7 +360,9 @@ async function buildFolderSummary(
 					const childSummaryStats = await fs.stat(childFileSummaryPath);
 					if (childSummaryStats.mtimeMs > folderSummaryStats.mtimeMs) {
 						isStale = true;
-						logger.info(`Child file summary ${childFileSummaryPath} is newer than folder summary ${folderSummaryFilePath}. Marking folder ${relativeFolderPath} as stale.`);
+						logger.info(
+							`Child file summary ${childFileSummaryPath} is newer than folder summary ${folderSummaryFilePath}. Marking folder ${relativeFolderPath} as stale.`,
+						);
 						break;
 					}
 				} catch (e: any) {
@@ -370,9 +372,8 @@ async function buildFolderSummary(
 						);
 						isStale = true;
 						break;
-					} else {
-						logger.warn(`Error checking stats for child file summary ${childFileSummaryPath}: ${errorToString(e)}`);
 					}
+					logger.warn(`Error checking stats for child file summary ${childFileSummaryPath}: ${errorToString(e)}`);
 				}
 			}
 		}
@@ -389,7 +390,9 @@ async function buildFolderSummary(
 						const childSubFolderSummaryStats = await fs.stat(childSubFolderSummaryPath);
 						if (childSubFolderSummaryStats.mtimeMs > folderSummaryStats.mtimeMs) {
 							isStale = true;
-							logger.info(`Child folder summary ${childSubFolderSummaryPath} is newer than folder summary ${folderSummaryFilePath}. Marking folder ${relativeFolderPath} as stale.`);
+							logger.info(
+								`Child folder summary ${childSubFolderSummaryPath} is newer than folder summary ${folderSummaryFilePath}. Marking folder ${relativeFolderPath} as stale.`,
+							);
 							break;
 						}
 					} catch (e: any) {
@@ -399,9 +402,8 @@ async function buildFolderSummary(
 							);
 							isStale = true;
 							break;
-						} else {
-							logger.warn(`Error checking stats for child sub-folder summary ${childSubFolderSummaryPath}: ${errorToString(e)}`);
 						}
+						logger.warn(`Error checking stats for child sub-folder summary ${childSubFolderSummaryPath}: ${errorToString(e)}`);
 					}
 				}
 			}
@@ -602,9 +604,8 @@ export async function generateTopLevelSummary(): Promise<string> {
 							logger.warn(`Child folder summary file ${filePathInDocs} unexpectedly missing. Marking top-level summary as stale.`);
 							isStale = true;
 							break;
-						} else {
-							logger.warn(`Error checking stats for folder summary file ${filePathInDocs}: ${errorToString(e)}`);
 						}
+						logger.warn(`Error checking stats for folder summary file ${filePathInDocs}: ${errorToString(e)}`);
 					}
 				}
 			}
@@ -644,7 +645,7 @@ export async function generateTopLevelSummary(): Promise<string> {
 			if (e.code === 'ENOENT') {
 				// No folder summaries and no existing top-level summary, save a placeholder
 				logger.info('No existing top-level summary found. Saving placeholder.');
-				const placeholderSummary = "Project summary generation pending: No folder-level summaries available.";
+				const placeholderSummary = 'Project summary generation pending: No folder-level summaries available.';
 				await saveTopLevelSummary(cwd, placeholderSummary);
 				return placeholderSummary;
 			}
@@ -777,11 +778,10 @@ async function getParentSummaries(folderPath: string): Promise<Summary[]> {
 			if (e.code === 'ENOENT') {
 				// If a parent summary is missing, we stop walking up this branch
 				break;
-			} else {
-				logger.warn(`Failed to read parent summary for ${currentPath} at ${summaryPath}: ${errorToString(e)}`);
-				// Depending on error, might want to break or continue
-				break; // Break on other errors too for safety
 			}
+			logger.warn(`Failed to read parent summary for ${currentPath} at ${summaryPath}: ${errorToString(e)}`);
+			// Depending on error, might want to break or continue
+			break; // Break on other errors too for safety
 		}
 		currentPath = dirname(currentPath);
 	}
@@ -827,7 +827,6 @@ export async function loadBuildDocsSummaries(createIfNotExits = false): Promise<
 		// If ENOENT, dirExists remains false, which is correct.
 	}
 
-
 	try {
 		if (!dirExists && !createIfNotExits) {
 			logger.warn(`The ${docsDir} directory does not exist.`);
@@ -857,7 +856,6 @@ export async function loadBuildDocsSummaries(createIfNotExits = false): Promise<
 			// This case is already handled by the first check, but kept for clarity
 			return summaries;
 		}
-
 
 		const files = await fss.listFilesRecursively(docsDir, true); // List all files recursively
 		logger.info(`Found ${files.length} files in ${docsDir}`);

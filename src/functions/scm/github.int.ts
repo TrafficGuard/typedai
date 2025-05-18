@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { expect } from 'chai';
 import { GitHub } from './github';
+import type { GitHubIssueComment } from './github';
 
 const TEST_OWNER = '';
 const TEST_REPO = '';
@@ -115,7 +116,7 @@ describe('GitHub Integration Tests', () => {
 			}
 
 			// 3. Retrieve all comments for the issue
-			let comments: string;
+			let comments: GitHubIssueComment[];
 			try {
 				comments = await github.getIssueComments(testProjectPath, createdIssue.number);
 			} catch (error: any) {
