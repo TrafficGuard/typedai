@@ -23,7 +23,8 @@ import {
     DestroyRef,
 } from '@angular/core';
 import { toSignal, takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import {Attachment, Chat, ChatMessage, NEW_CHAT_ID} from 'app/modules/chat/chat.types';
+import {Chat, ChatMessage, NEW_CHAT_ID} from 'app/modules/chat/chat.types';
+import type { Attachment } from 'app/modules/message.types';
 import {MatButtonModule} from '@angular/material/button';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatIconModule} from '@angular/material/icon';

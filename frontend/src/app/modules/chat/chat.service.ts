@@ -18,13 +18,12 @@ import { UserContentExt, TextPart, ImagePartExt, FilePartExt, CallSettings } fro
 
 import { callApiRoute } from 'app/core/api-route';
 import {
-    Attachment,
     Chat,
     ChatMessage,
     NEW_CHAT_ID,
-    TextContent,
     // ServerChat is effectively ApiChatModel now
 } from 'app/modules/chat/chat.types';
+import type { Attachment, TextContent } from 'app/modules/message.types';
 
 // Helper function to convert File to base64 string (extracting only the data part)
 async function fileToBase64(file: File): Promise<string> {
