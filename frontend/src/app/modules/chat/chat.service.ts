@@ -2,7 +2,6 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, signal, WritableSignal } from '@angular/core';
 import { Observable, of, throwError, from } from 'rxjs';
 import { catchError, map, mapTo, tap, switchMap } from 'rxjs/operators';
-
 import { CHAT_API } from '#shared/api/chat.api';
 import type {
     ChatSchemaModel as ApiChatModel,
@@ -12,7 +11,6 @@ import type {
     ChatMarkdownRequestPayload,
     ChatMarkdownResponseModel,
 } from '#shared/schemas/chat.schema';
-
 import type { LlmMessage as ApiLlmMessage } from '#shared/model/llm.model';
 import { UserContentExt, TextPart, ImagePartExt, FilePartExt, CallSettings } from '#shared/model/llm.model';
 import { v4 as uuidv4 } from 'uuid';

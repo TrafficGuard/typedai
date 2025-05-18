@@ -185,7 +185,7 @@ export async function runIndexingPipeline(sourceDir: string): Promise<void> {
 		logger.info(`Processing batch of ${chunksToProcess.length} processed chunks for embedding...`);
 
 		const textsToEmbed = chunksToProcess.map((c) => c.embeddingContent);
-		const embeddingsBatchResults = await service.generateEmbeddings(textsToEmbed, 'CODE_RETRIEVAL_DOCUMENT');
+		const embeddingsBatchResults = await service.generateEmbeddings(textsToEmbed, 'RETRIEVAL_DOCUMENT');
 
 		let successfullyEmbeddedInBatch = 0;
 		for (let i = 0; i < embeddingsBatchResults.length; i++) {

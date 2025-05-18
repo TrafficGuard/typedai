@@ -66,21 +66,33 @@ export function extractJsonResult(rawText: string): any {
 	try {
 		const jsonMarkdownIndex = rawText.toLowerCase().lastIndexOf('```json');
 		if (jsonMarkdownIndex > -1 && text.endsWith('```')) {
-			return JSON.parse(text.slice(jsonMarkdownIndex + 7, -3));
+			let json = text.slice(jsonMarkdownIndex + 7, -3); // Extracts content between ```json and ```
+			// Handle cases like ```json ... </json> ... ``` where </json> is an artifact
+			// before the final ```
+			const malformedSuffix = '</json>';
+			const trimmedJsonContent = json.trim(); // Check the trimmed content for the suffix
+
+			if (trimmedJsonContent.endsWith(malformedSuffix)) {
+				// If the suffix is found, remove it from the original 'json' string
+				// by finding its last occurrence in 'json'. This preserves preceding whitespace
+				// that parseJson might handle (e.g. newlines).
+				json = json.slice(0, json.lastIndexOf(malformedSuffix));
+			}
+			return parseJson(json, rawText);
 		}
 
 		const regex = /```[jJ][sS][oO][nN]\n({.*})\n```/s;
 		const match = regex.exec(text);
 		if (match) {
-			return JSON.parse(match[1]);
+			return parseJson(match[1], rawText);
 		}
 
-		const regexXml = /<json>(.*)<\/json>/is;
+		const regexXml = /(?:[\s\S]*)<json>\s*([\s\S]+?)\s*<\/json>/is;
 		const matchXml = regexXml.exec(text);
 		if (matchXml) {
 			let match = matchXml[1].trim();
 			if (match.startsWith('```json') && text.endsWith('```')) match = match.slice(7, -3);
-			return JSON.parse(match);
+			return parseJson(match, rawText);
 		}
 
 		// Sometimes more than three trailing backticks
@@ -96,9 +108,22 @@ export function extractJsonResult(rawText: string): any {
 			else text = text.slice(Math.min(firstSquare, fistCurly));
 		}
 
-		return JSON.parse(text);
+		return parseJson(text, rawText);
 	} catch (e) {
 		logger.error(`Could not parse:\n${text}`);
+		throw e;
+	}
+}
+
+function parseJson(json: string, rawText: string): any {
+	try {
+		return JSON.parse(json);
+	} catch (e) {
+		console.error('-- RESPONSE --');
+		console.error(rawText);
+		console.error('-- JSON --');
+		console.log(json);
+		console.error(e);
 		throw e;
 	}
 }

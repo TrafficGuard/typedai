@@ -15,6 +15,7 @@ import { vibeRoutes } from '#routes/vibe/vibeRoutes';
 import { gitlabRoutesV1 } from '#routes/webhooks/gitlab/gitlabRoutes-v1';
 import { jiraRoutes } from '#routes/webhooks/jira/jira-routes';
 import { workflowRoutes } from '#routes/workflows/workflow-routes';
+import { githubRoutes } from '#routes/webhooks/github/github-routes';
 import { initFastify } from './fastify';
 
 /**
@@ -34,6 +35,7 @@ export async function initServer(): Promise<void> {
 			routes: [
 				authRoutes,
 				gitlabRoutesV1,
+				githubRoutes,
 				agentStartRoute,
 				agentDetailsRoutes,
 				agentExecutionRoutes,

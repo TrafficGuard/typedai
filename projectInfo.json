@@ -8,6 +8,7 @@
 		"staticAnalysis": "node build.js lint",
 		"test": "node build.js test",
 		"languageTools": "typescript",
-		"devBranch": "main"
+		"devBranch": "main",
+		"indexDocs": ["src/**/*.ts", "frontend/src/**/*.ts", "bin/**", "shared/**"]
 	}
 ]

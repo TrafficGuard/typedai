@@ -463,6 +463,36 @@ export class FileSystemService implements IFileSystemService {
 		}
 	}
 
+	async directoryExists(dirPath: string): Promise<boolean> {
+		logger.debug(`directoryExists: ${dirPath}`);
+		let pathToStat: string;
+
+		// Check if we've been given an absolute path that starts with basePath
+		if (dirPath.startsWith(this.basePath)) {
+			pathToStat = dirPath;
+		}
+		// Check if path starts with '/' (relative to basePath) or is relative to workingDirectory
+		else if (dirPath.startsWith('/')) {
+			pathToStat = resolve(this.basePath, dirPath.slice(1));
+		} else {
+			pathToStat = resolve(this.workingDirectory, dirPath);
+		}
+
+		try {
+			logger.debug(`directoryExists stat on: ${pathToStat}`);
+			const stats = await fs.stat(pathToStat);
+			return stats.isDirectory();
+		} catch (error) {
+			// ENOENT (No such file or directory) or other errors mean it doesn't exist or isn't accessible
+			if (error.code === 'ENOENT') {
+				logger.debug(`Directory not found: ${pathToStat}`);
+			} else {
+				logger.warn(`Error stating path ${pathToStat}: ${error.message}`);
+			}
+			return false;
+		}
+	}
+
 	/**
 	 * Writes to a file. If the file path already exists an Error will be thrown. This will create any parent directories required,
 	 * @param filePath The file path (either full filesystem path or relative to current working directory)
