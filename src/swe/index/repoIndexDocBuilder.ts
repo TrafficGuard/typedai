@@ -135,7 +135,7 @@ async function processFile(filePath: string, easyLlm: any): Promise<void> {
 		try {
 			const summaryFileStats = await fs.stat(summaryFilePath);
 			if (sourceFileStats.mtimeMs <= summaryFileStats.mtimeMs) {
-				logger.info(`Summary for ${relativeFilePath} is up to date.`);
+				logger.debug(`Summary for ${relativeFilePath} is up to date.`);
 				return;
 			}
 		} catch (e: any) {
@@ -149,7 +149,13 @@ async function processFile(filePath: string, easyLlm: any): Promise<void> {
 		return;
 	}
 
-	const fileContents = await fs.readFile(filePath, 'utf-8');
+	let fileContents: string;
+	try {
+		fileContents = await fs.readFile(filePath, 'utf-8');
+	} catch(e) {
+		logger.error(`Error reading file ${filePath}. ${e.message}`);
+		throw e;
+	}
 	const parentSummaries = await getParentSummaries(dirname(filePath));
 	const doc = await generateFileSummary(fileContents, parentSummaries, easyLlm);
 	doc.path = relativeFilePath;
@@ -179,7 +185,7 @@ async function processFilesInFolder(folderPath: string, fileMatchesIndexDocs: (f
 	}
 
 	logger.info(`Processing ${filteredFiles.length} files in folder ${folderPath}`);
-	const easyLlm = llms().easy;
+	const llm = llms().medium;
 	const errors: Array<{ file: string; error: Error }> = [];
 
 	await withActiveSpan('processFilesInBatches', async (span: Span) => {
@@ -190,7 +196,7 @@ async function processFilesInFolder(folderPath: string, fileMatchesIndexDocs: (f
 				batch.map(async (file) => {
 					const filePath = join(folderPath, file);
 					try {
-						await processFile(filePath, easyLlm);
+						await processFile(filePath, llm);
 					} catch (e) {
 						logger.error(e, `Failed to process file ${filePath}`);
 						errors.push({ file: filePath, error: e });
@@ -392,7 +398,7 @@ async function buildFolderSummary(
 		}
 
 		if (!isStale) {
-			logger.info(`Folder summary for ${relativeFolderPath} is up to date.`);
+			logger.debug(`Folder summary for ${relativeFolderPath} is up to date.`);
 			return;
 		}
 	} catch (e: any) {
@@ -598,7 +604,7 @@ export async function generateTopLevelSummary(): Promise<string> {
 		}
 
 		if (!isStale) {
-			logger.info(`Top-level summary at ${topLevelSummaryPath} is up to date.`);
+			logger.debug(`Top-level summary at ${topLevelSummaryPath} is up to date.`);
 			try {
 				return await fs.readFile(topLevelSummaryPath, 'utf-8');
 			} catch (readError: any) {
