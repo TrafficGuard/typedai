@@ -79,7 +79,7 @@ import { SafeHtmlPipe } from 'app/core/pipes/safe-html.pipe';
         ReactiveFormsModule,
         ClipboardButtonComponent,
         ClipboardModule,
-        SafeHtmlPipe,
+        // SafeHtmlPipe, // Removed as it's not used
         NgClass, // Added NgClass to imports
     ],
     providers: [
