@@ -10,7 +10,7 @@ import {
 	ViewChild,
 	ViewEncapsulation,
 } from '@angular/core';
-import { Static } from '@sinclair/typebox'; // Added Static import
+// import { Static } from '@sinclair/typebox'; // No longer needed for AgentContext here
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatOptionModule, MatRippleModule } from '@angular/material/core';
@@ -27,11 +27,11 @@ import { RouterModule } from '@angular/router';
 import { fuseAnimations } from '@fuse/animations';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 // import { AgentContextApi } from '#shared/api/agent.api'; // No longer directly used for agents$ type
-import { AgentContextSchema } from '#shared/schemas/agent.schema'; // Import for Static type
+// import { AgentContextSchema } from '#shared/schemas/agent.schema'; // No longer needed for Static AgentContext
 import { AgentService } from 'app/modules/agents/services/agent.service';
 import { Observable, Subject, debounceTime, switchMap, takeUntil } from 'rxjs';
 import { FormsModule, ReactiveFormsModule, UntypedFormBuilder, UntypedFormControl} from "@angular/forms";
-import { AgentTag, AgentType } from "#shared/model/agent.model";
+import { AgentTag, AgentType, AgentContext } from "#shared/model/agent.model"; // Added AgentContext
 import {Pagination} from "../../../core/types";
 
 @Component({
@@ -67,7 +67,7 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
 	@ViewChild(MatPaginator) private _paginator: MatPaginator;
 	@ViewChild(MatSort) private _sort: MatSort;
 
-	agents$: Observable<Static<typeof AgentContextSchema>[]>;
+	agents$: Observable<AgentContext[]>;
 
 	agentTypes: AgentType[];
 	filteredTags: AgentTag[];
@@ -78,7 +78,7 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
 	tags: AgentTag[];
 	tagsEditMode = false;
 
-	selection = new SelectionModel<Static<typeof AgentContextSchema>>(true, []);
+	selection = new SelectionModel<AgentContext>(true, []);
 
 	private _unsubscribeAll: Subject<any> = new Subject<any>();
 
@@ -118,7 +118,7 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
 		this.isLoading = true; // Start loading on init
 		// this.agentService.refreshAgents(); // Trigger initial load via refreshAgents/loadAgents
 
-		this.agentService.agents$.pipe(takeUntil(this._unsubscribeAll)).subscribe((agents: Static<typeof AgentContextSchema>[]) => {
+		this.agentService.agents$.pipe(takeUntil(this._unsubscribeAll)).subscribe((agents: AgentContext[]) => {
 			// Set loading false when data arrives or initial state (null) is confirmed
 			this.isLoading = false;
 
