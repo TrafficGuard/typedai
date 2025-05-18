@@ -25,6 +25,7 @@ import { PromptFormComponent } from './prompt-form.component';
 import { PromptsService } from '../prompts.service';
 import { LlmService, LLM as AppLLM } from '../../agents/services/llm.service';
 import type { Prompt } from '#shared/model/prompts.model';
+import type { LlmMessage, UserContentExt, TextPart, ImagePartExt, FilePartExt } from '#shared/model/llm.model';
 import type { PromptSchemaModel } from '#shared/schemas/prompts.schema';
 
 const mockLlms: AppLLM[] = [
@@ -43,10 +44,13 @@ const mockPrompt: Prompt = {
     { role: 'user', content: 'Hello there' },
     { role: 'assistant', content: 'Hi user!' }
   ],
-  settings: { temperature: 0.7, maxOutputTokens: 100, selectedModel: 'llm-1' },
-  updatedAt: Date.now()
+  settings: { temperature: 0.7, maxOutputTokens: 100, llmId: 'llm-1' }, // Changed selectedModel to llmId
+  // Assuming updatedAt is not strictly required by the form population logic,
+  // but keeping it if it was part of a broader mock structure.
+  // If Prompt type requires it, it should be present. Let's assume it's optional or handled.
+  // For the purpose of these tests, it's not directly used by _convertLlmContentToString.
 };
-const mockPromptSchema = mockPrompt as PromptSchemaModel;
+const mockPromptSchema = mockPrompt as PromptSchemaModel; // This cast might need adjustment if PromptSchemaModel is stricter
 
 
 describe('PromptFormComponent', () => {
@@ -130,7 +134,7 @@ describe('PromptFormComponent', () => {
       expect(component.promptForm.get('name')?.value).toBe('');
       expect(component.messagesFormArray.length).toBe(1);
       expect(component.messagesFormArray.at(0).get('role')?.value).toBe('user');
-      expect(component.promptForm.get('options.selectedModel')?.value).toBe(mockLlms.find(l => l.isConfigured)?.id); // First configured LLM
+      expect(component.promptForm.get('options.llmId')?.value).toBe(mockLlms.find(l => l.isConfigured)?.id); // First configured LLM
       expect(component.isLoading()).toBeFalse();
     });
 
@@ -141,10 +145,10 @@ describe('PromptFormComponent', () => {
 
     it('onSubmit should call promptsService.createPrompt with correct payload including selectedModel', fakeAsync(() => {
       mockPromptsService.createPrompt.and.returnValue(of(mockPromptSchema));
-      const selectedModelId = mockLlms.find(l => l.isConfigured)!.id;
+      const llmId = mockLlms.find(l => l.isConfigured)!.id;
       component.promptForm.patchValue({
         name: 'New Prompt Name',
-        options: { temperature: 0.5, maxOutputTokens: 500, selectedModel: selectedModelId }
+        options: { temperature: 0.5, maxOutputTokens: 500, llmId: llmId }
       });
       component.messagesFormArray.at(0).patchValue({ role: 'user', content: 'User message' });
       component.tagsFormArray.push(new FormBuilder().control('newTag'));
@@ -157,7 +161,7 @@ describe('PromptFormComponent', () => {
         name: 'New Prompt Name',
         messages: [{ role: 'user', content: 'User message' }],
         tags: ['newTag'],
-        options: { temperature: 0.5, maxOutputTokens: 500, selectedModel: selectedModelId }
+        options: { temperature: 0.5, maxOutputTokens: 500, llmId: llmId }
       }));
       expect(mockRouter.navigate).toHaveBeenCalledWith(['/ui/prompts']);
     }));
@@ -176,7 +180,7 @@ describe('PromptFormComponent', () => {
          expect(component.isEditMode()).toBeTrue();
          expect(component.promptIdSignal()).toBe(mockPrompt.id);
          expect(component.promptForm.get('name')?.value).toBe(mockPrompt.name);
-         expect(component.promptForm.get('options.selectedModel')?.value).toBe(mockPrompt.settings.selectedModel);
+         expect(component.promptForm.get('options.llmId')?.value).toBe(mockPrompt.settings.llmId);
          expect(component.messagesFormArray.length).toBe(mockPrompt.messages.length);
          expect(component.tagsFormArray.length).toBe(mockPrompt.tags.length);
          expect(component.isLoading()).toBeFalse();
@@ -186,7 +190,7 @@ describe('PromptFormComponent', () => {
          mockPromptsService.updatePrompt.and.returnValue(of(mockPromptSchema));
          const updatedName = 'Updated Prompt Name';
          component.promptForm.get('name')?.setValue(updatedName);
-         // selectedModel should already be set from mockPrompt
+         // llmId should already be set from mockPrompt
          fixture.detectChanges();
 
          component.onSubmit();
@@ -194,7 +198,7 @@ describe('PromptFormComponent', () => {
 
          expect(mockPromptsService.updatePrompt).toHaveBeenCalledWith(mockPrompt.id, jasmine.objectContaining({
              name: updatedName,
-             options: jasmine.objectContaining({ selectedModel: mockPrompt.settings.selectedModel })
+             options: jasmine.objectContaining({ llmId: mockPrompt.settings.llmId })
          }));
          expect(mockRouter.navigate).toHaveBeenCalledWith(['/ui/prompts']);
      }));
@@ -329,8 +333,8 @@ describe('PromptFormComponent', () => {
       fixture.detectChanges(); // processRouteData
     }));
 
-    it('selectedModel control should be required', () => {
-      const modelControl = component.promptForm.get('options.selectedModel');
+    it('llmId control should be required', () => {
+      const modelControl = component.promptForm.get('options.llmId');
       modelControl?.setValue(null);
       expect(modelControl?.hasError('required')).toBeTrue();
       modelControl?.setValue(mockLlms.find(l => l.isConfigured)!.id);
@@ -470,7 +474,7 @@ describe('PromptFormComponent', () => {
 
     it('should render model selector dropdown', () => {
         expect(optionsGroup).toBeTruthy('Options form group should exist');
-        const modelSelect = fixture.debugElement.query(By.css('mat-select[formControlName="selectedModel"]'));
+        const modelSelect = fixture.debugElement.query(By.css('mat-select[formControlName="llmId"]'));
         expect(modelSelect).toBeTruthy();
         // Check if options are populated (assuming at least one configured LLM)
         // This requires opening the select, which can be complex in tests.
