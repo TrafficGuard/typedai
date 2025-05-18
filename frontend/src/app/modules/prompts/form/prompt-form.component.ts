@@ -24,6 +24,8 @@ import { LlmService, LLM as AppLLM } from '../../agents/services/llm.service'; /
 import type { Prompt } from '#shared/model/prompts.model';
 import type { LlmMessage, CallSettings, UserContentExt, TextPart, ImagePartExt, FilePartExt } from '#shared/model/llm.model';
 import type { PromptCreatePayload, PromptUpdatePayload, PromptSchemaModel } from '#shared/schemas/prompts.schema';
+import type { Attachment } from '../message.types';
+import { attachmentsAndTextToUserContentExt, userContentExtToAttachmentsAndText } from '../messageUtil';
 
 import { Subject, Observable, forkJoin } from 'rxjs';
 import { takeUntil, finalize, tap, filter } from 'rxjs/operators';
@@ -258,15 +260,16 @@ export class PromptFormComponent implements OnInit, OnDestroy {
         return this.promptForm.get('tags') as FormArray;
     }
 
-    createMessageGroup(role: LlmMessage['role'] = 'user', content: string = ''): FormGroup {
+    createMessageGroup(role: LlmMessage['role'] = 'user', content: string = '', attachmentsData: Attachment[] = []): FormGroup {
         return this.fb.group({
             role: [role, Validators.required],
             content: [content, Validators.required],
+            attachments: role === 'user' ? this.fb.array(attachmentsData.map(att => this.fb.control(att))) : this.fb.array([]),
         });
     }
 
     // Modified signature: role is now optional
-    addMessage(role?: LlmMessage['role'], content: string = ''): void {
+    addMessage(role?: LlmMessage['role'], content: string = '', attachmentsData: Attachment[] = []): void {
         let newRole: LlmMessage['role'];
 
         if (role) {
@@ -298,13 +301,13 @@ export class PromptFormComponent implements OnInit, OnDestroy {
         if (newRole === 'system') {
              const systemMessageExistsAtIndex0 = this.messagesFormArray.length > 0 && this.messagesFormArray.at(0).get('role')?.value === 'system';
              if (!systemMessageExistsAtIndex0) {
-                this.messagesFormArray.insert(0, this.createMessageGroup(newRole, content));
+                this.messagesFormArray.insert(0, this.createMessageGroup(newRole, content, attachmentsData));
              } else {
                  console.warn('Attempted to add a system message when one already exists at index 0.');
              }
         } else {
             // Add user/assistant messages to the end
-            this.messagesFormArray.push(this.createMessageGroup(newRole, content));
+            this.messagesFormArray.push(this.createMessageGroup(newRole, content, attachmentsData));
         }
         this.cdr.detectChanges();
     }
@@ -414,8 +417,8 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 
         // Add other messages after the system message (if added)
         otherMessages.forEach(msg => {
-            const contentStrOther = this._convertLlmContentToString(msg.content as UserContentExt);
-            this.messagesFormArray.push(this.createMessageGroup(msg.role, contentStrOther));
+            const { attachments: parsedAttachments, text: parsedText } = userContentExtToAttachmentsAndText(msg.content as UserContentExt);
+            this.messagesFormArray.push(this.createMessageGroup(msg.role, parsedText, msg.role === 'user' ? parsedAttachments : []));
         });
 
         // Set includeSystemMessage form control value *without* emitting event initially
@@ -450,7 +453,17 @@ export class PromptFormComponent implements OnInit, OnDestroy {
         const formValue = this.promptForm.value;
 
         // Filter out the includeSystemMessage control value from the payload
-        const payloadMessages = formValue.messages.map((msg: {role: LlmMessage['role'], content: string}) => ({role: msg.role, content: msg.content}));
+        const payloadMessages = formValue.messages.map((formMsg: {role: LlmMessage['role'], content: string, attachments: Attachment[] | null}) => {
+            let messageContentPayload: UserContentExt;
+            // Check if formMsg.attachments is an array and has items. It might be null or empty if not a user message or no attachments.
+            if (formMsg.role === 'user' && Array.isArray(formMsg.attachments) && formMsg.attachments.length > 0) {
+                messageContentPayload = attachmentsAndTextToUserContentExt(formMsg.attachments, formMsg.content);
+            } else {
+                // For system/assistant messages, or user messages without attachments, content is just text.
+                messageContentPayload = formMsg.content;
+            }
+            return { role: formMsg.role, content: messageContentPayload };
+        });
 
         const payload: PromptCreatePayload | PromptUpdatePayload = {
             name: formValue.name,
