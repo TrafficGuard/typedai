@@ -90,11 +90,11 @@ export function deserializeContext(data: Static<typeof AgentContextSchema>): Age
 		functionConfig: {}, // Default
 	};
 
-
 	const llmsImpl = deserializeLLMs(data.llms as Record<keyof AgentLLMs, string | undefined>);
 
 	let completedHandlerImpl: AgentCompleted | undefined = undefined;
-	if (data.completedHandlerId) { // Use completedHandlerId from schema
+	if (data.completedHandlerId) {
+		// Use completedHandlerId from schema
 		completedHandlerImpl = getCompletedHandler(data.completedHandlerId);
 		if (!completedHandlerImpl) {
 			logger.warn(`Unknown completedHandlerId during deserialization: ${data.completedHandlerId}, defaulting to ConsoleCompletedHandler`);
