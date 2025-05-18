@@ -7,9 +7,11 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatIconModule } from '@angular/material/icon';
+import { Static } from '@sinclair/typebox'; // Added Static import
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { AgentService } from '../../services/agent.service';
+import { AutonomousIterationSchema } from '#shared/schemas/agent.schema'; // Import for Static type
 import { AutonomousIteration } from '#shared/model/agent.model';
 import {FunctionCallResult} from "#shared/model/llm.model";
 
@@ -90,22 +92,23 @@ export class AgentIterationsComponent implements OnInit, OnChanges, OnDestroy {
         this.agentService.getAgentIterations(this.agentId).pipe(
             takeUntil(this.destroy$) // Ensure subscription is cleaned up on destroy or new load
         ).subscribe({
-            next: (loadedIterations) => {
+            next: (loadedIterations: Static<typeof AutonomousIterationSchema>[]) => {
                 console.log(`AgentIterationsComponent: Successfully loaded ${loadedIterations.length} iterations for agent ${this.agentId}`);
-                // Convert memory and toolState objects back to Maps
-                loadedIterations.forEach(iter => {
-                    if (iter.memory && typeof iter.memory === 'object' && !(iter.memory instanceof Map)) {
-                        iter.memory = new Map(Object.entries(iter.memory));
-                    } else if (!iter.memory) {
-                        iter.memory = new Map(); // Ensure it's always a Map
-                    }
-                    if (iter.toolState && typeof iter.toolState === 'object' && !(iter.toolState instanceof Map)) {
-                        iter.toolState = new Map(Object.entries(iter.toolState));
-                    } else if (!iter.toolState) {
-                        iter.toolState = new Map(); // Ensure it's always a Map
-                    }
+                
+                this.iterations = loadedIterations.map(iter => {
+                    // Ensure iter.memory and iter.toolState are treated as potentially undefined
+                    // and default to empty objects for Object.entries if so.
+                    const memoryMap = iter.memory ? new Map(Object.entries(iter.memory)) : new Map<string, string>();
+                    const toolStateMap = iter.toolState ? new Map(Object.entries(iter.toolState)) : new Map<string, any>();
+
+                    // Create a new object conforming to AutonomousIteration
+                    return {
+                        ...iter,
+                        memory: memoryMap,
+                        toolState: toolStateMap,
+                    } as AutonomousIteration; // Cast to AutonomousIteration after transformation
                 });
-                this.iterations = loadedIterations;
+
                 this.isLoading = false;
                 this.errorLoading = null;
                 this._changeDetectorRef.markForCheck(); // Trigger UI update
