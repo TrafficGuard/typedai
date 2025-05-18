@@ -132,6 +132,13 @@ async function processFile(filePath: string, easyLlm: any): Promise<void> {
 
 	try {
 		const sourceFileStats = await fs.stat(filePath);
+
+		// Add this check
+		if (!sourceFileStats.isFile()) {
+			logger.debug(`Path ${relativeFilePath} is a directory, not a file. Skipping file processing.`);
+			return;
+		}
+
 		try {
 			const summaryFileStats = await fs.stat(summaryFilePath);
 			if (sourceFileStats.mtimeMs <= summaryFileStats.mtimeMs) {
@@ -680,7 +687,6 @@ async function getAllFolderSummaries(rootDir: string): Promise<Summary[]> {
 				try {
 					const summaryContent = await fs.readFile(filePathInDocs, 'utf-8');
 					const summary: Summary = JSON.parse(summaryContent);
-					// Ensure the path in the summary is relative to the CWD, not the docs dir
 					// The path stored in the summary JSON should already be relative to CWD
 					summaries.push(summary);
 				} catch (e: any) {
