@@ -87,7 +87,7 @@ export function extractJsonResult(rawText: string): any {
 			return parseJson(match[1], rawText);
 		}
 
-		const regexXml = /<json>(.*)<\/json>/is;
+		const regexXml = /(?:[\s\S]*)<json>\s*([\s\S]+?)\s*<\/json>/is;
 		const matchXml = regexXml.exec(text);
 		if (matchXml) {
 			let match = matchXml[1].trim();
