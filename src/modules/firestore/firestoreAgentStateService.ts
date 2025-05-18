@@ -1,13 +1,15 @@
 import type { DocumentSnapshot, Firestore } from '@google-cloud/firestore';
+import type { Static } from '@sinclair/typebox';
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import type { AgentContextService } from '#agent/agentContextService/agentContextService';
-import { deserializeAgentContext, serializeContext } from '#agent/agentSerialization';
+import { deserializeContext, serializeContext } from '#agent/agentSerialization';
 import { MAX_PROPERTY_SIZE, truncateToByteLength, validateFirestoreObject } from '#firestore/firestoreUtils';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import { type AgentContext, type AgentRunningState, type AutonomousIteration, isExecuting } from '#shared/model/agent.model';
 import type { User } from '#shared/model/user.model';
+import type { AgentContextSchema } from '#shared/schemas/agent.schema';
 import { currentUser } from '#user/userContext';
 import { firestoreDb } from './firestore';
 
@@ -124,11 +126,21 @@ export class FirestoreAgentStateService implements AgentContextService {
 		if (!docSnap.exists) {
 			return null;
 		}
-		const data = docSnap.data();
-		return deserializeAgentContext({
-			...data,
-			agentId,
-		} as Record<keyof AgentContext, any>);
+		const firestoreData = docSnap.data();
+		if (!firestoreData) {
+			logger.warn({ agentId }, 'Firestore document exists but data is undefined during agent context load.');
+			return null;
+		}
+
+		// Construct the object ensuring it aligns with AgentContextSchema.
+		// AgentContextSchema is designed to include all fields needed by the new deserializeContext.
+		// The new deserializeContext handles defaults for many fields.
+		const schemaCompliantData = {
+			...firestoreData, // Spread all data from Firestore
+			agentId: agentId, // Ensure agentId is present from the method parameter
+		} as Static<typeof AgentContextSchema>; // Cast to the schema type.
+
+		return deserializeContext(schemaCompliantData); // Use the NEW synchronous deserializeContext
 	}
 
 	@span()
@@ -282,6 +294,10 @@ export class FirestoreAgentStateService implements AgentContextService {
 		// e.g., if (iterationData.code && Buffer.byteLength(iterationData.code, 'utf8') > MAX_PROPERTY_SIZE) { iterationData.code = truncateToByteLength(iterationData.code, MAX_PROPERTY_SIZE - 100) + '... (truncated)'; }
 		// e.g., if (iterationData.agentPlan && Buffer.byteLength(iterationData.agentPlan, 'utf8') > MAX_PROPERTY_SIZE) { iterationData.agentPlan = truncateToByteLength(iterationData.agentPlan, MAX_PROPERTY_SIZE - 100) + '... (truncated)'; }
 		// e.g., if (iterationData.error && Buffer.byteLength(iterationData.error, 'utf8') > MAX_PROPERTY_SIZE) { iterationData.error = truncateToByteLength(iterationData.error, MAX_PROPERTY_SIZE - 100) + '... (truncated)'; }
+
+		if (iterationData.error && Buffer.byteLength(iterationData.error, 'utf8') > MAX_PROPERTY_SIZE / 2) {
+			iterationData.error = truncateToByteLength(iterationData.error, MAX_PROPERTY_SIZE / 2);
+		}
 
 		const iterationDocRef = this.db.collection('AgentContext').doc(iterationData.agentId).collection('iterations').doc(String(iterationData.iteration));
 

@@ -49,7 +49,7 @@ export function serializeContext(context: AgentContext): Static<typeof AgentCont
 	serializedData.memory = context.memory ?? {};
 
 	serializedData.functions = context.functions ? context.functions.toJSON() : { functionClasses: [] };
-	serializedData.fileSystem = context.fileSystem ? context.fileSystem.toJSON() : undefined;
+	serializedData.fileSystem = context.fileSystem ? context.fileSystem.toJSON() : null;
 	serializedData.user = context.user ? context.user.id : undefined;
 
 	serializedData.llms = {};

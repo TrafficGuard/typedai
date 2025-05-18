@@ -1,4 +1,4 @@
-import { Type } from '@sinclair/typebox';
+import type { Static } from '@sinclair/typebox';
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import { serializeContext } from '#agent/agentSerialization';
 import { cancelAgent, provideFeedback, resumeCompleted, resumeError, resumeHil } from '#agent/autonomous/autonomousAgentRunner';
@@ -7,46 +7,36 @@ import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send, sendBadRequest } from '#fastify/index';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
+import { AGENT_API } from '#shared/api/agent.api';
 import { isExecuting } from '#shared/model/agent.model';
 
-const v1BasePath = '/api/agent/v1';
 export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 	/** Forcibly stop an agent */
 	fastify.post(
-		`${v1BasePath}/force-stop`,
+		AGENT_API.forceStop.pathTemplate,
 		{
-			schema: {
-				body: Type.Object({
-					agentId: Type.String(),
-				}),
-			},
+			schema: AGENT_API.forceStop.schema,
 		},
 		async (req, reply) => {
-			const { agentId } = req.body;
+			const { agentId } = req.body as Static<typeof AGENT_API.forceStop.schema.body>;
 
 			await forceStopAgent(agentId);
 
-			send(reply, 200);
+			send(reply, 200, null);
 		},
 	);
 
 	/** Provides feedback to an agent */
 	fastify.post(
-		`${v1BasePath}/feedback`,
+		AGENT_API.feedback.pathTemplate,
 		{
-			schema: {
-				body: Type.Object({
-					agentId: Type.String(),
-					executionId: Type.String(),
-					feedback: Type.String(),
-				}),
-			},
+			schema: AGENT_API.feedback.schema,
 		},
 		async (req, reply) => {
-			const { agentId, feedback, executionId } = req.body;
+			const { agentId, feedback, executionId } = req.body as Static<typeof AGENT_API.feedback.schema.body>;
 
 			try {
-				await provideFeedback(agentId, executionId, feedback);
+				await provideFeedback(agentId!, executionId!, feedback!);
 				const updatedAgent = await fastify.agentStateService.load(agentId);
 				if (!updatedAgent) return sendBadRequest(reply, 'Agent not found');
 				send(reply, 200, serializeContext(updatedAgent));
@@ -59,20 +49,14 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 
 	/** Resumes an agent in the error state */
 	fastify.post(
-		`${v1BasePath}/resume-error`,
+		AGENT_API.resumeError.pathTemplate,
 		{
-			schema: {
-				body: Type.Object({
-					agentId: Type.String(),
-					executionId: Type.String(),
-					feedback: Type.String(),
-				}),
-			},
+			schema: AGENT_API.resumeError.schema,
 		},
 		async (req, reply) => {
-			const { agentId, executionId, feedback } = req.body;
+			const { agentId, executionId, feedback } = req.body as Static<typeof AGENT_API.resumeError.schema.body>;
 
-			await resumeError(agentId, executionId, feedback);
+			await resumeError(agentId!, executionId!, feedback!);
 			const updatedAgent = await fastify.agentStateService.load(agentId);
 			if (!updatedAgent) return sendBadRequest(reply, 'Agent not found');
 			send(reply, 200, serializeContext(updatedAgent));
@@ -81,20 +65,14 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 
 	/** Resumes an agent in the hil (human in the loop) state */
 	fastify.post(
-		`${v1BasePath}/resume-hil`,
+		AGENT_API.resumeHil.pathTemplate,
 		{
-			schema: {
-				body: Type.Object({
-					agentId: Type.String(),
-					executionId: Type.String(),
-					feedback: Type.String(),
-				}),
-			},
+			schema: AGENT_API.resumeHil.schema,
 		},
 		async (req, reply) => {
-			const { agentId, executionId, feedback } = req.body;
+			const { agentId, executionId, feedback } = req.body as Static<typeof AGENT_API.resumeHil.schema.body>;
 
-			await resumeHil(agentId, executionId, feedback);
+			await resumeHil(agentId!, executionId!, feedback!);
 			const updatedAgent = await fastify.agentStateService.load(agentId);
 			if (!updatedAgent) return sendBadRequest(reply, 'Agent not found');
 			send(reply, 200, serializeContext(updatedAgent));
@@ -103,20 +81,15 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 
 	/** Requests a human-in-the-loop check for an agent */
 	fastify.post(
-		`${v1BasePath}/request-hil`,
+		AGENT_API.requestHil.pathTemplate,
 		{
-			schema: {
-				body: Type.Object({
-					agentId: Type.String(),
-					executionId: Type.String(),
-				}),
-			},
+			schema: AGENT_API.requestHil.schema,
 		},
 		async (req, reply) => {
-			const { agentId, executionId } = req.body;
+			const { agentId, executionId } = req.body as Static<typeof AGENT_API.requestHil.schema.body>;
 
 			try {
-				const agent = await fastify.agentStateService.load(agentId);
+				const agent = await fastify.agentStateService.load(agentId!);
 				if (!agent) return sendBadRequest(reply, 'Agent not found');
 
 				if (agent.executionId !== executionId) {
@@ -150,20 +123,14 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 
 	// Cancels an agent and sets it to the completed state
 	fastify.post(
-		`${v1BasePath}/cancel`,
+		AGENT_API.cancel.pathTemplate,
 		{
-			schema: {
-				body: Type.Object({
-					agentId: Type.String(),
-					executionId: Type.String(),
-					reason: Type.String(),
-				}),
-			},
+			schema: AGENT_API.cancel.schema,
 		},
 		async (req, reply) => {
-			const { agentId, executionId, reason } = req.body;
+			const { agentId, executionId, reason } = req.body as Static<typeof AGENT_API.cancel.schema.body>;
 
-			await cancelAgent(agentId, executionId, reason);
+			await cancelAgent(agentId!, executionId!, reason!);
 			const updatedAgent = await fastify.agentStateService.load(agentId);
 			if (!updatedAgent) return sendBadRequest(reply, 'Agent not found');
 			send(reply, 200, serializeContext(updatedAgent));
@@ -172,21 +139,15 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 
 	/** Resumes an agent in the completed state */
 	fastify.post(
-		`${v1BasePath}/resume-completed`,
+		AGENT_API.resumeCompleted.pathTemplate,
 		{
-			schema: {
-				body: Type.Object({
-					agentId: Type.String(),
-					executionId: Type.String(),
-					instructions: Type.String(),
-				}),
-			},
+			schema: AGENT_API.resumeCompleted.schema,
 		},
 		async (req, reply) => {
 			const { agentId, executionId, instructions } = req.body;
 
 			try {
-				await resumeCompleted(agentId, executionId, instructions);
+				await resumeCompleted(agentId!, executionId!, instructions!);
 				const updatedAgent = await fastify.agentStateService.load(agentId);
 				if (!updatedAgent) return sendBadRequest(reply, 'Agent not found');
 				send(reply, 200, serializeContext(updatedAgent));
@@ -199,24 +160,19 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 
 	/** Updates the functions available to an agent */
 	fastify.post(
-		`${v1BasePath}/update-functions`,
+		AGENT_API.updateFunctions.pathTemplate,
 		{
-			schema: {
-				body: Type.Object({
-					agentId: Type.String(),
-					functions: Type.Array(Type.String()),
-				}),
-			},
+			schema: AGENT_API.updateFunctions.schema,
 		},
 		async (req, reply) => {
-			const { agentId, functions } = req.body;
+			const { agentId, functions } = req.body as Static<typeof AGENT_API.updateFunctions.schema.body>;
 
 			try {
-				const agent = await fastify.agentStateService.load(agentId);
+				const agent = await fastify.agentStateService.load(agentId!);
 				if (!agent) throw new Error('Agent not found');
 
 				agent.functions = new LlmFunctionsImpl();
-				for (const functionName of functions) {
+				for (const functionName of functions!) {
 					const FunctionClass = functionFactory()[functionName];
 					if (FunctionClass) {
 						agent.functions.addFunctionClass(FunctionClass);

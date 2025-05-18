@@ -2,7 +2,7 @@ import { expect } from 'chai';
 import sinon from 'sinon';
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import { createContext } from '#agent/agentContextLocalStorage';
-import { deserializeAgentContext, serializeContext } from '#agent/agentSerialization';
+import { deserializeContext, serializeContext } from '#agent/agentSerialization';
 import type { RunAgentConfig } from '#agent/autonomous/autonomousAgentRunner';
 import { appContext } from '#app/applicationContext';
 import { LlmTools } from '#functions/util';
@@ -61,7 +61,7 @@ describe('agentContext', () => {
 			expect(serializedToString).to.include('workingDir');
 			expect(serializedToString).to.include('LlmTools');
 
-			const deserialised = await deserializeAgentContext(serialized);
+			const deserialised = deserializeContext(serialized);
 			const reserialised = serializeContext(deserialised);
 
 			expect(serialized).to.be.deep.equal(reserialised);

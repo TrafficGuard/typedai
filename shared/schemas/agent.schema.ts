@@ -79,7 +79,8 @@ const FilePartExtSchema = Type.Object({
     // The type `FilePart` in `ai` package has `file: DataContent | URL`.
     // So `FilePartExt` (if it's based on `FilePart`) should have `file: string`.
     // Let's use `file` as the property name for content, matching `FilePart`.
-    file: Type.String(), // Content of the file
+    // Aligning with llm.model.ts and llm.schema.ts which use 'data'.
+    data: Type.String(), // Content of the file
     mimeType: Type.String(),
     filename: Type.Optional(Type.String()),
     size: Type.Optional(Type.Number()),
@@ -146,10 +147,10 @@ export const AgentContextSchema = Type.Object({
         xhard: Type.Optional(Type.String()),
     }),
 
-    fileSystem: Type.Optional(Type.Null(Type.Object({ // Represents IFileSystemService.toJSON()
+    fileSystem: Type.Optional(Type.Union([Type.Object({ // Represents IFileSystemService.toJSON()
         basePath: Type.String(),
         workingDirectory: Type.String(),
-    }))),
+    }), Type.Null()])),
     useSharedRepos: Type.Boolean(), // Made non-optional as per model
     memory: Type.Record(Type.String(), Type.String()), // Made non-optional
     lastUpdate: Type.Number(),
