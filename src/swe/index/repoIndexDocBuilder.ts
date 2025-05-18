@@ -556,8 +556,17 @@ export async function generateTopLevelSummary(): Promise<string> {
 		let isStale = false;
 
 		const docsDirForFolders = join(cwd, typedaiDirName, 'docs');
-		// Ensure docsDirForFolders exists before trying to list files
-		const docsDirExists = await fileSystem.directoryExists(docsDirForFolders); // Assuming directoryExists is available
+		let docsDirExists = false;
+		try {
+			const stats = await fs.stat(docsDirForFolders);
+			docsDirExists = stats.isDirectory();
+		} catch (e: any) {
+			if (e.code !== 'ENOENT') {
+				logger.warn(`Error checking stats for docs directory ${docsDirForFolders}: ${errorToString(e)}`);
+			}
+			// If ENOENT, docsDirExists remains false, which is correct.
+		}
+
 		if (docsDirExists) {
 			const allFilesInDocs = await fileSystem.listFilesRecursively(docsDirForFolders, true);
 
@@ -640,13 +649,23 @@ async function getAllFolderSummaries(rootDir: string): Promise<Summary[]> {
 	const docsDir = join(rootDir, typedaiDirName, 'docs');
 	const summaries: Summary[] = [];
 
+	let docsDirExists = false;
 	try {
-		const docsDirExists = await fileSystem.directoryExists(docsDir); // Assuming directoryExists is available
-		if (!docsDirExists) {
-			logger.info(`Docs directory ${docsDir} does not exist. No folder summaries to load.`);
-			return summaries;
+		const stats = await fs.stat(docsDir);
+		docsDirExists = stats.isDirectory();
+	} catch (e: any) {
+		if (e.code !== 'ENOENT') {
+			logger.warn(`Error checking stats for docs directory ${docsDir}: ${errorToString(e)}`);
 		}
+		// If ENOENT, docsDirExists remains false, which is correct.
+	}
 
+	if (!docsDirExists) {
+		logger.info(`Docs directory ${docsDir} does not exist. No folder summaries to load.`);
+		return summaries;
+	}
+
+	try {
 		const allFilesInDocs = await fileSystem.listFilesRecursively(docsDir, true);
 
 		for (const filePathInDocs of allFilesInDocs) {
@@ -782,8 +801,19 @@ export async function loadBuildDocsSummaries(createIfNotExits = false): Promise<
 	const docsDir = join(repoFolder, typedaiDirName, 'docs');
 	logger.info(`Load summaries from ${docsDir}`);
 
+	let dirExists = false;
 	try {
-		const dirExists = await fss.directoryExists(docsDir); // Assuming directoryExists is available
+		const stats = await fs.stat(docsDir);
+		dirExists = stats.isDirectory();
+	} catch (e: any) {
+		if (e.code !== 'ENOENT') {
+			logger.warn(`Error checking stats for docs directory ${docsDir}: ${errorToString(e)}`);
+		}
+		// If ENOENT, dirExists remains false, which is correct.
+	}
+
+
+	try {
 		if (!dirExists && !createIfNotExits) {
 			logger.warn(`The ${docsDir} directory does not exist.`);
 			return summaries;
@@ -793,8 +823,23 @@ export async function loadBuildDocsSummaries(createIfNotExits = false): Promise<
 			logger.info(`Docs directory ${docsDir} does not exist. Building index docs.`);
 			await buildIndexDocs();
 			// After building, the directory should exist, proceed to load
+			// Re-check if directory exists after buildIndexDocs
+			try {
+				const stats = await fs.stat(docsDir);
+				dirExists = stats.isDirectory();
+			} catch (e: any) {
+				if (e.code !== 'ENOENT') {
+					logger.error(`Error re-checking stats for docs directory ${docsDir} after build: ${errorToString(e)}`);
+				}
+				dirExists = false; // Ensure dirExists is false if stat fails
+			}
+
+			if (!dirExists) {
+				logger.error(`Docs directory ${docsDir} still does not exist after attempting to build index docs.`);
+				return summaries; // Cannot load if directory doesn't exist
+			}
 		} else if (!dirExists) {
-			// If createIfNotExits is false and dir doesn't exist, return empty map
+			// This case is already handled by the first check, but kept for clarity
 			return summaries;
 		}
 
