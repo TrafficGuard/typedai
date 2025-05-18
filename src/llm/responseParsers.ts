@@ -66,7 +66,18 @@ export function extractJsonResult(rawText: string): any {
 	try {
 		const jsonMarkdownIndex = rawText.toLowerCase().lastIndexOf('```json');
 		if (jsonMarkdownIndex > -1 && text.endsWith('```')) {
-			const json = text.slice(jsonMarkdownIndex + 7, -3);
+			let json = text.slice(jsonMarkdownIndex + 7, -3); // Extracts content between ```json and ```
+			// Handle cases like ```json ... </json> ... ``` where </json> is an artifact
+			// before the final ```
+			const malformedSuffix = '</json>';
+			const trimmedJsonContent = json.trim(); // Check the trimmed content for the suffix
+
+			if (trimmedJsonContent.endsWith(malformedSuffix)) {
+				// If the suffix is found, remove it from the original 'json' string
+				// by finding its last occurrence in 'json'. This preserves preceding whitespace
+				// that parseJson might handle (e.g. newlines).
+				json = json.slice(0, json.lastIndexOf(malformedSuffix));
+			}
 			return parseJson(json, rawText);
 		}
 
