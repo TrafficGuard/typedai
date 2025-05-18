@@ -2,7 +2,6 @@ import type { Static } from '@sinclair/typebox';
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import { ConsoleCompletedHandler } from '#agent/autonomous/agentCompletion';
 import { getCompletedHandler } from '#agent/completionHandlerRegistry';
-import { appContext } from '#app/applicationContext';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { deserializeLLMs } from '#llm/llmFactory';
 import { logger } from '#o11y/logger';
@@ -11,10 +10,9 @@ import type { FunctionCall, FunctionCallResult, LLM, LlmMessage } from '#shared/
 import type { User } from '#shared/model/user.model.ts';
 import type { AgentContextSchema } from '#shared/schemas/agent.schema';
 import type { IFileSystemService } from '#shared/services/fileSystemService'; // Corrected import path
-import { currentUser } from '#user/userContext';
 
 export function serializeContext(context: AgentContext): Static<typeof AgentContextSchema> {
-	const serializedData: any = {};
+	const serializedData: Partial<Static<typeof AgentContextSchema>> = {};
 
 	serializedData.agentId = context.agentId;
 	serializedData.type = context.type;
