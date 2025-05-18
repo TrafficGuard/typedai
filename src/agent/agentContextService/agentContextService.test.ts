@@ -810,7 +810,8 @@ export function runAgentStateServiceTests(
 
 		it('should save and load an iteration with detailed memory and toolState, including LiveFiles and FileStore info', async () => {
 			const iterationNumber = 1;
-			const originalMemory: Record<string, string> = { // Changed to Record
+			const originalMemory: Record<string, string> = {
+				// Changed to Record
 				previousSummary: 'The agent analyzed user requirements.',
 				currentFocus: 'Generating initial code structure.',
 				'complexKey.with.dots': 'value for complex key',
@@ -892,7 +893,7 @@ export function runAgentStateServiceTests(
 			expect(loadedIteration.toolState).to.deep.equal(originalToolState);
 
 			// Check a nested property within toolState
-			expect(loadedIteration.toolState['FileStore'].metadataCache['/project/output/data.json'].size).to.equal(1024); // Access as Record
+			expect(loadedIteration.toolState.FileStore.metadataCache['/project/output/data.json'].size).to.equal(1024); // Access as Record
 		});
 
 		// Optional: Test saving iteration for non-existent agent (depends on desired behavior - Firestore might allow it)
