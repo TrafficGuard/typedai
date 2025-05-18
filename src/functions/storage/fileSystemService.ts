@@ -463,6 +463,10 @@ export class FileSystemService implements IFileSystemService {
 		}
 	}
 
+	directoryExists(filePath: string): Promise<boolean> {
+
+	}
+
 	/**
 	 * Writes to a file. If the file path already exists an Error will be thrown. This will create any parent directories required,
 	 * @param filePath The file path (either full filesystem path or relative to current working directory)
