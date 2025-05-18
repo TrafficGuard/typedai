@@ -22,7 +22,7 @@ import { CdkTextareaAutosize } from '@angular/cdk/text-field';
 import { PromptsService } from '../prompts.service';
 import { LlmService, LLM as AppLLM } from '../../agents/services/llm.service'; // Renamed LLM to AppLLM to avoid conflict
 import type { Prompt } from '#shared/model/prompts.model';
-import type { LlmMessage, CallSettings } from '#shared/model/llm.model';
+import type { LlmMessage, CallSettings, UserContentExt, TextPart, ImagePartExt, FilePartExt } from '#shared/model/llm.model';
 import type { PromptCreatePayload, PromptUpdatePayload, PromptSchemaModel } from '#shared/schemas/prompts.schema';
 
 import { Subject, Observable, forkJoin } from 'rxjs';
@@ -340,6 +340,30 @@ export class PromptFormComponent implements OnInit, OnDestroy {
         this.cdr.detectChanges();
     }
 
+    private _convertLlmContentToString(content: UserContentExt | undefined): string {
+        if (typeof content === 'string') {
+            return content;
+        }
+        if (Array.isArray(content)) {
+            return content.map(part => {
+                if (part.type === 'text') {
+                    return (part as TextPart).text;
+                } else if (part.type === 'image') {
+                    const imagePart = part as ImagePartExt;
+                    return `[Image: ${imagePart.filename || imagePart.mimeType || 'image'}]`;
+                } else if (part.type === 'file') {
+                    const filePart = part as FilePartExt;
+                    return `[File: ${filePart.filename || filePart.mimeType || 'file'}]`;
+                }
+                // Fallback for any other part types that might appear in UserContentExt if extended
+                // Safely access .type, provide a default if it's not a known structure
+                const partType = (part as any)?.type || 'unknown';
+                return `[Unknown part type: ${partType}]`;
+            }).join('\n\n'); // Use double newline for better separation of parts in textarea
+        }
+        return ''; // Handle undefined or null content, or other unexpected types
+    }
+
     populateForm(prompt: Prompt): void {
         const defaultOptions: CallSettings & { llmId?: string | null } = { // Changed from selectedModel
             llmId: this.availableModels.length > 0 ? this.availableModels[0].id : null, // Changed from selectedModel
@@ -383,14 +407,15 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 
         if (systemMessages.length > 0) {
             initialIncludeSystemMessage = true;
-            systemMessageContent = systemMessages[0].content as string; // Take the content of the first system message
+            systemMessageContent = this._convertLlmContentToString(systemMessages[0].content as UserContentExt); // Take the content of the first system message
             // Add the system message directly to the array at index 0
             this.messagesFormArray.push(this.createMessageGroup('system', systemMessageContent));
         }
 
         // Add other messages after the system message (if added)
         otherMessages.forEach(msg => {
-            this.messagesFormArray.push(this.createMessageGroup(msg.role, msg.content as string));
+            const contentStrOther = this._convertLlmContentToString(msg.content as UserContentExt);
+            this.messagesFormArray.push(this.createMessageGroup(msg.role, contentStrOther));
         });
 
         // Set includeSystemMessage form control value *without* emitting event initially
