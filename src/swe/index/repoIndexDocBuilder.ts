@@ -181,11 +181,13 @@ async function processFilesInFolder(folderPath: string, fileMatchesIndexDocs: (f
 	// Lists the file and folder names in a single directory. Folder names will end with a /
 	const filesAndFolders = await fileSystem.listFilesInDirectory(folderPath);
 
-	// Use the full relative path for matching
-	const filteredFiles = filesAndFolders.filter((file) => {
-		const fullRelativePath = path.relative(fileSystem.getWorkingDirectory(), path.join(folderPath, file));
-		return fileMatchesIndexDocs(fullRelativePath);
-	});
+	// Filter out directory entries (ending with /) and then match against indexDocsPatterns
+	const filteredFiles = filesAndFolders
+		.filter((name) => !name.endsWith('/'))
+		.filter((file) => {
+			const fullRelativePath = path.relative(fileSystem.getWorkingDirectory(), path.join(folderPath, file));
+			return fileMatchesIndexDocs(fullRelativePath);
+		});
 
 	if (filteredFiles.length === 0) {
 		// logger.info(`No files to process in folder ${folderPath}`); // Too noisy
