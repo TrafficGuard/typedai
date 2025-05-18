@@ -115,7 +115,7 @@ describe('GitHub Integration Tests', () => {
 			}
 
 			// 3. Retrieve all comments for the issue
-			let comments;
+			let comments: string;
 			try {
 				comments = await github.getIssueComments(testProjectPath, createdIssue.number);
 			} catch (error: any) {
@@ -129,6 +129,7 @@ describe('GitHub Integration Tests', () => {
 			// We expect at least the comment we just posted.
 			expect(comments.length, 'Comments array should contain at least one comment').to.be.greaterThan(0);
 
+			const foundComment = comments.find((comment) => comment.body === commentBodyText);
 			expect(foundComment, `The specific test comment (body: "${commentBodyText}") was not found in the retrieved comments`).to.exist;
 
 			if (foundComment) {
