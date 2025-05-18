@@ -69,6 +69,18 @@ describe('responseParsers', () => {
 </json>`);
 			expect(object[0].url).to.equal('https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/gemini');
 		});
+
+
+		it('should extract when malformed mix of markdown and </json>', () => {
+			const object = extractJsonResult('```json\n' +
+				'{\n' +
+				'  "key": "value"\n' +
+				'}\n' +
+				'</json>\n' +
+				'```\n');
+			expect(object.key).to.equal('value');
+		})
+
 	});
 
 	describe('extractTagResult', () => {

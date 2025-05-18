@@ -194,7 +194,7 @@ async function processFilesInFolder(folderPath: string, fileMatchesIndexDocs: (f
 		return;
 	}
 
-	logger.info(`Processing ${filteredFiles.length} files in folder ${folderPath}`);
+	logger.debug(`Processing ${filteredFiles.length} files in folder ${folderPath}`);
 	const llm = llms().medium;
 	const errors: Array<{ file: string; error: Error }> = [];
 
@@ -213,7 +213,7 @@ async function processFilesInFolder(folderPath: string, fileMatchesIndexDocs: (f
 					}
 				}),
 			);
-			logger.info(`Completed batch ${Math.floor(i / BATCH_SIZE) + 1} of ${Math.ceil(filteredFiles.length / BATCH_SIZE)}`);
+			logger.debug(`Completed batch ${Math.floor(i / BATCH_SIZE) + 1} of ${Math.ceil(filteredFiles.length / BATCH_SIZE)}`);
 		}
 	});
 
@@ -250,7 +250,7 @@ async function processFolderRecursively(
 				if (folderMatchesIndexDocs(relativeSubFolderPath)) {
 					await processFolderRecursively(subFolderPath, fileMatchesIndexDocs, folderMatchesIndexDocs);
 				} else {
-					logger.info(`Skipping folder ${subFolderPath} as it does not match any indexDocs patterns`);
+					logger.debug(`Skipping folder ${subFolderPath} as it does not match any indexDocs patterns`);
 				}
 			}
 
@@ -422,7 +422,7 @@ async function buildFolderSummary(
 	const subFolderSummaries = await getSubFolderSummaries(folderPath);
 
 	if (!fileSummaries.length && !subFolderSummaries.length) {
-		logger.info(`No summaries to build for folder ${folderPath} (no child file/folder summaries found).`);
+		logger.debug(`No summaries to build for folder ${folderPath} (no child file/folder summaries found).`);
 		// If the summary file existed but was stale due to a missing child, we might delete it here?
 		// Or just leave it stale until content appears? Let's leave it for now.
 		return;

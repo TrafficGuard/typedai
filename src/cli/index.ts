@@ -36,7 +36,7 @@ async function main() {
 	console.log(`fileSystemTree ${maps.fileSystemTree.tokens} tokens`);
 	console.log(`folderSystemTreeWithSummaries ${maps.folderSystemTreeWithSummaries.tokens} tokens`);
 
-	if (console.log) return;
+	// if (console.log) return;
 
 	const agentId = await runWorkflowAgent(config, async () => {
 		await buildIndexDocs();

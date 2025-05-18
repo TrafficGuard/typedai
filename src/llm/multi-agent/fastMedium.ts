@@ -43,6 +43,7 @@ export class FastMediumLLM extends BaseLLM {
 	}
 
 	async useCerebras(messages: ReadonlyArray<LlmMessage>): Promise<boolean> {
+		// if(console.log) return false;
 		if (!this.cerebras.isConfigured()) return false;
 		let text = '';
 		for (const msg of messages) {

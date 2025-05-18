@@ -183,6 +183,7 @@ export abstract class BaseLLM implements LLM {
 			return extractJsonResult(response);
 		} catch (e) {
 			if (e instanceof SyntaxError) {
+				// TODO should try to just extract it from the response message
 				const response = await this.generateText(messages, options);
 				return extractJsonResult(response);
 			}
