@@ -1,5 +1,6 @@
 import {Chat as ChatModel} from "#shared/model/chat.model";
-import type { Attachment, UIMessage, TextContent } from '../message.types';
+export type { Attachment, TextContent } from '../message.types'; // Added export
+import type { UIMessage } from '../message.types'; // UIMessage is used internally
 
 export const NEW_CHAT_ID = 'new';
 
