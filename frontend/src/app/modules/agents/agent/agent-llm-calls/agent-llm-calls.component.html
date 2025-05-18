@@ -4,9 +4,12 @@
             <mat-icon *ngIf="call.error" color="warn" class="mr-1 icon-size-5">error_outline</mat-icon>
             <span class="mb-3 pt-3 font-medium text-xl">{{ call.callStack }} {{ call.description }}</span>
 
-            <a href="{{ llmCallUrl(call) }}" style="font-size: x-small" target="_blank">
+            <a href="{{ llmCallUrl(call) }}" style="font-size: x-small" target="_blank" mat-icon-button matTooltip="Open in Firestore">
                 <mat-icon>storage</mat-icon>
             </a>
+            <button mat-icon-button (click)="openInPromptStudio(call)" matTooltip="Open in Prompt Studio" style="font-size: x-small">
+                <mat-icon>library_books</mat-icon>
+            </button>
         </div>
 
         <div class="mb-1">
@@ -44,88 +47,17 @@
                                 <span *ngSwitchCase="'text'">{{ part.text }}</span>
                                 <span *ngSwitchCase="'image'">[Image Part: {{ part.mimeType || 'type unknown' }}]</span>
                                 <span *ngSwitchCase="'file'">[File Part: {{ part.mimeType || 'type unknown' }}]</span>
-                                <span *ngSwitchDefault>[Unknown Part Type]</span>
+                                <ng-container *ngSwitchDefault>
+                                    <!-- Attempt to display unknown part content if it's a string -->
+                                    <span *ngIf="isStringContent(part)">{{ part }}</span>
+                                    <span *ngIf="!isStringContent(part)">[Unknown Part Type: {{ part.type || 'N/A' }}]</span>
+                                </ng-container>
                             </ng-container>
                         </div>
                     </ng-container>
                 </div>
             </mat-expansion-panel>
         }
-<!--
-        <mat-expansion-panel
-                *ngIf="call.systemPrompt"
-                (opened)="call.systemPromptExpanded = true"
-                (closed)="call.systemPromptExpanded = false"
-                class="mb-1"
-        >
-            <mat-expansion-panel-header>
-                <mat-panel-title [ngClass]="{ 'hidden-title': call.systemPromptExpanded }">
-                    <span>System Prompt:</span>
-                    <span *ngIf="!call.systemPromptExpanded" class="expansion-preview">
-                      {{ call.systemPrompt | slice : 0 : 50 }} ...
-                    </span>
-                </mat-panel-title>
-            </mat-expansion-panel-header>
-            <div style="white-space: pre-wrap">{{ call.systemPrompt }}</div>
-        </mat-expansion-panel>
-
-        <mat-expansion-panel
-                *ngIf="extractFunctionCallHistory(call.userPrompt)"
-                (opened)="call.functionCallHistoryExpanded = true"
-                (closed)="call.functionCallHistoryExpanded = false"
-        >
-            <mat-expansion-panel-header>
-                <mat-panel-title [ngClass]="{ 'hidden-title': call.functionCallHistoryExpanded }">
-                    <span>Function Call History: </span>
-                    <span *ngIf="!call.functionCallHistoryExpanded" class="expansion-preview">
-            {{ extractFunctionCallHistory(call.userPrompt) | slice : 0 : 150 }} ...
-          </span>
-                </mat-panel-title>
-            </mat-expansion-panel-header>
-            <div style="white-space: pre-wrap">{{ extractFunctionCallHistory(call.userPrompt) }}
-            </div>
-        </mat-expansion-panel>
-
-        <mat-expansion-panel
-                *ngIf="extractMemoryContent(call.userPrompt)"
-                (opened)="call.memoryContentsExpanded = true"
-                (closed)="call.memoryContentsExpanded = false"
-        >
-            <mat-expansion-panel-header>
-                <mat-panel-title [ngClass]="{ 'hidden-title': call.memoryContentsExpanded }">
-                    <span>Memory Contents: </span>
-                    <span *ngIf="!call.memoryContentsExpanded" class="expansion-preview">
-            {{ extractMemoryContent(call.userPrompt) | slice : 0 : 150 }}
-          </span>
-                </mat-panel-title>
-            </mat-expansion-panel-header>
-            <div style="white-space: pre-wrap">{{ extractMemoryContent(call.userPrompt) }}</div>
-        </mat-expansion-panel>
-
-        <mat-expansion-panel *ngIf="call.userPrompt" (opened)="call.userPromptExpanded = true" (closed)="call.userPromptExpanded = false" class="mb-1">
-            <mat-expansion-panel-header>
-                <mat-panel-title [ngClass]="{ 'hidden-title': call.userPromptExpanded }">
-                    <span>User Prompt: </span>
-                    <span *ngIf="!call.userPromptExpanded" class="expansion-preview">
-                        {{ removeFunctionCallHistory(removeMemoryContent(call.userPrompt)) | slice : 0 : 150 }} ...
-                    </span>
-                </mat-panel-title>
-            </mat-expansion-panel-header>
-            <div style="white-space: pre-wrap">{{ removeFunctionCallHistory(removeMemoryContent(call.userPrompt)).trim() }}</div>
-        </mat-expansion-panel>
-
-        <mat-expansion-panel (opened)="call.responseTextExpanded = true" (closed)="call.responseTextExpanded = false">
-            <mat-expansion-panel-header>
-                <mat-panel-title [ngClass]="{ 'hidden-title': call.responseTextExpanded }">
-                    <span>Response Text: </span>
-                    <span *ngIf="!call.responseTextExpanded" class="expansion-preview">
-                      {{ call.responseText | slice : 0 : 150 }} ...
-                    </span>
-                </mat-panel-title>
-            </mat-expansion-panel-header>
-            <div style="white-space: pre-wrap">{{ call.responseText }}</div>
-        </mat-expansion-panel>
-        -->
     </div>
     <div *ngIf="llmCalls.length === 0">
         <p style="padding-left: 10px">No LLM calls found for this agent.</p>

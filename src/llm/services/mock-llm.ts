@@ -61,6 +61,7 @@ export class MockLLM extends BaseLLM {
 				agentId: agentContext()?.agentId,
 				callStack: callStack(),
 				description,
+				settings: opts,
 			});
 			const requestTime = Date.now();
 

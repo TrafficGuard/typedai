@@ -26,7 +26,7 @@ describe('PromptsService', () => {
     revisionId: 1,
     tags: [],
     messages: [{ role: 'user', content: 'Hello' }],
-    options: { temperature: 1.0 },
+    settings: { temperature: 1.0 },
     updatedAt: Date.now()
   };
   const mockPromptSchemaModel = mockPrompt as PromptSchemaModel;
@@ -42,7 +42,7 @@ describe('PromptsService', () => {
   });
 
   afterEach(() => {
-    httpMock.verify(); 
+    httpMock.verify();
   });
 
   it('should be created', () => {
@@ -93,7 +93,7 @@ describe('PromptsService', () => {
       const promptId = '1';
       const payload: PromptUpdatePayload = { name: 'Updated Prompt' };
       service.updatePrompt(promptId, payload).subscribe(response => {
-        expect(response).toEqual(mockPromptSchemaModel); 
+        expect(response).toEqual(mockPromptSchemaModel);
       });
 
       const req = httpMock.expectOne(PROMPT_API.updatePrompt.buildPath({ promptId }));
@@ -110,7 +110,7 @@ describe('PromptsService', () => {
             { id: '1', name: 'Prompt 1', userId: 'user1', revisionId: 1, tags: [], updatedAt: Date.now() },
             { id: '2', name: 'Prompt 2', userId: 'user1', revisionId: 1, tags: [], updatedAt: Date.now() },
         ];
-        const initialSelectedPrompt: Prompt = { id: '1', name: 'Prompt 1', messages: [{role: 'user', content: 'test'}], options: {temperature: 1}, revisionId: 1, tags: [], userId: 'user1', updatedAt: Date.now() };
+        const initialSelectedPrompt: Prompt = { id: '1', name: 'Prompt 1', messages: [{role: 'user', content: 'test'}], settings: {temperature: 1}, revisionId: 1, tags: [], userId: 'user1', updatedAt: Date.now() };
 
         service['_prompts'].set(initialPrompts);
         service['_selectedPrompt'].set(initialSelectedPrompt);
@@ -135,7 +135,7 @@ describe('PromptsService', () => {
             { id: '1', name: 'Prompt 1', userId: 'user1', revisionId: 1, tags: [], updatedAt: Date.now() },
             { id: '2', name: 'Prompt 2', userId: 'user1', revisionId: 1, tags: [], updatedAt: Date.now() },
         ];
-        const initialSelectedPrompt: Prompt = { id: '1', name: 'Prompt 1', messages: [{role: 'user', content: 'test'}], options: {temperature: 1}, revisionId: 1, tags: [], userId: 'user1', updatedAt: Date.now() };
+        const initialSelectedPrompt: Prompt = { id: '1', name: 'Prompt 1', messages: [{role: 'user', content: 'test'}], settings: {temperature: 1}, revisionId: 1, tags: [], userId: 'user1', updatedAt: Date.now() };
 
 
         service['_prompts'].set(initialPrompts);
@@ -158,7 +158,7 @@ describe('PromptsService', () => {
 
   describe('clearSelectedPrompt', () => {
     it('should set selectedPrompt signal to null', () => {
-      service['_selectedPrompt'].set(mockPrompt); 
+      service['_selectedPrompt'].set(mockPrompt);
       expect(service.selectedPrompt()).not.toBeNull();
 
       service.clearSelectedPrompt();
@@ -168,7 +168,7 @@ describe('PromptsService', () => {
 
   describe('setSelectedPromptFromPreview', () => {
     it('should set selectedPrompt to null if preview is null', () => {
-      service['_selectedPrompt'].set(mockPrompt); 
+      service['_selectedPrompt'].set(mockPrompt);
       service.setSelectedPromptFromPreview(null);
       expect(service.selectedPrompt()).toBeNull();
     });

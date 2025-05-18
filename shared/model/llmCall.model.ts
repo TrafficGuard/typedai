@@ -1,4 +1,4 @@
-import type {LlmMessage} from "./llm.model";
+import type {CallSettings, LlmMessage} from "./llm.model";
 
 export interface LlmRequest {
     /** UUID */
@@ -7,6 +7,8 @@ export interface LlmRequest {
     description?: string;
 
     messages: LlmMessage[] | ReadonlyArray<LlmMessage>;
+    /** Temperature, topK etc */
+    settings: CallSettings;
     /** Populated when called by an agent */
     agentId?: string;
     /** Populated when called by a user through the UI */
@@ -36,6 +38,8 @@ export interface LlmCall extends LlmRequest {
     cacheReadInputTokens?: number;
     /** Number of chunks the messages are split into (0 if not chunked). */
     chunkCount?: number;
-
+    /** Notification if the response was not in the format expected by the prompt, i.e. couldn't parse the result or json tag */
+    warning?: string;
+    /** If there was a provider or network error */
     error?: string;
 }

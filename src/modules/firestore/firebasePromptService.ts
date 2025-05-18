@@ -1,7 +1,7 @@
 import { FieldValue, Firestore, type Timestamp, type WriteBatch } from '@google-cloud/firestore';
 import { logger } from '#o11y/logger';
 import type { PromptsService } from '#prompts/promptsService';
-import type { GenerateOptions, LlmMessage } from '#shared/model/llm.model';
+import type { CallSettings, LlmMessage } from '#shared/model/llm.model';
 import type { Prompt, PromptPreview } from '#shared/model/prompts.model';
 import { envVar } from '#utils/env-var';
 
@@ -17,7 +17,7 @@ interface PromptGroupDoc {
 	appId?: string | null; // Allow null for optional fields
 	tags: string[];
 	parentId?: string | null; // Allow null
-	options: GenerateOptions;
+	options: CallSettings;
 	// Timestamps for the group itself
 	createdAt: Timestamp;
 	updatedAt: Timestamp;
@@ -27,7 +27,7 @@ interface PromptGroupDoc {
 interface RevisionDoc {
 	// Fields specific to this revision
 	messages: LlmMessage[];
-	options: GenerateOptions;
+	options: CallSettings;
 	name: string;
 	appId?: string | null; // Allow null
 	tags: string[];
@@ -61,7 +61,7 @@ export class FirebasePromptService implements PromptsService {
 			appId: revisionDocData.appId === null ? undefined : revisionDocData.appId,
 			tags: revisionDocData.tags,
 			messages: revisionDocData.messages,
-			options: revisionDocData.options,
+			settings: revisionDocData.options,
 		};
 	}
 
@@ -75,7 +75,7 @@ export class FirebasePromptService implements PromptsService {
 			name: groupDocData.name,
 			appId: groupDocData.appId === null ? undefined : groupDocData.appId,
 			tags: groupDocData.tags,
-			options: groupDocData.options,
+			settings: groupDocData.options,
 		};
 	}
 
@@ -153,14 +153,14 @@ export class FirebasePromptService implements PromptsService {
 			appId: promptData.appId ?? null,
 			tags: promptData.tags,
 			parentId: promptData.parentId ?? null,
-			options: promptData.options,
+			options: promptData.settings,
 			createdAt: serverTimestamp,
 			updatedAt: serverTimestamp,
 		};
 
 		const revisionDocData: RevisionDoc = {
 			messages: promptData.messages,
-			options: promptData.options,
+			options: promptData.settings,
 			name: promptData.name,
 			appId: promptData.appId ?? null,
 			tags: promptData.tags,
@@ -234,7 +234,7 @@ export class FirebasePromptService implements PromptsService {
 					parentId: updates.parentId === undefined ? baseRevisionData.parentId : (updates.parentId ?? null),
 					tags: updates.tags ?? baseRevisionData.tags,
 					messages: updates.messages ?? baseRevisionData.messages,
-					options: updates.options ?? baseRevisionData.options,
+					options: updates.settings ?? baseRevisionData.options,
 				};
 
 				const newRevisionRef = promptGroupRef.collection(REVISIONS_SUBCOLLECTION).doc(String(newRevisionId));
@@ -271,7 +271,7 @@ export class FirebasePromptService implements PromptsService {
 					parentId: updates.parentId === undefined ? baseRevisionData.parentId : (updates.parentId ?? null),
 					tags: updates.tags ?? baseRevisionData.tags,
 					messages: updates.messages ?? baseRevisionData.messages,
-					options: updates.options ?? baseRevisionData.options,
+					options: updates.settings ?? baseRevisionData.options,
 				};
 				// Ensure promptId, userId, revisionId are correctly maintained from baseRevisionData
 				updatedRevisionDocData.promptId = promptId; // or baseRevisionData.promptId

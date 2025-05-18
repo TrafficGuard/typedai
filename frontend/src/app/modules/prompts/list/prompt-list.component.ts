@@ -2,7 +2,7 @@ import { Component, OnInit, inject, signal, ChangeDetectorRef } from '@angular/c
 import { CommonModule, DatePipe } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { PromptsService } from '../prompts.service';
-import { MatListModule } from '@angular/material/list';
+import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -19,7 +19,7 @@ import { PROMPTS_ROUTES } from '../prompt.paths';
     CommonModule,
     RouterModule,
     DatePipe,
-    MatListModule,
+    MatTableModule,
     MatButtonModule,
     MatIconModule,
     MatTooltipModule,
@@ -37,8 +37,13 @@ export class PromptListComponent implements OnInit {
   prompts = this.promptsService.prompts;
   isLoading = signal(true);
   isDeletingSignal = signal<string | null>(null); // Tracks ID of prompt being deleted
+  displayedColumns: string[] = ['name', 'tags', 'updatedAt', 'actions'];
 
   public readonly newPromptPath = PROMPTS_ROUTES.new();
+
+  trackByPromptId(index: number, item: PromptPreview): string {
+    return item.id;
+  }
 
   ngOnInit(): void {
     this.promptsService.loadPrompts().pipe(

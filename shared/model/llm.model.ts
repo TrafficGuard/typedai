@@ -12,7 +12,7 @@ import {
 import {ChangePropertyType} from "../typeUtils";
 
 // Should match fields in CallSettings in node_modules/ai/dist/index.d.ts
-export interface GenerateOptions {
+export interface CallSettings {
     /**
      * Temperature controls the randomness in token selection. Valid values are between 0 and 2. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic.
      * We generally recommend altering this or top_p but not both.
@@ -58,7 +58,7 @@ export interface GenerateOptions {
     maxOutputTokens?: number;
 }
 
-export interface GenerateTextOptions extends GenerateOptions {
+export interface GenerateTextOptions extends CallSettings {
     type?: 'text' | 'json';
     /** Identifier used in trace spans, UI etc */
     id?: string;

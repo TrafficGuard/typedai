@@ -54,7 +54,7 @@ export async function promptRoutes(fastify: AppFastifyInstance) {
 			appId: undefined, // Not in create payload, defaults to undefined
 			tags: payload.tags ?? [],
 			messages: payload.messages as any, // Cast for schema vs model type compatibility
-			options: payload.options as any, // Cast for schema vs model type compatibility
+			settings: payload.options as any, // Cast for schema vs model type compatibility
 		};
 
 		try {

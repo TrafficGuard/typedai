@@ -1,6 +1,6 @@
 import {type Static, Type} from '@sinclair/typebox';
 import type {Chat, ChatList, ChatPreview} from '#shared/model/chat.model';
-import {GenerateOptionsSchema, LlmMessagesSchema, LlmMessagesSchemaModel, UserContentSchema} from './llm.schema';
+import {CallSettingsSchema, LlmMessagesSchema, LlmMessagesSchemaModel, UserContentSchema} from './llm.schema';
 import type {AreTypesFullyCompatible} from '../utils/type-compatibility';
 import {ChangePropertyType} from "#shared/typeUtils";
 
@@ -43,7 +43,7 @@ export type ChatParams = Static<typeof ChatParamsSchema>;
 export const ChatMessageSendSchema = Type.Object({
 	llmId: Type.String(),
 	userContent: UserContentSchema, // UserContentSchema from llm.schema.ts (represents UserContentExt)
-	options: Type.Optional(GenerateOptionsSchema),
+	options: Type.Optional(CallSettingsSchema),
 }, { $id: 'ChatMessageSend' });
 export type ChatMessagePayload = Static<typeof ChatMessageSendSchema>;
 
@@ -57,7 +57,7 @@ export const RegenerateMessageSchema = Type.Object({
 	userContent: UserContentSchema, // Renamed 'text' to 'userContent' for consistency
 	llmId: Type.String(),
 	historyTruncateIndex: Type.Number(),
-	options: Type.Optional(GenerateOptionsSchema),
+	options: Type.Optional(CallSettingsSchema),
 }, { $id: 'RegenerateMessage' });
 export type RegenerateMessagePayload = Static<typeof RegenerateMessageSchema>;
 

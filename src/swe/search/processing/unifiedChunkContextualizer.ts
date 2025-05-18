@@ -1,5 +1,5 @@
 import pino from 'pino';
-import { vertexGemini_2_0_Flash_Lite } from '#llm/services/vertexai';
+import { summaryLLM } from '#llm/services/defaultLlms';
 import type { LLM } from '#shared/model/llm.model';
 
 const logger = pino({ name: 'UnifiedChunkContextualizer' });
@@ -55,7 +55,7 @@ JSON Array:
 `;
 
 	try {
-		const llm: LLM = vertexGemini_2_0_Flash_Lite(); // Using a default fast LLM for chunk identification
+		const llm: LLM = summaryLLM(); // Using a default fast LLM for chunk identification
 		const llmForContext = llm; // Using the same LLM for context generation for now
 
 		logger.info({ filePath, language, llmId: llm.getId() }, 'Requesting chunk identification from LLM');
@@ -114,7 +114,7 @@ Please give a short succinct context to situate this chunk within the overall do
 `;
 			try {
 				logger.info({ filePath, chunk_start_line: chunk.start_line, llmId: llmForContext.getId() }, 'Requesting context for chunk from LLM');
-				const generated_context_for_chunk = await llmForContext.generateText(contextPrompt);
+				const generated_context_for_chunk = await llmForContext.generateText(contextPrompt, { id: 'Chunk Context Generation' });
 				logger.info({ filePath, chunk_start_line: chunk.start_line, contextLength: generated_context_for_chunk.length }, 'Received context for chunk');
 				return { ...chunk, generated_context: generated_context_for_chunk.trim() };
 			} catch (error) {

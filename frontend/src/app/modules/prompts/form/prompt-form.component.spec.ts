@@ -43,7 +43,7 @@ const mockPrompt: Prompt = {
     { role: 'user', content: 'Hello there' },
     { role: 'assistant', content: 'Hi user!' }
   ],
-  options: { temperature: 0.7, maxOutputTokens: 100, selectedModel: 'llm-1' },
+  settings: { temperature: 0.7, maxOutputTokens: 100, selectedModel: 'llm-1' },
   updatedAt: Date.now()
 };
 const mockPromptSchema = mockPrompt as PromptSchemaModel;
@@ -176,7 +176,7 @@ describe('PromptFormComponent', () => {
          expect(component.isEditMode()).toBeTrue();
          expect(component.promptIdSignal()).toBe(mockPrompt.id);
          expect(component.promptForm.get('name')?.value).toBe(mockPrompt.name);
-         expect(component.promptForm.get('options.selectedModel')?.value).toBe(mockPrompt.options.selectedModel);
+         expect(component.promptForm.get('options.selectedModel')?.value).toBe(mockPrompt.settings.selectedModel);
          expect(component.messagesFormArray.length).toBe(mockPrompt.messages.length);
          expect(component.tagsFormArray.length).toBe(mockPrompt.tags.length);
          expect(component.isLoading()).toBeFalse();
@@ -194,7 +194,7 @@ describe('PromptFormComponent', () => {
 
          expect(mockPromptsService.updatePrompt).toHaveBeenCalledWith(mockPrompt.id, jasmine.objectContaining({
              name: updatedName,
-             options: jasmine.objectContaining({ selectedModel: mockPrompt.options.selectedModel })
+             options: jasmine.objectContaining({ selectedModel: mockPrompt.settings.selectedModel })
          }));
          expect(mockRouter.navigate).toHaveBeenCalledWith(['/ui/prompts']);
      }));

@@ -46,6 +46,7 @@ export class FirestoreLlmCallService implements LlmCallService {
 			description: data.description,
 			llmId: data.llmId,
 			requestTime: data.requestTime,
+			settings: data.settings,
 			timeToFirstToken: data.timeToFirstToken,
 			totalTime: data.totalTime,
 			agentId: data.agentId,

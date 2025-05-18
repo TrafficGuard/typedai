@@ -82,7 +82,7 @@ export class InMemoryPromptService implements PromptsService {
 			appId: promptData.appId,
 			tags: [...promptData.tags], // Deep copy of tags array
 			messages: JSON.parse(JSON.stringify(promptData.messages)), // Deep copy of messages array
-			options: { ...promptData.options }, // Shallow copy of options object
+			settings: { ...promptData.settings }, // Shallow copy of options object
 		};
 
 		this.promptRevisions.set(promptGroupId, [newPromptRevision]);
@@ -114,7 +114,7 @@ export class InMemoryPromptService implements PromptsService {
 
 			if (updates.tags) newRevision.tags = [...updates.tags];
 			if (updates.messages) newRevision.messages = JSON.parse(JSON.stringify(updates.messages));
-			if (updates.options) newRevision.options = { ...updates.options }; // Shallow copy of new options
+			if (updates.settings) newRevision.settings = { ...updates.settings }; // Shallow copy of new options
 
 			newRevision.revisionId = latestRevisionInArray.revisionId + 1;
 			revisions.push(newRevision); // Add to the existing array of revisions
@@ -130,7 +130,7 @@ export class InMemoryPromptService implements PromptsService {
 
 		if (updates.tags) targetRevision.tags = [...updates.tags];
 		if (updates.messages) targetRevision.messages = JSON.parse(JSON.stringify(updates.messages));
-		if (updates.options) targetRevision.options = { ...updates.options }; // Shallow copy of new options
+		if (updates.settings) targetRevision.settings = { ...updates.settings }; // Shallow copy of new options
 
 		// No change to revisionId, object already in map is mutated
 		return this._deepCopyPrompt(targetRevision);

@@ -7,6 +7,25 @@ import { AiLLM } from './ai-llm';
 
 export const CEREBRAS_SERVICE = 'cerebras';
 
+/**
+ * https://inference-docs.cerebras.ai/introduction
+ */
+export class CerebrasLLM extends AiLLM<OpenAIProvider> {
+	constructor(displayName: string, model: string, maxInputTokens: number, calculateCosts: LlmCostFunction) {
+		super(displayName, CEREBRAS_SERVICE, model, maxInputTokens, calculateCosts);
+	}
+
+	protected provider(): any {
+		return createCerebras({
+			apiKey: this.apiKey(),
+		});
+	}
+
+	protected apiKey(): string | undefined {
+		return currentUser().llmConfig.cerebrasKey || process.env.CEREBRAS_API_KEY;
+	}
+}
+
 export function cerebrasLLMRegistry(): Record<string, () => LLM> {
 	return {
 		'cerebras:qwen-3-32b': () => cerebrasQwen3_32b(),
@@ -25,23 +44,4 @@ export function cerebrasLlama3_8b(): LLM {
 
 export function cerebrasLlama3_3_70b(): LLM {
 	return new CerebrasLLM('Llama 3.3 70b (Cerebras)', 'llama-3.3-70b', 8_192, fixedCostPerMilTokens(0.85, 1.2));
-}
-
-/**
- * https://inference-docs.cerebras.ai/introduction
- */
-export class CerebrasLLM extends AiLLM<OpenAIProvider> {
-	constructor(displayName: string, model: string, maxInputTokens: number, calculateCosts: LlmCostFunction) {
-		super(displayName, CEREBRAS_SERVICE, model, maxInputTokens, calculateCosts);
-	}
-
-	protected provider(): any {
-		return createCerebras({
-			apiKey: this.apiKey(),
-		});
-	}
-
-	protected apiKey(): string | undefined {
-		return currentUser().llmConfig.cerebrasKey || process.env.CEREBRAS_API_KEY;
-	}
 }

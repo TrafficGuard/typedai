@@ -70,6 +70,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				// userId: currentUser().id,
 				callStack: callStack(),
 				description,
+				settings: opts,
 			};
 			let llmCall: LlmCall;
 			try {
@@ -225,6 +226,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				llmId: this.getId(),
 				agentId: agentContext()?.agentId,
 				callStack: callStack(),
+				settings: opts,
 			});
 
 			const requestTime = Date.now();

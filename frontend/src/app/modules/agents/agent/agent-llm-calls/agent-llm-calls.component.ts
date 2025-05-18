@@ -10,6 +10,9 @@ import { environment } from 'environments/environment';
 import type { LlmMessage } from '#shared/model/llm.model';
 import type { LlmCall } from '#shared/model/llmCall.model';
 import { AgentService } from '../../services/agent.service';
+import { Router } from '@angular/router';
+import type { Prompt as AppPrompt } from '#shared/model/prompts.model';
+import {AgentLinks, GoogleCloudLinks} from "../../services/agent-links"; // Use an alias if 'Prompt' is ambiguous
 
 @Component({
 	selector: 'agent-llm-calls',
@@ -21,11 +24,13 @@ import { AgentService } from '../../services/agent.service';
 export class AgentLlmCallsComponent implements OnInit {
 	@Input() agentId: string | null = null;
 	llmCalls: LlmCall[] = [];
+    agentLinks: AgentLinks = new GoogleCloudLinks();
 
 	constructor(
 		private sanitizer: DomSanitizer,
 		private snackBar: MatSnackBar,
 		private agentService: AgentService,
+		private router: Router // Inject Router
 	) {}
 
 	ngOnInit(): void {
@@ -39,10 +44,9 @@ export class AgentLlmCallsComponent implements OnInit {
 			(calls) => {
 				this.llmCalls = calls;
 				this.llmCalls.forEach((call) => {
-					for (const msg of call.messages) {
-						if (typeof msg.content === 'string') msg.content = msg.content.replace('\\n', '<br/>');
-					}
                     // Add any error as a message for display
+                    // Note: This modifies the 'messages' array that will be sent to Prompt Studio.
+                    // Consider if 'error' role messages should be part of the prompt data.
                     if(call.error) {
                         (call.messages as LlmMessage[]).push({role: 'error', content: call.error} as unknown as LlmMessage)
                     }
@@ -93,12 +97,29 @@ export class AgentLlmCallsComponent implements OnInit {
 	}
 
 	llmCallUrl(call: LlmCall): string {
-		return `https://console.cloud.google.com/firestore/databases/${
-			environment.firestoreDb || '(default)'
-		}/data/panel/LlmCall/${call.id}?project=${environment.gcpProject}`;
+        return this.agentLinks.llmCallUrl(call);
 	}
 
 	getLlmName(llmId: string): string {
 		return llmId;
 	}
+
+    openInPromptStudio(call: LlmCall): void {
+        const promptData: Partial<AppPrompt> = {
+            name: call.description,
+            appId: call.description,
+            messages: call.messages as LlmMessage[],
+            settings: {
+                llmId: call.llmId,
+                ... call.settings,
+            },
+            tags: [call.id]
+        };
+
+        console.log('AgentLlmCallsComponent: Navigating to Prompt Studio with state (llmCallData):', promptData);
+
+        this.router.navigate(['/ui/prompts/new'], {
+            state: { llmCallData: promptData } // The key is 'llmCallData'
+        }).catch(err => console.error('Failed to navigate to Prompt Studio:', err));
+    }
 }

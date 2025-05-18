@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { agentContext } from '#agent/agentContextLocalStorage';
 import { appContext } from '#app/applicationContext';
+import { callStack } from '#llm/llmCallService/llmCall';
 import { countTokens } from '#llm/tokens';
 import { withActiveSpan } from '#o11y/trace';
 import type { AgentLLMs } from '#shared/model/agent.model';
@@ -42,7 +43,8 @@ export class OllamaLLM extends BaseLLM {
 				messages,
 				llmId: this.getId(),
 				agentId: agentContext()?.agentId,
-				callStack: this.callStack(agentContext()),
+				callStack: callStack(),
+				settings: opts,
 			});
 			const requestTime = Date.now();
 

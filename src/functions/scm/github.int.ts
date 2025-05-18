@@ -89,7 +89,7 @@ describe('GitHub Integration Tests', () => {
 			// 1. Create a new issue
 			const issueTitle = `Test Issue for getIssueComments ${Date.now()}`;
 			const issueBodyText = 'This is the initial body of a test issue created for getIssueComments.';
-			let createdIssue;
+			let createdIssue: any;
 			try {
 				createdIssue = await github.createIssue(testProjectPath, issueTitle, issueBodyText);
 				expect(createdIssue, 'Issue creation failed or returned null/undefined').to.exist;
@@ -103,7 +103,7 @@ describe('GitHub Integration Tests', () => {
 
 			// 2. Post a comment on the newly created issue
 			const commentBodyText = `Test comment for issue #${createdIssue.number} added at ${new Date().toISOString()}. Unique: ${Math.random()}`;
-			let postedComment;
+			let postedComment: any;
 			try {
 				postedComment = await github.postCommentOnIssue(testProjectPath, createdIssue.number, commentBodyText);
 				expect(postedComment, 'Comment posting failed or returned null/undefined').to.exist;
@@ -129,7 +129,6 @@ describe('GitHub Integration Tests', () => {
 			// We expect at least the comment we just posted.
 			expect(comments.length, 'Comments array should contain at least one comment').to.be.greaterThan(0);
 
-			const foundComment = comments.find(comment => comment.body === commentBodyText);
 			expect(foundComment, `The specific test comment (body: "${commentBodyText}") was not found in the retrieved comments`).to.exist;
 
 			if (foundComment) {
@@ -137,7 +136,7 @@ describe('GitHub Integration Tests', () => {
 				// Verify the user who made the comment, if possible and configured
 				const configuredUsername = github.config().username;
 				if (configuredUsername) {
-					 expect(foundComment.user?.login, 'Comment user login should match the configured GitHub username').to.equal(configuredUsername);
+					expect(foundComment.user?.login, 'Comment user login should match the configured GitHub username').to.equal(configuredUsername);
 				} else {
 					// If no specific username is configured for the GitHub instance,
 					// at least ensure a user is associated with the comment.

@@ -1,5 +1,6 @@
 import {AgentContextApi} from "#shared/api/agent.api";
 import {environment} from "../../../../environments/environment";
+import type {LlmCall} from "#shared/model/llmCall.model";
 
 /**
  * Interface for generating URLs to the observability services for an agent
@@ -12,6 +13,8 @@ export interface AgentLinks {
     agentDatabaseUrl(agent: AgentContextApi): string;
 
     chatDatabaseUrl(chatId: string): string;
+
+    llmCallUrl(call: LlmCall): string;
 }
 
 export class GoogleCloudLinks implements AgentLinks {
@@ -35,5 +38,11 @@ export class GoogleCloudLinks implements AgentLinks {
         return `https://console.cloud.google.com/firestore/databases/${
             environment.firestoreDb || '(default)'
         }/data/panel/Chat/${chatId}?project=${environment.gcpProject}`;
+    }
+
+    llmCallUrl(call: LlmCall): string {
+        return `https://console.cloud.google.com/firestore/databases/${
+            environment.firestoreDb || '(default)'
+        }/data/panel/LlmCall/${call.id}?project=${environment.gcpProject}`;
     }
 }

@@ -2,7 +2,7 @@ import { cerebrasQwen3_32b } from '#llm/services/cerebras';
 import { vertexGemini_2_5_Flash } from '#llm/services/vertexai';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
-import { type GenerateTextOptions, type LLM, type LlmMessage, messageContentIfTextOnly } from '#shared/model/llm.model';
+import { type GenerateTextOptions, type LLM, type LlmMessage, messageContentIfTextOnly, messageText } from '#shared/model/llm.model';
 import { BaseLLM } from '../base-llm';
 
 /**
@@ -23,6 +23,8 @@ export class FastMediumLLM extends BaseLLM {
 		);
 		// Define the providers and their priorities. Lower number = higher priority
 		this.providers = [cerebrasQwen3_32b(), vertexGemini_2_5_Flash()];
+		this.cerebras = this.providers[0];
+		this.gemini = this.providers[1];
 
 		this.maxInputTokens = Math.max(...this.providers.map((p) => p.getMaxInputTokens()));
 	}
@@ -35,31 +37,31 @@ export class FastMediumLLM extends BaseLLM {
 		return true;
 	}
 
-	async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
-		let useCerebras = true; // Default to using Gemini
-		let tokens = 0;
-		if (this.cerebras.isConfigured()) {
-			let text = '';
-			for (const msg of messages) {
-				const msgText: string | null = messageContentIfTextOnly(msg);
-				if (msgText === null) {
-					useCerebras = false;
-					break;
-				}
-				text += `${msgText}\n`;
-			}
-			tokens = await countTokens(text);
-			if (tokens > this.getMaxInputTokens() * 0.9) useCerebras = false;
-		} else {
-			useCerebras = false;
-		}
+	protected async generateTextFromMessages(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
+		const message = await this._generateMessage(llmMessages, opts);
+		return messageText(message);
+	}
 
-		try {
-			if (useCerebras) return await this.cerebras.generateMessage(messages);
-		} catch (e) {
-			logger.warn(e, `Error calling ${this.cerebras.getId()} with ${tokens} tokens`);
-			return await this.gemini.generateMessage(messages);
+	async useCerebras(messages: ReadonlyArray<LlmMessage>): Promise<boolean> {
+		if (!this.cerebras.isConfigured()) return false;
+		let text = '';
+		for (const msg of messages) {
+			const msgText: string | null = messageContentIfTextOnly(msg);
+			if (msgText === null) return false;
+			text += `${msgText}\n`;
 		}
+		const tokens = await countTokens(text);
+		logger.info(`====== Cerebras tokens: ${tokens}`);
+		return tokens < this.cerebras.getMaxInputTokens() * 0.5;
+	}
+
+	async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
+		try {
+			if (await this.useCerebras(messages)) return await this.cerebras.generateMessage(messages, opts);
+		} catch (e) {
+			logger.warn(e, `Error calling ${this.cerebras.getId()}`);
+		}
+		return await this.gemini.generateMessage(messages, opts);
 
 		// for (const llm of this.providers) {
 		// 	if (!llm.isConfigured()) {
@@ -80,6 +82,5 @@ export class FastMediumLLM extends BaseLLM {
 		// 		logger.error(`Error with ${llm.getDisplayName()}: ${error.message}. Trying next provider.`);
 		// 	}
 		// }
-		throw new Error('All providers failed.');
 	}
 }
