@@ -848,7 +848,7 @@ export function runAgentStateServiceTests(
 				expandedUserRequest: `Elaborated user request for iteration ${iterationNumber}.`,
 				observationsReasoning: `Observations and reasoning for iteration ${iterationNumber}: focused on file operations.`,
 				agentPlan: '<plan><step>1. Monitor files using LiveFiles.</step><step>2. Save output using FileStore.</step></plan>',
-				nextStepDetails: `Next step involves processing ${originalToolState.get('LiveFiles').monitoredFiles.length} files.`,
+				nextStepDetails: `Next step involves processing ${originalToolState.LiveFiles.monitoredFiles.length} files.`,
 				code: `// Iteration ${iterationNumber} code\nconsole.log("Processing files");`,
 				executedCode: `// Iteration ${iterationNumber} executed code\nconsole.log("Processing files");\n// Output: Files processed`,
 				draftCode: `// Draft for iteration ${iterationNumber}\nlet x = 10;`,
