@@ -1,8 +1,8 @@
 import { Component, OnInit, inject, signal, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, Location, TitleCasePipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { trigger, state, style, transition, animate } from '@angular/animations'; // Ensure state is imported
-import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, FormControl } from '@angular/forms'; // Add FormsModule
+import { trigger, state, style, transition, animate } from '@angular/animations';
+import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, FormControl } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCardModule } from '@angular/material/card';
@@ -14,16 +14,14 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
-// MatSliderModule is already imported, ensure it's here. If not, it would be added.
 import { MatSliderModule } from '@angular/material/slider';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { CdkTextareaAutosize } from '@angular/cdk/text-field'; // Import CdkTextareaAutosize
-
+import { CdkTextareaAutosize } from '@angular/cdk/text-field';
 import { PromptsService } from '../prompts.service';
 import { LlmService, LLM as AppLLM } from '../../agents/services/llm.service'; // Renamed LLM to AppLLM to avoid conflict
-import type { Prompt } from '#shared/model/prompts.model'; // Ensure Prompt is imported directly
+import type { Prompt } from '#shared/model/prompts.model';
 import type { LlmMessage, CallSettings } from '#shared/model/llm.model';
 import type { PromptCreatePayload, PromptUpdatePayload, PromptSchemaModel } from '#shared/schemas/prompts.schema';
 
@@ -98,8 +96,8 @@ export class PromptFormComponent implements OnInit, OnDestroy {
         {value: 'assistant', viewValue: 'Assistant'}
     ];
 
-    public selectedModel: string = 'claude-3-opus'; // Placeholder, a common modern model for the toolbar
-    public availableModels: AppLLM[] = []; // Will be populated by LlmService
+    public selectedModel: string = '';
+    public availableModels: AppLLM[] = [];
 
     // Signals for card collapsibility (matching HTML usage)
     optionsCollapsed = signal(false);
