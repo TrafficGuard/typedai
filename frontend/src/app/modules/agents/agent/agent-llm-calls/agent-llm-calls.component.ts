@@ -11,7 +11,8 @@ import type { LlmMessage } from '#shared/model/llm.model';
 import type { LlmCall } from '#shared/model/llmCall.model';
 import { AgentService } from '../../services/agent.service';
 import { Router } from '@angular/router';
-import type { Prompt as AppPrompt } from '#shared/model/prompts.model'; // Use an alias if 'Prompt' is ambiguous
+import type { Prompt as AppPrompt } from '#shared/model/prompts.model';
+import {AgentLinks, GoogleCloudLinks} from "../../services/agent-links"; // Use an alias if 'Prompt' is ambiguous
 
 @Component({
 	selector: 'agent-llm-calls',
@@ -23,6 +24,7 @@ import type { Prompt as AppPrompt } from '#shared/model/prompts.model'; // Use a
 export class AgentLlmCallsComponent implements OnInit {
 	@Input() agentId: string | null = null;
 	llmCalls: LlmCall[] = [];
+    agentLinks: AgentLinks = new GoogleCloudLinks();
 
 	constructor(
 		private sanitizer: DomSanitizer,
@@ -95,9 +97,7 @@ export class AgentLlmCallsComponent implements OnInit {
 	}
 
 	llmCallUrl(call: LlmCall): string {
-		return `https://console.cloud.google.com/firestore/databases/${
-			environment.firestoreDb || '(default)'
-		}/data/panel/LlmCall/${call.id}?project=${environment.gcpProject}`;
+        return this.agentLinks.llmCallUrl(call);
 	}
 
 	getLlmName(llmId: string): string {
@@ -105,10 +105,9 @@ export class AgentLlmCallsComponent implements OnInit {
 	}
 
     openInPromptStudio(call: LlmCall): void {
-        // Use Partial<AppPrompt> for clarity, as we are not creating a full Prompt object here.
         const promptData: Partial<AppPrompt> = {
-            name: call.description || call.id,
-            appId: call.id,
+            name: call.description,
+            appId: call.description,
             messages: call.messages as LlmMessage[],
             settings: {
                 llmId: call.llmId,
