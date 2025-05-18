@@ -1,6 +1,6 @@
 import { Type, type Static } from '@sinclair/typebox';
-import type { AgentContext, AutonomousIteration } from '../../model/agent.model';
-import type { AreTypesFullyCompatible } from '../../utils/type-compatibility';
+import type { AgentContext, AutonomousIteration } from '../model/agent.model';
+import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
 
 export const AgentTypeSchema = Type.Union([Type.Literal('autonomous'), Type.Literal('workflow')], { $id: 'AgentType' });
 export const AutonomousSubTypeSchema = Type.Union([Type.Literal('xml'), Type.Literal('codegen'), Type.String()], { $id: 'AutonomousSubType' });
