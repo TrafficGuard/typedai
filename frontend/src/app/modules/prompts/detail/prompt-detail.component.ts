@@ -20,8 +20,9 @@ import { TextFieldModule } from '@angular/cdk/text-field';
 
 import { PromptsService } from '../prompts.service';
 import type { Prompt } from '#shared/model/prompts.model';
-import { type LlmMessage, type ImagePartExt, type FilePartExt, messageText } from '#shared/model/llm.model';
+import { type LlmMessage, type ImagePartExt, type FilePartExt, type UserContentExt } from '#shared/model/llm.model';
 import type { Attachment } from 'app/modules/message.types';
+import { userContentExtToAttachmentsAndText } from '../../messageUtil';
 import { Subject } from 'rxjs';
 import { takeUntil, tap, finalize, filter } from 'rxjs/operators';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
@@ -87,51 +88,20 @@ export class PromptDetailComponent implements OnInit, OnDestroy {
   });
 
   private processMessageForDisplay(apiLlmMessage: LlmMessage): DisplayablePromptMessage {
-    const uiImageAttachments: Attachment[] = [];
-    const uiFileAttachments: Attachment[] = [];
+    // Call the utility function to parse content into text and attachments
+    // Ensure apiLlmMessage.content is cast to UserContentExt if its type is broader
+    const { attachments: parsedUiAttachments, text: parsedText } = userContentExtToAttachmentsAndText(apiLlmMessage.content as UserContentExt);
 
-    if (Array.isArray(apiLlmMessage.content)) {
-      for (const part of apiLlmMessage.content) {
-        if (part.type === 'image') {
-          const imagePart = part as ImagePartExt;
-          const imgPreviewUrl = imagePart.externalURL ||
-                                (typeof imagePart.image === 'string' && imagePart.image.length > 0
-                                  ? `data:${imagePart.mimeType || 'image/png'};base64,${imagePart.image}`
-                                  : undefined);
+    // Filter the parsed attachments into image and file types
+    const uiImageAttachments: Attachment[] = parsedUiAttachments.filter(att => att.type === 'image');
+    const uiFileAttachments: Attachment[] = parsedUiAttachments.filter(att => att.type === 'file');
 
-          if (imgPreviewUrl) {
-            uiImageAttachments.push({
-              type: 'image',
-              filename: imagePart.filename || `image_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.png`,
-              size: imagePart.size || 0,
-              data: null, 
-              mimeType: imagePart.mimeType || 'image/png',
-              previewUrl: imgPreviewUrl,
-            });
-          }
-        } else if (part.type === 'file') {
-          const filePart = part as FilePartExt;
-          const filePreviewUrl = filePart.externalURL;
-
-          uiFileAttachments.push({
-            type: 'file',
-            filename: filePart.filename || `file_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-            size: filePart.size || 0,
-            data: null,
-            mimeType: filePart.mimeType || 'application/octet-stream',
-            previewUrl: filePreviewUrl,
-          });
-        }
-      }
-    }
-
-    const textContentForDisplay = messageText(apiLlmMessage);
-
+    // Construct and return the DisplayablePromptMessage
     return {
-      ...apiLlmMessage,
-      textContentForDisplay,
-      uiImageAttachments: uiImageAttachments.length > 0 ? uiImageAttachments : undefined,
-      uiFileAttachments: uiFileAttachments.length > 0 ? uiFileAttachments : undefined,
+        ...apiLlmMessage, // Spread original LlmMessage properties
+        textContentForDisplay: parsedText, // Use the text parsed by the utility
+        uiImageAttachments: uiImageAttachments.length > 0 ? uiImageAttachments : undefined,
+        uiFileAttachments: uiFileAttachments.length > 0 ? uiFileAttachments : undefined,
     };
   }
 

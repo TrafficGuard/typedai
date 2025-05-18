@@ -18,6 +18,11 @@ function mapReplacer(_key: string, value: any) {
 	return value instanceof Map ? Object.fromEntries(value) : value;
 }
 
+/**
+ * @deprecated User response.sendJSON
+ * @param reply
+ * @param object
+ */
 export function sendJSON(reply: FastifyReply, object: any): void {
 	reply.header('Content-Type', 'application/json; charset=utf-8');
 	// Note: status(200) was here, but individual handlers should set their status (e.g., 200, 201)

@@ -106,6 +106,8 @@ const SEP = '/';
 async function checkForExistingFiles(edits: EditBlock[]) {
 	const fss = getFileSystem();
 
+	// TODO check if its writing a file with alias in the path, e.g. #app/applicationTypes.ts or #shared/model/llm.model
+
 	const paths = await fss.listFilesRecursively();
 	const pathSet = new Set<string>(paths);
 	const allFileNames = new Set<string>();

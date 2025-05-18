@@ -1,15 +1,14 @@
 import { Type } from '@sinclair/typebox';
-import type { FastifyInstance } from 'fastify';
-import { appContext } from '#app/applicationContext';
+import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send, sendSuccess } from '#fastify/responses';
 import { logger } from '#o11y/logger';
-
 import type { CodeReviewConfig } from '#shared/model/codeReview.model';
 
-export async function codeReviewRoutes(fastify: FastifyInstance) {
+export async function codeReviewRoutes(fastify: AppFastifyInstance) {
 	fastify.get('/api/code-review-configs', async (request, reply) => {
 		try {
-			const configs = await appContext().codeReviewService.listCodeReviewConfigs();
+			// fastify instance is already AppFastifyInstance due to RouteDefinition
+			const configs = await fastify.codeReviewService.listCodeReviewConfigs();
 			send(reply, 200, configs);
 		} catch (error) {
 			logger.error(error, 'Error listing code review configs');
@@ -29,7 +28,8 @@ export async function codeReviewRoutes(fastify: FastifyInstance) {
 		async (request, reply) => {
 			const { id } = request.params as { id: string };
 			try {
-				const config = await appContext().codeReviewService.getCodeReviewConfig(id);
+				// fastify instance is already AppFastifyInstance
+				const config = await fastify.codeReviewService.getCodeReviewConfig(id);
 				if (config) {
 					send(reply, 200, config);
 				} else {
@@ -68,7 +68,8 @@ export async function codeReviewRoutes(fastify: FastifyInstance) {
 		async (request, reply) => {
 			const config = request.body as Omit<CodeReviewConfig, 'id'>;
 			try {
-				const id = await appContext().codeReviewService.createCodeReviewConfig(config);
+				// fastify instance is already AppFastifyInstance
+				const id = await fastify.codeReviewService.createCodeReviewConfig(config);
 				sendSuccess(reply, `Config created with ID: ${id}`);
 			} catch (error) {
 				logger.error(error, 'Error creating code review config');
@@ -96,7 +97,7 @@ export async function codeReviewRoutes(fastify: FastifyInstance) {
 						examples: Type.Array(
 							Type.Object({
 								code: Type.String(),
-								review_comment: Type.String(),
+								reviewComment: Type.String(),
 							}),
 						),
 					}),
@@ -105,9 +106,10 @@ export async function codeReviewRoutes(fastify: FastifyInstance) {
 		},
 		async (request, reply) => {
 			const { id } = request.params as { id: string };
-			const config = request.body as Partial<CodeReviewConfig>;
+			const config = request.body;
 			try {
-				await appContext().codeReviewService.updateCodeReviewConfig(id, config);
+				// fastify instance is already AppFastifyInstance
+				await fastify.codeReviewService.updateCodeReviewConfig(id, config);
 				sendSuccess(reply, 'Config updated successfully');
 			} catch (error) {
 				logger.error(error, 'Error updating code review config');
@@ -128,7 +130,8 @@ export async function codeReviewRoutes(fastify: FastifyInstance) {
 		async (request, reply) => {
 			const { id } = request.params as { id: string };
 			try {
-				await appContext().codeReviewService.deleteCodeReviewConfig(id);
+				// fastify instance is already AppFastifyInstance
+				await fastify.codeReviewService.deleteCodeReviewConfig(id);
 				sendSuccess(reply, 'Config deleted successfully');
 			} catch (error) {
 				logger.error(error, 'Error deleting code review config');

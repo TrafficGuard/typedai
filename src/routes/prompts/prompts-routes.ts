@@ -1,17 +1,17 @@
-import { randomUUID } from 'node:crypto';
 import type { Static } from '@sinclair/typebox';
 import type { AppFastifyInstance } from '#app/applicationTypes';
-import { sendBadRequest, sendJSON, sendNotFound } from '#fastify/responses'; // sendJSON is on reply in original spec, but is a standalone function
+import { sendBadRequest, sendJSON, sendNotFound } from '#fastify/responses';
 import { logger } from '#o11y/logger';
 import { PROMPT_API } from '#shared/api/prompts.api';
-// Prompt model is used for constructing the object for create, if needed by service.
+import type { LlmMessage } from '#shared/model/llm.model';
 import type { Prompt } from '#shared/model/prompts.model';
 import type {
 	PromptCreateSchema,
+	PromptGeneratePayloadSchema,
+	PromptGenerateResponseSchemaModel,
 	PromptListSchemaModel,
 	PromptParamsSchema,
 	PromptRevisionParamsSchema,
-	// Schema models for casting responses
 	PromptSchemaModel,
 	PromptUpdateSchema,
 } from '#shared/schemas/prompts.schema';
@@ -25,7 +25,7 @@ export async function promptRoutes(fastify: AppFastifyInstance) {
 		const userId = currentUser().id;
 		try {
 			// Service returns PromptPreview[]
-			const prompts = await fastify.promptsService.listPromptsForUser(userId);
+			const prompts = await (fastify as AppFastifyInstance).promptsService.listPromptsForUser(userId);
 			// Construct the PromptListSchemaModel structure
 			const promptList: PromptListSchemaModel = {
 				prompts: prompts as any, // Cast to any to satisfy schema, actual type is PromptPreview[]
@@ -58,7 +58,7 @@ export async function promptRoutes(fastify: AppFastifyInstance) {
 		};
 
 		try {
-			const createdPrompt = await fastify.promptsService.createPrompt(promptData, userId);
+			const createdPrompt = await (fastify as AppFastifyInstance).promptsService.createPrompt(promptData, userId);
 			// The schema for response is PromptSchema, so cast to PromptSchemaModel
 			reply.code(201);
 			sendJSON(reply, createdPrompt as PromptSchemaModel);
@@ -79,7 +79,7 @@ export async function promptRoutes(fastify: AppFastifyInstance) {
 
 		try {
 			// As per requirement: service method is getPromptById
-			const prompt = await fastify.promptsService.getPrompt(promptId, userId);
+			const prompt = await (fastify as AppFastifyInstance).promptsService.getPrompt(promptId, userId);
 			if (!prompt) {
 				return sendNotFound(reply, 'Prompt not found');
 			}
@@ -107,7 +107,7 @@ export async function promptRoutes(fastify: AppFastifyInstance) {
 
 		try {
 			// As per requirement: service method is getPromptRevision
-			const prompt = await fastify.promptsService.getPromptVersion(promptId, revisionId, userId);
+			const prompt = await (fastify as AppFastifyInstance).promptsService.getPromptVersion(promptId, revisionId, userId);
 			if (!prompt) {
 				return sendNotFound(reply, 'Prompt revision not found');
 			}
@@ -140,7 +140,7 @@ export async function promptRoutes(fastify: AppFastifyInstance) {
 			};
 
 			// Assuming PATCH updates the current revision, so newVersion is false.
-			const updatedPrompt = await fastify.promptsService.updatePrompt(promptId, serviceUpdates, userId, false);
+			const updatedPrompt = await (fastify as AppFastifyInstance).promptsService.updatePrompt(promptId, serviceUpdates, userId, false);
 			// The schema for response is PromptSchema, so cast to PromptSchemaModel
 			sendJSON(reply, updatedPrompt as PromptSchemaModel);
 		} catch (error: any) {
@@ -159,12 +159,49 @@ export async function promptRoutes(fastify: AppFastifyInstance) {
 		const userId = currentUser().id;
 
 		try {
-			await fastify.promptsService.deletePrompt(promptId, userId);
+			await (fastify as AppFastifyInstance).promptsService.deletePrompt(promptId, userId);
 			// Response schema is ApiNullResponseSchema, resulting in 204 No Content
 			reply.code(204).send();
 		} catch (error: any) {
 			logger.error({ err: error, promptId, userId }, 'Error deleting prompt');
 			const message = error.message || 'Error deleting prompt';
+			const statusCode = typeof error.statusCode === 'number' ? error.statusCode : 500;
+			reply.code(statusCode).send({ error: message });
+		}
+	});
+
+	/**
+	 * Generate content from a prompt.
+	 */
+	fastify.post(PROMPT_API.generateFromPrompt.pathTemplate, { schema: PROMPT_API.generateFromPrompt.schema }, async (req, reply) => {
+		const { promptId } = req.params as Static<typeof PromptParamsSchema>; // Ensure Static is imported from @sinclair/typebox
+		const payload = req.body as Static<typeof PromptGeneratePayloadSchema>; // Ensure Static is imported
+		// const options = payload.options; // 'options' can be extracted if needed for logging or future use
+		const userId = currentUser().id;
+
+		logger.info({ promptId, userId, payload }, 'Request to generate content from prompt');
+
+		try {
+			// Mock implementation:
+			const mockGeneratedMessage: LlmMessage = {
+				role: 'assistant',
+				content: 'This is a mock generated message from the new /api/prompts/:promptId/generate endpoint.',
+				// Ensure LlmMessage structure matches what PromptGenerateResponseSchemaModel expects for generatedMessage.
+				// If 'stats' or other fields are mandatory in the schema representation of LlmMessage, they should be added.
+				// For example, if LlmMessageSchema requires stats (which it does via LlmMessageSpecificFieldsSchema):
+				stats: { requestTime: 0, timeToFirstToken: 0, totalTime: 0, inputTokens: 0, outputTokens: 0, cost: 0, llmId: 'mock-llm' },
+				// llmId and time are also optional fields in LlmMessageSpecificFieldsSchema
+			};
+
+			const response: PromptGenerateResponseSchemaModel = {
+				generatedMessage: mockGeneratedMessage as any, // Using 'as any' to bridge potential minor discrepancies between LlmMessage model and schema during mock phase.
+			};
+
+			// Use sendJSON to send the response with a 200 OK status by default.
+			sendJSON(reply, response);
+		} catch (error: any) {
+			logger.error({ err: error, promptId, userId, payload }, 'Error in /api/prompts/:promptId/generate endpoint');
+			const message = error.message || 'Error generating content from prompt';
 			const statusCode = typeof error.statusCode === 'number' ? error.statusCode : 500;
 			reply.code(statusCode).send({ error: message });
 		}

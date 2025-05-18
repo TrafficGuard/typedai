@@ -1,8 +1,8 @@
-import { Component, OnInit, inject, signal, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, inject, signal, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef, ViewChildren, QueryList, ElementRef } from '@angular/core';
 import { CommonModule, Location, TitleCasePipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { trigger, state, style, transition, animate } from '@angular/animations';
-import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, FormControl } from '@angular/forms';
+import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, FormControl, AbstractControl } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCardModule } from '@angular/material/card';
@@ -25,7 +25,7 @@ import type { Prompt } from '#shared/model/prompts.model';
 import type { LlmMessage, CallSettings, UserContentExt, TextPart, ImagePartExt, FilePartExt } from '#shared/model/llm.model';
 import type { PromptCreatePayload, PromptUpdatePayload, PromptSchemaModel } from '#shared/schemas/prompts.schema';
 import type { Attachment } from '../message.types';
-import { attachmentsAndTextToUserContentExt, userContentExtToAttachmentsAndText } from '../messageUtil';
+import { attachmentsAndTextToUserContentExt, userContentExtToAttachmentsAndText, fileToAttachment } from '../messageUtil';
 
 import { Subject, Observable, forkJoin } from 'rxjs';
 import { takeUntil, finalize, tap, filter } from 'rxjs/operators';
@@ -89,7 +89,33 @@ export class PromptFormComponent implements OnInit, OnDestroy {
     isSaving = signal(false);
     private destroy$ = new Subject<void>();
 
+    @ViewChildren('fileInput') fileInputs!: QueryList<ElementRef<HTMLInputElement>>;
+
     tagCtrl = new FormControl('');
+
+    public getAttachmentsFormArray(messageControl: AbstractControl | null): FormArray | null {
+        if (messageControl instanceof FormGroup) {
+            const attachmentsControl = messageControl.get('attachments');
+            if (attachmentsControl instanceof FormArray) {
+                return attachmentsControl;
+            }
+        }
+        return null;
+    }
+
+    public getMessageContentSummary(messageControl: AbstractControl | null): string {
+        const contentValue = messageControl?.value;
+        return (typeof contentValue === 'string') ? contentValue : '';
+    }
+
+    public getTruncatedMessageContentSummary(messageControl: AbstractControl | null, maxLength: number = 50): string {
+        const summary = this.getMessageContentSummary(messageControl);
+        if (summary.length > maxLength) {
+            return summary.slice(0, maxLength) + '...';
+        }
+        return summary;
+    }
+
     readonly separatorKeysCodes: number[] = [13, 188];
 
     readonly llmMessageRoles: Array<{value: LlmMessage['role'], viewValue: string}> = [
@@ -570,9 +596,72 @@ export class PromptFormComponent implements OnInit, OnDestroy {
     //   });
     // }
 
+    public onDragOver(event: DragEvent): void {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    public async onDrop(event: DragEvent, messageIndex: number): Promise<void> {
+        event.preventDefault();
+        event.stopPropagation();
+        const files = Array.from(event.dataTransfer?.files || []);
+        if (files.length > 0) {
+            const messageGroup = this.messagesFormArray.at(messageIndex) as FormGroup;
+            if (messageGroup) {
+                const attachmentsArray = this.getAttachmentsFormArray(messageGroup);
+                if (attachmentsArray) {
+                    for (const file of files) {
+                        const attachment = await fileToAttachment(file);
+                        attachmentsArray.push(this.fb.control(attachment));
+                    }
+                    this.cdr.detectChanges();
+                }
+            }
+        }
+    }
 
     ngOnDestroy(): void {
         this.destroy$.next();
         this.destroy$.complete();
+    }
+
+    public async onFileSelected(event: Event, messageIndex: number): Promise<void> {
+        const inputElement = event.target as HTMLInputElement;
+        if (inputElement.files && inputElement.files.length > 0) {
+            const messageGroup = this.messagesFormArray.at(messageIndex) as FormGroup;
+            if (messageGroup) {
+                const attachmentsArray = this.getAttachmentsFormArray(messageGroup);
+                if (attachmentsArray) {
+                    for (let i = 0; i < inputElement.files.length; i++) {
+                        const file = inputElement.files[i];
+                        const attachment = await fileToAttachment(file);
+                        attachmentsArray.push(this.fb.control(attachment));
+                    }
+                    this.cdr.detectChanges();
+                }
+            }
+        }
+        // Clear the input value to allow selecting the same file again
+        if (inputElement) {
+            inputElement.value = '';
+        }
+    }
+
+    public triggerFileInputClick(index: number): void {
+        const inputElement = this.fileInputs.toArray()[index];
+        if (inputElement) {
+            inputElement.nativeElement.click();
+        }
+    }
+
+    public removeAttachment(messageIndex: number, attachmentIndex: number): void {
+        const messageGroup = this.messagesFormArray.at(messageIndex) as FormGroup;
+        if (messageGroup) {
+            const attachmentsArray = this.getAttachmentsFormArray(messageGroup);
+            if (attachmentsArray) {
+                attachmentsArray.removeAt(attachmentIndex);
+                this.cdr.detectChanges();
+            }
+        }
     }
 }

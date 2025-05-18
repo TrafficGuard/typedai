@@ -1,41 +1,28 @@
 import type { Attachment } from 'app/modules/message.types';
+import type {
+    UserContentExt,
+    TextPart,
+    ImagePartExt,
+    FilePartExt,
+} from '#shared/model/llm.model';
 
-// Type definitions (as provided, assuming #shared/model/llm.model is not directly importable here)
-export interface TextPart {
-    type: 'text';
-    text: string;
+// Helper function to convert File to base64 string (extracting only the data part)
+async function fileToBase64(file: File): Promise<string> {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.readAsDataURL(file);
+		reader.onload = () => {
+			const result = reader.result as string;
+            const commaIndex = result.indexOf(',');
+            if (commaIndex === -1) {
+                resolve(''); // Return empty string if not a valid data URI structure or empty file
+                return;
+            }
+			resolve(result.substring(commaIndex + 1));
+		};
+		reader.onerror = error => reject(error);
+	});
 }
-
-export interface ImagePart { // Base, might be extended by ImagePartExt
-    type: 'image';
-    // Common properties for an image
-}
-
-export interface ImagePartExt extends ImagePart {
-    image?: string; // Base64 encoded image data
-    mimeType?: string;
-    filename?: string;
-    size?: number;
-    externalURL?: string; // URL to an externally hosted image
-    // Potentially other 'ext' (extended) properties
-}
-
-export interface FilePart { // Base, might be extended by FilePartExt
-    type: 'file';
-    // Common properties for a file
-}
-
-export interface FilePartExt extends FilePart {
-    mimeType?: string;
-    filename?: string;
-    size?: number;
-    externalURL?: string; // URL to an externally hosted file
-    // Potentially other 'ext' (extended) properties
-}
-
-export type LlmMessageContentPart = TextPart | ImagePartExt | FilePartExt;
-
-export type UserContentExt = string | LlmMessageContentPart[];
 
 /**
  * Converts a File object into an Attachment object, generating a preview URL for images.
@@ -77,41 +64,40 @@ export async function fileToAttachment(file: File): Promise<Attachment> {
  * @param text An optional text string.
  * @returns UserContentExt representing the combined attachments and text.
  */
-export function attachmentsAndTextToUserContentExt(attachments: Attachment[], text: string | null | undefined): UserContentExt {
-    const parts: LlmMessageContentPart[] = [];
+export async function attachmentsAndTextToUserContentExt(attachments: Attachment[], text: string | null | undefined): Promise<UserContentExt> {
+    const parts: Array<TextPart | ImagePartExt | FilePartExt> = [];
 
     if (text && text.trim() !== '') {
-        parts.push({ type: 'text', text: text.trim() });
+        parts.push({ type: 'text', text: text.trim() } as TextPart); // Cast to TextPart from shared model
     }
 
     for (const attachment of attachments) {
         if (attachment.type === 'image') {
+            const imageBase64 = attachment.data ? await fileToBase64(attachment.data) : '';
             const imagePart: ImagePartExt = {
                 type: 'image',
+                image: imageBase64, // Required: base64 string
+                mimeType: attachment.mimeType, // Optional in shared ImagePart, but good to provide
                 filename: attachment.filename,
-                mimeType: attachment.mimeType,
                 size: attachment.size,
+                externalURL: attachment.previewUrl && !attachment.previewUrl.startsWith('data:') ? attachment.previewUrl : undefined,
             };
-            if (attachment.previewUrl && attachment.previewUrl.startsWith('data:')) {
-                // Assuming previewUrl is a base64 data URI
-                const base64Data = attachment.previewUrl.split(',')[1];
-                if (base64Data) {
-                    imagePart.image = base64Data;
-                }
-            }
             parts.push(imagePart);
         } else if (attachment.type === 'file') {
+            const fileBase64 = attachment.data ? await fileToBase64(attachment.data) : '';
             const filePart: FilePartExt = {
                 type: 'file',
+                data: fileBase64, // Required: base64 string
+                mimeType: attachment.mimeType, // Required
                 filename: attachment.filename,
-                mimeType: attachment.mimeType,
                 size: attachment.size,
+                externalURL: attachment.previewUrl && !attachment.previewUrl.startsWith('data:') ? attachment.previewUrl : undefined,
             };
             parts.push(filePart);
         }
     }
 
-    if (parts.length === 0) {
+    if (parts.length === 0 && (!text || text.trim() === '')) {
         return []; // No text and no attachments
     }
 

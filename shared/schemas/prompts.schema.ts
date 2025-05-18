@@ -1,6 +1,6 @@
 import {type Static, Type} from '@sinclair/typebox';
-import type {Prompt, PromptPreview} from '../model/prompts.model';
-import {CallSettingsSchema, LlmMessagesSchema, type LlmMessagesSchemaModel} from './llm.schema';
+import type {Prompt, PromptPreview, PromptGeneratePayloadModel, PromptGenerateResponseModel} from '../model/prompts.model';
+import { LlmMessageSchema, CallSettingsSchema, LlmMessagesSchema, type LlmMessagesSchemaModel } from './llm.schema';
 import type {AreTypesFullyCompatible} from '../utils/type-compatibility';
 import type {ChangePropertyType} from '../typeUtils';
 import {ApiNullResponseSchema} from './common.schema'; // As per requirement, though not directly used in these schemas
@@ -72,6 +72,15 @@ export const PromptRevisionParamsSchema = Type.Object({
     revisionId: Type.String() // revisionId is string in URL params
 }, { $id: 'PromptRevisionParams' });
 
+// Add near other API Specific Schemas
+export const PromptGeneratePayloadSchema = Type.Object({
+    options: Type.Optional(PromptOptionsSchema) // Allow overriding prompt's default LLM settings
+}, { $id: 'PromptGeneratePayload' });
+
+// Add near other API Specific Schemas
+export const PromptGenerateResponseSchema = Type.Object({
+    generatedMessage: LlmMessageSchema // The newly generated message
+}, { $id: 'PromptGenerateResponse' });
 
 // --- Static Types ---
 export type PromptSchemaModel = Static<typeof PromptSchema>;
@@ -81,3 +90,16 @@ export type PromptCreatePayload = Static<typeof PromptCreateSchema>;
 export type PromptUpdatePayload = Static<typeof PromptUpdateSchema>;
 export type PromptRevisionParams = Static<typeof PromptRevisionParamsSchema>;
 export type PromptListSchemaModel = Static<typeof PromptListSchema>;
+export type PromptGeneratePayload = Static<typeof PromptGeneratePayloadSchema>;
+export type PromptGenerateResponseSchemaModel = Static<typeof PromptGenerateResponseSchema>;
+
+// Add these checks. Ensure PromptGeneratePayloadModel and PromptGenerateResponseModel are imported or defined.
+
+// Define a static type for a single LlmMessage, similar to LlmMessagesSchemaModel for arrays
+type SingleLlmMessageSchemaModel = Static<typeof LlmMessageSchema>;
+
+// Hack type for PromptGenerateResponseModel to align with LlmMessageSchema for the check
+type PromptGenerateResponseModelHack = ChangePropertyType<PromptGenerateResponseModel, 'generatedMessage', SingleLlmMessageSchemaModel>;
+
+const _PromptGeneratePayloadCheck: AreTypesFullyCompatible<PromptGeneratePayloadModel, Static<typeof PromptGeneratePayloadSchema>> = true;
+const _PromptGenerateResponseCheck: AreTypesFullyCompatible<PromptGenerateResponseModelHack, PromptGenerateResponseSchemaModel> = true;

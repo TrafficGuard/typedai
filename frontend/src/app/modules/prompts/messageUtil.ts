@@ -1,41 +1,13 @@
 import type { Attachment } from './message.types';
+import type {
+    TextPart,
+    ImagePartExt,
+    FilePartExt,
+    UserContentExt
+} from '#shared/model/llm.model';
 
-// Type definitions (as provided, assuming #shared/model/llm.model is not directly importable here)
-export interface TextPart {
-    type: 'text';
-    text: string;
-}
-
-export interface ImagePart { // Base, might be extended by ImagePartExt
-    type: 'image';
-    // Common properties for an image
-}
-
-export interface ImagePartExt extends ImagePart {
-    image?: string; // Base64 encoded image data
-    mimeType?: string;
-    filename?: string;
-    size?: number;
-    externalURL?: string; // URL to an externally hosted image
-    // Potentially other 'ext' (extended) properties
-}
-
-export interface FilePart { // Base, might be extended by FilePartExt
-    type: 'file';
-    // Common properties for a file
-}
-
-export interface FilePartExt extends FilePart {
-    mimeType?: string;
-    filename?: string;
-    size?: number;
-    externalURL?: string; // URL to an externally hosted file
-    // Potentially other 'ext' (extended) properties
-}
-
+// LlmMessageContentPart is a union of the imported part types
 export type LlmMessageContentPart = TextPart | ImagePartExt | FilePartExt;
-
-export type UserContentExt = string | LlmMessageContentPart[];
 
 /**
  * Converts a File object into an Attachment object, generating a preview URL for images.
@@ -88,25 +60,38 @@ export function attachmentsAndTextToUserContentExt(attachments: Attachment[], te
         if (attachment.type === 'image') {
             const imagePart: ImagePartExt = {
                 type: 'image',
+                image: '', // Initialize required field
                 filename: attachment.filename,
                 mimeType: attachment.mimeType,
                 size: attachment.size,
+                externalURL: undefined, // Initialize optional field
             };
             if (attachment.previewUrl && attachment.previewUrl.startsWith('data:')) {
-                // Assuming previewUrl is a base64 data URI
                 const base64Data = attachment.previewUrl.split(',')[1];
                 if (base64Data) {
                     imagePart.image = base64Data;
                 }
+                // If base64Data is null/undefined, image remains ""
+            } else if (attachment.previewUrl) {
+                // If previewUrl is not a data URI, assume it's an external URL
+                imagePart.externalURL = attachment.previewUrl;
+                // image remains "" as we don't have base64 data for the 'image' field itself
             }
+            // If no previewUrl, image remains ""
             parts.push(imagePart);
         } else if (attachment.type === 'file') {
             const filePart: FilePartExt = {
                 type: 'file',
+                data: '', // Initialize required field (functionally problematic, but type-correct)
+                mimeType: attachment.mimeType || 'application/octet-stream', // Ensure required field is set
                 filename: attachment.filename,
-                mimeType: attachment.mimeType,
                 size: attachment.size,
+                externalURL: undefined, // Initialize optional field
             };
+            // If previewUrl for files represents an external link, assign it
+            if (attachment.previewUrl && !attachment.previewUrl.startsWith('data:')) {
+                filePart.externalURL = attachment.previewUrl;
+            }
             parts.push(filePart);
         }
     }
@@ -148,31 +133,34 @@ export function userContentExtToAttachmentsAndText(content: UserContentExt | und
                 }
                 text += (part as TextPart).text;
             } else if (part.type === 'image') {
-                const imagePart = part as ImagePartExt;
+                const imagePart = part as ImagePartExt; // Now using shared ImagePartExt
                 const attachment: Attachment = {
                     type: 'image',
-                    filename: imagePart.filename || 'image.png',
-                    size: imagePart.size || 0,
-                    mimeType: imagePart.mimeType || 'image/png',
-                    data: null, // Data is not typically reconstructed from UserContentExt
+                    filename: imagePart.filename || 'image.png', // filename is optional in AttachmentInfo
+                    size: imagePart.size || 0, // size is optional in AttachmentInfo
+                    mimeType: imagePart.mimeType || 'image/png', // mimeType is optional in base ImagePart
+                    data: null,
                     previewUrl: undefined,
                 };
-                if (imagePart.image) {
+                // imagePart.image is a required string (base64 data)
+                // Prioritize imagePart.image for previewUrl if available
+                if (imagePart.image && imagePart.image.length > 0) { // Check if not an empty string
                     attachment.previewUrl = `data:${imagePart.mimeType || 'image/png'};base64,${imagePart.image}`;
                 } else if (imagePart.externalURL) {
                     attachment.previewUrl = imagePart.externalURL;
                 }
                 attachments.push(attachment);
             } else if (part.type === 'file') {
-                const filePart = part as FilePartExt;
+                const filePart = part as FilePartExt; // Now using shared FilePartExt
                 const attachment: Attachment = {
                     type: 'file',
-                    filename: filePart.filename || 'file',
-                    size: filePart.size || 0,
-                    mimeType: filePart.mimeType || 'application/octet-stream',
-                    data: null, // Data is not typically reconstructed from UserContentExt
-                    previewUrl: filePart.externalURL,
+                    filename: filePart.filename || 'file', // filename is optional in AttachmentInfo
+                    size: filePart.size || 0, // size is optional in AttachmentInfo
+                    mimeType: filePart.mimeType, // mimeType is required in shared FilePartExt
+                    data: null,
+                    previewUrl: filePart.externalURL, // externalURL is optional in AttachmentInfo
                 };
+                // filePart.data (base64 string) is required but not used to reconstruct Attachment.data (File object)
                 attachments.push(attachment);
             }
         }

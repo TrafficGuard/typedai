@@ -104,7 +104,7 @@ class VertexLLM extends AiLLM<GoogleVertexProvider> {
 		let project: string;
 		if (GCLOUD_PROJECTS.length) {
 			project = GCLOUD_PROJECTS[gcloudProjectIndex];
-			if (++gcloudProjectIndex > GCLOUD_PROJECTS.length) gcloudProjectIndex = 0;
+			if (++gcloudProjectIndex >= GCLOUD_PROJECTS.length) gcloudProjectIndex = 0;
 		} else {
 			project = currentUser().llmConfig.vertexProjectId || project || envVar('GCLOUD_PROJECT');
 		}

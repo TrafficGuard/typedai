@@ -1,7 +1,7 @@
 import { TextFieldModule } from '@angular/cdk/text-field';
-import { CommonModule, NgClass } from '@angular/common'; // Import NgClass
+import { CommonModule, NgClass } from '@angular/common';
 import { UserService } from 'app/core/user/user.service';
-import { EMPTY, Observable, catchError } from 'rxjs';
+import { EMPTY, Observable, catchError, from } from 'rxjs';
 import { v4 as uuidv4 } from 'uuid';
 import {
     AfterViewInit,
@@ -25,6 +25,8 @@ import {
 import { toSignal, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {Chat, ChatMessage, NEW_CHAT_ID} from 'app/modules/chat/chat.types';
 import type { Attachment } from 'app/modules/message.types';
+import { UserContentExt } from '#shared/model/llm.model';
+import { fileToAttachment, attachmentsAndTextToUserContentExt, userContentExtToAttachmentsAndText } from '../../messageUtil';
 import {MatButtonModule} from '@angular/material/button';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatIconModule} from '@angular/material/icon';
@@ -135,22 +137,29 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
         let messagesToShow = currentChat?.messages ? [...currentChat.messages] : [];
 
         // Parse messages to populate textChunks
-        messagesToShow = messagesToShow.map(msg => ({
-            ...msg,
-            textChunks:  parseMessageContent(msg.textContent) // Populate textChunks here
-        }));
+        let messagesToProcess: ChatMessage[] = currentChat?.messages ?
+            currentChat.messages.map(m => ({...m})) :
+            [];
+
 
         if (this.generatingAIMessage()) {
             const generatingMsg = this.generatingAIMessage();
-            if (generatingMsg) {
-                 messagesToShow.push({
-                    ...generatingMsg,
-                    // Ensure generating message also has textChunks, populated by parseMessageContent
-                    textChunks:  parseMessageContent(generatingMsg.textContent)
-                 });
-            }
+            if (generatingMsg) messagesToProcess.push(generatingMsg as ChatMessage);
         }
-        return messagesToShow;
+
+        return messagesToProcess.map(msg => {
+            const { attachments, text } = userContentExtToAttachmentsAndText(msg.content);
+            const uiImageAttachments = attachments.filter(a => a.type === 'image');
+            const uiFileAttachments = attachments.filter(a => a.type === 'file');
+
+            return {
+                ...msg,
+                textContentForDisplay: text,
+                uiImageAttachments: uiImageAttachments.length > 0 ? uiImageAttachments : undefined,
+                uiFileAttachments: uiFileAttachments.length > 0 ? uiFileAttachments : undefined,
+                textChunks: parseMessageContent(text)
+            };
+        });
     });
 
     /**
@@ -192,7 +201,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
                     })
                 ).subscribe();
             } else {
-                 this._chatService.setChat({ id: NEW_CHAT_ID, messages: [], title: '', updatedAt: Date.now() });
+                this._chatService.setChat({ id: NEW_CHAT_ID, messages: [], title: '', updatedAt: Date.now() });
             }
         });
 
@@ -209,7 +218,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
             }
 
             if (currentChat && currentChat.messages) {
-                 this.assignUniqueIdsToMessages(currentChat.messages); // Ensure messages have IDs for trackBy
+                this.assignUniqueIdsToMessages(currentChat.messages); // Ensure messages have IDs for trackBy
             }
             this.updateLlmSelector();
 
@@ -234,14 +243,16 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
         if (isGenerating && aiMsg && aiMsg.generating) {
             const timer = setInterval(() => {
-                this.generatingAIMessage.update(gm =>
-                    gm ? {
+                this.generatingAIMessage.update(gm => {
+                    if (!gm) return null;
+                    const newTextContent = gm.content === '.' ? '..' : gm.content === '..' ? '...' : '.';
+                    return {
                         ...gm,
-                        textContent: gm.textContent.length >= 3 ? '.' : gm.textContent + '.',
-                        // Update textChunks based on the new textContent
-                        textChunks:  parseMessageContent(gm.textContent.length >= 3 ? '.' : gm.textContent + '.')
-                    } : null
-                );
+                        content: newTextContent, // Update UserContentExt string
+                        textContent: newTextContent, // Also update textContent
+                        // textChunks will be derived by displayedMessages
+                    };
+                });
             }, 800);
             onCleanup(() => {
                 clearInterval(timer);
@@ -295,11 +306,6 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     ngOnDestroy(): void {
-        // Removed manual timer clear
-        // if (this.generatingTimer) clearInterval(this.generatingTimer);
-        // Removed _unsubscribeAll cleanup
-        // this._unsubscribeAll.next(null);
-        // this._unsubscribeAll.complete();
     }
 
     ngAfterViewInit() {
@@ -451,7 +457,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
      * Sends a message in the chat after getting the latest user preferences
      * Handles both new chat creation and message sending in existing chats
      */
-    sendMessage(): void {
+    async sendMessage(): Promise<void> { // Make method async
         const messageText: string = this.messageInput.nativeElement.value.trim();
         const attachments: Attachment[] = [...this.selectedAttachments()];
 
@@ -479,17 +485,14 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
         // Optimistic UI update: add a "generating" placeholder for AI
         const aiGeneratingMessageEntry: ChatMessage = {
             id: uuidv4(),
-            textContent: '.', // Initial placeholder text
+            content: '.', // UserContentExt can be a string for simple text
+            textContent: '.', // Required by UIMessage
             isMine: false,
             generating: true,
             createdAt: new Date().toISOString(),
-            textChunks:  parseMessageContent('.') // Initialize textChunks
+            // textChunks will be derived in displayedMessages
         };
         this.generatingAIMessage.set(aiGeneratingMessageEntry);
-
-        // Removed manual timer management - handled by effect
-        // if (this.generatingTimer) clearInterval(this.generatingTimer);
-        // this.generatingTimer = setInterval(() => { /* ... */ }, 800);
 
         this._scrollToBottom(); // Scroll after adding optimistic messages
 
@@ -498,15 +501,21 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
         this.selectedAttachments.set([]);
 
         const options = { ...currentUser.chat, thinking: this.llmHasThinkingLevels() ? this.thinkingLevel() : null };
-        const attachmentsToSend: Attachment[] = attachments;
+        const userContentPayload: UserContentExt = await attachmentsAndTextToUserContentExt(attachments, messageText); // await the async function
 
         let apiCall: Observable<any>;
         const currentChat = this.chat();
 
         if (!currentChat || currentChat.id === NEW_CHAT_ID) {
-            apiCall = this._chatService.createChat(messageText, currentLlmId, options, attachmentsToSend);
+            // Pass empty array for attachmentsToSend as it's now part of userContentPayload
+            apiCall = this._chatService.createChat(userContentPayload, currentLlmId, options); // Removed extra [] argument
         } else {
-            apiCall = this._chatService.sendMessage(currentChat.id, messageText, currentLlmId, options, attachmentsToSend);
+            // Pass empty array for attachmentsToSend as it's now part of userContentPayload
+            // The service's sendMessage still accepts attachmentsForUI, which is fine. We pass undefined if not needed or the component's attachments.
+            // For now, let's assume attachments are handled by userContentPayload for the API, and UI attachments are for local display if needed by service.
+            // The service's sendMessage signature is: (chatId: string, userContent: UserContentExt, llmId: string, options?: CallSettings, attachmentsForUI?: Attachment[])
+            // We can pass the original `attachments` array for `attachmentsForUI` if the service uses it for optimistic updates.
+            apiCall = this._chatService.sendMessage(currentChat.id, userContentPayload, currentLlmId, options, attachments);
         }
 
         apiCall.subscribe({
@@ -531,10 +540,6 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
             },
             complete: () => {
                 this.generating.set(false);
-                // Removed manual timer clear
-                // if (this.generatingTimer) clearInterval(this.generatingTimer);
-                // Removed pendingUserMessage clear
-                // this.pendingUserMessage.set(null);
                 this.generatingAIMessage.set(null);
                 this.sendIcon.set('heroicons_outline:paper-airplane');
                 this._resizeMessageInput();
@@ -689,7 +694,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
             return;
         }
 
-        let lastUserMessageText: string | undefined;
+        let lastUserMessageContent: UserContentExt | undefined;
         // Find the user message that led to the AI response at messageIndex
         // This logic might need to be more robust depending on how regeneration is defined.
         // Assuming we regenerate based on the user message immediately preceding the AI message at messageIndex,
@@ -697,42 +702,34 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
         let userMessagePromptIndex = -1;
         for (let i = messageIndex -1; i >=0; i--) {
             if(currentChat.messages[i].isMine) {
-                lastUserMessageText = currentChat.messages[i].textContent;
+                lastUserMessageContent = currentChat.messages[i].content;
                 userMessagePromptIndex = i;
                 break;
             }
         }
 
-        if (!lastUserMessageText) {
+        if (!lastUserMessageContent) {
             this._snackBar.open('Could not find a user message to regenerate from.', 'Close', { duration: 3000 });
             return;
         }
 
-        // Removed Optimistic update for pendingUserMessage
-        // this.pendingUserMessage.set(currentChat.messages[userMessagePromptIndex]); // Removed
-
         // KEEP Optimistic update for generatingAIMessage
         const aiGeneratingMessageEntry: ChatMessage = {
             id: uuidv4(),
-            textContent: '.', // Initial placeholder text
+            content: '.', // UserContentExt can be a string for simple text
+            textContent: '.', // Required by UIMessage
             isMine: false,
             generating: true,
             createdAt: new Date().toISOString(),
-            textChunks:  parseMessageContent('.') // Initialize textChunks
+            // textChunks will be derived in displayedMessages
         };
         this.generatingAIMessage.set(aiGeneratingMessageEntry);
-
-        // Removed manual timer management - handled by effect
-        // if (this.generatingTimer) clearInterval(this.generatingTimer);
-        // this.generatingTimer = setInterval(() => { /* ... */ }, 800);
-
-
         this.generating.set(true);
         this.sendIcon.set('heroicons_outline:stop-circle');
 
         // The service's regenerateMessage should handle updating the chat signal correctly,
         // potentially by removing subsequent messages and adding the new AI response.
-        this._chatService.regenerateMessage(currentChat.id, lastUserMessageText, currentLlmId, userMessagePromptIndex + 1)
+        this._chatService.regenerateMessage(currentChat.id, lastUserMessageContent, currentLlmId, userMessagePromptIndex + 1)
             .subscribe({
                 error: (err) => {
                     console.error('Error regenerating message:', err);
@@ -744,10 +741,6 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
                 },
                 complete: () => {
                     this.generating.set(false);
-                    // Removed manual timer clear
-                    // if (this.generatingTimer) clearInterval(this.generatingTimer);
-                    // Removed pendingUserMessage clear
-                    // this.pendingUserMessage.set(null);
                     this.generatingAIMessage.set(null);
                     this.sendIcon.set('heroicons_outline:paper-airplane');
                     this._scrollToBottom();
@@ -810,7 +803,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     private addFiles(files: File[]): void {
         const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit per file
 
-        files.forEach(file => {
+        files.forEach(async file => { // Make callback async
             if (file.size > MAX_FILE_SIZE) {
                 this._snackBar.open(`File ${file.name} exceeds 10MB limit.`, 'Close', { duration: 3000 });
                 return;
@@ -821,30 +814,9 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
                 return;
             }
 
-            const attachment: Attachment = {
-                type: file.type.startsWith('image/') ? 'image' : 'file',
-                filename: file.name,
-                size: file.size,
-                data: file, // Keep the original file data for sending
-                mimeType: file.type,
-                previewUrl: undefined // Initialize previewUrl
-            };
-
-            // Generate preview for images
-            if (attachment.type === 'image') {
-                const reader = new FileReader();
-                reader.onload = (e: ProgressEvent<FileReader>) => {
-                    attachment.previewUrl = e.target.result as string;
-                    // No explicit markForCheck needed if selectedAttachments is a signal and template reads it
-                };
-                reader.onerror = (error) => {
-                    console.error(`Error reading file ${file.name}:`, error);
-                    this._snackBar.open(`Error reading file ${file.name}.`, 'Close', { duration: 3000 });
-                };
-                reader.readAsDataURL(file); // This is async, previewUrl will update when ready
-            }
-            // Add to the signal array
-            this.selectedAttachments.update(atts => [...atts, attachment]);
+            // Convert File to Attachment using the utility
+            const newAttachment = await fileToAttachment(file); // This handles previewUrl internally
+            this.selectedAttachments.update(atts => [...atts, newAttachment]);
         });
         // No explicit markForCheck needed after batch if selectedAttachments is a signal
     }

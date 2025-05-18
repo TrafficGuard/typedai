@@ -1,4 +1,6 @@
 import {Chat as ChatModel} from "#shared/model/chat.model";
+import type { UserContentExt } from '#shared/model/llm.model';
+// Removed: export type { Attachment, TextContent } from '../message.types';
 // Removed: export type { Attachment, TextContent } from '../message.types';
 import type { UIMessage } from '../message.types';
 
@@ -22,7 +24,11 @@ export interface Chat {
 }
 
 /** Chat UI message */
-export interface ChatMessage extends UIMessage {
+export interface ChatMessage extends Omit<UIMessage, 'content'> {
+    // textContent from UIMessage is inherited.
+    // UIMessage.content (TextContent[]) is omitted.
+    // ChatMessage defines its own 'content' of type UserContentExt.
+    content: UserContentExt; // New primary content field, superseding UIMessage.content
     isMine?: boolean;
     generating?: boolean;
 }

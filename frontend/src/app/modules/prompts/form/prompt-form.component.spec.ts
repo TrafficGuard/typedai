@@ -652,3 +652,104 @@ describe('PromptFormComponent', () => {
     }));
   });
 });
+import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
+import { ReactiveFormsModule } from '@angular/forms';
+import { NoopAnimationsModule } from '@angular/platform-browser/animations';
+import { RouterTestingModule } from '@angular/router/testing';
+import { MatSnackBarModule } from '@angular/material/snack-bar';
+import { PromptsService } from '../prompts.service';
+import { LlmService } from '../../agents/services/llm.service';
+import { PromptFormComponent } from './prompt-form.component';
+import { MatExpansionModule } from '@angular/material/expansion';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatSelectModule } from '@angular/material/select';
+import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { of } from 'rxjs';
+import { signal } from '@angular/core'; // Import signal
+
+describe('PromptFormComponent', () => {
+  let component: PromptFormComponent;
+  let fixture: ComponentFixture<PromptFormComponent>;
+  let mockPromptsService: any;
+  let mockLlmService: any;
+
+  beforeEach(waitForAsync(() => {
+    mockPromptsService = {
+      createPrompt: jasmine.createSpy('createPrompt').and.returnValue(of({})),
+      updatePrompt: jasmine.createSpy('updatePrompt').and.returnValue(of({})),
+      clearSelectedPrompt: jasmine.createSpy('clearSelectedPrompt'),
+      getPromptById: jasmine.createSpy('getPromptById').and.returnValue(of(null)),
+      selectedPrompt: signal(null), // Use signal for selectedPrompt
+    };
+
+    mockLlmService = {
+      getLlms: jasmine.createSpy('getLlms').and.returnValue(of([{ id: 'test-llm', name: 'Test LLM', isConfigured: true }])),
+    };
+
+    TestBed.configureTestingModule({
+      imports: [
+        PromptFormComponent, // Standalone component
+        ReactiveFormsModule,
+        NoopAnimationsModule,
+        RouterTestingModule,
+        MatSnackBarModule,
+        MatExpansionModule,
+        MatFormFieldModule,
+        MatInputModule,
+        MatChipsModule,
+        MatSelectModule,
+        MatIconModule,
+        MatButtonModule,
+        MatSlideToggleModule,
+      ],
+      providers: [
+        { provide: PromptsService, useValue: mockPromptsService },
+        { provide: LlmService, useValue: mockLlmService },
+      ],
+    }).compileComponents();
+  }));
+
+  beforeEach(() => {
+    fixture = TestBed.createComponent(PromptFormComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+
+  describe.skip('Attachment Functionality', () => {
+    it('should allow adding an attachment via file input', () => {
+      // Test onFileSelected
+    });
+
+    it('should allow adding an attachment via drag and drop', () => {
+      // Test onDrop
+    });
+
+    it('should display previews for image attachments', () => {
+      // Check DOM for img tag with src
+    });
+
+    it('should display generic icon and info for file attachments', () => {
+      // Check DOM for file icon and details
+    });
+
+    it('should allow removing an attachment', () => {
+      // Test removeAttachment and check FormArray
+    });
+
+    it('should include attachment data in the form submission payload', () => {
+      // Mock attachments, submit form, and check payload
+    });
+
+    it('should correctly populate attachments when editing a prompt with existing attachments', () => {
+      // Mock a prompt with UserContentExt, call populateForm, check attachments FormArray
+    });
+  });
+});
