@@ -96,17 +96,13 @@ export class AgentIterationsComponent implements OnInit, OnChanges, OnDestroy {
                 console.log(`AgentIterationsComponent: Successfully loaded ${loadedIterations.length} iterations for agent ${this.agentId}`);
                 
                 this.iterations = loadedIterations.map(iter => {
-                    // Ensure iter.memory and iter.toolState are treated as potentially undefined
-                    // and default to empty objects for Object.entries if so.
-                    const memoryMap = iter.memory ? new Map(Object.entries(iter.memory)) : new Map<string, string>();
-                    const toolStateMap = iter.toolState ? new Map(Object.entries(iter.toolState)) : new Map<string, any>();
-
-                    // Create a new object conforming to AutonomousIteration
+                    // iter.memory and iter.toolState are already Records from Static<typeof AutonomousIterationSchema>
+                    // and AutonomousIteration model expects Record types.
                     return {
                         ...iter,
-                        memory: memoryMap,
-                        toolState: toolStateMap,
-                    } as AutonomousIteration; // Cast to AutonomousIteration after transformation
+                        memory: iter.memory ?? {}, // Default to empty object if undefined, though schema implies presence
+                        toolState: iter.toolState ?? {}, // Default to empty object if undefined, though schema implies presence
+                    } as AutonomousIteration;
                 });
 
                 this.isLoading = false;

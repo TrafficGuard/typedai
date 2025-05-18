@@ -816,19 +816,17 @@ export function runAgentStateServiceTests(
 				'complexKey.with.dots': 'value for complex key',
 			};
 
-			const originalToolState: Record<string, any> = { // Changed to Record
+			const originalToolState: Record<string, any> = {
 				LiveFiles: { monitoredFiles: ['fileA.ts', 'fileB.js', 'src/test.py'], lastCheckTimestamp: Date.now() - 10000 },
-				FileStore:
-					{
-						lastSavedFile: '/project/output/data.json',
-						recentUploads: ['/tmp/upload1.zip', '/tmp/upload2.tar.gz'],
-						metadataCache: {
-							'/project/output/data.json': { size: 1024, type: 'application/json' },
-						},
+				FileStore: {
+					lastSavedFile: '/project/output/data.json',
+					recentUploads: ['/tmp/upload1.zip', '/tmp/upload2.tar.gz'],
+					metadataCache: {
+						'/project/output/data.json': { size: 1024, type: 'application/json' },
 					},
-				],
-				['anotherTool', { configValue: 123, isActive: true, subSettings: { detail: 'xyz' } }],
-			]);
+				},
+				anotherTool: { configValue: 123, isActive: true, subSettings: { detail: 'xyz' } },
+			};
 
 			const originalStats: GenerationStats = {
 				requestTime: Date.now() - 500,

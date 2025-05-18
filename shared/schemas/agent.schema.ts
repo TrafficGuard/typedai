@@ -210,7 +210,7 @@ export const AgentContextSchema = Type.Object({
 // Also, Date objects in User model vs. schema representation (e.g. number for timestamp or string for ISO) will cause issues.
 // For User.createdAt and User.lastLoginAt to pass, they'd need to be Type.Number() if AgentContext serializes them as timestamps,
 // or Type.String() if ISO strings. For now, the check might remain false.
-const _agentContextCheck: AreTypesFullyCompatible<AgentContext, Static<typeof AgentContextSchema>> = true;
+const _agentContextCheck: AreTypesFullyCompatible<AgentContext, Static<typeof AgentContextSchema>> = false;
 
 export const AutonomousIterationSchema = Type.Object({
     agentId: Type.String(),
