@@ -1,5 +1,5 @@
 import {Chat as ChatModel} from "#shared/model/chat.model";
-import {GenerationStats} from "#shared/model/llm.model";
+import type { Attachment, UIMessage, TextContent } from '../message.types';
 
 export const NEW_CHAT_ID = 'new';
 
@@ -24,37 +24,9 @@ export interface Chat {
     rootId?: string;   // <-- Add this line
 }
 
-export interface TextContent {
-    type: string,
-    text: string
-}
-
 /** Chat UI message */
-export interface ChatMessage {
-    id?: string;
+export interface ChatMessage extends UIMessage {
     isMine?: boolean;
-    llmId?: string;
-    createdAt?: string;
     generating?: boolean;
-    content?: TextContent[];
-    textContent: string;
-    /** File attachments to be sent with the next message */
-    fileAttachments?: Attachment[];
-    /** Image attachments to be sent with the next message */
-    imageAttachments?: Attachment[]
-    stats?: GenerationStats;
-    textChunks?: Array<{type: 'text' | 'markdown', value: string}>;
-}
-
-export interface Attachment {
-    type: 'file' | 'image';
-    filename: string;
-    /** File size in bytes */
-    size: number;
-    /** The actual file data (only present for attachments being sent) */
-    data: File | null;
-    /** Mime type of the file. */
-    mimeType: string;
-    /** Optional preview URL for thumbnails etc (for received attachments) */
-    previewUrl?: string;
+    // All other properties are inherited from UIMessage
 }
