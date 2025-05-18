@@ -148,7 +148,7 @@ export interface AgentContext {
     /** Completed function calls with success/error output */
     functionCallHistory: FunctionCallResult[];
     /** How many iterations of the autonomous agent control loop to require human input to continue */
-    hilCount;
+    hilCount: number; // Was 'any', assuming number
     /** If the user has requested a human-in-the-loop intervention after the current control loop iteration completes */
     hilRequested?: boolean;
     /** Files which are always provided in the agent control loop prompt */
@@ -195,9 +195,9 @@ export interface AutonomousIteration {
     /** Function calls executed this iteration */
     functionCalls: FunctionCallResult[];
     /** The memory contents at the end of the iteration */
-    memory: Map<string, string>;
+    memory: Record<string, string>; // Changed from Map<string, string>
     /** Tool state, LiveFile's, FileStore etc. Class name as the key */
-    toolState: Map<string, any>;
+    toolState: Record<string, any>; // Changed from Map<string, any>
     /** Any error */
     error?: string;
     /** Plan generation stats */
