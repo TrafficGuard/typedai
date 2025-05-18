@@ -53,13 +53,41 @@
         <div>
           <h2 class="text-xl font-semibold mb-3">Messages</h2>
           <div class="space-y-4">
-            <div *ngFor="let message of currentPrompt.messages; let i = index" class="p-4 border rounded-md bg-gray-50 dark:bg-gray-800 shadow-sm">
+            <div *ngFor="let message of processedMessages(); let i = index" class="p-4 border rounded-md bg-gray-50 dark:bg-gray-800 shadow-sm">
               <div class="flex justify-between items-center mb-1">
                 <span class="font-semibold capitalize text-sm text-primary-600 dark:text-primary-400">{{ message.role }}</span>
               </div>
-              <pre class="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{{ message.content }}</pre>
+
+              <!-- Display Image Attachments -->
+              <div *ngIf="message.uiImageAttachments && message.uiImageAttachments.length > 0" class="my-2 flex flex-wrap gap-2">
+                <div *ngFor="let attachment of message.uiImageAttachments">
+                  <img *ngIf="attachment.previewUrl"
+                       [src]="attachment.previewUrl"
+                       [alt]="attachment.filename"
+                       class="max-w-xs max-h-48 h-auto rounded object-contain border dark:border-gray-600">
+                </div>
+              </div>
+
+              <!-- Display File Attachments -->
+              <div *ngIf="message.uiFileAttachments && message.uiFileAttachments.length > 0" class="my-2 space-y-1">
+                <div *ngFor="let attachment of message.uiFileAttachments"
+                     class="flex items-center text-sm text-gray-600 dark:text-gray-400 p-2 rounded-md bg-gray-100 dark:bg-gray-700 border dark:border-gray-600">
+                  <mat-icon class="icon-size-5 mr-2 flex-shrink-0" svgIcon="heroicons_outline:document-text"></mat-icon>
+                  <div class="flex-grow overflow-hidden">
+                    <span class="font-medium truncate block" [title]="attachment.filename">{{ attachment.filename }}</span>
+                    <span class="text-xs">{{ (attachment.size / 1024) | number:'1.0-1' }} KB</span>
+                    <a *ngIf="attachment.previewUrl"
+                       [href]="attachment.previewUrl"
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       class="ml-2 text-primary-500 hover:underline text-xs">View/Download</a>
+                  </div>
+                </div>
+              </div>
+
+              <pre class="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{{ message.textContentForDisplay }}</pre>
             </div>
-            <p *ngIf="!currentPrompt.messages || currentPrompt.messages.length === 0" class="text-gray-500 dark:text-gray-400 text-sm">No messages in this prompt.</p>
+            <p *ngIf="!processedMessages() || processedMessages().length === 0" class="text-gray-500 dark:text-gray-400 text-sm">No messages in this prompt.</p>
           </div>
         </div>
       </mat-card-content>

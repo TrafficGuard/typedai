@@ -52,8 +52,8 @@ async function main() {
 
 		agent.output = response;
 
-		writeFileSync('src/cli/query-out', response);
-		console.log('Wrote output to src/cli/query-out');
+		writeFileSync('src/cli/query-out.md', response);
+		console.log('Wrote output to src/cli/query-out.md');
 	});
 
 	if (agentId) {

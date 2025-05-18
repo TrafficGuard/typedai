@@ -15,7 +15,7 @@ export async function countTokens(text: string): Promise<number> {
 			try {
 				tokenizer = await loadingTokenizer;
 			} catch (e) {
-				logger.warn('Could not load tokenizer');
+				logger.warn(e, 'Could not load tokenizer');
 			} finally {
 				loadingTokenizer = null;
 			}

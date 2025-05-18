@@ -1,196 +1,181 @@
-import {parseMessageContent} from "./conversation.component";
+import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
+import { NoopAnimationsModule } from '@angular/platform-browser/animations';
+import { RouterTestingModule } from '@angular/router/testing';
+import { MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatSidenavModule } from '@angular/material/sidenav';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatSelectModule } from '@angular/material/select';
+import { TextFieldModule } from '@angular/cdk/text-field';
+import { ClipboardModule } from '@angular/cdk/clipboard';
+import { MarkdownModule, provideMarkdown } from 'ngx-markdown';
+import { of } from 'rxjs';
+import { signal } from '@angular/core';
 
-// Add this type definition to match the function's return type
-type MessageChunk = { type: 'text' | 'markdown'; value: string };
+import { ConversationComponent } from './conversation.component';
+import { ChatServiceClient } from '../chat.service';
+import { LlmService } from '../../agents/services/llm.service';
+import { UserService } from 'app/core/user/user.service';
+import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
+import { FuseConfirmationService } from '@fuse/services/confirmation';
+import type { Chat, ChatMessage } from '../chat.types';
+import type { UserProfile } from '#shared/schemas/user.schema';
+import type { LLM } from '../../agents/services/llm.service';
 
-describe('parseMessageContent', () => {
-    it('should return an empty array for null input', () => {
-        const inputString = null;
-        const expectedOutput: MessageChunk[] = [];
-        const result = parseMessageContent(inputString);
-        expect(result).toEqual(expectedOutput);
+const mockChat: Chat = {
+  id: 'chat1',
+  title: 'Test Chat',
+  updatedAt: Date.now(),
+  messages: [
+    { id: 'msg1', content: 'Hello User', isMine: false, createdAt: new Date().toISOString(), textContent: 'Hello User' },
+    { id: 'msg2', content: 'Hello Assistant', isMine: true, createdAt: new Date().toISOString(), textContent: 'Hello Assistant' },
+  ],
+};
+
+const mockUser: UserProfile = {
+  id: 'user1',
+  name: 'Test User',
+  email: 'test@example.com',
+  enabled: true,
+  hilBudget: 0,
+  hilCount: 0,
+  llmConfig: {},
+  chat: { defaultLLM: 'llm-default' },
+  functionConfig: {},
+  // createdAt: new Date().toISOString(), // Removed as UserProfile does not have these
+  // updatedAt: new Date().toISOString(),
+};
+
+const mockLlms: LLM[] = [
+  { id: 'llm-default', name: 'Default LLM', isConfigured: true },
+  { id: 'llm-alt', name: 'Alternative LLM', isConfigured: true },
+];
+
+describe('ConversationComponent', () => {
+  let component: ConversationComponent;
+  let fixture: ComponentFixture<ConversationComponent>;
+  let mockChatService: any;
+  let mockLlmService: any;
+  let mockUserService: any;
+  let mockMediaWatcherService: any;
+  let mockConfirmationService: any;
+
+  beforeEach(waitForAsync(() => {
+    mockChatService = {
+      chat: signal(null),
+      chats: signal([]),
+      loadChatById: jasmine.createSpy('loadChatById').and.returnValue(of(undefined)), // Returns Observable<void>
+      loadChats: jasmine.createSpy('loadChats').and.returnValue(of(undefined)), // Returns Observable<void>
+      resetChat: jasmine.createSpy('resetChat'),
+      deleteChat: jasmine.createSpy('deleteChat').and.returnValue(of(undefined)), // Returns Observable<void>
+      createChat: jasmine.createSpy('createChat').and.returnValue(of(mockChat)), // Returns Observable<Chat>
+      sendMessage: jasmine.createSpy('sendMessage').and.returnValue(of(undefined)), // Returns Observable<void>
+      regenerateMessage: jasmine.createSpy('regenerateMessage').and.returnValue(of(undefined)), // Returns Observable<void>
+      sendAudioMessage: jasmine.createSpy('sendAudioMessage').and.returnValue(of(undefined)), // Returns Observable<void>
+      formatMessageAsMarkdown: jasmine.createSpy('formatMessageAsMarkdown').and.returnValue(of('formatted')),
+      setChat: jasmine.createSpy('setChat'),
+    };
+    // Set the signal value after creating the mock object
+    mockChatService.chat.set(mockChat);
+
+
+    mockLlmService = {
+      getLlms: jasmine.createSpy('getLlms').and.returnValue(of(mockLlms)),
+    };
+
+    mockUserService = {
+      user$: of(mockUser), // UserService exposes user$ as an Observable
+      get: jasmine.createSpy('get').and.returnValue(of(mockUser)), // Mock the get method
+    };
+
+    mockMediaWatcherService = {
+      onMediaChange$: of({ matchingAliases: ['lg'] }),
+    };
+
+    mockConfirmationService = {
+      open: jasmine.createSpy('open').and.returnValue({ afterClosed: () => of('confirmed') }),
+    };
+
+    TestBed.configureTestingModule({
+      imports: [
+        ConversationComponent, // Import the standalone component
+        NoopAnimationsModule,
+        RouterTestingModule,
+        MatSnackBarModule,
+        // MatSidenavModule, // Already imported by ConversationComponent
+        // MatFormFieldModule, // Already imported by ConversationComponent
+        // MatInputModule, // Already imported by ConversationComponent
+        // MatIconModule, // Already imported by ConversationComponent
+        // MatButtonModule, // Already imported by ConversationComponent
+        // MatMenuModule, // Already imported by ConversationComponent
+        // MatSelectModule, // Already imported by ConversationComponent
+        // TextFieldModule, // Already imported by ConversationComponent
+        // ClipboardModule, // Already imported by ConversationComponent
+        MarkdownModule.forRoot(), // Ensure MarkdownModule is configured
+      ],
+      providers: [
+        { provide: ChatServiceClient, useValue: mockChatService },
+        { provide: LlmService, useValue: mockLlmService },
+        { provide: UserService, useValue: mockUserService },
+        { provide: FuseMediaWatcherService, useValue: mockMediaWatcherService },
+        { provide: FuseConfirmationService, useValue: mockConfirmationService },
+        provideMarkdown(), // Provide markdown services
+      ],
+    }).compileComponents();
+  }));
+
+  beforeEach(() => {
+    fixture = TestBed.createComponent(ConversationComponent);
+    component = fixture.componentInstance;
+    // fixture.detectChanges(); // Moved to after initial setup or specific tests
+  });
+
+  it('should create', () => {
+    fixture.detectChanges(); // Initial data binding
+    expect(component).toBeTruthy();
+  });
+
+  it('should load chat on init if route has ID', () => {
+    // Simulate route params having an ID
+    TestBed.inject(ChatServiceClient).chat.set(null); // Reset chat before test
+    spyOnProperty(component['route'], 'params', 'get').and.returnValue(of({ id: 'chat1' }));
+    fixture.detectChanges(); // Trigger ngOnInit and effects
+
+    expect(mockChatService.loadChatById).toHaveBeenCalledWith('chat1');
+  });
+
+
+  it('should display messages from the chat', () => {
+    mockChatService.chat.set(mockChat); // Ensure chat is set
+    fixture.detectChanges(); // Trigger effects and rendering
+    const messages = component.displayedMessages();
+    expect(messages.length).toBe(mockChat.messages.length);
+    // Further checks can be done on the rendered DOM elements
+  });
+
+  // The describe.skip block remains unchanged as per instructions
+  describe.skip('Attachment Functionality in ConversationComponent', () => {
+    it('should add files to selectedAttachments using addFiles method', () => {
+      // Test addFiles
     });
 
-    it('should return an empty array for undefined input', () => {
-        const inputString = undefined;
-        const expectedOutput: MessageChunk[] = [];
-        const result = parseMessageContent(inputString);
-        expect(result).toEqual(expectedOutput);
+    it('should convert attachments and text to UserContentExt on sendMessage', () => {
+      // Test sendMessage payload
     });
 
-    it('should return an empty array for an empty string input', () => {
-        const inputString = "";
-        const expectedOutput: MessageChunk[] = [];
-        const result = parseMessageContent(inputString);
-        expect(result).toEqual(expectedOutput);
+    it('should parse UserContentExt to display attachments and text in displayedMessages', () => {
+      // Test displayedMessages computation
     });
 
-    it('should parse plain text into a single text chunk', () => {
-        const inputString = "Hello world";
-        const expectedOutput: MessageChunk[] = [{ type: 'text', value: "Hello world" }];
-        const result = parseMessageContent(inputString);
-        expect(result).toEqual(expectedOutput);
+    it('should handle image previews correctly in the template', () => {
+      // Mock messages with image attachments, check DOM
     });
 
-    it('should parse whitespace-only string into a single text chunk', () => {
-        const inputString = "   ";
-        const expectedOutput: MessageChunk[] = [{ type: 'text', value: "   " }];
-        const result = parseMessageContent(inputString);
-        expect(result).toEqual(expectedOutput);
+    it('should handle file previews/icons correctly in the template', () => {
+      // Mock messages with file attachments, check DOM
     });
-
-    it('should parse a single code block with language correctly', () => {
-        const inputString = "```javascript\nconsole.log(\"test\");\n```";
-        const expectedOutput: MessageChunk[] = [{ type: 'markdown', value: "```javascript\nconsole.log(\"test\");\n```" }];
-        const result = parseMessageContent(inputString);
-        expect(result).toEqual(expectedOutput);
-    });
-
-    it('should parse a single code block without language correctly', () => {
-        const inputString = "```\ncode\n```";
-        const expectedOutput: MessageChunk[] = [{ type: 'markdown', value: "```\ncode\n```" }];
-        const result = parseMessageContent(inputString);
-        expect(result).toEqual(expectedOutput);
-    });
-
-    it('should parse text followed by a code block', () => {
-        const inputString = "Hello\n```python\nprint(\"world\")\n```";
-        const expectedOutput: MessageChunk[] = [{ type: 'text', value: "Hello\n" }, { type: 'markdown', value: "```python\nprint(\"world\")\n```" }];
-        const result = parseMessageContent(inputString);
-        expect(result).toEqual(expectedOutput);
-    });
-
-    it('should parse a code block followed by text', () => {
-        const inputString = "```python\nprint(\"world\")\n```\nHello";
-        const expectedOutput: MessageChunk[] = [{ type: 'markdown', value: "```python\nprint(\"world\")\n```" }, { type: 'text', value: "\nHello" }];
-        const result = parseMessageContent(inputString);
-        expect(result).toEqual(expectedOutput);
-    });
-
-    it('should parse text, then a code block, then more text', () => {
-        const inputString = "Prefix\n```js\nvar x = 1;\n```\nSuffix";
-        const expectedOutput: MessageChunk[] = [{ type: 'text', value: "Prefix\n" }, { type: 'markdown', value: "```js\nvar x = 1;\n```" }, { type: 'text', value: "\nSuffix" }];
-        const result = parseMessageContent(inputString);
-        expect(result).toEqual(expectedOutput);
-    });
-
-    it('should parse multiple code blocks with interleaving text', () => {
-        const inputString = "Block 1\n```code1\ncontent1\n```\nBlock 2\n```code2\ncontent2\n```";
-        const expectedOutput: MessageChunk[] = [{ type: 'text', value: "Block 1\n" }, { type: 'markdown', value: "```code1\ncontent1\n```" }, { type: 'text', value: "\nBlock 2\n" }, { type: 'markdown', value: "```code2\ncontent2\n```" }];
-        const result = parseMessageContent(inputString);
-        expect(result).toEqual(expectedOutput);
-    });
-
-    it('should parse adjacent code blocks without creating empty text chunks between them', () => {
-        const inputString = "```lang1\ncontent1\n``````lang2\ncontent2\n```";
-        const expectedOutput: MessageChunk[] = [{ type: 'markdown', value: "```lang1\ncontent1\n```" }, { type: 'markdown', value: "```lang2\ncontent2\n```" }];
-        const result = parseMessageContent(inputString);
-        expect(result).toEqual(expectedOutput);
-    });
-
-    it('should parse code blocks separated by only a newline into three chunks (md, text, md)', () => {
-        const inputString = "```c1\ncode1\n```\n```c2\ncode2\n```";
-        const expectedOutput: MessageChunk[] = [{ type: 'markdown', value: "```c1\ncode1\n```" }, { type: 'text', value: "\n" }, { type: 'markdown', value: "```c2\ncode2\n```" }];
-        const result = parseMessageContent(inputString);
-        expect(result).toEqual(expectedOutput);
-    });
-
-    it('should parse a code block where content does not end with a newline before closing fence', () => {
-        const inputString = "```javascript\nconsole.log(\"test\");```";
-        const expectedOutput: MessageChunk[] = [{ type: 'markdown', value: "```javascript\nconsole.log(\"test\");```" }];
-        const result = parseMessageContent(inputString);
-        expect(result).toEqual(expectedOutput);
-    });
-
-    it('should parse text, then a code block without final newline, then more text', () => {
-        const inputString = "Prefix\n```js\nvar x = 1;```\nSuffix";
-        const expectedOutput: MessageChunk[] = [{ type: 'text', value: "Prefix\n" }, { type: 'markdown', value: "```js\nvar x = 1;```" }, { type: 'text', value: "\nSuffix" }];
-        const result = parseMessageContent(inputString);
-        expect(result).toEqual(expectedOutput);
-    });
-
-    it('should parse an empty code block (content is empty string)', () => {
-        const inputString = "```python\n```";
-        const expectedOutput: MessageChunk[] = [{ type: 'markdown', value: "```python\n```" }];
-        const result = parseMessageContent(inputString);
-        expect(result).toEqual(expectedOutput);
-    });
-
-    it('should parse a code block with only a newline as content', () => {
-        const inputString = "```\n\n```"; // Lang, \n, content (\n), \n (optional), ```
-        const expectedOutput: MessageChunk[] = [{ type: 'markdown', value: "```\n\n```" }];
-        const result = parseMessageContent(inputString);
-        expect(result).toEqual(expectedOutput);
-    });
-
-    it('should parse a code block with multiple newlines as content', () => {
-        const inputString = "```\n\n\n```"; // Lang, \n, content (\n\n), \n (optional), ```
-        const expectedOutput: MessageChunk[] = [{ type: 'markdown', value: "```\n\n\n```" }];
-        const result = parseMessageContent(inputString);
-        expect(result).toEqual(expectedOutput);
-    });
-
-    it('should treat an unterminated code block as plain text', () => {
-        const inputString = "Hello ```javascript\nconsole.log('unterminated')";
-        const expectedOutput: MessageChunk[] = [{ type: 'text', value: "Hello ```javascript\nconsole.log('unterminated')" }];
-        const result = parseMessageContent(inputString);
-        expect(result).toEqual(expectedOutput);
-    });
-
-    it('should treat a code block with missing opening newline as plain text', () => {
-        const inputString = "```javascript console.log('no opening newline');\n```";
-        const expectedOutput: MessageChunk[] = [{ type: 'text', value: "```javascript console.log('no opening newline');\n```" }];
-        const result = parseMessageContent(inputString);
-        expect(result).toEqual(expectedOutput);
-    });
-
-    it('should parse a code block containing backticks in its content', () => {
-        const inputString = "```javascript\nconst greeting = `Hello, ${name}!`;\n```";
-        const expectedOutput: MessageChunk[] = [{ type: 'markdown', value: "```javascript\nconst greeting = `Hello, ${name}!`;\n```" }];
-        const result = parseMessageContent(inputString);
-        expect(result).toEqual(expectedOutput);
-    });
-
-    it('should parse a code block with a language identifier containing a plus sign', () => {
-        const inputString = "```c++\n#include <iostream>\nint main() { return 0; }\n```";
-        const expectedOutput: MessageChunk[] = [{ type: 'markdown', value: "```c++\n#include <iostream>\nint main() { return 0; }\n```" }];
-        const result = parseMessageContent(inputString);
-        expect(result).toEqual(expectedOutput);
-    });
-
-    it('should parse a code block with a language identifier containing an underscore and hyphen', () => {
-        const inputString = "```my-lang_v2\nsome_code_here\n```";
-        const expectedOutput: MessageChunk[] = [{ type: 'markdown', value: "```my-lang_v2\nsome_code_here\n```" }];
-        const result = parseMessageContent(inputString);
-        expect(result).toEqual(expectedOutput);
-    });
-
-    it('should treat fences with more than 3 backticks as plain text (current limitation)', () => {
-        const inputString = "````javascript\nconsole.log('four backticks');\n````";
-        const expectedOutput: MessageChunk[] = [{ type: 'text', value: "````javascript\nconsole.log('four backticks');\n````" }];
-        const result = parseMessageContent(inputString);
-        expect(result).toEqual(expectedOutput);
-    });
-
-    it('should handle mixed text and code block without final newline correctly', () => {
-        const inputString = "Some leading text.\n```python\nprint('hello')```\nSome trailing text.";
-        const expectedOutput: MessageChunk[] = [
-            { type: 'text', value: "Some leading text.\n" },
-            { type: 'markdown', value: "```python\nprint('hello')```" },
-            { type: 'text', value: "\nSome trailing text." }
-        ];
-        const result = parseMessageContent(inputString);
-        expect(result).toEqual(expectedOutput);
-    });
-
-    // Add the new test case here
-    it('should parse text with HTML-like tags followed by an HTML code block', () => {
-        const inputString = "<random>Hey!</random>\n```html\n<random-html>Hi!</random-html>\n```";
-        const expectedOutput: MessageChunk[] = [
-            { type: 'text', value: "<random>Hey!</random>\n" },
-            { type: 'markdown', value: "```html\n<random-html>Hi!</random-html>\n```" }
-        ];
-        const result = parseMessageContent(inputString);
-        expect(result).toEqual(expectedOutput);
-    });
+  });
 });

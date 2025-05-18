@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, inject, signal, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef, computed } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
@@ -20,10 +20,20 @@ import { TextFieldModule } from '@angular/cdk/text-field';
 
 import { PromptsService } from '../prompts.service';
 import type { Prompt } from '#shared/model/prompts.model';
+import { type LlmMessage, type ImagePartExt, type FilePartExt, type UserContentExt } from '#shared/model/llm.model';
+import type { Attachment } from 'app/modules/message.types';
+import { userContentExtToAttachmentsAndText } from '../../messageUtil';
 import { Subject } from 'rxjs';
 import { takeUntil, tap, finalize, filter } from 'rxjs/operators';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { PROMPTS_ROUTES } from '../prompt.paths';
+
+// Type for processed messages with attachments for UI display
+type DisplayablePromptMessage = LlmMessage & {
+  textContentForDisplay: string;
+  uiImageAttachments?: Attachment[];
+  uiFileAttachments?: Attachment[];
+};
 
 @Component({
   selector: 'app-prompt-detail',
@@ -68,6 +78,32 @@ export class PromptDetailComponent implements OnInit, OnDestroy {
   isLoading = signal(true);
   isDeletingSignal = signal(false);
   private destroy$ = new Subject<void>();
+
+  processedMessages = computed(() => {
+    const currentPrompt = this.prompt();
+    if (!currentPrompt || !currentPrompt.messages) {
+      return [] as DisplayablePromptMessage[];
+    }
+    return currentPrompt.messages.map(msg => this.processMessageForDisplay(msg));
+  });
+
+  private processMessageForDisplay(apiLlmMessage: LlmMessage): DisplayablePromptMessage {
+    // Call the utility function to parse content into text and attachments
+    // Ensure apiLlmMessage.content is cast to UserContentExt if its type is broader
+    const { attachments: parsedUiAttachments, text: parsedText } = userContentExtToAttachmentsAndText(apiLlmMessage.content as UserContentExt);
+
+    // Filter the parsed attachments into image and file types
+    const uiImageAttachments: Attachment[] = parsedUiAttachments.filter(att => att.type === 'image');
+    const uiFileAttachments: Attachment[] = parsedUiAttachments.filter(att => att.type === 'file');
+
+    // Construct and return the DisplayablePromptMessage
+    return {
+        ...apiLlmMessage, // Spread original LlmMessage properties
+        textContentForDisplay: parsedText, // Use the text parsed by the utility
+        uiImageAttachments: uiImageAttachments.length > 0 ? uiImageAttachments : undefined,
+        uiFileAttachments: uiFileAttachments.length > 0 ? uiFileAttachments : undefined,
+    };
+  }
 
   ngOnInit(): void {
     this.isLoading.set(true);

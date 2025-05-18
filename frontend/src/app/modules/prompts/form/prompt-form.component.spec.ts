@@ -25,6 +25,7 @@ import { PromptFormComponent } from './prompt-form.component';
 import { PromptsService } from '../prompts.service';
 import { LlmService, LLM as AppLLM } from '../../agents/services/llm.service';
 import type { Prompt } from '#shared/model/prompts.model';
+import type { LlmMessage, UserContentExt, TextPart, ImagePartExt, FilePartExt } from '#shared/model/llm.model';
 import type { PromptSchemaModel } from '#shared/schemas/prompts.schema';
 
 const mockLlms: AppLLM[] = [
@@ -43,10 +44,13 @@ const mockPrompt: Prompt = {
     { role: 'user', content: 'Hello there' },
     { role: 'assistant', content: 'Hi user!' }
   ],
-  settings: { temperature: 0.7, maxOutputTokens: 100, selectedModel: 'llm-1' },
-  updatedAt: Date.now()
+  settings: { temperature: 0.7, maxOutputTokens: 100, llmId: 'llm-1' }, // Changed selectedModel to llmId
+  // Assuming updatedAt is not strictly required by the form population logic,
+  // but keeping it if it was part of a broader mock structure.
+  // If Prompt type requires it, it should be present. Let's assume it's optional or handled.
+  // For the purpose of these tests, it's not directly used by _convertLlmContentToString.
 };
-const mockPromptSchema = mockPrompt as PromptSchemaModel;
+const mockPromptSchema = mockPrompt as PromptSchemaModel; // This cast might need adjustment if PromptSchemaModel is stricter
 
 
 describe('PromptFormComponent', () => {
@@ -130,7 +134,7 @@ describe('PromptFormComponent', () => {
       expect(component.promptForm.get('name')?.value).toBe('');
       expect(component.messagesFormArray.length).toBe(1);
       expect(component.messagesFormArray.at(0).get('role')?.value).toBe('user');
-      expect(component.promptForm.get('options.selectedModel')?.value).toBe(mockLlms.find(l => l.isConfigured)?.id); // First configured LLM
+      expect(component.promptForm.get('options.llmId')?.value).toBe(mockLlms.find(l => l.isConfigured)?.id); // First configured LLM
       expect(component.isLoading()).toBeFalse();
     });
 
@@ -141,10 +145,10 @@ describe('PromptFormComponent', () => {
 
     it('onSubmit should call promptsService.createPrompt with correct payload including selectedModel', fakeAsync(() => {
       mockPromptsService.createPrompt.and.returnValue(of(mockPromptSchema));
-      const selectedModelId = mockLlms.find(l => l.isConfigured)!.id;
+      const llmId = mockLlms.find(l => l.isConfigured)!.id;
       component.promptForm.patchValue({
         name: 'New Prompt Name',
-        options: { temperature: 0.5, maxOutputTokens: 500, selectedModel: selectedModelId }
+        options: { temperature: 0.5, maxOutputTokens: 500, llmId: llmId }
       });
       component.messagesFormArray.at(0).patchValue({ role: 'user', content: 'User message' });
       component.tagsFormArray.push(new FormBuilder().control('newTag'));
@@ -157,7 +161,7 @@ describe('PromptFormComponent', () => {
         name: 'New Prompt Name',
         messages: [{ role: 'user', content: 'User message' }],
         tags: ['newTag'],
-        options: { temperature: 0.5, maxOutputTokens: 500, selectedModel: selectedModelId }
+        options: { temperature: 0.5, maxOutputTokens: 500, llmId: llmId }
       }));
       expect(mockRouter.navigate).toHaveBeenCalledWith(['/ui/prompts']);
     }));
@@ -176,7 +180,7 @@ describe('PromptFormComponent', () => {
          expect(component.isEditMode()).toBeTrue();
          expect(component.promptIdSignal()).toBe(mockPrompt.id);
          expect(component.promptForm.get('name')?.value).toBe(mockPrompt.name);
-         expect(component.promptForm.get('options.selectedModel')?.value).toBe(mockPrompt.settings.selectedModel);
+         expect(component.promptForm.get('options.llmId')?.value).toBe(mockPrompt.settings.llmId);
          expect(component.messagesFormArray.length).toBe(mockPrompt.messages.length);
          expect(component.tagsFormArray.length).toBe(mockPrompt.tags.length);
          expect(component.isLoading()).toBeFalse();
@@ -186,7 +190,7 @@ describe('PromptFormComponent', () => {
          mockPromptsService.updatePrompt.and.returnValue(of(mockPromptSchema));
          const updatedName = 'Updated Prompt Name';
          component.promptForm.get('name')?.setValue(updatedName);
-         // selectedModel should already be set from mockPrompt
+         // llmId should already be set from mockPrompt
          fixture.detectChanges();
 
          component.onSubmit();
@@ -194,7 +198,7 @@ describe('PromptFormComponent', () => {
 
          expect(mockPromptsService.updatePrompt).toHaveBeenCalledWith(mockPrompt.id, jasmine.objectContaining({
              name: updatedName,
-             options: jasmine.objectContaining({ selectedModel: mockPrompt.settings.selectedModel })
+             options: jasmine.objectContaining({ llmId: mockPrompt.settings.llmId })
          }));
          expect(mockRouter.navigate).toHaveBeenCalledWith(['/ui/prompts']);
      }));
@@ -329,8 +333,8 @@ describe('PromptFormComponent', () => {
       fixture.detectChanges(); // processRouteData
     }));
 
-    it('selectedModel control should be required', () => {
-      const modelControl = component.promptForm.get('options.selectedModel');
+    it('llmId control should be required', () => {
+      const modelControl = component.promptForm.get('options.llmId');
       modelControl?.setValue(null);
       expect(modelControl?.hasError('required')).toBeTrue();
       modelControl?.setValue(mockLlms.find(l => l.isConfigured)!.id);
@@ -470,7 +474,7 @@ describe('PromptFormComponent', () => {
 
     it('should render model selector dropdown', () => {
         expect(optionsGroup).toBeTruthy('Options form group should exist');
-        const modelSelect = fixture.debugElement.query(By.css('mat-select[formControlName="selectedModel"]'));
+        const modelSelect = fixture.debugElement.query(By.css('mat-select[formControlName="llmId"]'));
         expect(modelSelect).toBeTruthy();
         // Check if options are populated (assuming at least one configured LLM)
         // This requires opening the select, which can be complex in tests.
@@ -524,6 +528,228 @@ describe('PromptFormComponent', () => {
       maxOutputTokensInputDebugEl.nativeElement.dispatchEvent(new Event('input'));
       fixture.detectChanges();
       expect(maxOutputTokensControl?.value).toBe(512); // Form control stores number
+    });
+  });
+
+  describe('populateForm message content handling', () => {
+    const baseTestPromptSettings = {
+      llmId: mockLlms.find(l => l.isConfigured && l.id === 'llm-1')!.id || mockLlms.find(l => l.isConfigured)!.id, // Prefer llm-1 if available
+      temperature: 1.0,
+      maxOutputTokens: 2048
+    };
+
+    const createBasePrompt = (name: string, messages: LlmMessage[]): Prompt => ({
+      id: `test-${name.toLowerCase().replace(/\s+/g, '-')}`,
+      userId: 'test-user',
+      revisionId: 1,
+      name,
+      tags: [],
+      messages,
+      settings: baseTestPromptSettings,
+    });
+
+    beforeEach(fakeAsync(() => {
+      // Ensure LLMs are loaded and form is initialized before each test in this suite
+      mockActivatedRoute.data = of({ prompt: null }); // Start with a base state for new prompt
+      fixture.detectChanges(); // ngOnInit -> triggers getLlms
+      tick(); // Complete getLlms
+      fixture.detectChanges(); // Apply LLMs and processRouteData (initializes form)
+    }));
+
+    it('should correctly populate message content when LlmMessage.content is a simple string', fakeAsync(() => {
+      const testPrompt = createBasePrompt('Simple String Test', [{ role: 'user', content: 'Hello world' }]);
+      component.populateForm(testPrompt);
+      fixture.detectChanges();
+      tick();
+      expect(component.messagesFormArray.at(0).get('content')?.value).toBe('Hello world');
+    }));
+
+    it('should correctly populate message content when LlmMessage.content is an array with only TextPart', fakeAsync(() => {
+      const contentArray: TextPart[] = [{ type: 'text', text: 'First line.' }, { type: 'text', text: 'Second line.' }];
+      const testPrompt = createBasePrompt('TextPart Array Test', [{ role: 'user', content: contentArray as UserContentExt }]);
+      component.populateForm(testPrompt);
+      fixture.detectChanges();
+      tick();
+      expect(component.messagesFormArray.at(0).get('content')?.value).toBe('First line.\n\nSecond line.');
+    }));
+
+    it('should correctly populate message content with placeholder for ImagePartExt', fakeAsync(() => {
+      const contentArray1: ImagePartExt[] = [{ type: 'image', image: 'base64data', mimeType: 'image/png', filename: 'test.png' }];
+      let testPrompt1 = createBasePrompt('ImagePart Filename Test', [{ role: 'user', content: contentArray1 as UserContentExt }]);
+      component.populateForm(testPrompt1);
+      fixture.detectChanges();
+      tick();
+      expect(component.messagesFormArray.at(0).get('content')?.value).toBe('[Image: test.png]');
+
+      const contentArray2: ImagePartExt[] = [{ type: 'image', image: 'base64data', mimeType: 'image/jpeg' }];
+      let testPrompt2 = createBasePrompt('ImagePart MimeType Test', [{ role: 'user', content: contentArray2 as UserContentExt }]);
+      component.populateForm(testPrompt2);
+      fixture.detectChanges();
+      tick();
+      expect(component.messagesFormArray.at(0).get('content')?.value).toBe('[Image: image/jpeg]');
+    }));
+
+    it('should correctly populate message content with placeholder for FilePartExt', fakeAsync(() => {
+      const contentArray1: FilePartExt[] = [{ type: 'file', data: 'base64data', mimeType: 'application/pdf', filename: 'document.pdf' }];
+      let testPrompt1 = createBasePrompt('FilePart Filename Test', [{ role: 'user', content: contentArray1 as UserContentExt }]);
+      component.populateForm(testPrompt1);
+      fixture.detectChanges();
+      tick();
+      expect(component.messagesFormArray.at(0).get('content')?.value).toBe('[File: document.pdf]');
+
+      const contentArray2: FilePartExt[] = [{ type: 'file', data: 'base64data', mimeType: 'text/plain' }];
+      let testPrompt2 = createBasePrompt('FilePart MimeType Test', [{ role: 'user', content: contentArray2 as UserContentExt }]);
+      component.populateForm(testPrompt2);
+      fixture.detectChanges();
+      tick();
+      expect(component.messagesFormArray.at(0).get('content')?.value).toBe('[File: text/plain]');
+    }));
+
+    it('should correctly populate message content with mixed parts (text, image, file)', fakeAsync(() => {
+      const mixedContent: UserContentExt = [
+        { type: 'text', text: 'Here is an image:' },
+        { type: 'image', image: 'img_data', mimeType: 'image/gif', filename: 'anim.gif' },
+        { type: 'text', text: 'And a file:' },
+        { type: 'file', data: 'file_data', mimeType: 'application/zip', filename: 'archive.zip' }
+      ];
+      const testPrompt = createBasePrompt('Mixed Parts Test', [{ role: 'user', content: mixedContent }]);
+      component.populateForm(testPrompt);
+      fixture.detectChanges();
+      tick();
+      expect(component.messagesFormArray.at(0).get('content')?.value).toBe('Here is an image:\n\n[Image: anim.gif]\n\nAnd a file:\n\n[File: archive.zip]');
+    }));
+
+    it('should handle LlmMessage.content as an empty array', fakeAsync(() => {
+      const testPrompt = createBasePrompt('Empty Array Content Test', [{ role: 'user', content: [] as UserContentExt }]);
+      component.populateForm(testPrompt);
+      fixture.detectChanges();
+      tick();
+      // populateForm adds a default user message if messages array is empty after processing
+      // and includeSystemMessage is false.
+      // If the prompt's message content is an empty array, _convertLlmContentToString returns '',
+      // so the message content in the form will be ''.
+      expect(component.messagesFormArray.at(0).get('content')?.value).toBe('');
+    }));
+
+    it('should handle LlmMessage.content as undefined', fakeAsync(() => {
+      const testPrompt = createBasePrompt('Undefined Content Test', [{ role: 'user', content: undefined as unknown as UserContentExt }]);
+      component.populateForm(testPrompt);
+      fixture.detectChanges();
+      tick();
+      expect(component.messagesFormArray.at(0).get('content')?.value).toBe('');
+    }));
+
+    it('should handle LlmMessage.content with unknown part types gracefully', fakeAsync(() => {
+      const unknownContent: UserContentExt = [
+        { type: 'text', text: 'Known' },
+        { type: 'exotic_part_type', someData: 'foo' } as any // Cast to any to simulate unknown part
+      ];
+      const testPrompt = createBasePrompt('Unknown Part Test', [{ role: 'user', content: unknownContent }]);
+      component.populateForm(testPrompt);
+      fixture.detectChanges();
+      tick();
+      expect(component.messagesFormArray.at(0).get('content')?.value).toBe('Known\n\n[Unknown part type: exotic_part_type]');
+    }));
+  });
+});
+import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
+import { ReactiveFormsModule } from '@angular/forms';
+import { NoopAnimationsModule } from '@angular/platform-browser/animations';
+import { RouterTestingModule } from '@angular/router/testing';
+import { MatSnackBarModule } from '@angular/material/snack-bar';
+import { PromptsService } from '../prompts.service';
+import { LlmService } from '../../agents/services/llm.service';
+import { PromptFormComponent } from './prompt-form.component';
+import { MatExpansionModule } from '@angular/material/expansion';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatSelectModule } from '@angular/material/select';
+import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { of } from 'rxjs';
+import { signal } from '@angular/core'; // Import signal
+
+describe('PromptFormComponent', () => {
+  let component: PromptFormComponent;
+  let fixture: ComponentFixture<PromptFormComponent>;
+  let mockPromptsService: any;
+  let mockLlmService: any;
+
+  beforeEach(waitForAsync(() => {
+    mockPromptsService = {
+      createPrompt: jasmine.createSpy('createPrompt').and.returnValue(of({})),
+      updatePrompt: jasmine.createSpy('updatePrompt').and.returnValue(of({})),
+      clearSelectedPrompt: jasmine.createSpy('clearSelectedPrompt'),
+      getPromptById: jasmine.createSpy('getPromptById').and.returnValue(of(null)),
+      selectedPrompt: signal(null), // Use signal for selectedPrompt
+    };
+
+    mockLlmService = {
+      getLlms: jasmine.createSpy('getLlms').and.returnValue(of([{ id: 'test-llm', name: 'Test LLM', isConfigured: true }])),
+    };
+
+    TestBed.configureTestingModule({
+      imports: [
+        PromptFormComponent, // Standalone component
+        ReactiveFormsModule,
+        NoopAnimationsModule,
+        RouterTestingModule,
+        MatSnackBarModule,
+        MatExpansionModule,
+        MatFormFieldModule,
+        MatInputModule,
+        MatChipsModule,
+        MatSelectModule,
+        MatIconModule,
+        MatButtonModule,
+        MatSlideToggleModule,
+      ],
+      providers: [
+        { provide: PromptsService, useValue: mockPromptsService },
+        { provide: LlmService, useValue: mockLlmService },
+      ],
+    }).compileComponents();
+  }));
+
+  beforeEach(() => {
+    fixture = TestBed.createComponent(PromptFormComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+
+  describe.skip('Attachment Functionality', () => {
+    it('should allow adding an attachment via file input', () => {
+      // Test onFileSelected
+    });
+
+    it('should allow adding an attachment via drag and drop', () => {
+      // Test onDrop
+    });
+
+    it('should display previews for image attachments', () => {
+      // Check DOM for img tag with src
+    });
+
+    it('should display generic icon and info for file attachments', () => {
+      // Check DOM for file icon and details
+    });
+
+    it('should allow removing an attachment', () => {
+      // Test removeAttachment and check FormArray
+    });
+
+    it('should include attachment data in the form submission payload', () => {
+      // Mock attachments, submit form, and check payload
+    });
+
+    it('should correctly populate attachments when editing a prompt with existing attachments', () => {
+      // Mock a prompt with UserContentExt, call populateForm, check attachments FormArray
     });
   });
 });

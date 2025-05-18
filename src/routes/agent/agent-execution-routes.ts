@@ -10,6 +10,7 @@ import { logger } from '#o11y/logger';
 import { isExecuting } from '#shared/model/agent.model';
 
 const v1BasePath = '/api/agent/v1';
+
 export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 	/** Forcibly stop an agent */
 	fastify.post(

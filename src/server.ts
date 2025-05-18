@@ -1,22 +1,22 @@
 import { initApplicationContext } from '#app/applicationContext';
 import { logger } from '#o11y/logger';
+import { agentDetailsRoutes } from '#routes/agent/agent-details-routes';
+import { agentExecutionRoutes } from '#routes/agent/agent-execution-routes';
+import { agentStartRoute } from '#routes/agent/agent-start-route';
+import { authRoutes } from '#routes/auth/auth-routes';
+import { chatRoutes } from '#routes/chat/chat-routes';
+import { llmCallRoutes } from '#routes/llms/llm-call-routes';
+import { llmRoutes } from '#routes/llms/llm-routes';
+import { userRoutes } from '#routes/profile/user-routes';
 import { promptRoutes } from '#routes/prompts/prompts-routes';
+import { codeReviewRoutes } from '#routes/scm/codeReviewRoutes';
+import { scmRoutes } from '#routes/scm/scmRoutes';
+import { vibeRoutes } from '#routes/vibe/vibeRoutes';
 import { githubRoutes } from '#routes/webhooks/github/github-routes';
+import { gitlabRoutesV1 } from '#routes/webhooks/gitlab/gitlabRoutes-v1';
+import { jiraRoutes } from '#routes/webhooks/jira/jira-routes';
+import { workflowRoutes } from '#routes/workflows/workflow-routes';
 import { initFastify } from './fastify';
-import { agentDetailsRoutes } from './routes/agent/agent-details-routes';
-import { agentExecutionRoutes } from './routes/agent/agent-execution-routes';
-import { agentStartRoute } from './routes/agent/agent-start-route';
-import { authRoutes } from './routes/auth/auth-routes';
-import { chatRoutes } from './routes/chat/chat-routes';
-import { llmCallRoutes } from './routes/llms/llm-call-routes';
-import { llmRoutes } from './routes/llms/llm-routes';
-import { userRoutes } from './routes/profile/user-routes';
-import { codeReviewRoutes } from './routes/scm/codeReviewRoutes';
-import { scmRoutes } from './routes/scm/scmRoutes';
-import { vibeRoutes } from './routes/vibe/vibeRoutes';
-import { gitlabRoutesV1 } from './routes/webhooks/gitlab/gitlabRoutes-v1';
-import { jiraRoutes } from './routes/webhooks/jira/jira-routes';
-import { workflowRoutes } from './routes/workflows/workflow-routes';
 
 /**
  * Creates the applications services and starts the Fastify server.

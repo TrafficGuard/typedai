@@ -1,0 +1,101 @@
+#!/bin/bash
+
+# Check if TYPEDAI_HOME is set
+if [ -z "$TYPEDAI_HOME" ]; then
+  echo "Error: TYPEDAI_HOME is not set."
+  exit 1
+fi
+
+# Check if at least one argument (npm script name) is passed
+if [ $# -lt 1 ]; then
+  echo "Usage: ai <script> [args]"
+  exit 1
+fi
+
+# Ensure Docker and Docker Compose are installed
+if ! command -v docker &> /dev/null || ! docker compose version &> /dev/null; then
+    echo "Error: docker and docker compose (v2) are required."
+    exit 1
+fi
+
+TYPEDAI_HOME_ABS=$(realpath "$TYPEDAI_HOME")
+CWD_ABS=$(realpath "$(pwd)") # pwd is the target repository
+SCRIPT_NAME="$1"
+shift
+SCRIPT_ARGS=("$@")
+
+# Prepare script arguments for the YAML list command.
+# Each argument will be a separate item in the YAML list, on a new line.
+# Arguments are wrapped in double quotes for YAML.
+YAML_COMMAND_LINES="      - \"npm\"
+      - \"run\"
+      - \"${SCRIPT_NAME}\" # SCRIPT_NAME itself is quoted
+      - \"--\"
+      - \"--fs=/workspace/\""
+
+for arg in "${SCRIPT_ARGS[@]}"; do
+  # Escape double quotes within the argument string for YAML
+  escaped_arg=$(echo "$arg" | sed 's/"/\\"/g')
+  YAML_COMMAND_LINES="${YAML_COMMAND_LINES}
+      - \"${escaped_arg}\"" # Append as a new line, new list item, quoted
+done
+
+# Create a temporary directory for the dynamic compose file if it doesn't exist
+TEMP_COMPOSE_DIR="${TYPEDAI_HOME_ABS}/.tmp"
+mkdir -p "$TEMP_COMPOSE_DIR"
+# Unique name for compose file
+DYNAMIC_COMPOSE_FILENAME="docker-compose.dynamic.${SCRIPT_NAME}_$(date +%s%N).yml"
+DYNAMIC_COMPOSE_PATH="${TEMP_COMPOSE_DIR}/${DYNAMIC_COMPOSE_FILENAME}"
+
+# Generate the dynamic docker-compose.yml content
+COMPOSE_FILE_CONTENT=$(cat <<EOF
+version: '3.8'
+services:
+  ai_agent:
+    build:
+      context: "${TYPEDAI_HOME_ABS}"
+      dockerfile: Dockerfile.dev
+    image: typedai_agent_runner_img_${USER} # User-specific image name for better caching
+    volumes:
+      - "${TYPEDAI_HOME_ABS}:/home/typedai/:delegated" # Mount AI platform code
+      - typedai_node_modules:/home/typedai/node_modules # Persist TypedAI's node_modules
+      - typedai_frontend_node_modules:/home/typedai/frontend/node_modules # Persist TypedAI's frontend node_modules
+      - "${CWD_ABS}:/workspace/:delegated" # Mount target repository
+      - "${HOME}/.config/gcloud:/home/typedai/.config/gcloud:ro" # Mount gcloud config (read-only)
+    working_dir: /home/typedai/ # Set working directory for 'npm run'
+    user: typedai # Run as 'typedai' user defined in Dockerfile.dev
+    tty: true # Allocate a TTY
+    stdin_open: true # Keep STDIN open for interactive prompts
+    command:
+${YAML_COMMAND_LINES}
+
+volumes: # Define named volumes at the top level
+  typedai_node_modules:
+  typedai_frontend_node_modules:
+EOF
+)
+
+echo "$COMPOSE_FILE_CONTENT" > "$DYNAMIC_COMPOSE_PATH"
+
+echo "Running AI agent in Docker..."
+echo "TypedAI Home: ${TYPEDAI_HOME_ABS}"
+echo "Target Repo: ${CWD_ABS}"
+echo "NPM Script: ${SCRIPT_NAME}"
+echo "Script Args: ${SCRIPT_ARGS[*]}"
+echo "Dynamic Compose File: ${DYNAMIC_COMPOSE_PATH}"
+# For debugging, you can print the content of the generated compose file:
+# echo "--- Generated Docker Compose File ---"
+# cat "$DYNAMIC_COMPOSE_PATH"
+# echo "-----------------------------------"
+
+# Execute docker compose run.
+# The command specified in the dynamic compose file will be executed.
+# --rm ensures the container is removed after execution.
+# Running 'docker compose' from TYPEDAI_HOME_ABS ensures the build context is correctly picked up.
+(cd "$TYPEDAI_HOME_ABS" && docker compose -f "$DYNAMIC_COMPOSE_PATH" run --build --rm ai_agent)
+EXIT_CODE=$?
+
+# Optional: Cleanup the dynamic compose file
+# rm "$DYNAMIC_COMPOSE_PATH"
+
+exit $EXIT_CODE
