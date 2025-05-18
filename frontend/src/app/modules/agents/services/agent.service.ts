@@ -11,8 +11,7 @@ import {
   tap,
 } from 'rxjs/operators';
 import { AGENT_API } from '#shared/api/agent.api';
-import { Static } from '@sinclair/typebox';
-import { AgentContextSchema, AutonomousIterationSchema } from '#shared/schemas/agent.schema';
+import { AgentContext, AutonomousIteration } from '#shared/model/agent.model';
 import {LlmCall} from "#shared/model/llmCall.model";
 import {Pagination} from "../../../core/types";
 
@@ -20,7 +19,7 @@ import {Pagination} from "../../../core/types";
 @Injectable({ providedIn: 'root' })
 export class AgentService {
   /** Holds the list of agents */
-  private _agents$: BehaviorSubject<Static<typeof AgentContextSchema>[]> = new BehaviorSubject<Static<typeof AgentContextSchema>[]>(null);
+  private _agents$: BehaviorSubject<AgentContext[]> = new BehaviorSubject<AgentContext[]>(null);
 
   /** Exposes the agents as an observable */
   public agents$ = this._agents$.asObservable();
@@ -46,7 +45,7 @@ export class AgentService {
 
   /** Loads agents from the server and updates the BehaviorSubject */
   private loadAgents(): void {
-    this._httpClient.get<Static<typeof AgentContextSchema>[]>(AGENT_API.list.pathTemplate).pipe(
+    this._httpClient.get<AgentContext[]>(AGENT_API.list.pathTemplate).pipe(
       tap(agents => this._agents$.next(agents || [])),
       catchError(error => {
         console.error('Error fetching agents', error);
@@ -56,7 +55,7 @@ export class AgentService {
   }
 
   /** Retrieves the current list of agents */
-  getAgents(): Observable<Static<typeof AgentContextSchema>[]> {
+  getAgents(): Observable<AgentContext[]> {
     return this.agents$;
   }
 
@@ -68,8 +67,8 @@ export class AgentService {
   }
 
   /** Get agent details */
-  getAgentDetails(agentId: string): Observable<Static<typeof AgentContextSchema>> {
-    return this._httpClient.get<Static<typeof AgentContextSchema>>(AGENT_API.details.pathTemplate.replace(':agentId', agentId)).pipe(
+  getAgentDetails(agentId: string): Observable<AgentContext> {
+    return this._httpClient.get<AgentContext>(AGENT_API.details.pathTemplate.replace(':agentId', agentId)).pipe(
         catchError(error => this.handleError('Load agent', error))
     );
   }
@@ -82,16 +81,16 @@ export class AgentService {
   }
 
   /** Get iterations for an autonomous agent */
-  getAgentIterations(agentId: string): Observable<Static<typeof AutonomousIterationSchema>[]> {
-    return this._httpClient.get<Static<typeof AutonomousIterationSchema>[]>(AGENT_API.getIterations.pathTemplate.replace(':agentId', agentId)).pipe(
+  getAgentIterations(agentId: string): Observable<AutonomousIteration[]> {
+    return this._httpClient.get<AutonomousIteration[]>(AGENT_API.getIterations.pathTemplate.replace(':agentId', agentId)).pipe(
       catchError(error => this.handleError('Load agent iterations', error))
     );
   }
 
   /** Updates the local cache when an agent is modified */
-  private updateAgentInCache(updatedAgent: Static<typeof AgentContextSchema>): void {
+  private updateAgentInCache(updatedAgent: AgentContext): void {
     const agents = this._agents$.getValue() ?? [];
-    const index = agents.findIndex(agent => agent.agentId === updatedAgent.agentId) ?? -1;
+    const index = agents.findIndex(agent => agent.agentId === updatedAgent.agentId);
     if (index !== -1) {
       const updatedAgents = [...agents];
       updatedAgents[index] = updatedAgent;
@@ -117,8 +116,8 @@ export class AgentService {
   }
 
   /** Submits feedback and updates the local cache */
-  submitFeedback(agentId: string, executionId: string, feedback: string): Observable<Static<typeof AgentContextSchema>> {
-    return this._httpClient.post<Static<typeof AgentContextSchema>>(AGENT_API.feedback.pathTemplate, { agentId, executionId, feedback }
+  submitFeedback(agentId: string, executionId: string, feedback: string): Observable<AgentContext> {
+    return this._httpClient.post<AgentContext>(AGENT_API.feedback.pathTemplate, { agentId, executionId, feedback }
     ).pipe(
       tap(updatedAgent => this.updateAgentInCache(updatedAgent)),
       catchError(error => this.handleError('submitFeedback', error))
@@ -126,8 +125,8 @@ export class AgentService {
   }
 
   /** Requests a Human-in-the-Loop check for an agent */
-  requestHilCheck(agentId: string, executionId: string): Observable<Static<typeof AgentContextSchema>> {
-    return this._httpClient.post<Static<typeof AgentContextSchema>>(
+  requestHilCheck(agentId: string, executionId: string): Observable<AgentContext> {
+    return this._httpClient.post<AgentContext>(
       AGENT_API.requestHil.pathTemplate,
       { agentId, executionId }
     ).pipe(
@@ -137,8 +136,8 @@ export class AgentService {
   }
 
   /** Resumes an agent and updates the local cache */
-  resumeAgent(agentId: string, executionId: string, feedback: string): Observable<Static<typeof AgentContextSchema>> {
-    return this._httpClient.post<Static<typeof AgentContextSchema>>(AGENT_API.resumeHil.pathTemplate, { agentId, executionId, feedback }
+  resumeAgent(agentId: string, executionId: string, feedback: string): Observable<AgentContext> {
+    return this._httpClient.post<AgentContext>(AGENT_API.resumeHil.pathTemplate, { agentId, executionId, feedback }
     ).pipe(
       tap(updatedAgent => this.updateAgentInCache(updatedAgent)),
       catchError(error => this.handleError('resumeAgent', error))
@@ -146,8 +145,8 @@ export class AgentService {
   }
 
   /** Cancels an agent and updates the local cache */
-  cancelAgent(agentId: string, executionId: string, reason: string): Observable<Static<typeof AgentContextSchema>> {
-    return this._httpClient.post<Static<typeof AgentContextSchema>>(AGENT_API.cancel.pathTemplate, { agentId, executionId, reason }
+  cancelAgent(agentId: string, executionId: string, reason: string): Observable<AgentContext> {
+    return this._httpClient.post<AgentContext>(AGENT_API.cancel.pathTemplate, { agentId, executionId, reason }
     ).pipe(
       tap(updatedAgent => this.updateAgentInCache(updatedAgent)),
       catchError(error => this.handleError('cancelAgent', error))
@@ -155,8 +154,8 @@ export class AgentService {
   }
 
   /** Updates agent functions and updates the local cache */
-  updateAgentFunctions(agentId: string, functions: string[]): Observable<Static<typeof AgentContextSchema>> {
-    return this._httpClient.post<Static<typeof AgentContextSchema>>(
+  updateAgentFunctions(agentId: string, functions: string[]): Observable<AgentContext> {
+    return this._httpClient.post<AgentContext>(
       AGENT_API.updateFunctions.pathTemplate,
       { agentId, functions }
     ).pipe(
@@ -174,8 +173,8 @@ export class AgentService {
   }
 
   /** Resumes an agent from error and updates the local cache */
-  resumeError(agentId: string, executionId: string, feedback: string): Observable<Static<typeof AgentContextSchema>> {
-    return this._httpClient.post<Static<typeof AgentContextSchema>>(
+  resumeError(agentId: string, executionId: string, feedback: string): Observable<AgentContext> {
+    return this._httpClient.post<AgentContext>(
       AGENT_API.resumeError.pathTemplate,
       { agentId, executionId, feedback }
     ).pipe(
@@ -185,8 +184,8 @@ export class AgentService {
   }
 
   /** Resumes a completed agent and updates the local cache */
-  resumeCompletedAgent(agentId: string, executionId: string, instructions: string): Observable<Static<typeof AgentContextSchema>> {
-    return this._httpClient.post<Static<typeof AgentContextSchema>>(
+  resumeCompletedAgent(agentId: string, executionId: string, instructions: string): Observable<AgentContext> {
+    return this._httpClient.post<AgentContext>(
       AGENT_API.resumeCompleted.pathTemplate,
       { agentId, executionId, instructions }
     ).pipe(
