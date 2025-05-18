@@ -24,25 +24,30 @@ SCRIPT_NAME="$1"
 shift
 SCRIPT_ARGS=("$@")
 
-# Prepare script arguments for the YAML list command
-YAML_COMMAND_LINES="      - npm\n      - run\n      - \"${SCRIPT_NAME}\"\n      - --\n      - \"--fs=/workspace/\""
+# Prepare script arguments for the YAML list command.
+# Each argument will be a separate item in the YAML list, on a new line.
+# Arguments are wrapped in double quotes for YAML.
+YAML_COMMAND_LINES="      - \"npm\"
+      - \"run\"
+      - \"${SCRIPT_NAME}\" # SCRIPT_NAME itself is quoted
+      - \"--\"
+      - \"--fs=/workspace/\""
+
 for arg in "${SCRIPT_ARGS[@]}"; do
-  # Basic escaping for double quotes within YAML strings
+  # Escape double quotes within the argument string for YAML
   escaped_arg=$(echo "$arg" | sed 's/"/\\"/g')
-  YAML_COMMAND_LINES="${YAML_COMMAND_LINES}\n      - \"${escaped_arg}\""
+  YAML_COMMAND_LINES="${YAML_COMMAND_LINES}
+      - \"${escaped_arg}\"" # Append as a new line, new list item, quoted
 done
 
 # Create a temporary directory for the dynamic compose file if it doesn't exist
 TEMP_COMPOSE_DIR="${TYPEDAI_HOME_ABS}/.tmp"
 mkdir -p "$TEMP_COMPOSE_DIR"
-# Unique name for compose file to avoid clashes if script is run multiple times in parallel for different agents
-# Using a timestamp or a random suffix might be better for true parallelism, but script name is a start.
+# Unique name for compose file
 DYNAMIC_COMPOSE_FILENAME="docker-compose.dynamic.${SCRIPT_NAME}_$(date +%s%N).yml"
 DYNAMIC_COMPOSE_PATH="${TEMP_COMPOSE_DIR}/${DYNAMIC_COMPOSE_FILENAME}"
 
 # Generate the dynamic docker-compose.yml content
-# This uses named volumes for node_modules to persist them efficiently after image build.
-# The image name includes ${USER} to provide some level of image caching separation per host user.
 COMPOSE_FILE_CONTENT=$(cat <<EOF
 version: '3.8'
 services:
@@ -78,12 +83,16 @@ echo "Target Repo: ${CWD_ABS}"
 echo "NPM Script: ${SCRIPT_NAME}"
 echo "Script Args: ${SCRIPT_ARGS[*]}"
 echo "Dynamic Compose File: ${DYNAMIC_COMPOSE_PATH}"
+# For debugging, you can print the content of the generated compose file:
+# echo "--- Generated Docker Compose File ---"
+# cat "$DYNAMIC_COMPOSE_PATH"
+# echo "-----------------------------------"
 
 # Execute docker compose run.
 # The command specified in the dynamic compose file will be executed.
 # --rm ensures the container is removed after execution.
 # Running 'docker compose' from TYPEDAI_HOME_ABS ensures the build context is correctly picked up.
-(cd "$TYPEDAI_HOME_ABS" && docker compose -f "$DYNAMIC_COMPOSE_PATH" run --rm ai_agent)
+(cd "$TYPEDAI_HOME_ABS" && docker compose -f "$DYNAMIC_COMPOSE_PATH" run --build --rm ai_agent)
 EXIT_CODE=$?
 
 # Optional: Cleanup the dynamic compose file
