@@ -79,11 +79,12 @@ export function vertexGemini_2_0_Flash_Lite() {
 }
 
 const GCLOUD_PROJECTS: string[] = [];
-if (process.env.GCLOUD_PROJECT) GCLOUD_PROJECTS.push(process.env.GCLOUD_PROJECT);
+
 for (let i = 2; i <= 9; i++) {
 	const key = process.env[`GCLOUD_PROJECT_${i}`];
-	if (key) GCLOUD_PROJECTS.push(key);
-	else break;
+	if (!key) break;
+	if (i === 2) GCLOUD_PROJECTS.push(process.env.GCLOUD_PROJECT);
+	GCLOUD_PROJECTS.push(key);
 }
 let gcloudProjectIndex = 0;
 
@@ -104,10 +105,13 @@ class VertexLLM extends AiLLM<GoogleVertexProvider> {
 		if (GCLOUD_PROJECTS.length) {
 			project = GCLOUD_PROJECTS[gcloudProjectIndex];
 			if (++gcloudProjectIndex > GCLOUD_PROJECTS.length) gcloudProjectIndex = 0;
+		} else {
+			project = currentUser().llmConfig.vertexProjectId || project || envVar('GCLOUD_PROJECT');
 		}
 
+		console.log(`Configuring vertex provider with ${project}`);
 		this.aiProvider ??= createVertex({
-			project: currentUser().llmConfig.vertexProjectId || project || envVar('GCLOUD_PROJECT'),
+			project: project,
 			location: currentUser().llmConfig.vertexRegion || envVar('GCLOUD_REGION'),
 		});
 

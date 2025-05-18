@@ -1,6 +1,6 @@
 import pino from 'pino';
+import { summaryLLM } from '#llm/services/defaultLlms';
 import type { LLM } from '#shared/model/llm.model';
-import {summaryLLM} from "#llm/services/defaultLlms";
 
 const logger = pino({ name: 'UnifiedChunkContextualizer' });
 
