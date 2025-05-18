@@ -530,4 +530,125 @@ describe('PromptFormComponent', () => {
       expect(maxOutputTokensControl?.value).toBe(512); // Form control stores number
     });
   });
+
+  describe('populateForm message content handling', () => {
+    const baseTestPromptSettings = {
+      llmId: mockLlms.find(l => l.isConfigured && l.id === 'llm-1')!.id || mockLlms.find(l => l.isConfigured)!.id, // Prefer llm-1 if available
+      temperature: 1.0,
+      maxOutputTokens: 2048
+    };
+
+    const createBasePrompt = (name: string, messages: LlmMessage[]): Prompt => ({
+      id: `test-${name.toLowerCase().replace(/\s+/g, '-')}`,
+      userId: 'test-user',
+      revisionId: 1,
+      name,
+      tags: [],
+      messages,
+      settings: baseTestPromptSettings,
+    });
+
+    beforeEach(fakeAsync(() => {
+      // Ensure LLMs are loaded and form is initialized before each test in this suite
+      mockActivatedRoute.data = of({ prompt: null }); // Start with a base state for new prompt
+      fixture.detectChanges(); // ngOnInit -> triggers getLlms
+      tick(); // Complete getLlms
+      fixture.detectChanges(); // Apply LLMs and processRouteData (initializes form)
+    }));
+
+    it('should correctly populate message content when LlmMessage.content is a simple string', fakeAsync(() => {
+      const testPrompt = createBasePrompt('Simple String Test', [{ role: 'user', content: 'Hello world' }]);
+      component.populateForm(testPrompt);
+      fixture.detectChanges();
+      tick();
+      expect(component.messagesFormArray.at(0).get('content')?.value).toBe('Hello world');
+    }));
+
+    it('should correctly populate message content when LlmMessage.content is an array with only TextPart', fakeAsync(() => {
+      const contentArray: TextPart[] = [{ type: 'text', text: 'First line.' }, { type: 'text', text: 'Second line.' }];
+      const testPrompt = createBasePrompt('TextPart Array Test', [{ role: 'user', content: contentArray as UserContentExt }]);
+      component.populateForm(testPrompt);
+      fixture.detectChanges();
+      tick();
+      expect(component.messagesFormArray.at(0).get('content')?.value).toBe('First line.\n\nSecond line.');
+    }));
+
+    it('should correctly populate message content with placeholder for ImagePartExt', fakeAsync(() => {
+      const contentArray1: ImagePartExt[] = [{ type: 'image', image: 'base64data', mimeType: 'image/png', filename: 'test.png' }];
+      let testPrompt1 = createBasePrompt('ImagePart Filename Test', [{ role: 'user', content: contentArray1 as UserContentExt }]);
+      component.populateForm(testPrompt1);
+      fixture.detectChanges();
+      tick();
+      expect(component.messagesFormArray.at(0).get('content')?.value).toBe('[Image: test.png]');
+
+      const contentArray2: ImagePartExt[] = [{ type: 'image', image: 'base64data', mimeType: 'image/jpeg' }];
+      let testPrompt2 = createBasePrompt('ImagePart MimeType Test', [{ role: 'user', content: contentArray2 as UserContentExt }]);
+      component.populateForm(testPrompt2);
+      fixture.detectChanges();
+      tick();
+      expect(component.messagesFormArray.at(0).get('content')?.value).toBe('[Image: image/jpeg]');
+    }));
+
+    it('should correctly populate message content with placeholder for FilePartExt', fakeAsync(() => {
+      const contentArray1: FilePartExt[] = [{ type: 'file', data: 'base64data', mimeType: 'application/pdf', filename: 'document.pdf' }];
+      let testPrompt1 = createBasePrompt('FilePart Filename Test', [{ role: 'user', content: contentArray1 as UserContentExt }]);
+      component.populateForm(testPrompt1);
+      fixture.detectChanges();
+      tick();
+      expect(component.messagesFormArray.at(0).get('content')?.value).toBe('[File: document.pdf]');
+
+      const contentArray2: FilePartExt[] = [{ type: 'file', data: 'base64data', mimeType: 'text/plain' }];
+      let testPrompt2 = createBasePrompt('FilePart MimeType Test', [{ role: 'user', content: contentArray2 as UserContentExt }]);
+      component.populateForm(testPrompt2);
+      fixture.detectChanges();
+      tick();
+      expect(component.messagesFormArray.at(0).get('content')?.value).toBe('[File: text/plain]');
+    }));
+
+    it('should correctly populate message content with mixed parts (text, image, file)', fakeAsync(() => {
+      const mixedContent: UserContentExt = [
+        { type: 'text', text: 'Here is an image:' },
+        { type: 'image', image: 'img_data', mimeType: 'image/gif', filename: 'anim.gif' },
+        { type: 'text', text: 'And a file:' },
+        { type: 'file', data: 'file_data', mimeType: 'application/zip', filename: 'archive.zip' }
+      ];
+      const testPrompt = createBasePrompt('Mixed Parts Test', [{ role: 'user', content: mixedContent }]);
+      component.populateForm(testPrompt);
+      fixture.detectChanges();
+      tick();
+      expect(component.messagesFormArray.at(0).get('content')?.value).toBe('Here is an image:\n\n[Image: anim.gif]\n\nAnd a file:\n\n[File: archive.zip]');
+    }));
+
+    it('should handle LlmMessage.content as an empty array', fakeAsync(() => {
+      const testPrompt = createBasePrompt('Empty Array Content Test', [{ role: 'user', content: [] as UserContentExt }]);
+      component.populateForm(testPrompt);
+      fixture.detectChanges();
+      tick();
+      // populateForm adds a default user message if messages array is empty after processing
+      // and includeSystemMessage is false.
+      // If the prompt's message content is an empty array, _convertLlmContentToString returns '',
+      // so the message content in the form will be ''.
+      expect(component.messagesFormArray.at(0).get('content')?.value).toBe('');
+    }));
+
+    it('should handle LlmMessage.content as undefined', fakeAsync(() => {
+      const testPrompt = createBasePrompt('Undefined Content Test', [{ role: 'user', content: undefined as unknown as UserContentExt }]);
+      component.populateForm(testPrompt);
+      fixture.detectChanges();
+      tick();
+      expect(component.messagesFormArray.at(0).get('content')?.value).toBe('');
+    }));
+
+    it('should handle LlmMessage.content with unknown part types gracefully', fakeAsync(() => {
+      const unknownContent: UserContentExt = [
+        { type: 'text', text: 'Known' },
+        { type: 'exotic_part_type', someData: 'foo' } as any // Cast to any to simulate unknown part
+      ];
+      const testPrompt = createBasePrompt('Unknown Part Test', [{ role: 'user', content: unknownContent }]);
+      component.populateForm(testPrompt);
+      fixture.detectChanges();
+      tick();
+      expect(component.messagesFormArray.at(0).get('content')?.value).toBe('Known\n\n[Unknown part type: exotic_part_type]');
+    }));
+  });
 });
