@@ -35,7 +35,7 @@ const defaultType/*: AgentType*/ = 'codegen';
 
 @Component({
   selector: 'new-autonomous-agent',
-  templateUrl: './new-autonomous-agent.component.html',
+  templateUrl: './new-agent.component.html',
   styleUrls: ['./new-agent.component.scss'],
   encapsulation: ViewEncapsulation.None,
   standalone: true,
