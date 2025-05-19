@@ -149,7 +149,7 @@ export interface AgentContext {
     /** Completed function calls with success/error output */
     functionCallHistory: FunctionCallResult[];
     /** How many iterations of the autonomous agent control loop to require human input to continue */
-    hilCount: number; // Was 'any', assuming number
+    hilCount: number;
     /** If the user has requested a human-in-the-loop intervention after the current control loop iteration completes */
     hilRequested?: boolean;
     /** Files which are always provided in the agent control loop prompt */
