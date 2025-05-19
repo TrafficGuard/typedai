@@ -73,7 +73,7 @@ export class Anthropic extends AiLLM<AnthropicProvider> {
 		});
 	}
 
-	protected override processMessages(llmMessages: LlmMessage[]): CoreMessage[] {
+	protected override processMessages(llmMessages: LlmMessage[]): LlmMessage[] {
 		const providerSpecificMessages = this._preprocessProviderMessages(llmMessages);
 		return super.processMessages(providerSpecificMessages);
 	}
