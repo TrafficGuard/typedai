@@ -26,6 +26,7 @@ export const TextPartSchema = Type.Object({
     type: Type.Literal('text'),
     text: Type.String(),
     providerOptions: ProviderOptionsOptionalSchema,
+    experimental_providerMetadata: Type.Optional(Type.Any()), // Added to match potential field in TextPart from 'ai'
 }); // Do not provide an id as it is attached to multiple parent schemas
 
 const _TextPartCheck: AreTypesFullyCompatible<TextPartExt, Static<typeof TextPartSchema>> = true;
@@ -46,7 +47,7 @@ const _ImagePartExtCheck: AreTypesFullyCompatible<ImagePartExt, Static<typeof Im
 export const FilePartExtSchema = Type.Intersect([Type.Object({
     type: Type.Literal('file'),
     data: Type.String(), // Represents DataContent (string | Uint8Array | ArrayBuffer | Buffer) or URL. TypeBox handles string for URL/base64.
-    filename: Type.Optional(Type.String()),
+    // filename is provided by AttachmentInfoSchema
     mimeType: Type.String(),
     providerOptions: ProviderOptionsOptionalSchema,
 }), AttachmentInfoSchema]); // Do not provide an id as it is attached to multiple parent schemas
