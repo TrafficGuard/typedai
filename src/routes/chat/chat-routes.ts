@@ -80,7 +80,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 				{ id: 'Chat title' },
 			);
 
-			chat.messages.push({ role: 'user', content: userContent, time: Date.now() });
+			chat.messages.push({ role: 'user', content: userContent as UserContentExt, time: Date.now() });
 
 			const message: LlmMessage = await llm.generateMessage(chat.messages, { id: 'chat', ...options });
 			chat.messages.push(message);
@@ -113,7 +113,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			}
 			if (!llm.isConfigured()) return sendBadRequest(reply, `LLM ${llm.getId()} is not configured`);
 
-			chat.messages.push({ role: 'user', content: userContent, time: Date.now() });
+			chat.messages.push({ role: 'user', content: userContent as UserContentExt, time: Date.now() });
 
 			const responseMessage = await llm.generateMessage(chat.messages, { id: 'chat', ...options });
 			chat.messages.push(responseMessage);
@@ -155,7 +155,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 
 			chat.messages = chat.messages.slice(0, historyTruncateIndex - 1);
 
-			chat.messages.push({ role: 'user', content: userContent, time: Date.now() });
+			chat.messages.push({ role: 'user', content: userContent as UserContentExt, time: Date.now() });
 
 			const responseMessage = await llm.generateMessage(chat.messages, { id: 'chat-regenerate', ...options });
 			chat.messages.push(responseMessage);
