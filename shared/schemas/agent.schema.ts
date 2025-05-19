@@ -246,7 +246,7 @@ type AgentContextWithSerializedParts = AgentContextBaseForCheck & {
 
 type AgentContextForCheck = AgentContextWithSerializedParts;
 
-const _agentContextCheck: AreTypesFullyCompatible<AgentContextForCheck, Static<typeof AgentContextSchema>> = false;
+const _agentContextCheck: AreTypesFullyCompatible<AgentContextForCheck, Static<typeof AgentContextSchema>> = true;
 
 export const AutonomousIterationSchema = Type.Object({
     agentId: Type.String(),
