@@ -117,7 +117,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 						const extPart = part as FilePartExt;
 						return {
 							type: 'file',
-							data: extPart.file, // AiFilePart (from 'ai') expects 'data'
+							data: extPart.data, // AiFilePart (from 'ai') expects 'data'
 							mimeType: extPart.mimeType,
 						} as AiFilePart; // Use AiFilePart (alias for 'ai'.FilePart)
 					} else if (part.type === 'text') {
@@ -393,7 +393,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 						const aiFilePart = part as AiFilePart; // ai.FilePart
 						return {
 							type: 'file',
-							file: convertDataContentToString(aiFilePart.data), // Our FilePartExt uses 'file', ai.FilePart has 'data'
+							data: convertDataContentToString(aiFilePart.data), // Our FilePartExt uses 'data', ai.FilePart has 'data'
 							mimeType: aiFilePart.mimeType,
 						} as FilePartExt;
 					} else if (part.type === 'tool-call') {

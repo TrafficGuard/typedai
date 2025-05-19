@@ -78,8 +78,8 @@ const FilePartExtSchema = Type.Object({
     // If FilePartExt actually uses `file: string` for content, this needs adjustment.
     // Based on `FilePart { type: 'file'; image: DataContent | URL; mimeType: string; }`
     // and `FilePartUI = ChangePropertyType<FilePart, 'data', string >`, this implies `FilePart` should have `data`.
-    // Let's use `file` as the property name for content, matching `FilePart`.
-    file: Type.String(), // Content of the file
+    // Let's use `data` as the property name for content, to align with `ai` library's FilePart.
+    data: Type.String(), // Content of the file
     mimeType: Type.String(),
     filename: Type.Optional(Type.String()),
     size: Type.Optional(Type.Number()),

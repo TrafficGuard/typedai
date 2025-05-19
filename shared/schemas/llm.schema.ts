@@ -44,10 +44,10 @@ type ImagePartExtType = Omit<ChangePropertyType<ImagePartExt, 'providerOptions',
 const _ImagePartExtCheck: AreTypesFullyCompatible<ImagePartExtType, Static<typeof ImagePartExtSchema>> = true;
 
 // Schema for FilePartExt (includes filename, size, externalURL)
-// 'file' field represents base64 data or a URL string.
+// 'data' field represents base64 data or a URL string.
 export const FilePartExtSchema = Type.Intersect([Type.Object({
     type: Type.Literal('file'),
-    file: Type.String(), // Represents DataContent (string | Uint8Array | ArrayBuffer | Buffer) or URL. TypeBox handles string for URL/base64.
+    data: Type.String(), // Represents DataContent (string | Uint8Array | ArrayBuffer | Buffer) or URL. TypeBox handles string for URL/base64.
     filename: Type.Optional(Type.String()),
     mimeType: Type.String(),
     providerOptions: ProviderOptionsOptionalSchema,

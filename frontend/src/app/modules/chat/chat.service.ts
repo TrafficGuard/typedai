@@ -68,7 +68,7 @@ async function prepareUserContentPayload(
 			} else { // 'file'
 				contentParts.push({
 					type: 'file',
-					file: base64Data, // Changed 'data' to 'file'
+					data: base64Data,
 					mimeType: attachment.mimeType,
 					filename: attachment.filename,
 					size: attachment.size,
@@ -86,7 +86,7 @@ async function prepareUserContentPayload(
 		});
 		contentParts.push({ // Represent audio as a generic file part
 			type: 'file',
-			file: base64Data, // Changed 'data' to 'file'
+			data: base64Data,
 			mimeType: audioBlob.type,
 			filename: audioFileName,
 			size: audioBlob.size,
@@ -516,12 +516,12 @@ function convertMessage(apiLlmMessage: ApiLlmMessage): ChatMessage { // ApiLlmMe
                 case 'file':
                     const filePart = part as FilePartExt; // From shared/model/llm.model
                      // Use externalURL if available, otherwise use base64 data
-                    const filePreviewUrl = filePart.externalURL || (typeof filePart.file === 'string' ? `data:${filePart.mimeType || 'application/octet-stream'};base64,${filePart.file}` : undefined); // Changed filePart.data to filePart.file
+                    const filePreviewUrl = filePart.externalURL || (typeof filePart.data === 'string' ? `data:${filePart.mimeType || 'application/octet-stream'};base64,${filePart.data}` : undefined);
 
                     allAttachmentsUI.push({
                         type: 'file',
                         filename: filePart.filename || `file_${Date.now()}`,
-                        size: filePart.size || (typeof filePart.file === 'string' ? filePart.file.length : 0), // Approx size; Changed filePart.data to filePart.file
+                        size: filePart.size || (typeof filePart.data === 'string' ? filePart.data.length : 0), // Approx size
                         data: null, // No raw File object
                         mimeType: filePart.mimeType || 'application/octet-stream',
                         previewUrl: filePreviewUrl, // Or a generic link/icon
