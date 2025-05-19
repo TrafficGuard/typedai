@@ -129,13 +129,13 @@ interface FilePart {
 
 /** Additional information added to the FilePart and ImagePart objects */
 export interface AttachmentInfo {
-    filename?: string;
-    size?: number;
+    filename?: string | undefined;
+    size?: number | undefined;
     /**
      * URL to large attachment data stored external from the LlmMessage (ie. in the agent's persistent directory).
      * When this is set the image/file data will be set to an empty string when saving to the database.
      */
-    externalURL?: string;
+    externalURL?: string | undefined;
 }
 
 
@@ -154,8 +154,8 @@ export interface FilePartUI {
 }
 
 export type TextPartExt = TextPart & { providerOptions?: Record<string, any>; experimental_providerMetadata?: unknown; };
-export type ImagePartExt = ImagePartUI & AttachmentInfo & { providerOptions?: Record<string, any> };
-export type FilePartExt = FilePartUI & AttachmentInfo & { providerOptions?: Record<string, any> };
+export type ImagePartExt = ImagePartUI & AttachmentInfo & { providerOptions?: Record<string, any> | undefined; };
+export type FilePartExt = FilePartUI & AttachmentInfo & { providerOptions?: Record<string, any> | undefined; };
 export type ToolCallPartExt = ModelToolCallPart; // from 'ai'
 
 
