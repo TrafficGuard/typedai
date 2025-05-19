@@ -10,7 +10,7 @@ import type {
     LlmMessage, // Import LlmMessage
 } from '#shared/model/llm.model';
 import type {AreTypesFullyCompatible} from '../utils/type-compatibility';
-import {ChangePropertyType} from '../typeUtils';
+import {ChangePropertyType, type Writable} from '../typeUtils'; // Added Writable import
 
 
 export const AttachmentInfoSchema = Type.Object({

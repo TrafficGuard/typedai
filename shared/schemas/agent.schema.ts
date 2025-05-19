@@ -1,6 +1,7 @@
 import { Type, type Static } from '@sinclair/typebox';
 import type { AgentContext, AutonomousIteration, AgentRunningState, TaskLevel, AgentLLMs, LlmFunctions, AgentCompleted } from '../model/agent.model';
 import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
+import type { Writable } from '../typeUtils'; // Added Writable import
 import type { FunctionCall, FunctionCallResult, LlmMessage, ImagePartExt, GenerationStats, TextPart, FilePartExt } from '../model/llm.model';
 import type { FileMetadata } from '../model/files.model';
 import type { User } from '../model/user.model';

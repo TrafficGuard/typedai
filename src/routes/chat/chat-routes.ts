@@ -7,7 +7,7 @@ import { summaryLLM } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { CHAT_API } from '#shared/api/chat.api';
 import type { Chat, ChatList } from '#shared/model/chat.model';
-import type { LLM, LlmMessage } from '#shared/model/llm.model';
+import type { LLM, LlmMessage, UserContentExt } from '#shared/model/llm.model'; // Added UserContentExt
 import type {
 	ChatMarkdownRequestSchema,
 	ChatMarkdownResponseModel,
