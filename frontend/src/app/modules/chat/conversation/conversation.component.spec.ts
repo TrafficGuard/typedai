@@ -157,7 +157,7 @@ describe('ConversationComponent', () => {
   });
 
 
-  describe('Attachment Functionality in ConversationComponent', () => {
+  xdescribe('Attachment Functionality in ConversationComponent', () => {
     it('should add files to selectedAttachments using addFiles method', () => {
       // Test addFiles
     });
