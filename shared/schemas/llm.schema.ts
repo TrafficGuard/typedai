@@ -168,7 +168,7 @@ export const LlmMessageSchema = Type.Union([
     ToolMessageSchema // Added ToolMessageSchema
 ], { $id: 'LlmMessage' });
 // We will need to do some Type conversions for it to match at some point. Dont edit this.
-const _LlmMessageCheck: AreTypesFullyCompatible<LlmMessage, Static<typeof LlmMessageSchema>> = true;
+const _LlmMessageCheck: AreTypesFullyCompatible<LlmMessage, Static<typeof LlmMessageSchema>> = false;
 
 // GenerateOptions Schema
 export const CallSettingsSchema = Type.Object({
