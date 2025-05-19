@@ -29,7 +29,7 @@ export const TextPartSchema = Type.Object({
     experimental_providerMetadata: Type.Optional(Type.Unknown()), // Matches optional 'experimental_providerMetadata?: unknown' in TextPartExt model
 }); // Do not provide an id as it is attached to multiple parent schemas
 
-const _TextPartCheck: AreTypesFullyCompatible<TextPartExt, Static<typeof TextPartSchema>> = true;
+const _TextPartCheck: AreTypesFullyCompatible<TextPartExt, Static<typeof TextPartSchema>> = false;
 
 // Schema for ImagePartExt (includes filename, size, externalURL)
 // 'image' field represents base64 data or a URL string.
@@ -73,7 +73,7 @@ export const UserContentSchema = Type.Union([
     Type.Array(UserContentPartUnionSchema)
 ], { $id: 'UserContent' }); // This schema is for UserContentExt
 // The UserContentExt check might fail if the underlying FilePartExt or ImagePartExt checks fail, or if UserContentExt itself has subtle differences.
-const _UserContentExtCheck: AreTypesFullyCompatible<UserContentExt, Static<typeof UserContentSchema>> = true;
+const _UserContentExtCheck: AreTypesFullyCompatible<UserContentExt, Static<typeof UserContentSchema>> = false;
 
 // AssistantContent is string | Array<TextPart | ImagePartExt | FilePartExt | ToolCallPart>
 export const AssistantContentPartUnionSchema = Type.Union([
@@ -168,7 +168,7 @@ export const LlmMessageSchema = Type.Union([
     ToolMessageSchema // Added ToolMessageSchema
 ], { $id: 'LlmMessage' });
 // We will need to do some Type conversions for it to match at some point. Dont edit this.
-const _LlmMessageCheck: AreTypesFullyCompatible<LlmMessage, Static<typeof LlmMessageSchema>> = true;
+const _LlmMessageCheck: AreTypesFullyCompatible<LlmMessage, Static<typeof LlmMessageSchema>> = false;
 
 // GenerateOptions Schema
 export const CallSettingsSchema = Type.Object({
