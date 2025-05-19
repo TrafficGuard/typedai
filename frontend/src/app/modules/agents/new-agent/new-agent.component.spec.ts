@@ -3,13 +3,13 @@ import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { RouterTestingModule } from '@angular/router/testing';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
-import { NewAutonomousAgentComponent } from './new-autonomous-agent.component';
+import { NewAgentComponent } from './new-agent.component';
 import { LlmService } from '../services/llm.service';
 import { of } from 'rxjs';
 
-describe('NewAutonomousAgentComponent', () => {
-  let component: NewAutonomousAgentComponent;
-  let fixture: ComponentFixture<NewAutonomousAgentComponent>;
+describe('NewAgentComponent', () => {
+  let component: NewAgentComponent;
+  let fixture: ComponentFixture<NewAgentComponent>;
   let llmServiceMock: Partial<LlmService>;
 
   beforeEach(async () => {
@@ -20,7 +20,7 @@ describe('NewAutonomousAgentComponent', () => {
 
     await TestBed.configureTestingModule({
       imports: [
-        NewAutonomousAgentComponent, // Import the standalone component
+        NewAgentComponent, // Import the standalone component
         NoopAnimationsModule,
         HttpClientTestingModule,
         RouterTestingModule,
@@ -31,7 +31,7 @@ describe('NewAutonomousAgentComponent', () => {
       ],
     }).compileComponents();
 
-    fixture = TestBed.createComponent(NewAutonomousAgentComponent);
+    fixture = TestBed.createComponent(NewAgentComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });
