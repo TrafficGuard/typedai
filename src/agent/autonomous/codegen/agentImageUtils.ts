@@ -54,8 +54,8 @@ export async function checkForImageSources(result: Record<string, any>, fileStor
 			try {
 				switch (request.source) {
 					case 'base64':
-						if((typeof request.specifier) !== 'string') throw new Error('specifier must be a string when source is base64')
-						base64 = request.specifier ;
+						if (typeof request.specifier !== 'string') throw new Error('specifier must be a string when source is base64');
+						base64 = request.specifier;
 						break;
 
 					case 'bytes': {
