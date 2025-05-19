@@ -9,10 +9,22 @@ import {
     type ToolContent,
     type UserContent,
     type ToolCallPart as ModelToolCallPart, // Corrected import: ModelToolCallPart is an alias for ToolCallPart
-    type ReasoningPart, // Added import
-    type RedactedReasoningPart, // Added import
+    // ReasoningPart and RedactedReasoningPart are not exported from 'ai'.
+    // We will define them locally below.
 } from 'ai';
 import {ChangePropertyType} from "../typeUtils";
+
+// Local definitions for unexported types from 'ai'
+export interface ReasoningPart {
+    type: 'reasoning';
+    text: string;
+    providerMetadata?: Record<string, unknown>;
+}
+
+export interface RedactedReasoningPart {
+    type: 'redacted-reasoning';
+    providerMetadata?: Record<string, unknown>;
+}
 
 // Should match fields in CallSettings in node_modules/ai/dist/index.d.ts
 export interface CallSettings {

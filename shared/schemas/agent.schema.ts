@@ -146,12 +146,14 @@ export const AgentContextSchema = Type.Object({
         hard: Type.Optional(Type.String()),
         xhard: Type.Optional(Type.String()),
     }),
-
+ 
     // Represents IFileSystemService.toJSON()
-    fileSystem: Type.Optional(Type.Union([Type.Object({
+    // The key 'fileSystem' is always present on AgentContext, its value can be an object or null.
+    // Changed from Type.Optional(Type.Union(...)) to Type.Union(...)
+    fileSystem: Type.Union([Type.Object({
         basePath: Type.String(),
         workingDirectory: Type.String(),
-    }), Type.Null()])),
+    }), Type.Null()]),
     useSharedRepos: Type.Boolean(),
     memory: Type.Record(Type.String(), Type.String()),
     lastUpdate: Type.Number(),

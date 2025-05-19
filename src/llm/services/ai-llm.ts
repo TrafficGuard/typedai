@@ -1,6 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import type { LanguageModelV1, ProviderV1 } from '@ai-sdk/provider';
-import { type CoreMessage, type GenerateTextResult, type TextStreamPart, generateText as aiGenerateText, streamText as aiStreamText, smoothStream } from 'ai';
+import {
+    type CoreMessage,
+    type GenerateTextResult,
+    type TextStreamPart,
+    generateText as aiGenerateText,
+    streamText as aiStreamText,
+    smoothStream,
+    type TextPart as AiTextPart, // Renamed to avoid conflict
+    type ImagePart as AiImagePart, // Renamed
+    type FilePart as AiFilePart, // Renamed
+    type ToolCallPart as AiToolCallPart, // Renamed
+} from 'ai';
 import { addCost, agentContext } from '#agent/agentContextLocalStorage';
 import { cloneAndTruncateBuffers } from '#agent/trimObject';
 import { appContext } from '#app/applicationContext';
@@ -8,7 +19,20 @@ import { BaseLLM } from '#llm/base-llm';
 import { type CreateLlmRequest, callStack } from '#llm/llmCallService/llmCall';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
-import { type GenerateTextOptions, type GenerationStats, type LlmMessage, messageText } from '#shared/model/llm.model';
+import {
+    type GenerateTextOptions,
+    type GenerationStats,
+    type LlmMessage,
+    messageText,
+    type CoreContent,
+    type ImagePartExt,
+    type FilePartExt,
+    type TextPartExt,
+    type AssistantContentExt,
+    type ReasoningPart, // Local definition
+    type RedactedReasoningPart, // Local definition
+    type ToolCallPartExt,
+} from '#shared/model/llm.model';
 import type { LlmCall } from '#shared/model/llmCall.model';
 import { errorToString } from '#utils/errors';
 
@@ -46,18 +70,19 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 					// Strip extra properties not present in CoreMessage parts
 					if (part.type === 'image') {
 						const { filename, size, externalURL, providerOptions: partProviderOptions, ...imagePartRequired } = part as ImagePartExt;
-						return imagePartRequired as AiImagePart;
+						return imagePartRequired as AiImagePart; // AiImagePart is 'ai'.ImagePart
 					} else if (part.type === 'file') {
 						const { filename, size, externalURL, providerOptions: partProviderOptions, ...filePartRequired } = part as FilePartExt;
-						return filePartRequired as AiFilePart;
+						return filePartRequired as AiFilePart; // AiFilePart is 'ai'.FilePart
 					} else if (part.type === 'text') {
-						// Assuming TextPartExt might have providerOptions or other extras not in ai.TextPart
 						const { providerOptions: partProviderOptions, ...textPartRequired } = part as TextPartExt;
-						return textPartRequired as TextPart;
+						return textPartRequired as AiTextPart; // AiTextPart is 'ai'.TextPart
 					}
-					// ToolCallPart, ReasoningPart, RedactedReasoningPart are assumed to be directly compatible
-					// if they are imported from 'ai' and used in LlmMessage content types.
-					return part as ModelToolCallPart | ReasoningPart | RedactedReasoningPart;
+					// For ToolCallPart, ReasoningPart, RedactedReasoningPart
+					// Ensure they are cast to their 'ai' library equivalents if necessary,
+					// or that our extended/local types are structurally compatible for direct use.
+					// ModelToolCallPart is from 'ai', ReasoningPart & RedactedReasoningPart are local defs matching 'ai'
+					return part as AiToolCallPart | ReasoningPart | RedactedReasoningPart;
 				}) as Exclude<CoreContent, string>;
 			}
 			return { ...restOfMsg, content: processedContent } as CoreMessage;
