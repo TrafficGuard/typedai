@@ -34,7 +34,7 @@ interface StartAgentResponse {
 const defaultType/*: AgentType*/ = 'codegen';
 
 @Component({
-  selector: 'new-agent',
+  selector: 'new-autonomous-agent',
   templateUrl: './new-autonomous-agent.component.html',
   styleUrls: ['./new-autonomous-agent.component.scss'],
   encapsulation: ViewEncapsulation.None,

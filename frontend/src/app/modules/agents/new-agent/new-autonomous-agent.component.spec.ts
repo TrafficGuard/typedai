@@ -7,7 +7,7 @@ import { NewAutonomousAgentComponent } from './new-autonomous-agent.component';
 import { LlmService } from '../services/llm.service';
 import { of } from 'rxjs';
 
-describe('NewAgentComponent', () => {
+describe('NewAutonomousAgentComponent', () => {
   let component: NewAutonomousAgentComponent;
   let fixture: ComponentFixture<NewAutonomousAgentComponent>;
   let llmServiceMock: Partial<LlmService>;

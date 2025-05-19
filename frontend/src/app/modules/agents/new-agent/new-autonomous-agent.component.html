@@ -1,0 +1,123 @@
+<div class="flex min-w-0 flex-auto flex-col">
+
+    <!-- Header -->
+    <div class="bg-card flex flex-0 flex-col border-b p-6 dark:bg-transparent sm:flex-row sm:items-center sm:justify-between sm:px-10 sm:py-3">
+        <div class="min-w-0 flex-1">
+            <div class="text-3xl font-medium tracking-tight">New Autonomous Agent</div>
+        </div>
+    </div>
+
+    <!-- Main -->
+    <mat-card class="code-card mat-elevation-z8 m-5 p-5 max-w-200">
+        <mat-card-content>
+
+            <form [formGroup]="runAgentForm" (ngSubmit)="onSubmit()" class="flex flex-col">
+                <!-- Name Field -->
+                <mat-form-field [ngClass]="['fuse-mat-dense', 'w-full']">
+                    <mat-label>Name</mat-label>
+                    <input matInput formControlName="name" placeholder="Enter agent name">
+                </mat-form-field>
+
+                <!-- Function Calling Type Field -->
+                <mat-form-field [ngClass]="['fuse-mat-dense', 'w-full']">
+                    <mat-label>Function calling type</mat-label>
+                    <mat-select formControlName="subtype">
+                        <mat-option value="codegen">Code Generation</mat-option>
+                        <mat-option value="xml">XML</mat-option>
+                        <mat-option value="native" disabled>Native</mat-option>
+                    </mat-select>
+                </mat-form-field>
+
+                <!-- Prompt Field -->
+                <mat-form-field [ngClass]="['fuse-mat-dense', 'w-full']">
+                    <mat-label>Prompt</mat-label>
+                    <textarea matInput formControlName="userPrompt" placeholder="Enter your prompt" rows="5" cdkTextareaAutosize cdkAutosizeMaxRows="10"></textarea>
+                </mat-form-field>
+
+                <!-- LLMs Section -->
+
+                <div class="prose prose-sm max-w-3xl">
+                    <h3 class="mt-2 mb-2">LLMs</h3>
+                </div>
+
+                <div class="flex flex-col md:flex-row gap-4">
+                    <mat-form-field [ngClass]="['fuse-mat-dense', 'flex-auto']">
+                        <mat-label>Easy</mat-label>
+                        <mat-select formControlName="llmEasy">
+                            @for (llm of llms; track llm.id) {
+                                <mat-option [value]="llm.id">{{ llm.name }}</mat-option>
+                            }
+                        </mat-select>
+                    </mat-form-field>
+                    <mat-form-field [ngClass]="['fuse-mat-dense', 'flex-auto']">
+                        <mat-label>Medium</mat-label>
+                        <mat-select formControlName="llmMedium">
+                            @for (llm of llms; track llm.id) {
+                                <mat-option [value]="llm.id">{{ llm.name }}</mat-option>
+                            }
+                        </mat-select>
+                    </mat-form-field>
+                    <mat-form-field [ngClass]="['fuse-mat-dense', 'flex-auto']">
+                        <mat-label>Hard</mat-label>
+                        <mat-select formControlName="llmHard">
+                            @for (llm of llms; track llm.id) {
+                                <mat-option [value]="llm.id">{{ llm.name }}</mat-option>
+                            }
+                        </mat-select>
+                    </mat-form-field>
+                </div>
+
+                <!-- Presets -->
+                <div class="mb-6">
+                    <span class="mr-2 font-semibold">Presets:</span>
+                    <a href="#" (click)="setPreset('claude-vertex'); $event.preventDefault()" class="mr-2 underline">Claude (Vertex)</a>
+                    <a href="#" (click)="setPreset('claude'); $event.preventDefault()" class="mr-2 underline">Claude (Anthropic)</a>
+                    <a href="#" (click)="setPreset('gemini'); $event.preventDefault()" class="mr-2 underline">Gemini</a>
+                    <a href="#" (click)="setPreset('openai'); $event.preventDefault()" class="mr-2 underline">GPT</a>
+                </div>
+
+                <!-- Functions Section -->
+                <div class="prose prose-sm max-w-3xl">
+                    <h3 class="mt-2 mb-2">Functions</h3>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-1 mb-5">
+                    @for (func of functions; track func) {
+                        <mat-checkbox [formControlName]="'function' + $index">{{ func }}</mat-checkbox>
+                    }
+                </div>
+
+                <!-- Tool options -->
+                <div class="mb-5">
+                    <mat-checkbox formControlName="useSharedRepos">Clone repositories to shared folder</mat-checkbox>
+                </div>
+
+                <!-- Human In The Loop Section -->
+                <div class="prose prose-sm max-w-3xl">
+                    <h3 class="mt-2 mb-2">Human In The Loop</h3>
+                </div>
+
+                <div class="md:flex-row flex flex-col gap-4">
+                    <mat-form-field [ngClass]="['fuse-mat-dense', 'flex-auto']">
+                        <mat-label>Budget $USD</mat-label>
+                        <input matInput type="number" formControlName="budget" min="0" step="any" placeholder="Enter budget">
+                    </mat-form-field>
+                    <mat-form-field [ngClass]="['fuse-mat-dense', 'flex-auto']">
+                        <mat-label>Agent control loop iterations</mat-label>
+                        <input matInput type="number" formControlName="count" min="0" placeholder="Enter count">
+                    </mat-form-field>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="flex justify-end mt-6">
+                    <button mat-raised-button color="primary" type="submit" [disabled]="!runAgentForm.valid || isSubmitting">
+                        @if (isSubmitting) {
+                            <mat-spinner [diameter]="24" class="mr-2"></mat-spinner>
+                        }
+                        Run Agent
+                    </button>
+                </div>
+            </form>
+        </mat-card-content>
+    </mat-card>
+</div>
