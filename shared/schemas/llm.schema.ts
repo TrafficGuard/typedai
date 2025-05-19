@@ -132,6 +132,7 @@ const SystemMessageSchema = Type.Intersect([
     }),
     LlmMessageSpecificFieldsSchema
 ], { $id: 'SystemMessage' });
+const _SystemMessageCheck: AreTypesFullyCompatible<LlmMessage, Static<typeof SystemMessageSchema>> = true;
 
 const UserMessageSchema = Type.Intersect([
     Type.Object({
