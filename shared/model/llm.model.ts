@@ -8,7 +8,7 @@ import {
     type TextStreamPart,
     type ToolContent,
     type UserContent,
-    type ModelToolCallPart,
+    type ToolCallPart as ModelToolCallPart, // Corrected import: ModelToolCallPart is an alias for ToolCallPart
 } from 'ai';
 import {ChangePropertyType} from "../typeUtils";
 
@@ -139,8 +139,8 @@ export interface FilePartUI {
 }
 
 export type TextPartExt = TextPart; // from 'ai'
-export type ImagePartExt = ImagePartUI & AttachmentInfo;
-export type FilePartExt = FilePartUI & AttachmentInfo;
+export type ImagePartExt = ImagePartUI & AttachmentInfo & { providerOptions?: Record<string, any> };
+export type FilePartExt = FilePartUI & AttachmentInfo & { providerOptions?: Record<string, any> };
 export type ToolCallPartExt = ModelToolCallPart; // from 'ai'
 
 
