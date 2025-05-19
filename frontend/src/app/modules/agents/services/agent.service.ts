@@ -11,7 +11,7 @@ import {
   tap,
 } from 'rxjs/operators';
 import { AGENT_API } from '#shared/api/agent.api';
-import { AgentContext, AutonomousIteration } from '#shared/model/agent.model';
+import type { AgentContext, AutonomousIteration, AgentRunningState } from '#shared/model/agent.model';
 import {LlmCall} from "#shared/model/llmCall.model";
 import {Pagination} from "../../../core/types";
 
