@@ -2,14 +2,12 @@ import { Routes, ActivatedRouteSnapshot, ResolveFn, RouterStateSnapshot } from '
 import { inject } from '@angular/core';
 import { Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
-
 import { PromptsComponent } from './prompts.component';
 import { PromptListComponent } from './list/prompt-list.component';
 import { PromptFormComponent } from './form/prompt-form.component';
 import { PromptsService } from './prompts.service';
 import type { Prompt } from '#shared/model/prompts.model';
 import type { PromptSchemaModel } from '#shared/schemas/prompts.schema';
-import { PromptDetailComponent } from './detail/prompt-detail.component';
 import { PROMPTS_ROUTES } from './prompt.paths';
 
 
@@ -39,7 +37,7 @@ const promptRoutes: Routes = [
     component: PromptsComponent,
     children: [
       {
-        path: PROMPTS_ROUTES.PATH_LIST, // This is ''
+        path: PROMPTS_ROUTES.PATH_LIST,
         component: PromptListComponent,
         pathMatch: 'full'
       },
@@ -51,11 +49,6 @@ const promptRoutes: Routes = [
       {
         path: PROMPTS_ROUTES.PATH_EDIT, // This is ':promptId/edit'
         component: PromptFormComponent,
-        resolve: { prompt: promptResolver }
-      },
-      { // New route for viewing details
-        path: PROMPTS_ROUTES.PATH_DETAIL, // This is ':promptId'
-        component: PromptDetailComponent,
         resolve: { prompt: promptResolver }
       }
     ]

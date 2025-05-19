@@ -2,21 +2,24 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { ReactiveFormsModule, FormControl } from '@angular/forms';
 import { MatRadioModule } from '@angular/material/radio';
-import { NewAutonomousAgentComponent } from './new-autonomous-agent.component';
-import { NewWorkflowsAgentComponent } from '../new-workflows-agent/new-workflows-agent.component';
+import { NewAutonomousAgentComponent } from './new-autonomous-agent/new-autonomous-agent.component';
+import { NewWorkflowsAgentComponent } from './new-workflows-agent/new-workflows-agent.component';
+import {MatCard, MatCardContent} from "@angular/material/card";
 
 @Component({
   selector: 'app-new-agent-container',
   templateUrl: './new-agent.component.html',
-  styleUrls: ['./new-agent.component.scss'],
+  // styleUrls: ['./new-agent.component.scss'],
   standalone: true,
-  imports: [
-      CommonModule,
-      ReactiveFormsModule,
-      MatRadioModule,
-      NewAutonomousAgentComponent,
-      NewWorkflowsAgentComponent
-  ],
+    imports: [
+        CommonModule,
+        ReactiveFormsModule,
+        MatRadioModule,
+        NewAutonomousAgentComponent,
+        NewWorkflowsAgentComponent,
+        MatCard,
+        MatCardContent
+    ],
 })
 export class NewAgentComponent implements OnInit {
 
@@ -28,4 +31,3 @@ export class NewAgentComponent implements OnInit {
     console.log('NewAgentComponent container initialized. Selector logic added.');
   }
 }
-````

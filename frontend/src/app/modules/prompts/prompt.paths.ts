@@ -1,5 +1,3 @@
-// frontend/src/app/modules/prompts/prompt.paths.ts
-
 // Internal constants for constructing paths. These are not exported directly.
 const _MODULE_ABSOLUTE_BASE = '/ui/prompts';
 
@@ -67,4 +65,4 @@ export const PROMPTS_ROUTES = {
    * Example: `['edit']`
    */
   editRelative: (): string[] => [_SEGMENT_EDIT],
-};
+} as const;

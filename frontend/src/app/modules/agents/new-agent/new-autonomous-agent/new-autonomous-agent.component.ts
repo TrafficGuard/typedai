@@ -19,7 +19,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { HttpClient } from "@angular/common/http";
 import { MatSnackBar } from "@angular/material/snack-bar";
 import { Router } from "@angular/router";
-import { LlmService } from "../services/llm.service";
+import { LlmService } from "../../services/llm.service";
 import { map, finalize, Subject, takeUntil } from "rxjs";
 import { MatProgressSpinner } from "@angular/material/progress-spinner";
 import { MatCheckboxModule } from "@angular/material/checkbox";
