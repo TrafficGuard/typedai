@@ -7,11 +7,11 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatIconModule } from '@angular/material/icon';
-import { Static } from '@sinclair/typebox'; // Added Static import
+// Static import removed
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { AgentService } from '../../services/agent.service';
-import { AutonomousIterationSchema } from '#shared/schemas/agent.schema'; // Import for Static type
+// AutonomousIterationSchema import removed
 import { AutonomousIteration } from '#shared/model/agent.model';
 import {FunctionCallResult} from "#shared/model/llm.model";
 
@@ -92,7 +92,7 @@ export class AgentIterationsComponent implements OnInit, OnChanges, OnDestroy {
         this.agentService.getAgentIterations(this.agentId).pipe(
             takeUntil(this.destroy$) // Ensure subscription is cleaned up on destroy or new load
         ).subscribe({
-            next: (loadedIterations: Static<typeof AutonomousIterationSchema>[]) => {
+            next: (loadedIterations: AutonomousIteration[]) => {
                 console.log(`AgentIterationsComponent: Successfully loaded ${loadedIterations.length} iterations for agent ${this.agentId}`);
                 
                 this.iterations = loadedIterations.map(iter => {
