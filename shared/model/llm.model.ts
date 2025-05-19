@@ -149,7 +149,7 @@ export interface ImagePartUI {
 
 export interface FilePartUI {
     type: 'file';
-    data: string; // Base64 string or URL
+    file: string; // Base64 string or URL
     mimeType: string;
 }
 

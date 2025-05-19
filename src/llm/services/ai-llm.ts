@@ -32,8 +32,8 @@ import {
     type ReasoningPart, // Local definition
     type RedactedReasoningPart, // Local definition
     type ToolCallPartExt,
-    type FilePart, // For AiFilePart.file type which is DataContent | URL
-    type ImagePart, // For AiImagePart.image type which is DataContent | URL
+    type AiFilePart as RenamedAiFilePart, // For AiFilePart.file type which is DataContent | URL
+    type AiImagePart as RenamedAiImagePart, // For AiImagePart.image type which is DataContent | URL
 } from '#shared/model/llm.model';
 import type { LlmCall } from '#shared/model/llmCall.model';
 import { errorToString } from '#utils/errors';
@@ -117,9 +117,9 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 						const extPart = part as FilePartExt;
 						return {
 							type: 'file',
-							file: extPart.data, // Map data to file; string (URL or base64) is compatible with DataContent
+							file: extPart.file, // Map extPart.file to AiFilePart.file
 							mimeType: extPart.mimeType,
-						} as AiFilePart;
+						} as RenamedAiFilePart; // Use aliased import
 					} else if (part.type === 'text') {
 						const extPart = part as TextPartExt;
 						return {
@@ -383,17 +383,17 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 					if (part.type === 'text') {
 						return part as TextPartExt;
 					} else if (part.type === 'image') {
-						const aiImagePart = part as AiImagePart; // ai.ImagePart
+						const aiImagePart = part as RenamedAiImagePart; // ai.ImagePart
 						return {
 							type: 'image',
 							image: convertDataContentToString(aiImagePart.image),
 							mimeType: aiImagePart.mimeType,
 						} as ImagePartExt;
 					} else if (part.type === 'file') {
-						const aiFilePart = part as AiFilePart; // ai.FilePart
+						const aiFilePart = part as RenamedAiFilePart; // ai.FilePart
 						return {
 							type: 'file',
-							data: convertDataContentToString(aiFilePart.file), // Use .file from AiFilePart
+							file: convertDataContentToString(aiFilePart.file), // Map to .file property of FilePartExt
 							mimeType: aiFilePart.mimeType,
 						} as FilePartExt;
 					} else if (part.type === 'tool-call') {

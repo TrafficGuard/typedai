@@ -79,8 +79,7 @@ const FilePartExtSchema = Type.Object({
     // Based on `FilePart { type: 'file'; image: DataContent | URL; mimeType: string; }`
     // and `FilePartUI = ChangePropertyType<FilePart, 'data', string >`, this implies `FilePart` should have `data`.
     // Let's use `file` as the property name for content, matching `FilePart`.
-    // Aligning with llm.model.ts and llm.schema.ts which use 'data'.
-    data: Type.String(), // Content of the file
+    file: Type.String(), // Content of the file
     mimeType: Type.String(),
     filename: Type.Optional(Type.String()),
     size: Type.Optional(Type.Number()),
