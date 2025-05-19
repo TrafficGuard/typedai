@@ -164,7 +164,7 @@ export const AgentContextSchema = Type.Object({
     }),
 
     // Serialized as handler ID
-    completedHandlerId: Type.Optional(Type.String()),
+    completedHandler: Type.Optional(Type.String()), // Changed from completedHandlerId
 
     pendingMessages: Type.Array(Type.String()),
 
@@ -208,7 +208,7 @@ export const AgentContextSchema = Type.Object({
     // lastUpdate: number; -> Type.Number()
     // metadata: Record<string, any>; -> Type.Record(Type.String(), Type.Any())
     // functions: LlmFunctions; -> Serialized as object in schema
-    // completedHandler?: AgentCompleted; -> Serialized as string ID in schema
+    // completedHandler?: AgentCompleted; -> Serialized as string ID in schema (now named completedHandler)
     // pendingMessages: string[]; -> Type.Array(Type.String())
     // iterations: number; -> Type.Number()
     // invoking: FunctionCall[]; -> Type.Array(FunctionCallSchema)
@@ -240,7 +240,7 @@ type AgentContextWithSerializedParts = AgentContextBaseForCheck & {
     llms: Static<typeof AgentContextSchema.properties.llms>;
     functions: Static<typeof AgentContextSchema.properties.functions>;
     fileSystem: Static<typeof AgentContextSchema.properties.fileSystem>;
-    completedHandlerId: Static<typeof AgentContextSchema.properties.completedHandlerId>; // Use 'completedHandlerId'
+    completedHandler: Static<typeof AgentContextSchema.properties.completedHandler>; // Use 'completedHandler'
     user: Static<typeof AgentContextSchema.properties.user>; // Use the serialized user ID type
 };
 

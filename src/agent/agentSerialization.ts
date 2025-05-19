@@ -61,7 +61,8 @@ export function serializeContext(context: AgentContext): Static<typeof AgentCont
 		xhard: context.llms.xhard.getId(),
 	};
 
-	serializedData.completedHandlerId = context.completedHandler ? context.completedHandler.agentCompletedHandlerId() : undefined;
+	// Use the new property name 'completedHandler'
+	serializedData.completedHandler = context.completedHandler ? context.completedHandler.agentCompletedHandlerId() : undefined;
 	serializedData.toolState = context.toolState ? JSON.parse(JSON.stringify(context.toolState)) : undefined;
 
 	return serializedData as Static<typeof AgentContextSchema>;
@@ -94,11 +95,11 @@ export function deserializeContext(data: Static<typeof AgentContextSchema>): Age
 	const llmsImpl = deserializeLLMs(data.llms as Record<keyof AgentLLMs, string | undefined>);
 
 	let completedHandlerImpl: AgentCompleted | undefined = undefined;
-	if (data.completedHandlerId) {
-		// Use completedHandlerId from schema
-		completedHandlerImpl = getCompletedHandler(data.completedHandlerId);
+	// Use the new property name 'completedHandler'
+	if (data.completedHandler) {
+		completedHandlerImpl = getCompletedHandler(data.completedHandler);
 		if (!completedHandlerImpl) {
-			logger.warn(`Unknown completedHandlerId during deserialization: ${data.completedHandlerId}, defaulting to ConsoleCompletedHandler`);
+			logger.warn(`Unknown completedHandler during deserialization: ${data.completedHandler}, defaulting to ConsoleCompletedHandler`);
 			completedHandlerImpl = new ConsoleCompletedHandler();
 		}
 	} else {
