@@ -59,7 +59,7 @@ const defaultType/*: AgentType*/ = 'codegen';
         MatCardContent,
     ],
 })
-export class NewAgentComponent implements OnInit, OnDestroy {
+export class NewAutonomousAgentComponent implements OnInit, OnDestroy {
   functions: string[] = [];
   llms: any[] = [];
   runAgentForm: FormGroup;
