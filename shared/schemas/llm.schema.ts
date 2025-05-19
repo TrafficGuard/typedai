@@ -26,7 +26,7 @@ export const TextPartSchema = Type.Object({
     type: Type.Literal('text'),
     text: Type.String(),
     providerOptions: ProviderOptionsOptionalSchema,
-    experimental_providerMetadata: Type.Optional(Type.Any()), // Added to match potential field in TextPart from 'ai'
+    experimental_providerMetadata: Type.Optional(Type.Unknown()), // Added to match potential field in TextPart from 'ai'
 }); // Do not provide an id as it is attached to multiple parent schemas
 
 const _TextPartCheck: AreTypesFullyCompatible<TextPartExt, Static<typeof TextPartSchema>> = true;
