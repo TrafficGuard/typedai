@@ -19,7 +19,7 @@ export const AttachmentInfoSchema = Type.Object({
     externalURL: Type.Optional(Type.String()),
 }); // Do not provide an id as it is attached to multiple parent schemas
 
-export const ProviderOptionsOptionalSchema = Type.Optional(Type.Record(Type.String(), Type.Record(Type.String(), Type.Any())))
+export const ProviderOptionsOptionalSchema = Type.Optional(Type.Record(Type.String(), Type.Any()))
 
 // Basic Part Schemas
 export const TextPartSchema = Type.Object({
@@ -28,8 +28,7 @@ export const TextPartSchema = Type.Object({
     providerOptions: ProviderOptionsOptionalSchema,
 }); // Do not provide an id as it is attached to multiple parent schemas
 
-type TextPartExtType = Omit<ChangePropertyType<TextPartExt, 'providerOptions', Record<string, Record<string, any>>>, 'experimental_providerMetadata'>
-const _TextPartCheck: AreTypesFullyCompatible<TextPartExtType, Static<typeof TextPartSchema>> = true;
+const _TextPartCheck: AreTypesFullyCompatible<TextPartExt, Static<typeof TextPartSchema>> = true;
 
 // Schema for ImagePartExt (includes filename, size, externalURL)
 // 'image' field represents base64 data or a URL string.
@@ -40,8 +39,7 @@ export const ImagePartExtSchema = Type.Intersect([Type.Object({
     providerOptions: ProviderOptionsOptionalSchema,
 }), AttachmentInfoSchema]); // Do not provide an id as it is attached to multiple parent schemas
 
-type ImagePartExtType = Omit<ChangePropertyType<ImagePartExt, 'providerOptions', Record<string, Record<string, any>>>, 'experimental_providerMetadata'>
-const _ImagePartExtCheck: AreTypesFullyCompatible<ImagePartExtType, Static<typeof ImagePartExtSchema>> = true;
+const _ImagePartExtCheck: AreTypesFullyCompatible<ImagePartExt, Static<typeof ImagePartExtSchema>> = true;
 
 // Schema for FilePartExt (includes filename, size, externalURL)
 // 'data' field represents base64 data or a URL string.
@@ -52,8 +50,7 @@ export const FilePartExtSchema = Type.Intersect([Type.Object({
     mimeType: Type.String(),
     providerOptions: ProviderOptionsOptionalSchema,
 }), AttachmentInfoSchema]); // Do not provide an id as it is attached to multiple parent schemas
-type FilePartExtType = Omit<ChangePropertyType<FilePartExt, 'providerOptions', Record<string, Record<string, any>>>, 'experimental_providerMetadata'>
-const _FilePartExtCheck: AreTypesFullyCompatible<FilePartExtType, Static<typeof FilePartExtSchema>> = true;
+const _FilePartExtCheck: AreTypesFullyCompatible<FilePartExt, Static<typeof FilePartExtSchema>> = true;
 
 export const ToolCallPartSchema = Type.Object({
     type: Type.Literal('tool-call'),
