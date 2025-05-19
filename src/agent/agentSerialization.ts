@@ -54,11 +54,12 @@ export function serializeContext(context: AgentContext): Static<typeof AgentCont
 	// Serialize User object to just its ID
 	serializedData.user = context.user ? context.user.id : 'anonymous-serialized-id-missing'; // Ensure user is serialized as ID
 
-	serializedData.llms = {};
-	if (context.llms?.easy) serializedData.llms.easy = context.llms.easy.getId();
-	if (context.llms?.medium) serializedData.llms.medium = context.llms.medium.getId();
-	if (context.llms?.hard) serializedData.llms.hard = context.llms.hard.getId();
-	if (context.llms?.xhard) serializedData.llms.xhard = context.llms.xhard.getId();
+	serializedData.llms = {
+		easy: context.llms.easy.getId(),
+		medium: context.llms.medium.getId(),
+		hard: context.llms.hard.getId(),
+		xhard: context.llms.xhard.getId(),
+	};
 
 	serializedData.completedHandlerId = context.completedHandler ? context.completedHandler.agentCompletedHandlerId() : undefined;
 	serializedData.toolState = context.toolState ? JSON.parse(JSON.stringify(context.toolState)) : undefined;
