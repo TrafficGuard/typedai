@@ -29,7 +29,7 @@ export const TextPartSchema = Type.Object({
     experimental_providerMetadata: Type.Optional(Type.Unknown()), // Changed to non-optional
 }); // Do not provide an id as it is attached to multiple parent schemas
 
-const _TextPartCheck: AreTypesFullyCompatible<TextPartExt, Writable<Static<typeof TextPartSchema>>> = true;
+const _TextPartCheck: AreTypesFullyCompatible<TextPartExt, Static<typeof TextPartSchema>> = true;
 
 // Schema for ImagePartExt (includes filename, size, externalURL)
 // 'image' field represents base64 data or a URL string.
@@ -40,7 +40,7 @@ export const ImagePartExtSchema = Type.Intersect([Type.Object({
     providerOptions: ProviderOptionsOptionalSchema,
 }), AttachmentInfoSchema]); // Do not provide an id as it is attached to multiple parent schemas
 
-const _ImagePartExtCheck: AreTypesFullyCompatible<ImagePartExt, Writable<Static<typeof ImagePartExtSchema>>> = true;
+const _ImagePartExtCheck: AreTypesFullyCompatible<ImagePartExt, Static<typeof ImagePartExtSchema>> = true;
 
 // Schema for FilePartExt (includes filename, size, externalURL)
 // 'data' field represents base64 data or a URL string.
@@ -51,7 +51,7 @@ export const FilePartExtSchema = Type.Intersect([Type.Object({
     mimeType: Type.String(),
     providerOptions: ProviderOptionsOptionalSchema,
 }), AttachmentInfoSchema]); // Do not provide an id as it is attached to multiple parent schemas
-const _FilePartExtCheck: AreTypesFullyCompatible<FilePartExt, Writable<Static<typeof FilePartExtSchema>>> = true;
+const _FilePartExtCheck: AreTypesFullyCompatible<FilePartExt, Static<typeof FilePartExtSchema>> = true;
 
 export const ToolCallPartSchema = Type.Object({
     type: Type.Literal('tool-call'),
@@ -73,7 +73,7 @@ export const UserContentSchema = Type.Union([
     Type.Array(UserContentPartUnionSchema)
 ], { $id: 'UserContent' }); // This schema is for UserContentExt
 // The UserContentExt check might fail if the underlying FilePartExt or ImagePartExt checks fail, or if UserContentExt itself has subtle differences.
-const _UserContentExtCheck: AreTypesFullyCompatible<UserContentExt, Writable<Static<typeof UserContentSchema>>> = true;
+const _UserContentExtCheck: AreTypesFullyCompatible<UserContentExt, Static<typeof UserContentSchema>> = true;
 
 // AssistantContent is string | Array<TextPart | ImagePartExt | FilePartExt | ToolCallPart>
 export const AssistantContentPartUnionSchema = Type.Union([
@@ -113,7 +113,7 @@ export const GenerationStatsSchema = Type.Object({
     cost: Type.Number(),
     llmId: Type.String(),
 }); // Do not provide an id as it is attached to multiple parent schemas
-const _GenerationStatsCheck: AreTypesFullyCompatible<GenerationStats, Writable<Static<typeof GenerationStatsSchema>>> = true;
+const _GenerationStatsCheck: AreTypesFullyCompatible<GenerationStats, Static<typeof GenerationStatsSchema>> = true;
 
 // --- LlmMessage Schema redefined as a discriminated union ---
 
@@ -133,7 +133,7 @@ const SystemMessageSchema = Type.Intersect([
     LlmMessageSpecificFieldsSchema
 ], { $id: 'SystemMessage' });
 type SystemLlmMessage = Extract<LlmMessage, { role: 'system' }>;
-const _SystemMessageCheck: AreTypesFullyCompatible<SystemLlmMessage, Writable<Static<typeof SystemMessageSchema>>> = true;
+const _SystemMessageCheck: AreTypesFullyCompatible<SystemLlmMessage, Static<typeof SystemMessageSchema>> = true;
 
 const UserMessageSchema = Type.Intersect([
     Type.Object({
@@ -168,7 +168,7 @@ export const LlmMessageSchema = Type.Union([
     ToolMessageSchema // Added ToolMessageSchema
 ], { $id: 'LlmMessage' });
 // We will need to do some Type conversions for it to match at some point. Dont edit this.
-const _LlmMessageCheck: AreTypesFullyCompatible<LlmMessage, Writable<Static<typeof LlmMessageSchema>>> = true;
+const _LlmMessageCheck: AreTypesFullyCompatible<LlmMessage, Static<typeof LlmMessageSchema>> = true;
 
 // GenerateOptions Schema
 export const CallSettingsSchema = Type.Object({
@@ -181,7 +181,7 @@ export const CallSettingsSchema = Type.Object({
     maxRetries: Type.Optional(Type.Number()),
     maxOutputTokens: Type.Optional(Type.Number()),
 }, { $id: 'CallSettings' });
-const _CallSettingsCheck: AreTypesFullyCompatible<CallSettings, Writable<Static<typeof CallSettingsSchema>>> = true;
+const _CallSettingsCheck: AreTypesFullyCompatible<CallSettings, Static<typeof CallSettingsSchema>> = true;
 
 // Schema for properties specific to GenerateTextOptions
 const GenerateTextOptionsSpecificSchema = Type.Object({
@@ -197,7 +197,7 @@ export const GenerateTextOptionsSchema = Type.Intersect(
     ],
     { $id: 'GenerateTextOptions' }
 );
-const _GenerateTextOptionsCheck: AreTypesFullyCompatible<GenerateTextOptions, Writable<Static<typeof GenerateTextOptionsSchema>>> = true;
+const _GenerateTextOptionsCheck: AreTypesFullyCompatible<GenerateTextOptions, Static<typeof GenerateTextOptionsSchema>> = true;
 
 export const LlmMessagesSchema = Type.Array(LlmMessageSchema)
 

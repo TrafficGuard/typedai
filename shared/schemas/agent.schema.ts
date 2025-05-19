@@ -246,7 +246,7 @@ type AgentContextWithSerializedParts = AgentContextBaseForCheck & {
 
 type AgentContextForCheck = AgentContextWithSerializedParts;
 
-const _agentContextCheck: AreTypesFullyCompatible<AgentContextForCheck, Writable<Static<typeof AgentContextSchema>>> = true;
+const _agentContextCheck: AreTypesFullyCompatible<AgentContextForCheck, Static<typeof AgentContextSchema>> = true;
 
 export const AutonomousIterationSchema = Type.Object({
     agentId: Type.String(),
@@ -274,7 +274,7 @@ export const AutonomousIterationSchema = Type.Object({
 });
 
 // This check depends on AutonomousIteration.memory and .toolState being Record, not Map.
-const _autonomousIterationCheck: AreTypesFullyCompatible<AutonomousIteration, Writable<Static<typeof AutonomousIterationSchema>>> = true;
+const _autonomousIterationCheck: AreTypesFullyCompatible<AutonomousIteration, Static<typeof AutonomousIterationSchema>> = true;
 
 export const AgentIdParamsSchema = Type.Object({
     agentId: Type.String({ description: 'The ID of the agent' }),
