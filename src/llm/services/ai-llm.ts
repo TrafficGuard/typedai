@@ -34,8 +34,34 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 		return true;
 	}
 
-	protected processMessages(llmMessages: LlmMessage[]): LlmMessage[] {
-		return llmMessages;
+	protected processMessages(llmMessages: LlmMessage[]): CoreMessage[] {
+		return llmMessages.map((msg) => {
+			const { llmId, cache, time, stats, providerOptions, content, ...restOfMsg } = msg;
+
+			let processedContent: CoreContent;
+			if (typeof content === 'string') {
+				processedContent = content;
+			} else {
+				processedContent = content.map((part) => {
+					// Strip extra properties not present in CoreMessage parts
+					if (part.type === 'image') {
+						const { filename, size, externalURL, providerOptions: partProviderOptions, ...imagePartRequired } = part as ImagePartExt;
+						return imagePartRequired as AiImagePart;
+					} else if (part.type === 'file') {
+						const { filename, size, externalURL, providerOptions: partProviderOptions, ...filePartRequired } = part as FilePartExt;
+						return filePartRequired as AiFilePart;
+					} else if (part.type === 'text') {
+						// Assuming TextPartExt might have providerOptions or other extras not in ai.TextPart
+						const { providerOptions: partProviderOptions, ...textPartRequired } = part as TextPartExt;
+						return textPartRequired as TextPart;
+					}
+					// ToolCallPart, ReasoningPart, RedactedReasoningPart are assumed to be directly compatible
+					// if they are imported from 'ai' and used in LlmMessage content types.
+					return part as ModelToolCallPart | ReasoningPart | RedactedReasoningPart;
+				}) as Exclude<CoreContent, string>;
+			}
+			return { ...restOfMsg, content: processedContent } as CoreMessage;
+		});
 	}
 
 	async generateTextFromMessages(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
@@ -46,6 +72,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 	async _generateMessage(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<LlmMessage> {
 		const description = opts?.id ?? '';
 		return await withActiveSpan(`generateTextFromMessages ${description}`, async (span) => {
+			// The processMessages method now correctly returns CoreMessage[]
 			const messages: CoreMessage[] = this.processMessages(llmMessages);
 
 			// Gemini Flash 2.0 thinking max is about 42
@@ -207,14 +234,12 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 	// https://sdk.vercel.ai/docs/ai-sdk-core/generating-text#streamtext
 	async streamText(llmMessages: LlmMessage[], onChunkCallback: (chunk: TextStreamPart<any>) => void, opts?: GenerateTextOptions): Promise<GenerationStats> {
 		return withActiveSpan(`streamText ${opts?.id ?? ''}`, async (span) => {
-			const messages: CoreMessage[] = llmMessages.map((msg) => {
-				if (msg.cache === 'ephemeral') {
-					msg.providerOptions = { anthropic: { cacheControl: { type: 'ephemeral' } } };
-				}
-				return msg;
-			});
+			// The processMessages method now correctly returns CoreMessage[]
+			const messages: CoreMessage[] = this.processMessages(llmMessages);
 
-			const prompt = messages.map((m) => m.content).join('\n');
+			const prompt = messages
+				.map((m) => (typeof m.content === 'string' ? m.content : m.content.map((p) => ('text' in p ? p.text : '')).join('')))
+				.join('\n');
 			span.setAttributes({
 				inputChars: prompt.length,
 				model: this.model,
@@ -267,22 +292,30 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 
 			// messages =
 			const responseMessage = response.messages[0];
-			let message: LlmMessage;
-			if (responseMessage.role === 'tool') {
-				message = {
-					role: 'tool',
-					content: responseMessage.content,
-					stats,
-				};
-			} else if (responseMessage.role === 'assistant') {
-				message = {
-					role: 'assistant',
-					content: responseMessage.content,
-					stats,
-				};
-			}
+			let assistantResponseMessageContent: AssistantContentExt;
 
-			llmCall.messages = [...llmCall.messages, message];
+			if (typeof responseMessage.content === 'string') {
+				assistantResponseMessageContent = responseMessage.content;
+			} else {
+				// Map parts from ai.AssistantContent to AssistantContentExt
+				// This needs to handle potential ReasoningPart, etc.
+				assistantResponseMessageContent = responseMessage.content.map(part => {
+					// Here, part is from ai.AssistantContent
+					// We assume TextPart, ToolCallPart, ImagePart, FilePart, ReasoningPart, RedactedReasoningPart
+					// are compatible enough or LlmMessage can store them.
+					// This might need more specific mapping if AssistantContentExt has stricter part types
+					// or if extra properties from LlmMessage parts need to be added back.
+					return part as any; // Simplified for now, assuming direct compatibility or that LlmMessage can handle ai parts
+				});
+			}
+			
+			const message: LlmMessage = {
+				role: 'assistant', // Assuming response is from assistant for streamText
+				content: assistantResponseMessageContent,
+				stats,
+			};
+
+			llmCall.messages = [...llmCall.messages, cloneAndTruncateBuffers(message)];
 
 			span.setAttributes({
 				inputTokens: usage.promptTokens,

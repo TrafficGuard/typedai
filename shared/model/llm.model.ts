@@ -9,6 +9,8 @@ import {
     type ToolContent,
     type UserContent,
     type ToolCallPart as ModelToolCallPart, // Corrected import: ModelToolCallPart is an alias for ToolCallPart
+    type ReasoningPart, // Added import
+    type RedactedReasoningPart, // Added import
 } from 'ai';
 import {ChangePropertyType} from "../typeUtils";
 
@@ -148,7 +150,7 @@ export type CoreContent = AssistantContent | UserContent | ToolContent; // from 
 /** Extension of the 'ai' package UserContent type, using our extended parts */
 export type UserContentExt = string | Array<TextPartExt | ImagePartExt | FilePartExt>;
 /** Extension for AssistantContent, using our extended parts */
-export type AssistantContentExt = string | Array<TextPartExt | ImagePartExt | FilePartExt | ToolCallPartExt>;
+export type AssistantContentExt = string | Array<TextPartExt | ImagePartExt | FilePartExt | ToolCallPartExt | ReasoningPart | RedactedReasoningPart>;
 
 
 export interface GenerationStats {
@@ -220,8 +222,8 @@ export function messageContentIfTextOnly(message: LlmMessage): string | null {
         const type = part.type;
         if(part.type === 'image' || part.type === 'file')  return null;
         else if (type === 'text') text += part.text;
-        else if (type === 'reasoning') text += `${part.text}\n`;
-        // else if (type === 'redacted-reasoning') text += '<redacted-reasoning>\n';
+        else if (type === 'reasoning') text += `${(part as ReasoningPart).text}\n`;
+        else if (type === 'redacted-reasoning') text += '<redacted-reasoning>\n';
         else if (type === 'tool-call') text += `Tool Call (${part.toolCallId} ${part.toolName} Args:${JSON.stringify(part.args)})`;
     }
     return text
@@ -238,10 +240,10 @@ export function contentText(content: CoreContent): string {
     for (const part of content) {
         const type = part.type;
         if (type === 'text') text += part.text;
-        // else if (type === 'source') text += `${part.text}\n`;
-        else if (type === 'reasoning') text += `${part.text}\n`;
-        // else if (type === 'redacted-reasoning') text += '<redacted-reasoning>\n';
-        else if (type === 'tool-call') text += `Tool Call (${part.toolCallId} ${part.toolName} Args:${JSON.stringify(part.args)})`;
+        else if (type === 'reasoning') text += `${(part as ReasoningPart).text}\n`;
+        else if (type === 'redacted-reasoning') text += '<redacted-reasoning>\n';
+        else if (type === 'tool-call') text += `Tool Call (${(part as ModelToolCallPart).toolCallId} ${(part as ModelToolCallPart).toolName} Args:${JSON.stringify((part as ModelToolCallPart).args)})`;
+        // Note: ImagePart and FilePart do not contribute to text content in this function
     }
     return text;
 }
