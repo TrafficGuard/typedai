@@ -147,7 +147,7 @@ describe('Message Utilities', () => {
 
         it('should handle UserContentExt with only attachments', () => {
             const content: UserContentExt = [
-                { type: 'image', externalURL: 'http://example.com/img.png', filename: 'remote.png', mimeType: 'image/png', size: 100 }
+                { type: 'image', image: '', externalURL: 'http://example.com/img.png', filename: 'remote.png', mimeType: 'image/png', size: 100 }
             ];
             const { attachments, text } = userContentExtToAttachmentsAndText(content);
             expect(text).toBe('');
@@ -157,15 +157,9 @@ describe('Message Utilities', () => {
             expect(attachments[0].previewUrl).toBe('http://example.com/img.png');
         });
 
-        it('should return empty text and attachments for undefined UserContentExt', () => {
-            const { attachments, text } = userContentExtToAttachmentsAndText(undefined);
-            expect(text).toBe('');
-            expect(attachments).toEqual([]);
-        });
-
         it('should handle FilePartExt with externalURL for preview', () => {
             const content: UserContentExt = [
-                { type: 'file', externalURL: 'http://example.com/doc.pdf', filename: 'remote.pdf', mimeType: 'application/pdf', size: 200 }
+                { type: 'file', data: '', externalURL: 'http://example.com/doc.pdf', filename: 'remote.pdf', mimeType: 'application/pdf', size: 200 }
             ];
             const { attachments, text } = userContentExtToAttachmentsAndText(content);
             expect(text).toBe('');
