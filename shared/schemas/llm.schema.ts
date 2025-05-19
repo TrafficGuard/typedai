@@ -26,7 +26,7 @@ export const TextPartSchema = Type.Object({
     type: Type.Literal('text'),
     text: Type.String(),
     providerOptions: ProviderOptionsOptionalSchema,
-    experimental_providerMetadata: Type.Unknown(), // Changed to non-optional
+    experimental_providerMetadata: Type.Optional(Type.Unknown()), // Changed to non-optional
 }); // Do not provide an id as it is attached to multiple parent schemas
 
 const _TextPartCheck: AreTypesFullyCompatible<TextPartExt, Writable<Static<typeof TextPartSchema>>> = true;
