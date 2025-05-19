@@ -63,7 +63,6 @@ export const defaultNavigation: FuseNavigationItem[] = [
     chatNav,
     agentsNav,
     newAgentNav,
-    workflowsNav,
     vibeNav,
     promptsNav,
     codeReviewNav,
@@ -75,8 +74,7 @@ if (environment.modules?.trim().length) {
 
     if(modules.includes('chat')) defaultNavigation.push(chatNav);
     if(modules.includes('agents') || modules.includes('workflows')) defaultNavigation.push(agentsNav);
-    if(modules.includes('agents')) defaultNavigation.push(newAgentNav);
-    if(modules.includes('workflows')) defaultNavigation.push(workflowsNav);
+    if(modules.includes('agents') || modules.includes('workflows')) defaultNavigation.push(newAgentNav);
     if(modules.includes('vibe')) defaultNavigation.push(vibeNav);
     if(modules.includes('prompts')) defaultNavigation.push(promptsNav);
     if(modules.includes('codeReview')) defaultNavigation.push(codeReviewNav);
