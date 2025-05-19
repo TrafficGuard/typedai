@@ -45,6 +45,7 @@ describe('PromptListComponent', () => {
     await TestBed.configureTestingModule({
       imports: [
         PromptListComponent, // Standalone component
+          RouterModule,
       ],
       providers: [
         { provide: PromptsService, useValue: mockPromptsService },
@@ -68,10 +69,10 @@ describe('PromptListComponent', () => {
     fixture.detectChanges(); // Triggers ngOnInit
 
     expect(mockPromptsService.loadPrompts).toHaveBeenCalled();
-    tick(50); 
+    tick(50);
     expect(component.isLoading()).toBeTrue();
 
-    tick(100); 
+    tick(100);
     fixture.detectChanges();
     expect(component.isLoading()).toBeFalse();
   }));
@@ -79,7 +80,7 @@ describe('PromptListComponent', () => {
   it('should hide loading spinner if loadPrompts errors', fakeAsync(() => {
     mockPromptsService.loadPrompts.and.returnValue(throwError(() => new Error('Failed to load')));
     fixture.detectChanges(); // ngOnInit
-    tick(); 
+    tick();
     fixture.detectChanges();
     expect(component.isLoading()).toBeFalse();
   }));
@@ -118,7 +119,7 @@ describe('PromptListComponent', () => {
 
     const secondPromptEl = listItems[1];
     expect(secondPromptEl.textContent).toContain(mockPrompts[1].name);
-    expect(secondPromptEl.textContent).toContain('N/A'); 
+    expect(secondPromptEl.textContent).toContain('N/A');
   });
 
   it('should have correct routerLinks for view and edit buttons', () => {
@@ -194,9 +195,9 @@ describe('PromptListComponent', () => {
 
         component.deletePrompt(mockEvent, promptToDelete);
         tick(); // for afterClosed
-        
+
         expect(component.isDeletingSignal()).toBe(promptToDelete.id);
-        
+
         try {
             tick(); // for deletePrompt observable
         } catch (e) {
