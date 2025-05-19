@@ -7,14 +7,14 @@ import { MatSelectModule } from "@angular/material/select";
 import { MatCardModule } from "@angular/material/card";
 import { MatProgressBarModule } from "@angular/material/progress-bar";
 import { MatInputModule } from '@angular/material/input';
-import { WorkflowsService } from "../../workflows/workflows.service";
+import { WorkflowsService } from "./workflows.service";
 import {MatIconModule} from "@angular/material/icon";
 import {MatButtonModule} from "@angular/material/button";
 
 @Component({
   selector: 'app-new-workflows-agent',
-  templateUrl: './new-workflows-agent.component.html',
-  styleUrls: ['./new-workflows-agent.component.scss'],
+  templateUrl: './workflows.component.html',
+  styleUrls: ['./workflows.component.scss'],
   standalone: true,
   imports: [
     CommonModule,
