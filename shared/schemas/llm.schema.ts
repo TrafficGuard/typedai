@@ -83,8 +83,8 @@ export const AssistantContentPartUnionSchema = Type.Union([
     ImagePartExtSchema, // Added to support images
     FilePartExtSchema,  // Added to support files
     ToolCallPartSchema,
-    Type.Object({ type: Type.Literal('reasoning'), text: Type.String() }), // ReasoningPart schema
-    Type.Object({ type: Type.Literal('redacted-reasoning') }) // RedactedReasoningPart schema
+    Type.Object({ type: Type.Literal('reasoning'), text: Type.String(), providerMetadata: Type.Optional(Type.Record(Type.String(), Type.Unknown())) }), // ReasoningPart schema
+    Type.Object({ type: Type.Literal('redacted-reasoning'), data: Type.String(), providerMetadata: Type.Optional(Type.Record(Type.String(), Type.Unknown())) }) // RedactedReasoningPart schema
 ], { $id: 'AssistantContentPartUnion' });
 export const AssistantContentSchema = Type.Union([
     Type.String(),

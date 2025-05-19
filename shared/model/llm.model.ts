@@ -23,6 +23,7 @@ export interface ReasoningPart {
 
 export interface RedactedReasoningPart {
     type: 'redacted-reasoning';
+    data: string; // Added data field as indicated by compiler errors
     providerMetadata?: Record<string, unknown>;
 }
 

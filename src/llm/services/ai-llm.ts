@@ -32,9 +32,47 @@ import {
     type ReasoningPart, // Local definition
     type RedactedReasoningPart, // Local definition
     type ToolCallPartExt,
+    type FilePart, // For AiFilePart.file type which is DataContent | URL
+    type ImagePart, // For AiImagePart.image type which is DataContent | URL
 } from '#shared/model/llm.model';
 import type { LlmCall } from '#shared/model/llmCall.model';
 import { errorToString } from '#utils/errors';
+
+// Helper to convert DataContent | URL to string for our UI-facing models
+function convertDataContentToString(content: string | URL | Uint8Array | ArrayBuffer | Buffer | undefined): string {
+    if (content === undefined) return '';
+    if (typeof content === 'string') return content;
+    if (content instanceof URL) return content.toString();
+    // Assuming Buffer is available in Node.js environment.
+    // For browser, Uint8Array and ArrayBuffer might need different handling if Buffer polyfill isn't used.
+    if (typeof Buffer !== 'undefined') {
+        if (content instanceof Buffer) return content.toString('base64');
+        if (content instanceof Uint8Array) return Buffer.from(content).toString('base64');
+        if (content instanceof ArrayBuffer) return Buffer.from(content).toString('base64');
+    } else {
+        // Basic browser-compatible Uint8Array to base64 (simplified)
+        if (content instanceof Uint8Array) {
+            let binary = '';
+            const len = content.byteLength;
+            for (let i = 0; i < len; i++) {
+                binary += String.fromCharCode(content[i]);
+            }
+            return btoa(binary);
+        }
+        // ArrayBuffer would need to be converted to Uint8Array first in a pure browser context
+        if (content instanceof ArrayBuffer) {
+            const uint8Array = new Uint8Array(content);
+            let binary = '';
+            const len = uint8Array.byteLength;
+            for (let i = 0; i < len; i++) {
+                binary += String.fromCharCode(uint8Array[i]);
+            }
+            return btoa(binary);
+        }
+    }
+    logger.warn('Unknown DataContent type in convertDataContentToString');
+    return ''; // Should ideally not happen with proper type handling
+}
 
 /**
  * Base class for LLM implementations using the Vercel ai package
@@ -69,20 +107,36 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				processedContent = content.map((part) => {
 					// Strip extra properties not present in CoreMessage parts
 					if (part.type === 'image') {
-						const { filename, size, externalURL, providerOptions: partProviderOptions, ...imagePartRequired } = part as ImagePartExt;
-						return imagePartRequired as AiImagePart; // AiImagePart is 'ai'.ImagePart
+						const extPart = part as ImagePartExt;
+						return {
+							type: 'image',
+							image: extPart.image, // string (URL or base64) is compatible with DataContent
+							mimeType: extPart.mimeType,
+						} as AiImagePart;
 					} else if (part.type === 'file') {
-						const { filename, size, externalURL, providerOptions: partProviderOptions, ...filePartRequired } = part as FilePartExt;
-						return filePartRequired as AiFilePart; // AiFilePart is 'ai'.FilePart
+						const extPart = part as FilePartExt;
+						return {
+							type: 'file',
+							file: extPart.data, // Map data to file; string (URL or base64) is compatible with DataContent
+							mimeType: extPart.mimeType,
+						} as AiFilePart;
 					} else if (part.type === 'text') {
-						const { providerOptions: partProviderOptions, ...textPartRequired } = part as TextPartExt;
-						return textPartRequired as AiTextPart; // AiTextPart is 'ai'.TextPart
+						const extPart = part as TextPartExt;
+						return {
+							type: 'text',
+							text: extPart.text,
+						} as AiTextPart;
+					} else if (part.type === 'tool-call') {
+						return part as AiToolCallPart;
+					} else if (part.type === 'reasoning') {
+						// Assuming local ReasoningPart is compatible with ai's internal one
+						return part as ReasoningPart;
+					} else if (part.type === 'redacted-reasoning') {
+						// Assuming local RedactedReasoningPart (now with data) is compatible
+						return part as RedactedReasoningPart;
 					}
-					// For ToolCallPart, ReasoningPart, RedactedReasoningPart
-					// Ensure they are cast to their 'ai' library equivalents if necessary,
-					// or that our extended/local types are structurally compatible for direct use.
-					// ModelToolCallPart is from 'ai', ReasoningPart & RedactedReasoningPart are local defs matching 'ai'
-					return part as AiToolCallPart | ReasoningPart | RedactedReasoningPart;
+					// Fallback for unknown parts, though ideally all are handled
+					return part as any;
 				}) as Exclude<CoreContent, string>;
 			}
 			return { ...restOfMsg, content: processedContent } as CoreMessage;
@@ -325,17 +379,42 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				// Map parts from ai.AssistantContent to AssistantContentExt
 				// This needs to handle potential ReasoningPart, etc.
 				assistantResponseMessageContent = responseMessage.content.map(part => {
-					// Here, part is from ai.AssistantContent
-					// We assume TextPart, ToolCallPart, ImagePart, FilePart, ReasoningPart, RedactedReasoningPart
-					// are compatible enough or LlmMessage can store them.
-					// This might need more specific mapping if AssistantContentExt has stricter part types
-					// or if extra properties from LlmMessage parts need to be added back.
-					return part as any; // Simplified for now, assuming direct compatibility or that LlmMessage can handle ai parts
+					// Explicitly map parts from ai.AssistantContent to AssistantContentExt
+					if (part.type === 'text') {
+						return part as TextPartExt;
+					} else if (part.type === 'image') {
+						const aiImagePart = part as AiImagePart; // ai.ImagePart
+						return {
+							type: 'image',
+							image: convertDataContentToString(aiImagePart.image),
+							mimeType: aiImagePart.mimeType,
+						} as ImagePartExt;
+					} else if (part.type === 'file') {
+						const aiFilePart = part as AiFilePart; // ai.FilePart
+						return {
+							type: 'file',
+							data: convertDataContentToString(aiFilePart.file), // Use .file from AiFilePart
+							mimeType: aiFilePart.mimeType,
+						} as FilePartExt;
+					} else if (part.type === 'tool-call') {
+						return part as ToolCallPartExt;
+					} else if (part.type === 'reasoning') {
+						return part as ReasoningPart;
+					} else if (part.type === 'redacted-reasoning') {
+						const aiRedactedPart = part as { type: 'redacted-reasoning', data?: any, providerMetadata?: Record<string, unknown> }; // Cast to access potential 'data'
+						return {
+							type: 'redacted-reasoning',
+							data: convertDataContentToString(aiRedactedPart.data), // Convert its data field
+							providerMetadata: aiRedactedPart.providerMetadata,
+						} as RedactedReasoningPart;
+					}
+					logger.warn(`Unhandled part type in streamText content conversion: ${part.type}`);
+					return part as any; // Fallback, may cause issues
 				});
 			}
 			
 			const message: LlmMessage = {
-				role: 'assistant', // Assuming response is from assistant for streamText
+				role: 'assistant',
 				content: assistantResponseMessageContent,
 				stats,
 			};
