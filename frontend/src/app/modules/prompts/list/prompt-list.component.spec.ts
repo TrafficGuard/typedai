@@ -30,8 +30,8 @@ describe('PromptListComponent', () => {
   let promptsSignal: WritableSignal<PromptPreview[] | null>;
 
   const mockPrompts: PromptPreview[] = [
-    { id: '1', name: 'Test Prompt 1', tags: ['test', 'tag1'], revisionId: 1, userId: 'user1' },
-    { id: '2', name: 'Test Prompt 2', tags: [], revisionId: 1, userId: 'user1' },
+    { id: '1', name: 'Test Prompt 1', tags: ['test', 'tag1'], revisionId: 1, userId: 'user1', settings: { temperature: 0.7 } },
+    { id: '2', name: 'Test Prompt 2', tags: [], revisionId: 1, userId: 'user1', settings: { temperature: 0.5, llmId: 'test-llm' } },
   ];
 
   beforeEach(async () => {
