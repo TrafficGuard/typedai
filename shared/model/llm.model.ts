@@ -172,7 +172,7 @@ export interface GenerationStats {
     totalTime: number;
     inputTokens: number;
     outputTokens: number;
-    cachedInputTokens?: number;
+    cachedInputTokens?: number | undefined;
     cost: number;
     llmId: string;
 }
@@ -180,15 +180,15 @@ export interface GenerationStats {
 // Base properties common to all LlmMessage variants
 interface LlmMessageBase {
     /** @deprecated The LLM which generated the text (only when role=assistant) */
-    llmId?: string;
+    llmId?: string | undefined;
     /** Set the cache_control flag with Claude models */
-    cache?: 'ephemeral';
+    cache?: 'ephemeral' | undefined;
     /** @deprecated Time the message was sent */
-    time?: number;
+    time?: number | undefined;
     /** Stats on message generation (i.e when role=assistant) */
-    stats?: GenerationStats;
+    stats?: GenerationStats | undefined;
     /** Provider-specific options for the message. */
-    providerOptions?: Record<string, any>;
+    providerOptions?: Record<string, any> | undefined;
 }
 
 // Discriminated union for LlmMessage
