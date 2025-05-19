@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import {NewWorkflowsAgentComponent} from "./workflows.component";
+import { NewWorkflowsAgentComponent } from "../agents/new-workflows-agent/new-workflows-agent.component";
 
 export default [
     {

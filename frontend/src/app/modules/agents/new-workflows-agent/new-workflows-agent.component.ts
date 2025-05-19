@@ -12,7 +12,7 @@ import {MatIconModule} from "@angular/material/icon";
 import {MatButtonModule} from "@angular/material/button";
 
 @Component({
-  selector: 'app-new-workflows-agent',
+  selector: 'new-workflows-agent',
   templateUrl: './new-workflows-agent.component.html',
   styleUrls: ['./new-workflows-agent.component.scss'],
   standalone: true,
