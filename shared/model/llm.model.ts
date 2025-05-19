@@ -153,7 +153,7 @@ export interface FilePartUI {
     mimeType: string;
 }
 
-export type TextPartExt = TextPart & { providerOptions?: Record<string, any> };
+export type TextPartExt = TextPart & { providerOptions?: Record<string, any>; experimental_providerMetadata?: unknown; };
 export type ImagePartExt = ImagePartUI & AttachmentInfo & { providerOptions?: Record<string, any> };
 export type FilePartExt = FilePartUI & AttachmentInfo & { providerOptions?: Record<string, any> };
 export type ToolCallPartExt = ModelToolCallPart; // from 'ai'
