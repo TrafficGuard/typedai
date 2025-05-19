@@ -63,7 +63,7 @@ describe('PromptListComponent', () => {
   });
 
   it('should display loading spinner initially and call loadPrompts on init', fakeAsync(() => {
-    mockPromptsService.loadPrompts.and.returnValue(of(undefined).pipe(delay(100))); 
+    mockPromptsService.loadPrompts.and.returnValue(delay(100));
     expect(component.isLoading()).toBeTrue();
     fixture.detectChanges(); // Triggers ngOnInit
 
