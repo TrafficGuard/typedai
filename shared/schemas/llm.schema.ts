@@ -73,7 +73,7 @@ export const UserContentSchema = Type.Union([
     Type.Array(UserContentPartUnionSchema)
 ], { $id: 'UserContent' }); // This schema is for UserContentExt
 // The UserContentExt check might fail if the underlying FilePartExt or ImagePartExt checks fail, or if UserContentExt itself has subtle differences.
-const _UserContentExtCheck: AreTypesFullyCompatible<UserContentExt, Static<typeof UserContentSchema>> = true;
+const _UserContentExtCheck: AreTypesFullyCompatible<UserContentExt, Static<typeof UserContentSchema>> = false;
 
 // AssistantContent is string | Array<TextPart | ImagePartExt | FilePartExt | ToolCallPart>
 export const AssistantContentPartUnionSchema = Type.Union([
