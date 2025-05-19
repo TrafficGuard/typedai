@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { CommonModule, DatePipe } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { RouterModule, ActivatedRoute, convertToParamMap } from '@angular/router'; // Import ActivatedRoute and convertToParamMap
 import { MatListModule } from '@angular/material/list';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -52,6 +52,21 @@ describe('PromptListComponent', () => {
         { provide: FuseConfirmationService, useValue: mockFuseConfirmationService },
         DatePipe, // DatePipe is used in the template
         provideNoopAnimations(), // For Material components that might use animations
+        // Add the ActivatedRoute mock here:
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              paramMap: convertToParamMap({}), // Or a more specific mock if needed
+              queryParamMap: convertToParamMap({}), // Or a more specific mock if needed
+              data: {}
+            },
+            paramMap: of(convertToParamMap({})), // Observable version
+            queryParamMap: of(convertToParamMap({})), // Observable version
+            data: of({}) // Observable version
+            // Add other properties/methods of ActivatedRoute if your component uses them
+          }
+        }
       ],
     }).compileComponents();
 
