@@ -140,10 +140,10 @@ export const AgentContextSchema = Type.Object({
     cost: Type.Number(),
     budgetRemaining: Type.Number(),
     llms: Type.Object({ // Serialized LLM IDs
-        easy: Type.Optional(Type.String()),
-        medium: Type.Optional(Type.String()),
-        hard: Type.Optional(Type.String()),
-        xhard: Type.Optional(Type.String()),
+        easy: Type.String(),
+        medium: Type.String(),
+        hard: Type.String(),
+        xhard: Type.String(),
     }),
  
     // Represents IFileSystemService.toJSON()
