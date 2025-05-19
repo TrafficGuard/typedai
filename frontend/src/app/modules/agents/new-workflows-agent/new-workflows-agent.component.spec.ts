@@ -12,7 +12,7 @@ import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { of, throwError } from 'rxjs';
 
 import { NewWorkflowsAgentComponent } from './new-workflows-agent.component';
-import { WorkflowsService } from './workflows.service';
+import { WorkflowsService } from '../../workflows/workflows.service';
 
 describe('NewWorkflowsAgentComponent', () => {
   let component: NewWorkflowsAgentComponent;

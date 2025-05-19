@@ -7,7 +7,7 @@ import { MatSelectModule } from "@angular/material/select";
 import { MatCardModule } from "@angular/material/card";
 import { MatProgressBarModule } from "@angular/material/progress-bar";
 import { MatInputModule } from '@angular/material/input';
-import { WorkflowsService } from "./workflows.service";
+import { WorkflowsService } from "../../workflows/workflows.service";
 import {MatIconModule} from "@angular/material/icon";
 import {MatButtonModule} from "@angular/material/button";
 
