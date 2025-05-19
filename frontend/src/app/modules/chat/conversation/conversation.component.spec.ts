@@ -156,8 +156,8 @@ describe('ConversationComponent', () => {
     // Further checks can be done on the rendered DOM elements
   });
 
-  // The describe.skip block remains unchanged as per instructions
-  describe.skip('Attachment Functionality in ConversationComponent', () => {
+
+  describe('Attachment Functionality in ConversationComponent', () => {
     it('should add files to selectedAttachments using addFiles method', () => {
       // Test addFiles
     });
