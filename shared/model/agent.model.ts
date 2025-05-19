@@ -3,7 +3,6 @@ import type {User} from './user.model';
 import {FileMetadata} from "#shared/model/files.model";
 import {IFileSystemService} from "#shared/services/fileSystemService";
 import {ToolType} from "#shared/services/functions";
-import { UserProfile } from '#shared/schemas/user.schema';
 
 /**
  * The difficulty of a LLM generative task. Used to select an appropriate model for the cost vs capability.
