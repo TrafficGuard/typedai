@@ -1,0 +1,18 @@
+<div class="p-6">
+  <h2 class="text-2xl font-semibold mb-4">Create New Agent</h2>
+
+  <mat-radio-group aria-label="Select agent type" [formControl]="agentTypeControl" class="mb-6">
+    <mat-radio-button value="autonomous" class="mr-4">Autonomous Agent</mat-radio-button>
+    <mat-radio-button value="workflow">Workflow Agent</mat-radio-button>
+  </mat-radio-group>
+
+  <!-- Conditionally render components based on selection -->
+  <div *ngIf="agentTypeControl.value === 'autonomous'">
+    <new-autonomous-agent></new-autonomous-agent>
+  </div>
+
+  <div *ngIf="agentTypeControl.value === 'workflow'">
+    <new-workflows-agent></new-workflows-agent>
+  </div>
+</div>
+````
