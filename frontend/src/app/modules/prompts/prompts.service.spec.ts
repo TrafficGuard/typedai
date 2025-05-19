@@ -14,9 +14,10 @@ describe('PromptsService', () => {
 
   const mockPromptList: PromptListSchemaModel = {
     prompts: [
-      { id: '1', name: 'Prompt 1', tags: [], updatedAt: Date.now(), revisionId: 1, userId: 'user1' },
-      { id: '2', name: 'Prompt 2', tags: ['test'], updatedAt: Date.now(), revisionId: 1, userId: 'user1' },
+      { id: '1', name: 'Prompt 1', tags: [], revisionId: 1, userId: 'user1', settings: {} },
+      { id: '2', name: 'Prompt 2', tags: ['test'], revisionId: 1, userId: 'user1', settings: {} },
     ],
+    hasMore: false
   };
 
   const mockPrompt: Prompt = {
@@ -27,7 +28,6 @@ describe('PromptsService', () => {
     tags: [],
     messages: [{ role: 'user', content: 'Hello' }],
     settings: { temperature: 1.0 },
-    updatedAt: Date.now()
   };
   const mockPromptSchemaModel = mockPrompt as PromptSchemaModel;
 
@@ -53,7 +53,7 @@ describe('PromptsService', () => {
     it('should fetch prompts and update the prompts signal', () => {
       service.loadPrompts().subscribe();
 
-      const req = httpMock.expectOne(PROMPT_API.listPrompts.buildPath());
+      const req = httpMock.expectOne(PROMPT_API.listPrompts.buildPath({}));
       expect(req.request.method).toBe('GET');
       req.flush(mockPromptList);
 
@@ -76,12 +76,12 @@ describe('PromptsService', () => {
 
   describe('createPrompt', () => {
     it('should send a POST request to create a prompt', () => {
-      const payload: PromptCreatePayload = { name: 'New Prompt', messages: [{role: 'user', content: 'Hi'}] };
+      const payload: PromptCreatePayload = { name: 'New Prompt', messages: [{role: 'user', content: 'Hi'}], options: {} };
       service.createPrompt(payload).subscribe(response => {
         expect(response).toEqual(mockPromptSchemaModel);
       });
 
-      const req = httpMock.expectOne(PROMPT_API.createPrompt.buildPath());
+      const req = httpMock.expectOne(PROMPT_API.createPrompt.buildPath({}));
       expect(req.request.method).toBe('POST');
       expect(req.request.body).toEqual(payload);
       req.flush(mockPromptSchemaModel);
@@ -107,10 +107,10 @@ describe('PromptsService', () => {
     it('should send a DELETE request and update signals on successful deletion of selected prompt', async () => {
         const promptIdToDelete = '1';
         const initialPrompts: PromptPreview[] = [
-            { id: '1', name: 'Prompt 1', userId: 'user1', revisionId: 1, tags: [], updatedAt: Date.now() },
-            { id: '2', name: 'Prompt 2', userId: 'user1', revisionId: 1, tags: [], updatedAt: Date.now() },
+            { id: '1', name: 'Prompt 1', userId: 'user1', revisionId: 1, tags: [], settings: {} },
+            { id: '2', name: 'Prompt 2', userId: 'user1', revisionId: 1, tags: [], settings: {} },
         ];
-        const initialSelectedPrompt: Prompt = { id: '1', name: 'Prompt 1', messages: [{role: 'user', content: 'test'}], settings: {temperature: 1}, revisionId: 1, tags: [], userId: 'user1', updatedAt: Date.now() };
+        const initialSelectedPrompt: Prompt = { id: '1', name: 'Prompt 1', messages: [{role: 'user', content: 'test'}], settings: {temperature: 1}, revisionId: 1, tags: [], userId: 'user1' };
 
         service['_prompts'].set(initialPrompts);
         service['_selectedPrompt'].set(initialSelectedPrompt);
@@ -132,10 +132,10 @@ describe('PromptsService', () => {
     it('should update prompts signal when deleting a non-selected prompt', async () => {
         const promptIdToDelete = '2';
             const initialPrompts: PromptPreview[] = [
-            { id: '1', name: 'Prompt 1', userId: 'user1', revisionId: 1, tags: [], updatedAt: Date.now() },
-            { id: '2', name: 'Prompt 2', userId: 'user1', revisionId: 1, tags: [], updatedAt: Date.now() },
+            { id: '1', name: 'Prompt 1', userId: 'user1', revisionId: 1, tags: [], settings: {} },
+            { id: '2', name: 'Prompt 2', userId: 'user1', revisionId: 1, tags: [], settings: {} },
         ];
-        const initialSelectedPrompt: Prompt = { id: '1', name: 'Prompt 1', messages: [{role: 'user', content: 'test'}], settings: {temperature: 1}, revisionId: 1, tags: [], userId: 'user1', updatedAt: Date.now() };
+        const initialSelectedPrompt: Prompt = { id: '1', name: 'Prompt 1', messages: [{role: 'user', content: 'test'}], settings: {temperature: 1}, revisionId: 1, tags: [], userId: 'user1' };
 
 
         service['_prompts'].set(initialPrompts);
@@ -174,12 +174,7 @@ describe('PromptsService', () => {
     });
 
     it('should call getPromptById and update selectedPrompt if preview is provided', (done) => {
-      const preview: PromptPreview = { id: '123', name: 'Preview', tags:[], updatedAt: Date.now(), revisionId: 1, userId: 'user1' };
-
-      // Since getPromptById is an async operation that updates a signal,
-      // we need to subscribe to selectedPrompt to check its value after the call.
-      let selectedPromptValue: Prompt | null = null;
-      const sub = service.selectedPrompt.subscribe(val => selectedPromptValue = val);
+      const preview: PromptPreview = { id: '123', name: 'Preview', tags:[], revisionId: 1, userId: 'user1', settings: {} };
 
       service.setSelectedPromptFromPreview(preview);
 
@@ -188,13 +183,12 @@ describe('PromptsService', () => {
       req.flush(mockPromptSchemaModel); // This will trigger the tap operator in getPromptById
 
       // Wait for effects to propagate
-      // Using ApplicationRef.isStable to wait for async operations triggered by signal changes.
-      TestBed.inject(ApplicationRef).isStable.subscribe(isStable => {
-        if (isStable) {
-          expect(selectedPromptValue).toEqual(mockPromptSchemaModel as Prompt);
-          sub.unsubscribe();
+      TestBed.inject(ApplicationRef).isStable.pipe(
+          filter(stable => stable),
+          first()
+      ).subscribe(() => {
+          expect(service.selectedPrompt()).toEqual(mockPromptSchemaModel as Prompt);
           done();
-        }
       });
     });
   });
