@@ -57,7 +57,7 @@ export const ToolCallPartSchema = Type.Object({
     type: Type.Literal('tool-call'),
     toolCallId: Type.String(),
     toolName: Type.String(),
-    args: Type.Any(), // Changed from Type.Record(Type.String(), Type.Any()) to match 'unknown' in model
+    args: Type.Unknown(), // Changed from Type.Any() to match 'unknown' in model
 }, { $id: 'ToolCallPart' });
 // const _ToolCallPartCheck: AreTypesFullyCompatible<Writable<ModelToolCallPart>, Static<typeof ToolCallPartSchema>> = true;
 
