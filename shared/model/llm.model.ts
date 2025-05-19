@@ -219,7 +219,10 @@ export function lastText(messages: LlmMessage[] | ReadonlyArray<LlmMessage>): st
  * @param message
  */
 export function messageText(message: LlmMessage): string {
-    return contentText(message.content);
+    // Cast to CoreContent as any to bypass strict type checking for FilePartExt vs. ai's FilePart.
+    // contentText is only concerned with text-producing parts, so structural differences in image/file parts
+    // (which it ignores for text extraction) shouldn't affect its logic.
+    return contentText(message.content as any);
 }
 
 

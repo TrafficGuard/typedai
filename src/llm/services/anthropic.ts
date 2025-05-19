@@ -1,4 +1,5 @@
 import { type AnthropicProvider, createAnthropic } from '@ai-sdk/anthropic';
+import type { CoreMessage } from 'ai'; // Added import
 import type { LlmCostFunction } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
 import type { AgentLLMs } from '#shared/model/agent.model';

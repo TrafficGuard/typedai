@@ -55,7 +55,7 @@ describe('LLMs', () => {
 			role: 'user',
 			content: [
 				{ type: 'text', text: 'What is the content of this PDF file?' },
-				{ type: 'file', data: pdfBase64, mimeType: 'application/pdf' },
+				{ type: 'file', file: pdfBase64, mimeType: 'application/pdf' }, // Changed 'data' to 'file'
 			],
 		},
 	];
