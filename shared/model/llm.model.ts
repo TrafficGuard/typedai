@@ -2,13 +2,13 @@
 import {
     type AssistantContent,
     type CoreMessage,
-    type FilePart,
-    type ImagePart,
-    type SystemContent,
+    type FilePart as AiFilePart, // Renamed to avoid conflict if we define our own FilePart
+    type ImagePart as AiImagePart, // Renamed
     type TextPart,
     type TextStreamPart,
     type ToolContent,
     type UserContent,
+    type ModelToolCallPart,
 } from 'ai';
 import {ChangePropertyType} from "../typeUtils";
 
@@ -125,16 +125,31 @@ export interface AttachmentInfo {
 
 
 // Can't have the node.js Buffer type in the frontend. For now, we will always base64 encode file and image data to keep the typing simple.
-type FilePartUI = ChangePropertyType<FilePart, 'data', string >; // | Uint8Array | ArrayBuffer | URL
-type ImagePartUI = ChangePropertyType<ImagePart, 'image', string >; // | Uint8Array | ArrayBuffer | URL
+// Define UI types to match schema expectations (string data fields)
+export interface ImagePartUI {
+    type: 'image';
+    image: string; // Base64 string or URL
+    mimeType?: string;
+}
 
-export type FilePartExt = FilePartUI & AttachmentInfo;
+export interface FilePartUI {
+    type: 'file';
+    data: string; // Base64 string or URL
+    mimeType: string;
+}
+
+export type TextPartExt = TextPart; // from 'ai'
 export type ImagePartExt = ImagePartUI & AttachmentInfo;
-export type TextPartExt = TextPart;
+export type FilePartExt = FilePartUI & AttachmentInfo;
+export type ToolCallPartExt = ModelToolCallPart; // from 'ai'
 
-export type CoreContent = AssistantContent | UserContent | ToolContent;
-/** Extension of the 'ai' package UserContent type */
-export type UserContentExt = string | Array<TextPart | ImagePartExt | FilePartExt>;
+
+export type CoreContent = AssistantContent | UserContent | ToolContent; // from 'ai'
+/** Extension of the 'ai' package UserContent type, using our extended parts */
+export type UserContentExt = string | Array<TextPartExt | ImagePartExt | FilePartExt>;
+/** Extension for AssistantContent, using our extended parts */
+export type AssistantContentExt = string | Array<TextPartExt | ImagePartExt | FilePartExt | ToolCallPartExt>;
+
 
 export interface GenerationStats {
     requestTime: number;
@@ -147,7 +162,8 @@ export interface GenerationStats {
     llmId: string;
 }
 
-export type LlmMessage = CoreMessage & {
+// Base properties common to all LlmMessage variants
+interface LlmMessageBase {
     /** @deprecated The LLM which generated the text (only when role=assistant) */
     llmId?: string;
     /** Set the cache_control flag with Claude models */
@@ -158,7 +174,14 @@ export type LlmMessage = CoreMessage & {
     stats?: GenerationStats;
     /** Provider-specific options for the message. */
     providerOptions?: Record<string, any>;
-};
+}
+
+// Discriminated union for LlmMessage
+export type LlmMessage =
+    | ({ role: 'system'; content: string } & LlmMessageBase)
+    | ({ role: 'user'; content: UserContentExt } & LlmMessageBase)
+    | ({ role: 'assistant'; content: AssistantContentExt } & LlmMessageBase)
+    | ({ role: 'tool'; content: ToolContent } & LlmMessageBase); // ToolContent from 'ai'
 
 export type SystemUserPrompt = [systemPrompt: string, userPrompt: string];
 
