@@ -4,6 +4,7 @@ import {
     type CoreMessage,
     type FilePart,
     type ImagePart,
+    type SystemContent,
     type TextPart,
     type TextStreamPart,
     type ToolContent,
