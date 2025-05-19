@@ -34,7 +34,7 @@ interface StartAgentResponse {
 const defaultType/*: AgentType*/ = 'codegen';
 
 @Component({
-  selector: 'new-autonomous-agent',
+  selector: 'new-agent',
   templateUrl: './new-agent.component.html',
   styleUrls: ['./new-agent.component.scss'],
   encapsulation: ViewEncapsulation.None,
@@ -59,7 +59,7 @@ const defaultType/*: AgentType*/ = 'codegen';
         MatCardContent,
     ],
 })
-export class NewAutonomousAgentComponent implements OnInit, OnDestroy {
+export class NewAgentComponent implements OnInit, OnDestroy {
   functions: string[] = [];
   llms: any[] = [];
   runAgentForm: FormGroup;
