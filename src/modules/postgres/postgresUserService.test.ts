@@ -1,6 +1,7 @@
 import { runUserServiceTests } from '../../user/userService.test';
 import { db } from './db';
 import { PostgresUserService } from './postgresUserService';
+import { createUsersTable } from './schemaUtils';
 
 describe('PostgresUserService', () => {
 	// The runUserServiceTests function itself contains a describe block with its own beforeEach/afterEach.
@@ -14,6 +15,7 @@ describe('PostgresUserService', () => {
 		},
 		async () => {
 			// This is the beforeEachHook for the describe block *inside* runUserServiceTests.
+			await createUsersTable(db);
 			// Clear the users table before each test execution managed by runUserServiceTests.
 			await db.deleteFrom('users').execute();
 		},
