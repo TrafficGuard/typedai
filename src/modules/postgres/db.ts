@@ -4,12 +4,15 @@ import { envVar } from '#utils/env-var';
 
 // Define an empty interface for the database schema.
 // This will be populated with table types as services are implemented.
-export type Database = {};
+export interface Database {
+  // Tables will be defined here later, for example:
+  // agent_contexts: AgentContextTable;
+}
 
 const dialect = new PostgresDialect({
 	pool: new Pool({
 		host: envVar('POSTGRES_HOST', 'localhost'),
-		port: Number.parseInt(envVar('POSTGRES_PORT', '5432'), 10),
+		port: parseInt(envVar('POSTGRES_PORT', '5432'), 10),
 		user: envVar('POSTGRES_USER', 'user'),
 		password: envVar('POSTGRES_PASSWORD', 'password'),
 		database: envVar('POSTGRES_DB', 'db'),
@@ -19,4 +22,4 @@ const dialect = new PostgresDialect({
 
 // Create and export the Kysely instance
 // This db instance will be imported by Postgres service implementations.
-export const db = new Kysely<Database>({ dialect });
+export const db = new Kysely<Database>(dialect);
