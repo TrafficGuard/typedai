@@ -74,12 +74,12 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
     // private _formBuilder = inject(UntypedFormBuilder); // Not used
     // private _changeDetectorRef = inject(ChangeDetectorRef); // May not be needed with signals
 
-    agents = toSignal(this.agentService.agents$, { initialValue: [] as AgentContextApi[] });
+    agents = toSignal(this.agentService.agents$, { initialValue: undefined as AgentContextApi[] | undefined });
 
     agentTypes: AgentType[]; // Unused in current template/logic
     filteredTags: AgentTag[]; // Unused
     flashMessage: WritableSignal<'success' | 'error' | null> = signal(null);
-    isLoading: WritableSignal<boolean> = signal(false);
+    isLoading: WritableSignal<boolean> = signal(true); // Start with isLoading true
     pagination: Pagination; // Unused
     searchInputControl: UntypedFormControl = new UntypedFormControl();
     tags: AgentTag[]; // Unused
@@ -92,12 +92,13 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
     constructor() {
         // Effect to manage isLoading state based on agents signal changes
         effect(() => {
-            this.agents(); // Establish dependency on the agents signal
+            const currentAgents = this.agents(); // Establish dependency on the agents signal
             // This effect runs after agents() signal has been updated.
-            // If isLoading was true, it means a data fetch was in progress.
-            if (this.isLoading()) {
+            // If data has arrived (currentAgents is not undefined), set isLoading to false.
+            if (currentAgents !== undefined && this.isLoading()) {
                 this.isLoading.set(false);
             }
+            // If currentAgents is undefined, isLoading remains true until agents$ emits.
         }, { allowSignalWrites: true });
     }
 
@@ -107,13 +108,8 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
 
     ngOnInit(): void {
         // Initial data load is triggered by AgentService constructor.
-        // We set isLoading to true here, the effect will set it to false when agents() signal updates.
-        if (this.agents().length === 0) { // Check if initialValue is still present
-             this.isLoading.set(true);
-             // If AgentService.refreshAgents() is needed for an explicit initial load:
-             // this.agentService.refreshAgents();
-        }
-
+        // isLoading is initialized to true and the effect will set it to false
+        // once the agents signal receives its first value (even an empty array).
 
         // Subscribe to search input field value changes
         this.searchInputControl.valueChanges
