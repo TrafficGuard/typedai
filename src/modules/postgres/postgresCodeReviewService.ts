@@ -1,6 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
-import { randomUUID } from 'node:crypto';
 import { logger } from '#o11y/logger';
 import type { CodeReviewConfig, CodeReviewFileExtensions, CodeReviewRequires } from '#shared/model/codeReview.model';
 import type { IExample as CodeReviewExample } from '#shared/model/codeReview.model'; // Renamed for clarity if IExample is too generic
@@ -110,8 +110,7 @@ export class PostgresCodeReviewService implements CodeReviewService {
 			updateRecord.file_extensions_serialized = this.stringifyOrNull(configData.fileExtensions);
 		if (Object.prototype.hasOwnProperty.call(configData, 'requires')) updateRecord.requires_serialized = this.stringifyOrNull(configData.requires);
 		if (Object.prototype.hasOwnProperty.call(configData, 'tags')) updateRecord.tags_serialized = this.stringifyOrNull(configData.tags);
-		if (Object.prototype.hasOwnProperty.call(configData, 'projectPaths'))
-			updateRecord.project_paths_serialized = this.stringifyOrNull(configData.projectPaths);
+		if (Object.prototype.hasOwnProperty.call(configData, 'projectPaths')) updateRecord.project_paths_serialized = this.stringifyOrNull(configData.projectPaths);
 		if (Object.prototype.hasOwnProperty.call(configData, 'examples')) updateRecord.examples_serialized = this.stringifyOrNull(configData.examples);
 
 		if (Object.keys(updateRecord).length === 0) {
@@ -157,10 +156,7 @@ export class PostgresCodeReviewService implements CodeReviewService {
 			// Attempt to parse if it's a string
 			lastUpdatedTimestamp = Date.parse(result.last_updated as unknown as string);
 			if (Number.isNaN(lastUpdatedTimestamp)) {
-				logger.warn(
-					{ projectId, mrIid, lastUpdatedValue: result.last_updated },
-					'Failed to parse last_updated as Date, using current time as fallback.',
-				);
+				logger.warn({ projectId, mrIid, lastUpdatedValue: result.last_updated }, 'Failed to parse last_updated as Date, using current time as fallback.');
 				lastUpdatedTimestamp = Date.now(); // Fallback
 			}
 		}
@@ -172,10 +168,7 @@ export class PostgresCodeReviewService implements CodeReviewService {
 	}
 
 	async updateMergeRequestReviewCache(projectId: string | number, mrIid: number, cacheObject: CodeReviewFingerprintCache): Promise<void> {
-		logger.debug(
-			{ projectId, mrIid, fingerprintCount: cacheObject.fingerprints.size },
-			'PostgresCodeReviewService.updateMergeRequestReviewCache called',
-		);
+		logger.debug({ projectId, mrIid, fingerprintCount: cacheObject.fingerprints.size }, 'PostgresCodeReviewService.updateMergeRequestReviewCache called');
 		const strProjectId = String(projectId);
 		const now = new Date();
 
