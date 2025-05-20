@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 import { ChatComponent } from 'app/modules/chat/chat.component';
-import { ChatsComponent } from 'app/modules/chat/chats/chats.component';
+import { ChatsComponent } from 'app/modules/chat/chats.component';
 import { ConversationComponent } from 'app/modules/chat/conversation/conversation.component';
 import { EmptyConversationComponent } from 'app/modules/chat/empty-conversation/empty-conversation.component';
 

@@ -19,7 +19,7 @@ import { Chat, NEW_CHAT_ID } from '../chat.types';
 
 @Component({
     selector: 'chats',
-    templateUrl: './chats.component.html',
+    templateUrl: './chats/chats.component.html',
     standalone: true,
     imports: [
         NgIf,
