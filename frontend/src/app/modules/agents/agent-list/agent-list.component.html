@@ -62,83 +62,79 @@
                 </div>
             } @else {
                 <!-- Data Loaded or No Data State -->
-                @if (agents(); as resolvedAgents) {
-                    @if (resolvedAgents.length > 0) {
-                        <!-- Header for the list -->
-                        <div class="inventory-grid text-secondary sticky top-0 z-10 grid gap-4 bg-gray-50 px-2 py-2 text-md font-semibold shadow dark:bg-black dark:bg-opacity-5 md:px-4">
+                @if (agents() && agents().length > 0) {
+                    <!-- Header for the list -->
+                    <div class="inventory-grid text-secondary sticky top-0 z-10 grid gap-4 bg-gray-50 px-2 py-2 text-md font-semibold shadow dark:bg-black dark:bg-opacity-5 md:px-4">
+                        <div class="w-10">
+                            <mat-checkbox
+                                [checked]="isAllSelected()"
+                                [indeterminate]="selection.hasValue() && !isAllSelected()"
+                                (change)="masterToggle()">
+                            </mat-checkbox>
+                        </div>
+                        <div>Name</div>
+                        <div>State</div>
+                        <div class="hidden lg:block">Type</div>
+                        <div>User Prompt</div>
+                        <div class="hidden md:block">Error/Output</div>
+                        <div class="hidden lg:block">Cost</div>
+                    </div>
+
+                    <!-- Agent Rows -->
+                    @for (agent of agents(); track trackByFn($index, agent)) {
+                        <div class="inventory-grid grid items-center gap-4 border-b px-2 hover:bg-gray-50 md:px-4">
                             <div class="w-10">
                                 <mat-checkbox
-                                    [checked]="isAllSelected()"
-                                    [indeterminate]="selection.hasValue() && !isAllSelected()"
-                                    (change)="masterToggle()">
+                                        (click)="$event.stopPropagation()"
+                                        (change)="$event ? selection.toggle(agent) : null"
+                                        [checked]="selection.isSelected(agent)">
                                 </mat-checkbox>
                             </div>
-                            <div>Name</div>
-                            <div>State</div>
-                            <div class="hidden lg:block">Type</div>
-                            <div>User Prompt</div>
-                            <div class="hidden md:block">Error/Output</div>
-                            <div class="hidden lg:block">Cost</div>
-                        </div>
 
-                        <!-- Agent Rows -->
-                        @for (agent of resolvedAgents; track trackByFn($index, agent)) {
-                            <div class="inventory-grid grid items-center gap-4 border-b px-2 hover:bg-gray-50 md:px-4">
-                                <div class="w-10">
-                                    <mat-checkbox
-                                            (click)="$event.stopPropagation()"
-                                            (change)="$event ? selection.toggle(agent) : null"
-                                            [checked]="selection.isSelected(agent)">
-                                    </mat-checkbox>
-                                </div>
+                            <div>
+                                <a class="hover:text-primary" [routerLink]="['/ui/agents', agent.agentId]">
+                                    {{ agent.name }}
+                                </a>
+                            </div>
 
-                                <div>
-                                    <a class="hover:text-primary" [routerLink]="['/ui/agents', agent.agentId]">
-                                        {{ agent.name }}
-                                    </a>
-                                </div>
+                            <div>
+                                <span [class]="getStateClass(agent.state)">{{ agent.state }}</span>
+                            </div>
 
-                                <div>
-                                    <span [class]="getStateClass(agent.state)">{{ agent.state }}</span>
-                                </div>
+                            <div class="hidden lg:block">{{ agent.type }}</div>
 
-                                <div class="hidden lg:block">{{ agent.type }}</div>
+                            <div [matTooltip]="agent.userPrompt">
+                                <a class="hover:text-primary" [routerLink]="['/ui/agents', agent.agentId]">
+                                    <div class="max-h-8 truncate">{{ agent.userPrompt }}</div>
+                                </a>
+                            </div>
 
-                                <div [matTooltip]="agent.userPrompt">
-                                    <a class="hover:text-primary" [routerLink]="['/ui/agents', agent.agentId]">
-                                        <div class="max-h-8 truncate">{{ agent.userPrompt }}</div>
-                                    </a>
-                                </div>
-
-                                <div class="hidden md:block" [matTooltip]="agent.state === 'error' ? agent.error : agent.output">
-                                    <div class="max-h-8 truncate">
-                                        {{ (agent.state === 'error' ? agent.error : agent.output) }}
-                                    </div>
-                                </div>
-
-                                <div class="hidden lg:block">
-                                    ${{ agent.cost | number: '1.2-2' }}
+                            <div class="hidden md:block" [matTooltip]="agent.state === 'error' ? agent.error : agent.output">
+                                <div class="max-h-8 truncate">
+                                    {{ (agent.state === 'error' ? agent.error : agent.output) }}
                                 </div>
                             </div>
-                        }
-                    } @else {
-                        <!-- No Agents State -->
-                        <div class="border-t p-8 text-center text-3xl font-medium tracking-tight sm:p-16">
-                            <div class="mb-1">There are no agents!</div>
-                            <button
-                                    class="ml-4 mt-4"
-                                    mat-flat-button
-                                    [color]="'primary'"
-                                    [routerLink]="['/ui/agents/new']"
-                            >
-                                <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
-                                <span class="ml-2 mr-1">Add Agent</span>
-                            </button>
+
+                            <div class="hidden lg:block">
+                                ${{ agent.cost | number: '1.2-2' }}
+                            </div>
                         </div>
                     }
+                } @else {
+                    <!-- No Agents State (covers agents() being null, undefined, or empty) -->
+                    <div class="border-t p-8 text-center text-3xl font-medium tracking-tight sm:p-16">
+                        <div class="mb-1">There are no agents!</div>
+                        <button
+                                class="ml-4 mt-4"
+                                mat-flat-button
+                                [color]="'primary'"
+                                [routerLink]="['/ui/agents/new']"
+                        >
+                            <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
+                            <span class="ml-2 mr-1">Add Agent</span>
+                        </button>
+                    </div>
                 }
-                <!-- No @else needed here for "agents(); as resolvedAgents" because if !isLoading(),
-                     agents() is guaranteed to be an array (empty or with data) due to the TS logic. -->
             }
         </div>
     </div>
