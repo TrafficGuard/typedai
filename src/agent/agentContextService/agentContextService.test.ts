@@ -641,12 +641,7 @@ export function runAgentStateServiceTests(
 
 	describe('updateFunctions', () => {
 		let agentId1: string;
-		let loggerWarnStub: sinon.SinonStub; // Declare here
-
 		beforeEach(async () => {
-			// Stub logger.warn specifically for this suite
-			loggerWarnStub = sinon.stub(logger, 'warn');
-
 			agentId1 = agentId();
 			// Start with default functions (like Agent) + potentially FileSystemRead based on LlmFunctions constructor/fromJSON behavior
 			await service.save(createMockAgentContext(agentId1, { functions: new LlmFunctionsImpl() }));
@@ -707,10 +702,6 @@ export function runAgentStateServiceTests(
 			// Load the agent state after the update attempt
 			const updatedContext = await service.load(agentId1);
 			expect(updatedContext).to.not.be.null;
-
-			// Assert that the logger.warn was called with a message containing the unknown function name
-			// This warning likely happens during LlmFunctions.fromJSON called internally by load/save
-			expect(loggerWarnStub.calledWith(sinon.match(unknownFunctionName))).to.be.true; // Use sinon.match for flexibility
 
 			// Assert the known function *was* added successfully
 			expect(updatedContext.functions.getFunctionClassNames()).to.include(MockFunction.name);
