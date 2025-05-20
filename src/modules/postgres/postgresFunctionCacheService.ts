@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { agentContext } from '#agent/agentContextLocalStorage';
-import type { CacheScope, FunctionCacheService } from '#cache/functionCacheService';
 import { currentUser } from '#user/userContext';
+import type { CacheScope, FunctionCacheService } from '../../cache/functionCacheService';
 import { db } from './db';
 
 export class PostgresFunctionCacheService implements FunctionCacheService {
