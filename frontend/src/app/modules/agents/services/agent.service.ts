@@ -12,8 +12,7 @@ import {
 } from 'rxjs/operators';
 import { callApiRoute } from '../../../core/api-route';
 import { AGENT_API } from '#shared/api/agent.api';
-import type { AgentContext, AutonomousIteration } from '#shared/model/agent.model';
-import { User } from '#shared/model/user.model';
+import type { AutonomousIteration } from '#shared/model/agent.model';
 import {LlmCall} from "#shared/model/llmCall.model";
 import {Pagination} from "../../../core/types";
 import { type Static } from '@sinclair/typebox';
@@ -22,10 +21,26 @@ import { AgentContextSchema } from '#shared/schemas/agent.schema';
 // Type for AgentContext as received from the API
 type AgentContextFromApi = Static<typeof AgentContextSchema>;
 
+/**
+ * Interface for the user part of AgentContextDisplay.
+ */
+interface AgentUserDisplay {
+  id: string;
+  name: string;
+}
+
+/**
+ * Display-oriented AgentContext type.
+ * Properties like llms, functions, fileSystem, completedHandler are in their serialized form.
+ */
+type AgentContextDisplay = Omit<AgentContextFromApi, 'user'> & {
+  user: AgentUserDisplay;
+};
+
 @Injectable({ providedIn: 'root' })
 export class AgentService {
   /** Holds the list of agents */
-  private _agents$: BehaviorSubject<AgentContext[]> = new BehaviorSubject<AgentContext[]>(null);
+  private _agents$: BehaviorSubject<AgentContextDisplay[]> = new BehaviorSubject<AgentContextDisplay[]>(null);
 
   /** Exposes the agents as an observable */
   public agents$ = this._agents$.asObservable();
@@ -49,44 +64,23 @@ export class AgentService {
       return this._pagination.asObservable();
   }
 
-  private mapAgentContextFromApi(apiAgent: AgentContextFromApi): AgentContext {
-    const { user: userId, llms: llmIds, functions: apiFunctions, fileSystem: apiFileSystem, completedHandler: apiCompletedHandler, ...restOfApiAgent } = apiAgent;
-
-    // Create a placeholder User object
-    const user: User = {
-        id: userId,
-        name: 'Unknown User', // Placeholder
-        email: 'unknown@example.com', // Placeholder
-        enabled: false, // Placeholder
-        createdAt: new Date(0), // Placeholder
-        hilBudget: 0, // Placeholder
-        hilCount: 0,  // Placeholder
-        llmConfig: {}, // Placeholder
-        chat: {},      // Placeholder
-        functionConfig: {}, // Placeholder
-    };
+  private mapApiToAgentContextDisplay(apiAgent: AgentContextFromApi): AgentContextDisplay {
+    const { user: userId, ...restOfApiAgent } = apiAgent;
 
     return {
         ...restOfApiAgent,
-        user,
-        // For other complex fields, use 'as any' or implement proper mapping/instantiation
-        llms: llmIds as any, // API returns { easy: string, ... }, Model expects Record<TaskLevel, LLM>
-        functions: apiFunctions as any, // API returns { functionClasses: string[] }, Model expects LlmFunctions
-        fileSystem: apiFileSystem as any, // API returns { basePath: string, wd: string } | null, Model expects IFileSystemService | null
-        completedHandler: apiCompletedHandler as any, // API returns string | undefined, Model expects AgentCompleted | undefined
-        // Ensure all other fields from AgentContext are covered if they differ or are not optional
-        // messages should be compatible if LlmMessageSchemaModel aligns with LlmMessage
+        user: { id: userId, name: 'User ' + userId.substring(0, 6) },
     };
   }
 
-  private mapAgentContextArrayFromApi(apiAgents: AgentContextFromApi[]): AgentContext[] {
-    return apiAgents.map(this.mapAgentContextFromApi.bind(this));
+  private mapApiArrayToAgentContextDisplayArray(apiAgents: AgentContextFromApi[]): AgentContextDisplay[] {
+    return apiAgents.map(this.mapApiToAgentContextDisplay.bind(this));
   }
 
   /** Loads agents from the server and updates the BehaviorSubject */
   private loadAgents(): void {
     callApiRoute(this._httpClient, AGENT_API.list).pipe(
-      map(apiAgents => this.mapAgentContextArrayFromApi(apiAgents || [])),
+      map(apiAgents => this.mapApiArrayToAgentContextDisplayArray(apiAgents || [])),
       tap(agents => this._agents$.next(agents)),
       catchError(error => {
         console.error('Error fetching agents', error);
@@ -97,7 +91,7 @@ export class AgentService {
   }
 
   /** Retrieves the current list of agents */
-  getAgents(): Observable<AgentContext[]> {
+  getAgents(): Observable<AgentContextDisplay[]> {
     return this.agents$;
   }
 
@@ -109,9 +103,9 @@ export class AgentService {
   }
 
   /** Get agent details */
-  getAgentDetails(agentId: string): Observable<AgentContext> {
+  getAgentDetails(agentId: string): Observable<AgentContextDisplay> {
     return callApiRoute(this._httpClient, AGENT_API.details, { pathParams: { agentId } }).pipe(
-        map(apiAgent => this.mapAgentContextFromApi(apiAgent)),
+        map(apiAgent => this.mapApiToAgentContextDisplay(apiAgent)),
         catchError(error => this.handleError('Load agent', error))
     );
   }
@@ -131,7 +125,7 @@ export class AgentService {
   }
 
   /** Updates the local cache when an agent is modified */
-  private updateAgentInCache(updatedAgent: AgentContext): void {
+  private updateAgentInCache(updatedAgent: AgentContextDisplay): void {
     const agents = this._agents$.getValue() ?? [];
     const index = agents.findIndex(agent => agent.agentId === updatedAgent.agentId);
     if (index !== -1) {
@@ -159,45 +153,45 @@ export class AgentService {
   }
 
   /** Submits feedback and updates the local cache */
-  submitFeedback(agentId: string, executionId: string, feedback: string): Observable<AgentContext> {
+  submitFeedback(agentId: string, executionId: string, feedback: string): Observable<AgentContextDisplay> {
     return callApiRoute(this._httpClient, AGENT_API.feedback, { body: { agentId, executionId, feedback } }).pipe(
-      map(apiAgent => this.mapAgentContextFromApi(apiAgent)),
+      map(apiAgent => this.mapApiToAgentContextDisplay(apiAgent)),
       tap(updatedAgent => this.updateAgentInCache(updatedAgent)),
       catchError(error => this.handleError('submitFeedback', error))
     );
   }
 
   /** Requests a Human-in-the-Loop check for an agent */
-  requestHilCheck(agentId: string, executionId: string): Observable<AgentContext> {
+  requestHilCheck(agentId: string, executionId: string): Observable<AgentContextDisplay> {
     return callApiRoute(this._httpClient, AGENT_API.requestHil, { body: { agentId, executionId } }).pipe(
-      map(apiAgent => this.mapAgentContextFromApi(apiAgent)),
+      map(apiAgent => this.mapApiToAgentContextDisplay(apiAgent)),
       tap(updatedAgent => this.updateAgentInCache(updatedAgent)),
       catchError(error => this.handleError('requestHilCheck', error))
     );
   }
 
   /** Resumes an agent and updates the local cache */
-  resumeAgent(agentId: string, executionId: string, feedback: string): Observable<AgentContext> {
+  resumeAgent(agentId: string, executionId: string, feedback: string): Observable<AgentContextDisplay> {
     return callApiRoute(this._httpClient, AGENT_API.resumeHil, { body: { agentId, executionId, feedback } }).pipe(
-      map(apiAgent => this.mapAgentContextFromApi(apiAgent)),
+      map(apiAgent => this.mapApiToAgentContextDisplay(apiAgent)),
       tap(updatedAgent => this.updateAgentInCache(updatedAgent)),
       catchError(error => this.handleError('resumeAgent', error))
     );
   }
 
   /** Cancels an agent and updates the local cache */
-  cancelAgent(agentId: string, executionId: string, reason: string): Observable<AgentContext> {
+  cancelAgent(agentId: string, executionId: string, reason: string): Observable<AgentContextDisplay> {
     return callApiRoute(this._httpClient, AGENT_API.cancel, { body: { agentId, executionId, reason } }).pipe(
-      map(apiAgent => this.mapAgentContextFromApi(apiAgent)),
+      map(apiAgent => this.mapApiToAgentContextDisplay(apiAgent)),
       tap(updatedAgent => this.updateAgentInCache(updatedAgent)),
       catchError(error => this.handleError('cancelAgent', error))
     );
   }
 
   /** Updates agent functions and updates the local cache */
-  updateAgentFunctions(agentId: string, functions: string[]): Observable<AgentContext> {
+  updateAgentFunctions(agentId: string, functions: string[]): Observable<AgentContextDisplay> {
     return callApiRoute(this._httpClient, AGENT_API.updateFunctions, { body: { agentId, functions } }).pipe(
-      map(apiAgent => this.mapAgentContextFromApi(apiAgent)),
+      map(apiAgent => this.mapApiToAgentContextDisplay(apiAgent)),
       tap(updatedAgent => this.updateAgentInCache(updatedAgent)),
       catchError(error => this.handleError('updateAgentFunctions', error))
     );
@@ -212,18 +206,18 @@ export class AgentService {
   }
 
   /** Resumes an agent from error and updates the local cache */
-  resumeError(agentId: string, executionId: string, feedback: string): Observable<AgentContext> {
+  resumeError(agentId: string, executionId: string, feedback: string): Observable<AgentContextDisplay> {
     return callApiRoute(this._httpClient, AGENT_API.resumeError, { body: { agentId, executionId, feedback } }).pipe(
-      map(apiAgent => this.mapAgentContextFromApi(apiAgent)),
+      map(apiAgent => this.mapApiToAgentContextDisplay(apiAgent)),
       tap(updatedAgent => this.updateAgentInCache(updatedAgent)),
       catchError(error => this.handleError('resumeError', error))
     );
   }
 
   /** Resumes a completed agent and updates the local cache */
-  resumeCompletedAgent(agentId: string, executionId: string, instructions: string): Observable<AgentContext> {
+  resumeCompletedAgent(agentId: string, executionId: string, instructions: string): Observable<AgentContextDisplay> {
     return callApiRoute(this._httpClient, AGENT_API.resumeCompleted, { body: { agentId, executionId, instructions } }).pipe(
-      map(apiAgent => this.mapAgentContextFromApi(apiAgent)),
+      map(apiAgent => this.mapApiToAgentContextDisplay(apiAgent)),
       tap(updatedAgent => this.updateAgentInCache(updatedAgent)),
       catchError(error => this.handleError('resumeCompletedAgent', error))
     );
