@@ -3,7 +3,8 @@ import type { ExpressionBuilder, Insertable, Kysely, Selectable, Updateable } fr
 import type { ChatService } from '#chat/chatService';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import { CHAT_PREVIEW_KEYS, type Chat, type ChatList, type ChatMessage, type ChatPreview } from '#shared/model/chat.model';
+import { CHAT_PREVIEW_KEYS, type Chat, type ChatList, type ChatPreview } from '#shared/model/chat.model';
+import type { LlmMessage } from '#shared/model/llm.model';
 import { currentUser } from '#user/userContext';
 import { type ChatsTable, type Database, db } from './db';
 
@@ -17,7 +18,7 @@ export class PostgresChatService implements ChatService {
 			shareable: row.shareable,
 			parentId: row.parent_id ?? undefined,
 			rootId: row.root_id ?? undefined,
-			messages: row.messages_serialized ? (JSON.parse(row.messages_serialized) as ChatMessage[]) : [],
+			messages: row.messages_serialized ? (JSON.parse(row.messages_serialized) as LlmMessage[]) : [],
 		};
 	}
 

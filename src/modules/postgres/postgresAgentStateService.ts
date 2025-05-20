@@ -1,7 +1,7 @@
 import type { Insertable, Kysely, Selectable, Transaction, Updateable } from 'kysely';
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import type { AgentContextService } from '#agent/agentContextService/agentContextService';
-import { deserializeAgentContext, serializeContext } from '#agent/agentSerialization';
+import { deserializeContext, serializeContext } from '#agent/agentSerialization';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { type AgentContext, type AgentRunningState, type AgentType, type AutonomousIteration, isExecuting } from '#shared/model/agent.model';
@@ -30,7 +30,7 @@ export class PostgresAgentStateService implements AgentContextService {
 			trace_id: serialized.traceId,
 			name: serialized.name,
 			parent_agent_id: serialized.parentAgentId,
-			user_id: serialized.user.id,
+			user_id: serialized.user,
 			state: serialized.state,
 			call_stack: serialized.callStack,
 			error: serialized.error,
@@ -99,7 +99,7 @@ export class PostgresAgentStateService implements AgentContextService {
 			childAgents: row.child_agents_ids,
 			hilRequested: row.hil_requested,
 		};
-		return deserializeAgentContext(dataForDeserialization as any);
+		return deserializeContext(dataForDeserialization as any);
 	}
 
 	private _serializeIterationForDb(iteration: AutonomousIteration): SerializedAgentIterationData {
@@ -142,8 +142,8 @@ export class PostgresAgentStateService implements AgentContextService {
 			codeReview: row.code_review,
 			images: row.images_serialized || [],
 			functionCalls: row.function_calls_serialized || [],
-			memory: row.memory_serialized ? new Map(Object.entries(row.memory_serialized)) : new Map(),
-			toolState: row.tool_state_serialized ? new Map(Object.entries(row.tool_state_serialized)) : new Map(),
+			memory: row.memory_serialized ?? {},
+			toolState: row.tool_state_serialized ?? {},
 			error: row.error,
 			stats: row.stats_serialized as any, // Cast as GenerationStats, assuming structure matches
 			cost: row.cost,

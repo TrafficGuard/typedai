@@ -2,7 +2,6 @@ import { existsSync } from 'node:fs';
 import { expect } from 'chai';
 import { GitHub, type GitHubIssueComment } from './github';
 
-
 const TEST_OWNER = '';
 const TEST_REPO = '';
 const PROJECT_PATH = `${TEST_OWNER}/${TEST_REPO}`;

@@ -156,7 +156,7 @@ export interface AgentContext {
     liveFiles?: string[];
     fileStore?: FileMetadata[];
     /** The latest state of tools, updated at the end of each iteration */
-    toolState?: Partial<Record<'LiveFiles' | 'FileStore', any>>;
+    toolState?: Partial<Record<'LiveFiles' | 'FileStore' | 'FileSystemTree', any>>;
 }
 
 /**

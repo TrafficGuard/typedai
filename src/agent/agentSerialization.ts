@@ -153,7 +153,7 @@ export function deserializeContext(data: Static<typeof AgentContextSchema>): Age
 		toolState: toolStateImpl,
 	};
 	return context;
-/*
+	/*
 	}
 	// handle array or string
 	if (typeof serialized.functionCallHistory === 'string') context.functionCallHistory = JSON.parse(serialized.functionCallHistory);

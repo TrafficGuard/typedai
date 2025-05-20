@@ -1,6 +1,6 @@
 import { agentContext, llms } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import { perplexityDeepResearchLLM } from '#llm/services/perplexity-llm';
+import { perplexityReasoningProLLM } from '#llm/services/perplexity-llm';
 import { logger } from '#o11y/logger';
 import { cacheRetry } from '../../cache/cacheRetry';
 
@@ -22,7 +22,7 @@ export class Perplexity {
 	@func()
 	async research(researchQuery: string, saveToMemory: boolean): Promise<string> {
 		try {
-			const report: string = await perplexityDeepResearchLLM().generateText(researchQuery, { id: 'Perplexity' });
+			const report: string = await perplexityReasoningProLLM().generateText(researchQuery, { id: 'Perplexity' });
 
 			if (saveToMemory) {
 				const summary = await llms().easy.generateText(

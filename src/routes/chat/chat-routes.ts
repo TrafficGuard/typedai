@@ -6,17 +6,9 @@ import { getLLM } from '#llm/llmFactory';
 import { summaryLLM } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { CHAT_API } from '#shared/api/chat.api';
-import type { Chat, ChatList, ChatMessage } from '#shared/model/chat.model';
-import {
-	contentText,
-} from '#shared/model/llm.model';
-import type {
-	LLM,
-	LlmMessage,
-	UserContentExt,
-	AssistantContent,
-	TextPart,
-} from '#shared/model/llm.model';
+import type { Chat, ChatList } from '#shared/model/chat.model';
+import { contentText } from '#shared/model/llm.model';
+import type { LLM, LlmMessage, UserContentExt } from '#shared/model/llm.model';
 import type {
 	ChatMarkdownRequestSchema,
 	ChatMarkdownResponseModel,
@@ -26,7 +18,6 @@ import type {
 	ChatUpdateDetailsSchema,
 	RegenerateMessageSchema,
 } from '#shared/schemas/chat.schema';
-import type { LlmMessageSchemaModel } from '#shared/schemas/llm.schema';
 import { currentUser } from '#user/userContext';
 
 export async function chatRoutes(fastify: AppFastifyInstance) {
@@ -41,7 +32,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			const chat: Chat = await fastify.chatService.loadChat(chatId);
 			if (chat.userId !== userId) return sendBadRequest(reply, 'Unauthorized to view this chat');
 
-			reply.sendJSON(chat as ChatSchemaModel);
+			reply.sendJSON(chat);
 		},
 	);
 
@@ -82,32 +73,14 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 
 			chat.messages.push({ role: 'user', content: userContent as UserContentExt, time: Date.now() });
 
-			const llmMessagesForApi: LlmMessage[] = chat.messages
-				.map((cm): LlmMessage | null => {
-					if (cm.role === 'user') {
-						return { role: 'user', content: cm.content };
-					} else if (cm.role === 'assistant') {
-						return { role: 'assistant', content: cm.content };
-					} else if (cm.role === 'system') {
-						return { role: 'system', content: cm.content };
-					}
-					// 'tool' role messages are filtered out as ChatMessage lacks toolCallId
-					// and its string content isn't directly ToolContent.
-					return null;
-				})
-				.filter((msg): msg is LlmMessage => msg !== null);
-
-			const responseMessage: LlmMessage = await llm.generateMessage(llmMessagesForApi, { id: 'chat', ...options });
-			chat.messages.push({
-				role: responseMessage.role as ChatMessage['role'],
-				content: contentText(responseMessage.content as AssistantContent),
-			});
+			const responseMessage: LlmMessage = await llm.generateMessage(chat.messages, { id: 'chat', ...options });
+			chat.messages.push(responseMessage);
 
 			if (titlePromise) chat.title = await titlePromise;
 
 			chat = await fastify.chatService.saveChat(chat);
 
-			reply.code(201).sendJSON(chat as ChatSchemaModel);
+			reply.code(201).sendJSON(chat);
 		},
 	);
 
@@ -133,30 +106,12 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 
 			chat.messages.push({ role: 'user', content: userContent as UserContentExt, time: Date.now() });
 
-			const llmMessagesForApi: LlmMessage[] = chat.messages
-				.map((cm): LlmMessage | null => {
-					if (cm.role === 'user') {
-						return { role: 'user', content: cm.content };
-					} else if (cm.role === 'assistant') {
-						return { role: 'assistant', content: cm.content };
-					} else if (cm.role === 'system') {
-						return { role: 'system', content: cm.content };
-					}
-					// 'tool' role messages are filtered out as ChatMessage lacks toolCallId
-					// and its string content isn't directly ToolContent.
-					return null;
-				})
-				.filter((msg): msg is LlmMessage => msg !== null);
-
-			const responseMessage = await llm.generateMessage(llmMessagesForApi, { id: 'chat', ...options });
-			chat.messages.push({
-				role: responseMessage.role as ChatMessage['role'],
-				content: contentText(responseMessage.content as AssistantContent),
-			});
+			const responseMessage = await llm.generateMessage(chat.messages, { id: 'chat', ...options });
+			chat.messages.push(responseMessage);
 
 			await fastify.chatService.saveChat(chat);
 
-			reply.sendJSON(responseMessage as LlmMessageSchemaModel);
+			reply.sendJSON(responseMessage);
 		},
 	);
 
@@ -181,42 +136,22 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			} catch (e) {
 				return sendBadRequest(reply, `Cannot find LLM ${llmId}`);
 			}
-			if (!llm.isConfigured()) {
-				return sendBadRequest(reply, `LLM ${llmId} is not configured`);
-			}
+			if (!llm.isConfigured()) return sendBadRequest(reply, `LLM ${llmId} is not configured`);
 
 			if (historyTruncateIndex <= 0 || historyTruncateIndex > chat.messages.length + 1) {
 				return sendBadRequest(reply, `Invalid historyTruncateIndex. Must be > 0 and <= ${chat.messages.length + 1}. Received: ${historyTruncateIndex}`);
 			}
 
 			chat.messages = chat.messages.slice(0, historyTruncateIndex - 1);
-			
+
 			chat.messages.push({ role: 'user', content: userContent as UserContentExt, time: Date.now() });
 
-			const llmMessagesForApi: LlmMessage[] = chat.messages
-				.map((cm): LlmMessage | null => {
-					if (cm.role === 'user') {
-						return { role: 'user', content: cm.content };
-					} else if (cm.role === 'assistant') {
-						return { role: 'assistant', content: cm.content };
-					} else if (cm.role === 'system') {
-						return { role: 'system', content: cm.content };
-					}
-					// 'tool' role messages are filtered out as ChatMessage lacks toolCallId
-					// and its string content isn't directly ToolContent.
-					return null;
-				})
-				.filter((msg): msg is LlmMessage => msg !== null);
-
-			const responseMessage = await llm.generateMessage(llmMessagesForApi, { id: 'chat-regenerate', ...options });
-			chat.messages.push({
-				role: responseMessage.role as ChatMessage['role'],
-				content: contentText(responseMessage.content as AssistantContent),
-			});
+			const responseMessage = await llm.generateMessage(chat.messages, { id: 'chat-regenerate', ...options });
+			chat.messages.push(responseMessage);
 			chat.updatedAt = Date.now();
 
 			await fastify.chatService.saveChat(chat);
-			reply.sendJSON(responseMessage as LlmMessageSchemaModel);
+			reply.sendJSON(responseMessage);
 		},
 	);
 

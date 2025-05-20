@@ -16,9 +16,9 @@ export class FileSystemTree {
 		const agent = agentContext();
 		if (!(await getFileSystem().directoryExists(folderPath))) return false;
 		agent.toolState ??= {};
-		agent.toolState.fileSystemTree ??= [];
+		agent.toolState.FileSystemTree ??= [];
 
-		agent.toolState.fileSystemTree = Array.from(new Set([...agent.toolState.fileSystemTree, folderPath]));
+		agent.toolState.FileSystemTree = Array.from(new Set([...agent.toolState.FileSystemTree, folderPath]));
 		return true;
 	}
 
@@ -32,11 +32,11 @@ export class FileSystemTree {
 		const agent = agentContext();
 		if (!(await getFileSystem().directoryExists(folderPath))) return false;
 		agent.toolState ??= {};
-		agent.toolState.fileSystemTree ??= [];
-		if (!Array.isArray(agent.toolState.fileSystemTree)) throw new Error('toolState.fileSystemTree must be an array');
+		agent.toolState.FileSystemTree ??= [];
+		if (!Array.isArray(agent.toolState.FileSystemTree)) throw new Error('toolState.fileSystemTree must be an array');
 
-		const origLength = agent.toolState.fileSystemTree.length;
-		agent.toolState.fileSystemTree = agent.toolState.fileSystemTree.filter((path) => path !== folderPath);
-		return agent.toolState.fileSystemTree.length !== origLength;
+		const origLength = agent.toolState.FileSystemTree.length;
+		agent.toolState.FileSystemTree = agent.toolState.FileSystemTree.filter((path) => path !== folderPath);
+		return agent.toolState.FileSystemTree.length !== origLength;
 	}
 }
