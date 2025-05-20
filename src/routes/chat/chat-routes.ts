@@ -13,6 +13,7 @@ import type {
 	UserContentExt,
 	AssistantContent,
 	TextPart,
+	contentText,
 } from '#shared/model/llm.model';
 import type {
 	ChatMarkdownRequestSchema,
@@ -25,17 +26,6 @@ import type {
 } from '#shared/schemas/chat.schema';
 import type { LlmMessageSchemaModel } from '#shared/schemas/llm.schema';
 import { currentUser } from '#user/userContext';
-
-// Helper function to convert complex content types to a simple string
-type ContentWithStringOrTextParts = string | Array<({ type: 'text'; text: string } | { type: string })>;
-
-function contentToText(content: ContentWithStringOrTextParts): string {
-	if (typeof content === 'string') {
-		return content;
-	}
-	const textPart = content.find((part) => part.type === 'text' && 'text' in part) as TextPart | undefined;
-	return textPart ? textPart.text : '';
-}
 
 export async function chatRoutes(fastify: AppFastifyInstance) {
 	fastify.get(
@@ -80,7 +70,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			}
 			if (!llm.isConfigured()) return sendBadRequest(reply, `LLM ${llm.getId()} is not configured`);
 
-			const textForTitle = contentToText(userContent as UserContentExt);
+			const textForTitle = contentText(userContent as UserContentExt);
 
 			const titleLLM = summaryLLM().isConfigured() ? summaryLLM() : llm;
 			const titlePromise: Promise<string> | undefined = titleLLM.generateText(
@@ -88,7 +78,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 				{ id: 'Chat title' },
 			);
 
-			chat.messages.push({ role: 'user', content: contentToText(userContent as UserContentExt) });
+			chat.messages.push({ role: 'user', content: contentText(userContent as UserContentExt) });
 
 			const llmMessagesForApi: LlmMessage[] = chat.messages
 				.map((cm): LlmMessage | null => {
@@ -108,7 +98,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			const responseMessage: LlmMessage = await llm.generateMessage(llmMessagesForApi, { id: 'chat', ...options });
 			chat.messages.push({
 				role: responseMessage.role as ChatMessage['role'],
-				content: contentToText(responseMessage.content as AssistantContent),
+				content: contentText(responseMessage.content as AssistantContent),
 			});
 
 			if (titlePromise) chat.title = await titlePromise;
@@ -139,7 +129,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			}
 			if (!llm.isConfigured()) return sendBadRequest(reply, `LLM ${llm.getId()} is not configured`);
 
-			chat.messages.push({ role: 'user', content: contentToText(userContent as UserContentExt) });
+			chat.messages.push({ role: 'user', content: contentText(userContent as UserContentExt) });
 
 			const llmMessagesForApi: LlmMessage[] = chat.messages
 				.map((cm): LlmMessage | null => {
@@ -159,7 +149,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			const responseMessage = await llm.generateMessage(llmMessagesForApi, { id: 'chat', ...options });
 			chat.messages.push({
 				role: responseMessage.role as ChatMessage['role'],
-				content: contentToText(responseMessage.content as AssistantContent),
+				content: contentText(responseMessage.content as AssistantContent),
 			});
 
 			await fastify.chatService.saveChat(chat);
@@ -199,7 +189,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 
 			chat.messages = chat.messages.slice(0, historyTruncateIndex - 1);
 
-			chat.messages.push({ role: 'user', content: contentToText(userContent as UserContentExt) });
+			chat.messages.push({ role: 'user', content: contentText(userContent as UserContentExt) });
 
 			const llmMessagesForApi: LlmMessage[] = chat.messages
 				.map((cm): LlmMessage | null => {
@@ -219,7 +209,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			const responseMessage = await llm.generateMessage(llmMessagesForApi, { id: 'chat-regenerate', ...options });
 			chat.messages.push({
 				role: responseMessage.role as ChatMessage['role'],
-				content: contentToText(responseMessage.content as AssistantContent),
+				content: contentText(responseMessage.content as AssistantContent),
 			});
 			chat.updatedAt = Date.now();
 

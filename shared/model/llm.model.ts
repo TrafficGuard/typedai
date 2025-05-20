@@ -8,7 +8,6 @@ import {
     type TextStreamPart,
     type ToolContent,
     type UserContent,
-    type AssistantContent,
 } from 'ai';
 import {ChangePropertyType} from "../typeUtils";
 
