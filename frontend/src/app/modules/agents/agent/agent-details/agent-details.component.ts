@@ -17,7 +17,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { catchError, finalize, map, of, throwError } from 'rxjs';
 import { environment } from 'environments/environment';
-import { AgentContextApi } from '#shared/api/agent.api';
+import { AgentContextApi } from '#shared/schemas/agent.schema';
 
 import { FunctionEditModalComponent } from '../function-edit-modal/function-edit-modal.component';
 import { ResumeAgentModalComponent } from '../resume-agent-modal/resume-agent-modal.component';
@@ -285,7 +285,7 @@ export class AgentDetailsComponent implements OnInit {
         ).subscribe({
             next: () => {
                 this.snackBar.open('Agent functions updated successfully', 'Close', { duration: 3000 });
-                this.agentDetails.functions = selectedFunctions;
+                this.agentDetails.functions = {functionClasses: selectedFunctions};
                 this.changeDetectorRef.markForCheck();
             },
         });

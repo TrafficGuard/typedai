@@ -2,15 +2,31 @@
 import {
     type AssistantContent,
     type CoreMessage,
-    type FilePart,
-    type ImagePart,
+    type FilePart as AiFilePart, // Renamed to avoid conflict if we define our own FilePart
+    type ImagePart as AiImagePart, // Renamed
     type TextPart,
     type TextStreamPart,
     type ToolContent,
     type UserContent,
+    type ToolCallPart as ModelToolCallPart, // Corrected import: ModelToolCallPart is an alias for ToolCallPart
+    // ReasoningPart and RedactedReasoningPart are not exported from 'ai'.
+    // We will define them locally below.
 } from 'ai';
 export type { AssistantContent } from 'ai'; // Re-export AssistantContent
 import {ChangePropertyType} from "../typeUtils";
+
+// Local definitions for unexported types from 'ai'
+export interface ReasoningPart {
+    type: 'reasoning';
+    text: string;
+    providerMetadata?: Record<string, unknown>;
+}
+
+export interface RedactedReasoningPart {
+    type: 'redacted-reasoning';
+    data: string; // Added data field as indicated by compiler errors
+    providerMetadata?: Record<string, unknown>;
+}
 
 // Should match fields in CallSettings in node_modules/ai/dist/index.d.ts
 export interface CallSettings {
@@ -106,7 +122,7 @@ interface FilePart {
     // File data. Can either be:
   	// - data: a base64-encoded string, a Uint8Array, an ArrayBuffer, or a Buffer
   	// - URL: a URL that points to the image
-	image: DataContent | URL;
+	data: DataContent | URL;
 	// Mime type of the file.
 	mimeType: string;
 }
@@ -114,27 +130,49 @@ interface FilePart {
 
 /** Additional information added to the FilePart and ImagePart objects */
 export interface AttachmentInfo {
-    filename?: string;
-    size?: number;
+    filename?: string | undefined;
+    size?: number | undefined;
     /**
      * URL to large attachment data stored external from the LlmMessage (ie. in the agent's persistent directory).
      * When this is set the image/file data will be set to an empty string when saving to the database.
      */
-    externalURL?: string;
+    externalURL?: string | undefined;
 }
 
 
 // Can't have the node.js Buffer type in the frontend. For now, we will always base64 encode file and image data to keep the typing simple.
-type FilePartUI = ChangePropertyType<FilePart, 'data', string >; // | Uint8Array | ArrayBuffer | URL
-type ImagePartUI = ChangePropertyType<ImagePart, 'image', string >; // | Uint8Array | ArrayBuffer | URL
+// Define UI types to match schema expectations (string data fields)
+export interface ImagePartUI {
+    type: 'image';
+    image: string; // Base64 string or URL
+    mimeType?: string;
+}
 
-export type FilePartExt = FilePartUI & AttachmentInfo;
-export type ImagePartExt = ImagePartUI & AttachmentInfo;
-export type TextPartExt = TextPart;
+export interface FilePartUI {
+    type: 'file';
+    data: string; // Base64 string or URL
+    mimeType: string;
+}
+
+interface TextPartUI {
+    type: 'text';
+    /** The text content */
+    text: string;
+
+}
+
+export type TextPartExt = TextPartUI & { providerOptions?: Record<string, any>; };
+export type ImagePartExt = ImagePartUI & AttachmentInfo & { providerOptions?: Record<string, any> | undefined; };
+export type FilePartExt = FilePartUI & AttachmentInfo & { providerOptions?: Record<string, any> | undefined; };
+export type ToolCallPartExt = ModelToolCallPart;
+
 
 export type CoreContent = AssistantContent | UserContent | ToolContent;
-/** Extension of the 'ai' package UserContent type */
-export type UserContentExt = string | Array<TextPart | ImagePartExt | FilePartExt>;
+/** Extension of the 'ai' package UserContent type, using our extended parts */
+export type UserContentExt = string | Array<TextPartExt | ImagePartExt | FilePartExt>;
+/** Extension for AssistantContent, using our extended parts */
+export type AssistantContentExt = string | Array<TextPartExt | ImagePartExt | FilePartExt | ToolCallPartExt | ReasoningPart | RedactedReasoningPart>;
+
 
 export interface GenerationStats {
     requestTime: number;
@@ -142,23 +180,31 @@ export interface GenerationStats {
     totalTime: number;
     inputTokens: number;
     outputTokens: number;
-    cachedInputTokens?: number;
+    cachedInputTokens?: number | undefined;
     cost: number;
     llmId: string;
 }
 
-export type LlmMessage = CoreMessage & {
+// Base properties common to all LlmMessage variants
+interface LlmMessageBase {
     /** @deprecated The LLM which generated the text (only when role=assistant) */
-    llmId?: string;
+    llmId?: string | undefined;
     /** Set the cache_control flag with Claude models */
-    cache?: 'ephemeral';
+    cache?: 'ephemeral' | undefined;
     /** @deprecated Time the message was sent */
-    time?: number;
+    time?: number | undefined;
     /** Stats on message generation (i.e when role=assistant) */
-    stats?: GenerationStats;
+    stats?: GenerationStats | undefined;
     /** Provider-specific options for the message. */
-    providerOptions?: Record<string, any>;
-};
+    providerOptions?: Record<string, any> | undefined;
+}
+
+// Discriminated union for LlmMessage
+export type LlmMessage =
+    | ({ role: 'system'; content: string } & LlmMessageBase)
+    | ({ role: 'user'; content: UserContentExt } & LlmMessageBase)
+    | ({ role: 'assistant'; content: AssistantContentExt } & LlmMessageBase)
+    | ({ role: 'tool'; content: ToolContent } & LlmMessageBase); // ToolContent from 'ai'
 
 export type SystemUserPrompt = [systemPrompt: string, userPrompt: string];
 
@@ -181,7 +227,10 @@ export function lastText(messages: LlmMessage[] | ReadonlyArray<LlmMessage>): st
  * @param message
  */
 export function messageText(message: LlmMessage): string {
-    return contentText(message.content);
+    // Cast to CoreContent as any to bypass strict type checking for FilePartExt vs. ai's FilePart.
+    // contentText is only concerned with text-producing parts, so structural differences in image/file parts
+    // (which it ignores for text extraction) shouldn't affect its logic.
+    return contentText(message.content as any);
 }
 
 
@@ -197,8 +246,8 @@ export function messageContentIfTextOnly(message: LlmMessage): string | null {
         const type = part.type;
         if(part.type === 'image' || part.type === 'file')  return null;
         else if (type === 'text') text += part.text;
-        else if (type === 'reasoning') text += `${part.text}\n`;
-        // else if (type === 'redacted-reasoning') text += '<redacted-reasoning>\n';
+        else if (type === 'reasoning') text += `${(part as ReasoningPart).text}\n`;
+        else if (type === 'redacted-reasoning') text += '<redacted-reasoning>\n';
         else if (type === 'tool-call') text += `Tool Call (${part.toolCallId} ${part.toolName} Args:${JSON.stringify(part.args)})`;
     }
     return text
@@ -215,10 +264,10 @@ export function contentText(content: CoreContent): string {
     for (const part of content) {
         const type = part.type;
         if (type === 'text') text += part.text;
-        // else if (type === 'source') text += `${part.text}\n`;
-        else if (type === 'reasoning') text += `${part.text}\n`;
-        // else if (type === 'redacted-reasoning') text += '<redacted-reasoning>\n';
-        else if (type === 'tool-call') text += `Tool Call (${part.toolCallId} ${part.toolName} Args:${JSON.stringify(part.args)})`;
+        else if (type === 'reasoning') text += `${(part as ReasoningPart).text}\n`;
+        else if (type === 'redacted-reasoning') text += '<redacted-reasoning>\n';
+        else if (type === 'tool-call') text += `Tool Call (${(part as ModelToolCallPart).toolCallId} ${(part as ModelToolCallPart).toolName} Args:${JSON.stringify((part as ModelToolCallPart).args)})`;
+        // Note: ImagePart and FilePart do not contribute to text content in this function
     }
     return text;
 }

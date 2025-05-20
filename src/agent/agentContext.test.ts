@@ -2,7 +2,7 @@ import { expect } from 'chai';
 import sinon from 'sinon';
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import { createContext } from '#agent/agentContextLocalStorage';
-import { deserializeAgentContext, serializeContext } from '#agent/agentSerialization';
+import { deserializeContext, serializeContext } from '#agent/agentSerialization';
 import type { RunAgentConfig } from '#agent/autonomous/autonomousAgentRunner';
 import { appContext } from '#app/applicationContext';
 import { LlmTools } from '#functions/util';
@@ -60,10 +60,16 @@ describe('agentContext', () => {
 			expect(serializedToString).to.include('medium');
 			expect(serializedToString).to.include('workingDir');
 			expect(serializedToString).to.include('LlmTools');
+			expect(serializedToString).to.include(agentContext.user.id); // Check user ID is serialized
 
-			const deserialised = await deserializeAgentContext(serialized);
+			const deserialised = deserializeContext(serialized);
 			const reserialised = serializeContext(deserialised);
 
+			// Note: Deep equal might fail due to Date objects or other non-plain data structures
+			// that are not perfectly round-tripped or represented differently.
+			// A more robust test might compare specific fields known to be serializable.
+			// However, for the purpose of checking serialization/deserialization logic,
+			// comparing the serialized output after a round trip is a reasonable check.
 			expect(serialized).to.be.deep.equal(reserialised);
 		});
 	});

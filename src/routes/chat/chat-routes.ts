@@ -8,13 +8,13 @@ import { logger } from '#o11y/logger';
 import { CHAT_API } from '#shared/api/chat.api';
 import type { Chat, ChatList, ChatMessage } from '#shared/model/chat.model';
 import {
-	contentText, // Import as value
+	contentText,
 } from '#shared/model/llm.model';
 import type {
 	LLM,
 	LlmMessage,
 	UserContentExt,
-	AssistantContent, // Import as type
+	AssistantContent,
 	TextPart,
 } from '#shared/model/llm.model';
 import type {
@@ -80,7 +80,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 				{ id: 'Chat title' },
 			);
 
-			chat.messages.push({ role: 'user', content: contentText(userContent as UserContentExt) });
+			chat.messages.push({ role: 'user', content: userContent as UserContentExt, time: Date.now() });
 
 			const llmMessagesForApi: LlmMessage[] = chat.messages
 				.map((cm): LlmMessage | null => {
@@ -131,7 +131,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			}
 			if (!llm.isConfigured()) return sendBadRequest(reply, `LLM ${llm.getId()} is not configured`);
 
-			chat.messages.push({ role: 'user', content: contentText(userContent as UserContentExt) });
+			chat.messages.push({ role: 'user', content: userContent as UserContentExt, time: Date.now() });
 
 			const llmMessagesForApi: LlmMessage[] = chat.messages
 				.map((cm): LlmMessage | null => {
@@ -190,8 +190,8 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			}
 
 			chat.messages = chat.messages.slice(0, historyTruncateIndex - 1);
-
-			chat.messages.push({ role: 'user', content: contentText(userContent as UserContentExt) });
+			
+			chat.messages.push({ role: 'user', content: userContent as UserContentExt, time: Date.now() });
 
 			const llmMessagesForApi: LlmMessage[] = chat.messages
 				.map((cm): LlmMessage | null => {

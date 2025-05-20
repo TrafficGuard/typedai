@@ -25,11 +25,11 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterModule } from '@angular/router';
 import { fuseAnimations } from '@fuse/animations';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
-import { AgentContextApi } from '#shared/api/agent.api';
 import { AgentService } from 'app/modules/agents/services/agent.service';
 import { Observable, Subject, debounceTime, switchMap, takeUntil } from 'rxjs';
 import { FormsModule, ReactiveFormsModule, UntypedFormBuilder, UntypedFormControl} from "@angular/forms";
 import { AgentTag, AgentType } from "#shared/model/agent.model";
+import { type AgentContextApi } from '#shared/schemas/agent.schema';
 import {Pagination} from "../../../core/types";
 
 @Component({
@@ -65,7 +65,7 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
 	@ViewChild(MatPaginator) private _paginator: MatPaginator;
 	@ViewChild(MatSort) private _sort: MatSort;
 
-	agents$: Observable<AgentContextApi[]>;
+	agents$: Observable<AgentContextApi[]>
 
 	agentTypes: AgentType[];
 	filteredTags: AgentTag[];
@@ -314,7 +314,7 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
 	 * @param index
 	 * @param item
 	 */
-	trackByFn(index: number, item: any): any {
+	trackByFn(index: number, item: AgentContextApi): string | number {
 		return item.agentId || index; // Use agentId for tracking
 	}
 }

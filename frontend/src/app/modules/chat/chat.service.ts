@@ -459,9 +459,17 @@ function convertMessage(apiLlmMessage: ApiLlmMessage): ChatMessage {
                 } else if (part.type === 'image') {
                     // API part is 'ai'.ImagePart, map to ImagePartExt
                     const apiImgPart = part as import('ai').ImagePart;
+                    let imageValue = ''; // Default to empty string
+                    if (typeof apiImgPart.image === 'string') {
+                        imageValue = apiImgPart.image;
+                    } else if (apiImgPart.image instanceof URL) {
+                        imageValue = apiImgPart.image.toString();
+                    }
+                    // Add handling for other DataContent types if necessary in the future, e.g., Buffer to base64
+
                     const imgExtPart: ImagePartExt = {
                         type: 'image',
-                        image: typeof apiImgPart.image === 'string' ? apiImgPart.image : (apiImgPart.image instanceof URL ? apiImgPart.image.toString() : undefined),
+                        image: imageValue, // Use the processed value
                         mimeType: apiImgPart.mimeType,
                         filename: (apiImgPart as any).filename || `image.png`, // Backend should provide these if available
                         size: (apiImgPart as any).size || 0,
@@ -471,9 +479,17 @@ function convertMessage(apiLlmMessage: ApiLlmMessage): ChatMessage {
                 } else if (part.type === 'file') {
                     // API part is 'ai'.FilePart, map to FilePartExt
                     const apiFilePart = part as import('ai').FilePart;
+                    let dataValue = ''; // Default to empty string
+                    if (typeof apiFilePart.data === 'string') {
+                        dataValue = apiFilePart.data;
+                    } else if (apiFilePart.data instanceof URL) {
+                        dataValue = apiFilePart.data.toString();
+                    }
+                    // Add handling for other DataContent types if necessary
+
                     const fileExtPart: FilePartExt = {
                         type: 'file',
-                        data: typeof apiFilePart.data === 'string' ? apiFilePart.data : (apiFilePart.data instanceof URL ? apiFilePart.data.toString() : undefined),
+                        data: dataValue, // Use the processed value
                         mimeType: apiFilePart.mimeType,
                         filename: (apiFilePart as any).filename || `file.bin`, // Backend should provide these
                         size: (apiFilePart as any).size || 0,

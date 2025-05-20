@@ -10,10 +10,13 @@ import {
   map,
   tap,
 } from 'rxjs/operators';
-import { AgentContextApi } from "#shared/api/agent.api";
-import {LlmCall} from "#shared/model/llmCall.model";
-import {AutonomousIteration} from "#shared/model/agent.model";
-import {Pagination} from "../../../core/types";
+import { callApiRoute } from '../../../core/api-route';
+import { AGENT_API } from '#shared/api/agent.api';
+import type { AutonomousIteration } from '#shared/model/agent.model';
+import { LlmCall } from "#shared/model/llmCall.model";
+import { Pagination } from "../../../core/types";
+import { AgentContextSchema, AgentContextApi } from '#shared/schemas/agent.schema';
+import type { User, LLMServicesConfig, ChatSettings } from '#shared/model/user.model';
 
 
 @Injectable({ providedIn: 'root' })
@@ -45,11 +48,11 @@ export class AgentService {
 
   /** Loads agents from the server and updates the BehaviorSubject */
   private loadAgents(): void {
-    this._httpClient.get<{ data: AgentContextApi[] }>('/api/agent/v1/list').pipe(
-      map(response => response.data || []),
+    callApiRoute(this._httpClient, AGENT_API.list).pipe(
       tap(agents => this._agents$.next(agents)),
       catchError(error => {
         console.error('Error fetching agents', error);
+        this._agents$.next([]); // Clear agents on error or provide empty array
         return throwError(error);
       })
     ).subscribe();
@@ -69,7 +72,7 @@ export class AgentService {
 
   /** Get agent details */
   getAgentDetails(agentId: string): Observable<AgentContextApi> {
-    return this._httpClient.get<AgentContextApi>(`/api/agent/v1/details/${agentId}`).pipe(
+    return callApiRoute(this._httpClient, AGENT_API.details, { pathParams: { agentId } }).pipe(
         catchError(error => this.handleError('Load agent', error))
     );
   }
@@ -83,7 +86,7 @@ export class AgentService {
 
   /** Get iterations for an autonomous agent */
   getAgentIterations(agentId: string): Observable<AutonomousIteration[]> {
-    return this._httpClient.get<AutonomousIteration[]>(`/api/agent/v1/iterations/${agentId}`).pipe(
+    return callApiRoute(this._httpClient, AGENT_API.getIterations, { pathParams: { agentId } }).pipe(
       catchError(error => this.handleError('Load agent iterations', error))
     );
   }
@@ -91,7 +94,7 @@ export class AgentService {
   /** Updates the local cache when an agent is modified */
   private updateAgentInCache(updatedAgent: AgentContextApi): void {
     const agents = this._agents$.getValue() ?? [];
-    const index = agents.findIndex(agent => agent.agentId === updatedAgent.agentId) ?? -1;
+    const index = agents.findIndex(agent => agent.agentId === updatedAgent.agentId);
     if (index !== -1) {
       const updatedAgents = [...agents];
       updatedAgents[index] = updatedAgent;
@@ -118,8 +121,7 @@ export class AgentService {
 
   /** Submits feedback and updates the local cache */
   submitFeedback(agentId: string, executionId: string, feedback: string): Observable<AgentContextApi> {
-    return this._httpClient.post<AgentContextApi>(`/api/agent/v1/feedback`, { agentId, executionId, feedback }
-    ).pipe(
+    return callApiRoute(this._httpClient, AGENT_API.feedback, { body: { agentId, executionId, feedback } }).pipe(
       tap(updatedAgent => this.updateAgentInCache(updatedAgent)),
       catchError(error => this.handleError('submitFeedback', error))
     );
@@ -127,10 +129,7 @@ export class AgentService {
 
   /** Requests a Human-in-the-Loop check for an agent */
   requestHilCheck(agentId: string, executionId: string): Observable<AgentContextApi> {
-    return this._httpClient.post<AgentContextApi>(
-      `/api/agent/v1/request-hil`,
-      { agentId, executionId }
-    ).pipe(
+    return callApiRoute(this._httpClient, AGENT_API.requestHil, { body: { agentId, executionId } }).pipe(
       tap(updatedAgent => this.updateAgentInCache(updatedAgent)),
       catchError(error => this.handleError('requestHilCheck', error))
     );
@@ -138,8 +137,7 @@ export class AgentService {
 
   /** Resumes an agent and updates the local cache */
   resumeAgent(agentId: string, executionId: string, feedback: string): Observable<AgentContextApi> {
-    return this._httpClient.post<AgentContextApi>(`/api/agent/v1/resume-hil`, { agentId, executionId, feedback }
-    ).pipe(
+    return callApiRoute(this._httpClient, AGENT_API.resumeHil, { body: { agentId, executionId, feedback } }).pipe(
       tap(updatedAgent => this.updateAgentInCache(updatedAgent)),
       catchError(error => this.handleError('resumeAgent', error))
     );
@@ -147,8 +145,7 @@ export class AgentService {
 
   /** Cancels an agent and updates the local cache */
   cancelAgent(agentId: string, executionId: string, reason: string): Observable<AgentContextApi> {
-    return this._httpClient.post<AgentContextApi>(`/api/agent/v1/cancel`, { agentId, executionId, reason }
-    ).pipe(
+    return callApiRoute(this._httpClient, AGENT_API.cancel, { body: { agentId, executionId, reason } }).pipe(
       tap(updatedAgent => this.updateAgentInCache(updatedAgent)),
       catchError(error => this.handleError('cancelAgent', error))
     );
@@ -156,18 +153,15 @@ export class AgentService {
 
   /** Updates agent functions and updates the local cache */
   updateAgentFunctions(agentId: string, functions: string[]): Observable<AgentContextApi> {
-    return this._httpClient.post<AgentContextApi>(
-      `/api/agent/v1/update-functions`,
-      { agentId, functions }
-    ).pipe(
+    return callApiRoute(this._httpClient, AGENT_API.updateFunctions, { body: { agentId, functions } }).pipe(
       tap(updatedAgent => this.updateAgentInCache(updatedAgent)),
       catchError(error => this.handleError('updateAgentFunctions', error))
     );
   }
 
   /** Deletes agents and updates the local cache */
-  deleteAgents(agentIds: string[]): Observable<any> {
-    return this._httpClient.post(`/api/agent/v1/delete`, { agentIds }).pipe(
+  deleteAgents(agentIds: string[]): Observable<void> {
+    return callApiRoute(this._httpClient, AGENT_API.delete, { body: { agentIds } }).pipe(
       tap(() => this.removeAgentsFromCache(agentIds)),
       catchError(error => this.handleError('deleteAgents', error))
     );
@@ -175,10 +169,7 @@ export class AgentService {
 
   /** Resumes an agent from error and updates the local cache */
   resumeError(agentId: string, executionId: string, feedback: string): Observable<AgentContextApi> {
-    return this._httpClient.post<AgentContextApi>(
-      `/api/agent/v1/resume-error`,
-      { agentId, executionId, feedback }
-    ).pipe(
+    return callApiRoute(this._httpClient, AGENT_API.resumeError, { body: { agentId, executionId, feedback } }).pipe(
       tap(updatedAgent => this.updateAgentInCache(updatedAgent)),
       catchError(error => this.handleError('resumeError', error))
     );
@@ -186,18 +177,16 @@ export class AgentService {
 
   /** Resumes a completed agent and updates the local cache */
   resumeCompletedAgent(agentId: string, executionId: string, instructions: string): Observable<AgentContextApi> {
-    return this._httpClient.post<AgentContextApi>(
-      `/api/agent/v1/resume-completed`,
-      { agentId, executionId, instructions }
-    ).pipe(
+    return callApiRoute(this._httpClient, AGENT_API.resumeCompleted, { body: { agentId, executionId, instructions } }).pipe(
+
       tap(updatedAgent => this.updateAgentInCache(updatedAgent)),
       catchError(error => this.handleError('resumeCompletedAgent', error))
     );
   }
 
   /** Forcibly stops an agent */
-  forceStopAgent(agentId: string): Observable<any> {
-    return this._httpClient.post(`/api/agent/v1/force-stop`, { agentId }).pipe(
+  forceStopAgent(agentId: string): Observable<void> {
+    return callApiRoute(this._httpClient, AGENT_API.forceStop, { body: { agentId } }).pipe(
       // Note: No cache update needed here as the backend route doesn't return updated agent state.
       // The caller should refresh agent details if needed after a successful call.
       catchError(error => this.handleError('forceStopAgent', error))

@@ -1,0 +1,1504 @@
+import { IDGenerator } from '@ai-sdk/provider-utils';
+export { CoreToolCall, CoreToolResult, IDGenerator, ToolCall, ToolResult, createIdGenerator, generateId } from '@ai-sdk/provider-utils';
+import { DataStreamString, Message, Schema, DeepPartial, JSONValue as JSONValue$1, AssistantMessage, DataMessage } from '@ai-sdk/ui-utils';
+export { AssistantMessage, AssistantStatus, Attachment, ChatRequest, ChatRequestOptions, CreateMessage, DataMessage, DataStreamPart, DeepPartial, IdGenerator, JSONValue, Message, RequestOptions, Schema, ToolInvocation, UIMessage, UseAssistantOptions, formatAssistantStreamPart, formatDataStreamPart, jsonSchema, parseAssistantStreamPart, parseDataStreamPart, processDataStream, processTextStream, zodSchema } from '@ai-sdk/ui-utils';
+import { LanguageModelV1, LanguageModelV1FinishReason, LanguageModelV1LogProbs, LanguageModelV1CallWarning, LanguageModelV1Source, JSONValue, EmbeddingModelV1, EmbeddingModelV1Embedding, ImageModelV1, ImageModelV1CallWarning, LanguageModelV1ProviderMetadata, TranscriptionModelV1, TranscriptionModelV1CallWarning, SpeechModelV1, SpeechModelV1CallWarning, LanguageModelV1CallOptions, AISDKError, LanguageModelV1FunctionToolCall, JSONSchema7, JSONParseError, TypeValidationError, ProviderV1, NoSuchModelError } from '@ai-sdk/provider';
+export { AISDKError, APICallError, EmptyResponseBodyError, InvalidPromptError, InvalidResponseDataError, JSONParseError, LanguageModelV1, LanguageModelV1CallOptions, LanguageModelV1Prompt, LanguageModelV1StreamPart, LoadAPIKeyError, NoContentGeneratedError, NoSuchModelError, TypeValidationError, UnsupportedFunctionalityError } from '@ai-sdk/provider';
+import { ServerResponse } from 'node:http';
+import { AttributeValue, Tracer } from '@opentelemetry/api';
+import { z } from 'zod';
+import { ServerResponse as ServerResponse$1 } from 'http';
+
+/**
+ Language model that is used by the AI SDK Core functions.
+ */
+type LanguageModel = LanguageModelV1;
+/**
+ Reason why a language model finished generating a response.
+
+ Can be one of the following:
+ - `stop`: model generated stop sequence
+ - `length`: model generated maximum number of tokens
+ - `content-filter`: content filter violation stopped the model
+ - `tool-calls`: model triggered tool calls
+ - `error`: model stopped because of an error
+ - `other`: model stopped for other reasons
+ */
+type FinishReason = LanguageModelV1FinishReason;
+/**
+ Log probabilities for each token and its top log probabilities.
+
+ @deprecated Will become a provider extension in the future.
+ */
+type LogProbs = LanguageModelV1LogProbs;
+/**
+ Warning from the model provider for this call. The call will proceed, but e.g.
+ some settings might not be supported, which can lead to suboptimal results.
+ */
+type CallWarning = LanguageModelV1CallWarning;
+/**
+ A source that has been used as input to generate the response.
+ */
+type Source = LanguageModelV1Source;
+/**
+ Tool choice for the generation. It supports the following settings:
+
+ - `auto` (default): the model can choose whether and which tools to call.
+ - `required`: the model must call a tool. It can choose which tool to call.
+ - `none`: the model must not call tools
+ - `{ type: 'tool', toolName: string (typed) }`: the model must call the specified tool
+ */
+type ToolChoice<TOOLS extends Record<string, unknown>> = 'auto' | 'none' | 'required' | {
+    type: 'tool';
+    toolName: keyof TOOLS;
+};
+/**
+ * @deprecated Use `ToolChoice` instead.
+ */
+type CoreToolChoice<TOOLS extends Record<string, unknown>> = ToolChoice<TOOLS>;
+
+/**
+ Embedding model that is used by the AI SDK Core functions.
+ */
+type EmbeddingModel<VALUE> = EmbeddingModelV1<VALUE>;
+/**
+ Embedding.
+ */
+type Embedding = EmbeddingModelV1Embedding;
+
+/**
+ Image model that is used by the AI SDK Core functions.
+ */
+type ImageModel = ImageModelV1;
+/**
+ Warning from the model provider for this call. The call will proceed, but e.g.
+ some settings might not be supported, which can lead to suboptimal results.
+ */
+type ImageGenerationWarning = ImageModelV1CallWarning;
+
+type ImageModelResponseMetadata = {
+    /**
+     Timestamp for the start of the generated response.
+     */
+    timestamp: Date;
+    /**
+     The ID of the response model that was used to generate the response.
+     */
+    modelId: string;
+    /**
+     Response headers.
+     */
+    headers?: Record<string, string>;
+};
+
+type LanguageModelRequestMetadata = {
+    /**
+     Raw request HTTP body that was sent to the provider API as a string (JSON should be stringified).
+     */
+    body?: string;
+};
+
+type LanguageModelResponseMetadata = {
+    /**
+     ID for the generated response.
+     */
+    id: string;
+    /**
+     Timestamp for the start of the generated response.
+     */
+    timestamp: Date;
+    /**
+     The ID of the response model that was used to generate the response.
+     */
+    modelId: string;
+    /**
+     Response headers (available only for providers that use HTTP requests).
+     */
+    headers?: Record<string, string>;
+};
+
+/**
+ * Provider for language, text embedding, and image models.
+ */
+type Provider = {
+    /**
+     Returns the language model with the given id.
+     The model id is then passed to the provider function to get the model.
+
+     @param {string} id - The id of the model to return.
+
+     @returns {LanguageModel} The language model associated with the id
+
+     @throws {NoSuchModelError} If no such model exists.
+     */
+    languageModel(modelId: string): LanguageModel;
+    /**
+     Returns the text embedding model with the given id.
+     The model id is then passed to the provider function to get the model.
+
+     @param {string} id - The id of the model to return.
+
+     @returns {LanguageModel} The language model associated with the id
+
+     @throws {NoSuchModelError} If no such model exists.
+     */
+    textEmbeddingModel(modelId: string): EmbeddingModel<string>;
+    /**
+     Returns the image model with the given id.
+     The model id is then passed to the provider function to get the model.
+
+     @param {string} id - The id of the model to return.
+
+     @returns {ImageModel} The image model associated with the id
+     */
+    imageModel(modelId: string): ImageModel;
+};
+
+/**
+ Additional provider-specific metadata that is returned from the provider.
+
+ This is needed to enable provider-specific functionality that can be
+ fully encapsulated in the provider.
+ */
+type ProviderMetadata = LanguageModelV1ProviderMetadata;
+/**
+ Additional provider-specific options.
+
+ They are passed through to the provider from the AI SDK and enable
+ provider-specific functionality that can be fully encapsulated in the provider.
+ */
+type ProviderOptions = LanguageModelV1ProviderMetadata;
+
+/**
+ Represents the number of tokens used in a prompt and completion.
+ */
+type LanguageModelUsage = {
+    /**
+     The number of tokens used in the prompt.
+     */
+    promptTokens: number;
+    /**
+     The number of tokens used in the completion.
+     */
+    completionTokens: number;
+    /**
+     The total number of tokens used (promptTokens + completionTokens).
+     */
+    totalTokens: number;
+};
+/**
+ Represents the number of tokens used in an embedding.
+ */
+type EmbeddingModelUsage = {
+    /**
+     The number of tokens used in the embedding.
+     */
+    tokens: number;
+};
+
+/**
+ Transcription model that is used by the AI SDK Core functions.
+ */
+type TranscriptionModel = TranscriptionModelV1;
+/**
+ Warning from the model provider for this call. The call will proceed, but e.g.
+ some settings might not be supported, which can lead to suboptimal results.
+ */
+type TranscriptionWarning = TranscriptionModelV1CallWarning;
+
+type TranscriptionModelResponseMetadata = {
+    /**
+     Timestamp for the start of the generated response.
+     */
+    timestamp: Date;
+    /**
+     The ID of the response model that was used to generate the response.
+     */
+    modelId: string;
+    /**
+     Response headers.
+     */
+    headers?: Record<string, string>;
+};
+
+/**
+ Speech model that is used by the AI SDK Core functions.
+ */
+type SpeechModel = SpeechModelV1;
+/**
+ Warning from the model provider for this call. The call will proceed, but e.g.
+ some settings might not be supported, which can lead to suboptimal results.
+ */
+type SpeechWarning = SpeechModelV1CallWarning;
+
+type SpeechModelResponseMetadata = {
+    /**
+     Timestamp for the start of the generated response.
+     */
+    timestamp: Date;
+    /**
+     The ID of the response model that was used to generate the response.
+     */
+    modelId: string;
+    /**
+     Response headers.
+     */
+    headers?: Record<string, string>;
+};
+
+/**
+ The result of an `embed` call.
+ It contains the embedding, the value, and additional information.
+ */
+interface EmbedResult<VALUE> {
+    /**
+     The value that was embedded.
+     */
+    readonly value: VALUE;
+    /**
+     The embedding of the value.
+     */
+    readonly embedding: Embedding;
+    /**
+     The embedding token usage.
+     */
+    readonly usage: EmbeddingModelUsage;
+    /**
+     Optional raw response data.
+     */
+    readonly rawResponse?: {
+        /**
+         Response headers.
+         */
+        headers?: Record<string, string>;
+    };
+}
+
+/**
+ Embed a value using an embedding model. The type of the value is defined by the embedding model.
+
+ @param model - The embedding model to use.
+ @param value - The value that should be embedded.
+
+ @param maxRetries - Maximum number of retries. Set to 0 to disable retries. Default: 2.
+ @param abortSignal - An optional abort signal that can be used to cancel the call.
+ @param headers - Additional HTTP headers to be sent with the request. Only applicable for HTTP-based providers.
+
+ @returns A result object that contains the embedding, the value, and additional information.
+ */
+declare function embed<VALUE>({ model, value, maxRetries: maxRetriesArg, abortSignal, headers, experimental_telemetry: telemetry, }: {
+    /**
+     The embedding model to use.
+     */
+    model: EmbeddingModel<VALUE>;
+    /**
+     The value that should be embedded.
+     */
+    value: VALUE;
+    /**
+     Maximum number of retries per embedding model call. Set to 0 to disable retries.
+
+     @default 2
+     */
+    maxRetries?: number;
+    /**
+     Abort signal.
+     */
+    abortSignal?: AbortSignal;
+    /**
+     Additional headers to include in the request.
+     Only applicable for HTTP-based providers.
+     */
+    headers?: Record<string, string>;
+    /**
+     * Optional telemetry configuration (experimental).
+     */
+    experimental_telemetry?: TelemetrySettings;
+}): Promise<EmbedResult<VALUE>>;
+
+/**
+ The result of a `embedMany` call.
+ It contains the embeddings, the values, and additional information.
+ */
+interface EmbedManyResult<VALUE> {
+    /**
+     The values that were embedded.
+     */
+    readonly values: Array<VALUE>;
+    /**
+     The embeddings. They are in the same order as the values.
+     */
+    readonly embeddings: Array<Embedding>;
+    /**
+     The embedding token usage.
+     */
+    readonly usage: EmbeddingModelUsage;
+}
+
+/**
+ Embed several values using an embedding model. The type of the value is defined
+ by the embedding model.
+
+ `embedMany` automatically splits large requests into smaller chunks if the model
+ has a limit on how many embeddings can be generated in a single call.
+
+ @param model - The embedding model to use.
+ @param values - The values that should be embedded.
+
+ @param maxRetries - Maximum number of retries. Set to 0 to disable retries. Default: 2.
+ @param abortSignal - An optional abort signal that can be used to cancel the call.
+ @param headers - Additional HTTP headers to be sent with the request. Only applicable for HTTP-based providers.
+
+ @returns A result object that contains the embeddings, the value, and additional information.
+ */
+declare function embedMany<VALUE>({ model, values, maxRetries: maxRetriesArg, abortSignal, headers, experimental_telemetry: telemetry, }: {
+    /**
+     The embedding model to use.
+     */
+    model: EmbeddingModel<VALUE>;
+    /**
+     The values that should be embedded.
+     */
+    values: Array<VALUE>;
+    /**
+     Maximum number of retries per embedding model call. Set to 0 to disable retries.
+
+     @default 2
+     */
+    maxRetries?: number;
+    /**
+     Abort signal.
+     */
+    abortSignal?: AbortSignal;
+    /**
+     Additional headers to include in the request.
+     Only applicable for HTTP-based providers.
+     */
+    headers?: Record<string, string>;
+    /**
+     * Optional telemetry configuration (experimental).
+     */
+    experimental_telemetry?: TelemetrySettings;
+}): Promise<EmbedManyResult<VALUE>>;
+
+type CallSettings = {
+    /**
+     Maximum number of tokens to generate.
+     */
+    maxTokens?: number;
+    /**
+     Temperature setting. This is a number between 0 (almost no randomness) and
+     1 (very random).
+
+     It is recommended to set either `temperature` or `topP`, but not both.
+
+     @default 0
+     */
+    temperature?: number;
+    /**
+     Nucleus sampling. This is a number between 0 and 1.
+
+     E.g. 0.1 would mean that only tokens with the top 10% probability mass
+     are considered.
+
+     It is recommended to set either `temperature` or `topP`, but not both.
+     */
+    topP?: number;
+    /**
+     Only sample from the top K options for each subsequent token.
+
+     Used to remove "long tail" low probability responses.
+     Recommended for advanced use cases only. You usually only need to use temperature.
+     */
+    topK?: number;
+    /**
+     Presence penalty setting. It affects the likelihood of the model to
+     repeat information that is already in the prompt.
+
+     The presence penalty is a number between -1 (increase repetition)
+     and 1 (maximum penalty, decrease repetition). 0 means no penalty.
+     */
+    presencePenalty?: number;
+    /**
+     Frequency penalty setting. It affects the likelihood of the model
+     to repeatedly use the same words or phrases.
+
+     The frequency penalty is a number between -1 (increase repetition)
+     and 1 (maximum penalty, decrease repetition). 0 means no penalty.
+     */
+    frequencyPenalty?: number;
+    /**
+     Stop sequences.
+     If set, the model will stop generating text when one of the stop sequences is generated.
+     Providers may have limits on the number of stop sequences.
+     */
+    stopSequences?: string[];
+    /**
+     The seed (integer) to use for random sampling. If set and supported
+     by the model, calls will generate deterministic results.
+     */
+    seed?: number;
+    /**
+     Maximum number of retries. Set to 0 to disable retries.
+
+     @default 2
+     */
+    maxRetries?: number;
+    /**
+     Abort signal.
+     */
+    abortSignal?: AbortSignal;
+    /**
+     Additional HTTP headers to be sent with the request.
+     Only applicable for HTTP-based providers.
+     */
+    headers?: Record<string, string | undefined>;
+};
+
+/**
+ Data content. Can either be a base64-encoded string, a Uint8Array, an ArrayBuffer, or a Buffer.
+ */
+type DataContent = string | Uint8Array | ArrayBuffer | Buffer;
+
+type ToolResultContent = Array<{
+    type: 'text';
+    text: string;
+} | {
+    type: 'image';
+    data: string;
+    mimeType?: string;
+}>;
+
+/**
+ Text content part of a prompt. It contains a string of text.
+ */
+interface TextPart {
+    type: 'text';
+    /**
+     The text content.
+     */
+    text: string;
+    /**
+     Additional provider-specific metadata. They are passed through
+     to the provider from the AI SDK and enable provider-specific
+     functionality that can be fully encapsulated in the provider.
+     */
+    providerOptions?: ProviderOptions;
+    /**
+     @deprecated Use `providerOptions` instead.
+     */
+    experimental_providerMetadata?: ProviderMetadata;
+}
+/**
+ Image content part of a prompt. It contains an image.
+ */
+interface ImagePart {
+    type: 'image';
+    /**
+     Image data. Can either be:
+
+     - data: a base64-encoded string, a Uint8Array, an ArrayBuffer, or a Buffer
+     - URL: a URL that points to the image
+     */
+    image: DataContent | URL;
+    /**
+     Optional mime type of the image.
+     */
+    mimeType?: string;
+    /**
+     Additional provider-specific metadata. They are passed through
+     to the provider from the AI SDK and enable provider-specific
+     functionality that can be fully encapsulated in the provider.
+     */
+    providerOptions?: ProviderOptions;
+    /**
+     @deprecated Use `providerOptions` instead.
+     */
+    experimental_providerMetadata?: ProviderMetadata;
+}
+/**
+ File content part of a prompt. It contains a file.
+ */
+interface FilePart {
+    type: 'file';
+    /**
+     File data. Can either be:
+
+     - data: a base64-encoded string, a Uint8Array, an ArrayBuffer, or a Buffer
+     - URL: a URL that points to the image
+     */
+    data: DataContent | URL;
+    /**
+     Optional filename of the file.
+     */
+    filename?: string;
+    /**
+     Mime type of the file.
+     */
+    mimeType: string;
+    /**
+     Additional provider-specific metadata. They are passed through
+     to the provider from the AI SDK and enable provider-specific
+     functionality that can be fully encapsulated in the provider.
+     */
+    providerOptions?: ProviderOptions;
+    /**
+     @deprecated Use `providerOptions` instead.
+     */
+    experimental_providerMetadata?: ProviderMetadata;
+}
+/**
+ * Reasoning content part of a prompt. It contains a reasoning.
+ */
+interface ReasoningPart {
+    type: 'reasoning';
+    /**
+     The reasoning text.
+     */
+    text: string;
+    /**
+     An optional signature for verifying that the reasoning originated from the model.
+     */
+    signature?: string;
+    /**
+     Additional provider-specific metadata. They are passed through
+     to the provider from the AI SDK and enable provider-specific
+     functionality that can be fully encapsulated in the provider.
+     */
+    providerOptions?: ProviderOptions;
+    /**
+     @deprecated Use `providerOptions` instead.
+     */
+    experimental_providerMetadata?: ProviderMetadata;
+}
+/**
+ Redacted reasoning content part of a prompt.
+ */
+interface RedactedReasoningPart {
+    type: 'redacted-reasoning';
+    /**
+     Redacted reasoning data.
+     */
+    data: string;
+    /**
+     Additional provider-specific metadata. They are passed through
+     to the provider from the AI SDK and enable provider-specific
+     functionality that can be fully encapsulated in the provider.
+     */
+    providerOptions?: ProviderOptions;
+    /**
+     @deprecated Use `providerOptions` instead.
+     */
+    experimental_providerMetadata?: ProviderMetadata;
+}
+/**
+ Tool call content part of a prompt. It contains a tool call (usually generated by the AI model).
+ */
+interface ToolCallPart {
+    type: 'tool-call';
+    /**
+     ID of the tool call. This ID is used to match the tool call with the tool result.
+     */
+    toolCallId: string;
+    /**
+     Name of the tool that is being called.
+     */
+    toolName: string;
+    /**
+     Arguments of the tool call. This is a JSON-serializable object that matches the tool's input schema.
+     */
+    args: unknown;
+    /**
+     Additional provider-specific metadata. They are passed through
+     to the provider from the AI SDK and enable provider-specific
+     functionality that can be fully encapsulated in the provider.
+     */
+    providerOptions?: ProviderOptions;
+    /**
+     @deprecated Use `providerOptions` instead.
+     */
+    experimental_providerMetadata?: ProviderMetadata;
+}
+/**
+ Tool result content part of a prompt. It contains the result of the tool call with the matching ID.
+ */
+interface ToolResultPart {
+    type: 'tool-result';
+    /**
+     ID of the tool call that this result is associated with.
+     */
+    toolCallId: string;
+    /**
+     Name of the tool that generated this result.
+     */
+    toolName: string;
+    /**
+     Result of the tool call. This is a JSON-serializable object.
+     */
+    result: unknown;
+    /**
+     Multi-part content of the tool result. Only for tools that support multipart results.
+     */
+    experimental_content?: ToolResultContent;
+    /**
+     Optional flag if the result is an error or an error message.
+     */
+    isError?: boolean;
+    /**
+     Additional provider-specific metadata. They are passed through
+     to the provider from the AI SDK and enable provider-specific
+     functionality that can be fully encapsulated in the provider.
+     */
+    providerOptions?: ProviderOptions;
+    /**
+     @deprecated Use `providerOptions` instead.
+     */
+    experimental_providerMetadata?: ProviderMetadata;
+}
+
+/**
+ A system message. It can contain system information.
+
+ Note: using the "system" part of the prompt is strongly preferred
+ to increase the resilience against prompt injection attacks,
+ and because not all providers support several system messages.
+ */
+type CoreSystemMessage = {
+    role: 'system';
+    content: string;
+    /**
+     Additional provider-specific metadata. They are passed through
+     to the provider from the AI SDK and enable provider-specific
+     functionality that can be fully encapsulated in the provider.
+     */
+    providerOptions?: ProviderOptions;
+    /**
+     @deprecated Use `providerOptions` instead.
+     */
+    experimental_providerMetadata?: ProviderMetadata;
+};
+declare const coreSystemMessageSchema: z.ZodType<CoreSystemMessage>;
+/**
+ A user message. It can contain text or a combination of text and images.
+ */
+type CoreUserMessage = {
+    role: 'user';
+    content: UserContent;
+    /**
+     Additional provider-specific metadata. They are passed through
+     to the provider from the AI SDK and enable provider-specific
+     functionality that can be fully encapsulated in the provider.
+     */
+    providerOptions?: ProviderOptions;
+    /**
+     @deprecated Use `providerOptions` instead.
+     */
+    experimental_providerMetadata?: ProviderMetadata;
+};
+declare const coreUserMessageSchema: z.ZodType<CoreUserMessage>;
+/**
+ Content of a user message. It can be a string or an array of text and image parts.
+ */
+type UserContent = string | Array<TextPart | ImagePart | FilePart>;
+/**
+ An assistant message. It can contain text, tool calls, or a combination of text and tool calls.
+ */
+type CoreAssistantMessage = {
+    role: 'assistant';
+    content: AssistantContent;
+    /**
+     Additional provider-specific metadata. They are passed through
+     to the provider from the AI SDK and enable provider-specific
+     functionality that can be fully encapsulated in the provider.
+     */
+    providerOptions?: ProviderOptions;
+    /**
+     @deprecated Use `providerOptions` instead.
+     */
+    experimental_providerMetadata?: ProviderMetadata;
+};
+declare const coreAssistantMessageSchema: z.ZodType<CoreAssistantMessage>;
+/**
+ Content of an assistant message.
+ It can be a string or an array of text, image, reasoning, redacted reasoning, and tool call parts.
+ */
+type AssistantContent = string | Array<TextPart | FilePart | ReasoningPart | RedactedReasoningPart | ToolCallPart>;
+/**
+ A tool message. It contains the result of one or more tool calls.
+ */
+type CoreToolMessage = {
+    role: 'tool';
+    content: ToolContent;
+    /**
+     Additional provider-specific metadata. They are passed through
+     to the provider from the AI SDK and enable provider-specific
+     functionality that can be fully encapsulated in the provider.
+     */
+    providerOptions?: ProviderOptions;
+    /**
+     @deprecated Use `providerOptions` instead.
+     */
+    experimental_providerMetadata?: ProviderMetadata;
+};
+declare const coreToolMessageSchema: z.ZodType<CoreToolMessage>;
+/**
+ Content of a tool message. It is an array of tool result parts.
+ */
+type ToolContent = Array<ToolResultPart>;
+/**
+ A message that can be used in the `messages` field of a prompt.
+ It can be a user message, an assistant message, or a tool message.
+ */
+type CoreMessage = CoreSystemMessage | CoreUserMessage | CoreAssistantMessage | CoreToolMessage;
+declare const coreMessageSchema: z.ZodType<CoreMessage>;
+
+/**
+ Prompt part of the AI function options.
+ It contains a system message, a simple text prompt, or a list of messages.
+ */
+type Prompt = {
+    /**
+     System message to include in the prompt. Can be used with `prompt` or `messages`.
+     */
+    system?: string;
+    /**
+     A simple text prompt. You can either use `prompt` or `messages` but not both.
+     */
+    prompt?: string;
+    /**
+     A list of messages. You can either use `prompt` or `messages` but not both.
+     */
+    messages?: Array<CoreMessage> | Array<Omit<Message, 'id'>>;
+};
+
+/**
+ * A generated file.
+ */
+interface GeneratedFile {
+    /**
+     File as a base64 encoded string.
+     */
+    readonly base64: string;
+    /**
+     File as a Uint8Array.
+     */
+    readonly uint8Array: Uint8Array;
+    /**
+     MIME type of the file
+     */
+    readonly mimeType: string;
+}
+
+type ReasoningDetail = {
+    type: 'text';
+    text: string;
+    signature?: string;
+} | {
+    type: 'redacted';
+    data: string;
+};
+
+type ToolParameters = z.ZodTypeAny | Schema<any>;
+type inferParameters<PARAMETERS extends ToolParameters> = PARAMETERS extends Schema<any> ? PARAMETERS['_type'] : PARAMETERS extends z.ZodTypeAny ? z.infer<PARAMETERS> : never;
+interface ToolExecutionOptions {
+    /**
+     * The ID of the tool call. You can use it e.g. when sending tool-call related information with stream data.
+     */
+    toolCallId: string;
+    /**
+     * Messages that were sent to the language model to initiate the response that contained the tool call.
+     * The messages **do not** include the system prompt nor the assistant response that contained the tool call.
+     */
+    messages: CoreMessage[];
+    /**
+     * An optional abort signal that indicates that the overall operation should be aborted.
+     */
+    abortSignal?: AbortSignal;
+}
+/**
+ A tool contains the description and the schema of the input that the tool expects.
+ This enables the language model to generate the input.
+
+ The tool can also contain an optional execute function for the actual execution function of the tool.
+ */
+type Tool<PARAMETERS extends ToolParameters = any, RESULT = any> = {
+    /**
+     The schema of the input that the tool expects. The language model will use this to generate the input.
+     It is also used to validate the output of the language model.
+     Use descriptions to make the input understandable for the language model.
+     */
+    parameters: PARAMETERS;
+    /**
+     An optional description of what the tool does.
+     Will be used by the language model to decide whether to use the tool.
+     Not used for provider-defined tools.
+     */
+    description?: string;
+    /**
+     Optional conversion function that maps the tool result to multi-part tool content for LLMs.
+     */
+    experimental_toToolResultContent?: (result: RESULT) => ToolResultContent;
+    /**
+     An async function that is called with the arguments from the tool call and produces a result.
+     If not provided, the tool will not be executed automatically.
+
+     @args is the input of the tool call.
+     @options.abortSignal is a signal that can be used to abort the tool call.
+     */
+    execute?: (args: inferParameters<PARAMETERS>, options: ToolExecutionOptions) => PromiseLike<RESULT>;
+} & ({
+    /**
+     Function tool.
+     */
+    type?: undefined | 'function';
+} | {
+    /**
+     Provider-defined tool.
+     */
+    type: 'provider-defined';
+    /**
+     The ID of the tool. Should follow the format `<provider-name>.<tool-name>`.
+     */
+    id: `${string}.${string}`;
+    /**
+     The arguments for configuring the tool. Must match the expected arguments defined by the provider for this tool.
+     */
+    args: Record<string, unknown>;
+});
+/**
+ * @deprecated Use `Tool` instead.
+ */
+type CoreTool<PARAMETERS extends ToolParameters = any, RESULT = any> = Tool<PARAMETERS, RESULT>;
+/**
+ Helper function for inferring the execute args of a tool.
+ */
+declare function tool<PARAMETERS extends ToolParameters, RESULT>(tool: Tool<PARAMETERS, RESULT> & {
+    execute: (args: inferParameters<PARAMETERS>, options: ToolExecutionOptions) => PromiseLike<RESULT>;
+}): Tool<PARAMETERS, RESULT> & {
+    execute: (args: inferParameters<PARAMETERS>, options: ToolExecutionOptions) => PromiseLike<RESULT>;
+};
+declare function tool<PARAMETERS extends ToolParameters, RESULT>(tool: Tool<PARAMETERS, RESULT> & {
+    execute?: undefined;
+}): Tool<PARAMETERS, RESULT> & {
+    execute: undefined;
+};
+
+
+
+/**
+ * Transport interface for MCP (Model Context Protocol) communication.
+ * Maps to the `Transport` interface in the MCP spec.
+ */
+interface MCPTransport {
+    /**
+     * Initialize and start the transport
+     */
+    start(): Promise<void>;
+    /**
+     * Send a JSON-RPC message through the transport
+     * @param message The JSON-RPC message to send
+     */
+    send(message: JSONRPCMessage): Promise<void>;
+    /**
+     * Clean up and close the transport
+     */
+    close(): Promise<void>;
+    /**
+     * Event handler for transport closure
+     */
+    onclose?: () => void;
+    /**
+     * Event handler for transport errors
+     */
+    onerror?: (error: Error) => void;
+    /**
+     * Event handler for received messages
+     */
+    onmessage?: (message: JSONRPCMessage) => void;
+}
+type MCPTransportConfig = {
+    type: 'sse';
+    /**
+     * The URL of the MCP server.
+     */
+    url: string;
+    /**
+     * Additional HTTP headers to be sent with requests.
+     */
+    headers?: Record<string, string>;
+};
+
+type ToolSchemas = Record<string, {
+    parameters: ToolParameters;
+}> | 'automatic' | undefined;
+type McpToolSet<TOOL_SCHEMAS extends ToolSchemas = 'automatic'> = TOOL_SCHEMAS extends Record<string, {
+    parameters: ToolParameters;
+}> ? {
+    [K in keyof TOOL_SCHEMAS]: Tool<TOOL_SCHEMAS[K]['parameters'], CallToolResult> & {
+    execute: (args: inferParameters<TOOL_SCHEMAS[K]['parameters']>, options: ToolExecutionOptions) => PromiseLike<CallToolResult>;
+};
+} : {
+    [k: string]: Tool<z.ZodUnknown, CallToolResult> & {
+        execute: (args: unknown, options: ToolExecutionOptions) => PromiseLike<CallToolResult>;
+    };
+};
+
+interface MCPClientConfig {
+    /** Transport configuration for connecting to the MCP server */
+    transport: MCPTransportConfig | MCPTransport;
+    /** Optional callback for uncaught errors */
+    onUncaughtError?: (error: unknown) => void;
+    /** Optional client name, defaults to 'ai-sdk-mcp-client' */
+    name?: string;
+}
+declare function createMCPClient(config: MCPClientConfig): Promise<MCPClient>;
+/**
+ * A lightweight MCP Client implementation
+ *
+ * The primary purpose of this client is tool conversion between MCP<>AI SDK
+ * but can later be extended to support other MCP features
+ *
+ * Tool parameters are automatically inferred from the server's JSON schema
+ * if not explicitly provided in the tools configuration
+ *
+ * This client is meant to be used to communicate with a single server. To communicate and fetch tools across multiple servers, it's recommended to create a new client instance per server.
+ *
+ * Not supported:
+ * - Client options (e.g. sampling, roots) as they are not needed for tool conversion
+ * - Accepting notifications
+ * - Session management (when passing a sessionId to an instance of the Streamable HTTP transport)
+ * - Resumable SSE streams
+ */
+declare class MCPClient {
+    private transport;
+    private onUncaughtError?;
+    private clientInfo;
+    private requestMessageId;
+    private responseHandlers;
+    private serverCapabilities;
+    private isClosed;
+    constructor({ transport: transportConfig, name, onUncaughtError, }: MCPClientConfig);
+    init(): Promise<this>;
+    close(): Promise<void>;
+    private assertCapability;
+    private request;
+    private listTools;
+    private callTool;
+    private notification;
+    /**
+     * Returns a set of AI SDK tools from the MCP server
+     * @returns A record of tool names to their implementations
+     */
+    tools<TOOL_SCHEMAS extends ToolSchemas = 'automatic'>({ schemas, }?: {
+        schemas?: TOOL_SCHEMAS;
+    }): Promise<McpToolSet<TOOL_SCHEMAS>>;
+    private onClose;
+    private onError;
+    private onResponse;
+}
+
+type ToolSet = Record<string, Tool>;
+
+type ToolCallUnion<TOOLS extends ToolSet> = ValueOf<{
+    [NAME in keyof TOOLS]: {
+        type: 'tool-call';
+        toolCallId: string;
+        toolName: NAME & string;
+        args: inferParameters<TOOLS[NAME]['parameters']>;
+    };
+}>;
+/**
+ * @deprecated Use `ToolCallUnion` instead.
+ */
+type CoreToolCallUnion<TOOLS extends ToolSet> = ToolCallUnion<ToolSet>;
+type ToolCallArray<TOOLS extends ToolSet> = Array<ToolCallUnion<TOOLS>>;
+
+type ToToolsWithExecute<TOOLS extends ToolSet> = {
+    [K in keyof TOOLS as TOOLS[K] extends {
+        execute: any;
+    } ? K : never]: TOOLS[K];
+};
+type ToToolsWithDefinedExecute<TOOLS extends ToolSet> = {
+    [K in keyof TOOLS as TOOLS[K]['execute'] extends undefined ? never : K]: TOOLS[K];
+};
+type ToToolResultObject<TOOLS extends ToolSet> = ValueOf<{
+    [NAME in keyof TOOLS]: {
+        type: 'tool-result';
+        toolCallId: string;
+        toolName: NAME & string;
+        args: inferParameters<TOOLS[NAME]['parameters']>;
+        result: Awaited<ReturnType<Exclude<TOOLS[NAME]['execute'], undefined>>>;
+    };
+}>;
+type ToolResultUnion<TOOLS extends ToolSet> = ToToolResultObject<ToToolsWithDefinedExecute<ToToolsWithExecute<TOOLS>>>;
+/**
+ * @deprecated Use `ToolResultUnion` instead.
+ */
+type CoreToolResultUnion<TOOLS extends ToolSet> = ToolResultUnion<TOOLS>;
+type ToolResultArray<TOOLS extends ToolSet> = Array<ToolResultUnion<TOOLS>>;
+
+/**
+ A message that was generated during the generation process.
+ It can be either an assistant message or a tool message.
+ */
+type ResponseMessage = (CoreAssistantMessage | CoreToolMessage) & {
+    /**
+     Message ID generated by the AI SDK.
+     */
+    id: string;
+};
+/**
+ * The result of a single step in the generation process.
+ */
+type StepResult<TOOLS extends ToolSet> = {
+    /**
+     The generated text.
+     */
+    readonly text: string;
+    /**
+     The reasoning that was generated during the generation.
+     */
+    readonly reasoning: string | undefined;
+    readonly reasoningDetails: Array<ReasoningDetail>;
+    /**
+     The files that were generated during the generation.
+     */
+    readonly files: GeneratedFile[];
+    /**
+     The sources that were used to generate the text.
+     */
+    readonly sources: Source[];
+    /**
+     The tool calls that were made during the generation.
+     */
+    readonly toolCalls: ToolCallArray<TOOLS>;
+    /**
+     The results of the tool calls.
+     */
+    readonly toolResults: ToolResultArray<TOOLS>;
+    /**
+     The reason why the generation finished.
+     */
+    readonly finishReason: FinishReason;
+    /**
+     The token usage of the generated text.
+     */
+    readonly usage: LanguageModelUsage;
+    /**
+     Warnings from the model provider (e.g. unsupported settings).
+     */
+    readonly warnings: CallWarning[] | undefined;
+    /**
+     Logprobs for the completion.
+     `undefined` if the mode does not support logprobs or if was not enabled.
+     */
+    readonly logprobs: LogProbs | undefined;
+    /**
+     Additional request information.
+     */
+    readonly request: LanguageModelRequestMetadata;
+    /**
+     Additional response information.
+     */
+    readonly response: LanguageModelResponseMetadata & {
+        /**
+         The response messages that were generated during the call.
+         Response messages can be either assistant messages or tool messages.
+         They contain a generated id.
+         */
+        readonly messages: Array<ResponseMessage>;
+        /**
+         Response body (available only for providers that use HTTP requests).
+         */
+        body?: unknown;
+    };
+    /**
+     Additional provider-specific metadata. They are passed through
+     from the provider to the AI SDK and enable provider-specific
+     results that can be fully encapsulated in the provider.
+     */
+    readonly providerMetadata: ProviderMetadata | undefined;
+    /**
+     @deprecated Use `providerMetadata` instead.
+     */
+    readonly experimental_providerMetadata: ProviderMetadata | undefined;
+    /**
+     The type of step that this result is for. The first step is always
+     an "initial" step, and subsequent steps are either "continue" steps
+     or "tool-result" steps.
+     */
+    readonly stepType: 'initial' | 'continue' | 'tool-result';
+    /**
+     True when there will be a continuation step with a continuation text.
+     */
+    readonly isContinued: boolean;
+};
+
+/**
+ The result of a `generateText` call.
+ It contains the generated text, the tool calls that were made during the generation, and the results of the tool calls.
+ */
+interface GenerateTextResult<TOOLS extends ToolSet, OUTPUT> {
+    /**
+     The generated text.
+     */
+    readonly text: string;
+    /**
+     The reasoning text that the model has generated. Can be undefined if the model
+     has only generated text.
+     */
+    readonly reasoning: string | undefined;
+    /**
+     The files that were generated. Empty array if no files were generated.
+     */
+    readonly files: Array<GeneratedFile>;
+    /**
+     The full reasoning that the model has generated.
+     */
+    readonly reasoningDetails: Array<ReasoningDetail>;
+    /**
+     Sources that have been used as input to generate the response.
+     For multi-step generation, the sources are accumulated from all steps.
+     */
+    readonly sources: Source[];
+    /**
+     The generated structured output. It uses the `experimental_output` specification.
+     */
+    readonly experimental_output: OUTPUT;
+    /**
+     The tool calls that were made during the generation.
+     */
+    readonly toolCalls: ToolCallArray<TOOLS>;
+    /**
+     The results of the tool calls.
+     */
+    readonly toolResults: ToolResultArray<TOOLS>;
+    /**
+     The reason why the generation finished.
+     */
+    readonly finishReason: FinishReason;
+    /**
+     The token usage of the generated text.
+     */
+    readonly usage: LanguageModelUsage;
+    /**
+     Warnings from the model provider (e.g. unsupported settings)
+     */
+    readonly warnings: CallWarning[] | undefined;
+    /**
+     Details for all steps.
+     You can use this to get information about intermediate steps,
+     such as the tool calls or the response headers.
+     */
+    readonly steps: Array<StepResult<TOOLS>>;
+    /**
+     Additional request information.
+     */
+    readonly request: LanguageModelRequestMetadata;
+    /**
+     Additional response information.
+     */
+    readonly response: LanguageModelResponseMetadata & {
+        /**
+         The response messages that were generated during the call. It consists of an assistant message,
+         potentially containing tool calls.
+
+         When there are tool results, there is an additional tool message with the tool results that are available.
+         If there are tools that do not have execute functions, they are not included in the tool results and
+         need to be added separately.
+         */
+        messages: Array<ResponseMessage>;
+        /**
+         Response body (available only for providers that use HTTP requests).
+         */
+        body?: unknown;
+    };
+    /**
+     Logprobs for the completion.
+     `undefined` if the mode does not support logprobs or if it was not enabled.
+
+     @deprecated Will become a provider extension in the future.
+     */
+    readonly logprobs: LogProbs | undefined;
+    /**
+     Additional provider-specific metadata. They are passed through
+     from the provider to the AI SDK and enable provider-specific
+     results that can be fully encapsulated in the provider.
+     */
+    readonly providerMetadata: ProviderMetadata | undefined;
+    /**
+     @deprecated Use `providerMetadata` instead.
+     */
+    readonly experimental_providerMetadata: ProviderMetadata | undefined;
+}
+
+interface Output<OUTPUT, PARTIAL> {
+    readonly type: 'object' | 'text';
+    injectIntoSystemPrompt(options: {
+        system: string | undefined;
+        model: LanguageModel;
+    }): string | undefined;
+    responseFormat: (options: {
+        model: LanguageModel;
+    }) => LanguageModelV1CallOptions['responseFormat'];
+    parsePartial(options: {
+        text: string;
+    }): {
+        partial: PARTIAL;
+    } | undefined;
+    parseOutput(options: {
+        text: string;
+    }, context: {
+        response: LanguageModelResponseMetadata;
+        usage: LanguageModelUsage;
+        finishReason: FinishReason;
+    }): OUTPUT;
+}
+declare const text: () => Output<string, string>;
+declare const object: <OUTPUT>({ schema: inputSchema, }: {
+    schema: z.Schema<OUTPUT, z.ZodTypeDef, any> | Schema<OUTPUT>;
+}) => Output<OUTPUT, DeepPartial<OUTPUT>>;
+
+type output_Output<OUTPUT, PARTIAL> = Output<OUTPUT, PARTIAL>;
+declare const output_object: typeof object;
+declare const output_text: typeof text;
+declare namespace output {
+    export {
+        output_Output as Output,
+        output_object as object,
+        output_text as text,
+    };
+}
+
+declare const symbol$f: unique symbol;
+declare class InvalidToolArgumentsError extends AISDKError {
+    private readonly [symbol$f];
+    readonly toolName: string;
+    readonly toolArgs: string;
+    constructor({ toolArgs, toolName, cause, message, }: {
+        message?: string;
+        toolArgs: string;
+        toolName: string;
+        cause: unknown;
+    });
+    static isInstance(error: unknown): error is InvalidToolArgumentsError;
+}
+
+declare const symbol$e: unique symbol;
+declare class NoSuchToolError extends AISDKError {
+    private readonly [symbol$e];
+    readonly toolName: string;
+    readonly availableTools: string[] | undefined;
+    constructor({ toolName, availableTools, message, }: {
+        toolName: string;
+        availableTools?: string[] | undefined;
+        message?: string;
+    });
+    static isInstance(error: unknown): error is NoSuchToolError;
+}
+
+/**
+ * Appends a client message to the messages array.
+ * If the last message in the array has the same id as the new message, it will be replaced.
+ * Otherwise, the new message will be appended.
+ */
+declare function appendClientMessage({ messages, message, }: {
+    messages: Message[];
+    message: Message;
+}): Message[];
+
+/**
+ * Appends the ResponseMessage[] from the response to a Message[] (for useChat).
+ * The messages are converted to Messages before being appended.
+ * Timestamps are generated for the new messages.
+ *
+ * @returns A new Message[] with the response messages appended.
+ */
+declare function appendResponseMessages({ messages, responseMessages, _internal: { currentDate }, }: {
+    messages: Message[];
+    responseMessages: ResponseMessage[];
+    /**
+     Internal. For test use only. May change without notice.
+     */
+    _internal?: {
+        currentDate?: () => Date;
+    };
+}): Message[];
+
+/**
+ Converts an array of messages from useChat into an array of CoreMessages that can be used
+ with the AI core functions (e.g. `streamText`).
+ */
+declare function convertToCoreMessages<TOOLS extends ToolSet = never>(messages: Array<Omit<Message, 'id'>>, options?: {
+    tools?: TOOLS;
+}): CoreMessage[];
+
+/**
+ * A function that attempts to repair a tool call that failed to parse.
+ *
+ * It receives the error and the context as arguments and returns the repair
+ * tool call JSON as text.
+ *
+ * @param options.system - The system prompt.
+ * @param options.messages - The messages in the current generation step.
+ * @param options.toolCall - The tool call that failed to parse.
+ * @param options.tools - The tools that are available.
+ * @param options.parameterSchema - A function that returns the JSON Schema for a tool.
+ * @param options.error - The error that occurred while parsing the tool call.
+ */
+type ToolCallRepairFunction<TOOLS extends ToolSet> = (options: {
+    system: string | undefined;
+    messages: CoreMessage[];
+    toolCall: LanguageModelV1FunctionToolCall;
+    tools: TOOLS;
+    parameterSchema: (options: {
+        toolName: string;
+    }) => JSONSchema7;
+    error: NoSuchToolError | InvalidToolArgumentsError;
+}) => Promise<LanguageModelV1FunctionToolCall | null>;
+
+/**
+ Callback that is set using the `onStepFinish` option.
+
+ @param stepResult - The result of the step.
+ */
+type GenerateTextOnStepFinishCallback<TOOLS extends ToolSet> = (stepResult: StepResult<TOOLS>) => Promise<void> | void;
+/**
+ Generate a text and call tools for a given prompt using a language model.
+
+ This function does not stream the output. If you want to stream the output, use `streamText` instead.
+
+ @param model - The language model to use.
+
+ @param tools - Tools that are accessible to and can be called by the model. The model needs to support calling tools.
+ @param toolChoice - The tool choice strategy. Default: 'auto'.
+
+ @param system - A system message that will be part of the prompt.
+ @param prompt - A simple text prompt. You can either use `prompt` or `messages` but not both.
+ @param messages - A list of messages. You can either use `prompt` or `messages` but not both.
+
+ @param maxTokens - Maximum number of tokens to generate.
+ @param temperature - Temperature setting.
+  The value is passed through to the provider. The range depends on the provider and model.
+  It is recommended to set either `temperature` or `topP`, but not both.
+ @param topP - Nucleus sampling.
+  The value is passed through to the provider. The range depends on the provider and model.
+  It is recommended to set either `temperature` or `topP`, but not both.
+ @param topK - Only sample from the top K options for each subsequent token.
+  Used to remove "long tail" low probability responses.
+  Recommended for advanced use cases only. You usually only need to use temperature.
+ @param presencePenalty - Presence penalty setting.
+  It affects the likelihood of the model to repeat information that is already in the prompt.
+  The value is passed through to the provider. The range depends on the provider and model.
+ @param frequencyPenalty - Frequency penalty setting.
+  It affects the likelihood of the model to repeatedly use the same words or phrases.
+  The value is passed through to the provider. The range depends on the provider and model.
+ @param stopSequences - Stop sequences.
+  If set, the model will stop generating text when one of the stop sequences is generated.
+ @param seed - The seed (integer) to use for random sampling.
+  If set and supported by the model, calls will generate deterministic results.
+
+ @param maxRetries - Maximum number of retries. Set to 0 to disable retries. Default: 2.
+ @param abortSignal - An optional abort signal that can be used to cancel the call.
+ @param headers - Additional HTTP headers to be sent with the request. Only applicable for HTTP-based providers.
+
+ @param maxSteps - Maximum number of sequential LLM calls (steps), e.g. when you use tool calls.
+ @param experimental_generateMessageId - Generate a unique ID for each message.
+
+ @param onStepFinish - Callback that is called when each step (LLM call) is finished, including intermediate steps.
+
+ @returns
+ A result object that contains the generated text, the results of the tool calls, and additional information.
+ */
+declare function generateText<TOOLS extends ToolSet, OUTPUT = never, OUTPUT_PARTIAL = never>({ model, tools, toolChoice, system, prompt, messages, maxRetries: maxRetriesArg, abortSignal, headers, maxSteps, experimental_generateMessageId: generateMessageId, experimental_output: output, experimental_continueSteps: continueSteps, experimental_telemetry: telemetry, experimental_providerMetadata, providerOptions, experimental_activeTools: activeTools, experimental_prepareStep: prepareStep, experimental_repairToolCall: repairToolCall, _internal: { generateId, currentDate, }, onStepFinish, ...settings }: CallSettings & Prompt & {
+    /**
+     The language model to use.
+     */
+    model: LanguageModel;
+    /**
+     The tools that the model can call. The model needs to support calling tools.
+     */
+    tools?: TOOLS;
+    /**
+     The tool choice strategy. Default: 'auto'.
+     */
+    toolChoice?: ToolChoice<TOOLS>;
+    /**
+     Maximum number of sequential LLM calls (steps), e.g. when you use tool calls. Must be at least 1.
+
+     A maximum number is required to prevent infinite loops in the case of misconfigured tools.
+
+     By default, it's set to 1, which means that only a single LLM call is made.
+     */
+    maxSteps?: number;
+    /**
+     Generate a unique ID for each message.
+     */
+    experimental_generateMessageId?: IDGenerator;
+    /**
+     When enabled, the model will perform additional steps if the finish reason is "length" (experimental).
+
+     By default, it's set to false.
+     */
+    experimental_continueSteps?: boolean;
+    /**
+     Optional telemetry configuration (experimental).
+     */
+    experimental_telemetry?: TelemetrySettings;
+    /**
+     Additional provider-specific options. They are passed through
+     to the provider from the AI SDK and enable provider-specific
+     functionality that can be fully encapsulated in the provider.
+     */
+    providerOptions?: ProviderOptions;
+    /**
+     @deprecated Use `providerOptions` instead.
+     */
+    experimental_providerMetadata?: ProviderMetadata;
+    /**
+     Limits the tools that are available for the model to call without
+     changing the tool call and result types in the result.
+     */
+    experimental_activeTools?: Array<keyof TOOLS>;
+    /**
+     Optional specification for parsing structured outputs from the LLM response.
+     */
+    experimental_output?: Output<OUTPUT, OUTPUT_PARTIAL>;
+    /**
+     Optional function that you can use to provide different settings for a step.
+
+     @param options - The options for the step.
+     @param options.steps - The steps that have been executed so far.
+     @param options.stepNumber - The number of the step that is being executed.
+     @param options.maxSteps - The maximum number of steps.
+     @param options.model - The model that is being used.
+
+     @returns An object that contains the settings for the step.
+      If you return undefined (or for undefined settings), the settings from the outer level will be used.
+     */
+    experimental_prepareStep?: (options: {
+        steps: Array<StepResult<TOOLS>>;
+        stepNumber: number;
+        maxSteps: number;
+        model: LanguageModel;
+    }) => PromiseLike<{
+        model?: LanguageModel;
+        toolChoice?: ToolChoice<TOOLS>;
+        experimental_activeTools?: Array<keyof TOOLS>;
+    } | undefined>;
+    /**
+     A function that attempts to repair a tool call that failed to parse.
+     */
+    experimental_repairToolCall?: ToolCallRepairFunction<TOOLS>;
+    /**
+     Callback that is called when each step (LLM call) is finished, including intermediate steps.
+     */
+    onStepFinish?: GenerateTextOnStepFinishCallback<TOOLS>;
+    /**
+     * Internal. For test use only. May change without notice.
+     */
+    _internal?: {
+        generateId?: IDGenerator;
+        currentDate?: () => Date;
+    };
+}): Promise<GenerateTextResult<TOOLS, OUTPUT>>;

@@ -741,8 +741,8 @@ export function runAgentStateServiceTests(
 					stdout: `Result ${iterNum}`,
 				},
 			],
-			memory: new Map<string, string>([[`memoryKey${iterNum}`, `memoryValue${iterNum}`]]),
-			toolState: new Map<string, any>([[`toolKey${iterNum}`, `toolValue${iterNum}`]]),
+			memory: { [`memoryKey${iterNum}`]: `memoryValue${iterNum}` }, // Changed to Record
+			toolState: { [`toolKey${iterNum}`]: `toolValue${iterNum}` }, // Changed to Record
 			error: iterNum % 3 === 0 ? `Simulated error for iteration ${iterNum}` : undefined, // Add error sometimes
 			stats: {} as GenerationStats,
 			cost: 0.001, // Added missing property
@@ -801,26 +801,24 @@ export function runAgentStateServiceTests(
 
 		it('should save and load an iteration with detailed memory and toolState, including LiveFiles and FileStore info', async () => {
 			const iterationNumber = 1;
-			const originalMemory = new Map<string, string>([
-				['previousSummary', 'The agent analyzed user requirements.'],
-				['currentFocus', 'Generating initial code structure.'],
-				['complexKey.with.dots', 'value for complex key'],
-			]);
+			const originalMemory: Record<string, string> = {
+				// Changed to Record
+				previousSummary: 'The agent analyzed user requirements.',
+				currentFocus: 'Generating initial code structure.',
+				'complexKey.with.dots': 'value for complex key',
+			};
 
-			const originalToolState = new Map<string, any>([
-				['LiveFiles', { monitoredFiles: ['fileA.ts', 'fileB.js', 'src/test.py'], lastCheckTimestamp: Date.now() - 10000 }],
-				[
-					'FileStore',
-					{
-						lastSavedFile: '/project/output/data.json',
-						recentUploads: ['/tmp/upload1.zip', '/tmp/upload2.tar.gz'],
-						metadataCache: {
-							'/project/output/data.json': { size: 1024, type: 'application/json' },
-						},
+			const originalToolState: Record<string, any> = {
+				LiveFiles: { monitoredFiles: ['fileA.ts', 'fileB.js', 'src/test.py'], lastCheckTimestamp: Date.now() - 10000 },
+				FileStore: {
+					lastSavedFile: '/project/output/data.json',
+					recentUploads: ['/tmp/upload1.zip', '/tmp/upload2.tar.gz'],
+					metadataCache: {
+						'/project/output/data.json': { size: 1024, type: 'application/json' },
 					},
-				],
-				['anotherTool', { configValue: 123, isActive: true, subSettings: { detail: 'xyz' } }],
-			]);
+				},
+				anotherTool: { configValue: 123, isActive: true, subSettings: { detail: 'xyz' } },
+			};
 
 			const originalStats: GenerationStats = {
 				requestTime: Date.now() - 500,
@@ -841,7 +839,7 @@ export function runAgentStateServiceTests(
 				expandedUserRequest: `Elaborated user request for iteration ${iterationNumber}.`,
 				observationsReasoning: `Observations and reasoning for iteration ${iterationNumber}: focused on file operations.`,
 				agentPlan: '<plan><step>1. Monitor files using LiveFiles.</step><step>2. Save output using FileStore.</step></plan>',
-				nextStepDetails: `Next step involves processing ${originalToolState.get('LiveFiles').monitoredFiles.length} files.`,
+				nextStepDetails: `Next step involves processing ${originalToolState.LiveFiles.monitoredFiles.length} files.`,
 				code: `// Iteration ${iterationNumber} code\nconsole.log("Processing files");`,
 				executedCode: `// Iteration ${iterationNumber} executed code\nconsole.log("Processing files");\n// Output: Files processed`,
 				draftCode: `// Draft for iteration ${iterationNumber}\nlet x = 10;`,
@@ -877,16 +875,16 @@ export function runAgentStateServiceTests(
 			// This is the most comprehensive way to ensure all fields, including nested Maps and objects, are preserved.
 			expect(loadedIteration).to.deep.equal(originalIteration);
 
-			// Explicit checks for memory and toolState to be certain about Map reconstruction
-			expect(loadedIteration.memory).to.be.instanceOf(Map);
-			expect(loadedIteration.toolState).to.be.instanceOf(Map);
+			// Explicit checks for memory and toolState to be certain about Record reconstruction
+			expect(loadedIteration.memory).to.be.an('object').and.not.be.instanceOf(Map);
+			expect(loadedIteration.toolState).to.be.an('object').and.not.be.instanceOf(Map);
 
-			// To be absolutely sure about Map contents if deep.equal had issues (it shouldn't with Chai for Maps):
-			expect(Object.fromEntries(loadedIteration.memory)).to.deep.equal(Object.fromEntries(originalMemory));
-			expect(Object.fromEntries(loadedIteration.toolState)).to.deep.equal(Object.fromEntries(originalToolState));
+			// To be absolutely sure about Record contents:
+			expect(loadedIteration.memory).to.deep.equal(originalMemory);
+			expect(loadedIteration.toolState).to.deep.equal(originalToolState);
 
 			// Check a nested property within toolState
-			expect(loadedIteration.toolState.get('FileStore').metadataCache['/project/output/data.json'].size).to.equal(1024);
+			expect(loadedIteration.toolState.FileStore.metadataCache['/project/output/data.json'].size).to.equal(1024); // Access as Record
 		});
 
 		// Optional: Test saving iteration for non-existent agent (depends on desired behavior - Firestore might allow it)

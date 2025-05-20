@@ -1,73 +1,159 @@
+import type { Static } from '@sinclair/typebox';
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
+import { ConsoleCompletedHandler } from '#agent/autonomous/agentCompletion';
 import { getCompletedHandler } from '#agent/completionHandlerRegistry';
-import { appContext } from '#app/applicationContext';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { deserializeLLMs } from '#llm/llmFactory';
 import { logger } from '#o11y/logger';
-import type { AgentContext } from '#shared/model/agent.model';
-import { currentUser } from '#user/userContext';
+import type { AgentCompleted, AgentContext, AgentLLMs, AgentRunningState, AgentType, AutonomousSubType } from '#shared/model/agent.model';
+import type { FunctionCall, FunctionCallResult, LLM, LlmMessage } from '#shared/model/llm.model';
+import type { User } from '#shared/model/user.model.ts';
+import type { AgentContextSchema } from '#shared/schemas/agent.schema';
+import type { IFileSystemService } from '#shared/services/fileSystemService'; // Corrected import path
 
-export function serializeContext(context: AgentContext): Record<string, any> {
-	const serialized = {};
+export function serializeContext(context: AgentContext): Static<typeof AgentContextSchema> {
+	const serializedData: Partial<Static<typeof AgentContextSchema>> = {};
 
-	for (const key of Object.keys(context) as Array<keyof AgentContext>) {
-		if (context[key] === undefined) {
-			// do nothing
-		} else if (context[key] === null) {
-			serialized[key] = null;
-		}
-		// Handle childAgents array specially to ensure it's always an array
-		else if (key === 'childAgents') {
-			serialized[key] = context[key] || [];
-		}
-		// Copy primitive properties across
-		else if (typeof context[key] === 'string' || typeof context[key] === 'number' || typeof context[key] === 'boolean') {
-			serialized[key] = context[key];
-		} else if (key === 'functionCallHistory') {
-			// Serialise Array to string as Firestore doesn't support nested entities
-			serialized[key] = JSON.stringify(context[key]);
-		}
-		// Assume arrays (liveFiles) can be directly de(serialised) to JSON
-		else if (Array.isArray(context[key])) {
-			serialized[key] = context[key];
-		}
-		// Handle Maps (must only contain primitive/simple object values)
-		else if (key === 'memory' || key === 'metadata' || key === 'fileStore') {
-			serialized[key] = context[key];
-		} else if (key === 'llms') {
-			serialized[key] = {
-				easy: context.llms.easy?.getId(),
-				medium: context.llms.medium?.getId(),
-				hard: context.llms.hard?.getId(),
-				xhard: context.llms.xhard?.getId(),
-			};
-		} else if (key === 'user') {
-			serialized[key] = context.user.id;
-		} else if (key === 'completedHandler') {
-			serialized[key] = context.completedHandler?.agentCompletedHandlerId() ?? null;
-		}
-		// Object type check for a toJSON function
-		else if (typeof context[key] === 'object' && context[key].toJSON) {
-			serialized[key] = context[key].toJSON();
-		} else if (typeof context[key] === 'object') {
-			serialized[key] = JSON.stringify(context[key]);
-		}
-		// otherwise throw error
-		else {
-			throw new Error(`Cant serialize context property '${key}'. Type: ${typeof context[key]} Value: ${JSON.stringify(context[key])}`);
-		}
-	}
-	return serialized;
+	serializedData.agentId = context.agentId;
+	serializedData.type = context.type;
+	serializedData.subtype = context.subtype;
+	serializedData.childAgents = context.childAgents ?? [];
+	serializedData.executionId = context.executionId;
+	serializedData.typedAiRepoDir = context.typedAiRepoDir;
+	serializedData.traceId = context.traceId;
+	serializedData.name = context.name;
+	serializedData.parentAgentId = context.parentAgentId;
+	serializedData.vibeSessionId = context.vibeSessionId;
+	serializedData.state = context.state;
+	serializedData.callStack = context.callStack ?? [];
+	serializedData.error = context.error;
+	serializedData.output = context.output;
+	serializedData.hilBudget = context.hilBudget;
+	serializedData.cost = context.cost;
+	serializedData.budgetRemaining = context.budgetRemaining;
+	serializedData.lastUpdate = context.lastUpdate;
+	serializedData.metadata = context.metadata ?? {};
+	serializedData.iterations = context.iterations;
+	serializedData.pendingMessages = context.pendingMessages ?? [];
+	serializedData.invoking = context.invoking ?? [];
+	serializedData.notes = context.notes ?? [];
+	serializedData.userPrompt = context.userPrompt;
+	serializedData.inputPrompt = context.inputPrompt ?? '';
+	serializedData.messages = context.messages ?? [];
+	serializedData.functionCallHistory = context.functionCallHistory ?? [];
+	serializedData.hilCount = context.hilCount;
+	serializedData.hilRequested = context.hilRequested ?? false;
+	serializedData.liveFiles = context.liveFiles ?? [];
+	serializedData.fileStore = context.fileStore ?? [];
+	serializedData.useSharedRepos = context.useSharedRepos ?? true;
+	serializedData.memory = context.memory ?? {};
+
+	// Serialize complex objects into their JSON representation
+	serializedData.functions = context.functions ? context.functions.toJSON() : { functionClasses: [] };
+	serializedData.fileSystem = context.fileSystem ? context.fileSystem.toJSON() : null;
+	// Serialize User object to just its ID
+	serializedData.user = context.user ? context.user.id : 'anonymous-serialized-id-missing'; // Ensure user is serialized as ID
+
+	serializedData.llms = {
+		easy: context.llms.easy.getId(),
+		medium: context.llms.medium.getId(),
+		hard: context.llms.hard.getId(),
+		xhard: context.llms.xhard?.getId(),
+	};
+
+	// Use the new property name 'completedHandler'
+	serializedData.completedHandler = context.completedHandler ? context.completedHandler.agentCompletedHandlerId() : undefined;
+	serializedData.toolState = context.toolState ? JSON.parse(JSON.stringify(context.toolState)) : undefined;
+
+	return serializedData as Static<typeof AgentContextSchema>;
 }
 
-export async function deserializeAgentContext(serialized: Record<keyof AgentContext, any>): Promise<AgentContext> {
-	const context: Partial<AgentContext> = {};
+export function deserializeContext(data: Static<typeof AgentContextSchema>): AgentContext {
+	const functionsImpl = new LlmFunctionsImpl().fromJSON(data.functions);
+	const fileSystemImpl: IFileSystemService | null = data.fileSystem ? new FileSystemService().fromJSON(data.fileSystem) : null;
 
-	for (const key of Object.keys(serialized)) {
-		// copy Array and primitive properties across
-		if (Array.isArray(serialized[key]) || typeof serialized[key] === 'string' || typeof serialized[key] === 'number' || typeof serialized[key] === 'boolean') {
-			context[key] = serialized[key];
+	// Create a placeholder User object from the serialized ID.
+	// In a real application, you might fetch the full User object asynchronously here.
+	const userId = data.user; // data.user is the ID string from the schema
+	const userName = userId === 'anonymous-serialized-id-missing' ? 'Anonymous Deserialized User (ID Missing)' : 'Deserialized User';
+	const userEmail = userId === 'anonymous-serialized-id-missing' ? 'anon-deserialized-missing@example.com' : 'deserialized@example.com';
+
+	const userImpl: User = {
+		id: userId,
+		name: userName, // Placeholder
+		email: userEmail, // Placeholder
+		enabled: userId !== 'anonymous-serialized-id-missing', // Assume enabled if ID is present
+		createdAt: new Date(), // Default
+		lastLoginAt: undefined, // Default
+		hilBudget: data.hilBudget ?? 0, // Default from schema or 0
+		hilCount: data.hilCount ?? 0, // Default from schema or 0
+		llmConfig: {}, // Default
+		chat: {}, // Default
+		functionConfig: {}, // Default
+	};
+
+	const llmsImpl = deserializeLLMs(data.llms as Record<keyof AgentLLMs, string | undefined>);
+
+	let completedHandlerImpl: AgentCompleted | undefined = undefined;
+	// Use the new property name 'completedHandler'
+	if (data.completedHandler) {
+		completedHandlerImpl = getCompletedHandler(data.completedHandler);
+		if (!completedHandlerImpl) {
+			logger.warn(`Unknown completedHandler during deserialization: ${data.completedHandler}, defaulting to ConsoleCompletedHandler`);
+			completedHandlerImpl = new ConsoleCompletedHandler();
 		}
+	} else {
+		completedHandlerImpl = new ConsoleCompletedHandler(); // Default if no ID
+	}
+
+	const toolStateImpl = typeof data.toolState === 'string' ? JSON.parse(data.toolState) : (data.toolState ?? {});
+	const functionCallHistoryImpl = (
+		typeof data.functionCallHistory === 'string' ? JSON.parse(data.functionCallHistory) : (data.functionCallHistory ?? [])
+	) as FunctionCallResult[];
+
+	const context: AgentContext = {
+		agentId: data.agentId,
+		type: data.type as AgentType,
+		subtype: data.subtype as AutonomousSubType, // Assuming subtype from schema matches AutonomousSubType or is a string
+		childAgents: data.childAgents ?? [],
+		executionId: data.executionId,
+		typedAiRepoDir: data.typedAiRepoDir ?? process.cwd(),
+		traceId: data.traceId ?? '',
+		name: data.name,
+		parentAgentId: data.parentAgentId,
+		vibeSessionId: data.vibeSessionId,
+		user: userImpl, // Assign the created User object
+		state: data.state as AgentRunningState,
+		callStack: data.callStack ?? [],
+		error: data.error,
+		output: data.output,
+		hilBudget: data.hilBudget ?? 2,
+		cost: data.cost ?? 0,
+		budgetRemaining: data.budgetRemaining ?? data.hilBudget ?? 2,
+		llms: llmsImpl,
+		fileSystem: fileSystemImpl,
+		useSharedRepos: data.useSharedRepos ?? true,
+		memory: data.memory ?? {},
+		lastUpdate: data.lastUpdate ?? Date.now(),
+		metadata: data.metadata ?? {},
+		functions: functionsImpl,
+		completedHandler: completedHandlerImpl,
+		pendingMessages: data.pendingMessages ?? [],
+		iterations: data.iterations ?? 0,
+		invoking: (data.invoking as FunctionCall[]) ?? [],
+		notes: data.notes ?? [],
+		userPrompt: data.userPrompt,
+		inputPrompt: data.inputPrompt ?? '',
+		messages: (data.messages as LlmMessage[]) ?? [],
+		functionCallHistory: functionCallHistoryImpl,
+		hilCount: data.hilCount ?? 5,
+		hilRequested: data.hilRequested ?? false,
+		liveFiles: data.liveFiles ?? [],
+		fileStore: data.fileStore ?? [], // Assuming FileMetadata[] if data.fileStore is Type.Any()
+		toolState: toolStateImpl,
+	};
+	return context;
+/*
 	}
 	// handle array or string
 	if (typeof serialized.functionCallHistory === 'string') context.functionCallHistory = JSON.parse(serialized.functionCallHistory);
@@ -79,7 +165,6 @@ export async function deserializeAgentContext(serialized: Record<keyof AgentCont
 	context.fileStore = serialized.fileStore;
 	context.childAgents = serialized.childAgents || [];
 	context.llms = deserializeLLMs(serialized.llms);
-	context.toolState = serialized.toolState ? JSON.parse(serialized.toolState) : {};
 
 	const user = currentUser();
 	if (serialized.user === user.id) context.user = user;
@@ -93,10 +178,13 @@ export async function deserializeAgentContext(serialized: Record<keyof AgentCont
 	}
 
 	// backwards compatability
+	if (typeof serialized.toolState === 'string' && serialized.toolState.length) {
+		context.toolState = JSON.parse(serialized.toolState);
+	}
 
 	context.toolState ??= {};
-	if (context.liveFiles?.length) context.toolState.LiveFiles = context.liveFiles;
-	if (context.fileStore?.length) context.toolState.FileStore = context.fileStore;
+	// if (context.liveFiles?.length && !context.toolState.LiveFiles) context.toolState.LiveFiles = context.liveFiles;
+	// if (context.fileStore?.length && !context.toolState.FileStore) context.toolState.FileStore = context.fileStore;
 
 	if ((context.type as any) === 'codegen') {
 		context.type = 'autonomous';
@@ -112,4 +200,5 @@ export async function deserializeAgentContext(serialized: Record<keyof AgentCont
 	for (const call of context.functionCallHistory) call.parameters ??= {};
 
 	return context as AgentContext;
+*/
 }

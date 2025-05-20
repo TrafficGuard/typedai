@@ -112,19 +112,20 @@ export interface AgentContext {
     budgetRemaining: number;
     /** Pre-configured LLMs by task difficulty level for the agent. Specific LLMs can always be instantiated if required. */
     llms: AgentLLMs;
-    /** Working filesystem */
-    fileSystem?: IFileSystemService | null;
+    /** Working filesystem. Can be null if not initialized or applicable. */
+    fileSystem: IFileSystemService | null;
     /** Determines if repositories should be cloned into a shared location (true) or the agent's private directory (false). Defaults to true. */
     useSharedRepos: boolean;
     /** Memory persisted over the agent's executions */
     memory: Record<string, string>;
     /** Time of the last database write of the state */
     lastUpdate: number;
-    /** Agent custom fields */
+    /** Agent custom fields. Always present, can be an empty object. */
     metadata: Record<string, any>;
 
     /** The functions available to the agent */
     functions: LlmFunctions;
+    /** Handler for when the agent completes its task. */
     completedHandler?: AgentCompleted;
 
     // ChatBot properties ----------------
@@ -148,14 +149,14 @@ export interface AgentContext {
     /** Completed function calls with success/error output */
     functionCallHistory: FunctionCallResult[];
     /** How many iterations of the autonomous agent control loop to require human input to continue */
-    hilCount;
+    hilCount: number;
     /** If the user has requested a human-in-the-loop intervention after the current control loop iteration completes */
     hilRequested?: boolean;
     /** Files which are always provided in the agent control loop prompt */
     liveFiles?: string[];
     fileStore?: FileMetadata[];
     /** The latest state of tools, updated at the end of each iteration */
-    toolState?: Record<string, any>;
+    toolState?: Partial<Record<'LiveFiles' | 'FileStore', any>>;
 }
 
 /**
@@ -195,9 +196,9 @@ export interface AutonomousIteration {
     /** Function calls executed this iteration */
     functionCalls: FunctionCallResult[];
     /** The memory contents at the end of the iteration */
-    memory: Map<string, string>;
+    memory: Record<string, string>; // Changed from Map<string, string>
     /** Tool state, LiveFile's, FileStore etc. Class name as the key */
-    toolState: Map<string, any>;
+    toolState: Record<string, any>; // Changed from Map<string, any>
     /** Any error */
     error?: string;
     /** Plan generation stats */

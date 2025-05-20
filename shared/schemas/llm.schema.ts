@@ -7,9 +7,10 @@ import type {
     ImagePartExt,
     TextPartExt,
     UserContentExt,
+    LlmMessage, // Import LlmMessage
 } from '#shared/model/llm.model';
 import type {AreTypesFullyCompatible} from '../utils/type-compatibility';
-import {ChangePropertyType} from '../typeUtils';
+import {ChangePropertyType, type Writable} from '../typeUtils'; // Added Writable import
 
 
 export const AttachmentInfoSchema = Type.Object({
@@ -18,17 +19,16 @@ export const AttachmentInfoSchema = Type.Object({
     externalURL: Type.Optional(Type.String()),
 }); // Do not provide an id as it is attached to multiple parent schemas
 
-export const ProviderOptionsOptionalSchema = Type.Optional(Type.Record(Type.String(), Type.Record(Type.String(), Type.Any())))
+export const ProviderOptionsOptionalSchema = Type.Optional(Type.Record(Type.String(), Type.Any()))
 
 // Basic Part Schemas
 export const TextPartSchema = Type.Object({
     type: Type.Literal('text'),
     text: Type.String(),
-    providerOptions: ProviderOptionsOptionalSchema,
+   providerOptions: ProviderOptionsOptionalSchema,
 }); // Do not provide an id as it is attached to multiple parent schemas
 
-type TextPartExtType = Omit<ChangePropertyType<TextPartExt, 'providerOptions', Record<string, Record<string, any>>>, 'experimental_providerMetadata'>
-const _TextPartCheck: AreTypesFullyCompatible<TextPartExtType, Static<typeof TextPartSchema>> = true;
+const _TextPartCheck: AreTypesFullyCompatible<TextPartExt, Static<typeof TextPartSchema>> = true;
 
 // Schema for ImagePartExt (includes filename, size, externalURL)
 // 'image' field represents base64 data or a URL string.
@@ -39,26 +39,24 @@ export const ImagePartExtSchema = Type.Intersect([Type.Object({
     providerOptions: ProviderOptionsOptionalSchema,
 }), AttachmentInfoSchema]); // Do not provide an id as it is attached to multiple parent schemas
 
-type ImagePartExtType = Omit<ChangePropertyType<ImagePartExt, 'providerOptions', Record<string, Record<string, any>>>, 'experimental_providerMetadata'>
-const _ImagePartExtCheck: AreTypesFullyCompatible<ImagePartExtType, Static<typeof ImagePartExtSchema>> = true;
+const _ImagePartExtCheck: AreTypesFullyCompatible<ImagePartExt, Static<typeof ImagePartExtSchema>> = true;
 
 // Schema for FilePartExt (includes filename, size, externalURL)
 // 'data' field represents base64 data or a URL string.
 export const FilePartExtSchema = Type.Intersect([Type.Object({
     type: Type.Literal('file'),
     data: Type.String(), // Represents DataContent (string | Uint8Array | ArrayBuffer | Buffer) or URL. TypeBox handles string for URL/base64.
-    filename: Type.Optional(Type.String()),
+    // filename is provided by AttachmentInfoSchema
     mimeType: Type.String(),
     providerOptions: ProviderOptionsOptionalSchema,
 }), AttachmentInfoSchema]); // Do not provide an id as it is attached to multiple parent schemas
-type FilePartExtType = Omit<ChangePropertyType<FilePartExt, 'providerOptions', Record<string, Record<string, any>>>, 'experimental_providerMetadata'>
-const _FilePartExtCheck: AreTypesFullyCompatible<FilePartExtType, Static<typeof FilePartExtSchema>> = true;
+const _FilePartExtCheck: AreTypesFullyCompatible<FilePartExt, Static<typeof FilePartExtSchema>> = true;
 
 export const ToolCallPartSchema = Type.Object({
     type: Type.Literal('tool-call'),
     toolCallId: Type.String(),
     toolName: Type.String(),
-    args: Type.Record(Type.String(), Type.Any()),
+    args: Type.Unknown(), // Changed from Type.Any() to match 'unknown' in model
 }, { $id: 'ToolCallPart' });
 // const _ToolCallPartCheck: AreTypesFullyCompatible<Writable<ModelToolCallPart>, Static<typeof ToolCallPartSchema>> = true;
 
@@ -69,16 +67,22 @@ const UserContentPartUnionSchema = Type.Union([
     ImagePartExtSchema,
     FilePartExtSchema
 ], { $id: 'UserContentUnion' });
+
 export const UserContentSchema = Type.Union([
     Type.String(),
     Type.Array(UserContentPartUnionSchema)
 ], { $id: 'UserContent' }); // This schema is for UserContentExt
+// The UserContentExt check might fail if the underlying FilePartExt or ImagePartExt checks fail, or if UserContentExt itself has subtle differences.
 const _UserContentExtCheck: AreTypesFullyCompatible<UserContentExt, Static<typeof UserContentSchema>> = true;
 
-// AssistantContent is string | Array<TextPart | ToolCallPart>
+// AssistantContent is string | Array<TextPart | ImagePartExt | FilePartExt | ToolCallPart>
 export const AssistantContentPartUnionSchema = Type.Union([
     TextPartSchema,
-    ToolCallPartSchema
+    ImagePartExtSchema, // Added to support images
+    FilePartExtSchema,  // Added to support files
+    ToolCallPartSchema,
+    Type.Object({ type: Type.Literal('reasoning'), text: Type.String(), providerMetadata: Type.Optional(Type.Record(Type.String(), Type.Unknown())) }), // ReasoningPart schema
+    Type.Object({ type: Type.Literal('redacted-reasoning'), data: Type.String(), providerMetadata: Type.Optional(Type.Record(Type.String(), Type.Unknown())) }) // RedactedReasoningPart schema
 ], { $id: 'AssistantContentPartUnion' });
 export const AssistantContentSchema = Type.Union([
     Type.String(),
@@ -128,6 +132,8 @@ const SystemMessageSchema = Type.Intersect([
     }),
     LlmMessageSpecificFieldsSchema
 ], { $id: 'SystemMessage' });
+type SystemLlmMessage = Extract<LlmMessage, { role: 'system' }>;
+const _SystemMessageCheck: AreTypesFullyCompatible<SystemLlmMessage, Static<typeof SystemMessageSchema>> = true;
 
 const UserMessageSchema = Type.Intersect([
     Type.Object({

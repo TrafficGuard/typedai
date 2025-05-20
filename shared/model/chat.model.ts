@@ -1,13 +1,4 @@
-// import type {LlmMessage} from '#shared/model/llm.model'; // This import is no longer needed as ChatMessage is self-contained.
-
-export interface ChatMessage {
-	role: 'user' | 'assistant' | 'system' | 'tool';
-	content: string;
-	// TODO: Consider more complex content types like LlmContent or allow structured content
-	// name?: string; // Optional: for 'tool' role, the name of the tool
-	// tool_call_id?: string; // Optional: for 'tool' role, the ID of the tool call
-	// tool_calls?: any[]; // Optional: for 'assistant' role, if it made tool calls
-}
+import type {LlmMessage} from '#shared/model/llm.model';
 
 export interface Chat {
 	id: string;
@@ -19,7 +10,7 @@ export interface Chat {
 	parentId?: string;
 	/** The original parent */
 	rootId?: string;
-	messages: ChatMessage[]; // Standardized to use ChatMessage[]
+	messages: LlmMessage[];
 }
 
 export type ChatPreview = Omit<Chat, 'messages'>;
@@ -30,3 +21,5 @@ export interface ChatList {
 	chats: ChatPreview[];
 	hasMore: boolean;
 }
+
+

@@ -1,16 +1,19 @@
+import type { Static } from '@sinclair/typebox';
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import type { AgentContextService } from '#agent/agentContextService/agentContextService';
-import { deserializeAgentContext, serializeContext } from '#agent/agentSerialization';
+import { deserializeContext, serializeContext } from '#agent/agentSerialization';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import type { AgentContext, AgentRunningState, AutonomousIteration } from '#shared/model/agent.model';
+import type { AgentContextSchema } from '#shared/schemas/agent.schema';
 
 /**
  * In-memory implementation of AgentStateService for tests. Serializes/deserializes
  * to behave the same as the FireStore implementation
  */
 export class InMemoryAgentStateService implements AgentContextService {
-	stateMap: Map<string, Record<string, any>> = new Map();
+	// Store in the serialized format
+	stateMap: Map<string, Static<typeof AgentContextSchema>> = new Map();
 	iterationMap: Map<string, AutonomousIteration[]> = new Map();
 
 	clear(): void {
@@ -31,13 +34,14 @@ export class InMemoryAgentStateService implements AgentContextService {
 
 	async load(executionId: string): Promise<AgentContext> {
 		if (!this.stateMap.has(executionId)) throw new Error('Agent state not found');
-		const serialized = this.stateMap.get(executionId);
-		return await deserializeAgentContext(serialized);
+		const serialized = this.stateMap.get(executionId)!; // Added non-null assertion as we check with .has()
+		return deserializeContext(serialized);
 	}
 
 	async list(): Promise<AgentContext[]> {
 		const serializedList = Array.from(this.stateMap.values());
-		return Promise.all(serializedList.map(deserializeAgentContext));
+		const deserializedList = serializedList.map((data) => deserializeContext(data));
+		return Promise.resolve(deserializedList);
 	}
 
 	async listRunning(): Promise<AgentContext[]> {

@@ -49,20 +49,38 @@ export type UserProfile = Pick<User, typeof UserProfileProps[number]>;
 export type UserProfileUpdate = Pick<UserProfile, typeof UserProfileUpdateProps[number]>;
 
 
-/**
- * The user profile data returned by the API (excluding sensitive fields).
- */
-export const UserProfileSchema = Type.Object({
+export const UserSchema = Type.Object({
     id: Type.String(),
     name: Type.String(),
     email: Type.String(),
     enabled: Type.Boolean(),
+    passwordHash: Type.Optional(Type.String()),
+    createdAt: Type.Date(),
+    lastLoginAt: Type.Optional(Type.Date()),
     hilBudget: Type.Number(),
     hilCount: Type.Number(),
     llmConfig: LLMServicesConfigModelSchema,
     chat: ChatSettingsModelSchema,
     functionConfig: Type.Record(Type.String(), Type.Record(Type.String(), Type.Any())),
 });
+const _userCheck: AreTypesFullyCompatible<User, Static<typeof UserSchema>> = true;
+
+
+/**
+ * The user profile data returned by the API (excluding sensitive fields).
+ */
+export const UserProfileSchema = Type.Pick(UserSchema, UserProfileProps, { $id: 'UserProfile' });
+// export const UserProfileSchema = Type.Object({
+//     id: Type.String(),
+//     name: Type.String(),
+//     email: Type.String(),
+//     enabled: Type.Boolean(),
+//     hilBudget: Type.Number(),
+//     hilCount: Type.Number(),
+//     llmConfig: LLMServicesConfigModelSchema,
+//     chat: ChatSettingsModelSchema,
+//     functionConfig: Type.Record(Type.String(), Type.Record(Type.String(), Type.Any())),
+// });
 const _userProfileCheck: AreTypesFullyCompatible<UserProfile, Static<typeof UserProfileSchema>> = true;
 
 /**

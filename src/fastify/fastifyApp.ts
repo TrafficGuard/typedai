@@ -71,6 +71,7 @@ declare module 'fastify' {
 }
 export const fastifyInstance: TypeBoxFastifyInstance = fastify({
 	maxParamLength: 256,
+	bodyLimit: 20048576,
 }).withTypeProvider<TypeBoxTypeProvider>() as AppFastifyInstance;
 
 export interface FastifyConfig {

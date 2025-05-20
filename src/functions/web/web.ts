@@ -299,12 +299,11 @@ export class PublicWeb {
 			// Wait for a short time to allow any dynamic content to load
 			await sleep(4000);
 
-			const screenshot = await page.screenshot({ type: 'png' });
-
-			const array = new Uint8Array(screenshot.buffer, screenshot.byteOffset, screenshot.byteLength);
+			const screenshot: Buffer = await page.screenshot({ type: 'png' });
+			const base64 = screenshot.toString('base64');
 
 			return {
-				image: { type: 'image', source: 'bytes', specifier: array },
+				image: { type: 'image', source: 'bytes', specifier: base64 },
 				logs,
 			};
 		} catch (error) {

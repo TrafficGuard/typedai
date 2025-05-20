@@ -439,9 +439,10 @@ export class CodeEditingAgent {
 			information: `<project_files>\n${filenames}\n</project_files>`,
 			requirements: summary,
 			action:
-				'You will respond ONLY in JSON. From the requirements quietly consider which the files may be required to complete the task. You MUST output your answer ONLY as JSON in the format of this example:\n<example>\n{\n files: ["file1", "file2", "file3"]\n}\n</example>',
+				'From the requirements consider which the files may be required to complete the task. Output your answer as JSON in the format of this example:\n' +
+				'<example>\n<json>\n{\n files: ["file1", "file2", "file3"]\n}\n</json>\n</example>',
 		});
-		const response: any = await llms().medium.generateJson(prompt, { id: 'Extract Filenames' });
+		const response: any = await llms().medium.generateTextWithJson(prompt, { id: 'Extract Filenames' });
 		return response.files;
 	}
 }

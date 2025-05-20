@@ -1,5 +1,5 @@
 import { Component, Input } from '@angular/core';
-import { AgentContextApi } from '#shared/api/agent.api';
+import { AgentContextApi } from '#shared/schemas/agent.schema';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatExpansionModule } from '@angular/material/expansion';

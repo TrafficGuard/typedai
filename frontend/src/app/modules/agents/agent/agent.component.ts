@@ -13,7 +13,7 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatSelectModule } from '@angular/material/select';
-import { AgentContextApi } from '#shared/api/agent.api';
+import { AgentContextApi } from '#shared/schemas/agent.schema';
 import { MatDialogModule } from '@angular/material/dialog';
 import { AgentDetailsComponent } from './agent-details/agent-details.component';
 import { AgentMemoryComponent } from './agent-memory/agent-memory.component';
@@ -76,16 +76,10 @@ export class AgentComponent implements OnInit {
 
         this.agentService.getAgentDetails(this.agentId)
             .subscribe(
-                details => {
-                    this.agentDetails = (details as any).data;
+                (apiDetails: AgentContextApi) => {
+                    this.agentDetails = apiDetails;
 
-                    if(typeof this.agentDetails.toolState === 'string') {
-                        this.agentDetails.toolState = new Map(Object.entries(JSON.parse(this.agentDetails.toolState)));
-                    }
-                    this.agentDetails.toolState ??= new Map();
-
-                    if(typeof this.agentDetails.functionCallHistory === 'string')
-                        this.agentDetails.functionCallHistory = JSON.parse(this.agentDetails.functionCallHistory);
+                    this.agentDetails.toolState = this.agentDetails.toolState ?? {};
 
                     this.agentDetails.output = null;
                     if (this.agentDetails && this.agentDetails.state === 'completed') {
@@ -94,8 +88,11 @@ export class AgentComponent implements OnInit {
                         const maybeCompletedFunctionCall = this.agentDetails.functionCallHistory.length
                             ? this.agentDetails.functionCallHistory.slice(-1)[0]
                             : null;
-                        if (maybeCompletedFunctionCall && maybeCompletedFunctionCall.parameters['note'])
-                            this.agentDetails.output = this.agentDetails.error ?? maybeCompletedFunctionCall?.parameters['note'] ?? '';
+                        // Corrected logic:
+                        // The output should be the agent's error (if present), 
+                        // otherwise the completion note from the last function call (if present), 
+                        // otherwise an empty string.
+                        this.agentDetails.output = (this.agentDetails.error ?? maybeCompletedFunctionCall?.parameters?.['note']) ?? '';
                     }
 
                     console.log('Agent Details Loaded:', this.agentDetails);

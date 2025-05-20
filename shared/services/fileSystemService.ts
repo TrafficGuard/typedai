@@ -11,7 +11,7 @@ export interface FileSystemNode {
 }
 
 export interface IFileSystemService {
-    toJSON(): { basePath: any; workingDirectory: any };
+    toJSON(): { basePath: string; workingDirectory: string };
 
     fromJSON(obj: any): this | null;
 

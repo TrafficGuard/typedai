@@ -7,9 +7,11 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatIconModule } from '@angular/material/icon';
+// Static import removed
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { AgentService } from '../../services/agent.service';
+// AutonomousIterationSchema import removed
 import { AutonomousIteration } from '#shared/model/agent.model';
 import {FunctionCallResult} from "#shared/model/llm.model";
 
@@ -90,22 +92,19 @@ export class AgentIterationsComponent implements OnInit, OnChanges, OnDestroy {
         this.agentService.getAgentIterations(this.agentId).pipe(
             takeUntil(this.destroy$) // Ensure subscription is cleaned up on destroy or new load
         ).subscribe({
-            next: (loadedIterations) => {
+            next: (loadedIterations: AutonomousIteration[]) => {
                 console.log(`AgentIterationsComponent: Successfully loaded ${loadedIterations.length} iterations for agent ${this.agentId}`);
-                // Convert memory and toolState objects back to Maps
-                loadedIterations.forEach(iter => {
-                    if (iter.memory && typeof iter.memory === 'object' && !(iter.memory instanceof Map)) {
-                        iter.memory = new Map(Object.entries(iter.memory));
-                    } else if (!iter.memory) {
-                        iter.memory = new Map(); // Ensure it's always a Map
-                    }
-                    if (iter.toolState && typeof iter.toolState === 'object' && !(iter.toolState instanceof Map)) {
-                        iter.toolState = new Map(Object.entries(iter.toolState));
-                    } else if (!iter.toolState) {
-                        iter.toolState = new Map(); // Ensure it's always a Map
-                    }
+                
+                this.iterations = loadedIterations.map(iter => {
+                    // iter.memory and iter.toolState are already Records from Static<typeof AutonomousIterationSchema>
+                    // and AutonomousIteration model expects Record types.
+                    return {
+                        ...iter,
+                        memory: iter.memory ?? {}, // Default to empty object if undefined, though schema implies presence
+                        toolState: iter.toolState ?? {}, // Default to empty object if undefined, though schema implies presence
+                    } as AutonomousIteration;
                 });
-                this.iterations = loadedIterations;
+
                 this.isLoading = false;
                 this.errorLoading = null;
                 this._changeDetectorRef.markForCheck(); // Trigger UI update

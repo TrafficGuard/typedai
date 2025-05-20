@@ -140,7 +140,7 @@ describe('ConversationComponent', () => {
 
   it('should load chat on init if route has ID', () => {
     // Simulate route params having an ID
-    TestBed.inject(ChatServiceClient).chat.set(null); // Reset chat before test
+    mockChatService.chat.set(null); // Reset chat before test
     spyOnProperty(component['route'], 'params', 'get').and.returnValue(of({ id: 'chat1' }));
     fixture.detectChanges(); // Trigger ngOnInit and effects
 
@@ -156,8 +156,8 @@ describe('ConversationComponent', () => {
     // Further checks can be done on the rendered DOM elements
   });
 
-  // The describe.skip block remains unchanged as per instructions
-  describe.skip('Attachment Functionality in ConversationComponent', () => {
+
+  xdescribe('Attachment Functionality in ConversationComponent', () => {
     it('should add files to selectedAttachments using addFiles method', () => {
       // Test addFiles
     });

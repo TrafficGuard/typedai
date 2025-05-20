@@ -55,21 +55,27 @@ services:
     build:
       context: "${TYPEDAI_HOME_ABS}"
       dockerfile: Dockerfile.dev
-    image: typedai_agent_runner_img_${USER} # User-specific image name for better caching
+    image: typedai_agent_runner_img_${USER}
+    environment:
+      - TYPEDAI_HOME=/home/typedai
+      - PYENV_ROOT=/home/typedai/.pyenv
+      # CRITICAL: Ensure pyenv shims and bin are first in PATH
+      # The shims directory allows 'python' to point to the pyenv-managed version.
+      - PATH=/home/typedai/.pyenv/shims:/home/typedai/.pyenv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     volumes:
-      - "${TYPEDAI_HOME_ABS}:/home/typedai/:delegated" # Mount AI platform code
-      - typedai_node_modules:/home/typedai/node_modules # Persist TypedAI's node_modules
-      - typedai_frontend_node_modules:/home/typedai/frontend/node_modules # Persist TypedAI's frontend node_modules
-      - "${CWD_ABS}:/workspace/:delegated" # Mount target repository
-      - "${HOME}/.config/gcloud:/home/typedai/.config/gcloud:ro" # Mount gcloud config (read-only)
-    working_dir: /home/typedai/ # Set working directory for 'npm run'
-    user: typedai # Run as 'typedai' user defined in Dockerfile.dev
-    tty: true # Allocate a TTY
-    stdin_open: true # Keep STDIN open for interactive prompts
+      - "${TYPEDAI_HOME_ABS}:/home/typedai/:delegated"
+      - typedai_node_modules:/home/typedai/node_modules
+      - typedai_frontend_node_modules:/home/typedai/frontend/node_modules
+      - "${CWD_ABS}:/workspace/:delegated"
+      - "${HOME}/.config/gcloud:/home/typedai/.config/gcloud:ro"
+    working_dir: /home/typedai/
+    user: typedai # This should match USER_NAME in Dockerfile
+    tty: true
+    stdin_open: true
     command:
 ${YAML_COMMAND_LINES}
 
-volumes: # Define named volumes at the top level
+volumes:
   typedai_node_modules:
   typedai_frontend_node_modules:
 EOF
