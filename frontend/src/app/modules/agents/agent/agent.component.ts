@@ -1,27 +1,20 @@
-import {ChangeDetectionStrategy, Component, ViewEncapsulation, OnInit, ChangeDetectorRef} from '@angular/core';
+import {ChangeDetectionStrategy, Component, ViewEncapsulation, inject, signal, effect, WritableSignal} from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterModule } from '@angular/router';
 import { MatTabsModule } from '@angular/material/tabs';
-import { MatCardModule } from '@angular/material/card';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatButtonModule } from '@angular/material/button';
-import { MatExpansionModule } from '@angular/material/expansion';
-import { MatListModule } from '@angular/material/list';
-import { MatIconModule } from '@angular/material/icon';
-import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+// MatCardModule, MatFormFieldModule etc. are not directly used by AgentComponent's template, but by its children.
+// Children will import them.
 import { CommonModule } from '@angular/common';
-import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatSelectModule } from '@angular/material/select';
 import { AgentContextApi } from '#shared/schemas/agent.schema';
-import { MatDialogModule } from '@angular/material/dialog';
 import { AgentDetailsComponent } from './agent-details/agent-details.component';
 import { AgentMemoryComponent } from './agent-memory/agent-memory.component';
 import { AgentFunctionCallsComponent } from './agent-function-calls/agent-function-calls.component';
 import { AgentLlmCallsComponent } from './agent-llm-calls/agent-llm-calls.component';
 import { AgentIterationsComponent } from './agent-iterations/agent-iterations.component';
-import { AgentToolStateComponent } from './agent-tool-state/agent-tool-state.component'; // Import the new component
+import { AgentToolStateComponent } from './agent-tool-state/agent-tool-state.component';
 import { AgentService } from "../services/agent.service";
+import { toSignal } from '@angular/core/rxjs-interop';
+import { map } from 'rxjs/operators';
 
 @Component({
     selector: 'agent',
@@ -30,20 +23,9 @@ import { AgentService } from "../services/agent.service";
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
     imports: [
+        CommonModule, // For @if, @defer
+        RouterModule, // If any router-links or outlets were in this component's template
         MatTabsModule,
-        MatCardModule,
-        MatFormFieldModule,
-        MatInputModule,
-        MatButtonModule,
-        MatExpansionModule,
-        MatListModule,
-        MatIconModule,
-        FormsModule,
-        ReactiveFormsModule,
-        CommonModule,
-        MatCheckboxModule,
-        MatSelectModule,
-        MatDialogModule,
         AgentDetailsComponent,
         AgentMemoryComponent,
         AgentFunctionCallsComponent,
@@ -52,56 +34,62 @@ import { AgentService } from "../services/agent.service";
         AgentToolStateComponent,
     ],
 })
-export class AgentComponent implements OnInit {
-    agentId: string | null = null;
-    agentDetails: AgentContextApi | null = null;
+export class AgentComponent {
+    agentId: WritableSignal<string | null> = signal(null);
+    agentDetails: WritableSignal<AgentContextApi | null> = signal(null);
 
-    constructor(
-        private route: ActivatedRoute,
-        private snackBar: MatSnackBar,
-        private _changeDetectorRef: ChangeDetectorRef,
-        private agentService: AgentService
-    ) {}
+    private route = inject(ActivatedRoute);
+    private snackBar = inject(MatSnackBar);
+    private agentService = inject(AgentService);
 
-    ngOnInit(): void {
-        this.route.paramMap.subscribe(params => {
-            this.agentId = params.get('id');
-            console.log(`agent.component ngOnInit ${this.agentId}`)
-            this.loadAgentDetails();
+    // Get agentId from route params
+    private routeParams = toSignal(this.route.paramMap);
+
+    constructor() {
+        effect(() => {
+            const params = this.routeParams();
+            if (params) {
+                const id = params.get('id');
+                this.agentId.set(id);
+                console.log(`agent.component effect, agentId set to: ${id}`);
+                this.loadAgentDetails();
+            }
         });
     }
 
     loadAgentDetails(): void {
-        if(!this.agentId) return;
+        const currentAgentId = this.agentId();
+        if (!currentAgentId) {
+            this.agentDetails.set(null);
+            return;
+        }
 
-        this.agentService.getAgentDetails(this.agentId)
-            .subscribe(
-                (apiDetails: AgentContextApi) => {
-                    this.agentDetails = apiDetails;
-
-                    this.agentDetails.toolState = this.agentDetails.toolState ?? {};
-
-                    this.agentDetails.output = null;
-                    if (this.agentDetails && this.agentDetails.state === 'completed') {
-                        // If the agent has been cancelled after an error then display the error
-                        // Otherwise display the Agent_completed argument
-                        const maybeCompletedFunctionCall = this.agentDetails.functionCallHistory.length
-                            ? this.agentDetails.functionCallHistory.slice(-1)[0]
+        this.agentService.getAgentDetails(currentAgentId)
+            .pipe(
+                map(apiDetails => {
+                    // Process apiDetails here before setting the signal
+                    const details = {...apiDetails}; // Clone to avoid mutating the source from service if it's cached
+                    details.toolState = details.toolState ?? {};
+                    details.output = null;
+                    if (details.state === 'completed') {
+                        const maybeCompletedFunctionCall = details.functionCallHistory?.length
+                            ? details.functionCallHistory.slice(-1)[0]
                             : null;
-                        // Corrected logic:
-                        // The output should be the agent's error (if present), 
-                        // otherwise the completion note from the last function call (if present), 
-                        // otherwise an empty string.
-                        this.agentDetails.output = (this.agentDetails.error ?? maybeCompletedFunctionCall?.parameters?.['note']) ?? '';
+                        details.output = (details.error ?? maybeCompletedFunctionCall?.parameters?.['note']) ?? '';
                     }
-
-                    console.log('Agent Details Loaded:', this.agentDetails);
-                    this._changeDetectorRef.markForCheck();
+                    return details;
+                })
+            )
+            .subscribe({
+                next: (processedDetails: AgentContextApi) => {
+                    this.agentDetails.set(processedDetails);
+                    console.log('Agent Details Loaded:', processedDetails);
                 },
-                error => {
+                error: (error) => {
                     console.error('Error loading agent details', error);
                     this.snackBar.open('Error loading agent details', 'Close', { duration: 3000 });
+                    this.agentDetails.set(null);
                 }
-            );
+            });
     }
 }

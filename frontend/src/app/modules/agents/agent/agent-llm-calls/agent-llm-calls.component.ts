@@ -1,18 +1,18 @@
 import { CommonModule } from '@angular/common';
-import { Component, Input, type OnInit } from '@angular/core';
+import { Component, input, signal, effect, inject, WritableSignal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { environment } from 'environments/environment';
-import type { LlmMessage } from '#shared/model/llm.model';
-import type { LlmCall } from '#shared/model/llmCall.model';
+// import { environment } from 'environments/environment'; // Not used directly
+import { LlmMessage } from '#shared/model/llm.model';
+import { LlmCall } from '#shared/model/llmCall.model';
 import { AgentService } from '../../services/agent.service';
 import { Router } from '@angular/router';
-import type { Prompt as AppPrompt } from '#shared/model/prompts.model';
-import {AgentLinks, GoogleCloudLinks} from "../../services/agent-links"; // Use an alias if 'Prompt' is ambiguous
+import { Prompt as AppPrompt } from '#shared/model/prompts.model'; // Use an alias if 'Prompt' is ambiguous
+import { AgentLinks, GoogleCloudLinks } from "../../services/agent-links";
 
 @Component({
 	selector: 'agent-llm-calls',
@@ -21,42 +21,49 @@ import {AgentLinks, GoogleCloudLinks} from "../../services/agent-links"; // Use 
 	standalone: true,
 	imports: [CommonModule, MatCardModule, MatIconModule, MatExpansionModule, MatButtonModule],
 })
-export class AgentLlmCallsComponent implements OnInit {
-	@Input() agentId: string | null = null;
-	llmCalls: LlmCall[] = [];
+export class AgentLlmCallsComponent {
+	agentId = input<string | null>(null);
+	llmCalls: WritableSignal<LlmCall[]> = signal([]);
     agentLinks: AgentLinks = new GoogleCloudLinks();
 
-	constructor(
-		private sanitizer: DomSanitizer,
-		private snackBar: MatSnackBar,
-		private agentService: AgentService,
-		private router: Router // Inject Router
-	) {}
+	private sanitizer = inject(DomSanitizer);
+	private snackBar = inject(MatSnackBar);
+	private agentService = inject(AgentService);
+	private router = inject(Router);
 
-	ngOnInit(): void {
-		if (this.agentId) {
-			this.loadLlmCalls();
-		}
-	}
+	constructor() {
+        effect(() => {
+            const currentAgentId = this.agentId();
+            if (currentAgentId) {
+                this.loadLlmCalls(currentAgentId);
+            } else {
+                this.llmCalls.set([]);
+            }
+        });
+    }
 
-	loadLlmCalls(): void {
-		this.agentService.getLlmCalls(this.agentId).subscribe(
+	loadLlmCalls(agentId: string): void {
+        this.llmCalls.set([]); // Clear previous calls
+		this.agentService.getLlmCalls(agentId).subscribe(
 			(calls) => {
-				this.llmCalls = calls;
-				this.llmCalls.forEach((call) => {
+                const processedCalls = calls.map(call => {
                     // Add any error as a message for display
                     // Note: This modifies the 'messages' array that will be sent to Prompt Studio.
                     // Consider if 'error' role messages should be part of the prompt data.
-                    if(call.error) {
-                        (call.messages as LlmMessage[]).push({role: 'error', content: call.error} as unknown as LlmMessage)
+                    const messagesWithError = [...(call.messages as LlmMessage[])]; // Clone to avoid direct mutation if source is shared
+                    if (call.error) {
+                        messagesWithError.push({role: 'error', content: call.error} as unknown as LlmMessage);
                     }
-				});
+                    return { ...call, messages: messagesWithError };
+                });
+				this.llmCalls.set(processedCalls);
 			},
 			(error) => {
 				console.error('Error loading LLM calls', error);
 				this.snackBar.open('Error loading LLM calls', 'Close', {
 					duration: 3000,
 				});
+                this.llmCalls.set([]); // Clear on error
 			},
 		);
 	}
@@ -101,17 +108,17 @@ export class AgentLlmCallsComponent implements OnInit {
 	}
 
 	getLlmName(llmId: string): string {
-		return llmId;
+		return llmId; // Placeholder, ideally map to a friendly name if available
 	}
 
     openInPromptStudio(call: LlmCall): void {
         const promptData: Partial<AppPrompt> = {
             name: call.description,
             appId: call.description,
-            messages: call.messages as LlmMessage[],
+            messages: call.messages as LlmMessage[], // Already processed to include error if any
             settings: {
                 llmId: call.llmId,
-                ... call.settings,
+                ...call.settings,
             },
             tags: [call.id]
         };

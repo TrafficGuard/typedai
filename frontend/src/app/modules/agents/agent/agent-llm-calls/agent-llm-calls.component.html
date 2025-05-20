@@ -1,65 +1,76 @@
 <mat-card class="p-5">
-    <div *ngFor="let call of llmCalls; let i = index" class="pb-6">
-        <div id="{{ call.id }}" class="pb-2">
-            <mat-icon *ngIf="call.error" color="warn" class="mr-1 icon-size-5">error_outline</mat-icon>
-            <span class="mb-3 pt-3 font-medium text-xl">{{ call.callStack }} {{ call.description }}</span>
+    @for (call of llmCalls(); track call.id; let i = $index) {
+        <div class="pb-6">
+            <div id="{{ call.id }}" class="pb-2">
+                @if(call.error) {
+                    <mat-icon color="warn" class="mr-1 icon-size-5">error_outline</mat-icon>
+                }
+                <span class="mb-3 pt-3 font-medium text-xl">{{ call.callStack }} {{ call.description }}</span>
 
-            <a href="{{ llmCallUrl(call) }}" style="font-size: x-small" target="_blank" mat-icon-button matTooltip="Open in Firestore">
-                <mat-icon>storage</mat-icon>
-            </a>
-            <button mat-icon-button (click)="openInPromptStudio(call)" matTooltip="Open in Prompt Studio" style="font-size: x-small">
-                <mat-icon>library_books</mat-icon>
-            </button>
-        </div>
+                <a href="{{ llmCallUrl(call) }}" style="font-size: x-small" target="_blank" mat-icon-button matTooltip="Open in Firestore">
+                    <mat-icon>storage</mat-icon>
+                </a>
+                <button mat-icon-button (click)="openInPromptStudio(call)" matTooltip="Open in Prompt Studio" style="font-size: x-small">
+                    <mat-icon>library_books</mat-icon>
+                </button>
+            </div>
 
-        <div class="mb-1">
-            <strong>LLM:</strong> {{ getLlmName(call.llmId) }} &nbsp;&nbsp; <strong>Request Time:</strong>
-            {{ call.requestTime | date : 'medium' }}. &nbsp;&nbsp; <strong>Total Time:</strong>
-            {{ ((call.totalTime ?? 0) / 1000).toFixed(1) }}s&nbsp;&nbsp; <strong>Tokens in/out:</strong>
-            {{ call.inputTokens }}/{{ call.outputTokens }}&nbsp;&nbsp; <strong>Cost: </strong> ${{
-                call.cost?.toFixed(4)
-            }} <strong>Tok/S:</strong> {{ (call.outputTokens / (call.totalTime / 1000)).toFixed(1) }}
-        </div>
+            <div class="mb-1">
+                <strong>LLM:</strong> {{ getLlmName(call.llmId) }} &nbsp;&nbsp; <strong>Request Time:</strong>
+                {{ call.requestTime | date : 'medium' }}. &nbsp;&nbsp; <strong>Total Time:</strong>
+                {{ ((call.totalTime ?? 0) / 1000).toFixed(1) }}s&nbsp;&nbsp; <strong>Tokens in/out:</strong>
+                {{ call.inputTokens }}/{{ call.outputTokens }}&nbsp;&nbsp; <strong>Cost: </strong> ${{
+                    call.cost?.toFixed(4)
+                }} <strong>Tok/S:</strong> {{ (call.outputTokens / (call.totalTime / 1000)).toFixed(1) }}
+            </div>
 
-        @for (message of call.messages; track message.role + '-' + $index) {
-            <mat-expansion-panel class="mb-1"
-            >
-                <mat-expansion-panel-header>
-                    <mat-panel-title [ngClass]="{ 'hidden-title': call.systemPromptExpanded }">
-                        <span class="w-20">{{ message.role | titlecase }}:</span>
-                        <span *ngIf="!call.systemPromptExpanded" class="expansion-preview">
-                            <mat-icon *ngIf="message.role === 'error'" color="warn" class="mr-1 icon-size-5">error_outline</mat-icon>
-                            {{ getPreviewContent(message.content) | slice : 0 : 150 }} ...
-                    </span>
-                    </mat-panel-title>
-                </mat-expansion-panel-header>
-                <div style="white-space: pre-wrap">
-                    <!-- Handle string content -->
-                    <ng-container *ngIf="isStringContent(message.content)">
-                        {{ message.content }}
-                    </ng-container>
-
-                    <!-- Handle array content -->
-                    <ng-container *ngIf="isArrayContent(message.content)">
-                        <!-- Use the helper method to cast for the loop -->
-                        <div *ngFor="let part of getContentAsArray(message.content)">
-                            <ng-container [ngSwitch]="part.type">
-                                <span *ngSwitchCase="'text'">{{ part.text }}</span>
-                                <span *ngSwitchCase="'image'">[Image Part: {{ part.mimeType || 'type unknown' }}]</span>
-                                <span *ngSwitchCase="'file'">[File Part: {{ part.mimeType || 'type unknown' }}]</span>
-                                <ng-container *ngSwitchDefault>
-                                    <!-- Attempt to display unknown part content if it's a string -->
-                                    <span *ngIf="isStringContent(part)">{{ part }}</span>
-                                    <span *ngIf="!isStringContent(part)">[Unknown Part Type: {{ part.type || 'N/A' }}]</span>
+            @for (message of call.messages; track message.role + '-' + $index) {
+                <mat-expansion-panel class="mb-1">
+                    <mat-expansion-panel-header>
+                        <mat-panel-title [ngClass]="{ 'hidden-title': call.systemPromptExpanded }">
+                            <span class="w-20">{{ message.role | titlecase }}:</span>
+                            @if (!call.systemPromptExpanded) {
+                                <span class="expansion-preview">
+                                    @if (message.role === 'error') {
+                                        <mat-icon color="warn" class="mr-1 icon-size-5">error_outline</mat-icon>
+                                    }
+                                    {{ getPreviewContent(message.content) | slice : 0 : 150 }} ...
+                                </span>
+                            }
+                        </mat-panel-title>
+                    </mat-expansion-panel-header>
+                    <div style="white-space: pre-wrap">
+                        <!-- Handle string content -->
+                        @if (isStringContent(message.content)) {
+                            {{ message.content }}
+                        }
+                        <!-- Handle array content -->
+                        @if (isArrayContent(message.content)) {
+                            <!-- Use the helper method to cast for the loop -->
+                            @for (part of getContentAsArray(message.content); track part.type + '-' + $index) {
+                                <ng-container [ngSwitch]="part.type">
+                                    <span *ngSwitchCase="'text'">{{ part.text }}</span>
+                                    <span *ngSwitchCase="'image'">[Image Part: {{ part.mimeType || 'type unknown' }}]</span>
+                                    <span *ngSwitchCase="'file'">[File Part: {{ part.mimeType || 'type unknown' }}]</span>
+                                    <ng-container *ngSwitchDefault>
+                                        <!-- Attempt to display unknown part content if it's a string -->
+                                        @if (isStringContent(part)) {
+                                            <span>{{ part }}</span>
+                                        } @else {
+                                            <span>[Unknown Part Type: {{ part.type || 'N/A' }}]</span>
+                                        }
+                                    </ng-container>
                                 </ng-container>
-                            </ng-container>
-                        </div>
-                    </ng-container>
-                </div>
-            </mat-expansion-panel>
-        }
-    </div>
-    <div *ngIf="llmCalls.length === 0">
-        <p style="padding-left: 10px">No LLM calls found for this agent.</p>
-    </div>
+                            }
+                        }
+                    </div>
+                </mat-expansion-panel>
+            }
+        </div>
+    }
+    @if (llmCalls()?.length === 0) {
+        <div>
+            <p style="padding-left: 10px">No LLM calls found for this agent.</p>
+        </div>
+    }
 </mat-card>

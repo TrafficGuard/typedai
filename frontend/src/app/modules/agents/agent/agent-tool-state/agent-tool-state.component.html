@@ -1,58 +1,63 @@
 <div class="p-4">
     <h3 class="text-lg font-medium mb-4">Agent Tool State</h3>
 
-    <div *ngIf="!agentDetails" class="flex justify-center items-center p-8">
-        <mat-spinner [diameter]="40"></mat-spinner>
-    </div>
+    @if (!agentDetails()) {
+        <div class="flex justify-center items-center p-8">
+            <mat-spinner [diameter]="40"></mat-spinner>
+        </div>
+    } @else {
+        <!-- Live Files Section -->
+        <h4 class="text-md font-medium mt-6 mb-2">Live Files</h4>
+        <div class="mb-6">
+            @if (liveFiles()?.length > 0) {
+                <ul class="list-disc list-inside pl-4">
+                    @for (file of liveFiles(); track file) {
+                        <li>{{ file }}</li>
+                    }
+                </ul>
+            } @else {
+                <div class="text-gray-500 italic">None</div>
+            }
+        </div>
 
-    <!-- Live Files Section -->
-    <h4 class="text-md font-medium mt-6 mb-2">Live Files</h4>
-    <div class="mb-6">
-        <ng-container *ngIf="liveFiles?.length > 0; else noLiveFiles">
-            <ul class="list-disc list-inside pl-4">
-                <li *ngFor="let file of liveFiles">{{ file }}</li>
-            </ul>
-        </ng-container>
-        <ng-template #noLiveFiles>
-            <div class="text-gray-500 italic">None</div>
-        </ng-template>
-    </div>
+        <!-- FileStore State Section -->
+        <h4 class="text-md font-medium mt-6 mb-2">FileStore State</h4>
+        @if (!fileStore() || fileStore()?.length === 0) {
+            <div class="text-gray-500 italic">
+                None.
+            </div>
+        } @else {
+            <div class="overflow-auto">
+                <table mat-table [dataSource]="fileStore()" class="w-full">
 
-    <!-- FileStore State Section -->
-    <h4 class="text-md font-medium mt-6 mb-2">FileStore State</h4>
-    <div *ngIf="!fileStore || fileStore.length === 0" class="text-gray-500 italic">
-        None.
-    </div>
+                    <!-- Filename Column -->
+                    <ng-container matColumnDef="filename">
+                        <th mat-header-cell *matHeaderCellDef> Filename </th>
+                        <td mat-cell *matCellDef="let element"> {{element.filename}} </td>
+                    </ng-container>
 
-    <div *ngIf="fileStore && fileStore.length > 0" class="overflow-auto">
-        <table mat-table [dataSource]="fileStore" class="w-full">
+                    <!-- Description Column -->
+                    <ng-container matColumnDef="description">
+                        <th mat-header-cell *matHeaderCellDef> Description </th>
+                        <td mat-cell *matCellDef="let element"> {{element.description}} </td>
+                    </ng-container>
 
-            <!-- Filename Column -->
-            <ng-container matColumnDef="filename">
-                <th mat-header-cell *matHeaderCellDef> Filename </th>
-                <td mat-cell *matCellDef="let element"> {{element.filename}} </td>
-            </ng-container>
+                    <!-- Size Column -->
+                    <ng-container matColumnDef="size">
+                        <th mat-header-cell *matHeaderCellDef> Size (Bytes) </th>
+                        <td mat-cell *matCellDef="let element"> {{element.size}} </td>
+                    </ng-container>
 
-            <!-- Description Column -->
-            <ng-container matColumnDef="description">
-                <th mat-header-cell *matHeaderCellDef> Description </th>
-                <td mat-cell *matCellDef="let element"> {{element.description}} </td>
-            </ng-container>
+                    <!-- Last Updated Column -->
+                    <ng-container matColumnDef="lastUpdated">
+                        <th mat-header-cell *matHeaderCellDef> Last Updated </th>
+                        <td mat-cell *matCellDef="let element"> {{element.lastUpdated | date:'medium'}} </td> <!-- Use Angular date pipe -->
+                    </ng-container>
 
-            <!-- Size Column -->
-            <ng-container matColumnDef="size">
-                <th mat-header-cell *matHeaderCellDef> Size (Bytes) </th>
-                <td mat-cell *matCellDef="let element"> {{element.size}} </td>
-            </ng-container>
-
-            <!-- Last Updated Column -->
-            <ng-container matColumnDef="lastUpdated">
-                <th mat-header-cell *matHeaderCellDef> Last Updated </th>
-                <td mat-cell *matCellDef="let element"> {{element.lastUpdated | date:'medium'}} </td> <!-- Use Angular date pipe -->
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-        </table>
-    </div>
+                    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                    <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+                </table>
+            </div>
+        }
+    }
 </div>

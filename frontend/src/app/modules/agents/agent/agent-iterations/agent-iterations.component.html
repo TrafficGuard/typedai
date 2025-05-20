@@ -1,204 +1,230 @@
 <div class="p-4">
-    <mat-spinner *ngIf="isLoading" [diameter]="32"></mat-spinner>
-
-    <div *ngIf="errorLoading && !isLoading" class="text-red-500 p-4 border border-red-300 rounded bg-red-50">
-        {{ errorLoading }}
-    </div>
-
-    <div *ngIf="!isLoading && !errorLoading">
-        <!-- Check the iterations array directly instead of using async pipe on a non-existent observable -->
-        <ng-container *ngIf="iterations && iterations.length > 0; else noIterations">
-            <!-- Removed redundant *ngIf="iterations.length > 0" as the container handles the check -->
+    @if (isLoading()) {
+        <mat-spinner [diameter]="32"></mat-spinner>
+    } @else if (errorLoading()) {
+        <div class="text-red-500 p-4 border border-red-300 rounded bg-red-50">
+            {{ errorLoading() }}
+        </div>
+    } @else {
+        @if (iterations() && iterations()?.length > 0) {
             <mat-accordion multi>
-                <mat-expansion-panel *ngFor="let iteration of iterations; trackBy: trackByIteration" class="mb-2">
-                    <mat-expansion-panel-header>
-                        <mat-panel-title>
-                            Iteration #{{ iteration.iteration }}
-                        </mat-panel-title>
-                        <mat-panel-description *ngIf="iteration.error" class="text-red-600 font-semibold flex items-center">
-                            <mat-icon color="warn" class="mr-1 icon-size-5">error_outline</mat-icon>
-                            Ended with error
-                        </mat-panel-description>
-                    </mat-expansion-panel-header>
+                @for (iteration of iterations(); track trackByIteration($index, iteration)) {
+                    <mat-expansion-panel class="mb-2">
+                        <mat-expansion-panel-header>
+                            <mat-panel-title>
+                                Iteration #{{ iteration.iteration }}
+                            </mat-panel-title>
+                            @if (iteration.error) {
+                                <mat-panel-description class="text-red-600 font-semibold flex items-center">
+                                    <mat-icon color="warn" class="mr-1 icon-size-5">error_outline</mat-icon>
+                                    Ended with error
+                                </mat-panel-description>
+                            }
+                        </mat-expansion-panel-header>
 
-                    <div class="py-2">
-                        <!-- Functions -->
-                        <div class="mb-3">
-                            <h4 class="font-medium text-lg mb-1">Functions Available:</h4>
-                            <mat-chip-listbox aria-label="Functions used">
-                                <mat-chip *ngFor="let func of iteration.functions">{{ func }}</mat-chip>
-                            </mat-chip-listbox>
-                        </div>
-
-                        <!-- Input Prompt -->
-                        <div class="mb-3">
-                            <h4 class="font-medium text-lg mb-1">Input Prompt:</h4>
-                            <div class="bg-gray-100 p-2 rounded border border-gray-200 max-h-60 overflow-y-auto">
-                                <pre class="whitespace-pre-wrap text-sm">{{ iteration.prompt || 'N/A' }}</pre>
+                        <div class="py-2">
+                            <!-- Functions -->
+                            <div class="mb-3">
+                                <h4 class="font-medium text-lg mb-1">Functions Available:</h4>
+                                <mat-chip-listbox aria-label="Functions used">
+                                    @for (func of iteration.functions; track func) {
+                                        <mat-chip>{{ func }}</mat-chip>
+                                    }
+                                </mat-chip-listbox>
                             </div>
-                        </div>
 
-                        <!-- Agent Reasoning/Plan Tabs -->
-                        <div class="mb-3" *ngIf="iteration.expandedUserRequest || iteration.observationsReasoning || iteration.agentPlan || iteration.nextStepDetails">
-                            <h4 class="font-medium text-lg mb-1">Agent Reasoning & Plan:</h4>
-                            <mat-tab-group animationDuration="0ms">
-                                <mat-tab label="Expanded Request" *ngIf="iteration.expandedUserRequest">
-                                    <ng-template matTabContent>
-                                        <div class="bg-gray-100 p-2 rounded border border-gray-200 max-h-60 overflow-y-auto mt-2">
-                                            <pre class="whitespace-pre-wrap text-sm">{{ iteration.expandedUserRequest }}</pre>
-                                        </div>
-                                    </ng-template>
-                                </mat-tab>
-                                <mat-tab label="Observations/Reasoning" *ngIf="iteration.observationsReasoning">
-                                    <ng-template matTabContent>
-                                        <div class="bg-gray-100 p-2 rounded border border-gray-200 max-h-60 overflow-y-auto mt-2">
-                                            <pre class="whitespace-pre-wrap text-sm">{{ iteration.observationsReasoning }}</pre>
-                                        </div>
-                                    </ng-template>
-                                </mat-tab>
-                                <mat-tab label="Plan" *ngIf="iteration.agentPlan">
-                                     <ng-template matTabContent>
-                                        <div class="bg-gray-100 p-2 rounded border border-gray-200 max-h-60 overflow-y-auto mt-2">
-                                            <pre class="whitespace-pre-wrap text-sm">{{ iteration.agentPlan }}</pre>
-                                        </div>
-                                    </ng-template>
-                                </mat-tab>
-                                 <mat-tab label="Next Step Details" *ngIf="iteration.nextStepDetails">
-                                     <ng-template matTabContent>
-                                        <div class="bg-gray-100 p-2 rounded border border-gray-200 max-h-60 overflow-y-auto mt-2">
-                                            <pre class="whitespace-pre-wrap text-sm">{{ iteration.nextStepDetails }}</pre>
-                                        </div>
-                                    </ng-template>
-                                </mat-tab>
-                            </mat-tab-group>
-                        </div>
-
-                        <!-- Generated Code Tabs -->
-                        <div class="mb-3">
-                            <h4 class="font-medium text-lg mb-1">Code Generation:</h4>
-                            <mat-tab-group animationDuration="0ms">
-                                <mat-tab label="Draft Generated Code">
-                                    <ng-template matTabContent>
-                                        <div class="bg-gray-100 p-2 rounded border border-gray-200 max-h-60 overflow-y-auto mt-2">
-                                            <pre class="whitespace-pre-wrap text-sm">{{ iteration.draftCode }}</pre>
-                                        </div>
-                                    </ng-template>
-                                </mat-tab>
-                                <mat-tab label="Code Review">
-                                    <ng-template matTabContent>
-                                        <div class="bg-gray-100 p-2 rounded border border-gray-200 max-h-60 overflow-y-auto mt-2">
-                                            <pre class="whitespace-pre-wrap text-sm">{{ iteration.codeReview }}</pre>
-                                        </div>
-                                    </ng-template>
-                                </mat-tab>
-                                <mat-tab label="Generated Code">
-                                    <ng-template matTabContent>
-                                        <div class="bg-gray-100 p-2 rounded border border-gray-200 max-h-60 overflow-y-auto mt-2">
-                                            <pre class="whitespace-pre-wrap text-sm">{{ iteration.code }}</pre>
-                                        </div>
-                                    </ng-template>
-                                </mat-tab>
-                                <mat-tab label="Executed Code">
-                                    <ng-template matTabContent>
-                                        <div class="bg-gray-100 p-2 rounded border border-gray-200 max-h-60 overflow-y-auto mt-2">
-                                            <pre class="whitespace-pre-wrap text-sm">{{ iteration.executedCode }}</pre>
-                                        </div>
-                                    </ng-template>
-                                </mat-tab>
-                            </mat-tab-group>
-                        </div>
-
-                        <!-- Function Calls -->
-                        <div class="mb-3" *ngIf="iteration.functionCalls?.length > 0">
-                            <h4 class="font-medium text-lg mb-1">Function Calls Executed:</h4>
-                            <div class="space-y-2">
-                                <mat-card *ngFor="let call of iteration.functionCalls" class="!shadow-sm border" [ngClass]="{'border-red-300 bg-red-50': hasError(call)}">
-                                    <mat-card-header class="!pt-2 !pb-1">
-                                        <mat-card-title class="!text-base !font-semibold flex items-center">
-                                            <mat-icon *ngIf="hasError(call)" color="warn" class="mr-1 icon-size-5">error</mat-icon>
-                                            {{ call.function_name }}
-                                        </mat-card-title>
-                                    </mat-card-header>
-                                    <mat-card-content class="!pb-2">
-                                        <div class="text-sm mb-1"><strong>Parameters:</strong></div>
-                                        <pre class="bg-gray-100 p-2 rounded text-xs max-h-40 overflow-y-auto">{{ call.parameters | json }}</pre>
-
-                                        <div *ngIf="call.stdout" class="mt-2">
-                                            <div class="text-sm mb-1"><strong>Output (stdout):</strong></div>
-                                            <pre class="bg-green-50 border border-green-200 p-2 rounded text-xs max-h-40 overflow-y-auto">{{ call.stdout }}</pre>
-                                        </div>
-                                         <div *ngIf="call.stderr" class="mt-2">
-                                            <div class="text-sm mb-1 text-red-700"><strong>Error (stderr):</strong></div>
-                                            <pre class="bg-red-50 border border-red-200 p-2 rounded text-xs max-h-40 overflow-y-auto">{{ call.stderr }}</pre>
-                                        </div>
-                                    </mat-card-content>
-                                </mat-card>
+                            <!-- Input Prompt -->
+                            <div class="mb-3">
+                                <h4 class="font-medium text-lg mb-1">Input Prompt:</h4>
+                                <div class="bg-gray-100 p-2 rounded border border-gray-200 max-h-60 overflow-y-auto">
+                                    <pre class="whitespace-pre-wrap text-sm">{{ iteration.prompt || 'N/A' }}</pre>
+                                </div>
                             </div>
-                        </div>
 
-                        <!-- Memory -->
-                        <div class="mb-3" *ngIf="iteration.memory && (iteration.memory | keyvalue)?.length > 0">
-                            <h4 class="font-medium text-lg mb-1">Memory State:</h4>
-                            <mat-accordion multi>
-                                <mat-expansion-panel *ngFor="let item of iteration.memory | keyvalue" class="mb-1 !shadow-sm border">
-                                     <mat-expansion-panel-header>
-                                        <mat-panel-title class="!text-sm !font-semibold">
-                                            {{ item.key }}
-                                        </mat-panel-title>
-                                    </mat-expansion-panel-header>
-                                    <div class="bg-gray-50 p-2 rounded text-xs max-h-40 overflow-y-auto">
-                                        <pre class="whitespace-pre-wrap">{{ item.value }}</pre>
+                            <!-- Agent Reasoning/Plan Tabs -->
+                            @if (iteration.expandedUserRequest || iteration.observationsReasoning || iteration.agentPlan || iteration.nextStepDetails) {
+                                <div class="mb-3">
+                                    <h4 class="font-medium text-lg mb-1">Agent Reasoning & Plan:</h4>
+                                    <mat-tab-group animationDuration="0ms">
+                                        @if (iteration.expandedUserRequest) {
+                                            <mat-tab label="Expanded Request">
+                                                <ng-template matTabContent>
+                                                    <div class="bg-gray-100 p-2 rounded border border-gray-200 max-h-60 overflow-y-auto mt-2">
+                                                        <pre class="whitespace-pre-wrap text-sm">{{ iteration.expandedUserRequest }}</pre>
+                                                    </div>
+                                                </ng-template>
+                                            </mat-tab>
+                                        }
+                                        @if (iteration.observationsReasoning) {
+                                            <mat-tab label="Observations/Reasoning">
+                                                <ng-template matTabContent>
+                                                    <div class="bg-gray-100 p-2 rounded border border-gray-200 max-h-60 overflow-y-auto mt-2">
+                                                        <pre class="whitespace-pre-wrap text-sm">{{ iteration.observationsReasoning }}</pre>
+                                                    </div>
+                                                </ng-template>
+                                            </mat-tab>
+                                        }
+                                        @if (iteration.agentPlan) {
+                                            <mat-tab label="Plan">
+                                                 <ng-template matTabContent>
+                                                    <div class="bg-gray-100 p-2 rounded border border-gray-200 max-h-60 overflow-y-auto mt-2">
+                                                        <pre class="whitespace-pre-wrap text-sm">{{ iteration.agentPlan }}</pre>
+                                                    </div>
+                                                </ng-template>
+                                            </mat-tab>
+                                        }
+                                        @if (iteration.nextStepDetails) {
+                                             <mat-tab label="Next Step Details">
+                                                 <ng-template matTabContent>
+                                                    <div class="bg-gray-100 p-2 rounded border border-gray-200 max-h-60 overflow-y-auto mt-2">
+                                                        <pre class="whitespace-pre-wrap text-sm">{{ iteration.nextStepDetails }}</pre>
+                                                    </div>
+                                                </ng-template>
+                                            </mat-tab>
+                                        }
+                                    </mat-tab-group>
+                                </div>
+                            }
+
+                            <!-- Generated Code Tabs -->
+                            <div class="mb-3">
+                                <h4 class="font-medium text-lg mb-1">Code Generation:</h4>
+                                <mat-tab-group animationDuration="0ms">
+                                    <mat-tab label="Draft Generated Code">
+                                        <ng-template matTabContent>
+                                            <div class="bg-gray-100 p-2 rounded border border-gray-200 max-h-60 overflow-y-auto mt-2">
+                                                <pre class="whitespace-pre-wrap text-sm">{{ iteration.draftCode }}</pre>
+                                            </div>
+                                        </ng-template>
+                                    </mat-tab>
+                                    <mat-tab label="Code Review">
+                                        <ng-template matTabContent>
+                                            <div class="bg-gray-100 p-2 rounded border border-gray-200 max-h-60 overflow-y-auto mt-2">
+                                                <pre class="whitespace-pre-wrap text-sm">{{ iteration.codeReview }}</pre>
+                                            </div>
+                                        </ng-template>
+                                    </mat-tab>
+                                    <mat-tab label="Generated Code">
+                                        <ng-template matTabContent>
+                                            <div class="bg-gray-100 p-2 rounded border border-gray-200 max-h-60 overflow-y-auto mt-2">
+                                                <pre class="whitespace-pre-wrap text-sm">{{ iteration.code }}</pre>
+                                            </div>
+                                        </ng-template>
+                                    </mat-tab>
+                                    <mat-tab label="Executed Code">
+                                        <ng-template matTabContent>
+                                            <div class="bg-gray-100 p-2 rounded border border-gray-200 max-h-60 overflow-y-auto mt-2">
+                                                <pre class="whitespace-pre-wrap text-sm">{{ iteration.executedCode }}</pre>
+                                            </div>
+                                        </ng-template>
+                                    </mat-tab>
+                                </mat-tab-group>
+                            </div>
+
+                            <!-- Function Calls -->
+                            @if (iteration.functionCalls?.length > 0) {
+                                <div class="mb-3">
+                                    <h4 class="font-medium text-lg mb-1">Function Calls Executed:</h4>
+                                    <div class="space-y-2">
+                                        @for (call of iteration.functionCalls; track call.function_name + $index) {
+                                            <mat-card class="!shadow-sm border" [ngClass]="{'border-red-300 bg-red-50': hasError(call)}">
+                                                <mat-card-header class="!pt-2 !pb-1">
+                                                    <mat-card-title class="!text-base !font-semibold flex items-center">
+                                                        @if (hasError(call)) {
+                                                            <mat-icon color="warn" class="mr-1 icon-size-5">error</mat-icon>
+                                                        }
+                                                        {{ call.function_name }}
+                                                    </mat-card-title>
+                                                </mat-card-header>
+                                                <mat-card-content class="!pb-2">
+                                                    <div class="text-sm mb-1"><strong>Parameters:</strong></div>
+                                                    <pre class="bg-gray-100 p-2 rounded text-xs max-h-40 overflow-y-auto">{{ call.parameters | json }}</pre>
+
+                                                    @if (call.stdout) {
+                                                        <div class="mt-2">
+                                                            <div class="text-sm mb-1"><strong>Output (stdout):</strong></div>
+                                                            <pre class="bg-green-50 border border-green-200 p-2 rounded text-xs max-h-40 overflow-y-auto">{{ call.stdout }}</pre>
+                                                        </div>
+                                                    }
+                                                    @if (call.stderr) {
+                                                         <div class="mt-2">
+                                                            <div class="text-sm mb-1 text-red-700"><strong>Error (stderr):</strong></div>
+                                                            <pre class="bg-red-50 border border-red-200 p-2 rounded text-xs max-h-40 overflow-y-auto">{{ call.stderr }}</pre>
+                                                        </div>
+                                                    }
+                                                </mat-card-content>
+                                            </mat-card>
+                                        }
                                     </div>
-                                </mat-expansion-panel>
-                            </mat-accordion>
-                        </div>
+                                </div>
+                            }
 
-                        <!-- Tool State
-                        <div class="mb-3" *ngIf="iteration.toolState && (iteration.toolState | keyvalue)?.length > 0">
-                            <h4 class="font-medium text-lg mb-1">Tool State:</h4>
-                             <div class="bg-gray-100 p-2 rounded border border-gray-200 max-h-60 overflow-y-auto">
-                                <pre class="whitespace-pre-wrap text-sm">{{ iteration.toolState | json }}</pre>
-                             </div>
-                        </div>
-                        -->
+                            <!-- Memory -->
+                            @if (iteration.memory && (iteration.memory | keyvalue)?.length > 0) {
+                                <div class="mb-3">
+                                    <h4 class="font-medium text-lg mb-1">Memory State:</h4>
+                                    <mat-accordion multi>
+                                        @for (item of iteration.memory | keyvalue; track item.key) {
+                                            <mat-expansion-panel class="mb-1 !shadow-sm border">
+                                                 <mat-expansion-panel-header>
+                                                    <mat-panel-title class="!text-sm !font-semibold">
+                                                        {{ item.key }}
+                                                    </mat-panel-title>
+                                                </mat-expansion-panel-header>
+                                                <div class="bg-gray-50 p-2 rounded text-xs max-h-40 overflow-y-auto">
+                                                    <pre class="whitespace-pre-wrap">{{ item.value }}</pre>
+                                                </div>
+                                            </mat-expansion-panel>
+                                        }
+                                    </mat-accordion>
+                                </div>
+                            }
 
-                        <!-- Live Files  -->
-                        <div class="mb-3" *ngIf="iteration.toolState && iteration.toolState['LiveFiles']?.length > 0">
-                            <h4 class="font-medium text-lg mb-1">Live Files:</h4>
-                            <mat-chip-listbox aria-label="Live files">
-                                <mat-chip *ngFor="let file of iteration.toolState['LiveFiles']">{{ file }}</mat-chip>
-                            </mat-chip-listbox>
-                        </div>
+                            <!-- Live Files  -->
+                            @if (iteration.toolState && iteration.toolState['LiveFiles']?.length > 0) {
+                                <div class="mb-3">
+                                    <h4 class="font-medium text-lg mb-1">Live Files:</h4>
+                                    <mat-chip-listbox aria-label="Live files">
+                                        @for (file of iteration.toolState['LiveFiles']; track file) {
+                                            <mat-chip>{{ file }}</mat-chip>
+                                        }
+                                    </mat-chip-listbox>
+                                </div>
+                            }
 
-                        <!-- File Store  -->
-                        <div class="mb-3" *ngIf="iteration.toolState && iteration.toolState['FileStore']?.length > 0">
-                            <h4 class="font-medium text-lg mb-1">File Store:</h4>
-                            <div class="space-y-2">
-                                <mat-card *ngFor="let file of iteration.toolState['FileStore']" class="!shadow-sm border">
-                                    <mat-card-content class="!pb-2 !pt-2">
-                                        <div class="text-sm"><strong>{{ file.filename }}</strong></div>
-                                        <div class="text-xs text-gray-600">{{ file.description }}</div>
-                                        <div class="text-xs text-gray-500">Size: {{ file.size }} bytes, Last Updated: {{ file.lastUpdated | date:'short' }}</div>
-                                    </mat-card-content>
-                                </mat-card>
-                            </div>
-                        </div>
+                            <!-- File Store  -->
+                            @if (iteration.toolState && iteration.toolState['FileStore']?.length > 0) {
+                                <div class="mb-3">
+                                    <h4 class="font-medium text-lg mb-1">File Store:</h4>
+                                    <div class="space-y-2">
+                                        @for (file of iteration.toolState['FileStore']; track file.filename) {
+                                            <mat-card class="!shadow-sm border">
+                                                <mat-card-content class="!pb-2 !pt-2">
+                                                    <div class="text-sm"><strong>{{ file.filename }}</strong></div>
+                                                    <div class="text-xs text-gray-600">{{ file.description }}</div>
+                                                    <div class="text-xs text-gray-500">Size: {{ file.size }} bytes, Last Updated: {{ file.lastUpdated | date:'short' }}</div>
+                                                </mat-card-content>
+                                            </mat-card>
+                                        }
+                                    </div>
+                                </div>
+                            }
 
-                        <!-- Iteration Error -->
-                        <div *ngIf="iteration.error" class="mt-3 p-3 border border-red-300 rounded bg-red-50">
-                            <h4 class="font-medium text-lg mb-1 text-red-700">Iteration Error:</h4>
-                            <pre class="whitespace-pre-wrap text-sm text-red-800">{{ iteration.error }}</pre>
+                            <!-- Iteration Error -->
+                            @if (iteration.error) {
+                                <div class="mt-3 p-3 border border-red-300 rounded bg-red-50">
+                                    <h4 class="font-medium text-lg mb-1 text-red-700">Iteration Error:</h4>
+                                    <pre class="whitespace-pre-wrap text-sm text-red-800">{{ iteration.error }}</pre>
+                                </div>
+                            }
                         </div>
-
-                    </div>
-                </mat-expansion-panel>
+                    </mat-expansion-panel>
+                }
             </mat-accordion>
-        </ng-container>
-
-        <ng-template #noIterations>
-            <div *ngIf="!isLoading && !errorLoading && iterations.length === 0" class="text-gray-500 p-4 text-center">
+        } @else {
+            <div class="text-gray-500 p-4 text-center">
                 No iteration data available for this agent.
             </div>
-        </ng-template>
-    </div>
+        }
+    }
 </div>

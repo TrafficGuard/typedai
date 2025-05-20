@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, Input, OnInit, ChangeDetectorRef, OnChanges, SimpleChanges, ViewEncapsulation, OnDestroy } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, signal, effect, inject, OnDestroy, WritableSignal } from '@angular/core';
 import { CommonModule, JsonPipe, KeyValuePipe } from '@angular/common';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -7,13 +7,11 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatIconModule } from '@angular/material/icon';
-// Static import removed
-import { Subject } from 'rxjs';
+import { Subject, Subscription } from 'rxjs'; // Keep Subject for manual cancellation if needed, or just use destroyRef
 import { takeUntil } from 'rxjs/operators';
 import { AgentService } from '../../services/agent.service';
-// AutonomousIterationSchema import removed
 import { AutonomousIteration } from '#shared/model/agent.model';
-import {FunctionCallResult} from "#shared/model/llm.model";
+import { FunctionCallResult } from "#shared/model/llm.model";
 
 @Component({
     selector: 'agent-iterations',
@@ -35,38 +33,30 @@ import {FunctionCallResult} from "#shared/model/llm.model";
         KeyValuePipe,
     ],
 })
-export class AgentIterationsComponent implements OnInit, OnChanges, OnDestroy {
-    @Input() agentId: string | null = null;
+export class AgentIterationsComponent implements OnDestroy {
+    agentId = input<string | null>(null);
 
-    // iterations$: Observable<AutonomousIteration[]>; // Removed observable property
-    iterations: AutonomousIteration[] = []; // Use direct array property
-    isLoading: boolean = false;
-    errorLoading: string | null = null;
+    iterations: WritableSignal<AutonomousIteration[]> = signal([]);
+    isLoading: WritableSignal<boolean> = signal(false);
+    errorLoading: WritableSignal<string | null> = signal(null);
 
-    private destroy$ = new Subject<void>(); // Subject for subscription cleanup
+    private agentService = inject(AgentService);
+    private destroy$ = new Subject<void>(); // For managing ongoing subscriptions during agentId changes
 
-    constructor(
-        private agentService: AgentService,
-        private _changeDetectorRef: ChangeDetectorRef,
-    ) {}
-
-    ngOnInit(): void {}
-
-    ngOnChanges(changes: SimpleChanges): void {
-        if (changes.agentId) {
-            if (this.agentId) {
-                console.log(`AgentIterationsComponent: ngOnChanges detected agentId change to: ${this.agentId}`);
-                this.loadIterations();
+    constructor() {
+        effect(() => {
+            const currentAgentId = this.agentId();
+            if (currentAgentId) {
+                console.log(`AgentIterationsComponent: effect detected agentId change to: ${currentAgentId}`);
+                this.loadIterations(currentAgentId);
             } else {
-                console.log('AgentIterationsComponent: ngOnChanges detected agentId is null/undefined. Clearing iterations.');
-                // Clear iterations and reset state if agentId becomes null
-                this.iterations = [];
-                this.isLoading = false;
-                this.errorLoading = null;
-                this.destroy$.next(); // Cancel any pending request
-                this._changeDetectorRef.markForCheck(); // Trigger CD to clear the view
+                console.log('AgentIterationsComponent: effect detected agentId is null/undefined. Clearing iterations.');
+                this.iterations.set([]);
+                this.isLoading.set(false);
+                this.errorLoading.set(null);
+                this.destroy$.next(); // Cancel any pending request for previous agentId
             }
-        }
+        });
     }
 
     ngOnDestroy(): void {
@@ -74,59 +64,54 @@ export class AgentIterationsComponent implements OnInit, OnChanges, OnDestroy {
         this.destroy$.complete();
     }
 
-    loadIterations(): void {
-        if (!this.agentId) {
+    loadIterations(agentId: string): void {
+        if (!agentId) {
             console.warn('AgentIterationsComponent: loadIterations called with no agentId.');
             return;
         }
-        console.log(`AgentIterationsComponent: Loading iterations for agent ${this.agentId}`);
+        console.log(`AgentIterationsComponent: Loading iterations for agent ${agentId}`);
 
-        this.isLoading = true;
-        this.errorLoading = null;
-        this.iterations = []; // Clear previous iterations before loading new ones
-        this._changeDetectorRef.markForCheck(); // Update UI to show loading state immediately
+        this.isLoading.set(true);
+        this.errorLoading.set(null);
+        this.iterations.set([]); // Clear previous iterations
 
-        // Cancel previous pending request if any
+        // Cancel previous pending request if any, before starting a new one
         this.destroy$.next();
 
-        this.agentService.getAgentIterations(this.agentId).pipe(
-            takeUntil(this.destroy$) // Ensure subscription is cleaned up on destroy or new load
+        this.agentService.getAgentIterations(agentId).pipe(
+            takeUntil(this.destroy$) // Ensure subscription is cleaned up on destroy or new load for a different agentId
         ).subscribe({
             next: (loadedIterations: AutonomousIteration[]) => {
-                console.log(`AgentIterationsComponent: Successfully loaded ${loadedIterations.length} iterations for agent ${this.agentId}`);
+                console.log(`AgentIterationsComponent: Successfully loaded ${loadedIterations.length} iterations for agent ${agentId}`);
                 
-                this.iterations = loadedIterations.map(iter => {
-                    // iter.memory and iter.toolState are already Records from Static<typeof AutonomousIterationSchema>
-                    // and AutonomousIteration model expects Record types.
+                const processedIterations = loadedIterations.map(iter => {
                     return {
                         ...iter,
-                        memory: iter.memory ?? {}, // Default to empty object if undefined, though schema implies presence
-                        toolState: iter.toolState ?? {}, // Default to empty object if undefined, though schema implies presence
+                        memory: iter.memory ?? {},
+                        toolState: iter.toolState ?? {},
                     } as AutonomousIteration;
                 });
-
-                this.isLoading = false;
-                this.errorLoading = null;
-                this._changeDetectorRef.markForCheck(); // Trigger UI update
+                this.iterations.set(processedIterations);
+                this.isLoading.set(false);
+                this.errorLoading.set(null);
             },
             error: (error) => {
-                console.error(`AgentIterationsComponent: Error loading agent iterations for agent ${this.agentId}`, error);
-                this.errorLoading = 'Failed to load iteration data.';
-                this.isLoading = false;
-                this.iterations = []; // Clear iterations on error
-                this._changeDetectorRef.markForCheck(); // Trigger UI update
+                console.error(`AgentIterationsComponent: Error loading agent iterations for agent ${agentId}`, error);
+                this.errorLoading.set('Failed to load iteration data.');
+                this.isLoading.set(false);
+                this.iterations.set([]);
             },
-            // No explicit complete handler needed as isLoading is handled in next/error
         });
     }
 
     // Helper to toggle expansion state for potentially large content sections
+    // This approach of adding a temporary property directly to the iteration object
+    // might not be ideal with signals if the object reference itself doesn't change.
+    // For simplicity, keeping it, but a map of expanded states keyed by iteration ID might be cleaner.
     toggleExpansion(iteration: AutonomousIteration, section: 'prompt' | 'agentPlan' | 'code' | 'functionCalls'): void {
-        // Directly modify the property; Angular's change detection will pick it up
-        // for bindings within the *ngFor loop when the loop itself rerenders or
-        // if the object reference changes (which it doesn't here).
-        // No markForCheck needed for simple property toggles bound in the template.
         iteration[`${section}Expanded`] = !iteration[`${section}Expanded`];
+        // Force a new array reference to trigger ngFor updates if simple property change isn't detected
+        // this.iterations.update(current => [...current]); // Uncomment if expansion doesn't work
     }
 
     // Helper to check if function call has error
@@ -136,7 +121,6 @@ export class AgentIterationsComponent implements OnInit, OnChanges, OnDestroy {
 
     // TrackBy function for ngFor loop for performance
     trackByIteration(index: number, iteration: AutonomousIteration): string {
-        // Use iteration number and agentId for a unique key if available, otherwise fallback to index
         return iteration?.agentId && iteration?.iteration ? `${iteration.agentId}-${iteration.iteration}` : `${index}`;
     }
 }

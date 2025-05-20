@@ -1,11 +1,12 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnChanges, OnInit, SimpleChanges } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { AgentContextApi } from '#shared/schemas/agent.schema';
 import { FileMetadata } from '#shared/model/files.model';
-import { AgentService } from '../../services/agent.service'; // Changed from 'import type'
+// AgentService is not used in this component's logic after refactor
+// import { AgentService } from '../../services/agent.service';
 
 @Component({
 	selector: 'agent-tool-state',
@@ -15,38 +16,18 @@ import { AgentService } from '../../services/agent.service'; // Changed from 'im
 	standalone: true,
 	imports: [CommonModule, MatTableModule, MatProgressSpinnerModule, MatSnackBarModule],
 })
-export class AgentToolStateComponent implements OnInit, OnChanges {
-	@Input() agentDetails!: AgentContextApi;
+export class AgentToolStateComponent {
+	agentDetails = input.required<AgentContextApi>();
 
-	// FileStore fields
-	fileStore: FileMetadata[] = [];
-	liveFiles: string[] = [];
+	liveFiles = computed(() => this.agentDetails()?.liveFiles || []);
+	fileStore = computed(() => this.agentDetails()?.fileStore || []);
 
 	displayedColumns: string[] = ['filename', 'description', 'size', 'lastUpdated'];
 
-	constructor(
-		private agentService: AgentService,
-		private _changeDetectorRef: ChangeDetectorRef,
-		private _snackBar: MatSnackBar,
-	) {}
+	// private agentService = inject(AgentService); // Not used
+	// private _snackBar = inject(MatSnackBar); // Not used
 
-	ngOnInit(): void {
-		// Initial load handled by ngOnChanges
-	}
+	constructor() {}
 
-	ngOnChanges(changes: SimpleChanges): void {
-		// Check if agentDetails input has changed and has a current value
-		if (changes.agentDetails?.currentValue) {
-			// Use direct properties if available, otherwise default to empty arrays
-			this.liveFiles = this.agentDetails.liveFiles || [];
-			this.fileStore = this.agentDetails.fileStore || [];
-		} else {
-			// Reset if agentDetails is not available (e.g., initially or set to null/undefined)
-			this.liveFiles = [];
-			this.fileStore = [];
-		}
-
-		// Trigger change detection as we might have updated the arrays
-		this._changeDetectorRef.markForCheck();
-	}
+	// ngOnInit and ngOnChanges are no longer needed as computed signals handle derivations.
 }

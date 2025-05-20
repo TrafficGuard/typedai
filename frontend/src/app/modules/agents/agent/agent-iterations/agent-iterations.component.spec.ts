@@ -1,5 +1,6 @@
-import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
-import { ChangeDetectorRef } from '@angular/core';
+import { ComponentFixture, TestBed, waitForAsync, fakeAsync, tick } from '@angular/core/testing';
+// ChangeDetectorRef is not typically injected directly into tests for standalone components with signals.
+// import { ChangeDetectorRef } from '@angular/core';
 import { of, throwError } from 'rxjs';
 import { AgentIterationsComponent } from './agent-iterations.component';
 import { AgentService } from '../../services/agent.service';
@@ -26,7 +27,7 @@ describe('AgentIterationsComponent', () => {
   let component: AgentIterationsComponent;
   let fixture: ComponentFixture<AgentIterationsComponent>;
   let agentService: MockAgentService;
-  let cdr: ChangeDetectorRef;
+  // let cdr: ChangeDetectorRef; // Not typically needed for direct injection in tests
 
   const mockIteration: AutonomousIteration = {
     agentId: 'test-agent',
@@ -53,22 +54,20 @@ describe('AgentIterationsComponent', () => {
   beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
       imports: [
-        CommonModule,
-        MatExpansionModule,
-        MatProgressSpinnerModule,
-        MatListModule,
-        MatCardModule,
-        MatChipsModule,
-        MatIconModule,
-        MatTabsModule,
+        // CommonModule, // AgentIterationsComponent imports these itself
+        // MatExpansionModule,
+        // MatProgressSpinnerModule,
+        // MatListModule,
+        // MatCardModule,
+        // MatChipsModule,
+        // MatIconModule,
+        // MatTabsModule,
         NoopAnimationsModule,
         AgentIterationsComponent, // Import standalone component
       ],
       providers: [
         { provide: AgentService, useClass: MockAgentService },
-        // ChangeDetectorRef is usually provided by Angular, but can be spied if needed
       ],
-      // declarations: [AgentIterationsComponent] // Not needed for standalone
     }).compileComponents();
   }));
 
@@ -76,71 +75,66 @@ describe('AgentIterationsComponent', () => {
     fixture = TestBed.createComponent(AgentIterationsComponent);
     component = fixture.componentInstance;
     agentService = TestBed.inject(AgentService) as unknown as MockAgentService;
-    cdr = fixture.debugElement.injector.get(ChangeDetectorRef);
-    // fixture.detectChanges(); // Initial detectChanges if needed, or call after setting inputs
+    // cdr = fixture.debugElement.injector.get(ChangeDetectorRef); // Not typically needed
   });
 
   it('should create', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should load iterations when agentId is set', () => {
+  it('should load iterations when agentId input signal changes', fakeAsync(() => {
     const testAgentId = 'agent123';
     const mockIterationsData: AutonomousIteration[] = [mockIteration];
     spyOn(agentService, 'getAgentIterations').and.returnValue(of(mockIterationsData));
-    spyOn(cdr, 'markForCheck').and.callThrough();
 
-    component.agentId = testAgentId;
-    component.ngOnChanges({
-      agentId: { currentValue: testAgentId, previousValue: null, firstChange: true, isFirstChange: () => true },
-    });
+    component.agentId.set(testAgentId);
+    tick(); // Allow effect to run and async operations to complete
     fixture.detectChanges();
 
     expect(agentService.getAgentIterations).toHaveBeenCalledWith(testAgentId);
-    expect(component.iterations.length).toBe(1);
-    expect(component.iterations[0].summary).toBe('Test iteration summary');
-    expect(component.isLoading).toBe(false);
-    expect(cdr.markForCheck).toHaveBeenCalled();
-  });
+    expect(component.iterations().length).toBe(1);
+    expect(component.iterations()[0].summary).toBe('Test iteration summary');
+    expect(component.isLoading()).toBe(false);
+  }));
 
-  it('should handle empty agentId in ngOnChanges', () => {
-    spyOn(cdr, 'markForCheck').and.callThrough();
-    component.agentId = 'oldAgentId';
-    component.iterations = [mockIteration]; // Simulate existing data
+  it('should clear iterations when agentId input signal becomes null', fakeAsync(() => {
+    component.agentId.set('oldAgentId');
+    tick();
+    fixture.detectChanges(); // Initial load
 
-    component.ngOnChanges({
-      agentId: { currentValue: null, previousValue: 'oldAgentId', firstChange: false, isFirstChange: () => false },
-    });
+    component.iterations.set([mockIteration]); // Simulate existing data
+    component.isLoading.set(false);
+    component.errorLoading.set(null);
+
+    component.agentId.set(null);
+    tick(); // Allow effect to run
     fixture.detectChanges();
 
-    expect(component.iterations.length).toBe(0);
-    expect(component.isLoading).toBe(false);
-    expect(component.errorLoading).toBe(null);
-    expect(cdr.markForCheck).toHaveBeenCalled();
-  });
+    expect(component.iterations().length).toBe(0);
+    expect(component.isLoading()).toBe(false);
+    expect(component.errorLoading()).toBe(null);
+  }));
 
-  it('should handle error when loading iterations', () => {
+  it('should handle error when loading iterations', fakeAsync(() => {
     const testAgentId = 'agent123';
     spyOn(agentService, 'getAgentIterations').and.returnValue(throwError(() => new Error('Load error')));
-    spyOn(cdr, 'markForCheck').and.callThrough();
 
-    component.agentId = testAgentId;
-     component.ngOnChanges({
-      agentId: { currentValue: testAgentId, previousValue: null, firstChange: true, isFirstChange: () => true },
-    });
+    component.agentId.set(testAgentId);
+    tick(); // Allow effect and async operations
     fixture.detectChanges();
 
     expect(agentService.getAgentIterations).toHaveBeenCalledWith(testAgentId);
-    expect(component.iterations.length).toBe(0);
-    expect(component.isLoading).toBe(false);
-    expect(component.errorLoading).toBe('Failed to load iteration data.');
-    expect(cdr.markForCheck).toHaveBeenCalled();
-  });
+    expect(component.iterations().length).toBe(0);
+    expect(component.isLoading()).toBe(false);
+    expect(component.errorLoading()).toBe('Failed to load iteration data.');
+  }));
 
   it('trackByIteration should return a unique key', () => {
     const iteration: AutonomousIteration = { ...mockIteration, agentId: 'agentX', iteration: 5 };
     expect(component.trackByIteration(0, iteration)).toBe('agentX-5');
-    expect(component.trackByIteration(1, { ...mockIteration, agentId: null, iteration: 0 } as any)).toBe('1'); // Fallback
+    // Create a new object that is definitely not AutonomousIteration for the fallback test
+    const nonIterationObject: any = { someOtherProp: 'value' };
+    expect(component.trackByIteration(1, nonIterationObject)).toBe('1');
   });
 
   it('hasError should correctly identify errors in FunctionCallResult', () => {
@@ -154,11 +148,9 @@ describe('AgentIterationsComponent', () => {
     expect(component.hasError(callWithNullStderr)).toBeFalse();
   });
 
-  // Add more tests for toggleExpansion, ngOnDestroy if necessary
-  // For example, testing toggleExpansion:
   it('toggleExpansion should toggle the correct expanded property', () => {
-    const iteration: AutonomousIteration = { ...mockIteration };
-    component.iterations = [iteration];
+    const iteration: AutonomousIteration = { ...mockIteration }; // Create a mutable copy
+    component.iterations.set([iteration]);
     fixture.detectChanges();
 
     expect(iteration['promptExpanded']).toBeUndefined();

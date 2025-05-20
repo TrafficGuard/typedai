@@ -1,27 +1,23 @@
-@if(agentDetails) {
-    <mat-card *ngIf="agentDetails.state === 'hitl_feedback'" class="p-3 mb-4">
+@if(agentDetails()) {
+    <mat-card *ngIf="agentDetails()?.state === 'hitl_feedback'" class="p-3 mb-4">
         <form [formGroup]="feedbackForm" (ngSubmit)="onSubmitFeedback()">
             <mat-card-title class="font-bold pl-5 text-lg">Feedback Requested</mat-card-title>
             <mat-card-content style="margin-bottom: 0; margin-top: 15px">
-                <mat-expansion-panel
-                        *ngIf="agentDetails.functionCallHistory && agentDetails.functionCallHistory.length > 0"
-                        style="width: 1000px; margin-bottom: 20px"
-                >
-                    <mat-expansion-panel-header>
-                        <mat-panel-title>
-                            <span style="margin-right: 5px"><strong>Question:</strong></span>
-                            <span class="expansion-preview"
-                            >{{
-                                    agentDetails.functionCallHistory[agentDetails.functionCallHistory.length - 1].parameters[
-                                        'request'
-                                        ].trim() | slice : 0 : 140
-                                }}...</span
-                            >
-                        </mat-panel-title>
-                    </mat-expansion-panel-header>
-                    <div style="white-space: pre-wrap">{{ agentDetails.functionCallHistory[agentDetails.functionCallHistory.length - 1].parameters['request'].trim() }}
-                    </div>
-                </mat-expansion-panel>
+                @if (agentDetails()?.functionCallHistory && agentDetails()?.functionCallHistory.length > 0) {
+                    <mat-expansion-panel style="width: 1000px; margin-bottom: 20px">
+                        <mat-expansion-panel-header>
+                            <mat-panel-title>
+                                <span style="margin-right: 5px"><strong>Question:</strong></span>
+                                <span class="expansion-preview">
+                                    {{ agentDetails()?.functionCallHistory[agentDetails()!.functionCallHistory.length - 1].parameters['request'].trim() | slice : 0 : 140 }}...
+                                </span>
+                            </mat-panel-title>
+                        </mat-expansion-panel-header>
+                        <div style="white-space: pre-wrap">
+                            {{ agentDetails()?.functionCallHistory[agentDetails()!.functionCallHistory.length - 1].parameters['request'].trim() }}
+                        </div>
+                    </mat-expansion-panel>
+                }
                 <mat-form-field appearance="fill" class="full-width">
                     <textarea
                             matInput
@@ -32,27 +28,29 @@
                 </mat-form-field>
             </mat-card-content>
             <mat-card-actions style="margin-bottom: 0">
-                <button mat-raised-button color="primary" type="submit" [disabled]="!feedbackForm.valid || isSubmitting">
-                    {{ isSubmitting ? 'Sending...' : 'Send Feedback' }}
+                <button mat-raised-button color="primary" type="submit" [disabled]="!feedbackForm.valid || isSubmitting()">
+                    {{ isSubmitting() ? 'Sending...' : 'Send Feedback' }}
                 </button>
-                <button mat-raised-button class="ml-4" (click)="cancelAgent()" [disabled]="isSubmitting">Cancel Agent</button>
+                <button mat-raised-button class="ml-4" (click)="cancelAgent()" [disabled]="isSubmitting()">Cancel Agent</button>
             </mat-card-actions>
         </form>
     </mat-card>
 
-    <mat-card *ngIf="agentDetails?.state === 'error'" class="p-3 mb-4">
+    <mat-card *ngIf="agentDetails()?.state === 'error'" class="p-3 mb-4">
         <form [formGroup]="errorForm" (ngSubmit)="onResumeError()">
             <mat-card-title class="font-bold pl-5 text-lg">Agent Error</mat-card-title>
             <mat-card-content style="margin-bottom: 0; margin-top: 15px">
-                <mat-expansion-panel *ngIf="agentDetails.error" style="width: 1000px; margin-bottom: 20px">
-                    <mat-expansion-panel-header>
-                        <mat-panel-title>
-                            <span style="margin-right: 5px"><strong>Error:</strong></span>
-                            <span class="expansion-preview">{{ agentDetails.error | slice : 0 : 150 }}...</span>
-                        </mat-panel-title>
-                    </mat-expansion-panel-header>
-                    <div style="white-space: pre-wrap">{{ agentDetails.error }}</div>
-                </mat-expansion-panel>
+                @if (agentDetails()?.error) {
+                    <mat-expansion-panel style="width: 1000px; margin-bottom: 20px">
+                        <mat-expansion-panel-header>
+                            <mat-panel-title>
+                                <span style="margin-right: 5px"><strong>Error:</strong></span>
+                                <span class="expansion-preview">{{ agentDetails()?.error | slice : 0 : 150 }}...</span>
+                            </mat-panel-title>
+                        </mat-expansion-panel-header>
+                        <div style="white-space: pre-wrap">{{ agentDetails()?.error }}</div>
+                    </mat-expansion-panel>
+                }
                 <mat-form-field appearance="fill" class="full-width">
                     <textarea
                             matInput
@@ -63,17 +61,17 @@
                 </mat-form-field>
             </mat-card-content>
             <mat-card-actions style="margin-bottom: 0">
-                <button mat-raised-button color="primary" type="submit" [disabled]="!errorForm.valid || isResumingError">
-                    {{ isResumingError ? 'Resuming...' : 'Resume Agent' }}
+                <button mat-raised-button color="primary" type="submit" [disabled]="!errorForm.valid || isResumingError()">
+                    {{ isResumingError() ? 'Resuming...' : 'Resume Agent' }}
                 </button>
-                <button mat-raised-button color="warn" class="ml-4" (click)="cancelAgent()" [disabled]="isResumingError">
+                <button mat-raised-button color="warn" class="ml-4" (click)="cancelAgent()" [disabled]="isResumingError()">
                     Cancel Agent
                 </button>
             </mat-card-actions>
         </form>
     </mat-card>
 
-    <mat-card *ngIf="agentDetails?.state === 'hil'" class="p-3 mb-4">
+    <mat-card *ngIf="agentDetails()?.state === 'hil'" class="p-3 mb-4">
         <form [formGroup]="hilForm" (ngSubmit)="onResumeHil()">
             <mat-card-title class="font-bold pl-5 text-lg">Human In Loop check</mat-card-title>
             <mat-card-content>
@@ -87,10 +85,10 @@
                 </mat-form-field>
             </mat-card-content>
             <mat-card-actions>
-                <button mat-raised-button color="primary" type="submit" [disabled]="isSubmitting">
-                    {{ isSubmitting ? 'Resuming...' : 'Resume' }}
+                <button mat-raised-button color="primary" type="submit" [disabled]="isSubmitting()">
+                    {{ isSubmitting() ? 'Resuming...' : 'Resume' }}
                 </button>
-                <button mat-raised-button color="warn" class="ml-4" (click)="cancelAgent()" [disabled]="isSubmitting">Cancel Agent
+                <button mat-raised-button color="warn" class="ml-4" (click)="cancelAgent()" [disabled]="isSubmitting()">Cancel Agent
                 </button>
             </mat-card-actions>
         </form>
@@ -98,150 +96,168 @@
 
     <mat-card class="p-8">
         <div>
-            <mat-icon (click)="refreshAgentDetails()" class="mr-3 cursor-pointer" [matTooltip]="'Reload'">refresh</mat-icon>
-            <a href="{{ databaseUrl(agentDetails) }}" target="_blank" class="mr-3" [matTooltip]="'View database entry'">
+            <mat-icon (click)="handleRefreshAgentDetails()" class="mr-3 cursor-pointer" [matTooltip]="'Reload'">refresh</mat-icon>
+            <a href="{{ databaseUrl(agentDetails()!) }}" target="_blank" class="mr-3" [matTooltip]="'View database entry'">
                 <mat-icon svgIcon="feather:database" class="scale-75"></mat-icon>
             </a>
-            <a href="{{ traceUrl(agentDetails) }}" target="_blank" class="mr-3" [matTooltip]="'View traces'">
+            <a href="{{ traceUrl(agentDetails()!) }}" target="_blank" class="mr-3" [matTooltip]="'View traces'">
                 <mat-icon class="flip-x">sort</mat-icon>
             </a>
-            <a href="{{ logsUrl(agentDetails) }}" target="_blank" class="mr-3" [matTooltip]="'View logs'">
+            <a href="{{ logsUrl(agentDetails()!) }}" target="_blank" class="mr-3" [matTooltip]="'View logs'">
                 <mat-icon>reorder</mat-icon>
             </a>
             <button
                 mat-icon-button
                 color="warn"
                 (click)="forceStopAgent()"
-                [disabled]="isForcingStop || (agentDetails.state != 'agent' && agentDetails.state !='functions')"
+                [disabled]="isForcingStop() || (agentDetails()?.state != 'agent' && agentDetails()?.state !='functions')"
                 [matTooltip]="'Force Stop Agent (Use with caution)'"
                 class="mr-3">
                 <mat-icon>stop_circle</mat-icon>
             </button>
-            <button
-                *ngIf="agentDetails.type === 'autonomous'"
-                mat-icon-button
-                color="primary"
-                (click)="requestHilCheck()"
-                [disabled]="isRequestingHil || !canRequestHil()"
-                [matTooltip]="'Request Human-in-the-Loop Check'"
-                class="mr-3">
-                <mat-spinner *ngIf="isRequestingHil" diameter="20" class="inline-block mr-1"></mat-spinner>
-                <mat-icon *ngIf="!isRequestingHil">pan_tool_alt</mat-icon>
-            </button>
+            @if (agentDetails()?.type === 'autonomous') {
+                <button
+                    mat-icon-button
+                    color="primary"
+                    (click)="requestHilCheck()"
+                    [disabled]="isRequestingHil() || !canRequestHil()"
+                    [matTooltip]="'Request Human-in-the-Loop Check'"
+                    class="mr-3">
+                    @if (isRequestingHil()) {
+                        <mat-spinner diameter="20" class="inline-block mr-1"></mat-spinner>
+                    } @else {
+                        <mat-icon>pan_tool_alt</mat-icon>
+                    }
+                </button>
+            }
         </div>
 
         <div class="mb-8 flex flex-row space-x-20 items-center sm:mb-0 sm:items-start">
             <div class="mt-2 flex flex-col">
                 <span class="mb-2 font-bold text-lg">Name</span>
-                <span class="mb-2">{{ agentDetails.name }}</span>
+                <span class="mb-2">{{ agentDetails()?.name }}</span>
             </div>
 
             <div class="mt-2 flex flex-col">
                 <span class="mb-2 font-bold text-lg">Type</span>
-                <span class="mb-2">{{ agentDetails.type }}</span>
+                <span class="mb-2">{{ agentDetails()?.type }}</span>
             </div>
 
             <div class="mt-2 flex flex-col">
                 <span class="mb-2 font-bold text-lg">Sub-Type</span>
-                <span class="mb-2">{{ agentDetails.subtype }}</span>
+                <span class="mb-2">{{ agentDetails()?.subtype }}</span>
             </div>
 
             <div class="mt-2 flex flex-col">
                 <span class="mb-2 font-bold text-lg">State</span>
-                <span class="mb-2">{{ displayState(agentDetails.state) }}
-                    <a *ngIf="agentDetails.state === 'completed'" (click)="openResumeModal()" class="resume-link">Resume
-                    agent</a>
+                <span class="mb-2">{{ displayState(agentDetails()!.state) }}
+                    @if (agentDetails()?.state === 'completed') {
+                        <a (click)="openResumeModal()" class="resume-link">Resume agent</a>
+                    }
                 </span>
             </div>
         </div>
 
 
         <div class="mb-8 flex flex-row items-center sm:mb-0 sm:items-start">
-            <div class="mt-2 flex flex-col" *ngIf="agentDetails.parentAgentId">
-                <span class="mb-2 font-bold text-lg">Parent Agent ID</span>
-                <span class="mb-2">{{ agentDetails.parentAgentId }}</span>
-            </div>
+            @if (agentDetails()?.parentAgentId) {
+                <div class="mt-2 flex flex-col">
+                    <span class="mb-2 font-bold text-lg">Parent Agent ID</span>
+                    <span class="mb-2">{{ agentDetails()?.parentAgentId }}</span>
+                </div>
+            }
 
-            <div class="mt-2 flex flex-col" *ngIf="agentDetails.userId">
-                <span class="mb-2 font-bold text-lg">User ID</span>
-                <span class="mb-2">{{ agentDetails.userId }}</span>
-            </div>
+            @if (agentDetails()?.userId) {
+                <div class="mt-2 flex flex-col">
+                    <span class="mb-2 font-bold text-lg">User ID</span>
+                    <span class="mb-2">{{ agentDetails()?.userId }}</span>
+                </div>
+            }
         </div>
 
 
         <span class="mb-2 pt-3 font-bold text-lg">User prompt</span>
-        <mat-expansion-panel (opened)="userPromptExpanded = true" (closed)="userPromptExpanded = false">
+        <mat-expansion-panel (opened)="userPromptExpanded.set(true)" (closed)="userPromptExpanded.set(false)">
             <mat-expansion-panel-header>
                 <mat-panel-title>
-          <span class="expansion-preview" [ngClass]="{ hidden: userPromptExpanded }">{{
-                  agentDetails.userPrompt | slice : 0 : 150
-              }}</span>
+                    <span class="expansion-preview" [ngClass]="{ hidden: userPromptExpanded() }">
+                        {{ agentDetails()?.userPrompt | slice : 0 : 150 }}
+                    </span>
                 </mat-panel-title>
             </mat-expansion-panel-header>
-            <div style="white-space: pre-wrap">{{ agentDetails.userPrompt }}</div>
+            <div style="white-space: pre-wrap">{{ agentDetails()?.userPrompt }}</div>
         </mat-expansion-panel>
 
-        @if (agentDetails.state === 'completed') {
+        @if (agentDetails()?.state === 'completed') {
             <span class="mb-2 pt-3 font-bold text-lg">Output</span>
             <mat-expansion-panel
-                    (opened)="outputExpanded = true"
-                    (closed)="outputExpanded = false"
+                    (opened)="outputExpanded.set(true)"
+                    (closed)="outputExpanded.set(false)"
             >
                 <mat-expansion-panel-header>
                     <mat-panel-title>
-                        <span class="expansion-preview" [ngClass]="{ hidden: outputExpanded }">{{
-                                agentDetails.output | slice : 0 : 150
-                            }}</span>
+                        <span class="expansion-preview" [ngClass]="{ hidden: outputExpanded() }">
+                            {{ agentDetails()?.output | slice : 0 : 150 }}
+                        </span>
                     </mat-panel-title>
                 </mat-expansion-panel-header>
-                <div style="white-space: pre-wrap">{{ agentDetails.output }}</div>
+                <div style="white-space: pre-wrap">{{ agentDetails()?.output }}</div>
             </mat-expansion-panel>
         }
 
         <span class="mb-2 pt-3 font-bold text-lg">Functions</span>
 
         <div class="function-column">
-            <span>{{ agentDetails.functions.sort().join(', ') }}</span>
-            <button
-                    mat-icon-button
-                    (click)="openFunctionEditModal()"
-                    aria-label="Edit functions"
-                    *ngIf="agentDetails.state !== 'agent' && agentDetails.state !== 'functions'"
-            >
-                <mat-icon>edit</mat-icon>
-            </button>
+            <span>{{ agentDetails()?.functions?.functionClasses?.sort().join(', ') }}</span>
+            @if (agentDetails()?.state !== 'agent' && agentDetails()?.state !== 'functions') {
+                <button
+                        mat-icon-button
+                        (click)="openFunctionEditModal()"
+                        aria-label="Edit functions"
+                >
+                    <mat-icon>edit</mat-icon>
+                </button>
+            }
         </div>
 
         <span class="mb-2 pt-3 text-lg font-bold">LLMS</span>
-
-        <div class="llm-container">
-            <div class="llm-column">
-                <span class="llm-level">Easy:</span>
-                <span class="llm-value">{{ getLlmName(agentDetails.llms.easy) }}</span>
+        @if (isLoadingLlms()) {
+            <mat-progress-spinner diameter="20" mode="indeterminate"></mat-progress-spinner>
+        } @else if (llmLoadError()) {
+            <span class="text-red-500">{{ llmLoadError() }}</span>
+        } @else {
+            <div class="llm-container">
+                <div class="llm-column">
+                    <span class="llm-level">Easy:</span>
+                    <span class="llm-value">{{ getLlmName(agentDetails()!.llms.easy) }}</span>
+                </div>
+                <div class="llm-column">
+                    <span class="llm-level">Med:</span>
+                    <span class="llm-value">{{ getLlmName(agentDetails()!.llms.medium) }}</span>
+                </div>
+                <div class="llm-column">
+                    <span class="llm-level">Hard:</span>
+                    <span class="llm-value">{{ getLlmName(agentDetails()!.llms.hard) }}</span>
+                </div>
             </div>
-            <div class="llm-column">
-                <span class="llm-level">Med:</span>
-                <span class="llm-value">{{ getLlmName(agentDetails.llms.medium) }}</span>
-            </div>
-            <div class="llm-column">
-                <span class="llm-level">Hard:</span>
-                <span class="llm-value">{{ getLlmName(agentDetails.llms.hard) }}</span>
-            </div>
-        </div>
+        }
 
 
         <div class="mt-2 pt-3 flex flex-col">
             <span class="mb-2 font-bold text-lg " >Cost</span>
-            <span class="mb-2">${{ agentDetails.cost | number : '1.2-2' }}</span>
+            <span class="mb-2">${{ agentDetails()?.cost | number : '1.2-2' }}</span>
         </div>
 
         <div class="mt-2 flex flex-col">
             <span class="mb-2 font-bold text-lg">Working Directory</span>
-            <span class="mb-2">{{ agentDetails.fileSystem.workingDirectory }}</span>
+            <span class="mb-2">{{ agentDetails()?.fileSystem.workingDirectory }}</span>
         </div>
 
     </mat-card>
 } @else {
-
+    <!-- Optionally show a loading spinner or message while agentDetails is null -->
+    <div class="flex justify-center items-center p-8">
+        <mat-progress-spinner diameter="40" mode="indeterminate"></mat-progress-spinner>
+    </div>
 }
 
