@@ -66,7 +66,7 @@ const testUser: User = {
 	functionConfig: defaultFunctionConfig,
 };
 
-const otherUser: User = {
+export const otherUser: User = {
 	id: 'other-user-456',
 	name: 'John Doe',
 	email: 'other@example.com',

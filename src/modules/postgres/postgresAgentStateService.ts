@@ -4,7 +4,7 @@ import type { AgentContextService } from '#agent/agentContextService/agentContex
 import { deserializeAgentContext, serializeContext } from '#agent/agentSerialization';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
-import type { AgentContext, AgentRunningState, AgentType, AutonomousIteration, isExecuting } from '#shared/model/agent.model';
+import { type AgentContext, type AgentRunningState, type AgentType, type AutonomousIteration, isExecuting } from '#shared/model/agent.model';
 import type { User } from '#shared/model/user.model';
 import { currentUser } from '#user/userContext';
 import type { AgentContextsTable, AgentIterationsTable, Database } from './db';
@@ -282,8 +282,6 @@ export class PostgresAgentStateService implements AgentContextService {
 			.select(['agent_id', 'user_id', 'state', 'parent_agent_id', 'child_agents_ids'])
 			.where('agent_id', 'in', ids)
 			.execute();
-
-		const { isExecuting } = await import('#shared/model/agent.model'); // Dynamic import for isExecuting
 
 		const validParentAgentsToDelete = agentsToDeleteDetails.filter(
 			(agent) =>
