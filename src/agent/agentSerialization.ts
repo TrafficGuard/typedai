@@ -12,60 +12,57 @@ import type { AgentContextSchema } from '#shared/schemas/agent.schema';
 import type { IFileSystemService } from '#shared/services/fileSystemService'; // Corrected import path
 
 export function serializeContext(context: AgentContext): Static<typeof AgentContextSchema> {
-	const serializedData: Partial<Static<typeof AgentContextSchema>> = {};
-
-	serializedData.agentId = context.agentId;
-	serializedData.type = context.type;
-	serializedData.subtype = context.subtype;
-	serializedData.childAgents = context.childAgents ?? [];
-	serializedData.executionId = context.executionId;
-	serializedData.typedAiRepoDir = context.typedAiRepoDir;
-	serializedData.traceId = context.traceId;
-	serializedData.name = context.name;
-	serializedData.parentAgentId = context.parentAgentId;
-	serializedData.vibeSessionId = context.vibeSessionId;
-	serializedData.state = context.state;
-	serializedData.callStack = context.callStack ?? [];
-	serializedData.error = context.error;
-	serializedData.output = context.output;
-	serializedData.hilBudget = context.hilBudget;
-	serializedData.cost = context.cost;
-	serializedData.budgetRemaining = context.budgetRemaining;
-	serializedData.lastUpdate = context.lastUpdate;
-	serializedData.metadata = context.metadata ?? {};
-	serializedData.iterations = context.iterations;
-	serializedData.pendingMessages = context.pendingMessages ?? [];
-	serializedData.invoking = context.invoking ?? [];
-	serializedData.notes = context.notes ?? [];
-	serializedData.userPrompt = context.userPrompt;
-	serializedData.inputPrompt = context.inputPrompt ?? '';
-	serializedData.messages = context.messages ?? [];
-	serializedData.functionCallHistory = context.functionCallHistory ?? [];
-	serializedData.hilCount = context.hilCount;
-	serializedData.hilRequested = context.hilRequested ?? false;
-	serializedData.liveFiles = context.liveFiles ?? [];
-	serializedData.fileStore = context.fileStore ?? [];
-	serializedData.useSharedRepos = context.useSharedRepos ?? true;
-	serializedData.memory = context.memory ?? {};
-
-	// Serialize complex objects into their JSON representation
-	serializedData.functions = context.functions ? context.functions.toJSON() : { functionClasses: [] };
-	serializedData.fileSystem = context.fileSystem ? context.fileSystem.toJSON() : null;
-	// Serialize User object to just its ID
-	serializedData.user = context.user ? context.user.id : 'anonymous-serialized-id-missing'; // Ensure user is serialized as ID
-
-	serializedData.llms = {
-		easy: context.llms.easy?.getId(),
-		medium: context.llms.medium?.getId(),
-		hard: context.llms.hard?.getId(),
-		xhard: context.llms.xhard?.getId(),
+	const serializedData: Static<typeof AgentContextSchema> = {
+		agentId: context.agentId,
+		type: context.type,
+		subtype: context.subtype,
+		childAgents: context.childAgents ?? [],
+		executionId: context.executionId,
+		typedAiRepoDir: context.typedAiRepoDir,
+		traceId: context.traceId,
+		name: context.name,
+		parentAgentId: context.parentAgentId,
+		vibeSessionId: context.vibeSessionId,
+		state: context.state,
+		callStack: context.callStack ?? [],
+		error: context.error,
+		output: context.output,
+		hilBudget: context.hilBudget,
+		cost: context.cost,
+		budgetRemaining: context.budgetRemaining,
+		lastUpdate: context.lastUpdate,
+		metadata: context.metadata ?? {},
+		iterations: context.iterations,
+		pendingMessages: context.pendingMessages ?? [],
+		invoking: context.invoking ?? [],
+		notes: context.notes ?? [],
+		userPrompt: context.userPrompt,
+		inputPrompt: context.inputPrompt ?? '',
+		messages: context.messages ?? [],
+		functionCallHistory: context.functionCallHistory ?? [],
+		hilCount: context.hilCount,
+		hilRequested: context.hilRequested ?? false,
+		liveFiles: context.liveFiles ?? [],
+		fileStore: context.fileStore ?? [],
+		useSharedRepos: context.useSharedRepos ?? true,
+		memory: context.memory ?? {},
+		// Serialize complex objects into their JSON representation
+		functions: context.functions ? context.functions.toJSON() : { functionClasses: [] },
+		fileSystem: context.fileSystem ? context.fileSystem.toJSON() : null,
+		// Serialize User object to just its ID
+		user: context.user ? context.user.id : 'anonymous-serialized-id-missing', // Ensure user is serialized as ID
+		llms: {
+			easy: context.llms.easy?.getId(),
+			medium: context.llms.medium?.getId(),
+			hard: context.llms.hard?.getId(),
+			xhard: context.llms.xhard?.getId(),
+		},
+		// Use the new property name 'completedHandler'
+		completedHandler: context.completedHandler ? context.completedHandler.agentCompletedHandlerId() : undefined,
+		toolState: context.toolState ? JSON.parse(JSON.stringify(context.toolState)) : undefined,
 	};
 
-	// Use the new property name 'completedHandler'
-	serializedData.completedHandler = context.completedHandler ? context.completedHandler.agentCompletedHandlerId() : undefined;
-	serializedData.toolState = context.toolState ? JSON.parse(JSON.stringify(context.toolState)) : undefined;
-
-	return serializedData as Static<typeof AgentContextSchema>;
+	return serializedData;
 }
 
 export function deserializeContext(data: Static<typeof AgentContextSchema>): AgentContext {
