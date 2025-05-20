@@ -55,9 +55,9 @@ export function serializeContext(context: AgentContext): Static<typeof AgentCont
 	serializedData.user = context.user ? context.user.id : 'anonymous-serialized-id-missing'; // Ensure user is serialized as ID
 
 	serializedData.llms = {
-		easy: context.llms.easy.getId(),
-		medium: context.llms.medium.getId(),
-		hard: context.llms.hard.getId(),
+		easy: context.llms.easy?.getId(),
+		medium: context.llms.medium?.getId(),
+		hard: context.llms.hard?.getId(),
 		xhard: context.llms.xhard?.getId(),
 	};
 
