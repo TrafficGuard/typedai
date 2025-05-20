@@ -118,6 +118,21 @@ export interface ChatsTable {
 	created_at: ColumnType<Date, string | Date, string | Date>;
 }
 
+export interface UsersTable {
+	id: string; // PRIMARY KEY
+	name: string | null;
+	email: string; // Should be unique
+	enabled: boolean; // Default true
+	password_hash: string | null;
+	hil_budget: number; // Default 0
+	hil_count: number; // Default 0
+	last_login_at: ColumnType<Date, string | Date, string | Date> | null;
+	created_at: ColumnType<Date, string | Date, string | Date>; // Default to current timestamp
+	llm_config_serialized: string | null; // JSON string of User['llmConfig']
+	chat_config_serialized: string | null; // JSON string of User['chat']
+	function_config_serialized: string | null; // JSON string of User['functionConfig']
+}
+
 export interface Database {
 	agent_contexts: AgentContextsTable;
 	agent_iterations: AgentIterationsTable;
@@ -125,6 +140,7 @@ export interface Database {
 	code_review_configs: CodeReviewConfigsTable;
 	merge_request_review_cache: MergeRequestReviewCacheTable;
 	function_cache: FunctionCacheTable;
+	users: UsersTable;
 }
 
 const dialect = new PostgresDialect({
