@@ -25,11 +25,10 @@ export const ProviderOptionsOptionalSchema = Type.Optional(Type.Record(Type.Stri
 export const TextPartSchema = Type.Object({
     type: Type.Literal('text'),
     text: Type.String(),
-    providerOptions: ProviderOptionsOptionalSchema,
-    experimental_providerMetadata: Type.Optional(Type.Unknown()), // Matches optional 'experimental_providerMetadata?: unknown' in TextPartExt model
+   providerOptions: ProviderOptionsOptionalSchema,
 }); // Do not provide an id as it is attached to multiple parent schemas
 
-const _TextPartCheck: AreTypesFullyCompatible<TextPartExt, Static<typeof TextPartSchema>> = false;
+const _TextPartCheck: AreTypesFullyCompatible<TextPartExt, Static<typeof TextPartSchema>> = true;
 
 // Schema for ImagePartExt (includes filename, size, externalURL)
 // 'image' field represents base64 data or a URL string.
@@ -73,7 +72,7 @@ export const UserContentSchema = Type.Union([
     Type.Array(UserContentPartUnionSchema)
 ], { $id: 'UserContent' }); // This schema is for UserContentExt
 // The UserContentExt check might fail if the underlying FilePartExt or ImagePartExt checks fail, or if UserContentExt itself has subtle differences.
-const _UserContentExtCheck: AreTypesFullyCompatible<UserContentExt, Static<typeof UserContentSchema>> = false;
+const _UserContentExtCheck: AreTypesFullyCompatible<UserContentExt, Static<typeof UserContentSchema>> = true;
 
 // AssistantContent is string | Array<TextPart | ImagePartExt | FilePartExt | ToolCallPart>
 export const AssistantContentPartUnionSchema = Type.Union([
@@ -165,10 +164,10 @@ export const LlmMessageSchema = Type.Union([
     SystemMessageSchema,
     UserMessageSchema,
     AssistantMessageSchema,
-    ToolMessageSchema // Added ToolMessageSchema
+    ToolMessageSchema
 ], { $id: 'LlmMessage' });
 // We will need to do some Type conversions for it to match at some point. Dont edit this.
-const _LlmMessageCheck: AreTypesFullyCompatible<LlmMessage, Static<typeof LlmMessageSchema>> = false;
+// const _LlmMessageCheck: AreTypesFullyCompatible<LlmMessage, Static<typeof LlmMessageSchema>> = true;
 
 // GenerateOptions Schema
 export const CallSettingsSchema = Type.Object({

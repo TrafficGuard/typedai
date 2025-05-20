@@ -74,7 +74,7 @@ export class CodeFunctions {
 	 * @param sourceBranchOrCommit
 	 * @param fileSelection
 	 */
-	@func()
+	// @func()
 	async reviewChanges(requirements: string, sourceBranchOrCommit: string, fileSelection: string[]) {
 		return await reviewChanges(requirements, sourceBranchOrCommit, fileSelection);
 	}

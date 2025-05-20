@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnChanges
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
-import { AgentContextApi } from '#shared/api/agent.api';
+import { AgentContextApi } from '#shared/schemas/agent.schema';
 import { FileMetadata } from '#shared/model/files.model';
 import { AgentService } from '../../services/agent.service'; // Changed from 'import type'
 

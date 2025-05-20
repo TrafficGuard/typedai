@@ -13,7 +13,7 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatSelectModule } from '@angular/material/select';
-import { AgentContextApi } from '#shared/api/agent.api';
+import { AgentContextApi } from '#shared/schemas/agent.schema';
 import { MatDialogModule } from '@angular/material/dialog';
 import { AgentDetailsComponent } from './agent-details/agent-details.component';
 import { AgentMemoryComponent } from './agent-memory/agent-memory.component';

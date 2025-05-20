@@ -121,7 +121,7 @@ interface FilePart {
     // File data. Can either be:
   	// - data: a base64-encoded string, a Uint8Array, an ArrayBuffer, or a Buffer
   	// - URL: a URL that points to the image
-	image: DataContent | URL;
+	data: DataContent | URL;
 	// Mime type of the file.
 	mimeType: string;
 }
@@ -153,13 +153,20 @@ export interface FilePartUI {
     mimeType: string;
 }
 
-export type TextPartExt = TextPart & { providerOptions?: Record<string, any>; experimental_providerMetadata?: unknown; };
+interface TextPartUI {
+    type: 'text';
+    /** The text content */
+    text: string;
+
+}
+
+export type TextPartExt = TextPartUI & { providerOptions?: Record<string, any>; };
 export type ImagePartExt = ImagePartUI & AttachmentInfo & { providerOptions?: Record<string, any> | undefined; };
 export type FilePartExt = FilePartUI & AttachmentInfo & { providerOptions?: Record<string, any> | undefined; };
-export type ToolCallPartExt = ModelToolCallPart; // from 'ai'
+export type ToolCallPartExt = ModelToolCallPart;
 
 
-export type CoreContent = AssistantContent | UserContent | ToolContent; // from 'ai'
+export type CoreContent = AssistantContent | UserContent | ToolContent;
 /** Extension of the 'ai' package UserContent type, using our extended parts */
 export type UserContentExt = string | Array<TextPartExt | ImagePartExt | FilePartExt>;
 /** Extension for AssistantContent, using our extended parts */

@@ -1,4 +1,4 @@
-import {AgentContextApi} from "#shared/api/agent.api";
+import {AgentContextApi} from "#shared/schemas/agent.schema";
 import {environment} from "../../../../environments/environment";
 import type {LlmCall} from "#shared/model/llmCall.model";
 

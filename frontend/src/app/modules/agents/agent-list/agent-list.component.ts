@@ -29,7 +29,7 @@ import { AgentService } from 'app/modules/agents/services/agent.service';
 import { Observable, Subject, debounceTime, switchMap, takeUntil } from 'rxjs';
 import { FormsModule, ReactiveFormsModule, UntypedFormBuilder, UntypedFormControl} from "@angular/forms";
 import { AgentTag, AgentType } from "#shared/model/agent.model";
-import { type AgentContextDisplay } from 'app/modules/agents/services/agent.service'; // Import AgentContextDisplay
+import { type AgentContextApi } from '#shared/schemas/agent.schema';
 import {Pagination} from "../../../core/types";
 
 @Component({
@@ -65,7 +65,7 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
 	@ViewChild(MatPaginator) private _paginator: MatPaginator;
 	@ViewChild(MatSort) private _sort: MatSort;
 
-	agents$: Observable<AgentContextDisplay[]>;
+	agents$: Observable<AgentContextApi[]>
 
 	agentTypes: AgentType[];
 	filteredTags: AgentTag[];
@@ -76,7 +76,7 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
 	tags: AgentTag[];
 	tagsEditMode = false;
 
-	selection = new SelectionModel<AgentContextDisplay>(true, []);
+	selection = new SelectionModel<AgentContextApi>(true, []);
 
 	private _unsubscribeAll: Subject<any> = new Subject<any>();
 
@@ -116,7 +116,7 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
 		this.isLoading = true; // Start loading on init
 		// this.agentService.refreshAgents(); // Trigger initial load via refreshAgents/loadAgents
 
-		this.agentService.agents$.pipe(takeUntil(this._unsubscribeAll)).subscribe((agents: AgentContextDisplay[]) => {
+		this.agentService.agents$.pipe(takeUntil(this._unsubscribeAll)).subscribe((agents: AgentContextApi[]) => {
 			// Set loading false when data arrives or initial state (null) is confirmed
 			this.isLoading = false;
 
@@ -314,7 +314,7 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
 	 * @param index
 	 * @param item
 	 */
-	trackByFn(index: number, item: AgentContextDisplay): string | number {
+	trackByFn(index: number, item: AgentContextApi): string | number {
 		return item.agentId || index; // Use agentId for tracking
 	}
 }

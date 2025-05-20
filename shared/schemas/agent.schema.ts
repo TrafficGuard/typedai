@@ -158,10 +158,7 @@ export const AgentContextSchema = Type.Object({
     memory: Type.Record(Type.String(), Type.String()),
     lastUpdate: Type.Number(),
     metadata: Type.Record(Type.String(), Type.Any()),
-    // Represents LlmFunctions.toJSON()
-    functions: Type.Object({
-        functionClasses: Type.Array(Type.String()),
-    }),
+    functions: Type.Array(Type.String()),
 
     // Serialized as handler ID
     completedHandler: Type.Optional(Type.String()), // Changed from completedHandlerId
@@ -245,6 +242,8 @@ type AgentContextWithSerializedParts = AgentContextBaseForCheck & {
 };
 
 type AgentContextForCheck = AgentContextWithSerializedParts;
+
+export type AgentContextApi = Static<typeof AgentContextSchema>;
 
 // const _agentContextCheck: AreTypesFullyCompatible<AgentContextForCheck, Static<typeof AgentContextSchema>> = true;
 

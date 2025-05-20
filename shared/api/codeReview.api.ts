@@ -1,4 +1,4 @@
-import {Type} from '@sinclair/typebox'; // Import Type
+import {Type} from '@sinclair/typebox';
 import {defineRoute} from '#shared/api-definitions';
 import {
     CodeReviewConfigSchema,
