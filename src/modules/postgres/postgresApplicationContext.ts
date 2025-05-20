@@ -1,4 +1,5 @@
 import type { ApplicationContext } from '../../app/applicationTypes';
+import { PostgresFunctionCacheService } from './postgresFunctionCacheService';
 
 export function postgresApplicationContext(): ApplicationContext {
 	return {
@@ -6,7 +7,7 @@ export function postgresApplicationContext(): ApplicationContext {
 		chatService: null,
 		userService: null,
 		llmCallService: null,
-		functionCacheService: null,
+		functionCacheService: new PostgresFunctionCacheService(),
 		codeReviewService: null,
 		promptsService: null,
 		vibeRepository: null,

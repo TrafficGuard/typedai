@@ -44,6 +44,17 @@ export interface AgentContextsTable {
 	created_at: ColumnType<Date, string | Date, string | Date>;
 }
 
+// Suggested DDL constraint: UNIQUE (scope, scope_identifier, cache_key_hash)
+export interface FunctionCacheTable {
+	id: string; // PRIMARY KEY
+	scope: string;
+	scope_identifier: string | null;
+	cache_key_hash: string;
+	value_json: string; // TEXT or JSONB
+	created_at: ColumnType<Date, string | Date, string | Date>; // TIMESTAMPTZ, default NOW()
+	expires_at: ColumnType<Date, string | Date, string | Date> | null; // TIMESTAMPTZ, nullable
+}
+
 export interface CodeReviewConfigsTable {
 	id: string; // PRIMARY KEY
 	title: string;
@@ -113,6 +124,7 @@ export interface Database {
 	chats: ChatsTable;
 	code_review_configs: CodeReviewConfigsTable;
 	merge_request_review_cache: MergeRequestReviewCacheTable;
+	function_cache: FunctionCacheTable;
 }
 
 const dialect = new PostgresDialect({
