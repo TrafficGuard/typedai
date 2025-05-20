@@ -76,16 +76,10 @@ export class AgentComponent implements OnInit {
 
         this.agentService.getAgentDetails(this.agentId)
             .subscribe(
-                details => {
-                    this.agentDetails = (details as any).data;
+                (apiDetails: AgentContextApi) => {
+                    this.agentDetails = apiDetails;
 
-                    if(typeof this.agentDetails.toolState === 'string') {
-                        this.agentDetails.toolState = new Map(Object.entries(JSON.parse(this.agentDetails.toolState)));
-                    }
-                    this.agentDetails.toolState ??= new Map();
-
-                    if(typeof this.agentDetails.functionCallHistory === 'string')
-                        this.agentDetails.functionCallHistory = JSON.parse(this.agentDetails.functionCallHistory);
+                    this.agentDetails.toolState = this.agentDetails.toolState ?? {};
 
                     this.agentDetails.output = null;
                     if (this.agentDetails && this.agentDetails.state === 'completed') {
