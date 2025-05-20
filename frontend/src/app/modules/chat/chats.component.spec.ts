@@ -209,23 +209,28 @@ describe('ChatsComponent', () => {
     }));
 
     it('should unsubscribe from chatSubscription on destroy', () => {
-        const mockSubscription = new Subscription();
-        spyOn(mockSubscription, 'unsubscribe');
-        component['chatSubscription'] = mockSubscription; // Access private member for test
+        // Ensure there's a subscription to test against
+        mockChatService.setMockChatData([]);
+        fixture.detectChanges(); // This will create the subscription
+        tick(); // Allow subscription to complete its setup if async
+
+        const subscription = component['chatSubscription']; // Access private member
+        expect(subscription).toBeDefined();
+        spyOn(subscription!, 'unsubscribe');
 
         component.ngOnDestroy();
-        expect(mockSubscription.unsubscribe).toHaveBeenCalled();
-    });
+        expect(subscription!.unsubscribe).toHaveBeenCalled();
+    }));
     
-    // Test for createNewChat (basic, as it's a placeholder)
+    // Test for createNewChat (basic, as it's a placeholder, but ensure it's covered)
     it('should call router.navigate on createNewChat', () => {
-        const router = TestBed.inject(Router);
+        router = TestBed.inject(Router); // Ensure router is injected for this test
         spyOn(router, 'navigate');
         component.createNewChat();
         expect(router.navigate).toHaveBeenCalledWith(['/apps/chat', NEW_CHAT_ID]);
     });
 
-    // Test for deleteChat (basic, as it's a placeholder)
+    // Test for deleteChat (basic, as it's a placeholder, but ensure it's covered)
     it('should stop propagation and prevent default on deleteChat, and call service if not NEW_CHAT_ID', () => {
         const mockEvent = jasmine.createSpyObj('MouseEvent', ['stopPropagation', 'preventDefault']);
         const testChat: Chat = { id: 'chat123', title: 'Test Chat to Delete', updatedAt: Date.now() };
