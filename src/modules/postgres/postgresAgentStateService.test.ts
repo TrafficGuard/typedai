@@ -1,10 +1,10 @@
 import chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
+import { otherUser, runAgentStateServiceTests, testUser } from '#agent/agentContextService/agentContextService.test';
 import { appContext } from '#app/applicationContext';
-import { runAgentStateServiceTests, testUser, otherUser } from '#agent/agentContextService/agentContextService.test';
-import { PostgresAgentStateService } from './postgresAgentStateService';
-import { db } from './db';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
+import { db } from './db';
+import { PostgresAgentStateService } from './postgresAgentStateService';
 
 chai.use(chaiAsPromised);
 

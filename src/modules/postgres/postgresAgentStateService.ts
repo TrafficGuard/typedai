@@ -1,4 +1,4 @@
-import type { Kysely, Transaction, Selectable, Insertable, Updateable } from 'kysely';
+import type { Insertable, Kysely, Selectable, Transaction, Updateable } from 'kysely';
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import type { AgentContextService } from '#agent/agentContextService/agentContextService';
 import { deserializeAgentContext, serializeContext } from '#agent/agentSerialization';
@@ -154,7 +154,7 @@ export class PostgresAgentStateService implements AgentContextService {
 	async save(state: AgentContext): Promise<void> {
 		const dbData = this._serializeContextForDb(state);
 		const now = new Date();
-		
+
 		const valuesToInsert: Insertable<AgentContextsTable> = {
 			...dbData,
 			agent_id: state.agentId,
@@ -165,7 +165,7 @@ export class PostgresAgentStateService implements AgentContextService {
 			created_at: now,
 			last_update: now,
 		};
-		
+
 		const valuesToUpdate: Updateable<AgentContextsTable> = {
 			...dbData,
 			// user_id is part of dbData
@@ -214,11 +214,7 @@ export class PostgresAgentStateService implements AgentContextService {
 
 	async updateState(ctx: AgentContext, state: AgentRunningState): Promise<void> {
 		const now = new Date();
-		await this.db
-			.updateTable('agent_contexts')
-			.set({ state: state, last_update: now })
-			.where('agent_id', '=', ctx.agentId)
-			.execute();
+		await this.db.updateTable('agent_contexts').set({ state: state, last_update: now }).where('agent_id', '=', ctx.agentId).execute();
 		ctx.state = state;
 		ctx.lastUpdate = now.getTime();
 	}
@@ -231,11 +227,7 @@ export class PostgresAgentStateService implements AgentContextService {
 
 	async requestHumanInLoopCheck(agent: AgentContext): Promise<void> {
 		const now = new Date();
-		await this.db
-			.updateTable('agent_contexts')
-			.set({ hil_requested: true, last_update: now })
-			.where('agent_id', '=', agent.agentId)
-			.execute();
+		await this.db.updateTable('agent_contexts').set({ hil_requested: true, last_update: now }).where('agent_id', '=', agent.agentId).execute();
 		agent.hilRequested = true;
 		agent.lastUpdate = now.getTime();
 	}
@@ -285,9 +277,7 @@ export class PostgresAgentStateService implements AgentContextService {
 
 		const validParentAgentsToDelete = agentsToDeleteDetails.filter(
 			(agent) =>
-				agent.user_id === userId &&
-				(!agent.state || !isExecuting({ state: agent.state as AgentRunningState } as AgentContext)) &&
-				!agent.parent_agent_id,
+				agent.user_id === userId && (!agent.state || !isExecuting({ state: agent.state as AgentRunningState } as AgentContext)) && !agent.parent_agent_id,
 		);
 
 		const allIdsToDelete = new Set<string>();
@@ -351,7 +341,7 @@ export class PostgresAgentStateService implements AgentContextService {
 			iteration_number: iterationData.iteration,
 			created_at: now,
 		};
-		
+
 		// For ON CONFLICT DO UPDATE, Kysely expects a subset of Updateable<AgentIterationsTable>
 		// We need to construct this carefully, excluding primary keys from the set clause.
 		const { agent_id, iteration_number, created_at, ...updateData } = valuesToInsert;
@@ -360,7 +350,6 @@ export class PostgresAgentStateService implements AgentContextService {
 			// created_at should not be updated by onConflict typically, but if it were, it would be `created_at: now,`
 			// For this model, we are updating all non-PK fields.
 		};
-
 
 		await this.db
 			.insertInto('agent_iterations')
@@ -376,12 +365,7 @@ export class PostgresAgentStateService implements AgentContextService {
 		// However, for safety, an explicit check against currentUser() might be good if load() doesn't guarantee it.
 		// The shared test suite implies load() should work for the current user.
 
-		const rows = await this.db
-			.selectFrom('agent_iterations')
-			.selectAll()
-			.where('agent_id', '=', agentId)
-			.orderBy('iteration_number', 'asc')
-			.execute();
+		const rows = await this.db.selectFrom('agent_iterations').selectAll().where('agent_id', '=', agentId).orderBy('iteration_number', 'asc').execute();
 
 		return rows.map((row) => this._deserializeDbRowToIteration(row));
 	}

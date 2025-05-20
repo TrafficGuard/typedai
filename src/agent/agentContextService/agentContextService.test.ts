@@ -52,7 +52,7 @@ function agentId(): string {
 	return randomUUID();
 }
 
-const testUser: User = {
+export const testUser: User = {
 	id: 'test-user-123',
 	name: 'John Doe',
 	email: 'test@example.com',
