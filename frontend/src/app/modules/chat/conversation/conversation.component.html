@@ -114,7 +114,13 @@
                                                         ngPreserveWhitespaces
                                                     ></markdown>
                                                 } @else if (chunk.type === 'text') {
+                                                    <markdown
+                                                        [data]="chunk.value"
+                                                        ngPreserveWhitespaces
+                                                    ></markdown>
+                                                    <!--
                                                     <span [innerText]="chunk.value"></span>
+                                                    -->
                                                 }
                                             }
                                         } @else {
