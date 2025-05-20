@@ -73,7 +73,7 @@
 
             <!-- Content Area: Chat List or No Chats Message -->
             <div *ngIf="!isLoading && !error">
-                @if (chats && chats.length > 0) {
+                @if (chats.length > 0) {
                     @for (chat of chats; track chat.id) {
                         <a
                             class="z-20 flex cursor-pointer items-center border-b px-0 py-3"
@@ -140,10 +140,11 @@
 
     <!-- Conversation -->
     <!-- This part remains largely unchanged by the loading logic for the list itself -->
-    @if (chats !== null && chats !== undefined) { <!-- Condition might need adjustment based on selectedChat -->
-        <div
-            class="flex-auto border-l"
-            [ngClass]="{
+    <!-- The @if condition on 'chats' was removed as 'chats' is always an array.
+         The [ngClass] and router configuration handle the display of the conversation area. -->
+    <div
+        class="flex-auto border-l"
+        [ngClass]="{
                 'absolute inset-0 z-20 flex lg:static lg:inset-auto':
                     selectedChat && selectedChat.id,
                 'hidden lg:flex': !selectedChat || !selectedChat.id,
