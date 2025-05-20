@@ -6,8 +6,14 @@ import { getLLM } from '#llm/llmFactory';
 import { summaryLLM } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { CHAT_API } from '#shared/api/chat.api';
-import type { Chat, ChatList } from '#shared/model/chat.model';
-import type { LLM, LlmMessage } from '#shared/model/llm.model';
+import type { Chat, ChatList, ChatMessage } from '#shared/model/chat.model';
+import type {
+	LLM,
+	LlmMessage,
+	UserContentExt,
+	AssistantContent,
+	TextPart,
+} from '#shared/model/llm.model';
 import type {
 	ChatMarkdownRequestSchema,
 	ChatMarkdownResponseModel,
@@ -19,6 +25,17 @@ import type {
 } from '#shared/schemas/chat.schema';
 import type { LlmMessageSchemaModel } from '#shared/schemas/llm.schema';
 import { currentUser } from '#user/userContext';
+
+// Helper function to convert complex content types to a simple string
+type ContentWithStringOrTextParts = string | Array<({ type: 'text'; text: string } | { type: string })>;
+
+function contentToText(content: ContentWithStringOrTextParts): string {
+	if (typeof content === 'string') {
+		return content;
+	}
+	const textPart = content.find((part) => part.type === 'text' && 'text' in part) as TextPart | undefined;
+	return textPart ? textPart.text : '';
+}
 
 export async function chatRoutes(fastify: AppFastifyInstance) {
 	fastify.get(
@@ -63,15 +80,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			}
 			if (!llm.isConfigured()) return sendBadRequest(reply, `LLM ${llm.getId()} is not configured`);
 
-			let textForTitle = '';
-			if (typeof userContent === 'string') {
-				textForTitle = userContent;
-			} else {
-				const textPart = userContent.find((content) => content.type === 'text' && 'text' in content);
-				if (textPart && 'text' in textPart) {
-					textForTitle = textPart.text;
-				}
-			}
+			const textForTitle = contentToText(userContent as UserContentExt);
 
 			const titleLLM = summaryLLM().isConfigured() ? summaryLLM() : llm;
 			const titlePromise: Promise<string> | undefined = titleLLM.generateText(
@@ -79,10 +88,17 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 				{ id: 'Chat title' },
 			);
 
-			chat.messages.push({ role: 'user', content: userContent, time: Date.now() });
+			chat.messages.push({ role: 'user', content: contentToText(userContent as UserContentExt) });
 
-			const message: LlmMessage = await llm.generateMessage(chat.messages, { id: 'chat', ...options });
-			chat.messages.push(message);
+			const llmMessagesForApi = chat.messages.map((cm) => ({
+				role: cm.role as LlmMessage['role'],
+				content: cm.content,
+			}));
+			const responseMessage: LlmMessage = await llm.generateMessage(llmMessagesForApi, { id: 'chat', ...options });
+			chat.messages.push({
+				role: responseMessage.role as ChatMessage['role'],
+				content: contentToText(responseMessage.content as AssistantContent),
+			});
 
 			if (titlePromise) chat.title = await titlePromise;
 
@@ -112,10 +128,17 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			}
 			if (!llm.isConfigured()) return sendBadRequest(reply, `LLM ${llm.getId()} is not configured`);
 
-			chat.messages.push({ role: 'user', content: userContent, time: Date.now() });
+			chat.messages.push({ role: 'user', content: contentToText(userContent as UserContentExt) });
 
-			const responseMessage = await llm.generateMessage(chat.messages, { id: 'chat', ...options });
-			chat.messages.push(responseMessage);
+			const llmMessagesForApi = chat.messages.map((cm) => ({
+				role: cm.role as LlmMessage['role'],
+				content: cm.content,
+			}));
+			const responseMessage = await llm.generateMessage(llmMessagesForApi, { id: 'chat', ...options });
+			chat.messages.push({
+				role: responseMessage.role as ChatMessage['role'],
+				content: contentToText(responseMessage.content as AssistantContent),
+			});
 
 			await fastify.chatService.saveChat(chat);
 
@@ -154,10 +177,17 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 
 			chat.messages = chat.messages.slice(0, historyTruncateIndex - 1);
 
-			chat.messages.push({ role: 'user', content: userContent, time: Date.now() });
+			chat.messages.push({ role: 'user', content: contentToText(userContent as UserContentExt) });
 
-			const responseMessage = await llm.generateMessage(chat.messages, { id: 'chat-regenerate', ...options });
-			chat.messages.push(responseMessage);
+			const llmMessagesForApi = chat.messages.map((cm) => ({
+				role: cm.role as LlmMessage['role'],
+				content: cm.content,
+			}));
+			const responseMessage = await llm.generateMessage(llmMessagesForApi, { id: 'chat-regenerate', ...options });
+			chat.messages.push({
+				role: responseMessage.role as ChatMessage['role'],
+				content: contentToText(responseMessage.content as AssistantContent),
+			});
 			chat.updatedAt = Date.now();
 
 			await fastify.chatService.saveChat(chat);
