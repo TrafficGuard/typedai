@@ -7,13 +7,15 @@ import { summaryLLM } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { CHAT_API } from '#shared/api/chat.api';
 import type { Chat, ChatList, ChatMessage } from '#shared/model/chat.model';
+import {
+	contentText, // Import as value
+} from '#shared/model/llm.model';
 import type {
 	LLM,
 	LlmMessage,
 	UserContentExt,
-	AssistantContent,
+	AssistantContent, // Import as type
 	TextPart,
-	contentText,
 } from '#shared/model/llm.model';
 import type {
 	ChatMarkdownRequestSchema,

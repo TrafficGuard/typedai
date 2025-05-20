@@ -9,6 +9,7 @@ import {
     type ToolContent,
     type UserContent,
 } from 'ai';
+export type { AssistantContent } from 'ai'; // Re-export AssistantContent
 import {ChangePropertyType} from "../typeUtils";
 
 // Should match fields in CallSettings in node_modules/ai/dist/index.d.ts

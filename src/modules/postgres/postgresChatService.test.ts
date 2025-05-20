@@ -1,6 +1,6 @@
 import { runChatServiceTests } from '#chat/chatService.test';
-import { PostgresChatService } from './postgresChatService';
 import { db } from './db';
+import { PostgresChatService } from './postgresChatService';
 
 describe('PostgresChatService', () => {
 	runChatServiceTests(
@@ -18,7 +18,7 @@ describe('PostgresChatService', () => {
 				// MySQL might use ER_NO_SUCH_TABLE (1146).
 				if (
 					(error.code && error.code === '42P01') || // PostgreSQL
-					(error.message && error.message.toLowerCase().includes('no such table')) || // SQLite, potentially others
+					error.message?.toLowerCase().includes('no such table') || // SQLite, potentially others
 					(error.errno && error.errno === 1146) // MySQL
 				) {
 					// Log a warning if the table doesn't exist, as it's not an error for the test setup.

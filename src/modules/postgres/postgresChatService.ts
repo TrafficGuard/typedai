@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import type { Kysely, Selectable, Insertable, Updateable, ExpressionBuilder } from 'kysely';
+import type { ExpressionBuilder, Insertable, Kysely, Selectable, Updateable } from 'kysely';
 import type { ChatService } from '#chat/chatService';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import { CHAT_PREVIEW_KEYS, type Chat, type ChatList, type ChatMessage, type ChatPreview } from '#shared/model/chat.model';
 import { currentUser } from '#user/userContext';
-import { db, type Database, type ChatsTable } from './db';
+import { type ChatsTable, type Database, db } from './db';
 
 export class PostgresChatService implements ChatService {
 	private mapDbRowToChat(row: Selectable<ChatsTable>): Chat {
@@ -92,11 +92,10 @@ export class PostgresChatService implements ChatService {
 					throw new Error(`Chat with id ${chat.id} not found for update.`);
 				}
 				return this.mapDbRowToChat(updatedRow);
-			} else {
-				const insertData = this.mapChatToDbInsert(chat);
-				const insertedRow = await db.insertInto('chats').values(insertData).returningAll().executeTakeFirstOrThrow();
-				return this.mapDbRowToChat(insertedRow);
 			}
+			const insertData = this.mapChatToDbInsert(chat);
+			const insertedRow = await db.insertInto('chats').values(insertData).returningAll().executeTakeFirstOrThrow();
+			return this.mapDbRowToChat(insertedRow);
 		} catch (error) {
 			logger.error(error, `Error saving chat ${chat.id}`);
 			throw error;
@@ -126,10 +125,7 @@ export class PostgresChatService implements ChatService {
 
 			if (cursorDoc) {
 				query = query.where((eb: ExpressionBuilder<Database, 'chats'>) =>
-					eb.or([
-						eb('updated_at', '<', cursorDoc.updated_at),
-						eb.and([eb('updated_at', '=', cursorDoc.updated_at), eb('id', '<', cursorDoc.id)]),
-					]),
+					eb.or([eb('updated_at', '<', cursorDoc.updated_at), eb.and([eb('updated_at', '=', cursorDoc.updated_at), eb('id', '<', cursorDoc.id)])]),
 				);
 			}
 		}
@@ -152,22 +148,16 @@ export class PostgresChatService implements ChatService {
 	@span()
 	async deleteChat(chatId: string): Promise<void> {
 		const userId = currentUser().id;
-		const chatOwnerCheck = await db
-			.selectFrom('chats')
-			.select('id')
-			.where('id', '=', chatId)
-			.where('user_id', '=', userId)
-			.executeTakeFirst();
+		const chatOwnerCheck = await db.selectFrom('chats').select('id').where('id', '=', chatId).where('user_id', '=', userId).executeTakeFirst();
 
 		if (!chatOwnerCheck) {
 			const existsAnyUser = await db.selectFrom('chats').select('id').where('id', '=', chatId).executeTakeFirst();
 			if (!existsAnyUser) {
 				logger.warn(`Chat with id ${chatId} not found for deletion.`);
 				throw new Error(`Chat with id ${chatId} not found`);
-			} else {
-				logger.warn(`User ${userId} is not authorized to delete chat ${chatId}`);
-				throw new Error('Not authorized to delete this chat');
 			}
+			logger.warn(`User ${userId} is not authorized to delete chat ${chatId}`);
+			throw new Error('Not authorized to delete this chat');
 		}
 
 		const result = await db.deleteFrom('chats').where('id', '=', chatId).where('user_id', '=', userId).executeTakeFirst();
