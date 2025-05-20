@@ -1,4 +1,4 @@
-import type { Kysely, Transaction } from 'kysely';
+import type { Kysely, Transaction, Selectable, Insertable, Updateable } from 'kysely';
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import type { AgentContextService } from '#agent/agentContextService/agentContextService';
 import { deserializeAgentContext, serializeContext } from '#agent/agentSerialization';
@@ -10,10 +10,10 @@ import { currentUser } from '#user/userContext';
 import type { AgentContextsTable, AgentIterationsTable, Database } from './db';
 import { db as defaultDb } from './db';
 
-type InsertableAgentContext = Omit<AgentContextsTable, 'agent_id' | 'created_at' | 'last_update'>;
-type UpdatableAgentContext = Partial<InsertableAgentContext & { last_update: Date }>;
-
-type InsertableAgentIteration = Omit<AgentIterationsTable, 'agent_id' | 'iteration_number' | 'created_at'>;
+// Type alias for the return type of _serializeContextForDb
+type SerializedAgentContextData = Omit<Insertable<AgentContextsTable>, 'agent_id' | 'created_at' | 'last_update'>;
+// Type alias for the return type of _serializeIterationForDb
+type SerializedAgentIterationData = Omit<Insertable<AgentIterationsTable>, 'agent_id' | 'iteration_number' | 'created_at'>;
 
 export class PostgresAgentStateService implements AgentContextService {
 	private db: Kysely<Database>;
@@ -22,7 +22,7 @@ export class PostgresAgentStateService implements AgentContextService {
 		this.db = dbInstance || defaultDb;
 	}
 
-	private _serializeContextForDb(context: AgentContext): InsertableAgentContext {
+	private _serializeContextForDb(context: AgentContext): SerializedAgentContextData {
 		const serialized = serializeContext(context);
 		return {
 			execution_id: serialized.executionId,
@@ -60,7 +60,7 @@ export class PostgresAgentStateService implements AgentContextService {
 		};
 	}
 
-	private async _deserializeDbRowToAgentContext(row: AgentContextsTable): Promise<AgentContext> {
+	private async _deserializeDbRowToAgentContext(row: Selectable<AgentContextsTable>): Promise<AgentContext> {
 		const userForDeserialization = currentUser().id === row.user_id ? currentUser() : ({ id: row.user_id } as User);
 
 		const dataForDeserialization = {
@@ -81,7 +81,7 @@ export class PostgresAgentStateService implements AgentContextService {
 			llms: row.llms_serialized,
 			useSharedRepos: row.use_shared_repos,
 			memory: row.memory_serialized,
-			lastUpdate: row.last_update.getTime(),
+			lastUpdate: (row.last_update as Date).getTime(),
 			metadata: row.metadata_serialized,
 			functions: row.functions_serialized,
 			completedHandler: row.completed_handler_id,
@@ -102,7 +102,7 @@ export class PostgresAgentStateService implements AgentContextService {
 		return deserializeAgentContext(dataForDeserialization as any);
 	}
 
-	private _serializeIterationForDb(iteration: AutonomousIteration): InsertableAgentIteration {
+	private _serializeIterationForDb(iteration: AutonomousIteration): SerializedAgentIterationData {
 		return {
 			functions_serialized: iteration.functions,
 			prompt: iteration.prompt,
@@ -125,7 +125,7 @@ export class PostgresAgentStateService implements AgentContextService {
 		};
 	}
 
-	private _deserializeDbRowToIteration(row: AgentIterationsTable): AutonomousIteration {
+	private _deserializeDbRowToIteration(row: Selectable<AgentIterationsTable>): AutonomousIteration {
 		return {
 			agentId: row.agent_id,
 			iteration: row.iteration_number,
@@ -154,14 +154,32 @@ export class PostgresAgentStateService implements AgentContextService {
 	async save(state: AgentContext): Promise<void> {
 		const dbData = this._serializeContextForDb(state);
 		const now = new Date();
-		const valuesToInsert = { ...dbData, agent_id: state.agentId, created_at: now, last_update: now };
-		const valuesToUpdate: UpdatableAgentContext = { ...dbData, last_update: now };
+		
+		const valuesToInsert: Insertable<AgentContextsTable> = {
+			...dbData,
+			agent_id: state.agentId,
+			// user_id is part of dbData
+			// state is part of dbData
+			// cost is part of dbData
+			// etc.
+			created_at: now,
+			last_update: now,
+		};
+		
+		const valuesToUpdate: Updateable<AgentContextsTable> = {
+			...dbData,
+			// user_id is part of dbData
+			// state is part of dbData
+			// cost is part of dbData
+			// etc.
+			last_update: now,
+		};
 
 		const saveOperation = async (trx: Transaction<Database>) => {
 			await trx
 				.insertInto('agent_contexts')
 				.values(valuesToInsert)
-				.onConflict((oc) => oc.column('agent_id').doUpdateSet(valuesToUpdate))
+				.onConflict((oc) => oc.column('agent_id').doUpdateSet(valuesToUpdate)) // valuesToUpdate is a subset of fields for update
 				.execute();
 		};
 
@@ -329,14 +347,22 @@ export class PostgresAgentStateService implements AgentContextService {
 		const dbData = this._serializeIterationForDb(iterationData);
 		const now = new Date();
 
-		const valuesToInsert = {
+		const valuesToInsert: Insertable<AgentIterationsTable> = {
 			...dbData,
 			agent_id: iterationData.agentId,
 			iteration_number: iterationData.iteration,
 			created_at: now,
 		};
-		// For ON CONFLICT DO UPDATE, exclude primary key parts from SET
-		const { agent_id, iteration_number, ...valuesToUpdate } = valuesToInsert;
+		
+		// For ON CONFLICT DO UPDATE, Kysely expects a subset of Updateable<AgentIterationsTable>
+		// We need to construct this carefully, excluding primary keys from the set clause.
+		const { agent_id, iteration_number, created_at, ...updateData } = valuesToInsert;
+		const valuesToUpdate: Updateable<AgentIterationsTable> = {
+			...updateData, // Contains all fields from dbData
+			// created_at should not be updated by onConflict typically, but if it were, it would be `created_at: now,`
+			// For this model, we are updating all non-PK fields.
+		};
+
 
 		await this.db
 			.insertInto('agent_iterations')

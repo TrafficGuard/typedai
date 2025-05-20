@@ -1,8 +1,7 @@
 import chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { appContext } from '#app/applicationContext';
-import { runAgentStateServiceTests } from '#agent/agentContextService/agentContextService.test';
-import { testUser, otherUser } from '#agent/agentContextService/agentContextService.testSharedData'; // Assuming shared data is exported
+import { runAgentStateServiceTests, testUser, otherUser } from '#agent/agentContextService/agentContextService.test';
 import { PostgresAgentStateService } from './postgresAgentStateService';
 import { db } from './db';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
