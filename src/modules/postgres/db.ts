@@ -22,4 +22,6 @@ const dialect = new PostgresDialect({
 
 // Create and export the Kysely instance
 // This db instance will be imported by Postgres service implementations.
-export const db = new Kysely<Database>(dialect);
+export const db = new Kysely<Database>({
+  dialect,
+});
