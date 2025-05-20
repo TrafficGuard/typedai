@@ -61,19 +61,19 @@ export class PostgresUserService implements UserService {
 		// Basic implementation
 		const dbUpdate: Partial<Omit<Updateable<UsersTable>, 'id' | 'email' | 'created_at'>> = {};
 
-		if (updates.hasOwnProperty('name')) dbUpdate.name = updates.name ?? null;
-		if (updates.hasOwnProperty('enabled')) dbUpdate.enabled = updates.enabled;
-		if (updates.hasOwnProperty('passwordHash')) dbUpdate.password_hash = updates.passwordHash ?? null;
-		if (updates.hasOwnProperty('hilBudget')) dbUpdate.hil_budget = updates.hilBudget;
-		if (updates.hasOwnProperty('hilCount')) dbUpdate.hil_count = updates.hilCount;
-		if (updates.hasOwnProperty('lastLoginAt')) dbUpdate.last_login_at = updates.lastLoginAt ?? null;
-		if (updates.hasOwnProperty('llmConfig')) {
+		if (Object.hasOwn(updates, 'name')) dbUpdate.name = updates.name ?? null;
+		if (Object.hasOwn(updates, 'enabled')) dbUpdate.enabled = updates.enabled;
+		if (Object.hasOwn(updates, 'passwordHash')) dbUpdate.password_hash = updates.passwordHash ?? null;
+		if (Object.hasOwn(updates, 'hilBudget')) dbUpdate.hil_budget = updates.hilBudget;
+		if (Object.hasOwn(updates, 'hilCount')) dbUpdate.hil_count = updates.hilCount;
+		if (Object.hasOwn(updates, 'lastLoginAt')) dbUpdate.last_login_at = updates.lastLoginAt ?? null;
+		if (Object.hasOwn(updates, 'llmConfig')) {
 			dbUpdate.llm_config_serialized = updates.llmConfig ? JSON.stringify(updates.llmConfig) : null;
 		}
-		if (updates.hasOwnProperty('chat')) {
+		if (Object.hasOwn(updates, 'chat')) {
 			dbUpdate.chat_config_serialized = updates.chat ? JSON.stringify(updates.chat) : null;
 		}
-		if (updates.hasOwnProperty('functionConfig')) {
+		if (Object.hasOwn(updates, 'functionConfig')) {
 			dbUpdate.function_config_serialized = updates.functionConfig ? JSON.stringify(updates.functionConfig) : null;
 		}
 		return dbUpdate;
