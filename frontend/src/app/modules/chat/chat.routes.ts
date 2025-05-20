@@ -1,17 +1,8 @@
-import { inject, runInInjectionContext, Injector } from '@angular/core'; // Add runInInjectionContext and Injector
-import {
-    ActivatedRouteSnapshot,
-    Router,
-    RouterStateSnapshot,
-    Routes,
-} from '@angular/router';
+import { Routes } from '@angular/router';
 import { ChatComponent } from 'app/modules/chat/chat.component';
-import { ChatServiceClient } from './chat.service';
 import { ChatsComponent } from 'app/modules/chat/chats/chats.component';
 import { ConversationComponent } from 'app/modules/chat/conversation/conversation.component';
 import { EmptyConversationComponent } from 'app/modules/chat/empty-conversation/empty-conversation.component';
-import { catchError, throwError, switchMap } from 'rxjs';
-import { toObservable } from '@angular/core/rxjs-interop';
 
 export default [
     {
