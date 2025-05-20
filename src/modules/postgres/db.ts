@@ -44,6 +44,30 @@ export interface AgentContextsTable {
 	created_at: ColumnType<Date, string | Date, string | Date>;
 }
 
+export interface CodeReviewConfigsTable {
+	id: string; // PRIMARY KEY
+	title: string;
+	description: string | null;
+	enabled: boolean;
+	file_extensions_serialized: string | null; // JSON CodeReviewFileExtensions
+	requires_serialized: string | null; // JSON CodeReviewRequires
+	tags_serialized: string | null; // JSON string[]
+	project_paths_serialized: string | null; // JSON string[]
+	examples_serialized: string | null; // JSON CodeReviewExample[]
+	created_at: ColumnType<Date, string | undefined, never>; // Default in DB
+	updated_at: ColumnType<Date, string | undefined, string | undefined>; // Default/updated in DB
+}
+
+export interface MergeRequestReviewCacheTable {
+	project_id: string; // Part of composite PK
+	mr_iid: number; // Part of composite PK
+	last_updated: ColumnType<Date, string | Date, string | Date>;
+	fingerprints_serialized: string | null; // JSON string[]
+	created_at: ColumnType<Date, string | undefined, never>; // Default in DB
+	updated_at: ColumnType<Date, string | undefined, string | undefined>; // Default/updated in DB
+	// PRIMARY KEY (project_id, mr_iid)
+}
+
 export interface AgentIterationsTable {
 	agent_id: string; // FK to agent_contexts.agent_id
 	iteration_number: number; // Part of composite PK
@@ -87,6 +111,8 @@ export interface Database {
 	agent_contexts: AgentContextsTable;
 	agent_iterations: AgentIterationsTable;
 	chats: ChatsTable;
+	code_review_configs: CodeReviewConfigsTable;
+	merge_request_review_cache: MergeRequestReviewCacheTable;
 }
 
 const dialect = new PostgresDialect({
