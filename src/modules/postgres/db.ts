@@ -71,9 +71,22 @@ export interface AgentIterationsTable {
 
 // Define the database schema.
 // This will be populated with table types as services are implemented.
+export interface ChatsTable {
+	id: string; // PRIMARY KEY
+	user_id: string;
+	title: string;
+	updated_at: ColumnType<Date, string | Date, string | Date>;
+	shareable: boolean;
+	parent_id: string | null;
+	root_id: string | null;
+	messages_serialized: ColumnType<string, string, string>; // JSONB stored as string representing ChatMessage[]
+	created_at: ColumnType<Date, string | Date, string | Date>;
+}
+
 export interface Database {
 	agent_contexts: AgentContextsTable;
 	agent_iterations: AgentIterationsTable;
+	chats: ChatsTable;
 }
 
 const dialect = new PostgresDialect({
