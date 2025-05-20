@@ -69,6 +69,7 @@ const UserContentPartUnionSchema = Type.Union([
     ImagePartExtSchema,
     FilePartExtSchema
 ], { $id: 'UserContentUnion' });
+
 export const UserContentSchema = Type.Union([
     Type.String(),
     Type.Array(UserContentPartUnionSchema)

@@ -79,7 +79,6 @@ export async function deserializeAgentContext(serialized: Record<keyof AgentCont
 	context.fileStore = serialized.fileStore;
 	context.childAgents = serialized.childAgents || [];
 	context.llms = deserializeLLMs(serialized.llms);
-	context.toolState = serialized.toolState ? JSON.parse(serialized.toolState) : {};
 
 	const user = currentUser();
 	if (serialized.user === user.id) context.user = user;
@@ -93,10 +92,13 @@ export async function deserializeAgentContext(serialized: Record<keyof AgentCont
 	}
 
 	// backwards compatability
+	if (typeof serialized.toolState === 'string' && serialized.toolState.length) {
+		context.toolState = JSON.parse(serialized.toolState);
+	}
 
 	context.toolState ??= {};
-	if (context.liveFiles?.length) context.toolState.LiveFiles = context.liveFiles;
-	if (context.fileStore?.length) context.toolState.FileStore = context.fileStore;
+	// if (context.liveFiles?.length && !context.toolState.LiveFiles) context.toolState.LiveFiles = context.liveFiles;
+	// if (context.fileStore?.length && !context.toolState.FileStore) context.toolState.FileStore = context.fileStore;
 
 	if ((context.type as any) === 'codegen') {
 		context.type = 'autonomous';

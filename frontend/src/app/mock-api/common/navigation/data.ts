@@ -27,19 +27,11 @@ const newAgentNav: FuseNavigationItem = {
     link: '/ui/agents/new',
 }
 
-const workflowsNav: FuseNavigationItem = {
-    id: 'workflows',
-    title: 'Workflows',
-    type: 'basic',
-    icon: 'heroicons_outline:server-stack',
-    link: '/ui/workflows',
-}
-
 const vibeNav: FuseNavigationItem = {
     id: 'vibe',
-    title: 'Vibe',
+    title: 'Code tasks',
     type: 'basic',
-    icon: 'heroicons_outline:code-bracket',
+    icon: 'auto_fix_high',
     link: '/ui/vibe',
 }
 
