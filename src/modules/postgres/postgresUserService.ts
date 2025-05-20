@@ -1,20 +1,16 @@
 import { randomUUID } from 'node:crypto';
-import *אללה* as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcrypt';
 import type { ExpressionBuilder, Insertable, Selectable, Updateable } from 'kysely';
-import type { User, ChatSettings, LLMServicesConfig } from '#shared/model/user.model';
-import { currentUser } from '#user/userContext';
-import type { UserService } from '#user/userService';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import { type UsersTable, type Database, db } from './db';
+import type { ChatSettings, LLMServicesConfig, User } from '#shared/model/user.model';
+import { currentUser } from '#user/userContext';
+import type { UserService } from '#user/userService';
+import { type Database, type UsersTable, db } from './db';
 
 export class PostgresUserService implements UserService {
-	constructor() {}
-
 	private docToUser(row: Selectable<UsersTable>): User {
-		const parsedLlmConfig: LLMServicesConfig = row.llm_config_serialized
-			? JSON.parse(row.llm_config_serialized)
-			: {};
+		const parsedLlmConfig: LLMServicesConfig = row.llm_config_serialized ? JSON.parse(row.llm_config_serialized) : {};
 		const parsedChatConfig = row.chat_config_serialized ? JSON.parse(row.chat_config_serialized) : {};
 		const chat: ChatSettings = {
 			enabledLLMs: parsedChatConfig.enabledLLMs ?? {},
@@ -25,9 +21,7 @@ export class PostgresUserService implements UserService {
 			presencePenalty: parsedChatConfig.presencePenalty,
 			frequencyPenalty: parsedChatConfig.frequencyPenalty,
 		};
-		const parsedFunctionConfig: Record<string, Record<string, any>> = row.function_config_serialized
-			? JSON.parse(row.function_config_serialized)
-			: {};
+		const parsedFunctionConfig: Record<string, Record<string, any>> = row.function_config_serialized ? JSON.parse(row.function_config_serialized) : {};
 
 		return {
 			id: row.id,
