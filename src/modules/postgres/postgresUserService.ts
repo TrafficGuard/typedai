@@ -43,17 +43,19 @@ export class PostgresUserService implements UserService {
 		// Basic implementation focusing on essential fields for a potential createUser
 		return {
 			id: user.id || randomUUID(),
-			email: user.email!, // Assuming email is always provided for new user
+			email: user.email!, // Assumes email is validated to be present before this call
 			name: user.name ?? null,
 			enabled: user.enabled ?? true,
 			password_hash: user.passwordHash ?? null,
 			hil_budget: user.hilBudget ?? 0,
 			hil_count: user.hilCount ?? 0,
-			created_at: user.createdAt || new Date(),
-			last_login_at: user.lastLoginAt || null,
-			llm_config_serialized: user.llmConfig ? JSON.stringify(user.llmConfig) : null,
-			chat_config_serialized: user.chat ? JSON.stringify(user.chat) : null,
-			function_config_serialized: user.functionConfig ? JSON.stringify(user.functionConfig) : null,
+			created_at: user.createdAt instanceof Date ? user.createdAt : new Date(),
+			last_login_at: user.lastLoginAt instanceof Date ? user.lastLoginAt : null,
+			llm_config_serialized: JSON.stringify(user.llmConfig ?? {}),
+			chat_config_serialized: JSON.stringify(
+				user.chat ?? { enabledLLMs: {}, defaultLLM: '', temperature: 1, topP: 1, topK: 50, frequencyPenalty: 0, presencePenalty: 0 },
+			),
+			function_config_serialized: JSON.stringify(user.functionConfig ?? {}),
 		};
 	}
 
@@ -66,7 +68,7 @@ export class PostgresUserService implements UserService {
 		if (Object.hasOwn(updates, 'passwordHash')) dbUpdate.password_hash = updates.passwordHash ?? null;
 		if (Object.hasOwn(updates, 'hilBudget')) dbUpdate.hil_budget = updates.hilBudget;
 		if (Object.hasOwn(updates, 'hilCount')) dbUpdate.hil_count = updates.hilCount;
-		if (Object.hasOwn(updates, 'lastLoginAt')) dbUpdate.last_login_at = updates.lastLoginAt ?? null;
+		if (Object.hasOwn(updates, 'lastLoginAt')) dbUpdate.last_login_at = updates.lastLoginAt instanceof Date ? updates.lastLoginAt : null;
 		if (Object.hasOwn(updates, 'llmConfig')) {
 			dbUpdate.llm_config_serialized = updates.llmConfig ? JSON.stringify(updates.llmConfig) : null;
 		}
@@ -101,38 +103,88 @@ export class PostgresUserService implements UserService {
 	}
 
 	async createUser(user: Partial<User>): Promise<User> {
-		throw new Error('Not implemented yet (createUser)');
+		if (!user.email) throw new Error('User email is required for creation.');
+		const existingUser = await this.getUserByEmail(user.email);
+		if (existingUser) throw new Error('User with this email already exists');
+		const dbData = this.userToDbInsert(user);
+		const insertedRow = await db.insertInto('users').values(dbData).returningAll().executeTakeFirstOrThrow();
+		return this.docToUser(insertedRow);
 	}
 
 	async authenticateUser(email: string, password: string): Promise<User> {
-		throw new Error('Not implemented yet (authenticateUser)');
+		const user = await this.getUserByEmail(email);
+		if (!user || !user.passwordHash) throw new Error('Invalid credentials');
+		const isValid = await bcrypt.compare(password, user.passwordHash);
+		if (!isValid) throw new Error('Invalid credentials');
+		// lastLoginAt is updated via updateUser, which also fetches the user again.
+		// This ensures the returned user object includes the updated lastLoginAt.
+		const updatedUser = await this.updateUser({ lastLoginAt: new Date() }, user.id);
+		return updatedUser;
 	}
 
 	async createUserWithPassword(email: string, password: string): Promise<User> {
-		throw new Error('Not implemented yet (createUserWithPassword)');
+		const existingUser = await this.getUserByEmail(email);
+		if (existingUser) throw new Error('User already exists');
+		const passwordHash = await bcrypt.hash(password, 10);
+		const newUserPartial: Partial<User> = {
+			email,
+			passwordHash,
+			enabled: true,
+			hilBudget: 0, // Default value
+			hilCount: 0, // Default value
+			llmConfig: {}, // Default value
+			chat: { enabledLLMs: {}, defaultLLM: '', temperature: 1, topP: 1, topK: 50, frequencyPenalty: 0, presencePenalty: 0 }, // Default value
+			functionConfig: {}, // Default value
+		};
+		return this.createUser(newUserPartial);
 	}
 
 	async updatePassword(userId: string, newPassword: string): Promise<void> {
-		throw new Error('Not implemented yet (updatePassword)');
+		const passwordHash = await bcrypt.hash(newPassword, 10);
+		await this.updateUser({ passwordHash }, userId);
 	}
 
 	async ensureSingleUser(): Promise<void> {
-		throw new Error('Not implemented yet (ensureSingleUser)');
+		// This is typically for Firestore or in-memory where a single user mode might be simpler to manage.
+		// For Postgres, standard user management is usually preferred.
+		// If specific single-user logic is needed for Postgres, it would be implemented here.
+		logger.info('ensureSingleUser not implemented for PostgresUserService, standard multi-user mode assumed.');
+		// throw new Error('Not implemented yet (ensureSingleUser)');
 	}
 
 	getSingleUser(): User {
-		throw new Error('Not implemented yet (getSingleUser)');
+		// Similar to ensureSingleUser, this is more relevant for specific single-user deployment models.
+		throw new Error('getSingleUser not applicable for PostgresUserService in standard multi-user mode.');
 	}
 
 	async updateUser(updates: Partial<User>, userId?: string): Promise<User> {
-		throw new Error('Not implemented yet (updateUser)');
+		const targetUserId = userId ?? currentUser().id;
+		await this.getUser(targetUserId); // Ensures user exists, throws if not.
+
+		const dbUpdateData = this.userToDbUpdate(updates);
+
+		// Check if there's anything to update.
+		// The `lastLoginAt` field might be the only update and could result in an empty `dbUpdateData`
+		// if `userToDbUpdate` doesn't explicitly handle non-serialized fields like Date objects directly.
+		// However, `userToDbUpdate` as defined *does* handle `lastLoginAt`.
+		// This check is more about preventing an unnecessary DB call if `updates` was truly empty or only contained non-updatable fields.
+		if (Object.keys(dbUpdateData).length === 0) {
+			// If lastLoginAt was the only thing in updates, userToDbUpdate would have processed it.
+			// If updates was genuinely empty or only contained e.g. 'id', then dbUpdateData would be empty.
+			// In such a case, just return the current user data.
+			return this.getUser(targetUserId);
+		}
+
+		const updatedRow = await db.updateTable('users').set(dbUpdateData).where('id', '=', targetUserId).returningAll().executeTakeFirstOrThrow();
+		return this.docToUser(updatedRow);
 	}
 
 	async disableUser(userId: string): Promise<void> {
-		throw new Error('Not implemented yet (disableUser)');
+		await this.updateUser({ enabled: false }, userId);
 	}
 
 	async listUsers(): Promise<User[]> {
-		throw new Error('Not implemented yet (listUsers)');
+		const rows = await db.selectFrom('users').selectAll().orderBy('email', 'asc').execute();
+		return rows.map((row) => this.docToUser(row));
 	}
 }
