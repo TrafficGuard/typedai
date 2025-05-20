@@ -28,7 +28,7 @@
                     <input
                         matInput
                         [autocomplete]="'off'"
-                        [disabled]="!chats || chats.length === 0"
+                        [disabled]="isLoading || !chats || chats.length === 0"
                         [placeholder]="'Search chat titles'"
                         (input)="filterChats(searchField.value)"
                         #searchField
@@ -39,59 +39,111 @@
 
         <!-- Chats -->
         <div class="flex-auto overflow-y-auto">
-            @if (filteredChats && filteredChats.length > 0) {
-                @for (
-                    chat of filteredChats;
-                    track trackByFn($index, chat)
-                ) {
-                    <a
-                        class="z-20 flex cursor-pointer items-center border-b px-0 py-3"
-                        (mouseenter)="hoveredChatId = chat.id"
-                        (mouseleave)="hoveredChatId = null"
-                        [ngClass]="{
-                            'dark:hover:bg-hover hover:bg-gray-100':
-                                !selectedChat ||
-                                selectedChat.id !== chat.id,
-                            'bg-primary-50 dark:bg-hover':
-                                selectedChat &&
-                                selectedChat.id === chat.id,
-                        }"
-                        [routerLink]="[chat.id]"
-                    >
-                        <div class="ml-4 min-w-0">
-                            <div class="truncate font-medium leading-5">
-                                {{ chat.title }}
-                            </div>
-                        </div>
-                        <div class="ml-auto flex flex-col items-end self-start pl-2">
-                            @if (hoveredChatId === chat.id) {
-                                <button (click)="deleteChat($event, chat)" class="absolute">
-                                    <mat-icon
-                                            class="text-hint icon-size-5 mr-1 p-0"
-                                            [svgIcon]="'heroicons_solid:trash'"
-                                    ></mat-icon>
-                                </button>
-                            }
-                        </div>
-                    </a>
-                }
-            } @else {
-                <div class="flex h-full flex-auto flex-col items-center justify-center">
-                    <mat-icon
-                        class="icon-size-24"
-                        [svgIcon]="'heroicons_outline:chat-bubble-oval-left-ellipsis'"
-                    ></mat-icon>
-                    <div class="text-secondary mt-4 text-2xl font-semibold tracking-tight">
-                        No chats
-                    </div>
+            <!-- Loading State -->
+            <div *ngIf="isLoading" class="flex h-full flex-auto flex-col items-center justify-center p-8">
+                <mat-icon
+                    class="icon-size-24 animate-spin"
+                    [svgIcon]="'heroicons_outline:arrow-path'"
+                ></mat-icon>
+                <div class="text-secondary mt-4 text-2xl font-semibold tracking-tight">
+                    Loading chats...
                 </div>
-            }
+            </div>
+
+            <!-- Error State -->
+            <div *ngIf="!isLoading && error" class="flex h-full flex-auto flex-col items-center justify-center p-8">
+                <mat-icon
+                    class="icon-size-24 text-red-500"
+                    [svgIcon]="'heroicons_outline:exclamation-triangle'"
+                ></mat-icon>
+                <div class="text-secondary mt-4 text-2xl font-semibold tracking-tight">
+                    Failed to load chats.
+                </div>
+                <div class="text-secondary mt-1">
+                    Please try again.
+                </div>
+                <button
+                    mat-stroked-button
+                    class="mt-4"
+                    (click)="retryLoadChats()"
+                >
+                    Retry
+                </button>
+            </div>
+
+            <!-- Content Area: Chat List or No Chats Message -->
+            <div *ngIf="!isLoading && !error">
+                @if (chats && chats.length > 0) {
+                    @for (
+                        chat of chats; <!-- Changed from filteredChats to chats -->
+                        track trackByFn($index, chat)
+                    ) {
+                        <a
+                            class="z-20 flex cursor-pointer items-center border-b px-0 py-3"
+                            (mouseenter)="hoveredChatId = chat.id"
+                            (mouseleave)="hoveredChatId = null"
+                            [ngClass]="{
+                                'dark:hover:bg-hover hover:bg-gray-100':
+                                    !selectedChat ||
+                                    selectedChat.id !== chat.id,
+                                'bg-primary-50 dark:bg-hover':
+                                    selectedChat &&
+                                    selectedChat.id === chat.id,
+                            }"
+                            [routerLink]="[chat.id]"
+                        >
+                            <div class="ml-4 min-w-0">
+                                <div class="truncate font-medium leading-5">
+                                    {{ chat.title }}
+                                </div>
+                                <!-- Optionally display last message or timestamp if available in Chat type and needed -->
+                                <!-- <div class="text-secondary mt-0.5 truncate text-sm leading-4">
+                                    {{ chat.lastMessage || 'No messages yet' }}
+                                </div> -->
+                            </div>
+                            <div class="ml-auto flex flex-col items-end self-start pl-2">
+                                <!-- <div class="text-secondary whitespace-nowrap text-xs leading-4">
+                                    {{ chat.lastMessageAt | date:'shortTime' }}
+                                </div> -->
+                                @if (hoveredChatId === chat.id) {
+                                    <button (click)="deleteChat($event, chat)" class="absolute">
+                                        <mat-icon
+                                                class="text-hint icon-size-5 mr-1 p-0"
+                                                [svgIcon]="'heroicons_solid:trash'"
+                                        ></mat-icon>
+                                    </button>
+                                }
+                            </div>
+                        </a>
+                    }
+                } @else {
+                    <!-- No Chats State (when not loading and no error, but chats array is empty) -->
+                    <div class="flex h-full flex-auto flex-col items-center justify-center p-8">
+                        <mat-icon
+                            class="icon-size-24"
+                            [svgIcon]="'heroicons_outline:chat-bubble-oval-left-ellipsis'"
+                        ></mat-icon>
+                        <div class="text-secondary mt-4 text-2xl font-semibold tracking-tight">
+                            No chats available.
+                        </div>
+                        <!-- Optional: A button to create a new chat if the list is empty -->
+                        <!-- <button
+                            mat-flat-button
+                            [color]="'primary'"
+                            class="mt-4"
+                            (click)="createNewChat()"
+                        >
+                            Start a New Chat
+                        </button> -->
+                    </div>
+                }
+            </div>
         </div>
     </div>
 
-
     <!-- Conversation -->
-    @if (chats !== null && chats !== undefined) {
+    <!-- This part remains largely unchanged by the loading logic for the list itself -->
+    @if (chats !== null && chats !== undefined) { <!-- Condition might need adjustment based on selectedChat -->
         <div
             class="flex-auto border-l"
             [ngClass]="{
