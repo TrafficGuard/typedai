@@ -1,4 +1,4 @@
-import type {LlmMessage} from '#shared/model/llm.model';
+import type { LlmMessage } from '#shared/model/llm.model';
 
 export interface Chat {
 	id: string;
@@ -21,5 +21,3 @@ export interface ChatList {
 	chats: ChatPreview[];
 	hasMore: boolean;
 }
-
-

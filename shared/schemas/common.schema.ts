@@ -1,24 +1,24 @@
 import { Type } from '@sinclair/typebox';
 
 export const ApiErrorResponseSchema = Type.Object({
-    error: Type.String(),
+	error: Type.String(),
 });
 
 export const ApiMessageResponseSchema = Type.Object({
-    message: Type.String(),
+	message: Type.String(),
 });
 
 export const ResponseMessageSchema = Type.Object({
-    message: Type.String()
+	message: Type.String(),
 });
 
 // Common path parameter schemas
 export const ApiSessionParamsSchema = Type.Object({
-    sessionId: Type.String({ description: 'The ID of the Vibe session' }),
+	sessionId: Type.String({ description: 'The ID of the Vibe session' }),
 });
 
 export const ApiIdParamsSchema = Type.Object({
-    id: Type.String({ description: 'A generic ID parameter' }),
+	id: Type.String({ description: 'A generic ID parameter' }),
 });
 
 export const ApiPresetParamsSchema = Type.Object({

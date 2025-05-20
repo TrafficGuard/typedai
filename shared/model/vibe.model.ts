@@ -1,8 +1,7 @@
-
 // --- VibeSession interface and related types ---
 
 // Define the possible statuses as a type for better reusability and clarity
-import {SelectedFile} from "#shared/model/files.model";
+import type { SelectedFile } from '#shared/model/files.model';
 
 export type VibeStatus =
 	| 'initializing' // Session created, preparing workspace

@@ -1,16 +1,16 @@
 import { defineRoute } from '#shared/api-definitions';
 import {
 	ChatListSchema,
-	ChatModelSchema,
-	ChatParamsSchema,
-	ChatMessageSendSchema,
-	RegenerateMessageSchema,
-	ChatUpdateDetailsSchema,
 	ChatMarkdownRequestSchema,
 	ChatMarkdownResponseSchema,
+	ChatMessageSendSchema,
+	ChatModelSchema,
+	ChatParamsSchema,
+	ChatUpdateDetailsSchema,
+	RegenerateMessageSchema,
 } from '#shared/schemas/chat.schema';
-import { LlmMessageSchema } from '#shared/schemas/llm.schema';
 import { ApiNullResponseSchema } from '#shared/schemas/common.schema';
+import { LlmMessageSchema } from '#shared/schemas/llm.schema';
 
 const CHAT_BASE = '/api/chat';
 const CHATS_BASE = '/api/chats';
