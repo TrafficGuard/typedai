@@ -1,14 +1,19 @@
 [
-	{
-		"baseDir": "./",
-		"language": "typescript",
-		"initialise": "node build.js install",
-		"compile": "node build.js build",
-		"format": "",
-		"staticAnalysis": "node build.js lint",
-		"test": "node build.js test",
-		"languageTools": "typescript",
-		"devBranch": "main",
-		"indexDocs": ["src/**/*.ts", "frontend/src/**/*.ts", "bin/**", "shared/**"]
-	}
+  {
+    "baseDir": "./",
+    "language": "typescript",
+    "initialise": "node build.js install",
+    "compile": "node build.js build",
+    "format": "",
+    "staticAnalysis": "node build.js lint",
+    "test": "node --env-file=variables/test.env ./node_modules/mocha/bin/mocha -r ts-node/register src/modules/postgres/postgresUserService.test.ts --timeout 10000",
+    "languageTools": "typescript",
+    "devBranch": "main",
+    "indexDocs": [
+      "src/**/*.ts",
+      "frontend/src/**/*.ts",
+      "bin/**",
+      "shared/**"
+    ]
+  }
 ]
