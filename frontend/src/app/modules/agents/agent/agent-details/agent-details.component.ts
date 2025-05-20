@@ -285,7 +285,7 @@ export class AgentDetailsComponent implements OnInit {
         ).subscribe({
             next: () => {
                 this.snackBar.open('Agent functions updated successfully', 'Close', { duration: 3000 });
-                this.agentDetails.functions = selectedFunctions;
+                this.agentDetails.functions = {functionClasses: selectedFunctions};
                 this.changeDetectorRef.markForCheck();
             },
         });
