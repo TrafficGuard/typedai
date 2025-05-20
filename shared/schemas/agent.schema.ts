@@ -158,7 +158,10 @@ export const AgentContextSchema = Type.Object({
     memory: Type.Record(Type.String(), Type.String()),
     lastUpdate: Type.Number(),
     metadata: Type.Record(Type.String(), Type.Any()),
-    functions: Type.Array(Type.String()),
+    // Represents LlmFunctions.toJSON()
+    functions: Type.Object({
+        functionClasses: Type.Array(Type.String()),
+    }),
 
     // Serialized as handler ID
     completedHandler: Type.Optional(Type.String()), // Changed from completedHandlerId

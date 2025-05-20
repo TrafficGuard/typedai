@@ -1,48 +1,74 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { AgentService } from './agent.service';
-import { AgentContext, AutonomousIteration, AgentLLMs, LlmFunctions, User, AgentType, AgentRunningState } from '#shared/model/agent.model';
+import { AutonomousIteration, AgentType, AgentRunningState } from '#shared/model/agent.model'; // Specific model types still needed for AutonomousIteration if not fully covered by schema's static type
+import { AgentContextApi, AgentContextSchema } from '#shared/schemas/agent.schema'; // Use AgentContextApi
 import { AGENT_API } from '#shared/api/agent.api';
-import {LlmCall} from "#shared/model/llmCall.model";
+import { LlmCall } from "#shared/model/llmCall.model";
+import { LlmMessagesSchema } from '#shared/schemas/llm.schema'; // For messages structure
+import { Static } from '@sinclair/typebox';
+
 
 describe('AgentService', () => {
   let service: AgentService;
   let httpMock: HttpTestingController;
 
-  // Helper to create a minimal valid AgentContext
-  const createMockAgentContext = (id: string): AgentContext => ({
+  // Helper to create a minimal valid AgentContextApi
+  const createMockAgentContext = (id: string): AgentContextApi => ({
     agentId: id,
-    type: 'autonomous' as AgentType,
-    subtype: 'xml',
+    type: 'autonomous' as Static<typeof AgentContextSchema.properties.type>,
+    subtype: 'xml' as Static<typeof AgentContextSchema.properties.subtype>,
     executionId: `exec-${id}`,
     typedAiRepoDir: '/test/repo',
     traceId: `trace-${id}`,
     name: `Agent ${id}`,
-    user: { id: 'user1', name: 'Test User', email: 'test@example.com', enabled: true, createdAt: new Date(), hilBudget: 0, hilCount: 0 } as User,
-    state: 'completed' as AgentRunningState,
+    user: 'user1', // User ID as string
+    state: 'completed' as Static<typeof AgentContextSchema.properties.state>,
     callStack: [],
     hilBudget: 100,
     cost: 50,
     budgetRemaining: 50,
-    llms: {} as AgentLLMs, 
+    llms: { // LLM IDs as strings
+      easy: 'llm-easy-id',
+      medium: 'llm-medium-id',
+      hard: 'llm-hard-id',
+      xhard: 'llm-xhard-id',
+    },
+    fileSystem: { // FileSystem object or null
+        basePath: '/test/fs',
+        workingDirectory: '/test/fs/work'
+    },
     useSharedRepos: true,
     memory: {},
     lastUpdate: Date.now(),
     metadata: {},
-    functions: {} as LlmFunctions, 
+    functions: { // Serialized LlmFunctions
+        functionClasses: ['TestFunctionClass1', 'TestFunctionClass2']
+    },
+    completedHandler: 'testCompletedHandlerId', // Optional: string ID
     pendingMessages: [],
     iterations: 1,
-    invoking: [],
+    invoking: [], // Array of FunctionCallSchema compatible objects
     notes: [],
     userPrompt: 'Test prompt',
     inputPrompt: 'Initial input',
-    messages: [],
-    functionCallHistory: [],
+    messages: [] as Static<typeof LlmMessagesSchema>, // Array of LlmMessageSchema compatible objects
+    functionCallHistory: [], // Array of FunctionCallResultSchema compatible objects
     hilCount: 0,
+    // Optional fields from AgentContextSchema can be added here if needed for specific tests
+    childAgents: [],
+    parentAgentId: undefined,
+    vibeSessionId: undefined,
+    error: undefined,
+    output: undefined,
+    hilRequested: undefined,
+    liveFiles: [],
+    fileStore: [], // Array of FileMetadataSchema compatible objects
+    toolState: {},
   });
 
-  const mockAgent1: AgentContext = createMockAgentContext('agent1');
-  const mockAgent2: AgentContext = createMockAgentContext('agent2');
+  const mockAgent1: AgentContextApi = createMockAgentContext('agent1');
+  const mockAgent2: AgentContextApi = createMockAgentContext('agent2');
 
   beforeEach(() => {
     TestBed.configureTestingModule({
@@ -88,11 +114,35 @@ describe('AgentService', () => {
 
   it('getAgentIterations should return agent iterations', (done) => {
     const testAgentId = 'agent1';
-    const mockIterations: AutonomousIteration[] = [
-      { agentId: testAgentId, iteration: 1, cost: 0.1, summary: 'Iter 1', functions: [], prompt: '', images: [], expandedUserRequest: '', observationsReasoning: '', agentPlan: '', nextStepDetails: '', draftCode: '', codeReview: '', code: '', executedCode: '', functionCalls: [], memory: {}, toolState: {}, stats: { requestTime: 0, timeToFirstToken: 0, totalTime: 0, inputTokens: 0, outputTokens: 0, cost: 0, llmId: 'default-llm' } },
+    const mockIterations: AutonomousIteration[] = [ // Assuming AutonomousIteration from model is compatible enough for test data
+      {
+        agentId: testAgentId,
+        iteration: 1,
+        cost: 0.1,
+        summary: 'Iter 1',
+        functions: ['ClassName1'], // class names
+        prompt: 'Test prompt for iteration',
+        images: [], // Array of ImagePartExtSchema compatible objects
+        expandedUserRequest: 'Expanded user request details',
+        observationsReasoning: 'Observations and reasoning',
+        agentPlan: 'Detailed agent plan',
+        nextStepDetails: 'Details for the next step',
+        draftCode: '```typescript\nconsole.log("draft");\n```',
+        codeReview: 'Code review comments',
+        code: '```typescript\nconsole.log("final");\n```',
+        executedCode: 'console.log("final");',
+        functionCalls: [], // Array of FunctionCallResultSchema compatible objects
+        memory: { key1: 'value1' },
+        toolState: { toolKey: 'toolValue' },
+        stats: { requestTime: 100, timeToFirstToken: 50, totalTime: 200, inputTokens: 10, outputTokens: 20, cost: 0.001, llmId: 'test-llm-iter' },
+        liveFiles: ['file1.ts', 'file2.html']
+      },
     ];
     service.getAgentIterations(testAgentId).subscribe(iterations => {
-      expect(iterations).toEqual(mockIterations);
+      expect(iterations.length).toBe(1);
+      expect(iterations[0].agentId).toEqual(testAgentId);
+      // Add more specific checks if necessary, e.g., iterations[0].summary
+      expect(iterations).toEqual(mockIterations); // This deep equality check should still work
       done();
     });
     const req = httpMock.expectOne(AGENT_API.getIterations.pathTemplate.replace(':agentId', testAgentId));
@@ -115,20 +165,22 @@ describe('AgentService', () => {
   });
 
   it('refreshAgents should reload agents and update agents$', (done) => {
-    const updatedMockAgents: AgentContext[] = [createMockAgentContext('agent3')];
+    const updatedMockAgents: AgentContextApi[] = [createMockAgentContext('agent3')];
     
     let callCount = 0;
     service.agents$.subscribe(agents => {
       callCount++;
-      if (callCount === 1) { 
+      if (callCount === 1) { // Initial load from beforeEach
         expect(agents.length).toBe(2);
-      } else if (callCount === 2) { 
+        expect(agents).toEqual([mockAgent1, mockAgent2]);
+      } else if (callCount === 2) { // After refreshAgents
+        expect(agents.length).toBe(1);
         expect(agents).toEqual(updatedMockAgents);
         done();
       }
     });
 
-    service.refreshAgents();
+    service.refreshAgents(); // This will trigger the second emission
     const req = httpMock.expectOne(AGENT_API.list.pathTemplate);
     expect(req.request.method).toBe('GET');
     req.flush(updatedMockAgents);
