@@ -304,7 +304,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 
 				// Assign the consolidated map
 				iterationData.toolState = toolStateMap;
-				agent.toolState = toolStateMap;
+				agent.toolState = toolStateMap as typeof agent.toolState;
 
 				// Update agent.fileStore based on the fetched metadata (or clear if unavailable/error)
 				agent.fileStore = fileStoreMetadataArray;
