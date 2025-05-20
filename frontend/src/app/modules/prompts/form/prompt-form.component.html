@@ -102,12 +102,14 @@
                                             <mat-panel-title  class="!text-sm !font-semibold">
                                                 {{ msgGroup.get('role')?.value | titlecase }}
                                                 <span *ngIf="!messagePanel.expanded"  [@summaryFade]>
-                                                    <span *ngIf="msgGroup.get('content')?.value" class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2 truncate">
-                                                        - {{ (msgGroup.get('content')?.value || '') | slice:0:50 }}{{ (msgGroup.get('content')?.value?.length || 0) > 50 ? '...' : '' }}
-                                                    </span>
-                                                    <span *ngIf="!msgGroup.get('content')?.value" class="text-sm font-normal text-red-500 dark:text-red-400 ml-2 italic">
-                                                        - No content
-                                                    </span>
+                                                    <ng-container>
+                                                        <span *ngIf="getMessageContentSummary(msgGroup.get('content')).length > 0" class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2 truncate">
+                                                            - {{ getTruncatedMessageContentSummary(msgGroup.get('content')) }}
+                                                        </span>
+                                                        <span *ngIf="getMessageContentSummary(msgGroup.get('content')).length === 0" class="text-sm font-normal text-red-500 dark:text-red-400 ml-2 italic">
+                                                            - No content
+                                                        </span>
+                                                    </ng-container>
                                                 </span>
                                         </mat-panel-title>
                                         </mat-expansion-panel-header>
@@ -127,7 +129,12 @@
                                             <!-- New flex container for textarea and button -->
                                             <div class="flex items-start gap-2">
                                                 <mat-form-field class="w-full flex-grow"> <!-- Added flex-grow -->
-                                                    <textarea matInput formControlName="content" cdkTextareaAutosize cdkAutosizeMinRows="3" required></textarea>
+                                                    <textarea matInput formControlName="content"
+                                                              cdkTextareaAutosize
+                                                              cdkAutosizeMinRows="3"
+                                                              required
+                                                              (dragover)="msgGroup.get('role')?.value === 'user' ? onDragOver($event) : null"
+                                                              (drop)="msgGroup.get('role')?.value === 'user' ? onDrop($event, i) : null"></textarea>
                                                     <mat-error *ngIf="msgGroup.get('content')?.hasError('required')">Content is required.</mat-error>
                                                 </mat-form-field>
                                                 <!-- Moved button here and adjusted classes -->
@@ -139,6 +146,51 @@
                                                     <mat-icon svgIcon="heroicons_outline:trash"></mat-icon>
                                                 </button>
                                             </div>
+
+                                            <!-- Attachment Section for User Messages -->
+                                            <ng-container *ngIf="msgGroup.get('role')?.value === 'user'">
+                                                <!-- Display selected attachments for this message -->
+                                                <div *ngIf="getAttachmentsFormArray(msgGroup)?.controls.length > 0" class="flex flex-wrap gap-2 mb-2 mt-2 attachment-previews">
+                                                    <div *ngFor="let attachmentControl of getAttachmentsFormArray(msgGroup)?.controls; let attIndex = index"
+                                                         class="relative flex items-center p-1 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-700">
+                                                        <ng-container *ngIf="attachmentControl.value as attachment">
+                                                            <img *ngIf="attachment.type === 'image' && attachment.previewUrl" [src]="attachment.previewUrl" [alt]="attachment.filename" class="w-12 h-12 object-cover rounded mr-2">
+                                                            <mat-icon *ngIf="attachment.type !== 'image'" class="icon-size-8 mx-2 text-gray-500" [svgIcon]="'heroicons_outline:document'"></mat-icon>
+                                                            <div class="flex flex-col overflow-hidden mr-1">
+                                                                <span class="text-xs font-medium truncate max-w-[120px]" [matTooltip]="attachment.filename">{{attachment.filename}}</span>
+                                                                <span class="text-xs text-gray-500">{{ (attachment.size / 1024) | number:'1.0-1' }} KB</span>
+                                                            </div>
+                                                            <button
+                                                                    class="absolute -top-2 -right-2 w-5 h-5 min-h-0 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center"
+                                                                    mat-icon-button
+                                                                    type="button"
+                                                                    (click)="removeAttachment(i, attIndex)"
+                                                                    matTooltip="Remove {{attachment.filename}}">
+                                                                <mat-icon class="icon-size-3 text-white" [svgIcon]="'heroicons_solid:x-mark'"></mat-icon>
+                                                            </button>
+                                                        </ng-container>
+                                                    </div>
+                                                </div>
+
+                                                <!-- File input and attach button -->
+                                                <div class="flex items-center mt-2">
+                                                    <input
+                                                        type="file"
+                                                        #fileInput
+                                                        (change)="onFileSelected($event, i)"
+                                                        multiple
+                                                        class="hidden"
+                                                        accept="image/*,.pdf,.txt,.doc,.docx,.json,.yaml,.yml,.csv,.tsv,.md,.log">
+                                                    <button
+                                                        mat-stroked-button
+                                                        type="button"
+                                                        (click)="triggerFileInputClick(i)"
+                                                        class="mr-2">
+                                                        <mat-icon svgIcon="heroicons_outline:paper-clip" class="mr-2"></mat-icon>
+                                                        Attach Files
+                                                    </button>
+                                                </div>
+                                            </ng-container>
 
                                             <div class="text-sm text-gray-500 dark:text-gray-400 message-tokens-display">
                                                 Tokens: N/A

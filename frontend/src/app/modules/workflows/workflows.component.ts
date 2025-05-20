@@ -12,7 +12,7 @@ import {MatIconModule} from "@angular/material/icon";
 import {MatButtonModule} from "@angular/material/button";
 
 @Component({
-  selector: 'app-code',
+  selector: 'app-new-workflows-agent',
   templateUrl: './workflows.component.html',
   styleUrls: ['./workflows.component.scss'],
   standalone: true,
@@ -28,7 +28,7 @@ import {MatButtonModule} from "@angular/material/button";
     MatButtonModule,
   ]
 })
-export class WorkflowsComponent implements OnInit {
+export class NewWorkflowsAgentComponent implements OnInit {
   codeForm!: FormGroup;
   result: string = '';
   isLoading = false;

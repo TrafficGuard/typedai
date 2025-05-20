@@ -6,6 +6,8 @@ import {
     PromptCreateSchema,
     PromptUpdateSchema,
     PromptRevisionParamsSchema,
+    PromptGeneratePayloadSchema,
+    PromptGenerateResponseSchema,
 } from '../schemas/prompts.schema';
 import { ApiNullResponseSchema } from '#shared/schemas/common.schema';
 
@@ -57,6 +59,15 @@ export const PROMPT_API = {
             path: PromptParamsSchema,
             response: {
                 204: ApiNullResponseSchema,
+            },
+        },
+    }),
+    generateFromPrompt: defineRoute('POST', `${PROMPTS_BASE}/:promptId/generate`, {
+        schema: {
+            path: PromptParamsSchema, // Existing schema for promptId
+            body: PromptGeneratePayloadSchema, // New schema for request body
+            response: {
+                200: PromptGenerateResponseSchema, // New schema for successful response
             },
         },
     }),

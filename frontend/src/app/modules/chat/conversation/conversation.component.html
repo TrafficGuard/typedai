@@ -82,9 +82,9 @@
                             >
                                 <!-- Bubble -->
                                 <!-- Image Attachments -->
-                                @if (message.imageAttachments?.length > 0) {
+                                @if (message.uiImageAttachments?.length > 0) {
                                     <div class="flex flex-wrap gap-2 mb-2">
-                                        @for (attachment of message.imageAttachments; track attachment.filename) {
+                                        @for (attachment of message.uiImageAttachments; track attachment.filename) {
                                             @if (attachment.previewUrl) {
                                                 <div class="mb-1">
                                                     <img [src]="attachment.previewUrl" alt="{{ attachment.filename }}" class="max-w-xs max-h-48 h-auto rounded object-contain" />
@@ -103,11 +103,7 @@
                                 >
                                     <!-- Message -->
                                     <div class="min-w-4 leading-5">
-                                        <!-- REMOVE OLD CLIPBOARD BUTTON FROM HERE -->
-                                        <!-- @if (!message.generating) {
-                                            <clipboard-button [offset]="-0.3" [cdkCopyToClipboard]="message.textContent"></clipboard-button>
-                                        } -->
-                                        @if (message.textChunks.length > 0) {
+                                        @if (message.textChunks && message.textChunks.length > 0) {
                                             @for (chunk of message.textChunks; track $index) {
                                                 @if (chunk.type === 'markdown') {
                                                     <markdown
@@ -143,15 +139,13 @@
                                             }
                                         }
                                         <!-- Display non-image attachments -->
-                                        @if (message.fileAttachments?.length > 0) {
+                                        @if (message.uiFileAttachments?.length > 0) {
                                             <div class="mt-2 border-t border-gray-300 dark:border-gray-600 pt-1">
-                                                @for (attachment of message.fileAttachments; track attachment.filename) {
-                                                    @if (attachment.type !== 'image') {
-                                                        <div class="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-1">
-                                                            <mat-icon class="icon-size-4 mr-1" [svgIcon]="'heroicons_outline:document'"></mat-icon>
-                                                            <span>{{ attachment.filename }} ({{ (attachment.size / 1024) | number:'1.0-1' }} KB)</span>
-                                                        </div>
-                                                    }
+                                                @for (attachment of message.uiFileAttachments; track attachment.filename) {
+                                                    <div class="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-1">
+                                                        <mat-icon class="icon-size-4 mr-1" [svgIcon]="'heroicons_outline:document'"></mat-icon>
+                                                        <span>{{ attachment.filename }} ({{ (attachment.size / 1024) | number:'1.0-1' }} KB)</span>
+                                                    </div>
                                                 }
                                             </div>
                                         }
@@ -159,19 +153,19 @@
 
                                     <!-- Buttons container: shown for all non-generating messages -->
                                     @if (!message.generating) {
-                                        <div class="absolute bottom-1 right-1 flex items-center space-x-1" style="line-height: 1;"> <!-- Changed classes: bottom-0 mt-4 to bottom-1, removed mt-4 -->
+                                        <div class="absolute bottom-1 right-1 flex items-center space-x-1" style="line-height: 1;">
                                             <!-- Info Button: shown only for AI messages with stats -->
                                             @if (!message.isMine && message.stats) {
-                                                <!-- Removed 'regenerate-button' and absolute positioning classes like 'absolute bottom-3 left-2' -->
+                                                @let stats = message.stats;
                                                 <button mat-icon-button
                                                         class="mat-primary p-0 m-0"
-                                                        [matTooltip]="'Duration: ' + (message.stats.totalTime / 1000).toFixed(0) + 's Input tokens: ' + message.stats.inputTokens + ' Output tokens: ' + message.stats.outputTokens + ' Cost: $' + (message.stats.cost | number:'1.4-4')"
+                                                        [matTooltip]="'Duration: ' + (stats.totalTime / 1000).toFixed(0) + 's Input tokens: ' + stats.inputTokens + ' Output tokens: ' + stats.outputTokens + (stats.cachedInputTokens ? ' Cached input tokens: ' + stats.cachedInputTokens : '')+ ' Cost: $' + (message.stats.cost | number:'1.4-4')"
                                                         aria-label="Message generation stats">
                                                     <mat-icon [svgIcon]="'info'" class="icon-size-3 p-0 m-0"></mat-icon>
                                                 </button>
                                             }
                                             <!-- Clipboard Button: always shown if container is shown -->
-                                            <clipboard-button [cdkCopyToClipboard]="message.textContent" class=""></clipboard-button> <!-- class="" can be removed if desired -->
+                                            <clipboard-button [cdkCopyToClipboard]="message.textContentForDisplay" class=""></clipboard-button>
                                         </div>
                                     }
                                     <!-- The commented-out regenerate button remains unchanged -->

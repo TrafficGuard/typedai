@@ -365,6 +365,7 @@ Then review the draft python code against each of the Python code instructions, 
 - Unexpected object/collection:
 - Use positional arguments
 - Assume provided function hints are correct
+- Do NOT assume anything about the value of the results from functions other than from the function docs and type hints. Return values that require further analysis of the values
 ...
 -->
 </code-review>

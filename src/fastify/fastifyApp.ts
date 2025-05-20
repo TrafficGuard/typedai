@@ -45,7 +45,7 @@ export type TypeBoxFastifyInstance = FastifyInstance<
 	TypeBoxTypeProvider
 >;
 
-export type RouteDefinition = (fastify: AppFastifyInstance) => Promise<void>;
+export type FastifyRoutes = (fastify: AppFastifyInstance) => Promise<void>;
 
 /** Our Fastify request type used in the application */
 export interface FastifyRequest extends FastifyRequestBase {}
@@ -71,12 +71,13 @@ declare module 'fastify' {
 }
 export const fastifyInstance: TypeBoxFastifyInstance = fastify({
 	maxParamLength: 256,
+	bodyLimit: 20048576,
 }).withTypeProvider<TypeBoxTypeProvider>() as AppFastifyInstance;
 
 export interface FastifyConfig {
 	/** The port to listen on. If not provided looks up from process.env.PORT or else process.env.SERVER_PORT */
 	port?: number;
-	routes: RouteDefinition[];
+	routes: FastifyRoutes[];
 	instanceDecorators?: { [key: string]: any };
 	requestDecorators?: { [key: string]: any };
 	/** Overrides the default url of /health-check. IAP middleware is currently dependent on DEFAULT_HEALTHCHECK */
@@ -231,7 +232,7 @@ function registerRequestDecorators(decorators: { [key: string]: any }) {
 	);
 }
 
-function registerRoutes(routes: RouteDefinition[]) {
+function registerRoutes(routes: FastifyRoutes[]) {
 	for (const route of routes) {
 		fastifyInstance.register(route as any);
 	}

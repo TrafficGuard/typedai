@@ -3,7 +3,7 @@ export {
 	initFastify,
 	type TypeBoxFastifyInstance,
 	type FastifyConfig,
-	type RouteDefinition,
+	type FastifyRoutes,
 } from './fastifyApp';
 
 export {

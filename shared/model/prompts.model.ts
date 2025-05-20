@@ -28,3 +28,13 @@ export interface Prompt {
  * Used for listings or summaries where full message content is not needed.
  */
 export type PromptPreview = Omit<Prompt, 'messages'>
+
+// Add with other model interfaces
+export interface PromptGeneratePayloadModel {
+    options?: CallSettings & { llmId?: string };
+}
+
+// Add with other model interfaces
+export interface PromptGenerateResponseModel {
+    generatedMessage: LlmMessage;
+}

@@ -98,27 +98,33 @@ function runCommand(commandString, cwd, taskName) {
  * @returns {Promise<boolean>} - Resolves with true if all commands succeeded, false otherwise.
  */
 async function runNpmScriptOrCommandInDirs(scriptOrCommandName, directories) {
-    if((scriptOrCommandName === 'lint'||scriptOrCommandName === 'test') && directories.some(dirInfo => dirInfo.path === './frontend')) {
-        console.log(`skipping frontend ${scriptOrCommandName}`)
-        return true;
-    }
 
     // Determine if 'run' is needed
     const needsRun = !NPM_BUILTIN_COMMANDS.has(scriptOrCommandName);
-    const npmSubCommand = needsRun ? `run ${scriptOrCommandName}` : scriptOrCommandName;
-    const fullBaseCommand = `npm ${npmSubCommand}`;
-
-    console.log(`\n>>> Starting parallel execution of "${fullBaseCommand}" <<<`);
+    const baseNpmSubCommand = needsRun ? `run ${scriptOrCommandName}` : scriptOrCommandName;
 
     const commandPromises = directories.map(dirInfo => {
         const resolvedPath = path.resolve(dirInfo.path);
+        let currentNpmSubCommandForDir = baseNpmSubCommand;
+
+        if(dirInfo.path.includes('frontend') && scriptOrCommandName === 'test') {
+            currentNpmSubCommandForDir += ':ci';
+        }
+
+        const commandToExecuteInDir = `npm ${currentNpmSubCommandForDir}`;
+
         // Use the base script/command name for the task identifier for consistency
         const taskName = `${dirInfo.name}-${scriptOrCommandName}`; // e.g., "frontend-build", "root-install"
 
-        if(dirInfo.path.includes('frontend') && scriptOrCommandName === 'test')
-            scriptOrCommandName = 'test:ci'
+        // Skip linting for the frontend directory specifically
+        if(scriptOrCommandName === 'lint' && dirInfo.path.includes('frontend')) {
+            console.log(`Skipping ${scriptOrCommandName} for ${dirInfo.name} directory.`);
+            return Promise.resolve(true); // Indicate success for this skipped task
+        }
 
-        return runCommand(fullBaseCommand, resolvedPath, taskName);
+        console.log(`\n>>> Starting parallel execution of "${commandToExecuteInDir}" <<<`);
+
+        return runCommand(commandToExecuteInDir, resolvedPath, taskName);
     });
 
     const results = await Promise.allSettled(commandPromises);
@@ -144,11 +150,12 @@ async function runNpmScriptOrCommandInDirs(scriptOrCommandName, directories) {
         }
     });
 
+    const overallCommandDescription = `npm ${baseNpmSubCommand}`;
     if (anyFailed) {
-        console.error(`\n>>> "${fullBaseCommand}" failed in one or more directories. <<<`);
+        console.error(`\n>>> "${overallCommandDescription}" failed in one or more directories. <<<`);
         return false; // Indicate failure
     } else {
-        console.log(`\n>>> "${fullBaseCommand}" completed successfully in all directories. <<<`);
+        console.log(`\n>>> "${overallCommandDescription}" completed successfully in all directories. <<<`);
         return true; // Indicate success
     }
 }

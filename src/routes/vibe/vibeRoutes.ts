@@ -1,5 +1,4 @@
 import { type Static, Type } from '@sinclair/typebox';
-import type { FastifyInstance, FastifyRequest as FastifyRequestBase, RouteShorthandOptions } from 'fastify';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { sendNotFound } from '#fastify/responses';
 import type {
@@ -291,10 +290,8 @@ const GetFileResponseSchema = Type.Object({
 	content: Type.String(),
 });
 
-// --- Base Path ---
 const basePath = '/api/vibe';
 
-// --- Route Definitions ---
 export async function vibeRoutes(fastify: AppFastifyInstance) {
 	const vibeService = new VibeServiceImpl(fastify.vibeRepository);
 

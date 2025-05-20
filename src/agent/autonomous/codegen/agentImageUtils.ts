@@ -10,7 +10,7 @@ import { getMimeType } from '#utils/mime';
 // Define the expected structure for image requests in the script result
 export interface ImageSource {
 	type: 'image';
-	source: 'filesystem' | 'filestore' | 'bytes' | 'buffer' | 'web' | 'gcs';
+	source: 'filesystem' | 'filestore' | 'bytes' | 'buffer' | 'web' | 'gcs' | 'base64';
 	/**
 	 * Specifies the image source details based on the 'source' field:
 	 * - filesystem: The file path (string).
@@ -43,6 +43,7 @@ export async function checkForImageSources(result: Record<string, any>, fileStor
 		// Check if the value matches the image request structure
 		if (typeof value === 'object' && value !== null && value.type === 'image' && typeof value.source === 'string') {
 			const request = value as ImageSource;
+			let base64: string;
 			let imageData: Buffer | undefined;
 			let filename: string | undefined;
 			let mimeType: string | undefined;
@@ -52,6 +53,11 @@ export async function checkForImageSources(result: Record<string, any>, fileStor
 
 			try {
 				switch (request.source) {
+					case 'base64':
+						if (typeof request.specifier !== 'string') throw new Error('specifier must be a string when source is base64');
+						base64 = request.specifier;
+						break;
+
 					case 'bytes': {
 						let bufferData = request.specifier;
 						const sourceDescription = `key '${key}' (source: bytes)`;
@@ -229,7 +235,7 @@ export async function checkForImageSources(result: Record<string, any>, fileStor
 				if (imageData && filename && mimeType && size !== undefined) {
 					imageParts.push({
 						type: 'image',
-						image: imageData.toString('base64'), // Convert Buffer to base64 string
+						image: base64 ?? imageData.toString('base64'), // Convert Buffer to base64 string
 						mimeType: mimeType,
 						filename: filename,
 						size: size,

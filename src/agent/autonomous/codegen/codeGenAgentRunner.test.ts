@@ -19,6 +19,7 @@ import { logger } from '#o11y/logger';
 import { setTracer } from '#o11y/trace';
 import type { AgentContext } from '#shared/model/agent.model';
 import { lastText } from '#shared/model/llm.model';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { sleep } from '#utils/async-utils';
 import { agentContextStorage } from '../../agentContextLocalStorage';
 
@@ -48,6 +49,7 @@ function result(contents: string): string {
 }
 
 describe('codegenAgentRunner', () => {
+	setupConditionalLoggerOutput();
 	const ctx = initInMemoryApplicationContext();
 
 	let functions: LlmFunctionsImpl;
@@ -149,7 +151,8 @@ describe('codegenAgentRunner', () => {
 	describe('Agent.complete usage', () => {
 		it('should be able to complete on the initial function call', async () => {
 			functions.addFunctionClass(TestFunctions);
-			mockLLM.addResponse(COMPLETE_FUNCTION_CALL_PLAN);
+			mockLLM.addResponse(COMPLETE_FUNCTION_CALL_PLAN); // For the agent's main execution
+			mockLLM.addResponse('<summary>Test summary for initial completion.</summary>'); // For the IterationSummary
 			await startAgent(runConfig({ functions }));
 			const agent = await waitForAgent();
 			expect(agent.error).to.be.undefined;
@@ -158,9 +161,10 @@ describe('codegenAgentRunner', () => {
 
 		it('should be able to complete on the second function call', async () => {
 			functions.addFunctionClass(TestFunctions);
-			mockLLM.addResponse(NOOP_FUNCTION_CALL_PLAN);
-			mockLLM.addResponse(ITERATION_SUMMARY_RESPONSE);
-			mockLLM.addResponse(COMPLETE_FUNCTION_CALL_PLAN);
+			mockLLM.addResponse(NOOP_FUNCTION_CALL_PLAN); // Iteration 1: Agent action
+			mockLLM.addResponse('<summary>Test summary for NOOP action.</summary>'); // Iteration 1: Summary
+			mockLLM.addResponse(COMPLETE_FUNCTION_CALL_PLAN); // Iteration 2: Agent action (complete)
+			mockLLM.addResponse('<summary>Test summary for final completion.</summary>'); // Iteration 2: Summary
 			await startAgent(runConfig({ functions }));
 			const agent = await waitForAgent();
 			expect(!agent.error).to.be.true;
@@ -172,6 +176,7 @@ describe('codegenAgentRunner', () => {
 		it('should be able to request feedback', async () => {
 			const feedbackNote = 'the feedback XYZ';
 			mockLLM.addResponse(REQUEST_FEEDBACK_FUNCTION_CALL_PLAN(feedbackNote));
+			mockLLM.addResponse('<summary>Test summary for feedback request.</summary>');
 			await startAgent(runConfig({ functions }));
 			let agent = await waitForAgent();
 			expect(agent.functionCallHistory.length).to.equal(1);
@@ -181,6 +186,7 @@ describe('codegenAgentRunner', () => {
 			mockLLM.addResponse(COMPLETE_FUNCTION_CALL_PLAN, (prompt) => {
 				postFeedbackPrompt = prompt;
 			});
+			mockLLM.addResponse('<summary>Test summary after feedback.</summary>');
 			logger.info('Providing feedback...');
 			await provideFeedback(agent.agentId, agent.executionId, feedbackNote);
 			agent = await waitForAgent();
@@ -224,9 +230,11 @@ describe('codegenAgentRunner', () => {
 		it('If theres an indentation error then it should retry', async () => {
 			functions.addFunctionClass(TestFunctions);
 			// Add extra indentation
-			mockLLM.addResponse(PYTHON_CODE_PLAN(`  ${PY_AGENT_COMPLETED('done')}`));
-			// Add the fixed code
-			mockLLM.addResponse(COMPLETE_FUNCTION_CALL_PLAN);
+			mockLLM.addResponse(PYTHON_CODE_PLAN(`  ${PY_AGENT_COMPLETED('done')}`)); // 1. LLM generates code with indentation error
+			// No summary here as the agent's python script fails before summary generation.
+			// The next LLM call is to fix the syntax.
+			mockLLM.addResponse(COMPLETE_FUNCTION_CALL_PLAN); // 2. LLM provides fixed code
+			mockLLM.addResponse('<summary>Test summary after syntax fix and completion.</summary>'); // 3. Summary for the successful completion
 			await startAgent(runConfig({ functions }));
 			const agent = await waitForAgent();
 			expect(agent.error).to.be.undefined;
@@ -279,9 +287,21 @@ describe('codegenAgentRunner', () => {
 	describe('Cancel errored agent', () => {
 		it('should cancel the agent with note as output of the Supervisor.cancelled function call', async () => {
 			functions.addFunctionClass(TestFunctions);
-			const functionName = 'TestFunctions.throwError';
-			const response = `<python-code>${functionName}</python-code>`;
-			mockLLM.setResponse(response);
+			const planWithErroredCode = PYTHON_CODE_PLAN(PY_TEST_FUNC_THROW_ERROR);
+			mockLLM.setResponse(planWithErroredCode); // This is for the agent's first planning phase (uses agent.llms.hard)
+			mockLLM.addResponse(ITERATION_SUMMARY_RESPONSE); // This is for the summary call after the first iteration's Python code errors (uses llms().easy)
+			// This response is for the 'Codegen agent plan retry' call,
+			// which error logs indicated was being made after the initial plan's Python code failed.
+			mockLLM.addResponse(PYTHON_CODE_PLAN('pass # Python code does nothing after retry')); // This is for the agent's second planning phase (retry plan) (uses agent.llms.hard)
+			// This response is for the 'IterationSummary' call.
+			// This call typically occurs at the end of an agent's iteration, especially if an error occurred.
+			mockLLM.addResponse(ITERATION_SUMMARY_RESPONSE); // This is for the summary call after the second iteration (uses llms().easy)
+
+			// Add responses for a potential third iteration's plan and retry, plus summary,
+			// to prevent errors if the agent attempts to run further before cancellation fully processes.
+			mockLLM.addResponse(PYTHON_CODE_PLAN('pass # Iter3 Initial Plan'));
+			mockLLM.addResponse(PYTHON_CODE_PLAN('pass # Iter3 Retry Plan'));
+			mockLLM.addResponse(ITERATION_SUMMARY_RESPONSE);
 			await startAgent(runConfig({ functions }));
 			let agent = await waitForAgent();
 
@@ -297,11 +317,11 @@ describe('codegenAgentRunner', () => {
 	describe('LLM calls', () => {
 		it('should have the call stack', async () => {
 			functions.addFunctionClass(TestFunctions);
-			mockLLM.addResponse(SKY_COLOUR_FUNCTION_CALL_PLAN);
-			mockLLM.addResponse('blue');
-			mockLLM.addResponse(ITERATION_SUMMARY_RESPONSE);
-			mockLLM.addResponse(COMPLETE_FUNCTION_CALL_PLAN);
-			mockLLM.addResponse(ITERATION_SUMMARY_RESPONSE);
+			mockLLM.addResponse(SKY_COLOUR_FUNCTION_CALL_PLAN); // 1. Agent plan to call sky_colour
+			mockLLM.addResponse('blue'); // 2. LLM response for TestFunctions.skyColour's internal LLM call
+			mockLLM.addResponse('<summary>Test summary after sky colour.</summary>'); // 3. Summary for sky_colour iteration
+			mockLLM.addResponse(COMPLETE_FUNCTION_CALL_PLAN); // 4. Agent plan to complete
+			mockLLM.addResponse('<summary>Test summary for final completion.</summary>'); // 5. Summary for completion iteration
 			await startAgent(runConfig({ functions }));
 			const agent = await waitForAgent();
 			expect(agent.state).to.equal('completed');

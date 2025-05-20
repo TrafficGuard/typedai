@@ -153,4 +153,52 @@ export function deserializeContext(data: Static<typeof AgentContextSchema>): Age
 		toolState: toolStateImpl,
 	};
 	return context;
+/*
+	}
+	// handle array or string
+	if (typeof serialized.functionCallHistory === 'string') context.functionCallHistory = JSON.parse(serialized.functionCallHistory);
+
+	context.fileSystem = new FileSystemService().fromJSON(serialized.fileSystem);
+	context.functions = new LlmFunctionsImpl().fromJSON(serialized.functions ?? (serialized as any).toolbox); // toolbox for backward compat
+	context.memory = serialized.memory;
+	context.metadata = serialized.metadata;
+	context.fileStore = serialized.fileStore;
+	context.childAgents = serialized.childAgents || [];
+	context.llms = deserializeLLMs(serialized.llms);
+
+	const user = currentUser();
+	if (serialized.user === user.id) context.user = user;
+	else context.user = await appContext().userService.getUser(serialized.user);
+
+	const handlerId = serialized.completedHandler;
+	if (handlerId) {
+		context.completedHandler = getCompletedHandler(handlerId);
+		if (!context.completedHandler)
+			logger.error(`Completed handler with ID '${handlerId}' not found in registry during deserialization for agent ${serialized.agentId}.`);
+	}
+
+	// backwards compatability
+	if (typeof serialized.toolState === 'string' && serialized.toolState.length) {
+		context.toolState = JSON.parse(serialized.toolState);
+	}
+
+	context.toolState ??= {};
+	// if (context.liveFiles?.length && !context.toolState.LiveFiles) context.toolState.LiveFiles = context.liveFiles;
+	// if (context.fileStore?.length && !context.toolState.FileStore) context.toolState.FileStore = context.fileStore;
+
+	if ((context.type as any) === 'codegen') {
+		context.type = 'autonomous';
+		context.subtype = 'codegen';
+	}
+	if (!context.type) context.type = 'autonomous';
+	if ((context.type as any) === 'orchestrator') context.type = 'autonomous';
+	if (context.type === 'autonomous' && !context.subtype) context.subtype = 'codegen';
+	if (!context.iterations) context.iterations = 0;
+
+	// Need to default empty parameters. Seems to get lost in Firestore
+	context.functionCallHistory ??= [];
+	for (const call of context.functionCallHistory) call.parameters ??= {};
+
+	return context as AgentContext;
+*/
 }

@@ -18,7 +18,6 @@ import type {
 	RegenerateMessageSchema,
 } from '#shared/schemas/chat.schema';
 import type { LlmMessageSchemaModel } from '#shared/schemas/llm.schema';
-
 import { currentUser } from '#user/userContext';
 
 export async function chatRoutes(fastify: AppFastifyInstance) {

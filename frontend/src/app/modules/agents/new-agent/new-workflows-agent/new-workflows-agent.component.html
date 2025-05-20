@@ -1,0 +1,42 @@
+
+<form [formGroup]="codeForm" (ngSubmit)="onSubmit()">
+  <mat-form-field appearance="fill">
+    <mat-label>Working Directory</mat-label>
+    <mat-select formControlName="workingDirectory" required>
+      <mat-option *ngFor="let repo of repositories" [value]="repo">
+        {{ repo }}
+      </mat-option>
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field appearance="fill">
+    <mat-label>Workflow Type</mat-label>
+    <mat-select formControlName="workflowType" required>
+      <mat-option value="code">Code Edit Workflow</mat-option>
+      <mat-option value="query">Codebase Query</mat-option>
+      <mat-option value="selectFiles">Select Files To Edit</mat-option>
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field appearance="fill">
+    <mat-label>{{ getInputLabel() }}</mat-label>
+    <textarea matInput formControlName="input" rows="4" required></textarea>
+  </mat-form-field>
+
+  <button mat-raised-button color="primary" type="submit" [disabled]="!codeForm.valid || isLoading">Submit</button>
+</form>
+
+<mat-card *ngIf="isLoading" class="progress-card">
+  <mat-card-content>
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  </mat-card-content>
+</mat-card>
+
+<mat-card *ngIf="result" class="result-card">
+  <mat-card-header>
+    <mat-card-title>Result</mat-card-title>
+  </mat-card-header>
+  <mat-card-content>
+    <pre>{{ result }}</pre>
+  </mat-card-content>
+</mat-card>

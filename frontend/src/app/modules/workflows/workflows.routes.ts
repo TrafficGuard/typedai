@@ -1,9 +1,9 @@
 import { Routes } from '@angular/router';
-import {WorkflowsComponent} from "./workflows.component";
+import { NewWorkflowsAgentComponent } from "../agents/new-agent/new-workflows-agent/new-workflows-agent.component";
 
 export default [
     {
         path: '',
-        component: WorkflowsComponent,
+        component: NewWorkflowsAgentComponent,
     },
 ] as Routes;

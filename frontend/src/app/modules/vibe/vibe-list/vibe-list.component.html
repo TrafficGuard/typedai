@@ -1,9 +1,9 @@
 <div class="flex flex-col flex-auto w-full p-4 sm:p-4">
 	<div class="flex items-center justify-between mb-4 mx-3">
-		<h1 class="text-3xl font-medium tracking-tight leading-none">Vibe Coder</h1>
+		<h1 class="text-3xl font-medium tracking-tight leading-none">Code tasks</h1>
 		<button mat-flat-button color="primary" (click)="createNewVibe()">
 			<mat-icon svgIcon="heroicons_outline:plus"></mat-icon>
-			<span class="ml-2">New Vibe Session</span>
+			<span class="ml-2">New Task</span>
 		</button>
 	</div>
 
@@ -62,7 +62,7 @@
 
 		<ng-template #loadingOrError>
 			<!-- Optional: Add a loading indicator -->
-			<div class="p-8 text-center text-secondary">Loading sessions...</div>
+			<div class="p-8 text-center text-secondary">Loading tasks...</div>
 			<!-- Optional: Add error handling display -->
 		</ng-template>
 	</div>

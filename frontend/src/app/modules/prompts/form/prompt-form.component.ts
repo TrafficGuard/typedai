@@ -1,8 +1,8 @@
-import { Component, OnInit, inject, signal, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, inject, signal, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef, ViewChildren, QueryList, ElementRef } from '@angular/core';
 import { CommonModule, Location, TitleCasePipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { trigger, state, style, transition, animate } from '@angular/animations';
-import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, FormControl } from '@angular/forms';
+import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, FormControl, AbstractControl } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCardModule } from '@angular/material/card';
@@ -22,8 +22,10 @@ import { CdkTextareaAutosize } from '@angular/cdk/text-field';
 import { PromptsService } from '../prompts.service';
 import { LlmService, LLM as AppLLM } from '../../agents/services/llm.service'; // Renamed LLM to AppLLM to avoid conflict
 import type { Prompt } from '#shared/model/prompts.model';
-import type { LlmMessage, CallSettings } from '#shared/model/llm.model';
+import type { LlmMessage, CallSettings, UserContentExt, TextPart, ImagePartExt, FilePartExt } from '#shared/model/llm.model';
 import type { PromptCreatePayload, PromptUpdatePayload, PromptSchemaModel } from '#shared/schemas/prompts.schema';
+import type { Attachment } from '../message.types';
+import { attachmentsAndTextToUserContentExt, userContentExtToAttachmentsAndText, fileToAttachment } from '../messageUtil';
 
 import { Subject, Observable, forkJoin } from 'rxjs';
 import { takeUntil, finalize, tap, filter } from 'rxjs/operators';
@@ -87,7 +89,33 @@ export class PromptFormComponent implements OnInit, OnDestroy {
     isSaving = signal(false);
     private destroy$ = new Subject<void>();
 
+    @ViewChildren('fileInput') fileInputs!: QueryList<ElementRef<HTMLInputElement>>;
+
     tagCtrl = new FormControl('');
+
+    public getAttachmentsFormArray(messageControl: AbstractControl | null): FormArray | null {
+        if (messageControl instanceof FormGroup) {
+            const attachmentsControl = messageControl.get('attachments');
+            if (attachmentsControl instanceof FormArray) {
+                return attachmentsControl;
+            }
+        }
+        return null;
+    }
+
+    public getMessageContentSummary(messageControl: AbstractControl | null): string {
+        const contentValue = messageControl?.value;
+        return (typeof contentValue === 'string') ? contentValue : '';
+    }
+
+    public getTruncatedMessageContentSummary(messageControl: AbstractControl | null, maxLength: number = 50): string {
+        const summary = this.getMessageContentSummary(messageControl);
+        if (summary.length > maxLength) {
+            return summary.slice(0, maxLength) + '...';
+        }
+        return summary;
+    }
+
     readonly separatorKeysCodes: number[] = [13, 188];
 
     readonly llmMessageRoles: Array<{value: LlmMessage['role'], viewValue: string}> = [
@@ -258,15 +286,16 @@ export class PromptFormComponent implements OnInit, OnDestroy {
         return this.promptForm.get('tags') as FormArray;
     }
 
-    createMessageGroup(role: LlmMessage['role'] = 'user', content: string = ''): FormGroup {
+    createMessageGroup(role: LlmMessage['role'] = 'user', content: string = '', attachmentsData: Attachment[] = []): FormGroup {
         return this.fb.group({
             role: [role, Validators.required],
             content: [content, Validators.required],
+            attachments: role === 'user' ? this.fb.array(attachmentsData.map(att => this.fb.control(att))) : this.fb.array([]),
         });
     }
 
     // Modified signature: role is now optional
-    addMessage(role?: LlmMessage['role'], content: string = ''): void {
+    addMessage(role?: LlmMessage['role'], content: string = '', attachmentsData: Attachment[] = []): void {
         let newRole: LlmMessage['role'];
 
         if (role) {
@@ -298,13 +327,13 @@ export class PromptFormComponent implements OnInit, OnDestroy {
         if (newRole === 'system') {
              const systemMessageExistsAtIndex0 = this.messagesFormArray.length > 0 && this.messagesFormArray.at(0).get('role')?.value === 'system';
              if (!systemMessageExistsAtIndex0) {
-                this.messagesFormArray.insert(0, this.createMessageGroup(newRole, content));
+                this.messagesFormArray.insert(0, this.createMessageGroup(newRole, content, attachmentsData));
              } else {
                  console.warn('Attempted to add a system message when one already exists at index 0.');
              }
         } else {
             // Add user/assistant messages to the end
-            this.messagesFormArray.push(this.createMessageGroup(newRole, content));
+            this.messagesFormArray.push(this.createMessageGroup(newRole, content, attachmentsData));
         }
         this.cdr.detectChanges();
     }
@@ -338,6 +367,30 @@ export class PromptFormComponent implements OnInit, OnDestroy {
     removeTagAtIndex(index: number): void {
         this.tagsFormArray.removeAt(index);
         this.cdr.detectChanges();
+    }
+
+    private _convertLlmContentToString(content: UserContentExt | undefined): string {
+        if (typeof content === 'string') {
+            return content;
+        }
+        if (Array.isArray(content)) {
+            return content.map(part => {
+                if (part.type === 'text') {
+                    return (part as TextPart).text;
+                } else if (part.type === 'image') {
+                    const imagePart = part as ImagePartExt;
+                    return `[Image: ${imagePart.filename || imagePart.mimeType || 'image'}]`;
+                } else if (part.type === 'file') {
+                    const filePart = part as FilePartExt;
+                    return `[File: ${filePart.filename || filePart.mimeType || 'file'}]`;
+                }
+                // Fallback for any other part types that might appear in UserContentExt if extended
+                // Safely access .type, provide a default if it's not a known structure
+                const partType = (part as any)?.type || 'unknown';
+                return `[Unknown part type: ${partType}]`;
+            }).join('\n\n'); // Use double newline for better separation of parts in textarea
+        }
+        return ''; // Handle undefined or null content, or other unexpected types
     }
 
     populateForm(prompt: Prompt): void {
@@ -383,14 +436,15 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 
         if (systemMessages.length > 0) {
             initialIncludeSystemMessage = true;
-            systemMessageContent = systemMessages[0].content as string; // Take the content of the first system message
+            systemMessageContent = this._convertLlmContentToString(systemMessages[0].content as UserContentExt); // Take the content of the first system message
             // Add the system message directly to the array at index 0
             this.messagesFormArray.push(this.createMessageGroup('system', systemMessageContent));
         }
 
         // Add other messages after the system message (if added)
         otherMessages.forEach(msg => {
-            this.messagesFormArray.push(this.createMessageGroup(msg.role, msg.content as string));
+            const { attachments: parsedAttachments, text: parsedText } = userContentExtToAttachmentsAndText(msg.content as UserContentExt);
+            this.messagesFormArray.push(this.createMessageGroup(msg.role, parsedText, msg.role === 'user' ? parsedAttachments : []));
         });
 
         // Set includeSystemMessage form control value *without* emitting event initially
@@ -425,7 +479,17 @@ export class PromptFormComponent implements OnInit, OnDestroy {
         const formValue = this.promptForm.value;
 
         // Filter out the includeSystemMessage control value from the payload
-        const payloadMessages = formValue.messages.map((msg: {role: LlmMessage['role'], content: string}) => ({role: msg.role, content: msg.content}));
+        const payloadMessages = formValue.messages.map((formMsg: {role: LlmMessage['role'], content: string, attachments: Attachment[] | null}) => {
+            let messageContentPayload: UserContentExt;
+            // Check if formMsg.attachments is an array and has items. It might be null or empty if not a user message or no attachments.
+            if (formMsg.role === 'user' && Array.isArray(formMsg.attachments) && formMsg.attachments.length > 0) {
+                messageContentPayload = attachmentsAndTextToUserContentExt(formMsg.attachments, formMsg.content);
+            } else {
+                // For system/assistant messages, or user messages without attachments, content is just text.
+                messageContentPayload = formMsg.content;
+            }
+            return { role: formMsg.role, content: messageContentPayload };
+        });
 
         const payload: PromptCreatePayload | PromptUpdatePayload = {
             name: formValue.name,
@@ -532,9 +596,72 @@ export class PromptFormComponent implements OnInit, OnDestroy {
     //   });
     // }
 
+    public onDragOver(event: DragEvent): void {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    public async onDrop(event: DragEvent, messageIndex: number): Promise<void> {
+        event.preventDefault();
+        event.stopPropagation();
+        const files = Array.from(event.dataTransfer?.files || []);
+        if (files.length > 0) {
+            const messageGroup = this.messagesFormArray.at(messageIndex) as FormGroup;
+            if (messageGroup) {
+                const attachmentsArray = this.getAttachmentsFormArray(messageGroup);
+                if (attachmentsArray) {
+                    for (const file of files) {
+                        const attachment = await fileToAttachment(file);
+                        attachmentsArray.push(this.fb.control(attachment));
+                    }
+                    this.cdr.detectChanges();
+                }
+            }
+        }
+    }
 
     ngOnDestroy(): void {
         this.destroy$.next();
         this.destroy$.complete();
+    }
+
+    public async onFileSelected(event: Event, messageIndex: number): Promise<void> {
+        const inputElement = event.target as HTMLInputElement;
+        if (inputElement.files && inputElement.files.length > 0) {
+            const messageGroup = this.messagesFormArray.at(messageIndex) as FormGroup;
+            if (messageGroup) {
+                const attachmentsArray = this.getAttachmentsFormArray(messageGroup);
+                if (attachmentsArray) {
+                    for (let i = 0; i < inputElement.files.length; i++) {
+                        const file = inputElement.files[i];
+                        const attachment = await fileToAttachment(file);
+                        attachmentsArray.push(this.fb.control(attachment));
+                    }
+                    this.cdr.detectChanges();
+                }
+            }
+        }
+        // Clear the input value to allow selecting the same file again
+        if (inputElement) {
+            inputElement.value = '';
+        }
+    }
+
+    public triggerFileInputClick(index: number): void {
+        const inputElement = this.fileInputs.toArray()[index];
+        if (inputElement) {
+            inputElement.nativeElement.click();
+        }
+    }
+
+    public removeAttachment(messageIndex: number, attachmentIndex: number): void {
+        const messageGroup = this.messagesFormArray.at(messageIndex) as FormGroup;
+        if (messageGroup) {
+            const attachmentsArray = this.getAttachmentsFormArray(messageGroup);
+            if (attachmentsArray) {
+                attachmentsArray.removeAt(attachmentIndex);
+                this.cdr.detectChanges();
+            }
+        }
     }
 }
