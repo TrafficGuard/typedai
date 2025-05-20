@@ -145,16 +145,36 @@ export class PostgresUserService implements UserService {
 	}
 
 	async ensureSingleUser(): Promise<void> {
-		// This is typically for Firestore or in-memory where a single user mode might be simpler to manage.
-		// For Postgres, standard user management is usually preferred.
-		// If specific single-user logic is needed for Postgres, it would be implemented here.
-		logger.info('ensureSingleUser not implemented for PostgresUserService, standard multi-user mode assumed.');
-		// throw new Error('Not implemented yet (ensureSingleUser)');
+		// This method's behavior is different in Postgres compared to Firestore/InMemory.
+		// In a typical Postgres multi-user setup, "single user mode" isn't managed at this service level
+		// in the same way (e.g., by creating a user from ENV vars if not present).
+		// If a specific single-user setup is required for Postgres (e.g., based on environment variables
+		// to find or create THE single user), that logic would need to be added here,
+		// potentially populating a class member like 'this.singleUserInstance'.
+		// For now, this method logs information and is effectively a no-op regarding DB changes.
+		logger.info(
+			'PostgresUserService: ensureSingleUser called. In a standard Postgres deployment, single-user mode is typically managed via application configuration or deployment strategy. This service assumes multi-user capabilities by default.',
+		);
+		// No database operations are performed by default for this method in PostgresUserService.
+		return Promise.resolve();
 	}
 
 	getSingleUser(): User {
-		// Similar to ensureSingleUser, this is more relevant for specific single-user deployment models.
-		throw new Error('getSingleUser not applicable for PostgresUserService in standard multi-user mode.');
+		// This method is intended to return a pre-defined or uniquely identified "single user"
+		// typically initialized or identified by `ensureSingleUser`.
+		// As the current Postgres `ensureSingleUser` is informational and doesn't define/load
+		// a specific single user instance into this service, this method cannot fulfill its purpose.
+		logger.warn(
+			'PostgresUserService: getSingleUser called. This method is not fully functional in the current PostgresUserService configuration as ensureSingleUser does not define/load a specific single user instance.',
+		);
+		throw new Error(
+			'getSingleUser cannot reliably return a single user in PostgresUserService without specific single-user initialization logic in ensureSingleUser (e.g., loading a user by a configured ID/email into a service instance).',
+		);
+		// If a 'this.singleUserInstance: User | undefined;' property existed and was populated by ensureSingleUser:
+		// if (!this.singleUserInstance) {
+		//     throw new Error('Single user has not been initialized. ensureSingleUser might need to be called or configured.');
+		// }
+		// return this.singleUserInstance;
 	}
 
 	async updateUser(updates: Partial<User>, userId?: string): Promise<User> {
