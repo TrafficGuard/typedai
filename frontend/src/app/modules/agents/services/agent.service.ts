@@ -13,9 +13,14 @@ import {
 import { callApiRoute } from '../../../core/api-route';
 import { AGENT_API } from '#shared/api/agent.api';
 import type { AgentContext, AutonomousIteration } from '#shared/model/agent.model';
+import { User } from '#shared/model/user.model';
 import {LlmCall} from "#shared/model/llmCall.model";
 import {Pagination} from "../../../core/types";
+import { type Static } from '@sinclair/typebox';
+import { AgentContextSchema } from '#shared/schemas/agent.schema';
 
+// Type for AgentContext as received from the API
+type AgentContextFromApi = Static<typeof AgentContextSchema>;
 
 @Injectable({ providedIn: 'root' })
 export class AgentService {
@@ -44,12 +49,48 @@ export class AgentService {
       return this._pagination.asObservable();
   }
 
+  private mapAgentContextFromApi(apiAgent: AgentContextFromApi): AgentContext {
+    const { user: userId, llms: llmIds, functions: apiFunctions, fileSystem: apiFileSystem, completedHandler: apiCompletedHandler, ...restOfApiAgent } = apiAgent;
+
+    // Create a placeholder User object
+    const user: User = {
+        id: userId,
+        name: 'Unknown User', // Placeholder
+        email: 'unknown@example.com', // Placeholder
+        enabled: false, // Placeholder
+        createdAt: new Date(0), // Placeholder
+        hilBudget: 0, // Placeholder
+        hilCount: 0,  // Placeholder
+        llmConfig: {}, // Placeholder
+        chat: {},      // Placeholder
+        functionConfig: {}, // Placeholder
+    };
+
+    return {
+        ...restOfApiAgent,
+        user,
+        // For other complex fields, use 'as any' or implement proper mapping/instantiation
+        llms: llmIds as any, // API returns { easy: string, ... }, Model expects Record<TaskLevel, LLM>
+        functions: apiFunctions as any, // API returns { functionClasses: string[] }, Model expects LlmFunctions
+        fileSystem: apiFileSystem as any, // API returns { basePath: string, wd: string } | null, Model expects IFileSystemService | null
+        completedHandler: apiCompletedHandler as any, // API returns string | undefined, Model expects AgentCompleted | undefined
+        // Ensure all other fields from AgentContext are covered if they differ or are not optional
+        // messages should be compatible if LlmMessageSchemaModel aligns with LlmMessage
+    };
+  }
+
+  private mapAgentContextArrayFromApi(apiAgents: AgentContextFromApi[]): AgentContext[] {
+    return apiAgents.map(this.mapAgentContextFromApi.bind(this));
+  }
+
   /** Loads agents from the server and updates the BehaviorSubject */
   private loadAgents(): void {
     callApiRoute(this._httpClient, AGENT_API.list).pipe(
-      tap(agents => this._agents$.next(agents || [])),
+      map(apiAgents => this.mapAgentContextArrayFromApi(apiAgents || [])),
+      tap(agents => this._agents$.next(agents)),
       catchError(error => {
         console.error('Error fetching agents', error);
+        this._agents$.next([]); // Clear agents on error or provide empty array
         return throwError(error);
       })
     ).subscribe();
@@ -70,6 +111,7 @@ export class AgentService {
   /** Get agent details */
   getAgentDetails(agentId: string): Observable<AgentContext> {
     return callApiRoute(this._httpClient, AGENT_API.details, { pathParams: { agentId } }).pipe(
+        map(apiAgent => this.mapAgentContextFromApi(apiAgent)),
         catchError(error => this.handleError('Load agent', error))
     );
   }
@@ -118,8 +160,8 @@ export class AgentService {
 
   /** Submits feedback and updates the local cache */
   submitFeedback(agentId: string, executionId: string, feedback: string): Observable<AgentContext> {
-    return this._httpClient.post<AgentContext>(AGENT_API.feedback.pathTemplate, { agentId, executionId, feedback }
-    ).pipe(
+    return callApiRoute(this._httpClient, AGENT_API.feedback, { body: { agentId, executionId, feedback } }).pipe(
+      map(apiAgent => this.mapAgentContextFromApi(apiAgent)),
       tap(updatedAgent => this.updateAgentInCache(updatedAgent)),
       catchError(error => this.handleError('submitFeedback', error))
     );
@@ -127,10 +169,8 @@ export class AgentService {
 
   /** Requests a Human-in-the-Loop check for an agent */
   requestHilCheck(agentId: string, executionId: string): Observable<AgentContext> {
-    return this._httpClient.post<AgentContext>(
-      AGENT_API.requestHil.pathTemplate,
-      { agentId, executionId }
-    ).pipe(
+    return callApiRoute(this._httpClient, AGENT_API.requestHil, { body: { agentId, executionId } }).pipe(
+      map(apiAgent => this.mapAgentContextFromApi(apiAgent)),
       tap(updatedAgent => this.updateAgentInCache(updatedAgent)),
       catchError(error => this.handleError('requestHilCheck', error))
     );
@@ -138,8 +178,8 @@ export class AgentService {
 
   /** Resumes an agent and updates the local cache */
   resumeAgent(agentId: string, executionId: string, feedback: string): Observable<AgentContext> {
-    return this._httpClient.post<AgentContext>(AGENT_API.resumeHil.pathTemplate, { agentId, executionId, feedback }
-    ).pipe(
+    return callApiRoute(this._httpClient, AGENT_API.resumeHil, { body: { agentId, executionId, feedback } }).pipe(
+      map(apiAgent => this.mapAgentContextFromApi(apiAgent)),
       tap(updatedAgent => this.updateAgentInCache(updatedAgent)),
       catchError(error => this.handleError('resumeAgent', error))
     );
@@ -147,8 +187,8 @@ export class AgentService {
 
   /** Cancels an agent and updates the local cache */
   cancelAgent(agentId: string, executionId: string, reason: string): Observable<AgentContext> {
-    return this._httpClient.post<AgentContext>(AGENT_API.cancel.pathTemplate, { agentId, executionId, reason }
-    ).pipe(
+    return callApiRoute(this._httpClient, AGENT_API.cancel, { body: { agentId, executionId, reason } }).pipe(
+      map(apiAgent => this.mapAgentContextFromApi(apiAgent)),
       tap(updatedAgent => this.updateAgentInCache(updatedAgent)),
       catchError(error => this.handleError('cancelAgent', error))
     );
@@ -156,10 +196,8 @@ export class AgentService {
 
   /** Updates agent functions and updates the local cache */
   updateAgentFunctions(agentId: string, functions: string[]): Observable<AgentContext> {
-    return this._httpClient.post<AgentContext>(
-      AGENT_API.updateFunctions.pathTemplate,
-      { agentId, functions }
-    ).pipe(
+    return callApiRoute(this._httpClient, AGENT_API.updateFunctions, { body: { agentId, functions } }).pipe(
+      map(apiAgent => this.mapAgentContextFromApi(apiAgent)),
       tap(updatedAgent => this.updateAgentInCache(updatedAgent)),
       catchError(error => this.handleError('updateAgentFunctions', error))
     );
@@ -175,10 +213,8 @@ export class AgentService {
 
   /** Resumes an agent from error and updates the local cache */
   resumeError(agentId: string, executionId: string, feedback: string): Observable<AgentContext> {
-    return this._httpClient.post<AgentContext>(
-      AGENT_API.resumeError.pathTemplate,
-      { agentId, executionId, feedback }
-    ).pipe(
+    return callApiRoute(this._httpClient, AGENT_API.resumeError, { body: { agentId, executionId, feedback } }).pipe(
+      map(apiAgent => this.mapAgentContextFromApi(apiAgent)),
       tap(updatedAgent => this.updateAgentInCache(updatedAgent)),
       catchError(error => this.handleError('resumeError', error))
     );
@@ -186,10 +222,8 @@ export class AgentService {
 
   /** Resumes a completed agent and updates the local cache */
   resumeCompletedAgent(agentId: string, executionId: string, instructions: string): Observable<AgentContext> {
-    return this._httpClient.post<AgentContext>(
-      AGENT_API.resumeCompleted.pathTemplate,
-      { agentId, executionId, instructions }
-    ).pipe(
+    return callApiRoute(this._httpClient, AGENT_API.resumeCompleted, { body: { agentId, executionId, instructions } }).pipe(
+      map(apiAgent => this.mapAgentContextFromApi(apiAgent)),
       tap(updatedAgent => this.updateAgentInCache(updatedAgent)),
       catchError(error => this.handleError('resumeCompletedAgent', error))
     );

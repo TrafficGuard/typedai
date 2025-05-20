@@ -17,11 +17,7 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 	});
 
 	fastify.get(AGENT_API.getAvailableFunctions.pathTemplate, { schema: AGENT_API.getAvailableFunctions.schema }, async (req, reply) => {
-		send(
-			reply as FastifyReply,
-			200,
-			functionRegistry().map((t) => t.name),
-		);
+		reply.sendJSON(functionRegistry().map((t) => t.name));
 	});
 
 	fastify.get(AGENT_API.listHumanInLoopAgents.pathTemplate, { schema: AGENT_API.listHumanInLoopAgents.schema }, async (req, reply) => {

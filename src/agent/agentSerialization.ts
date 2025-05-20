@@ -58,7 +58,7 @@ export function serializeContext(context: AgentContext): Static<typeof AgentCont
 		easy: context.llms.easy.getId(),
 		medium: context.llms.medium.getId(),
 		hard: context.llms.hard.getId(),
-		xhard: context.llms.xhard.getId(),
+		xhard: context.llms.xhard?.getId(),
 	};
 
 	// Use the new property name 'completedHandler'

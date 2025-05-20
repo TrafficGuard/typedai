@@ -27,9 +27,8 @@ export class FunctionsService {
   }
 
   private fetchFunctions(): Observable<string[]> {
-    return this.http.get<{ data: string[] }>(`${environment.apiBaseUrl}agent/v1/functions`).pipe(
+    return this.http.get<string[]>(`${environment.apiBaseUrl}agent/v1/functions`).pipe(
       retry(3),
-      map((response) => response.data),
       catchError(this.handleError)
     );
   }
