@@ -10,8 +10,9 @@ import {
   map,
   tap,
 } from 'rxjs/operators';
+import { callApiRoute } from '../../../core/api-route';
 import { AGENT_API } from '#shared/api/agent.api';
-import type { AgentContext, AutonomousIteration, AgentRunningState } from '#shared/model/agent.model';
+import type { AgentContext, AutonomousIteration } from '#shared/model/agent.model';
 import {LlmCall} from "#shared/model/llmCall.model";
 import {Pagination} from "../../../core/types";
 
@@ -45,7 +46,7 @@ export class AgentService {
 
   /** Loads agents from the server and updates the BehaviorSubject */
   private loadAgents(): void {
-    this._httpClient.get<AgentContext[]>(AGENT_API.list.pathTemplate).pipe(
+    callApiRoute(this._httpClient, AGENT_API.list).pipe(
       tap(agents => this._agents$.next(agents || [])),
       catchError(error => {
         console.error('Error fetching agents', error);
@@ -68,7 +69,7 @@ export class AgentService {
 
   /** Get agent details */
   getAgentDetails(agentId: string): Observable<AgentContext> {
-    return this._httpClient.get<AgentContext>(AGENT_API.details.pathTemplate.replace(':agentId', agentId)).pipe(
+    return callApiRoute(this._httpClient, AGENT_API.details, { pathParams: { agentId } }).pipe(
         catchError(error => this.handleError('Load agent', error))
     );
   }
@@ -82,7 +83,7 @@ export class AgentService {
 
   /** Get iterations for an autonomous agent */
   getAgentIterations(agentId: string): Observable<AutonomousIteration[]> {
-    return this._httpClient.get<AutonomousIteration[]>(AGENT_API.getIterations.pathTemplate.replace(':agentId', agentId)).pipe(
+    return callApiRoute(this._httpClient, AGENT_API.getIterations, { pathParams: { agentId } }).pipe(
       catchError(error => this.handleError('Load agent iterations', error))
     );
   }
