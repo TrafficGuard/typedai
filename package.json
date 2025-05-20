@@ -133,6 +133,7 @@
     "module-alias": "^2.2.2",
     "openai": "^4.86.1",
     "pb-util": "^1.0.3",
+    "pg": "^8.11.5",
     "pino": "^9.6.0",
     "pino-pretty": "^11.0.0",
     "playwright": "^1.42.1",
