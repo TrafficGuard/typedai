@@ -4,12 +4,12 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { NgClass, NgFor, NgIf } from '@angular/common';
+import { NgClass, NgIf } from '@angular/common'; // Removed NgFor
 import { Subscription, EMPTY } from 'rxjs';
 import { catchError, finalize, tap } from 'rxjs/operators';
 
-import { ChatServiceClient } from '../chat.service';
-import { Chat, NEW_CHAT_ID } from '../chat.types';
+import { ChatServiceClient } from './chat.service'; // Corrected path
+import { Chat, NEW_CHAT_ID } from './chat.types'; // Corrected path
 // Forward-declare selectedChat for template compatibility, actual logic for selection is outside this scope.
 // Users of this component would expect these to be present if they were used in the template previously.
 // However, the current request focuses on loading, so these are minimal.
@@ -23,7 +23,7 @@ import { Chat, NEW_CHAT_ID } from '../chat.types';
     standalone: true,
     imports: [
         NgIf,
-        NgFor,
+        // NgFor, // Removed as @for is used in the template
         NgClass,
         MatButtonModule,
         MatIconModule,

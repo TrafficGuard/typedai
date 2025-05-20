@@ -10,8 +10,8 @@ import { BehaviorSubject, of, throwError, EMPTY, Subscription } from 'rxjs';
 import { signal, WritableSignal } from '@angular/core';
 
 import { ChatsComponent } from './chats.component';
-import { ChatServiceClient } from '../chat.service';
-import { Chat, NEW_CHAT_ID } from '../chat.types';
+import { ChatServiceClient } from './chat.service'; // Corrected path
+import { Chat, NEW_CHAT_ID } from './chat.types'; // Corrected path
 
 // Mock ChatService
 class MockChatServiceClient {
