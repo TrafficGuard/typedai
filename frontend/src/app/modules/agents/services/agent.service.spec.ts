@@ -133,9 +133,8 @@ describe('AgentService', () => {
         executedCode: 'console.log("final");',
         functionCalls: [], // Array of FunctionCallResultSchema compatible objects
         memory: { key1: 'value1' },
-        toolState: { toolKey: 'toolValue' },
+        toolState: { toolKey: 'toolValue', LiveFiles: ['file1.ts', 'file2.html'] },
         stats: { requestTime: 100, timeToFirstToken: 50, totalTime: 200, inputTokens: 10, outputTokens: 20, cost: 0.001, llmId: 'test-llm-iter' },
-        liveFiles: ['file1.ts', 'file2.html']
       },
     ];
     service.getAgentIterations(testAgentId).subscribe(iterations => {
@@ -149,11 +148,11 @@ describe('AgentService', () => {
     expect(req.request.method).toBe('GET');
     req.flush(mockIterations);
   });
-  
+
   it('getLlmCalls should return LLM calls for an agent', (done) => {
     const testAgentId = 'agent1';
     const mockLlmCalls: LlmCall[] = [
-      { id: 'call1', agentId: testAgentId, timestamp: Date.now(), provider: 'openai', model: 'gpt-4', type: 'chat', prompt: 'Hello', response: 'Hi', cost: 0.001, inputTokens: 10, outputTokens: 5, durationMs: 100 } as LlmCall,
+      { id: 'call1', agentId: testAgentId, messages: [], settings: {}, llmId: '', requestTime: Date.now(), provider: 'openai', model: 'gpt-4', type: 'chat', prompt: 'Hello', response: 'Hi', cost: 0.001, inputTokens: 10, outputTokens: 5, durationMs: 100 } as LlmCall,
     ];
     service.getLlmCalls(testAgentId).subscribe(calls => {
       expect(calls).toEqual(mockLlmCalls);
@@ -166,7 +165,7 @@ describe('AgentService', () => {
 
   it('refreshAgents should reload agents and update agents$', (done) => {
     const updatedMockAgents: AgentContextApi[] = [createMockAgentContext('agent3')];
-    
+
     let callCount = 0;
     service.agents$.subscribe(agents => {
       callCount++;
@@ -185,7 +184,7 @@ describe('AgentService', () => {
     expect(req.request.method).toBe('GET');
     req.flush(updatedMockAgents);
   });
-  
+
   it('submitFeedback should POST feedback and update agent in cache', (done) => {
     const agentId = 'agent1';
     const executionId = 'exec-agent1';
@@ -208,15 +207,15 @@ describe('AgentService', () => {
     expect(req.request.body).toEqual({ agentId, executionId, feedback });
     req.flush(updatedAgent);
   });
-  
+
   it('deleteAgents should POST agentIds and remove them from cache', (done) => {
     const agentIdsToDelete = ['agent1'];
-    
+
     service.deleteAgents(agentIdsToDelete).subscribe(() => {
       service.agents$.subscribe(agents => {
         if (!agents.find(a => a.agentId === 'agent1')) { // Check if deletion has propagated
             expect(agents.find(a => a.agentId === 'agent1')).toBeUndefined();
-            expect(agents.length).toBe(1); 
+            expect(agents.length).toBe(1);
             done();
         }
       });
@@ -225,7 +224,7 @@ describe('AgentService', () => {
     const req = httpMock.expectOne(AGENT_API.delete.pathTemplate);
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual({ agentIds: agentIdsToDelete });
-    req.flush({}); 
+    req.flush({});
   });
 
 });

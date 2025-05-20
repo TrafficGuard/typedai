@@ -15,9 +15,7 @@ import { AGENT_API } from '#shared/api/agent.api';
 import type { AutonomousIteration } from '#shared/model/agent.model';
 import { LlmCall } from "#shared/model/llmCall.model";
 import { Pagination } from "../../../core/types";
-import { AgentContextSchema, AgentContextApi } from '#shared/schemas/agent.schema';
-import type { User, LLMServicesConfig, ChatSettings } from '#shared/model/user.model';
-
+import { AgentContextApi } from '#shared/schemas/agent.schema';
 
 @Injectable({ providedIn: 'root' })
 export class AgentService {
@@ -178,7 +176,6 @@ export class AgentService {
   /** Resumes a completed agent and updates the local cache */
   resumeCompletedAgent(agentId: string, executionId: string, instructions: string): Observable<AgentContextApi> {
     return callApiRoute(this._httpClient, AGENT_API.resumeCompleted, { body: { agentId, executionId, instructions } }).pipe(
-
       tap(updatedAgent => this.updateAgentInCache(updatedAgent)),
       catchError(error => this.handleError('resumeCompletedAgent', error))
     );
