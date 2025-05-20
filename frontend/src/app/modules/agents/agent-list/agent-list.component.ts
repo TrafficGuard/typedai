@@ -60,7 +60,7 @@ import { Pagination } from '../../../core/types';
         MatOptionModule,
         MatCheckboxModule,
         MatRippleModule,
-        AsyncPipe, // Keep if some observables are still used with async pipe
+        // AsyncPipe, // Keep if some observables are still used with async pipe
         DecimalPipe,
         RouterModule,
     ],

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input, signal, effect, inject, OnDestroy, WritableSignal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, signal, effect, inject, OnDestroy, WritableSignal, ViewEncapsulation } from '@angular/core';
 import { CommonModule, JsonPipe, KeyValuePipe } from '@angular/common';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';

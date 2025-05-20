@@ -7,9 +7,9 @@ import type { User } from './user.model';
 /**
  * The difficulty of a LLM generative task. Used to select an appropriate model for the cost vs capability.
  * xeasy  LLama 8b/Flash 8b
- * easy   Haiku 3.5/GPT4-mini/Llama 70b/Gemini Flash
- * medium Sonnet 3.5/GPT4-o/Llama 405b
- * hard   Opus 3.5/OpenAI o1
+ * easy   Haiku 3.5/GPT4.1-mini/Gemini Flash lite
+ * medium Gemini Flash 2.5
+ * hard   Gemini Pro 2.5/OpenAI o3
  * xhard  Ensemble (multi-gen with voting/merging of best answer)
  *
  */
@@ -152,9 +152,6 @@ export interface AgentContext {
 	hilCount: number;
 	/** If the user has requested a human-in-the-loop intervention after the current control loop iteration completes */
 	hilRequested?: boolean;
-	/** Files which are always provided in the agent control loop prompt */
-	liveFiles?: string[];
-	fileStore?: FileMetadata[];
 	/** The latest state of tools, updated at the end of each iteration */
 	toolState?: Partial<Record<'LiveFiles' | 'FileStore' | 'FileSystemTree', any>>;
 }
@@ -203,10 +200,6 @@ export interface AutonomousIteration {
 	error?: string;
 	/** Plan generation stats */
 	stats: GenerationStats;
-	/** Files which are always provided in the agent control loop prompt */
-	liveFiles?: string[];
-	/** Metadata of files in the agent's filestore at the end of the iteration */
-	// fileStore?: FileMetadata[];
 }
 
 export interface LlmFunctions {

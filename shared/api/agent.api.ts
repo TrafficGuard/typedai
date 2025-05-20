@@ -60,7 +60,7 @@ export const AGENT_API = {
 	getIterations: defineRoute('GET', `${AGENT_BASE_V1}/iterations/:agentId`, {
 		schema: { path: AgentIdParamsSchema, response: { 200: Type.Array(AutonomousIterationSchema) } },
 	}),
-	getLlmCallsByAgentId: defineRoute('GET', `/api/llms/calls/agent/:agentId`, {
+	getLlmCallsByAgentId: defineRoute('GET', '/api/llms/calls/agent/:agentId', {
 		schema: {
 			path: AgentIdParamsSchema,
 			// Using Type.Any() for LlmCall items as defining a full LlmCallSchema is out of scope for this refactoring.
