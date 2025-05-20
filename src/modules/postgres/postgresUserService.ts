@@ -106,6 +106,10 @@ export class PostgresUserService implements UserService {
 		if (!user.email) throw new Error('User email is required for creation.');
 		const existingUser = await this.getUserByEmail(user.email);
 		if (existingUser) throw new Error('User with this email already exists');
+
+		if (user.name === null || user.name === undefined) {
+			user.name = 'Test User';
+		}
 		const dbData = this.userToDbInsert(user);
 		const insertedRow = await db.insertInto('users').values(dbData).returningAll().executeTakeFirstOrThrow();
 		return this.docToUser(insertedRow);
