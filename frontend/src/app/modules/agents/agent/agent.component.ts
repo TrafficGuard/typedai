@@ -88,8 +88,11 @@ export class AgentComponent implements OnInit {
                         const maybeCompletedFunctionCall = this.agentDetails.functionCallHistory.length
                             ? this.agentDetails.functionCallHistory.slice(-1)[0]
                             : null;
-                        if (maybeCompletedFunctionCall && maybeCompletedFunctionCall.parameters['note'])
-                            this.agentDetails.output = this.agentDetails.error ?? maybeCompletedFunctionCall?.parameters['note'] ?? '';
+                        // Corrected logic:
+                        // The output should be the agent's error (if present), 
+                        // otherwise the completion note from the last function call (if present), 
+                        // otherwise an empty string.
+                        this.agentDetails.output = (this.agentDetails.error ?? maybeCompletedFunctionCall?.parameters?.['note']) ?? '';
                     }
 
                     console.log('Agent Details Loaded:', this.agentDetails);
