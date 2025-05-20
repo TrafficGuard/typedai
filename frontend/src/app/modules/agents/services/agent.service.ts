@@ -204,8 +204,8 @@ export class AgentService {
   }
 
   /** Deletes agents and updates the local cache */
-  deleteAgents(agentIds: string[]): Observable<any> {
-    return this._httpClient.post(AGENT_API.delete.pathTemplate, { agentIds }).pipe(
+  deleteAgents(agentIds: string[]): Observable<void> {
+    return callApiRoute(this._httpClient, AGENT_API.delete, { body: { agentIds } }).pipe(
       tap(() => this.removeAgentsFromCache(agentIds)),
       catchError(error => this.handleError('deleteAgents', error))
     );
@@ -230,8 +230,8 @@ export class AgentService {
   }
 
   /** Forcibly stops an agent */
-  forceStopAgent(agentId: string): Observable<any> {
-    return this._httpClient.post(AGENT_API.forceStop.pathTemplate, { agentId }).pipe(
+  forceStopAgent(agentId: string): Observable<void> {
+    return callApiRoute(this._httpClient, AGENT_API.forceStop, { body: { agentId } }).pipe(
       // Note: No cache update needed here as the backend route doesn't return updated agent state.
       // The caller should refresh agent details if needed after a successful call.
       catchError(error => this.handleError('forceStopAgent', error))
