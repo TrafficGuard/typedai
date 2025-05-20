@@ -5,10 +5,13 @@ import { ensureChatsTableExists, ensureUsersTableExists } from './schemaUtils';
 
 describe('PostgresChatService', () => {
 	beforeEach(async () => {
-		await db.deleteFrom('chats').execute();
-		await db.deleteFrom('users').execute();
+		// Ensure tables exist FIRST
 		await ensureUsersTableExists(db);
 		await ensureChatsTableExists(db);
+
+		// Then clear any existing data
+		await db.deleteFrom('chats').execute();
+		await db.deleteFrom('users').execute();
 	});
 
 	runChatServiceTests(() => new PostgresChatService());
