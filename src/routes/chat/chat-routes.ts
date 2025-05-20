@@ -90,10 +90,21 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 
 			chat.messages.push({ role: 'user', content: contentToText(userContent as UserContentExt) });
 
-			const llmMessagesForApi = chat.messages.map((cm) => ({
-				role: cm.role as LlmMessage['role'],
-				content: cm.content,
-			}));
+			const llmMessagesForApi: LlmMessage[] = chat.messages
+				.map((cm): LlmMessage | null => {
+					if (cm.role === 'user') {
+						return { role: 'user', content: cm.content };
+					} else if (cm.role === 'assistant') {
+						return { role: 'assistant', content: cm.content };
+					} else if (cm.role === 'system') {
+						return { role: 'system', content: cm.content };
+					}
+					// 'tool' role messages are filtered out as ChatMessage lacks toolCallId
+					// and its string content isn't directly ToolContent.
+					return null;
+				})
+				.filter((msg): msg is LlmMessage => msg !== null);
+
 			const responseMessage: LlmMessage = await llm.generateMessage(llmMessagesForApi, { id: 'chat', ...options });
 			chat.messages.push({
 				role: responseMessage.role as ChatMessage['role'],
@@ -130,10 +141,21 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 
 			chat.messages.push({ role: 'user', content: contentToText(userContent as UserContentExt) });
 
-			const llmMessagesForApi = chat.messages.map((cm) => ({
-				role: cm.role as LlmMessage['role'],
-				content: cm.content,
-			}));
+			const llmMessagesForApi: LlmMessage[] = chat.messages
+				.map((cm): LlmMessage | null => {
+					if (cm.role === 'user') {
+						return { role: 'user', content: cm.content };
+					} else if (cm.role === 'assistant') {
+						return { role: 'assistant', content: cm.content };
+					} else if (cm.role === 'system') {
+						return { role: 'system', content: cm.content };
+					}
+					// 'tool' role messages are filtered out as ChatMessage lacks toolCallId
+					// and its string content isn't directly ToolContent.
+					return null;
+				})
+				.filter((msg): msg is LlmMessage => msg !== null);
+
 			const responseMessage = await llm.generateMessage(llmMessagesForApi, { id: 'chat', ...options });
 			chat.messages.push({
 				role: responseMessage.role as ChatMessage['role'],
@@ -179,10 +201,21 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 
 			chat.messages.push({ role: 'user', content: contentToText(userContent as UserContentExt) });
 
-			const llmMessagesForApi = chat.messages.map((cm) => ({
-				role: cm.role as LlmMessage['role'],
-				content: cm.content,
-			}));
+			const llmMessagesForApi: LlmMessage[] = chat.messages
+				.map((cm): LlmMessage | null => {
+					if (cm.role === 'user') {
+						return { role: 'user', content: cm.content };
+					} else if (cm.role === 'assistant') {
+						return { role: 'assistant', content: cm.content };
+					} else if (cm.role === 'system') {
+						return { role: 'system', content: cm.content };
+					}
+					// 'tool' role messages are filtered out as ChatMessage lacks toolCallId
+					// and its string content isn't directly ToolContent.
+					return null;
+				})
+				.filter((msg): msg is LlmMessage => msg !== null);
+
 			const responseMessage = await llm.generateMessage(llmMessagesForApi, { id: 'chat-regenerate', ...options });
 			chat.messages.push({
 				role: responseMessage.role as ChatMessage['role'],
