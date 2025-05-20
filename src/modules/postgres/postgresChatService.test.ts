@@ -1,7 +1,7 @@
 import { runChatServiceTests } from '#chat/chatService.test';
 import { db } from './db';
 import { PostgresChatService } from './postgresChatService';
-import { ensureUsersTableExists, ensureChatsTableExists } from './schemaUtils';
+import { ensureChatsTableExists, ensureUsersTableExists } from './schemaUtils';
 
 describe('PostgresChatService', () => {
 	beforeEach(async () => {

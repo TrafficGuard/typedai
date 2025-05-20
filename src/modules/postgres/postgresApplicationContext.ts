@@ -1,7 +1,7 @@
 import type { ApplicationContext } from '../../app/applicationTypes';
+import { PostgresChatService } from './postgresChatService';
 import { PostgresFunctionCacheService } from './postgresFunctionCacheService';
 import { PostgresUserService } from './postgresUserService';
-import { PostgresChatService } from './postgresChatService';
 
 export function postgresApplicationContext(): ApplicationContext {
 	return {
