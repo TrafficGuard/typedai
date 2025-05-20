@@ -9,7 +9,7 @@
         <!-- Live Files Section -->
         <h4 class="text-md font-medium mt-6 mb-2">Live Files</h4>
         <div class="mb-6">
-            @if (liveFiles()?.length > 0) {
+            @if (liveFiles().length > 0) {
                 <ul class="list-disc list-inside pl-4">
                     @for (file of liveFiles(); track file) {
                         <li>{{ file }}</li>

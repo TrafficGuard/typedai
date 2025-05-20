@@ -3,7 +3,7 @@
         <form [formGroup]="feedbackForm" (ngSubmit)="onSubmitFeedback()">
             <mat-card-title class="font-bold pl-5 text-lg">Feedback Requested</mat-card-title>
             <mat-card-content style="margin-bottom: 0; margin-top: 15px">
-                @if (agentDetails()?.functionCallHistory && agentDetails()?.functionCallHistory.length > 0) {
+                @if (agentDetails().functionCallHistory && agentDetails().functionCallHistory!.length > 0) {
                     <mat-expansion-panel style="width: 1000px; margin-bottom: 20px">
                         <mat-expansion-panel-header>
                             <mat-panel-title>
@@ -209,7 +209,7 @@
 
         <div class="function-column">
             <span>{{ agentDetails()?.functions?.functionClasses?.sort().join(', ') }}</span>
-            @if (agentDetails()?.state !== 'agent' && agentDetails()?.state !== 'functions') {
+            @if (agentDetails().state !== 'agent' && agentDetails().state !== 'functions') {
                 <button
                         mat-icon-button
                         (click)="openFunctionEditModal()"

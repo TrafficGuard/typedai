@@ -6,7 +6,7 @@
             {{ errorLoading() }}
         </div>
     } @else {
-        @if (iterations() && iterations()?.length > 0) {
+        @if (iterations().length > 0) {
             <mat-accordion multi>
                 @for (iteration of iterations(); track trackByIteration($index, iteration)) {
                     <mat-expansion-panel class="mb-2">
@@ -122,7 +122,7 @@
                             </div>
 
                             <!-- Function Calls -->
-                            @if (iteration.functionCalls?.length > 0) {
+                            @if (iteration.functionCalls && iteration.functionCalls.length > 0) {
                                 <div class="mb-3">
                                     <h4 class="font-medium text-lg mb-1">Function Calls Executed:</h4>
                                     <div class="space-y-2">
@@ -160,7 +160,7 @@
                             }
 
                             <!-- Memory -->
-                            @if (iteration.memory && (iteration.memory | keyvalue)?.length > 0) {
+                            @if (iteration.memory && (iteration.memory | keyvalue).length > 0) {
                                 <div class="mb-3">
                                     <h4 class="font-medium text-lg mb-1">Memory State:</h4>
                                     <mat-accordion multi>
@@ -181,7 +181,7 @@
                             }
 
                             <!-- Live Files  -->
-                            @if (iteration.toolState && iteration.toolState['LiveFiles']?.length > 0) {
+                            @if (iteration.toolState && iteration.toolState['LiveFiles'] && iteration.toolState['LiveFiles'].length > 0) {
                                 <div class="mb-3">
                                     <h4 class="font-medium text-lg mb-1">Live Files:</h4>
                                     <mat-chip-listbox aria-label="Live files">
@@ -193,7 +193,7 @@
                             }
 
                             <!-- File Store  -->
-                            @if (iteration.toolState && iteration.toolState['FileStore']?.length > 0) {
+                            @if (iteration.toolState && iteration.toolState['FileStore'] && iteration.toolState['FileStore'].length > 0) {
                                 <div class="mb-3">
                                     <h4 class="font-medium text-lg mb-1">File Store:</h4>
                                     <div class="space-y-2">
