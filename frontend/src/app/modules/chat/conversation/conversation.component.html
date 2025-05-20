@@ -1,36 +1,6 @@
 <div class="flex flex-auto flex-col overflow-y-auto dark:bg-default lg:overflow-hidden">
-    <!-- Loading State -->
-    @if (isLoading) {
-        <div class="flex flex-auto flex-col items-center justify-center">
-            <mat-icon class="icon-size-24 animate-spin" [svgIcon]="'heroicons_outline:arrow-path'"></mat-icon>
-            <div class="text-secondary mt-4 text-2xl font-semibold tracking-tight">
-                Loading conversation...
-            </div>
-        </div>
-    }
-
-    <!-- Error State -->
-    @if (error && !isLoading) {
-        <div class="flex flex-auto flex-col items-center justify-center p-6 text-center">
-            <mat-icon class="icon-size-24 text-red-500" [svgIcon]="'heroicons_outline:exclamation-triangle'"></mat-icon>
-            <div class="text-red-500 mt-4 text-2xl font-semibold tracking-tight">
-                Error loading conversation
-            </div>
-            <p class="text-secondary mt-2">{{ error.message || 'An unknown error occurred.' }}</p>
-            <button
-                class="mt-6"
-                mat-flat-button
-                color="warn"
-                (click)="retryLoadConversation()"
-                [disabled]="!conversationId"
-            >
-                Retry
-            </button>
-        </div>
-    }
-
     <!-- Conversation Content (Main chat interface) -->
-    @if (conversation && !isLoading && !error; as currentChat) {
+    @if (chat(); as currentChat) {
         <mat-drawer-container class="h-full flex-auto" [hasBackdrop]="false">
             <!-- Drawer -->
             <mat-drawer
@@ -198,7 +168,7 @@
                                                 @let stats = message.stats;
                                                 <button mat-icon-button
                                                         class="mat-primary p-0 m-0"
-                                                        [matTooltip]="'Duration: ' + (stats.totalTime / 1000).toFixed(0) + 's Input tokens: ' + stats.inputTokens + ' Output tokens: ' + stats.outputTokens + (stats.cachedInputTokens ? ' Cached input tokens: ' + stats.cachedInputTokens : '')+ ' Cost: $' + (message.stats.cost | number:'1.4-4')"
+                                                        [matTooltip]="'Duration: ' + (stats.totalTime / 1000).toFixed(0) + 's Input tokens: ' + stats.inputTokens + ' Output tokens: ' + stats.outputTokens + (stats.cachedInputTokens ? ' Cached input tokens: ' + stats.cachedInputTokens : '')+ ' Cost: $' + (stats.cost | number:'1.4-4')"
                                                         aria-label="Message generation stats">
                                                     <mat-icon [svgIcon]="'info'" class="icon-size-3 p-0 m-0"></mat-icon>
                                                 </button>
@@ -332,32 +302,13 @@
                 }
             </mat-drawer-content>
         </mat-drawer-container>
-    }
-
-    <!-- No Conversation Selected / Not Found State -->
-    @if (!conversation && !isLoading && !error) {
-        @if (!conversationId) {
-            <div class="flex flex-auto flex-col items-center justify-center bg-gray-100 dark:bg-transparent">
-                <mat-icon class="icon-size-24" [svgIcon]="'heroicons_outline:chat-bubble-oval-left-ellipsis'"></mat-icon>
-                <div class="text-secondary mt-4 text-2xl font-semibold tracking-tight">
-                    Select a conversation or start a new one.
-                </div>
+    } @else {
+        <!-- This block shows when chat() is null/undefined, or if it's a NEW_CHAT_ID without a title yet -->
+        <div class="flex flex-auto flex-col items-center justify-center bg-gray-100 dark:bg-transparent">
+            <mat-icon class="icon-size-24" [svgIcon]="'heroicons_outline:chat-bubble-oval-left-ellipsis'"></mat-icon>
+            <div class="text-secondary mt-4 text-2xl font-semibold tracking-tight">
+                Select a conversation or start a new one.
             </div>
-        } @else {
-            <div class="flex flex-auto flex-col items-center justify-center bg-gray-100 dark:bg-transparent">
-                <mat-icon class="icon-size-24 text-orange-500" [svgIcon]="'heroicons_outline:question-mark-circle'"></mat-icon>
-                <div class="text-secondary mt-4 text-2xl font-semibold tracking-tight">
-                    Conversation not found or could not be loaded.
-                </div>
-                 <button
-                    class="mt-6"
-                    mat-flat-button
-                    color="primary"
-                    (click)="retryLoadConversation()"
-                >
-                    Try Again
-                </button>
-            </div>
-        }
+        </div>
     }
 </div>
