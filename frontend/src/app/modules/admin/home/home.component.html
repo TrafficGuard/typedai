@@ -2,8 +2,36 @@
     <!-- Main -->
     <div class="flex-auto p-6 sm:p-10">
         <!-- CONTENT GOES HERE -->
-        <div
-            class="h-400 max-h-400 min-h-400 rounded-2xl border-2 border-dashed border-gray-300"
-        ></div>
+        <div class="w-full">
+            <h2 class="text-2xl font-semibold mb-4">Admin Dashboard</h2>
+
+            @if (isLoading()) {
+                <div class="flex items-center justify-center p-8">
+                    <!-- You can replace this with a spinner component if available -->
+                    <p class="text-lg">Loading statistics...</p>
+                </div>
+            } @else if (errorMessage()) {
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                    <strong class="font-bold">Error:</strong>
+                    <span class="block sm:inline">{{ errorMessage() }}</span>
+                </div>
+            } @else if (stats(); as dashboardStats) {
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-card shadow rounded-lg p-6">
+                        <h3 class="text-lg font-medium text-gray-900">Active Users</h3>
+                        <p class="mt-1 text-3xl font-semibold text-gray-700">{{ dashboardStats.activeUsers }}</p>
+                    </div>
+                    <div class="bg-card shadow rounded-lg p-6">
+                        <h3 class="text-lg font-medium text-gray-900">Total Projects</h3>
+                        <p class="mt-1 text-3xl font-semibold text-gray-700">{{ dashboardStats.totalProjects }}</p>
+                    </div>
+                    <!-- Add more stats display here as needed -->
+                </div>
+            } @else {
+                <div class="text-center p-8">
+                    <p class="text-lg text-gray-500">No dashboard data available.</p>
+                </div>
+            }
+        </div>
     </div>
 </div>
