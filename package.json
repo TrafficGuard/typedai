@@ -126,6 +126,7 @@
     "http-status-codes": "^2.3.0",
     "ignore": "^5.3.1",
     "jsdom": "^24.0.0",
+    "kysely": "^0.28.2",
     "lodash": "^4.17.20",
     "micromatch": "^4.0.8",
     "mime-types": "^3.0.1",
