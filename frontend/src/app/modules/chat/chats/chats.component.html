@@ -74,10 +74,7 @@
             <!-- Content Area: Chat List or No Chats Message -->
             <div *ngIf="!isLoading && !error">
                 @if (chats && chats.length > 0) {
-                    @for (
-                        chat of chats; <!-- Changed from filteredChats to chats -->
-                        track trackByFn($index, chat)
-                    ) {
+                    @for (chat of chats; track chat.id) {
                         <a
                             class="z-20 flex cursor-pointer items-center border-b px-0 py-3"
                             (mouseenter)="hoveredChatId = chat.id"
