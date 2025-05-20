@@ -24,6 +24,7 @@ import { map, finalize, Subject, takeUntil } from "rxjs";
 import { MatProgressSpinner } from "@angular/material/progress-spinner";
 import { MatCheckboxModule } from "@angular/material/checkbox";
 import {MatCard, MatCardContent} from "@angular/material/card";
+import {AutonomousSubType} from "#shared/model/agent.model";
 
 interface StartAgentResponse {
   data: {
@@ -31,7 +32,7 @@ interface StartAgentResponse {
   };
 }
 
-const defaultType/*: AgentType*/ = 'codegen';
+const defaultSubType: AutonomousSubType = 'codegen';
 
 @Component({
   selector: 'new-autonomous-agent',
@@ -55,8 +56,6 @@ const defaultType/*: AgentType*/ = 'codegen';
         MatChipsModule,
         MatDatepickerModule,
         MatProgressSpinner,
-        MatCard,
-        MatCardContent,
     ],
 })
 export class NewAutonomousAgentComponent implements OnInit, OnDestroy {
@@ -77,7 +76,7 @@ export class NewAutonomousAgentComponent implements OnInit, OnDestroy {
     this.runAgentForm = new FormGroup({
       name: new FormControl('', Validators.required),
       userPrompt: new FormControl('', Validators.required),
-      subtype: new FormControl(defaultType, Validators.required),
+      subtype: new FormControl(defaultSubType, Validators.required),
       llmEasy: new FormControl('', Validators.required),
       llmMedium: new FormControl('', Validators.required),
       llmHard: new FormControl('', Validators.required),
@@ -100,7 +99,7 @@ export class NewAutonomousAgentComponent implements OnInit, OnDestroy {
         hard: 'anthropic:claude-3-7-sonnet',
       },
       gemini: { easy: 'vertex:gemini-2.0-flash-lite', medium: 'vertex:gemini-2.5-flash', hard: 'vertex:gemini-2.5-pro' },
-      openai: { easy: 'openai:gpt-4o-mini', medium: 'openai:o3-mini', hard: 'openai:o3-mini' },
+      openai: { easy: 'openai:gpt-4o-mini', medium: 'openai:o4-mini', hard: 'openai:o3' },
     };
     const selection = presets[preset];
     if (selection) {

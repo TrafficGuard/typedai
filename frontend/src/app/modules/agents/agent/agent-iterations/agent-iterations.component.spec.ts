@@ -1,9 +1,9 @@
 import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
 import { ChangeDetectorRef } from '@angular/core';
-import { of, Subject, throwError } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { AgentIterationsComponent } from './agent-iterations.component';
 import { AgentService } from '../../services/agent.service';
-import { AutonomousIteration, FunctionCallResult } from '#shared/model/agent.model';
+import { AutonomousIteration } from '#shared/model/agent.model';
 import { CommonModule } from '@angular/common';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -13,6 +13,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTabsModule } from '@angular/material/tabs';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
+import { FunctionCallResult } from "#shared/model/llm.model";
 
 // Mock AgentService
 class MockAgentService {
@@ -43,11 +44,10 @@ describe('AgentIterationsComponent', () => {
     codeReview: 'Looks good',
     code: 'print("final code")',
     executedCode: 'print("final code")',
-    functionCalls: [{ name: 'func1', arguments: '{}', stdout: 'output', stderr: '' } as FunctionCallResult],
+    functionCalls: [{ function_name: 'func1', parameters: {}, stdout: 'output', stderr: '' } ],
     memory: { key1: 'value1' },
-    toolState: { tool1: { state: 'active' } },
+    toolState: { tool1: { state: 'active' }, LiveFiles: ['file1.txt'] },
     stats: { requestTime: 0, timeToFirstToken: 0, totalTime: 100, inputTokens: 10, outputTokens: 20, cost: 0, llmId: 'test-model' },
-    liveFiles: ['file1.txt'],
   };
 
   beforeEach(waitForAsync(() => {
@@ -102,12 +102,12 @@ describe('AgentIterationsComponent', () => {
     expect(component.isLoading).toBe(false);
     expect(cdr.markForCheck).toHaveBeenCalled();
   });
-  
+
   it('should handle empty agentId in ngOnChanges', () => {
     spyOn(cdr, 'markForCheck').and.callThrough();
     component.agentId = 'oldAgentId';
     component.iterations = [mockIteration]; // Simulate existing data
-    
+
     component.ngOnChanges({
       agentId: { currentValue: null, previousValue: 'oldAgentId', firstChange: false, isFirstChange: () => false },
     });
@@ -129,14 +129,14 @@ describe('AgentIterationsComponent', () => {
       agentId: { currentValue: testAgentId, previousValue: null, firstChange: true, isFirstChange: () => true },
     });
     fixture.detectChanges();
-    
+
     expect(agentService.getAgentIterations).toHaveBeenCalledWith(testAgentId);
     expect(component.iterations.length).toBe(0);
     expect(component.isLoading).toBe(false);
     expect(component.errorLoading).toBe('Failed to load iteration data.');
     expect(cdr.markForCheck).toHaveBeenCalled();
   });
-  
+
   it('trackByIteration should return a unique key', () => {
     const iteration: AutonomousIteration = { ...mockIteration, agentId: 'agentX', iteration: 5 };
     expect(component.trackByIteration(0, iteration)).toBe('agentX-5');
@@ -144,9 +144,9 @@ describe('AgentIterationsComponent', () => {
   });
 
   it('hasError should correctly identify errors in FunctionCallResult', () => {
-    const callWithError: FunctionCallResult = { name: 'test', arguments: '', stdout: '', stderr: 'Error occurred' };
-    const callWithoutError: FunctionCallResult = { name: 'test', arguments: '', stdout: 'Success', stderr: '' };
-    const callWithNullStderr: FunctionCallResult = { name: 'test', arguments: '', stdout: 'Success', stderr: null as any };
+    const callWithError: FunctionCallResult = { function_name: 'test', parameters: {}, stdout: '', stderr: 'Error occurred' };
+    const callWithoutError: FunctionCallResult = { function_name: 'test', parameters: {}, stdout: 'Success', stderr: '' };
+    const callWithNullStderr: FunctionCallResult = { function_name: 'test', parameters: {}, stdout: 'Success', stderr: null as any };
 
 
     expect(component.hasError(callWithError)).toBeTrue();

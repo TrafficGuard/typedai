@@ -51,7 +51,7 @@ export class AgentService {
       catchError(error => {
         console.error('Error fetching agents', error);
         this._agents$.next([]); // Clear agents on error or provide empty array
-        return throwError(error);
+        return this.handleError('loadAgents', error);
       })
     ).subscribe();
   }
@@ -71,21 +71,22 @@ export class AgentService {
   /** Get agent details */
   getAgentDetails(agentId: string): Observable<AgentContextApi> {
     return callApiRoute(this._httpClient, AGENT_API.details, { pathParams: { agentId } }).pipe(
-        catchError(error => this.handleError('Load agent', error))
+        catchError(error => this.handleError('getAgentDetails', error))
     );
   }
 
   /** Get LLM calls */
   getLlmCalls(agentId: string): Observable<LlmCall[]> {
-    return this._httpClient.get<{ data: LlmCall[] }>(`/api/llms/calls/agent/${agentId}`).pipe(
-      map(response => response.data || [])
+    return callApiRoute(this._httpClient, AGENT_API.getLlmCallsByAgentId, { pathParams: { agentId } }).pipe(
+      map(response => response.data as LlmCall[] || []), // Cast Type.Any to LlmCall
+      catchError(error => this.handleError('getLlmCalls', error))
     );
   }
 
   /** Get iterations for an autonomous agent */
   getAgentIterations(agentId: string): Observable<AutonomousIteration[]> {
     return callApiRoute(this._httpClient, AGENT_API.getIterations, { pathParams: { agentId } }).pipe(
-      catchError(error => this.handleError('Load agent iterations', error))
+      catchError(error => this.handleError('getAgentIterations', error))
     );
   }
 

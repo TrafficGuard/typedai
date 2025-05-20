@@ -60,6 +60,14 @@ export const AGENT_API = {
 	getIterations: defineRoute('GET', `${AGENT_BASE_V1}/iterations/:agentId`, {
 		schema: { path: AgentIdParamsSchema, response: { 200: Type.Array(AutonomousIterationSchema) } },
 	}),
+	getLlmCallsByAgentId: defineRoute('GET', `/api/llms/calls/agent/:agentId`, {
+		schema: {
+			path: AgentIdParamsSchema,
+			// Using Type.Any() for LlmCall items as defining a full LlmCallSchema is out of scope for this refactoring.
+			// The service will cast the items to LlmCall[].
+			response: { 200: Type.Object({ data: Type.Array(Type.Any()) }) },
+		},
+	}),
 	// Inside AGENT_API object:
 	getAvailableFunctions: defineRoute('GET', `${AGENT_BASE_V1}/functions`, {
 		schema: { response: { 200: Type.Array(Type.String()) } }, // Using Type.Array(Type.String()) directly for robustness
