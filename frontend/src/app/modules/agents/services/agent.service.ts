@@ -13,28 +13,22 @@ import {
 import { callApiRoute } from '../../../core/api-route';
 import { AGENT_API } from '#shared/api/agent.api';
 import type { AutonomousIteration } from '#shared/model/agent.model';
-import {LlmCall} from "#shared/model/llmCall.model";
-import {Pagination} from "../../../core/types";
+import { LlmCall } from "#shared/model/llmCall.model";
+import { Pagination } from "../../../core/types";
 import { type Static } from '@sinclair/typebox';
 import { AgentContextSchema } from '#shared/schemas/agent.schema';
+import type { User, LLMServicesConfig, ChatSettings } from '#shared/model/user.model';
 
 // Type for AgentContext as received from the API
 type AgentContextFromApi = Static<typeof AgentContextSchema>;
 
 /**
- * Interface for the user part of AgentContextDisplay.
- */
-interface AgentUserDisplay {
-  id: string;
-  name: string;
-}
-
-/**
  * Display-oriented AgentContext type.
  * Properties like llms, functions, fileSystem, completedHandler are in their serialized form.
+ * The 'user' property is a full User object, populated with defaults where API data is unavailable.
  */
-type AgentContextDisplay = Omit<AgentContextFromApi, 'user'> & {
-  user: AgentUserDisplay;
+export type AgentContextDisplay = Omit<AgentContextFromApi, 'user'> & {
+  user: User;
 };
 
 @Injectable({ providedIn: 'root' })
@@ -67,9 +61,23 @@ export class AgentService {
   private mapApiToAgentContextDisplay(apiAgent: AgentContextFromApi): AgentContextDisplay {
     const { user: userId, ...restOfApiAgent } = apiAgent;
 
+    const mappedUser: User = {
+        id: userId,
+        name: 'User ' + userId.substring(0, 6),
+        email: '', // Default value
+        enabled: true, // Default value
+        createdAt: new Date(0), // Default value for required Date
+        lastLoginAt: undefined, // Default for optional Date
+        hilBudget: 0, // Default value
+        hilCount: 0, // Default value
+        llmConfig: {} as LLMServicesConfig, // Empty object satisfies the interface
+        chat: {} as ChatSettings, // Empty object satisfies the interface
+        functionConfig: {}, // Default value
+    };
+
     return {
         ...restOfApiAgent,
-        user: { id: userId, name: 'User ' + userId.substring(0, 6) },
+        user: mappedUser,
     };
   }
 
