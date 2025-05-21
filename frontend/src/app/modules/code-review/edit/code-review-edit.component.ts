@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import {Component, OnInit, inject, signal, computed, ChangeDetectionStrategy} from '@angular/core';
 import {
   FormBuilder,
   FormGroup,
@@ -11,63 +11,61 @@ import {
 import {ActivatedRoute, Router, RouterLink} from '@angular/router';
 import {CodeReviewServiceClient} from '../code-review.service';
 import {MatChipInputEvent, MatChipsModule} from '@angular/material/chips';
-import {CommonModule} from "@angular/common";
-import {MatSnackBarModule} from "@angular/material/snack-bar";
+import {CommonModule, Location} from "@angular/common";
 import {MatButtonModule} from "@angular/material/button";
 import {MatFormFieldModule} from "@angular/material/form-field";
 import {MatIconModule} from "@angular/material/icon";
 import {MatInputModule} from "@angular/material/input";
 import {MatCard, MatCardContent} from "@angular/material/card";
 import {MatCheckbox} from "@angular/material/checkbox";
+import {MatProgressSpinnerModule} from "@angular/material/progress-spinner";
+import {Observable} from "rxjs";
+import {CodeReviewConfigCreate, CodeReviewConfigUpdate, MessageResponse} from "#shared/schemas/codeReview.schema";
+import {IExample} from "#shared/model/codeReview.model";
 
 @Component({
   selector: 'app-code-review-edit',
   templateUrl: './code-review-edit.component.html',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    MatSnackBarModule,
     ReactiveFormsModule,
+    RouterLink,
     MatButtonModule,
     MatFormFieldModule,
     MatChipsModule,
     MatIconModule,
-    MatFormFieldModule,
     MatInputModule,
     MatCard,
     MatCardContent,
     MatCheckbox,
-    RouterLink,
+    MatProgressSpinnerModule,
   ],
 })
 export class CodeReviewEditComponent implements OnInit {
-  editForm: FormGroup;
-  isLoading = false;
-  errorMessage = '';
-  configId: string | null = null;
+  private fb = inject(FormBuilder);
+  private codeReviewService = inject(CodeReviewServiceClient);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
+  private location = inject(Location);
 
-  constructor(
-    private fb: FormBuilder,
-    private codeReviewService: CodeReviewServiceClient,
-    private route: ActivatedRoute,
-    private router: Router
-  ) {
-    this.editForm = this.initForm();
-  }
+  editForm = signal<FormGroup>(this.initForm());
+  isLoading = signal<boolean>(false);
+  isSaving = signal<boolean>(false);
+  error = signal<string | null>(null);
+  configId = signal<string | null>(null);
+  pageTitle = computed(() => this.configId() ? 'Edit Code Review Configuration' : 'Create Code Review Configuration');
+
+  constructor() {}
 
   ngOnInit() {
-    this.configId = this.route.snapshot.paramMap.get('id');
-    console.log(this.configId);
-    if (this.configId) {
+    this.configId.set(this.route.snapshot.paramMap.get('id'));
+    console.log(this.configId());
+    if (this.configId()) {
       this.loadConfigData();
-    } else {
-      this.addExample();
     }
-
-    // this.editForm.valueChanges.subscribe(() => {
-    //   console.log('Form validity:', this.editForm.valid);
-    //   console.log('Form value:', this.editForm.value);
-    // });
+    // No need to call addExample() here if the form starts empty or with one example by default from initForm
   }
 
   initForm(): FormGroup {
@@ -93,21 +91,22 @@ export class CodeReviewEditComponent implements OnInit {
   }
 
   loadConfigData() {
-    this.isLoading = true;
-    this.codeReviewService.getCodeReviewConfig(this.configId!).subscribe(
-      (response) => {
+    if (!this.configId()) return;
+    this.isLoading.set(true);
+    this.error.set(null);
+    this.codeReviewService.getCodeReviewConfig(this.configId()!).subscribe({
+      next: (response) => {
         const data = response;
-        this.editForm.patchValue(data);
+        this.editForm().patchValue(data);
 
-        // Clear existing examples
-        while (this.examples.length !== 0) {
-          this.examples.removeAt(0);
+        const examplesArray = this.editForm().get('examples') as FormArray;
+        while (examplesArray.length !== 0) {
+          examplesArray.removeAt(0);
         }
 
-        // Add examples from the loaded data
         if (data.examples && Array.isArray(data.examples)) {
-          data.examples.forEach((example: any) => {
-            this.examples.push(
+          data.examples.forEach((example: IExample) => {
+            examplesArray.push(
               this.fb.group({
                 code: [example.code, Validators.required],
                 reviewComment: [example.reviewComment, Validators.required],
@@ -115,53 +114,50 @@ export class CodeReviewEditComponent implements OnInit {
             );
           });
         }
-
-        this.isLoading = false;
+        this.isLoading.set(false);
       },
-      (error) => {
-        console.error(error);
-        this.errorMessage = 'Error loading config data';
-        this.isLoading = false;
+      error: (err) => {
+        console.error(err);
+        this.error.set('Error loading config data');
+        this.isLoading.set(false);
       }
-    );
+    });
   }
 
   onSubmit() {
-    console.log('Submit clicked. Form validity:', this.editForm.valid);
-    console.log('Form value:', this.editForm.value);
-    if (this.editForm.valid) {
-      this.isLoading = true;
-      const formData = this.editForm.value;
-      if (this.configId) {
-        this.codeReviewService.updateCodeReviewConfig(this.configId, formData).subscribe(
-          () => {
-            this.isLoading = false;
-            this.router.navigate(['/ui/code-reviews']).catch(console.error);
-          },
-          (error) => {
-            console.error(error);
-            this.errorMessage = 'Error updating config';
-            this.isLoading = false;
-          }
-        );
-      } else {
-        this.codeReviewService.createCodeReviewConfig(formData).subscribe(
-          () => {
-            this.isLoading = false;
-            this.router.navigate(['/ui/code-reviews']).catch(console.error);
-          },
-          (error) => {
-            console.error(error);
-            this.errorMessage = 'Error creating config';
-            this.isLoading = false;
-          }
-        );
-      }
+    console.log('Submit clicked. Form validity:', this.editForm().valid);
+    console.log('Form value:', this.editForm().value);
+    if (this.editForm().invalid) {
+      this.editForm().markAllAsTouched();
+      return;
     }
+
+    this.isSaving.set(true);
+    this.error.set(null);
+    const formData = this.editForm().value;
+    let saveObservable: Observable<MessageResponse>;
+
+    if (this.configId()) {
+      saveObservable = this.codeReviewService.updateCodeReviewConfig(this.configId()!, formData as CodeReviewConfigUpdate);
+    } else {
+      saveObservable = this.codeReviewService.createCodeReviewConfig(formData as CodeReviewConfigCreate);
+    }
+
+    saveObservable.subscribe({
+      next: () => {
+        this.isSaving.set(false);
+        this.router.navigate(['/ui/code-reviews']).catch(console.error);
+      },
+      error: (err) => {
+        console.error(err);
+        this.error.set('Error saving configuration');
+        this.isSaving.set(false);
+      }
+    });
   }
 
   get examples() {
-    return this.editForm.get('examples') as FormArray;
+    return this.editForm().get('examples') as FormArray;
   }
 
   addExample() {
@@ -177,8 +173,12 @@ export class CodeReviewEditComponent implements OnInit {
     this.examples.removeAt(index);
   }
 
+  goBack(): void {
+    this.location.back();
+  }
+
   removeExtension(ext: string) {
-    const include = this.editForm.get('fileExtensions.include');
+    const include = this.editForm().get('fileExtensions.include');
     const currentExtensions = (include?.value as string[]) || [];
     const updatedExtensions = currentExtensions.filter((e) => e !== ext);
     include?.setValue(updatedExtensions);
@@ -190,7 +190,7 @@ export class CodeReviewEditComponent implements OnInit {
     const value = event.value;
 
     if ((value || '').trim()) {
-      const include = this.editForm.get('fileExtensions.include');
+      const include = this.editForm().get('fileExtensions.include');
       const currentExtensions = (include?.value as string[]) || [];
       if (!currentExtensions.includes(value.trim())) {
         include?.setValue([...currentExtensions, value.trim()]);
@@ -204,7 +204,7 @@ export class CodeReviewEditComponent implements OnInit {
   }
 
   removeRequiredText(text: string) {
-    const requiredText = this.editForm.get('requires.text');
+    const requiredText = this.editForm().get('requires.text');
     const currentTexts = (requiredText?.value as string[]) || [];
     requiredText?.setValue(currentTexts.filter((t) => t !== text));
     requiredText?.updateValueAndValidity();
@@ -215,10 +215,12 @@ export class CodeReviewEditComponent implements OnInit {
     const value = event.value;
 
     if ((value || '').trim()) {
-      const requiredText = this.editForm.get('requires.text');
+      const requiredText = this.editForm().get('requires.text');
       const currentTexts = (requiredText?.value as string[]) || [];
-      requiredText?.setValue([...currentTexts, value.trim()]);
-      requiredText?.updateValueAndValidity();
+      if (!currentTexts.includes(value.trim())) {
+        requiredText?.setValue([...currentTexts, value.trim()]);
+        requiredText?.updateValueAndValidity();
+      }
     }
 
     if (input) {
@@ -227,7 +229,7 @@ export class CodeReviewEditComponent implements OnInit {
   }
 
   removeTag(tag: string) {
-    const tags = this.editForm.get('tags');
+    const tags = this.editForm().get('tags');
     const currentTags = (tags?.value as string[]) || [];
     tags?.setValue(currentTags.filter((t) => t !== tag));
     tags?.updateValueAndValidity();
@@ -238,10 +240,12 @@ export class CodeReviewEditComponent implements OnInit {
     const value = event.value;
 
     if ((value || '').trim()) {
-      const tags = this.editForm.get('tags');
+      const tags = this.editForm().get('tags');
       const currentTags = (tags?.value as string[]) || [];
-      tags?.setValue([...currentTags, value.trim()]);
-      tags?.updateValueAndValidity();
+      if (!currentTags.includes(value.trim())) {
+        tags?.setValue([...currentTags, value.trim()]);
+        tags?.updateValueAndValidity();
+      }
     }
 
     if (input) {
@@ -250,7 +254,7 @@ export class CodeReviewEditComponent implements OnInit {
   }
 
   removeProjectPath(path: string) {
-    const projectPaths = this.editForm.get('projectPaths');
+    const projectPaths = this.editForm().get('projectPaths');
     const currentPaths = (projectPaths?.value as string[]) || [];
     projectPaths?.setValue(currentPaths.filter((p) => p !== path));
     projectPaths?.updateValueAndValidity();
@@ -261,10 +265,12 @@ export class CodeReviewEditComponent implements OnInit {
     const value = event.value;
 
     if ((value || '').trim()) {
-      const projectPaths = this.editForm.get('projectPaths');
+      const projectPaths = this.editForm().get('projectPaths');
       const currentPaths = (projectPaths?.value as string[]) || [];
-      projectPaths?.setValue([...currentPaths, value.trim()]);
-      projectPaths?.updateValueAndValidity();
+      if (!currentPaths.includes(value.trim())) {
+        projectPaths?.setValue([...currentPaths, value.trim()]);
+        projectPaths?.updateValueAndValidity();
+      }
     }
 
     if (input) {
