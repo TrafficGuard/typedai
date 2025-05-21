@@ -22,54 +22,95 @@ export abstract class AbstractSCM implements SourceControlManagement {
 		if (targetDirectory) {
 			targetPath = targetDirectory;
 		} else {
-			const basePath = agent.useSharedRepos ? join(systemDir(), this.getScmType()) : join(agentStorageDir(), this.getScmType());
-			targetPath = targetDirectory ?? join(basePath, projectPathWithNamespace);
+			const scmType = this.getScmType(); // Use a local variable for scmType
+			const basePath = agent?.useSharedRepos ? join(systemDir(), scmType) : join(agentStorageDir(), scmType);
+			targetPath = join(basePath, projectPathWithNamespace);
 		}
 		await fs.mkdir(targetPath, { recursive: true });
 
-		// If the project already exists pull updates from the main/dev branch
+		// If the project already exists pull updates
 		if (existsSync(targetPath) && existsSync(join(targetPath, '.git'))) {
 			const currentWorkingDir = fss.getWorkingDirectory();
 			try {
 				fss.setWorkingDirectory(targetPath);
-				logger.info(`${projectPathWithNamespace} exists at ${targetPath}. Pulling updates`);
+				logger.info(`${projectPathWithNamespace} exists at ${targetPath}. Configuring remote and pulling updates.`);
 
-				// If the repo has a projectInfo.json file with a devBranch defined, then switch to that
-				// else switch to the default branch defined in the GitLab project
+				// Ensure remote URL has the token for authentication for fetch/pull
+				const remoteSetUrlCommand = `git remote set-url origin https://oauth2:${token}@${host}/${projectPathWithNamespace}.git`;
+				const remoteSetUrlResult = await execCommand(remoteSetUrlCommand, { workingDirectory: targetPath, mask: token });
+				failOnError(`Failed to set remote URL for ${projectPathWithNamespace}`, remoteSetUrlResult);
+
+				// Determine target branch and switch to it
+				// getProjectInfo reads from the local file system, so CWD must be targetPath
 				const projectInfo = await getProjectInfo();
+				let targetBranchToEnsure: string;
+
 				if (branchOrCommit) {
-					await fss.getVcs().switchToBranch(branchOrCommit);
-				} else if (projectInfo.devBranch) {
-					await fss.getVcs().switchToBranch(projectInfo.devBranch);
+					targetBranchToEnsure = branchOrCommit;
+				} else if (projectInfo?.devBranch) {
+					targetBranchToEnsure = projectInfo.devBranch;
 				} else {
+					// Fetches project details via API to get the default branch
 					const gitProject = await this.getProject(projectPathWithNamespace);
-					const switchResult = await execCommand(`git switch ${gitProject.defaultBranch}`, { workingDirectory: targetPath });
-					if (switchResult.exitCode === 0) logger.info(`Switched to branch ${gitProject.defaultBranch}`);
+					targetBranchToEnsure = gitProject.defaultBranch;
 				}
 
+				if (targetBranchToEnsure) {
+					logger.info(`Attempting to switch to branch ${targetBranchToEnsure} before pulling updates.`);
+					// switchToBranch should handle fetching the branch if it's remote and not yet local,
+					// now using the authenticated remote.
+					await fss.getVcs().switchToBranch(targetBranchToEnsure);
+				} else {
+					logger.warn(`No specific branch determined for pull. Will attempt to pull the current branch.`);
+				}
+
+				// Fetch all updates from the remote
 				const fetchResult = await execCommand('git fetch', { workingDirectory: targetPath });
 				failOnError('Failed to fetch updates', fetchResult);
+
+				// Pull updates for the current branch
 				const pullResult = await execCommand('git pull', { workingDirectory: targetPath });
 				failOnError('Failed to pull updates', pullResult);
 			} finally {
-				// Current behaviour of this function is to not change the working directory
 				fss.setWorkingDirectory(currentWorkingDir);
 			}
 		} else {
 			logger.info(`Cloning project: ${projectPathWithNamespace} to ${targetPath}`);
-			// Parent directory created above, git clone creates the final directory
 			const command = `git clone https://oauth2:${token}@${host}/${projectPathWithNamespace}.git ${targetPath}`;
 			const result = await execCommand(command, { mask: token });
 
+			// This error occurs when the default branch on the remote is empty or points to a non-existent ref
 			if (result.stderr?.includes('remote HEAD refers to nonexistent ref')) {
+				logger.warn(`Remote HEAD for ${projectPathWithNamespace} refers to a nonexistent ref. Attempting to switch to a known branch.`);
 				const gitProject = await this.getProject(projectPathWithNamespace);
-				const branch = branchOrCommit ?? gitProject.defaultBranch;
-				const switchResult = await execCommand(`git switch ${branch}`, { workingDirectory: targetPath });
-				if (switchResult.exitCode === 0) logger.info(`Switched to branch ${branch}`);
-				failOnError(`Unable to switch to branch ${branch} for ${projectPathWithNamespace}`, switchResult);
+				const branchToSwitch = branchOrCommit ?? gitProject.defaultBranch;
+				if (branchToSwitch) {
+					// Need to operate within the newly cloned directory
+					const switchCmdResult = await execCommand(`git switch ${branchToSwitch}`, { workingDirectory: targetPath });
+					if (switchCmdResult.exitCode === 0) {
+						logger.info(`Successfully switched to branch ${branchToSwitch} in ${projectPathWithNamespace}`);
+					} else {
+						failOnError(`Unable to switch to branch ${branchToSwitch} for ${projectPathWithNamespace} after clone with bad remote HEAD. Error: ${switchCmdResult.stderr}`, switchCmdResult);
+					}
+				} else {
+					logger.error(`Cannot switch branch for ${projectPathWithNamespace}: no specific branch provided and default branch is unknown.`);
+				}
+			} else {
+				failOnError(`Failed to clone ${projectPathWithNamespace}`, result);
 			}
-
-			failOnError(`Failed to clone ${projectPathWithNamespace}`, result);
+			// If a specific branchOrCommit was requested for a fresh clone, check it out.
+			if (branchOrCommit) {
+				logger.info(`Switching to specified branch/commit: ${branchOrCommit} after clone.`);
+				// Use fss.getVcs().switchToBranch which is more robust.
+				// Need to temporarily set CWD for fss.getVcs() if it relies on it.
+				const currentWorkingDir = fss.getWorkingDirectory();
+				try {
+					fss.setWorkingDirectory(targetPath);
+					await fss.getVcs().switchToBranch(branchOrCommit);
+				} finally {
+					fss.setWorkingDirectory(currentWorkingDir);
+				}
+			}
 		}
 		if (agent) agent.memory[`${this.getScmType()} Repo: ${projectPathWithNamespace} FileSystem location`] = targetPath;
 
