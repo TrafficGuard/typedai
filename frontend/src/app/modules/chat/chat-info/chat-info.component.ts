@@ -6,6 +6,7 @@ import {
     inject,
     input,
     signal,
+    computed, // Added computed
     WritableSignal,
     DestroyRef,
 } from '@angular/core';
@@ -56,6 +57,15 @@ export class ChatInfoComponent {
     editedName = signal('');
     isSavingName = signal(false);
     isDeletingChat = signal(false);
+
+    readonly panelTitle = computed(() => {
+        const currentChat = this.chat();
+        // If chat has a valid ID and is not the placeholder 'new-chat' ID
+        if (currentChat?.id && currentChat.id !== 'new-chat') {
+            return 'Chat Details & Settings';
+        }
+        return 'Chat Settings';
+    });
 
     private userService = inject(UserService);
     private chatService = inject(ChatServiceClient);
