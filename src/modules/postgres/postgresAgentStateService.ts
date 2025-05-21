@@ -93,7 +93,6 @@ export class PostgresAgentStateService implements AgentContextService {
 		}
 	}
 
-
 	private async _deserializeDbRowToAgentContext(row: Selectable<AgentContextsTable>): Promise<AgentContext> {
 		const userForDeserialization = currentUser().id === row.user_id ? currentUser() : ({ id: row.user_id } as User);
 
@@ -153,7 +152,9 @@ export class PostgresAgentStateService implements AgentContextService {
 			images_serialized: iteration.images ? JSON.stringify(iteration.images) : null,
 			function_calls_serialized: iteration.functionCalls ? JSON.stringify(iteration.functionCalls) : null,
 			memory_serialized: iteration.memory ? JSON.stringify(iteration.memory instanceof Map ? Object.fromEntries(iteration.memory) : iteration.memory) : null,
-			tool_state_serialized: iteration.toolState ? JSON.stringify(iteration.toolState instanceof Map ? Object.fromEntries(iteration.toolState) : iteration.toolState) : null,
+			tool_state_serialized: iteration.toolState
+				? JSON.stringify(iteration.toolState instanceof Map ? Object.fromEntries(iteration.toolState) : iteration.toolState)
+				: null,
 			error: iteration.error,
 			stats_serialized: iteration.stats ? JSON.stringify(iteration.stats) : null,
 			cost: iteration.cost,
