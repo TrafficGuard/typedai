@@ -145,11 +145,11 @@ export interface Database {
 
 const dialect = new PostgresDialect({
 	pool: new Pool({
-		host: envVar('POSTGRES_HOST', 'localhost'),
-		port: Number.parseInt(envVar('POSTGRES_PORT', '5432'), 10),
-		user: envVar('POSTGRES_USER', 'user'),
-		password: envVar('POSTGRES_PASSWORD', 'password'),
-		database: envVar('POSTGRES_DB', 'db'),
+		host: envVar('DATABASE_HOST', 'localhost'),
+		port: Number.parseInt(envVar('DATABASE_PORT', '5432'), 10),
+		user: envVar('DATABASE_USER', 'user'),
+		password: envVar('DATABASE_PASSWORD', 'password'),
+		database: envVar('DATABASE_NAME', 'db'),
 		max: 10, // Max number of clients in the pool
 	}),
 });
