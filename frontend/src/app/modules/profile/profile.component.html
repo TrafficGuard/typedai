@@ -28,34 +28,19 @@
             <!-- Panel links -->
             <div class="flex flex-col divide-y border-b border-t">
                 @for (panel of panels; track trackByFn($index, panel)) {
-                    <div
+                    <a
                         class="flex cursor-pointer px-8 py-5"
-                        [ngClass]="{
-                            'dark:hover:bg-hover hover:bg-gray-100':
-                                !selectedPanel || selectedPanel !== panel.id,
-                            'bg-primary-50 dark:bg-hover':
-                                selectedPanel && selectedPanel === panel.id,
-                        }"
-                        (click)="goToPanel(panel.id)"
+                        [routerLink]="panel.id"
+                        routerLinkActive="bg-primary-50 dark:bg-hover selected-panel-active"
+                        [routerLinkActiveOptions]="{exact: true}"
                     >
                         <mat-icon
-                            [ngClass]="{
-                                'text-hint':
-                                    !selectedPanel ||
-                                    selectedPanel !== panel.id,
-                                'text-primary dark:text-primary-500':
-                                    selectedPanel && selectedPanel === panel.id,
-                            }"
+                            class="text-hint"
                             [svgIcon]="panel.icon"
                         ></mat-icon>
                         <div class="ml-3">
                             <div
                                 class="font-medium leading-6"
-                                [ngClass]="{
-                                    'text-primary dark:text-primary-500':
-                                        selectedPanel &&
-                                        selectedPanel === panel.id,
-                                }"
                             >
                                 {{ panel.title }}
                             </div>
@@ -63,7 +48,7 @@
                                 {{ panel.description }}
                             </div>
                         </div>
-                    </div>
+                    </a>
                 }
             </div>
         </mat-drawer>
@@ -89,24 +74,27 @@
                     <div
                         class="ml-2 text-3xl font-bold leading-none tracking-tight lg:ml-0"
                     >
-                        {{ getPanelInfo(selectedPanel).title }}
+                        {{ getPanelInfo(selectedPanel())?.title }}
                     </div>
                     -->
                 </div>
 
-                <!-- Load settings panel -->
+                <!-- Router outlet for settings panels -->
                 <div class="mt-6">
-                    @switch (selectedPanel) {
-                        <!-- Account -->
-                        @case ('account') {
-                            <settings-account></settings-account>
-                        }
-                        <!-- Team -->
-                        @case ('ui') {
-                            <ui-settings></ui-settings>
-                        }
-                    }
+                    <router-outlet></router-outlet>
                 </div>
+
+                <!-- Loading and error states for user profile -->
+                @if (isLoading()) {
+                    <div>Loading user profile...</div>
+                }
+                @if (error()) {
+                    <div class="text-red-500">{{ error() }}</div>
+                }
+                <!-- Example of using currentUser signal, adapt as needed for actual display -->
+                <!-- @if (currentUser(); as user) {
+                    <div>Current User: {{ user.name }}</div>
+                } -->
             </div>
         </mat-drawer-content>
     </mat-drawer-container>
