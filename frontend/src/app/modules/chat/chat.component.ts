@@ -4,6 +4,7 @@ import {
     ViewEncapsulation,
 } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import {QuickChatComponent} from "../../layout/common/quick-chat/quick-chat.component";
 
 @Component({
     selector: 'chat',
@@ -11,6 +12,6 @@ import { RouterOutlet } from '@angular/router';
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
-    imports: [RouterOutlet],
+    imports: [RouterOutlet, QuickChatComponent, QuickChatComponent],
 })
 export class ChatComponent {}

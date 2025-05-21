@@ -8,7 +8,7 @@ TODO: Consider adding integration tests for the chat module here,
 When the New Chat button is clicked:
 - It should show an empty chat conversation,
 - The message input field should gain focus.
- */Example Scenario for Integration Test:
+ Example Scenario for Integration Test:
 - Selecting a chat from the list loads it into the conversation view.
 - Starting a new chat clears the conversation view and focuses the input.
 - Updating chat info reflects in the conversation header/details.
