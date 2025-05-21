@@ -32,30 +32,30 @@ export class PostgresAgentStateService implements AgentContextService {
 			parent_agent_id: serialized.parentAgentId,
 			user_id: serialized.user,
 			state: serialized.state,
-			call_stack: serialized.callStack,
+			call_stack: serialized.callStack ? JSON.stringify(serialized.callStack) : null,
 			error: serialized.error,
 			hil_budget: serialized.hilBudget,
 			hil_count: serialized.hilCount,
 			cost: serialized.cost,
 			budget_remaining: serialized.budgetRemaining,
-			llms_serialized: serialized.llms as Record<string, any>,
+			llms_serialized: JSON.stringify(serialized.llms),
 			use_shared_repos: serialized.useSharedRepos,
-			memory_serialized: serialized.memory as Record<string, any>,
-			metadata_serialized: serialized.metadata as Record<string, any> | null,
-			functions_serialized: serialized.functions as Record<string, any>,
+			memory_serialized: JSON.stringify(serialized.memory),
+			metadata_serialized: serialized.metadata ? JSON.stringify(serialized.metadata) : null,
+			functions_serialized: JSON.stringify(serialized.functions),
 			completed_handler_id: serialized.completedHandler as string | null,
-			pending_messages_serialized: serialized.pendingMessages as any[] | null,
+			pending_messages_serialized: serialized.pendingMessages ? JSON.stringify(serialized.pendingMessages) : null,
 			type: serialized.type,
 			subtype: serialized.subtype,
 			iterations: serialized.iterations,
-			invoking_serialized: serialized.invoking as any[] | null,
-			notes_serialized: serialized.notes as string[] | null,
+			invoking_serialized: serialized.invoking ? JSON.stringify(serialized.invoking) : null,
+			notes_serialized: serialized.notes ? JSON.stringify(serialized.notes) : null,
 			user_prompt: serialized.userPrompt,
 			input_prompt: serialized.inputPrompt,
-			messages_serialized: serialized.messages as any[],
-			function_call_history_serialized: serialized.functionCallHistory as any[] | null,
-			live_files_serialized: serialized.liveFiles as string[] | null,
-			child_agents_ids: serialized.childAgents as string[] | null,
+			messages_serialized: JSON.stringify(serialized.messages),
+			function_call_history_serialized: serialized.functionCallHistory ? JSON.stringify(serialized.functionCallHistory) : null,
+			live_files_serialized: serialized.liveFiles ? JSON.stringify(serialized.liveFiles) : null,
+			child_agents_ids: serialized.childAgents ? JSON.stringify(serialized.childAgents) : null,
 			hil_requested: serialized.hilRequested,
 		};
 	}
@@ -72,31 +72,31 @@ export class PostgresAgentStateService implements AgentContextService {
 			parentAgentId: row.parent_agent_id,
 			user: userForDeserialization,
 			state: row.state as AgentRunningState,
-			callStack: row.call_stack,
+			callStack: row.call_stack ? JSON.parse(row.call_stack) : null,
 			error: row.error,
 			hilBudget: row.hil_budget,
 			hilCount: row.hil_count,
 			cost: row.cost,
 			budgetRemaining: row.budget_remaining,
-			llms: row.llms_serialized,
+			llms: JSON.parse(row.llms_serialized),
 			useSharedRepos: row.use_shared_repos,
-			memory: row.memory_serialized,
+			memory: JSON.parse(row.memory_serialized),
 			lastUpdate: (row.last_update as Date).getTime(),
-			metadata: row.metadata_serialized,
-			functions: row.functions_serialized,
+			metadata: row.metadata_serialized ? JSON.parse(row.metadata_serialized) : null,
+			functions: JSON.parse(row.functions_serialized),
 			completedHandler: row.completed_handler_id,
-			pendingMessages: row.pending_messages_serialized,
+			pendingMessages: row.pending_messages_serialized ? JSON.parse(row.pending_messages_serialized) : null,
 			type: row.type as AgentType,
 			subtype: row.subtype,
 			iterations: row.iterations,
-			invoking: row.invoking_serialized,
-			notes: row.notes_serialized,
+			invoking: row.invoking_serialized ? JSON.parse(row.invoking_serialized) : null,
+			notes: row.notes_serialized ? JSON.parse(row.notes_serialized) : null,
 			userPrompt: row.user_prompt,
 			inputPrompt: row.input_prompt,
-			messages: row.messages_serialized,
-			functionCallHistory: row.function_call_history_serialized,
-			liveFiles: row.live_files_serialized,
-			childAgents: row.child_agents_ids,
+			messages: JSON.parse(row.messages_serialized),
+			functionCallHistory: row.function_call_history_serialized ? JSON.parse(row.function_call_history_serialized) : null,
+			liveFiles: row.live_files_serialized ? JSON.parse(row.live_files_serialized) : null,
+			childAgents: row.child_agents_ids ? JSON.parse(row.child_agents_ids) : null,
 			hilRequested: row.hil_requested,
 		};
 		return deserializeContext(dataForDeserialization as any);
@@ -104,7 +104,7 @@ export class PostgresAgentStateService implements AgentContextService {
 
 	private _serializeIterationForDb(iteration: AutonomousIteration): SerializedAgentIterationData {
 		return {
-			functions_serialized: iteration.functions,
+			functions_serialized: iteration.functions ? JSON.stringify(iteration.functions) : null,
 			prompt: iteration.prompt,
 			summary: iteration.summary,
 			expanded_user_request: iteration.expandedUserRequest,
@@ -115,12 +115,12 @@ export class PostgresAgentStateService implements AgentContextService {
 			executed_code: iteration.executedCode,
 			draft_code: iteration.draftCode,
 			code_review: iteration.codeReview,
-			images_serialized: iteration.images as any[],
-			function_calls_serialized: iteration.functionCalls as any[],
-			memory_serialized: iteration.memory instanceof Map ? Object.fromEntries(iteration.memory) : iteration.memory,
-			tool_state_serialized: iteration.toolState instanceof Map ? Object.fromEntries(iteration.toolState) : iteration.toolState,
+			images_serialized: iteration.images ? JSON.stringify(iteration.images) : null,
+			function_calls_serialized: iteration.functionCalls ? JSON.stringify(iteration.functionCalls) : null,
+			memory_serialized: iteration.memory ? JSON.stringify(iteration.memory instanceof Map ? Object.fromEntries(iteration.memory) : iteration.memory) : null,
+			tool_state_serialized: iteration.toolState ? JSON.stringify(iteration.toolState instanceof Map ? Object.fromEntries(iteration.toolState) : iteration.toolState) : null,
 			error: iteration.error,
-			stats_serialized: iteration.stats as Record<string, any>,
+			stats_serialized: iteration.stats ? JSON.stringify(iteration.stats) : null,
 			cost: iteration.cost,
 		};
 	}
@@ -129,7 +129,7 @@ export class PostgresAgentStateService implements AgentContextService {
 		return {
 			agentId: row.agent_id,
 			iteration: row.iteration_number,
-			functions: row.functions_serialized || [],
+			functions: row.functions_serialized ? JSON.parse(row.functions_serialized) : [],
 			prompt: row.prompt,
 			summary: row.summary,
 			expandedUserRequest: row.expanded_user_request,
@@ -140,12 +140,12 @@ export class PostgresAgentStateService implements AgentContextService {
 			executedCode: row.executed_code,
 			draftCode: row.draft_code,
 			codeReview: row.code_review,
-			images: row.images_serialized || [],
-			functionCalls: row.function_calls_serialized || [],
-			memory: row.memory_serialized ?? {},
-			toolState: row.tool_state_serialized ?? {},
+			images: row.images_serialized ? JSON.parse(row.images_serialized) : [],
+			functionCalls: row.function_calls_serialized ? JSON.parse(row.function_calls_serialized) : [],
+			memory: row.memory_serialized ? JSON.parse(row.memory_serialized) : {},
+			toolState: row.tool_state_serialized ? JSON.parse(row.tool_state_serialized) : {},
 			error: row.error,
-			stats: row.stats_serialized as any, // Cast as GenerationStats, assuming structure matches
+			stats: row.stats_serialized ? JSON.parse(row.stats_serialized) : null,
 			cost: row.cost,
 			// created_at is not part of AutonomousIteration model
 		};
@@ -195,12 +195,13 @@ export class PostgresAgentStateService implements AgentContextService {
 					throw new Error(`Parent agent ${state.parentAgentId} not found`);
 				}
 
-				const childAgents = new Set(parent.child_agents_ids || []);
+				// Deserialize child_agents_ids before adding
+				const childAgents = new Set(parent.child_agents_ids ? JSON.parse(parent.child_agents_ids) : []);
 				if (!childAgents.has(state.agentId)) {
 					childAgents.add(state.agentId);
 					await trx
 						.updateTable('agent_contexts')
-						.set({ child_agents_ids: Array.from(childAgents), last_update: now })
+						.set({ child_agents_ids: JSON.stringify(Array.from(childAgents)), last_update: now }) // Serialize back to string
 						.where('agent_id', '=', state.parentAgentId as string)
 						.execute();
 				}
@@ -283,8 +284,10 @@ export class PostgresAgentStateService implements AgentContextService {
 		const allIdsToDelete = new Set<string>();
 		for (const agent of validParentAgentsToDelete) {
 			allIdsToDelete.add(agent.agent_id);
+			// Deserialize child_agents_ids before adding to the set
 			if (agent.child_agents_ids) {
-				for (const childId of agent.child_agents_ids) {
+				const childIds = JSON.parse(agent.child_agents_ids) as string[];
+				for (const childId of childIds) {
 					allIdsToDelete.add(childId);
 				}
 			}
@@ -323,7 +326,7 @@ export class PostgresAgentStateService implements AgentContextService {
 
 		await this.db
 			.updateTable('agent_contexts')
-			.set({ functions_serialized: serializedFunctions as Record<string, any>, last_update: new Date() })
+			.set({ functions_serialized: JSON.stringify(serializedFunctions), last_update: new Date() }) // Serialize functions
 			.where('agent_id', '=', agentId)
 			.execute();
 	}
