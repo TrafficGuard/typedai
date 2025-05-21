@@ -4,6 +4,7 @@ import {
     ViewEncapsulation,
 } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { CommonModule } from '@angular/common';
 
 @Component({
     selector: 'code-reviews',
@@ -11,6 +12,6 @@ import { RouterOutlet } from '@angular/router';
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
-    imports: [RouterOutlet],
+    imports: [CommonModule, RouterOutlet],
 })
 export class CodeReviewComponent {}
