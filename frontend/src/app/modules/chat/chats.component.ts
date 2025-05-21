@@ -1,12 +1,13 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
-import { Router, RouterLink, RouterOutlet } from '@angular/router';
+import { Component, OnInit, OnDestroy, inject, signal, computed, effect, DestroyRef, WritableSignal, Signal } from '@angular/core';
+import { ActivatedRoute, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { NgClass, NgIf } from '@angular/common'; // Removed NgFor
-import { Subscription, EMPTY } from 'rxjs';
+import { NgClass } from '@angular/common'; // NgIf removed
+import { EMPTY } from 'rxjs'; // Subscription removed
 import { catchError, finalize, tap } from 'rxjs/operators';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 
 import { ChatServiceClient } from './chat.service'; // Corrected path
 import { Chat, NEW_CHAT_ID } from './chat.types'; // Corrected path
@@ -22,7 +23,7 @@ import { Chat, NEW_CHAT_ID } from './chat.types'; // Corrected path
     templateUrl: './chats/chats.component.html',
     standalone: true,
     imports: [
-        NgIf,
+        // NgIf removed as @if is used in template
         // NgFor, // Removed as @for is used in the template
         NgClass,
         MatButtonModule,
@@ -36,59 +37,76 @@ import { Chat, NEW_CHAT_ID } from './chat.types'; // Corrected path
     ],
 })
 export class ChatsComponent implements OnInit, OnDestroy {
-    chats: Chat[] = [];
-    isLoading: boolean = false;
-    error: any = null;
-    private chatSubscription: Subscription | undefined;
-
-    // Properties that might be used by the existing template but not managed by this specific request.
-    // Adding them to avoid template errors, but their logic is not part of this update.
-    selectedChat: Chat | null = null; // Assuming it might be set by router or other interactions
-    hoveredChatId: string | null = null;
-    
-    // searchField: any; // This would be ElementRef if #searchField is used with ViewChild
-
     private chatService = inject(ChatServiceClient);
     private router = inject(Router);
+    private route = inject(ActivatedRoute);
+    private destroyRef = inject(DestroyRef);
 
-    constructor() {}
+    isLoading = signal(false);
+    error = signal<any | null>(null);
+    
+    sessions = signal<Chat[]>([]);
+    selectedSessionId = signal<string | null>(null);
+    hoveredChatId = signal<string | null>(null);
+    filterTerm = signal<string>('');
+
+    filteredSessions = computed(() => {
+        const term = this.filterTerm().toLowerCase();
+        const currentSessions = this.sessions();
+        if (!term) {
+            return currentSessions;
+        }
+        return currentSessions.filter(
+            (session) =>
+                session.title?.toLowerCase().includes(term)
+        );
+    });
+
+    displaySessions = computed(() => {
+        return this.filteredSessions() ?? [];
+    });
+
+    hasDisplayableSessions = computed(() => this.displaySessions().length > 0);
+
+    constructor() {
+        const routeParamsSignal = toSignal(this.route.paramMap, { initialValue: null });
+
+        effect(() => {
+            const params = routeParamsSignal();
+            const chatId = params?.get('id'); // 'id' is the typical param name for chat routes
+            if (chatId && chatId !== NEW_CHAT_ID) {
+                this.selectedSessionId.set(chatId);
+            } else {
+                this.selectedSessionId.set(null);
+            }
+        }, { allowSignalWrites: true }); // Allow signal writes as it's reacting to route changes
+    }
 
     ngOnInit(): void {
         this.loadChats();
-        // Initialize selectedChat based on current route if necessary (outside scope of this change)
-        // This is a common pattern but depends on how :id route is handled.
-        // For example, if a resolver was previously used, this logic might need to be different.
-        // const currentChatId = this.router.url.split('/').pop();
-        // if (currentChatId && currentChatId !== NEW_CHAT_ID) {
-        //    this.chatService.loadChatById(currentChatId).subscribe(); // Or similar logic
-        // }
-        // this.chatService.chat.subscribe(chat => this.selectedChat = chat); // If selectedChat comes from service state
     }
 
     loadChats(): void {
-        this.isLoading = true;
-        this.error = null;
-        if (this.chatSubscription && !this.chatSubscription.closed) {
-            this.chatSubscription.unsubscribe();
-        }
+        this.isLoading.set(true);
+        this.error.set(null);
 
-        this.chatSubscription = this.chatService.loadChats().pipe(
-            tap(() => {
-                const currentChatsFromSignal = this.chatService.chats();
-                this.chats = currentChatsFromSignal ? [...currentChatsFromSignal] : [];
-                // If filtering is to be maintained, re-apply filter here or ensure filteredChats is updated.
-                // this.filterChats(this.searchField?.nativeElement?.value || ''); // Example if search was active
-            }),
-            catchError(err => {
-                console.error('Error loading chats:', err);
-                this.error = err; // Consider a user-friendly message string
-                this.chats = [];
-                return EMPTY;
-            }),
-            finalize(() => {
-                this.isLoading = false;
-            })
-        ).subscribe();
+        this.chatService.loadChats()
+            .pipe(
+                takeUntilDestroyed(this.destroyRef),
+                tap(() => {
+                    // The service updates its own signals; we read from them.
+                    this.sessions.set(this.chatService.chats() ?? []);
+                }),
+                catchError(err => {
+                    console.error('Error loading chats:', err);
+                    this.error.set(err);
+                    this.sessions.set([]);
+                    return EMPTY;
+                }),
+                finalize(() => {
+                    this.isLoading.set(false);
+                })
+            ).subscribe();
     }
 
     retryLoadChats(): void {
@@ -96,51 +114,56 @@ export class ChatsComponent implements OnInit, OnDestroy {
     }
 
     ngOnDestroy(): void {
-        if (this.chatSubscription && !this.chatSubscription.closed) {
-            this.chatSubscription.unsubscribe();
-        }
+        // Subscriptions using takeUntilDestroyed are automatically cleaned up.
     }
 
-    // --- Methods from existing HTML, not part of the current request's core logic, added for template compatibility ---
-    // Their full implementation is beyond the scope of this "self-loading" feature.
+    // --- Methods for the template ---
 
-    createNewChat(): void {
-        // Placeholder: Actual navigation or service call would go here.
-        // This typically involves navigating to a route for a new chat, e.g., /chat/new
-        this.router.navigate(['/apps/chat', NEW_CHAT_ID]); // Example path
-        console.log('createNewChat called');
+    onClickNewChat(): void {
+        this.router.navigate(['/apps/chat', NEW_CHAT_ID]); // Adjust path if needed
     }
 
-    filterChats(query: string | null | undefined): void {
-        // Placeholder: Actual filtering logic would go here.
-        // This would typically filter `this.chats` into `this.filteredChats`
-        // For now, to make the template work without error if it uses filteredChats,
-        // we can just point filteredChats to chats or implement a simple filter.
-        // However, the request implies using `this.chats` directly in the template.
-        console.log('filterChats called with:', query);
-        if (!query) {
-            // this.filteredChats = [...this.chats]; // If filteredChats was a separate property
-            return;
-        }
-        // Example filter (if `this.chats` is used directly, this method might not be needed by the loop)
-        // this.chats = this.chats.filter(chat => chat.title?.toLowerCase().includes(query.toLowerCase()));
+    onFilterSessions(event: Event): void {
+        const query = (event.target as HTMLInputElement).value;
+        this.filterTerm.set(query);
     }
 
-    trackByFn(index: number, chat: Chat): string {
-        return chat.id;
+    onSessionSelect(session: Chat): void {
+        // Navigation is handled by [routerLink] in the template.
+        // This method can be used for additional logic if needed,
+        // or to optimistically set the selectedId if route param effect is slow.
+        this.selectedSessionId.set(session.id);
     }
 
-    deleteChat(event: MouseEvent, chatToDelete: Chat): void {
-        event.stopPropagation(); // Prevent navigation
-        event.preventDefault(); // Prevent default anchor behavior
-        // Placeholder: Actual delete logic using chatService would go here.
-        console.log('deleteChat called for:', chatToDelete.id);
-        if (chatToDelete.id === NEW_CHAT_ID) return; // Cannot delete 'new' chat placeholder
+    onClickDeleteSession(event: MouseEvent, session: Chat): void {
+        event.stopPropagation();
+        event.preventDefault();
 
-        // Example: this.chatService.deleteChat(chatToDelete.id).subscribe(...);
-        // After successful deletion, you might want to remove it from `this.chats`
-        // and potentially navigate away if it was the selected chat.
+        if (session.id === NEW_CHAT_ID) return;
+
+        // Consider adding a confirmation dialog here using FuseConfirmationService
+        // For now, directly deleting as per the original simpler deleteChat.
+        this.chatService.deleteChat(session.id)
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe({
+                next: () => {
+                    // The chatService's loadChats or internal signal updates should refresh the list.
+                    // If not, explicitly call this.loadChats() or update this.sessions signal.
+                    // For now, assume service handles its signal update, which loadChats reads.
+                    this.loadChats(); // Re-fetch to update the list.
+                    if (this.selectedSessionId() === session.id) {
+                        this.router.navigate(['/apps/chat']); // Navigate to a neutral route
+                    }
+                },
+                error: (err) => {
+                    console.error('Failed to delete chat:', err);
+                    // Optionally show a snackbar message
+                }
+            });
     }
 
-    // --- End of placeholder methods ---
+    // trackByFn for @for loop in template (template uses track session.id directly)
+    // trackBySessionId(index: number, session: Chat): string {
+    //     return session.id;
+    // }
 }
