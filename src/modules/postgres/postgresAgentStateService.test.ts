@@ -9,7 +9,7 @@ import { ensureAgentContextsTableExists, ensureAgentIterationsTableExists, ensur
 
 chai.use(chaiAsPromised);
 
-describe('PostgresAgentStateService', () => {
+describe.only('PostgresAgentStateService', () => {
 	setupConditionalLoggerOutput();
 	const userService = appContext().userService;
 

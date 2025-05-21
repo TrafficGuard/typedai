@@ -30,7 +30,7 @@ export class PostgresAgentStateService implements AgentContextService {
 			trace_id: serialized.traceId,
 			name: serialized.name,
 			parent_agent_id: serialized.parentAgentId,
-			user_id: serialized.user,
+			user_id: context.user.id, // Ensure this uses the user's ID
 			state: serialized.state,
 			call_stack: serialized.callStack ? JSON.stringify(serialized.callStack) : null,
 			error: serialized.error,
