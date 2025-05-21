@@ -35,3 +35,16 @@ export const CodeReviewConfigUpdateProps = ['title', 'enabled', 'description', '
 export type CodeReviewConfigUpdate = Pick<CodeReviewConfig, (typeof CodeReviewConfigUpdateProps)[number]>;
 export const CodeReviewConfigUpdateSchema = Type.Pick(CodeReviewConfigSchema, CodeReviewConfigUpdateProps);
 const _codeReviewConfigUpdateApiCheck: AreTypesFullyCompatible<CodeReviewConfigUpdate, Static<typeof CodeReviewConfigUpdateSchema>> = true;
+
+export const MessageResponseSchema = Type.Object({
+	message: Type.String(),
+});
+export type MessageResponse = Static<typeof MessageResponseSchema>;
+
+export const BulkDeleteRequestSchema = Type.Object({
+	ids: Type.Array(Type.String()),
+});
+export type BulkDeleteRequest = Static<typeof BulkDeleteRequestSchema>;
+
+export const CodeReviewConfigListResponseSchema = Type.Array(CodeReviewConfigSchema);
+export type CodeReviewConfigListResponse = Static<typeof CodeReviewConfigListResponseSchema>;
