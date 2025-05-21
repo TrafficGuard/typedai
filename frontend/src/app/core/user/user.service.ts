@@ -7,7 +7,7 @@ import { UserProfile } from "#shared/schemas/user.schema";
 
 @Injectable({ providedIn: 'root' })
 export class UserService {
-    private _httpClient = inject(HttpClient);
+    private http = inject(HttpClient);
     private _user: BehaviorSubject<UserProfile> = new BehaviorSubject<UserProfile>(null);
     // private _user: ReplaySubject<UserProfile> = new ReplaySubject<UserProfile>(1);
 
@@ -32,7 +32,7 @@ export class UserService {
         }
 
         // Fetch from server if no current value
-        return callApiRoute(this._httpClient, USER_API.view).pipe(
+        return callApiRoute(this.http, USER_API.view).pipe(
             tap((user: UserProfile) => {
                 this._user.next(user);
             }),
@@ -50,7 +50,7 @@ export class UserService {
      */
     update(userProfileUpdate: Partial<UserProfile>): Observable<void> {
         const userProfile = {...this._user.value, ...userProfileUpdate}
-        return callApiRoute(this._httpClient,USER_API.update, { body: userProfile }).pipe(
+        return callApiRoute(this.http,USER_API.update, { body: userProfile }).pipe(
             tap(() => {
                 this._user.next(userProfile);
             })
