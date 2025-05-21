@@ -65,6 +65,8 @@ export class ChatsComponent {
         return this.filteredSessions() ?? this.sessions() ?? [];
     });
 
+    hasDisplayableSessions = computed(() => this.displaySessions().length > 0);
+
     constructor() {}
 
     // -----------------------------------------------------------------------------------------------------
