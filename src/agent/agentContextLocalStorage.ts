@@ -56,7 +56,7 @@ export function createContext(config: RunAgentConfig | RunWorkflowConfig): Agent
 
 	// type is optional on RunWorkflowConfig, which discriminates between RunAgentConfig and RunWorkflowConfig
 
-	const context: AgentContext = {
+	return {
 		agentId: config.resumeAgentId || randomUUID(),
 		parentAgentId: config.parentAgentId,
 		executionId: randomUUID(),
@@ -89,17 +89,7 @@ export function createContext(config: RunAgentConfig | RunWorkflowConfig): Agent
 		memory: {},
 		invoking: [],
 		lastUpdate: Date.now(),
-		liveFiles: [],
-		toolState: {}, // Initialize as empty object, not Map
-		vibeSessionId: config.vibeSessionId, // Assign from config
+		toolState: {},
+		vibeSessionId: config.vibeSessionId,
 	};
-	// Ensure toolState is correctly initialized if needed elsewhere, maybe as {} instead of Map
-	// if (context.toolState && !(context.toolState instanceof Map)) {
-	//  context.toolState = new Map(Object.entries(context.toolState)); // Convert if loaded as object
-	// } else if (!context.toolState) {
-	//  context.toolState = new Map<string, any>();
-	// }
-	// The above toolState conversion might be better placed in deserialization logic
-
-	return context;
 }

@@ -37,7 +37,7 @@ const _llmServicesConfigApiCheck: AreTypesFullyCompatible<LLMServicesConfig, Sta
 
 // -- User profile schemas -- --
 export const UserProfileProps = ['id', 'name', 'email', 'enabled', 'hilBudget', 'hilCount', 'llmConfig', 'chat', 'functionConfig'] as const;
-export const UserProfileUpdateProps = ['hilBudget', 'hilCount', 'llmConfig', 'chat', 'functionConfig'] as const;
+export const UserProfileUpdateProps = ['name', 'hilBudget', 'hilCount', 'llmConfig', 'chat', 'functionConfig'] as const;
 
 /**
  * The user profile data returned by the API (excluding sensitive fields).

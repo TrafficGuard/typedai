@@ -2,7 +2,7 @@ import { agentContextStorage } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
 import type { SelectedFile } from '#shared/model/files.model';
 import type { VibeSession } from '#shared/model/vibe.model';
-import { selectFilesAgent } from '#swe/discovery/selectFilesAgent';
+import { selectFilesAgent } from '#swe/discovery/selectFilesAgentWithSearch';
 import { runVibeWorkflowAgent } from '#vibe/vibeAgentRunner';
 import type { VibeRepository } from '#vibe/vibeRepository';
 

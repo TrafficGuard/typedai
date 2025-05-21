@@ -134,22 +134,22 @@ const createMockAgentContext = (id: string, overrides: Partial<AgentContext> = {
 		traceId: `trace-${id}-${now}`,
 		name: `Test Agent ${id}`,
 		parentAgentId: undefined,
-		user: currentUser, // Use the provided or default User object
-		state: 'agent', // Use string literal type
+		user: currentUser,
+		state: 'agent',
 		callStack: ['initial_call'],
 		error: undefined,
 		// Use HIL settings from the User object by default
 		hilBudget: currentUser.hilBudget,
 		hilCount: currentUser.hilCount,
 		cost: 0,
-		budgetRemaining: currentUser.hilBudget, // Initialize remaining budget
+		budgetRemaining: currentUser.hilBudget,
 		llms: defaultLlms,
-		fileSystem: null, // Assume null if FileSystemService not mocked/provided
+		fileSystem: null,
 		useSharedRepos: true,
 		memory: { defaultMemory: 'some data' },
 		lastUpdate: now - 5000,
 		metadata: { source: 'unit-test' },
-		functions: new LlmFunctionsImpl(), // Instantiate LlmFunctions
+		functions: new LlmFunctionsImpl(),
 		completedHandler: undefined,
 		pendingMessages: [],
 		type: 'autonomous',
@@ -161,7 +161,6 @@ const createMockAgentContext = (id: string, overrides: Partial<AgentContext> = {
 		inputPrompt: 'Default input prompt string', // Ensure it's a string
 		messages: [{ role: 'user', content: 'Default initial message' }],
 		functionCallHistory: [],
-		liveFiles: [],
 		childAgents: [],
 	};
 
@@ -181,7 +180,6 @@ const createMockAgentContext = (id: string, overrides: Partial<AgentContext> = {
 		notes: overrides.notes ?? baseContext.notes,
 		messages: overrides.messages ?? baseContext.messages,
 		functionCallHistory: overrides.functionCallHistory ?? baseContext.functionCallHistory,
-		liveFiles: overrides.liveFiles ?? baseContext.liveFiles,
 		childAgents: overrides.childAgents ?? baseContext.childAgents,
 		// Ensure hilBudget/hilCount/budgetRemaining are consistent if user is overridden
 		hilBudget: overrides.user?.hilBudget ?? currentUser.hilBudget,
@@ -252,14 +250,14 @@ export function runAgentStateServiceTests(
 			contextFunctions.addFunctionInstance(mockFunctionInstance, MockFunction.name); // Add our test function
 
 			const context = createMockAgentContext(id, {
-				user: testUser, // Use the fully typed user
+				user: testUser,
 				cost: 0.25,
 				budgetRemaining: testUser.hilBudget - 0.25,
-				state: 'functions', // Use string literal
+				state: 'functions',
 				memory: { dataKey: 'important data' },
 				metadata: { project: 'X', runId: 123 },
 				completedHandler: mockCompletedHandler,
-				functions: contextFunctions, // Assign the LlmFunctions instance
+				functions: contextFunctions,
 				functionCallHistory: funcHistory,
 				iterations: 3,
 				notes: ['Processing complete', 'Check output'],
@@ -659,7 +657,6 @@ export function runAgentStateServiceTests(
 
 			const updatedFunctionNames = loadedContextAfterUpdate.functions.getFunctionClassNames();
 			// Verify the specified function was added
-			// Verify the specified function was added
 			expect(updatedFunctionNames).to.include(MockFunction.name);
 			// Verify default 'Agent' function remains because updateFunctions creates a new LlmFunctions()
 			expect(updatedFunctionNames).to.include(Agent.name);
@@ -731,8 +728,8 @@ export function runAgentStateServiceTests(
 			nextStepDetails: `Next step details for iteration ${iterNum}`,
 			code: `print("Iteration ${iterNum}")`,
 			executedCode: `print("Iteration ${iterNum}")`,
-			draftCode: undefined, // Added missing property
-			codeReview: undefined, // Added missing property
+			draftCode: undefined,
+			codeReview: undefined,
 			images: [],
 			functionCalls: [
 				{
@@ -741,11 +738,11 @@ export function runAgentStateServiceTests(
 					stdout: `Result ${iterNum}`,
 				},
 			],
-			memory: { [`memoryKey${iterNum}`]: `memoryValue${iterNum}` }, // Changed to Record
-			toolState: { [`toolKey${iterNum}`]: `toolValue${iterNum}` }, // Changed to Record
+			memory: { [`memoryKey${iterNum}`]: `memoryValue${iterNum}` },
+			toolState: { [`toolKey${iterNum}`]: `toolValue${iterNum}` },
 			error: iterNum % 3 === 0 ? `Simulated error for iteration ${iterNum}` : undefined, // Add error sometimes
 			stats: {} as GenerationStats,
-			cost: 0.001, // Added missing property
+			cost: 0.001,
 		});
 
 		it('should save multiple iterations for an agent', async () => {

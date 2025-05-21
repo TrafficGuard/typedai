@@ -10,7 +10,7 @@ import { logger } from '#o11y/logger';
 import type { AgentContext } from '#shared/model/agent.model';
 import type { SelectedFile } from '#shared/model/files.model';
 import type { CreateVibeSessionData, VibeSession } from '#shared/model/vibe.model';
-import { selectFilesAgent } from '#swe/discovery/selectFilesAgent';
+import { selectFilesAgent } from '#swe/discovery/selectFilesAgentWithSearch';
 import { runVibeWorkflowAgent } from '#vibe/vibeAgentRunner';
 import type { VibeRepository } from '#vibe/vibeRepository';
 import { getVibeRepositoryPath } from '#vibe/vibeRepositoryPath';

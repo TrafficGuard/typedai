@@ -15,7 +15,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
 import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
 import { Subject, takeUntil, filter } from 'rxjs';
-import { UserService } from '../../../core/user/user.service';
+import { UserService } from '../../core/user/user.service';
 import { UserProfile } from '#shared/schemas/user.schema';
 import { Router, ActivatedRoute, NavigationEnd, RouterModule } from '@angular/router';
 

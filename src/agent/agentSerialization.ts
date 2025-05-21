@@ -4,15 +4,17 @@ import { ConsoleCompletedHandler } from '#agent/autonomous/agentCompletion';
 import { getCompletedHandler } from '#agent/completionHandlerRegistry';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { deserializeLLMs } from '#llm/llmFactory';
+import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import type { AgentCompleted, AgentContext, AgentLLMs, AgentRunningState, AgentType, AutonomousSubType } from '#shared/model/agent.model';
-import type { FunctionCall, FunctionCallResult, LLM, LlmMessage } from '#shared/model/llm.model';
+import type { FunctionCall, FunctionCallResult, LlmMessage } from '#shared/model/llm.model';
 import type { User } from '#shared/model/user.model.ts';
-import type { AgentContextSchema } from '#shared/schemas/agent.schema';
-import type { IFileSystemService } from '#shared/services/fileSystemService'; // Corrected import path
+import type { AgentContextApi, AgentContextSchema } from '#shared/schemas/agent.schema';
+import type { IFileSystemService } from '#shared/services/fileSystemService';
 
-export function serializeContext(context: AgentContext): Static<typeof AgentContextSchema> {
-	const serializedData: Static<typeof AgentContextSchema> = {
+export function serializeContext(context: AgentContext): AgentContextApi {
+	context.llms ??= defaultLLMs();
+	return {
 		agentId: context.agentId,
 		type: context.type,
 		subtype: context.subtype,
@@ -42,15 +44,13 @@ export function serializeContext(context: AgentContext): Static<typeof AgentCont
 		functionCallHistory: context.functionCallHistory ?? [],
 		hilCount: context.hilCount,
 		hilRequested: context.hilRequested ?? false,
-		liveFiles: context.liveFiles ?? [],
-		fileStore: context.fileStore ?? [],
 		useSharedRepos: context.useSharedRepos ?? true,
 		memory: context.memory ?? {},
 		// Serialize complex objects into their JSON representation
 		functions: context.functions ? context.functions.toJSON() : { functionClasses: [] },
 		fileSystem: context.fileSystem ? context.fileSystem.toJSON() : null,
 		// Serialize User object to just its ID
-		user: context.user ? context.user.id : 'anonymous-serialized-id-missing', // Ensure user is serialized as ID
+		user: context.user?.id ?? 'anonymous-serialized-id-missing',
 		llms: {
 			easy: context.llms.easy?.getId(),
 			medium: context.llms.medium?.getId(),
@@ -61,8 +61,6 @@ export function serializeContext(context: AgentContext): Static<typeof AgentCont
 		completedHandler: context.completedHandler ? context.completedHandler.agentCompletedHandlerId() : undefined,
 		toolState: context.toolState ? JSON.parse(JSON.stringify(context.toolState)) : undefined,
 	};
-
-	return serializedData;
 }
 
 export function deserializeContext(data: Static<typeof AgentContextSchema>): AgentContext {
@@ -108,7 +106,7 @@ export function deserializeContext(data: Static<typeof AgentContextSchema>): Age
 		typeof data.functionCallHistory === 'string' ? JSON.parse(data.functionCallHistory) : (data.functionCallHistory ?? [])
 	) as FunctionCallResult[];
 
-	const context: AgentContext = {
+	return {
 		agentId: data.agentId,
 		type: data.type as AgentType,
 		subtype: data.subtype as AutonomousSubType, // Assuming subtype from schema matches AutonomousSubType or is a string
@@ -145,11 +143,8 @@ export function deserializeContext(data: Static<typeof AgentContextSchema>): Age
 		functionCallHistory: functionCallHistoryImpl,
 		hilCount: data.hilCount ?? 5,
 		hilRequested: data.hilRequested ?? false,
-		liveFiles: data.liveFiles ?? [],
-		fileStore: data.fileStore ?? [], // Assuming FileMetadata[] if data.fileStore is Type.Any()
 		toolState: toolStateImpl,
 	};
-	return context;
 	/*
 	}
 	// handle array or string

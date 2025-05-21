@@ -1,5 +1,4 @@
 import { type Static, Type } from '@sinclair/typebox';
-import type { FastifyReply } from 'fastify';
 import { serializeContext } from '#agent/agentSerialization';
 import { type AgentExecution, agentExecutions } from '#agent/autonomous/autonomousAgentRunner';
 import type { AppFastifyInstance } from '#app/applicationTypes';
@@ -13,7 +12,7 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 	fastify.get(AGENT_API.list.pathTemplate, { schema: AGENT_API.list.schema }, async (req, reply) => {
 		const agentContexts: AgentContext[] = await fastify.agentStateService.list();
 		const response = agentContexts.map(serializeContext);
-		send(reply, 200, response);
+		reply.sendJSON(response);
 	});
 
 	fastify.get(AGENT_API.getAvailableFunctions.pathTemplate, { schema: AGENT_API.getAvailableFunctions.schema }, async (req, reply) => {
@@ -23,7 +22,7 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 	fastify.get(AGENT_API.listHumanInLoopAgents.pathTemplate, { schema: AGENT_API.listHumanInLoopAgents.schema }, async (req, reply) => {
 		const ctxs: AgentContext[] = await fastify.agentStateService.listRunning();
 		const response = ctxs.filter((ctx) => ctx.state === 'hitl_threshold' || ctx.state === 'hitl_tool' || ctx.state === 'hitl_feedback').map(serializeContext);
-		send(reply, 200, response);
+		reply.sendJSON(response);
 	});
 
 	fastify.get(AGENT_API.details.pathTemplate, { schema: AGENT_API.details.schema }, async (req, reply) => {
@@ -33,7 +32,7 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 			return sendBadRequest(reply, `Agent with ID ${agentId} not found.`);
 		}
 		const response = serializeContext(agentContext);
-		send(reply, 200, response);
+		reply.sendJSON(response);
 	});
 
 	// Endpoint to get iterations for an agent
@@ -54,8 +53,7 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 			// 	toolState: Object.fromEntries(iter.toolState), // Keep if service returns Maps
 			// }));
 			// If service returns Records (as per model), no conversion needed:
-			const responseIterations = iterations;
-			reply.code(200).send(responseIterations);
+			reply.sendJSON(iterations);
 		} catch (error) {
 			logger.error(error, `Error loading iterations for agent ${agentId}`);
 			// Send a generic server error, or more specific if possible

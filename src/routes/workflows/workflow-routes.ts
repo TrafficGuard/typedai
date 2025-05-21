@@ -2,9 +2,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { join } from 'node:path';
 import { Type } from '@sinclair/typebox';
-import type { FastifyPluginOptions } from 'fastify';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
-import { RunAgentConfig, type RunWorkflowConfig } from '#agent/autonomous/autonomousAgentRunner';
+import type { RunWorkflowConfig } from '#agent/autonomous/autonomousAgentRunner';
 import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { systemDir, typedaiDirName } from '#app/appDirs';
 import type { AppFastifyInstance } from '#app/applicationTypes';
@@ -12,7 +11,7 @@ import { defaultLLMs, summaryLLM } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { RouteDefinition } from '#shared/api-definitions';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
-import { queryWorkflow } from '#swe/discovery/selectFilesAgent';
+import { queryWorkflowWithSearch } from '#swe/discovery/selectFilesAgentWithSearch';
 import { type SelectFilesResponse, selectFilesToEdit } from '#swe/discovery/selectFilesToEdit';
 
 function findRepositories(dir: string): string[] {
@@ -117,7 +116,7 @@ export async function workflowRoutes(fastify: AppFastifyInstance) {
 					getFileSystem().setWorkingDirectory(workingDirectory);
 					logger.info(`Working directory is ${getFileSystem().getWorkingDirectory()}`);
 
-					response = await queryWorkflow(query);
+					response = await queryWorkflowWithSearch(query);
 				});
 
 				reply.send({ response });

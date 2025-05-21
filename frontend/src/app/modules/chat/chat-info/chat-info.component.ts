@@ -25,7 +25,7 @@ import { ChatServiceClient } from 'app/modules/chat/chat.service';
 import { EMPTY, catchError, finalize, tap } from 'rxjs';
 import { AgentLinks, GoogleCloudLinks } from "../../agents/services/agent-links";
 import { MatTooltipModule } from "@angular/material/tooltip";
-import { UserProfile } from "#shared/schemas/user.schema";
+import { UserProfile, UserProfileUpdate } from "#shared/schemas/user.schema";
 
 @Component({
     selector: 'chat-info',
@@ -58,6 +58,9 @@ export class ChatInfoComponent {
     isSavingName = signal(false);
     isDeletingChat = signal(false);
 
+    // Signal to store the current user's full profile
+    private currentUserProfile = signal<UserProfile | null>(null);
+
     readonly panelTitle = computed(() => {
         const currentChat = this.chat();
         // If chat has a valid ID and is not the placeholder 'new-chat' ID
@@ -76,8 +79,14 @@ export class ChatInfoComponent {
         this.userService.user$
             .pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe(user => {
-                // Ensure settings is a new object to avoid direct mutation if user.chat is frozen or shared
-                this.settings = user.chat ? { ...user.chat } : {} as UserProfile['chat'];
+                if (user) {
+                    this.currentUserProfile.set(user);
+                    // Ensure settings is a new object to avoid direct mutation if user.chat is frozen or shared
+                    this.settings = user.chat ? { ...user.chat } : {} as UserProfile['chat'];
+                } else {
+                    this.currentUserProfile.set(null);
+                    this.settings = {} as UserProfile['chat'];
+                }
             });
     }
 
@@ -86,16 +95,30 @@ export class ChatInfoComponent {
      * Handles loading state and error display
      */
     private saveSettings(): void {
-        if (!this.settings) {
+        if (!this.settings) { // this.settings is UserProfile['chat']
+            return;
+        }
+        const currentUser = this.currentUserProfile(); // Get the full current user profile
+        if (!currentUser) {
+            this.settingsError.set('User profile not loaded. Cannot save settings.');
+            console.error('User profile not loaded. Cannot save settings.');
             return;
         }
 
         this.settingsLoading.set(true);
         this.settingsError.set(null);
 
-        this.userService.update({
-            chat: this.settings
-        }).pipe(
+        // Construct the UserProfileUpdate payload
+        const payload: UserProfileUpdate = {
+            name: currentUser.name,
+            hilBudget: currentUser.hilBudget,
+            hilCount: currentUser.hilCount,
+            llmConfig: { ...(currentUser.llmConfig || {}) }, // Ensure llmConfig is at least an empty object
+            chat: { ...this.settings }, // The updated chat settings
+            functionConfig: { ...(currentUser.functionConfig || {}) } // Ensure functionConfig is at least an empty object
+        };
+
+        this.userService.update(payload).pipe(
             takeUntilDestroyed(this.destroyRef),
             catchError((error) => {
                 this.settingsError.set(error.error?.error || 'Failed to save settings');

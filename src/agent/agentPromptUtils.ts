@@ -62,7 +62,7 @@ async function buildLiveFilesPrompt(): Promise<string> {
 	const agent = agentContext();
 	if (!agent.functions.getFunctionClassNames().includes(LiveFiles.name)) return '';
 
-	const liveFiles = agentContext().liveFiles;
+	const liveFiles = agentContext().toolState.LiveFiles;
 	if (!liveFiles || !liveFiles.length) return '\n<live_files>\n<!-- No files selected. Live files will have their contents displayed here -->\n</live_files>';
 
 	return `\n<live_files>

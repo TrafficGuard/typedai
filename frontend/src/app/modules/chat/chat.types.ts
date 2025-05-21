@@ -1,7 +1,4 @@
-import {Chat as ChatModel} from "#shared/model/chat.model";
 import type { UserContentExt } from '#shared/model/llm.model';
-// Removed: export type { Attachment, TextContent } from '../message.types';
-// Removed: export type { Attachment, TextContent } from '../message.types';
 import type { UIMessage } from '../message.types';
 
 export const NEW_CHAT_ID = 'new';

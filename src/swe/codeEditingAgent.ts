@@ -10,7 +10,7 @@ import type { SelectedFile } from '#shared/model/files.model';
 import type { IFileSystemService } from '#shared/services/fileSystemService';
 import { type CompileErrorAnalysis, type CompileErrorAnalysisDetails, analyzeCompileErrors } from '#swe/analyzeCompileErrors';
 import { SearchReplaceCoder } from '#swe/coder/searchReplaceCoder';
-import { selectFilesAgent } from '#swe/discovery/selectFilesAgent';
+import { selectFilesAgent } from '#swe/discovery/selectFilesAgentWithSearch';
 import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
 import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
 import { onlineResearch } from '#swe/onlineResearch';

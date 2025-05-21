@@ -67,7 +67,7 @@ export function vertexGemini_2_5_Pro(): LLM {
 }
 
 export function vertexGemini_2_5_Flash(): LLM {
-	return new VertexLLM('Gemini 2.5 Flash', 'gemini-2.5-flash-preview-04-17', 1_000_000, gemini2_5_Flash_CostFunction(0.15, 0.6, 3.5));
+	return new VertexLLM('Gemini 2.5 Flash', 'gemini-2.5-flash-preview-05-20', 1_000_000, gemini2_5_Flash_CostFunction(0.15, 0.6, 3.5));
 }
 
 export function vertexGemini_2_0_Flash() {

@@ -1,6 +1,6 @@
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import { queryWorkflow, selectFilesAgent } from '#swe/discovery/selectFilesAgent';
 import { type SelectFilesResponse, selectFilesToEdit } from '#swe/discovery/selectFilesToEdit';
+import { queryWorkflowWithSearch, selectFilesAgent } from '#swe/discovery/selectFilesAgentWithSearch';
 import { getProjectInfo } from '#swe/projectDetection';
 import { reviewChanges } from '#swe/reviewChanges';
 import { execCommand, failOnError } from '#utils/exec';
@@ -53,7 +53,7 @@ export class CodeFunctions {
 	 */
 	@func()
 	async queryRepository(query: string): Promise<string> {
-		return await queryWorkflow(query);
+		return await queryWorkflowWithSearch(query);
 	}
 
 	/**

@@ -265,12 +265,10 @@ export const AutonomousIterationSchema = Type.Object({
 	code: Type.String(),
 	executedCode: Type.String(),
 	functionCalls: Type.Array(FunctionCallResultSchema),
-	memory: Type.Record(Type.String(), Type.String()), // Aligned with model change from Map to Record
-	toolState: Type.Record(Type.String(), Type.Any()), // Aligned with model change from Map to Record
+	memory: Type.Record(Type.String(), Type.String()),
+	toolState: Type.Record(Type.String(), Type.Any()),
 	error: Type.Optional(Type.String()),
 	stats: GenerationStatsSchema,
-	liveFiles: Type.Optional(Type.Array(Type.String())),
-	// fileStore: Type.Optional(Type.Array(FileMetadataSchema)) // Model has this commented out
 });
 
 // This check depends on AutonomousIteration.memory and .toolState being Record, not Map.
