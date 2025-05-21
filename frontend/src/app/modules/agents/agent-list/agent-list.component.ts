@@ -71,19 +71,12 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
 
     private agentService = inject(AgentService);
     private _fuseConfirmationService = inject(FuseConfirmationService);
-    // private _formBuilder = inject(UntypedFormBuilder); // Not used
-    // private _changeDetectorRef = inject(ChangeDetectorRef); // May not be needed with signals
 
     agents = toSignal(this.agentService.agents$, { initialValue: undefined as AgentContextApi[] | undefined });
 
-    agentTypes: AgentType[]; // Unused in current template/logic
-    filteredTags: AgentTag[]; // Unused
     flashMessage: WritableSignal<'success' | 'error' | null> = signal(null);
     isLoading: WritableSignal<boolean> = signal(true); // Start with isLoading true
-    pagination: Pagination; // Unused
     searchInputControl: UntypedFormControl = new UntypedFormControl();
-    tags: AgentTag[]; // Unused
-    tagsEditMode = false; // Unused
 
     selection = new SelectionModel<AgentContextApi>(true, []);
 
