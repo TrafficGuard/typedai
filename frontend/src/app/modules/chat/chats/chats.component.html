@@ -41,8 +41,8 @@
         <div class="flex-auto overflow-y-auto">
             <!-- Content Area: Chat List or No Chats Message -->
             <div>
-                @if ((filteredSessions() ?? sessions() ?? []).length > 0) {
-                    @for (session of (filteredSessions() ?? sessions()); track trackBySessionId($index, session)) {
+                @if (displaySessions().length > 0) {
+                    @for (session of displaySessions(); track trackBySessionId($index, session)) {
                         <a
                             class="z-20 flex cursor-pointer items-center border-b px-0 py-3"
                             (click)="onSessionSelect(session)"
