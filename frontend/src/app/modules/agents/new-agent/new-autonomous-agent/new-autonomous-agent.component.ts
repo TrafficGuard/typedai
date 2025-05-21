@@ -71,6 +71,7 @@ export class NewAutonomousAgentComponent implements OnInit, OnDestroy {
       private router: Router,
       // private agentEventService: AgentEventService,
       private llmService: LlmService,
+      private userService: UserService, // Added UserService
       private changeDetectorRef: ChangeDetectorRef
   ) {
     this.runAgentForm = new FormGroup({
@@ -153,18 +154,24 @@ export class NewAutonomousAgentComponent implements OnInit, OnDestroy {
 
   // TODO this should use the UserService in user.service.ts
   private loadUserProfile(): void {
-    const profileUrl = `/api/profile/view`;
-    this.http.get(profileUrl).subscribe(
-        (response: any) => {
-          console.log(response);
-          this.runAgentForm.controls['budget'].setValue(response.hilBudget);
-          this.runAgentForm.controls['count'].setValue(response.hilCount);
-        },
-        (error) => {
-          console.log(error);
-          this.snackBar.open('Failed to load user profile', 'Close', { duration: 3000 });
-        }
-    );
+    this.userService.get() // Use UserService
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+            next: (userProfile) => {
+              if (userProfile) {
+                this.runAgentForm.patchValue({
+                  budget: userProfile.hilBudget,
+                  count: userProfile.hilCount,
+                });
+              }
+            },
+            error: (error) => {
+              // UserService.get() already logs an error.
+              // The snackBar notification can be kept if specific UI feedback is desired here.
+              console.error('Error subscribing to user profile updates in component:', error);
+              this.snackBar.open('Failed to load user profile data', 'Close', { duration: 3000 });
+            }
+        });
   }
 
   ngOnDestroy(): void {
