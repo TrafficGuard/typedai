@@ -12,6 +12,6 @@ import {QuickChatComponent} from "../../layout/common/quick-chat/quick-chat.comp
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
-    imports: [RouterOutlet, QuickChatComponent, QuickChatComponent],
+    imports: [CommonModule, RouterOutlet, QuickChatComponent],
 })
 export class ChatComponent {}
