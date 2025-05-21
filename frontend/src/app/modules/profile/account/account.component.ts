@@ -133,7 +133,7 @@ export class SettingsAccountComponent implements OnInit {
         }
 
         const formValues = this.accountForm.getRawValue();
-        
+
         // Validate defaultChatLlmId exists in available LLMs
         const defaultLlmId = formValues.chat.defaultLLM;
         if (defaultLlmId) {
@@ -145,6 +145,7 @@ export class SettingsAccountComponent implements OnInit {
         }
 
         const updateUserPayload: UserProfileUpdate = {
+            name: formValues.name,
             chat: {
                 defaultLLM: formValues.chat.defaultLLM,
                 // Add other ChatSettings fields here if they are in the form and schema

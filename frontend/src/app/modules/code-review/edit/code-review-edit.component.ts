@@ -8,7 +8,7 @@ import {
   ValidationErrors,
   ReactiveFormsModule
 } from '@angular/forms';
-import {ActivatedRoute, Router, RouterLink} from '@angular/router';
+import {ActivatedRoute, Router} from '@angular/router';
 import {CodeReviewServiceClient} from '../code-review.service';
 import {MatChipInputEvent, MatChipsModule} from '@angular/material/chips';
 import {CommonModule, Location} from "@angular/common";
@@ -31,7 +31,6 @@ import {IExample} from "#shared/model/codeReview.model";
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    RouterLink,
     MatButtonModule,
     MatFormFieldModule,
     MatChipsModule,
