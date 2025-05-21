@@ -3,6 +3,7 @@ import {
     Component,
     ViewEncapsulation,
 } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import {QuickChatComponent} from "../../layout/common/quick-chat/quick-chat.component";
 
