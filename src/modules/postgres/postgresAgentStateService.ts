@@ -60,6 +60,40 @@ export class PostgresAgentStateService implements AgentContextService {
 		};
 	}
 
+	/**
+	 * Safely parses a JSON string, returning a default value on null, undefined, empty string,
+	 * or a parsing error. Logs a warning/error if parsing fails or input looks non-JSON.
+	 * @param jsonString The string to parse.
+	 * @param defaultValue The value to return if parsing fails or input is null/undefined/empty.
+	 * @returns The parsed object or the default value.
+	 */
+	private safeJsonParse<T>(jsonString: string | null | undefined, defaultValue: T): T {
+		if (jsonString === null || jsonString === undefined) {
+			return defaultValue;
+		}
+		const trimmed = jsonString.trim();
+		if (trimmed.length === 0) {
+			return defaultValue; // Treat empty string as default
+		}
+
+		try {
+			// Attempt parsing. This will throw SyntaxError for invalid JSON.
+			const parsed = JSON.parse(jsonString);
+
+			// Optional: Add a check if the parsed result's type matches the expected type T
+			// This is complex and might require type introspection or additional parameters.
+			// For now, we trust the caller provides a correct defaultValue and handles potential type mismatches after parsing.
+
+			return parsed as T;
+		} catch (error) {
+			// Log the error and the problematic string
+			logger.error({ error, jsonStringValue: jsonString }, 'Failed to parse JSON string, returning default value.');
+			// Return default value on parsing error
+			return defaultValue;
+		}
+	}
+
+
 	private async _deserializeDbRowToAgentContext(row: Selectable<AgentContextsTable>): Promise<AgentContext> {
 		const userForDeserialization = currentUser().id === row.user_id ? currentUser() : ({ id: row.user_id } as User);
 
@@ -72,31 +106,32 @@ export class PostgresAgentStateService implements AgentContextService {
 			parentAgentId: row.parent_agent_id,
 			user: userForDeserialization,
 			state: row.state as AgentRunningState,
-			callStack: row.call_stack ? JSON.parse(row.call_stack) : null,
+			// Use safeJsonParse for all JSONB fields
+			callStack: this.safeJsonParse(row.call_stack, null),
 			error: row.error,
 			hilBudget: row.hil_budget,
 			hilCount: row.hil_count,
 			cost: row.cost,
 			budgetRemaining: row.budget_remaining,
-			llms: JSON.parse(row.llms_serialized),
+			llms: this.safeJsonParse(row.llms_serialized, {}), // Assuming llms is always an object
 			useSharedRepos: row.use_shared_repos,
-			memory: JSON.parse(row.memory_serialized),
+			memory: this.safeJsonParse(row.memory_serialized, {}), // Assuming memory is always an object
 			lastUpdate: (row.last_update as Date).getTime(),
-			metadata: row.metadata_serialized ? JSON.parse(row.metadata_serialized) : null,
-			functions: JSON.parse(row.functions_serialized),
+			metadata: this.safeJsonParse(row.metadata_serialized, null),
+			functions: this.safeJsonParse(row.functions_serialized, {}), // Assuming functions is always an object
 			completedHandler: row.completed_handler_id,
-			pendingMessages: row.pending_messages_serialized ? JSON.parse(row.pending_messages_serialized) : null,
+			pendingMessages: this.safeJsonParse(row.pending_messages_serialized, null),
 			type: row.type as AgentType,
 			subtype: row.subtype,
 			iterations: row.iterations,
-			invoking: row.invoking_serialized ? JSON.parse(row.invoking_serialized) : null,
-			notes: row.notes_serialized ? JSON.parse(row.notes_serialized) : null,
+			invoking: this.safeJsonParse(row.invoking_serialized, null),
+			notes: this.safeJsonParse(row.notes_serialized, null),
 			userPrompt: row.user_prompt,
 			inputPrompt: row.input_prompt,
-			messages: JSON.parse(row.messages_serialized),
-			functionCallHistory: row.function_call_history_serialized ? JSON.parse(row.function_call_history_serialized) : null,
-			liveFiles: row.live_files_serialized ? JSON.parse(row.live_files_serialized) : null,
-			childAgents: row.child_agents_ids ? JSON.parse(row.child_agents_ids) : null,
+			messages: this.safeJsonParse(row.messages_serialized, []), // Assuming messages is always an array
+			functionCallHistory: this.safeJsonParse(row.function_call_history_serialized, null),
+			liveFiles: this.safeJsonParse(row.live_files_serialized, null),
+			childAgents: this.safeJsonParse(row.child_agents_ids, null),
 			hilRequested: row.hil_requested,
 		};
 		return deserializeContext(dataForDeserialization as any);
@@ -129,7 +164,8 @@ export class PostgresAgentStateService implements AgentContextService {
 		return {
 			agentId: row.agent_id,
 			iteration: row.iteration_number,
-			functions: row.functions_serialized ? JSON.parse(row.functions_serialized) : [],
+			// Use safeJsonParse for all JSONB fields
+			functions: this.safeJsonParse(row.functions_serialized, []), // Assuming functions is string[]
 			prompt: row.prompt,
 			summary: row.summary,
 			expandedUserRequest: row.expanded_user_request,
@@ -140,12 +176,12 @@ export class PostgresAgentStateService implements AgentContextService {
 			executedCode: row.executed_code,
 			draftCode: row.draft_code,
 			codeReview: row.code_review,
-			images: row.images_serialized ? JSON.parse(row.images_serialized) : [],
-			functionCalls: row.function_calls_serialized ? JSON.parse(row.function_calls_serialized) : [],
-			memory: row.memory_serialized ? JSON.parse(row.memory_serialized) : {},
-			toolState: row.tool_state_serialized ? JSON.parse(row.tool_state_serialized) : {},
+			images: this.safeJsonParse(row.images_serialized, []), // Assuming images is any[]
+			functionCalls: this.safeJsonParse(row.function_calls_serialized, []), // Assuming functionCalls is any[]
+			memory: this.safeJsonParse(row.memory_serialized, {}), // Assuming memory is Record<string, string>
+			toolState: this.safeJsonParse(row.tool_state_serialized, {}), // Assuming toolState is Record<string, any>
 			error: row.error,
-			stats: row.stats_serialized ? JSON.parse(row.stats_serialized) : null,
+			stats: this.safeJsonParse(row.stats_serialized, null), // Assuming stats is Record<string, any>
 			cost: row.cost,
 			// created_at is not part of AutonomousIteration model
 		};
@@ -195,8 +231,8 @@ export class PostgresAgentStateService implements AgentContextService {
 					throw new Error(`Parent agent ${state.parentAgentId} not found`);
 				}
 
-				// Deserialize child_agents_ids before adding
-				const childAgents = new Set(parent.child_agents_ids ? JSON.parse(parent.child_agents_ids) : []);
+				// Deserialize child_agents_ids before adding using safe parse
+				const childAgents = new Set(this.safeJsonParse<string[] | null>(parent.child_agents_ids, null) || []);
 				if (!childAgents.has(state.agentId)) {
 					childAgents.add(state.agentId);
 					await trx
@@ -242,6 +278,7 @@ export class PostgresAgentStateService implements AgentContextService {
 			.where('user_id', '=', userId)
 			.orderBy('last_update', 'desc')
 			.execute();
+		// Use Promise.all with map because _deserializeDbRowToAgentContext is async
 		return Promise.all(rows.map((row) => this._deserializeDbRowToAgentContext(row)));
 	}
 
@@ -257,6 +294,7 @@ export class PostgresAgentStateService implements AgentContextService {
 			.orderBy('state', 'asc')
 			.orderBy('last_update', 'desc')
 			.execute();
+		// Use Promise.all with map because _deserializeDbRowToAgentContext is async
 		return Promise.all(rows.map((row) => this._deserializeDbRowToAgentContext(row)));
 	}
 
@@ -284,11 +322,13 @@ export class PostgresAgentStateService implements AgentContextService {
 		const allIdsToDelete = new Set<string>();
 		for (const agent of validParentAgentsToDelete) {
 			allIdsToDelete.add(agent.agent_id);
-			// Deserialize child_agents_ids before adding to the set
+			// Deserialize child_agents_ids before adding to the set using safe parse
 			if (agent.child_agents_ids) {
-				const childIds = JSON.parse(agent.child_agents_ids) as string[];
-				for (const childId of childIds) {
-					allIdsToDelete.add(childId);
+				const childIds = this.safeJsonParse<string[] | null>(agent.child_agents_ids, null);
+				if (childIds) {
+					for (const childId of childIds) {
+						allIdsToDelete.add(childId);
+					}
 				}
 			}
 		}
