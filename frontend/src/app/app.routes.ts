@@ -76,7 +76,7 @@ export const appRoutes: Route[] = [
         children: [
             //{path: 'example', loadChildren: () => import('app/modules/admin/home/home.routes')},
             {path: 'profile', loadChildren: () => import('app/modules/profile/profile.routes')},
-            {path: 'chat', loadChildren: () => import('app/modules/chat/chat.routes')},
+            {path: 'chat', loadChildren: () => import('app/modules/chat/chat.routes').then(m => m.default)},
             {path: 'agents', loadChildren: () => import('app/modules/agents/agent.routes')},
             {path: 'code-reviews', loadChildren: () => import('app/modules/code-review/code-review.routes')},
             {path: 'workflows', loadChildren: () => import('app/modules/workflows/workflows.routes')},
