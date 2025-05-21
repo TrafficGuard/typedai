@@ -257,10 +257,10 @@ export class PublicWeb {
 			await blocker.enableBlockingInPage(page);
 			await page.setViewport({ width: 1280, height: 1024 });
 
-			// page.once('load', async () => {
-			// 	const tab = autoconsent.attachToPage(page, url, [], 10);
-			// 	await tab.doOptIn();
-			// });
+			page.once('load', async () => {
+				const tab = autoconsent.attachToPage(page, url, [], 10);
+				await tab.doOptIn();
+			});
 
 			const logs: string[] = [];
 

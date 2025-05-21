@@ -138,7 +138,7 @@ export const AgentContextSchema = Type.Object({
 		easy: Type.String(),
 		medium: Type.String(),
 		hard: Type.String(),
-		xhard: Type.String(),
+		xhard: Type.Optional(Type.String()),
 	}),
 
 	// Represents IFileSystemService.toJSON()

@@ -64,7 +64,14 @@ export async function main() {
 		},
 	});
 	saveAgentId('agent', execution.agentId);
-	await execution.execution;
+	try {
+		await execution.execution;
+	} catch (e) {
+		console.log(e);
+	}
+
+	console.log('Resume this agent by running:');
+	console.log(`ai codeAgent -r=${execution.agentId}`);
 }
 
 main().then(
