@@ -143,9 +143,6 @@ export interface Database {
 	users: UsersTable;
 }
 
-console.log(`[DEBUG db.ts] Value of process.env.DATABASE_NAME: ${process.env.DATABASE_NAME}`);
-const resolvedDbNameForPool = envVar('DATABASE_NAME', 'db');
-console.log(`[DEBUG db.ts] Value from envVar('DATABASE_NAME', 'db'): ${resolvedDbNameForPool}`);
 const dialect = new PostgresDialect({
 	pool: new Pool({
 		host: envVar('DATABASE_HOST', 'localhost'),
