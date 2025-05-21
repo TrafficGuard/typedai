@@ -28,6 +28,7 @@ describe('NewAutonomousAgentComponent', () => {
       ],
       providers: [
         { provide: LlmService, useValue: llmServiceMock },
+        { provide: UserService, useValue: userServiceMock }, // Added UserService mock
       ],
     }).compileComponents();
 
