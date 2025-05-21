@@ -5,7 +5,7 @@
             <button mat-icon-button (click)="drawer.close()">
                 <mat-icon [svgIcon]="'heroicons_outline:x-mark'"></mat-icon>
             </button>
-            <div class="ml-2 text-lg font-medium">Chat Details & Settings</div>
+            <div class="ml-2 text-lg font-medium">{{ (chat() && chat()?.id !== 'new-chat') ? 'Chat Details & Settings' : 'Chat Settings' }}</div>
         </div>
         <div *ngIf="chat()?.id && chat()?.id !== 'new-chat'">
             <a *ngIf="databaseUrl()" [href]="databaseUrl()" target="_blank" class="ml-3" [matTooltip]="'View database entry'">
