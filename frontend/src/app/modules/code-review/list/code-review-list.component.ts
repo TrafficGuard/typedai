@@ -1,19 +1,20 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { Router } from '@angular/router';
 import { CodeReviewServiceClient } from '../code-review.service';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
-import { MatTableDataSource } from '@angular/material/table';
 import { SelectionModel } from '@angular/cdk/collections';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatButtonModule } from "@angular/material/button";
 import { MatIconModule } from "@angular/material/icon";
 import { MatCheckboxModule } from "@angular/material/checkbox";
-import { MatToolbarModule } from "@angular/material/toolbar";
+// MatToolbarModule is not used in the template, so removing it from component imports
+// import { MatToolbarModule } from "@angular/material/toolbar";
 import { CommonModule } from '@angular/common';
 import { MatTableModule } from '@angular/material/table';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatProgressBar } from "@angular/material/progress-bar";
+import { MatProgressBarModule } from "@angular/material/progress-bar"; // Import MatProgressBarModule
 import { CodeReviewConfig } from "#shared/model/codeReview.model";
+import { CodeReviewConfigListResponse } from '#shared/schemas/codeReview.schema';
 
 @Component({
   selector: 'app-code-review-list',
@@ -24,41 +25,41 @@ import { CodeReviewConfig } from "#shared/model/codeReview.model";
     MatButtonModule,
     MatIconModule,
     MatCheckboxModule,
-    MatToolbarModule,
+    // MatToolbarModule, // Not used
     MatTableModule,
     MatProgressSpinnerModule,
-    MatProgressBar,
-  ]
+    MatProgressBarModule, // Use MatProgressBarModule
+  ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CodeReviewListComponent implements OnInit {
-  configs$: MatTableDataSource<CodeReviewConfig> = new MatTableDataSource<CodeReviewConfig>([]);
-  selection = new SelectionModel<CodeReviewConfig>(true, []);
-  displayedColumns: string[] = ['select', 'title', 'description', 'enabled'];
-  isLoading = false;
-  errorMessage = '';
+  private codeReviewService = inject(CodeReviewServiceClient);
+  private router = inject(Router);
+  private dialog = inject(FuseConfirmationService);
+  private snackBar = inject(MatSnackBar);
 
-  constructor(
-    private codeReviewService: CodeReviewServiceClient,
-    private router: Router,
-    private dialog: FuseConfirmationService,
-    private snackBar: MatSnackBar
-  ) {}
+  configs = signal<CodeReviewConfig[]>([]);
+  selection = new SelectionModel<CodeReviewConfig>(true, []);
+  displayedColumns = signal<string[]>(['select', 'title', 'description', 'enabled']);
+  isLoading = signal(false);
+  errorMessage = signal('');
 
   ngOnInit() {
     this.loadConfigs();
   }
 
   loadConfigs() {
-    this.isLoading = true;
+    this.isLoading.set(true);
+    this.errorMessage.set('');
     this.codeReviewService.getCodeReviewConfigs().subscribe(
-      (configs) => {
-        this.configs$.data = configs;
-        this.isLoading = false;
+      (response: CodeReviewConfigListResponse) => { // Explicitly type response
+        this.configs.set(response);
+        this.isLoading.set(false);
         this.selection.clear();
       },
       () => {
-        this.errorMessage = 'Error loading configurations';
-        this.isLoading = false;
+        this.errorMessage.set('Error loading configurations');
+        this.isLoading.set(false);
       }
     );
   }
@@ -73,14 +74,14 @@ export class CodeReviewListComponent implements OnInit {
 
   isAllSelected(): boolean {
     const numSelected = this.selection.selected.length;
-    const numRows = this.configs$.data.length;
-    return numSelected === numRows;
+    const numRows = this.configs().length;
+    return numRows > 0 && numSelected === numRows;
   }
 
   masterToggle(): void {
     this.isAllSelected()
       ? this.selection.clear()
-      : this.configs$.data.forEach((row) => this.selection.select(row));
+      : this.configs().forEach((row) => this.selection.select(row));
   }
 
   deleteSelectedConfigs(): void {
@@ -112,10 +113,10 @@ export class CodeReviewListComponent implements OnInit {
           this.codeReviewService.deleteCodeReviewConfigs(selectedIds).subscribe(
             () => {
               this.snackBar.open('Configurations deleted successfully', 'Close', { duration: 3000 });
-              this.loadConfigs();
+              this.loadConfigs(); // This will update signals
             },
             () => {
-              this.errorMessage = 'Error deleting configurations';
+              this.errorMessage.set('Error deleting configurations');
               this.snackBar.open('Error deleting configurations', 'Close', { duration: 3000 });
             }
           );
@@ -124,7 +125,7 @@ export class CodeReviewListComponent implements OnInit {
   }
 
   refreshConfigs(): void {
-    this.loadConfigs();
+    this.loadConfigs(); // This will update signals
     this.snackBar.open('Configurations refreshed', 'Close', { duration: 1000 });
   }
 }
