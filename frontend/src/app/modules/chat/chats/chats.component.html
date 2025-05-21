@@ -42,7 +42,7 @@
             <!-- Content Area: Chat List or No Chats Message -->
             <div>
                 @if (displaySessions().length > 0) {
-                    @for (session of displaySessions(); track trackBySessionId($index, session)) {
+                    @for (session of displaySessions(); track session.id) {
                         <a
                             class="z-20 flex cursor-pointer items-center border-b px-0 py-3"
                             (click)="onSessionSelect(session)"
