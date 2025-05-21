@@ -6,8 +6,8 @@ import {
     OnDestroy,
     OnInit,
     ViewEncapsulation,
-    inject, // Import inject
-    DestroyRef, // Import DestroyRef
+    inject,
+    DestroyRef,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -18,8 +18,6 @@ import { MatSidenavModule } from '@angular/material/sidenav';
 import { ActivatedRoute, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { ChatServiceClient } from '../chat.service';
 import {Chat, NEW_CHAT_ID} from 'app/modules/chat/chat.types';
-// Removed Subject and takeUntil
-// import { Subject, takeUntil } from 'rxjs';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { toObservable, takeUntilDestroyed } from '@angular/core/rxjs-interop'; // Import toObservable and takeUntilDestroyed
 import {MatSnackBar} from "@angular/material/snack-bar";
@@ -56,9 +54,6 @@ export class ChatsComponent implements OnInit, OnDestroy {
     private chats$ = toObservable(this._chatService.chats);
     private selectedChat$ = toObservable(this._chatService.chat);
 
-    /**
-     * Constructor
-     */
     constructor(
         private _chatService: ChatServiceClient,
         private snackBar: MatSnackBar,
@@ -112,10 +107,6 @@ export class ChatsComponent implements OnInit, OnDestroy {
      * On destroy
      */
     ngOnDestroy(): void {
-        // No need for _unsubscribeAll with takeUntilDestroyed
-        // this._unsubscribeAll.next(null);
-        // this._unsubscribeAll.complete();
-
         // Reset the chat
         // Consider if this is truly needed here, or if it should be handled
         // by the component that owns the chat view (e.g., when navigating away from a specific chat)

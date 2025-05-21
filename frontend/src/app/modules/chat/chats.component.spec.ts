@@ -1,17 +1,16 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
-import { provideRouter, RouterLink } from '@angular/router';
+import {provideRouter, Router, RouterLink} from '@angular/router';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
-import { BehaviorSubject, of, throwError, EMPTY, Subscription } from 'rxjs';
+import {Observable, of, throwError} from 'rxjs';
 import { signal, WritableSignal } from '@angular/core';
-
 import { ChatsComponent } from './chats.component';
-import { ChatServiceClient } from './chat.service'; // Corrected path
-import { Chat, NEW_CHAT_ID } from './chat.types'; // Corrected path
+import { ChatServiceClient } from './chat.service';
+import { Chat, NEW_CHAT_ID } from './chat.types';
 
 // Mock ChatService
 class MockChatServiceClient {
@@ -97,7 +96,7 @@ describe('ChatsComponent', () => {
 
         expect(mockChatService.loadChats).toHaveBeenCalled();
         expect(component.isLoading).toBe(true); // isLoading is set to true at the start of component.loadChats()
-        
+
         const loadingDiv = fixture.nativeElement.querySelector('.animate-spin');
         expect(loadingDiv).toBeTruthy('Loading spinner should be visible');
         const loadingText = fixture.nativeElement.textContent;
@@ -133,7 +132,7 @@ describe('ChatsComponent', () => {
         expect(fixture.nativeElement.querySelector('.animate-spin')).toBeNull('Loading spinner should NOT be visible');
         expect(fixture.nativeElement.textContent).not.toContain('Failed to load chats.');
     }));
-    
+
     it('should handle error during chat loading, update component state, and show error message', fakeAsync(() => {
         mockChatService.simulateError(true);
         spyOn(mockChatService, 'loadChats').and.callThrough();
@@ -164,7 +163,7 @@ describe('ChatsComponent', () => {
         // Step 1: Initial load fails
         mockChatService.simulateError(true);
         spyOn(mockChatService, 'loadChats').and.callThrough();
-        
+
         fixture.detectChanges(); // ngOnInit -> component.loadChats()
         tick(); // Allow initial load to fail
         fixture.detectChanges(); // Update view to show error state
@@ -183,7 +182,7 @@ describe('ChatsComponent', () => {
         // Step 3: Click retry button
         retryButton.click();
         fixture.detectChanges(); // Detect changes after click (isLoading should become true)
-        
+
         expect(component.isLoading).toBe(true); // isLoading becomes true at start of new loadChats call
         const loadingDiv = fixture.nativeElement.querySelector('.animate-spin');
         expect(loadingDiv).toBeTruthy('Loading spinner should be visible during retry');
@@ -220,8 +219,8 @@ describe('ChatsComponent', () => {
 
         component.ngOnDestroy();
         expect(subscription!.unsubscribe).toHaveBeenCalled();
-    }));
-    
+    });
+
     // Test for createNewChat (basic, as it's a placeholder, but ensure it's covered)
     it('should call router.navigate on createNewChat', () => {
         router = TestBed.inject(Router); // Ensure router is injected for this test
@@ -234,7 +233,7 @@ describe('ChatsComponent', () => {
     it('should stop propagation and prevent default on deleteChat, and call service if not NEW_CHAT_ID', () => {
         const mockEvent = jasmine.createSpyObj('MouseEvent', ['stopPropagation', 'preventDefault']);
         const testChat: Chat = { id: 'chat123', title: 'Test Chat to Delete', updatedAt: Date.now() };
-        
+
         spyOn(mockChatService, 'deleteChat').and.callThrough(); // Spy on the service method
 
         component.deleteChat(mockEvent, testChat);
