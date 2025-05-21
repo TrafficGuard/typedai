@@ -1,5 +1,5 @@
 <div class="bg-card relative flex w-full flex-auto dark:bg-transparent">
-    <!-- Chats list -->
+    <!-- Sessions list -->
     <div class="bg-card relative flex w-full min-w-0 flex-auto flex-col dark:bg-transparent lg:min-w-100 lg:max-w-100">
         <!-- Header -->
         <div class="flex flex-col md:flex-row md:items-center md:space-x-4 border-b bg-gray-50 px-8 py-3 dark:bg-transparent">
@@ -8,7 +8,7 @@
                 <button
                     mat-flat-button
                     [color]="'primary'"
-                    (click)="createNewChat()"
+                    (click)="onClickNewChat()"
                 >
                     <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
                     <span class="ml-2 mr-1">New Chat</span>
@@ -28,82 +28,51 @@
                     <input
                         matInput
                         [autocomplete]="'off'"
-                        [disabled]="isLoading || !chats || chats.length === 0"
+                        [disabled]="!(sessions() && sessions()!.length > 0)"
                         [placeholder]="'Search chat titles'"
-                        (input)="filterChats(searchField.value)"
-                        #searchField
+                        [value]="filterTerm()"
+                        (input)="onFilterSessions($event)"
                     />
                 </mat-form-field>
             </div>
         </div>
 
-        <!-- Chats -->
+        <!-- Sessions -->
         <div class="flex-auto overflow-y-auto">
-            <!-- Loading State -->
-            <div *ngIf="isLoading" class="flex h-full flex-auto flex-col items-center justify-center p-8">
-                <mat-icon
-                    class="icon-size-24 animate-spin"
-                    [svgIcon]="'heroicons_outline:arrow-path'"
-                ></mat-icon>
-                <div class="text-secondary mt-4 text-2xl font-semibold tracking-tight">
-                    Loading chats...
-                </div>
-            </div>
-
-            <!-- Error State -->
-            <div *ngIf="!isLoading && error" class="flex h-full flex-auto flex-col items-center justify-center p-8">
-                <mat-icon
-                    class="icon-size-24 text-red-500"
-                    [svgIcon]="'heroicons_outline:exclamation-triangle'"
-                ></mat-icon>
-                <div class="text-secondary mt-4 text-2xl font-semibold tracking-tight">
-                    Failed to load chats.
-                </div>
-                <div class="text-secondary mt-1">
-                    Please try again.
-                </div>
-                <button
-                    mat-stroked-button
-                    class="mt-4"
-                    (click)="retryLoadChats()"
-                >
-                    Retry
-                </button>
-            </div>
-
             <!-- Content Area: Chat List or No Chats Message -->
-            <div *ngIf="!isLoading && !error">
-                @if (chats.length > 0) {
-                    @for (chat of chats; track chat.id) {
+            <div>
+                @if ((filteredSessions() ?? sessions() ?? []).length > 0) {
+                    @for (session of (filteredSessions() ?? sessions()); track trackBySessionId($index, session)) {
                         <a
                             class="z-20 flex cursor-pointer items-center border-b px-0 py-3"
-                            (mouseenter)="hoveredChatId = chat.id"
-                            (mouseleave)="hoveredChatId = null"
+                            (click)="onSessionSelect(session)"
+                            (mouseenter)="hoveredChatId.set(session.id)"
+                            (mouseleave)="hoveredChatId.set(null)"
                             [ngClass]="{
                                 'dark:hover:bg-hover hover:bg-gray-100':
-                                    !selectedChat ||
-                                    selectedChat.id !== chat.id,
+                                    !selectedSessionId() ||
+                                    selectedSessionId() !== session.id,
                                 'bg-primary-50 dark:bg-hover':
-                                    selectedChat &&
-                                    selectedChat.id === chat.id,
+                                    selectedSessionId() &&
+                                    selectedSessionId() === session.id
                             }"
-                            [routerLink]="[chat.id]"
+                            [routerLink]="[session.id]"
                         >
                             <div class="ml-4 min-w-0">
                                 <div class="truncate font-medium leading-5">
-                                    {{ chat.title }}
+                                    {{ session.title }}
                                 </div>
                                 <!-- Optionally display last message or timestamp if available in Chat type and needed -->
                                 <!-- <div class="text-secondary mt-0.5 truncate text-sm leading-4">
-                                    {{ chat.lastMessage || 'No messages yet' }}
+                                    {{ session.lastMessage || 'No messages yet' }}
                                 </div> -->
                             </div>
                             <div class="ml-auto flex flex-col items-end self-start pl-2">
                                 <!-- <div class="text-secondary whitespace-nowrap text-xs leading-4">
-                                    {{ chat.lastMessageAt | date:'shortTime' }}
+                                    {{ session.lastMessageAt | date:'shortTime' }}
                                 </div> -->
-                                @if (hoveredChatId === chat.id) {
-                                    <button (click)="deleteChat($event, chat)" class="absolute">
+                                @if (hoveredChatId() === session.id) {
+                                    <button (click)="onClickDeleteSession($event, session)" class="absolute">
                                         <mat-icon
                                                 class="text-hint icon-size-5 mr-1 p-0"
                                                 [svgIcon]="'heroicons_solid:trash'"
@@ -114,7 +83,7 @@
                         </a>
                     }
                 } @else {
-                    <!-- No Chats State (when not loading and no error, but chats array is empty) -->
+                    <!-- No Chats State -->
                     <div class="flex h-full flex-auto flex-col items-center justify-center p-8">
                         <mat-icon
                             class="icon-size-24"
@@ -128,7 +97,7 @@
                             mat-flat-button
                             [color]="'primary'"
                             class="mt-4"
-                            (click)="createNewChat()"
+                            (click)="onClickNewChat()"
                         >
                             Start a New Chat
                         </button> -->
@@ -139,17 +108,14 @@
     </div>
 
     <!-- Conversation -->
-    <!-- This part remains largely unchanged by the loading logic for the list itself -->
-    <!-- The @if condition on 'chats' was removed as 'chats' is always an array.
-         The [ngClass] and router configuration handle the display of the conversation area. -->
     <div
         class="flex-auto border-l"
         [ngClass]="{
                 'absolute inset-0 z-20 flex lg:static lg:inset-auto':
-                    selectedChat && selectedChat.id,
-                'hidden lg:flex': !selectedChat || !selectedChat.id,
+                    selectedSessionId(),
+                'hidden lg:flex': !selectedSessionId()
             }"
-        >
-            <router-outlet></router-outlet>
-        </div>
+    >
+        <router-outlet></router-outlet>
+    </div>
 </div>

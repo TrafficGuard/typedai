@@ -1,257 +1,178 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
-import {provideRouter, Router, RouterLink} from '@angular/router';
-import { HttpClientTestingModule } from '@angular/common/http/testing';
+import { RouterLink } from '@angular/router';
+import { RouterTestingModule } from '@angular/router/testing';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
-import {Observable, of, throwError} from 'rxjs';
-import { signal, WritableSignal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { ChatsComponent } from './chats.component';
-import { ChatServiceClient } from './chat.service';
-import { Chat, NEW_CHAT_ID } from './chat.types';
-
-// Mock ChatService
-class MockChatServiceClient {
-    private _chatsSignal: WritableSignal<Chat[] | null> = signal(null);
-    public chats = this._chatsSignal.asReadonly();
-
-    private _mockData: Chat[] | null = [];
-    private _shouldSimulateError = false;
-
-    setMockChatData(data: Chat[] | null) {
-        this._mockData = data;
-    }
-
-    simulateError(shouldError: boolean) {
-        this._shouldSimulateError = shouldError;
-    }
-
-    loadChats(): Observable<void> {
-        if (this._shouldSimulateError) {
-            this._chatsSignal.set([]); // Clear chats on error
-            return throwError(() => new Error('Failed to load chats'));
-        } else {
-            this._chatsSignal.set(this._mockData);
-            return of(undefined); // Simulate successful completion
-        }
-    }
-
-    deleteChat(chatId: string) { return of(null); }
-    // Add other methods like createChat, getChatById if they are called directly or indirectly by the component
-}
+import { Chat } from './chat.types';
+import { signal } from '@angular/core';
 
 describe('ChatsComponent', () => {
     let component: ChatsComponent;
     let fixture: ComponentFixture<ChatsComponent>;
-    let mockChatService: MockChatServiceClient;
-    let router: Router;
 
-    const mockChatsData: Chat[] = [
-        { id: '1', title: 'Chat 1', updatedAt: Date.now() },
-        { id: '2', title: 'Chat 2', updatedAt: Date.now() },
+    const mockSessionsData: Chat[] = [
+        { id: '1', title: 'Chat 1', updatedAt: Date.now(), messages: [] },
+        { id: '2', title: 'Chat 2', updatedAt: Date.now(), messages: [] },
+        { id: '3', title: 'Another Chat', updatedAt: Date.now(), messages: [] },
     ];
 
     beforeEach(async () => {
-        // Instantiate the mock service before TestBed configuration
-        // so it can be provided using useValue.
-        mockChatService = new MockChatServiceClient();
-
         await TestBed.configureTestingModule({
             imports: [
                 ChatsComponent, // Standalone component
-                HttpClientTestingModule, // Good practice if any service (even mocked) might touch HttpClient
                 NoopAnimationsModule,
+                FormsModule, // For filter input [(ngModel)] or [value]/(input)
                 MatIconModule,
                 MatFormFieldModule,
                 MatInputModule,
                 MatButtonModule,
-                RouterLink,
+                RouterLink, // If routerLink is used in the template
+                RouterTestingModule, // For routerLink
             ],
-            providers: [
-                provideRouter([]), // Basic router setup
-                { provide: ChatServiceClient, useValue: mockChatService },
-            ],
+            // No providers needed if component is fully presentational
         }).compileComponents();
 
         fixture = TestBed.createComponent(ChatsComponent);
         component = fixture.componentInstance;
-        // mockChatService is already injected via useValue, can also get it via TestBed.inject if needed
-        // router = TestBed.inject(Router); // Inject router if needed for navigation tests
+        // Set initial inputs if necessary, though Angular 16+ handles default signal inputs well
+        // component.sessions.set(null); // Example if you need to start with null
+        // component.selectedSessionId.set(null);
+        fixture.detectChanges(); // Initial binding
     });
 
     it('should create', () => {
         expect(component).toBeTruthy();
-        expect(component.isLoading).toBe(false); // Initial state before ngOnInit
-        expect(component.chats.length).toBe(0);
-        expect(component.error).toBeNull();
     });
 
-    it('should call ChatService.loadChats on init and set initial loading state', fakeAsync(() => {
-        spyOn(mockChatService, 'loadChats').and.callThrough();
-        mockChatService.setMockChatData([]); // Simulate empty response initially
+    it('should display sessions passed via input', fakeAsync(() => {
+        // Directly set the input signal's value
+        component.sessions.set([...mockSessionsData]);
+        fixture.detectChanges(); // Trigger change detection for signal update
+        tick(); // Allow UI to update
+        fixture.detectChanges();
 
-        fixture.detectChanges(); // Triggers ngOnInit -> component.loadChats()
 
-        expect(mockChatService.loadChats).toHaveBeenCalled();
-        expect(component.isLoading).toBe(true); // isLoading is set to true at the start of component.loadChats()
-
-        const loadingDiv = fixture.nativeElement.querySelector('.animate-spin');
-        expect(loadingDiv).toBeTruthy('Loading spinner should be visible');
-        const loadingText = fixture.nativeElement.textContent;
-        expect(loadingText).toContain('Loading chats...');
-
-        tick(); // Allow async operations in loadChats (e.g., observable completion) to complete
-        fixture.detectChanges(); // Update view after loading finishes
-
-        expect(component.isLoading).toBe(false); // isLoading is set to false in finalize
+        const sessionElements = fixture.nativeElement.querySelectorAll('a[routerLink]');
+        expect(sessionElements.length).toBe(mockSessionsData.length);
+        expect(sessionElements[0].textContent).toContain(mockSessionsData[0].title);
+        expect(sessionElements[1].textContent).toContain(mockSessionsData[1].title);
     }));
 
-    it('should successfully load chats, update component state, and render them', fakeAsync(() => {
-        mockChatService.setMockChatData(mockChatsData);
-        mockChatService.simulateError(false);
-        spyOn(mockChatService, 'loadChats').and.callThrough();
+    it('should emit sessionSelected output when a session is clicked', () => {
+        spyOn(component.sessionSelected, 'emit');
+        component.sessions.set([...mockSessionsData]);
+        fixture.detectChanges();
 
-        fixture.detectChanges(); // ngOnInit -> component.loadChats()
-        expect(component.isLoading).toBe(true); // Check during load
+        const firstSessionElement = fixture.nativeElement.querySelector('a[routerLink]');
+        firstSessionElement.click();
 
-        tick(); // Complete async operations
-        fixture.detectChanges(); // Update view with loaded chats
+        expect(component.sessionSelected.emit).toHaveBeenCalledWith(mockSessionsData[0]);
+    });
 
-        expect(mockChatService.loadChats).toHaveBeenCalledTimes(1);
-        expect(component.isLoading).toBe(false);
-        expect(component.chats.length).toBe(mockChatsData.length);
-        expect(component.chats).toEqual(mockChatsData);
-        expect(component.error).toBeNull();
+    it('should emit newChatClicked output when "New Chat" button is clicked', () => {
+        spyOn(component.newChatClicked, 'emit');
+        const newChatButton = fixture.nativeElement.querySelector('button mat-icon[svgicon="heroicons_outline:plus"]');
+        newChatButton.parentElement.click(); // Clicking the button itself
 
-        const chatElements = fixture.nativeElement.querySelectorAll('a[routerLink]');
-        expect(chatElements.length).toBe(mockChatsData.length);
-        expect(chatElements[0].textContent).toContain(mockChatsData[0].title);
-        expect(chatElements[1].textContent).toContain(mockChatsData[1].title);
-        expect(fixture.nativeElement.querySelector('.animate-spin')).toBeNull('Loading spinner should NOT be visible');
-        expect(fixture.nativeElement.textContent).not.toContain('Failed to load chats.');
+        expect(component.newChatClicked.emit).toHaveBeenCalled();
+    });
+
+    it('should filter sessions based on filterTerm signal', fakeAsync(() => {
+        component.sessions.set([...mockSessionsData]);
+        fixture.detectChanges();
+
+        // Set filter term
+        component.filterTerm.set('Chat 1');
+        tick(); // Allow computed signal to update
+        fixture.detectChanges(); // Re-render with filtered list
+
+        let sessionElements = fixture.nativeElement.querySelectorAll('a[routerLink]');
+        expect(sessionElements.length).toBe(1);
+        expect(sessionElements[0].textContent).toContain('Chat 1');
+
+        // Clear filter term
+        component.filterTerm.set('');
+        tick();
+        fixture.detectChanges();
+
+        sessionElements = fixture.nativeElement.querySelectorAll('a[routerLink]');
+        expect(sessionElements.length).toBe(mockSessionsData.length);
     }));
 
-    it('should handle error during chat loading, update component state, and show error message', fakeAsync(() => {
-        mockChatService.simulateError(true);
-        spyOn(mockChatService, 'loadChats').and.callThrough();
+    it('should update filterTerm when onFilterSessions is called (e.g., by input event)', () => {
+        const inputElement = fixture.nativeElement.querySelector('input[matInput]');
+        inputElement.value = 'Test Filter';
+        inputElement.dispatchEvent(new Event('input')); // Simulate input event
+        fixture.detectChanges();
 
-        fixture.detectChanges(); // ngOnInit -> component.loadChats()
-        expect(component.isLoading).toBe(true); // Check during load
+        expect(component.filterTerm()).toBe('Test Filter');
+    });
 
-        tick(); // Complete async operations
-        fixture.detectChanges(); // Update view with error state
 
-        expect(mockChatService.loadChats).toHaveBeenCalledTimes(1);
-        expect(component.isLoading).toBe(false);
-        expect(component.error).toEqual(jasmine.any(Error));
-        expect(component.error.message).toContain('Failed to load chats');
-        expect(component.chats.length).toBe(0); // Chats should be empty or reset
+    it('should highlight the selected session based on selectedSessionId input', () => {
+        component.sessions.set([...mockSessionsData]);
+        component.selectedSessionId.set(mockSessionsData[1].id); // Select the second chat
+        fixture.detectChanges();
 
-        const errorContainer = fixture.nativeElement.querySelector('.flex.flex-col.items-center.justify-center.p-8.text-center');
-        expect(errorContainer).toBeTruthy('Error container should be visible');
-        expect(errorContainer.textContent).toContain('Failed to load chats.');
-        const retryButton = errorContainer.querySelector('button');
-        expect(retryButton).toBeTruthy('Retry button should be visible');
-        expect(retryButton.textContent.trim()).toBe('Retry');
-        expect(fixture.nativeElement.querySelector('.animate-spin')).toBeNull('Loading spinner should NOT be visible');
-        expect(fixture.nativeElement.querySelectorAll('a[routerLink]').length).toBe(0, 'Chat list should not be rendered');
+        const sessionElements = fixture.nativeElement.querySelectorAll('a[routerLink]');
+        const selectedElement = sessionElements[1]; // Second chat
+        const unselectedElement = sessionElements[0]; // First chat
+
+        // Check for a class that indicates selection, e.g., 'bg-primary-50'
+        expect(selectedElement.classList).toContain('bg-primary-50');
+        expect(unselectedElement.classList).not.toContain('bg-primary-50');
+    });
+
+    it('should display "No chats available" message when sessions input is null or empty', () => {
+        component.sessions.set(null);
+        fixture.detectChanges();
+        let noChatsMessage = fixture.nativeElement.querySelector('.text-2xl.font-semibold.tracking-tight');
+        expect(noChatsMessage.textContent).toContain('No chats available.');
+
+        component.sessions.set([]);
+        fixture.detectChanges();
+        noChatsMessage = fixture.nativeElement.querySelector('.text-2xl.font-semibold.tracking-tight');
+        expect(noChatsMessage.textContent).toContain('No chats available.');
+    });
+
+    it('should show delete icon on hover and emit chatDeleted on click', fakeAsync(() => {
+        spyOn(component.chatDeleted, 'emit');
+        component.sessions.set([mockSessionsData[0]]);
+        fixture.detectChanges();
+        tick();
+        fixture.detectChanges();
+
+
+        const chatItem = fixture.nativeElement.querySelector('a[routerLink]');
+        expect(chatItem).toBeTruthy();
+
+        // Simulate mouse enter
+        component.hoveredChatId.set(mockSessionsData[0].id);
+        fixture.detectChanges();
+        tick(); // Allow UI to update
+        fixture.detectChanges();
+
+
+        let deleteButton = fixture.nativeElement.querySelector('button mat-icon[svgicon="heroicons_solid:trash"]');
+        expect(deleteButton).toBeTruthy('Delete button should be visible on hover');
+
+        // Simulate click on delete button
+        deleteButton.parentElement.click(); // Click the button element
+        expect(component.chatDeleted.emit).toHaveBeenCalledWith(mockSessionsData[0]);
+
+        // Simulate mouse leave
+        component.hoveredChatId.set(null);
+        fixture.detectChanges();
+        tick(); // Allow UI to update
+        fixture.detectChanges();
+
+        deleteButton = fixture.nativeElement.querySelector('button mat-icon[svgicon="heroicons_solid:trash"]');
+        expect(deleteButton).toBeNull('Delete button should not be visible after mouse leave');
     }));
 
-    it('should retry loading chats successfully after an initial failure', fakeAsync(() => {
-        // Step 1: Initial load fails
-        mockChatService.simulateError(true);
-        spyOn(mockChatService, 'loadChats').and.callThrough();
-
-        fixture.detectChanges(); // ngOnInit -> component.loadChats()
-        tick(); // Allow initial load to fail
-        fixture.detectChanges(); // Update view to show error state
-
-        expect(component.isLoading).toBe(false);
-        expect(component.error).toBeTruthy();
-        let retryButton = fixture.nativeElement.querySelector('button'); // Query for retry button
-        expect(retryButton).toBeTruthy('Retry button should be visible after initial failure');
-
-        // Step 2: Configure mock for successful retry and spy on component's loadChats
-        mockChatService.simulateError(false); // Next attempt will succeed
-        mockChatService.setMockChatData(mockChatsData);
-        // component.loadChats is called by retryLoadChats, which is called by button click.
-        // We've already spied on mockChatService.loadChats, it will be called again.
-
-        // Step 3: Click retry button
-        retryButton.click();
-        fixture.detectChanges(); // Detect changes after click (isLoading should become true)
-
-        expect(component.isLoading).toBe(true); // isLoading becomes true at start of new loadChats call
-        const loadingDiv = fixture.nativeElement.querySelector('.animate-spin');
-        expect(loadingDiv).toBeTruthy('Loading spinner should be visible during retry');
-
-
-        tick(); // Allow async operations in the new loadChats call to complete
-        fixture.detectChanges(); // Update view with successful state
-
-        // Step 4: Assert successful state after retry
-        expect(mockChatService.loadChats).toHaveBeenCalledTimes(2); // Initial + retry
-        expect(component.isLoading).toBe(false);
-        expect(component.error).toBeNull();
-        expect(component.chats.length).toBe(mockChatsData.length);
-        expect(component.chats).toEqual(mockChatsData);
-
-        const chatElements = fixture.nativeElement.querySelectorAll('a[routerLink]');
-        expect(chatElements.length).toBe(mockChatsData.length);
-        expect(fixture.nativeElement.querySelector('.animate-spin')).toBeNull('Loading spinner should NOT be visible after retry');
-        expect(fixture.nativeElement.textContent).not.toContain('Failed to load chats.');
-        retryButton = fixture.nativeElement.querySelector('button.retry-button'); // Check if retry button is gone
-        expect(fixture.nativeElement.querySelector('button[mat-flat-button][color="warn"]')).toBeNull('Retry button should NOT be visible after successful retry');
-
-    }));
-
-    it('should unsubscribe from chatSubscription on destroy', () => {
-        // Ensure there's a subscription to test against
-        mockChatService.setMockChatData([]);
-        fixture.detectChanges(); // This will create the subscription
-        tick(); // Allow subscription to complete its setup if async
-
-        const subscription = component['chatSubscription']; // Access private member
-        expect(subscription).toBeDefined();
-        spyOn(subscription!, 'unsubscribe');
-
-        component.ngOnDestroy();
-        expect(subscription!.unsubscribe).toHaveBeenCalled();
-    });
-
-    // Test for createNewChat (basic, as it's a placeholder, but ensure it's covered)
-    it('should call router.navigate on createNewChat', () => {
-        router = TestBed.inject(Router); // Ensure router is injected for this test
-        spyOn(router, 'navigate');
-        component.createNewChat();
-        expect(router.navigate).toHaveBeenCalledWith(['/apps/chat', NEW_CHAT_ID]);
-    });
-
-    // Test for deleteChat (basic, as it's a placeholder, but ensure it's covered)
-    it('should stop propagation and prevent default on deleteChat, and call service if not NEW_CHAT_ID', () => {
-        const mockEvent = jasmine.createSpyObj('MouseEvent', ['stopPropagation', 'preventDefault']);
-        const testChat: Chat = { id: 'chat123', title: 'Test Chat to Delete', updatedAt: Date.now() };
-
-        spyOn(mockChatService, 'deleteChat').and.callThrough(); // Spy on the service method
-
-        component.deleteChat(mockEvent, testChat);
-
-        expect(mockEvent.stopPropagation).toHaveBeenCalled();
-        expect(mockEvent.preventDefault).toHaveBeenCalled();
-        expect(mockChatService.deleteChat).toHaveBeenCalledWith(testChat.id);
-    });
-
-    it('should not call deleteChat service for NEW_CHAT_ID', () => {
-        const mockEvent = jasmine.createSpyObj('MouseEvent', ['stopPropagation', 'preventDefault']);
-        const newChatPlaceholder: Chat = { id: NEW_CHAT_ID, title: 'New Chat', updatedAt: Date.now() };
-        spyOn(mockChatService, 'deleteChat').and.callThrough();
-
-        component.deleteChat(mockEvent, newChatPlaceholder);
-
-        expect(mockEvent.stopPropagation).toHaveBeenCalled();
-        expect(mockEvent.preventDefault).toHaveBeenCalled();
-        expect(mockChatService.deleteChat).not.toHaveBeenCalled();
-    });
 });
