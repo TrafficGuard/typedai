@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, input, output, signal, WritableSignal } from '@angular/core';
+import { Component, OnInit, inject, input, output, signal, WritableSignal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -33,6 +33,7 @@ import { AgentRunningState } from "#shared/model/agent.model";
     templateUrl: './agent-details.component.html',
     styleUrl: 'agent-details.component.scss',
     standalone: true,
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         CommonModule,
         MatCardModule,

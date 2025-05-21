@@ -54,14 +54,6 @@ describe('AgentIterationsComponent', () => {
   beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
       imports: [
-        // CommonModule, // AgentIterationsComponent imports these itself
-        // MatExpansionModule,
-        // MatProgressSpinnerModule,
-        // MatListModule,
-        // MatCardModule,
-        // MatChipsModule,
-        // MatIconModule,
-        // MatTabsModule,
         NoopAnimationsModule,
         AgentIterationsComponent, // Import standalone component
       ],
