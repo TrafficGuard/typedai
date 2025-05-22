@@ -1,3 +1,4 @@
+import type { Static } from '@sinclair/typebox';
 import type { Insertable, Kysely, Selectable, Transaction, Updateable } from 'kysely';
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import type { AgentContextService } from '#agent/agentContextService/agentContextService';
@@ -5,7 +6,9 @@ import { deserializeContext, serializeContext } from '#agent/agentSerialization'
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { type AgentContext, type AgentRunningState, type AgentType, type AutonomousIteration, isExecuting } from '#shared/model/agent.model';
+import type { FunctionCallResult, GenerationStats, ImagePartExt } from '#shared/model/llm.model';
 import type { User } from '#shared/model/user.model';
+import type { AgentContextSchema } from '#shared/schemas/agent.schema';
 import { currentUser } from '#user/userContext';
 import type { AgentContextsTable, AgentIterationsTable, Database } from './db';
 import { db as defaultDb } from './db';
@@ -30,81 +33,170 @@ export class PostgresAgentStateService implements AgentContextService {
 			trace_id: serialized.traceId,
 			name: serialized.name,
 			parent_agent_id: serialized.parentAgentId,
-			user_id: serialized.user,
+			user_id: context.user.id, // Ensure this uses the user's ID
 			state: serialized.state,
-			call_stack: serialized.callStack,
+			call_stack: serialized.callStack ? JSON.stringify(serialized.callStack) : null,
 			error: serialized.error,
 			hil_budget: serialized.hilBudget,
 			hil_count: serialized.hilCount,
 			cost: serialized.cost,
 			budget_remaining: serialized.budgetRemaining,
-			llms_serialized: serialized.llms as Record<string, any>,
+			llms_serialized: JSON.stringify(serialized.llms),
 			use_shared_repos: serialized.useSharedRepos,
-			memory_serialized: serialized.memory as Record<string, any>,
-			metadata_serialized: serialized.metadata as Record<string, any> | null,
-			functions_serialized: serialized.functions as Record<string, any>,
+			memory_serialized: JSON.stringify(serialized.memory),
+			metadata_serialized: serialized.metadata ? JSON.stringify(serialized.metadata) : null,
+			functions_serialized: JSON.stringify(serialized.functions),
 			completed_handler_id: serialized.completedHandler as string | null,
-			pending_messages_serialized: serialized.pendingMessages as any[] | null,
+			pending_messages_serialized: serialized.pendingMessages ? JSON.stringify(serialized.pendingMessages) : null,
 			type: serialized.type,
 			subtype: serialized.subtype,
 			iterations: serialized.iterations,
-			invoking_serialized: serialized.invoking as any[] | null,
-			notes_serialized: serialized.notes as string[] | null,
+			invoking_serialized: serialized.invoking ? JSON.stringify(serialized.invoking) : null,
+			notes_serialized: serialized.notes ? JSON.stringify(serialized.notes) : null,
 			user_prompt: serialized.userPrompt,
 			input_prompt: serialized.inputPrompt,
-			messages_serialized: serialized.messages as any[],
-			function_call_history_serialized: serialized.functionCallHistory as any[] | null,
-			live_files_serialized: serialized.liveFiles as string[] | null,
-			child_agents_ids: serialized.childAgents as string[] | null,
+			messages_serialized: JSON.stringify(serialized.messages),
+			function_call_history_serialized: serialized.functionCallHistory ? JSON.stringify(serialized.functionCallHistory) : null,
+			live_files_serialized: serialized.liveFiles ? JSON.stringify(serialized.liveFiles) : null,
+			child_agents_ids: serialized.childAgents ? JSON.stringify(serialized.childAgents) : null,
 			hil_requested: serialized.hilRequested,
 		};
 	}
 
-	private async _deserializeDbRowToAgentContext(row: Selectable<AgentContextsTable>): Promise<AgentContext> {
-		const userForDeserialization = currentUser().id === row.user_id ? currentUser() : ({ id: row.user_id } as User);
+	/**
+	 * Safely parses a JSON string or uses a pre-parsed object.
+	 * Returns null on actual parsing error, null/undefined input, empty string, or unexpected primitive type.
+	 * Logs warnings/errors for issues.
+	 * @param jsonString The string or object to parse/use.
+	 * @param fieldName The name of the field being parsed (for logging).
+	 * @returns The parsed object (T) or null.
+	 */
+	private safeJsonParse<T>(jsonString: string | object | null | undefined, fieldName: string): T | null {
+		if (jsonString === null || jsonString === undefined) {
+			// logger.debug(`safeJsonParse: field ${fieldName} was null or undefined, returning null.`); // Optional debug log
+			return null;
+		}
 
-		const dataForDeserialization = {
+		try {
+			if (typeof jsonString === 'string') {
+				const trimmed = jsonString.trim();
+				// Prevent parsing empty string as JSON, which would error.
+				// An empty string is not valid JSON.
+				if (trimmed === '') {
+					// logger.debug(`safeJsonParse: field ${fieldName} was an empty string, returning null.`); // Optional debug log
+					return null;
+				}
+				return JSON.parse(trimmed) as T;
+			}
+			// If jsonString is not a string, but is an object (and not null, which is handled by the initial check),
+			// it's assumed to be pre-parsed by the database driver (e.g., for jsonb columns).
+			if (typeof jsonString === 'object') {
+				return jsonString as T;
+			}
+			// If jsonString has passed the initial '!jsonString' check, and is not a string,
+			// and not an object, then it's an unexpected primitive type (e.g., number, boolean)
+			// for a field that's supposed to contain JSON.
+			logger.warn(`safeJsonParse received unexpected primitive type for field ${fieldName}: ${typeof jsonString}. Value: ${String(jsonString)}`);
+			return null;
+		} catch (error) {
+			// Log the original value carefully, as stringifying an object might also fail or be too verbose.
+			let valueToLog: string;
+			if (typeof jsonString === 'string') {
+				valueToLog = jsonString;
+			} else {
+				try {
+					// For objects, attempt to stringify, but keep it concise.
+					valueToLog = JSON.stringify(jsonString)?.substring(0, 200) + (JSON.stringify(jsonString)?.length > 200 ? '...' : '');
+				} catch (e) {
+					valueToLog = `[Unserializable Object of type ${typeof jsonString}]`;
+				}
+			}
+			logger.warn(
+				`Failed to parse or handle JSON for field '${fieldName}'. Value snippet: '${valueToLog}'. Error: ${error instanceof Error ? error.message : String(error)}`,
+			);
+			return null;
+		}
+	}
+
+	private async _deserializeDbRowToAgentContext(row: Selectable<AgentContextsTable>): Promise<AgentContext> {
+		// Ensure logger is imported: import { logger } from '#o11y/logger';
+		let resolvedUserId: string;
+		// Cast row.user_id to 'any' for this specific multi-type check to avoid 'never' type issues
+		// if the database schema (string) and runtime data (object) mismatch.
+		const userIdFromDb = row.user_id as any;
+
+		if (userIdFromDb === null || userIdFromDb === undefined) {
+			logger.error(
+				`_deserializeDbRowToAgentContext: user_id from database is null or undefined for agent_id: ${row.agent_id}. This violates schema constraints.`,
+			);
+			throw new Error(`User ID is unexpectedly null or undefined for agent_id: ${row.agent_id}.`);
+		}
+		if (typeof userIdFromDb === 'object') {
+			// Ensure userIdFromDb is not null before accessing 'id', though the first check covers null.
+			// Also check if 'id' property exists and is not null/undefined.
+			if (userIdFromDb && 'id' in userIdFromDb && userIdFromDb.id !== null && userIdFromDb.id !== undefined) {
+				resolvedUserId = String(userIdFromDb.id);
+			} else {
+				logger.error(
+					`_deserializeDbRowToAgentContext: user_id is an object but lacks a valid 'id' property for agent_id: ${row.agent_id}. Value: ${JSON.stringify(userIdFromDb)}`,
+				);
+				throw new Error(`User ID is an object for agent_id ${row.agent_id} but lacks a valid 'id' property.`);
+			}
+		} else {
+			resolvedUserId = String(userIdFromDb);
+		}
+		// const userForDeserialization = currentUser().id === resolvedUserId ? currentUser() : ({ id: resolvedUserId } as User); // Not needed with AgentContextSchema
+
+		const dataForDeserialization: Static<typeof AgentContextSchema> = {
 			agentId: row.agent_id,
 			executionId: row.execution_id,
-			typedAiRepoDir: row.typed_ai_repo_dir,
+			typedAiRepoDir: row.typed_ai_repo_dir === null ? undefined : row.typed_ai_repo_dir,
 			traceId: row.trace_id,
-			name: row.name,
-			parentAgentId: row.parent_agent_id,
-			user: userForDeserialization,
-			state: row.state as AgentRunningState,
-			callStack: row.call_stack,
-			error: row.error,
-			hilBudget: row.hil_budget,
-			hilCount: row.hil_count,
-			cost: row.cost,
-			budgetRemaining: row.budget_remaining,
-			llms: row.llms_serialized,
-			useSharedRepos: row.use_shared_repos,
-			memory: row.memory_serialized,
-			lastUpdate: (row.last_update as Date).getTime(),
-			metadata: row.metadata_serialized,
-			functions: row.functions_serialized,
-			completedHandler: row.completed_handler_id,
-			pendingMessages: row.pending_messages_serialized,
-			type: row.type as AgentType,
-			subtype: row.subtype,
-			iterations: row.iterations,
-			invoking: row.invoking_serialized,
-			notes: row.notes_serialized,
-			userPrompt: row.user_prompt,
-			inputPrompt: row.input_prompt,
-			messages: row.messages_serialized,
-			functionCallHistory: row.function_call_history_serialized,
-			liveFiles: row.live_files_serialized,
-			childAgents: row.child_agents_ids,
-			hilRequested: row.hil_requested,
+			name: row.name === null ? undefined : row.name,
+			parentAgentId: row.parent_agent_id === null ? undefined : row.parent_agent_id,
+			user: resolvedUserId, // CRITICAL: This must be the string user ID
+			state: row.state as AgentRunningState, // Assuming AgentRunningState is compatible
+			callStack: this.safeJsonParse(row.call_stack, 'call_stack_schema_align') ?? [],
+			error: row.error === null ? undefined : row.error,
+			hilBudget: row.hil_budget !== null && row.hil_budget !== undefined ? Number.parseFloat(String(row.hil_budget)) : undefined,
+			hilCount: row.hil_count === null ? undefined : row.hil_count,
+			cost: row.cost !== null && row.cost !== undefined ? Number.parseFloat(String(row.cost)) : 0, // Default in schema if not present
+			budgetRemaining: row.budget_remaining !== null && row.budget_remaining !== undefined ? Number.parseFloat(String(row.budget_remaining)) : undefined,
+			llms: this.safeJsonParse(row.llms_serialized, 'llms_serialized_schema_align') ?? { easy: '', medium: '', hard: '', xhard: '' },
+			useSharedRepos: row.use_shared_repos === null ? undefined : row.use_shared_repos,
+			memory: this.safeJsonParse(row.memory_serialized, 'memory_serialized_schema_align') ?? {}, // Default in schema
+			lastUpdate: (row.last_update as Date).getTime(), // Schema expects number (timestamp)
+			metadata: this.safeJsonParse(row.metadata_serialized, 'metadata_serialized_schema_align') ?? {}, // Default in schema
+			functions: this.safeJsonParse(row.functions_serialized, 'functions_serialized_schema_align') ?? { functionClasses: [] },
+			completedHandler: row.completed_handler_id === null ? undefined : row.completed_handler_id,
+			pendingMessages: this.safeJsonParse(row.pending_messages_serialized, 'pending_messages_serialized_schema_align') ?? [],
+			type: row.type as AgentType, // Assuming AgentType is compatible
+			subtype: row.subtype === null ? undefined : row.subtype,
+			iterations: row.iterations, // Schema expects number
+			invoking: this.safeJsonParse(row.invoking_serialized, 'invoking_serialized_schema_align') ?? [],
+			notes: this.safeJsonParse(row.notes_serialized, 'notes_serialized_schema_align') ?? [],
+			userPrompt: row.user_prompt === null ? undefined : row.user_prompt,
+			inputPrompt: row.input_prompt, // Schema expects string, DB schema for input_prompt is NOT NULL.
+			messages: this.safeJsonParse(row.messages_serialized, 'messages_serialized_schema_align') ?? [],
+			functionCallHistory: this.safeJsonParse(row.function_call_history_serialized, 'function_call_history_serialized_schema_align') ?? [],
+			liveFiles: this.safeJsonParse(row.live_files_serialized, 'live_files_serialized_schema_align') ?? [],
+			childAgents: this.safeJsonParse(row.child_agents_ids, 'child_agents_ids_schema_align') ?? [],
+			hilRequested: row.hil_requested === null ? undefined : row.hil_requested,
+
+			// Ensure all fields from AgentContextSchema are present, using undefined for those not in AgentContextsTable
+			// or not yet handled. deserializeContext should have defaults for these.
+			vibeSessionId: undefined,
+			output: undefined,
+			fileSystem: undefined, // deserializeContext handles default for complex objects if schema allows undefined
+			fileStore: undefined,
+			toolState: undefined,
 		};
-		return deserializeContext(dataForDeserialization as any);
+		return deserializeContext(dataForDeserialization);
 	}
 
 	private _serializeIterationForDb(iteration: AutonomousIteration): SerializedAgentIterationData {
 		return {
-			functions_serialized: iteration.functions,
+			functions_serialized: iteration.functions ? JSON.stringify(iteration.functions) : null,
 			prompt: iteration.prompt,
 			summary: iteration.summary,
 			expanded_user_request: iteration.expandedUserRequest,
@@ -115,38 +207,47 @@ export class PostgresAgentStateService implements AgentContextService {
 			executed_code: iteration.executedCode,
 			draft_code: iteration.draftCode,
 			code_review: iteration.codeReview,
-			images_serialized: iteration.images as any[],
-			function_calls_serialized: iteration.functionCalls as any[],
-			memory_serialized: iteration.memory instanceof Map ? Object.fromEntries(iteration.memory) : iteration.memory,
-			tool_state_serialized: iteration.toolState instanceof Map ? Object.fromEntries(iteration.toolState) : iteration.toolState,
+			images_serialized: iteration.images ? JSON.stringify(iteration.images) : null,
+			function_calls_serialized: iteration.functionCalls ? JSON.stringify(iteration.functionCalls) : null,
+			memory_serialized: iteration.memory ? JSON.stringify(iteration.memory instanceof Map ? Object.fromEntries(iteration.memory) : iteration.memory) : null,
+			tool_state_serialized: iteration.toolState
+				? JSON.stringify(iteration.toolState instanceof Map ? Object.fromEntries(iteration.toolState) : iteration.toolState)
+				: null,
 			error: iteration.error,
-			stats_serialized: iteration.stats as Record<string, any>,
+			stats_serialized: iteration.stats ? JSON.stringify(iteration.stats) : null,
 			cost: iteration.cost,
 		};
 	}
 
 	private _deserializeDbRowToIteration(row: Selectable<AgentIterationsTable>): AutonomousIteration {
+		const parsedFunctions = this.safeJsonParse<string[]>(row.functions_serialized, 'functions_serialized_iteration');
+		const parsedImages = this.safeJsonParse<ImagePartExt[]>(row.images_serialized, 'images_serialized_iteration');
+		const parsedFunctionCalls = this.safeJsonParse<FunctionCallResult[]>(row.function_calls_serialized, 'function_calls_serialized_iteration');
+		const parsedMemory = this.safeJsonParse<Record<string, string>>(row.memory_serialized, 'memory_serialized_iteration');
+		const parsedToolState = this.safeJsonParse<Record<string, any>>(row.tool_state_serialized, 'tool_state_serialized_iteration');
+		const parsedStats = this.safeJsonParse<GenerationStats>(row.stats_serialized, 'stats_serialized_iteration');
+
 		return {
 			agentId: row.agent_id,
 			iteration: row.iteration_number,
-			functions: row.functions_serialized || [],
-			prompt: row.prompt,
-			summary: row.summary,
-			expandedUserRequest: row.expanded_user_request,
-			observationsReasoning: row.observations_reasoning,
-			agentPlan: row.agent_plan,
-			nextStepDetails: row.next_step_details,
-			code: row.code,
-			executedCode: row.executed_code,
-			draftCode: row.draft_code,
-			codeReview: row.code_review,
-			images: row.images_serialized || [],
-			functionCalls: row.function_calls_serialized || [],
-			memory: row.memory_serialized ?? {},
-			toolState: row.tool_state_serialized ?? {},
-			error: row.error,
-			stats: row.stats_serialized as any, // Cast as GenerationStats, assuming structure matches
-			cost: row.cost,
+			functions: parsedFunctions === null ? undefined : parsedFunctions,
+			prompt: row.prompt === null ? undefined : row.prompt,
+			summary: row.summary === null ? undefined : row.summary,
+			expandedUserRequest: row.expanded_user_request === null ? undefined : row.expanded_user_request,
+			observationsReasoning: row.observations_reasoning === null ? undefined : row.observations_reasoning,
+			agentPlan: row.agent_plan === null ? undefined : row.agent_plan,
+			nextStepDetails: row.next_step_details === null ? undefined : row.next_step_details,
+			code: row.code === null ? undefined : row.code,
+			executedCode: row.executed_code === null ? undefined : row.executed_code,
+			draftCode: row.draft_code === null ? undefined : row.draft_code,
+			codeReview: row.code_review === null ? undefined : row.code_review,
+			images: parsedImages === null ? undefined : parsedImages,
+			functionCalls: parsedFunctionCalls === null ? undefined : parsedFunctionCalls,
+			memory: parsedMemory === null ? undefined : parsedMemory,
+			toolState: parsedToolState === null ? undefined : parsedToolState,
+			error: row.error === null ? undefined : row.error,
+			stats: parsedStats === null ? undefined : parsedStats,
+			cost: row.cost !== null && row.cost !== undefined ? Number.parseFloat(String(row.cost)) : null,
 			// created_at is not part of AutonomousIteration model
 		};
 	}
@@ -195,12 +296,13 @@ export class PostgresAgentStateService implements AgentContextService {
 					throw new Error(`Parent agent ${state.parentAgentId} not found`);
 				}
 
-				const childAgents = new Set(parent.child_agents_ids || []);
+				// Deserialize child_agents_ids before adding using safe parse
+				const childAgents = new Set(this.safeJsonParse<string[] | null>(parent.child_agents_ids, 'child_agents_ids') || []);
 				if (!childAgents.has(state.agentId)) {
 					childAgents.add(state.agentId);
 					await trx
 						.updateTable('agent_contexts')
-						.set({ child_agents_ids: Array.from(childAgents), last_update: now })
+						.set({ child_agents_ids: JSON.stringify(Array.from(childAgents)), last_update: now }) // Serialize back to string
 						.where('agent_id', '=', state.parentAgentId as string)
 						.execute();
 				}
@@ -241,6 +343,7 @@ export class PostgresAgentStateService implements AgentContextService {
 			.where('user_id', '=', userId)
 			.orderBy('last_update', 'desc')
 			.execute();
+		// Use Promise.all with map because _deserializeDbRowToAgentContext is async
 		return Promise.all(rows.map((row) => this._deserializeDbRowToAgentContext(row)));
 	}
 
@@ -256,6 +359,7 @@ export class PostgresAgentStateService implements AgentContextService {
 			.orderBy('state', 'asc')
 			.orderBy('last_update', 'desc')
 			.execute();
+		// Use Promise.all with map because _deserializeDbRowToAgentContext is async
 		return Promise.all(rows.map((row) => this._deserializeDbRowToAgentContext(row)));
 	}
 
@@ -283,9 +387,13 @@ export class PostgresAgentStateService implements AgentContextService {
 		const allIdsToDelete = new Set<string>();
 		for (const agent of validParentAgentsToDelete) {
 			allIdsToDelete.add(agent.agent_id);
+			// Deserialize child_agents_ids before adding to the set using safe parse
 			if (agent.child_agents_ids) {
-				for (const childId of agent.child_agents_ids) {
-					allIdsToDelete.add(childId);
+				const childIds = this.safeJsonParse<string[] | null>(agent.child_agents_ids, 'child_agents_ids');
+				if (childIds) {
+					for (const childId of childIds) {
+						allIdsToDelete.add(childId);
+					}
 				}
 			}
 		}
@@ -323,7 +431,7 @@ export class PostgresAgentStateService implements AgentContextService {
 
 		await this.db
 			.updateTable('agent_contexts')
-			.set({ functions_serialized: serializedFunctions as Record<string, any>, last_update: new Date() })
+			.set({ functions_serialized: JSON.stringify(serializedFunctions), last_update: new Date() }) // Serialize functions
 			.where('agent_id', '=', agentId)
 			.execute();
 	}

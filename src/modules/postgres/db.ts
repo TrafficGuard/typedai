@@ -15,31 +15,31 @@ export interface AgentContextsTable {
 	parent_agent_id: string | null;
 	user_id: string; // Foreign key to a potential users table, or just stores the ID
 	state: string; // Represents AgentRunningState
-	call_stack: string[] | null; // Stored as JSONB
+	call_stack: string | null; // Stored as JSONB, was string[] | null
 	error: string | null;
 	hil_budget: number | null;
 	hil_count: number | null;
 	cost: number;
 	budget_remaining: number | null;
-	llms_serialized: Record<string, any>; // Serialized AgentLLMs as JSONB
+	llms_serialized: string; // Serialized AgentLLMs as JSONB, was Record<string, any>
 	use_shared_repos: boolean | null;
-	memory_serialized: Record<string, any>; // AgentContext['memory'] as JSONB
+	memory_serialized: string; // AgentContext['memory'] as JSONB, was Record<string, any>
 	last_update: ColumnType<Date, string | Date, string | Date>;
-	metadata_serialized: Record<string, any> | null; // AgentContext['metadata'] as JSONB
-	functions_serialized: Record<string, any>; // Serialized LlmFunctionsImpl as JSONB
+	metadata_serialized: string | null; // AgentContext['metadata'] as JSONB, was Record<string, any> | null
+	functions_serialized: string; // Serialized LlmFunctionsImpl as JSONB, was Record<string, any>
 	completed_handler_id: string | null;
-	pending_messages_serialized: any[] | null; // PendingMessage[] as JSONB
+	pending_messages_serialized: string | null; // PendingMessage[] as JSONB, was any[] | null
 	type: string; // AgentType
 	subtype: string | null;
 	iterations: number; // Current iteration count for the agent
-	invoking_serialized: any[] | null; // InvokingAgentInfo[] as JSONB
-	notes_serialized: string[] | null; // string[] as JSONB
+	invoking_serialized: string | null; // InvokingAgentInfo[] as JSONB, was any[] | null
+	notes_serialized: string | null; // string[] as JSONB, was string[] | null
 	user_prompt: string | null;
 	input_prompt: string;
-	messages_serialized: any[]; // ChatMessage[] as JSONB
-	function_call_history_serialized: any[] | null; // FunctionCallResult[] as JSONB
-	live_files_serialized: string[] | null; // string[] as JSONB
-	child_agents_ids: string[] | null; // string[] as JSONB for child agent IDs
+	messages_serialized: string; // ChatMessage[] as JSONB, was any[]
+	function_call_history_serialized: string | null; // FunctionCallResult[] as JSONB, was any[] | null
+	live_files_serialized: string | null; // string[] as JSONB, was string[] | null
+	child_agents_ids: string | null; // string[] as JSONB for child agent IDs, was string[] | null
 	hil_requested: boolean | null;
 	created_at: ColumnType<Date, string | Date, string | Date>;
 }
@@ -82,7 +82,7 @@ export interface MergeRequestReviewCacheTable {
 export interface AgentIterationsTable {
 	agent_id: string; // FK to agent_contexts.agent_id
 	iteration_number: number; // Part of composite PK
-	functions_serialized: string[] | null; // Function class names as JSONB array
+	functions_serialized: string | null; // Function class names as JSONB array, was string[] | null
 	prompt: string | null;
 	summary: string | null;
 	expanded_user_request: string | null;
@@ -93,12 +93,12 @@ export interface AgentIterationsTable {
 	executed_code: string | null;
 	draft_code: string | null;
 	code_review: string | null;
-	images_serialized: any[] | null; // Serialized ImagePromptContentPart[] as JSONB
-	function_calls_serialized: any[] | null; // Serialized FunctionCallResult[] as JSONB
-	memory_serialized: Record<string, string> | null; // from Map<string, string> as JSONB
-	tool_state_serialized: Record<string, any> | null; // from Map<string, any> as JSONB
+	images_serialized: string | null; // Serialized ImagePromptContentPart[] as JSONB, was any[] | null
+	function_calls_serialized: string | null; // Serialized FunctionCallResult[] as JSONB, was any[] | null
+	memory_serialized: string | null; // from Map<string, string> as JSONB, was Record<string, string> | null
+	tool_state_serialized: string | null; // from Map<string, any> as JSONB, was Record<string, any> | null
 	error: string | null;
-	stats_serialized: Record<string, any> | null; // GenerationStats as JSONB
+	stats_serialized: string | null; // GenerationStats as JSONB, was Record<string, any> | null
 	cost: number | null;
 	created_at: ColumnType<Date, string | Date, string | Date>;
 	// PRIMARY KEY (agent_id, iteration_number)
@@ -145,11 +145,11 @@ export interface Database {
 
 const dialect = new PostgresDialect({
 	pool: new Pool({
-		host: envVar('POSTGRES_HOST', 'localhost'),
-		port: Number.parseInt(envVar('POSTGRES_PORT', '5432'), 10),
-		user: envVar('POSTGRES_USER', 'user'),
-		password: envVar('POSTGRES_PASSWORD', 'password'),
-		database: envVar('POSTGRES_DB', 'db'),
+		host: envVar('DATABASE_HOST', 'localhost'),
+		port: Number.parseInt(envVar('DATABASE_PORT', '5432'), 10),
+		user: envVar('DATABASE_USER', 'user'),
+		password: envVar('DATABASE_PASSWORD', 'password'),
+		database: envVar('DATABASE_NAME', 'db'),
 		max: 10, // Max number of clients in the pool
 	}),
 });

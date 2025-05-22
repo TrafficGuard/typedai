@@ -4,11 +4,13 @@ import type { ExpressionBuilder, Insertable, Selectable, Updateable } from 'kyse
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import type { ChatSettings, LLMServicesConfig, User } from '#shared/model/user.model';
-import { currentUser } from '#user/userContext';
+import { currentUser, isSingleUser } from '#user/userContext'; // Added isSingleUser
 import type { UserService } from '#user/userService';
+// No envVar import needed as process.env will be used directly for SINGLE_USER_EMAIL
 import { type Database, type UsersTable, db } from './db';
 
 export class PostgresUserService implements UserService {
+	singleUser: User | undefined; // Added singleUser member
 	private docToUser(row: Selectable<UsersTable>): User {
 		const parsedLlmConfig: LLMServicesConfig = row.llm_config_serialized ? JSON.parse(row.llm_config_serialized) : {};
 		const parsedChatConfig = row.chat_config_serialized ? JSON.parse(row.chat_config_serialized) : {};
@@ -149,36 +151,61 @@ export class PostgresUserService implements UserService {
 	}
 
 	async ensureSingleUser(): Promise<void> {
-		// This method's behavior is different in Postgres compared to Firestore/InMemory.
-		// In a typical Postgres multi-user setup, "single user mode" isn't managed at this service level
-		// in the same way (e.g., by creating a user from ENV vars if not present).
-		// If a specific single-user setup is required for Postgres (e.g., based on environment variables
-		// to find or create THE single user), that logic would need to be added here,
-		// potentially populating a class member like 'this.singleUserInstance'.
-		// For now, this method logs information and is effectively a no-op regarding DB changes.
-		logger.info(
-			'PostgresUserService: ensureSingleUser called. In a standard Postgres deployment, single-user mode is typically managed via application configuration or deployment strategy. This service assumes multi-user capabilities by default.',
-		);
-		// No database operations are performed by default for this method in PostgresUserService.
-		return Promise.resolve();
+		if (!isSingleUser()) return;
+		if (!this.singleUser) {
+			const singleUserEmailFromEnv = process.env.SINGLE_USER_EMAIL;
+			const users = await this.listUsers();
+
+			if (users.length > 1) {
+				if (!singleUserEmailFromEnv) {
+					throw new Error(
+						'Multiple users exist, but SINGLE_USER_EMAIL environment variable is not set. Cannot determine the single user for single user mode.',
+					);
+				}
+				const user = users.find((u) => u.email === singleUserEmailFromEnv);
+				if (!user) {
+					throw new Error(
+						`Multiple users exist, but no user found with email ${singleUserEmailFromEnv} (from SINGLE_USER_EMAIL) for single user mode.`,
+					);
+				}
+				this.singleUser = user;
+			} else if (users.length === 1) {
+				this.singleUser = users[0];
+				if (singleUserEmailFromEnv && this.singleUser.email && this.singleUser.email !== singleUserEmailFromEnv) {
+					logger.warn(
+						`The only existing user has email ${this.singleUser.email}, but SINGLE_USER_EMAIL is set to ${singleUserEmailFromEnv}. Using the existing user as the single user.`,
+					);
+				}
+			} else { // No users exist
+				if (!singleUserEmailFromEnv) {
+					throw new Error('No users exist and SINGLE_USER_EMAIL environment variable is not set. Cannot create single user.');
+				}
+				this.singleUser = await this.createUser({
+					email: singleUserEmailFromEnv,
+					// Defaults for a new single user, matching Firestore's ensureSingleUser behavior
+					functionConfig: {},
+					llmConfig: {},
+					enabled: true,
+					hilCount: 5,
+					hilBudget: 1,
+				});
+			}
+
+			if (this.singleUser) {
+				logger.info(`Single user initialized: id=${this.singleUser.id}, email=${this.singleUser.email}`);
+			}
+			// If isSingleUser() is true at this point and this.singleUser is still not set,
+			// an error would have been thrown by the logic above (e.g., missing SINGLE_USER_EMAIL).
+		}
 	}
 
 	getSingleUser(): User {
-		// This method is intended to return a pre-defined or uniquely identified "single user"
-		// typically initialized or identified by `ensureSingleUser`.
-		// As the current Postgres `ensureSingleUser` is informational and doesn't define/load
-		// a specific single user instance into this service, this method cannot fulfill its purpose.
-		logger.warn(
-			'PostgresUserService: getSingleUser called. This method is not fully functional in the current PostgresUserService configuration as ensureSingleUser does not define/load a specific single user instance.',
-		);
-		throw new Error(
-			'getSingleUser cannot reliably return a single user in PostgresUserService without specific single-user initialization logic in ensureSingleUser (e.g., loading a user by a configured ID/email into a service instance).',
-		);
-		// If a 'this.singleUserInstance: User | undefined;' property existed and was populated by ensureSingleUser:
-		// if (!this.singleUserInstance) {
-		//     throw new Error('Single user has not been initialized. ensureSingleUser might need to be called or configured.');
-		// }
-		// return this.singleUserInstance;
+		if (!this.singleUser) {
+			throw new Error(
+				'Single user instance is not available. ensureSingleUser() must be called and successfully complete in single-user mode.',
+			);
+		}
+		return this.singleUser;
 	}
 
 	async updateUser(updates: Partial<User>, userId?: string): Promise<User> {
@@ -200,7 +227,11 @@ export class PostgresUserService implements UserService {
 		}
 
 		const updatedRow = await db.updateTable('users').set(dbUpdateData).where('id', '=', targetUserId).returningAll().executeTakeFirstOrThrow();
-		return this.docToUser(updatedRow);
+		const returnedUser = this.docToUser(updatedRow);
+		if (this.singleUser && this.singleUser.id === targetUserId) {
+			this.singleUser = returnedUser;
+		}
+		return returnedUser;
 	}
 
 	async disableUser(userId: string): Promise<void> {
