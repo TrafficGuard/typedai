@@ -89,3 +89,12 @@ interface RouteSchemaConfig<
 	body?: BodySchema;
 	response?: ResponseSchemasMap;
 }
+/* The Fastify interface we want to follow the structure of so we can directly assign our RouteSchemaConfig
+export interface FastifySchema {
+	body?: unknown;
+	querystring?: unknown;
+	params?: unknown;
+	headers?: unknown;
+	response?: unknown;
+}
+*/

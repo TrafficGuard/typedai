@@ -1,5 +1,5 @@
 import type { AppFastifyInstance } from '#app/applicationTypes';
-import { send, sendSuccess } from '#fastify/responses';
+import { send } from '#fastify/responses';
 import { logger } from '#o11y/logger';
 import { CODE_REVIEW_API } from '#shared/api/codeReview.api';
 
@@ -22,7 +22,7 @@ export async function codeReviewRoutes(fastify: AppFastifyInstance) {
 		CODE_REVIEW_API.getById.pathTemplate,
 		{ schema: CODE_REVIEW_API.getById.schema },
 		async (request, reply) => {
-			const { id } = request.params as { id: string };
+			const { id } = request.params;
 			try {
 				const config = await fastify.codeReviewService.getCodeReviewConfig(id);
 				if (config) {
@@ -72,7 +72,7 @@ export async function codeReviewRoutes(fastify: AppFastifyInstance) {
 		CODE_REVIEW_API.delete.pathTemplate,
 		{ schema: CODE_REVIEW_API.delete.schema },
 		async (request, reply) => {
-			const { id } = request.params as { id: string };
+			const { id } = request.params;
 			try {
 				await fastify.codeReviewService.deleteCodeReviewConfig(id);
 				send(reply, 200, { message: 'Config deleted successfully' });
