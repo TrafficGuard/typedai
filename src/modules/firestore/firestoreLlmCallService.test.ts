@@ -6,7 +6,7 @@ import { FirestoreLlmCallService } from '#modules/firestore/firestoreLlmCallServ
 import { type LlmMessage, system, user } from '#shared/model/llm.model';
 import type { User } from '#shared/model/user.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import type { LlmCall } from '../../../shared/model/llmCall.model';
+import type { LlmCall } from '#shared/model/llmCall.model';
 
 // Firestore document size limit (use same constant as service)
 const MAX_DOC_SIZE = 1_000_000;
