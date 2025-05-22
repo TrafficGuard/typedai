@@ -21,9 +21,10 @@ import { MatSnackBar } from "@angular/material/snack-bar";
 import { Router } from "@angular/router";
 import { LlmService } from "../../services/llm.service";
 import { UserService } from 'app/core/user/user.service'; // Added import
-import { map, finalize, Subject, takeUntil } from "rxjs";
+import { finalize, Subject, takeUntil } from "rxjs"; // Removed map from here as it's not used directly by component anymore
 import { MatProgressSpinner } from "@angular/material/progress-spinner";
 import { MatCheckboxModule } from "@angular/material/checkbox";
+import { AgentService } from '../../services/agent.service';
 import {MatCard, MatCardContent} from "@angular/material/card";
 import {AutonomousSubType} from "#shared/model/agent.model";
 
@@ -73,6 +74,7 @@ export class NewAutonomousAgentComponent implements OnInit, OnDestroy {
       // private agentEventService: AgentEventService,
       private llmService: LlmService,
       private userService: UserService, // Added UserService
+      private agentService: AgentService,
       private changeDetectorRef: ChangeDetectorRef
   ) {
     this.runAgentForm = new FormGroup({
@@ -114,18 +116,15 @@ export class NewAutonomousAgentComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.http
-        .get<string[]>(`api/agent/v1/functions`)
-        .pipe(
-            map((response) => {
-              console.log(response);
-              return response.filter((name) => name !== 'Agent');
-            })
-        )
-        .subscribe((functions) => {
-          this.functions = functions.sort();
+    this.agentService.getAvailableFunctions()
+      .pipe(takeUntil(this.destroy$)) // Ensure subscription is cleaned up
+      .subscribe(
+        (fetchedFunctions: string[]) => {
+          this.functions = fetchedFunctions; // functions are already pre-filtered and sorted by the service
+          console.log('NewAutonomousAgentComponent: received functions from service', this.functions);
+
           // Dynamically add form controls for each function
-          functions.forEach((tool, index) => {
+          this.functions.forEach((tool, index) => {
             (this.runAgentForm as FormGroup).addControl('function' + index, new FormControl(false));
           });
 
@@ -133,12 +132,18 @@ export class NewAutonomousAgentComponent implements OnInit, OnDestroy {
           this.updateSharedReposState();
 
           // Subscribe to form value changes to update shared repos state dynamically
+          // This remains inside to keep existing behavior where it's set up after functions are loaded.
           this.runAgentForm.valueChanges
-              .pipe(takeUntil(this.destroy$))
-              .subscribe(() => {
-                this.updateSharedReposState();
-              });
-        });
+            .pipe(takeUntil(this.destroy$))
+            .subscribe(() => {
+              this.updateSharedReposState();
+            });
+        },
+        (error) => {
+          console.error('Error fetching agent functions via service', error);
+          this.snackBar.open('Error fetching agent functions', 'Close', { duration: 3000 });
+        }
+      );
 
     this.llmService.getLlms().subscribe({
       next: (llms) => {
