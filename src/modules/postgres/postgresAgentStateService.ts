@@ -126,22 +126,10 @@ export class PostgresAgentStateService implements AgentContextService {
 			name: row.name,
 			parentAgentId: row.parent_agent_id,
 			user: userForDeserialization,
-			// Corrected userId logic to improve TypeScript type narrowing
-			userId: (() => {
-				if (row.user_id === null) {
-					return 'null';
-				}
-				if (typeof row.user_id !== 'object') {
-					// row.user_id is a non-null primitive (e.g., string, number)
-					return String(row.user_id);
-				}
-				// At this point, row.user_id is a non-null object.
-				// TypeScript's control flow analysis should correctly infer row.user_id as non-null object here.
-				if ('id' in row.user_id && (row.user_id as any).id !== null && (row.user_id as any).id !== undefined) {
-					return String((row.user_id as any).id); // Use its 'id' property if valid
-				}
-				return String(row.user_id); // Otherwise, stringify the object itself
-			})(),
+			// Assuming row.user_id is string as per AgentContextsTable definition.
+			// If row.user_id can be null or other types from the DB in practice,
+			// then AgentContextsTable definition or Kysely typings for the pg driver might need adjustment.
+			userId: row.user_id,
 			state: row.state as AgentRunningState,
 			// Use safeJsonParse for all JSONB fields
 			callStack: this.safeJsonParse(row.call_stack, 'call_stack'),
