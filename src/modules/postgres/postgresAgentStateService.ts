@@ -5,6 +5,7 @@ import { deserializeContext, serializeContext } from '#agent/agentSerialization'
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { type AgentContext, type AgentRunningState, type AgentType, type AutonomousIteration, isExecuting } from '#shared/model/agent.model';
+import type { FunctionCallResult, GenerationStats, ImagePartExt } from '#shared/model/llm.model';
 import type { User } from '#shared/model/user.model';
 import { currentUser } from '#user/userContext';
 import type { AgentContextsTable, AgentIterationsTable, Database } from './db';
@@ -118,19 +119,29 @@ export class PostgresAgentStateService implements AgentContextService {
 	private async _deserializeDbRowToAgentContext(row: Selectable<AgentContextsTable>): Promise<AgentContext> {
 		// Ensure logger is imported: import { logger } from '#o11y/logger';
 		let resolvedUserId: string;
-		if (row.user_id === null || row.user_id === undefined) {
-			logger.error(`_deserializeDbRowToAgentContext: user_id from database is null or undefined for agent_id: ${row.agent_id}. This violates schema constraints.`);
+		// Cast row.user_id to 'any' for this specific multi-type check to avoid 'never' type issues
+		// if the database schema (string) and runtime data (object) mismatch.
+		const userIdFromDb = row.user_id as any;
+
+		if (userIdFromDb === null || userIdFromDb === undefined) {
+			logger.error(
+				`_deserializeDbRowToAgentContext: user_id from database is null or undefined for agent_id: ${row.agent_id}. This violates schema constraints.`,
+			);
 			throw new Error(`User ID is unexpectedly null or undefined for agent_id: ${row.agent_id}.`);
-		} else if (typeof row.user_id === 'object') {
-			// Ensure row.user_id is not null before accessing 'id', though the first check covers null.
-			if (row.user_id && 'id' in row.user_id && row.user_id.id !== null && row.user_id.id !== undefined) {
-				resolvedUserId = String(row.user_id.id);
+		}
+		if (typeof userIdFromDb === 'object') {
+			// Ensure userIdFromDb is not null before accessing 'id', though the first check covers null.
+			// Also check if 'id' property exists and is not null/undefined.
+			if (userIdFromDb && 'id' in userIdFromDb && userIdFromDb.id !== null && userIdFromDb.id !== undefined) {
+				resolvedUserId = String(userIdFromDb.id);
 			} else {
-				logger.error(`_deserializeDbRowToAgentContext: user_id is an object but lacks a valid 'id' property for agent_id: ${row.agent_id}. Value: ${JSON.stringify(row.user_id)}`);
+				logger.error(
+					`_deserializeDbRowToAgentContext: user_id is an object but lacks a valid 'id' property for agent_id: ${row.agent_id}. Value: ${JSON.stringify(userIdFromDb)}`,
+				);
 				throw new Error(`User ID is an object for agent_id ${row.agent_id} but lacks a valid 'id' property.`);
 			}
 		} else {
-			resolvedUserId = String(row.user_id);
+			resolvedUserId = String(userIdFromDb);
 		}
 		const userForDeserialization = currentUser().id === resolvedUserId ? currentUser() : ({ id: resolvedUserId } as User);
 
