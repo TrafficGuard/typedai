@@ -266,6 +266,10 @@ export function runAgentStateServiceTests(
 					{ role: 'user', content: 'Start processing' },
 					{ role: 'assistant', content: 'Okay, calling func1' },
 				],
+				toolState: {
+					LiveFiles: ['file1.txt'],
+					FileSystemTree: [],
+				},
 			});
 
 			await service.save(context);
@@ -739,7 +743,7 @@ export function runAgentStateServiceTests(
 				},
 			],
 			memory: { [`memoryKey${iterNum}`]: `memoryValue${iterNum}` },
-			toolState: { [`toolKey${iterNum}`]: `toolValue${iterNum}` },
+			toolState: { [`toolKey${iterNum}`]: `toolValue${iterNum}`, LiveFiles: ['file1', 'file2'] },
 			error: iterNum % 3 === 0 ? `Simulated error for iteration ${iterNum}` : undefined, // Add error sometimes
 			stats: {} as GenerationStats,
 			cost: 0.001,

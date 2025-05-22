@@ -287,8 +287,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				// Capture current memory and tool state before saving
 				iterationData.memory = { ...agent.memory }; // agent.memory is Record, so spread to clone
 				const toolStateMap = await buildToolStateMap(agent.functions.getFunctionInstances());
-				const liveFilesArray = agent.toolState.LiveFiles ? [...agent.toolState.LiveFiles] : [];
-				toolStateMap.set(LiveFiles.name, liveFilesArray);
+				toolStateMap[LiveFiles.name] = agent.toolState.LiveFiles ? [...agent.toolState.LiveFiles] : [];
 
 				// Store FileStore state
 				const fileStoreTool: FileStore | null = agent.functions.getFunctionType('filestore');
@@ -300,7 +299,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 						logger.error(e, 'Error listing files from FileStore before saving agent context');
 					}
 				}
-				toolStateMap.set(FILE_STORE_NAME, fileStoreMetadataArray || []);
+				toolStateMap[FILE_STORE_NAME] = fileStoreMetadataArray ?? [];
 
 				// Assign the consolidated map
 				iterationData.toolState = toolStateMap;
