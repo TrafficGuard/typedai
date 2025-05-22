@@ -14,7 +14,7 @@ export async function initApplicationContext(): Promise<ApplicationContext> {
 	} else if (database === 'postgres') {
 		await initPostgresApplicationContext();
 	} else {
-		throw new Error(`Invalid value for DATABASE environment: ${database}`);
+		throw new Error(`Invalid value for DATABASE_TYPE environment: ${database}`);
 	}
 	return applicationContext;
 }

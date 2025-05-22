@@ -1,25 +1,11 @@
+import { type GoogleVertexAnthropicProvider, createVertexAnthropic } from '@ai-sdk/google-vertex/anthropic';
 import type Anthropic from '@anthropic-ai/sdk';
-import { AnthropicVertex } from '@anthropic-ai/vertex-sdk';
-import { addCost, agentContext } from '#agent/agentContextLocalStorage';
-import { appContext } from '#app/applicationContext';
-import { callStack } from '#llm/llmCallService/llmCall';
-import { logger } from '#o11y/logger';
-import { withActiveSpan } from '#o11y/trace';
+import { AiLLM } from '#llm/services/ai-llm';
 import type { AgentLLMs } from '#shared/model/agent.model';
-import { type GenerateTextOptions, type GenerationStats, type LLM, type LlmMessage, messageText } from '#shared/model/llm.model';
-import type { LlmCall } from '#shared/model/llmCall.model';
+import type { LLM } from '#shared/model/llm.model';
 import { currentUser } from '#user/userContext';
 import { envVar } from '#utils/env-var';
-import { RetryableError, cacheRetry } from '../../cache/cacheRetry';
-import { BaseLLM, type LlmCostFunction } from '../base-llm';
-import { MaxTokensError } from '../errors';
-
-type Message = Anthropic.Messages.Message;
-type MessageParam = Anthropic.Messages.MessageParam;
-type TextBlock = Anthropic.Messages.TextBlock;
-type TextBlockParam = Anthropic.Messages.TextBlockParam;
-type ImageBlockParam = Anthropic.Messages.ImageBlockParam;
-type BetaBase64PDFBlock = Anthropic.Beta.BetaBase64PDFBlock;
+import type { LlmCostFunction } from '../base-llm';
 
 export const ANTHROPIC_VERTEX_SERVICE = 'anthropic-vertex';
 
@@ -28,22 +14,22 @@ export const ANTHROPIC_VERTEX_SERVICE = 'anthropic-vertex';
 export function anthropicVertexLLMRegistry(): Record<string, () => LLM> {
 	return {
 		[`${ANTHROPIC_VERTEX_SERVICE}:claude-3-5-haiku`]: Claude3_5_Haiku_Vertex,
-		[`${ANTHROPIC_VERTEX_SERVICE}:claude-3-5-sonnet`]: Claude3_5_Sonnet_Vertex,
-		[`${ANTHROPIC_VERTEX_SERVICE}:claude-3-7-sonnet`]: Claude3_7_Sonnet_Vertex,
+		[`${ANTHROPIC_VERTEX_SERVICE}:claude-4-sonnet`]: Claude4_Sonnet_Vertex,
+		[`${ANTHROPIC_VERTEX_SERVICE}:claude-4-opus`]: Claude4_Opus_Vertex,
 	};
 }
 
 // Supported image types image/jpeg', 'image/png', 'image/gif' or 'image/webp'
-export function Claude3_5_Sonnet_Vertex() {
-	return new AnthropicVertexLLM('Claude 3.5 Sonnet (Vertex)', 'claude-3-5-sonnet-v2@20241022', 3, 15);
+export function Claude4_Opus_Vertex() {
+	return new AnthropicVertexLLM('Claude 4 Opus (Vertex)', 'claude-4-opus', 200_000, anthropicVertexCostFunction(15, 75));
 }
 
-export function Claude3_7_Sonnet_Vertex() {
-	return new AnthropicVertexLLM('Claude 3.7 Sonnet (Vertex)', 'claude-3-7-sonnet@20250219', 3, 15);
+export function Claude4_Sonnet_Vertex() {
+	return new AnthropicVertexLLM('Claude 4 Sonnet (Vertex)', 'claude-4-sonnet', 200_000, anthropicVertexCostFunction(3, 15));
 }
 
 export function Claude3_5_Haiku_Vertex() {
-	return new AnthropicVertexLLM('Claude 3.5 Haiku (Vertex)', 'claude-3-5-haiku@20241022', 1, 5);
+	return new AnthropicVertexLLM('Claude 3.5 Haiku (Vertex)', 'claude-3-5-haiku@20241022', 200_000, anthropicVertexCostFunction(1, 5));
 }
 
 function anthropicVertexCostFunction(inputMil: number, outputMil: number): LlmCostFunction {
@@ -62,19 +48,56 @@ function anthropicVertexCostFunction(inputMil: number, outputMil: number): LlmCo
 }
 
 export function ClaudeVertexLLMs(): AgentLLMs {
-	const hard = Claude3_5_Sonnet_Vertex();
 	return {
 		easy: Claude3_5_Haiku_Vertex(),
-		medium: hard,
-		hard: hard,
-		xhard: hard,
+		medium: Claude4_Sonnet_Vertex(),
+		hard: Claude4_Sonnet_Vertex(),
+		xhard: Claude4_Opus_Vertex(),
 	};
 }
 
+const GCLOUD_PROJECTS: string[] = [];
+
+for (let i = 2; i <= 9; i++) {
+	const key = process.env[`GCLOUD_PROJECT_${i}`];
+	if (!key) break;
+	if (i === 2) GCLOUD_PROJECTS.push(process.env.GCLOUD_PROJECT);
+	GCLOUD_PROJECTS.push(key);
+}
+let gcloudProjectIndex = 0;
+
 /**
- * Anthropic Claude 3 through Google Cloud Vertex
- * @see https://github.com/anthropics/anthropic-sdk-typescript/tree/main/packages/vertex-sdk
+ * Vertex AI models - Gemini
  */
+class AnthropicVertexLLM extends AiLLM<GoogleVertexAnthropicProvider> {
+	constructor(displayName: string, model: string, maxInputToken: number, calculateCosts: LlmCostFunction) {
+		super(displayName, ANTHROPIC_VERTEX_SERVICE, model, maxInputToken, calculateCosts);
+	}
+
+	protected apiKey(): string {
+		return currentUser().llmConfig.vertexProjectId || process.env.GCLOUD_PROJECT;
+	}
+
+	provider(): GoogleVertexAnthropicProvider {
+		let project: string;
+		if (GCLOUD_PROJECTS.length) {
+			project = GCLOUD_PROJECTS[gcloudProjectIndex];
+			if (++gcloudProjectIndex >= GCLOUD_PROJECTS.length) gcloudProjectIndex = 0;
+		} else {
+			project = currentUser().llmConfig.vertexProjectId || project || envVar('GCLOUD_PROJECT');
+		}
+
+		console.log(`Configuring anthropic vertex provider with ${project}`);
+		this.aiProvider ??= createVertexAnthropic({
+			project: project,
+			location: currentUser().llmConfig.vertexRegion || process.env.GCLOUD_CLAUDE_REGION || envVar('GCLOUD_REGION'),
+		});
+
+		return this.aiProvider;
+	}
+}
+
+/*
 class AnthropicVertexLLM extends BaseLLM {
 	client: AnthropicVertex | undefined;
 
@@ -150,7 +173,7 @@ class AnthropicVertexLLM extends BaseLLM {
 					localMessages.shift(); // removes first element
 				}
 
-				/*
+				//*
 				 The Anthropic types are
 				 export interface MessageParam {
 				  content: string | Array<TextBlockParam | ImageBlockParam | ToolUseBlockParam | ToolResultBlockParam>;
@@ -177,7 +200,7 @@ class AnthropicVertexLLM extends BaseLLM {
 					type: 'base64';
 				  }
 				}
-				 */
+				 ///
 				const anthropicMessages: MessageParam[] = localMessages.map((message) => {
 					let content: string | Array<TextBlockParam | ImageBlockParam | BetaBase64PDFBlock>;
 
@@ -375,3 +398,4 @@ class AnthropicVertexLLM extends BaseLLM {
 		return e.error?.error?.code === 429 || e.error?.error?.code === 529;
 	}
 }
+*/

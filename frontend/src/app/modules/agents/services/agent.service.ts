@@ -7,8 +7,8 @@ import {
   map,
   tap,
   catchError,
+  // Removed shareReplay as it's not used after refactoring loadAgents
 } from 'rxjs';
-// Removed shareReplay as it's not used after refactoring loadAgents
 import { callApiRoute } from '../../../core/api-route';
 import { AGENT_API } from '#shared/api/agent.api';
 import type { AutonomousIteration } from '#shared/model/agent.model';
@@ -189,6 +189,22 @@ export class AgentService {
       // Note: No cache update needed here as the backend route doesn't return updated agent state.
       // The caller should refresh agent details if needed after a successful call.
       catchError(error => this.handleError('forceStopAgent', error))
+    );
+  }
+
+  /** Retrieves the list of available agent functions, filtered and sorted */
+  public getAvailableFunctions(): Observable<string[]> {
+    return callApiRoute(this.http, AGENT_API.getAvailableFunctions).pipe(
+      map((response: string[]) => {
+        console.log('AgentService: fetched functions raw', response);
+        const filteredAndSortedFunctions = response
+          .filter((name) => name !== 'Agent')
+          .sort();
+        console.log('AgentService: filtered and sorted functions', filteredAndSortedFunctions);
+        return filteredAndSortedFunctions;
+      }),
+      // catchError is not added here as per instructions, but can be added later if specific handling is needed.
+      // The component calling this service method should handle errors.
     );
   }
 }
