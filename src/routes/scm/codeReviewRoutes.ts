@@ -9,7 +9,7 @@ export async function codeReviewRoutes(fastify: AppFastifyInstance) {
 		try {
 			// fastify instance is already AppFastifyInstance due to RouteDefinition
 			const configs = await fastify.codeReviewService.listCodeReviewConfigs();
-			send(reply, 200, configs);
+			reply.sendJSON(configs);
 		} catch (error) {
 			logger.error(error, 'Error listing code review configs');
 			send(reply, 500, '', { message: 'Internal Server Error' });
