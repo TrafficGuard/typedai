@@ -95,6 +95,12 @@ export class ChatsComponent implements OnInit, OnDestroy {
                 this.selectedSessionId.set(null);
             }
         }, { allowSignalWrites: true });
+
+        // Effect to synchronize component's sessions with the service's chats signal
+        // This effect is the correct way to update this.sessions
+        effect(() => {
+            this.sessions.set(this.chatService.chats() ?? []);
+        });
     }
 
     ngOnInit(): void {
@@ -119,14 +125,13 @@ export class ChatsComponent implements OnInit, OnDestroy {
         this.chatService.loadChats()
             .pipe(
                 takeUntilDestroyed(this.destroyRef),
-                tap((loadedChats) => {
-                    // Assuming loadChats returns Observable<Chat[]>
-                    this.sessions.set(loadedChats ?? []);
-                }),
+                // Removed the incorrect tap operator that was resetting sessions
                 catchError(err => {
                     console.error('Error loading chats:', err);
                     this.error.set(err);
-                    this.sessions.set([]); // Clear sessions on error
+                    // It's okay to set sessions to [] here on error,
+                    // as the service's chat signal might also be null/empty.
+                    this.sessions.set([]);
                     return EMPTY;
                 }),
                 finalize(() => {
@@ -169,8 +174,7 @@ export class ChatsComponent implements OnInit, OnDestroy {
                 next: (newChat: Chat) => {
                     if (newChat && newChat.id) {
                         this.router.navigate(['./', newChat.id], { relativeTo: this.route });
-                        // Optionally, refresh the chat list if not automatically updated by service
-                        // this.loadChats();
+                        // The effect listening to chatService.chats() will update the list
                     } else {
                         console.error('New chat created but ID is missing or invalid:', newChat);
                     }
@@ -215,7 +219,7 @@ export class ChatsComponent implements OnInit, OnDestroy {
             .pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe({
                 next: () => {
-                    this.loadChats(); // Re-fetch to update the list.
+                    // The effect listening to chatService.chats() will update the list
                     if (this.selectedSessionId() === session.id) {
                         // Navigate to the base chat route if the active chat was deleted
                         this.router.navigate(['../'], { relativeTo: this.route });
