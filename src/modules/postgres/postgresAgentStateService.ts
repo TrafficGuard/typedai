@@ -116,31 +116,22 @@ export class PostgresAgentStateService implements AgentContextService {
 	}
 
 	private async _deserializeDbRowToAgentContext(row: Selectable<AgentContextsTable>): Promise<AgentContext> {
-		// This entire block should be inserted before the main return statement of _rowToAgentContext
+		// Ensure logger is imported: import { logger } from '#o11y/logger';
 		let resolvedUserId: string;
-
 		if (row.user_id === null || row.user_id === undefined) {
-			// logger.error(`_rowToAgentContext: user_id from database is null or undefined for agent_id: ${row.agent_id}. This violates schema constraints. Throwing error.`);
-			throw new Error(`User ID is unexpectedly null or undefined for agent_id: ${row.agent_id}. This field is NOT NULL in the database.`);
-		}
-
-		if (typeof (row.user_id as any) === 'object') {
-			// It's an object. Check for 'id' property.
-			const userObj = row.user_id as any;
-			// Ensure userObj is not null before accessing 'id' property, although the first 'if' should cover null.
-			if (userObj && 'id' in userObj && userObj.id !== null && userObj.id !== undefined) {
-				resolvedUserId = String(userObj.id);
+			logger.error(`_deserializeDbRowToAgentContext: user_id from database is null or undefined for agent_id: ${row.agent_id}. This violates schema constraints.`);
+			throw new Error(`User ID is unexpectedly null or undefined for agent_id: ${row.agent_id}.`);
+		} else if (typeof row.user_id === 'object') {
+			// Ensure row.user_id is not null before accessing 'id', though the first check covers null.
+			if (row.user_id && 'id' in row.user_id && row.user_id.id !== null && row.user_id.id !== undefined) {
+				resolvedUserId = String(row.user_id.id);
 			} else {
-				// It's an object but doesn't have a usable 'id'. This is an error.
-				// logger.error(`_rowToAgentContext: user_id for agent_id ${row.agent_id} is an object but lacks a valid 'id' property. Value: ${JSON.stringify(userObj)}`);
-				throw new Error(`User ID for agent_id ${row.agent_id} is an object but lacks a valid 'id' property.`);
+				logger.error(`_deserializeDbRowToAgentContext: user_id is an object but lacks a valid 'id' property for agent_id: ${row.agent_id}. Value: ${JSON.stringify(row.user_id)}`);
+				throw new Error(`User ID is an object for agent_id ${row.agent_id} but lacks a valid 'id' property.`);
 			}
 		} else {
-			// It's not an object (and not null/undefined due to the first check).
-			// Assume it's a primitive (string, number from DB) that can be directly converted to a string.
 			resolvedUserId = String(row.user_id);
 		}
-		// End of inserted block
 		const userForDeserialization = currentUser().id === resolvedUserId ? currentUser() : ({ id: resolvedUserId } as User);
 
 		const dataForDeserialization = {
@@ -213,27 +204,33 @@ export class PostgresAgentStateService implements AgentContextService {
 	}
 
 	private _deserializeDbRowToIteration(row: Selectable<AgentIterationsTable>): AutonomousIteration {
+		const parsedFunctions = this.safeJsonParse<string[]>(row.functions_serialized, 'functions_serialized_iteration');
+		const parsedImages = this.safeJsonParse<ImagePartExt[]>(row.images_serialized, 'images_serialized_iteration');
+		const parsedFunctionCalls = this.safeJsonParse<FunctionCallResult[]>(row.function_calls_serialized, 'function_calls_serialized_iteration');
+		const parsedMemory = this.safeJsonParse<Record<string, string>>(row.memory_serialized, 'memory_serialized_iteration');
+		const parsedToolState = this.safeJsonParse<Record<string, any>>(row.tool_state_serialized, 'tool_state_serialized_iteration');
+		const parsedStats = this.safeJsonParse<GenerationStats>(row.stats_serialized, 'stats_serialized_iteration');
+
 		return {
 			agentId: row.agent_id,
 			iteration: row.iteration_number,
-			// Use safeJsonParse for all JSONB fields
-			functions: this.safeJsonParse(row.functions_serialized, 'functions_serialized'), // Assuming functions is string[]
-			prompt: row.prompt,
-			summary: row.summary,
-			expandedUserRequest: row.expanded_user_request,
-			observationsReasoning: row.observations_reasoning,
-			agentPlan: row.agent_plan,
-			nextStepDetails: row.next_step_details,
-			code: row.code,
-			executedCode: row.executed_code,
-			draftCode: row.draft_code,
-			codeReview: row.code_review,
-			images: this.safeJsonParse(row.images_serialized, 'images_serialized'), // Assuming images is any[]
-			functionCalls: this.safeJsonParse(row.function_calls_serialized, 'function_calls_serialized'), // Assuming functionCalls is any[]
-			memory: this.safeJsonParse(row.memory_serialized, 'memory_serialized'), // Assuming memory is Record<string, string>
-			toolState: this.safeJsonParse(row.tool_state_serialized, 'tool_state_serialized'), // Assuming toolState is Record<string, any>
-			error: row.error,
-			stats: this.safeJsonParse(row.stats_serialized, 'stats_serialized'), // Assuming stats is Record<string, any>
+			functions: parsedFunctions === null ? undefined : parsedFunctions,
+			prompt: row.prompt === null ? undefined : row.prompt,
+			summary: row.summary === null ? undefined : row.summary,
+			expandedUserRequest: row.expanded_user_request === null ? undefined : row.expanded_user_request,
+			observationsReasoning: row.observations_reasoning === null ? undefined : row.observations_reasoning,
+			agentPlan: row.agent_plan === null ? undefined : row.agent_plan,
+			nextStepDetails: row.next_step_details === null ? undefined : row.next_step_details,
+			code: row.code === null ? undefined : row.code,
+			executedCode: row.executed_code === null ? undefined : row.executed_code,
+			draftCode: row.draft_code === null ? undefined : row.draft_code,
+			codeReview: row.code_review === null ? undefined : row.code_review,
+			images: parsedImages === null ? undefined : parsedImages,
+			functionCalls: parsedFunctionCalls === null ? undefined : parsedFunctionCalls,
+			memory: parsedMemory === null ? undefined : parsedMemory,
+			toolState: parsedToolState === null ? undefined : parsedToolState,
+			error: row.error === null ? undefined : row.error,
+			stats: parsedStats === null ? undefined : parsedStats,
 			cost: row.cost !== null && row.cost !== undefined ? Number.parseFloat(String(row.cost)) : null,
 			// created_at is not part of AutonomousIteration model
 		};
