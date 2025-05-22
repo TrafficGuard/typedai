@@ -55,7 +55,16 @@ export class CodeReviewListComponent implements OnInit {
     this.errorMessage.set('');
     this.codeReviewService.getCodeReviewConfigs().subscribe(
       (response: CodeReviewConfigListResponse) => { // Explicitly type response
-        this.configs.set(Array.isArray(response) ? response : []);
+        // Assuming response is an object like { data: CodeReviewConfig[] }
+        // or response itself could be the array in some cases.
+        let configsArray: CodeReviewConfig[] = [];
+        if (response && response.data && Array.isArray(response.data)) {
+          configsArray = response.data;
+        } else if (Array.isArray(response)) {
+          // Fallback if response itself is the array
+          configsArray = response;
+        }
+        this.configs.set(configsArray);
         this.isLoading.set(false);
         this.selection.clear();
       },
