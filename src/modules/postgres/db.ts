@@ -173,6 +173,29 @@ export interface VibePresetsTable {
 	updated_at: number; // BigInt or Numeric in DB, maps to number (timestamp)
 }
 
+// Add this new interface
+export interface LlmCallsTable {
+	id: string; // PRIMARY KEY
+	description: string | null;
+	messages_serialized: string; // JSON string of LlmMessage[]
+	settings_serialized: string; // JSON string of CallSettings
+	request_time: ColumnType<Date, string | Date, string | Date>; // TIMESTAMPTZ
+	agent_id: string | null;
+	user_id: string | null;
+	call_stack: string | null; // JSON string of string[]
+	time_to_first_token: number | null;
+	total_time: number | null;
+	cost: number | null;
+	input_tokens: number | null;
+	output_tokens: number | null;
+	cached_input_tokens: number | null;
+	error: string | null;
+	llm_id: string | null; // To store the llm_id from the response for easier querying
+	// Standard audit columns, assuming DB defaults for created_at and auto-updates updated_at
+	created_at: ColumnType<Date, string | undefined, never>;
+	updated_at: ColumnType<Date, string | undefined, string | undefined>;
+}
+
 export interface Database {
 	agent_contexts: AgentContextsTable;
 	agent_iterations: AgentIterationsTable;
@@ -183,6 +206,7 @@ export interface Database {
 	users: UsersTable;
 	vibe_sessions: VibeSessionsTable;
 	vibe_presets: VibePresetsTable;
+	llm_calls: LlmCallsTable; // Add this line
 }
 
 const dialect = new PostgresDialect({
