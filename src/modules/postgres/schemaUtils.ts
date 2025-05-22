@@ -1,5 +1,5 @@
 import { type Kysely, sql } from 'kysely';
-import type { Database } from './db';
+import { db, type Database } from './db'; // Import db here
 
 export async function ensureUsersTableExists(dbInstance: Kysely<Database>): Promise<void> {
 	await dbInstance.schema
@@ -113,5 +113,53 @@ export async function ensureAgentIterationsTableExists(dbInstance: Kysely<Databa
 			['agent_id'], // Column(s) in foreign table
 			(cb) => cb.onDelete('cascade'), // Add ON DELETE CASCADE
 		)
+		.execute();
+}
+
+export async function ensureVibeTablesExist(): Promise<void> {
+	// Vibe Sessions Table
+	await db.schema
+		.createTable('vibe_sessions')
+		.ifNotExists()
+		.addColumn('id', 'text', (col) => col.primaryKey())
+		.addColumn('user_id', 'text', (col) => col.notNull())
+		.addColumn('title', 'text', (col) => col.notNull())
+		.addColumn('instructions', 'text', (col) => col.notNull())
+		.addColumn('repository_source', 'text', (col) => col.notNull())
+		.addColumn('repository_id', 'text', (col) => col.notNull())
+		.addColumn('repository_name', 'text')
+		.addColumn('target_branch', 'text', (col) => col.notNull())
+		.addColumn('working_branch', 'text', (col) => col.notNull())
+		.addColumn('create_working_branch', 'boolean', (col) => col.notNull())
+		.addColumn('use_shared_repos', 'boolean', (col) => col.notNull())
+		.addColumn('status', 'text', (col) => col.notNull())
+		.addColumn('last_agent_activity', 'bigint', (col) => col.notNull()) // Storing as bigint for JS number (Date.now())
+		.addColumn('file_selection_serialized', 'text')
+		.addColumn('original_file_selection_for_review_serialized', 'text')
+		.addColumn('design_answer_serialized', 'text')
+		.addColumn('selected_variations', 'integer')
+		.addColumn('code_diff', 'text')
+		.addColumn('commit_sha', 'text')
+		.addColumn('pull_request_url', 'text')
+		.addColumn('ci_cd_status', 'text')
+		.addColumn('ci_cd_job_url', 'text')
+		.addColumn('ci_cd_analysis', 'text')
+		.addColumn('ci_cd_proposed_fix', 'text')
+		.addColumn('created_at', 'bigint', (col) => col.notNull()) // Storing as bigint for JS number (Date.now())
+		.addColumn('updated_at', 'bigint', (col) => col.notNull()) // Storing as bigint for JS number (Date.now())
+		.addColumn('agent_history_serialized', 'text')
+		.addColumn('error_message', 'text')
+		.execute();
+
+	// Vibe Presets Table
+	await db.schema
+		.createTable('vibe_presets')
+		.ifNotExists()
+		.addColumn('id', 'text', (col) => col.primaryKey())
+		.addColumn('user_id', 'text', (col) => col.notNull())
+		.addColumn('name', 'text', (col) => col.notNull())
+		.addColumn('config_serialized', 'text', (col) => col.notNull())
+		.addColumn('created_at', 'bigint', (col) => col.notNull()) // Storing as bigint for JS number (Date.now())
+		.addColumn('updated_at', 'bigint', (col) => col.notNull()) // Storing as bigint for JS number (Date.now())
 		.execute();
 }
