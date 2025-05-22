@@ -116,7 +116,31 @@ export class PostgresAgentStateService implements AgentContextService {
 	}
 
 	private async _deserializeDbRowToAgentContext(row: Selectable<AgentContextsTable>): Promise<AgentContext> {
-		const userForDeserialization = currentUser().id === row.user_id ? currentUser() : ({ id: row.user_id } as User);
+		// This entire block should be inserted before the main return statement of _rowToAgentContext
+		let resolvedUserId: string;
+
+		if (row.user_id === null || row.user_id === undefined) {
+			// logger.error(`_rowToAgentContext: user_id from database is null or undefined for agent_id: ${row.agent_id}. This violates schema constraints. Throwing error.`);
+			throw new Error(`User ID is unexpectedly null or undefined for agent_id: ${row.agent_id}. This field is NOT NULL in the database.`);
+		}
+
+		if (typeof row.user_id === 'object') {
+			// It's an object. Check for 'id' property.
+			// Ensure row.user_id is not null before accessing 'id' property, although the first 'if' should cover null.
+			if (row.user_id && 'id' in row.user_id && row.user_id.id !== null && row.user_id.id !== undefined) {
+				resolvedUserId = String(row.user_id.id);
+			} else {
+				// It's an object but doesn't have a usable 'id'. This is an error.
+				// logger.error(`_rowToAgentContext: user_id for agent_id ${row.agent_id} is an object but lacks a valid 'id' property. Value: ${JSON.stringify(row.user_id)}`);
+				throw new Error(`User ID for agent_id ${row.agent_id} is an object but lacks a valid 'id' property.`);
+			}
+		} else {
+			// It's not an object (and not null/undefined due to the first check).
+			// Assume it's a primitive (string, number from DB) that can be directly converted to a string.
+			resolvedUserId = String(row.user_id);
+		}
+		// End of inserted block
+		const userForDeserialization = currentUser().id === resolvedUserId ? currentUser() : ({ id: resolvedUserId } as User);
 
 		const dataForDeserialization = {
 			agentId: row.agent_id,
@@ -129,7 +153,7 @@ export class PostgresAgentStateService implements AgentContextService {
 			// Assuming row.user_id is string as per AgentContextsTable definition.
 			// If row.user_id can be null or other types from the DB in practice,
 			// then AgentContextsTable definition or Kysely typings for the pg driver might need adjustment.
-			userId: row.user_id,
+			userId: resolvedUserId,
 			state: row.state as AgentRunningState,
 			// Use safeJsonParse for all JSONB fields
 			callStack: this.safeJsonParse(row.call_stack, 'call_stack'),
