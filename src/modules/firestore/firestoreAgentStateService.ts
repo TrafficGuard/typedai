@@ -370,14 +370,10 @@ export class FirestoreAgentStateService implements AgentContextService {
 			const data = doc.data();
 			if (data && typeof data.iteration === 'number') {
 				// Ensure memory is a Record, defaulting to {} if missing or not a valid object.
-				data.memory = (data.memory && typeof data.memory === 'object' && !Array.isArray(data.memory))
-                              ? data.memory
-                              : {};
+				data.memory = data.memory && typeof data.memory === 'object' && !Array.isArray(data.memory) ? data.memory : {};
 
 				// Ensure toolState is a Record, defaulting to {} if missing or not a valid object.
-				data.toolState = (data.toolState && typeof data.toolState === 'object' && !Array.isArray(data.toolState))
-                               ? data.toolState
-                               : {};
+				data.toolState = data.toolState && typeof data.toolState === 'object' && !Array.isArray(data.toolState) ? data.toolState : {};
 
 				// Ensure optional fields are correctly handled (set to undefined if missing/null)
 				data.error = data.error || undefined;

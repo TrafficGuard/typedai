@@ -1,6 +1,6 @@
-import { PostgresVibeRepository } from './postgresVibeRespository';
 import { runVibeRepositoryTests } from '../../vibe/vibeRepository.test';
 import { db } from './db'; // <-- Add this import
+import { PostgresVibeRepository } from './postgresVibeRespository';
 import { ensureVibeTablesExist } from './schemaUtils'; // <-- Add this import
 
 describe('PostgresVibeRepository', () => {

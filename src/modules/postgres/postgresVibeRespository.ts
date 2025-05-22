@@ -1,17 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import type { Insertable, Selectable, Updateable } from 'kysely';
-import type {
-	UpdateVibeSessionData,
-	VibePreset,
-	VibeSession,
-	VibeStatus,
-	DesignAnswer,
-	VibePresetConfig,
-} from '#shared/model/vibe.model';
 import type { SelectedFile } from '#shared/model/files.model';
+import type { DesignAnswer, UpdateVibeSessionData, VibePreset, VibePresetConfig, VibeSession, VibeStatus } from '#shared/model/vibe.model';
 import type { VibeRepository } from '#vibe/vibeRepository';
 import { db } from './db';
-import type { VibeSessionsTable, VibePresetsTable } from './db';
+import type { VibePresetsTable, VibeSessionsTable } from './db';
 // Import logger if you plan to add logging, though not strictly required by tests
 // import { logger } from '#o11y/logger';
 
@@ -40,7 +33,7 @@ function dbToVibeSession(dbRow: Selectable<VibeSessionsTable>): VibeSession {
 		codeDiff: dbRow.code_diff ?? undefined,
 		commitSha: dbRow.commit_sha ?? undefined,
 		pullRequestUrl: dbRow.pull_request_url ?? undefined,
-		ciCdStatus: dbRow.ci_cd_status as VibeSession['ciCdStatus'] ?? undefined,
+		ciCdStatus: (dbRow.ci_cd_status as VibeSession['ciCdStatus']) ?? undefined,
 		ciCdJobUrl: dbRow.ci_cd_job_url ?? undefined,
 		ciCdAnalysis: dbRow.ci_cd_analysis ?? undefined,
 		ciCdProposedFix: dbRow.ci_cd_proposed_fix ?? undefined,
@@ -68,9 +61,7 @@ function vibeSessionToDbInsert(session: VibeSession): Insertable<VibeSessionsTab
 		status: session.status,
 		last_agent_activity: session.lastAgentActivity ?? now,
 		file_selection_serialized: session.fileSelection ? JSON.stringify(session.fileSelection) : null,
-		original_file_selection_for_review_serialized: session.originalFileSelectionForReview
-			? JSON.stringify(session.originalFileSelectionForReview)
-			: null,
+		original_file_selection_for_review_serialized: session.originalFileSelectionForReview ? JSON.stringify(session.originalFileSelectionForReview) : null,
 		design_answer_serialized: session.designAnswer ? JSON.stringify(session.designAnswer) : null,
 		selected_variations: session.selectedVariations ?? null,
 		code_diff: session.codeDiff ?? null,
@@ -89,7 +80,10 @@ function vibeSessionToDbInsert(session: VibeSession): Insertable<VibeSessionsTab
 
 function vibeSessionToDbUpdate(
 	updates: UpdateVibeSessionData,
-): Omit<Updateable<VibeSessionsTable>, 'id' | 'user_id' | 'created_at' | 'repository_id' | 'target_branch' | 'working_branch' | 'create_working_branch' | 'repository_source'> {
+): Omit<
+	Updateable<VibeSessionsTable>,
+	'id' | 'user_id' | 'created_at' | 'repository_id' | 'target_branch' | 'working_branch' | 'create_working_branch' | 'repository_source'
+> {
 	// Create a partial object for updates, ensuring updated_at is always set.
 	// The Omit<> type helps ensure we don't try to update immutable fields.
 	const dbUpdate: Partial<Omit<Updateable<VibeSessionsTable>, 'id' | 'user_id' | 'created_at'>> & { updated_at: number } = {
@@ -166,12 +160,7 @@ export class PostgresVibeRepository implements VibeRepository {
 	}
 
 	async getVibeSession(userId: string, sessionId: string): Promise<VibeSession | null> {
-		const row = await db
-			.selectFrom('vibe_sessions')
-			.selectAll()
-			.where('id', '=', sessionId)
-			.where('user_id', '=', userId)
-			.executeTakeFirst();
+		const row = await db.selectFrom('vibe_sessions').selectAll().where('id', '=', sessionId).where('user_id', '=', userId).executeTakeFirst();
 
 		if (!row) {
 			return null;
@@ -180,12 +169,7 @@ export class PostgresVibeRepository implements VibeRepository {
 	}
 
 	async listVibeSessions(userId: string): Promise<VibeSession[]> {
-		const rows = await db
-			.selectFrom('vibe_sessions')
-			.selectAll()
-			.where('user_id', '=', userId)
-			.orderBy('updated_at', 'desc')
-			.execute();
+		const rows = await db.selectFrom('vibe_sessions').selectAll().where('user_id', '=', userId).orderBy('updated_at', 'desc').execute();
 		return rows.map(dbToVibeSession);
 	}
 
@@ -199,26 +183,20 @@ export class PostgresVibeRepository implements VibeRepository {
 
 		const dbUpdateData = vibeSessionToDbUpdate(updates);
 
-		const result = await db
-			.updateTable('vibe_sessions')
-			.set(dbUpdateData)
-			.where('id', '=', sessionId)
-			.where('user_id', '=', userId)
-			.executeTakeFirst(); // Kysely's executeTakeFirst for updates returns one result object
+		const result = await db.updateTable('vibe_sessions').set(dbUpdateData).where('id', '=', sessionId).where('user_id', '=', userId).executeTakeFirst(); // Kysely's executeTakeFirst for updates returns one result object
 
 		if (!result || result.numUpdatedRows === 0n) {
 			// Check if the session exists at all to provide a more specific error
 			const exists = await db.selectFrom('vibe_sessions').select('id').where('id', '=', sessionId).executeTakeFirst();
 			if (!exists) {
 				throw new Error(`VibeSession with id ${sessionId} not found.`);
-			} else {
-				// Exists, but not for this user, or no effective change was made by the update data
-				// The test expects 'not found' or 'authorized' error message for other user's sessions.
-				// Kysely's update with where('user_id', ...) will result in numUpdatedRows === 0n if the user_id doesn't match.
-				// So, if exists is true but numUpdatedRows is 0, it's likely an ownership issue or no effective change.
-				// We'll throw a generic error that covers both cases, matching the test's expected regex /not found|authorized/i
-				throw new Error(`VibeSession with id ${sessionId} not found for user ${userId} or no changes applied.`);
 			}
+			// Exists, but not for this user, or no effective change was made by the update data
+			// The test expects 'not found' or 'authorized' error message for other user's sessions.
+			// Kysely's update with where('user_id', ...) will result in numUpdatedRows === 0n if the user_id doesn't match.
+			// So, if exists is true but numUpdatedRows is 0, it's likely an ownership issue or no effective change.
+			// We'll throw a generic error that covers both cases, matching the test's expected regex /not found|authorized/i
+			throw new Error(`VibeSession with id ${sessionId} not found for user ${userId} or no changes applied.`);
 		}
 	}
 

@@ -155,7 +155,7 @@ describe('codegenAgentRunner', () => {
 			mockLLM.addResponse('<summary>Test summary for initial completion.</summary>'); // For the IterationSummary
 			await startAgent(runConfig({ functions }));
 			const agent = await waitForAgent();
-			expect(agent.error).to.be.undefined;
+			expect(agent.error).to.be.null;
 			expect(agent.state).to.equal('completed');
 		});
 
@@ -237,7 +237,7 @@ describe('codegenAgentRunner', () => {
 			mockLLM.addResponse('<summary>Test summary after syntax fix and completion.</summary>'); // 3. Summary for the successful completion
 			await startAgent(runConfig({ functions }));
 			const agent = await waitForAgent();
-			expect(agent.error).to.be.undefined;
+			expect(agent.error).to.be.null;
 			expect(agent.state).to.equal('completed');
 		});
 	});

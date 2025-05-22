@@ -1,5 +1,5 @@
 import { type Kysely, sql } from 'kysely';
-import { db, type Database } from './db'; // Import db here
+import { type Database, db } from './db'; // Import db here
 
 export async function ensureUsersTableExists(dbInstance: Kysely<Database>): Promise<void> {
 	await dbInstance.schema
