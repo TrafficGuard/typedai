@@ -61,35 +61,55 @@ export class PostgresAgentStateService implements AgentContextService {
 	}
 
 	/**
-	 * Safely parses a JSON string, returning a default value on null, undefined, empty string,
-	 * or a parsing error. Logs a warning/error if parsing fails or input looks non-JSON.
-	 * @param jsonString The string to parse.
-	 * @param defaultValue The value to return if parsing fails or input is null/undefined/empty.
-	 * @returns The parsed object or the default value.
+	 * Safely parses a JSON string or uses a pre-parsed object.
+	 * Returns null on actual parsing error, null/undefined input, empty string, or unexpected primitive type.
+	 * Logs warnings/errors for issues.
+	 * @param jsonString The string or object to parse/use.
+	 * @param fieldName The name of the field being parsed (for logging).
+	 * @returns The parsed object (T) or null.
 	 */
-	private safeJsonParse<T>(jsonString: string | null | undefined, defaultValue: T): T {
+	private safeJsonParse<T>(jsonString: string | object | null | undefined, fieldName: string): T | null {
 		if (jsonString === null || jsonString === undefined) {
-			return defaultValue;
-		}
-		const trimmed = jsonString.trim();
-		if (trimmed.length === 0) {
-			return defaultValue; // Treat empty string as default
+			// logger.debug(`safeJsonParse: field ${fieldName} was null or undefined, returning null.`); // Optional debug log
+			return null;
 		}
 
 		try {
-			// Attempt parsing. This will throw SyntaxError for invalid JSON.
-			const parsed = JSON.parse(jsonString);
-
-			// Optional: Add a check if the parsed result's type matches the expected type T
-			// This is complex and might require type introspection or additional parameters.
-			// For now, we trust the caller provides a correct defaultValue and handles potential type mismatches after parsing.
-
-			return parsed as T;
+			if (typeof jsonString === 'string') {
+				const trimmed = jsonString.trim();
+				// Prevent parsing empty string as JSON, which would error.
+				// An empty string is not valid JSON.
+				if (trimmed === '') {
+					// logger.debug(`safeJsonParse: field ${fieldName} was an empty string, returning null.`); // Optional debug log
+					return null;
+				}
+				return JSON.parse(trimmed) as T;
+			}
+			// If jsonString is not a string, but is an object (and not null, which is handled by the initial check),
+			// it's assumed to be pre-parsed by the database driver (e.g., for jsonb columns).
+			if (typeof jsonString === 'object') {
+				return jsonString as T;
+			}
+			// If jsonString has passed the initial '!jsonString' check, and is not a string,
+			// and not an object, then it's an unexpected primitive type (e.g., number, boolean)
+			// for a field that's supposed to contain JSON.
+			logger.warn(`safeJsonParse received unexpected primitive type for field ${fieldName}: ${typeof jsonString}. Value: ${String(jsonString)}`);
+			return null;
 		} catch (error) {
-			// Log the error and the problematic string
-			logger.error({ error, jsonStringValue: jsonString }, 'Failed to parse JSON string, returning default value.');
-			// Return default value on parsing error
-			return defaultValue;
+			// Log the original value carefully, as stringifying an object might also fail or be too verbose.
+			let valueToLog: string;
+			if (typeof jsonString === 'string') {
+				valueToLog = jsonString;
+			} else {
+				try {
+					// For objects, attempt to stringify, but keep it concise.
+					valueToLog = JSON.stringify(jsonString)?.substring(0, 200) + (JSON.stringify(jsonString)?.length > 200 ? '...' : '');
+				} catch (e) {
+					valueToLog = `[Unserializable Object of type ${typeof jsonString}]`;
+				}
+			}
+			logger.warn(`Failed to parse or handle JSON for field '${fieldName}'. Value snippet: '${valueToLog}'. Error: ${error instanceof Error ? error.message : String(error)}`);
+			return null;
 		}
 	}
 
