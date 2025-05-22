@@ -126,7 +126,13 @@ export class PostgresAgentStateService implements AgentContextService {
 			name: row.name,
 			parentAgentId: row.parent_agent_id,
 			user: userForDeserialization,
-			userId: row.user_id === null ? String(row.user_id) : (typeof row.user_id === 'object' && 'id' in row.user_id && row.user_id.id !== undefined ? String(row.user_id.id) : String(row.user_id)),
+			userId: row.user_id === null
+				? String(row.user_id)
+				: typeof row.user_id === 'object'
+					// In this branch, row.user_id is established as a non-null object
+					? ('id' in row.user_id && row.user_id.id !== undefined ? String(row.user_id.id) : String(row.user_id))
+					// In this branch, row.user_id is not null and not an object (e.g., it's a string)
+					: String(row.user_id),
 			state: row.state as AgentRunningState,
 			// Use safeJsonParse for all JSONB fields
 			callStack: this.safeJsonParse(row.call_stack, 'call_stack'),
