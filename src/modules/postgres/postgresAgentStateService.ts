@@ -108,7 +108,9 @@ export class PostgresAgentStateService implements AgentContextService {
 					valueToLog = `[Unserializable Object of type ${typeof jsonString}]`;
 				}
 			}
-			logger.warn(`Failed to parse or handle JSON for field '${fieldName}'. Value snippet: '${valueToLog}'. Error: ${error instanceof Error ? error.message : String(error)}`);
+			logger.warn(
+				`Failed to parse or handle JSON for field '${fieldName}'. Value snippet: '${valueToLog}'. Error: ${error instanceof Error ? error.message : String(error)}`,
+			);
 			return null;
 		}
 	}
@@ -126,31 +128,31 @@ export class PostgresAgentStateService implements AgentContextService {
 			user: userForDeserialization,
 			state: row.state as AgentRunningState,
 			// Use safeJsonParse for all JSONB fields
-			callStack: this.safeJsonParse(row.call_stack, null),
+			callStack: this.safeJsonParse(row.call_stack, 'call_stack'),
 			error: row.error,
 			hilBudget: row.hil_budget,
 			hilCount: row.hil_count,
 			cost: row.cost,
 			budgetRemaining: row.budget_remaining,
-			llms: this.safeJsonParse(row.llms_serialized, {}), // Assuming llms is always an object
+			llms: this.safeJsonParse(row.llms_serialized, 'llms_serialized'), // Assuming llms is always an object
 			useSharedRepos: row.use_shared_repos,
-			memory: this.safeJsonParse(row.memory_serialized, {}), // Assuming memory is always an object
+			memory: this.safeJsonParse(row.memory_serialized, 'memory_serialized'), // Assuming memory is always an object
 			lastUpdate: (row.last_update as Date).getTime(),
-			metadata: this.safeJsonParse(row.metadata_serialized, null),
-			functions: this.safeJsonParse(row.functions_serialized, {}), // Assuming functions is always an object
+			metadata: this.safeJsonParse(row.metadata_serialized, 'metadata_serialized'),
+			functions: this.safeJsonParse(row.functions_serialized, 'functions_serialized'), // Assuming functions is always an object
 			completedHandler: row.completed_handler_id,
-			pendingMessages: this.safeJsonParse(row.pending_messages_serialized, null),
+			pendingMessages: this.safeJsonParse(row.pending_messages_serialized, 'pending_messages_serialized'),
 			type: row.type as AgentType,
 			subtype: row.subtype,
 			iterations: row.iterations,
-			invoking: this.safeJsonParse(row.invoking_serialized, null),
-			notes: this.safeJsonParse(row.notes_serialized, null),
+			invoking: this.safeJsonParse(row.invoking_serialized, 'invoking_serialized'),
+			notes: this.safeJsonParse(row.notes_serialized, 'notes_serialized'),
 			userPrompt: row.user_prompt,
 			inputPrompt: row.input_prompt,
-			messages: this.safeJsonParse(row.messages_serialized, []), // Assuming messages is always an array
-			functionCallHistory: this.safeJsonParse(row.function_call_history_serialized, null),
-			liveFiles: this.safeJsonParse(row.live_files_serialized, null),
-			childAgents: this.safeJsonParse(row.child_agents_ids, null),
+			messages: this.safeJsonParse(row.messages_serialized, 'messages_serialized'), // Assuming messages is always an array
+			functionCallHistory: this.safeJsonParse(row.function_call_history_serialized, 'function_call_history_serialized'),
+			liveFiles: this.safeJsonParse(row.live_files_serialized, 'live_files_serialized'),
+			childAgents: this.safeJsonParse(row.child_agents_ids, 'child_agents_ids'),
 			hilRequested: row.hil_requested,
 		};
 		return deserializeContext(dataForDeserialization as any);
@@ -186,7 +188,7 @@ export class PostgresAgentStateService implements AgentContextService {
 			agentId: row.agent_id,
 			iteration: row.iteration_number,
 			// Use safeJsonParse for all JSONB fields
-			functions: this.safeJsonParse(row.functions_serialized, []), // Assuming functions is string[]
+			functions: this.safeJsonParse(row.functions_serialized, 'functions_serialized'), // Assuming functions is string[]
 			prompt: row.prompt,
 			summary: row.summary,
 			expandedUserRequest: row.expanded_user_request,
@@ -197,12 +199,12 @@ export class PostgresAgentStateService implements AgentContextService {
 			executedCode: row.executed_code,
 			draftCode: row.draft_code,
 			codeReview: row.code_review,
-			images: this.safeJsonParse(row.images_serialized, []), // Assuming images is any[]
-			functionCalls: this.safeJsonParse(row.function_calls_serialized, []), // Assuming functionCalls is any[]
-			memory: this.safeJsonParse(row.memory_serialized, {}), // Assuming memory is Record<string, string>
-			toolState: this.safeJsonParse(row.tool_state_serialized, {}), // Assuming toolState is Record<string, any>
+			images: this.safeJsonParse(row.images_serialized, 'images_serialized'), // Assuming images is any[]
+			functionCalls: this.safeJsonParse(row.function_calls_serialized, 'function_calls_serialized'), // Assuming functionCalls is any[]
+			memory: this.safeJsonParse(row.memory_serialized, 'memory_serialized'), // Assuming memory is Record<string, string>
+			toolState: this.safeJsonParse(row.tool_state_serialized, 'tool_state_serialized'), // Assuming toolState is Record<string, any>
 			error: row.error,
-			stats: this.safeJsonParse(row.stats_serialized, null), // Assuming stats is Record<string, any>
+			stats: this.safeJsonParse(row.stats_serialized, 'stats_serialized'), // Assuming stats is Record<string, any>
 			cost: row.cost,
 			// created_at is not part of AutonomousIteration model
 		};
@@ -253,7 +255,7 @@ export class PostgresAgentStateService implements AgentContextService {
 				}
 
 				// Deserialize child_agents_ids before adding using safe parse
-				const childAgents = new Set(this.safeJsonParse<string[] | null>(parent.child_agents_ids, null) || []);
+				const childAgents = new Set(this.safeJsonParse<string[] | null>(parent.child_agents_ids, 'child_agents_ids') || []);
 				if (!childAgents.has(state.agentId)) {
 					childAgents.add(state.agentId);
 					await trx
@@ -345,7 +347,7 @@ export class PostgresAgentStateService implements AgentContextService {
 			allIdsToDelete.add(agent.agent_id);
 			// Deserialize child_agents_ids before adding to the set using safe parse
 			if (agent.child_agents_ids) {
-				const childIds = this.safeJsonParse<string[] | null>(agent.child_agents_ids, null);
+				const childIds = this.safeJsonParse<string[] | null>(agent.child_agents_ids, 'child_agents_ids');
 				if (childIds) {
 					for (const childId of childIds) {
 						allIdsToDelete.add(childId);
