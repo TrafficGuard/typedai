@@ -1,14 +1,14 @@
-import type { Insertable, Kysely, Selectable, Transaction, Updateable } from 'kysely';
 import type { Static } from '@sinclair/typebox';
+import type { Insertable, Kysely, Selectable, Transaction, Updateable } from 'kysely';
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import type { AgentContextService } from '#agent/agentContextService/agentContextService';
-import type { AgentContextSchema } from '#shared/schemas/agent.schema';
 import { deserializeContext, serializeContext } from '#agent/agentSerialization';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { type AgentContext, type AgentRunningState, type AgentType, type AutonomousIteration, isExecuting } from '#shared/model/agent.model';
 import type { FunctionCallResult, GenerationStats, ImagePartExt } from '#shared/model/llm.model';
 import type { User } from '#shared/model/user.model';
+import type { AgentContextSchema } from '#shared/schemas/agent.schema';
 import { currentUser } from '#user/userContext';
 import type { AgentContextsTable, AgentIterationsTable, Database } from './db';
 import { db as defaultDb } from './db';
@@ -162,12 +162,12 @@ export class PostgresAgentStateService implements AgentContextService {
 			hilCount: row.hil_count === null ? undefined : row.hil_count,
 			cost: row.cost !== null && row.cost !== undefined ? Number.parseFloat(String(row.cost)) : 0, // Default in schema if not present
 			budgetRemaining: row.budget_remaining !== null && row.budget_remaining !== undefined ? Number.parseFloat(String(row.budget_remaining)) : undefined,
-			llms: this.safeJsonParse(row.llms_serialized, 'llms_serialized_schema_align') ?? {}, // Default in schema
+			llms: this.safeJsonParse(row.llms_serialized, 'llms_serialized_schema_align') ?? { easy: '', medium: '', hard: '', xhard: '' },
 			useSharedRepos: row.use_shared_repos === null ? undefined : row.use_shared_repos,
 			memory: this.safeJsonParse(row.memory_serialized, 'memory_serialized_schema_align') ?? {}, // Default in schema
 			lastUpdate: (row.last_update as Date).getTime(), // Schema expects number (timestamp)
 			metadata: this.safeJsonParse(row.metadata_serialized, 'metadata_serialized_schema_align') ?? {}, // Default in schema
-			functions: this.safeJsonParse(row.functions_serialized, 'functions_serialized_schema_align') ?? {}, // Default in schema
+			functions: this.safeJsonParse(row.functions_serialized, 'functions_serialized_schema_align') ?? { functionClasses: [] },
 			completedHandler: row.completed_handler_id === null ? undefined : row.completed_handler_id,
 			pendingMessages: this.safeJsonParse(row.pending_messages_serialized, 'pending_messages_serialized_schema_align') ?? [],
 			type: row.type as AgentType, // Assuming AgentType is compatible

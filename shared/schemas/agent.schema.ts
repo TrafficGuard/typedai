@@ -1,14 +1,7 @@
 import { Type, type Static } from '@sinclair/typebox';
-import type { AgentContext, AutonomousIteration, AgentRunningState, TaskLevel, AgentLLMs, LlmFunctions, AgentCompleted } from '../model/agent.model';
+import type { AgentContext, AutonomousIteration } from '../model/agent.model';
 import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
-import type { Writable } from '../typeUtils'; // Added Writable import
-import type { FunctionCall, FunctionCallResult, LlmMessage, ImagePartExt, GenerationStats, TextPart, FilePartExt } from '../model/llm.model';
-import type { FileMetadata } from '../model/files.model';
-import type { User } from '../model/user.model';
 import {LlmMessagesSchema, LlmMessagesSchemaModel} from './llm.schema'
-import { ChangePropertyType } from '#shared/typeUtils';
-import { UserProfileSchema, UserSchema } from './user.schema';
-import type { IFileSystemService } from '#shared/services/fileSystemService'; // Import IFileSystemService for type comparison
 
 export const AgentTypeSchema = Type.Union([Type.Literal('autonomous'), Type.Literal('workflow')], { $id: 'AgentType' });
 export const AutonomousSubTypeSchema = Type.Union([Type.Literal('xml'), Type.Literal('codegen'), Type.String()], { $id: 'AutonomousSubType' }); // string for custom subtypes
