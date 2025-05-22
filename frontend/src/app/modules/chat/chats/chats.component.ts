@@ -60,7 +60,7 @@ export class ChatsComponent implements OnInit, OnDestroy {
     // State Signals for async operations
     isLoading = signal(false);
     error = signal<any | null>(null);
-    isCreatingChat = signal(false);
+    // isCreatingChat signal is removed as chat creation is deferred
 
     // Computed properties
     filteredSessions = computed(() => {
@@ -159,39 +159,11 @@ export class ChatsComponent implements OnInit, OnDestroy {
 
     /**
      * Handles the click event for creating a new chat.
+     * Navigates to the new chat route.
      */
     startNewChat(): void {
-        if (this.isCreatingChat()) {
-            return;
-        }
-        this.isCreatingChat.set(true);
-
-        // Assuming default LLM or a way to get it. For now, 'default-llm' placeholder.
-        // Assuming CreateChatRequest is optional and an empty object {} is acceptable for default creation
-        this.chatService.createChat('', 'default-llm')
-            .pipe(takeUntilDestroyed(this.destroyRef))
-            .subscribe({
-                next: (newChat: Chat) => {
-                    if (newChat && newChat.id) {
-                        this.router.navigate(['./', newChat.id], { relativeTo: this.route });
-                        // The effect listening to chatService.chats() will update the list
-                    } else {
-                        console.error('New chat created but ID is missing or invalid:', newChat);
-                    }
-                    this.isCreatingChat.set(false);
-                },
-                error: (err) => {
-                    console.error('Error creating new chat:', err);
-                    this.isCreatingChat.set(false);
-                    // Optional: Display a user-friendly error message to the user
-                },
-                complete: () => {
-                    // Ensure flag is reset if observable completes without next/error
-                    if (this.isCreatingChat()) {
-                        this.isCreatingChat.set(false);
-                    }
-                }
-            });
+        // Navigate directly to the new chat route
+        this.router.navigate(['./', NEW_CHAT_ID], { relativeTo: this.route });
     }
 
     /**

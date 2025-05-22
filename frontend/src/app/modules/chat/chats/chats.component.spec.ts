@@ -48,7 +48,7 @@ describe('ChatsComponent', () => {
         // Mock default return values for service methods called during component initialization or general use
         // loadChats is called in ngOnInit, make it return an observable that completes immediately with data
         mockChatService.loadChats.and.returnValue(of([...mockSessionsData]));
-        // createChat needs a default return for tests that don't specifically mock it
+        // createChat is no longer called by startNewChat, but keep a mock for other potential uses or future tests
         mockChatService.createChat.and.returnValue(of({ id: 'new-chat-default', title: 'Default New Chat', updatedAt: Date.now() }));
         // deleteChat needs a default return
         mockChatService.deleteChat.and.returnValue(of(void 0));
@@ -318,62 +318,16 @@ describe('ChatsComponent', () => {
 
 
     describe('startNewChat', () => {
-        it('should call chatService.createChat and navigate on successful creation', fakeAsync(() => {
-            const newChatMock: Chat = { id: 'new-chat-123', title: 'Test Chat', updatedAt: Date.now() };
-            mockChatService.createChat.and.returnValue(of(newChatMock));
-            mockChatService.loadChats.and.returnValue(of([...mockSessionsData, newChatMock])); // Mock loadChats for refresh
-
+        it('should navigate to the new chat route', fakeAsync(() => {
             component.startNewChat();
-            tick(); // Allow createChat observable to complete
-            fixture.detectChanges(); // Update view
-
-            expect(mockChatService.createChat).toHaveBeenCalledWith('', 'default-llm');
-            expect(mockRouter.navigate).toHaveBeenCalledWith(['./', newChatMock.id], { relativeTo: mockActivatedRoute });
-            expect(component.isCreatingChat()).toBeFalse();
-            // Check if loadChats was called after creation (assuming service doesn't auto-update signal)
-            expect(mockChatService.loadChats).toHaveBeenCalledTimes(2); // Initial load + load after create
-            expect(component.sessions()).toContain(newChatMock);
-        }));
-
-        it('should set isCreatingChat to false and log error on chat creation failure', fakeAsync(() => {
-            const errorResponse = new Error('Failed to create chat');
-            mockChatService.createChat.and.returnValue(throwError(() => errorResponse));
-            spyOn(console, 'error');
-
-            component.startNewChat();
-            tick(); // Allow createChat observable to complete
-            fixture.detectChanges(); // Update view
-
-            expect(mockChatService.createChat).toHaveBeenCalledWith('', 'default-llm');
-            expect(mockRouter.navigate).not.toHaveBeenCalled();
-            expect(component.isCreatingChat()).toBeFalse();
-            expect(console.error).toHaveBeenCalledWith('Error creating new chat:', errorResponse);
-        }));
-
-        it('should not call createChat if isCreatingChat is already true', () => {
-            component.isCreatingChat.set(true);
-            component.startNewChat();
+            // No API call should be made
             expect(mockChatService.createChat).not.toHaveBeenCalled();
-        });
-
-        it('should disable the New Chat button while creating', fakeAsync(() => {
-            // Mock createChat to not complete immediately so we can check the state
-            mockChatService.createChat.and.returnValue(EMPTY); // Use EMPTY to simulate ongoing request
-
-            component.startNewChat();
-            fixture.detectChanges(); // Update view
-
-            expect(component.isCreatingChat()).toBeTrue();
-            const newChatButton: HTMLButtonElement = fixture.nativeElement.querySelector('button[color="primary"]');
-            expect(newChatButton.disabled).toBeTrue();
-            expect(newChatButton.textContent).toContain('Creating...');
-            expect(newChatButton.querySelector('mat-icon').getAttribute('svgicon')).toBe('heroicons_outline:arrow-path');
-
-            // Simulate completion (e.g., error or success)
-            // If using EMPTY, need to manually complete or error the underlying subject if mockChatService used one.
-            // For this test, just checking the state after the call is sufficient if the observable is mocked to be pending.
-            // If using 'of' or 'throwError', the state will be false immediately after tick().
+            // Should navigate to the NEW_CHAT_ID route
+            expect(mockRouter.navigate).toHaveBeenCalledWith(['./', NEW_CHAT_ID], { relativeTo: mockActivatedRoute });
+            // isCreatingChat signal is removed, no state to check
         }));
+
+        // Remove tests related to isCreatingChat state and API call success/failure
     });
 
     describe('onClickDeleteSession', () => {
@@ -479,3 +433,4 @@ describe('ChatsComponent', () => {
         expect(component.trackBySessionId(0, session)).toBe('test-id');
     });
 });
+```
