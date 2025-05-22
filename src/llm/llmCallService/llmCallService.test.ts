@@ -255,7 +255,7 @@ export function runLlmCallServiceTests(
 
 						// Skip properties that are undefined in the sourceData, so deep.include doesn't assert them as undefined.
 						if (sourceData[typedKey] !== undefined) {
-							expectedSubset[typedKey] = sourceData[typedKey];
+							(expectedSubset as any)[typedKey] = sourceData[typedKey];
 						}
 					}
 				}
@@ -336,7 +336,7 @@ export function runLlmCallServiceTests(
 
 						// Skip properties that are undefined in the sourceData, so deep.include doesn't assert them as undefined.
 						if (sourceData[typedKey] !== undefined) {
-							expectedSubset[typedKey] = sourceData[typedKey];
+							(expectedSubset as any)[typedKey] = sourceData[typedKey];
 						}
 					}
 				}
@@ -416,7 +416,7 @@ export function runLlmCallServiceTests(
 
 						// Skip properties that are undefined in the sourceData, so deep.include doesn't assert them as undefined.
 						if (sourceData[typedKey] !== undefined) {
-							expectedSubset[typedKey] = sourceData[typedKey];
+							(expectedSubset as any)[typedKey] = sourceData[typedKey];
 						}
 					}
 				}
