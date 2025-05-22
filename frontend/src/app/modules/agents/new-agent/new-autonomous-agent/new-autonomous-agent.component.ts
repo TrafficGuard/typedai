@@ -16,7 +16,6 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { HttpClient } from "@angular/common/http";
 import { MatSnackBar } from "@angular/material/snack-bar";
 import { Router } from "@angular/router";
 import { LlmService } from "../../services/llm.service";
@@ -27,12 +26,6 @@ import { MatCheckboxModule } from "@angular/material/checkbox";
 import { AgentService } from '../../services/agent.service';
 import {MatCard, MatCardContent} from "@angular/material/card";
 import {AutonomousSubType} from "#shared/model/agent.model";
-
-interface StartAgentResponse {
-  data: {
-    agentId: string;
-  };
-}
 
 const defaultSubType: AutonomousSubType = 'codegen';
 
@@ -68,7 +61,6 @@ export class NewAutonomousAgentComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   constructor(
-      private http: HttpClient,
       private snackBar: MatSnackBar,
       private router: Router,
       // private agentEventService: AgentEventService,
@@ -229,30 +221,37 @@ export class NewAutonomousAgentComponent implements OnInit, OnDestroy {
     const selectedFunctions: string[] = this.functions
         .filter((_, index) => this.runAgentForm.value['function' + index])
         .map((tool, _) => tool);
-    this.http
-        .post<StartAgentResponse>(`/api/agent/v1/start`, {
-          name: this.runAgentForm.value.name,
-          userPrompt: this.runAgentForm.value.userPrompt,
-          type: 'autonomous',
-          subtype: this.runAgentForm.value.subtype,
-          // systemPrompt: this.runAgentForm.value.systemPrompt,
-          functions: selectedFunctions,
-          budget: this.runAgentForm.value.budget,
-          count: this.runAgentForm.value.count,
-          llmEasy: this.runAgentForm.value.llmEasy,
-          llmMedium: this.runAgentForm.value.llmMedium,
-          llmHard: this.runAgentForm.value.llmHard,
-          useSharedRepos: this.runAgentForm.value.useSharedRepos,
-        })
+
+    const payload = {
+      agentName: this.runAgentForm.value.name,
+      initialPrompt: this.runAgentForm.value.userPrompt,
+      type: 'autonomous' as const,
+      subtype: this.runAgentForm.value.subtype,
+      functions: selectedFunctions,
+      humanInLoop: {
+        budget: this.runAgentForm.value.budget,
+        count: this.runAgentForm.value.count,
+      },
+      llms: {
+        easy: this.runAgentForm.value.llmEasy,
+        medium: this.runAgentForm.value.llmMedium,
+        hard: this.runAgentForm.value.llmHard,
+      },
+      useSharedRepos: this.runAgentForm.value.useSharedRepos,
+    };
+
+    this.agentService.startAgent(payload)
         .pipe(finalize(() => this.isSubmitting = false))
         .subscribe({
-          next: (response) => {
+          next: (response) => { // response is AgentContextApi
             this.snackBar.open('Agent started', 'Close', { duration: 3000 });
-            this.router.navigate(['/ui/agents', response.data.agentId]).catch(console.error);
+            // AgentContextApi (from AGENT_API.start response) has agentId directly.
+            this.router.navigate(['/ui/agents', response.agentId]).catch(console.error);
           },
           error: (error) => {
-            this.snackBar.open(`Error ${error.message}`, 'Close', { duration: 3000 });
-            console.error('Error starting agent', error);
+            const errorMessage = error?.message || 'Failed to start agent';
+            this.snackBar.open(`Error: ${errorMessage}`, 'Close', { duration: 3000 });
+            console.error('Error starting agent via service', error);
           },
         });
   }
