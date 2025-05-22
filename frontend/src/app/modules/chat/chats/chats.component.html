@@ -8,10 +8,11 @@
                 <button
                     mat-flat-button
                     [color]="'primary'"
-                    (click)="onClickNewChat()"
+                    (click)="startNewChat()"
+                    [disabled]="isCreatingChat()"
                 >
-                    <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
-                    <span class="ml-2 mr-1">New Chat</span>
+                    <mat-icon [svgIcon]="isCreatingChat() ? 'heroicons_outline:arrow-path' : 'heroicons_outline:plus'"></mat-icon>
+                    <span class="ml-2 mr-1">{{ isCreatingChat() ? 'Creating...' : 'New Chat' }}</span>
                 </button>
             </div>
             <!-- Search Field -->
@@ -28,7 +29,7 @@
                     <input
                         matInput
                         [autocomplete]="'off'"
-                        [disabled]="!(sessions() && sessions()!.length > 0)"
+                        [disabled]="!(sessions() && sessions()!.length > 0) || isLoading()"
                         [placeholder]="'Search chat titles'"
                         [value]="filterTerm()"
                         (input)="onFilterSessions($event)"
@@ -39,71 +40,96 @@
 
         <!-- Sessions -->
         <div class="flex-auto overflow-y-auto">
+            <!-- Loading State -->
+            @if (isLoading()) {
+                <div class="flex h-full flex-auto flex-col items-center justify-center p-8">
+                    <mat-progress-spinner mode="indeterminate" [diameter]="50"></mat-progress-spinner>
+                    <div class="mt-4 text-lg font-medium">Loading chats...</div>
+                </div>
+            }
+
+            <!-- Error State -->
+            @if (!isLoading() && error()) {
+                <div class="flex h-full flex-auto flex-col items-center justify-center p-8">
+                    <mat-icon class="icon-size-24 text-red-500" [svgIcon]="'heroicons_outline:exclamation-triangle'"></mat-icon>
+                    <div class="mt-4 text-2xl font-semibold tracking-tight">Error Loading Chats</div>
+                    <div class="text-secondary text-center">Could not load your chat sessions. Please try again.</div>
+                    <button mat-stroked-button color="warn" (click)="retryLoadChats()" class="mt-6">
+                        Retry
+                    </button>
+                    <!-- <pre class="mt-2 text-sm whitespace-pre-wrap">{{ error() | json }}</pre> -->
+                </div>
+            }
+
             <!-- Content Area: Chat List or No Chats Message -->
-            <div>
-                @if (hasDisplayableSessions()) {
-                    @for (session of displaySessions(); track session.id) {
-                        <a
-                            class="z-20 flex cursor-pointer items-center border-b px-0 py-3"
-                            (click)="onSessionSelect(session)"
-                            (mouseenter)="hoveredChatId.set(session.id)"
-                            (mouseleave)="hoveredChatId.set(null)"
-                            [ngClass]="{
-                                'dark:hover:bg-hover hover:bg-gray-100':
-                                    !selectedSessionId() ||
-                                    selectedSessionId() !== session.id,
-                                'bg-primary-50 dark:bg-hover':
-                                    selectedSessionId() &&
-                                    selectedSessionId() === session.id
-                            }"
-                            [routerLink]="[session.id]"
-                        >
-                            <div class="ml-4 min-w-0">
-                                <div class="truncate font-medium leading-5">
-                                    {{ session.title }}
+            @if (!isLoading() && !error()) {
+                <div>
+                    @if (hasDisplayableSessions()) {
+                        @for (session of displaySessions(); track session.id) {
+                            <a
+                                class="z-20 flex cursor-pointer items-center border-b px-0 py-3"
+                                (click)="onSessionSelect(session)"
+                                (mouseenter)="hoveredChatId.set(session.id)"
+                                (mouseleave)="hoveredChatId.set(null)"
+                                [ngClass]="{
+                                    'dark:hover:bg-hover hover:bg-gray-100':
+                                        !selectedSessionId() ||
+                                        selectedSessionId() !== session.id,
+                                    'bg-primary-50 dark:bg-hover':
+                                        selectedSessionId() &&
+                                        selectedSessionId() === session.id
+                                }"
+                                [routerLink]="[session.id]"
+                            >
+                                <div class="ml-4 min-w-0">
+                                    <div class="truncate font-medium leading-5">
+                                        {{ session.title || 'Untitled Chat' }}
+                                    </div>
+                                    <!-- Optionally display last message or timestamp if available in Chat type and needed -->
+                                    <!-- <div class="text-secondary mt-0.5 truncate text-sm leading-4">
+                                        {{ session.lastMessage || 'No messages yet' }}
+                                    </div> -->
                                 </div>
-                                <!-- Optionally display last message or timestamp if available in Chat type and needed -->
-                                <!-- <div class="text-secondary mt-0.5 truncate text-sm leading-4">
-                                    {{ session.lastMessage || 'No messages yet' }}
-                                </div> -->
-                            </div>
-                            <div class="ml-auto flex flex-col items-end self-start pl-2">
-                                <!-- <div class="text-secondary whitespace-nowrap text-xs leading-4">
-                                    {{ session.lastMessageAt | date:'shortTime' }}
-                                </div> -->
-                                @if (hoveredChatId() === session.id) {
-                                    <button (click)="onClickDeleteSession($event, session)" class="absolute">
-                                        <mat-icon
-                                                class="text-hint icon-size-5 mr-1 p-0"
-                                                [svgIcon]="'heroicons_solid:trash'"
-                                        ></mat-icon>
-                                    </button>
+                                <div class="ml-auto flex flex-col items-end self-start pl-2">
+                                    <!-- <div class="text-secondary whitespace-nowrap text-xs leading-4">
+                                        {{ session.lastMessageAt | date:'shortTime' }}
+                                    </div> -->
+                                    @if (hoveredChatId() === session.id && session.id !== NEW_CHAT_ID) {
+                                        <button (click)="onClickDeleteSession($event, session)" class="absolute">
+                                            <mat-icon
+                                                    class="text-hint icon-size-5 mr-1 p-0"
+                                                    [svgIcon]="'heroicons_solid:trash'"
+                                            ></mat-icon>
+                                        </button>
+                                    }
+                                </div>
+                            </a>
+                        }
+                    } @else {
+                        <!-- No Chats State -->
+                        <div class="flex h-full flex-auto flex-col items-center justify-center p-8">
+                            <mat-icon
+                                class="icon-size-24"
+                                [svgIcon]="filterTerm() ? 'heroicons_outline:magnifying-glass-circle' : 'heroicons_outline:chat-bubble-oval-left-ellipsis'"
+                            ></mat-icon>
+                            <div class="text-secondary mt-4 text-2xl font-semibold tracking-tight">
+                                @if (filterTerm()) {
+                                    No chats found matching "{{filterTerm()}}"
+                                } @else {
+                                    No chats available.
                                 }
                             </div>
-                        </a>
-                    }
-                } @else {
-                    <!-- No Chats State -->
-                    <div class="flex h-full flex-auto flex-col items-center justify-center p-8">
-                        <mat-icon
-                            class="icon-size-24"
-                            [svgIcon]="'heroicons_outline:chat-bubble-oval-left-ellipsis'"
-                        ></mat-icon>
-                        <div class="text-secondary mt-4 text-2xl font-semibold tracking-tight">
-                            No chats available.
+                            <div class="text-secondary mt-1">
+                                @if (filterTerm()) {
+                                    Try a different search term.
+                                } @else {
+                                    Click "New Chat" to start a conversation.
+                                }
+                            </div>
                         </div>
-                        <!-- Optional: A button to create a new chat if the list is empty -->
-                        <!-- <button
-                            mat-flat-button
-                            [color]="'primary'"
-                            class="mt-4"
-                            (click)="onClickNewChat()"
-                        >
-                            Start a New Chat
-                        </button> -->
-                    </div>
-                }
-            </div>
+                    }
+                </div>
+            }
         </div>
     </div>
 
