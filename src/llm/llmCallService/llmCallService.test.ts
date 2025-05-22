@@ -247,9 +247,9 @@ export function runLlmCallServiceTests(
 				// For the general deep.include, we create a subset of expectedRetrievedData
 				// that excludes fields with highly variable implementation or those tested separately.
 				const expectedSubset: Partial<LlmCall> = { ...expectedRetrievedData };
-				delete expectedSubset.warning; // Tested specifically below
-				delete expectedSubset.llmCallId; // Implementation detail, varies by service, tested below
-				delete expectedSubset.chunkCount; // Implementation detail, varies by service, tested below
+				expectedSubset.warning = undefined; // Tested specifically below
+				expectedSubset.llmCallId = undefined; // Implementation detail, varies by service, tested below
+				expectedSubset.chunkCount = undefined; // Implementation detail, varies by service, tested below
 
 				// Ensure all other defined fields in fullCallData are present and correct in retrievedCall
 				expect(retrievedCall).to.deep.include(expectedSubset);
@@ -317,29 +317,32 @@ export function runLlmCallServiceTests(
 				// For the general deep.include, we create a subset of expectedRetrievedData
 				// that excludes fields with highly variable implementation or those tested separately.
 				const expectedSubset: Partial<LlmCall> = { ...expectedRetrievedData };
-				delete expectedSubset.warning; // Tested specifically below
-				delete expectedSubset.llmCallId; // Implementation detail, varies by service, tested below
-				delete expectedSubset.chunkCount; // Implementation detail, varies by service, tested below
+				expectedSubset.warning = undefined; // Tested specifically below
+				expectedSubset.llmCallId = undefined; // Implementation detail, varies by service, tested below
+				expectedSubset.chunkCount = undefined; // Implementation detail, varies by service, tested below
 
 				// Ensure all other defined fields in fullCallData are present and correct in retrievedCall
 				expect(retrievedCall).to.deep.include(expectedSubset);
 
 				// Specific check for warning (accounts for services that might not store it or store it as null)
-				if (minimalCallData.warning !== undefined) { // Using minimalCallData here
+				if (minimalCallData.warning !== undefined) {
+					// Using minimalCallData here
 					expect(retrievedCall?.warning).to.be.oneOf([minimalCallData.warning, undefined, null]);
 				} else {
 					expect(retrievedCall?.warning).to.be.oneOf([undefined, null]);
 				}
 
 				// Specific check for llmCallId
-				if (minimalCallData.llmCallId !== undefined) { // Using minimalCallData here
+				if (minimalCallData.llmCallId !== undefined) {
+					// Using minimalCallData here
 					expect(retrievedCall?.llmCallId).to.equal(minimalCallData.llmCallId);
 				} else {
 					expect(retrievedCall?.llmCallId).to.be.oneOf([undefined, null, retrievedCall?.id]);
 				}
 
 				// Specific check for chunkCount
-				if (minimalCallData.chunkCount !== undefined) { // Using minimalCallData here
+				if (minimalCallData.chunkCount !== undefined) {
+					// Using minimalCallData here
 					expect(retrievedCall?.chunkCount).to.equal(minimalCallData.chunkCount);
 				} else {
 					expect(retrievedCall?.chunkCount).to.satisfy(
@@ -383,29 +386,32 @@ export function runLlmCallServiceTests(
 				// For the general deep.include, we create a subset of expectedRetrievedData
 				// that excludes fields with highly variable implementation or those tested separately.
 				const expectedSubset: Partial<LlmCall> = { ...expectedRetrievedData };
-				delete expectedSubset.warning; // Tested specifically below
-				delete expectedSubset.llmCallId; // Implementation detail, varies by service, tested below
-				delete expectedSubset.chunkCount; // Implementation detail, varies by service, tested below
+				expectedSubset.warning = undefined; // Tested specifically below
+				expectedSubset.llmCallId = undefined; // Implementation detail, varies by service, tested below
+				expectedSubset.chunkCount = undefined; // Implementation detail, varies by service, tested below
 
 				// Ensure all other defined fields in fullCallData are present and correct in retrievedCall
 				expect(retrievedCall).to.deep.include(expectedSubset);
 
 				// Specific check for warning (accounts for services that might not store it or store it as null)
-				if (secondCallData.warning !== undefined) { // Using secondCallData here
+				if (secondCallData.warning !== undefined) {
+					// Using secondCallData here
 					expect(retrievedCall?.warning).to.be.oneOf([secondCallData.warning, undefined, null]);
 				} else {
 					expect(retrievedCall?.warning).to.be.oneOf([undefined, null]);
 				}
 
 				// Specific check for llmCallId
-				if (secondCallData.llmCallId !== undefined) { // Using secondCallData here
+				if (secondCallData.llmCallId !== undefined) {
+					// Using secondCallData here
 					expect(retrievedCall?.llmCallId).to.equal(secondCallData.llmCallId);
 				} else {
 					expect(retrievedCall?.llmCallId).to.be.oneOf([undefined, null, retrievedCall?.id]);
 				}
 
 				// Specific check for chunkCount
-				if (secondCallData.chunkCount !== undefined) { // Using secondCallData here
+				if (secondCallData.chunkCount !== undefined) {
+					// Using secondCallData here
 					expect(retrievedCall?.chunkCount).to.equal(secondCallData.chunkCount);
 				} else {
 					expect(retrievedCall?.chunkCount).to.satisfy(

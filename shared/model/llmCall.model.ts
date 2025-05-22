@@ -18,7 +18,8 @@ export interface LlmRequest {
 	llmId: string;
 	/** Time of the LLM request */
 	requestTime: number;
-	/** Internal ID used for linking chunks in Firestore due to maximum doc size limits. Matches the first chunk id. */
+
+	/** Internal ID used for linking chunks in Firestore due to maximum doc size limits. Matches the first chunk id. Ideally remove from the public interface as it's an implementation detail */
 	llmCallId?: string;
 }
 
@@ -32,10 +33,11 @@ export interface LlmCall extends LlmRequest {
 	cost?: number;
 	inputTokens?: number;
 	outputTokens?: number;
-	/** Number of chunks the messages are split into (0 if not chunked). Specific to Firestore */
-	chunkCount?: number;
 	/** Notification if the response was not in the format expected by the prompt, i.e. couldn't parse the result or json tag */
 	warning?: string;
 	/** If there was a provider or network error */
 	error?: string;
+
+	/** Number of chunks the messages are split into (0 if not chunked). Specific to Firestore. Ideally remove from the public interface */
+	chunkCount?: number;
 }
