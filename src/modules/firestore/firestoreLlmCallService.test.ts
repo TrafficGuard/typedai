@@ -9,8 +9,15 @@ import type { User } from '#shared/model/user.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import type { LlmCall } from '#shared/model/llmCall.model';
 
-// Firestore document size limit (use same constant as service)
+// Firestore document size limit (slightly under 1 MiB)
 const MAX_DOC_SIZE = 1_000_000;
+// Threshold for externalizing message part data (e.g., 500KB)
+const EXTERNAL_DATA_THRESHOLD = 500_000;
+// Subdirectory within agent storage for message data
+const MSG_DATA_SUBDIR = 'msgData';
+// Prefix for references to externally stored data
+const AGENT_REF_PREFIX = 'agentfs://';
+
 
 // Helper to generate large strings
 const generateLargeString = (size: number): string => {

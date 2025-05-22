@@ -46,9 +46,9 @@ export class PostgresLlmCallService implements LlmCallService {
 			cacheCreationInputTokens: undefined, // Not stored separately in Postgres
 			cacheReadInputTokens: undefined,   // Not stored separately in Postgres
 			error: row.error ?? undefined,
-			llmCallId: undefined, // Firestore-specific
-			warning: undefined, // Not in DB schema
-			chunkCount: undefined, // Not in DB schema, default to undefined or 0 if appropriate for LlmCall
+			llmCallId: undefined, // Firestore-specific, not used in Postgres
+			warning: undefined, // Not in DB schema, default to undefined
+			chunkCount: undefined, // Not in DB schema, default to undefined
 		};
 	}
 
@@ -60,15 +60,16 @@ export class PostgresLlmCallService implements LlmCallService {
 		const currentAgentContext = agentContext();
 		const currentAppUser = currentUser();
 
-		// Determine agentId: Use request.agentId if explicitly provided, otherwise use agentContext
+		// Determine agentId: Use request.agentId if explicitly provided (even if undefined), otherwise use agentContext
 		const agentId = 'agentId' in request ? request.agentId : currentAgentContext?.agentId;
-		// Determine userId: Use request.userId if explicitly provided, otherwise use currentUser
+		// Determine userId: Use request.userId if explicitly provided (even if undefined), otherwise use currentUser
 		const userId = 'userId' in request ? request.userId : currentAppUser?.id;
-		// Determine callStack: Use request.callStack if explicitly provided, otherwise generate from agentContext
+		// Determine callStack: Use request.callStack if explicitly provided (even if undefined), otherwise generate from agentContext
 		const callStack = 'callStack' in request ? request.callStack : getCallStackString(currentAgentContext);
 
 
-		const llmCall: LlmCall = {
+		// Construct the full LlmCall object to be returned and for preparing insertData
+		const llmCallToReturn: LlmCall = {
 			id,
 			...request, // contains messages, settings, llmId, description, and potentially agentId, userId, callStack if provided in CreateLlmRequest
 			requestTime,
@@ -76,18 +77,31 @@ export class PostgresLlmCallService implements LlmCallService {
 			agentId,
 			userId,
 			callStack,
+			// Initialize optional LlmCall fields not present in CreateLlmRequest
+			timeToFirstToken: undefined,
+			totalTime: undefined,
+			cost: undefined,
+			inputTokens: undefined,
+			outputTokens: undefined,
+			cacheCreationInputTokens: undefined,
+			cacheReadInputTokens: undefined,
+			chunkCount: undefined, // Postgres doesn't use chunking
+			warning: undefined,
+			error: undefined,
+			llmCallId: undefined, // Postgres doesn't use this for chunking
 		};
 
+
 		const insertData: Insertable<LlmCallsTable> = {
-			id: llmCall.id,
-			description: llmCall.description ?? null,
-			messages_serialized: JSON.stringify(llmCall.messages),
-			settings_serialized: JSON.stringify(llmCall.settings),
-			request_time: new Date(llmCall.requestTime),
-			agent_id: llmCall.agentId ?? null,
-			user_id: llmCall.userId ?? null,
-			call_stack: llmCall.callStack ?? null,
-			llm_id: llmCall.llmId, // llmId is non-optional in LlmCall and CreateLlmRequest
+			id: llmCallToReturn.id,
+			description: llmCallToReturn.description ?? null,
+			messages_serialized: JSON.stringify(llmCallToReturn.messages),
+			settings_serialized: JSON.stringify(llmCallToReturn.settings),
+			request_time: new Date(llmCallToReturn.requestTime),
+			agent_id: llmCallToReturn.agentId ?? null,
+			user_id: llmCallToReturn.userId ?? null,
+			call_stack: llmCallToReturn.callStack ?? null,
+			llm_id: llmCallToReturn.llmId, // llmId is non-optional in LlmCall and CreateLlmRequest
 			time_to_first_token: null,
 			total_time: null,
 			cost: null,
@@ -99,7 +113,7 @@ export class PostgresLlmCallService implements LlmCallService {
 
 		await db.insertInto('llm_calls').values(insertData).execute();
 		logger.debug({ llmCallId: id, agentId, userId }, 'LLM request saved [llmCallId] [agentId] [userId]');
-		return llmCall;
+		return llmCallToReturn;
 	}
 
 	@span()

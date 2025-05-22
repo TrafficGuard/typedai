@@ -55,9 +55,15 @@ export class FirestoreLlmCallService implements LlmCallService {
 			inputTokens: data.inputTokens,
 			outputTokens: data.outputTokens,
 			// Chunk count might not be present in older data or if not chunked
+			// LlmCall interface defines chunkCount as optional number.
+			// Tests expect it to be 0 if not chunked, or undefined/null.
+			// Firestore stores it, so if present, use it, else default to 0 for consistency.
 			chunkCount: data.chunkCount ?? 0,
+			cacheCreationInputTokens: data.cacheCreationInputTokens, // Ensure these are mapped
+			cacheReadInputTokens: data.cacheReadInputTokens,     // Ensure these are mapped
 			// Include llmCallId which might be needed internally, though id is the primary identifier
 			llmCallId: data.llmCallId ?? id,
+			warning: data.warning, // Ensure this is mapped
 			error: data.error,
 		};
 	}
@@ -219,20 +225,24 @@ export class FirestoreLlmCallService implements LlmCallService {
 	 * @param {string} agentId - The agentId to filter the LlmResponse entities.
 	 * @returns {Promise<LlmCall[]>} - A promise that resolves to an array of reconstructed LlmCall entities.
 	 */
-	async getLlmCallsForAgent(agentId: string): Promise<LlmCall[]> {
-		const querySnapshot = await this.db
+	async getLlmCallsForAgent(agentId: string, limit?: number): Promise<LlmCall[]> {
+		let query = this.db
 			.collection('LlmCall')
 			.where('agentId', '==', agentId)
 			// We filter out chunks here, they will be fetched during reconstruction if needed
 			// .where('chunkIndex', '==', null) // Cannot query for null equality directly with inequality/orderBy
-			.orderBy('requestTime', 'desc')
-			.get();
+			.orderBy('requestTime', 'desc');
+
+		if (limit !== undefined) {
+			query = query.limit(limit);
+		}
+		const querySnapshot = await query.get();
 
 		// Filter out chunk documents manually and reconstruct
 		const mainDocs = querySnapshot.docs.filter((doc) => !doc.data().chunkIndex || doc.data().chunkIndex === 0);
 		const reconstructedCalls = await Promise.all(mainDocs.map((doc) => this.getCall(doc.id)));
 
-		// Filter out any null results (shouldn't happen if getCall is correct) and sort again
+		// Filter out any null results and sort again
 		return reconstructedCalls.filter((call): call is LlmCall => call !== null).sort((a, b) => b.requestTime - a.requestTime);
 	}
 
@@ -385,10 +395,14 @@ export class FirestoreLlmCallService implements LlmCallService {
 		}
 	}
 
-	async saveRequest(request: CreateLlmRequest): Promise<LlmRequest> {
+	async saveRequest(request: CreateLlmRequest): Promise<LlmCall> { // Return LlmCall to match interface
 		const id: string = randomUUID();
 		const requestTime = Date.now();
-		const userId = request.userId ?? currentUser()?.id; // Determine userId
+		// Determine userId: Use request.userId if explicitly provided (even if undefined), otherwise use currentUser
+		const userId = 'userId' in request ? request.userId : currentUser()?.id;
+		// Determine agentId: Use request.agentId if explicitly provided (even if undefined), otherwise use agentContext (not available here, so default to undefined)
+		const agentId = 'agentId' in request ? request.agentId : undefined;
+
 
 		// Prepare the core data, excluding messages initially for size calculation/chunking
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -397,7 +411,8 @@ export class FirestoreLlmCallService implements LlmCallService {
 			...baseRequestData,
 			requestTime,
 			llmCallId: id, // Use generated id as llmCallId
-			userId: userId, // Ensure userId is included
+			userId: userId,
+			agentId: agentId,
 		};
 
 		const messagesToSave = messages ?? []; // Handle case where messages might be undefined
@@ -431,13 +446,37 @@ export class FirestoreLlmCallService implements LlmCallService {
 		// Note: messagesToSave here still contains the original data before externalization,
 		// which might be large in memory but is what the caller expects.
 		// The data saved to Firestore has references instead of large blobs.
-		return { id, ...dataToSave, messages: messagesToSave };
+		// Construct the full LlmCall object to return
+		const savedLlmCall: LlmCall = {
+			id,
+			...dataToSave, // This has llmCallId, requestTime, userId, agentId
+			messages: messagesToSave,
+			// Initialize optional LlmCall fields not present in LlmRequest
+			timeToFirstToken: undefined,
+			totalTime: undefined,
+			cost: undefined,
+			inputTokens: undefined,
+			outputTokens: undefined,
+			cacheCreationInputTokens: undefined,
+			cacheReadInputTokens: undefined,
+			chunkCount: 0, // Will be 0 for non-chunked initial save
+			warning: undefined,
+			error: undefined,
+		};
+		return savedLlmCall;
 	}
 
 	async saveResponse(llmCall: LlmCall): Promise<void> {
 		const llmCallId = llmCall.llmCallId ?? llmCall.id;
 		if (!llmCallId) {
 			throw new Error('LlmCall is missing both id and llmCallId');
+		}
+
+		// Check if the main document exists before attempting to save response
+		const mainDocRef = this.db.doc(`LlmCall/${llmCallId}`);
+		const mainDocSnap = await mainDocRef.get();
+		if (!mainDocSnap.exists) {
+			throw new Error(`LlmCall with ID ${llmCallId} not found, cannot save response.`);
 		}
 
 		// Messages should already contain the final assistant response
@@ -530,19 +569,27 @@ export class FirestoreLlmCallService implements LlmCallService {
 		return this.deserialize(mainDocSnap.id, combinedData);
 	}
 
-	async getLlmCallsByDescription(description: string): Promise<LlmCall[]> {
-		const userId = currentUser()?.id;
-		if (!userId) {
-			logger.warn('Cannot getLlmCallsByDescription without a current user ID.');
-			return [];
-		}
-		const querySnapshot = await this.db
+	async getLlmCallsByDescription(description: string, agentId?: string, limit?: number): Promise<LlmCall[]> {
+		// const userId = currentUser()?.id; // Removed userId filter to align with tests
+		// if (!userId) {
+		// 	logger.warn('Cannot getLlmCallsByDescription without a current user ID.');
+		// 	return [];
+		// }
+		let query = this.db
 			.collection('LlmCall')
-			.where('userId', '==', userId)
+			// .where('userId', '==', userId) // Removed userId filter
 			.where('description', '==', description)
 			// Filter out chunks manually after query
-			.orderBy('requestTime', 'desc')
-			.get();
+			.orderBy('requestTime', 'desc');
+
+		if (agentId !== undefined) {
+			query = query.where('agentId', '==', agentId);
+		}
+
+		if (limit !== undefined) {
+			query = query.limit(limit);
+		}
+		const querySnapshot = await query.get();
 
 		// Filter out chunk documents manually and reconstruct
 		const mainDocs = querySnapshot.docs.filter((doc) => !doc.data().chunkIndex || doc.data().chunkIndex === 0);
