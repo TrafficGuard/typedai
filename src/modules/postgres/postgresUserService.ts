@@ -164,9 +164,7 @@ export class PostgresUserService implements UserService {
 				}
 				const user = users.find((u) => u.email === singleUserEmailFromEnv);
 				if (!user) {
-					throw new Error(
-						`Multiple users exist, but no user found with email ${singleUserEmailFromEnv} (from SINGLE_USER_EMAIL) for single user mode.`,
-					);
+					throw new Error(`Multiple users exist, but no user found with email ${singleUserEmailFromEnv} (from SINGLE_USER_EMAIL) for single user mode.`);
 				}
 				this.singleUser = user;
 			} else if (users.length === 1) {
@@ -176,7 +174,8 @@ export class PostgresUserService implements UserService {
 						`The only existing user has email ${this.singleUser.email}, but SINGLE_USER_EMAIL is set to ${singleUserEmailFromEnv}. Using the existing user as the single user.`,
 					);
 				}
-			} else { // No users exist
+			} else {
+				// No users exist
 				if (!singleUserEmailFromEnv) {
 					throw new Error('No users exist and SINGLE_USER_EMAIL environment variable is not set. Cannot create single user.');
 				}
@@ -201,9 +200,7 @@ export class PostgresUserService implements UserService {
 
 	getSingleUser(): User {
 		if (!this.singleUser) {
-			throw new Error(
-				'Single user instance is not available. ensureSingleUser() must be called and successfully complete in single-user mode.',
-			);
+			throw new Error('Single user instance is not available. ensureSingleUser() must be called and successfully complete in single-user mode.');
 		}
 		return this.singleUser;
 	}
