@@ -148,24 +148,38 @@ export class PostgresLlmCallService implements LlmCallService {
 	}
 
 	@span()
-	async getLlmCallsForAgent(agentId: string): Promise<LlmCall[]> {
-		const rows = await db
+	async getLlmCallsForAgent(agentId: string, limit?: number): Promise<LlmCall[]> {
+		let query = db
 			.selectFrom('llm_calls')
 			.selectAll()
 			.where('agent_id', '=', agentId)
-			.orderBy('request_time', 'desc')
-			.execute();
+			.orderBy('request_time', 'desc');
+
+		if (limit !== undefined) {
+			query = query.limit(limit);
+		}
+
+		const rows = await query.execute();
 		return rows.map((row) => this.docToLlmCall(row));
 	}
 
 	@span()
-	async getLlmCallsByDescription(description: string): Promise<LlmCall[]> {
-		const rows = await db
+	async getLlmCallsByDescription(description: string, agentId?: string, limit?: number): Promise<LlmCall[]> {
+		let query = db
 			.selectFrom('llm_calls')
 			.selectAll()
 			.where('description', '=', description)
-			.orderBy('request_time', 'desc')
-			.execute();
+			.orderBy('request_time', 'desc');
+
+		if (agentId !== undefined) {
+			query = query.where('agent_id', '=', agentId);
+		}
+
+		if (limit !== undefined) {
+			query = query.limit(limit);
+		}
+
+		const rows = await query.execute();
 		return rows.map((row) => this.docToLlmCall(row));
 	}
 
