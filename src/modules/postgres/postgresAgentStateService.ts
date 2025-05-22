@@ -124,14 +124,15 @@ export class PostgresAgentStateService implements AgentContextService {
 			throw new Error(`User ID is unexpectedly null or undefined for agent_id: ${row.agent_id}. This field is NOT NULL in the database.`);
 		}
 
-		if (typeof row.user_id === 'object') {
+		if (typeof (row.user_id as any) === 'object') {
 			// It's an object. Check for 'id' property.
-			// Ensure row.user_id is not null before accessing 'id' property, although the first 'if' should cover null.
-			if (row.user_id && 'id' in row.user_id && row.user_id.id !== null && row.user_id.id !== undefined) {
-				resolvedUserId = String(row.user_id.id);
+			const userObj = row.user_id as any;
+			// Ensure userObj is not null before accessing 'id' property, although the first 'if' should cover null.
+			if (userObj && 'id' in userObj && userObj.id !== null && userObj.id !== undefined) {
+				resolvedUserId = String(userObj.id);
 			} else {
 				// It's an object but doesn't have a usable 'id'. This is an error.
-				// logger.error(`_rowToAgentContext: user_id for agent_id ${row.agent_id} is an object but lacks a valid 'id' property. Value: ${JSON.stringify(row.user_id)}`);
+				// logger.error(`_rowToAgentContext: user_id for agent_id ${row.agent_id} is an object but lacks a valid 'id' property. Value: ${JSON.stringify(userObj)}`);
 				throw new Error(`User ID for agent_id ${row.agent_id} is an object but lacks a valid 'id' property.`);
 			}
 		} else {
