@@ -43,10 +43,12 @@ export class PostgresLlmCallService implements LlmCallService {
 			inputTokens: row.input_tokens ?? undefined,
 			outputTokens: row.output_tokens ?? undefined,
 			// cacheCreationInputTokens and cacheReadInputTokens remain undefined as they can't be derived from row.cached_input_tokens
+			cacheCreationInputTokens: undefined, // Not stored separately in Postgres
+			cacheReadInputTokens: undefined,   // Not stored separately in Postgres
 			error: row.error ?? undefined,
-			// llmCallId is Firestore-specific, not populated here
-			// warning is not in DB schema
-			// chunkCount is not in DB schema
+			llmCallId: undefined, // Firestore-specific
+			warning: undefined, // Not in DB schema
+			chunkCount: undefined, // Not in DB schema, default to undefined or 0 if appropriate for LlmCall
 		};
 	}
 
@@ -58,9 +60,13 @@ export class PostgresLlmCallService implements LlmCallService {
 		const currentAgentContext = agentContext();
 		const currentAppUser = currentUser();
 
-		const agentId = request.agentId ?? currentAgentContext?.agentId;
-		const userId = request.userId ?? currentAppUser?.id;
-		const callStack = request.callStack ?? getCallStackString(currentAgentContext);
+		// Determine agentId: Use request.agentId if explicitly provided, otherwise use agentContext
+		const agentId = 'agentId' in request ? request.agentId : currentAgentContext?.agentId;
+		// Determine userId: Use request.userId if explicitly provided, otherwise use currentUser
+		const userId = 'userId' in request ? request.userId : currentAppUser?.id;
+		// Determine callStack: Use request.callStack if explicitly provided, otherwise generate from agentContext
+		const callStack = 'callStack' in request ? request.callStack : getCallStackString(currentAgentContext);
+
 
 		const llmCall: LlmCall = {
 			id,
@@ -103,6 +109,13 @@ export class PostgresLlmCallService implements LlmCallService {
 			throw new Error('LlmCall ID is required to save response.');
 		}
 
+		// Check if the record exists before attempting to update
+		const existingCall = await this.getCall(llmCall.id);
+		if (!existingCall) {
+			throw new Error(`LlmCall with ID ${llmCall.id} not found, cannot save response.`);
+		}
+
+
 		const creation = llmCall.cacheCreationInputTokens;
 		const read = llmCall.cacheReadInputTokens;
 		let cachedInputTokensDbValue: number | null = null;
@@ -131,8 +144,7 @@ export class PostgresLlmCallService implements LlmCallService {
 
 		if (Number(result?.numUpdatedRows ?? 0) === 0) {
 			logger.warn({ llmCallId: llmCall.id }, 'No LLM call found to update for saveResponse [llmCallId]');
-			// Consider if this should throw an error, e.g., if an update is always expected to modify a row.
-			// For now, it logs a warning.
+			// This path should ideally not be hit if the existence check above is in place and works.
 		} else {
 			logger.debug({ llmCallId: llmCall.id }, 'LLM response saved [llmCallId]');
 		}
