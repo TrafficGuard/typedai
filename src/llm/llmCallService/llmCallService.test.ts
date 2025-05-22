@@ -45,6 +45,22 @@ function createTestLlmCallFromRequest(request: CreateLlmRequest, responseData: P
 	};
 }
 
+// Helper function to generate large text
+function generateLargeString(sizeInKB: number): string {
+	const kilobyte = 1024;
+	const targetSize = sizeInKB * kilobyte;
+	// Using a simple character 'a'. In JS, strings are UTF-16, so 'a' is 2 bytes.
+	// To get a specific byte length, we'd typically use Buffer.byteLength.
+	// However, for testing large data through the service, a very long string is sufficient
+	// to trigger potential size limits in underlying storage mechanisms.
+	// Let's aim for a string length that results in roughly sizeInKB.
+	// Since 'a' is simple, we can approximate.
+	// A more precise way for byte length would be:
+	// const buffer = Buffer.from(char.repeat(targetSizeInChars)); buffer.length should be targetSize
+	// For simplicity here, we'll create a string of length targetSize.
+	return 'a'.repeat(targetSize);
+}
+
 export function runLlmCallServiceTests(
 	createService: () => Promise<LlmCallService> | LlmCallService,
 	beforeEachHook?: () => Promise<void> | void,
@@ -119,9 +135,9 @@ export function runLlmCallServiceTests(
 				expect(savedCall.messages).to.deep.equal(createRequestData.messages);
 				expect(savedCall.settings).to.deep.equal({}); // Should be saved as empty object
 				expect(savedCall.llmId).to.equal(createRequestData.llmId);
-				expect(savedCall.agentId).to.be.undefined; // Should be saved as null/undefined
-				expect(savedCall.userId).to.be.undefined;
-				expect(savedCall.callStack).to.be.undefined;
+				expect(savedCall.agentId).to.be.oneOf([undefined, null]); // Accept null or undefined
+				expect(savedCall.userId).to.be.oneOf([undefined, null]);
+				expect(savedCall.callStack).to.be.oneOf([undefined, null]);
 
 				const retrievedCall = await service.getCall(savedCall.id);
 				// Note: DB might store undefined as null, so deep.equal might fail on optional fields.
@@ -134,6 +150,45 @@ export function runLlmCallServiceTests(
 				expect(retrievedCall?.agentId).to.be.oneOf([undefined, null]); // Accept null or undefined
 				expect(retrievedCall?.userId).to.be.oneOf([undefined, null]);
 				expect(retrievedCall?.callStack).to.be.oneOf([undefined, null]);
+			});
+
+			it('should save and retrieve a request with a single very large message content', async () => {
+				const largeContent = generateLargeString(150); // Approx 150KB string
+				const createRequestData = createTestCreateLlmRequest({
+					messages: [createTestLlmMessage('user', largeContent)],
+				});
+				const savedRequest = await service.saveRequest(createRequestData);
+
+				expect(savedRequest.id).to.be.a('string');
+				expect(savedRequest.messages[0].role).to.equal('user');
+				expect(savedRequest.messages[0].content).to.equal(largeContent);
+
+
+				const retrievedCall = await service.getCall(savedRequest.id);
+				expect(retrievedCall).to.not.be.null;
+				expect(retrievedCall!.messages.length).to.equal(1);
+				expect(retrievedCall!.messages[0].content).to.equal(largeContent);
+			});
+
+			it('should save and retrieve a request with multiple messages, one of which is very large', async () => {
+				const largeContent = generateLargeString(120); // Approx 120KB string
+				const createRequestData = createTestCreateLlmRequest({
+					messages: [
+						createTestLlmMessage('system', 'System prompt.'),
+						createTestLlmMessage('user', 'User query.'),
+						createTestLlmMessage('user', largeContent),
+					],
+				});
+				const savedRequest = await service.saveRequest(createRequestData);
+				expect(savedRequest.id).to.be.a('string');
+
+				const retrievedCall = await service.getCall(savedRequest.id);
+				expect(retrievedCall).to.not.be.null;
+				expect(retrievedCall!.messages.length).to.equal(3);
+
+				const retrievedLargeMsg = retrievedCall!.messages.find(m => m.content === largeContent);
+				expect(retrievedLargeMsg).to.exist;
+				expect(retrievedLargeMsg!.content).to.equal(largeContent);
 			});
 		});
 
@@ -234,6 +289,57 @@ export function runLlmCallServiceTests(
 			it('should throw an error if the LlmCall ID does not exist when saving response', async () => {
 				const nonExistentCall = createTestLlmCallFromRequest(createTestCreateLlmRequest(), { id: 'nonexistent-id-for-response' });
 				await expect(service.saveResponse(nonExistentCall)).to.be.rejectedWith(Error);
+			});
+
+			it('should save and retrieve a response with very large assistant message content', async () => {
+				const createRequestData = createTestCreateLlmRequest({
+					messages: [createTestLlmMessage('user', 'Short user query.')],
+				});
+				const initialSavedRequest = await service.saveRequest(createRequestData);
+
+				const largeAssistantContent = generateLargeString(180); // Approx 180KB
+				const fullCallData = createTestLlmCallFromRequest(initialSavedRequest, {
+					messages: [...initialSavedRequest.messages, createTestLlmMessage('assistant', largeAssistantContent)],
+					totalTime: 750,
+				});
+
+				await service.saveResponse(fullCallData);
+
+				const retrievedCall = await service.getCall(fullCallData.id);
+				expect(retrievedCall).to.not.be.null;
+				expect(retrievedCall!.messages.length).to.equal(2);
+
+				const assistantMessage = retrievedCall!.messages.find((m) => m.role === 'assistant');
+				expect(assistantMessage).to.exist;
+				expect(assistantMessage!.content).to.equal(largeAssistantContent);
+				expect(retrievedCall!.totalTime).to.equal(750);
+			});
+
+			it('should save and retrieve a call where both request and response contain large messages', async () => {
+				const largeUserContent = generateLargeString(100); // Approx 100KB
+				const createRequestData = createTestCreateLlmRequest({
+					messages: [createTestLlmMessage('user', largeUserContent)],
+				});
+				const initialSavedRequest = await service.saveRequest(createRequestData);
+
+				const largeAssistantContent = generateLargeString(160); // Approx 160KB
+				const fullCallData = createTestLlmCallFromRequest(initialSavedRequest, {
+					messages: [...initialSavedRequest.messages, createTestLlmMessage('assistant', largeAssistantContent)],
+				});
+
+				await service.saveResponse(fullCallData);
+
+				const retrievedCall = await service.getCall(fullCallData.id);
+				expect(retrievedCall).to.not.be.null;
+				expect(retrievedCall!.messages.length).to.equal(2);
+
+				const userMessage = retrievedCall!.messages.find((m) => m.role === 'user');
+				expect(userMessage).to.exist;
+				expect(userMessage!.content).to.equal(largeUserContent);
+
+				const assistantMessage = retrievedCall!.messages.find((m) => m.role === 'assistant');
+				expect(assistantMessage).to.exist;
+				expect(assistantMessage!.content).to.equal(largeAssistantContent);
 			});
 		});
 
