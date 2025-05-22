@@ -17,6 +17,7 @@ export interface ApplicationContext {
 	codeReviewService: CodeReviewService;
 	vibeRepository: VibeRepository; // For Vibe we store the Repository
 	promptsService: PromptsService;
+	init?: () => Promise<void>;
 }
 
 export interface AppFastifyInstance extends TypeBoxFastifyInstance, ApplicationContext {}

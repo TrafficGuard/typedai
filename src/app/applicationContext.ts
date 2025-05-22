@@ -42,6 +42,7 @@ export async function initPostgresApplicationContext(): Promise<ApplicationConte
 	logger.info('Initializing Postgres persistence');
 	const postgresModule = await import('../modules/postgres/postgresModule.cjs');
 	applicationContext = postgresModule.postgresApplicationContext();
+	await applicationContext?.init();
 	await applicationContext.userService.ensureSingleUser();
 	return applicationContext;
 }

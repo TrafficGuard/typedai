@@ -1,7 +1,9 @@
+import { db } from '#modules/postgres/db';
 import { PostgresCodeReviewService } from '#modules/postgres/postgresCodeReviewService';
 import { PostgresLlmCallService } from '#modules/postgres/postgresLlmCallService';
 import { PostgresPromptsService } from '#modules/postgres/postgresPromptsService';
 import { PostgresVibeRepository } from '#modules/postgres/postgresVibeRespository';
+import { ensureUsersTableExists } from '#modules/postgres/schemaUtils';
 import type { ApplicationContext } from '../../app/applicationTypes';
 import { PostgresAgentStateService } from './postgresAgentStateService';
 import { PostgresChatService } from './postgresChatService';
@@ -18,5 +20,8 @@ export function postgresApplicationContext(): ApplicationContext {
 		codeReviewService: new PostgresCodeReviewService(),
 		promptsService: new PostgresPromptsService(),
 		vibeRepository: new PostgresVibeRepository(),
+		init: async () => {
+			await ensureUsersTableExists(db);
+		},
 	};
 }
