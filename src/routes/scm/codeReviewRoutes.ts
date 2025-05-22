@@ -22,7 +22,7 @@ export async function codeReviewRoutes(fastify: AppFastifyInstance) {
 		CODE_REVIEW_API.getById.pathTemplate,
 		{ schema: CODE_REVIEW_API.getById.schema },
 		async (request, reply) => {
-			const { id } = request.params;
+			const { id } = request.params as { id: string };
 			try {
 				const config = await fastify.codeReviewService.getCodeReviewConfig(id);
 				if (config) {
@@ -56,7 +56,7 @@ export async function codeReviewRoutes(fastify: AppFastifyInstance) {
 		CODE_REVIEW_API.update.pathTemplate,
 		{ schema: CODE_REVIEW_API.update.schema },
 		async (request, reply) => {
-			const { id } = request.params;
+			const { id } = request.params as { id: string };
 			const config = request.body;
 			try {
 				await fastify.codeReviewService.updateCodeReviewConfig(id, config);
@@ -72,7 +72,7 @@ export async function codeReviewRoutes(fastify: AppFastifyInstance) {
 		CODE_REVIEW_API.delete.pathTemplate,
 		{ schema: CODE_REVIEW_API.delete.schema },
 		async (request, reply) => {
-			const { id } = request.params;
+			const { id } = request.params as { id: string };
 			try {
 				await fastify.codeReviewService.deleteCodeReviewConfig(id);
 				send(reply, 200, { message: 'Config deleted successfully' });
