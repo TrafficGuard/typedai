@@ -126,15 +126,16 @@ export class PostgresAgentStateService implements AgentContextService {
 			name: row.name,
 			parentAgentId: row.parent_agent_id,
 			user: userForDeserialization,
-			userId: row.user_id === null
-				? 'null' // If row.user_id is null, userId becomes the string "null"
-				: (typeof row.user_id === 'object' && row.user_id !== null) // Check for non-null object
-					// If row.user_id is a non-null object:
-					? ('id' in row.user_id && (row.user_id as any).id !== null && (row.user_id as any).id !== undefined
-						? String((row.user_id as any).id) // Use its id property if valid
+			// Corrected userId logic to improve TypeScript type narrowing
+			userId: row.user_id !== null
+				? (typeof row.user_id === 'object'
+					// row.user_id is a non-null object here:
+					? (('id' in row.user_id) && (row.user_id as any).id !== null && (row.user_id as any).id !== undefined
+						? String((row.user_id as any).id) // Use its 'id' property if valid
 						: String(row.user_id)) // Otherwise, stringify the object itself (e.g., "[object Object]")
-					// If row.user_id is not null and not an object, it's a primitive (string, number, etc.)
-					: String(row.user_id),
+					// row.user_id is a non-null primitive (string, number, etc.) here:
+					: String(row.user_id))
+				: 'null', // row.user_id is null, so userId becomes the string "null"
 			state: row.state as AgentRunningState,
 			// Use safeJsonParse for all JSONB fields
 			callStack: this.safeJsonParse(row.call_stack, 'call_stack'),
