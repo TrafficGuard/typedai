@@ -244,32 +244,46 @@ export function runLlmCallServiceTests(
 						delete expectedRetrievedData[key as keyof LlmCall];
 					}
 				}
-				// For the general deep.include, remove fields from expectedRetrievedData that are:
-				// 1. Implementation-specific (e.g., llmCallId, chunkCount for Firestore).
-				//    These are more about the stored entity's structure than the direct update payload.
-				// 2. Not universally stored by all services if provided (e.g., 'warning' is not stored by Postgres).
-				// These fields will be covered by more nuanced, specific assertions that follow
-				// the deep.include check, allowing for variations like undefined/null or presence/absence
-				// based on the service implementation.
+				// For the general deep.include, we create a subset of expectedRetrievedData
+				// that excludes fields with highly variable implementation or those tested separately.
+				const expectedSubset: Partial<LlmCall> = { ...expectedRetrievedData };
+				delete expectedSubset.warning; // Tested specifically below
+				delete expectedSubset.llmCallId; // Implementation detail, varies by service, tested below
+				delete expectedSubset.chunkCount; // Implementation detail, varies by service, tested below
 
-				expectedRetrievedData.warning = undefined;
-				expectedRetrievedData.llmCallId = undefined;
-				expectedRetrievedData.chunkCount = undefined;
+				// Ensure all other defined fields in fullCallData are present and correct in retrievedCall
+				expect(retrievedCall).to.deep.include(expectedSubset);
 
-				// Ensure all defined fields in fullCallData are present and correct in retrievedCall
-				expect(retrievedCall).to.deep.include(expectedRetrievedData);
-
-				// Specific check for warning
+				// Specific check for warning (accounts for services that might not store it or store it as null)
 				if (fullCallData.warning !== undefined) {
-					// If a warning was provided in the input (fullCallData),
-					// the retrieved call should either have that exact warning,
-					// or be undefined/null if the service does not store this field (e.g., Postgres)
-					// or if the service converted an undefined input to null.
 					expect(retrievedCall?.warning).to.be.oneOf([fullCallData.warning, undefined, null]);
 				} else {
-					// If no warning was provided in fullCallData,
-					// the retrieved call's warning should be undefined or null.
 					expect(retrievedCall?.warning).to.be.oneOf([undefined, null]);
+				}
+
+				// Specific check for llmCallId
+				if (fullCallData.llmCallId !== undefined) {
+					// If llmCallId was part of the input, expect it to be saved and retrieved.
+					expect(retrievedCall?.llmCallId).to.equal(fullCallData.llmCallId);
+				} else {
+					// If not in input, its value is service-dependent.
+					// Firestore sets it to id, others might leave it undefined/null.
+					// LlmCall model marks it as optional & ideally not part of public interface.
+					expect(retrievedCall?.llmCallId).to.be.oneOf([undefined, null, retrievedCall?.id]);
+				}
+
+				// Specific check for chunkCount
+				if (fullCallData.chunkCount !== undefined) {
+					// If chunkCount was part of the input, expect it to be saved and retrieved.
+					expect(retrievedCall?.chunkCount).to.equal(fullCallData.chunkCount);
+				} else {
+					// If not in input, its value is service-dependent.
+					// Firestore sets it to >=0, others might leave it undefined/null.
+					// LlmCall model marks it as optional & ideally not part of public interface.
+					expect(retrievedCall?.chunkCount).to.satisfy(
+						(val: number | undefined | null) => val === undefined || val === null || typeof val === 'number',
+						'chunkCount should be undefined, null, or a number',
+					);
 				}
 
 				expect(retrievedCall?.messages).to.deep.equal(fullCallData.messages); // Check messages were updated
@@ -300,19 +314,39 @@ export function runLlmCallServiceTests(
 						delete expectedRetrievedData[key as keyof LlmCall];
 					}
 				}
-				// For the general deep.include, remove fields from expectedRetrievedData that are:
-				// 1. Implementation-specific (e.g., llmCallId, chunkCount for Firestore).
-				//    These are more about the stored entity's structure than the direct update payload.
-				// 2. Not universally stored by all services if provided (e.g., 'warning' is not stored by Postgres).
-				// These fields will be covered by more nuanced, specific assertions that follow
-				// the deep.include check, allowing for variations like undefined/null or presence/absence
-				// based on the service implementation.
+				// For the general deep.include, we create a subset of expectedRetrievedData
+				// that excludes fields with highly variable implementation or those tested separately.
+				const expectedSubset: Partial<LlmCall> = { ...expectedRetrievedData };
+				delete expectedSubset.warning; // Tested specifically below
+				delete expectedSubset.llmCallId; // Implementation detail, varies by service, tested below
+				delete expectedSubset.chunkCount; // Implementation detail, varies by service, tested below
 
-				expectedRetrievedData.warning = undefined;
-				expectedRetrievedData.llmCallId = undefined;
-				expectedRetrievedData.chunkCount = undefined;
+				// Ensure all other defined fields in fullCallData are present and correct in retrievedCall
+				expect(retrievedCall).to.deep.include(expectedSubset);
 
-				expect(retrievedCall).to.deep.include(expectedRetrievedData);
+				// Specific check for warning (accounts for services that might not store it or store it as null)
+				if (minimalCallData.warning !== undefined) { // Using minimalCallData here
+					expect(retrievedCall?.warning).to.be.oneOf([minimalCallData.warning, undefined, null]);
+				} else {
+					expect(retrievedCall?.warning).to.be.oneOf([undefined, null]);
+				}
+
+				// Specific check for llmCallId
+				if (minimalCallData.llmCallId !== undefined) { // Using minimalCallData here
+					expect(retrievedCall?.llmCallId).to.equal(minimalCallData.llmCallId);
+				} else {
+					expect(retrievedCall?.llmCallId).to.be.oneOf([undefined, null, retrievedCall?.id]);
+				}
+
+				// Specific check for chunkCount
+				if (minimalCallData.chunkCount !== undefined) { // Using minimalCallData here
+					expect(retrievedCall?.chunkCount).to.equal(minimalCallData.chunkCount);
+				} else {
+					expect(retrievedCall?.chunkCount).to.satisfy(
+						(val: number | undefined | null) => val === undefined || val === null || typeof val === 'number',
+						'chunkCount should be undefined, null, or a number',
+					);
+				}
 			});
 
 			it('should update existing response fields if saveResponse is called again', async () => {
@@ -346,19 +380,39 @@ export function runLlmCallServiceTests(
 						delete expectedRetrievedData[key as keyof LlmCall];
 					}
 				}
-				// For the general deep.include, remove fields from expectedRetrievedData that are:
-				// 1. Implementation-specific (e.g., llmCallId, chunkCount for Firestore).
-				//    These are more about the stored entity's structure than the direct update payload.
-				// 2. Not universally stored by all services if provided (e.g., 'warning' is not stored by Postgres).
-				// These fields will be covered by more nuanced, specific assertions that follow
-				// the deep.include check, allowing for variations like undefined/null or presence/absence
-				// based on the service implementation.
+				// For the general deep.include, we create a subset of expectedRetrievedData
+				// that excludes fields with highly variable implementation or those tested separately.
+				const expectedSubset: Partial<LlmCall> = { ...expectedRetrievedData };
+				delete expectedSubset.warning; // Tested specifically below
+				delete expectedSubset.llmCallId; // Implementation detail, varies by service, tested below
+				delete expectedSubset.chunkCount; // Implementation detail, varies by service, tested below
 
-				expectedRetrievedData.warning = undefined;
-				expectedRetrievedData.llmCallId = undefined;
-				expectedRetrievedData.chunkCount = undefined;
+				// Ensure all other defined fields in fullCallData are present and correct in retrievedCall
+				expect(retrievedCall).to.deep.include(expectedSubset);
 
-				expect(retrievedCall).to.deep.include(expectedRetrievedData);
+				// Specific check for warning (accounts for services that might not store it or store it as null)
+				if (secondCallData.warning !== undefined) { // Using secondCallData here
+					expect(retrievedCall?.warning).to.be.oneOf([secondCallData.warning, undefined, null]);
+				} else {
+					expect(retrievedCall?.warning).to.be.oneOf([undefined, null]);
+				}
+
+				// Specific check for llmCallId
+				if (secondCallData.llmCallId !== undefined) { // Using secondCallData here
+					expect(retrievedCall?.llmCallId).to.equal(secondCallData.llmCallId);
+				} else {
+					expect(retrievedCall?.llmCallId).to.be.oneOf([undefined, null, retrievedCall?.id]);
+				}
+
+				// Specific check for chunkCount
+				if (secondCallData.chunkCount !== undefined) { // Using secondCallData here
+					expect(retrievedCall?.chunkCount).to.equal(secondCallData.chunkCount);
+				} else {
+					expect(retrievedCall?.chunkCount).to.satisfy(
+						(val: number | undefined | null) => val === undefined || val === null || typeof val === 'number',
+						'chunkCount should be undefined, null, or a number',
+					);
+				}
 			});
 
 			it('should throw an error if the LlmCall ID does not exist when saving response', async () => {
