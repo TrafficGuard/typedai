@@ -133,6 +133,46 @@ export interface UsersTable {
 	function_config_serialized: string | null; // JSON string of User['functionConfig']
 }
 
+export interface VibeSessionsTable {
+	id: string; // PRIMARY KEY (UUID)
+	user_id: string; // Foreign key to users.id
+	title: string;
+	instructions: string;
+	repository_source: string; // 'local' | 'github' | 'gitlab'
+	repository_id: string;
+	repository_name: string | null;
+	target_branch: string;
+	working_branch: string;
+	create_working_branch: boolean;
+	use_shared_repos: boolean;
+	status: string; // VibeStatus
+	last_agent_activity: number; // BigInt or Numeric in DB, maps to number (timestamp)
+	file_selection_serialized: string | null; // JSON string of SelectedFile[]
+	original_file_selection_for_review_serialized: string | null; // JSON string of SelectedFile[]
+	design_answer_serialized: string | null; // JSON string of DesignAnswer
+	selected_variations: number | null;
+	code_diff: string | null;
+	commit_sha: string | null;
+	pull_request_url: string | null;
+	ci_cd_status: string | null; // 'pending' | 'running' | 'success' | 'failed' | 'cancelled'
+	ci_cd_job_url: string | null;
+	ci_cd_analysis: string | null;
+	ci_cd_proposed_fix: string | null;
+	created_at: number; // BigInt or Numeric in DB, maps to number (timestamp)
+	updated_at: number; // BigInt or Numeric in DB, maps to number (timestamp)
+	agent_history_serialized: string | null; // JSON string of string[]
+	error_message: string | null; // Renamed from 'error' to avoid SQL keyword conflict
+}
+
+export interface VibePresetsTable {
+	id: string; // PRIMARY KEY (UUID)
+	user_id: string; // Foreign key to users.id
+	name: string;
+	config_serialized: string; // JSON string of VibePresetConfig
+	created_at: number; // BigInt or Numeric in DB, maps to number (timestamp)
+	updated_at: number; // BigInt or Numeric in DB, maps to number (timestamp)
+}
+
 export interface Database {
 	agent_contexts: AgentContextsTable;
 	agent_iterations: AgentIterationsTable;
@@ -141,6 +181,8 @@ export interface Database {
 	merge_request_review_cache: MergeRequestReviewCacheTable;
 	function_cache: FunctionCacheTable;
 	users: UsersTable;
+	vibe_sessions: VibeSessionsTable;
+	vibe_presets: VibePresetsTable;
 }
 
 const dialect = new PostgresDialect({
