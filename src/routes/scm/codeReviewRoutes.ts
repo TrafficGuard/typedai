@@ -56,7 +56,7 @@ export async function codeReviewRoutes(fastify: AppFastifyInstance) {
 		CODE_REVIEW_API.update.pathTemplate,
 		{ schema: CODE_REVIEW_API.update.schema },
 		async (request, reply) => {
-			const { id } = request.params as { id: string };
+			const { id } = request.params; // Removed explicit cast
 			const config = request.body;
 			try {
 				await fastify.codeReviewService.updateCodeReviewConfig(id, config);

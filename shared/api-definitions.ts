@@ -77,14 +77,14 @@ export type PathParams<TPath extends string> =
 			: Record<string, never>; // Should not be reached (fallback)
 
 // Interface for the schema object within RouteDefinition
-// Its properties (path, querystring, body, response) remain optional and match the FastifySchema for easy assignment.
+// Its properties (params, querystring, body, response) remain optional and match the FastifySchema for easy assignment.
 interface RouteSchemaConfig<
 	PathParamsSchema extends TSchema | undefined,
 	QuerySchema extends TSchema | undefined,
 	BodySchema extends TSchema | undefined,
 	ResponseSchemasMap extends Record<number, TSchema> | undefined,
 > {
-	path?: PathParamsSchema;
+	params?: PathParamsSchema; // Renamed 'path' to 'params'
 	querystring?: QuerySchema;
 	body?: BodySchema;
 	response?: ResponseSchemasMap;
