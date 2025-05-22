@@ -1,14 +1,15 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
-import { AgentService } from './agent.service';
+import { AgentService, AgentStartRequestData } from './agent.service'; // Added AgentStartRequestData
 import { AutonomousIteration } from '#shared/model/agent.model';
-import { AgentContextApi, AgentContextSchema, AgentIdParamsSchema } from '#shared/schemas/agent.schema';
+import { AgentContextApi, AgentContextSchema, AgentIdParamsSchema, AgentStartRequestSchema } from '#shared/schemas/agent.schema'; // Added AgentStartRequestSchema
 import { AGENT_API } from '#shared/api/agent.api';
 import { LlmCall } from "#shared/model/llmCall.model";
 import { LlmMessagesSchema } from '#shared/schemas/llm.schema';
 import { Static, Type } from '@sinclair/typebox';
 import { ApiNullResponseSchema } from '#shared/schemas/common.schema';
 import { RouteDefinition } from '#shared/api-definitions';
+import { of, throwError } from 'rxjs'; // Added of, throwError
 
 describe('AgentService', () => {
   let service: AgentService;
@@ -429,4 +430,91 @@ describe('AgentService', () => {
     });
   });
 
+  describe('startAgent', () => {
+    const mockStartRequest: AgentStartRequestData = {
+      agentName: 'Test Agent',
+      initialPrompt: 'Test prompt',
+      type: 'autonomous',
+      subtype: 'codegen',
+      functions: ['FileAccess'],
+      humanInLoop: { budget: 10, count: 5 },
+      llms: { easy: 'llm-easy', medium: 'llm-medium', hard: 'llm-hard' },
+      useSharedRepos: true,
+    };
+
+    const mockAgentResponse: AgentContextApi = createMockAgentContext('newAgentId', 'Test Agent', 'agent');
+
+    it('should call callApiRoute with AGENT_API.start and correct payload', (done) => {
+      service.startAgent(mockStartRequest).subscribe(response => {
+        expect(response).toEqual(mockAgentResponse);
+        done();
+      });
+
+      const req = httpMock.expectOne(AGENT_API.start.path);
+      expect(req.request.method).toBe(AGENT_API.start.method);
+      expect(req.request.body).toEqual(mockStartRequest);
+      req.flush(mockAgentResponse, { status: 201, statusText: 'Created' });
+    });
+
+    it('should update agent cache (_agents$) on successful agent start', (done) => {
+      // Initial agents are mockAgent1, mockAgent2
+      service.startAgent(mockStartRequest).subscribe(() => {
+        service.agents$.subscribe(agents => {
+          // Check after the new agent has potentially been added
+          if (agents.some(agent => agent.agentId === mockAgentResponse.agentId)) {
+            const newAgentInCache = agents.find(a => a.agentId === mockAgentResponse.agentId);
+            expect(newAgentInCache).toEqual(mockAgentResponse);
+            expect(agents.length).toBe(3); // mockAgent1, mockAgent2, mockAgentResponse
+            done();
+          }
+        });
+      });
+
+      const req = httpMock.expectOne(AGENT_API.start.path);
+      req.flush(mockAgentResponse, { status: 201, statusText: 'Created' });
+    });
+
+
+    it('should add agent to cache if not present on successful agent start', (done) => {
+      const anotherMockAgentResponse: AgentContextApi = createMockAgentContext('anotherNewAgentId', 'Another Test Agent', 'agent');
+      // Ensure _agents$ has some initial data that doesn't include anotherMockAgentResponse
+      service['_agents$'].next([mockAgent1]);
+
+      service.startAgent(mockStartRequest).subscribe(() => {
+        service.agents$.subscribe(agents => {
+          if (agents.some(agent => agent.agentId === anotherMockAgentResponse.agentId)) {
+            const newAgentInCache = agents.find(a => a.agentId === anotherMockAgentResponse.agentId);
+            expect(newAgentInCache).toEqual(anotherMockAgentResponse);
+            // Expecting initial mockAgent1 + the new one
+            expect(agents.length).toBe(2);
+            done();
+          }
+        });
+      });
+
+      const req = httpMock.expectOne(AGENT_API.start.path);
+      req.flush(anotherMockAgentResponse, { status: 201, statusText: 'Created' });
+    });
+
+
+    it('should propagate error and log it if callApiRoute fails', (done) => {
+      spyOn(console, 'error');
+      const errorResponse = { status: 500, statusText: 'Server Error' };
+      const errorMessage = 'Network failure';
+
+      service.startAgent(mockStartRequest).subscribe({
+        next: () => fail('should have failed'),
+        error: (err) => {
+          expect(err).toBeTruthy();
+          // The error from callApiRoute is usually the HttpErrorResponse itself
+          expect(err.status).toBe(500);
+          expect(console.error).toHaveBeenCalledWith(jasmine.stringMatching(/Error during startAgent/), jasmine.any(Object));
+          done();
+        }
+      });
+
+      const req = httpMock.expectOne(AGENT_API.start.path);
+      req.flush(errorMessage, errorResponse);
+    });
+  });
 });
