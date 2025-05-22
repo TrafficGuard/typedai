@@ -130,10 +130,10 @@ export class PostgresAgentStateService implements AgentContextService {
 			// Use safeJsonParse for all JSONB fields
 			callStack: this.safeJsonParse(row.call_stack, 'call_stack'),
 			error: row.error,
-			hilBudget: row.hil_budget,
+			hilBudget: row.hil_budget !== null && row.hil_budget !== undefined ? Number.parseFloat(String(row.hil_budget)) : null,
 			hilCount: row.hil_count,
-			cost: row.cost,
-			budgetRemaining: row.budget_remaining,
+			cost: row.cost !== null && row.cost !== undefined ? Number.parseFloat(String(row.cost)) : 0,
+			budgetRemaining: row.budget_remaining !== null && row.budget_remaining !== undefined ? Number.parseFloat(String(row.budget_remaining)) : null,
 			llms: this.safeJsonParse(row.llms_serialized, 'llms_serialized'), // Assuming llms is always an object
 			useSharedRepos: row.use_shared_repos,
 			memory: this.safeJsonParse(row.memory_serialized, 'memory_serialized'), // Assuming memory is always an object
@@ -205,7 +205,7 @@ export class PostgresAgentStateService implements AgentContextService {
 			toolState: this.safeJsonParse(row.tool_state_serialized, 'tool_state_serialized'), // Assuming toolState is Record<string, any>
 			error: row.error,
 			stats: this.safeJsonParse(row.stats_serialized, 'stats_serialized'), // Assuming stats is Record<string, any>
-			cost: row.cost,
+			cost: row.cost !== null && row.cost !== undefined ? Number.parseFloat(String(row.cost)) : null,
 			// created_at is not part of AutonomousIteration model
 		};
 	}
