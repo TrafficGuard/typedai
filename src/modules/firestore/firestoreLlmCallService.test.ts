@@ -37,7 +37,6 @@ const testUser: User = {
 };
 
 describe('FirestoreLlmCallService', () => {
-	setupConditionalLoggerOutput(); // This should be called once at the top of the describe block
 
 	// Run shared tests
 	runLlmCallServiceTests(

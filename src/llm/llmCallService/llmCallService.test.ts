@@ -486,7 +486,7 @@ export function runLlmCallServiceTests(
 				// Create more calls than the limit
 				const calls = [];
 				for (let i = 0; i < 5; i++) {
-					calls.push(await service.saveRequest(createTestCreateLlmRequest({ description, userId, requestTime: Date.now() + i }))); // Ensure distinct request times for potential ordering
+					calls.push(await service.saveRequest(createTestCreateLlmRequest({ description, userId }))); // Ensure distinct request times for potential ordering
 				}
 				// Add response data
 				for (const call of calls) {
@@ -509,7 +509,7 @@ export function runLlmCallServiceTests(
 				// Create calls for the target agent and description
 				const targetCalls = [];
 				for (let i = 0; i < 5; i++) {
-					targetCalls.push(await service.saveRequest(createTestCreateLlmRequest({ description, agentId, requestTime: Date.now() + i })));
+					targetCalls.push(await service.saveRequest(createTestCreateLlmRequest({ description, agentId })));
 				}
 				// Create other calls that should be filtered out
 				await service.saveRequest(createTestCreateLlmRequest({ description: 'other-desc', agentId }));
