@@ -14,7 +14,10 @@ import { AGENT_API } from '#shared/api/agent.api';
 import type { AutonomousIteration } from '#shared/model/agent.model';
 import { LlmCall } from '#shared/model/llmCall.model';
 import { Pagination } from "../../../core/types";
-import { AgentContextApi } from '#shared/schemas/agent.schema';
+import { AgentContextApi, AgentStartRequestSchema } from '#shared/schemas/agent.schema';
+import { Static } from '@sinclair/typebox';
+
+export type AgentStartRequestData = Static<typeof AgentStartRequestSchema>;
 
 @Injectable({ providedIn: 'root' })
 export class AgentService {
@@ -88,6 +91,13 @@ export class AgentService {
   getAgentIterations(agentId: string): Observable<AutonomousIteration[]> {
     return callApiRoute(this.http, AGENT_API.getIterations, { pathParams: { agentId } }).pipe(
       catchError(error => this.handleError('getAgentIterations', error))
+    );
+  }
+
+  public startAgent(payload: AgentStartRequestData): Observable<AgentContextApi> {
+    return callApiRoute(this.http, AGENT_API.start, { body: payload }).pipe(
+      tap(newAgentContext => this.updateAgentInCache(newAgentContext)),
+      catchError(error => this.handleError('startAgent', error))
     );
   }
 
