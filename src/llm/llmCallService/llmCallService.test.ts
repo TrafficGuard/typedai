@@ -236,22 +236,31 @@ export function runLlmCallServiceTests(
 				expect(retrievedCall!.id).to.equal(initialSavedRequest.id);
 				expect(retrievedCall!.requestTime).to.equal(initialSavedRequest.requestTime); // Should remain unchanged
 
-				// Create a comparable object from fullCallData, as retrievedCall might have more/less undefined fields
-				// depending on DB schema (e.g. null vs undefined)
-				const expectedRetrievedData: Partial<LlmCall> = { ...fullCallData };
-				for (const key in expectedRetrievedData) {
-					if (expectedRetrievedData[key as keyof LlmCall] === undefined) {
-						delete expectedRetrievedData[key as keyof LlmCall];
+				// Determine the source data for this test case
+				const sourceData = fullCallData;
+
+				// Construct expectedSubset by including only non-excluded keys that have defined values in sourceData.
+				// This avoids using `delete` and ensures `deep.include` behaves as intended.
+				const excludedFromDeepIncludeKeys = ['warning', 'llmCallId', 'chunkCount'];
+				const expectedSubset: Partial<LlmCall> = {};
+
+				for (const key in sourceData) {
+					if (Object.prototype.hasOwnProperty.call(sourceData, key)) {
+						const typedKey = key as keyof LlmCall;
+
+						// Skip keys that are handled by specific assertions later
+						if (excludedFromDeepIncludeKeys.includes(typedKey)) {
+							continue;
+						}
+
+						// Skip properties that are undefined in the sourceData, so deep.include doesn't assert them as undefined.
+						if (sourceData[typedKey] !== undefined) {
+							expectedSubset[typedKey] = sourceData[typedKey];
+						}
 					}
 				}
-				// For the general deep.include, we create a subset of expectedRetrievedData
-				// that excludes fields with highly variable implementation or those tested separately.
-				const expectedSubset: Partial<LlmCall> = { ...expectedRetrievedData };
-				expectedSubset.warning = undefined; // Tested specifically below
-				expectedSubset.llmCallId = undefined; // Implementation detail, varies by service, tested below
-				expectedSubset.chunkCount = undefined; // Implementation detail, varies by service, tested below
 
-				// Ensure all other defined fields in fullCallData are present and correct in retrievedCall
+				// Ensure all other defined fields in sourceData (excluding the special ones) are present and correct in retrievedCall
 				expect(retrievedCall).to.deep.include(expectedSubset);
 
 				// Specific check for warning (accounts for services that might not store it or store it as null)
@@ -308,18 +317,29 @@ export function runLlmCallServiceTests(
 				expect(retrievedCall!.messages).to.deep.equal(updatedMessages);
 				expect(retrievedCall!.totalTime).to.be.oneOf([undefined, null]); // Check one optional field is not set
 
-				const expectedRetrievedData: Partial<LlmCall> = { ...minimalCallData };
-				for (const key in expectedRetrievedData) {
-					if (expectedRetrievedData[key as keyof LlmCall] === undefined) {
-						delete expectedRetrievedData[key as keyof LlmCall];
+				// Determine the source data for this test case
+				const sourceData = minimalCallData;
+
+				// Construct expectedSubset by including only non-excluded keys that have defined values in sourceData.
+				// This avoids using `delete` and ensures `deep.include` behaves as intended.
+				const excludedFromDeepIncludeKeys = ['warning', 'llmCallId', 'chunkCount'];
+				const expectedSubset: Partial<LlmCall> = {};
+
+				for (const key in sourceData) {
+					if (Object.prototype.hasOwnProperty.call(sourceData, key)) {
+						const typedKey = key as keyof LlmCall;
+
+						// Skip keys that are handled by specific assertions later
+						if (excludedFromDeepIncludeKeys.includes(typedKey)) {
+							continue;
+						}
+
+						// Skip properties that are undefined in the sourceData, so deep.include doesn't assert them as undefined.
+						if (sourceData[typedKey] !== undefined) {
+							expectedSubset[typedKey] = sourceData[typedKey];
+						}
 					}
 				}
-				// For the general deep.include, we create a subset of expectedRetrievedData
-				// that excludes fields with highly variable implementation or those tested separately.
-				const expectedSubset: Partial<LlmCall> = { ...expectedRetrievedData };
-				expectedSubset.warning = undefined; // Tested specifically below
-				expectedSubset.llmCallId = undefined; // Implementation detail, varies by service, tested below
-				expectedSubset.chunkCount = undefined; // Implementation detail, varies by service, tested below
 
 				// Ensure all other defined fields in fullCallData are present and correct in retrievedCall
 				expect(retrievedCall).to.deep.include(expectedSubset);
@@ -377,18 +397,29 @@ export function runLlmCallServiceTests(
 				expect(retrievedCall!.error).to.equal('New Error');
 				expect(retrievedCall!.messages).to.deep.equal(secondCallData.messages); // Check messages were updated
 
-				const expectedRetrievedData: Partial<LlmCall> = { ...secondCallData };
-				for (const key in expectedRetrievedData) {
-					if (expectedRetrievedData[key as keyof LlmCall] === undefined) {
-						delete expectedRetrievedData[key as keyof LlmCall];
+				// Determine the source data for this test case
+				const sourceData = secondCallData;
+
+				// Construct expectedSubset by including only non-excluded keys that have defined values in sourceData.
+				// This avoids using `delete` and ensures `deep.include` behaves as intended.
+				const excludedFromDeepIncludeKeys = ['warning', 'llmCallId', 'chunkCount'];
+				const expectedSubset: Partial<LlmCall> = {};
+
+				for (const key in sourceData) {
+					if (Object.prototype.hasOwnProperty.call(sourceData, key)) {
+						const typedKey = key as keyof LlmCall;
+
+						// Skip keys that are handled by specific assertions later
+						if (excludedFromDeepIncludeKeys.includes(typedKey)) {
+							continue;
+						}
+
+						// Skip properties that are undefined in the sourceData, so deep.include doesn't assert them as undefined.
+						if (sourceData[typedKey] !== undefined) {
+							expectedSubset[typedKey] = sourceData[typedKey];
+						}
 					}
 				}
-				// For the general deep.include, we create a subset of expectedRetrievedData
-				// that excludes fields with highly variable implementation or those tested separately.
-				const expectedSubset: Partial<LlmCall> = { ...expectedRetrievedData };
-				expectedSubset.warning = undefined; // Tested specifically below
-				expectedSubset.llmCallId = undefined; // Implementation detail, varies by service, tested below
-				expectedSubset.chunkCount = undefined; // Implementation detail, varies by service, tested below
 
 				// Ensure all other defined fields in fullCallData are present and correct in retrievedCall
 				expect(retrievedCall).to.deep.include(expectedSubset);
