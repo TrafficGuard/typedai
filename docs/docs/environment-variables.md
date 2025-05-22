@@ -52,9 +52,14 @@ This document provides comprehensive details about the environment variables uti
 - **Description**: The region for Claude AI model usage.
 - **Default Value**: `us-east5`
 
-**FIRESTORE_DATABASE**
+**DATABASE_TYPE**
 
-- **Description**: The ID of the Firestore database to use. Leaving blank will use the (default) database.
+- **Description**: The database provider. Valid values are memory, firestore or postgres
+- **Default Value**: memory
+- 
+**DATABASE_NAME**
+
+- **Description**: The ID/name of the database to use. Leaving blank will use the (default) database.
 - **Default Value**:
 
 ## Observability
