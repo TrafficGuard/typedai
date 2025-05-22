@@ -13,6 +13,7 @@ import { CommonModule } from '@angular/common';
 import { MatTableModule } from '@angular/material/table';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatProgressBarModule } from "@angular/material/progress-bar"; // Import MatProgressBarModule
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { CodeReviewConfig } from "#shared/model/codeReview.model";
 import { CodeReviewConfigListResponse } from '#shared/schemas/codeReview.schema';
 
@@ -29,6 +30,7 @@ import { CodeReviewConfigListResponse } from '#shared/schemas/codeReview.schema'
     MatTableModule,
     MatProgressSpinnerModule,
     MatProgressBarModule, // Use MatProgressBarModule
+    MatTooltipModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
