@@ -10,8 +10,13 @@ export class InMemoryLlmCallService implements LlmCallService {
 		return this.llmCallStore.get(llmCallId) || null;
 	}
 
-	async getLlmCallsForAgent(agentId: string): Promise<LlmCall[]> {
-		return Array.from(this.llmCallStore.values()).filter((call) => call.agentId === agentId);
+	async getLlmCallsForAgent(agentId: string, limit?: number): Promise<LlmCall[]> {
+		const calls = Array.from(this.llmCallStore.values())
+			.filter((call) => call.agentId === agentId)
+			// Sort by requestTime descending (newest first)
+			.sort((a, b) => b.requestTime - a.requestTime);
+
+		return limit ? calls.slice(0, limit) : calls;
 	}
 
 	async saveRequest(request: CreateLlmRequest): Promise<LlmCall> {
@@ -27,11 +32,24 @@ export class InMemoryLlmCallService implements LlmCallService {
 	}
 
 	async saveResponse(llmCall: LlmCall): Promise<void> {
+		if (!this.llmCallStore.has(llmCall.id)) {
+			throw new Error(`LlmCall with ID ${llmCall.id} not found, cannot save response.`);
+		}
 		this.llmCallStore.set(llmCall.id, llmCall);
 	}
 
-	getLlmCallsByDescription(description: string): Promise<LlmCall[]> {
-		return Promise.resolve(Array.from(this.llmCallStore.values()).filter((llmCall) => llmCall.description === description));
+	async getLlmCallsByDescription(description: string, agentId?: string, limit?: number): Promise<LlmCall[]> {
+		let calls = Array.from(this.llmCallStore.values())
+			.filter((llmCall) => llmCall.description === description);
+
+		if (agentId) {
+			calls = calls.filter((llmCall) => llmCall.agentId === agentId);
+		}
+
+		// Sort by requestTime descending (newest first)
+		calls.sort((a, b) => b.requestTime - a.requestTime);
+
+		return limit ? calls.slice(0, limit) : calls;
 	}
 
 	async delete(llmCallId: string): Promise<void> {

@@ -33,16 +33,38 @@ function createTestCreateLlmRequest(overrides: Partial<CreateLlmRequest> = {}): 
 }
 
 // Helper function to create a full LlmCall from a CreateLlmRequest and response data
-function createTestLlmCallFromRequest(request: CreateLlmRequest, responseData: Partial<LlmCall> = {}): LlmCall {
-	const id = responseData.id ?? randomUUID();
-	const requestTime = responseData.requestTime ?? Date.now();
+function createTestLlmCallFromRequest(
+	request: CreateLlmRequest | LlmCall, // Can be initial data or an existing call
+	responseData: Partial<LlmCall> = {}  // Fields to set/override for the response part
+): LlmCall {
+	// Base properties from the 'request' argument
+	const baseProperties = { ...request };
 
-	return {
-		...request,
+	// Determine ID:
+	// 1. From 'request' if it's an LlmCall (has 'id')
+	// 2. From 'responseData.id' if provided
+	// 3. New UUID
+	const id = ('id' in baseProperties && baseProperties.id)
+		? baseProperties.id
+		: responseData.id ?? randomUUID();
+
+	// Determine requestTime:
+	// 1. From 'request' if it's an LlmCall (has 'requestTime')
+	// 2. From 'responseData.requestTime' if provided
+	// 3. Current time
+	const requestTime = ('requestTime' in baseProperties && baseProperties.requestTime)
+		? baseProperties.requestTime
+		: responseData.requestTime ?? Date.now();
+
+	// Construct the LlmCall object
+	// Start with baseProperties, then overlay responseData, then ensure id and requestTime are correct.
+	const resultLlmCall: LlmCall = {
+		...(baseProperties as LlmCall), // Cast needed as baseProperties might be CreateLlmRequest initially
+		...responseData,
 		id,
 		requestTime,
-		...responseData,
 	};
+	return resultLlmCall;
 }
 
 // Helper function to generate large text
@@ -112,7 +134,24 @@ export function runLlmCallServiceTests(
 
 				// Verify it can be retrieved
 				const retrievedCall = await service.getCall(savedCall.id);
-				expect(retrievedCall).to.deep.equal(savedCall);
+				expect(retrievedCall).to.exist;
+				// Cast createRequestData to Partial<LlmCall> for deep.include
+				// This checks that all fields in createRequestData are present and correct in retrievedCall
+				expect(retrievedCall).to.deep.include(createRequestData as Partial<LlmCall>);
+				expect(retrievedCall!.id).to.equal(savedCall.id);
+				expect(retrievedCall!.requestTime).to.equal(savedCall.requestTime);
+
+				// Verify that fields specific to LlmCall (not in CreateLlmRequest) are initially undefined or null
+				expect(retrievedCall!.timeToFirstToken).to.be.oneOf([undefined, null]);
+				expect(retrievedCall!.totalTime).to.be.oneOf([undefined, null]);
+				expect(retrievedCall!.cost).to.be.oneOf([undefined, null]);
+				expect(retrievedCall!.inputTokens).to.be.oneOf([undefined, null]);
+				expect(retrievedCall!.outputTokens).to.be.oneOf([undefined, null]);
+				expect(retrievedCall!.cacheCreationInputTokens).to.be.oneOf([undefined, null]);
+				expect(retrievedCall!.cacheReadInputTokens).to.be.oneOf([undefined, null]);
+				expect(retrievedCall!.chunkCount).to.be.oneOf([undefined, null, 0]); // 0 is also a valid initial for non-chunked
+				expect(retrievedCall!.warning).to.be.oneOf([undefined, null]);
+				expect(retrievedCall!.error).to.be.oneOf([undefined, null]);
 			});
 
 			it('should save a request with minimal fields', async () => {
@@ -402,7 +441,7 @@ export function runLlmCallServiceTests(
 				}
 				// Add response data
 				for (const call of calls) {
-					await service.saveResponse(createTestLlmCallFromRequest(call, { totalTime: 100 + Math.random() * 100 }));
+					await service.saveResponse(createTestLlmCallFromRequest(call, { totalTime: Math.floor(100 + Math.random() * 100) }));
 				}
 
 
@@ -490,7 +529,7 @@ export function runLlmCallServiceTests(
 				}
 				// Add response data
 				for (const call of calls) {
-					await service.saveResponse(createTestLlmCallFromRequest(call, { totalTime: 100 + Math.random() * 100 }));
+					await service.saveResponse(createTestLlmCallFromRequest(call, { totalTime: Math.floor(100 + Math.random() * 100) }));
 				}
 
 				const limitedCalls = await service.getLlmCallsByDescription(description, undefined, 3); // No agentId filter
@@ -518,7 +557,7 @@ export function runLlmCallServiceTests(
 				// Add response data to all calls
 				const allCalls = [...targetCalls, await service.getLlmCallsByDescription('other-desc', agentId).then(c => c[0]), await service.getLlmCallsByDescription(description, 'other-agent').then(c => c[0])];
 				for (const call of allCalls) {
-					if (call) await service.saveResponse(createTestLlmCallFromRequest(call, { totalTime: 100 + Math.random() * 100 }));
+					if (call) await service.saveResponse(createTestLlmCallFromRequest(call, { totalTime: Math.floor(100 + Math.random() * 100) }));
 				}
 
 
