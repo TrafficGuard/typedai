@@ -45,7 +45,7 @@ export class FirebasePromptService implements PromptsService {
 	constructor() {
 		this.db = new Firestore({
 			projectId: process.env.FIRESTORE_EMULATOR_HOST ? 'demo-typedai' : envVar('GCLOUD_PROJECT'),
-			databaseId: process.env.FIRESTORE_DATABASE,
+			databaseId: process.env.DATABASE_NAME,
 			ignoreUndefinedProperties: true,
 		});
 	}

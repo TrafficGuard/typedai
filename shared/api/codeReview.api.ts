@@ -15,7 +15,7 @@ export const CODE_REVIEW_API = {
 	}),
 	getById: defineRoute('GET', `${CODE_REVIEW_CONFIG_BASE}/:id`, {
 		schema: {
-			params: Type.Object({ id: Type.String() }), // Changed 'path' to 'params'
+			params: Type.Object({ id: Type.String() }),
 			response: {
 				200: CodeReviewConfigSchema,
 				404: ResponseMessageSchema, // For "Config not found"
@@ -32,7 +32,7 @@ export const CODE_REVIEW_API = {
 	}),
 	update: defineRoute('PUT', `${CODE_REVIEW_CONFIG_BASE}/:id`, {
 		schema: {
-			params: Type.Object({ id: Type.String() }), // Changed 'path' to 'params'
+			params: Type.Object({ id: Type.String() }),
 			body: CodeReviewConfigUpdateSchema,
 			response: {
 				200: ResponseMessageSchema, // e.g., { message: "Config updated successfully" }
@@ -41,7 +41,7 @@ export const CODE_REVIEW_API = {
 	}),
 	delete: defineRoute('DELETE', `${CODE_REVIEW_CONFIG_BASE}/:id`, {
 		schema: {
-			params: Type.Object({ id: Type.String() }), // Changed 'path' to 'params'
+			params: Type.Object({ id: Type.String() }),
 			response: {
 				200: ResponseMessageSchema, // e.g., { message: "Config deleted successfully" }
 			},

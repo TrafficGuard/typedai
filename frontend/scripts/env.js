@@ -6,7 +6,8 @@ function generateEnvironmentFile() {
         version: process.env.npm_package_version,
         API_BASE_URL: process.env.API_BASE_URL,
         GCLOUD_PROJECT: process.env.GCLOUD_PROJECT,
-        FIRESTORE_DATABASE: process.env.FIRESTORE_DATABASE,
+        DATABASE_NAME: process.env.DATABASE_NAME,
+        DATABASE_TYPE: process.env.DATABASE_TYPE,
         AUTH: process.env.AUTH,
         MODULES: process.env.MODULES,
     };

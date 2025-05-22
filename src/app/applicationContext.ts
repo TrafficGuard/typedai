@@ -6,7 +6,7 @@ export let applicationContext: ApplicationContext;
 
 export async function initApplicationContext(): Promise<ApplicationContext> {
 	if (applicationContext) throw new Error('Application context already initialized');
-	const database = process.env.DATABASE;
+	const database = process.env.DATABASE_TYPE;
 	if (database === 'memory') {
 		initInMemoryApplicationContext();
 	} else if (database === 'firestore') {

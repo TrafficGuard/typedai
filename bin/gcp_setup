@@ -6,7 +6,7 @@ set -e
 echo Google Cloud initialisation...
 echo Project: $GCLOUD_PROJECT
 echo Region: $GCLOUD_REGION
-echo Database name: $FIRESTORE_DATABASE
+echo Database name: $DATABASE_NAME
 
 echo "Checking if project $GCLOUD_PROJECT exists..."
 if ! gcloud projects describe $GCLOUD_PROJECT > /dev/null 2>&1; then
@@ -36,11 +36,11 @@ while ! gcloud firestore databases list --project=$GCLOUD_PROJECT > /dev/null 2>
 done
 echo "Firestore API is available. Creating database and indexes..."
 
-gcloud firestore databases create --database="$FIRESTORE_DATABASE" --location=$GCLOUD_REGION --project=$GCLOUD_PROJECT
+gcloud firestore databases create --database="$DATABASE_NAME" --location=$GCLOUD_REGION --project=$GCLOUD_PROJECT
 
 gcloud firestore indexes composite create \
 --project=$GCLOUD_PROJECT \
---database="$FIRESTORE_DATABASE" \
+--database="$DATABASE_NAME" \
 --collection-group="AgentContext" \
 --field-config="field-path=user,order=ascending" \
 --field-config="field-path=lastUpdate,order=descending" \
@@ -48,7 +48,7 @@ gcloud firestore indexes composite create \
 
 gcloud firestore indexes composite create \
 --project=$GCLOUD_PROJECT \
---database="$FIRESTORE_DATABASE" \
+--database="$DATABASE_NAME" \
 --collection-group="Chats" \
 --field-config="field-path=userId,order=ascending" \
 --field-config="field-path=updatedAt,order=descending" \
@@ -56,7 +56,7 @@ gcloud firestore indexes composite create \
 
 gcloud firestore indexes composite create \
 --project=$GCLOUD_PROJECT \
---database="$FIRESTORE_DATABASE" \
+--database="$DATABASE_NAME" \
 --collection-group="LlmCall" \
 --field-config="field-path=agentId,order=ascending" \
 --field-config="field-path=requestTime,order=descending" \
@@ -64,7 +64,7 @@ gcloud firestore indexes composite create \
 
 gcloud firestore indexes composite create \
 --project=$GCLOUD_PROJECT \
---database="$FIRESTORE_DATABASE" \
+--database="$DATABASE_NAME" \
 --collection-group="VibeSession" \
 --field-config="field-path=userId,order=ascending" \
 --field-config="field-path=updatedAt,order=descending" \
@@ -72,7 +72,7 @@ gcloud firestore indexes composite create \
 
 gcloud firestore indexes composite create \
 --project=$GCLOUD_PROJECT \
---database="$FIRESTORE_DATABASE" \
+--database="$DATABASE_NAME" \
 --collection-group="Prompts" \
 --field-config="field-path=userId,order=ascending" \
 --field-config="field-path=updatedAt,order=descending" \

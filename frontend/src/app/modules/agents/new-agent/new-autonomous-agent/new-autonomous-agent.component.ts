@@ -115,11 +115,11 @@ export class NewAutonomousAgentComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.http
-        .get<{ data: string[] }>(`api/agent/v1/functions`)
+        .get<string[]>(`api/agent/v1/functions`)
         .pipe(
             map((response) => {
               console.log(response);
-              return (response.data as string[]).filter((name) => name !== 'Agent');
+              return response.filter((name) => name !== 'Agent');
             })
         )
         .subscribe((functions) => {

@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 // ChatComponent will be lazy-loaded
-import { ChatsComponent } from 'app/modules/chat/chats.component';
+import { ChatsComponent } from 'app/modules/chat/chats/chats.component';
 import { ConversationComponent } from 'app/modules/chat/conversation/conversation.component';
 
 export default [

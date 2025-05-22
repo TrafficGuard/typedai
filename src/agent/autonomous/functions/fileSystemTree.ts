@@ -24,7 +24,7 @@ export class FileSystemTree {
 
 	/**
 	 * Expands a folder in the FileSystemTree view when needing to view a relevant part of the file system
-	 * @param {string} folderPath the folder to expand in the File System tree view
+	 * @param {string} folderPath the folder to expand in the File System tree view. If no value is provided, then all folders are expanded and always returns true.
 	 * @returns if the node was expanded, i.e. the folderPath exists and is a folder and was previously collapsed
 	 */
 	@func()
@@ -34,6 +34,11 @@ export class FileSystemTree {
 		agent.toolState ??= {};
 		agent.toolState.FileSystemTree ??= [];
 		if (!Array.isArray(agent.toolState.FileSystemTree)) throw new Error('toolState.fileSystemTree must be an array');
+
+		if (!folderPath) {
+			agent.toolState.FileSystemTree = [];
+			return true;
+		}
 
 		const origLength = agent.toolState.FileSystemTree.length;
 		agent.toolState.FileSystemTree = agent.toolState.FileSystemTree.filter((path) => path !== folderPath);

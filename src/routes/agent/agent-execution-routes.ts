@@ -18,7 +18,7 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 			schema: AGENT_API.forceStop.schema,
 		},
 		async (req, reply) => {
-			const { agentId } = req.body as Static<typeof AGENT_API.forceStop.schema.body>;
+			const { agentId } = req.body;
 
 			await forceStopAgent(agentId);
 
@@ -33,7 +33,7 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 			schema: AGENT_API.feedback.schema,
 		},
 		async (req, reply) => {
-			const { agentId, feedback, executionId } = req.body as Static<typeof AGENT_API.feedback.schema.body>;
+			const { agentId, feedback, executionId } = req.body;
 
 			try {
 				await provideFeedback(agentId!, executionId!, feedback!);
@@ -54,7 +54,7 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 			schema: AGENT_API.resumeError.schema,
 		},
 		async (req, reply) => {
-			const { agentId, executionId, feedback } = req.body as Static<typeof AGENT_API.resumeError.schema.body>;
+			const { agentId, executionId, feedback } = req.body;
 
 			await resumeError(agentId!, executionId!, feedback!);
 			const updatedAgent = await fastify.agentStateService.load(agentId);
@@ -70,7 +70,7 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 			schema: AGENT_API.resumeHil.schema,
 		},
 		async (req, reply) => {
-			const { agentId, executionId, feedback } = req.body as Static<typeof AGENT_API.resumeHil.schema.body>;
+			const { agentId, executionId, feedback } = req.body;
 
 			await resumeHil(agentId!, executionId!, feedback!);
 			const updatedAgent = await fastify.agentStateService.load(agentId);
@@ -86,7 +86,7 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 			schema: AGENT_API.requestHil.schema,
 		},
 		async (req, reply) => {
-			const { agentId, executionId } = req.body as Static<typeof AGENT_API.requestHil.schema.body>;
+			const { agentId, executionId } = req.body;
 
 			try {
 				const agent = await fastify.agentStateService.load(agentId!);
@@ -128,7 +128,7 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 			schema: AGENT_API.cancel.schema,
 		},
 		async (req, reply) => {
-			const { agentId, executionId, reason } = req.body as Static<typeof AGENT_API.cancel.schema.body>;
+			const { agentId, executionId, reason } = req.body;
 
 			await cancelAgent(agentId!, executionId!, reason!);
 			const updatedAgent = await fastify.agentStateService.load(agentId);
@@ -165,7 +165,7 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 			schema: AGENT_API.updateFunctions.schema,
 		},
 		async (req, reply) => {
-			const { agentId, functions } = req.body as Static<typeof AGENT_API.updateFunctions.schema.body>;
+			const { agentId, functions } = req.body;
 
 			try {
 				const agent = await fastify.agentStateService.load(agentId!);

@@ -26,7 +26,7 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 	});
 
 	fastify.get(AGENT_API.details.pathTemplate, { schema: AGENT_API.details.schema }, async (req, reply) => {
-		const { agentId } = req.params as Static<typeof AGENT_API.details.schema.path>;
+		const { agentId } = req.params;
 		const agentContext: AgentContext | null = await fastify.agentStateService.load(agentId);
 		if (!agentContext) {
 			return sendBadRequest(reply, `Agent with ID ${agentId} not found.`);
@@ -37,7 +37,7 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 
 	// Endpoint to get iterations for an agent
 	fastify.get(AGENT_API.getIterations.pathTemplate, { schema: AGENT_API.getIterations.schema }, async (req, reply) => {
-		const { agentId } = req.params as Static<typeof AGENT_API.getIterations.schema.path>;
+		const { agentId } = req.params;
 		try {
 			// Optional: Check if agent exists first?
 			// const agentExists = await fastify.agentContextService.load(agentId);
@@ -62,7 +62,7 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 	});
 
 	fastify.post(AGENT_API.delete.pathTemplate, { schema: AGENT_API.delete.schema }, async (req, reply) => {
-		const { agentIds } = req.body as Static<typeof AGENT_API.delete.schema.body>;
+		const { agentIds } = req.body;
 		try {
 			await fastify.agentStateService.delete(agentIds ?? []);
 			reply.code(204).send(); // For ApiNullResponseSchema

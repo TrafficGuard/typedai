@@ -61,7 +61,7 @@ export abstract class AbstractSCM implements SourceControlManagement {
 					// now using the authenticated remote.
 					await fss.getVcs().switchToBranch(targetBranchToEnsure);
 				} else {
-					logger.warn(`No specific branch determined for pull. Will attempt to pull the current branch.`);
+					logger.warn('No specific branch determined for pull. Will attempt to pull the current branch.');
 				}
 
 				// Fetch all updates from the remote
@@ -90,7 +90,10 @@ export abstract class AbstractSCM implements SourceControlManagement {
 					if (switchCmdResult.exitCode === 0) {
 						logger.info(`Successfully switched to branch ${branchToSwitch} in ${projectPathWithNamespace}`);
 					} else {
-						failOnError(`Unable to switch to branch ${branchToSwitch} for ${projectPathWithNamespace} after clone with bad remote HEAD. Error: ${switchCmdResult.stderr}`, switchCmdResult);
+						failOnError(
+							`Unable to switch to branch ${branchToSwitch} for ${projectPathWithNamespace} after clone with bad remote HEAD. Error: ${switchCmdResult.stderr}`,
+							switchCmdResult,
+						);
 					}
 				} else {
 					logger.error(`Cannot switch branch for ${projectPathWithNamespace}: no specific branch provided and default branch is unknown.`);

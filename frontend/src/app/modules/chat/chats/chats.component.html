@@ -9,10 +9,9 @@
                     mat-flat-button
                     [color]="'primary'"
                     (click)="startNewChat()"
-                    {{/* REMOVED: [disabled]="isCreatingChat()" */}}
                 >
-                    <mat-icon svgIcon="heroicons_outline:plus"></mat-icon> {{/* CHANGED to static icon */}}
-                    <span class="ml-2 mr-1">New Chat</span> {{/* CHANGED to static text */}}
+                    <mat-icon svgIcon="heroicons_outline:plus"></mat-icon>
+                    <span class="ml-2 mr-1">New Chat</span>
                 </button>
             </div>
             <!-- Search Field -->
@@ -145,4 +144,3 @@
         <router-outlet></router-outlet>
     </div>
 </div>
-```

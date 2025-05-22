@@ -35,14 +35,14 @@ export const VIBE_API = {
 		schema: { response: { 200: Type.Array(VibeSessionListItemApiSchema) } },
 	}),
 	getById: defineRoute('GET', `${VIBE_API_BASE}/:sessionId`, {
-		schema: { path: ApiSessionParamsSchema, response: { 200: VibeSessionApiSchema } },
+		schema: { params: ApiSessionParamsSchema, response: { 200: VibeSessionApiSchema } },
 	}),
 	update: defineRoute('PATCH', `${VIBE_API_BASE}/:sessionId`, {
 		// Matches PATCH in vibeRoutes.ts
-		schema: { path: ApiSessionParamsSchema, body: UpdateVibeSessionApiBodySchema, response: { 204: ApiNullResponseSchema } },
+		schema: { params: ApiSessionParamsSchema, body: UpdateVibeSessionApiBodySchema, response: { 204: ApiNullResponseSchema } },
 	}),
 	delete: defineRoute('DELETE', `${VIBE_API_BASE}/:sessionId`, {
-		schema: { path: ApiSessionParamsSchema, response: { 204: ApiNullResponseSchema } },
+		schema: { params: ApiSessionParamsSchema, response: { 204: ApiNullResponseSchema } },
 	}),
 
 	// Presets
@@ -54,48 +54,48 @@ export const VIBE_API = {
 	}),
 	deletePreset: defineRoute('DELETE', `${VIBE_API_BASE}/presets/:presetId`, {
 		// Matches :presetId
-		schema: { path: ApiPresetParamsSchema, response: { 204: ApiNullResponseSchema } },
+		schema: { params: ApiPresetParamsSchema, response: { 204: ApiNullResponseSchema } },
 	}),
 
 	// Workflow Actions
 	updateSelectionPrompt: defineRoute('POST', `${VIBE_API_BASE}/:sessionId/update-selection`, {
-		schema: { path: ApiSessionParamsSchema, body: UpdateSelectionPromptDataApiSchema, response: { 202: ApiMessageResponseSchema } },
+		schema: { params: ApiSessionParamsSchema, body: UpdateSelectionPromptDataApiSchema, response: { 202: ApiMessageResponseSchema } },
 	}),
 	generateDesign: defineRoute('POST', `${VIBE_API_BASE}/:sessionId/generate-design`, {
-		schema: { path: ApiSessionParamsSchema, body: GenerateDesignDataApiSchema, response: { 202: ApiMessageResponseSchema } },
+		schema: { params: ApiSessionParamsSchema, body: GenerateDesignDataApiSchema, response: { 202: ApiMessageResponseSchema } },
 	}),
 	updateDesign: defineRoute('POST', `${VIBE_API_BASE}/:sessionId/update-design`, {
 		// New from vibeRoutes.ts
 		// Assuming simple body
 
-		schema: { path: ApiSessionParamsSchema, body: Type.Object({ design: Type.String() }), response: { 202: ApiMessageResponseSchema } },
+		schema: { params: ApiSessionParamsSchema, body: Type.Object({ design: Type.String() }), response: { 202: ApiMessageResponseSchema } },
 	}),
 	updateDesignPrompt: defineRoute('POST', `${VIBE_API_BASE}/:sessionId/update-design-prompt`, {
 		// Renamed from update-design-instructions
-		schema: { path: ApiSessionParamsSchema, body: UpdateDesignPromptDataApiSchema, response: { 202: ApiMessageResponseSchema } },
+		schema: { params: ApiSessionParamsSchema, body: UpdateDesignPromptDataApiSchema, response: { 202: ApiMessageResponseSchema } },
 	}),
 	executeDesign: defineRoute('POST', `${VIBE_API_BASE}/:sessionId/execute-design`, {
-		schema: { path: ApiSessionParamsSchema, response: { 202: ApiMessageResponseSchema } },
+		schema: { params: ApiSessionParamsSchema, response: { 202: ApiMessageResponseSchema } },
 	}),
 	resetSelection: defineRoute('POST', `${VIBE_API_BASE}/:sessionId/reset-selection`, {
-		schema: { path: ApiSessionParamsSchema, response: { 202: ApiMessageResponseSchema } },
+		schema: { params: ApiSessionParamsSchema, response: { 202: ApiMessageResponseSchema } },
 	}),
 	updateCode: defineRoute('POST', `${VIBE_API_BASE}/:sessionId/update-code`, {
 		// vibeRoutes has Null
-		schema: { path: ApiSessionParamsSchema, body: UpdateCodeReviewDataApiSchema, response: { 202: ApiNullResponseSchema } },
+		schema: { params: ApiSessionParamsSchema, body: UpdateCodeReviewDataApiSchema, response: { 202: ApiNullResponseSchema } },
 	}),
 	commitChanges: defineRoute('POST', `${VIBE_API_BASE}/:sessionId/commit`, {
-		schema: { path: ApiSessionParamsSchema, body: CommitChangesDataApiSchema, response: { 200: CommitResponseApiSchema } },
+		schema: { params: ApiSessionParamsSchema, body: CommitChangesDataApiSchema, response: { 200: CommitResponseApiSchema } },
 	}),
 
 	// Helpers
 	getRepoBranches: defineRoute('GET', `${VIBE_API_BASE}/:sessionId/branches`, {
-		schema: { path: ApiSessionParamsSchema, querystring: GetBranchesQueryApiSchema, response: { 200: GetBranchesResponseApiSchema } },
+		schema: { params: ApiSessionParamsSchema, querystring: GetBranchesQueryApiSchema, response: { 200: GetBranchesResponseApiSchema } },
 	}),
 	getFileSystemTree: defineRoute('GET', `${VIBE_API_BASE}/:sessionId/tree`, {
-		schema: { path: ApiSessionParamsSchema, querystring: GetTreeQueryApiSchema, response: { 200: GetTreeResponseApiSchema } },
+		schema: { params: ApiSessionParamsSchema, querystring: GetTreeQueryApiSchema, response: { 200: GetTreeResponseApiSchema } },
 	}),
 	getFileContent: defineRoute('GET', `${VIBE_API_BASE}/:sessionId/file`, {
-		schema: { path: ApiSessionParamsSchema, querystring: GetFileQueryApiSchema, response: { 200: GetFileResponseApiSchema } },
+		schema: { params: ApiSessionParamsSchema, querystring: GetFileQueryApiSchema, response: { 200: GetFileResponseApiSchema } },
 	}),
 };

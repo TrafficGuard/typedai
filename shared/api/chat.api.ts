@@ -1,4 +1,4 @@
-import { defineRoute } from '#shared/api-definitions';
+import { RouteDefinition, defineRoute } from '#shared/api-definitions';
 import {
 	ChatListSchema,
 	ChatMarkdownRequestSchema,
@@ -34,7 +34,7 @@ export const CHAT_API = {
 	}),
 	getById: defineRoute('GET', `${CHAT_BASE}/:chatId`, {
 		schema: {
-			path: ChatParamsSchema,
+			params: ChatParamsSchema,
 			response: {
 				200: ChatModelSchema,
 			},
@@ -42,7 +42,7 @@ export const CHAT_API = {
 	}),
 	deleteChat: defineRoute('DELETE', `${CHAT_BASE}/:chatId`, {
 		schema: {
-			path: ChatParamsSchema,
+			params: ChatParamsSchema,
 			response: {
 				204: ApiNullResponseSchema,
 			},
@@ -50,7 +50,7 @@ export const CHAT_API = {
 	}),
 	updateDetails: defineRoute('PATCH', `${CHAT_BASE}/:chatId/details`, {
 		schema: {
-			path: ChatParamsSchema,
+			params: ChatParamsSchema,
 			body: ChatUpdateDetailsSchema,
 			response: {
 				200: ChatModelSchema,
@@ -59,7 +59,7 @@ export const CHAT_API = {
 	}),
 	sendMessage: defineRoute('POST', `${CHAT_BASE}/:chatId/send`, {
 		schema: {
-			path: ChatParamsSchema,
+			params: ChatParamsSchema,
 			body: ChatMessageSendSchema,
 			response: {
 				200: LlmMessageSchema,
@@ -68,7 +68,7 @@ export const CHAT_API = {
 	}),
 	regenerateMessage: defineRoute('POST', `${CHAT_BASE}/:chatId/regenerate`, {
 		schema: {
-			path: ChatParamsSchema,
+			params: ChatParamsSchema,
 			body: RegenerateMessageSchema,
 			response: {
 				200: LlmMessageSchema,

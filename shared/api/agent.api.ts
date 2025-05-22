@@ -22,7 +22,7 @@ export const AGENT_API = {
 		schema: { response: { 200: Type.Array(AgentContextSchema) } },
 	}),
 	details: defineRoute('GET', `${AGENT_BASE_V1}/details/:agentId`, {
-		schema: { path: AgentIdParamsSchema, response: { 200: AgentContextSchema } },
+		schema: { params: AgentIdParamsSchema, response: { 200: AgentContextSchema } },
 	}),
 	start: defineRoute('POST', `${AGENT_BASE_V1}/start`, {
 		schema: { body: AgentStartRequestSchema, response: { 201: AgentContextSchema } }, // 201 for resource creation
@@ -58,11 +58,11 @@ export const AGENT_API = {
 	}),
 
 	getIterations: defineRoute('GET', `${AGENT_BASE_V1}/iterations/:agentId`, {
-		schema: { path: AgentIdParamsSchema, response: { 200: Type.Array(AutonomousIterationSchema) } },
+		schema: { params: AgentIdParamsSchema, response: { 200: Type.Array(AutonomousIterationSchema) } },
 	}),
 	getLlmCallsByAgentId: defineRoute('GET', '/api/llms/calls/agent/:agentId', {
 		schema: {
-			path: AgentIdParamsSchema,
+			params: AgentIdParamsSchema,
 			// Using Type.Any() for LlmCall items as defining a full LlmCallSchema is out of scope for this refactoring.
 			// The service will cast the items to LlmCall[].
 			response: { 200: Type.Object({ data: Type.Array(Type.Any()) }) },

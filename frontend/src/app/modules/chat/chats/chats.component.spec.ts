@@ -433,4 +433,4 @@ describe('ChatsComponent', () => {
         expect(component.trackBySessionId(0, session)).toBe('test-id');
     });
 });
-```
+

@@ -25,13 +25,13 @@ export async function promptRoutes(fastify: AppFastifyInstance) {
 		const userId = currentUser().id;
 		try {
 			// Service returns PromptPreview[]
-			const prompts = await (fastify as AppFastifyInstance).promptsService.listPromptsForUser(userId);
+			const prompts = await fastify.promptsService.listPromptsForUser(userId);
 			// Construct the PromptListSchemaModel structure
 			const promptList: PromptListSchemaModel = {
 				prompts: prompts as any, // Cast to any to satisfy schema, actual type is PromptPreview[]
 				hasMore: false, // Assuming no pagination for now, or service needs update
 			};
-			sendJSON(reply, promptList);
+			reply.sendJSON(promptList);
 		} catch (error: any) {
 			logger.error({ err: error, userId }, 'Error listing prompts');
 			const message = error.message || 'Error listing prompts';
@@ -44,7 +44,7 @@ export async function promptRoutes(fastify: AppFastifyInstance) {
 	 * Create a new prompt.
 	 */
 	fastify.post(PROMPT_API.createPrompt.pathTemplate, { schema: PROMPT_API.createPrompt.schema }, async (req, reply) => {
-		const payload = req.body as Static<typeof PromptCreateSchema>;
+		const payload = req.body;
 		const userId = currentUser().id;
 
 		// Construct the data for the service, excluding id, revisionId, and userId as per PromptsService interface
@@ -58,10 +58,10 @@ export async function promptRoutes(fastify: AppFastifyInstance) {
 		};
 
 		try {
-			const createdPrompt = await (fastify as AppFastifyInstance).promptsService.createPrompt(promptData, userId);
+			const createdPrompt = await fastify.promptsService.createPrompt(promptData, userId);
 			// The schema for response is PromptSchema, so cast to PromptSchemaModel
 			reply.code(201);
-			sendJSON(reply, createdPrompt as PromptSchemaModel);
+			reply.sendJSON(createdPrompt);
 		} catch (error: any) {
 			logger.error({ err: error, userId, payload: promptData }, 'Error creating prompt');
 			const message = error.message || 'Error creating prompt';

@@ -29,20 +29,31 @@ export class GoogleCloudLinks implements AgentLinks {
     }
 
     agentDatabaseUrl(agent: AgentContextApi): string {
-        return `https://console.cloud.google.com/firestore/databases/${
-            environment.firestoreDb || '(default)'
-        }/data/panel/AgentContext/${agent?.agentId}?project=${environment.gcpProject}`;
+        if(environment.databaseType === 'postgres') {
+            return `https://console.cloud.google.com/sql/instances/${environment.databaseName}/studio?project=${environment.gcpProject}&supportedpurview=project`
+        }
+        if(environment.databaseType === 'firestore') {
+            return `https://console.cloud.google.com/firestore/databases/${
+                environment.databaseName || '(default)'
+            }/data/panel/AgentContext/${agent?.agentId}?project=${environment.gcpProject}`;
+        }
     }
 
     chatDatabaseUrl(chatId: string): string {
+        if(environment.databaseType === 'postgres') {
+            return `https://console.cloud.google.com/sql/instances/${environment.databaseName}/studio?project=${environment.gcpProject}&supportedpurview=project`
+        }
         return `https://console.cloud.google.com/firestore/databases/${
-            environment.firestoreDb || '(default)'
+            environment.databaseName || '(default)'
         }/data/panel/Chat/${chatId}?project=${environment.gcpProject}`;
     }
 
     llmCallUrl(call: LlmCall): string {
+        if(environment.databaseType === 'postgres') {
+            return `https://console.cloud.google.com/sql/instances/${environment.databaseName}/studio?project=${environment.gcpProject}&supportedpurview=project`
+        }
         return `https://console.cloud.google.com/firestore/databases/${
-            environment.firestoreDb || '(default)'
+            environment.databaseName || '(default)'
         }/data/panel/LlmCall/${call.id}?project=${environment.gcpProject}`;
     }
 }

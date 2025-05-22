@@ -31,7 +31,7 @@ export const PROMPT_API = {
 	}),
 	getPromptById: defineRoute('GET', `${PROMPTS_BASE}/:promptId`, {
 		schema: {
-			path: PromptParamsSchema,
+			params: PromptParamsSchema,
 			response: {
 				200: PromptSchema,
 			},
@@ -39,7 +39,7 @@ export const PROMPT_API = {
 	}),
 	getPromptRevision: defineRoute('GET', `${PROMPTS_BASE}/:promptId/revisions/:revisionId`, {
 		schema: {
-			path: PromptRevisionParamsSchema,
+			params: PromptRevisionParamsSchema,
 			response: {
 				200: PromptSchema,
 			},
@@ -47,7 +47,7 @@ export const PROMPT_API = {
 	}),
 	updatePrompt: defineRoute('PATCH', `${PROMPTS_BASE}/:promptId`, {
 		schema: {
-			path: PromptParamsSchema,
+			params: PromptParamsSchema,
 			body: PromptUpdateSchema,
 			response: {
 				200: PromptSchema,
@@ -56,7 +56,7 @@ export const PROMPT_API = {
 	}),
 	deletePrompt: defineRoute('DELETE', `${PROMPTS_BASE}/:promptId`, {
 		schema: {
-			path: PromptParamsSchema,
+			params: PromptParamsSchema,
 			response: {
 				204: ApiNullResponseSchema,
 			},
@@ -64,7 +64,7 @@ export const PROMPT_API = {
 	}),
 	generateFromPrompt: defineRoute('POST', `${PROMPTS_BASE}/:promptId/generate`, {
 		schema: {
-			path: PromptParamsSchema, // Existing schema for promptId
+			params: PromptParamsSchema, // Existing schema for promptId
 			body: PromptGeneratePayloadSchema, // New schema for request body
 			response: {
 				200: PromptGenerateResponseSchema, // New schema for successful response
