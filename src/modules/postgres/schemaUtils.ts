@@ -163,3 +163,59 @@ export async function ensureVibeTablesExist(): Promise<void> {
 		.addColumn('updated_at', 'bigint', (col) => col.notNull()) // Storing as bigint for JS number (Date.now())
 		.execute();
 }
+
+export async function ensureLlmCallsTableExists(dbInstance: Kysely<Database> = db): Promise<void> {
+	await dbInstance.schema
+		.createTable('llm_calls')
+		.ifNotExists()
+		.addColumn('id', 'text', (col) => col.primaryKey())
+		.addColumn('description', 'text')
+		.addColumn('messages_serialized', 'text', (col) => col.notNull())
+		.addColumn('settings_serialized', 'text', (col) => col.notNull())
+		.addColumn('request_time', 'timestamptz', (col) => col.notNull())
+		.addColumn('agent_id', 'text')
+		.addColumn('user_id', 'text')
+		.addColumn('call_stack', 'text') // LlmCallsTable in db.ts has this as string | null
+		.addColumn('time_to_first_token', 'integer')
+		.addColumn('total_time', 'integer')
+		.addColumn('cost', 'double precision')
+		.addColumn('input_tokens', 'integer')
+		.addColumn('output_tokens', 'integer')
+		.addColumn('cached_input_tokens', 'integer') // As per LlmCallsTable in db.ts
+		.addColumn('error', 'text')
+		.addColumn('llm_id', 'text')
+		// created_at and updated_at are defined in LlmCallsTable with specific ColumnType
+		// indicating DB defaults.
+		.addColumn('created_at', 'timestamptz', (col) => col.defaultTo(sql`now()`).notNull())
+		.addColumn('updated_at', 'timestamptz', (col) => col.defaultTo(sql`now()`).notNull())
+		.execute();
+
+	// Optional: Add a trigger for 'updated_at' if your database doesn't automatically update it on row changes.
+	// Many applications handle this at the application layer or rely on database features.
+	// Example for Postgres (if not already handled):
+	// try {
+	// 	await dbInstance.raw(sql`
+	// 		CREATE OR REPLACE FUNCTION update_updated_at_column()
+	// 		RETURNS TRIGGER AS $$
+	// 		BEGIN
+	// 			NEW.updated_at = now();
+	// 			RETURN NEW;
+	// 		END;
+	// 		$$ language 'plpgsql';
+	// 	`).execute();
+	//
+	// 	await dbInstance.raw(sql`
+	// 		DROP TRIGGER IF EXISTS update_llm_calls_updated_at ON llm_calls;
+	// 	`).execute();
+	//
+	// 	await dbInstance.raw(sql`
+	// 		CREATE TRIGGER update_llm_calls_updated_at
+	// 		BEFORE UPDATE ON llm_calls
+	// 		FOR EACH ROW
+	// 		EXECUTE FUNCTION update_updated_at_column();
+	// 	`).execute();
+	// } catch (error) {
+	// 	// Ignore error if trigger or function already exists, or handle more gracefully
+	// 	// console.warn("Could not create/update trigger for updated_at on llm_calls:", error);
+	// }
+}
