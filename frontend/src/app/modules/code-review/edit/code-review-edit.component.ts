@@ -95,23 +95,27 @@ export class CodeReviewEditComponent implements OnInit {
     this.error.set(null);
     this.codeReviewService.getCodeReviewConfig(this.configId()!).subscribe({
       next: (response) => {
-        const data = response;
-        this.editForm().patchValue(data);
+        if (response) {
+          const data = response;
+          this.editForm().patchValue(data);
 
-        const examplesArray = this.editForm().get('examples') as FormArray;
-        while (examplesArray.length !== 0) {
-          examplesArray.removeAt(0);
-        }
+          const examplesArray = this.editForm().get('examples') as FormArray;
+          while (examplesArray.length !== 0) {
+            examplesArray.removeAt(0);
+          }
 
-        if (data.examples && Array.isArray(data.examples)) {
-          data.examples.forEach((example: IExample) => {
-            examplesArray.push(
-              this.fb.group({
-                code: [example.code, Validators.required],
-                reviewComment: [example.reviewComment, Validators.required],
-              })
-            );
-          });
+          if (data.examples && Array.isArray(data.examples)) {
+            data.examples.forEach((example: IExample) => {
+              examplesArray.push(
+                this.fb.group({
+                  code: [example.code, Validators.required],
+                  reviewComment: [example.reviewComment, Validators.required],
+                })
+              );
+            });
+          }
+        } else {
+          this.error.set(`Configuration with ID '${this.configId()}' not found or data is missing.`);
         }
         this.isLoading.set(false);
       },
