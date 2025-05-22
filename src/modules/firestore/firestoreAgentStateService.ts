@@ -304,9 +304,9 @@ export class FirestoreAgentStateService implements AgentContextService {
 		// Create a Firestore-compatible version of the iteration data using the specific type
 		const firestoreIterationData: FirestoreAutonomousIteration = {
 			...iterationData,
-			// Convert Maps to plain objects for Firestore
-			memory: iterationData.memory instanceof Map ? Object.fromEntries(iterationData.memory) : {},
-			toolState: iterationData.toolState instanceof Map ? Object.fromEntries(iterationData.toolState) : {},
+			// memory and toolState are expected to be Records. Default to {} if null/undefined.
+			memory: iterationData.memory || {},
+			toolState: iterationData.toolState || {},
 		};
 
 		// Add validation before saving using the converted data
@@ -369,21 +369,15 @@ export class FirestoreAgentStateService implements AgentContextService {
 		querySnapshot.forEach((doc) => {
 			const data = doc.data();
 			if (data && typeof data.iteration === 'number') {
-				// Convert memory object back to Map if it exists and is an object
-				if (data.memory && typeof data.memory === 'object' && !(data.memory instanceof Map) && !Array.isArray(data.memory)) {
-					data.memory = new Map(Object.entries(data.memory));
-				} else if (!data.memory) {
-					// Ensure memory is at least an empty map if missing or null/undefined from DB
-					data.memory = new Map<string, string>();
-				}
+				// Ensure memory is a Record, defaulting to {} if missing or not a valid object.
+				data.memory = (data.memory && typeof data.memory === 'object' && !Array.isArray(data.memory))
+                              ? data.memory
+                              : {};
 
-				// Convert toolState object back to Map if it exists and is an object
-				if (data.toolState && typeof data.toolState === 'object' && !(data.toolState instanceof Map) && !Array.isArray(data.toolState)) {
-					data.toolState = new Map(Object.entries(data.toolState));
-				} else if (!data.toolState) {
-					// Ensure toolState is at least an empty map if missing or null/undefined from DB
-					data.toolState = new Map<string, any>();
-				}
+				// Ensure toolState is a Record, defaulting to {} if missing or not a valid object.
+				data.toolState = (data.toolState && typeof data.toolState === 'object' && !Array.isArray(data.toolState))
+                               ? data.toolState
+                               : {};
 
 				// Ensure optional fields are correctly handled (set to undefined if missing/null)
 				data.error = data.error || undefined;
