@@ -58,8 +58,8 @@ export class CodeReviewListComponent implements OnInit {
         // Assuming response is an object like { data: CodeReviewConfig[] }
         // or response itself could be the array in some cases.
         let configsArray: CodeReviewConfig[] = [];
-        if (response && response.data && Array.isArray(response.data)) {
-          configsArray = response.data;
+        if (response && Array.isArray(response)) {
+          configsArray = response;
         } else if (Array.isArray(response)) {
           // Fallback if response itself is the array
           configsArray = response;
