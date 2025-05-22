@@ -55,7 +55,7 @@ export class CodeReviewListComponent implements OnInit {
     this.errorMessage.set('');
     this.codeReviewService.getCodeReviewConfigs().subscribe(
       (response: CodeReviewConfigListResponse) => { // Explicitly type response
-        this.configs.set(response);
+        this.configs.set(Array.isArray(response) ? response : []);
         this.isLoading.set(false);
         this.selection.clear();
       },
