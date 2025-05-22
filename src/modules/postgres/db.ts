@@ -196,6 +196,33 @@ export interface LlmCallsTable {
 	updated_at: ColumnType<Date, string | undefined, string | undefined>;
 }
 
+export interface PromptGroupsTable {
+	id: string; // PRIMARY KEY (UUID)
+	user_id: string; // Foreign key to users.id
+	latest_revision_id: number; // Integer, refers to revision_number in PromptRevisionsTable
+	name: string;
+	app_id: string | null;
+	tags_serialized: string; // JSON string of string[]
+	parent_id: string | null; // Foreign key to prompt_groups.id (for branching)
+	settings_serialized: string; // JSON string of (CallSettings & { llmId?: string })
+	created_at: ColumnType<Date, string | undefined, never>; // Default in DB
+	updated_at: ColumnType<Date, string | undefined, string | undefined>; // Default/updated in DB
+}
+
+export interface PromptRevisionsTable {
+	id: string; // PRIMARY KEY (UUID for the revision record itself)
+	prompt_group_id: string; // Foreign key to prompt_groups.id
+	revision_number: number; // Integer, e.g., 1, 2, 3...
+	name: string;
+	app_id: string | null;
+	tags_serialized: string; // JSON string of string[]
+	parent_id: string | null; // Denormalized from prompt_groups.parent_id at time of revision
+	messages_serialized: string; // JSON string of LlmMessage[]
+	settings_serialized: string; // JSON string of (CallSettings & { llmId?: string })
+	created_at: ColumnType<Date, string | undefined, never>; // Default in DB
+	// Consider adding: UNIQUE (prompt_group_id, revision_number)
+}
+
 export interface Database {
 	agent_contexts: AgentContextsTable;
 	agent_iterations: AgentIterationsTable;
@@ -206,7 +233,9 @@ export interface Database {
 	users: UsersTable;
 	vibe_sessions: VibeSessionsTable;
 	vibe_presets: VibePresetsTable;
-	llm_calls: LlmCallsTable; // Add this line
+	llm_calls: LlmCallsTable;
+	prompt_groups: PromptGroupsTable;
+	prompt_revisions: PromptRevisionsTable;
 }
 
 const dialect = new PostgresDialect({
