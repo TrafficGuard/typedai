@@ -142,8 +142,6 @@ export function runLlmCallServiceTests(
 				expect(retrievedCall!.cost).to.be.oneOf([undefined, null]);
 				expect(retrievedCall!.inputTokens).to.be.oneOf([undefined, null]);
 				expect(retrievedCall!.outputTokens).to.be.oneOf([undefined, null]);
-				expect(retrievedCall!.cacheCreationInputTokens).to.be.oneOf([undefined, null]);
-				expect(retrievedCall!.cacheReadInputTokens).to.be.oneOf([undefined, null]);
 				expect(retrievedCall!.chunkCount).to.be.oneOf([undefined, null, 0]); // 0 is also a valid initial for non-chunked
 				expect(retrievedCall!.warning).to.be.oneOf([undefined, null]);
 				expect(retrievedCall!.error).to.be.oneOf([undefined, null]);
@@ -227,8 +225,6 @@ export function runLlmCallServiceTests(
 					cost: 0.002,
 					inputTokens: 15,
 					outputTokens: 25,
-					cacheCreationInputTokens: 5,
-					cacheReadInputTokens: 3,
 					warning: 'Test warning',
 					messages: [...initialSavedRequest.messages, createTestLlmMessage('assistant', 'Response text')], // Add assistant message
 				});
@@ -248,34 +244,12 @@ export function runLlmCallServiceTests(
 						delete expectedRetrievedData[key as keyof LlmCall];
 					}
 				}
-				// For Postgres, cacheCreationInputTokens and cacheReadInputTokens will be undefined.
-				// Remove them from expectedRetrievedData for the deep.include check to pass for all services.
-				expectedRetrievedData.cacheCreationInputTokens = undefined;
-				expectedRetrievedData.cacheReadInputTokens = undefined;
 				// Also remove other fields not stored by all services (e.g., Postgres)
 				expectedRetrievedData.warning = undefined;
 				expectedRetrievedData.chunkCount = undefined;
 				expectedRetrievedData.llmCallId = undefined;
 				// Ensure all defined fields in fullCallData are present and correct in retrievedCall
 				expect(retrievedCall).to.deep.include(expectedRetrievedData);
-
-				// Specifically check fields that might be handled differently by implementations
-				// For cacheCreationInputTokens and cacheReadInputTokens, Postgres returns undefined.
-				// Other services should return the actual value.
-				if (fullCallData.cacheCreationInputTokens !== undefined) {
-					// If the service is not Postgres, it should match. Postgres will be undefined.
-					// This test structure doesn't easily allow checking service type.
-					// So, we'll check if it's either the expected value or undefined (for Postgres).
-					expect(retrievedCall?.cacheCreationInputTokens).to.be.oneOf([fullCallData.cacheCreationInputTokens, undefined]);
-				} else {
-					expect(retrievedCall?.cacheCreationInputTokens).to.be.oneOf([undefined, null]);
-				}
-				// Similar check for cacheReadInputTokens
-				if (fullCallData.cacheReadInputTokens !== undefined) {
-					expect(retrievedCall?.cacheReadInputTokens).to.be.oneOf([fullCallData.cacheReadInputTokens, undefined]);
-				} else {
-					expect(retrievedCall?.cacheReadInputTokens).to.be.oneOf([undefined, null]);
-				}
 				// Specific check for warning (if it was set in fullCallData)
 				if (fullCallData.warning !== undefined) {
 					expect(retrievedCall?.warning).to.be.oneOf([fullCallData.warning, undefined]);
@@ -311,10 +285,6 @@ export function runLlmCallServiceTests(
 						delete expectedRetrievedData[key as keyof LlmCall];
 					}
 				}
-				// For Postgres, cacheCreationInputTokens and cacheReadInputTokens will be undefined.
-				// Remove them from expectedRetrievedData for the deep.include check to pass for all services.
-				expectedRetrievedData.cacheCreationInputTokens = undefined;
-				expectedRetrievedData.cacheReadInputTokens = undefined;
 				expectedRetrievedData.warning = undefined;
 				expectedRetrievedData.chunkCount = undefined;
 				expectedRetrievedData.llmCallId = undefined;
@@ -352,10 +322,6 @@ export function runLlmCallServiceTests(
 						delete expectedRetrievedData[key as keyof LlmCall];
 					}
 				}
-				// For Postgres, cacheCreationInputTokens and cacheReadInputTokens will be undefined.
-				// Remove them from expectedRetrievedData for the deep.include check to pass for all services.
-				expectedRetrievedData.cacheCreationInputTokens = undefined;
-				expectedRetrievedData.cacheReadInputTokens = undefined;
 				expectedRetrievedData.warning = undefined;
 				expectedRetrievedData.chunkCount = undefined;
 				expectedRetrievedData.llmCallId = undefined;
