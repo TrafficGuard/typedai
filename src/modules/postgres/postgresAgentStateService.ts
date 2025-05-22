@@ -1,6 +1,8 @@
 import type { Insertable, Kysely, Selectable, Transaction, Updateable } from 'kysely';
+import type { Static } from '@sinclair/typebox';
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import type { AgentContextService } from '#agent/agentContextService/agentContextService';
+import type { AgentContextSchema } from '#shared/schemas/agent.schema';
 import { deserializeContext, serializeContext } from '#agent/agentSerialization';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
@@ -143,50 +145,53 @@ export class PostgresAgentStateService implements AgentContextService {
 		} else {
 			resolvedUserId = String(userIdFromDb);
 		}
-		const userForDeserialization = currentUser().id === resolvedUserId ? currentUser() : ({ id: resolvedUserId } as User);
+		// const userForDeserialization = currentUser().id === resolvedUserId ? currentUser() : ({ id: resolvedUserId } as User); // Not needed with AgentContextSchema
 
-		const dataForDeserialization = {
+		const dataForDeserialization: Static<typeof AgentContextSchema> = {
 			agentId: row.agent_id,
 			executionId: row.execution_id,
-			typedAiRepoDir: row.typed_ai_repo_dir,
+			typedAiRepoDir: row.typed_ai_repo_dir === null ? undefined : row.typed_ai_repo_dir,
 			traceId: row.trace_id,
-			name: row.name,
-			parentAgentId: row.parent_agent_id,
-			user: userForDeserialization,
-			// Assuming row.user_id is string as per AgentContextsTable definition.
-			// If row.user_id can be null or other types from the DB in practice,
-			// then AgentContextsTable definition or Kysely typings for the pg driver might need adjustment.
-			userId: resolvedUserId,
-			state: row.state as AgentRunningState,
-			// Use safeJsonParse for all JSONB fields
-			callStack: this.safeJsonParse(row.call_stack, 'call_stack'),
-			error: row.error,
-			hilBudget: row.hil_budget !== null && row.hil_budget !== undefined ? Number.parseFloat(String(row.hil_budget)) : null,
-			hilCount: row.hil_count,
-			cost: row.cost !== null && row.cost !== undefined ? Number.parseFloat(String(row.cost)) : 0,
-			budgetRemaining: row.budget_remaining !== null && row.budget_remaining !== undefined ? Number.parseFloat(String(row.budget_remaining)) : null,
-			llms: this.safeJsonParse(row.llms_serialized, 'llms_serialized'), // Assuming llms is always an object
-			useSharedRepos: row.use_shared_repos,
-			memory: this.safeJsonParse(row.memory_serialized, 'memory_serialized'), // Assuming memory is always an object
-			lastUpdate: (row.last_update as Date).getTime(),
-			metadata: this.safeJsonParse(row.metadata_serialized, 'metadata_serialized'),
-			functions: this.safeJsonParse(row.functions_serialized, 'functions_serialized'), // Assuming functions is always an object
-			completedHandler: row.completed_handler_id,
-			pendingMessages: this.safeJsonParse(row.pending_messages_serialized, 'pending_messages_serialized'),
-			type: row.type as AgentType,
-			subtype: row.subtype,
-			iterations: row.iterations,
-			invoking: this.safeJsonParse(row.invoking_serialized, 'invoking_serialized'),
-			notes: this.safeJsonParse(row.notes_serialized, 'notes_serialized'),
-			userPrompt: row.user_prompt,
-			inputPrompt: row.input_prompt,
-			messages: this.safeJsonParse(row.messages_serialized, 'messages_serialized'), // Assuming messages is always an array
-			functionCallHistory: this.safeJsonParse(row.function_call_history_serialized, 'function_call_history_serialized'),
-			liveFiles: this.safeJsonParse(row.live_files_serialized, 'live_files_serialized'),
-			childAgents: this.safeJsonParse(row.child_agents_ids, 'child_agents_ids'),
-			hilRequested: row.hil_requested,
+			name: row.name === null ? undefined : row.name,
+			parentAgentId: row.parent_agent_id === null ? undefined : row.parent_agent_id,
+			user: resolvedUserId, // CRITICAL: This must be the string user ID
+			state: row.state as AgentRunningState, // Assuming AgentRunningState is compatible
+			callStack: this.safeJsonParse(row.call_stack, 'call_stack_schema_align') ?? [],
+			error: row.error === null ? undefined : row.error,
+			hilBudget: row.hil_budget !== null && row.hil_budget !== undefined ? Number.parseFloat(String(row.hil_budget)) : undefined,
+			hilCount: row.hil_count === null ? undefined : row.hil_count,
+			cost: row.cost !== null && row.cost !== undefined ? Number.parseFloat(String(row.cost)) : 0, // Default in schema if not present
+			budgetRemaining: row.budget_remaining !== null && row.budget_remaining !== undefined ? Number.parseFloat(String(row.budget_remaining)) : undefined,
+			llms: this.safeJsonParse(row.llms_serialized, 'llms_serialized_schema_align') ?? {}, // Default in schema
+			useSharedRepos: row.use_shared_repos === null ? undefined : row.use_shared_repos,
+			memory: this.safeJsonParse(row.memory_serialized, 'memory_serialized_schema_align') ?? {}, // Default in schema
+			lastUpdate: (row.last_update as Date).getTime(), // Schema expects number (timestamp)
+			metadata: this.safeJsonParse(row.metadata_serialized, 'metadata_serialized_schema_align') ?? {}, // Default in schema
+			functions: this.safeJsonParse(row.functions_serialized, 'functions_serialized_schema_align') ?? {}, // Default in schema
+			completedHandler: row.completed_handler_id === null ? undefined : row.completed_handler_id,
+			pendingMessages: this.safeJsonParse(row.pending_messages_serialized, 'pending_messages_serialized_schema_align') ?? [],
+			type: row.type as AgentType, // Assuming AgentType is compatible
+			subtype: row.subtype === null ? undefined : row.subtype,
+			iterations: row.iterations, // Schema expects number
+			invoking: this.safeJsonParse(row.invoking_serialized, 'invoking_serialized_schema_align') ?? [],
+			notes: this.safeJsonParse(row.notes_serialized, 'notes_serialized_schema_align') ?? [],
+			userPrompt: row.user_prompt === null ? undefined : row.user_prompt,
+			inputPrompt: row.input_prompt, // Schema expects string, DB schema for input_prompt is NOT NULL.
+			messages: this.safeJsonParse(row.messages_serialized, 'messages_serialized_schema_align') ?? [],
+			functionCallHistory: this.safeJsonParse(row.function_call_history_serialized, 'function_call_history_serialized_schema_align') ?? [],
+			liveFiles: this.safeJsonParse(row.live_files_serialized, 'live_files_serialized_schema_align') ?? [],
+			childAgents: this.safeJsonParse(row.child_agents_ids, 'child_agents_ids_schema_align') ?? [],
+			hilRequested: row.hil_requested === null ? undefined : row.hil_requested,
+
+			// Ensure all fields from AgentContextSchema are present, using undefined for those not in AgentContextsTable
+			// or not yet handled. deserializeContext should have defaults for these.
+			vibeSessionId: undefined,
+			output: undefined,
+			fileSystem: undefined, // deserializeContext handles default for complex objects if schema allows undefined
+			fileStore: undefined,
+			toolState: undefined,
 		};
-		return deserializeContext(dataForDeserialization as any);
+		return deserializeContext(dataForDeserialization);
 	}
 
 	private _serializeIterationForDb(iteration: AutonomousIteration): SerializedAgentIterationData {
