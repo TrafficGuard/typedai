@@ -13,12 +13,12 @@ export interface LlmCallService {
 
 	getCall(llmCallId: string): Promise<LlmCall | null>;
 
-	getLlmCallsForAgent(agentId: string): Promise<LlmCall[]>;
+	getLlmCallsForAgent(agentId: string, limit?: number): Promise<LlmCall[]>;
 
 	/**
 	 * Gets the LLMS calls made by the user for a particular description (The id field in GenerateTextOpts)
 	 */
-	getLlmCallsByDescription(description: string): Promise<LlmCall[]>;
+	getLlmCallsByDescription(description: string, agentId?: string, limit?: number): Promise<LlmCall[]>;
 
 	/**
 	 * @param llmCallId The ID of the LlmCall to delete.
