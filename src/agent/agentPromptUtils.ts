@@ -157,14 +157,14 @@ export function updateFunctionSchemas(systemPrompt: string, functionSchemas: str
  * @param functionInstances An array of function class instances.
  * @returns A promise resolving to a Map where keys are class names and values are their states.
  */
-export async function buildToolStateMap(functionInstances: object[]): Promise<Map<string, any>> {
-	const toolStateMap = new Map<string, any>();
+export async function buildToolStateMap(functionInstances: object[]): Promise<Record<string, any>> {
+	const toolStateMap = {};
 	for (const instance of functionInstances) {
 		if (typeof (instance as any).getToolState === 'function') {
 			try {
 				const state = await (instance as any).getToolState();
 				if (state !== null && state !== undefined) {
-					toolStateMap.set(instance.constructor.name, state);
+					toolStateMap[instance.constructor.name] = state;
 				}
 			} catch (error) {
 				logger.error(error, `Error getting tool state for ${instance.constructor.name}`);

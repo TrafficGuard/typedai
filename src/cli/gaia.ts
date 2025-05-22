@@ -8,7 +8,7 @@ import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { LlmTools } from '#functions/util';
 import { Perplexity } from '#functions/web/perplexity';
 import { PublicWeb } from '#functions/web/web';
-import { Claude3_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
+import { Claude4_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { groqLlama3_3_70B } from '#llm/services/groq';
 import { openAIo3 } from '#llm/services/openai';
@@ -94,7 +94,7 @@ async function answerGaiaQuestion(task: GaiaQuestion): Promise<GaiaResult> {
 			llms: {
 				easy: vertexGemini_2_0_Flash(),
 				medium: groqLlama3_3_70B(),
-				hard: Claude3_5_Sonnet_Vertex(),
+				hard: Claude4_Sonnet_Vertex(),
 				xhard: openAIo3(),
 			},
 			agentName: `gaia-${task.task_id}`,

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import { expect } from 'chai';
 import { Claude3_5_Sonnet } from '#llm/services/anthropic';
-import { Claude3_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
+import { Claude4_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { cerebrasLlama3_8b } from '#llm/services/cerebras';
 import { deepinfraQwQ_32B, deepinfraQwen2_5_Coder32B } from '#llm/services/deepinfra';
 import { deepSeekV3 } from '#llm/services/deepseek';
@@ -89,7 +89,7 @@ describe('LLMs', () => {
 	});
 
 	describe('Anthropic Vertex', () => {
-		const llm = Claude3_5_Sonnet_Vertex();
+		const llm = Claude4_Sonnet_Vertex();
 
 		it('should generateText', async () => {
 			const response = await llm.generateText(SKY_PROMPT, { temperature: 0 });

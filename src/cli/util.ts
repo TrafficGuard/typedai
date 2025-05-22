@@ -5,9 +5,11 @@ import { agentContextStorage, createContext } from '#agent/agentContextLocalStor
 import type { RunWorkflowConfig } from '#agent/autonomous/autonomousAgentRunner';
 import { appContext } from '#app/applicationContext';
 import { Jira } from '#functions/jira';
+import { GitLab } from '#functions/scm/gitlab';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { MultiLLM } from '#llm/multi-llm';
-import { Claude3_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
+import { Claude4_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
+import { defaultLLMs } from '#llm/services/defaultLlms';
 import { GPT41 } from '#llm/services/openai';
 import type { AgentContext, AgentLLMs } from '#shared/model/agent.model';
 import { SearchReplaceCoder } from '#swe/coder/searchReplaceCoder';
@@ -17,15 +19,6 @@ import { envVarHumanInLoopSettings } from './cliHumanInLoop';
 // Usage:
 // npm run util
 
-const sonnet = Claude3_5_Sonnet_Vertex();
-
-const utilLLMs: AgentLLMs = {
-	easy: sonnet,
-	medium: sonnet,
-	hard: sonnet,
-	xhard: new MultiLLM([sonnet, GPT41()], 3),
-};
-
 async function main() {
 	await appContext().userService.ensureSingleUser();
 	const functions = new LlmFunctionsImpl();
@@ -34,15 +27,32 @@ async function main() {
 	const config: RunWorkflowConfig = {
 		agentName: 'util',
 		subtype: 'util',
-		llms: utilLLMs,
+		llms: defaultLLMs(),
 		functions,
 		initialPrompt: '',
 		humanInLoop: envVarHumanInLoopSettings(),
+		useSharedRepos: true,
 	};
 
 	const context: AgentContext = createContext(config);
 
 	agentContextStorage.enterWith(context);
+
+	const gitlab = new GitLab();
+
+	const projects = await gitlab.getProjects();
+	console.log(projects);
+	const cloned = await gitlab.cloneProject('devops/terraform/waf_infra', 'main');
+	console.log(cloned);
+
+	// console.log(await new Jira().getJiraDetails('CLD-1685'));
+
+	// const edited = await new SearchReplaceCoder().editFilesToMeetRequirements(
+	// 	'Add another button, after the toggle thinking button, with the markdown material icon which calls a function called reformat() method on the component',
+	// 	['frontend/src/app/modules/chat/conversation/conversation.component.html', 'frontend/src/app/modules/chat/conversation/conversation.component.ts'],
+	// 	[],
+	// );
+	// console.log(edited);
 }
 
 main()
