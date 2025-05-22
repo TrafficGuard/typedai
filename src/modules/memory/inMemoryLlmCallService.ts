@@ -39,8 +39,7 @@ export class InMemoryLlmCallService implements LlmCallService {
 	}
 
 	async getLlmCallsByDescription(description: string, agentId?: string, limit?: number): Promise<LlmCall[]> {
-		let calls = Array.from(this.llmCallStore.values())
-			.filter((llmCall) => llmCall.description === description);
+		let calls = Array.from(this.llmCallStore.values()).filter((llmCall) => llmCall.description === description);
 
 		if (agentId) {
 			calls = calls.filter((llmCall) => llmCall.agentId === agentId);

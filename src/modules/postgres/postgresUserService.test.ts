@@ -1,4 +1,4 @@
-import { runUserServiceTests } from '../../user/userService.test';
+import { runUserServiceTests } from '#user/userService.test';
 import { db } from './db';
 import { PostgresUserService } from './postgresUserService';
 import { ensureUsersTableExists } from './schemaUtils';

@@ -60,7 +60,7 @@ export class FirestoreLlmCallService implements LlmCallService {
 			// Firestore stores it, so if present, use it, else default to 0 for consistency.
 			chunkCount: data.chunkCount ?? 0,
 			cacheCreationInputTokens: data.cacheCreationInputTokens, // Ensure these are mapped
-			cacheReadInputTokens: data.cacheReadInputTokens,     // Ensure these are mapped
+			cacheReadInputTokens: data.cacheReadInputTokens, // Ensure these are mapped
 			// Include llmCallId which might be needed internally, though id is the primary identifier
 			llmCallId: data.llmCallId ?? id,
 			warning: data.warning, // Ensure this is mapped
@@ -395,14 +395,14 @@ export class FirestoreLlmCallService implements LlmCallService {
 		}
 	}
 
-	async saveRequest(request: CreateLlmRequest): Promise<LlmCall> { // Return LlmCall to match interface
+	async saveRequest(request: CreateLlmRequest): Promise<LlmCall> {
+		// Return LlmCall to match interface
 		const id: string = randomUUID();
 		const requestTime = Date.now();
 		// Determine userId: Use request.userId if explicitly provided (even if undefined), otherwise use currentUser
 		const userId = 'userId' in request ? request.userId : currentUser()?.id;
 		// Determine agentId: Use request.agentId if explicitly provided (even if undefined), otherwise use agentContext (not available here, so default to undefined)
 		const agentId = 'agentId' in request ? request.agentId : undefined;
-
 
 		// Prepare the core data, excluding messages initially for size calculation/chunking
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars

@@ -5,9 +5,9 @@ import { runLlmCallServiceTests } from '#llm/llmCallService/llmCallService.test'
 import { firestoreDb } from '#modules/firestore/firestore';
 import { FirestoreLlmCallService } from '#modules/firestore/firestoreLlmCallService';
 import { type LlmMessage, system, user } from '#shared/model/llm.model';
+import type { LlmCall } from '#shared/model/llmCall.model';
 import type { User } from '#shared/model/user.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import type { LlmCall } from '#shared/model/llmCall.model';
 
 // Firestore document size limit (slightly under 1 MiB)
 const MAX_DOC_SIZE = 1_000_000;
@@ -17,7 +17,6 @@ const EXTERNAL_DATA_THRESHOLD = 500_000;
 const MSG_DATA_SUBDIR = 'msgData';
 // Prefix for references to externally stored data
 const AGENT_REF_PREFIX = 'agentfs://';
-
 
 // Helper to generate large strings
 const generateLargeString = (size: number): string => {
@@ -44,7 +43,6 @@ const testUser: User = {
 };
 
 describe('FirestoreLlmCallService', () => {
-
 	// Run shared tests
 	runLlmCallServiceTests(
 		() => new FirestoreLlmCallService(), // Factory to create the service
@@ -226,7 +224,9 @@ describe('FirestoreLlmCallService', () => {
 					settings: { temperature: 0.5 },
 				};
 				const savedSmallRequest = await service.saveRequest(smallRequest);
-				await firestoreDb().doc(`LlmCall/${savedSmallRequest.id}`).update({ requestTime: Date.now() - 2000 });
+				await firestoreDb()
+					.doc(`LlmCall/${savedSmallRequest.id}`)
+					.update({ requestTime: Date.now() - 2000 });
 				const smallResponseMessages = [...smallRequest.messages!, { role: 'assistant', content: 'Small call response' }] as LlmMessage[];
 				const smallResponse: LlmCall = { ...savedSmallRequest, requestTime: Date.now() - 2000, messages: smallResponseMessages, cost: 0.01, totalTime: 100 };
 				await service.saveResponse(smallResponse);
@@ -266,12 +266,12 @@ describe('FirestoreLlmCallService', () => {
 				expect(calls[1].id).to.equal(savedLargeRequest.id);
 				expect(calls[2].id).to.equal(savedSmallRequest.id); // Oldest
 
-				const retrievedLargeCall = calls.find(c => c.id === savedLargeRequest.id)!;
+				const retrievedLargeCall = calls.find((c) => c.id === savedLargeRequest.id)!;
 				expect(retrievedLargeCall.chunkCount).to.be.greaterThan(0); // Firestore specific
 				expect(retrievedLargeCall.messages).to.have.lengthOf(2);
 				expect(retrievedLargeCall.messages[0].content).to.equal(largeRequest.messages![0].content);
 
-				const retrievedSmallCall1 = calls.find(c => c.id === savedSmallRequest.id)!;
+				const retrievedSmallCall1 = calls.find((c) => c.id === savedSmallRequest.id)!;
 				expect(retrievedSmallCall1.chunkCount).to.equal(0); // Firestore specific
 				expect(retrievedSmallCall1.messages).to.have.lengthOf(3);
 			});
@@ -279,7 +279,13 @@ describe('FirestoreLlmCallService', () => {
 
 		describe('delete (Firestore Specific)', () => {
 			it('should delete a single-document LlmCall', async () => {
-				const request: CreateLlmRequest = { messages: [user('delete me')], description: 'delete test', llmId: 'delete-llm', userId: testUser.id, settings: { temperature: 0.5 } };
+				const request: CreateLlmRequest = {
+					messages: [user('delete me')],
+					description: 'delete test',
+					llmId: 'delete-llm',
+					userId: testUser.id,
+					settings: { temperature: 0.5 },
+				};
 				const savedRequest = await service.saveRequest(request);
 				const responseMessages = [...request.messages!, { role: 'assistant', content: 'deleted response' }] as LlmMessage[];
 				const response: LlmCall = { ...savedRequest, messages: responseMessages };
@@ -293,7 +299,13 @@ describe('FirestoreLlmCallService', () => {
 
 			it('should delete a chunked LlmCall and its chunks', async () => {
 				const largeContentSize = Math.floor(MAX_DOC_SIZE * 0.6);
-				const request: CreateLlmRequest = { messages: [user(generateLargeString(largeContentSize))], description: 'delete chunked test', llmId: 'delete-chunked-llm', userId: testUser.id, settings: { temperature: 0.5 } };
+				const request: CreateLlmRequest = {
+					messages: [user(generateLargeString(largeContentSize))],
+					description: 'delete chunked test',
+					llmId: 'delete-chunked-llm',
+					userId: testUser.id,
+					settings: { temperature: 0.5 },
+				};
 				const savedRequest = await service.saveRequest(request);
 				const responseMessages = [...request.messages!, { role: 'assistant', content: generateLargeString(largeContentSize) }] as LlmMessage[];
 				const response: LlmCall = { ...savedRequest, messages: responseMessages };

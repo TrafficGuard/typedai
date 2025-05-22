@@ -5,13 +5,10 @@ import { span } from '#o11y/trace';
 import type { PromptsService } from '#prompts/promptsService';
 import type { CallSettings, LlmMessage } from '#shared/model/llm.model';
 import type { Prompt, PromptPreview } from '#shared/model/prompts.model';
-import { db, type PromptGroupsTable, type PromptRevisionsTable } from './db';
+import { type PromptGroupsTable, type PromptRevisionsTable, db } from './db';
 
 export class PostgresPromptsService implements PromptsService {
-	private _mapRevisionToPrompt(
-		groupDoc: Selectable<PromptGroupsTable>,
-		revisionDoc: Selectable<PromptRevisionsTable>,
-	): Prompt {
+	private _mapRevisionToPrompt(groupDoc: Selectable<PromptGroupsTable>, revisionDoc: Selectable<PromptRevisionsTable>): Prompt {
 		return {
 			id: groupDoc.id,
 			userId: groupDoc.user_id,
@@ -57,7 +54,10 @@ export class PostgresPromptsService implements PromptsService {
 			.executeTakeFirst();
 
 		if (!revision) {
-			logger.error({ promptId, latestRevisionId: group.latest_revision_id }, 'Prompt group exists but latest revision is missing [promptId] [latestRevisionId]');
+			logger.error(
+				{ promptId, latestRevisionId: group.latest_revision_id },
+				'Prompt group exists but latest revision is missing [promptId] [latestRevisionId]',
+			);
 			return null; // Data inconsistency
 		}
 
@@ -132,11 +132,7 @@ export class PostgresPromptsService implements PromptsService {
 	}
 
 	@span()
-	async updatePrompt(
-		promptId: string,
-		updates: Partial<Omit<Prompt, 'id' | 'userId' | 'revisionId'>>,
-		userId: string,
-	): Promise<Prompt> {
+	async updatePrompt(promptId: string, updates: Partial<Omit<Prompt, 'id' | 'userId' | 'revisionId'>>, userId: string): Promise<Prompt> {
 		const newRevisionRecordId = randomUUID();
 
 		const updatedPrompt = await db.transaction().execute(async (trx) => {
@@ -156,16 +152,19 @@ export class PostgresPromptsService implements PromptsService {
 				.executeTakeFirst();
 
 			if (!latestRevision) {
-				logger.error({ promptId, latestRevisionId: group.latest_revision_id }, 'Latest revision for prompt not found during update [promptId] [latestRevisionId]');
+				logger.error(
+					{ promptId, latestRevisionId: group.latest_revision_id },
+					'Latest revision for prompt not found during update [promptId] [latestRevisionId]',
+				);
 				throw new Error('Data inconsistency: Latest revision not found.');
 			}
 
 			const newRevisionNumber = group.latest_revision_id + 1;
 
 			const newRevisionName = updates.name ?? latestRevision.name;
-			const newRevisionAppId = Object.hasOwn(updates, 'appId') ? updates.appId ?? null : latestRevision.app_id;
+			const newRevisionAppId = Object.hasOwn(updates, 'appId') ? (updates.appId ?? null) : latestRevision.app_id;
 			const newRevisionTags = updates.tags ?? (JSON.parse(latestRevision.tags_serialized) as string[]);
-			const newRevisionParentId = Object.hasOwn(updates, 'parentId') ? updates.parentId ?? null : latestRevision.parent_id;
+			const newRevisionParentId = Object.hasOwn(updates, 'parentId') ? (updates.parentId ?? null) : latestRevision.parent_id;
 			const newRevisionMessages = updates.messages ?? (JSON.parse(latestRevision.messages_serialized) as LlmMessage[]);
 			const newRevisionSettings = updates.settings ?? (JSON.parse(latestRevision.settings_serialized) as CallSettings & { llmId?: string });
 
@@ -191,12 +190,7 @@ export class PostgresPromptsService implements PromptsService {
 				settings_serialized: JSON.stringify(newRevisionSettings),
 				// updated_at will be handled by DB trigger or default
 			};
-			const updatedGroup = await trx
-				.updateTable('prompt_groups')
-				.set(groupUpdateData)
-				.where('id', '=', group.id)
-				.returningAll()
-				.executeTakeFirstOrThrow();
+			const updatedGroup = await trx.updateTable('prompt_groups').set(groupUpdateData).where('id', '=', group.id).returningAll().executeTakeFirstOrThrow();
 
 			return this._mapRevisionToPrompt(updatedGroup, insertedRevision);
 		});

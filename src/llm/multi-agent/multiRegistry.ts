@@ -4,7 +4,7 @@ import type { LLM } from '#shared/model/llm.model';
 
 export function multiAgentLLMRegistry(): Record<string, () => LLM> {
 	const registry = {};
-	registry[`multi:CePO-${cerebrasQwen3_32b().getId()}`] = () => cerebrasQwen3_32b();
+	// registry[`multi:CePO-${cerebrasQwen3_32b().getId()}`] = () => new CcerebrasQwen3_32b();
 	registry['multi:fast-medium'] = () => new FastMediumLLM();
 	return registry;
 }

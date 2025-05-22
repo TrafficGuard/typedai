@@ -1,10 +1,10 @@
+import { randomUUID } from 'node:crypto';
 import chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
-import { randomUUID } from 'node:crypto';
 import type { CreateLlmRequest } from '#llm/llmCallService/llmCall';
-import type { LlmCall } from '#shared/model/llmCall.model';
 import type { LlmMessage } from '#shared/model/llm.model';
+import type { LlmCall } from '#shared/model/llmCall.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import type { LlmCallService } from './llmCallService';
 
@@ -35,7 +35,7 @@ function createTestCreateLlmRequest(overrides: Partial<CreateLlmRequest> = {}): 
 // Helper function to create a full LlmCall from a CreateLlmRequest and response data
 function createTestLlmCallFromRequest(
 	request: CreateLlmRequest | LlmCall, // Can be initial data or an existing call
-	responseData: Partial<LlmCall> = {}  // Fields to set/override for the response part
+	responseData: Partial<LlmCall> = {}, // Fields to set/override for the response part
 ): LlmCall {
 	// Base properties from the 'request' argument
 	const baseProperties = { ...request };
@@ -44,17 +44,13 @@ function createTestLlmCallFromRequest(
 	// 1. From 'request' if it's an LlmCall (has 'id')
 	// 2. From 'responseData.id' if provided
 	// 3. New UUID
-	const id = ('id' in baseProperties && baseProperties.id)
-		? baseProperties.id
-		: responseData.id ?? randomUUID();
+	const id = 'id' in baseProperties && baseProperties.id ? baseProperties.id : (responseData.id ?? randomUUID());
 
 	// Determine requestTime:
 	// 1. From 'request' if it's an LlmCall (has 'requestTime')
 	// 2. From 'responseData.requestTime' if provided
 	// 3. Current time
-	const requestTime = ('requestTime' in baseProperties && baseProperties.requestTime)
-		? baseProperties.requestTime
-		: responseData.requestTime ?? Date.now();
+	const requestTime = 'requestTime' in baseProperties && baseProperties.requestTime ? baseProperties.requestTime : (responseData.requestTime ?? Date.now());
 
 	// Construct the LlmCall object
 	// Start with baseProperties, then overlay responseData, then ensure id and requestTime are correct.
@@ -205,11 +201,7 @@ export function runLlmCallServiceTests(
 			it('should save and retrieve a request with multiple messages, one of which is very large', async () => {
 				const largeContent = generateLargeString(120); // Approx 120KB string
 				const createRequestData = createTestCreateLlmRequest({
-					messages: [
-						createTestLlmMessage('system', 'System prompt.'),
-						createTestLlmMessage('user', 'User query.'),
-						createTestLlmMessage('user', largeContent),
-					],
+					messages: [createTestLlmMessage('system', 'System prompt.'), createTestLlmMessage('user', 'User query.'), createTestLlmMessage('user', largeContent)],
 				});
 				const savedRequest = await service.saveRequest(createRequestData);
 				expect(savedRequest.id).to.be.a('string');
@@ -218,7 +210,7 @@ export function runLlmCallServiceTests(
 				expect(retrievedCall).to.not.be.null;
 				expect(retrievedCall!.messages.length).to.equal(3);
 
-				const retrievedLargeMsg = retrievedCall!.messages.find(m => m.content === largeContent);
+				const retrievedLargeMsg = retrievedCall!.messages.find((m) => m.content === largeContent);
 				expect(retrievedLargeMsg).to.exist;
 				expect(retrievedLargeMsg!.content).to.equal(largeContent);
 			});
@@ -258,12 +250,12 @@ export function runLlmCallServiceTests(
 				}
 				// For Postgres, cacheCreationInputTokens and cacheReadInputTokens will be undefined.
 				// Remove them from expectedRetrievedData for the deep.include check to pass for all services.
-				delete expectedRetrievedData.cacheCreationInputTokens;
-				delete expectedRetrievedData.cacheReadInputTokens;
+				expectedRetrievedData.cacheCreationInputTokens = undefined;
+				expectedRetrievedData.cacheReadInputTokens = undefined;
 				// Also remove other fields not stored by all services (e.g., Postgres)
-				delete expectedRetrievedData.warning;
-				delete expectedRetrievedData.chunkCount;
-				delete expectedRetrievedData.llmCallId;
+				expectedRetrievedData.warning = undefined;
+				expectedRetrievedData.chunkCount = undefined;
+				expectedRetrievedData.llmCallId = undefined;
 				// Ensure all defined fields in fullCallData are present and correct in retrievedCall
 				expect(retrievedCall).to.deep.include(expectedRetrievedData);
 
@@ -321,21 +313,30 @@ export function runLlmCallServiceTests(
 				}
 				// For Postgres, cacheCreationInputTokens and cacheReadInputTokens will be undefined.
 				// Remove them from expectedRetrievedData for the deep.include check to pass for all services.
-				delete expectedRetrievedData.cacheCreationInputTokens;
-				delete expectedRetrievedData.cacheReadInputTokens;
-				delete expectedRetrievedData.warning;
-				delete expectedRetrievedData.chunkCount;
-				delete expectedRetrievedData.llmCallId;
+				expectedRetrievedData.cacheCreationInputTokens = undefined;
+				expectedRetrievedData.cacheReadInputTokens = undefined;
+				expectedRetrievedData.warning = undefined;
+				expectedRetrievedData.chunkCount = undefined;
+				expectedRetrievedData.llmCallId = undefined;
 				expect(retrievedCall).to.deep.include(expectedRetrievedData);
 			});
 
 			it('should update existing response fields if saveResponse is called again', async () => {
 				const createRequestData = createTestCreateLlmRequest();
 				const initialSavedRequest = await service.saveRequest(createRequestData);
-				const firstCallData = createTestLlmCallFromRequest(initialSavedRequest, { totalTime: 500, cost: 0.001, messages: [...initialSavedRequest.messages, createTestLlmMessage('assistant', 'First response')] });
+				const firstCallData = createTestLlmCallFromRequest(initialSavedRequest, {
+					totalTime: 500,
+					cost: 0.001,
+					messages: [...initialSavedRequest.messages, createTestLlmMessage('assistant', 'First response')],
+				});
 				await service.saveResponse(firstCallData);
 
-				const secondCallData = createTestLlmCallFromRequest(initialSavedRequest, { totalTime: 1500, cost: 0.003, error: 'New Error', messages: [...initialSavedRequest.messages, createTestLlmMessage('assistant', 'Second response')] });
+				const secondCallData = createTestLlmCallFromRequest(initialSavedRequest, {
+					totalTime: 1500,
+					cost: 0.003,
+					error: 'New Error',
+					messages: [...initialSavedRequest.messages, createTestLlmMessage('assistant', 'Second response')],
+				});
 				await service.saveResponse(secondCallData); // Changed: No assignment
 
 				const retrievedCall = await service.getCall(initialSavedRequest.id); // Changed: Fetch after save
@@ -353,11 +354,11 @@ export function runLlmCallServiceTests(
 				}
 				// For Postgres, cacheCreationInputTokens and cacheReadInputTokens will be undefined.
 				// Remove them from expectedRetrievedData for the deep.include check to pass for all services.
-				delete expectedRetrievedData.cacheCreationInputTokens;
-				delete expectedRetrievedData.cacheReadInputTokens;
-				delete expectedRetrievedData.warning;
-				delete expectedRetrievedData.chunkCount;
-				delete expectedRetrievedData.llmCallId;
+				expectedRetrievedData.cacheCreationInputTokens = undefined;
+				expectedRetrievedData.cacheReadInputTokens = undefined;
+				expectedRetrievedData.warning = undefined;
+				expectedRetrievedData.chunkCount = undefined;
+				expectedRetrievedData.llmCallId = undefined;
 				expect(retrievedCall).to.deep.include(expectedRetrievedData);
 			});
 
@@ -447,7 +448,6 @@ export function runLlmCallServiceTests(
 				await service.saveResponse(createTestLlmCallFromRequest(userCall, { totalTime: 50 }));
 				await service.saveResponse(createTestLlmCallFromRequest(otherAgentCall, { totalTime: 150 }));
 
-
 				const agentCalls = await service.getLlmCallsForAgent(agentId);
 
 				expect(agentCalls).to.be.an('array').with.lengthOf(2);
@@ -457,9 +457,9 @@ export function runLlmCallServiceTests(
 				expect(retrievedIds).to.include(agentCall2.id);
 
 				// Ensure the full LlmCall objects with response data are returned
-				const retrievedCall1 = agentCalls.find(c => c.id === agentCall1.id);
+				const retrievedCall1 = agentCalls.find((c) => c.id === agentCall1.id);
 				expect(retrievedCall1?.totalTime).to.equal(100);
-				const retrievedCall2 = agentCalls.find(c => c.id === agentCall2.id);
+				const retrievedCall2 = agentCalls.find((c) => c.id === agentCall2.id);
 				expect(retrievedCall2?.totalTime).to.equal(200);
 			});
 
@@ -480,13 +480,12 @@ export function runLlmCallServiceTests(
 					await service.saveResponse(createTestLlmCallFromRequest(call, { totalTime: Math.floor(100 + Math.random() * 100) }));
 				}
 
-
 				const limitedCalls = await service.getLlmCallsForAgent(agentId, 3);
 
 				expect(limitedCalls).to.be.an('array').with.lengthOf(3);
 				// The order might depend on the implementation (e.g., by requestTime DESC),
 				// so we just check the count and that they belong to the agent.
-				limitedCalls.forEach(call => {
+				limitedCalls.forEach((call) => {
 					expect(call.agentId).to.equal(agentId);
 					expect(call.totalTime).to.be.a('number'); // Ensure response data is present
 				});
@@ -513,9 +512,9 @@ export function runLlmCallServiceTests(
 				expect(retrievedIds).to.include(call2.id);
 
 				// Ensure the full LlmCall objects with response data are returned
-				const retrievedCall1 = descCalls.find(c => c.id === call1.id);
+				const retrievedCall1 = descCalls.find((c) => c.id === call1.id);
 				expect(retrievedCall1?.totalTime).to.equal(100);
-				const retrievedCall2 = descCalls.find(c => c.id === call2.id);
+				const retrievedCall2 = descCalls.find((c) => c.id === call2.id);
 				expect(retrievedCall2?.totalTime).to.equal(200);
 			});
 
@@ -540,7 +539,6 @@ export function runLlmCallServiceTests(
 				await service.saveResponse(createTestLlmCallFromRequest(call1Agent2, { totalTime: 300 }));
 				await service.saveResponse(createTestLlmCallFromRequest(otherDescCall, { totalTime: 50 }));
 
-
 				const descCallsForAgent1 = await service.getLlmCallsByDescription(description, agentId1);
 
 				expect(descCallsForAgent1).to.be.an('array').with.lengthOf(2);
@@ -549,7 +547,7 @@ export function runLlmCallServiceTests(
 				expect(retrievedIds).to.include(call2Agent1.id);
 				expect(retrievedIds).to.not.include(call1Agent2.id); // Should not include calls from agent2
 
-				descCallsForAgent1.forEach(call => {
+				descCallsForAgent1.forEach((call) => {
 					expect(call.agentId).to.equal(agentId1);
 					expect(call.totalTime).to.be.a('number'); // Ensure response data is present
 				});
@@ -571,7 +569,7 @@ export function runLlmCallServiceTests(
 				const limitedCalls = await service.getLlmCallsByDescription(description, undefined, 3); // No agentId filter
 
 				expect(limitedCalls).to.be.an('array').with.lengthOf(3);
-				limitedCalls.forEach(call => {
+				limitedCalls.forEach((call) => {
 					expect(call.description).to.equal(description);
 					expect(call.totalTime).to.be.a('number'); // Ensure response data is present
 				});
@@ -591,16 +589,19 @@ export function runLlmCallServiceTests(
 				await service.saveRequest(createTestCreateLlmRequest({ description, agentId: 'other-agent' }));
 
 				// Add response data to all calls
-				const allCalls = [...targetCalls, await service.getLlmCallsByDescription('other-desc', agentId).then(c => c[0]), await service.getLlmCallsByDescription(description, 'other-agent').then(c => c[0])];
+				const allCalls = [
+					...targetCalls,
+					await service.getLlmCallsByDescription('other-desc', agentId).then((c) => c[0]),
+					await service.getLlmCallsByDescription(description, 'other-agent').then((c) => c[0]),
+				];
 				for (const call of allCalls) {
 					if (call) await service.saveResponse(createTestLlmCallFromRequest(call, { totalTime: Math.floor(100 + Math.random() * 100) }));
 				}
 
-
 				const limitedCalls = await service.getLlmCallsByDescription(description, agentId, 3);
 
 				expect(limitedCalls).to.be.an('array').with.lengthOf(3);
-				limitedCalls.forEach(call => {
+				limitedCalls.forEach((call) => {
 					expect(call.description).to.equal(description);
 					expect(call.agentId).to.equal(agentId);
 					expect(call.totalTime).to.be.a('number'); // Ensure response data is present

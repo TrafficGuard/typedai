@@ -7,10 +7,10 @@ import type { CreateLlmRequest } from '#llm/llmCallService/llmCall';
 import type { LlmCallService } from '#llm/llmCallService/llmCallService';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import type { LlmCall } from '#shared/model/llmCall.model';
 import type { CallSettings, LlmMessage } from '#shared/model/llm.model';
+import type { LlmCall } from '#shared/model/llmCall.model';
 import { currentUser } from '#user/userContext';
-import { db, type LlmCallsTable } from './db';
+import { type LlmCallsTable, db } from './db';
 
 export class PostgresLlmCallService implements LlmCallService {
 	private docToLlmCall(row: Selectable<LlmCallsTable>): LlmCall {
@@ -44,7 +44,7 @@ export class PostgresLlmCallService implements LlmCallService {
 			outputTokens: row.output_tokens ?? undefined,
 			// cacheCreationInputTokens and cacheReadInputTokens remain undefined as they can't be derived from row.cached_input_tokens
 			cacheCreationInputTokens: undefined, // Not stored separately in Postgres
-			cacheReadInputTokens: undefined,   // Not stored separately in Postgres
+			cacheReadInputTokens: undefined, // Not stored separately in Postgres
 			error: row.error ?? undefined,
 			llmCallId: undefined, // Firestore-specific, not used in Postgres
 			warning: undefined, // Not in DB schema, default to undefined
@@ -66,7 +66,6 @@ export class PostgresLlmCallService implements LlmCallService {
 		const userId = 'userId' in request ? request.userId : currentAppUser?.id;
 		// Determine callStack: Use request.callStack if explicitly provided (even if undefined), otherwise generate from agentContext
 		const callStack = 'callStack' in request ? request.callStack : getCallStackString(currentAgentContext);
-
 
 		// Construct the full LlmCall object to be returned and for preparing insertData
 		const llmCallToReturn: LlmCall = {
@@ -90,7 +89,6 @@ export class PostgresLlmCallService implements LlmCallService {
 			error: undefined,
 			llmCallId: undefined, // Postgres doesn't use this for chunking
 		};
-
 
 		const insertData: Insertable<LlmCallsTable> = {
 			id: llmCallToReturn.id,
@@ -129,7 +127,6 @@ export class PostgresLlmCallService implements LlmCallService {
 			throw new Error(`LlmCall with ID ${llmCall.id} not found, cannot save response.`);
 		}
 
-
 		const creation = llmCall.cacheCreationInputTokens;
 		const read = llmCall.cacheReadInputTokens;
 		let cachedInputTokensDbValue: number | null = null;
@@ -150,11 +147,7 @@ export class PostgresLlmCallService implements LlmCallService {
 			llm_id: llmCall.llmId, // llmId is part of LlmRequest, but can be re-affirmed here
 		};
 
-		const result = await db
-			.updateTable('llm_calls')
-			.set(updateData)
-			.where('id', '=', llmCall.id)
-			.executeTakeFirst();
+		const result = await db.updateTable('llm_calls').set(updateData).where('id', '=', llmCall.id).executeTakeFirst();
 
 		if (Number(result?.numUpdatedRows ?? 0) === 0) {
 			logger.warn({ llmCallId: llmCall.id }, 'No LLM call found to update for saveResponse [llmCallId]');
@@ -175,11 +168,7 @@ export class PostgresLlmCallService implements LlmCallService {
 
 	@span()
 	async getLlmCallsForAgent(agentId: string, limit?: number): Promise<LlmCall[]> {
-		let query = db
-			.selectFrom('llm_calls')
-			.selectAll()
-			.where('agent_id', '=', agentId)
-			.orderBy('request_time', 'desc');
+		let query = db.selectFrom('llm_calls').selectAll().where('agent_id', '=', agentId).orderBy('request_time', 'desc');
 
 		if (limit !== undefined) {
 			query = query.limit(limit);
@@ -191,11 +180,7 @@ export class PostgresLlmCallService implements LlmCallService {
 
 	@span()
 	async getLlmCallsByDescription(description: string, agentId?: string, limit?: number): Promise<LlmCall[]> {
-		let query = db
-			.selectFrom('llm_calls')
-			.selectAll()
-			.where('description', '=', description)
-			.orderBy('request_time', 'desc');
+		let query = db.selectFrom('llm_calls').selectAll().where('description', '=', description).orderBy('request_time', 'desc');
 
 		if (agentId !== undefined) {
 			query = query.where('agent_id', '=', agentId);

@@ -1,3 +1,7 @@
+import { PostgresCodeReviewService } from '#modules/postgres/postgresCodeReviewService';
+import { PostgresLlmCallService } from '#modules/postgres/postgresLlmCallService';
+import { PostgresPromptsService } from '#modules/postgres/postgresPromptsService';
+import { PostgresVibeRepository } from '#modules/postgres/postgresVibeRespository';
 import type { ApplicationContext } from '../../app/applicationTypes';
 import { PostgresAgentStateService } from './postgresAgentStateService';
 import { PostgresChatService } from './postgresChatService';
@@ -9,10 +13,10 @@ export function postgresApplicationContext(): ApplicationContext {
 		agentStateService: new PostgresAgentStateService(),
 		chatService: new PostgresChatService(),
 		userService: new PostgresUserService(),
-		llmCallService: null,
+		llmCallService: new PostgresLlmCallService(),
 		functionCacheService: new PostgresFunctionCacheService(),
-		codeReviewService: null,
-		promptsService: null,
-		vibeRepository: null,
+		codeReviewService: new PostgresCodeReviewService(),
+		promptsService: new PostgresPromptsService(),
+		vibeRepository: new PostgresVibeRepository(),
 	};
 }
