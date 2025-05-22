@@ -30,19 +30,19 @@ export class GoogleCloudLinks implements AgentLinks {
 
     agentDatabaseUrl(agent: AgentContextApi): string {
         return `https://console.cloud.google.com/firestore/databases/${
-            environment.firestoreDb || '(default)'
+            environment.databaseName || '(default)'
         }/data/panel/AgentContext/${agent?.agentId}?project=${environment.gcpProject}`;
     }
 
     chatDatabaseUrl(chatId: string): string {
         return `https://console.cloud.google.com/firestore/databases/${
-            environment.firestoreDb || '(default)'
+            environment.databaseName || '(default)'
         }/data/panel/Chat/${chatId}?project=${environment.gcpProject}`;
     }
 
     llmCallUrl(call: LlmCall): string {
         return `https://console.cloud.google.com/firestore/databases/${
-            environment.firestoreDb || '(default)'
+            environment.databaseName || '(default)'
         }/data/panel/LlmCall/${call.id}?project=${environment.gcpProject}`;
     }
 }

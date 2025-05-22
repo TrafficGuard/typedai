@@ -6,11 +6,13 @@ export let applicationContext: ApplicationContext;
 
 export async function initApplicationContext(): Promise<ApplicationContext> {
 	if (applicationContext) throw new Error('Application context already initialized');
-	const database = process.env.DATABASE;
+	const database = process.env.DATABASE_TYPE;
 	if (database === 'memory') {
 		initInMemoryApplicationContext();
 	} else if (database === 'firestore') {
 		await initFirestoreApplicationContext();
+	} else if (database === 'postgres') {
+		await initPostgresApplicationContext();
 	} else {
 		throw new Error(`Invalid value for DATABASE environment: ${database}`);
 	}
@@ -31,6 +33,15 @@ export async function initFirestoreApplicationContext(): Promise<ApplicationCont
 	logger.info('Initializing Firestore persistence');
 	const firestoreModule = await import('../modules/firestore/firestoreModule.cjs');
 	applicationContext = firestoreModule.firestoreApplicationContext();
+	await applicationContext.userService.ensureSingleUser();
+	return applicationContext;
+}
+
+export async function initPostgresApplicationContext(): Promise<ApplicationContext> {
+	if (applicationContext) throw new Error('Application context already initialized');
+	logger.info('Initializing Postgres persistence');
+	const postgresModule = await import('../modules/postgres/postgresModule.cjs');
+	applicationContext = postgresModule.postgresApplicationContext();
 	await applicationContext.userService.ensureSingleUser();
 	return applicationContext;
 }
