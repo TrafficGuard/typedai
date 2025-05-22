@@ -252,9 +252,9 @@ export function runLlmCallServiceTests(
 				// the deep.include check, allowing for variations like undefined/null or presence/absence
 				// based on the service implementation.
 
-				delete expectedRetrievedData.warning;
-				delete expectedRetrievedData.llmCallId;
-				delete expectedRetrievedData.chunkCount;
+				expectedRetrievedData.warning = undefined;
+				expectedRetrievedData.llmCallId = undefined;
+				expectedRetrievedData.chunkCount = undefined;
 
 				// Ensure all defined fields in fullCallData are present and correct in retrievedCall
 				expect(retrievedCall).to.deep.include(expectedRetrievedData);
@@ -308,9 +308,9 @@ export function runLlmCallServiceTests(
 				// the deep.include check, allowing for variations like undefined/null or presence/absence
 				// based on the service implementation.
 
-				delete expectedRetrievedData.warning;
-				delete expectedRetrievedData.llmCallId;
-				delete expectedRetrievedData.chunkCount;
+				expectedRetrievedData.warning = undefined;
+				expectedRetrievedData.llmCallId = undefined;
+				expectedRetrievedData.chunkCount = undefined;
 
 				expect(retrievedCall).to.deep.include(expectedRetrievedData);
 			});
@@ -354,9 +354,9 @@ export function runLlmCallServiceTests(
 				// the deep.include check, allowing for variations like undefined/null or presence/absence
 				// based on the service implementation.
 
-				delete expectedRetrievedData.warning;
-				delete expectedRetrievedData.llmCallId;
-				delete expectedRetrievedData.chunkCount;
+				expectedRetrievedData.warning = undefined;
+				expectedRetrievedData.llmCallId = undefined;
+				expectedRetrievedData.chunkCount = undefined;
 
 				expect(retrievedCall).to.deep.include(expectedRetrievedData);
 			});

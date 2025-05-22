@@ -41,7 +41,9 @@ export class CodeFunctions {
 		const projectInfo = await getProjectInfo();
 		if (!projectInfo) throw new Error('No projectInfo.json available');
 		if (!projectInfo.test) return 'No compile command defined';
-		const result = await execCommand(projectInfo.test);
+		// This is specific to TypedAI
+		const envVars = parseEnvFile('./variables/test.env');
+		const result = await execCommand(projectInfo.test, { envVars });
 		failOnError('Failure testing the project', result);
 		return `Project successfully tested calling "${projectInfo.test}"`;
 	}
@@ -77,5 +79,26 @@ export class CodeFunctions {
 	// @func()
 	async reviewChanges(requirements: string, sourceBranchOrCommit: string, fileSelection: string[]) {
 		return await reviewChanges(requirements, sourceBranchOrCommit, fileSelection);
+	}
+}
+
+function parseEnvFile(filePath) {
+	try {
+		const fileContents = fs.readFileSync(filePath, 'utf-8');
+		const lines = fileContents.split('\n');
+		const env = {};
+
+		for (const line of lines) {
+			const trimmedLine = line.trim();
+
+			if (trimmedLine && !trimmedLine.startsWith('#')) {
+				const [key, value] = trimmedLine.split('=').map((part) => part.trim());
+				env[key] = value;
+			}
+		}
+		return env;
+	} catch (error) {
+		console.error('Error reading or parsing .env file:', error);
+		return {};
 	}
 }

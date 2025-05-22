@@ -32,11 +32,7 @@ export interface LlmCall extends LlmRequest {
 	cost?: number;
 	inputTokens?: number;
 	outputTokens?: number;
-	/** Anthropic context cache stats */
-	cacheCreationInputTokens?: number;
-	/** Anthropic context cache stats */
-	cacheReadInputTokens?: number;
-	/** Number of chunks the messages are split into (0 if not chunked). */
+	/** Number of chunks the messages are split into (0 if not chunked). Specific to Firestore */
 	chunkCount?: number;
 	/** Notification if the response was not in the format expected by the prompt, i.e. couldn't parse the result or json tag */
 	warning?: string;

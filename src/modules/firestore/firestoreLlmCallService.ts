@@ -59,8 +59,6 @@ export class FirestoreLlmCallService implements LlmCallService {
 			// Tests expect it to be 0 if not chunked, or undefined/null.
 			// Firestore stores it, so if present, use it, else default to 0 for consistency.
 			chunkCount: data.chunkCount ?? 0,
-			cacheCreationInputTokens: data.cacheCreationInputTokens, // Ensure these are mapped
-			cacheReadInputTokens: data.cacheReadInputTokens, // Ensure these are mapped
 			// Include llmCallId which might be needed internally, though id is the primary identifier
 			llmCallId: data.llmCallId ?? id,
 			warning: data.warning, // Ensure this is mapped
@@ -457,8 +455,6 @@ export class FirestoreLlmCallService implements LlmCallService {
 			cost: undefined,
 			inputTokens: undefined,
 			outputTokens: undefined,
-			cacheCreationInputTokens: undefined,
-			cacheReadInputTokens: undefined,
 			chunkCount: 0, // Will be 0 for non-chunked initial save
 			warning: undefined,
 			error: undefined,

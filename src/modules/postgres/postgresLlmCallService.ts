@@ -17,9 +17,6 @@ export class PostgresLlmCallService implements LlmCallService {
 		const messages = JSON.parse(row.messages_serialized) as LlmMessage[] | ReadonlyArray<LlmMessage>;
 		const settings = JSON.parse(row.settings_serialized) as CallSettings;
 
-		// Note: row.cached_input_tokens from DB is a single value.
-		// LlmCall model has cacheCreationInputTokens and cacheReadInputTokens.
-		// These cannot be accurately reconstructed from the single DB value, so they will be undefined.
 		const llmIdFromDb = row.llm_id;
 		if (!llmIdFromDb) {
 			// This case should ideally not happen if data is consistent, as llmId is mandatory in LlmCall
@@ -42,9 +39,6 @@ export class PostgresLlmCallService implements LlmCallService {
 			cost: row.cost ?? undefined,
 			inputTokens: row.input_tokens ?? undefined,
 			outputTokens: row.output_tokens ?? undefined,
-			// cacheCreationInputTokens and cacheReadInputTokens remain undefined as they can't be derived from row.cached_input_tokens
-			cacheCreationInputTokens: undefined, // Not stored separately in Postgres
-			cacheReadInputTokens: undefined, // Not stored separately in Postgres
 			error: row.error ?? undefined,
 			llmCallId: undefined, // Firestore-specific, not used in Postgres
 			warning: undefined, // Not in DB schema, default to undefined
@@ -82,8 +76,6 @@ export class PostgresLlmCallService implements LlmCallService {
 			cost: undefined,
 			inputTokens: undefined,
 			outputTokens: undefined,
-			cacheCreationInputTokens: undefined,
-			cacheReadInputTokens: undefined,
 			chunkCount: undefined, // Postgres doesn't use chunking
 			warning: undefined,
 			error: undefined,
@@ -127,13 +119,6 @@ export class PostgresLlmCallService implements LlmCallService {
 			throw new Error(`LlmCall with ID ${llmCall.id} not found, cannot save response.`);
 		}
 
-		const creation = llmCall.cacheCreationInputTokens;
-		const read = llmCall.cacheReadInputTokens;
-		let cachedInputTokensDbValue: number | null = null;
-		if (creation !== undefined || read !== undefined) {
-			cachedInputTokensDbValue = (creation ?? 0) + (read ?? 0);
-		}
-
 		const updateData: Omit<Updateable<LlmCallsTable>, 'id' | 'created_at' | 'request_time' | 'description' | 'agent_id' | 'user_id' | 'call_stack'> = {
 			messages_serialized: JSON.stringify(llmCall.messages),
 			settings_serialized: JSON.stringify(llmCall.settings), // In case settings can be updated (though unlikely)
@@ -142,7 +127,6 @@ export class PostgresLlmCallService implements LlmCallService {
 			cost: llmCall.cost ?? null,
 			input_tokens: llmCall.inputTokens ?? null,
 			output_tokens: llmCall.outputTokens ?? null,
-			cached_input_tokens: cachedInputTokensDbValue,
 			error: llmCall.error ?? null,
 			llm_id: llmCall.llmId, // llmId is part of LlmRequest, but can be re-affirmed here
 		};
