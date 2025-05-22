@@ -1,16 +1,10 @@
-<div class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden">
+<div class="flex flex-col flex-auto w-full p-4 sm:p-4">
     <!-- Header -->
-    <div class="relative flex flex-0 flex-col border-b px-6 py-3 sm:flex-row sm:items-center sm:justify-between md:px-8">
-        <!-- Loader -->
-        @if (isLoading()) {
-            <div class="absolute inset-x-0 bottom-0">
-                <mat-progress-bar [mode]="'indeterminate'"></mat-progress-bar>
-            </div>
-        }
+    <div class="flex items-center justify-between mb-4 mx-3">
         <!-- Title -->
-        <div class="text-3xl font-medium tracking-tight">Agents</div>
+        <h1 class="text-3xl font-medium tracking-tight leading-none">Agents</h1>
         <!-- Actions -->
-        <div class="mt-6 flex shrink-0 items-center sm:ml-4 sm:mt-0">
+        <div class="flex shrink-0 items-center">
             <!-- Search -->
             <mat-form-field
                     class="fuse-mat-dense fuse-mat-rounded min-w-64"
@@ -38,6 +32,7 @@
             >
                 <mat-icon [svgIcon]="'heroicons_outline:arrow-path'"></mat-icon>
             </button>
+            <!-- Add Button -->
             <button
                     class="ml-4"
                     mat-flat-button
@@ -51,8 +46,7 @@
     </div>
 
     <!-- Main -->
-    <div class="flex flex-auto overflow-hidden">
-        <div class="flex flex-auto flex-col overflow-hidden sm:mb-18 sm:overflow-y-auto">
+    <div class="overflow-auto bg-card rounded-lg shadow">
             @if (isLoading()) {
                 <!-- Loading State -->
                 <div class="p-8 text-center text-xl font-medium tracking-tight sm:p-16">
@@ -136,7 +130,6 @@
                     </div>
                 }
             }
-        </div>
     </div>
 
     <!-- Footer - Example for bulk actions -->
