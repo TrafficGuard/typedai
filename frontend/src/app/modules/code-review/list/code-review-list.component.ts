@@ -42,7 +42,7 @@ export class CodeReviewListComponent implements OnInit {
 
   configs = signal<CodeReviewConfig[]>([]);
   selection = new SelectionModel<CodeReviewConfig>(true, []);
-  displayedColumns = signal<string[]>(['select', 'title', 'description', 'enabled']);
+  displayedColumns = signal<string[]>(['title', 'description', 'enabled', 'select']);
   isLoading = signal(false);
   errorMessage = signal('');
 
