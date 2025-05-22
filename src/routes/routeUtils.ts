@@ -1,5 +1,6 @@
 import type { AppFastifyInstance } from "#app/applicationTypes";
-import type { RouteDefinition } from "#shared/api-definitions"; // Ensure this is RouteDefinition<Schema, SuccessPayload>
+import type { RouteDefinition, RouteSchemaConfig } from "#shared/api-definitions"; // Import RouteSchemaConfig
+import type { TSchema } from '@sinclair/typebox'; // Ensure TSchema is imported
 import type {
     FastifyRequest as FastifyRequestBase,
     FastifyReply as FastifyReplyBase,
@@ -23,59 +24,71 @@ type RouteGenericFromSchema<Schema extends FastifySchema> = RouteGenericInterfac
 
 
 export async function registerRoute<
+    // Generics for the RouteDefinition structure
     TPath extends string,
-    TSchema extends FastifySchema,
+    TMethod extends 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+    TPathParamsSchema extends TSchema | undefined,
+    TQuerySchema extends TSchema | undefined,
+    TBodySchema extends TSchema | undefined,
+    TResponseSchemasMap extends Record<number, TSchema> | undefined,
+
+    // The type for the success payload for reply.sendJSON()
     TSuccessResponsePayload
 >(
     fastify: AppFastifyInstance,
-    // RouteDefinition is assumed to take TPath and TSuccessResponsePayload as generics.
-    // The route object must also have a `schema` property of type TSchema and a `method`.
-    route: RouteDefinition<TPath, TSuccessResponsePayload> & { schema: TSchema; method: 'GET' | 'POST' | 'PATCH' | 'DELETE' },
+    route: RouteDefinition<TPath, TMethod, TPathParamsSchema, TQuerySchema, TBodySchema, TResponseSchemasMap>,
     handler: (
         req: FastifyRequestBase<
-            RouteGenericFromSchema<TSchema>,
+            RouteGenericFromSchema<RouteSchemaConfig<TPathParamsSchema, TQuerySchema, TBodySchema, TResponseSchemasMap>>,
             RawServerDefault,
             RawRequestDefaultExpression<RawServerDefault>,
-            TSchema, // SchemaCompiler for request
+            RouteSchemaConfig<TPathParamsSchema, TQuerySchema, TBodySchema, TResponseSchemasMap>, // SchemaCompiler for request
             TypeBoxTypeProvider
         >,
         reply: FastifyReplyBase<
             RawServerDefault,
             RawRequestDefaultExpression<RawServerDefault>,
             RawReplyDefaultExpression<RawServerDefault>,
-            RouteGenericFromSchema<TSchema>, // RouteGenericInterface for reply
+            RouteGenericFromSchema<RouteSchemaConfig<TPathParamsSchema, TQuerySchema, TBodySchema, TResponseSchemasMap>>, // RouteGenericInterface for reply
             ContextConfigDefault,
-            TSchema, // SchemaCompiler for reply
+            RouteSchemaConfig<TPathParamsSchema, TQuerySchema, TBodySchema, TResponseSchemasMap>, // SchemaCompiler for reply
             TypeBoxTypeProvider,
             TSuccessResponsePayload // Explicitly types payload for reply.sendJSON()
         >
     ) => Promise<void>
 ) {
+    // The schema object to pass to Fastify's options.
+    // Its type is RouteSchemaConfig<...> which is compatible with Fastify's expected schema type.
+    const fastifySchemaOptions = { schema: route.schema };
+
     if(route.method === 'GET') {
         fastify.get(
-            route.pathTemplate, // This is now of type TPath (string)
-            {schema: route.schema}, // route.schema is of type TSchema
+            route.pathTemplate,
+            fastifySchemaOptions,
             handler as any // Add type assertion
         );
     } else if(route.method === 'POST') {
         fastify.post(
-            route.pathTemplate, // This is now of type TPath (string)
-            {schema: route.schema},
+            route.pathTemplate,
+            fastifySchemaOptions,
             handler as any // Add type assertion
         );
     } else if(route.method === 'PATCH') {
         fastify.patch(
-            route.pathTemplate, // This is now of type TPath (string)
-            {schema: route.schema},
+            route.pathTemplate,
+            fastifySchemaOptions,
             handler as any // Add type assertion
         );
     } else if(route.method === 'DELETE') {
         fastify.delete(
-            route.pathTemplate, // This is now of type TPath (string)
-            {schema: route.schema},
+            route.pathTemplate,
+            fastifySchemaOptions,
             handler as any // Add type assertion
         );
     } else {
-        throw new Error(`Unsupported method ${route.method}`);
+        // This will cause a type error if TMethod isn't exhausted by the checks above.
+        // It's a safeguard for ensuring all method types are handled.
+        const _exhaustiveCheck: never = route.method;
+        throw new Error(`Unsupported method: ${_exhaustiveCheck}`);
     }
 }

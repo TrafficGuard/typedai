@@ -78,7 +78,7 @@ export type PathParams<TPath extends string> =
 
 // Interface for the schema object within RouteDefinition
 // Its properties (params, querystring, body, response) remain optional and match the FastifySchema for easy assignment.
-interface RouteSchemaConfig<
+export interface RouteSchemaConfig< // Add export
 	PathParamsSchema extends TSchema | undefined,
 	QuerySchema extends TSchema | undefined,
 	BodySchema extends TSchema | undefined,
