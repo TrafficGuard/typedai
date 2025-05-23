@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Python setup ---------------------------------
+
 # Check if pyenv is installed
 if ! command -v pyenv &> /dev/null
 then
@@ -7,8 +9,6 @@ then
     echo "See: https://github.com/pyenv/pyenv?tab=readme-ov-file#installation"
     exit 1
 fi
-
-# Python setup ---------------------------------
 
 pyenv install $(cat .python-version)
 python -m pip install --upgrade pip
