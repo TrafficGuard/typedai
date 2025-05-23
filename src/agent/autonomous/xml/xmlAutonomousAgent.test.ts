@@ -212,7 +212,6 @@ describe.skip('xmlAgentRunner', () => {
 				agent = await waitForAgent(); // Re-wait or load after feedback
 				expect(agent).to.exist;
 
-
 				expect(agent!.state).to.equal('completed');
 				const functionCallResult = agent!.functionCallHistory.find((call) => call.function_name === AGENT_REQUEST_FEEDBACK);
 				expect(functionCallResult!.stdout).to.equal('the feedback');
@@ -229,7 +228,6 @@ describe.skip('xmlAgentRunner', () => {
 			await startAgent(runConfig({ functions }));
 			let agent = await waitForAgent();
 			expect(agent).to.exist;
-
 
 			await cancelAgent(agent!.agentId, agent!.executionId, 'cancelled');
 			agent = await waitForAgent(); // Re-wait or load

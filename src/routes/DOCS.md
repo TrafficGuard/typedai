@@ -1,4 +1,6 @@
-# Sending responses
+# Fastify API routes
+
+## Sending responses
 
 Regular 2xx responses sending an object must use `reply.sendJSON(responseObject)` so there is type checking from the schema
 
@@ -11,7 +13,7 @@ If a property is validated from the schema then do not duplicate the validation 
 Do not cast an object in the sendJSON to avoid compile errors. The static checking is an integral part of our application design.
 
 
-## Fastify Route code review
+### Fastify Route code review
 
 BAD example
 ```typescript

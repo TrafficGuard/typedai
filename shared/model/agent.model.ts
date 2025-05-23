@@ -1,4 +1,3 @@
-import type { FileMetadata } from '#shared/model/files.model';
 import type { IFileSystemService } from '#shared/services/fileSystemService';
 import type { ToolType } from '#shared/services/functions';
 import type { FunctionCall, FunctionCallResult, GenerationStats, ImagePartExt, LLM, LlmMessage } from './llm.model';

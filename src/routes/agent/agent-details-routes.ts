@@ -58,15 +58,6 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 			// if (!agentExists) return sendNotFound(reply, `Agent ${agentId} not found`);
 
 			const iterations: AutonomousIteration[] = await fastify.agentStateService.loadIterations(agentId);
-			// Assuming agentStateService.loadIterations returns AutonomousIteration[]
-			// where memory and toolState are already Records as per the model definition.
-			// If they were Maps, Object.fromEntries would be needed here.
-			// const responseIterations = iterations.map((iter) => ({
-			// 	...iter,
-			// 	memory: Object.fromEntries(iter.memory), // Keep if service returns Maps
-			// 	toolState: Object.fromEntries(iter.toolState), // Keep if service returns Maps
-			// }));
-			// If service returns Records (as per model), no conversion needed:
 			reply.sendJSON(iterations);
 		} catch (error) {
 			logger.error(error, `Error loading iterations for agent ${agentId}`);
