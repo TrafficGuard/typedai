@@ -1,4 +1,4 @@
-import fs from 'node:fs';
+import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { type SelectFilesResponse, selectFilesToEdit } from '#swe/discovery/selectFilesToEdit';
 import { queryWorkflowWithSearch, selectFilesAgent } from '#swe/discovery/selectFilesAgentWithSearch';
@@ -42,8 +42,12 @@ export class CodeFunctions {
 		const projectInfo = await getProjectInfo();
 		if (!projectInfo) throw new Error('No projectInfo.json available');
 		if (!projectInfo.test) return 'No compile command defined';
-		// This is specific to TypedAI
-		const envVars = parseEnvFile('./variables/test.env');
+		// This is specific to running the agents on the TypedAI project
+		const fss = getFileSystem();
+		let envVars = {};
+		if (await fss.fileExists('./variables/test.env')) {
+			envVars = parseEnvFile(await fss.readFile('./variables/test.env'));
+		}
 		const result = await execCommand(projectInfo.test, { envVars });
 		failOnError('Failure testing the project', result);
 		return `Project successfully tested calling "${projectInfo.test}"`;
@@ -83,9 +87,8 @@ export class CodeFunctions {
 	}
 }
 
-function parseEnvFile(filePath) {
+function parseEnvFile(fileContents: string) {
 	try {
-		const fileContents = fs.readFileSync(filePath, 'utf-8');
 		const lines = fileContents.split('\n');
 		const env = {};
 
