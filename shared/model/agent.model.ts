@@ -157,6 +157,11 @@ export interface AgentContext {
 }
 
 /**
+ * A summarized version of AgentContext for list views.
+ */
+export type AgentContextPreview = Pick<AgentContext, 'agentId' | 'name' | 'state' | 'cost' | 'error' | 'lastUpdate' | 'userPrompt' | 'inputPrompt' | 'user'>;
+
+/**
  * For autonomous agents we save details of each control loop iteration
  * Keep in sync with frontend/src/app/modules/agents/agent.types.ts
  */
