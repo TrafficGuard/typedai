@@ -1,0 +1,13 @@
+# Python setup ---------------------------------
+
+# Check if pyenv is installed
+if ! command -v pyenv &> /dev/null
+then
+    echo "pyenv could not be found. Please install pyenv."
+    echo "See: https://github.com/pyenv/pyenv?tab=readme-ov-file#installation"
+    exit 1
+fi
+
+pyenv install $(cat .python-version)
+python -m pip install --upgrade pip
+pip install aider-chat google-cloud-aiplatform "anthropic[vertex]" youtube-transcript-api
