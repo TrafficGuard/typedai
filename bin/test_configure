@@ -13,7 +13,8 @@ apt-get install -y sudo git curl unzip ca-certificates gnupg lsb-release && \
 # echo 'gcloud CLI installed.' && \
 useradd -m -s /bin/bash -G sudo testuser && \
 echo 'testuser ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers && \
-chown -R testuser:testuser /app && \
+chown testuser:testuser /app && \
+find /app -mindepth 1 -maxdepth 1 -not -name ".git" -exec chown -R -- testuser:testuser {} + && \
 echo 'Switching to testuser and running configure script...' && \
 sudo -u testuser -E HOME=/home/testuser bash /app/bin/configure
 EOF
