@@ -24,4 +24,4 @@ docker run -it --rm \
     \
     echo 'Switching to testuser and running configure script...' && \
     sudo -u testuser -E HOME=/home/testuser bash /app/bin/configure \
-  "
+  " # Note: No backslash on the line above
