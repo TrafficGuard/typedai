@@ -32,7 +32,7 @@ import { AgentService } from 'app/modules/agents/services/agent.service';
 import { Subject, debounceTime, switchMap, takeUntil, finalize } from 'rxjs';
 import { FormsModule, ReactiveFormsModule, UntypedFormBuilder, UntypedFormControl } from '@angular/forms';
 import { AgentTag, AgentType } from '#shared/model/agent.model';
-import { type AgentContextApi } from '#shared/schemas/agent.schema';
+import { type AgentContextPreviewApi } from '#shared/schemas/agent.schema';
 import { Pagination } from '../../../core/types';
 
 @Component({
@@ -72,13 +72,13 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
     private agentService = inject(AgentService);
     private _fuseConfirmationService = inject(FuseConfirmationService);
 
-    agents = toSignal(this.agentService.agents$, { initialValue: undefined as AgentContextApi[] | undefined });
+    agents = toSignal(this.agentService.agents$, { initialValue: undefined as AgentContextPreviewApi[] | undefined });
 
     flashMessage: WritableSignal<'success' | 'error' | null> = signal(null);
     isLoading: WritableSignal<boolean> = signal(true); // Start with isLoading true
     searchInputControl: UntypedFormControl = new UntypedFormControl();
 
-    selection = new SelectionModel<AgentContextApi>(true, []);
+    selection = new SelectionModel<AgentContextPreviewApi>(true, []);
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
@@ -152,16 +152,18 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     isAllSelected(): boolean {
+        const currentAgents = this.agents() ?? [];
         const numSelected = this.selection.selected.length;
-        const numRows = this.agents().length;
+        const numRows = currentAgents.length;
         return numSelected === numRows && numRows > 0;
     }
 
     masterToggle(): void {
+        const currentAgents = this.agents() ?? [];
         if (this.isAllSelected()) {
             this.selection.clear();
         } else {
-            this.agents().forEach(row => this.selection.select(row));
+            currentAgents.forEach(row => this.selection.select(row));
         }
     }
 
@@ -233,7 +235,7 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
         }, 3000);
     }
 
-    trackByFn(index: number, item: AgentContextApi): string | number {
+    trackByFn(index: number, item: AgentContextPreviewApi): string | number {
         return item.agentId || index;
     }
 }
