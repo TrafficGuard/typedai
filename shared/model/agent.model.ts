@@ -159,7 +159,7 @@ export interface AgentContext {
 /**
  * A summarized version of AgentContext for list views.
  */
-export type AgentContextPreview = Pick<AgentContext, 'agentId' | 'name' | 'state' | 'cost' | 'error' | 'lastUpdate' | 'userPrompt' | 'inputPrompt' | 'user'>;
+export type AgentContextPreview = Omit<Pick<AgentContext, 'agentId' | 'name' | 'state' | 'cost' | 'error' | 'lastUpdate' | 'userPrompt' | 'inputPrompt' | 'user'>, 'user'> & { user: string };
 
 /**
  * For autonomous agents we save details of each control loop iteration
