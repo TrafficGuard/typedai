@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# Check if pyenv is installed
+if ! command -v pyenv &> /dev/null
+then
+    echo "pyenv could not be found. Please install pyenv."
+    echo "See: https://github.com/pyenv/pyenv?tab=readme-ov-file#installation"
+    exit 1
+fi
+
 # Python setup ---------------------------------
 
 pyenv install $(cat .python-version)
