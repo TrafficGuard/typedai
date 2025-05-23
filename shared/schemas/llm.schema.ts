@@ -114,7 +114,7 @@ export const GenerationStatsSchema = Type.Object({
 	inputTokens: Type.Number(),
 	outputTokens: Type.Number(),
 	cachedInputTokens: Type.Optional(Type.Number()),
-	cost:  Type.Union([Type.Number(), Type.Null()]), // Null handles NaN
+	cost: Type.Union([Type.Number(), Type.Null()]), // Null handles NaN
 	llmId: Type.String(),
 }); // Do not provide an id as it is attached to multiple parent schemas
 const _GenerationStatsCheck: AreTypesFullyCompatible<GenerationStats, Static<typeof GenerationStatsSchema>> = true;
