@@ -177,7 +177,7 @@ export interface GenerationStats {
 	inputTokens: number;
 	outputTokens: number;
 	cachedInputTokens?: number | undefined;
-	cost: number;
+	cost: number | null;
 	llmId: string;
 }
 

@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { type SelectFilesResponse, selectFilesToEdit } from '#swe/discovery/selectFilesToEdit';
 import { queryWorkflowWithSearch, selectFilesAgent } from '#swe/discovery/selectFilesAgentWithSearch';

@@ -14,18 +14,18 @@ export const ANTHROPIC_VERTEX_SERVICE = 'anthropic-vertex';
 export function anthropicVertexLLMRegistry(): Record<string, () => LLM> {
 	return {
 		[`${ANTHROPIC_VERTEX_SERVICE}:claude-3-5-haiku`]: Claude3_5_Haiku_Vertex,
-		[`${ANTHROPIC_VERTEX_SERVICE}:claude-4-sonnet`]: Claude4_Sonnet_Vertex,
-		[`${ANTHROPIC_VERTEX_SERVICE}:claude-4-opus`]: Claude4_Opus_Vertex,
+		[`${ANTHROPIC_VERTEX_SERVICE}:claude-sonnet-4`]: Claude4_Sonnet_Vertex,
+		[`${ANTHROPIC_VERTEX_SERVICE}:claude-opus-4`]: Claude4_Opus_Vertex,
 	};
 }
 
 // Supported image types image/jpeg', 'image/png', 'image/gif' or 'image/webp'
 export function Claude4_Opus_Vertex() {
-	return new AnthropicVertexLLM('Claude 4 Opus (Vertex)', 'claude-4-opus', 200_000, anthropicVertexCostFunction(15, 75));
+	return new AnthropicVertexLLM('Claude 4 Opus (Vertex)', 'claude-opus-4', 200_000, anthropicVertexCostFunction(15, 75));
 }
 
 export function Claude4_Sonnet_Vertex() {
-	return new AnthropicVertexLLM('Claude 4 Sonnet (Vertex)', 'claude-4-sonnet', 200_000, anthropicVertexCostFunction(3, 15));
+	return new AnthropicVertexLLM('Claude 4 Sonnet (Vertex)', 'claude-sonnet-4', 200_000, anthropicVertexCostFunction(3, 15));
 }
 
 export function Claude3_5_Haiku_Vertex() {
