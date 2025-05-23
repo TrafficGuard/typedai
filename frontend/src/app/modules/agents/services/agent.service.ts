@@ -103,16 +103,29 @@ export class AgentService {
 
   /** Updates the local cache when an agent is modified */
   private updateAgentInCache(updatedAgent: AgentContextApi): void {
-    const agents = this._agents$.getValue() ?? [];
+    const agents = this._agents$.getValue() ?? []; // Existing agents are AgentContextPreviewApi[]
     const index = agents.findIndex(agent => agent.agentId === updatedAgent.agentId);
+
+    // Convert AgentContextApi to AgentContextPreviewApi
+    const agentPreview: AgentContextPreviewApi = {
+        agentId: updatedAgent.agentId,
+        name: updatedAgent.name,
+        state: updatedAgent.state,
+        cost: updatedAgent.cost,
+        error: updatedAgent.error, // This is correct as error is optional in both schemas
+        lastUpdate: updatedAgent.lastUpdate,
+        userPrompt: updatedAgent.userPrompt,
+        inputPrompt: updatedAgent.inputPrompt,
+        user: updatedAgent.user, // AgentContextApi.user is a string ID, matching AgentContextPreviewApi.user
+    };
+
     if (index !== -1) {
-      const updatedAgents = [...agents];
-      updatedAgents[index] = updatedAgent;
-      this._agents$.next(updatedAgents);
+        const updatedAgentsList = [...agents];
+        updatedAgentsList[index] = agentPreview; // Store the converted preview
+        this._agents$.next(updatedAgentsList);
     } else {
-      // Optionally handle the case where the agent isn't found
-      // For example, add the new agent to the list
-      this._agents$.next([...agents, updatedAgent]);
+        // Agent not found in cache, typically means it's a new agent. Add its preview.
+        this._agents$.next([...agents, agentPreview]); // Store the converted preview
     }
   }
 
