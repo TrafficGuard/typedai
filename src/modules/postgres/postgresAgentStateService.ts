@@ -344,10 +344,21 @@ export class PostgresAgentStateService implements AgentContextService {
 			.orderBy('last_update', 'desc')
 			.execute();
 		// Use Promise.all with map because _deserializeDbRowToAgentContext is async
-		return Promise.all(rows.map((row) => this._deserializeDbRowToAgentContext(row)));
+		const agentContexts = await Promise.all(rows.map((row) => this._deserializeDbRowToAgentContext(row)));
+		return agentContexts.map((agent) => ({
+			agentId: agent.agentId,
+			name: agent.name,
+			state: agent.state,
+			cost: agent.cost ?? 0,
+			error: agent.error,
+			lastUpdate: agent.lastUpdate,
+			userPrompt: agent.userPrompt,
+			inputPrompt: agent.inputPrompt,
+			user: agent.user.id, // Convert User object to user ID string
+		}));
 	}
 
-	async listRunning(): Promise<AgentContext[]> {
+	async listRunning(): Promise<AgentContextPreview[]> {
 		const userId = currentUser().id;
 		const terminalStates: AgentRunningState[] = ['completed', 'shutdown', 'timeout', 'error'];
 		const rows = await this.db
@@ -360,7 +371,18 @@ export class PostgresAgentStateService implements AgentContextService {
 			.orderBy('last_update', 'desc')
 			.execute();
 		// Use Promise.all with map because _deserializeDbRowToAgentContext is async
-		return Promise.all(rows.map((row) => this._deserializeDbRowToAgentContext(row)));
+		const agentContexts = await Promise.all(rows.map((row) => this._deserializeDbRowToAgentContext(row)));
+		return agentContexts.map((agent) => ({
+			agentId: agent.agentId,
+			name: agent.name,
+			state: agent.state,
+			cost: agent.cost ?? 0,
+			error: agent.error,
+			lastUpdate: agent.lastUpdate,
+			userPrompt: agent.userPrompt,
+			inputPrompt: agent.inputPrompt,
+			user: agent.user.id, // Convert User object to user ID string
+		}));
 	}
 
 	async clear(): Promise<void> {

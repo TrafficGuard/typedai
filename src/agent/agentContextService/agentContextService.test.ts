@@ -429,9 +429,9 @@ export function runAgentStateServiceTests(
 			// but these are generally expected for a summary view.
 			contexts.forEach((ctx) => {
 				expect(ctx).to.include.keys(['agentId', 'name', 'state', 'lastUpdate', 'user']);
-				// Check user association: list() now returns a partial context where user is { id: '...' }
+				// Check user association: list() now returns AgentContextPreview where user is a string ID
 				expect(ctx.user).to.exist;
-				expect(ctx.user.id).to.equal(testUser.id);
+				expect(ctx.user).to.equal(testUser.id);
 			});
 		});
 
