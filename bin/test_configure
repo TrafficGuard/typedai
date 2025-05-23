@@ -1,0 +1,27 @@
+#!/bin/bash
+set -e
+
+docker run -it --rm \
+  -v "$(pwd):/app" \
+  -v "${HOME}/.config/gcloud:/home/testuser/.config/gcloud:ro" \
+  --workdir /app \
+  ubuntu:latest \
+  bash -c " \
+    apt-get update && \
+    apt-get install -y sudo git curl unzip ca-certificates gnupg lsb-release && \
+    \
+    # Optional: Install gcloud CLI if you want to test GCP parts thoroughly from a clean gcloud install
+    # echo 'Installing gcloud CLI...' && \
+    # mkdir -p /etc/apt/keyrings && \
+    # curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /etc/apt/keyrings/cloud.google.gpg && \
+    # echo \"deb [signed-by=/etc/apt/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main\" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && \
+    # apt-get update && apt-get install -y google-cloud-cli && \
+    # echo 'gcloud CLI installed.' && \
+    \
+    useradd -m -s /bin/bash -G sudo testuser && \
+    echo 'testuser ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers && \
+    chown -R testuser:testuser /app && \
+    \
+    echo 'Switching to testuser and running configure script...' && \
+    sudo -u testuser -E HOME=/home/testuser bash /app/bin/configure \
+  "
