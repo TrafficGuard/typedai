@@ -7,7 +7,7 @@ import { MAX_PROPERTY_SIZE, truncateToByteLength, validateFirestoreObject } from
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import { type AgentContext, type AgentRunningState, type AutonomousIteration, isExecuting, type AgentContextPreview } from '#shared/model/agent.model';
+import { type AgentContext, type AgentContextPreview, type AgentRunningState, type AutonomousIteration, isExecuting } from '#shared/model/agent.model';
 import type { User } from '#shared/model/user.model';
 import type { AgentContextSchema } from '#shared/schemas/agent.schema';
 import { currentUser } from '#user/userContext';
@@ -178,7 +178,9 @@ export class FirestoreAgentStateService implements AgentContextService {
 		return this.deserializeQuery(querySnapshot);
 	}
 
-	private async deserializeQuery(querySnapshot: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData, FirebaseFirestore.DocumentData>): Promise<AgentContextPreview[]> {
+	private async deserializeQuery(
+		querySnapshot: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData, FirebaseFirestore.DocumentData>,
+	): Promise<AgentContextPreview[]> {
 		const previews: AgentContextPreview[] = [];
 		for (const doc of querySnapshot.docs) {
 			const data = doc.data();

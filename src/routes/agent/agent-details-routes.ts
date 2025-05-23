@@ -30,8 +30,21 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 	});
 
 	fastify.get(AGENT_API.listHumanInLoopAgents.pathTemplate, { schema: AGENT_API.listHumanInLoopAgents.schema }, async (req, reply) => {
-		const ctxs: AgentContext[] = await fastify.agentStateService.listRunning();
-		const response = ctxs.filter((ctx) => ctx.state === 'hitl_threshold' || ctx.state === 'hitl_tool' || ctx.state === 'hitl_feedback').map(serializeContext);
+		const agentPreviews: AgentContextPreview[] = await fastify.agentStateService.listRunning();
+		const agentContextsPromises = agentPreviews.map(async (preview) => {
+			const fullContext = await fastify.agentStateService.load(preview.agentId);
+			if (!fullContext) {
+				logger.error(`Agent with ID ${preview.agentId} found in preview list but not loaded by agentStateService.load().`);
+				return null;
+			}
+			return fullContext;
+		});
+		const agentContextsNullable = await Promise.all(agentContextsPromises);
+		const agentContextsFull = agentContextsNullable.filter((ctx): ctx is AgentContext => ctx !== null);
+
+		const response = agentContextsFull
+			.filter((ctx) => ctx.state === 'hitl_threshold' || ctx.state === 'hitl_tool' || ctx.state === 'hitl_feedback')
+			.map(serializeContext);
 		reply.sendJSON(response);
 	});
 
