@@ -15,7 +15,7 @@ export interface AgentContextService {
 	/**
 	 * List agents which are not in a completed state
 	 */
-	listRunning(): Promise<AgentContext[]>;
+	listRunning(): Promise<AgentContextPreview[]>;
 
 	clear(): void;
 
