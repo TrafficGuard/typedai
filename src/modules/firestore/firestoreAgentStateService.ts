@@ -7,8 +7,7 @@ import { MAX_PROPERTY_SIZE, truncateToByteLength, validateFirestoreObject } from
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import { type AgentContext, type AgentRunningState, type AutonomousIteration, isExecuting } from '#shared/model/agent.model';
-import type { User } from '#shared/model/user.model';
+import { type AgentContext, type AgentRunningState, type AutonomousIteration, isExecuting, type AgentContextPreview, type User } from '#shared/model/agent.model';
 import type { AgentContextSchema } from '#shared/schemas/agent.schema';
 import { currentUser } from '#user/userContext';
 import { firestoreDb } from './firestore';
@@ -144,20 +143,19 @@ export class FirestoreAgentStateService implements AgentContextService {
 	}
 
 	@span()
-	async list(): Promise<AgentContext[]> {
-		// TODO limit the fields retrieved for performance, esp while functionCallHistory and memory is on the AgentContext object
-		const keys: Array<keyof AgentContext> = ['agentId', 'name', 'state', 'cost', 'error', 'lastUpdate', 'userPrompt', 'inputPrompt', 'user'];
+	async list(): Promise<AgentContextPreview[]> {
+		const previewKeys: Array<keyof AgentContextPreview> = ['name', 'state', 'cost', 'error', 'lastUpdate', 'userPrompt', 'inputPrompt', 'user']; // agentId is obtained from doc.id, user is the user field in Firestore
 		const querySnapshot = await this.db
 			.collection('AgentContext')
 			.where('user', '==', currentUser().id)
-			.select(...keys)
+			.select(...previewKeys)
 			.orderBy('lastUpdate', 'desc')
 			.get();
 		return this.deserializeQuery(querySnapshot);
 	}
 
 	@span()
-	async listRunning(): Promise<AgentContext[]> {
+	async listRunning(): Promise<AgentContextPreview[]> {
 		// Define terminal states to exclude from the "running" list
 		const terminalStates: AgentRunningState[] = ['completed', 'shutdown', 'timeout', 'error']; // Added 'error' as it's typically terminal
 		// NOTE: This query requires a composite index in Firestore.
@@ -167,39 +165,36 @@ export class FirestoreAgentStateService implements AgentContextService {
 		// NOTE: Firestore requires the first orderBy clause to be on the field used in an inequality filter (like 'not-in').
 		// Therefore, we order by 'state' first, then by 'lastUpdate'. This ensures the query works reliably,
 		// although the primary desired sort order is by 'lastUpdate'.
+		const previewKeys: Array<keyof AgentContextPreview> = ['name', 'state', 'cost', 'error', 'lastUpdate', 'userPrompt', 'inputPrompt', 'user'];
 		const querySnapshot = await this.db
 			.collection('AgentContext')
 			.where('user', '==', currentUser().id) // Filter by user first
 			.where('state', 'not-in', terminalStates) // Use 'not-in' to exclude multiple terminal states
+			.select(...previewKeys) // Ensure this select uses previewKeys
 			.orderBy('state') // Order by the inequality filter field first (Firestore requirement)
 			.orderBy('lastUpdate', 'desc') // Then order by the desired field
 			.get();
 		return this.deserializeQuery(querySnapshot);
 	}
 
-	private async deserializeQuery(querySnapshot: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData, FirebaseFirestore.DocumentData>) {
-		const contexts: Partial<AgentContext>[] = []; // Use Partial<AgentContext> for list view summary
+	private async deserializeQuery(querySnapshot: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData, FirebaseFirestore.DocumentData>): Promise<AgentContextPreview[]> {
+		const previews: AgentContextPreview[] = [];
 		for (const doc of querySnapshot.docs) {
 			const data = doc.data();
-			// Construct a partial context suitable for list views
-			const partialContext: Partial<AgentContext> = {
+			const preview: AgentContextPreview = {
 				agentId: doc.id,
 				name: data.name,
 				state: data.state,
-				cost: data.cost,
+				cost: data.cost ?? 0, // Default cost to 0 if undefined/null
 				error: data.error,
 				lastUpdate: data.lastUpdate,
 				userPrompt: data.userPrompt,
 				inputPrompt: data.inputPrompt,
-				// Assign the user ID stored in Firestore. Assume it's stored as a string ID.
-				// Create a minimal User object containing only the ID for type compatibility.
-				user: data.user ? ({ id: data.user } as User) : undefined,
+				user: data.user, // Assumes data.user is the string ID from Firestore matching AgentContextPreview.user
 			};
-			contexts.push(partialContext);
+			previews.push(preview);
 		}
-		// Cast to AgentContext[] for compatibility with current method signature.
-		// Consumers of list() / listRunning() should be aware they might receive partial contexts.
-		return contexts as AgentContext[];
+		return previews;
 	}
 
 	async clear(): Promise<void> {
