@@ -10,13 +10,18 @@ import { functionRegistry } from '../../functionRegistry';
 
 export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 	fastify.get(AGENT_API.list.pathTemplate, { schema: AGENT_API.list.schema }, async (req, reply) => {
-		const agentContexts: AgentContextPreview[] = await fastify.agentStateService.list();
-		// AgentContextPreview has user: User, AgentContextPreviewApi (from schema) has user: string (userId)
-		// Other fields are compatible.
-		const response = agentContexts.map((preview) => ({
-			...preview,
-			user: preview.user.id,
-		}));
+		const agentPreviews: AgentContextPreview[] = await fastify.agentStateService.list();
+		const agentContextsPromises = agentPreviews.map(async (preview) => {
+			const fullContext = await fastify.agentStateService.load(preview.agentId);
+			if (!fullContext) {
+				logger.error(`Agent with ID ${preview.agentId} found in preview list but not loaded by agentStateService.load().`);
+				return null;
+			}
+			return fullContext;
+		});
+		const agentContextsNullable = await Promise.all(agentContextsPromises);
+		const agentContexts = agentContextsNullable.filter((ctx): ctx is AgentContext => ctx !== null);
+		const response = agentContexts.map(serializeContext);
 		reply.sendJSON(response);
 	});
 

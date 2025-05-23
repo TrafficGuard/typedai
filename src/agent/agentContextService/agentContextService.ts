@@ -1,4 +1,4 @@
-import type { AgentContext, AgentRunningState, AutonomousIteration, AgentContextPreview } from '#shared/model/agent.model';
+import type { AgentContext, AgentContextPreview, AgentRunningState, AutonomousIteration } from '#shared/model/agent.model';
 
 export interface AgentContextService {
 	save(state: AgentContext): Promise<void>;
