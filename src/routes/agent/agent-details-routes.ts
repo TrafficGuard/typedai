@@ -5,13 +5,18 @@ import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send, sendBadRequest } from '#fastify/index';
 import { logger } from '#o11y/logger';
 import { AGENT_API } from '#shared/api/agent.api';
-import type { AgentContext, AutonomousIteration } from '#shared/model/agent.model';
+import type { AgentContext, AgentContextPreview, AutonomousIteration } from '#shared/model/agent.model';
 import { functionRegistry } from '../../functionRegistry';
 
 export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 	fastify.get(AGENT_API.list.pathTemplate, { schema: AGENT_API.list.schema }, async (req, reply) => {
-		const agentContexts: AgentContext[] = await fastify.agentStateService.list();
-		const response = agentContexts.map(serializeContext);
+		const agentContexts: AgentContextPreview[] = await fastify.agentStateService.list();
+		// AgentContextPreview has user: User, AgentContextPreviewApi (from schema) has user: string (userId)
+		// Other fields are compatible.
+		const response = agentContexts.map((preview) => ({
+			...preview,
+			user: preview.user.id,
+		}));
 		reply.sendJSON(response);
 	});
 

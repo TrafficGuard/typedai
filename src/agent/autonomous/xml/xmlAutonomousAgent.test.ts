@@ -73,15 +73,18 @@ describe.skip('xmlAgentRunner', () => {
 		return user ? { ...defaults, ...user } : defaults;
 	}
 
-	async function waitForAgent(): Promise<AgentContext> {
-		while ((await appContext().agentStateService.list()).filter((agent) => agent.state === 'agent' || agent.state === 'functions').length > 0) {
+	async function waitForAgent(): Promise<AgentContext | null> {
+		let previewList = await appContext().agentStateService.list();
+		while (previewList.filter((agent) => agent.state === 'agent' || agent.state === 'functions').length > 0) {
 			await sleep(1000);
+			previewList = await appContext().agentStateService.list();
 		}
-		const agents = await appContext().agentStateService.list();
+		const agents = previewList; // previews
 		if (agents.length !== 1) {
 			throw new Error('Expecting only one agent to exist');
 		}
-		return agents[0];
+		// Load the full agent context as the tests expect it
+		return appContext().agentStateService.load(agents[0].agentId);
 	}
 
 	beforeEach(() => {
@@ -107,8 +110,9 @@ describe.skip('xmlAgentRunner', () => {
 			mockLLM.addResponse(COMPLETE_FUNCTION_CALL);
 			await startAgent(runConfig({ initialPrompt: 'Add 3 and 6', functions: functions }));
 			const agent = await waitForAgent();
+			expect(agent).to.exist;
 			// spy on sum
-			expect(agent.state).to.equal('completed');
+			expect(agent!.state).to.equal('completed');
 		});
 	});
 
@@ -118,8 +122,9 @@ describe.skip('xmlAgentRunner', () => {
 			mockLLM.addResponse(COMPLETE_FUNCTION_CALL);
 			await startAgent(runConfig({ functions }));
 			const agent = await waitForAgent();
-			expect(agent.error).to.be.undefined;
-			expect(agent.state).to.equal('completed');
+			expect(agent).to.exist;
+			expect(agent!.error).to.be.undefined;
+			expect(agent!.state).to.equal('completed');
 		});
 
 		it('should be able to complete on the second function call', async () => {
@@ -128,8 +133,9 @@ describe.skip('xmlAgentRunner', () => {
 			mockLLM.addResponse(COMPLETE_FUNCTION_CALL);
 			await startAgent(runConfig({ functions }));
 			const agent = await waitForAgent();
-			expect(!agent.error).to.be.true;
-			expect(agent.state).to.equal('completed');
+			expect(agent).to.exist;
+			expect(!agent!.error).to.be.true;
+			expect(agent!.state).to.equal('completed');
 		});
 	});
 
@@ -137,15 +143,18 @@ describe.skip('xmlAgentRunner', () => {
 		it('should be able to request feedback', async () => {
 			mockLLM.addResponse(REQUEST_FEEDBACK_FUNCTION_CALL);
 			await startAgent(runConfig({ functions }));
-			const agent = await waitForAgent();
-			expect(agent.functionCallHistory.length).to.equal(1);
-			expect(agent.state).to.equal('feedback');
+			let agent = await waitForAgent();
+			expect(agent).to.exist;
+			expect(agent!.functionCallHistory.length).to.equal(1);
+			expect(agent!.state).to.equal('feedback');
 
 			mockLLM.addResponse(COMPLETE_FUNCTION_CALL);
-			await provideFeedback(agent.agentId, agent.executionId, 'the feedback');
-
-			expect(agent.state).to.equal('completed');
-			expect(agent.functionCallHistory[0].stdout).to.equal('the feedback');
+			await provideFeedback(agent!.agentId, agent!.executionId, 'the feedback');
+			// Re-fetch or wait for agent to update state
+			agent = await appContext().agentStateService.load(agent!.agentId);
+			expect(agent).to.exist;
+			expect(agent!.state).to.equal('completed');
+			expect(agent!.functionCallHistory[0].stdout).to.equal('the feedback');
 		});
 	});
 
@@ -158,7 +167,8 @@ describe.skip('xmlAgentRunner', () => {
 			const initialPrompt = 'Initial prompt test';
 			await startAgent(runConfig({ initialPrompt, functions: functions }));
 			const agent = await waitForAgent();
-			expect(agent.userPrompt).to.equal(initialPrompt);
+			expect(agent).to.exist;
+			expect(agent!.userPrompt).to.equal(initialPrompt);
 		});
 
 		it('should extract the user request when <user_request></user_request> exists in the prompt', async () => {
@@ -169,7 +179,8 @@ describe.skip('xmlAgentRunner', () => {
 			const initialPrompt = 'Initial request test';
 			await startAgent(runConfig({ initialPrompt: `<user_request>${initialPrompt}</user_request>`, functions: functions }));
 			const agent = await waitForAgent();
-			expect(agent.userPrompt).to.equal(initialPrompt);
+			expect(agent).to.exist;
+			expect(agent!.userPrompt).to.equal(initialPrompt);
 		});
 	});
 
@@ -192,16 +203,19 @@ describe.skip('xmlAgentRunner', () => {
 		describe('Feedback provided', () => {
 			it('should resume the agent with the feedback', async () => {
 				mockLLM.addResponse(REQUEST_FEEDBACK_FUNCTION_CALL);
-				const id = await startAgent(runConfig({ functions }));
+				await startAgent(runConfig({ functions }));
 				let agent = await waitForAgent();
+				expect(agent).to.exist;
 
 				mockLLM.addResponse(COMPLETE_FUNCTION_CALL);
-				await provideFeedback(agent.agentId, agent.executionId, 'the feedback');
-				agent = await waitForAgent();
+				await provideFeedback(agent!.agentId, agent!.executionId, 'the feedback');
+				agent = await waitForAgent(); // Re-wait or load after feedback
+				expect(agent).to.exist;
 
-				expect(agent.state).to.equal('completed');
-				const functionCallResult = agent.functionCallHistory.find((call) => call.function_name === AGENT_REQUEST_FEEDBACK);
-				expect(functionCallResult.stdout).to.equal('the feedback');
+
+				expect(agent!.state).to.equal('completed');
+				const functionCallResult = agent!.functionCallHistory.find((call) => call.function_name === AGENT_REQUEST_FEEDBACK);
+				expect(functionCallResult!.stdout).to.equal('the feedback');
 			});
 		});
 	});
@@ -214,13 +228,16 @@ describe.skip('xmlAgentRunner', () => {
 			mockLLM.setResponse(response);
 			await startAgent(runConfig({ functions }));
 			let agent = await waitForAgent();
+			expect(agent).to.exist;
 
-			await cancelAgent(agent.agentId, agent.executionId, 'cancelled');
-			agent = await waitForAgent();
 
-			expect(agent.state).to.equal('completed');
-			const functionCallResult = agent.functionCallHistory.find((call) => call.function_name === SUPERVISOR_CANCELLED_FUNCTION_NAME);
-			expect(functionCallResult.stdout).to.equal('cancelled');
+			await cancelAgent(agent!.agentId, agent!.executionId, 'cancelled');
+			agent = await waitForAgent(); // Re-wait or load
+			expect(agent).to.exist;
+
+			expect(agent!.state).to.equal('completed');
+			const functionCallResult = agent!.functionCallHistory.find((call) => call.function_name === SUPERVISOR_CANCELLED_FUNCTION_NAME);
+			expect(functionCallResult!.stdout).to.equal('cancelled');
 		});
 	});
 
@@ -232,9 +249,10 @@ describe.skip('xmlAgentRunner', () => {
 			mockLLM.addResponse(COMPLETE_FUNCTION_CALL);
 			await startAgent(runConfig({ functions }));
 			const agent = await waitForAgent();
-			expect(agent.state).to.equal('completed');
+			expect(agent).to.exist;
+			expect(agent!.state).to.equal('completed');
 
-			const calls = await appContext().llmCallService.getLlmCallsForAgent(agent.agentId);
+			const calls = await appContext().llmCallService.getLlmCallsForAgent(agent!.agentId);
 			expect(calls.length).to.equal(3);
 			const skyCall = calls[1];
 			expect(skyCall.callStack).to.equal(`${AGENT_NAME} > ${XML_AGENT_SPAN} > skyColour > generateText`);

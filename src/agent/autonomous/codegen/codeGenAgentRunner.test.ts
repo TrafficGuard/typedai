@@ -81,15 +81,18 @@ describe('codegenAgentRunner', () => {
 	// 	return user ? { ...defaults, ...user } : defaults;
 	// }
 
-	async function waitForAgent(): Promise<AgentContext> {
-		while ((await appContext().agentStateService.list()).filter((agent) => agent.state === 'agent' || agent.state === 'functions').length > 0) {
+	async function waitForAgent(): Promise<AgentContext | null> {
+		let previewList = await appContext().agentStateService.list();
+		while (previewList.filter((agent) => agent.state === 'agent' || agent.state === 'functions').length > 0) {
 			await sleep(10);
+			previewList = await appContext().agentStateService.list();
 		}
-		const agents = await appContext().agentStateService.list();
+		const agents = previewList; // previews
 		if (agents.length !== 1) {
 			throw new Error('Expecting only one agent to exist');
 		}
-		return agents[0];
+		// Load the full agent context as the tests expect it
+		return appContext().agentStateService.load(agents[0].agentId);
 	}
 
 	beforeEach(() => {
@@ -127,8 +130,9 @@ describe('codegenAgentRunner', () => {
 
 			await startAgent(runConfig({ initialPrompt: 'Task is to 3 and 6', functions: functions }));
 			const agent = await waitForAgent();
+			expect(agent).to.exist;
 			// spy on sum
-			expect(agent.state).to.equal('completed');
+			expect(agent!.state).to.equal('completed');
 
 			// when the second round of the control loop happens the prompt should be
 			// <old-function-call-history>
@@ -155,8 +159,9 @@ describe('codegenAgentRunner', () => {
 			mockLLM.addResponse('<summary>Test summary for initial completion.</summary>'); // For the IterationSummary
 			await startAgent(runConfig({ functions }));
 			const agent = await waitForAgent();
-			expect(agent.error).to.be.null;
-			expect(agent.state).to.equal('completed');
+			expect(agent).to.exist;
+			expect(agent!.error).to.be.null;
+			expect(agent!.state).to.equal('completed');
 		});
 
 		it('should be able to complete on the second function call', async () => {
@@ -167,8 +172,9 @@ describe('codegenAgentRunner', () => {
 			mockLLM.addResponse('<summary>Test summary for final completion.</summary>'); // Iteration 2: Summary
 			await startAgent(runConfig({ functions }));
 			const agent = await waitForAgent();
-			expect(!agent.error).to.be.true;
-			expect(agent.state).to.equal('completed');
+			expect(agent).to.exist;
+			expect(!agent!.error).to.be.true;
+			expect(agent!.state).to.equal('completed');
 		});
 	});
 
@@ -179,8 +185,9 @@ describe('codegenAgentRunner', () => {
 			mockLLM.addResponse('<summary>Test summary for feedback request.</summary>');
 			await startAgent(runConfig({ functions }));
 			let agent = await waitForAgent();
-			expect(agent.functionCallHistory.length).to.equal(1);
-			expect(agent.state).to.equal('hitl_feedback');
+			expect(agent).to.exist;
+			expect(agent!.functionCallHistory.length).to.equal(1);
+			expect(agent!.state).to.equal('hitl_feedback');
 
 			let postFeedbackPrompt: string;
 			mockLLM.addResponse(COMPLETE_FUNCTION_CALL_PLAN, (prompt) => {
@@ -188,8 +195,9 @@ describe('codegenAgentRunner', () => {
 			});
 			mockLLM.addResponse('<summary>Test summary after feedback.</summary>');
 			logger.info('Providing feedback...');
-			await provideFeedback(agent.agentId, agent.executionId, feedbackNote);
+			await provideFeedback(agent!.agentId, agent!.executionId, feedbackNote);
 			agent = await waitForAgent();
+			expect(agent).to.exist;
 
 			// Make sure the agent can see the feedback note
 			// TODO check that the note is after the <python-code> block
@@ -197,8 +205,8 @@ describe('codegenAgentRunner', () => {
 			// Should have all the calls from that iterations in the results not the history
 			expect(postFeedbackPrompt).to.not.be.undefined;
 			expect(postFeedbackPrompt).to.include(feedbackNote);
-			expect(agent.state).to.equal('completed');
-			expect(agent.functionCallHistory[0].stdout).to.equal(feedbackNote);
+			expect(agent!.state).to.equal('completed');
+			expect(agent!.functionCallHistory[0].stdout).to.equal(feedbackNote);
 		});
 	});
 
@@ -211,7 +219,8 @@ describe('codegenAgentRunner', () => {
 			const initialPrompt = 'Initial prompt test';
 			await startAgent(runConfig({ initialPrompt, functions: functions }));
 			const agent = await waitForAgent();
-			expect(agent.userPrompt).to.equal(initialPrompt);
+			expect(agent).to.exist;
+			expect(agent!.userPrompt).to.equal(initialPrompt);
 		});
 
 		it('should extract the user request when <user_request></user_request> exists in the prompt', async () => {
@@ -222,7 +231,8 @@ describe('codegenAgentRunner', () => {
 			const initialPrompt = 'Initial request test';
 			await startAgent(runConfig({ initialPrompt: `<user_request>${initialPrompt}</user_request>`, functions: functions }));
 			const agent = await waitForAgent();
-			expect(agent.userPrompt).to.equal(initialPrompt);
+			expect(agent).to.exist;
+			expect(agent!.userPrompt).to.equal(initialPrompt);
 		});
 	});
 
@@ -237,8 +247,9 @@ describe('codegenAgentRunner', () => {
 			mockLLM.addResponse('<summary>Test summary after syntax fix and completion.</summary>'); // 3. Summary for the successful completion
 			await startAgent(runConfig({ functions }));
 			const agent = await waitForAgent();
-			expect(agent.error).to.be.null;
-			expect(agent.state).to.equal('completed');
+			expect(agent).to.exist;
+			expect(agent!.error).to.be.null;
+			expect(agent!.state).to.equal('completed');
 		});
 	});
 
@@ -270,16 +281,18 @@ describe('codegenAgentRunner', () => {
 			it('should resume the agent with the feedback', async () => {
 				const feedbackNote = 'the feedback';
 				mockLLM.addResponse(REQUEST_FEEDBACK_FUNCTION_CALL_PLAN(feedbackNote));
-				const id = await startAgent(runConfig({ functions }));
+				await startAgent(runConfig({ functions }));
 				let agent = await waitForAgent();
+				expect(agent).to.exist;
 
 				mockLLM.addResponse(COMPLETE_FUNCTION_CALL_PLAN);
-				await provideFeedback(agent.agentId, agent.executionId, feedbackNote);
+				await provideFeedback(agent!.agentId, agent!.executionId, feedbackNote);
 				agent = await waitForAgent();
+				expect(agent).to.exist;
 
-				expect(agent.state).to.equal('completed');
-				const functionCallResult = agent.functionCallHistory.find((call) => call.function_name === AGENT_REQUEST_FEEDBACK);
-				expect(functionCallResult.stdout).to.equal(feedbackNote);
+				expect(agent!.state).to.equal('completed');
+				const functionCallResult = agent!.functionCallHistory.find((call) => call.function_name === AGENT_REQUEST_FEEDBACK);
+				expect(functionCallResult!.stdout).to.equal(feedbackNote);
 			});
 		});
 	});
@@ -304,13 +317,15 @@ describe('codegenAgentRunner', () => {
 			mockLLM.addResponse(ITERATION_SUMMARY_RESPONSE);
 			await startAgent(runConfig({ functions }));
 			let agent = await waitForAgent();
+			expect(agent).to.exist;
 
-			await cancelAgent(agent.agentId, agent.executionId, 'cancelled');
+			await cancelAgent(agent!.agentId, agent!.executionId, 'cancelled');
 			agent = await waitForAgent();
+			expect(agent).to.exist;
 
-			expect(agent.state).to.equal('completed');
-			const functionCallResult = agent.functionCallHistory.find((call) => call.function_name === SUPERVISOR_CANCELLED_FUNCTION_NAME);
-			expect(functionCallResult.stdout).to.equal('cancelled');
+			expect(agent!.state).to.equal('completed');
+			const functionCallResult = agent!.functionCallHistory.find((call) => call.function_name === SUPERVISOR_CANCELLED_FUNCTION_NAME);
+			expect(functionCallResult!.stdout).to.equal('cancelled');
 		});
 	});
 
@@ -325,9 +340,10 @@ describe('codegenAgentRunner', () => {
 			mockLLM.addResponse('<summary>Test summary for final completion.</summary>'); // 5. Summary for completion iteration
 			await startAgent(runConfig({ functions }));
 			const agent = await waitForAgent();
-			expect(agent.state).to.equal('completed');
+			expect(agent).to.exist;
+			expect(agent!.state).to.equal('completed');
 
-			const calls = await appContext().llmCallService.getLlmCallsForAgent(agent.agentId);
+			const calls = await appContext().llmCallService.getLlmCallsForAgent(agent!.agentId);
 			expect(calls.length).to.equal(5);
 
 			const skyCall = calls[1];
