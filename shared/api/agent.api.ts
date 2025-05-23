@@ -4,6 +4,7 @@ import {
 	AgentActionBaseSchema,
 	AgentActionByIdSchema,
 	AgentCancelRequestSchema,
+	AgentContextPreviewSchema,
 	AgentContextSchema,
 	AgentDeleteRequestSchema,
 	AgentFeedbackRequestSchema,
@@ -19,7 +20,7 @@ const AGENT_BASE_V1 = '/api/agent/v1';
 
 export const AGENT_API = {
 	list: defineRoute('GET', `${AGENT_BASE_V1}/list`, {
-		schema: { response: { 200: Type.Array(AgentContextSchema) } },
+		schema: { response: { 200: Type.Array(AgentContextPreviewSchema) } },
 	}),
 	details: defineRoute('GET', `${AGENT_BASE_V1}/details/:agentId`, {
 		schema: { params: AgentIdParamsSchema, response: { 200: AgentContextSchema } },
