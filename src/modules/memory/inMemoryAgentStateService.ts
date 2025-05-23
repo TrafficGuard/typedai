@@ -4,7 +4,7 @@ import type { AgentContextService } from '#agent/agentContextService/agentContex
 import { deserializeContext, serializeContext } from '#agent/agentSerialization';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
-import type { AgentContext, AgentRunningState, AutonomousIteration } from '#shared/model/agent.model';
+import type { AgentContext, AgentContextPreview, AgentRunningState, AutonomousIteration } from '#shared/model/agent.model';
 import type { AgentContextSchema } from '#shared/schemas/agent.schema';
 
 /**
@@ -38,15 +38,27 @@ export class InMemoryAgentStateService implements AgentContextService {
 		return deserializeContext(serialized);
 	}
 
-	async list(): Promise<AgentContext[]> {
+	async list(): Promise<AgentContextPreview[]> {
 		const serializedList = Array.from(this.stateMap.values());
-		const deserializedList = serializedList.map((data) => deserializeContext(data));
-		return Promise.resolve(deserializedList);
+		const deserializedList: AgentContext[] = serializedList.map((data) => deserializeContext(data));
+		const previews: AgentContextPreview[] = deserializedList.map(agent => ({
+			agentId: agent.agentId,
+			name: agent.name,
+			state: agent.state,
+			cost: agent.cost ?? 0,
+			error: agent.error,
+			lastUpdate: agent.lastUpdate,
+			userPrompt: agent.userPrompt,
+			inputPrompt: agent.inputPrompt,
+			user: agent.user.id, // AgentContext.user is User object, AgentContextPreview.user is string ID
+		}));
+		return Promise.resolve(previews);
 	}
 
-	async listRunning(): Promise<AgentContext[]> {
-		const allAgents = await this.list();
-		return allAgents.filter((agent) => agent.state !== 'completed');
+	async listRunning(): Promise<AgentContextPreview[]> {
+		const allAgentPreviews = await this.list(); // This will now return AgentContextPreview[]
+		const terminalStates: AgentRunningState[] = ['completed', 'shutdown', 'timeout', 'error'];
+		return allAgentPreviews.filter((preview) => !terminalStates.includes(preview.state));
 	}
 
 	async delete(ids: string[]): Promise<void> {
