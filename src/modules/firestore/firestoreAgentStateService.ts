@@ -331,6 +331,10 @@ export class FirestoreAgentStateService implements AgentContextService {
 
 		try {
 			// Save the Firestore-compatible data
+			console.log(typeof firestoreIterationData.toolState);
+			for (const [k, v] of Object.entries(firestoreIterationData.toolState)) {
+			}
+			console.log(firestoreIterationData.toolState);
 			await iterationDocRef.set(firestoreIterationData); // Save the Firestore-specific object
 			logger.debug({ agentId: iterationData.agentId, iteration: iterationData.iteration }, 'Saved agent iteration');
 		} catch (error) {
