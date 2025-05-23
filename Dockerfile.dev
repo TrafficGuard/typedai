@@ -23,7 +23,7 @@ RUN curl -sL https://deb.nodesource.com/setup_20.x -o nodesource_setup.sh \
     && rm nodesource_setup.sh
 
 # Install global Python packages
-RUN pip install aider-chat google-cloud-aiplatform "anthropic[vertex]"
+RUN pip install aider-chat google-cloud-aiplatform "anthropic[vertex]" youtube-transcript-api
 
 # Define user and home directory consistently
 ENV USER_NAME=typedai
