@@ -1,4 +1,4 @@
-import type { AgentContext, AgentRunningState, AutonomousIteration } from '#shared/model/agent.model';
+import type { AgentContext, AgentRunningState, AutonomousIteration, AgentContextPreview } from '#shared/model/agent.model';
 
 export interface AgentContextService {
 	save(state: AgentContext): Promise<void>;
@@ -11,7 +11,7 @@ export interface AgentContextService {
 	 */
 	requestHumanInLoopCheck(agent: AgentContext): Promise<void>;
 
-	list(): Promise<AgentContext[]>;
+	list(): Promise<AgentContextPreview[]>;
 	/**
 	 * List agents which are not in a completed state
 	 */
