@@ -1,0 +1,135 @@
+#!/bin/bash
+# Google Cloud Platform - Generic Services Setup ---------------------------------
+echo "--- Starting Generic Google Cloud Platform services setup (e.g., for Vertex AI, Tracing) ---"
+
+# Ensure local.env is available for reading/writing GCLOUD_PROJECT, GCLOUD_REGION
+# This file should ideally be created by the app_setup part if it doesn't exist.
+if [ ! -f ./variables/local.env ]; then
+    echo "Warning: ./variables/local.env not found. It should have been created by app_setup."
+    echo "Attempting to proceed, but GCLOUD_PROJECT/REGION might not persist correctly if not set."
+    # Consider exiting if this is critical: exit 1
+fi
+
+# Function to update or add a variable in an .env file (local to this script for now)
+# This function is duplicated in configure for robustness, but kept here for standalone testing/clarity.
+_update_gcp_env_var() {
+    local file_path="./variables/local.env"
+    local var_name="$1"
+    local new_value="$2"
+    local temp_file
+    # Ensure the directory for the file_path exists
+    mkdir -p "$(dirname "$file_path")"
+    if [ ! -f "$file_path" ]; then touch "$file_path"; fi
+    # Escape forward slashes and ampersands for sed, and handle newlines
+    local escaped_new_value=$(echo "$new_value" | sed -e 's/[\/&]/\\&/g' -e 's/$/\\n/' -e '$s/\\n$//')
+    # Escape characters that have special meaning in regex for the variable name
+    local escaped_var_name=$(echo "$var_name" | sed -e 's/[]\/$*.^|[]/\\&/g')
+    temp_file=$(mktemp)
+    if grep -q "^${escaped_var_name}=" "$file_path"; then
+        sed "s|^${escaped_var_name}=.*|$var_name=$escaped_new_value|" "$file_path" > "$temp_file" && mv "$temp_file" "$file_path"
+        # echo "Updated $var_name in $file_path." # Optional: Add logging
+    else
+        echo "$var_name=$new_value" >> "$file_path"
+        # echo "Added $var_name to $file_path." # Optional: Add logging
+    fi
+    [ -f "$temp_file" ] && rm -f "$temp_file"
+}
+
+# Source local.env carefully to get existing values without erroring on unset variables
+(set +e; set +u; source ./variables/local.env)
+
+# Prompt for GCLOUD_PROJECT if not set or empty
+CURRENT_GCLOUD_PROJECT=${GCLOUD_PROJECT:-} # Use parameter expansion for robustness
+if [ -z "$CURRENT_GCLOUD_PROJECT" ]; then
+    read -r -p "Enter your Google Cloud Project ID: " GCLOUD_PROJECT_INPUT
+    if [ -n "$GCLOUD_PROJECT_INPUT" ]; then
+        _update_gcp_env_var "GCLOUD_PROJECT" "$GCLOUD_PROJECT_INPUT"
+        GCLOUD_PROJECT="$GCLOUD_PROJECT_INPUT" # Update for current script session
+        CURRENT_GCLOUD_PROJECT="$GCLOUD_PROJECT_INPUT" # Update for current script session
+    else
+        echo "Google Cloud Project ID is required to proceed with GCP services setup. Exiting this part."
+        exit 1 # Exit this sourced script part
+    fi
+else
+    echo "Using existing GCLOUD_PROJECT: $CURRENT_GCLOUD_PROJECT"
+fi
+
+# Prompt for GCLOUD_REGION if not set or empty
+CURRENT_GCLOUD_REGION=${GCLOUD_REGION:-}
+if [ -z "$CURRENT_GCLOUD_REGION" ]; then
+    read -r -p "Enter your Google Cloud Region (e.g., us-central1, default: us-central1): " GCLOUD_REGION_INPUT
+    GCLOUD_REGION_INPUT=${GCLOUD_REGION_INPUT:-us-central1} # Default if empty
+    _update_gcp_env_var "GCLOUD_REGION" "$GCLOUD_REGION_INPUT"
+    GCLOUD_REGION="$GCLOUD_REGION_INPUT" # Update for current script session
+    CURRENT_GCLOUD_REGION="$GCLOUD_REGION_INPUT" # Update for current script session
+else
+    echo "Using existing GCLOUD_REGION: $CURRENT_GCLOUD_REGION"
+fi
+
+# Prompt for GCLOUD_CLAUDE_REGION if not set or empty (optional, but good to group here)
+CURRENT_GCLOUD_CLAUDE_REGION=${GCLOUD_CLAUDE_REGION:-}
+DEFAULT_CLAUDE_REGION="us-east5" # Common default for Claude Opus
+if [ -z "$CURRENT_GCLOUD_CLAUDE_REGION" ]; then
+    read -r -p "Enter specific region for Anthropic Claude on Vertex (if different from $CURRENT_GCLOUD_REGION, e.g., us-east5, default: $DEFAULT_CLAUDE_REGION): " GCLOUD_CLAUDE_REGION_INPUT
+    GCLOUD_CLAUDE_REGION_INPUT=${GCLOUD_CLAUDE_REGION_INPUT:-$DEFAULT_CLAUDE_REGION}
+    _update_gcp_env_var "GCLOUD_CLAUDE_REGION" "$GCLOUD_CLAUDE_REGION_INPUT"
+    GCLOUD_CLAUDE_REGION="$GCLOUD_CLAUDE_REGION_INPUT" # Update for current script session
+else
+    echo "Using existing GCLOUD_CLAUDE_REGION: $CURRENT_GCLOUD_CLAUDE_REGION"
+fi
+
+
+if ! command -v gcloud &> /dev/null; then
+    echo "Error: gcloud CLI could not be found. Please install gcloud SDK and authenticate."
+    echo "See: https://cloud.google.com/sdk/docs/install"
+    echo "After installation, run 'gcloud auth application-default login' and 'gcloud auth login'."
+    exit 1 # Exit this sourced script part
+fi
+
+echo "Checking if project $CURRENT_GCLOUD_PROJECT exists and you have access..."
+# Use --quiet to suppress output, check exit code
+if ! gcloud projects describe "$CURRENT_GCLOUD_PROJECT" --quiet > /dev/null 2>&1; then
+  echo "Error: Project $CURRENT_GCLOUD_PROJECT does not exist or you may not have permissions."
+  echo "Please create the project in Google Cloud Console or ensure you have 'resourcemanager.projects.get' permission."
+  exit 1 # Exit this sourced script part
+else
+  echo "Project $CURRENT_GCLOUD_PROJECT found."
+fi
+
+# Set the active project for subsequent gcloud commands in this script session
+gcloud config set project "$CURRENT_GCLOUD_PROJECT" --quiet
+
+echo "Enabling common Google Cloud APIs (e.g., aiplatform.googleapis.com for Vertex AI/Gemini)..."
+# Add "cloudtrace.googleapis.com" if you want to ensure tracing API is enabled,
+# though often SDKs handle this or it's enabled by default with tracing libraries.
+COMMON_APIS="aiplatform.googleapis.com"
+APIS_TO_ENABLE=""
+
+for API in $COMMON_APIS; do
+    # Check if API is already enabled using --filter and --format
+    if ! gcloud services list --project="$CURRENT_GCLOUD_PROJECT" --enabled --filter="config.name=$API" --format="value(config.name)" --quiet | grep -q "$API"; then
+        APIS_TO_ENABLE="$APIS_TO_ENABLE $API"
+    else
+        echo "API [$API] is already enabled."
+    fi
+done
+
+if [ -n "$APIS_TO_ENABLE" ]; then
+    echo "Enabling APIs: $APIS_TO_ENABLE"
+    # Use --quiet for less verbose output during enable
+    if ! gcloud services enable $APIS_TO_ENABLE --project="$CURRENT_GCLOUD_PROJECT" --quiet; then
+        echo "Warning: Failed to enable one or more common APIs. Please check permissions ('serviceusage.services.enable') and try again."
+        # Non-fatal for generic setup, user might only want Firestore which has its own API check.
+        echo "Continuing setup..."
+    else
+        echo "Common APIs enabled successfully. It might take a few minutes for changes to propagate."
+        sleep 15 # Give GCP a moment
+    fi
+else
+    echo "All checked common APIs are already enabled."
+fi
+
+echo "Generic Google Cloud Platform services setup script completed."
+echo "Important: Ensure you have run 'gcloud auth application-default login' for the application to authenticate with GCP services."
+# Exit with 0 to indicate success of this part
+exit 0

@@ -1,51 +1,216 @@
 #!/bin/bash
+set -e # Exit immediately if a command exits with a non-zero status.
 
-# Source configuration parts
-source ./bin/configure_parts/python_setup
-source ./bin/configure_parts/nodejs_setup
+echo "Starting TypedAI configuration script..."
+echo "---------------------------------------------------------------------"
 
-# Default environment variables  ----------------
-
-if [[ ! -f ./variables/local.env ]]; then
-    echo "Creating local.env by copying from local.env.example"
-    cp ./variables/local.env.example ./variables/local.env
-    cp ./variables/local.env.example ./variables/test.env
-fi
-
-# Populate SINGLE_USER_EMAIL from gcloud if possible
-SINGLE_USER_EMAIL=$(gcloud config get-value account 2>/dev/null)
-# Basic check if SINGLE_USER_EMAIL is an email address
-if [[ "$SINGLE_USER_EMAIL" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
-  # In ./variables/local.env replace SINGLE_USER_EMAIL= with SINGLE_USER_EMAIL=${$SINGLE_USER_EMAIL}
-  sed -i '' "s/^SINGLE_USER_EMAIL=.*/SINGLE_USER_EMAIL=${SINGLE_USER_EMAIL}/g" ./variables/local.env
-  echo "Set SINGLE_USER_EMAIL to ${SINGLE_USER_EMAIL} in ./variables/local.env"
-fi
-
-# Angular setup ----------------
-
-echo Initialising Angular project
-cd frontend
-npm install
-cd ..
-
-# CLI setup -------------
-
-# Setup for bash
-if [ -f ~/.bashrc ]; then
-    if ! grep -q "TYPEDAI_HOME" ~/.bashrc; then
-        echo "# TypedAI CLI environment" >> ~/.bashrc
-        echo "export TYPEDAI_HOME=$(pwd)" >> ~/.bashrc
-        echo "export PATH=\$TYPEDAI_HOME/bin/path:\$PATH" >> ~/.bashrc
+# Function to update or add a variable in an .env file
+# This function is duplicated in configure_parts/gcp_services_setup for robustness,
+# but the one in the main configure script is the primary one used here.
+update_env_variable() {
+    local file_path="$1"
+    local var_name="$2"
+    local new_value="$3"
+    local temp_file
+    mkdir -p "$(dirname "$file_path")"
+    if [ ! -f "$file_path" ]; then touch "$file_path"; echo "Created empty file at $file_path"; fi
+    # Escape forward slashes and ampersands for sed, and handle newlines
+    local escaped_new_value=$(echo "$new_value" | sed -e 's/[\/&]/\\&/g' -e 's/$/\\n/' -e '$s/\\n$//')
+    # Escape characters that have special meaning in regex for the variable name
+    local escaped_var_name=$(echo "$var_name" | sed -e 's/[]\/$*.^|[]/\\&/g')
+    temp_file=$(mktemp)
+    if grep -q "^${escaped_var_name}=" "$file_path"; then
+        sed "s|^${escaped_var_name}=.*|$var_name=$escaped_new_value|" "$file_path" > "$temp_file" && mv "$temp_file" "$file_path"
+        echo "Updated $var_name in $file_path."
+    else
+        echo "$var_name=$new_value" >> "$file_path"
+        echo "Added $var_name to $file_path."
     fi
+    [ -f "$temp_file" ] && rm -f "$temp_file"
+}
+
+# --- Python Setup ---
+echo ""
+echo "--- Stage 1: Python Environment Setup ---"
+# Source the script part. Use '|| exit 1' to ensure main script exits if part fails.
+source ./bin/configure_parts/python_setup || exit 1
+echo "Python environment setup complete."
+echo "---------------------------------------------------------------------"
+
+# --- Node.js Setup ---
+echo ""
+echo "--- Stage 2: Node.js Environment Setup (using fnm) ---"
+# Source the script part. Use '|| exit 1' to ensure main script exits if part fails.
+source ./bin/configure_parts/nodejs_setup || exit 1
+echo "Node.js environment setup complete."
+echo "---------------------------------------------------------------------"
+
+# --- Application Setup (local.env, Angular, CLI paths) ---
+echo ""
+echo "--- Stage 3: Application Configuration and Frontend ---"
+# Source the script part. Use '|| exit 1' to ensure main script exits if part fails.
+# This part is expected to create ./variables/local.env if it doesn't exist.
+source ./bin/configure_parts/app_setup || exit 1
+echo "Application configuration and frontend setup complete."
+echo "---------------------------------------------------------------------"
+
+# --- Google Cloud Platform Services Configuration ---
+echo ""
+echo "--- Stage 4: Google Cloud Platform (GCP) Services Configuration ---"
+USE_GCP_SERVICES=false
+GCP_SETUP_SUCCESS=false
+
+# Check current GCLOUD_PROJECT to suggest default for GCP usage
+# Source local.env carefully to get existing values without erroring on unset variables
+(set +e; set +u; source ./variables/local.env)
+CURRENT_GCLOUD_PROJECT=${GCLOUD_PROJECT:-} # Use parameter expansion for robustness
+
+GCP_PROMPT_DEFAULT="n"
+if [ -n "$CURRENT_GCLOUD_PROJECT" ]; then # If project is already set, assume user wants GCP
+    GCP_PROMPT_DEFAULT="y"
 fi
 
-# Setup for zsh
-if [ -f ~/.zshrc ]; then
-    if ! grep -q "TYPEDAI_HOME" ~/.zshrc; then
-        echo "# TypedAI CLI environment" >> ~/.zshrc
-        echo "export TYPEDAI_HOME=$(pwd)" >> ~/.zshrc
-        echo "export PATH=\$TYPEDAI_HOME/bin/path:\$PATH" >> ~/.zshrc
+read -r -p "Do you plan to use Google Cloud services (e.g., Vertex AI, Gemini, Cloud Tracing)? (Y/n, default: $GCP_PROMPT_DEFAULT) " gcp_choice
+gcp_choice_lower=$(echo "$gcp_choice" | tr '[:upper:]' '[:lower:]')
+
+if [[ "$gcp_choice_lower" == "y" ]] || ([[ -z "$gcp_choice" ]] && [[ "$GCP_PROMPT_DEFAULT" == "y" ]]); then
+    echo "Configuring Google Cloud services..."
+    # Source the script part. Check its exit code.
+    if source ./bin/configure_parts/gcp_services_setup; then
+        update_env_variable "./variables/local.env" "TRACE_AGENT_ENABLED" "true"
+        USE_GCP_SERVICES=true # Mark that GCP services are configured for this session
+        GCP_SETUP_SUCCESS=true
+        echo "GCP services configured. TRACE_AGENT_ENABLED set to true."
+    else
+        echo "GCP services setup failed or was exited by the user. TRACE_AGENT_ENABLED will be set to false."
+        update_env_variable "./variables/local.env" "TRACE_AGENT_ENABLED" "false"
+        GCP_SETUP_SUCCESS=false
     fi
+else
+    echo "Skipping Google Cloud services configuration."
+    update_env_variable "./variables/local.env" "TRACE_AGENT_ENABLED" "false"
+    GCP_SETUP_SUCCESS=false
 fi
 
+# Refresh GCLOUD_PROJECT in case gcp_services_setup set it
+(set +e; set +u; source ./variables/local.env)
+CURRENT_GCLOUD_PROJECT=${GCLOUD_PROJECT:-}
+echo "---------------------------------------------------------------------"
+
+
+# --- Database Setup ---
+echo ""
+echo "--- Stage 5: Database Setup ---"
+# Source local.env again to ensure we have the latest DATABASE_TYPE if it was set previously
+(set +e; set +u; source ./variables/local.env)
+CURRENT_DB_TYPE=${DATABASE_TYPE:-}
+
+echo "Choose a database type for TypedAI."
+echo "Current setting in ./variables/local.env: DATABASE_TYPE=${CURRENT_DB_TYPE:-Not set}"
+echo ""
+PS3="Select database option: " # Prompt for select
+OPTIONS=()
+OPTION_ACTIONS=() # Parallel array to store actions
+
+# Option 1: Firestore (only if GCP services are configured OR GCLOUD_PROJECT is already set from a previous run)
+# Check if GCP setup was successful in this run OR if GCLOUD_PROJECT is already present in local.env
+if [ "$GCP_SETUP_SUCCESS" = true ] || [ -n "$CURRENT_GCLOUD_PROJECT" ]; then
+    OPTIONS+=("Firestore (Native Mode, via Google Cloud)")
+    OPTION_ACTIONS+=("firestore")
+else
+    echo "Note: Firestore (Native Mode) option is unavailable because GCP services are not configured or GCLOUD_PROJECT is not set."
+fi
+
+OPTIONS+=("PostgreSQL (Requires Docker or a separate PostgreSQL instance)")
+OPTION_ACTIONS+=("postgres")
+OPTIONS+=("In-Memory (Data is lost when the application stops; for quick testing only)")
+OPTION_ACTIONS+=("inmemory")
+
+if [ -n "$CURRENT_DB_TYPE" ]; then
+    OPTIONS+=("Keep current setting ($CURRENT_DB_TYPE)")
+    OPTION_ACTIONS+=("keep")
+fi
+OPTIONS+=("Exit configuration")
+OPTION_ACTIONS+=("exit")
+
+# Use a loop to handle invalid input and re-prompt
+while true; do
+    select opt in "${OPTIONS[@]}"; do
+        choice_idx=$((REPLY - 1))
+        ACTION=${OPTION_ACTIONS[$choice_idx]}
+
+        if [ -n "$ACTION" ]; then
+            case $ACTION in
+                firestore)
+                    echo "You selected Firestore."
+                    update_env_variable "./variables/local.env" "DATABASE_TYPE" "firestore"
+                    # Ensure GCLOUD_PROJECT is available for firestore_setup
+                    # This check is also inside firestore_setup, but good to have here too.
+                    (set +e; set +u; source ./variables/local.env) # Re-source in case it was just set
+                    if [ -z "$GCLOUD_PROJECT" ]; then
+                         echo "Error: GCLOUD_PROJECT not set. Firestore setup cannot proceed."
+                         echo "Please re-run ./bin/configure and enable GCP services with a project ID."
+                         exit 1 # Critical for Firestore
+                    fi
+                    # Source the script part. Use '|| exit 1' to ensure main script exits if part fails.
+                    source ./bin/configure_parts/firestore_setup || exit 1
+                    break 2 # Break out of select and while loop
+                    ;;
+                postgres)
+                    echo "You selected PostgreSQL."
+                    update_env_variable "./variables/local.env" "DATABASE_TYPE" "postgres"
+                    # Source the script part. Use '|| exit 1' to ensure main script exits if part fails.
+                    source ./bin/configure_parts/postgres_setup || exit 1
+                    break 2 # Break out of select and while loop
+                    ;;
+                inmemory)
+                    echo "You selected In-Memory database."
+                    update_env_variable "./variables/local.env" "DATABASE_TYPE" "memory"
+                    echo "In-Memory database selected. No further setup needed for the database itself."
+                    break 2 # Break out of select and while loop
+                    ;;
+                keep)
+                    echo "Keeping current database setting: $CURRENT_DB_TYPE."
+                    # Optionally re-run setup for current DB type if it's Firestore or Postgres
+                    if [ "$CURRENT_DB_TYPE" == "firestore" ]; then
+                        read -r -p "Re-run Firestore setup/check steps? (y/N) " rerun_fs
+                        if [[ "$rerun_fs" =~ ^[Yy]$ ]]; then
+                            # Ensure GCLOUD_PROJECT is available before re-running Firestore setup
+                            (set +e; set +u; source ./variables/local.env)
+                            if [ -z "$GCLOUD_PROJECT" ]; then
+                                echo "Error: GCLOUD_PROJECT not set. Cannot re-run Firestore setup."
+                                echo "Please ensure it's set in ./variables/local.env."
+                            else
+                                source ./bin/configure_parts/firestore_setup || echo "Warning: Re-running Firestore setup failed."
+                            fi
+                        fi
+                    elif [ "$CURRENT_DB_TYPE" == "postgres" ]; then
+                        read -r -p "Re-run PostgreSQL setup/check steps? (y/N) " rerun_pg
+                        if [[ "$rerun_pg" =~ ^[Yy]$ ]]; then source ./bin/configure_parts/postgres_setup || echo "Warning: Re-running PostgreSQL setup failed."; fi
+                    fi
+                    break 2 # Break out of select and while loop
+                    ;;
+                exit)
+                    echo "Exiting configuration as requested."
+                    exit 0
+                    ;;
+                *) echo "Invalid option $REPLY"; continue ;; # Invalid input, stay in select
+            esac
+        else
+            echo "Invalid option $REPLY" # Should not happen with select, but for safety
+            continue # Stay in select
+        fi
+    done
+done # End while true loop for select
+
+echo "Database setup choice processed."
+echo "---------------------------------------------------------------------"
+
+echo ""
+echo "--- Configuration Complete ---"
+echo "All selected setup steps have been processed."
+echo "Please review any specific instructions or warnings displayed above."
+echo "If you configured shell environments (e.g., for fnm), you might need to source your shell config or open a new terminal."
+echo ""
+echo "Next steps: 'npm run start:local' (backend) and 'cd frontend && npm run start:local' (frontend)."
 echo "done"
