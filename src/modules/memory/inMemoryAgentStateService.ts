@@ -41,7 +41,7 @@ export class InMemoryAgentStateService implements AgentContextService {
 	async list(): Promise<AgentContextPreview[]> {
 		const serializedList = Array.from(this.stateMap.values());
 		const deserializedList: AgentContext[] = serializedList.map((data) => deserializeContext(data));
-		const previews: AgentContextPreview[] = deserializedList.map(agent => ({
+		const previews: AgentContextPreview[] = deserializedList.map((agent) => ({
 			agentId: agent.agentId,
 			name: agent.name,
 			state: agent.state,

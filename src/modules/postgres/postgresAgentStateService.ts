@@ -5,7 +5,7 @@ import type { AgentContextService } from '#agent/agentContextService/agentContex
 import { deserializeContext, serializeContext } from '#agent/agentSerialization';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
-import { type AgentContext, type AgentRunningState, type AgentType, type AutonomousIteration, isExecuting } from '#shared/model/agent.model';
+import { type AgentContext, type AgentContextPreview, type AgentRunningState, type AgentType, type AutonomousIteration, isExecuting } from '#shared/model/agent.model';
 import type { FunctionCallResult, GenerationStats, ImagePartExt } from '#shared/model/llm.model';
 import type { User } from '#shared/model/user.model';
 import type { AgentContextSchema } from '#shared/schemas/agent.schema';
@@ -334,7 +334,7 @@ export class PostgresAgentStateService implements AgentContextService {
 		agent.lastUpdate = now.getTime();
 	}
 
-	async list(): Promise<AgentContext[]> {
+	async list(): Promise<AgentContextPreview[]> {
 		const userId = currentUser().id;
 		const rows = await this.db
 			.selectFrom('agent_contexts')
