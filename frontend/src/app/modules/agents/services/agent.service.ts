@@ -14,7 +14,7 @@ import { AGENT_API } from '#shared/api/agent.api';
 import type { AutonomousIteration } from '#shared/model/agent.model';
 import { LlmCall } from '#shared/model/llmCall.model';
 import { Pagination } from "../../../core/types";
-import { AgentContextApi, AgentStartRequestSchema } from '#shared/schemas/agent.schema';
+import { AgentContextApi, AgentContextPreviewApi, AgentStartRequestSchema } from '#shared/schemas/agent.schema';
 import { Static } from '@sinclair/typebox';
 
 export type AgentStartRequestData = Static<typeof AgentStartRequestSchema>;
@@ -22,10 +22,10 @@ export type AgentStartRequestData = Static<typeof AgentStartRequestSchema>;
 @Injectable({ providedIn: 'root' })
 export class AgentService {
   /** Holds the list of agents */
-  private _agents$: BehaviorSubject<AgentContextApi[]> = new BehaviorSubject<AgentContextApi[]>(null);
+  private _agents$: BehaviorSubject<AgentContextPreviewApi[]> = new BehaviorSubject<AgentContextPreviewApi[]>(null);
 
   /** Exposes the agents as an observable */
-  public agents$: Observable<AgentContextApi[]> = this._agents$.asObservable();
+  public agents$: Observable<AgentContextPreviewApi[]> = this._agents$.asObservable();
 
   private _pagination: BehaviorSubject<Pagination | null> =
     new BehaviorSubject({
@@ -61,7 +61,7 @@ export class AgentService {
   }
 
   /** Retrieves the current list of agents */
-  getAgents(): Observable<AgentContextApi[]> {
+  getAgents(): Observable<AgentContextPreviewApi[]> {
     return this.agents$;
   }
 
