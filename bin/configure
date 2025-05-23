@@ -202,7 +202,7 @@ cd ..
 # Setup for bash
 if [ -f ~/.bashrc ]; then
     if ! grep -q "TYPEDAI_HOME" ~/.bashrc; then
-        echo "\n# TypedAI CLI environment" >> ~/.bashrc
+        echo "# TypedAI CLI environment" >> ~/.bashrc
         echo "export TYPEDAI_HOME=$(pwd)" >> ~/.bashrc
         echo "export PATH=\$TYPEDAI_HOME/bin/path:\$PATH" >> ~/.bashrc
     fi
@@ -211,7 +211,7 @@ fi
 # Setup for zsh
 if [ -f ~/.zshrc ]; then
     if ! grep -q "TYPEDAI_HOME" ~/.zshrc; then
-        echo "\n# TypedAI CLI environment" >> ~/.zshrc
+        echo "# TypedAI CLI environment" >> ~/.zshrc
         echo "export TYPEDAI_HOME=$(pwd)" >> ~/.zshrc
         echo "export PATH=\$TYPEDAI_HOME/bin/path:\$PATH" >> ~/.zshrc
     fi
