@@ -1,5 +1,5 @@
 import { type Static, Type } from '@sinclair/typebox';
-import type { AgentContext, AutonomousIteration } from '../model/agent.model';
+import type { AgentContext, AgentContextPreview, AutonomousIteration } from '../model/agent.model';
 import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
 import { LlmMessagesSchema, type LlmMessagesSchemaModel } from './llm.schema';
 
@@ -240,6 +240,22 @@ type AgentContextForCheck = AgentContextWithSerializedParts;
 export type AgentContextApi = Static<typeof AgentContextSchema>;
 
 // const _agentContextCheck: AreTypesFullyCompatible<AgentContextForCheck, Static<typeof AgentContextSchema>> = true;
+
+export const AgentContextPreviewSchema = Type.Object({
+	agentId: Type.String(),
+	name: Type.String(),
+	state: AgentRunningStateSchema, // Reuses existing AgentRunningStateSchema
+	cost: Type.Number(),
+	error: Type.Optional(Type.String()),
+	lastUpdate: Type.Number(), // Timestamp
+	userPrompt: Type.String(),
+	inputPrompt: Type.String(),
+	user: Type.String(), // Represents the user ID
+});
+
+export type AgentContextPreviewApi = Static<typeof AgentContextPreviewSchema>;
+
+// const _agentContextPreviewCheck: AreTypesFullyCompatible<AgentContextPreview, AgentContextPreviewApi> = true;
 
 export const AutonomousIterationSchema = Type.Object({
 	agentId: Type.String(),
