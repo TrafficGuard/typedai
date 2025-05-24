@@ -163,14 +163,13 @@ const UserMessageSchema = Type.Intersect(
 // type UserLlmMessage = Extract<LlmMessage, { role: 'user' }>;
 // const _UserMessageCheck: AreTypesFullyCompatible<UserLlmMessage, Static<typeof UserMessageSchema>> = true;
 
-
 const AssistantMessageSchema = Type.Intersect(
 	[
 		Type.Object({
 			role: Type.Literal('assistant'),
 			content: AssistantContentSchema,
 			time: Type.Optional(Type.Number()), // Time remains optional for Assistant messages
-			stats: GenerationStatsSchema, // Made required for Assistant messages
+			stats: Type.Optional(GenerationStatsSchema), // Made optional to match LlmMessageBase
 		}),
 		LlmMessageBaseSchema, // Intersect with other common fields
 	],
