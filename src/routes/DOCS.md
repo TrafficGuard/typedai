@@ -10,7 +10,7 @@ The current user can be accessed by with the function `import { currentUser } fr
 
 If a property is validated from the schema then do not duplicate the validation in the route handler.
 
-Do not cast an object in the sendJSON to avoid compile errors. The static checking is an integral part of our application design.
+Do not cast an object arg in the `sendJSON` to avoid compile errors. The static checking is an integral part of our application design.
 
 
 ### Fastify Route code review

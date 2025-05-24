@@ -116,9 +116,14 @@ export async function initFastify(config: FastifyConfig): Promise<AppFastifyInst
 
 	// Decorate reply with sendJSON
 	// The implementation's `object` parameter is `any` because type checking for the caller is handled by the augmented interface.
-	fastifyInstance.decorateReply('sendJSON', function (this: FastifyReplyBase, object: any, status: number = StatusCodes.OK) {
+	fastifyInstance.decorateReply('sendJSON', function (this: FastifyReplyBase, object: any, explicitStatus?: number) {
 		this.header('Content-Type', 'application/json; charset=utf-8');
-		this.status(status);
+		if (explicitStatus !== undefined) {
+			this.status(explicitStatus);
+		}
+		// If explicitStatus is undefined, Fastify's internal logic for reply.send()
+		// will use the status previously set by reply.code(), or default to 200
+		// if reply.code() was not called.
 		// Fastify will validate against the schema for the given status and then serialize.
 		try {
 			// console.log(JSON.stringify(object));
@@ -132,7 +137,7 @@ export async function initFastify(config: FastifyConfig): Promise<AppFastifyInst
 				console.log('== == == Serialization function:');
 				console.log(serializeFn);
 			} else {
-				console.log(`== == == No serialization function found for ${status}`);
+				console.log(`== == == No serialization function found for ${explicitStatus}`);
 			}
 			if (this.request) {
 				console.error('== == == Route Path:', this.request.url); // or this.request.routerPath for the matched path

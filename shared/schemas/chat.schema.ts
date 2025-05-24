@@ -14,7 +14,7 @@ export const ChatModelSchema = Type.Object(
 		updatedAt: Type.Number(),
 		parentId: Type.Optional(Type.String()),
 		rootId: Type.Optional(Type.String()),
-		messages: LlmMessagesSchema,
+		messages: Type.Array(Type.Any()), // Do not change this for now,
 	},
 	{ $id: 'Chat' },
 );
