@@ -9,10 +9,12 @@ export type VibeStatus =
 	| 'file_selection_review' // Waiting for user approval on the selected files
 	| 'generating_design' // AI is generating the implementation plan - NEW
 	| 'design_review' // Waiting for user approval on the AI-generated design/plan
-	| 'design_review_details' // User is viewing design details (e.g., diff) - NEW (Was design_review_feedback?)
+	| 'design_review_details' // User is viewing design details (e.g., diff) - NEW
 	| 'updating_design' // AI is updating the design based on feedback - NEW
 	| 'coding' // AI is actively writing or modifying code
 	| 'code_review' // Waiting for user feedback on the generated code changes
+	| 'generating_code_review_feedback' // AI is generating feedback based on code review comments
+	| 'updating_code_review_feedback' // AI is updating code based on its own generated feedback
 	| 'committing' // AI is preparing and making the commit
 	| 'monitoring_ci' // Changes committed, waiting for CI/CD pipeline results
 	| 'ci_failed' // CI/CD pipeline failed

@@ -35,6 +35,8 @@ const vibeStatusLiterals: VibeStatus[] = [
 	'updating_design',
 	'coding',
 	'code_review',
+	'generating_code_review_feedback',
+	'updating_code_review_feedback',
 	'committing',
 	'monitoring_ci',
 	'ci_failed',
