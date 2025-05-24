@@ -119,23 +119,23 @@ export const GenerationStatsSchema = Type.Object({
 }); // Do not provide an id as it is attached to multiple parent schemas
 const _GenerationStatsCheck: AreTypesFullyCompatible<GenerationStats, Static<typeof GenerationStatsSchema>> = true;
 
-// --- LlmMessage Schema redefined as a discriminated union ---
-
-const LlmMessageSpecificFieldsSchema = Type.Object({
+const LlmMessageBaseSchema = Type.Object({
 	llmId: Type.Optional(Type.String()),
 	cache: Type.Optional(Type.Literal('ephemeral')),
-	time: Type.Optional(Type.Number()),
-	stats: Type.Optional(GenerationStatsSchema),
 	providerOptions: Type.Optional(Type.Record(Type.String(), Type.Any())),
 });
+
+// --- LlmMessage Schema redefined as a discriminated union ---
 
 const SystemMessageSchema = Type.Intersect(
 	[
 		Type.Object({
 			role: Type.Literal('system'),
 			content: Type.String(),
+			time: Type.Optional(Type.Number()),
+			stats: Type.Optional(GenerationStatsSchema),
 		}),
-		LlmMessageSpecificFieldsSchema,
+		LlmMessageBaseSchema,
 	],
 	{ $id: 'SystemMessage' },
 );
@@ -147,8 +147,10 @@ const UserMessageSchema = Type.Intersect(
 		Type.Object({
 			role: Type.Literal('user'),
 			content: UserContentSchema, // UserContentSchema maps to UserContentExt
+			time: Type.Number(),
+			stats: Type.Optional(GenerationStatsSchema),
 		}),
-		LlmMessageSpecificFieldsSchema,
+		LlmMessageBaseSchema,
 	],
 	{ $id: 'UserMessage' },
 );
@@ -158,8 +160,10 @@ const AssistantMessageSchema = Type.Intersect(
 		Type.Object({
 			role: Type.Literal('assistant'),
 			content: AssistantContentSchema, // AssistantContentSchema maps to AssistantContent from 'ai'
+			time: Type.Optional(Type.Number()),
+			stats: GenerationStatsSchema,
 		}),
-		LlmMessageSpecificFieldsSchema,
+		LlmMessageBaseSchema,
 	],
 	{ $id: 'AssistantMessage' },
 );
@@ -171,8 +175,10 @@ const ToolMessageSchema = Type.Intersect(
 			content: ToolContentSchema, // ToolContentSchema maps to ToolContent from 'ai'
 			// tool_call_id and name are not part of CoreToolMessage wrapper in 'ai' model,
 			// they are within the ToolContent parts. So, not adding them here.
+			time: Type.Optional(Type.Number()),
+			stats: Type.Optional(GenerationStatsSchema),
 		}),
-		LlmMessageSpecificFieldsSchema,
+		LlmMessageBaseSchema,
 	],
 	{ $id: 'ToolMessage' },
 );
