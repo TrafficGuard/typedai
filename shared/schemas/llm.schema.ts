@@ -10,7 +10,7 @@ import type {
 	UserContentExt,
 	AssistantContent,
 	ToolContent,
-	ToolCallPart,
+	ToolCallPartExt, // Corrected import: Model exports ToolCallPartExt
 	// Assuming ReasoningPart and RedactedReasoningPart are part of AssistantContent model union
 	// If they are separate models, they need to be imported explicitly.
 	// For now, their structure is defined inline in AssistantContentPartUnionSchema.
@@ -65,8 +65,8 @@ export const ToolCallPartSchema = Type.Object(
 	},
 	{ $id: 'ToolCallPart' },
 );
-// Assuming ToolCallPart is the correct model type.
-// const _ToolCallPartCheck: AreTypesFullyCompatible<Writable<ToolCallPart>, Static<typeof ToolCallPartSchema>> = true;
+// Assuming ToolCallPartExt is the correct model type.
+// const _ToolCallPartCheck: AreTypesFullyCompatible<Writable<ToolCallPartExt>, Static<typeof ToolCallPartSchema>> = true;
 
 
 // Content Schemas

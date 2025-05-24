@@ -9,10 +9,12 @@ import type {
 	TextStreamPart,
 	ToolContent,
 	UserContent,
+	ToolContent as ModelToolContent, // Alias to avoid conflict if we re-export
 	// ReasoningPart and RedactedReasoningPart are not exported from 'ai'.
 	// We will define them locally below.
 } from 'ai';
 export type { AssistantContent } from 'ai'; // Re-export AssistantContent
+export type ToolContent = ModelToolContent; // Re-export ToolContent
 import { ChangePropertyType } from '../typeUtils';
 
 // Local definitions for unexported types from 'ai'
@@ -198,9 +200,10 @@ interface LlmMessageBase {
 // Discriminated union for LlmMessage
 export type LlmMessage =
 	| ({ role: 'system'; content: string } & LlmMessageBase)
-	| ({ role: 'user'; content: UserContentExt } & LlmMessageBase)
+	// For user messages, 'time' is required to align with UserMessageSchema
+	| ({ role: 'user'; content: UserContentExt; time: number } & Omit<LlmMessageBase, 'time'>)
 	| ({ role: 'assistant'; content: AssistantContentExt } & LlmMessageBase)
-	| ({ role: 'tool'; content: ToolContent } & LlmMessageBase); // ToolContent from 'ai'
+	| ({ role: 'tool'; content: ToolContent } & LlmMessageBase);
 
 export type SystemUserPrompt = [systemPrompt: string, userPrompt: string];
 
@@ -288,6 +291,7 @@ export function user(content: UserContentExt, cache = false): LlmMessage {
 	return {
 		role: 'user',
 		content,
+		time: Date.now(), // Add time, as it's required for user messages
 		cache: cache ? 'ephemeral' : undefined,
 	};
 }
