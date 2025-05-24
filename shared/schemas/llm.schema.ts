@@ -147,7 +147,7 @@ const UserMessageSchema = Type.Intersect(
 		Type.Object({
 			role: Type.Literal('user'),
 			content: UserContentSchema, // UserContentSchema maps to UserContentExt
-			time: Type.Number(),
+			time: Type.Optional(Type.Number()),
 			stats: Type.Optional(GenerationStatsSchema),
 		}),
 		LlmMessageBaseSchema,
