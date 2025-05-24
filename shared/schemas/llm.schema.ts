@@ -119,23 +119,28 @@ export const GenerationStatsSchema = Type.Object({
 }); // Do not provide an id as it is attached to multiple parent schemas
 const _GenerationStatsCheck: AreTypesFullyCompatible<GenerationStats, Static<typeof GenerationStatsSchema>> = true;
 
+// Schema for fields truly common to all LlmMessage types with consistent optionality
 const LlmMessageBaseSchema = Type.Object({
 	llmId: Type.Optional(Type.String()),
 	cache: Type.Optional(Type.Literal('ephemeral')),
 	providerOptions: Type.Optional(Type.Record(Type.String(), Type.Any())),
 });
+// Note: LlmMessageSpecificFieldsSchema should be replaced by LlmMessageBaseSchema or removed if all fields are now role-specific.
 
 // --- LlmMessage Schema redefined as a discriminated union ---
+
+// Remove time and stats from the old LlmMessageSpecificFieldsSchema.
+// Define them per message type.
 
 const SystemMessageSchema = Type.Intersect(
 	[
 		Type.Object({
 			role: Type.Literal('system'),
 			content: Type.String(),
-			time: Type.Optional(Type.Number()),
-			stats: Type.Optional(GenerationStatsSchema),
+			time: Type.Optional(Type.Number()), // Explicitly define time, assuming optional
+			stats: Type.Optional(GenerationStatsSchema), // Explicitly define stats, assuming optional
 		}),
-		LlmMessageBaseSchema,
+		LlmMessageBaseSchema, // Intersect with other common fields
 	],
 	{ $id: 'SystemMessage' },
 );
@@ -146,42 +151,50 @@ const UserMessageSchema = Type.Intersect(
 	[
 		Type.Object({
 			role: Type.Literal('user'),
-			content: UserContentSchema, // UserContentSchema maps to UserContentExt
-			time: Type.Optional(Type.Number()),
-			stats: Type.Optional(GenerationStatsSchema),
+			content: UserContentSchema,
+			time: Type.Number(), // Made required for User messages
+			stats: Type.Optional(GenerationStatsSchema), // Stats remain optional for User messages
 		}),
-		LlmMessageBaseSchema,
+		LlmMessageBaseSchema, // Intersect with other common fields
 	],
 	{ $id: 'UserMessage' },
 );
+// We will need to do some Type conversions for it to match at some point. Dont edit this.
+// type UserLlmMessage = Extract<LlmMessage, { role: 'user' }>;
+// const _UserMessageCheck: AreTypesFullyCompatible<UserLlmMessage, Static<typeof UserMessageSchema>> = true;
+
 
 const AssistantMessageSchema = Type.Intersect(
 	[
 		Type.Object({
 			role: Type.Literal('assistant'),
-			content: AssistantContentSchema, // AssistantContentSchema maps to AssistantContent from 'ai'
-			time: Type.Optional(Type.Number()),
-			stats: Type.Optional(GenerationStatsSchema),
+			content: AssistantContentSchema,
+			time: Type.Optional(Type.Number()), // Time remains optional for Assistant messages
+			stats: GenerationStatsSchema, // Made required for Assistant messages
 		}),
-		LlmMessageBaseSchema,
+		LlmMessageBaseSchema, // Intersect with other common fields
 	],
 	{ $id: 'AssistantMessage' },
 );
+// We will need to do some Type conversions for it to match at some point. Dont edit this.
+// type AssistantLlmMessage = Extract<LlmMessage, { role: 'assistant' }>;
+// const _AssistantMessageCheck: AreTypesFullyCompatible<AssistantLlmMessage, Static<typeof AssistantMessageSchema>> = true;
 
 const ToolMessageSchema = Type.Intersect(
 	[
 		Type.Object({
 			role: Type.Literal('tool'),
-			content: ToolContentSchema, // ToolContentSchema maps to ToolContent from 'ai'
-			// tool_call_id and name are not part of CoreToolMessage wrapper in 'ai' model,
-			// they are within the ToolContent parts. So, not adding them here.
-			time: Type.Optional(Type.Number()),
-			stats: Type.Optional(GenerationStatsSchema),
+			content: ToolContentSchema,
+			time: Type.Optional(Type.Number()), // Explicitly define time, assuming optional
+			stats: Type.Optional(GenerationStatsSchema), // Explicitly define stats, assuming optional
 		}),
-		LlmMessageBaseSchema,
+		LlmMessageBaseSchema, // Intersect with other common fields
 	],
 	{ $id: 'ToolMessage' },
 );
+// We will need to do some Type conversions for it to match at some point. Dont edit this.
+// type ToolLlmMessage = Extract<LlmMessage, { role: 'tool' }>;
+// const _ToolMessageCheck: AreTypesFullyCompatible<ToolLlmMessage, Static<typeof ToolMessageSchema>> = true;
 
 export const LlmMessageSchema = Type.Union([SystemMessageSchema, UserMessageSchema, AssistantMessageSchema, ToolMessageSchema], { $id: 'LlmMessage' });
 // We will need to do some Type conversions for it to match at some point. Dont edit this.
