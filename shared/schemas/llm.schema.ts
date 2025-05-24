@@ -152,7 +152,7 @@ const UserMessageSchema = Type.Intersect(
 		Type.Object({
 			role: Type.Literal('user'),
 			content: UserContentSchema,
-			time: Type.Number(), // Made required for User messages
+			time: Type.Optional(Type.Number()), // Made optional to match LlmMessageBase and fix compile error
 			stats: Type.Optional(GenerationStatsSchema), // Stats remain optional for User messages
 		}),
 		LlmMessageBaseSchema, // Intersect with other common fields
