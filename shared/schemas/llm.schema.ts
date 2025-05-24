@@ -161,7 +161,7 @@ const AssistantMessageSchema = Type.Intersect(
 			role: Type.Literal('assistant'),
 			content: AssistantContentSchema, // AssistantContentSchema maps to AssistantContent from 'ai'
 			time: Type.Optional(Type.Number()),
-			stats: GenerationStatsSchema,
+			stats: Type.Optional(GenerationStatsSchema),
 		}),
 		LlmMessageBaseSchema,
 	],
