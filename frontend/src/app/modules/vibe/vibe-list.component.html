@@ -37,7 +37,7 @@
             </div>
         } @else {
             <!-- Data Loaded or No Data State -->
-            @if (sessions() && sessions()!.length > 0) {
+            @if (sessions()?.length > 0) {
                 <div class="mat-elevation-z0">
                     <table mat-table [dataSource]="sessions()" class="w-full" [trackBy]="trackBySessionId">
 
