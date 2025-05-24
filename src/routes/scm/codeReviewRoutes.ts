@@ -7,7 +7,7 @@ export async function codeReviewRoutes(fastify: AppFastifyInstance) {
 	fastify.get(CODE_REVIEW_API.list.pathTemplate, { schema: CODE_REVIEW_API.list.schema }, async (request, reply) => {
 		try {
 			const configs = await fastify.codeReviewService.listCodeReviewConfigs();
-			send(reply, 200, configs);
+			reply.sendJSON(configs);
 		} catch (error) {
 			logger.error(error, 'Error listing code review configs');
 			send(reply, 500, '', { message: 'Internal Server Error' });
@@ -19,7 +19,7 @@ export async function codeReviewRoutes(fastify: AppFastifyInstance) {
 		try {
 			const config = await fastify.codeReviewService.getCodeReviewConfig(id);
 			if (config) {
-				send(reply, 200, config);
+				reply.sendJSON(config);
 			} else {
 				send(reply, 404, { message: 'Config not found' });
 			}
@@ -33,7 +33,7 @@ export async function codeReviewRoutes(fastify: AppFastifyInstance) {
 		const config = request.body;
 		try {
 			const id = await fastify.codeReviewService.createCodeReviewConfig(config);
-			send(reply, 200, { message: `Config created with ID: ${id}` });
+			reply.sendJSON({ message: `Config created with ID: ${id}` });
 		} catch (error) {
 			logger.error(error, 'Error creating code review config');
 			send(reply, 500, '', { message: 'Internal Server Error' });
@@ -45,7 +45,7 @@ export async function codeReviewRoutes(fastify: AppFastifyInstance) {
 		const config = request.body;
 		try {
 			await fastify.codeReviewService.updateCodeReviewConfig(id, config);
-			send(reply, 200, { message: 'Config updated successfully' });
+			reply.sendJSON({ message: 'Config updated successfully' });
 		} catch (error) {
 			logger.error(error, 'Error updating code review config');
 			send(reply, 500, '', { message: 'Internal Server Error' });
@@ -56,7 +56,7 @@ export async function codeReviewRoutes(fastify: AppFastifyInstance) {
 		const { id } = request.params;
 		try {
 			await fastify.codeReviewService.deleteCodeReviewConfig(id);
-			send(reply, 200, { message: 'Config deleted successfully' });
+			reply.sendJSON({ message: 'Config deleted successfully' });
 		} catch (error) {
 			logger.error(error, 'Error deleting code review config');
 			send(reply, 500, '', { message: 'Internal Server Error' });
