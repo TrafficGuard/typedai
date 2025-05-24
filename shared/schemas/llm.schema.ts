@@ -196,7 +196,7 @@ const _GenerateTextOptionsCheck: AreTypesFullyCompatible<GenerateTextOptions, St
     			role: Type.Literal('assistant'),
     			content: AssistantContentSchema,
     			time: Type.Optional(Type.Number()), // Time remains optional for Assistant messages
-    			stats: GenerationStatsSchema, // Made required for Assistant messages
+    			stats: Type.Optional(GenerationStatsSchema), // Made optional to align with model and assistant() helper
     		}),
     		LlmMessageBaseSchema, // Intersect with other common fields
     	],

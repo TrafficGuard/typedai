@@ -7,7 +7,6 @@ import type {
 	ToolCallPart as ModelToolCallPart, // Corrected import: ModelToolCallPart is an alias for ToolCallPart
 	TextPart,
 	TextStreamPart,
-	ToolContent,
 	UserContent,
 	ToolContent as ModelToolContent, // Alias to avoid conflict if we re-export
 	// ReasoningPart and RedactedReasoningPart are not exported from 'ai'.
