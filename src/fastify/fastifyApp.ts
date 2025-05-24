@@ -100,7 +100,15 @@ export async function initFastify(config: FastifyConfig): Promise<AppFastifyInst
       └── your services
  	*/
 	// https://www.npmjs.com/package/fastify-http-errors-enhanced
-	// await fastifyInstance.register(fastifyHttpErrorsEnhanced);
+	const { plugin } = await import('fastify-http-errors-enhanced');
+	await fastifyInstance.register(plugin, {
+		convertResponsesValidationErrors: true,
+		preHandler: (e) => {
+			logger.warn('fastify-http-errors-enhanced prehandler');
+			return e;
+		},
+	});
+
 	await loadPlugins(config);
 	loadHooks();
 	if (config.instanceDecorators) registerInstanceDecorators(config.instanceDecorators);
@@ -112,7 +120,50 @@ export async function initFastify(config: FastifyConfig): Promise<AppFastifyInst
 		this.header('Content-Type', 'application/json; charset=utf-8');
 		this.status(status);
 		// Fastify will validate against the schema for the given status and then serialize.
-		this.send(object);
+		try {
+			// console.log(JSON.stringify(object));
+			this.send(object);
+		} catch (e) {
+			// logger.error(`Error sending ${JSON.stringify(object)}`)
+			// Access route information from the request object
+			console.log(`== == == ${e.message}`);
+			const serializeFn = this.getSerializationFunction(this.statusCode.toString());
+			if (serializeFn) {
+				console.log('== == == Serialization function:');
+				console.log(serializeFn);
+			} else {
+				console.log(`== == == No serialization function found for ${status}`);
+			}
+			if (this.request) {
+				console.error('== == == Route Path:', this.request.url); // or this.request.routerPath for the matched path
+				console.error('== == == HTTP Method:', this.request.method);
+
+				// Access the schema defined for the route
+				const routeSchema = this.request.routeOptions?.schema; // For Fastify v3+
+				// For older Fastify (v2.x), it might be this.request.context?.config?.schema
+
+				if (routeSchema?.response) {
+					// The response schema is typically an object mapping status codes to schema definitions
+					const responseSchemaMap = routeSchema.response as Record<string, any>;
+					const schemaForStatus = responseSchemaMap?.[status.toString()]; // e.g., responseSchemaMap['200']
+
+					if (schemaForStatus) {
+						console.error(`== == == Response schema for status ${status}:`, JSON.stringify(schemaForStatus, null, 2));
+					} else {
+						// If no specific schema for this status, log all available response schemas
+						console.error(`== == == No specific response schema found for status ${status}.`);
+						console.error('== == == Available response schemas on this route:', JSON.stringify(responseSchemaMap, null, 2));
+					}
+				} else {
+					console.error('== == == No response schema (route.schema.response) found/defined for this route.');
+				}
+			} else {
+				console.log('== == == No request on this');
+			}
+			console.log('== == == Object');
+			console.log(JSON.stringify(object));
+			throw e;
+		}
 		return this;
 	});
 
