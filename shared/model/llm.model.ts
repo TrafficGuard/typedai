@@ -199,8 +199,8 @@ interface LlmMessageBase {
 // Discriminated union for LlmMessage
 export type LlmMessage =
 	| ({ role: 'system'; content: string } & LlmMessageBase)
-	// For user messages, 'time' is required to align with UserMessageSchema
-	| ({ role: 'user'; content: UserContentExt; time: number } & Omit<LlmMessageBase, 'time'>)
+	// For user messages, 'time' is optional. The user() helper will add it.
+	| ({ role: 'user'; content: UserContentExt; time?: number } & Omit<LlmMessageBase, 'time'>)
 	| ({ role: 'assistant'; content: AssistantContentExt } & LlmMessageBase)
 	| ({ role: 'tool'; content: ToolContent } & LlmMessageBase);
 

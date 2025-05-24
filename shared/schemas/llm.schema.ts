@@ -1,5 +1,6 @@
 import { type Static, Type } from '@sinclair/typebox';
 import type {
+	AssistantContent,
 	CallSettings,
 	FilePartExt,
 	GenerateTextOptions,
@@ -7,10 +8,9 @@ import type {
 	ImagePartExt,
 	LlmMessage,
 	TextPartExt,
-	UserContentExt,
-	AssistantContent,
-	ToolContent,
 	ToolCallPartExt, // Corrected import: Model exports ToolCallPartExt
+	ToolContent,
+	UserContentExt,
 	// Assuming ReasoningPart and RedactedReasoningPart are part of AssistantContent model union
 	// If they are separate models, they need to be imported explicitly.
 	// For now, their structure is defined inline in AssistantContentPartUnionSchema.
@@ -68,7 +68,6 @@ export const ToolCallPartSchema = Type.Object(
 // Assuming ToolCallPartExt is the correct model type.
 // const _ToolCallPartCheck: AreTypesFullyCompatible<Writable<ToolCallPartExt>, Static<typeof ToolCallPartSchema>> = true;
 
-
 // Content Schemas
 const UserContentPartUnionSchema = Type.Union([TextPartSchema, ImagePartExtSchema, FilePartExtSchema], { $id: 'UserContentUnion' });
 
@@ -90,7 +89,6 @@ export const AssistantContentSchema = Type.Union([Type.String(), Type.Array(Assi
 // type AssistantLlmContent = Extract<LlmMessage, { role: 'assistant' }>['content'];
 // const _AssistantContentCheck: AreTypesFullyCompatible<AssistantContent, Static<typeof AssistantContentSchema>> = true;
 
-
 export const ToolResultSchema = Type.Object(
 	{
 		type: Type.Literal('tool-result'),
@@ -104,7 +102,6 @@ export const ToolResultSchema = Type.Object(
 export const ToolContentSchema = Type.Array(ToolResultSchema, { $id: 'ToolContent' });
 // type ToolLlmContent = Extract<LlmMessage, { role: 'tool' }>['content'];
 // const _ToolContentCheck: AreTypesFullyCompatible<ToolContent, Static<typeof ToolContentSchema>> = true;
-
 
 export const GenerationStatsSchema = Type.Object({
 	requestTime: Type.Number(),
@@ -143,87 +140,86 @@ const GenerateTextOptionsSpecificSchema = Type.Object({
 export const GenerateTextOptionsSchema = Type.Intersect([CallSettingsSchema, GenerateTextOptionsSpecificSchema], { $id: 'GenerateTextOptions' });
 const _GenerateTextOptionsCheck: AreTypesFullyCompatible<GenerateTextOptions, Static<typeof GenerateTextOptionsSchema>> = true;
 
-    // Schema for fields truly common to all LlmMessage types with consistent optionality
-    const LlmMessageBaseSchema = Type.Object({
-    	llmId: Type.Optional(Type.String()),
-    	cache: Type.Optional(Type.Literal('ephemeral')),
-    	providerOptions: Type.Optional(Type.Record(Type.String(), Type.Any())),
-    });
-    // Note: LlmMessageSpecificFieldsSchema should be replaced by LlmMessageBaseSchema or removed if all fields are now role-specific.
+// Schema for fields truly common to all LlmMessage types with consistent optionality
+const LlmMessageBaseSchema = Type.Object({
+	llmId: Type.Optional(Type.String()),
+	cache: Type.Optional(Type.Literal('ephemeral')),
+	providerOptions: Type.Optional(Type.Record(Type.String(), Type.Any())),
+});
+// Note: LlmMessageSpecificFieldsSchema should be replaced by LlmMessageBaseSchema or removed if all fields are now role-specific.
 
-    // --- LlmMessage Schema redefined as a discriminated union ---
+// --- LlmMessage Schema redefined as a discriminated union ---
 
-    // Remove time and stats from the old LlmMessageSpecificFieldsSchema.
-    // Define them per message type.
+// Remove time and stats from the old LlmMessageSpecificFieldsSchema.
+// Define them per message type.
 
-    const SystemMessageSchema = Type.Intersect(
-    	[
-    		Type.Object({
-    			role: Type.Literal('system'),
-    			content: Type.String(),
-    			time: Type.Optional(Type.Number()), // Explicitly define time, assuming optional
-    			stats: Type.Optional(GenerationStatsSchema), // Explicitly define stats, assuming optional
-    		}),
-    		LlmMessageBaseSchema, // Intersect with other common fields
-    	],
-    	{ $id: 'SystemMessage' },
-    );
-    type SystemLlmMessage = Extract<LlmMessage, { role: 'system' }>;
-    const _SystemMessageCheck: AreTypesFullyCompatible<SystemLlmMessage, Static<typeof SystemMessageSchema>> = true;
+const SystemMessageSchema = Type.Intersect(
+	[
+		Type.Object({
+			role: Type.Literal('system'),
+			content: Type.String(),
+			time: Type.Optional(Type.Number()), // Explicitly define time, assuming optional
+			stats: Type.Optional(GenerationStatsSchema), // Explicitly define stats, assuming optional
+		}),
+		LlmMessageBaseSchema, // Intersect with other common fields
+	],
+	{ $id: 'SystemMessage' },
+);
+type SystemLlmMessage = Extract<LlmMessage, { role: 'system' }>;
+const _SystemMessageCheck: AreTypesFullyCompatible<SystemLlmMessage, Static<typeof SystemMessageSchema>> = true;
 
-    const UserMessageSchema = Type.Intersect(
-    	[
-    		Type.Object({
-    			role: Type.Literal('user'),
-    			content: UserContentSchema,
-    			time: Type.Number(), // Made required for User messages
-    			stats: Type.Optional(GenerationStatsSchema), // Stats remain optional for User messages
-    		}),
-    		LlmMessageBaseSchema, // Intersect with other common fields
-    	],
-    	{ $id: 'UserMessage' },
-    );
-    type UserLlmMessage = Extract<LlmMessage, { role: 'user' }>;
-    // The UserContentExt check might fail if the underlying FilePartExt or ImagePartExt checks fail.
-    // For now, we assume UserContentSchema correctly maps to UserContentExt.
-    // A more precise check would involve ChangePropertyType if UserContentExt has complex parts not directly mappable.
-    // const _UserMessageCheck: AreTypesFullyCompatible<UserLlmMessage, Static<typeof UserMessageSchema>> = true;
+const UserMessageSchema = Type.Intersect(
+	[
+		Type.Object({
+			role: Type.Literal('user'),
+			content: UserContentSchema,
+			time: Type.Optional(Type.Number()), // Made optional to align with model and allow existing code to compile
+			stats: Type.Optional(GenerationStatsSchema), // Stats remain optional for User messages
+		}),
+		LlmMessageBaseSchema, // Intersect with other common fields
+	],
+	{ $id: 'UserMessage' },
+);
+type UserLlmMessage = Extract<LlmMessage, { role: 'user' }>;
+// The UserContentExt check might fail if the underlying FilePartExt or ImagePartExt checks fail.
+// For now, we assume UserContentSchema correctly maps to UserContentExt.
+// A more precise check would involve ChangePropertyType if UserContentExt has complex parts not directly mappable.
+// const _UserMessageCheck: AreTypesFullyCompatible<UserLlmMessage, Static<typeof UserMessageSchema>> = true;
 
+const AssistantMessageSchema = Type.Intersect(
+	[
+		Type.Object({
+			role: Type.Literal('assistant'),
+			content: AssistantContentSchema,
+			time: Type.Optional(Type.Number()), // Time remains optional for Assistant messages
+			stats: Type.Optional(GenerationStatsSchema), // Made optional to align with model and assistant() helper
+		}),
+		LlmMessageBaseSchema, // Intersect with other common fields
+	],
+	{ $id: 'AssistantMessage' },
+);
+type AssistantLlmMessage = Extract<LlmMessage, { role: 'assistant' }>;
+// const _AssistantMessageCheck: AreTypesFullyCompatible<AssistantLlmMessage, Static<typeof AssistantMessageSchema>> = true;
 
-    const AssistantMessageSchema = Type.Intersect(
-    	[
-    		Type.Object({
-    			role: Type.Literal('assistant'),
-    			content: AssistantContentSchema,
-    			time: Type.Optional(Type.Number()), // Time remains optional for Assistant messages
-    			stats: Type.Optional(GenerationStatsSchema), // Made optional to align with model and assistant() helper
-    		}),
-    		LlmMessageBaseSchema, // Intersect with other common fields
-    	],
-    	{ $id: 'AssistantMessage' },
-    );
-    type AssistantLlmMessage = Extract<LlmMessage, { role: 'assistant' }>;
-    // const _AssistantMessageCheck: AreTypesFullyCompatible<AssistantLlmMessage, Static<typeof AssistantMessageSchema>> = true;
+const ToolMessageSchema = Type.Intersect(
+	[
+		Type.Object({
+			role: Type.Literal('tool'),
+			content: ToolContentSchema,
+			time: Type.Optional(Type.Number()), // Explicitly define time, assuming optional
+			stats: Type.Optional(GenerationStatsSchema), // Explicitly define stats, assuming optional
+		}),
+		LlmMessageBaseSchema, // Intersect with other common fields
+	],
+	{ $id: 'ToolMessage' },
+);
+type ToolLlmMessage = Extract<LlmMessage, { role: 'tool' }>;
+// const _ToolMessageCheck: AreTypesFullyCompatible<ToolLlmMessage, Static<typeof ToolMessageSchema>> = true;
 
-    const ToolMessageSchema = Type.Intersect(
-    	[
-    		Type.Object({
-    			role: Type.Literal('tool'),
-    			content: ToolContentSchema,
-    			time: Type.Optional(Type.Number()), // Explicitly define time, assuming optional
-    			stats: Type.Optional(GenerationStatsSchema), // Explicitly define stats, assuming optional
-    		}),
-    		LlmMessageBaseSchema, // Intersect with other common fields
-    	],
-    	{ $id: 'ToolMessage' },
-    );
-    type ToolLlmMessage = Extract<LlmMessage, { role: 'tool' }>;
-    // const _ToolMessageCheck: AreTypesFullyCompatible<ToolLlmMessage, Static<typeof ToolMessageSchema>> = true;
+export const LlmMessageSchema = Type.Union([SystemMessageSchema, UserMessageSchema, AssistantMessageSchema, ToolMessageSchema], { $id: 'LlmMessage' });
+const _LlmMessageCheck: AreTypesFullyCompatible<LlmMessage, Static<typeof LlmMessageSchema>> = true;
 
-    export const LlmMessageSchema = Type.Union([SystemMessageSchema, UserMessageSchema, AssistantMessageSchema, ToolMessageSchema], { $id: 'LlmMessage' });
-    const _LlmMessageCheck: AreTypesFullyCompatible<LlmMessage, Static<typeof LlmMessageSchema>> = true;
+export const LlmMessagesSchema = Type.Array(LlmMessageSchema);
 
-    export const LlmMessagesSchema = Type.Array(LlmMessageSchema);
-
-    export type LlmMessageSchemaModel = Static<typeof LlmMessageSchema>;
-    export type LlmMessagesSchemaModel = Static<typeof LlmMessagesSchema>;
+export type LlmMessageSchemaModel = Static<typeof LlmMessageSchema>;
+export type LlmMessagesSchemaModel = Static<typeof LlmMessagesSchema>;
