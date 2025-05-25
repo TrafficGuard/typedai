@@ -81,6 +81,27 @@ export class NewAutonomousAgentComponent implements OnInit, OnDestroy {
       count: new FormControl(0, [Validators.required, Validators.min(0), Validators.pattern('^[0-9]*$')]),
       useSharedRepos: new FormControl(true),
     });
+
+    effect(() => {
+        const state = this.agentService.availableFunctionsState();
+        if (state.status === 'success') {
+            this.functions = state.data;
+            console.log('NewAutonomousAgentComponent: received functions from service state', this.functions);
+
+            // Dynamically add form controls for each function if they don't exist
+            this.functions.forEach((tool, index) => {
+                const controlName = 'function' + index;
+                if (!(this.runAgentForm as FormGroup).get(controlName)) {
+                    (this.runAgentForm as FormGroup).addControl(controlName, new FormControl(false));
+                }
+            });
+            // Initial check for shared repos state after functions and controls are set up
+            this.updateSharedReposState();
+        } else if (state.status === 'error') {
+            console.error('Error fetching agent functions from service state', state.error);
+            this.snackBar.open('Error fetching agent functions', 'Close', { duration: 3000 });
+        }
+    });
   }
   setPreset(preset: string): boolean {
     console.log(`setPreset ${preset}`);
@@ -110,27 +131,6 @@ export class NewAutonomousAgentComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.agentService.loadAvailableFunctions();
-
-    effect(() => {
-        const state = this.agentService.availableFunctionsState();
-        if (state.status === 'success') {
-            this.functions = state.data;
-            console.log('NewAutonomousAgentComponent: received functions from service state', this.functions);
-
-            // Dynamically add form controls for each function if they don't exist
-            this.functions.forEach((tool, index) => {
-                const controlName = 'function' + index;
-                if (!(this.runAgentForm as FormGroup).get(controlName)) {
-                    (this.runAgentForm as FormGroup).addControl(controlName, new FormControl(false));
-                }
-            });
-            // Initial check for shared repos state after functions and controls are set up
-            this.updateSharedReposState();
-        } else if (state.status === 'error') {
-            console.error('Error fetching agent functions from service state', state.error);
-            this.snackBar.open('Error fetching agent functions', 'Close', { duration: 3000 });
-        }
-    });
 
     // Subscribe to form value changes to update shared repos state dynamically
     // This should be set up once after the form is initialized.
