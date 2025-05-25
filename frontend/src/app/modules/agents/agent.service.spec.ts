@@ -9,7 +9,8 @@ import { LlmMessagesSchema } from '#shared/schemas/llm.schema';
 import { Static, Type } from '@sinclair/typebox';
 import { ApiNullResponseSchema } from '#shared/schemas/common.schema';
 import { RouteDefinition } from '#shared/api-definitions';
-import { of, throwError } from 'rxjs'; // Added of, throwError
+import { of, throwError } from 'rxjs';
+import { fakeAsync, tick } from '@angular/core/testing'; // Added fakeAsync and tick for more control if needed, though direct checks might suffice.
 
 describe('AgentService', () => {
   let service: AgentService;
@@ -110,74 +111,110 @@ describe('AgentService', () => {
     expect(service).toBeTruthy();
   });
 
-  describe('loadAgents / getAgents / refreshAgents', () => {
-    it('should fetch agent previews on initial load and expose them via agents$', (done) => {
-      service.agents$.subscribe(agents => {
-        if (agents && agents.length > 0) { // Wait for the initial load to complete
-          expect(agents.length).toBe(2);
-          expect(agents).toEqual([mockPreviewAgent1, mockPreviewAgent2]);
-          done();
-        }
-      });
-      // The initial call is handled in beforeEach, so no httpMock.expectOne here for this test.
+  describe('loadAgents / agentsState / refreshAgents', () => {
+    it('should fetch agent previews on initial load and expose them via agentsState', () => {
+      // The initial call is handled in beforeEach and flushed.
+      const state = service.agentsState();
+      expect(state.status).toBe('success');
+      expect(state.data?.length).toBe(2);
+      expect(state.data).toEqual([mockPreviewAgent1, mockPreviewAgent2]);
     });
 
-    it('refreshAgents should reload agents and update agents$ with previews', (done) => {
+    it('refreshAgents should reload agents and update agentsState with previews', () => {
       const updatedMockPreviews: AgentContextPreviewApi[] = [createMockAgentContextPreview('agent3')];
-      let callCount = 0;
 
-      service.agents$.subscribe(agents => {
-        callCount++;
-        if (callCount === 1) { // Initial value from constructor load
-          expect(agents).toEqual([mockPreviewAgent1, mockPreviewAgent2]);
-        } else if (callCount === 2) { // Value after refreshAgents
-          expect(agents).toEqual(updatedMockPreviews);
-          done();
-        }
-      });
+      // Initial state check
+      const initialState = service.agentsState();
+      expect(initialState.status).toBe('success');
+      expect(initialState.data).toEqual([mockPreviewAgent1, mockPreviewAgent2]);
 
       service.refreshAgents();
+
+      const loadingState = service.agentsState();
+      expect(loadingState.status).toBe('loading');
 
       const req = httpMock.expectOne(AGENT_API.list.path);
       expect(req.request.method).toBe(AGENT_API.list.method);
       req.flush(updatedMockPreviews);
+
+      const finalState = service.agentsState();
+      expect(finalState.status).toBe('success');
+      expect(finalState.data).toEqual(updatedMockPreviews);
     });
   });
 
-
-  describe('getAgentDetails', () => {
-    it('should return agent details', (done) => {
+  describe('loadAgentDetails / selectedAgentDetailsState', () => {
+    it('should load agent details and update selectedAgentDetailsState', () => {
       const testAgentId = 'agent1';
-      const expectedPath = AGENT_API.details.buildPath({ agentId: testAgentId });
+      expect(service.selectedAgentDetailsState().status).toBe('idle');
 
-      service.getAgentDetails(testAgentId).subscribe(agent => {
-        expect(agent).toEqual(mockFullAgent1); // Expecting full agent context
-        done();
-      });
+      service.loadAgentDetails(testAgentId);
+      expect(service.selectedAgentDetailsState().status).toBe('loading');
+
+      const expectedPath = AGENT_API.details.buildPath({ agentId: testAgentId });
+      const req = httpMock.expectOne(expectedPath);
       expect(req.request.method).toBe(AGENT_API.details.method);
-      req.flush(mockFullAgent1); // Flush with full agent context
+      req.flush(mockFullAgent1);
+
+      const state = service.selectedAgentDetailsState();
+      expect(state.status).toBe('success');
+      expect(state.data).toEqual(mockFullAgent1);
     });
 
-    it('should handle errors', (done) => {
-      const testAgentId = 'agent-error';
-      const expectedPath = AGENT_API.details.buildPath({ agentId: testAgentId });
+    it('should handle 404 error and update selectedAgentDetailsState to not_found', () => {
+      const testAgentId = 'agent-not-found';
+      service.loadAgentDetails(testAgentId);
+      expect(service.selectedAgentDetailsState().status).toBe('loading');
 
-      service.getAgentDetails(testAgentId).subscribe({
-        next: () => fail('should have failed'),
-        error: (err) => {
-          expect(err).toBeTruthy();
-          done();
-        }
-      });
-      const req = httpMock.expectOne(expectedPath);
-      req.flush('Error', { status: 500, statusText: 'Server Error' });
+      const req = httpMock.expectOne(AGENT_API.details.buildPath({ agentId: testAgentId }));
+      req.flush('Not Found', { status: 404, statusText: 'Not Found' });
+
+      const state = service.selectedAgentDetailsState();
+      expect(state.status).toBe('not_found');
+    });
+
+    it('should handle 403 error and update selectedAgentDetailsState to forbidden', () => {
+      const testAgentId = 'agent-forbidden';
+      service.loadAgentDetails(testAgentId);
+      expect(service.selectedAgentDetailsState().status).toBe('loading');
+
+      const req = httpMock.expectOne(AGENT_API.details.buildPath({ agentId: testAgentId }));
+      req.flush('Forbidden', { status: 403, statusText: 'Forbidden' });
+
+      const state = service.selectedAgentDetailsState();
+      expect(state.status).toBe('forbidden');
+    });
+
+    it('should handle generic errors and update selectedAgentDetailsState to error', () => {
+      const testAgentId = 'agent-error';
+      service.loadAgentDetails(testAgentId);
+      expect(service.selectedAgentDetailsState().status).toBe('loading');
+
+      const req = httpMock.expectOne(AGENT_API.details.buildPath({ agentId: testAgentId }));
+      req.flush('Server Error', { status: 500, statusText: 'Server Error' });
+
+      const state = service.selectedAgentDetailsState();
+      expect(state.status).toBe('error');
+      expect(state.error).toBeInstanceOf(Error);
+      expect(state.code).toBe(500);
+    });
+
+    it('clearSelectedAgentDetails should reset selectedAgentDetailsState to idle', () => {
+      // Set a state first
+      service.loadAgentDetails('agent1');
+      const req = httpMock.expectOne(AGENT_API.details.buildPath({ agentId: 'agent1' }));
+      req.flush(mockFullAgent1);
+      expect(service.selectedAgentDetailsState().status).toBe('success');
+
+      service.clearSelectedAgentDetails();
+      expect(service.selectedAgentDetailsState().status).toBe('idle');
     });
   });
 
-  describe('getAgentIterations', () => {
-    it('should return agent iterations', (done) => {
-      const testAgentId = 'agent1'; // Assuming mockFullAgent1 is for agent1
-      const expectedPath = AGENT_API.getIterations.buildPath({ agentId: testAgentId });
+  describe('loadAgentIterations / agentIterationsState', () => {
+    it('should load agent iterations and update agentIterationsState', () => {
+      const testAgentId = 'agent1';
+      expect(service.agentIterationsState().status).toBe('idle');
       const mockIterations: AutonomousIteration[] = [
         {
           agentId: testAgentId, iteration: 1, cost: 0.1, summary: 'Iter 1', functions: ['ClassName1'],
@@ -186,63 +223,82 @@ describe('AgentService', () => {
           memory: {}, toolState: {}, stats: { requestTime: 1, timeToFirstToken: 1, totalTime: 1, inputTokens: 1, outputTokens: 1, cost: 1, llmId: '1'}
         },
       ];
-      service.getAgentIterations(testAgentId).subscribe(iterations => {
-        expect(iterations).toEqual(mockIterations);
-        done();
-      });
-      const req = httpMock.expectOne(expectedPath);
+      service.loadAgentIterations(testAgentId);
+      expect(service.agentIterationsState().status).toBe('loading');
+
+      const req = httpMock.expectOne(AGENT_API.getIterations.buildPath({ agentId: testAgentId }));
       expect(req.request.method).toBe(AGENT_API.getIterations.method);
       req.flush(mockIterations);
+
+      const state = service.agentIterationsState();
+      expect(state.status).toBe('success');
+      expect(state.data).toEqual(mockIterations);
+    });
+
+    it('clearAgentIterations should reset agentIterationsState to idle', () => {
+      service.loadAgentIterations('agent1');
+      const req = httpMock.expectOne(AGENT_API.getIterations.buildPath({ agentId: 'agent1' }));
+      req.flush([]); // Flush with some data
+      expect(service.agentIterationsState().status).toBe('success');
+
+      service.clearAgentIterations();
+      expect(service.agentIterationsState().status).toBe('idle');
     });
   });
 
-  describe('getLlmCalls', () => {
-    it('should return LLM calls for an agent', (done) => {
+  describe('loadLlmCalls / llmCallsState', () => {
+    it('should load LLM calls and update llmCallsState', () => {
       const testAgentId = 'agent1';
-      const expectedPath = AGENT_API.getLlmCallsByAgentId.buildPath({ agentId: testAgentId });
+      expect(service.llmCallsState().status).toBe('idle');
       const mockLlmCallsData: LlmCall[] = [
         { id: 'call1', agentId: testAgentId, messages: [], settings: {}, llmId: 'llm1', requestTime: Date.now(), provider: 'openai', model: 'gpt-4', type: 'chat', prompt: 'Hello', response: 'Hi', cost: 0.001, inputTokens: 10, outputTokens: 5, durationMs: 100 } as LlmCall,
       ];
-      service.getLlmCalls(testAgentId).subscribe(calls => {
-        expect(calls).toEqual(mockLlmCallsData);
-        done();
-      });
-      const req = httpMock.expectOne(expectedPath);
+      service.loadLlmCalls(testAgentId);
+      expect(service.llmCallsState().status).toBe('loading');
+
+      const req = httpMock.expectOne(AGENT_API.getLlmCallsByAgentId.buildPath({ agentId: testAgentId }));
       expect(req.request.method).toBe(AGENT_API.getLlmCallsByAgentId.method);
-      req.flush({ data: mockLlmCallsData }); // Ensure the flushed data matches the expected structure { data: ... }
+      req.flush({ data: mockLlmCallsData });
+
+      const state = service.llmCallsState();
+      expect(state.status).toBe('success');
+      expect(state.data).toEqual(mockLlmCallsData);
+    });
+
+    it('clearLlmCalls should reset llmCallsState to idle', () => {
+      service.loadLlmCalls('agent1');
+      const req = httpMock.expectOne(AGENT_API.getLlmCallsByAgentId.buildPath({ agentId: 'agent1' }));
+      req.flush({ data: [] }); // Flush with some data
+      expect(service.llmCallsState().status).toBe('success');
+
+      service.clearLlmCalls();
+      expect(service.llmCallsState().status).toBe('idle');
     });
   });
 
-  // This test is now covered by the 'loadAgents / getAgents / refreshAgents' describe block
-  // it('refreshAgents should reload agents and update agents$', (done) => { ... });
-
-
   describe('submitFeedback', () => {
-    it('should POST feedback and update agent in cache', (done) => {
+    it('should POST feedback and update agent in agentsState', (done) => {
       const agentId = 'agent1';
-      const executionId = 'exec-agent1'; // Ensure this matches mockFullAgent1.executionId if needed
+      const executionId = 'exec-agent1';
       const feedback = 'Good job!';
       const updatedAgentData: AgentContextApi = { ...mockFullAgent1, name: 'Agent 1 Updated Feedback' };
-      const expectedPath = AGENT_API.feedback.path;
 
       service.submitFeedback(agentId, executionId, feedback).subscribe(response => {
         expect(response).toEqual(updatedAgentData);
-        // Check cache for preview
-        service.agents$.subscribe(agents => {
-          const cachedPreview = agents.find(a => a.agentId === agentId);
-          if (cachedPreview?.name === updatedAgentData.name) { // Check if update has propagated
-            const expectedPreview: AgentContextPreviewApi = {
-              agentId: updatedAgentData.agentId, name: updatedAgentData.name, state: updatedAgentData.state,
-              cost: updatedAgentData.cost, error: updatedAgentData.error, lastUpdate: updatedAgentData.lastUpdate,
-              userPrompt: updatedAgentData.userPrompt, inputPrompt: updatedAgentData.inputPrompt, user: updatedAgentData.user,
-            };
-            expect(cachedPreview).toEqual(expectedPreview);
-            done();
-          }
-        });
+
+        const agentListState = service.agentsState();
+        expect(agentListState.status).toBe('success');
+        const cachedPreview = agentListState.data?.find(a => a.agentId === agentId);
+        const expectedPreview: AgentContextPreviewApi = {
+          agentId: updatedAgentData.agentId, name: updatedAgentData.name, state: updatedAgentData.state,
+          cost: updatedAgentData.cost, error: updatedAgentData.error, lastUpdate: updatedAgentData.lastUpdate,
+          userPrompt: updatedAgentData.userPrompt, inputPrompt: updatedAgentData.inputPrompt, user: updatedAgentData.user,
+        };
+        expect(cachedPreview).toEqual(expectedPreview);
+        done();
       });
 
-      const req = httpMock.expectOne(expectedPath);
+      const req = httpMock.expectOne(AGENT_API.feedback.path);
       expect(req.request.method).toBe(AGENT_API.feedback.method);
       expect(req.request.body).toEqual({ agentId, executionId, feedback });
       req.flush(updatedAgentData);
@@ -250,28 +306,26 @@ describe('AgentService', () => {
   });
 
   describe('requestHilCheck', () => {
-    it('should POST request and update agent in cache with preview', (done) => {
+    it('should POST request and update agent in agentsState', (done) => {
         const agentId = 'agent1';
-        const executionId = 'exec-agent1'; // Ensure this matches mockFullAgent1.executionId
-        const updatedAgentData: AgentContextApi = { ...mockFullAgent1, hilRequested: true, state: 'hitl_feedback' }; // Example state change
-        const expectedPath = AGENT_API.requestHil.path;
+        const executionId = 'exec-agent1';
+        const updatedAgentData: AgentContextApi = { ...mockFullAgent1, hilRequested: true, state: 'hitl_feedback' };
 
         service.requestHilCheck(agentId, executionId).subscribe(response => {
             expect(response).toEqual(updatedAgentData);
-            service.agents$.subscribe(agents => {
-                const cachedPreview = agents.find(a => a.agentId === agentId);
-                if (cachedPreview?.state === updatedAgentData.state) { // Check a field that would be in preview
-                    const expectedPreview: AgentContextPreviewApi = {
-                        agentId: updatedAgentData.agentId, name: updatedAgentData.name, state: updatedAgentData.state,
-                        cost: updatedAgentData.cost, error: updatedAgentData.error, lastUpdate: updatedAgentData.lastUpdate,
-                        userPrompt: updatedAgentData.userPrompt, inputPrompt: updatedAgentData.inputPrompt, user: updatedAgentData.user,
-                    };
-                    expect(cachedPreview).toEqual(jasmine.objectContaining(expectedPreview)); // Use objectContaining if not all fields are in preview or for flexibility
-                    done();
-                }
-            });
+
+            const agentListState = service.agentsState();
+            expect(agentListState.status).toBe('success');
+            const cachedPreview = agentListState.data?.find(a => a.agentId === agentId);
+            const expectedPreview: AgentContextPreviewApi = {
+                agentId: updatedAgentData.agentId, name: updatedAgentData.name, state: updatedAgentData.state,
+                cost: updatedAgentData.cost, error: updatedAgentData.error, lastUpdate: updatedAgentData.lastUpdate,
+                userPrompt: updatedAgentData.userPrompt, inputPrompt: updatedAgentData.inputPrompt, user: updatedAgentData.user,
+            };
+            expect(cachedPreview).toEqual(jasmine.objectContaining(expectedPreview));
+            done();
         });
-        const req = httpMock.expectOne(expectedPath);
+        const req = httpMock.expectOne(AGENT_API.requestHil.path);
         expect(req.request.method).toBe(AGENT_API.requestHil.method);
         expect(req.request.body).toEqual({ agentId, executionId });
         req.flush(updatedAgentData);
@@ -279,29 +333,26 @@ describe('AgentService', () => {
   });
 
   describe('resumeAgent (resumeHil)', () => {
-    it('should POST request and update agent in cache with preview', (done) => {
+    it('should POST request and update agent in agentsState', (done) => {
         const agentId = 'agent1';
         const executionId = 'exec-agent1';
         const feedback = "Resuming HIL";
         const updatedAgentData: AgentContextApi = { ...mockFullAgent1, state: 'agent' as Static<typeof AgentContextSchema.properties.state> };
-        const expectedPath = AGENT_API.resumeHil.path;
 
         service.resumeAgent(agentId, executionId, feedback).subscribe(response => {
             expect(response).toEqual(updatedAgentData);
-            service.agents$.subscribe(agents => {
-                const cachedPreview = agents.find(a => a.agentId === agentId);
-                if (cachedPreview?.state === updatedAgentData.state) {
-                     const expectedPreview: AgentContextPreviewApi = {
-                        agentId: updatedAgentData.agentId, name: updatedAgentData.name, state: updatedAgentData.state,
-                        cost: updatedAgentData.cost, error: updatedAgentData.error, lastUpdate: updatedAgentData.lastUpdate,
-                        userPrompt: updatedAgentData.userPrompt, inputPrompt: updatedAgentData.inputPrompt, user: updatedAgentData.user,
-                    };
-                    expect(cachedPreview).toEqual(expectedPreview);
-                    done();
-                }
-            });
+            const agentListState = service.agentsState();
+            expect(agentListState.status).toBe('success');
+            const cachedPreview = agentListState.data?.find(a => a.agentId === agentId);
+            const expectedPreview: AgentContextPreviewApi = {
+                agentId: updatedAgentData.agentId, name: updatedAgentData.name, state: updatedAgentData.state,
+                cost: updatedAgentData.cost, error: updatedAgentData.error, lastUpdate: updatedAgentData.lastUpdate,
+                userPrompt: updatedAgentData.userPrompt, inputPrompt: updatedAgentData.inputPrompt, user: updatedAgentData.user,
+            };
+            expect(cachedPreview).toEqual(expectedPreview);
+            done();
         });
-        const req = httpMock.expectOne(expectedPath);
+        const req = httpMock.expectOne(AGENT_API.resumeHil.path);
         expect(req.request.method).toBe(AGENT_API.resumeHil.method);
         expect(req.request.body).toEqual({ agentId, executionId, feedback });
         req.flush(updatedAgentData);
@@ -309,29 +360,26 @@ describe('AgentService', () => {
   });
 
   describe('cancelAgent', () => {
-    it('should POST request and update agent in cache with preview', (done) => {
+    it('should POST request and update agent in agentsState', (done) => {
         const agentId = 'agent1';
         const executionId = 'exec-agent1';
         const reason = "User cancelled";
         const updatedAgentData: AgentContextApi = { ...mockFullAgent1, state: 'completed' as Static<typeof AgentContextSchema.properties.state>, output: 'Cancelled by user' };
-        const expectedPath = AGENT_API.cancel.path;
 
         service.cancelAgent(agentId, executionId, reason).subscribe(response => {
             expect(response).toEqual(updatedAgentData);
-            service.agents$.subscribe(agents => {
-                const cachedPreview = agents.find(a => a.agentId === agentId);
-                if (cachedPreview?.state === updatedAgentData.state) {
-                    const expectedPreview: AgentContextPreviewApi = {
-                        agentId: updatedAgentData.agentId, name: updatedAgentData.name, state: updatedAgentData.state,
-                        cost: updatedAgentData.cost, error: updatedAgentData.error, lastUpdate: updatedAgentData.lastUpdate,
-                        userPrompt: updatedAgentData.userPrompt, inputPrompt: updatedAgentData.inputPrompt, user: updatedAgentData.user,
-                    };
-                    expect(cachedPreview).toEqual(expectedPreview);
-                    done();
-                }
-            });
+            const agentListState = service.agentsState();
+            expect(agentListState.status).toBe('success');
+            const cachedPreview = agentListState.data?.find(a => a.agentId === agentId);
+            const expectedPreview: AgentContextPreviewApi = {
+                agentId: updatedAgentData.agentId, name: updatedAgentData.name, state: updatedAgentData.state,
+                cost: updatedAgentData.cost, error: updatedAgentData.error, lastUpdate: updatedAgentData.lastUpdate,
+                userPrompt: updatedAgentData.userPrompt, inputPrompt: updatedAgentData.inputPrompt, user: updatedAgentData.user,
+            };
+            expect(cachedPreview).toEqual(expectedPreview);
+            done();
         });
-        const req = httpMock.expectOne(expectedPath);
+        const req = httpMock.expectOne(AGENT_API.cancel.path);
         expect(req.request.method).toBe(AGENT_API.cancel.method);
         expect(req.request.body).toEqual({ agentId, executionId, reason });
         req.flush(updatedAgentData);
@@ -339,32 +387,25 @@ describe('AgentService', () => {
   });
 
   describe('updateAgentFunctions', () => {
-    it('should POST request and update agent in cache with preview', (done) => {
+    it('should POST request and update agent in agentsState', (done) => {
         const agentId = 'agent1';
         const functions = ['NewFunction1', 'NewFunction2'];
-        // Ensure the functions object in updatedAgentData matches AgentContextApi structure
         const updatedAgentData: AgentContextApi = { ...mockFullAgent1, functions: { functionClasses: functions } };
-        const expectedPath = AGENT_API.updateFunctions.path;
 
         service.updateAgentFunctions(agentId, functions).subscribe(response => {
             expect(response).toEqual(updatedAgentData);
-            service.agents$.subscribe(agents => {
-                const cachedPreview = agents.find(a => a.agentId === agentId);
-                // For preview, we might not check functions directly unless they affect a preview field.
-                // Here, we assume the update is successful and check a common field like name or state.
-                if (cachedPreview && cachedPreview.agentId === agentId) { // Basic check that agent is still there
-                     const expectedPreview: AgentContextPreviewApi = {
-                        agentId: updatedAgentData.agentId, name: updatedAgentData.name, state: updatedAgentData.state,
-                        cost: updatedAgentData.cost, error: updatedAgentData.error, lastUpdate: updatedAgentData.lastUpdate,
-                        userPrompt: updatedAgentData.userPrompt, inputPrompt: updatedAgentData.inputPrompt, user: updatedAgentData.user,
-                    };
-                    // We expect the preview to reflect any changes that are part of the preview
-                    expect(cachedPreview).toEqual(jasmine.objectContaining(expectedPreview));
-                    done();
-                }
-            });
+            const agentListState = service.agentsState();
+            expect(agentListState.status).toBe('success');
+            const cachedPreview = agentListState.data?.find(a => a.agentId === agentId);
+            const expectedPreview: AgentContextPreviewApi = {
+                agentId: updatedAgentData.agentId, name: updatedAgentData.name, state: updatedAgentData.state,
+                cost: updatedAgentData.cost, error: updatedAgentData.error, lastUpdate: updatedAgentData.lastUpdate,
+                userPrompt: updatedAgentData.userPrompt, inputPrompt: updatedAgentData.inputPrompt, user: updatedAgentData.user,
+            };
+            expect(cachedPreview).toEqual(jasmine.objectContaining(expectedPreview));
+            done();
         });
-        const req = httpMock.expectOne(expectedPath);
+        const req = httpMock.expectOne(AGENT_API.updateFunctions.path);
         expect(req.request.method).toBe(AGENT_API.updateFunctions.method);
         expect(req.request.body).toEqual({ agentId, functions });
         req.flush(updatedAgentData);
@@ -372,49 +413,44 @@ describe('AgentService', () => {
   });
 
   describe('deleteAgents', () => {
-    it('should POST agentIds and remove them from cache', (done) => {
-      const agentIdsToDelete = [mockPreviewAgent1.agentId]; // Use one of the initially loaded previews
-      const expectedPath = AGENT_API.delete.path;
+    it('should POST agentIds and remove them from agentsState', (done) => {
+      const agentIdsToDelete = [mockPreviewAgent1.agentId];
       service.deleteAgents(agentIdsToDelete).subscribe(() => {
-        service.agents$.subscribe(agents => {
-          // After deleting mockPreviewAgent1, only mockPreviewAgent2 should remain from initial load
-          if (agents.length === 1 && agents[0].agentId === mockPreviewAgent2.agentId) {
-            expect(agents.find(a => a.agentId === mockPreviewAgent1.agentId)).toBeUndefined();
-            done();
-          }
-        });
+        const agentListState = service.agentsState();
+        expect(agentListState.status).toBe('success');
+        expect(agentListState.data?.length).toBe(1);
+        expect(agentListState.data?.[0].agentId).toBe(mockPreviewAgent2.agentId);
+        expect(agentListState.data?.find(a => a.agentId === mockPreviewAgent1.agentId)).toBeUndefined();
+        done();
       });
-      const req = httpMock.expectOne(expectedPath);
+      const req = httpMock.expectOne(AGENT_API.delete.path);
       expect(req.request.method).toBe(AGENT_API.delete.method);
       expect(req.request.body).toEqual({ agentIds: agentIdsToDelete });
-      req.flush(null, { status: 204, statusText: 'No Content' }); // Simulate 204 response
+      req.flush(null, { status: 204, statusText: 'No Content' });
     });
   });
 
   describe('resumeError', () => {
-    it('should POST request and update agent in cache with preview', (done) => {
+    it('should POST request and update agent in agentsState', (done) => {
         const agentId = 'agent1';
         const executionId = 'exec-agent1';
         const feedback = "Attempting to fix error";
         const updatedAgentData: AgentContextApi = { ...mockFullAgent1, state: 'agent' as Static<typeof AgentContextSchema.properties.state>, error: undefined };
-        const expectedPath = AGENT_API.resumeError.path;
 
         service.resumeError(agentId, executionId, feedback).subscribe(response => {
             expect(response).toEqual(updatedAgentData);
-            service.agents$.subscribe(agents => {
-                const cachedPreview = agents.find(a => a.agentId === agentId);
-                if (cachedPreview?.state === updatedAgentData.state && !cachedPreview.error) {
-                    const expectedPreview: AgentContextPreviewApi = {
-                        agentId: updatedAgentData.agentId, name: updatedAgentData.name, state: updatedAgentData.state,
-                        cost: updatedAgentData.cost, error: updatedAgentData.error, lastUpdate: updatedAgentData.lastUpdate,
-                        userPrompt: updatedAgentData.userPrompt, inputPrompt: updatedAgentData.inputPrompt, user: updatedAgentData.user,
-                    };
-                    expect(cachedPreview).toEqual(expectedPreview);
-                    done();
-                }
-            });
+            const agentListState = service.agentsState();
+            expect(agentListState.status).toBe('success');
+            const cachedPreview = agentListState.data?.find(a => a.agentId === agentId);
+            const expectedPreview: AgentContextPreviewApi = {
+                agentId: updatedAgentData.agentId, name: updatedAgentData.name, state: updatedAgentData.state,
+                cost: updatedAgentData.cost, error: updatedAgentData.error, lastUpdate: updatedAgentData.lastUpdate,
+                userPrompt: updatedAgentData.userPrompt, inputPrompt: updatedAgentData.inputPrompt, user: updatedAgentData.user,
+            };
+            expect(cachedPreview).toEqual(expectedPreview);
+            done();
         });
-        const req = httpMock.expectOne(expectedPath);
+        const req = httpMock.expectOne(AGENT_API.resumeError.path);
         expect(req.request.method).toBe(AGENT_API.resumeError.method);
         expect(req.request.body).toEqual({ agentId, executionId, feedback });
         req.flush(updatedAgentData);
@@ -422,29 +458,26 @@ describe('AgentService', () => {
   });
 
   describe('resumeCompletedAgent', () => {
-    it('should POST request and update agent in cache with preview', (done) => {
+    it('should POST request and update agent in agentsState', (done) => {
         const agentId = 'agent1';
         const executionId = 'exec-agent1';
         const instructions = "Continue with new task";
         const updatedAgentData: AgentContextApi = { ...mockFullAgent1, state: 'agent' as Static<typeof AgentContextSchema.properties.state>, userPrompt: instructions };
-        const expectedPath = AGENT_API.resumeCompleted.path;
 
         service.resumeCompletedAgent(agentId, executionId, instructions).subscribe(response => {
             expect(response).toEqual(updatedAgentData);
-            service.agents$.subscribe(agents => {
-                const cachedPreview = agents.find(a => a.agentId === agentId);
-                if (cachedPreview?.state === updatedAgentData.state && cachedPreview.userPrompt === instructions) {
-                    const expectedPreview: AgentContextPreviewApi = {
-                        agentId: updatedAgentData.agentId, name: updatedAgentData.name, state: updatedAgentData.state,
-                        cost: updatedAgentData.cost, error: updatedAgentData.error, lastUpdate: updatedAgentData.lastUpdate,
-                        userPrompt: updatedAgentData.userPrompt, inputPrompt: updatedAgentData.inputPrompt, user: updatedAgentData.user,
-                    };
-                    expect(cachedPreview).toEqual(expectedPreview);
-                    done();
-                }
-            });
+            const agentListState = service.agentsState();
+            expect(agentListState.status).toBe('success');
+            const cachedPreview = agentListState.data?.find(a => a.agentId === agentId);
+            const expectedPreview: AgentContextPreviewApi = {
+                agentId: updatedAgentData.agentId, name: updatedAgentData.name, state: updatedAgentData.state,
+                cost: updatedAgentData.cost, error: updatedAgentData.error, lastUpdate: updatedAgentData.lastUpdate,
+                userPrompt: updatedAgentData.userPrompt, inputPrompt: updatedAgentData.inputPrompt, user: updatedAgentData.user,
+            };
+            expect(cachedPreview).toEqual(expectedPreview);
+            done();
         });
-        const req = httpMock.expectOne(expectedPath);
+        const req = httpMock.expectOne(AGENT_API.resumeCompleted.path);
         expect(req.request.method).toBe(AGENT_API.resumeCompleted.method);
         expect(req.request.body).toEqual({ agentId, executionId, instructions });
         req.flush(updatedAgentData);
@@ -452,21 +485,19 @@ describe('AgentService', () => {
   });
 
   describe('forceStopAgent', () => {
-    it('should POST request and NOT update cache directly (caller should refresh)', (done) => {
+    it('should POST request and NOT update agentsState directly (caller should refresh)', (done) => {
         const agentId = 'agent1';
-        const expectedPath = AGENT_API.forceStop.path;
-        // Cache should not change immediately based on this call as per service note
-        const initialAgents = service['_agents$'].getValue();
+        const initialAgentsState = service.agentsState(); // Get the signal object
 
         service.forceStopAgent(agentId).subscribe(() => {
-            // Check that cache is NOT updated by this call itself
-            expect(service['_agents$'].getValue()).toEqual(initialAgents);
+            expect(service.agentsState()).toBe(initialAgentsState); // Check if the signal object itself is the same
+            expect(service.agentsState().data).toEqual(initialAgentsState.data); // And its data
             done();
         });
-        const req = httpMock.expectOne(expectedPath);
+        const req = httpMock.expectOne(AGENT_API.forceStop.path);
         expect(req.request.method).toBe(AGENT_API.forceStop.method);
         expect(req.request.body).toEqual({ agentId });
-        req.flush(null, { status: 200, statusText: 'OK' }); // Simulate 200 OK with no body
+        req.flush(null, { status: 200, statusText: 'OK' });
     });
   });
 
@@ -475,12 +506,11 @@ describe('AgentService', () => {
       agentName: 'Test Agent',
       initialPrompt: 'Test prompt',
       type: 'autonomous',
-      subtype: 'codegen', // Optional in schema, but good to include for a thorough test
-      functions: ['FileAccess'], // Optional
-      humanInLoop: { budget: 10, count: 5 }, // Optional
-      llms: { easy: 'llm-easy-id', medium: 'llm-medium-id', hard: 'llm-hard-id' }, // Required
-      useSharedRepos: true, // Optional
-      // metadata, resumeAgentId, parentAgentId, vibeSessionId are also optional
+      subtype: 'codegen',
+      functions: ['FileAccess'],
+      humanInLoop: { budget: 10, count: 5 },
+      llms: { easy: 'llm-easy-id', medium: 'llm-medium-id', hard: 'llm-hard-id' },
+      useSharedRepos: true,
     };
 
     const mockFullAgentContextResponse: AgentContextApi = createMockAgentContext('newAgentId', 'Test Agent', 'agent');
@@ -497,31 +527,30 @@ describe('AgentService', () => {
       req.flush(mockFullAgentContextResponse, { status: 201, statusText: 'Created' });
     });
 
-    it('should update agents$ with preview on successful agent start', (done) => {
-      // Initial agents are mockPreviewAgent1, mockPreviewAgent2 from beforeEach
-      const initialAgentCount = service['_agents$'].getValue()?.length || 0;
+    it('should update agentsState with preview on successful agent start', (done) => {
+      const initialAgentListState = service.agentsState();
+      const initialAgentCount = initialAgentListState.status === 'success' ? initialAgentListState.data.length : 0;
 
       service.startAgent(mockStartRequest).subscribe(() => {
-        service.agents$.subscribe(agents => {
-          const expectedPreview: AgentContextPreviewApi = {
-            agentId: mockFullAgentContextResponse.agentId,
-            name: mockFullAgentContextResponse.name,
-            state: mockFullAgentContextResponse.state,
-            cost: mockFullAgentContextResponse.cost,
-            error: mockFullAgentContextResponse.error,
-            lastUpdate: mockFullAgentContextResponse.lastUpdate,
-            userPrompt: mockFullAgentContextResponse.userPrompt,
-            inputPrompt: mockFullAgentContextResponse.inputPrompt,
-            user: mockFullAgentContextResponse.user,
-          };
+        const agentListState = service.agentsState();
+        expect(agentListState.status).toBe('success');
 
-          const newAgentInList = agents.find(a => a.agentId === expectedPreview.agentId);
-          if (newAgentInList) {
-            expect(newAgentInList).toEqual(expectedPreview);
-            expect(agents.length).toBe(initialAgentCount + 1);
-            done();
-          }
-        });
+        const expectedPreview: AgentContextPreviewApi = {
+          agentId: mockFullAgentContextResponse.agentId,
+          name: mockFullAgentContextResponse.name,
+          state: mockFullAgentContextResponse.state,
+          cost: mockFullAgentContextResponse.cost,
+          error: mockFullAgentContextResponse.error,
+          lastUpdate: mockFullAgentContextResponse.lastUpdate,
+          userPrompt: mockFullAgentContextResponse.userPrompt,
+          inputPrompt: mockFullAgentContextResponse.inputPrompt,
+          user: mockFullAgentContextResponse.user,
+        };
+
+        const newAgentInList = agentListState.data?.find(a => a.agentId === expectedPreview.agentId);
+        expect(newAgentInList).toEqual(expectedPreview);
+        expect(agentListState.data?.length).toBe(initialAgentCount + 1);
+        done();
       });
 
       const req = httpMock.expectOne(AGENT_API.start.path);
@@ -537,8 +566,7 @@ describe('AgentService', () => {
         next: () => fail('should have failed'),
         error: (err) => {
           expect(err).toBeTruthy();
-          // The error from callApiRoute is usually the HttpErrorResponse itself
-          expect(err.status).toBe(500);
+          expect(err.status).toBe(500); // HttpErrorResponse is passed through
           expect(console.error).toHaveBeenCalledWith(jasmine.stringMatching(/Error during startAgent/), jasmine.any(Object));
           done();
         }
@@ -546,6 +574,35 @@ describe('AgentService', () => {
 
       const req = httpMock.expectOne(AGENT_API.start.path);
       req.flush(errorMessage, errorResponse);
+    });
+  });
+
+  describe('loadAvailableFunctions / availableFunctionsState', () => {
+    it('should load available functions and update availableFunctionsState', () => {
+      const mockFunctions = ['FunctionA', 'Agent', 'FunctionB', 'FunctionC'];
+      const expectedFunctions = ['FunctionA', 'FunctionB', 'FunctionC']; // Sorted and 'Agent' filtered out
+      expect(service.availableFunctionsState().status).toBe('idle');
+
+      service.loadAvailableFunctions();
+      expect(service.availableFunctionsState().status).toBe('loading');
+
+      const req = httpMock.expectOne(AGENT_API.getAvailableFunctions.path);
+      expect(req.request.method).toBe(AGENT_API.getAvailableFunctions.method);
+      req.flush(mockFunctions);
+
+      const state = service.availableFunctionsState();
+      expect(state.status).toBe('success');
+      expect(state.data).toEqual(expectedFunctions);
+    });
+
+    it('clearAvailableFunctions should reset availableFunctionsState to idle', () => {
+      service.loadAvailableFunctions();
+      const req = httpMock.expectOne(AGENT_API.getAvailableFunctions.path);
+      req.flush(['FunctionA']);
+      expect(service.availableFunctionsState().status).toBe('success');
+
+      service.clearAvailableFunctions();
+      expect(service.availableFunctionsState().status).toBe('idle');
     });
   });
 });
