@@ -1,48 +1,43 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal, WritableSignal } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, BehaviorSubject, throwError } from 'rxjs';
-import { tap, shareReplay, map, catchError, retry } from 'rxjs/operators';
-import {environment} from "../../../environments/environment";
+import { Observable, EMPTY } from 'rxjs';
+import { tap, catchError, retry } from 'rxjs/operators';
+import { environment } from "../../../../environments/environment";
+import { ApiListState, createApiListState } from '../../../core/api-state.types';
 
 @Injectable({
   providedIn: 'root',
 })
 export class FunctionsService {
-  private functionsSubject = new BehaviorSubject<string[]>([]);
-  private functionsLoaded = false;
+  private readonly _functionsState = createApiListState<string>();
+  readonly functionsState = this._functionsState.asReadonly();
 
   constructor(private http: HttpClient) {}
 
-  getFunctions(): Observable<string[]> {
-    if (!this.functionsLoaded) {
-      return this.fetchFunctions().pipe(
-        tap((llms) => {
-          this.functionsSubject.next(llms);
-          this.functionsLoaded = true;
-        }),
-        shareReplay(1)
-      );
+  public getFunctions(): void {
+    if (this._functionsState().status === 'loading') {
+      return;
     }
-    return this.functionsSubject.asObservable();
+    this._functionsState.set({ status: 'loading' });
+
+    this.fetchFunctions().pipe(
+      tap((fetchedFunctions: string[]) => {
+        this._functionsState.set({ status: 'success', data: fetchedFunctions });
+      }),
+      catchError((error: HttpErrorResponse) => {
+        this._functionsState.set({
+          status: 'error',
+          error: error instanceof Error ? error : new Error('Failed to load functions'),
+          code: error.status
+        });
+        return EMPTY;
+      })
+    ).subscribe();
   }
 
   private fetchFunctions(): Observable<string[]> {
     return this.http.get<string[]>(`${environment.apiBaseUrl}agent/v1/functions`).pipe(
-      retry(3),
-      catchError(this.handleError)
+      retry(3)
     );
-  }
-
-  private handleError(error: HttpErrorResponse) {
-    let errorMessage = 'An error occurred';
-    if (error.error instanceof ErrorEvent) {
-      // Client-side error
-      errorMessage = `Error: ${error.error.message}`;
-    } else {
-      // Server-side error
-      errorMessage = `Error Code: ${error.status}\nMessage: ${error.message}`;
-    }
-    console.error(errorMessage);
-    return throwError(() => new Error(errorMessage));
   }
 }
