@@ -4,6 +4,7 @@ import { FileSystemService } from '#functions/storage/fileSystemService';
 import type { FileStore } from '#functions/storage/filestore';
 import { logger } from '#o11y/logger';
 import type { FileMetadata } from '#shared/model/files.model';
+import {FileSystemTree} from "#agent/autonomous/functions/fileSystemTree";
 
 /**
  * @return An XML representation of the agent's memory
@@ -25,6 +26,14 @@ export function buildMemoryPrompt(): string {
 export async function buildToolStatePrompt(): Promise<string> {
 	return (await buildLiveFilesPrompt()) + (await buildFileStorePrompt()) + buildFileSystemPrompt();
 }
+
+async function buildFileSystemTreePrompt(): Promise<string> {
+	const functions = agentContext().functions;
+	if (!functions.getFunctionClassNames().includes(FileSystemTree.name)) return '';
+
+
+}
+
 /**
  * @return An XML representation of the FileSystem tool state
  */
