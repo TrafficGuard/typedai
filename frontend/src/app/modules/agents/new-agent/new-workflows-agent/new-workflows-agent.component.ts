@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, effect } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Observable } from 'rxjs';
 import { CommonModule } from "@angular/common";
@@ -34,7 +34,35 @@ export class NewWorkflowsAgentComponent implements OnInit {
   isLoading = false;
   repositories: string[] = [];
 
-  constructor(private fb: FormBuilder, private workflowsService: WorkflowsService) {}
+  constructor(private fb: FormBuilder, private workflowsService: WorkflowsService) {
+    effect(() => {
+      const state = this.workflowsService.repositoriesState();
+      switch (state.status) {
+        case 'success':
+          this.repositories = state.data;
+          if (state.data.length > 0) {
+            // Ensure form is initialized before patching
+            if (this.codeForm) {
+              this.codeForm.patchValue({ workingDirectory: state.data[0] });
+            }
+          }
+          // Clear previous error from this source if any, or handle UI updates
+          break;
+        case 'error':
+          console.error('Error fetching repositories:', state.error);
+          this.result = `Error fetching repositories: ${state.error.message}. Please try again later.`;
+          this.repositories = [];
+          break;
+        case 'loading':
+          // Optionally, indicate loading state for repositories in the UI
+          // For example, this.result = 'Loading repositories...';
+          break;
+        case 'idle':
+          this.repositories = [];
+          break;
+      }
+    });
+  }
 
   ngOnInit() {
     this.codeForm = this.fb.group({
@@ -43,18 +71,7 @@ export class NewWorkflowsAgentComponent implements OnInit {
       input: ['', Validators.required],
     });
 
-    this.workflowsService.getRepositories().subscribe({
-      next: (repos: string[]) => {
-        this.repositories = repos;
-        if (repos.length > 0) {
-          this.codeForm.patchValue({ workingDirectory: repos[0] });
-        }
-      },
-      error: (error: any) => {
-        console.error('Error fetching repositories:', error);
-        this.result = 'Error fetching repositories. Please try again later.';
-      },
-    });
+    this.workflowsService.loadRepositories();
   }
 
   getInputLabel(): string {
