@@ -2,7 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, EMPTY } from 'rxjs';
 import { catchError, tap } from 'rxjs/operators';
-import { createApiListState, ApiListState } from '../../../../core/api-state.types';
+import { createApiListState, ApiListState } from '../../../../../core/api-state.types';
 
 @Injectable({
   providedIn: 'root',
