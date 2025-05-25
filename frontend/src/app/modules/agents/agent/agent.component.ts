@@ -40,6 +40,7 @@ export class AgentComponent {
     private route = inject(ActivatedRoute);
     private snackBar = inject(MatSnackBar);
     private agentService = inject(AgentService);
+    private previousAgentIdForEffect: string | null | undefined | symbol = Symbol('initialAgentIdValue');
 
     // Get agentId from route params
     readonly agentId = toSignal(
@@ -55,13 +56,18 @@ export class AgentComponent {
     constructor() {
         effect(() => {
             const currentAgentIdVal = this.agentId(); // Read the new readonly signal
-            console.log(`AgentComponent: effect for agentId. Current value: '${currentAgentIdVal}'`); // Keep or adjust logging as needed
+            console.log(`AgentComponent: effect for agentId. Current value: '${currentAgentIdVal}', Previously processed value: '${String(this.previousAgentIdForEffect)}'`);
+            if (currentAgentIdVal === this.previousAgentIdForEffect) {
+                console.log(`AgentComponent: agentId ('${currentAgentIdVal}') matches previously processed value. Skipping further processing in this effect run.`);
+                return; // Exit the effect early if the ID hasn't changed
+            }
+            this.previousAgentIdForEffect = currentAgentIdVal;
             if (currentAgentIdVal) {
-                console.log(`AgentComponent: agentId is truthy ('${currentAgentIdVal}'), calling loadAgentDetails.`);
+                console.log(`AgentComponent: agentId is truthy and has changed to ('${currentAgentIdVal}'), calling loadAgentDetails.`);
                 this.loadAgentDetails(); // loadAgentDetails will internally use this.agentId()
             } else {
                 // This case handles when agentId becomes null (e.g. route change to one without :id, or initial state before paramMap emits)
-                console.log(`AgentComponent: agentId is falsy ('${currentAgentIdVal}'), clearing details.`);
+                console.log(`AgentComponent: agentId is falsy and has changed to ('${currentAgentIdVal}'), clearing details.`);
                 this.agentDetails.set(null);
                 this.agentService.clearSelectedAgentDetails();
             }
