@@ -35,7 +35,6 @@ import { map } from 'rxjs/operators';
     ],
 })
 export class AgentComponent {
-    agentId: WritableSignal<string | null> = signal(null);
     agentDetails: WritableSignal<AgentContextApi | null> = signal(null);
 
     private route = inject(ActivatedRoute);
@@ -43,16 +42,20 @@ export class AgentComponent {
     private agentService = inject(AgentService);
 
     // Get agentId from route params
-    private routeParams = toSignal(this.route.paramMap);
+    readonly agentId = toSignal(
+        this.route.paramMap.pipe(map(params => params.get('id')))
+    );
 
     constructor() {
         effect(() => {
-            const params = this.routeParams();
-            if (params) {
-                const id = params.get('id');
-                this.agentId.set(id);
-                console.log(`agent.component effect, agentId set to: ${id}`);
-                this.loadAgentDetails();
+            const currentAgentIdVal = this.agentId(); // Read the new readonly signal
+            console.log(`agent.component effect, agentId is now: ${currentAgentIdVal}`); // Keep or adjust logging as needed
+            if (currentAgentIdVal) {
+                this.loadAgentDetails(); // loadAgentDetails will internally use this.agentId()
+            } else {
+                // This case handles when agentId becomes null (e.g. route change to one without :id, or initial state before paramMap emits)
+                this.agentDetails.set(null);
+                this.agentService.clearSelectedAgentDetails();
             }
         });
 
