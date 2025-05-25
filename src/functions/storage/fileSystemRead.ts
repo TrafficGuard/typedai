@@ -135,45 +135,45 @@ export class FileSystemRead {
 		return await getFileSystem().fileExists(filePath);
 	}
 
-	/**
-	 * Generates a textual representation of a directory tree structure.
-	 *
-	 * This function uses listFilesRecursively to get all files and directories,
-	 * respecting .gitignore rules, and produces an indented string representation
-	 * of the file system hierarchy.
-	 *
-	 * @param {string} dirPath - The path of the directory to generate the tree for, defaulting to working directory
-	 * @returns {Promise<string>} A string representation of the directory tree.
-	 *
-	 * @example
-	 * Assuming the following directory structure:
-	 * ./
-	 *  ├── file1.txt
-	 *  ├── images/
-	 *  │   ├── logo.png
-	 *  └── src/
-	 *      └── utils/
-	 *          └── helper.js
-	 *
-	 * The output would be:
-	 * file1.txt
-	 * images/
-	 *   logo.png
-	 * src/utils/
-	 *   helper.js
-	 */
-	@func()
-	async getFileSystemTree(dirPath = './'): Promise<string> {
-		return await getFileSystem().getFileSystemTree(dirPath);
-	}
-
-	/**
-	 * Returns the filesystem structure
-	 * @param dirPath
-	 * @returns a record with the keys as the folders paths, and the list values as the files in the folder
-	 */
-	@func()
-	async getFileSystemTreeStructure(dirPath = './'): Promise<Record<string, string[]>> {
-		return await getFileSystem().getFileSystemTreeStructure(dirPath);
-	}
+	// /**
+	//  * Generates a textual representation of a directory tree structure.
+	//  *
+	//  * This function uses listFilesRecursively to get all files and directories,
+	//  * respecting .gitignore rules, and produces an indented string representation
+	//  * of the file system hierarchy.
+	//  *
+	//  * @param {string} dirPath - The path of the directory to generate the tree for, defaulting to working directory
+	//  * @returns {Promise<string>} A string representation of the directory tree.
+	//  *
+	//  * @example
+	//  * Assuming the following directory structure:
+	//  * ./
+	//  *  ├── file1.txt
+	//  *  ├── images/
+	//  *  │   ├── logo.png
+	//  *  └── src/
+	//  *      └── utils/
+	//  *          └── helper.js
+	//  *
+	//  * The output would be:
+	//  * file1.txt
+	//  * images/
+	//  *   logo.png
+	//  * src/utils/
+	//  *   helper.js
+	//  */
+	// @func()
+	// async getFileSystemTree(dirPath = './'): Promise<string> {
+	// 	return await getFileSystem().getFileSystemTree(dirPath);
+	// }
+	//
+	// /**
+	//  * Returns the filesystem structure
+	//  * @param dirPath
+	//  * @returns a record with the keys as the folders paths, and the list values as the files in the folder
+	//  */
+	// @func()
+	// async getFileSystemTreeStructure(dirPath = './'): Promise<Record<string, string[]>> {
+	// 	return await getFileSystem().getFileSystemTreeStructure(dirPath);
+	// }
 }

@@ -811,7 +811,7 @@ export async function loadBuildDocsSummaries(createIfNotExits = false): Promise<
 
 	const fss = getFileSystem();
 	// If in a git repo use the repo root to store the summary index files
-	const repoFolder = (await fss.getVcsRoot()) ?? fss.getWorkingDirectory();
+	const repoFolder = fss.getVcsRoot() ?? fss.getWorkingDirectory();
 
 	const docsDir = join(repoFolder, typedaiDirName, 'docs');
 	logger.info(`Load summaries from ${docsDir}`);

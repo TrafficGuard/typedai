@@ -1,13 +1,12 @@
 import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
+import { FileSystemTree } from '#agent/autonomous/functions/fileSystemTree';
 import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import type { FileStore } from '#functions/storage/filestore';
 import { logger } from '#o11y/logger';
 import type { FileMetadata } from '#shared/model/files.model';
-import {FileSystemTree} from "#agent/autonomous/functions/fileSystemTree";
-import { loadBuildDocsSummaries, generateFileSystemTreeWithSummaries } from '#swe/index/repositoryMap';
-import type { Summary } from '#swe/index/repoIndexDocBuilder'; // Assuming Summary is exported from here
-
+import { type Summary, loadBuildDocsSummaries } from '#swe/index/repoIndexDocBuilder';
+import { generateFileSystemTreeWithSummaries } from '#swe/index/repositoryMap';
 
 /**
  * @return An XML representation of the agent's memory
@@ -44,10 +43,9 @@ async function buildFileSystemTreePrompt(): Promise<string> {
 	// Ensure agent.toolState.FileSystemTree is treated as an array, defaulting to empty if not present or not an array.
 	let collapsedFolders: string[] = agent.toolState.FileSystemTree ?? [];
 	if (!Array.isArray(collapsedFolders)) {
-		logger.warn(
-			`agent.toolState.FileSystemTree was not an array (type: ${typeof collapsedFolders}). Defaulting to empty array.`,
-			{ currentToolState: agent.toolState.FileSystemTree },
-		);
+		logger.warn(`agent.toolState.FileSystemTree was not an array (type: ${typeof collapsedFolders}). Defaulting to empty array.`, {
+			currentToolState: agent.toolState.FileSystemTree,
+		});
 		collapsedFolders = [];
 	}
 
@@ -58,7 +56,7 @@ async function buildFileSystemTreePrompt(): Promise<string> {
 		const treeString = await generateFileSystemTreeWithSummaries(summaries, false, collapsedFolders);
 
 		if (!treeString.trim()) {
-			return `\n<file_system_tree>\n<!-- File system is empty or all folders are collapsed at the root. -->\n</file_system_tree>\n`;
+			return '\n<file_system_tree>\n<!-- File system is empty or all folders are collapsed at the root. -->\n</file_system_tree>\n';
 		}
 
 		return `\n<file_system_tree>
@@ -66,7 +64,7 @@ ${treeString}
 </file_system_tree>\n`;
 	} catch (error) {
 		logger.error(error, 'Error building file system tree prompt');
-		return `\n<file_system_tree>\n<!-- Error generating file system tree. -->\n</file_system_tree>\n`;
+		return '\n<file_system_tree>\n<!-- Error generating file system tree. -->\n</file_system_tree>\n';
 	}
 }
 

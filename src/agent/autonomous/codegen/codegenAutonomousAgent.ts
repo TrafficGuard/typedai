@@ -289,8 +289,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				const toolStateMap = await buildToolStateMap(agent.functions.getFunctionInstances());
 				toolStateMap[LiveFiles.name] = agent.toolState.LiveFiles ? [...agent.toolState.LiveFiles] : [];
 
-				if(agent.toolState.FileSystemTree)
-					toolStateMap['FileSystemTree'] = [...agent.toolState.FileSystemTree]
+				if (agent.toolState.FileSystemTree) toolStateMap.FileSystemTree = [...agent.toolState.FileSystemTree];
 
 				// Store FileStore state
 				const fileStoreTool: FileStore | null = agent.functions.getFunctionType('filestore');

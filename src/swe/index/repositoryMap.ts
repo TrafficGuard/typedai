@@ -1,13 +1,12 @@
-import { type Dirent, readdir as nodeReaddir /* Import async readdir */ } from 'node:fs'; // Remove readdirSync
+import { type Dirent, readdir as nodeReaddir } from 'node:fs';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
-import type { FileSystemService } from '#functions/storage/fileSystemService';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import type { IFileSystemService } from '#shared/services/fileSystemService';
 import type { ProjectInfo } from '#swe/projectDetection';
-import { type Summary, getTopLevelSummary, loadBuildDocsSummaries as loadBuildDocsSummariesFromBuilder } from './repoIndexDocBuilder'; // Rename the imported function
+import { type Summary, getTopLevelSummary, loadBuildDocsSummaries, loadBuildDocsSummaries as loadBuildDocsSummariesFromBuilder } from './repoIndexDocBuilder'; // Rename the imported function
 
 const fs = {
 	readdir: promisify(nodeReaddir),
@@ -49,12 +48,6 @@ export class File {
 		public tokens: number,
 	) {}
 }
-
-/**
- * Re-export loadBuildDocsSummaries from repoIndexDocBuilder
- */
-export const loadBuildDocsSummaries = loadBuildDocsSummariesFromBuilder;
-
 
 /**
  *
@@ -111,7 +104,8 @@ async function generateFolderTreeWithSummaries(summaries: Map<string, Summary>):
  * @param includeFileSummaries
  * @param collapsedFolders Optional array of folder paths to display as collapsed
  */
-export async function generateFileSystemTreeWithSummaries( // Ensure 'export' is present
+export async function generateFileSystemTreeWithSummaries(
+	// Ensure 'export' is present
 	summaries: Map<string, Summary>,
 	includeFileSummaries: boolean,
 	collapsedFolders?: string[], // Add this new parameter
