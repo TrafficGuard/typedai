@@ -596,7 +596,9 @@ describe('PromptFormComponent', () => {
     }));
   });
 
-    xdescribe('Attachment Functionality', () => {
+    // TODO: Enable and fix these tests for attachment functionality.
+    // Refactoring to fakeAsync and signal-aware testing for attachments requires more detailed changes.
+    describe.skip('Attachment Functionality', () => {
         it('should allow adding an attachment via file input', () => {
             // Test onFileSelected
         });
