@@ -124,7 +124,6 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     /** If we're waiting for a response from the LLM after sending a message */
     generating: WritableSignal<boolean> = signal(false);
 
-    private pendingUserMessage: WritableSignal<ChatMessage | null> = signal(null); // For optimistic user message
     private generatingAIMessage: WritableSignal<ChatMessage | null> = signal(null); // For "..." AI message
 
     readonly clipboardButton = ClipboardButtonComponent;
@@ -141,12 +140,6 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
         let messagesToProcess: ChatMessage[] = currentChat?.messages ?
             currentChat.messages.map(m => ({...m})) : // Creates shallow copies
             [];
-
-        // Add pending user message if it exists
-        const pendingMsg = this.pendingUserMessage();
-        if (pendingMsg) {
-            messagesToProcess.push(pendingMsg);
-        }
 
         // Add generating AI message placeholder if it exists
         const generatingAiMsg = this.generatingAIMessage();
@@ -487,18 +480,6 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
         const userContentPayload: UserContentExt = await attachmentsAndTextToUserContentExt(attachments, messageText); // await the async function
 
-        // Optimistic UI update: add user's message immediately
-        const userMessageEntry: ChatMessage = {
-            id: uuidv4(),
-            content: userContentPayload,
-            textContent: messageText, // Store raw text for potential display/copy if content is complex
-            isMine: true,
-            generating: false, // This is a user message, not an AI generating one
-            createdAt: new Date().toISOString(),
-            // textChunks will be derived by displayedMessages
-        };
-        this.pendingUserMessage.set(userMessageEntry);
-
         // Optimistic UI update: add a "generating" placeholder for AI
         const aiGeneratingMessageEntry: ChatMessage = {
             id: uuidv4(),
@@ -543,7 +524,6 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
                 }
                 // For sendMessage, the service updates its chat signal, which the component's effect will pick up.
                 // For createChat, the service also updates its chat signal.
-                this.pendingUserMessage.set(null); // Clear pending message as service has updated
             },
             error: (error) => {
                 console.error('Error sending message:', error);
@@ -552,13 +532,11 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
                 this.messageInput.nativeElement.value = messageText;
                 this.selectedAttachments.set(attachments);
                 // Reset generating states here as well, as the main effect might not run if chat doesn't change
-                this.pendingUserMessage.set(null);
                 this.generating.set(false);
                 this.generatingAIMessage.set(null);
                 this.sendIcon.set('heroicons_outline:paper-airplane');
             },
             complete: () => {
-                this.pendingUserMessage.set(null);
                 this.generating.set(false);
                 this.generatingAIMessage.set(null);
                 this.sendIcon.set('heroicons_outline:paper-airplane');
