@@ -48,12 +48,12 @@
               <p class="text-sm p-2 bg-blue-50 dark:bg-blue-900/30 rounded">{{ iteration.toolName }}</p>
             }
 
-            @if (iteration.toolInput && hasKeys(iteration.toolInput)) {
+            @if (iteration.toolInput && typeof iteration.toolInput === 'object' && hasKeys(iteration.toolInput)) {
               <h3 class="text-lg font-semibold mt-3 mb-1">Tool Input:</h3>
               <pre class="whitespace-pre-wrap break-all text-sm p-3 bg-gray-100 dark:bg-gray-800 rounded max-h-60 overflow-auto">{{ iteration.toolInput | json }}</pre>
             }
 
-            @if (iteration.toolOutput && hasKeys(iteration.toolOutput)) {
+            @if (iteration.toolOutput && typeof iteration.toolOutput === 'object' && hasKeys(iteration.toolOutput)) {
               <h3 class="text-lg font-semibold mt-3 mb-1">Tool Output:</h3>
               <pre class="whitespace-pre-wrap break-all text-sm p-3 bg-gray-100 dark:bg-gray-800 rounded max-h-60 overflow-auto">{{ iteration.toolOutput | json }}</pre>
             }
