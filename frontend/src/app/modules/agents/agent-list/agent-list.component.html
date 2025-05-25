@@ -37,7 +37,7 @@
                     class="ml-4"
                     mat-flat-button
                     [color]="'primary'"
-                    [routerLink]="routes.new()"
+                    [routerLink]="routes.nav.new()"
             >
                 <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
                 <span class="ml-2 mr-1">Add</span>
@@ -91,7 +91,7 @@
 
                             <!-- Name cell with updated routerLink -->
                             <div>
-                                <a class="hover:text-primary" [routerLink]="routes.detail(agent.agentId)">
+                                <a class="hover:text-primary" [routerLink]="routes.nav.detail(agent.agentId)">
                                     {{ agent.name }}
                                 </a>
                             </div>
@@ -106,7 +106,7 @@
 
                             <!-- User Prompt cell with updated routerLink -->
                             <div [matTooltip]="agent.userPrompt">
-                                <a class="hover:text-primary" [routerLink]="routes.detail(agent.agentId)">
+                                <a class="hover:text-primary" [routerLink]="routes.nav.detail(agent.agentId)">
                                     <div class="max-h-8 truncate">{{ agent.userPrompt }}</div>
                                 </a>
                             </div>
@@ -132,7 +132,7 @@
                                 class="ml-4 mt-4"
                                 mat-flat-button
                                 [color]="'primary'"
-                                [routerLink]="routes.new()"
+                                [routerLink]="routes.nav.new()"
                         >
                             <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
                             <span class="ml-2 mr-1">Add Agent</span>
