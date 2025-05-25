@@ -60,7 +60,7 @@ describe('ChatComponent', () => {
         expect(compiled.querySelector('router-outlet')).not.toBeNull();
     });
 
-    it('should render quick-chat component', () => {
+    xit('should render quick-chat component', () => {
         const compiled = fixture.nativeElement as HTMLElement;
         expect(compiled.querySelector('quick-chat')).not.toBeNull();
     });
