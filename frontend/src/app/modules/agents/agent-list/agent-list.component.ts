@@ -4,14 +4,15 @@ import {
     AfterViewInit,
     ChangeDetectionStrategy,
     Component,
-    OnDestroy,
     OnInit,
     ViewChild,
     ViewEncapsulation,
     inject,
     signal,
-    effect, WritableSignal, computed
+    effect, WritableSignal, computed,
+    DestroyRef
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 // import { toSignal } from '@angular/core/rxjs-interop'; // Not used after changes
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -29,9 +30,10 @@ import { RouterModule } from '@angular/router';
 import { fuseAnimations } from '@fuse/animations';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { AgentService } from '../agent.service';
-import { Subject, debounceTime, switchMap, takeUntil, finalize } from 'rxjs';
+import { debounceTime, switchMap, finalize } from 'rxjs';
 import { FormsModule, ReactiveFormsModule, UntypedFormBuilder, UntypedFormControl } from '@angular/forms';
 import { AgentTag, AgentType } from '#shared/model/agent.model';
+import { AGENT_ROUTE_DEFINITIONS } from '../agent.routes';
 import { type AgentContextPreviewApi } from '#shared/schemas/agent.schema';
 import { Pagination } from '../../../core/types';
 
@@ -65,22 +67,22 @@ import { Pagination } from '../../../core/types';
         RouterModule,
     ],
 })
-export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
+export class AgentListComponent implements OnInit, AfterViewInit {
     @ViewChild(MatPaginator) private _paginator: MatPaginator;
     @ViewChild(MatSort) private _sort: MatSort;
 
     private agentService = inject(AgentService);
     private _fuseConfirmationService = inject(FuseConfirmationService);
+    private readonly destroyRef = inject(DestroyRef);
 
     readonly agentsState = this.agentService.agentsState;
+    readonly routes = AGENT_ROUTE_DEFINITIONS;
 
     flashMessage: WritableSignal<'success' | 'error' | null> = signal(null);
     isLoading: WritableSignal<boolean> = signal(true);
     searchInputControl: UntypedFormControl = new UntypedFormControl();
 
     selection = new SelectionModel<AgentContextPreviewApi>(true, []);
-
-    private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     constructor() {
         effect(() => {
@@ -105,7 +107,7 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
         // Subscribe to search input field value changes
         this.searchInputControl.valueChanges
             .pipe(
-                takeUntil(this._unsubscribeAll),
+                takeUntilDestroyed(this.destroyRef),
                 debounceTime(300),
                 switchMap((query) => {
                     if (this.isLoading()) return []; // Prevent multiple loads
@@ -116,6 +118,7 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
                 }),
             )
             .subscribe();
+        this.refreshAgents();
     }
 
     ngAfterViewInit(): void {
@@ -126,7 +129,7 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
                 disableClear: true,
             });
 
-            this._sort.sortChange.pipe(takeUntil(this._unsubscribeAll)).subscribe(() => {
+            this._sort.sortChange.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
                 if (this.isLoading()) return;
                 this.isLoading.set(true);
                 // if (this._paginator) this._paginator.pageIndex = 0; // If paginator is used
@@ -134,11 +137,6 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
                 // Effect handles isLoading.set(false)
             });
         }
-    }
-
-    ngOnDestroy(): void {
-        this._unsubscribeAll.next(null);
-        this._unsubscribeAll.complete();
     }
 
     // -----------------------------------------------------------------------------------------------------
@@ -193,6 +191,7 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
                 this.isLoading.set(true);
                 this.agentService.deleteAgents(selectedAgentIds)
                     .pipe(
+                        takeUntilDestroyed(this.destroyRef),
                         finalize(() => {
                             // isLoading will be set to false by the effect when agents() updates
                             // or explicitly if deleteAgents doesn't trigger agents$ update quickly enough.
