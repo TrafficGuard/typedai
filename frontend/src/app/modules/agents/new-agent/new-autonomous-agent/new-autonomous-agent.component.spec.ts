@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing'; // Added fakeAsync, tick
+import { signal, WritableSignal } from '@angular/core'; // Added signal, WritableSignal
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing'; // Added HttpTestingController
 import { RouterTestingModule } from '@angular/router/testing';
@@ -15,6 +16,7 @@ import { MatInputModule } from '@angular/material/input'; // Added MatInputModul
 import { MatCheckboxModule } from '@angular/material/checkbox'; // Added MatCheckboxModule
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner'; // Added MatProgressSpinnerModule
 import { AgentService, AgentStartRequestData } from '../../agent.service'; // Added AgentService and AgentStartRequestData
+import { AsyncState } from 'app/core/api-state.types'; // Added AsyncState
 import { Router } from '@angular/router'; // Added Router
 import { AgentContextApi } from '#shared/schemas/agent.schema'; // Added AgentContextApi
 
@@ -29,6 +31,7 @@ describe('NewAutonomousAgentComponent', () => {
   let routerMock: jasmine.SpyObj<Router>; // Added routerMock
   let httpMock: HttpTestingController;
   let userProfileSubject: BehaviorSubject<UserProfile | null>;
+  let mockAvailableFunctionsSignal: WritableSignal<AsyncState<string[]>>;
 
   const mockLlms: LlmModel[] = [
     { id: 'openai:gpt-4o-mini', name: 'GPT-4o Mini', isConfigured: true },
@@ -55,8 +58,13 @@ describe('NewAutonomousAgentComponent', () => {
     userServiceMock = jasmine.createSpyObj('UserService', ['get']);
     userServiceMock.get.and.returnValue(userProfileSubject.asObservable());
 
-    agentServiceMock = jasmine.createSpyObj('AgentService', ['startAgent', 'getAvailableFunctions']);
-    agentServiceMock.getAvailableFunctions.and.returnValue(of(mockFunctions)); // Mock for ngOnInit
+    mockAvailableFunctionsSignal = signal<AsyncState<string[]>>({ status: 'idle' });
+    agentServiceMock = jasmine.createSpyObj('AgentService', ['startAgent', 'loadAvailableFunctions', 'availableFunctionsState']);
+    agentServiceMock.availableFunctionsState.and.returnValue(mockAvailableFunctionsSignal.asReadonly());
+    agentServiceMock.loadAvailableFunctions.and.stub();
+    // Default startAgent mock, can be overridden in specific tests
+    agentServiceMock.startAgent.and.returnValue(of({ agentId: 'mock-id' } as AgentContextApi));
+
 
     snackBarMock = jasmine.createSpyObj('MatSnackBar', ['open']);
     // Router mock needs to be a SpyObj to spy on navigate.
@@ -95,11 +103,14 @@ describe('NewAutonomousAgentComponent', () => {
     routerMock = TestBed.inject(Router) as jasmine.SpyObj<Router>; // Get router instance
     spyOn(routerMock, 'navigate').and.resolveTo(true); // Spy on navigate
 
-    fixture.detectChanges(); // Trigger ngOnInit
-    tick(); // Process async operations from ngOnInit (getAvailableFunctions)
-    fixture.detectChanges();
+    // Set initial state for available functions signal for tests that rely on functions being present after init
+    mockAvailableFunctionsSignal.set({ status: 'success', data: [...mockFunctions] });
 
-    // agentService.getAvailableFunctions is mocked, so no httpMock for 'api/agent/v1/functions'
+    fixture.detectChanges(); // Trigger constructor (effect setup) and ngOnInit (loadAvailableFunctions call)
+    tick(); // Process async operations from ngOnInit (effect runs due to signal change)
+    fixture.detectChanges(); // Reflect changes from effect
+
+    // agentService.loadAvailableFunctions is mocked, so no httpMock for 'api/agent/v1/functions'
 
     // UserService.get() is called in loadUserProfile, which is called in ngOnInit.
     // The mock for userService.get() returns an observable, so no direct HTTP call for profile here.
@@ -122,12 +133,13 @@ describe('NewAutonomousAgentComponent', () => {
     expect(component.runAgentForm).toBeDefined();
     expect(component.runAgentForm.get('subtype')?.value).toBe('codegen');
     expect(llmServiceMock.getLlms).toHaveBeenCalled();
-    expect(agentServiceMock.getAvailableFunctions).toHaveBeenCalled();
+    expect(agentServiceMock.loadAvailableFunctions).toHaveBeenCalled(); // Changed from getAvailableFunctions
     expect(component.llms).toEqual(mockLlms);
+    // component.functions is populated by the effect due to mockAvailableFunctionsSignal being set in the main beforeEach
     expect(component.functions).toEqual(mockFunctions.sort()); // component sorts them
     expect(userServiceMock.get).toHaveBeenCalled();
 
-    // Check if function controls are added
+    // Check if function controls are added based on mockFunctions from main beforeEach
     mockFunctions.forEach((_, index) => {
       expect(component.runAgentForm.get(`function${index}`)).toBeTruthy();
     });
@@ -190,7 +202,12 @@ describe('NewAutonomousAgentComponent', () => {
   });
 
   describe('onSubmit', () => {
-    beforeEach(() => {
+    beforeEach(fakeAsync(() => { // Made fakeAsync
+      // Ensure functions are loaded via signal for these tests
+      mockAvailableFunctionsSignal.set({ status: 'success', data: [...mockFunctions] });
+      tick(); // Allow effect to run and populate functions and form controls
+      fixture.detectChanges();
+
       // Ensure form is valid for most onSubmit tests
       component.runAgentForm.patchValue({
         name: 'Test Agent Name',
@@ -201,14 +218,16 @@ describe('NewAutonomousAgentComponent', () => {
         llmHard: mockLlms[0].id,
         budget: 10,
         count: 5,
-        useSharedRepos: true,
+        useSharedRepos: true, // This will be enabled if a Git function is present and selected
       });
+
       // Select one function to make the payload more complete
-      if (component.functions.length > 0) {
+      // Ensure the control exists (it should due to the signal above)
+      if (component.functions.length > 0 && component.runAgentForm.get('function0')) {
         component.runAgentForm.get('function0')?.setValue(true);
       }
       fixture.detectChanges();
-    });
+    }));
 
     it('should not call agentService.startAgent if form is invalid', () => {
       component.runAgentForm.get('name')?.setValue(''); // Make form invalid
@@ -290,6 +309,145 @@ describe('NewAutonomousAgentComponent', () => {
       tick();
       fixture.detectChanges();
       expect(component.isSubmitting).toBeFalse();
+    }));
+  });
+
+  describe('effect for availableFunctionsState', () => {
+    beforeEach(() => {
+      // Reset signal to a known state before each test in this suite.
+      mockAvailableFunctionsSignal.set({ status: 'idle' });
+      // Reset spy call counts
+      agentServiceMock.loadAvailableFunctions.calls.reset(); // Reset this as ngOnInit calls it
+      snackBarMock.open.calls.reset();
+      // Clear existing function form controls that might have been added by main beforeEach
+      component.functions.forEach((_, index) => {
+        component.runAgentForm.removeControl(`function${index}`);
+      });
+      component.functions = []; // Reset component's functions array
+      fixture.detectChanges();
+    });
+
+    it('should call loadAvailableFunctions on init (covered by main describe, but good to be aware)', () => {
+        // This is implicitly tested by the main `beforeEach` and `it('should initialize form...')`
+        // Re-asserting here to ensure it's clear this is expected.
+        // The component's ngOnInit calls this.agentService.loadAvailableFunctions();
+        // The main `beforeEach` calls `fixture.detectChanges()` which triggers `ngOnInit`.
+        // `loadAvailableFunctions` is reset in this suite's `beforeEach`,
+        // so if we re-trigger ngOnInit or if it was called once already:
+        // For this specific test, we can re-initialize the component to ensure ngOnInit is called in this context
+        // However, the component is already created. The loadAvailableFunctions was called during the initial fixture.detectChanges().
+        // So, we check if it was called at least once by the time this suite runs.
+        expect(agentServiceMock.loadAvailableFunctions).toHaveBeenCalled();
+    });
+
+
+    it('should update functions and form controls on successful signal emission', fakeAsync(() => {
+      // Arrange: ngOnInit has been called by the outer fixture.detectChanges().
+      // The effect is set up. component.agentService.loadAvailableFunctions() was called.
+
+      const newFunctions = ['TestFunc1', 'TestFunc2', 'GitHub']; // Include a Git function
+      spyOn(component, 'updateSharedReposState').and.callThrough();
+
+      // Act: Simulate successful data from signal
+      mockAvailableFunctionsSignal.set({ status: 'success', data: newFunctions });
+      tick(); // Allow microtasks and effect to run
+      fixture.detectChanges(); // Reflect changes in the component
+
+      // Assert
+      expect(component.functions).toEqual(newFunctions.sort()); // Component sorts them
+      expect(component.runAgentForm.get('function0')).toBeTruthy();
+      expect(component.runAgentForm.get('function0')?.value).toBe(false); // Default to false
+      expect(component.runAgentForm.get('function1')).toBeTruthy();
+      expect(component.runAgentForm.get('function2')).toBeTruthy(); // For 'GitHub'
+      expect(component.updateSharedReposState).toHaveBeenCalled();
+    }));
+
+    it('should handle error state from signal and show snackbar', fakeAsync(() => {
+      // Arrange: ngOnInit has been called.
+      const error = new Error('Failed to load functions');
+      component.functions = []; // Ensure a known starting state for this assertion
+
+      // Act: Simulate error data from signal
+      mockAvailableFunctionsSignal.set({ status: 'error', error: error });
+      tick();
+      fixture.detectChanges();
+
+      // Assert
+      expect(snackBarMock.open).toHaveBeenCalledWith('Error fetching agent functions', 'Close', { duration: 3000 });
+      expect(component.functions).toEqual([]); // Functions should remain empty
+      expect(component.runAgentForm.get('function0')).toBeFalsy(); // Controls should not be added
+    }));
+
+    it('should not add duplicate form controls if effect runs multiple times with same functions', fakeAsync(() => {
+      // Arrange: ngOnInit has been called.
+      const initialFunctions = ['FuncA', 'FuncB'];
+      mockAvailableFunctionsSignal.set({ status: 'success', data: initialFunctions });
+      tick();
+      fixture.detectChanges();
+
+      // Initial check
+      expect(component.runAgentForm.get('function0')).toBeTruthy();
+      expect(component.runAgentForm.get('function1')).toBeTruthy();
+      expect(component.runAgentForm.get('function2')).toBeFalsy(); // Control for a third func shouldn't exist
+
+      // Act: Set signal again with the same data. The effect should re-run.
+      mockAvailableFunctionsSignal.set({ status: 'success', data: initialFunctions });
+      tick(); // Allow effect to run again
+      fixture.detectChanges();
+
+      // Assert: Controls should still be there, not duplicated.
+      const formControls = component.runAgentForm.controls;
+      const functionControlKeys = Object.keys(formControls).filter(key => key.startsWith('function'));
+      expect(functionControlKeys.length).toBe(initialFunctions.length);
+      expect(formControls['function0']).toBeTruthy();
+      expect(formControls['function1']).toBeTruthy();
+    }));
+
+    it('should clear existing function controls if new function list is empty', fakeAsync(() => {
+        // Arrange: Populate with some functions first
+        const initialFunctions = ['FuncX', 'FuncY'];
+        mockAvailableFunctionsSignal.set({ status: 'success', data: initialFunctions });
+        tick();
+        fixture.detectChanges();
+        expect(component.runAgentForm.get('function0')).toBeTruthy();
+        expect(component.runAgentForm.get('function1')).toBeTruthy();
+
+        // Act: Set signal with empty function list
+        mockAvailableFunctionsSignal.set({ status: 'success', data: [] });
+        tick();
+        fixture.detectChanges();
+
+        // Assert
+        expect(component.functions).toEqual([]);
+        expect(component.runAgentForm.get('function0')).toBeFalsy();
+        expect(component.runAgentForm.get('function1')).toBeFalsy();
+        const formControls = component.runAgentForm.controls;
+        const functionControlKeys = Object.keys(formControls).filter(key => key.startsWith('function'));
+        expect(functionControlKeys.length).toBe(0);
+    }));
+
+    it('should update controls if function list changes (add/remove)', fakeAsync(() => {
+        // Arrange: Populate with some functions first
+        mockAvailableFunctionsSignal.set({ status: 'success', data: ['FuncA', 'FuncB'] });
+        tick(); fixture.detectChanges();
+        expect(component.runAgentForm.get('function0')).toBeTruthy(); // FuncA
+        expect(component.runAgentForm.get('function1')).toBeTruthy(); // FuncB
+        expect(component.runAgentForm.get('function2')).toBeFalsy();
+
+        // Act: Change function list - remove FuncB, add FuncC
+        mockAvailableFunctionsSignal.set({ status: 'success', data: ['FuncA', 'FuncC'] });
+        tick(); fixture.detectChanges();
+
+        // Assert: component.functions is sorted, so FuncA is 0, FuncC is 1
+        expect(component.functions).toEqual(['FuncA', 'FuncC'].sort());
+        expect(component.runAgentForm.get('function0')?.getRawValue()).toBeDefined(); // Should be FuncA's control
+        expect(component.runAgentForm.get('function1')?.getRawValue()).toBeDefined(); // Should be FuncC's control
+
+        // Check that the old FuncB control (which was function1) is gone,
+        // and the new list has the correct number of controls.
+        const formControls = component.runAgentForm.controls;
+        const functionControlKeys = Object.keys(formControls).filter(key => key.startsWith('function'));
+        expect(functionControlKeys.length).toBe(2);
     }));
   });
 });
