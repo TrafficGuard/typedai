@@ -59,9 +59,4 @@ describe('ChatComponent', () => {
         const compiled = fixture.nativeElement as HTMLElement;
         expect(compiled.querySelector('router-outlet')).not.toBeNull();
     });
-
-    xit('should render quick-chat component', () => {
-        const compiled = fixture.nativeElement as HTMLElement;
-        expect(compiled.querySelector('quick-chat')).not.toBeNull();
-    });
 });

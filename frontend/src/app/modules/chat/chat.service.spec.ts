@@ -73,7 +73,7 @@ describe('ChatServiceClient', () => {
     });
 
     describe('loadChats', () => {
-        it('should fetch chats and update signals if not already loaded', (done) => {
+        it('should fetch chats and update signals if not already loaded', fakeAsync(() => {
             const mockApiChatList: Static<typeof ChatListSchema> = {
                 chats: [
                     { id: 'chat1', userId: 'user-test-id', shareable: false, title: 'Chat One', updatedAt: mockApiChat1.updatedAt },
@@ -83,48 +83,48 @@ describe('ChatServiceClient', () => {
             };
             const expectedPath = CHAT_API.listChats.path;
 
-            service.loadChats().subscribe(() => {
-                const chatsSignal = service.chats();
-                expect(chatsSignal).toBeTruthy();
-                expect(chatsSignal?.length).toBe(2);
-                expect(chatsSignal?.[0].id).toBe('chat1');
-                expect(chatsSignal?.[1].id).toBe('chat2');
-                expect(service['_chatsLoaded']()).toBeTrue();
-                done();
-            });
+            service.loadChats().subscribe();
 
             const req = httpMock.expectOne(expectedPath);
             expect(req.request.method).toBe(CHAT_API.listChats.method);
             req.flush(mockApiChatList);
-        });
+            tick();
 
-        it('should return immediately if chats are already loaded', (done) => {
+            const chatsSignal = service.chats();
+            expect(chatsSignal).toBeTruthy();
+            expect(chatsSignal?.length).toBe(2);
+            expect(chatsSignal?.[0].id).toBe('chat1');
+            expect(chatsSignal?.[1].id).toBe('chat2');
+            expect(service['_chatsLoaded']()).toBeTrue();
+        }));
+
+        it('should return immediately if chats are already loaded', fakeAsync(() => {
             service['_chatsLoaded'].set(true); // Simulate chats already loaded
-            service.loadChats().subscribe(() => {
-                // No HTTP call should be made
-                expect(httpMock.expectNone(CHAT_API.listChats.path)).toBeUndefined();
-                done();
-            });
-        });
+            service.loadChats().subscribe();
+            tick();
+            // No HTTP call should be made
+            expect(httpMock.expectNone(CHAT_API.listChats.path)).toBeUndefined();
+        }));
 
-        it('should handle errors when loading chats', (done) => {
+        it('should handle errors when loading chats', fakeAsync(() => {
             const expectedPath = CHAT_API.listChats.path;
             service.loadChats().subscribe({
                 next: () => fail('should have failed'),
                 error: (err) => {
                     expect(err).toBeTruthy();
-                    expect(service.chats()).toBeNull();
-                    expect(service['_chatsLoaded']()).toBeFalse();
-                    done();
                 },
             });
             const req = httpMock.expectOne(expectedPath);
             req.flush('Error', { status: 500, statusText: 'Server Error' });
-        });
+            tick();
+
+            expect(service.chats()).toBeNull();
+            expect(service['_chatsLoaded']()).toBeFalse();
+        }));
     });
 
     describe('createChat', () => {
-        it('should POST to create a new chat and update signals', (done) => {
+        it('should POST to create a new chat and update signals', fakeAsync(() => {
             const userContent: UserContentExt = 'Hello, new chat!';
             const llmId = 'llm-test';
             const mockRequestPayload: Static<typeof ChatMessageSendSchema> = { llmId, userContent, options: undefined };
@@ -134,49 +134,50 @@ describe('ChatServiceClient', () => {
             ]);
             const expectedPath = CHAT_API.createChat.path;
 
-            service.createChat(userContent, llmId).subscribe(chat => {
-                expect(chat).toBeTruthy();
-                expect(chat.id).toBe('newChatId');
-                expect(chat.messages.length).toBe(2);
-
-                const chatsSignal = service.chats();
-                expect(chatsSignal?.find(c => c.id === 'newChatId')).toBeTruthy();
-                const chatSignal = service.chat();
-                expect(chatSignal?.id).toBe('newChatId');
-                done();
-            });
+            service.createChat(userContent, llmId).subscribe();
 
             const req = httpMock.expectOne(expectedPath);
             expect(req.request.method).toBe(CHAT_API.createChat.method);
             expect(req.request.body).toEqual(mockRequestPayload);
             req.flush(mockApiResponse);
-        });
+            tick();
+
+            const chatSignalAfter = service.chat();
+            expect(chatSignalAfter).toBeTruthy();
+            expect(chatSignalAfter?.id).toBe('newChatId');
+            expect(chatSignalAfter?.messages.length).toBe(2);
+
+            const chatsSignal = service.chats();
+            expect(chatsSignal?.find(c => c.id === 'newChatId')).toBeTruthy();
+            const chatSignal = service.chat();
+            expect(chatSignal?.id).toBe('newChatId');
+        }));
     });
 
     describe('deleteChat', () => {
-        it('should DELETE a chat and update signals', (done) => {
+        it('should DELETE a chat and update signals', fakeAsync(() => {
             const chatIdToDelete = 'chat1';
             service['_chats'].set([{ id: 'chat1' } as Chat, { id: 'chat2' } as Chat]);
             service['_chat'].set({ id: 'chat1' } as Chat);
             const expectedPath = CHAT_API.deleteChat.buildPath({ chatId: chatIdToDelete });
 
-            service.deleteChat(chatIdToDelete).subscribe(() => {
-                const chatsSignal = service.chats();
-                expect(chatsSignal?.find(c => c.id === chatIdToDelete)).toBeUndefined();
-                expect(chatsSignal?.length).toBe(1);
-                const chatSignal = service.chat();
-                expect(chatSignal).toBeNull(); // Active chat was deleted
-                done();
-            });
+            service.deleteChat(chatIdToDelete).subscribe();
 
             const req = httpMock.expectOne(expectedPath);
             expect(req.request.method).toBe(CHAT_API.deleteChat.method);
             req.flush(null, { status: 204, statusText: 'No Content' });
-        });
+            tick();
+
+            const chatsSignal = service.chats();
+            expect(chatsSignal?.find(c => c.id === chatIdToDelete)).toBeUndefined();
+            expect(chatsSignal?.length).toBe(1);
+            const chatSignal = service.chat();
+            expect(chatSignal).toBeNull(); // Active chat was deleted
+        }));
     });
 
     describe('loadChatById', () => {
-        it('should fetch a chat by ID and update signals', (done) => {
+        it('should fetch a chat by ID and update signals', fakeAsync(() => {
             const chatId = 'chat1';
             const mockApiResponse = createMockApiChatModel(chatId, 'Chat One Details', [
                  createMockApiLlmMessage('msg1', 'user', 'Hello'),
@@ -185,54 +186,54 @@ describe('ChatServiceClient', () => {
             service['_chats'].set([{ id: 'chat1', title: 'Old Title' } as Chat]);
 
 
-            service.loadChatById(chatId).subscribe(() => {
-                const chatSignal = service.chat();
-                expect(chatSignal).toBeTruthy();
-                expect(chatSignal?.id).toBe(chatId);
-                expect(chatSignal?.title).toBe('Chat One Details');
-                expect(chatSignal?.messages.length).toBe(1);
-
-                const chatsSignal = service.chats();
-                const updatedChatInList = chatsSignal?.find(c => c.id === chatId);
-                expect(updatedChatInList?.title).toBe('Chat One Details'); // Check if list also updated
-                done();
-            });
+            service.loadChatById(chatId).subscribe();
 
             const req = httpMock.expectOne(expectedPath);
             expect(req.request.method).toBe(CHAT_API.getById.method);
             req.flush(mockApiResponse);
-        });
+            tick();
 
-        it('should set a new chat template if ID is NEW_CHAT_ID', (done) => {
+            const chatSignal = service.chat();
+            expect(chatSignal).toBeTruthy();
+            expect(chatSignal?.id).toBe(chatId);
+            expect(chatSignal?.title).toBe('Chat One Details');
+            expect(chatSignal?.messages.length).toBe(1);
+
+            const chatsSignal = service.chats();
+            const updatedChatInList = chatsSignal?.find(c => c.id === chatId);
+            expect(updatedChatInList?.title).toBe('Chat One Details'); // Check if list also updated
+        }));
+
+        it('should set a new chat template if ID is NEW_CHAT_ID', fakeAsync(() => {
             const newChatId = 'NEW_CHAT_ID_CONSTANT_VALUE' as typeof NEW_CHAT_ID; // Use actual constant if available
-            service.loadChatById(newChatId).subscribe(() => {
-                const chatSignal = service.chat();
-                expect(chatSignal).toBeTruthy();
-                expect(chatSignal?.id).toBe(newChatId);
-                expect(chatSignal?.messages.length).toBe(0);
-                done();
-            });
-            httpMock.expectNone(CHAT_API.getById.buildPath({ chatId: newChatId }));
-        });
+            service.loadChatById(newChatId).subscribe();
+            tick();
 
-        it('should handle errors when loading chat by ID', (done) => {
+            const chatSignal = service.chat();
+            expect(chatSignal).toBeTruthy();
+            expect(chatSignal?.id).toBe(newChatId);
+            expect(chatSignal?.messages.length).toBe(0);
+            httpMock.expectNone(CHAT_API.getById.buildPath({ chatId: newChatId }));
+        }));
+
+        it('should handle errors when loading chat by ID', fakeAsync(() => {
             const chatId = 'nonExistentChat';
             const expectedPath = CHAT_API.getById.buildPath({ chatId });
             service.loadChatById(chatId).subscribe({
                 next: () => fail('should have failed'),
                 error: (err) => {
                     expect(err).toBeTruthy();
-                    expect(service.chat()).toBeNull();
-                    done();
                 },
             });
             const req = httpMock.expectOne(expectedPath);
             req.flush('Error', { status: 404, statusText: 'Not Found' });
-        });
+            tick();
+            expect(service.chat()).toBeNull();
+        }));
     });
 
     describe('updateChatDetails', () => {
-        it('should PATCH chat details and update signals', (done) => {
+        it('should PATCH chat details and update signals', fakeAsync(() => {
             const chatId = 'chat1';
             const updatedProps: Partial<Pick<Chat, 'title' | 'shareable'>> = { title: 'Updated Title', shareable: true };
             const mockApiResponse = { ...createMockApiChatModel(chatId, 'Old Title'), ...updatedProps, updatedAt: Date.now() };
@@ -241,22 +242,22 @@ describe('ChatServiceClient', () => {
             service['_chats'].set([{ id: 'chat1', title: 'Old Title', shareable: false } as Chat]);
             service['_chat'].set({ id: 'chat1', title: 'Old Title', shareable: false } as Chat);
 
-            service.updateChatDetails(chatId, updatedProps).subscribe(() => {
-                const chatSignal = service.chat();
-                expect(chatSignal?.title).toBe(updatedProps.title);
-                expect(chatSignal?.shareable).toBe(updatedProps.shareable);
-
-                const chatsSignal = service.chats();
-                const updatedChatInList = chatsSignal?.find(c => c.id === chatId);
-                expect(updatedChatInList?.title).toBe(updatedProps.title);
-                done();
-            });
+            service.updateChatDetails(chatId, updatedProps).subscribe();
 
             const req = httpMock.expectOne(expectedPath);
             expect(req.request.method).toBe(CHAT_API.updateDetails.method);
             expect(req.request.body).toEqual(updatedProps);
             req.flush(mockApiResponse);
-        });
+            tick();
+
+            const chatSignal = service.chat();
+            expect(chatSignal?.title).toBe(updatedProps.title);
+            expect(chatSignal?.shareable).toBe(updatedProps.shareable);
+
+            const chatsSignal = service.chats();
+            const updatedChatInList = chatsSignal?.find(c => c.id === chatId);
+            expect(updatedChatInList?.title).toBe(updatedProps.title);
+        }));
     });
 
     describe('sendMessage', () => {
@@ -372,35 +373,41 @@ describe('ChatServiceClient', () => {
     });
 
     describe('formatMessageAsMarkdown', () => {
-        it('should POST text and return formatted markdown', (done) => {
+        it('should POST text and return formatted markdown', fakeAsync(() => {
             const textToFormat = '## Hello';
             const mockApiResponse: Static<typeof ChatMarkdownResponseSchema> = { markdownText: '<h2>Hello</h2>' };
             const expectedPath = CHAT_API.formatAsMarkdown.path;
+            let resultMarkdown = '';
 
             service.formatMessageAsMarkdown(textToFormat).subscribe(markdown => {
-                expect(markdown).toBe(mockApiResponse.markdownText);
-                done();
+                resultMarkdown = markdown;
             });
 
             const req = httpMock.expectOne(expectedPath);
             expect(req.request.method).toBe(CHAT_API.formatAsMarkdown.method);
             expect(req.request.body).toEqual({ text: textToFormat });
             req.flush(mockApiResponse);
-        });
+            tick();
 
-        it('should handle errors when formatting markdown', (done) => {
+            expect(resultMarkdown).toBe(mockApiResponse.markdownText);
+        }));
+
+        it('should handle errors when formatting markdown', fakeAsync(() => {
             const textToFormat = '## Hello';
             const expectedPath = CHAT_API.formatAsMarkdown.path;
+            let caughtError: Error | null = null;
             service.formatMessageAsMarkdown(textToFormat).subscribe({
                 next: () => fail('should have failed'),
                 error: (err) => {
-                    expect(err.message).toContain('Failed to format message as Markdown.');
-                    done();
+                    caughtError = err;
                 },
             });
             const req = httpMock.expectOne(expectedPath);
             req.flush('Error', { status: 500, statusText: 'Server Error' });
-        });
+            tick();
+            expect(caughtError).toBeTruthy();
+            expect(caughtError?.message).toContain('Failed to format message as Markdown.');
+        }));
     });
 
     describe('setChat', () => {
