@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input, signal, effect, inject, OnDestroy, WritableSignal, ViewEncapsulation } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, signal, effect, inject, OnDestroy, WritableSignal, ViewEncapsulation, DestroyRef } from '@angular/core';
 import { CommonModule, JsonPipe, KeyValuePipe } from '@angular/common';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -7,11 +7,12 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatIconModule } from '@angular/material/icon';
-import { Subject, Subscription } from 'rxjs'; // Keep Subject for manual cancellation if needed, or just use destroyRef
-import { takeUntil } from 'rxjs/operators';
+// import { Subject, Subscription } from 'rxjs'; // No longer needed
+import { distinctUntilChanged, tap } from 'rxjs/operators';
 import { AgentService } from '../../agent.service';
 import { AutonomousIteration } from '#shared/model/agent.model';
 import { FunctionCallResult } from "#shared/model/llm.model";
+import { toObservable, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
     selector: 'agent-iterations',
@@ -41,56 +42,60 @@ export class AgentIterationsComponent implements OnDestroy {
     errorLoading: WritableSignal<string | null> = signal(null);
 
     private agentService = inject(AgentService);
-    // private destroy$ = new Subject<void>(); // No longer needed for getAgentIterations subscription
+    private destroyRef = inject(DestroyRef);
 
     constructor() {
-        effect(() => {
-            const currentAgentId = this.agentId();
-            if (currentAgentId) {
-                console.log(`AgentIterationsComponent: effect detected agentId change to: ${currentAgentId}`);
-                this.loadIterations(currentAgentId);
+        toObservable(this.agentId).pipe(
+            tap(id => console.log(`AgentIterationsComponent: agentId input emitted (pre-distinct): '${id}'`)),
+            distinctUntilChanged(),
+            tap(id => console.log(`AgentIterationsComponent: agentId input changed (post-distinct): '${id}'`)),
+            takeUntilDestroyed(this.destroyRef)
+        ).subscribe(currentAgentIdVal => {
+            if (currentAgentIdVal) {
+                console.log(`AgentIterationsComponent: Subscription Handler - agentId is truthy ('${currentAgentIdVal}'), calling loadIterations.`);
+                this.loadIterations(currentAgentIdVal);
             } else {
-                console.log('AgentIterationsComponent: effect detected agentId is null/undefined. Clearing iterations.');
+                console.log('AgentIterationsComponent: Subscription Handler - agentId is falsy. Clearing local iterations and service state.');
                 this.iterations.set([]);
                 this.isLoading.set(false);
                 this.errorLoading.set(null);
-                // this.destroy$.next(); // No longer needed
+                this.agentService.clearAgentIterations();
             }
         });
 
         // Effect to react to service state changes
         effect(() => {
             const state = this.agentService.agentIterationsState();
+            console.log(`AgentIterationsComponent: Effect (Service Sync) - agentIterationsState changed. Status: ${state.status}`);
             this.isLoading.set(state.status === 'loading');
 
             if (state.status === 'success') {
-                const processedIterations = state.data.map(iter => {
-                    return {
-                        ...iter,
-                        memory: iter.memory ?? {},
-                        toolState: iter.toolState ?? {},
-                    } as AutonomousIteration;
-                });
+                const processedIterations = state.data.map(iter => ({
+                    ...iter,
+                    memory: iter.memory ?? {},
+                    toolState: iter.toolState ?? {},
+                } as AutonomousIteration));
                 this.iterations.set(processedIterations);
                 this.errorLoading.set(null);
-                console.log(`AgentIterationsComponent: Synced ${processedIterations.length} iterations from service state.`);
+                console.log(`AgentIterationsComponent: Effect (Service Sync) - Synced ${processedIterations.length} iterations from service state.`);
             } else if (state.status === 'error') {
                 const errorMessage = state.error?.message || 'Failed to load iteration data.';
-                console.error(`AgentIterationsComponent: Error from service state for agent iterations: ${errorMessage}`, state.error);
+                console.error(`AgentIterationsComponent: Effect (Service Sync) - Error from service state: ${errorMessage}`, state.error);
                 this.errorLoading.set(errorMessage);
                 this.iterations.set([]);
-            } else if (state.status === 'idle') {
-                this.iterations.set([]);
-                this.errorLoading.set(null);
+            } else if (state.status === 'idle' || state.status === 'loading') {
+                console.log(`AgentIterationsComponent: Effect (Service Sync) - Service state is '${state.status}'. Setting local iterations to empty/loading.`);
+                if (state.status === 'idle') {
+                    this.iterations.set([]); // Clear iterations only on 'idle'
+                }
+                this.errorLoading.set(null); // Clear error on 'idle' or 'loading'
             }
         });
     }
 
     ngOnDestroy(): void {
-        // this.destroy$.next(); // No longer needed
-        // this.destroy$.complete(); // No longer needed
-        // Clear state if component is destroyed, or rely on service to manage its own state.
-        // For now, let service manage its state. If specific cleanup is needed, call service.clearAgentIterations()
+        // takeUntilDestroyed handles unsubscription for the agentId observable.
+        // Service state clearing is handled when agentId becomes falsy or if the service manages its own lifecycle.
     }
 
     loadIterations(agentId: string): void {
