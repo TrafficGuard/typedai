@@ -37,6 +37,7 @@ function anthropicVertexCostFunction(inputMil: number, outputMil: number): LlmCo
 		const inputCost =
 			(inputTokens * inputMil) / 1_000_000 +
 			(usage.cacheCreationInputTokens * inputMil * 1.25) / 1_000_000 +
+			(usage.cacheReadInputTokens * inputMil * 0.1) / 1_000_000;
 		const outputCost = (outputTokens * outputMil) / 1_000_000;
 		return {
 			inputCost,

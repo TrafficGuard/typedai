@@ -405,8 +405,9 @@ export class FirestoreLlmCallService implements LlmCallService {
 		// Prepare the core data, excluding messages initially for size calculation/chunking
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		const { messages, ...baseRequestData } = request;
-		const dataToSave: Omit<LlmRequest, 'id' | 'messages'> & { llmCallId: string } = {
+		const dataToSave: Omit<LlmRequest, 'messages'> & { llmCallId: string } = {
 			...baseRequestData,
+			id,
 			requestTime,
 			llmCallId: id, // Use generated id as llmCallId
 			userId: userId,

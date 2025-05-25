@@ -8,6 +8,7 @@ export async function createTestFastify(routes?: FastifyRoutes): Promise<AppFast
 	const fastify = await initFastify({
 		routes: routes ? [routes] : [],
 		...applicationContext,
+		port: 3003,
 	});
-	return fastify as AppFastifyInstance; // Cast to ensure the correct type is returned
+	return fastify as AppFastifyInstance;
 }

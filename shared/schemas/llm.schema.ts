@@ -192,7 +192,6 @@ const AssistantMessageSchema = Type.Intersect(
 			role: Type.Literal('assistant'),
 			content: AssistantContentSchema,
 			time: Type.Optional(Type.Number()), // Time remains optional for Assistant messages
-			stats: Type.Optional(GenerationStatsSchema), // Made optional to align with model and assistant() helper
 			stats: Type.Optional(GenerationStatsSchema),
 		}),
 		LlmMessageBaseSchema, // Intersect with other common fields
