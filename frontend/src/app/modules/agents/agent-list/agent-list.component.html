@@ -59,7 +59,7 @@
                 </div>
             }
             @case ('success') {
-                @if (agentsState().data.length > 0) {
+                @if (agentsState().data && agentsState().data.length > 0) {
                     <!-- Header for the list (inventory-grid) -->
                     <div class="inventory-grid text-secondary sticky top-0 z-10 grid gap-4 bg-gray-50 px-2 py-2 text-md font-semibold shadow dark:bg-black dark:bg-opacity-5 md:px-4">
                         <div class="w-10">
