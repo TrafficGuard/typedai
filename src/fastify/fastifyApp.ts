@@ -139,9 +139,7 @@ export async function initFastify(config: FastifyConfig): Promise<AppFastifyInst
 				const has200 = available2xxStatusCodes.includes(StatusCodes.OK);
 				const has201 = available2xxStatusCodes.includes(StatusCodes.CREATED);
 				const has204 = available2xxStatusCodes.includes(StatusCodes.NO_CONTENT);
-				const otherSpecific2xx = available2xxStatusCodes.filter(
-					(sc) => sc !== StatusCodes.OK && sc !== StatusCodes.CREATED && sc !== StatusCodes.NO_CONTENT,
-				); // Already sorted due to prior sort
+				const otherSpecific2xx = available2xxStatusCodes.filter((sc) => sc !== StatusCodes.OK && sc !== StatusCodes.CREATED && sc !== StatusCodes.NO_CONTENT); // Already sorted due to prior sort
 
 				// Priority 1: 204 for null payload if schema for 204 exists
 				if (object === null && has204) {
@@ -168,7 +166,7 @@ export async function initFastify(config: FastifyConfig): Promise<AppFastifyInst
 						// We have a 204 schema, but are sending content. Avoid 204.
 						// If other schemas like 200 are also present, they would have been picked earlier.
 						// This implies 204 might be the *only* or smallest option left.
-						const suitableAlternatives = available2xxStatusCodes.filter(sc => sc !== StatusCodes.NO_CONTENT);
+						const suitableAlternatives = available2xxStatusCodes.filter((sc) => sc !== StatusCodes.NO_CONTENT);
 						if (suitableAlternatives.length > 0) derivedSchemaStatus = suitableAlternatives[0];
 						else derivedSchemaStatus = undefined; // No suitable schema status
 					} else {
@@ -188,8 +186,15 @@ export async function initFastify(config: FastifyConfig): Promise<AppFastifyInst
 			// Explicit status from sendJSON call takes highest priority
 			finalStatus = explicitStatus;
 			// Log a warning if explicit status conflicts with a derived schema status, but only if both are 2xx
-			if (derivedSchemaStatus !== undefined && explicitStatus !== derivedSchemaStatus && explicitStatus >= 200 && explicitStatus < 300 && derivedSchemaStatus >= 200 && derivedSchemaStatus < 300) {
-				 logger.warn(`Explicit status ${explicitStatus} overrides derived schema status ${derivedSchemaStatus}`);
+			if (
+				derivedSchemaStatus !== undefined &&
+				explicitStatus !== derivedSchemaStatus &&
+				explicitStatus >= 200 &&
+				explicitStatus < 300 &&
+				derivedSchemaStatus >= 200 &&
+				derivedSchemaStatus < 300
+			) {
+				logger.warn(`Explicit status ${explicitStatus} overrides derived schema status ${derivedSchemaStatus}`);
 			}
 		} else if (derivedSchemaStatus !== undefined) {
 			// If no explicit status, use the derived schema status if available
