@@ -1,17 +1,22 @@
-// Example: routes/entities.routes.ts
-const BASE = '/ui/entities';
+import { signal, WritableSignal } from '@angular/core';
 
-export const ENTITIES_ROUTES = {
-  segments: {
-    list: '',
-    new: 'new',
-    detail: ':entityId',
-    edit: ':entityId/edit',
-  },
-  nav: {
-    list: () => [BASE],
-    new: () => [BASE, 'new'],
-    detail: (id: string) => [BASE, id],
-    edit: (id: string) => [BASE, id, 'edit'],
-  }
-} as const;
+export type ApiState<T> =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'success'; data: T }
+  | { status: 'error'; error: Error; code?: number };
+
+export type ApiListState<T> = ApiState<T[]>;
+
+export type ApiEntityState<T> =
+  | ApiState<T>
+  | { status: 'not_found' }
+  | { status: 'forbidden' };
+
+export function createApiListState<T>(): WritableSignal<ApiListState<T>> {
+  return signal<ApiListState<T>>({ status: 'idle' });
+}
+
+export function createApiEntityState<T>(): WritableSignal<ApiEntityState<T>> {
+  return signal<ApiEntityState<T>>({ status: 'idle' });
+}

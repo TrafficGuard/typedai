@@ -19,15 +19,7 @@ export default [
     {
         path: 'list',
         loadComponent: () => import('app/modules/agents/agent-list/agent-list.component').then(m => m.AgentListComponent),
-        resolve: {
-            // The resolver pre-fetches data. AgentListComponent itself also subscribes
-            // to agentService.agents$. This is a common pattern, resolver ensures data
-            // is available before component activation, component subscribes for live updates.
-            // Note: getAgents() in AgentService returns an Observable of BehaviorSubject,
-            // resolvers typically expect Observable that completes.
-            // For now, keeping as is, but this might need adjustment in AgentService or resolver.
-            agents: () => inject(AgentService).getAgents(),
-        },
+        // Resolver removed as AgentService loads data in constructor and component subscribes to state.
     },
     {
         path: ':id',

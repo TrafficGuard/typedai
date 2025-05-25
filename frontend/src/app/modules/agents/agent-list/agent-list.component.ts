@@ -10,9 +10,9 @@ import {
     ViewEncapsulation,
     inject,
     signal,
-    effect, WritableSignal
+    effect, WritableSignal, computed
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+// import { toSignal } from '@angular/core/rxjs-interop'; // Not used after changes
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatOptionModule, MatRippleModule } from '@angular/material/core';
@@ -72,10 +72,10 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
     private agentService = inject(AgentService);
     private _fuseConfirmationService = inject(FuseConfirmationService);
 
-    agents = toSignal(this.agentService.agents$, { initialValue: undefined as AgentContextPreviewApi[] | undefined });
+    readonly agentsState = this.agentService.agentsState;
 
     flashMessage: WritableSignal<'success' | 'error' | null> = signal(null);
-    isLoading: WritableSignal<boolean> = signal(true); // Start with isLoading true
+    isLoading: WritableSignal<boolean> = signal(true);
     searchInputControl: UntypedFormControl = new UntypedFormControl();
 
     selection = new SelectionModel<AgentContextPreviewApi>(true, []);
@@ -83,15 +83,13 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     constructor() {
-        // Effect to manage isLoading state based on agents signal changes
         effect(() => {
-            const currentAgents = this.agents(); // Establish dependency on the agents signal
-            // This effect runs after agents() signal has been updated.
-            // If data has arrived (currentAgents is not undefined), set isLoading to false.
-            if (currentAgents !== undefined && this.isLoading()) {
-                this.isLoading.set(false);
+            const currentState = this.agentsState();
+            if (currentState.status === 'loading' || currentState.status === 'idle') {
+                if (!this.isLoading()) this.isLoading.set(true);
+            } else { // 'success' or 'error'
+                if (this.isLoading()) this.isLoading.set(false);
             }
-            // If currentAgents is undefined, isLoading remains true until agents$ emits.
         }, { allowSignalWrites: true });
     }
 
@@ -152,18 +150,24 @@ export class AgentListComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     isAllSelected(): boolean {
-        const currentAgents = this.agents() ?? [];
+        const currentState = this.agentsState();
+        if (currentState.status !== 'success' || !currentState.data) {
+            return false;
+        }
         const numSelected = this.selection.selected.length;
-        const numRows = currentAgents.length;
+        const numRows = currentState.data.length;
         return numSelected === numRows && numRows > 0;
     }
 
     masterToggle(): void {
-        const currentAgents = this.agents() ?? [];
+        const currentState = this.agentsState();
+        if (currentState.status !== 'success' || !currentState.data) {
+            return;
+        }
         if (this.isAllSelected()) {
             this.selection.clear();
         } else {
-            currentAgents.forEach(row => this.selection.select(row));
+            currentState.data.forEach(row => this.selection.select(row));
         }
     }
 
