@@ -3,7 +3,7 @@
 
         <mat-tab label="Details">
             @if (agentDetails()) {
-                <agent-details [agentDetails]="agentDetails()!" (refreshRequested)="loadAgentDetails()"></agent-details>
+                <agent-details [agentDetails]="agentDetails()!" (refreshRequested)="handleRefreshAgentDetails()"></agent-details>
             } @else {
                 <!-- Optional: loading or placeholder for details tab -->
             }
@@ -28,7 +28,7 @@
         @if (agentDetails()?.type === 'autonomous') {
             <mat-tab label="Iterations">
                 @defer {
-                    <agent-iterations [agentId]="agentId()"></agent-iterations>
+                    <agent-iterations [agentId]="agentDetails()?.agentId"></agent-iterations>
                 }
             </mat-tab>
         }
@@ -43,7 +43,7 @@
 
         <mat-tab label="LLM Calls">
             @defer {
-                <agent-llm-calls [agentId]="agentId()"></agent-llm-calls>
+                <agent-llm-calls [agentId]="agentDetails()?.agentId"></agent-llm-calls>
             }
         </mat-tab>
 

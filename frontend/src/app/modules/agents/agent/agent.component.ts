@@ -95,4 +95,13 @@ export class AgentComponent {
             }
         });
     }
+
+    public handleRefreshAgentDetails(): void {
+        const agentCtx = this.agentDetails();
+        if (agentCtx?.agentId) {
+            this.agentService.loadAgentDetails(agentCtx.agentId);
+        } else {
+            console.warn('AgentComponent: refreshRequested, but no agentId found in current agentDetails.');
+        }
+    }
 }
