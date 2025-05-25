@@ -5,10 +5,10 @@ import type {
 	AssistantContent,
 	CoreMessage,
 	ToolCallPart as ModelToolCallPart, // Corrected import: ModelToolCallPart is an alias for ToolCallPart
+	ToolContent as ModelToolContent, // Alias to avoid conflict if we re-export
 	TextPart,
 	TextStreamPart,
 	UserContent,
-	ToolContent as ModelToolContent, // Alias to avoid conflict if we re-export
 	// ReasoningPart and RedactedReasoningPart are not exported from 'ai'.
 	// We will define them locally below.
 } from 'ai';
@@ -178,7 +178,7 @@ export interface GenerationStats {
 	inputTokens: number;
 	outputTokens: number;
 	cachedInputTokens?: number | undefined;
-	cost: number | null;
+	cost?: number | null;
 	llmId: string;
 }
 

@@ -4,7 +4,7 @@ import { HttpClientTestingModule, HttpTestingController } from '@angular/common/
 import { RouterTestingModule } from '@angular/router/testing';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar'; // Added MatSnackBar
 import { NewAutonomousAgentComponent } from './new-autonomous-agent.component';
-import { LlmService, LLM as LlmModel } from '../../services/llm.service'; // Corrected LlmModel import
+import { LlmService, LLM as LlmModel } from '../../../llm.service'; // Corrected LlmModel import
 import { UserService } from 'app/core/user/user.service';
 import { UserProfile } from "#shared/schemas/user.schema";
 import { of, Subject, BehaviorSubject, throwError } from 'rxjs'; // Added Subject, BehaviorSubject, throwError
@@ -14,7 +14,7 @@ import { MatFormFieldModule } from '@angular/material/form-field'; // Added MatF
 import { MatInputModule } from '@angular/material/input'; // Added MatInputModule
 import { MatCheckboxModule } from '@angular/material/checkbox'; // Added MatCheckboxModule
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner'; // Added MatProgressSpinnerModule
-import { AgentService, AgentStartRequestData } from '../../services/agent.service'; // Added AgentService and AgentStartRequestData
+import { AgentService, AgentStartRequestData } from '../../agent.service'; // Added AgentService and AgentStartRequestData
 import { Router } from '@angular/router'; // Added Router
 import { AgentContextApi } from '#shared/schemas/agent.schema'; // Added AgentContextApi
 

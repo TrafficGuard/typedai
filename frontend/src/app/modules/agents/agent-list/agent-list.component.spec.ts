@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed, fakeAsync, tick, waitForAsync } from '@angul
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { BehaviorSubject, of, Subject } from 'rxjs';
 import { AgentListComponent } from './agent-list.component';
-import { AgentService } from 'app/modules/agents/services/agent.service';
+import { AgentService } from '../agent.service';
 import { AgentRunningState, AgentType } from '#shared/model/agent.model';
 import { AgentContextApi } from '#shared/schemas/agent.schema';
 import { FuseConfirmationService } from '@fuse/services/confirmation';

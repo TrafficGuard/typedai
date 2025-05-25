@@ -110,7 +110,7 @@ export const GenerationStatsSchema = Type.Object({
 	inputTokens: Type.Number(),
 	outputTokens: Type.Number(),
 	cachedInputTokens: Type.Optional(Type.Number()),
-	cost: Type.Union([Type.Number(), Type.Null()]),
+	cost: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
 	llmId: Type.String(),
 });
 const _GenerationStatsCheck: AreTypesFullyCompatible<GenerationStats, Static<typeof GenerationStatsSchema>> = true;
@@ -193,6 +193,7 @@ const AssistantMessageSchema = Type.Intersect(
 			content: AssistantContentSchema,
 			time: Type.Optional(Type.Number()), // Time remains optional for Assistant messages
 			stats: Type.Optional(GenerationStatsSchema), // Made optional to align with model and assistant() helper
+			stats: Type.Optional(GenerationStatsSchema),
 		}),
 		LlmMessageBaseSchema, // Intersect with other common fields
 	],

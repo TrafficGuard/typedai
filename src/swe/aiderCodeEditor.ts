@@ -73,7 +73,7 @@ export class AiderCodeEditor {
 
 		if (GEMINI_KEYS.length) {
 			const key = GEMINI_KEYS[geminiKeyIndex];
-			if (++geminiKeyIndex > GEMINI_KEYS.length) geminiKeyIndex = 0;
+			if (++geminiKeyIndex >= GEMINI_KEYS.length) geminiKeyIndex = 0;
 			llm = openRouterGemini2_5_Pro();
 			modelArg = '--model gemini/gemini-2.5-pro-exp-03-25';
 			span.setAttribute('model', 'gemini 2.5 Pro');
@@ -81,7 +81,7 @@ export class AiderCodeEditor {
 		} else if (GCLOUD_PROJECTS.length) {
 			//  && process.env.GCLOUD_CLAUDE_REGION
 			const gcloudProject = GCLOUD_PROJECTS[gcloudProjectIndex];
-			if (++gcloudProjectIndex > GCLOUD_PROJECTS.length) gcloudProjectIndex = 0;
+			if (++gcloudProjectIndex >= GCLOUD_PROJECTS.length) gcloudProjectIndex = 0;
 			llm = vertexGemini_2_5_Pro();
 			modelArg = `--model vertex_ai/${llm.getModel()} --editor-model vertex_ai/gemini-2.5-flash-preview-04-17 --weak-model vertex_ai/gemini-2.5-flash-preview-04-17`;
 			span.setAttribute('model', llm.getModel());

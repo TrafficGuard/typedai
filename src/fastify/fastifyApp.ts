@@ -20,9 +20,6 @@ import fastifyPlugin from 'fastify-plugin';
 import type { FastifyReplyType, ResolveFastifyReplyType } from 'fastify/types/type-provider';
 import type { RawServerBase } from 'fastify/types/utils';
 import { StatusCodes } from 'http-status-codes';
-// src/fastify/fastifyApp.ts:14:39 - error TS1479: The current file is a CommonJS module whose imports will produce 'require' calls; however, the referenced file is an ECMAScript module and cannot be imported with 'require'. Consider writing a dynamic 'import("fastify-http-errors-enhanced")' call instead.
-//   To convert this file to an ECMAScript module, change its file extension to '.mts' or create a local package.json file with `{ "type": "module" }`.
-// import fastifyHttpErrorsEnhanced from 'fastify-http-errors-enhanced'
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { googleIapMiddleware, jwtAuthMiddleware, singleUserMiddleware } from '#fastify/authenticationMiddleware';
 import { sendBadRequest } from '#fastify/responses'; // mapReplacer might not be needed by sendJSON anymore
@@ -62,9 +59,13 @@ declare module 'fastify' {
 		TypeProvider extends FastifyTypeProvider = FastifyTypeProviderDefault,
 		ReplyType extends FastifyReplyType = ResolveFastifyReplyType<TypeProvider, SchemaCompiler, RouteGeneric>,
 	> {
+		/**
+		 * @param object The object to send as JSON. This will be statically typed-checked at compile time and validated at runtime against the route schema
+		 * @param status Optional HTTP status code. This should not be be provided if the route schema has a 2xx status response type schema, as it will automatically infer the status code.
+		 */
 		sendJSON(
 			this: FastifyReply<RawServer, RawRequest, RawReply, RouteGeneric, ContextConfig, SchemaCompiler, TypeProvider, ReplyType>,
-			object: ReplyType, // Refers to the 8th generic of FastifyReply
+			object: ReplyType,
 			status?: number,
 		): FastifyReply<RawServer, RawRequest, RawReply, RouteGeneric, ContextConfig, SchemaCompiler, TypeProvider, ReplyType>;
 	}
@@ -99,14 +100,10 @@ export async function initFastify(config: FastifyConfig): Promise<AppFastifyInst
       └── hooks and middlewares
       └── your services
  	*/
-	// https://www.npmjs.com/package/fastify-http-errors-enhanced
+	// https://www.npmjs.com/package/fastify-http-errors-enhanced Needs to be imported this way because of commonjs/module issues.
 	const { plugin } = await import('fastify-http-errors-enhanced');
 	await fastifyInstance.register(plugin, {
 		convertResponsesValidationErrors: true,
-		preHandler: (e) => {
-			logger.warn('fastify-http-errors-enhanced prehandler');
-			return e;
-		},
 	});
 
 	await loadPlugins(config);
@@ -118,57 +115,38 @@ export async function initFastify(config: FastifyConfig): Promise<AppFastifyInst
 	// The implementation's `object` parameter is `any` because type checking for the caller is handled by the augmented interface.
 	fastifyInstance.decorateReply('sendJSON', function (this: FastifyReplyBase, object: any, explicitStatus?: number) {
 		this.header('Content-Type', 'application/json; charset=utf-8');
-		if (explicitStatus !== undefined) {
+
+		let schemaStatus: number | undefined = undefined;
+		// No explicit status passed to sendJSON. Try to derive from schema.
+		// this.request is available on the reply object in a handler context
+		const routeSchema = this.request?.routeOptions?.schema;
+		if (routeSchema?.response) {
+			// The response schema is typically an object mapping status codes (as strings) to schema definitions.
+			const responseSchemaMap = routeSchema.response as Record<string, any>;
+			for (const statusCodeStr in responseSchemaMap) {
+				// Ensure we are iterating over own properties if this were a generic object,
+				// though for schema objects it's usually direct properties.
+				if (Object.prototype.hasOwnProperty.call(responseSchemaMap, statusCodeStr)) {
+					const statusCode = Number.parseInt(statusCodeStr, 10);
+					if (!Number.isNaN(statusCode) && statusCode >= 200 && statusCode < 300) {
+						schemaStatus = statusCode;
+						break; // Use the first 2xx status defined in schema
+					}
+				}
+			}
+		}
+
+		if (schemaStatus && explicitStatus && schemaStatus !== explicitStatus && explicitStatus >= 200 && explicitStatus < 300) {
+			logger.warn(`Ignoring explicit status ${explicitStatus} not matching schema status ${schemaStatus}`);
+		} else if (!schemaStatus && explicitStatus) {
 			this.status(explicitStatus);
 		}
+
 		// If explicitStatus is undefined, Fastify's internal logic for reply.send()
 		// will use the status previously set by reply.code(), or default to 200
 		// if reply.code() was not called.
 		// Fastify will validate against the schema for the given status and then serialize.
-		try {
-			// console.log(JSON.stringify(object));
-			this.send(object);
-		} catch (e) {
-			// logger.error(`Error sending ${JSON.stringify(object)}`)
-			// Access route information from the request object
-			console.log(`== == == ${e.message}`);
-			const serializeFn = this.getSerializationFunction(this.statusCode.toString());
-			if (serializeFn) {
-				console.log('== == == Serialization function:');
-				console.log(serializeFn);
-			} else {
-				console.log(`== == == No serialization function found for ${explicitStatus}`);
-			}
-			if (this.request) {
-				console.error('== == == Route Path:', this.request.url); // or this.request.routerPath for the matched path
-				console.error('== == == HTTP Method:', this.request.method);
-
-				// Access the schema defined for the route
-				const routeSchema = this.request.routeOptions?.schema; // For Fastify v3+
-				// For older Fastify (v2.x), it might be this.request.context?.config?.schema
-
-				if (routeSchema?.response) {
-					// The response schema is typically an object mapping status codes to schema definitions
-					const responseSchemaMap = routeSchema.response as Record<string, any>;
-					const schemaForStatus = responseSchemaMap?.[status.toString()]; // e.g., responseSchemaMap['200']
-
-					if (schemaForStatus) {
-						console.error(`== == == Response schema for status ${status}:`, JSON.stringify(schemaForStatus, null, 2));
-					} else {
-						// If no specific schema for this status, log all available response schemas
-						console.error(`== == == No specific response schema found for status ${status}.`);
-						console.error('== == == Available response schemas on this route:', JSON.stringify(responseSchemaMap, null, 2));
-					}
-				} else {
-					console.error('== == == No response schema (route.schema.response) found/defined for this route.');
-				}
-			} else {
-				console.log('== == == No request on this');
-			}
-			console.log('== == == Object');
-			console.log(JSON.stringify(object));
-			throw e;
-		}
+		this.send(object);
 		return this;
 	});
 

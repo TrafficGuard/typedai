@@ -4,7 +4,7 @@ import {
     OnInit,
     ViewEncapsulation,
 } from '@angular/core';
-import { LlmService, LLM } from 'app/modules/agents/services/llm.service';
+import { LlmService, LLM } from '../../llm.service';
 import { BehaviorSubject } from 'rxjs';
 import {
     FormGroup,

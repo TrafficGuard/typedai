@@ -1,5 +1,5 @@
 import {AgentContextApi} from "#shared/schemas/agent.schema";
-import {environment} from "../../../../environments/environment";
+import {environment} from "../../../environments/environment";
 import type {LlmCall} from "#shared/model/llmCall.model";
 
 /**

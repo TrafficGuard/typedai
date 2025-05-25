@@ -642,6 +642,645 @@ This directive has also gained a new property—componentInstance. With it, we n
 
 With componentInstance, you can:
 
-Access the methods and properties of the component.
-Update data or pass new values to the component after it has been loaded.
-Perform operations on the loaded component, which was more difficult before because NgComponentOutlet did not provide direct access to the instance.
+- Access the methods and properties of the component.
+- Update data or pass new values to the component after it has been loaded.
+- Perform operations on the loaded component, which was more difficult before because NgComponentOutlet did not provide direct access to the instance.
+
+
+# RxJS Interoperability
+
+The `@angular/rxjs-interop` package offers APIs to integrate RxJS and Angular signals.
+
+## Create a signal from an RxJS Observable with `toSignal`
+
+Use the `toSignal` function to create a signal that tracks an Observable's value. It behaves similarly to the `async` pipe in templates but is more flexible and can be used anywhere.
+
+```typescript
+import { Component } from '@angular/core';
+import { AsyncPipe } from '@angular/common';
+import { interval } from 'rxjs';
+import { toSignal } from '@angular/core/rxjs-interop';
+
+@Component({
+  template: `{{ counter() }}`,
+})
+export class Ticker {
+  counterObservable = interval(1000);
+  // Get a `Signal` representing the `counterObservable`'s value.
+  counter = toSignal(this.counterObservable, { initialValue: 0 });
+}
+```
+
+Like the `async` pipe, `toSignal` subscribes to the Observable immediately, which may trigger side effects. The subscription automatically unsubscribes when the component or service calling `toSignal` is destroyed.
+
+**IMPORTANT:** `toSignal` creates a subscription. Avoid calling it repeatedly for the same Observable; reuse the signal it returns instead.
+
+### Injection Context
+
+By default, `toSignal` needs to run in an injection context (e.g., during component or service construction). If an injection context is unavailable, you can manually specify the `Injector`.
+
+### Initial Values
+
+Observables may not produce a value synchronously on subscription, but signals always require a current value. There are several ways to handle the initial value of `toSignal` signals.
+
+#### The `initialValue` option
+
+As in the example, you can specify an `initialValue` option for the signal to return before the Observable emits for the first time.
+
+#### `undefined` Initial Values
+
+If no `initialValue` is provided, the signal will return `undefined` until the Observable emits. This is similar to the `async` pipe's `null` behavior.
+
+#### The `requireSync` option
+
+For Observables guaranteed to emit synchronously (e.g., `BehaviorSubject`), you can specify `requireSync: true`.
+
+When `requireSync` is `true`, `toSignal` enforces synchronous emission on subscription, ensuring the signal always has a value and no `undefined` type or initial value is required.
+
+### `manualCleanup`
+
+By default, `toSignal` automatically unsubscribes from the Observable when its creating component or service is destroyed.
+
+To override this, pass the `manualCleanup` option. This is useful for Observables that complete naturally.
+
+### Error and Completion
+
+If an Observable used in `toSignal` produces an error, the error is thrown when the signal is read.
+
+If an Observable used in `toSignal` completes, the signal continues to return its most recently emitted value.
+
+## Create an RxJS Observable from a signal with `toObservable`
+
+Use the `toObservable` utility to create an `Observable` that tracks a signal's value. The signal's value is monitored with an `effect` which emits the value to the Observable when it changes.
+
+```typescript
+import { Component, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
+
+@Component(...)
+export class SearchResults {
+  query: Signal<string> = inject(QueryService).query;
+  query$ = toObservable(this.query);
+  results$ = this.query$.pipe(
+    switchMap(query => this.http.get('/search?q=' + query ))
+  );
+}
+```
+
+As the `query` signal changes, the `query$` Observable emits the latest query, triggering a new HTTP request.
+
+### Injection Context
+
+By default, `toObservable` needs to run in an injection context (e.g., during component or service construction). If an injection context is unavailable, you can manually specify the `Injector`.
+
+### Timing of `toObservable`
+
+`toObservable` uses an effect to track the signal's value in a `ReplaySubject`. On subscription, the first value (if available) may be emitted synchronously; subsequent values will be asynchronous.
+
+Unlike Observables, signals never provide synchronous change notifications. Even with multiple signal updates, `toObservable` will only emit the value after the signal stabilizes.
+
+```typescript
+const obs$ = toObservable(mySignal);
+obs$.subscribe(value => console.log(value));
+mySignal.set(1);
+mySignal.set(2);
+mySignal.set(3);
+```
+
+Here, only the last value (3) will be logged.
+
+
+# Angular code guidelines
+
+# Angular API Service Best Practices Guide
+
+## Overview
+
+This guide establishes patterns for Angular services that interact with APIs, emphasizing:
+- **Minimal component code** - Components only trigger actions and react to state
+- **Type safety** - From API definitions to navigation
+- **Signal-based state management** - Using Angular's latest reactive primitives
+- **Non-blocking operations** - Keeping the UI responsive
+- **Flexible navigation** - Components control navigation based on context
+
+## Core Framework Code
+
+### 1. API State Types
+
+```typescript
+// core/api-state.types.ts
+import { signal, WritableSignal } from '@angular/core';
+
+export type ApiState<T> = 
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'success'; data: T }
+  | { status: 'error'; error: Error; code?: number };
+
+export type ApiListState<T> = ApiState<T[]>;
+
+export type ApiEntityState<T> = 
+  | ApiState<T>
+  | { status: 'not_found' }
+  | { status: 'forbidden' };
+
+export function createApiListState<T>(): WritableSignal<ApiListState<T>> {
+  return signal<ApiListState<T>>({ status: 'idle' });
+}
+
+export function createApiEntityState<T>(): WritableSignal<ApiEntityState<T>> {
+  return signal<ApiEntityState<T>>({ status: 'idle' });
+}
+```
+
+### 2. Type-Safe Route Definitions
+
+```typescript
+// Example: routes/entities.routes.ts
+const BASE = '/ui/entities';
+
+export const ENTITIES_ROUTES = {
+  segments: {
+    list: '',
+    new: 'new',
+    detail: ':entityId',
+    edit: ':entityId/edit',
+  },
+  nav: {
+    list: () => [BASE],
+    new: () => [BASE, 'new'],
+    detail: (id: string) => [BASE, id],
+    edit: (id: string) => [BASE, id, 'edit'],
+  }
+} as const;
+```
+
+## Service Implementation Pattern
+
+Services should:
+1. **Expose only readonly signals** for state
+2. **Use void methods for loading** operations (non-blocking)
+3. **Return Observables for mutations** (create/update/delete) to allow component control
+4. **Update related states** optimistically when appropriate
+5. **Prevent duplicate loading requests** by checking state
+
+### Example Service
+
+```typescript
+// services/entities.service.ts
+import { Injectable, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable, catchError, tap, EMPTY, map } from 'rxjs';
+import { callApiRoute } from 'app/core/api-route';
+import { ENTITY_API } from '#shared/api/entities.api';
+import { createApiListState, createApiEntityState } from 'app/core/api-state.types';
+import type { Entity, EntityPreview, EntityCreatePayload, EntityUpdatePayload } from '../models/entity.model';
+
+@Injectable({ providedIn: 'root' })
+export class EntitiesService {
+  private readonly httpClient = inject(HttpClient);
+  
+  // Private writable state
+  private readonly _entitiesState = createApiListState<EntityPreview>();
+  private readonly _selectedEntityState = createApiEntityState<Entity>();
+  
+  // Public readonly state
+  readonly entitiesState = this._entitiesState.asReadonly();
+  readonly selectedEntityState = this._selectedEntityState.asReadonly();
+  
+  // Loading operations - void return, subscribe internally
+  loadEntities(): void {
+    if (this._entitiesState().status === 'loading') return;
+    
+    this._entitiesState.set({ status: 'loading' });
+    
+    callApiRoute(this.httpClient, ENTITY_API.listEntities).pipe(
+      tap(response => {
+        this._entitiesState.set({ status: 'success', data: response.entities });
+      }),
+      catchError(error => {
+        this._entitiesState.set({ 
+          status: 'error', 
+          error: error instanceof Error ? error : new Error('Failed to load entities'),
+          code: error?.status
+        });
+        return EMPTY;
+      })
+    ).subscribe();
+  }
+  
+  loadEntity(entityId: string): void {
+    if (this._selectedEntityState().status === 'loading') return;
+    
+    this._selectedEntityState.set({ status: 'loading' });
+    
+    callApiRoute(this.httpClient, ENTITY_API.getEntityById, { pathParams: { entityId } }).pipe(
+      tap(entity => {
+        this._selectedEntityState.set({ status: 'success', data: entity as Entity });
+      }),
+      catchError(error => {
+        if (error?.status === 404) {
+          this._selectedEntityState.set({ status: 'not_found' });
+        } else if (error?.status === 403) {
+          this._selectedEntityState.set({ status: 'forbidden' });
+        } else {
+          this._selectedEntityState.set({ 
+            status: 'error', 
+            error: error instanceof Error ? error : new Error('Failed to load entity'),
+            code: error?.status
+          });
+        }
+        return EMPTY;
+      })
+    ).subscribe();
+  }
+  
+  // Mutation operations - return Observable for component control
+  createEntity(payload: EntityCreatePayload): Observable<Entity> {
+    return callApiRoute(this.httpClient, ENTITY_API.createEntity, { body: payload }).pipe(
+      tap(newEntity => {
+        // Optimistically update list
+        const currentState = this._entitiesState();
+        if (currentState.status === 'success') {
+          this._entitiesState.set({
+            status: 'success',
+            data: [...currentState.data, newEntity as EntityPreview]
+          });
+        }
+      }),
+      map(response => response as Entity)
+    );
+  }
+  
+  updateEntity(entityId: string, payload: EntityUpdatePayload): Observable<Entity> {
+    return callApiRoute(this.httpClient, ENTITY_API.updateEntity, { pathParams: { entityId }, body: payload }).pipe(
+      tap(updatedEntity => {
+        // Update selected entity
+        const currentSelected = this._selectedEntityState();
+        if (currentSelected.status === 'success' && currentSelected.data.id === entityId) {
+          this._selectedEntityState.set({ status: 'success', data: updatedEntity as Entity });
+        }
+        // Update in list
+        const currentList = this._entitiesState();
+        if (currentList.status === 'success') {
+          this._entitiesState.set({
+            status: 'success',
+            data: currentList.data.map(e => e.id === entityId ? { ...e, ...updatedEntity } : e)
+          });
+        }
+      }),
+      map(response => response as Entity)
+    );
+  }
+  
+  deleteEntity(entityId: string): Observable<void> {
+    return callApiRoute(this.httpClient, ENTITY_API.deleteEntity, { pathParams: { entityId } }).pipe(
+      tap(() => {
+        // Update list
+        const currentList = this._entitiesState();
+        if (currentList.status === 'success') {
+          this._entitiesState.set({
+            status: 'success',
+            data: currentList.data.filter(e => e.id !== entityId)
+          });
+        }
+        // Clear selected if deleted
+        const currentSelected = this._selectedEntityState();
+        if (currentSelected.status === 'success' && currentSelected.data.id === entityId) {
+          this._selectedEntityState.set({ status: 'idle' });
+        }
+      }),
+      map(() => void 0)
+    );
+  }
+  
+  clearSelectedEntity(): void {
+    this._selectedEntityState.set({ status: 'idle' });
+  }
+}
+```
+
+## Component Patterns
+
+### List Component
+
+```typescript
+// components/entity-list.component.ts
+import { Component, OnInit, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { EntitiesService } from '../services/entities.service';
+import { ENTITIES_ROUTES } from '../routes/entities.routes';
+
+@Component({
+  selector: 'app-entity-list',
+  standalone: true,
+  imports: [CommonModule, RouterModule],
+  template: `
+    <div class="header">
+      <h1>Entities</h1>
+      <a [routerLink]="routes.nav.new()" class="btn">New Entity</a>
+    </div>
+    
+    @switch (entitiesState().status) {
+      @case ('idle') {
+        <p>Loading entities...</p>
+      }
+      @case ('loading') {
+        <app-spinner />
+      }
+      @case ('success') {
+        @if (entitiesState().data.length === 0) {
+          <p>No entities found. Create your first one!</p>
+        } @else {
+          <div class="entity-grid">
+            @for (entity of entitiesState().data; track entity.id) {
+              <div class="entity-card">
+                <h3>{{ entity.name }}</h3>
+                <p>{{ entity.description }}</p>
+                <div class="actions">
+                  <a [routerLink]="routes.nav.detail(entity.id)">View</a>
+                  <button (click)="deleteEntity(entity.id)" class="danger">Delete</button>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      }
+      @case ('error') {
+        <app-error-message 
+          message="Failed to load entities"
+          (retry)="loadEntities()" />
+      }
+    }
+  `
+})
+export class EntityListComponent implements OnInit {
+  private readonly entitiesService = inject(EntitiesService);
+  private readonly destroyRef = inject(DestroyRef);
+  
+  readonly entitiesState = this.entitiesService.entitiesState;
+  readonly routes = ENTITIES_ROUTES;
+  
+  ngOnInit() {
+    this.loadEntities();
+  }
+  
+  loadEntities() {
+    this.entitiesService.loadEntities();
+  }
+  
+  deleteEntity(entityId: string) {
+    if (confirm('Delete this entity?')) {
+      this.entitiesService.deleteEntity(entityId)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: () => {
+            // Could show success toast here
+            // No navigation needed - staying on list
+          },
+          error: (error) => {
+            console.error('Failed to delete entity:', error);
+            // Could show error toast
+          }
+        });
+    }
+  }
+}
+```
+
+### Create/Edit Component
+
+```typescript
+// components/entity-form.component.ts
+import { Component, OnInit, inject } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Router, ActivatedRoute } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { EntitiesService } from '../services/entities.service';
+import { ENTITIES_ROUTES } from '../routes/entities.routes';
+
+@Component({
+  selector: 'app-entity-form',
+  standalone: true,
+  imports: [ReactiveFormsModule, CommonModule],
+  template: `
+    <form [formGroup]="form" (ngSubmit)="onSubmit()">
+      <h1>{{ isEditMode ? 'Edit' : 'Create' }} Entity</h1>
+      
+      <div class="form-group">
+        <label for="name">Name</label>
+        <input id="name" formControlName="name" />
+        @if (form.get('name')?.invalid && form.get('name')?.touched) {
+          <span class="error">Name is required</span>
+        }
+      </div>
+      
+      <div class="form-group">
+        <label for="description">Description</label>
+        <textarea id="description" formControlName="description"></textarea>
+      </div>
+      
+      <div class="actions">
+        <button type="submit" [disabled]="form.invalid || isSubmitting">
+          {{ isSubmitting ? 'Saving...' : 'Save' }}
+        </button>
+        <button type="button" (click)="cancel()">Cancel</button>
+      </div>
+      
+      @if (errorMessage) {
+        <div class="error-message">{{ errorMessage }}</div>
+      }
+    </form>
+  `
+})
+export class EntityFormComponent implements OnInit {
+  private readonly fb = inject(FormBuilder);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly entitiesService = inject(EntitiesService);
+  private readonly destroyRef = inject(DestroyRef);
+  
+  form = this.fb.group({
+    name: ['', Validators.required],
+    description: ['']
+  });
+  
+  isEditMode = false;
+  isSubmitting = false;
+  errorMessage = '';
+  private entityId?: string;
+  
+  ngOnInit() {
+    this.entityId = this.route.snapshot.params['entityId'];
+    this.isEditMode = !!this.entityId;
+    
+    if (this.isEditMode && this.entityId) {
+      // Load existing entity data
+      const currentEntity = this.entitiesService.selectedEntityState();
+      if (currentEntity.status === 'success' && currentEntity.data.id === this.entityId) {
+        this.form.patchValue(currentEntity.data);
+      }
+    }
+  }
+  
+  onSubmit() {
+    if (this.form.invalid || this.isSubmitting) return;
+    
+    this.isSubmitting = true;
+    this.errorMessage = '';
+    
+    const operation = this.isEditMode && this.entityId
+      ? this.entitiesService.updateEntity(this.entityId, this.form.value)
+      : this.entitiesService.createEntity(this.form.value);
+    
+    operation
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (entity) => {
+          // Navigate to the entity detail page
+          this.router.navigate(ENTITIES_ROUTES.nav.detail(entity.id));
+        },
+        error: (error) => {
+          this.isSubmitting = false;
+          this.errorMessage = 'Failed to save entity. Please try again.';
+          console.error('Save failed:', error);
+        }
+      });
+  }
+  
+  cancel() {
+    if (this.isEditMode && this.entityId) {
+      this.router.navigate(ENTITIES_ROUTES.nav.detail(this.entityId));
+    } else {
+      this.router.navigate(ENTITIES_ROUTES.nav.list());
+    }
+  }
+}
+```
+
+### Detail Component
+
+```typescript
+// components/entity-detail.component.ts
+// components/entity-detail.component.ts
+import { Component, OnInit, inject, effect } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { EntitiesService } from '../services/entities.service';
+import { ENTITIES_ROUTES } from '../routes/entities.routes';
+
+@Component({
+  selector: 'app-entity-detail',
+  standalone: true,
+  template: `
+    @switch (entityState().status) {
+      @case ('idle') {
+        <!-- Initial load -->
+      }
+      @case ('loading') {
+        <app-spinner />
+      }
+      @case ('success') {
+        <article>
+          <h1>{{ entityState().data.name }}</h1>
+          <p>{{ entityState().data.description }}</p>
+          <div class="actions">
+            <button (click)="editEntity()">Edit</button>
+            <button (click)="deleteEntity()" class="danger">Delete</button>
+          </div>
+        </article>
+      }
+      @case ('not_found') {
+        <app-not-found message="Entity not found" />
+      }
+      @case ('forbidden') {
+        <app-forbidden message="You don't have access to this entity" />
+      }
+      @case ('error') {
+        <app-error-message 
+          message="Failed to load entity"
+          (retry)="loadEntity()" />
+      }
+    }
+  `
+})
+export class EntityDetailComponent implements OnInit {
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly entitiesService = inject(EntitiesService);
+  private readonly destroyRef = inject(DestroyRef);
+  
+  readonly entityState = this.entitiesService.selectedEntityState;
+  private entityId!: string;
+  
+  constructor() {
+    // Auto-navigate away on not found/forbidden
+    effect(() => {
+      const state = this.entityState();
+      if (state.status === 'not_found' || state.status === 'forbidden') {
+        this.router.navigate(ENTITIES_ROUTES.nav.list());
+      }
+    });
+  }
+  
+  ngOnInit() {
+    this.entityId = this.route.snapshot.params['entityId'];
+    this.loadEntity();
+  }
+  
+  ngOnDestroy() {
+    this.entitiesService.clearSelectedEntity();
+  }
+  
+  loadEntity() {
+    this.entitiesService.loadEntity(this.entityId);
+  }
+  
+  editEntity() {
+    this.router.navigate(ENTITIES_ROUTES.nav.edit(this.entityId));
+  }
+  
+  deleteEntity() {
+    if (confirm('Delete this entity?')) {
+      this.entitiesService.deleteEntity(this.entityId)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: () => {
+            // Navigate to list after successful deletion
+            this.router.navigate(ENTITIES_ROUTES.nav.list());
+          },
+          error: (error) => {
+            console.error('Failed to delete entity:', error);
+            // Could show error toast/dialog
+          }
+        });
+    }
+  }
+}
+```
+
+Key Principles Summary
+1. State Management
+   Use signals exclusively (no BehaviorSubject)
+   Expose only readonly signals from services
+   Use discriminated unions for type-safe state handling
+2. API Calls
+   Loading operations (GET): void methods that subscribe internally
+   Mutation operations (POST/PUT/DELETE): return Observables for component control
+   Use callApiRoute for type-safe API calls
+   Never use toPromise() or await
+3. Navigation
+   Components handle navigation after mutations
+   This provides flexibility for different contexts (list vs detail views)
+   Use type-safe route constants
+4. Component Patterns
+   Minimal logic - primarily trigger service methods and react to state
+   Use @switch for exhaustive state handling
+   Use takeUntilDestroyed for subscription cleanup
+   Handle form states (loading, errors) locally
+5. Error Handling
+   Distinguish between error types (404, 403, network)
+   Provide retry mechanisms in the UI
+   Show appropriate error messages in forms

@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 import { inject } from '@angular/core';
-import { AgentService } from 'app/modules/agents/services/agent.service';
+import { AgentService } from './agent.service';
 // AgentListComponent is standalone, imported via loadComponent
 // NewAgentComponent is standalone, imported via loadComponent
 // AgentComponent is standalone, imported via loadComponent

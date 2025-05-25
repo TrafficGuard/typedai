@@ -1,7 +1,7 @@
 import { type Static, Type } from '@sinclair/typebox';
 import type { AgentContext, AgentContextPreview, AutonomousIteration } from '../model/agent.model';
 import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
-import { LlmMessagesSchema, type LlmMessagesSchemaModel } from './llm.schema';
+import { GenerationStatsSchema, LlmMessagesSchema, type LlmMessagesSchemaModel } from './llm.schema';
 
 export const AgentTypeSchema = Type.Union([Type.Literal('autonomous'), Type.Literal('workflow')], { $id: 'AgentType' });
 export const AutonomousSubTypeSchema = Type.Union([Type.Literal('xml'), Type.Literal('codegen'), Type.String()], { $id: 'AutonomousSubType' }); // string for custom subtypes
@@ -77,17 +77,6 @@ const FilePartExtSchema = Type.Object({
 
 const LlmMessageContentPartSchema = Type.Union([TextPartSchema, ImagePartExtSchema, FilePartExtSchema]); // Add other relevant parts like ToolCallPart if needed
 
-const GenerationStatsSchema = Type.Object({
-	requestTime: Type.Number(),
-	timeToFirstToken: Type.Number(),
-	totalTime: Type.Number(),
-	inputTokens: Type.Number(),
-	outputTokens: Type.Number(),
-	cachedInputTokens: Type.Optional(Type.Number()),
-	cost: Type.Number(),
-	llmId: Type.String(),
-});
-
 const LlmMessageSchema = Type.Object({
 	role: Type.String(), // Ideally Type.Union(['system', 'user', 'assistant', 'tool'])
 	content: Type.Union([Type.String(), Type.Array(LlmMessageContentPartSchema)]),
@@ -121,7 +110,7 @@ export const AgentContextSchema = Type.Object({
 	user: Type.String(), // Changed from UserSchema to Type.String()
 	state: AgentRunningStateSchema,
 	callStack: Type.Array(Type.String()),
-	error: Type.Optional(Type.String()),
+	error: Type.Optional(Type.Union([Type.String(), Type.Null()])),
 	output: Type.Optional(Type.String()),
 	hilBudget: Type.Number(),
 	cost: Type.Number(),
@@ -246,7 +235,7 @@ export const AgentContextPreviewSchema = Type.Object({
 	name: Type.String(),
 	state: AgentRunningStateSchema, // Reuses existing AgentRunningStateSchema
 	cost: Type.Number(),
-	error: Type.Optional(Type.String()),
+	error: Type.Optional(Type.Union([Type.String(), Type.Null()])),
 	lastUpdate: Type.Number(), // Timestamp
 	userPrompt: Type.String(),
 	inputPrompt: Type.String(),
@@ -266,7 +255,7 @@ export const AutonomousIterationSchema = Type.Object({
 	prompt: Type.String(),
 	images: Type.Array(ImagePartExtSchema),
 	expandedUserRequest: Type.String(),
-	observationsReasoning: Type.String(),
+	observationsReasoning: Type.Optional(Type.String()),
 	agentPlan: Type.String(),
 	nextStepDetails: Type.String(),
 	draftCode: Type.String(),

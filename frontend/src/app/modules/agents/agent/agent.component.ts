@@ -12,7 +12,7 @@ import { AgentFunctionCallsComponent } from './agent-function-calls/agent-functi
 import { AgentLlmCallsComponent } from './agent-llm-calls/agent-llm-calls.component';
 import { AgentIterationsComponent } from './agent-iterations/agent-iterations.component';
 import { AgentToolStateComponent } from './agent-tool-state/agent-tool-state.component';
-import { AgentService } from "../services/agent.service";
+import { AgentService } from "../agent.service";
 import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs/operators';
 

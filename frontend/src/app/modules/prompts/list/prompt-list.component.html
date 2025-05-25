@@ -1,17 +1,25 @@
 <div class="flex flex-col flex-auto w-full p-4 sm:p-4">
 	<div class="flex items-center justify-between mb-4 mx-3">
 		<h1 class="text-3xl font-medium tracking-tight leading-none">Prompt Library</h1>
-		<button mat-flat-button color="primary" [routerLink]="newPromptPath">
-			<mat-icon svgIcon="heroicons_outline:plus"></mat-icon>
-			<span class="ml-2">Create New Prompt</span>
-		</button>
+		<div>
+			<button mat-flat-button color="primary" [routerLink]="newPromptPath">
+				<mat-icon svgIcon="heroicons_outline:plus"></mat-icon>
+				<span class="ml-2">New</span>
+			</button>
+			<button
+				mat-flat-button
+				[matTooltip]="'Refresh List'"
+				(click)="refreshPrompts()"
+				[disabled]="isLoading()"
+				class="ml-4">
+				<mat-icon [svgIcon]="'heroicons_outline:arrow-path'"></mat-icon>
+			</button>
+		</div>
 	</div>
 
 	<div class="overflow-auto bg-card rounded-lg shadow">
 		<!-- Loading State -->
-		<div *ngIf="isLoading()" class="flex justify-center items-center h-64 p-8 text-center text-secondary">
-			<mat-spinner diameter="50"></mat-spinner>
-		</div>
+		<div *ngIf="isLoading()" class="p-8 text-center text-secondary">Loading prompts...</div>
 
 		<!-- Content when not loading -->
 		<div *ngIf="!isLoading()">

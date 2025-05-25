@@ -1,5 +1,6 @@
 import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { Router } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { CodeReviewServiceClient } from '../code-review.service';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { SelectionModel } from '@angular/cdk/collections';
@@ -15,7 +16,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatProgressBarModule } from "@angular/material/progress-bar"; // Import MatProgressBarModule
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { CodeReviewConfig } from "#shared/model/codeReview.model";
-import { CodeReviewConfigListResponse } from '#shared/schemas/codeReview.schema';
+// CodeReviewConfigListResponse is not directly used here anymore as service handles the direct type
+import { finalize, map } from 'rxjs/operators';
 
 @Component({
   selector: 'app-code-review-list',
@@ -40,7 +42,10 @@ export class CodeReviewListComponent implements OnInit {
   private dialog = inject(FuseConfirmationService);
   private snackBar = inject(MatSnackBar);
 
-  configs = signal<CodeReviewConfig[]>([]);
+  configs = toSignal(
+    this.codeReviewService.configs$.pipe(map(val => val ?? [])),
+    { initialValue: [] as CodeReviewConfig[] }
+  );
   selection = new SelectionModel<CodeReviewConfig>(true, []);
   displayedColumns = signal<string[]>(['title', 'description', 'enabled', 'select']);
   isLoading = signal(false);
@@ -53,26 +58,20 @@ export class CodeReviewListComponent implements OnInit {
   loadConfigs() {
     this.isLoading.set(true);
     this.errorMessage.set('');
-    this.codeReviewService.getCodeReviewConfigs().subscribe(
-      (response: CodeReviewConfigListResponse) => { // Explicitly type response
-        // Assuming response is an object like { data: CodeReviewConfig[] }
-        // or response itself could be the array in some cases.
-        let configsArray: CodeReviewConfig[] = [];
-        if (response && Array.isArray(response)) {
-          configsArray = response;
-        } else if (Array.isArray(response)) {
-          // Fallback if response itself is the array
-          configsArray = response;
-        }
-        this.configs.set(configsArray);
+    this.codeReviewService.getCodeReviewConfigs().pipe(
+      finalize(() => {
         this.isLoading.set(false);
-        this.selection.clear();
-      },
-      () => {
+      })
+    ).subscribe({
+      // next: (data) => { /* Data is handled by toSignal, selection clear handled by service refresh */ },
+      error: (err) => {
         this.errorMessage.set('Error loading configurations');
-        this.isLoading.set(false);
+        console.error('Error in loadConfigs:', err);
+      },
+      complete: () => {
+        this.selection.clear(); // Clear selection when initial load/refresh completes
       }
-    );
+    });
   }
 
   openEditPage(id?: string) {
@@ -124,11 +123,13 @@ export class CodeReviewListComponent implements OnInit {
           this.codeReviewService.deleteCodeReviewConfigs(selectedIds).subscribe(
             () => {
               this.snackBar.open('Configurations deleted successfully', 'Close', { duration: 3000 });
-              this.loadConfigs(); // This will update signals
+              // this.loadConfigs(); // This is no longer needed as service refresh handles it
+              this.selection.clear(); // Clear selection after successful deletion
             },
-            () => {
+            (err) => { // Added error parameter
               this.errorMessage.set('Error deleting configurations');
               this.snackBar.open('Error deleting configurations', 'Close', { duration: 3000 });
+              console.error('Error deleting configurations:', err); // Log error
             }
           );
         }
@@ -136,7 +137,23 @@ export class CodeReviewListComponent implements OnInit {
   }
 
   refreshConfigs(): void {
-    this.loadConfigs(); // This will update signals
-    this.snackBar.open('Configurations refreshed', 'Close', { duration: 1000 });
+    this.isLoading.set(true);
+    this.errorMessage.set('');
+    this.codeReviewService.refreshConfigs().pipe(
+        finalize(() => {
+            this.isLoading.set(false);
+        })
+    ).subscribe({
+        // next: (data) => { /* Data handled by toSignal */ },
+        error: (err) => {
+            this.errorMessage.set('Error refreshing configurations');
+            this.snackBar.open('Error refreshing configurations list.', 'Close', { duration: 3000 });
+            console.error('Error in refreshConfigs:', err);
+        },
+        complete: () => {
+             this.snackBar.open('Configurations list refreshed.', 'Close', { duration: 2000 });
+             this.selection.clear(); // Clear selection on refresh
+        }
+    });
   }
 }

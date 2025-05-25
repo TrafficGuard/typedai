@@ -1,3 +1,5 @@
+import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
+
 import * as fs from 'node:fs/promises'; // Use fs.promises for async operations
 import * as path from 'node:path';
 import micromatch from 'micromatch';

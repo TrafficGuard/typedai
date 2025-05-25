@@ -19,7 +19,6 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import { BehaviorSubject, type Observable, Subscription, catchError, finalize, map, of, take } from 'rxjs';
-import { WorkflowsService } from '../../workflows/workflows.service';
 import { type CreateVibeSessionPayload, VibeServiceClient } from '../vibe-service-client.service';
 import { MatCard, MatCardContent } from '@angular/material/card';
 import {GitProject} from "#shared/model/git.model";
@@ -49,7 +48,6 @@ import {VibePreset, VibePresetConfig, VibeSession} from "#shared/model/vibe.mode
 export class NewVibeWizardComponent implements OnInit, OnDestroy {
 	private fb = inject(FormBuilder);
 	private vibeService = inject(VibeServiceClient);
-	private workflowsService = inject(WorkflowsService);
 	private router = inject(Router);
 	private snackBar = inject(MatSnackBar); // Inject MatSnackBar
 
@@ -159,7 +157,7 @@ export class NewVibeWizardComponent implements OnInit, OnDestroy {
 		this.gitlabProjects = []; // Reset gitlab projects
 
 		// Fetch Local Repositories
-		this.localRepos$ = this.workflowsService.getRepositories().pipe(
+		this.localRepos$ = this.vibeService.getRepositories().pipe(
 			catchError((err) => {
 				console.error('Error fetching local repositories:', err);
 				this.repoError = 'Failed to load local repositories.';

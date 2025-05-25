@@ -118,8 +118,10 @@ export class FileSystemService implements IFileSystemService {
 	 */
 	setWorkingDirectory(dir: string): void {
 		if (!dir) throw new Error('dir must be provided');
+		if (dir === '/') dir = this.basePath; // A more sane behaviour if the agent provides '/'
 		let relativeDir = dir;
 		let isAbsolute = false;
+
 		// Check absolute directory path
 		if (dir.startsWith('/')) {
 			if (existsSync(dir)) {

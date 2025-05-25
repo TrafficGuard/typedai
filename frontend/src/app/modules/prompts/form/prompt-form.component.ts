@@ -20,7 +20,7 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { CdkTextareaAutosize } from '@angular/cdk/text-field';
 import { PromptsService } from '../prompts.service';
-import { LlmService, LLM as AppLLM } from '../../agents/services/llm.service'; // Renamed LLM to AppLLM to avoid conflict
+import { LlmService, LLM as AppLLM } from '../../llm.service'; // Renamed LLM to AppLLM to avoid conflict
 import type { Prompt } from '#shared/model/prompts.model';
 import type { LlmMessage, CallSettings, UserContentExt, TextPart, ImagePartExt, FilePartExt } from '#shared/model/llm.model';
 import type { PromptCreatePayload, PromptUpdatePayload, PromptSchemaModel } from '#shared/schemas/prompts.schema';

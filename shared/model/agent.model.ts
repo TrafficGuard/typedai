@@ -101,7 +101,7 @@ export interface AgentContext {
 	/** Tracks what functions/spans we've called into */
 	callStack: string[];
 	/** Error message & stack */
-	error?: string;
+	error?: string | null;
 	output?: string;
 	/** Budget spend in $USD until a human-in-the-loop is required */
 	hilBudget: number;
@@ -144,7 +144,7 @@ export interface AgentContext {
 	/** The prompt the agent execution started/resumed with for codeGen/XML agent */
 	inputPrompt: string;
 	/** The message the agent execution started/resumed with for cachingCodeGen agent */
-	messages: LlmMessage[];
+	messages?: LlmMessage[];
 	/** Completed function calls with success/error output */
 	functionCallHistory: FunctionCallResult[];
 	/** How many iterations of the autonomous agent control loop to require human input to continue */
@@ -184,7 +184,7 @@ export interface AutonomousIteration {
 	/** Extracted from <expanded_user_request></expanded_user_request>*/
 	expandedUserRequest: string;
 	/** Extracted from <observations-reasoning> */
-	observationsReasoning: string;
+	observationsReasoning?: string;
 	/** Generated agent plan extracted from <plan></plan> */
 	agentPlan: string;
 	/** Extracted from <next_step_details></next_step_details> */

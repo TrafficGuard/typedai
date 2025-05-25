@@ -9,10 +9,10 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 // import { environment } from 'environments/environment'; // Not used directly
 import { LlmMessage } from '#shared/model/llm.model';
 import { LlmCall } from '#shared/model/llmCall.model';
-import { AgentService } from '../../services/agent.service';
+import { AgentService } from '../../agent.service';
 import { Router } from '@angular/router';
 import { Prompt as AppPrompt } from '#shared/model/prompts.model'; // Use an alias if 'Prompt' is ambiguous
-import { AgentLinks, GoogleCloudLinks } from "../../services/agent-links";
+import { AgentLinks, GoogleCloudLinks } from "../../agent-links";
 
 @Component({
 	selector: 'agent-llm-calls',

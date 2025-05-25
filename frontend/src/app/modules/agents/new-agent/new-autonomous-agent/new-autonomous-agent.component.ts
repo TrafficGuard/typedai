@@ -18,13 +18,13 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from "@angular/material/snack-bar";
 import { Router } from "@angular/router";
-import { LlmService } from "../../services/llm.service";
+import { LlmService } from "../../../llm.service";
 import { UserService } from 'app/core/user/user.service'; // Added import
 import { finalize, Subject, takeUntil } from "rxjs"; // Removed map from here as it's not used directly by component anymore
 // HttpClient import removed as it's not used
 import { MatProgressSpinner } from "@angular/material/progress-spinner";
 import { MatCheckboxModule } from "@angular/material/checkbox";
-import { AgentService } from '../../services/agent.service';
+import { AgentService } from '../../agent.service';
 import {MatCard, MatCardContent} from "@angular/material/card";
 import {AutonomousSubType} from "#shared/model/agent.model";
 

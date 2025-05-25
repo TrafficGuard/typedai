@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed, waitForAsync, fakeAsync, tick } from '@angul
 // import { ChangeDetectorRef } from '@angular/core';
 import { of, throwError } from 'rxjs';
 import { AgentIterationsComponent } from './agent-iterations.component';
-import { AgentService } from '../../services/agent.service';
+import { AgentService } from '../../agent.service';
 import { AutonomousIteration } from '#shared/model/agent.model';
 import { CommonModule } from '@angular/common';
 import { MatExpansionModule } from '@angular/material/expansion';

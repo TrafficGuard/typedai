@@ -38,7 +38,7 @@ import {ActivatedRoute, Router, RouterLink, RouterModule} from '@angular/router'
 import {FuseMediaWatcherService} from '@fuse/services/media-watcher';
 import {ChatServiceClient} from '../chat.service';
 import {ChatInfoComponent} from 'app/modules/chat/chat-info/chat-info.component';
-import {LLM, LlmService} from "app/modules/agents/services/llm.service";
+import {LLM, LlmService} from "../../llm.service";
 import {
     MarkdownModule,
     MarkdownService,

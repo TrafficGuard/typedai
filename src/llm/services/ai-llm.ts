@@ -98,7 +98,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 
 	protected processMessages(llmMessages: LlmMessage[]): CoreMessage[] {
 		return llmMessages.map((msg) => {
-			const { llmId, cache, time, stats, providerOptions, content, ...restOfMsg } = msg;
+			const { llmId, cache, stats, providerOptions, content, ...restOfMsg } = msg;
 
 			let processedContent: CoreContent;
 			if (typeof content === 'string') {
@@ -254,7 +254,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 					result.response.timestamp,
 					result,
 				);
-				const cost = totalCost;
+				const cost = Number.isNaN(totalCost) ? null : totalCost;
 
 				logger.info(`LLM response ${opts?.id}`);
 

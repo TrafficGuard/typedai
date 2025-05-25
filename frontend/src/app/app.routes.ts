@@ -79,7 +79,6 @@ export const appRoutes: Route[] = [
             {path: 'chat', loadChildren: () => import('app/modules/chat/chat.routes').then(m => m.default)},
             {path: 'agents', loadChildren: () => import('app/modules/agents/agent.routes')},
             {path: 'code-reviews', loadChildren: () => import('app/modules/code-review/code-review.routes')},
-            {path: 'workflows', loadChildren: () => import('app/modules/workflows/workflows.routes')},
             {path: 'prompts', loadChildren: () => import('app/modules/prompts/prompts.routes')},
             {path: 'vibe', loadChildren: () => import('app/modules/vibe/vibe.routes')},
         ]

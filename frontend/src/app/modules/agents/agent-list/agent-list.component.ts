@@ -28,7 +28,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterModule } from '@angular/router';
 import { fuseAnimations } from '@fuse/animations';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
-import { AgentService } from 'app/modules/agents/services/agent.service';
+import { AgentService } from '../agent.service';
 import { Subject, debounceTime, switchMap, takeUntil, finalize } from 'rxjs';
 import { FormsModule, ReactiveFormsModule, UntypedFormBuilder, UntypedFormControl } from '@angular/forms';
 import { AgentTag, AgentType } from '#shared/model/agent.model';

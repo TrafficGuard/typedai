@@ -2,7 +2,7 @@ import { Component, OnInit, inject, input, output, signal, WritableSignal, Chang
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { AgentService } from '../../services/agent.service';
+import { AgentService } from '../../agent.service';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -21,10 +21,10 @@ import { AgentContextApi } from '#shared/schemas/agent.schema';
 
 import { FunctionEditModalComponent } from '../function-edit-modal/function-edit-modal.component';
 import { ResumeAgentModalComponent } from '../resume-agent-modal/resume-agent-modal.component';
-import { FunctionsService } from '../../services/function.service';
-import { LlmService, LLM } from '../../services/llm.service';
+import { FunctionsService } from '../../functions.service';
+import { LlmService, LLM } from '../../../llm.service';
 import { MatTooltipModule } from "@angular/material/tooltip"; // Changed from MatTooltip
-import { AgentLinks, GoogleCloudLinks } from "../../services/agent-links";
+import { AgentLinks, GoogleCloudLinks } from "../../agent-links";
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AgentRunningState } from "#shared/model/agent.model";
 
@@ -306,7 +306,7 @@ export class AgentDetailsComponent implements OnInit {
                 catchError((error) => {
                     console.error('Error forcing agent stop:', error);
                     this.snackBar.open('Error forcing agent stop', 'Close', { duration: 3000 });
-                    return of(null); 
+                    return of(null);
                 }),
                 finalize(() => {
                     this.isForcingStop.set(false);

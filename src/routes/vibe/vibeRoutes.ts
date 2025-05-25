@@ -422,14 +422,14 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 	);
 
 	// Update a Vibe session (partial updates allowed)
-	fastify.patch<{ Params: ParamsType; Body: UpdateVibeSessionBodyType; Reply: Static<typeof ErrorResponseSchema> | null }>(
+	fastify.patch<{ Params: ParamsType; Body: UpdateVibeSessionBodyType; Reply: VibeSessionResponseType | Static<typeof ErrorResponseSchema> }>(
 		`${basePath}/:sessionId`,
 		{
 			schema: {
 				params: ParamsSchema,
 				body: UpdateVibeSessionBodySchema,
 				response: {
-					204: Type.Null({ description: 'Update successful' }),
+					200: VibeSessionResponseSchema, // Changed from 204
 					400: ErrorResponseSchema, // For invalid body data
 					401: ErrorResponseSchema,
 					404: ErrorResponseSchema,
@@ -452,13 +452,18 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 				// This is necessary because TypeBox schema (designAnswer: string) doesn't perfectly match the service type (designAnswer: DesignAnswer)
 				// The underlying service logic should handle the data correctly.
 				await vibeService.updateVibeSession(userId, sessionId, updates as any as UpdateVibeSessionData);
-				return reply.code(204).send();
+				const updatedSession = await vibeService.getVibeSession(userId, sessionId);
+				if (!updatedSession) {
+					// This case should ideally not be reached if updateVibeSession didn't throw and ID was valid
+					return sendNotFound(reply, `Vibe session with ID ${sessionId} not found after update`);
+				}
+				return reply.code(200).sendJSON(updatedSession); // Return the updated session
 			} catch (error: any) {
 				// Handle specific errors like 'not found' if the service throws them
 				if (error.message?.includes('not found')) {
 					return sendNotFound(reply, `Vibe session with ID ${sessionId} not found for update`);
 				}
-				fastify.log.error(error, `Error updating Vibe session ${sessionId} for user ${userId}`);
+				fastify.log.error(error, `Error updating Vibe session ${sessionId} for user ${userId} [updates]`);
 				return reply.code(500).send({ error: error.message || 'Failed to update Vibe session' });
 			}
 		},

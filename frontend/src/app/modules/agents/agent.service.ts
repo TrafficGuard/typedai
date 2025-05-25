@@ -9,11 +9,11 @@ import {
   catchError,
   // Removed shareReplay as it's not used after refactoring loadAgents
 } from 'rxjs';
-import { callApiRoute } from '../../../core/api-route';
+import { callApiRoute } from '../../core/api-route';
 import { AGENT_API } from '#shared/api/agent.api';
 import type { AutonomousIteration } from '#shared/model/agent.model';
 import { LlmCall } from '#shared/model/llmCall.model';
-import { Pagination } from "../../../core/types";
+import { Pagination } from "../../core/types";
 import { AgentContextApi, AgentContextPreviewApi, AgentStartRequestSchema } from '#shared/schemas/agent.schema';
 import { Static } from '@sinclair/typebox';
 

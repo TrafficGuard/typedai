@@ -17,13 +17,13 @@ import { signal } from '@angular/core';
 
 import { ConversationComponent } from './conversation.component';
 import { ChatServiceClient } from '../chat.service';
-import { LlmService } from '../../agents/services/llm.service';
+import { LlmService } from '../../llm.service';
 import { UserService } from 'app/core/user/user.service';
 import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import type { Chat, ChatMessage } from '../chat.types';
 import type { UserProfile } from '#shared/schemas/user.schema';
-import type { LLM } from '../../agents/services/llm.service';
+import type { LLM } from '../../llm.service';
 
 const mockChat: Chat = {
   id: 'chat1',

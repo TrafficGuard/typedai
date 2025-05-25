@@ -37,6 +37,7 @@ export class VibeServiceClient {
 	// BehaviorSubject to hold the currently viewed/active session
 	private currentSession = new BehaviorSubject<VibeSession | null>(null);
 	private sessions = new BehaviorSubject<VibeSession[] | null>(null);
+	private sessionsLoaded = false;
 
 	private http = inject(HttpClient);
 
@@ -60,11 +61,24 @@ export class VibeServiceClient {
 	 * Fetches the list of Vibe sessions from the backend.
 	 */
 	listVibeSessions(): Observable<VibeSession[]> {
+		if (this.sessionsLoaded && this.sessions.value !== null) {
+			return this.sessions.asObservable();
+		}
 		return this.http.get<VibeSession[]>('/api/vibe').pipe(
 			tap((response: VibeSession[]) => {
 				this.sessions.next(response);
+				this.sessionsLoaded = true;
 			}),
 		);
+	}
+
+	/**
+	 * Refreshes the list of Vibe sessions by forcing a new fetch from the backend.
+	 */
+	refreshSessions(): Observable<VibeSession[]> {
+		this.sessionsLoaded = false;
+		this.sessions.next(null); // Indicate data is stale/loading
+		return this.listVibeSessions();
 	}
 
 	/**
@@ -73,8 +87,13 @@ export class VibeServiceClient {
 	 * @returns An Observable emitting the newly created VibeSession.
 	 */
 	createVibeSession(data: CreateVibeSessionPayload): Observable<VibeSession> {
-		return this.http.post<VibeSession>('/api/vibe', data);
-		// No need for tap/BehaviorSubject update here unless caching is specifically required for creation results
+		return this.http.post<VibeSession>('/api/vibe', data).pipe(
+			tap((newSession: VibeSession) => {
+				const currentSessions = this.sessions.value || [];
+				this.sessions.next([...currentSessions, newSession]);
+				this.sessionsLoaded = true;
+			})
+		);
 	}
 
 	/**
@@ -83,6 +102,11 @@ export class VibeServiceClient {
 	getScmProjects(): Observable<GitProject[]> {
 		return this.http.get<GitProject[]>('/api/scm/projects');
 	}
+
+    // TODO move this API route to /api/scm/repositories
+    getRepositories(): Observable<string[]> {
+        return this.http.get<string[]>(`/api/workflows/repositories`);
+    }
 
 	/**
 	 * Fetches the list of branches for a given SCM project.
@@ -128,17 +152,16 @@ export class VibeServiceClient {
 	 * @param payload The data to update.
 	 */
 	updateSession(id: string, payload: UpdateVibeSessionPayload): Observable<VibeSession> {
-		// Keep VibeSession return type for now, assuming tap might work or backend might change
 		return this.http.patch<VibeSession>(`/api/vibe/${id}`, payload).pipe(
-			tap((updatedSession) => {
-				// This tap might not receive data if backend returns 204
-				// Consider refetching or adjusting based on actual backend behavior
-				if (updatedSession) {
-					// Add check if updatedSession is returned
-					this.currentSession.next(updatedSession);
-				} else {
-					// Optionally refetch the session here if backend returns 204
-					// this.getVibeSession(id).subscribe();
+			tap((updatedSession: VibeSession) => {
+				this.currentSession.next(updatedSession);
+				const currentSessions = this.sessions.value;
+				const index = currentSessions.findIndex(s => s.id === id);
+				if (index !== -1) {
+					const newSessions = [...currentSessions];
+					newSessions[index] = updatedSession;
+					this.sessions.next(newSessions);
+					this.sessionsLoaded = true;
 				}
 			}),
 		);
@@ -152,11 +175,12 @@ export class VibeServiceClient {
 		// Use the correct route from shared/routes.ts
 		return this.http.delete<void>(`/api/vibe/${id}`).pipe(
 			tap(() => {
-				// If the deleted session is the current session, clear the BehaviorSubject
+				const currentSessions = this.sessions.value || [];
+				this.sessions.next(currentSessions.filter(s => s.id !== id));
+				this.sessionsLoaded = true;
 				if (this.currentSession.value?.id === id) {
 					this.currentSession.next(null);
 				}
-				// TODO remove from sessions
 			}),
 		);
 	}

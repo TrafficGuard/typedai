@@ -9,7 +9,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatIconModule } from '@angular/material/icon';
 import { Subject, Subscription } from 'rxjs'; // Keep Subject for manual cancellation if needed, or just use destroyRef
 import { takeUntil } from 'rxjs/operators';
-import { AgentService } from '../../services/agent.service';
+import { AgentService } from '../../agent.service';
 import { AutonomousIteration } from '#shared/model/agent.model';
 import { FunctionCallResult } from "#shared/model/llm.model";
 
@@ -83,7 +83,7 @@ export class AgentIterationsComponent implements OnDestroy {
         ).subscribe({
             next: (loadedIterations: AutonomousIteration[]) => {
                 console.log(`AgentIterationsComponent: Successfully loaded ${loadedIterations.length} iterations for agent ${agentId}`);
-                
+
                 const processedIterations = loadedIterations.map(iter => {
                     return {
                         ...iter,
