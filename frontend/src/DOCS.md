@@ -750,6 +750,334 @@ mySignal.set(3);
 Here, only the last value (3) will be logged.
 
 
+
+# Effects -- --
+
+## Angular Signals: A Cautious Approach to Effects
+
+Angular's Signals offer a powerful and reactive way to manage state in your applications.  `Signal effects` are a key part of this system, designed to automatically react to changes in signals and execute side effects. They're primarily used to synchronize the reactive world of signals with the non-reactive world, such as manipulating the DOM or interacting with external APIs.
+
+Here's a basic example:
+
+```typescript
+count = signal(1);
+
+effect(() => {
+  console.log(`The current count is: ${count()}`);
+});
+```
+
+While seemingly simple, the use of effects requires careful consideration.  Alex Rickabaugh, a core Angular team member, highlights this:
+
+> "Effects are very powerful and flexible, but they also have a lot of trade-offs that you might not realize you're making when you use them."
+
+This article explores the potential pitfalls of effects and provides guidance on when and how to use them effectively.
+
+### The Challenges of Effects
+
+One of the primary issues with effects is their potential to introduce complexity and lead to synchronization problems.
+
+**Synchronization Issues and Race Conditions**
+
+Effects are often used to synchronize different pieces of state, which can lead to race conditions and inconsistent state.
+
+Consider this example:
+
+```typescript
+import { Component, input, signal, effect } from '@angular/core';
+
+@Component({
+  selector: 'app-options',
+  standalone: true,
+  imports: [],
+  template: `
+    <ul>
+      @for (option of options(); track option) {
+        <li (click)="select($index)">{{ option }}</li>
+      }
+    </ul>
+  `
+})
+export class SelectComponent {
+  // options coming from outside
+  options = input<string[]>();
+
+  /**
+   *  How do we clear the selectedIndex when options change?
+   *  They probably use an effect() as described in the constructor()
+   */
+  selectedIndex = signal(-1);
+
+  select(idx: number): void {
+    this.selectedIndex.set(idx);
+  }
+
+  constructor() {
+    // Don't do this ❌
+    effect(() => {
+      // Reset selectedIndex when options change
+      this.options();
+      this.selectedIndex.set(-1);
+    }, { allowSignalWrites: true });
+  }
+}
+```
+
+This code attempts to reset `selectedIndex` whenever `options` change. However, this approach has several drawbacks:
+
+1.  It treats `options` and `selectedIndex` as independent pieces of state when they're inherently related.
+2.  It can lead to a "glitch" where the UI momentarily displays an invalid state.
+3.  It's not immediately clear to other developers why this effect exists or what its full implications are.
+
+A better solution is to establish a single source of truth:
+
+```typescript
+import { Component, input, signal, computed } from '@angular/core';
+
+@Component({
+  selector: 'app-options',
+  standalone: true,
+  imports: [],
+  template: `
+    <ul>
+      @for (option of state().options; track $index) {
+        <li (click)="select($index)">{{ option }}</li>
+      }
+    </ul>
+  `
+})
+export class SelectComponent {
+  options = input<string[]>();
+
+  state = computed(() => {
+    return {
+      options: this.options(),
+      selectedIndex: signal(-1) // ✅ We create a WritableSignal inside the computed()
+    };
+  });
+
+  select(idx: number): void {
+    this.state().selectedIndex.set(idx);
+  }
+
+  // no more effect()
+}
+```
+
+In this improved version, a `WritableSignal` is created within the `computed()` function. When `options()` changes, the entire `state` signal is recomputed, effectively resetting the `selectedIndex`.
+
+**Another example**
+
+```typescript
+import { Component, input, computed, signal } from '@angular/core';
+
+@Component({
+  selector: 'app-my-component',
+  standalone: true,
+  imports: [],
+  template: ''
+})
+export class MyComponent {
+  name = input('');
+
+  myName = computed(() => signal(this.name())); // ✅
+
+  setName(name: string): void {
+    this.myName().set(name);
+  }
+}
+```
+
+With this solution, when the parent component changes with a new name, it will overrides the old `signal` from `computed` and brings us a new one. This throws away the previous state and brings us a new one.
+
+**Timing and "Glitches"**
+
+Effects don't execute immediately when their dependencies change. They run on a schedule, which can lead to temporary inconsistencies.
+
+Alex Rickabaugh explains:
+
+> "Effects aren't immediate things, right? They run on a schedule at some point in the future... so there's a period of time where the options have changed but the index is still showing the old value because the effect hasn't had a chance to synchronize them yet."
+
+This timing issue can be problematic in complex applications with multiple effects.
+
+**Infinite Loops**
+
+If not carefully managed, effects can create infinite loops.
+
+```typescript
+count = signal(0);
+
+effect(() => {
+  console.log(`Count is: ${count()}`);
+  count.update(v => v + 1);  // This will trigger the effect again
+}, { allowSignalWrites });
+```
+
+This effect will run indefinitely, continuously incrementing the count.
+
+### Legitimate Use Cases for Effects
+
+Despite the cautions, effects have their place. They are primarily useful for synchronizing between the reactive world (signals, computed values) and the non-reactive world.
+
+Here are some legitimate use cases:
+
+*   **DOM Manipulation:** When you need to perform direct DOM manipulation that can't be achieved through Angular's template syntax:
+
+```typescript
+effect(() => {
+  const canvas = document.getElementById('myCanvas') as HTMLCanvasElement;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillRect(0, 0, width(), height());
+});
+```
+
+*   **Interfacing with Non-Reactive Libraries:** When working with libraries that aren't natively reactive:
+
+```typescript
+effect(() => {
+  chart.setData(chartData());
+  chart.redraw();
+});
+```
+
+*   **Tracking State Changes:** For tracking state changes without affecting the application's behavior:
+
+```typescript
+effect(() => {
+  analyticsService.trackEvent('State Changed', {
+    user: currentUser(),
+    page: currentPage()
+  });
+});
+```
+
+### Alternatives to Effects
+
+In many cases, there are better alternatives to using effects.
+
+*   **Computed Signals:**  Use `computed signals` to derive state instead of effects. See the Synchronization Issues block for an example.
+
+*   **Reactive Helpers (e.g., ngxtension):** Libraries like ngxtension provide reactive helpers that can replace many common use cases for effects. For example, `derivedAsync` can be used for asynchronous computations:
+
+```typescript
+import { Component, input } from '@angular/core';
+import { derivedAsync } from 'ngxtension/derived-async';
+
+@Component({
+  selector: 'app-movie-card',
+  standalone: true,
+  imports: [],
+  template: ''
+})
+export class MovieCard {
+  movieId = input.required<string>();
+
+  movie = derivedAsync(() =>
+    fetch(`https://localhost/api/movies/${this.movieId()}`).then((r) =>
+      r.json(),
+    ),
+  );
+}
+```
+
+*   **RxJS (for complex asynchronous operations):** For complex asynchronous operations or when you need to manage multiple streams of data, RxJS is often a better choice than effects.
+
+*   **connect():**  A utility function that connects a signal to an observable or another signal, automatically updating the signal's value when the source changes.
+
+```typescript
+import { Component, inject, signal } from '@angular/core';
+import { DataService } from './data.service';
+import { connect } from '@angular/core';
+
+@Component({
+  selector: 'app-my-component',
+  standalone: true,
+  imports: [],
+  template: ''
+})
+export class MyComponent {
+  private dataService = inject(DataService);
+  pageNumber = signal(1);
+
+  constructor() {
+    connect(this.pageNumber, this.dataService.pageNumber$);
+  }
+}
+```
+
+### Explicit Tracking and the Future of Effects
+
+The Angular team is actively working on improving the developer experience with effects.  A recent discussion in the Angular repository highlighted challenges with the current automatic tracking model, particularly the frequent need for `untracked()` and the potential for errors.
+
+The proposed shift is towards an explicit tracking model for effects, which would involve:
+
+1.  Explicitly declaring dependencies within effects
+2.  Making effects non-tracking by default
+
+The ngxtensions library introduced `explicitEffect` to address these issues:
+
+```typescript
+import { explicitEffect } from 'ngxtension/explicit-effect';
+import { signal } from '@angular/core';
+
+const count = signal(0);
+const state = signal('idle');
+
+explicitEffect([count, state], ([countValue, stateValue]) => {
+  console.log(`Count: ${countValue}, State: ${stateValue}`);
+});
+```
+
+`explicitEffect` offers several benefits:
+
+*   Clear dependency declaration
+*   Prevention of unintended signal reads or writes
+*   Optional cleanup function
+*   Ability to defer the initial execution
+
+### Recent Changes to Effect Execution Timing
+
+A significant change has been made to the execution timing of effects in Angular (PR #57874). This has important implications:
+
+1.  **Removal of `allowSignalWrites`:** The `allowSignalWrites` option has been removed.
+2.  **Changes in Execution Timing:**
+    *   Effects triggered outside of change detection now run as part of the change detection process.
+    *   Effects triggered during change detection (e.g., by input signals) now run earlier.
+3.  **Impact on Testing:** Tests may need adjustments to account for the new timing.
+4.  **Potential Breaking Changes:** Effects relying on specific timing may need adjustments.
+5.  **New API for Post-Render Effects:** The `afterRenderEffect()` API is now recommended for effects that need to run after the component has been fully rendered.
+
+**Recommendations for Developers:**
+
+1.  **Code Review:** Review your use of effects, especially those interacting with the DOM or relying on specific timing.
+2.  **Testing Updates:** Update test suites to account for the new execution timing.
+3.  **Migration to `afterRenderEffect()`:** Migrate to `afterRenderEffect()` for post-render effects.
+4.  **Careful Consideration of Effect Timing:** Be mindful of when effects run in relation to change detection and component rendering.
+
+### Best Practices for Using Effects
+
+If you must use effects, follow these best practices:
+
+1.  **Keep effects small and focused:** Each effect should do one thing and do it well.
+2.  **Avoid writing to signals from effects:** This can lead to circular dependencies and infinite loops.
+3.  **Use `untracked` when appropriate:** Wrap parts of your effect that shouldn't trigger re-runs in `untracked`.
+4.  **Consider using explicit dependencies:** Use libraries like ngxtension's `explicitEffect` to specify dependencies explicitly.
+5.  **Document your effects:** Document why effects exist and what they're doing.
+
+### Conclusion
+
+Think of effects in Angular like two different types of observers in a building:
+
+1.  Building-wide observers (**root effects**): These monitor changes from anywhere in the building (those created in a root service for example).
+2.  Room-specific observers (**view effects**): These only watch what happens in their assigned room (those created in components).
+
+By approaching effects with caution and leveraging Angular's other reactive primitives, you can build more predictable, easier-to-maintain applications.
+
+
+
+
+
 # Angular code guidelines
 
 # Angular API Service Best Practices Guide
@@ -983,7 +1311,10 @@ import { ENTITIES_ROUTES } from '../routes/entities.routes';
       <a [routerLink]="routes.nav.new()" class="btn">New Entity</a>
     </div>
     
-    @switch (entitiesState().status) {
+    <!-- Its essential to have the @let variable for the discriminated union inference in the case statements -->
+    @let entity = entityState();
+    
+    @switch (entity.status) {
       @case ('idle') {
         <p>Loading entities...</p>
       }
@@ -991,11 +1322,11 @@ import { ENTITIES_ROUTES } from '../routes/entities.routes';
         <app-spinner />
       }
       @case ('success') {
-        @if (entitiesState().data.length === 0) {
+        @if (entity.data.length === 0) {
           <p>No entities found. Create your first one!</p>
         } @else {
           <div class="entity-grid">
-            @for (entity of entitiesState().data; track entity.id) {
+            @for (entity of entity.data; track entity.id) {
               <div class="entity-card">
                 <h3>{{ entity.name }}</h3>
                 <p>{{ entity.description }}</p>

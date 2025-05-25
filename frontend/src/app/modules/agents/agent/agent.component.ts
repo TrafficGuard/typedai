@@ -40,7 +40,6 @@ export class AgentComponent {
     private route = inject(ActivatedRoute);
     private snackBar = inject(MatSnackBar);
     private agentService = inject(AgentService);
-    private previousAgentIdForEffect: string | null | undefined | symbol = Symbol('initialAgentIdValue');
 
     // Get agentId from route params
     readonly agentId = toSignal(
@@ -55,20 +54,16 @@ export class AgentComponent {
 
     constructor() {
         effect(() => {
-            const currentAgentIdVal = this.agentId(); // Read the new readonly signal
-            console.log(`AgentComponent: effect for agentId. Current value: '${currentAgentIdVal}', Previously processed value: '${String(this.previousAgentIdForEffect)}'`);
-            if (currentAgentIdVal === this.previousAgentIdForEffect) {
-                console.log(`AgentComponent: agentId ('${currentAgentIdVal}') matches previously processed value. Skipping further processing in this effect run.`);
-                return; // Exit the effect early if the ID hasn't changed
-            }
-            this.previousAgentIdForEffect = currentAgentIdVal;
+            const currentAgentIdVal = this.agentId();
+            // Updated log message for clarity
+            console.log(`AgentComponent: Effect (ID sync) - agentId signal emitted: '${currentAgentIdVal}'`);
+
             if (currentAgentIdVal) {
-                console.log(`AgentComponent: agentId is truthy and has changed to ('${currentAgentIdVal}'), calling loadAgentDetails.`);
-                this.loadAgentDetails(); // loadAgentDetails will internally use this.agentId()
+                console.log(`AgentComponent: Effect (ID sync) - agentId is truthy ('${currentAgentIdVal}'), calling agentService.loadAgentDetails.`);
+                this.agentService.loadAgentDetails(currentAgentIdVal);
             } else {
-                // This case handles when agentId becomes null (e.g. route change to one without :id, or initial state before paramMap emits)
-                console.log(`AgentComponent: agentId is falsy and has changed to ('${currentAgentIdVal}'), clearing details.`);
-                this.agentDetails.set(null);
+                // This handles cases where agentId becomes null or undefined (e.g., navigating away or initial state)
+                console.log(`AgentComponent: Effect (ID sync) - agentId is falsy ('${currentAgentIdVal}'), calling agentService.clearSelectedAgentDetails.`);
                 this.agentService.clearSelectedAgentDetails();
             }
         });
@@ -100,16 +95,5 @@ export class AgentComponent {
                 this.agentDetails.set(null);
             }
         });
-    }
-
-    loadAgentDetails(): void {
-        const currentAgentId = this.agentId();
-        if (!currentAgentId) {
-            this.agentDetails.set(null);
-            this.agentService.clearSelectedAgentDetails(); // Ensure service state is idle
-            return;
-        }
-        // agentDetails signal is updated by the effect reacting to agentService.selectedAgentDetailsState()
-        this.agentService.loadAgentDetails(currentAgentId);
     }
 }
