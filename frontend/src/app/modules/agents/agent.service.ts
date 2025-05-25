@@ -1,15 +1,16 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal, WritableSignal } from '@angular/core';
 import {
-  BehaviorSubject,
   Observable,
   throwError,
   map,
   tap,
   catchError,
+  EMPTY,
   // Removed shareReplay as it's not used after refactoring loadAgents
 } from 'rxjs';
 import { callApiRoute } from '../../core/api-route';
+import { createApiListState, createApiEntityState, ApiListState, ApiEntityState } from '../../core/api-state.types';
 import { AGENT_API } from '#shared/api/agent.api';
 import type { AutonomousIteration } from '#shared/model/agent.model';
 import { LlmCall } from '#shared/model/llmCall.model';
@@ -22,13 +23,12 @@ export type AgentStartRequestData = Static<typeof AgentStartRequestSchema>;
 @Injectable({ providedIn: 'root' })
 export class AgentService {
   /** Holds the list of agents */
-  private _agents$: BehaviorSubject<AgentContextPreviewApi[]> = new BehaviorSubject<AgentContextPreviewApi[]>(null);
+  private readonly _agentsState = createApiListState<AgentContextPreviewApi>();
 
   /** Exposes the agents as an observable */
-  public agents$: Observable<AgentContextPreviewApi[]> = this._agents$.asObservable();
+  readonly agentsState = this._agentsState.asReadonly();
 
-  private _pagination: BehaviorSubject<Pagination | null> =
-    new BehaviorSubject({
+  private readonly _paginationState = signal<Pagination | null>({
         length: 0,
         size: 0,
         endIndex: 0,
@@ -36,6 +36,20 @@ export class AgentService {
         lastPage: 0,
         startIndex: 0
   });
+  readonly paginationState = this._paginationState.asReadonly();
+
+  // New state properties for selected agent details, LLM calls, agent iterations, and available functions
+  private readonly _selectedAgentDetailsState = createApiEntityState<AgentContextApi>();
+  readonly selectedAgentDetailsState = this._selectedAgentDetailsState.asReadonly();
+
+  private readonly _llmCallsState = createApiListState<LlmCall>();
+  readonly llmCallsState = this._llmCallsState.asReadonly();
+
+  private readonly _agentIterationsState = createApiListState<AutonomousIteration>();
+  readonly agentIterationsState = this._agentIterationsState.asReadonly();
+
+  private readonly _availableFunctionsState = createApiListState<string>();
+  readonly availableFunctionsState = this._availableFunctionsState.asReadonly();
 
   private http = inject(HttpClient);
 
@@ -44,25 +58,19 @@ export class AgentService {
     this.loadAgents();
   }
 
-  get pagination$(): Observable<Pagination> {
-      return this._pagination.asObservable();
-  }
-
   /** Loads agents from the server and updates the BehaviorSubject */
   private loadAgents(): void {
+    if (this._agentsState().status === 'loading') return;
+    this._agentsState.set({ status: 'loading' });
+
     callApiRoute(this.http, AGENT_API.list).pipe(
-      tap(agents => this._agents$.next(agents)),
+      tap(agents => this._agentsState.set({ status: 'success', data: agents })),
       catchError(error => {
         console.error('Error fetching agents', error);
-        this._agents$.next([]); // Clear agents on error or provide empty array
-        return this.handleError('loadAgents', error);
+        this._agentsState.set({ status: 'error', error: error instanceof Error ? error : new Error('Failed to load agents'), code: error?.status });
+        return EMPTY; // Return EMPTY to complete the observable chain gracefully
       })
     ).subscribe();
-  }
-
-  /** Retrieves the current list of agents */
-  getAgents(): Observable<AgentContextPreviewApi[]> {
-    return this.agents$;
   }
 
   /**
@@ -103,7 +111,10 @@ export class AgentService {
 
   /** Updates the local cache when an agent is modified */
   private updateAgentInCache(updatedAgent: AgentContextApi): void {
-    const agents = this._agents$.getValue() ?? []; // Existing agents are AgentContextPreviewApi[]
+    const currentState = this._agentsState();
+    if (currentState.status !== 'success') return; // Only update if current state is success
+
+    const agents = currentState.data ?? []; // Existing agents are AgentContextPreviewApi[]
     const index = agents.findIndex(agent => agent.agentId === updatedAgent.agentId);
 
     // Convert AgentContextApi to AgentContextPreviewApi
@@ -119,21 +130,25 @@ export class AgentService {
         user: updatedAgent.user, // AgentContextApi.user is a string ID, matching AgentContextPreviewApi.user
     };
 
+    let newAgentList: AgentContextPreviewApi[];
     if (index !== -1) {
-        const updatedAgentsList = [...agents];
-        updatedAgentsList[index] = agentPreview; // Store the converted preview
-        this._agents$.next(updatedAgentsList);
+        newAgentList = [...agents];
+        newAgentList[index] = agentPreview; // Store the converted preview
     } else {
         // Agent not found in cache, typically means it's a new agent. Add its preview.
-        this._agents$.next([...agents, agentPreview]); // Store the converted preview
+        newAgentList = [...agents, agentPreview]; // Store the converted preview
     }
+    this._agentsState.set({ status: 'success', data: newAgentList });
   }
 
   /** Removes agents from the local cache */
   private removeAgentsFromCache(agentIds: string[]): void {
-    const agents = this._agents$.getValue();
-    const updatedAgents = agents.filter(agent => !agentIds.includes(agent.agentId));
-    this._agents$.next(updatedAgents);
+    const currentState = this._agentsState();
+    if (currentState.status !== 'success') return; // Only update if current state is success
+
+    const currentAgents = currentState.data ?? [];
+    const updatedAgents = currentAgents.filter(agent => !agentIds.includes(agent.agentId));
+    this._agentsState.set({ status: 'success', data: updatedAgents });
   }
 
   /** Handles errors and logs them */
