@@ -198,7 +198,7 @@ describe('Fastify Reply Decorators', () => {
 				url: '/test-schema-204-no-content',
 			});
 			expect(response.statusCode).to.equal(StatusCodes.NO_CONTENT); // 204
-			expect(response.payload).to.equal('null'); // Fastify serializes null to "null" for application/json
+			expect(response.payload).to.equal(''); // A 204 response must have an empty body
 		});
 
 		it('should default to 200 if no relevant 2xx status is in schema and no other overrides', async () => {
