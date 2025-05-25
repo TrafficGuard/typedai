@@ -1,80 +1,62 @@
 import { ComponentFixture, TestBed, fakeAsync, tick, waitForAsync } from '@angular/core/testing';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
-import { BehaviorSubject, of, Subject } from 'rxjs';
+import { of, Observable } from 'rxjs';
 import { AgentListComponent } from './agent-list.component';
 import { AgentService } from '../agent.service';
 import { AgentRunningState, AgentType } from '#shared/model/agent.model';
-import { AgentContextApi } from '#shared/schemas/agent.schema';
+import { AgentContextPreviewApi } from '#shared/schemas/agent.schema'; // Assuming AgentContextPreviewApi is here
 import { FuseConfirmationService } from '@fuse/services/confirmation';
+import { signal, WritableSignal, effect } from '@angular/core';
+import { ApiListState, createApiListState } from '../../../../core/api-state.types';
 import { RouterTestingModule } from '@angular/router/testing';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 
-// Helper to create a minimal valid AgentContextApi
-const createMockAgentContextApi = (id: string, name: string, state: AgentRunningState): AgentContextApi => ({
+// Helper to create a minimal valid AgentContextPreviewApi
+const createMockAgentPreviewApi = (id: string, name: string, state: AgentRunningState): AgentContextPreviewApi => ({
     agentId: id,
-    type: 'autonomous' as AgentType,
-    subtype: 'xml',
-    executionId: `exec-${id}`,
-    typedAiRepoDir: '/test/repo',
-    traceId: `trace-${id}`,
     name: name,
-    user: 'user1',
     state: state,
-    callStack: [],
-    hilBudget: 100,
-    cost: 50,
-    budgetRemaining: 50,
-    llms: {
-        easy: 'llm-easy-id',
-        medium: 'llm-medium-id',
-        hard: 'llm-hard-id',
-        xhard: 'llm-xhard-id',
-    },
-    fileSystem: { basePath: '/base', workingDirectory: '/work' },
-    useSharedRepos: true,
-    memory: {},
-    lastUpdate: Date.now(),
-    metadata: {},
-    functions: {
-        functionClasses: ['TestFunctionClass'],
-        toJSON: () => ({ functionClasses: ['TestFunctionClass'] }),
-        fromJSON: function() { return this; },
-        removeFunctionClass: () => {},
-        getFunctionInstances: () => [],
-        getFunctionInstanceMap: () => ({}),
-    },
-    pendingMessages: [],
-    iterations: 1,
-    invoking: [],
-    notes: [],
-    userPrompt: 'Test prompt',
-    inputPrompt: 'Initial input',
-    messages: [],
-    functionCallHistory: [],
-    hilCount: 0,
+    type: 'autonomous' as AgentType,
+    userPrompt: `Test prompt for ${name}`,
+    cost: 10.0,
+    error: state === 'error' ? 'Simulated error' : undefined,
+    output: state === 'completed' ? 'Simulated output' : undefined,
+    // subtype: 'xml', // Add if part of AgentContextPreviewApi and used
+    // lastUpdate: Date.now(), // Add if part of AgentContextPreviewApi and used
 });
 
 class MockAgentService {
-    private _agents$ = new BehaviorSubject<AgentContextApi[]>([]);
-    agents$ = this._agents$.asObservable();
+    private _agentsStateSignal: WritableSignal<ApiListState<AgentContextPreviewApi>>;
+    readonly agentsState;
 
-    // Method to manually push values for testing
-    setAgents(agents: AgentContextApi[]) {
-        this._agents$.next(agents);
+    constructor() {
+        this._agentsStateSignal = createApiListState<AgentContextPreviewApi>(); // Initializes to { status: 'idle' }
+        this.agentsState = this._agentsStateSignal.asReadonly();
+    }
+
+    setAgentsState(newState: ApiListState<AgentContextPreviewApi>) {
+        this._agentsStateSignal.set(newState);
+    }
+
+    setAgentsData(data: AgentContextPreviewApi[]) {
+        this._agentsStateSignal.set({ status: 'success', data });
     }
 
     refreshAgents() {
-        // Simulate async refresh by pushing the current value again or a new value
-        // For testing, this might be spied on, and we'd manually call setAgents.
+        this._agentsStateSignal.set({ status: 'loading' });
+        // In a real service, an HTTP call would follow.
+        // For the mock, the test will then call setAgentsData or setAgentsState to simulate response.
     }
 
-    deleteAgents(agentIds: string[]) {
-        const currentAgents = this._agents$.getValue();
-        const updatedAgents = currentAgents.filter(agent => !agentIds.includes(agent.agentId));
-        this._agents$.next(updatedAgents);
-        return of(null); // Simulate successful deletion (Observable<void> equivalent)
+    deleteAgents(agentIds: string[]): Observable<void> {
+        const currentState = this._agentsStateSignal();
+        if (currentState.status === 'success') {
+            const updatedData = currentState.data.filter(agent => !agentIds.includes(agent.agentId));
+            this._agentsStateSignal.set({ status: 'success', data: updatedData });
+        }
+        return of(null);
     }
 }
 
@@ -88,9 +70,9 @@ describe('AgentListComponent', () => {
     let mockAgentService: MockAgentService;
     let mockFuseConfirmationService: MockFuseConfirmationService;
 
-    const mockAgentsData: AgentContextApi[] = [
-        createMockAgentContextApi('id1', 'Agent Alpha', 'completed'),
-        createMockAgentContextApi('id2', 'Agent Beta', 'agent'),
+    const mockAgentsData: AgentContextPreviewApi[] = [
+        createMockAgentPreviewApi('id1', 'Agent Alpha', 'completed'),
+        createMockAgentPreviewApi('id2', 'Agent Beta', 'agent'),
     ];
 
     beforeEach(waitForAsync(() => {
@@ -117,43 +99,56 @@ describe('AgentListComponent', () => {
         mockAgentService = TestBed.inject(AgentService) as unknown as MockAgentService;
         mockFuseConfirmationService = TestBed.inject(FuseConfirmationService) as unknown as MockFuseConfirmationService;
 
-        // Set initial data for the service's BehaviorSubject
-        mockAgentService.setAgents([...mockAgentsData]);
+        // Initial state is 'idle' from createApiListState, no data set yet.
         fixture.detectChanges(); // Trigger ngOnInit and initial signal setup
     });
 
     it('should create', () => {
         expect(component).toBeTruthy();
+        expect(component.agentsState().status).toBe('idle');
     });
 
-    it('should display a list of agents from the agents signal', fakeAsync(() => {
-        tick(); // Allow toSignal to process initial value
+    it('should display agents when agentsState is success', fakeAsync(() => {
+        mockAgentService.setAgentsData([...mockAgentsData]);
+        tick();
         fixture.detectChanges();
-        expect(component.agents().length).toBe(2);
-        expect(component.agents()[0].name).toBe('Agent Alpha');
+
+        const state = component.agentsState();
+        expect(state.status).toBe('success');
+        if (state.status === 'success') {
+            expect(state.data.length).toBe(2);
+            expect(state.data[0].name).toBe('Agent Alpha');
+        }
     }));
 
     it('trackByFn should return agentId or index', () => {
+        // trackByFn operates on the data array, so mockAgentsData is fine here
         expect(component.trackByFn(0, mockAgentsData[0])).toBe('id1');
-        const agentWithoutId = { ...mockAgentsData[0], agentId: '' };
+        const agentWithoutId = { ...mockAgentsData[0], agentId: '' }; // Create a version without agentId
         expect(component.trackByFn(1, agentWithoutId)).toBe(1);
     });
 
-    it('refreshAgents should call agentService.refreshAgents and set isLoading to true', fakeAsync(() => {
+    it('refreshAgents should call agentService.refreshAgents and set isLoading and agentsState to loading', fakeAsync(() => {
         spyOn(mockAgentService, 'refreshAgents').and.callThrough();
-        component.isLoading.set(false); // Ensure it's false before test
+        component.isLoading.set(false); // Ensure it's false
+        mockAgentService.setAgentsState({ status: 'idle' }); // Start from idle
+        tick();
+        fixture.detectChanges();
 
         component.refreshAgents();
         tick(); // Allow signal updates and effects
 
         expect(component.isLoading()).toBeTrue();
+        expect(component.agentsState().status).toBe('loading');
         expect(mockAgentService.refreshAgents).toHaveBeenCalled();
 
-        // Simulate data arrival to trigger effect setting isLoading to false
-        mockAgentService.setAgents([...mockAgentsData]); // Re-emit data
-        tick(); // Allow effect to run
+        // Simulate data arrival
+        mockAgentService.setAgentsData([...mockAgentsData]);
+        tick(); // Allow effect to run (component's isLoading should update)
         fixture.detectChanges();
+
         expect(component.isLoading()).toBeFalse();
+        expect(component.agentsState().status).toBe('success');
     }));
 
 
@@ -168,24 +163,35 @@ describe('AgentListComponent', () => {
         spyOn(mockFuseConfirmationService, 'open').and.returnValue({ afterClosed: () => of('confirmed') });
         const deleteServiceSpy = spyOn(mockAgentService, 'deleteAgents').and.callThrough();
 
+        // Setup initial state with data
+        mockAgentService.setAgentsData([...mockAgentsData]);
+        tick();
+        fixture.detectChanges();
+
         component.selection.select(mockAgentsData[0]);
-        component.isLoading.set(false);
+        component.isLoading.set(false); // Ensure isLoading is false before action
+        tick();
 
         component.deleteSelectedAgents();
-        tick(); // For afterClosed
+        tick(); // For afterClosed promise
 
         expect(mockFuseConfirmationService.open).toHaveBeenCalled();
-        expect(component.isLoading()).toBeTrue(); // isLoading set before service call
+        expect(component.isLoading()).toBeTrue(); // isLoading set by component before service call
 
-        // deleteAgents in mock service updates the BehaviorSubject,
-        // which toSignal picks up, and then the effect sets isLoading to false.
+        // deleteAgents in mock service updates the signal.
+        // The component's effect watching agentsState should update isLoading.
         tick(); // For service call and subsequent signal/effect processing
         fixture.detectChanges();
 
         expect(deleteServiceSpy).toHaveBeenCalledWith([mockAgentsData[0].agentId]);
-        expect(component.isLoading()).toBeFalse(); // isLoading set by effect
-        expect(component.agents().length).toBe(1);
-        expect(component.agents()[0].agentId).toBe('id2');
+        expect(component.isLoading()).toBeFalse(); // isLoading set by component's effect
+
+        const state = component.agentsState();
+        expect(state.status).toBe('success');
+        if (state.status === 'success') {
+            expect(state.data.length).toBe(1);
+            expect(state.data[0].agentId).toBe('id2');
+        }
         expect(component.selection.isEmpty()).toBeTrue();
     }));
 
@@ -196,9 +202,13 @@ describe('AgentListComponent', () => {
     });
 
     it('masterToggle should select all if not all selected, or clear if all selected', fakeAsync(() => {
-        mockAgentService.setAgents([...mockAgentsData]);
+        mockAgentService.setAgentsData([...mockAgentsData]);
         tick();
         fixture.detectChanges();
+
+        // Ensure component.agents() (derived from agentsState) is populated for selection logic
+        const state = component.agentsState();
+        if (state.status !== 'success') throw new Error('Agents not loaded for masterToggle test');
 
         expect(component.selection.isEmpty()).toBeTrue();
         component.masterToggle(); // Should select all
@@ -209,12 +219,17 @@ describe('AgentListComponent', () => {
     }));
 
     it('isAllSelected should return true if all agents are selected, false otherwise', fakeAsync(() => {
-        mockAgentService.setAgents([...mockAgentsData]);
+        mockAgentService.setAgentsData([...mockAgentsData]);
         tick();
         fixture.detectChanges();
 
+        // Ensure component.agents() (derived from agentsState) is populated for selection logic
+        const state = component.agentsState();
+        if (state.status !== 'success') throw new Error('Agents not loaded for isAllSelected test');
+
+
         expect(component.isAllSelected()).toBeFalse();
-        component.selection.select(...mockAgentsData); // Select all
+        component.selection.select(...mockAgentsData); // Select all based on the mock data array
         expect(component.isAllSelected()).toBeTrue();
 
         component.selection.deselect(mockAgentsData[0]); // Deselect one
@@ -224,17 +239,22 @@ describe('AgentListComponent', () => {
     it('searchInputControl valueChanges should trigger refresh and manage isLoading', fakeAsync(() => {
         spyOn(mockAgentService, 'refreshAgents').and.callThrough();
         component.isLoading.set(false);
+        mockAgentService.setAgentsState({ status: 'idle' }); // Start from idle
+        tick();
+        fixture.detectChanges();
 
         component.searchInputControl.setValue('test query');
         tick(300); // Debounce time
 
         expect(component.isLoading()).toBeTrue();
+        expect(component.agentsState().status).toBe('loading');
         expect(mockAgentService.refreshAgents).toHaveBeenCalled();
 
         // Simulate data arrival
-        mockAgentService.setAgents([...mockAgentsData]);
+        mockAgentService.setAgentsData([...mockAgentsData]);
         tick(); // Allow effect to run
         fixture.detectChanges();
         expect(component.isLoading()).toBeFalse();
+        expect(component.agentsState().status).toBe('success');
     }));
 });
