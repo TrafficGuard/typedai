@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, input, output, signal, WritableSignal, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, inject, input, output, signal, WritableSignal, ChangeDetectionStrategy, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -85,10 +85,21 @@ export class AgentDetailsComponent implements OnInit {
         this.feedbackForm = this.formBuilder.group({ feedback: ['', Validators.required] });
         this.hilForm = this.formBuilder.group({  feedback: [''] });
         this.errorForm = this.formBuilder.group({ errorDetails: ['', Validators.required] });
+
+        effect(() => {
+            const state = this.functionsService.functionsState();
+            if (state.status === 'success') {
+                this.allAvailableFunctions.set(state.data);
+            } else if (state.status === 'error') {
+                console.error('Error loading functions in AgentDetailsComponent:', state.error);
+                this.allAvailableFunctions.set([]); // Reset or handle error appropriately
+                this.snackBar.open('Error loading available functions', 'Close', { duration: 3000 });
+            }
+        });
     }
 
     ngOnInit(): void {
-        this.functionsService.getFunctions().subscribe(value => this.allAvailableFunctions.set(value));
+        this.functionsService.getFunctions();
         this.isLoadingLlms.set(true);
         this.llmService.getLlms().pipe(
             finalize(() => {

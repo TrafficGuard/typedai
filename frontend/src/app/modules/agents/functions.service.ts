@@ -2,8 +2,8 @@ import { Injectable, signal, WritableSignal } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, EMPTY } from 'rxjs';
 import { tap, catchError, retry } from 'rxjs/operators';
-import { environment } from "../../../../environments/environment";
-import { ApiListState, createApiListState } from '../../../core/api-state.types';
+import { environment } from "../../../environments/environment";
+import { ApiListState, createApiListState } from '../../core/api-state.types';
 
 @Injectable({
   providedIn: 'root',
