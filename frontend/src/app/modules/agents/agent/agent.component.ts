@@ -55,41 +55,44 @@ export class AgentComponent {
                 this.loadAgentDetails();
             }
         });
+
+        effect(() => {
+            const state = this.agentService.selectedAgentDetailsState();
+            if (state.status === 'success') {
+                const apiDetails = state.data;
+                // Process apiDetails here before setting the signal
+                const details = {...apiDetails}; // Clone to avoid mutating the source from service if it's cached
+                details.toolState = details.toolState ?? {};
+                details.output = null;
+                if (details.state === 'completed') {
+                    const maybeCompletedFunctionCall = details.functionCallHistory?.length
+                        ? details.functionCallHistory.slice(-1)[0]
+                        : null;
+                    details.output = (details.error ?? maybeCompletedFunctionCall?.parameters?.['note']) ?? '';
+                }
+                this.agentDetails.set(details);
+                console.log('Agent Details Processed and Set from Service State:', details);
+            } else if (state.status === 'error') {
+                console.error('Error loading agent details from service state', state.error);
+                this.snackBar.open('Error loading agent details', 'Close', { duration: 3000 });
+                this.agentDetails.set(null);
+            } else if (state.status === 'not_found' || state.status === 'forbidden') {
+                this.snackBar.open(`Agent ${state.status}`, 'Close', {duration: 3000});
+                this.agentDetails.set(null);
+            } else { // idle or loading
+                this.agentDetails.set(null);
+            }
+        });
     }
 
     loadAgentDetails(): void {
         const currentAgentId = this.agentId();
         if (!currentAgentId) {
             this.agentDetails.set(null);
+            this.agentService.clearSelectedAgentDetails(); // Ensure service state is idle
             return;
         }
-
-        this.agentService.getAgentDetails(currentAgentId)
-            .pipe(
-                map(apiDetails => {
-                    // Process apiDetails here before setting the signal
-                    const details = {...apiDetails}; // Clone to avoid mutating the source from service if it's cached
-                    details.toolState = details.toolState ?? {};
-                    details.output = null;
-                    if (details.state === 'completed') {
-                        const maybeCompletedFunctionCall = details.functionCallHistory?.length
-                            ? details.functionCallHistory.slice(-1)[0]
-                            : null;
-                        details.output = (details.error ?? maybeCompletedFunctionCall?.parameters?.['note']) ?? '';
-                    }
-                    return details;
-                })
-            )
-            .subscribe({
-                next: (processedDetails: AgentContextApi) => {
-                    this.agentDetails.set(processedDetails);
-                    console.log('Agent Details Loaded:', processedDetails);
-                },
-                error: (error) => {
-                    console.error('Error loading agent details', error);
-                    this.snackBar.open('Error loading agent details', 'Close', { duration: 3000 });
-                    this.agentDetails.set(null);
-                }
-            });
+        // agentDetails signal is updated by the effect reacting to agentService.selectedAgentDetailsState()
+        this.agentService.loadAgentDetails(currentAgentId);
     }
 }

@@ -41,7 +41,7 @@ export class AgentIterationsComponent implements OnDestroy {
     errorLoading: WritableSignal<string | null> = signal(null);
 
     private agentService = inject(AgentService);
-    private destroy$ = new Subject<void>(); // For managing ongoing subscriptions during agentId changes
+    // private destroy$ = new Subject<void>(); // No longer needed for getAgentIterations subscription
 
     constructor() {
         effect(() => {
@@ -54,37 +54,17 @@ export class AgentIterationsComponent implements OnDestroy {
                 this.iterations.set([]);
                 this.isLoading.set(false);
                 this.errorLoading.set(null);
-                this.destroy$.next(); // Cancel any pending request for previous agentId
+                // this.destroy$.next(); // No longer needed
             }
         });
-    }
 
-    ngOnDestroy(): void {
-        this.destroy$.next();
-        this.destroy$.complete();
-    }
+        // Effect to react to service state changes
+        effect(() => {
+            const state = this.agentService.agentIterationsState();
+            this.isLoading.set(state.status === 'loading');
 
-    loadIterations(agentId: string): void {
-        if (!agentId) {
-            console.warn('AgentIterationsComponent: loadIterations called with no agentId.');
-            return;
-        }
-        console.log(`AgentIterationsComponent: Loading iterations for agent ${agentId}`);
-
-        this.isLoading.set(true);
-        this.errorLoading.set(null);
-        this.iterations.set([]); // Clear previous iterations
-
-        // Cancel previous pending request if any, before starting a new one
-        this.destroy$.next();
-
-        this.agentService.getAgentIterations(agentId).pipe(
-            takeUntil(this.destroy$) // Ensure subscription is cleaned up on destroy or new load for a different agentId
-        ).subscribe({
-            next: (loadedIterations: AutonomousIteration[]) => {
-                console.log(`AgentIterationsComponent: Successfully loaded ${loadedIterations.length} iterations for agent ${agentId}`);
-
-                const processedIterations = loadedIterations.map(iter => {
+            if (state.status === 'success') {
+                const processedIterations = state.data.map(iter => {
                     return {
                         ...iter,
                         memory: iter.memory ?? {},
@@ -92,16 +72,40 @@ export class AgentIterationsComponent implements OnDestroy {
                     } as AutonomousIteration;
                 });
                 this.iterations.set(processedIterations);
-                this.isLoading.set(false);
                 this.errorLoading.set(null);
-            },
-            error: (error) => {
-                console.error(`AgentIterationsComponent: Error loading agent iterations for agent ${agentId}`, error);
-                this.errorLoading.set('Failed to load iteration data.');
-                this.isLoading.set(false);
+                console.log(`AgentIterationsComponent: Synced ${processedIterations.length} iterations from service state.`);
+            } else if (state.status === 'error') {
+                const errorMessage = state.error?.message || 'Failed to load iteration data.';
+                console.error(`AgentIterationsComponent: Error from service state for agent iterations: ${errorMessage}`, state.error);
+                this.errorLoading.set(errorMessage);
                 this.iterations.set([]);
-            },
+            } else if (state.status === 'idle') {
+                this.iterations.set([]);
+                this.errorLoading.set(null);
+            }
         });
+    }
+
+    ngOnDestroy(): void {
+        // this.destroy$.next(); // No longer needed
+        // this.destroy$.complete(); // No longer needed
+        // Clear state if component is destroyed, or rely on service to manage its own state.
+        // For now, let service manage its state. If specific cleanup is needed, call service.clearAgentIterations()
+    }
+
+    loadIterations(agentId: string): void {
+        if (!agentId) {
+            console.warn('AgentIterationsComponent: loadIterations called with no agentId.');
+            // Ensure local state reflects no data if agentId is invalid
+            this.iterations.set([]);
+            this.isLoading.set(false);
+            this.errorLoading.set(null);
+            this.agentService.clearAgentIterations(); // Clear service state if appropriate
+            return;
+        }
+        console.log(`AgentIterationsComponent: Requesting iterations for agent ${agentId}`);
+        // isLoading, errorLoading, and iterations are now set by the effect reacting to agentService.agentIterationsState()
+        this.agentService.loadAgentIterations(agentId);
     }
 
     // Helper to toggle expansion state for potentially large content sections

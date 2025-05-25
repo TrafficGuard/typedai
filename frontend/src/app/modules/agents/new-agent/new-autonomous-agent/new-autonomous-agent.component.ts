@@ -109,34 +109,36 @@ export class NewAutonomousAgentComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.agentService.getAvailableFunctions()
-      .pipe(takeUntil(this.destroy$)) // Ensure subscription is cleaned up
-      .subscribe(
-        (fetchedFunctions: string[]) => {
-          this.functions = fetchedFunctions; // functions are already pre-filtered and sorted by the service
-          console.log('NewAutonomousAgentComponent: received functions from service', this.functions);
+    this.agentService.loadAvailableFunctions();
 
-          // Dynamically add form controls for each function
-          this.functions.forEach((tool, index) => {
-            (this.runAgentForm as FormGroup).addControl('function' + index, new FormControl(false));
-          });
+    effect(() => {
+        const state = this.agentService.availableFunctionsState();
+        if (state.status === 'success') {
+            this.functions = state.data;
+            console.log('NewAutonomousAgentComponent: received functions from service state', this.functions);
 
-          // Initial check for shared repos state
-          this.updateSharedReposState();
-
-          // Subscribe to form value changes to update shared repos state dynamically
-          // This remains inside to keep existing behavior where it's set up after functions are loaded.
-          this.runAgentForm.valueChanges
-            .pipe(takeUntil(this.destroy$))
-            .subscribe(() => {
-              this.updateSharedReposState();
+            // Dynamically add form controls for each function if they don't exist
+            this.functions.forEach((tool, index) => {
+                const controlName = 'function' + index;
+                if (!(this.runAgentForm as FormGroup).get(controlName)) {
+                    (this.runAgentForm as FormGroup).addControl(controlName, new FormControl(false));
+                }
             });
-        },
-        (error) => {
-          console.error('Error fetching agent functions via service', error);
-          this.snackBar.open('Error fetching agent functions', 'Close', { duration: 3000 });
+            // Initial check for shared repos state after functions and controls are set up
+            this.updateSharedReposState();
+        } else if (state.status === 'error') {
+            console.error('Error fetching agent functions from service state', state.error);
+            this.snackBar.open('Error fetching agent functions', 'Close', { duration: 3000 });
         }
-      );
+    });
+
+    // Subscribe to form value changes to update shared repos state dynamically
+    // This should be set up once after the form is initialized.
+    this.runAgentForm.valueChanges
+        .pipe(takeUntil(this.destroy$))
+        .subscribe(() => {
+            this.updateSharedReposState();
+        });
 
     this.llmService.getLlms().subscribe({
       next: (llms) => {

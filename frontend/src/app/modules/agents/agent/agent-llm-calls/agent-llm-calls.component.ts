@@ -38,34 +38,40 @@ export class AgentLlmCallsComponent {
                 this.loadLlmCalls(currentAgentId);
             } else {
                 this.llmCalls.set([]);
+                // Optionally clear service state if appropriate when agentId is null
+                // this.agentService.clearLlmCalls();
             }
         });
-    }
 
-	loadLlmCalls(agentId: string): void {
-        this.llmCalls.set([]); // Clear previous calls
-		this.agentService.getLlmCalls(agentId).subscribe(
-			(calls) => {
-                const processedCalls = calls.map(call => {
-                    // Add any error as a message for display
-                    // Note: This modifies the 'messages' array that will be sent to Prompt Studio.
-                    // Consider if 'error' role messages should be part of the prompt data.
-                    const messagesWithError = [...(call.messages as LlmMessage[])]; // Clone to avoid direct mutation if source is shared
+        effect(() => {
+            const state = this.agentService.llmCallsState();
+            if (state.status === 'success') {
+                const processedCalls = state.data.map(call => {
+                    const messagesWithError = [...(call.messages as LlmMessage[])];
                     if (call.error) {
                         messagesWithError.push({role: 'error', content: call.error} as unknown as LlmMessage);
                     }
                     return { ...call, messages: messagesWithError };
                 });
-				this.llmCalls.set(processedCalls);
-			},
-			(error) => {
-				console.error('Error loading LLM calls', error);
-				this.snackBar.open('Error loading LLM calls', 'Close', {
-					duration: 3000,
-				});
-                this.llmCalls.set([]); // Clear on error
-			},
-		);
+                this.llmCalls.set(processedCalls);
+            } else if (state.status === 'error') {
+                console.error('Error loading LLM calls from service state', state.error);
+                this.snackBar.open('Error loading LLM calls', 'Close', { duration: 3000 });
+                this.llmCalls.set([]);
+            } else if (state.status === 'idle' || state.status === 'loading') {
+                this.llmCalls.set([]); // Clear/reset on idle or loading
+            }
+        });
+    }
+
+	loadLlmCalls(agentId: string): void {
+        if (!agentId) {
+            this.llmCalls.set([]);
+            this.agentService.clearLlmCalls();
+            return;
+        }
+        // llmCalls signal is updated by the effect reacting to agentService.llmCallsState()
+		this.agentService.loadLlmCalls(agentId);
 	}
 
 	isStringContent(content: any): content is string {
