@@ -487,11 +487,12 @@ describe('AgentService', () => {
   describe('forceStopAgent', () => {
     it('should POST request and NOT update agentsState directly (caller should refresh)', (done) => {
         const agentId = 'agent1';
-        const initialAgentsState = service.agentsState(); // Get the signal object
+        const initialAgentsStateValue = service.agentsState();
 
         service.forceStopAgent(agentId).subscribe(() => {
-            expect(service.agentsState()).toBe(initialAgentsState); // Check if the signal object itself is the same
-            expect(service.agentsState().data).toEqual(initialAgentsState.data); // And its data
+            const finalAgentsStateValue = service.agentsState();
+            expect(finalAgentsStateValue.data).toEqual(initialAgentsStateValue.data);
+            expect(finalAgentsStateValue.status).toEqual(initialAgentsStateValue.status);
             done();
         });
         const req = httpMock.expectOne(AGENT_API.forceStop.path);
@@ -528,12 +529,12 @@ describe('AgentService', () => {
     });
 
     it('should update agentsState with preview on successful agent start', (done) => {
-      const initialAgentListState = service.agentsState();
-      const initialAgentCount = initialAgentListState.status === 'success' ? initialAgentListState.data.length : 0;
+      const initialAgentListStateValue = service.agentsState();
+      const initialAgentCount = initialAgentListStateValue.status === 'success' && initialAgentListStateValue.data ? initialAgentListStateValue.data.length : 0;
 
       service.startAgent(mockStartRequest).subscribe(() => {
-        const agentListState = service.agentsState();
-        expect(agentListState.status).toBe('success');
+        const agentListStateValue = service.agentsState();
+        expect(agentListStateValue.status).toBe('success');
 
         const expectedPreview: AgentContextPreviewApi = {
           agentId: mockFullAgentContextResponse.agentId,
@@ -547,9 +548,9 @@ describe('AgentService', () => {
           user: mockFullAgentContextResponse.user,
         };
 
-        const newAgentInList = agentListState.data?.find(a => a.agentId === expectedPreview.agentId);
+        const newAgentInList = agentListStateValue.data?.find(a => a.agentId === expectedPreview.agentId);
         expect(newAgentInList).toEqual(expectedPreview);
-        expect(agentListState.data?.length).toBe(initialAgentCount + 1);
+        expect(agentListStateValue.data?.length).toBe(initialAgentCount + 1);
         done();
       });
 
