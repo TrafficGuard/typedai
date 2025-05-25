@@ -1,5 +1,5 @@
 @if (agentDetails()) {
-  @if (reversedIterations().length > 0) {
+  @if (reversedIterations() && reversedIterations().length > 0) {
     <mat-accordion multi="true">
       @for (iteration of reversedIterations(); track iteration.iterationId) {
         <mat-expansion-panel class="mb-2 shadow-md">
