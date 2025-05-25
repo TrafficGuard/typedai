@@ -1,7 +1,8 @@
 @if (agentDetails()) {
-  @if (reversedIterations() && reversedIterations().length > 0) {
+  @let iterations = reversedIterations();
+  @if (iterations && iterations.length > 0) {
     <mat-accordion multi="true">
-      @for (iteration of reversedIterations(); track iteration.iterationId) {
+      @for (iteration of iterations; track iteration.iterationId) {
         <mat-expansion-panel class="mb-2 shadow-md">
           <mat-expansion-panel-header>
             <mat-panel-title class="flex-grow">
