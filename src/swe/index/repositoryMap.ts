@@ -7,7 +7,7 @@ import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import type { IFileSystemService } from '#shared/services/fileSystemService';
 import type { ProjectInfo } from '#swe/projectDetection';
-import { type Summary, getTopLevelSummary, loadBuildDocsSummaries } from './repoIndexDocBuilder';
+import { type Summary, getTopLevelSummary, loadBuildDocsSummaries as loadBuildDocsSummariesFromBuilder } from './repoIndexDocBuilder'; // Rename the imported function
 
 const fs = {
 	readdir: promisify(nodeReaddir),
@@ -49,6 +49,12 @@ export class File {
 		public tokens: number,
 	) {}
 }
+
+/**
+ * Re-export loadBuildDocsSummaries from repoIndexDocBuilder
+ */
+export const loadBuildDocsSummaries = loadBuildDocsSummariesFromBuilder;
+
 
 /**
  *
