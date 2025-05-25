@@ -80,26 +80,71 @@ export class AgentService {
     this.loadAgents();
   }
 
-  /** Get agent details */
-  getAgentDetails(agentId: string): Observable<AgentContextApi> {
-    return callApiRoute(this.http, AGENT_API.details, { pathParams: { agentId } }).pipe(
-        catchError(error => this.handleError('getAgentDetails', error))
-    );
+  /** Loads agent details */
+  public loadAgentDetails(agentId: string): void {
+    if (this._selectedAgentDetailsState().status === 'loading') return;
+    this._selectedAgentDetailsState.set({ status: 'loading' });
+
+    callApiRoute(this.http, AGENT_API.details, { pathParams: { agentId } }).pipe(
+      tap(agentDetails => {
+        this._selectedAgentDetailsState.set({ status: 'success', data: agentDetails as AgentContextApi });
+      }),
+      catchError(error => {
+        if (error?.status === 404) {
+          this._selectedAgentDetailsState.set({ status: 'not_found' });
+        } else if (error?.status === 403) {
+          this._selectedAgentDetailsState.set({ status: 'forbidden' });
+        } else {
+          this._selectedAgentDetailsState.set({ status: 'error', error: error instanceof Error ? error : new Error('Failed to load agent details'), code: error?.status });
+        }
+        return EMPTY;
+      })
+    ).subscribe();
   }
 
-  /** Get LLM calls */
-  getLlmCalls(agentId: string): Observable<LlmCall[]> {
-    return callApiRoute(this.http, AGENT_API.getLlmCallsByAgentId, { pathParams: { agentId } }).pipe(
+  public clearSelectedAgentDetails(): void {
+    this._selectedAgentDetailsState.set({ status: 'idle' });
+  }
+
+  /** Loads LLM calls */
+  public loadLlmCalls(agentId: string): void {
+    if (this._llmCallsState().status === 'loading') return;
+    this._llmCallsState.set({ status: 'loading' });
+
+    callApiRoute(this.http, AGENT_API.getLlmCallsByAgentId, { pathParams: { agentId } }).pipe(
       map(response => response.data as LlmCall[] || []), // Cast Type.Any to LlmCall
-      catchError(error => this.handleError('getLlmCalls', error))
-    );
+      tap(llmCalls => {
+        this._llmCallsState.set({ status: 'success', data: llmCalls });
+      }),
+      catchError(error => {
+        this._llmCallsState.set({ status: 'error', error: error instanceof Error ? error : new Error('Failed to load LLM calls'), code: error?.status });
+        return EMPTY;
+      })
+    ).subscribe();
   }
 
-  /** Get iterations for an autonomous agent */
-  getAgentIterations(agentId: string): Observable<AutonomousIteration[]> {
-    return callApiRoute(this.http, AGENT_API.getIterations, { pathParams: { agentId } }).pipe(
-      catchError(error => this.handleError('getAgentIterations', error))
-    );
+  public clearLlmCalls(): void {
+    this._llmCallsState.set({ status: 'idle' });
+  }
+
+  /** Loads iterations for an autonomous agent */
+  public loadAgentIterations(agentId: string): void {
+    if (this._agentIterationsState().status === 'loading') return;
+    this._agentIterationsState.set({ status: 'loading' });
+
+    callApiRoute(this.http, AGENT_API.getIterations, { pathParams: { agentId } }).pipe(
+      tap(iterations => {
+        this._agentIterationsState.set({ status: 'success', data: iterations });
+      }),
+      catchError(error => {
+        this._agentIterationsState.set({ status: 'error', error: error instanceof Error ? error : new Error('Failed to load agent iterations'), code: error?.status });
+        return EMPTY;
+      })
+    ).subscribe();
+  }
+
+  public clearAgentIterations(): void {
+    this._agentIterationsState.set({ status: 'idle' });
   }
 
   public startAgent(payload: AgentStartRequestData): Observable<AgentContextApi> {
@@ -231,18 +276,30 @@ export class AgentService {
   }
 
   /** Retrieves the list of available agent functions, filtered and sorted */
-  public getAvailableFunctions(): Observable<string[]> {
-    return callApiRoute(this.http, AGENT_API.getAvailableFunctions).pipe(
+  public loadAvailableFunctions(): void {
+    if (this._availableFunctionsState().status === 'loading') return;
+    this._availableFunctionsState.set({ status: 'loading' });
+
+    callApiRoute(this.http, AGENT_API.getAvailableFunctions).pipe(
       map((response: string[]) => {
-        console.log('AgentService: fetched functions raw', response);
+        // console.log('AgentService: fetched functions raw', response); // Retain existing comments if any, this one seems like a debug log
         const filteredAndSortedFunctions = response
           .filter((name) => name !== 'Agent')
           .sort();
-        console.log('AgentService: filtered and sorted functions', filteredAndSortedFunctions);
+        // console.log('AgentService: filtered and sorted functions', filteredAndSortedFunctions); // Retain existing comments if any
         return filteredAndSortedFunctions;
       }),
-      // catchError is not added here as per instructions, but can be added later if specific handling is needed.
-      // The component calling this service method should handle errors.
-    );
+      tap(functions => {
+        this._availableFunctionsState.set({ status: 'success', data: functions });
+      }),
+      catchError(error => {
+        this._availableFunctionsState.set({ status: 'error', error: error instanceof Error ? error : new Error('Failed to load available functions'), code: error?.status });
+        return EMPTY;
+      })
+    ).subscribe();
+  }
+
+  public clearAvailableFunctions(): void {
+    this._availableFunctionsState.set({ status: 'idle' });
   }
 }
