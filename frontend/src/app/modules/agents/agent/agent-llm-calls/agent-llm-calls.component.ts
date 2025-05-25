@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, input, signal, effect, inject, WritableSignal } from '@angular/core';
+import { Component, input, inject, computed, effect } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatExpansionModule } from '@angular/material/expansion';
@@ -23,7 +23,19 @@ import { AgentLinks, GoogleCloudLinks } from "../../agent-links";
 })
 export class AgentLlmCallsComponent {
 	agentId = input<string | null>(null);
-	llmCalls: WritableSignal<LlmCall[]> = signal([]);
+	readonly llmCalls = computed(() => {
+        const state = this.agentService.llmCallsState();
+        if (state.status === 'success') {
+            return state.data.map(call => {
+                const messagesWithError = [...(call.messages as LlmMessage[])];
+                if (call.error) {
+                    messagesWithError.push({ role: 'error', content: call.error } as unknown as LlmMessage);
+                }
+                return { ...call, messages: messagesWithError };
+            });
+        }
+        return []; // Default for idle, loading, or error states
+    });
     agentLinks: AgentLinks = new GoogleCloudLinks();
 
 	private sanitizer = inject(DomSanitizer);
@@ -37,36 +49,22 @@ export class AgentLlmCallsComponent {
             if (currentAgentId) {
                 this.loadLlmCalls(currentAgentId);
             } else {
-                this.llmCalls.set([]);
                 // Optionally clear service state if appropriate when agentId is null
-                // this.agentService.clearLlmCalls();
+                this.agentService.clearLlmCalls();
             }
         });
 
         effect(() => {
             const state = this.agentService.llmCallsState();
-            if (state.status === 'success') {
-                const processedCalls = state.data.map(call => {
-                    const messagesWithError = [...(call.messages as LlmMessage[])];
-                    if (call.error) {
-                        messagesWithError.push({role: 'error', content: call.error} as unknown as LlmMessage);
-                    }
-                    return { ...call, messages: messagesWithError };
-                });
-                this.llmCalls.set(processedCalls);
-            } else if (state.status === 'error') {
+            if (state.status === 'error') {
                 console.error('Error loading LLM calls from service state', state.error);
                 this.snackBar.open('Error loading LLM calls', 'Close', { duration: 3000 });
-                this.llmCalls.set([]);
-            } else if (state.status === 'idle' || state.status === 'loading') {
-                this.llmCalls.set([]); // Clear/reset on idle or loading
             }
         });
     }
 
 	loadLlmCalls(agentId: string): void {
         if (!agentId) {
-            this.llmCalls.set([]);
             this.agentService.clearLlmCalls();
             return;
         }
