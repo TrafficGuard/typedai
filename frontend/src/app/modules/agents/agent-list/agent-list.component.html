@@ -37,7 +37,7 @@
                     class="ml-4"
                     mat-flat-button
                     [color]="'primary'"
-                    [routerLink]="['/ui/agents/new']"
+                    [routerLink]="routes.new()"
             >
                 <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
                 <span class="ml-2 mr-1">Add</span>
@@ -47,17 +47,20 @@
 
     <!-- Main -->
     <div class="overflow-auto bg-card rounded-lg shadow">
-            @if (isLoading()) {
-                <!-- Loading State -->
+        @switch (agentsState().status) {
+            @case ('idle') {
                 <div class="p-8 text-center text-xl font-medium tracking-tight sm:p-16">
-                    <div class="col-span-full">
-                        Loading agents...
-                    </div>
+                    <div class="col-span-full">Initializing...</div>
                 </div>
-            } @else {
-                <!-- Data Loaded or No Data State -->
-                @if (agents()?.length > 0) {
-                    <!-- Header for the list -->
+            }
+            @case ('loading') {
+                <div class="p-8 text-center text-xl font-medium tracking-tight sm:p-16">
+                    <div class="col-span-full">Loading agents...</div>
+                </div>
+            }
+            @case ('success') {
+                @if (agentsState().data?.length > 0) {
+                    <!-- Header for the list (inventory-grid) -->
                     <div class="inventory-grid text-secondary sticky top-0 z-10 grid gap-4 bg-gray-50 px-2 py-2 text-md font-semibold shadow dark:bg-black dark:bg-opacity-5 md:px-4">
                         <div class="w-10">
                             <mat-checkbox
@@ -74,9 +77,10 @@
                         <div class="hidden lg:block">Cost</div>
                     </div>
 
-                    <!-- Agent Rows -->
-                    @for (agent of agents(); track trackByFn($index, agent)) {
+                    <!-- Agent Rows: Loop over agentsState().data -->
+                    @for (agent of agentsState().data; track trackByFn($index, agent)) {
                         <div class="inventory-grid grid items-center gap-4 border-b px-2 hover:bg-gray-50 md:px-4">
+                            <!-- Checkbox cell -->
                             <div class="w-10">
                                 <mat-checkbox
                                         (click)="$event.stopPropagation()"
@@ -85,44 +89,50 @@
                                 </mat-checkbox>
                             </div>
 
+                            <!-- Name cell with updated routerLink -->
                             <div>
-                                <a class="hover:text-primary" [routerLink]="['/ui/agents', agent.agentId]">
+                                <a class="hover:text-primary" [routerLink]="routes.detail(agent.agentId)">
                                     {{ agent.name }}
                                 </a>
                             </div>
 
+                            <!-- State cell -->
                             <div>
                                 <span [class]="getStateClass(agent.state)">{{ agent.state }}</span>
                             </div>
 
+                            <!-- Type cell -->
                             <div class="hidden lg:block">{{ agent.type }}</div>
 
+                            <!-- User Prompt cell with updated routerLink -->
                             <div [matTooltip]="agent.userPrompt">
-                                <a class="hover:text-primary" [routerLink]="['/ui/agents', agent.agentId]">
+                                <a class="hover:text-primary" [routerLink]="routes.detail(agent.agentId)">
                                     <div class="max-h-8 truncate">{{ agent.userPrompt }}</div>
                                 </a>
                             </div>
 
+                            <!-- Error/Output cell -->
                             <div class="hidden md:block" [matTooltip]="agent.state === 'error' ? agent.error : agent.output">
                                 <div class="max-h-8 truncate">
                                     {{ (agent.state === 'error' ? agent.error : agent.output) }}
                                 </div>
                             </div>
 
+                            <!-- Cost cell -->
                             <div class="hidden lg:block">
                                 ${{ agent.cost | number: '1.2-2' }}
                             </div>
                         </div>
                     }
                 } @else {
-                    <!-- No Agents State (covers agents() being null, undefined, or empty) -->
+                    <!-- No Agents State with updated routerLink -->
                     <div class="border-t p-8 text-center text-3xl font-medium tracking-tight sm:p-16">
                         <div class="mb-1">There are no agents!</div>
                         <button
                                 class="ml-4 mt-4"
                                 mat-flat-button
                                 [color]="'primary'"
-                                [routerLink]="['/ui/agents/new']"
+                                [routerLink]="routes.new()"
                         >
                             <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
                             <span class="ml-2 mr-1">Add Agent</span>
@@ -130,6 +140,23 @@
                     </div>
                 }
             }
+            @case ('error') {
+                <div class="border-t p-8 text-center text-xl font-medium tracking-tight sm:p-16">
+                    <div class="col-span-full">
+                        Failed to load agents.
+                        @if (agentsState().error?.message) {
+                            <span>Error: {{ agentsState().error?.message }}</span>
+                        }
+                        <button
+                            class="ml-2"
+                            mat-stroked-button
+                            color="warn"
+                            (click)="refreshAgents()"
+                        >Retry</button>
+                    </div>
+                </div>
+            }
+        }
     </div>
 
     <!-- Footer - Example for bulk actions -->
