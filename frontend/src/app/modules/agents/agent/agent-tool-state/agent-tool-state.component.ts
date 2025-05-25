@@ -1,7 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { AgentContextApi } from '#shared/schemas/agent.schema';
 import { FileMetadata } from '#shared/model/files.model';
@@ -14,7 +13,7 @@ import { FileMetadata } from '#shared/model/files.model';
 	// styleUrls: ['./agent-file-store.component.scss'], // Optional: Add styles if needed
 	changeDetection: ChangeDetectionStrategy.OnPush,
 	standalone: true,
-	imports: [CommonModule, MatTableModule, MatProgressSpinnerModule, MatSnackBarModule],
+	imports: [CommonModule, MatTableModule, MatProgressSpinnerModule],
 })
 export class AgentToolStateComponent {
 	agentDetails = input.required<AgentContextApi>();
