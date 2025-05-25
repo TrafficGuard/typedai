@@ -14,7 +14,7 @@ import { AgentIterationsComponent } from './agent-iterations/agent-iterations.co
 import { AgentToolStateComponent } from './agent-tool-state/agent-tool-state.component';
 import { AgentService } from "../agent.service";
 import { toSignal } from '@angular/core/rxjs-interop';
-import { map } from 'rxjs/operators';
+import { distinctUntilChanged, map, tap } from 'rxjs/operators';
 
 @Component({
     selector: 'agent',
@@ -43,7 +43,13 @@ export class AgentComponent {
 
     // Get agentId from route params
     readonly agentId = toSignal(
-        this.route.paramMap.pipe(map(params => params.get('id')))
+        this.route.paramMap.pipe(
+            tap(params => console.log(`AgentComponent: route.paramMap emitted. Has 'id': ${params.has('id')}, Value: '${params.get('id')}'`, params)),
+            map(params => params.get('id')),
+            tap(id => console.log(`AgentComponent: value for agentId signal after map (pre-distinctUntilChanged): '${id}'`)),
+            distinctUntilChanged(),
+            tap(id => console.log(`AgentComponent: value for agentId signal after distinctUntilChanged (toSignal input): '${id}'`))
+        )
     );
 
     constructor() {
