@@ -103,8 +103,13 @@ async function generateFolderTreeWithSummaries(summaries: Map<string, Summary>):
  * Generates a project file system tree with the folder long summaries and file short summaries
  * @param summaries
  * @param includeFileSummaries
+ * @param collapsedFolders Optional array of folder paths to display as collapsed
  */
-async function generateFileSystemTreeWithSummaries(summaries: Map<string, Summary>, includeFileSummaries: boolean): Promise<string> {
+export async function generateFileSystemTreeWithSummaries( // Ensure 'export' is present
+	summaries: Map<string, Summary>,
+	includeFileSummaries: boolean,
+	collapsedFolders?: string[], // Add this new parameter
+): Promise<string> {
 	const fileSystem = getFileSystem();
 	const treeStructure = await fileSystem.getFileSystemTreeStructure();
 	let documentation = '';
@@ -112,18 +117,23 @@ async function generateFileSystemTreeWithSummaries(summaries: Map<string, Summar
 	for (const [folderPath, files] of Object.entries(treeStructure)) {
 		const folderSummary = summaries.get(folderPath);
 
-		documentation += `${folderPath}/  ${folderSummary ? `  ${folderSummary.short}` : ''}\n`;
+		if (collapsedFolders?.includes(folderPath)) {
+			documentation += `${folderPath}/ (collapsed) ${folderSummary ? `  ${folderSummary.short}` : ''}\n`;
+			// Skip listing files for this collapsed folder
+		} else {
+			documentation += `${folderPath}/  ${folderSummary ? `  ${folderSummary.short}` : ''}\n`;
 
-		for (const file of files) {
-			const filePath = `${folderPath}/${file}`;
-			const fileSummary = summaries.get(filePath);
-			if (fileSummary && includeFileSummaries) {
-				documentation += `  ${file}  ${fileSummary.short}\n`;
-			} else {
-				documentation += `  ${file}\n`;
+			for (const file of files) {
+				const filePath = `${folderPath}/${file}`;
+				const fileSummary = summaries.get(filePath);
+				if (fileSummary && includeFileSummaries) {
+					documentation += `  ${file}  ${fileSummary.short}\n`;
+				} else {
+					documentation += `  ${file}\n`;
+				}
 			}
 		}
-		documentation += '\n';
+		documentation += '\n'; // Add a newline after each folder block or collapsed folder entry
 	}
 	return documentation;
 }

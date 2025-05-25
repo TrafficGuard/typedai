@@ -5,6 +5,9 @@ import type { FileStore } from '#functions/storage/filestore';
 import { logger } from '#o11y/logger';
 import type { FileMetadata } from '#shared/model/files.model';
 import {FileSystemTree} from "#agent/autonomous/functions/fileSystemTree";
+import { loadBuildDocsSummaries, generateFileSystemTreeWithSummaries } from '#swe/index/repositoryMap';
+import type { Summary } from '#swe/index/repoIndexDocBuilder'; // Assuming Summary is exported from here
+
 
 /**
  * @return An XML representation of the agent's memory
@@ -24,14 +27,47 @@ export function buildMemoryPrompt(): string {
  * TODO move the string generation into the tool classes
  */
 export async function buildToolStatePrompt(): Promise<string> {
-	return (await buildLiveFilesPrompt()) + (await buildFileStorePrompt()) + buildFileSystemPrompt();
+	return (
+		(await buildLiveFilesPrompt()) +
+		(await buildFileStorePrompt()) +
+		(await buildFileSystemTreePrompt()) + // Add await and call the new function
+		buildFileSystemPrompt()
+	);
 }
 
 async function buildFileSystemTreePrompt(): Promise<string> {
-	const functions = agentContext().functions;
-	if (!functions.getFunctionClassNames().includes(FileSystemTree.name)) return '';
+	const agent = agentContext(); // Get the full agent context
+	if (!agent.functions.getFunctionClassNames().includes(FileSystemTree.name)) {
+		return ''; // Tool not active
+	}
 
+	// Ensure agent.toolState.FileSystemTree is treated as an array, defaulting to empty if not present or not an array.
+	let collapsedFolders: string[] = agent.toolState.FileSystemTree ?? [];
+	if (!Array.isArray(collapsedFolders)) {
+		logger.warn(
+			`agent.toolState.FileSystemTree was not an array (type: ${typeof collapsedFolders}). Defaulting to empty array.`,
+			{ currentToolState: agent.toolState.FileSystemTree },
+		);
+		collapsedFolders = [];
+	}
 
+	try {
+		const summaries: Map<string, Summary> = await loadBuildDocsSummaries();
+		// For this prompt, we typically don't want file summaries to keep it concise,
+		// focusing on folder structure and collapsed state.
+		const treeString = await generateFileSystemTreeWithSummaries(summaries, false, collapsedFolders);
+
+		if (!treeString.trim()) {
+			return `\n<file_system_tree>\n<!-- File system is empty or all folders are collapsed at the root. -->\n</file_system_tree>\n`;
+		}
+
+		return `\n<file_system_tree>
+${treeString}
+</file_system_tree>\n`;
+	} catch (error) {
+		logger.error(error, 'Error building file system tree prompt');
+		return `\n<file_system_tree>\n<!-- Error generating file system tree. -->\n</file_system_tree>\n`;
+	}
 }
 
 /**
