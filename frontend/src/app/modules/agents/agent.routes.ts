@@ -4,7 +4,7 @@ import { Routes } from '@angular/router';
 // AgentComponent is standalone, imported via loadComponent
 
 export const AGENT_ROUTE_DEFINITIONS = {
-    base: '/agents', // Assuming '/agents' is the base path for this module's routes
+    base: '/ui/agents', // Assuming '/agents' is the base path for this module's routes
     segments: {
         list: 'list',
         new: 'new',

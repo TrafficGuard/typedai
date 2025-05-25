@@ -81,7 +81,7 @@ describe('ChatsComponent', () => {
         fixture.detectChanges(); // Initial binding, triggers ngOnInit and effect
         tick(); // Allow async operations (like loadChats subscription) and effects to complete
         fixture.detectChanges(); // Update view after data load
-    }));
+    });
 
     afterEach(() => {
         // Clean up any potential async operations left hanging

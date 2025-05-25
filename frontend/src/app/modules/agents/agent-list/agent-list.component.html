@@ -47,7 +47,8 @@
 
     <!-- Main -->
     <div class="overflow-auto bg-card rounded-lg shadow">
-        @switch (agentsState().status) {
+        @let agents = agentsState();
+        @switch (agents.status) {
             @case ('idle') {
                 <div class="p-8 text-center text-xl font-medium tracking-tight sm:p-16">
                     <div class="col-span-full">Initializing...</div>
@@ -59,14 +60,16 @@
                 </div>
             }
             @case ('success') {
-                @if (Array.isArray(agentsState().data) && agentsState().data.length > 0) {
+                @if (agents.data.length > 0) {
                     <!-- Header for the list (inventory-grid) -->
                     <div class="inventory-grid text-secondary sticky top-0 z-10 grid gap-4 bg-gray-50 px-2 py-2 text-md font-semibold shadow dark:bg-black dark:bg-opacity-5 md:px-4">
                         <div class="w-10">
                             <mat-checkbox
+                                class="compact-checkbox"
                                 [checked]="isAllSelected()"
                                 [indeterminate]="selection.hasValue() && !isAllSelected()"
-                                (change)="masterToggle()">
+                                (change)="masterToggle()"
+                                >
                             </mat-checkbox>
                         </div>
                         <div>Name</div>
@@ -78,11 +81,12 @@
                     </div>
 
                     <!-- Agent Rows: Loop over agentsState().data -->
-                    @for (agent of agentsState().data; track trackByFn($index, agent)) {
+                    @for (agent of agents.data; track trackByFn($index, agent)) {
                         <div class="inventory-grid grid items-center gap-4 border-b px-2 hover:bg-gray-50 md:px-4">
                             <!-- Checkbox cell -->
                             <div class="w-10">
                                 <mat-checkbox
+                                        class="compact-checkbox"
                                         (click)="$event.stopPropagation()"
                                         (change)="$event ? selection.toggle(agent) : null"
                                         [checked]="selection.isSelected(agent)">
@@ -144,8 +148,8 @@
                 <div class="border-t p-8 text-center text-xl font-medium tracking-tight sm:p-16">
                     <div class="col-span-full">
                         Failed to load agents.
-                        @if (agentsState().error?.message) {
-                            <span>Error: {{ agentsState().error?.message }}</span>
+                        @if (agents.error?.message) {
+                            <span>Error: {{ agents.error?.message }}</span>
                         }
                         <button
                             class="ml-2"

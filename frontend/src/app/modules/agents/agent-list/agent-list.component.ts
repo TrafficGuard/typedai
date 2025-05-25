@@ -1,5 +1,5 @@
 import { SelectionModel } from '@angular/cdk/collections';
-import { AsyncPipe, CommonModule, DecimalPipe } from '@angular/common';
+import { CommonModule, DecimalPipe } from '@angular/common';
 import {
     AfterViewInit,
     ChangeDetectionStrategy,
@@ -9,11 +9,10 @@ import {
     ViewEncapsulation,
     inject,
     signal,
-    effect, WritableSignal, computed,
+    effect, WritableSignal,
     DestroyRef
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-// import { toSignal } from '@angular/core/rxjs-interop'; // Not used after changes
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatOptionModule, MatRippleModule } from '@angular/material/core';
@@ -92,7 +91,7 @@ export class AgentListComponent implements OnInit, AfterViewInit {
             } else { // 'success' or 'error'
                 if (this.isLoading()) this.isLoading.set(false);
             }
-        }, { allowSignalWrites: true });
+        });
     }
 
     // -----------------------------------------------------------------------------------------------------

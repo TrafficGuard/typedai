@@ -1,3 +1,33 @@
+
+.compact-checkbox {
+    --mdc-checkbox-state-layer-size: 32px; // Reduce from 40px
+    .mat-mdc-checkbox-touch-target {
+        height: var(--mdc-checkbox-state-layer-size);
+        width: var(--mdc-checkbox-state-layer-size);
+    }
+
+    .mdc-checkbox__native-control {
+        // The positions will automatically adjust based on the CSS variable
+        width: var(--mdc-checkbox-state-layer-size) !important;
+        height: var(--mdc-checkbox-state-layer-size) !important;
+    }
+}
+
+
+/*
+// This reduces the row height for a more compact space efficient table
+.mdc-checkbox, .mdc-checkbox__native-control {
+    height: 10px;
+}
+
+.custom-small-checkbox {
+    transform: scale(0.7);
+    transform-origin: center;
+
+    // Optional: Adjust margins to compensate for the scaling
+    margin: -5px; // Negative margin to reduce space taken up
+}
+*/
 .inventory-grid {
   // Mobile first - Name, State, User Prompt
   grid-template-columns:
@@ -38,7 +68,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    padding: 0.25rem;
+    padding: 0.2rem;
   }
 }
 

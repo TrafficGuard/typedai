@@ -2,7 +2,7 @@
     <!-- Sessions list -->
     <div class="bg-card relative flex w-full min-w-0 flex-auto flex-col dark:bg-transparent lg:min-w-100 lg:max-w-100">
         <!-- Header -->
-        <div class="flex flex-col md:flex-row md:items-center md:space-x-4 border-b bg-gray-50 px-8 py-3 dark:bg-transparent">
+        <div class="flex flex-col md:flex-row md:items-center md:space-x-4 border-b bg-gray-50 px-8 py-2 dark:bg-transparent">
             <!-- New Chat Button -->
             <div class="w-full md:w-auto">
                 <button
@@ -66,7 +66,7 @@
                     @if (hasDisplayableSessions()) {
                         @for (session of displaySessions(); track session.id) {
                             <a
-                                class="z-20 flex cursor-pointer items-center border-b px-0 py-3"
+                                class="relative z-20 flex cursor-pointer items-center border-b px-0 py-2"
                                 (click)="onSessionSelect(session)"
                                 (mouseenter)="hoveredChatId.set(session.id)"
                                 (mouseleave)="hoveredChatId.set(null)"
@@ -94,7 +94,7 @@
                                         {{ session.lastMessageAt | date:'shortTime' }}
                                     </div> -->
                                     @if (hoveredChatId() === session.id && session.id !== NEW_CHAT_ID) {
-                                        <button (click)="onClickDeleteSession($event, session)" class="absolute">
+                                        <button (click)="onClickDeleteSession($event, session)" class="absolute right-2 top-1/2 -translate-y-1/2">
                                             <mat-icon
                                                     class="text-hint icon-size-5 mr-1 p-0"
                                                     [svgIcon]="'heroicons_solid:trash'"
