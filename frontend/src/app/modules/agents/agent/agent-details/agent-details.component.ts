@@ -103,7 +103,7 @@ export class AgentDetailsComponent implements OnInit {
     }
 
     ngOnInit(): void {
-        this.functionsService.loadFunctions();
+        this.functionsService.getFunctions();
         this.isLoadingLlms.set(true);
         this.llmService.getLlms().pipe(
             takeUntilDestroyed(this.destroyRef),
@@ -231,7 +231,7 @@ export class AgentDetailsComponent implements OnInit {
         ).subscribe((response) => {
             if (response) {
                 this.snackBar.open('Agent cancelled successfully', 'Close', { duration: 3000 });
-                this.router.navigate(this.routes.list()).catch(console.error);
+                this.router.navigate(this.routes.nav.list()).catch(console.error);
             }
         });
     }
