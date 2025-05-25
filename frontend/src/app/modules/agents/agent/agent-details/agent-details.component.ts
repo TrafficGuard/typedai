@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, input, output, signal, WritableSignal, ChangeDetectionStrategy, effect } from '@angular/core';
+import { Component, OnInit, inject, input, output, signal, WritableSignal, ChangeDetectionStrategy, effect, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -16,6 +16,7 @@ import { MatRadioModule } from '@angular/material/radio';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { catchError, finalize, of, throwError } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 // import { environment } from 'environments/environment'; // Not directly used
 import { AgentContextApi } from '#shared/schemas/agent.schema';
 
@@ -27,6 +28,7 @@ import { MatTooltipModule } from "@angular/material/tooltip"; // Changed from Ma
 import { AgentLinks, GoogleCloudLinks } from "../../agent-links";
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AgentRunningState } from "#shared/model/agent.model";
+import { AGENT_ROUTE_DEFINITIONS } from '../../agent.routes';
 
 @Component({
     selector: 'agent-details',
@@ -72,6 +74,7 @@ export class AgentDetailsComponent implements OnInit {
     isLoadingLlms = signal(false);
     llmLoadError: WritableSignal<string | null> = signal(null);
     agentLinks: AgentLinks = new GoogleCloudLinks();
+    readonly routes = AGENT_ROUTE_DEFINITIONS;
 
     private formBuilder = inject(FormBuilder);
     private snackBar = inject(MatSnackBar);
@@ -80,6 +83,7 @@ export class AgentDetailsComponent implements OnInit {
     private router = inject(Router);
     private agentService = inject(AgentService);
     private llmService = inject(LlmService);
+    private readonly destroyRef = inject(DestroyRef);
 
     constructor() {
         this.feedbackForm = this.formBuilder.group({ feedback: ['', Validators.required] });
@@ -99,9 +103,10 @@ export class AgentDetailsComponent implements OnInit {
     }
 
     ngOnInit(): void {
-        this.functionsService.getFunctions();
+        this.functionsService.loadFunctions();
         this.isLoadingLlms.set(true);
         this.llmService.getLlms().pipe(
+            takeUntilDestroyed(this.destroyRef),
             finalize(() => {
                 this.isLoadingLlms.set(false);
             })
@@ -133,6 +138,7 @@ export class AgentDetailsComponent implements OnInit {
             currentAgentDetails.executionId,
             feedback
         ).pipe(
+            takeUntilDestroyed(this.destroyRef),
             catchError((error) => {
                 console.error('Error submitting feedback:', error);
                 this.snackBar.open('Error submitting feedback', 'Close', { duration: 3000 });
@@ -161,6 +167,7 @@ export class AgentDetailsComponent implements OnInit {
             feedback
         )
             .pipe(
+                takeUntilDestroyed(this.destroyRef),
                 catchError((error) => {
                     console.error('Error resuming agent:', error);
                     this.snackBar.open('Error resuming agent', 'Close', { duration: 3000 });
@@ -190,6 +197,7 @@ export class AgentDetailsComponent implements OnInit {
             currentAgentDetails.executionId,
             errorDetails
         ).pipe(
+            takeUntilDestroyed(this.destroyRef),
             catchError((error) => {
                 console.error('Error resuming agent:', error);
                 this.snackBar.open('Error resuming agent', 'Close', { duration: 3000 });
@@ -214,6 +222,7 @@ export class AgentDetailsComponent implements OnInit {
             currentAgentDetails.executionId,
             'None provided'
         ).pipe(
+            takeUntilDestroyed(this.destroyRef),
             catchError((error) => {
                 console.error('Error cancelling agent:', error);
                 this.snackBar.open('Error cancelling agent', 'Close', { duration: 3000 });
@@ -222,7 +231,7 @@ export class AgentDetailsComponent implements OnInit {
         ).subscribe((response) => {
             if (response) {
                 this.snackBar.open('Agent cancelled successfully', 'Close', { duration: 3000 });
-                this.router.navigate(['/ui/agents/list']).catch(console.error);
+                this.router.navigate(this.routes.list()).catch(console.error);
             }
         });
     }
@@ -295,6 +304,7 @@ export class AgentDetailsComponent implements OnInit {
             currentAgentDetails.agentId,
             selectedFunctions
         ).pipe(
+            takeUntilDestroyed(this.destroyRef),
             catchError((error) => {
                 console.error('Error updating agent functions:', error);
                 this.snackBar.open('Error updating agent functions', 'Close', { duration: 3000 });
@@ -314,6 +324,7 @@ export class AgentDetailsComponent implements OnInit {
         const currentAgentDetails = this.agentDetails();
         this.agentService.forceStopAgent(currentAgentDetails.agentId)
             .pipe(
+                takeUntilDestroyed(this.destroyRef),
                 catchError((error) => {
                     console.error('Error forcing agent stop:', error);
                     this.snackBar.open('Error forcing agent stop', 'Close', { duration: 3000 });
@@ -336,6 +347,7 @@ export class AgentDetailsComponent implements OnInit {
         const currentAgentDetails = this.agentDetails();
         this.agentService.requestHilCheck(currentAgentDetails.agentId, currentAgentDetails.executionId)
             .pipe(
+                takeUntilDestroyed(this.destroyRef),
                 catchError((error) => {
                     console.error('Error requesting HIL check:', error);
                     this.snackBar.open('Error requesting HIL check', 'Close', { duration: 3000 });
@@ -378,6 +390,7 @@ export class AgentDetailsComponent implements OnInit {
             currentAgentDetails.executionId,
             resumeInstructions
         ).pipe(
+            takeUntilDestroyed(this.destroyRef),
             catchError((error) => {
                 console.error('Error resuming completed agent:', error);
                 this.snackBar.open('Error resuming completed agent', 'Close', { duration: 3000 });
