@@ -49,11 +49,13 @@ export class AgentComponent {
     constructor() {
         effect(() => {
             const currentAgentIdVal = this.agentId(); // Read the new readonly signal
-            console.log(`agent.component effect, agentId is now: ${currentAgentIdVal}`); // Keep or adjust logging as needed
+            console.log(`AgentComponent: effect for agentId. Current value: '${currentAgentIdVal}'`); // Keep or adjust logging as needed
             if (currentAgentIdVal) {
+                console.log(`AgentComponent: agentId is truthy ('${currentAgentIdVal}'), calling loadAgentDetails.`);
                 this.loadAgentDetails(); // loadAgentDetails will internally use this.agentId()
             } else {
                 // This case handles when agentId becomes null (e.g. route change to one without :id, or initial state before paramMap emits)
+                console.log(`AgentComponent: agentId is falsy ('${currentAgentIdVal}'), clearing details.`);
                 this.agentDetails.set(null);
                 this.agentService.clearSelectedAgentDetails();
             }
