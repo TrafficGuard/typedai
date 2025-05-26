@@ -25,5 +25,5 @@
     "angularCompilerOptions": {
         "enableI18nLegacyMessageIdFormat": false
     },
-    "include": ["src", "../shared",]
+    "include": ["src", "../shared/**/*.ts",]
 }
