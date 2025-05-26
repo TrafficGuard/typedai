@@ -19,11 +19,11 @@
             "#core/*": ["./src/app/core/*"],
             "#environments/*": ["./src/environments/*"],
             "#modules/*": ["./src/app/modules/*"],
-            "#shared/*": ["../../shared/*"]
+            "#shared/*": ["../shared/*"]
         }
     },
     "angularCompilerOptions": {
         "enableI18nLegacyMessageIdFormat": false
     },
-    "include": ["src", "../../shared",]
+    "include": ["src", "../shared",]
 }

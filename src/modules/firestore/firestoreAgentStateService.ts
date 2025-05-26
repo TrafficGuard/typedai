@@ -151,6 +151,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 			.where('user', '==', currentUser().id)
 			.select(...previewKeys)
 			.orderBy('lastUpdate', 'desc')
+			.limit(50)
 			.get();
 		return this.deserializeQuery(querySnapshot);
 	}

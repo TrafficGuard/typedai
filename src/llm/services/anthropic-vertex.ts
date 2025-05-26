@@ -1,5 +1,6 @@
 import { type GoogleVertexAnthropicProvider, createVertexAnthropic } from '@ai-sdk/google-vertex/anthropic';
 import { AiLLM } from '#llm/services/ai-llm';
+import { logger } from '#o11y/logger';
 import type { AgentLLMs } from '#shared/model/agent.model';
 import type { LLM } from '#shared/model/llm.model';
 import { currentUser } from '#user/userContext';
@@ -33,14 +34,15 @@ export function Claude3_5_Haiku_Vertex() {
 
 function anthropicVertexCostFunction(inputMil: number, outputMil: number): LlmCostFunction {
 	return (inputTokens: number, outputTokens: number, usage: any) => {
-		console.log(usage);
+		const anthropicUsage = usage.anthropic;
 		const inputCost =
 			(inputTokens * inputMil) / 1_000_000 +
-			(usage.cacheCreationInputTokens * inputMil * 1.25) / 1_000_000 +
-			(usage.cacheReadInputTokens * inputMil * 0.1) / 1_000_000;
+			(anthropicUsage.cacheCreationInputTokens * inputMil * 1.25) / 1_000_000 +
+			(anthropicUsage.cacheReadInputTokens * inputMil * 0.1) / 1_000_000;
 		const outputCost = (outputTokens * outputMil) / 1_000_000;
-		console.log(inputCost);
-		console.log(outputCost);
+		logger.debug(
+			`Anthropic usage. Input: ${inputTokens}. Cache creation: ${anthropicUsage.cacheCreationInputTokens}. Cache read: ${anthropicUsage.cacheReadInputTokens}. Output: ${outputTokens}`,
+		);
 		return {
 			inputCost,
 			outputCost,

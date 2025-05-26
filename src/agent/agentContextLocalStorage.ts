@@ -23,7 +23,11 @@ export function llms(): AgentLLMs {
  * Adds costs to the current agent context (from LLM calls, Perplexity etc)
  * @param cost the cost spent in $USD
  */
-export function addCost(cost: number) {
+export function addCost(cost: number | null) {
+	if (!Number.isSafeInteger(cost)) {
+		logger.warn(`Unsafe integer in addCost ${cost}`);
+		return;
+	}
 	const store = agentContextStorage.getStore();
 	if (!store) return;
 	logger.debug(`Adding cost $${cost.toFixed(6)}`);
