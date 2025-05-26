@@ -149,8 +149,24 @@ export function checkEditBlockFilePath(filePaths: string[], editBlockFilePath: s
 		}
 	}
 
-	// TODO check if the editBlockFilePath filename and parent folder name matches and existing filename with the same parent folder name
+	// Check if the editBlockFilePath filename and parent folder name matches an existing filename with the same parent folder name
+	const editParts = editBlockFilePath.split(SEP);
+	if (editParts.length >= 2) {
+		const editFileName = editParts[editParts.length - 1];
+		const editParentFolder = editParts[editParts.length - 2];
 
+		for (const filePath of filePaths) {
+			const existingFileParts = filePath.split(SEP);
+			if (existingFileParts.length >= 2) {
+				const existingFileName = existingFileParts[existingFileParts.length - 1];
+				const existingParentFolder = existingFileParts[existingFileParts.length - 2];
+
+				if (editFileName === existingFileName && editParentFolder === existingParentFolder) {
+					return `The proposed file path '${editBlockFilePath}' has a filename and parent folder that match an existing file '${filePath}'. Please verify the path.`;
+				}
+			}
+		}
+	}
 
 	// const pathSet = new Set<string>(filePaths);
 	// const allFileNames = new Set<string>();

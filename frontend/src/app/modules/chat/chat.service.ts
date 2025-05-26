@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, signal, WritableSignal } from '@angular/core';
-import { Observable, of, throwError, from } from 'rxjs';
+import { Observable, of, throwError, from, EMPTY } from 'rxjs';
 import { catchError, map, mapTo, tap, switchMap } from 'rxjs/operators';
 import { CHAT_API } from '#shared/api/chat.api';
 import type {
@@ -113,7 +113,7 @@ export class ChatServiceClient {
     readonly chat = this._chat.asReadonly();
     private readonly _chats: WritableSignal<Chat[] | null> = signal(null);
     readonly chats = this._chats.asReadonly();
-    private _chatsLoaded = signal(false);
+    private readonly _chatsState: WritableSignal<{ status: 'idle' | 'loading' | 'success' | 'error', data?: Chat[], error?: Error, code?: number }> = signal({ status: 'idle' });
 
 
     constructor(private _httpClient: HttpClient) {}
@@ -123,9 +123,10 @@ export class ChatServiceClient {
     }
 
     loadChats(): Observable<void> {
-        if (this._chatsLoaded()) {
-            return of(undefined);
-        }
+        if (this._chatsState().status === 'loading') return EMPTY;
+        
+        this._chatsState.set({ status: 'loading' });
+        
         // callApiRoute infers response type: Observable<Static<typeof ChatListSchema>>
         return callApiRoute(this._httpClient, CHAT_API.listChats).pipe(
             tap((apiChatList) => { // apiChatList is Static<typeof ChatListSchema>
@@ -141,14 +142,18 @@ export class ChatServiceClient {
                     rootId: preview.rootId,
                     // messages, unreadCount, lastMessage, lastMessageAt are not in ChatPreview
                 }));
+                this._chatsState.set({ status: 'success', data: uiChats });
                 this._chats.set(uiChats);
-                this._chatsLoaded.set(true);
             }),
-            mapTo(undefined),
             catchError((error) => {
-                this._chatsLoaded.set(false);
-                return throwError(() => error);
-            })
+                this._chatsState.set({ 
+                    status: 'error', 
+                    error: error instanceof Error ? error : new Error('Failed to load chats'),
+                    code: error?.status 
+                });
+                return EMPTY;
+            }),
+            map(() => void 0)
         );
     }
 

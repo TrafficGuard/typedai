@@ -1,8 +1,10 @@
 import { HttpClient } from '@angular/common/http';
-import { inject, Injectable } from '@angular/core';
-import { catchError, Observable, BehaviorSubject, tap, throwError, mergeMap, map } from 'rxjs';
+import { inject, Injectable, computed } from '@angular/core';
+import { catchError, Observable, tap, throwError, map, EMPTY } from 'rxjs';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { USER_API } from "#shared/api/user.api";
 import { callApiRoute } from "../api-route";
+import { createApiEntityState, ApiEntityState } from '../api-state.types';
 // Assuming UserProfile is the primary type used from schemas, if User model is different, adjust as needed.
 // For now, sticking to UserProfile as it's used in existing code and API schemas.
 import { UserProfile, UserProfileUpdate } from "#shared/schemas/user.schema";
@@ -11,42 +13,68 @@ import { User } from "#shared/model/user.model"; // User model for internal stat
 @Injectable({ providedIn: 'root' })
 export class UserService {
     private http = inject(HttpClient);
-    // The user$ observable should emit a consistent type. UserProfile is from schema.
-    // If User from model.ts is preferred for app state, a mapping might be needed or use User type here.
-    // For now, let's assume UserProfile is the type for _user subject based on existing code.
-    private _user: BehaviorSubject<UserProfile | null> = new BehaviorSubject<UserProfile | null>(null);
+    
+    // Private writable state
+    private readonly _userState = createApiEntityState<UserProfile>();
+    
+    // Public readonly state
+    readonly userState = this._userState.asReadonly();
 
     set user(value: UserProfile | null) {
-        this._user.next(value);
+        if (value === null) {
+            this._userState.set({ status: 'idle' });
+        } else {
+            this._userState.set({ status: 'success', data: value });
+        }
     }
 
     get user$(): Observable<UserProfile | null> {
-        return this._user.asObservable();
+        const userSignal = computed(() => {
+            const state = this._userState();
+            return state.status === 'success' ? state.data : null;
+        });
+        return toObservable(userSignal);
     }
 
     // -- Public methods -- --
 
     /**
-     * Get the current signed-in user data
+     * Load the current signed-in user data
      */
-    get(): Observable<UserProfile | null> {
-        const currentUser = this._user.getValue();
-        if (currentUser) {
-            // Wrap in an observable to ensure consistent return type with the HTTP call path
-            return new BehaviorSubject(currentUser).asObservable();
-        }
-
-        return callApiRoute(this.http, USER_API.view).pipe(
+    loadUser(): void {
+        if (this._userState().status === 'loading') return;
+        
+        this._userState.set({ status: 'loading' });
+        
+        callApiRoute(this.http, USER_API.view).pipe(
             tap((user: UserProfile) => {
-                this._user.next(user);
+                this._userState.set({ status: 'success', data: user });
             }),
             catchError(error => {
                 console.error('Error loading profile [error]', error);
-                this._user.next(null); // Ensure user is null on error
-                return throwError(() => new Error('Error loading profile'));
+                this._userState.set({ 
+                    status: 'error', 
+                    error: error instanceof Error ? error : new Error('Error loading profile'),
+                    code: error?.status
+                });
+                return EMPTY;
             })
-            // No mergeMap needed here, tap handles the side effect.
-        );
+        ).subscribe();
+    }
+
+    /**
+     * Get the current signed-in user data
+     */
+    getUser(): void {
+        this.loadUser();
+    }
+
+    /**
+     * Get user data as Observable (backward compatibility)
+     */
+    get(): Observable<UserProfile | null> {
+        this.loadUser();
+        return this.user$;
     }
 
     /**
@@ -54,15 +82,15 @@ export class UserService {
      * @param userProfileUpdate
      */
     update(userProfileUpdate: UserProfileUpdate): Observable<void> {
-        // Ensure ID is not part of the payload if UserProfileUpdateSchema excludes it or it's path param
-        const currentVal = this._user.value;
-        const updatedUser = { ...currentVal, ...userProfileUpdate } as UserProfile; // Assume UserProfileUpdate is subset of UserProfile
+        const currentState = this._userState();
+        const currentUser = currentState.status === 'success' ? currentState.data : null;
+        const updatedUser = { ...currentUser, ...userProfileUpdate } as UserProfile; // Assume UserProfileUpdate is subset of UserProfile
 
         return callApiRoute(this.http, USER_API.update, { body: userProfileUpdate }).pipe(
             tap(() => {
-                // After successful API call, update the local BehaviorSubject
+                // After successful API call, update the local state
                 // with the merged data.
-                this._user.next(updatedUser);
+                this._userState.set({ status: 'success', data: updatedUser });
             })
         );
     }
@@ -75,7 +103,7 @@ export class UserService {
         return callApiRoute(this.http, USER_API.updateProfile, { body: profileData }).pipe(
             tap((updatedUser: UserProfile) => {
                 // Update the local user state with the response from the server
-                this._user.next(updatedUser);
+                this._userState.set({ status: 'success', data: updatedUser });
             })
         );
     }
