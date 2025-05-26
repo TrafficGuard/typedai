@@ -10,5 +10,5 @@
         }
     },
     "files": ["src/main.ts"],
-    "include": ["src/**/*.d.ts", "../../shared"]
+    "include": ["src/**/*.d.ts", "../../shared/**/*.ts"]
 }
