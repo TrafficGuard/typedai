@@ -2,7 +2,8 @@ import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { type LlmMessage, user as createUserMessage, messageText } from '#shared/model/llm.model';
-import { ApplySearchReplace, type EditBlock, type EditFormat } from '#swe/coder/applySearchReplace';
+import { ApplySearchReplace, type EditBlock, type EditFormat, FileEditBlocks } from '#swe/coder/applySearchReplace';
+import { stringSimilarity } from "string-similarity-js";
 
 @funcClass(__filename)
 export class SearchReplaceCoder {
@@ -19,6 +20,7 @@ export class SearchReplaceCoder {
 		const fileSystem = getFileSystem();
 		const rootPath = fileSystem.getWorkingDirectory();
 		const editFormat: EditFormat = 'diff-fenced'; // A common format for AI code editing
+		const fss = getFileSystem();
 
 		logger.info({ requirements, filesToEdit, readOnlyFiles }, 'editFilesToMeetRequirements');
 
@@ -61,7 +63,26 @@ export class SearchReplaceCoder {
 			console.log(responseToApply);
 			const edits = searchReplacer._findOriginalUpdateBlocks(responseToApply, searchReplacer.getFence());
 
-			await checkForExistingFiles(edits);
+			const editsBlockByFilePath: FileEditBlocks = new Map();
+			for(const edit of edits) {
+				let edits: EditBlock[]
+				if (!editsBlockByFilePath.has(edit.filePath)) {
+					edits = [];
+					editsBlockByFilePath.set(edit.filePath, edits);
+				} else {
+					edits = editsBlockByFilePath.get(edit.filePath)
+				}
+				edits.push(edit);
+			}
+			const repoFiles = await fss.listFilesRecursively();
+
+			for(const filePath of editsBlockByFilePath.keys()) {
+				const errorMessage = checkEditBlockFilePath(repoFiles, filePath);
+				if(errorMessage) {
+
+				}
+			}
+
 
 			const editedFiles: Set<string> | null = await searchReplacer.applyLlmResponse(responseToApply, llms().hard);
 
@@ -99,34 +120,56 @@ export class SearchReplaceCoder {
 
 const SEP = '/';
 
+
 /**
- * Sometimes the AI writes the file to the wrong place
- * @param edits
+ * Sometimes the AI writes the file to the wrong place. If the edit block if for a filePath which doesn't currently exist,
+ * then make sure it's not too similar to an existing file path.
+ * If the file name and parent folder match an existing file and parent folder, then return a message for the AI to check the edit path.
+ * If file folder name starts with a module import alias (i.e. #), then return a message for the AI to check the edit path.
+ * @param filePaths All the file paths under the current working directory
+ * @param editBlockFilePath The file path of edits the AI has proposed
+ * @return null if the editBlockFilePath looks ok, else a message for the AI to check.
  */
-async function checkForExistingFiles(edits: EditBlock[]) {
+export function checkEditBlockFilePath(filePaths: string[], editBlockFilePath: string): string | null {
 	const fss = getFileSystem();
 
-	// TODO check if its writing a file with alias in the path, e.g. #app/applicationTypes.ts or #shared/model/llm.model
-
-	const paths = await fss.listFilesRecursively();
-	const pathSet = new Set<string>(paths);
-	const allFileNames = new Set<string>();
-	for (const path of paths) {
-		const sepIdx = path.lastIndexOf(SEP);
-		allFileNames.add(sepIdx < 0 ? path : path.substring(path.lastIndexOf(SEP) + 1));
+	if(filePaths.includes(editBlockFilePath)) {
+		// Editing an existing file. Nothing more to check
+		return null;
 	}
 
-	for (const edit of edits) {
-		const editFilePath = edit.filePath;
-		if (await fss.fileExists(editFilePath)) continue; // Editing an existing file is ok
+	// TODO check if its writing a file with a module alias in the path, e.g. #app/applicationTypes.ts or #shared/model/llm.model or @
+	if(editBlockFilePath.startsWith('#') || editBlockFilePath.startsWith('@')) {
+		return `File path should not begin with ${editBlockFilePath.charAt(0)}. It seems like your writing to the module alias. You need to write to real file path.`
+	}
 
-		const sepIdx = editFilePath.lastIndexOf(SEP);
-		const editFileName = sepIdx < 0 ? editFilePath : editFilePath.substring(editFilePath.lastIndexOf(SEP) + 1);
-
-		const matchingFiles = paths.filter((path) => path.endsWith(editFileName));
-
-		if (allFileNames.has(editFileName)) {
-			// logger.info(`Found existing file ${}`)
+	for(const filePath of filePaths) {
+		if(stringSimilarity(filePath, editBlockFilePath) > 0.9) {
+			// This could easily get false positives when creating test files etc. Would need some filtering
 		}
 	}
+
+	// TODO check if the editBlockFilePath filename and parent folder name matches and existing filename with the same parent folder name
+
+
+	// const pathSet = new Set<string>(filePaths);
+	// const allFileNames = new Set<string>();
+	// for (const path of filePaths) {
+	// 	const sepIdx = path.lastIndexOf(SEP);
+	// 	allFileNames.add(sepIdx < 0 ? path : path.substring(path.lastIndexOf(SEP) + 1));
+	// }
+
+	// for (const edit of edits) {
+	// 	const editFilePath = edit.filePath;
+	// 	if (await fss.fileExists(editFilePath)) continue; // Editing an existing file is ok
+	//
+	// 	const sepIdx = editFilePath.lastIndexOf(SEP);
+	// 	const editFileName = sepIdx < 0 ? editFilePath : editFilePath.substring(editFilePath.lastIndexOf(SEP) + 1);
+	//
+	// 	const matchingFiles = paths.filter((path) => path.endsWith(editFileName));
+	//
+	// 	if (allFileNames.has(editFileName)) {
+	// 		// logger.info(`Found existing file ${}`)
+	// 	}
+	// }
 }
