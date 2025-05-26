@@ -19,6 +19,6 @@ export async function llmRoutes(fastify: AppFastifyInstance) {
 			})
 			.filter((llm) => llm?.isConfigured() && llm?.getService() !== 'mock')
 			.map((llm) => ({ id: llm.getId(), name: llm.getDisplayName(), isConfigured: true }));
-		send(reply, 200, configuredLLMs);
+		send(reply, 200, { data: configuredLLMs });
 	});
 }
