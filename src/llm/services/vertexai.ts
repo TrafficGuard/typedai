@@ -4,6 +4,7 @@ import { type GenerateTextResult, LanguageModelResponseMetadata } from 'ai';
 import axios from 'axios';
 import { type LlmCostFunction, fixedCostPerMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
+import { countTokens, countTokensSync } from '#llm/tokens';
 import { type LLM, combinePrompts } from '#shared/model/llm.model';
 import { currentUser } from '#user/userContext';
 import { envVar } from '#utils/env-var';
@@ -30,13 +31,38 @@ export function gemini2_5_Pro_CostFunction(
 	outputMilHigh?: number,
 	threshold = 200000,
 ): LlmCostFunction {
-	return (inputTokens: number, outputTokens: number) => {
+	return (inputTokens: number, outputTokens: number, usage, completionTime, result) => {
 		let inputMil = inputMilLow;
 		let outputMil = outputMilLow;
 		if (inputMilHigh && outputMilHigh && inputTokens >= threshold) {
 			inputMil = inputMilHigh;
 			outputMil = outputMilHigh;
 		}
+
+		// const isThinking = result.reasoning?.length > 0 || result.reasoningDetails?.length > 0;
+		// if(isThinking) {
+		// 	outputTokens += countTokensSync(result.reasoning);
+		// }
+		// if(Array.isArray(responseMessage.content)) {
+		// 	for(const part of responseMessage.content) {
+		// 		if(part.type === 'reasoning') {
+		// 			console.log('REASONING ===== ' + (countTokensSync(part.text)) + '  tokens')
+		// 			console.log(part.text)
+		// 		} else if(part.type === 'text') {
+		// 			console.log('TEXT ======== ' + (countTokensSync(part.text)) + '  tokens')
+		// 			console.log(part.text)
+		// 		}
+		// 	}
+		// }
+		// if(result.reasoningDetails?.length) {
+		// 	const reasoning = result.reasoningDetails[0];
+		// 	if(reasoning.type === 'text') {
+		// 		console.log('REASONING')
+		// 		console.log(result.text + '\n');
+		// 		outputTokens += countTokensSync(reasoning.text)
+		// 	}
+		// }
+
 		const inputCost = (inputTokens * inputMil) / 1_000_000;
 		const outputCost = (outputTokens * outputMil) / 1_000_000;
 		return {
@@ -50,6 +76,11 @@ export function gemini2_5_Pro_CostFunction(
 export function gemini2_5_Flash_CostFunction(inputMil: number, outputMil: number, reasoningOutputMil?: number): LlmCostFunction {
 	return (inputTokens: number, outputTokens: number, usage: any, date, result: GenerateTextResult<any, any>) => {
 		const isThinking = result.reasoning?.length > 0 || result.reasoningDetails?.length > 0;
+
+		if (isThinking) {
+			outputTokens += countTokensSync(result.reasoning);
+		}
+
 		const inputCost = (inputTokens * inputMil) / 1_000_000;
 		const outputCost = (outputTokens * (isThinking ? reasoningOutputMil : outputMil)) / 1_000_000;
 		return {

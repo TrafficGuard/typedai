@@ -12,8 +12,8 @@ import {
 import { callApiRoute } from '../../core/api-route';
 import { createApiListState, createApiEntityState, ApiListState, ApiEntityState } from '../../core/api-state.types';
 import { AGENT_API } from '#shared/api/agent.api';
-import type { AutonomousIteration } from '#shared/model/agent.model';
-import { LlmCall } from '#shared/model/llmCall.model';
+import type { AutonomousIteration, AutonomousIterationSummary } from '#shared/model/agent.model';
+import { LlmCall, LlmCallSummary } from '#shared/model/llmCall.model';
 import { Pagination } from "../../core/types";
 import { AgentContextApi, AgentContextPreviewApi, AgentStartRequestSchema } from '#shared/schemas/agent.schema';
 import { Static } from '@sinclair/typebox';
@@ -42,11 +42,15 @@ export class AgentService {
   private readonly _selectedAgentDetailsState = createApiEntityState<AgentContextApi>();
   readonly selectedAgentDetailsState = this._selectedAgentDetailsState.asReadonly();
 
-  private readonly _llmCallsState = createApiListState<LlmCall>();
+  private readonly _llmCallsState = createApiListState<LlmCallSummary>();
   readonly llmCallsState = this._llmCallsState.asReadonly();
+  private readonly _selectedLlmCallDetailState = createApiEntityState<LlmCall>();
+  readonly selectedLlmCallDetailState = this._selectedLlmCallDetailState.asReadonly();
 
-  private readonly _agentIterationsState = createApiListState<AutonomousIteration>();
+  private readonly _agentIterationsState = createApiListState<AutonomousIterationSummary>();
   readonly agentIterationsState = this._agentIterationsState.asReadonly();
+  private readonly _selectedAgentIterationDetailState = createApiEntityState<AutonomousIteration>();
+  readonly selectedAgentIterationDetailState = this._selectedAgentIterationDetailState.asReadonly();
 
   private readonly _availableFunctionsState = createApiListState<string>();
   readonly availableFunctionsState = this._availableFunctionsState.asReadonly();
@@ -111,13 +115,13 @@ export class AgentService {
     if (this._llmCallsState().status === 'loading') return;
     this._llmCallsState.set({ status: 'loading' });
 
-    callApiRoute(this.http, AGENT_API.getLlmCallsByAgentId, { pathParams: { agentId } }).pipe(
-      map(response => response.data as LlmCall[] || []), // Cast Type.Any to LlmCall
-      tap(llmCalls => {
-        this._llmCallsState.set({ status: 'success', data: llmCalls });
+    // Assuming AGENT_API.getLlmCallSummaries exists and returns LlmCallSummary[]
+    callApiRoute(this.http, AGENT_API.getLlmCallSummaries, { pathParams: { agentId } }).pipe(
+      tap(summaries => {
+        this._llmCallsState.set({ status: 'success', data: summaries as LlmCallSummary[] });
       }),
       catchError(error => {
-        this._llmCallsState.set({ status: 'error', error: error instanceof Error ? error : new Error('Failed to load LLM calls'), code: error?.status });
+        this._llmCallsState.set({ status: 'error', error: error instanceof Error ? error : new Error('Failed to load LLM call summaries'), code: error?.status });
         return EMPTY;
       })
     ).subscribe();
@@ -127,17 +131,44 @@ export class AgentService {
     this._llmCallsState.set({ status: 'idle' });
   }
 
-  /** Loads iterations for an autonomous agent */
+  public loadLlmCallDetail(agentId: string, llmCallId: string): void {
+    if (this._selectedLlmCallDetailState().status === 'loading') return;
+    this._selectedLlmCallDetailState.set({ status: 'loading' });
+
+    // Assuming AGENT_API.getLlmCallDetail exists
+    callApiRoute(this.http, AGENT_API.getLlmCallDetail, { pathParams: { agentId, llmCallId } }).pipe(
+      tap(llmCallDetail => {
+        this._selectedLlmCallDetailState.set({ status: 'success', data: llmCallDetail as LlmCall });
+      }),
+      catchError(error => {
+        if (error?.status === 404) {
+          this._selectedLlmCallDetailState.set({ status: 'not_found' });
+        } else if (error?.status === 403) {
+          this._selectedLlmCallDetailState.set({ status: 'forbidden' });
+        } else {
+          this._selectedLlmCallDetailState.set({ status: 'error', error: error instanceof Error ? error : new Error('Failed to load LLM call detail'), code: error?.status });
+        }
+        return EMPTY;
+      })
+    ).subscribe();
+  }
+
+  public clearSelectedLlmCallDetail(): void {
+    this._selectedLlmCallDetailState.set({ status: 'idle' });
+  }
+
+  /** Loads iteration summaries for an autonomous agent */
   public loadAgentIterations(agentId: string): void {
     if (this._agentIterationsState().status === 'loading') return;
     this._agentIterationsState.set({ status: 'loading' });
 
-    callApiRoute(this.http, AGENT_API.getIterations, { pathParams: { agentId } }).pipe(
-      tap(iterations => {
-        this._agentIterationsState.set({ status: 'success', data: iterations });
+    // Assuming AGENT_API.getIterationSummaries exists and returns AutonomousIterationSummary[]
+    callApiRoute(this.http, AGENT_API.getIterationSummaries, { pathParams: { agentId } }).pipe(
+      tap(summaries => {
+        this._agentIterationsState.set({ status: 'success', data: summaries as AutonomousIterationSummary[] });
       }),
       catchError(error => {
-        this._agentIterationsState.set({ status: 'error', error: error instanceof Error ? error : new Error('Failed to load agent iterations'), code: error?.status });
+        this._agentIterationsState.set({ status: 'error', error: error instanceof Error ? error : new Error('Failed to load agent iteration summaries'), code: error?.status });
         return EMPTY;
       })
     ).subscribe();
@@ -145,6 +176,32 @@ export class AgentService {
 
   public clearAgentIterations(): void {
     this._agentIterationsState.set({ status: 'idle' });
+  }
+
+  public loadAgentIterationDetail(agentId: string, iterationNumber: number): void {
+    if (this._selectedAgentIterationDetailState().status === 'loading') return;
+    this._selectedAgentIterationDetailState.set({ status: 'loading' });
+
+    // Assuming AGENT_API.getIterationDetail exists
+    callApiRoute(this.http, AGENT_API.getIterationDetail, { pathParams: { agentId, iterationNumber } }).pipe(
+      tap(iterationDetail => {
+        this._selectedAgentIterationDetailState.set({ status: 'success', data: iterationDetail as AutonomousIteration });
+      }),
+      catchError(error => {
+        if (error?.status === 404) {
+          this._selectedAgentIterationDetailState.set({ status: 'not_found' });
+        } else if (error?.status === 403) {
+          this._selectedAgentIterationDetailState.set({ status: 'forbidden' });
+        } else {
+          this._selectedAgentIterationDetailState.set({ status: 'error', error: error instanceof Error ? error : new Error('Failed to load agent iteration detail'), code: error?.status });
+        }
+        return EMPTY;
+      })
+    ).subscribe();
+  }
+
+  public clearSelectedAgentIterationDetail(): void {
+    this._selectedAgentIterationDetailState.set({ status: 'idle' });
   }
 
   public startAgent(payload: AgentStartRequestData): Observable<AgentContextApi> {

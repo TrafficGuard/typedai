@@ -109,6 +109,14 @@ export const PromptGenerateResponseSchema = Type.Object(
 	{ $id: 'PromptGenerateResponse' },
 );
 
+export const PromptGenerateFromMessagesPayloadSchema = Type.Object(
+	{
+		messages: LlmMessagesSchema,
+		options: Type.Optional(PromptOptionsSchema),
+	},
+	{ $id: 'PromptGenerateFromMessagesPayload' },
+);
+
 // --- Static Types ---
 export type PromptSchemaModel = Static<typeof PromptSchema>;
 export type PromptPreviewSchemaModel = Static<typeof PromptPreviewSchema>;
@@ -119,6 +127,7 @@ export type PromptRevisionParams = Static<typeof PromptRevisionParamsSchema>;
 export type PromptListSchemaModel = Static<typeof PromptListSchema>;
 export type PromptGeneratePayload = Static<typeof PromptGeneratePayloadSchema>;
 export type PromptGenerateResponseSchemaModel = Static<typeof PromptGenerateResponseSchema>;
+export type PromptGenerateFromMessagesPayload = Static<typeof PromptGenerateFromMessagesPayloadSchema>;
 
 // Add these checks. Ensure PromptGeneratePayloadModel and PromptGenerateResponseModel are imported or defined.
 

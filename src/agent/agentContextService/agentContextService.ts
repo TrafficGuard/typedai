@@ -1,4 +1,4 @@
-import type { AgentContext, AgentContextPreview, AgentRunningState, AutonomousIteration } from '#shared/model/agent.model';
+import type { AgentContext, AgentContextPreview, AgentRunningState, AutonomousIteration, AutonomousIterationSummary } from '#shared/model/agent.model';
 
 export interface AgentContextService {
 	save(state: AgentContext): Promise<void>;
@@ -44,4 +44,19 @@ export interface AgentContextService {
 	 * @returns An array of AutonomousIteration objects, ordered by iteration number.
 	 */
 	loadIterations(agentId: string): Promise<AutonomousIteration[]>;
+
+	/**
+	 * Gets summaries of all iterations for a given agent.
+	 * @param agentId The ID of the agent.
+	 * @returns An array of AutonomousIterationSummary objects.
+	 */
+	getAgentIterationSummaries(agentId: string): Promise<AutonomousIterationSummary[]>;
+
+	/**
+	 * Gets the detailed data for a specific agent iteration.
+	 * @param agentId The ID of the agent.
+	 * @param iterationNumber The iteration number.
+	 * @returns An AutonomousIteration object or null if not found.
+	 */
+	getAgentIterationDetail(agentId: string, iterationNumber: number): Promise<AutonomousIteration | null>;
 }

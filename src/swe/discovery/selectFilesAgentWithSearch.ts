@@ -89,7 +89,7 @@ Respond in the following structure, with the answer in Markdown format inside th
 	messages.push({ role: 'user', content: finalPrompt });
 
 	// Perform the additional LLM call to get the answer
-	let answer = await llms().hard.generateText(messages, { id: 'Select Files query' });
+	let answer = await llms().hard.generateText(messages, { id: 'Select Files query', thinking: 'high' });
 	try {
 		answer = extractTag(answer, 'result');
 	} catch {}

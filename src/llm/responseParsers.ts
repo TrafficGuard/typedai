@@ -192,7 +192,7 @@ export function extractReasoningAndJson<T>(rawText: string): { reasoning: string
 			const object = JSON.parse(jsonString) as T;
 			return { reasoning, object, jsonString };
 		} catch (e: any) {
-			logger.error(e, `Failed to parse extracted JSON string. Reasoning: "${reasoning}", JSON String: "${jsonString}"`);
+			// logger.error(e, `Failed to parse extracted JSON string. Reasoning: "${reasoning}", JSON String: "${jsonString}"`);
 			throw new SyntaxError(`Failed to parse JSON content: ${e.message}. Extracted JSON string: "${jsonString}"`);
 		}
 	}

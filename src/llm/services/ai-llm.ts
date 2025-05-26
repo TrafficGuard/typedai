@@ -148,11 +148,6 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 		});
 	}
 
-	async generateTextFromMessages(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
-		const msg = await this.generateMessage(llmMessages, opts);
-		return messageText(msg);
-	}
-
 	async _generateMessage(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<LlmMessage> {
 		const description = opts?.id ?? '';
 		return await withActiveSpan(`generateTextFromMessages ${description}`, async (span) => {
@@ -218,14 +213,12 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 						if (opts.thinking === 'low') thinkingBudget = 8192;
 						else if (opts.thinking === 'medium') thinkingBudget = 16384;
 						else if (opts.thinking === 'high') thinkingBudget = 24576;
-						const providerOpts = {
+						providerOptions.google = {
 							thinkingConfig: {
+								includeThoughts: true,
 								thinkingBudget,
 							},
 						};
-						providerOptions.vertex = providerOpts;
-						providerOptions.google = providerOpts;
-						providerOptions.gemini = providerOpts;
 					}
 				}
 
@@ -243,7 +236,6 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 					providerOptions,
 				});
 
-				result.response.messages;
 				const responseText = result.text;
 				const finishTime = Date.now();
 
@@ -254,7 +246,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 					result.response.timestamp,
 					result,
 				);
-				const cost = Number.isNaN(totalCost) ? null : totalCost;
+				const cost = Number.isNaN(totalCost) ? 0 : totalCost;
 
 				logger.info(`LLM response ${opts?.id}`);
 

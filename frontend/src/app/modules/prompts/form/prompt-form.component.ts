@@ -23,7 +23,7 @@ import { PromptsService } from '../prompts.service';
 import { LlmService, LLM as AppLLM } from '../../llm.service'; // Renamed LLM to AppLLM to avoid conflict
 import type { Prompt } from '#shared/model/prompts.model';
 import type { LlmMessage, CallSettings, UserContentExt, TextPart, ImagePartExt, FilePartExt } from '#shared/model/llm.model';
-import type { PromptCreatePayload, PromptUpdatePayload, PromptSchemaModel } from '#shared/schemas/prompts.schema';
+import type { PromptCreatePayload, PromptUpdatePayload, PromptSchemaModel, PromptGenerateResponseSchemaModel } from '#shared/schemas/prompts.schema';
 import type { Attachment } from '../message.types';
 import { attachmentsAndTextToUserContentExt, userContentExtToAttachmentsAndText, fileToAttachment } from '../messageUtil';
 
@@ -87,6 +87,9 @@ export class PromptFormComponent implements OnInit, OnDestroy {
     promptIdSignal = signal<string | null>(null); // Renamed to avoid conflict with component property
     isLoading = signal(true);
     isSaving = signal(false);
+    isGenerating = signal(false);
+    generationResponse = signal<string | null>(null);
+    generationError = signal<string | null>(null);
     private destroy$ = new Subject<void>();
 
     @ViewChildren('fileInput') fileInputs!: QueryList<ElementRef<HTMLInputElement>>;
@@ -537,29 +540,57 @@ export class PromptFormComponent implements OnInit, OnDestroy {
         }
 
         const formValue = this.promptForm.value;
-        console.log('Generate button clicked. Form value:', formValue);
-        // Placeholder for actual generation logic
-        // This would typically involve:
-        // 1. Getting the messages and options from the form.
-        // 2. Calling a service method to send these to the backend LLM API.
-        // 3. Handling the response (streaming or complete) and displaying it in the right-hand panel.
 
-        const messagesToGenerate: LlmMessage[] = formValue.messages.map((msg: {role: LlmMessage['role'], content: string}) => ({
-            role: msg.role,
-            content: msg.content
-        }));
-        const generationOptions: CallSettings = formValue.options;
+        const messagesToGenerate: LlmMessage[] = formValue.messages.map((msg: {role: LlmMessage['role'], content: string, attachments: Attachment[] | null}) => {
+            let messageContentPayload: UserContentExt;
+            if (msg.role === 'user' && Array.isArray(msg.attachments) && msg.attachments.length > 0) {
+                messageContentPayload = attachmentsAndTextToUserContentExt(msg.attachments, msg.content);
+            } else {
+                messageContentPayload = msg.content;
+            }
+            return { role: msg.role, content: messageContentPayload };
+        });
 
-        console.log('Messages for generation:', messagesToGenerate);
-        console.log('Options for generation:', generationOptions);
+        const generationOptions: CallSettings & { llmId?: string } = formValue.options;
 
-        // Example:
-        // this.isGenerating.set(true); // You'd need to define this signal
-        // this.llmService.generate(messagesToGenerate, generationOptions)
-        //   .pipe(finalize(() => this.isGenerating.set(false)))
-        //   .subscribe(response => {
-        //      // Update the right-hand panel with the response
-        //   });
+        this.isGenerating.set(true);
+        this.generationError.set(null);
+
+        this.promptsService.generateFromMessages(messagesToGenerate, generationOptions)
+            .pipe(
+                takeUntil(this.destroy$),
+                finalize(() => {
+                    this.isGenerating.set(false);
+                    this.cdr.detectChanges();
+                })
+            )
+            .subscribe({
+                next: (response) => {
+                    this.generationResponse.set(response.generatedMessage.content as string);
+                    this.cdr.detectChanges();
+                },
+                error: (error) => {
+                    this.generationError.set(error.message || 'Generation failed');
+                    this.cdr.detectChanges();
+                }
+            });
+    }
+
+    addResponseToPrompt(): void {
+        const response = this.generationResponse();
+        if (!response) {
+            console.warn('No generated response to add');
+            return;
+        }
+
+        this.addMessage('assistant', response);
+
+        this.generationResponse.set(null);
+        this.generationError.set(null);
+
+        this.cdr.detectChanges();
+
+        console.log('Generated response added to prompt messages');
     }
 
     goBack(): void {

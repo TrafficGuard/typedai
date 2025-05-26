@@ -1,4 +1,4 @@
-import type { CallSettings, LlmMessage } from './llm.model';
+import type { CallSettings, LlmCallMessageSummaryPart, LlmMessage } from './llm.model';
 
 export interface LlmRequest {
 	/** UUID */
@@ -6,7 +6,7 @@ export interface LlmRequest {
 	/** From the GenerateTextOptions.id field */
 	description?: string;
 
-	messages: LlmMessage[] | ReadonlyArray<LlmMessage>;
+	messages: LlmMessage[];
 	/** Temperature, topK etc */
 	settings: CallSettings;
 	/** Populated when called by an agent */
@@ -40,4 +40,18 @@ export interface LlmCall extends LlmRequest {
 
 	/** Number of chunks the messages are split into (0 if not chunked). Specific to Firestore. Ideally remove from the public interface */
 	chunkCount?: number;
+}
+
+export interface LlmCallSummary {
+	id: string;
+	description?: string;
+	llmId: string;
+	requestTime: number;
+	totalTime?: number;
+	inputTokens?: number;
+	outputTokens?: number;
+	cost?: number;
+	error?: boolean;
+	callStack?: string;
+	messageSummaries: LlmCallMessageSummaryPart[];
 }

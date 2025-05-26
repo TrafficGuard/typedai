@@ -13,10 +13,23 @@ import {
 	AgentStartRequestSchema,
 	AgentUpdateFunctionsRequestSchema,
 	AutonomousIterationSchema,
+	AutonomousIterationSummarySchema,
 } from '../schemas/agent.schema';
 import { ApiNullResponseSchema } from '../schemas/common.schema';
+import { LlmCallSchema, LlmCallSummarySchema } from '../schemas/llmCall.schema';
 
 const AGENT_BASE_V1 = '/api/agent/v1';
+
+// Parameter Schemas for new routes
+const AgentIterationParamsSchema = Type.Object({
+	agentId: Type.String({ description: 'The ID of the agent' }),
+	iterationNumber: Type.Number({ description: 'The iteration number' }),
+});
+
+const AgentLlmCallParamsSchema = Type.Object({
+	agentId: Type.String({ description: 'The ID of the agent' }),
+	llmCallId: Type.String({ description: 'The ID of the LLM call' }),
+});
 
 export const AGENT_API = {
 	list: defineRoute('GET', `${AGENT_BASE_V1}/list`, {
@@ -75,5 +88,19 @@ export const AGENT_API = {
 	}),
 	listHumanInLoopAgents: defineRoute('GET', `${AGENT_BASE_V1}/list/humanInLoop`, {
 		schema: { response: { 200: Type.Array(AgentContextSchema) } },
+	}),
+
+	// New Endpoints for Iteration and LLM Call Summaries/Details
+	getIterationSummaries: defineRoute('GET', `${AGENT_BASE_V1}/iterations-summary/:agentId`, {
+		schema: { params: AgentIdParamsSchema, response: { 200: Type.Array(AutonomousIterationSummarySchema) } },
+	}),
+	getIterationDetail: defineRoute('GET', `${AGENT_BASE_V1}/iteration-detail/:agentId/:iterationNumber`, {
+		schema: { params: AgentIterationParamsSchema, response: { 200: AutonomousIterationSchema } },
+	}),
+	getLlmCallSummaries: defineRoute('GET', `${AGENT_BASE_V1}/llmcalls-summary/:agentId`, {
+		schema: { params: AgentIdParamsSchema, response: { 200: Type.Array(LlmCallSummarySchema) } },
+	}),
+	getLlmCallDetail: defineRoute('GET', `${AGENT_BASE_V1}/llmcall-detail/:agentId/:llmCallId`, {
+		schema: { params: AgentLlmCallParamsSchema, response: { 200: LlmCallSchema } },
 	}),
 };

@@ -14,6 +14,7 @@ import {
 	// Import assistant
 	assistant,
 	isSystemUserPrompt,
+	messageText,
 	system,
 	user,
 } from '#shared/model/llm.model';
@@ -237,8 +238,9 @@ export abstract class BaseLLM implements LLM {
 		return countTokens(text);
 	}
 
-	protected generateTextFromMessages(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
-		throw new Error(`BaseLLM.generateTextFromMessages Not implemented for ${this.getId()}`);
+	protected async generateTextFromMessages(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
+		const msg = await this.generateMessage(llmMessages, opts);
+		return messageText(msg);
 	}
 
 	async streamText(llmMessages: LlmMessage[], onChunk: (chunk: TextStreamPart<any>) => void, opts?: GenerateTextOptions): Promise<GenerationStats> {

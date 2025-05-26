@@ -209,6 +209,14 @@ export interface AutonomousIteration {
 	stats: GenerationStats;
 }
 
+export interface AutonomousIterationSummary {
+	agentId: string;
+	iteration: number;
+	cost: number;
+	summary: string;
+	error?: boolean;
+}
+
 export interface LlmFunctions {
 	toJSON(): { functionClasses: string[] };
 

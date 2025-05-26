@@ -7,6 +7,7 @@ import type { LlmMessage } from '#shared/model/llm.model';
 import type { Prompt } from '#shared/model/prompts.model';
 import type {
 	PromptCreateSchema,
+	PromptGenerateFromMessagesPayloadSchema,
 	PromptGeneratePayloadSchema,
 	PromptGenerateResponseSchemaModel,
 	PromptListSchemaModel,
@@ -24,12 +25,10 @@ export async function promptRoutes(fastify: AppFastifyInstance) {
 	fastify.get(PROMPT_API.listPrompts.pathTemplate, { schema: PROMPT_API.listPrompts.schema }, async (req, reply) => {
 		const userId = currentUser().id;
 		try {
-			// Service returns PromptPreview[]
 			const prompts = await fastify.promptsService.listPromptsForUser(userId);
-			// Construct the PromptListSchemaModel structure
 			const promptList: PromptListSchemaModel = {
-				prompts: prompts as any, // Cast to any to satisfy schema, actual type is PromptPreview[]
-				hasMore: false, // Assuming no pagination for now, or service needs update
+				prompts: prompts as any,
+				hasMore: false,
 			};
 			reply.sendJSON(promptList);
 		} catch (error: any) {
@@ -47,19 +46,17 @@ export async function promptRoutes(fastify: AppFastifyInstance) {
 		const payload = req.body;
 		const userId = currentUser().id;
 
-		// Construct the data for the service, excluding id, revisionId, and userId as per PromptsService interface
 		const promptData: Omit<Prompt, 'id' | 'revisionId' | 'userId'> = {
 			parentId: payload.parentId,
 			name: payload.name,
-			appId: undefined, // Not in create payload, defaults to undefined
+			appId: undefined,
 			tags: payload.tags ?? [],
-			messages: payload.messages as any, // Cast for schema vs model type compatibility
-			settings: payload.options as any, // Cast for schema vs model type compatibility
+			messages: payload.messages as any,
+			settings: payload.options as any,
 		};
 
 		try {
 			const createdPrompt = await fastify.promptsService.createPrompt(promptData, userId);
-			// The schema for response is PromptSchema, so cast to PromptSchemaModel
 			reply.code(201);
 			reply.sendJSON(createdPrompt);
 		} catch (error: any) {
@@ -74,17 +71,14 @@ export async function promptRoutes(fastify: AppFastifyInstance) {
 	 * Get a specific prompt by its ID (latest revision).
 	 */
 	fastify.get(PROMPT_API.getPromptById.pathTemplate, { schema: PROMPT_API.getPromptById.schema }, async (req, reply) => {
-		const { promptId } = req.params as Static<typeof PromptParamsSchema>;
+		const { promptId } = req.params;
 		const userId = currentUser().id;
 
 		try {
-			// As per requirement: service method is getPromptById
-			const prompt = await (fastify as AppFastifyInstance).promptsService.getPrompt(promptId, userId);
-			if (!prompt) {
-				return sendNotFound(reply, 'Prompt not found');
-			}
-			// The schema for response is PromptSchema, so cast to PromptSchemaModel
-			sendJSON(reply, prompt as PromptSchemaModel);
+			const prompt = await fastify.promptsService.getPrompt(promptId, userId);
+			if (!prompt) return sendNotFound(reply, 'Prompt not found');
+
+			sendJSON(reply, prompt);
 		} catch (error: any) {
 			logger.error({ err: error, promptId, userId }, 'Error getting prompt by ID');
 			const message = error.message || 'Error retrieving prompt';
@@ -97,22 +91,17 @@ export async function promptRoutes(fastify: AppFastifyInstance) {
 	 * Get a specific revision of a prompt.
 	 */
 	fastify.get(PROMPT_API.getPromptRevision.pathTemplate, { schema: PROMPT_API.getPromptRevision.schema }, async (req, reply) => {
-		const { promptId, revisionId: revisionIdStr } = req.params as Static<typeof PromptRevisionParamsSchema>;
+		const { promptId, revisionId: revisionIdStr } = req.params;
 		const userId = currentUser().id;
 
 		const revisionId = Number.parseInt(revisionIdStr, 10);
-		if (Number.isNaN(revisionId)) {
-			return sendBadRequest(reply, 'Invalid revision ID format');
-		}
+		if (Number.isNaN(revisionId)) return sendBadRequest(reply, 'Invalid revision ID format');
 
 		try {
-			// As per requirement: service method is getPromptRevision
-			const prompt = await (fastify as AppFastifyInstance).promptsService.getPromptVersion(promptId, revisionId, userId);
-			if (!prompt) {
-				return sendNotFound(reply, 'Prompt revision not found');
-			}
-			// The schema for response is PromptSchema, so cast to PromptSchemaModel
-			sendJSON(reply, prompt as PromptSchemaModel);
+			const prompt = await fastify.promptsService.getPromptVersion(promptId, revisionId, userId);
+			if (!prompt) return sendNotFound(reply, 'Prompt revision not found');
+
+			sendJSON(reply, prompt);
 		} catch (error: any) {
 			logger.error({ err: error, promptId, revisionId, userId }, 'Error getting prompt revision');
 			const message = error.message || 'Error retrieving prompt revision';
@@ -125,24 +114,19 @@ export async function promptRoutes(fastify: AppFastifyInstance) {
 	 * Update an existing prompt.
 	 */
 	fastify.patch(PROMPT_API.updatePrompt.pathTemplate, { schema: PROMPT_API.updatePrompt.schema }, async (req, reply) => {
-		const { promptId } = req.params as Static<typeof PromptParamsSchema>;
-		const updates = req.body as Static<typeof PromptUpdateSchema>;
+		const { promptId } = req.params;
+		const updates = req.body;
 		const userId = currentUser().id;
 
 		try {
-			// As per requirement: service call is updatePrompt(promptId, updates, userId)
-			// This implies the service method does not require a 'newVersion' boolean from the handler.
-			// If underlying service needs casting for messages/options:
 			const serviceUpdates = {
 				...updates,
 				...(updates.messages && { messages: updates.messages as any }),
 				...(updates.options && { options: updates.options as any }),
 			};
 
-			// Assuming PATCH updates the current revision, so newVersion is false.
-			const updatedPrompt = await (fastify as AppFastifyInstance).promptsService.updatePrompt(promptId, serviceUpdates, userId, false);
-			// The schema for response is PromptSchema, so cast to PromptSchemaModel
-			sendJSON(reply, updatedPrompt as PromptSchemaModel);
+			const updatedPrompt = await fastify.promptsService.updatePrompt(promptId, serviceUpdates, userId, false);
+			sendJSON(reply, updatedPrompt);
 		} catch (error: any) {
 			logger.error({ err: error, promptId, userId, updates }, 'Error updating prompt');
 			const message = error.message || 'Error updating prompt';
@@ -155,12 +139,11 @@ export async function promptRoutes(fastify: AppFastifyInstance) {
 	 * Delete a prompt and all its revisions.
 	 */
 	fastify.delete(PROMPT_API.deletePrompt.pathTemplate, { schema: PROMPT_API.deletePrompt.schema }, async (req, reply) => {
-		const { promptId } = req.params as Static<typeof PromptParamsSchema>;
+		const { promptId } = req.params;
 		const userId = currentUser().id;
 
 		try {
-			await (fastify as AppFastifyInstance).promptsService.deletePrompt(promptId, userId);
-			// Response schema is ApiNullResponseSchema, resulting in 204 No Content
+			await fastify.promptsService.deletePrompt(promptId, userId);
 			reply.code(204).send();
 		} catch (error: any) {
 			logger.error({ err: error, promptId, userId }, 'Error deleting prompt');
@@ -202,6 +185,34 @@ export async function promptRoutes(fastify: AppFastifyInstance) {
 		} catch (error: any) {
 			logger.error({ err: error, promptId, userId, payload }, 'Error in /api/prompts/:promptId/generate endpoint');
 			const message = error.message || 'Error generating content from prompt';
+			const statusCode = typeof error.statusCode === 'number' ? error.statusCode : 500;
+			reply.code(statusCode).send({ error: message });
+		}
+	});
+
+	/**
+	 * Generate content directly from messages.
+	 */
+	fastify.post(PROMPT_API.generateFromMessages.pathTemplate, { schema: PROMPT_API.generateFromMessages.schema }, async (req, reply) => {
+		const payload = req.body as Static<typeof PromptGenerateFromMessagesPayloadSchema>;
+		const userId = currentUser().id;
+
+		logger.info({ userId, payload }, 'Request to generate content from messages');
+
+		try {
+			const llmId = payload.options?.llmId || 'default';
+			const llm = await fastify.llmFactory.getLLM(llmId);
+
+			const generatedMessage = await llm.generateMessage(payload.messages as any, payload.options as any);
+
+			const response: PromptGenerateResponseSchemaModel = {
+				generatedMessage: generatedMessage as any,
+			};
+
+			sendJSON(reply, response);
+		} catch (error: any) {
+			logger.error({ err: error, userId, payload }, 'Error in /api/prompts/generate endpoint');
+			const message = error.message || 'Error generating content from messages';
 			const statusCode = typeof error.statusCode === 'number' ? error.statusCode : 500;
 			reply.code(statusCode).send({ error: message });
 		}

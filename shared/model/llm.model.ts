@@ -431,3 +431,10 @@ export function combinePrompts(userPrompt: string, systemPrompt?: string): strin
 
 // Re-export TextPart for external use
 export type { TextPart };
+
+export interface LlmCallMessageSummaryPart {
+	role: LlmMessage['role'];
+	textPreview: string; // Max 150 chars
+	imageCount: number;
+	fileCount: number;
+}

@@ -1,5 +1,5 @@
 import { type Static, Type } from '@sinclair/typebox';
-import type { AgentContext, AgentContextPreview, AutonomousIteration } from '../model/agent.model';
+import type { AgentContext, AgentContextPreview, AutonomousIteration, AutonomousIterationSummary } from '../model/agent.model';
 import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
 import { GenerationStatsSchema, LlmMessagesSchema, type LlmMessagesSchemaModel } from './llm.schema';
 
@@ -271,6 +271,18 @@ export const AutonomousIterationSchema = Type.Object({
 
 // This check depends on AutonomousIteration.memory and .toolState being Record, not Map.
 const _autonomousIterationCheck: AreTypesFullyCompatible<AutonomousIteration, Static<typeof AutonomousIterationSchema>> = true;
+
+export const AutonomousIterationSummarySchema = Type.Object(
+	{
+		agentId: Type.String(),
+		iteration: Type.Number(),
+		cost: Type.Number(),
+		summary: Type.String(),
+		error: Type.Optional(Type.Boolean()),
+	},
+	{ $id: 'AutonomousIterationSummary' },
+);
+const _AutonomousIterationSummaryCheck: AreTypesFullyCompatible<AutonomousIterationSummary, Static<typeof AutonomousIterationSummarySchema>> = true;
 
 export const AgentIdParamsSchema = Type.Object({
 	agentId: Type.String({ description: 'The ID of the agent' }),

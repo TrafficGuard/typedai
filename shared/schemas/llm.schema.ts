@@ -6,6 +6,7 @@ import type {
 	GenerateTextOptions,
 	GenerationStats,
 	ImagePartExt,
+	LlmCallMessageSummaryPart,
 	LlmMessage,
 	TextPartExt,
 	ToolCallPartExt, // Corrected import: Model exports ToolCallPartExt
@@ -223,3 +224,19 @@ export const LlmMessagesSchema = Type.Array(LlmMessageSchema);
 
 export type LlmMessageSchemaModel = Static<typeof LlmMessageSchema>;
 export type LlmMessagesSchemaModel = Static<typeof LlmMessagesSchema>;
+
+// Schema for LlmMessage['role'] to be used in LlmCallMessageSummaryPartSchema
+export const LlmMessageRoleSchema = Type.Union([Type.Literal('system'), Type.Literal('user'), Type.Literal('assistant'), Type.Literal('tool')], {
+	$id: 'LlmMessageRole',
+});
+
+export const LlmCallMessageSummaryPartSchema = Type.Object(
+	{
+		role: LlmMessageRoleSchema,
+		textPreview: Type.String(), // Max 150 chars
+		imageCount: Type.Number(),
+		fileCount: Type.Number(),
+	},
+	{ $id: 'LlmCallMessageSummaryPart' },
+);
+const _LlmCallMessageSummaryPartCheck: AreTypesFullyCompatible<LlmCallMessageSummaryPart, Static<typeof LlmCallMessageSummaryPartSchema>> = true;

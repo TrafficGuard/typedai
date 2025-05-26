@@ -2,10 +2,10 @@ import { type Static, Type } from '@sinclair/typebox';
 import { serializeContext } from '#agent/agentSerialization';
 import { type AgentExecution, agentExecutions } from '#agent/autonomous/autonomousAgentRunner';
 import type { AppFastifyInstance } from '#app/applicationTypes';
-import { send, sendBadRequest } from '#fastify/index';
+import { send, sendBadRequest, sendNotFound } from '#fastify/index';
 import { logger } from '#o11y/logger';
 import { AGENT_API } from '#shared/api/agent.api';
-import type { AgentContext, AgentContextPreview, AutonomousIteration } from '#shared/model/agent.model';
+import type { AgentContext, AgentContextPreview, AutonomousIteration, AutonomousIterationSummary } from '#shared/model/agent.model';
 import { functionRegistry } from '../../functionRegistry';
 
 export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
@@ -63,6 +63,33 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 			logger.error(error, `Error loading iterations for agent ${agentId}`);
 			// Send a generic server error, or more specific if possible
 			send(reply, 500, { error: 'Failed to load agent iterations' });
+		}
+	});
+
+	// Endpoint to get iteration summaries for an agent
+	fastify.get(AGENT_API.getIterationSummaries.pathTemplate, { schema: AGENT_API.getIterationSummaries.schema }, async (req, reply) => {
+		const { agentId } = req.params;
+		try {
+			const summaries: AutonomousIterationSummary[] = await fastify.agentStateService.getAgentIterationSummaries(agentId);
+			reply.sendJSON(summaries);
+		} catch (error) {
+			logger.error(error, `Error loading iteration summaries for agent ${agentId}`);
+			send(reply, 500, { error: 'Failed to load agent iteration summaries' });
+		}
+	});
+
+	// Endpoint to get a specific iteration detail for an agent
+	fastify.get(AGENT_API.getIterationDetail.pathTemplate, { schema: AGENT_API.getIterationDetail.schema }, async (req, reply) => {
+		const { agentId, iterationNumber } = req.params;
+		try {
+			const iterationDetail: AutonomousIteration | null = await fastify.agentStateService.getAgentIterationDetail(agentId, iterationNumber);
+			if (!iterationDetail) {
+				return sendNotFound(reply, `Iteration ${iterationNumber} for agent ${agentId} not found.`);
+			}
+			reply.sendJSON(iterationDetail);
+		} catch (error) {
+			logger.error(error, `Error loading iteration ${iterationNumber} for agent ${agentId}`);
+			send(reply, 500, { error: 'Failed to load agent iteration detail' });
 		}
 	});
 

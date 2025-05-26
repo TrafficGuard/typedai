@@ -285,12 +285,45 @@
 
         <!-- Right Half -->
         <div class="flex flex-col w-1/2 p-4 sm:p-4 border-l border-gray-200 dark:border-gray-700 overflow-y-auto">
-            <!--
-            <h2 class="text-xl font-semibold mb-4">Response</h2>
-            -->
             <div class="bg-card rounded-lg shadow p-4 flex-auto">
-                <p class="text-gray-500">Generate to see a response</p>
-                <!-- Placeholder for future content -->
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-semibold">Response</h2>
+                    <div class="flex items-center gap-2">
+                        <button *ngIf="generationResponse()" 
+                                mat-stroked-button 
+                                color="primary" 
+                                (click)="addResponseToPrompt()" 
+                                matTooltip="Add response to prompt messages">
+                            <mat-icon class="mr-2">add</mat-icon>
+                            Add to prompt
+                        </button>
+                        <button *ngIf="generationResponse()" mat-icon-button matTooltip="Copy Response">
+                            <mat-icon>content_copy</mat-icon>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Loading State -->
+                <div *ngIf="isGenerating()" class="flex flex-col items-center justify-center p-8">
+                    <mat-spinner diameter="40"></mat-spinner>
+                    <p class="mt-4 text-gray-500">Generating response...</p>
+                </div>
+
+                <!-- Error State -->
+                <div *ngIf="generationError()" class="p-4 bg-red-50 border border-red-200 rounded-md">
+                    <p class="text-red-700">{{ generationError() }}</p>
+                </div>
+
+                <!-- Response Content -->
+                <div *ngIf="generationResponse() && !isGenerating()" class="prose max-w-none">
+                    <pre class="whitespace-pre-wrap">{{ generationResponse() }}</pre>
+                </div>
+
+                <!-- Placeholder -->
+                <div *ngIf="!generationResponse() && !isGenerating() && !generationError()" class="text-center text-gray-500 py-8">
+                    <mat-icon class="text-4xl mb-2 opacity-50">bolt</mat-icon>
+                    <p>Click Generate to see a response</p>
+                </div>
             </div>
         </div>
 

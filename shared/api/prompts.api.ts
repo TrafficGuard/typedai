@@ -2,6 +2,7 @@ import { defineRoute } from '#shared/api-definitions';
 import { ApiNullResponseSchema } from '#shared/schemas/common.schema';
 import {
 	PromptCreateSchema,
+	PromptGenerateFromMessagesPayloadSchema,
 	PromptGeneratePayloadSchema,
 	PromptGenerateResponseSchema,
 	PromptListSchema,
@@ -68,6 +69,14 @@ export const PROMPT_API = {
 			body: PromptGeneratePayloadSchema, // New schema for request body
 			response: {
 				200: PromptGenerateResponseSchema, // New schema for successful response
+			},
+		},
+	}),
+	generateFromMessages: defineRoute('POST', `${PROMPTS_BASE}/generate`, {
+		schema: {
+			body: PromptGenerateFromMessagesPayloadSchema,
+			response: {
+				200: PromptGenerateResponseSchema,
 			},
 		},
 	}),
