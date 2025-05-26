@@ -1,9 +1,9 @@
 import { AgentFeedback } from '#agent/autonomous/functions/agentFeedback';
+import { FileSystemTree } from '#agent/autonomous/functions/fileSystemTree';
 import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
 import { CommandLineInterface } from '#functions/commandLine';
 import { CustomFunctions } from '#functions/customFunctions';
 import { Jira } from '#functions/jira';
-import { FileSystemList } from '#functions/storage/fileSystemList';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { FileSystemWrite } from '#functions/storage/fileSystemWrite';
 import { LocalFileStore } from '#functions/storage/localFileStore';
@@ -28,8 +28,8 @@ const functionAliases: Record<string, string> = {
 	code: CodeEditingAgent.name,
 	query: CodeFunctions.name,
 	fsr: FileSystemRead.name,
-	fsl: FileSystemList.name,
 	fsw: FileSystemWrite.name,
+	fst: FileSystemTree.name,
 	lfs: LocalFileStore.name,
 	web: PublicWeb.name,
 	llm: LlmTools.name,

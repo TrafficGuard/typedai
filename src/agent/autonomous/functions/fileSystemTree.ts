@@ -23,6 +23,15 @@ export class FileSystemTree {
 	}
 
 	/**
+	 * Expands all directories in the file system tree view
+	 */
+	@func()
+	async expandAll(): Promise<void> {
+		const agent = agentContext();
+		agent.toolState.FileSystemTree ??= [];
+	}
+
+	/**
 	 * Expands a folder in the FileSystemTree view when needing to view a relevant part of the file system
 	 * @param {string} folderPath the folder to expand in the File System tree view. If no value is provided, then all folders are expanded and always returns true.
 	 * @returns if the node was expanded, i.e. the folderPath exists and is a folder and was previously collapsed

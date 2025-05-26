@@ -289,17 +289,19 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				const toolStateMap = await buildToolStateMap(agent.functions.getFunctionInstances());
 				toolStateMap[LiveFiles.name] = agent.toolState.LiveFiles ? [...agent.toolState.LiveFiles] : [];
 
+				if (agent.toolState.FileSystemTree) toolStateMap.FileSystemTree = [...agent.toolState.FileSystemTree];
+
 				// Store FileStore state
 				const fileStoreTool: FileStore | null = agent.functions.getFunctionType('filestore');
 				let fileStoreMetadataArray: FileMetadata[] | undefined;
 				if (fileStoreTool) {
 					try {
 						fileStoreMetadataArray = await fileStoreTool.listFiles();
+						toolStateMap[FILE_STORE_NAME] = fileStoreMetadataArray ?? [];
 					} catch (e) {
 						logger.error(e, 'Error listing files from FileStore before saving agent context');
 					}
 				}
-				toolStateMap[FILE_STORE_NAME] = fileStoreMetadataArray ?? [];
 
 				// Assign the consolidated map
 				iterationData.toolState = toolStateMap;
@@ -313,7 +315,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 					// previousScriptResult is already XML-tagged or contains an error message
 					const scriptResultForSummary = previousScriptResult || 'No script result recorded for this iteration.';
 
-					const summaryPromptContent = `Create a concise summary in a scentence or two for the agent's last iteration.
+					const summaryPromptContent = `Create a concise summary in a sentence or two for the agent's last iteration.
 User Request: ${agent.userPrompt}
 Agent Plan:
 ${planForSummary}

@@ -1,13 +1,12 @@
-import { type Dirent, readdir as nodeReaddir /* Import async readdir */ } from 'node:fs'; // Remove readdirSync
+import { type Dirent, readdir as nodeReaddir } from 'node:fs';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
-import type { FileSystemService } from '#functions/storage/fileSystemService';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import type { IFileSystemService } from '#shared/services/fileSystemService';
 import type { ProjectInfo } from '#swe/projectDetection';
-import { type Summary, getTopLevelSummary, loadBuildDocsSummaries } from './repoIndexDocBuilder';
+import { type Summary, getTopLevelSummary, loadBuildDocsSummaries, loadBuildDocsSummaries as loadBuildDocsSummariesFromBuilder } from './repoIndexDocBuilder'; // Rename the imported function
 
 const fs = {
 	readdir: promisify(nodeReaddir),
@@ -103,8 +102,14 @@ async function generateFolderTreeWithSummaries(summaries: Map<string, Summary>):
  * Generates a project file system tree with the folder long summaries and file short summaries
  * @param summaries
  * @param includeFileSummaries
+ * @param collapsedFolders Optional array of folder paths to display as collapsed
  */
-async function generateFileSystemTreeWithSummaries(summaries: Map<string, Summary>, includeFileSummaries: boolean): Promise<string> {
+export async function generateFileSystemTreeWithSummaries(
+	// Ensure 'export' is present
+	summaries: Map<string, Summary>,
+	includeFileSummaries: boolean,
+	collapsedFolders?: string[], // Add this new parameter
+): Promise<string> {
 	const fileSystem = getFileSystem();
 	const treeStructure = await fileSystem.getFileSystemTreeStructure();
 	let documentation = '';
@@ -112,18 +117,23 @@ async function generateFileSystemTreeWithSummaries(summaries: Map<string, Summar
 	for (const [folderPath, files] of Object.entries(treeStructure)) {
 		const folderSummary = summaries.get(folderPath);
 
-		documentation += `${folderPath}/  ${folderSummary ? `  ${folderSummary.short}` : ''}\n`;
+		if (collapsedFolders?.includes(folderPath)) {
+			documentation += `${folderPath}/ (collapsed) ${folderSummary ? `  ${folderSummary.short}` : ''}\n`;
+			// Skip listing files for this collapsed folder
+		} else {
+			documentation += `${folderPath}/  ${folderSummary ? `  ${folderSummary.short}` : ''}\n`;
 
-		for (const file of files) {
-			const filePath = `${folderPath}/${file}`;
-			const fileSummary = summaries.get(filePath);
-			if (fileSummary && includeFileSummaries) {
-				documentation += `  ${file}  ${fileSummary.short}\n`;
-			} else {
-				documentation += `  ${file}\n`;
+			for (const file of files) {
+				const filePath = `${folderPath}/${file}`;
+				const fileSummary = summaries.get(filePath);
+				if (fileSummary && includeFileSummaries) {
+					documentation += `  ${file}  ${fileSummary.short}\n`;
+				} else {
+					documentation += `  ${file}\n`;
+				}
 			}
 		}
-		documentation += '\n';
+		documentation += '\n'; // Add a newline after each folder block or collapsed folder entry
 	}
 	return documentation;
 }
