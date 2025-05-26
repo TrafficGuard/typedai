@@ -4,6 +4,11 @@ import { logger } from '#o11y/logger';
 let tokenizer: TikTokenizer | null = null;
 let loadingTokenizer: Promise<any> | null = null;
 
+export function countTokensSync(text: string): number {
+	if (!tokenizer) return 0;
+	return tokenizer.encode(text).length;
+}
+
 export async function countTokens(text: string): Promise<number> {
 	if (!text) return 0;
 	// if(tokenizer === null) return 0;
