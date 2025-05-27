@@ -120,6 +120,17 @@ export class PromptFormComponent implements OnInit, OnDestroy {
         return summary;
     }
 
+    public isLastMessageAssistant(): boolean {
+        const messages = this.messagesFormArray;
+        if (!messages || messages.length === 0) {
+            return false;
+        }
+
+        const lastMessage = messages.at(messages.length - 1);
+        const lastMessageRole = lastMessage?.get('role')?.value;
+        return lastMessageRole === 'assistant';
+    }
+
     readonly separatorKeysCodes: number[] = [13, 188];
 
     readonly llmMessageRoles: Array<{value: LlmMessage['role'], viewValue: string}> = [
@@ -134,7 +145,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
     // Signals for card collapsibility (matching HTML usage)
     optionsCollapsed = signal(false);
 
-    ngOnInit(): void {
+    constructor() {
         // Attempt to get navigation state.
         // history.state is generally reliable for state passed via router.navigate.
         const navStateFromHistory = history.state;
@@ -159,6 +170,26 @@ export class PromptFormComponent implements OnInit, OnDestroy {
             console.log('PromptFormComponent ngOnInit - No "llmCallData" key found in navigation state from either source.');
         }
 
+        // React to LLM state changes
+        toObservable(this.llmService.llmsState).pipe(
+            takeUntil(this.destroy$)
+        ).subscribe(state => {
+            if (state.status === 'success') {
+                this.availableModels = state.data.filter(llm => llm.isConfigured);
+            } else if (state.status === 'error') {
+                console.error('Failed to load LLMs', state.error);
+                this.availableModels = [];
+            }
+            
+            // Process route data after LLM state is available
+            this.processRouteData();
+        });
+    }
+
+    ngOnInit(): void {
+        this.isLoading.set(true);
+        // Load LLMs - state changes will be handled by constructor subscription
+        this.llmService.loadLlms();
 
         this.promptForm = this.fb.group({
             name: ['', Validators.required],
@@ -197,28 +228,14 @@ export class PromptFormComponent implements OnInit, OnDestroy {
                 }
             }
         });
-
-
-        this.isLoading.set(true);
-        // Fetch LLMs and then process route data
-        this.llmService.loadLlms();
-        
-        // React to LLM state changes
-        toObservable(this.llmService.llmsState).pipe(
-            takeUntil(this.destroy$)
-        ).subscribe(state => {
-            if (state.status === 'success') {
-                this.availableModels = state.data.filter(llm => llm.isConfigured);
-                this.processRouteData();
-            } else if (state.status === 'error') {
-                console.error('Failed to load LLMs', state.error);
-                this.availableModels = [];
-                this.processRouteData();
-            }
-        });
     }
 
     private processRouteData(): void {
+        // Add guard clause to ensure LLMs are loaded
+        if (this.availableModels.length === 0) {
+            return;
+        }
+
         this.route.data.pipe(
             takeUntil(this.destroy$)
         ).subscribe(data => {

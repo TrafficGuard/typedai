@@ -54,7 +54,7 @@
                     <div class="bg-card flex flex-auto shrink flex-col p-6 dark:bg-transparent">
                         @for (
                             message of displayedMessages();
-                            track trackByFn($index, message);
+                            track trackByFn(i, message);
                             let i = $index;
                             let first = $first;
                             let last = $last
@@ -163,7 +163,7 @@
                 </div>
 
                 <!-- Message field. Don't display if we're viewing someone else's shared conversation -->
-                @if (currentUserSignal(); as user) {
+                @if (userService.userProfile(); as user) {
                     @if (!currentChat.shareable || user.id === currentChat.userId) {
                         <div class="flex items-start border-t bg-gray-50 p-4 dark:bg-transparent">
                         <!-- Left Side: Buttons and mat-select -->

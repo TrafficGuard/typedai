@@ -369,7 +369,6 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
         const llmIds = llms.map(llm => llm.id);
         const currentChat = this.chat();
-        console.log('updateLlmSelector: Available LLM IDs:', llmIds);
         console.log('updateLlmSelector: Current chat:', currentChat?.id, 'Messages count:', currentChat?.messages?.length || 0);
 
         // For existing chats with messages, use the last message's LLM if still available
