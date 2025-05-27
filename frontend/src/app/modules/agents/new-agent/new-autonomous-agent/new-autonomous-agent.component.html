@@ -1,4 +1,3 @@
-
 <form [formGroup]="runAgentForm" (ngSubmit)="onSubmit()" class="flex flex-col">
     <!-- Name Field -->
     <mat-form-field [ngClass]="['fuse-mat-dense', 'w-full']">
@@ -32,7 +31,7 @@
         <mat-form-field [ngClass]="['fuse-mat-dense', 'flex-auto']">
             <mat-label>Easy</mat-label>
             <mat-select formControlName="llmEasy">
-                @for (llm of llms; track llm.id) {
+                @for (llm of llms(); track llm.id) {
                     <mat-option [value]="llm.id">{{ llm.name }}</mat-option>
                 }
             </mat-select>
@@ -40,7 +39,7 @@
         <mat-form-field [ngClass]="['fuse-mat-dense', 'flex-auto']">
             <mat-label>Medium</mat-label>
             <mat-select formControlName="llmMedium">
-                @for (llm of llms; track llm.id) {
+                @for (llm of llms(); track llm.id) {
                     <mat-option [value]="llm.id">{{ llm.name }}</mat-option>
                 }
             </mat-select>
@@ -48,7 +47,7 @@
         <mat-form-field [ngClass]="['fuse-mat-dense', 'flex-auto']">
             <mat-label>Hard</mat-label>
             <mat-select formControlName="llmHard">
-                @for (llm of llms; track llm.id) {
+                @for (llm of llms(); track llm.id) {
                     <mat-option [value]="llm.id">{{ llm.name }}</mat-option>
                 }
             </mat-select>
