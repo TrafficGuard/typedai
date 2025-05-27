@@ -160,16 +160,18 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 					agentPlanResponseMessage = await agent.llms.hard.generateMessage(agentMessages, {
 						id: 'Codegen agent plan',
 						stopSequences,
-						temperature: 0.5,
-						thinking: 'medium',
+						temperature: 0.4,
+						thinking: 'high',
+						maxOutputTokens: 60000,
 					});
 				} catch (e) {
 					logger.warn(e, 'Error with Codegen agent plan');
 					agentPlanResponseMessage = await agent.llms.hard.generateMessage(agentMessages, {
 						id: 'Codegen agent plan retry',
 						stopSequences,
-						temperature: 0.5,
-						thinking: 'medium',
+						temperature: 0.4,
+						thinking: 'high',
+						maxOutputTokens: 60000,
 					});
 				}
 				const agentPlanResponse = messageText(agentPlanResponseMessage);
