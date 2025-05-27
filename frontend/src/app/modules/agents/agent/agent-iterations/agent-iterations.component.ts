@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input, signal, effect, inject, OnDestroy, WritableSignal, ViewEncapsulation, DestroyRef, computed } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, signal, inject, OnDestroy, WritableSignal, ViewEncapsulation, DestroyRef, computed } from '@angular/core';
 import { CommonModule, JsonPipe, KeyValuePipe } from '@angular/common';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -8,7 +8,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatIconModule } from '@angular/material/icon';
 // import { Subject, Subscription } from 'rxjs'; // No longer needed
-import { distinctUntilChanged, tap } from 'rxjs/operators';
+import { distinctUntilChanged, tap, filter } from 'rxjs/operators';
 import { AgentService } from '../../agent.service';
 import { AutonomousIteration, AutonomousIterationSummary } from '#shared/model/agent.model';
 import { FunctionCallResult } from "#shared/model/llm.model";
@@ -37,10 +37,26 @@ import { toObservable, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 export class AgentIterationsComponent implements OnDestroy {
     agentId = input<string | null>(null);
 
-    iterations: WritableSignal<AutonomousIterationSummary[]> = signal([]);
-    isLoading: WritableSignal<boolean> = signal(false);
-    errorLoading: WritableSignal<string | null> = signal(null);
+    iterations = computed(() => {
+        const state = this.agentService.agentIterationsState();
+        if (state.status === 'success') {
+            return state.data;
+        }
+        return [];
+    });
+
+    isLoading = computed(() => {
+        const state = this.agentService.agentIterationsState();
+        return state.status === 'loading';
+    });
+
+    errorLoading = computed(() => {
+        const state = this.agentService.agentIterationsState();
+        return state.status === 'error' ? (state.error?.message || 'Failed to load iteration summary data.') : null;
+    });
     expandedIterationData = signal<Record<number, { status: 'loading' | 'success' | 'error', data?: AutonomousIteration, error?: any }>>({});
+
+    private detailState = computed(() => this.agentService.selectedAgentIterationDetailState());
 
     private agentService = inject(AgentService);
     private destroyRef = inject(DestroyRef);
@@ -57,70 +73,46 @@ export class AgentIterationsComponent implements OnDestroy {
                 this.loadIterations(currentAgentIdVal);
             } else {
                 console.log('AgentIterationsComponent: Subscription Handler - agentId is falsy. Clearing local iterations and service state.');
-                this.iterations.set([]);
-                this.isLoading.set(false);
-                this.errorLoading.set(null);
                 this.expandedIterationData.set({});
                 this.agentService.clearAgentIterations();
-                this.agentService.clearSelectedAgentIterationDetail(); // Assuming this method exists
+                this.agentService.clearSelectedAgentIterationDetail();
             }
         });
 
-        // Effect to react to service state changes for iteration summaries
-        effect(() => {
-            const state = this.agentService.agentIterationsState();
-            console.log(`AgentIterationsComponent: Effect (Summary Sync) - agentIterationsState changed. Status: ${state.status}`);
-            this.isLoading.set(state.status === 'loading');
-
-            if (state.status === 'success') {
-                const processedIterations = state.data;
-                this.iterations.set(processedIterations);
-                this.errorLoading.set(null);
-                console.log(`AgentIterationsComponent: Effect (Summary Sync) - Synced ${processedIterations.length} iterations from service state.`);
-            } else if (state.status === 'error') {
-                const errorMessage = state.error?.message || 'Failed to load iteration summary data.';
-                console.error(`AgentIterationsComponent: Effect (Summary Sync) - Error from service state: ${errorMessage}`, state.error);
-                this.errorLoading.set(errorMessage);
-                this.iterations.set([]);
-            } else if (state.status === 'idle' || state.status === 'loading') {
-                console.log(`AgentIterationsComponent: Effect (Summary Sync) - Service state is '${state.status}'. Setting local iterations to empty/loading.`);
-                if (state.status === 'idle') {
-                    this.iterations.set([]);
-                }
-                this.errorLoading.set(null);
-            }
+        // Handle error logging side effects
+        toObservable(this.errorLoading).pipe(
+            filter(error => error !== null),
+            takeUntilDestroyed(this.destroyRef)
+        ).subscribe(error => {
+            // error is already a string message from errorLoading computed
+            console.error(`AgentIterationsComponent: Error from service state: ${error}`);
         });
 
-        // Effect to react to service state changes for selected iteration detail
-        effect(() => {
-            const detailState = this.agentService.selectedAgentIterationDetailState();
-            console.log(`AgentIterationsComponent: Effect (Detail Sync) - selectedAgentIterationDetailState changed. Status: ${detailState.status}`);
-
+        // Handle detail state side effects
+        toObservable(this.detailState).pipe(
+            takeUntilDestroyed(this.destroyRef)
+        ).subscribe(detailState => {
             if (detailState.status === 'success' && detailState.data) {
                 this.expandedIterationData.update(s => ({
                     ...s,
                     [detailState.data.iteration]: { status: 'success', data: detailState.data }
                 }));
-                console.log(`AgentIterationsComponent: Effect (Detail Sync) - Synced details for iteration ${detailState.data.iteration}.`);
+                console.log(`AgentIterationsComponent: Synced details for iteration ${detailState.data.iteration}.`);
             } else if (detailState.status === 'error' && detailState.error) {
-                // Try to associate error with a loading iteration.
-                // This is a simplification; ideally, detailState would include the iteration number for the error.
                 const loadingIterationKey = Object.keys(this.expandedIterationData()).find(
                     key => this.expandedIterationData()[Number(key)]?.status === 'loading'
                 );
                 if (loadingIterationKey) {
-                     this.expandedIterationData.update(s => ({
+                    this.expandedIterationData.update(s => ({
                         ...s,
                         [Number(loadingIterationKey)]: { status: 'error', error: detailState.error }
                     }));
-                    console.error(`AgentIterationsComponent: Effect (Detail Sync) - Error loading details for iteration ${loadingIterationKey}:`, detailState.error);
+                    console.error(`AgentIterationsComponent: Error loading details for iteration ${loadingIterationKey}:`, detailState.error);
                 } else {
-                    // If no specific iteration was 'loading', this error is unassociated or for a non-expanded item.
-                    console.error('AgentIterationsComponent: Effect (Detail Sync) - Unassociated error loading iteration detail:', detailState.error);
+                    console.error('AgentIterationsComponent: Unassociated error loading iteration detail:', detailState.error);
                 }
             }
-            // 'idle' or 'loading' states for details are primarily managed by fetchIterationDetails initiating the load.
-        }, { allowSignalWrites: true }); // allowSignalWrites might be needed if effect updates signals that are read elsewhere in same cycle, though direct updates to expandedIterationData should be fine.
+        });
     }
 
     ngOnDestroy(): void {
@@ -130,12 +122,9 @@ export class AgentIterationsComponent implements OnDestroy {
     loadIterations(agentId: string): void {
         if (!agentId) {
             console.warn('AgentIterationsComponent: loadIterations called with no agentId.');
-            this.iterations.set([]);
-            this.isLoading.set(false);
-            this.errorLoading.set(null);
             this.expandedIterationData.set({});
             this.agentService.clearAgentIterations();
-            this.agentService.clearSelectedAgentIterationDetail(); // Assuming this method exists
+            this.agentService.clearSelectedAgentIterationDetail();
             return;
         }
         console.log(`AgentIterationsComponent: Requesting iteration summaries for agent ${agentId}`);

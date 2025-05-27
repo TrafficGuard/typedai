@@ -5,8 +5,7 @@ import {
     OnDestroy,
     OnInit,
     ViewEncapsulation,
-    WritableSignal,
-    effect,
+    computed,
     inject,
     signal,
 } from '@angular/core';
@@ -38,21 +37,9 @@ export class VibeListComponent implements OnInit, OnDestroy {
     sessions = toSignal(this.vibeService.vibeSessionsListItems$, {
         initialValue: undefined as VibeSessionListItem[] | undefined | null,
     });
-    isLoading: WritableSignal<boolean> = signal(true);
+    isLoading = computed(() => this.sessions() === undefined);
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
-
-    constructor() {
-        effect(
-            () => {
-                const currentSessions = this.sessions();
-                if (currentSessions !== undefined && this.isLoading()) {
-                    this.isLoading.set(false);
-                }
-            },
-            { allowSignalWrites: true },
-        );
-    }
 
     ngOnInit(): void {
         // Trigger initial data load.
@@ -66,14 +53,7 @@ export class VibeListComponent implements OnInit, OnDestroy {
     }
 
     public refreshVibeSessions(): void {
-        if (this.isLoading()) {
-            return;
-        }
-        this.isLoading.set(true);
-        // Assumes refreshVibeSessionsListItems() exists on vibeService and triggers
-        // the vibeSessionsListItems$ observable to emit.
         this.vibeService.refreshVibeSessionsListItems();
-        // The effect will set isLoading to false when sessions() updates.
     }
 
     trackBySessionId(index: number, item: VibeSessionListItem): string {

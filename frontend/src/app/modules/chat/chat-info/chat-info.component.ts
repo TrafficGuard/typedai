@@ -7,7 +7,6 @@ import {
     input,
     signal,
     computed,
-    effect, // Added effect
     WritableSignal,
     DestroyRef,
 } from '@angular/core';
@@ -49,7 +48,11 @@ export class ChatInfoComponent {
     @Input() drawer: MatDrawer;
 
     links: AgentLinks = new GoogleCloudLinks();
-    settings: UserProfile['chat']; // This will be initialized from userService
+    readonly settings = computed(() => {
+        const user = this.userService.userProfile();
+        // Ensure settings is a new object to avoid direct mutation if user.chat is frozen or shared
+        return user?.chat ? { ...user.chat } : {} as UserProfile['chat'];
+    });
 
     // Signals for UI state
     settingsLoading = signal(false);
@@ -74,11 +77,6 @@ export class ChatInfoComponent {
     private destroyRef = inject(DestroyRef);
 
     constructor() {
-        effect(() => {
-            const user = this.userService.userProfile();
-            // Ensure settings is a new object to avoid direct mutation if user.chat is frozen or shared
-            this.settings = user?.chat ? { ...user.chat } : {} as UserProfile['chat'];
-        });
     }
 
     /**
@@ -86,7 +84,8 @@ export class ChatInfoComponent {
      * Handles loading state and error display
      */
     private saveSettings(): void {
-        if (!this.settings) { // this.settings is UserProfile['chat']
+        const currentSettings = this.settings();
+        if (!currentSettings) {
             return;
         }
         const currentUser = this.userService.userProfile();
@@ -105,7 +104,7 @@ export class ChatInfoComponent {
             hilBudget: currentUser.hilBudget,
             hilCount: currentUser.hilCount,
             llmConfig: { ...(currentUser.llmConfig || {}) }, // Ensure llmConfig is at least an empty object
-            chat: { ...this.settings }, // The updated chat settings
+            chat: { ...currentSettings }, // The updated chat settings
             functionConfig: { ...(currentUser.functionConfig || {}) } // Ensure functionConfig is at least an empty object
         };
 

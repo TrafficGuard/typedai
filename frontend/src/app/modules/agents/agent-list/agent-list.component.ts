@@ -9,7 +9,7 @@ import {
     ViewEncapsulation,
     inject,
     signal,
-    effect, WritableSignal,
+    computed, WritableSignal,
     DestroyRef
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -78,20 +78,15 @@ export class AgentListComponent implements OnInit, AfterViewInit {
     readonly routes = AGENT_ROUTE_DEFINITIONS;
 
     flashMessage: WritableSignal<'success' | 'error' | null> = signal(null);
-    isLoading: WritableSignal<boolean> = signal(true);
+    isLoading = computed(() => {
+        const currentState = this.agentsState();
+        return currentState.status === 'loading' || currentState.status === 'idle';
+    });
     searchInputControl: UntypedFormControl = new UntypedFormControl();
 
     selection = new SelectionModel<AgentContextPreviewApi>(true, []);
 
     constructor() {
-        effect(() => {
-            const currentState = this.agentsState();
-            if (currentState.status === 'loading' || currentState.status === 'idle') {
-                if (!this.isLoading()) this.isLoading.set(true);
-            } else { // 'success' or 'error'
-                if (this.isLoading()) this.isLoading.set(false);
-            }
-        });
     }
 
     // -----------------------------------------------------------------------------------------------------
@@ -100,8 +95,8 @@ export class AgentListComponent implements OnInit, AfterViewInit {
 
     ngOnInit(): void {
         // Initial data load is triggered by AgentService constructor.
-        // isLoading is initialized to true and the effect will set it to false
-        // once the agents signal receives its first value (even an empty array).
+        // isLoading is computed from agentsState and will be true initially
+        // until the agents signal receives its first value (even an empty array).
 
         // Subscribe to search input field value changes
         this.searchInputControl.valueChanges
@@ -110,9 +105,7 @@ export class AgentListComponent implements OnInit, AfterViewInit {
                 debounceTime(300),
                 switchMap((query) => {
                     if (this.isLoading()) return []; // Prevent multiple loads
-                    this.isLoading.set(true);
                     this.agentService.refreshAgents(); // Triggers update to agentService.agents$
-                    // The effect will handle setting isLoading to false when agents() updates.
                     return []; // switchMap expects an observable, return empty to satisfy
                 }),
             )
@@ -130,10 +123,8 @@ export class AgentListComponent implements OnInit, AfterViewInit {
 
             this._sort.sortChange.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
                 if (this.isLoading()) return;
-                this.isLoading.set(true);
                 // if (this._paginator) this._paginator.pageIndex = 0; // If paginator is used
                 this.agentService.refreshAgents();
-                // Effect handles isLoading.set(false)
             });
         }
     }
@@ -187,14 +178,11 @@ export class AgentListComponent implements OnInit, AfterViewInit {
 
         confirmation.afterClosed().subscribe((result) => {
             if (result === 'confirmed') {
-                this.isLoading.set(true);
                 this.agentService.deleteAgents(selectedAgentIds)
                     .pipe(
                         takeUntilDestroyed(this.destroyRef),
                         finalize(() => {
-                            // isLoading will be set to false by the effect when agents() updates
-                            // or explicitly if deleteAgents doesn't trigger agents$ update quickly enough.
-                            // For now, rely on the effect. If issues, add: this.isLoading.set(false);
+                            // isLoading is computed from agentsState and will update automatically
                         })
                     )
                     .subscribe({
@@ -204,7 +192,6 @@ export class AgentListComponent implements OnInit, AfterViewInit {
                         },
                         error: (error) => {
                             console.error('Error deleting agents:', error);
-                            this.isLoading.set(false); // Explicitly set false on error
                             // Optionally show error message via flashMessage signal
                         },
                     });
@@ -216,9 +203,7 @@ export class AgentListComponent implements OnInit, AfterViewInit {
         if (this.isLoading()) {
             return;
         }
-        this.isLoading.set(true);
         this.agentService.refreshAgents();
-        // Effect will set isLoading to false
     }
 
     createProduct(): void {

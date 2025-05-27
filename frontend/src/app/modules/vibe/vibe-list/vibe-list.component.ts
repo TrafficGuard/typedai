@@ -1,5 +1,5 @@
 import { AsyncPipe, DatePipe, NgIf, TitleCasePipe, CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit, ViewEncapsulation, ChangeDetectionStrategy, signal, WritableSignal, inject, computed } from '@angular/core';
+import { Component, OnDestroy, OnInit, ViewEncapsulation, ChangeDetectionStrategy, inject, computed } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
@@ -38,10 +38,8 @@ export class VibeListComponent implements OnInit {
 
 	readonly sessionsState = this.vibeService.sessionsState;
 
-	// Computed signal for loading state
 	readonly isLoading = computed(() => this.sessionsState().status === 'loading');
 
-	// Observable for backward compatibility with template
 	readonly sessions$ = this.vibeService.sessions$;
 
 	ngOnInit(): void {

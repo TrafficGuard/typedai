@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
+import { Component, OnInit, ViewChild, ViewEncapsulation, computed } from '@angular/core';
 import {
     FormsModule,
     NgForm,
@@ -42,10 +42,16 @@ export class AuthUnlockSessionComponent implements OnInit {
         type: 'success',
         message: '',
     };
-    name: string;
     showAlert: boolean = false;
     unlockSessionForm: UntypedFormGroup;
-    private _email: string;
+
+    private userData = computed(() => {
+        const userState = this._userService.userEntityState();
+        return userState.status === 'success' ? userState.data : null;
+    });
+
+    readonly name = computed(() => this.userData()?.name || '');
+    private readonly email = computed(() => this.userData()?.email || '');
 
     /**
      * Constructor
@@ -66,17 +72,11 @@ export class AuthUnlockSessionComponent implements OnInit {
      * On init
      */
     ngOnInit(): void {
-        // Get the user's name
-        this._userService.user$.subscribe((user) => {
-            this.name = user.name;
-            this._email = user.email;
-        });
-
-        // Create the form
+        // Create the form using computed values
         this.unlockSessionForm = this._formBuilder.group({
             name: [
                 {
-                    value: this.name,
+                    value: this.name(),
                     disabled: true,
                 },
             ],
@@ -105,7 +105,7 @@ export class AuthUnlockSessionComponent implements OnInit {
 
         this._authService
             .unlockSession({
-                email: this._email ?? '',
+                email: this.email() ?? '',
                 password: this.unlockSessionForm.get('password').value,
             })
             .subscribe(
@@ -129,7 +129,7 @@ export class AuthUnlockSessionComponent implements OnInit {
                     // Reset the form
                     this.unlockSessionNgForm.resetForm({
                         name: {
-                            value: this.name,
+                            value: this.name(),
                             disabled: true,
                         },
                     });

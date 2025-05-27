@@ -1,8 +1,8 @@
-import { Component, inject, OnInit, OnDestroy, effect, signal, computed, output, input, DestroyRef } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal, computed, output, input, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {FormsModule, ReactiveFormsModule} from '@angular/forms'; // Added for ngModel
-import { finalize, of, switchMap, take } from 'rxjs'; // Removed tap, map, startWith, takeUntil as signals handle reactivity
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop'; // For automatic unsubscription
+import { finalize, of, switchMap, take, distinctUntilChanged } from 'rxjs'; // Removed tap, map, startWith, takeUntil as signals handle reactivity
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop'; // For automatic unsubscription
 import { MatTableModule } from '@angular/material/table';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -93,16 +93,14 @@ export class VibeFileListComponent {
   });
 
   constructor() {
-    // Effect to react to session input changes (replaces ngOnChanges and parts of ngOnInit)
-    effect(() => {
-      const currentSession = this.session();
+    // Replace effect() with RxJS subscription for session input changes
+    toObservable(this.session).pipe(
+      distinctUntilChanged(),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(currentSession => {
       if (currentSession?.id) {
-        // this.isProcessingAction.set(true); // Optionally set loading for tree fetching
         this.vibeService.getFileSystemTree(currentSession.id)
-          .pipe(
-            takeUntilDestroyed(this.destroyRef),
-            // finalize(() => this.isProcessingAction.set(false))
-          )
+          .pipe(takeUntilDestroyed(this.destroyRef))
           .subscribe({
             next: (fileSystemNode) => {
               this.rootNode.set(fileSystemNode);

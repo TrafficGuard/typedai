@@ -1,7 +1,7 @@
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { CommonModule, NgClass } from '@angular/common';
 import { UserService } from 'app/core/user/user.service';
-import { EMPTY, Observable, catchError, from } from 'rxjs';
+import { EMPTY, Observable, catchError, from, distinctUntilChanged, combineLatest, switchMap, interval, tap } from 'rxjs';
 import { v4 as uuidv4 } from 'uuid';
 import {
     AfterViewInit,
@@ -18,11 +18,10 @@ import {
     signal,
     Signal,
     WritableSignal,
-    effect,
     computed,
     DestroyRef,
 } from '@angular/core';
-import { toSignal, takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { toSignal, takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import {Chat, ChatMessage, NEW_CHAT_ID} from 'app/modules/chat/chat.types';
 import type { Attachment } from 'app/modules/message.types';
 import { UserContentExt } from '#shared/model/llm.model';
@@ -184,9 +183,11 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
         this.llmsSignal = toSignal(this.llmService.getLlms(), { initialValue: [] });
         this.routeParamsSignal = toSignal(this.route.params, { initialValue: {} });
 
-        // Effect to handle route changes and load chat data
-        effect(() => {
-            const params = this.routeParamsSignal(); // React to route param changes
+        // Handle route changes and load chat data
+        toObservable(this.routeParamsSignal).pipe(
+            distinctUntilChanged(),
+            takeUntilDestroyed(this.destroyRef)
+        ).subscribe(params => {
             const chatId = params['id'];
             if (chatId) {
                 this._chatService.loadChatById(chatId).pipe(
@@ -202,9 +203,10 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
             }
         });
 
-        // Effect to update component state based on loaded data (user, llms, chat)
-        effect(() => {
-            const currentChat = this.chat(); // chat signal from service
+        // Handle chat changes and update component state
+        toObservable(this.chat).pipe(
+            takeUntilDestroyed(this.destroyRef)
+        ).subscribe(currentChat => {
             const currentChatId = currentChat?.id;
 
             // Only reset generating states if the chat ID has actually changed,
@@ -223,6 +225,33 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
             this.previousChatId = currentChatId;
         });
 
+        // Handle animation for generating messages
+        combineLatest([
+            toObservable(this.generating),
+            toObservable(this.generatingAIMessage)
+        ]).pipe(
+            takeUntilDestroyed(this.destroyRef),
+            switchMap(([isGenerating, aiMsg]) => {
+                if (isGenerating && aiMsg && aiMsg.generating) {
+                    return interval(800).pipe(
+                        tap(() => {
+                            this.generatingAIMessage.update(gm => {
+                                if (!gm) return null;
+                                const newTextContent = gm.content === '.' ? '..' : gm.content === '..' ? '...' : '.';
+                                return {
+                                    ...gm,
+                                    content: newTextContent, // Update UserContentExt string
+                                    textContent: newTextContent, // Also update textContent
+                                    // textChunks will be derived by displayedMessages
+                                };
+                            });
+                        })
+                    );
+                }
+                return EMPTY;
+            })
+        ).subscribe();
+
         // Load initial list of chats
         this._chatService.loadChats().pipe(
             takeUntilDestroyed(this.destroyRef), // Add takeUntilDestroyed
@@ -232,30 +261,6 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
             })
         ).subscribe();
     }
-
-    // Effect for managing the "..." animation
-    private generatingAnimationEffect = effect((onCleanup) => {
-        const isGenerating = this.generating();
-        const aiMsg = this.generatingAIMessage();
-
-        if (isGenerating && aiMsg && aiMsg.generating) {
-            const timer = setInterval(() => {
-                this.generatingAIMessage.update(gm => {
-                    if (!gm) return null;
-                    const newTextContent = gm.content === '.' ? '..' : gm.content === '..' ? '...' : '.';
-                    return {
-                        ...gm,
-                        content: newTextContent, // Update UserContentExt string
-                        textContent: newTextContent, // Also update textContent
-                        // textChunks will be derived by displayedMessages
-                    };
-                });
-            }, 800);
-            onCleanup(() => {
-                clearInterval(timer);
-            });
-        }
-    });
 
 
     // -----------------------------------------------------------------------------------------------------

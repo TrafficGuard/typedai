@@ -9,7 +9,6 @@ import {
     OnInit,
     OnDestroy,
     DestroyRef,
-    effect,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -22,8 +21,8 @@ import { Chat, NEW_CHAT_ID } from 'app/modules/chat/chat.types';
 
 import { ChatServiceClient } from '../chat.service';
 import { EMPTY } from 'rxjs';
-import { catchError, finalize, tap } from 'rxjs/operators';
-import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { catchError, finalize, tap, distinctUntilChanged } from 'rxjs/operators';
+import { takeUntilDestroyed, toSignal, toObservable } from '@angular/core/rxjs-interop';
 
 @Component({
     selector: 'chat-chats',
@@ -52,7 +51,7 @@ export class ChatsComponent implements OnInit, OnDestroy {
     private destroyRef = inject(DestroyRef);
 
     // State Signals
-    sessions = signal<Chat[]>([]);
+    sessions = computed(() => this.chatService.chats() ?? []);
     selectedSessionId = signal<string | null>(null);
     filterTerm = signal<string>('');
     hoveredChatId = signal<string | null>(null);
@@ -84,9 +83,11 @@ export class ChatsComponent implements OnInit, OnDestroy {
     constructor() {
         const routeParamsSignal = toSignal(this.route.paramMap, { initialValue: null });
 
-        // Effect to synchronize selectedSessionId with route parameters
-        effect(() => {
-            const params = routeParamsSignal();
+        // Subscribe to route parameter changes
+        toObservable(routeParamsSignal).pipe(
+            distinctUntilChanged(),
+            takeUntilDestroyed(this.destroyRef)
+        ).subscribe(params => {
             const chatId = params?.get('id');
             if (chatId && chatId !== NEW_CHAT_ID) {
                 this.selectedSessionId.set(chatId);
@@ -94,12 +95,6 @@ export class ChatsComponent implements OnInit, OnDestroy {
                 // If no ID, or it's the "new chat" placeholder, clear selection
                 this.selectedSessionId.set(null);
             }
-        }, { allowSignalWrites: true });
-
-        // Effect to synchronize component's sessions with the service's chats signal
-        // This effect is the correct way to update this.sessions
-        effect(() => {
-            this.sessions.set(this.chatService.chats() ?? []);
         });
     }
 
@@ -125,13 +120,9 @@ export class ChatsComponent implements OnInit, OnDestroy {
         this.chatService.loadChats()
             .pipe(
                 takeUntilDestroyed(this.destroyRef),
-                // Removed the incorrect tap operator that was resetting sessions
                 catchError(err => {
                     console.error('Error loading chats:', err);
                     this.error.set(err);
-                    // It's okay to set sessions to [] here on error,
-                    // as the service's chat signal might also be null/empty.
-                    this.sessions.set([]);
                     return EMPTY;
                 }),
                 finalize(() => {
@@ -191,7 +182,7 @@ export class ChatsComponent implements OnInit, OnDestroy {
             .pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe({
                 next: () => {
-                    // The effect listening to chatService.chats() will update the list
+                    // The computed sessions signal will automatically update from the service
                     if (this.selectedSessionId() === session.id) {
                         // Navigate to the base chat route if the active chat was deleted
                         this.router.navigate(['../'], { relativeTo: this.route });

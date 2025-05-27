@@ -1,6 +1,7 @@
-import { Component, OnInit, effect } from '@angular/core';
+import { Component, OnInit, computed, inject, DestroyRef } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Observable } from 'rxjs';
+import { filter } from 'rxjs/operators';
 import { CommonModule } from "@angular/common";
 import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatSelectModule } from "@angular/material/select";
@@ -10,6 +11,8 @@ import { MatInputModule } from '@angular/material/input';
 import { WorkflowsService } from "./workflows.service";
 import { MatIconModule } from "@angular/material/icon";
 import { MatButtonModule } from "@angular/material/button";
+import { toObservable } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'new-workflows-agent',
@@ -32,35 +35,42 @@ export class NewWorkflowsAgentComponent implements OnInit {
   codeForm!: FormGroup;
   result: string = '';
   isLoading = false;
-  repositories: string[] = [];
+  
+  private destroyRef = inject(DestroyRef);
+
+  // Add computed signals for repositories state
+  private repositoriesData = computed(() => {
+    const state = this.workflowsService.repositoriesState();
+    if (state.status === 'success') {
+      return state.data;
+    }
+    return [];
+  });
+
+  private repositoriesError = computed(() => {
+    const state = this.workflowsService.repositoriesState();
+    return state.status === 'error' ? state.error : null;
+  });
+
+  repositories = computed(() => this.repositoriesData());
 
   constructor(private fb: FormBuilder, private workflowsService: WorkflowsService) {
-    effect(() => {
-      const state = this.workflowsService.repositoriesState();
-      switch (state.status) {
-        case 'success':
-          this.repositories = state.data;
-          if (state.data.length > 0) {
-            // Ensure form is initialized before patching
-            if (this.codeForm) {
-              this.codeForm.patchValue({ workingDirectory: state.data[0] });
-            }
-          }
-          // Clear previous error from this source if any, or handle UI updates
-          break;
-        case 'error':
-          console.error('Error fetching repositories:', state.error);
-          this.result = `Error fetching repositories: ${state.error.message}. Please try again later.`;
-          this.repositories = [];
-          break;
-        case 'loading':
-          // Optionally, indicate loading state for repositories in the UI
-          // For example, this.result = 'Loading repositories...';
-          break;
-        case 'idle':
-          this.repositories = [];
-          break;
+    // Handle form patching side effect
+    toObservable(this.repositoriesData).pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(repositories => {
+      if (repositories.length > 0 && this.codeForm) {
+        this.codeForm.patchValue({ workingDirectory: repositories[0] });
       }
+    });
+
+    // Handle error side effects
+    toObservable(this.repositoriesError).pipe(
+      filter(error => error !== null),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(error => {
+      console.error('Error fetching repositories:', error);
+      this.result = `Error fetching repositories: ${error.message}. Please try again later.`;
     });
   }
 

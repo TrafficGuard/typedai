@@ -45,6 +45,16 @@ const ALLOWED_PYTHON_IMPORTS = ['json', 're', 'math', 'datetime'];
 let pyodide: PyodideInterface;
 let codegenSystemPrompt: string | null = null;
 
+const PYODIDE_LOG_DEBOUNCE_MS = 100;
+
+interface AgentLogBuffer {
+	buffer: string[];
+	timer: NodeJS.Timeout | null;
+}
+
+const agentStdoutBuffers = new Map<string, AgentLogBuffer>();
+const agentStderrBuffers = new Map<string, AgentLogBuffer>();
+
 export async function runCodeGenAgent(agent: AgentContext): Promise<AgentExecution> {
 	pyodide ??= await initPyodide();
 	codegenSystemPrompt ??= readFileSync('src/agent/autonomous/codegen/codegen-agent-system-prompt').toString();
@@ -55,8 +65,14 @@ export async function runCodeGenAgent(agent: AgentContext): Promise<AgentExecuti
 
 	agentContextStorage.enterWith(agent);
 
-	const execution = withActiveSpan(agent.name, async (span: Span) => runAgentExecution(agent, span));
-	return { agentId: agent.agentId, execution };
+	const executionPromise = withActiveSpan(agent.name, async (span: Span) => runAgentExecution(agent, span));
+
+	// Ensure cleanup happens after the execution promise settles
+	const executionWithCleanup = executionPromise.finally(() => {
+		cleanupAgentPyodideLogs(agent.agentId);
+	});
+
+	return { agentId: agent.agentId, execution: executionWithCleanup };
 }
 
 async function runAgentExecution(agent: AgentContext, span: Span): Promise<string> {
@@ -600,18 +616,88 @@ async def ${originalName}(*args, **kwargs):
 
 async function initPyodide(): Promise<PyodideInterface> {
 	pyodide = await loadPyodide();
-	pyodide.setDebug(true);
+	// pyodide.setDebug(true); // This can be very verbose, enable if needed for Pyodide internal debugging
+
 	pyodide.setStdout({
-		batched: (output) => {
-			logger.info(`CodeGen stdout: ${JSON.stringify(output)}`);
+		batched: (outputLine: string) => {
+			const currentAgent = agentContext();
+			if (!currentAgent || !currentAgent.agentId) {
+				logger.warn({ log: outputLine }, 'CodeGen stdout (no agent context)');
+				return;
+			}
+			const agentId = currentAgent.agentId;
+
+			let agentBufferEntry = agentStdoutBuffers.get(agentId);
+			if (!agentBufferEntry) {
+				agentBufferEntry = { buffer: [], timer: null };
+				agentStdoutBuffers.set(agentId, agentBufferEntry);
+			}
+
+			agentBufferEntry.buffer.push(outputLine);
+
+			if (agentBufferEntry.timer) clearTimeout(agentBufferEntry.timer);
+
+			agentBufferEntry.timer = setTimeout(() => {
+				// Fetch the entry again to ensure it hasn't been cleared by cleanup
+				const entryToLog = agentStdoutBuffers.get(agentId);
+				if (entryToLog && entryToLog.buffer.length > 0) {
+					const collectedOutput = entryToLog.buffer.join(''); // Concatenate lines
+					logger.info({ agentId, log: collectedOutput }, 'CodeGen stdout');
+					entryToLog.buffer = []; // Clear buffer for this agent
+				}
+				if (entryToLog) entryToLog.timer = null; // Mark timer as inactive
+			}, PYODIDE_LOG_DEBOUNCE_MS);
 		},
 	});
+
 	pyodide.setStderr({
-		batched: (output) => {
-			logger.info(`CodeGen stderr: ${JSON.stringify(output)}`);
+		batched: (outputLine: string) => {
+			const currentAgent = agentContext();
+			if (!currentAgent || !currentAgent.agentId) {
+				logger.warn({ log: outputLine }, 'CodeGen stderr (no agent context)');
+				return;
+			}
+			const agentId = currentAgent.agentId;
+
+			let agentBufferEntry = agentStderrBuffers.get(agentId);
+			if (!agentBufferEntry) {
+				agentBufferEntry = { buffer: [], timer: null };
+				agentStderrBuffers.set(agentId, agentBufferEntry);
+			}
+
+			agentBufferEntry.buffer.push(outputLine);
+
+			if (agentBufferEntry.timer) clearTimeout(agentBufferEntry.timer);
+
+			agentBufferEntry.timer = setTimeout(() => {
+				// Fetch the entry again to ensure it hasn't been cleared by cleanup
+				const entryToLog = agentStderrBuffers.get(agentId);
+				if (entryToLog && entryToLog.buffer.length > 0) {
+					const collectedOutput = entryToLog.buffer.join(''); // Concatenate lines
+					logger.info({ agentId, log: collectedOutput }, 'CodeGen stderr');
+					entryToLog.buffer = []; // Clear buffer for this agent
+				}
+				if (entryToLog) entryToLog.timer = null; // Mark timer as inactive
+			}, PYODIDE_LOG_DEBOUNCE_MS);
 		},
 	});
+
 	return pyodide;
+}
+
+function cleanupAgentPyodideLogs(agentId: string) {
+	const stdoutEntry = agentStdoutBuffers.get(agentId);
+	if (stdoutEntry?.timer) {
+		clearTimeout(stdoutEntry.timer);
+	}
+	agentStdoutBuffers.delete(agentId);
+
+	const stderrEntry = agentStderrBuffers.get(agentId);
+	if (stderrEntry?.timer) {
+		clearTimeout(stderrEntry.timer);
+	}
+	agentStderrBuffers.delete(agentId);
+	logger.debug(`Cleaned up Pyodide log buffers for agent [${agentId}]`);
 }
 
 async function ensureCorrectSyntax(pythonMainFnCode: string, functionsXml: string): Promise<string> {

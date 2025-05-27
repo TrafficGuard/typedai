@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, input, inject, computed, effect, signal, DestroyRef, WritableSignal } from '@angular/core';
+import { Component, input, inject, computed, signal, DestroyRef, WritableSignal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatExpansionModule } from '@angular/material/expansion';
@@ -7,6 +7,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { distinctUntilChanged, filter } from 'rxjs/operators';
 // import { environment } from 'environments/environment'; // Not used directly
 import { LlmMessage, LlmCallMessageSummaryPart } from '#shared/model/llm.model';
 import { LlmCall, LlmCallSummary } from '#shared/model/llmCall.model';
@@ -39,14 +41,23 @@ export class AgentLlmCallsComponent {
 	private snackBar = inject(MatSnackBar);
 	private agentService = inject(AgentService);
 	private router = inject(Router);
-    // private destroyRef = inject(DestroyRef); // Needed if takeUntilDestroyed is used with observables
+    private destroyRef = inject(DestroyRef);
 
     // Expose the state signal for the template
     readonly llmCallsStateForTemplate = this.agentService.llmCallsState;
 
+    private llmCallsError = computed(() => {
+        const state = this.agentService.llmCallsState();
+        return state.status === 'error' ? state.error : null;
+    });
+
+    private detailState = computed(() => this.agentService.selectedLlmCallDetailState());
+
 	constructor() {
-        effect(() => {
-            const currentAgentId = this.agentId();
+        toObservable(this.agentId).pipe(
+            distinctUntilChanged(),
+            takeUntilDestroyed(this.destroyRef)
+        ).subscribe(currentAgentId => {
             if (currentAgentId) {
                 this.loadLlmCalls(currentAgentId);
             } else {
@@ -56,16 +67,17 @@ export class AgentLlmCallsComponent {
             }
         });
 
-        effect(() => {
-            const state = this.agentService.llmCallsState();
-            if (state.status === 'error') {
-                console.error('Error loading LLM calls from service state', state.error);
-                this.snackBar.open('Error loading LLM calls', 'Close', { duration: 3000 });
-            }
+        toObservable(this.llmCallsError).pipe(
+            filter(error => error !== null),
+            takeUntilDestroyed(this.destroyRef)
+        ).subscribe(error => {
+            console.error('Error loading LLM calls from service state', error);
+            this.snackBar.open('Error loading LLM calls', 'Close', { duration: 3000 });
         });
 
-        effect(() => { // For selectedLlmCallDetailState
-            const detailState = this.agentService.selectedLlmCallDetailState();
+        toObservable(this.detailState).pipe(
+            takeUntilDestroyed(this.destroyRef)
+        ).subscribe(detailState => {
             if (detailState.status === 'success' && detailState.data) {
                 this.expandedLlmCallData.update(s => ({
                     ...s,
@@ -73,28 +85,20 @@ export class AgentLlmCallsComponent {
                 }));
             } else if (detailState.status === 'error' && detailState.error) {
                 // Attempt to find which call was loading to mark its error.
-                let targetCallId: string | undefined = undefined;
                 // detailState.data is not available in error state. We need to find the callId
                 // by looking for a call that was in 'loading' state.
                 const loadingEntry = Object.entries(this.expandedLlmCallData()).find(([, value]) => value.status === 'loading');
                 if (loadingEntry) {
-                    targetCallId = loadingEntry[0];
-                }
-
-                if (targetCallId) {
-                     const loadingEntry = Object.entries(this.expandedLlmCallData()).find(([, value]) => value.status === 'loading');
-                     if (loadingEntry) targetCallId = loadingEntry[0];
-                }
-                if (targetCallId) {
-                     this.expandedLlmCallData.update(s => ({
+                    const targetCallId = loadingEntry[0];
+                    this.expandedLlmCallData.update(s => ({
                         ...s,
-                        [targetCallId!]: { status: 'error', error: detailState.error }
+                        [targetCallId]: { status: 'error', error: detailState.error }
                     }));
                 } else {
                     console.error('LLM Call Detail Error: Could not map error to a specific call in expandedLlmCallData. Error:', detailState.error);
                 }
             }
-        }, { allowSignalWrites: false }); // Default is false, explicitly stating for clarity.
+        });
     }
 
 	loadLlmCalls(agentId: string): void {

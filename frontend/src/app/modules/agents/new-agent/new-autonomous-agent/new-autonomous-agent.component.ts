@@ -1,6 +1,6 @@
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { NgClass } from '@angular/common';
-import {Component, OnInit, ViewEncapsulation, OnDestroy, ChangeDetectorRef, effect} from '@angular/core';
+import {Component, OnInit, ViewEncapsulation, OnDestroy, ChangeDetectorRef, computed, DestroyRef, inject} from '@angular/core';
 import {
   FormControl, FormGroup,
   FormsModule,
@@ -20,13 +20,14 @@ import { MatSnackBar } from "@angular/material/snack-bar";
 import { Router } from "@angular/router";
 import { LlmService } from "../../../llm.service";
 import { UserService } from 'app/core/user/user.service'; // Added import
-import { finalize, Subject, takeUntil } from "rxjs"; // Removed map from here as it's not used directly by component anymore
+import { finalize, Subject, takeUntil, filter } from "rxjs"; // Removed map from here as it's not used directly by component anymore
 // HttpClient import removed as it's not used
 import { MatProgressSpinner } from "@angular/material/progress-spinner";
 import { MatCheckboxModule } from "@angular/material/checkbox";
 import { AgentService } from '../../agent.service';
 import {MatCard, MatCardContent} from "@angular/material/card";
 import {AutonomousSubType} from "#shared/model/agent.model";
+import { toObservable, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 const defaultSubType: AutonomousSubType = 'codegen';
 
@@ -55,11 +56,25 @@ const defaultSubType: AutonomousSubType = 'codegen';
     ],
 })
 export class NewAutonomousAgentComponent implements OnInit, OnDestroy {
-  functions: string[] = [];
+  private functionsData = computed(() => {
+    const state = this.agentService.availableFunctionsState();
+    if (state.status === 'success') {
+      return state.data;
+    }
+    return [];
+  });
+
+  private functionsError = computed(() => {
+    const state = this.agentService.availableFunctionsState();
+    return state.status === 'error' ? state.error : null;
+  });
+
+  functions = computed(() => this.functionsData());
   llms: any[] = [];
   runAgentForm: FormGroup;
   isSubmitting = false;
   private destroy$ = new Subject<void>();
+  private destroyRef = inject(DestroyRef);
 
   constructor(
       private snackBar: MatSnackBar,
@@ -82,25 +97,41 @@ export class NewAutonomousAgentComponent implements OnInit, OnDestroy {
       useSharedRepos: new FormControl(true),
     });
 
-    effect(() => {
-        const state = this.agentService.availableFunctionsState();
-        if (state.status === 'success') {
-            this.functions = state.data;
-            console.log('NewAutonomousAgentComponent: received functions from service state', this.functions);
+    toObservable(this.functionsData).pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(functions => {
+      console.log('NewAutonomousAgentComponent: received functions from service state', functions);
 
-            // Dynamically add form controls for each function if they don't exist
-            this.functions.forEach((tool, index) => {
-                const controlName = 'function' + index;
-                if (!(this.runAgentForm as FormGroup).get(controlName)) {
-                    (this.runAgentForm as FormGroup).addControl(controlName, new FormControl(false));
-                }
-            });
-            // Initial check for shared repos state after functions and controls are set up
-            this.updateSharedReposState();
-        } else if (state.status === 'error') {
-            console.error('Error fetching agent functions from service state', state.error);
-            this.snackBar.open('Error fetching agent functions', 'Close', { duration: 3000 });
+      // Dynamically add form controls for each function if they don't exist
+      functions.forEach((tool, index) => {
+        const controlName = 'function' + index;
+        if (!(this.runAgentForm as FormGroup).get(controlName)) {
+          (this.runAgentForm as FormGroup).addControl(controlName, new FormControl(false));
         }
+      });
+
+      // Initial check for shared repos state after functions and controls are set up
+      this.updateSharedReposState();
+    });
+
+    toObservable(this.functionsError).pipe(
+      filter(error => error !== null),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(error => {
+      console.error('Error fetching agent functions from service state', error);
+      this.snackBar.open('Error fetching agent functions', 'Close', { duration: 3000 });
+    });
+
+    toObservable(this.userService.userProfile).pipe(
+      filter(userProfile => userProfile !== null),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(userProfile => {
+      if (userProfile) {
+        this.runAgentForm.patchValue({
+          budget: userProfile.hilBudget,
+          count: userProfile.hilCount,
+        });
+      }
     });
   }
   setPreset(preset: string): boolean {
@@ -150,21 +181,7 @@ export class NewAutonomousAgentComponent implements OnInit, OnDestroy {
       },
     });
 
-    this.loadUserProfile();
-  }
-
-  private loadUserProfile(): void {
     this.userService.loadUser();
-    
-    effect(() => {
-      const userProfile = this.userService.userProfile();
-      if (userProfile) {
-        this.runAgentForm.patchValue({
-          budget: userProfile.hilBudget,
-          count: userProfile.hilCount,
-        });
-      }
-    });
   }
 
   ngOnDestroy(): void {
@@ -179,8 +196,8 @@ export class NewAutonomousAgentComponent implements OnInit, OnDestroy {
     }
 
     let gitFunctionSelected = false;
-    for (let i = 0; i < this.functions.length; i++) {
-      const functionName = this.functions[i];
+    for (let i = 0; i < this.functions().length; i++) {
+      const functionName = this.functions()[i];
       const controlName = 'function' + i;
       const functionControl = this.runAgentForm.get(controlName);
 
@@ -213,7 +230,7 @@ export class NewAutonomousAgentComponent implements OnInit, OnDestroy {
     this.isSubmitting = true;
 
     console.log('Form submitted', this.runAgentForm.value);
-    const selectedFunctions: string[] = this.functions
+    const selectedFunctions: string[] = this.functions()
         .filter((_, index) => this.runAgentForm.value['function' + index])
         .map((tool, _) => tool);
 
