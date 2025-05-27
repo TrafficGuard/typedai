@@ -1,6 +1,6 @@
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { NgClass } from '@angular/common';
-import {Component, OnInit, ViewEncapsulation, OnDestroy, ChangeDetectorRef, computed, DestroyRef, inject} from '@angular/core';
+import {Component, OnInit, ViewEncapsulation, computed, DestroyRef, inject} from '@angular/core';
 import {
   FormControl, FormGroup,
   FormsModule,
@@ -20,7 +20,7 @@ import { MatSnackBar } from "@angular/material/snack-bar";
 import { Router } from "@angular/router";
 import { LlmService } from "../../../llm.service";
 import { UserService } from 'app/core/user/user.service'; // Added import
-import { finalize, Subject, takeUntil, filter } from "rxjs"; // Removed map from here as it's not used directly by component anymore
+import { finalize, filter } from "rxjs"; // Removed map from here as it's not used directly by component anymore
 // HttpClient import removed as it's not used
 import { MatProgressSpinner } from "@angular/material/progress-spinner";
 import { MatCheckboxModule } from "@angular/material/checkbox";
@@ -55,8 +55,13 @@ const defaultSubType: AutonomousSubType = 'codegen';
         MatProgressSpinner,
     ],
 })
-export class NewAutonomousAgentComponent implements OnInit, OnDestroy {
-  private functionsData = computed(() => {
+export class NewAutonomousAgentComponent implements OnInit {
+  private functionsError = computed(() => {
+    const state = this.agentService.availableFunctionsState();
+    return state.status === 'error' ? state.error : null;
+  });
+
+  functions = computed(() => {
     const state = this.agentService.availableFunctionsState();
     if (state.status === 'success') {
       return state.data;
@@ -64,16 +69,13 @@ export class NewAutonomousAgentComponent implements OnInit, OnDestroy {
     return [];
   });
 
-  private functionsError = computed(() => {
-    const state = this.agentService.availableFunctionsState();
-    return state.status === 'error' ? state.error : null;
+  llms = computed(() => {
+    const state = this.llmService.llmsState();
+    return state.status === 'success' ? state.data : [];
   });
 
-  functions = computed(() => this.functionsData());
-  llms: any[] = [];
   runAgentForm: FormGroup;
   isSubmitting = false;
-  private destroy$ = new Subject<void>();
   private destroyRef = inject(DestroyRef);
 
   constructor(
@@ -82,8 +84,7 @@ export class NewAutonomousAgentComponent implements OnInit, OnDestroy {
       // private agentEventService: AgentEventService,
       private llmService: LlmService,
       private userService: UserService, // Added UserService
-      private agentService: AgentService,
-      private changeDetectorRef: ChangeDetectorRef
+      private agentService: AgentService
   ) {
     this.runAgentForm = new FormGroup({
       name: new FormControl('', Validators.required),
@@ -97,7 +98,7 @@ export class NewAutonomousAgentComponent implements OnInit, OnDestroy {
       useSharedRepos: new FormControl(true),
     });
 
-    toObservable(this.functionsData).pipe(
+    toObservable(this.functions).pipe(
       takeUntilDestroyed(this.destroyRef)
     ).subscribe(functions => {
       console.log('NewAutonomousAgentComponent: received functions from service state', functions);
@@ -152,7 +153,7 @@ export class NewAutonomousAgentComponent implements OnInit, OnDestroy {
     };
     const selection = presets[preset];
     if (selection) {
-      const ids = this.llms.map((llm) => llm.id);
+      const ids = this.llms().map((llm) => llm.id);
       this.runAgentForm.controls['llmEasy'].setValue(ids.find((id) => id.startsWith(selection.easy)));
       this.runAgentForm.controls['llmMedium'].setValue(ids.find((id) => id.startsWith(selection.medium)));
       this.runAgentForm.controls['llmHard'].setValue(ids.find((id) => id.startsWith(selection.hard)));
@@ -162,31 +163,16 @@ export class NewAutonomousAgentComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.agentService.loadAvailableFunctions();
+    this.llmService.loadLlms();
+    this.userService.loadUser();
 
     // Subscribe to form value changes to update shared repos state dynamically
     // This should be set up once after the form is initialized.
     this.runAgentForm.valueChanges
-        .pipe(takeUntil(this.destroy$))
+        .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe(() => {
             this.updateSharedReposState();
         });
-
-    this.llmService.getLlms().subscribe({
-      next: (llms) => {
-        this.llms = llms;
-      },
-      error: (error) => {
-        console.error('Error fetching LLMs:', error);
-        this.snackBar.open('Failed to load LLMs', 'Close', { duration: 3000 });
-      },
-    });
-
-    this.userService.loadUser();
-  }
-
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
   }
 
   private updateSharedReposState(): void {
