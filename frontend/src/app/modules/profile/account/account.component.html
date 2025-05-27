@@ -3,7 +3,7 @@
     <form [formGroup]="accountForm">
         <!-- Hidden ID Field -->
         <!-- Note: The 'id' field is disabled in the form group and not included in the save payload -->
-        <input type="hidden" formControlName="id" />
+        <!-- <input type="hidden" formControlName="id" /> --> <!-- ID is not part of the form group anymore -->
 
         <!-- Section -->
         <div class="w-full">
@@ -11,26 +11,12 @@
         </div>
 
         <div class="mt-8 grid w-full gap-6 sm:grid-cols-2 pb-2">
-            <!--
-            Username field removed as it's not part of the UserProfileUpdate schema
+            <!-- Email Display (View Only) -->
             <div class="sm:col-span-1">
-                <mat-form-field class="w-full">
-                    <mat-label>Username</mat-label>
-                    <input matInput formControlName="username" />
-                </mat-form-field>
-            </div>
-            -->
-            <div class="sm:col-span-1">
-                <mat-form-field class="w-full">
-                    <mat-label>Email</mat-label>
-                    <input matInput formControlName="email" />
-                    @if (accountForm.get('email')?.hasError('required') && accountForm.get('email')?.touched) {
-                        <mat-error>Email is required</mat-error>
-                    }
-                    @if (accountForm.get('email')?.hasError('email') && accountForm.get('email')?.touched) {
-                        <mat-error>Enter a valid email address</mat-error>
-                    }
-                </mat-form-field>
+                <div class="text-gray-500 dark:text-gray-400">Email</div>
+                <div class="font-medium">
+                    {{ userProfile()?.email || 'Loading...' }}
+                </div>
             </div>
 
             <div [formGroupName]="'chat'">

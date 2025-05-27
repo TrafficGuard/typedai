@@ -1,9 +1,8 @@
-import { Injectable, computed } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, throwError, EMPTY } from 'rxjs';
+import { EMPTY } from 'rxjs';
 import { tap, map, catchError, retry } from 'rxjs/operators';
-import { toObservable } from '@angular/core/rxjs-interop';
-import { createApiListState, ApiListState } from '../core/api-state.types';
+import { createApiListState } from '../core/api-state.types';
 
 export interface LLM {
   id: string;
@@ -21,7 +20,7 @@ export class LlmService {
   constructor(private http: HttpClient) {}
 
   loadLlms(): void {
-    if (this._llmsState().status === 'loading') return;
+    if (this._llmsState().status === 'loading' || this._llmsState().status === 'success') return;
 
     this._llmsState.set({ status: 'loading' });
 
@@ -40,12 +39,7 @@ export class LlmService {
     ).subscribe();
   }
 
-  getLlms(): Observable<LLM[]> {
-    this.loadLlms();
-    return this.llms$;
-  }
-
-  private fetchLlms(): Observable<LLM[]> {
+  private fetchLlms() {
     return this.http.get<{ data: LLM[] }>(`/api/llms/list`).pipe(
       map((response) => response.data),
       retry(3),
@@ -61,14 +55,6 @@ export class LlmService {
     this.refreshLlms();
   }
 
-  get llms$(): Observable<LLM[]> {
-    const llmsSignal = computed(() => {
-      const state = this._llmsState();
-      return state.status === 'success' ? state.data : [];
-    });
-    return toObservable(llmsSignal);
-  }
-
   private handleError(error: HttpErrorResponse) {
     let errorMessage = 'An error occurred';
     if (error.error instanceof ErrorEvent) {
@@ -79,6 +65,6 @@ export class LlmService {
       errorMessage = `Error Code: ${error.status}\nMessage: ${error.message}`;
     }
     console.error(errorMessage);
-    return throwError(() => new Error(errorMessage));
+    return EMPTY;
   }
 }

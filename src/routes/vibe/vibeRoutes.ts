@@ -1,21 +1,9 @@
 import { type Static, Type } from '@sinclair/typebox';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { sendNotFound } from '#fastify/responses';
-import type {
-	CommitChangesData,
-	CreateVibeSessionData,
-	GenerateDesignData,
-	UpdateCodeReviewData,
-	UpdateDesignPromptData,
-	UpdateSelectionPromptData,
-	UpdateVibeSessionData,
-	VibePreset,
-	VibePresetConfig,
-	VibeSession,
-} from '#shared/model/vibe.model';
-import { FileSystemNode } from '#shared/services/fileSystemService';
+import type { CommitChangesData, CreateVibeSessionData, UpdateCodeReviewData, UpdateVibeSessionData, VibePresetConfig } from '#shared/model/vibe.model';
+import { VibeStatusApiSchema } from '#shared/schemas/vibe.schema';
 import { currentUser } from '#user/userContext';
-import type { VibeService } from '#vibe/vibeService';
 import { VibeServiceImpl } from '#vibe/vibeServiceImpl';
 
 const ErrorResponseSchema = Type.Object({
@@ -26,14 +14,6 @@ const ParamsSchema = Type.Object({
 	sessionId: Type.String({ description: 'The ID of the Vibe session' }),
 });
 type ParamsType = Static<typeof ParamsSchema>;
-
-// Schema for the DesignAnswer object
-const DesignAnswerSchema = Type.Object({
-	summary: Type.String(),
-	steps: Type.Array(Type.String()),
-	reasoning: Type.String(),
-	variations: Type.Optional(Type.Number()),
-});
 
 // Response Schema for a single Vibe Session
 const VibeSessionResponseSchema = Type.Object({
@@ -49,30 +29,10 @@ const VibeSessionResponseSchema = Type.Object({
 	workingBranch: Type.String(), // Added
 	createWorkingBranch: Type.Boolean(), // Added
 	useSharedRepos: Type.Boolean(),
-	status: Type.Union([
-		Type.Literal('initializing'),
-		Type.Literal('file_selection_review'),
-		Type.Literal('updating_file_selection'),
-		Type.Literal('generating_design'),
-		Type.Literal('design_review'),
-		Type.Literal('design_review_details'),
-		Type.Literal('updating_design'),
-		Type.Literal('coding'),
-		Type.Literal('code_review'),
-		Type.Literal('generating_code_review_feedback'),
-		Type.Literal('updating_code_review_feedback'),
-		Type.Literal('committing'),
-		Type.Literal('monitoring_ci'),
-		Type.Literal('ci_failed'),
-		Type.Literal('completed'),
-		Type.Literal('error_file_selection'),
-		Type.Literal('error_design_generation'),
-		Type.Literal('error_coding'),
-		Type.Literal('error'),
-	]),
+	status: VibeStatusApiSchema,
 	lastAgentActivity: Type.Optional(Type.Any({ description: 'Timestamp of last agent activity (serialized)' })), // Using Any for FieldValue | Date flexibility
 	fileSelection: Type.Optional(Type.Any({ description: 'Array of selected files (structure depends on SelectedFile)' })), // Define more strictly if possible based on SelectedFile structure
-	designAnswer: Type.Optional(DesignAnswerSchema), // Use the defined object schema
+	designAnswer: Type.Optional(Type.String()), // Use the defined object schema
 	codeDiff: Type.Optional(Type.String()),
 	commitSha: Type.Optional(Type.String()),
 	pullRequestUrl: Type.Optional(Type.String()),
@@ -177,10 +137,10 @@ const UpdateVibeSessionBodySchema = Type.Partial(
 			Type.Literal('error'),
 		]),
 		fileSelection: Type.Any({ description: 'Array of selected files' }), // Keep as Any for flexibility unless specific structure is enforced
-		designAnswer: DesignAnswerSchema, // Use the defined object schema
-		codeDiff: Type.String(), // Added based on UpdateVibeSessionData possibility
-		commitSha: Type.String(), // Added based on UpdateVibeSessionData possibility
-		pullRequestUrl: Type.String(), // Added based on UpdateVibeSessionData possibility
+		designAnswer: Type.String(),
+		codeDiff: Type.String(),
+		commitSha: Type.String(),
+		pullRequestUrl: Type.String(),
 		ciCdStatus: Type.Union([
 			// Added based on UpdateVibeSessionData possibility
 			Type.Literal('pending'),
@@ -189,9 +149,9 @@ const UpdateVibeSessionBodySchema = Type.Partial(
 			Type.Literal('failed'),
 			Type.Literal('cancelled'),
 		]),
-		ciCdJobUrl: Type.String(), // Added based on UpdateVibeSessionData possibility
-		ciCdAnalysis: Type.String(), // Added based on UpdateVibeSessionData possibility
-		ciCdProposedFix: Type.String(), // Added based on UpdateVibeSessionData possibility
+		ciCdJobUrl: Type.String(),
+		ciCdAnalysis: Type.String(),
+		ciCdProposedFix: Type.String(),
 		error: Type.String(), // For setting/clearing error messages
 		// Note: Other fields like repositoryName, newBranchName, useSharedRepos could be added
 		// if direct PATCH updates are intended for them. Timestamps are usually system-managed.
@@ -383,7 +343,7 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 			try {
 				const sessions = await vibeService.listVibeSessions(userId);
 				// Ensure timestamps are serializable if needed before sending
-				return reply.send(sessions);
+				return reply.sendJSON(sessions);
 			} catch (error: any) {
 				fastify.log.error(error, `Error listing Vibe sessions for user ${userId}`);
 				return reply.code(500).send({ error: error.message || 'Failed to list Vibe sessions' });
@@ -457,7 +417,7 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 					// This case should ideally not be reached if updateVibeSession didn't throw and ID was valid
 					return sendNotFound(reply, `Vibe session with ID ${sessionId} not found after update`);
 				}
-				return reply.code(200).sendJSON(updatedSession); // Return the updated session
+				return reply.sendJSON(updatedSession);
 			} catch (error: any) {
 				// Handle specific errors like 'not found' if the service throws them
 				if (error.message?.includes('not found')) {
@@ -791,53 +751,6 @@ export async function vibeRoutes(fastify: AppFastifyInstance) {
 					return reply.code(409).send({ error: error.message || 'Cannot execute design in current state or no design available' });
 				}
 				return reply.code(500).send({ error: error.message || 'Failed to trigger design execution' });
-			}
-		},
-	);
-
-	// Reset file selection to its original state for the current review cycle
-	fastify.post<{ Params: ParamsType; Reply: Static<typeof AcceptedResponseSchema> | Static<typeof ErrorResponseSchema> }>(
-		`${basePath}/:sessionId/reset-selection`,
-		{
-			schema: {
-				params: ParamsSchema, // Use existing schema for sessionId
-				// No body schema is defined as this POST action does not expect a payload
-				response: {
-					202: AcceptedResponseSchema, // For successful acceptance of the request
-					401: ErrorResponseSchema, // Standard error for unauthorized
-					404: ErrorResponseSchema, // For session not found
-					409: ErrorResponseSchema, // For invalid state (e.g., session not in 'file_selection_review' status)
-					500: ErrorResponseSchema, // For other internal server errors
-				},
-			},
-		},
-		async (request, reply) => {
-			const userId = currentUser().id;
-			const { sessionId } = request.params; // Params are correctly typed due to <Params: ParamsType>
-
-			try {
-				// Assume vibeService.resetFileSelection exists and handles the logic
-				// This method is expected to be part of the VibeService interface and implementation
-				await vibeService.resetFileSelection(userId, sessionId);
-
-				// Successfully queued/processed the reset request
-				return reply.code(202).send({ message: 'File selection reset accepted and processing.' });
-			} catch (error: any) {
-				// Log the error with context
-				fastify.log.error(error, `Error resetting file selection for session ${sessionId}, user ${userId}`);
-
-				const errorMessage = error.message || 'An unexpected error occurred while resetting file selection.';
-
-				// Specific error handling based on message content
-				if (errorMessage.toLowerCase().includes('not found')) {
-					return sendNotFound(reply, errorMessage); // Use existing helper for 404
-				}
-				if (errorMessage.toLowerCase().includes('state') || errorMessage.toLowerCase().includes('status')) {
-					// This handles cases where the session is not in a state where file selection can be reset
-					return reply.code(409).send({ error: errorMessage });
-				}
-				// Generic fallback for other errors
-				return reply.code(500).send({ error: errorMessage });
 			}
 		},
 	);

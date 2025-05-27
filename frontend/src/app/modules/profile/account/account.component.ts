@@ -3,12 +3,11 @@ import {
     Component,
     OnInit,
     ViewEncapsulation,
-    inject, // Added inject
-    DestroyRef, // Added DestroyRef
-    effect, // Added effect
+    inject,
+    DestroyRef,
+    effect,
 } from '@angular/core';
 import { LlmService, LLM } from '../../llm.service';
-// Removed BehaviorSubject
 import {
     FormGroup,
     FormControl,
@@ -18,17 +17,12 @@ import {
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-// Removed HttpClient
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatSelectModule } from "@angular/material/select";
 import { CommonModule } from "@angular/common";
-// USER_API is not directly used in the component anymore, but keep the import for reference if needed elsewhere
-// import { USER_API } from '#shared/api/user.api';
 import { UserProfileUpdate, UserProfile } from "#shared/schemas/user.schema";
 import {UserService} from "../../../core/user/user.service";
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop'; // Added takeUntilDestroyed
-// toObservable is not needed if using effect for patching
-// import { toObservable } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 
 @Component({
@@ -47,15 +41,17 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop'; // Added takeUn
     ],
 })
 export class SettingsAccountComponent implements OnInit {
-    private readonly destroyRef = inject(DestroyRef); // Injected DestroyRef
+    private readonly destroyRef = inject(DestroyRef);
 
-    accountForm!: FormGroup; // Use definite assignment assertion as it's initialized in ngOnInit
+    accountForm!: FormGroup;
 
     // Expose LLM state signal directly to the template
     readonly llmsState = this.llmService.llmsState;
+    // Expose UserProfile signal for the template (for view-only email)
+    readonly userProfile = this.userService.userProfile;
+
 
     constructor(
-        // Removed private http: HttpClient
         private snackBar: MatSnackBar,
         private llmService: LlmService,
         private userService: UserService,
@@ -68,7 +64,18 @@ export class SettingsAccountComponent implements OnInit {
                 if (this.accountForm) {
                     // Patch the form with the loaded user data
                     // Use patchValue to avoid issues with missing form controls if schema changes
+                    // Patch only the fields that exist in the form
                     this.accountForm.patchValue(user);
+                    // Patch nested form groups specifically if patchValue doesn't handle them deeply enough
+                    if (user.chat) {
+                         this.accountForm.get('chat')?.patchValue(user.chat);
+                    }
+                    if (user.llmConfig) {
+                         this.accountForm.get('llmConfig')?.patchValue(user.llmConfig);
+                    }
+                     if (user.functionConfig) {
+                         this.accountForm.get('functionConfig')?.patchValue(user.functionConfig);
+                    }
                 }
             } else {
                  // Optional: If user becomes null (e.g., sign out), reset the form
@@ -85,10 +92,7 @@ export class SettingsAccountComponent implements OnInit {
     ngOnInit(): void {
         // Initialize the form structure
         this.accountForm = new FormGroup({
-            // id: new FormControl({ value: '', disabled: true }), // ID is read-only
-            // Removed username: new FormControl(''), as it's not in UserProfileUpdate schema
-            email: new FormControl('', [Validators.required, Validators.email]),
-            // Removed enabled: new FormControl(false), as it's not in UserProfileUpdate schema
+            // email field is now view-only, removed from form group
             hilBudget: new FormControl(0),
             hilCount: new FormControl(0),
             llmConfig: new FormGroup({
@@ -109,8 +113,6 @@ export class SettingsAccountComponent implements OnInit {
             chat: new FormGroup({
                 defaultLLM: new FormControl(''),
                 // Add other ChatSettings fields if they become editable and part of the schema
-                // temperature: new FormControl(0.7), // Example
-                // topP: new FormControl(1.0),       // Example
             }),
             functionConfig: new FormGroup({
                 GitHub: new FormGroup({
@@ -142,16 +144,21 @@ export class SettingsAccountComponent implements OnInit {
         const initialUser = this.userService.userProfile();
         if (initialUser) {
             this.accountForm.patchValue(initialUser);
+             if (initialUser.chat) {
+                 this.accountForm.get('chat')?.patchValue(initialUser.chat);
+            }
+            if (initialUser.llmConfig) {
+                 this.accountForm.get('llmConfig')?.patchValue(initialUser.llmConfig);
+            }
+             if (initialUser.functionConfig) {
+                 this.accountForm.get('functionConfig')?.patchValue(initialUser.functionConfig);
+            }
         }
 
         // Trigger loading the user profile and LLMs via their services
         this.userService.loadUser();
         this.llmService.loadLlms();
-
-        // Removed the BehaviorSubject and subscription logic for LLMs
     }
-
-    // Removed private loadUserProfile(): void method
 
     // Save user profile data
     onSave(): void {
@@ -163,8 +170,8 @@ export class SettingsAccountComponent implements OnInit {
             return;
         }
 
-        // Get raw values including disabled controls like 'id' if needed,
-        // but 'id' is typically not sent in the update payload.
+        // Get raw values including disabled controls if needed,
+        // but 'id' and 'email' are not in the form group anymore.
         const formValues = this.accountForm.getRawValue();
 
         // Validate defaultChatLlmId exists in available LLMs if one is selected
@@ -187,14 +194,11 @@ export class SettingsAccountComponent implements OnInit {
         }
 
         // Construct payload based on UserProfileUpdate schema.
-        // Exclude 'id' and any other fields not part of the update schema (like 'username', 'enabled').
+        // Exclude 'id' and 'email'.
         const updateUserPayload: UserProfileUpdate = {
-            email: formValues.email,
+            // email is not included in the update payload
             chat: {
                 defaultLLM: formValues.chat.defaultLLM,
-                // Add other ChatSettings fields here if they are in the form and schema
-                // For example, if temperature was editable:
-                // temperature: formValues.chat.temperature,
             },
             hilBudget: formValues.hilBudget,
             hilCount: formValues.hilCount,
@@ -225,7 +229,17 @@ export class SettingsAccountComponent implements OnInit {
         const currentUser = this.userService.userProfile();
         if (currentUser) {
             // Reset the form to the current state from the service
+            // Patch only the fields that exist in the form
             this.accountForm.patchValue(currentUser);
+             if (currentUser.chat) {
+                 this.accountForm.get('chat')?.patchValue(currentUser.chat);
+            }
+            if (currentUser.llmConfig) {
+                 this.accountForm.get('llmConfig')?.patchValue(currentUser.llmConfig);
+            }
+             if (currentUser.functionConfig) {
+                 this.accountForm.get('functionConfig')?.patchValue(currentUser.functionConfig);
+            }
             // Optionally reset the form's dirty state
             this.accountForm.markAsPristine();
             this.accountForm.markAsUntouched();

@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, input, output, signal, WritableSignal, ChangeDetectionStrategy, effect, DestroyRef, computed } from '@angular/core';
+import { Component, OnInit, inject, input, output, signal, WritableSignal, ChangeDetectionStrategy, DestroyRef, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -17,14 +17,12 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { catchError, finalize, of, throwError, filter } from 'rxjs';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-// import { environment } from 'environments/environment'; // Not directly used
 import { AgentContextApi } from '#shared/schemas/agent.schema';
-
 import { FunctionEditModalComponent } from '../function-edit-modal/function-edit-modal.component';
 import { ResumeAgentModalComponent } from '../resume-agent-modal/resume-agent-modal.component';
 import { FunctionsService } from '../../functions.service';
 import { LlmService, LLM } from '../../../llm.service';
-import { MatTooltipModule } from "@angular/material/tooltip"; // Changed from MatTooltip
+import { MatTooltipModule } from "@angular/material/tooltip";
 import { AgentLinks, GoogleCloudLinks } from "../../agent-links";
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AgentRunningState } from "#shared/model/agent.model";
@@ -49,10 +47,9 @@ import { AGENT_ROUTE_DEFINITIONS } from '../../agent.routes';
         MatSelectModule,
         MatCheckboxModule,
         MatRadioModule,
-        MatTooltipModule, // Import MatTooltipModule
+        MatTooltipModule,
         MatProgressSpinnerModule,
     ],
-    // providers: [AgentService, LlmService] // Services are providedIn: 'root'
 })
 export class AgentDetailsComponent implements OnInit {
     agentDetails = input.required<AgentContextApi>();
@@ -82,7 +79,7 @@ export class AgentDetailsComponent implements OnInit {
         return state.status === 'error' ? state.error : null;
     });
 
-    allAvailableFunctions: WritableSignal<string[]> = signal([]);
+    allAvailableFunctions = computed(() => this.functionsData());
     llmNameMap: WritableSignal<Map<string, string>> = signal(new Map());
     isLoadingLlms = signal(false);
     llmLoadError: WritableSignal<string | null> = signal(null);
@@ -110,11 +107,6 @@ export class AgentDetailsComponent implements OnInit {
         ).subscribe(error => {
             console.error('Error loading functions in AgentDetailsComponent:', error);
             this.snackBar.open('Error loading available functions', 'Close', { duration: 3000 });
-        });
-
-        // Update allAvailableFunctions using computed data
-        effect(() => {
-            this.allAvailableFunctions.set(this.functionsData());
         });
     }
 

@@ -1,9 +1,8 @@
 import { type Static, Type } from '@sinclair/typebox';
-// Source of Truth Model Interfaces from shared/model/vibe.model.ts
+import type { SelectedFile } from '#shared/model/files.model';
 import type {
 	CommitChangesData,
 	CreateVibeSessionData,
-	DesignAnswer,
 	GenerateDesignData,
 	UpdateCodeReviewData,
 	UpdateDesignInstructionsData,
@@ -15,35 +14,23 @@ import type {
 	VibeSession,
 	VibeStatus,
 } from '#shared/model/vibe.model';
-
-import type { SelectedFile } from '#shared/model/files.model';
 import type { FileSystemNode } from '#shared/services/fileSystemService';
-// Compatibility Checker
 import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
-// Common Schemas
-import { ApiNullResponseSchema } from './common.schema';
 
 // --- VibeStatus Schema ---
 // Assuming VibeStatus is a union of string literals as defined in vibe.model.ts
 const vibeStatusLiterals: VibeStatus[] = [
 	'initializing',
-	'updating_file_selection',
 	'file_selection_review',
+	'updating_file_selection',
 	'generating_design',
 	'design_review',
-	'design_review_details',
-	'updating_design',
 	'coding',
 	'code_review',
-	'generating_code_review_feedback',
-	'updating_code_review_feedback',
 	'committing',
-	'monitoring_ci',
-	'ci_failed',
+	'ci_monitoring',
+	'feedback',
 	'completed',
-	'error_file_selection',
-	'error_design_generation',
-	'error_coding',
 	'error',
 ];
 export const VibeStatusApiSchema = Type.Union(
@@ -62,27 +49,17 @@ export const SelectedFileApiSchema = Type.Object({
 });
 const _selectedFileApiCheck: AreTypesFullyCompatible<SelectedFile, Static<typeof SelectedFileApiSchema>> = true;
 
-// --- DesignAnswer Schema ---
-export const DesignAnswerApiSchema = Type.Object({
-	summary: Type.String(),
-	steps: Type.Array(Type.String()),
-	reasoning: Type.String(),
-});
-const _designAnswerApiCheck: AreTypesFullyCompatible<DesignAnswer, Static<typeof DesignAnswerApiSchema>> = true;
-
 // --- CreateVibeSessionData Schema ---
 export const CreateVibeSessionDataApiSchema = Type.Object({
 	title: Type.String(),
 	instructions: Type.String(),
 	repositorySource: Type.Union([Type.Literal('local'), Type.Literal('github'), Type.Literal('gitlab')]),
 	repositoryId: Type.Optional(Type.String()),
-	repositoryName: Type.Optional(Type.String()), // MODIFIED
+	repositoryName: Type.Optional(Type.String()),
 	targetBranch: Type.String(),
 	workingBranch: Type.String(),
 	createWorkingBranch: Type.Boolean(),
 	useSharedRepos: Type.Boolean(),
-	originalFileSelectionForReview: Type.Optional(Type.Array(SelectedFileApiSchema)), // ADDED
-	selectedVariations: Type.Optional(Type.Number()), // ADDED
 	// Note: Does not include fields auto-generated or set by the system (id, userId, status, etc.)
 });
 const _createVibeSessionDataApiCheck: AreTypesFullyCompatible<CreateVibeSessionData, Static<typeof CreateVibeSessionDataApiSchema>> = true;
@@ -103,9 +80,7 @@ export const VibeSessionApiSchema = Type.Object({
 	status: VibeStatusApiSchema,
 	lastAgentActivity: Type.Number(), // Assuming timestamp
 	fileSelection: Type.Optional(Type.Array(SelectedFileApiSchema)),
-	originalFileSelectionForReview: Type.Optional(Type.Array(SelectedFileApiSchema)),
-	designAnswer: Type.Optional(DesignAnswerApiSchema),
-	selectedVariations: Type.Optional(Type.Number()),
+	designAnswer: Type.Optional(Type.String()),
 	codeDiff: Type.Optional(Type.String()),
 	commitSha: Type.Optional(Type.String()),
 	pullRequestUrl: Type.Optional(Type.String()),
@@ -139,9 +114,7 @@ export const UpdateVibeSessionApiBodySchema = Type.Partial(
 			status: VibeStatusApiSchema,
 			lastAgentActivity: Type.Number(),
 			fileSelection: Type.Optional(Type.Array(SelectedFileApiSchema)),
-			originalFileSelectionForReview: Type.Optional(Type.Array(SelectedFileApiSchema)),
-			designAnswer: Type.Optional(DesignAnswerApiSchema),
-			selectedVariations: Type.Optional(Type.Number()),
+			designAnswer: Type.Optional(Type.String()),
 			codeDiff: Type.Optional(Type.String()),
 			commitSha: Type.Optional(Type.String()),
 			pullRequestUrl: Type.Optional(Type.String()),
@@ -203,8 +176,6 @@ export const VibePresetConfigApiSchema = Type.Object({
 	workingBranch: Type.String(),
 	createWorkingBranch: Type.Boolean(),
 	useSharedRepos: Type.Boolean(),
-	originalFileSelectionForReview: Type.Optional(Type.Array(SelectedFileApiSchema)), // ADDED
-	selectedVariations: Type.Optional(Type.Number()), // ADDED
 	// Ensure this matches Omit<CreateVibeSessionData, 'title' | 'instructions'>
 });
 const _vibePresetConfigApiCheck: AreTypesFullyCompatible<VibePresetConfig, Static<typeof VibePresetConfigApiSchema>> = true;

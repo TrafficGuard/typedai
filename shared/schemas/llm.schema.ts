@@ -240,3 +240,17 @@ export const LlmCallMessageSummaryPartSchema = Type.Object(
 	{ $id: 'LlmCallMessageSummaryPart' },
 );
 const _LlmCallMessageSummaryPartCheck: AreTypesFullyCompatible<LlmCallMessageSummaryPart, Static<typeof LlmCallMessageSummaryPartSchema>> = true;
+
+export const LlmSchema = Type.Object(
+	{
+		id: Type.String(),
+		name: Type.String(),
+		isConfigured: Type.Boolean(),
+	},
+	{ $id: 'Llm' },
+);
+
+export type LlmSchemaModel = Static<typeof LlmSchema>;
+
+export const LlmsListSchema = Type.Array(LlmSchema, { $id: 'LlmsList' });
+export type LlmsListSchemaModel = Static<typeof LlmsListSchema>;
