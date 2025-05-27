@@ -170,9 +170,9 @@ export class ChatServiceClient {
         );
     }
 
-    createChat(userContent: UserContentExt, llmId: string, options?: CallSettings): Observable<Chat> {
+    createChat(userContent: UserContentExt, llmId: string, options?: CallSettings, autoReformat?: boolean): Observable<Chat> {
         // userContent is already prepared by the component
-        const payload: ChatMessagePayload = { llmId, userContent, options };
+        const payload: ChatMessagePayload = { llmId, userContent, options, autoReformat: autoReformat ?? false };
         // Returns Observable<Static<typeof ChatModelSchema>>
         return callApiRoute(this._httpClient, CHAT_API.createChat, { body: payload }).pipe(
             map((newApiChat: ApiChatModel) => {
@@ -310,9 +310,9 @@ export class ChatServiceClient {
         this._chatState.set({ status: 'idle' });
     }
 
-    sendMessage(chatId: string, userContent: UserContentExt, llmId: string, options?: CallSettings, attachmentsForUI?: Attachment[]): Observable<void> {
+    sendMessage(chatId: string, userContent: UserContentExt, llmId: string, options?: CallSettings, attachmentsForUI?: Attachment[], autoReformat?: boolean): Observable<void> {
         // userContent is already prepared by the component
-        const payload: ChatMessagePayload = { llmId, userContent, options };
+        const payload: ChatMessagePayload = { llmId, userContent, options, autoReformat: autoReformat ?? false };
 
         // Locally add user's message immediately for responsiveness
         const { text: derivedTextFromUserContent } = userContentExtToAttachmentsAndText(userContent);

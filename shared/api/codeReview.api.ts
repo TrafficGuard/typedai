@@ -1,50 +1,23 @@
 import { Type } from '@sinclair/typebox';
 import { defineRoute } from '#shared/api-definitions';
-import { CodeReviewConfigCreateSchema, CodeReviewConfigSchema, CodeReviewConfigUpdateSchema } from '#shared/schemas/codeReview.schema';
-import { ApiNullResponseSchema, ResponseMessageSchema } from '#shared/schemas/common.schema';
+import {
+	BulkDeleteRequestSchema,
+	CodeReviewConfigCreateSchema,
+	CodeReviewConfigListResponseSchema,
+	CodeReviewConfigSchema,
+	CodeReviewConfigUpdateSchema,
+	MessageResponseSchema,
+} from '#shared/schemas/codeReview.schema';
 
-const CODE_REVIEW_CONFIG_BASE = '/api/codeReview-configs';
+const API_PREFIX = '/api/code-review-configs';
 
 export const CODE_REVIEW_API = {
-	list: defineRoute('GET', CODE_REVIEW_CONFIG_BASE, {
-		schema: {
-			response: {
-				200: Type.Array(CodeReviewConfigSchema),
-			},
-		},
+	list: defineRoute('GET', API_PREFIX, { schema: { response: { 200: CodeReviewConfigListResponseSchema } } }),
+	getById: defineRoute('GET', `${API_PREFIX}/:id`, { schema: { params: Type.Object({ id: Type.String() }), response: { 200: CodeReviewConfigSchema } } }),
+	create: defineRoute('POST', API_PREFIX, { schema: { body: CodeReviewConfigCreateSchema, response: { 201: MessageResponseSchema } } }),
+	update: defineRoute('PUT', `${API_PREFIX}/:id`, {
+		schema: { params: Type.Object({ id: Type.String() }), body: CodeReviewConfigUpdateSchema, response: { 200: MessageResponseSchema } },
 	}),
-	getById: defineRoute('GET', `${CODE_REVIEW_CONFIG_BASE}/:id`, {
-		schema: {
-			params: Type.Object({ id: Type.String() }),
-			response: {
-				200: CodeReviewConfigSchema,
-				404: ResponseMessageSchema, // For "Config not found"
-			},
-		},
-	}),
-	create: defineRoute('POST', CODE_REVIEW_CONFIG_BASE, {
-		schema: {
-			body: CodeReviewConfigCreateSchema,
-			response: {
-				200: ResponseMessageSchema, // e.g., { message: "Config created with ID: xyz" }
-			},
-		},
-	}),
-	update: defineRoute('PUT', `${CODE_REVIEW_CONFIG_BASE}/:id`, {
-		schema: {
-			params: Type.Object({ id: Type.String() }),
-			body: CodeReviewConfigUpdateSchema,
-			response: {
-				200: ResponseMessageSchema, // e.g., { message: "Config updated successfully" }
-			},
-		},
-	}),
-	delete: defineRoute('DELETE', `${CODE_REVIEW_CONFIG_BASE}/:id`, {
-		schema: {
-			params: Type.Object({ id: Type.String() }),
-			response: {
-				200: ResponseMessageSchema, // e.g., { message: "Config deleted successfully" }
-			},
-		},
-	}),
+	delete: defineRoute('DELETE', `${API_PREFIX}/:id`, { schema: { params: Type.Object({ id: Type.String() }), response: { 200: MessageResponseSchema } } }),
+	bulkDelete: defineRoute('POST', `${API_PREFIX}/bulk-delete`, { schema: { body: BulkDeleteRequestSchema, response: { 200: MessageResponseSchema } } }),
 };

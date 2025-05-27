@@ -206,7 +206,13 @@
                                         (click)="toggleThinking()"
                                         [disabled]="!llmHasThinkingLevels()"
                                         [matTooltip]="'Thinking level: ' + thinkingLevel().toUpperCase() + '. Click to cycle through thinking levels'">
-                                    <mat-icon [svgIcon]="thinkingIcon()" [ngClass]="{'text-primary': sendOnEnter()}"></mat-icon>
+                                    <mat-icon [svgIcon]="thinkingIcon()" [ngClass]="{'text-primary': thinkingLevel() !== 'off'}"></mat-icon>
+                                </button>
+                                <button class="ml-0.5"
+                                        mat-icon-button
+                                        (click)="toggleAutoReformat()"
+                                        [matTooltip]="'Auto-reformat message with Markdown (Ctrl+Shift+F)'">
+                                    <mat-icon [svgIcon]="autoReformatEnabled() ? 'heroicons_solid:sparkles' : 'heroicons_outline:sparkles'" [ngClass]="{'text-primary': autoReformatEnabled()}"></mat-icon>
                                 </button>
                             </div>
                             <!-- mat-select -->

@@ -4,7 +4,7 @@ import { Observable, throwError, of, EMPTY } from 'rxjs';
 import { tap, catchError, map } from 'rxjs/operators';
 import { CodeReviewConfig } from "#shared/model/codeReview.model";
 import { callApiRoute } from '../../core/api-route';
-import { CODE_REVIEW_API } from '#shared/api/code-review.api';
+import { CODE_REVIEW_API } from '#shared/api/codeReview.api';
 import { createApiListState, ApiListState } from '../../core/api-state.types';
 import {
     CodeReviewConfigCreate,
@@ -24,16 +24,16 @@ export class CodeReviewServiceClient {
 
   private loadConfigs(): void {
     if (this._configsState().status === 'loading') return;
-    
+
     this._configsState.set({ status: 'loading' });
-    
+
     callApiRoute(this.http, CODE_REVIEW_API.list).pipe(
       tap(configs => {
         this._configsState.set({ status: 'success', data: configs });
       }),
       catchError(error => {
-        this._configsState.set({ 
-          status: 'error', 
+        this._configsState.set({
+          status: 'error',
           error: error instanceof Error ? error : new Error('Failed to load configs'),
           code: error?.status
         });
@@ -72,7 +72,7 @@ export class CodeReviewServiceClient {
       tap(() => {
         const currentState = this._configsState();
         if (currentState.status === 'success') {
-          const updatedConfigs = currentState.data.map(c => 
+          const updatedConfigs = currentState.data.map(c =>
             c.id === id ? { ...c, ...config } : c
           );
           this._configsState.set({ status: 'success', data: updatedConfigs });

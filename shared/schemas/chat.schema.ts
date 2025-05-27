@@ -54,6 +54,7 @@ export const ChatMessageSendSchema = Type.Object(
 		llmId: Type.String(),
 		userContent: UserContentSchema, // UserContentSchema from llm.schema.ts (represents UserContentExt)
 		options: Type.Optional(CallSettingsSchema),
+		autoReformat: Type.Optional(Type.Boolean()),
 	},
 	{ $id: 'ChatMessageSend' },
 );
