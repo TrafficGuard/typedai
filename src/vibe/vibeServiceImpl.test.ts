@@ -83,7 +83,7 @@ describe('VibeServiceImpl', () => {
 					userId,
 					sessionId,
 					sinon.match({
-						status: 'file_selection_review',
+						status: 'design_review',
 						filesToAdd: ['new.ts'],
 						filesToRemove: ['old.ts'],
 						// Do not match updatedAt here as it's added by the repo layer
