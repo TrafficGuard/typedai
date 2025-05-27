@@ -1,10 +1,11 @@
 import { inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, throwError, of } from 'rxjs';
+import { Observable, throwError, of, EMPTY } from 'rxjs';
 import { tap, catchError, map } from 'rxjs/operators';
 import { CodeReviewConfig } from "#shared/model/codeReview.model";
 import { callApiRoute } from '../../core/api-route';
 import { CODE_REVIEW_API } from '#shared/api/code-review.api';
+import { createApiListState, ApiListState } from '../../core/api-state.types';
 import {
     CodeReviewConfigCreate,
     CodeReviewConfigUpdate,
@@ -18,35 +19,35 @@ import {
 })
 export class CodeReviewServiceClient {
   private http = inject(HttpClient);
-  private _configs$ = new BehaviorSubject<CodeReviewConfig[] | null>(null);
-  private configsLoaded = false;
+  private readonly _configsState = createApiListState<CodeReviewConfig>();
+  readonly configsState = this._configsState.asReadonly();
 
-  get configs$(): Observable<CodeReviewConfig[] | null> {
-    return this._configs$.asObservable();
-  }
-
-  getCodeReviewConfigs(): Observable<CodeReviewConfig[]> {
-    if (this.configsLoaded && this._configs$.value !== null) {
-      return this._configs$.pipe(map(configs => configs ?? [])) as Observable<CodeReviewConfig[]>;
-    }
-    return callApiRoute(this.http, CODE_REVIEW_API.list).pipe(
-      tap((response: CodeReviewConfig[]) => {
-        this._configs$.next(response);
-        this.configsLoaded = true;
+  private loadConfigs(): void {
+    if (this._configsState().status === 'loading') return;
+    
+    this._configsState.set({ status: 'loading' });
+    
+    callApiRoute(this.http, CODE_REVIEW_API.list).pipe(
+      tap(configs => {
+        this._configsState.set({ status: 'success', data: configs });
       }),
-      catchError((err) => {
-        console.error('Error loading code review configs:', err);
-        this._configs$.next(null);
-        this.configsLoaded = false;
-        return throwError(() => err);
+      catchError(error => {
+        this._configsState.set({ 
+          status: 'error', 
+          error: error instanceof Error ? error : new Error('Failed to load configs'),
+          code: error?.status
+        });
+        return EMPTY;
       })
-    );
+    ).subscribe();
   }
 
-  refreshConfigs(): Observable<CodeReviewConfig[]> {
-    this.configsLoaded = false;
-    this._configs$.next(null);
-    return this.getCodeReviewConfigs();
+  getCodeReviewConfigs(): void {
+    this.loadConfigs();
+  }
+
+  refreshConfigs(): void {
+    this.loadConfigs();
   }
 
   getCodeReviewConfig(id: string): Observable<CodeReviewConfig> {
@@ -55,10 +56,13 @@ export class CodeReviewServiceClient {
 
   createCodeReviewConfig(config: CodeReviewConfigCreate): Observable<MessageResponse> {
     return callApiRoute(this.http, CODE_REVIEW_API.create, { body: config }).pipe(
-      tap(() => {
-        this.refreshConfigs().subscribe({
-          error: (err) => console.error("Failed to refresh configs after create", err)
-        });
+      tap((response) => {
+        const currentState = this._configsState();
+        if (currentState.status === 'success') {
+          // Note: Assuming the API returns the created config in the response
+          // If not, we would need to reload the entire list
+          this.loadConfigs();
+        }
       })
     );
   }
@@ -66,9 +70,13 @@ export class CodeReviewServiceClient {
   updateCodeReviewConfig(id: string, config: CodeReviewConfigUpdate): Observable<MessageResponse> {
     return callApiRoute(this.http, CODE_REVIEW_API.update, { pathParams: { id }, body: config }).pipe(
       tap(() => {
-        this.refreshConfigs().subscribe({
-          error: (err) => console.error("Failed to refresh configs after update", err)
-        });
+        const currentState = this._configsState();
+        if (currentState.status === 'success') {
+          const updatedConfigs = currentState.data.map(c => 
+            c.id === id ? { ...c, ...config } : c
+          );
+          this._configsState.set({ status: 'success', data: updatedConfigs });
+        }
       })
     );
   }
@@ -76,9 +84,11 @@ export class CodeReviewServiceClient {
   deleteCodeReviewConfig(id: string): Observable<MessageResponse> {
     return callApiRoute(this.http, CODE_REVIEW_API.delete, { pathParams: { id } }).pipe(
       tap(() => {
-        this.refreshConfigs().subscribe({
-          error: (err) => console.error("Failed to refresh configs after delete", err)
-        });
+        const currentState = this._configsState();
+        if (currentState.status === 'success') {
+          const filteredConfigs = currentState.data.filter(c => c.id !== id);
+          this._configsState.set({ status: 'success', data: filteredConfigs });
+        }
       })
     );
   }
@@ -87,9 +97,11 @@ export class CodeReviewServiceClient {
     const body: BulkDeleteRequest = { ids };
     return callApiRoute(this.http, CODE_REVIEW_API.bulkDelete, { body }).pipe(
       tap(() => {
-        this.refreshConfigs().subscribe({
-          error: (err) => console.error("Failed to refresh configs after bulk delete", err)
-        });
+        const currentState = this._configsState();
+        if (currentState.status === 'success') {
+          const filteredConfigs = currentState.data.filter(c => !ids.includes(c.id));
+          this._configsState.set({ status: 'success', data: filteredConfigs });
+        }
       })
     );
   }

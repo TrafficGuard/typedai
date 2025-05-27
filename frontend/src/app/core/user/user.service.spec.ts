@@ -35,46 +35,97 @@ describe('UserService', () => {
         httpMock.verify(); // Verify that no unmatched requests are outstanding.
     });
 
-    describe('get', () => {
-        it('should fetch user profile if not cached, update BehaviorSubject, and return profile through user$', (done) => {
-            service.get().subscribe(user => {
-                expect(user).toEqual(mockUserProfile);
-                // Verify BehaviorSubject also has the value
-                expect(service.user$.getValue()).toEqual(mockUserProfile);
-                done();
-            });
+    describe('loadUser', () => {
+        it('should set loading state, fetch user profile, and update state to success', () => {
+            service.loadUser();
+
+            // Verify loading state is set
+            expect(service.userState().status).toBe('loading');
+
+            const req = httpMock.expectOne(USER_API.view.path);
+            expect(req.request.method).toBe('GET');
+            req.flush(mockUserProfile);
+
+            // Verify success state with user data
+            expect(service.userState().status).toBe('success');
+            expect((service.userState() as any).data).toEqual(mockUserProfile);
+        });
+
+        it('should not make HTTP call if already loading', () => {
+            service.loadUser();
+            service.loadUser(); // Second call should be ignored
 
             const req = httpMock.expectOne(USER_API.view.path);
             expect(req.request.method).toBe('GET');
             req.flush(mockUserProfile);
         });
 
-        it('should return cached user profile via user$ if available and not make HTTP call', (done) => {
-            service.user = mockUserProfile; // Pre-cache the user
-
-            service.get().subscribe(user => {
-                expect(user).toEqual(mockUserProfile);
-                done();
-            });
-
-            httpMock.expectNone(USER_API.view.path);
-        });
-
-        it('should handle HTTP error when fetching user profile', (done) => {
+        it('should handle HTTP error and set error state', () => {
             const consoleErrorSpy = spyOn(console, 'error');
 
-            service.get().subscribe({
-                next: () => fail('should have failed with an error'),
-                error: (error: Error) => {
-                    expect(error.message).toBe('Error loading profile');
-                    expect(consoleErrorSpy).toHaveBeenCalled();
-                    done();
-                }
-            });
+            service.loadUser();
 
             const req = httpMock.expectOne(USER_API.view.path);
             expect(req.request.method).toBe('GET');
             req.flush('Error fetching profile', { status: 500, statusText: 'Server Error' });
+
+            // Verify error state
+            expect(service.userState().status).toBe('error');
+            expect((service.userState() as any).error.message).toBe('Error loading profile');
+            expect(consoleErrorSpy).toHaveBeenCalled();
+        });
+    });
+
+    describe('getUser', () => {
+        it('should call loadUser', () => {
+            spyOn(service, 'loadUser');
+            service.getUser();
+            expect(service.loadUser).toHaveBeenCalled();
+        });
+    });
+
+    describe('user$ backward compatibility', () => {
+        it('should return user data when state is success', (done) => {
+            service.user = mockUserProfile;
+
+            service.user$.subscribe(user => {
+                expect(user).toEqual(mockUserProfile);
+                done();
+            });
+        });
+
+        it('should return null when state is not success', (done) => {
+            service.user$.subscribe(user => {
+                expect(user).toBeNull();
+                done();
+            });
+        });
+    });
+
+    describe('get method', () => {
+        it('should trigger loadUser and return user$ observable', (done) => {
+            spyOn(service, 'loadUser');
+            
+            service.user = mockUserProfile;
+            
+            service.get().subscribe(user => {
+                expect(service.loadUser).toHaveBeenCalled();
+                expect(user).toEqual(mockUserProfile);
+                done();
+            });
+        });
+    });
+
+    describe('user setter', () => {
+        it('should set success state when user is provided', () => {
+            service.user = mockUserProfile;
+            expect(service.userState().status).toBe('success');
+            expect((service.userState() as any).data).toEqual(mockUserProfile);
+        });
+
+        it('should set idle state when user is null', () => {
+            service.user = null;
+            expect(service.userState().status).toBe('idle');
         });
     });
 
@@ -115,19 +166,23 @@ describe('UserService', () => {
             service.user = initialUserProfile;
         });
 
-        it('should send update request with merged profile and update BehaviorSubject on success', (done) => {
+        it('should send update request with merged profile and update state on success', (done) => {
             service.update(userProfileUpdate).subscribe({
                 complete: () => { // update returns Observable<void>, check on complete
-                    // Verify BehaviorSubject has the value
-                    expect(service.user$.getValue()).toEqual(expectedUpdatedProfile);
+                    // Verify state has the updated value
+                    const state = service.userState();
+                    expect(state.status).toBe('success');
+                    if (state.status === 'success') {
+                        expect(state.data).toEqual(expectedUpdatedProfile);
+                    }
                     done();
                 }
             });
 
             const req = httpMock.expectOne(USER_API.update.path);
             expect(req.request.method).toBe('POST');
-            // The service sends the merged profile as the body
-            expect(req.request.body).toEqual(expectedUpdatedProfile);
+            // The service sends the update payload as the body
+            expect(req.request.body).toEqual(userProfileUpdate);
             req.flush(null, { status: 204, statusText: 'No Content' });
         });
 
@@ -136,8 +191,12 @@ describe('UserService', () => {
                 next: () => fail('should have failed with an error'),
                 error: (error: HttpErrorResponse) => {
                     expect(error.status).toBe(500);
-                    // Check that the BehaviorSubject was not updated
-                    expect(service.user$.getValue()).toEqual(initialUserProfile);
+                    // Check that the state was not updated
+                    const state = service.userState();
+                    expect(state.status).toBe('success');
+                    if (state.status === 'success') {
+                        expect(state.data).toEqual(initialUserProfile);
+                    }
                     done();
                 }
             });

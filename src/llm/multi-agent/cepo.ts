@@ -1,5 +1,8 @@
 import { BaseLLM } from '#llm/base-llm';
+import { Claude4_Opus_Vertex } from '#llm/services/anthropic-vertex';
 import { cerebrasLlama3_3_70b, cerebrasQwen3_32b } from '#llm/services/cerebras';
+import { openAIo3 } from '#llm/services/openai';
+import { vertexGemini_2_5_Pro } from '#llm/services/vertexai';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { type GenerateTextOptions, type LLM, type LlmMessage, assistant, lastText, user } from '#shared/model/llm.model';
@@ -26,7 +29,7 @@ interface CePOConfig {
 	printOutput: boolean;
 }
 
-const config: CePOConfig = {
+const limitedConfig: CePOConfig = {
 	bestofn_n: 3,
 	bestofn_temperature: 0.1,
 	bestofn_max_tokens: 4096,
@@ -48,10 +51,36 @@ const config: CePOConfig = {
 	printOutput: false,
 };
 
+const sotaConfig: CePOConfig = {
+	bestofn_n: 3,
+	bestofn_temperature: 0.1,
+	bestofn_max_tokens: 16_000,
+	bestofn_rating_type: 'absolute',
+	planning_n: 3,
+	planning_m: 6,
+	planning_temperature_step0: 0.7,
+	planning_max_tokens_step0: 16_000,
+	planning_temperature_step1: 0.55,
+	planning_temperature_step2: 0.25,
+	planning_temperature_step3: 0.1,
+	planning_temperature_step4: 0,
+	planning_max_tokens_step1: 16_000,
+	planning_max_tokens_step2: 16_000,
+	planning_max_tokens_step3: 16_000,
+	planning_max_tokens_step4: 16_000,
+	use_plan_diversity: false,
+	// rating_model_id: undefined, // Default: use the main LLM for rating
+	printOutput: false,
+};
+
+const o3 = openAIo3();
+const gemini_2_5_Pro = vertexGemini_2_5_Pro();
+const opus4 = Claude4_Opus_Vertex();
+
 //  https://github.com/codelion/optillm/blob/main/optillm/cepo/README.md
 
-export function CePO_Cerebras_Qwen3_32b(): LLM {
-	return new CePO_LLM(() => cerebrasQwen3_32b(), 'CePO (Qwen3 32b Cerebras)');
+export function CePO_Cerebras_Qwen3_32b(llmProvider: () => LLM = () => cerebrasLlama3_3_70b(), name?: string): LLM {
+	return new CePO_LLM(() => cerebrasQwen3_32b(), 'CePO (Qwen3 32b Cerebras)', limitedConfig);
 }
 
 /**
@@ -83,22 +112,27 @@ export class CePO_LLM extends BaseLLM {
 	/**
 	 * @param llmProvider
 	 * @param name
+	 * @param config
 	 */
-	constructor(llmProvider: () => LLM = () => cerebrasLlama3_3_70b(), name?: string /*, ratingLlmResolver?: (id: string) => LLM */) {
+	constructor(
+		llmProvider: () => LLM,
+		name: string,
+		private config: CePOConfig /*, ratingLlmResolver?: (id: string) => LLM */,
+	) {
 		const baseLlm = llmProvider(); // Call once
 		super(name ?? `CePO ${baseLlm.getId()}`, 'multi', `CePO-${baseLlm.getId()}`, 128_000, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
 		this.llm = baseLlm;
 
 		// Initialize ratingLlm
-		if (config.rating_model_id /* && ratingLlmResolver */) {
+		if (this.config.rating_model_id /* && ratingLlmResolver */) {
 			try {
-				// this.ratingLlm = ratingLlmResolver(config.rating_model_id);
-				// logger.info(`CePO: Using rating model ${config.rating_model_id}`);
+				// this.ratingLlm = ratingLlmResolver(this.config.rating_model_id);
+				// logger.info(`CePO: Using rating model ${this.config.rating_model_id}`);
 				// For now, without a resolver, default to baseLlm if rating_model_id is set but no resolver
 				this.ratingLlm = this.llm;
-				logger.warn(`CePO: rating_model_id '${config.rating_model_id}' is set, but no resolver provided. Defaulting to primary LLM for ratings.`);
+				logger.warn(`CePO: rating_model_id '${this.config.rating_model_id}' is set, but no resolver provided. Defaulting to primary LLM for ratings.`);
 			} catch (error) {
-				logger.warn(`CePO: Failed to get rating model ${config.rating_model_id}. Defaulting to primary LLM. Error: ${(error as Error).message}`);
+				logger.warn(`CePO: Failed to get rating model ${this.config.rating_model_id}. Defaulting to primary LLM. Error: ${(error as Error).message}`);
 				this.ratingLlm = this.llm;
 			}
 		} else {
@@ -126,7 +160,7 @@ export class CePO_LLM extends BaseLLM {
 			const systemPromptMessage = initialMessages.find((m) => m.role === 'system');
 			const userQueryMessage = initialMessages.find((m) => m.role === 'user' && m === initialMessages.at(-1)); // Assuming last message is the main user query
 
-			if (config.use_plan_diversity) {
+			if (this.config.use_plan_diversity) {
 				if (!userQueryMessage) {
 					logger.warn('CePO: use_plan_diversity is true, but could not find the main user query message to generate approaches.');
 				} else {
@@ -134,21 +168,21 @@ export class CePO_LLM extends BaseLLM {
 					if (systemPromptMessage) messagesForApproaches.push(systemPromptMessage);
 					messagesForApproaches.push(userQueryMessage); // Pass only system and user query for approach generation
 
-					approaches = await this.generateApproaches(messagesForApproaches, config.bestofn_n, opts);
-					if (config.printOutput && approaches) {
+					approaches = await this.generateApproaches(messagesForApproaches, this.config.bestofn_n, opts);
+					if (this.config.printOutput && approaches) {
 						logger.debug(`CePO: Plan diversity approaches (${approaches.length}):\n${approaches.join('\n')}\n`);
 					}
 				}
 			}
 
-			for (let i = 0; i < config.bestofn_n; i++) {
-				if (config.printOutput) {
-					logger.debug(`\nCePO: Generating completion ${i + 1} out of ${config.bestofn_n} \n`);
+			for (let i = 0; i < this.config.bestofn_n; i++) {
+				if (this.config.printOutput) {
+					logger.debug(`\nCePO: Generating completion ${i + 1} out of ${this.config.bestofn_n} \n`);
 				}
 				const currentApproach = approaches && i < approaches.length ? approaches[i] : undefined;
-				if (config.use_plan_diversity && approaches && i >= approaches.length && approaches.length > 0 && approaches.length < config.bestofn_n) {
+				if (this.config.use_plan_diversity && approaches && i >= approaches.length && approaches.length > 0 && approaches.length < this.config.bestofn_n) {
 					logger.warn(
-						`CePO: Not enough diverse approaches generated (${approaches.length}) for bestofn_n (${config.bestofn_n}). Re-using last available approach or no approach for completion ${i + 1}.`,
+						`CePO: Not enough diverse approaches generated (${approaches.length}) for bestofn_n (${this.config.bestofn_n}). Re-using last available approach or no approach for completion ${i + 1}.`,
 					);
 				}
 
@@ -189,8 +223,8 @@ export class CePO_LLM extends BaseLLM {
 			try {
 				responseText = await this.llm.generateText(messages, {
 					...opts,
-					maxOutputTokens: config.planning_max_tokens_step0,
-					temperature: config.planning_temperature_step0,
+					maxOutputTokens: this.config.planning_max_tokens_step0,
+					temperature: this.config.planning_temperature_step0,
 				});
 
 				let jsonString = responseText;
@@ -246,7 +280,7 @@ export class CePO_LLM extends BaseLLM {
 		approach?: string,
 	): Promise<{ plan: string; truncated: boolean }> {
 		let planPromptText: string;
-		if (config.use_plan_diversity && approach) {
+		if (this.config.use_plan_diversity && approach) {
 			planPromptText = `To answer this question, can you come up with a concise plan using to solve it step-by-step but do not provide the final answer. Here is the approach you need to follow to generate the plan: ${approach}. Also, for each step, provide your confidence in the correctness of that step as well as your ability to execute it correctly. Here is the question:\n${questionOnly}\nRead the question again:\n\n${questionOnly}`;
 		} else {
 			planPromptText = `To answer this question, can you come up with a concise plan to solve it step-by-step but do not provide the final answer. Also, for each step, provide your confidence in the correctness of that step as well as your ability to execute it correctly. Here is the question:\n${questionOnly}\nRead the question again:\n\n${questionOnly}`;
@@ -259,13 +293,13 @@ export class CePO_LLM extends BaseLLM {
 		// Use generateMessage to access stats for truncation check
 		const response = await this.llm.generateMessage(messagesForPlan, {
 			...opts,
-			temperature: config.planning_temperature_step1,
-			maxOutputTokens: config.planning_max_tokens_step1,
+			temperature: this.config.planning_temperature_step1,
+			maxOutputTokens: this.config.planning_max_tokens_step1,
 		});
 		const plan = lastText([response]); // Assuming lastText works with generateMessage's output structure
-		const truncated = (response.stats?.outputTokens ?? 0) >= config.planning_max_tokens_step1 * 0.98; // Check if near limit
+		const truncated = (response.stats?.outputTokens ?? 0) >= this.config.planning_max_tokens_step1 * 0.98; // Check if near limit
 
-		if (config.printOutput) logger.debug(`CePO: Generated plan (truncated: ${truncated}): ${plan.substring(0, 200)}...`);
+		if (this.config.printOutput) logger.debug(`CePO: Generated plan (truncated: ${truncated}): ${plan.substring(0, 200)}...`);
 		return { plan, truncated };
 	}
 
@@ -279,13 +313,13 @@ export class CePO_LLM extends BaseLLM {
 
 		const response = await this.llm.generateMessage(messagesForExecute, {
 			...opts,
-			temperature: config.planning_temperature_step2,
-			maxOutputTokens: config.planning_max_tokens_step2,
+			temperature: this.config.planning_temperature_step2,
+			maxOutputTokens: this.config.planning_max_tokens_step2,
 		});
 		const solution = lastText([response]);
-		const truncated = (response.stats?.outputTokens ?? 0) >= config.planning_max_tokens_step2 * 0.98;
+		const truncated = (response.stats?.outputTokens ?? 0) >= this.config.planning_max_tokens_step2 * 0.98;
 
-		if (config.printOutput) logger.debug(`CePO: Execution result (truncated: ${truncated}): ${solution.substring(0, 200)}...`);
+		if (this.config.printOutput) logger.debug(`CePO: Execution result (truncated: ${truncated}): ${solution.substring(0, 200)}...`);
 		return { solution, truncated };
 	}
 
@@ -309,10 +343,10 @@ export class CePO_LLM extends BaseLLM {
 		try {
 			const refined = await this.llm.generateText(messagesForRefinement, {
 				...opts,
-				temperature: config.planning_temperature_step3,
-				maxOutputTokens: config.planning_max_tokens_step3,
+				temperature: this.config.planning_temperature_step3,
+				maxOutputTokens: this.config.planning_max_tokens_step3,
 			});
-			if (config.printOutput) logger.debug(`CePO: Refined output: ${refined.substring(0, 200)}...`);
+			if (this.config.printOutput) logger.debug(`CePO: Refined output: ${refined.substring(0, 200)}...`);
 			return refined;
 		} catch (error) {
 			logger.error(`CePO: Error during output refinement: ${(error as Error).message}. Falling back to the first generated output.`);
@@ -334,10 +368,10 @@ export class CePO_LLM extends BaseLLM {
 
 		const finalAnswer = await this.llm.generateText(messagesForFinalAnswer, {
 			...opts,
-			temperature: config.planning_temperature_step4,
-			maxOutputTokens: config.planning_max_tokens_step4,
+			temperature: this.config.planning_temperature_step4,
+			maxOutputTokens: this.config.planning_max_tokens_step4,
 		});
-		if (config.printOutput) logger.debug(`CePO: Final Answer generated: ${finalAnswer.substring(0, 200)}...`);
+		if (this.config.printOutput) logger.debug(`CePO: Final Answer generated: ${finalAnswer.substring(0, 200)}...`);
 		return finalAnswer;
 	}
 
@@ -350,13 +384,13 @@ export class CePO_LLM extends BaseLLM {
 		const originalUserQueryText = lastText(initialMessages); // This is the 'task' or 'initial_query'
 		const questionOnly = this.extractQuestionOnly(originalUserQueryText);
 
-		while (executedSolutions.length < config.planning_n && attempts < config.planning_m) {
+		while (executedSolutions.length < this.config.planning_n && attempts < this.config.planning_m) {
 			attempts++;
 			try {
 				// Step 1: Plan Generation
 				const planResult = await this.generatePlan(systemMessage, questionOnly, opts, approach);
 				if (planResult.truncated) {
-					if (config.printOutput) logger.warn(`CePO: Plan generation attempt ${attempts} rejected due to length/truncation.`);
+					if (this.config.printOutput) logger.warn(`CePO: Plan generation attempt ${attempts} rejected due to length/truncation.`);
 					// lastAttemptedPlan = planResult.plan; // Save plan if needed for fallback, though Python saves solution
 					continue; // Skip if plan is truncated
 				}
@@ -365,7 +399,7 @@ export class CePO_LLM extends BaseLLM {
 				if (systemMessage) messagesForPlan.push(systemMessage);
 				// Reconstruct user prompt for plan to pass to executePlan
 				let planPromptTextForHistory: string;
-				if (config.use_plan_diversity && approach) {
+				if (this.config.use_plan_diversity && approach) {
 					planPromptTextForHistory = `To answer this question, can you come up with a concise plan using to solve it step-by-step but do not provide the final answer. Here is the approach you need to follow to generate the plan: ${approach}. Also, for each step, provide your confidence in the correctness of that step as well as your ability to execute it correctly. Here is the question:\n${questionOnly}\nRead the question again:\n\n${questionOnly}`;
 				} else {
 					planPromptTextForHistory = `To answer this question, can you come up with a concise plan to solve it step-by-step but do not provide the final answer. Also, for each step, provide your confidence in the correctness of that step as well as your ability to execute it correctly. Here is the question:\n${questionOnly}\nRead the question again:\n\n${questionOnly}`;
@@ -378,13 +412,15 @@ export class CePO_LLM extends BaseLLM {
 				lastAttemptedSolution = solutionResult.solution; // Save last attempted solution
 
 				if (solutionResult.truncated) {
-					if (config.printOutput) logger.warn(`CePO: Plan execution attempt ${attempts} rejected due to length/truncation.`);
+					if (this.config.printOutput) logger.warn(`CePO: Plan execution attempt ${attempts} rejected due to length/truncation.`);
 					continue; // Skip if solution is truncated
 				}
 
 				executedSolutions.push(solutionResult.solution);
-				if (config.printOutput)
-					logger.debug(`CePO: Plan proposal and execution successful. Attempt ${attempts}. Got ${executedSolutions.length}/${config.planning_n} solutions.`);
+				if (this.config.printOutput)
+					logger.debug(
+						`CePO: Plan proposal and execution successful. Attempt ${attempts}. Got ${executedSolutions.length}/${this.config.planning_n} solutions.`,
+					);
 			} catch (error) {
 				logger.warn(`CePO: Plan generation/execution attempt ${attempts} failed: ${(error as Error).message}`);
 			}
@@ -413,13 +449,13 @@ export class CePO_LLM extends BaseLLM {
 		}
 		if (answers.length === 1) return answers[0]; // Only one answer, no need to rate
 
-		if (config.bestofn_rating_type === 'absolute') {
+		if (this.config.bestofn_rating_type === 'absolute') {
 			return this.rateAnswersAbsolute(answers, initialMessages, opts);
 		}
-		if (config.bestofn_rating_type === 'pairwise') {
+		if (this.config.bestofn_rating_type === 'pairwise') {
 			return this.rateAnswersPairwise(answers, initialMessages, opts);
 		}
-		throw new Error(`Invalid rating type: ${config.bestofn_rating_type}`);
+		throw new Error(`Invalid rating type: ${this.config.bestofn_rating_type}`);
 	}
 
 	private async rateAnswersAbsolute(answers: string[], initialMessages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<string> {
@@ -463,10 +499,10 @@ Be as objective as possible. After providing your detailed explanation, please r
 			try {
 				const ratingResponseText = await this.ratingLlm.generateText(messagesForRating, {
 					...opts,
-					temperature: config.bestofn_temperature,
-					maxOutputTokens: config.bestofn_max_tokens,
+					temperature: this.config.bestofn_temperature,
+					maxOutputTokens: this.config.bestofn_max_tokens,
 				});
-				if (config.printOutput) logger.debug(`CePO Absolute Rating: Response for answer "${answer.substring(0, 50)}...": ${ratingResponseText}`);
+				if (this.config.printOutput) logger.debug(`CePO Absolute Rating: Response for answer "${answer.substring(0, 50)}...": ${ratingResponseText}`);
 
 				const ratingMatch = ratingResponseText.match(/Rating: \[\[([01])\]\]/); // Python expects 0 or 1
 				const rating = ratingMatch ? Number.parseInt(ratingMatch[1], 10) : -1; // Default to -1 on parsing error
@@ -477,7 +513,7 @@ Be as objective as possible. After providing your detailed explanation, please r
 			}
 		}
 
-		if (config.printOutput) logger.debug(`CePO Absolute Ratings: ${ratings.join(', ')}`);
+		if (this.config.printOutput) logger.debug(`CePO Absolute Ratings: ${ratings.join(', ')}`);
 
 		let bestAnswerIndex = ratings.indexOf(Math.max(...ratings));
 		// If all ratings are -1 (error or all incorrect), Math.max will be -1. indexOf(-1) will be the first occurrence.
@@ -550,10 +586,10 @@ If the second response is better, reply with "Better Response: [[1]]".`;
 			try {
 				const ratingResponseText = await this.ratingLlm.generateText(messagesForPairRating, {
 					...opts,
-					temperature: config.bestofn_temperature,
-					maxOutputTokens: config.bestofn_max_tokens,
+					temperature: this.config.bestofn_temperature,
+					maxOutputTokens: this.config.bestofn_max_tokens,
 				});
-				if (config.printOutput) logger.debug(`CePO Pairwise Rating: Response for pair (${idx1}, ${idx2}): ${ratingResponseText}`);
+				if (this.config.printOutput) logger.debug(`CePO Pairwise Rating: Response for pair (${idx1}, ${idx2}): ${ratingResponseText}`);
 
 				const match = ratingResponseText.match(/Better Response: \[\[([01])\]\]/);
 				if (match) {
@@ -569,7 +605,7 @@ If the second response is better, reply with "Better Response: [[1]]".`;
 			}
 		}
 
-		if (config.printOutput) logger.debug(`CePO Pairwise Ratings: ${ratings.join(', ')}`);
+		if (this.config.printOutput) logger.debug(`CePO Pairwise Ratings: ${ratings.join(', ')}`);
 
 		let bestAnswerIndex = ratings.indexOf(Math.max(...ratings));
 		if (bestAnswerIndex === -1) bestAnswerIndex = 0; // Fallback if all ratings are 0 or issue

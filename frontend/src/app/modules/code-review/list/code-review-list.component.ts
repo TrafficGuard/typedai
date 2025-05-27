@@ -1,6 +1,5 @@
-import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy, computed, DestroyRef } from '@angular/core';
 import { Router } from '@angular/router';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { CodeReviewServiceClient } from '../code-review.service';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { SelectionModel } from '@angular/cdk/collections';
@@ -8,16 +7,13 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatButtonModule } from "@angular/material/button";
 import { MatIconModule } from "@angular/material/icon";
 import { MatCheckboxModule } from "@angular/material/checkbox";
-// MatToolbarModule is not used in the template, so removing it from component imports
-// import { MatToolbarModule } from "@angular/material/toolbar";
 import { CommonModule } from '@angular/common';
 import { MatTableModule } from '@angular/material/table';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatProgressBarModule } from "@angular/material/progress-bar"; // Import MatProgressBarModule
+import { MatProgressBarModule } from "@angular/material/progress-bar";
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { CodeReviewConfig } from "#shared/model/codeReview.model";
-// CodeReviewConfigListResponse is not directly used here anymore as service handles the direct type
-import { finalize, map } from 'rxjs/operators';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-code-review-list',
@@ -41,37 +37,28 @@ export class CodeReviewListComponent implements OnInit {
   private router = inject(Router);
   private dialog = inject(FuseConfirmationService);
   private snackBar = inject(MatSnackBar);
+  private destroyRef = inject(DestroyRef);
 
-  configs = toSignal(
-    this.codeReviewService.configs$.pipe(map(val => val ?? [])),
-    { initialValue: [] as CodeReviewConfig[] }
-  );
+  configsState = this.codeReviewService.configsState;
+  configs = computed(() => {
+    const state = this.configsState();
+    return state.status === 'success' ? state.data : [];
+  });
   selection = new SelectionModel<CodeReviewConfig>(true, []);
   displayedColumns = signal<string[]>(['title', 'description', 'enabled', 'select']);
-  isLoading = signal(false);
-  errorMessage = signal('');
+  isLoading = computed(() => this.configsState().status === 'loading');
+  errorMessage = computed(() => {
+    const state = this.configsState();
+    return state.status === 'error' ? 'Error loading configurations' : '';
+  });
 
   ngOnInit() {
     this.loadConfigs();
   }
 
   loadConfigs() {
-    this.isLoading.set(true);
-    this.errorMessage.set('');
-    this.codeReviewService.getCodeReviewConfigs().pipe(
-      finalize(() => {
-        this.isLoading.set(false);
-      })
-    ).subscribe({
-      // next: (data) => { /* Data is handled by toSignal, selection clear handled by service refresh */ },
-      error: (err) => {
-        this.errorMessage.set('Error loading configurations');
-        console.error('Error in loadConfigs:', err);
-      },
-      complete: () => {
-        this.selection.clear(); // Clear selection when initial load/refresh completes
-      }
-    });
+    this.codeReviewService.getCodeReviewConfigs();
+    this.selection.clear();
   }
 
   openEditPage(id?: string) {
@@ -120,40 +107,25 @@ export class CodeReviewListComponent implements OnInit {
       .afterClosed()
       .subscribe((result) => {
         if (result === 'confirmed') {
-          this.codeReviewService.deleteCodeReviewConfigs(selectedIds).subscribe(
-            () => {
-              this.snackBar.open('Configurations deleted successfully', 'Close', { duration: 3000 });
-              // this.loadConfigs(); // This is no longer needed as service refresh handles it
-              this.selection.clear(); // Clear selection after successful deletion
-            },
-            (err) => { // Added error parameter
-              this.errorMessage.set('Error deleting configurations');
-              this.snackBar.open('Error deleting configurations', 'Close', { duration: 3000 });
-              console.error('Error deleting configurations:', err); // Log error
-            }
-          );
+          this.codeReviewService.deleteCodeReviewConfigs(selectedIds)
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe({
+              next: () => {
+                this.snackBar.open('Configurations deleted successfully', 'Close', { duration: 3000 });
+                this.selection.clear();
+              },
+              error: (err) => {
+                this.snackBar.open('Error deleting configurations', 'Close', { duration: 3000 });
+                console.error('Error deleting configurations:', err);
+              }
+            });
         }
       });
   }
 
   refreshConfigs(): void {
-    this.isLoading.set(true);
-    this.errorMessage.set('');
-    this.codeReviewService.refreshConfigs().pipe(
-        finalize(() => {
-            this.isLoading.set(false);
-        })
-    ).subscribe({
-        // next: (data) => { /* Data handled by toSignal */ },
-        error: (err) => {
-            this.errorMessage.set('Error refreshing configurations');
-            this.snackBar.open('Error refreshing configurations list.', 'Close', { duration: 3000 });
-            console.error('Error in refreshConfigs:', err);
-        },
-        complete: () => {
-             this.snackBar.open('Configurations list refreshed.', 'Close', { duration: 2000 });
-             this.selection.clear(); // Clear selection on refresh
-        }
-    });
+    this.codeReviewService.refreshConfigs();
+    this.snackBar.open('Configurations list refreshed.', 'Close', { duration: 2000 });
+    this.selection.clear();
   }
 }

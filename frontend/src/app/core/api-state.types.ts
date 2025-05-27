@@ -1,7 +1,6 @@
 import { signal, WritableSignal } from '@angular/core';
 
-
-type ApiState<T> =
+export type ApiState<T> = 
   | { status: 'idle' }
   | { status: 'loading' }
   | { status: 'success'; data: T }
@@ -15,7 +14,7 @@ export type ApiListState<T> = ApiState<T[]>;
 /**
  * Represent a state/result for loading an entity from an API endpoint
  */
-export type ApiEntityState<T> =
+export type ApiEntityState<T> = 
   | ApiState<T>
   | { status: 'not_found' }
   | { status: 'forbidden' };

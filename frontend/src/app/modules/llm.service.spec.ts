@@ -1,7 +1,6 @@
-import { TestBed } from '@angular/core/testing';
+import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { LlmService, LLM } from './llm.service';
-
 
 const LLM_LIST_API_URL = `/api/llms/list`;
 
@@ -26,41 +25,92 @@ describe('LlmService', () => {
     expect(service).toBeTruthy();
   });
 
-  it('should fetch LLMs from the server', () => {
+  it('should load LLMs and update state', fakeAsync(() => {
     const mockLlms: LLM[] = [
       { id: 'llm1', name: 'LLM 1', isConfigured: true },
       { id: 'llm2', name: 'LLM 2', isConfigured: false },
     ];
 
-    service.getLlms().subscribe((llms) => {
-      expect(llms).toEqual(mockLlms);
-    });
+    service.getLlms();
+
+    // Verify loading state
+    expect(service.llmsState().status).toBe('loading');
 
     const req = httpMock.expectOne(`${LLM_LIST_API_URL}`);
     expect(req.request.method).toBe('GET');
     req.flush({ data: mockLlms });
-  });
+    tick();
 
-  it('should cache LLMs per user', () => {
-    const mockLlms1: LLM[] = [{ id: 'llm1', name: 'LLM 1', isConfigured: true }];
+    // Verify success state
+    const state = service.llmsState();
+    expect(state.status).toBe('success');
+    if (state.status === 'success') {
+      expect(state.data).toEqual(mockLlms);
+    }
+  }));
 
-    service.getLlms().subscribe();
-    httpMock.expectOne(`${LLM_LIST_API_URL}`).flush({ data: mockLlms1 });
-
-    service.getLlms().subscribe((llms) => {
-      expect(llms).toEqual(mockLlms1);
-    });
-  });
-
-  it('should clear the cache', () => {
+  it('should not make duplicate requests when already loading', fakeAsync(() => {
     const mockLlms: LLM[] = [{ id: 'llm1', name: 'LLM 1', isConfigured: true }];
 
-    service.getLlms().subscribe();
-    httpMock.expectOne(`${LLM_LIST_API_URL}`).flush({ data: mockLlms });
+    service.getLlms();
+    service.getLlms(); // Second call should be ignored
+
+    // Only one request should be made
+    const req = httpMock.expectOne(`${LLM_LIST_API_URL}`);
+    req.flush({ data: mockLlms });
+    tick();
+
+    const state = service.llmsState();
+    expect(state.status).toBe('success');
+    if (state.status === 'success') {
+      expect(state.data).toEqual(mockLlms);
+    }
+  }));
+
+  it('should refresh LLMs when clearCache is called', fakeAsync(() => {
+    const mockLlms: LLM[] = [{ id: 'llm1', name: 'LLM 1', isConfigured: true }];
+
+    service.getLlms();
+    const req1 = httpMock.expectOne(`${LLM_LIST_API_URL}`);
+    req1.flush({ data: mockLlms });
+    tick();
 
     service.clearCache();
 
-    service.getLlms().subscribe();
-    httpMock.expectOne(`${LLM_LIST_API_URL}`);
-  });
+    const req2 = httpMock.expectOne(`${LLM_LIST_API_URL}`);
+    req2.flush({ data: mockLlms });
+    tick();
+
+    const state = service.llmsState();
+    expect(state.status).toBe('success');
+  }));
+
+  it('should handle errors and update state', fakeAsync(() => {
+    service.getLlms();
+
+    const req = httpMock.expectOne(`${LLM_LIST_API_URL}`);
+    req.error(new ErrorEvent('Network error'), { status: 500 });
+    tick();
+
+    const state = service.llmsState();
+    expect(state.status).toBe('error');
+    if (state.status === 'error') {
+      expect(state.error.message).toBe('Failed to load LLMs');
+      expect(state.code).toBe(500);
+    }
+  }));
+
+  it('should provide backward compatibility with llms$ observable', fakeAsync(() => {
+    const mockLlms: LLM[] = [{ id: 'llm1', name: 'LLM 1', isConfigured: true }];
+
+    let observedLlms: LLM[] = [];
+    service.llms$.subscribe(llms => observedLlms = llms);
+
+    service.getLlms();
+    const req = httpMock.expectOne(`${LLM_LIST_API_URL}`);
+    req.flush({ data: mockLlms });
+    tick();
+
+    expect(observedLlms).toEqual(mockLlms);
+  }));
 });
