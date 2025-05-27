@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { CodeReviewServiceClient } from './code-review.service';
-import { CODE_REVIEW_API } from '#shared/api/code-review.api';
+import { CODE_REVIEW_API } from '#shared/api/codeReview.api';
 import { CodeReviewConfig } from '#shared/model/codeReview.model';
 import {
     CodeReviewConfigCreate,
