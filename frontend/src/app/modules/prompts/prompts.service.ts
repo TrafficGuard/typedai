@@ -10,8 +10,10 @@ import type {
     PromptListSchemaModel,
     PromptCreatePayload,
     PromptUpdatePayload,
+    PromptGenerateResponseSchemaModel,
 } from '#shared/schemas/prompts.schema';
 import type { Prompt, PromptPreview } from '#shared/model/prompts.model';
+import type { LlmMessage, CallSettings } from '#shared/model/llm.model';
 
 /** Calls the Prompt API routes */
 @Injectable({ providedIn: 'root' })
@@ -88,6 +90,12 @@ export class PromptsService {
         }
         this.getPromptById(promptPreview.id).subscribe({
             error: (err) => console.error('Failed to load prompt from preview', err)
+        });
+    }
+
+    generateFromMessages(messages: LlmMessage[], options: CallSettings & { llmId?: string }): Observable<PromptGenerateResponseSchemaModel> {
+        return callApiRoute(this.httpClient, PROMPT_API.generateFromMessages, { 
+            body: { messages, options } 
         });
     }
 }

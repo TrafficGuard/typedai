@@ -1,4 +1,4 @@
-import type { DocumentSnapshot, Firestore } from '@google-cloud/firestore';
+import type { DocumentSnapshot, FieldPath, Firestore } from '@google-cloud/firestore';
 import type { Static } from '@sinclair/typebox';
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import type { AgentContextService } from '#agent/agentContextService/agentContextService';
@@ -7,7 +7,14 @@ import { MAX_PROPERTY_SIZE, truncateToByteLength, validateFirestoreObject } from
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import { type AgentContext, type AgentContextPreview, type AgentRunningState, type AutonomousIteration, isExecuting } from '#shared/model/agent.model';
+import {
+	type AgentContext,
+	type AgentContextPreview,
+	type AgentRunningState,
+	type AutonomousIteration,
+	type AutonomousIterationSummary,
+	isExecuting,
+} from '#shared/model/agent.model';
 import type { User } from '#shared/model/user.model';
 import type { AgentContextSchema } from '#shared/schemas/agent.schema';
 import { currentUser } from '#user/userContext';
@@ -403,5 +410,79 @@ export class FirestoreAgentStateService implements AgentContextService {
 		iterations.sort((a, b) => a.iteration - b.iteration);
 
 		return iterations;
+	}
+
+	@span()
+	async getAgentIterationSummaries(agentId: string): Promise<AutonomousIterationSummary[]> {
+		const agent = await this.load(agentId);
+		if (!agent) throw new Error('Agent Id does not exist');
+		if (agent.user.id !== currentUser().id) throw new Error('Not your agent');
+
+		const iterationsColRef = this.db.collection('AgentContext').doc(agentId).collection('iterations');
+		// Select only the fields needed for the summary.
+		// Note: Firestore's select() method with FieldPath.documentId() might be complex.
+		// It's often simpler to fetch minimal fields and construct the ID from the doc.id.
+		// Here, 'iteration' is a field, so we can select it directly.
+		const querySnapshot = await iterationsColRef
+			.select('iteration', 'cost', 'summary', 'error') // Select only necessary fields
+			.orderBy('iteration', 'asc') // Order by iteration number
+			.get();
+
+		const summaries: AutonomousIterationSummary[] = [];
+		querySnapshot.forEach((doc) => {
+			const data = doc.data();
+			if (data && typeof data.iteration === 'number') {
+				summaries.push({
+					agentId: agentId,
+					iteration: data.iteration,
+					cost: data.cost ?? 0,
+					summary: data.summary ?? '',
+					error: !!data.error,
+				});
+			} else {
+				logger.warn({ agentId, iterationId: doc.id }, 'Skipping invalid iteration data during summary load (missing or invalid iteration number)');
+			}
+		});
+		return summaries;
+	}
+
+	@span()
+	async getAgentIterationDetail(agentId: string, iterationNumber: number): Promise<AutonomousIteration | null> {
+		const agent = await this.load(agentId);
+		if (!agent) throw new Error('Agent Id does not exist');
+		if (agent.user.id !== currentUser().id) throw new Error('Not your agent');
+
+		const iterationDocRef = this.db.collection('AgentContext').doc(agentId).collection('iterations').doc(String(iterationNumber));
+		const docSnap = await iterationDocRef.get();
+
+		if (!docSnap.exists) {
+			return null;
+		}
+
+		const data = docSnap.data();
+		if (data && typeof data.iteration === 'number') {
+			// Ensure memory is a Record, defaulting to {} if missing or not a valid object.
+			data.memory = data.memory && typeof data.memory === 'object' && !Array.isArray(data.memory) ? data.memory : {};
+			// Ensure toolState is a Record, defaulting to {} if missing or not a valid object.
+			data.toolState = data.toolState && typeof data.toolState === 'object' && !Array.isArray(data.toolState) ? data.toolState : {};
+			// Ensure optional fields are correctly handled
+			data.error = data.error || undefined;
+			data.agentPlan = data.agentPlan || undefined;
+			data.code = data.code || undefined;
+			data.prompt = data.prompt || undefined;
+			data.functionCalls = data.functionCalls || [];
+			data.functions = data.functions || [];
+			data.expandedUserRequest = data.expandedUserRequest || undefined;
+			data.observationsReasoning = data.observationsReasoning || undefined;
+			data.nextStepDetails = data.nextStepDetails || undefined;
+			data.draftCode = data.draftCode || undefined;
+			data.codeReview = data.codeReview || undefined;
+			// Images might be stored as an array of objects
+			data.images = data.images || [];
+
+			return data as AutonomousIteration;
+		}
+		logger.warn({ agentId, iterationNumber }, 'Invalid iteration data found for detail load.');
+		return null;
 	}
 }

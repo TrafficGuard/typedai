@@ -1,6 +1,7 @@
 import type { Static } from '@sinclair/typebox';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { sendBadRequest, sendJSON, sendNotFound } from '#fastify/responses';
+import { getLLM } from '#llm/llmFactory';
 import { logger } from '#o11y/logger';
 import { PROMPT_API } from '#shared/api/prompts.api';
 import type { LlmMessage } from '#shared/model/llm.model';
@@ -27,7 +28,7 @@ export async function promptRoutes(fastify: AppFastifyInstance) {
 		try {
 			const prompts = await fastify.promptsService.listPromptsForUser(userId);
 			const promptList: PromptListSchemaModel = {
-				prompts: prompts as any,
+				prompts: prompts,
 				hasMore: false,
 			};
 			reply.sendJSON(promptList);
@@ -57,8 +58,7 @@ export async function promptRoutes(fastify: AppFastifyInstance) {
 
 		try {
 			const createdPrompt = await fastify.promptsService.createPrompt(promptData, userId);
-			reply.code(201);
-			reply.sendJSON(createdPrompt);
+			reply.sendJSON(createdPrompt, 201);
 		} catch (error: any) {
 			logger.error({ err: error, userId, payload: promptData }, 'Error creating prompt');
 			const message = error.message || 'Error creating prompt';
@@ -78,7 +78,7 @@ export async function promptRoutes(fastify: AppFastifyInstance) {
 			const prompt = await fastify.promptsService.getPrompt(promptId, userId);
 			if (!prompt) return sendNotFound(reply, 'Prompt not found');
 
-			sendJSON(reply, prompt);
+			reply.sendJSON(prompt);
 		} catch (error: any) {
 			logger.error({ err: error, promptId, userId }, 'Error getting prompt by ID');
 			const message = error.message || 'Error retrieving prompt';
@@ -101,7 +101,7 @@ export async function promptRoutes(fastify: AppFastifyInstance) {
 			const prompt = await fastify.promptsService.getPromptVersion(promptId, revisionId, userId);
 			if (!prompt) return sendNotFound(reply, 'Prompt revision not found');
 
-			sendJSON(reply, prompt);
+			reply.sendJSON(prompt);
 		} catch (error: any) {
 			logger.error({ err: error, promptId, revisionId, userId }, 'Error getting prompt revision');
 			const message = error.message || 'Error retrieving prompt revision';
@@ -126,7 +126,7 @@ export async function promptRoutes(fastify: AppFastifyInstance) {
 			};
 
 			const updatedPrompt = await fastify.promptsService.updatePrompt(promptId, serviceUpdates, userId, false);
-			sendJSON(reply, updatedPrompt);
+			reply.sendJSON(updatedPrompt);
 		} catch (error: any) {
 			logger.error({ err: error, promptId, userId, updates }, 'Error updating prompt');
 			const message = error.message || 'Error updating prompt';
@@ -177,11 +177,11 @@ export async function promptRoutes(fastify: AppFastifyInstance) {
 			};
 
 			const response: PromptGenerateResponseSchemaModel = {
-				generatedMessage: mockGeneratedMessage as any, // Using 'as any' to bridge potential minor discrepancies between LlmMessage model and schema during mock phase.
+				generatedMessage: mockGeneratedMessage,
 			};
 
 			// Use sendJSON to send the response with a 200 OK status by default.
-			sendJSON(reply, response);
+			reply.sendJSON(response);
 		} catch (error: any) {
 			logger.error({ err: error, promptId, userId, payload }, 'Error in /api/prompts/:promptId/generate endpoint');
 			const message = error.message || 'Error generating content from prompt';
@@ -194,22 +194,18 @@ export async function promptRoutes(fastify: AppFastifyInstance) {
 	 * Generate content directly from messages.
 	 */
 	fastify.post(PROMPT_API.generateFromMessages.pathTemplate, { schema: PROMPT_API.generateFromMessages.schema }, async (req, reply) => {
-		const payload = req.body as Static<typeof PromptGenerateFromMessagesPayloadSchema>;
+		const payload = req.body;
 		const userId = currentUser().id;
 
 		logger.info({ userId, payload }, 'Request to generate content from messages');
 
 		try {
 			const llmId = payload.options?.llmId || 'default';
-			const llm = await fastify.llmFactory.getLLM(llmId);
+			const llm = getLLM(llmId);
 
-			const generatedMessage = await llm.generateMessage(payload.messages as any, payload.options as any);
+			const generatedMessage = await llm.generateMessage(payload.messages, payload.options);
 
-			const response: PromptGenerateResponseSchemaModel = {
-				generatedMessage: generatedMessage as any,
-			};
-
-			sendJSON(reply, response);
+			reply.sendJSON({ generatedMessage });
 		} catch (error: any) {
 			logger.error({ err: error, userId, payload }, 'Error in /api/prompts/generate endpoint');
 			const message = error.message || 'Error generating content from messages';

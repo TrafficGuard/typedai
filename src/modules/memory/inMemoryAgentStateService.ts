@@ -4,7 +4,7 @@ import type { AgentContextService } from '#agent/agentContextService/agentContex
 import { deserializeContext, serializeContext } from '#agent/agentSerialization';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
-import type { AgentContext, AgentContextPreview, AgentRunningState, AutonomousIteration } from '#shared/model/agent.model';
+import type { AgentContext, AgentContextPreview, AgentRunningState, AutonomousIteration, AutonomousIterationSummary } from '#shared/model/agent.model';
 import type { AgentContextSchema } from '#shared/schemas/agent.schema';
 
 /**
@@ -107,5 +107,21 @@ export class InMemoryAgentStateService implements AgentContextService {
 	async requestHumanInLoopCheck(agent: AgentContext): Promise<void> {
 		agent.hilRequested = true;
 		await this.save(agent);
+	}
+
+	async getAgentIterationSummaries(agentId: string): Promise<AutonomousIterationSummary[]> {
+		const iterations = this.iterationMap.get(agentId) || [];
+		return iterations.map((iter) => ({
+			agentId: iter.agentId,
+			iteration: iter.iteration,
+			cost: iter.cost,
+			summary: iter.summary,
+			error: !!iter.error,
+		}));
+	}
+
+	async getAgentIterationDetail(agentId: string, iterationNumber: number): Promise<AutonomousIteration | null> {
+		const iterations = this.iterationMap.get(agentId) || [];
+		return iterations.find((iter) => iter.iteration === iterationNumber) || null;
 	}
 }

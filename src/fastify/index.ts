@@ -9,6 +9,7 @@ export {
 export {
 	send,
 	sendBadRequest,
+	sendNotFound,
 	sendSuccess,
 	sendUnauthorized,
 } from './responses';

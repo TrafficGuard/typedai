@@ -7,8 +7,8 @@ import { agentStorageDir } from '#app/appDirs';
 import type { CreateLlmRequest } from '#llm/llmCallService/llmCall';
 import type { LlmCallService } from '#llm/llmCallService/llmCallService';
 import { logger } from '#o11y/logger';
-import type { FilePartExt, ImagePartExt, LlmMessage } from '#shared/model/llm.model';
-import type { LlmCall, LlmRequest } from '#shared/model/llmCall.model';
+import type { FilePartExt, ImagePartExt, LlmCallMessageSummaryPart, LlmMessage } from '#shared/model/llm.model';
+import type { LlmCall, LlmCallSummary, LlmRequest } from '#shared/model/llmCall.model';
 import { currentUser } from '#user/userContext';
 import { firestoreDb } from './firestore';
 
@@ -694,5 +694,66 @@ export class FirestoreLlmCallService implements LlmCallService {
 			logger.error(e, `Error deleting LlmCall Firestore documents for ID: ${llmCallId}`);
 			throw e;
 		}
+	}
+
+	// Helper function to create message summaries
+	private _createLlmCallMessageSummaries(messages: LlmMessage[] | undefined): LlmCallMessageSummaryPart[] {
+		if (!messages || messages.length === 0) return [];
+		return messages.map((msg) => {
+			let textPreview = '';
+			let imageCount = 0;
+			let fileCount = 0;
+
+			if (typeof msg.content === 'string') {
+				textPreview = msg.content.substring(0, 150);
+			} else if (Array.isArray(msg.content)) {
+				const textParts: string[] = [];
+				for (const part of msg.content) {
+					if (part.type === 'text') {
+						textParts.push(part.text);
+					} else if (part.type === 'image') {
+						imageCount++;
+					} else if (part.type === 'file') {
+						fileCount++;
+					}
+				}
+				textPreview = textParts.join(' ').substring(0, 150);
+			}
+			return {
+				role: msg.role,
+				textPreview,
+				imageCount,
+				fileCount,
+			};
+		});
+	}
+
+	async getLlmCallSummaries(agentId: string): Promise<LlmCallSummary[]> {
+		// Firestore doesn't allow selecting specific fields from sub-documents in arrays (messages)
+		// directly in a query for summarization. We must fetch documents and process them.
+		// This implementation will fetch the full LlmCall objects for the agent and then summarize.
+		// This is consistent with getLlmCallsForAgent and then mapping, but could be optimized
+		// if message summaries didn't require full message content (e.g., if counts were stored separately).
+
+		const calls = await this.getLlmCallsForAgent(agentId); // This already handles chunking and hydration.
+		const summaries: LlmCallSummary[] = calls.map((call) => ({
+			id: call.id,
+			description: call.description,
+			llmId: call.llmId,
+			requestTime: call.requestTime,
+			totalTime: call.totalTime,
+			inputTokens: call.inputTokens,
+			outputTokens: call.outputTokens,
+			cost: call.cost,
+			error: !!call.error,
+			callStack: call.callStack,
+			messageSummaries: this._createLlmCallMessageSummaries(call.messages),
+		}));
+		// getLlmCallsForAgent already sorts by requestTime desc.
+		return summaries;
+	}
+
+	async getLlmCallDetail(llmCallId: string): Promise<LlmCall | null> {
+		return this.getCall(llmCallId);
 	}
 }

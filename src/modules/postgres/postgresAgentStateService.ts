@@ -11,6 +11,7 @@ import {
 	type AgentRunningState,
 	type AgentType,
 	type AutonomousIteration,
+	type AutonomousIterationSummary,
 	isExecuting,
 } from '#shared/model/agent.model';
 import type { FunctionCallResult, GenerationStats, ImagePartExt } from '#shared/model/llm.model';
@@ -505,5 +506,41 @@ export class PostgresAgentStateService implements AgentContextService {
 		const rows = await this.db.selectFrom('agent_iterations').selectAll().where('agent_id', '=', agentId).orderBy('iteration_number', 'asc').execute();
 
 		return rows.map((row) => this._deserializeDbRowToIteration(row));
+	}
+
+	async getAgentIterationSummaries(agentId: string): Promise<AutonomousIterationSummary[]> {
+		const agent = await this.load(agentId);
+		if (!agent) throw new Error(`Agent Id does not exist or you do not have permission: ${agentId}`);
+
+		const rows = await this.db
+			.selectFrom('agent_iterations')
+			.select(['agent_id', 'iteration_number', 'cost', 'summary', 'error'])
+			.where('agent_id', '=', agentId)
+			.orderBy('iteration_number', 'asc')
+			.execute();
+
+		return rows.map((row) => ({
+			agentId: row.agent_id,
+			iteration: row.iteration_number,
+			cost: row.cost !== null && row.cost !== undefined ? Number.parseFloat(String(row.cost)) : 0,
+			summary: row.summary ?? '',
+			error: !!row.error,
+		}));
+	}
+
+	async getAgentIterationDetail(agentId: string, iterationNumber: number): Promise<AutonomousIteration | null> {
+		const agent = await this.load(agentId);
+		if (!agent) throw new Error(`Agent Id does not exist or you do not have permission: ${agentId}`);
+
+		const row = await this.db
+			.selectFrom('agent_iterations')
+			.selectAll()
+			.where('agent_id', '=', agentId)
+			.where('iteration_number', '=', iterationNumber)
+			.executeTakeFirst();
+
+		if (!row) return null;
+
+		return this._deserializeDbRowToIteration(row);
 	}
 }
