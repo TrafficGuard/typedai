@@ -1,6 +1,5 @@
 import { logger } from '#o11y/logger';
 import type { SelectedFile } from '#shared/model/files.model';
-import type { DesignAnswer } from '#shared/model/vibe.model';
 import { runVibeWorkflowAgent } from '#vibe/vibeAgentRunner';
 import type { VibeRepository } from '#vibe/vibeRepository';
 
@@ -16,7 +15,7 @@ export class VibeDesignGeneration {
 		const session = await this.vibeRepo.getVibeSession(userId, sessionId);
 		if (!session) throw new Error(`VibeSession ${sessionId} not found for user ${userId}.`);
 		if (session.userId !== userId) throw new Error('User not authorized for this session.');
-		if (session.status !== 'file_selection_review') {
+		if (session.status !== 'design_review') {
 			throw new Error(`Invalid session status: Cannot generate design in current state '${session.status}'. Expected 'file_selection_review'.`);
 		}
 		if (!session.fileSelection || session.fileSelection.length === 0) {
@@ -34,14 +33,10 @@ export class VibeDesignGeneration {
 			const currentSession = session;
 
 			// Placeholder/Mock Design Agent
-			const mockGenerateDesignAgent = async (instructions: string, files: SelectedFile[], vars: number): Promise<DesignAnswer> => {
+			const mockGenerateDesignAgent = async (instructions: string, files: SelectedFile[], vars: number): Promise<string> => {
 				logger.debug({ sessionId, fileCount: files.length, vars }, 'Mock design agent running...');
 				await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate work
-				return {
-					summary: 'Mock Design Summary',
-					steps: ['Mock Step 1', 'Mock Step 2'],
-					reasoning: `This is mock reasoning based on instructions ("${instructions.substring(0, 50)}...") and ${files.length} files. Variations requested: ${vars}.`,
-				};
+				return 'Mock Design Summary';
 			};
 
 			const designAnswer = await mockGenerateDesignAgent(currentSession.instructions, currentSession.fileSelection!, variations);
@@ -62,7 +57,7 @@ export class VibeDesignGeneration {
 			logger.error(error, `[VibeServiceImpl] Error occurred during runVibeWorkflowAgent for design generation session ${sessionId}`);
 			try {
 				await this.vibeRepo.updateVibeSession(userId, sessionId, {
-					status: 'error_design_generation',
+					status: 'error',
 					error: error instanceof Error ? error.message : String(error),
 					lastAgentActivity: Date.now(),
 				});
@@ -78,7 +73,7 @@ export class VibeDesignGeneration {
 		// 2. Update status to 'updating_design' in repo
 		// 3. Trigger runDesignGenerationAgent with prompt (async)
 		// 4. Agent result callback -> updates repo with new designAnswer & status 'design_review_details' or 'error'
-		await this.vibeRepo.updateVibeSession(userId, sessionId, { status: 'updating_design', lastAgentActivity: Date.now() });
+		await this.vibeRepo.updateVibeSession(userId, sessionId, { status: 'generating_design', lastAgentActivity: Date.now() });
 
 		// Leave as is until instructed to implement this functionality
 		throw new Error('updateDesignWithPrompt - Not Implemented');
@@ -87,7 +82,7 @@ export class VibeDesignGeneration {
 	async updateDesignFromInstructions(userId: string, sessionId: string, designUpdateInstructions: string): Promise<void> {
 		logger.info({ userId, sessionId, designUpdateInstructions }, '[VibeServiceImpl] updateDesignWithInstructions called');
 		// Similar flow to updateDesignWithPrompt, passing structured data to agent
-		await this.vibeRepo.updateVibeSession(userId, sessionId, { status: 'updating_design', lastAgentActivity: Date.now() });
+		await this.vibeRepo.updateVibeSession(userId, sessionId, { status: 'generating_design', lastAgentActivity: Date.now() });
 
 		// Leave as is until instructed to implement this functionality
 		throw new Error('updateDesignWithInstructions - Not Implemented');

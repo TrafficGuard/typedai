@@ -29,6 +29,7 @@ import { attachmentsAndTextToUserContentExt, userContentExtToAttachmentsAndText,
 
 import { Subject, Observable, forkJoin } from 'rxjs';
 import { takeUntil, finalize, tap, filter } from 'rxjs/operators';
+import { toObservable } from '@angular/core/rxjs-interop';
 
 @Component({
     selector: 'app-prompt-form',
@@ -200,18 +201,19 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 
         this.isLoading.set(true);
         // Fetch LLMs and then process route data
-        this.llmService.getLlms().pipe(
+        this.llmService.loadLlms();
+        
+        // React to LLM state changes
+        toObservable(this.llmService.llmsState).pipe(
             takeUntil(this.destroy$)
-        ).subscribe({
-            next: (llms) => {
-                this.availableModels = llms.filter(llm => llm.isConfigured);
-                // Now that LLMs are loaded, process route data for prompt editing or creation
+        ).subscribe(state => {
+            if (state.status === 'success') {
+                this.availableModels = state.data.filter(llm => llm.isConfigured);
                 this.processRouteData();
-            },
-            error: (err) => {
-                console.error('Failed to load LLMs', err);
-                this.availableModels = []; // Ensure it's an empty array on error
-                this.processRouteData(); // Still process route data to show form, though model selection might be empty
+            } else if (state.status === 'error') {
+                console.error('Failed to load LLMs', state.error);
+                this.availableModels = [];
+                this.processRouteData();
             }
         });
     }

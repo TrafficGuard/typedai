@@ -4,23 +4,21 @@ import { catchError, Observable, tap, throwError, map, EMPTY } from 'rxjs';
 import { Router } from '@angular/router';
 import { USER_API } from "#shared/api/user.api";
 import { callApiRoute } from "../api-route";
-import { createApiEntityState, ApiEntityState } from '../api-state.types';
-// Assuming UserProfile is the primary type used from schemas, if User model is different, adjust as needed.
-// For now, sticking to UserProfile as it's used in existing code and API schemas.
+import { createApiEntityState } from '../api-state.types';
 import { UserProfile, UserProfileUpdate } from "#shared/schemas/user.schema";
-import { User } from "#shared/model/user.model"; // User model for internal state if different
+
 
 @Injectable({ providedIn: 'root' })
 export class UserService {
     private http = inject(HttpClient);
     private router = inject(Router);
 
-    // Private writable state
     private readonly _userState = createApiEntityState<UserProfile>();
 
-    // Public readonly state. This exposes the User directly, and not an ApiEntityState, as the user must be authenticated, so an
+    /** User Api result for authentication guard/service/components. */
     readonly userEntityState = this._userState.asReadonly();
 
+    /** Public UserProfile state. Application components should use this state and assume the user is non-null  */
     readonly userProfile = computed(() => {
         const state = this._userState();
         return state.status === 'success' ? state.data : null;
@@ -33,7 +31,6 @@ export class UserService {
             this._userState.set({ status: 'success', data: value });
         }
     }
-
 
     // -- Public methods -- --
 
@@ -84,21 +81,7 @@ export class UserService {
 
         return callApiRoute(this.http, USER_API.update, { body: userProfileUpdate }).pipe(
             tap(() => {
-                // After successful API call, update the local state
-                // with the merged data.
-                this._userState.set({ status: 'success', data: updatedUser });
-            })
-        );
-    }
-
-    /**
-     * Update the user's display name.
-     * @param profileData Object containing the new name.
-     */
-    updateProfile(profileData: { name: string }): Observable<UserProfile> {
-        return callApiRoute(this.http, USER_API.updateProfile, { body: profileData }).pipe(
-            tap((updatedUser: UserProfile) => {
-                // Update the local user state with the response from the server
+                // After successful API call, update the local state with the merged data.
                 this._userState.set({ status: 'success', data: updatedUser });
             })
         );

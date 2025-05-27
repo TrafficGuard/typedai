@@ -16,13 +16,13 @@ export class VibeFileSelection {
 		const session = await this.vibeRepo.getVibeSession(userId, sessionId);
 		if (!session) throw new Error(`VibeSession ${sessionId} not found for user ${userId}.`);
 		if (session.userId !== userId) throw new Error('User not authorized for this session.'); // Redundant check if repo enforces scope, but good practice
-		if (session.status !== 'file_selection_review') {
+		if (session.status !== 'design_review') {
 			throw new Error(`Invalid session status: Cannot update selection in current state '${session.status}'. Expected 'file_selection_review'.`);
 		}
 
 		// 2. Update status to 'updating_file_selection' in repo
 		logger.info({ sessionId }, '[VibeServiceImpl] Updating session status to updating_selection...');
-		await this.vibeRepo.updateVibeSession(userId, sessionId, { status: 'updating_file_selection', lastAgentActivity: Date.now() });
+		await this.vibeRepo.updateVibeSession(userId, sessionId, { status: 'generating_design', lastAgentActivity: Date.now() });
 
 		// 3. Trigger agent asynchronously using runVibeWorkflowAgent
 		logger.info({ sessionId }, '[VibeServiceImpl] Triggering background agent for file selection update via runVibeWorkflowAgent.');
@@ -65,18 +65,16 @@ export class VibeFileSelection {
 			if (updatedFileSelection && updatedFileSelection.length > 0) {
 				logger.info({ sessionId, count: updatedFileSelection.length }, 'AI selected files for review.');
 				updateData = {
-					originalFileSelectionForReview: JSON.parse(JSON.stringify(updatedFileSelection)), // Deep copy for safety
 					fileSelection: JSON.parse(JSON.stringify(updatedFileSelection)), // Deep copy for safety
-					status: 'file_selection_review',
+					status: 'design_review',
 					error: null, // Clear any previous error
 					lastAgentActivity: Date.now(),
 				};
 			} else {
 				logger.warn({ sessionId }, 'AI did not select any files, or an error occurred during selection.');
 				updateData = {
-					originalFileSelectionForReview: [],
 					fileSelection: [],
-					status: 'file_selection_review', // Review empty selection
+					status: 'design_review', // Review empty selection
 					error: null, // Assuming no error if empty is a valid review state
 					lastAgentActivity: Date.now(),
 				};
@@ -97,7 +95,7 @@ export class VibeFileSelection {
 			// Attempt to update session status to error
 			this.vibeRepo
 				.updateVibeSession(userId, sessionId, {
-					status: 'error_file_selection',
+					status: 'error',
 					error: error instanceof Error ? error.message : String(error),
 					lastAgentActivity: Date.now(),
 				})

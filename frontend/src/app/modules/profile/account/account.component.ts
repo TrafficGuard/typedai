@@ -5,13 +5,12 @@ import {
     ViewEncapsulation,
     inject,
     DestroyRef,
-    effect,
+    effect, Signal,
 } from '@angular/core';
-import { LlmService, LLM } from '../../llm.service';
+import {LLM, LlmService} from '../../llm.service';
 import {
     FormGroup,
     FormControl,
-    Validators,
     ReactiveFormsModule,
 } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -23,6 +22,7 @@ import { CommonModule } from "@angular/common";
 import { UserProfileUpdate, UserProfile } from "#shared/schemas/user.schema";
 import {UserService} from "../../../core/user/user.service";
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import {ApiListState} from "../../../core/api-state.types";
 
 
 @Component({
@@ -46,10 +46,9 @@ export class SettingsAccountComponent implements OnInit {
     accountForm!: FormGroup;
 
     // Expose LLM state signal directly to the template
-    readonly llmsState = this.llmService.llmsState;
+    readonly llmsState: Signal<ApiListState<LLM>> = this.llmService.llmsState;
     // Expose UserProfile signal for the template (for view-only email)
-    readonly userProfile = this.userService.userProfile;
-
+    readonly userProfile: Signal<UserProfile> = this.userService.userProfile;
 
     constructor(
         private snackBar: MatSnackBar,
@@ -176,7 +175,7 @@ export class SettingsAccountComponent implements OnInit {
 
         // Validate defaultChatLlmId exists in available LLMs if one is selected
         const defaultLlmId = formValues.chat.defaultLLM;
-        const llmsApiResult = this.llmsState(); // Get the current state of the LLM signal
+        const llmsApiResult = this.llmsState();
 
         if (defaultLlmId) {
             if (llmsApiResult.status === 'success') {
@@ -193,32 +192,26 @@ export class SettingsAccountComponent implements OnInit {
             }
         }
 
-        // Construct payload based on UserProfileUpdate schema.
-        // Exclude 'id' and 'email'.
         const updateUserPayload: UserProfileUpdate = {
-            // email is not included in the update payload
             chat: {
                 defaultLLM: formValues.chat.defaultLLM,
             },
+            name: '',
             hilBudget: formValues.hilBudget,
             hilCount: formValues.hilCount,
             llmConfig: formValues.llmConfig,
             functionConfig: formValues.functionConfig
         };
 
-        // Use the userService.update method
         this.userService.update(updateUserPayload).pipe(
-            // Automatically unsubscribe when the component is destroyed
             takeUntilDestroyed(this.destroyRef)
         ).subscribe({
             next: () => {
                 this.snackBar.open('Profile updated', 'Close', { duration: 3000 });
-                // The effect will automatically patch the form if the service updates its state
             },
             error: (error) => {
                 this.snackBar.open('Failed to save profile.', 'Close', { duration: 3000 });
                 console.error('Error saving profile:', error);
-                // Optionally handle specific error codes or messages
             }
         });
     }

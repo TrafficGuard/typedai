@@ -164,7 +164,6 @@ export class NewAutonomousAgentComponent implements OnInit {
   ngOnInit(): void {
     this.agentService.loadAvailableFunctions();
     this.llmService.loadLlms();
-    this.userService.loadUser();
 
     // Subscribe to form value changes to update shared repos state dynamically
     // This should be set up once after the form is initialized.

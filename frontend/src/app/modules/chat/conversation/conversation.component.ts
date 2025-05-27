@@ -180,8 +180,14 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     constructor() {
         this.chat = this._chatService.chat;
         this.chats = this._chatService.chats;
-        this.llmsSignal = toSignal(this.llmService.getLlms(), { initialValue: [] });
+        this.llmsSignal = computed(() => {
+            const state = this.llmService.llmsState();
+            return state.status === 'success' ? state.data : [];
+        });
         this.routeParamsSignal = toSignal(this.route.params, { initialValue: {} });
+
+        // Load LLMs
+        this.llmService.loadLlms();
 
         // Handle route changes and load chat data
         toObservable(this.routeParamsSignal).pipe(

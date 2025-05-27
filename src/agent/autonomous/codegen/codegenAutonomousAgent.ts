@@ -31,7 +31,7 @@ import type { AgentContext, AutonomousIteration } from '#shared/model/agent.mode
 import { FILE_STORE_NAME, type FileMetadata } from '#shared/model/files.model';
 import { type FunctionCallResult, type ImagePartExt, type LlmMessage, type UserContentExt, messageText, system, text, user } from '#shared/model/llm.model';
 import { errorToString } from '#utils/errors';
-import { agentContextStorage, llms } from '../../agentContextLocalStorage';
+import { agentContext, agentContextStorage, llms } from '../../agentContextLocalStorage';
 import { type HitlCounters, checkHumanInTheLoop } from '../humanInTheLoopChecks';
 import { checkForImageSources } from './agentImageUtils';
 

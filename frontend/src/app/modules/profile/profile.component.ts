@@ -137,9 +137,6 @@ export class ProfileComponent implements OnInit, OnDestroy {
             },
         ];
 
-        // Load user - state changes are now handled by computed signals
-        this.userService.loadUser();
-
         // Subscribe to router events to update selectedPanel signal
         this.router.events.pipe(
             filter((event): event is NavigationEnd => event instanceof NavigationEnd),
@@ -159,7 +156,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
                 this.selectedPanel.set(panelFromHash);
             }
         });
-        
+
         // Handle initial navigation based on hash
         const panelIdFromHash = window.location.hash.slice(1);
         if (panelIdFromHash && this.panels.some(p => p.id === panelIdFromHash)) {

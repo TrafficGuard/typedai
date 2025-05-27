@@ -112,19 +112,19 @@ export class AgentDetailsComponent implements OnInit {
 
     ngOnInit(): void {
         this.functionsService.getFunctions();
-        this.isLoadingLlms.set(true);
-        this.llmService.getLlms().pipe(
-            takeUntilDestroyed(this.destroyRef),
-            finalize(() => {
-                this.isLoadingLlms.set(false);
-            })
-        ).subscribe({
-            next: (llms: LLM[]) => {
-                this.llmNameMap.set(new Map(llms.map(llm => [llm.id, llm.name])));
+        this.llmService.loadLlms();
+        
+        // React to LLM state changes
+        toObservable(this.llmService.llmsState).pipe(
+            takeUntilDestroyed(this.destroyRef)
+        ).subscribe(state => {
+            this.isLoadingLlms.set(state.status === 'loading');
+            
+            if (state.status === 'success') {
+                this.llmNameMap.set(new Map(state.data.map(llm => [llm.id, llm.name])));
                 this.llmLoadError.set(null);
-            },
-            error: (error) => {
-                console.error('Error loading LLMs:', error);
+            } else if (state.status === 'error') {
+                console.error('Error loading LLMs:', state.error);
                 this.llmLoadError.set('Failed to load LLM data');
                 this.snackBar.open('Error loading LLM data', 'Close', { duration: 3000 });
             }

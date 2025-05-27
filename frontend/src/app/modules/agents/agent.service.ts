@@ -334,7 +334,7 @@ export class AgentService {
 
   /** Retrieves the list of available agent functions, filtered and sorted */
   public loadAvailableFunctions(): void {
-    if (this._availableFunctionsState().status === 'loading') return;
+    if (this._availableFunctionsState().status === 'loading' || this._availableFunctionsState().status === 'success') return;
     this._availableFunctionsState.set({ status: 'loading' });
 
     callApiRoute(this.http, AGENT_API.getAvailableFunctions).pipe(

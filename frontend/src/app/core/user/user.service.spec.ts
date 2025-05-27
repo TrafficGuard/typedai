@@ -84,30 +84,12 @@ describe('UserService', () => {
         });
     });
 
-    describe('user$ backward compatibility', () => {
-        it('should return user data when state is success', (done) => {
-            service.user = mockUserProfile;
-
-            service.user$.subscribe(user => {
-                expect(user).toEqual(mockUserProfile);
-                done();
-            });
-        });
-
-        it('should return null when state is not success', (done) => {
-            service.user$.subscribe(user => {
-                expect(user).toBeNull();
-                done();
-            });
-        });
-    });
-
     describe('get method', () => {
         it('should trigger loadUser and return user$ observable', (done) => {
             spyOn(service, 'loadUser');
-            
+
             service.user = mockUserProfile;
-            
+
             service.get().subscribe(user => {
                 expect(service.loadUser).toHaveBeenCalled();
                 expect(user).toEqual(mockUserProfile);

@@ -42,7 +42,7 @@ describe('VibeComponent', () => {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     fileSelection: [],
-    designAnswer: null,
+    design: null,
     selectedVariations: null,
     codeDiff: null,
     sessionError: null,
@@ -73,7 +73,7 @@ describe('VibeComponent', () => {
     snackBar = TestBed.inject(MatSnackBar) as unknown as MockMatSnackBar;
     activatedRoute = TestBed.inject(ActivatedRoute);
     router = TestBed.inject(Router);
-    
+
     // Tick to allow component construction and initial DI to settle if needed
     tick();
   }));
@@ -85,7 +85,7 @@ describe('VibeComponent', () => {
   describe('ngOnInit', () => {
     it('should subscribe to route.paramMap and fetch session data if sessionId is present', fakeAsync(() => {
       vibeService.getVibeSession.and.returnValue(of(mockVibeSession));
-      
+
       paramMapSubject.next(convertToParamMap({ id: testSessionId }));
       tick(); // Allow time for switchMap, service call, and tap operator
 
@@ -109,7 +109,7 @@ describe('VibeComponent', () => {
     it('should update currentSession when session$ emits a new session', fakeAsync(() => {
       const newMockSession = { ...mockVibeSession, title: 'Updated Session' };
       vibeService.getVibeSession.and.returnValue(of(newMockSession));
-      
+
       paramMapSubject.next(convertToParamMap({ id: testSessionId }));
       tick();
 
@@ -146,7 +146,7 @@ describe('VibeComponent', () => {
     it('should not proceed and show snackbar if currentSession is null', () => {
       component.currentSession = null;
       component.handleSelectionResetRequested();
-      
+
       expect(snackBar.open).toHaveBeenCalledWith('Error: Session data not available.', 'Close', { duration: 3000 });
       expect(vibeService.resetFileSelection).not.toHaveBeenCalled();
     });
@@ -165,7 +165,7 @@ describe('VibeComponent', () => {
 
       expect(component.isProcessingAction).toBeTrue();
       expect(vibeService.resetFileSelection).toHaveBeenCalledWith(testSessionId);
-      
+
       tick(); // For the observable from resetFileSelection to complete and finalize block
 
       expect(component.isProcessingAction).toBeFalse();

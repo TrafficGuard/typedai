@@ -8,9 +8,8 @@ import type { SourceControlManagement } from '#functions/scm/sourceControlManage
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
 import type { AgentContext } from '#shared/model/agent.model';
-import type { SelectedFile } from '#shared/model/files.model';
 import type { CreateVibeSessionData, VibeSession } from '#shared/model/vibe.model';
-import { selectFilesAgent } from '#swe/discovery/selectFilesAgentWithSearch';
+import { queryWithFileSelection2 } from '#swe/discovery/selectFilesAgentWithSearch';
 import { runVibeWorkflowAgent } from '#vibe/vibeAgentRunner';
 import type { VibeRepository } from '#vibe/vibeRepository';
 import { getVibeRepositoryPath } from '#vibe/vibeRepositoryPath';
@@ -50,7 +49,7 @@ export class VibeSessionCreation {
 		logger.info({ sessionId, userId }, '[VibeServiceImpl] Session created in repository. Triggering background initialization...');
 
 		// Trigger background initialization asynchronously (fire and forget)
-		this._runSessionInitialization(userId, sessionId); // No await, runs in background
+		this._runSessionInitialization(userId, sessionId).catch((e) => logger.error(e));
 
 		return { ...newSession }; // Return the session state *at creation*
 	}
@@ -72,9 +71,8 @@ export class VibeSessionCreation {
 		// 1. Get Session Data
 		const session = await this.vibeRepo.getVibeSession(userId, sessionId);
 		if (!session) {
-			// Session might have been deleted between creation and this point
-			logger.warn({ userId, sessionId }, 'VibeSession not found during background initialization.');
-			return; // Exit gracefully
+			logger.error({ userId, sessionId }, 'VibeSession not found during background initialization.');
+			return;
 		}
 
 		try {
@@ -109,13 +107,7 @@ export class VibeSessionCreation {
 					// If cloneProject creates a subdirectory (e.g., workspacePath/repoName), clonedRepoPath will be different.
 					// We MUST use clonedRepoPath for the FileSystemService.
 				} else {
-					logger.info(
-						{
-							sessionId,
-							clonedRepoPath,
-						},
-						'Repository cloned/updated into calculated workspace path.',
-					);
+					logger.info({ sessionId, clonedRepoPath }, 'Repository cloned/updated into calculated workspace path.');
 				}
 			} else {
 				// Local repository, ensure we are on the correct branch and pull
@@ -125,19 +117,10 @@ export class VibeSessionCreation {
 
 			// Initialize FileSystemService rooted in the *actual* cloned path
 
-			logger.info(
-				{
-					sessionId,
-					repoPath: fss.getWorkingDirectory(),
-				},
-				'FileSystemService initialized for repository path.',
-			);
+			logger.info({ sessionId, repoPath: fss.getWorkingDirectory() }, 'FileSystemService initialized for repository path.');
 
 			// Prepare agent context fragment *after* fss is initialized
-			const agentContextFragment: Pick<AgentContext, 'fileSystem' | 'user'> = {
-				fileSystem: fss,
-				user: user,
-			};
+			const agentContextFragment: Pick<AgentContext, 'fileSystem' | 'user'> = { fileSystem: fss, user: user };
 
 			// Branch setup
 			if (session.createWorkingBranch) {
@@ -159,22 +142,21 @@ export class VibeSessionCreation {
 			await this.vibeRepo.updateVibeSession(userId, sessionId, { status: 'error', error: `Initialisation failed. ${e.message}` });
 			return;
 		}
-		// Initial file selection
+		// Initial design generation
 		try {
-			await this.vibeRepo.updateVibeSession(userId, sessionId, { status: 'updating_file_selection' });
-			session.status = 'updating_file_selection';
+			await this.vibeRepo.updateVibeSession(userId, sessionId, { status: 'generating_design' });
+			session.status = 'generating_design';
 
-			await runVibeWorkflowAgent(session, 'selectFiles', this.vibeRepo, async () => {
+			await runVibeWorkflowAgent(session, 'generateDesign', this.vibeRepo, async () => {
 				getFileSystem().setWorkingDirectory(workspacePath);
-				const fileSelection: SelectedFile[] = await selectFilesAgent(session.instructions);
-				logger.info({ sessionId, fileCount: fileSelection?.length }, 'selectFilesAgent completed.');
-
-				if (!fileSelection || !Array.isArray(fileSelection)) throw new Error('Invalid response structure from selectFilesAgent');
+				const { files, answer } = await queryWithFileSelection2(session.instructions);
+				logger.info({ sessionId, files, design: answer }, 'generateDesign completed.');
 
 				// 5. Update Session State (Success)
 				await this.vibeRepo.updateVibeSession(userId, sessionId, {
-					status: 'file_selection_review',
-					fileSelection: fileSelection,
+					status: 'design_review',
+					fileSelection: files,
+					designAnswer: answer,
 					lastAgentActivity: Date.now(),
 					error: null, // Clear any previous error
 				});
@@ -184,19 +166,8 @@ export class VibeSessionCreation {
 			// 6. Update Session State (Failure)
 			logger.error(error, `[VibeServiceImpl] Background initialization failed for session ${sessionId}`);
 			try {
-				// Determine a more specific error status if possible
-				let errorStatus: VibeSession['status'] = 'error';
-				if (error.message?.includes('repositorySource') || error.message?.includes('repositoryId format')) {
-					errorStatus = 'error'; // Or potentially a new status like 'error_configuration'
-				} else if (error.message?.includes('SCM') || error.message?.includes('clone') || error.message?.includes('branch')) {
-					// Keep existing SCM error logic
-					errorStatus = 'error'; // Or a specific SCM error status
-				} else if (error.message?.includes('selectFilesAgent')) {
-					errorStatus = 'error_file_selection';
-				}
-
 				await this.vibeRepo.updateVibeSession(userId, sessionId, {
-					status: 'error_file_selection',
+					status: 'error',
 					error: error instanceof Error ? error.message : 'Background initialization failed',
 					lastAgentActivity: Date.now(),
 				});

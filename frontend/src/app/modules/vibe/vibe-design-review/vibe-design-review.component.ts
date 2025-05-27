@@ -88,7 +88,7 @@ export class VibeDesignReviewComponent implements OnInit, OnChanges {
         this.initializeForm();
 
         // If the session's designAnswer changes externally while editing, reset editing state
-        if (this.isEditing && this.session.designAnswer !== this.designForm.get('designAnswer')?.value) {
+        if (this.isEditing && this.session.design !== this.designForm.get('designAnswer')?.value) {
             this.cancelEdit();
         }
         this.cdr.markForCheck(); // Mark for check as input changed
@@ -100,7 +100,7 @@ export class VibeDesignReviewComponent implements OnInit, OnChanges {
   }
 
   private initializeForm(): void {
-    this.initialDesignAnswer = this.session?.designAnswer ?? null;
+    this.initialDesignAnswer = this.session?.design ?? null;
     this.designForm = this.fb.group({
       designAnswer: new FormControl(
         { value: this.initialDesignAnswer ?? '', disabled: !this.isEditing }, // Set initial state based on isEditing

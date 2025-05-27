@@ -3,15 +3,7 @@ import { GitHub } from '#functions/scm/github';
 import { GitLab } from '#functions/scm/gitlab';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
-import type {
-	CommitChangesData,
-	CreateVibeSessionData,
-	DesignAnswer,
-	UpdateCodeReviewData,
-	UpdateVibeSessionData,
-	VibePreset,
-	VibeSession,
-} from '#shared/model/vibe.model';
+import type { CommitChangesData, CreateVibeSessionData, UpdateCodeReviewData, UpdateVibeSessionData, VibePreset, VibeSession } from '#shared/model/vibe.model';
 import type { FileSystemNode } from '#shared/services/fileSystemService';
 import { execCommand, failOnError } from '#utils/exec';
 import type { VibeDesignGeneration } from '#vibe/vibeDesignGeneration';
@@ -99,41 +91,6 @@ export class VibeServiceImpl implements VibeService {
 
 	async updateSelectionWithPrompt(userId: string, sessionId: string, prompt: string): Promise<void> {
 		return await this.vibeFileSelection.updateSelectionWithPrompt(userId, sessionId, prompt);
-	}
-
-	async resetFileSelection(userId: string, sessionId: string): Promise<void> {
-		logger.info({ userId, sessionId }, '[VibeServiceImpl] Resetting file selection...');
-		const session = await this.vibeRepo.getVibeSession(userId, sessionId);
-
-		if (!session) {
-			throw new Error(`Vibe session with ID ${sessionId} not found.`);
-		}
-
-		if (!session.originalFileSelectionForReview) {
-			logger.warn({ sessionId }, '[VibeServiceImpl] No original file selection to reset to.');
-			// Optionally, could set fileSelection to empty array or throw, depending on desired behavior.
-			// For now, we'll proceed to set status to file_selection_review, assuming user might want to start over.
-			// throw new Error('No original file selection available to reset.');
-		}
-
-		// Allow reset from 'file_selection_review' or any error state related to file selection/design
-		const allowedStatusesForReset: VibeSession['status'][] = [
-			'file_selection_review',
-			'error_file_selection',
-			'error_design_generation', // User might want to go back to file selection if design failed
-		];
-
-		if (!allowedStatusesForReset.includes(session.status)) {
-			throw new Error(`Cannot reset file selection in current session state: ${session.status}`);
-		}
-
-		await this.vibeRepo.updateVibeSession(userId, sessionId, {
-			fileSelection: session.originalFileSelectionForReview || [], // Reset to original or empty if none
-			status: 'file_selection_review',
-			lastAgentActivity: Date.now(),
-			error: undefined, // Clear any previous error message
-		});
-		logger.info({ sessionId }, '[VibeServiceImpl] File selection reset and session updated.');
 	}
 
 	async generateDetailedDesign(userId: string, sessionId: string, variations = 1): Promise<void> {

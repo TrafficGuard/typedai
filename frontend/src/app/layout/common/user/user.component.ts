@@ -8,7 +8,7 @@ import {
     OnDestroy,
     OnInit,
     ViewEncapsulation,
-    computed,
+    computed, Signal,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
@@ -40,8 +40,8 @@ export class UserComponent implements OnInit, OnDestroy {
     /* eslint-enable @typescript-eslint/naming-convention */
 
     @Input() showAvatar = true;
-    
-    user = computed(() => {
+
+    user: Signal<UserProfile> = computed(() => {
         const userState = this._userService.userEntityState();
         return userState.status === 'success' ? userState.data : null;
     });

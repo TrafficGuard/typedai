@@ -23,20 +23,6 @@
             <mat-drawer-content class="flex flex-col overflow-hidden">
                 <!-- Header -->
                 <div class="flex h-15 flex-0 items-center border-b bg-gray-50 px-4 dark:bg-transparent md:px-6">
-                    <!-- Back button -->
-                    <!-- Consider if chats() is still relevant or if this button's logic needs adjustment -->
-                    <!-- For now, assuming chats() might come from a service if a list is maintained elsewhere -->
-                    <!-- @if (chats()?.length > 0) { -->
-                        <a
-                            class="md:-ml-2 lg:hidden"
-                            mat-icon-button
-                            [routerLink]="['./']"
-                            (click)="resetChat()"
-                        >
-                            <mat-icon [svgIcon]="'heroicons_outline:arrow-long-left'"></mat-icon>
-                        </a>
-                    <!-- } -->
-
                     <span class="font-semibold text-lg max-w-[calc(100%-120px)] absolute left-1/2 transform -translate-x-1/2 truncate text-ellipsis overflow-hidden whitespace-nowrap">
                         {{ currentChat.title }}
                     </span>

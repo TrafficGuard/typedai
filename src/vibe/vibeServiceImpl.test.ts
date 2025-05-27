@@ -67,7 +67,7 @@ describe('VibeServiceImpl', () => {
 	describe('updateVibeSession', () => {
 		it('should pass filesToAdd and filesToRemove to the repository', async () => {
 			const payload: UpdateVibeSessionData = {
-				status: 'file_selection_review', // Example other field
+				status: 'design_review',
 				filesToAdd: ['new.ts'],
 				filesToRemove: ['old.ts'],
 			};

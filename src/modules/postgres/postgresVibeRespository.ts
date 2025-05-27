@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Insertable, Selectable, Updateable } from 'kysely';
 import type { SelectedFile } from '#shared/model/files.model';
-import type { DesignAnswer, UpdateVibeSessionData, VibePreset, VibePresetConfig, VibeSession, VibeStatus } from '#shared/model/vibe.model';
+import type { UpdateVibeSessionData, VibePreset, VibePresetConfig, VibeSession, VibeStatus } from '#shared/model/vibe.model';
 import type { VibeRepository } from '#vibe/vibeRepository';
 import { db } from './db';
 import type { VibePresetsTable, VibeSessionsTable } from './db';
@@ -25,11 +25,7 @@ function dbToVibeSession(dbRow: Selectable<VibeSessionsTable>): VibeSession {
 		status: dbRow.status as VibeStatus,
 		lastAgentActivity: Number(dbRow.last_agent_activity),
 		fileSelection: dbRow.file_selection_serialized ? (JSON.parse(dbRow.file_selection_serialized) as SelectedFile[]) : undefined,
-		originalFileSelectionForReview: dbRow.original_file_selection_for_review_serialized
-			? (JSON.parse(dbRow.original_file_selection_for_review_serialized) as SelectedFile[])
-			: undefined,
-		designAnswer: dbRow.design_answer_serialized ? (JSON.parse(dbRow.design_answer_serialized) as DesignAnswer) : undefined,
-		selectedVariations: dbRow.selected_variations ?? undefined,
+		designAnswer: dbRow.design_answer_serialized ?? undefined,
 		codeDiff: dbRow.code_diff ?? undefined,
 		commitSha: dbRow.commit_sha ?? undefined,
 		pullRequestUrl: dbRow.pull_request_url ?? undefined,
@@ -61,9 +57,7 @@ function vibeSessionToDbInsert(session: VibeSession): Insertable<VibeSessionsTab
 		status: session.status,
 		last_agent_activity: session.lastAgentActivity ?? now,
 		file_selection_serialized: session.fileSelection ? JSON.stringify(session.fileSelection) : null,
-		original_file_selection_for_review_serialized: session.originalFileSelectionForReview ? JSON.stringify(session.originalFileSelectionForReview) : null,
 		design_answer_serialized: session.designAnswer ? JSON.stringify(session.designAnswer) : null,
-		selected_variations: session.selectedVariations ?? null,
 		code_diff: session.codeDiff ?? null,
 		commit_sha: session.commitSha ?? null,
 		pull_request_url: session.pullRequestUrl ?? null,
@@ -99,14 +93,9 @@ function vibeSessionToDbUpdate(
 	if (updates.fileSelection !== undefined) {
 		dbUpdate.file_selection_serialized = updates.fileSelection === null ? null : JSON.stringify(updates.fileSelection);
 	}
-	if (updates.originalFileSelectionForReview !== undefined) {
-		dbUpdate.original_file_selection_for_review_serialized =
-			updates.originalFileSelectionForReview === null ? null : JSON.stringify(updates.originalFileSelectionForReview);
-	}
 	if (updates.designAnswer !== undefined) {
 		dbUpdate.design_answer_serialized = updates.designAnswer === null ? null : JSON.stringify(updates.designAnswer);
 	}
-	if (updates.selectedVariations !== undefined) dbUpdate.selected_variations = updates.selectedVariations;
 	if (updates.codeDiff !== undefined) dbUpdate.code_diff = updates.codeDiff;
 	if (updates.commitSha !== undefined) dbUpdate.commit_sha = updates.commitSha;
 	if (updates.pullRequestUrl !== undefined) dbUpdate.pull_request_url = updates.pullRequestUrl;
@@ -161,10 +150,8 @@ export class PostgresVibeRepository implements VibeRepository {
 
 	async getVibeSession(userId: string, sessionId: string): Promise<VibeSession | null> {
 		const row = await db.selectFrom('vibe_sessions').selectAll().where('id', '=', sessionId).where('user_id', '=', userId).executeTakeFirst();
+		if (!row) return null;
 
-		if (!row) {
-			return null;
-		}
 		return dbToVibeSession(row);
 	}
 
@@ -177,9 +164,8 @@ export class PostgresVibeRepository implements VibeRepository {
 		// If updates object is empty (excluding potential 'updatedAt' if it were part of UpdateVibeSessionData model), no-op.
 		// However, vibeSessionToDbUpdate always sets 'updated_at', so an update will always occur if called.
 		const relevantUpdateKeys = Object.keys(updates).filter((k) => k !== 'updatedAt');
-		if (relevantUpdateKeys.length === 0) {
-			return; // No actual data to update besides the timestamp
-		}
+
+		if (relevantUpdateKeys.length === 0) return; // No actual data to update besides the timestamp
 
 		const dbUpdateData = vibeSessionToDbUpdate(updates);
 
@@ -188,9 +174,8 @@ export class PostgresVibeRepository implements VibeRepository {
 		if (!result || result.numUpdatedRows === 0n) {
 			// Check if the session exists at all to provide a more specific error
 			const exists = await db.selectFrom('vibe_sessions').select('id').where('id', '=', sessionId).executeTakeFirst();
-			if (!exists) {
-				throw new Error(`VibeSession with id ${sessionId} not found.`);
-			}
+			if (!exists) throw new Error(`VibeSession with id ${sessionId} not found.`);
+
 			// Exists, but not for this user, or no effective change was made by the update data
 			// The test expects 'not found' or 'authorized' error message for other user's sessions.
 			// Kysely's update with where('user_id', ...) will result in numUpdatedRows === 0n if the user_id doesn't match.
@@ -206,10 +191,8 @@ export class PostgresVibeRepository implements VibeRepository {
 	}
 
 	async saveVibePreset(preset: VibePreset): Promise<string> {
-		if (!preset.id) {
-			// The test suite pre-assigns IDs via createMockPreset
-			throw new Error('VibePreset ID must be provided for saving.');
-		}
+		if (!preset.id) throw new Error('VibePreset ID must be provided for saving.');
+
 		const dbPreset = vibePresetToDbInsert(preset);
 		await db.insertInto('vibe_presets').values(dbPreset).executeTakeFirstOrThrow();
 		return preset.id;

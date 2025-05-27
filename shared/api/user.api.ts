@@ -1,11 +1,9 @@
 import { Type } from '@sinclair/typebox';
 import { defineRoute } from '#shared/api-definitions';
-
 import { ApiNullResponseSchema } from '#shared/schemas/common.schema';
 import { UserProfileSchema, UserProfileUpdateSchema } from '../schemas/user.schema';
 
 const PROFILE_BASE = '/api/profile';
-const USERS_PROFILE_BASE = '/users/profile'; // Consistent with new requirements
 
 export const USER_API = {
 	view: defineRoute('GET', `${PROFILE_BASE}/view`, {
@@ -25,17 +23,17 @@ export const USER_API = {
 		},
 	}),
 	/** For the user to update their display name */
-	updateProfile: defineRoute('PUT', `${USERS_PROFILE_BASE}`, {
+	updateProfile: defineRoute('PUT', `${PROFILE_BASE}`, {
 		schema: {
 			body: Type.Object({ name: Type.String() }),
 			response: {
-				200: UserProfileSchema, // Assuming the updated profile is returned
+				200: UserProfileSchema,
 				204: ApiNullResponseSchema,
 			},
 		},
 	}),
 	/** For the user to change their password */
-	changePassword: defineRoute('POST', `${USERS_PROFILE_BASE}/change-password`, {
+	changePassword: defineRoute('POST', `${PROFILE_BASE}/change-password`, {
 		schema: {
 			body: Type.Object({
 				currentPassword: Type.String(),
