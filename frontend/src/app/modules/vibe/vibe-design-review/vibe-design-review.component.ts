@@ -11,7 +11,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { VibeServiceClient } from '../vibe-service-client.service';
-import {DesignAnswer, VibeSession} from "#shared/model/vibe.model";
+import { VibeSession, VibeStatus } from "#shared/model/vibe.model";
 
 @Component({
   selector: 'vibe-design-review',
@@ -35,7 +35,7 @@ export class VibeDesignReviewComponent implements OnInit, OnChanges {
   @Input() session: VibeSession;
   @Output() designSaved = new EventEmitter<string>();
 
-  public readonly allowedStatuses: string[] = ['design_review_details', 'updating_design'];
+  public readonly allowedStatuses: VibeStatus[] = ['design_review', 'generating_design'];
 
   private fb = inject(FormBuilder);
   private vibeService = inject(VibeServiceClient);
@@ -47,7 +47,7 @@ export class VibeDesignReviewComponent implements OnInit, OnChanges {
   public refinementPrompt = new FormControl('');
   public isEditing = false;
   public isLoading = false;
-  private initialDesignAnswer: DesignAnswer | null = null;
+  private initialDesignAnswer: string | null = null;
 
   private checkSessionStatusAndRedirect(): boolean {
     if (!this.session) {
@@ -88,7 +88,7 @@ export class VibeDesignReviewComponent implements OnInit, OnChanges {
         this.initializeForm();
 
         // If the session's designAnswer changes externally while editing, reset editing state
-        if (this.isEditing && this.session.design !== this.designForm.get('designAnswer')?.value) {
+        if (this.isEditing && this.session.designAnswer !== this.designForm.get('designAnswer')?.value) {
             this.cancelEdit();
         }
         this.cdr.markForCheck(); // Mark for check as input changed
@@ -100,7 +100,7 @@ export class VibeDesignReviewComponent implements OnInit, OnChanges {
   }
 
   private initializeForm(): void {
-    this.initialDesignAnswer = this.session?.design ?? null;
+    this.initialDesignAnswer = this.session?.designAnswer ?? null;
     this.designForm = this.fb.group({
       designAnswer: new FormControl(
         { value: this.initialDesignAnswer ?? '', disabled: !this.isEditing }, // Set initial state based on isEditing
