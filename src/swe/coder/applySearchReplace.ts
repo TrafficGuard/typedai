@@ -26,6 +26,8 @@ export interface EditBlock {
 	updatedText: string;
 }
 
+export type FileEditBlocks = Map<string, EditBlock[]>;
+
 export type EditFormat = 'diff' | 'diff-fenced';
 
 interface SearchReplaceCoderOptions {

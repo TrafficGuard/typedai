@@ -1,7 +1,9 @@
-import { Injectable } from '@angular/core';
+import { Injectable, computed } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, BehaviorSubject, throwError } from 'rxjs';
-import { tap, shareReplay, map, catchError, retry } from 'rxjs/operators';
+import { Observable, throwError, EMPTY } from 'rxjs';
+import { tap, map, catchError, retry } from 'rxjs/operators';
+import { toObservable } from '@angular/core/rxjs-interop';
+import { createApiListState, ApiListState } from '../core/api-state.types';
 
 export interface LLM {
   id: string;
@@ -13,22 +15,34 @@ export interface LLM {
   providedIn: 'root',
 })
 export class LlmService {
-  private llmsSubject = new BehaviorSubject<LLM[]>([]);
-  private llmsLoaded = false;
+  private readonly _llmsState = createApiListState<LLM>();
+  readonly llmsState = this._llmsState.asReadonly();
 
   constructor(private http: HttpClient) {}
 
+  loadLlms(): void {
+    if (this._llmsState().status === 'loading') return;
+
+    this._llmsState.set({ status: 'loading' });
+
+    this.fetchLlms().pipe(
+      tap((llms: LLM[]) => {
+        this._llmsState.set({ status: 'success', data: llms });
+      }),
+      catchError((error: HttpErrorResponse) => {
+        this._llmsState.set({
+          status: 'error',
+          error: error instanceof Error ? error : new Error('Failed to load LLMs'),
+          code: error.status
+        });
+        return EMPTY;
+      })
+    ).subscribe();
+  }
+
   getLlms(): Observable<LLM[]> {
-    if (!this.llmsLoaded) {
-      return this.fetchLlms().pipe(
-        tap((llms) => {
-          this.llmsSubject.next(llms);
-          this.llmsLoaded = true;
-        }),
-        shareReplay(1)
-      );
-    }
-    return this.llmsSubject.asObservable();
+    this.loadLlms();
+    return this.llms$;
   }
 
   private fetchLlms(): Observable<LLM[]> {
@@ -39,10 +53,20 @@ export class LlmService {
     );
   }
 
+  refreshLlms(): void {
+    this.loadLlms();
+  }
+
   clearCache() {
-    this.llmsLoaded = false;
-    this.llmsSubject.next([]);
-    this.getLlms();
+    this.refreshLlms();
+  }
+
+  get llms$(): Observable<LLM[]> {
+    const llmsSignal = computed(() => {
+      const state = this._llmsState();
+      return state.status === 'success' ? state.data : [];
+    });
+    return toObservable(llmsSignal);
   }
 
   private handleError(error: HttpErrorResponse) {

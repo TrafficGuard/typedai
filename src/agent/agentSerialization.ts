@@ -123,7 +123,7 @@ export function deserializeContext(data: Static<typeof AgentContextSchema>): Age
 		error: data.error,
 		output: data.output,
 		hilBudget: data.hilBudget ?? 2,
-		cost: data.cost ?? 0,
+		cost: (Number.isNaN(data.cost) ? 0 : data.cost) ?? 0,
 		budgetRemaining: data.budgetRemaining ?? data.hilBudget ?? 2,
 		llms: llmsImpl,
 		fileSystem: fileSystemImpl,

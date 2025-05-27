@@ -35,14 +35,22 @@
         </div>
     </div>
     <div class="overflow-auto bg-card rounded-lg shadow">
-        @if (isLoading()) {
-            <div class="p-8 text-center text-secondary">Loading configurations...</div>
-        } @else if (errorMessage()) {
-            <div class="p-8 text-center text-warn-500">{{ errorMessage() }}</div>
-        } @else if (configs().length === 0) {
-            <div class="p-8 text-center text-secondary">No code review configurations found. Create one to get started!</div>
-        } @else {
-            <table mat-table [dataSource]="configs()" class="w-full mat-elevation-z0">
+        @let state = configsState();
+        @switch (state.status) {
+            @case ('idle') {
+                <div class="p-8 text-center text-secondary">Loading configurations...</div>
+            }
+            @case ('loading') {
+                <div class="p-8 text-center text-secondary">Loading configurations...</div>
+            }
+            @case ('error') {
+                <div class="p-8 text-center text-warn-500">{{ state.error.message }}</div>
+            }
+            @case ('success') {
+                @if (state.data.length === 0) {
+                    <div class="p-8 text-center text-secondary">No code review configurations found. Create one to get started!</div>
+                } @else {
+                <table mat-table [dataSource]="state.data" class="w-full mat-elevation-z0">
 
         <!-- column matColumnDef values needs to be in the displayedColumns property on the component -->
 
@@ -78,14 +86,16 @@
             </td>
         </ng-container>
 
-        <tr mat-header-row *matHeaderRowDef="displayedColumns()"></tr>
-        <tr
-                mat-row
-                *matRowDef="let row; columns: displayedColumns()"
-                (click)="selection.toggle(row)"
-                class="hover:bg-gray-100 dark:hover:bg-hover cursor-pointer"
-        ></tr>
-            </table>
+                    <tr mat-header-row *matHeaderRowDef="displayedColumns()"></tr>
+                    <tr
+                            mat-row
+                            *matRowDef="let row; columns: displayedColumns()"
+                            (click)="selection.toggle(row)"
+                            class="hover:bg-gray-100 dark:hover:bg-hover cursor-pointer"
+                    ></tr>
+                </table>
+                }
+            }
         }
     </div>
 </div>

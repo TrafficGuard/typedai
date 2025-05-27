@@ -1,10 +1,9 @@
 import { BaseLLM } from '#llm/base-llm';
 import { getLLM } from '#llm/llmFactory';
-import { DeepSeekR1_Together_Fireworks_Nebius_SambaNova } from '#llm/multi-agent/deepSeekR1_Fallbacks';
-import { Claude4_Opus_Vertex, Claude4_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
+import { Claude4_Opus_Vertex } from '#llm/services/anthropic-vertex';
 import { deepSeekR1, deepSeekV3 } from '#llm/services/deepseek';
-import { openAIo3, openAIo4mini } from '#llm/services/openai';
-import { togetherDeepSeekR1 } from '#llm/services/together';
+import { Gemini_2_5_Pro } from '#llm/services/gemini';
+import { openAIo3 } from '#llm/services/openai';
 import { logger } from '#o11y/logger';
 import { type GenerateTextOptions, type LLM, type LlmMessage, lastText } from '#shared/model/llm.model';
 
@@ -13,34 +12,17 @@ import { type GenerateTextOptions, type LLM, type LlmMessage, lastText } from '#
 export function MoA_reasoningLLMRegistry(): Record<string, () => LLM> {
 	return {
 		'MoA:R1x3 DeepSeek': () => new ReasonerDebateLLM('R1x3 DeepSeek', deepSeekV3, [deepSeekR1, deepSeekR1, deepSeekR1], 'MoA R1x3'),
-		'MoA:R1x3-Together-Fireworks': Together_R1x3_Together_Fireworks,
-		'MoA:R1x3-Together': () => Together_R1x3(),
-		'MoA:Sonnet_Sonnet,o3-mini,R1': MoA_Sonnet__Sonnet_R1_o4mini,
-		'MoA:Sonnet-Claude-R1,o1,Gemini': () =>
-			new ReasonerDebateLLM('Sonnet-Claude-R1,o1,Gemini', Claude4_Opus_Vertex, [togetherDeepSeekR1, openAIo3], 'MoA:R1,o1,Gemini'),
+		'MoA:SOTA': MoA_Opus__Opus_o3_Gemini25Pro,
 	};
 }
 
-export function Together_R1x3_Together_Fireworks(): LLM {
+export function MoA_Opus__Opus_o3_Gemini25Pro(): LLM {
 	return new ReasonerDebateLLM(
-		'R1x3-Together-Fireworks',
-		DeepSeekR1_Together_Fireworks_Nebius_SambaNova,
-		[DeepSeekR1_Together_Fireworks_Nebius_SambaNova, DeepSeekR1_Together_Fireworks_Nebius_SambaNova, DeepSeekR1_Together_Fireworks_Nebius_SambaNova],
-		'MoA R1x3 (Together, Fireworks)',
+		'SOTA',
+		Claude4_Opus_Vertex,
+		[Claude4_Opus_Vertex, openAIo3, Gemini_2_5_Pro],
+		'MoA:SOTA multi-agent debate (Opus 4, o3, Gemini 2.5 Pro)',
 	);
-}
-
-export function MoA_Sonnet__Sonnet_R1_o4mini(): LLM {
-	return new ReasonerDebateLLM(
-		'Sonnet_Sonnet,o3-mini,R1',
-		Claude4_Sonnet_Vertex,
-		[DeepSeekR1_Together_Fireworks_Nebius_SambaNova, openAIo4mini, Claude4_Sonnet_Vertex],
-		'MoA:Sonnet-Sonnet,o3-mini,R1(Together, Fireworks)',
-	);
-}
-
-export function Together_R1x3(): LLM {
-	return new ReasonerDebateLLM('R1x3-Together', togetherDeepSeekR1, [togetherDeepSeekR1, togetherDeepSeekR1, togetherDeepSeekR1], 'MoA R1x3 Together');
 }
 
 /**

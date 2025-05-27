@@ -127,8 +127,6 @@ Effects are rarely needed in most application code, but may be useful in specifi
 
 Avoid using effects for propagation of state changes. This can result in `ExpressionChangedAfterItHasBeenChecked` errors, infinite circular updates, or unnecessary change detection cycles.
 
-Because of these risks, Angular by default prevents you from setting signals in effects. It can be enabled if absolutely necessary by setting the `allowSignalWrites` flag when you create an effect.
-
 Instead, use `computed` signals to model state that depends on other state.
 
 ### Injection context
@@ -751,7 +749,7 @@ Here, only the last value (3) will be logged.
 
 
 
-# Effects -- --
+# Avoid Effects
 
 ## Angular Signals: A Cautious Approach to Effects
 
@@ -773,7 +771,7 @@ While seemingly simple, the use of effects requires careful consideration.  Alex
 
 This article explores the potential pitfalls of effects and provides guidance on when and how to use them effectively.
 
-### The Challenges of Effects
+### The Challenges of Effects - Avoid Using Them
 
 One of the primary issues with effects is their potential to introduce complexity and lead to synchronization problems.
 
@@ -829,7 +827,7 @@ This code attempts to reset `selectedIndex` whenever `options` change. However, 
 2.  It can lead to a "glitch" where the UI momentarily displays an invalid state.
 3.  It's not immediately clear to other developers why this effect exists or what its full implications are.
 
-A better solution is to establish a single source of truth:
+A **better** solution is to establish a single source of truth:
 
 ```typescript
 import { Component, input, signal, computed } from '@angular/core';
@@ -952,7 +950,7 @@ effect(() => {
 });
 ```
 
-### Alternatives to Effects
+### Preferred Alternatives to Effects - Use Computed Signals
 
 In many cases, there are better alternatives to using effects.
 
@@ -1005,77 +1003,6 @@ export class MyComponent {
   }
 }
 ```
-
-### Explicit Tracking and the Future of Effects
-
-The Angular team is actively working on improving the developer experience with effects.  A recent discussion in the Angular repository highlighted challenges with the current automatic tracking model, particularly the frequent need for `untracked()` and the potential for errors.
-
-The proposed shift is towards an explicit tracking model for effects, which would involve:
-
-1.  Explicitly declaring dependencies within effects
-2.  Making effects non-tracking by default
-
-The ngxtensions library introduced `explicitEffect` to address these issues:
-
-```typescript
-import { explicitEffect } from 'ngxtension/explicit-effect';
-import { signal } from '@angular/core';
-
-const count = signal(0);
-const state = signal('idle');
-
-explicitEffect([count, state], ([countValue, stateValue]) => {
-  console.log(`Count: ${countValue}, State: ${stateValue}`);
-});
-```
-
-`explicitEffect` offers several benefits:
-
-*   Clear dependency declaration
-*   Prevention of unintended signal reads or writes
-*   Optional cleanup function
-*   Ability to defer the initial execution
-
-### Recent Changes to Effect Execution Timing
-
-A significant change has been made to the execution timing of effects in Angular (PR #57874). This has important implications:
-
-1.  **Removal of `allowSignalWrites`:** The `allowSignalWrites` option has been removed.
-2.  **Changes in Execution Timing:**
-    *   Effects triggered outside of change detection now run as part of the change detection process.
-    *   Effects triggered during change detection (e.g., by input signals) now run earlier.
-3.  **Impact on Testing:** Tests may need adjustments to account for the new timing.
-4.  **Potential Breaking Changes:** Effects relying on specific timing may need adjustments.
-5.  **New API for Post-Render Effects:** The `afterRenderEffect()` API is now recommended for effects that need to run after the component has been fully rendered.
-
-**Recommendations for Developers:**
-
-1.  **Code Review:** Review your use of effects, especially those interacting with the DOM or relying on specific timing.
-2.  **Testing Updates:** Update test suites to account for the new execution timing.
-3.  **Migration to `afterRenderEffect()`:** Migrate to `afterRenderEffect()` for post-render effects.
-4.  **Careful Consideration of Effect Timing:** Be mindful of when effects run in relation to change detection and component rendering.
-
-### Best Practices for Using Effects
-
-If you must use effects, follow these best practices:
-
-1.  **Keep effects small and focused:** Each effect should do one thing and do it well.
-2.  **Avoid writing to signals from effects:** This can lead to circular dependencies and infinite loops.
-3.  **Use `untracked` when appropriate:** Wrap parts of your effect that shouldn't trigger re-runs in `untracked`.
-4.  **Consider using explicit dependencies:** Use libraries like ngxtension's `explicitEffect` to specify dependencies explicitly.
-5.  **Document your effects:** Document why effects exist and what they're doing.
-
-### Conclusion
-
-Think of effects in Angular like two different types of observers in a building:
-
-1.  Building-wide observers (**root effects**): These monitor changes from anywhere in the building (those created in a root service for example).
-2.  Room-specific observers (**view effects**): These only watch what happens in their assigned room (those created in components).
-
-By approaching effects with caution and leveraging Angular's other reactive primitives, you can build more predictable, easier-to-maintain applications.
-
-
-
 
 
 # Angular code guidelines

@@ -1,6 +1,10 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Injectable, inject } from '@angular/core';
-import { BehaviorSubject, type Observable, tap, catchError, throwError } from 'rxjs';
+import { Injectable, inject, computed } from '@angular/core';
+import { type Observable, tap, catchError, throwError, EMPTY, map } from 'rxjs';
+import { toObservable } from '@angular/core/rxjs-interop';
+import { callApiRoute } from '../../core/api-route';
+import { createApiListState, createApiEntityState } from '../../core/api-state.types';
+import { VIBE_API } from '#shared/api/vibe.api';
 import {SelectedFile} from "#shared/model/files.model";
 import {VibePreset, VibePresetConfig, VibeSession} from "#shared/model/vibe.model";
 import {GitProject} from "#shared/model/git.model";
@@ -34,52 +38,92 @@ export interface UpdateVibeSessionPayload {
 	providedIn: 'root',
 })
 export class VibeServiceClient {
-	// BehaviorSubject to hold the currently viewed/active session
-	private currentSession = new BehaviorSubject<VibeSession | null>(null);
-	private sessions = new BehaviorSubject<VibeSession[] | null>(null);
-	private sessionsLoaded = false;
-
 	private http = inject(HttpClient);
+	
+	private readonly _currentSessionState = createApiEntityState<VibeSession>();
+	readonly currentSessionState = this._currentSessionState.asReadonly();
+	private readonly _sessionsState = createApiListState<VibeSession>();
+	readonly sessionsState = this._sessionsState.asReadonly();
 
 	/**
 	 * Observable for the currently active VibeSession.
 	 */
 	get currentSession$(): Observable<VibeSession | null> {
-		return this.currentSession.asObservable();
+		const currentSessionSignal = computed(() => {
+			const state = this._currentSessionState();
+			return state.status === 'success' ? state.data : null;
+		});
+		return toObservable(currentSessionSignal);
 	}
 
 	/**
 	 * Getter for sessions (if using BehaviorSubject) - Keep commented out unless needed
 	 */
-	get sessions$(): Observable<VibeSession[]> {
-		return this.sessions.asObservable();
+	get sessions$(): Observable<VibeSession[] | null> {
+		const sessionsSignal = computed(() => {
+			const state = this._sessionsState();
+			return state.status === 'success' ? state.data : null;
+		});
+		return toObservable(sessionsSignal);
+	}
+
+	/**
+	 * Backward compatibility method for components expecting Observable return
+	 */
+	listVibeSessions(): Observable<VibeSession[]> {
+		this.loadSessions();
+		return this.sessions$.pipe(
+			map(sessions => sessions || [])
+		);
+	}
+
+	/**
+	 * Backward compatibility method for components expecting Observable return
+	 */
+	getVibeSession(id: string): Observable<VibeSession | null> {
+		this.loadSession(id);
+		return this.currentSession$;
+	}
+
+	/**
+	 * Backward compatibility method for components expecting Observable return
+	 */
+	refreshSessions(): Observable<VibeSession[]> {
+		this.loadSessions();
+		return this.sessions$.pipe(
+			map(sessions => sessions || [])
+		);
 	}
 
 	// HTTP calls must match the backend API endpoints defined in src/routes/vibe/vibeRoutes.ts
 
 	/**
-	 * Fetches the list of Vibe sessions from the backend.
+	 * Loads the list of Vibe sessions from the backend.
 	 */
-	listVibeSessions(): Observable<VibeSession[]> {
-		if (this.sessionsLoaded && this.sessions.value !== null) {
-			return this.sessions.asObservable();
-		}
-		return this.http.get<VibeSession[]>('/api/vibe').pipe(
-			tap((response: VibeSession[]) => {
-				this.sessions.next(response);
-				this.sessionsLoaded = true;
+	loadSessions(): void {
+		if (this._sessionsState().status === 'loading') return;
+
+		this._sessionsState.set({ status: 'loading' });
+
+		callApiRoute(this.http, VIBE_API.list).pipe(
+			tap((sessions: VibeSession[]) => {
+				this._sessionsState.set({ status: 'success', data: sessions });
 			}),
-		);
+			catchError((error) => {
+				this._sessionsState.set({ 
+					status: 'error', 
+					error: error instanceof Error ? error : new Error('Failed to load sessions'),
+					code: error?.status
+				});
+				return EMPTY;
+			})
+		).subscribe();
 	}
 
-	/**
-	 * Refreshes the list of Vibe sessions by forcing a new fetch from the backend.
-	 */
-	refreshSessions(): Observable<VibeSession[]> {
-		this.sessionsLoaded = false;
-		this.sessions.next(null); // Indicate data is stale/loading
-		return this.listVibeSessions();
+	getSessions(): void {
+		this.loadSessions();
 	}
+
 
 	/**
 	 * Creates a new Vibe session via the backend API.
@@ -87,11 +131,15 @@ export class VibeServiceClient {
 	 * @returns An Observable emitting the newly created VibeSession.
 	 */
 	createVibeSession(data: CreateVibeSessionPayload): Observable<VibeSession> {
-		return this.http.post<VibeSession>('/api/vibe', data).pipe(
+		return callApiRoute(this.http, VIBE_API.create, { body: data }).pipe(
 			tap((newSession: VibeSession) => {
-				const currentSessions = this.sessions.value || [];
-				this.sessions.next([...currentSessions, newSession]);
-				this.sessionsLoaded = true;
+				const currentState = this._sessionsState();
+				if (currentState.status === 'success') {
+					this._sessionsState.set({
+						status: 'success',
+						data: [newSession, ...currentState.data]
+					});
+				}
 			})
 		);
 	}
@@ -124,16 +172,46 @@ export class VibeServiceClient {
 	}
 
 	/**
-	 * Fetches a specific Vibe session by its ID from the backend.
+	 * Loads a specific Vibe session by its ID from the backend.
 	 * @param id The ID of the Vibe session.
 	 */
-	getVibeSession(id: string): Observable<VibeSession> {
-		return this.http.get<VibeSession>(`/api/vibe/${id}`).pipe(
+	loadSession(id: string): void {
+		if (this._currentSessionState().status === 'loading') return;
+
+		this._currentSessionState.set({ status: 'loading' });
+
+		callApiRoute(this.http, VIBE_API.getById, { pathParams: { sessionId: id } }).pipe(
 			tap((session) => {
-				this.currentSession.next(session);
-				// Update the entry in $sessions
+				this._currentSessionState.set({ status: 'success', data: session });
+				// Update session in list if it exists
+				const currentState = this._sessionsState();
+				if (currentState.status === 'success') {
+					const updatedSessions = currentState.data.map(s => 
+						s.id === id ? session : s
+					);
+					this._sessionsState.set({ status: 'success', data: updatedSessions });
+				}
 			}),
-		);
+			catchError((error) => {
+				if (error?.status === 404) {
+					this._currentSessionState.set({ status: 'not_found' });
+				} else if (error?.status === 403) {
+					this._currentSessionState.set({ status: 'forbidden' });
+				} else {
+					this._currentSessionState.set({ 
+						status: 'error', 
+						error: error instanceof Error ? error : new Error('Failed to load session'),
+						code: error?.status
+					});
+				}
+				return EMPTY;
+			})
+		).subscribe();
+	}
+
+
+	clearCurrentSession(): void {
+		this._currentSessionState.set({ status: 'idle' });
 	}
 
 	/**
@@ -142,8 +220,7 @@ export class VibeServiceClient {
 	 * @returns An Observable emitting an array of FileSystemNode objects.
 	 */
 	getFileSystemTree(sessionId: string): Observable<FileSystemNode> {
-		// The backend returns a JSON array representing the tree structure.
-		return this.http.get<FileSystemNode>(`/api/vibe/${sessionId}/tree`);
+		return callApiRoute(this.http, VIBE_API.getFileSystemTree, { pathParams: { sessionId } });
 	}
 
 	/**
@@ -151,19 +228,14 @@ export class VibeServiceClient {
 	 * @param id The ID of the Vibe session to update.
 	 * @param payload The data to update.
 	 */
-	updateSession(id: string, payload: UpdateVibeSessionPayload): Observable<VibeSession> {
-		return this.http.patch<VibeSession>(`/api/vibe/${id}`, payload).pipe(
-			tap((updatedSession: VibeSession) => {
-				this.currentSession.next(updatedSession);
-				const currentSessions = this.sessions.value;
-				const index = currentSessions.findIndex(s => s.id === id);
-				if (index !== -1) {
-					const newSessions = [...currentSessions];
-					newSessions[index] = updatedSession;
-					this.sessions.next(newSessions);
-					this.sessionsLoaded = true;
-				}
-			}),
+	updateSession(id: string, payload: UpdateVibeSessionPayload): Observable<void> {
+		return callApiRoute(this.http, VIBE_API.update, { pathParams: { sessionId: id }, body: payload }).pipe(
+			tap(() => {
+				// Reload the session to get updated data
+				this.loadSession(id);
+				// Refresh sessions list
+				this.loadSessions();
+			})
 		);
 	}
 
@@ -172,16 +244,18 @@ export class VibeServiceClient {
 	 * @param id The ID of the Vibe session to delete.
 	 */
 	deleteVibeSession(id: string): Observable<void> {
-		// Use the correct route from shared/routes.ts
-		return this.http.delete<void>(`/api/vibe/${id}`).pipe(
+		return callApiRoute(this.http, VIBE_API.delete, { pathParams: { sessionId: id } }).pipe(
 			tap(() => {
-				const currentSessions = this.sessions.value || [];
-				this.sessions.next(currentSessions.filter(s => s.id !== id));
-				this.sessionsLoaded = true;
-				if (this.currentSession.value?.id === id) {
-					this.currentSession.next(null);
+				const currentState = this._sessionsState();
+				if (currentState.status === 'success') {
+					const filteredSessions = currentState.data.filter(s => s.id !== id);
+					this._sessionsState.set({ status: 'success', data: filteredSessions });
 				}
-			}),
+				const currentSessionState = this._currentSessionState();
+				if (currentSessionState.status === 'success' && currentSessionState.data.id === id) {
+					this._currentSessionState.set({ status: 'idle' });
+				}
+			})
 		);
 	}
 
