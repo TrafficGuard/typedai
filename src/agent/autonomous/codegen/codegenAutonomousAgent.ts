@@ -256,7 +256,17 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				} catch (e) {
 					const lineNumber = extractLineNumber(e.message);
 					const line = lineNumber ? ` on line "${pythonScript.split('\n')[lineNumber]}"` : '';
-					logger.info(e, `Caught python script error${line}. ${e.message}`);
+
+					// Function to remove WASM lines from the message and stack
+					const removeWasmLines = (text: string) => {
+						return text
+							.split('\n')
+							.filter((line) => !line.trim().match(/^at wasm:\/\/wasm\//))
+							.join('\n');
+					};
+					const cleanedError = { ...e, message: removeWasmLines(e.message), stack: removeWasmLines(e.stack) };
+					logger.info(cleanedError, `Caught python script error line ${line}. ${e.message}`);
+
 					const errorString = errorToString(e);
 					iterationData.error = errorString;
 					agent.error = errorString;

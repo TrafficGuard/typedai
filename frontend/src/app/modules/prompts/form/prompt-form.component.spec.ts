@@ -80,7 +80,7 @@ describe('PromptFormComponent', () => {
     ]);
 
     mockLlmService = jasmine.createSpyObj('LlmService', ['getLlms', 'clearCache']);
-    mockLlmService.getLlms.and.returnValue(of(mockLlms));
+    mockLlmService.loadLlms.and.returnValue(of(mockLlms));
 
 
     mockRouter = jasmine.createSpyObj('Router', ['navigate']);
@@ -405,6 +405,190 @@ describe('PromptFormComponent', () => {
     // Removed tests related to toolbar elements as they are not in the HTML anymore
   });
 
+  describe('isLastMessageAssistant() method', () => {
+    beforeEach(fakeAsync(() => {
+      mockActivatedRoute.data = of({ prompt: null });
+      fixture.detectChanges();
+      tick();
+      fixture.detectChanges();
+    }));
+
+    it('should return false when messages array is empty', () => {
+      // Clear all messages
+      while (component.messagesFormArray.length > 0) {
+        component.messagesFormArray.removeAt(0);
+      }
+      fixture.detectChanges();
+
+      expect(component.isLastMessageAssistant()).toBeFalse();
+    });
+
+    it('should return false when last message role is user', () => {
+      // Clear existing messages and add a user message
+      while (component.messagesFormArray.length > 0) {
+        component.messagesFormArray.removeAt(0);
+      }
+      component.addMessage('user', 'Test user message');
+      fixture.detectChanges();
+
+      expect(component.isLastMessageAssistant()).toBeFalse();
+    });
+
+    it('should return false when last message role is system', () => {
+      // Clear existing messages and add a system message
+      while (component.messagesFormArray.length > 0) {
+        component.messagesFormArray.removeAt(0);
+      }
+      component.addMessage('system', 'Test system message');
+      fixture.detectChanges();
+
+      expect(component.isLastMessageAssistant()).toBeFalse();
+    });
+
+    it('should return true when last message role is assistant', () => {
+      // Clear existing messages and add an assistant message
+      while (component.messagesFormArray.length > 0) {
+        component.messagesFormArray.removeAt(0);
+      }
+      component.addMessage('assistant', 'Test assistant message');
+      fixture.detectChanges();
+
+      expect(component.isLastMessageAssistant()).toBeTrue();
+    });
+
+    it('should return false when messagesFormArray is null or undefined', () => {
+      // This tests the edge case where the FormArray might not be initialized
+      const originalFormArray = component.messagesFormArray;
+      (component as any).messagesFormArray = null;
+
+      expect(component.isLastMessageAssistant()).toBeFalse();
+
+      // Restore the original FormArray
+      (component as any).messagesFormArray = originalFormArray;
+    });
+
+    it('should handle multiple messages and check only the last one', () => {
+      // Clear existing messages
+      while (component.messagesFormArray.length > 0) {
+        component.messagesFormArray.removeAt(0);
+      }
+
+      // Add multiple messages with different roles
+      component.addMessage('system', 'System message');
+      component.addMessage('user', 'User message');
+      component.addMessage('assistant', 'Assistant message');
+      fixture.detectChanges();
+
+      expect(component.isLastMessageAssistant()).toBeTrue();
+
+      // Add another user message to make it the last
+      component.addMessage('user', 'Another user message');
+      fixture.detectChanges();
+
+      expect(component.isLastMessageAssistant()).toBeFalse();
+    });
+  });
+
+  describe('Assistant pre-fill label display', () => {
+    beforeEach(fakeAsync(() => {
+      mockActivatedRoute.data = of({ prompt: null });
+      fixture.detectChanges();
+      tick();
+      fixture.detectChanges();
+    }));
+
+    it('should show "Assistant" when last message is not assistant role', () => {
+      // Clear existing messages and add a user message
+      while (component.messagesFormArray.length > 0) {
+        component.messagesFormArray.removeAt(0);
+      }
+      component.addMessage('user', 'Test user message');
+      fixture.detectChanges();
+
+      // Find the label for the last message (which should be user role)
+      const messageElements = fixture.debugElement.queryAll(By.css('.message-item'));
+      const lastMessageElement = messageElements[messageElements.length - 1];
+      const roleLabel = lastMessageElement.query(By.css('.role-label'));
+
+      expect(roleLabel.nativeElement.textContent.trim()).toBe('User');
+    });
+
+    it('should show "Assistant pre-fill" when last message has assistant role', () => {
+      // Clear existing messages and add an assistant message
+      while (component.messagesFormArray.length > 0) {
+        component.messagesFormArray.removeAt(0);
+      }
+      component.addMessage('assistant', 'Test assistant message');
+      fixture.detectChanges();
+
+      // Find the label for the assistant message
+      const messageElements = fixture.debugElement.queryAll(By.css('.message-item'));
+      const lastMessageElement = messageElements[messageElements.length - 1];
+      const roleLabel = lastMessageElement.query(By.css('.role-label'));
+
+      expect(roleLabel.nativeElement.textContent.trim()).toBe('Assistant pre-fill');
+    });
+
+    it('should handle edge cases with empty messages array', () => {
+      // Clear all messages
+      while (component.messagesFormArray.length > 0) {
+        component.messagesFormArray.removeAt(0);
+      }
+      fixture.detectChanges();
+
+      // Should not crash and should show no message elements
+      const messageElements = fixture.debugElement.queryAll(By.css('.message-item'));
+      expect(messageElements.length).toBe(0);
+    });
+
+    it('should update label correctly when switching between roles', () => {
+      // Start with a user message
+      while (component.messagesFormArray.length > 0) {
+        component.messagesFormArray.removeAt(0);
+      }
+      component.addMessage('user', 'User message');
+      fixture.detectChanges();
+
+      let messageElements = fixture.debugElement.queryAll(By.css('.message-item'));
+      let lastMessageElement = messageElements[messageElements.length - 1];
+      let roleLabel = lastMessageElement.query(By.css('.role-label'));
+      expect(roleLabel.nativeElement.textContent.trim()).toBe('User');
+
+      // Add an assistant message
+      component.addMessage('assistant', 'Assistant message');
+      fixture.detectChanges();
+
+      messageElements = fixture.debugElement.queryAll(By.css('.message-item'));
+      lastMessageElement = messageElements[messageElements.length - 1];
+      roleLabel = lastMessageElement.query(By.css('.role-label'));
+      expect(roleLabel.nativeElement.textContent.trim()).toBe('Assistant pre-fill');
+
+      // Add another user message
+      component.addMessage('user', 'Another user message');
+      fixture.detectChanges();
+
+      messageElements = fixture.debugElement.queryAll(By.css('.message-item'));
+      lastMessageElement = messageElements[messageElements.length - 1];
+      roleLabel = lastMessageElement.query(By.css('.role-label'));
+      expect(roleLabel.nativeElement.textContent.trim()).toBe('User');
+    });
+
+    it('should show correct labels for system messages', () => {
+      // Clear existing messages and add a system message
+      while (component.messagesFormArray.length > 0) {
+        component.messagesFormArray.removeAt(0);
+      }
+      component.addMessage('system', 'Test system message');
+      fixture.detectChanges();
+
+      const messageElements = fixture.debugElement.queryAll(By.css('.message-item'));
+      const lastMessageElement = messageElements[messageElements.length - 1];
+      const roleLabel = lastMessageElement.query(By.css('.role-label'));
+
+      expect(roleLabel.nativeElement.textContent.trim()).toBe('System');
+    });
+  });
+
   describe('LLM Options Parameters', () => {
     let optionsGroup: FormGroup;
 
@@ -626,5 +810,26 @@ describe('PromptFormComponent', () => {
         it('should correctly populate attachments when editing a prompt with existing attachments', () => {
             // Mock a prompt with UserContentExt, call populateForm, check attachments FormArray
         });
+    });
+
+    describe('Generate message', () => {
+
+        describe('Clicking the generate button will attempt to generate a response', () => {
+            it('On success it should display the result in the right hand pane', () => {
+
+            })
+            it('On success the "Add to Prompt" button displays, and when clicked adds the response to the prompt messages and clears the generated response', () => {
+
+            })
+        })
+
+        describe('Generating a response when the last message in the prompt has the Assistant role i.e. Assistant prefill', () => {
+            it('the last message should have the label "Assistant Prefill" instead of "Assistant"', () => {
+
+            })
+            it('when generated the generated message in the right pane will have the assistant prefill message appended with the generated result of the remainder of the assistant message', () => {
+
+            })
+        })
     });
 });
