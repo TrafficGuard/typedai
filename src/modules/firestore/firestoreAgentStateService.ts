@@ -189,7 +189,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 				agentId: doc.id,
 				name: data.name,
 				state: data.state,
-				cost: data.cost ?? 0, // Default cost to 0 if undefined/null
+				cost: (Number.isNaN(data.cost) ? 0 : data.cost) ?? 0, // Default cost to 0 if undefined/null
 				error: data.error,
 				lastUpdate: data.lastUpdate,
 				userPrompt: data.userPrompt,

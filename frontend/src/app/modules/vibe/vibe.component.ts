@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, OnDestroy, ViewEncapsulation } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, ViewEncapsulation, computed } from '@angular/core';
 import { ReactiveFormsModule, FormControl } from '@angular/forms';
 import { Observable, switchMap, take, Subject, takeUntil, finalize, tap, map, startWith } from 'rxjs';
 import { MatDialogModule } from '@angular/material/dialog';
@@ -16,6 +16,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatListModule } from '@angular/material/list';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { VibeServiceClient } from './vibe-service-client.service';
 import { VibeFileListComponent } from './vibe-file-list/vibe-file-list.component';
 import {
@@ -65,30 +66,35 @@ export class VibeComponent implements OnInit, OnDestroy {
   allFiles: string[] = [];
   // filteredFiles$: Observable<string[]>; // Removed
 
-  session$: Observable<VibeSession>;
   private vibeService = inject(VibeServiceClient);
-  currentSession: VibeSession | null = null; // Store the current session
-  isProcessingAction: boolean = false; // Flag for loading state
-
   private route = inject(ActivatedRoute);
   private snackBar = inject(MatSnackBar);
 
+  readonly sessionState = this.vibeService.currentSessionState;
+  
+  // Observable for backward compatibility with template
+  readonly session$ = this.vibeService.currentSession$;
+  
+  // Computed property for current session
+  readonly currentSession = computed(() => {
+    const state = this.sessionState();
+    return state.status === 'success' ? state.data : null;
+  });
+  
+  isProcessingAction: boolean = false;
+  private sessionId: string | null = null;
 
   ngOnInit() {
-    this.session$ = this.route.paramMap.pipe(
-        switchMap((params) => {
-          const sessionId = params.get('id');
-          if (!sessionId) {
-            // Handle error case - perhaps redirect or show an error message
-            console.error('Vibe Session ID not found in route parameters');
-            // For now, return an empty observable or throw an error
-            return new Observable<VibeSession>(); // Or throwError(() => new Error('Session ID missing'))
-          }
-          return this.vibeService.getVibeSession(sessionId);
-        }),
-        tap(session => this.currentSession = session), // Store the current session
-        takeUntil(this.destroy$)
-    );
+    this.route.paramMap.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(params => {
+      this.sessionId = params.get('id');
+      if (this.sessionId) {
+        this.vibeService.loadSession(this.sessionId);
+      } else {
+        console.error('Vibe Session ID not found in route parameters');
+      }
+    });
   }
 
 
@@ -98,7 +104,8 @@ export class VibeComponent implements OnInit, OnDestroy {
   }
 
   public handleSelectionResetRequested(): void {
-    if (!this.currentSession) {
+    const session = this.currentSession();
+    if (!session) {
       console.error('VibeComponent: Cannot handle selection reset, currentSession is null.');
       this.snackBar.open('Error: Session data not available.', 'Close', { duration: 3000 });
       return;
@@ -109,10 +116,10 @@ export class VibeComponent implements OnInit, OnDestroy {
       return;
     }
 
-    console.log(`VibeComponent: Selection reset requested for session ID: ${this.currentSession.id}.`);
+    console.log(`VibeComponent: Selection reset requested for session ID: ${session.id}.`);
     this.isProcessingAction = true;
 
-    this.vibeService.resetFileSelection(this.currentSession.id).pipe(
+    this.vibeService.resetFileSelection(session.id).pipe(
       take(1), // Ensure the subscription is automatically unsubscribed after one emission
       finalize(() => {
         this.isProcessingAction = false;
@@ -120,13 +127,13 @@ export class VibeComponent implements OnInit, OnDestroy {
       takeUntil(this.destroy$) // Ensure cleanup on component destruction
     ).subscribe({
       next: () => {
-        console.log(`VibeComponent: File selection reset successfully initiated for session ${this.currentSession?.id}.`);
+        console.log(`VibeComponent: File selection reset successfully initiated for session ${session.id}.`);
         this.snackBar.open('File selection reset successfully. Session will refresh.', 'Close', { duration: 3500 });
         // The session should ideally refresh via the existing polling/SSE mechanism in getVibeSession
         // or by explicitly calling getVibeSession if needed.
       },
       error: (err) => {
-        console.error(`VibeComponent: Error resetting file selection for session ${this.currentSession?.id}:`, err);
+        console.error(`VibeComponent: Error resetting file selection for session ${session.id}:`, err);
         this.snackBar.open(`Error resetting file selection: ${err.message || 'Unknown error'}`, 'Close', { duration: 5000 });
       }
     });

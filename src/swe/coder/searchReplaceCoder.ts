@@ -1,9 +1,9 @@
+import { stringSimilarity } from 'string-similarity-js';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { type LlmMessage, user as createUserMessage, messageText } from '#shared/model/llm.model';
-import { ApplySearchReplace, type EditBlock, type EditFormat, FileEditBlocks } from '#swe/coder/applySearchReplace';
-import { stringSimilarity } from "string-similarity-js";
+import { ApplySearchReplace, type EditBlock, type EditFormat, type FileEditBlocks } from '#swe/coder/applySearchReplace';
 
 @funcClass(__filename)
 export class SearchReplaceCoder {
@@ -64,25 +64,23 @@ export class SearchReplaceCoder {
 			const edits = searchReplacer._findOriginalUpdateBlocks(responseToApply, searchReplacer.getFence());
 
 			const editsBlockByFilePath: FileEditBlocks = new Map();
-			for(const edit of edits) {
-				let edits: EditBlock[]
+			for (const edit of edits) {
+				let edits: EditBlock[];
 				if (!editsBlockByFilePath.has(edit.filePath)) {
 					edits = [];
 					editsBlockByFilePath.set(edit.filePath, edits);
 				} else {
-					edits = editsBlockByFilePath.get(edit.filePath)
+					edits = editsBlockByFilePath.get(edit.filePath);
 				}
 				edits.push(edit);
 			}
 			const repoFiles = await fss.listFilesRecursively();
 
-			for(const filePath of editsBlockByFilePath.keys()) {
+			for (const filePath of editsBlockByFilePath.keys()) {
 				const errorMessage = checkEditBlockFilePath(repoFiles, filePath);
-				if(errorMessage) {
-
+				if (errorMessage) {
 				}
 			}
-
 
 			const editedFiles: Set<string> | null = await searchReplacer.applyLlmResponse(responseToApply, llms().hard);
 
@@ -120,7 +118,6 @@ export class SearchReplaceCoder {
 
 const SEP = '/';
 
-
 /**
  * Sometimes the AI writes the file to the wrong place. If the edit block if for a filePath which doesn't currently exist,
  * then make sure it's not too similar to an existing file path.
@@ -133,18 +130,18 @@ const SEP = '/';
 export function checkEditBlockFilePath(filePaths: string[], editBlockFilePath: string): string | null {
 	const fss = getFileSystem();
 
-	if(filePaths.includes(editBlockFilePath)) {
+	if (filePaths.includes(editBlockFilePath)) {
 		// Editing an existing file. Nothing more to check
 		return null;
 	}
 
 	// TODO check if its writing a file with a module alias in the path, e.g. #app/applicationTypes.ts or #shared/model/llm.model or @
-	if(editBlockFilePath.startsWith('#') || editBlockFilePath.startsWith('@')) {
-		return `File path should not begin with ${editBlockFilePath.charAt(0)}. It seems like your writing to the module alias. You need to write to real file path.`
+	if (editBlockFilePath.startsWith('#') || editBlockFilePath.startsWith('@')) {
+		return `File path should not begin with ${editBlockFilePath.charAt(0)}. It seems like your writing to the module alias. You need to write to real file path.`;
 	}
 
-	for(const filePath of filePaths) {
-		if(stringSimilarity(filePath, editBlockFilePath) > 0.9) {
+	for (const filePath of filePaths) {
+		if (stringSimilarity(filePath, editBlockFilePath) > 0.9) {
 			// This could easily get false positives when creating test files etc. Would need some filtering
 		}
 	}
@@ -168,24 +165,5 @@ export function checkEditBlockFilePath(filePaths: string[], editBlockFilePath: s
 		}
 	}
 
-	// const pathSet = new Set<string>(filePaths);
-	// const allFileNames = new Set<string>();
-	// for (const path of filePaths) {
-	// 	const sepIdx = path.lastIndexOf(SEP);
-	// 	allFileNames.add(sepIdx < 0 ? path : path.substring(path.lastIndexOf(SEP) + 1));
-	// }
-
-	// for (const edit of edits) {
-	// 	const editFilePath = edit.filePath;
-	// 	if (await fss.fileExists(editFilePath)) continue; // Editing an existing file is ok
-	//
-	// 	const sepIdx = editFilePath.lastIndexOf(SEP);
-	// 	const editFileName = sepIdx < 0 ? editFilePath : editFilePath.substring(editFilePath.lastIndexOf(SEP) + 1);
-	//
-	// 	const matchingFiles = paths.filter((path) => path.endsWith(editFileName));
-	//
-	// 	if (allFileNames.has(editFileName)) {
-	// 		// logger.info(`Found existing file ${}`)
-	// 	}
-	// }
+	return null;
 }

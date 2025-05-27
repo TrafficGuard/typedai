@@ -65,7 +65,6 @@ import { SafeHtmlPipe } from 'app/core/pipes/safe-html.pipe';
         MatSidenavModule,
         ChatInfoComponent,
         MatButtonModule,
-        RouterLink,
         MatIconModule,
         MatMenuModule,
         MatButtonModule,

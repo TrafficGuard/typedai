@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable, signal, WritableSignal } from '@angular/core';
+import { Injectable, signal, WritableSignal, computed } from '@angular/core';
 import { Observable, of, throwError, from, EMPTY } from 'rxjs';
 import { catchError, map, mapTo, tap, switchMap } from 'rxjs/operators';
 import { CHAT_API } from '#shared/api/chat.api';
@@ -25,6 +25,7 @@ import {
     // ServerChat is effectively ApiChatModel now
 } from 'app/modules/chat/chat.types';
 import type { Attachment, TextContent } from 'app/modules/message.types';
+import { createApiListState, createApiEntityState } from 'app/core/api-state.types';
 
 // Helper function to convert File to base64 string (extracting only the data part)
 async function fileToBase64(file: File): Promise<string> {
@@ -109,17 +110,30 @@ async function prepareUserContentPayload(
 
 @Injectable({ providedIn: 'root' })
 export class ChatServiceClient {
-    private readonly _chat: WritableSignal<Chat | null> = signal(null);
-    readonly chat = this._chat.asReadonly();
-    private readonly _chats: WritableSignal<Chat[] | null> = signal(null);
-    readonly chats = this._chats.asReadonly();
-    private readonly _chatsState: WritableSignal<{ status: 'idle' | 'loading' | 'success' | 'error', data?: Chat[], error?: Error, code?: number }> = signal({ status: 'idle' });
+    private readonly _chatState = createApiEntityState<Chat>();
+    readonly chatState = this._chatState.asReadonly();
+    private readonly _chatsState = createApiListState<Chat>();
+    readonly chatsState = this._chatsState.asReadonly();
 
+    // Computed signals for backward compatibility
+    readonly chat = computed(() => {
+        const state = this._chatState();
+        return state.status === 'success' ? state.data : null;
+    });
+    
+    readonly chats = computed(() => {
+        const state = this._chatsState();
+        return state.status === 'success' ? state.data : null;
+    });
 
     constructor(private _httpClient: HttpClient) {}
 
     setChat(chat: Chat | null): void {
-        this._chat.set(chat);
+        if (chat === null) {
+            this._chatState.set({ status: 'idle' });
+        } else {
+            this._chatState.set({ status: 'success', data: chat });
+        }
     }
 
     loadChats(): Observable<void> {
@@ -143,7 +157,6 @@ export class ChatServiceClient {
                     // messages, unreadCount, lastMessage, lastMessageAt are not in ChatPreview
                 }));
                 this._chatsState.set({ status: 'success', data: uiChats });
-                this._chats.set(uiChats);
             }),
             catchError((error) => {
                 this._chatsState.set({ 
@@ -167,8 +180,14 @@ export class ChatServiceClient {
                     ...newApiChat, // Spread properties like id, title, userId, shareable, parentId, rootId, updatedAt
                     messages: newApiChat.messages.map(msg => convertMessage(msg as ApiLlmMessage)), // msg is Static<LlmMessageSchema>
                 };
-                this._chats.update(currentChats => [uiChat, ...(currentChats || [])]);
-                this._chat.set(uiChat);
+                const currentChatsState = this._chatsState();
+                if (currentChatsState.status === 'success') {
+                    this._chatsState.set({
+                        status: 'success',
+                        data: [uiChat, ...currentChatsState.data]
+                    });
+                }
+                this._chatState.set({ status: 'success', data: uiChat });
                 return uiChat;
             })
         );
@@ -178,9 +197,16 @@ export class ChatServiceClient {
         // Returns Observable<null> for 204 response
         return callApiRoute(this._httpClient, CHAT_API.deleteChat, { pathParams: { chatId } }).pipe(
             tap(() => {
-                this._chats.update(currentChats => (currentChats || []).filter(chat => chat.id !== chatId));
-                if (this._chat()?.id === chatId) {
-                    this._chat.set(null);
+                const currentChatsState = this._chatsState();
+                if (currentChatsState.status === 'success') {
+                    this._chatsState.set({
+                        status: 'success',
+                        data: currentChatsState.data.filter(chat => chat.id !== chatId)
+                    });
+                }
+                const currentChatState = this._chatState();
+                if (currentChatState.status === 'success' && currentChatState.data.id === chatId) {
+                    this._chatState.set({ status: 'idle' });
                 }
             })
             // No mapTo(undefined) needed as callApiRoute for 204 already returns Observable<void> (or Observable<null>)
@@ -190,9 +216,11 @@ export class ChatServiceClient {
     loadChatById(id: string): Observable<void> {
         if (!id?.trim() || id === NEW_CHAT_ID) {
             const newChat: Chat = { messages: [], id: NEW_CHAT_ID, title: '', updatedAt: Date.now() };
-            this._chat.set(newChat);
+            this._chatState.set({ status: 'success', data: newChat });
             return of(undefined);
         }
+
+        this._chatState.set({ status: 'loading' });
 
         // Returns Observable<Static<typeof ChatModelSchema>>
         return callApiRoute(this._httpClient, CHAT_API.getById, { pathParams: { chatId: id } }).pipe(
@@ -201,27 +229,37 @@ export class ChatServiceClient {
                     ...apiChat, // Spread properties like id, title, userId, shareable, parentId, rootId, updatedAt
                     messages: apiChat.messages.map(msg => convertMessage(msg as ApiLlmMessage)),
                 };
-                this._chat.set(uiChat);
-                this._chats.update(chats => {
-                    const chatIndex = chats?.findIndex(c => c.id === id);
-                    if (chats && chatIndex !== -1 && chatIndex !== undefined) {
-                        const newChats = [...chats];
+                this._chatState.set({ status: 'success', data: uiChat });
+                
+                // Update the chat in the list if it exists
+                const currentChatsState = this._chatsState();
+                if (currentChatsState.status === 'success') {
+                    const chatIndex = currentChatsState.data.findIndex(c => c.id === id);
+                    if (chatIndex !== -1) {
+                        const newChats = [...currentChatsState.data];
                         // Update the existing chat preview in the list with details from the full chat
                         newChats[chatIndex] = {
                             ...newChats[chatIndex], // Keep existing preview properties
                             ...uiChat, // Overwrite with full chat properties (title, updatedAt, parentId, rootId etc.)
                             messages: newChats[chatIndex].messages // Do NOT add full messages to the preview list
                         };
-                        return newChats;
+                        this._chatsState.set({ status: 'success', data: newChats });
                     }
-                    // If chat was not in the list (shouldn't happen if loadChats was called), add it?
-                    // return chats ? [...chats, uiChat] : [uiChat]; // Optional: add if not found
-                    return chats; // Current logic only updates existing.
-                });
+                }
             }),
             mapTo(undefined),
             catchError(error => {
-                this._chat.set(null);
+                if (error?.status === 404) {
+                    this._chatState.set({ status: 'not_found' });
+                } else if (error?.status === 403) {
+                    this._chatState.set({ status: 'forbidden' });
+                } else {
+                    this._chatState.set({ 
+                        status: 'error', 
+                        error: error instanceof Error ? error : new Error('Failed to load chat'),
+                        code: error?.status 
+                    });
+                }
                 return throwError(() => error);
             })
         );
@@ -243,17 +281,25 @@ export class ChatServiceClient {
                     parentId: updatedApiChat.parentId,
                     rootId: updatedApiChat.rootId,
                 };
-                this._chats.update(chats => {
-                    const index = chats?.findIndex(item => item.id === id);
-                    if (chats && index !== -1 && index !== undefined) {
-                        const newChats = [...chats];
+                
+                // Update chats list
+                const currentChatsState = this._chatsState();
+                if (currentChatsState.status === 'success') {
+                    const index = currentChatsState.data.findIndex(item => item.id === id);
+                    if (index !== -1) {
+                        const newChats = [...currentChatsState.data];
                         newChats[index] = { ...newChats[index], ...uiChatUpdate };
-                        return newChats;
+                        this._chatsState.set({ status: 'success', data: newChats });
                     }
-                    return chats;
-                });
-                if (this._chat()?.id === id) {
-                    this._chat.update(currentChat => ({ ...currentChat, ...uiChatUpdate }));
+                }
+                
+                // Update current chat if it's the one being updated
+                const currentChatState = this._chatState();
+                if (currentChatState.status === 'success' && currentChatState.data.id === id) {
+                    this._chatState.set({ 
+                        status: 'success', 
+                        data: { ...currentChatState.data, ...uiChatUpdate } 
+                    });
                 }
             }),
             mapTo(undefined)
@@ -261,7 +307,7 @@ export class ChatServiceClient {
     }
 
     resetChat(): void {
-        this._chat.set(null);
+        this._chatState.set({ status: 'idle' });
     }
 
     sendMessage(chatId: string, userContent: UserContentExt, llmId: string, options?: CallSettings, attachmentsForUI?: Attachment[]): Observable<void> {
@@ -279,45 +325,49 @@ export class ChatServiceClient {
             imageAttachments: attachmentsForUI?.filter(att => att.type === 'image') || [],
             createdAt: new Date().toISOString(),
         };
-        this._chat.update(currentChat => {
-            if (!currentChat) return null;
-            return {
-                ...currentChat,
-                messages: [...(currentChat.messages || []), userMessageEntry],
-            };
-        });
+        
+        const currentChatState = this._chatState();
+        if (currentChatState.status === 'success') {
+            this._chatState.set({
+                status: 'success',
+                data: {
+                    ...currentChatState.data,
+                    messages: [...(currentChatState.data.messages || []), userMessageEntry],
+                }
+            });
+        }
 
         // Returns Observable<Static<typeof LlmMessageSchema>>
         return callApiRoute(this._httpClient, CHAT_API.sendMessage, { pathParams: { chatId }, body: payload }).pipe(
             tap((apiLlmMessage) => { // apiLlmMessage is Static<LlmMessageSchema>
                 const aiChatMessage = convertMessage(apiLlmMessage as ApiLlmMessage);
-                this._chat.update(currentChat => {
-                    if (!currentChat) return null;
-                    // Replace the optimistically added user message if it had a temporary ID,
-                    // or simply append the AI message if the user message is already final.
-                    // For simplicity, we assume the optimistic user message is final and just append AI response.
-                    // A more robust approach might involve matching IDs if temporary IDs were used.
-                    return {
-                        ...currentChat,
-                        messages: [...(currentChat.messages || []), aiChatMessage], // Appends AI message
-                        updatedAt: Date.now(),
-                    };
-                });
+                
+                const currentChatState = this._chatState();
+                if (currentChatState.status === 'success') {
+                    this._chatState.set({
+                        status: 'success',
+                        data: {
+                            ...currentChatState.data,
+                            messages: [...(currentChatState.data.messages || []), aiChatMessage],
+                            updatedAt: Date.now(),
+                        }
+                    });
+                }
+                
                 // Update the chat in the main list as well
-                this._chats.update(chats => {
-                    const chatIndex = chats?.findIndex(c => c.id === chatId);
-                    if (chats && chatIndex !== -1 && chatIndex !== undefined) {
-                        const newChats = [...chats];
+                const currentChatsState = this._chatsState();
+                if (currentChatsState.status === 'success') {
+                    const chatIndex = currentChatsState.data.findIndex(c => c.id === chatId);
+                    if (chatIndex !== -1) {
+                        const newChats = [...currentChatsState.data];
                         const updatedChatInList = { ...newChats[chatIndex] };
-                        // updatedChatInList.lastMessage = aiChatMessage.textContent; // Consider updating last message
                         updatedChatInList.updatedAt = Date.now();
                         newChats[chatIndex] = updatedChatInList;
                         newChats.splice(chatIndex, 1);
                         newChats.unshift(updatedChatInList);
-                        return newChats;
+                        this._chatsState.set({ status: 'success', data: newChats });
                     }
-                    return chats;
-                });
+                }
             }),
             mapTo(undefined)
         );
@@ -327,8 +377,8 @@ export class ChatServiceClient {
         if (!chatId?.trim() || !llmId?.trim()) {
             return throwError(() => new Error('Invalid parameters for regeneration'));
         }
-        const currentChat = this._chat();
-        if (!currentChat || currentChat.id !== chatId) {
+        const currentChatState = this._chatState();
+        if (currentChatState.status !== 'success' || currentChatState.data.id !== chatId) {
             return throwError(() => new Error(`Chat not found or not active: ${chatId}`));
         }
 
@@ -339,27 +389,36 @@ export class ChatServiceClient {
         return callApiRoute(this._httpClient, CHAT_API.regenerateMessage, { pathParams: { chatId }, body: payload }).pipe(
             tap(apiLlmMessage => { // apiLlmMessage is Static<LlmMessageSchema>
                 const aiChatMessage = convertMessage(apiLlmMessage as ApiLlmMessage);
-                this._chat.update(chat => {
-                    if (!chat) return null;
+                
+                const currentChatState = this._chatState();
+                if (currentChatState.status === 'success') {
                     // Backend handles history truncation. The new AI message is the latest.
                     // We replace messages from historyTruncateIndex with the new AI message.
-                    const messagesUpToPrompt = chat.messages.slice(0, historyTruncateIndex);
-                    return { ...chat, messages: [...messagesUpToPrompt, aiChatMessage], updatedAt: Date.now() };
-                });
-                 // Update chat in the main list
-                this._chats.update(chats => {
-                     const chatIndex = chats?.findIndex(c => c.id === chatId);
-                     if (chats && chatIndex !== -1 && chatIndex !== undefined) {
-                         const newChats = [...chats];
-                         const updatedChatInList = { ...newChats[chatIndex] };
-                         updatedChatInList.updatedAt = Date.now();
-                         newChats[chatIndex] = updatedChatInList;
-                         newChats.splice(chatIndex, 1);
-                         newChats.unshift(updatedChatInList);
-                         return newChats;
-                     }
-                     return chats;
-                });
+                    const messagesUpToPrompt = currentChatState.data.messages.slice(0, historyTruncateIndex);
+                    this._chatState.set({
+                        status: 'success',
+                        data: {
+                            ...currentChatState.data,
+                            messages: [...messagesUpToPrompt, aiChatMessage],
+                            updatedAt: Date.now()
+                        }
+                    });
+                }
+                
+                // Update chat in the main list
+                const currentChatsState = this._chatsState();
+                if (currentChatsState.status === 'success') {
+                    const chatIndex = currentChatsState.data.findIndex(c => c.id === chatId);
+                    if (chatIndex !== -1) {
+                        const newChats = [...currentChatsState.data];
+                        const updatedChatInList = { ...newChats[chatIndex] };
+                        updatedChatInList.updatedAt = Date.now();
+                        newChats[chatIndex] = updatedChatInList;
+                        newChats.splice(chatIndex, 1);
+                        newChats.unshift(updatedChatInList);
+                        this._chatsState.set({ status: 'success', data: newChats });
+                    }
+                }
             }),
             mapTo(undefined),
             catchError(error => {
@@ -383,48 +442,66 @@ export class ChatServiceClient {
                     isMine: true,
                     createdAt: new Date().toISOString(),
                 };
-                this._chat.update(currentChat => {
-                    if (!currentChat) return null;
-                    return { ...currentChat, messages: [...(currentChat.messages || []), audioUserMessage] };
-                });
+                
+                const currentChatState = this._chatState();
+                if (currentChatState.status === 'success') {
+                    this._chatState.set({
+                        status: 'success',
+                        data: {
+                            ...currentChatState.data,
+                            messages: [...(currentChatState.data.messages || []), audioUserMessage]
+                        }
+                    });
+                }
 
                 // Returns Observable<Static<typeof LlmMessageSchema>>
                 return callApiRoute(this._httpClient, CHAT_API.sendMessage, { pathParams: { chatId }, body: payload }).pipe(
                     tap(apiLlmMessage => { // apiLlmMessage is Static<LlmMessageSchema>
                         const aiChatMessage = convertMessage(apiLlmMessage as ApiLlmMessage);
-                        this._chat.update(currentChat => {
-                            if (!currentChat) return null;
+                        
+                        const currentChatState = this._chatState();
+                        if (currentChatState.status === 'success') {
                             // Replace the placeholder audio message
-                            const messagesWithoutPlaceholder = currentChat.messages.filter(m => m.id !== audioUserMessage.id);
-                            return {
-                                ...currentChat,
-                                messages: [...messagesWithoutPlaceholder, aiChatMessage],
-                                updatedAt: Date.now(),
-                            };
-                        });
-                         // Update chat in the main list
-                        this._chats.update(chats => {
-                             const chatIndex = chats?.findIndex(c => c.id === chatId);
-                             if (chats && chatIndex !== -1 && chatIndex !== undefined) {
-                                 const newChats = [...chats];
-                                 const updatedChatInList = { ...newChats[chatIndex] };
-                                 // updatedChatInList.lastMessage = "Audio message response";
-                                 updatedChatInList.updatedAt = Date.now();
-                                 newChats[chatIndex] = updatedChatInList;
-                                 newChats.splice(chatIndex, 1);
-                                 newChats.unshift(updatedChatInList);
-                                 return newChats;
-                             }
-                             return chats;
-                        });
+                            const messagesWithoutPlaceholder = currentChatState.data.messages.filter(m => m.id !== audioUserMessage.id);
+                            this._chatState.set({
+                                status: 'success',
+                                data: {
+                                    ...currentChatState.data,
+                                    messages: [...messagesWithoutPlaceholder, aiChatMessage],
+                                    updatedAt: Date.now(),
+                                }
+                            });
+                        }
+                        
+                        // Update chat in the main list
+                        const currentChatsState = this._chatsState();
+                        if (currentChatsState.status === 'success') {
+                            const chatIndex = currentChatsState.data.findIndex(c => c.id === chatId);
+                            if (chatIndex !== -1) {
+                                const newChats = [...currentChatsState.data];
+                                const updatedChatInList = { ...newChats[chatIndex] };
+                                updatedChatInList.updatedAt = Date.now();
+                                newChats[chatIndex] = updatedChatInList;
+                                newChats.splice(chatIndex, 1);
+                                newChats.unshift(updatedChatInList);
+                                this._chatsState.set({ status: 'success', data: newChats });
+                            }
+                        }
                     }),
                     mapTo(undefined),
                     catchError(error => {
                         console.error('Error sending audio message:', error);
-                        this._chat.update(currentChat => { // Revert optimistic update
-                            if (!currentChat) return null;
-                            return { ...currentChat, messages: currentChat.messages.filter(m => m.id !== audioUserMessage.id) };
-                        });
+                        // Revert optimistic update
+                        const currentChatState = this._chatState();
+                        if (currentChatState.status === 'success') {
+                            this._chatState.set({
+                                status: 'success',
+                                data: {
+                                    ...currentChatState.data,
+                                    messages: currentChatState.data.messages.filter(m => m.id !== audioUserMessage.id)
+                                }
+                            });
+                        }
                         return throwError(() => new Error('Failed to send audio message'));
                     })
                 );
