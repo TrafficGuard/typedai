@@ -193,7 +193,7 @@ export class PostgresAgentStateService implements AgentContextService {
 
 			// Ensure all fields from AgentContextSchema are present, using undefined for those not in AgentContextsTable
 			// or not yet handled. deserializeContext should have defaults for these.
-			vibeSessionId: undefined,
+			codeTaskId: undefined,
 			output: undefined,
 			fileSystem: undefined, // deserializeContext handles default for complex objects if schema allows undefined
 			fileStore: undefined,

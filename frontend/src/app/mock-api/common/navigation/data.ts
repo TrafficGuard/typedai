@@ -27,12 +27,12 @@ const newAgentNav: FuseNavigationItem = {
     link: '/ui/agents/new',
 }
 
-const vibeNav: FuseNavigationItem = {
-    id: 'vibe',
+const codeTaskNav: FuseNavigationItem = {
+    id: 'codeTask',
     title: 'Code tasks',
     type: 'basic',
     icon: 'auto_fix_high',
-    link: '/ui/vibe',
+    link: '/ui/codeTask',
 }
 
 const promptsNav: FuseNavigationItem = {
@@ -55,7 +55,7 @@ export const defaultNavigation: FuseNavigationItem[] = [
     chatNav,
     agentsNav,
     newAgentNav,
-    vibeNav,
+    codeTaskNav,
     promptsNav,
     codeReviewNav,
 ];
@@ -67,7 +67,7 @@ if (environment.modules?.trim().length) {
     if(modules.includes('chat')) defaultNavigation.push(chatNav);
     if(modules.includes('agents') || modules.includes('workflows')) defaultNavigation.push(agentsNav);
     if(modules.includes('agents') || modules.includes('workflows')) defaultNavigation.push(newAgentNav);
-    if(modules.includes('vibe')) defaultNavigation.push(vibeNav);
+    if(modules.includes('codeTask')) defaultNavigation.push(codeTaskNav);
     if(modules.includes('prompts')) defaultNavigation.push(promptsNav);
     if(modules.includes('codeReview')) defaultNavigation.push(codeReviewNav);
 }

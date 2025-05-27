@@ -1,9 +1,9 @@
 import { type RulesTestEnvironment, initializeTestEnvironment } from '@firebase/rules-unit-testing';
 import sinon from 'sinon';
 import { logger } from '#o11y/logger';
-import { runVibeRepositoryTests } from '#vibe/vibeRepository.test';
+import { runCodeTaskRepositoryTests } from '../../codeTask/codeTaskRepository.test';
 import { firestoreDb } from './firestore'; // To potentially clear data
-import { FirestoreVibeRepository } from './firestoreVibeRepository';
+import { FirestoreCodeTaskRepository } from './firestoreCodeTaskRepository';
 
 let testEnv: RulesTestEnvironment;
 
@@ -30,7 +30,7 @@ const clearFirestoreData = async () => {
 	await testEnv?.clearFirestore();
 };
 
-describe('FirestoreVibeRepository', () => {
+describe('FirestoreCodeTaskRepository', () => {
 	// Setup and teardown the emulator environment once for the suite
 	before(async () => {
 		await setupFirestore();
@@ -40,13 +40,13 @@ describe('FirestoreVibeRepository', () => {
 	});
 
 	// Run the shared tests, providing the factory and hooks
-	runVibeRepositoryTests(
-		() => new FirestoreVibeRepository(),
+	runCodeTaskRepositoryTests(
+		() => new FirestoreCodeTaskRepository(),
 		async () => {
 			await clearFirestoreData();
 		},
 		async () => {},
 	);
 
-	// Additional tests must only be added in the shared VibeRepository tests at src/vibe/vibeRepository.test.ts
+	// Additional tests must only be added in the shared CodeTaskRepository tests at src/codeTask/codeTaskRepository.test.ts
 });

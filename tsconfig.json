@@ -29,6 +29,7 @@
       "#app/*": ["./src/app/*"],
       "#agent/*": ["./src/agent/*"],
       "#chat/*": ["./src/chat/*"],
+      "#codeTask/*": ["./src/codeTask/*"],
       "#fastify/*": ["./src/fastify/*"],
       "#firestore/*": ["./src/modules/firestore/*"],
       "#functionSchema/*": ["./src/functionSchema/*"],
@@ -44,8 +45,7 @@
       "#swe/*": ["./src/swe/*"],
       "#test/*": ["./src/test/*"],
       "#user/*": ["./src/user/*"],
-      "#utils/*": ["./src/utils/*"],
-      "#vibe/*": ["./src/vibe/*"]
+      "#utils/*": ["./src/utils/*"]
     },
     "types": ["node", "mocha"]
   },

@@ -58,7 +58,7 @@ describe.skip('AgentDetailsComponent', () => {
     // output: undefined,
     // childAgents: [],
     // parentAgentId: undefined,
-    // vibeSessionId: undefined,
+    // codeTaskId: undefined,
     // completedHandler: undefined,
     // hilRequested: false,
     // liveFiles: [],

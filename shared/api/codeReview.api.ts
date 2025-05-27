@@ -3,7 +3,7 @@ import { defineRoute } from '#shared/api-definitions';
 import { CodeReviewConfigCreateSchema, CodeReviewConfigSchema, CodeReviewConfigUpdateSchema } from '#shared/schemas/codeReview.schema';
 import { ApiNullResponseSchema, ResponseMessageSchema } from '#shared/schemas/common.schema';
 
-const CODE_REVIEW_CONFIG_BASE = '/api/code-review-configs';
+const CODE_REVIEW_CONFIG_BASE = '/api/codeReview-configs';
 
 export const CODE_REVIEW_API = {
 	list: defineRoute('GET', CODE_REVIEW_CONFIG_BASE, {

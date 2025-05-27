@@ -116,10 +116,10 @@ export async function ensureAgentIterationsTableExists(dbInstance: Kysely<Databa
 		.execute();
 }
 
-export async function ensureVibeTablesExist(): Promise<void> {
-	// Vibe Sessions Table
+export async function ensureCodeTaskTablesExist(): Promise<void> {
+	// Code Tasks Table
 	await db.schema
-		.createTable('vibe_sessions')
+		.createTable('code_task_sessions')
 		.ifNotExists()
 		.addColumn('id', 'text', (col) => col.primaryKey())
 		.addColumn('user_id', 'text', (col) => col.notNull())
@@ -151,9 +151,9 @@ export async function ensureVibeTablesExist(): Promise<void> {
 		.addColumn('error_message', 'text')
 		.execute();
 
-	// Vibe Presets Table
+	// CodeTask Presets Table
 	await db.schema
-		.createTable('vibe_presets')
+		.createTable('code_task_presets')
 		.ifNotExists()
 		.addColumn('id', 'text', (col) => col.primaryKey())
 		.addColumn('user_id', 'text', (col) => col.notNull())

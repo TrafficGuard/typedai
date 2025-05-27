@@ -105,7 +105,7 @@ export const AgentContextSchema = Type.Object({
 	traceId: Type.String(),
 	name: Type.String(),
 	parentAgentId: Type.Optional(Type.String()),
-	vibeSessionId: Type.Optional(Type.String()),
+	codeTaskId: Type.Optional(Type.String()),
 	// The schema represents the serialized form, where user is just the ID string
 	user: Type.String(), // Changed from UserSchema to Type.String()
 	state: AgentRunningStateSchema,
@@ -171,7 +171,7 @@ export const AgentContextSchema = Type.Object({
 	// traceId: string; -> Type.String()
 	// name: string; -> Type.String()
 	// parentAgentId?: string; -> Type.Optional(Type.String())
-	// vibeSessionId?: string; -> Type.Optional(Type.String())
+	// codeTaskId?: string; -> Type.Optional(Type.String())
 	// user: User; -> Serialized as string ID in schema
 	// state: AgentRunningState; -> AgentRunningStateSchema
 	// callStack: string[]; -> Type.Array(Type.String())
@@ -319,7 +319,7 @@ export const AgentStartRequestSchema = Type.Object(
 		metadata: Type.Optional(Type.Record(Type.String(), Type.Any())),
 		resumeAgentId: Type.Optional(Type.String()),
 		parentAgentId: Type.Optional(Type.String()),
-		vibeSessionId: Type.Optional(Type.String()),
+		codeTaskId: Type.Optional(Type.String()),
 	},
 	{ $id: 'AgentStartRequest' },
 );

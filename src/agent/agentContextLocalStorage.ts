@@ -90,6 +90,6 @@ export function createContext(config: RunAgentConfig | RunWorkflowConfig): Agent
 		invoking: [],
 		lastUpdate: Date.now(),
 		toolState: {},
-		vibeSessionId: config.vibeSessionId,
+		codeTaskId: config.codeTaskId,
 	};
 }

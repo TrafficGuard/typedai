@@ -19,7 +19,7 @@ export async function agentStartRoute(fastify: AppFastifyInstance) {
 			schema: AGENT_API.start.schema,
 		},
 		async (req, reply) => {
-			const { agentName, initialPrompt, functions, type, subtype, humanInLoop, llms, useSharedRepos, metadata, resumeAgentId, parentAgentId, vibeSessionId } =
+			const { agentName, initialPrompt, functions, type, subtype, humanInLoop, llms, useSharedRepos, metadata, resumeAgentId, parentAgentId, codeTaskId } =
 				req.body;
 
 			logger.info(req.body, `Starting agent ${agentName}`);
@@ -56,7 +56,7 @@ export async function agentStartRoute(fastify: AppFastifyInstance) {
 				metadata: metadata,
 				resumeAgentId: resumeAgentId,
 				parentAgentId: parentAgentId,
-				vibeSessionId: vibeSessionId,
+				codeTaskId: codeTaskId,
 			});
 			const agentId: string = agentExecution.agentId;
 			const agentContext = await fastify.agentStateService.load(agentId);

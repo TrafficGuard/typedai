@@ -97,7 +97,7 @@ create_firestore_index() {
 create_firestore_index "AgentContext" "field-path=user,order=ascending" "field-path=lastUpdate,order=descending" "field-path=__name__,order=descending"
 create_firestore_index "Chats" "field-path=userId,order=ascending" "field-path=updatedAt,order=descending" "field-path=__name__,order=descending"
 create_firestore_index "LlmCall" "field-path=agentId,order=ascending" "field-path=requestTime,order=descending" "field-path=__name__,order=descending"
-create_firestore_index "VibeSession" "field-path=userId,order=ascending" "field-path=updatedAt,order=descending" "field-path=__name__,order=descending"
+create_firestore_index "CodeTask" "field-path=userId,order=ascending" "field-path=updatedAt,order=descending" "field-path=__name__,order=descending"
 create_firestore_index "Prompts" "field-path=userId,order=ascending" "field-path=updatedAt,order=descending" "field-path=__name__,order=descending"
 
 echo "Firestore Database setup script completed."

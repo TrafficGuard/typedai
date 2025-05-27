@@ -60,7 +60,7 @@ describe('AgentService', () => {
     hilCount: 0,
     childAgents: undefined,
     parentAgentId: undefined,
-    vibeSessionId: undefined,
+    codeTaskId: undefined,
     error: undefined,
     output: undefined,
     hilRequested: undefined,

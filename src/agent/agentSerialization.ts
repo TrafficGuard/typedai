@@ -24,7 +24,7 @@ export function serializeContext(context: AgentContext): AgentContextApi {
 		traceId: context.traceId,
 		name: context.name,
 		parentAgentId: context.parentAgentId,
-		vibeSessionId: context.vibeSessionId,
+		codeTaskId: context.codeTaskId,
 		state: context.state,
 		callStack: context.callStack ?? [],
 		error: context.error,
@@ -116,7 +116,7 @@ export function deserializeContext(data: Static<typeof AgentContextSchema>): Age
 		traceId: data.traceId ?? '',
 		name: data.name,
 		parentAgentId: data.parentAgentId,
-		vibeSessionId: data.vibeSessionId,
+		codeTaskId: data.codeTaskId,
 		user: userImpl, // Assign the created User object
 		state: data.state as AgentRunningState,
 		callStack: data.callStack ?? [],

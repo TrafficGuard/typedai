@@ -74,7 +74,7 @@ exit 1
 # gcloud firestore indexes composite create \
 # --project=$GCLOUD_PROJECT \
 # --database="$DATABASE_NAME" \
-# --collection-group="VibeSession" \
+# --collection-group="CodeTask" \
 # --field-config="field-path=userId,order=ascending" \
 # --field-config="field-path=updatedAt,order=descending" \
 # --field-config="field-path=__name__,order=descending"

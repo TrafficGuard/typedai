@@ -26,7 +26,7 @@ export interface RunAgentConfig {
 	user?: User;
 	/** The parent agentId */
 	parentAgentId?: string;
-	vibeSessionId?: string;
+	codeTaskId?: string;
 	/** The name of this agent */
 	agentName: string;
 	/** Autonomous or workflow */

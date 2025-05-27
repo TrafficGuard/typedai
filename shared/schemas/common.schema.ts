@@ -14,7 +14,7 @@ export const ResponseMessageSchema = Type.Object({
 
 // Common path parameter schemas
 export const ApiSessionParamsSchema = Type.Object({
-	sessionId: Type.String({ description: 'The ID of the Vibe session' }),
+	codeTaskId: Type.String({ description: 'The ID of the Code task' }),
 });
 
 export const ApiIdParamsSchema = Type.Object({
@@ -22,7 +22,7 @@ export const ApiIdParamsSchema = Type.Object({
 });
 
 export const ApiPresetParamsSchema = Type.Object({
-	presetId: Type.String({ description: 'The ID of the Vibe preset' }),
+	presetId: Type.String({ description: 'The ID of the Code task preset' }),
 });
 
 // Schema for an empty success response (e.g., 204 No Content)

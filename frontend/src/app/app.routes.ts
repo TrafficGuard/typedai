@@ -78,9 +78,9 @@ export const appRoutes: Route[] = [
             {path: 'profile', loadChildren: () => import('app/modules/profile/profile.routes')},
             {path: 'chat', loadChildren: () => import('app/modules/chat/chat.routes').then(m => m.default)},
             {path: 'agents', loadChildren: () => import('app/modules/agents/agent.routes')},
-            {path: 'code-reviews', loadChildren: () => import('app/modules/code-review/code-review.routes')},
+            {path: 'code-reviews', loadChildren: () => import('./modules/codeReview/code-review.routes')},
             {path: 'prompts', loadChildren: () => import('app/modules/prompts/prompts.routes')},
-            {path: 'vibe', loadChildren: () => import('app/modules/vibe/vibe.routes')},
+            {path: 'codeTask', loadChildren: () => import('./modules/codeTask/codeTask.routes')},
         ]
     },
     // 404 & Catch all

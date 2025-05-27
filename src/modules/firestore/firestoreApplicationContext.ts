@@ -3,10 +3,10 @@ import { FirebasePromptService } from '#firestore/firebasePromptService';
 import { FirestoreAgentStateService } from '#firestore/firestoreAgentStateService';
 import { FirestoreChatService } from '#firestore/firestoreChatService';
 import { FirestoreCodeReviewService } from '#firestore/firestoreCodeReviewService';
+import { FirestoreCodeTaskRepository } from '#firestore/firestoreCodeTaskRepository';
 import { FirestoreCacheService } from '#firestore/firestoreFunctionCacheService';
 import { FirestoreLlmCallService } from '#firestore/firestoreLlmCallService';
 import { FirestoreUserService } from '#firestore/firestoreUserService';
-import { FirestoreVibeRepository } from '#firestore/firestoreVibeRepository';
 
 export function firestoreApplicationContext(): ApplicationContext {
 	return {
@@ -17,6 +17,6 @@ export function firestoreApplicationContext(): ApplicationContext {
 		functionCacheService: new FirestoreCacheService(),
 		codeReviewService: new FirestoreCodeReviewService(),
 		promptsService: new FirebasePromptService(),
-		vibeRepository: new FirestoreVibeRepository(), // For Vibe we store the Repository
+		codeTaskRepository: new FirestoreCodeTaskRepository(), // For CodeTask we store the Repository
 	};
 }

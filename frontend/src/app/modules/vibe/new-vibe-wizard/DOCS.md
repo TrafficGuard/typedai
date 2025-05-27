@@ -1,1 +1,0 @@
-Design documentation is at design/vibe/new-vibe-session.md

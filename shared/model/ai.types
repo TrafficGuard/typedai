@@ -966,7 +966,7 @@ declare function createMCPClient(config: MCPClientConfig): Promise<MCPClient>;
  * Not supported:
  * - Client options (e.g. sampling, roots) as they are not needed for tool conversion
  * - Accepting notifications
- * - Session management (when passing a sessionId to an instance of the Streamable HTTP transport)
+ * - Session management (when passing a codeTaskId to an instance of the Streamable HTTP transport)
  * - Resumable SSE streams
  */
 declare class MCPClient {

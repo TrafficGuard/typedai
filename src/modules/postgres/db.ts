@@ -133,7 +133,7 @@ export interface UsersTable {
 	function_config_serialized: string | null; // JSON string of User['functionConfig']
 }
 
-export interface VibeSessionsTable {
+export interface CodeTasksTable {
 	id: string; // PRIMARY KEY (UUID)
 	user_id: string; // Foreign key to users.id
 	title: string;
@@ -145,7 +145,7 @@ export interface VibeSessionsTable {
 	working_branch: string;
 	create_working_branch: boolean;
 	use_shared_repos: boolean;
-	status: string; // VibeStatus
+	status: string; // CodeTaskStatus
 	last_agent_activity: number; // BigInt or Numeric in DB, maps to number (timestamp)
 	file_selection_serialized: string | null; // JSON string of SelectedFile[]
 	original_file_selection_for_review_serialized: string | null; // JSON string of SelectedFile[]
@@ -164,11 +164,11 @@ export interface VibeSessionsTable {
 	error_message: string | null; // Renamed from 'error' to avoid SQL keyword conflict
 }
 
-export interface VibePresetsTable {
+export interface CodeTaskPresetsTable {
 	id: string; // PRIMARY KEY (UUID)
 	user_id: string; // Foreign key to users.id
 	name: string;
-	config_serialized: string; // JSON string of VibePresetConfig
+	config_serialized: string; // JSON string of CodeTaskPresetConfig
 	created_at: number; // BigInt or Numeric in DB, maps to number (timestamp)
 	updated_at: number; // BigInt or Numeric in DB, maps to number (timestamp)
 }
@@ -231,8 +231,8 @@ export interface Database {
 	merge_request_review_cache: MergeRequestReviewCacheTable;
 	function_cache: FunctionCacheTable;
 	users: UsersTable;
-	vibe_sessions: VibeSessionsTable;
-	vibe_presets: VibePresetsTable;
+	code_task_sessions: CodeTasksTable;
+	code_task_presets: CodeTaskPresetsTable;
 	llm_calls: LlmCallsTable;
 	prompt_groups: PromptGroupsTable;
 	prompt_revisions: PromptRevisionsTable;

@@ -91,9 +91,9 @@ export interface AgentContext {
 	/** Display name */
 	name: string;
 	/** Not used yet */
-	/** The VibeSession this agent belongs to, if any */
+	/** The CodeTask this agent belongs to, if any */
 	parentAgentId?: string;
-	vibeSessionId?: string;
+	codeTaskId?: string;
 	/** The user who created the agent */
 	user: User;
 	/** The current state of the agent */

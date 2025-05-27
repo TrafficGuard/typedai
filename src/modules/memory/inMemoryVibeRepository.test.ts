@@ -1,16 +1,16 @@
 import sinon from 'sinon';
 // Removed User import
 // Removed userContext import
-import { runVibeRepositoryTests } from '#vibe/vibeRepository.test';
-import { InMemoryVibeRepository } from './inMemoryVibeRepository';
+import { runCodeTaskRepositoryTests } from '../../codeTask/codeTaskRepository.test';
+import { InMemoryCodeTaskRepository } from './inMemoryCodeTaskRepository';
 
 // Removed mock user constants
 
-let repositoryInstance: InMemoryVibeRepository;
+let repositoryInstance: InMemoryCodeTaskRepository;
 // Removed currentUserStub variable
 
 // Configure and run the shared tests
-describe('InMemoryVibeRepository', () => {
+describe('InMemoryCodeTaskRepository', () => {
 	// Removed beforeEach managing currentUserStub
 
 	afterEach(() => {
@@ -19,14 +19,14 @@ describe('InMemoryVibeRepository', () => {
 	});
 
 	// Run the shared tests, providing the factory and hooks
-	runVibeRepositoryTests(
+	runCodeTaskRepositoryTests(
 		() => {
-			// Factory function: Create a new instance for each test run via runVibeRepositoryTests's beforeEach
-			repositoryInstance = new InMemoryVibeRepository();
+			// Factory function: Create a new instance for each test run via runCodeTaskRepositoryTests's beforeEach
+			repositoryInstance = new InMemoryCodeTaskRepository();
 			return repositoryInstance;
 		},
 		() => {
-			// beforeEachHook (runs before each test *inside* runVibeRepositoryTests)
+			// beforeEachHook (runs before each test *inside* runCodeTaskRepositoryTests)
 			// Before each test in the shared suite, clear the in-memory store
 			// The instance is created by the factory above just before this hook runs.
 			if (repositoryInstance) {
@@ -35,7 +35,7 @@ describe('InMemoryVibeRepository', () => {
 			// No stub management needed here anymore
 		},
 		() => {
-			// afterEachHook (runs after each test *inside* runVibeRepositoryTests)
+			// afterEachHook (runs after each test *inside* runCodeTaskRepositoryTests)
 			// No specific action needed here; cleanup handled by outer afterEach
 		},
 		// Removed currentUserStub, testUser, otherUser arguments
