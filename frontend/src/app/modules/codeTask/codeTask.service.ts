@@ -4,7 +4,7 @@ import { type Observable, tap, catchError, throwError, EMPTY, map } from 'rxjs';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { callApiRoute } from '../../core/api-route';
 import { createApiListState, createApiEntityState } from '../../core/api-state.types';
-import { CODE_TASK_API } from '#shared/api/code-task.api';
+import { CODE_TASK_API } from '#shared/api/codeTask.api';
 import {SelectedFile} from "#shared/model/files.model";
 import {CodeTaskPreset, CodeTaskPresetConfig, CodeTask} from "#shared/model/codeTask.model";
 import {GitProject} from "#shared/model/git.model";

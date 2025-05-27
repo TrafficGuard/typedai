@@ -100,7 +100,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
     llmsSignal: Signal<LLM[]>;
     llmId: WritableSignal<string | undefined> = signal(undefined);
-    defaultChatLlmId = computed(() => this.userService.userProfile()?.chat?.defaultLLM);
+    defaultChatLlmId = computed(() => (this.userService.userProfile() as any)?.chat?.defaultLLM);
 
     sendIcon: WritableSignal<string> = signal('heroicons_outline:paper-airplane');
 
@@ -172,7 +172,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     private llmService = inject(LlmService);
     private router = inject(Router);
     private route = inject(ActivatedRoute);
-    private userService = inject(UserService);
+    protected userService = inject(UserService);
     private _snackBar = inject(MatSnackBar);
     private destroyRef = inject(DestroyRef);
     private routeParamsSignal: Signal<any>;
@@ -188,6 +188,12 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
         // Load LLMs
         this.llmService.loadLlms();
+
+        // Ensure user profile is loaded for default LLM selection
+        const currentUserProfile = this.userService.userProfile();
+        if (!currentUserProfile) {
+            this.userService.loadUser();
+        }
 
         // Handle route changes and load chat data
         toObservable(this.routeParamsSignal).pipe(
@@ -229,6 +235,17 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
             // Update previousChatId for the next run
             this.previousChatId = currentChatId;
+        });
+
+        // Watch for user profile changes and update LLM selector
+        toObservable(this.userService.userProfile).pipe(
+            takeUntilDestroyed(this.destroyRef),
+            distinctUntilChanged()
+        ).subscribe(userProfile => {
+            if (userProfile) {
+                console.log('User profile loaded, updating LLM selector with default:', (userProfile as any).chat?.defaultLLM);
+                this.updateLlmSelector();
+            }
         });
 
         // Handle animation for generating messages
@@ -345,15 +362,22 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
      */
     updateLlmSelector(): void {
         const llms = this.llmsSignal();
-        if (!llms || llms.length === 0) return;
+        if (!llms || llms.length === 0) {
+            console.log('updateLlmSelector: No LLMs available');
+            return;
+        }
 
         const llmIds = llms.map(llm => llm.id);
         const currentChat = this.chat();
+        console.log('updateLlmSelector: Available LLM IDs:', llmIds);
+        console.log('updateLlmSelector: Current chat:', currentChat?.id, 'Messages count:', currentChat?.messages?.length || 0);
 
         // For existing chats with messages, use the last message's LLM if still available
         if (currentChat?.messages?.length > 0) {
             const lastMessageLlmId = currentChat.messages.at(-1).llmId;
+            console.log('updateLlmSelector: Last message LLM ID:', lastMessageLlmId);
             if (lastMessageLlmId && llmIds.includes(lastMessageLlmId)) {
+                console.log('updateLlmSelector: Using LLM from last message:', lastMessageLlmId);
                 this.llmId.set(lastMessageLlmId);
                 // this.updateThinkingIcon(); // This will be handled by computed llmHasThinkingLevels
                 return;
@@ -363,7 +387,9 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
         // Try to use default LLM (derived from currentUserSignal)
         // Access defaultChatLlmId computed signal
         const defaultLlm = this.defaultChatLlmId();
+        console.log('updateLlmSelector: Default LLM from user profile:', defaultLlm);
         if (defaultLlm && llmIds.includes(defaultLlm)) {
+            console.log('updateLlmSelector: Using default LLM:', defaultLlm);
             this.llmId.set(defaultLlm);
             // this.updateThinkingIcon();
             return;
@@ -371,13 +397,17 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
         // If default LLM is set but not available, log warning
         if (defaultLlm && !llmIds.includes(defaultLlm)) {
-            console.warn(`Default LLM ${defaultLlm} not found in available LLMs:`, llmIds);
+            console.warn(`updateLlmSelector: Default LLM ${defaultLlm} not found in available LLMs:`, llmIds);
         }
 
         // Fallback to first available LLM if no valid selection
         const currentLlmId = this.llmId();
+        console.log('updateLlmSelector: Current LLM ID:', currentLlmId);
         if ((!currentLlmId || !llmIds.includes(currentLlmId)) && llms.length > 0) {
+            console.log('updateLlmSelector: Falling back to first available LLM:', llms[0].id);
             this.llmId.set(llms[0].id);
+        } else {
+            console.log('updateLlmSelector: Keeping current LLM ID:', currentLlmId);
         }
         // this.updateThinkingIcon();
     }
