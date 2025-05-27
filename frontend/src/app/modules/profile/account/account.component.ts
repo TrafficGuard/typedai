@@ -21,6 +21,7 @@ import { MatSelectModule } from "@angular/material/select";
 import { CommonModule } from "@angular/common";
 import { USER_API } from '#shared/api/user.api';
 import { UserProfileUpdate, UserProfile } from "#shared/schemas/user.schema";
+import {UserService} from "../../../core/user/user.service";
 
 @Component({
     selector: 'settings-account',
@@ -44,7 +45,8 @@ export class SettingsAccountComponent implements OnInit {
     constructor(
         private http: HttpClient,
         private snackBar: MatSnackBar,
-        private llmService: LlmService
+        private llmService: LlmService,
+        private userService: UserService,
     ) {}
 
     // -- Lifecycle hooks -- --
