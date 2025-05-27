@@ -85,7 +85,7 @@ export class SettingsAccountComponent implements OnInit {
     ngOnInit(): void {
         // Initialize the form structure
         this.accountForm = new FormGroup({
-            id: new FormControl({ value: '', disabled: true }), // ID is read-only
+            // id: new FormControl({ value: '', disabled: true }), // ID is read-only
             // Removed username: new FormControl(''), as it's not in UserProfileUpdate schema
             email: new FormControl('', [Validators.required, Validators.email]),
             // Removed enabled: new FormControl(false), as it's not in UserProfileUpdate schema
