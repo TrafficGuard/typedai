@@ -8,6 +8,7 @@ import {
     OnDestroy,
     OnInit,
     ViewEncapsulation,
+    computed,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
@@ -39,7 +40,11 @@ export class UserComponent implements OnInit, OnDestroy {
     /* eslint-enable @typescript-eslint/naming-convention */
 
     @Input() showAvatar = true;
-    user: UserProfile;
+    
+    user = computed(() => {
+        const userState = this._userService.userEntityState();
+        return userState.status === 'success' ? userState.data : null;
+    });
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
@@ -60,15 +65,7 @@ export class UserComponent implements OnInit, OnDestroy {
      * On init
      */
     ngOnInit(): void {
-        // Subscribe to user changes
-        this._userService.user$
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe((user: UserProfile) => {
-                this.user = user;
-
-                // Mark for check
-                this._changeDetectorRef.markForCheck();
-            });
+        // User state is now handled by computed signal
     }
 
     /**

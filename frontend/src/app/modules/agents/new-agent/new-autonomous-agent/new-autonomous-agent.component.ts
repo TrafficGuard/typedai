@@ -153,26 +153,18 @@ export class NewAutonomousAgentComponent implements OnInit, OnDestroy {
     this.loadUserProfile();
   }
 
-  // TODO this should use the UserService in user.service.ts
   private loadUserProfile(): void {
-    this.userService.get() // Use UserService
-        .pipe(takeUntil(this.destroy$))
-        .subscribe({
-            next: (userProfile) => {
-              if (userProfile) {
-                this.runAgentForm.patchValue({
-                  budget: userProfile.hilBudget,
-                  count: userProfile.hilCount,
-                });
-              }
-            },
-            error: (error) => {
-              // UserService.get() already logs an error.
-              // The snackBar notification can be kept if specific UI feedback is desired here.
-              console.error('Error subscribing to user profile updates in component:', error);
-              this.snackBar.open('Failed to load user profile data', 'Close', { duration: 3000 });
-            }
+    this.userService.loadUser();
+    
+    effect(() => {
+      const userProfile = this.userService.userProfile();
+      if (userProfile) {
+        this.runAgentForm.patchValue({
+          budget: userProfile.hilBudget,
+          count: userProfile.hilCount,
         });
+      }
+    });
   }
 
   ngOnDestroy(): void {

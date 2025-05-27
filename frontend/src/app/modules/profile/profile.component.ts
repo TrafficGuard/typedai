@@ -9,6 +9,7 @@ import {
     ViewEncapsulation,
     inject,
     signal,
+    computed,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -47,9 +48,23 @@ export class ProfileComponent implements OnInit, OnDestroy {
     private _changeDetectorRef = inject(ChangeDetectorRef); // Keep for FuseMediaWatcherService
     private _fuseMediaWatcherService = inject(FuseMediaWatcherService); // Keep for drawer logic
 
-    currentUser = signal<UserProfile | null>(null);
-    isLoading = signal<boolean>(false);
-    error = signal<string | null>(null);
+    private userState = computed(() => this.userService.userEntityState());
+
+    currentUser = computed(() => {
+        const state = this.userState();
+        return state.status === 'success' ? state.data : null;
+    });
+
+    isLoading = computed(() => {
+        const state = this.userState();
+        return state.status === 'loading';
+    });
+
+    error = computed(() => {
+        const state = this.userState();
+        return state.status === 'error' ? 'Failed to load user profile.' : null;
+    });
+
     selectedPanel = signal<string>('account'); // Default panel
 
     /**
@@ -122,19 +137,8 @@ export class ProfileComponent implements OnInit, OnDestroy {
             },
         ];
 
-        // Fetch current user
-        this.isLoading.set(true);
-        this.error.set(null);
-        this.userService.user$.pipe(takeUntil(this._unsubscribeAll)).subscribe({
-            next: (user: UserProfile) => {
-                this.currentUser.set(user);
-                this.isLoading.set(false);
-            },
-            error: () => {
-                this.error.set('Failed to load user profile.');
-                this.isLoading.set(false);
-            },
-        });
+        // Load user - state changes are now handled by computed signals
+        this.userService.loadUser();
 
         // Subscribe to router events to update selectedPanel signal
         this.router.events.pipe(

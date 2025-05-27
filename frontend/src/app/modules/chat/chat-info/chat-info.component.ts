@@ -6,7 +6,8 @@ import {
     inject,
     input,
     signal,
-    computed, // Added computed
+    computed,
+    effect, // Added effect
     WritableSignal,
     DestroyRef,
 } from '@angular/core';
@@ -58,9 +59,6 @@ export class ChatInfoComponent {
     isSavingName = signal(false);
     isDeletingChat = signal(false);
 
-    // Signal to store the current user's full profile
-    private currentUserProfile = signal<UserProfile | null>(null);
-
     readonly panelTitle = computed(() => {
         const currentChat = this.chat();
         // If chat has a valid ID and is not the placeholder 'new-chat' ID
@@ -76,18 +74,11 @@ export class ChatInfoComponent {
     private destroyRef = inject(DestroyRef);
 
     constructor() {
-        this.userService.user$
-            .pipe(takeUntilDestroyed(this.destroyRef))
-            .subscribe(user => {
-                if (user) {
-                    this.currentUserProfile.set(user);
-                    // Ensure settings is a new object to avoid direct mutation if user.chat is frozen or shared
-                    this.settings = user.chat ? { ...user.chat } : {} as UserProfile['chat'];
-                } else {
-                    this.currentUserProfile.set(null);
-                    this.settings = {} as UserProfile['chat'];
-                }
-            });
+        effect(() => {
+            const user = this.userService.userProfile();
+            // Ensure settings is a new object to avoid direct mutation if user.chat is frozen or shared
+            this.settings = user?.chat ? { ...user.chat } : {} as UserProfile['chat'];
+        });
     }
 
     /**
@@ -98,7 +89,7 @@ export class ChatInfoComponent {
         if (!this.settings) { // this.settings is UserProfile['chat']
             return;
         }
-        const currentUser = this.currentUserProfile(); // Get the full current user profile
+        const currentUser = this.userService.userProfile();
         if (!currentUser) {
             this.settingsError.set('User profile not loaded. Cannot save settings.');
             console.error('User profile not loaded. Cannot save settings.');

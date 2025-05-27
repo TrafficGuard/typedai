@@ -165,10 +165,18 @@ export class AuthService {
         }
 
         if (environment.auth === 'google_iap' || environment.auth === 'single_user') {
-            return this._userService.get().pipe(map(user => {
-                this._authenticated = true
-                return true;
-            }))
+            // Load user data and check if successful
+            this._userService.loadUser();
+            const userEntityState = this._userService.userEntityState();
+            if (userEntityState.status === 'success') {
+                this._authenticated = true;
+                return of(true);
+            } else if (userEntityState.status === 'error') {
+                return of(false);
+            } else {
+                // Still loading, return false for now
+                return of(false);
+            }
         }
 
         // For non-IAP/single-user auth modes

@@ -1,4 +1,4 @@
-import {ChangeDetectionStrategy, Component, ViewEncapsulation, inject, signal, effect, WritableSignal, DestroyRef} from '@angular/core';
+import {ChangeDetectionStrategy, Component, ViewEncapsulation, inject, signal, computed, effect, DestroyRef} from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { MatTabsModule } from '@angular/material/tabs';
@@ -13,8 +13,8 @@ import { AgentLlmCallsComponent } from './agent-llm-calls/agent-llm-calls.compon
 import { AgentIterationsComponent } from './agent-iterations/agent-iterations.component';
 import { AgentToolStateComponent } from './agent-tool-state/agent-tool-state.component';
 import { AgentService } from "../agent.service";
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { distinctUntilChanged, map, tap } from 'rxjs/operators';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { distinctUntilChanged, map, tap, filter } from 'rxjs/operators';
 
 @Component({
     selector: 'agent',
@@ -35,12 +35,45 @@ import { distinctUntilChanged, map, tap } from 'rxjs/operators';
     ],
 })
 export class AgentComponent {
-    agentDetails: WritableSignal<AgentContextApi | null> = signal(null);
-
     private route = inject(ActivatedRoute);
     private snackBar = inject(MatSnackBar);
     private agentService = inject(AgentService);
     private destroyRef = inject(DestroyRef);
+
+    agentDetails = computed(() => {
+        const state = this.agentService.selectedAgentDetailsState();
+        console.log(`AgentComponent: Computed (State Sync) - agentService.selectedAgentDetailsState() changed. Status: ${state.status}`);
+        
+        if (state.status === 'success') {
+            const apiDetails = state.data;
+            const details = {...apiDetails};
+            details.toolState = details.toolState ?? {};
+            details.output = null;
+            if (details.state === 'completed') {
+                const maybeCompletedFunctionCall = details.functionCallHistory?.length
+                    ? details.functionCallHistory.slice(-1)[0]
+                    : null;
+                details.output = (details.error ?? maybeCompletedFunctionCall?.parameters?.['note']) ?? '';
+            }
+            console.log('AgentComponent: Computed (State Sync) - Agent Details Processed and Set from Service State. New local agentDetails:', JSON.stringify(details));
+            return details;
+        }
+        
+        console.log(`AgentComponent: Computed (State Sync) - Agent service state is '${state.status}'. Returning null.`);
+        return null;
+    });
+
+    private errorState = computed(() => {
+        const state = this.agentService.selectedAgentDetailsState();
+        if (state.status === 'error') {
+            return { type: 'error', message: 'Error loading agent details', error: state.error };
+        } else if (state.status === 'not_found') {
+            return { type: 'not_found', message: 'Agent not_found' };
+        } else if (state.status === 'forbidden') {
+            return { type: 'forbidden', message: 'Agent forbidden' };
+        }
+        return null;
+    });
 
     constructor() {
         this.route.paramMap.pipe(
@@ -60,39 +93,16 @@ export class AgentComponent {
             }
         });
 
-        effect(() => {
-            const state = this.agentService.selectedAgentDetailsState();
-            // Updated log:
-            console.log(`AgentComponent: Effect (State Sync) - agentService.selectedAgentDetailsState() changed. Status: ${state.status}`);
-            if (state.status === 'success') {
-                const apiDetails = state.data;
-                const details = {...apiDetails};
-                details.toolState = details.toolState ?? {};
-                details.output = null;
-                if (details.state === 'completed') {
-                    const maybeCompletedFunctionCall = details.functionCallHistory?.length
-                        ? details.functionCallHistory.slice(-1)[0]
-                        : null;
-                    details.output = (details.error ?? maybeCompletedFunctionCall?.parameters?.['note']) ?? '';
-                }
-                this.agentDetails.set(details);
-                // Updated log:
-                console.log('AgentComponent: Effect (State Sync) - Agent Details Processed and Set from Service State. New local agentDetails:', JSON.stringify(details)); // Stringify for better object logging
-            } else if (state.status === 'error') {
-                // Updated log:
-                console.error('AgentComponent: Effect (State Sync) - Error in agentService.selectedAgentDetailsState()', state.error);
-                this.snackBar.open('Error loading agent details', 'Close', { duration: 3000 });
-                this.agentDetails.set(null);
-            } else if (state.status === 'not_found' || state.status === 'forbidden') {
-                // Updated log:
-                console.log(`AgentComponent: Effect (State Sync) - Agent service state is '${state.status}'. Clearing local agentDetails.`);
-                this.snackBar.open(`Agent ${state.status}`, 'Close', {duration: 3000});
-                this.agentDetails.set(null);
-            } else { // idle or loading
-                // Updated log:
-                console.log(`AgentComponent: Effect (State Sync) - Agent service state is '${state.status}'. Clearing local agentDetails.`);
-                this.agentDetails.set(null);
+        toObservable(this.errorState).pipe(
+            filter(errorState => errorState !== null),
+            takeUntilDestroyed(this.destroyRef)
+        ).subscribe(errorState => {
+            if (errorState.type === 'error') {
+                console.error('AgentComponent: Error in agentService.selectedAgentDetailsState()', errorState.error);
+            } else {
+                console.log(`AgentComponent: Agent service state is '${errorState.type}'. Showing notification.`);
             }
+            this.snackBar.open(errorState.message, 'Close', { duration: 3000 });
         });
     }
 

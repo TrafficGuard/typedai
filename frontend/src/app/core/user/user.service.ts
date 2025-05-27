@@ -14,12 +14,17 @@ import { User } from "#shared/model/user.model"; // User model for internal stat
 export class UserService {
     private http = inject(HttpClient);
     private router = inject(Router);
-    
+
     // Private writable state
     private readonly _userState = createApiEntityState<UserProfile>();
-    
-    // Public readonly state
-    readonly userState = this._userState.asReadonly();
+
+    // Public readonly state. This exposes the User directly, and not an ApiEntityState, as the user must be authenticated, so an
+    readonly userEntityState = this._userState.asReadonly();
+
+    readonly userProfile = computed(() => {
+        const state = this._userState();
+        return state.status === 'success' ? state.data : null;
+    });
 
     set user(value: UserProfile | null) {
         if (value === null) {
@@ -37,22 +42,22 @@ export class UserService {
      */
     loadUser(): void {
         if (this._userState().status === 'loading') return;
-        
+
         this._userState.set({ status: 'loading' });
-        
+
         callApiRoute(this.http, USER_API.view).pipe(
             tap((user: UserProfile) => {
                 this._userState.set({ status: 'success', data: user });
             }),
             catchError(error => {
                 console.error('Error loading profile [error]', error);
-                
+
                 if (error?.status === 401 || error?.status === 403) {
                     this.router.navigate(['/ui/sign-in']);
                 }
-                
-                this._userState.set({ 
-                    status: 'error', 
+
+                this._userState.set({
+                    status: 'error',
                     error: error instanceof Error ? error : new Error('Error loading profile'),
                     code: error?.status
                 });

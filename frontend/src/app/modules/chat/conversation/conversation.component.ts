@@ -16,10 +16,10 @@ import {
     ViewEncapsulation,
     inject,
     signal,
+    Signal,
     WritableSignal,
     effect,
     computed,
-    Signal,
     DestroyRef,
 } from '@angular/core';
 import { toSignal, takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -101,8 +101,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
     llmsSignal: Signal<LLM[]>;
     llmId: WritableSignal<string | undefined> = signal(undefined);
-    currentUserSignal: Signal<UserProfile | null>;
-    defaultChatLlmId = computed(() => this.currentUserSignal()?.chat?.defaultLLM);
+    defaultChatLlmId = computed(() => this.userService.userProfile()?.chat?.defaultLLM);
 
     sendIcon: WritableSignal<string> = signal('heroicons_outline:paper-airplane');
 
@@ -182,7 +181,6 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     constructor() {
         this.chat = this._chatService.chat;
         this.chats = this._chatService.chats;
-        this.currentUserSignal = toSignal(this.userService.user$, { initialValue: null });
         this.llmsSignal = toSignal(this.llmService.getLlms(), { initialValue: [] });
         this.routeParamsSignal = toSignal(this.route.params, { initialValue: {} });
 
@@ -462,7 +460,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
         if (messageText === '' && attachments.length === 0)  return;
 
-        const currentUser = this.currentUserSignal();
+        const currentUser = this.userService.userProfile();
         if (!currentUser) {
             this._snackBar.open('User data not loaded. Cannot send message.', 'Close', { duration: 3000 });
             return;

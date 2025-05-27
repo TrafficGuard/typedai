@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, input, output, signal, WritableSignal, ChangeDetectionStrategy, effect, DestroyRef } from '@angular/core';
+import { Component, OnInit, inject, input, output, signal, WritableSignal, ChangeDetectionStrategy, effect, DestroyRef, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -15,8 +15,8 @@ import { MatListModule } from '@angular/material/list';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { catchError, finalize, of, throwError } from 'rxjs';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { catchError, finalize, of, throwError, filter } from 'rxjs';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 // import { environment } from 'environments/environment'; // Not directly used
 import { AgentContextApi } from '#shared/schemas/agent.schema';
 
@@ -69,6 +69,19 @@ export class AgentDetailsComponent implements OnInit {
     userPromptExpanded = signal(false);
     outputExpanded = signal(false);
 
+    private functionsData = computed(() => {
+        const state = this.functionsService.functionsState();
+        if (state.status === 'success') {
+            return state.data;
+        }
+        return [];
+    });
+
+    private functionsError = computed(() => {
+        const state = this.functionsService.functionsState();
+        return state.status === 'error' ? state.error : null;
+    });
+
     allAvailableFunctions: WritableSignal<string[]> = signal([]);
     llmNameMap: WritableSignal<Map<string, string>> = signal(new Map());
     isLoadingLlms = signal(false);
@@ -90,15 +103,18 @@ export class AgentDetailsComponent implements OnInit {
         this.hilForm = this.formBuilder.group({  feedback: [''] });
         this.errorForm = this.formBuilder.group({ errorDetails: ['', Validators.required] });
 
+        // Handle error side effects with RxJS
+        toObservable(this.functionsError).pipe(
+            filter(error => error !== null),
+            takeUntilDestroyed(this.destroyRef)
+        ).subscribe(error => {
+            console.error('Error loading functions in AgentDetailsComponent:', error);
+            this.snackBar.open('Error loading available functions', 'Close', { duration: 3000 });
+        });
+
+        // Update allAvailableFunctions using computed data
         effect(() => {
-            const state = this.functionsService.functionsState();
-            if (state.status === 'success') {
-                this.allAvailableFunctions.set(state.data);
-            } else if (state.status === 'error') {
-                console.error('Error loading functions in AgentDetailsComponent:', state.error);
-                this.allAvailableFunctions.set([]); // Reset or handle error appropriately
-                this.snackBar.open('Error loading available functions', 'Close', { duration: 3000 });
-            }
+            this.allAvailableFunctions.set(this.functionsData());
         });
     }
 
