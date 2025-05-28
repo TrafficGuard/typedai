@@ -167,10 +167,10 @@
                 </div>
             }
 
-            @if (agentDetails()?.userId) {
+            @if (agentDetails()?.user) {
                 <div class="mt-2 flex flex-col">
                     <span class="mb-2 font-bold text-lg">User ID</span>
-                    <span class="mb-2">{{ agentDetails()?.userId }}</span>
+                    <span class="mb-2">{{ agentDetails()?.user }}</span>
                 </div>
             }
         </div>
@@ -201,7 +201,15 @@
                         </span>
                     </mat-panel-title>
                 </mat-expansion-panel-header>
-                <div style="white-space: pre-wrap">{{ agentDetails()?.output }}</div>
+                <div style="white-space: pre-wrap">
+                    <markdown
+                        mermaid
+                        clipboard
+                        [clipboardButtonComponent]="clipboardButton"
+                        [data]="agentDetails()?.output"
+                        ngPreserveWhitespaces
+                    ></markdown>
+                </div>
             </mat-expansion-panel>
         }
 
@@ -221,25 +229,33 @@
         </div>
 
         <span class="mb-2 pt-3 text-lg font-bold">LLMS</span>
-        @if (isLoadingLlms()) {
-            <mat-progress-spinner diameter="20" mode="indeterminate"></mat-progress-spinner>
-        } @else if (llmLoadError()) {
-            <span class="text-red-500">{{ llmLoadError() }}</span>
-        } @else {
-            <div class="llm-container">
-                <div class="llm-column">
-                    <span class="llm-level">Easy:</span>
-                    <span class="llm-value">{{ getLlmName(agentDetails()!.llms.easy) }}</span>
+        @let llmState = llmService.llmsState();
+        @switch (llmState.status) {
+            @case ('loading') {
+                <mat-progress-spinner diameter="20" mode="indeterminate"></mat-progress-spinner>
+            }
+            @case ('error') {
+                <span class="text-red-500">{{ llmState.error?.message || 'Failed to load LLM data' }}</span>
+            }
+            @case ('success') {
+                <div class="llm-container">
+                    <div class="llm-column">
+                        <span class="llm-level">Easy:</span>
+                        <span class="llm-value">{{ getLlmName(agentDetails()!.llms.easy) }}</span>
+                    </div>
+                    <div class="llm-column">
+                        <span class="llm-level">Med:</span>
+                        <span class="llm-value">{{ getLlmName(agentDetails()!.llms.medium) }}</span>
+                    </div>
+                    <div class="llm-column">
+                        <span class="llm-level">Hard:</span>
+                        <span class="llm-value">{{ getLlmName(agentDetails()!.llms.hard) }}</span>
+                    </div>
                 </div>
-                <div class="llm-column">
-                    <span class="llm-level">Med:</span>
-                    <span class="llm-value">{{ getLlmName(agentDetails()!.llms.medium) }}</span>
-                </div>
-                <div class="llm-column">
-                    <span class="llm-level">Hard:</span>
-                    <span class="llm-value">{{ getLlmName(agentDetails()!.llms.hard) }}</span>
-                </div>
-            </div>
+            }
+            @case ('idle') {
+                <p>No LLM information available</p>
+            }
         }
 
 
@@ -255,7 +271,7 @@
 
     </mat-card>
 } @else {
-    <!-- Optionally show a loading spinner or message while agentDetails is null -->
+    <!-- Show a loading spinner or message while agentDetails is null -->
     <div class="flex justify-center items-center p-8">
         <mat-progress-spinner diameter="40" mode="indeterminate"></mat-progress-spinner>
     </div>

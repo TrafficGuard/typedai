@@ -37,13 +37,11 @@ This will clone our repo and run the tests
 Building and testing is easy, get ready for the next section
 <example-input>
 <example-output>
-\`\`\`markdown
 # Title
 
 Introduction to typescript
 
 ## Classes
-\`\`\`
 
 \`\`\`typescript
 export class Service implements IService {
@@ -66,13 +64,11 @@ build-job:
     - docker
 \`\`\`
 
-\`\`\`markdown
 This will clone our repo and run the tests
 
 # Conclusion
 
 Building and testing is easy, get ready for the next section
-\`\`\`
 </example-output>
 
 Your response should only contain the Markdown formatted text and nothing else. Do not include any preamble or explanation.

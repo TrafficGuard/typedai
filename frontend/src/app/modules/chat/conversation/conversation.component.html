@@ -1,4 +1,11 @@
 <div class="flex flex-auto flex-col overflow-y-auto dark:bg-default lg:overflow-hidden">
+    <!-- Loading State -->
+    @if (!chat()) {
+        <div class="flex flex-auto flex-col items-center justify-center bg-gray-100 dark:bg-transparent">
+            <mat-progress-spinner mode="indeterminate" [diameter]="50"></mat-progress-spinner>
+            <div class="text-secondary mt-4 text-lg font-medium">Loading conversation...</div>
+        </div>
+    }
     <!-- Conversation Content (Main chat interface) -->
     @if (chat(); as currentChat) {
         <mat-drawer-container class="h-full flex-auto" [hasBackdrop]="false">
@@ -92,6 +99,14 @@
                                 >
                                     <!-- Message -->
                                     <div class="min-w-4 leading-5">
+                                        <markdown
+                                            mermaid
+                                            clipboard
+                                            [clipboardButtonComponent]="clipboardButton"
+                                            [data]="message.textContentForDisplay"
+                                            ngPreserveWhitespaces
+                                        ></markdown>
+                                        <!--
                                         @if (message.textChunks && message.textChunks.length > 0) {
                                             @for (chunk of message.textChunks; track $index) {
                                                 @if (chunk.type === 'markdown') {
@@ -107,12 +122,10 @@
                                                         [data]="chunk.value"
                                                         ngPreserveWhitespaces
                                                     ></markdown>
-                                                    <!--
-                                                    <span [innerText]="chunk.value"></span>
-                                                    -->
                                                 }
                                             }
                                         }
+                                        -->
                                         <!-- Display non-image attachments -->
                                         @if (message.uiFileAttachments?.length > 0) {
                                             <div class="mt-2 border-t border-gray-300 dark:border-gray-600 pt-1">
@@ -165,9 +178,9 @@
                 <!-- Message field. Don't display if we're viewing someone else's shared conversation -->
                 @if (userService.userProfile(); as user) {
                     @if (!currentChat.shareable || user.id === currentChat.userId) {
-                        <div class="flex items-start border-t bg-gray-50 p-4 dark:bg-transparent">
+                        <div class="flex items-start border-t bg-gray-50 p-1 dark:bg-transparent sm:p-2">
                         <!-- Left Side: Buttons and mat-select -->
-                        <div class="flex flex-col items-start mr-4 -mt-2">
+                        <div class="flex flex-col items-start mr-1 -mt-2 sm:mr-2">
                             <!-- Buttons -->
                             <div class="flex items-center">
                                 <input
@@ -185,7 +198,7 @@
                                     [matTooltip]="'Attach a file. You can also drag a file onto the message field.'">
                                     <mat-icon [svgIcon]="'heroicons_outline:paper-clip'"></mat-icon>
                                 </button>
-                                <button class="ml-0.5"
+                                <button class="ml-0.5 hidden sm:inline-flex"
                                       mat-icon-button
                                       matTooltip="Hold to record"
                                       [disabled]="true"
@@ -195,28 +208,34 @@
                                       (mouseleave)="stopRecording()">
                                     <mat-icon [svgIcon]="'mic'"></mat-icon>
                                 </button>
-                                <button class="ml-0.5"
+                                <button class="ml-0.5 hidden sm:inline-flex"
                                         mat-icon-button
                                         (click)="toggleSendOnEnter()"
                                         [matTooltip]="sendOnEnter() ? 'Send on Enter. Press Shift-enter for new line. Click to toggle' : 'New line on Enter. Press Shift-enter to send. Click to toggle'">
                                     <mat-icon [svgIcon]="enterStateIcon()"></mat-icon>
                                 </button>
-                                <button class="ml-0.5"
+                                <button class="ml-0.5 hidden sm:inline-flex"
                                         mat-icon-button
                                         (click)="toggleThinking()"
                                         [disabled]="!llmHasThinkingLevels()"
                                         [matTooltip]="'Thinking level: ' + thinkingLevel().toUpperCase() + '. Click to cycle through thinking levels'">
                                     <mat-icon [svgIcon]="thinkingIcon()" [ngClass]="{'text-primary': thinkingLevel() !== 'off'}"></mat-icon>
                                 </button>
-                                <button class="ml-0.5"
+                                <button class="ml-0.5 hidden sm:inline-flex"
                                         mat-icon-button
                                         (click)="toggleAutoReformat()"
                                         [matTooltip]="'Auto-reformat message with Markdown (Ctrl+Shift+F)'">
-                                    <mat-icon [svgIcon]="autoReformatEnabled() ? 'heroicons_solid:sparkles' : 'heroicons_outline:sparkles'" [ngClass]="{'text-primary': autoReformatEnabled()}"></mat-icon>
+                                    <mat-icon
+                                        class="material-symbols-outlined"
+                                        [class.g-symbol-solid]="autoReformatEnabled()"
+                                        [class.g-symbol-outline]="!autoReformatEnabled()"
+                                        [ngClass]="{'text-primary': autoReformatEnabled()}">
+                                        markdown
+                                    </mat-icon>
                                 </button>
                             </div>
                             <!-- mat-select -->
-                            <mat-form-field appearance="fill" class="w-20 mt-2" style="min-width: 225px" subscriptSizing="dynamic">
+                            <mat-form-field appearance="fill" class="w-20 mt-2 hidden sm:block" style="min-width: 225px" subscriptSizing="dynamic">
                                 <mat-select #llmSelect (keydown)="handleLlmKeydown($event)" (selectionChange)="llmId.set($event.value)" placeholder="LLM" [value]="llmId()">
                                     @for (llm of llmsSignal(); track llm.id) {
                                         <mat-option [value]="llm.id">
@@ -226,7 +245,7 @@
                                 </mat-select>
                             </mat-form-field>
                         </div>
-                        <div class="flex flex-col w-full">
+                        <div class="flex flex-col w-full min-w-0">
                             <!-- Attachment previews -->
                             @if (selectedAttachments().length > 0) {
                                 <div class="flex flex-wrap gap-2 mb-2 attachment-previews">
@@ -264,7 +283,7 @@
                             </mat-form-field>
                         </div>
                         <!-- Send Button -->
-                        <div class="my-px ml-4 mt-2 flex h-11 items-center">
+                        <div class="ml-1 mt-2 flex h-11 items-center sm:ml-2">
                             <button mat-icon-button (click)="sendMessage()" [disabled]="generating()">
                                 <mat-icon [svgIcon]="sendIcon()"></mat-icon>
                             </button>
@@ -274,13 +293,5 @@
                 }
             </mat-drawer-content>
         </mat-drawer-container>
-    } @else {
-        <!-- This block shows when chat() is null/undefined, or if it's a NEW_CHAT_ID without a title yet -->
-        <div class="flex flex-auto flex-col items-center justify-center bg-gray-100 dark:bg-transparent">
-            <mat-icon class="icon-size-24" [svgIcon]="'heroicons_outline:chat-bubble-oval-left-ellipsis'"></mat-icon>
-            <div class="text-secondary mt-4 text-2xl font-semibold tracking-tight">
-                Select a conversation or start a new one.
-            </div>
-        </div>
     }
 </div>

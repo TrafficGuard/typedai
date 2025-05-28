@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import { createContext } from '#agent/agentContextLocalStorage';
 import { runCodeGenAgent } from '#agent/autonomous/codegen/codegenAutonomousAgent';
@@ -189,6 +190,26 @@ export async function resumeCompleted(agentId: string, executionId: string, inst
 	const agent = await appContext().agentStateService.load(agentId);
 	if (agent.executionId !== executionId) throw new Error('Invalid executionId. Agent has already been resumed');
 
+	// Generate New Execution Identifiers
+	agent.executionId = randomUUID();
+	agent.traceId = randomUUID(); // Or use an existing trace ID generation mechanism
+
+	// Reset Execution-Specific Fields
+	agent.callStack = [];
+	agent.error = null;
+	agent.output = undefined;
+	agent.iterations = 0;
+	agent.invoking = [];
+	agent.notes = [];
+	agent.messages = [];
+	agent.functionCallHistory = []; // Reset history before adding the resume event
+	agent.hilCount = 0;
+	agent.hilRequested = false;
+	agent.toolState = undefined;
+	agent.budgetRemaining = agent.hilBudget; // Reset remaining budget to full HIL budget
+	agent.lastUpdate = Date.now();
+
+	// Add Resume Event to History
 	if (instructions.trim().length) {
 		agent.functionCallHistory.push({
 			function_name: SUPERVISOR_RESUMED_FUNCTION_NAME,
@@ -196,8 +217,10 @@ export async function resumeCompleted(agentId: string, executionId: string, inst
 			parameters: {},
 		});
 	}
+
 	agent.state = 'agent';
 	agent.inputPrompt += `\nSupervisor note: The agent has been resumed from the completed state with the following instructions: ${instructions}`;
+
 	await appContext().agentStateService.save(agent);
 	await _startAgent(agent);
 }

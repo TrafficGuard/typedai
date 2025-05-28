@@ -52,6 +52,7 @@ import {FuseConfirmationService} from "../../../../@fuse/services/confirmation";
 import {ClipboardModule} from "@angular/cdk/clipboard";
 import {UserProfile} from "#shared/schemas/user.schema";
 import { SafeHtmlPipe } from 'app/core/pipes/safe-html.pipe';
+import {MatProgressSpinnerModule} from "@angular/material/progress-spinner";
 
 @Component({
     selector: 'chat-conversation',
@@ -69,8 +70,9 @@ import { SafeHtmlPipe } from 'app/core/pipes/safe-html.pipe';
         MatButtonModule,
         MatMenuModule,
         MatTooltipModule,
-        CommonModule, // Provides NgClass, DatePipe, DecimalPipe
+        CommonModule,
         MatFormFieldModule,
+        MatProgressSpinnerModule,
         MatInputModule,
         TextFieldModule,
         MarkdownModule,
@@ -80,7 +82,7 @@ import { SafeHtmlPipe } from 'app/core/pipes/safe-html.pipe';
         ClipboardButtonComponent,
         ClipboardModule,
         // SafeHtmlPipe, // Removed as it's not used
-        NgClass, // Added NgClass to imports
+        NgClass,
     ],
     providers: [
         provideMarkdown(),
@@ -649,7 +651,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
         if (event.key === 't' && event.ctrlKey && this.llmHasThinkingLevels()) {
             this.toggleThinking();
         }
-        if (event.key === 'F' && event.ctrlKey && event.shiftKey) {
+        if (event.key === 'f' && event.ctrlKey) {
             event.preventDefault();
             this.toggleAutoReformat();
         }
@@ -866,6 +868,8 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
         });
         // No explicit markForCheck needed after batch if selectedAttachments is a signal
     }
+
+    protected readonly NEW_CHAT_ID = NEW_CHAT_ID;
 }
 
 export function parseMessageContent(textContent: string | undefined | null): Array<{type: 'text' | 'markdown', value: string}> {

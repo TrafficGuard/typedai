@@ -23,7 +23,13 @@ export class CodeReviewServiceClient {
   readonly configsState = this._configsState.asReadonly();
 
   private loadConfigs(): void {
-    if (this._configsState().status === 'loading') return;
+    const currentState = this._configsState();
+    if (currentState.status === 'success') {
+      return; // Data already successfully loaded
+    }
+    if (currentState.status === 'loading') {
+      return; // Already loading
+    }
 
     this._configsState.set({ status: 'loading' });
 

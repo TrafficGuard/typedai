@@ -1,7 +1,12 @@
-import type { IFileSystemService } from '#shared/services/fileSystemService';
+import type { IFileSystemService as ImportedFileSystemService } from '#shared/services/fileSystemService';
 import type { ToolType } from '#shared/services/functions';
-import type { FunctionCall, FunctionCallResult, GenerationStats, ImagePartExt, LLM, LlmMessage } from './llm.model';
-import type { User } from './user.model';
+import type { FunctionCall, FunctionCallResult, GenerationStats, ImagePartExt, LLM as ImportedLLM, LlmMessage } from './llm.model';
+import type { User as ImportedUser } from './user.model';
+
+// Re-export imported types needed by other modules
+export type User = ImportedUser;
+export type LLM = ImportedLLM;
+export type IFileSystemService = ImportedFileSystemService;
 
 /**
  * The difficulty of a LLM generative task. Used to select an appropriate model for the cost vs capability.
@@ -95,7 +100,7 @@ export interface AgentContext {
 	parentAgentId?: string;
 	codeTaskId?: string;
 	/** The user who created the agent */
-	user: User;
+	user: ImportedUser; // Use the aliased import
 	/** The current state of the agent */
 	state: AgentRunningState;
 	/** Tracks what functions/spans we've called into */
@@ -112,7 +117,7 @@ export interface AgentContext {
 	/** Pre-configured LLMs by task difficulty level for the agent. Specific LLMs can always be instantiated if required. */
 	llms: AgentLLMs;
 	/** Working filesystem. Can be null if not initialized or applicable. */
-	fileSystem: IFileSystemService | null;
+	fileSystem: ImportedFileSystemService | null; // Use the aliased import
 	/** Determines if repositories should be cloned into a shared location (true) or the agent's private directory (false). Defaults to true. */
 	useSharedRepos: boolean;
 	/** Memory persisted over the agent's executions */
@@ -152,7 +157,7 @@ export interface AgentContext {
 	/** If the user has requested a human-in-the-loop intervention after the current control loop iteration completes */
 	hilRequested?: boolean;
 	/** The latest state of tools, updated at the end of each iteration */
-	toolState?: Partial<Record<'LiveFiles' | 'FileStore' | 'FileSystemTree', any>>;
+	toolState?: Record<string, any>;
 }
 
 /**

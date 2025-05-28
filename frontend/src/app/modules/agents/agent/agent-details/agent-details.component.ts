@@ -27,6 +27,8 @@ import { AgentLinks, GoogleCloudLinks } from "../../agent-links";
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AgentRunningState } from "#shared/model/agent.model";
 import { AGENT_ROUTE_DEFINITIONS } from '../../agent.routes';
+import {ClipboardButtonComponent} from "../../../chat/conversation/clipboard-button.component";
+import {MarkdownComponent, MarkdownModule, MarkdownService, MarkedRenderer, provideMarkdown} from "ngx-markdown";
 
 @Component({
     selector: 'agent-details',
@@ -49,6 +51,10 @@ import { AGENT_ROUTE_DEFINITIONS } from '../../agent.routes';
         MatRadioModule,
         MatTooltipModule,
         MatProgressSpinnerModule,
+        MarkdownModule,
+    ],
+    providers: [
+        provideMarkdown(),
     ],
 })
 export class AgentDetailsComponent implements OnInit {
@@ -80,9 +86,15 @@ export class AgentDetailsComponent implements OnInit {
     });
 
     allAvailableFunctions = computed(() => this.functionsData());
-    llmNameMap: WritableSignal<Map<string, string>> = signal(new Map());
-    isLoadingLlms = signal(false);
-    llmLoadError: WritableSignal<string | null> = signal(null);
+    // llmNameMap is derived from llmService.llmsState, which is the ApiListState signal
+    llmNameMap = computed(() => {
+        const state = this.llmService.llmsState();
+        if (state.status === 'success') {
+            return new Map(state.data.map(llm => [llm.id, llm.name]));
+        }
+        return new Map(); // Return empty map if not in success state
+    });
+
     agentLinks: AgentLinks = new GoogleCloudLinks();
     readonly routes = AGENT_ROUTE_DEFINITIONS;
 
@@ -90,9 +102,10 @@ export class AgentDetailsComponent implements OnInit {
     private snackBar = inject(MatSnackBar);
     private dialog = inject(MatDialog);
     private functionsService = inject(FunctionsService);
+    private markdown = inject(MarkdownService);
     private router = inject(Router);
     private agentService = inject(AgentService);
-    private llmService = inject(LlmService);
+    protected llmService = inject(LlmService); // Make protected to access in template
     private readonly destroyRef = inject(DestroyRef);
 
     constructor() {
@@ -113,22 +126,12 @@ export class AgentDetailsComponent implements OnInit {
     ngOnInit(): void {
         this.functionsService.getFunctions();
         this.llmService.loadLlms();
-        
-        // React to LLM state changes
-        toObservable(this.llmService.llmsState).pipe(
-            takeUntilDestroyed(this.destroyRef)
-        ).subscribe(state => {
-            this.isLoadingLlms.set(state.status === 'loading');
-            
-            if (state.status === 'success') {
-                this.llmNameMap.set(new Map(state.data.map(llm => [llm.id, llm.name])));
-                this.llmLoadError.set(null);
-            } else if (state.status === 'error') {
-                console.error('Error loading LLMs:', state.error);
-                this.llmLoadError.set('Failed to load LLM data');
-                this.snackBar.open('Error loading LLM data', 'Close', { duration: 3000 });
-            }
-        });
+
+        this.markdown.options = {
+            renderer: new MarkedRenderer(),
+            gfm: true,
+            breaks: true,
+        };
     }
 
     handleRefreshAgentDetails(): void {
@@ -414,4 +417,6 @@ export class AgentDetailsComponent implements OnInit {
             }
         });
     }
+
+    protected readonly clipboardButton = ClipboardButtonComponent;
 }
