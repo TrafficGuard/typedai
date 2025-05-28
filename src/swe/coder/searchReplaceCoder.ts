@@ -29,6 +29,8 @@ const DEFAULT_LENIENT_WHITESPACE = true;
 @funcClass(__filename)
 export class SearchReplaceCoder {
 	private vcs: VersionControlSystem | null;
+	private readonly precomputedSystemMessage: string;
+	private readonly precomputedExampleMessages: LlmMessage[];
 
 	constructor(
 		private fs: IFileSystemService = getFileSystem(),
@@ -37,6 +39,35 @@ export class SearchReplaceCoder {
 		private hooks: EditHook[] = [],
 	) {
 		this.vcs = this.fs.getVcsRoot() ? this.fs.getVcs() : null;
+
+		const fence = this.getFence();
+		const language = 'TypeScript'; // Default, can be made configurable
+		const suggestShellCommands = true; // Default, can be made configurable
+
+		let finalRemindersText = ''; // Add useLazyPrompt/useOvereagerPrompt logic if needed
+		const shellCmdPromptSection = suggestShellCommands
+			? EDIT_BLOCK_PROMPTS.shell_cmd_prompt.replace('{platform}', platform())
+			: EDIT_BLOCK_PROMPTS.no_shell_cmd_prompt.replace('{platform}', platform());
+
+		const mainSystemContent = EDIT_BLOCK_PROMPTS.main_system
+			.replace('{language}', language)
+			.replace('{final_reminders}', finalRemindersText.trim())
+			.replace('{shell_cmd_prompt_section}', shellCmdPromptSection);
+
+		const systemReminderContent = EDIT_BLOCK_PROMPTS.system_reminder
+			.replace(/{fence_0}/g, fence[0])
+			.replace(/{fence_1}/g, fence[1])
+			.replace('{quad_backtick_reminder}', '') // Add quadBacktickReminder if needed
+			.replace('{rename_with_shell_section}', suggestShellCommands ? EDIT_BLOCK_PROMPTS.rename_with_shell : '')
+			.replace('{go_ahead_tip_section}', EDIT_BLOCK_PROMPTS.go_ahead_tip)
+			.replace('{final_reminders}', finalRemindersText.trim())
+			.replace('{shell_cmd_reminder_section}', suggestShellCommands ? EDIT_BLOCK_PROMPTS.shell_cmd_reminder : '');
+		this.precomputedSystemMessage = `${mainSystemContent}\n\n${systemReminderContent}`;
+
+		this.precomputedExampleMessages = EDIT_BLOCK_PROMPTS.example_messages_template.map((msgTemplate) => ({
+			role: msgTemplate.role as 'system' | 'user' | 'assistant',
+			content: msgTemplate.content.replace(/{fence_0}/g, fence[0]).replace(/{fence_1}/g, fence[1]),
+		}));
 	}
 
 	private getFence(): [string, string] {
@@ -203,39 +234,11 @@ export class SearchReplaceCoder {
 		repoMapContent?: string,
 	): Promise<LlmMessage[]> {
 		const messages: LlmMessage[] = [];
-		const fence = this.getFence();
-		const language = 'TypeScript'; // Default, can be made configurable
-		const suggestShellCommands = true; // Default, can be made configurable
+		const fence = this.getFence(); // Still needed for formatting file content
 
-		// System Prompt
-		let finalRemindersText = ''; // Add useLazyPrompt/useOvereagerPrompt logic if needed
-		const shellCmdPromptSection = suggestShellCommands
-			? EDIT_BLOCK_PROMPTS.shell_cmd_prompt.replace('{platform}', platform())
-			: EDIT_BLOCK_PROMPTS.no_shell_cmd_prompt.replace('{platform}', platform());
-
-		const mainSystemContent = EDIT_BLOCK_PROMPTS.main_system
-			.replace('{language}', language)
-			.replace('{final_reminders}', finalRemindersText.trim())
-			.replace('{shell_cmd_prompt_section}', shellCmdPromptSection);
-
-		const systemReminderContent = EDIT_BLOCK_PROMPTS.system_reminder
-			.replace(/{fence_0}/g, fence[0])
-			.replace(/{fence_1}/g, fence[1])
-			.replace('{quad_backtick_reminder}', '') // Add quadBacktickReminder if needed
-			.replace('{rename_with_shell_section}', suggestShellCommands ? EDIT_BLOCK_PROMPTS.rename_with_shell : '')
-			.replace('{go_ahead_tip_section}', EDIT_BLOCK_PROMPTS.go_ahead_tip)
-			.replace('{final_reminders}', finalRemindersText.trim())
-			.replace('{shell_cmd_reminder_section}', suggestShellCommands ? EDIT_BLOCK_PROMPTS.shell_cmd_reminder : '');
-
-		messages.push({ role: 'system', content: `${mainSystemContent}\n\n${systemReminderContent}` });
-
-		// Example Messages
-		EDIT_BLOCK_PROMPTS.example_messages_template.forEach((msgTemplate) => {
-			messages.push({
-				role: msgTemplate.role as 'system' | 'user' | 'assistant',
-				content: msgTemplate.content.replace(/{fence_0}/g, fence[0]).replace(/{fence_1}/g, fence[1]),
-			});
-		});
+		// Use precomputed system and example messages
+		messages.push({ role: 'system', content: this.precomputedSystemMessage });
+		messages.push(...this.precomputedExampleMessages);
 
 		// File Context
 		const formatFileForPrompt = async (relativePath: string): Promise<string> => {
@@ -285,6 +288,7 @@ export class SearchReplaceCoder {
 
 	/**
 	 * Makes the changes to the project files to meet the task requirements using search/replace blocks.
+	 * Max attempts for the LLM to generate valid and applicable edits is 5.
 	 * @param requirements The complete task requirements with all supporting documentation and code samples.
 	 * @param filesToEdit Relative paths of files that can be edited. These will be included in the chat context.
 	 * @param readOnlyFiles Relative paths of files to be used as read-only context.
@@ -391,8 +395,8 @@ export class SearchReplaceCoder {
 
 			session.appliedFiles = appliedFilePaths;
 			logger.info({ appliedFiles: Array.from(session.appliedFiles) }, 'SearchReplaceCoder: Edits applied successfully.');
-			sessionEvents.emit('applied', { files: Array.from(session.appliedFiles) });
 
+			let allHooksPassed = true;
 			for (const hook of this.hooks) {
 				logger.info(`Running hook: ${hook.name}`);
 				const hookResult = await hook.run(session);
@@ -400,13 +404,18 @@ export class SearchReplaceCoder {
 					logger.warn(`Hook ${hook.name} failed: ${hookResult.message}`);
 					sessionEvents.emit('hook-failed', { hook: hook.name, msg: hookResult.message });
 					this._reflectOnHookFailure(session, hook.name, hookResult, currentMessages);
+					allHooksPassed = false;
 					continue attemptLoop;
 				}
 				logger.info(`Hook ${hook.name} completed successfully.`);
 			}
 
-			logger.info('SearchReplaceCoder: All edits applied and hooks passed successfully.');
-			return; // Success
+			if (allHooksPassed) {
+				sessionEvents.emit('applied', { files: Array.from(session.appliedFiles) });
+				logger.info('SearchReplaceCoder: All edits applied and hooks passed successfully.');
+				return; // Success
+			}
+			// If a hook failed, the attemptLoop will continue due to `continue attemptLoop`
 		}
 
 		logger.error(`SearchReplaceCoder: Maximum attempts (${MAX_ATTEMPTS}) reached. Failing.`);

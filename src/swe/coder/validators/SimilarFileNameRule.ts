@@ -1,17 +1,25 @@
 import { stringSimilarity } from 'string-similarity-js';
+import { logger } from '#o11y/logger';
 import type { EditBlock } from '../applySearchReplace';
 import type { ValidationIssue, ValidationRule } from './ValidationRule';
 
 const SEP = '/'; // Assuming POSIX-style paths from LLM
+const DEFAULT_SIMILARITY_THRESHOLD = 0.9;
 
 export class SimilarFileNameRule implements ValidationRule {
 	readonly name = 'SimilarFileNameRule';
 
 	constructor(
-		private threshold = 0.9,
-		private enabled = false, // Disabled by default as per roadmap
+		private threshold = DEFAULT_SIMILARITY_THRESHOLD,
+		private enabled = false, // Disabled by default
 		private checkParentFolderSimilarity = true, // Controls the parent folder + filename check
-	) {}
+	) {
+		if (!this.enabled && this.threshold !== DEFAULT_SIMILARITY_THRESHOLD) {
+			logger.warn(
+				`SimilarFileNameRule: Similarity check is disabled, but a non-default threshold (${this.threshold}) was provided. The threshold will not be used.`,
+			);
+		}
+	}
 
 	check(block: EditBlock, repoFiles: string[]): ValidationIssue | null {
 		if (repoFiles.includes(block.filePath)) {

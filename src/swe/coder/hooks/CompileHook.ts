@@ -6,6 +6,11 @@ import type { EditHook, HookResult } from './EditHook';
 export class CompileHook implements EditHook {
 	readonly name = 'compile';
 
+	/**
+	 * Creates a CompileHook.
+	 * @param compileCmd The compile command to execute. If it contains shell-specific syntax (e.g., pipes, variable expansions),
+	 *                   it will be executed within a shell.
+	 */
 	constructor(private compileCmd: string | undefined) {}
 
 	async run(session: EditSession): Promise<HookResult> {
@@ -16,7 +21,7 @@ export class CompileHook implements EditHook {
 
 		try {
 			logger.info(`CompileHook: Running compile command: ${this.compileCmd} in ${session.workingDir}`);
-			const { exitCode, stderr, stdout } = await execCommand(this.compileCmd, { workingDirectory: session.workingDir });
+			const { exitCode, stderr, stdout } = await execCommand(this.compileCmd, { workingDirectory: session.workingDir, shell: true });
 
 			if (exitCode === 0) {
 				logger.info('CompileHook: Compile command successful.');
