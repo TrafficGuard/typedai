@@ -31,21 +31,21 @@ describe('CompileHook', () => {
 
 	it('should return ok:true if compile command succeeds (exit code 0)', async () => {
 		const compileCmd = 'npm run build';
-		execCommandStub.withArgs(compileCmd, { cwd: session.workingDir }).resolves({ exitCode: 0, stdout: 'Build successful', stderr: '' });
+		execCommandStub.withArgs(compileCmd, { workingDirectory: session.workingDir }).resolves({ exitCode: 0, stdout: 'Build successful', stderr: '' });
 
 		const hook = new CompileHook(compileCmd);
 		const result = await hook.run(session);
 
 		expect(result.ok).to.be.true;
 		expect(result.message).to.be.undefined;
-		sinon.assert.calledOnceWithExactly(execCommandStub, compileCmd, { cwd: session.workingDir });
+		sinon.assert.calledOnceWithExactly(execCommandStub, compileCmd, { workingDirectory: session.workingDir });
 	});
 
 	it('should return ok:false with stderr message if compile command fails (non-zero exit code)', async () => {
 		const compileCmd = 'npm run build';
 		const stderrMessage = 'Compilation failed: Error X';
 		const stdoutMessage = 'Some output before failure';
-		execCommandStub.withArgs(compileCmd, { cwd: session.workingDir }).resolves({ exitCode: 1, stdout: stdoutMessage, stderr: stderrMessage });
+		execCommandStub.withArgs(compileCmd, { workingDirectory: session.workingDir }).resolves({ exitCode: 1, stdout: stdoutMessage, stderr: stderrMessage });
 
 		const hook = new CompileHook(compileCmd);
 		const result = await hook.run(session);
@@ -53,13 +53,13 @@ describe('CompileHook', () => {
 		expect(result.ok).to.be.false;
 		const expectedMessage = `Stderr:\n${stderrMessage}\n\nStdout:\n${stdoutMessage}`;
 		expect(result.message).to.equal(expectedMessage); // Not truncated in this case
-		sinon.assert.calledOnceWithExactly(execCommandStub, compileCmd, { cwd: session.workingDir });
+		sinon.assert.calledOnceWithExactly(execCommandStub, compileCmd, { workingDirectory: session.workingDir });
 	});
 
 	it('should truncate the message if it exceeds 4000 characters', async () => {
 		const compileCmd = 'npm run build';
 		const longStderr = 'a'.repeat(5000);
-		execCommandStub.withArgs(compileCmd, { cwd: session.workingDir }).resolves({ exitCode: 1, stdout: '', stderr: longStderr });
+		execCommandStub.withArgs(compileCmd, { workingDirectory: session.workingDir }).resolves({ exitCode: 1, stdout: '', stderr: longStderr });
 
 		const hook = new CompileHook(compileCmd);
 		const result = await hook.run(session);
@@ -73,13 +73,13 @@ describe('CompileHook', () => {
 	it('should return ok:false if execCommand throws an error', async () => {
 		const compileCmd = 'npm run build';
 		const errorMessage = 'Command not found';
-		execCommandStub.withArgs(compileCmd, { cwd: session.workingDir }).rejects(new Error(errorMessage));
+		execCommandStub.withArgs(compileCmd, { workingDirectory: session.workingDir }).rejects(new Error(errorMessage));
 
 		const hook = new CompileHook(compileCmd);
 		const result = await hook.run(session);
 
 		expect(result.ok).to.be.false;
 		expect(result.message).to.equal(`Error executing compile command: ${errorMessage}`);
-		sinon.assert.calledOnceWithExactly(execCommandStub, compileCmd, { cwd: session.workingDir });
+		sinon.assert.calledOnceWithExactly(execCommandStub, compileCmd, { workingDirectory: session.workingDir });
 	});
 });
