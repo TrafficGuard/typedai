@@ -7,7 +7,16 @@ import type { EditHook, HookResult } from './editHook';
 
 export class CompileHook implements EditHook {
 	readonly name = 'compile';
-	private readonly filePathRegex = /(?:[a-zA-Z]:)?(?:[\\/][\w.-]+)+[\w.-]+\.[a-zA-Z0-9_]+/g;
+	// Regex to capture various file path formats.
+	// It's constructed by ORing patterns for:
+	// 1. Windows absolute paths (C:\foo\bar.js)
+	// 2. POSIX absolute paths (/foo/bar.js)
+	// 3. Relative paths with directories (foo/bar.js, ../foo/bar.js)
+	// 4. Simple filenames (foo.js)
+	// This regex aims to capture the path itself, excluding trailing colons, line numbers, or surrounding quotes.
+	private readonly filePathRegex =
+		/(?:[a-zA-Z]:(?:[\\/](?:[\w.-]+[\\/])*[\w.-]+\.[a-zA-Z0-9_]+)|[\\/](?:[\w.-]+[\\/])*[\w.-]+\.[a-zA-Z0-9_]+|(?:[\w.-]+[\\/])+[\w.-]+\.[a-zA-Z0-9_]+|[\w.-]+\.[a-zA-Z0-9_]+)/g;
+
 
 	/**
 	 * Creates a CompileHook.
