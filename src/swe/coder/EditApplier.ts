@@ -39,6 +39,7 @@ export class EditApplier {
 	}
 
 	private async writeText(absolutePath: string, content: string): Promise<void> {
+		// Note: content is expected to end with a newline, as ensured by the _doReplace processing chain.
 		await this.fs.writeFile(absolutePath, content);
 	}
 

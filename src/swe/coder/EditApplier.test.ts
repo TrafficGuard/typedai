@@ -2,6 +2,7 @@ import * as path from 'node:path';
 import { expect } from 'chai';
 import mockFs from 'mock-fs';
 import * as sinon from 'sinon';
+import { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
 import type { IFileSystemService } from '#shared/services/fileSystemService';
 import type { VersionControlSystem } from '#shared/services/versionControlSystem';
@@ -14,54 +15,22 @@ describe('EditApplier', () => {
 	const testRoot = '/test-repo';
 	const defaultFence: [string, string] = ['```', '```'];
 
-	let mockFileSystemService: sinon.SinonStubbedInstance<IFileSystemService>;
+	let mockFileSystemService: sinon.SinonStubbedInstance<FileSystemService>;
 	let mockVCS: sinon.SinonStubbedInstance<VersionControlSystem>;
 
 	beforeEach(() => {
-		mockFileSystemService = {
-			fileExists: sinon.stub<[string], Promise<boolean>>(),
-			readFile: sinon.stub<[string], Promise<string | null>>(),
-			writeFile: sinon.stub<[string, string], Promise<void>>(),
-			// Stubs for other IFileSystemService methods if needed by EditApplier indirectly
-			// For now, focusing on what EditApplier.apply directly uses.
-			getBasePath: sinon.stub<[], string>().returns(testRoot),
-			getWorkingDirectory: sinon.stub<[], string>().returns(testRoot),
-			getVcs: sinon.stub<[], VersionControlSystem>().returns(mockVCS as any), // Cast since mockVCS is stubbed
-			getVcsRoot: sinon.stub<[], string | null>().returns(testRoot), // Assume VCS is available
-			listFilesRecursively: sinon.stub<[string?, boolean?], Promise<string[]>>().resolves([]),
-			readFilesAsXml: sinon.stub<[string | string[]], Promise<string>>().resolves(''),
-			fromJSON: sinon.stub<[any], sinon.SinonStubbedInstance<IFileSystemService> | null>().returns(mockFileSystemService),
-			toJSON: sinon.stub<[], { basePath: string; workingDirectory: string }>().returns({ basePath: testRoot, workingDirectory: testRoot }),
-			// Default stubs for other methods to satisfy the SinonStubbedInstance type, if not specifically tested.
-			// These may need specific typings if used in tests.
-			setWorkingDirectory: sinon.stub<[string], void>(),
-			getFileContentsRecursively: sinon.stub<[string, boolean?], Promise<Map<string, string>>>().resolves(new Map()),
-			getFileContentsRecursivelyAsXml: sinon.stub<[string, boolean, ((path: string) => boolean)?], Promise<string>>().resolves(''),
-			searchFilesMatchingContents: sinon.stub<[string], Promise<string>>().resolves(''),
-			searchExtractsMatchingContents: sinon.stub<[string, number?], Promise<string>>().resolves(''),
-			searchFilesMatchingName: sinon.stub<[string], Promise<string[]>>().resolves([]),
-			listFilesInDirectory: sinon.stub<[string?], Promise<string[]>>().resolves([]),
-			listFilesRecurse: sinon.stub<[string, string, any, boolean, string | null, ((file: string) => boolean)?], Promise<string[]>>().resolves([]),
-			readFileAsXML: sinon.stub<[string], Promise<string>>().resolves(''),
-			readFiles: sinon.stub<[string[]], Promise<Map<string, string>>>().resolves(new Map()),
-			formatFileContentsAsXml: sinon.stub<[Map<string, string>], string>().returns(''),
-			directoryExists: sinon.stub<[string], Promise<boolean>>().resolves(false),
-			writeNewFile: sinon.stub<[string, string], Promise<void>>().resolves(),
-			editFileContents: sinon.stub<[string, string], Promise<void>>().resolves(),
-			loadGitignoreRules: sinon.stub<[string, string | null], Promise<any>>().resolves({} as any),
-			listFolders: sinon.stub<[string?], Promise<string[]>>().resolves([]),
-			getAllFoldersRecursively: sinon.stub<[string?], Promise<string[]>>().resolves([]),
-			getFileSystemTree: sinon.stub<[string?], Promise<string>>().resolves(''),
-			getFileSystemTreeStructure: sinon.stub<[string?], Promise<Record<string, string[]>>>().resolves({}),
-			getFileSystemNodes: sinon.stub<[string?, boolean?], Promise<any | null>>().resolves(null),
-			buildNodeTreeRecursive: sinon.stub<[string, string, any, boolean, string | null], Promise<any[]>>().resolves([]),
-		};
+		mockFileSystemService = sinon.createStubInstance(FileSystemService);
+
+		// Configure default behaviors for methods used by EditApplier or test setup
+		mockFileSystemService.fileExists.resolves(false); // Default: file does not exist
+		mockFileSystemService.readFile.resolves(null); // Default: file not found or empty
+		mockFileSystemService.writeFile.resolves(); // Default: write succeeds
 
 		mockVCS = {
-			isDirty: sinon.stub<[string], Promise<boolean>>(),
-			addAllTrackedAndCommit: sinon.stub<[string], Promise<void>>(),
-			getBranchName: sinon.stub<[], Promise<string>>(),
-			getHeadSha: sinon.stub<[], Promise<string>>(),
+			isDirty: sinon.stub<[string], Promise<boolean>>().resolves(false),
+			addAllTrackedAndCommit: sinon.stub<[string], Promise<void>>().resolves(),
+			getBranchName: sinon.stub<[], Promise<string>>().resolves('main'),
+			getHeadSha: sinon.stub<[], Promise<string>>().resolves('dummySha'),
 			getDiff: sinon.stub<[string?], Promise<string>>().resolves(''),
 			createBranch: sinon.stub<[string], Promise<boolean>>().resolves(true),
 			switchToBranch: sinon.stub<[string], Promise<void>>().resolves(),
@@ -73,15 +42,13 @@ describe('EditApplier', () => {
 			commit: sinon.stub<[string], Promise<void>>().resolves(),
 			mergeChangesIntoLatestCommit: sinon.stub<[string[]], Promise<void>>().resolves(),
 		};
+		// Ensure the getVcs method on the stubbed FileSystemService returns the mockVCS
 		mockFileSystemService.getVcs.returns(mockVCS as any);
-
-		// Restore mock-fs before each test to ensure clean state
-		mockFs.restore();
 	});
 
 	afterEach(() => {
 		sinon.restore();
-		mockFs.restore(); // Ensure mock-fs is restored after each test
+		mockFs.restore();
 	});
 
 	const createBlock = (filePath: string, original: string, updated: string): EditBlock => ({
