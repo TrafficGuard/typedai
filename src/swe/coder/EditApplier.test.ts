@@ -35,7 +35,7 @@ describe('EditApplier', () => {
 			copyFile: sinon.stub<[string, string], Promise<void>>().resolves(),
 			isIgnored: sinon.stub<[string], Promise<boolean>>().resolves(false),
 			readFilesAsXml: sinon.stub<[string | string[]], Promise<string>>().resolves(''),
-			fromJSON: sinon.stub<[any], IFileSystemService | null>().returns(mockFileSystemService),
+			fromJSON: sinon.stub<[any], sinon.SinonStubbedInstance<IFileSystemService> | null>().returns(mockFileSystemService),
 			toJSON: sinon.stub<[], { basePath: string; workingDirectory: string }>().returns({ basePath: testRoot, workingDirectory: testRoot }),
 			// Default stubs for other methods to satisfy the SinonStubbedInstance type, if not specifically tested.
 			// These may need specific typings if used in tests.
