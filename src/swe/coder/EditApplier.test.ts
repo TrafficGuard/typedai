@@ -19,42 +19,64 @@ describe('EditApplier', () => {
 
 	beforeEach(() => {
 		mockFileSystemService = {
-			fileExists: sinon.stub(),
-			readFile: sinon.stub(),
-			writeFile: sinon.stub(),
+			fileExists: sinon.stub<[string], Promise<boolean>>(),
+			readFile: sinon.stub<[string], Promise<string | null>>(),
+			writeFile: sinon.stub<[string, string], Promise<void>>(),
 			// Stubs for other IFileSystemService methods if needed by EditApplier indirectly
 			// For now, focusing on what EditApplier.apply directly uses.
-			getBasePath: sinon.stub().returns(testRoot),
-			getWorkingDirectory: sinon.stub().returns(testRoot),
-			getVcs: sinon.stub().returns(mockVCS as any), // Cast since mockVCS is stubbed
-			getVcsRoot: sinon.stub().returns(testRoot), // Assume VCS is available
-			listFilesRecursively: sinon.stub().resolves([]),
-			ensureDir: sinon.stub().resolves(),
-			deleteFile: sinon.stub().resolves(),
-			renameFile: sinon.stub().resolves(),
-			copyFile: sinon.stub().resolves(),
-			isIgnored: sinon.stub().resolves(false),
-			readFilesAsXml: sinon.stub().resolves(''),
-			fromJSON: sinon.stub(),
-			toJSON: sinon.stub().returns({ basePath: testRoot, workingDirectory: testRoot }),
+			getBasePath: sinon.stub<[], string>().returns(testRoot),
+			getWorkingDirectory: sinon.stub<[], string>().returns(testRoot),
+			getVcs: sinon.stub<[], VersionControlSystem>().returns(mockVCS as any), // Cast since mockVCS is stubbed
+			getVcsRoot: sinon.stub<[], string | null>().returns(testRoot), // Assume VCS is available
+			listFilesRecursively: sinon.stub<[string?, boolean?], Promise<string[]>>().resolves([]),
+			ensureDir: sinon.stub<[string], Promise<void>>().resolves(),
+			deleteFile: sinon.stub<[string], Promise<void>>().resolves(),
+			renameFile: sinon.stub<[string, string], Promise<void>>().resolves(),
+			copyFile: sinon.stub<[string, string], Promise<void>>().resolves(),
+			isIgnored: sinon.stub<[string], Promise<boolean>>().resolves(false),
+			readFilesAsXml: sinon.stub<[string | string[]], Promise<string>>().resolves(''),
+			fromJSON: sinon.stub<[any], IFileSystemService | null>().returns(mockFileSystemService),
+			toJSON: sinon.stub<[], { basePath: string; workingDirectory: string }>().returns({ basePath: testRoot, workingDirectory: testRoot }),
+			// Default stubs for other methods to satisfy the SinonStubbedInstance type, if not specifically tested.
+			// These may need specific typings if used in tests.
+			setWorkingDirectory: sinon.stub<[string], void>(),
+			getFileContentsRecursively: sinon.stub<[string, boolean?], Promise<Map<string, string>>>().resolves(new Map()),
+			getFileContentsRecursivelyAsXml: sinon.stub<[string, boolean, ((path: string) => boolean)?], Promise<string>>().resolves(''),
+			searchFilesMatchingContents: sinon.stub<[string], Promise<string>>().resolves(''),
+			searchExtractsMatchingContents: sinon.stub<[string, number?], Promise<string>>().resolves(''),
+			searchFilesMatchingName: sinon.stub<[string], Promise<string[]>>().resolves([]),
+			listFilesInDirectory: sinon.stub<[string?], Promise<string[]>>().resolves([]),
+			listFilesRecurse: sinon.stub<[string, string, any, boolean, string | null, ((file: string) => boolean)?], Promise<string[]>>().resolves([]),
+			readFileAsXML: sinon.stub<[string], Promise<string>>().resolves(''),
+			readFiles: sinon.stub<[string[]], Promise<Map<string, string>>>().resolves(new Map()),
+			formatFileContentsAsXml: sinon.stub<[Map<string, string>], string>().returns(''),
+			directoryExists: sinon.stub<[string], Promise<boolean>>().resolves(false),
+			writeNewFile: sinon.stub<[string, string], Promise<void>>().resolves(),
+			editFileContents: sinon.stub<[string, string], Promise<void>>().resolves(),
+			loadGitignoreRules: sinon.stub<[string, string | null], Promise<any>>().resolves({} as any),
+			listFolders: sinon.stub<[string?], Promise<string[]>>().resolves([]),
+			getAllFoldersRecursively: sinon.stub<[string?], Promise<string[]>>().resolves([]),
+			getFileSystemTree: sinon.stub<[string?], Promise<string>>().resolves(''),
+			getFileSystemTreeStructure: sinon.stub<[string?], Promise<Record<string, string[]>>>().resolves({}),
+			getFileSystemNodes: sinon.stub<[string?, boolean?], Promise<any | null>>().resolves(null),
+			buildNodeTreeRecursive: sinon.stub<[string, string, any, boolean, string | null], Promise<any[]>>().resolves([]),
 		};
 
 		mockVCS = {
-			isDirty: sinon.stub(),
-			addAllTrackedAndCommit: sinon.stub(),
-			getBranchName: sinon.stub(),
-			getHeadSha: sinon.stub(),
-			// Add stubs for other VCS methods if they become relevant
-			getDiff: sinon.stub().resolves(''),
-			createBranch: sinon.stub().resolves(true),
-			switchToBranch: sinon.stub().resolves(),
-			getAddedFiles: sinon.stub().resolves([]),
-			getRecentCommits: sinon.stub().resolves([]),
-			isRepoDirty: sinon.stub().resolves(false),
-			revertFile: sinon.stub().resolves(),
-			commit: sinon.stub().resolves(),
-			commitFiles: sinon.stub().resolves(),
-			mergeChangesIntoLatestCommit: sinon.stub().resolves(),
+			isDirty: sinon.stub<[string], Promise<boolean>>(),
+			addAllTrackedAndCommit: sinon.stub<[string], Promise<void>>(),
+			getBranchName: sinon.stub<[], Promise<string>>(),
+			getHeadSha: sinon.stub<[], Promise<string>>(),
+			getDiff: sinon.stub<[string?], Promise<string>>().resolves(''),
+			createBranch: sinon.stub<[string], Promise<boolean>>().resolves(true),
+			switchToBranch: sinon.stub<[string], Promise<void>>().resolves(),
+			pull: sinon.stub<[], Promise<void>>().resolves(),
+			getAddedFiles: sinon.stub<[string?], Promise<string[]>>().resolves([]),
+			getRecentCommits: sinon.stub<[number], Promise<import('#shared/services/versionControlSystem').Commit[]>>().resolves([]),
+			isRepoDirty: sinon.stub<[], Promise<boolean>>().resolves(false),
+			revertFile: sinon.stub<[string], Promise<void>>().resolves(),
+			commit: sinon.stub<[string], Promise<void>>().resolves(),
+			mergeChangesIntoLatestCommit: sinon.stub<[string[]], Promise<void>>().resolves(),
 		};
 		mockFileSystemService.getVcs.returns(mockVCS as any);
 
