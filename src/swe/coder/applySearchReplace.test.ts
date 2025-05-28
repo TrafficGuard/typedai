@@ -3,22 +3,15 @@ import { expect } from 'chai';
 import mockFs from 'mock-fs';
 import * as sinon from 'sinon';
 import * as agentContextLocalStorage from '#agent/agentContextLocalStorage';
-import { join } from 'node:path';
-import { expect } from 'chai';
-import mockFs from 'mock-fs';
-import * as sinon from 'sinon';
-import * as agentContextLocalStorage from '#agent/agentContextLocalStorage';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { MockLLM } from '#llm/services/mock-llm';
 import { logger } from '#o11y/logger';
 import type { LLM } from '#shared/model/llm.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import { ApplySearchReplace } from '../../../tg/coderOrignal/applySearchReplace'; // Assuming this path is correct for the test's context
 import { DIVIDER_MARKER, REPLACE_MARKER, SEARCH_MARKER } from './constants';
 
 describe('ApplySearchReplace', () => {
 	setupConditionalLoggerOutput();
-	let llm: LLM;
 	let llm: LLM;
 
 	describe('FileSystem end-to-end tests', () => {
