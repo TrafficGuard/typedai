@@ -3,7 +3,7 @@ import type { Static } from '@sinclair/typebox';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send, sendBadRequest } from '#fastify/index';
 import { getLLM } from '#llm/llmFactory';
-import { summaryLLM } from '#llm/services/defaultLlms';
+import { defaultLLMs, summaryLLM } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { CHAT_API } from '#shared/api/chat.api';
 import type { Chat, ChatList } from '#shared/model/chat.model';
@@ -70,13 +70,14 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 				const originalText = contentText(currentUserContent);
 				if (originalText && originalText.trim() !== '') {
 					const formattingPrompt = getMarkdownFormatPrompt(originalText);
-					const formattingLlm = summaryLLM().isConfigured() ? summaryLLM() : llm;
+					const formattingLlm = defaultLLMs().medium;
 					try {
 						logger.info(
 							{ chatId: chat.id, llmId: formattingLlm.getId(), usingLlm: formattingLlm.getId() },
 							'Attempting to auto-reformat message content for new chat.',
 						);
 						const formattedText = await formattingLlm.generateText(formattingPrompt, { id: 'chat-auto-format' });
+						console.log(formattedText);
 						if (typeof currentUserContent === 'string') {
 							currentUserContent = formattedText;
 						} else if (Array.isArray(currentUserContent)) {
@@ -155,7 +156,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 				if (originalText && originalText.trim() !== '') {
 					const formattingPrompt = getMarkdownFormatPrompt(originalText);
 					// Use the LLM instance resolved for this specific send message operation as fallback
-					const formattingLlm = summaryLLM().isConfigured() ? summaryLLM() : llm;
+					const formattingLlm = defaultLLMs().medium;
 					try {
 						logger.info(
 							{ chatId, llmId: formattingLlm.getId(), usingLlm: formattingLlm.getId() },
