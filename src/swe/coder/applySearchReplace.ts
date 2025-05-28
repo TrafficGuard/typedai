@@ -204,9 +204,11 @@ export class ApplySearchReplace {
 	}
 
 	/** Corresponds to Coder.update_files */
-	private async _updateFiles(): Promise<Set<string>> {
-		const edits = findOriginalUpdateBlocks(this.currentLlmResponseContent, this.fence);
-		if (!edits.length) {
+import { EditApplier } from './EditApplier'; // Add this import
+
+export class ApplySearchReplace {
+	private fileSystemService: IFileSystemService;
+	private vcs: VersionControlSystem | null;
 			logger.info('No SEARCH/REPLACE blocks found in the LLM response.');
 			return new Set();
 		}
@@ -313,88 +315,10 @@ export class ApplySearchReplace {
 		}
 	}
 
-	/** Corresponds to EditBlockCoder.apply_edits */
-	private async _applyEdits(edits: EditBlock[]): Promise<{ passed: EditBlock[]; failed: EditBlock[] }> {
-		const passed: EditBlock[] = [];
-		const failed: EditBlock[] = [];
-
-		for (const edit of edits) {
-			const relativePath = edit.filePath;
-			const absolutePath = this.getRepoFilePath(relativePath);
-			let currentContent: string | null = null;
-
-			if (await this._fileExists(absolutePath)) {
-				currentContent = await this._readText(absolutePath);
-			}
-
-			// Use PatchUtils._doReplace
-			let newContent = PatchUtils._doReplace(
-				relativePath,
-				currentContent,
-				edit.originalText,
-				edit.updatedText,
-				this.fence,
-				this.lenientLeadingWhitespace,
-			);
-
-			let appliedToPath = absolutePath;
-			let appliedRelPath = relativePath;
-
-			// Fallback logic from Python: try patching other files in chat
-			if (newContent === undefined && currentContent !== null) {
-				logger.debug(`Edit for ${relativePath} failed. Attempting fallback on other in-chat files.`);
-				for (const chatFileAbs of this.absFnamesInChat) {
-					if (chatFileAbs === absolutePath) continue;
-
-					const chatFileRel = this.getRelativeFilePath(chatFileAbs);
-					let fallbackContent: string | null = null;
-					if (await this._fileExists(chatFileAbs)) {
-						fallbackContent = await this._readText(chatFileAbs);
-					}
-
-					if (fallbackContent !== null) {
-						// Use PatchUtils._doReplace for fallback
-						const fallbackNewContent = PatchUtils._doReplace(
-							chatFileRel,
-							fallbackContent,
-							edit.originalText,
-							edit.updatedText,
-							this.fence,
-							this.lenientLeadingWhitespace,
-						);
-						if (fallbackNewContent !== undefined) {
-							logger.info(`Applied edit originally for ${relativePath} to ${chatFileRel} as a fallback.`);
-							newContent = fallbackNewContent;
-							appliedToPath = chatFileAbs;
-							appliedRelPath = chatFileRel;
-							break; // Found a successful fallback
-						}
-					}
-				}
-			}
-
-			if (newContent !== undefined) {
-				if (!this.dryRun) {
-					try {
-						await this._writeText(appliedToPath, newContent);
-					} catch (e: any) {
-						logger.error(`Failed to write applied edit to ${appliedRelPath}: ${e.message}`);
-						failed.push({ ...edit, filePath: relativePath }); // Original path for failure report
-						continue; // Skip adding to passed
-					}
-				}
-				logger.info(`Successfully applied edit to ${appliedRelPath}${this.dryRun ? ' (dry run)' : ''}`);
-				passed.push({ ...edit, filePath: appliedRelPath }); // filePath might have changed due to fallback
-			} else {
-				logger.warn(`Failed to apply edit for ${relativePath}, no suitable match or fallback found.`);
-				failed.push(edit);
-			}
-		}
-		return { passed, failed };
-	}
+	// _applyEdits method is removed and its logic moved to EditApplier.ts
 
 	/** Generates error report for failed edits and sets `this.reflectedMessage` */
-	private async _generateFailedEditReport(failed: EditBlock[], passed: EditBlock[]): Promise<void> {
+	private async _generateFailedEditReport(failed: EditBlock[], numPassed: number): Promise<void> {
 		const numFailed = failed.length;
 		const blocks = numFailed === 1 ? 'block' : 'blocks';
 		let report = `# ${numFailed} SEARCH/REPLACE ${blocks} failed to match!\n`;
@@ -421,9 +345,9 @@ export class ApplySearchReplace {
 			}
 		}
 		report += 'The SEARCH section must exactly match an existing block of lines including all white space, comments, indentation, etc.\n';
-		if (passed.length > 0) {
-			const pblocks = passed.length === 1 ? 'block' : 'blocks';
-			report += `\n# The other ${passed.length} SEARCH/REPLACE ${pblocks} were applied successfully.\n`;
+		if (numPassed > 0) {
+			const pblocks = numPassed === 1 ? 'block' : 'blocks';
+			report += `\n# The other ${numPassed} SEARCH/REPLACE ${pblocks} were applied successfully.\n`;
 			report += `Don't re-send them.\nJust reply with fixed versions of the ${blocks} above that failed to match.\n`;
 		}
 		this.reflectedMessage = report;
