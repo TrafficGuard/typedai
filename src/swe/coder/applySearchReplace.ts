@@ -32,10 +32,11 @@ export type EditFormat = 'diff' | 'diff-fenced';
 
 interface SearchReplaceCoderOptions {
 	autoCommits?: boolean;
-	dirtyCommits?: boolean; // Corresponds to Python's auto-commit of dirty files before aider edits
+	/** Auto-commit of dirty files before edits */
+	dirtyCommits?: boolean;
 	dryRun?: boolean;
-	editFormat?: EditFormat; // May influence fence selection or prompts (prompts out of scope here)
-	lenientLeadingWhitespace?: boolean; // <<< Add this line
+	editFormat?: EditFormat;
+	lenientLeadingWhitespace?: boolean;
 	// initialFiles?: string[]; // Relative paths of files already in chat context
 }
 
@@ -163,7 +164,7 @@ export class ApplySearchReplace {
 			}
 
 			if (editedFilesRelativePaths.size > 0 && this.autoCommits && !this.dryRun && this.vcs) {
-				const commitMessage = 'Aider: Applied LLM-generated edits'; // Simplified commit message
+				const commitMessage = 'Applied LLM-generated edits'; // Simplified commit message
 				try {
 					// To commit only specific files, VCS interface might need enhancement.
 					// For now, using addAllTrackedAndCommit or a general commit.
