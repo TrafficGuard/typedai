@@ -171,9 +171,9 @@
                 <!-- Message field. Don't display if we're viewing someone else's shared conversation -->
                 @if (userService.userProfile(); as user) {
                     @if (!currentChat.shareable || user.id === currentChat.userId) {
-                        <div class="flex items-start border-t bg-gray-50 p-4 dark:bg-transparent">
+                        <div class="flex items-start border-t bg-gray-50 p-2 dark:bg-transparent sm:p-4">
                         <!-- Left Side: Buttons and mat-select -->
-                        <div class="flex flex-col items-start mr-4 -mt-2">
+                        <div class="flex flex-col items-start mr-2 -mt-2 sm:mr-4">
                             <!-- Buttons -->
                             <div class="flex items-center">
                                 <input
@@ -191,7 +191,7 @@
                                     [matTooltip]="'Attach a file. You can also drag a file onto the message field.'">
                                     <mat-icon [svgIcon]="'heroicons_outline:paper-clip'"></mat-icon>
                                 </button>
-                                <button class="ml-0.5"
+                                <button class="ml-0.5 hidden sm:inline-flex"
                                       mat-icon-button
                                       matTooltip="Hold to record"
                                       [disabled]="true"
@@ -201,20 +201,20 @@
                                       (mouseleave)="stopRecording()">
                                     <mat-icon [svgIcon]="'mic'"></mat-icon>
                                 </button>
-                                <button class="ml-0.5"
+                                <button class="ml-0.5 hidden sm:inline-flex"
                                         mat-icon-button
                                         (click)="toggleSendOnEnter()"
                                         [matTooltip]="sendOnEnter() ? 'Send on Enter. Press Shift-enter for new line. Click to toggle' : 'New line on Enter. Press Shift-enter to send. Click to toggle'">
                                     <mat-icon [svgIcon]="enterStateIcon()"></mat-icon>
                                 </button>
-                                <button class="ml-0.5"
+                                <button class="ml-0.5 hidden sm:inline-flex"
                                         mat-icon-button
                                         (click)="toggleThinking()"
                                         [disabled]="!llmHasThinkingLevels()"
                                         [matTooltip]="'Thinking level: ' + thinkingLevel().toUpperCase() + '. Click to cycle through thinking levels'">
                                     <mat-icon [svgIcon]="thinkingIcon()" [ngClass]="{'text-primary': thinkingLevel() !== 'off'}"></mat-icon>
                                 </button>
-                                <button class="ml-0.5"
+                                <button class="ml-0.5 hidden sm:inline-flex"
                                         mat-icon-button
                                         (click)="toggleAutoReformat()"
                                         [matTooltip]="'Auto-reformat message with Markdown (Ctrl+Shift+F)'">
@@ -228,7 +228,7 @@
                                 </button>
                             </div>
                             <!-- mat-select -->
-                            <mat-form-field appearance="fill" class="w-20 mt-2" style="min-width: 225px" subscriptSizing="dynamic">
+                            <mat-form-field appearance="fill" class="w-20 mt-2 hidden sm:block" style="min-width: 225px" subscriptSizing="dynamic">
                                 <mat-select #llmSelect (keydown)="handleLlmKeydown($event)" (selectionChange)="llmId.set($event.value)" placeholder="LLM" [value]="llmId()">
                                     @for (llm of llmsSignal(); track llm.id) {
                                         <mat-option [value]="llm.id">
@@ -238,7 +238,7 @@
                                 </mat-select>
                             </mat-form-field>
                         </div>
-                        <div class="flex flex-col w-full">
+                        <div class="flex flex-col w-full min-w-0">
                             <!-- Attachment previews -->
                             @if (selectedAttachments().length > 0) {
                                 <div class="flex flex-wrap gap-2 mb-2 attachment-previews">
@@ -276,7 +276,7 @@
                             </mat-form-field>
                         </div>
                         <!-- Send Button -->
-                        <div class="my-px ml-4 mt-2 flex h-11 items-center">
+                        <div class="ml-2 mt-2 flex h-11 items-center sm:ml-4">
                             <button mat-icon-button (click)="sendMessage()" [disabled]="generating()">
                                 <mat-icon [svgIcon]="sendIcon()"></mat-icon>
                             </button>
