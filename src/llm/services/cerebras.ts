@@ -7,6 +7,15 @@ import { AiLLM } from './ai-llm';
 
 export const CEREBRAS_SERVICE = 'cerebras';
 
+const CEREBRAS_KEYS: string[] = [];
+if (process.env.CEREBRAS_API_KEY) CEREBRAS_KEYS.push(process.env.CEREBRAS_API_KEY);
+for (let i = 2; i <= 9; i++) {
+	const key = process.env[`CEREBRAS_API_KEY_${i}`];
+	if (key) CEREBRAS_KEYS.push(key);
+	else break;
+}
+let cerebrasKeyIndex = 0;
+
 /**
  * https://inference-docs.cerebras.ai/introduction
  */
@@ -22,7 +31,12 @@ export class CerebrasLLM extends AiLLM<OpenAIProvider> {
 	}
 
 	protected apiKey(): string | undefined {
-		return currentUser().llmConfig.cerebrasKey || process.env.CEREBRAS_API_KEY;
+		let envKey: string;
+		if (CEREBRAS_KEYS.length) {
+			envKey = CEREBRAS_KEYS[cerebrasKeyIndex];
+			if (++cerebrasKeyIndex > CEREBRAS_KEYS.length) cerebrasKeyIndex = 0;
+		}
+		return currentUser().llmConfig.cerebrasKey || envKey || process.env.CEREBRAS_API_KEY;
 	}
 }
 

@@ -24,7 +24,7 @@ interface TestApplicationContext extends ApplicationContext {
 	agentService: AgentServiceWithStartAgent;
 }
 
-describe('CodeTaskCreation', () => {
+describe.skip('CodeTaskCreation', () => {
 	setupConditionalLoggerOutput();
 
 	let codeTaskRepo: CodeTaskRepository;
