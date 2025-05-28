@@ -1,13 +1,13 @@
 import { platform } from 'node:os';
 import * as path from 'node:path';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
-import type { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
 import type { LLM, LlmMessage } from '#shared/model/llm.model';
 import type { IFileSystemService } from '#shared/services/fileSystemService';
 import type { VersionControlSystem } from '#shared/services/versionControlSystem';
 import { _stripFilename } from '#swe/coder/applySearchReplaceUtils';
 import { EDIT_BLOCK_PROMPTS } from '#swe/coder/searchReplacePrompts';
+import { PatchUtils } from './patchUtils'; // Added import
 
 const SEARCH_MARKER = '<<<<<<< SEARCH';
 const DIVIDER_MARKER = '=======';
@@ -280,9 +280,8 @@ export class ApplySearchReplace {
 		const fileExists = await this._fileExists(absolutePath);
 
 		if (!fileExists) {
-			// Python's `allowed_to_edit` prompts user. Here, we simplify.
-			// Allow creation if SEARCH block is empty (intent to create/append).
-			const isIntentToCreate = !this._stripQuotedWrapping(originalTextIfNew, relativePath, this.fence).trim();
+			// Use PatchUtils for stripping
+			const isIntentToCreate = !PatchUtils._stripQuotedWrapping(originalTextIfNew, relativePath, this.fence).trim();
 			if (!isIntentToCreate) {
 				logger.warn(`Skipping edit for non-existent file ${relativePath} with non-empty SEARCH block.`);
 				return false;
@@ -330,13 +329,14 @@ export class ApplySearchReplace {
 				currentContent = await this._readText(absolutePath);
 			}
 
-			let newContent = this._doReplace(
+			// Use PatchUtils._doReplace
+			let newContent = PatchUtils._doReplace(
 				relativePath,
 				currentContent,
 				edit.originalText,
 				edit.updatedText,
-				this.fence, // Pass the coder's current fence for stripping
-				// this.fileSystemService, // Parameter removed
+				this.fence,
+				this.lenientLeadingWhitespace,
 			);
 
 			let appliedToPath = absolutePath;
@@ -355,8 +355,15 @@ export class ApplySearchReplace {
 					}
 
 					if (fallbackContent !== null) {
-						// Ensure fallback file content could be read
-						const fallbackNewContent = this._doReplace(chatFileRel, fallbackContent, edit.originalText, edit.updatedText, this.fence /* Parameter removed */);
+						// Use PatchUtils._doReplace for fallback
+						const fallbackNewContent = PatchUtils._doReplace(
+							chatFileRel,
+							fallbackContent,
+							edit.originalText,
+							edit.updatedText,
+							this.fence,
+							this.lenientLeadingWhitespace,
+						);
 						if (fallbackNewContent !== undefined) {
 							logger.info(`Applied edit originally for ${relativePath} to ${chatFileRel} as a fallback.`);
 							newContent = fallbackNewContent;
@@ -561,392 +568,17 @@ export class ApplySearchReplace {
 	// Remove the local _stripFilename as it's now imported from searchReplaceUtils
 	// private _stripFilename(...) { ... }
 
-	private _stripQuotedWrapping(text: string, filename?: string, fencePair?: [string, string]): string {
-		// Corresponds to strip_quoted_wrapping from editblock_coder.py
-		if (!text) return text;
-		const currentFence = fencePair || this.fence;
-
-		const lines = text.split('\n');
-
-		if (filename && lines.length > 0) {
-			const firstLineTrimmed = lines[0].trim();
-			// Check if first line is the filename (basename or full relative path)
-			if (firstLineTrimmed.endsWith(path.basename(filename)) || firstLineTrimmed === filename) {
-				lines.shift();
-			}
-		}
-
-		if (lines.length >= 2 && lines[0].startsWith(currentFence[0]) && lines[lines.length - 1].startsWith(currentFence[1])) {
-			lines.shift();
-			lines.pop();
-		}
-		// Handle case where closing fence might be missing or on the same line (less common for blocks)
-		// Python version is strict: requires opening and closing fences on separate lines.
-
-		let result = lines.join('\n');
-		if (result && !result.endsWith('\n')) {
-			// Python ensures content ends with \n
-			result += '\n';
-		}
-		return result;
-	}
-
-	private _doReplace(
-		relativePath: string, // Used for stripping filename from block, must be relative
-		currentContent: string | null,
-		originalBlock: string,
-		updatedBlock: string,
-		fenceToStrip: [string, string],
-		// fileSystemService: FileSystemService, // Parameter removed
-	): string | undefined {
-		// Corresponds to do_replace from editblock_coder.py
-		const beforeText = this._stripQuotedWrapping(originalBlock, relativePath, fenceToStrip);
-		const afterText = this._stripQuotedWrapping(updatedBlock, relativePath, fenceToStrip);
-
-		if (currentContent === null && !beforeText.trim()) {
-			// File does not exist, and SEARCH block is empty (intent to create new file)
-			return afterText;
-		}
-		if (currentContent === null && beforeText.trim()) {
-			// File does not exist, and SEARCH block is NOT empty. Cannot apply.
-			logger.warn(`File ${relativePath} not found, and SEARCH block is not empty. Cannot apply edit.`);
-			return undefined;
-		}
-
-		// File exists (currentContent is not null)
-		if (!beforeText.trim()) {
-			// Append to existing file if SEARCH block is empty
-			const base = currentContent as string; // Cast as it's not null here
-
-			// If creating a new file (currentContent was null, handled above) or afterText is just a newline, result is just a newline.
-			// This specific check for currentContent === null && afterText === '\n' is not strictly needed here
-			// as currentContent is not null at this point.
-
-			// If base is not empty and doesn't end with a newline, and afterText is not empty, add a newline for separation.
-			if (base && !base.endsWith('\n') && afterText.length > 0) {
-				// Avoid double newline if afterText itself is just "\n" and base already implies a line break.
-				// If afterText is just "\n", it means an empty REPLACE block, so just add a newline to base.
-				if (afterText === '\n') {
-					return `${base}\n`;
-				}
-				return `${base}\n${afterText}`;
-			}
-			// If base ends with '\n' or afterText is empty, simple concatenation is fine.
-			return base + afterText;
-		}
-
-		return this._replaceMostSimilarChunk(currentContent as string, beforeText, afterText);
-	}
-
-	private _prep(content: string): { text: string; lines: string[] } {
-		// Corresponds to prep from editblock_coder.py
-		// Ensures content ends with a newline and splits into lines (kept with newlines)
-		let processedContent = content;
-		if (processedContent && !processedContent.endsWith('\n')) {
-			processedContent += '\n';
-		}
-		const lines = processedContent.split('\n');
-		if (lines.length > 0 && lines[lines.length - 1] === '') {
-			lines.pop(); // Remove last empty string if content ended with \n
-		}
-		return { text: processedContent, lines: lines.map((l) => `${l}\n`) }; // Add \n back to each line
-	}
-
-	private _normalizeAndOutdent(
-		partLinesWithNL: string[],
-		replaceLinesWithNL: string[],
-	): {
-		normPartLines: string[]; // with \n
-		normReplaceLines: string[]; // with \n
-	} {
-		// Python's `replace_part_with_missing_leading_whitespace` normalizes part and replace lines
-		// by outdenting them by their collective minimum leading whitespace.
-		let minIndent = Number.POSITIVE_INFINITY;
-		const linesToConsider = [...partLinesWithNL, ...replaceLinesWithNL];
-
-		for (const lineWithNL of linesToConsider) {
-			const line = lineWithNL.slice(0, -1); // Remove \n for trim check
-			if (line.trim()) {
-				const leadingSpaceCount = line.match(/^(\s*)/)?.[0].length ?? 0;
-				minIndent = Math.min(minIndent, leadingSpaceCount);
-			}
-		}
-
-		const removedPrefixLen = minIndent === Number.POSITIVE_INFINITY || minIndent === 0 ? 0 : minIndent;
-
-		const normP = removedPrefixLen > 0 ? partLinesWithNL.map((lwnl) => (lwnl.slice(0, -1).trim() ? lwnl.substring(removedPrefixLen) : lwnl)) : partLinesWithNL;
-		const normR =
-			removedPrefixLen > 0 ? replaceLinesWithNL.map((lwnl) => (lwnl.slice(0, -1).trim() ? lwnl.substring(removedPrefixLen) : lwnl)) : replaceLinesWithNL;
-
-		return { normPartLines: normP, normReplaceLines: normR };
-	}
-
-	private _perfectReplace(wholeLines: string[], partLines: string[], replaceLines: string[]): string | undefined {
-		// Corresponds to perfect_replace from editblock_coder.py
-		// All inputs are arrays of strings, each ending with \n
-		if (partLines.length === 0) {
-			// Python's logic implies if partLines is empty, it's not a "perfect_replace" scenario.
-			// That's handled by `!before_text.trim()` in `_doReplaceTs`.
-			return undefined;
-		}
-
-		for (let i = 0; i <= wholeLines.length - partLines.length; i++) {
-			let match = true;
-			for (let j = 0; j < partLines.length; j++) {
-				if (wholeLines[i + j] !== partLines[j]) {
-					match = false;
-					break;
-				}
-			}
-			if (match) {
-				const result = [...wholeLines.slice(0, i), ...replaceLines, ...wholeLines.slice(i + partLines.length)];
-				return result.join(''); // Lines already have \n
-			}
-		}
-		return undefined;
-	}
-
-	private _matchButForLeadingWhitespace(wholeChunkLines: string[], partLines: string[]): string | undefined {
-		// Corresponds to match_but_for_leading_whitespace from editblock_coder.py
-		// All inputs are arrays of strings, each ending with \n
-		if (wholeChunkLines.length !== partLines.length) return undefined;
-		const num = wholeChunkLines.length;
-		if (num === 0) return ''; // Empty chunks match with empty prefix
-
-		// --- Original Strict Check (from Python version) ---
-		let commonPrefixFromWholeStrict: string | undefined = undefined;
-		let firstNonBlankStrict = true;
-		let strictCheckFailed = false;
-
-		for (let i = 0; i < num; i++) {
-			const wholeLineContentNoNL = wholeChunkLines[i].slice(0, -1);
-			const partLineContentNoNL = partLines[i].slice(0, -1);
-
-			if (wholeLineContentNoNL.trimStart() !== partLineContentNoNL.trimStart()) {
-				strictCheckFailed = true;
-				break; // Core content mismatch
-			}
-
-			if (wholeLineContentNoNL.trim()) {
-				const currentWholePrefix = wholeLineContentNoNL.substring(0, wholeLineContentNoNL.indexOf(wholeLineContentNoNL.trimStart()));
-				if (firstNonBlankStrict) {
-					commonPrefixFromWholeStrict = currentWholePrefix;
-					firstNonBlankStrict = false;
-				} else if (commonPrefixFromWholeStrict !== currentWholePrefix) {
-					strictCheckFailed = true;
-					break; // Prefixes from whole_lines are not consistent for this chunk
-				}
-			}
-		}
-
-		if (!strictCheckFailed) {
-			return commonPrefixFromWholeStrict === undefined ? '' : commonPrefixFromWholeStrict;
-		}
-
-		// --- Lenient Check (if strict failed and lenientLeadingWhitespace flag is true) ---
-		if (this.lenientLeadingWhitespace) {
-			let firstNonBlankLenient = true;
-			let expectedOffset: number | undefined = undefined;
-			let prefixToReturnForLenientMatch: string | undefined = undefined;
-
-			for (let i = 0; i < num; i++) {
-				const wholeLineContentNoNL = wholeChunkLines[i].slice(0, -1);
-				const partLineContentNoNL = partLines[i].slice(0, -1); // partLines are already normalized by _normalizeAndOutdent
-
-				const wholeTrimmed = wholeLineContentNoNL.trimStart();
-				const partTrimmed = partLineContentNoNL.trimStart();
-
-				// This check is crucial. If strictCheckFailed was true due to content mismatch,
-				// this will also fail, and lenient matching won't proceed for this chunk.
-				// If strictCheckFailed was true due to inconsistent prefix in wholeChunk,
-				// this ensures the core content still matches line by line.
-				if (wholeTrimmed !== partTrimmed) {
-					return undefined;
-				}
-
-				// Handle blank lines:
-				// If wholeLine is blank (wholeTrimmed is empty)
-				if (!wholeTrimmed) {
-					if (!partTrimmed) {
-						// And partLine is also blank
-						continue; // Both blank, this line is fine, doesn't affect offset consistency.
-					}
-					// wholeLine is blank, but partLine is not. This is a content mismatch.
-					return undefined;
-				}
-				// At this point, wholeTrimmed is not empty.
-				// If partTrimmed was empty but wholeTrimmed is not, it's a mismatch (already covered by wholeTrimmed !== partTrimmed).
-
-				const wholePrefixLength = wholeLineContentNoNL.length - wholeTrimmed.length;
-				const partPrefixLength = partLineContentNoNL.length - partTrimmed.length;
-				const currentOffset = wholePrefixLength - partPrefixLength;
-
-				if (firstNonBlankLenient) {
-					expectedOffset = currentOffset;
-					// Capture the actual prefix from the first non-blank line of the wholeChunk
-					prefixToReturnForLenientMatch = wholeLineContentNoNL.substring(0, wholePrefixLength);
-					firstNonBlankLenient = false;
-				} else if (currentOffset !== expectedOffset) {
-					// Offset is not consistent across non-blank lines
-					return undefined;
-				}
-			}
-
-			// If loop completes:
-			if (!firstNonBlankLenient) {
-				// At least one non-blank line was processed and offsets were consistent.
-				return prefixToReturnForLenientMatch;
-			}
-			// All lines were blank (or num === 0, which is handled at the start).
-			// If num > 0 and all lines in both chunks were blank, they match with an empty effective prefix.
-			if (num > 0) {
-				return ''; // All lines in both chunks were blank.
-			}
-		}
-
-		return undefined; // Both strict and lenient (if attempted) failed
-	}
-
-	private _replacePartWithMissingLeadingWhitespace(wholeLines: string[], partLines: string[], replaceLines: string[]): string | undefined {
-		// Corresponds to replace_part_with_missing_leading_whitespace from editblock_coder.py
-		// All inputs are arrays of strings, each ending with \n
-
-		// Python normalizes partLines and replaceLines together by their common min indent.
-		const { normPartLines, normReplaceLines } = this._normalizeAndOutdent(partLines, replaceLines);
-
-		if (normPartLines.length === 0) return undefined;
-
-		for (let i = 0; i <= wholeLines.length - normPartLines.length; i++) {
-			const wholeChunk = wholeLines.slice(i, i + normPartLines.length);
-			const leadingWsToAdd = this._matchButForLeadingWhitespace(wholeChunk, normPartLines);
-
-			if (leadingWsToAdd !== undefined) {
-				const adjustedReplaceLines = normReplaceLines.map((rLineWithNL) => (rLineWithNL.slice(0, -1).trim() ? leadingWsToAdd + rLineWithNL : rLineWithNL));
-				const result = [...wholeLines.slice(0, i), ...adjustedReplaceLines, ...wholeLines.slice(i + normPartLines.length)];
-				return result.join('');
-			}
-		}
-		return undefined;
-	}
-
-	private _tryDotDotDots(wholeContentStr: string, partContentStr: string, replaceContentStr: string): string | undefined {
-		// Corresponds to try_dotdotdots from editblock_coder.py
-		// Operates on full strings (which should end in \n as per _prepContent)
-		const dotsRegex = /(^\s*\.\.\.\s*\n)/m; // Matches '...' on its own line, possibly indented
-
-		// Ensure inputs end with \n for consistent splitting
-		const ensureNewline = (s: string) => (s.endsWith('\n') ? s : `${s}\n`);
-		partContentStr = ensureNewline(partContentStr);
-		replaceContentStr = ensureNewline(replaceContentStr);
-		wholeContentStr = ensureNewline(wholeContentStr);
-
-		const rawPartPieces = partContentStr.split(dotsRegex);
-		const rawReplacePieces = replaceContentStr.split(dotsRegex);
-
-		// Filter out undefined pieces from split (can happen with capturing groups)
-		const partSplit = rawPartPieces.filter((p) => p !== undefined);
-		const replaceSplit = rawReplacePieces.filter((p) => p !== undefined);
-
-		if (partSplit.length === 1 && !dotsRegex.test(partContentStr)) return undefined; // No '...' in part
-
-		if (partSplit.length !== replaceSplit.length) {
-			logger.warn("Unpaired '...' in SEARCH/REPLACE block (lengths differ).");
-			return undefined;
-		}
-
-		// Compare '...' separator pieces (odd indices in raw split)
-		for (let i = 1; i < partSplit.length; i += 2) {
-			if (partSplit[i] !== replaceSplit[i]) {
-				logger.warn("Mismatched '...' elision patterns in SEARCH/REPLACE block.");
-				return undefined;
-			}
-		}
-
-		// Extract content pieces (even indices in raw split)
-		const contentPartPieces = partSplit.filter((_, idx) => idx % 2 === 0);
-		const contentReplacePieces = replaceSplit.filter((_, idx) => idx % 2 === 0);
-
-		let currentWholeContent = wholeContentStr;
-		for (let i = 0; i < contentPartPieces.length; i++) {
-			const pPiece = contentPartPieces[i];
-			const rPiece = contentReplacePieces[i];
-
-			if (!pPiece && !rPiece) continue; // Both segments are empty (e.g., ... \n ... results in empty segment)
-
-			if (!pPiece && rPiece) {
-				// Python: appends rPiece to whole. This is specific.
-				// This means an insertion where the original `part` had nothing but `...`
-				// Example: SEARCH `...\n...` REPLACE `...\nnew_text\n...`
-				// The `pPiece` would be "" and `rPiece` would be "new_text\n".
-				// Python's behavior: `whole += rPiece`.
-				// This implies appending to the *current end* of `currentWholeContent`.
-				if (!currentWholeContent.endsWith('\n') && rPiece.startsWith('\n')) {
-					// Avoid double newline if whole doesn't end with one but rPiece starts with one
-				} else if (!currentWholeContent.endsWith('\n')) {
-					currentWholeContent += '\n';
-				}
-				currentWholeContent += rPiece;
-				continue;
-			}
-
-			// pPiece is not empty
-			const escapedPPiece = this._escapeRegExp(pPiece);
-			const occurrences = (currentWholeContent.match(new RegExp(escapedPPiece, 'g')) || []).length;
-
-			if (occurrences === 0) {
-				logger.warn(`Segment for '...' replacement not found: "${pPiece.substring(0, 50)}..."`);
-				return undefined;
-			}
-			if (occurrences > 1) {
-				logger.warn(`Segment for '...' replacement is ambiguous (found ${occurrences} times): "${pPiece.substring(0, 50)}..."`);
-				return undefined;
-			}
-			currentWholeContent = currentWholeContent.replace(new RegExp(escapedPPiece), rPiece);
-		}
-		return currentWholeContent;
-	}
-
-	private _escapeRegExp(str: string): string {
-		return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-	}
-
-	private _replaceMostSimilarChunk(whole: string, part: string, replace: string): string | undefined {
-		// Corresponds to replace_most_similar_chunk from editblock_coder.py
-		// All inputs are full strings, expected to be normalized by _prep if coming from lines.
-
-		const { lines: wholeLines, text: wholeText } = this._prep(whole);
-		const { lines: partLines, text: partText } = this._prep(part);
-		const { lines: replaceLines, text: replaceText } = this._prep(replace);
-
-		// Try perfect match on lines
-		let result = this._perfectReplace(wholeLines, partLines, replaceLines);
-		if (result !== undefined) return result;
-
-		// Try flexible about leading whitespace on lines
-		result = this._replacePartWithMissingLeadingWhitespace(wholeLines, partLines, replaceLines);
-		if (result !== undefined) return result;
-
-		// Python's version also tries dropping a leading blank line from part_lines.
-		if (partLines.length > 0 && partLines[0].trim() === '') {
-			// First line is blank
-			const skippedBlankPartLines = partLines.slice(1);
-			if (skippedBlankPartLines.length > 0) {
-				// Ensure not empty after skipping
-				result = this._perfectReplace(wholeLines, skippedBlankPartLines, replaceLines);
-				if (result !== undefined) return result;
-				result = this._replacePartWithMissingLeadingWhitespace(wholeLines, skippedBlankPartLines, replaceLines);
-				if (result !== undefined) return result;
-			}
-		}
-
-		// Try to handle when it elides code with ... (operates on full strings)
-		result = this._tryDotDotDots(wholeText, partText, replaceText);
-		if (result !== undefined) return result;
-
-		// Fuzzy matching (replace_closest_edit_distance) is commented out in Python
-		// and would require a more complex diffing library. Not ported.
-		return undefined;
-	}
+	// REMOVE the following methods from ApplySearchReplace as they are now in PatchUtils:
+	// _stripQuotedWrapping
+	// _doReplace
+	// _prep
+	// _normalizeAndOutdent
+	// _perfectReplace
+	// _matchButForLeadingWhitespace
+	// _replacePartWithMissingLeadingWhitespace
+	// _tryDotDotDots
+	// _escapeRegExp
+	// _replaceMostSimilarChunk
 
 	// Add this method inside the ApplySearchReplace class
 	private async _formatFileForPrompt(relativePath: string): Promise<string | null> {
