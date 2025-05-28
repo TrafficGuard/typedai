@@ -10,7 +10,7 @@ import type { VersionControlSystem } from '#shared/services/versionControlSystem
 import type { EditBlock } from '#swe/coder/coderTypes';
 import { EditApplier } from './editApplier';
 import { findOriginalUpdateBlocks } from './editBlockParser';
-import type { EditSession, RequestedFileEntry, RequestedQueryEntry, RequestedPackageInstallEntry } from './editSession'; // Import new types
+import type { EditSession, RequestedFileEntry, RequestedPackageInstallEntry, RequestedQueryEntry } from './editSession'; // Import new types
 import { newSession } from './editSession';
 import type { EditHook, HookResult } from './hooks/editHook';
 import { stripQuotedWrapping } from './patchUtils'; // Updated import
@@ -103,7 +103,6 @@ function parseInstallPackageRequest(responseText: string): RequestedPackageInsta
 		return null;
 	}
 }
-
 
 @funcClass(__filename)
 export class SearchReplaceCoder {
@@ -370,6 +369,8 @@ export class SearchReplaceCoder {
 				temperature: 0.0,
 			});
 
+			console.log(messageText(llmResponseMsgObj));
+
 			currentMessages.push(llmResponseMsgObj);
 			session.llmResponse = messageText(llmResponseMsgObj);
 			session.requestedFiles = parseAddFilesRequest(session.llmResponse);
@@ -410,9 +411,10 @@ export class SearchReplaceCoder {
 
 				if (session.parsedBlocks.length === 0) {
 					// LLM made meta-request(s) and provided no edit blocks (expected behavior for meta-requests)
-					reflectionForMetaRequests += `Please wait for these requests to be processed, or proceed with edits if you can now make them without these items. If you no longer need them, provide the edits.`;
+					reflectionForMetaRequests +=
+						'Please wait for these requests to be processed, or proceed with edits if you can now make them without these items. If you no longer need them, provide the edits.';
 					this._addReflectionToMessages(session, reflectionForMetaRequests, currentMessages);
-					continue attemptLoop;
+					continue;
 				}
 				// LLM made meta-request(s) AND provided edit blocks. Warn but proceed with blocks.
 				logger.warn(`LLM made meta-request(s) AND provided edit blocks. Processing edit blocks. Meta-requests: ${reflectionForMetaRequests}`);
