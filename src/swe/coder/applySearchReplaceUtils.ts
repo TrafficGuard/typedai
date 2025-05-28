@@ -8,7 +8,7 @@ import { COMMON_LANGUAGES } from './constants';
  * @param fenceOpen The opening fence string (e.g., "```").
  * @returns The cleaned filename, or undefined if no valid filename is found.
  */
-export function _stripFilename(filenameLine: string, fenceOpen: string): string | undefined {
+export function stripFilename(filenameLine: string, fenceOpen: string): string | undefined {
 	const originalTrimmedLine = filenameLine.trim();
 	if (originalTrimmedLine === '...') return undefined;
 

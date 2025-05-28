@@ -1,12 +1,12 @@
 import { logger } from '#o11y/logger';
 import type { EditBlock } from '#swe/coder/applySearchReplace'; // Reuse EditBlock type
-import { _stripFilename } from '#swe/coder/applySearchReplaceUtils';
+import { stripFilename } from '#swe/coder/applySearchReplaceUtils';
 import { DIVIDER_MARKER, REPLACE_MARKER, SEARCH_MARKER } from './constants';
 
 /**
  * Finds a filename from the last few lines of the preceding text content.
  * Corresponds to find_filename from aider's editblock_coder.py.
- * Uses the _stripFilename utility.
+ * Uses the stripFilename utility.
  */
 function findFilenameFromPrecedingLines(precedingContent: string, fenceOpen: string): string | undefined {
 	const lines = precedingContent.split('\n');
@@ -15,7 +15,7 @@ function findFilenameFromPrecedingLines(precedingContent: string, fenceOpen: str
 		const lineIndex = lines.length - 1 - k;
 		const line = lines[lineIndex];
 
-		const filename = _stripFilename(line, fenceOpen); // _stripFilename is from applySearchReplaceUtils
+		const filename = stripFilename(line, fenceOpen); // stripFilename is from applySearchReplaceUtils
 		if (filename) {
 			return filename;
 		}

@@ -20,6 +20,11 @@ import { ModuleAliasRule } from './validators/ModuleAliasRule';
 import { PathExistsRule } from './validators/PathExistsRule';
 import type { ValidationIssue, ValidationRule } from './validators/ValidationRule';
 import { validateBlocks } from './validators/compositeValidator';
+import {
+	buildValidationIssuesReflection,
+	buildFailedEditsReflection,
+	buildHookFailureReflection,
+} from './reflectionUtils';
 
 const MAX_ATTEMPTS = 5;
 const DEFAULT_FENCE_OPEN = '```';
@@ -69,7 +74,7 @@ export class SearchReplaceCoder {
 			content: msgTemplate.content.replace(/{fence_0}/g, fence[0]).replace(/{fence_1}/g, fence[1]),
 		}));
 	}
-
+ 
 	private getFence(): [string, string] {
 		return [DEFAULT_FENCE_OPEN, DEFAULT_FENCE_CLOSE];
 	}
@@ -182,47 +187,17 @@ export class SearchReplaceCoder {
 	}
 
 	private _reflectOnValidationIssues(session: EditSession, issues: ValidationIssue[], currentMessages: LlmMessage[]): void {
-		let reflectionText = 'There were issues with the file paths or structure of your proposed changes:\n';
-		for (const issue of issues) {
-			reflectionText += `- File "${issue.file}": ${issue.reason}\n`;
-		}
-		reflectionText += 'Please correct these issues and resubmit your changes.';
+		const reflectionText = buildValidationIssuesReflection(issues);
 		this._addReflectionToMessages(session, reflectionText, currentMessages);
 	}
 
 	private async _reflectOnFailedEdits(session: EditSession, failedEdits: EditBlock[], numPassed: number, currentMessages: LlmMessage[]): Promise<void> {
-		const numFailed = failedEdits.length;
-		const blocks = numFailed === 1 ? 'block' : 'blocks';
-		let report = `# ${numFailed} SEARCH/REPLACE ${blocks} failed to match!\n`;
-
-		for (const edit of failedEdits) {
-			report += `\n## SearchReplaceNoExactMatch: This SEARCH block failed to exactly match lines in ${edit.filePath}\n`;
-			report += `<<<<<<< SEARCH\n${edit.originalText}=======\n${edit.updatedText}>>>>>>> REPLACE\n\n`;
-
-			const absolutePath = this.getRepoFilePath(session.workingDir, edit.filePath);
-			let content: string | null = null;
-			if (await this.fs.fileExists(absolutePath)) {
-				content = await this.fs.readFile(absolutePath);
-			}
-
-			if (content) {
-				// TODO: Implement _findSimilarLines if desired for richer feedback
-				if (edit.updatedText && content.includes(edit.updatedText)) {
-					report += `NOTE: The REPLACE lines are already present in ${edit.filePath}. Consider if this block is needed.\n\n`;
-				}
-			}
-		}
-		report += 'The SEARCH section must exactly match an existing block of lines including all white space, comments, indentation, etc.\n';
-		if (numPassed > 0) {
-			const pblocks = numPassed === 1 ? 'block' : 'blocks';
-			report += `\n# The other ${numPassed} SEARCH/REPLACE ${pblocks} were applied successfully.\n`;
-			report += `Don't re-send them.\nJust reply with fixed versions of the ${blocks} above that failed to match.\n`;
-		}
-		this._addReflectionToMessages(session, report, currentMessages);
+		const reflectionText = await buildFailedEditsReflection(failedEdits, numPassed, this.fs, session.workingDir);
+		this._addReflectionToMessages(session, reflectionText, currentMessages);
 	}
 
 	private _reflectOnHookFailure(session: EditSession, hookName: string, hookResult: HookResult, currentMessages: LlmMessage[]): void {
-		const reflectionText = `A post-edit check ('${hookName}') failed: ${hookResult.message}\nPlease review and address this issue.`;
+		const reflectionText = buildHookFailureReflection(hookName, hookResult);
 		this._addReflectionToMessages(session, reflectionText, currentMessages);
 	}
 
@@ -307,6 +282,8 @@ export class SearchReplaceCoder {
 		const session = newSession(rootPath, requirements);
 		await this._initializeSessionContext(session, filesToEdit);
 
+		const repoFiles = await this.fs.listFilesRecursively(); // Get all files for validation context ONCE
+
 		let currentMessages: LlmMessage[] = [];
 		const dryRun = false; // Not currently configurable at this level
 
@@ -336,7 +313,6 @@ export class SearchReplaceCoder {
 			}
 
 			session.parsedBlocks = findOriginalUpdateBlocks(session.llmResponse, this.getFence());
-			const repoFiles = await this.fs.listFilesRecursively(); // Get all files for validation context
 			const { valid: validBlocks, issues: validationIssues } = validateBlocks(session.parsedBlocks, repoFiles, this.rules);
 
 			if (validationIssues.length > 0) {
