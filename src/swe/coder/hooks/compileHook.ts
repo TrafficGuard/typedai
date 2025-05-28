@@ -1,7 +1,7 @@
 import { logger } from '#o11y/logger';
 import { execCommand } from '#utils/exec';
-import type { EditSession } from '../EditSession';
-import type { EditHook, HookResult } from './EditHook';
+import type { EditSession } from '../editSession';
+import type { EditHook, HookResult } from './editHook';
 
 export class CompileHook implements EditHook {
 	readonly name = 'compile';
@@ -21,7 +21,7 @@ export class CompileHook implements EditHook {
 
 		try {
 			logger.info(`CompileHook: Running compile command: ${this.compileCmd} in ${session.workingDir}`);
-			const { exitCode, stderr, stdout } = await execCommand(this.compileCmd, { workingDirectory: session.workingDir, shell: true });
+			const { exitCode, stderr, stdout } = await execCommand(this.compileCmd, { workingDirectory: session.workingDir });
 
 			if (exitCode === 0) {
 				logger.info('CompileHook: Compile command successful.');

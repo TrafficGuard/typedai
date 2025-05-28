@@ -1,6 +1,6 @@
 import { logger } from '#o11y/logger';
-import type { EditBlock } from '#swe/coder/applySearchReplace'; // Reuse EditBlock type
 import { stripFilename } from '#swe/coder/applySearchReplaceUtils';
+import type { EditBlock } from '#swe/coder/coderTypes'; // Reuse EditBlock type
 import { DIVIDER_MARKER, REPLACE_MARKER, SEARCH_MARKER } from './constants';
 
 /**

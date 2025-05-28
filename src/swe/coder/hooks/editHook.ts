@@ -1,4 +1,4 @@
-import type { EditSession } from '../EditSession';
+import type { EditSession } from '../editSession';
 
 export interface HookResult {
 	ok: boolean;

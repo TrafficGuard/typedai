@@ -7,24 +7,20 @@ import type { LLM, LlmMessage } from '#shared/model/llm.model';
 import { user as createUserMessage, messageText } from '#shared/model/llm.model';
 import type { IFileSystemService } from '#shared/services/fileSystemService';
 import type { VersionControlSystem } from '#shared/services/versionControlSystem';
-import { type EditBlock } from '#swe/coder/applySearchReplace';
-import { EditApplier } from './EditApplier';
-import type { EditSession } from './EditSession';
-import { newSession } from './EditSession';
+import type { EditBlock } from '#swe/coder/coderTypes';
+import { EditApplier } from './editApplier';
 import { findOriginalUpdateBlocks } from './editBlockParser';
-import type { EditHook, HookResult } from './hooks/EditHook';
+import type { EditSession } from './editSession';
+import { newSession } from './editSession';
+import type { EditHook, HookResult } from './hooks/editHook';
 import { stripQuotedWrapping } from './patchUtils'; // Updated import
-import { sessionEvents } from './sessionEvents';
+import { buildFailedEditsReflection, buildHookFailureReflection, buildValidationIssuesReflection } from './reflectionUtils';
 import { EDIT_BLOCK_PROMPTS } from './searchReplacePrompts';
-import { ModuleAliasRule } from './validators/ModuleAliasRule';
-import { PathExistsRule } from './validators/PathExistsRule';
-import type { ValidationIssue, ValidationRule } from './validators/ValidationRule';
+import { sessionEvents } from './sessionEvents';
 import { validateBlocks } from './validators/compositeValidator';
-import {
-	buildValidationIssuesReflection,
-	buildFailedEditsReflection,
-	buildHookFailureReflection,
-} from './reflectionUtils';
+import { ModuleAliasRule } from './validators/moduleAliasRule';
+import { PathExistsRule } from './validators/pathExistsRule';
+import type { ValidationIssue, ValidationRule } from './validators/validationRule';
 
 const MAX_ATTEMPTS = 5;
 const DEFAULT_FENCE_OPEN = '```';
@@ -49,7 +45,7 @@ export class SearchReplaceCoder {
 		const language = 'TypeScript'; // Default, can be made configurable
 		const suggestShellCommands = true; // Default, can be made configurable
 
-		let finalRemindersText = ''; // Add useLazyPrompt/useOvereagerPrompt logic if needed
+		const finalRemindersText = ''; // Add useLazyPrompt/useOvereagerPrompt logic if needed
 		const shellCmdPromptSection = suggestShellCommands
 			? EDIT_BLOCK_PROMPTS.shell_cmd_prompt.replace('{platform}', platform())
 			: EDIT_BLOCK_PROMPTS.no_shell_cmd_prompt.replace('{platform}', platform());
@@ -73,7 +69,7 @@ export class SearchReplaceCoder {
 			content: msgTemplate.content.replace(/{fence_0}/g, fence[0]).replace(/{fence_1}/g, fence[1]),
 		}));
 	}
- 
+
 	private getFence(): [string, string] {
 		return [DEFAULT_FENCE_OPEN, DEFAULT_FENCE_CLOSE];
 	}
@@ -109,10 +105,7 @@ export class SearchReplaceCoder {
 	 * Prepares edit blocks by checking permissions and identifying files for "dirty commit".
 	 * Corresponds to parts of Coder.prepare_to_edit and Coder.allowed_to_edit.
 	 */
-	private async _prepareToEdit(
-		session: EditSession,
-		parsedBlocks: EditBlock[],
-	): Promise<{ editsToApply: EditBlock[]; pathsToDirtyCommit: Set<string> }> {
+	private async _prepareToEdit(session: EditSession, parsedBlocks: EditBlock[]): Promise<{ editsToApply: EditBlock[]; pathsToDirtyCommit: Set<string> }> {
 		const editsToApply: EditBlock[] = [];
 		const pathsToDirtyCommit = new Set<string>(); // Relative paths
 		const seenPaths = new Map<string, boolean>(); // Cache for isAllowedToEdit result per path
@@ -308,7 +301,7 @@ export class SearchReplaceCoder {
 			}
 			if (!session.llmResponse?.trim()) {
 				this._addReflectionToMessages(session, 'The LLM returned an empty response. Please provide the edits.', currentMessages);
-				continue attemptLoop;
+				continue;
 			}
 
 			session.parsedBlocks = findOriginalUpdateBlocks(session.llmResponse, this.getFence());
@@ -316,7 +309,7 @@ export class SearchReplaceCoder {
 
 			if (validationIssues.length > 0) {
 				this._reflectOnValidationIssues(session, validationIssues, currentMessages);
-				continue attemptLoop;
+				continue;
 			}
 
 			if (validBlocks.length === 0) {
@@ -329,12 +322,18 @@ export class SearchReplaceCoder {
 				// If no valid edits are produced, it will eventually fail after MAX_ATTEMPTS.
 
 				// If it just provided 0 blocks, reflect that.
-				if (session.parsedBlocks.length > 0) { // It provided blocks, but none were valid
+				if (session.parsedBlocks.length > 0) {
+					// It provided blocks, but none were valid
 					this._addReflectionToMessages(session, 'All provided edit blocks were invalid. Please correct them.', currentMessages);
-				} else { // It provided no blocks at all
-					this._addReflectionToMessages(session, 'No edit blocks were found in your response. Please provide the edits in the S/R block format.', currentMessages);
+				} else {
+					// It provided no blocks at all
+					this._addReflectionToMessages(
+						session,
+						'No edit blocks were found in your response. Please provide the edits in the S/R block format.',
+						currentMessages,
+					);
 				}
-				continue attemptLoop;
+				continue;
 			}
 
 			// Handle "dirty commits" before applying edits
@@ -347,8 +346,12 @@ export class SearchReplaceCoder {
 					logger.info('Successfully committed dirty files.');
 				} catch (commitError: any) {
 					logger.error({ err: commitError }, 'Dirty commit failed for uncommitted changes.');
-					this._addReflectionToMessages(session, `Failed to commit uncommitted changes for ${dirtyFilesArray.join(', ')}: ${commitError.message}. Please resolve this manually or allow proceeding without committing them.`, currentMessages);
-					continue attemptLoop;
+					this._addReflectionToMessages(
+						session,
+						`Failed to commit uncommitted changes for ${dirtyFilesArray.join(', ')}: ${commitError.message}. Please resolve this manually or allow proceeding without committing them.`,
+						currentMessages,
+					);
+					continue;
 				}
 			}
 
@@ -367,7 +370,7 @@ export class SearchReplaceCoder {
 
 			if (failedEdits.length > 0) {
 				await this._reflectOnFailedEdits(session, failedEdits, appliedFilePaths.size, currentMessages);
-				continue attemptLoop;
+				continue;
 			}
 
 			session.appliedFiles = appliedFilePaths;

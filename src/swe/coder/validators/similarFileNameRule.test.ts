@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import type { EditBlock } from '../applySearchReplace';
-import { SimilarFileNameRule } from './SimilarFileNameRule';
+import type { EditBlock } from '../coderTypes';
+import { SimilarFileNameRule } from './similarFileNameRule';
 
 describe('SimilarFileNameRule', () => {
 	setupConditionalLoggerOutput();

@@ -1,7 +1,7 @@
 import { stringSimilarity } from 'string-similarity-js';
 import { logger } from '#o11y/logger';
-import type { EditBlock } from '../applySearchReplace';
-import type { ValidationIssue, ValidationRule } from './ValidationRule';
+import type { EditBlock } from '../coderTypes';
+import type { ValidationIssue, ValidationRule } from './validationRule';
 
 const SEP = '/'; // Assuming POSIX-style paths from LLM
 const DEFAULT_SIMILARITY_THRESHOLD = 0.9;

@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import type { EditBlock } from '../applySearchReplace';
-import { ModuleAliasRule } from './ModuleAliasRule';
+import type { EditBlock } from '../coderTypes';
+import { ModuleAliasRule } from './moduleAliasRule';
 
 describe('ModuleAliasRule', () => {
 	setupConditionalLoggerOutput();

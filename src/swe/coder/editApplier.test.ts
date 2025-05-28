@@ -7,8 +7,8 @@ import { logger } from '#o11y/logger';
 import type { IFileSystemService } from '#shared/services/fileSystemService';
 import type { VersionControlSystem } from '#shared/services/versionControlSystem';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import { EditApplier } from './EditApplier';
-import type { EditBlock } from './applySearchReplace';
+import type { EditBlock } from './coderTypes';
+import { EditApplier } from './editApplier';
 
 describe('EditApplier', () => {
 	setupConditionalLoggerOutput();

@@ -1,9 +1,9 @@
-import type { ValidationIssue } from './validators/ValidationRule';
-import type { EditBlock } from './applySearchReplace';
-import type { HookResult } from './hooks/EditHook';
-import type { IFileSystemService } from '#shared/services/fileSystemService';
 import * as path from 'node:path';
 import { logger } from '#o11y/logger'; // Added for potential logging within utils if needed
+import type { IFileSystemService } from '#shared/services/fileSystemService';
+import type { EditBlock } from './coderTypes';
+import type { HookResult } from './hooks/editHook';
+import type { ValidationIssue } from './validators/validationRule';
 
 export function buildValidationIssuesReflection(issues: ValidationIssue[]): string {
 	let reflectionText = 'There were issues with the file paths or structure of your proposed changes:\n';
@@ -40,7 +40,6 @@ export async function buildFailedEditsReflection(
 			// content remains null
 		}
 
-
 		if (content) {
 			// TODO: Implement _findSimilarLines if desired for richer feedback (from original Coder)
 			if (edit.updatedText && content.includes(edit.updatedText)) {
@@ -60,4 +59,3 @@ export async function buildFailedEditsReflection(
 export function buildHookFailureReflection(hookName: string, hookResult: HookResult): string {
 	return `A post-edit check ('${hookName}') failed: ${hookResult.message}\nPlease review and address this issue.`;
 }
-

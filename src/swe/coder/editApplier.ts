@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import { logger } from '#o11y/logger';
 import type { IFileSystemService } from '#shared/services/fileSystemService';
 import type { VersionControlSystem } from '#shared/services/versionControlSystem';
-import type { EditBlock } from './applySearchReplace';
+import type { EditBlock } from './coderTypes';
 import { doReplace } from './patchUtils'; // Updated import
 
 export class EditApplier {
@@ -74,14 +74,7 @@ export class EditApplier {
 					}
 
 					if (fallbackContent !== null) {
-						const fallbackNewContent = doReplace(
-							chatFileRel,
-							fallbackContent,
-							edit.originalText,
-							edit.updatedText,
-							this.fence,
-							this.lenientWhitespace,
-						);
+						const fallbackNewContent = doReplace(chatFileRel, fallbackContent, edit.originalText, edit.updatedText, this.fence, this.lenientWhitespace);
 						if (fallbackNewContent !== undefined) {
 							logger.info(`Applied edit originally for ${originalRelativePath} to ${chatFileRel} as a fallback.`);
 							newContent = fallbackNewContent;

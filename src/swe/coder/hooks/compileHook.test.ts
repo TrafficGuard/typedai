@@ -3,9 +3,9 @@ import * as sinon from 'sinon';
 import { logger } from '#o11y/logger';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import * as execModule from '#utils/exec';
-import type { EditSession } from '../EditSession';
-import { newSession } from '../EditSession';
-import { CompileHook } from './CompileHook';
+import type { EditSession } from '../editSession';
+import { newSession } from '../editSession';
+import { CompileHook } from './compileHook';
 
 describe('CompileHook', () => {
 	setupConditionalLoggerOutput();

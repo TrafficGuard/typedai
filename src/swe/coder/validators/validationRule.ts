@@ -1,4 +1,4 @@
-import type { EditBlock } from '../applySearchReplace'; // Assuming EditBlock is still in applySearchReplace
+import type { EditBlock } from '../coderTypes'; // Assuming EditBlock is still in applySearchReplace
 
 export interface ValidationIssue {
 	file: string;

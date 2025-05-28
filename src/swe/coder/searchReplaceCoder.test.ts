@@ -10,9 +10,9 @@ describe('SearchReplaceCoder related functions', () => {
 
 	// Tests for checkEditBlockFilePath are removed as the function is removed.
 	// Its logic is now tested in:
-	// - PathExistsRule.test.ts
-	// - ModuleAliasRule.test.ts
-	// - SimilarFileNameRule.test.ts
+	// - pathExistsRule.test.ts
+	// - moduleAliasRule.test.ts
+	// - similarFileNameRule.test.ts
 	// - compositeValidator.test.ts (will test their combined behavior)
 
 	// If there are other tests for SearchReplaceCoder class itself, they would remain.

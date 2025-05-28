@@ -1,5 +1,5 @@
-import type { EditBlock } from '../applySearchReplace';
-import type { ValidationIssue, ValidationRule } from './ValidationRule';
+import type { EditBlock } from '../coderTypes';
+import type { ValidationIssue, ValidationRule } from './validationRule';
 
 export class PathExistsRule implements ValidationRule {
 	readonly name = 'PathExistsRule';

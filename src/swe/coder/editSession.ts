@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { EditBlock } from './applySearchReplace'; // Assuming EditBlock is still in applySearchReplace
+import type { EditBlock } from './coderTypes'; // Assuming EditBlock is still in applySearchReplace
 
 export interface EditSession {
 	id: string; // uuid()
