@@ -14,6 +14,7 @@ import { newSession } from './EditSession';
 import { findOriginalUpdateBlocks } from './editBlockParser';
 import type { EditHook, HookResult } from './hooks/EditHook';
 import * as PatchUtils from './patchUtils';
+import { sessionEvents } from './sessionEvents';
 import { EDIT_BLOCK_PROMPTS } from './searchReplacePrompts';
 import { ModuleAliasRule } from './validators/ModuleAliasRule';
 import { PathExistsRule } from './validators/PathExistsRule';
@@ -390,12 +391,14 @@ export class SearchReplaceCoder {
 
 			session.appliedFiles = appliedFilePaths;
 			logger.info({ appliedFiles: Array.from(session.appliedFiles) }, 'SearchReplaceCoder: Edits applied successfully.');
+			sessionEvents.emit('applied', { files: Array.from(session.appliedFiles) });
 
 			for (const hook of this.hooks) {
 				logger.info(`Running hook: ${hook.name}`);
 				const hookResult = await hook.run(session);
 				if (!hookResult.ok) {
 					logger.warn(`Hook ${hook.name} failed: ${hookResult.message}`);
+					sessionEvents.emit('hook-failed', { hook: hook.name, msg: hookResult.message });
 					this._reflectOnHookFailure(session, hook.name, hookResult, currentMessages);
 					continue attemptLoop;
 				}

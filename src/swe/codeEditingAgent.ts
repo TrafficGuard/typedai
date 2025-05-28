@@ -10,6 +10,7 @@ import type { SelectedFile } from '#shared/model/files.model';
 import type { IFileSystemService } from '#shared/services/fileSystemService';
 import { type CompileErrorAnalysis, type CompileErrorAnalysisDetails, analyzeCompileErrors } from '#swe/analyzeCompileErrors';
 import { SearchReplaceCoder } from '#swe/coder/searchReplaceCoder';
+import { CompileHook } from '#swe/coder/hooks/CompileHook';
 import { selectFilesAgent } from '#swe/discovery/selectFilesAgentWithSearch';
 import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
 import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
@@ -259,7 +260,8 @@ export class CodeEditingAgent {
 				const ruleFiles = await includeAlternativeAiToolFiles(codeEditorFiles);
 
 				// await new AiderCodeEditor().editFilesToMeetRequirements(codeEditorRequirements, [...codeEditorFiles, ...ruleFiles]);
-				await new SearchReplaceCoder().editFilesToMeetRequirements(codeEditorRequirements, codeEditorFiles, Array.from(ruleFiles), false, true);
+				const coder = new SearchReplaceCoder(getFileSystem(), llms().hard, undefined, [new CompileHook(projectInfo.compile)]);
+				await coder.editFilesToMeetRequirements(codeEditorRequirements, codeEditorFiles, Array.from(ruleFiles), false, true);
 
 				// The code editor may add new files, so we want to add them to the initial file set
 				const addedFiles: string[] = await git.getAddedFiles(compiledCommitSha);
