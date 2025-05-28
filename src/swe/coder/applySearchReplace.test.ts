@@ -8,8 +8,7 @@ import { MockLLM } from '#llm/services/mock-llm';
 import { logger } from '#o11y/logger';
 import type { LLM } from '#shared/model/llm.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import { ApplySearchReplace } from './applySearchReplace';
-// import { EditBlockParser } from './editBlockParser'; // No longer needed here
+import {ApplySearchReplace} from "../../../tg/coderOrignal/applySearchReplace";
 
 const SEARCH_MARKER = '<<<<<<< SEARCH';
 const DIVIDER_MARKER = '=======';
@@ -18,9 +17,6 @@ const REPLACE_MARKER = '>>>>>>> REPLACE';
 describe('ApplySearchReplace', () => {
 	setupConditionalLoggerOutput();
 	let llm: LLM;
-
-	// Tests for EditBlockParser._findFilename and EditBlockParser.findOriginalUpdateBlocks
-	// have been moved to src/swe/coder/editBlockParser.test.ts
 
 	describe('FileSystem end-to-end tests', () => {
 		const testRoot = '/test-repo';
