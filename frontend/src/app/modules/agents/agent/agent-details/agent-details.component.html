@@ -167,10 +167,10 @@
                 </div>
             }
 
-            @if (agentDetails()?.userId) {
+            @if (agentDetails()?.user) {
                 <div class="mt-2 flex flex-col">
                     <span class="mb-2 font-bold text-lg">User ID</span>
-                    <span class="mb-2">{{ agentDetails()?.userId }}</span>
+                    <span class="mb-2">{{ agentDetails()?.user }}</span>
                 </div>
             }
         </div>
@@ -201,7 +201,15 @@
                         </span>
                     </mat-panel-title>
                 </mat-expansion-panel-header>
-                <div style="white-space: pre-wrap">{{ agentDetails()?.output }}</div>
+                <div style="white-space: pre-wrap">
+                    <markdown
+                        mermaid
+                        clipboard
+                        [clipboardButtonComponent]="clipboardButton"
+                        [data]="agentDetails()?.output"
+                        ngPreserveWhitespaces
+                    ></markdown>
+                </div>
             </mat-expansion-panel>
         }
 
