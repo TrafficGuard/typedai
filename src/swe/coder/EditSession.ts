@@ -10,11 +10,13 @@ export interface EditSession {
 	llmResponse?: string;
 	parsedBlocks?: EditBlock[];
 	validatedBlocks?: EditBlock[];
-	appliedFiles?: Set<string>;
+	appliedFiles?: Set<string>; // Relative paths of successfully edited files
 	reflectionMessages: string[];
 	// state snapshots
-	dirtyBefore: string[]; // Relative paths
-	editedButUncommitted: string[]; // Relative paths
+	absFnamesInChat?: Set<string>; // Absolute paths of files explicitly in chat
+	initiallyDirtyFiles?: Set<string>; // Relative paths of files that were dirty when we started
+	dirtyBefore: string[]; // Relative paths - TODO: review if this is still needed or covered by initiallyDirtyFiles
+	editedButUncommitted: string[]; // Relative paths - TODO: review if this is still needed
 }
 
 export function newSession(workingDir: string, llmRequest: string): EditSession {
@@ -24,6 +26,8 @@ export function newSession(workingDir: string, llmRequest: string): EditSession 
 		attempt: 0,
 		llmRequest,
 		reflectionMessages: [],
+		absFnamesInChat: new Set(),
+		initiallyDirtyFiles: new Set(),
 		dirtyBefore: [],
 		editedButUncommitted: [],
 	};

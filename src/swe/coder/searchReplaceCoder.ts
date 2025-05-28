@@ -189,8 +189,8 @@ export class SearchReplaceCoder {
 		this._addReflectionToMessages(session, report, currentMessages);
 	}
 
-	private _reflectOnHookFailure(session: EditSession, hookResult: HookResult, currentMessages: LlmMessage[]): void {
-		const reflectionText = `A post-edit check ('${hookResult.name}') failed: ${hookResult.message}\nPlease review and address this issue.`;
+	private _reflectOnHookFailure(session: EditSession, hookName: string, hookResult: HookResult, currentMessages: LlmMessage[]): void {
+		const reflectionText = `A post-edit check ('${hookName}') failed: ${hookResult.message}\nPlease review and address this issue.`;
 		this._addReflectionToMessages(session, reflectionText, currentMessages);
 	}
 
@@ -396,7 +396,7 @@ export class SearchReplaceCoder {
 				const hookResult = await hook.run(session);
 				if (!hookResult.ok) {
 					logger.warn(`Hook ${hook.name} failed: ${hookResult.message}`);
-					this._reflectOnHookFailure(session, { ...hookResult, name: hook.name }, currentMessages);
+					this._reflectOnHookFailure(session, hook.name, hookResult, currentMessages);
 					continue attemptLoop;
 				}
 				logger.info(`Hook ${hook.name} completed successfully.`);
