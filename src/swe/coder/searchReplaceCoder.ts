@@ -5,6 +5,21 @@ import { logger } from '#o11y/logger';
 import { type LlmMessage, user as createUserMessage, messageText } from '#shared/model/llm.model';
 import { ApplySearchReplace, type EditBlock, type EditFormat, type FileEditBlocks } from '#swe/coder/applySearchReplace';
 
+function sortEditBlocksByFilePath(edits: EditBlock[]) {
+	const editsBlockByFilePath: FileEditBlocks = new Map();
+	for (const edit of edits) {
+		let edits: EditBlock[];
+		if (!editsBlockByFilePath.has(edit.filePath)) {
+			edits = [];
+			editsBlockByFilePath.set(edit.filePath, edits);
+		} else {
+			edits = editsBlockByFilePath.get(edit.filePath);
+		}
+		edits.push(edit);
+	}
+	return editsBlockByFilePath;
+}
+
 @funcClass(__filename)
 export class SearchReplaceCoder {
 	/**
@@ -66,17 +81,7 @@ export class SearchReplaceCoder {
 			console.log(responseToApply);
 			const edits = searchReplacer._findOriginalUpdateBlocks(responseToApply, searchReplacer.getFence());
 
-			const editsBlockByFilePath: FileEditBlocks = new Map();
-			for (const edit of edits) {
-				let edits: EditBlock[];
-				if (!editsBlockByFilePath.has(edit.filePath)) {
-					edits = [];
-					editsBlockByFilePath.set(edit.filePath, edits);
-				} else {
-					edits = editsBlockByFilePath.get(edit.filePath);
-				}
-				edits.push(edit);
-			}
+			const editsBlockByFilePath = sortEditBlocksByFilePath(edits);
 			const repoFiles = await fss.listFilesRecursively();
 
 			for (const filePath of editsBlockByFilePath.keys()) {

@@ -140,7 +140,7 @@ export class ApplySearchReplace {
 
 	public async initializeDirtyFileTracking(): Promise<void> {
 		if (!this.vcs || !this.dirtyCommits) return;
-		
+
 		// Check all files currently in chat
 		for (const absPath of this.absFnamesInChat) {
 			const relPath = this.getRelativeFilePath(absPath);
@@ -307,7 +307,7 @@ export class ApplySearchReplace {
 			return;
 		}
 
-		// Only add to pathsT oDirtyCommit if this file was dirty before we started editing
+		// Only add to pathsToDirtyCommit if this file was dirty before we started editing
 		if (this.initiallyDirtyFiles.has(relativePath)) {
 			logger.info(`File ${relativePath} has uncommitted changes from before our editing session.`);
 			pathsToDirtyCommit.add(relativePath);
