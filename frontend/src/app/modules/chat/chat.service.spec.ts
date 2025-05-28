@@ -124,22 +124,57 @@ describe('ChatServiceClient', () => {
     });
 
     describe('createChat', () => {
-        it('should POST to create a new chat and update signals', fakeAsync(() => {
-            const userContent: UserContentExt = 'Hello, new chat!';
-            const llmId = 'llm-test';
-            const mockRequestPayload: Static<typeof ChatMessageSendSchema> = { llmId, userContent, options: undefined };
-            const mockApiResponse = createMockApiChatModel('newChatId', 'New Chat Title', [
-                createMockApiLlmMessage('msg1', 'user', userContent),
-                createMockApiLlmMessage('msg2', 'assistant', 'Response to new chat'),
-            ]);
-            const expectedPath = CHAT_API.createChat.path;
+        const userContent: UserContentExt = 'Hello, new chat!';
+        const llmId = 'llm-test';
+        const expectedPath = CHAT_API.createChat.path;
+        const mockApiResponse = createMockApiChatModel('newChatId', 'New Chat Title', [
+            createMockApiLlmMessage('msg1', 'user', userContent),
+            createMockApiLlmMessage('msg2', 'assistant', 'Response to new chat'),
+        ]);
 
-            service.createChat(userContent, llmId).subscribe();
+        it('should POST to create a new chat with autoReformat: false when autoReformat is undefined', fakeAsync(() => {
+            const mockRequestPayload: Static<typeof ChatMessageSendSchema> = { llmId, userContent, options: undefined, autoReformat: false };
+            service.createChat(userContent, llmId, undefined, undefined).subscribe(); // autoReformat is undefined
 
             const req = httpMock.expectOne(expectedPath);
             expect(req.request.method).toBe(CHAT_API.createChat.method);
             expect(req.request.body).toEqual(mockRequestPayload);
             req.flush(mockApiResponse);
+            tick();
+
+            const chatSignalAfter = service.chat();
+            expect(chatSignalAfter).toBeTruthy();
+            expect(chatSignalAfter?.id).toBe('newChatId');
+        }));
+
+        it('should POST to create a new chat with autoReformat: true when autoReformat is true', fakeAsync(() => {
+            const mockRequestPayload: Static<typeof ChatMessageSendSchema> = { llmId, userContent, options: undefined, autoReformat: true };
+            service.createChat(userContent, llmId, undefined, true).subscribe(); // autoReformat is true
+
+            const req = httpMock.expectOne(expectedPath);
+            expect(req.request.method).toBe(CHAT_API.createChat.method);
+            expect(req.request.body).toEqual(mockRequestPayload);
+            req.flush(mockApiResponse);
+            tick();
+        }));
+
+        it('should POST to create a new chat with autoReformat: false when autoReformat is false', fakeAsync(() => {
+            const mockRequestPayload: Static<typeof ChatMessageSendSchema> = { llmId, userContent, options: undefined, autoReformat: false };
+            service.createChat(userContent, llmId, undefined, false).subscribe(); // autoReformat is false
+
+            const req = httpMock.expectOne(expectedPath);
+            expect(req.request.method).toBe(CHAT_API.createChat.method);
+            expect(req.request.body).toEqual(mockRequestPayload);
+            req.flush(mockApiResponse);
+            tick();
+        }));
+
+
+        it('should update signals after creating a chat', fakeAsync(() => {
+            // This test focuses on signal updates, assuming payload is tested above
+            service.createChat(userContent, llmId).subscribe();
+            const req = httpMock.expectOne(expectedPath);
+            req.flush(mockApiResponse); // Use the predefined mockApiResponse
             tick();
 
             const chatSignalAfter = service.chat();
@@ -261,13 +296,13 @@ describe('ChatServiceClient', () => {
     });
 
     describe('sendMessage', () => {
-        it('should POST a message, update chat optimistically, then with API response', fakeAsync(() => {
-            const chatId = 'chat1';
-            const userContent: UserContentExt = 'User message';
-            const llmId = 'llm-test';
-            const mockApiAiResponse = createMockApiLlmMessage('aiMsgId', 'assistant', 'AI response');
-            const expectedPath = CHAT_API.sendMessage.buildPath({ chatId });
+        const chatId = 'chat1';
+        const userContent: UserContentExt = 'User message';
+        const llmId = 'llm-test';
+        const mockApiAiResponse = createMockApiLlmMessage('aiMsgId', 'assistant', 'AI response');
+        const expectedPath = CHAT_API.sendMessage.buildPath({ chatId });
 
+        beforeEach(() => {
             const initialChat: Chat = {
                 id: chatId,
                 title: 'Test Chat',
@@ -276,8 +311,51 @@ describe('ChatServiceClient', () => {
             };
             service['_chat'].set(initialChat);
             service['_chats'].set([initialChat]);
+        });
+
+        it('should POST a message with autoReformat: false when autoReformat is undefined', fakeAsync(() => {
+            service.sendMessage(chatId, userContent, llmId, undefined, undefined).subscribe(); // autoReformat undefined
+
+            // Optimistic update check
+            let chatSignal = service.chat();
+            expect(chatSignal?.messages.length).toBe(1);
+            expect(chatSignal?.messages[0].textContent).toBe('User message');
+
+            const req = httpMock.expectOne(expectedPath);
+            expect(req.request.method).toBe(CHAT_API.sendMessage.method);
+            expect(req.request.body).toEqual({ llmId, userContent, options: undefined, autoReformat: false });
+            req.flush(mockApiAiResponse);
+            tick();
+
+            // Check AI response
+            chatSignal = service.chat();
+            expect(chatSignal?.messages.length).toBe(2);
+            expect(chatSignal?.messages.find(m => !m.isMine)?.textContent).toBe('AI response');
+        }));
+
+        it('should POST a message with autoReformat: true when autoReformat is true', fakeAsync(() => {
+            service.sendMessage(chatId, userContent, llmId, undefined, true).subscribe(); // autoReformat true
+
+            const req = httpMock.expectOne(expectedPath);
+            expect(req.request.method).toBe(CHAT_API.sendMessage.method);
+            expect(req.request.body).toEqual({ llmId, userContent, options: undefined, autoReformat: true });
+            req.flush(mockApiAiResponse);
+            tick();
+        }));
+
+        it('should POST a message with autoReformat: false when autoReformat is false', fakeAsync(() => {
+            service.sendMessage(chatId, userContent, llmId, undefined, false).subscribe(); // autoReformat false
+
+            const req = httpMock.expectOne(expectedPath);
+            expect(req.request.method).toBe(CHAT_API.sendMessage.method);
+            expect(req.request.body).toEqual({ llmId, userContent, options: undefined, autoReformat: false });
+            req.flush(mockApiAiResponse);
+            tick();
+        }));
 
 
+        it('should update chat optimistically, then with API response, and update list timestamp', fakeAsync(() => {
+            // This test focuses on signal updates and list timestamp, assuming payload is tested above
             service.sendMessage(chatId, userContent, llmId).subscribe();
 
             // Optimistic update
@@ -287,8 +365,7 @@ describe('ChatServiceClient', () => {
             expect(chatSignal?.messages[0].textContent).toBe('User message');
 
             const req = httpMock.expectOne(expectedPath);
-            expect(req.request.method).toBe(CHAT_API.sendMessage.method);
-            expect(req.request.body).toEqual({ llmId, userContent, options: undefined });
+            // No need to check body again if covered by other tests, focus on flush and aftermath
             req.flush(mockApiAiResponse);
             tick(); // Allow microtasks (like signal updates in tap) to complete
 

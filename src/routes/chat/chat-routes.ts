@@ -8,7 +8,7 @@ import { logger } from '#o11y/logger';
 import { CHAT_API } from '#shared/api/chat.api';
 import type { Chat, ChatList } from '#shared/model/chat.model';
 import { contentText } from '#shared/model/llm.model';
-import type { LLM, LlmMessage, UserContentExt } from '#shared/model/llm.model';
+import type { LLM, LlmMessage, TextPartExt, UserContentExt } from '#shared/model/llm.model';
 import type {
 	ChatMarkdownRequestSchema,
 	ChatMarkdownResponseModel,
@@ -19,6 +19,7 @@ import type {
 	RegenerateMessageSchema,
 } from '#shared/schemas/chat.schema';
 import { currentUser } from '#user/userContext';
+import { getMarkdownFormatPrompt } from '../../chat/chatPromptUtils';
 
 export async function chatRoutes(fastify: AppFastifyInstance) {
 	fastify.get(
@@ -42,7 +43,9 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			schema: CHAT_API.createChat.schema,
 		},
 		async (req, reply) => {
-			const { llmId, userContent, options } = req.body as Static<typeof ChatMessageSendSchema>;
+			const { llmId, userContent, options, autoReformat } = req.body as Static<typeof ChatMessageSendSchema>;
+
+			let currentUserContent: UserContentExt = userContent as UserContentExt;
 
 			let chat: Chat = {
 				id: randomUUID(),
@@ -63,7 +66,48 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			}
 			if (!llm.isConfigured()) return sendBadRequest(reply, `LLM ${llm.getId()} is not configured`);
 
-			const textForTitle = contentText(userContent as UserContentExt);
+			if (autoReformat) {
+				const originalText = contentText(currentUserContent);
+				if (originalText && originalText.trim() !== '') {
+					const formattingPrompt = getMarkdownFormatPrompt(originalText);
+					const formattingLlm = summaryLLM().isConfigured() ? summaryLLM() : llm;
+					try {
+						logger.info(
+							{ chatId: chat.id, llmId: formattingLlm.getId(), usingLlm: formattingLlm.getId() },
+							'Attempting to auto-reformat message content for new chat.',
+						);
+						const formattedText = await formattingLlm.generateText(formattingPrompt, { id: 'chat-auto-format' });
+						if (typeof currentUserContent === 'string') {
+							currentUserContent = formattedText;
+						} else if (Array.isArray(currentUserContent)) {
+							const textPartIndex = currentUserContent.findIndex((part) => part.type === 'text');
+							if (textPartIndex !== -1) {
+								const newParts = [...currentUserContent];
+								const partToUpdate = newParts[textPartIndex];
+								if (partToUpdate.type === 'text') {
+									newParts[textPartIndex] = { ...partToUpdate, text: formattedText };
+									currentUserContent = newParts;
+								} else {
+									// This branch should ideally not be hit due to findIndex logic
+									logger.warn(
+										{ chatId: chat.id, partType: partToUpdate.type },
+										'Auto-reformat: Expected a text part at index but found different type during new chat creation.',
+									);
+								}
+							} else {
+								// No existing text part, add one at the beginning
+								const newTextPart: TextPartExt = { type: 'text', text: formattedText };
+								currentUserContent = [newTextPart, ...currentUserContent];
+							}
+						}
+						logger.info({ chatId: chat.id }, 'Message content auto-reformatted successfully for new chat.');
+					} catch (formatError) {
+						logger.error({ err: formatError, chatId: chat.id }, 'Failed to auto-reformat message content for new chat. Proceeding with original.');
+					}
+				}
+			}
+
+			const textForTitle = contentText(currentUserContent);
 
 			const titleLLM = summaryLLM().isConfigured() ? summaryLLM() : llm;
 			const titlePromise: Promise<string> | undefined = titleLLM.generateText(
@@ -71,7 +115,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 				{ id: 'Chat title' },
 			);
 
-			chat.messages.push({ role: 'user', content: userContent as UserContentExt, time: Date.now() });
+			chat.messages.push({ role: 'user', content: currentUserContent, time: Date.now() });
 
 			const responseMessage: LlmMessage = await llm.generateMessage(chat.messages, { id: 'chat', ...options });
 			chat.messages.push(responseMessage);
@@ -91,7 +135,9 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 		},
 		async (req, reply) => {
 			const { chatId } = req.params as Static<typeof ChatParamsSchema>;
-			const { llmId, userContent, options } = req.body as Static<typeof ChatMessageSendSchema>;
+			const { llmId, userContent, options, autoReformat } = req.body as Static<typeof ChatMessageSendSchema>;
+
+			let currentUserContent: UserContentExt = userContent as UserContentExt;
 
 			const chat: Chat = await fastify.chatService.loadChat(chatId);
 			if (chat.userId !== currentUser().id) return sendBadRequest(reply, 'Unauthorized to send message to this chat');
@@ -104,7 +150,49 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			}
 			if (!llm.isConfigured()) return sendBadRequest(reply, `LLM ${llm.getId()} is not configured`);
 
-			chat.messages.push({ role: 'user', content: userContent as UserContentExt, time: Date.now() });
+			if (autoReformat) {
+				const originalText = contentText(currentUserContent);
+				if (originalText && originalText.trim() !== '') {
+					const formattingPrompt = getMarkdownFormatPrompt(originalText);
+					// Use the LLM instance resolved for this specific send message operation as fallback
+					const formattingLlm = summaryLLM().isConfigured() ? summaryLLM() : llm;
+					try {
+						logger.info(
+							{ chatId, llmId: formattingLlm.getId(), usingLlm: formattingLlm.getId() },
+							'Attempting to auto-reformat message content for existing chat.',
+						);
+						const formattedText = await formattingLlm.generateText(formattingPrompt, { id: 'chat-auto-format' });
+						if (typeof currentUserContent === 'string') {
+							currentUserContent = formattedText;
+						} else if (Array.isArray(currentUserContent)) {
+							const textPartIndex = currentUserContent.findIndex((part) => part.type === 'text');
+							if (textPartIndex !== -1) {
+								const newParts = [...currentUserContent];
+								const partToUpdate = newParts[textPartIndex];
+								if (partToUpdate.type === 'text') {
+									newParts[textPartIndex] = { ...partToUpdate, text: formattedText };
+									currentUserContent = newParts;
+								} else {
+									// This branch should ideally not be hit due to findIndex logic
+									logger.warn(
+										{ chatId, partType: partToUpdate.type },
+										'Auto-reformat: Expected a text part at index but found different type for existing chat.',
+									);
+								}
+							} else {
+								// No existing text part, add one at the beginning
+								const newTextPart: TextPartExt = { type: 'text', text: formattedText };
+								currentUserContent = [newTextPart, ...currentUserContent];
+							}
+						}
+						logger.info({ chatId }, 'Message content auto-reformatted successfully for existing chat.');
+					} catch (formatError) {
+						logger.error({ err: formatError, chatId }, 'Failed to auto-reformat message content for existing chat. Proceeding with original.');
+					}
+				}
+			}
+
+			chat.messages.push({ role: 'user', content: currentUserContent, time: Date.now() });
 
 			const responseMessage = await llm.generateMessage(chat.messages, { id: 'chat', ...options });
 			chat.messages.push(responseMessage);

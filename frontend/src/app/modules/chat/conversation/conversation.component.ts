@@ -115,6 +115,8 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     thinkingIcon: WritableSignal<string> = signal('heroicons_outline:minus-small');
     thinkingLevel: WritableSignal<'off' | 'low' | 'medium' | 'high'> = signal('off');
 
+    autoReformatEnabled: WritableSignal<boolean> = signal(false);
+
     private mediaRecorder: MediaRecorder;
     private audioChunks: Blob[] = [];
     recording: WritableSignal<boolean> = signal(false);
@@ -430,6 +432,10 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
         }
     }
 
+    toggleAutoReformat(): void {
+        this.autoReformatEnabled.update(v => !v);
+    }
+
     /**
      * Open the chat info drawer
      */
@@ -516,6 +522,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
         this.sendIcon.set('heroicons_outline:stop-circle'); // Or use a different icon for "sending"
 
         const userContentPayload: UserContentExt = await attachmentsAndTextToUserContentExt(attachments, messageText); // await the async function
+        const enableReformat = this.autoReformatEnabled();
 
         // Optimistic UI update: add a "generating" placeholder for AI
         const aiGeneratingMessageEntry: ChatMessage = {
@@ -543,14 +550,14 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
         if (!currentChat || currentChat.id === NEW_CHAT_ID) {
             // Pass empty array for attachmentsToSend as it's now part of userContentPayload
-            apiCall = this._chatService.createChat(userContentPayload, currentLlmId, options); // Removed extra [] argument
+            apiCall = this._chatService.createChat(userContentPayload, currentLlmId, options, enableReformat);
         } else {
             // Pass empty array for attachmentsToSend as it's now part of userContentPayload
             // The service's sendMessage still accepts attachmentsForUI, which is fine. We pass undefined if not needed or the component's attachments.
             // For now, let's assume attachments are handled by userContentPayload for the API, and UI attachments are for local display if needed by service.
-            // The service's sendMessage signature is: (chatId: string, userContent: UserContentExt, llmId: string, options?: CallSettings, attachmentsForUI?: Attachment[])
+            // The service's sendMessage signature is: (chatId: string, userContent: UserContentExt, llmId: string, options?: CallSettings, attachmentsForUI?: Attachment[], autoReformat?: boolean)
             // We can pass the original `attachments` array for `attachmentsForUI` if the service uses it for optimistic updates.
-            apiCall = this._chatService.sendMessage(currentChat.id, userContentPayload, currentLlmId, options, attachments);
+            apiCall = this._chatService.sendMessage(currentChat.id, userContentPayload, currentLlmId, options, attachments, enableReformat);
         }
 
         apiCall.subscribe({
@@ -642,8 +649,12 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
         if (event.key === 't' && event.ctrlKey && this.llmHasThinkingLevels()) {
             this.toggleThinking();
         }
+        if (event.key === 'F' && event.ctrlKey && event.shiftKey) {
+            event.preventDefault();
+            this.toggleAutoReformat();
+        }
 
-        if (event.key === 'f' && event.ctrlKey) {
+        if (event.key === 'f' && event.ctrlKey && !event.shiftKey) { // Ensure Shift is not pressed for this one
             event.preventDefault();
             event.stopPropagation();
 
