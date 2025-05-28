@@ -29,11 +29,6 @@ describe('EditApplier', () => {
 			getVcs: sinon.stub<[], VersionControlSystem>().returns(mockVCS as any), // Cast since mockVCS is stubbed
 			getVcsRoot: sinon.stub<[], string | null>().returns(testRoot), // Assume VCS is available
 			listFilesRecursively: sinon.stub<[string?, boolean?], Promise<string[]>>().resolves([]),
-			ensureDir: sinon.stub<[string], Promise<void>>().resolves(),
-			deleteFile: sinon.stub<[string], Promise<void>>().resolves(),
-			renameFile: sinon.stub<[string, string], Promise<void>>().resolves(),
-			copyFile: sinon.stub<[string, string], Promise<void>>().resolves(),
-			isIgnored: sinon.stub<[string], Promise<boolean>>().resolves(false),
 			readFilesAsXml: sinon.stub<[string | string[]], Promise<string>>().resolves(''),
 			fromJSON: sinon.stub<[any], sinon.SinonStubbedInstance<IFileSystemService> | null>().returns(mockFileSystemService),
 			toJSON: sinon.stub<[], { basePath: string; workingDirectory: string }>().returns({ basePath: testRoot, workingDirectory: testRoot }),
