@@ -31,15 +31,18 @@ export class CompileHook implements EditHook {
 		private compileCmd: string | undefined,
 		private fs: IFileSystemService,
 	) {
-		const pathComponent = '[\\w\\s.-]+'; // Matches one or more word chars, spaces, dots, or hyphens
-		const pathSeparator = '/';
+		// More explicit character set for path components, equivalent to [\w\s.-] but clearer.
+		// Allows alphanumeric, underscore, whitespace, dot, hyphen.
+		const pathChars = '[a-zA-Z0-9_\\s.-]';
+		const pathComponent = `${pathChars}+`;
+		const pathSeparator = '/'; // Strictly Unix separator
 		const extensionComponent = '\\.[a-zA-Z0-9_]+'; // Matches a dot followed by extension characters
 
 		const simpleFilename = `${pathComponent}${extensionComponent}`; // e.g., file.ts, my-doc.pdf
 		const relativePathWithDir = `(?:${pathComponent}${pathSeparator})+${simpleFilename}`; // e.g., sub/file.ts, path/to/doc.txt
-		const absolutePath = `${pathSeparator}(?:${pathComponent}${pathSeparator})*${simpleFilename}`; // e.g., /abs/file.ts, /path/to/doc.ts
+		const unixAbsolutePath = `${pathSeparator}(?:${pathComponent}${pathSeparator})*${simpleFilename}`; // e.g., /abs/file.ts
 
-		this.unixCorePathPattern = `(?:${absolutePath}|${relativePathWithDir}|${simpleFilename})`;
+		this.unixCorePathPattern = `(?:${unixAbsolutePath}|${relativePathWithDir}|${simpleFilename})`;
 
 		// Construct the regex to match the unixCorePathPattern, optionally wrapped in balanced single or double quotes.
 		// The outer group (['"])? captures the potential quote, and \1 matches the same captured quote.
