@@ -92,6 +92,14 @@
                                 >
                                     <!-- Message -->
                                     <div class="min-w-4 leading-5">
+                                        <markdown
+                                            mermaid
+                                            clipboard
+                                            [clipboardButtonComponent]="clipboardButton"
+                                            [data]="message.textContentForDisplay"
+                                            ngPreserveWhitespaces
+                                        ></markdown>
+                                        <!--
                                         @if (message.textChunks && message.textChunks.length > 0) {
                                             @for (chunk of message.textChunks; track $index) {
                                                 @if (chunk.type === 'markdown') {
@@ -107,12 +115,10 @@
                                                         [data]="chunk.value"
                                                         ngPreserveWhitespaces
                                                     ></markdown>
-                                                    <!--
-                                                    <span [innerText]="chunk.value"></span>
-                                                    -->
                                                 }
                                             }
                                         }
+                                        -->
                                         <!-- Display non-image attachments -->
                                         @if (message.uiFileAttachments?.length > 0) {
                                             <div class="mt-2 border-t border-gray-300 dark:border-gray-600 pt-1">
@@ -212,7 +218,13 @@
                                         mat-icon-button
                                         (click)="toggleAutoReformat()"
                                         [matTooltip]="'Auto-reformat message with Markdown (Ctrl+Shift+F)'">
-                                    <mat-icon [svgIcon]="autoReformatEnabled() ? 'heroicons_solid:sparkles' : 'heroicons_outline:sparkles'" [ngClass]="{'text-primary': autoReformatEnabled()}"></mat-icon>
+                                    <mat-icon
+                                        class="material-symbols-outlined"
+                                        [class.g-symbol-solid]="autoReformatEnabled()"
+                                        [class.g-symbol-outline]="!autoReformatEnabled()"
+                                        [ngClass]="{'text-primary': autoReformatEnabled()}">
+                                        markdown
+                                    </mat-icon>
                                 </button>
                             </div>
                             <!-- mat-select -->
