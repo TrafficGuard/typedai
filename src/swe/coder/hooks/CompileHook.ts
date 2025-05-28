@@ -1,6 +1,7 @@
-import type { EditHook, HookResult } from './EditHook';
-import type { EditSession } from '../EditSession';
 import { logger } from '#o11y/logger';
+import { execCommand } from '#utils/exec';
+import type { EditSession } from '../EditSession';
+import type { EditHook, HookResult } from './EditHook';
 
 export class CompileHook implements EditHook {
 	readonly name = 'compile';
@@ -13,20 +14,9 @@ export class CompileHook implements EditHook {
 			return { ok: true, message: 'No compile command configured.' };
 		}
 
-		// Dynamically import execCommand to avoid issues if #utils/exec is not always available
-		// or to break circular dependencies if they were to arise.
-		let execCommand;
-		try {
-			const execModule = await import('#utils/exec');
-			execCommand = execModule.execCommand;
-		} catch (e: any) {
-			logger.error({ err: e }, 'CompileHook: Failed to import execCommand from #utils/exec.');
-			return { ok: false, message: `CompileHook: Failed to import execCommand: ${e.message}` };
-		}
-
 		try {
 			logger.info(`CompileHook: Running compile command: ${this.compileCmd} in ${session.workingDir}`);
-			const { exitCode, stderr, stdout } = await execCommand(this.compileCmd, { cwd: session.workingDir });
+			const { exitCode, stderr, stdout } = await execCommand(this.compileCmd, { workingDirectory: session.workingDir });
 
 			if (exitCode === 0) {
 				logger.info('CompileHook: Compile command successful.');
