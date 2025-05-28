@@ -35,11 +35,11 @@ export class CompileHook implements EditHook {
 		// Allows alphanumeric, underscore, whitespace, dot, hyphen.
 		const pathChars = '[a-zA-Z0-9_\\s.-]';
 		const pathComponent = `${pathChars}+`;
-		const pathSeparator = '/'; // Strictly Unix separator
+		const pathSeparator = '[\\\\/]'; // Allow both / and \ as separators. Must double-escape backslash for string literal.
 		const extensionComponent = '\\.[a-zA-Z0-9_]+'; // Matches a dot followed by extension characters
 
 		const simpleFilename = `${pathComponent}${extensionComponent}`; // e.g., file.ts, my-doc.pdf
-		const relativePathWithDir = `(?:${pathComponent}${pathSeparator})+${simpleFilename}`; // e.g., sub/file.ts, path/to/doc.txt
+		const relativePathWithDir = `(?:${pathComponent}${pathSeparator})+${simpleFilename}`; // e.g., sub/file.ts, path/to/doc.txt or sub\\file.ts
 		const unixAbsolutePath = `${pathSeparator}(?:${pathComponent}${pathSeparator})*${simpleFilename}`; // e.g., /abs/file.ts
 
 		this.unixCorePathPattern = `(?:${unixAbsolutePath}|${relativePathWithDir}|${simpleFilename})`;
