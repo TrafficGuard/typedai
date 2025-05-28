@@ -1,8 +1,10 @@
 import { expect } from 'chai';
-
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { _stripFilename } from './applySearchReplaceUtils';
 
 describe('_stripFilename', () => {
+	setupConditionalLoggerOutput();
+
 	const FENCE = '```';
 
 	// Test cases based on original Python logic and common scenarios

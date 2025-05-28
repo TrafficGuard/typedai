@@ -1,7 +1,7 @@
 import { expect } from 'chai';
-import { PathExistsRule } from './PathExistsRule';
-import type { EditBlock } from '../applySearchReplace';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
+import type { EditBlock } from '../applySearchReplace';
+import { PathExistsRule } from './PathExistsRule';
 
 describe('PathExistsRule', () => {
 	setupConditionalLoggerOutput();

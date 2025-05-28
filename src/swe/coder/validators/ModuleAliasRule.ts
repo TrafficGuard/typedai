@@ -1,5 +1,5 @@
 import type { EditBlock } from '../applySearchReplace';
-import type { ValidationRule, ValidationIssue } from './ValidationRule';
+import type { ValidationIssue, ValidationRule } from './ValidationRule';
 
 export class ModuleAliasRule implements ValidationRule {
 	readonly name = 'ModuleAliasRule';

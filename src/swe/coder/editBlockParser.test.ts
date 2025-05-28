@@ -45,7 +45,7 @@ describe('EditBlockParser', () => {
 			// This test needs to ensure that if findFilenameFromPrecedingLines returns undefined,
 			// the block is skipped, which means `edits` would be empty or the filePath would be from a previous block.
 			// For a single block with no filename, edits should be empty.
-			const response = `\`\`\`typescript\n\`\`\`\nother text\n<<<<<<< SEARCH\noriginal\n=======\nupdated\n>>>>>>> REPLACE\n`;
+			const response = '```typescript\n```\nother text\n<<<<<<< SEARCH\noriginal\n=======\nupdated\n>>>>>>> REPLACE\n';
 			const loggerSpy = logger.warn as sinon.SinonSpy;
 			const initialCallCount = loggerSpy.callCount;
 			const edits = findOriginalUpdateBlocks(response, ['```', '```']);

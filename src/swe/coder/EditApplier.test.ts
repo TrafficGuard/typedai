@@ -1,13 +1,13 @@
+import * as path from 'node:path';
 import { expect } from 'chai';
 import mockFs from 'mock-fs';
 import * as sinon from 'sinon';
-import * as path from 'node:path';
 import { logger } from '#o11y/logger';
 import type { IFileSystemService } from '#shared/services/fileSystemService';
 import type { VersionControlSystem } from '#shared/services/versionControlSystem';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { EditApplier } from './EditApplier';
 import type { EditBlock } from './applySearchReplace';
-import { setupConditionalLoggerOutput } from '#test/testUtils';
 
 describe('EditApplier', () => {
 	setupConditionalLoggerOutput();

@@ -1,8 +1,9 @@
 // import { expect } from 'chai'; // No longer needed if all tests are removed
 // import { checkEditBlockFilePath } from './searchReplaceCoder'; // Function removed
-import {setupConditionalLoggerOutput} from "#test/testUtils";
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 
-describe('SearchReplaceCoder related functions', () => { // Updated describe to be more general
+describe('SearchReplaceCoder related functions', () => {
+	// Updated describe to be more general
 
 	setupConditionalLoggerOutput();
 	// describe('Create file check', () => {}); // This seems empty, can be removed or populated

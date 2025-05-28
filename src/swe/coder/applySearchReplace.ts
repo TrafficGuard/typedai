@@ -5,10 +5,11 @@ import { logger } from '#o11y/logger';
 import type { LLM, LlmMessage } from '#shared/model/llm.model';
 import type { IFileSystemService } from '#shared/services/fileSystemService';
 import type { VersionControlSystem } from '#shared/services/versionControlSystem';
+import { EditApplier } from '#swe/coder/EditApplier';
 // import { _stripFilename } from '#swe/coder/applySearchReplaceUtils'; // _stripFilename is not directly used here
 import { EDIT_BLOCK_PROMPTS } from '#swe/coder/searchReplacePrompts';
-import * as PatchUtils from './patchUtils'; // Import all as PatchUtils
 import { findOriginalUpdateBlocks } from './editBlockParser';
+import * as PatchUtils from './patchUtils'; // Import all as PatchUtils
 
 const SEARCH_MARKER = '<<<<<<< SEARCH';
 const DIVIDER_MARKER = '=======';

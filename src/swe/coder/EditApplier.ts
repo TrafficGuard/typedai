@@ -55,14 +55,7 @@ export class EditApplier {
 				currentContent = await this.readText(originalAbsolutePath);
 			}
 
-			let newContent = PatchUtils._doReplace(
-				originalRelativePath,
-				currentContent,
-				edit.originalText,
-				edit.updatedText,
-				this.fence,
-				this.lenientWhitespace,
-			);
+			let newContent = PatchUtils._doReplace(originalRelativePath, currentContent, edit.originalText, edit.updatedText, this.fence, this.lenientWhitespace);
 
 			let appliedToAbsolutePath = originalAbsolutePath;
 			let appliedRelativePath = originalRelativePath;

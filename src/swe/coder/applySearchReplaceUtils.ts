@@ -1,7 +1,7 @@
 // Utility functions for search and replace logic
 
 /**
- * Corresponds to strip_filename from aider's editblock_coder.py
+ * Corresponds to strip_filename from editblock_coder.py
  * Cleans a line to extract a potential filename.
  * @param filenameLine The line suspected to contain a filename.
  * @param fenceOpen The opening fence string (e.g., "```").

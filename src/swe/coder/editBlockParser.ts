@@ -1,6 +1,6 @@
 import { logger } from '#o11y/logger';
-import { _stripFilename } from '#swe/coder/applySearchReplaceUtils'; // Assuming this utility is still relevant
 import type { EditBlock } from '#swe/coder/applySearchReplace'; // Reuse EditBlock type
+import { _stripFilename } from '#swe/coder/applySearchReplaceUtils'; // Assuming this utility is still relevant
 
 const SEARCH_MARKER = '<<<<<<< SEARCH';
 const DIVIDER_MARKER = '=======';

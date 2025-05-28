@@ -1,5 +1,5 @@
 import type { EditBlock } from '../applySearchReplace';
-import type { ValidationRule, ValidationIssue } from './ValidationRule';
+import type { ValidationIssue, ValidationRule } from './ValidationRule';
 
 export class PathExistsRule implements ValidationRule {
 	readonly name = 'PathExistsRule';
@@ -10,7 +10,7 @@ export class PathExistsRule implements ValidationRule {
 		if (!fileExists && block.originalText.trim() !== '') {
 			return {
 				file: block.filePath,
-				reason: `File does not exist, but the SEARCH block is not empty. To create a new file, the SEARCH block must be empty.`,
+				reason: 'File does not exist, but the SEARCH block is not empty. To create a new file, the SEARCH block must be empty.',
 			};
 		}
 		return null;

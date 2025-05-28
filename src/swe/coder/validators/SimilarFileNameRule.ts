@@ -1,6 +1,6 @@
 import { stringSimilarity } from 'string-similarity-js';
 import type { EditBlock } from '../applySearchReplace';
-import type { ValidationRule, ValidationIssue } from './ValidationRule';
+import type { ValidationIssue, ValidationRule } from './ValidationRule';
 
 const SEP = '/'; // Assuming POSIX-style paths from LLM
 

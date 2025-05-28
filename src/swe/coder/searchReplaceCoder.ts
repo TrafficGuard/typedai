@@ -110,7 +110,6 @@ export class SearchReplaceCoder {
 			// 	continue; // Next attempt
 			// }
 
-
 			const editedFiles: Set<string> | null = await searchReplacer.applyLlmResponse(responseToApply, llms().hard);
 
 			if (editedFiles !== null) {

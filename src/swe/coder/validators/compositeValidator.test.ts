@@ -1,10 +1,10 @@
 import { expect } from 'chai';
-import { validateBlocks } from './compositeValidator';
-import type { EditBlock } from '../applySearchReplace';
-import type { ValidationRule, ValidationIssue } from './ValidationRule';
-import { PathExistsRule } from './PathExistsRule';
-import { ModuleAliasRule } from './ModuleAliasRule';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
+import type { EditBlock } from '../applySearchReplace';
+import { ModuleAliasRule } from './ModuleAliasRule';
+import { PathExistsRule } from './PathExistsRule';
+import type { ValidationIssue, ValidationRule } from './ValidationRule';
+import { validateBlocks } from './compositeValidator';
 
 describe('validateBlocks', () => {
 	setupConditionalLoggerOutput();
