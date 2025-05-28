@@ -11,6 +11,7 @@ import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { ApplySearchReplace } from './applySearchReplace';
 // Ensure _stripFilename is imported if _findFilenameFromPrecedingLines directly uses it from utils
 import { _stripFilename } from './applySearchReplaceUtils';
+import { EditBlockParser } from './editBlockParser';
 
 const SEARCH_MARKER = '<<<<<<< SEARCH';
 const DIVIDER_MARKER = '=======';

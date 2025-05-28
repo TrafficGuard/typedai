@@ -1,16 +1,16 @@
 import { expect } from 'chai';
 
-import { checkEditBlockFilePath } from './searchReplaceCoder';
+import { SearchReplaceCoder } from './searchReplaceCoder';
 
 describe('SearchReplaceCoder', () => {
 	describe('Create file check', () => {});
 
-	describe('Create file check', () => {
+	describe('checkEditBlockFilePath (static private method)', () => {
 		it('should return an error message if it finds an existing file with the same parent folder name', () => {
 			const existingFilesNames = ['foo', 'path/path2/path3/path4/file'];
 			const editFilePath = 'path3/path4/file';
 
-			const result = checkEditBlockFilePath(existingFilesNames, editFilePath);
+			const result = (SearchReplaceCoder as any).checkEditBlockFilePath(existingFilesNames, editFilePath);
 
 			expect(result).to.not.be.null;
 		});
@@ -19,7 +19,7 @@ describe('SearchReplaceCoder', () => {
 			const existingFilesNames = [];
 			const editFilePath = '#module/file';
 
-			const result = checkEditBlockFilePath(existingFilesNames, editFilePath);
+			const result = (SearchReplaceCoder as any).checkEditBlockFilePath(existingFilesNames, editFilePath);
 
 			expect(result).to.not.be.null;
 		});
@@ -29,7 +29,7 @@ describe('SearchReplaceCoder', () => {
 			const existingFilesNames = ['frontend/src/app/modules/agents/agent/agent-iterations/agent-iterations.component.ts'];
 			const editFilePath = 'frontend/src/app/modules/agents/agent/agent-iterations/AgentIterations.component.ts';
 
-			const result = checkEditBlockFilePath(existingFilesNames, editFilePath);
+			const result = (SearchReplaceCoder as any).checkEditBlockFilePath(existingFilesNames, editFilePath);
 
 			expect(result).to.not.be.null;
 		});
@@ -38,7 +38,7 @@ describe('SearchReplaceCoder', () => {
 			const existingFilesNames = ['path/path2/path3/path4/file'];
 			const editFilePath = 'foo/bar/baz';
 
-			const result = checkEditBlockFilePath(existingFilesNames, editFilePath);
+			const result = (SearchReplaceCoder as any).checkEditBlockFilePath(existingFilesNames, editFilePath);
 
 			expect(result).to.be.null;
 		});
