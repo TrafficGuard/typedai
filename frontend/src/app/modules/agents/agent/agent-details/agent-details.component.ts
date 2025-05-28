@@ -27,6 +27,8 @@ import { AgentLinks, GoogleCloudLinks } from "../../agent-links";
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AgentRunningState } from "#shared/model/agent.model";
 import { AGENT_ROUTE_DEFINITIONS } from '../../agent.routes';
+import {ClipboardButtonComponent} from "../../../chat/conversation/clipboard-button.component";
+import {MarkdownComponent, MarkdownModule, MarkdownService, MarkedRenderer, provideMarkdown} from "ngx-markdown";
 
 @Component({
     selector: 'agent-details',
@@ -49,6 +51,10 @@ import { AGENT_ROUTE_DEFINITIONS } from '../../agent.routes';
         MatRadioModule,
         MatTooltipModule,
         MatProgressSpinnerModule,
+        MarkdownModule,
+    ],
+    providers: [
+        provideMarkdown(),
     ],
 })
 export class AgentDetailsComponent implements OnInit {
@@ -90,6 +96,7 @@ export class AgentDetailsComponent implements OnInit {
     private snackBar = inject(MatSnackBar);
     private dialog = inject(MatDialog);
     private functionsService = inject(FunctionsService);
+    private markdown = inject(MarkdownService);
     private router = inject(Router);
     private agentService = inject(AgentService);
     private llmService = inject(LlmService);
@@ -113,13 +120,19 @@ export class AgentDetailsComponent implements OnInit {
     ngOnInit(): void {
         this.functionsService.getFunctions();
         this.llmService.loadLlms();
-        
+
+        this.markdown.options = {
+            renderer: new MarkedRenderer(),
+            gfm: true,
+            breaks: true,
+        };
+
         // React to LLM state changes
         toObservable(this.llmService.llmsState).pipe(
             takeUntilDestroyed(this.destroyRef)
         ).subscribe(state => {
             this.isLoadingLlms.set(state.status === 'loading');
-            
+
             if (state.status === 'success') {
                 this.llmNameMap.set(new Map(state.data.map(llm => [llm.id, llm.name])));
                 this.llmLoadError.set(null);
@@ -414,4 +427,6 @@ export class AgentDetailsComponent implements OnInit {
             }
         });
     }
+
+    protected readonly clipboardButton = ClipboardButtonComponent;
 }
