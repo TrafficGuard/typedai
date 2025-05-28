@@ -299,8 +299,9 @@ export class SearchReplaceCoder {
 		const currentFilesInChatAbs = session.absFnamesInChat ?? new Set();
 		if (currentFilesInChatAbs.size > 0) {
 			let filesContentBlock = EDIT_BLOCK_PROMPTS.files_content_prefix;
-			for (const absPath of currentFilesInChatAbs) {
-				const relPath = this.getRelativeFilePath(session.workingDir, absPath);
+			// Sort files alphabetically for consistent prompt order
+			const sortedChatFilesRel = Array.from(currentFilesInChatAbs).map(absPath => this.getRelativeFilePath(session.workingDir, absPath)).sort();
+			for (const relPath of sortedChatFilesRel) {
 				filesContentBlock += `\n\n${await formatFileForPrompt(relPath)}`;
 			}
 			messages.push({ role: 'user', content: filesContentBlock });
@@ -311,7 +312,9 @@ export class SearchReplaceCoder {
 
 		if (readOnlyFilesRelativePaths.length > 0) {
 			let readOnlyFilesContentBlock = EDIT_BLOCK_PROMPTS.read_only_files_prefix;
-			for (const relPath of readOnlyFilesRelativePaths) {
+			// Sort read-only files alphabetically for consistent prompt order
+			const sortedReadOnlyFilesRel = readOnlyFilesRelativePaths.sort();
+			for (const relPath of sortedReadOnlyFilesRel) {
 				readOnlyFilesContentBlock += `\n\n${await formatFileForPrompt(relPath)}`;
 			}
 			messages.push({ role: 'user', content: readOnlyFilesContentBlock });
@@ -496,7 +499,17 @@ export class SearchReplaceCoder {
 				if (!hookResult.ok) {
 					logger.warn(`Hook ${hook.name} failed: ${hookResult.message}`);
 					sessionEvents.emit('hook-failed', { hook: hook.name, msg: hookResult.message });
-					this._reflectOnHookFailure(session, hook.name, hookResult, currentMessages);
+
+					let reflectionText = buildHookFailureReflection(hook.name, hookResult);
+					if (hookResult.additionalFiles && hookResult.additionalFiles.length > 0) {
+						logger.info({ additionalFiles: hookResult.additionalFiles }, `Hook ${hook.name} identified additional files due to failure.`);
+						for (const relPath of hookResult.additionalFiles) {
+							const absPath = this.getRepoFilePath(session.workingDir, relPath);
+							if (session.absFnamesInChat) session.absFnamesInChat.add(absPath);
+						}
+						reflectionText += `\nThe following files, potentially related to the error, have been added to your context: ${hookResult.additionalFiles.join(', ')}. Please review them.`;
+					}
+					this._addReflectionToMessages(session, reflectionText, currentMessages);
 					allHooksPassed = false;
 					continue attemptLoop;
 				}
