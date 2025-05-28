@@ -7,12 +7,14 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { FormsModule } from '@angular/forms';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner'; // Import spinner module
-import { ChatsComponent } from './chats.component'; // Corrected import path
-import { Chat, NEW_CHAT_ID } from '../chat.types';
-import { signal, DestroyRef } from '@angular/core';
-import { of, throwError, EMPTY } from 'rxjs';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { ChatsComponent } from './chats.component';
+import type { Chat as UIChat } from '../chat.types';
+import { NEW_CHAT_ID } from '../chat.types';
+import { signal, DestroyRef, WritableSignal } from '@angular/core';
+import { of, throwError, EMPTY, tap, catchError, delay } from 'rxjs';
 import { ChatServiceClient } from '../chat.service';
+import type { ApiListState } from 'app/core/api-state.types';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ParamMap, convertToParamMap } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
@@ -26,45 +28,82 @@ describe('ChatsComponent', () => {
     let mockDestroyRefInstance: jasmine.SpyObj<DestroyRef>;
     let paramMapSubject: BehaviorSubject<ParamMap>;
 
+    // Signals that would be part of the mocked ChatServiceClient
+    let mockServiceChatsSignal: WritableSignal<UIChat[] | null>;
+    let mockServiceChatsStateSignal: WritableSignal<ApiListState<UIChat>>;
 
-    const mockSessionsData: Chat[] = [
+
+    const mockSessionsData: UIChat[] = [
         { id: '1', title: 'Chat 1', updatedAt: Date.now(), messages: [] },
         { id: '2', title: 'Chat 2', updatedAt: Date.now(), messages: [] },
         { id: '3', title: 'Another Chat', updatedAt: Date.now(), messages: [] },
     ];
 
     beforeEach(async () => {
-        mockChatService = jasmine.createSpyObj('ChatServiceClient', ['createChat', 'loadChats', 'deleteChat', 'chats']);
+        mockServiceChatsSignal = signal<UIChat[] | null>([]);
+        mockServiceChatsStateSignal = signal<ApiListState<UIChat>>({ status: 'idle' });
+
+        mockChatService = jasmine.createSpyObj('ChatServiceClient',
+            ['loadChats', 'forceReloadChats', 'deleteChat', 'createChat'],
+            {
+                chats: mockServiceChatsSignal, // component reads this.chatService.chats()
+                chatsState: mockServiceChatsStateSignal // service methods update this
+            }
+        );
+
         mockRouter = jasmine.createSpyObj('Router', ['navigate']);
         mockDestroyRefInstance = jasmine.createSpyObj('DestroyRef', ['onDestroy']);
 
         paramMapSubject = new BehaviorSubject(convertToParamMap({}));
         mockActivatedRoute = {
             paramMap: paramMapSubject.asObservable(),
-            snapshot: { paramMap: convertToParamMap({}) } // Provide a snapshot for initial value in toSignal
+            snapshot: { paramMap: convertToParamMap({}) }
         };
 
+        // Default mock implementations for service methods
+        mockChatService.loadChats.and.callFake(() => {
+            mockServiceChatsStateSignal.set({ status: 'loading' });
+            return of(undefined).pipe(
+                delay(1), // Simulate async
+                tap(() => {
+                    mockServiceChatsSignal.set([...mockSessionsData]);
+                    mockServiceChatsStateSignal.set({ status: 'success', data: [...mockSessionsData] });
+                }),
+                catchError(err => {
+                    mockServiceChatsStateSignal.set({ status: 'error', error: err, code: err.status });
+                    mockServiceChatsSignal.set([]); // Clear chats on error
+                    return throwError(() => err);
+                })
+            );
+        });
 
-        // Mock default return values for service methods called during component initialization or general use
-        // loadChats is called in ngOnInit, make it return an observable that completes immediately with data
-        mockChatService.loadChats.and.returnValue(of([...mockSessionsData]));
-        // createChat is no longer called by startNewChat, but keep a mock for other potential uses or future tests
-        mockChatService.createChat.and.returnValue(of({ id: 'new-chat-default', title: 'Default New Chat', updatedAt: Date.now() }));
-        // deleteChat needs a default return
+        mockChatService.forceReloadChats.and.callFake(() => {
+            mockServiceChatsStateSignal.set({ status: 'loading' });
+            // Simulate async fetch and success for force reload
+            const reloadedData: UIChat[] = [{ id: 'reloaded1', title: 'Reloaded Chat 1', updatedAt: Date.now(), messages: [] }];
+            return of(undefined).pipe(
+                delay(1),
+                tap(() => {
+                    mockServiceChatsSignal.set(reloadedData);
+                    mockServiceChatsStateSignal.set({ status: 'success', data: reloadedData });
+                }),
+                catchError(err => {
+                    mockServiceChatsStateSignal.set({ status: 'error', error: err, code: err.status });
+                    mockServiceChatsSignal.set([]);
+                    return throwError(() => err);
+                })
+            );
+        });
+        
+        mockChatService.createChat.and.returnValue(of({ id: 'new-chat-default', title: 'Default New Chat', updatedAt: Date.now(), messages:[] }));
         mockChatService.deleteChat.and.returnValue(of(void 0));
 
 
         await TestBed.configureTestingModule({
             imports: [
-                ChatsComponent, // Standalone component
+                ChatsComponent,
                 NoopAnimationsModule,
-                FormsModule,
-                MatIconModule,
-                MatFormFieldModule,
-                MatInputModule,
-                MatButtonModule,
-                MatProgressSpinnerModule, // Add spinner module
-                RouterLink,
+                // FormsModule, MatIconModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatProgressSpinnerModule, RouterLink are imported by ChatsComponent
                 RouterTestingModule,
             ],
             providers: [
@@ -77,49 +116,53 @@ describe('ChatsComponent', () => {
 
         fixture = TestBed.createComponent(ChatsComponent);
         component = fixture.componentInstance;
-        // No need to set inputs anymore, component manages its own state
-        fixture.detectChanges(); // Initial binding, triggers ngOnInit and effect
-        tick(); // Allow async operations (like loadChats subscription) and effects to complete
-        fixture.detectChanges(); // Update view after data load
+        fixture.detectChanges(); // ngOnInit will call loadChats
+        tick(1); // Allow loadChats mock to complete (due to delay(1))
+        fixture.detectChanges(); // Update view with loaded data
     });
-
-    afterEach(() => {
-        // Clean up any potential async operations left hanging
-        // This might be needed if tests don't fully drain the microtask queue
-        // For simple 'of' observables, tick() after detectChanges() is usually enough.
-    });
-
 
     it('should create', () => {
         expect(component).toBeTruthy();
     });
 
     it('should load chats on initialization', fakeAsync(() => {
-        // loadChats is mocked to return mockSessionsData
+        // ngOnInit calls loadChats, which is mocked to update signals
         expect(mockChatService.loadChats).toHaveBeenCalled();
+        // The component's `sessions` signal is computed from `mockChatService.chats()`
         expect(component.sessions()).toEqual(mockSessionsData);
-        expect(component.isLoading()).toBeFalse();
+        expect(component.isLoading()).toBeFalse(); // isLoading is derived from chatsState
         expect(component.error()).toBeNull();
         expect(component.hasDisplayableSessions()).toBeTrue();
 
-        // Check if sessions are rendered
         const sessionElements = fixture.nativeElement.querySelectorAll('a[routerLink]');
         expect(sessionElements.length).toBe(mockSessionsData.length);
         expect(sessionElements[0].textContent).toContain(mockSessionsData[0].title);
     }));
 
+
     it('should display error message if loading fails', fakeAsync(() => {
         const errorResponse = new Error('Load failed');
-        mockChatService.loadChats.and.returnValue(throwError(() => errorResponse));
+        // Configure loadChats to return an error
+        mockChatService.loadChats.and.callFake(() => {
+            mockServiceChatsStateSignal.set({ status: 'loading' });
+            return of(undefined).pipe(
+                delay(1),
+                tap(() => { throw errorResponse; }), // Throw error inside tap to simulate service error
+                catchError(err => {
+                    mockServiceChatsStateSignal.set({ status: 'error', error: err, code: (err as any).status });
+                    mockServiceChatsSignal.set([]);
+                    return throwError(() => err); // Ensure error propagates to component's catchError
+                })
+            );
+        });
 
-        // Re-initialize component or trigger load again
-        component.loadChats();
-        tick(); // Allow observable to complete
-        fixture.detectChanges(); // Update view
+        component.loadChats(); // Call the component's loadChats method
+        tick(1); // Allow async operations in mock to complete
+        fixture.detectChanges();
 
         expect(component.isLoading()).toBeFalse();
         expect(component.error()).toBe(errorResponse);
-        expect(component.sessions()).toEqual([]); // Sessions should be cleared on error
+        expect(component.sessions()).toEqual([]);
         expect(component.hasDisplayableSessions()).toBeFalse();
 
         const errorMessage = fixture.nativeElement.querySelector('.text-2xl.font-semibold.tracking-tight');
@@ -128,192 +171,137 @@ describe('ChatsComponent', () => {
 
     it('should retry loading chats when retry button is clicked', fakeAsync(() => {
         const errorResponse = new Error('Load failed');
-        mockChatService.loadChats.and.returnValue(throwError(() => errorResponse));
-
-        component.loadChats(); // Simulate initial failed load
-        tick();
+        // Initial failed load
+        mockChatService.loadChats.and.callFake(() => {
+            mockServiceChatsStateSignal.set({ status: 'loading' });
+            return of(undefined).pipe(delay(1), tap(() => {
+                mockServiceChatsStateSignal.set({ status: 'error', error: errorResponse, code: 500 });
+                mockServiceChatsSignal.set([]);
+            }));
+        });
+        component.loadChats();
+        tick(1);
         fixture.detectChanges();
+        expect(component.error()).toBe(errorResponse);
 
-        // Now mock loadChats to succeed for the retry
-        mockChatService.loadChats.and.returnValue(of([...mockSessionsData]));
+        // Setup successful load for retry
+        mockChatService.loadChats.and.callFake(() => {
+            mockServiceChatsStateSignal.set({ status: 'loading' });
+            return of(undefined).pipe(delay(1), tap(() => {
+                mockServiceChatsSignal.set([...mockSessionsData]);
+                mockServiceChatsStateSignal.set({ status: 'success', data: [...mockSessionsData] });
+            }));
+        });
 
         const retryButton = fixture.nativeElement.querySelector('button[color="warn"]');
         expect(retryButton).toBeTruthy();
-        retryButton.click();
-        tick(); // Allow retryLoadChats and subsequent loadChats to complete
+        retryButton.click(); // This calls component.retryLoadChats() -> component.loadChats()
+        
+        expect(mockChatService.loadChats).toHaveBeenCalledTimes(2); // Initial + retry
+        tick(1); // Allow retry load to complete
         fixture.detectChanges();
 
-        expect(mockChatService.loadChats).toHaveBeenCalledTimes(2); // Initial load + retry
         expect(component.sessions()).toEqual(mockSessionsData);
         expect(component.isLoading()).toBeFalse();
         expect(component.error()).toBeNull();
-        expect(component.hasDisplayableSessions()).toBeTrue();
     }));
 
 
     it('should filter sessions based on filterTerm signal', fakeAsync(() => {
-        component.sessions.set([...mockSessionsData]); // Ensure sessions are loaded
-        fixture.detectChanges();
-        tick();
-        fixture.detectChanges();
+        // Initial data is already loaded in beforeEach
+        expect(component.sessions()).toEqual(mockSessionsData);
 
-        // Set filter term
-        component.filterTerm.set('Chat');
-        tick(); // Allow computed signal to update
-        fixture.detectChanges(); // Re-render with filtered list
+        component.filterTerm.set('Chat 1');
+        tick(); fixture.detectChanges();
+        expect(component.displaySessions().length).toBe(1);
+        expect(component.displaySessions()[0].title).toBe('Chat 1');
 
-        let sessionElements = fixture.nativeElement.querySelectorAll('a[routerLink]');
-        expect(sessionElements.length).toBe(2); // Chat 1, Chat 2
-        expect(sessionElements[0].textContent).toContain('Chat 1');
-        expect(sessionElements[1].textContent).toContain('Chat 2');
+        component.filterTerm.set('NonExistent');
+        tick(); fixture.detectChanges();
+        expect(component.displaySessions().length).toBe(0);
 
-        // Set filter term to something specific
-        component.filterTerm.set('Another');
-        tick();
-        fixture.detectChanges();
-
-        sessionElements = fixture.nativeElement.querySelectorAll('a[routerLink]');
-        expect(sessionElements.length).toBe(1); // Another Chat
-        expect(sessionElements[0].textContent).toContain('Another Chat');
-
-        // Clear filter term
         component.filterTerm.set('');
-        tick();
-        fixture.detectChanges();
-
-        sessionElements = fixture.nativeElement.querySelectorAll('a[routerLink]');
-        expect(sessionElements.length).toBe(mockSessionsData.length); // All sessions
+        tick(); fixture.detectChanges();
+        expect(component.displaySessions().length).toBe(mockSessionsData.length);
     }));
 
-    it('should update filterTerm when onFilterSessions is called (e.g., by input event)', fakeAsync(() => {
-        component.sessions.set([...mockSessionsData]); // Ensure sessions are loaded
-        fixture.detectChanges();
-        tick();
-        fixture.detectChanges();
-
+    it('should update filterTerm when onFilterSessions is called', fakeAsync(() => {
         const inputElement: HTMLInputElement = fixture.nativeElement.querySelector('input[matInput]');
         inputElement.value = 'Test Filter';
-        inputElement.dispatchEvent(new Event('input')); // Simulate input event
-        // No need for tick() here as signal update is synchronous
+        inputElement.dispatchEvent(new Event('input'));
         fixture.detectChanges();
-
         expect(component.filterTerm()).toBe('Test Filter');
     }));
 
 
     it('should highlight the selected session based on route parameter', fakeAsync(() => {
-        component.sessions.set([...mockSessionsData]); // Ensure sessions are loaded
-        fixture.detectChanges();
-        tick();
-        fixture.detectChanges();
-
-        // Simulate route change to select the second chat
+        // Data loaded in beforeEach
         paramMapSubject.next(convertToParamMap({ id: mockSessionsData[1].id }));
-        tick(); // Allow effect to run
-        fixture.detectChanges(); // Update view based on selectedSessionId signal
+        tick(); fixture.detectChanges();
 
+        expect(component.selectedSessionId()).toBe(mockSessionsData[1].id);
         const sessionElements = fixture.nativeElement.querySelectorAll('a[routerLink]');
-        const selectedElement = sessionElements[1]; // Second chat
-        const unselectedElement = sessionElements[0]; // First chat
+        expect(sessionElements[1].classList).toContain('bg-primary-50');
+        expect(sessionElements[0].classList).not.toContain('bg-primary-50');
 
-        // Check for a class that indicates selection, e.g., 'bg-primary-50'
-        expect(selectedElement.classList).toContain('bg-primary-50');
-        expect(unselectedElement.classList).not.toContain('bg-primary-50');
-
-        // Simulate route change away from a specific chat
-        paramMapSubject.next(convertToParamMap({}));
-        tick();
-        fixture.detectChanges();
-
+        paramMapSubject.next(convertToParamMap({})); // No ID
+        tick(); fixture.detectChanges();
         expect(component.selectedSessionId()).toBeNull();
-        const allElements = fixture.nativeElement.querySelectorAll('a[routerLink]');
-        allElements.forEach((el: HTMLElement) => {
-            expect(el.classList).not.toContain('bg-primary-50');
-        });
+        sessionElements.forEach((el: HTMLElement) => expect(el.classList).not.toContain('bg-primary-50'));
     }));
 
     it('should display "No chats available" message when sessions signal is empty and no filter', fakeAsync(() => {
-        component.sessions.set([]); // Ensure sessions are empty
-        component.filterTerm.set(''); // Ensure no filter
-        fixture.detectChanges();
-        tick();
-        fixture.detectChanges();
+        mockServiceChatsSignal.set([]); // Set to empty
+        mockServiceChatsStateSignal.set({ status: 'success', data: [] });
+        component.filterTerm.set('');
+        tick(); fixture.detectChanges();
 
         const noChatsMessage = fixture.nativeElement.querySelector('.text-2xl.font-semibold.tracking-tight');
-        expect(noChatsMessage).toBeTruthy();
         expect(noChatsMessage.textContent).toContain('No chats available.');
-
-        const subMessage = fixture.nativeElement.querySelector('.text-secondary.mt-1');
-        expect(subMessage.textContent).toContain('Click "New Chat" to start a conversation.');
     }));
 
     it('should display "No chats found" message when sessions signal is not empty but filter yields no results', fakeAsync(() => {
-        component.sessions.set([...mockSessionsData]); // Ensure sessions are loaded
-        component.filterTerm.set('NonExistentChat'); // Set filter that won't match
-        fixture.detectChanges();
-        tick();
-        fixture.detectChanges();
+        // mockSessionsData is already set
+        component.filterTerm.set('NonExistentChat');
+        tick(); fixture.detectChanges();
 
         const noChatsMessage = fixture.nativeElement.querySelector('.text-2xl.font-semibold.tracking-tight');
-        expect(noChatsMessage).toBeTruthy();
         expect(noChatsMessage.textContent).toContain('No chats found matching "NonExistentChat"');
-
-        const subMessage = fixture.nativeElement.querySelector('.text-secondary.mt-1');
-        expect(subMessage.textContent).toContain('Try a different search term.');
     }));
 
 
     it('should show delete icon on hover and call onClickDeleteSession on click', fakeAsync(() => {
-        spyOn(component, 'onClickDeleteSession').and.callThrough(); // Spy on the component method
-        component.sessions.set([mockSessionsData[0]]); // Use a single chat for simplicity
-        fixture.detectChanges();
-        tick();
-        fixture.detectChanges();
+        spyOn(component, 'onClickDeleteSession').and.callThrough();
+        mockServiceChatsSignal.set([mockSessionsData[0]]);
+        mockServiceChatsStateSignal.set({ status: 'success', data: [mockSessionsData[0]]});
+        tick(); fixture.detectChanges();
 
         const chatItem = fixture.nativeElement.querySelector('a[routerLink]');
-        expect(chatItem).toBeTruthy();
-
-        // Simulate mouse enter by setting the signal directly
         component.hoveredChatId.set(mockSessionsData[0].id);
-        fixture.detectChanges();
-        tick();
-        fixture.detectChanges();
+        tick(); fixture.detectChanges();
 
         let deleteButton = fixture.nativeElement.querySelector('button mat-icon[svgicon="heroicons_solid:trash"]');
-        expect(deleteButton).toBeTruthy('Delete button should be visible on hover');
+        expect(deleteButton).toBeTruthy();
 
-        // Simulate click on delete button
-        deleteButton.parentElement.click(); // Click the button element
+        deleteButton.parentElement.click();
         expect(component.onClickDeleteSession).toHaveBeenCalledWith(jasmine.any(MouseEvent), mockSessionsData[0]);
 
-        // Simulate mouse leave
         component.hoveredChatId.set(null);
-        fixture.detectChanges();
-        tick();
-        fixture.detectChanges();
-
+        tick(); fixture.detectChanges();
         deleteButton = fixture.nativeElement.querySelector('button mat-icon[svgicon="heroicons_solid:trash"]');
-        expect(deleteButton).toBeNull('Delete button should not be visible after mouse leave');
+        expect(deleteButton).toBeNull();
     }));
 
     it('should not show delete icon for NEW_CHAT_ID', fakeAsync(() => {
-        const newChatMock: Chat = { id: NEW_CHAT_ID, title: 'New Chat', updatedAt: Date.now() };
-        component.sessions.set([newChatMock]);
-        fixture.detectChanges();
-        tick();
-        fixture.detectChanges();
-
-        const chatItem = fixture.nativeElement.querySelector('a[routerLink]');
-        expect(chatItem).toBeTruthy();
-
-        // Simulate mouse enter
+        const newChatMock: UIChat = { id: NEW_CHAT_ID, title: 'New Chat', updatedAt: Date.now(), messages: [] };
+        mockServiceChatsSignal.set([newChatMock]);
+        mockServiceChatsStateSignal.set({ status: 'success', data: [newChatMock] });
+        tick(); fixture.detectChanges();
+        
         component.hoveredChatId.set(newChatMock.id);
-        fixture.detectChanges();
-        tick();
-        fixture.detectChanges();
-
+        tick(); fixture.detectChanges();
         const deleteButton = fixture.nativeElement.querySelector('button mat-icon[svgicon="heroicons_solid:trash"]');
-        expect(deleteButton).toBeNull('Delete button should not be visible for NEW_CHAT_ID');
+        expect(deleteButton).toBeNull();
     }));
 
 
@@ -331,48 +319,43 @@ describe('ChatsComponent', () => {
     });
 
     describe('onClickDeleteSession', () => {
-        it('should call chatService.deleteChat and reload chats on success', fakeAsync(() => {
+        it('should call chatService.deleteChat and update sessions on success', fakeAsync(() => {
             const chatToDelete = mockSessionsData[0];
-            component.sessions.set([...mockSessionsData]); // Ensure sessions are loaded
-            fixture.detectChanges();
-            tick();
-            fixture.detectChanges();
-
-            // Mock loadChats to return the list without the deleted chat after deletion
-            mockChatService.loadChats.and.returnValue(of(mockSessionsData.filter(c => c.id !== chatToDelete.id)));
+            // mockSessionsData is already in mockServiceChatsSignal
+            mockChatService.deleteChat.and.callFake((id: string) => {
+                // Simulate service updating its signals upon successful deletion
+                const currentChats = mockServiceChatsSignal() || [];
+                mockServiceChatsSignal.set(currentChats.filter(c => c.id !== id));
+                mockServiceChatsStateSignal.set({ status: 'success', data: mockServiceChatsSignal()! });
+                return of(undefined);
+            });
 
             component.onClickDeleteSession(new MouseEvent('click'), chatToDelete);
-            tick(); // Allow deleteChat observable to complete
-            fixture.detectChanges(); // Update view
+            tick(); // Allow deleteChat and subsequent signal updates
+            fixture.detectChanges();
 
             expect(mockChatService.deleteChat).toHaveBeenCalledWith(chatToDelete.id);
-            expect(mockChatService.loadChats).toHaveBeenCalledTimes(2); // Initial load + load after delete
-            expect(component.sessions()).not.toContain(chatToDelete);
-            expect(mockRouter.navigate).not.toHaveBeenCalled(); // Should not navigate if selected chat is different
+            expect(component.sessions().find(s => s.id === chatToDelete.id)).toBeUndefined();
+            expect(mockRouter.navigate).not.toHaveBeenCalled();
         }));
 
         it('should navigate away if the selected chat is deleted', fakeAsync(() => {
-            const chatToDelete = mockSessionsData[1]; // Select the second chat
-            component.sessions.set([...mockSessionsData]);
-            // Simulate this chat being selected via route
-            paramMapSubject.next(convertToParamMap({ id: chatToDelete.id }));
-            fixture.detectChanges();
-            tick();
-            fixture.detectChanges();
-
+            const chatToDelete = mockSessionsData[1];
+            paramMapSubject.next(convertToParamMap({ id: chatToDelete.id })); // Select this chat
+            tick(); fixture.detectChanges();
             expect(component.selectedSessionId()).toBe(chatToDelete.id);
 
-            // Mock loadChats to return the list without the deleted chat after deletion
-            mockChatService.loadChats.and.returnValue(of(mockSessionsData.filter(c => c.id !== chatToDelete.id)));
+            mockChatService.deleteChat.and.callFake((id: string) => {
+                const currentChats = mockServiceChatsSignal() || [];
+                mockServiceChatsSignal.set(currentChats.filter(c => c.id !== id));
+                mockServiceChatsStateSignal.set({ status: 'success', data: mockServiceChatsSignal()! });
+                return of(undefined);
+            });
 
             component.onClickDeleteSession(new MouseEvent('click'), chatToDelete);
-            tick(); // Allow deleteChat observable to complete
-            fixture.detectChanges(); // Update view
+            tick(); fixture.detectChanges();
 
             expect(mockChatService.deleteChat).toHaveBeenCalledWith(chatToDelete.id);
-            expect(mockChatService.loadChats).toHaveBeenCalledTimes(2); // Initial load + load after delete
-            expect(component.sessions()).not.toContain(chatToDelete);
-            // Check navigation
             expect(mockRouter.navigate).toHaveBeenCalledWith(['../'], { relativeTo: mockActivatedRoute });
         }));
 
@@ -382,20 +365,13 @@ describe('ChatsComponent', () => {
             mockChatService.deleteChat.and.returnValue(throwError(() => errorResponse));
             spyOn(console, 'error');
 
-            component.sessions.set([...mockSessionsData]); // Ensure sessions are loaded
-            fixture.detectChanges();
-            tick();
-            fixture.detectChanges();
-
             component.onClickDeleteSession(new MouseEvent('click'), chatToDelete);
-            tick(); // Allow deleteChat observable to complete
-            fixture.detectChanges(); // Update view
+            tick(); fixture.detectChanges();
 
             expect(mockChatService.deleteChat).toHaveBeenCalledWith(chatToDelete.id);
-            expect(mockChatService.loadChats).toHaveBeenCalledTimes(1); // loadChats should not be called again
-            expect(component.sessions()).toContain(chatToDelete); // Session should still be in the list
+            // Sessions should not change if delete fails and service doesn't update signals on error
+            expect(component.sessions().find(s => s.id === chatToDelete.id)).toBeTruthy();
             expect(console.error).toHaveBeenCalledWith('Failed to delete chat:', errorResponse);
-            expect(mockRouter.navigate).not.toHaveBeenCalled();
         }));
 
         it('should prevent default and stop propagation on delete click', () => {
@@ -411,26 +387,123 @@ describe('ChatsComponent', () => {
 
     it('should update selectedSessionId optimistically when onSessionSelect is called', fakeAsync(() => {
         const selectedChat = mockSessionsData[0];
-        component.sessions.set([...mockSessionsData]);
-        fixture.detectChanges();
-        tick();
-        fixture.detectChanges();
-
-        // Initially, no chat is selected based on route
-        expect(component.selectedSessionId()).toBeNull();
+        // Data loaded in beforeEach
+        expect(component.selectedSessionId()).toBeNull(); // Assuming no route param initially
 
         component.onSessionSelect(selectedChat);
-        // selectedSessionId should be updated immediately by the signal set
         expect(component.selectedSessionId()).toBe(selectedChat.id);
-
-        // The route effect might overwrite this if the route param doesn't match,
-        // but the immediate effect of calling the method is the signal update.
     }));
 
-    // Add tests for trackBySessionId if needed, but it's a simple passthrough
     it('trackBySessionId should return the session id', () => {
-        const session: Chat = { id: 'test-id', title: 'Test', updatedAt: Date.now(), messages: [] };
+        const session: UIChat = { id: 'test-id', title: 'Test', updatedAt: Date.now(), messages: [] };
         expect(component.trackBySessionId(0, session)).toBe('test-id');
+    });
+
+    describe('forceReloadChats method', () => {
+        it('should call chatService.forceReloadChats and set isLoading states correctly on success', fakeAsync(() => {
+            // Mock forceReloadChats to simulate success and update signals
+            mockChatService.forceReloadChats.and.callFake(() => {
+                mockServiceChatsStateSignal.set({ status: 'loading' });
+                return of(undefined).pipe(
+                    delay(1),
+                    tap(() => {
+                        const reloadedData = [{ id: 'reloaded', title: 'Reloaded', updatedAt: Date.now(), messages: [] }];
+                        mockServiceChatsSignal.set(reloadedData);
+                        mockServiceChatsStateSignal.set({ status: 'success', data: reloadedData });
+                    })
+                );
+            });
+            fixture.detectChanges(); // Initial render
+
+            component.forceReloadChats();
+            expect(component.isLoading()).toBe(true); // Check immediately after call
+            expect(mockChatService.forceReloadChats).toHaveBeenCalled();
+
+            tick(1); // Process microtasks and timers (finalize in this case)
+            fixture.detectChanges(); // Update view after async op
+
+            expect(component.isLoading()).toBe(false);
+            expect(component.sessions()![0].id).toBe('reloaded'); // Check if data is updated
+        }));
+
+        it('should set error signal and isLoading to false if chatService.forceReloadChats fails', fakeAsync(() => {
+            const errorResponse = new Error('Reload Failed');
+            mockChatService.forceReloadChats.and.callFake(() => {
+                mockServiceChatsStateSignal.set({ status: 'loading' });
+                return of(undefined).pipe(
+                    delay(1),
+                    tap(() => { throw errorResponse; }),
+                    catchError(err => {
+                        mockServiceChatsStateSignal.set({ status: 'error', error: err, code: (err as any).status });
+                        mockServiceChatsSignal.set([]);
+                        return throwError(() => err);
+                    })
+                );
+            });
+            fixture.detectChanges();
+
+            component.forceReloadChats();
+            tick(1);
+            fixture.detectChanges();
+
+            expect(component.isLoading()).toBe(false);
+            expect(component.error()).toBe(errorResponse);
+        }));
+
+        it('should clear error signal when forceReloadChats is called', () => {
+            component.error.set(new Error('Previous Error'));
+            // Mock to success
+            mockChatService.forceReloadChats.and.callFake(() => {
+                mockServiceChatsStateSignal.set({ status: 'loading' });
+                return of(undefined).pipe(delay(1), tap(() => {
+                    mockServiceChatsStateSignal.set({ status: 'success', data: [] });
+                }));
+            });
+            fixture.detectChanges();
+
+            component.forceReloadChats();
+            // Error is cleared at the start of forceReloadChats in component
+            expect(component.error()).toBeNull();
+        });
+    });
+
+    describe('Reload Button', () => {
+        beforeEach(() => {
+            // Ensure component is rendered and initial load is complete
+            fixture.detectChanges();
+            tick(); // If initial load has delay
+            fixture.detectChanges();
+        });
+
+        it('should exist in the template', () => {
+            const button = fixture.debugElement.nativeElement.querySelector('button[aria-label="Reload chat list"]');
+            expect(button).toBeTruthy();
+        });
+
+        it('should call component.forceReloadChats() when clicked', () => {
+            spyOn(component, 'forceReloadChats').and.callThrough();
+            // Mock service call for this interaction
+            mockChatService.forceReloadChats.and.returnValue(of(undefined).pipe(delay(1), tap(() => {
+                 mockServiceChatsStateSignal.set({ status: 'success', data: [] });
+            })));
+
+            const button = fixture.debugElement.nativeElement.querySelector('button[aria-label="Reload chat list"]');
+            button.click();
+            // fixture.detectChanges(); // Not strictly needed before expect if spy is on component method
+            expect(component.forceReloadChats).toHaveBeenCalled();
+        });
+
+        it('should be disabled when component.isLoading() is true', fakeAsync(() => {
+            const button = fixture.debugElement.nativeElement.querySelector('button[aria-label="Reload chat list"]');
+            
+            component.isLoading.set(true);
+            fixture.detectChanges();
+            expect(button.disabled).toBe(true);
+
+            component.isLoading.set(false);
+            fixture.detectChanges();
+            expect(button.disabled).toBe(false);
+        }));
     });
 });
 

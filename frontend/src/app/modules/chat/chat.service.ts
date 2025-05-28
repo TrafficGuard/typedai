@@ -115,6 +115,9 @@ export class ChatServiceClient {
     private readonly _chatsState = createApiListState<Chat>();
     readonly chatsState = this._chatsState.asReadonly();
 
+    private _cachedChats: Chat[] | null = null;
+    private _cachePopulated = signal(false); // To track if cache has data
+
     // Computed signals for backward compatibility
     readonly chat = computed(() => {
         const state = this._chatState();
@@ -137,6 +140,10 @@ export class ChatServiceClient {
     }
 
     loadChats(): Observable<void> {
+        if (this._cachedChats && this._cachePopulated()) {
+            this._chatsState.set({ status: 'success', data: this._cachedChats });
+            return of(undefined); 
+        }
         if (this._chatsState().status === 'loading') return EMPTY;
         
         this._chatsState.set({ status: 'loading' });
@@ -156,6 +163,8 @@ export class ChatServiceClient {
                     rootId: preview.rootId,
                     // messages, unreadCount, lastMessage, lastMessageAt are not in ChatPreview
                 }));
+                this._cachedChats = uiChats;
+                this._cachePopulated.set(true);
                 this._chatsState.set({ status: 'success', data: uiChats });
             }),
             catchError((error) => {
@@ -180,6 +189,10 @@ export class ChatServiceClient {
                     ...newApiChat, // Spread properties like id, title, userId, shareable, parentId, rootId, updatedAt
                     messages: newApiChat.messages.map(msg => convertMessage(msg as ApiLlmMessage)), // msg is Static<LlmMessageSchema>
                 };
+                // Optimistically update cache
+                if (this._cachedChats) {
+                    this._cachedChats = [uiChat, ...this._cachedChats];
+                }
                 const currentChatsState = this._chatsState();
                 if (currentChatsState.status === 'success') {
                     this._chatsState.set({
@@ -197,6 +210,10 @@ export class ChatServiceClient {
         // Returns Observable<null> for 204 response
         return callApiRoute(this._httpClient, CHAT_API.deleteChat, { pathParams: { chatId } }).pipe(
             tap(() => {
+                // Optimistically update cache
+                if (this._cachedChats) {
+                    this._cachedChats = this._cachedChats.filter(chat => chat.id !== chatId);
+                }
                 const currentChatsState = this._chatsState();
                 if (currentChatsState.status === 'success') {
                     this._chatsState.set({
@@ -282,6 +299,15 @@ export class ChatServiceClient {
                     rootId: updatedApiChat.rootId,
                 };
                 
+                // Update chats list cache
+                if (this._cachedChats) {
+                    const index = this._cachedChats.findIndex(item => item.id === id);
+                    if (index !== -1) {
+                        const newCachedChats = [...this._cachedChats];
+                        newCachedChats[index] = { ...newCachedChats[index], ...uiChatUpdate };
+                        this._cachedChats = newCachedChats;
+                    }
+                }
                 // Update chats list
                 const currentChatsState = this._chatsState();
                 if (currentChatsState.status === 'success') {
@@ -368,6 +394,23 @@ export class ChatServiceClient {
                         this._chatsState.set({ status: 'success', data: newChats });
                     }
                 }
+
+                // Update the chat in the cached list as well
+                if (this._cachedChats) {
+                    const chatIndex = this._cachedChats.findIndex(c => c.id === chatId);
+                    if (chatIndex !== -1) {
+                        const newCachedChats = [...this._cachedChats];
+                        const updatedChatInList = { ...newCachedChats[chatIndex] };
+                        // Use the same timestamp logic as for _chatsState, typically Date.now() or from response
+                        updatedChatInList.updatedAt = Date.now(); 
+                        newCachedChats[chatIndex] = updatedChatInList;
+
+                        // Move to top
+                        newCachedChats.splice(chatIndex, 1);
+                        newCachedChats.unshift(updatedChatInList);
+                        this._cachedChats = newCachedChats;
+                    }
+                }
             }),
             mapTo(undefined)
         );
@@ -417,6 +460,20 @@ export class ChatServiceClient {
                         newChats.splice(chatIndex, 1);
                         newChats.unshift(updatedChatInList);
                         this._chatsState.set({ status: 'success', data: newChats });
+                    }
+                }
+                // Update the chat in the cached list as well
+                if (this._cachedChats) {
+                    const chatIndex = this._cachedChats.findIndex(c => c.id === chatId);
+                    if (chatIndex !== -1) {
+                        const newCachedChats = [...this._cachedChats];
+                        const updatedChatInList = { ...newCachedChats[chatIndex] };
+                        updatedChatInList.updatedAt = Date.now();
+                        newCachedChats[chatIndex] = updatedChatInList;
+
+                        newCachedChats.splice(chatIndex, 1);
+                        newCachedChats.unshift(updatedChatInList);
+                        this._cachedChats = newCachedChats;
                     }
                 }
             }),
@@ -482,15 +539,29 @@ export class ChatServiceClient {
                                 const updatedChatInList = { ...newChats[chatIndex] };
                                 updatedChatInList.updatedAt = Date.now();
                                 newChats[chatIndex] = updatedChatInList;
-                                newChats.splice(chatIndex, 1);
-                                newChats.unshift(updatedChatInList);
-                                this._chatsState.set({ status: 'success', data: newChats });
-                            }
-                        }
-                    }),
-                    mapTo(undefined),
-                    catchError(error => {
-                        console.error('Error sending audio message:', error);
+                                            newChats.splice(chatIndex, 1);
+                                            newChats.unshift(updatedChatInList);
+                                            this._chatsState.set({ status: 'success', data: newChats });
+                                        }
+                                    }
+                                    // Update the chat in the cached list as well
+                                    if (this._cachedChats) {
+                                        const chatIndex = this._cachedChats.findIndex(c => c.id === chatId);
+                                        if (chatIndex !== -1) {
+                                            const newCachedChats = [...this._cachedChats];
+                                            const updatedChatInList = { ...newCachedChats[chatIndex] };
+                                            updatedChatInList.updatedAt = Date.now();
+                                            newCachedChats[chatIndex] = updatedChatInList;
+
+                                            newCachedChats.splice(chatIndex, 1);
+                                            newCachedChats.unshift(updatedChatInList);
+                                            this._cachedChats = newCachedChats;
+                                        }
+                                    }
+                                }),
+                                mapTo(undefined),
+                                catchError(error => {
+                                    console.error('Error sending audio message:', error);
                         // Revert optimistic update
                         const currentChatState = this._chatState();
                         if (currentChatState.status === 'success') {
@@ -518,6 +589,47 @@ export class ChatServiceClient {
                 // Consider returning a more specific error or an empty string observable
                 return throwError(() => new Error('Failed to format message as Markdown.'));
             })
+        );
+    }
+
+    forceReloadChats(): Observable<void> {
+        this._cachedChats = null;
+        this._cachePopulated.set(false);
+
+        if (this._chatsState().status === 'loading') return EMPTY; // Prevent duplicate calls
+
+        this._chatsState.set({ status: 'loading' });
+
+        // callApiRoute infers response type: Observable<Static<typeof ChatListSchema>>
+        return callApiRoute(this._httpClient, CHAT_API.listChats).pipe(
+            tap((apiChatList) => { // apiChatList is Static<typeof ChatListSchema>
+                // apiChatList.chats is ChatPreviewSchema[]
+                // Map ApiChatPreview to UI Chat for the list
+                const uiChats: Chat[] = apiChatList.chats.map(preview => ({
+                    id: preview.id,
+                    title: preview.title,
+                    updatedAt: preview.updatedAt,
+                    userId: preview.userId,
+                    shareable: preview.shareable,
+                    parentId: preview.parentId,
+                    rootId: preview.rootId,
+                    // messages, unreadCount, lastMessage, lastMessageAt are not in ChatPreview
+                }));
+                this._cachedChats = uiChats; // Update cache
+                this._cachePopulated.set(true); // Mark cache as populated
+                this._chatsState.set({ status: 'success', data: uiChats });
+            }),
+            catchError((error) => {
+                this._chatsState.set({ 
+                    status: 'error', 
+                    error: error instanceof Error ? error : new Error('Failed to load chats'),
+                    code: error?.status 
+                });
+                this._cachedChats = null; // Clear cache on error
+                this._cachePopulated.set(false);
+                return EMPTY;
+            }),
+            map(() => void 0)
         );
     }
 }

@@ -204,5 +204,26 @@ export class ChatsComponent implements OnInit, OnDestroy {
         return session.id;
     }
 
+    /**
+     * Forces a reload of chat sessions from the service, bypassing the cache.
+     */
+    forceReloadChats(): void {
+        this.isLoading.set(true);
+        this.error.set(null);
+
+        this.chatService.forceReloadChats() // This method was added to ChatServiceClient in the previous step
+            .pipe(
+                takeUntilDestroyed(this.destroyRef),
+                catchError(err => {
+                    console.error('Error forcing reload of chats:', err);
+                    this.error.set(err); // Update error signal
+                    return EMPTY; // Complete observable chain
+                }),
+                finalize(() => {
+                    this.isLoading.set(false); // Ensure loading is set to false
+                })
+            ).subscribe(); // Subscription to trigger the observable chain
+    }
+
     protected readonly NEW_CHAT_ID = NEW_CHAT_ID;
 }

@@ -56,6 +56,7 @@ export class ApplySearchReplace {
 	private absFnamesInChat: Set<string>; // Absolute paths of files explicitly in chat
 	private fence: [string, string];
 	private lenientLeadingWhitespace: boolean; // <<< Add this line
+	private initiallyDirtyFiles: Set<string>; // Relative paths of files that were dirty when we started
 
 	private autoCommits: boolean;
 	private dirtyCommits: boolean; // If true, commit uncommitted changes in targeted files before applying LLM edits
@@ -104,6 +105,7 @@ export class ApplySearchReplace {
 		this.rootPath = path.resolve(rootPath);
 
 		this.absFnamesInChat = new Set(initialFiles.map((relPath) => this.getRepoFilePath(relPath)));
+		this.initiallyDirtyFiles = new Set();
 
 		// The `fence` is for code block delimiters (e.g., ```).
 		// Python's Coder.choose_fence() dynamically selects this.
@@ -134,6 +136,19 @@ export class ApplySearchReplace {
 
 	private getRelativeFilePath(absolutePath: string): string {
 		return path.relative(this.rootPath, absolutePath);
+	}
+
+	public async initializeDirtyFileTracking(): Promise<void> {
+		if (!this.vcs || !this.dirtyCommits) return;
+		
+		// Check all files currently in chat
+		for (const absPath of this.absFnamesInChat) {
+			const relPath = this.getRelativeFilePath(absPath);
+			if (await this.vcs.isDirty(relPath)) {
+				this.initiallyDirtyFiles.add(relPath);
+				logger.info(`File ${relPath} was dirty before editing session started.`);
+			}
+		}
 	}
 
 	/**
@@ -292,8 +307,13 @@ export class ApplySearchReplace {
 			return;
 		}
 
-		logger.info(`File ${relativePath} has uncommitted changes.`);
-		pathsToDirtyCommit.add(relativePath);
+		// Only add to pathsT oDirtyCommit if this file was dirty before we started editing
+		if (this.initiallyDirtyFiles.has(relativePath)) {
+			logger.info(`File ${relativePath} has uncommitted changes from before our editing session.`);
+			pathsToDirtyCommit.add(relativePath);
+		} else {
+			logger.info(`File ${relativePath} has uncommitted changes from our current editing session, skipping dirty commit.`);
+		}
 	}
 
 	/** Corresponds to EditBlockCoder.apply_edits */

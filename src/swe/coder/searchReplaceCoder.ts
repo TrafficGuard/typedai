@@ -32,6 +32,9 @@ export class SearchReplaceCoder {
 			lenientLeadingWhitespace: true,
 		});
 
+		// Initialize tracking of which files are dirty before we start
+		await searchReplacer.initializeDirtyFileTracking();
+
 		const repoMapContent: string | undefined = undefined;
 
 		let currentMessages: LlmMessage[] = await searchReplacer.buildPrompt(requirements, filesToEdit, readOnlyFiles, repoMapContent);
