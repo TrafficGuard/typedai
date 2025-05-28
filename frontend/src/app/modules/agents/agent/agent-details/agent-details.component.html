@@ -229,25 +229,33 @@
         </div>
 
         <span class="mb-2 pt-3 text-lg font-bold">LLMS</span>
-        @if (isLoadingLlms()) {
-            <mat-progress-spinner diameter="20" mode="indeterminate"></mat-progress-spinner>
-        } @else if (llmLoadError()) {
-            <span class="text-red-500">{{ llmLoadError() }}</span>
-        } @else {
-            <div class="llm-container">
-                <div class="llm-column">
-                    <span class="llm-level">Easy:</span>
-                    <span class="llm-value">{{ getLlmName(agentDetails()!.llms.easy) }}</span>
+        @switch (llmService.llmsState().status) {
+            @case ('loading') {
+                <mat-progress-spinner diameter="20" mode="indeterminate"></mat-progress-spinner>
+            }
+            @case ('error') {
+                <span class="text-red-500">{{ llmService.llmsState().error?.message || 'Failed to load LLM data' }}</span>
+            }
+            @case ('success') {
+                <div class="llm-container">
+                    <div class="llm-column">
+                        <span class="llm-level">Easy:</span>
+                        <span class="llm-value">{{ getLlmName(agentDetails()!.llms.easy) }}</span>
+                    </div>
+                    <div class="llm-column">
+                        <span class="llm-level">Med:</span>
+                        <span class="llm-value">{{ getLlmName(agentDetails()!.llms.medium) }}</span>
+                    </div>
+                    <div class="llm-column">
+                        <span class="llm-level">Hard:</span>
+                        <span class="llm-value">{{ getLlmName(agentDetails()!.llms.hard) }}</span>
+                    </div>
                 </div>
-                <div class="llm-column">
-                    <span class="llm-level">Med:</span>
-                    <span class="llm-value">{{ getLlmName(agentDetails()!.llms.medium) }}</span>
-                </div>
-                <div class="llm-column">
-                    <span class="llm-level">Hard:</span>
-                    <span class="llm-value">{{ getLlmName(agentDetails()!.llms.hard) }}</span>
-                </div>
-            </div>
+            }
+            @case ('idle') {
+                <!-- Optionally, show a placeholder or nothing -->
+                <p>Loading LLM information...</p>
+            }
         }
 
 

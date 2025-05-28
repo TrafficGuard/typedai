@@ -29,7 +29,7 @@ export function serializeContext(context: AgentContext): AgentContextApi {
 		output: context.output,
 		hilBudget: context.hilBudget ?? 0,
 		cost: context.cost ?? 0,
-		budgetRemaining: context.budgetRemaining ?? 0,
+		budgetRemaining: context.budgetRemaining ?? context.hilBudget ?? 0,
 		lastUpdate: context.lastUpdate ?? Date.now(),
 		metadata: context.metadata ?? {},
 		iterations: context.iterations ?? 0,
