@@ -1,143 +1,413 @@
+import { platform } from 'node:os';
+import * as path from 'node:path';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
-import { type LlmMessage, user as createUserMessage, messageText } from '#shared/model/llm.model';
-import { ApplySearchReplace, type EditBlock, type EditFormat, type FileEditBlocks } from '#swe/coder/applySearchReplace';
+import type { LLM, LlmMessage } from '#shared/model/llm.model';
+import { user as createUserMessage, messageText } from '#shared/model/llm.model';
+import type { IFileSystemService } from '#shared/services/fileSystemService';
+import type { VersionControlSystem } from '#shared/services/versionControlSystem';
+import { type EditBlock } from '#swe/coder/applySearchReplace';
+import { EditApplier } from './EditApplier';
+import type { EditSession } from './EditSession';
+import { newSession } from './EditSession';
 import { findOriginalUpdateBlocks } from './editBlockParser';
-// import { stringSimilarity } from 'string-similarity-js'; // No longer used here, moved to SimilarFileNameRule
+import type { EditHook, HookResult } from './hooks/EditHook';
+import * as PatchUtils from './patchUtils';
+import { EDIT_BLOCK_PROMPTS } from './searchReplacePrompts';
+import { ModuleAliasRule } from './validators/ModuleAliasRule';
+import { PathExistsRule } from './validators/PathExistsRule';
+import type { ValidationIssue, ValidationRule } from './validators/ValidationRule';
+import { validateBlocks } from './validators/compositeValidator';
 
-function sortEditBlocksByFilePath(edits: EditBlock[]) {
-	const editsBlockByFilePath: FileEditBlocks = new Map();
-	for (const edit of edits) {
-		let editsArray: EditBlock[]; // Renamed to avoid conflict with outer 'edits'
-		if (!editsBlockByFilePath.has(edit.filePath)) {
-			editsArray = [];
-			editsBlockByFilePath.set(edit.filePath, editsArray);
-		} else {
-			editsArray = editsBlockByFilePath.get(edit.filePath)!; // Added non-null assertion
-		}
-		editsArray.push(edit);
-	}
-	return editsBlockByFilePath;
-}
-
-// const SEP = '/'; // No longer used here, moved to SimilarFileNameRule
-
-// checkEditBlockFilePath function is removed. Its logic is now in:
-// - ModuleAliasRule
-// - SimilarFileNameRule (for parent folder/name check and string similarity)
-// - PathExistsRule (for new file with non-empty search block)
+const MAX_ATTEMPTS = 5;
+const DEFAULT_FENCE_OPEN = '```';
+const DEFAULT_FENCE_CLOSE = '```';
+const DEFAULT_LENIENT_WHITESPACE = true;
 
 @funcClass(__filename)
 export class SearchReplaceCoder {
+	private vcs: VersionControlSystem | null;
+
+	constructor(
+		private fs: IFileSystemService = getFileSystem(),
+		private llm: LLM = llms().hard,
+		private rules: ValidationRule[] = [new PathExistsRule(), new ModuleAliasRule()],
+		private hooks: EditHook[] = [],
+	) {
+		this.vcs = this.fs.getVcsRoot() ? this.fs.getVcs() : null;
+	}
+
+	private getFence(): [string, string] {
+		return [DEFAULT_FENCE_OPEN, DEFAULT_FENCE_CLOSE];
+	}
+
+	private getRepoFilePath(rootPath: string, relativePath: string): string {
+		return path.resolve(rootPath, relativePath);
+	}
+
+	private getRelativeFilePath(rootPath: string, absolutePath: string): string {
+		return path.relative(rootPath, absolutePath);
+	}
+
+	/**
+	 * Initializes session context related to files, such as which files are in chat
+	 * and which of those were initially dirty.
+	 */
+	private async _initializeSessionContext(session: EditSession, filesToEdit: string[]): Promise<void> {
+		session.absFnamesInChat = new Set(filesToEdit.map((relPath) => this.getRepoFilePath(session.workingDir, relPath)));
+		session.initiallyDirtyFiles = new Set();
+
+		if (!this.vcs) return;
+
+		for (const absPath of session.absFnamesInChat) {
+			const relPath = this.getRelativeFilePath(session.workingDir, absPath);
+			if (await this.vcs.isDirty(relPath)) {
+				session.initiallyDirtyFiles.add(relPath);
+				logger.info(`File ${relPath} was dirty before editing session started.`);
+			}
+		}
+	}
+
+	/**
+	 * Prepares edit blocks by checking permissions and identifying files for "dirty commit".
+	 * Corresponds to parts of Coder.prepare_to_edit and Coder.allowed_to_edit.
+	 */
+	private async _prepareToEdit(
+		session: EditSession,
+		parsedBlocks: EditBlock[],
+	): Promise<{ editsToApply: EditBlock[]; pathsToDirtyCommit: Set<string> }> {
+		const editsToApply: EditBlock[] = [];
+		const pathsToDirtyCommit = new Set<string>(); // Relative paths
+		const seenPaths = new Map<string, boolean>(); // Cache for isAllowedToEdit result per path
+
+		for (const edit of parsedBlocks) {
+			const relativePath = edit.filePath;
+			let isAllowed = seenPaths.get(relativePath);
+
+			if (isAllowed === undefined) {
+				const { allowed, needsDirtyCommit } = await this._isAllowedToEdit(session, relativePath, edit.originalText);
+				isAllowed = allowed;
+				seenPaths.set(relativePath, isAllowed);
+				if (needsDirtyCommit) {
+					pathsToDirtyCommit.add(relativePath);
+				}
+			}
+
+			if (isAllowed) {
+				editsToApply.push(edit);
+			}
+		}
+		return { editsToApply, pathsToDirtyCommit };
+	}
+
+	/**
+	 * Checks if an edit is allowed for a given file path and determines if a "dirty commit" is needed.
+	 * Corresponds to Coder.allowed_to_edit and Coder.check_for_dirty_commit.
+	 */
+	private async _isAllowedToEdit(
+		session: EditSession,
+		relativePath: string,
+		originalTextIfNew: string,
+	): Promise<{ allowed: boolean; needsDirtyCommit: boolean }> {
+		const absolutePath = this.getRepoFilePath(session.workingDir, relativePath);
+		let needsDirtyCommit = false;
+
+		if (session.absFnamesInChat?.has(absolutePath)) {
+			if (this.vcs && session.initiallyDirtyFiles?.has(relativePath) && (await this.vcs.isDirty(relativePath))) {
+				needsDirtyCommit = true;
+			}
+			return { allowed: true, needsDirtyCommit };
+		}
+
+		const fileExists = await this.fs.fileExists(absolutePath);
+
+		if (!fileExists) {
+			const isIntentToCreate = !PatchUtils._stripQuotedWrapping(originalTextIfNew, relativePath, this.getFence()).trim();
+			if (!isIntentToCreate) {
+				logger.warn(`Skipping edit for non-existent file ${relativePath} with non-empty SEARCH block (validation should catch this).`);
+				// This case should ideally be caught by PathExistsRule, but as a safeguard:
+				return { allowed: false, needsDirtyCommit: false };
+			}
+			logger.info(`Edit targets new file ${relativePath}. Assuming permission to create.`);
+		} else {
+			logger.info(`Edit targets file ${relativePath} not previously in chat. Assuming permission to edit.`);
+		}
+
+		session.absFnamesInChat?.add(absolutePath);
+		// TODO: Add Coder.check_added_files() equivalent to warn if too many files/tokens are in chat.
+
+		if (this.vcs && session.initiallyDirtyFiles?.has(relativePath) && (await this.vcs.isDirty(relativePath))) {
+			needsDirtyCommit = true;
+		}
+		return { allowed: true, needsDirtyCommit };
+	}
+
+	private _addReflectionToMessages(session: EditSession, reflectionText: string, currentMessages: LlmMessage[]): void {
+		session.reflectionMessages.push(reflectionText);
+		currentMessages.push(createUserMessage(reflectionText));
+		logger.warn({ reflection: reflectionText }, `SearchReplaceCoder: Reflecting to LLM for attempt ${session.attempt}.`);
+	}
+
+	private _reflectOnValidationIssues(session: EditSession, issues: ValidationIssue[], currentMessages: LlmMessage[]): void {
+		let reflectionText = 'There were issues with the file paths or structure of your proposed changes:\n';
+		for (const issue of issues) {
+			reflectionText += `- File "${issue.file}": ${issue.reason}\n`;
+		}
+		reflectionText += 'Please correct these issues and resubmit your changes.';
+		this._addReflectionToMessages(session, reflectionText, currentMessages);
+	}
+
+	private async _reflectOnFailedEdits(session: EditSession, failedEdits: EditBlock[], numPassed: number, currentMessages: LlmMessage[]): Promise<void> {
+		const numFailed = failedEdits.length;
+		const blocks = numFailed === 1 ? 'block' : 'blocks';
+		let report = `# ${numFailed} SEARCH/REPLACE ${blocks} failed to match!\n`;
+
+		for (const edit of failedEdits) {
+			report += `\n## SearchReplaceNoExactMatch: This SEARCH block failed to exactly match lines in ${edit.filePath}\n`;
+			report += `<<<<<<< SEARCH\n${edit.originalText}=======\n${edit.updatedText}>>>>>>> REPLACE\n\n`;
+
+			const absolutePath = this.getRepoFilePath(session.workingDir, edit.filePath);
+			let content: string | null = null;
+			if (await this.fs.fileExists(absolutePath)) {
+				content = await this.fs.readFile(absolutePath);
+			}
+
+			if (content) {
+				// TODO: Implement _findSimilarLines if desired for richer feedback
+				if (edit.updatedText && content.includes(edit.updatedText)) {
+					report += `NOTE: The REPLACE lines are already present in ${edit.filePath}. Consider if this block is needed.\n\n`;
+				}
+			}
+		}
+		report += 'The SEARCH section must exactly match an existing block of lines including all white space, comments, indentation, etc.\n';
+		if (numPassed > 0) {
+			const pblocks = numPassed === 1 ? 'block' : 'blocks';
+			report += `\n# The other ${numPassed} SEARCH/REPLACE ${pblocks} were applied successfully.\n`;
+			report += `Don't re-send them.\nJust reply with fixed versions of the ${blocks} above that failed to match.\n`;
+		}
+		this._addReflectionToMessages(session, report, currentMessages);
+	}
+
+	private _reflectOnHookFailure(session: EditSession, hookResult: HookResult, currentMessages: LlmMessage[]): void {
+		const reflectionText = `A post-edit check ('${hookResult.name}') failed: ${hookResult.message}\nPlease review and address this issue.`;
+		this._addReflectionToMessages(session, reflectionText, currentMessages);
+	}
+
+	private async _buildPrompt(
+		session: EditSession,
+		userRequest: string,
+		filesToEditRelativePaths: string[],
+		readOnlyFilesRelativePaths: string[],
+		repoMapContent?: string,
+	): Promise<LlmMessage[]> {
+		const messages: LlmMessage[] = [];
+		const fence = this.getFence();
+		const language = 'TypeScript'; // Default, can be made configurable
+		const suggestShellCommands = true; // Default, can be made configurable
+
+		// System Prompt
+		let finalRemindersText = ''; // Add useLazyPrompt/useOvereagerPrompt logic if needed
+		const shellCmdPromptSection = suggestShellCommands
+			? EDIT_BLOCK_PROMPTS.shell_cmd_prompt.replace('{platform}', platform())
+			: EDIT_BLOCK_PROMPTS.no_shell_cmd_prompt.replace('{platform}', platform());
+
+		const mainSystemContent = EDIT_BLOCK_PROMPTS.main_system
+			.replace('{language}', language)
+			.replace('{final_reminders}', finalRemindersText.trim())
+			.replace('{shell_cmd_prompt_section}', shellCmdPromptSection);
+
+		const systemReminderContent = EDIT_BLOCK_PROMPTS.system_reminder
+			.replace(/{fence_0}/g, fence[0])
+			.replace(/{fence_1}/g, fence[1])
+			.replace('{quad_backtick_reminder}', '') // Add quadBacktickReminder if needed
+			.replace('{rename_with_shell_section}', suggestShellCommands ? EDIT_BLOCK_PROMPTS.rename_with_shell : '')
+			.replace('{go_ahead_tip_section}', EDIT_BLOCK_PROMPTS.go_ahead_tip)
+			.replace('{final_reminders}', finalRemindersText.trim())
+			.replace('{shell_cmd_reminder_section}', suggestShellCommands ? EDIT_BLOCK_PROMPTS.shell_cmd_reminder : '');
+
+		messages.push({ role: 'system', content: `${mainSystemContent}\n\n${systemReminderContent}` });
+
+		// Example Messages
+		EDIT_BLOCK_PROMPTS.example_messages_template.forEach((msgTemplate) => {
+			messages.push({
+				role: msgTemplate.role as 'system' | 'user' | 'assistant',
+				content: msgTemplate.content.replace(/{fence_0}/g, fence[0]).replace(/{fence_1}/g, fence[1]),
+			});
+		});
+
+		// File Context
+		const formatFileForPrompt = async (relativePath: string): Promise<string> => {
+			const absolutePath = this.getRepoFilePath(session.workingDir, relativePath);
+			const content = await this.fs.readFile(absolutePath);
+			if (content === null) {
+				logger.warn(`Could not read file ${relativePath} for prompt inclusion.`);
+				return `${relativePath}\n[Could not read file content]`;
+			}
+			const lang = path.extname(relativePath).substring(1) || 'text';
+			return `${relativePath}\n${fence[0]}${lang}\n${content}\n${fence[1]}`;
+		};
+
+		const currentFilesInChatAbs = session.absFnamesInChat ?? new Set();
+		if (currentFilesInChatAbs.size > 0) {
+			let filesContentBlock = EDIT_BLOCK_PROMPTS.files_content_prefix;
+			for (const absPath of currentFilesInChatAbs) {
+				const relPath = this.getRelativeFilePath(session.workingDir, absPath);
+				filesContentBlock += `\n\n${await formatFileForPrompt(relPath)}`;
+			}
+			messages.push({ role: 'user', content: filesContentBlock });
+			messages.push({ role: 'assistant', content: EDIT_BLOCK_PROMPTS.files_content_assistant_reply });
+		} else if (repoMapContent) {
+			messages.push({ role: 'user', content: EDIT_BLOCK_PROMPTS.files_no_full_files_with_repo_map });
+			messages.push({ role: 'assistant', content: EDIT_BLOCK_PROMPTS.files_no_full_files_with_repo_map_reply });
+		} else {
+			messages.push({ role: 'user', content: EDIT_BLOCK_PROMPTS.files_no_full_files });
+		}
+
+		if (readOnlyFilesRelativePaths.length > 0) {
+			let readOnlyFilesContentBlock = EDIT_BLOCK_PROMPTS.read_only_files_prefix;
+			for (const relPath of readOnlyFilesRelativePaths) {
+				readOnlyFilesContentBlock += `\n\n${await formatFileForPrompt(relPath)}`;
+			}
+			messages.push({ role: 'user', content: readOnlyFilesContentBlock });
+			messages.push({ role: 'assistant', content: 'Ok, I will treat these files as read-only.' });
+		}
+
+		if (repoMapContent && (currentFilesInChatAbs.size > 0 || !EDIT_BLOCK_PROMPTS.files_no_full_files_with_repo_map)) {
+			messages.push({ role: 'user', content: `${EDIT_BLOCK_PROMPTS.repo_content_prefix}\n${repoMapContent}` });
+			messages.push({ role: 'assistant', content: 'Ok, I will use this repository information for context.' });
+		}
+
+		messages.push({ role: 'user', content: userRequest });
+		return messages;
+	}
+
 	/**
 	 * Makes the changes to the project files to meet the task requirements using search/replace blocks.
 	 * @param requirements The complete task requirements with all supporting documentation and code samples.
 	 * @param filesToEdit Relative paths of files that can be edited. These will be included in the chat context.
 	 * @param readOnlyFiles Relative paths of files to be used as read-only context.
-	 * @param commit Whether to commit the changes automatically after applying them.
+	 * @param autoCommit Whether to commit the changes automatically after applying them.
 	 * @param dirtyCommits If files which have uncommitted changes should be committed before applying changes.
 	 */
 	@func()
-	async editFilesToMeetRequirements(requirements: string, filesToEdit: string[], readOnlyFiles: string[], commit = true, dirtyCommits = true): Promise<void> {
-		const fileSystem = getFileSystem();
-		const rootPath = fileSystem.getWorkingDirectory();
-		const editFormat: EditFormat = 'diff-fenced';
-		const fss = getFileSystem();
+	async editFilesToMeetRequirements(
+		requirements: string,
+		filesToEdit: string[],
+		readOnlyFiles: string[],
+		autoCommit = true,
+		dirtyCommits = true,
+	): Promise<void> {
+		const rootPath = this.fs.getWorkingDirectory();
+		const session = newSession(rootPath, requirements);
+		await this._initializeSessionContext(session, filesToEdit);
 
-		logger.info({ requirements, filesToEdit, readOnlyFiles }, 'editFilesToMeetRequirements');
+		let currentMessages: LlmMessage[] = [];
+		const dryRun = false; // Not currently configurable at this level
 
-		const searchReplacer = new ApplySearchReplace(rootPath, filesToEdit, {
-			editFormat,
-			autoCommits: commit,
-			dirtyCommits: dirtyCommits,
-			dryRun: false,
-			lenientLeadingWhitespace: true,
-		});
+		// Label for breaking out of nested loops to the main attempt loop
+		attemptLoop: while (session.attempt < MAX_ATTEMPTS) {
+			session.attempt++;
+			logger.info(`SearchReplaceCoder: Attempt ${session.attempt}/${MAX_ATTEMPTS}`);
 
-		await searchReplacer.initializeDirtyFileTracking();
+			currentMessages = await this._buildPrompt(session, requirements, filesToEdit, readOnlyFiles /* repoMapContent? */);
+			logger.debug({ messagesLength: currentMessages.length }, 'SearchReplaceCoder: Prompt built for LLM');
 
-		const repoMapContent: string | undefined = undefined;
-
-		let currentMessages: LlmMessage[] = await searchReplacer.buildPrompt(requirements, filesToEdit, readOnlyFiles, repoMapContent);
-		logger.debug({ messages: currentMessages }, 'SearchReplaceCoder: Initial prompt built for LLM');
-
-		let attempts = 0;
-		const maxAttempts = 3;
-
-		while (attempts < maxAttempts) {
-			attempts++;
-			logger.info(`SearchReplaceCoder: LLM call attempt ${attempts}/${maxAttempts}`);
-
-			const llmResponseMsgObj: LlmMessage = await llms().hard.generateMessage(currentMessages, {
-				id: `SearchReplaceCoder.editFiles.attempt${attempts}`,
+			const llmResponseMsgObj: LlmMessage = await this.llm.generateMessage(currentMessages, {
+				id: `SearchReplaceCoder.editFiles.attempt${session.attempt}`,
 				temperature: 0.0,
 			});
 
-			currentMessages = [...currentMessages, llmResponseMsgObj];
-			const llmResponseText = messageText(llmResponseMsgObj);
-			const responseToApply = llmResponseText || '';
+			currentMessages.push(llmResponseMsgObj);
+			session.llmResponse = messageText(llmResponseMsgObj);
 
-			if (!llmResponseText?.trim() && attempts === 1) {
+			if (!session.llmResponse?.trim() && session.attempt === 1) {
 				logger.warn('SearchReplaceCoder: LLM returned an empty or whitespace-only response on first attempt.');
+				// Potentially reflect or retry differently for empty responses
+			}
+			if (!session.llmResponse?.trim()) {
+				this._addReflectionToMessages(session, 'The LLM returned an empty response. Please provide the edits.', currentMessages);
+				continue attemptLoop;
 			}
 
-			console.log(responseToApply);
-			const edits = findOriginalUpdateBlocks(responseToApply, searchReplacer.getFence());
-			const editsBlockByFilePath = sortEditBlocksByFilePath(edits);
-			const repoFiles = await fss.listFilesRecursively();
+			session.parsedBlocks = findOriginalUpdateBlocks(session.llmResponse, this.getFence());
+			const repoFiles = await this.fs.listFilesRecursively(); // Get all files for validation context
+			const { valid: validBlocks, issues: validationIssues } = validateBlocks(session.parsedBlocks, repoFiles, this.rules);
 
-			// TODO: Replace this with validateBlocks call in a future step (Step 5 of roadmap)
-			// For now, the old validation logic is removed. The new validation rules exist but are not yet wired in here.
-			// This means for this commit, the direct path validation that was here is temporarily gone.
-			// It will be replaced by the new system in Step 5.
+			if (validationIssues.length > 0) {
+				this._reflectOnValidationIssues(session, validationIssues, currentMessages);
+				continue attemptLoop;
+			}
 
-			// Old validation logic removed:
-			// let pathValidationReflection: string | null = null;
-			// for (const filePath of editsBlockByFilePath.keys()) {
-			// 	const errorMessage = checkEditBlockFilePath(repoFiles, filePath); // This function is now removed
-			// 	if (errorMessage) {
-			// 		pathValidationReflection = pathValidationReflection ? `${pathValidationReflection}\n${errorMessage}` : errorMessage;
-			// 	}
-			// }
-			//
-			// if (pathValidationReflection) {
-			// 	logger.warn({ reflection: pathValidationReflection }, `SearchReplaceCoder: File path validation failed for attempt ${attempts}.`);
-			// 	if (attempts >= maxAttempts) {
-			// 		throw new Error(`Failed due to file path validation errors after ${maxAttempts} attempts. Last error: ${pathValidationReflection}`);
-			// 	}
-			// 	currentMessages = [...currentMessages, createUserMessage(pathValidationReflection)];
-			// 	continue; // Next attempt
-			// }
-
-			const editedFiles: Set<string> | null = await searchReplacer.applyLlmResponse(responseToApply, llms().hard);
-
-			if (editedFiles !== null) {
-				if (editedFiles.size === 0 && !searchReplacer.reflectedMessage) {
-					logger.info('SearchReplaceCoder: No edits were applied by the LLM (or no valid edit blocks found in the response).');
-				} else if (editedFiles.size > 0) {
-					logger.info({ editedFiles: Array.from(editedFiles) }, 'SearchReplaceCoder: Successfully applied edits.');
+			if (validBlocks.length === 0) {
+				logger.info('SearchReplaceCoder: No valid edit blocks to apply after validation.');
+				// If LLM provided blocks but all were invalid, it's a form of failure.
+				// If LLM provided no blocks, it might be asking a question or refusing.
+				// Depending on the LLM response structure, this might need more nuanced handling.
+				// For now, if no valid blocks, and no validation issues (e.g. LLM asked a question),
+				// we might need to check if the response is a question or a refusal.
+				// If it just provided 0 blocks, reflect that.
+				if (session.parsedBlocks.length > 0) { // It provided blocks, but none were valid
+					this._addReflectionToMessages(session, 'All provided edit blocks were invalid. Please correct them.', currentMessages);
+				} else { // It provided no blocks at all
+					this._addReflectionToMessages(session, 'No edit blocks were found in your response. Please provide the edits in the S/R block format.', currentMessages);
 				}
-				return;
+				continue attemptLoop;
 			}
 
-			const reflection = searchReplacer.reflectedMessage;
-			if (!reflection) {
-				logger.error('SearchReplaceCoder: applyLlmResponse returned null without a reflection message. Cannot proceed with reflection.');
-				throw new Error('Edit application failed without specific reflection message, preventing retry.');
+			// Handle "dirty commits" before applying edits
+			const { editsToApply, pathsToDirtyCommit } = await this._prepareToEdit(session, validBlocks);
+			if (dirtyCommits && this.vcs && pathsToDirtyCommit.size > 0 && !dryRun) {
+				const dirtyFilesArray = Array.from(pathsToDirtyCommit);
+				logger.info(`Found uncommitted changes in files targeted for edit: ${dirtyFilesArray.join(', ')}. Attempting dirty commit.`);
+				try {
+					await this.vcs.addAllTrackedAndCommit('Aider: Committing uncommitted changes before applying LLM edits');
+					logger.info('Successfully committed dirty files.');
+				} catch (commitError: any) {
+					logger.error({ err: commitError }, 'Dirty commit failed for uncommitted changes.');
+					this._addReflectionToMessages(session, `Failed to commit uncommitted changes for ${dirtyFilesArray.join(', ')}: ${commitError.message}. Please resolve this manually or allow proceeding without committing them.`, currentMessages);
+					continue attemptLoop;
+				}
 			}
 
-			logger.warn({ reflectedMessage: reflection }, `SearchReplaceCoder: Edit attempt ${attempts} failed. Reflecting to LLM.`);
+			const applier = new EditApplier(
+				this.fs,
+				this.vcs,
+				DEFAULT_LENIENT_WHITESPACE,
+				this.getFence(),
+				session.workingDir,
+				session.absFnamesInChat ?? new Set(),
+				autoCommit,
+				dryRun,
+			);
 
-			if (attempts >= maxAttempts) {
-				logger.error(`SearchReplaceCoder: Maximum reflection attempts (${maxAttempts}) reached. Failing.`);
-				throw new Error(`Failed to apply edits after ${maxAttempts} attempts. Last reflection: ${reflection}`);
+			const { appliedFilePaths, failedEdits } = await applier.apply(editsToApply);
+
+			if (failedEdits.length > 0) {
+				await this._reflectOnFailedEdits(session, failedEdits, appliedFilePaths.size, currentMessages);
+				continue attemptLoop;
 			}
 
-			currentMessages = [...currentMessages, createUserMessage(reflection)];
+			session.appliedFiles = appliedFilePaths;
+			logger.info({ appliedFiles: Array.from(session.appliedFiles) }, 'SearchReplaceCoder: Edits applied successfully.');
+
+			for (const hook of this.hooks) {
+				logger.info(`Running hook: ${hook.name}`);
+				const hookResult = await hook.run(session);
+				if (!hookResult.ok) {
+					logger.warn(`Hook ${hook.name} failed: ${hookResult.message}`);
+					this._reflectOnHookFailure(session, { ...hookResult, name: hook.name }, currentMessages);
+					continue attemptLoop;
+				}
+				logger.info(`Hook ${hook.name} completed successfully.`);
+			}
+
+			logger.info('SearchReplaceCoder: All edits applied and hooks passed successfully.');
+			return; // Success
 		}
+
+		logger.error(`SearchReplaceCoder: Maximum attempts (${MAX_ATTEMPTS}) reached. Failing.`);
+		const finalReflection = session.reflectionMessages.pop() || 'Unknown error after max attempts.';
+		throw new Error(`Failed to apply edits after ${MAX_ATTEMPTS} attempts. Last reflection: ${finalReflection}`);
 	}
 }
-
-// Moved checkEditBlockFilePath from being a static method to a module-level function above the class.
-// No standalone checkEditBlockFilePath function was at the bottom of the file previously.

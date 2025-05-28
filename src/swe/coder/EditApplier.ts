@@ -12,8 +12,8 @@ export class EditApplier {
 		private lenientWhitespace: boolean,
 		private fence: [string, string],
 		private rootPath: string, // Absolute path to the project root
-		private absFnamesInChat: Set<string>, // Absolute paths of files explicitly in chat
-		private autoCommit: boolean,
+		private absFnamesInChat: Set<string>, // Absolute paths of files explicitly in chat for fallback
+		private autoCommit: boolean, // For committing successful edits
 		private dryRun: boolean,
 	) {}
 
@@ -43,7 +43,7 @@ export class EditApplier {
 	}
 
 	async apply(blocks: EditBlock[]): Promise<{ appliedFilePaths: Set<string>; failedEdits: EditBlock[] }> {
-		const appliedFilePaths = new Set<string>();
+		const appliedFilePaths = new Set<string>(); // Stores relative paths
 		const failedEdits: EditBlock[] = [];
 
 		for (const edit of blocks) {
@@ -113,14 +113,15 @@ export class EditApplier {
 		if (this.autoCommit && !this.dryRun && this.vcs && appliedFilePaths.size > 0) {
 			const commitMessage = 'Applied LLM-generated edits';
 			try {
-				// Assuming a method to commit specific files, or addAllTrackedAndCommit as a general approach.
-				// For precise control, vcs.commitFiles(Array.from(appliedFilePaths), commitMessage) would be ideal.
+				// Note: addAllTrackedAndCommit might be too broad if only specific files should be committed.
+				// A more precise vcs.commitFiles(Array.from(appliedFilePaths), commitMessage) would be ideal.
+				// For now, using the existing broader method.
 				await this.vcs.addAllTrackedAndCommit(commitMessage);
 				logger.info(`Auto-committed changes for ${appliedFilePaths.size} files.`);
 			} catch (commitError: any) {
 				logger.error({ err: commitError }, 'Auto-commit failed after applying edits.');
-				// This error doesn't necessarily mean the edits themselves failed, so not adding to failedEdits here.
-				// The calling orchestrator might decide how to handle this (e.g., reflect or log).
+				// This error is logged, but doesn't make the apply operation fail at this stage.
+				// The orchestrator (SearchReplaceCoder) might handle this if it's critical.
 			}
 		}
 
