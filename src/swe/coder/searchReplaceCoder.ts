@@ -64,7 +64,6 @@ export class SearchReplaceCoder {
 			.replace(/{fence_1}/g, fence[1])
 			.replace('{quad_backtick_reminder}', '') // Add quadBacktickReminder if needed
 			.replace('{rename_with_shell_section}', suggestShellCommands ? EDIT_BLOCK_PROMPTS.rename_with_shell : '')
-			.replace('{go_ahead_tip_section}', EDIT_BLOCK_PROMPTS.go_ahead_tip)
 			.replace('{final_reminders}', finalRemindersText.trim())
 			.replace('{shell_cmd_reminder_section}', suggestShellCommands ? EDIT_BLOCK_PROMPTS.shell_cmd_reminder : '');
 		this.precomputedSystemMessage = `${mainSystemContent}\n\n${systemReminderContent}`;
@@ -236,9 +235,6 @@ export class SearchReplaceCoder {
 			}
 			messages.push({ role: 'user', content: filesContentBlock });
 			messages.push({ role: 'assistant', content: EDIT_BLOCK_PROMPTS.files_content_assistant_reply });
-		} else if (repoMapContent) {
-			messages.push({ role: 'user', content: EDIT_BLOCK_PROMPTS.files_no_full_files_with_repo_map });
-			messages.push({ role: 'assistant', content: EDIT_BLOCK_PROMPTS.files_no_full_files_with_repo_map_reply });
 		} else {
 			messages.push({ role: 'user', content: EDIT_BLOCK_PROMPTS.files_no_full_files });
 		}
@@ -252,7 +248,10 @@ export class SearchReplaceCoder {
 			messages.push({ role: 'assistant', content: 'Ok, I will treat these files as read-only.' });
 		}
 
-		if (repoMapContent && (currentFilesInChatAbs.size > 0 || !EDIT_BLOCK_PROMPTS.files_no_full_files_with_repo_map)) {
+		// If there's a repo map, and we haven't already sent a "no files" message that implies repo map usage,
+		// or if we have sent files, then add the repo map.
+		// The main idea is to always include repoMapContent if available, unless a more specific "no files, use map" prompt was already used.
+		if (repoMapContent) {
 			messages.push({ role: 'user', content: `${EDIT_BLOCK_PROMPTS.repo_content_prefix}\n${repoMapContent}` });
 			messages.push({ role: 'assistant', content: 'Ok, I will use this repository information for context.' });
 		}
@@ -323,10 +322,12 @@ export class SearchReplaceCoder {
 			if (validBlocks.length === 0) {
 				logger.info('SearchReplaceCoder: No valid edit blocks to apply after validation.');
 				// If LLM provided blocks but all were invalid, it's a form of failure.
-				// If LLM provided no blocks, it might be asking a question or refusing.
-				// Depending on the LLM response structure, this might need more nuanced handling.
-				// For now, if no valid blocks, and no validation issues (e.g. LLM asked a question),
-				// we might need to check if the response is a question or a refusal.
+				// If LLM provided no blocks, it might be asking a question, refusing, or requesting more files.
+				// The calling agent should inspect session.llmResponse if this loop completes without success.
+				// If the LLM explicitly states it needs more files, the calling agent can act on that.
+				// This coder's responsibility is to try and apply edits if they are valid.
+				// If no valid edits are produced, it will eventually fail after MAX_ATTEMPTS.
+
 				// If it just provided 0 blocks, reflect that.
 				if (session.parsedBlocks.length > 0) { // It provided blocks, but none were valid
 					this._addReflectionToMessages(session, 'All provided edit blocks were invalid. Please correct them.', currentMessages);
