@@ -69,7 +69,7 @@ import { SafeHtmlPipe } from 'app/core/pipes/safe-html.pipe';
         MatButtonModule,
         MatMenuModule,
         MatTooltipModule,
-        CommonModule, // Provides NgClass, DatePipe, DecimalPipe
+        CommonModule,
         MatFormFieldModule,
         MatInputModule,
         TextFieldModule,
@@ -80,7 +80,7 @@ import { SafeHtmlPipe } from 'app/core/pipes/safe-html.pipe';
         ClipboardButtonComponent,
         ClipboardModule,
         // SafeHtmlPipe, // Removed as it's not used
-        NgClass, // Added NgClass to imports
+        NgClass,
     ],
     providers: [
         provideMarkdown(),

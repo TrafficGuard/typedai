@@ -1,6 +1,7 @@
 import { AgentFeedback } from '#agent/autonomous/functions/agentFeedback';
 import { FileSystemTree } from '#agent/autonomous/functions/fileSystemTree';
 import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
+import { GoogleCloud } from '#functions/cloud/google/google-cloud';
 import { CommandLineInterface } from '#functions/commandLine';
 import { CustomFunctions } from '#functions/customFunctions';
 import { Jira } from '#functions/jira';
@@ -35,6 +36,7 @@ const functionAliases: Record<string, string> = {
 	llm: LlmTools.name,
 	pp: Perplexity.name,
 	npm: NpmPackages.name,
+	gcp: GoogleCloud.name,
 	ts: TypescriptTools.name,
 	jira: Jira.name,
 	live: LiveFiles.name,

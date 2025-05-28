@@ -147,6 +147,7 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 			return { group, projects, descendantGroups };
 		});
 
+		// TODO should do Promise.settled(), continue with the succesfull ones, and log errors for the other groups, which the account may not have permission for
 		const topLevelResults = await Promise.all(topLevelPromises);
 
 		// Step 3: Collect top-level projects and all descendant groups

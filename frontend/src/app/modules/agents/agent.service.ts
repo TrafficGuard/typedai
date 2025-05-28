@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable, inject, signal, WritableSignal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import {
   Observable,
   throwError,
@@ -7,10 +7,9 @@ import {
   tap,
   catchError,
   EMPTY,
-  // Removed shareReplay as it's not used after refactoring loadAgents
 } from 'rxjs';
 import { callApiRoute } from '../../core/api-route';
-import { createApiListState, createApiEntityState, ApiListState, ApiEntityState } from '../../core/api-state.types';
+import { createApiListState, createApiEntityState } from '../../core/api-state.types';
 import { AGENT_API } from '#shared/api/agent.api';
 import type { AutonomousIteration, AutonomousIterationSummary } from '#shared/model/agent.model';
 import { LlmCall, LlmCallSummary } from '#shared/model/llmCall.model';
@@ -58,7 +57,6 @@ export class AgentService {
   private http = inject(HttpClient);
 
   constructor() {
-    // Load initial data
     this.loadAgents();
   }
 

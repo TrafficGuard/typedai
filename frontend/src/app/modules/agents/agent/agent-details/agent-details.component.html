@@ -229,12 +229,13 @@
         </div>
 
         <span class="mb-2 pt-3 text-lg font-bold">LLMS</span>
-        @switch (llmService.llmsState().status) {
+        @let llmState = llmService.llmsState();
+        @switch (llmState.status) {
             @case ('loading') {
                 <mat-progress-spinner diameter="20" mode="indeterminate"></mat-progress-spinner>
             }
             @case ('error') {
-                <span class="text-red-500">{{ llmService.llmsState().error?.message || 'Failed to load LLM data' }}</span>
+                <span class="text-red-500">{{ llmState.error?.message || 'Failed to load LLM data' }}</span>
             }
             @case ('success') {
                 <div class="llm-container">
@@ -253,8 +254,7 @@
                 </div>
             }
             @case ('idle') {
-                <!-- Optionally, show a placeholder or nothing -->
-                <p>Loading LLM information...</p>
+                <p>No LLM information available</p>
             }
         }
 
@@ -271,7 +271,7 @@
 
     </mat-card>
 } @else {
-    <!-- Optionally show a loading spinner or message while agentDetails is null -->
+    <!-- Show a loading spinner or message while agentDetails is null -->
     <div class="flex justify-center items-center p-8">
         <mat-progress-spinner diameter="40" mode="indeterminate"></mat-progress-spinner>
     </div>
