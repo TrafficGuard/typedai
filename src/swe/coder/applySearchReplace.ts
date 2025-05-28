@@ -204,11 +204,9 @@ export class ApplySearchReplace {
 	}
 
 	/** Corresponds to Coder.update_files */
-import { EditApplier } from './EditApplier'; // Add this import
-
-export class ApplySearchReplace {
-	private fileSystemService: IFileSystemService;
-	private vcs: VersionControlSystem | null;
+	private async _updateFiles(): Promise<Set<string>> {
+		const edits = findOriginalUpdateBlocks(this.currentLlmResponseContent, this.fence);
+		if (!edits.length) {
 			logger.info('No SEARCH/REPLACE blocks found in the LLM response.');
 			return new Set();
 		}
@@ -221,10 +219,6 @@ export class ApplySearchReplace {
 			const dirtyFilesArray = Array.from(pathsToDirtyCommit);
 			logger.info(`Found uncommitted changes in files targeted for edit: ${dirtyFilesArray.join(', ')}. Attempting dirty commit.`);
 			try {
-				// Python: self.repo.commit(fnames=self.need_commit_before_edits)
-				// This requires staging and committing specific files.
-				// Assuming `this.vcs.commitFiles(dirtyFilesArray, "Aider: Committing uncommitted changes before applying LLM edits")`
-				// If not available, a general commit is a fallback.
 				await this.vcs.addAllTrackedAndCommit('Aider: Committing uncommitted changes before applying LLM edits');
 				logger.info('Successfully committed dirty files.');
 			} catch (commitError: any) {
@@ -234,14 +228,26 @@ export class ApplySearchReplace {
 			}
 		}
 
-		const { passed, failed } = await this._applyEdits(editsToApply);
+		// Instantiate and use EditApplier
+		const applier = new EditApplier(
+			this.fileSystemService,
+			this.vcs,
+			this.lenientLeadingWhitespace,
+			this.fence,
+			this.rootPath,
+			this.absFnamesInChat,
+			this.autoCommits,
+			this.dryRun,
+		);
 
-		if (failed.length > 0) {
+		const { appliedFilePaths, failedEdits } = await applier.apply(editsToApply);
+
+		if (failedEdits.length > 0) {
 			// This method will set this.reflectedMessage
-			await this._generateFailedEditReport(failed, passed);
+			await this._generateFailedEditReport(failedEdits, appliedFilePaths.size);
 		}
 
-		return new Set(passed.map((edit) => edit.filePath)); // Return relative paths
+		return appliedFilePaths; // Return relative paths
 	}
 
 	// _getEdits method removed as findOriginalUpdateBlocks is called directly in _updateFiles
