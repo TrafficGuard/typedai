@@ -5,10 +5,10 @@ import { logger } from '#o11y/logger';
 import type { LLM, LlmMessage } from '#shared/model/llm.model';
 import type { IFileSystemService } from '#shared/services/fileSystemService';
 import type { VersionControlSystem } from '#shared/services/versionControlSystem';
-import { _stripFilename } from '#swe/coder/applySearchReplaceUtils';
+// import { _stripFilename } from '#swe/coder/applySearchReplaceUtils'; // _stripFilename is not directly used here
 import { EDIT_BLOCK_PROMPTS } from '#swe/coder/searchReplacePrompts';
-import { PatchUtils } from './patchUtils'; // Added import
-import { EditBlockParser } from './editBlockParser'; // Add this import
+import * as PatchUtils from './patchUtils'; // Import all as PatchUtils
+import { findOriginalUpdateBlocks } from './editBlockParser';
 
 const SEARCH_MARKER = '<<<<<<< SEARCH';
 const DIVIDER_MARKER = '=======';
@@ -205,7 +205,7 @@ export class ApplySearchReplace {
 
 	/** Corresponds to Coder.update_files */
 	private async _updateFiles(): Promise<Set<string>> {
-		const edits = this._getEdits();
+		const edits = findOriginalUpdateBlocks(this.currentLlmResponseContent, this.fence);
 		if (!edits.length) {
 			logger.info('No SEARCH/REPLACE blocks found in the LLM response.');
 			return new Set();
@@ -242,11 +242,7 @@ export class ApplySearchReplace {
 		return new Set(passed.map((edit) => edit.filePath)); // Return relative paths
 	}
 
-	/** Corresponds to EditBlockCoder.get_edits */
-	private _getEdits(): EditBlock[] {
-		// Now uses EditBlockParser
-		return EditBlockParser.findOriginalUpdateBlocks(this.currentLlmResponseContent, this.fence);
-	}
+	// _getEdits method removed as findOriginalUpdateBlocks is called directly in _updateFiles
 
 	/** Corresponds to Coder.prepare_to_edit */
 	private async _prepareToEdit(edits: EditBlock[]): Promise<{ editsToApply: EditBlock[]; pathsToDirtyCommit: Set<string> }> {

@@ -4,7 +4,7 @@ import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { type LlmMessage, user as createUserMessage, messageText } from '#shared/model/llm.model';
 import { ApplySearchReplace, type EditBlock, type EditFormat, type FileEditBlocks } from '#swe/coder/applySearchReplace';
-import { EditBlockParser } from './editBlockParser'; // Add this import
+import { findOriginalUpdateBlocks } from './editBlockParser';
 
 function sortEditBlocksByFilePath(edits: EditBlock[]) {
 	const editsBlockByFilePath: FileEditBlocks = new Map();
@@ -76,15 +76,14 @@ export class SearchReplaceCoder {
 			}
 
 			console.log(responseToApply);
-			// Use EditBlockParser directly here
-			const edits = EditBlockParser.findOriginalUpdateBlocks(responseToApply, searchReplacer.getFence());
+			const edits = findOriginalUpdateBlocks(responseToApply, searchReplacer.getFence());
 			const editsBlockByFilePath = sortEditBlocksByFilePath(edits);
 			const repoFiles = await fss.listFilesRecursively();
 
-			// Use the static method for checking file paths
+			// Use the module-level function for checking file paths
 			let pathValidationReflection: string | null = null;
 			for (const filePath of editsBlockByFilePath.keys()) {
-				const errorMessage = SearchReplaceCoder.checkEditBlockFilePath(repoFiles, filePath);
+				const errorMessage = checkEditBlockFilePath(repoFiles, filePath); // Updated call
 				if (errorMessage) {
 					pathValidationReflection = pathValidationReflection ? `${pathValidationReflection}\n${errorMessage}` : errorMessage;
 				}
@@ -127,56 +126,7 @@ export class SearchReplaceCoder {
 			currentMessages = [...currentMessages, createUserMessage(reflection)];
 		}
 	}
-
-	// Moved checkEditBlockFilePath here as a private static method
-	private static SEP = '/'; // Assuming SEP is consistent, or use path.sep
-
-	/**
-	 * Sometimes the AI writes the file to the wrong place. If the edit block if for a filePath which doesn't currently exist,
-	 * then make sure it's not too similar to an existing file path.
-	 * If the file name and parent folder match an existing file and parent folder, then return a message for the AI to check the edit path.
-	 * If file folder name starts with a module import alias (i.e. #), then return a message for the AI to check the edit path.
-	 * @param filePaths All the file paths under the current working directory
-	 * @param editBlockFilePath The file path of edits the AI has proposed
-	 * @return null if the editBlockFilePath looks ok, else a message for the AI to check.
-	 */
-	private static checkEditBlockFilePath(filePaths: string[], editBlockFilePath: string): string | null {
-		// const fss = getFileSystem(); // Not needed if filePaths is comprehensive
-
-		if (filePaths.includes(editBlockFilePath)) {
-			return null;
-		}
-
-		if (editBlockFilePath.startsWith('#') || editBlockFilePath.startsWith('@')) {
-			return `File path "${editBlockFilePath}" should not begin with '${editBlockFilePath.charAt(0)}'. It seems like you're writing to a module alias. You need to write to a real file path.`;
-		}
-
-		// Check for similarity - this can be noisy, use with caution or refine threshold
-		// for (const filePath of filePaths) {
-		// 	if (stringSimilarity(filePath, editBlockFilePath) > 0.9) {
-		// 		// return `The proposed file path '${editBlockFilePath}' is very similar to an existing file '${filePath}'. Please verify the path.`;
-		// 	}
-		// }
-
-		const editParts = editBlockFilePath.split(SearchReplaceCoder.SEP);
-		if (editParts.length >= 2) {
-			const editFileName = editParts[editParts.length - 1];
-			const editParentFolder = editParts[editParts.length - 2];
-
-			for (const filePath of filePaths) {
-				const existingFileParts = filePath.split(SearchReplaceCoder.SEP);
-				if (existingFileParts.length >= 2) {
-					const existingFileName = existingFileParts[existingFileParts.length - 1];
-					const existingParentFolder = existingFileParts[existingFileParts.length - 2];
-
-					if (editFileName === existingFileName && editParentFolder === existingParentFolder) {
-						return `The proposed file path '${editBlockFilePath}' has a filename and parent folder that match an existing file '${filePath}'. Please verify the path.`;
-					}
-				}
-			}
-		}
-		return null;
-	}
 }
 
-// Remove the standalone checkEditBlockFilePath function from the bottom of the file.
+// Moved checkEditBlockFilePath from being a static method to a module-level function above the class.
+// No standalone checkEditBlockFilePath function was at the bottom of the file previously.
