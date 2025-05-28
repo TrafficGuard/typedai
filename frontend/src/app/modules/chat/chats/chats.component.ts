@@ -203,4 +203,6 @@ export class ChatsComponent implements OnInit, OnDestroy {
     trackBySessionId(index: number, session: Chat): string {
         return session.id;
     }
+
+    protected readonly NEW_CHAT_ID = NEW_CHAT_ID;
 }
