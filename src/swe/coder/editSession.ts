@@ -6,6 +6,16 @@ export interface RequestedFileEntry {
 	reason: string;
 }
 
+export interface RequestedQueryEntry {
+	query: string;
+	reason?: string; // Optional: if LLM provides a reason for the query
+}
+
+export interface RequestedPackageInstallEntry {
+	packageName: string;
+	reason: string;
+}
+
 export interface EditSession {
 	id: string; // uuid()
 	workingDir: string;
@@ -18,6 +28,8 @@ export interface EditSession {
 	appliedFiles?: Set<string>; // Relative paths of successfully edited files
 	reflectionMessages: string[];
 	requestedFiles?: RequestedFileEntry[]; // To store parsed file requests from LLM
+	requestedQueries?: RequestedQueryEntry[]; // New: To store parsed query requests
+	requestedPackageInstalls?: RequestedPackageInstallEntry[]; // New: To store parsed package install requests
 	// state snapshots
 	absFnamesInChat?: Set<string>; // Absolute paths of files explicitly in chat
 	initiallyDirtyFiles?: Set<string>; // Relative paths of files that were dirty when we started
@@ -32,6 +44,8 @@ export function newSession(workingDir: string, llmRequest: string): EditSession 
 		reflectionMessages: [],
 		absFnamesInChat: new Set(),
 		initiallyDirtyFiles: new Set(),
-		requestedFiles: undefined, // Initialize as undefined
+		requestedFiles: undefined,
+		requestedQueries: undefined, // Initialize as undefined
+		requestedPackageInstalls: undefined, // Initialize as undefined
 	};
 }

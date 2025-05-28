@@ -10,7 +10,7 @@ import type { VersionControlSystem } from '#shared/services/versionControlSystem
 import type { EditBlock } from '#swe/coder/coderTypes';
 import { EditApplier } from './editApplier';
 import { findOriginalUpdateBlocks } from './editBlockParser';
-import type { EditSession, RequestedFileEntry } from './editSession'; // Import RequestedFileEntry
+import type { EditSession, RequestedFileEntry, RequestedQueryEntry, RequestedPackageInstallEntry } from './editSession'; // Import new types
 import { newSession } from './editSession';
 import type { EditHook, HookResult } from './hooks/editHook';
 import { stripQuotedWrapping } from './patchUtils'; // Updated import
@@ -57,6 +57,53 @@ function parseAddFilesRequest(responseText: string): RequestedFileEntry[] | null
 		return null;
 	}
 }
+
+// New helper function to parse query requests
+function parseAskQueryRequest(responseText: string): RequestedQueryEntry[] | null {
+	if (!responseText) return null;
+	const matches = Array.from(responseText.matchAll(/<ask-query>([\s\S]*?)<\/ask-query>/g));
+	if (!matches.length) return null;
+
+	const requestedQueries: RequestedQueryEntry[] = [];
+	for (const match of matches) {
+		if (match[1]) {
+			requestedQueries.push({ query: match[1].trim() });
+		}
+	}
+	return requestedQueries.length > 0 ? requestedQueries : null;
+}
+
+// New helper function to parse package install requests
+function parseInstallPackageRequest(responseText: string): RequestedPackageInstallEntry[] | null {
+	if (!responseText) return null;
+	const match = responseText.match(/<install-packages-json>([\s\S]*?)<\/install-packages-json>/);
+	if (!match || !match[1]) {
+		return null;
+	}
+
+	const jsonString = match[1];
+	try {
+		const parsed = JSON.parse(jsonString);
+		if (parsed && Array.isArray(parsed.packages)) {
+			const requestedPackages: RequestedPackageInstallEntry[] = [];
+			for (const item of parsed.packages) {
+				if (typeof item.packageName === 'string' && typeof item.reason === 'string') {
+					requestedPackages.push({ packageName: item.packageName, reason: item.reason });
+				} else {
+					logger.warn('Invalid item in packages array for install-packages-json', { item });
+					return null; // Strict parsing
+				}
+			}
+			return requestedPackages.length > 0 ? requestedPackages : null;
+		}
+		logger.warn('Invalid structure for install-packages-json content', { jsonString });
+		return null;
+	} catch (error) {
+		logger.error({ err: error }, 'Failed to parse JSON from install-packages-json block');
+		return null;
+	}
+}
+
 
 @funcClass(__filename)
 export class SearchReplaceCoder {
@@ -325,13 +372,15 @@ export class SearchReplaceCoder {
 
 			currentMessages.push(llmResponseMsgObj);
 			session.llmResponse = messageText(llmResponseMsgObj);
-			session.requestedFiles = parseAddFilesRequest(session.llmResponse); // Store parsed request
+			session.requestedFiles = parseAddFilesRequest(session.llmResponse);
+			session.requestedQueries = parseAskQueryRequest(session.llmResponse);
+			session.requestedPackageInstalls = parseInstallPackageRequest(session.llmResponse);
 
 			if (!session.llmResponse?.trim()) {
 				logger.warn('SearchReplaceCoder: LLM returned an empty or whitespace-only response.');
 				this._addReflectionToMessages(
 					session,
-					'The LLM returned an empty response. Please provide the edits or request files using the specified JSON format.',
+					'The LLM returned an empty response. Please provide the edits or request files/queries/packages using the specified formats.',
 					currentMessages,
 				);
 				continue;
@@ -339,19 +388,34 @@ export class SearchReplaceCoder {
 
 			session.parsedBlocks = findOriginalUpdateBlocks(session.llmResponse, this.getFence());
 
-			if (session.requestedFiles && session.requestedFiles.length > 0) {
-				logger.info(`LLM requested additional files: ${JSON.stringify(session.requestedFiles)}`);
-				if (session.parsedBlocks.length === 0) {
-					// LLM requested files and provided no edit blocks, which is the expected behavior.
-					this._addReflectionToMessages(
-						session,
-						`You requested ${session.requestedFiles.length} additional file(s). Please wait for them to be provided, or proceed with edits if you can now make them without these files. If you no longer need the files, provide the edits.`,
-						currentMessages,
-					);
-					continue attemptLoop; // Next attempt, LLM might get the files or decide to proceed without.
+			const hasFileRequests = session.requestedFiles && session.requestedFiles.length > 0;
+			const hasQueryRequests = session.requestedQueries && session.requestedQueries.length > 0;
+			const hasPackageRequests = session.requestedPackageInstalls && session.requestedPackageInstalls.length > 0;
+			const hasAnyMetaRequest = hasFileRequests || hasQueryRequests || hasPackageRequests;
+
+			if (hasAnyMetaRequest) {
+				let reflectionForMetaRequests = '';
+				if (hasFileRequests) {
+					logger.info(`LLM requested additional files: ${JSON.stringify(session.requestedFiles)}`);
+					reflectionForMetaRequests += `You requested ${session.requestedFiles!.length} additional file(s). `;
 				}
-				// LLM requested files AND provided edit blocks. Log a warning but proceed with blocks.
-				logger.warn('LLM requested additional files AND provided edit blocks. Proceeding with edit blocks.');
+				if (hasQueryRequests) {
+					logger.info(`LLM asked queries: ${JSON.stringify(session.requestedQueries)}`);
+					reflectionForMetaRequests += `You asked ${session.requestedQueries!.length} quer(y/ies): ${session.requestedQueries!.map((q) => `"${q.query}"`).join(', ')}. `;
+				}
+				if (hasPackageRequests) {
+					logger.info(`LLM requested package installs: ${JSON.stringify(session.requestedPackageInstalls)}`);
+					reflectionForMetaRequests += `You requested to install ${session.requestedPackageInstalls!.length} package(s): ${session.requestedPackageInstalls!.map((p) => `"${p.packageName}"`).join(', ')}. `;
+				}
+
+				if (session.parsedBlocks.length === 0) {
+					// LLM made meta-request(s) and provided no edit blocks (expected behavior for meta-requests)
+					reflectionForMetaRequests += `Please wait for these requests to be processed, or proceed with edits if you can now make them without these items. If you no longer need them, provide the edits.`;
+					this._addReflectionToMessages(session, reflectionForMetaRequests, currentMessages);
+					continue attemptLoop;
+				}
+				// LLM made meta-request(s) AND provided edit blocks. Warn but proceed with blocks.
+				logger.warn(`LLM made meta-request(s) AND provided edit blocks. Processing edit blocks. Meta-requests: ${reflectionForMetaRequests}`);
 			}
 
 			const { valid: validBlocks, issues: validationIssues } = validateBlocks(session.parsedBlocks, repoFiles, this.rules);
@@ -363,22 +427,23 @@ export class SearchReplaceCoder {
 
 			if (validBlocks.length === 0) {
 				logger.info('SearchReplaceCoder: No valid edit blocks to apply after validation.');
+				// This condition should only be hit if no meta-requests were made that would have `continue`d the loop earlier.
 				if (session.parsedBlocks.length > 0) {
 					// LLM provided blocks, but none were valid
 					this._addReflectionToMessages(
 						session,
-						'All provided edit blocks were invalid. Please correct them or request necessary files using the specified JSON format.',
+						'All provided edit blocks were invalid. Please correct them or request necessary files/information/packages using the specified formats.',
 						currentMessages,
 					);
-				} else if (!(session.requestedFiles && session.requestedFiles.length > 0)) {
-					// LLM provided no blocks AND did not request files (file request case handled above)
+				} else if (!hasAnyMetaRequest) {
+					// LLM provided no blocks AND no meta-requests (file request case handled above)
 					this._addReflectionToMessages(
 						session,
-						'No edit blocks were found in your response. Please provide the edits in the S/R block format or request necessary files using the specified JSON format.',
+						'No edit blocks or actionable requests (files, query, package install) were found in your response. Please provide edits in the S/R block format or request necessary items using the specified formats.',
 						currentMessages,
 					);
 				}
-				// If files were requested and no blocks, we already reflected and continued.
+				// If meta-requests were made and no blocks, we already reflected and continued.
 				continue;
 			}
 
