@@ -3,7 +3,7 @@ import { logger } from '#o11y/logger';
 import type { IFileSystemService } from '#shared/services/fileSystemService';
 import type { VersionControlSystem } from '#shared/services/versionControlSystem';
 import type { EditBlock } from './applySearchReplace';
-import * as PatchUtils from './patchUtils';
+import { doReplace } from './patchUtils'; // Updated import
 
 export class EditApplier {
 	constructor(
@@ -56,7 +56,7 @@ export class EditApplier {
 				currentContent = await this.readText(originalAbsolutePath);
 			}
 
-			let newContent = PatchUtils._doReplace(originalRelativePath, currentContent, edit.originalText, edit.updatedText, this.fence, this.lenientWhitespace);
+			let newContent = doReplace(originalRelativePath, currentContent, edit.originalText, edit.updatedText, this.fence, this.lenientWhitespace);
 
 			let appliedToAbsolutePath = originalAbsolutePath;
 			let appliedRelativePath = originalRelativePath;
@@ -74,7 +74,7 @@ export class EditApplier {
 					}
 
 					if (fallbackContent !== null) {
-						const fallbackNewContent = PatchUtils._doReplace(
+						const fallbackNewContent = doReplace(
 							chatFileRel,
 							fallbackContent,
 							edit.originalText,

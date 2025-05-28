@@ -13,7 +13,7 @@ import type { EditSession } from './EditSession';
 import { newSession } from './EditSession';
 import { findOriginalUpdateBlocks } from './editBlockParser';
 import type { EditHook, HookResult } from './hooks/EditHook';
-import * as PatchUtils from './patchUtils';
+import { stripQuotedWrapping } from './patchUtils'; // Updated import
 import { sessionEvents } from './sessionEvents';
 import { EDIT_BLOCK_PROMPTS } from './searchReplacePrompts';
 import { ModuleAliasRule } from './validators/ModuleAliasRule';
@@ -124,7 +124,7 @@ export class SearchReplaceCoder {
 		const fileExists = await this.fs.fileExists(absolutePath);
 
 		if (!fileExists) {
-			const isIntentToCreate = !PatchUtils._stripQuotedWrapping(originalTextIfNew, relativePath, this.getFence()).trim();
+			const isIntentToCreate = !stripQuotedWrapping(originalTextIfNew, relativePath, this.getFence()).trim();
 			if (!isIntentToCreate) {
 				logger.warn(`Skipping edit for non-existent file ${relativePath} with non-empty SEARCH block (validation should catch this).`);
 				// This case should ideally be caught by PathExistsRule, but as a safeguard:

@@ -1,0 +1,37 @@
+export const SEARCH_MARKER = '<<<<<<< SEARCH';
+export const DIVIDER_MARKER = '=======';
+export const REPLACE_MARKER = '>>>>>>> REPLACE';
+
+export const COMMON_LANGUAGES = [
+	'python',
+	'javascript',
+	'typescript',
+	'java',
+	'c',
+	'cpp',
+	'csharp',
+	'go',
+	'ruby',
+	'php',
+	'swift',
+	'kotlin',
+	'rust',
+	'scala',
+	'perl',
+	'lua',
+	'r',
+	'shell',
+	'bash',
+	'sql',
+	'html',
+	'css',
+	'xml',
+	'json',
+	'yaml',
+	'markdown',
+	'text',
+	'py',
+	'js',
+	'ts',
+	'md',
+];

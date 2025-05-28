@@ -1,17 +1,22 @@
 import * as path from 'node:path';
 import { logger } from '#o11y/logger';
 
-export function _stripQuotedWrapping(text: string, filename?: string, fencePair?: [string, string]): string {
-	// Corresponds to strip_quoted_wrapping from editblock_coder.py
+/**
+ * Strips quoting and language specifier from content of a SEARCH or REPLACE block.
+ * Corresponds to strip_quoted_wrapping from aider's editblock_coder.py.
+ * @param text The text content of the block.
+ * @param filename Optional filename, used to detect if the first line is a filename header.
+ * @param fencePair Optional fence pair (e.g., ['```', '```']). Defaults to ['```', '```'].
+ * @returns The cleaned text, with a trailing newline if content is present.
+ */
+export function stripQuotedWrapping(text: string, filename?: string, fencePair?: [string, string]): string {
 	if (!text) return text;
-	// Use a default fence if none provided, similar to ApplySearchReplace's constructor
 	const currentFence = fencePair || ['```', '```'];
 
 	const lines = text.split('\n');
 
 	if (filename && lines.length > 0) {
 		const firstLineTrimmed = lines[0].trim();
-		// Check if first line is the filename (basename or full relative path)
 		if (firstLineTrimmed.endsWith(path.basename(filename)) || firstLineTrimmed === filename) {
 			lines.shift();
 		}
@@ -29,9 +34,14 @@ export function _stripQuotedWrapping(text: string, filename?: string, fencePair?
 	return result;
 }
 
-export function _prep(content: string): { text: string; lines: string[] } {
-	// Corresponds to prep from editblock_coder.py
-	// Ensures content ends with a newline and splits into lines (kept with newlines)
+/**
+ * Prepares content for diffing by ensuring it ends with a newline and splitting it into lines.
+ * Each line in the returned array will end with a newline character.
+ * Corresponds to prep from aider's editblock_coder.py.
+ * @param content The string content to prepare.
+ * @returns An object containing the processed text (ending with a newline) and an array of lines (each ending with a newline).
+ */
+export function prep(content: string): { text: string; lines: string[] } {
 	let processedContent = content;
 	if (processedContent && !processedContent.endsWith('\n')) {
 		processedContent += '\n';
@@ -40,15 +50,23 @@ export function _prep(content: string): { text: string; lines: string[] } {
 	if (lines.length > 0 && lines[lines.length - 1] === '') {
 		lines.pop(); // Remove last empty string if content ended with \n
 	}
-	return { text: processedContent, lines: lines.map((l) => `${l}\n`) }; // Add \n back to each line
+	return { text: processedContent, lines: lines.map((l) => `${l}\n`) };
 }
 
-export function _normalizeAndOutdent(
+/**
+ * Normalizes and outdents lines from SEARCH (part) and REPLACE blocks.
+ * It finds the minimum common leading whitespace from all non-blank lines
+ * in both blocks and removes it.
+ * @param partLinesWithNL Lines from the SEARCH block, each ending with \n.
+ * @param replaceLinesWithNL Lines from the REPLACE block, each ending with \n.
+ * @returns An object with `normPartLines` and `normReplaceLines`, both arrays of strings ending with \n.
+ */
+export function normalizeAndOutdent(
 	partLinesWithNL: string[],
 	replaceLinesWithNL: string[],
 ): {
-	normPartLines: string[]; // with \n
-	normReplaceLines: string[]; // with \n
+	normPartLines: string[];
+	normReplaceLines: string[];
 } {
 	let minIndent = Number.POSITIVE_INFINITY;
 	const linesToConsider = [...partLinesWithNL, ...replaceLinesWithNL];
@@ -70,9 +88,16 @@ export function _normalizeAndOutdent(
 	return { normPartLines: normP, normReplaceLines: normR };
 }
 
-export function _perfectReplace(wholeLines: string[], partLines: string[], replaceLines: string[]): string | undefined {
+/**
+ * Attempts a perfect, exact match and replace of `partLines` within `wholeLines`.
+ * @param wholeLines The lines of the original file content, each ending with \n.
+ * @param partLines The lines from the SEARCH block to match, each ending with \n.
+ * @param replaceLines The lines from the REPLACE block to substitute, each ending with \n.
+ * @returns The new file content as a string if a perfect match is found, otherwise undefined.
+ */
+export function perfectReplace(wholeLines: string[], partLines: string[], replaceLines: string[]): string | undefined {
 	if (partLines.length === 0) {
-		return undefined;
+		return undefined; // Cannot replace an empty part with content unless it's an append/prepend scenario (handled elsewhere)
 	}
 
 	for (let i = 0; i <= wholeLines.length - partLines.length; i++) {
@@ -91,13 +116,20 @@ export function _perfectReplace(wholeLines: string[], partLines: string[], repla
 	return undefined;
 }
 
-export function _matchButForLeadingWhitespace(wholeChunkLines: string[], partLines: string[], lenientLeadingWhitespace: boolean): string | undefined {
-	// All inputs are arrays of strings, each ending with \n
+/**
+ * Checks if a chunk of `wholeChunkLines` matches `partLines`, ignoring differences in leading whitespace
+ * but ensuring the trimmed content and relative indentation (offset) are consistent.
+ * @param wholeChunkLines A segment of the original file's lines, each ending with \n.
+ * @param partLines The SEARCH block lines (normalized), each ending with \n.
+ * @param lenientLeadingWhitespace If true, allows more flexible matching of leading whitespace.
+ * @returns The common leading whitespace prefix from `wholeChunkLines` if a match is found, otherwise undefined.
+ *          Returns an empty string if the match involves no leading whitespace (e.g., all lines start non-blank).
+ */
+export function matchButForLeadingWhitespace(wholeChunkLines: string[], partLines: string[], lenientLeadingWhitespace: boolean): string | undefined {
 	if (wholeChunkLines.length !== partLines.length) return undefined;
 	const num = wholeChunkLines.length;
-	if (num === 0) return ''; // Empty chunks match with empty prefix
+	if (num === 0) return '';
 
-	// --- Original Strict Check (from Python version) ---
 	let commonPrefixFromWholeStrict: string | undefined = undefined;
 	let firstNonBlankStrict = true;
 	let strictCheckFailed = false;
@@ -108,7 +140,7 @@ export function _matchButForLeadingWhitespace(wholeChunkLines: string[], partLin
 
 		if (wholeLineContentNoNL.trimStart() !== partLineContentNoNL.trimStart()) {
 			strictCheckFailed = true;
-			break; // Core content mismatch
+			break;
 		}
 
 		if (wholeLineContentNoNL.trim()) {
@@ -118,7 +150,7 @@ export function _matchButForLeadingWhitespace(wholeChunkLines: string[], partLin
 				firstNonBlankStrict = false;
 			} else if (commonPrefixFromWholeStrict !== currentWholePrefix) {
 				strictCheckFailed = true;
-				break; // Prefixes from whole_lines are not consistent for this chunk
+				break;
 			}
 		}
 	}
@@ -127,7 +159,6 @@ export function _matchButForLeadingWhitespace(wholeChunkLines: string[], partLin
 		return commonPrefixFromWholeStrict === undefined ? '' : commonPrefixFromWholeStrict;
 	}
 
-	// --- Lenient Check (if strict failed and lenientLeadingWhitespace flag is true) ---
 	if (lenientLeadingWhitespace) {
 		let firstNonBlankLenient = true;
 		let expectedOffset: number | undefined = undefined;
@@ -135,19 +166,14 @@ export function _matchButForLeadingWhitespace(wholeChunkLines: string[], partLin
 
 		for (let i = 0; i < num; i++) {
 			const wholeLineContentNoNL = wholeChunkLines[i].slice(0, -1);
-			const partLineContentNoNL = partLines[i].slice(0, -1); // partLines are already normalized by _normalizeAndOutdent
+			const partLineContentNoNL = partLines[i].slice(0, -1);
 
 			const wholeTrimmed = wholeLineContentNoNL.trimStart();
 			const partTrimmed = partLineContentNoNL.trimStart();
 
-			if (wholeTrimmed !== partTrimmed) {
-				return undefined;
-			}
-
+			if (wholeTrimmed !== partTrimmed) return undefined;
 			if (!wholeTrimmed) {
-				if (!partTrimmed) {
-					continue;
-				}
+				if (!partTrimmed) continue;
 				return undefined;
 			}
 
@@ -164,29 +190,34 @@ export function _matchButForLeadingWhitespace(wholeChunkLines: string[], partLin
 			}
 		}
 
-		if (!firstNonBlankLenient) {
-			return prefixToReturnForLenientMatch;
-		}
-		if (num > 0) {
-			return '';
-		}
+		if (!firstNonBlankLenient) return prefixToReturnForLenientMatch;
+		if (num > 0) return '';
 	}
 	return undefined;
 }
 
-export function _replacePartWithMissingLeadingWhitespace(
+/**
+ * Attempts to replace a part of `wholeLines` that matches `partLines` (after normalization and
+ * considering leading whitespace) with `replaceLines` (also normalized and re-indented).
+ * @param wholeLines The lines of the original file content, each ending with \n.
+ * @param partLines The lines from the SEARCH block, each ending with \n.
+ * @param replaceLines The lines from the REPLACE block, each ending with \n.
+ * @param lenientLeadingWhitespace If true, allows more flexible matching of leading whitespace.
+ * @returns The new file content as a string if a match and replacement occur, otherwise undefined.
+ */
+export function replacePartWithMissingLeadingWhitespace(
 	wholeLines: string[],
 	partLines: string[],
 	replaceLines: string[],
 	lenientLeadingWhitespace: boolean,
 ): string | undefined {
-	const { normPartLines, normReplaceLines } = _normalizeAndOutdent(partLines, replaceLines);
+	const { normPartLines, normReplaceLines } = normalizeAndOutdent(partLines, replaceLines);
 
 	if (normPartLines.length === 0) return undefined;
 
 	for (let i = 0; i <= wholeLines.length - normPartLines.length; i++) {
 		const wholeChunk = wholeLines.slice(i, i + normPartLines.length);
-		const leadingWsToAdd = _matchButForLeadingWhitespace(wholeChunk, normPartLines, lenientLeadingWhitespace);
+		const leadingWsToAdd = matchButForLeadingWhitespace(wholeChunk, normPartLines, lenientLeadingWhitespace);
 
 		if (leadingWsToAdd !== undefined) {
 			const adjustedReplaceLines = normReplaceLines.map((rLineWithNL) => (rLineWithNL.slice(0, -1).trim() ? leadingWsToAdd + rLineWithNL : rLineWithNL));
@@ -197,11 +228,24 @@ export function _replacePartWithMissingLeadingWhitespace(
 	return undefined;
 }
 
-export function _escapeRegExp(str: string): string {
+/**
+ * Escapes special regular expression characters in a string.
+ * @param str The input string.
+ * @returns The string with regex special characters escaped.
+ */
+export function escapeRegExp(str: string): string {
 	return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-export function _tryDotDotDots(wholeContentStr: string, partContentStr: string, replaceContentStr: string): string | undefined {
+/**
+ * Attempts to perform replacements using "..." (dotdotdot) elision patterns.
+ * This allows matching parts of a file while leaving other parts (marked by "...") untouched.
+ * @param wholeContentStr The entire original file content as a string.
+ * @param partContentStr The SEARCH block content, potentially with "..." patterns.
+ * @param replaceContentStr The REPLACE block content, with corresponding "..." patterns.
+ * @returns The new file content as a string if the "..." pattern replacement is successful, otherwise undefined.
+ */
+export function tryDotDotDots(wholeContentStr: string, partContentStr: string, replaceContentStr: string): string | undefined {
 	const dotsRegex = /(^\s*\.\.\.\s*\n)/m;
 
 	const ensureNewline = (s: string) => (s.endsWith('\n') ? s : `${s}\n`);
@@ -240,16 +284,19 @@ export function _tryDotDotDots(wholeContentStr: string, partContentStr: string, 
 		if (!pPiece && !rPiece) continue;
 
 		if (!pPiece && rPiece) {
-			if (!currentWholeContent.endsWith('\n') && rPiece.startsWith('\n')) {
-				// Avoid double newline
-			} else if (!currentWholeContent.endsWith('\n')) {
+			// If currentWholeContent doesn't end with \n, and rPiece starts with \n, this check is problematic.
+			// The ensureNewline above should handle this, but as a safeguard:
+			if (!currentWholeContent.endsWith('\n') && !rPiece.startsWith('\n')) {
 				currentWholeContent += '\n';
+			} else if (currentWholeContent.endsWith('\n') && rPiece.startsWith('\n')) {
+				currentWholeContent += rPiece.substring(1); // Avoid double newline if both have it
+				continue;
 			}
 			currentWholeContent += rPiece;
 			continue;
 		}
 
-		const escapedPPiece = _escapeRegExp(pPiece);
+		const escapedPPiece = escapeRegExp(pPiece);
 		const occurrences = (currentWholeContent.match(new RegExp(escapedPPiece, 'g')) || []).length;
 
 		if (occurrences === 0) {
@@ -265,34 +312,55 @@ export function _tryDotDotDots(wholeContentStr: string, partContentStr: string, 
 	return currentWholeContent;
 }
 
-export function _replaceMostSimilarChunk(whole: string, part: string, replace: string, lenientLeadingWhitespace: boolean): string | undefined {
-	const { lines: wholeLines, text: wholeText } = _prep(whole);
-	const { lines: partLines, text: partText } = _prep(part);
-	const { lines: replaceLines, text: replaceText } = _prep(replace);
+/**
+ * Tries various strategies to replace a chunk of text (`part`) within a larger text (`whole`)
+ * with a `replace` text. Strategies include perfect match, whitespace-lenient match,
+ * and "..." elision pattern matching.
+ * @param whole The original entire file content.
+ * @param part The content of the SEARCH block.
+ * @param replace The content of the REPLACE block.
+ * @param lenientLeadingWhitespace If true, allows more flexible matching of leading whitespace.
+ * @returns The new file content as a string if a replacement strategy succeeds, otherwise undefined.
+ */
+export function replaceMostSimilarChunk(whole: string, part: string, replace: string, lenientLeadingWhitespace: boolean): string | undefined {
+	const { lines: wholeLines, text: wholeText } = prep(whole);
+	const { lines: partLines, text: partText } = prep(part);
+	const { lines: replaceLines, text: replaceText } = prep(replace);
 
-	let result = _perfectReplace(wholeLines, partLines, replaceLines);
+	let result = perfectReplace(wholeLines, partLines, replaceLines);
 	if (result !== undefined) return result;
 
-	result = _replacePartWithMissingLeadingWhitespace(wholeLines, partLines, replaceLines, lenientLeadingWhitespace);
+	result = replacePartWithMissingLeadingWhitespace(wholeLines, partLines, replaceLines, lenientLeadingWhitespace);
 	if (result !== undefined) return result;
 
 	if (partLines.length > 0 && partLines[0].trim() === '') {
 		const skippedBlankPartLines = partLines.slice(1);
 		if (skippedBlankPartLines.length > 0) {
-			result = _perfectReplace(wholeLines, skippedBlankPartLines, replaceLines);
+			result = perfectReplace(wholeLines, skippedBlankPartLines, replaceLines);
 			if (result !== undefined) return result;
-			result = _replacePartWithMissingLeadingWhitespace(wholeLines, skippedBlankPartLines, replaceLines, lenientLeadingWhitespace);
+			result = replacePartWithMissingLeadingWhitespace(wholeLines, skippedBlankPartLines, replaceLines, lenientLeadingWhitespace);
 			if (result !== undefined) return result;
 		}
 	}
 
-	result = _tryDotDotDots(wholeText, partText, replaceText);
+	result = tryDotDotDots(wholeText, partText, replaceText);
 	if (result !== undefined) return result;
 
 	return undefined;
 }
 
-export function _doReplace(
+/**
+ * Performs the core search and replace operation for a single edit block.
+ * It handles creating new files (if SEARCH block is empty) or modifying existing ones.
+ * @param relativePath The relative path of the file to edit.
+ * @param currentContent The current content of the file, or null if it doesn't exist.
+ * @param originalBlock The raw text from the SEARCH block.
+ * @param updatedBlock The raw text from the REPLACE block.
+ * @param fenceToStrip The fence pair (e.g., ['```', '```']) to strip from block content.
+ * @param lenientLeadingWhitespace If true, allows more flexible matching of leading whitespace.
+ * @returns The new content for the file as a string if the replacement is successful, otherwise undefined.
+ */
+export function doReplace(
 	relativePath: string,
 	currentContent: string | null,
 	originalBlock: string,
@@ -300,26 +368,34 @@ export function _doReplace(
 	fenceToStrip: [string, string],
 	lenientLeadingWhitespace: boolean,
 ): string | undefined {
-	const beforeText = _stripQuotedWrapping(originalBlock, relativePath, fenceToStrip);
-	const afterText = _stripQuotedWrapping(updatedBlock, relativePath, fenceToStrip);
+	const beforeText = stripQuotedWrapping(originalBlock, relativePath, fenceToStrip);
+	const afterText = stripQuotedWrapping(updatedBlock, relativePath, fenceToStrip);
 
 	if (currentContent === null && !beforeText.trim()) {
+		// Creating a new file
 		return afterText;
 	}
 	if (currentContent === null && beforeText.trim()) {
+		// Trying to edit a non-existent file with a non-empty search block
 		logger.warn(`File ${relativePath} not found, and SEARCH block is not empty. Cannot apply edit.`);
 		return undefined;
 	}
 
+	// currentContent is not null here
+	const currentContentEnsured = currentContent as string;
+
 	if (!beforeText.trim()) {
-		const base = currentContent as string; // Cast is acceptable here as null case is handled
-		if (base && !base.endsWith('\n') && afterText.length > 0) {
+		// Appending to existing file (SEARCH block is empty or whitespace)
+		if (currentContentEnsured && !currentContentEnsured.endsWith('\n') && afterText.length > 0) {
 			if (afterText === '\n') {
-				return `${base}\n`;
+				// If afterText is just a newline, ensure only one is added.
+				return `${currentContentEnsured}\n`;
 			}
-			return `${base}\n${afterText}`;
+			return `${currentContentEnsured}\n${afterText}`;
 		}
-		return base + afterText;
+		return currentContentEnsured + afterText;
 	}
-	return _replaceMostSimilarChunk(currentContent as string, beforeText, afterText, lenientLeadingWhitespace); // Cast is acceptable here
+
+	// Modifying existing file content
+	return replaceMostSimilarChunk(currentContentEnsured, beforeText, afterText, lenientLeadingWhitespace);
 }

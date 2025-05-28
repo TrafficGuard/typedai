@@ -1,10 +1,7 @@
 import { logger } from '#o11y/logger';
 import type { EditBlock } from '#swe/coder/applySearchReplace'; // Reuse EditBlock type
-import { _stripFilename } from '#swe/coder/applySearchReplaceUtils'; // Assuming this utility is still relevant
-
-const SEARCH_MARKER = '<<<<<<< SEARCH';
-const DIVIDER_MARKER = '=======';
-const REPLACE_MARKER = '>>>>>>> REPLACE';
+import { _stripFilename } from '#swe/coder/applySearchReplaceUtils';
+import { DIVIDER_MARKER, REPLACE_MARKER, SEARCH_MARKER } from './constants';
 
 /**
  * Finds a filename from the last few lines of the preceding text content.
