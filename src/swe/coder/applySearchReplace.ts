@@ -8,6 +8,7 @@ import type { VersionControlSystem } from '#shared/services/versionControlSystem
 import { _stripFilename } from '#swe/coder/applySearchReplaceUtils';
 import { EDIT_BLOCK_PROMPTS } from '#swe/coder/searchReplacePrompts';
 import { PatchUtils } from './patchUtils'; // Added import
+import { EditBlockParser } from './editBlockParser'; // Add this import
 
 const SEARCH_MARKER = '<<<<<<< SEARCH';
 const DIVIDER_MARKER = '=======';
@@ -243,7 +244,8 @@ export class ApplySearchReplace {
 
 	/** Corresponds to EditBlockCoder.get_edits */
 	private _getEdits(): EditBlock[] {
-		return this._findOriginalUpdateBlocks(this.currentLlmResponseContent, this.fence);
+		// Now uses EditBlockParser
+		return EditBlockParser.findOriginalUpdateBlocks(this.currentLlmResponseContent, this.fence);
 	}
 
 	/** Corresponds to Coder.prepare_to_edit */
@@ -434,139 +436,8 @@ export class ApplySearchReplace {
 	// ---- Start of parsing/replacement logic (from aider/coders/editblock_coder.py) ----
 	// These methods are direct ports or adaptations of the Python helper functions.
 
-	_findOriginalUpdateBlocks(llmResponseContent: string, fenceForFilenameScan: [string, string]): EditBlock[] {
-		// Corresponds to find_original_update_blocks from editblock_coder.py
-		const edits: EditBlock[] = [];
-		if (!llmResponseContent) return edits;
-		let content = llmResponseContent;
-
-		// Pre-process to ensure markers are on new lines if they are immediately preceded by non-whitespace characters.
-		// This handles cases like "filename.ext<<<<<<< SEARCH" by converting to "filename.ext\n<<<<<<< SEARCH"
-		content = content.replace(/([^\r\n])(<<<<<<< SEARCH|=======|>>>>>>> REPLACE)/g, '$1\n$2');
-
-		if (!content.endsWith('\n')) {
-			content += '\n';
-		}
-
-		// Regex to split by markers, keeping the markers.
-		// Each marker must be at the start of a line, optionally followed by spaces, then a newline.
-		const splitRegex = new RegExp(`^(${SEARCH_MARKER}|${DIVIDER_MARKER}|${REPLACE_MARKER})[ ]*\\n`, 'gm');
-
-		// Perform the split. `split` with a capturing group inserts the captured delimiters into the array.
-		// E.g., "A<M1>B<M2>C" split by /(<M1>|<M2>)/ becomes ["A", "<M1>", "B", "<M2>", "C"]
-		// If it starts/ends with delimiter or has consecutive delimiters, empty strings can appear.
-		// E.g. "<M1>A<M2>" -> ["", "<M1>", "A", "<M2>", ""]
-		const rawParts = content.split(splitRegex);
-		// Filter out potential `undefined` values that `split` might introduce in some JS engines if a group doesn't match,
-		// and remove empty strings that result from content starting/ending with a delimiter or consecutive delimiters,
-		// UNLESS that empty string is actual content (e.g. empty search/replace block).
-		// The crucial part is that `parts[i+1]` should be a marker, and `parts[i+2]` its content.
-		// A simple filter(Boolean) might remove legitimate empty content blocks.
-		// Let's refine the loop to handle potentially empty content parts carefully.
-		const parts = rawParts.filter((p) => p !== undefined);
-
-		let currentFilePath: string | undefined = undefined;
-		let i = 0;
-
-		while (i < parts.length) {
-			const potentialPrecedingText = parts[i];
-
-			if (i + 1 >= parts.length) break; // Not enough parts for a marker
-
-			const marker = parts[i + 1];
-
-			if (marker.startsWith(SEARCH_MARKER)) {
-				const filePathFromPreceding = this._findFilename(potentialPrecedingText, fenceForFilenameScan[0]);
-				if (filePathFromPreceding) {
-					currentFilePath = filePathFromPreceding;
-				}
-
-				if (!currentFilePath) {
-					logger.warn('Search block found without a valid preceding or sticky filename. Skipping block.', {
-						textBeforeSearch: potentialPrecedingText.substring(0, 100),
-					});
-					i += 2; // Advance past potentialPrecedingText and SEARCH_MARKER
-					continue;
-				}
-
-				// Expect: OriginalText, DividerMarker, UpdatedText, ReplaceMarker
-				// Indices: i+2         i+3            i+4          i+5
-				if (i + 5 >= parts.length) {
-					logger.warn(`Malformed block for ${currentFilePath}: Incomplete structure after SEARCH_MARKER. Found ${parts.length - (i + 1)} parts instead of 4.`);
-					break;
-				}
-
-				const originalText = parts[i + 2];
-				const dividerMarker = parts[i + 3];
-				const updatedText = parts[i + 4];
-				const replaceMarker = parts[i + 5];
-
-				if (!dividerMarker.startsWith(DIVIDER_MARKER)) {
-					logger.warn(
-						`Malformed block for ${currentFilePath}: Expected DIVIDER_MARKER, found ${dividerMarker.trim()}. Content: ${originalText.substring(0, 100)}`,
-					);
-					i += 2; // Skip potentialPrecedingText and SEARCH_MARKER, try to resync
-					continue;
-				}
-				if (!replaceMarker.startsWith(REPLACE_MARKER)) {
-					logger.warn(
-						`Malformed block for ${currentFilePath}: Expected REPLACE_MARKER, found ${replaceMarker.trim()}. Content: ${updatedText.substring(0, 100)}`,
-					);
-					// Advance past potentialPrecedingText, SEARCH_MARKER, originalText, DIVIDER_MARKER
-					i += 4;
-					continue;
-				}
-
-				edits.push({ filePath: currentFilePath, originalText, updatedText });
-				i += 6; // Consumed: potentialPrecedingText, S_M, originalText, D_M, updatedText, R_M
-			} else {
-				// Current part `parts[i]` is not followed by a SEARCH_MARKER.
-				// This means `parts[i]` is some text, and `parts[i+1]` is an unexpected DIVIDER/REPLACE or end of content.
-				// Advance by 2 to look for the next SEARCH_MARKER.
-				i += 2;
-			}
-		}
-		return edits;
-	}
-
-	/**
-	 * Finds a filename from the last few lines of the preceding text content.
-	 * Corresponds to find_filename from aider's editblock_coder.py.
-	 * Uses the _stripFilename utility.
-	 */
-	private _findFilename(precedingContent: string, fenceOpen: string): string | undefined {
-		// Corresponds to find_filename from aider's editblock_coder.py
-		// Process lines from bottom up from the precedingContent.
-		const lines = precedingContent.split('\n');
-
-		// Take last 3 lines, or fewer if not enough lines.
-		// Python version reverses then takes up to 3.
-		// Here, we access from the end of the non-reversed array.
-		const numLinesToConsider = Math.min(lines.length, 3);
-		for (let k = 0; k < numLinesToConsider; k++) {
-			// lineIndex goes from lines.length-1 down to lines.length-numLinesToConsider
-			const lineIndex = lines.length - 1 - k;
-			const line = lines[lineIndex];
-
-			const filename = _stripFilename(line, fenceOpen);
-			if (filename) {
-				return filename;
-			}
-			// Python's logic: if line is not a filename and not a fence, stop.
-			// This means if we see "random text" on line N-1, we don't look at N-2.
-			const trimmedLine = line.trim();
-			if (!trimmedLine.startsWith(fenceOpen) && trimmedLine !== '') {
-				// If it's the last line of precedingContent (k=0) and it's not a filename/fence,
-				// then no filename is found from this line. If it's not the last line (k>0),
-				// and this line breaks the pattern, we stop searching further up.
-				return undefined;
-			}
-		}
-		return undefined;
-	}
-
-	// Remove the local _stripFilename as it's now imported from searchReplaceUtils
-	// private _stripFilename(...) { ... }
+	// REMOVE the _findOriginalUpdateBlocks method from ApplySearchReplace
+	// REMOVE the _findFilename method from ApplySearchReplace
 
 	// REMOVE the following methods from ApplySearchReplace as they are now in PatchUtils:
 	// _stripQuotedWrapping

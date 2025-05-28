@@ -4,6 +4,7 @@ import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { type LlmMessage, user as createUserMessage, messageText } from '#shared/model/llm.model';
 import { ApplySearchReplace, type EditBlock, type EditFormat, type FileEditBlocks } from '#swe/coder/applySearchReplace';
+import { EditBlockParser } from './editBlockParser'; // Add this import
 
 function sortEditBlocksByFilePath(edits: EditBlock[]) {
 	const editsBlockByFilePath: FileEditBlocks = new Map();
@@ -75,7 +76,8 @@ export class SearchReplaceCoder {
 			}
 
 			console.log(responseToApply);
-			const edits = searchReplacer._findOriginalUpdateBlocks(responseToApply, searchReplacer.getFence());
+			// Use EditBlockParser directly here
+			const edits = EditBlockParser.findOriginalUpdateBlocks(responseToApply, searchReplacer.getFence());
 			const editsBlockByFilePath = sortEditBlocksByFilePath(edits);
 			const repoFiles = await fss.listFilesRecursively();
 
