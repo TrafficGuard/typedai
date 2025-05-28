@@ -4,45 +4,43 @@ import { ConsoleCompletedHandler } from '#agent/autonomous/agentCompletion';
 import { getCompletedHandler } from '#agent/completionHandlerRegistry';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { deserializeLLMs } from '#llm/llmFactory';
-import { defaultLLMs } from '#llm/services/defaultLlms';
+// import { defaultLLMs } from '#llm/services/defaultLlms'; // defaultLLMs is not used
 import { logger } from '#o11y/logger';
 import type { AgentCompleted, AgentContext, AgentLLMs, AgentRunningState, AgentType, AutonomousSubType } from '#shared/model/agent.model';
 import type { FunctionCall, FunctionCallResult, LlmMessage } from '#shared/model/llm.model';
-import type { User } from '#shared/model/user.model.ts';
-import type { AgentContextApi, AgentContextSchema } from '#shared/schemas/agent.schema';
-import type { IFileSystemService } from '#shared/services/fileSystemService';
+import type { User } from '#shared/model/user.model';
+import type { AgentContextApi } from '#shared/schemas/agent.schema';
 
 export function serializeContext(context: AgentContext): AgentContextApi {
-	context.llms ??= defaultLLMs();
 	return {
-		agentId: context.agentId,
-		type: context.type,
-		subtype: context.subtype,
+		agentId: context.agentId ?? 'unknown-agent-id-serialization-default',
+		type: context.type ?? 'autonomous',
+		subtype: context.subtype ?? 'xml',
 		childAgents: context.childAgents ?? [],
-		executionId: context.executionId,
-		typedAiRepoDir: context.typedAiRepoDir,
-		traceId: context.traceId,
-		name: context.name,
+		executionId: context.executionId ?? 'unknown-execution-id-default',
+		typedAiRepoDir: context.typedAiRepoDir ?? (typeof process !== 'undefined' ? process.cwd() : 'unknown-repo-dir-default'),
+		traceId: context.traceId ?? 'unknown-trace-id-default',
+		name: context.name ?? 'Unnamed Agent (Default)',
 		parentAgentId: context.parentAgentId,
 		codeTaskId: context.codeTaskId,
-		state: context.state,
+		state: context.state ?? 'error',
 		callStack: context.callStack ?? [],
 		error: context.error,
 		output: context.output,
-		hilBudget: context.hilBudget,
-		cost: context.cost,
-		budgetRemaining: context.budgetRemaining,
-		lastUpdate: context.lastUpdate,
+		hilBudget: context.hilBudget ?? 0,
+		cost: context.cost ?? 0,
+		budgetRemaining: context.budgetRemaining ?? 0,
+		lastUpdate: context.lastUpdate ?? Date.now(),
 		metadata: context.metadata ?? {},
-		iterations: context.iterations,
+		iterations: context.iterations ?? 0,
 		pendingMessages: context.pendingMessages ?? [],
 		invoking: context.invoking ?? [],
 		notes: context.notes ?? [],
-		userPrompt: context.userPrompt,
+		userPrompt: context.userPrompt ?? '',
 		inputPrompt: context.inputPrompt ?? '',
 		messages: context.messages ?? [],
 		functionCallHistory: context.functionCallHistory ?? [],
-		hilCount: context.hilCount,
+		hilCount: context.hilCount ?? 0,
 		hilRequested: context.hilRequested ?? false,
 		useSharedRepos: context.useSharedRepos ?? true,
 		memory: context.memory ?? {},
@@ -51,21 +49,27 @@ export function serializeContext(context: AgentContext): AgentContextApi {
 		fileSystem: context.fileSystem ? context.fileSystem.toJSON() : null,
 		// Serialize User object to just its ID
 		user: context.user?.id ?? 'anonymous-serialized-id-missing',
-		llms: {
-			easy: context.llms.easy?.getId(),
-			medium: context.llms.medium?.getId(),
-			hard: context.llms.hard?.getId(),
-			xhard: context.llms.xhard?.getId(),
-		},
+		llms: context.llms
+			? {
+					easy: context.llms.easy?.getId() ?? 'unknown-llm-id-easy',
+					medium: context.llms.medium?.getId() ?? 'unknown-llm-id-medium',
+					hard: context.llms.hard?.getId() ?? 'unknown-llm-id-hard',
+					xhard: context.llms.xhard?.getId(),
+				}
+			: {
+					easy: 'default-llm-id-easy',
+					medium: 'default-llm-id-medium',
+					hard: 'default-llm-id-hard',
+				},
 		// Use the new property name 'completedHandler'
 		completedHandler: context.completedHandler ? context.completedHandler.agentCompletedHandlerId() : undefined,
 		toolState: context.toolState ? JSON.parse(JSON.stringify(context.toolState)) : undefined,
 	};
 }
 
-export function deserializeContext(data: Static<typeof AgentContextSchema>): AgentContext {
+export function deserializeContext(data: AgentContextApi): AgentContext {
 	const functionsImpl = new LlmFunctionsImpl().fromJSON(data.functions);
-	const fileSystemImpl: IFileSystemService | null = data.fileSystem ? new FileSystemService().fromJSON(data.fileSystem) : null;
+	const fileSystemImpl: FileSystemService | null = data.fileSystem ? new FileSystemService().fromJSON(data.fileSystem) : null;
 
 	// Create a placeholder User object from the serialized ID.
 	// In a real application, you might fetch the full User object asynchronously here.

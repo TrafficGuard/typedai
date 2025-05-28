@@ -19,7 +19,7 @@ import type {
 	RegenerateMessageSchema,
 } from '#shared/schemas/chat.schema';
 import { currentUser } from '#user/userContext';
-import { getMarkdownFormatPrompt } from '../../chat/chatPromptUtils';
+import { getMarkdownFormatPrompt } from './chatPromptUtils';
 
 export async function chatRoutes(fastify: AppFastifyInstance) {
 	fastify.get(
@@ -70,6 +70,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 				const originalText = contentText(currentUserContent);
 				if (originalText && originalText.trim() !== '') {
 					const formattingPrompt = getMarkdownFormatPrompt(originalText);
+					// const formattingPrompt = 'TEMPORARILY_COMMENTED_OUT';
 					const formattingLlm = summaryLLM().isConfigured() ? summaryLLM() : llm;
 					try {
 						logger.info(
@@ -154,6 +155,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 				const originalText = contentText(currentUserContent);
 				if (originalText && originalText.trim() !== '') {
 					const formattingPrompt = getMarkdownFormatPrompt(originalText);
+					// const formattingPrompt = 'TEMPORARILY_COMMENTED_OUT';
 					// Use the LLM instance resolved for this specific send message operation as fallback
 					const formattingLlm = summaryLLM().isConfigured() ? summaryLLM() : llm;
 					try {
