@@ -1,6 +1,11 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { EditBlock } from './coderTypes'; // Assuming EditBlock is still in applySearchReplace
 
+export interface RequestedFileEntry {
+	filePath: string;
+	reason: string;
+}
+
 export interface EditSession {
 	id: string; // uuid()
 	workingDir: string;
@@ -12,6 +17,7 @@ export interface EditSession {
 	validatedBlocks?: EditBlock[];
 	appliedFiles?: Set<string>; // Relative paths of successfully edited files
 	reflectionMessages: string[];
+	requestedFiles?: RequestedFileEntry[]; // To store parsed file requests from LLM
 	// state snapshots
 	absFnamesInChat?: Set<string>; // Absolute paths of files explicitly in chat
 	initiallyDirtyFiles?: Set<string>; // Relative paths of files that were dirty when we started
@@ -26,5 +32,6 @@ export function newSession(workingDir: string, llmRequest: string): EditSession 
 		reflectionMessages: [],
 		absFnamesInChat: new Set(),
 		initiallyDirtyFiles: new Set(),
+		requestedFiles: undefined, // Initialize as undefined
 	};
 }

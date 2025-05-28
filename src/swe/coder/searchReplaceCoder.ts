@@ -10,7 +10,7 @@ import type { VersionControlSystem } from '#shared/services/versionControlSystem
 import type { EditBlock } from '#swe/coder/coderTypes';
 import { EditApplier } from './editApplier';
 import { findOriginalUpdateBlocks } from './editBlockParser';
-import type { EditSession } from './editSession';
+import type { EditSession, RequestedFileEntry } from './editSession'; // Import RequestedFileEntry
 import { newSession } from './editSession';
 import type { EditHook, HookResult } from './hooks/editHook';
 import { stripQuotedWrapping } from './patchUtils'; // Updated import
@@ -26,6 +26,37 @@ const MAX_ATTEMPTS = 5;
 const DEFAULT_FENCE_OPEN = '```';
 const DEFAULT_FENCE_CLOSE = '```';
 const DEFAULT_LENIENT_WHITESPACE = true;
+
+// Helper function to parse file requests from LLM response
+function parseAddFilesRequest(responseText: string): RequestedFileEntry[] | null {
+	if (!responseText) return null;
+	const match = responseText.match(/<add-files-json>([\s\S]*?)<\/add-files-json>/);
+	if (!match || !match[1]) {
+		return null;
+	}
+
+	const jsonString = match[1];
+	try {
+		const parsed = JSON.parse(jsonString);
+		if (parsed && Array.isArray(parsed.files)) {
+			const requestedFiles: RequestedFileEntry[] = [];
+			for (const item of parsed.files) {
+				if (typeof item.filePath === 'string' && typeof item.reason === 'string') {
+					requestedFiles.push({ filePath: item.filePath, reason: item.reason });
+				} else {
+					logger.warn('Invalid item in files array for add-files-json', { item });
+					return null; // Strict parsing: if one item is bad, reject all
+				}
+			}
+			return requestedFiles.length > 0 ? requestedFiles : null;
+		}
+		logger.warn('Invalid structure for add-files-json content', { jsonString });
+		return null;
+	} catch (error) {
+		logger.error({ err: error }, 'Failed to parse JSON from add-files-json block');
+		return null;
+	}
+}
 
 @funcClass(__filename)
 export class SearchReplaceCoder {
@@ -294,17 +325,35 @@ export class SearchReplaceCoder {
 
 			currentMessages.push(llmResponseMsgObj);
 			session.llmResponse = messageText(llmResponseMsgObj);
+			session.requestedFiles = parseAddFilesRequest(session.llmResponse); // Store parsed request
 
-			if (!session.llmResponse?.trim() && session.attempt === 1) {
-				logger.warn('SearchReplaceCoder: LLM returned an empty or whitespace-only response on first attempt.');
-				// Potentially reflect or retry differently for empty responses
-			}
 			if (!session.llmResponse?.trim()) {
-				this._addReflectionToMessages(session, 'The LLM returned an empty response. Please provide the edits.', currentMessages);
+				logger.warn('SearchReplaceCoder: LLM returned an empty or whitespace-only response.');
+				this._addReflectionToMessages(
+					session,
+					'The LLM returned an empty response. Please provide the edits or request files using the specified JSON format.',
+					currentMessages,
+				);
 				continue;
 			}
 
 			session.parsedBlocks = findOriginalUpdateBlocks(session.llmResponse, this.getFence());
+
+			if (session.requestedFiles && session.requestedFiles.length > 0) {
+				logger.info(`LLM requested additional files: ${JSON.stringify(session.requestedFiles)}`);
+				if (session.parsedBlocks.length === 0) {
+					// LLM requested files and provided no edit blocks, which is the expected behavior.
+					this._addReflectionToMessages(
+						session,
+						`You requested ${session.requestedFiles.length} additional file(s). Please wait for them to be provided, or proceed with edits if you can now make them without these files. If you no longer need the files, provide the edits.`,
+						currentMessages,
+					);
+					continue attemptLoop; // Next attempt, LLM might get the files or decide to proceed without.
+				}
+				// LLM requested files AND provided edit blocks. Log a warning but proceed with blocks.
+				logger.warn('LLM requested additional files AND provided edit blocks. Proceeding with edit blocks.');
+			}
+
 			const { valid: validBlocks, issues: validationIssues } = validateBlocks(session.parsedBlocks, repoFiles, this.rules);
 
 			if (validationIssues.length > 0) {
@@ -314,25 +363,22 @@ export class SearchReplaceCoder {
 
 			if (validBlocks.length === 0) {
 				logger.info('SearchReplaceCoder: No valid edit blocks to apply after validation.');
-				// If LLM provided blocks but all were invalid, it's a form of failure.
-				// If LLM provided no blocks, it might be asking a question, refusing, or requesting more files.
-				// The calling agent should inspect session.llmResponse if this loop completes without success.
-				// If the LLM explicitly states it needs more files, the calling agent can act on that.
-				// This coder's responsibility is to try and apply edits if they are valid.
-				// If no valid edits are produced, it will eventually fail after MAX_ATTEMPTS.
-
-				// If it just provided 0 blocks, reflect that.
 				if (session.parsedBlocks.length > 0) {
-					// It provided blocks, but none were valid
-					this._addReflectionToMessages(session, 'All provided edit blocks were invalid. Please correct them.', currentMessages);
-				} else {
-					// It provided no blocks at all
+					// LLM provided blocks, but none were valid
 					this._addReflectionToMessages(
 						session,
-						'No edit blocks were found in your response. Please provide the edits in the S/R block format.',
+						'All provided edit blocks were invalid. Please correct them or request necessary files using the specified JSON format.',
+						currentMessages,
+					);
+				} else if (!(session.requestedFiles && session.requestedFiles.length > 0)) {
+					// LLM provided no blocks AND did not request files (file request case handled above)
+					this._addReflectionToMessages(
+						session,
+						'No edit blocks were found in your response. Please provide the edits in the S/R block format or request necessary files using the specified JSON format.',
 						currentMessages,
 					);
 				}
+				// If files were requested and no blocks, we already reflected and continued.
 				continue;
 			}
 
