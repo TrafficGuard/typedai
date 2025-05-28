@@ -13,9 +13,9 @@ export class CompileHook implements EditHook {
 	// 2. POSIX absolute paths (/foo/bar.js)
 	// 3. Relative paths with directories (foo/bar.js, ../foo/bar.js)
 	// 4. Simple filenames (foo.js)
-	// It also handles paths optionally enclosed in single or double quotes.
-	// Allows spaces within path components: [\w\s.-]+
-	private readonly corePathPattern = '(?:[a-zA-Z]:(?:[\\\\/](?:[\\w\\s.-]+[\\\\/])*[\\w\\s.-]+\\.[a-zA-Z0-9_]+)|[\\\\/](?:[\\w\\s.-]+[\\\\/])*[\\w\\s.-]+\\.[a-zA-Z0-9_]+|(?:[\\w\\s.-]+[\\\\/])+[\\w\\s.-]+\\.[a-zA-Z0-9_]+|[\\w\\s.-]+\\.[a-zA-Z0-9_]+)';
+	// This pattern is for Unix/Linux paths. It allows spaces within path components via [\w\s.-]+.
+	// It handles absolute paths, relative paths with directories, and simple filenames.
+	private readonly unixCorePathPattern = '(?:[\\\\/](?:[\\w\\s.-]+[\\\\/])*[\\w\\s.-]+\\.[a-zA-Z0-9_]+|(?:[\\w\\s.-]+[\\\\/])+[\\w\\s.-]+\\.[a-zA-Z0-9_]+|[\\w\\s.-]+\\.[a-zA-Z0-9_]+)';
 	private readonly filePathRegex: RegExp;
 
 
@@ -29,10 +29,10 @@ export class CompileHook implements EditHook {
 		private compileCmd: string | undefined,
 		private fs: IFileSystemService,
 	) {
-		// Construct the regex to match the core path pattern, optionally wrapped in balanced single or double quotes.
+		// Construct the regex to match the unixCorePathPattern, optionally wrapped in balanced single or double quotes.
 		// The outer group (['"])? captures the potential quote, and \1 matches the same captured quote.
-		// The second part |${this.corePathPattern} matches paths without quotes.
-		this.filePathRegex = new RegExp(`(['"])?${this.corePathPattern}\\1|${this.corePathPattern}`, 'g');
+		// The second part |${this.unixCorePathPattern} matches paths without quotes.
+		this.filePathRegex = new RegExp(`(['"])?${this.unixCorePathPattern}\\1|${this.unixCorePathPattern}`, 'g');
 	}
 
 	private async extractAndVerifyFiles(output: string, workingDir: string, existingFilesInContextAbs: Set<string>): Promise<string[]> {
