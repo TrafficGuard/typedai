@@ -158,6 +158,7 @@ export class CodeEditingAgent {
 		// await this.testLoop(requirements, projectInfo, initialSelectedFiles);
 
 		// return await fss.getVcs().getDiff(gitBase);
+		// return execCommand(`git diff --stat HEAD ${gitBase}`)
 	} // end of runCodeEditWorkflow method
 
 	private failOnCompileError(compileErrorAnalysis: CompileErrorAnalysis) {
@@ -257,8 +258,8 @@ export class CodeEditingAgent {
 
 				const ruleFiles = await includeAlternativeAiToolFiles(codeEditorFiles);
 
-				await new AiderCodeEditor().editFilesToMeetRequirements(codeEditorRequirements, [...codeEditorFiles, ...ruleFiles]);
-				// await new SearchReplaceCoder().editFilesToMeetRequirements(codeEditorRequirements, codeEditorFiles, Array.from(ruleFiles));
+				// await new AiderCodeEditor().editFilesToMeetRequirements(codeEditorRequirements, [...codeEditorFiles, ...ruleFiles]);
+				await new SearchReplaceCoder().editFilesToMeetRequirements(codeEditorRequirements, codeEditorFiles, Array.from(ruleFiles), false, true);
 
 				// The code editor may add new files, so we want to add them to the initial file set
 				const addedFiles: string[] = await git.getAddedFiles(compiledCommitSha);
