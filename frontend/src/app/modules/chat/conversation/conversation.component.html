@@ -1,6 +1,13 @@
 <div class="flex flex-auto flex-col overflow-y-auto dark:bg-default lg:overflow-hidden">
+    <!-- Loading State -->
+    @if (isLoading()) {
+        <div class="flex flex-auto flex-col items-center justify-center bg-gray-100 dark:bg-transparent">
+            <mat-progress-spinner mode="indeterminate" [diameter]="50"></mat-progress-spinner>
+            <div class="text-secondary mt-4 text-lg font-medium">Loading conversation...</div>
+        </div>
+    }
     <!-- Conversation Content (Main chat interface) -->
-    @if (chat(); as currentChat) {
+    @else if (chat(); as currentChat) {
         <mat-drawer-container class="h-full flex-auto" [hasBackdrop]="false">
             <!-- Drawer -->
             <mat-drawer
@@ -256,7 +263,9 @@
                                             <button
                                                     class="absolute -top-2 -right-2 w-5 h-5 min-h-0 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center"
                                                     mat-icon-button
-                                                    (click)="removeAttachment(attachment)">
+                                                    (click)="remove
+
+Attachment(attachment)">
                                                 <mat-icon class="icon-size-3 text-white" [svgIcon]="'heroicons_solid:x-mark'"></mat-icon>
                                             </button>
                                         </div>
