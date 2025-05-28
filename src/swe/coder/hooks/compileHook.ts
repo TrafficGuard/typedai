@@ -16,8 +16,8 @@ export class CompileHook implements EditHook {
 	// This pattern is for Unix/Linux paths. It allows spaces within path components via [\w\s.-]+.
 	// It handles absolute paths, relative paths with directories, and simple filenames.
 	// Corrected: Use single backslashes for regex tokens like \w, \s, \.
-	// For path separators, explicitly use / for Unix.
-	private readonly unixCorePathPattern = '(?:/(?:[\\w\\s.-]+/)*[\\w\\s.-]+\\.[a-zA-Z0-9_]+|(?:[\\w\\s.-]+/)+[\\w\\s.-]+\\.[a-zA-Z0-9_]+|[\\w\\s.-]+\\.[a-zA-Z0-9_]+)';
+	// For path separators, explicitly use / for Unix.	
+	private readonly unixCorePathPattern: string;
 	private readonly filePathRegex: RegExp;
 
 
@@ -31,6 +31,16 @@ export class CompileHook implements EditHook {
 		private compileCmd: string | undefined,
 		private fs: IFileSystemService,
 	) {
+		const pathComponent = '[\\w\\s.-]+'; // Matches one or more word chars, spaces, dots, or hyphens
+		const pathSeparator = '/';
+		const extensionComponent = '\\.[a-zA-Z0-9_]+'; // Matches a dot followed by extension characters
+
+		const simpleFilename = `${pathComponent}${extensionComponent}`; // e.g., file.ts, my-doc.pdf
+		const relativePathWithDir = `(?:${pathComponent}${pathSeparator})+${simpleFilename}`; // e.g., sub/file.ts, path/to/doc.txt
+		const absolutePath = `${pathSeparator}(?:${pathComponent}${pathSeparator})*${simpleFilename}`; // e.g., /abs/file.ts, /path/to/doc.ts
+
+		this.unixCorePathPattern = `(?:${absolutePath}|${relativePathWithDir}|${simpleFilename})`;
+
 		// Construct the regex to match the unixCorePathPattern, optionally wrapped in balanced single or double quotes.
 		// The outer group (['"])? captures the potential quote, and \1 matches the same captured quote.
 		// The second part |${this.unixCorePathPattern} matches paths without quotes.
