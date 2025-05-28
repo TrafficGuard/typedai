@@ -133,14 +133,7 @@
     </div>
 
     <!-- Conversation -->
-    <div
-        class="flex-auto border-l"
-        [ngClass]="{
-                'absolute inset-0 z-20 flex lg:static lg:inset-auto':
-                    selectedSessionId(),
-                'hidden lg:flex': !selectedSessionId()
-            }"
-    >
+    <div class="flex flex-auto border-l">
         <router-outlet></router-outlet>
     </div>
 </div>
