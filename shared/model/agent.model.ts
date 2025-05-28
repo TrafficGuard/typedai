@@ -18,7 +18,9 @@ export type IFileSystemService = ImportedFileSystemService;
  *
  */
 export type TaskLevel = 'easy' | 'medium' | 'hard' | 'xhard';
+/** @deprecated Use string directly */
 export type AgentType = 'autonomous' | 'workflow';
+/** @deprecated Use string directly */
 export type AutonomousSubType = 'xml' | 'codegen';
 
 export interface AgentTag {

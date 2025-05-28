@@ -12,21 +12,20 @@
                     class="w-full md:w-auto"
                 >
                     <mat-icon svgIcon="heroicons_outline:plus"></mat-icon>
-                    <span class="ml-2 mr-1 hidden sm:inline">New Chat</span>
+                    <span class="ml-2 mr-1 hidden sm:inline">New</span>
                 </button>
             </div>
 
         <!-- New Reload Button Container -->
-        <div class="w-full md:w-auto md:ml-2 mt-2 md:mt-0"> 
+        <div class="w-full md:w-auto md:ml-2 mt-2 md:mt-0">
             <button
-                mat-stroked-button 
+                mat-stroked-button
                 (click)="forceReloadChats()"
                 [disabled]="isLoading()"
                 class="w-full md:w-auto"
                 aria-label="Reload chat list"
             >
                 <mat-icon svgIcon="heroicons_outline:arrow-path"></mat-icon>
-                <span class="ml-2 mr-1 hidden sm:inline">Reload</span>
             </button>
         </div>
 
