@@ -13,9 +13,10 @@ export class CompileHook implements EditHook {
 	// 2. POSIX absolute paths (/foo/bar.js)
 	// 3. Relative paths with directories (foo/bar.js, ../foo/bar.js)
 	// 4. Simple filenames (foo.js)
-	// This regex aims to capture the path itself, excluding trailing colons, line numbers, or surrounding quotes.
-	private readonly filePathRegex =
-		/(?:[a-zA-Z]:(?:[\\/](?:[\w.-]+[\\/])*[\w.-]+\.[a-zA-Z0-9_]+)|[\\/](?:[\w.-]+[\\/])*[\w.-]+\.[a-zA-Z0-9_]+|(?:[\w.-]+[\\/])+[\w.-]+\.[a-zA-Z0-9_]+|[\w.-]+\.[a-zA-Z0-9_]+)/g;
+	// It also handles paths optionally enclosed in single or double quotes.
+	// Allows spaces within path components: [\w\s.-]+
+	private readonly corePathPattern = '(?:[a-zA-Z]:(?:[\\\\/](?:[\\w\\s.-]+[\\\\/])*[\\w\\s.-]+\\.[a-zA-Z0-9_]+)|[\\\\/](?:[\\w\\s.-]+[\\\\/])*[\\w\\s.-]+\\.[a-zA-Z0-9_]+|(?:[\\w\\s.-]+[\\\\/])+[\\w\\s.-]+\\.[a-zA-Z0-9_]+|[\\w\\s.-]+\\.[a-zA-Z0-9_]+)';
+	private readonly filePathRegex: RegExp;
 
 
 	/**
@@ -27,7 +28,12 @@ export class CompileHook implements EditHook {
 	constructor(
 		private compileCmd: string | undefined,
 		private fs: IFileSystemService,
-	) {}
+	) {
+		// Construct the regex to match the core path pattern, optionally wrapped in balanced single or double quotes.
+		// The outer group (['"])? captures the potential quote, and \1 matches the same captured quote.
+		// The second part |${this.corePathPattern} matches paths without quotes.
+		this.filePathRegex = new RegExp(`(['"])?${this.corePathPattern}\\1|${this.corePathPattern}`, 'g');
+	}
 
 	private async extractAndVerifyFiles(output: string, workingDir: string, existingFilesInContextAbs: Set<string>): Promise<string[]> {
 		if (!output) return [];
@@ -35,8 +41,17 @@ export class CompileHook implements EditHook {
 		const newRelevantFilesRel: Set<string> = new Set();
 
 		for (const pPath of potentialPaths) {
-			// Clean path: remove trailing colons, line numbers, quotes
-			const cleanedPath = pPath.replace(/[:"'].*$/, '').trim();
+			let cleanedPath = pPath.trim();
+
+			// Strip surrounding single or double quotes if they are balanced
+			if ((cleanedPath.startsWith("'") && cleanedPath.endsWith("'")) ||
+			    (cleanedPath.startsWith('"') && cleanedPath.endsWith('"'))) {
+				cleanedPath = cleanedPath.substring(1, cleanedPath.length - 1);
+			}
+
+			// Remove trailing colons, line numbers, or other suffixes often found in compiler output.
+			// This regex part is applied *after* stripping balanced quotes.
+			cleanedPath = cleanedPath.replace(/[:"'].*$/, '').trim();
 			if (!cleanedPath) continue;
 
 			let absolutePath = cleanedPath;
@@ -47,7 +62,8 @@ export class CompileHook implements EditHook {
 			// Ensure the path is within the working directory and exists
 			if (absolutePath.startsWith(workingDir) && await this.fs.fileExists(absolutePath)) {
 				if (!existingFilesInContextAbs.has(absolutePath)) {
-					newRelevantFilesRel.add(nodePath.relative(workingDir, absolutePath));
+					// Normalize the relative path to ensure consistent separators for the OS
+					newRelevantFilesRel.add(nodePath.normalize(nodePath.relative(workingDir, absolutePath)));
 				}
 			}
 		}
@@ -77,9 +93,11 @@ export class CompileHook implements EditHook {
 			// Combine stdout and stderr for a more complete error message, then truncate.
 			const fullMessage = `Stderr:\n${stderr}\n\nStdout:\n${stdout}`;
 			const additionalFiles = await this.extractAndVerifyFiles(fullMessage, session.workingDir, session.absFnamesInChat ?? new Set());
+			// Truncate the message *after* extracting files, as the full message is needed for extraction.
 			return { ok: false, message: fullMessage.slice(0, 4000), additionalFiles };
 		} catch (error: any) {
 			logger.error({ err: error }, `CompileHook: Error executing compile command: ${this.compileCmd}`);
+			// Truncate the error message if it's too long
 			return { ok: false, message: `Error executing compile command: ${error.message}`.slice(0, 4000) };
 		}
 	}
