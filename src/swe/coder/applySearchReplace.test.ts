@@ -9,8 +9,6 @@ import { logger } from '#o11y/logger';
 import type { LLM } from '#shared/model/llm.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { ApplySearchReplace } from './applySearchReplace';
-// Ensure _stripFilename is imported if _findFilenameFromPrecedingLines directly uses it from utils
-import { _stripFilename } from './applySearchReplaceUtils';
 import { EditBlockParser } from './editBlockParser';
 
 const SEARCH_MARKER = '<<<<<<< SEARCH';
@@ -22,10 +20,6 @@ describe('ApplySearchReplace', () => {
 	let llm: LLM;
 
 	describe('EditBlockParser._findFilename (static private method)', () => {
-		// No ApplySearchReplace instance needed for static method testing
-		// beforeEach(() => {
-		// 	coder = new ApplySearchReplace('.');
-		// });
 
 		it('should find filename on immediate preceding line', () => {
 			const content = 'path/to/file.ts\n';
@@ -57,18 +51,9 @@ describe('ApplySearchReplace', () => {
 		const SEARCH_MARKER = '<<<<<<< SEARCH';
 		const DIVIDER_MARKER = '=======';
 		const REPLACE_MARKER = '>>>>>>> REPLACE';
-		// No ApplySearchReplace instance needed for static method testing
-		// let coder: ApplySearchReplace;
 
-		beforeEach(() => {
-			// coder = new ApplySearchReplace('.'); // Not needed
-			// setupConditionalLoggerOutput at the top-level describe and the afterEach below
-			// should handle logger stubbing and restoration.
-			// No need to manually restore logger.warn here.
-		});
 
 		afterEach(() => {
-			// Restore any sinon modifications if not handled by setupConditionalLoggerOutput per test
 			sinon.restore();
 		});
 

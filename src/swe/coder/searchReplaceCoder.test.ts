@@ -1,8 +1,10 @@
 import { expect } from 'chai';
-
 import { SearchReplaceCoder } from './searchReplaceCoder';
+import {setupConditionalLoggerOutput} from "#test/testUtils";
 
 describe('SearchReplaceCoder', () => {
+
+	setupConditionalLoggerOutput();
 	describe('Create file check', () => {});
 
 	describe('checkEditBlockFilePath (static private method)', () => {
