@@ -15,7 +15,9 @@ export class CompileHook implements EditHook {
 	// 4. Simple filenames (foo.js)
 	// This pattern is for Unix/Linux paths. It allows spaces within path components via [\w\s.-]+.
 	// It handles absolute paths, relative paths with directories, and simple filenames.
-	private readonly unixCorePathPattern = '(?:[\\\\/](?:[\\w\\s.-]+[\\\\/])*[\\w\\s.-]+\\.[a-zA-Z0-9_]+|(?:[\\w\\s.-]+[\\\\/])+[\\w\\s.-]+\\.[a-zA-Z0-9_]+|[\\w\\s.-]+\\.[a-zA-Z0-9_]+)';
+	// Corrected: Use single backslashes for regex tokens like \w, \s, \.
+	// For path separators, explicitly use / for Unix.
+	private readonly unixCorePathPattern = '(?:/(?:[\\w\\s.-]+/)*[\\w\\s.-]+\\.[a-zA-Z0-9_]+|(?:[\\w\\s.-]+/)+[\\w\\s.-]+\\.[a-zA-Z0-9_]+|[\\w\\s.-]+\\.[a-zA-Z0-9_]+)';
 	private readonly filePathRegex: RegExp;
 
 
