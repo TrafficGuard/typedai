@@ -1,7 +1,5 @@
-import path from 'node:path';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { extractTag } from '#llm/responseParsers';
-import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import type { SelectedFile } from '#shared/model/files.model';
 import {
@@ -19,6 +17,13 @@ import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFile
 import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
 import { type RepositoryMaps, generateRepositoryMaps } from '#swe/index/repositoryMap';
 import { type ProjectInfo, detectProjectInfo } from '#swe/projectDetection';
+import {
+	FAST_TARGET_CHARS,
+	normalizePath as norm,
+	readFileContents,
+	searchFileSystem,
+	splitFileSystemTreeByFolder,
+} from './fastSelectFilesAgent.utils';
 
 /*
 Agent which iteratively loads files to find the file set required for a task/query.
@@ -27,36 +32,6 @@ After each iteration the agent should accept or ignore each of the new files loa
 
 This agent is designed to utilise LLM prompt caching
 */
-
-// Constants for search result size management
-const MAX_SEARCH_TOKENS = 8000; // Maximum tokens for search results
-const APPROX_CHARS_PER_TOKEN = 4; // Approximate characters per token
-
-// Target context size for the “fast” model family
-const FAST_MAX_TOKENS = 16_382;
-const FAST_TARGET_TOKENS = Math.floor(FAST_MAX_TOKENS * 0.5);
-const FAST_TARGET_CHARS = FAST_TARGET_TOKENS * APPROX_CHARS_PER_TOKEN;
-
-function norm(p: string): string {
-	return path.posix.normalize(p.trim().replace(/^\.\/+/, ''));
-}
-const MAX_SEARCH_CHARS = MAX_SEARCH_TOKENS * APPROX_CHARS_PER_TOKEN; // Maximum characters for search results
-
-function splitFileSystemTreeByFolder(fileTree: string): string[] {
-	const chunks: string[] = [];
-	let current = '';
-
-	for (const line of fileTree.split('\n')) {
-		// if adding the next line would exceed our character budget, start a new chunk
-		if (current.length + line.length > FAST_TARGET_CHARS) {
-			chunks.push(current);
-			current = '';
-		}
-		current += `${line}\n`;
-	}
-	if (current.trim().length) chunks.push(current);
-	return chunks;
-}
 
 interface InitialResponse {
 	inspectFiles?: string[];
@@ -84,20 +59,75 @@ export interface FileExtract {
 	extract: string;
 }
 
-export async function fastSelectFilesAgent(requirements: UserContentExt, projectInfo?: ProjectInfo, options?: FileSelectionUpdate): Promise<SelectedFile[]> {
+interface SelectionState {
+	kept: Map<string, string>; // path -> reason
+	ignored: Map<string, string>; // path -> reason
+	pending: Set<string>; // path
+	resetPending(paths: string[]): void;
+	markKept(file: SelectedFile): void;
+	markIgnored(file: SelectedFile): void;
+	hasUndecided(): boolean;
+}
+
+function createSelectionState(initialPendingPaths: string[] = []): SelectionState {
+	const state: SelectionState = {
+		kept: new Map<string, string>(),
+		ignored: new Map<string, string>(),
+		pending: new Set<string>(initialPendingPaths),
+		resetPending(paths: string[]): void {
+			state.pending.clear();
+			for (const p of paths) {
+				state.pending.add(norm(p));
+			}
+		},
+		markKept(file: SelectedFile): void {
+			const key = norm(file.filePath);
+			state.kept.set(key, file.reason);
+			state.pending.delete(key);
+		},
+		markIgnored(file: SelectedFile): void {
+			const key = norm(file.filePath);
+			state.ignored.set(key, file.reason);
+			state.pending.delete(key);
+		},
+		hasUndecided(): boolean {
+			return state.pending.size > 0;
+		},
+	};
+	return state;
+}
+
+function shouldSwitchToHardLLM(filesToInspect: string[], state: SelectionState, usingHard: boolean): boolean {
+	return filesToInspect.length === 0 && !state.hasUndecided() && !usingHard;
+}
+
+export async function fastSelectFilesAgent(
+	requirements: UserContentExt,
+	projectInfo?: ProjectInfo,
+	options?: FileSelectionUpdate,
+	providers: { medium: LLM; hard: LLM } = llms(),
+): Promise<SelectedFile[]> {
 	if (!requirements) throw new Error('Requirements must be provided');
-	const { selectedFiles } = await selectFilesCore(requirements, projectInfo, options);
+	const { selectedFiles } = await selectFilesCore(requirements, projectInfo, options, providers);
 	return selectedFiles;
 }
 
-export async function fastQueryWorkflow(query: UserContentExt, projectInfo?: ProjectInfo): Promise<string> {
+export async function fastQueryWorkflow(
+	query: UserContentExt,
+	projectInfo?: ProjectInfo,
+	providers: { medium: LLM; hard: LLM } = llms(),
+): Promise<string> {
 	if (!query) throw new Error('query must be provided');
-	const { files, answer } = await fastQueryWithFileSelection(query, projectInfo);
+	const { files, answer } = await fastQueryWithFileSelection(query, projectInfo, providers);
 	return answer;
 }
 
-export async function fastQueryWithFileSelection(query: UserContentExt, projectInfo?: ProjectInfo): Promise<{ files: SelectedFile[]; answer: string }> {
-	const { messages, selectedFiles } = await selectFilesCore(query, projectInfo);
+export async function fastQueryWithFileSelection(
+	query: UserContentExt,
+	projectInfo?: ProjectInfo,
+	providers: { medium: LLM; hard: LLM } = llms(),
+): Promise<{ files: SelectedFile[]; answer: string }> {
+	const { messages, selectedFiles } = await selectFilesCore(query, projectInfo, undefined, providers);
 
 	// Construct the final prompt for answering the query
 	const finalPrompt = `<query>
@@ -115,7 +145,7 @@ Respond in the following structure, with the answer in Markdown format inside th
 	messages.push({ role: 'user', content: finalPrompt });
 
 	// Perform the additional LLM call to get the answer
-	let answer = await llms().hard.generateText(messages, { id: 'Select Files query', thinking: 'high' });
+	let answer = await providers.hard.generateText(messages, { id: 'Select Files query', thinking: 'high' });
 	try {
 		answer = extractTag(answer, 'result');
 	} catch {}
@@ -189,6 +219,7 @@ async function selectFilesCore(
 	requirements: UserContentExt,
 	projectInfo?: ProjectInfo,
 	options?: FileSelectionUpdate,
+	providers: { medium: LLM; hard: LLM } = llms(),
 ): Promise<{
 	messages: LlmMessage[];
 	selectedFiles: SelectedFile[];
@@ -198,70 +229,65 @@ async function selectFilesCore(
 	const maxIterations = 10;
 	let iterationCount = 0;
 
-	let llm = llms().medium;
-
-	const response: GenerateTextWithJsonResponse<InitialResponse> = await llm.generateTextWithJson(messages, { id: 'Select Files initial' });
-	logger.info(messageText(response.message));
-	const initialResponse = response.object;
-	messages.push({ role: 'assistant', content: JSON.stringify(initialResponse) });
-
-	const initialRawInspectPaths = initialResponse.inspectFiles || [];
-
-	// Use Maps to store kept/ignored files to ensure uniqueness by path
-	const keptFiles = new Map<string, string>(); // path -> reason
-	const ignoredFiles = new Map<string, string>(); // path -> reason
-	const filesPendingDecision = new Set<string>();
-	for (const rawPath of initialRawInspectPaths) {
-		filesPendingDecision.add(norm(rawPath));
-	}
-	let filesToInspect = initialRawInspectPaths; // Contains raw paths for readFileContents
-
+	let llm = providers.medium;
 	let usingHardLLM = false;
+
+	const initialLlmResponse: GenerateTextWithJsonResponse<InitialResponse> = await llm.generateTextWithJson(messages, { id: 'Select Files initial' });
+	logger.info(messageText(initialLlmResponse.message));
+	const initialResponseObject = initialLlmResponse.object;
+	messages.push({ role: 'assistant', content: JSON.stringify(initialResponseObject) });
+
+	const initialRawInspectPaths = initialResponseObject.inspectFiles || [];
+	const state = createSelectionState(initialRawInspectPaths.map(norm));
+	let filesToInspect = initialRawInspectPaths; // Contains raw paths for readFileContents
 
 	while (true) {
 		iterationCount++;
 		if (iterationCount > maxIterations) throw new Error('Maximum interaction iterations reached.');
 
-		const response: IterationResponse = await generateFileSelectionProcessingResponse(messages, filesToInspect, filesPendingDecision, iterationCount, llm);
-		console.log(response);
+		const currentIterationResponse: IterationResponse = await generateFileSelectionProcessingResponse(
+			messages,
+			filesToInspect,
+			state.pending,
+			iterationCount,
+			llm,
+		);
+		logger.debug(currentIterationResponse);
 
-		if (response.search) {
-			const searchRegex = response.search;
-			// Ensure all pending files are processed if a search is also returned, though current prompt structure makes this unlikely.
-			// For now, we assume search means no keep/ignore/inspect decision on *other* files in this turn.
-			// If search is combined with keep/ignore, those should be processed first.
-			// The current prompt asks for inspect OR search, so this path is simpler.
+		if (currentIterationResponse.search) {
+			const searchRegex = currentIterationResponse.search;
 			const searchResultsText = await searchFileSystem(searchRegex);
-			console.log('Search Results ==================');
-			console.log(searchResultsText);
-			console.log('End Search Results ==================');
-			messages.push({ role: 'assistant', content: JSON.stringify({ search: searchRegex, inspectFiles: [], keepFiles: [], ignoreFiles: [] }) });
+			logger.debug('Search Results ==================');
+			logger.debug(searchResultsText);
+			logger.debug('End Search Results ==================');
+			messages.push({
+				role: 'assistant',
+				content: JSON.stringify({ search: searchRegex, inspectFiles: [], keepFiles: [], ignoreFiles: [] }),
+			});
 			messages.push({ role: 'user', content: searchResultsText, cache: 'ephemeral' });
 
 			filesToInspect = []; // LLM will decide next action based on search results
+			state.resetPending([]); // Clear pending as search results will guide next inspection
 		} else {
 			// Existing logic for keepFiles, ignoreFiles, inspectFiles
-			for (const ignored of response.ignoreFiles ?? []) {
-				const key = norm(ignored.filePath);
-				ignoredFiles.set(key, ignored.reason);
-				filesPendingDecision.delete(key);
+			for (const ignored of currentIterationResponse.ignoreFiles ?? []) {
+				state.markIgnored(ignored);
 			}
-			for (const kept of response.keepFiles ?? []) {
-				const key = norm(kept.filePath);
-				keptFiles.set(key, kept.reason);
-				filesPendingDecision.delete(key);
+			for (const kept of currentIterationResponse.keepFiles ?? []) {
+				state.markKept(kept);
 			}
 
-			const justKeptPaths = response.keepFiles?.map((f) => norm(f.filePath)) ?? [];
+			const justKeptPaths = currentIterationResponse.keepFiles?.map((f) => norm(f.filePath)) ?? [];
 			if (justKeptPaths.length > 0) {
 				try {
 					const cwd = getFileSystem().getWorkingDirectory();
 					const vcsRoot = getFileSystem().getVcsRoot();
 					const alternativeFiles = await includeAlternativeAiToolFiles(justKeptPaths, { cwd, vcsRoot });
 					for (const altFile of alternativeFiles) {
-						if (!keptFiles.has(altFile) && !ignoredFiles.has(altFile)) {
-							keptFiles.set(altFile, 'Relevant AI tool configuration/documentation file');
-							logger.info(`Automatically included relevant AI tool file: ${altFile}`);
+						const altFilePath = norm(altFile);
+						if (!state.kept.has(altFilePath) && !state.ignored.has(altFilePath)) {
+							state.markKept({ filePath: altFilePath, reason: 'Relevant AI tool configuration/documentation file' });
+							logger.info(`Automatically included relevant AI tool file: ${altFilePath}`);
 						}
 					}
 				} catch (error) {
@@ -269,43 +295,49 @@ async function selectFilesCore(
 				}
 			}
 
-			if ((response.inspectFiles ?? []).length > 0 || (response.keepFiles ?? []).length > 0 || (response.ignoreFiles ?? []).length > 0) {
-				messages.push(await processedIterativeStepUserPrompt(response));
+			if (
+				(currentIterationResponse.inspectFiles ?? []).length > 0 ||
+				(currentIterationResponse.keepFiles ?? []).length > 0 ||
+				(currentIterationResponse.ignoreFiles ?? []).length > 0
+			) {
+				messages.push(await processedIterativeStepUserPrompt(currentIterationResponse));
 			}
 
-			const cache = (response.inspectFiles ?? []).length ? 'ephemeral' : undefined;
+			const cache = (currentIterationResponse.inspectFiles ?? []).length ? 'ephemeral' : undefined;
 			messages.push({
 				role: 'assistant',
-				content: JSON.stringify(response),
+				content: JSON.stringify(currentIterationResponse),
 				cache,
 			});
 
 			const cachedMessages = messages.filter((msg) => msg.cache === 'ephemeral');
 			if (cachedMessages.length > 4) {
-				cachedMessages[1].cache = undefined;
+				// Keep the last 3 ephemeral messages, plus the initial assistant "What is my task?"
+				// This means if there are 5, the 2nd one (index 1, after "What is my task?") becomes non-ephemeral.
+				if (cachedMessages.length > 1) cachedMessages[1].cache = undefined;
 			}
 
-			const rawNewInspectPaths = response.inspectFiles ?? [];
-			for (const rawPath of rawNewInspectPaths) {
-				filesPendingDecision.add(norm(rawPath));
-			}
-			filesToInspect = rawNewInspectPaths; // Update filesToInspect with raw paths for the next iteration's readFileContents
+			const rawNewInspectPaths = currentIterationResponse.inspectFiles ?? [];
+			state.resetPending(rawNewInspectPaths); // Reset pending to only the newly requested inspect files
+			filesToInspect = rawNewInspectPaths; // Update filesToInspect for the next iteration's readFileContents
 		}
 
 		// LLM decision logic for switching to hard LLM or breaking
-		if (!response.search) {
-			if (filesToInspect.length === 0 && filesPendingDecision.size === 0) {
-				if (!usingHardLLM) {
-					llm = llms().hard;
-					usingHardLLM = true;
-					logger.info('Switching to hard LLM for final review.');
-				} else {
-					logger.info('Hard LLM also decided not to inspect more files. Completing selection.');
-					break;
-				}
-			} else if (filesToInspect.length === 0 && filesPendingDecision.size > 0) {
+		if (!currentIterationResponse.search) {
+			if (shouldSwitchToHardLLM(filesToInspect, state, usingHardLLM)) {
+				llm = providers.hard;
+				usingHardLLM = true;
+				logger.info('Switching to hard LLM for final review.');
+				continue; // Re-enter loop with hard LLM for one more pass
+			}
+
+			if (filesToInspect.length === 0 && !state.hasUndecided()) {
+				// If not switching to hard LLM (either already using or condition not met) and no more actions
+				logger.info('No new files to inspect and all pending files decided. Completing selection.');
+				break;
+			} else if (filesToInspect.length === 0 && state.hasUndecided()) {
 				logger.warn(
-					`LLM did not request new files to inspect, but ${filesPendingDecision.size} files are pending decision. Will proceed to next iteration for LLM to process pending files.`,
+					`LLM did not request new files to inspect, but ${state.pending.size} files are pending decision. Will proceed to next iteration for LLM to process pending files.`,
 				);
 			}
 		} else {
@@ -313,15 +345,14 @@ async function selectFilesCore(
 		}
 	}
 
-	if (keptFiles.size === 0) throw new Error('No files were selected to fulfill the requirements.');
+	if (state.kept.size === 0) throw new Error('No files were selected to fulfill the requirements.');
 
-	const selectedFiles: SelectedFile[] = Array.from(keptFiles.entries()).map(([path, reason]) => ({
+	const selectedFilesOutput: SelectedFile[] = Array.from(state.kept.entries()).map(([path, reason]) => ({
 		filePath: path,
 		reason,
-		// readOnly property is not explicitly handled by the LLM response in this flow, default to undefined or false if needed
 	}));
 
-	return { messages, selectedFiles };
+	return { messages, selectedFiles: selectedFilesOutput };
 }
 
 async function initializeFileSelectionAgent(requirements: UserContentExt, projectInfo?: ProjectInfo, options?: FileSelectionUpdate): Promise<LlmMessage[]> {
@@ -332,7 +363,7 @@ async function initializeFileSelectionAgent(requirements: UserContentExt, projec
 	// Split the file-system tree into folder-level chunks so the first request
 	// always fits within the FAST_MAX_TOKENS budget.  The LLM can later ask for
 	// more context via inspect/search on specific folders or files.
-	const treeChunks = splitFileSystemTreeByFolder(projectMaps.fileSystemTreeWithFileSummaries.text);
+	const treeChunks = splitFileSystemTreeByFolder(projectMaps.fileSystemTreeWithFileSummaries.text, FAST_TARGET_CHARS);
 	const fileSystemWithSummaries: string = `<project_files chunk="1/${treeChunks.length}">\n${treeChunks[0]}\n</project_files>\n`;
 	const repoOutlineUserPrompt = `${repositoryOverview}${fileSystemWithSummaries}`;
 
@@ -455,7 +486,7 @@ The final part of the response must be a JSON object in the following format:
 	const response: GenerateTextWithJsonResponse<IterationResponse> = await llm.generateTextWithJson(iterationMessages, {
 		id: `Select Files iteration ${iteration}`,
 	});
-	console.log(messageText(response.message));
+	logger.info(messageText(response.message));
 	return response.object;
 }
 
@@ -481,94 +512,3 @@ async function processedIterativeStepUserPrompt(response: IterationResponse): Pr
 	};
 }
 
-async function readFileContents(filePaths: string[]): Promise<{ contents: string; invalidPaths: string[] }> {
-	const fileSystem = getFileSystem();
-	let contents = '<files>\n';
-
-	const invalidPaths = [];
-
-	for (const filePath of filePaths) {
-		if (!filePath) continue;
-		const fullPath = path.join(fileSystem.getWorkingDirectory(), filePath);
-		try {
-			const fileContent = await fileSystem.readFile(fullPath);
-			contents += `<file_contents path="${filePath}">
-${fileContent}
-</file_contents>
-`;
-		} catch (e) {
-			logger.info(`Couldn't read ${filePath}`);
-			contents += `Invalid path ${filePath}\n`;
-			invalidPaths.push(filePath);
-		}
-	}
-	return { contents: `${contents}</files>`, invalidPaths };
-}
-
-async function searchFileSystem(searchRegex: string) {
-	let searchResultsText = '';
-	let searchPerformedSuccessfully = false;
-	const fs = getFileSystem();
-
-	try {
-		logger.debug(`Attempting search with regex "${searchRegex}" and context 1`);
-		const extractsC1 = await fs.searchExtractsMatchingContents(searchRegex, 1);
-		if (extractsC1.length <= MAX_SEARCH_CHARS) {
-			searchResultsText = `<search_results regex="${searchRegex}" context_lines="1">\n${extractsC1}\n</search_results>\n`;
-			searchPerformedSuccessfully = true;
-			logger.debug(`Search with context 1 succeeded, length: ${extractsC1.length}`);
-		} else {
-			logger.debug(`Search with context 1 too long: ${extractsC1.length} chars`);
-		}
-	} catch (e) {
-		logger.warn(e, `Error during searchExtractsMatchingContents (context 1) for regex: ${searchRegex}`);
-		searchResultsText = `<search_error regex="${searchRegex}" context_lines="1">\nError: ${e.message}\n</search_error>\n`;
-	}
-
-	if (!searchPerformedSuccessfully && !searchResultsText.includes('<search_error')) {
-		try {
-			logger.debug(`Attempting search with regex "${searchRegex}" and context 0`);
-			const extractsC0 = await fs.searchExtractsMatchingContents(searchRegex, 0);
-			if (extractsC0.length <= MAX_SEARCH_CHARS) {
-				searchResultsText = `<search_results regex="${searchRegex}" context_lines="0">\n${extractsC0}\n</search_results>\n`;
-				searchPerformedSuccessfully = true;
-				logger.debug(`Search with context 0 succeeded, length: ${extractsC0.length}`);
-			} else {
-				logger.debug(`Search with context 0 too long: ${extractsC0.length} chars`);
-			}
-		} catch (e) {
-			logger.warn(e, `Error during searchExtractsMatchingContents (context 0) for regex: ${searchRegex}`);
-			searchResultsText = `<search_error regex="${searchRegex}" context_lines="0">\nError: ${e.message}\n</search_error>\n`;
-		}
-	}
-
-	if (!searchPerformedSuccessfully && !searchResultsText.includes('<search_error')) {
-		try {
-			logger.debug(`Attempting search with regex "${searchRegex}" (file counts)`);
-			let fileMatches = await fs.searchFilesMatchingContents(searchRegex);
-			if (fileMatches.length <= MAX_SEARCH_CHARS) {
-				searchResultsText = `<search_results regex="${searchRegex}" type="file_counts">\n${fileMatches}\n</search_results>\n`;
-				searchPerformedSuccessfully = true;
-				logger.debug(`Search with file_counts succeeded, length: ${fileMatches.length}`);
-			} else {
-				const originalLength = fileMatches.length;
-				fileMatches = fileMatches.substring(0, MAX_SEARCH_CHARS);
-				searchResultsText = `<search_results regex="${searchRegex}" type="file_counts" truncated="true" original_chars="${originalLength}" truncated_chars="${MAX_SEARCH_CHARS}">\n${fileMatches}\n</search_results>\nNote: Search results were too large (${originalLength} characters, estimated ${Math.ceil(originalLength / APPROX_CHARS_PER_TOKEN)} tokens) and have been truncated to ${MAX_SEARCH_CHARS} characters (estimated ${MAX_SEARCH_TOKENS} tokens). Please use a more specific search term if needed.\n`;
-				searchPerformedSuccessfully = true;
-				logger.debug(`Search with file_counts truncated, original_length: ${originalLength}, new_length: ${fileMatches.length}`);
-			}
-		} catch (e) {
-			logger.warn(e, `Error during searchFilesMatchingContents for regex: ${searchRegex}`);
-			searchResultsText = `<search_error regex="${searchRegex}" type="file_counts">\nError: ${e.message}\n</search_error>\n`;
-		}
-	}
-
-	if (!searchPerformedSuccessfully && !searchResultsText.includes('<search_error')) {
-		if (!searchResultsText) {
-			// If no search was successful and no error was caught
-			searchResultsText = `<search_results regex="${searchRegex}">\nNo results found or all attempts exceeded character limits.\n</search_results>\n`;
-			logger.debug(`No search results for regex "${searchRegex}" or all attempts exceeded character limits.`);
-		}
-	}
-	return searchResultsText;
-}
