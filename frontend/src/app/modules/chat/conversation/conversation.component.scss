@@ -14,6 +14,11 @@
     }
 }
 
+markdown {
+    max-width: 1000px !important;
+    overflow-x: scroll;
+}
+
 markdown p {
     line-height: 1.4;
     padding-bottom: 0.4em;
