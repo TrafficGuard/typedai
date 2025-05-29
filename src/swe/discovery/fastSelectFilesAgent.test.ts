@@ -3,13 +3,13 @@ import mock from 'mock-fs';
 import sinon from 'sinon';
 import * as agentContextLocalStorageModule from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
-import type { SelectedFile } from '#shared/model/files.model';
-import type { UserContentExt } from '#shared/model/llm.model';
+import type { SelectedFile } from '#shared/files/files.model';
+import type { UserContentExt } from '#shared/llm/llm.model';
 import type { ProjectInfo } from '#swe/projectDetection';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { fastSelectFilesAgent } from './fastSelectFilesAgent';
 
-describe.only('selectFilesAndExtracts', () => {
+describe('selectFilesAndExtracts', () => {
     setupConditionalLoggerOutput();
 
     let queryWithFileSelection2Stub: sinon.SinonStub;
