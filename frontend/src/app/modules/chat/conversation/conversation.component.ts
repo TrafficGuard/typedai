@@ -112,7 +112,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
     llmHasThinkingLevels = computed(() => {
         const currentLlmId = this.llmId();
         if (!currentLlmId) return false;
-        return currentLlmId.startsWith('openai:o3') || currentLlmId.includes('claude-3-7') || currentLlmId.includes('flash-2.5');
+        return currentLlmId.startsWith('openai:o') || currentLlmId.includes('claude-3-7') || currentLlmId.includes('claude-4') || currentLlmId.includes('flash-2.5');
     });
     thinkingIcon: WritableSignal<string> = signal('heroicons_outline:minus-small');
     thinkingLevel: WritableSignal<'off' | 'low' | 'medium' | 'high'> = signal('off');
