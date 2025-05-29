@@ -40,7 +40,7 @@ interface IterationResponse {
 /**
  * When a user wants to continue on previous file selection, this provides the original file selection and the instructions on what needs to change in the file selection.
  */
-export interface FileSelectionUpdate {
+interface FileSelectionUpdate {
 	currentFiles?: SelectedFile[];
 	updatePrompt?: string;
 }

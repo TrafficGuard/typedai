@@ -1,15 +1,22 @@
 import path from 'node:path';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
+import { extractTag } from '#llm/responseParsers';
 import { countTokens } from '#llm/tokens';
+import { logger } from '#o11y/logger';
 import type { SelectedFile } from '#shared/model/files.model';
 import {
+	type GenerateTextWithJsonResponse,
 	type LLM,
 	type LlmMessage,
 	type UserContentExt,
+	assistant,
 	contentText,
 	extractAttachments,
+	messageText,
 } from '#shared/model/llm.model';
 import { text, user } from '#shared/model/llm.model';
+import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
+import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
 import { type RepositoryMaps, generateRepositoryMaps } from '#swe/index/repositoryMap';
 import { type ProjectInfo, detectProjectInfo } from '#swe/projectDetection';
 
@@ -26,9 +33,9 @@ const MAX_SEARCH_TOKENS = 8000; // Maximum tokens for search results
 const APPROX_CHARS_PER_TOKEN = 4; // Approximate characters per token
 
 // Target context size for the “fast” model family
-const FAST_MAX_TOKENS   = 16_382;
+const FAST_MAX_TOKENS = 16_382;
 const FAST_TARGET_TOKENS = Math.floor(FAST_MAX_TOKENS * 0.5);
-const FAST_TARGET_CHARS  = FAST_TARGET_TOKENS * APPROX_CHARS_PER_TOKEN;
+const FAST_TARGET_CHARS = FAST_TARGET_TOKENS * APPROX_CHARS_PER_TOKEN;
 
 function norm(p: string): string {
 	return path.posix.normalize(p.trim().replace(/^\.\/+/, ''));
@@ -41,11 +48,11 @@ function splitFileSystemTreeByFolder(fileTree: string): string[] {
 
 	for (const line of fileTree.split('\n')) {
 		// if adding the next line would exceed our character budget, start a new chunk
-		if ((current.length + line.length) > FAST_TARGET_CHARS) {
+		if (current.length + line.length > FAST_TARGET_CHARS) {
 			chunks.push(current);
 			current = '';
 		}
-		current += line + '\n';
+		current += `${line}\n`;
 	}
 	if (current.trim().length) chunks.push(current);
 	return chunks;
@@ -77,19 +84,19 @@ export interface FileExtract {
 	extract: string;
 }
 
-export async function selectFilesAgent(requirements: UserContentExt, projectInfo?: ProjectInfo, options?: FileSelectionUpdate): Promise<SelectedFile[]> {
+export async function fastSelectFilesAgent(requirements: UserContentExt, projectInfo?: ProjectInfo, options?: FileSelectionUpdate): Promise<SelectedFile[]> {
 	if (!requirements) throw new Error('Requirements must be provided');
 	const { selectedFiles } = await selectFilesCore(requirements, projectInfo, options);
 	return selectedFiles;
 }
 
-export async function queryWorkflowWithSearch(query: UserContentExt, projectInfo?: ProjectInfo): Promise<string> {
+export async function fastQueryWorkflow(query: UserContentExt, projectInfo?: ProjectInfo): Promise<string> {
 	if (!query) throw new Error('query must be provided');
-	const { files, answer } = await queryWithFileSelection2(query, projectInfo);
+	const { files, answer } = await fastQueryWithFileSelection(query, projectInfo);
 	return answer;
 }
 
-export async function queryWithFileSelection2(query: UserContentExt, projectInfo?: ProjectInfo): Promise<{ files: SelectedFile[]; answer: string }> {
+export async function fastQueryWithFileSelection(query: UserContentExt, projectInfo?: ProjectInfo): Promise<{ files: SelectedFile[]; answer: string }> {
 	const { messages, selectedFiles } = await selectFilesCore(query, projectInfo);
 
 	// Construct the final prompt for answering the query
