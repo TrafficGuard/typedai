@@ -6,7 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import type { MatSnackBar } from '@angular/material/snack-bar';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import type { UserProfile, UserProfileUpdate } from '#shared/user/user.model';
 import type { ApiListState } from '../../../core/api-state.types';
 import type { UserService } from '../../../core/user/user.service';

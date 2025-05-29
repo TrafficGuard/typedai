@@ -1,7 +1,7 @@
 import { I18nPluralPipe } from '@angular/common';
 import { Component, type OnDestroy, type OnInit, ViewEncapsulation } from '@angular/core';
 import { type Router, RouterLink } from '@angular/router';
-import type { AuthService } from 'app/core/auth/auth.service';
+import { AuthService } from 'app/core/auth/auth.service';
 import { Subject, finalize, takeUntil, takeWhile, tap, timer } from 'rxjs';
 
 @Component({
