@@ -34,10 +34,7 @@ export function splitFileSystemTreeByFolder(fileTree: string, maxChars = FAST_TA
 	return chunks;
 }
 
-export async function readFileContents(
-	filePaths: string[],
-	fs: IFileSystemService = getFileSystem(),
-): Promise<{ contents: string; invalidPaths: string[] }> {
+export async function readFileContents(filePaths: string[], fs: IFileSystemService = getFileSystem()): Promise<{ contents: string; invalidPaths: string[] }> {
 	let contents = '<files>\n';
 	const invalidPaths = [];
 

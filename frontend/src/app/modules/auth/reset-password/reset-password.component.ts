@@ -9,7 +9,7 @@ import { RouterLink } from '@angular/router';
 import { fuseAnimations } from '@fuse/animations';
 import { FuseAlertComponent, type FuseAlertType } from '@fuse/components/alert';
 import { FuseValidators } from '@fuse/validators';
-import type { AuthService } from 'app/core/auth/auth.service';
+import { AuthService } from 'app/core/auth/auth.service';
 import { finalize } from 'rxjs';
 
 @Component({

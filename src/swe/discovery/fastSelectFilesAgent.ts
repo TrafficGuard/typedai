@@ -17,13 +17,7 @@ import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFile
 import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
 import { type RepositoryMaps, generateRepositoryMaps } from '#swe/index/repositoryMap';
 import { type ProjectInfo, detectProjectInfo } from '#swe/projectDetection';
-import {
-	FAST_TARGET_CHARS,
-	normalizePath as norm,
-	readFileContents,
-	searchFileSystem,
-	splitFileSystemTreeByFolder,
-} from './fastSelectFilesAgent.utils';
+import { FAST_TARGET_CHARS, normalizePath as norm, readFileContents, searchFileSystem, splitFileSystemTreeByFolder } from './fastSelectFilesAgent.utils';
 
 /*
 Agent which iteratively loads files to find the file set required for a task/query.
@@ -112,11 +106,7 @@ export async function fastSelectFilesAgent(
 	return selectedFiles;
 }
 
-export async function fastQueryWorkflow(
-	query: UserContentExt,
-	projectInfo?: ProjectInfo,
-	providers: { medium: LLM; hard: LLM } = llms(),
-): Promise<string> {
+export async function fastQueryWorkflow(query: UserContentExt, projectInfo?: ProjectInfo, providers: { medium: LLM; hard: LLM } = llms()): Promise<string> {
 	if (!query) throw new Error('query must be provided');
 	const { files, answer } = await fastQueryWithFileSelection(query, projectInfo, providers);
 	return answer;
@@ -335,7 +325,8 @@ async function selectFilesCore(
 				// If not switching to hard LLM (either already using or condition not met) and no more actions
 				logger.info('No new files to inspect and all pending files decided. Completing selection.');
 				break;
-			} else if (filesToInspect.length === 0 && state.hasUndecided()) {
+			}
+			if (filesToInspect.length === 0 && state.hasUndecided()) {
 				logger.warn(
 					`LLM did not request new files to inspect, but ${state.pending.size} files are pending decision. Will proceed to next iteration for LLM to process pending files.`,
 				);
@@ -511,4 +502,3 @@ async function processedIterativeStepUserPrompt(response: IterationResponse): Pr
 		content: `${(await readFileContents(kept)).contents}${ignoreText}`,
 	};
 }
-

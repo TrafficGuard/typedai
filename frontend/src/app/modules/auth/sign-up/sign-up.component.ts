@@ -9,7 +9,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { type Router, RouterLink } from '@angular/router';
 import { fuseAnimations } from '@fuse/animations';
 import { FuseAlertComponent, type FuseAlertType } from '@fuse/components/alert';
-import type { AuthService } from 'app/core/auth/auth.service';
+import { AuthService } from 'app/core/auth/auth.service';
 
 @Component({
 	selector: 'auth-sign-up',

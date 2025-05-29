@@ -16,7 +16,7 @@ import { MatInputModule } from '@angular/material/input';
 // HttpClient import removed as it's not used
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
-import type { MatSnackBar } from '@angular/material/snack-bar';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import type { Router } from '@angular/router';
 import type { UserService } from 'app/core/user/user.service'; // Added import
 import { filter, finalize } from 'rxjs'; // Removed map from here as it's not used directly by component anymore
