@@ -1,5 +1,5 @@
 import type { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Injectable, WritableSignal, signal } from '@angular/core';
+import { Injectable, WritableSignal, signal, inject } from '@angular/core';
 import { EMPTY, type Observable } from 'rxjs';
 import { catchError, retry, tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
@@ -9,10 +9,11 @@ import { ApiListState, createApiListState } from '../../core/api-state.types';
 	providedIn: 'root',
 })
 export class FunctionsService {
+	private readonly http = inject(HttpClient);
 	private readonly _functionsState = createApiListState<string>();
 	readonly functionsState = this._functionsState.asReadonly();
 
-	constructor(private http: HttpClient) {}
+	constructor() {}
 
 	public getFunctions(): void {
 		if (this._functionsState().status === 'loading') {
