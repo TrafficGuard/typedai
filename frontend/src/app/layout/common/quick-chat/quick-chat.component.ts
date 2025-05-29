@@ -1,4 +1,4 @@
-import type { ScrollStrategy, ScrollStrategyOptions } from '@angular/cdk/overlay';
+import { ScrollStrategy, ScrollStrategyOptions } from '@angular/cdk/overlay';
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { DOCUMENT, DatePipe, NgClass, NgTemplateOutlet } from '@angular/common';
 import {
