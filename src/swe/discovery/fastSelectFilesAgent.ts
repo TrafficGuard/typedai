@@ -322,7 +322,11 @@ async function initializeFileSelectionAgent(requirements: UserContentExt, projec
 
 	const projectMaps: RepositoryMaps = await generateRepositoryMaps([projectInfo]);
 	const repositoryOverview: string = await getRepositoryOverview();
-	const fileSystemWithSummaries: string = `<project_files>\n${projectMaps.fileSystemTreeWithFileSummaries.text}\n</project_files>\n`;
+	// Split the file-system tree into folder-level chunks so the first request
+	// always fits within the FAST_MAX_TOKENS budget.  The LLM can later ask for
+	// more context via inspect/search on specific folders or files.
+	const treeChunks = splitFileSystemTreeByFolder(projectMaps.fileSystemTreeWithFileSummaries.text);
+	const fileSystemWithSummaries: string = `<project_files chunk="1/${treeChunks.length}">\n${treeChunks[0]}\n</project_files>\n`;
 	const repoOutlineUserPrompt = `${repositoryOverview}${fileSystemWithSummaries}`;
 
 	const attachments = extractAttachments(requirements);
