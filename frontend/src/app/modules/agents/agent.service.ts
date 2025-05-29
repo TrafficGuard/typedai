@@ -11,10 +11,10 @@ import {
 import { callApiRoute } from '../../core/api-route';
 import { createApiListState, createApiEntityState } from '../../core/api-state.types';
 import { AGENT_API } from '#shared/api/agent.api';
-import type { AutonomousIteration, AutonomousIterationSummary } from '#shared/model/agent.model';
+import type { AgentContextPreview, AutonomousIteration, AutonomousIterationSummary } from '#shared/model/agent.model';
 import { LlmCall, LlmCallSummary } from '#shared/model/llmCall.model';
 import { Pagination } from "../../core/types";
-import { AgentContextApi, AgentContextPreviewApi, AgentStartRequestSchema, AgentTypeSchema } from '#shared/schemas/agent.schema';
+import { AgentContextApi, AgentStartRequestSchema } from '#shared/schemas/agent.schema';
 import { Static } from '@sinclair/typebox';
 
 export type AgentStartRequestData = Static<typeof AgentStartRequestSchema>;
@@ -22,7 +22,7 @@ export type AgentStartRequestData = Static<typeof AgentStartRequestSchema>;
 @Injectable({ providedIn: 'root' })
 export class AgentService {
   /** Holds the list of agents */
-  private readonly _agentsState = createApiListState<AgentContextPreviewApi>();
+  private readonly _agentsState = createApiListState<AgentContextPreview>();
 
   /** Exposes the agents as an observable */
   readonly agentsState = this._agentsState.asReadonly();
@@ -214,11 +214,11 @@ export class AgentService {
     const currentState = this._agentsState();
     if (currentState.status !== 'success') return; // Only update if current state is success
 
-    const agents = currentState.data ?? []; // Existing agents are AgentContextPreviewApi[]
+    const agents = currentState.data ?? []; // Existing agents are AgentContextPreview[]
     const index = agents.findIndex(agent => agent.agentId === updatedAgent.agentId);
 
-    // Convert AgentContextApi to AgentContextPreviewApi
-    const agentPreview: AgentContextPreviewApi = {
+    // Convert AgentContextApi to AgentContextPreview
+    const agentPreview: AgentContextPreview = {
         agentId: updatedAgent.agentId,
         name: updatedAgent.name,
         state: updatedAgent.state,
@@ -227,12 +227,12 @@ export class AgentService {
         lastUpdate: updatedAgent.lastUpdate,
         userPrompt: updatedAgent.userPrompt,
         inputPrompt: updatedAgent.inputPrompt,
-        user: updatedAgent.user, // AgentContextApi.user is a string ID, matching AgentContextPreviewApi.user
+        user: updatedAgent.user, // AgentContextApi.user is a string ID, matching AgentContextPreview.user
         type: updatedAgent.type,
         subtype: updatedAgent.subtype,
     };
 
-    let newAgentList: AgentContextPreviewApi[];
+    let newAgentList: AgentContextPreview[];
     if (index !== -1) {
         newAgentList = [...agents];
         newAgentList[index] = agentPreview; // Store the converted preview

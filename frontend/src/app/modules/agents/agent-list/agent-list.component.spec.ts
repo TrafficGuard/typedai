@@ -12,7 +12,7 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import {ApiListState, createApiListState} from "../../../core/api-state.types";
 
-// Helper to create a minimal valid AgentContextPreviewApi
+// Helper to create a minimal valid AgentContextPreview
 const createMockAgentPreviewApi = (id: string, name: string, state: AgentRunningState): AgentContextPreview => ({
     agentId: id,
     name: name,
@@ -26,8 +26,8 @@ const createMockAgentPreviewApi = (id: string, name: string, state: AgentRunning
     inputPrompt: '',
     lastUpdate: Date.now()
 
-    // subtype: 'xml', // Add if part of AgentContextPreviewApi and used
-    // lastUpdate: Date.now(), // Add if part of AgentContextPreviewApi and used
+    // subtype: 'xml', // Add if part of AgentContextPreview and used
+    // lastUpdate: Date.now(), // Add if part of AgentContextPreview and used
 });
 
 class MockAgentService {

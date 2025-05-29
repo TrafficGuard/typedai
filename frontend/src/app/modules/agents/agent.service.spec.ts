@@ -67,8 +67,8 @@ describe('AgentService', () => {
     toolState: undefined,
   });
 
-  // Helper to create a minimal valid AgentContextPreviewApi
-  const createMockAgentContextPreview = (id: string, name?: string, state?: Static<typeof AgentContextSchema.properties.state>): AgentContextPreviewApi => ({
+  // Helper to create a minimal valid AgentContextPreview
+  const createMockAgentContextPreview = (id: string, name?: string, state?: Static<typeof AgentContextSchema.properties.state>): AgentContextPreview => ({
     agentId: id,
     name: name || `Agent ${id} Preview`,
     state: state || 'completed',
@@ -83,8 +83,8 @@ describe('AgentService', () => {
   const mockFullAgent1: AgentContextApi = createMockAgentContext('agent1');
   const mockFullAgent2: AgentContextApi = createMockAgentContext('agent2');
 
-  let mockPreviewAgent1: AgentContextPreviewApi;
-  let mockPreviewAgent2: AgentContextPreviewApi;
+  let mockPreviewAgent1: AgentContextPreview;
+  let mockPreviewAgent2: AgentContextPreview;
 
 
   beforeEach(() => {
@@ -121,7 +121,7 @@ describe('AgentService', () => {
     });
 
     it('refreshAgents should reload agents and update agentsState with previews', () => {
-      const updatedMockPreviews: AgentContextPreviewApi[] = [createMockAgentContextPreview('agent3')];
+      const updatedMockPreviews: AgentContextPreview[] = [createMockAgentContextPreview('agent3')];
 
       // Initial state check
       const initialState = service.agentsState()();
@@ -289,7 +289,7 @@ describe('AgentService', () => {
         const agentListState = service.agentsState()();
         expect(agentListState.status).toBe('success');
         const cachedPreview = agentListState.data?.find(a => a.agentId === agentId);
-        const expectedPreview: AgentContextPreviewApi = {
+        const expectedPreview: AgentContextPreview = {
           agentId: updatedAgentData.agentId, name: updatedAgentData.name, state: updatedAgentData.state,
           cost: updatedAgentData.cost, error: updatedAgentData.error, lastUpdate: updatedAgentData.lastUpdate,
           userPrompt: updatedAgentData.userPrompt, inputPrompt: updatedAgentData.inputPrompt, user: updatedAgentData.user,
@@ -317,7 +317,7 @@ describe('AgentService', () => {
             const agentListState = service.agentsState()();
             expect(agentListState.status).toBe('success');
             const cachedPreview = agentListState.data?.find(a => a.agentId === agentId);
-            const expectedPreview: AgentContextPreviewApi = {
+            const expectedPreview: AgentContextPreview = {
                 agentId: updatedAgentData.agentId, name: updatedAgentData.name, state: updatedAgentData.state,
                 cost: updatedAgentData.cost, error: updatedAgentData.error, lastUpdate: updatedAgentData.lastUpdate,
                 userPrompt: updatedAgentData.userPrompt, inputPrompt: updatedAgentData.inputPrompt, user: updatedAgentData.user,
@@ -344,7 +344,7 @@ describe('AgentService', () => {
             const agentListState = service.agentsState()();
             expect(agentListState.status).toBe('success');
             const cachedPreview = agentListState.data?.find(a => a.agentId === agentId);
-            const expectedPreview: AgentContextPreviewApi = {
+            const expectedPreview: AgentContextPreview = {
                 agentId: updatedAgentData.agentId, name: updatedAgentData.name, state: updatedAgentData.state,
                 cost: updatedAgentData.cost, error: updatedAgentData.error, lastUpdate: updatedAgentData.lastUpdate,
                 userPrompt: updatedAgentData.userPrompt, inputPrompt: updatedAgentData.inputPrompt, user: updatedAgentData.user,
@@ -371,7 +371,7 @@ describe('AgentService', () => {
             const agentListState = service.agentsState()();
             expect(agentListState.status).toBe('success');
             const cachedPreview = agentListState.data?.find(a => a.agentId === agentId);
-            const expectedPreview: AgentContextPreviewApi = {
+            const expectedPreview: AgentContextPreview = {
                 agentId: updatedAgentData.agentId, name: updatedAgentData.name, state: updatedAgentData.state,
                 cost: updatedAgentData.cost, error: updatedAgentData.error, lastUpdate: updatedAgentData.lastUpdate,
                 userPrompt: updatedAgentData.userPrompt, inputPrompt: updatedAgentData.inputPrompt, user: updatedAgentData.user,
@@ -397,7 +397,7 @@ describe('AgentService', () => {
             const agentListState = service.agentsState()();
             expect(agentListState.status).toBe('success');
             const cachedPreview = agentListState.data?.find(a => a.agentId === agentId);
-            const expectedPreview: AgentContextPreviewApi = {
+            const expectedPreview: AgentContextPreview = {
                 agentId: updatedAgentData.agentId, name: updatedAgentData.name, state: updatedAgentData.state,
                 cost: updatedAgentData.cost, error: updatedAgentData.error, lastUpdate: updatedAgentData.lastUpdate,
                 userPrompt: updatedAgentData.userPrompt, inputPrompt: updatedAgentData.inputPrompt, user: updatedAgentData.user,
@@ -442,7 +442,7 @@ describe('AgentService', () => {
             const agentListState = service.agentsState()();
             expect(agentListState.status).toBe('success');
             const cachedPreview = agentListState.data?.find(a => a.agentId === agentId);
-            const expectedPreview: AgentContextPreviewApi = {
+            const expectedPreview: AgentContextPreview = {
                 agentId: updatedAgentData.agentId, name: updatedAgentData.name, state: updatedAgentData.state,
                 cost: updatedAgentData.cost, error: updatedAgentData.error, lastUpdate: updatedAgentData.lastUpdate,
                 userPrompt: updatedAgentData.userPrompt, inputPrompt: updatedAgentData.inputPrompt, user: updatedAgentData.user,
@@ -469,7 +469,7 @@ describe('AgentService', () => {
             const agentListState = service.agentsState()();
             expect(agentListState.status).toBe('success');
             const cachedPreview = agentListState.data?.find(a => a.agentId === agentId);
-            const expectedPreview: AgentContextPreviewApi = {
+            const expectedPreview: AgentContextPreview = {
                 agentId: updatedAgentData.agentId, name: updatedAgentData.name, state: updatedAgentData.state,
                 cost: updatedAgentData.cost, error: updatedAgentData.error, lastUpdate: updatedAgentData.lastUpdate,
                 userPrompt: updatedAgentData.userPrompt, inputPrompt: updatedAgentData.inputPrompt, user: updatedAgentData.user,
@@ -536,7 +536,7 @@ describe('AgentService', () => {
         const agentListStateValue = service.agentsState()();
         expect(agentListStateValue.status).toBe('success');
 
-        const expectedPreview: AgentContextPreviewApi = {
+        const expectedPreview: AgentContextPreview = {
           agentId: mockFullAgentContextResponse.agentId,
           name: mockFullAgentContextResponse.name,
           state: mockFullAgentContextResponse.state,
