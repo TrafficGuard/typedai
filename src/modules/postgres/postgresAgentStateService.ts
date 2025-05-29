@@ -15,6 +15,7 @@ import {
 	isExecuting,
 } from '#shared/agent/agent.model';
 import type { AgentContextSchema } from '#shared/agent/agent.schema';
+import { NotFound, NotAllowed } from '#shared/errors'; // Added import
 import type { FunctionCallResult, GenerationStats, ImagePartExt } from '#shared/llm/llm.model';
 import type { User } from '#shared/user/user.model';
 import { currentUser } from '#user/userContext';
@@ -329,9 +330,17 @@ export class PostgresAgentStateService implements AgentContextService {
 		ctx.lastUpdate = now.getTime();
 	}
 
-	async load(agentId: string): Promise<AgentContext | null> {
+	async load(agentId: string): Promise<AgentContext> { // Return type changed
 		const row = await this.db.selectFrom('agent_contexts').selectAll().where('agent_id', '=', agentId).executeTakeFirst();
-		if (!row) return null;
+		if (!row) {
+			throw new NotFound(`Agent with ID ${agentId} not found.`);
+		}
+
+		if (row.user_id !== currentUser().id) {
+			logger.warn({ agentId, currentUserId: currentUser().id, ownerId: row.user_id }, 'Attempt to load agent not owned by current user.');
+			throw new NotAllowed(`Access denied to agent ${agentId}.`);
+		}
+
 		return this._deserializeDbRowToAgentContext(row);
 	}
 
@@ -440,11 +449,10 @@ export class PostgresAgentStateService implements AgentContextService {
 	}
 
 	async updateFunctions(agentId: string, functions: string[]): Promise<void> {
-		const agent = await this.load(agentId);
-		if (!agent) throw new Error(`Agent not found: ${agentId}`);
-		if (agent.user.id !== currentUser().id) {
-			throw new Error('Cannot update functions for an agent you do not own.');
-		}
+		// Load the agent first to check existence and ownership
+		const agent = await this.load(agentId); // This will throw NotFound or NotAllowed if necessary
+
+		// Agent is guaranteed to exist and be owned by the current user here
 
 		const newLlmFunctions = new LlmFunctionsImpl();
 		const factory = functionFactory();
@@ -499,11 +507,8 @@ export class PostgresAgentStateService implements AgentContextService {
 	}
 
 	async loadIterations(agentId: string): Promise<AutonomousIteration[]> {
-		const agent = await this.load(agentId); // Checks existence and ownership implicitly via currentUser in load
-		if (!agent) throw new Error(`Agent Id does not exist or you do not have permission: ${agentId}`);
-		// No explicit user check here as load() would have failed or returned null if user mismatch for some implementations.
-		// However, for safety, an explicit check against currentUser() might be good if load() doesn't guarantee it.
-		// The shared test suite implies load() should work for the current user.
+		// Load the agent first to check existence and ownership
+		await this.load(agentId); // This will throw NotFound or NotAllowed if necessary
 
 		const rows = await this.db.selectFrom('agent_iterations').selectAll().where('agent_id', '=', agentId).orderBy('iteration_number', 'asc').execute();
 
@@ -511,8 +516,8 @@ export class PostgresAgentStateService implements AgentContextService {
 	}
 
 	async getAgentIterationSummaries(agentId: string): Promise<AutonomousIterationSummary[]> {
-		const agent = await this.load(agentId);
-		if (!agent) throw new Error(`Agent Id does not exist or you do not have permission: ${agentId}`);
+		// Load the agent first to check existence and ownership
+		await this.load(agentId); // This will throw NotFound or NotAllowed if necessary
 
 		const rows = await this.db
 			.selectFrom('agent_iterations')
@@ -530,9 +535,9 @@ export class PostgresAgentStateService implements AgentContextService {
 		}));
 	}
 
-	async getAgentIterationDetail(agentId: string, iterationNumber: number): Promise<AutonomousIteration | null> {
-		const agent = await this.load(agentId);
-		if (!agent) throw new Error(`Agent Id does not exist or you do not have permission: ${agentId}`);
+	async getAgentIterationDetail(agentId: string, iterationNumber: number): Promise<AutonomousIteration> { // Return type changed
+		// Load the agent first to check existence and ownership
+		await this.load(agentId); // This will throw NotFound or NotAllowed if necessary
 
 		const row = await this.db
 			.selectFrom('agent_iterations')
@@ -541,7 +546,9 @@ export class PostgresAgentStateService implements AgentContextService {
 			.where('iteration_number', '=', iterationNumber)
 			.executeTakeFirst();
 
-		if (!row) return null;
+		if (!row) {
+			throw new NotFound(`Iteration ${iterationNumber} for agent ${agentId} not found.`);
+		}
 
 		return this._deserializeDbRowToIteration(row);
 	}

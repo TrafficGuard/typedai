@@ -6,14 +6,22 @@ import { send, sendBadRequest, sendNotFound } from '#fastify/index';
 import { logger } from '#o11y/logger';
 import { AGENT_API } from '#shared/agent/agent.api';
 import type { AgentContext, AgentContextPreview, AutonomousIteration, AutonomousIterationSummary } from '#shared/agent/agent.model';
+import { NotFound, NotAllowed } from '#shared/errors'; // Added import
 import { functionRegistry } from '../../functionRegistry';
 
 export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 	fastify.get(AGENT_API.list.pathTemplate, { schema: AGENT_API.list.schema }, async (req, reply) => {
-		const agentPreviews: AgentContextPreview[] = await fastify.agentStateService.list();
-		// The agentPreviews are already in the format defined by AgentContextPreviewSchema.
-		// No further transformation or serialization like `serializeContext` is needed.
-		reply.sendJSON(agentPreviews);
+		try {
+			const agentPreviews: AgentContextPreview[] = await fastify.agentStateService.list();
+			// The agentPreviews are already in the format defined by AgentContextPreviewSchema.
+			// No further transformation or serialization like `serializeContext` is needed.
+			reply.sendJSON(agentPreviews);
+		} catch (error) {
+			// List should ideally not throw NotFound/NotAllowed for the list itself,
+			// but could throw other errors (e.g., DB connection).
+			logger.error(error, 'Error listing agents');
+			send(reply, 500, { error: 'Failed to list agents' });
+		}
 	});
 
 	fastify.get(AGENT_API.getAvailableFunctions.pathTemplate, { schema: AGENT_API.getAvailableFunctions.schema }, async (req, reply) => {
@@ -21,46 +29,65 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 	});
 
 	fastify.get(AGENT_API.listHumanInLoopAgents.pathTemplate, { schema: AGENT_API.listHumanInLoopAgents.schema }, async (req, reply) => {
-		const agentPreviews: AgentContextPreview[] = await fastify.agentStateService.listRunning();
-		const agentContextsPromises = agentPreviews.map(async (preview) => {
-			const fullContext = await fastify.agentStateService.load(preview.agentId);
-			if (!fullContext) {
-				logger.error(`Agent with ID ${preview.agentId} found in preview list but not loaded by agentStateService.load().`);
-				return null;
-			}
-			return fullContext;
-		});
-		const agentContextsNullable = await Promise.all(agentContextsPromises);
-		const agentContextsFull = agentContextsNullable.filter((ctx): ctx is AgentContext => ctx !== null);
+		try {
+			const agentPreviews: AgentContextPreview[] = await fastify.agentStateService.listRunning();
+			const agentContextsPromises = agentPreviews.map(async (preview) => {
+				try {
+					// Use load here, which now throws NotFound/NotAllowed
+					const fullContext = await fastify.agentStateService.load(preview.agentId);
+					return fullContext;
+				} catch (error) {
+					// Log and skip agents that can't be loaded (e.g., deleted between listRunning and load)
+					logger.warn(`Agent with ID ${preview.agentId} found in running list but failed to load: ${error.message}`);
+					return null;
+				}
+			});
+			const agentContextsNullable = await Promise.all(agentContextsPromises);
+			const agentContextsFull = agentContextsNullable.filter((ctx): ctx is AgentContext => ctx !== null);
 
-		const response = agentContextsFull
-			.filter((ctx) => ctx.state === 'hitl_threshold' || ctx.state === 'hitl_tool' || ctx.state === 'hitl_feedback')
-			.map(serializeContext);
-		reply.sendJSON(response);
+			const response = agentContextsFull
+				.filter((ctx) => ctx.state === 'hitl_threshold' || ctx.state === 'hitl_tool' || ctx.state === 'hitl_feedback')
+				.map(serializeContext);
+			reply.sendJSON(response);
+		} catch (error) {
+			// Handle potential errors from listRunning or load calls
+			logger.error(error, 'Error listing human-in-the-loop agents');
+			send(reply, 500, { error: 'Failed to list human-in-the-loop agents' });
+		}
 	});
 
 	fastify.get(AGENT_API.details.pathTemplate, { schema: AGENT_API.details.schema }, async (req, reply) => {
 		const { agentId } = req.params;
-		const agentContext: AgentContext | null = await fastify.agentStateService.load(agentId);
-		if (!agentContext) {
-			return sendBadRequest(reply, `Agent with ID ${agentId} not found.`);
+		try {
+			const agentContext: AgentContext = await fastify.agentStateService.load(agentId);
+			// No need for: if (!agentContext) { ... } as load now throws
+			const response = serializeContext(agentContext);
+			reply.sendJSON(response);
+		} catch (error) {
+			if (error instanceof NotFound) {
+				return sendNotFound(reply, error.message);
+			} else if (error instanceof NotAllowed) {
+				return send(reply, 403, { error: error.message });
+			}
+			logger.error(error, `Error loading details for agent ${agentId} [error]`);
+			return send(reply, 500, { error: 'Failed to load agent details' });
 		}
-		const response = serializeContext(agentContext);
-		reply.sendJSON(response);
 	});
 
 	// Endpoint to get iterations for an agent
 	fastify.get(AGENT_API.getIterations.pathTemplate, { schema: AGENT_API.getIterations.schema }, async (req, reply) => {
 		const { agentId } = req.params;
 		try {
-			// Optional: Check if agent exists first?
-			// const agentExists = await fastify.agentContextService.load(agentId);
-			// if (!agentExists) return sendNotFound(reply, `Agent ${agentId} not found`);
-
+			// service.loadIterations now handles agent existence and ownership check internally
 			const iterations: AutonomousIteration[] = await fastify.agentStateService.loadIterations(agentId);
 			reply.sendJSON(iterations);
 		} catch (error) {
-			logger.error(error, `Error loading iterations for agent ${agentId}`);
+			if (error instanceof NotFound) {
+				return sendNotFound(reply, error.message);
+			} else if (error instanceof NotAllowed) {
+				return send(reply, 403, { error: error.message });
+			}
+			logger.error(error, `Error loading iterations for agent ${agentId} [error]`);
 			// Send a generic server error, or more specific if possible
 			send(reply, 500, { error: 'Failed to load agent iterations' });
 		}
@@ -70,10 +97,16 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 	fastify.get(AGENT_API.getIterationSummaries.pathTemplate, { schema: AGENT_API.getIterationSummaries.schema }, async (req, reply) => {
 		const { agentId } = req.params;
 		try {
+			// service.getAgentIterationSummaries now handles agent existence and ownership check internally
 			const summaries: AutonomousIterationSummary[] = await fastify.agentStateService.getAgentIterationSummaries(agentId);
 			reply.sendJSON(summaries);
 		} catch (error) {
-			logger.error(error, `Error loading iteration summaries for agent ${agentId}`);
+			if (error instanceof NotFound) {
+				return sendNotFound(reply, error.message);
+			} else if (error instanceof NotAllowed) {
+				return send(reply, 403, { error: error.message });
+			}
+			logger.error(error, `Error loading iteration summaries for agent ${agentId} [error]`);
 			send(reply, 500, { error: 'Failed to load agent iteration summaries' });
 		}
 	});
@@ -82,13 +115,17 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 	fastify.get(AGENT_API.getIterationDetail.pathTemplate, { schema: AGENT_API.getIterationDetail.schema }, async (req, reply) => {
 		const { agentId, iterationNumber } = req.params;
 		try {
-			const iterationDetail: AutonomousIteration | null = await fastify.agentStateService.getAgentIterationDetail(agentId, iterationNumber);
-			if (!iterationDetail) {
-				return sendNotFound(reply, `Iteration ${iterationNumber} for agent ${agentId} not found.`);
-			}
+			// service.getAgentIterationDetail now handles agent/iteration existence and ownership check internally
+			const iterationDetail: AutonomousIteration = await fastify.agentStateService.getAgentIterationDetail(agentId, iterationNumber);
+			// No need for: if (!iterationDetail) { ... } as getAgentIterationDetail now throws
 			reply.sendJSON(iterationDetail);
 		} catch (error) {
-			logger.error(error, `Error loading iteration ${iterationNumber} for agent ${agentId}`);
+			if (error instanceof NotFound) {
+				return sendNotFound(reply, error.message);
+			} else if (error instanceof NotAllowed) {
+				return send(reply, 403, { error: error.message });
+			}
+			logger.error(error, `Error loading iteration ${iterationNumber} for agent ${agentId} [error]`);
 			send(reply, 500, { error: 'Failed to load agent iteration detail' });
 		}
 	});
@@ -96,9 +133,11 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 	fastify.post(AGENT_API.delete.pathTemplate, { schema: AGENT_API.delete.schema }, async (req, reply) => {
 		const { agentIds } = req.body;
 		try {
+			// The service.delete method handles ownership and state checks internally
 			await fastify.agentStateService.delete(agentIds ?? []);
 			reply.code(204).send(); // For ApiNullResponseSchema
 		} catch (error) {
+			// Delete might throw other errors, but not typically NotFound/NotAllowed for individual IDs in the list
 			logger.error('Error deleting agents:', error);
 			sendBadRequest(reply, 'Error deleting agents');
 		}
@@ -116,9 +155,12 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 		},
 		async (req, reply) => {
 			const agentId = req.params.agentId;
+			// Note: This endpoint doesn't check user ownership of the agent execution stream.
+			// A proper implementation might need to verify the user is authorised to listen.
 			const agentExecution: AgentExecution = agentExecutions[agentId];
 			if (!agentExecution) {
-				return sendBadRequest(reply);
+				// Use NotFound here as the execution stream doesn't exist
+				return sendNotFound(reply, `Agent execution stream for ID ${agentId} not found.`);
 			}
 
 			reply.raw.writeHead(200, {
@@ -129,6 +171,7 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 				'Access-Control-Allow-Credentials': 'true',
 			});
 
+			// Keep the existing logic for sending completion/error events
 			agentExecution.execution
 				.then((result) => {
 					reply.raw.write(`data: ${JSON.stringify({ event: 'completed', agentId })}\n\n`);

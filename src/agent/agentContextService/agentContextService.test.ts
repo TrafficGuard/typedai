@@ -23,6 +23,7 @@ import {
 	// TaskLevel, // Not explicitly used in AgentContext, but used in AgentLLMs
 } from '#shared/agent/agent.model';
 import type { AutonomousIteration } from '#shared/agent/agent.model';
+import { NotFound, NotAllowed } from '#shared/errors'; // Added import
 import type { FunctionCallResult, GenerationStats } from '#shared/llm/llm.model';
 import type { ChatSettings, LLMServicesConfig, User } from '#shared/user/user.model';
 import * as userContext from '#user/userContext';
@@ -225,6 +226,19 @@ export function runAgentStateServiceTests(
 		// Register mock handlers needed for tests
 		clearCompletedHandlers(); // Clear any handlers from previous tests
 		registerCompletedHandler(new MockAgentCompleted()); // Register the mock handler instance
+
+		// Ensure test users exist in the UserService instance used by the service
+		const userServiceInstance = appContext().userService;
+		try {
+			await userServiceInstance.getUser(testUser.id);
+		} catch (e) {
+			await userServiceInstance.createUser(testUser);
+		}
+		try {
+			await userServiceInstance.getUser(otherUser.id);
+		} catch (e) {
+			await userServiceInstance.createUser(otherUser);
+		}
 	});
 
 	afterEach(async () => {
@@ -274,9 +288,9 @@ export function runAgentStateServiceTests(
 			});
 
 			await service.save(context);
-			const loadedContext = await service.load(id);
+			const loadedContext = await service.load(id); // load now throws on not found/not allowed
 
-			expect(loadedContext).to.not.be.null;
+			expect(loadedContext).to.not.be.null; // This check is technically redundant now, but harmless
 
 			// --- Targeted Assertions for State Verification ---
 
@@ -331,9 +345,21 @@ export function runAgentStateServiceTests(
 			expect(loadedContext.lastUpdate).to.be.greaterThan(savedTime1);
 		});
 
-		it('should return null when loading a non-existent agent', async () => {
+		// Modified test to expect NotFound error
+		it('should throw NotFound when loading a non-existent agent', async () => {
 			const id = agentId();
-			expect(await service.load(id)).to.be.null;
+			await expect(service.load(id)).to.be.rejectedWith(NotFound);
+		});
+
+		// Added test for NotAllowed error
+		it('should throw NotAllowed when trying to load an agent belonging to another user', async () => {
+			const idForOtherUser = agentId();
+			currentUserStub.returns(otherUser);
+			const contextForOtherUser = createMockAgentContext(idForOtherUser, {}, otherUser);
+			await service.save(contextForOtherUser);
+			currentUserStub.returns(testUser); // Switch back to testUser
+
+			await expect(service.load(idForOtherUser)).to.be.rejectedWith(NotAllowed);
 		});
 
 		it('should save and load parent/child relationships', async () => {
@@ -350,13 +376,13 @@ export function runAgentStateServiceTests(
 			await service.save(childContext);
 
 			// Load and verify parent's childAgents list
-			const loadedParent = await service.load(parentId);
-			expect(loadedParent).to.not.be.null;
+			const loadedParent = await service.load(parentId); // load now throws on not found/not allowed
+			expect(loadedParent).to.not.be.null; // Redundant check
 			expect(loadedParent.childAgents).to.deep.equal([childId]);
 
 			// Load and verify child's parentAgentId
-			const loadedChild = await service.load(childId);
-			expect(loadedChild).to.not.be.null;
+			const loadedChild = await service.load(childId); // load now throws on not found/not allowed
+			expect(loadedChild).to.not.be.null; // Redundant check
 			expect(loadedChild.parentAgentId).to.equal(parentId);
 		});
 
@@ -367,8 +393,8 @@ export function runAgentStateServiceTests(
 
 			// Expect the save operation to be rejected
 			await expect(service.save(childContext)).to.be.rejected;
-			// Verify the child was not saved due to the rejection
-			expect(await service.load(childId)).to.be.null;
+			// Verify the child was not saved due to the rejection (load should throw NotFound)
+			await expect(service.load(childId)).to.be.rejectedWith(NotFound);
 		});
 	});
 
@@ -386,8 +412,8 @@ export function runAgentStateServiceTests(
 			expect(context.state).to.equal(newState);
 
 			// Load the context from the service to verify persistence
-			const loadedContext = await service.load(id);
-			expect(loadedContext).to.not.be.null;
+			const loadedContext = await service.load(id); // load now throws on not found/not allowed
+			expect(loadedContext).to.not.be.null; // Redundant check
 			// Assert the persisted state matches the new state
 			expect(loadedContext.state).to.equal(newState);
 			// Assert one other property to ensure only state was updated
@@ -475,6 +501,7 @@ export function runAgentStateServiceTests(
 			const expectedRunningStates: AgentRunningState[] = [
 				'agent', // lastUpdate: -3000
 				'child_agents', // lastUpdate: -3500
+				'error', // lastUpdate: -4000
 				'functions', // lastUpdate: -500  (Most recent within its state group)
 				'hitl_feedback', // lastUpdate: -2000
 				'hitl_threshold', // lastUpdate: -2500
@@ -578,29 +605,33 @@ export function runAgentStateServiceTests(
 			currentUserStub.returns(testUser); // Ensure correct user context
 			await service.delete([agentIdCompleted, agentIdError]);
 
-			// Verify the specified agents are deleted
-			expect(await service.load(agentIdCompleted)).to.be.null;
-			expect(await service.load(agentIdError)).to.be.null;
+			// Verify the specified agents are deleted (load should now throw NotFound)
+			await expect(service.load(agentIdCompleted)).to.be.rejectedWith(NotFound);
+			await expect(service.load(agentIdError)).to.be.rejectedWith(NotFound);
 		});
 
 		it('should NOT delete agents belonging to other users', async () => {
 			currentUserStub.returns(testUser); // Ensure correct user context
 			await service.delete([agentIdCompleted, otherUserAgentId]);
 
-			// Verify testUser's agent is deleted
-			expect(await service.load(agentIdCompleted)).to.be.null;
-			// Verify otherUser's agent is NOT deleted
-			expect(await service.load(otherUserAgentId)).to.not.be.null;
+			// Verify testUser's agent is deleted (load should now throw NotFound)
+			await expect(service.load(agentIdCompleted)).to.be.rejectedWith(NotFound);
+			// Verify otherUser's agent is NOT deleted (load should now throw NotAllowed)
+			await expect(service.load(otherUserAgentId)).to.be.rejectedWith(NotAllowed);
 		});
 
 		it('should NOT delete executing agents', async () => {
 			currentUserStub.returns(testUser); // Ensure correct user context
 			await service.delete([agentIdCompleted, executingAgentId]);
 
-			// Verify the non-executing agent is deleted
-			expect(await service.load(agentIdCompleted)).to.be.null;
-			// Verify the executing agent is NOT deleted
-			expect(await service.load(executingAgentId)).to.not.be.null;
+			// Verify the non-executing agent is deleted (load should now throw NotFound)
+			await expect(service.load(agentIdCompleted)).to.be.rejectedWith(NotFound);
+			// Verify the executing agent is NOT deleted (load should NOT throw NotFound, but should return the agent)
+			// Note: The delete logic filters out executing agents *before* attempting deletion.
+			// So, loading the executing agent after the delete call should still succeed.
+			const executingAgentAfterDelete = await service.load(executingAgentId);
+			expect(executingAgentAfterDelete).to.not.be.null;
+			expect(executingAgentAfterDelete.agentId).to.equal(executingAgentId);
 		});
 
 		it('should delete a parent agent AND its children when parent ID is provided (if parent is deletable)', async () => {
@@ -608,10 +639,10 @@ export function runAgentStateServiceTests(
 			// Delete the parent (which is in 'completed' state)
 			await service.delete([parentIdCompleted]);
 
-			// Verify parent and all children are deleted
-			expect(await service.load(parentIdCompleted)).to.be.null;
-			expect(await service.load(childId1)).to.be.null;
-			expect(await service.load(childId2)).to.be.null;
+			// Verify parent and all children are deleted (load should now throw NotFound)
+			await expect(service.load(parentIdCompleted)).to.be.rejectedWith(NotFound);
+			await expect(service.load(childId1)).to.be.rejectedWith(NotFound);
+			await expect(service.load(childId2)).to.be.rejectedWith(NotFound);
 		});
 
 		it('should NOT delete child agents if only child ID is provided (due to implementation filter)', async () => {
@@ -619,12 +650,20 @@ export function runAgentStateServiceTests(
 			// Attempt to delete only a child agent
 			await service.delete([childId1]);
 
-			// Verify parent remains
-			expect(await service.load(parentIdCompleted)).to.not.be.null;
-			// Verify the targeted child *remains* because the implementation filters for !parentAgentId
-			expect(await service.load(childId1)).to.not.be.null;
-			// Verify the other child remains
-			expect(await service.load(childId2)).to.not.be.null;
+			// Verify parent remains (load should succeed)
+			const parentAfterDelete = await service.load(parentIdCompleted);
+			expect(parentAfterDelete).to.not.be.null;
+			expect(parentAfterDelete.agentId).to.equal(parentIdCompleted);
+
+			// Verify the targeted child *remains* because the implementation filters for !parentAgentId (load should succeed)
+			const child1AfterDelete = await service.load(childId1);
+			expect(child1AfterDelete).to.not.be.null;
+			expect(child1AfterDelete.agentId).to.equal(childId1);
+
+			// Verify the other child remains (load should succeed)
+			const child2AfterDelete = await service.load(childId2);
+			expect(child2AfterDelete).to.not.be.null;
+			expect(child2AfterDelete.agentId).to.equal(childId2);
 		});
 
 		it('should handle non-existent IDs gracefully without error', async () => {
@@ -634,27 +673,38 @@ export function runAgentStateServiceTests(
 			// Attempt to delete an existing deletable agent and a non-existent one
 			await expect(service.delete([agentIdCompleted, nonExistentId])).to.not.be.rejected;
 
-			// Verify the existing deletable agent was actually deleted
-			expect(await service.load(agentIdCompleted)).to.be.null;
+			// Verify the existing deletable agent was actually deleted (load should now throw NotFound)
+			await expect(service.load(agentIdCompleted)).to.be.rejectedWith(NotFound);
+			// Verify the non-existent ID still results in NotFound on load
+			await expect(service.load(nonExistentId)).to.be.rejectedWith(NotFound);
 		});
 	});
 
 	describe('updateFunctions', () => {
 		let agentId1: string;
+		let agentIdForOtherUser: string;
+
 		beforeEach(async () => {
 			agentId1 = agentId();
+			agentIdForOtherUser = agentId();
 			// Start with default functions (like Agent) + potentially FileSystemRead based on LlmFunctions constructor/fromJSON behavior
-			await service.save(createMockAgentContext(agentId1, { functions: new LlmFunctionsImpl() }));
+			currentUserStub.returns(testUser);
+			await service.save(createMockAgentContext(agentId1, { functions: new LlmFunctionsImpl() }, testUser));
+
+			// Save an agent for another user
+			currentUserStub.returns(otherUser);
+			await service.save(createMockAgentContext(agentIdForOtherUser, { functions: new LlmFunctionsImpl() }, otherUser));
+			currentUserStub.returns(testUser); // Switch back
 		});
 
 		// No need for a specific afterEach here, as the main afterEach's sinon.restore() will handle it.
 
-		it('should update the functions for an existing agent, replacing defaults', async () => {
+		it('should update the functions for an existing agent', async () => {
 			const functionNames = [MockFunction.name]; // Use class name
 			await service.updateFunctions(agentId1, functionNames);
 
-			const loadedContextAfterUpdate = await service.load(agentId1);
-			expect(loadedContextAfterUpdate).to.not.be.null;
+			const loadedContextAfterUpdate = await service.load(agentId1); // load now throws on not found/not allowed
+			expect(loadedContextAfterUpdate).to.not.be.null; // Redundant check
 			expect(loadedContextAfterUpdate.functions).to.be.instanceOf(LlmFunctionsImpl);
 
 			const updatedFunctionNames = loadedContextAfterUpdate.functions.getFunctionClassNames();
@@ -664,18 +714,18 @@ export function runAgentStateServiceTests(
 			expect(updatedFunctionNames).to.include(Agent.name);
 			// Check the total number of functions expected (Agent + MockFunction)
 			expect(updatedFunctionNames).to.have.lengthOf(2);
-			// expect(updatedFunctionNames).to.not.include(FileSystemRead.name);
+			// expect(updatedFunctionNames).to.not.include(FileSystemRead.name); // Depends on LlmFunctionsImpl defaults
 		});
 
 		it('should replace existing functions with the new list (empty list results in defaults)', async () => {
 			// Add a function first to ensure replacement works
 			await service.updateFunctions(agentId1, [MockFunction.name]);
-			let context = await service.load(agentId1);
+			let context = await service.load(agentId1); // load now throws on not found/not allowed
 			expect(context.functions.getFunctionClassNames()).to.include(MockFunction.name);
 
 			// Now update with an empty list
 			await service.updateFunctions(agentId1, []);
-			context = await service.load(agentId1);
+			context = await service.load(agentId1); // load now throws on not found/not allowed
 			expect(context.functions).to.be.instanceOf(LlmFunctionsImpl);
 
 			// Get the expected default function names added by LlmFunctions constructor
@@ -684,10 +734,18 @@ export function runAgentStateServiceTests(
 			expect(context.functions.getFunctionClassNames().sort()).to.deep.equal(defaultFuncs.getFunctionClassNames().sort());
 		});
 
-		it('should throw an error if the agent does not exist', async () => {
+		// Modified test to expect NotFound error
+		it('should throw NotFound if the agent does not exist', async () => {
 			const nonExistentId = agentId();
-			// Assert that the promise rejects with an error message indicating the agent wasn't found
-			await expect(service.updateFunctions(nonExistentId, [MockFunction.name])).to.be.rejectedWith(/Agent not found|cannot find agent/i);
+			await expect(service.updateFunctions(nonExistentId, [MockFunction.name])).to.be.rejectedWith(NotFound);
+		});
+
+		// Added test for NotAllowed error
+		it('should throw NotAllowed if trying to update functions for an agent not owned by current user', async () => {
+			// agentIdForOtherUser was saved for otherUser in beforeEach
+			currentUserStub.returns(testUser); // Ensure current user is testUser
+
+			await expect(service.updateFunctions(agentIdForOtherUser, [MockFunction.name])).to.be.rejectedWith(NotAllowed);
 		});
 
 		it('should warn and skip if a function name is not found in the factory', async () => {
@@ -699,8 +757,8 @@ export function runAgentStateServiceTests(
 			await service.updateFunctions(agentId1, [MockFunction.name, unknownFunctionName]);
 
 			// Load the agent state after the update attempt
-			const updatedContext = await service.load(agentId1);
-			expect(updatedContext).to.not.be.null;
+			const updatedContext = await service.load(agentId1); // load now throws on not found/not allowed
+			expect(updatedContext).to.not.be.null; // Redundant check
 
 			// Assert the known function *was* added successfully
 			expect(updatedContext.functions.getFunctionClassNames()).to.include(MockFunction.name);
@@ -711,11 +769,20 @@ export function runAgentStateServiceTests(
 
 	describe('saveIteration and loadIterations', () => {
 		let agentIdForIterations: string;
+		let agentIdForOtherUser: string;
 
 		beforeEach(async () => {
 			agentIdForIterations = agentId();
+			agentIdForOtherUser = agentId();
 			// Save a base agent context first, as iterations belong to an agent
-			await service.save(createMockAgentContext(agentIdForIterations));
+			currentUserStub.returns(testUser);
+			await service.save(createMockAgentContext(agentIdForIterations, {}, testUser));
+
+			// Save an agent for another user and an iteration for it
+			currentUserStub.returns(otherUser);
+			await service.save(createMockAgentContext(agentIdForOtherUser, {}, otherUser));
+			await service.saveIteration(createMockIteration(1, agentIdForOtherUser));
+			currentUserStub.returns(testUser); // Switch back
 		});
 
 		const createMockIteration = (iterNum: number, agentIdToUse: string = agentIdForIterations): AutonomousIteration => ({
@@ -755,7 +822,7 @@ export function runAgentStateServiceTests(
 			await service.saveIteration(iteration2);
 
 			// Simple verification: load them back and check count
-			const loadedIterations = await service.loadIterations(agentIdForIterations);
+			const loadedIterations = await service.loadIterations(agentIdForIterations); // loadIterations now throws on agent not found/not allowed
 			expect(loadedIterations).to.be.an('array').with.lengthOf(2);
 		});
 
@@ -769,7 +836,7 @@ export function runAgentStateServiceTests(
 			await service.saveIteration(iteration1);
 			await service.saveIteration(iteration2);
 
-			const loadedIterations = await service.loadIterations(agentIdForIterations);
+			const loadedIterations = await service.loadIterations(agentIdForIterations); // loadIterations now throws on agent not found/not allowed
 
 			expect(loadedIterations).to.be.an('array').with.lengthOf(3);
 			expect(loadedIterations.map((i) => i.iteration)).to.deep.equal([1, 2, 3]);
@@ -780,14 +847,27 @@ export function runAgentStateServiceTests(
 		});
 
 		it('should return an empty array if no iterations exist for the agent', async () => {
-			const loadedIterations = await service.loadIterations(agentIdForIterations);
+			// Create a new agent with no iterations saved
+			const agentIdNoIterations = agentId();
+			currentUserStub.returns(testUser);
+			await service.save(createMockAgentContext(agentIdNoIterations, {}, testUser));
+
+			const loadedIterations = await service.loadIterations(agentIdNoIterations); // loadIterations now throws on agent not found/not allowed
 			expect(loadedIterations).to.be.an('array').that.is.empty;
 		});
 
-		it.skip('should throw an error when loading iterations for a non-existent agent', async () => {
+		// Modified test to expect NotFound error
+		it('should throw NotFound when loading iterations for a non-existent agent', async () => {
 			const nonExistentAgentId = agentId();
-			const loadedIterations = await service.loadIterations(nonExistentAgentId);
-			expect(loadedIterations).to.be.an('array').that.is.empty;
+			await expect(service.loadIterations(nonExistentAgentId)).to.be.rejectedWith(NotFound);
+		});
+
+		// Added test for NotAllowed error
+		it('should throw NotAllowed when loading iterations for an agent not owned by current user', async () => {
+			// agentIdForOtherUser was saved for otherUser in beforeEach, with an iteration
+			currentUserStub.returns(testUser); // Ensure current user is testUser
+
+			await expect(service.loadIterations(agentIdForOtherUser)).to.be.rejectedWith(NotAllowed);
 		});
 
 		it('should reject saving an iteration with a non-positive iteration number', async () => {
@@ -852,7 +932,7 @@ export function runAgentStateServiceTests(
 					},
 					{
 						function_name: 'LiveFiles_tool',
-						parameters: { tool_input: { action: 'monitor', files: ['fileA.ts'] } },
+						parameters: { tool_input: { action: 'monitor', files: ['fileA.ts'] }, iteration: iterationNumber }, // Added iteration
 						stdout: 'Monitoring fileA.ts',
 					},
 				],
@@ -865,7 +945,7 @@ export function runAgentStateServiceTests(
 
 			await service.saveIteration(originalIteration);
 
-			const loadedIterations = await service.loadIterations(agentIdForIterations);
+			const loadedIterations = await service.loadIterations(agentIdForIterations); // loadIterations now throws on agent not found/not allowed
 
 			expect(loadedIterations).to.be.an('array').with.lengthOf(1);
 			const loadedIteration = loadedIterations[0];
@@ -894,9 +974,157 @@ export function runAgentStateServiceTests(
 		// 	// For Firestore subcollections, it usually succeeds.
 		// 	await expect(service.saveIteration(iteration1)).to.not.be.rejected;
 		// 	// Verify it can be loaded back even if parent doesn't exist
-		// 	const loaded = await service.loadIterations(nonExistentAgentId);
-		// 	expect(loaded).to.be.an('array').with.lengthOf(1);
-		// 	expect(loaded[0]).to.deep.equal(iteration1);
+		// 	const loaded = await service.loadIterations(nonExistentAgentId); // This will now throw NotFound
+		// 	expect(loaded).to.be.an('array').with.lengthOf(1); // This assertion is now incorrect
+		// 	expect(loaded[0]).to.deep.equal(iteration1); // This assertion is now incorrect
 		// });
+	});
+
+	// Added describe block for getAgentIterationDetail tests
+	describe('getAgentIterationDetail', () => {
+		let agentIdForIterations: string;
+		let otherUsersAgentId: string;
+		const iterationNumber = 1;
+
+		beforeEach(async () => {
+			agentIdForIterations = agentId();
+			otherUsersAgentId = agentId();
+			currentUserStub.returns(testUser);
+			await service.save(createMockAgentContext(agentIdForIterations, {}, testUser));
+			await service.saveIteration(createMockIteration(iterationNumber, agentIdForIterations));
+
+			// Save an agent and iteration for another user
+			currentUserStub.returns(otherUser);
+			await service.save(createMockAgentContext(otherUsersAgentId, {}, otherUser));
+			await service.saveIteration(createMockIteration(iterationNumber, otherUsersAgentId));
+			currentUserStub.returns(testUser); // Switch back
+		});
+
+		const createMockIteration = (iterNum: number, agentIdToUse: string): AutonomousIteration => ({
+			agentId: agentIdToUse,
+			iteration: iterNum,
+			functions: ['Agent'],
+			prompt: `Prompt ${iterNum}`,
+			summary: `Summary ${iterNum}`,
+			expandedUserRequest: `Expanded ${iterNum}`,
+			observationsReasoning: `Reasoning ${iterNum}`,
+			agentPlan: `Plan ${iterNum}`,
+			nextStepDetails: `Next ${iterNum}`,
+			code: `Code ${iterNum}`,
+			executedCode: `Executed ${iterNum}`,
+			draftCode: `Draft ${iterNum}`,
+			codeReview: `Review ${iterNum}`,
+			images: [],
+			functionCalls: [],
+			memory: {},
+			toolState: {},
+			error: undefined,
+			stats: {} as GenerationStats,
+			cost: 0.001,
+		});
+
+		it('should return the iteration detail if agent and iteration exist and are owned by the current user', async () => {
+			const detail = await service.getAgentIterationDetail(agentIdForIterations, iterationNumber);
+			expect(detail).to.not.be.null; // Redundant check
+			expect(detail.agentId).to.equal(agentIdForIterations);
+			expect(detail.iteration).to.equal(iterationNumber);
+		});
+
+		// Modified test to expect NotFound error
+		it('should throw NotFound if agent does not exist', async () => {
+			const nonExistentAgentId = agentId();
+			await expect(service.getAgentIterationDetail(nonExistentAgentId, iterationNumber)).to.be.rejectedWith(NotFound);
+		});
+
+		// Added test for NotAllowed error
+		it('should throw NotAllowed if agent is not owned by current user', async () => {
+			// otherUsersAgentId was saved for otherUser in beforeEach
+			currentUserStub.returns(testUser); // Ensure current user is testUser
+
+			await expect(service.getAgentIterationDetail(otherUsersAgentId, iterationNumber)).to.be.rejectedWith(NotAllowed);
+		});
+
+		// Modified test to expect NotFound error
+		it('should throw NotFound if agent exists but iteration does not', async () => {
+			const nonExistentIterationNumber = 999;
+			await expect(service.getAgentIterationDetail(agentIdForIterations, nonExistentIterationNumber)).to.be.rejectedWith(NotFound);
+		});
+	});
+
+	// Added describe block for getAgentIterationSummaries tests
+	describe('getAgentIterationSummaries', () => {
+		let agentIdForIterations: string;
+		let otherUsersAgentId: string;
+
+		beforeEach(async () => {
+			agentIdForIterations = agentId();
+			otherUsersAgentId = agentId();
+			currentUserStub.returns(testUser);
+			await service.save(createMockAgentContext(agentIdForIterations, {}, testUser));
+			await service.saveIteration(createMockIteration(1, agentIdForIterations)); // Save at least one iteration
+			await service.saveIteration(createMockIteration(2, agentIdForIterations));
+
+			// Save an agent and iteration for another user
+			currentUserStub.returns(otherUser);
+			await service.save(createMockAgentContext(otherUsersAgentId, {}, otherUser));
+			await service.saveIteration(createMockIteration(1, otherUsersAgentId));
+			currentUserStub.returns(testUser); // Switch back
+		});
+
+		const createMockIteration = (iterNum: number, agentIdToUse: string): AutonomousIteration => ({
+			agentId: agentIdToUse,
+			iteration: iterNum,
+			functions: ['Agent'],
+			prompt: `Prompt ${iterNum}`,
+			summary: `Summary ${iterNum}`,
+			expandedUserRequest: `Expanded ${iterNum}`,
+			observationsReasoning: `Reasoning ${iterNum}`,
+			agentPlan: `Plan ${iterNum}`,
+			nextStepDetails: `Next ${iterNum}`,
+			code: `Code ${iterNum}`,
+			executedCode: `Executed ${iterNum}`,
+			draftCode: `Draft ${iterNum}`,
+			codeReview: `Review ${iterNum}`,
+			images: [],
+			functionCalls: [],
+			memory: {},
+			toolState: {},
+			error: iterNum === 2 ? 'Simulated Error' : undefined, // Add error to one iteration
+			stats: {} as GenerationStats,
+			cost: 0.001 * iterNum,
+		});
+
+		it('should return iteration summaries for the agent owned by the current user', async () => {
+			const summaries = await service.getAgentIterationSummaries(agentIdForIterations);
+			expect(summaries).to.be.an('array').with.lengthOf(2);
+			expect(summaries.map(s => s.iteration)).to.deep.equal([1, 2]);
+			expect(summaries[0].summary).to.equal('Summary 1');
+			expect(summaries[1].error).to.equal('Simulated Error');
+			expect(summaries[1].cost).to.equal(0.002);
+		});
+
+		// Modified test to expect NotFound error
+		it('should throw NotFound if agent does not exist', async () => {
+			const nonExistentAgentId = agentId();
+			await expect(service.getAgentIterationSummaries(nonExistentAgentId)).to.be.rejectedWith(NotFound);
+		});
+
+		// Added test for NotAllowed error
+		it('should throw NotAllowed if agent is not owned by current user', async () => {
+			// otherUsersAgentId was saved for otherUser in beforeEach
+			currentUserStub.returns(testUser); // Ensure current user is testUser
+
+			await expect(service.getAgentIterationSummaries(otherUsersAgentId)).to.be.rejectedWith(NotAllowed);
+		});
+
+		it('should return empty array if agent exists but has no iterations (and not throw NotFound for iterations)', async () => {
+			const agentWithNoIterationsId = agentId();
+			currentUserStub.returns(testUser);
+			await service.save(createMockAgentContext(agentWithNoIterationsId, {}, testUser));
+			// Do not save any iterations for this agent
+
+			const summaries = await service.getAgentIterationSummaries(agentWithNoIterationsId); // getAgentIterationSummaries now throws on agent not found/not allowed
+			expect(summaries).to.be.an('array').that.is.empty;
+		});
 	});
 }
