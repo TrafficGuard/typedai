@@ -1,8 +1,10 @@
 import { expect } from 'chai';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
+import { stripFilename } from './applySearchReplaceUtils';
 
-import { _stripFilename } from './applySearchReplaceUtils';
+describe('stripFilename', () => {
+	setupConditionalLoggerOutput();
 
-describe('_stripFilename', () => {
 	const FENCE = '```';
 
 	// Test cases based on original Python logic and common scenarios
@@ -29,7 +31,7 @@ describe('_stripFilename', () => {
 		['', undefined, 'Empty string'],
 		['    ', undefined, 'Whitespace string'],
 		[`${FENCE}javascript path/to/some/file.js`, 'path/to/some/file.js', 'JS file with path'],
-		[`${FENCE} path/to/another file.txt`, 'path/to/another file.txt', 'Text file with path and spaces'],
+		[`  ${FENCE} path/to/another file.txt`, 'path/to/another file.txt', 'Text file with path and spaces'],
 		// Cases from aider's original tests for strip_filename
 		['foo.py', 'foo.py', 'aider: simple'],
 		['  foo.py', 'foo.py', 'aider: leading space'],
@@ -57,19 +59,19 @@ describe('_stripFilename', () => {
 
 	testCases.forEach(([input, expected, description]) => {
 		it(`should return '${expected}' for input '${input}' (${description})`, () => {
-			expect(_stripFilename(input, FENCE)).to.equal(expected);
+			expect(stripFilename(input, FENCE)).to.equal(expected);
 		});
 	});
 
 	// Test with a different fence
 	const CUSTOM_FENCE = '+++';
 	it('should work with a custom fence', () => {
-		expect(_stripFilename(`${CUSTOM_FENCE}ruby my_script.rb`, CUSTOM_FENCE)).to.equal('my_script.rb');
+		expect(stripFilename(`${CUSTOM_FENCE}ruby my_script.rb`, CUSTOM_FENCE)).to.equal('my_script.rb');
 	});
 	it('should return undefined for custom fence only', () => {
-		expect(_stripFilename(CUSTOM_FENCE, CUSTOM_FENCE)).to.equal(undefined);
+		expect(stripFilename(CUSTOM_FENCE, CUSTOM_FENCE)).to.equal(undefined);
 	});
 	it('should return undefined for custom fence with lang only', () => {
-		expect(_stripFilename(`${CUSTOM_FENCE}python`, CUSTOM_FENCE)).to.equal(undefined);
+		expect(stripFilename(`${CUSTOM_FENCE}python`, CUSTOM_FENCE)).to.equal(undefined);
 	});
 });

@@ -45,6 +45,8 @@ export class InMemoryAgentStateService implements AgentContextService {
 			agentId: agent.agentId,
 			name: agent.name,
 			state: agent.state,
+			type: agent.type,
+			subtype: agent.subtype,
 			cost: agent.cost ?? 0,
 			error: agent.error,
 			lastUpdate: agent.lastUpdate,

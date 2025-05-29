@@ -14,7 +14,7 @@ import { AGENT_API } from '#shared/api/agent.api';
 import type { AutonomousIteration, AutonomousIterationSummary } from '#shared/model/agent.model';
 import { LlmCall, LlmCallSummary } from '#shared/model/llmCall.model';
 import { Pagination } from "../../core/types";
-import { AgentContextApi, AgentContextPreviewApi, AgentStartRequestSchema } from '#shared/schemas/agent.schema';
+import { AgentContextApi, AgentContextPreviewApi, AgentStartRequestSchema, AgentTypeSchema } from '#shared/schemas/agent.schema';
 import { Static } from '@sinclair/typebox';
 
 export type AgentStartRequestData = Static<typeof AgentStartRequestSchema>;
@@ -228,6 +228,8 @@ export class AgentService {
         userPrompt: updatedAgent.userPrompt,
         inputPrompt: updatedAgent.inputPrompt,
         user: updatedAgent.user, // AgentContextApi.user is a string ID, matching AgentContextPreviewApi.user
+        type: updatedAgent.type,
+        subtype: updatedAgent.subtype,
     };
 
     let newAgentList: AgentContextPreviewApi[];

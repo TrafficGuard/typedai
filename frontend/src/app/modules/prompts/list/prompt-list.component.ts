@@ -1,7 +1,7 @@
-import { Component, OnInit, inject, signal, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectorRef, computed, effect } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
-import { toSignal } from '@angular/core/rxjs-interop';
+// import { toSignal } from '@angular/core/rxjs-interop'; // No longer needed for prompts
 import { PromptsService } from '../prompts.service';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
@@ -38,8 +38,25 @@ export class PromptListComponent implements OnInit {
   private router = inject(Router);
   private snackBar = inject(MatSnackBar);
 
-  prompts = toSignal(this.promptsService.prompts$, { initialValue: null as PromptPreview[] | null });
-  isLoading = signal(true);
+  readonly promptsState = this.promptsService.promptsState;
+
+  prompts = computed<PromptPreview[] | null>(() => {
+    const state = this.promptsState();
+    return state.status === 'success' ? state.data : null;
+  });
+
+  isLoading = computed(() => {
+    const state = this.promptsState();
+    return state.status === 'loading' || state.status === 'idle';
+  });
+
+  isError = computed(() => this.promptsState().status === 'error');
+  errorDetails = computed(() => {
+    const state = this.promptsState();
+    return state.status === 'error' ? state.error : null;
+  });
+
+  private refreshInitiated = signal(false);
   isDeletingSignal = signal<string | null>(null); // Tracks ID of prompt being deleted
   displayedColumns: string[] = ['name', 'tags', 'updatedAt', 'actions'];
 
@@ -49,35 +66,38 @@ export class PromptListComponent implements OnInit {
     return item.id;
   }
 
+  constructor() {
+    effect(() => {
+      const state = this.promptsState();
+      if (this.refreshInitiated()) {
+        if (state.status === 'success') {
+          this.snackBar.open('Prompts list refreshed.', 'Close', { duration: 2000 });
+          this.refreshInitiated.set(false);
+        } else if (state.status === 'error') {
+          const errorMessage = state.error?.message || 'Unknown error';
+          this.snackBar.open(`Error refreshing prompts: ${errorMessage}`, 'Close', { duration: 3000, panelClass: ['error-snackbar'] });
+          this.refreshInitiated.set(false);
+        }
+      }
+    }, { allowSignalWrites: true });
+  }
+
   ngOnInit(): void {
-    this.promptsService.refreshPrompts().pipe(
-      finalize(() => this.isLoading.set(false))
-    ).subscribe({
-       error: (err) => console.error('Failed to load prompts', err)
-    });
+    // The PromptsService constructor already calls loadPrompts.
+    // Calling refreshPrompts() here ensures that if the component is initialized
+    // after the initial load, or if we want a fresh fetch on init, it happens.
+    // It sets state to 'idle' then 'loading'.
+    this.promptsService.refreshPrompts();
   }
 
   refreshPrompts(): void {
-    if (this.isLoading()) {
+    if (this.isLoading()) { // isLoading is now a computed signal
         return;
     }
-    this.isLoading.set(true);
-    this.cdr.detectChanges();
-    this.promptsService.refreshPrompts().pipe(
-        finalize(() => {
-            this.isLoading.set(false);
-            this.cdr.detectChanges();
-        })
-    ).subscribe({
-        next: () => {
-            console.log('Prompts refreshed');
-            this.snackBar.open('Prompts list refreshed.', 'Close', { duration: 2000 });
-        },
-        error: (err) => {
-            console.error('Error refreshing prompts', err);
-            this.snackBar.open('Error refreshing prompts list.', 'Close', { duration: 3000 });
-        }
-    });
+    this.refreshInitiated.set(true);
+    this.promptsService.refreshPrompts();
+    // No manual isLoading.set() or cdr.detectChanges() needed here,
+    // computed signals and effects handle reactivity.
   }
 
   deletePrompt(event: MouseEvent, prompt: PromptPreview): void {

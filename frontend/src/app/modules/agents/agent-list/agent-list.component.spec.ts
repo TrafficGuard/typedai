@@ -3,18 +3,17 @@ import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { of, Observable } from 'rxjs';
 import { AgentListComponent } from './agent-list.component';
 import { AgentService } from '../agent.service';
-import { AgentRunningState, AgentType } from '#shared/model/agent.model';
-import { AgentContextPreviewApi } from '#shared/schemas/agent.schema'; // Assuming AgentContextPreviewApi is here
+import {type AgentContextPreview, AgentRunningState, AgentType} from '#shared/model/agent.model';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { signal, WritableSignal, effect } from '@angular/core';
-import { ApiListState, createApiListState } from '../../../../core/api-state.types';
 import { RouterTestingModule } from '@angular/router/testing';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import {ApiListState, createApiListState} from "../../../core/api-state.types";
 
 // Helper to create a minimal valid AgentContextPreviewApi
-const createMockAgentPreviewApi = (id: string, name: string, state: AgentRunningState): AgentContextPreviewApi => ({
+const createMockAgentPreviewApi = (id: string, name: string, state: AgentRunningState): AgentContextPreview => ({
     agentId: id,
     name: name,
     state: state,
@@ -22,25 +21,29 @@ const createMockAgentPreviewApi = (id: string, name: string, state: AgentRunning
     userPrompt: `Test prompt for ${name}`,
     cost: 10.0,
     error: state === 'error' ? 'Simulated error' : undefined,
-    output: state === 'completed' ? 'Simulated output' : undefined,
+    subtype: '',
+    user: '',
+    inputPrompt: '',
+    lastUpdate: Date.now()
+
     // subtype: 'xml', // Add if part of AgentContextPreviewApi and used
     // lastUpdate: Date.now(), // Add if part of AgentContextPreviewApi and used
 });
 
 class MockAgentService {
-    private _agentsStateSignal: WritableSignal<ApiListState<AgentContextPreviewApi>>;
+    private _agentsStateSignal: WritableSignal<ApiListState<AgentContextPreview>>;
     readonly agentsState;
 
     constructor() {
-        this._agentsStateSignal = createApiListState<AgentContextPreviewApi>(); // Initializes to { status: 'idle' }
+        this._agentsStateSignal = createApiListState<AgentContextPreview>(); // Initializes to { status: 'idle' }
         this.agentsState = this._agentsStateSignal.asReadonly();
     }
 
-    setAgentsState(newState: ApiListState<AgentContextPreviewApi>) {
+    setAgentsState(newState: ApiListState<AgentContextPreview>) {
         this._agentsStateSignal.set(newState);
     }
 
-    setAgentsData(data: AgentContextPreviewApi[]) {
+    setAgentsData(data: AgentContextPreview[]) {
         this._agentsStateSignal.set({ status: 'success', data });
     }
 
@@ -70,7 +73,7 @@ describe('AgentListComponent', () => {
     let mockAgentService: MockAgentService;
     let mockFuseConfirmationService: MockFuseConfirmationService;
 
-    const mockAgentsData: AgentContextPreviewApi[] = [
+    const mockAgentsData: AgentContextPreview[] = [
         createMockAgentPreviewApi('id1', 'Agent Alpha', 'completed'),
         createMockAgentPreviewApi('id2', 'Agent Beta', 'agent'),
     ];

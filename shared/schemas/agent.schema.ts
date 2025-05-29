@@ -159,48 +159,6 @@ export const AgentContextSchema = Type.Object({
 	liveFiles: Type.Optional(Type.Array(Type.String())),
 	fileStore: Type.Optional(Type.Array(FileMetadataSchema)),
 	toolState: Type.Optional(Type.Record(Type.String(), Type.Any())),
-
-	// Ensure all fields from AgentContext are covered and optionality matches.
-	// Fields from AgentContext:
-	// agentId: string; -> Type.String()
-	// type: AgentType; -> AgentTypeSchema
-	// subtype: AutonomousSubType | string; -> AutonomousSubTypeSchema
-	// childAgents?: string[]; -> Type.Optional(Type.Array(Type.String()))
-	// executionId: string; -> Type.String()
-	// typedAiRepoDir: string; -> Type.String()
-	// traceId: string; -> Type.String()
-	// name: string; -> Type.String()
-	// parentAgentId?: string; -> Type.Optional(Type.String())
-	// codeTaskId?: string; -> Type.Optional(Type.String())
-	// user: User; -> Serialized as string ID in schema
-	// state: AgentRunningState; -> AgentRunningStateSchema
-	// callStack: string[]; -> Type.Array(Type.String())
-	// error?: string; -> Type.Optional(Type.String())
-	// output?: string; -> Type.Optional(Type.String())
-	// hilBudget: number; -> Type.Number()
-	// cost: number; -> Type.Number()
-	// budgetRemaining: number; -> Type.Number()
-	// llms: AgentLLMs; -> Serialized as object of string IDs in schema
-	// fileSystem: IFileSystemService | null; -> Serialized as object or null in schema
-	// useSharedRepos: boolean; -> Type.Boolean()
-	// memory: Record<string, string>; -> Type.Record(Type.String(), Type.String())
-	// lastUpdate: number; -> Type.Number()
-	// metadata: Record<string, any>; -> Type.Record(Type.String(), Type.Any())
-	// functions: LlmFunctions; -> Serialized as object in schema
-	// completedHandler?: AgentCompleted; -> Serialized as string ID in schema (now named completedHandler)
-	// pendingMessages: string[]; -> Type.Array(Type.String())
-	// iterations: number; -> Type.Number()
-	// invoking: FunctionCall[]; -> Type.Array(FunctionCallSchema)
-	// notes: string[]; -> Type.Array(Type.String())
-	// userPrompt: string; -> Type.String()
-	// inputPrompt: string; -> Type.String()
-	// messages: LlmMessage[]; -> Serialized as array of LlmMessageSchemaModel in schema
-	// functionCallHistory: FunctionCallResult[]; -> Type.Array(FunctionCallResultSchema)
-	// hilCount: number; -> Type.Number()
-	// hilRequested?: boolean; -> Type.Optional(Type.Boolean())
-	// liveFiles?: string[]; -> Type.Optional(Type.Array(Type.String()))
-	// fileStore?: FileMetadata[]; -> Type.Optional(Type.Array(FileMetadataSchema))
-	// toolState?: Record<string, any>; -> Type.Optional(Type.Record(Type.String(), Type.Any()))
 });
 
 // Define a type for AgentContext where fields that are transformed during serialization
@@ -224,12 +182,10 @@ type AgentContextWithSerializedParts = AgentContextBaseForCheck & {
 	user: Static<typeof AgentContextSchema.properties.user>; // Use the serialized user ID type
 };
 
-type AgentContextForCheck = AgentContextWithSerializedParts;
-
 export type AgentContextApi = Static<typeof AgentContextSchema>;
 
-// const _agentContextCheck: AreTypesFullyCompatible<AgentContextForCheck, Static<typeof AgentContextSchema>> = true;
-
+// const _agentContextCheck: AreTypesFullyCompatible<AgentContextWithSerializedParts, AgentContextApi> = true;
+// TODO this should be a Type.Pick()
 export const AgentContextPreviewSchema = Type.Object({
 	agentId: Type.String(),
 	name: Type.String(),
@@ -239,12 +195,12 @@ export const AgentContextPreviewSchema = Type.Object({
 	lastUpdate: Type.Number(), // Timestamp
 	userPrompt: Type.String(),
 	inputPrompt: Type.String(),
-	user: Type.String(), // Represents the user ID
+	user: Type.String(),
+	type: AgentTypeSchema,
+	subtype: Type.String(),
 });
 
-export type AgentContextPreviewApi = Static<typeof AgentContextPreviewSchema>;
-
-// const _agentContextPreviewCheck: AreTypesFullyCompatible<AgentContextPreview, AgentContextPreviewApi> = true;
+const _agentContextPreviewCheck: AreTypesFullyCompatible<AgentContextPreview, Static<typeof AgentContextPreviewSchema>> = true;
 
 export const AutonomousIterationSchema = Type.Object({
 	agentId: Type.String(),
@@ -300,8 +256,8 @@ export const AgentStartRequestSchema = Type.Object(
 	{
 		agentName: Type.String(),
 		initialPrompt: Type.String(),
-		type: AgentTypeSchema, // Use the defined AgentTypeSchema
-		subtype: Type.Optional(AutonomousSubTypeSchema), // Use the defined AutonomousSubTypeSchema
+		type: AgentTypeSchema,
+		subtype: Type.Optional(Type.String()),
 		functions: Type.Optional(Type.Array(Type.String())),
 		humanInLoop: Type.Optional(
 			Type.Object({

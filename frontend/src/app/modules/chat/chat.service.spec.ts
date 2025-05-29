@@ -2,9 +2,10 @@ import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { ChatServiceClient } from './chat.service';
 import { CHAT_API } from '#shared/api/chat.api';
-import type { Chat, ChatMessage, NEW_CHAT_ID } from 'app/modules/chat/chat.types';
+import type { Chat as UIChat, ChatMessage, NEW_CHAT_ID } from 'app/modules/chat/chat.types';
 import type { UserContentExt } from '#shared/model/llm.model';
 import type { Static } from '@sinclair/typebox';
+import { of, throwError, EMPTY } from 'rxjs';
 import {
     ChatListSchema,
     ChatMarkdownRequestSchema,
@@ -13,6 +14,7 @@ import {
     ChatModelSchema,
     ChatUpdateDetailsSchema,
     RegenerateMessageSchema,
+    ChatPreviewSchema, // Added for mockApiChatList
 } from '#shared/schemas/chat.schema';
 import { LlmMessageSchema } from '#shared/schemas/llm.schema';
 import { convertMessage } from './chat.service'; // For direct testing if needed, or rely on service methods
@@ -48,6 +50,7 @@ const createMockApiLlmMessage = (id: string, role: 'user' | 'assistant' | 'syste
     // The convertMessage function generates a UUID if not present on the API message.
 });
 
+
 describe('ChatServiceClient', () => {
     let service: ChatServiceClient;
     let httpMock: HttpTestingController;
@@ -73,53 +76,135 @@ describe('ChatServiceClient', () => {
     });
 
     describe('loadChats', () => {
-        it('should fetch chats and update signals if not already loaded', fakeAsync(() => {
-            const mockApiChatList: Static<typeof ChatListSchema> = {
-                chats: [
-                    { id: 'chat1', userId: 'user-test-id', shareable: false, title: 'Chat One', updatedAt: mockApiChat1.updatedAt },
-                    { id: 'chat2', userId: 'user-test-id', shareable: false, title: 'Chat Two', updatedAt: mockApiChat2.updatedAt },
-                ],
-                hasMore: false,
-            };
-            const expectedPath = CHAT_API.listChats.path;
+        it('should return cached chats and not call API if cache is populated and service is not loading', fakeAsync(() => {
+            const mockChats: UIChat[] = [{ id: '1', title: 'Test Chat', updatedAt: Date.now(), messages: [] }];
+            (service as any)._cachedChats = [...mockChats];
+            (service as any)._cachePopulated.set(true);
+            (service as any)._chatsState.set({ status: 'success', data: [...mockChats] });
 
             service.loadChats().subscribe();
+            tick();
 
-            const req = httpMock.expectOne(expectedPath);
-            expect(req.request.method).toBe(CHAT_API.listChats.method);
+            expect(service.chats()).toEqual(mockChats);
+            httpMock.expectNone(CHAT_API.listChats.path);
+        }));
+
+        it('should fetch chats from API, update cache, and chatsState if cache is not populated', fakeAsync(() => {
+            const mockApiChatList: Static<typeof ChatListSchema> = {
+                chats: [{ id: '1', title: 'API Chat', updatedAt: Date.now(), userId: 'u1', shareable: false, parentId: null, rootId: null } as Static<typeof ChatPreviewSchema>],
+                hasMore: false,
+            };
+            const expectedUIChats: UIChat[] = mockApiChatList.chats.map(preview => ({
+                id: preview.id,
+                title: preview.title,
+                updatedAt: preview.updatedAt,
+                userId: preview.userId,
+                shareable: preview.shareable,
+                parentId: preview.parentId,
+                rootId: preview.rootId,
+                // messages will be undefined as they are not in ChatPreviewSchema
+            }));
+            (service as any)._cachedChats = null;
+            (service as any)._cachePopulated.set(false);
+            (service as any)._chatsState.set({ status: 'idle' });
+
+            service.loadChats().subscribe();
+            const req = httpMock.expectOne(CHAT_API.listChats.path);
+            expect(req.request.method).toBe('GET');
             req.flush(mockApiChatList);
             tick();
 
-            const chatsSignal = service.chats();
-            expect(chatsSignal).toBeTruthy();
-            expect(chatsSignal?.length).toBe(2);
-            expect(chatsSignal?.[0].id).toBe('chat1');
-            expect(chatsSignal?.[1].id).toBe('chat2');
-            expect(service['_chatsLoaded']()).toBeTrue();
+            expect(service.chats()).toEqual(expectedUIChats);
+            expect((service as any)._cachedChats).toEqual(expectedUIChats);
+            expect((service as any)._cachePopulated()).toBe(true);
+            expect(service.chatsState().status).toBe('success');
         }));
 
-        it('should return immediately if chats are already loaded', fakeAsync(() => {
-            service['_chatsLoaded'].set(true); // Simulate chats already loaded
-            service.loadChats().subscribe();
-            tick();
-            // No HTTP call should be made
-            expect(httpMock.expectNone(CHAT_API.listChats.path)).toBeUndefined();
-        }));
+        it('should handle API error and set error state', fakeAsync(() => {
+            (service as any)._cachedChats = null;
+            (service as any)._cachePopulated.set(false);
+            (service as any)._chatsState.set({ status: 'idle' });
 
-        it('should handle errors when loading chats', fakeAsync(() => {
-            const expectedPath = CHAT_API.listChats.path;
             service.loadChats().subscribe({
-                next: () => fail('should have failed'),
-                error: (err) => {
-                    expect(err).toBeTruthy();
-                },
+                // Subscription is important to trigger the observable chain
             });
-            const req = httpMock.expectOne(expectedPath);
-            req.flush('Error', { status: 500, statusText: 'Server Error' });
+            const req = httpMock.expectOne(CHAT_API.listChats.path);
+            req.flush('Error loading chats', { status: 500, statusText: 'Server Error' });
+            tick();
+            
+            const state = service.chatsState();
+            expect(state.status).toBe('error');
+            if (state.status === 'error') {
+                expect(state.error).toBeTruthy();
+                expect(state.code).toBe(500);
+            } else {
+                fail('State should be error');
+            }
+            expect(service.chats()).toBeNull(); // chats computed signal returns null on error
+        }));
+
+        it('should return EMPTY and not call API if chatsState is already loading', fakeAsync(() => {
+            (service as any)._chatsState.set({ status: 'loading' });
+            let hasCompleted = false;
+            service.loadChats().subscribe({ complete: () => { hasCompleted = true; } });
+            tick();
+            expect(hasCompleted).toBe(true); // EMPTY completes immediately
+            httpMock.expectNone(CHAT_API.listChats.path);
+        }));
+    });
+
+    describe('forceReloadChats', () => {
+        it('should clear cache, fetch from API, and update state even if cache was populated', fakeAsync(() => {
+            const initialCachedChats: UIChat[] = [{ id: 'c1', title: 'Cached', updatedAt: Date.now(), messages: [] }];
+            (service as any)._cachedChats = [...initialCachedChats];
+            (service as any)._cachePopulated.set(true);
+            (service as any)._chatsState.set({ status: 'success', data: [...initialCachedChats] });
+
+            const mockApiChatList: Static<typeof ChatListSchema> = {
+                chats: [{ id: 'n1', title: 'New API Chat', updatedAt: Date.now(), userId: 'u1', shareable: false, parentId: null, rootId: null } as Static<typeof ChatPreviewSchema>],
+                hasMore: false,
+            };
+            const expectedUIChats: UIChat[] = mockApiChatList.chats.map(preview => ({
+                id: preview.id,
+                title: preview.title,
+                updatedAt: preview.updatedAt,
+                userId: preview.userId,
+                shareable: preview.shareable,
+                parentId: preview.parentId,
+                rootId: preview.rootId,
+            }));
+
+            service.forceReloadChats().subscribe();
+            const req = httpMock.expectOne(CHAT_API.listChats.path);
+            expect(req.request.method).toBe('GET');
+            req.flush(mockApiChatList);
             tick();
 
-            expect(service.chats()).toBeNull();
-            expect(service['_chatsLoaded']()).toBeFalse();
+            expect(service.chats()).toEqual(expectedUIChats);
+            expect((service as any)._cachedChats).toEqual(expectedUIChats);
+            expect((service as any)._cachePopulated()).toBe(true);
+            expect(service.chatsState().status).toBe('success');
+        }));
+
+        it('should handle API error, set error state, and clear cache', fakeAsync(() => {
+            (service as any)._chatsState.set({ status: 'idle' }); // Ensure not loading
+
+            service.forceReloadChats().subscribe({
+                // Subscription is important
+            });
+            const req = httpMock.expectOne(CHAT_API.listChats.path);
+            req.flush('Error forcing reload', { status: 500, statusText: 'Server Error' });
+            tick();
+            
+            const state = service.chatsState();
+            expect(state.status).toBe('error');
+            if (state.status === 'error') {
+                expect(state.error).toBeTruthy();
+            } else {
+                fail('State should be error');
+            }
+            expect((service as any)._cachedChats).toBeNull();
+            expect((service as any)._cachePopulated()).toBe(false);
         }));
     });
 
@@ -177,28 +262,30 @@ describe('ChatServiceClient', () => {
             req.flush(mockApiResponse); // Use the predefined mockApiResponse
             tick();
 
-            const chatSignalAfter = service.chat();
-            expect(chatSignalAfter).toBeTruthy();
-            expect(chatSignalAfter?.id).toBe('newChatId');
-            expect(chatSignalAfter?.messages.length).toBe(2);
+            const chatSignalState = service.chatState();
+            expect(chatSignalState.status === 'success' && chatSignalState.data.id === 'newChatId').toBeTrue();
+            if (chatSignalState.status === 'success') {
+                expect(chatSignalState.data.messages.length).toBe(2);
+            }
+
 
             const chatsSignal = service.chats();
             expect(chatsSignal?.find(c => c.id === 'newChatId')).toBeTruthy();
-            const chatSignal = service.chat();
-            expect(chatSignal?.id).toBe('newChatId');
         }));
     });
 
     describe('deleteChat', () => {
         it('should DELETE a chat and update signals', fakeAsync(() => {
             const chatIdToDelete = 'chat1';
-            service['_chats'].set([{ id: 'chat1' } as Chat, { id: 'chat2' } as Chat]);
-            service['_chat'].set({ id: 'chat1' } as Chat);
-            const expectedPath = CHAT_API.deleteChat.buildPath({ chatId: chatIdToDelete });
+            // Set initial state for _chatsState and _chatState
+            const initialChats: UIChat[] = [{ id: 'chat1', title: 'Chat 1', updatedAt: Date.now(), messages: [] }, { id: 'chat2', title: 'Chat 2', updatedAt: Date.now(), messages: [] }];
+            (service as any)._chatsState.set({ status: 'success', data: initialChats });
+            (service as any)._chatState.set({ status: 'success', data: initialChats[0] });
+
 
             service.deleteChat(chatIdToDelete).subscribe();
 
-            const req = httpMock.expectOne(expectedPath);
+            const req = httpMock.expectOne(CHAT_API.deleteChat.buildPath({ chatId: chatIdToDelete }));
             expect(req.request.method).toBe(CHAT_API.deleteChat.method);
             req.flush(null, { status: 204, statusText: 'No Content' });
             tick();
@@ -206,8 +293,9 @@ describe('ChatServiceClient', () => {
             const chatsSignal = service.chats();
             expect(chatsSignal?.find(c => c.id === chatIdToDelete)).toBeUndefined();
             expect(chatsSignal?.length).toBe(1);
-            const chatSignal = service.chat();
-            expect(chatSignal).toBeNull(); // Active chat was deleted
+
+            const chatState = service.chatState();
+            expect(chatState.status).toBe('idle'); // Active chat was deleted, state becomes idle
         }));
     });
 
@@ -218,7 +306,8 @@ describe('ChatServiceClient', () => {
                  createMockApiLlmMessage('msg1', 'user', 'Hello'),
             ]);
             const expectedPath = CHAT_API.getById.buildPath({ chatId });
-            service['_chats'].set([{ id: 'chat1', title: 'Old Title' } as Chat]);
+            // Set initial state for _chatsState
+            (service as any)._chatsState.set({ status: 'success', data: [{ id: 'chat1', title: 'Old Title', updatedAt: Date.now(), messages: [] }] });
 
 
             service.loadChatById(chatId).subscribe();
@@ -228,11 +317,13 @@ describe('ChatServiceClient', () => {
             req.flush(mockApiResponse);
             tick();
 
-            const chatSignal = service.chat();
-            expect(chatSignal).toBeTruthy();
-            expect(chatSignal?.id).toBe(chatId);
-            expect(chatSignal?.title).toBe('Chat One Details');
-            expect(chatSignal?.messages.length).toBe(1);
+            const chatState = service.chatState();
+            expect(chatState.status === 'success').toBeTrue();
+            if (chatState.status === 'success') {
+                expect(chatState.data.id).toBe(chatId);
+                expect(chatState.data.title).toBe('Chat One Details');
+                expect(chatState.data.messages.length).toBe(1);
+            }
 
             const chatsSignal = service.chats();
             const updatedChatInList = chatsSignal?.find(c => c.id === chatId);
@@ -244,10 +335,12 @@ describe('ChatServiceClient', () => {
             service.loadChatById(newChatId).subscribe();
             tick();
 
-            const chatSignal = service.chat();
-            expect(chatSignal).toBeTruthy();
-            expect(chatSignal?.id).toBe(newChatId);
-            expect(chatSignal?.messages.length).toBe(0);
+            const chatState = service.chatState();
+            expect(chatState.status === 'success').toBeTrue();
+            if (chatState.status === 'success') {
+                expect(chatState.data.id).toBe(newChatId);
+                expect(chatState.data.messages.length).toBe(0);
+            }
             httpMock.expectNone(CHAT_API.getById.buildPath({ chatId: newChatId }));
         }));
 
@@ -255,27 +348,27 @@ describe('ChatServiceClient', () => {
             const chatId = 'nonExistentChat';
             const expectedPath = CHAT_API.getById.buildPath({ chatId });
             service.loadChatById(chatId).subscribe({
-                next: () => fail('should have failed'),
-                error: (err) => {
-                    expect(err).toBeTruthy();
-                },
+                // Error is handled internally and re-thrown, component might subscribe to error
             });
             const req = httpMock.expectOne(expectedPath);
             req.flush('Error', { status: 404, statusText: 'Not Found' });
             tick();
-            expect(service.chat()).toBeNull();
+            expect(service.chatState().status).toBe('not_found');
         }));
     });
 
     describe('updateChatDetails', () => {
         it('should PATCH chat details and update signals', fakeAsync(() => {
             const chatId = 'chat1';
-            const updatedProps: Partial<Pick<Chat, 'title' | 'shareable'>> = { title: 'Updated Title', shareable: true };
+            const updatedProps: Partial<Pick<UIChat, 'title' | 'shareable'>> = { title: 'Updated Title', shareable: true };
             const mockApiResponse = { ...createMockApiChatModel(chatId, 'Old Title'), ...updatedProps, updatedAt: Date.now() };
             const expectedPath = CHAT_API.updateDetails.buildPath({ chatId });
 
-            service['_chats'].set([{ id: 'chat1', title: 'Old Title', shareable: false } as Chat]);
-            service['_chat'].set({ id: 'chat1', title: 'Old Title', shareable: false } as Chat);
+            // Set initial state for _chatsState and _chatState
+            const initialChatData: UIChat = { id: 'chat1', title: 'Old Title', shareable: false, updatedAt: Date.now() - 1000, messages: [] };
+            (service as any)._chatsState.set({ status: 'success', data: [initialChatData] });
+            (service as any)._chatState.set({ status: 'success', data: initialChatData });
+
 
             service.updateChatDetails(chatId, updatedProps).subscribe();
 
@@ -285,9 +378,13 @@ describe('ChatServiceClient', () => {
             req.flush(mockApiResponse);
             tick();
 
-            const chatSignal = service.chat();
-            expect(chatSignal?.title).toBe(updatedProps.title);
-            expect(chatSignal?.shareable).toBe(updatedProps.shareable);
+            const chatState = service.chatState();
+            if (chatState.status === 'success') {
+                expect(chatState.data.title).toBe(updatedProps.title);
+                expect(chatState.data.shareable).toBe(updatedProps.shareable);
+            } else {
+                fail('Chat state should be success');
+            }
 
             const chatsSignal = service.chats();
             const updatedChatInList = chatsSignal?.find(c => c.id === chatId);
@@ -303,23 +400,31 @@ describe('ChatServiceClient', () => {
         const expectedPath = CHAT_API.sendMessage.buildPath({ chatId });
 
         beforeEach(() => {
-            const initialChat: Chat = {
+            const initialChat: UIChat = {
                 id: chatId,
                 title: 'Test Chat',
                 messages: [],
                 updatedAt: Date.now(),
             };
-            service['_chat'].set(initialChat);
-            service['_chats'].set([initialChat]);
+            // Set initial state for _chatState and _chatsState
+            (service as any)._chatState.set({ status: 'success', data: initialChat });
+            (service as any)._chatsState.set({ status: 'success', data: [initialChat] });
         });
 
         it('should POST a message with autoReformat: false when autoReformat is undefined', fakeAsync(() => {
-            service.sendMessage(chatId, userContent, llmId, undefined, undefined).subscribe(); // autoReformat undefined
+            service.sendMessage(chatId, userContent, llmId, undefined, undefined, undefined).subscribe(); // autoReformat undefined
+
+            tick(); // Allow optimistic update to process
 
             // Optimistic update check
-            let chatSignal = service.chat();
-            expect(chatSignal?.messages.length).toBe(1);
-            expect(chatSignal?.messages[0].textContent).toBe('User message');
+            let chatState = service.chatState();
+            if (chatState.status === 'success') {
+                expect(chatState.data.messages.length).toBe(1);
+                expect(chatState.data.messages[0].textContent).toBe('User message');
+            } else {
+                fail('Chat state should be success for optimistic update');
+            }
+
 
             const req = httpMock.expectOne(expectedPath);
             expect(req.request.method).toBe(CHAT_API.sendMessage.method);
@@ -328,13 +433,17 @@ describe('ChatServiceClient', () => {
             tick();
 
             // Check AI response
-            chatSignal = service.chat();
-            expect(chatSignal?.messages.length).toBe(2);
-            expect(chatSignal?.messages.find(m => !m.isMine)?.textContent).toBe('AI response');
+            chatState = service.chatState();
+            if (chatState.status === 'success') {
+                expect(chatState.data.messages.length).toBe(2); // User + AI
+                expect(chatState.data.messages.find(m => !m.isMine)?.textContent).toBe('AI response');
+            } else {
+                fail('Chat state should be success after AI response');
+            }
         }));
 
         it('should POST a message with autoReformat: true when autoReformat is true', fakeAsync(() => {
-            service.sendMessage(chatId, userContent, llmId, undefined, true).subscribe(); // autoReformat true
+            service.sendMessage(chatId, userContent, llmId, undefined, undefined, true).subscribe(); // autoReformat true
 
             const req = httpMock.expectOne(expectedPath);
             expect(req.request.method).toBe(CHAT_API.sendMessage.method);
@@ -344,7 +453,7 @@ describe('ChatServiceClient', () => {
         }));
 
         it('should POST a message with autoReformat: false when autoReformat is false', fakeAsync(() => {
-            service.sendMessage(chatId, userContent, llmId, undefined, false).subscribe(); // autoReformat false
+            service.sendMessage(chatId, userContent, llmId, undefined, undefined, false).subscribe(); // autoReformat false
 
             const req = httpMock.expectOne(expectedPath);
             expect(req.request.method).toBe(CHAT_API.sendMessage.method);
@@ -356,28 +465,40 @@ describe('ChatServiceClient', () => {
 
         it('should update chat optimistically, then with API response, and update list timestamp', fakeAsync(() => {
             // This test focuses on signal updates and list timestamp, assuming payload is tested above
+            const initialTime = (service.chatState() as any).data.updatedAt; // Get initial timestamp
             service.sendMessage(chatId, userContent, llmId).subscribe();
+            tick(); // optimistic update
 
             // Optimistic update
-            let chatSignal = service.chat();
-            expect(chatSignal?.messages.length).toBe(1);
-            expect(chatSignal?.messages[0].isMine).toBeTrue();
-            expect(chatSignal?.messages[0].textContent).toBe('User message');
+            let chatState = service.chatState();
+            if (chatState.status === 'success') {
+                expect(chatState.data.messages.length).toBe(1);
+                expect(chatState.data.messages[0].isMine).toBeTrue();
+                expect(chatState.data.messages[0].textContent).toBe('User message');
+            } else {
+                fail('Chat state should be success');
+            }
+
 
             const req = httpMock.expectOne(expectedPath);
-            // No need to check body again if covered by other tests, focus on flush and aftermath
             req.flush(mockApiAiResponse);
             tick(); // Allow microtasks (like signal updates in tap) to complete
 
             // Update with AI response
-            chatSignal = service.chat();
-            expect(chatSignal?.messages.length).toBe(2); // User message + AI message
-            const aiMessageInChat = chatSignal?.messages.find(m => !m.isMine);
-            expect(aiMessageInChat).toBeTruthy();
-            expect(aiMessageInChat?.textContent).toBe('AI response'); // Assuming convertMessage extracts text correctly
+            chatState = service.chatState();
+            if (chatState.status === 'success') {
+                expect(chatState.data.messages.length).toBe(2); // User message + AI message
+                const aiMessageInChat = chatState.data.messages.find(m => !m.isMine);
+                expect(aiMessageInChat).toBeTruthy();
+                expect(aiMessageInChat?.textContent).toBe('AI response'); // Assuming convertMessage extracts text correctly
+            } else {
+                fail('Chat state should be success');
+            }
+
 
             const chatsSignal = service.chats();
             const updatedChatInList = chatsSignal?.find(c => c.id === chatId);
+            expect(updatedChatInList?.updatedAt).toBeGreaterThan(initialTime); // Check against initial time
             expect(updatedChatInList?.updatedAt).toBeGreaterThanOrEqual(mockApiAiResponse.stats!.requestTime);
         }));
     });
@@ -395,9 +516,10 @@ describe('ChatServiceClient', () => {
                 { id: 'userMsg1', content: userContentForRegen, textContent: 'Original user prompt', isMine: true, createdAt: new Date().toISOString() },
                 { id: 'aiMsg1', content: 'Old AI response', textContent: 'Old AI response', isMine: false, createdAt: new Date().toISOString() },
             ];
-            const initialChat: Chat = { id: chatId, title: 'Test Chat', messages: initialMessages, updatedAt: Date.now() };
-            service['_chat'].set(initialChat);
-            service['_chats'].set([initialChat]);
+            const initialChat: UIChat = { id: chatId, title: 'Test Chat', messages: initialMessages, updatedAt: Date.now() };
+            (service as any)._chatState.set({ status: 'success', data: initialChat });
+            (service as any)._chatsState.set({ status: 'success', data: [initialChat] });
+
 
             service.regenerateMessage(chatId, userContentForRegen, llmId, historyTruncateIndex).subscribe();
 
@@ -407,9 +529,13 @@ describe('ChatServiceClient', () => {
             req.flush(mockApiAiResponse);
             tick();
 
-            const chatSignal = service.chat();
-            expect(chatSignal?.messages.length).toBe(historyTruncateIndex + 1); // Messages up to truncateIndex + new AI message
-            expect(chatSignal?.messages[historyTruncateIndex].textContent).toBe('New AI response');
+            const chatState = service.chatState();
+            if (chatState.status === 'success') {
+                expect(chatState.data.messages.length).toBe(historyTruncateIndex + 1); // Messages up to truncateIndex + new AI message
+                expect(chatState.data.messages[historyTruncateIndex].textContent).toBe('New AI response');
+            } else {
+                fail('Chat state should be success');
+            }
         }));
     });
 
@@ -421,16 +547,22 @@ describe('ChatServiceClient', () => {
             const mockApiAiResponse = createMockApiLlmMessage('aiAudioRespId', 'assistant', 'Response to audio');
             const expectedPath = CHAT_API.sendMessage.buildPath({ chatId }); // Uses the same endpoint
 
-            const initialChat: Chat = { id: chatId, title: 'Test Chat', messages: [], updatedAt: Date.now() };
-            service['_chat'].set(initialChat);
+            const initialChat: UIChat = { id: chatId, title: 'Test Chat', messages: [], updatedAt: Date.now() };
+            (service as any)._chatState.set({ status: 'success', data: initialChat });
+
 
             service.sendAudioMessage(chatId, llmId, audioBlob).subscribe();
-            tick(); // For prepareUserContentPayload promise
+            tick(); // For prepareUserContentPayload promise & optimistic update
 
             // Optimistic update (placeholder)
-            let chatSignal = service.chat();
-            expect(chatSignal?.messages.length).toBe(1);
-            expect(chatSignal?.messages[0].textContent).toBe('Audio message sent...');
+            let chatState = service.chatState();
+            if (chatState.status === 'success') {
+                expect(chatState.data.messages.length).toBe(1);
+                expect(chatState.data.messages[0].textContent).toBe('Audio message sent...');
+            } else {
+                fail('Chat state should be success for optimistic audio update');
+            }
+
 
             const req = httpMock.expectOne(expectedPath);
             expect(req.request.method).toBe(CHAT_API.sendMessage.method);
@@ -443,9 +575,13 @@ describe('ChatServiceClient', () => {
             req.flush(mockApiAiResponse);
             tick();
 
-            chatSignal = service.chat();
-            expect(chatSignal?.messages.length).toBe(1); // Placeholder replaced by AI response
-            expect(chatSignal?.messages[0].textContent).toBe('Response to audio');
+            chatState = service.chatState();
+            if (chatState.status === 'success') {
+                expect(chatState.data.messages.length).toBe(1); // Placeholder replaced by AI response
+                expect(chatState.data.messages[0].textContent).toBe('Response to audio');
+            } else {
+                fail('Chat state should be success after audio response');
+            }
         }));
     });
 
@@ -488,26 +624,82 @@ describe('ChatServiceClient', () => {
     });
 
     describe('setChat', () => {
-        it('should update the _chat signal directly', () => {
-            const testChat: Chat = { id: 'testSetChat', title: 'Set Chat', messages: [], updatedAt: Date.now() };
+        it('should update the _chatState signal directly', () => {
+            const testChat: UIChat = { id: 'testSetChat', title: 'Set Chat', messages: [], updatedAt: Date.now() };
             service.setChat(testChat);
-            expect(service.chat()).toEqual(testChat);
+            const chatState = service.chatState();
+            expect(chatState.status === 'success' && chatState.data).toEqual(testChat);
 
             service.setChat(null);
-            expect(service.chat()).toBeNull();
+            expect(service.chatState().status).toBe('idle');
         });
     });
 
     describe('resetChat', () => {
-        it('should set the _chat signal to null', () => {
-            const testChat: Chat = { id: 'testResetChat', title: 'Reset Chat', messages: [], updatedAt: Date.now() };
-            service['_chat'].set(testChat); // Set some initial value
-            expect(service.chat()).toEqual(testChat);
+        it('should set the _chatState signal to idle', () => {
+            const testChat: UIChat = { id: 'testResetChat', title: 'Reset Chat', messages: [], updatedAt: Date.now() };
+            (service as any)._chatState.set({ status: 'success', data: testChat }); // Set some initial value
+            
+            let chatState = service.chatState();
+            expect(chatState.status === 'success' && chatState.data).toEqual(testChat);
 
             service.resetChat();
-            expect(service.chat()).toBeNull();
+            expect(service.chatState().status).toBe('idle');
         });
     });
+    
+    describe('cache updates on CRUD operations', () => {
+        it('deleteChat should remove chat from _cachedChats and _chatsState.data', fakeAsync(() => {
+            const chatToDeleteId = 'chat1';
+            const initialChats: UIChat[] = [
+                { id: chatToDeleteId, title: 'To Delete', updatedAt: Date.now(), messages: [] },
+                { id: 'chat2', title: 'To Keep', updatedAt: Date.now(), messages: [] }
+            ];
+            (service as any)._cachedChats = [...initialChats];
+            (service as any)._chatsState.set({ status: 'success', data: [...initialChats] });
+
+            service.deleteChat(chatToDeleteId).subscribe(() => {});
+            
+            const req = httpMock.expectOne(CHAT_API.deleteChat.buildPath({ chatId: chatToDeleteId }));
+            req.flush(null, { status: 204, statusText: 'No Content' });
+            tick();
+
+            expect((service as any)._cachedChats?.find((c: UIChat) => c.id === chatToDeleteId)).toBeUndefined();
+            expect(service.chats()?.find(c => c.id === chatToDeleteId)).toBeUndefined();
+            expect(service.chats()?.length).toBe(1);
+        }));
+
+        it('sendMessage should update updatedAt and reorder chat in _cachedChats and _chatsState.data', fakeAsync(() => {
+            const chatIdToUpdate = 'chat2';
+            const initialTime = Date.now() - 10000;
+            const chats: UIChat[] = [
+                { id: 'chat1', title: 'Chat 1', updatedAt: initialTime - 1000, messages: [] },
+                { id: chatIdToUpdate, title: 'Chat 2', updatedAt: initialTime, messages: [] }
+            ];
+            (service as any)._cachedChats = [...chats];
+            (service as any)._chatsState.set({ status: 'success', data: [...chats] });
+            (service as any)._chatState.set({ status: 'success', data: chats.find(c => c.id === chatIdToUpdate) || chats[0] });
+
+
+            const mockApiAiResponse = createMockApiLlmMessage('aiMsgId', 'assistant', 'AI response', Date.now());
+
+            service.sendMessage(chatIdToUpdate, 'User message', 'llm1').subscribe(() => {});
+            tick(); // optimistic update
+
+            const req = httpMock.expectOne(CHAT_API.sendMessage.buildPath({ chatId: chatIdToUpdate }));
+            req.flush(mockApiAiResponse);
+            tick(); // API response processing
+
+            const updatedChats = service.chats();
+            const updatedCachedChats = (service as any)._cachedChats;
+
+            expect(updatedChats?.[0].id).toBe(chatIdToUpdate);
+            expect(updatedChats?.[0].updatedAt).toBeGreaterThan(initialTime);
+            expect(updatedCachedChats?.[0].id).toBe(chatIdToUpdate);
+            expect(updatedCachedChats?.[0].updatedAt).toBeGreaterThan(initialTime);
+        }));
+    });
+
 
     // Test for convertMessage utility function (if exported or tested via service methods)
     // This is implicitly tested by methods like loadChatById, sendMessage, etc.

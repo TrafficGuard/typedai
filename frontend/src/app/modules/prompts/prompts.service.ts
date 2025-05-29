@@ -1,9 +1,10 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, of } from 'rxjs';
+import { Observable, EMPTY } from 'rxjs';
 import { tap, map, catchError } from 'rxjs/operators';
 
 import { callApiRoute } from 'app/core/api-route';
+import { createApiListState, ApiListState } from 'app/core/api-state.types';
 import { PROMPT_API } from '#shared/api/prompts.api';
 import type {
     PromptSchemaModel,
@@ -20,32 +21,42 @@ import type { LlmMessage, CallSettings } from '#shared/model/llm.model';
 export class PromptsService {
     private httpClient = inject(HttpClient);
 
-    private _prompts: BehaviorSubject<PromptPreview[] | null> = new BehaviorSubject<PromptPreview[] | null>(null);
-    get prompts$(): Observable<PromptPreview[] | null> { return this._prompts.asObservable(); }
+    private readonly _promptsState = createApiListState<PromptPreview>();
+    readonly promptsState = this._promptsState.asReadonly();
 
     private readonly _selectedPrompt = signal<Prompt | null>(null); // Retain signal for selectedPrompt as per existing code and no change request for it
     readonly selectedPrompt = this._selectedPrompt.asReadonly();
 
     constructor() {
-        this._loadPrompts().subscribe();
+        this.loadPrompts();
     }
 
-    private _loadPrompts(): Observable<PromptPreview[]> {
-        return callApiRoute(this.httpClient, PROMPT_API.listPrompts).pipe(
+    public loadPrompts(): void {
+        if (this._promptsState().status === 'success' || this._promptsState().status === 'loading') {
+            return;
+        }
+        this._promptsState.set({ status: 'loading' });
+
+        callApiRoute(this.httpClient, PROMPT_API.listPrompts).pipe(
             map(response => response.prompts),
             tap((prompts: PromptPreview[]) => {
-                this._prompts.next(prompts);
+                this._promptsState.set({ status: 'success', data: prompts });
             }),
             catchError((error) => {
                 console.error('Error loading prompts:', error);
-                this._prompts.next([]); // Emit empty array on error
-                return of([]); // Complete the observable chain with an empty array
+                this._promptsState.set({ 
+                    status: 'error', 
+                    error: error instanceof Error ? error : new Error('Failed to load prompts'), 
+                    code: error?.status 
+                });
+                return EMPTY;
             })
-        );
+        ).subscribe();
     }
 
-    refreshPrompts(): Observable<PromptPreview[]> {
-        return this._loadPrompts();
+    public refreshPrompts(): void {
+        this._promptsState.set({ status: 'idle' });
+        this.loadPrompts();
     }
 
     createPrompt(payload: PromptCreatePayload): Observable<PromptSchemaModel> {
@@ -69,8 +80,10 @@ export class PromptsService {
     deletePrompt(promptId: string): Observable<void> {
         return callApiRoute(this.httpClient, PROMPT_API.deletePrompt, { pathParams: { promptId } }).pipe(
             tap(() => {
-                const currentPrompts = this._prompts.getValue();
-                this._prompts.next((currentPrompts || []).filter(p => p.id !== promptId));
+                const currentState = this._promptsState();
+                if (currentState.status === 'success') {
+                    this._promptsState.set({ status: 'success', data: currentState.data.filter(p => p.id !== promptId) });
+                }
                 if (this._selectedPrompt()?.id === promptId) {
                     this._selectedPrompt.set(null);
                 }

@@ -53,6 +53,7 @@ export class CodeReviewServiceClient {
   }
 
   refreshConfigs(): void {
+    this._configsState.set({ status: 'idle' }); // Reset state to force reload
     this.loadConfigs();
   }
 

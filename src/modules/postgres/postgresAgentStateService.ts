@@ -357,6 +357,8 @@ export class PostgresAgentStateService implements AgentContextService {
 			agentId: agent.agentId,
 			name: agent.name,
 			state: agent.state,
+			type: agent.type,
+			subtype: agent.subtype,
 			cost: agent.cost ?? 0,
 			error: agent.error,
 			lastUpdate: agent.lastUpdate,
@@ -383,6 +385,8 @@ export class PostgresAgentStateService implements AgentContextService {
 		return agentContexts.map((agent) => ({
 			agentId: agent.agentId,
 			name: agent.name,
+			type: agent.type,
+			subtype: agent.subtype,
 			state: agent.state,
 			cost: agent.cost ?? 0,
 			error: agent.error,

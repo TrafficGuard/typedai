@@ -1,52 +1,19 @@
 // Utility functions for search and replace logic
+import { COMMON_LANGUAGES } from './constants';
 
 /**
- * Corresponds to strip_filename from aider's editblock_coder.py
+ * Corresponds to strip_filename from editblock_coder.py
  * Cleans a line to extract a potential filename.
  * @param filenameLine The line suspected to contain a filename.
  * @param fenceOpen The opening fence string (e.g., "```").
  * @returns The cleaned filename, or undefined if no valid filename is found.
  */
-export function _stripFilename(filenameLine: string, fenceOpen: string): string | undefined {
+export function stripFilename(filenameLine: string, fenceOpen: string): string | undefined {
 	const originalTrimmedLine = filenameLine.trim();
 	if (originalTrimmedLine === '...') return undefined;
 
 	let filename = originalTrimmedLine;
 	let wasNameExtractedFromAfterFence = false;
-
-	const commonLangs = [
-		'python',
-		'javascript',
-		'typescript',
-		'java',
-		'c',
-		'cpp',
-		'csharp',
-		'go',
-		'ruby',
-		'php',
-		'swift',
-		'kotlin',
-		'rust',
-		'scala',
-		'perl',
-		'lua',
-		'r',
-		'shell',
-		'bash',
-		'sql',
-		'html',
-		'css',
-		'xml',
-		'json',
-		'yaml',
-		'markdown',
-		'text',
-		'py',
-		'js',
-		'ts',
-		'md',
-	];
 
 	const fenceIndex = originalTrimmedLine.indexOf(fenceOpen);
 	if (fenceIndex !== -1) {
@@ -63,7 +30,7 @@ export function _stripFilename(filenameLine: string, fenceOpen: string): string 
 			if (firstSpaceInPartAfterFence !== -1) {
 				const firstWord = partAfterFence.substring(0, firstSpaceInPartAfterFence);
 				const restOfPart = partAfterFence.substring(firstSpaceInPartAfterFence + 1).trimStart();
-				if (commonLangs.includes(firstWord.toLowerCase()) && restOfPart) {
+				if (COMMON_LANGUAGES.includes(firstWord.toLowerCase()) && restOfPart) {
 					filename = restOfPart;
 					wasNameExtractedFromAfterFence = true;
 				} else {
@@ -74,7 +41,7 @@ export function _stripFilename(filenameLine: string, fenceOpen: string): string 
 			} else {
 				// No space in partAfterFence, e.g., "```foo.py" or "```python"
 				if (
-					commonLangs.includes(partAfterFence.toLowerCase()) &&
+					COMMON_LANGUAGES.includes(partAfterFence.toLowerCase()) &&
 					!(partAfterFence.includes('.') || partAfterFence.includes('/') || partAfterFence.includes('\\'))
 				) {
 					return undefined; // Just a language
@@ -85,7 +52,7 @@ export function _stripFilename(filenameLine: string, fenceOpen: string): string 
 		} else {
 			// Fence is not at the start, e.g., "foo.py ```python" or "foo.py ```"
 			// Content after fence (partAfterFence) is likely just lang or empty
-			if (!partAfterFence || commonLangs.includes(partAfterFence.toLowerCase())) {
+			if (!partAfterFence || COMMON_LANGUAGES.includes(partAfterFence.toLowerCase())) {
 				filename = partBeforeFence;
 				// wasNameExtractedFromAfterFence remains false
 			} else {
@@ -120,7 +87,7 @@ export function _stripFilename(filenameLine: string, fenceOpen: string): string 
 	// and it was extracted from after a fence OR the original line started with a fence,
 	// and it doesn't look like a path, it's not a filename.
 	const looksLikePath = filename.includes('.') || filename.includes('/') || filename.includes('\\');
-	if (commonLangs.includes(filename.toLowerCase()) && !looksLikePath) {
+	if (COMMON_LANGUAGES.includes(filename.toLowerCase()) && !looksLikePath) {
 		if (wasNameExtractedFromAfterFence || (fenceIndex !== -1 && originalTrimmedLine.startsWith(fenceOpen))) {
 			return undefined;
 		}

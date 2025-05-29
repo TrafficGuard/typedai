@@ -195,6 +195,8 @@ export class FirestoreAgentStateService implements AgentContextService {
 			const preview: AgentContextPreview = {
 				agentId: doc.id,
 				name: data.name,
+				type: data.type,
+				subtype: data.subType,
 				state: data.state,
 				cost: (Number.isNaN(data.cost) ? 0 : data.cost) ?? 0, // Default cost to 0 if undefined/null
 				error: data.error,

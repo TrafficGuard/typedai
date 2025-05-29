@@ -1,46 +1,21 @@
-import { expect } from 'chai';
+// import { expect } from 'chai'; // No longer needed if all tests are removed
+// import { checkEditBlockFilePath } from './searchReplaceCoder'; // Function removed
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 
-import { checkEditBlockFilePath } from './searchReplaceCoder';
+describe('SearchReplaceCoder related functions', () => {
+	// Updated describe to be more general
 
-describe('SearchReplaceCoder', () => {
-	describe('Create file check', () => {});
+	setupConditionalLoggerOutput();
+	// describe('Create file check', () => {}); // This seems empty, can be removed or populated
 
-	describe('Create file check', () => {
-		it('should return an error message if it finds an existing file with the same parent folder name', () => {
-			const existingFilesNames = ['foo', 'path/path2/path3/path4/file'];
-			const editFilePath = 'path3/path4/file';
+	// Tests for checkEditBlockFilePath are removed as the function is removed.
+	// Its logic is now tested in:
+	// - pathExistsRule.test.ts
+	// - moduleAliasRule.test.ts
+	// - similarFileNameRule.test.ts
+	// - compositeValidator.test.ts (will test their combined behavior)
 
-			const result = checkEditBlockFilePath(existingFilesNames, editFilePath);
-
-			expect(result).to.not.be.null;
-		});
-
-		it('should return an error message if it the path starts with a module alias character', () => {
-			const existingFilesNames = [];
-			const editFilePath = '#module/file';
-
-			const result = checkEditBlockFilePath(existingFilesNames, editFilePath);
-
-			expect(result).to.not.be.null;
-		});
-
-		// This will need some work with similarity, dealing with expected similar files (.test etc) to avoid too many false positives
-		it.skip('should return an error message if it the path is very similar to an existing path', () => {
-			const existingFilesNames = ['frontend/src/app/modules/agents/agent/agent-iterations/agent-iterations.component.ts'];
-			const editFilePath = 'frontend/src/app/modules/agents/agent/agent-iterations/AgentIterations.component.ts';
-
-			const result = checkEditBlockFilePath(existingFilesNames, editFilePath);
-
-			expect(result).to.not.be.null;
-		});
-
-		it('should return null if the file path look unique', () => {
-			const existingFilesNames = ['path/path2/path3/path4/file'];
-			const editFilePath = 'foo/bar/baz';
-
-			const result = checkEditBlockFilePath(existingFilesNames, editFilePath);
-
-			expect(result).to.be.null;
-		});
-	});
+	// If there are other tests for SearchReplaceCoder class itself, they would remain.
+	// For now, this file might become empty or be removed if SearchReplaceCoder itself has no other direct utils to test here.
+	// Keeping the describe block for now in case other tests for SearchReplaceCoder are added later.
 });

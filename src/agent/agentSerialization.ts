@@ -112,8 +112,8 @@ export function deserializeContext(data: AgentContextApi): AgentContext {
 
 	return {
 		agentId: data.agentId,
-		type: data.type as AgentType,
-		subtype: data.subtype as AutonomousSubType, // Assuming subtype from schema matches AutonomousSubType or is a string
+		type: data.type,
+		subtype: data.subtype,
 		childAgents: data.childAgents ?? [],
 		executionId: data.executionId,
 		typedAiRepoDir: data.typedAiRepoDir ?? process.cwd(),
