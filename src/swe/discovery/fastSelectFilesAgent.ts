@@ -1,21 +1,15 @@
 import path from 'node:path';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
-import { extractTag } from '#llm/responseParsers';
-import { logger } from '#o11y/logger';
+import { countTokens } from '#llm/tokens';
 import type { SelectedFile } from '#shared/model/files.model';
 import {
-	type GenerateTextWithJsonResponse,
 	type LLM,
 	type LlmMessage,
 	type UserContentExt,
-	assistant,
 	contentText,
 	extractAttachments,
-	messageText,
 } from '#shared/model/llm.model';
 import { text, user } from '#shared/model/llm.model';
-import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
-import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
 import { type RepositoryMaps, generateRepositoryMaps } from '#swe/index/repositoryMap';
 import { type ProjectInfo, detectProjectInfo } from '#swe/projectDetection';
 
@@ -31,10 +25,31 @@ This agent is designed to utilise LLM prompt caching
 const MAX_SEARCH_TOKENS = 8000; // Maximum tokens for search results
 const APPROX_CHARS_PER_TOKEN = 4; // Approximate characters per token
 
+// Target context size for the “fast” model family
+const FAST_MAX_TOKENS   = 16_382;
+const FAST_TARGET_TOKENS = Math.floor(FAST_MAX_TOKENS * 0.5);
+const FAST_TARGET_CHARS  = FAST_TARGET_TOKENS * APPROX_CHARS_PER_TOKEN;
+
 function norm(p: string): string {
 	return path.posix.normalize(p.trim().replace(/^\.\/+/, ''));
 }
 const MAX_SEARCH_CHARS = MAX_SEARCH_TOKENS * APPROX_CHARS_PER_TOKEN; // Maximum characters for search results
+
+function splitFileSystemTreeByFolder(fileTree: string): string[] {
+	const chunks: string[] = [];
+	let current = '';
+
+	for (const line of fileTree.split('\n')) {
+		// if adding the next line would exceed our character budget, start a new chunk
+		if ((current.length + line.length) > FAST_TARGET_CHARS) {
+			chunks.push(current);
+			current = '';
+		}
+		current += line + '\n';
+	}
+	if (current.trim().length) chunks.push(current);
+	return chunks;
+}
 
 interface InitialResponse {
 	inspectFiles?: string[];
