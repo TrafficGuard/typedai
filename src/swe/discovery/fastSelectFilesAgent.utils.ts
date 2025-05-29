@@ -42,7 +42,7 @@ export async function readFileContents(filePaths: string[], fs: IFileSystemServi
 		if (!filePath) continue;
 		// Ensure paths are resolved correctly if they might be relative
 		// Assuming filePath is relative to fs.getWorkingDirectory()
-		const fullPath = fs.isAbsolutePath(filePath) ? filePath : path.join(fs.getWorkingDirectory(), filePath);
+		const fullPath = path.isAbsolute(filePath) ? filePath : path.join(fs.getWorkingDirectory(), filePath);
 		try {
 			const fileContent = await fs.readFile(fullPath);
 			contents += `<file_contents path="${filePath}">
