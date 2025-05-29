@@ -7,7 +7,7 @@ import { initApplicationContext } from '#app/applicationContext';
 import { Blueberry } from '#llm/multi-agent/blueberry';
 import { mockLLMs } from '#llm/services/mock-llm';
 import { vertexGemini_2_0_Flash } from '#llm/services/vertexai';
-import type { AgentContext } from '#shared/model/agent.model';
+import type { AgentContext } from '#shared/agent/agent.model';
 import { parseProcessArgs } from './cli';
 
 // See https://arxiv.org/html/2405.19616v1 https://github.com/autogenai/easy-problems-that-llms-get-wrong

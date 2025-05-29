@@ -10,7 +10,7 @@ import { UserService } from 'app/core/user/user.service';
 import { ChatServiceClient } from 'app/modules/chat/chat.service';
 import { Chat } from 'app/modules/chat/chat.types';
 import { MatDrawer } from '@angular/material/sidenav';
-import {UserProfile} from "#shared/model/user.model";
+import {UserProfile} from "#shared/user/user.model";
 
 // Mock User type for UserService
 const mockUser = {

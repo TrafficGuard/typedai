@@ -4,7 +4,7 @@ import type {
     ImagePartExt,
     FilePartExt,
     UserContentExt
-} from '#shared/model/llm.model';
+} from '#shared/llm/llm.model';
 
 // LlmMessageContentPart is a union of the imported part types
 export type LlmMessageContentPart = TextPart | ImagePartExt | FilePartExt;

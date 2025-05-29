@@ -3,8 +3,15 @@ import { GitHub } from '#functions/scm/github';
 import { GitLab } from '#functions/scm/gitlab';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
-import type { CodeTask, CodeTaskPreset, CommitChangesData, CreateCodeTaskData, UpdateCodeReviewData, UpdateCodeTaskData } from '#shared/model/codeTask.model';
-import type { FileSystemNode } from '#shared/services/fileSystemService';
+import type {
+	CodeTask,
+	CodeTaskPreset,
+	CommitChangesData,
+	CreateCodeTaskData,
+	UpdateCodeReviewData,
+	UpdateCodeTaskData,
+} from '#shared/codeTask/codeTask.model';
+import type { FileSystemNode } from '#shared/files/fileSystemService';
 import { execCommand, failOnError } from '#utils/exec';
 import { CodeTaskCreation } from './codeTaskCreation';
 import type { CodeTaskDesignGeneration } from './codeTaskDesignGeneration';

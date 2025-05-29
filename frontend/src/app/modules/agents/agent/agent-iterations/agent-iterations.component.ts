@@ -10,8 +10,8 @@ import { MatIconModule } from '@angular/material/icon';
 // import { Subject, Subscription } from 'rxjs'; // No longer needed
 import { distinctUntilChanged, tap, filter } from 'rxjs/operators';
 import { AgentService } from '../../agent.service';
-import { AutonomousIteration, AutonomousIterationSummary } from '#shared/model/agent.model';
-import { FunctionCallResult } from "#shared/model/llm.model";
+import { AutonomousIteration, AutonomousIterationSummary } from '#shared/agent/agent.model';
+import { FunctionCallResult } from "#shared/llm/llm.model";
 import { toObservable, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({

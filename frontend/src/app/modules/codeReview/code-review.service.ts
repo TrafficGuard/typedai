@@ -2,9 +2,9 @@ import { inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, throwError, of, EMPTY } from 'rxjs';
 import { tap, catchError, map } from 'rxjs/operators';
-import { CodeReviewConfig } from "#shared/model/codeReview.model";
+import { CodeReviewConfig } from "#shared/codeReview/codeReview.model";
 import { callApiRoute } from '../../core/api-route';
-import { CODE_REVIEW_API } from '#shared/api/codeReview.api';
+import { CODE_REVIEW_API } from '#shared/codeReview/codeReview.api';
 import { createApiListState, ApiListState } from '../../core/api-state.types';
 import {
     CodeReviewConfigCreate,
@@ -12,7 +12,7 @@ import {
     MessageResponse,
     BulkDeleteRequest,
     CodeReviewConfigListResponse
-} from '#shared/schemas/codeReview.schema';
+} from '#shared/codeReview/codeReview.schema';
 
 @Injectable({
   providedIn: 'root',

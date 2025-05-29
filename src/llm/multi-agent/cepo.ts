@@ -5,7 +5,7 @@ import { openAIo3 } from '#llm/services/openai';
 import { vertexGemini_2_5_Pro } from '#llm/services/vertexai';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
-import { type GenerateTextOptions, type LLM, type LlmMessage, assistant, lastText, user } from '#shared/model/llm.model';
+import { type GenerateTextOptions, type LLM, type LlmMessage, assistant, lastText, user } from '#shared/llm/llm.model';
 
 interface CePOConfig {
 	bestofn_n: number;

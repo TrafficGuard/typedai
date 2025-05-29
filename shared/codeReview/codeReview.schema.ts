@@ -1,6 +1,7 @@
 import { type Static, Type } from '@sinclair/typebox';
-import type { CodeReviewConfig, IExample } from '#shared/model/codeReview.model';
-import type { AreTypesFullyCompatible } from '#shared/utils/type-compatibility';
+import type { CodeReviewConfig, IExample } from '#shared/codeReview/codeReview.model';
+
+import type { AreTypesFullyCompatible } from '#shared/typeUtils';
 
 export const IExampleSchema = Type.Object({
 	code: Type.String(),

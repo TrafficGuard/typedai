@@ -1,4 +1,4 @@
-import type { CallSettings, LlmCallMessageSummaryPart, LlmMessage } from './llm.model';
+import type { CallSettings, LlmCallMessageSummaryPart, LlmMessage } from '../llm/llm.model';
 
 export interface LlmRequest {
 	/** UUID */

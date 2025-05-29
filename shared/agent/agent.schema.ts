@@ -1,4 +1,6 @@
 import { type Static, Type } from '@sinclair/typebox';
+import type { AreTypesFullyCompatible } from '#shared/typeUtils';
+import { GenerationStatsSchema, LlmMessagesSchema, type LlmMessagesSchemaModel } from '../llm/llm.schema';
 import {
 	AGENT_PREVIEW_KEYS,
 	AUTONOMOUS_ITERATION_SUMMARY_KEYS,
@@ -6,9 +8,7 @@ import {
 	type AgentContextPreview,
 	type AutonomousIteration,
 	type AutonomousIterationSummary,
-} from '../model/agent.model';
-import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
-import { GenerationStatsSchema, LlmMessagesSchema, type LlmMessagesSchemaModel } from './llm.schema';
+} from './agent.model';
 
 export const AgentTypeSchema = Type.Union([Type.Literal('autonomous'), Type.Literal('workflow')], { $id: 'AgentType' });
 export const AutonomousSubTypeSchema = Type.Union([Type.Literal('xml'), Type.Literal('codegen'), Type.String()], { $id: 'AutonomousSubType' }); // string for custom subtypes

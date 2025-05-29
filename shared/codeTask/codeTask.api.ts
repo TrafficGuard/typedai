@@ -18,11 +18,11 @@ import {
 	UpdateCodeTaskApiBodySchema,
 	UpdateDesignPromptDataApiSchema,
 	UpdateSelectionPromptDataApiSchema,
-} from '../schemas/codeTask.schema';
+} from './codeTask.schema';
 
 import { defineRoute } from '#shared/api-definitions';
 // Common API Schemas
-import { ApiMessageResponseSchema, ApiNullResponseSchema, ApiPresetParamsSchema, ApiSessionParamsSchema } from '../schemas/common.schema';
+import { ApiMessageResponseSchema, ApiNullResponseSchema, ApiPresetParamsSchema, ApiSessionParamsSchema } from '../common.schema';
 
 const CODE_TASK_API_BASE = '/api/codeTask';
 

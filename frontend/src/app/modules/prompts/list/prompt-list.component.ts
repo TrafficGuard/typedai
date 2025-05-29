@@ -10,7 +10,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { filter, finalize } from 'rxjs/operators';
-import { PromptPreview } from '#shared/model/prompts.model';
+import { PromptPreview } from '#shared/prompts/prompts.model';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { PROMPTS_ROUTES } from '../prompt.paths';
 

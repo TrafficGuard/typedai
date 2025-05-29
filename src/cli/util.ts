@@ -1,17 +1,18 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
-import { agentContextStorage, createContext } from '#agent/agentContextLocalStorage';
+import { agentContextStorage, createContext, getFileSystem } from '#agent/agentContextLocalStorage';
 import type { RunWorkflowConfig } from '#agent/autonomous/autonomousAgentRunner';
 import { appContext } from '#app/applicationContext';
 import { Jira } from '#functions/jira';
 import { GitLab } from '#functions/scm/gitlab';
+import { FileSystemList } from '#functions/storage/fileSystemList';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { MultiLLM } from '#llm/multi-llm';
 import { Claude4_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { GPT41 } from '#llm/services/openai';
-import type { AgentContext, AgentLLMs } from '#shared/model/agent.model';
+import type { AgentContext, AgentLLMs } from '#shared/agent/agent.model';
 import { SearchReplaceCoder } from '#swe/coder/searchReplaceCoder';
 import { envVarHumanInLoopSettings } from './cliHumanInLoop';
 

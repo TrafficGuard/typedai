@@ -1,11 +1,11 @@
 import chai, { expect } from 'chai';
 import sinon from 'sinon';
 import sinonChai from 'sinon-chai';
-import type { AgentCompleted, AgentContext, AgentLLMs, LlmFunctions } from '#shared/model/agent.model';
-import type { LLM } from '#shared/model/llm.model';
-import type { User } from '#shared/model/user.model';
-import type { AgentContextApi } from '#shared/schemas/agent.schema'; // For context, not direct assertion
-import type { IFileSystemService } from '#shared/services/fileSystemService';
+import type { AgentCompleted, AgentContext, AgentLLMs, LlmFunctions } from '#shared/agent/agent.model';
+import type { AgentContextApi } from '#shared/agent/agent.schema'; // For context, not direct assertion
+import type { IFileSystemService } from '#shared/files/fileSystemService';
+import type { LLM } from '#shared/llm/llm.model';
+import type { User } from '#shared/user/user.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { serializeContext } from './agentSerialization';
 

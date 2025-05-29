@@ -5,7 +5,7 @@ import { ActivatedRoute, Router, convertToParamMap, ParamMap } from '@angular/ro
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { of, Subject, throwError, Observable } from 'rxjs';
-import { CodeTask } from '#shared/model/codeTask.model';
+import { CodeTask } from '#shared/codeTask/codeTask.model';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 
 // Mocks

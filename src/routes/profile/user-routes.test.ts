@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import type { FastifyInstance } from 'fastify';
-import type { User } from '#shared/model/user.model';
+import type { User } from '#shared/user/user.model';
 
 import { createTestFastify } from '../routeTestUtils';
 

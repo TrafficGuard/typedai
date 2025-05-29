@@ -4,9 +4,9 @@ import { appContext } from '#app/applicationContext';
 import { callStack } from '#llm/llmCallService/llmCall';
 import { countTokens } from '#llm/tokens';
 import { withActiveSpan } from '#o11y/trace';
-import type { AgentLLMs } from '#shared/model/agent.model';
-import { type GenerateTextOptions, type LLM, type LlmMessage, assistant, combinePrompts, system, user } from '#shared/model/llm.model';
-import type { LlmCall } from '#shared/model/llmCall.model';
+import type { AgentLLMs } from '#shared/agent/agent.model';
+import { type GenerateTextOptions, type LLM, type LlmMessage, assistant, combinePrompts, system, user } from '#shared/llm/llm.model';
+import type { LlmCall } from '#shared/llmCall/llmCall.model';
 import { BaseLLM } from '../base-llm';
 
 export const OLLAMA_SERVICE = 'ollama';

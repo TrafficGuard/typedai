@@ -15,9 +15,9 @@ import { CommonModule } from '@angular/common';
 
 import { CodeReviewListComponent } from './code-review-list.component';
 import { CodeReviewServiceClient } from '../code-review.service';
-import { CodeReviewConfig } from '#shared/model/codeReview.model';
+import { CodeReviewConfig } from '#shared/codeReview/codeReview.model';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
-import { MessageResponse, CodeReviewConfigListResponse } from '#shared/schemas/codeReview.schema';
+import { MessageResponse, CodeReviewConfigListResponse } from '#shared/codeReview/codeReview.schema';
 
 // Mock Data
 const mockConfigs: CodeReviewConfig[] = [

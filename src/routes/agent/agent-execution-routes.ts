@@ -7,8 +7,8 @@ import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send, sendBadRequest } from '#fastify/index';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
-import { AGENT_API } from '#shared/api/agent.api';
-import { isExecuting } from '#shared/model/agent.model';
+import { AGENT_API } from '#shared/agent/agent.api';
+import { isExecuting } from '#shared/agent/agent.model';
 
 export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 	/** Forcibly stop an agent */

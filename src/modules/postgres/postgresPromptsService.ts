@@ -3,8 +3,8 @@ import type { Selectable } from 'kysely';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import type { PromptsService } from '#prompts/promptsService';
-import type { CallSettings, LlmMessage } from '#shared/model/llm.model';
-import type { Prompt, PromptPreview } from '#shared/model/prompts.model';
+import type { CallSettings, LlmMessage } from '#shared/llm/llm.model';
+import type { Prompt, PromptPreview } from '#shared/prompts/prompts.model';
 import { type PromptGroupsTable, type PromptRevisionsTable, db } from './db';
 
 export class PostgresPromptsService implements PromptsService {

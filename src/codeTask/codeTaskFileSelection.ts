@@ -1,7 +1,7 @@
 import { agentContextStorage } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
-import type { CodeTask } from '#shared/model/codeTask.model';
-import type { SelectedFile } from '#shared/model/files.model';
+import type { CodeTask } from '#shared/codeTask/codeTask.model';
+import type { SelectedFile } from '#shared/files/files.model';
 import { selectFilesAgent } from '#swe/discovery/selectFilesAgentWithSearch';
 import { runCodeTaskWorkflowAgent } from './codeTaskAgentRunner';
 import type { CodeTaskRepository } from './codeTaskRepository';

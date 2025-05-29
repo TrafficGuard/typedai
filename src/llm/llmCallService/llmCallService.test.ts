@@ -3,8 +3,8 @@ import chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 import type { CreateLlmRequest } from '#llm/llmCallService/llmCall';
-import type { LlmMessage } from '#shared/model/llm.model';
-import type { LlmCall } from '#shared/model/llmCall.model';
+import type { LlmMessage } from '#shared/llm/llm.model';
+import type { LlmCall } from '#shared/llmCall/llmCall.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import type { LlmCallService } from './llmCallService';
 

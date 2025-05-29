@@ -1,7 +1,7 @@
 import { Type } from '@sinclair/typebox';
 import { defineRoute } from '#shared/api-definitions';
-import { ApiNullResponseSchema } from '#shared/schemas/common.schema';
-import { UserProfileSchema, UserProfileUpdateSchema } from '../schemas/user.schema';
+import { ApiNullResponseSchema } from '#shared/common.schema';
+import { UserProfileSchema, UserProfileUpdateSchema } from './user.schema';
 
 const PROFILE_BASE = '/api/profile';
 

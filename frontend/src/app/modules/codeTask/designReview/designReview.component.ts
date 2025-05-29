@@ -11,7 +11,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { CodeTaskServiceClient } from '../codeTask.service';
-import { CodeTask, CodeTaskStatus } from "#shared/model/codeTask.model";
+import { CodeTask, CodeTaskStatus } from "#shared/codeTask/codeTask.model";
 
 @Component({
   selector: 'designReview',

@@ -26,7 +26,7 @@ import { MatProgressSpinner } from "@angular/material/progress-spinner";
 import { MatCheckboxModule } from "@angular/material/checkbox";
 import { AgentService } from '../../agent.service';
 import {MatCard, MatCardContent} from "@angular/material/card";
-import {AutonomousSubType} from "#shared/model/agent.model";
+import {AutonomousSubType} from "#shared/agent/agent.model";
 import { toObservable, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 const defaultSubType: AutonomousSubType = 'codegen';

@@ -21,8 +21,8 @@ import { Router } from '@angular/router';
 import { BehaviorSubject, type Observable, Subscription, catchError, finalize, map, of, take } from 'rxjs';
 import { type CreateCodeTaskPayload, CodeTaskServiceClient } from '../codeTask.service';
 import { MatCard, MatCardContent } from '@angular/material/card';
-import {GitProject} from "#shared/model/git.model";
-import {CodeTaskPreset, CodeTaskPresetConfig, CodeTask} from "#shared/model/codeTask.model";
+import {GitProject} from "#shared/scm/git.model";
+import {CodeTaskPreset, CodeTaskPresetConfig, CodeTask} from "#shared/codeTask/codeTask.model";
 
 @Component({
 	selector: 'app-newCodeTask',

@@ -4,7 +4,7 @@ import fetch from 'cross-fetch';
 import { agentStorageDir } from '#app/appDirs';
 import type { FileStore } from '#functions/storage/filestore';
 import { logger } from '#o11y/logger';
-import type { ImagePartExt } from '#shared/model/llm.model';
+import type { ImagePartExt } from '#shared/llm/llm.model';
 import { getMimeType } from '#utils/mime';
 
 // Define the expected structure for image requests in the script result

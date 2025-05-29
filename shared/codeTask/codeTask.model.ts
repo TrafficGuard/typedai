@@ -1,4 +1,4 @@
-import type { SelectedFile } from '#shared/model/files.model';
+import type { SelectedFile } from '#shared/files/files.model';
 
 export type CodeTaskStatus =
 	| 'initializing' // Session created, preparing workspace

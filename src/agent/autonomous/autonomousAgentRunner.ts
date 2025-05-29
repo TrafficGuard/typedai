@@ -8,9 +8,9 @@ import { runXmlAgent } from '#agent/autonomous/xml/xmlAutonomousAgent';
 import { appContext } from '#app/applicationContext';
 import { FUNC_SEP } from '#functionSchema/functions';
 import { logger } from '#o11y/logger';
-import type { AgentCompleted, AgentContext, AgentLLMs, AgentType } from '#shared/model/agent.model';
-import type { FunctionCallResult } from '#shared/model/llm.model';
-import type { User } from '#shared/model/user.model';
+import type { AgentCompleted, AgentContext, AgentLLMs, AgentType } from '#shared/agent/agent.model';
+import type { FunctionCallResult } from '#shared/llm/llm.model';
+import type { User } from '#shared/user/user.model';
 import { errorToString } from '#utils/errors';
 import { CDATA_END, CDATA_START } from '#utils/xml-utils';
 

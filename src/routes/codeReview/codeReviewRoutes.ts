@@ -1,7 +1,7 @@
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send } from '#fastify/responses';
 import { logger } from '#o11y/logger';
-import { CODE_REVIEW_API } from '#shared/api/codeReview.api';
+import { CODE_REVIEW_API } from '#shared/codeReview/codeReview.api';
 
 export async function codeReviewRoutes(fastify: AppFastifyInstance) {
 	fastify.get(CODE_REVIEW_API.list.pathTemplate, { schema: CODE_REVIEW_API.list.schema }, async (request, reply) => {

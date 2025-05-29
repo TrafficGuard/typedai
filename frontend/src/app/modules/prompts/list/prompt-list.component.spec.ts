@@ -11,7 +11,7 @@ import { MatDialogRef } from '@angular/material/dialog';
 
 import { PromptListComponent } from './prompt-list.component';
 import { PromptsService } from '../prompts.service';
-import { PromptPreview } from '#shared/model/prompts.model';
+import { PromptPreview } from '#shared/prompts/prompts.model';
 import { provideNoopAnimations } from '@angular/platform-browser/animations'; // Import for animations
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 

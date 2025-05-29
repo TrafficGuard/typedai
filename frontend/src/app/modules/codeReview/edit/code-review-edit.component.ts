@@ -20,8 +20,8 @@ import {MatCard, MatCardContent} from "@angular/material/card";
 import {MatCheckbox} from "@angular/material/checkbox";
 import {MatProgressSpinnerModule} from "@angular/material/progress-spinner";
 import {Observable} from "rxjs";
-import {CodeReviewConfigCreate, CodeReviewConfigUpdate, MessageResponse} from "#shared/schemas/codeReview.schema";
-import {IExample} from "#shared/model/codeReview.model";
+import {CodeReviewConfigCreate, CodeReviewConfigUpdate, MessageResponse} from "#shared/codeReview/codeReview.schema";
+import {IExample} from "#shared/codeReview/codeReview.model";
 
 @Component({
   selector: 'app-codeReview-edit',

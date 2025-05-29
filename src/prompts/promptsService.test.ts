@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { expect } from 'chai';
 import { SINGLE_USER_ID } from '#modules/memory/inMemoryUserService';
-import { system, user } from '#shared/model/llm.model';
-import type { Prompt } from '#shared/model/prompts.model';
-import type { User } from '#shared/model/user.model';
+import { system, user } from '#shared/llm/llm.model';
+import type { Prompt } from '#shared/prompts/prompts.model';
+import type { User } from '#shared/user/user.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { runWithUser } from '#user/userContext';
 import type { PromptsService } from './promptsService';

@@ -1,6 +1,6 @@
 import type { Ignore } from 'ignore';
 
-import type { VersionControlSystem } from '#shared/services/versionControlSystem';
+import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
 
 export interface FileSystemNode {
 	path: string;

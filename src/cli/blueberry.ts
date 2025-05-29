@@ -5,7 +5,7 @@ import { agentContext, agentContextStorage, createContext } from '#agent/agentCo
 import { initApplicationContext } from '#app/applicationContext';
 import { Blueberry } from '#llm/multi-agent/blueberry';
 import { mockLLMs } from '#llm/services/mock-llm';
-import type { AgentContext } from '#shared/model/agent.model';
+import type { AgentContext } from '#shared/agent/agent.model';
 import { parseProcessArgs, saveAgentId } from './cli';
 
 // Usage:

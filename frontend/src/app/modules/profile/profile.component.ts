@@ -18,7 +18,7 @@ import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
 import { Subject, takeUntil, filter } from 'rxjs';
 import { UserService } from '../../core/user/user.service';
 import { Router, ActivatedRoute, NavigationEnd, RouterModule } from '@angular/router';
-import {UserProfile} from "#shared/model/user.model";
+import {UserProfile} from "#shared/user/user.model";
 
 @Component({
     selector: 'settings',

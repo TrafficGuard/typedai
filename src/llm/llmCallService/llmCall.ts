@@ -1,7 +1,7 @@
 import { agentContext } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
-import type { AgentContext } from '#shared/model/agent.model';
-import type { LlmRequest } from '#shared/model/llmCall.model';
+import type { AgentContext } from '#shared/agent/agent.model';
+import type { LlmRequest } from '#shared/llmCall/llmCall.model';
 
 export type CreateLlmRequest = Omit<LlmRequest, 'id' | 'requestTime'>;
 

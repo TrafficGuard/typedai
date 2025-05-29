@@ -1,9 +1,9 @@
 import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { ChatServiceClient } from './chat.service';
-import { CHAT_API } from '#shared/api/chat.api';
+import { CHAT_API } from '#shared/chat/chat.api';
 import type { Chat as UIChat, ChatMessage, NEW_CHAT_ID } from 'app/modules/chat/chat.types';
-import type { UserContentExt } from '#shared/model/llm.model';
+import type { UserContentExt } from '#shared/llm/llm.model';
 import type { Static } from '@sinclair/typebox';
 import { of, throwError, EMPTY } from 'rxjs';
 import {
@@ -15,8 +15,8 @@ import {
     ChatUpdateDetailsSchema,
     RegenerateMessageSchema,
     ChatPreviewSchema, // Added for mockApiChatList
-} from '#shared/schemas/chat.schema';
-import { LlmMessageSchema } from '#shared/schemas/llm.schema';
+} from '#shared/chat/chat.schema';
+import { LlmMessageSchema } from '#shared/llm/llm.schema';
 import { convertMessage } from './chat.service'; // For direct testing if needed, or rely on service methods
 import { userContentExtToAttachmentsAndText } from 'app/modules/messageUtil';
 
@@ -131,7 +131,7 @@ describe('ChatServiceClient', () => {
             const req = httpMock.expectOne(CHAT_API.listChats.path);
             req.flush('Error loading chats', { status: 500, statusText: 'Server Error' });
             tick();
-            
+
             const state = service.chatsState();
             expect(state.status).toBe('error');
             if (state.status === 'error') {
@@ -195,7 +195,7 @@ describe('ChatServiceClient', () => {
             const req = httpMock.expectOne(CHAT_API.listChats.path);
             req.flush('Error forcing reload', { status: 500, statusText: 'Server Error' });
             tick();
-            
+
             const state = service.chatsState();
             expect(state.status).toBe('error');
             if (state.status === 'error') {
@@ -639,7 +639,7 @@ describe('ChatServiceClient', () => {
         it('should set the _chatState signal to idle', () => {
             const testChat: UIChat = { id: 'testResetChat', title: 'Reset Chat', messages: [], updatedAt: Date.now() };
             (service as any)._chatState.set({ status: 'success', data: testChat }); // Set some initial value
-            
+
             let chatState = service.chatState();
             expect(chatState.status === 'success' && chatState.data).toEqual(testChat);
 
@@ -647,7 +647,7 @@ describe('ChatServiceClient', () => {
             expect(service.chatState().status).toBe('idle');
         });
     });
-    
+
     describe('cache updates on CRUD operations', () => {
         it('deleteChat should remove chat from _cachedChats and _chatsState.data', fakeAsync(() => {
             const chatToDeleteId = 'chat1';
@@ -659,7 +659,7 @@ describe('ChatServiceClient', () => {
             (service as any)._chatsState.set({ status: 'success', data: [...initialChats] });
 
             service.deleteChat(chatToDeleteId).subscribe(() => {});
-            
+
             const req = httpMock.expectOne(CHAT_API.deleteChat.buildPath({ chatId: chatToDeleteId }));
             req.flush(null, { status: 204, statusText: 'No Content' });
             tick();

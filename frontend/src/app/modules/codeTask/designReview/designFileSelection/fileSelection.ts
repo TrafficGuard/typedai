@@ -16,9 +16,9 @@ import { TextFieldModule } from '@angular/cdk/text-field';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { CodeTaskServiceClient } from "../../codeTask.service";
 import { MatSnackBar } from "@angular/material/snack-bar";
-import {SelectedFile} from "#shared/model/files.model";
-import {FileSystemNode} from "#shared/services/fileSystemService";
-import {CodeTask} from "#shared/model/codeTask.model";
+import {SelectedFile} from "#shared/files/files.model";
+import {FileSystemNode} from "#shared/files/fileSystemService";
+import {CodeTask} from "#shared/codeTask/codeTask.model";
 import {FileSelectionEditDialogComponent} from "./fileSelectionEditDialog/fileSelectionEditDialog.component";
 import {
     DesignFileTreeDialogComponent

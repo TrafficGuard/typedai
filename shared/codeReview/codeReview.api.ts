@@ -7,7 +7,7 @@ import {
 	CodeReviewConfigSchema,
 	CodeReviewConfigUpdateSchema,
 	MessageResponseSchema,
-} from '#shared/schemas/codeReview.schema';
+} from '#shared/codeReview/codeReview.schema';
 
 const API_PREFIX = '/api/code-review-configs';
 

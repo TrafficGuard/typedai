@@ -4,7 +4,7 @@ import { logger } from '#o11y/logger';
  * Adding a human in the loop, so it doesn't consume all of your budget
  */
 import { startSpan, withSpan } from '#o11y/trace';
-import type { AgentContext } from '#shared/model/agent.model';
+import type { AgentContext } from '#shared/agent/agent.model';
 import { Slack } from '#slack/slack';
 import { sleep } from '#utils/async-utils';
 import { beep } from '#utils/beep';

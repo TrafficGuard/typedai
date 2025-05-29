@@ -7,8 +7,8 @@ import { send } from '#fastify/index';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { getLLM } from '#llm/llmFactory';
 import { logger } from '#o11y/logger';
-import { AGENT_API } from '#shared/api/agent.api';
-import type { AgentType } from '#shared/model/agent.model';
+import { AGENT_API } from '#shared/agent/agent.api';
+import type { AgentType } from '#shared/agent/agent.model';
 import { currentUser } from '#user/userContext';
 
 export async function agentStartRoute(fastify: AppFastifyInstance) {

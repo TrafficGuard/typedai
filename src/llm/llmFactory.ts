@@ -20,8 +20,8 @@ import { togetherLLMRegistry } from '#llm/services/together';
 import { vertexLLMRegistry } from '#llm/services/vertexai';
 import { xaiLLMRegistry } from '#llm/services/xai';
 import { logger } from '#o11y/logger';
-import type { AgentLLMs } from '#shared/model/agent.model';
-import type { LLM } from '#shared/model/llm.model';
+import type { AgentLLMs } from '#shared/agent/agent.model';
+import type { LLM } from '#shared/llm/llm.model';
 
 export const LLM_FACTORY: Record<string, () => LLM> = {
 	...anthropicVertexLLMRegistry(),

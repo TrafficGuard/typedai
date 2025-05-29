@@ -1,9 +1,8 @@
 import { type Static, Type } from '@sinclair/typebox';
-import type { Prompt, PromptGeneratePayloadModel, PromptGenerateResponseModel, PromptPreview } from '../model/prompts.model';
-import type { ChangePropertyType } from '../typeUtils';
-import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
-import { ApiNullResponseSchema } from './common.schema'; // As per requirement, though not directly used in these schemas
-import { CallSettingsSchema, LlmMessageSchema, LlmMessagesSchema, type LlmMessagesSchemaModel } from './llm.schema';
+import { ApiNullResponseSchema } from '../common.schema'; // As per requirement, though not directly used in these schemas
+import { CallSettingsSchema, LlmMessageSchema, LlmMessagesSchema, type LlmMessagesSchemaModel } from '../llm/llm.schema';
+import type { AreTypesFullyCompatible, ChangePropertyType } from '../typeUtils';
+import type { Prompt, PromptGeneratePayloadModel, PromptGenerateResponseModel, PromptPreview } from './prompts.model';
 
 // --- Prompt Options Schema ---
 const PromptOptionsSchema = Type.Intersect(

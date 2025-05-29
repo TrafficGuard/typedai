@@ -1,7 +1,7 @@
 import { llms } from '#agent/agentContextLocalStorage';
 import type { FunctionSchema } from '#functionSchema/functions';
-import type { AgentContext } from '#shared/model/agent.model';
-import type { FunctionCall } from '#shared/model/llm.model';
+import type { AgentContext } from '#shared/agent/agent.model';
+import type { FunctionCall } from '#shared/llm/llm.model';
 
 export const FUNCTION_OUTPUT_SUMMARIZE_MIN_LENGTH = 2000;
 export const FUNCTION_OUTPUT_THRESHOLD = 1000;

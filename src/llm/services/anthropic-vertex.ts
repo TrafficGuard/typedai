@@ -1,8 +1,8 @@
 import { type GoogleVertexAnthropicProvider, createVertexAnthropic } from '@ai-sdk/google-vertex/anthropic';
 import { AiLLM } from '#llm/services/ai-llm';
 import { logger } from '#o11y/logger';
-import type { AgentLLMs } from '#shared/model/agent.model';
-import type { LLM } from '#shared/model/llm.model';
+import type { AgentLLMs } from '#shared/agent/agent.model';
+import type { LLM } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 import { envVar } from '#utils/env-var';
 import type { LlmCostFunction } from '../base-llm';

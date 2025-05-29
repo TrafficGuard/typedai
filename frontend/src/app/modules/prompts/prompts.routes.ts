@@ -6,8 +6,8 @@ import { PromptsComponent } from './prompts.component';
 import { PromptListComponent } from './list/prompt-list.component';
 import { PromptFormComponent } from './form/prompt-form.component';
 import { PromptsService } from './prompts.service';
-import type { Prompt } from '#shared/model/prompts.model';
-import type { PromptSchemaModel } from '#shared/schemas/prompts.schema';
+import type { Prompt } from '#shared/prompts/prompts.model';
+import type { PromptSchemaModel } from '#shared/prompts/prompts.schema';
 import { PROMPTS_ROUTES } from './prompt.paths';
 
 

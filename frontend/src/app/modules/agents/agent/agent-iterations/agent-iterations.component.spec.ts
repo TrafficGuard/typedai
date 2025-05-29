@@ -4,7 +4,7 @@ import { ComponentFixture, TestBed, waitForAsync, fakeAsync, tick } from '@angul
 import { of, throwError } from 'rxjs';
 import { AgentIterationsComponent } from './agent-iterations.component';
 import { AgentService } from '../../agent.service';
-import { AutonomousIteration } from '#shared/model/agent.model';
+import { AutonomousIteration } from '#shared/agent/agent.model';
 import { CommonModule } from '@angular/common';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -14,7 +14,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTabsModule } from '@angular/material/tabs';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
-import { FunctionCallResult } from "#shared/model/llm.model";
+import { FunctionCallResult } from "#shared/llm/llm.model";
 
 // Mock AgentService
 class MockAgentService {

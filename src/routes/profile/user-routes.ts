@@ -1,8 +1,8 @@
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { sendBadRequest } from '#fastify/responses';
 import { logger } from '#o11y/logger';
-import { USER_API } from '#shared/api/user.api';
-import type { User, UserProfile, UserProfileUpdate } from '#shared/model/user.model';
+import { USER_API } from '#shared/user/user.api';
+import type { User, UserProfile, UserProfileUpdate } from '#shared/user/user.model';
 import { currentUser } from '#user/userContext';
 
 export async function userRoutes(fastify: AppFastifyInstance) {

@@ -1,5 +1,5 @@
 import { defineRoute } from '#shared/api-definitions';
-import { ApiNullResponseSchema } from '#shared/schemas/common.schema';
+import { ApiNullResponseSchema } from '#shared/common.schema';
 import {
 	PromptCreateSchema,
 	PromptGenerateFromMessagesPayloadSchema,
@@ -10,7 +10,7 @@ import {
 	PromptRevisionParamsSchema,
 	PromptSchema,
 	PromptUpdateSchema,
-} from '../schemas/prompts.schema';
+} from './prompts.schema';
 
 const PROMPTS_BASE = '/api/prompts';
 

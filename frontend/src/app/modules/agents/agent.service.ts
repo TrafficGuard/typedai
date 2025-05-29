@@ -10,11 +10,11 @@ import {
 } from 'rxjs';
 import { callApiRoute } from '../../core/api-route';
 import { createApiListState, createApiEntityState } from '../../core/api-state.types';
-import { AGENT_API } from '#shared/api/agent.api';
-import type { AgentContextPreview, AutonomousIteration, AutonomousIterationSummary } from '#shared/model/agent.model';
-import { LlmCall, LlmCallSummary } from '#shared/model/llmCall.model';
+import { AGENT_API } from '#shared/agent/agent.api';
+import type { AgentContextPreview, AutonomousIteration, AutonomousIterationSummary } from '#shared/agent/agent.model';
+import { LlmCall, LlmCallSummary } from '#shared/llmCall/llmCall.model';
 import { Pagination } from "../../core/types";
-import { AgentContextApi, AgentStartRequestSchema } from '#shared/schemas/agent.schema';
+import { AgentContextApi, AgentStartRequestSchema } from '#shared/agent/agent.schema';
 import { Static } from '@sinclair/typebox';
 
 export type AgentStartRequestData = Static<typeof AgentStartRequestSchema>;

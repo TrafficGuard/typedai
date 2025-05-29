@@ -21,9 +21,9 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { CdkTextareaAutosize } from '@angular/cdk/text-field';
 import { PromptsService } from '../prompts.service';
 import { LlmService, LLM as AppLLM } from '../../llm.service'; // Renamed LLM to AppLLM to avoid conflict
-import type { Prompt } from '#shared/model/prompts.model';
-import type { LlmMessage, CallSettings, UserContentExt, TextPart, ImagePartExt, FilePartExt } from '#shared/model/llm.model';
-import type { PromptCreatePayload, PromptUpdatePayload, PromptSchemaModel, PromptGenerateResponseSchemaModel } from '#shared/schemas/prompts.schema';
+import type { Prompt } from '#shared/prompts/prompts.model';
+import type { LlmMessage, CallSettings, UserContentExt, TextPart, ImagePartExt, FilePartExt } from '#shared/llm/llm.model';
+import type { PromptCreatePayload, PromptUpdatePayload, PromptSchemaModel, PromptGenerateResponseSchemaModel } from '#shared/prompts/prompts.schema';
 import type { Attachment } from '../message.types';
 import { attachmentsAndTextToUserContentExt, userContentExtToAttachmentsAndText, fileToAttachment } from '../messageUtil';
 
@@ -180,7 +180,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
                 console.error('Failed to load LLMs', state.error);
                 this.availableModels = [];
             }
-            
+
             // Process route data after LLM state is available
             this.processRouteData();
         });

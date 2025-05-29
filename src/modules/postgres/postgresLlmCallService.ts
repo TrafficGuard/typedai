@@ -7,8 +7,8 @@ import type { CreateLlmRequest } from '#llm/llmCallService/llmCall';
 import type { LlmCallService } from '#llm/llmCallService/llmCallService';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import type { CallSettings, LlmCallMessageSummaryPart, LlmMessage } from '#shared/model/llm.model';
-import type { LlmCall, LlmCallSummary } from '#shared/model/llmCall.model';
+import type { CallSettings, LlmCallMessageSummaryPart, LlmMessage } from '#shared/llm/llm.model';
+import type { LlmCall, LlmCallSummary } from '#shared/llmCall/llmCall.model';
 import { currentUser } from '#user/userContext';
 import { type LlmCallsTable, db } from './db';
 

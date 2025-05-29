@@ -12,10 +12,11 @@ import type {
 	UpdateDesignInstructionsData,
 	UpdateDesignPromptData,
 	UpdateSelectionPromptData,
-} from '#shared/model/codeTask.model';
-import type { SelectedFile } from '#shared/model/files.model';
-import type { FileSystemNode } from '#shared/services/fileSystemService';
-import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
+} from '#shared/codeTask/codeTask.model';
+import type { FileSystemNode } from '#shared/files/fileSystemService';
+import type { SelectedFile } from '#shared/files/files.model';
+
+import type { AreTypesFullyCompatible } from '#shared/typeUtils';
 
 // --- CodeTaskStatus Schema ---
 // Assuming CodeTaskStatus is a union of string literals as defined in codeTask.model.ts

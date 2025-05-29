@@ -8,7 +8,7 @@ import { signal, WritableSignal } from '@angular/core';
 import { AgentComponent } from './agent.component';
 import { AgentService } from '../agent.service';
 import { ApiEntityState, createApiEntityState } from '../../../../core/api-state.types'; // Adjusted path
-import { AgentContextApi } from '#shared/schemas/agent.schema';
+import { AgentContextApi } from '#shared/agent/agent.schema';
 
 // Mocks
 class MockAgentService {

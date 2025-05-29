@@ -2,8 +2,8 @@ import { type Static, Type } from '@sinclair/typebox';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { CodeTaskServiceImpl } from '#codeTask/codeTaskServiceImpl';
 import { sendNotFound } from '#fastify/responses';
-import type { CodeTaskPresetConfig, CommitChangesData, CreateCodeTaskData, UpdateCodeReviewData, UpdateCodeTaskData } from '#shared/model/codeTask.model';
-import { CodeTaskStatusApiSchema } from '#shared/schemas/codeTask.schema';
+import type { CodeTaskPresetConfig, CommitChangesData, CreateCodeTaskData, UpdateCodeReviewData, UpdateCodeTaskData } from '#shared/codeTask/codeTask.model';
+import { CodeTaskStatusApiSchema } from '#shared/codeTask/codeTask.schema';
 import { currentUser } from '#user/userContext';
 
 const ErrorResponseSchema = Type.Object({

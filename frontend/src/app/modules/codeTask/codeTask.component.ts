@@ -24,8 +24,8 @@ import {
   MatExpansionPanelDescription,
   MatExpansionPanelHeader, MatExpansionPanelTitle
 } from "@angular/material/expansion";
-import {FileSystemNode} from "#shared/services/fileSystemService";
-import {CodeTask} from "#shared/model/codeTask.model";
+import {FileSystemNode} from "#shared/files/fileSystemService";
+import {CodeTask} from "#shared/codeTask/codeTask.model";
 
 @Component({
   selector: 'codeTask-detail',

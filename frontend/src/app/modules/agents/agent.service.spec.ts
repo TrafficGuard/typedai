@@ -1,13 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { AgentService, AgentStartRequestData } from './agent.service'; // Added AgentStartRequestData
-import { AutonomousIteration } from '#shared/model/agent.model';
-import { AgentContextApi, AgentContextSchema, AgentIdParamsSchema, AgentStartRequestSchema } from '#shared/schemas/agent.schema'; // Added AgentStartRequestSchema
-import { AGENT_API } from '#shared/api/agent.api';
-import { LlmCall } from "#shared/model/llmCall.model";
-import { LlmMessagesSchema } from '#shared/schemas/llm.schema';
+import { AutonomousIteration } from '#shared/agent/agent.model';
+import { AgentContextApi, AgentContextSchema, AgentIdParamsSchema, AgentStartRequestSchema } from '#shared/agent/agent.schema'; // Added AgentStartRequestSchema
+import { AGENT_API } from '#shared/agent/agent.api';
+import { LlmCall } from "#shared/llmCall/llmCall.model";
+import { LlmMessagesSchema } from '#shared/llm/llm.schema';
 import { Static, Type } from '@sinclair/typebox';
-import { ApiNullResponseSchema } from '#shared/schemas/common.schema';
+import { ApiNullResponseSchema } from '#shared/common.schema';
 import { RouteDefinition } from '#shared/api-definitions';
 import { of, throwError } from 'rxjs';
 import { fakeAsync, tick } from '@angular/core/testing'; // Added fakeAsync and tick for more control if needed, though direct checks might suffice.

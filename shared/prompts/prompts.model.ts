@@ -1,4 +1,4 @@
-import type { CallSettings, LlmMessage } from '#shared/model/llm.model';
+import type { CallSettings, LlmMessage } from '#shared/llm/llm.model';
 
 /**
  * Prompts make up the users Prompt library, to test, evaluate and refine the LLM prompts.

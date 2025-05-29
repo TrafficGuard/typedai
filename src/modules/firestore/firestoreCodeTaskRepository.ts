@@ -4,7 +4,7 @@ import { span } from '#o11y/trace';
 import type { CodeTaskRepository } from '../../codeTask/codeTaskRepository';
 
 import { USERS_COLLECTION } from '#firestore/firestoreUserService';
-import type { CodeTask, CodeTaskPreset, UpdateCodeTaskData } from '#shared/model/codeTask.model';
+import type { CodeTask, CodeTaskPreset, UpdateCodeTaskData } from '#shared/codeTask/codeTask.model';
 import { firestoreDb } from './firestore';
 
 const CODE_TASKS_COLLECTION = 'codeTasks';

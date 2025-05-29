@@ -1,4 +1,4 @@
-import type { CodeReviewConfig } from '#shared/model/codeReview.model';
+import type { CodeReviewConfig } from '#shared/codeReview/codeReview.model';
 import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
 import type { CodeReviewFingerprintCache } from '#swe/codeReview/codeReviewTaskModel';
 import { EMPTY_CACHE } from '#swe/codeReview/codeReviewTaskModel';

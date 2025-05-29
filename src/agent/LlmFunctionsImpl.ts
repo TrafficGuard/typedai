@@ -3,9 +3,9 @@ import { functionFactory } from '#functionSchema/functionDecorators';
 import { FUNC_SEP, type FunctionSchema, getFunctionSchemas } from '#functionSchema/functions';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { logger } from '#o11y/logger';
-import type { LlmFunctions } from '#shared/model/agent.model';
-import type { FunctionCall } from '#shared/model/llm.model';
-import { type ToolType, toolType } from '#shared/services/functions';
+import type { LlmFunctions } from '#shared/agent/agent.model';
+import { type ToolType, toolType } from '#shared/agent/functions';
+import type { FunctionCall } from '#shared/llm/llm.model';
 
 /**
  * Holds the instances of the classes with function callable methods.

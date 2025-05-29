@@ -7,8 +7,8 @@ import { agentStorageDir } from '#app/appDirs';
 import type { CreateLlmRequest } from '#llm/llmCallService/llmCall';
 import type { LlmCallService } from '#llm/llmCallService/llmCallService';
 import { logger } from '#o11y/logger';
-import type { FilePartExt, ImagePartExt, LlmCallMessageSummaryPart, LlmMessage } from '#shared/model/llm.model';
-import type { LlmCall, LlmCallSummary, LlmRequest } from '#shared/model/llmCall.model';
+import type { FilePartExt, ImagePartExt, LlmCallMessageSummaryPart, LlmMessage } from '#shared/llm/llm.model';
+import type { LlmCall, LlmCallSummary, LlmRequest } from '#shared/llmCall/llmCall.model';
 import { currentUser } from '#user/userContext';
 import { firestoreDb } from './firestore';
 

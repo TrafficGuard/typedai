@@ -12,7 +12,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatInputModule } from '@angular/material/input';
 import { Subject } from 'rxjs';
 import { debounceTime, startWith, takeUntil } from 'rxjs/operators';
-import {FileSystemNode} from "#shared/services/fileSystemService";
+import {FileSystemNode} from "#shared/files/fileSystemService";
 
 @Component({
   selector: 'app-codeTask-file-tree-select-dialog',

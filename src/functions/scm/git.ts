@@ -4,8 +4,8 @@ import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import { execCmd, execCommand, failOnError } from '#utils/exec';
 
-import type { IFileSystemService } from '#shared/services/fileSystemService';
-import type { Commit, VersionControlSystem } from '#shared/services/versionControlSystem';
+import type { IFileSystemService } from '#shared/files/fileSystemService';
+import type { Commit, VersionControlSystem } from '#shared/scm/versionControlSystem';
 
 @funcClass(__filename)
 export class Git implements VersionControlSystem {

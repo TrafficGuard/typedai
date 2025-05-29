@@ -24,8 +24,8 @@ import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import type { Chat, ChatMessage, NEW_CHAT_ID } from '../chat.types';
 import type { LLM } from '../../llm.service';
-import type { UserContentExt } from '#shared/model/llm.model';
-import {UserProfile} from "#shared/model/user.model";
+import type { UserContentExt } from '#shared/llm/llm.model';
+import {UserProfile} from "#shared/user/user.model";
 
 
 const mockChat: Chat = {

@@ -1,5 +1,7 @@
 import { Static, Type } from '@sinclair/typebox';
 import { defineRoute } from '#shared/api-definitions';
+import { ApiNullResponseSchema } from '../common.schema';
+import { LlmCallSchema, LlmCallSummarySchema } from '../llmCall/llmCall.schema';
 import {
 	AgentActionBaseSchema,
 	AgentActionByIdSchema,
@@ -14,9 +16,7 @@ import {
 	AgentUpdateFunctionsRequestSchema,
 	AutonomousIterationSchema,
 	AutonomousIterationSummarySchema,
-} from '../schemas/agent.schema';
-import { ApiNullResponseSchema } from '../schemas/common.schema';
-import { LlmCallSchema, LlmCallSummarySchema } from '../schemas/llmCall.schema';
+} from './agent.schema';
 
 const AGENT_BASE_V1 = '/api/agent/v1';
 

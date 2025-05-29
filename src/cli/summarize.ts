@@ -7,7 +7,7 @@ import { initApplicationContext } from '#app/applicationContext';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { SummarizerAgent } from '#functions/text/summarizer';
 import { defaultLLMs } from '#llm/services/defaultLlms';
-import type { AgentLLMs } from '#shared/model/agent.model';
+import type { AgentLLMs } from '#shared/agent/agent.model';
 import { parseProcessArgs, saveAgentId } from './cli';
 
 async function main() {

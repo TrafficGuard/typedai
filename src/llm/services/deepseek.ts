@@ -1,6 +1,6 @@
 import { type DeepSeekProvider, createDeepSeek } from '@ai-sdk/deepseek';
 import type { LlmCostFunction } from '#llm/base-llm';
-import type { LLM } from '#shared/model/llm.model';
+import type { LLM } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 import { AiLLM } from './ai-llm';
 

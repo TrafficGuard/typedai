@@ -1,6 +1,6 @@
 import * as nodePath from 'node:path';
 import { logger } from '#o11y/logger';
-import type { IFileSystemService } from '#shared/services/fileSystemService';
+import type { IFileSystemService } from '#shared/files/fileSystemService';
 import { execCommand } from '#utils/exec';
 import type { EditSession } from '../editSession';
 import type { EditHook, HookResult } from './editHook';

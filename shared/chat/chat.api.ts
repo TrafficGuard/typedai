@@ -8,9 +8,9 @@ import {
 	ChatParamsSchema,
 	ChatUpdateDetailsSchema,
 	RegenerateMessageSchema,
-} from '#shared/schemas/chat.schema';
-import { ApiNullResponseSchema } from '#shared/schemas/common.schema';
-import { LlmMessageSchema } from '#shared/schemas/llm.schema';
+} from '#shared/chat/chat.schema';
+import { ApiNullResponseSchema } from '#shared/common.schema';
+import { LlmMessageSchema } from '#shared/llm/llm.schema';
 
 const CHAT_BASE = '/api/chat';
 const CHATS_BASE = '/api/chats';

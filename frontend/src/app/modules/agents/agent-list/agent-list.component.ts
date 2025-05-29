@@ -31,7 +31,7 @@ import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { AgentService } from '../agent.service';
 import { debounceTime, switchMap, finalize } from 'rxjs';
 import { FormsModule, ReactiveFormsModule, UntypedFormBuilder, UntypedFormControl } from '@angular/forms';
-import {type AgentContextPreview, AgentTag, AgentType} from '#shared/model/agent.model';
+import {type AgentContextPreview, AgentTag, AgentType} from '#shared/agent/agent.model';
 import { AGENT_ROUTE_DEFINITIONS } from '../agent.routes';
 import { Pagination } from '../../../core/types';
 

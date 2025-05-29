@@ -4,9 +4,9 @@ import type { CreateLlmRequest } from '#llm/llmCallService/llmCall';
 import { runLlmCallServiceTests } from '#llm/llmCallService/llmCallService.test'; // Added import
 import { firestoreDb } from '#modules/firestore/firestore';
 import { FirestoreLlmCallService } from '#modules/firestore/firestoreLlmCallService';
-import { type LlmMessage, system, user } from '#shared/model/llm.model';
-import type { LlmCall } from '#shared/model/llmCall.model';
-import type { User } from '#shared/model/user.model';
+import { type LlmMessage, system, user } from '#shared/llm/llm.model';
+import type { LlmCall } from '#shared/llmCall/llmCall.model';
+import type { User } from '#shared/user/user.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 
 // Firestore document size limit (slightly under 1 MiB)

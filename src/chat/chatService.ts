@@ -1,4 +1,4 @@
-import type { Chat, ChatList } from '#shared/model/chat.model';
+import type { Chat, ChatList } from '#shared/chat/chat.model';
 
 /**
  * The service only handles tne persistence of the Chat objects.

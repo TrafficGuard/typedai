@@ -14,11 +14,11 @@ import { PublicWeb } from '#functions/web/web';
 import { ClaudeLLMs } from '#llm/services/anthropic';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
-import type { AgentLLMs } from '#shared/model/agent.model';
+import type { AgentLLMs } from '#shared/agent/agent.model';
+import { LlmCall } from '#shared/llmCall/llmCall.model';
 import { SWEBenchAgent, type SWEInstance } from '#swe/SWEBenchAgent';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { sleep } from '#utils/async-utils';
-import { LlmCall } from '../../shared/model/llmCall.model';
 import { registerErrorHandlers } from '../errorHandlers';
 import { parseProcessArgs, saveAgentId } from './cli';
 

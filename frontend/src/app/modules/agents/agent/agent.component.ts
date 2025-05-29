@@ -5,7 +5,7 @@ import { MatTabsModule } from '@angular/material/tabs';
 // MatCardModule, MatFormFieldModule etc. are not directly used by AgentComponent's template, but by its children.
 // Children will import them.
 import { CommonModule } from '@angular/common';
-import { AgentContextApi } from '#shared/schemas/agent.schema';
+import { AgentContextApi } from '#shared/agent/agent.schema';
 import { AgentDetailsComponent } from './agent-details/agent-details.component';
 import { AgentMemoryComponent } from './agent-memory/agent-memory.component';
 import { AgentFunctionCallsComponent } from './agent-function-calls/agent-function-calls.component';
@@ -43,7 +43,7 @@ export class AgentComponent {
     agentDetails = computed(() => {
         const state = this.agentService.selectedAgentDetailsState();
         console.log(`AgentComponent: Computed (State Sync) - agentService.selectedAgentDetailsState() changed. Status: ${state.status}`);
-        
+
         if (state.status === 'success') {
             const apiDetails = state.data;
             const details = {...apiDetails};
@@ -58,7 +58,7 @@ export class AgentComponent {
             console.log('AgentComponent: Computed (State Sync) - Agent Details Processed and Set from Service State. New local agentDetails:', JSON.stringify(details));
             return details;
         }
-        
+
         console.log(`AgentComponent: Computed (State Sync) - Agent service state is '${state.status}'. Returning null.`);
         return null;
     });

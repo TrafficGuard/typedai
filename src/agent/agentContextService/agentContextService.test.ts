@@ -21,10 +21,10 @@ import {
 	AgentType,
 	isExecuting,
 	// TaskLevel, // Not explicitly used in AgentContext, but used in AgentLLMs
-} from '#shared/model/agent.model';
-import type { AutonomousIteration } from '#shared/model/agent.model';
-import type { FunctionCallResult, GenerationStats } from '#shared/model/llm.model';
-import type { ChatSettings, LLMServicesConfig, User } from '#shared/model/user.model';
+} from '#shared/agent/agent.model';
+import type { AutonomousIteration } from '#shared/agent/agent.model';
+import type { FunctionCallResult, GenerationStats } from '#shared/llm/llm.model';
+import type { ChatSettings, LLMServicesConfig, User } from '#shared/user/user.model';
 import * as userContext from '#user/userContext';
 
 // These tests must be implementation independent so we can ensure the same

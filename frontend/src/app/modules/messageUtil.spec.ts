@@ -6,7 +6,7 @@ import {
     userContentExtToAttachmentsAndText,
 } from './messageUtil';
 import type { Attachment } from './message.types';
-import type { UserContentExt, TextPart, ImagePartExt, FilePartExt } from '#shared/model/llm.model';
+import type { UserContentExt, TextPart, ImagePartExt, FilePartExt } from '#shared/llm/llm.model';
 
 // Helper to create a mock File object
 const createMockFile = (name: string, type: string, size: number, contentChunks: string[] = ['']): File => {

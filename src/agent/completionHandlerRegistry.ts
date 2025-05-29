@@ -1,7 +1,7 @@
 import { ConsoleCompletedHandler } from '#agent/autonomous/agentCompletion';
 import { SlackChatBotService } from '#modules/slack/slackChatBotService';
 import { logger } from '#o11y/logger';
-import type { AgentCompleted } from '#shared/model/agent.model';
+import type { AgentCompleted } from '#shared/agent/agent.model';
 
 // Use a Map for easier addition/removal during tests
 let handlersMap = new Map<string, new () => AgentCompleted>();

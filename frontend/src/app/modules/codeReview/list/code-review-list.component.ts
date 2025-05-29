@@ -12,7 +12,7 @@ import { MatTableModule } from '@angular/material/table';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatProgressBarModule } from "@angular/material/progress-bar";
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { CodeReviewConfig } from "#shared/model/codeReview.model";
+import { CodeReviewConfig } from "#shared/codeReview/codeReview.model";
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({

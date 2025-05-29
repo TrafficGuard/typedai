@@ -1,8 +1,7 @@
 import { type Static, Type } from '@sinclair/typebox';
-import { CHAT_PREVIEW_KEYS, type Chat, type ChatList, type ChatPreview } from '#shared/model/chat.model';
-import type { ChangePropertyType } from '#shared/typeUtils';
-import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
-import { CallSettingsSchema, LlmMessagesSchema, type LlmMessagesSchemaModel, UserContentSchema } from './llm.schema';
+import { CHAT_PREVIEW_KEYS, type Chat, type ChatList, type ChatPreview } from '#shared/chat/chat.model';
+import type { AreTypesFullyCompatible, ChangePropertyType } from '#shared/typeUtils';
+import { CallSettingsSchema, LlmMessagesSchema, type LlmMessagesSchemaModel, UserContentSchema } from '../llm/llm.schema';
 
 //#region == Chat database model schemas ====
 

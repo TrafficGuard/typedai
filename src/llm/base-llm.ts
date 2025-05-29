@@ -1,6 +1,6 @@
 import { type GenerateTextResult, StreamTextResult, type TextStreamPart } from 'ai';
 import { countTokens } from '#llm/tokens';
-import type { AgentContext } from '#shared/model/agent.model';
+import type { AgentContext } from '#shared/agent/agent.model';
 import {
 	type GenerateJsonOptions,
 	type GenerateTextOptions,
@@ -17,7 +17,7 @@ import {
 	messageText,
 	system,
 	user,
-} from '#shared/model/llm.model';
+} from '#shared/llm/llm.model';
 // Import extractReasoningAndJson, extractJsonResult is still used by generateJson
 import { extractJsonResult, extractReasoningAndJson, extractTag } from './responseParsers';
 

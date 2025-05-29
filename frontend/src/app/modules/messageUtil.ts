@@ -4,7 +4,7 @@ import type {
     TextPart,
     ImagePartExt,
     FilePartExt,
-} from '#shared/model/llm.model';
+} from '#shared/llm/llm.model';
 
 // Helper function to convert File to base64 string (extracting only the data part)
 async function fileToBase64(file: File): Promise<string> {

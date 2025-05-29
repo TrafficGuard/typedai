@@ -12,7 +12,7 @@ import { func, funcClass } from '#functionSchema/functionDecorators';
 import { GitLab, type GitLabConfig } from '#functions/scm/gitlab';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import type { CodeReviewConfig } from '#shared/model/codeReview.model';
+import type { CodeReviewConfig } from '#shared/codeReview/codeReview.model';
 import { addCodeWithLineNumbers, generateReviewTaskFingerprint, reviewDiff, shouldApplyCodeReview } from '#swe/codeReview/codeReviewCommon';
 import type { CodeReviewFingerprintCache, CodeReviewTask } from '#swe/codeReview/codeReviewTaskModel';
 import { functionConfig } from '#user/userContext';

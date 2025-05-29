@@ -6,10 +6,10 @@ import { FileSystemService } from '#functions/storage/fileSystemService';
 import { deserializeLLMs } from '#llm/llmFactory';
 // import { defaultLLMs } from '#llm/services/defaultLlms'; // defaultLLMs is not used
 import { logger } from '#o11y/logger';
-import type { AgentCompleted, AgentContext, AgentLLMs, AgentRunningState, AgentType, AutonomousSubType } from '#shared/model/agent.model';
-import type { FunctionCall, FunctionCallResult, LlmMessage } from '#shared/model/llm.model';
-import type { User } from '#shared/model/user.model';
-import type { AgentContextApi } from '#shared/schemas/agent.schema';
+import type { AgentCompleted, AgentContext, AgentLLMs, AgentRunningState, AgentType, AutonomousSubType } from '#shared/agent/agent.model';
+import type { AgentContextApi } from '#shared/agent/agent.schema';
+import type { FunctionCall, FunctionCallResult, LlmMessage } from '#shared/llm/llm.model';
+import type { User } from '#shared/user/user.model';
 
 export function serializeContext(context: AgentContext): AgentContextApi {
 	return {

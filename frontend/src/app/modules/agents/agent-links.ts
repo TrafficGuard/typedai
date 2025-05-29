@@ -1,6 +1,6 @@
-import {AgentContextApi} from "#shared/schemas/agent.schema";
+import {AgentContextApi} from "#shared/agent/agent.schema";
 import {environment} from "../../../environments/environment";
-import type {LlmCall} from "#shared/model/llmCall.model";
+import type {LlmCall} from "#shared/llmCall/llmCall.model";
 
 /**
  * Interface for generating URLs to the observability services for an agent

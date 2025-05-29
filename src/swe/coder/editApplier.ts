@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import { logger } from '#o11y/logger';
-import type { IFileSystemService } from '#shared/services/fileSystemService';
-import type { VersionControlSystem } from '#shared/services/versionControlSystem';
+import type { IFileSystemService } from '#shared/files/fileSystemService';
+import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
 import type { EditBlock } from './coderTypes';
 import { doReplace } from './patchUtils'; // Updated import
 

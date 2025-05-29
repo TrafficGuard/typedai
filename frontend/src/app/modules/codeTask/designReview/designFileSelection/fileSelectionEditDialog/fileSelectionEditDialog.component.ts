@@ -7,7 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { MatSelectModule } from '@angular/material/select';
-import { SelectedFile } from "#shared/model/files.model";
+import { SelectedFile } from "#shared/files/files.model";
 
 export interface FileEditReasonDialogData {
     reason: string;

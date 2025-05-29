@@ -1,6 +1,6 @@
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
-import type { SelectedFile } from '#shared/model/files.model';
+import type { SelectedFile } from '#shared/files/files.model';
 import { selectFilesToEdit } from '#swe/discovery/selectFilesToEdit';
 import { getProjectInfo } from '#swe/projectDetection';
 

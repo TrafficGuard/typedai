@@ -6,7 +6,7 @@ import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
 import { CodeTaskServiceClient } from '../codeTask.service';
-import { CodeTask } from "#shared/model/codeTask.model";
+import { CodeTask } from "#shared/codeTask/codeTask.model";
 
 @Component({
 	selector: 'codeTaskList',

@@ -24,7 +24,7 @@ import {
 import { toSignal, takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import {Chat, ChatMessage, NEW_CHAT_ID} from 'app/modules/chat/chat.types';
 import type { Attachment } from 'app/modules/message.types';
-import { UserContentExt } from '#shared/model/llm.model';
+import { UserContentExt } from '#shared/llm/llm.model';
 import { fileToAttachment, attachmentsAndTextToUserContentExt, userContentExtToAttachmentsAndText } from '../../messageUtil';
 import {MatButtonModule} from '@angular/material/button';
 import {MatFormFieldModule} from '@angular/material/form-field';
@@ -52,7 +52,7 @@ import {FuseConfirmationService} from "../../../../@fuse/services/confirmation";
 import {ClipboardModule} from "@angular/cdk/clipboard";
 import { SafeHtmlPipe } from 'app/core/pipes/safe-html.pipe';
 import {MatProgressSpinnerModule} from "@angular/material/progress-spinner";
-import {UserProfile} from "#shared/model/user.model";
+import {UserProfile} from "#shared/user/user.model";
 
 @Component({
     selector: 'chat-conversation',

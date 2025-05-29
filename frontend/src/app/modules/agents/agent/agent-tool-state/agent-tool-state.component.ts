@@ -2,8 +2,8 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTableModule } from '@angular/material/table';
-import { AgentContextApi } from '#shared/schemas/agent.schema';
-import { FileMetadata } from '#shared/model/files.model';
+import { AgentContextApi } from '#shared/agent/agent.schema';
+import { FileMetadata } from '#shared/files/files.model';
 // AgentService is not used in this component's logic after refactor
 // import { AgentService } from '../../services/agent.service';
 

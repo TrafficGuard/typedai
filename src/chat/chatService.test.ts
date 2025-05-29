@@ -1,8 +1,8 @@
 import { expect } from 'chai';
 import type { ChatService } from '#chat/chatService';
 import { SINGLE_USER_ID } from '#modules/memory/inMemoryUserService';
-import type { Chat } from '#shared/model/chat.model';
-import type { User } from '#shared/model/user.model';
+import type { Chat } from '#shared/chat/chat.model';
+import type { User } from '#shared/user/user.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { runWithUser } from '#user/userContext';
 

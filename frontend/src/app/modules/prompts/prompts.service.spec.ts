@@ -1,9 +1,9 @@
 import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { PromptsService } from './prompts.service';
-import { PROMPT_API } from '#shared/api/prompts.api';
-import type { Prompt, PromptPreview } from '#shared/model/prompts.model';
-import type { PromptListSchemaModel, PromptSchemaModel, PromptCreatePayload, PromptUpdatePayload } from '#shared/schemas/prompts.schema';
+import { PROMPT_API } from '#shared/prompts/prompts.api';
+import type { Prompt, PromptPreview } from '#shared/prompts/prompts.model';
+import type { PromptListSchemaModel, PromptSchemaModel, PromptCreatePayload, PromptUpdatePayload } from '#shared/prompts/prompts.schema';
 import { signal } from '@angular/core';
 import { of } from 'rxjs';
 

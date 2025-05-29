@@ -1,7 +1,7 @@
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
-import type { CodeTask, UpdateCodeTaskData } from '#shared/model/codeTask.model';
+import type { CodeTask, UpdateCodeTaskData } from '#shared/codeTask/codeTask.model';
 import type { CodeTaskRepository } from './codeTaskRepository';
 import { CodeTaskServiceImpl } from './codeTaskServiceImpl';
 

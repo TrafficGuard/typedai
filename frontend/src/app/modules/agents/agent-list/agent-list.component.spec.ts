@@ -3,7 +3,7 @@ import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { of, Observable } from 'rxjs';
 import { AgentListComponent } from './agent-list.component';
 import { AgentService } from '../agent.service';
-import {type AgentContextPreview, AgentRunningState, AgentType} from '#shared/model/agent.model';
+import {type AgentContextPreview, AgentRunningState, AgentType} from '#shared/agent/agent.model';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { signal, WritableSignal, effect } from '@angular/core';
 import { RouterTestingModule } from '@angular/router/testing';

@@ -1,5 +1,5 @@
-import { AgentContext } from '#shared/model/agent.model';
-import type { LlmMessage } from '#shared/model/llm.model';
+import { AgentContext } from '#shared/agent/agent.model';
+import type { LlmMessage } from '#shared/llm/llm.model';
 
 //#region == Database models ====
 

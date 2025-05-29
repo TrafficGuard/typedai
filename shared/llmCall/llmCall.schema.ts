@@ -1,7 +1,7 @@
 import { type Static, Type } from '@sinclair/typebox';
-import type { LlmCall, LlmCallSummary, LlmRequest } from '../model/llmCall.model';
-import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
-import { CallSettingsSchema, LlmCallMessageSummaryPartSchema, LlmMessagesSchema } from './llm.schema';
+import type { AreTypesFullyCompatible } from '#shared/typeUtils';
+import { CallSettingsSchema, LlmCallMessageSummaryPartSchema, LlmMessagesSchema } from '../llm/llm.schema';
+import type { LlmCall, LlmCallSummary, LlmRequest } from './llmCall.model';
 
 // Schema for LlmRequest, which LlmCall extends
 // Not exported as it's a base for LlmCallSchema

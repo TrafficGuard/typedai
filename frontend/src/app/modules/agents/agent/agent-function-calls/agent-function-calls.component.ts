@@ -1,5 +1,5 @@
 import { Component, input } from '@angular/core';
-import { AgentContextApi } from '#shared/schemas/agent.schema';
+import { AgentContextApi } from '#shared/agent/agent.schema';
 import { CommonModule, KeyValuePipe } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatExpansionModule } from '@angular/material/expansion';
@@ -11,7 +11,7 @@ import { MatExpansionModule } from '@angular/material/expansion';
             @for (invoked of agentDetails()?.functionCallHistory?.slice().reverse(); track invoked.function_name + $index) {
                 <div class="pb-8">
                     <div class="mb-3 font-medium text-xl">{{ invoked.function_name }}</div>
-                
+
                     @for (param of invoked.parameters | keyvalue; track param.key) {
                         <div>
                             <strong>{{ param.key }}:</strong>

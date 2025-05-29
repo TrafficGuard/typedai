@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { CreateLlmRequest } from '#llm/llmCallService/llmCall';
 import { CallerId, type LlmCallService } from '#llm/llmCallService/llmCallService';
-import type { LlmCallMessageSummaryPart, LlmMessage } from '#shared/model/llm.model';
-import { type LlmCall, type LlmCallSummary, LlmRequest } from '#shared/model/llmCall.model';
+import type { LlmCallMessageSummaryPart, LlmMessage } from '#shared/llm/llm.model';
+import { type LlmCall, type LlmCallSummary, LlmRequest } from '#shared/llmCall/llmCall.model';
 
 function _createLlmCallMessageSummaries(messages: LlmMessage[] | undefined): LlmCallMessageSummaryPart[] {
 	if (!messages || messages.length === 0) return [];

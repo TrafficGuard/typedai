@@ -34,8 +34,8 @@ import {
 	messageText,
 	// Removed RenamedAiFilePart and RenamedAiImagePart imports from llm.model.ts
 	// as AiFilePart and AiImagePart are already imported directly from 'ai' below.
-} from '#shared/model/llm.model';
-import type { LlmCall } from '#shared/model/llmCall.model';
+} from '#shared/llm/llm.model';
+import type { LlmCall } from '#shared/llmCall/llmCall.model';
 import { errorToString } from '#utils/errors';
 
 // Helper to convert DataContent | URL to string for our UI-facing models

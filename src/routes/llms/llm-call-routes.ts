@@ -2,8 +2,8 @@ import { Type } from '@sinclair/typebox';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send, sendNotFound } from '#fastify/index';
 import { logger } from '#o11y/logger';
-import { AGENT_API } from '#shared/api/agent.api';
-import type { LlmCall, LlmCallSummary } from '#shared/model/llmCall.model';
+import { AGENT_API } from '#shared/agent/agent.api';
+import type { LlmCall, LlmCallSummary } from '#shared/llmCall/llmCall.model';
 
 const basePath = '/api/llms'; // This might be '/api/agent/v1' if all agent related llm calls are there
 // However, AGENT_API.getLlmCallsByAgentId uses /api/llms path.

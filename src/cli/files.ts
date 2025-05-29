@@ -7,7 +7,7 @@ import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { appContext, initApplicationContext } from '#app/applicationContext';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { defaultLLMs } from '#llm/services/defaultLlms';
-import type { AgentLLMs } from '#shared/model/agent.model';
+import type { AgentLLMs } from '#shared/agent/agent.model';
 import { selectFilesAgent } from '#swe/discovery/selectFilesAgentWithSearch';
 import { parseProcessArgs } from './cli';
 

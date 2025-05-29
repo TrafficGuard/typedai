@@ -17,8 +17,8 @@ import { RouterTestingModule } from "@angular/router/testing";
 
 import { CodeReviewEditComponent } from './code-review-edit.component';
 import { CodeReviewServiceClient } from '../code-review.service';
-import { CodeReviewConfig, IExample } from '#shared/model/codeReview.model';
-import { CodeReviewConfigCreate, CodeReviewConfigUpdate } from "#shared/schemas/codeReview.schema";
+import { CodeReviewConfig, IExample } from '#shared/codeReview/codeReview.model';
+import { CodeReviewConfigCreate, CodeReviewConfigUpdate } from "#shared/codeReview/codeReview.schema";
 
 // Mock data
 const mockExample: IExample = { code: 'console.log("hello");', reviewComment: 'Use logger.' };

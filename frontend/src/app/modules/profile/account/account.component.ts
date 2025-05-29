@@ -22,7 +22,7 @@ import { CommonModule } from "@angular/common";
 import {UserService} from "../../../core/user/user.service";
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {ApiListState} from "../../../core/api-state.types";
-import {UserProfile, UserProfileUpdate} from "#shared/model/user.model";
+import {UserProfile, UserProfileUpdate} from "#shared/user/user.model";
 
 
 @Component({

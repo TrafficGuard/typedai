@@ -8,8 +8,9 @@ import {
 	UserProfileKeys,
 	type UserProfileUpdate,
 	UserProfileUpdateKeys,
-} from '#shared/model/user.model';
-import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
+} from '#shared/user/user.model';
+
+import type { AreTypesFullyCompatible } from '#shared/typeUtils';
 
 // -- User model sub-component schemas -- --
 

@@ -17,8 +17,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner'; /
 import { AgentService, AgentStartRequestData } from '../../agent.service'; // Added AgentService and AgentStartRequestData
 import { AsyncState } from 'app/core/api-state.types'; // Added AsyncState
 import { Router } from '@angular/router'; // Added Router
-import { AgentContextApi } from '#shared/schemas/agent.schema';
-import {UserProfile} from "#shared/model/user.model"; // Added AgentContextApi
+import { AgentContextApi } from '#shared/agent/agent.schema';
+import {UserProfile} from "#shared/user/user.model"; // Added AgentContextApi
 
 
 describe('NewAutonomousAgentComponent', () => {

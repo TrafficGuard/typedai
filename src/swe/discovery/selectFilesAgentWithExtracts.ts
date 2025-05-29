@@ -1,8 +1,8 @@
 import path from 'node:path';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
-import type { SelectedFile } from '#shared/model/files.model';
-import { type LlmMessage, type UserContentExt, user } from '#shared/model/llm.model';
+import type { SelectedFile } from '#shared/files/files.model';
+import { type LlmMessage, type UserContentExt, user } from '#shared/llm/llm.model';
 import type { ProjectInfo } from '#swe/projectDetection';
 import { queryWithFileSelection2 } from './selectFilesAgentWithSearch';
 

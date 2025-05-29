@@ -3,7 +3,7 @@ import type { Firestore } from '@google-cloud/firestore';
 import type { ChatService } from '#chat/chatService';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import { CHAT_PREVIEW_KEYS, type Chat, type ChatPreview } from '#shared/model/chat.model';
+import { CHAT_PREVIEW_KEYS, type Chat, type ChatPreview } from '#shared/chat/chat.model';
 import { currentUser } from '#user/userContext';
 import { firestoreDb } from './firestore';
 

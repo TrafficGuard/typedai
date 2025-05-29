@@ -6,7 +6,7 @@ import { appContext } from '#app/applicationContext';
 import type { ApplicationContext } from '#app/applicationTypes';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { InMemoryCodeTaskRepository } from '#modules/memory/inMemoryCodeTaskRepository';
-import type { CodeTask, CodeTaskStatus } from '#shared/model/codeTask.model';
+import type { CodeTask, CodeTaskStatus } from '#shared/codeTask/codeTask.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { CodeTaskCreation } from './codeTaskCreation';
 import type { CodeTaskRepository } from './codeTaskRepository';

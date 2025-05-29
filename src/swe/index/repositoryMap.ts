@@ -4,7 +4,7 @@ import { promisify } from 'node:util';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
-import type { IFileSystemService } from '#shared/services/fileSystemService';
+import type { IFileSystemService } from '#shared/files/fileSystemService';
 import type { ProjectInfo } from '#swe/projectDetection';
 import { type Summary, getTopLevelSummary, loadBuildDocsSummaries, loadBuildDocsSummaries as loadBuildDocsSummariesFromBuilder } from './repoIndexDocBuilder'; // Rename the imported function
 

@@ -4,11 +4,11 @@ import { type Observable, tap, catchError, throwError, EMPTY, map } from 'rxjs';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { callApiRoute } from '../../core/api-route';
 import { createApiListState, createApiEntityState } from '../../core/api-state.types';
-import { CODE_TASK_API } from '#shared/api/codeTask.api';
-import {SelectedFile} from "#shared/model/files.model";
-import {CodeTaskPreset, CodeTaskPresetConfig, CodeTask} from "#shared/model/codeTask.model";
-import {GitProject} from "#shared/model/git.model";
-import {FileSystemNode} from "#shared/services/fileSystemService";
+import { CODE_TASK_API } from '#shared/codeTask/codeTask.api';
+import {SelectedFile} from "#shared/files/files.model";
+import {CodeTaskPreset, CodeTaskPresetConfig, CodeTask} from "#shared/codeTask/codeTask.model";
+import {GitProject} from "#shared/scm/git.model";
+import {FileSystemNode} from "#shared/files/fileSystemService";
 
 // Define the shape of the data needed for creation, matching the backend API body
 export interface CreateCodeTaskPayload {

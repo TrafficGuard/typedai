@@ -1,4 +1,4 @@
-import { Chat } from '#shared/model/chat.model';
+import { Chat } from '#shared/chat/chat.model';
 
 export interface LLMServicesConfig {
 	vertexProjectId?: string;

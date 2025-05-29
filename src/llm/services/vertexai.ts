@@ -5,7 +5,7 @@ import axios from 'axios';
 import { type LlmCostFunction, fixedCostPerMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
 import { countTokens, countTokensSync } from '#llm/tokens';
-import { type LLM, combinePrompts } from '#shared/model/llm.model';
+import { type LLM, combinePrompts } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 import { envVar } from '#utils/env-var';
 

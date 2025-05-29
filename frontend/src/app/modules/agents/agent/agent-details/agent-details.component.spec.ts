@@ -12,7 +12,7 @@ import { AgentDetailsComponent } from './agent-details.component';
 import { AgentService } from '../../agent.service';
 import { FunctionsService } from '../../functions.service';
 import { LlmService, LLM } from '../../../llm.service';
-import { AgentContextApi, AgentRunningState, AgentType, AutonomousSubTypeSchema } from '#shared/schemas/agent.schema';
+import { AgentContextApi, AgentRunningState, AgentType, AutonomousSubTypeSchema } from '#shared/agent/agent.schema';
 
 describe.skip('AgentDetailsComponent', () => {
   let component: AgentDetailsComponent;

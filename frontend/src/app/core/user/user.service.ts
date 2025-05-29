@@ -2,10 +2,10 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Injectable, computed } from '@angular/core';
 import { catchError, Observable, tap, EMPTY } from 'rxjs';
 import { Router } from '@angular/router';
-import { USER_API } from "#shared/api/user.api";
+import { USER_API } from "#shared/user/user.api";
 import { callApiRoute } from "../api-route";
 import { createApiEntityState } from '../api-state.types';
-import { UserProfile, UserProfileUpdate } from "#shared/model/user.model";
+import { UserProfile, UserProfileUpdate } from "#shared/user/user.model";
 
 
 @Injectable({ providedIn: 'root' })

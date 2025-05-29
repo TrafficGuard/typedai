@@ -4,8 +4,8 @@ import type { AgentContextService } from '#agent/agentContextService/agentContex
 import { deserializeContext, serializeContext } from '#agent/agentSerialization';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
-import type { AgentContext, AgentContextPreview, AgentRunningState, AutonomousIteration, AutonomousIterationSummary } from '#shared/model/agent.model';
-import type { AgentContextSchema } from '#shared/schemas/agent.schema';
+import type { AgentContext, AgentContextPreview, AgentRunningState, AutonomousIteration, AutonomousIterationSummary } from '#shared/agent/agent.model';
+import type { AgentContextSchema } from '#shared/agent/agent.schema';
 
 /**
  * In-memory implementation of AgentStateService for tests. Serializes/deserializes

@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { systemDir } from '#app/appDirs';
 import { logger } from '#o11y/logger';
-import type { CodeTask } from '#shared/model/codeTask.model';
+import type { CodeTask } from '#shared/codeTask/codeTask.model';
 
 export function getCodeTaskRepositoryPath(codeTask: CodeTask): string {
 	const codeTaskId = codeTask.id;

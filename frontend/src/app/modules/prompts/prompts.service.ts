@@ -5,16 +5,16 @@ import { tap, map, catchError } from 'rxjs/operators';
 
 import { callApiRoute } from 'app/core/api-route';
 import { createApiListState, ApiListState } from 'app/core/api-state.types';
-import { PROMPT_API } from '#shared/api/prompts.api';
+import { PROMPT_API } from '#shared/prompts/prompts.api';
 import type {
     PromptSchemaModel,
     PromptListSchemaModel,
     PromptCreatePayload,
     PromptUpdatePayload,
     PromptGenerateResponseSchemaModel,
-} from '#shared/schemas/prompts.schema';
-import type { Prompt, PromptPreview } from '#shared/model/prompts.model';
-import type { LlmMessage, CallSettings } from '#shared/model/llm.model';
+} from '#shared/prompts/prompts.schema';
+import type { Prompt, PromptPreview } from '#shared/prompts/prompts.model';
+import type { LlmMessage, CallSettings } from '#shared/llm/llm.model';
 
 /** Calls the Prompt API routes */
 @Injectable({ providedIn: 'root' })
@@ -44,10 +44,10 @@ export class PromptsService {
             }),
             catchError((error) => {
                 console.error('Error loading prompts:', error);
-                this._promptsState.set({ 
-                    status: 'error', 
-                    error: error instanceof Error ? error : new Error('Failed to load prompts'), 
-                    code: error?.status 
+                this._promptsState.set({
+                    status: 'error',
+                    error: error instanceof Error ? error : new Error('Failed to load prompts'),
+                    code: error?.status
                 });
                 return EMPTY;
             })
@@ -107,8 +107,8 @@ export class PromptsService {
     }
 
     generateFromMessages(messages: LlmMessage[], options: CallSettings & { llmId?: string }): Observable<PromptGenerateResponseSchemaModel> {
-        return callApiRoute(this.httpClient, PROMPT_API.generateFromMessages, { 
-            body: { messages, options } 
+        return callApiRoute(this.httpClient, PROMPT_API.generateFromMessages, {
+            body: { messages, options }
         });
     }
 }

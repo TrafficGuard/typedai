@@ -2,7 +2,7 @@ import type { PerplexityProvider } from '@ai-sdk/perplexity';
 import { createPerplexity } from '@ai-sdk/perplexity';
 import type { GenerateTextResult } from 'ai';
 import { Perplexity } from '#functions/web/perplexity';
-import type { LLM } from '#shared/model/llm.model';
+import type { LLM } from '#shared/llm/llm.model';
 import { functionConfig } from '#user/userContext';
 import type { LlmCostFunction } from '../base-llm';
 import { AiLLM } from './ai-llm';

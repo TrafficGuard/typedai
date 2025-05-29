@@ -1,7 +1,7 @@
 import { type GroqProvider, createGroq } from '@ai-sdk/groq';
 import { type LlmCostFunction, fixedCostPerMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
-import type { GenerateTextOptions, LLM, LlmMessage } from '#shared/model/llm.model';
+import type { GenerateTextOptions, LLM, LlmMessage } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 
 export const GROQ_SERVICE = 'groq';

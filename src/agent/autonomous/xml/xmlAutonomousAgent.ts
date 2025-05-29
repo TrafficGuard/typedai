@@ -12,8 +12,8 @@ import { type FunctionSchema, getAllFunctionSchemas } from '#functionSchema/func
 import { parseFunctionCallsXml } from '#llm/responseParsers';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
-import type { AgentContext } from '#shared/model/agent.model';
-import type { FunctionResponse } from '#shared/model/llm.model';
+import type { AgentContext } from '#shared/agent/agent.model';
+import type { FunctionResponse } from '#shared/llm/llm.model';
 import { errorToString } from '#utils/errors';
 import { agentContextStorage, llms } from '../../agentContextLocalStorage';
 import { type HitlCounters, checkHumanInTheLoop } from '../humanInTheLoopChecks';

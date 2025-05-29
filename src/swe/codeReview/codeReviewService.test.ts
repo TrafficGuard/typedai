@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
-import type { CodeReviewConfig } from '#shared/model/codeReview.model';
+import type { CodeReviewConfig } from '#shared/codeReview/codeReview.model';
 import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
 import type { CodeReviewFingerprintCache } from '#swe/codeReview/codeReviewTaskModel';
 import { setupConditionalLoggerOutput } from '#test/testUtils';

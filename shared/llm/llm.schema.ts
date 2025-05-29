@@ -15,9 +15,8 @@ import type {
 	// Assuming ReasoningPart and RedactedReasoningPart are part of AssistantContent model union
 	// If they are separate models, they need to be imported explicitly.
 	// For now, their structure is defined inline in AssistantContentPartUnionSchema.
-} from '#shared/model/llm.model';
-import { ChangePropertyType, type Writable } from '../typeUtils';
-import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
+} from '#shared/llm/llm.model';
+import { type AreTypesFullyCompatible, ChangePropertyType, type Writable } from '../typeUtils';
 
 export const AttachmentInfoSchema = Type.Object({
 	filename: Type.Optional(Type.String()),

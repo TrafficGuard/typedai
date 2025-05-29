@@ -3,9 +3,9 @@ import type { AppFastifyInstance } from '#app/applicationTypes';
 import { sendBadRequest, sendJSON, sendNotFound } from '#fastify/responses';
 import { getLLM } from '#llm/llmFactory';
 import { logger } from '#o11y/logger';
-import { PROMPT_API } from '#shared/api/prompts.api';
-import type { LlmMessage } from '#shared/model/llm.model';
-import type { Prompt } from '#shared/model/prompts.model';
+import type { LlmMessage } from '#shared/llm/llm.model';
+import { PROMPT_API } from '#shared/prompts/prompts.api';
+import type { Prompt } from '#shared/prompts/prompts.model';
 import type {
 	PromptCreateSchema,
 	PromptGenerateFromMessagesPayloadSchema,
@@ -16,7 +16,7 @@ import type {
 	PromptRevisionParamsSchema,
 	PromptSchemaModel,
 	PromptUpdateSchema,
-} from '#shared/schemas/prompts.schema';
+} from '#shared/prompts/prompts.schema';
 import { currentUser } from '#user/userContext';
 
 export async function promptRoutes(fastify: AppFastifyInstance) {

@@ -6,7 +6,7 @@ import { runAgentAndWait } from '#agent/autonomous/autonomousAgentRunner';
 import { Perplexity } from '#functions/web/perplexity';
 import { PublicWeb } from '#functions/web/web';
 import { defaultLLMs } from '#llm/services/defaultLlms';
-import type { AgentLLMs } from '#shared/model/agent.model';
+import type { AgentLLMs } from '#shared/agent/agent.model';
 import { parseProcessArgs, saveAgentId } from './cli';
 
 // Usage:

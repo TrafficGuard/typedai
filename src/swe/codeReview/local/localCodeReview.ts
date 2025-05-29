@@ -2,7 +2,7 @@ import type { MergeRequestDiscussionNotePositionOptions } from '@gitbeaker/rest'
 import { appContext } from '#app/applicationContext';
 import { Git } from '#functions/scm/git';
 import { logger } from '#o11y/logger';
-import type { CodeReviewConfig } from '#shared/model/codeReview.model';
+import type { CodeReviewConfig } from '#shared/codeReview/codeReview.model';
 import { addCodeWithLineNumbers, generateReviewTaskFingerprint, reviewDiff, shouldApplyCodeReview } from '#swe/codeReview/codeReviewCommon';
 import type { CodeReviewTask } from '#swe/codeReview/codeReviewTaskModel';
 import { type DiffInfo, parseGitDiff } from '#swe/codeReview/local/parseGitDiff';

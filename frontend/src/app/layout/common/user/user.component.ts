@@ -16,7 +16,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { Router, RouterModule } from '@angular/router';
 import { UserService } from 'app/core/user/user.service';
 import { Subject } from 'rxjs';
-import {UserProfile} from "#shared/model/user.model";
+import {UserProfile} from "#shared/user/user.model";
 
 @Component({
     selector: 'user',

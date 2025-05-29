@@ -1,9 +1,9 @@
-import { CHAT_PREVIEW_KEYS } from '#shared/model/chat.model';
-import type { IFileSystemService as ImportedFileSystemService } from '#shared/services/fileSystemService';
-import type { ToolType } from '#shared/services/functions';
+import type { ToolType } from '#shared/agent/functions';
+import { CHAT_PREVIEW_KEYS } from '#shared/chat/chat.model';
+import type { IFileSystemService as ImportedFileSystemService } from '#shared/files/fileSystemService';
 import { ChangePropertyType } from '#shared/typeUtils';
-import type { FunctionCall, FunctionCallResult, GenerationStats, ImagePartExt, LLM, LlmMessage } from './llm.model';
-import type { User } from './user.model';
+import type { FunctionCall, FunctionCallResult, GenerationStats, ImagePartExt, LLM, LlmMessage } from '../llm/llm.model';
+import type { User } from '../user/user.model';
 
 //#region == Property types ====
 

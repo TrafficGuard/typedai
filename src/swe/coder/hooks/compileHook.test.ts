@@ -3,7 +3,7 @@ import { expect } from 'chai';
 import * as sinon from 'sinon';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
-import type { IFileSystemService } from '#shared/services/fileSystemService';
+import type { IFileSystemService } from '#shared/files/fileSystemService';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import * as execModule from '#utils/exec';
 import type { EditSession } from '../editSession';

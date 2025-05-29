@@ -5,9 +5,9 @@ import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
 import { agentStorageDir, systemDir } from '#app/appDirs';
 import type { MergeRequest, SourceControlManagement } from '#functions/scm/sourceControlManagement';
 import { logger } from '#o11y/logger';
-import type { AgentContext } from '#shared/model/agent.model';
-import type { GitProject } from '#shared/model/git.model';
-import type { ToolType } from '#shared/services/functions';
+import type { AgentContext } from '#shared/agent/agent.model';
+import type { ToolType } from '#shared/agent/functions';
+import type { GitProject } from '#shared/scm/git.model';
 import { getProjectInfo } from '#swe/projectDetection';
 import { execCommand, failOnError } from '#utils/exec';
 

@@ -1,5 +1,5 @@
 import { Component, input, signal } from '@angular/core';
-import { AgentContextApi } from '#shared/schemas/agent.schema';
+import { AgentContextApi } from '#shared/agent/agent.schema';
 import { MatCardModule } from '@angular/material/card';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { CommonModule, KeyValuePipe } from '@angular/common'; // NgForOf, NgIf are part of CommonModule

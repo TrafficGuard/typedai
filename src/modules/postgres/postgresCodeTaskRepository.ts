@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Insertable, Selectable, Updateable } from 'kysely';
-import type { CodeTask, CodeTaskPreset, CodeTaskPresetConfig, CodeTaskStatus, UpdateCodeTaskData } from '#shared/model/codeTask.model';
-import type { SelectedFile } from '#shared/model/files.model';
+import type { CodeTask, CodeTaskPreset, CodeTaskPresetConfig, CodeTaskStatus, UpdateCodeTaskData } from '#shared/codeTask/codeTask.model';
+import type { SelectedFile } from '#shared/files/files.model';
 import type { CodeTaskRepository } from '../../codeTask/codeTaskRepository';
 import { db } from './db';
 import type { CodeTaskPresetsTable, CodeTasksTable } from './db';

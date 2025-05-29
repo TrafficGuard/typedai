@@ -15,9 +15,9 @@ import {
 	type AutonomousIteration,
 	type AutonomousIterationSummary,
 	isExecuting,
-} from '#shared/model/agent.model';
-import type { User } from '#shared/model/user.model';
-import type { AgentContextSchema } from '#shared/schemas/agent.schema';
+} from '#shared/agent/agent.model';
+import type { AgentContextSchema } from '#shared/agent/agent.schema';
+import type { User } from '#shared/user/user.model';
 import { currentUser } from '#user/userContext';
 import { firestoreDb } from './firestore';
 

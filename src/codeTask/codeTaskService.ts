@@ -1,5 +1,12 @@
-import type { CodeTask, CodeTaskPreset, CommitChangesData, CreateCodeTaskData, UpdateCodeReviewData, UpdateCodeTaskData } from '#shared/model/codeTask.model';
-import type { FileSystemNode } from '#shared/services/fileSystemService';
+import type {
+	CodeTask,
+	CodeTaskPreset,
+	CommitChangesData,
+	CreateCodeTaskData,
+	UpdateCodeReviewData,
+	UpdateCodeTaskData,
+} from '#shared/codeTask/codeTask.model';
+import type { FileSystemNode } from '#shared/files/fileSystemService';
 
 /**
  * Interface for managing CodeTask data and orchestrating the CodeTask Coding workflow.

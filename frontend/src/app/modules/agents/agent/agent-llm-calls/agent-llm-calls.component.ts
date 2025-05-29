@@ -10,11 +10,11 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { distinctUntilChanged, filter } from 'rxjs/operators';
 // import { environment } from 'environments/environment'; // Not used directly
-import { LlmMessage, LlmCallMessageSummaryPart } from '#shared/model/llm.model';
-import { LlmCall, LlmCallSummary } from '#shared/model/llmCall.model';
+import { LlmMessage, LlmCallMessageSummaryPart } from '#shared/llm/llm.model';
+import { LlmCall, LlmCallSummary } from '#shared/llmCall/llmCall.model';
 import { AgentService } from '../../agent.service';
 import { Router } from '@angular/router';
-import { Prompt as AppPrompt } from '#shared/model/prompts.model'; // Use an alias if 'Prompt' is ambiguous
+import { Prompt as AppPrompt } from '#shared/prompts/prompts.model'; // Use an alias if 'Prompt' is ambiguous
 import { AgentLinks, GoogleCloudLinks } from "../../agent-links";
 
 @Component({

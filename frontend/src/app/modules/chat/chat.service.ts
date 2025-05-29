@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, signal, WritableSignal, computed } from '@angular/core';
 import { Observable, of, throwError, from, EMPTY } from 'rxjs';
 import { catchError, map, mapTo, tap, switchMap } from 'rxjs/operators';
-import { CHAT_API } from '#shared/api/chat.api';
+import { CHAT_API } from '#shared/chat/chat.api';
 import type {
     ChatSchemaModel as ApiChatModel,
     ChatMessagePayload,
@@ -10,9 +10,9 @@ import type {
     ChatUpdateDetailsPayload,
     ChatMarkdownRequestPayload,
     ChatMarkdownResponseModel,
-} from '#shared/schemas/chat.schema';
-import type { LlmMessage as ApiLlmMessage } from '#shared/model/llm.model';
-import { UserContentExt, TextPart, ImagePartExt, FilePartExt, CallSettings } from '#shared/model/llm.model';
+} from '#shared/chat/chat.schema';
+import type { LlmMessage as ApiLlmMessage } from '#shared/llm/llm.model';
+import { UserContentExt, TextPart, ImagePartExt, FilePartExt, CallSettings } from '#shared/llm/llm.model';
 import { v4 as uuidv4 } from 'uuid';
 import { userContentExtToAttachmentsAndText } from 'app/modules/messageUtil';
 import { UIMessage } from 'app/modules/message.types';
@@ -123,7 +123,7 @@ export class ChatServiceClient {
         const state = this._chatState();
         return state.status === 'success' ? state.data : null;
     });
-    
+
     readonly chats = computed(() => {
         const state = this._chatsState();
         return state.status === 'success' ? state.data : null;
@@ -142,12 +142,12 @@ export class ChatServiceClient {
     loadChats(): Observable<void> {
         if (this._cachedChats && this._cachePopulated()) {
             this._chatsState.set({ status: 'success', data: this._cachedChats });
-            return of(undefined); 
+            return of(undefined);
         }
         if (this._chatsState().status === 'loading') return EMPTY;
-        
+
         this._chatsState.set({ status: 'loading' });
-        
+
         // callApiRoute infers response type: Observable<Static<typeof ChatListSchema>>
         return callApiRoute(this._httpClient, CHAT_API.listChats).pipe(
             tap((apiChatList) => { // apiChatList is Static<typeof ChatListSchema>
@@ -168,10 +168,10 @@ export class ChatServiceClient {
                 this._chatsState.set({ status: 'success', data: uiChats });
             }),
             catchError((error) => {
-                this._chatsState.set({ 
-                    status: 'error', 
+                this._chatsState.set({
+                    status: 'error',
                     error: error instanceof Error ? error : new Error('Failed to load chats'),
-                    code: error?.status 
+                    code: error?.status
                 });
                 return EMPTY;
             }),
@@ -247,7 +247,7 @@ export class ChatServiceClient {
                     messages: apiChat.messages.map(msg => convertMessage(msg as ApiLlmMessage)),
                 };
                 this._chatState.set({ status: 'success', data: uiChat });
-                
+
                 // Update the chat in the list if it exists
                 const currentChatsState = this._chatsState();
                 if (currentChatsState.status === 'success') {
@@ -271,10 +271,10 @@ export class ChatServiceClient {
                 } else if (error?.status === 403) {
                     this._chatState.set({ status: 'forbidden' });
                 } else {
-                    this._chatState.set({ 
-                        status: 'error', 
+                    this._chatState.set({
+                        status: 'error',
                         error: error instanceof Error ? error : new Error('Failed to load chat'),
-                        code: error?.status 
+                        code: error?.status
                     });
                 }
                 return throwError(() => error);
@@ -298,7 +298,7 @@ export class ChatServiceClient {
                     parentId: updatedApiChat.parentId,
                     rootId: updatedApiChat.rootId,
                 };
-                
+
                 // Update chats list cache
                 if (this._cachedChats) {
                     const index = this._cachedChats.findIndex(item => item.id === id);
@@ -318,13 +318,13 @@ export class ChatServiceClient {
                         this._chatsState.set({ status: 'success', data: newChats });
                     }
                 }
-                
+
                 // Update current chat if it's the one being updated
                 const currentChatState = this._chatState();
                 if (currentChatState.status === 'success' && currentChatState.data.id === id) {
-                    this._chatState.set({ 
-                        status: 'success', 
-                        data: { ...currentChatState.data, ...uiChatUpdate } 
+                    this._chatState.set({
+                        status: 'success',
+                        data: { ...currentChatState.data, ...uiChatUpdate }
                     });
                 }
             }),
@@ -351,7 +351,7 @@ export class ChatServiceClient {
             imageAttachments: attachmentsForUI?.filter(att => att.type === 'image') || [],
             createdAt: new Date().toISOString(),
         };
-        
+
         const currentChatState = this._chatState();
         if (currentChatState.status === 'success') {
             this._chatState.set({
@@ -367,7 +367,7 @@ export class ChatServiceClient {
         return callApiRoute(this._httpClient, CHAT_API.sendMessage, { pathParams: { chatId }, body: payload }).pipe(
             tap((apiLlmMessage) => { // apiLlmMessage is Static<LlmMessageSchema>
                 const aiChatMessage = convertMessage(apiLlmMessage as ApiLlmMessage);
-                
+
                 const currentChatState = this._chatState();
                 if (currentChatState.status === 'success') {
                     this._chatState.set({
@@ -379,7 +379,7 @@ export class ChatServiceClient {
                         }
                     });
                 }
-                
+
                 // Update the chat in the main list as well
                 const currentChatsState = this._chatsState();
                 if (currentChatsState.status === 'success') {
@@ -402,7 +402,7 @@ export class ChatServiceClient {
                         const newCachedChats = [...this._cachedChats];
                         const updatedChatInList = { ...newCachedChats[chatIndex] };
                         // Use the same timestamp logic as for _chatsState, typically Date.now() or from response
-                        updatedChatInList.updatedAt = Date.now(); 
+                        updatedChatInList.updatedAt = Date.now();
                         newCachedChats[chatIndex] = updatedChatInList;
 
                         // Move to top
@@ -432,7 +432,7 @@ export class ChatServiceClient {
         return callApiRoute(this._httpClient, CHAT_API.regenerateMessage, { pathParams: { chatId }, body: payload }).pipe(
             tap(apiLlmMessage => { // apiLlmMessage is Static<LlmMessageSchema>
                 const aiChatMessage = convertMessage(apiLlmMessage as ApiLlmMessage);
-                
+
                 const currentChatState = this._chatState();
                 if (currentChatState.status === 'success') {
                     // Backend handles history truncation. The new AI message is the latest.
@@ -447,7 +447,7 @@ export class ChatServiceClient {
                         }
                     });
                 }
-                
+
                 // Update chat in the main list
                 const currentChatsState = this._chatsState();
                 if (currentChatsState.status === 'success') {
@@ -499,7 +499,7 @@ export class ChatServiceClient {
                     isMine: true,
                     createdAt: new Date().toISOString(),
                 };
-                
+
                 const currentChatState = this._chatState();
                 if (currentChatState.status === 'success') {
                     this._chatState.set({
@@ -515,7 +515,7 @@ export class ChatServiceClient {
                 return callApiRoute(this._httpClient, CHAT_API.sendMessage, { pathParams: { chatId }, body: payload }).pipe(
                     tap(apiLlmMessage => { // apiLlmMessage is Static<LlmMessageSchema>
                         const aiChatMessage = convertMessage(apiLlmMessage as ApiLlmMessage);
-                        
+
                         const currentChatState = this._chatState();
                         if (currentChatState.status === 'success') {
                             // Replace the placeholder audio message
@@ -529,7 +529,7 @@ export class ChatServiceClient {
                                 }
                             });
                         }
-                        
+
                         // Update chat in the main list
                         const currentChatsState = this._chatsState();
                         if (currentChatsState.status === 'success') {
@@ -620,10 +620,10 @@ export class ChatServiceClient {
                 this._chatsState.set({ status: 'success', data: uiChats });
             }),
             catchError((error) => {
-                this._chatsState.set({ 
-                    status: 'error', 
+                this._chatsState.set({
+                    status: 'error',
                     error: error instanceof Error ? error : new Error('Failed to load chats'),
-                    code: error?.status 
+                    code: error?.status
                 });
                 this._cachedChats = null; // Clear cache on error
                 this._cachePopulated.set(false);

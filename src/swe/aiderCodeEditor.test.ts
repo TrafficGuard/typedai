@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import type { LlmMessage } from '#shared/model/llm.model';
+import type { LlmMessage } from '#shared/llm/llm.model';
 import { AiderCodeEditor } from './aiderCodeEditor';
 
 describe('AiderCodeEditor', () => {
