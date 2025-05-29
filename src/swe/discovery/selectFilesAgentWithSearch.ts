@@ -30,6 +30,10 @@ This agent is designed to utilise LLM prompt caching
 // Constants for search result size management
 const MAX_SEARCH_TOKENS = 8000; // Maximum tokens for search results
 const APPROX_CHARS_PER_TOKEN = 4; // Approximate characters per token
+
+function norm(p: string): string {
+	return path.posix.normalize(p.trim().replace(/^\.\/+/, ''));
+}
 const MAX_SEARCH_CHARS = MAX_SEARCH_TOKENS * APPROX_CHARS_PER_TOKEN; // Maximum characters for search results
 
 interface InitialResponse {
@@ -179,12 +183,16 @@ async function selectFilesCore(
 	const initialResponse = response.object;
 	messages.push({ role: 'assistant', content: JSON.stringify(initialResponse) });
 
-	let filesToInspect = initialResponse.inspectFiles || [];
+	const initialRawInspectPaths = initialResponse.inspectFiles || [];
 
 	// Use Maps to store kept/ignored files to ensure uniqueness by path
 	const keptFiles = new Map<string, string>(); // path -> reason
 	const ignoredFiles = new Map<string, string>(); // path -> reason
-	const filesPendingDecision = new Set<string>(filesToInspect);
+	const filesPendingDecision = new Set<string>();
+	for (const rawPath of initialRawInspectPaths) {
+		filesPendingDecision.add(norm(rawPath));
+	}
+	let filesToInspect = initialRawInspectPaths; // Contains raw paths for readFileContents
 
 	let usingHardLLM = false;
 
@@ -197,6 +205,10 @@ async function selectFilesCore(
 
 		if (response.search) {
 			const searchRegex = response.search;
+			// Ensure all pending files are processed if a search is also returned, though current prompt structure makes this unlikely.
+			// For now, we assume search means no keep/ignore/inspect decision on *other* files in this turn.
+			// If search is combined with keep/ignore, those should be processed first.
+			// The current prompt asks for inspect OR search, so this path is simpler.
 			const searchResultsText = await searchFileSystem(searchRegex);
 			console.log('Search Results ==================');
 			console.log(searchResultsText);
@@ -208,15 +220,17 @@ async function selectFilesCore(
 		} else {
 			// Existing logic for keepFiles, ignoreFiles, inspectFiles
 			for (const ignored of response.ignoreFiles ?? []) {
-				ignoredFiles.set(ignored.filePath, ignored.reason);
-				filesPendingDecision.delete(ignored.filePath);
+				const key = norm(ignored.filePath);
+				ignoredFiles.set(key, ignored.reason);
+				filesPendingDecision.delete(key);
 			}
 			for (const kept of response.keepFiles ?? []) {
-				keptFiles.set(kept.filePath, kept.reason);
-				filesPendingDecision.delete(kept.filePath);
+				const key = norm(kept.filePath);
+				keptFiles.set(key, kept.reason);
+				filesPendingDecision.delete(key);
 			}
 
-			const justKeptPaths = response.keepFiles?.map((f) => f.filePath) ?? [];
+			const justKeptPaths = response.keepFiles?.map((f) => norm(f.filePath)) ?? [];
 			if (justKeptPaths.length > 0) {
 				try {
 					const cwd = getFileSystem().getWorkingDirectory();
@@ -249,10 +263,11 @@ async function selectFilesCore(
 				cachedMessages[1].cache = undefined;
 			}
 
-			filesToInspect = response.inspectFiles ?? [];
-			for (const fileToInspect of filesToInspect) {
-				filesPendingDecision.add(fileToInspect);
+			const rawNewInspectPaths = response.inspectFiles ?? [];
+			for (const rawPath of rawNewInspectPaths) {
+				filesPendingDecision.add(norm(rawPath));
 			}
+			filesToInspect = rawNewInspectPaths; // Update filesToInspect with raw paths for the next iteration's readFileContents
 		}
 
 		// LLM decision logic for switching to hard LLM or breaking
@@ -351,18 +366,21 @@ async function generateFileSelectionProcessingResponse(
 	iteration: number,
 	llm: LLM,
 ): Promise<IterationResponse> {
+	const filesForContent = filesToInspect.length > 0 ? filesToInspect : Array.from(pendingFiles);
+
 	let prompt = '';
+	if (filesForContent.length) {
+		prompt = (await readFileContents(filesForContent)).contents;
+	}
 
-	if (filesToInspect.length) prompt = (await readFileContents(filesToInspect)).contents;
-
-	if (filesToInspect.length || pendingFiles.size) {
+	if (pendingFiles.size) {
 		prompt += `
-The files whose contents were provided in this turn (if any from 'inspectFiles' in the previous turn) or are still pending decision from earlier turns are:
-${[...Array.from(pendingFiles), ...filesToInspect].filter(Boolean).join('\n')}
+The files whose contents were provided in this turn (if any, corresponding to paths listed below) or are still pending decision from earlier turns are:
+${Array.from(pendingFiles).join('\n')}
 These files MUST be addressed by including them in either "keepFiles" or "ignoreFiles" in your response.`;
 	} else {
 		prompt +=
-			'\nNo specific files were provided for direct inspection in this turn. Evaluate based on previous information, search results, or the project overview.';
+			'\nNo specific files were provided for direct inspection in this turn, and no files are pending decision. Evaluate based on previous information, search results, or the project overview.';
 	}
 
 	prompt += `
