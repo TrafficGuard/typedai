@@ -6,10 +6,10 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { ActivatedRoute, type Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { fuseAnimations } from '@fuse/animations';
 import { FuseAlertComponent, type FuseAlertType } from '@fuse/components/alert';
-import type { AuthService } from 'app/core/auth/auth.service';
+import { AuthService } from 'app/core/auth/auth.service';
 
 @Component({
 	selector: 'sign-in-classic',

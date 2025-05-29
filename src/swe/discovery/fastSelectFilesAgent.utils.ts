@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
-import type { IFileSystemService } from '#shared/services/fileSystemService';
+import type { IFileSystemService } from '#shared/files/fileSystemService';
 
 // Constants for search result size management
 export const MAX_SEARCH_TOKENS = 8000; // Maximum tokens for search results

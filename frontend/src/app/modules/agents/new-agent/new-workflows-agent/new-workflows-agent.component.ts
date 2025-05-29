@@ -12,7 +12,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import type { Observable } from 'rxjs';
 import { filter } from 'rxjs/operators';
-import type { WorkflowsService } from './workflows.service';
+import { WorkflowsService } from './workflows.service';
 
 @Component({
 	selector: 'new-workflows-agent',

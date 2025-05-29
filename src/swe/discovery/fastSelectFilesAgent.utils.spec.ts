@@ -1,24 +1,38 @@
 describe('fastSelectFilesAgent.utils', () => {
 	describe('normalizePath', () => {
-		it.todo('should normalize path strings');
+		it.skip('should normalize path strings', () => {
+			// Add test implementation
+		});
 		// Add more test cases for normalizePath
 	});
 
 	describe('splitFileSystemTreeByFolder', () => {
-		it.todo('should split file tree into chunks by folder');
+		it.skip('should split file tree into chunks by folder', () => {
+			// Add test implementation
+		});
 		// Add more test cases for splitFileSystemTreeByFolder
 	});
 
 	describe('readFileContents', () => {
-		it.todo('should read contents of specified files');
-		it.todo('should handle invalid file paths');
+		it.skip('should read contents of specified files', () => {
+			// Add test implementation
+		});
+		it.skip('should handle invalid file paths', () => {
+			// Add test implementation
+		});
 		// Add more test cases for readFileContents
 	});
 
 	describe('searchFileSystem', () => {
-		it.todo('should search file system based on regex');
-		it.todo('should handle different context levels for search');
-		it.todo('should handle search results exceeding character limits');
+		it.skip('should search file system based on regex', () => {
+			// Add test implementation
+		});
+		it.skip('should handle different context levels for search', () => {
+			// Add test implementation
+		});
+		it.skip('should handle search results exceeding character limits', () => {
+			// Add test implementation
+		});
 		// Add more test cases for searchFileSystem
 	});
 });
