@@ -1,14 +1,14 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Injectable, inject, computed } from '@angular/core';
-import { type Observable, tap, catchError, throwError, EMPTY, map } from 'rxjs';
+import { Injectable, computed, inject } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
-import { callApiRoute } from '../../core/api-route';
-import { createApiListState, createApiEntityState } from '../../core/api-state.types';
+import { EMPTY, type Observable, catchError, map, tap, throwError } from 'rxjs';
 import { CODE_TASK_API } from '#shared/codeTask/codeTask.api';
-import {SelectedFile} from "#shared/files/files.model";
-import {CodeTaskPreset, CodeTaskPresetConfig, CodeTask} from "#shared/codeTask/codeTask.model";
-import {GitProject} from "#shared/scm/git.model";
-import {FileSystemNode} from "#shared/files/fileSystemService";
+import type { CodeTask, CodeTaskPreset, CodeTaskPresetConfig } from '#shared/codeTask/codeTask.model';
+import type { FileSystemNode } from '#shared/files/fileSystemService';
+import type { SelectedFile } from '#shared/files/files.model';
+import type { GitProject } from '#shared/scm/git.model';
+import { callApiRoute } from '../../core/api-route';
+import { createApiEntityState, createApiListState } from '../../core/api-state.types';
 
 // Define the shape of the data needed for creation, matching the backend API body
 export interface CreateCodeTaskPayload {
@@ -72,9 +72,7 @@ export class CodeTaskServiceClient {
 	 */
 	listCodeTasks(): Observable<CodeTask[]> {
 		this.loadCodeTasks();
-		return this.codeTasks$.pipe(
-			map(codeTasks => codeTasks || [])
-		);
+		return this.codeTasks$.pipe(map((codeTasks) => codeTasks || []));
 	}
 
 	/**
@@ -90,9 +88,7 @@ export class CodeTaskServiceClient {
 	 */
 	refreshCodeTasks(): Observable<CodeTask[]> {
 		this.loadCodeTasks();
-		return this.codeTasks$.pipe(
-			map(codeTasks => codeTasks || [])
-		);
+		return this.codeTasks$.pipe(map((codeTasks) => codeTasks || []));
 	}
 
 	// HTTP calls must match the backend API endpoints defined in src/routes/codeTask/codeTaskRoutes.ts
@@ -105,25 +101,26 @@ export class CodeTaskServiceClient {
 
 		this._codeTasksState.set({ status: 'loading' });
 
-		callApiRoute(this.http, CODE_TASK_API.list).pipe(
-			tap((codeTasks: CodeTask[]) => {
-				this._codeTasksState.set({ status: 'success', data: codeTasks });
-			}),
-			catchError((error) => {
-				this._codeTasksState.set({
-					status: 'error',
-					error: error instanceof Error ? error : new Error('Failed to load codeTasks'),
-					code: error?.status
-				});
-				return EMPTY;
-			})
-		).subscribe();
+		callApiRoute(this.http, CODE_TASK_API.list)
+			.pipe(
+				tap((codeTasks: CodeTask[]) => {
+					this._codeTasksState.set({ status: 'success', data: codeTasks });
+				}),
+				catchError((error) => {
+					this._codeTasksState.set({
+						status: 'error',
+						error: error instanceof Error ? error : new Error('Failed to load codeTasks'),
+						code: error?.status,
+					});
+					return EMPTY;
+				}),
+			)
+			.subscribe();
 	}
 
 	getCodeTasks(): void {
 		this.loadCodeTasks();
 	}
-
 
 	/**
 	 * Creates a new Code task via the backend API.
@@ -137,10 +134,10 @@ export class CodeTaskServiceClient {
 				if (currentState.status === 'success') {
 					this._codeTasksState.set({
 						status: 'success',
-						data: [newCodeTask, ...currentState.data]
+						data: [newCodeTask, ...currentState.data],
 					});
 				}
-			})
+			}),
 		);
 	}
 
@@ -151,10 +148,10 @@ export class CodeTaskServiceClient {
 		return this.http.get<GitProject[]>('/api/scm/projects');
 	}
 
-    // TODO move this API route to /api/scm/repositories
-    getRepositories(): Observable<string[]> {
-        return this.http.get<string[]>(`/api/workflows/repositories`);
-    }
+	// TODO move this API route to /api/scm/repositories
+	getRepositories(): Observable<string[]> {
+		return this.http.get<string[]>('/api/workflows/repositories');
+	}
 
 	/**
 	 * Fetches the list of branches for a given SCM project.
@@ -180,35 +177,34 @@ export class CodeTaskServiceClient {
 
 		this._currentCodeTaskState.set({ status: 'loading' });
 
-		callApiRoute(this.http, CODE_TASK_API.getById, { pathParams: { codeTaskId: id } }).pipe(
-			tap((codeTask) => {
-				this._currentCodeTaskState.set({ status: 'success', data: codeTask });
-				// Update codeTask in list if it exists
-				const currentState = this._codeTasksState();
-				if (currentState.status === 'success') {
-					const updatedCodeTasks = currentState.data.map(s =>
-						s.id === id ? codeTask : s
-					);
-					this._codeTasksState.set({ status: 'success', data: updatedCodeTasks });
-				}
-			}),
-			catchError((error) => {
-				if (error?.status === 404) {
-					this._currentCodeTaskState.set({ status: 'not_found' });
-				} else if (error?.status === 403) {
-					this._currentCodeTaskState.set({ status: 'forbidden' });
-				} else {
-					this._currentCodeTaskState.set({
-						status: 'error',
-						error: error instanceof Error ? error : new Error('Failed to load codeTask'),
-						code: error?.status
-					});
-				}
-				return EMPTY;
-			})
-		).subscribe();
+		callApiRoute(this.http, CODE_TASK_API.getById, { pathParams: { codeTaskId: id } })
+			.pipe(
+				tap((codeTask) => {
+					this._currentCodeTaskState.set({ status: 'success', data: codeTask });
+					// Update codeTask in list if it exists
+					const currentState = this._codeTasksState();
+					if (currentState.status === 'success') {
+						const updatedCodeTasks = currentState.data.map((s) => (s.id === id ? codeTask : s));
+						this._codeTasksState.set({ status: 'success', data: updatedCodeTasks });
+					}
+				}),
+				catchError((error) => {
+					if (error?.status === 404) {
+						this._currentCodeTaskState.set({ status: 'not_found' });
+					} else if (error?.status === 403) {
+						this._currentCodeTaskState.set({ status: 'forbidden' });
+					} else {
+						this._currentCodeTaskState.set({
+							status: 'error',
+							error: error instanceof Error ? error : new Error('Failed to load codeTask'),
+							code: error?.status,
+						});
+					}
+					return EMPTY;
+				}),
+			)
+			.subscribe();
 	}
-
 
 	clearCurrentCodeTask(): void {
 		this._currentCodeTaskState.set({ status: 'idle' });
@@ -235,7 +231,7 @@ export class CodeTaskServiceClient {
 				this.loadCodeTask(id);
 				// Refresh codeTasks list
 				this.loadCodeTasks();
-			})
+			}),
 		);
 	}
 
@@ -248,14 +244,14 @@ export class CodeTaskServiceClient {
 			tap(() => {
 				const currentState = this._codeTasksState();
 				if (currentState.status === 'success') {
-					const filteredCodeTasks = currentState.data.filter(s => s.id !== id);
+					const filteredCodeTasks = currentState.data.filter((s) => s.id !== id);
 					this._codeTasksState.set({ status: 'success', data: filteredCodeTasks });
 				}
 				const currentCodeTaskState = this._currentCodeTaskState();
 				if (currentCodeTaskState.status === 'success' && currentCodeTaskState.data.id === id) {
 					this._currentCodeTaskState.set({ status: 'idle' });
 				}
-			})
+			}),
 		);
 	}
 
@@ -323,17 +319,17 @@ export class CodeTaskServiceClient {
 	 * @returns An Observable that completes when the request is accepted (backend returns 202 or similar).
 	 */
 	resetFileSelection(codeTaskId: string): Observable<void> {
-	  return this.http.post<void>(`/api/codeTask/${codeTaskId}/reset-selection`, {}).pipe(
-	    tap(() => {
-	      // Optionally, trigger a refresh of the current codeTask if needed,
-	      // though typically the component calling this would handle UI updates/refreshes.
-	      console.log(`CodeTaskService: Reset file selection request sent for codeTask ${codeTaskId}`);
-	    }),
-	    catchError((error) => {
-	      console.error(`CodeTaskService: Error resetting file selection for codeTask ${codeTaskId}`, error);
-	      return throwError(() => error);
-	    })
-	  );
+		return this.http.post<void>(`/api/codeTask/${codeTaskId}/reset-selection`, {}).pipe(
+			tap(() => {
+				// Optionally, trigger a refresh of the current codeTask if needed,
+				// though typically the component calling this would handle UI updates/refreshes.
+				console.log(`CodeTaskService: Reset file selection request sent for codeTask ${codeTaskId}`);
+			}),
+			catchError((error) => {
+				console.error(`CodeTaskService: Error resetting file selection for codeTask ${codeTaskId}`, error);
+				return throwError(() => error);
+			}),
+		);
 	}
 
 	// --- Preset Management ---

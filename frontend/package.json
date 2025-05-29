@@ -17,10 +17,10 @@
     "env:stage": "node --env-file=../variables/stage.env scripts/env.js",
     "env:prod": " node --env-file=../variables/prod.env  scripts/env.js",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test",
+    "test": " ng test",
     "test:ci": "npm run env:test && ng test --no-watch --no-progress --browsers=ChromeHeadless",
-    "lint": "ng lint",
-    "lint:ci": "echo skipping"
+    "lint": "   biome check --write --unsafe ./src ../shared",
+    "lint:ci": "biome ci ./src ../shared"
   },
   "dependencies": {
     "@angular/animations": "19.2.10",
@@ -59,6 +59,7 @@
     "@angular-devkit/build-angular": "19.2.11",
     "@angular/cli": "19.2.11",
     "@angular/compiler-cli": "19.2.10",
+    "@biomejs/biome": "^1.9.4",
     "@playwright/test": "^1.52.0",
     "@tailwindcss/typography": "0.5.16",
     "@types/chroma-js": "2.4.5",

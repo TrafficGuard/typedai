@@ -1,12 +1,12 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, ViewEncapsulation, ChangeDetectionStrategy, inject, computed } from '@angular/core';
+import { ChangeDetectionStrategy, Component, type OnInit, ViewEncapsulation, computed, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
+import type { CodeTask } from '#shared/codeTask/codeTask.model';
 import { CodeTaskServiceClient } from '../codeTask.service';
-import { CodeTask } from "#shared/codeTask/codeTask.model";
 
 @Component({
 	selector: 'codeTaskList',
@@ -15,13 +15,7 @@ import { CodeTask } from "#shared/codeTask/codeTask.model";
 	encapsulation: ViewEncapsulation.None,
 	changeDetection: ChangeDetectionStrategy.OnPush,
 	standalone: true,
-	imports: [
-		CommonModule,
-		MatButtonModule,
-		MatIconModule,
-		MatTableModule,
-		MatTooltipModule,
-	],
+	imports: [CommonModule, MatButtonModule, MatIconModule, MatTableModule, MatTooltipModule],
 })
 export class CodeTaskListComponent implements OnInit {
 	displayedColumns: string[] = ['title', 'status', 'createdAt', 'actions'];

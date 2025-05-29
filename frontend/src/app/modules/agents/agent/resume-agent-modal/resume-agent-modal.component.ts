@@ -1,14 +1,14 @@
-import { Component, OnInit } from '@angular/core';
-import { MatDialogRef, MatDialogModule } from '@angular/material/dialog';
+import { CommonModule } from '@angular/common';
+import { Component, type OnInit } from '@angular/core';
+import { type FormBuilder, type FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialogModule, type MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import { CommonModule } from '@angular/common';
 
 @Component({
-  selector: 'app-resume-agent-modal',
-  template: `
+	selector: 'app-resume-agent-modal',
+	template: `
     <h2 mat-dialog-title class="font-bold">Resume Agent</h2>
     <form [formGroup]="resumeForm" (ngSubmit)="onSubmit()">
       <mat-dialog-content>
@@ -26,30 +26,30 @@ import { CommonModule } from '@angular/common';
       </mat-dialog-actions>
     </form>
   `,
-  standalone: true,
-  imports: [CommonModule, MatDialogModule, MatButtonModule, MatFormFieldModule, MatInputModule, ReactiveFormsModule],
+	standalone: true,
+	imports: [CommonModule, MatDialogModule, MatButtonModule, MatFormFieldModule, MatInputModule, ReactiveFormsModule],
 })
 export class ResumeAgentModalComponent implements OnInit {
-  resumeForm: FormGroup;
+	resumeForm: FormGroup;
 
-  constructor(
-    public dialogRef: MatDialogRef<ResumeAgentModalComponent>,
-    private fb: FormBuilder
-  ) {
-    this.resumeForm = this.fb.group({
-      resumeInstructions: ['', Validators.required]
-    });
-  }
+	constructor(
+		public dialogRef: MatDialogRef<ResumeAgentModalComponent>,
+		private fb: FormBuilder,
+	) {
+		this.resumeForm = this.fb.group({
+			resumeInstructions: ['', Validators.required],
+		});
+	}
 
-  ngOnInit(): void {}
+	ngOnInit(): void {}
 
-  onNoClick(): void {
-    this.dialogRef.close();
-  }
+	onNoClick(): void {
+		this.dialogRef.close();
+	}
 
-  onSubmit(): void {
-    if (this.resumeForm.valid) {
-      this.dialogRef.close(this.resumeForm.value);
-    }
-  }
+	onSubmit(): void {
+		if (this.resumeForm.valid) {
+			this.dialogRef.close(this.resumeForm.value);
+		}
+	}
 }

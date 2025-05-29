@@ -1,0 +1,40 @@
+{
+	"$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+	"organizeImports": {
+		"enabled": true,
+        "ignore": [                "src/@fuse/**", "src/app/layout/**", "src/app/mock-api/**", "src/app/*.ts", "src/app/core/**"]
+    },
+	"formatter": {
+		"lineWidth": 160,
+        "ignore": [                "src/@fuse/**", "src/app/layout/**", "src/app/mock-api/**", "src/app/*.ts", "src/app/core/**"]
+    },
+	"linter": {
+		"enabled": true,
+        "ignore": ["**/*.spec.ts", "src/@fuse/**", "src/app/layout/**", "src/app/mock-api/**", "src/app/*.ts", "src/app/core/**"],
+		"rules": {
+			"recommended": true,
+			"suspicious": {
+				"noExplicitAny": "off",
+				"noFocusedTests": "error"
+			},
+			"complexity": {
+				"noForEach": "off"
+			},
+			"correctness": {
+				"noUnreachable": "off"
+			},
+			"style": {
+				"noParameterAssign": "off",
+				"noNonNullAssertion": "off"
+			}
+		}
+	},
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "single"
+		},
+        "parser": {
+            "unsafeParameterDecoratorsEnabled": true
+        }
+	}
+}
