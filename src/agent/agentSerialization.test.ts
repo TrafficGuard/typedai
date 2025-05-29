@@ -1,19 +1,11 @@
 import chai, { expect } from 'chai';
 import sinon from 'sinon';
 import sinonChai from 'sinon-chai';
-import type {
-	AgentCompleted,
-	AgentContext,
-	AgentLLMs,
-	IFileSystemService,
-	LLM,
-	LlmFunctions,
-	User,
-	// AgentType, // Not strictly needed for string literal checks
-	// AutonomousSubType, // Not strictly needed for string literal checks
-	// AgentRunningState, // Not strictly needed for string literal checks
-} from '#shared/model/agent.model';
-import type { AgentContextApi } from '#shared/schemas/agent.schema'; // For context, not direct assertion
+import type { AgentCompleted, AgentContext, AgentLLMs, LlmFunctions } from '#shared/agent/agent.model';
+import type { AgentContextApi } from '#shared/agent/agent.schema'; // For context, not direct assertion
+import type { IFileSystemService } from '#shared/files/fileSystemService';
+import type { LLM } from '#shared/llm/llm.model';
+import type { User } from '#shared/user/user.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { serializeContext } from './agentSerialization';
 
@@ -26,6 +18,7 @@ const mockCwd = '/mock/process/cwd';
 const mockTimestamp = 1678886400000; // A fixed timestamp: 2023-03-15T12:00:00.000Z
 
 describe('serializeContext', () => {
+	setupConditionalLoggerOutput();
 	let cwdStub: sinon.SinonStub;
 	let dateNowStub: sinon.SinonStub;
 
@@ -56,13 +49,6 @@ describe('serializeContext', () => {
 	// Minimal LLM mock
 	const createMockLlm = (id: string): LLM => ({
 		getId: () => id,
-		// generate: sinon.stub(), // Removed as 'generate' does not exist on LLM type as per TS2353
-		// generateWithStreaming: sinon.stub(), // Removed as it does not exist in LLM type
-		// getFamily: sinon.stub(), // Removed as it does not exist in LLM type
-		// getVariant: sinon.stub(), // Removed as it does not exist in LLM type
-		// getCapabilities: sinon.stub(), // Removed as it does not exist in LLM type
-		// The LLM interface requires several methods. We'll mock the ones used by serialization or provide basic mocks.
-		// For serialization, only getId() is directly used. Other methods can be basic sinon.stub() as any if needed by other tests using this mock.
 		generateText: sinon.stub() as any,
 		generateTextWithJson: sinon.stub() as any,
 		generateJson: sinon.stub() as any,
@@ -98,30 +84,17 @@ describe('serializeContext', () => {
 		readFile: sinon.stub(),
 		readFileAsXML: sinon.stub(), // Added missing method
 		writeFile: sinon.stub(),
-		// deleteFile: sinon.stub(), // Correctly removed as it does not exist in IFileSystemService type
-		// listFiles: sinon.stub(), // Removed, use listFilesInDirectory or listFilesRecursively
 		listFilesInDirectory: sinon.stub(), // Added to reflect interface
 		listFilesRecursively: sinon.stub(), // Added to reflect interface
 		listFilesRecurse: sinon.stub(), // Added to reflect interface
-		// exists: sinon.stub(), // Removed, use fileExists or directoryExists
 		fileExists: sinon.stub(), // Added to reflect interface
 		directoryExists: sinon.stub(), // Added to reflect interface
-		// getRelativePath: sinon.stub(), // Removed as it does not exist in IFileSystemService type
-		// getAbsolutePath: sinon.stub(), // Removed as it does not exist in IFileSystemService type
-		// ensureDir: sinon.stub(), // Removed as it does not exist in IFileSystemService type
 		getWorkingDirectory: sinon.stub(),
 		setWorkingDirectory: sinon.stub(),
 		getBasePath: sinon.stub(),
-		// getFileSystemType: sinon.stub(), // Removed as it does not exist in IFileSystemService type
-		// watch: sinon.stub(), // Removed as it does not exist in IFileSystemService type
-		// disposeWatch: sinon.stub(), // Removed as it does not exist in IFileSystemService type
-		// searchFiles: sinon.stub(), // Removed, use searchFilesMatchingContents or searchFilesMatchingName
 		searchFilesMatchingContents: sinon.stub(), // Added to reflect interface
 		searchExtractsMatchingContents: sinon.stub(), // Added to reflect interface
 		searchFilesMatchingName: sinon.stub(), // Added to reflect interface
-		// rename: sinon.stub(), // Removed as it does not exist in IFileSystemService type
-		// copy: sinon.stub(), // Removed as it does not exist in IFileSystemService type
-		// getTempDir: sinon.stub(), // Removed as it does not exist in IFileSystemService type
 		getFileContentsRecursively: sinon.stub(),
 		getFileContentsRecursivelyAsXml: sinon.stub(),
 		readFiles: sinon.stub(),

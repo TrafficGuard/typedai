@@ -1,4 +1,4 @@
-import type { CodeTask, CodeTaskPreset, UpdateCodeTaskData } from '#shared/model/codeTask.model';
+import type { CodeTask, CodeTaskPreset, UpdateCodeTaskData } from '#shared/codeTask/codeTask.model';
 
 /**
  * Interface defining the persistence operations for Code tasks and presets.

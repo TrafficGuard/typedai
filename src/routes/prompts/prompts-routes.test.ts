@@ -2,9 +2,9 @@ import { expect } from 'chai';
 import sinon from 'sinon';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { createTestFastify } from '#routes/routeTestUtils';
-import type { User } from '#shared/model/user.model';
-import type { ChatSettings, LLMServicesConfig } from '#shared/model/user.model';
-import type { PromptGenerateResponseSchemaModel } from '#shared/schemas/prompts.schema';
+import type { PromptGenerateResponseSchemaModel } from '#shared/prompts/prompts.schema';
+import type { User } from '#shared/user/user.model';
+import type { ChatSettings, LLMServicesConfig } from '#shared/user/user.model';
 import { promptRoutes } from './prompts-routes';
 
 // Mock currentUser from #user/userContext

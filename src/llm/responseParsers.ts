@@ -1,6 +1,6 @@
 import { DOMParser } from 'xmldom';
 import { logger } from '#o11y/logger';
-import type { FunctionCalls } from '#shared/model/llm.model';
+import type { FunctionCalls } from '#shared/llm/llm.model';
 
 /**
  * Extracts the function call details from an LLM response.

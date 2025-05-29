@@ -16,9 +16,9 @@ import { appContext, initInMemoryApplicationContext } from '#app/applicationCont
 import { TEST_FUNC_NOOP, TEST_FUNC_SKY_COLOUR, TEST_FUNC_SUM, THROW_ERROR_TEXT, TestFunctions } from '#functions/testFunctions';
 import { MockLLM } from '#llm/services/mock-llm';
 import { setTracer } from '#o11y/trace';
-import type { AgentContext, AgentLLMs } from '#shared/model/agent.model';
-import { lastText } from '#shared/model/llm.model';
-import type { User } from '#shared/model/user.model';
+import type { AgentContext, AgentLLMs } from '#shared/agent/agent.model';
+import { lastText } from '#shared/llm/llm.model';
+import type { User } from '#shared/user/user.model';
 import { sleep } from '#utils/async-utils';
 import { agentContextStorage } from '../../agentContextLocalStorage';
 

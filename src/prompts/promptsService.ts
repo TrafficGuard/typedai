@@ -1,4 +1,4 @@
-import type { Prompt, PromptPreview } from '#shared/model/prompts.model';
+import type { Prompt, PromptPreview } from '#shared/prompts/prompts.model';
 
 export interface PromptsService {
 	/**

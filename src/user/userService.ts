@@ -1,4 +1,4 @@
-import type { User } from '#shared/model/user.model';
+import type { User } from '#shared/user/user.model';
 
 export interface UserService {
 	getUser(userId: string): Promise<User>;

@@ -19,9 +19,9 @@ interface Entity {
     updatedAt: number;
 }
 // Pick<> properties used to define a derived model type. Array<keyof Entity> enforces correct property names.
-const EntityPreviewProps: Array<keyof Entity> = ['id', 'name'] as const;
+const EntityPreviewKeys: Array<keyof Entity> = ['id', 'name'] as const;
 // `(typeof Model)[number] lets us use the statically checked property name array which we can re-use in the schema with Type.Pick()
-type EntityPreview = Pick<Entity, (typeof EntityPreviewProps)[number]>
+type EntityPreview = Pick<Entity, (typeof EntityPreviewKeys)[number]>
 ```
 
 The base models map to the database tables and represent the core data structures.
@@ -48,12 +48,12 @@ export const EntitySchema = Type.Object({
 const _EntityCheck: AreTypesFullyCompatible<Entity, Static<typeof EntitySchema>> = true;
 
 // Derive the schema using Pick the same way we derive the model type
-export const EntityPreviewSchema = Type.Pick(EntitySchema, EntityPreviewProps, { $id: 'EntityPreview' })
+export const EntityPreviewSchema = Type.Pick(EntitySchema, EntityPreviewKeys, { $id: 'EntityPreview' })
 
 const _EntityPreviewCheck: AreTypesFullyCompatible<EntityPreview, Static<typeof EntityPreviewSchema>> = true;
 ```
 
-Derived schema objects must use `Type.Pick(BaseSchema, PropsToPick, { $id: 'DerivedSchema' })` (or `Type.Omit(BaseSchema, PropsToOmit, { $id: 'DerivedSchema' })`) 
+Derived schema objects must use `Type.Pick(BaseSchema, KeysToPick, { $id: 'DerivedSchema' })` (or `Type.Omit(BaseSchema, KeysToOmit, { $id: 'DerivedSchema' })`) 
 in the same way the plain model type is derived using Pick<> (or Omit<>).
 
 ### Schema compatability checking

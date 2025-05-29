@@ -4,8 +4,8 @@ import mockFs from 'mock-fs';
 import * as sinon from 'sinon';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
-import type { IFileSystemService } from '#shared/services/fileSystemService';
-import type { VersionControlSystem } from '#shared/services/versionControlSystem';
+import type { IFileSystemService } from '#shared/files/fileSystemService';
+import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import type { EditBlock } from './coderTypes';
 import { EditApplier } from './editApplier';
@@ -36,7 +36,7 @@ describe('EditApplier', () => {
 			switchToBranch: sinon.stub<[string], Promise<void>>().resolves(),
 			pull: sinon.stub<[], Promise<void>>().resolves(),
 			getAddedFiles: sinon.stub<[string?], Promise<string[]>>().resolves([]),
-			getRecentCommits: sinon.stub<[number], Promise<import('#shared/services/versionControlSystem').Commit[]>>().resolves([]),
+			getRecentCommits: sinon.stub<[number], Promise<import('#shared/scm/versionControlSystem').Commit[]>>().resolves([]),
 			isRepoDirty: sinon.stub<[], Promise<boolean>>().resolves(false),
 			revertFile: sinon.stub<[string], Promise<void>>().resolves(),
 			commit: sinon.stub<[string], Promise<void>>().resolves(),

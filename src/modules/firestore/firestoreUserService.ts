@@ -2,7 +2,7 @@ import { type DocumentSnapshot, Firestore } from '@google-cloud/firestore';
 import * as bcrypt from 'bcrypt';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import type { User } from '#shared/model/user.model';
+import type { User } from '#shared/user/user.model';
 import { currentUser, isSingleUser } from '#user/userContext';
 import type { UserService } from '#user/userService';
 import { envVar } from '#utils/env-var';

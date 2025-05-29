@@ -1,6 +1,6 @@
 import { startWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { logger } from '#o11y/logger';
-import type { CodeTask } from '#shared/model/codeTask.model';
+import type { CodeTask } from '#shared/codeTask/codeTask.model';
 import type { CodeTaskRepository } from './codeTaskRepository';
 
 export async function runCodeTaskWorkflowAgent(codeTask: CodeTask, subtype: string, codeTaskRepo: CodeTaskRepository, workflow: () => any): Promise<any> {

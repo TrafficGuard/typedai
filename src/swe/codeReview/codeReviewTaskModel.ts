@@ -1,4 +1,4 @@
-import type { CodeReviewConfig } from '#shared/model/codeReview.model';
+import type { CodeReviewConfig } from '#shared/codeReview/codeReview.model';
 
 /**
  * AI review of a git diff

@@ -1,5 +1,5 @@
 import { logger } from '#o11y/logger';
-import type { SelectedFile } from '#shared/model/files.model';
+import type { SelectedFile } from '#shared/files/files.model';
 import { runCodeTaskWorkflowAgent } from './codeTaskAgentRunner';
 import type { CodeTaskRepository } from './codeTaskRepository';
 

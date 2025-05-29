@@ -4,8 +4,8 @@ import { type AgentExecution, agentExecutions } from '#agent/autonomous/autonomo
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send, sendBadRequest, sendNotFound } from '#fastify/index';
 import { logger } from '#o11y/logger';
-import { AGENT_API } from '#shared/api/agent.api';
-import type { AgentContext, AgentContextPreview, AutonomousIteration, AutonomousIterationSummary } from '#shared/model/agent.model';
+import { AGENT_API } from '#shared/agent/agent.api';
+import type { AgentContext, AgentContextPreview, AutonomousIteration, AutonomousIterationSummary } from '#shared/agent/agent.model';
 import { functionRegistry } from '../../functionRegistry';
 
 export async function agentDetailsRoutes(fastify: AppFastifyInstance) {

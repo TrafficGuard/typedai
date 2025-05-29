@@ -17,8 +17,8 @@ import { TEST_FUNC_NOOP, TEST_FUNC_SKY_COLOUR, TEST_FUNC_SUM, TEST_FUNC_THROW_ER
 import { mockLLM, mockLLMs } from '#llm/services/mock-llm';
 import { logger } from '#o11y/logger';
 import { setTracer } from '#o11y/trace';
-import type { AgentContext } from '#shared/model/agent.model';
-import { lastText } from '#shared/model/llm.model';
+import type { AgentContext } from '#shared/agent/agent.model';
+import { lastText } from '#shared/llm/llm.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { sleep } from '#utils/async-utils';
 import { agentContextStorage } from '../../agentContextLocalStorage';

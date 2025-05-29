@@ -2,7 +2,7 @@ import { type GoogleGenerativeAIProvider, createGoogleGenerativeAI } from '@ai-s
 import { type LlmCostFunction, fixedCostPerMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
 import { gemini2_5_Flash_CostFunction, gemini2_5_Pro_CostFunction } from '#llm/services/vertexai';
-import type { LLM } from '#shared/model/llm.model';
+import type { LLM } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 import { envVar } from '#utils/env-var';
 

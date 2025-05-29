@@ -3,7 +3,7 @@ import * as bcrypt from 'bcrypt';
 import type { ExpressionBuilder, Insertable, Selectable, Updateable } from 'kysely';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import type { ChatSettings, LLMServicesConfig, User } from '#shared/model/user.model';
+import type { ChatSettings, LLMServicesConfig, User } from '#shared/user/user.model';
 import { currentUser, isSingleUser } from '#user/userContext'; // Added isSingleUser
 import type { UserService } from '#user/userService';
 // No envVar import needed as process.env will be used directly for SINGLE_USER_EMAIL

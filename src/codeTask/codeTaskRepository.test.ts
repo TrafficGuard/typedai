@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import type sinon from 'sinon';
-import type { CodeTask, CodeTaskPreset } from '#shared/model/codeTask.model';
+import type { CodeTask, CodeTaskPreset } from '#shared/codeTask/codeTask.model';
 import type { CodeTaskRepository } from './codeTaskRepository';
 
 chai.use(chaiAsPromised);
@@ -53,7 +53,7 @@ const createMockPreset = (userId: string, overrides: Partial<CodeTaskPreset> = {
 	};
 };
 
-import type { User } from '#shared/model/user.model';
+import type { User } from '#shared/user/user.model';
 
 export function runCodeTaskRepositoryTests(
 	createRepository: () => CodeTaskRepository,

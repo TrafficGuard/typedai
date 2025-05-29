@@ -1,6 +1,6 @@
 import { type OpenAIProvider, createOpenAI } from '@ai-sdk/openai';
 import { type LlmCostFunction, fixedCostPerMilTokens } from '#llm/base-llm';
-import type { LLM } from '#shared/model/llm.model';
+import type { LLM } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 import { AiLLM } from './ai-llm';
 

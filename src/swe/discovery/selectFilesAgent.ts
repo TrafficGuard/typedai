@@ -2,7 +2,7 @@ import path from 'node:path';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { extractTag } from '#llm/responseParsers';
 import { logger } from '#o11y/logger';
-import type { SelectedFile } from '#shared/model/files.model';
+import type { SelectedFile } from '#shared/files/files.model';
 import {
 	type GenerateTextWithJsonResponse,
 	ImagePartExt,
@@ -12,8 +12,8 @@ import {
 	assistant,
 	contentText,
 	extractAttachments,
-} from '#shared/model/llm.model';
-import { text, user } from '#shared/model/llm.model';
+} from '#shared/llm/llm.model';
+import { text, user } from '#shared/llm/llm.model';
 import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
 import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
 import { type RepositoryMaps, generateRepositoryMaps } from '#swe/index/repositoryMap';

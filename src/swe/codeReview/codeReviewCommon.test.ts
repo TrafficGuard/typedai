@@ -1,6 +1,6 @@
 import type { MergeRequestDiffSchema } from '@gitbeaker/rest';
 import { expect } from 'chai';
-import type { CodeReviewConfig } from '#shared/model/codeReview.model';
+import type { CodeReviewConfig } from '#shared/codeReview/codeReview.model';
 import { addCodeWithLineNumbers, getStartingLineNumber, shouldApplyCodeReview } from '#swe/codeReview/codeReviewCommon';
 import type { CodeReviewTask } from '#swe/codeReview/codeReviewTaskModel';
 

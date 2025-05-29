@@ -5,7 +5,7 @@ import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { initApplicationContext } from '#app/applicationContext';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { defaultLLMs } from '#llm/services/defaultLlms';
-import type { AgentLLMs } from '#shared/model/agent.model';
+import type { AgentLLMs } from '#shared/agent/agent.model';
 import { performLocalBranchCodeReview } from '#swe/codeReview/local/localCodeReview';
 import { beep } from '#utils/beep';
 import { parseProcessArgs } from './cli';

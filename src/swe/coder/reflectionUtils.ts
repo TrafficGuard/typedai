@@ -1,6 +1,6 @@
 import * as path from 'node:path';
 import { logger } from '#o11y/logger'; // Added for potential logging within utils if needed
-import type { IFileSystemService } from '#shared/services/fileSystemService';
+import type { IFileSystemService } from '#shared/files/fileSystemService';
 import type { EditBlock } from './coderTypes';
 import type { HookResult } from './hooks/editHook';
 import type { ValidationIssue } from './validators/validationRule';

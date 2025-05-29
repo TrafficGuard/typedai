@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { ChatService } from '#chat/chatService';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import type { Chat, ChatList, ChatPreview } from '#shared/model/chat.model';
+import type { Chat, ChatList, ChatPreview } from '#shared/chat/chat.model';
 import { currentUser } from '#user/userContext';
 import { SINGLE_USER_ID } from './inMemoryUserService';
 

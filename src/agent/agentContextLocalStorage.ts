@@ -5,8 +5,8 @@ import { ConsoleCompletedHandler } from '#agent/autonomous/agentCompletion';
 import type { RunAgentConfig, RunWorkflowConfig } from '#agent/autonomous/autonomousAgentRunner';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
-import type { AgentContext, AgentLLMs } from '#shared/model/agent.model';
-import type { IFileSystemService } from '#shared/services/fileSystemService';
+import type { AgentContext, AgentLLMs } from '#shared/agent/agent.model';
+import type { IFileSystemService } from '#shared/files/fileSystemService';
 import { currentUser } from '#user/userContext';
 
 export const agentContextStorage = new AsyncLocalStorage<AgentContext>();

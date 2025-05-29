@@ -10,8 +10,8 @@ import { Git } from '#functions/scm/git';
 import { LlmTools } from '#functions/util';
 import { logger } from '#o11y/logger';
 import { getActiveSpan } from '#o11y/trace';
-import type { FileSystemNode, IFileSystemService } from '#shared/services/fileSystemService';
-import type { VersionControlSystem } from '#shared/services/versionControlSystem';
+import type { FileSystemNode, IFileSystemService } from '#shared/files/fileSystemService';
+import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
 import { arg, execCmdSync, spawnCommand } from '#utils/exec';
 import { formatXmlContent } from '#utils/xml-utils';
 

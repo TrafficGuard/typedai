@@ -26,7 +26,7 @@ import { sendBadRequest } from '#fastify/responses'; // mapReplacer might not be
 import { logger } from '#o11y/logger';
 import { loadOnRequestHooks } from './hooks';
 
-const NODE_ENV = process.env.NODE_ENV ?? 'local';
+const NODE_ENV = process.env.NODE_ENV ?? 'development';
 
 export const DEFAULT_HEALTHCHECK = '/health-check';
 

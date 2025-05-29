@@ -1,11 +1,11 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable, computed } from '@angular/core';
-import { catchError, Observable, tap, throwError, map, EMPTY } from 'rxjs';
+import { catchError, Observable, tap, EMPTY } from 'rxjs';
 import { Router } from '@angular/router';
-import { USER_API } from "#shared/api/user.api";
+import { USER_API } from "#shared/user/user.api";
 import { callApiRoute } from "../api-route";
 import { createApiEntityState } from '../api-state.types';
-import { UserProfile, UserProfileUpdate } from "#shared/schemas/user.schema";
+import { UserProfile, UserProfileUpdate } from "#shared/user/user.model";
 
 
 @Injectable({ providedIn: 'root' })
@@ -16,7 +16,7 @@ export class UserService {
     private readonly _userState = createApiEntityState<UserProfile>();
 
     /** User Api result for authentication guard/service/components. */
-    readonly userEntityState = this._userState.asReadonly();
+    readonly authOnlyUserEntityState = this._userState.asReadonly();
 
     /** Public UserProfile state. Application components should use this state and assume the user is non-null  */
     readonly userProfile = computed(() => {

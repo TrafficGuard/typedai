@@ -13,6 +13,7 @@ import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { MockLLM } from '#llm/services/mock-llm';
 import { logger } from '#o11y/logger';
 import {
+	AGENT_PREVIEW_KEYS,
 	type AgentCompleted,
 	type AgentContext,
 	type AgentLLMs,
@@ -20,10 +21,10 @@ import {
 	AgentType,
 	isExecuting,
 	// TaskLevel, // Not explicitly used in AgentContext, but used in AgentLLMs
-} from '#shared/model/agent.model';
-import type { AutonomousIteration } from '#shared/model/agent.model';
-import type { FunctionCallResult, GenerationStats } from '#shared/model/llm.model';
-import type { ChatSettings, LLMServicesConfig, User } from '#shared/model/user.model';
+} from '#shared/agent/agent.model';
+import type { AutonomousIteration } from '#shared/agent/agent.model';
+import type { FunctionCallResult, GenerationStats } from '#shared/llm/llm.model';
+import type { ChatSettings, LLMServicesConfig, User } from '#shared/user/user.model';
 import * as userContext from '#user/userContext';
 
 // These tests must be implementation independent so we can ensure the same
@@ -428,10 +429,7 @@ export function runAgentStateServiceTests(
 			// Note: The exact fields returned by list() might vary slightly by implementation,
 			// but these are generally expected for a summary view.
 			contexts.forEach((ctx) => {
-				expect(ctx).to.include.keys(['agentId', 'name', 'state', 'lastUpdate', 'user']);
-				// Check user association: list() now returns AgentContextPreview where user is a string ID
-				expect(ctx.user).to.exist;
-				expect(ctx.user).to.equal(testUser.id);
+				expect(ctx).to.include.keys(AGENT_PREVIEW_KEYS);
 			});
 		});
 

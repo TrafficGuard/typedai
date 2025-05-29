@@ -1,5 +1,5 @@
 import type { CodeTaskRepository } from '#codeTask/codeTaskRepository';
-import type { CodeTask, CodeTaskPreset, UpdateCodeTaskData } from '#shared/model/codeTask.model';
+import type { CodeTask, CodeTaskPreset, UpdateCodeTaskData } from '#shared/codeTask/codeTask.model';
 
 /**
  * In-memory implementation of CodeTaskRepository for testing and development.

@@ -1,17 +1,17 @@
-import { Component, input } from '@angular/core';
-import { AgentContextApi } from '#shared/schemas/agent.schema';
 import { CommonModule, KeyValuePipe } from '@angular/common';
+import { Component, input } from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
 import { MatExpansionModule } from '@angular/material/expansion';
+import type { AgentContextApi } from '#shared/agent/agent.schema';
 
 @Component({
-    selector: 'agent-function-calls',
-    template: `
+	selector: 'agent-function-calls',
+	template: `
         <mat-card class="p-5">
             @for (invoked of agentDetails()?.functionCallHistory?.slice().reverse(); track invoked.function_name + $index) {
                 <div class="pb-8">
                     <div class="mb-3 font-medium text-xl">{{ invoked.function_name }}</div>
-                
+
                     @for (param of invoked.parameters | keyvalue; track param.key) {
                         <div>
                             <strong>{{ param.key }}:</strong>
@@ -49,10 +49,10 @@ import { MatExpansionModule } from '@angular/material/expansion';
             }
         </mat-card>
     `,
-    styles: `.mat-expansion-panel-header.mat-expanded.expanded-header {  height: 1.3em; padding-top: 1.2em; }`,
-    standalone: true,
-    imports: [CommonModule, MatCardModule, MatExpansionModule, KeyValuePipe],
+	styles: '.mat-expansion-panel-header.mat-expanded.expanded-header {  height: 1.3em; padding-top: 1.2em; }',
+	standalone: true,
+	imports: [CommonModule, MatCardModule, MatExpansionModule, KeyValuePipe],
 })
 export class AgentFunctionCallsComponent {
-    agentDetails = input<AgentContextApi | null>(null);
+	agentDetails = input<AgentContextApi | null>(null);
 }

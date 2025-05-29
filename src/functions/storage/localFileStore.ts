@@ -4,8 +4,8 @@ import { agentContext } from '#agent/agentContextLocalStorage';
 import { systemDir } from '#app/appDirs';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import type { FileStore } from '#functions/storage/filestore';
-import type { FileMetadata } from '#shared/model/files.model';
-import type { ToolType } from '#shared/services/functions';
+import type { ToolType } from '#shared/agent/functions';
+import type { FileMetadata } from '#shared/files/files.model';
 
 /**
  * FileStore implementation that stores files on the local file system.

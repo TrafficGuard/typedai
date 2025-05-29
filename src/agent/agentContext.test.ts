@@ -7,7 +7,7 @@ import type { RunAgentConfig } from '#agent/autonomous/autonomousAgentRunner';
 import { appContext } from '#app/applicationContext';
 import { LlmTools } from '#functions/util';
 import { GPT41 } from '#llm/services/openai';
-import type { AgentContext } from '#shared/model/agent.model';
+import type { AgentContext } from '#shared/agent/agent.model';
 import { functionRegistry } from '../functionRegistry';
 
 describe('agentContext', () => {

@@ -13,7 +13,7 @@ import { Perplexity } from '#functions/web/perplexity';
 import { PublicWeb } from '#functions/web/web';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
-import type { LLM } from '#shared/model/llm.model';
+import type { LLM } from '#shared/llm/llm.model';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { CodeFunctions } from '#swe/codeFunctions';
 import { NpmPackages } from '#swe/lang/nodejs/npmPackages';

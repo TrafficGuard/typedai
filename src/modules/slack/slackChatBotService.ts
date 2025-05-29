@@ -11,7 +11,7 @@ import { LlmTools } from '#functions/util';
 import { Perplexity } from '#functions/web/perplexity';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
-import { type AgentCompleted, type AgentContext, isExecuting } from '#shared/model/agent.model';
+import { type AgentCompleted, type AgentContext, isExecuting } from '#shared/agent/agent.model';
 import { sleep } from '#utils/async-utils';
 import type { ChatBotService } from '../../chatBot/chatBotService';
 

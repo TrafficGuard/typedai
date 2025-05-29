@@ -27,9 +27,9 @@ import { FUNC_SEP, type FunctionSchema, getAllFunctionSchemas } from '#functionS
 import type { FileStore } from '#functions/storage/filestore';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
-import type { AgentContext, AutonomousIteration } from '#shared/model/agent.model';
-import { FILE_STORE_NAME, type FileMetadata } from '#shared/model/files.model';
-import { type FunctionCallResult, type ImagePartExt, type LlmMessage, type UserContentExt, messageText, system, text, user } from '#shared/model/llm.model';
+import type { AgentContext, AutonomousIteration } from '#shared/agent/agent.model';
+import { FILE_STORE_NAME, type FileMetadata } from '#shared/files/files.model';
+import { type FunctionCallResult, type ImagePartExt, type LlmMessage, type UserContentExt, messageText, system, text, user } from '#shared/llm/llm.model';
 import { errorToString } from '#utils/errors';
 import { agentContext, agentContextStorage, llms } from '../../agentContextLocalStorage';
 import { type HitlCounters, checkHumanInTheLoop } from '../humanInTheLoopChecks';

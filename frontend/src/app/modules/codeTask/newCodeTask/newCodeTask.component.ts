@@ -10,6 +10,7 @@ import {
 	Validators,
 } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCard, MatCardContent } from '@angular/material/card';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -19,10 +20,9 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import { BehaviorSubject, type Observable, Subscription, catchError, finalize, map, of, take } from 'rxjs';
-import { type CreateCodeTaskPayload, CodeTaskServiceClient } from '../codeTask.service';
-import { MatCard, MatCardContent } from '@angular/material/card';
-import {GitProject} from "#shared/model/git.model";
-import {CodeTaskPreset, CodeTaskPresetConfig, CodeTask} from "#shared/model/codeTask.model";
+import type { CodeTask, CodeTaskPreset, CodeTaskPresetConfig } from '#shared/codeTask/codeTask.model';
+import type { GitProject } from '#shared/scm/git.model';
+import { CodeTaskServiceClient, type CreateCodeTaskPayload } from '../codeTask.service';
 
 @Component({
 	selector: 'app-newCodeTask',
@@ -415,7 +415,11 @@ export class NewCodeTaskComponent implements OnInit, OnDestroy {
 			repoToSelect = projects.find((p) => p.id.toString() === config.repositoryId) || null;
 
 			if (!repoToSelect) {
-				this.snackBar.open(`Preset Warning: Could not find the saved ${config.repositorySource} repository (${config.repositoryName || config.repositoryId}). Please select it manually.`, 'Close', { duration: 7000, verticalPosition: 'top' });
+				this.snackBar.open(
+					`Preset Warning: Could not find the saved ${config.repositorySource} repository (${config.repositoryName || config.repositoryId}). Please select it manually.`,
+					'Close',
+					{ duration: 7000, verticalPosition: 'top' },
+				);
 				// Reset repo field to force manual selection
 				this.wizardForm.get('selectedRepo')?.setValue(null);
 			}

@@ -1,4 +1,4 @@
-import type { ImagePartExt, TextPart, UserContentExt } from '#shared/model/llm.model';
+import type { ImagePartExt, TextPart, UserContentExt } from '#shared/llm/llm.model';
 
 export interface ParsedPrompt {
 	textPrompt: string;

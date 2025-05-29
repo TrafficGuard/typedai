@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 import { logger } from '#o11y/logger';
-import type { CodeReviewConfig, CodeReviewFileExtensions, CodeReviewRequires } from '#shared/model/codeReview.model';
-import type { IExample as CodeReviewExample } from '#shared/model/codeReview.model'; // Renamed for clarity if IExample is too generic
+import type { CodeReviewConfig, CodeReviewFileExtensions, CodeReviewRequires } from '#shared/codeReview/codeReview.model';
+import type { IExample as CodeReviewExample } from '#shared/codeReview/codeReview.model'; // Renamed for clarity if IExample is too generic
 import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
 import type { CodeReviewFingerprintCache } from '#swe/codeReview/codeReviewTaskModel';
 import { EMPTY_CACHE } from '#swe/codeReview/codeReviewTaskModel';

@@ -116,12 +116,6 @@ async function runNpmScriptOrCommandInDirs(scriptOrCommandName, directories) {
         // Use the base script/command name for the task identifier for consistency
         const taskName = `${dirInfo.name}-${scriptOrCommandName}`; // e.g., "frontend-build", "root-install"
 
-        // Skip linting for the frontend directory specifically
-        if(scriptOrCommandName === 'lint' && dirInfo.path.includes('frontend')) {
-            console.log(`Skipping ${scriptOrCommandName} for ${dirInfo.name} directory.`);
-            return Promise.resolve(true); // Indicate success for this skipped task
-        }
-
         console.log(`\n>>> Starting parallel execution of "${commandToExecuteInDir}" <<<`);
 
         return runCommand(commandToExecuteInDir, resolvedPath, taskName);

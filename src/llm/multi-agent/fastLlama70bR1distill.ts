@@ -2,7 +2,7 @@ import { deepinfraDeepSeekR1_Distill_Llama70b } from '#llm/services/deepinfra';
 import { sambanovaLlama3_3_70b_R1_Distill } from '#llm/services/sambanova';
 import { togetherLlama3_70B_R1_Distill } from '#llm/services/together';
 import { logger } from '#o11y/logger';
-import type { GenerateTextOptions, LLM, LlmMessage } from '#shared/model/llm.model';
+import type { GenerateTextOptions, LLM, LlmMessage } from '#shared/llm/llm.model';
 import { BaseLLM } from '../base-llm';
 import { groqLlama3_3_70B_R1_Distill } from '../services/groq';
 

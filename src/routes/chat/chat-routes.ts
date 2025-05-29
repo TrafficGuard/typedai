@@ -5,10 +5,8 @@ import { send, sendBadRequest } from '#fastify/index';
 import { getLLM } from '#llm/llmFactory';
 import { defaultLLMs, summaryLLM } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
-import { CHAT_API } from '#shared/api/chat.api';
-import type { Chat, ChatList } from '#shared/model/chat.model';
-import { contentText } from '#shared/model/llm.model';
-import type { LLM, LlmMessage, TextPartExt, UserContentExt } from '#shared/model/llm.model';
+import { CHAT_API } from '#shared/chat/chat.api';
+import type { Chat, ChatList } from '#shared/chat/chat.model';
 import type {
 	ChatMarkdownRequestSchema,
 	ChatMarkdownResponseModel,
@@ -17,7 +15,9 @@ import type {
 	ChatSchemaModel,
 	ChatUpdateDetailsSchema,
 	RegenerateMessageSchema,
-} from '#shared/schemas/chat.schema';
+} from '#shared/chat/chat.schema';
+import { contentText } from '#shared/llm/llm.model';
+import type { LLM, LlmMessage, TextPartExt, UserContentExt } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 import { getMarkdownFormatPrompt } from './chatPromptUtils';
 

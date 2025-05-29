@@ -1,5 +1,5 @@
-import type { FileMetadata } from '#shared/model/files.model';
-import type { GetToolType } from '#shared/services/functions';
+import type { GetToolType } from '#shared/agent/functions';
+import type { FileMetadata } from '#shared/files/files.model';
 
 export interface FileStore extends GetToolType {
 	/**

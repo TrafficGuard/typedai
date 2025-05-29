@@ -13,10 +13,10 @@ import {
 	type AutonomousIteration,
 	type AutonomousIterationSummary,
 	isExecuting,
-} from '#shared/model/agent.model';
-import type { FunctionCallResult, GenerationStats, ImagePartExt } from '#shared/model/llm.model';
-import type { User } from '#shared/model/user.model';
-import type { AgentContextSchema } from '#shared/schemas/agent.schema';
+} from '#shared/agent/agent.model';
+import type { AgentContextSchema } from '#shared/agent/agent.schema';
+import type { FunctionCallResult, GenerationStats, ImagePartExt } from '#shared/llm/llm.model';
+import type { User } from '#shared/user/user.model';
 import { currentUser } from '#user/userContext';
 import type { AgentContextsTable, AgentIterationsTable, Database } from './db';
 import { db as defaultDb } from './db';
@@ -364,7 +364,6 @@ export class PostgresAgentStateService implements AgentContextService {
 			lastUpdate: agent.lastUpdate,
 			userPrompt: agent.userPrompt,
 			inputPrompt: agent.inputPrompt,
-			user: agent.user.id, // Convert User object to user ID string
 		}));
 	}
 
@@ -393,7 +392,6 @@ export class PostgresAgentStateService implements AgentContextService {
 			lastUpdate: agent.lastUpdate,
 			userPrompt: agent.userPrompt,
 			inputPrompt: agent.inputPrompt,
-			user: agent.user.id, // Convert User object to user ID string
 		}));
 	}
 
@@ -528,7 +526,7 @@ export class PostgresAgentStateService implements AgentContextService {
 			iteration: row.iteration_number,
 			cost: row.cost !== null && row.cost !== undefined ? Number.parseFloat(String(row.cost)) : 0,
 			summary: row.summary ?? '',
-			error: !!row.error,
+			error: row.error,
 		}));
 	}
 

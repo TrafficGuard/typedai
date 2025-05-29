@@ -1,5 +1,5 @@
 import * as bcrypt from 'bcrypt';
-import type { User } from '#shared/model/user.model';
+import type { User } from '#shared/user/user.model';
 import type { UserService } from '#user/userService';
 
 export const SINGLE_USER_ID = 'user';

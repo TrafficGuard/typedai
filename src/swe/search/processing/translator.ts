@@ -1,6 +1,6 @@
 import pino from 'pino';
 import { llms } from '#agent/agentContextLocalStorage';
-import type { LLM } from '#shared/model/llm.model';
+import type { LLM } from '#shared/llm/llm.model';
 import { TRANSLATION_LLM_MODEL_ID } from '../config';
 import { GENERATE_CHUNK_CONTEXT_PROMPT, TRANSLATE_CODE_TO_NL_PROMPT } from './prompts';
 

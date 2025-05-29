@@ -5,7 +5,7 @@ import { deepSeekR1, deepSeekV3 } from '#llm/services/deepseek';
 import { Gemini_2_5_Pro } from '#llm/services/gemini';
 import { openAIo3 } from '#llm/services/openai';
 import { logger } from '#o11y/logger';
-import { type GenerateTextOptions, type LLM, type LlmMessage, lastText } from '#shared/model/llm.model';
+import { type GenerateTextOptions, type LLM, type LlmMessage, lastText } from '#shared/llm/llm.model';
 
 // sparse multi-agent debate https://arxiv.org/abs/2406.11776
 

@@ -8,15 +8,16 @@ import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import {
+	AGENT_PREVIEW_KEYS,
 	type AgentContext,
 	type AgentContextPreview,
 	type AgentRunningState,
 	type AutonomousIteration,
 	type AutonomousIterationSummary,
 	isExecuting,
-} from '#shared/model/agent.model';
-import type { User } from '#shared/model/user.model';
-import type { AgentContextSchema } from '#shared/schemas/agent.schema';
+} from '#shared/agent/agent.model';
+import type { AgentContextSchema } from '#shared/agent/agent.schema';
+import type { User } from '#shared/user/user.model';
 import { currentUser } from '#user/userContext';
 import { firestoreDb } from './firestore';
 
@@ -152,11 +153,10 @@ export class FirestoreAgentStateService implements AgentContextService {
 
 	@span()
 	async list(): Promise<AgentContextPreview[]> {
-		const previewKeys: Array<keyof AgentContextPreview> = ['name', 'state', 'cost', 'error', 'lastUpdate', 'userPrompt', 'inputPrompt', 'user']; // agentId is obtained from doc.id, user is the user field in Firestore
 		const querySnapshot = await this.db
 			.collection('AgentContext')
 			.where('user', '==', currentUser().id)
-			.select(...previewKeys)
+			.select(...AGENT_PREVIEW_KEYS)
 			.orderBy('lastUpdate', 'desc')
 			.limit(50)
 			.get();
@@ -166,6 +166,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 	@span()
 	async listRunning(): Promise<AgentContextPreview[]> {
 		// Define terminal states to exclude from the "running" list
+		// TODO this list should be defined in agent.model.ts
 		const terminalStates: AgentRunningState[] = ['completed', 'shutdown', 'timeout', 'error']; // Added 'error' as it's typically terminal
 		// NOTE: This query requires a composite index in Firestore.
 		// Example gcloud command:
@@ -174,12 +175,11 @@ export class FirestoreAgentStateService implements AgentContextService {
 		// NOTE: Firestore requires the first orderBy clause to be on the field used in an inequality filter (like 'not-in').
 		// Therefore, we order by 'state' first, then by 'lastUpdate'. This ensures the query works reliably,
 		// although the primary desired sort order is by 'lastUpdate'.
-		const previewKeys: Array<keyof AgentContextPreview> = ['name', 'state', 'cost', 'error', 'lastUpdate', 'userPrompt', 'inputPrompt', 'user'];
 		const querySnapshot = await this.db
 			.collection('AgentContext')
 			.where('user', '==', currentUser().id) // Filter by user first
 			.where('state', 'not-in', terminalStates) // Use 'not-in' to exclude multiple terminal states
-			.select(...previewKeys) // Ensure this select uses previewKeys
+			.select(...AGENT_PREVIEW_KEYS) // Ensure this select uses previewKeys
 			.orderBy('state') // Order by the inequality filter field first (Firestore requirement)
 			.orderBy('lastUpdate', 'desc') // Then order by the desired field
 			.get();
@@ -203,7 +203,6 @@ export class FirestoreAgentStateService implements AgentContextService {
 				lastUpdate: data.lastUpdate,
 				userPrompt: data.userPrompt,
 				inputPrompt: data.inputPrompt,
-				user: data.user, // Assumes data.user is the string ID from Firestore matching AgentContextPreview.user
 			};
 			previews.push(preview);
 		}
@@ -439,7 +438,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 					iteration: data.iteration,
 					cost: data.cost ?? 0,
 					summary: data.summary ?? '',
-					error: !!data.error,
+					error: data.error,
 				});
 			} else {
 				logger.warn({ agentId, iterationId: doc.id }, 'Skipping invalid iteration data during summary load (missing or invalid iteration number)');

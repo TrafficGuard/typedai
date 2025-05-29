@@ -1,6 +1,6 @@
 import { logger } from '#o11y/logger';
-import type { AgentCompleted, AgentContext } from '#shared/model/agent.model';
-import type { FunctionCallResult } from '#shared/model/llm.model';
+import type { AgentCompleted, AgentContext } from '#shared/agent/agent.model';
+import type { FunctionCallResult } from '#shared/llm/llm.model';
 import { envVar } from '#utils/env-var';
 
 /**

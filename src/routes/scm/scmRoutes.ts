@@ -4,7 +4,7 @@ import type { AppFastifyInstance } from '#app/applicationTypes';
 import { sendBadRequest, sendJSON, sendServerError } from '#fastify/responses';
 import type { SourceControlManagement } from '#functions/scm/sourceControlManagement';
 import { logger } from '#o11y/logger';
-import type { GitProject } from '#shared/model/git.model';
+import type { GitProject } from '#shared/scm/git.model';
 import { getFunctionsByType } from '../../functionRegistry';
 
 // Define a type for the structured project response

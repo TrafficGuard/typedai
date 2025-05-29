@@ -1,43 +1,43 @@
-import { Injectable, signal, WritableSignal } from '@angular/core';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, EMPTY } from 'rxjs';
-import { tap, catchError, retry } from 'rxjs/operators';
-import { environment } from "../../../environments/environment";
+import type { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Injectable, WritableSignal, signal } from '@angular/core';
+import { EMPTY, type Observable } from 'rxjs';
+import { catchError, retry, tap } from 'rxjs/operators';
+import { environment } from '../../../environments/environment';
 import { ApiListState, createApiListState } from '../../core/api-state.types';
 
 @Injectable({
-  providedIn: 'root',
+	providedIn: 'root',
 })
 export class FunctionsService {
-  private readonly _functionsState = createApiListState<string>();
-  readonly functionsState = this._functionsState.asReadonly();
+	private readonly _functionsState = createApiListState<string>();
+	readonly functionsState = this._functionsState.asReadonly();
 
-  constructor(private http: HttpClient) {}
+	constructor(private http: HttpClient) {}
 
-  public getFunctions(): void {
-    if (this._functionsState().status === 'loading') {
-      return;
-    }
-    this._functionsState.set({ status: 'loading' });
+	public getFunctions(): void {
+		if (this._functionsState().status === 'loading') {
+			return;
+		}
+		this._functionsState.set({ status: 'loading' });
 
-    this.fetchFunctions().pipe(
-      tap((fetchedFunctions: string[]) => {
-        this._functionsState.set({ status: 'success', data: fetchedFunctions });
-      }),
-      catchError((error: HttpErrorResponse) => {
-        this._functionsState.set({
-          status: 'error',
-          error: error instanceof Error ? error : new Error('Failed to load functions'),
-          code: error.status
-        });
-        return EMPTY;
-      })
-    ).subscribe();
-  }
+		this.fetchFunctions()
+			.pipe(
+				tap((fetchedFunctions: string[]) => {
+					this._functionsState.set({ status: 'success', data: fetchedFunctions });
+				}),
+				catchError((error: HttpErrorResponse) => {
+					this._functionsState.set({
+						status: 'error',
+						error: error instanceof Error ? error : new Error('Failed to load functions'),
+						code: error.status,
+					});
+					return EMPTY;
+				}),
+			)
+			.subscribe();
+	}
 
-  private fetchFunctions(): Observable<string[]> {
-    return this.http.get<string[]>(`${environment.apiBaseUrl}agent/v1/functions`).pipe(
-      retry(3)
-    );
-  }
+	private fetchFunctions(): Observable<string[]> {
+		return this.http.get<string[]>(`${environment.apiBaseUrl}agent/v1/functions`).pipe(retry(3));
+	}
 }
