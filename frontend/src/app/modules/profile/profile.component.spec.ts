@@ -5,7 +5,6 @@ import { BehaviorSubject, of, throwError } from 'rxjs';
 
 import { ProfileComponent } from './profile.component';
 import { UserService } from '../../../core/user/user.service';
-import { UserProfile } from '#shared/schemas/user.schema';
 
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatButtonModule } from '@angular/material/button';
@@ -13,6 +12,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import {UserProfile} from "#shared/model/user.model";
 
 describe('ProfileComponent', () => {
     let component: ProfileComponent;
@@ -100,7 +100,7 @@ describe('ProfileComponent', () => {
         it('should set isLoading to true initially and then to false after loading', fakeAsync(() => {
             const userSubject = new BehaviorSubject<UserProfile | null>(null);
             (mockUserService as any).user$ = userSubject.asObservable();
-            
+
             fixture.detectChanges(); // ngOnInit
             expect(component.isLoading()).toBe(true); // Check initial loading state
 

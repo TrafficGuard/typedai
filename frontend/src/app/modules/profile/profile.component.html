@@ -83,18 +83,6 @@
                 <div class="mt-6">
                     <router-outlet></router-outlet>
                 </div>
-
-                <!-- Loading and error states for user profile -->
-                @if (isLoading()) {
-                    <div>Loading user profile...</div>
-                }
-                @if (error()) {
-                    <div class="text-red-500">{{ error() }}</div>
-                }
-                <!-- Example of using currentUser signal, adapt as needed for actual display -->
-                <!-- @if (currentUser(); as user) {
-                    <div>Current User: {{ user.name }}</div>
-                } -->
             </div>
         </mat-drawer-content>
     </mat-drawer-container>

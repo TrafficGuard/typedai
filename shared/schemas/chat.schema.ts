@@ -1,10 +1,11 @@
 import { type Static, Type } from '@sinclair/typebox';
-import type { Chat, ChatList, ChatPreview } from '#shared/model/chat.model';
+import { CHAT_PREVIEW_KEYS, type Chat, type ChatList, type ChatPreview } from '#shared/model/chat.model';
 import type { ChangePropertyType } from '#shared/typeUtils';
 import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
 import { CallSettingsSchema, LlmMessagesSchema, type LlmMessagesSchemaModel, UserContentSchema } from './llm.schema';
 
-// Chat Model Schemas
+//#region == Chat database model schemas ====
+
 export const ChatModelSchema = Type.Object(
 	{
 		id: Type.String(),
@@ -19,14 +20,21 @@ export const ChatModelSchema = Type.Object(
 	{ $id: 'Chat' },
 );
 // DO NOT CHANGE THIS PART ----
-// LlmMessageSchema doesnt exactly map to LlmMessage, but lets assume it does for now
+// LlmMessageSchema doesn't exactly map to LlmMessage, but let's assume it does for now
 type ChatHack = ChangePropertyType<Chat, 'messages', LlmMessagesSchemaModel>;
 const _ChatCheck: AreTypesFullyCompatible<ChatHack, Static<typeof ChatModelSchema>> = true;
 // -----
 
-export const ChatPreviewProps = ['id', 'userId', 'shareable', 'title', 'updatedAt', 'parentId', 'rootId'] as const;
-export const ChatPreviewSchema = Type.Pick(ChatModelSchema, ChatPreviewProps, { $id: 'ChatPreview' });
+//#endregion - Chat database model schema
+
+//#region == Derived model schemas ====
+
+export const ChatPreviewSchema = Type.Pick(ChatModelSchema, CHAT_PREVIEW_KEYS, { $id: 'ChatPreview' });
 const _ChatPreviewCheck: AreTypesFullyCompatible<ChatPreview, Static<typeof ChatPreviewSchema>> = true;
+
+//#endregion - Derived model schemas
+
+//#region == Chat API schemas ====
 
 export const ChatListSchema = Type.Object(
 	{
@@ -36,8 +44,6 @@ export const ChatListSchema = Type.Object(
 	{ $id: 'ChatList' },
 );
 const _ChatListCheck: AreTypesFullyCompatible<ChatList, Static<typeof ChatListSchema>> = true;
-
-// API Specific Schemas
 
 // Parameters for routes like /api/chat/:chatId
 export const ChatParamsSchema = Type.Object(
@@ -61,8 +67,8 @@ export const ChatMessageSendSchema = Type.Object(
 export type ChatMessagePayload = Static<typeof ChatMessageSendSchema>;
 
 // Schema for the request body of PATCH /api/chat/:chatId/details
-const ChatUpdatableDetailsProps = ['title', 'shareable'] as const;
-export const ChatUpdateDetailsSchema = Type.Partial(Type.Pick(ChatModelSchema, ChatUpdatableDetailsProps), { $id: 'ChatUpdateDetails' });
+const ChatUpdatableDetailsKeys = ['title', 'shareable'] as const;
+export const ChatUpdateDetailsSchema = Type.Partial(Type.Pick(ChatModelSchema, ChatUpdatableDetailsKeys), { $id: 'ChatUpdateDetails' });
 export type ChatUpdateDetailsPayload = Static<typeof ChatUpdateDetailsSchema>;
 
 // Schema for the request body of POST /api/chat/:chatId/regenerate
@@ -99,3 +105,5 @@ export const ChatMarkdownResponseSchema = Type.Object(
 	{ $id: 'ChatMarkdownResponse' },
 );
 export type ChatMarkdownResponseModel = Static<typeof ChatMarkdownResponseSchema>;
+
+//#endregion - Chat API schemas

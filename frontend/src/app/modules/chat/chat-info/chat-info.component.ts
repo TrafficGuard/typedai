@@ -7,7 +7,6 @@ import {
     input,
     signal,
     computed,
-    WritableSignal,
     DestroyRef,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -25,7 +24,7 @@ import { ChatServiceClient } from 'app/modules/chat/chat.service';
 import { EMPTY, catchError, finalize, tap } from 'rxjs';
 import { AgentLinks, GoogleCloudLinks } from "../../agents/agent-links";
 import { MatTooltipModule } from "@angular/material/tooltip";
-import { UserProfile, UserProfileUpdate } from "#shared/schemas/user.schema";
+import {UserProfile, UserProfileUpdate} from "#shared/model/user.model";
 
 @Component({
     selector: 'chat-info',

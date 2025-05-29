@@ -13,6 +13,7 @@ import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { MockLLM } from '#llm/services/mock-llm';
 import { logger } from '#o11y/logger';
 import {
+	AGENT_PREVIEW_KEYS,
 	type AgentCompleted,
 	type AgentContext,
 	type AgentLLMs,
@@ -428,10 +429,7 @@ export function runAgentStateServiceTests(
 			// Note: The exact fields returned by list() might vary slightly by implementation,
 			// but these are generally expected for a summary view.
 			contexts.forEach((ctx) => {
-				expect(ctx).to.include.keys(['agentId', 'name', 'state', 'lastUpdate', 'user']);
-				// Check user association: list() now returns AgentContextPreview where user is a string ID
-				expect(ctx.user).to.exist;
-				expect(ctx.user).to.equal(testUser.id);
+				expect(ctx).to.include.keys(AGENT_PREVIEW_KEYS);
 			});
 		});
 

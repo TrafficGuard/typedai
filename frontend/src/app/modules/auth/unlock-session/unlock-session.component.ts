@@ -46,7 +46,7 @@ export class AuthUnlockSessionComponent implements OnInit {
     unlockSessionForm: UntypedFormGroup;
 
     private userData = computed(() => {
-        const userState = this._userService.userEntityState();
+        const userState = this._userService.authOnlyUserEntityState();
         return userState.status === 'success' ? userState.data : null;
     });
 

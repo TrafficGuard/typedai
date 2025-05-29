@@ -214,7 +214,7 @@ export class AgentService {
     const currentState = this._agentsState();
     if (currentState.status !== 'success') return; // Only update if current state is success
 
-    const agents = currentState.data ?? []; // Existing agents are AgentContextPreview[]
+    const agents: AgentContextPreview[] = currentState.data ?? []; // Existing agents are AgentContextPreview[]
     const index = agents.findIndex(agent => agent.agentId === updatedAgent.agentId);
 
     // Convert AgentContextApi to AgentContextPreview
@@ -223,11 +223,10 @@ export class AgentService {
         name: updatedAgent.name,
         state: updatedAgent.state,
         cost: updatedAgent.cost,
-        error: updatedAgent.error, // This is correct as error is optional in both schemas
+        error: updatedAgent.error,
         lastUpdate: updatedAgent.lastUpdate,
         userPrompt: updatedAgent.userPrompt,
         inputPrompt: updatedAgent.inputPrompt,
-        user: updatedAgent.user, // AgentContextApi.user is a string ID, matching AgentContextPreview.user
         type: updatedAgent.type,
         subtype: updatedAgent.subtype,
     };

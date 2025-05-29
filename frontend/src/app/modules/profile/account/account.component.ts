@@ -19,10 +19,10 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatSelectModule } from "@angular/material/select";
 import { CommonModule } from "@angular/common";
-import { UserProfileUpdate, UserProfile } from "#shared/schemas/user.schema";
 import {UserService} from "../../../core/user/user.service";
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {ApiListState} from "../../../core/api-state.types";
+import {UserProfile, UserProfileUpdate} from "#shared/model/user.model";
 
 
 @Component({

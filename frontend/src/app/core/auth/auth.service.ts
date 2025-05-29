@@ -167,7 +167,7 @@ export class AuthService {
         if (environment.auth === 'google_iap' || environment.auth === 'single_user') {
             // Load user data and check if successful
             this._userService.loadUser();
-            const userEntityState = this._userService.userEntityState();
+            const userEntityState = this._userService.authOnlyUserEntityState();
             if (userEntityState.status === 'success') {
                 this._authenticated = true;
                 return of(true);

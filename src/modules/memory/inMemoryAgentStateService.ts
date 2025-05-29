@@ -118,7 +118,7 @@ export class InMemoryAgentStateService implements AgentContextService {
 			iteration: iter.iteration,
 			cost: iter.cost,
 			summary: iter.summary,
-			error: !!iter.error,
+			error: iter.error,
 		}));
 	}
 

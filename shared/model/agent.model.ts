@@ -1,23 +1,27 @@
+import { CHAT_PREVIEW_KEYS } from '#shared/model/chat.model';
 import type { IFileSystemService as ImportedFileSystemService } from '#shared/services/fileSystemService';
 import type { ToolType } from '#shared/services/functions';
-import type { FunctionCall, FunctionCallResult, GenerationStats, ImagePartExt, LLM as ImportedLLM, LlmMessage } from './llm.model';
-import type { User as ImportedUser } from './user.model';
+import { ChangePropertyType } from '#shared/typeUtils';
+import type { FunctionCall, FunctionCallResult, GenerationStats, ImagePartExt, LLM, LlmMessage } from './llm.model';
+import type { User } from './user.model';
 
-// Re-export imported types needed by other modules
-export type User = ImportedUser;
-export type LLM = ImportedLLM;
-export type IFileSystemService = ImportedFileSystemService;
+//#region == Property types ====
 
 /**
  * The difficulty of a LLM generative task. Used to select an appropriate model for the cost vs capability.
  * xeasy  LLama 8b/Flash 8b
  * easy   Haiku 3.5/GPT4.1-mini/Gemini Flash lite
- * medium Gemini Flash 2.5
- * hard   Gemini Pro 2.5/OpenAI o3
+ * medium Gemini Flash 2.5 / Qwen3 32b
+ * hard   Gemini Pro 2.5/OpenAI o3/Claude 4
  * xhard  Ensemble (multi-gen with voting/merging of best answer)
  *
  */
 export type TaskLevel = 'easy' | 'medium' | 'hard' | 'xhard';
+
+/**
+ * The LLMs for each Task Level
+ */
+export type AgentLLMs = Record<TaskLevel, LLM>;
 
 export type AgentType = 'autonomous' | 'workflow';
 
@@ -72,10 +76,9 @@ export function isExecuting(agent: AgentContext): boolean {
 	return agent.state === 'workflow' || agent.state === 'agent' || agent.state === 'functions' || agent.state === 'hitl_tool';
 }
 
-/**
- * The LLMs for each Task Level
- */
-export type AgentLLMs = Record<TaskLevel, LLM>;
+//#endregion Property types
+
+//#region == Database models ====
 
 /**
  * The state of an agent.
@@ -102,7 +105,7 @@ export interface AgentContext {
 	parentAgentId?: string;
 	codeTaskId?: string;
 	/** The user who created the agent */
-	user: ImportedUser; // Use the aliased import
+	user: User;
 	/** The current state of the agent */
 	state: AgentRunningState;
 	/** Tracks what functions/spans we've called into */
@@ -163,14 +166,6 @@ export interface AgentContext {
 }
 
 /**
- * A summarized version of AgentContext for list views.
- */
-export type AgentContextPreview = Omit<
-	Pick<AgentContext, 'agentId' | 'name' | 'state' | 'cost' | 'error' | 'lastUpdate' | 'userPrompt' | 'inputPrompt' | 'user' | 'type' | 'subtype'>,
-	'user'
-> & { user: string };
-
-/**
  * For autonomous agents we save details of each control loop iteration
  * Keep in sync with frontend/src/app/modules/agents/agent.types.ts
  */
@@ -216,13 +211,41 @@ export interface AutonomousIteration {
 	stats: GenerationStats;
 }
 
-export interface AutonomousIterationSummary {
-	agentId: string;
-	iteration: number;
-	cost: number;
-	summary: string;
-	error?: boolean;
-}
+//#endregion Database models
+
+//#region == Derived models ====
+
+//#region == AgentContextPreview ====
+
+export const AGENT_PREVIEW_KEYS = [
+	'agentId',
+	'name',
+	'state',
+	'cost',
+	'error',
+	'lastUpdate',
+	'userPrompt',
+	'inputPrompt',
+	'type',
+	'subtype',
+] as const satisfies readonly (keyof AgentContext)[];
+
+/**
+ * A summarized version of AgentContext for list views.
+ */
+export type AgentContextPreview = Pick<AgentContext, (typeof AGENT_PREVIEW_KEYS)[number]>;
+
+//#endregion AgentContextPreview
+
+//#region == AutonomousIterationSummary ====
+
+export const AUTONOMOUS_ITERATION_SUMMARY_KEYS = ['agentId', 'iteration', 'cost', 'error', 'summary'] as const satisfies readonly (keyof AutonomousIteration)[];
+
+export type AutonomousIterationSummary = Pick<AutonomousIteration, (typeof AUTONOMOUS_ITERATION_SUMMARY_KEYS)[number]>;
+
+//#endregion
+
+//#endregion -- Derived models
 
 export interface LlmFunctions {
 	toJSON(): { functionClasses: string[] };

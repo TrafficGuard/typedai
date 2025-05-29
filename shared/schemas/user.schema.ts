@@ -1,6 +1,14 @@
 import { type Static, Type } from '@sinclair/typebox';
 // Source of Truth Model Interfaces
-import type { ChatSettings, LLMServicesConfig, User } from '#shared/model/user.model';
+import {
+	type ChatSettings,
+	type LLMServicesConfig,
+	type User,
+	type UserProfile,
+	UserProfileKeys,
+	type UserProfileUpdate,
+	UserProfileUpdateKeys,
+} from '#shared/model/user.model';
 import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
 
 // -- User model sub-component schemas -- --
@@ -35,19 +43,6 @@ export const LLMServicesConfigModelSchema = Type.Object({
 });
 const _llmServicesConfigApiCheck: AreTypesFullyCompatible<LLMServicesConfig, Static<typeof LLMServicesConfigModelSchema>> = true;
 
-// -- User profile schemas -- --
-export const UserProfileProps = ['id', 'name', 'email', 'enabled', 'hilBudget', 'hilCount', 'llmConfig', 'chat', 'functionConfig'] as const;
-export const UserProfileUpdateProps = ['name', 'hilBudget', 'hilCount', 'llmConfig', 'chat', 'functionConfig'] as const;
-
-/**
- * The user profile data returned by the API (excluding sensitive fields).
- */
-export type UserProfile = Pick<User, (typeof UserProfileProps)[number]>;
-/**
- * The profile data that users can update themselves
- */
-export type UserProfileUpdate = Pick<UserProfile, (typeof UserProfileUpdateProps)[number]>;
-
 export const UserSchema = Type.Object({
 	id: Type.String(),
 	name: Type.String(),
@@ -67,22 +62,11 @@ const _userCheck: AreTypesFullyCompatible<User, Static<typeof UserSchema>> = tru
 /**
  * The user profile data returned by the API (excluding sensitive fields).
  */
-export const UserProfileSchema = Type.Pick(UserSchema, UserProfileProps, { $id: 'UserProfile' });
-// export const UserProfileSchema = Type.Object({
-//     id: Type.String(),
-//     name: Type.String(),
-//     email: Type.String(),
-//     enabled: Type.Boolean(),
-//     hilBudget: Type.Number(),
-//     hilCount: Type.Number(),
-//     llmConfig: LLMServicesConfigModelSchema,
-//     chat: ChatSettingsModelSchema,
-//     functionConfig: Type.Record(Type.String(), Type.Record(Type.String(), Type.Any())),
-// });
+export const UserProfileSchema = Type.Pick(UserSchema, UserProfileKeys, { $id: 'UserProfile' });
 const _userProfileCheck: AreTypesFullyCompatible<UserProfile, Static<typeof UserProfileSchema>> = true;
 
 /**
  * The profile data that users can update themselves
  */
-export const UserProfileUpdateSchema = Type.Pick(UserProfileSchema, UserProfileUpdateProps);
+export const UserProfileUpdateSchema = Type.Pick(UserProfileSchema, UserProfileUpdateKeys);
 const _userProfileUpdateCheck: AreTypesFullyCompatible<UserProfileUpdate, Static<typeof UserProfileUpdateSchema>> = true;

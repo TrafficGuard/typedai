@@ -1,4 +1,7 @@
+import { AgentContext } from '#shared/model/agent.model';
 import type { LlmMessage } from '#shared/model/llm.model';
+
+//#region == Database models ====
 
 export interface Chat {
 	id: string;
@@ -13,11 +16,24 @@ export interface Chat {
 	messages: LlmMessage[];
 }
 
-export type ChatPreview = Omit<Chat, 'messages'>;
+//#endregion
 
-export const CHAT_PREVIEW_KEYS: Array<keyof ChatPreview> = ['id', 'userId', 'shareable', 'title', 'updatedAt', 'parentId', 'rootId'];
+//#region == Derived models ====
+
+//#region == ChatPreview ====
+
+export const CHAT_PREVIEW_KEYS = ['id', 'userId', 'shareable', 'title', 'updatedAt', 'parentId', 'rootId'] as const satisfies readonly (keyof Chat)[];
+
+export type ChatPreview = Pick<Chat, (typeof CHAT_PREVIEW_KEYS)[number]>;
+
+//#endregion ChatPreview
+//#endregion Derived models
+
+//#region == API models ====
 
 export interface ChatList {
 	chats: ChatPreview[];
 	hasMore: boolean;
 }
+
+//#endregion API models

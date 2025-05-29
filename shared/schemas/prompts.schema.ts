@@ -39,8 +39,8 @@ const _PromptCheck: AreTypesFullyCompatible<PromptHack, Static<typeof PromptSche
 // -----
 
 // --- PromptPreview Schema ---
-const PromptPreviewProps = ['id', 'userId', 'parentId', 'revisionId', 'name', 'appId', 'tags', 'settings'] as const;
-export const PromptPreviewSchema = Type.Pick(PromptSchema, PromptPreviewProps, { $id: 'PromptPreview' });
+const PromptPreviewKeys = ['id', 'userId', 'parentId', 'revisionId', 'name', 'appId', 'tags', 'settings'] as const;
+export const PromptPreviewSchema = Type.Pick(PromptSchema, PromptPreviewKeys, { $id: 'PromptPreview' });
 
 const _PromptPreviewCheck: AreTypesFullyCompatible<PromptPreview, Static<typeof PromptPreviewSchema>> = true;
 

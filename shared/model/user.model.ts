@@ -1,3 +1,5 @@
+import { Chat } from '#shared/model/chat.model';
+
 export interface LLMServicesConfig {
 	vertexProjectId?: string;
 	vertexRegion?: string;
@@ -60,3 +62,26 @@ export interface User {
 	/** Configuration for the function callable integrations */
 	functionConfig: Record<string, Record<string, any>>;
 }
+
+// -- User profile schemas -- --
+export const UserProfileKeys = [
+	'id',
+	'name',
+	'email',
+	'enabled',
+	'hilBudget',
+	'hilCount',
+	'llmConfig',
+	'chat',
+	'functionConfig',
+] as const satisfies readonly (keyof User)[];
+/**
+ * The user profile data returned by the API (excluding sensitive fields).
+ */
+export type UserProfile = Pick<User, (typeof UserProfileKeys)[number]>;
+
+export const UserProfileUpdateKeys = ['name', 'hilBudget', 'hilCount', 'llmConfig', 'chat', 'functionConfig'] as const satisfies readonly (keyof UserProfile)[];
+/**
+ * The profile data that users can update themselves
+ */
+export type UserProfileUpdate = Pick<UserProfile, (typeof UserProfileUpdateKeys)[number]>;

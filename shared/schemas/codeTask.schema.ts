@@ -98,9 +98,9 @@ export const CodeTaskApiSchema = Type.Object({
 const _codeTaskApiCheck: AreTypesFullyCompatible<CodeTask, Static<typeof CodeTaskApiSchema>> = true;
 
 // --- CodeTaskListItem Schema (for list views) ---
-export const CodeTaskListItemProps = ['id', 'title', 'status', 'createdAt', 'updatedAt', 'repositoryName', 'targetBranch'] as const;
-export const CodeTaskListItemApiSchema = Type.Pick(CodeTaskApiSchema, CodeTaskListItemProps);
-type CodeTaskListItemModel = Pick<CodeTask, (typeof CodeTaskListItemProps)[number]>;
+export const CodeTaskListItemKeys = ['id', 'title', 'status', 'createdAt', 'updatedAt', 'repositoryName', 'targetBranch'] as const;
+export const CodeTaskListItemApiSchema = Type.Pick(CodeTaskApiSchema, CodeTaskListItemKeys);
+type CodeTaskListItemModel = Pick<CodeTask, (typeof CodeTaskListItemKeys)[number]>;
 const _codeTaskListItemApiCheck: AreTypesFullyCompatible<CodeTaskListItemModel, Static<typeof CodeTaskListItemApiSchema>> = true;
 
 // --- UpdateCodeTaskData Schema ---

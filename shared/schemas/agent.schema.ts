@@ -1,5 +1,12 @@
 import { type Static, Type } from '@sinclair/typebox';
-import type { AgentContext, AgentContextPreview, AutonomousIteration, AutonomousIterationSummary } from '../model/agent.model';
+import {
+	AGENT_PREVIEW_KEYS,
+	AUTONOMOUS_ITERATION_SUMMARY_KEYS,
+	type AgentContext,
+	type AgentContextPreview,
+	type AutonomousIteration,
+	type AutonomousIterationSummary,
+} from '../model/agent.model';
 import type { AreTypesFullyCompatible } from '../utils/type-compatibility';
 import { GenerationStatsSchema, LlmMessagesSchema, type LlmMessagesSchemaModel } from './llm.schema';
 
@@ -98,7 +105,7 @@ const FileMetadataSchema = Type.Object({
 export const AgentContextSchema = Type.Object({
 	agentId: Type.String(),
 	type: AgentTypeSchema,
-	subtype: AutonomousSubTypeSchema,
+	subtype: Type.String(),
 	childAgents: Type.Optional(Type.Array(Type.String())),
 	executionId: Type.String(),
 	typedAiRepoDir: Type.String(),
@@ -185,20 +192,8 @@ type AgentContextWithSerializedParts = AgentContextBaseForCheck & {
 export type AgentContextApi = Static<typeof AgentContextSchema>;
 
 // const _agentContextCheck: AreTypesFullyCompatible<AgentContextWithSerializedParts, AgentContextApi> = true;
-// TODO this should be a Type.Pick()
-export const AgentContextPreviewSchema = Type.Object({
-	agentId: Type.String(),
-	name: Type.String(),
-	state: AgentRunningStateSchema, // Reuses existing AgentRunningStateSchema
-	cost: Type.Number(),
-	error: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-	lastUpdate: Type.Number(), // Timestamp
-	userPrompt: Type.String(),
-	inputPrompt: Type.String(),
-	user: Type.String(),
-	type: AgentTypeSchema,
-	subtype: Type.String(),
-});
+
+export const AgentContextPreviewSchema = Type.Pick(AgentContextSchema, AGENT_PREVIEW_KEYS);
 
 const _agentContextPreviewCheck: AreTypesFullyCompatible<AgentContextPreview, Static<typeof AgentContextPreviewSchema>> = true;
 
@@ -228,16 +223,8 @@ export const AutonomousIterationSchema = Type.Object({
 // This check depends on AutonomousIteration.memory and .toolState being Record, not Map.
 const _autonomousIterationCheck: AreTypesFullyCompatible<AutonomousIteration, Static<typeof AutonomousIterationSchema>> = true;
 
-export const AutonomousIterationSummarySchema = Type.Object(
-	{
-		agentId: Type.String(),
-		iteration: Type.Number(),
-		cost: Type.Number(),
-		summary: Type.String(),
-		error: Type.Optional(Type.Boolean()),
-	},
-	{ $id: 'AutonomousIterationSummary' },
-);
+export const AutonomousIterationSummarySchema = Type.Pick(AutonomousIterationSchema, AUTONOMOUS_ITERATION_SUMMARY_KEYS, { $id: 'AutonomousIterationSummary' });
+
 const _AutonomousIterationSummaryCheck: AreTypesFullyCompatible<AutonomousIterationSummary, Static<typeof AutonomousIterationSummarySchema>> = true;
 
 export const AgentIdParamsSchema = Type.Object({

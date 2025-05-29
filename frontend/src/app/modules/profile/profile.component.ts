@@ -17,8 +17,8 @@ import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
 import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
 import { Subject, takeUntil, filter } from 'rxjs';
 import { UserService } from '../../core/user/user.service';
-import { UserProfile } from '#shared/schemas/user.schema';
 import { Router, ActivatedRoute, NavigationEnd, RouterModule } from '@angular/router';
+import {UserProfile} from "#shared/model/user.model";
 
 @Component({
     selector: 'settings',
@@ -27,8 +27,8 @@ import { Router, ActivatedRoute, NavigationEnd, RouterModule } from '@angular/ro
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
     imports: [
-        CommonModule, // For NgClass and other common directives
-        RouterModule, // For <router-outlet> and routerLink
+        CommonModule,
+        RouterModule,
         MatSidenavModule,
         MatButtonModule,
         MatIconModule,
@@ -48,22 +48,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
     private _changeDetectorRef = inject(ChangeDetectorRef); // Keep for FuseMediaWatcherService
     private _fuseMediaWatcherService = inject(FuseMediaWatcherService); // Keep for drawer logic
 
-    private userState = computed(() => this.userService.userEntityState());
-
-    currentUser = computed(() => {
-        const state = this.userState();
-        return state.status === 'success' ? state.data : null;
-    });
-
-    isLoading = computed(() => {
-        const state = this.userState();
-        return state.status === 'loading';
-    });
-
-    error = computed(() => {
-        const state = this.userState();
-        return state.status === 'error' ? 'Failed to load user profile.' : null;
-    });
+    private userProfile = computed(() => this.userService.userProfile());
 
     selectedPanel = signal<string>('account'); // Default panel
 
@@ -114,13 +99,6 @@ export class ProfileComponent implements OnInit, OnDestroy {
             //     title: 'Security',
             //     description:
             //         'Manage your password and 2-step verification preferences',
-            // },
-            // {
-            //     id: 'plan-billing',
-            //     icon: 'heroicons_outline:credit-card',
-            //     title: 'Plan & Billing',
-            //     description:
-            //         'Manage your subscription plan, payment method and billing information',
             // },
             // {
             //     id: 'notifications',

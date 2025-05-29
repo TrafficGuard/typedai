@@ -23,9 +23,9 @@ import { UserService } from 'app/core/user/user.service';
 import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import type { Chat, ChatMessage, NEW_CHAT_ID } from '../chat.types';
-import type { UserProfile } from '#shared/schemas/user.schema';
 import type { LLM } from '../../llm.service';
 import type { UserContentExt } from '#shared/model/llm.model';
+import {UserProfile} from "#shared/model/user.model";
 
 
 const mockChat: Chat = {

@@ -364,7 +364,6 @@ export class PostgresAgentStateService implements AgentContextService {
 			lastUpdate: agent.lastUpdate,
 			userPrompt: agent.userPrompt,
 			inputPrompt: agent.inputPrompt,
-			user: agent.user.id, // Convert User object to user ID string
 		}));
 	}
 
@@ -393,7 +392,6 @@ export class PostgresAgentStateService implements AgentContextService {
 			lastUpdate: agent.lastUpdate,
 			userPrompt: agent.userPrompt,
 			inputPrompt: agent.inputPrompt,
-			user: agent.user.id, // Convert User object to user ID string
 		}));
 	}
 
@@ -528,7 +526,7 @@ export class PostgresAgentStateService implements AgentContextService {
 			iteration: row.iteration_number,
 			cost: row.cost !== null && row.cost !== undefined ? Number.parseFloat(String(row.cost)) : 0,
 			summary: row.summary ?? '',
-			error: !!row.error,
+			error: row.error,
 		}));
 	}
 

@@ -50,9 +50,9 @@ import {MatTooltipModule} from "@angular/material/tooltip";
 import {ClipboardButtonComponent} from "./clipboard-button.component";
 import {FuseConfirmationService} from "../../../../@fuse/services/confirmation";
 import {ClipboardModule} from "@angular/cdk/clipboard";
-import {UserProfile} from "#shared/schemas/user.schema";
 import { SafeHtmlPipe } from 'app/core/pipes/safe-html.pipe';
 import {MatProgressSpinnerModule} from "@angular/material/progress-spinner";
+import {UserProfile} from "#shared/model/user.model";
 
 @Component({
     selector: 'chat-conversation',

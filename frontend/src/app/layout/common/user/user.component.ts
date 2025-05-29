@@ -1,5 +1,4 @@
 import { BooleanInput } from '@angular/cdk/coercion';
-import { NgClass } from '@angular/common';
 import {
     ChangeDetectionStrategy,
     ChangeDetectorRef,
@@ -16,8 +15,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { Router, RouterModule } from '@angular/router';
 import { UserService } from 'app/core/user/user.service';
-import { Subject, takeUntil } from 'rxjs';
-import { UserProfile } from "#shared/schemas/user.schema";
+import { Subject } from 'rxjs';
+import {UserProfile} from "#shared/model/user.model";
 
 @Component({
     selector: 'user',
@@ -42,7 +41,7 @@ export class UserComponent implements OnInit, OnDestroy {
     @Input() showAvatar = true;
 
     user: Signal<UserProfile> = computed(() => {
-        const userState = this._userService.userEntityState();
+        const userState = this._userService.authOnlyUserEntityState();
         return userState.status === 'success' ? userState.data : null;
     });
 

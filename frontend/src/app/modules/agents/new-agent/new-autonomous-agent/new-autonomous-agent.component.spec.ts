@@ -7,7 +7,6 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar'; //
 import { NewAutonomousAgentComponent } from './new-autonomous-agent.component';
 import { LlmService, LLM as LlmModel } from '../../../llm.service'; // Corrected LlmModel import
 import { UserService } from 'app/core/user/user.service';
-import { UserProfile } from "#shared/schemas/user.schema";
 import { of, Subject, BehaviorSubject, throwError } from 'rxjs'; // Added Subject, BehaviorSubject, throwError
 import { ReactiveFormsModule } from '@angular/forms'; // Added ReactiveFormsModule
 import { MatSelectModule } from '@angular/material/select'; // Added MatSelectModule
@@ -18,7 +17,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner'; /
 import { AgentService, AgentStartRequestData } from '../../agent.service'; // Added AgentService and AgentStartRequestData
 import { AsyncState } from 'app/core/api-state.types'; // Added AsyncState
 import { Router } from '@angular/router'; // Added Router
-import { AgentContextApi } from '#shared/schemas/agent.schema'; // Added AgentContextApi
+import { AgentContextApi } from '#shared/schemas/agent.schema';
+import {UserProfile} from "#shared/model/user.model"; // Added AgentContextApi
 
 
 describe('NewAutonomousAgentComponent', () => {

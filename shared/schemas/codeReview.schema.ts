@@ -25,15 +25,15 @@ export const CodeReviewConfigSchema = Type.Object({
 });
 const _codeReviewConfigApiCheck: AreTypesFullyCompatible<CodeReviewConfig, Static<typeof CodeReviewConfigSchema>> = true;
 
-export const CodeReviewConfigCreateProps = ['title', 'enabled', 'description', 'fileExtensions', 'requires', 'tags', 'projectPaths', 'examples'] as const;
-export type CodeReviewConfigCreate = Pick<CodeReviewConfig, (typeof CodeReviewConfigCreateProps)[number]>;
-export const CodeReviewConfigCreateSchema = Type.Pick(CodeReviewConfigSchema, CodeReviewConfigCreateProps);
+export const CodeReviewConfigCreateKeys = ['title', 'enabled', 'description', 'fileExtensions', 'requires', 'tags', 'projectPaths', 'examples'] as const;
+export type CodeReviewConfigCreate = Pick<CodeReviewConfig, (typeof CodeReviewConfigCreateKeys)[number]>;
+export const CodeReviewConfigCreateSchema = Type.Pick(CodeReviewConfigSchema, CodeReviewConfigCreateKeys);
 const _codeReviewConfigCreateApiCheck: AreTypesFullyCompatible<CodeReviewConfigCreate, Static<typeof CodeReviewConfigCreateSchema>> = true;
 
 // For updates, all properties except 'id' are considered updatable and must be provided in the payload, mimicking the user profile update pattern.
-export const CodeReviewConfigUpdateProps = ['title', 'enabled', 'description', 'fileExtensions', 'requires', 'tags', 'projectPaths', 'examples'] as const;
-export type CodeReviewConfigUpdate = Pick<CodeReviewConfig, (typeof CodeReviewConfigUpdateProps)[number]>;
-export const CodeReviewConfigUpdateSchema = Type.Pick(CodeReviewConfigSchema, CodeReviewConfigUpdateProps);
+export const CodeReviewConfigUpdateKeys = ['title', 'enabled', 'description', 'fileExtensions', 'requires', 'tags', 'projectPaths', 'examples'] as const;
+export type CodeReviewConfigUpdate = Pick<CodeReviewConfig, (typeof CodeReviewConfigUpdateKeys)[number]>;
+export const CodeReviewConfigUpdateSchema = Type.Pick(CodeReviewConfigSchema, CodeReviewConfigUpdateKeys);
 const _codeReviewConfigUpdateApiCheck: AreTypesFullyCompatible<CodeReviewConfigUpdate, Static<typeof CodeReviewConfigUpdateSchema>> = true;
 
 export const MessageResponseSchema = Type.Object({
