@@ -18,5 +18,5 @@ export const environment = {
 	databaseType: env.DATABASE_TYPE,
 	auth: env.AUTH,
 	apiBaseUrl: env.API_BASE_URL,
-	modules: env.MODULES,
+	modules: (env as any).MODULES,
 };

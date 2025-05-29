@@ -18,11 +18,11 @@ import { MatProgressSpinner } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
-import type { UserService } from 'app/core/user/user.service'; // Added import
+import { UserService } from 'app/core/user/user.service'; // Added import
 import { filter, finalize } from 'rxjs'; // Removed map from here as it's not used directly by component anymore
 import type { AutonomousSubType } from '#shared/agent/agent.model';
-import type { LlmService } from '../../../llm.service';
-import type { AgentService } from '../../agent.service';
+import { LlmService } from '../../../llm.service';
+import { AgentService } from '../../agent.service';
 
 const defaultSubType: AutonomousSubType = 'codegen';
 

@@ -1,5 +1,5 @@
 import { Component, type OnInit, ViewEncapsulation } from '@angular/core';
-import { FormsModule, ReactiveFormsModule, type UntypedFormBuilder, type UntypedFormGroup, Validators } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, UntypedFormBuilder, type UntypedFormGroup, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';

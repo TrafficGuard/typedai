@@ -9,8 +9,8 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import type { UserProfile, UserProfileUpdate } from '#shared/user/user.model';
 import type { ApiListState } from '../../../core/api-state.types';
-import type { UserService } from '../../../core/user/user.service';
-import type { LLM, LlmService } from '../../llm.service';
+import { UserService } from '../../../core/user/user.service';
+import { type LLM, LlmService } from '../../llm.service';
 
 @Component({
 	selector: 'settings-account',
