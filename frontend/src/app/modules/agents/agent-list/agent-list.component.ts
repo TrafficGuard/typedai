@@ -31,9 +31,8 @@ import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { AgentService } from '../agent.service';
 import { debounceTime, switchMap, finalize } from 'rxjs';
 import { FormsModule, ReactiveFormsModule, UntypedFormBuilder, UntypedFormControl } from '@angular/forms';
-import { AgentTag, AgentType } from '#shared/model/agent.model';
+import {type AgentContextPreview, AgentTag, AgentType} from '#shared/model/agent.model';
 import { AGENT_ROUTE_DEFINITIONS } from '../agent.routes';
-import { type AgentContextPreviewApi } from '#shared/schemas/agent.schema';
 import { Pagination } from '../../../core/types';
 
 @Component({
@@ -84,7 +83,7 @@ export class AgentListComponent implements OnInit, AfterViewInit {
     });
     searchInputControl: UntypedFormControl = new UntypedFormControl();
 
-    selection = new SelectionModel<AgentContextPreviewApi>(true, []);
+    selection = new SelectionModel<AgentContextPreview>(true, []);
 
     constructor() {
     }
@@ -222,7 +221,7 @@ export class AgentListComponent implements OnInit, AfterViewInit {
         }, 3000);
     }
 
-    trackByFn(index: number, item: AgentContextPreviewApi): string | number {
+    trackByFn(index: number, item: AgentContextPreview): string | number {
         return item.agentId || index;
     }
 }

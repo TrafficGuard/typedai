@@ -259,9 +259,9 @@ export class CodeEditingAgent {
 
 				const ruleFiles = await includeAlternativeAiToolFiles(codeEditorFiles);
 
-				// await new AiderCodeEditor().editFilesToMeetRequirements(codeEditorRequirements, [...codeEditorFiles, ...ruleFiles]);
-				const coder = new SearchReplaceCoder(getFileSystem(), llms().hard, undefined, [new CompileHook(projectInfo.compile, getFileSystem())]);
-				await coder.editFilesToMeetRequirements(codeEditorRequirements, codeEditorFiles, Array.from(ruleFiles), false, true);
+				await new AiderCodeEditor().editFilesToMeetRequirements(codeEditorRequirements, [...codeEditorFiles, ...ruleFiles]);
+				// const coder = new SearchReplaceCoder(getFileSystem(), llms().hard, undefined, [new CompileHook(projectInfo.compile, getFileSystem())]);
+				// await coder.editFilesToMeetRequirements(codeEditorRequirements, codeEditorFiles, Array.from(ruleFiles), true, true);
 
 				// The code editor may add new files, so we want to add them to the initial file set
 				const addedFiles: string[] = await git.getAddedFiles(compiledCommitSha);

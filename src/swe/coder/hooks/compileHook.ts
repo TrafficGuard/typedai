@@ -16,10 +16,9 @@ export class CompileHook implements EditHook {
 	// This pattern is for Unix/Linux paths. It allows spaces within path components via [\w\s.-]+.
 	// It handles absolute paths, relative paths with directories, and simple filenames.
 	// Corrected: Use single backslashes for regex tokens like \w, \s, \.
-	// For path separators, explicitly use / for Unix.	
+	// For path separators, explicitly use / for Unix.
 	private readonly unixCorePathPattern: string;
 	private readonly filePathRegex: RegExp;
-
 
 	/**
 	 * Creates a CompileHook.
@@ -52,37 +51,50 @@ export class CompileHook implements EditHook {
 
 	private async extractAndVerifyFiles(output: string, workingDir: string, existingFilesInContextAbs: Set<string>): Promise<string[]> {
 		if (!output) return [];
-		const potentialPaths = output.match(this.filePathRegex) || [];
-		const newRelevantFilesRel: Set<string> = new Set();
 
-		for (const pPath of potentialPaths) {
-			let cleanedPath = pPath.trim();
+		const potential = output.match(this.filePathRegex) ?? [];
+		const discovered: Set<string> = new Set();
 
-			// Strip surrounding single or double quotes if they are balanced
-			if ((cleanedPath.startsWith("'") && cleanedPath.endsWith("'")) ||
-			    (cleanedPath.startsWith('"') && cleanedPath.endsWith('"'))) {
-				cleanedPath = cleanedPath.substring(1, cleanedPath.length - 1);
+		// Helper that tries to turn an arbitrary string into a valid,
+		// existing path inside the working directory.
+		const tryAddPath = async (raw: string): Promise<boolean> => {
+			let cleaned = raw.trim();
+			// Balanced quotes
+			if ((cleaned.startsWith("'") && cleaned.endsWith("'")) || (cleaned.startsWith('"') && cleaned.endsWith('"'))) {
+				cleaned = cleaned.slice(1, -1);
 			}
+			// Strip trailing :line:col or similar
+			cleaned = cleaned.replace(/[:"'].*$/, '').trim();
+			if (!cleaned) return false;
 
-			// Remove trailing colons, line numbers, or other suffixes often found in compiler output.
-			// This regex part is applied *after* stripping balanced quotes.
-			cleanedPath = cleanedPath.replace(/[:"'].*$/, '').trim();
-			if (!cleanedPath) continue;
+			const abs = nodePath.isAbsolute(cleaned) ? cleaned : nodePath.resolve(workingDir, cleaned);
+			if (!abs.startsWith(workingDir)) return false;
+			if (existingFilesInContextAbs.has(abs)) return false;
+			if (!(await this.fs.fileExists(abs))) return false;
 
-			let absolutePath = cleanedPath;
-			if (!nodePath.isAbsolute(cleanedPath)) {
-				absolutePath = nodePath.resolve(workingDir, cleanedPath);
-			}
+			// Build a *consistently* separated relative path
+			let rel = nodePath.relative(workingDir, abs);
+			// Ensure every separator matches the current platform
+			rel = rel.split(/[\\/]+/).join(nodePath.sep);
 
-			// Ensure the path is within the working directory and exists
-			if (absolutePath.startsWith(workingDir) && await this.fs.fileExists(absolutePath)) {
-				if (!existingFilesInContextAbs.has(absolutePath)) {
-					// Normalize the relative path to ensure consistent separators for the OS
-					newRelevantFilesRel.add(nodePath.normalize(nodePath.relative(workingDir, absolutePath)));
-				}
+			discovered.add(rel);
+			return true;
+		};
+
+		for (const rawPath of potential) {
+			// 1st attempt: use the match as-is
+			const ok = await tryAddPath(rawPath);
+			if (ok) continue;
+
+			// 2nd attempt: look at individual white-space separated tokens,
+			// starting from the end (real file is usually last token)
+			const tokens = rawPath.trim().split(/\s+/);
+			for (let i = tokens.length - 1; i >= 0; i--) {
+				if (await tryAddPath(tokens[i])) break;
 			}
 		}
-		return Array.from(newRelevantFilesRel);
+
+		return [...discovered];
 	}
 
 	async run(session: EditSession): Promise<HookResult> {

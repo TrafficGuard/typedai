@@ -1,14 +1,14 @@
 import * as path from 'node:path';
 import { expect } from 'chai';
 import * as sinon from 'sinon';
-import type { IFileSystemService } from '#shared/services/fileSystemService';
+import { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
+import type { IFileSystemService } from '#shared/services/fileSystemService';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import * as execModule from '#utils/exec';
 import type { EditSession } from '../editSession';
 import { newSession } from '../editSession';
 import { CompileHook } from './compileHook';
-import { FileSystemService } from '#functions/storage/fileSystemService'; // Import for stubbing
 
 describe('CompileHook', () => {
 	setupConditionalLoggerOutput();
@@ -72,7 +72,6 @@ describe('CompileHook', () => {
 		expect(result.message).to.equal(expectedMessage); // Not truncated in this case
 		sinon.assert.calledOnceWithExactly(execCommandStub, compileCmd, { workingDirectory: session.workingDir });
 		expect(result.additionalFiles).to.be.an('array').that.is.empty;
-
 	});
 
 	it('should truncate the message if it exceeds 4000 characters', async () => {

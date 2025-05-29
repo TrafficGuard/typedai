@@ -300,7 +300,9 @@ export class SearchReplaceCoder {
 		if (currentFilesInChatAbs.size > 0) {
 			let filesContentBlock = EDIT_BLOCK_PROMPTS.files_content_prefix;
 			// Sort files alphabetically for consistent prompt order
-			const sortedChatFilesRel = Array.from(currentFilesInChatAbs).map(absPath => this.getRelativeFilePath(session.workingDir, absPath)).sort();
+			const sortedChatFilesRel = Array.from(currentFilesInChatAbs)
+				.map((absPath) => this.getRelativeFilePath(session.workingDir, absPath))
+				.sort();
 			for (const relPath of sortedChatFilesRel) {
 				filesContentBlock += `\n\n${await formatFileForPrompt(relPath)}`;
 			}

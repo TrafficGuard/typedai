@@ -18,9 +18,9 @@ export type IFileSystemService = ImportedFileSystemService;
  *
  */
 export type TaskLevel = 'easy' | 'medium' | 'hard' | 'xhard';
-/** @deprecated Use string directly */
+
 export type AgentType = 'autonomous' | 'workflow';
-/** @deprecated Use string directly */
+
 export type AutonomousSubType = 'xml' | 'codegen';
 
 export interface AgentTag {
@@ -86,7 +86,7 @@ export interface AgentContext {
 	agentId: string;
 	/** The type of agent (autonomous or workflow) */
 	type: AgentType;
-	subtype: AutonomousSubType | string;
+	subtype: string;
 	/** Child agent ids */
 	childAgents?: string[];
 	/** Id of the running execution. This changes after the agent restarts due to an error, pausing, human in loop, completion etc */
@@ -166,7 +166,7 @@ export interface AgentContext {
  * A summarized version of AgentContext for list views.
  */
 export type AgentContextPreview = Omit<
-	Pick<AgentContext, 'agentId' | 'name' | 'state' | 'cost' | 'error' | 'lastUpdate' | 'userPrompt' | 'inputPrompt' | 'user'>,
+	Pick<AgentContext, 'agentId' | 'name' | 'state' | 'cost' | 'error' | 'lastUpdate' | 'userPrompt' | 'inputPrompt' | 'user' | 'type' | 'subtype'>,
 	'user'
 > & { user: string };
 
