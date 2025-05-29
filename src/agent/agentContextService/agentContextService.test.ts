@@ -491,18 +491,18 @@ export function runAgentStateServiceTests(
 		it('should list all non-terminal agent contexts, ordered by state ascending then lastUpdate descending', async () => {
 			const contexts = await service.listRunning();
 
-			// Expected running/active states based on beforeEach data and the Firestore query:
+			// Expected running/active states based on beforeEach data and the Firestore/Postgres query:
 			// Query sorts by state ASC, then lastUpdate DESC.
-			// States saved: workflow, agent, functions, hitl_tool, hitl_feedback, hitl_threshold, child_agents, error
-			// Timestamps (relative): functions(-500), workflow(-1000), hitl_tool(-1500), hitl_feedback(-2000),
-			//                       hitl_threshold(-2500), agent(-3000), child_agents(-3500), error(-4000)
-			// Expected Order based on Firestore query: state ASC, then lastUpdate DESC.
-			// Calculated from the timestamps set in the beforeEach hook for this describe block.
+			// 'error' state is excluded by the service implementations.
+			// States saved (excluding 'error' and other terminals):
+			// agent (-3000), child_agents (-3500), functions (-500), hitl_feedback (-2000),
+			// hitl_threshold (-2500), hitl_tool (-1500), workflow (-1000)
+			// Sorted alphabetically by state:
+			// agent, child_agents, functions, hitl_feedback, hitl_threshold, hitl_tool, workflow
 			const expectedRunningStates: AgentRunningState[] = [
 				'agent', // lastUpdate: -3000
 				'child_agents', // lastUpdate: -3500
-				'error', // lastUpdate: -4000
-				'functions', // lastUpdate: -500  (Most recent within its state group)
+				'functions', // lastUpdate: -500
 				'hitl_feedback', // lastUpdate: -2000
 				'hitl_threshold', // lastUpdate: -2500
 				'hitl_tool', // lastUpdate: -1500
@@ -510,13 +510,13 @@ export function runAgentStateServiceTests(
 			];
 
 			// Assert the correct number of non-terminal agents found
-			expect(contexts).to.be.an('array').with.lengthOf(expectedRunningStates.length);
+			expect(contexts).to.be.an('array').with.lengthOf(expectedRunningStates.length); // Should be 7
 			// Assert the order based on the compound sort (state ASC, lastUpdate DESC)
 			expect(contexts.map((c) => c.state)).to.deep.equal(expectedRunningStates);
 
-			// Verify that no terminal states are included and key fields are present
+			// Verify that no terminal states (including 'error' as per service impl) are included
 			contexts.forEach((ctx) => {
-				expect(ctx.state).to.not.be.oneOf(['completed', 'shutdown', 'timeout']);
+				expect(ctx.state).to.not.be.oneOf(['completed', 'shutdown', 'timeout', 'error']);
 				expect(ctx).to.include.keys(['agentId', 'state', 'lastUpdate']);
 			});
 		});
@@ -528,6 +528,7 @@ export function runAgentStateServiceTests(
 			await service.save(createMockAgentContext(agentId(), { state: 'completed' }));
 			await service.save(createMockAgentContext(agentId(), { state: 'shutdown' }));
 			await service.save(createMockAgentContext(agentId(), { state: 'timeout' }));
+			await service.save(createMockAgentContext(agentId(), { state: 'error' })); // Also save an error state one
 
 			const contexts = await service.listRunning();
 			expect(contexts).to.be.an('array').that.is.empty;
