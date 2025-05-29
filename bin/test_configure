@@ -1,9 +1,13 @@
 #!/bin/bash
 set -e
 
+# DOCKER_CMD for interactive testing of the configure script
 read -r -d '' DOCKER_CMD << 'EOF' || true
+set -x && \
+echo "Starting Docker command execution..." && \
 apt-get update && \
 apt-get install -y sudo git curl unzip ca-certificates gnupg lsb-release && \
+echo "APT packages installed." && \
 # Optional: Install gcloud CLI if you want to test GCP parts thoroughly from a clean gcloud install
 # echo 'Installing gcloud CLI...' && \
 # mkdir -p /etc/apt/keyrings && \
@@ -11,12 +15,30 @@ apt-get install -y sudo git curl unzip ca-certificates gnupg lsb-release && \
 # echo 'deb [signed-by=/etc/apt/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main' | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && \
 # apt-get update && apt-get install -y google-cloud-cli && \
 # echo 'gcloud CLI installed.' && \
-useradd -m -s /bin/bash -G sudo testuser && \
+# Create testuser and setup home directory with skel files (e.g., .bashrc):
+useradd --no-create-home -s /bin/bash -G sudo testuser && \
+echo "testuser account created (using --no-create-home)." && \
+mkdir -p /home/testuser && \
+echo "Home directory /home/testuser ensured." && \
+if [ -d "/etc/skel" ] && [ -n "$(ls -A /etc/skel)" ]; then \
+    cp -rT /etc/skel /home/testuser && \
+    echo "Skel files copied to /home/testuser." ; \
+else \
+    echo "/etc/skel is empty or does not exist, skipping skel copy." ; \
+fi && \
+chown -R testuser:testuser /home/testuser && \
+echo "Ownership of /home/testuser set to testuser." && \
+# Setup sudoers for testuser
 echo 'testuser ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers && \
+echo "Sudoers configured for testuser." && \
+# Chown /app and its contents (excluding .git) to testuser
 chown testuser:testuser /app && \
+echo "Ownership of /app itself changed to testuser." && \
+echo "Changing ownership of /app contents (excluding .git)... This might take a while if /app is large (e.g., node_modules)..." && \
 find /app -mindepth 1 -maxdepth 1 -not -name ".git" -exec chown -R -- testuser:testuser {} + && \
-echo 'Switching to testuser and running configure script...' && \
-sudo -u testuser -E HOME=/home/testuser bash /app/bin/configure
+echo "Ownership of /app contents changed." && \
+echo 'Switching to testuser and running configure script interactively via login shell...' && \
+sudo -u testuser -i HOME=/home/testuser SHELL=/bin/bash /app/bin/configure
 EOF
 
 # Run docker with the command
