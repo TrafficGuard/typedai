@@ -54,7 +54,7 @@ Respond ONLY with a JSON object in the following format inside <json></json> tag
 	try {
 		const classificationResponse = await llms().medium.generateTextWithJson<{
 			fileClassifications: Array<{ filePath: string; status: 'editable' | 'readonly'; reason: string }>;
-		}>(classificationMessages, { id: 'sfawe-classification' });
+		}>(classificationMessages, { id: 'sfawe-classification', thinking: 'high' });
 		classifications = classificationResponse.object.fileClassifications;
 	} catch (error) {
 		logger.error(error, 'selectFilesAndExtracts: Failed to classify files.');
