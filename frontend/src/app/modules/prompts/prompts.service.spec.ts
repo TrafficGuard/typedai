@@ -3,8 +3,8 @@ import { signal } from '@angular/core';
 import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { PROMPT_API } from '#shared/prompts/prompts.api';
-import type { Prompt, PromptPreview } from '#shared/prompts/prompts.model';
-import type { PromptCreatePayload, PromptListSchemaModel, PromptSchemaModel, PromptUpdatePayload } from '#shared/prompts/prompts.schema';
+import { Prompt, PromptPreview } from '#shared/prompts/prompts.model';
+import { PromptCreatePayload, PromptListSchemaModel, PromptSchemaModel, PromptUpdatePayload } from '#shared/prompts/prompts.schema';
 import { PromptsService } from './prompts.service';
 
 describe('PromptsService', () => {

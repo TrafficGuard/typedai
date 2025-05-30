@@ -5,7 +5,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
-import type { CodeTask } from '#shared/codeTask/codeTask.model';
+import { CodeTask } from '#shared/codeTask/codeTask.model';
 import { CodeTaskServiceClient } from '../codeTask.service';
 
 @Component({

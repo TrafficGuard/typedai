@@ -1,9 +1,9 @@
 import { inject } from '@angular/core';
-import type { ActivatedRouteSnapshot, ResolveFn, RouterStateSnapshot, Routes } from '@angular/router';
+import { ActivatedRouteSnapshot, ResolveFn, RouterStateSnapshot, Routes } from '@angular/router';
 import { type Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
-import type { Prompt } from '#shared/prompts/prompts.model';
-import type { PromptSchemaModel } from '#shared/prompts/prompts.schema';
+import { Prompt } from '#shared/prompts/prompts.model';
+import { PromptSchemaModel } from '#shared/prompts/prompts.schema';
 import { PromptFormComponent } from './form/prompt-form.component';
 import { PromptListComponent } from './list/prompt-list.component';
 import { PROMPTS_ROUTES } from './prompt.paths';

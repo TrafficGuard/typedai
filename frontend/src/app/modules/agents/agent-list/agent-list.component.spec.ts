@@ -7,7 +7,7 @@ import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { RouterTestingModule } from '@angular/router/testing';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { type Observable, of } from 'rxjs';
-import type { AgentContextPreview, AgentRunningState, AgentType } from '#shared/agent/agent.model';
+import { AgentContextPreview, AgentRunningState, AgentType } from '#shared/agent/agent.model';
 import { type ApiListState, createApiListState } from '../../../core/api-state.types';
 import { AgentService } from '../agent.service';
 import { AgentListComponent } from './agent-list.component';

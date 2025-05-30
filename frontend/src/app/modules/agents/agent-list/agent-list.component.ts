@@ -1,14 +1,14 @@
 import { SelectionModel } from '@angular/cdk/collections';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import {
-	type AfterViewInit,
+	AfterViewInit,
 	ChangeDetectionStrategy,
 	Component,
 	DestroyRef,
-	type OnInit,
+	OnInit,
 	ViewChild,
 	ViewEncapsulation,
-	type WritableSignal,
+	WritableSignal,
 	computed,
 	inject,
 	signal,
@@ -31,7 +31,7 @@ import { RouterModule } from '@angular/router';
 import { fuseAnimations } from '@fuse/animations';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { debounceTime, finalize, switchMap } from 'rxjs';
-import { type AgentContextPreview, AgentTag, AgentType } from '#shared/agent/agent.model';
+import { AgentContextPreview, AgentTag, AgentType } from '#shared/agent/agent.model';
 import { Pagination } from '../../../core/types';
 import { AGENT_ROUTE_DEFINITIONS } from '../agent.routes';
 import { AgentService } from '../agent.service';

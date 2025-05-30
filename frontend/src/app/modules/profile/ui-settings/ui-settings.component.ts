@@ -1,11 +1,11 @@
 import { NgClass } from '@angular/common';
-import { Component, type OnDestroy, type OnInit, ViewEncapsulation } from '@angular/core';
+import { Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import type { Router } from '@angular/router';
-import type { FuseConfig, FuseConfigService, Scheme, Theme, Themes } from '@fuse/services/config';
-import type { LocalStorageService } from 'app/core/services/local-storage.service';
+import { Router } from '@angular/router';
+import { FuseConfig, FuseConfigService, Scheme, Theme, Themes } from '@fuse/services/config';
+import { LocalStorageService } from 'app/core/services/local-storage.service';
 
 import { Subject, takeUntil } from 'rxjs';
 

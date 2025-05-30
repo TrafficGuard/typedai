@@ -20,7 +20,7 @@
     "gaia": "     node --env-file=variables/local.env -r ts-node/register src/cli/gaia.ts",
     "py": "       node --env-file=variables/local.env -r ts-node/register src/cli/py.ts",
     "code": "     node --env-file=variables/local.env -r ts-node/register src/cli/code.ts",
-    "files": "    node --env-file=variables/local.env -r ts-node/register src/cli/files.ts",
+    "files": "    node --env-file=variables/local.env -r esbuild-register src/cli/files.ts",
     "query": "    node --env-file=variables/local.env -r esbuild-register src/cli/query.ts",
     "repos": "    node --env-file=variables/local.env -r esbuild-register src/cli/repos.ts",
     "scrape": "   node --env-file=variables/local.env -r esbuild-register src/cli/scrape.ts",

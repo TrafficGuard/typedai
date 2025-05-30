@@ -11,11 +11,11 @@ import { RouterLink } from '@angular/router';
 import { ActivatedRoute, Router } from '@angular/router';
 import { type ParamMap, convertToParamMap } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
-import type { ApiListState } from 'app/core/api-state.types';
+import { ApiListState } from 'app/core/api-state.types';
 import { EMPTY, catchError, delay, of, tap, throwError } from 'rxjs';
 import { BehaviorSubject } from 'rxjs';
 import { ChatServiceClient } from '../chat.service';
-import type { Chat as UIChat } from '../chat.types';
+import { Chat as UIChat } from '../chat.types';
 import { NEW_CHAT_ID } from '../chat.types';
 import { ChatsComponent } from './chats.component';
 

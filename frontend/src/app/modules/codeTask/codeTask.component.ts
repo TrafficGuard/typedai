@@ -18,7 +18,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, RouterOutlet } from '@angular/router';
 import { Observable, Subject, finalize, map, startWith, switchMap, take, takeUntil, tap } from 'rxjs';
 import { CodeTask } from '#shared/codeTask/codeTask.model';
-import type { FileSystemNode } from '#shared/files/fileSystemService';
+import { FileSystemNode } from '#shared/files/fileSystemService';
 import { CodeTaskServiceClient } from './codeTask.service';
 import { FileSelection } from './designReview/designFileSelection/fileSelection';
 

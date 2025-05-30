@@ -2,7 +2,7 @@ import { CommonModule, KeyValuePipe } from '@angular/common'; // NgForOf, NgIf a
 import { Component, input, signal } from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
 import { MatExpansionModule } from '@angular/material/expansion';
-import type { AgentContextApi } from '#shared/agent/agent.schema';
+import { AgentContextApi } from '#shared/agent/agent.schema';
 
 @Component({
 	selector: 'agent-memory',

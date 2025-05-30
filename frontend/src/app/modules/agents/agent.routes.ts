@@ -1,4 +1,4 @@
-import type { Routes } from '@angular/router';
+import { Routes } from '@angular/router';
 // AgentListComponent is standalone, imported via loadComponent
 // NewAgentComponent is standalone, imported via loadComponent
 // AgentComponent is standalone, imported via loadComponent

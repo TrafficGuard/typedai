@@ -17,7 +17,7 @@ import {
 	isExecuting,
 } from '#shared/agent/agent.model';
 import type { AgentContextSchema } from '#shared/agent/agent.schema';
-import { NotFound, NotAllowed } from '#shared/errors'; // Added import
+import { NotAllowed, NotFound } from '#shared/errors'; // Added import
 import type { User } from '#shared/user/user.model';
 import { currentUser } from '#user/userContext';
 import { firestoreDb } from './firestore';
@@ -129,7 +129,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 	}
 
 	@span({ agentId: 0 })
-	async load(agentId: string): Promise<AgentContext> { // Return type changed
+	async load(agentId: string): Promise<AgentContext> {
 		const docRef = this.db.doc(`AgentContext/${agentId}`);
 		const docSnap: DocumentSnapshot = await docRef.get();
 		if (!docSnap.exists) {
@@ -202,7 +202,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 				agentId: doc.id,
 				name: data.name,
 				type: data.type,
-				subtype: data.subType,
+				subtype: data.subType ?? '',
 				state: data.state,
 				cost: (Number.isNaN(data.cost) ? 0 : data.cost) ?? 0, // Default cost to 0 if undefined/null
 				error: data.error,
@@ -450,7 +450,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 	}
 
 	@span()
-	async getAgentIterationDetail(agentId: string, iterationNumber: number): Promise<AutonomousIteration> { // Return type changed
+	async getAgentIterationDetail(agentId: string, iterationNumber: number): Promise<AutonomousIteration> {
 		// Load the agent first to check existence and ownership
 		await this.load(agentId); // This will throw NotFound or NotAllowed if necessary
 

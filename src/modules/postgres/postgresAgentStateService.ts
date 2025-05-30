@@ -15,7 +15,7 @@ import {
 	isExecuting,
 } from '#shared/agent/agent.model';
 import type { AgentContextSchema } from '#shared/agent/agent.schema';
-import { NotFound, NotAllowed } from '#shared/errors'; // Added import
+import { NotAllowed, NotFound } from '#shared/errors'; // Added import
 import type { FunctionCallResult, GenerationStats, ImagePartExt } from '#shared/llm/llm.model';
 import type { User } from '#shared/user/user.model';
 import { currentUser } from '#user/userContext';
@@ -330,7 +330,7 @@ export class PostgresAgentStateService implements AgentContextService {
 		ctx.lastUpdate = now.getTime();
 	}
 
-	async load(agentId: string): Promise<AgentContext> { // Return type changed
+	async load(agentId: string): Promise<AgentContext> {
 		const row = await this.db.selectFrom('agent_contexts').selectAll().where('agent_id', '=', agentId).executeTakeFirst();
 		if (!row) {
 			throw new NotFound(`Agent with ID ${agentId} not found.`);
@@ -535,7 +535,7 @@ export class PostgresAgentStateService implements AgentContextService {
 		}));
 	}
 
-	async getAgentIterationDetail(agentId: string, iterationNumber: number): Promise<AutonomousIteration> { // Return type changed
+	async getAgentIterationDetail(agentId: string, iterationNumber: number): Promise<AutonomousIteration> {
 		// Load the agent first to check existence and ownership
 		await this.load(agentId); // This will throw NotFound or NotAllowed if necessary
 

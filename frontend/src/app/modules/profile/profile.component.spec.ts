@@ -12,7 +12,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
-import type { UserProfile } from '#shared/user/user.model';
+import { UserProfile } from '#shared/user/user.model';
 
 describe('ProfileComponent', () => {
 	let component: ProfileComponent;

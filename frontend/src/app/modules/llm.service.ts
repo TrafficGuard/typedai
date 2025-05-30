@@ -1,4 +1,4 @@
-import type { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { EMPTY } from 'rxjs';
 import { catchError, map, retry, tap } from 'rxjs/operators';

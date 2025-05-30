@@ -5,7 +5,7 @@ import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { ActivatedRoute } from '@angular/router';
 import { of } from 'rxjs';
 
-import type { AgentContextApi } from '#shared/agent/agent.schema';
+import { AgentContextApi } from '#shared/agent/agent.schema';
 import { type ApiEntityState, createApiEntityState } from '../../../../core/api-state.types'; // Adjusted path
 import { AgentService } from '../agent.service';
 import { AgentComponent } from './agent.component';

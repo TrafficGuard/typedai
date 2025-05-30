@@ -11,8 +11,8 @@ import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 // ChangeDetectorRef is not typically injected directly into tests for standalone components with signals.
 // import { ChangeDetectorRef } from '@angular/core';
 import { of, throwError } from 'rxjs';
-import type { AutonomousIteration } from '#shared/agent/agent.model';
-import type { FunctionCallResult } from '#shared/llm/llm.model';
+import { AutonomousIteration } from '#shared/agent/agent.model';
+import { FunctionCallResult } from '#shared/llm/llm.model';
 import { AgentService } from '../../agent.service';
 import { AgentIterationsComponent } from './agent-iterations.component';
 

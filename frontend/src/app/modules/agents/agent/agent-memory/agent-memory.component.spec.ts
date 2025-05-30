@@ -7,7 +7,7 @@ import { AgentMemoryComponent } from './AgentMemoryComponent';
 // For a basic spec, TestBed doesn't need to re-import them unless they are directly used in test logic.
 
 // Mock data for AgentContextApi input would be needed for actual tests.
-// import type { AgentContextApi } from '#shared/model/agent.model'; // Adjust path as necessary
+// import { AgentContextApi } from '#shared/model/agent.model'; // Adjust path as necessary
 
 describe('AgentMemoryComponent', () => {
 	let component: AgentMemoryComponent;

@@ -5,10 +5,10 @@ import { catchError, map, tap } from 'rxjs/operators';
 
 import { callApiRoute } from 'app/core/api-route';
 import { ApiListState, createApiListState } from 'app/core/api-state.types';
-import type { CallSettings, LlmMessage } from '#shared/llm/llm.model';
+import { CallSettings, LlmMessage } from '#shared/llm/llm.model';
 import { PROMPT_API } from '#shared/prompts/prompts.api';
-import type { Prompt, PromptPreview } from '#shared/prompts/prompts.model';
-import type {
+import { Prompt, PromptPreview } from '#shared/prompts/prompts.model';
+import {
 	PromptCreatePayload,
 	PromptGenerateResponseSchemaModel,
 	PromptListSchemaModel,

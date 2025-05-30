@@ -1,12 +1,12 @@
-import type { HttpClient } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Injectable, WritableSignal, computed, signal } from '@angular/core';
-import type { UIMessage } from 'app/modules/message.types';
+import { UIMessage } from 'app/modules/message.types';
 import { userContentExtToAttachmentsAndText } from 'app/modules/messageUtil';
-import { EMPTY, type Observable, from, of, throwError } from 'rxjs';
+import { EMPTY, Observable, from, of, throwError } from 'rxjs';
 import { catchError, map, mapTo, switchMap, tap } from 'rxjs/operators';
 import { v4 as uuidv4 } from 'uuid';
 import { CHAT_API } from '#shared/chat/chat.api';
-import type {
+import {
 	ChatSchemaModel as ApiChatModel,
 	ChatMarkdownRequestPayload,
 	ChatMarkdownResponseModel,
@@ -14,18 +14,18 @@ import type {
 	ChatUpdateDetailsPayload,
 	RegenerateMessagePayload,
 } from '#shared/chat/chat.schema';
-import type { LlmMessage as ApiLlmMessage } from '#shared/llm/llm.model';
-import type { CallSettings, FilePartExt, ImagePartExt, TextPart, UserContentExt } from '#shared/llm/llm.model';
+import { LlmMessage as ApiLlmMessage } from '#shared/llm/llm.model';
+import { CallSettings, FilePartExt, ImagePartExt, TextPart, UserContentExt } from '#shared/llm/llm.model';
 
 import { callApiRoute } from 'app/core/api-route';
 import { createApiEntityState, createApiListState } from 'app/core/api-state.types';
 import {
-	type Chat,
-	type ChatMessage,
+	Chat,
+	ChatMessage,
 	NEW_CHAT_ID,
 	// ServerChat is effectively ApiChatModel now
 } from 'app/modules/chat/chat.types';
-import type { Attachment, TextContent } from 'app/modules/message.types';
+import { Attachment, TextContent } from 'app/modules/message.types';
 
 // Helper function to convert File to base64 string (extracting only the data part)
 async function fileToBase64(file: File): Promise<string> {

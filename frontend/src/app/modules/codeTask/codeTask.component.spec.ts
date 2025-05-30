@@ -4,7 +4,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { ActivatedRoute, type ParamMap, Router, convertToParamMap } from '@angular/router';
 import { Observable, Subject, of, throwError } from 'rxjs';
-import type { CodeTask } from '#shared/codeTask/codeTask.model';
+import { CodeTask } from '#shared/codeTask/codeTask.model';
 import { CodeTaskComponent } from './codeTask.component';
 import { CodeTaskServiceClient } from './codeTask.service';
 

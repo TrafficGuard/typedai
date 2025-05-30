@@ -1,5 +1,5 @@
-import type { UserContentExt } from '#shared/llm/llm.model';
-import type { UIMessage } from '../message.types';
+import { UserContentExt } from '#shared/llm/llm.model';
+import { UIMessage } from '../message.types';
 
 export const NEW_CHAT_ID = 'new';
 

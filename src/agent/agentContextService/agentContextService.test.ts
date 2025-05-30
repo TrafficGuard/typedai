@@ -23,7 +23,7 @@ import {
 	// TaskLevel, // Not explicitly used in AgentContext, but used in AgentLLMs
 } from '#shared/agent/agent.model';
 import type { AutonomousIteration } from '#shared/agent/agent.model';
-import { NotFound, NotAllowed } from '#shared/errors'; // Added import
+import { NotAllowed, NotFound } from '#shared/errors'; // Added import
 import type { FunctionCallResult, GenerationStats } from '#shared/llm/llm.model';
 import type { ChatSettings, LLMServicesConfig, User } from '#shared/user/user.model';
 import * as userContext from '#user/userContext';
@@ -1098,7 +1098,7 @@ export function runAgentStateServiceTests(
 		it('should return iteration summaries for the agent owned by the current user', async () => {
 			const summaries = await service.getAgentIterationSummaries(agentIdForIterations);
 			expect(summaries).to.be.an('array').with.lengthOf(2);
-			expect(summaries.map(s => s.iteration)).to.deep.equal([1, 2]);
+			expect(summaries.map((s) => s.iteration)).to.deep.equal([1, 2]);
 			expect(summaries[0].summary).to.equal('Summary 1');
 			expect(summaries[1].error).to.equal('Simulated Error');
 			expect(summaries[1].cost).to.equal(0.002);

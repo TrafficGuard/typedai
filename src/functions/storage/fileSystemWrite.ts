@@ -47,8 +47,8 @@ export class FileSystemWrite {
 		if (contents.indexOf(search) !== contents.lastIndexOf(search))
 			throw new Error(`The file ${filePath} contained more than one occurrence of the search string. Expand the search string to make it unique`);
 
-		logger.info('Skipping patchEdit');
-		// const updatedContents = contents.replace(search, replace);
-		// await getFileSystem().writeFile(filePath, updatedContents);
+		logger.info({ search, replace }, `Patch editing file ${filePath}`);
+		const updatedContents = contents.replace(search, replace);
+		await getFileSystem().writeFile(filePath, updatedContents);
 	}
 }

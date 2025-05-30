@@ -5,7 +5,7 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 // TODO: Verify the correct path for these shared types
-import type { AgentContextApi, Iteration, LlmCall } from '#shared/agent/agent.schema';
+import { AgentContextApi, Iteration, LlmCall } from '#shared/agent/agent.schema';
 
 @Component({
 	selector: 'app-agent-iterations',

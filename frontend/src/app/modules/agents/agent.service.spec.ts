@@ -4,12 +4,12 @@ import { fakeAsync, tick } from '@angular/core/testing'; // Added fakeAsync and 
 import { type Static, Type } from '@sinclair/typebox';
 import { of, throwError } from 'rxjs';
 import { AGENT_API } from '#shared/agent/agent.api';
-import type { AutonomousIteration } from '#shared/agent/agent.model';
+import { AutonomousIteration } from '#shared/agent/agent.model';
 import { type AgentContextApi, type AgentContextSchema, AgentIdParamsSchema, AgentStartRequestSchema } from '#shared/agent/agent.schema'; // Added AgentStartRequestSchema
 import { RouteDefinition } from '#shared/api-definitions';
 import { ApiNullResponseSchema } from '#shared/common.schema';
-import type { LlmMessagesSchema } from '#shared/llm/llm.schema';
-import type { LlmCall } from '#shared/llmCall/llmCall.model';
+import { LlmMessagesSchema } from '#shared/llm/llm.schema';
+import { LlmCall } from '#shared/llmCall/llmCall.model';
 import { AgentService, type AgentStartRequestData } from './agent.service'; // Added AgentStartRequestData
 
 describe('AgentService', () => {

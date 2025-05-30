@@ -1,4 +1,4 @@
-import type { Routes } from '@angular/router';
+import { Routes } from '@angular/router';
 import { CodeReviewEditComponent } from './edit/code-review-edit.component';
 import { CodeReviewListComponent } from './list/code-review-list.component';
 

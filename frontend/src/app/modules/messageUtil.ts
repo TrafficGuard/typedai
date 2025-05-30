@@ -1,5 +1,5 @@
-import type { Attachment } from 'app/modules/message.types';
-import type { FilePartExt, ImagePartExt, TextPart, UserContentExt } from '#shared/llm/llm.model';
+import { Attachment } from 'app/modules/message.types';
+import { FilePartExt, ImagePartExt, TextPart, UserContentExt } from '#shared/llm/llm.model';
 
 // Helper function to convert File to base64 string (extracting only the data part)
 async function fileToBase64(file: File): Promise<string> {

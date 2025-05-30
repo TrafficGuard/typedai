@@ -5,16 +5,16 @@ import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import type { MatDrawer } from '@angular/material/sidenav';
+import { MatDrawer } from '@angular/material/sidenav';
 import { MatSliderModule } from '@angular/material/slider';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
 import { UserService } from 'app/core/user/user.service';
 import { ChatServiceClient } from 'app/modules/chat/chat.service';
-import type { Chat } from 'app/modules/chat/chat.types';
+import { Chat } from 'app/modules/chat/chat.types';
 import { EMPTY, catchError, finalize, tap } from 'rxjs';
-import type { UserProfile, UserProfileUpdate } from '#shared/user/user.model';
-import { type AgentLinks, GoogleCloudLinks } from '../../agents/agent-links';
+import { UserProfile, UserProfileUpdate } from '#shared/user/user.model';
+import { AgentLinks, GoogleCloudLinks } from '../../agents/agent-links';
 
 @Component({
 	selector: 'chat-info',

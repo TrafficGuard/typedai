@@ -11,11 +11,11 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar'; //
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { Router } from '@angular/router'; // Added Router
 import { RouterTestingModule } from '@angular/router/testing';
-import type { AsyncState } from 'app/core/api-state.types'; // Added AsyncState
+import { AsyncState } from 'app/core/api-state.types'; // Added AsyncState
 import { UserService } from 'app/core/user/user.service';
 import { BehaviorSubject, Subject, of, throwError } from 'rxjs'; // Added Subject, BehaviorSubject, throwError
-import type { AgentContextApi } from '#shared/agent/agent.schema';
-import type { UserProfile } from '#shared/user/user.model'; // Added AgentContextApi
+import { AgentContextApi } from '#shared/agent/agent.schema';
+import { UserProfile } from '#shared/user/user.model'; // Added AgentContextApi
 import { type LLM as LlmModel, LlmService } from '../../../llm.service'; // Corrected LlmModel import
 import { AgentService, type AgentStartRequestData } from '../../agent.service'; // Added AgentService and AgentStartRequestData
 import { NewAutonomousAgentComponent } from './new-autonomous-agent.component';

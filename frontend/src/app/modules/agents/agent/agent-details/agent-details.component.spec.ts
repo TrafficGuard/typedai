@@ -5,10 +5,10 @@ import { MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { RouterTestingModule } from '@angular/router/testing';
-import type { Static } from '@sinclair/typebox';
+import { Static } from '@sinclair/typebox';
 import { of } from 'rxjs';
 
-import type { AgentContextApi, AgentRunningState, AgentType, AutonomousSubTypeSchema } from '#shared/agent/agent.schema';
+import { AgentContextApi, AgentRunningState, AgentType, AutonomousSubTypeSchema } from '#shared/agent/agent.schema';
 import { type LLM, LlmService } from '../../../llm.service';
 import { AgentService } from '../../agent.service';
 import { FunctionsService } from '../../functions.service';

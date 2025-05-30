@@ -1,8 +1,8 @@
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { CODE_REVIEW_API } from '#shared/codeReview/codeReview.api';
-import type { CodeReviewConfig } from '#shared/codeReview/codeReview.model';
-import type {
+import { CodeReviewConfig } from '#shared/codeReview/codeReview.model';
+import {
 	BulkDeleteRequest,
 	CodeReviewConfigCreate,
 	CodeReviewConfigListResponse,
@@ -274,9 +274,9 @@ import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { Subject, of, throwError } from 'rxjs';
 import { CODE_REVIEW_API } from '#shared/codeReview/codeReview.api';
-import type { CodeReviewConfig } from '#shared/codeReview/codeReview.model';
+import { CodeReviewConfig } from '#shared/codeReview/codeReview.model';
 import * as apiRoute from '../../core/api-route';
-import type { ApiListState } from '../../core/api-state.types';
+import { ApiListState } from '../../core/api-state.types';
 import { CodeReviewServiceClient } from './code-review.service';
 
 describe('CodeReviewServiceClient', () => {

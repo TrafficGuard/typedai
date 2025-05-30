@@ -7,14 +7,14 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { DomSanitizer, type SafeHtml } from '@angular/platform-browser';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { distinctUntilChanged, filter } from 'rxjs/operators';
 // import { environment } from 'environments/environment'; // Not used directly
-import { LlmCallMessageSummaryPart, type LlmMessage } from '#shared/llm/llm.model';
-import type { LlmCall, LlmCallSummary } from '#shared/llmCall/llmCall.model';
-import type { Prompt as AppPrompt } from '#shared/prompts/prompts.model'; // Use an alias if 'Prompt' is ambiguous
-import { type AgentLinks, GoogleCloudLinks } from '../../agent-links';
+import { LlmCallMessageSummaryPart, LlmMessage } from '#shared/llm/llm.model';
+import { LlmCall, LlmCallSummary } from '#shared/llmCall/llmCall.model';
+import { Prompt as AppPrompt } from '#shared/prompts/prompts.model'; // Use an alias if 'Prompt' is ambiguous
+import { AgentLinks, GoogleCloudLinks } from '../../agent-links';
 import { AgentService } from '../../agent.service';
 
 @Component({

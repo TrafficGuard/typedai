@@ -1,6 +1,6 @@
-import { HttpClient, type HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, WritableSignal, signal, inject } from '@angular/core';
-import { EMPTY, type Observable } from 'rxjs';
+import { EMPTY, Observable } from 'rxjs';
 import { catchError, retry, tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { ApiListState, createApiListState } from '../../core/api-state.types';

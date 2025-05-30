@@ -1,4 +1,4 @@
-import type { GenerationStats } from '#shared/llm/llm.model';
+import { GenerationStats } from '#shared/llm/llm.model';
 
 export interface Attachment {
 	type: 'file' | 'image';

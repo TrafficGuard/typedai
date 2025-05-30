@@ -1,14 +1,14 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
-import type { Static } from '@sinclair/typebox';
-import { EMPTY, type Observable, catchError, map, tap, throwError } from 'rxjs';
+import { Static } from '@sinclair/typebox';
+import { EMPTY, Observable, catchError, map, tap, throwError } from 'rxjs';
 import { AGENT_API } from '#shared/agent/agent.api';
-import type { AgentContextPreview, AutonomousIteration, AutonomousIterationSummary } from '#shared/agent/agent.model';
-import type { AgentContextApi, AgentStartRequestSchema } from '#shared/agent/agent.schema';
-import type { LlmCall, LlmCallSummary } from '#shared/llmCall/llmCall.model';
+import { AgentContextPreview, AutonomousIteration, AutonomousIterationSummary } from '#shared/agent/agent.model';
+import { AgentContextApi, AgentStartRequestSchema } from '#shared/agent/agent.schema';
+import { LlmCall, LlmCallSummary } from '#shared/llmCall/llmCall.model';
 import { callApiRoute } from '../../core/api-route';
 import { createApiEntityState, createApiListState } from '../../core/api-state.types';
-import type { Pagination } from '../../core/types';
+import { Pagination } from '../../core/types';
 
 export type AgentStartRequestData = Static<typeof AgentStartRequestSchema>;
 

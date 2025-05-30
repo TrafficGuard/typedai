@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, type OnInit, type Signal, ViewEncapsulation, effect, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, Signal, ViewEncapsulation, effect, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -7,10 +7,10 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import type { UserProfile, UserProfileUpdate } from '#shared/user/user.model';
-import type { ApiListState } from '../../../core/api-state.types';
+import { UserProfile, UserProfileUpdate } from '#shared/user/user.model';
+import { ApiListState } from '../../../core/api-state.types';
 import { UserService } from '../../../core/user/user.service';
-import { type LLM, LlmService } from '../../llm.service';
+import { LLM, LlmService } from '../../llm.service';
 
 @Component({
 	selector: 'settings-account',

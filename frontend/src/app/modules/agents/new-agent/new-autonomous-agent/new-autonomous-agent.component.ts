@@ -1,6 +1,6 @@
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { NgClass } from '@angular/common';
-import { Component, DestroyRef, type OnInit, ViewEncapsulation, computed, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, ViewEncapsulation, computed, inject } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -20,7 +20,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import { UserService } from 'app/core/user/user.service'; // Added import
 import { filter, finalize } from 'rxjs'; // Removed map from here as it's not used directly by component anymore
-import type { AutonomousSubType } from '#shared/agent/agent.model';
+import { AutonomousSubType } from '#shared/agent/agent.model';
 import { LlmService } from '../../../llm.service';
 import { AgentService } from '../../agent.service';
 

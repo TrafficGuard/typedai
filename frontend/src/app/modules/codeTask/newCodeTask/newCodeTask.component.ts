@@ -20,8 +20,8 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import { BehaviorSubject, type Observable, Subscription, catchError, finalize, map, of, take } from 'rxjs';
-import type { CodeTask, CodeTaskPreset, CodeTaskPresetConfig } from '#shared/codeTask/codeTask.model';
-import type { GitProject } from '#shared/scm/git.model';
+import { CodeTask, CodeTaskPreset, CodeTaskPresetConfig } from '#shared/codeTask/codeTask.model';
+import { GitProject } from '#shared/scm/git.model';
 import { CodeTaskServiceClient, type CreateCodeTaskPayload } from '../codeTask.service';
 
 @Component({

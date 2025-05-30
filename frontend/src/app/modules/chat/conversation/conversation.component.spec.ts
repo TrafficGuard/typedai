@@ -19,12 +19,12 @@ import { of } from 'rxjs';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
 import { UserService } from 'app/core/user/user.service';
-import type { UserContentExt } from '#shared/llm/llm.model';
-import type { UserProfile } from '#shared/user/user.model';
+import { UserContentExt } from '#shared/llm/llm.model';
+import { UserProfile } from '#shared/user/user.model';
 import { LlmService } from '../../llm.service';
-import type { LLM } from '../../llm.service';
+import { LLM } from '../../llm.service';
 import { ChatServiceClient } from '../chat.service';
-import type { Chat, ChatMessage, NEW_CHAT_ID } from '../chat.types';
+import { Chat, ChatMessage, NEW_CHAT_ID } from '../chat.types';
 import { ConversationComponent } from './conversation.component';
 
 const mockChat: Chat = {

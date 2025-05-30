@@ -1,15 +1,15 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { EMPTY, type Observable, of, throwError } from 'rxjs';
+import { EMPTY, Observable, of, throwError } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
 import { CODE_REVIEW_API } from '#shared/codeReview/codeReview.api';
-import type { CodeReviewConfig } from '#shared/codeReview/codeReview.model';
+import { CodeReviewConfig } from '#shared/codeReview/codeReview.model';
 import {
-	type BulkDeleteRequest,
-	type CodeReviewConfigCreate,
+	BulkDeleteRequest,
+	CodeReviewConfigCreate,
 	CodeReviewConfigListResponse,
-	type CodeReviewConfigUpdate,
-	type MessageResponse,
+	CodeReviewConfigUpdate,
+	MessageResponse,
 } from '#shared/codeReview/codeReview.schema';
 import { callApiRoute } from '../../core/api-route';
 import { ApiListState, createApiListState } from '../../core/api-state.types';

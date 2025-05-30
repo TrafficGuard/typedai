@@ -8,8 +8,8 @@ import { of, throwError } from 'rxjs';
 import { MatDrawer } from '@angular/material/sidenav';
 import { UserService } from 'app/core/user/user.service';
 import { ChatServiceClient } from 'app/modules/chat/chat.service';
-import type { Chat } from 'app/modules/chat/chat.types';
-import type { UserProfile } from '#shared/user/user.model';
+import { Chat } from 'app/modules/chat/chat.types';
+import { UserProfile } from '#shared/user/user.model';
 import { ChatInfoComponent } from './chat-info.component';
 
 // Mock User type for UserService

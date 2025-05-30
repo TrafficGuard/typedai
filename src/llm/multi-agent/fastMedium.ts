@@ -53,8 +53,8 @@ export class FastMediumLLM extends BaseLLM {
 			text += `${msgText}\n`;
 		}
 		const tokens = await countTokens(text);
-		logger.info(`====== Cerebras tokens: ${tokens}`);
 		return tokens < this.cerebras.getMaxInputTokens() * 0.5;
+		logger.info(`Tokens: ${tokens}`);
 	}
 
 	async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {

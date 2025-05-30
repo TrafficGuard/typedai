@@ -6,7 +6,7 @@ import { AgentToolStateComponent } from './agent-tool-state.component';
 // These are part of the standalone component's imports.
 
 // Mock data for AgentContextApi input would be needed for actual tests.
-// import type { AgentContextApi } from '#shared/schemas/agent.schema'; // Adjust path as necessary
+// import { AgentContextApi } from '#shared/schemas/agent.schema'; // Adjust path as necessary
 
 describe('AgentToolStateComponent', () => {
 	let component: AgentToolStateComponent;

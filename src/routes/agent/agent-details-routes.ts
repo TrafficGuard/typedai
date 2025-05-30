@@ -6,7 +6,7 @@ import { send, sendBadRequest, sendNotFound } from '#fastify/index';
 import { logger } from '#o11y/logger';
 import { AGENT_API } from '#shared/agent/agent.api';
 import type { AgentContext, AgentContextPreview, AutonomousIteration, AutonomousIterationSummary } from '#shared/agent/agent.model';
-import { NotFound, NotAllowed } from '#shared/errors'; // Added import
+import { NotAllowed, NotFound } from '#shared/errors'; // Added import
 import { functionRegistry } from '../../functionRegistry';
 
 export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
@@ -16,6 +16,8 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 			// The agentPreviews are already in the format defined by AgentContextPreviewSchema.
 			// No further transformation or serialization like `serializeContext` is needed.
 			reply.sendJSON(agentPreviews);
+			console.log('STATUS CODE');
+			console.log(reply.statusCode);
 		} catch (error) {
 			// List should ideally not throw NotFound/NotAllowed for the list itself,
 			// but could throw other errors (e.g., DB connection).
@@ -66,7 +68,8 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 		} catch (error) {
 			if (error instanceof NotFound) {
 				return sendNotFound(reply, error.message);
-			} else if (error instanceof NotAllowed) {
+			}
+			if (error instanceof NotAllowed) {
 				return send(reply, 403, { error: error.message });
 			}
 			logger.error(error, `Error loading details for agent ${agentId} [error]`);
@@ -84,7 +87,8 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 		} catch (error) {
 			if (error instanceof NotFound) {
 				return sendNotFound(reply, error.message);
-			} else if (error instanceof NotAllowed) {
+			}
+			if (error instanceof NotAllowed) {
 				return send(reply, 403, { error: error.message });
 			}
 			logger.error(error, `Error loading iterations for agent ${agentId} [error]`);
@@ -103,7 +107,8 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 		} catch (error) {
 			if (error instanceof NotFound) {
 				return sendNotFound(reply, error.message);
-			} else if (error instanceof NotAllowed) {
+			}
+			if (error instanceof NotAllowed) {
 				return send(reply, 403, { error: error.message });
 			}
 			logger.error(error, `Error loading iteration summaries for agent ${agentId} [error]`);
@@ -122,7 +127,8 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 		} catch (error) {
 			if (error instanceof NotFound) {
 				return sendNotFound(reply, error.message);
-			} else if (error instanceof NotAllowed) {
+			}
+			if (error instanceof NotAllowed) {
 				return send(reply, 403, { error: error.message });
 			}
 			logger.error(error, `Error loading iteration ${iterationNumber} for agent ${agentId} [error]`);

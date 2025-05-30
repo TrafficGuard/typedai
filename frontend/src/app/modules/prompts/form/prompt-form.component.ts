@@ -30,11 +30,11 @@ import { MatSliderModule } from '@angular/material/slider';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import type { CallSettings, FilePartExt, ImagePartExt, LlmMessage, TextPart, UserContentExt } from '#shared/llm/llm.model';
-import type { Prompt } from '#shared/prompts/prompts.model';
-import type { PromptCreatePayload, PromptGenerateResponseSchemaModel, PromptSchemaModel, PromptUpdatePayload } from '#shared/prompts/prompts.schema';
+import { CallSettings, FilePartExt, ImagePartExt, LlmMessage, TextPart, UserContentExt } from '#shared/llm/llm.model';
+import { Prompt } from '#shared/prompts/prompts.model';
+import { PromptCreatePayload, PromptGenerateResponseSchemaModel, PromptSchemaModel, PromptUpdatePayload } from '#shared/prompts/prompts.schema';
 import { type LLM as AppLLM, LlmService } from '../../llm.service'; // Renamed LLM to AppLLM to avoid conflict
-import type { Attachment } from '../message.types';
+import { Attachment } from '../message.types';
 import { attachmentsAndTextToUserContentExt, fileToAttachment, userContentExtToAttachmentsAndText } from '../messageUtil';
 import { PromptsService } from '../prompts.service';
 

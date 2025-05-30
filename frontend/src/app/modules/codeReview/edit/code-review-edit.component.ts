@@ -1,18 +1,18 @@
 import { CommonModule, Location } from '@angular/common';
-import { ChangeDetectionStrategy, Component, type OnInit, computed, inject, signal } from '@angular/core';
-import { type AbstractControl, type FormArray, FormBuilder, type FormGroup, ReactiveFormsModule, type ValidationErrors, Validators } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { AbstractControl, FormArray, FormBuilder, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCard, MatCardContent } from '@angular/material/card';
 import { MatCheckbox } from '@angular/material/checkbox';
-import { type MatChipInputEvent, MatChipsModule } from '@angular/material/chips';
+import { MatChipInputEvent, MatChipsModule } from '@angular/material/chips';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ActivatedRoute, Router } from '@angular/router';
-import type { Observable } from 'rxjs';
-import type { IExample } from '#shared/codeReview/codeReview.model';
-import type { CodeReviewConfigCreate, CodeReviewConfigUpdate, MessageResponse } from '#shared/codeReview/codeReview.schema';
+import { Observable } from 'rxjs';
+import { IExample } from '#shared/codeReview/codeReview.model';
+import { CodeReviewConfigCreate, CodeReviewConfigUpdate, MessageResponse } from '#shared/codeReview/codeReview.schema';
 import { CodeReviewServiceClient } from '../code-review.service';
 
 @Component({

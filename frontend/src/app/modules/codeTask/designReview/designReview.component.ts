@@ -21,7 +21,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
-import type { CodeTask, CodeTaskStatus } from '#shared/codeTask/codeTask.model';
+import { CodeTask, CodeTaskStatus } from '#shared/codeTask/codeTask.model';
 import { CodeTaskServiceClient } from '../codeTask.service';
 
 @Component({

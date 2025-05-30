@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import type { FilePartExt, ImagePartExt, TextPart, UserContentExt } from '#shared/llm/llm.model';
-import type { Attachment } from './message.types';
+import { FilePartExt, ImagePartExt, TextPart, UserContentExt } from '#shared/llm/llm.model';
+import { Attachment } from './message.types';
 import { attachmentsAndTextToUserContentExt, fileToAttachment, userContentExtToAttachmentsAndText } from './messageUtil';
 
 // Helper to create a mock File object

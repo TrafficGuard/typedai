@@ -1,5 +1,5 @@
-import type { FilePartExt, ImagePartExt, TextPart, UserContentExt } from '#shared/llm/llm.model';
-import type { Attachment } from './message.types';
+import { FilePartExt, ImagePartExt, TextPart, UserContentExt } from '#shared/llm/llm.model';
+import { Attachment } from './message.types';
 
 // LlmMessageContentPart is a union of the imported part types
 export type LlmMessageContentPart = TextPart | ImagePartExt | FilePartExt;

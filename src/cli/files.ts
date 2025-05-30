@@ -8,6 +8,7 @@ import { appContext, initApplicationContext } from '#app/applicationContext';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import type { AgentLLMs } from '#shared/agent/agent.model';
+import { fastSelectFilesAgent } from '#swe/discovery/fastSelectFilesAgent';
 import { selectFilesAgent } from '#swe/discovery/selectFilesAgentWithSearch';
 import { parseProcessArgs } from './cli';
 
@@ -39,7 +40,7 @@ async function main() {
 		)}`;
 		await appContext().agentStateService.save(agent);
 
-		let response: any = await selectFilesAgent(initialPrompt);
+		let response: any = await fastSelectFilesAgent(initialPrompt);
 		response = JSON.stringify(response);
 		console.log(response);
 

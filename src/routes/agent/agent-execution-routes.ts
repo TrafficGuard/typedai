@@ -9,7 +9,7 @@ import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { AGENT_API } from '#shared/agent/agent.api';
 import { isExecuting } from '#shared/agent/agent.model';
-import { NotFound, NotAllowed } from '#shared/errors'; // Added import
+import { NotAllowed, NotFound } from '#shared/errors'; // Added import
 
 export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 	/** Forcibly stop an agent */
@@ -28,7 +28,8 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 				// forceStopAgent might throw if agent not found or not owned
 				if (error instanceof NotFound) {
 					return sendNotFound(reply, error.message);
-				} else if (error instanceof NotAllowed) {
+				}
+				if (error instanceof NotAllowed) {
 					return send(reply, 403, { error: error.message });
 				}
 				logger.error(error, `Error force stopping agent ${agentId}`);
@@ -55,7 +56,8 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 			} catch (error) {
 				if (error instanceof NotFound) {
 					return sendNotFound(reply, error.message);
-				} else if (error instanceof NotAllowed) {
+				}
+				if (error instanceof NotAllowed) {
 					return send(reply, 403, { error: error.message });
 				}
 				logger.error('Error providing feedback:', error);
@@ -81,7 +83,8 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 			} catch (error) {
 				if (error instanceof NotFound) {
 					return sendNotFound(reply, error.message);
-				} else if (error instanceof NotAllowed) {
+				}
+				if (error instanceof NotAllowed) {
 					return send(reply, 403, { error: error.message });
 				}
 				logger.error(error, `Error resuming error agent ${agentId}`);
@@ -107,7 +110,8 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 			} catch (error) {
 				if (error instanceof NotFound) {
 					return sendNotFound(reply, error.message);
-				} else if (error instanceof NotAllowed) {
+				}
+				if (error instanceof NotAllowed) {
 					return send(reply, 403, { error: error.message });
 				}
 				logger.error(error, `Error resuming HIL agent ${agentId}`);
@@ -149,10 +153,12 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 				// Load the updated agent to return the state
 				const updatedAgent = await fastify.agentStateService.load(agentId!);
 				send(reply, 200, serializeContext(updatedAgent));
-			} catch (error: any) { // Keep any for now as some errors might not be NotFound/NotAllowed
+			} catch (error: any) {
+				// Keep any for now as some errors might not be NotFound/NotAllowed
 				if (error instanceof NotFound) {
 					return sendNotFound(reply, error.message);
-				} else if (error instanceof NotAllowed) {
+				}
+				if (error instanceof NotAllowed) {
 					return send(reply, 403, { error: error.message });
 				}
 				logger.error({ agentId, executionId, error }, 'Error requesting HIL check [error]');
@@ -178,7 +184,8 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 			} catch (error) {
 				if (error instanceof NotFound) {
 					return sendNotFound(reply, error.message);
-				} else if (error instanceof NotAllowed) {
+				}
+				if (error instanceof NotAllowed) {
 					return send(reply, 403, { error: error.message });
 				}
 				logger.error(error, `Error cancelling agent ${agentId}`);
@@ -205,7 +212,8 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 			} catch (error) {
 				if (error instanceof NotFound) {
 					return sendNotFound(reply, error.message);
-				} else if (error instanceof NotAllowed) {
+				}
+				if (error instanceof NotAllowed) {
 					return send(reply, 403, { error: error.message });
 				}
 				logger.error(error, 'Error resuming completed agent');
@@ -232,7 +240,8 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 			} catch (error) {
 				if (error instanceof NotFound) {
 					return sendNotFound(reply, error.message);
-				} else if (error instanceof NotAllowed) {
+				}
+				if (error instanceof NotAllowed) {
 					return send(reply, 403, { error: error.message });
 				}
 				logger.error(error, 'Error updating agent functions [error]');

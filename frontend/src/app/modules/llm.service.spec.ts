@@ -1,6 +1,6 @@
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { TestBed, fakeAsync, tick } from '@angular/core/testing';
-import { type LLM, LlmService } from './llm.service';
+import { LLM, LlmService } from './llm.service';
 
 describe('LlmService', () => {
 	let service: LlmService;

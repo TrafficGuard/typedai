@@ -5,10 +5,10 @@ import { AgentIterationsComponent } from './AgentIterationsComponent';
 // The component itself imports MatExpansionModule, CommonModule, KeyValuePipe, MatCardModule.
 // These are part of the standalone component's imports and don't need to be re-imported by TestBed unless used directly in test logic.
 
-// Attempt to import types for inputs, adjust path if necessary.
+// Attempt to imports for inputs, adjust path if necessary.
 // These are typically from a shared model directory, e.g., '#shared/model/agent.model'.
 // For this basic spec, they are commented out as they are not strictly needed for 'should create'.
-// import type { AgentContextApi, AgentIteration } from '#shared/model/agent.model';
+// import { AgentContextApi, AgentIteration } from '#shared/model/agent.model';
 
 describe('AgentIterationsComponent', () => {
 	let component: AgentIterationsComponent;

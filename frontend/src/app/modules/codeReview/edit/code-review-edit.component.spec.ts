@@ -15,8 +15,8 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
 import { of, throwError } from 'rxjs';
 
-import type { CodeReviewConfig, IExample } from '#shared/codeReview/codeReview.model';
-import type { CodeReviewConfigCreate, CodeReviewConfigUpdate } from '#shared/codeReview/codeReview.schema';
+import { CodeReviewConfig, IExample } from '#shared/codeReview/codeReview.model';
+import { CodeReviewConfigCreate, CodeReviewConfigUpdate } from '#shared/codeReview/codeReview.schema';
 import { CodeReviewServiceClient } from '../code-review.service';
 import { CodeReviewEditComponent } from './code-review-edit.component';
 

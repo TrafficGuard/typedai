@@ -2,7 +2,7 @@ import { CommonModule, DatePipe } from '@angular/common';
 import { type WritableSignal, signal } from '@angular/core';
 import { type ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { MatButtonModule } from '@angular/material/button';
-import type { MatDialogRef } from '@angular/material/dialog';
+import { MatDialogRef } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -11,7 +11,7 @@ import { of, throwError } from 'rxjs';
 
 import { provideNoopAnimations } from '@angular/platform-browser/animations'; // Import for animations
 import { FuseConfirmationService } from '@fuse/services/confirmation';
-import type { PromptPreview } from '#shared/prompts/prompts.model';
+import { PromptPreview } from '#shared/prompts/prompts.model';
 import { PromptsService } from '../prompts.service';
 import { PromptListComponent } from './prompt-list.component';
 

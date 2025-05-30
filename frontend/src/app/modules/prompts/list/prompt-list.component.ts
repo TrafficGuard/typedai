@@ -9,7 +9,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router, RouterModule } from '@angular/router';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { filter, finalize } from 'rxjs/operators';
-import type { PromptPreview } from '#shared/prompts/prompts.model';
+import { PromptPreview } from '#shared/prompts/prompts.model';
 import { PROMPTS_ROUTES } from '../prompt.paths';
 // import { toSignal } from '@angular/core/rxjs-interop'; // No longer needed for prompts
 import { PromptsService } from '../prompts.service';

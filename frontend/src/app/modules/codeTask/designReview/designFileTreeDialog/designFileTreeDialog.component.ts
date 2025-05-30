@@ -5,14 +5,14 @@ import { Component, Inject, type OnDestroy, type OnInit } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MAT_DIALOG_DATA, MatDialogModule, type MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatTreeModule, MatTreeNestedDataSource } from '@angular/material/tree';
 import { Subject } from 'rxjs';
 import { debounceTime, startWith, takeUntil } from 'rxjs/operators';
-import type { FileSystemNode } from '#shared/files/fileSystemService';
+import { FileSystemNode } from '#shared/files/fileSystemService';
 
 @Component({
 	selector: 'app-codeTask-file-tree-select-dialog',

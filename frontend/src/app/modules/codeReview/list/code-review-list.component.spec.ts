@@ -3,7 +3,7 @@ import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { type ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import type { MatDialogRef } from '@angular/material/dialog';
+import { MatDialogRef } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -14,8 +14,8 @@ import { Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 
 import { FuseConfirmationService } from '@fuse/services/confirmation';
-import type { CodeReviewConfig } from '#shared/codeReview/codeReview.model';
-import type { CodeReviewConfigListResponse, MessageResponse } from '#shared/codeReview/codeReview.schema';
+import { CodeReviewConfig } from '#shared/codeReview/codeReview.model';
+import { CodeReviewConfigListResponse, MessageResponse } from '#shared/codeReview/codeReview.schema';
 import { CodeReviewServiceClient } from '../code-review.service';
 import { CodeReviewListComponent } from './code-review-list.component';
 

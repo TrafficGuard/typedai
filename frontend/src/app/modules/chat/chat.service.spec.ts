@@ -1,7 +1,7 @@
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { TestBed, fakeAsync, tick } from '@angular/core/testing';
-import type { Static } from '@sinclair/typebox';
-import type { ChatMessage, NEW_CHAT_ID, Chat as UIChat } from 'app/modules/chat/chat.types';
+import { Static } from '@sinclair/typebox';
+import { ChatMessage, NEW_CHAT_ID, Chat as UIChat } from 'app/modules/chat/chat.types';
 import { userContentExtToAttachmentsAndText } from 'app/modules/messageUtil';
 import { EMPTY, of, throwError } from 'rxjs';
 import { CHAT_API } from '#shared/chat/chat.api';
@@ -15,8 +15,8 @@ import {
 	ChatUpdateDetailsSchema,
 	RegenerateMessageSchema,
 } from '#shared/chat/chat.schema';
-import type { UserContentExt } from '#shared/llm/llm.model';
-import type { LlmMessageSchema } from '#shared/llm/llm.schema';
+import { UserContentExt } from '#shared/llm/llm.model';
+import { LlmMessageSchema } from '#shared/llm/llm.schema';
 import { ChatServiceClient } from './chat.service';
 import { convertMessage } from './chat.service'; // For direct testing if needed, or rely on service methods
 

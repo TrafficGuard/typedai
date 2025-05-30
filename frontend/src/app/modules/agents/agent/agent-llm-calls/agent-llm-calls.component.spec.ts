@@ -6,10 +6,10 @@ import { AgentLlmCallsComponent } from './agent-llm-calls.component';
 // DatePipe, DecimalPipe, TitleCasePipe, SlicePipe, CommonModule.
 // These are part of the standalone component's imports.
 
-// Import types for inputs if needed for detailed tests later.
+// imports for inputs if needed for detailed tests later.
 // For now, they are commented out as they are not strictly needed for 'should create'.
-// import type { LlmCallApi } from '#shared/model/llm.model'; // Adjust path as necessary
-// import type { AgentContextApi } from '#shared/model/agent.model'; // Adjust path as necessary
+// import { LlmCallApi } from '#shared/model/llm.model'; // Adjust path as necessary
+// import { AgentContextApi } from '#shared/model/agent.model'; // Adjust path as necessary
 
 describe('AgentLlmCallsComponent', () => {
 	let component: AgentLlmCallsComponent;

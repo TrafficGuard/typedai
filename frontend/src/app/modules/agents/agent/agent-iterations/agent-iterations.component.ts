@@ -21,8 +21,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTabsModule } from '@angular/material/tabs';
 // import { Subject, Subscription } from 'rxjs'; // No longer needed
 import { distinctUntilChanged, filter, tap } from 'rxjs/operators';
-import type { AutonomousIteration, AutonomousIterationSummary } from '#shared/agent/agent.model';
-import type { FunctionCallResult } from '#shared/llm/llm.model';
+import { AutonomousIteration, AutonomousIterationSummary } from '#shared/agent/agent.model';
+import { FunctionCallResult } from '#shared/llm/llm.model';
 import { AgentService } from '../../agent.service';
 
 @Component({
