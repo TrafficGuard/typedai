@@ -253,7 +253,7 @@ describe('TypeScriptRefactor', () => {
 					sourceMap: true,
 					outDir: 'dist',
 					baseUrl: '.',
-					paths: { "*": ["node_modules/*"] },
+					paths: { '*': ['node_modules/*'] },
 				},
 				include: ['src/**/*.ts', 'shared/**/*.ts', 'frontend/src/**/*.ts'],
 			};
