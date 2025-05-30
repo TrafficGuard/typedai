@@ -172,4 +172,68 @@ describe('TypeScriptRefactor', () => {
 			expect(consoleErrorSpy.calledWith(sinon.match('Unsupported identifier type: function'))).to.be.true;
 		});
 	});
+
+	describe('moveFile', () => {
+		it('should move a file to a new name in the same directory and update imports', () => {
+			mock({
+				[join(repoRoot, 'tsconfig.json')]: JSON.stringify({
+					files: ['src/fileToMove.ts', 'src/importer.ts'],
+					compilerOptions: { rootDir: '.', outDir: 'dist' },
+				}),
+				[join(repoRoot, 'src/fileToMove.ts')]: `export class MyClassToMove {}`,
+				[join(repoRoot, 'src/importer.ts')]: `import { MyClassToMove } from './fileToMove';\nconst instance = new MyClassToMove();`,
+			});
+
+			refactor.moveFile(join(repoRoot, 'src/fileToMove.ts'), join(repoRoot, 'src/fileHasBeenMoved.ts'), repoRoot);
+
+			expect(fs.existsSync(join(repoRoot, 'src/fileToMove.ts'))).to.be.false;
+			expect(fs.existsSync(join(repoRoot, 'src/fileHasBeenMoved.ts'))).to.be.true;
+			const movedFileContent = fs.readFileSync(join(repoRoot, 'src/fileHasBeenMoved.ts'), 'utf-8');
+			expect(movedFileContent).to.include('export class MyClassToMove {}');
+			const importerFileContent = fs.readFileSync(join(repoRoot, 'src/importer.ts'), 'utf-8');
+			expect(importerFileContent).to.include("import { MyClassToMove } from './fileHasBeenMoved';");
+			expect(importerFileContent).to.include('const instance = new MyClassToMove();');
+			expect(consoleLogSpy.calledWith(sinon.match(/Successfully moved .*src(\/|\\)fileToMove.ts to .*src(\/|\\)fileHasBeenMoved.ts and updated all imports./))).to.be.true;
+		});
+
+		it('should move a file to a different directory and update imports', () => {
+			mock({
+				[join(repoRoot, 'tsconfig.json')]: JSON.stringify({
+					files: ['src/fileToMoveToSubdir.ts', 'src/importerForSubdir.ts'],
+					compilerOptions: { rootDir: '.', outDir: 'dist' },
+				}),
+				[join(repoRoot, 'src/fileToMoveToSubdir.ts')]: `export class MyClassForSubdir {}`,
+				[join(repoRoot, 'src/importerForSubdir.ts')]: `import { MyClassForSubdir } from './fileToMoveToSubdir';\nconst instance = new MyClassForSubdir();`,
+				[join(repoRoot, 'dest')]: {}, // Mock the destination directory
+			});
+
+			refactor.moveFile(join(repoRoot, 'src/fileToMoveToSubdir.ts'), join(repoRoot, 'dest/movedToDest.ts'), repoRoot);
+
+			expect(fs.existsSync(join(repoRoot, 'src/fileToMoveToSubdir.ts'))).to.be.false;
+			expect(fs.existsSync(join(repoRoot, 'dest/movedToDest.ts'))).to.be.true;
+			const movedFileContent = fs.readFileSync(join(repoRoot, 'dest/movedToDest.ts'), 'utf-8');
+			expect(movedFileContent).to.include('export class MyClassForSubdir {}');
+			const importerFileContent = fs.readFileSync(join(repoRoot, 'src/importerForSubdir.ts'), 'utf-8');
+			expect(importerFileContent).to.include("import { MyClassForSubdir } from '../dest/movedToDest';"); // Note relative path
+			expect(importerFileContent).to.include('const instance = new MyClassForSubdir();');
+			expect(consoleLogSpy.calledWith(sinon.match(/Successfully moved .*src(\/|\\)fileToMoveToSubdir.ts to .*dest(\/|\\)movedToDest.ts and updated all imports./))).to.be.true;
+		});
+
+		it('should log an error when trying to move a non-existent file', () => {
+			mock({
+				[join(repoRoot, 'tsconfig.json')]: JSON.stringify({
+					files: [], // No files relevant to the non-existent one
+					compilerOptions: { rootDir: '.', outDir: 'dist' },
+				}),
+			});
+
+			refactor.moveFile(join(repoRoot, 'nonExistentSourceFile.ts'), join(repoRoot, 'anywhere.ts'), repoRoot);
+
+			const expectedErrorPath = join(repoRoot, 'nonExistentSourceFile.ts');
+			// Need to escape backslashes for Windows paths in sinon.match
+			const expectedErrorMessage = `File not found: ${expectedErrorPath.replace(/\\/g, '\\\\')}`;
+			expect(consoleErrorSpy.calledWith(sinon.match(new RegExp(expectedErrorMessage)))).to.be.true;
+			expect(fs.existsSync(join(repoRoot, 'anywhere.ts'))).to.be.false;
+		});
+	});
 });
