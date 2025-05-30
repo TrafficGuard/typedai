@@ -239,4 +239,64 @@ describe('TypeScriptRefactor', () => {
 			expect(fs.existsSync(join(repoRoot, 'anywhere.ts'))).to.be.false;
 		});
 	});
+
+	describe.skip('Integration Test - Cross-Project Refactoring', () => {
+		const integrationRepoRoot = resolve('/mock-repo-integration');
+
+		it('should rename a shared interface and update references in backend (src) and frontend (frontend/src) files', () => {
+			const tsConfigContent = {
+				compilerOptions: {
+					module: 'commonjs',
+					esModuleInterop: true,
+					target: 'es6',
+					moduleResolution: 'node',
+					sourceMap: true,
+					outDir: 'dist',
+					baseUrl: '.',
+					paths: { '*": ["node_modules/*"] },
+				},
+				include: ['src/**/*.ts', 'shared/**/*.ts', 'frontend/src/**/*.ts'],
+			};
+
+			mock({
+				[integrationRepoRoot]: {
+					// Create the root directory
+					'tsconfig.json': JSON.stringify(tsConfigContent),
+					shared: {
+						'commonType.ts': 'export interface MySharedInterface { id: string; value: string; }',
+					},
+					src: {
+						'backendService.ts':
+							"import { MySharedInterface } from '../shared/commonType';\nexport class BackendService { process(item: MySharedInterface): string { return `Processed ${item.id}`; } }",
+					},
+					frontend: {
+						src: {
+							'uiComponent.ts':
+								"import { MySharedInterface } from '../../shared/commonType';\nexport class UiComponent { render(data: MySharedInterface): string { return `Displaying ${data.value}`; } }",
+						},
+					},
+				},
+			});
+
+			const sharedTypePath = join(integrationRepoRoot, 'shared/commonType.ts');
+			refactor.renameType(sharedTypePath, 'interface', 'MySharedInterface', 'MyGlobalStandardInterface', integrationRepoRoot);
+
+			const sharedContent = fs.readFileSync(join(integrationRepoRoot, 'shared/commonType.ts'), 'utf-8');
+			const backendContent = fs.readFileSync(join(integrationRepoRoot, 'src/backendService.ts'), 'utf-8');
+			const frontendContent = fs.readFileSync(join(integrationRepoRoot, 'frontend/src/uiComponent.ts'), 'utf-8');
+
+			expect(sharedContent).to.include('export interface MyGlobalStandardInterface');
+			expect(sharedContent).to.not.include('MySharedInterface');
+
+			expect(backendContent).to.include("import { MyGlobalStandardInterface } from '../shared/commonType'");
+			expect(backendContent).to.include('item: MyGlobalStandardInterface');
+			expect(backendContent).to.not.include('MySharedInterface');
+
+			expect(frontendContent).to.include("import { MyGlobalStandardInterface } from '../../shared/commonType'");
+			expect(frontendContent).to.include('data: MyGlobalStandardInterface');
+			expect(frontendContent).to.not.include('MySharedInterface');
+
+			expect(consoleLogSpy.calledWith(sinon.match(/Successfully renamed interface MySharedInterface to MyGlobalStandardInterface/))).to.be.true;
+		});
+	});
 });
