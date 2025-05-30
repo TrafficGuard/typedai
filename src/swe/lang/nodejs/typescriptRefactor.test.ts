@@ -180,7 +180,7 @@ describe('TypeScriptRefactor', () => {
 					files: ['src/fileToMove.ts', 'src/importer.ts'],
 					compilerOptions: { rootDir: '.', outDir: 'dist' },
 				}),
-				[join(repoRoot, 'src/fileToMove.ts')]: `export class MyClassToMove {}`,
+				[join(repoRoot, 'src/fileToMove.ts')]: 'export class MyClassToMove {}',
 				[join(repoRoot, 'src/importer.ts')]: `import { MyClassToMove } from './fileToMove';\nconst instance = new MyClassToMove();`,
 			});
 
@@ -193,7 +193,8 @@ describe('TypeScriptRefactor', () => {
 			const importerFileContent = fs.readFileSync(join(repoRoot, 'src/importer.ts'), 'utf-8');
 			expect(importerFileContent).to.include("import { MyClassToMove } from './fileHasBeenMoved';");
 			expect(importerFileContent).to.include('const instance = new MyClassToMove();');
-			expect(consoleLogSpy.calledWith(sinon.match(/Successfully moved .*src(\/|\\)fileToMove.ts to .*src(\/|\\)fileHasBeenMoved.ts and updated all imports./))).to.be.true;
+			expect(consoleLogSpy.calledWith(sinon.match(/Successfully moved .*src(\/|\\)fileToMove.ts to .*src(\/|\\)fileHasBeenMoved.ts and updated all imports./)))
+				.to.be.true;
 		});
 
 		it('should move a file to a different directory and update imports', () => {
@@ -202,7 +203,7 @@ describe('TypeScriptRefactor', () => {
 					files: ['src/fileToMoveToSubdir.ts', 'src/importerForSubdir.ts'],
 					compilerOptions: { rootDir: '.', outDir: 'dist' },
 				}),
-				[join(repoRoot, 'src/fileToMoveToSubdir.ts')]: `export class MyClassForSubdir {}`,
+				[join(repoRoot, 'src/fileToMoveToSubdir.ts')]: 'export class MyClassForSubdir {}',
 				[join(repoRoot, 'src/importerForSubdir.ts')]: `import { MyClassForSubdir } from './fileToMoveToSubdir';\nconst instance = new MyClassForSubdir();`,
 				[join(repoRoot, 'dest')]: {}, // Mock the destination directory
 			});
@@ -216,7 +217,9 @@ describe('TypeScriptRefactor', () => {
 			const importerFileContent = fs.readFileSync(join(repoRoot, 'src/importerForSubdir.ts'), 'utf-8');
 			expect(importerFileContent).to.include("import { MyClassForSubdir } from '../dest/movedToDest';"); // Note relative path
 			expect(importerFileContent).to.include('const instance = new MyClassForSubdir();');
-			expect(consoleLogSpy.calledWith(sinon.match(/Successfully moved .*src(\/|\\)fileToMoveToSubdir.ts to .*dest(\/|\\)movedToDest.ts and updated all imports./))).to.be.true;
+			expect(
+				consoleLogSpy.calledWith(sinon.match(/Successfully moved .*src(\/|\\)fileToMoveToSubdir.ts to .*dest(\/|\\)movedToDest.ts and updated all imports./)),
+			).to.be.true;
 		});
 
 		it('should log an error when trying to move a non-existent file', () => {
