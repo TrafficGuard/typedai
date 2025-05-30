@@ -1,10 +1,10 @@
-import { join, resolve } from 'node:path';
 import * as fs from 'node:fs';
+import { join, resolve } from 'node:path';
 import { expect } from 'chai';
 import mock from 'mock-fs';
 import sinon from 'sinon';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import { TypescriptRefactor, TypeScriptIdentifierType } from './typescriptRefactor';
+import { TypeScriptIdentifierType, TypescriptRefactor } from './typescriptRefactor';
 
 describe('TypeScriptRefactor', () => {
 	setupConditionalLoggerOutput();
@@ -40,7 +40,8 @@ describe('TypeScriptRefactor', () => {
 					files: [fileADefinitionPath, fileBUsagePath],
 				}),
 				[join(repoRoot, fileADefinitionPath)]: `export class ${oldClassName} { constructor() { console.log('original'); } }`,
-				[join(repoRoot, fileBUsagePath)]: `import { ${oldClassName} } from './${fileADefinitionPath.replace('.ts', '')}';\nconst instance = new ${oldClassName}();`,
+				[join(repoRoot, fileBUsagePath)]:
+					`import { ${oldClassName} } from './${fileADefinitionPath.replace('.ts', '')}';\nconst instance = new ${oldClassName}();`,
 			});
 
 			refactor.renameType(join(repoRoot, fileADefinitionPath), 'class', oldClassName, newClassName, repoRoot);
@@ -69,7 +70,8 @@ describe('TypeScriptRefactor', () => {
 					files: [interfaceDefPath, interfaceUserPath],
 				}),
 				[join(repoRoot, interfaceDefPath)]: `export interface ${oldInterfaceName} { prop: string; }`,
-				[join(repoRoot, interfaceUserPath)]: `import { ${oldInterfaceName} } from './${interfaceDefPath.replace('.ts', '')}';\nconst obj: ${oldInterfaceName} = { prop: "test" };`,
+				[join(repoRoot, interfaceUserPath)]:
+					`import { ${oldInterfaceName} } from './${interfaceDefPath.replace('.ts', '')}';\nconst obj: ${oldInterfaceName} = { prop: "test" };`,
 			});
 
 			refactor.renameType(join(repoRoot, interfaceDefPath), 'interface', oldInterfaceName, newInterfaceName, repoRoot);
@@ -125,7 +127,7 @@ describe('TypeScriptRefactor', () => {
 				[join(repoRoot, 'tsconfig.json')]: JSON.stringify({
 					files: [filePath],
 				}),
-				[join(repoRoot, filePath)]: `export class SomeClass {}`,
+				[join(repoRoot, filePath)]: 'export class SomeClass {}',
 			});
 
 			refactor.renameType(join(repoRoot, filePath), 'class', existingName, newName, repoRoot);
@@ -167,7 +169,7 @@ describe('TypeScriptRefactor', () => {
 			// Cast to any to bypass TypeScript type checking for the test
 			refactor.renameType(join(repoRoot, filePath), 'function' as any, existingName, newName, repoRoot);
 
-			expect(consoleErrorSpy.calledWith(sinon.match(`Unsupported identifier type: function`))).to.be.true;
+			expect(consoleErrorSpy.calledWith(sinon.match('Unsupported identifier type: function'))).to.be.true;
 		});
 	});
 });
