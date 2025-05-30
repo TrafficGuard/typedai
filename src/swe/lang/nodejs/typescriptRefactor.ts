@@ -93,7 +93,8 @@ export class TypescriptRefactor {
 		try {
 			project.saveSync();
 			console.log(`Successfully renamed ${identifierType} "${existingName}" to "${newName}" in ${filePath} and updated all references across the project.`);
-		} catch (e: any) { // Catching 'any' for error object is common in TS for unknown error structures
+		} catch (e: any) {
+			// Catching 'any' for error object is common in TS for unknown error structures
 			console.error(`Error saving changes after rename: ${e.message}`);
 			// Optionally, re-throw or handle more gracefully depending on desired error management.
 		}
