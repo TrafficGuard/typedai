@@ -49,6 +49,8 @@ export class AiderCodeEditor {
 	 */
 	@func()
 	async editFilesToMeetRequirements(requirements: string, filesToEdit: string[], commit = true): Promise<void> {
+		if (!requirements) throw new Error('Requirements are required');
+		if (!filesToEdit || !filesToEdit.length) throw new Error('filesToEdit array cannot be empty');
 		const span = getActiveSpan();
 		const messageFilePath = '.aider-requirements';
 		logger.info(requirements);

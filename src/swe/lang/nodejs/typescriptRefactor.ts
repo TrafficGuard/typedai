@@ -1,5 +1,5 @@
 import * as path from 'node:path';
-import { Project } from 'ts-morph';
+import { type ClassDeclaration, type EnumDeclaration, type InterfaceDeclaration, Project } from 'ts-morph';
 import { funcClass } from '#functionSchema/functionDecorators';
 
 export type TypeScriptIdentifierType = 'class' | 'interface' | 'enum';
@@ -60,7 +60,7 @@ export class TypescriptRefactor {
 
 		// It's good practice to type the node if possible, or ensure it has the 'rename' method.
 		// ts-morph's ClassDeclaration, InterfaceDeclaration, EnumDeclaration, etc., all have .rename().
-		let identifierNode;
+		let identifierNode: ClassDeclaration | InterfaceDeclaration | EnumDeclaration;
 
 		switch (identifierType) {
 			case 'class':

@@ -12,8 +12,6 @@ import { NotificationsComponent } from 'app/layout/common/notifications/notifica
 import { ShortcutsComponent } from 'app/layout/common/shortcuts/shortcuts.component';
 import { UserComponent } from 'app/layout/common/user/user.component';
 import { Subject, takeUntil } from 'rxjs';
-import { QuickChatComponent } from '../../../common/quick-chat/quick-chat.component';
-import { QuickListComponent } from '../../../common/quick-list/quick-list.component';
 
 @Component({
 	selector: 'modern-layout',
