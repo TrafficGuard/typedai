@@ -172,6 +172,8 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				iterationData.images = imageParts.map((img) => structuredClone(img));
 
 				let agentPlanResponseMessage: LlmMessage;
+				let agentPlanResponse: string;
+				let pythonMainFnCode: string; // As long as we can extract the code we can do an iteration
 				try {
 					agentPlanResponseMessage = await agent.llms.hard.generateMessage(agentMessages, {
 						id: 'Codegen agent plan',
@@ -180,6 +182,8 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 						thinking: 'high',
 						maxOutputTokens: 60000,
 					});
+					agentPlanResponse = messageText(agentPlanResponseMessage);
+					pythonMainFnCode = extractPythonCode(agentPlanResponse);
 				} catch (e) {
 					logger.warn(e, 'Error with Codegen agent plan');
 					agentPlanResponseMessage = await agent.llms.hard.generateMessage(agentMessages, {
@@ -189,8 +193,9 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 						thinking: 'high',
 						maxOutputTokens: 60000,
 					});
+					agentPlanResponse = messageText(agentPlanResponseMessage);
+					pythonMainFnCode = extractPythonCode(agentPlanResponse);
 				}
-				const agentPlanResponse = messageText(agentPlanResponseMessage);
 				iterationData.stats = agentPlanResponseMessage.stats;
 				iterationData.expandedUserRequest = extractExpandedUserRequest(agentPlanResponse);
 				iterationData.observationsReasoning = extractObservationsReasoning(agentPlanResponse);
@@ -206,7 +211,6 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				// Extract the code, compile and fix if required
 				iterationData.draftCode = extractDraftPythonCode(agentPlanResponse);
 				iterationData.codeReview = extractCodeReview(agentPlanResponse);
-				let pythonMainFnCode = extractPythonCode(agentPlanResponse);
 				iterationData.code = pythonMainFnCode;
 				pythonMainFnCode = await ensureCorrectSyntax(pythonMainFnCode, functionsXml);
 				iterationData.code = pythonMainFnCode;
