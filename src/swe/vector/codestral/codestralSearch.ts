@@ -190,33 +190,36 @@ export async function getLocalFileCorpus(dirPath: string, targetExtensions: stri
  * @returns An array of text chunks.
  */
 function simpleCharacterTextSplitter(text: string, chunkSize: number, chunkOverlap: number): string[] {
-	if (chunkSize <= 0) {
-		// console.warn('simpleCharacterTextSplitter: chunkSize must be positive. Returning original text as a single chunk.');
-		return [text];
-	}
-	// If overlap is too large (equal or greater than chunk size), it can lead to issues.
-	// If text is shorter than chunk, it's one chunk. Otherwise, one chunk of chunkSize.
-	if (chunkOverlap >= chunkSize) {
-		// console.warn('simpleCharacterTextSplitter: chunkOverlap is greater than or equal to chunkSize. This might lead to non-advancing chunks or excessive repetition.');
-		return text.length <= chunkSize ? [text] : [text.substring(0, chunkSize)];
-	}
-	if (text.length <= chunkSize) {
-		return [text];
-	}
+    if (chunkSize <= 0) {
+        // console.warn('simpleCharacterTextSplitter: chunkSize must be positive. Returning original text as a single chunk.');
+        return [text];
+    }
+    if (chunkOverlap >= chunkSize) {
+        // console.warn('simpleCharacterTextSplitter: chunkOverlap is greater than or equal to chunkSize. This might lead to non-advancing chunks or excessive repetition.');
+        return text.length <= chunkSize ? [text] : [text.substring(0, chunkSize)];
+    }
+    if (text.length <= chunkSize) {
+        return [text];
+    }
 
-	const chunks: string[] = [];
-	let startIndex = 0;
-	while (startIndex < text.length) {
-		const endIndex = Math.min(startIndex + chunkSize, text.length);
-		chunks.push(text.substring(startIndex, endIndex));
+    const chunks: string[] = [];
+    let startIndex = 0;
+    while (startIndex < text.length) {
+        const endIndex = Math.min(startIndex + chunkSize, text.length);
+        chunks.push(text.substring(startIndex, endIndex));
 
-		if (endIndex === text.length) {
-			break; // Reached the end of the text
-		}
-		// Advance start index, ensuring it's at least 1 to prevent infinite loops if overlap is misconfigured (already handled by overlap < chunkSize check)
-		startIndex += chunkSize - chunkOverlap;
-	}
-	return chunks;
+        if (endIndex === text.length) {
+            break; // Reached the end of the text
+        }
+        startIndex += (chunkSize - chunkOverlap);
+        // Ensure we don't create an empty chunk or go out of bounds if overlap makes startIndex jump to/past end
+        // This check is mostly a safeguard; primary loop condition `startIndex < text.length` and `endIndex` handling should manage this.
+        // However, if chunkSize - chunkOverlap is 0 or negative (guarded by chunkOverlap >= chunkSize), this prevents infinite loops.
+        if (startIndex >= text.length || (chunkSize - chunkOverlap <= 0 && startIndex < text.length) ) {
+             break;
+        }
+    }
+    return chunks;
 }
 
 /**
@@ -227,46 +230,47 @@ function simpleCharacterTextSplitter(text: string, chunkSize: number, chunkOverl
  * @param effectiveChunkOverlap The overlap between chunks (uses constant CHUNK_OVERLAP by default).
  * @returns A new corpus with chunked documents.
  */
-export function chunkCorpus(corpus: Corpus, effectiveChunkSize: number = CHUNK_SIZE, effectiveChunkOverlap: number = CHUNK_OVERLAP): Corpus {
-	if (!DO_CHUNKING) {
-		return { ...corpus }; // Return a shallow copy to avoid modifying the original if it's later mutated
-	}
+export function chunkCorpus(
+    corpus: Corpus,
+    effectiveChunkSize: number = CHUNK_SIZE,
+    effectiveChunkOverlap: number = CHUNK_OVERLAP
+): Corpus {
+    if (!DO_CHUNKING) {
+        return { ...corpus }; // Return a shallow copy
+    }
 
-	const newCorpus: Corpus = {};
-	for (const originalId in corpus) {
-		// eslint-disable-next-line no-prototype-builtins
-		if (corpus.hasOwnProperty(originalId)) {
-			const doc = corpus[originalId];
-			const title = doc.title?.trim() || '';
-			const text = doc.text?.trim() || '';
+    const newCorpus: Corpus = {};
+    for (const originalId in corpus) {
+        // eslint-disable-next-line no-prototype-builtins
+        if (corpus.hasOwnProperty(originalId)) {
+            const doc = corpus[originalId];
+            const title = doc.title?.trim() || '';
+            const text = doc.text?.trim() || '';
 
-			if (!text) {
-				// If original document had no text, don't include it in the chunked corpus
-				continue;
-			}
+            if (!text) {
+                continue;
+            }
 
-			const chunks = simpleCharacterTextSplitter(text, effectiveChunkSize, effectiveChunkOverlap);
+            const chunks = simpleCharacterTextSplitter(text, effectiveChunkSize, effectiveChunkOverlap);
 
-			if (!chunks || chunks.length === 0) {
-				// Should not happen if text is non-empty and splitter works.
-				continue;
-			}
+            if (!chunks || chunks.length === 0) {
+                continue;
+            }
 
-			// If only one chunk and it's identical to original text, keep original ID and structure
-			if (chunks.length === 1 && chunks[0] === text) {
-				newCorpus[originalId] = { title, text: chunks[0] };
-			} else {
-				chunks.forEach((chunkText, i) => {
-					const chunkId = `${originalId}_<chunk>_${i}`;
-					newCorpus[chunkId] = {
-						title: title, // Preserve original title for context
-						text: chunkText,
-					};
-				});
-			}
-		}
-	}
-	return newCorpus;
+            if (chunks.length === 1 && chunks[0] === text) {
+                newCorpus[originalId] = { title, text: chunks[0] };
+            } else {
+                chunks.forEach((chunkText, i) => {
+                    const chunkId = `${originalId}_<chunk>_${i}`;
+                    newCorpus[chunkId] = {
+                        title: title,
+                        text: chunkText,
+                    };
+                });
+            }
+        }
+    }
+    return newCorpus;
 }
 
 /**
