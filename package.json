@@ -132,6 +132,7 @@
     "micromatch": "^4.0.8",
     "mime-types": "^3.0.1",
     "module-alias": "^2.2.2",
+    "mongodb": "^6.16.0",
     "openai": "^4.86.1",
     "pb-util": "^1.0.3",
     "pg": "^8.11.5",
