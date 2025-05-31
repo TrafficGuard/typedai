@@ -3,8 +3,8 @@ import * as path from 'node:path';
 import { expect } from 'chai';
 import { afterEach, beforeEach, describe, it } from 'mocha';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import { Language, formatDoc, getLanguageFromPath, getLocalFileCorpus } from './codestralSearch'; // Adjusted path to be relative
-import type { CodeDoc } from './types';
+import { Language, formatDoc, getLanguageFromPath, getLocalFileCorpus, chunkCorpus, DO_CHUNKING as ACTUAL_DO_CHUNKING } from './codestralSearch'; // Adjusted path to be relative
+import type { CodeDoc, Corpus } from './types';
 
 describe('includeAlternativeAiToolFiles', () => {
 	setupConditionalLoggerOutput();
@@ -202,5 +202,84 @@ describe('Codestral Search Utilities', () => {
 			expect(Object.keys(corpus).length).to.equal(0);
 			// console.error would have logged an error, which is acceptable.
 		});
+	});
+
+	describe('chunkCorpus', () => {
+		const testChunkSize = 10;
+		const testChunkOverlap = 3;
+
+		// const sampleCorpusBase: Corpus = { // Not directly used in these specific tests, but good for reference
+		// 	'file1.ts': { title: 'file1.ts', text: 'abcdefghijklmnopqrstuvwxyz' },
+		// 	'file2.txt': { title: 'file2.txt', text: '12345' },
+		// 	'empty.txt': { title: 'empty.txt', text: '' },
+		// 	'noTitle.doc': { text: 'document with no title' },
+		// };
+
+		it('should chunk a document correctly with specified size and overlap', () => {
+			const corpusToChunk: Corpus = { 'doc1.txt': { title: 'doc1.txt', text: 'abcdefghijklmnopqrstuvwxyz' } };
+			const chunked = chunkCorpus(corpusToChunk, testChunkSize, testChunkOverlap);
+
+			expect(Object.keys(chunked).length).to.equal(4); // Expecting 4 chunks for this specific text/params
+			expect(chunked['doc1.txt_<chunk>_0'].text).to.equal('abcdefghij');
+			expect(chunked['doc1.txt_<chunk>_0'].title).to.equal('doc1.txt');
+			expect(chunked['doc1.txt_<chunk>_1'].text).to.equal('hijklmnopq');
+			expect(chunked['doc1.txt_<chunk>_1'].title).to.equal('doc1.txt');
+			expect(chunked['doc1.txt_<chunk>_2'].text).to.equal('opqrstuvwx');
+			expect(chunked['doc1.txt_<chunk>_3'].text).to.equal('uvwxyz');
+		});
+
+		it('should handle text shorter than chunk size (single chunk with original ID)', () => {
+			const corpusToChunk: Corpus = { 'short.txt': { title: 'short.txt', text: '12345' } };
+			const chunked = chunkCorpus(corpusToChunk, testChunkSize, testChunkOverlap);
+			expect(Object.keys(chunked).length).to.equal(1);
+			expect(chunked['short.txt']).to.deep.equal({ title: 'short.txt', text: '12345' });
+		});
+
+		it('should handle empty text in a document (produces no entry for that document)', () => {
+			const corpusToChunk: Corpus = {
+				'empty.doc': { title: 'empty.doc', text: '' },
+				'nonempty.doc': { title: 'nonempty.doc', text: 'abc' },
+			};
+			const chunked = chunkCorpus(corpusToChunk, testChunkSize, testChunkOverlap);
+			expect(Object.keys(chunked).length).to.equal(1); // Only nonempty.doc should produce a chunk
+			expect(chunked['nonempty.doc']).to.exist;
+			expect(chunked['empty.doc']).to.not.exist;
+		});
+
+		it('should handle an empty corpus', () => {
+			const chunked = chunkCorpus({}, testChunkSize, testChunkOverlap);
+			expect(Object.keys(chunked).length).to.equal(0);
+		});
+
+		it('should use original ID if text is not empty but results in a single identical chunk', () => {
+			const corpusToChunk: Corpus = { 'doc.txt': { title: 'doc.txt', text: 'short' } };
+			// chunkSize > text.length
+			const chunked = chunkCorpus(corpusToChunk, 10, 3);
+			expect(Object.keys(chunked).length).to.equal(1);
+			expect(chunked['doc.txt']).to.deep.equal({ title: 'doc.txt', text: 'short' });
+		});
+
+		it('should handle documents with no title', () => {
+			const corpusToChunk: Corpus = { 'noTitle.doc': { text: 'document with no title' } };
+			const chunked = chunkCorpus(corpusToChunk, 10, 3);
+			expect(chunked['noTitle.doc_<chunk>_0'].title).to.equal('');
+			expect(chunked['noTitle.doc_<chunk>_0'].text).to.equal('document w');
+		});
+
+		// Test for DO_CHUNKING = false behavior
+		// This test relies on the ACTUAL_DO_CHUNKING constant imported from the module.
+		// To make this test truly independent of the global constant for this specific case,
+		// one might temporarily modify the constant or pass it as a parameter to chunkCorpus.
+		// However, testing against the actual module behavior is also valid.
+		if (!ACTUAL_DO_CHUNKING) {
+			// Only run this test if the constant is actually false in the source file
+			it('should return a shallow copy of original corpus if DO_CHUNKING is false', () => {
+				const originalCorpus: Corpus = { 'doc.txt': { title: 'doc.txt', text: 'some text' } };
+				// chunkCorpus will use the DO_CHUNKING from its own module scope
+				const chunked = chunkCorpus(originalCorpus, testChunkSize, testChunkOverlap);
+				expect(chunked).to.deep.equal(originalCorpus);
+				expect(chunked).not.to.equal(originalCorpus); // Ensure it's a copy
+			});
+		}
 	});
 });
