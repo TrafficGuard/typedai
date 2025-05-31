@@ -1,7 +1,8 @@
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import { Language, getLanguageFromPath, formatDoc, CodeDoc } from './codestralSearch'; // Adjusted path to be relative
+import { Language, getLanguageFromPath, formatDoc } from './codestralSearch'; // Adjusted path to be relative
+import { CodeDoc } from './types';
 
 describe('includeAlternativeAiToolFiles', () => {
 	setupConditionalLoggerOutput();
