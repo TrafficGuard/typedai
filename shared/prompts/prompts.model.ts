@@ -1,4 +1,7 @@
-import type { CallSettings, LlmMessage } from '#shared/llm/llm.model';
+import type { CallSettings as LlmCallSettings, LlmMessage as LlmLlmMessage } from '#shared/llm/llm.model';
+
+// Re-export CallSettings and LlmMessage for consumers of this module
+export type { LlmCallSettings as CallSettings, LlmLlmMessage as LlmMessage };
 
 /**
  * Prompts make up the users Prompt library, to test, evaluate and refine the LLM prompts.
