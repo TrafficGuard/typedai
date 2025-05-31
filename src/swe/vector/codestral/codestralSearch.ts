@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs'; // Using async fs as per project DOCS.md
 import * as path from 'node:path';
-import MistralClient, { ClientOptions as MistralClientOptions } from '@mistralai/mistralai';
+import MistralClient from '@mistralai/mistralai';
 import { CodeDoc, Corpus } from './types';
 
 /** The number of top-k most similar documents to retrieve in a search. */
@@ -34,8 +34,7 @@ export function getMistralClient(): MistralClient {
 		if (!apiKey) {
 			throw new Error('MISTRAL_API_KEY environment variable is not set.');
 		}
-		const clientOptions: MistralClientOptions = { apiKey };
-		client = new MistralClient(clientOptions);
+		client = new MistralClient(apiKey);
 	}
 	return client;
 }
