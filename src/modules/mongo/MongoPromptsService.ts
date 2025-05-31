@@ -2,10 +2,6 @@ import type { PromptsService } from '#prompts/promptsService';
 import type { Prompt, PromptPreview } from '#shared/prompts/prompts.model';
 
 export class MongoPromptsService implements PromptsService {
-	constructor() {
-		// TODO: Implement constructor
-	}
-
 	async getPrompt(promptId: string, userId: string): Promise<Prompt | null> {
 		// TODO: Implement method
 		throw new Error('Method not implemented.');

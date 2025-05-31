@@ -1,12 +1,8 @@
-import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
 import type { CodeReviewConfig } from '#shared/codeReview/codeReview.model';
+import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
 import type { CodeReviewFingerprintCache } from '#swe/codeReview/codeReviewTaskModel';
 
 export class MongoCodeReviewService implements CodeReviewService {
-	constructor() {
-		// TODO: Implement constructor
-	}
-
 	async getCodeReviewConfig(id: string): Promise<CodeReviewConfig | null> {
 		// TODO: Implement method
 		throw new Error('Method not implemented.');

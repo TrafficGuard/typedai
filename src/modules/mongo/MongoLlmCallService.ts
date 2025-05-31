@@ -1,12 +1,8 @@
-import type { LlmCallService } from '#llm/llmCallService/llmCallService';
 import type { CreateLlmRequest } from '#llm/llmCallService/llmCall';
+import type { LlmCallService } from '#llm/llmCallService/llmCallService';
 import type { LlmCall, LlmCallSummary } from '#shared/llmCall/llmCall.model';
 
 export class MongoLlmCallService implements LlmCallService {
-	constructor() {
-		// TODO: Implement constructor
-	}
-
 	async saveRequest(request: CreateLlmRequest): Promise<LlmCall> {
 		// TODO: Implement method
 		throw new Error('Method not implemented.');

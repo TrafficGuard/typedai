@@ -2,10 +2,6 @@ import type { CodeTaskRepository } from '#codeTask/codeTaskRepository';
 import type { CodeTask, CodeTaskPreset, UpdateCodeTaskData } from '#shared/codeTask/codeTask.model';
 
 export class MongoCodeTaskRepository implements CodeTaskRepository {
-	constructor() {
-		// TODO: Implement constructor
-	}
-
 	async createCodeTask(codeTask: CodeTask): Promise<string> {
 		// TODO: Implement method
 		throw new Error('Method not implemented.');

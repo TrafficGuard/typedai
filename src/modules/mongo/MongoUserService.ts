@@ -1,11 +1,7 @@
-import type { UserService } from '#user/userService';
 import type { User } from '#shared/user/user.model';
+import type { UserService } from '#user/userService';
 
 export class MongoUserService implements UserService {
-	constructor() {
-		// TODO: Implement constructor
-	}
-
 	async getUser(userId: string): Promise<User> {
 		// TODO: Implement method
 		throw new Error('Method not implemented.');

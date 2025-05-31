@@ -2,10 +2,6 @@ import type { AgentContextService } from '#agent/agentContextService/agentContex
 import type { AgentContext, AgentContextPreview, AgentRunningState, AutonomousIteration, AutonomousIterationSummary } from '#shared/agent/agent.model';
 
 export class MongoAgentContextService implements AgentContextService {
-	constructor() {
-		// TODO: Implement constructor
-	}
-
 	async save(state: AgentContext): Promise<void> {
 		// TODO: Implement method
 		throw new Error('Method not implemented.');
