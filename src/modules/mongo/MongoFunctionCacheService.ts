@@ -1,5 +1,5 @@
 import type { CacheScope, FunctionCacheService } from '#cache/functionCacheService';
-import { Db } from 'mongodb';
+import type { Db } from 'mongodb';
 
 export class MongoFunctionCacheService implements FunctionCacheService {
 	constructor(private db: Db) {}
