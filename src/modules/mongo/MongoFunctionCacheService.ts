@@ -16,7 +16,7 @@ export class MongoFunctionCacheService implements FunctionCacheService {
 		throw new Error('Method not implemented.');
 	}
 
-	async clearUserCache(userId: string): Promise<number> {
+	async clearUserCache(userId: string): Promise<void> {
 		// TODO: Implement method
 		throw new Error('Method not implemented.');
 	}
