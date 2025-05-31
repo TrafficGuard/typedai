@@ -13,10 +13,13 @@ export class MongoPromptsService implements PromptsService {
 	}
 
 	private async getDb(): Promise<Db> {
-		if (!this.client.topology || !this.client.topology.isConnected()) {
+		// Ensure the client is connected. connect() is idempotent.
+		// The driver will also implicitly connect on the first operation.
+		// This explicit call ensures the db object is initialized after a connection attempt.
+		if (!this.db) {
 			await this.client.connect();
+			this.db = this.client.db(process.env.MONGO_DB_NAME || 'typedai-dev');
 		}
-		this.db = this.client.db(process.env.MONGO_DB_NAME || 'typedai-dev');
 		return this.db;
 	}
 
