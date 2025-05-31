@@ -1,14 +1,14 @@
-import type {
-	AgentContext,
-	AgentContextPreview,
-	AgentRunningState,
-	AutonomousIteration,
-	AutonomousIterationSummary,
-	LlmFunctions,
+import {
+	type AgentContext,
+	type AgentContextPreview,
+	type AgentRunningState,
+	type AutonomousIteration,
+	type AutonomousIterationSummary,
+	type LlmFunctions,
 	AGENT_PREVIEW_KEYS, // Import this constant
 	AUTONOMOUS_ITERATION_SUMMARY_KEYS, // Import this constant
-	ToolType, // Potentially needed for DefaultLlmFunctions if it's defined here
-	FunctionCall, // Potentially needed for DefaultLlmFunctions
+	type ToolType, // Potentially needed for DefaultLlmFunctions if it's defined here
+	type FunctionCall, // Potentially needed for DefaultLlmFunctions
 } from '#shared/agent/agent.model';
 import type { AgentContextService } from '#agent/agentContextService/agentContextService';
 import { Collection, Db } from 'mongodb';
@@ -197,7 +197,7 @@ export class MongoAgentContextService implements AgentContextService {
 
 	async list(): Promise<AgentContextPreview[]> {
 		try {
-			const projection: Record<string, 1> = { _id: 0 }; // Exclude MongoDB's _id by default
+			const projection: Record<string, 0 | 1> = { _id: 0 }; // Exclude MongoDB's _id by default
 			(AGENT_PREVIEW_KEYS as unknown as Array<keyof AgentContext | '_id'>).forEach((key) => {
 				if (key === 'agentId') {
 					projection['_id'] = 1; // Map agentId to _id for retrieval
@@ -227,7 +227,7 @@ export class MongoAgentContextService implements AgentContextService {
 			// Or, more broadly, not in a terminal state:
 			const terminalStates: AgentRunningState[] = ['completed', 'error', 'shutdown', 'timeout'];
 
-			const projection: Record<string, 1> = { _id: 0 };
+			const projection: Record<string, 0 | 1> = { _id: 0 };
 			(AGENT_PREVIEW_KEYS as unknown as Array<keyof AgentContext | '_id'>).forEach((key) => {
 				if (key === 'agentId') {
 					projection['_id'] = 1;

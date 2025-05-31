@@ -1,4 +1,5 @@
 import type { ApplicationContext } from '#app/applicationTypes';
+import { MongoClient, type Db } from 'mongodb';
 
 // Service Interface Imports
 import type { AgentContextService } from '#agent/agentContextService/agentContextService';
@@ -17,18 +18,47 @@ import { MongoCodeReviewService } from '#mongo/MongoCodeReviewService'; // Place
 import { MongoCodeTaskRepository } from '#mongo/MongoCodeTaskRepository'; // Placeholder: File src/modules/mongo/MongoCodeTaskRepository.ts will be created later
 import { MongoFunctionCacheService } from '#mongo/MongoFunctionCacheService'; // Placeholder: File src/modules/mongo/MongoFunctionCacheService.ts will be created later
 import { MongoLlmCallService } from '#mongo/MongoLlmCallService'; // Placeholder: File src/modules/mongo/MongoLlmCallService.ts will be created later
-import { MongoPromptsService } from '#mongo/MongoPromptsService'; // Placeholder: File src/modules/mongo/MongoPromptsService.ts will be created later
-import { MongoUserService } from '#mongo/MongoUserService'; // Placeholder: File src/modules/mongo/MongoUserService.ts will be created later
+import { MongoPromptsService } from '#mongo/MongoPromptsService';
+import { MongoUserService } from '#mongo/MongoUserService';
 
-export function mongoApplicationContext(): ApplicationContext {
+// Database connection management
+let dbInstance: Db | null = null;
+const mongoClient = new MongoClient(process.env.MONGO_URI || 'mongodb://localhost:27017');
+
+async function getDb(): Promise<Db> {
+	if (dbInstance) {
+		return dbInstance;
+	}
+	// Check if the client is already connected or connecting
+	// The specifics might vary slightly based on driver version, but isConnected() is common
+	// For modern drivers, you might not need to check isConnected before connect() as connect() is idempotent.
+	// However, checking avoids unnecessary calls if already connected.
+	// A more robust check might involve looking at `mongoClient.topology.s.state` if available and needed.
+	if (!mongoClient.topology || !mongoClient.topology.isConnected()) {
+		await mongoClient.connect();
+	}
+	dbInstance = mongoClient.db(process.env.MONGO_DB_NAME || 'typedai-dev');
+	return dbInstance;
+}
+
+export async function mongoApplicationContext(): Promise<ApplicationContext> {
+	const db = await getDb();
 	return {
-		agentStateService: new MongoAgentContextService(), // TODO: Implement MongoAgentContextService and ensure it's exported from '#mongo/MongoAgentContextService.ts',
-		userService: new MongoUserService(), // TODO: Implement MongoUserService and ensure it's exported from '#mongo/MongoUserService.ts',
-		chatService: new MongoChatService(), // TODO: Implement MongoChatService and ensure it's exported from '#mongo/MongoChatService.ts',
-		llmCallService: new MongoLlmCallService(), // TODO: Implement MongoLlmCallService and ensure it's exported from '#mongo/MongoLlmCallService.ts',
-		functionCacheService: new MongoFunctionCacheService(), // TODO: Implement MongoFunctionCacheService and ensure it's exported from '#mongo/MongoFunctionCacheService.ts',
-		codeReviewService: new MongoCodeReviewService(), // TODO: Implement MongoCodeReviewService and ensure it's exported from '#mongo/MongoCodeReviewService.ts',
-		codeTaskRepository: new MongoCodeTaskRepository(), // TODO: Implement MongoCodeTaskRepository and ensure it's exported from '#mongo/MongoCodeTaskRepository.ts',
-		promptsService: new MongoPromptsService(), // TODO: Implement MongoPromptsService and ensure it's exported from '#mongo/MongoPromptsService.ts'
+		agentStateService: new MongoAgentContextService(db),
+		userService: new MongoUserService(db),
+		chatService: new MongoChatService(db),
+		llmCallService: new MongoLlmCallService(db),
+		functionCacheService: new MongoFunctionCacheService(db),
+		codeReviewService: new MongoCodeReviewService(db),
+		codeTaskRepository: new MongoCodeTaskRepository(db),
+		promptsService: new MongoPromptsService(db),
 	};
+}
+
+// Optional: Add a function to close the MongoDB connection when the application shuts down
+export async function closeMongoConnection(): Promise<void> {
+	if (mongoClient && mongoClient.topology && mongoClient.topology.isConnected()) {
+		await mongoClient.close();
+		dbInstance = null;
+	}
 }

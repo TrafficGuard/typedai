@@ -1,4 +1,4 @@
-import { type Collection, type Db, ObjectId, MongoClient } from 'mongodb'; // MongoClient import moved for consistency, but will be removed
+import { type Collection, type Db, ObjectId, type MongoClient } from 'mongodb';
 import { logger } from '#o11y/logger';
 import type { PromptsService } from '#prompts/promptsService';
 import type { CallSettings, LlmMessage, Prompt, PromptPreview } from '#shared/prompts/prompts.model';
