@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs'; // Using async fs as per project DOCS.md
 import * as path from 'node:path';
-import { MistralClient } from '@mistralai/mistralai';
+import MistralClient from '@mistralai/mistralai';
 import { CodeDoc, Corpus } from './types';
 
 /** The number of top-k most similar documents to retrieve in a search. */
