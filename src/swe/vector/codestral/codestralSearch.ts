@@ -227,11 +227,7 @@ function simpleCharacterTextSplitter(text: string, chunkSize: number, chunkOverl
  * @param effectiveChunkOverlap The overlap between chunks (uses constant CHUNK_OVERLAP by default).
  * @returns A new corpus with chunked documents.
  */
-export function chunkCorpus(
-	corpus: Corpus,
-	effectiveChunkSize: number = CHUNK_SIZE,
-	effectiveChunkOverlap: number = CHUNK_OVERLAP,
-): Corpus {
+export function chunkCorpus(corpus: Corpus, effectiveChunkSize: number = CHUNK_SIZE, effectiveChunkOverlap: number = CHUNK_OVERLAP): Corpus {
 	if (!DO_CHUNKING) {
 		return { ...corpus }; // Return a shallow copy to avoid modifying the original if it's later mutated
 	}
