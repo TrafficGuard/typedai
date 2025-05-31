@@ -1,5 +1,5 @@
-import { MongoClient, type Db } from 'mongodb';
-import { runPromptsServiceTests } from '#prompts/promptsService.test';
+import { type Db, MongoClient } from 'mongodb';
+import { runPromptsServiceTests } from '../../../prompts/promptsService.test';
 import { MongoPromptsService } from './MongoPromptsService';
 
 describe('MongoPromptsService', () => {
@@ -18,7 +18,7 @@ describe('MongoPromptsService', () => {
 			console.error(`Error during MongoDB test cleanup in DB ${dbName}:`, error);
 			// Attempt to close client if connection was established before error
 			await client.close();
-			throw error; 
+			throw error;
 		}
 	};
 
@@ -27,5 +27,5 @@ describe('MongoPromptsService', () => {
 		await client.close();
 	};
 
-	runPromptsServiceTests(() => new MongoPromptsService(db), beforeEachHook, afterEachHook);
+	runPromptsServiceTests(() => new MongoPromptsService(db, client), beforeEachHook, afterEachHook);
 });

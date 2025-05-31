@@ -1,3 +1,4 @@
+import { expect } from 'chai';
 import type { PromptsService } from './promptsService';
 import sinon from 'sinon'; // Assuming sinon is used for testing as per DOCS.md examples
 

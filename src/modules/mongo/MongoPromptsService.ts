@@ -1,4 +1,4 @@
-import { type Collection, type Db, ObjectId, type MongoClient } from 'mongodb';
+import { type Collection, type Db, type MongoClient, ObjectId } from 'mongodb';
 import { logger } from '#o11y/logger';
 import type { PromptsService } from '#prompts/promptsService';
 import type { CallSettings, LlmMessage, Prompt, PromptPreview } from '#shared/prompts/prompts.model';
@@ -37,13 +37,16 @@ interface MongoRevisionDoc {
 export class MongoPromptsService implements PromptsService {
 	private promptsCollectionName: string;
 	private revisionsCollectionName: string;
-	private client: MongoClient; // Keep for session management, though db is now injected
+	// private client: MongoClient; // Client is now passed directly
 
-	constructor(private db: Db) {
+	constructor(
+		private db: Db,
+		private client: MongoClient,
+	) {
 		// Initialize client for session management, assuming it's derived or passed similarly if needed
 		// For now, let's assume the db's client is accessible or a new one is created for transactions
 		// This might need refinement based on how transactions are managed with an injected Db
-		this.client = db.client;
+		// this.client = db.client; // client is now directly injected
 		this.promptsCollectionName = 'prompts';
 		this.revisionsCollectionName = 'promptRevisions';
 	}

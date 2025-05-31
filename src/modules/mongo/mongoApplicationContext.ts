@@ -1,5 +1,5 @@
+import { type Db, MongoClient } from 'mongodb';
 import type { ApplicationContext } from '#app/applicationTypes';
-import { MongoClient, type Db } from 'mongodb';
 
 // Service Interface Imports
 import type { AgentContextService } from '#agent/agentContextService/agentContextService';
@@ -50,7 +50,7 @@ export async function mongoApplicationContext(): Promise<ApplicationContext> {
 		functionCacheService: new MongoFunctionCacheService(db),
 		codeReviewService: new MongoCodeReviewService(db),
 		codeTaskRepository: new MongoCodeTaskRepository(db),
-		promptsService: new MongoPromptsService(db),
+		promptsService: new MongoPromptsService(db, mongoClient),
 	};
 }
 

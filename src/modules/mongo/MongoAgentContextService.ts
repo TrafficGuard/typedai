@@ -1,18 +1,18 @@
+import type { Collection, Db } from 'mongodb';
+import type { AgentContextService } from '#agent/agentContextService/agentContextService';
+import { logger } from '#o11y/logger'; // Assuming logger is available
 import {
+	AGENT_PREVIEW_KEYS, // Import this constant
+	AUTONOMOUS_ITERATION_SUMMARY_KEYS, // Import this constant
 	type AgentContext,
 	type AgentContextPreview,
 	type AgentRunningState,
 	type AutonomousIteration,
 	type AutonomousIterationSummary,
-	type LlmFunctions,
-	AGENT_PREVIEW_KEYS, // Import this constant
-	AUTONOMOUS_ITERATION_SUMMARY_KEYS, // Import this constant
-	type ToolType, // Potentially needed for DefaultLlmFunctions if it's defined here
 	type FunctionCall, // Potentially needed for DefaultLlmFunctions
+	type LlmFunctions,
+	type ToolType, // Potentially needed for DefaultLlmFunctions if it's defined here
 } from '#shared/agent/agent.model';
-import type { AgentContextService } from '#agent/agentContextService/agentContextService';
-import { Collection, Db } from 'mongodb';
-import { logger } from '#o11y/logger'; // Assuming logger is available
 
 const AGENT_CONTEXT_COLLECTION = 'agentContexts';
 const AGENT_ITERATIONS_COLLECTION = 'agentIterations';
@@ -23,12 +23,6 @@ const AGENT_ITERATIONS_COLLECTION = 'agentIterations';
 // instantiation of actual function classes based on names.
 class DefaultLlmFunctions implements LlmFunctions {
 	private functionClassNames: string[] = [];
-	// In a real scenario, this would need a registry to instantiate functions by name.
-	// For this design, we'll keep it simple.
-
-	constructor() {
-		// Initialization, possibly with a function registry
-	}
 
 	toJSON(): { functionClasses: string[] } {
 		return { functionClasses: this.functionClassNames };
@@ -153,10 +147,7 @@ export class MongoAgentContextService implements AgentContextService {
 
 	async updateState(ctx: AgentContext, state: AgentRunningState): Promise<void> {
 		try {
-			const result = await this.agentContextsCollection.updateOne(
-				{ _id: ctx.agentId },
-				{ $set: { state: state, lastUpdate: Date.now() } },
-			);
+			const result = await this.agentContextsCollection.updateOne({ _id: ctx.agentId }, { $set: { state: state, lastUpdate: Date.now() } });
 			if (result.matchedCount === 0) {
 				logger.warn(`Agent context not found for state update [agentId=${ctx.agentId}]`);
 				// Optionally throw an error if agent must exist
@@ -180,10 +171,7 @@ export class MongoAgentContextService implements AgentContextService {
 
 	async requestHumanInLoopCheck(agent: AgentContext): Promise<void> {
 		try {
-			const result = await this.agentContextsCollection.updateOne(
-				{ _id: agent.agentId },
-				{ $set: { hilRequested: true, lastUpdate: Date.now() } },
-			);
+			const result = await this.agentContextsCollection.updateOne({ _id: agent.agentId }, { $set: { hilRequested: true, lastUpdate: Date.now() } });
 			if (result.matchedCount === 0) {
 				logger.warn(`Agent context not found for HIL request [agentId=${agent.agentId}]`);
 				// Optionally throw an error
@@ -200,7 +188,7 @@ export class MongoAgentContextService implements AgentContextService {
 			const projection: Record<string, 0 | 1> = { _id: 0 }; // Exclude MongoDB's _id by default
 			(AGENT_PREVIEW_KEYS as unknown as Array<keyof AgentContext | '_id'>).forEach((key) => {
 				if (key === 'agentId') {
-					projection['_id'] = 1; // Map agentId to _id for retrieval
+					projection._id = 1; // Map agentId to _id for retrieval
 				} else {
 					projection[key as string] = 1;
 				}
@@ -211,7 +199,7 @@ export class MongoAgentContextService implements AgentContextService {
 				const preview = { ...doc } as any;
 				if (doc._id) {
 					preview.agentId = doc._id; // Map _id back to agentId
-					delete preview._id;
+					preview._id = undefined;
 				}
 				return preview as AgentContextPreview;
 			});
@@ -230,7 +218,7 @@ export class MongoAgentContextService implements AgentContextService {
 			const projection: Record<string, 0 | 1> = { _id: 0 };
 			(AGENT_PREVIEW_KEYS as unknown as Array<keyof AgentContext | '_id'>).forEach((key) => {
 				if (key === 'agentId') {
-					projection['_id'] = 1;
+					projection._id = 1;
 				} else {
 					projection[key as string] = 1;
 				}
@@ -245,7 +233,7 @@ export class MongoAgentContextService implements AgentContextService {
 				const preview = { ...doc } as any;
 				if (doc._id) {
 					preview.agentId = doc._id;
-					delete preview._id;
+					preview._id = undefined;
 				}
 				return preview as AgentContextPreview;
 			});
@@ -283,10 +271,7 @@ export class MongoAgentContextService implements AgentContextService {
 		try {
 			// Store as { functionClasses: string[] } to be compatible with LlmFunctions.toJSON/fromJSON
 			const functionsData = { functionClasses: functions };
-			const result = await this.agentContextsCollection.updateOne(
-				{ _id: agentId },
-				{ $set: { functions: functionsData, lastUpdate: Date.now() } },
-			);
+			const result = await this.agentContextsCollection.updateOne({ _id: agentId }, { $set: { functions: functionsData, lastUpdate: Date.now() } });
 			if (result.matchedCount === 0) {
 				logger.warn(`Agent context not found for functions update [agentId=${agentId}]`);
 				// Optionally throw: throw new Error(`Agent with ID ${agentId} not found for functions update.`);
@@ -325,11 +310,7 @@ export class MongoAgentContextService implements AgentContextService {
 				projection[key as string] = 1;
 			});
 
-			const docs = await this.agentIterationsCollection
-				.find({ agentId: agentId })
-				.sort({ iteration: 1 })
-				.project(projection)
-				.toArray();
+			const docs = await this.agentIterationsCollection.find({ agentId: agentId }).sort({ iteration: 1 }).project(projection).toArray();
 			return docs as AutonomousIterationSummary[];
 		} catch (error) {
 			logger.error(error, `Failed to get agent iteration summaries [agentId=${agentId}]`);
