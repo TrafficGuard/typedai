@@ -1,5 +1,5 @@
 // Changed 'import type' to 'import' because enum values are used
-import {  } from '@google-cloud/discoveryengine/build/protos/protos';
+import { google } from '@google-cloud/discoveryengine/build/protos/protos';
 import { struct } from 'pb-util'; // Helper for converting JS objects to Struct proto
 import pino from 'pino';
 import { sleep } from '#utils/async-utils';
