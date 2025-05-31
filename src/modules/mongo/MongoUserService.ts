@@ -1,7 +1,10 @@
 import type { User } from '#shared/user/user.model';
 import type { UserService } from '#user/userService';
+import { Db } from 'mongodb';
 
 export class MongoUserService implements UserService {
+	constructor(private db: Db) {}
+
 	async getUser(userId: string): Promise<User> {
 		// TODO: Implement method
 		throw new Error('Method not implemented.');

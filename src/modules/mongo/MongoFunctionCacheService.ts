@@ -1,6 +1,9 @@
 import type { CacheScope, FunctionCacheService } from '#cache/functionCacheService';
+import { Db } from 'mongodb';
 
 export class MongoFunctionCacheService implements FunctionCacheService {
+	constructor(private db: Db) {}
+
 	async getValue(scope: CacheScope, className: string, method: string, params: any[]): Promise<any | null> {
 		// TODO: Implement method
 		throw new Error('Method not implemented.');

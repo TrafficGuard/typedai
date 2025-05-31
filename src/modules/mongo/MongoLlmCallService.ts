@@ -1,8 +1,11 @@
 import type { CreateLlmRequest } from '#llm/llmCallService/llmCall';
 import type { LlmCallService } from '#llm/llmCallService/llmCallService';
 import type { LlmCall, LlmCallSummary } from '#shared/llmCall/llmCall.model';
+import { Db } from 'mongodb';
 
 export class MongoLlmCallService implements LlmCallService {
+	constructor(private db: Db) {}
+
 	async saveRequest(request: CreateLlmRequest): Promise<LlmCall> {
 		// TODO: Implement method
 		throw new Error('Method not implemented.');

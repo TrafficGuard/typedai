@@ -1,4 +1,4 @@
-import { type Collection, type Db, MongoClient, ObjectId } from 'mongodb';
+import { type Collection, type Db, ObjectId, MongoClient } from 'mongodb'; // MongoClient import moved for consistency, but will be removed
 import { logger } from '#o11y/logger';
 import type { PromptsService } from '#prompts/promptsService';
 import type { CallSettings, LlmMessage, Prompt, PromptPreview } from '#shared/prompts/prompts.model';
@@ -35,36 +35,25 @@ interface MongoRevisionDoc {
 }
 
 export class MongoPromptsService implements PromptsService {
-	private client: MongoClient;
-	private db: Db | undefined;
 	private promptsCollectionName: string;
 	private revisionsCollectionName: string;
+	private client: MongoClient; // Keep for session management, though db is now injected
 
-	constructor() {
-		this.client = new MongoClient(process.env.MONGO_URI || 'mongodb://localhost:27017');
+	constructor(private db: Db) {
+		// Initialize client for session management, assuming it's derived or passed similarly if needed
+		// For now, let's assume the db's client is accessible or a new one is created for transactions
+		// This might need refinement based on how transactions are managed with an injected Db
+		this.client = db.client;
 		this.promptsCollectionName = 'prompts';
 		this.revisionsCollectionName = 'promptRevisions';
 	}
 
-	private async getDb(): Promise<Db> {
-		// Ensure the client is connected. connect() is idempotent.
-		// The driver will also implicitly connect on the first operation.
-		// This explicit call ensures the db object is initialized after a connection attempt.
-		if (!this.db) {
-			await this.client.connect();
-			this.db = this.client.db(process.env.MONGO_DB_NAME || 'typedai-dev');
-		}
-		return this.db;
+	private getPromptsCollection(): Collection<MongoPromptDoc> {
+		return this.db.collection<MongoPromptDoc>(this.promptsCollectionName);
 	}
 
-	private async getPromptsCollection(): Promise<Collection<MongoPromptDoc>> {
-		const db = await this.getDb();
-		return db.collection<MongoPromptDoc>(this.promptsCollectionName);
-	}
-
-	private async getRevisionsCollection(): Promise<Collection<MongoRevisionDoc>> {
-		const db = await this.getDb();
-		return db.collection<MongoRevisionDoc>(this.revisionsCollectionName);
+	private getRevisionsCollection(): Collection<MongoRevisionDoc> {
+		return this.db.collection<MongoRevisionDoc>(this.revisionsCollectionName);
 	}
 
 	private _toPrompt(promptDocIdAsObjectId: ObjectId, revisionDoc: MongoRevisionDoc): Prompt {
@@ -95,8 +84,8 @@ export class MongoPromptsService implements PromptsService {
 	}
 
 	async getPrompt(promptId: string, userId: string): Promise<Prompt | null> {
-		const promptsCollection = await this.getPromptsCollection();
-		const revisionsCollection = await this.getRevisionsCollection();
+		const promptsCollection = this.getPromptsCollection();
+		const revisionsCollection = this.getRevisionsCollection();
 		let promptObjectId: ObjectId;
 
 		try {
@@ -128,8 +117,8 @@ export class MongoPromptsService implements PromptsService {
 	}
 
 	async getPromptVersion(promptId: string, revisionId: number, userId: string): Promise<Prompt | null> {
-		const promptsCollection = await this.getPromptsCollection();
-		const revisionsCollection = await this.getRevisionsCollection();
+		const promptsCollection = this.getPromptsCollection();
+		const revisionsCollection = this.getRevisionsCollection();
 		let promptObjectId: ObjectId;
 
 		try {
@@ -160,7 +149,7 @@ export class MongoPromptsService implements PromptsService {
 	}
 
 	async listPromptsForUser(userId: string): Promise<PromptPreview[]> {
-		const promptsCollection = await this.getPromptsCollection();
+		const promptsCollection = this.getPromptsCollection();
 		const promptDocs = await promptsCollection.find({ userId: userId }).sort({ updatedAt: -1 }).toArray();
 
 		if (!promptDocs || promptDocs.length === 0) {
@@ -171,8 +160,8 @@ export class MongoPromptsService implements PromptsService {
 	}
 
 	async createPrompt(promptData: Omit<Prompt, 'id' | 'revisionId' | 'userId'>, userId: string): Promise<Prompt> {
-		const promptsCollection = await this.getPromptsCollection();
-		const revisionsCollection = await this.getRevisionsCollection();
+		const promptsCollection = this.getPromptsCollection();
+		const revisionsCollection = this.getRevisionsCollection();
 		const newPromptObjectId = new ObjectId();
 		const firstRevisionId = 1;
 		const now = new Date();
@@ -211,8 +200,8 @@ export class MongoPromptsService implements PromptsService {
 	}
 
 	async updatePrompt(promptId: string, updates: Partial<Omit<Prompt, 'id' | 'userId' | 'revisionId'>>, userId: string, newVersion: boolean): Promise<Prompt> {
-		const promptsCollection = await this.getPromptsCollection();
-		const revisionsCollection = await this.getRevisionsCollection();
+		const promptsCollection = this.getPromptsCollection();
+		const revisionsCollection = this.getRevisionsCollection();
 		let promptObjectId: ObjectId;
 		try {
 			promptObjectId = new ObjectId(promptId);
@@ -351,8 +340,8 @@ export class MongoPromptsService implements PromptsService {
 	}
 
 	async deletePrompt(promptId: string, userId: string): Promise<void> {
-		const promptsCollection = await this.getPromptsCollection();
-		const revisionsCollection = await this.getRevisionsCollection();
+		const promptsCollection = this.getPromptsCollection();
+		const revisionsCollection = this.getRevisionsCollection();
 		let promptObjectId: ObjectId;
 
 		try {
