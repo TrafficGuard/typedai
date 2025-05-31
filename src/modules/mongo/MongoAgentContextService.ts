@@ -1,6 +1,4 @@
 import type { AgentContextService } from '#agent/agentContextService/agentContextService';
-
-import type { AgentContextService } from '#agent/agentContextService/agentContextService';
 import type { AgentContext, AgentContextPreview, AgentRunningState, AutonomousIteration, AutonomousIterationSummary } from '#shared/agent/agent.model';
 
 export class MongoAgentContextService implements AgentContextService {

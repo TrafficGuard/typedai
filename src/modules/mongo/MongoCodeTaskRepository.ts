@@ -1,6 +1,4 @@
 import type { CodeTaskRepository } from '#codeTask/codeTaskRepository';
-
-import type { CodeTaskRepository } from '#codeTask/codeTaskRepository';
 import type { CodeTask, CodeTaskPreset, UpdateCodeTaskData } from '#shared/codeTask/codeTask.model';
 
 export class MongoCodeTaskRepository implements CodeTaskRepository {

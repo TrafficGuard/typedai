@@ -1,6 +1,4 @@
 import type { UserService } from '#user/userService';
-
-import type { UserService } from '#user/userService';
 import type { User } from '#shared/user/user.model';
 
 export class MongoUserService implements UserService {

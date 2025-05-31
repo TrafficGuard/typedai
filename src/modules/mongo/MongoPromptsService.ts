@@ -1,6 +1,4 @@
 import type { PromptsService } from '#prompts/promptsService';
-
-import type { PromptsService } from '#prompts/promptsService';
 import type { Prompt, PromptPreview } from '#shared/prompts/prompts.model';
 
 export class MongoPromptsService implements PromptsService {
