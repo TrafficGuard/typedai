@@ -351,7 +351,51 @@ export class MongoPromptsService implements PromptsService {
 	}
 
 	async deletePrompt(promptId: string, userId: string): Promise<void> {
-		// const collection = await this.getCollection();
-		return Promise.reject(new Error('Method not implemented.'));
+		const promptsCollection = await this.getPromptsCollection();
+		const revisionsCollection = await this.getRevisionsCollection();
+		let promptObjectId: ObjectId;
+
+		try {
+			promptObjectId = new ObjectId(promptId);
+		} catch (error) {
+			logger.warn(`Invalid promptId format for deletePrompt: ${promptId}. Assuming prompt does not exist.`, error);
+			// If ID format is invalid, it's effectively non-existent. Match Firestore's non-erroring behavior.
+			return;
+		}
+
+		const session = this.client.startSession();
+		try {
+			await session.withTransaction(async () => {
+				// Find the prompt, ensuring it belongs to the user.
+				// If not found (either non-existent or not owned by user), promptDoc will be null.
+				const promptDoc = await promptsCollection.findOne({ _id: promptObjectId, userId: userId }, { session });
+
+				if (!promptDoc) {
+					// If promptDoc is not found for this user, it's either non-existent or belongs to another user.
+					// In either case, for this user, it's as if it's deleted or was never there.
+					// This matches Firestore's deletePrompt behavior which also doesn't throw if prompt not found.
+					logger.warn(`Attempted to delete non-existent prompt ${promptId} or prompt not owned by user ${userId}`);
+					return; // Idempotent: if not found or not owned, operation is a no-op for this user.
+				}
+
+				// Delete all revisions for this prompt
+				// The promptId in MongoRevisionDoc is promptDoc._id (which is an ObjectId)
+				await revisionsCollection.deleteMany({ promptId: promptDoc._id }, { session });
+
+				// Delete the main prompt document
+				// The _id in MongoPromptDoc is promptDoc._id (which is an ObjectId)
+				await promptsCollection.deleteOne({ _id: promptDoc._id }, { session });
+
+				logger.info(`Prompt ${promptId} (ObjectId: ${promptDoc._id.toHexString()}) and its revisions deleted by user ${userId}`);
+			});
+		} catch (error) {
+			logger.error(`Error during deletePrompt for prompt ${promptId}:`, error);
+			// Avoid re-throwing generic "Failed to delete prompt" if a specific auth error occurred and was thrown by findOne or similar.
+			// However, with the current findOne, an auth issue results in promptDoc being null, which is handled above.
+			// So, any error here is likely a transactional or DB operational issue.
+			throw new Error(`Failed to delete prompt ${promptId}. Review logs for details. Original error: ${(error as Error).message}`);
+		} finally {
+			await session.endSession();
+		}
 	}
 }
