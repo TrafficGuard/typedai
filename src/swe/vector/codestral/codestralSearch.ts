@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs'; // Using async fs as per project DOCS.md
 import * as path from 'node:path';
 import { Mistral } from '@mistralai/mistralai';
-import { type CodeDoc, Corpus } from './types';
+import type { CodeDoc, Corpus } from './types';
 
 /** The number of top-k most similar documents to retrieve in a search. */
 export const TOP_K = 5;
@@ -135,6 +135,51 @@ export function formatDoc(doc: CodeDoc): string {
 		return `${doc.title}\n${doc.text}`;
 	}
 	return doc.text;
+}
+
+/**
+ * Recursively reads files from a directory, filters them by specified extensions,
+ * and returns a Corpus object.
+ * File paths in the Corpus are relative to the initial dirPath.
+ * @param dirPath The absolute path to the directory to scan.
+ * @param targetExtensions An array of target file extensions (e.g., ['.ts', '.js']). Extensions should be lowercase.
+ * @param baseDir The initial directory path, used to make file paths relative. Internal use for recursion.
+ * @returns A Promise resolving to a Corpus object.
+ */
+export async function getLocalFileCorpus(dirPath: string, targetExtensions: string[], baseDir?: string): Promise<Corpus> {
+	const corpus: Corpus = {};
+	const currentBaseDir = baseDir || dirPath; // All paths will be relative to the initial dirPath
+
+	try {
+		const entries = await fs.readdir(dirPath, { withFileTypes: true });
+		for (const entry of entries) {
+			const fullPath = path.join(dirPath, entry.name);
+			if (entry.isDirectory()) {
+				// For subdirectories, pass along the original currentBaseDir
+				const subCorpus = await getLocalFileCorpus(fullPath, targetExtensions, currentBaseDir);
+				Object.assign(corpus, subCorpus);
+			} else if (entry.isFile()) {
+				const ext = path.extname(entry.name).toLowerCase();
+				if (targetExtensions.map((e) => e.toLowerCase()).includes(ext)) {
+					try {
+						const content = await fs.readFile(fullPath, 'utf-8');
+						const relativePath = path.relative(currentBaseDir, fullPath);
+						corpus[relativePath] = {
+							title: relativePath,
+							text: content,
+						};
+					} catch (readError) {
+						console.error(`Error reading file ${fullPath}:`, readError);
+						// Optionally skip this file or handle error differently
+					}
+				}
+			}
+		}
+	} catch (err) {
+		console.error(`Error reading directory ${dirPath}:`, err);
+		// If dirPath itself is problematic, an empty corpus is returned, which is reasonable.
+	}
+	return corpus;
 }
 
 /**
