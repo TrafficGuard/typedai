@@ -1,7 +1,7 @@
 import type { CacheScope, FunctionCacheService } from '#cache/functionCacheService';
 
 export class MongoFunctionCacheService implements FunctionCacheService {
-	async getValue(scope: CacheScope, key: string): Promise<any | null> {
+	async getValue(scope: CacheScope, className: string, method: string, params: any[]): Promise<any | null> {
 		// TODO: Implement method
 		throw new Error('Method not implemented.');
 	}
@@ -16,7 +16,7 @@ export class MongoFunctionCacheService implements FunctionCacheService {
 		throw new Error('Method not implemented.');
 	}
 
-	async clearUserCache(userId: string): Promise<void> {
+	async clearUserCache(userId: string): Promise<number> {
 		// TODO: Implement method
 		throw new Error('Method not implemented.');
 	}
