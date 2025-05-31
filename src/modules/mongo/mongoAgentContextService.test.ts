@@ -1,10 +1,10 @@
 import { type Db, MongoClient } from 'mongodb';
 import sinon from 'sinon';
-import { MongoAgentContextService } from './mongoAgentContextService';
-import { runAgentStateServiceTests } from '../../agent/agentContextService/agentContextService.test';
 import * as appContextModule from '#app/applicationContext';
 import { MongoUserService } from '#mongo/MongoUserService';
 import { setupConditionalLoggerOutput } from '#test/testUtils'; // Added as per style guide
+import { runAgentStateServiceTests } from '../../agent/agentContextService/agentContextService.test';
+import { MongoAgentContextService } from './MongoAgentContextService';
 
 describe('MongoAgentContextService', () => {
 	setupConditionalLoggerOutput(); // Added as per style guide
@@ -13,7 +13,7 @@ describe('MongoAgentContextService', () => {
 	let db: Db;
 	let mongoUserService: MongoUserService; // Will be an instance of the actual MongoUserService
 
-	beforeAll(async () => {
+	before(async () => {
 		// Initialize MongoDB client and connect
 		// Use environment variables for configuration, with defaults for local testing
 		const mongoUri = process.env.MONGO_URI_TEST || 'mongodb://localhost:27017';
@@ -38,7 +38,7 @@ describe('MongoAgentContextService', () => {
 		} as any); // Use 'as any' to simplify stubbing of the ApplicationContext type
 	});
 
-	afterAll(async () => {
+	after(async () => {
 		// Restore any sinon stubs/spies
 		sinon.restore(); // This will clean up the appContext stub
 
