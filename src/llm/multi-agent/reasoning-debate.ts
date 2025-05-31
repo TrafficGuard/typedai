@@ -12,18 +12,21 @@ import { type GenerateTextOptions, type LLM, type LlmMessage, lastText } from '#
 export function MoA_reasoningLLMRegistry(): Record<string, () => LLM> {
 	return {
 		'MoA:R1x3 DeepSeek': () => new ReasonerDebateLLM('R1x3 DeepSeek', deepSeekV3, [deepSeekR1, deepSeekR1, deepSeekR1], 'MoA R1x3'),
-		'MoA:SOTA': MoA_Opus__Opus_o3_Gemini25Pro,
+		'MoA:SOTA': MoA_SOTA,
 	};
 }
 
-export function MoA_Opus__Opus_o3_Gemini25Pro(): LLM {
-	return new ReasonerDebateLLM(
-		'SOTA',
-		Claude4_Opus_Vertex,
-		[Claude4_Opus_Vertex, openAIo3, Gemini_2_5_Pro],
-		'MoA:SOTA multi-agent debate (Opus 4, o3, Gemini 2.5 Pro)',
-	);
+export function MoA_Fast(): LLM {
+	return new ReasonerDebateLLM('SOTA', openAIo3, [openAIo3, Claude4_Opus_Vertex, Gemini_2_5_Pro], 'MoA:SOTA multi-agent debate (Opus 4, o3, Gemini 2.5 Pro)');
 }
+
+export function MoA_SOTA(): LLM {
+	return new ReasonerDebateLLM('SOTA', openAIo3, [openAIo3, Claude4_Opus_Vertex, Gemini_2_5_Pro], 'MoA:SOTA multi-agent debate (Opus 4, o3, Gemini 2.5 Pro)');
+}
+
+const INITIAL_TEMP = 0.7;
+const DEBATE_TEMP = 0.5;
+const FINAL_TEMP = 0.3;
 
 /**
  * Multi-agent debate (spare communication topology) implementation with simple prompts for reasoning LLMs
@@ -41,7 +44,7 @@ export class ReasonerDebateLLM extends BaseLLM {
 	 * @param name
 	 */
 	constructor(modelIds = '', providedMediator?: () => LLM, providedDebateLLMs?: Array<() => LLM>, name?: string) {
-		super(name ?? '(MoA)', 'MoA', modelIds, 128_000, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
+		super(name ?? '(MoA)', 'MoA', modelIds, 200_000, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
 		if (providedMediator) this.mediator = providedMediator();
 		if (providedDebateLLMs) {
 			this.llms = providedDebateLLMs.map((factory) => factory());
@@ -89,7 +92,7 @@ export class ReasonerDebateLLM extends BaseLLM {
 	}
 
 	private async generateInitialResponses(llmMessages: ReadonlyArray<Readonly<LlmMessage>>, opts?: GenerateTextOptions): Promise<string[]> {
-		return Promise.all(this.llms.map((llm) => llm.generateText(llmMessages, { ...opts, temperature: 0.7, thinking: 'high' })));
+		return Promise.all(this.llms.map((llm) => llm.generateText(llmMessages, { ...opts, temperature: INITIAL_TEMP, thinking: 'high' })));
 	}
 
 	private async multiAgentDebate(
@@ -98,7 +101,7 @@ export class ReasonerDebateLLM extends BaseLLM {
 		opts?: GenerateTextOptions,
 		rounds = 2,
 	): Promise<string[]> {
-		opts.temperature = 0.6;
+		opts.temperature = DEBATE_TEMP;
 		let debatedResponses = responses;
 		const userMessage = lastText(llmMessages);
 		for (let round = 1; round < rounds; round++) {
@@ -137,7 +140,7 @@ Answer directly to the original user message and ensure any relevant response fo
         `;
 		const mergedMessages: LlmMessage[] = [...llmMessages];
 		mergedMessages[mergedMessages.length - 1] = { role: 'user', content: mergePrompt };
-		const generation = this.mediator.generateText(mergedMessages, { temperature: 0.5, thinking: 'high' });
+		const generation = this.mediator.generateText(mergedMessages, { temperature: FINAL_TEMP, thinking: 'high' });
 		logger.info('Merging best response...');
 		return await generation;
 	}

@@ -170,7 +170,6 @@
     "@types/micromatch": "^4.0.9",
     "@types/mocha": "^10.0.7",
     "@types/node": "^20.0.0",
-    "@types/googleapis": "^33.0.0", // Using a common version, adjust if needed
     "@types/pg": "^8.11.4",
     "@types/pino": "^6.3.12",
     "@types/sinon": "^10.0.20",

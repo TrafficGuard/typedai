@@ -307,7 +307,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 				this.messageInput.nativeElement.style.height = 'auto';
 				// Get the scrollHeight and subtract the vertical padding
 				this.messageInput.nativeElement.style.height = `${this.messageInput.nativeElement.scrollHeight}px`;
-			});
+			}, 100);
 		});
 	}
 
