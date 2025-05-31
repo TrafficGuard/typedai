@@ -260,7 +260,7 @@ describe('Codestral Search Utilities', () => {
 		});
 
 		it('should handle documents with no title', () => {
-			const corpusToChunk: Corpus = { 'noTitle.doc': { text: 'document with no title' } };
+			const corpusToChunk: Corpus = { 'noTitle.doc': { title: '', text: 'document with no title' } };
 			const chunked = chunkCorpus(corpusToChunk, 10, 3);
 			expect(chunked['noTitle.doc_<chunk>_0'].title).to.equal('');
 			expect(chunked['noTitle.doc_<chunk>_0'].text).to.equal('document w');
