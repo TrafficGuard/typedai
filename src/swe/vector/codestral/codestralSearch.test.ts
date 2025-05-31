@@ -1,8 +1,8 @@
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import { Language, getLanguageFromPath, formatDoc } from './codestralSearch'; // Adjusted path to be relative
-import { CodeDoc } from './types';
+import { Language, formatDoc, getLanguageFromPath } from './codestralSearch'; // Adjusted path to be relative
+import type { CodeDoc } from './types';
 
 describe('includeAlternativeAiToolFiles', () => {
 	setupConditionalLoggerOutput();
@@ -12,7 +12,7 @@ describe('includeAlternativeAiToolFiles', () => {
 	describe('Search', () => {});
 });
 
-describe.only('Codestral Search Utilities', () => {
+describe('Codestral Search Utilities', () => {
 	// setupConditionalLoggerOutput(); // Already called in the original describe block, should be fine.
 	// If not, uncomment this.
 

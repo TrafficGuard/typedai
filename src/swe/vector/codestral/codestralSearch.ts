@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs'; // Using async fs as per project DOCS.md
 import * as path from 'node:path';
-import MistralClient from '@mistralai/mistralai';
-import { CodeDoc, Corpus } from './types';
+import { Mistral } from '@mistralai/mistralai';
+import { type CodeDoc, Corpus } from './types';
 
 /** The number of top-k most similar documents to retrieve in a search. */
 export const TOP_K = 5;
@@ -20,21 +20,21 @@ export const CHUNK_SIZE = 3000;
 /** The number of characters or tokens that chunks should overlap to maintain context. */
 export const CHUNK_OVERLAP = 1000;
 
-let client: MistralClient | undefined;
+let client: Mistral | undefined;
 
 /**
  * Retrieves a singleton instance of the MistralClient.
  * Initializes the client if it hasn't been already.
  * @throws Error if MISTRAL_API_KEY environment variable is not set.
- * @returns The MistralClient instance.
+ * @returns The Mistral instance.
  */
-export function getMistralClient(): MistralClient {
+export function getMistralClient(): Mistral {
 	if (!client) {
 		const apiKey = process.env.MISTRAL_API_KEY;
 		if (!apiKey) {
 			throw new Error('MISTRAL_API_KEY environment variable is not set.');
 		}
-		client = new MistralClient(apiKey);
+		client = new Mistral({ apiKey });
 	}
 	return client;
 }
