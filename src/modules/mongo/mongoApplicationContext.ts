@@ -34,9 +34,8 @@ async function getDb(): Promise<Db> {
 	// For modern drivers, you might not need to check isConnected before connect() as connect() is idempotent.
 	// However, checking avoids unnecessary calls if already connected.
 	// A more robust check might involve looking at `mongoClient.topology.s.state` if available and needed.
-	if (!mongoClient.topology || !mongoClient.topology.isConnected()) {
-		await mongoClient.connect();
-	}
+	// MongoClient.connect() is idempotent and will no-op if already connected.
+	await mongoClient.connect();
 	dbInstance = mongoClient.db(process.env.MONGO_DB_NAME || 'typedai-dev');
 	return dbInstance;
 }
@@ -57,8 +56,7 @@ export async function mongoApplicationContext(): Promise<ApplicationContext> {
 
 // Optional: Add a function to close the MongoDB connection when the application shuts down
 export async function closeMongoConnection(): Promise<void> {
-	if (mongoClient && mongoClient.topology && mongoClient.topology.isConnected()) {
-		await mongoClient.close();
-		dbInstance = null;
-	}
+	// mongoClient.close() is safe to call even if the client is already closed or not connected.
+	await mongoClient.close();
+	dbInstance = null;
 }

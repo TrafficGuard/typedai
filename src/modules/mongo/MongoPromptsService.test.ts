@@ -16,17 +16,15 @@ describe('MongoPromptsService', () => {
 			await db.collection('promptRevisions').deleteMany({});
 		} catch (error: any) {
 			console.error(`Error during MongoDB test cleanup in DB ${dbName}:`, error);
-			if (client && client.topology && client.topology.isConnected()) {
-				await client.close();
-			}
+			// Attempt to close client if connection was established before error
+			await client.close();
 			throw error; 
 		}
 	};
 
 	const afterEachHook = async () => {
-		if (client && client.topology && client.topology.isConnected()) {
-			await client.close();
-		}
+		// client.close() is safe to call even if already closed or not connected.
+		await client.close();
 	};
 
 	runPromptsServiceTests(() => new MongoPromptsService(db), beforeEachHook, afterEachHook);
