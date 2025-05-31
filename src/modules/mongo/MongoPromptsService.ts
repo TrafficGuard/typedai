@@ -211,8 +211,143 @@ export class MongoPromptsService implements PromptsService {
 	}
 
 	async updatePrompt(promptId: string, updates: Partial<Omit<Prompt, 'id' | 'userId' | 'revisionId'>>, userId: string, newVersion: boolean): Promise<Prompt> {
-		// const collection = await this.getCollection();
-		return Promise.reject(new Error('Method not implemented.'));
+		const promptsCollection = await this.getPromptsCollection();
+		const revisionsCollection = await this.getRevisionsCollection();
+		let promptObjectId: ObjectId;
+		try {
+			promptObjectId = new ObjectId(promptId);
+		} catch (error) {
+			logger.warn(`Invalid promptId format for updatePrompt: ${promptId}`, error);
+			throw new Error('Invalid prompt ID format');
+		}
+
+		const session = this.client.startSession();
+		try {
+			let resultPrompt: Prompt | undefined; // Variable to store the prompt to be returned
+
+			await session.withTransaction(async () => {
+				const promptDoc = await promptsCollection.findOne({ _id: promptObjectId }, { session });
+
+				if (!promptDoc) {
+					throw new Error('Prompt not found');
+				}
+				if (promptDoc.userId !== userId) {
+					throw new Error('User not authorized');
+				}
+
+				const currentLatestRevisionId = promptDoc.latestRevisionId;
+				const now = new Date();
+				let finalRevisionDataForPromptObject: MongoRevisionDoc; // Holds the complete data of the revision to be returned
+
+				if (newVersion) {
+					// Create new revision
+					const newRevisionId = currentLatestRevisionId + 1;
+					const latestRevisionDoc = await revisionsCollection.findOne({ promptId: promptDoc._id, revisionId: currentLatestRevisionId }, { session });
+					if (!latestRevisionDoc) {
+						logger.error(`Data inconsistency: Latest revision ${currentLatestRevisionId} for prompt ${promptId} missing during update.`);
+						throw new Error('Latest revision data missing');
+					}
+					const baseRevisionData = latestRevisionDoc;
+
+					const newMongoRevisionDocData: MongoRevisionDoc = {
+						_id: new ObjectId(), // New ObjectId for this revision document
+						promptId: promptDoc._id, // Link to the parent prompt document
+						userId: userId, // User performing the update
+						revisionId: newRevisionId,
+						createdAt: now, // Timestamp for this new revision
+						// Apply updates, falling back to base data if not provided
+						name: updates.name ?? baseRevisionData.name,
+						appId: updates.appId === undefined ? baseRevisionData.appId : (updates.appId ?? null),
+						parentId: updates.parentId === undefined ? baseRevisionData.parentId : (updates.parentId ?? null),
+						tags: updates.tags ?? baseRevisionData.tags,
+						messages: updates.messages ?? baseRevisionData.messages,
+						options: updates.settings ?? baseRevisionData.options,
+					};
+
+					await revisionsCollection.insertOne(newMongoRevisionDocData, { session });
+					// Update the main prompt document with new latestRevisionId and denormalized fields
+					await promptsCollection.updateOne(
+						{ _id: promptDoc._id },
+						{
+							$set: {
+								latestRevisionId: newRevisionId,
+								updatedAt: now,
+								// Denormalize fields from the new latest revision
+								name: newMongoRevisionDocData.name,
+								appId: newMongoRevisionDocData.appId,
+								tags: newMongoRevisionDocData.tags,
+								parentId: newMongoRevisionDocData.parentId,
+								options: newMongoRevisionDocData.options,
+							},
+						},
+						{ session },
+					);
+					finalRevisionDataForPromptObject = newMongoRevisionDocData;
+				} else {
+					// Update existing latest revision
+					const targetRevisionId = currentLatestRevisionId;
+					const targetRevisionDoc = await revisionsCollection.findOne({ promptId: promptDoc._id, revisionId: targetRevisionId }, { session });
+					if (!targetRevisionDoc) {
+						logger.error(`Data inconsistency: Target revision ${targetRevisionId} for prompt ${promptId} missing during in-place update.`);
+						throw new Error('Target revision data missing');
+					}
+					const baseRevisionData = targetRevisionDoc;
+
+					// Fields to be updated in the existing revision document
+					const updateFieldsForRevision: Partial<MongoRevisionDoc> = {
+						name: updates.name ?? baseRevisionData.name,
+						appId: updates.appId === undefined ? baseRevisionData.appId : (updates.appId ?? null),
+						parentId: updates.parentId === undefined ? baseRevisionData.parentId : (updates.parentId ?? null),
+						tags: updates.tags ?? baseRevisionData.tags,
+						messages: updates.messages ?? baseRevisionData.messages,
+						options: updates.settings ?? baseRevisionData.options,
+					};
+
+					await revisionsCollection.updateOne({ _id: baseRevisionData._id }, { $set: updateFieldsForRevision }, { session });
+					// Update the main prompt document with new updatedAt and denormalized fields
+					await promptsCollection.updateOne(
+						{ _id: promptDoc._id },
+						{
+							$set: {
+								updatedAt: now,
+								// Denormalize fields from the updated latest revision
+								name: updateFieldsForRevision.name,
+								appId: updateFieldsForRevision.appId,
+								tags: updateFieldsForRevision.tags,
+								parentId: updateFieldsForRevision.parentId,
+								options: updateFieldsForRevision.options,
+							},
+						},
+						{ session },
+					);
+					// Construct the full revision data for the return object
+					finalRevisionDataForPromptObject = { ...baseRevisionData, ...updateFieldsForRevision } as MongoRevisionDoc;
+				}
+				// Construct the Prompt object to be returned using the final state of the revision
+				resultPrompt = this._toPrompt(promptDoc._id, finalRevisionDataForPromptObject);
+			}); // End of session.withTransaction
+
+			if (!resultPrompt) {
+				// This case indicates an issue within the transaction logic if resultPrompt isn't set.
+				throw new Error('Update transaction completed, but the resulting prompt was not constructed.');
+			}
+			return resultPrompt;
+		} catch (error) {
+			logger.error(`Error during updatePrompt for prompt ${promptId}:`, error);
+			// Re-throw specific, known errors, or a generic one for other failures
+			if (
+				error instanceof Error &&
+				(error.message.includes('not found') ||
+					error.message.includes('not authorized') ||
+					error.message.includes('missing') ||
+					error.message.includes('Invalid prompt ID format'))
+			) {
+				throw error;
+			}
+			throw new Error(`Failed to update prompt ${promptId}. Review logs for details.`);
+		} finally {
+			await session.endSession();
+		}
 	}
 
 	async deletePrompt(promptId: string, userId: string): Promise<void> {
