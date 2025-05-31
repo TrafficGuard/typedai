@@ -4,7 +4,7 @@ import { writeFileSync } from 'node:fs';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { vertexGemini_2_5_Flash } from '#llm/services/vertexai';
 import { countTokens } from '#llm/tokens';
-import { messageText, user } from '#shared/model/llm.model';
+import { messageText, user } from '#shared/llm/llm.model';
 import { parseProcessArgs } from './cli';
 import { parsePromptWithImages } from './promptParser';
 
