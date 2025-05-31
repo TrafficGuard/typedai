@@ -1,6 +1,6 @@
+import { type Collection, type Db, MongoClient } from 'mongodb';
 import type { PromptsService } from '#prompts/promptsService';
 import type { Prompt, PromptPreview } from '#shared/prompts/prompts.model';
-import { MongoClient, type Collection, type Db } from 'mongodb';
 
 export class MongoPromptsService implements PromptsService {
 	private client: MongoClient;
@@ -23,7 +23,8 @@ export class MongoPromptsService implements PromptsService {
 		return this.db;
 	}
 
-	private async getCollection(): Promise<Collection<any>> { // Replace 'any' with a proper document type later
+	private async getCollection(): Promise<Collection<any>> {
+		// Replace 'any' with a proper document type later
 		const db = await this.getDb();
 		return db.collection(this.collectionName);
 	}
