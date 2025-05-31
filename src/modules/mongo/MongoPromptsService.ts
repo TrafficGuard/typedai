@@ -114,16 +114,93 @@ export class MongoPromptsService implements PromptsService {
 		return this._toPrompt(promptDoc._id, revisionDoc);
 	}
 
+	private _toPromptPreview(promptDoc: MongoPromptDoc): PromptPreview {
+		return {
+			id: promptDoc._id.toHexString(),
+			userId: promptDoc.userId,
+			parentId: promptDoc.parentId === null ? undefined : promptDoc.parentId,
+			revisionId: promptDoc.latestRevisionId,
+			name: promptDoc.name,
+			appId: promptDoc.appId === null ? undefined : promptDoc.appId,
+			tags: promptDoc.tags,
+			settings: promptDoc.options, // These are denormalized from the latest revision
+		};
+	}
+
+	async getPrompt(promptId: string, userId: string): Promise<Prompt | null> {
+		const promptsCollection = await this.getPromptsCollection();
+		const revisionsCollection = await this.getRevisionsCollection();
+		let promptObjectId: ObjectId;
+
+		try {
+			promptObjectId = new ObjectId(promptId);
+		} catch (error) {
+			logger.warn(`Invalid promptId format: ${promptId}`, error);
+			return null; // Invalid ID format
+		}
+
+		const promptDoc = await promptsCollection.findOne({ _id: promptObjectId });
+
+		if (!promptDoc) {
+			return null;
+		}
+
+		if (promptDoc.userId !== userId) {
+			logger.warn(`Unauthorized access attempt for prompt ${promptId} by user ${userId}`);
+			return null;
+		}
+
+		const revisionDoc = await revisionsCollection.findOne({ promptId: promptDoc._id, revisionId: promptDoc.latestRevisionId });
+
+		if (!revisionDoc) {
+			logger.error(`Data inconsistency: Latest revision ${promptDoc.latestRevisionId} for prompt ${promptId} not found.`);
+			return null;
+		}
+
+		return this._toPrompt(promptDoc._id, revisionDoc);
+	}
+
 	async getPromptVersion(promptId: string, revisionId: number, userId: string): Promise<Prompt | null> {
-		// const collection = await this.getCollection();
-		// throw new Error('Method not implemented.');
-		return Promise.resolve(null);
+		const promptsCollection = await this.getPromptsCollection();
+		const revisionsCollection = await this.getRevisionsCollection();
+		let promptObjectId: ObjectId;
+
+		try {
+			promptObjectId = new ObjectId(promptId);
+		} catch (error) {
+			logger.warn(`Invalid promptId format for getPromptVersion: ${promptId}`, error);
+			return null;
+		}
+
+		const promptDoc = await promptsCollection.findOne({ _id: promptObjectId });
+
+		if (!promptDoc) {
+			return null;
+		}
+
+		if (promptDoc.userId !== userId) {
+			logger.warn(`Unauthorized access attempt for prompt ${promptId} version ${revisionId} by user ${userId}`);
+			return null;
+		}
+
+		const revisionDoc = await revisionsCollection.findOne({ promptId: promptObjectId, revisionId: revisionId });
+
+		if (!revisionDoc) {
+			return null; // Revision not found
+		}
+
+		return this._toPrompt(promptDoc._id, revisionDoc);
 	}
 
 	async listPromptsForUser(userId: string): Promise<PromptPreview[]> {
-		// const collection = await this.getCollection();
-		// throw new Error('Method not implemented.');
-		return Promise.resolve([]);
+		const promptsCollection = await this.getPromptsCollection();
+		const promptDocs = await promptsCollection.find({ userId: userId }).sort({ updatedAt: -1 }).toArray();
+
+		if (!promptDocs || promptDocs.length === 0) {
+			return [];
+		}
+
+		return promptDocs.map(doc => this._toPromptPreview(doc));
 	}
 
 	async createPrompt(promptData: Omit<Prompt, 'id' | 'revisionId' | 'userId'>, userId: string): Promise<Prompt> {
