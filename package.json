@@ -170,6 +170,7 @@
     "@types/lodash": "^4.14.149",
     "@types/micromatch": "^4.0.9",
     "@types/mocha": "^10.0.7",
+    "@types/mongodb": "^4.0.7",
     "@types/node": "^20.0.0",
     "@types/pg": "^8.11.4",
     "@types/pino": "^6.3.12",
