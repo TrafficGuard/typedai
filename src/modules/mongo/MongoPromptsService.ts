@@ -81,39 +81,6 @@ export class MongoPromptsService implements PromptsService {
 		};
 	}
 
-	async getPrompt(promptId: string, userId: string): Promise<Prompt | null> {
-		const promptsCollection = await this.getPromptsCollection();
-		const revisionsCollection = await this.getRevisionsCollection();
-		let promptObjectId: ObjectId;
-
-		try {
-			promptObjectId = new ObjectId(promptId);
-		} catch (error) {
-			logger.warn(`Invalid promptId format: ${promptId}`, error);
-			return null; // Invalid ID format
-		}
-
-		const promptDoc = await promptsCollection.findOne({ _id: promptObjectId });
-
-		if (!promptDoc) {
-			return null;
-		}
-
-		if (promptDoc.userId !== userId) {
-			logger.warn(`Unauthorized access attempt for prompt ${promptId} by user ${userId}`);
-			return null;
-		}
-
-		const revisionDoc = await revisionsCollection.findOne({ promptId: promptDoc._id, revisionId: promptDoc.latestRevisionId });
-
-		if (!revisionDoc) {
-			logger.error(`Data inconsistency: Latest revision ${promptDoc.latestRevisionId} for prompt ${promptId} not found.`);
-			return null;
-		}
-
-		return this._toPrompt(promptDoc._id, revisionDoc);
-	}
-
 	private _toPromptPreview(promptDoc: MongoPromptDoc): PromptPreview {
 		return {
 			id: promptDoc._id.toHexString(),
@@ -200,7 +167,7 @@ export class MongoPromptsService implements PromptsService {
 			return [];
 		}
 
-		return promptDocs.map(doc => this._toPromptPreview(doc));
+		return promptDocs.map((doc) => this._toPromptPreview(doc));
 	}
 
 	async createPrompt(promptData: Omit<Prompt, 'id' | 'revisionId' | 'userId'>, userId: string): Promise<Prompt> {
