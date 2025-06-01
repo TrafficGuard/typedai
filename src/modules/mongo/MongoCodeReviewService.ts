@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { type Collection, type Db, ObjectId } from 'mongodb';
 import type { CodeReviewConfig } from '#shared/codeReview/codeReview.model';
 import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
@@ -6,6 +7,8 @@ import type { CodeReviewFingerprintCache } from '#swe/codeReview/codeReviewTaskM
 const CODE_REVIEW_CONFIGS_COLLECTION = 'codeReviewConfigs';
 
 export class MongoCodeReviewService implements CodeReviewService {
+	private static readonly MAX_FIELD_SIZE_BYTES = 1 * 1024 * 1024; // 1MB
+
 	private readonly codeReviewConfigsCollection: Collection<any>;
 
 	constructor(private db: Db) {
@@ -95,8 +98,52 @@ export class MongoCodeReviewService implements CodeReviewService {
 	}
 
 	async createCodeReviewConfig(config: Omit<CodeReviewConfig, 'id'>): Promise<string> {
-		// TODO: Implement method
-		throw new Error('Method not implemented.');
+		try {
+			const newObjectId = new ObjectId();
+
+			// Create a deep copy of the config to avoid modifying the original
+			// CodeReviewConfig and IExample consist of primitives, arrays, and simple objects,
+			// so JSON.parse(JSON.stringify()) is a safe and simple way to deep clone.
+			const processedConfig = JSON.parse(JSON.stringify(config));
+
+			if (processedConfig.examples && Array.isArray(processedConfig.examples)) {
+				for (let i = 0; i < processedConfig.examples.length; i++) {
+					const example = processedConfig.examples[i];
+
+					// Check example.code
+					if (typeof example.code === 'string' && Buffer.byteLength(example.code, 'utf8') > MongoCodeReviewService.MAX_FIELD_SIZE_BYTES) {
+						example.code = `gcs_placeholder://${newObjectId.toString()}/examples/${i}/code`;
+						console.warn(
+							`MOCK EXTERNALIZATION: CodeReviewConfig example code at index ${i} for new config ${newObjectId.toString()} was marked for GCS. Actual GCS upload needed.`,
+						);
+					}
+
+					// Check example.reviewComment
+					if (typeof example.reviewComment === 'string' && Buffer.byteLength(example.reviewComment, 'utf8') > MongoCodeReviewService.MAX_FIELD_SIZE_BYTES) {
+						example.reviewComment = `gcs_placeholder://${newObjectId.toString()}/examples/${i}/reviewComment`;
+						console.warn(
+							`MOCK EXTERNALIZATION: CodeReviewConfig example reviewComment at index ${i} for new config ${newObjectId.toString()} was marked for GCS. Actual GCS upload needed.`,
+						);
+					}
+				}
+			}
+
+			const docToInsert = {
+				_id: newObjectId,
+				...processedConfig,
+			};
+
+			await this.codeReviewConfigsCollection.insertOne(docToInsert);
+
+			// insertOne throws an error on failure, which will be caught by the catch block.
+			// If result.insertedId is needed for other checks, it's available here.
+			// For this implementation, successfully reaching this point means insertion was acknowledged.
+
+			return newObjectId.toString();
+		} catch (error) {
+			console.error('MongoCodeReviewService.createCodeReviewConfig: Error creating config:', error);
+			throw error;
+		}
 	}
 
 	async updateCodeReviewConfig(id: string, config: Partial<CodeReviewConfig>): Promise<void> {
