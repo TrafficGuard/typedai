@@ -341,19 +341,32 @@ export class MongoAgentContextService implements AgentContextService {
 			// Requirement 9: Log final agentIdsToDelete set
 			logger.info(`Final agentIdsToDelete (before converting to finalIds): ${JSON.stringify(Array.from(agentIdsToDelete))}`);
 
-			if (agentIdsToDelete.size === 0) {
-				logger.info('No agents eligible for deletion after filtering.');
-				return;
-			}
-
 			const finalIds = Array.from(agentIdsToDelete);
 
-			const deleteAgentContextsPromise = this.agentContextsCollection.deleteMany({ _id: { $in: finalIds } });
-			const deleteAgentIterationsPromise = this.agentIterationsCollection.deleteMany({ agentId: { $in: finalIds } });
+			if (finalIds.length > 0) {
+				logger.info(`Attempting to delete agentContexts with IDs: ${JSON.stringify(finalIds)}`);
+				const contextDeleteResult = await this.agentContextsCollection.deleteMany({ _id: { $in: finalIds } });
+				logger.info(`AgentContexts deleteMany result: deletedCount=${contextDeleteResult.deletedCount}, acknowledged=${contextDeleteResult.acknowledged}`);
 
-			await Promise.all([deleteAgentContextsPromise, deleteAgentIterationsPromise]);
+				logger.info(`Attempting to delete agentIterations for agent IDs: ${JSON.stringify(finalIds)}`);
+				const iterationDeleteResult = await this.agentIterationsCollection.deleteMany({ agentId: { $in: finalIds } });
+				logger.info(
+					`AgentIterations deleteMany result: deletedCount=${iterationDeleteResult.deletedCount}, acknowledged=${iterationDeleteResult.acknowledged}`,
+				);
 
-			logger.info(`Successfully deleted agents and their iterations: ${finalIds.join(', ')}`);
+				if (contextDeleteResult.acknowledged && iterationDeleteResult.acknowledged) {
+					logger.info(
+						`Delete operations acknowledged for agent IDs: ${finalIds.join(', ')}. Contexts deleted: ${contextDeleteResult.deletedCount}, Iterations deleted: ${iterationDeleteResult.deletedCount}`,
+					);
+				} else {
+					logger.warn(
+						`Delete operations might not have been fully acknowledged for agent IDs: ${finalIds.join(', ')}. Contexts acknowledged: ${contextDeleteResult.acknowledged}, Iterations acknowledged: ${iterationDeleteResult.acknowledged}`,
+					);
+				}
+			} else {
+				logger.info('No agent IDs in finalIds, skipping deleteMany operations.');
+				return;
+			}
 		} catch (error) {
 			logger.error(error, `Failed to delete agent contexts/iterations for IDs [ids=${ids.join(',')}]`);
 			throw error;
