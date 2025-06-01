@@ -33,9 +33,7 @@ let tokenizerInstance: MistralTokenizer | undefined;
 export function getMistralClient(): Mistral {
 	if (!client) {
 		const apiKey = process.env.MISTRAL_API_KEY;
-		if (!apiKey) {
-			throw new Error('MISTRAL_API_KEY environment variable is not set.');
-		}
+		if (!apiKey) throw new Error('MISTRAL_API_KEY environment variable is not set.');
 		client = new Mistral({ apiKey });
 	}
 	return client;
@@ -245,9 +243,7 @@ function simpleCharacterTextSplitter(text: string, chunkSize: number, chunkOverl
  * @returns A new corpus with chunked documents.
  */
 export function chunkCorpus(corpus: Corpus, effectiveChunkSize: number = CHUNK_SIZE, effectiveChunkOverlap: number = CHUNK_OVERLAP): Corpus {
-	if (!DO_CHUNKING) {
-		return { ...corpus }; // Return a shallow copy
-	}
+	if (!DO_CHUNKING) return { ...corpus }; // Return a shallow copy
 
 	const newCorpus: Corpus = {};
 	for (const originalId in corpus) {
@@ -257,15 +253,11 @@ export function chunkCorpus(corpus: Corpus, effectiveChunkSize: number = CHUNK_S
 			const title = doc.title?.trim() || '';
 			const text = doc.text?.trim() || '';
 
-			if (!text) {
-				continue;
-			}
+			if (!text) continue;
 
 			const chunks = simpleCharacterTextSplitter(text, effectiveChunkSize, effectiveChunkOverlap);
 
-			if (!chunks || chunks.length === 0) {
-				continue;
-			}
+			if (!chunks || chunks.length === 0) continue;
 
 			if (chunks.length === 1 && chunks[0] === text) {
 				newCorpus[originalId] = { title, text: chunks[0] };
@@ -298,9 +290,7 @@ export async function indexRepository(repositoryId: string, dir = './'): Promise
  *          Empty arrays are returned for texts that could not be processed or resulted in errors.
  */
 export async function getEmbeddingsBatch(texts: string[]): Promise<number[][]> {
-	if (!texts || texts.length === 0) {
-		return [];
-	}
+	if (!texts || texts.length === 0) return [];
 
 	const tokenizer = getMistralTokenizer();
 	const client = getMistralClient(); // Ensure getMistralClient is called to get the initialized client
