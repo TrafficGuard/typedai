@@ -152,9 +152,43 @@ export class MongoUserService implements UserService {
 		throw new Error('Method not implemented.');
 	}
 
-	async updateUser(updates: Partial<User>, userId?: string): Promise<User> {
-		// TODO: Implement method
-		throw new Error('Method not implemented.');
+	async updateUser(updates: Partial<User>, userId: string): Promise<User> {
+		// 1. Validate userId parameter
+		if (!userId) {
+			throw new Error('User ID must be provided for update.');
+		}
+
+		// 2. Retrieve the existing user document to ensure it exists
+		const existingDoc = await this.usersCollection.findOne({ _id: userId });
+
+		// 3. Handle user not found
+		if (!existingDoc) {
+			throw new NotFound(`User with ID ${userId} not found`);
+		}
+
+		// 4. Prepare valid updates, excluding immutable or specially managed fields
+		// 'id' is the application-level ID (maps to _id in DB), 'email' and 'createdAt' are generally not updated this way.
+		// '_id' itself should not be in 'updates' but good to be defensive.
+		const {
+			id, // Exclude 'id' from User model
+			email, // Exclude 'email'
+			createdAt, // Exclude 'createdAt'
+			// eslint-disable-next-line @typescript-eslint/no-unused-vars
+			_id, // Exclude '_id' if it somehow came in `updates`
+			...validUpdates
+		} = updates as any; // Use 'as any' as per requirement example to handle potential extra fields
+
+		// 5. Check if there are any actual fields to update after filtering
+		if (Object.keys(validUpdates).length === 0) {
+			// No valid fields to update, return the current user data
+			return this.getUser(userId);
+		}
+
+		// 6. Perform the update operation
+		await this.usersCollection.updateOne({ _id: userId }, { $set: validUpdates });
+
+		// 7. Fetch and return the updated user object to ensure freshness
+		return this.getUser(userId);
 	}
 
 	async disableUser(userId: string): Promise<void> {
