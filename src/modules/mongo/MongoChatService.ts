@@ -1,11 +1,11 @@
-import { randomUUID } from 'node:crypto';
 import { Buffer } from 'node:buffer';
+import { randomUUID } from 'node:crypto';
 import type { Db } from 'mongodb';
 import { type Collection, ObjectId } from 'mongodb';
 import type { ChatService } from '#chat/chatService';
 import type { Chat, ChatList, ChatPreview } from '#shared/chat/chat.model';
 import { CHAT_PREVIEW_KEYS } from '#shared/chat/chat.model';
-import type { TextPartExt, ImagePartExt, FilePartExt } from '#shared/llm/llm.model';
+import type { FilePartExt, ImagePartExt, TextPartExt } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 
 const CHATS_COLLECTION = 'chats';
@@ -228,11 +228,13 @@ export class MongoChatService implements ChatService {
 			let mongoId: ObjectId;
 			// let isNewChat = false; // Variable not strictly needed for current logic but can be useful for logging
 
-			if (!chat.id) { // This is a new chat
+			if (!chat.id) {
+				// This is a new chat
 				mongoId = new ObjectId();
 				chat.id = mongoId.toString();
 				// isNewChat = true;
-			} else { // This is an existing chat, chat.id should be a string representation of an ObjectId
+			} else {
+				// This is an existing chat, chat.id should be a string representation of an ObjectId
 				try {
 					mongoId = new ObjectId(chat.id);
 				} catch (e) {
@@ -267,7 +269,7 @@ export class MongoChatService implements ChatService {
 								if (typeof imagePart.image === 'string') {
 									dataToSizeCheck = imagePart.image;
 									if (imagePart.image.startsWith('gcs_placeholder://')) isAlreadyExternalPlaceholder = true;
-								} else if (imagePart.image instanceof Uint8Array || Buffer.isBuffer(imagePart.image)) {
+								} else if ((imagePart.image as any) instanceof Uint8Array || Buffer.isBuffer(imagePart.image as any)) {
 									dataToSizeCheck = imagePart.image;
 								}
 								originalDataField = 'image';
@@ -277,7 +279,7 @@ export class MongoChatService implements ChatService {
 								if (typeof filePart.data === 'string') {
 									dataToSizeCheck = filePart.data;
 									if (filePart.data.startsWith('gcs_placeholder://')) isAlreadyExternalPlaceholder = true;
-								} else if (filePart.data instanceof Uint8Array || Buffer.isBuffer(filePart.data)) {
+								} else if ((filePart.data as any) instanceof Uint8Array || Buffer.isBuffer(filePart.data as any)) {
 									dataToSizeCheck = filePart.data;
 								}
 								originalDataField = 'data';
@@ -295,7 +297,9 @@ export class MongoChatService implements ChatService {
 									// This relies on originalDataField being a key of 'part'.
 									(part as any)[originalDataField] = placeholderUri;
 
-									console.warn(`MOCK EXTERNALIZATION: Message part (type: ${part.type}, field: ${originalDataField}) in chat ${chat.id} was marked for GCS. Placeholder: ${placeholderUri}. Size: ${partSize} bytes. Actual GCS upload needed.`);
+									console.warn(
+										`MOCK EXTERNALIZATION: Message part (type: ${part.type}, field: ${originalDataField}) in chat ${chat.id} was marked for GCS. Placeholder: ${placeholderUri}. Size: ${partSize} bytes. Actual GCS upload needed.`,
+									);
 								}
 							}
 						}
@@ -315,8 +319,8 @@ export class MongoChatService implements ChatService {
 			// e. Save to MongoDB
 			const result = await this.chatsCollection.updateOne(
 				{ _id: docToSave._id }, // Filter by ObjectId
-				{ $set: docToSave },    // Set all fields from docToSave
-				{ upsert: true }        // Create if not exists, update if exists
+				{ $set: docToSave }, // Set all fields from docToSave
+				{ upsert: true }, // Create if not exists, update if exists
 			);
 
 			if (result.upsertedId) {
@@ -336,9 +340,8 @@ export class MongoChatService implements ChatService {
 
 			// f. Return `chat` (which includes the string ID and updated timestamp)
 			return chat;
-
 		} catch (error) {
-			const chatIdForError = chat && chat.id ? chat.id : 'new chat';
+			const chatIdForError = chat?.id ? chat.id : 'new chat';
 			console.error(`Error saving chat ${chatIdForError}:`, error);
 			throw error; // Re-throw the error to be handled by the caller
 		}
