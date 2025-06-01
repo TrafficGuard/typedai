@@ -291,12 +291,6 @@ export function chunkCorpus(corpus: Corpus, effectiveChunkSize: number = CHUNK_S
 export async function indexRepository(repositoryId: string, dir = './'): Promise<void> {}
 
 /**
- *
- * @param repositoryId
- */
-export async function indexRepository(repositoryId: string, dir = './'): Promise<void> {}
-
-/**
  * Generates embeddings for a batch of texts using the Mistral API.
  * Handles tokenization, truncation, batching according to API limits, and API calls.
  * @param texts An array of strings to embed.
@@ -372,7 +366,7 @@ export async function getEmbeddingsBatch(texts: string[]): Promise<number[][]> {
 			console.log(`Processing batch of ${currentBatchData.length} texts, total tokens: ${currentBatchTotalTokens}...`);
 			const textsInBatchForApi = currentBatchData.map((d) => d.textForApi);
 			try {
-				const response = await client.embeddings.create({ model: EMBED_MODEL, input: textsInBatchForApi });
+				const response = await client.embeddings.create({ model: EMBED_MODEL, inputs: textsInBatchForApi });
 				response.data.forEach((embeddingData, batchIndex) => {
 					const dataItem = currentBatchData[batchIndex];
 					embeddingsMap.set(dataItem.originalIndex, embeddingData.embedding);
@@ -396,7 +390,7 @@ export async function getEmbeddingsBatch(texts: string[]): Promise<number[][]> {
 		console.log(`Processing final batch of ${currentBatchData.length} texts, total tokens: ${currentBatchTotalTokens}...`);
 		const textsInBatchForApi = currentBatchData.map((d) => d.textForApi);
 		try {
-			const response = await client.embeddings.create({ model: EMBED_MODEL, input: textsInBatchForApi });
+			const response = await client.embeddings.create({ model: EMBED_MODEL, inputs: textsInBatchForApi });
 			response.data.forEach((embeddingData, batchIndex) => {
 				const dataItem = currentBatchData[batchIndex];
 				embeddingsMap.set(dataItem.originalIndex, embeddingData.embedding);

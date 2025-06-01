@@ -322,8 +322,7 @@ describe('getEmbeddingsBatch', () => {
 	});
 
 	it('should return an empty array for null input texts', async () => {
-		// @ts-expect-error testing null input
-		const result = await getEmbeddingsBatch(null);
+		const result = await getEmbeddingsBatch(null as any); // Cast to any to satisfy type checking for test
 		expect(result).to.deep.equal([]);
 	});
 
