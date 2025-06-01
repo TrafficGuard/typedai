@@ -238,7 +238,30 @@ export class MongoUserService implements UserService {
 	}
 
 	async listUsers(): Promise<User[]> {
-		// TODO: Implement method
-		throw new Error('Method not implemented.');
+		const docs = await this.usersCollection.find({}).toArray();
+
+		if (!docs || docs.length === 0) {
+			return [];
+		}
+
+		return docs.map((doc) => {
+			const { _id, ...userProps } = doc as WithId<any>; // Cast for _id handling
+
+			const user: User = {
+				id: _id as string, // MongoDB _id can be ObjectId, ensure it's string for User model
+				name: userProps.name,
+				email: userProps.email,
+				enabled: userProps.enabled,
+				passwordHash: userProps.passwordHash, // This can be undefined in the User model
+				createdAt: userProps.createdAt, // MongoDB driver typically converts BSON Date to JS Date
+				lastLoginAt: userProps.lastLoginAt, // Can be undefined
+				hilBudget: userProps.hilBudget ?? 0,
+				hilCount: userProps.hilCount ?? 0,
+				llmConfig: userProps.llmConfig ?? {},
+				chat: userProps.chat ?? {},
+				functionConfig: userProps.functionConfig ?? {},
+			};
+			return user;
+		});
 	}
 }
