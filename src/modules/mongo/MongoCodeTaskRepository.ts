@@ -1,6 +1,6 @@
+import type { Db } from 'mongodb';
 import type { CodeTaskRepository } from '#codeTask/codeTaskRepository';
 import type { CodeTask, CodeTaskPreset, UpdateCodeTaskData } from '#shared/codeTask/codeTask.model';
-import type { Db } from 'mongodb';
 
 export class MongoCodeTaskRepository implements CodeTaskRepository {
 	constructor(private db: Db) {}

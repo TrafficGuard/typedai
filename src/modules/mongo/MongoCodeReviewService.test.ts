@@ -1,7 +1,7 @@
-import { MongoClient, type Db } from 'mongodb';
+import { type Db, MongoClient } from 'mongodb';
 import { runCodeReviewServiceTests } from '../../swe/codeReview/codeReviewService.test';
-import { MongoCodeReviewService } from './MongoCodeReviewService';
 import { setupConditionalLoggerOutput } from '../../test/testUtils';
+import { MongoCodeReviewService } from './MongoCodeReviewService';
 
 describe('MongoCodeReviewService', () => {
 	setupConditionalLoggerOutput();
@@ -12,13 +12,13 @@ describe('MongoCodeReviewService', () => {
 	const MONGODB_URI = process.env.TEST_MONGO_URI || 'mongodb://localhost:27017';
 	const TEST_DB_NAME = `test_typedai_codereviewservice_${Date.now()}`;
 
-	beforeAll(async () => {
+	before(async () => {
 		client = new MongoClient(MONGODB_URI);
 		await client.connect();
 		db = client.db(TEST_DB_NAME);
 	});
 
-	afterAll(async () => {
+	after(async () => {
 		if (db) {
 			await db.dropDatabase();
 		}
