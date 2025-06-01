@@ -1,5 +1,5 @@
-import { type Db, MongoClient } from 'mongodb';
 import { expect } from 'chai';
+import { type Db, MongoClient } from 'mongodb';
 import { agentContext, agentContextStorage, createContext } from '#agent/agentContextLocalStorage';
 import { initInMemoryApplicationContext } from '#app/applicationContext';
 import { cacheRetry } from '#cache/cacheRetry'; // Assuming cacheRetry decorator uses the FunctionCacheService from app context
@@ -155,9 +155,7 @@ describe('MongoFunctionCacheService', () => {
 	});
 
 	it('should cache the result of a method using @cacheRetry decorator (agent scope)', async () => {
-		const agentId = 'test-agent-id-cache-decorator';
 		const agentContextInstance = createContext({
-			agentId: agentId,
 			type: 'workflow',
 			subtype: 'test',
 			agentName: 'TestAgent',
@@ -176,14 +174,21 @@ describe('MongoFunctionCacheService', () => {
 	});
 
 	it('should clear all cache entries for a specific agent', async () => {
-		const agentIdToClear = 'agent-to-clear-123';
-		const otherAgentId = 'other-agent-456';
-
 		const agentContextToClear = createContext({
-			agentId: agentIdToClear, type: 'workflow', subtype: 'test', agentName: 'ClearAgent', initialPrompt: '', llms: mockLLMs(),
+			type: 'workflow',
+			subtype: 'test',
+			agentName: 'ClearAgent',
+			initialPrompt: '',
+			llms: mockLLMs(),
 		});
+		const agentIdToClear = agentContextToClear.agentId;
+
 		const otherAgentContext = createContext({
-			agentId: otherAgentId, type: 'workflow', subtype: 'test', agentName: 'OtherAgent', initialPrompt: '', llms: mockLLMs(),
+			type: 'workflow',
+			subtype: 'test',
+			agentName: 'OtherAgent',
+			initialPrompt: '',
+			llms: mockLLMs(),
 		});
 
 		// Set items for agentToClear using decorator and direct setValue
@@ -195,9 +200,8 @@ describe('MongoFunctionCacheService', () => {
 		// The firestore test uses `agentContext().agentId` inside `setValue` implicitly.
 		// Let's assume our `setValue` for agent scope will also use `agentContext().agentId`.
 		await agentContextStorage.run(agentContextToClear, async () => {
-			await cacheService.setValue('agent', 'DirectSetClass', 'directMethod', [9,0], 'directAgentValue');
+			await cacheService.setValue('agent', 'DirectSetClass', 'directMethod', [9, 0], 'directAgentValue');
 		});
-
 
 		// Set item for anotherAgent
 		await agentContextStorage.run(otherAgentContext, async () => {
@@ -211,14 +215,14 @@ describe('MongoFunctionCacheService', () => {
 		expect(clearedCount).to.equal(2); // bazAgent and directMethod for agentIdToClear
 
 		// Verify items for agentIdToClear are gone
-		let value1, value2;
+		let value1;
+		let value2;
 		await agentContextStorage.run(agentContextToClear, async () => {
 			value1 = await cacheService.getValue('agent', 'TestClass', 'bazAgent', [1, 2]);
-			value2 = await cacheService.getValue('agent', 'DirectSetClass', 'directMethod', [9,0]);
+			value2 = await cacheService.getValue('agent', 'DirectSetClass', 'directMethod', [9, 0]);
 		});
 		expect(value1).to.be.undefined;
 		expect(value2).to.be.undefined;
-
 
 		// Verify item for otherAgent still exists
 		let otherValue;
@@ -226,7 +230,6 @@ describe('MongoFunctionCacheService', () => {
 			otherValue = await cacheService.getValue('agent', 'TestClass', 'bazAgent', [10, 20]);
 		});
 		expect(otherValue).to.deep.equal([10, 20]);
-
 
 		// Verify global item still exists
 		const globalValueRetrieved = await cacheService.getValue('global', 'GlobalClass', 'globalMethod', []);
