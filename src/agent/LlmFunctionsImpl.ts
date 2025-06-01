@@ -25,17 +25,22 @@ export class LlmFunctionsImpl implements LlmFunctions {
 		};
 	}
 
-	fromJSON(obj: any): this {
-		if (!obj) return this;
-		const functionClassNames = (obj.functionClasses ?? obj.tools) as string[]; // obj.tools for backward compat with dev version
-		for (const functionClassName of functionClassNames) {
-			const ctor = functionFactory()[functionClassName];
-			if (ctor) this.functionInstances[functionClassName] = new ctor();
-			else if (functionClassName === 'FileSystem')
-				this.functionInstances[FileSystemRead.name] = new FileSystemRead(); // backwards compatability from creating FileSystemRead/Write wrappers
-			else logger.warn(`${functionClassName} not found`);
+	static fromJSON(json: { functionClasses: string[] }, pFunctionFactory: Record<string, new () => any>): LlmFunctionsImpl {
+		const newInstance = new LlmFunctionsImpl();
+		if (json && Array.isArray(json.functionClasses) && pFunctionFactory) {
+			for (const className of json.functionClasses) {
+				const FuncClass = pFunctionFactory[className];
+				if (FuncClass) {
+					newInstance.addFunctionClass(FuncClass);
+				} else {
+					logger.warn(`Function class '${className}' not found in factory during LlmFunctionsImpl.fromJSON`);
+				}
+			}
+		} else {
+			// Optional: Log if json or pFunctionFactory is problematic, though the loop handles array check.
+			// logger.warn('LlmFunctionsImpl.fromJSON received invalid input for json or pFunctionFactory');
 		}
-		return this;
+		return newInstance;
 	}
 
 	removeFunctionClass(functionClassName: string): void {

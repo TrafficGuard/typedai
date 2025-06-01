@@ -1,5 +1,7 @@
 import type { Collection, Db } from 'mongodb';
+import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import type { AgentContextService } from '#agent/agentContextService/agentContextService';
+import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger'; // Assuming logger is available
 import {
 	AGENT_PREVIEW_KEYS, // Import this constant
@@ -9,79 +11,14 @@ import {
 	type AgentRunningState,
 	type AutonomousIteration,
 	type AutonomousIterationSummary,
-	type FunctionCall, // Potentially needed for DefaultLlmFunctions
+	type FunctionCall,
 	type LlmFunctions,
-	type ToolType, // Potentially needed for DefaultLlmFunctions if it's defined here
+	type ToolType,
 } from '#shared/agent/agent.model';
+import { NotFound } from '#shared/errors';
 
 const AGENT_CONTEXT_COLLECTION = 'agentContexts';
 const AGENT_ITERATIONS_COLLECTION = 'agentIterations';
-
-// Placeholder for a concrete LlmFunctions implementation.
-// This class would typically be imported from a shared module.
-// It needs to implement the LlmFunctions interface and handle
-// instantiation of actual function classes based on names.
-class DefaultLlmFunctions implements LlmFunctions {
-	private functionClassNames: string[] = [];
-
-	toJSON(): { functionClasses: string[] } {
-		return { functionClasses: this.functionClassNames };
-	}
-
-	fromJSON(obj: any): this {
-		if (obj && Array.isArray(obj.functionClasses)) {
-			this.functionClassNames = [...obj.functionClasses];
-			// A real implementation would iterate through functionClassNames
-			// and instantiate/register the corresponding function tools.
-		}
-		return this;
-	}
-
-	removeFunctionClass(functionClassName: string): void {
-		this.functionClassNames = this.functionClassNames.filter((name) => name !== functionClassName);
-	}
-
-	getFunctionInstances(): object[] {
-		// This would return actual instantiated function objects.
-		logger.warn('DefaultLlmFunctions.getFunctionInstances() is a stub');
-		return [];
-	}
-
-	getFunctionInstanceMap(): Record<string, object> {
-		logger.warn('DefaultLlmFunctions.getFunctionInstanceMap() is a stub');
-		return {};
-	}
-
-	getFunctionClassNames(): string[] {
-		return [...this.functionClassNames];
-	}
-
-	getFunctionType(type: ToolType): any {
-		logger.warn('DefaultLlmFunctions.getFunctionType() is a stub');
-		return undefined;
-	}
-
-	addFunctionInstance(functionClassInstance: object, name: string): void {
-		// This would add an already instantiated function.
-		// For simplicity, we'll just track its conceptual presence by name if possible.
-		if (!this.functionClassNames.includes(name)) {
-			this.functionClassNames.push(name); // Or derive name from instance
-		}
-	}
-
-	addFunctionClass(...functionClasses: Array<new () => any>): void {
-		functionClasses.forEach((cls) => {
-			if (!this.functionClassNames.includes(cls.name)) {
-				this.functionClassNames.push(cls.name);
-			}
-		});
-	}
-
-	async callFunction(functionCall: FunctionCall): Promise<any> {
-		logger.warn('DefaultLlmFunctions.callFunction() is a stub');
-		throw new Error(`Function ${functionCall.function_name} not found or callable in this stub.`);
-	}
-}
 
 // Helper to prepare AgentContext for MongoDB storage
 function agentContextToDbDoc(context: AgentContext): any {
@@ -107,9 +44,20 @@ function dbDocToAgentContext(doc: any): AgentContext | null {
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	const { _id, functions: functionsData, completedHandlerId, ...rest } = doc;
 
-	const llmFunctions = new DefaultLlmFunctions();
-	if (functionsData) {
-		llmFunctions.fromJSON(functionsData);
+	let llmFunctions: LlmFunctions = new LlmFunctionsImpl(); // Default empty instance
+	if (functionsData && Array.isArray(functionsData.functionClasses) && functionFactory) {
+		const factory = functionFactory(); // Call functionFactory to get the actual factory object
+		if (factory) {
+			llmFunctions = LlmFunctionsImpl.fromJSON(functionsData, factory);
+		} else {
+			logger.warn('Function factory is not available, cannot deserialize LlmFunctions for agent.', { agentId: doc?._id });
+		}
+	} else if (functionsData) { // Only log if functionsData exists but other conditions fail
+		logger.warn('LlmFunctionsImpl.fromJSON could not be called for agent because functionsData.functionClasses array or functionFactory is missing', {
+			agentId: doc?._id,
+			hasFunctionClasses: Array.isArray(functionsData?.functionClasses),
+			hasFunctionFactory: !!functionFactory,
+		});
 	}
 
 	// The actual AgentCompleted instance is not rehydrated here.
@@ -159,10 +107,13 @@ export class MongoAgentContextService implements AgentContextService {
 		}
 	}
 
-	async load(agentId: string): Promise<AgentContext | null> {
+	async load(agentId: string): Promise<AgentContext> {
 		try {
 			const doc = await this.agentContextsCollection.findOne({ _id: agentId });
-			return dbDocToAgentContext(doc);
+			if (!doc) {
+				throw new NotFound(`Agent with ID ${agentId} not found`);
+			}
+			return dbDocToAgentContext(doc) as AgentContext;
 		} catch (error) {
 			logger.error(error, `Failed to load agent context [agentId=${agentId}]`);
 			throw error;
