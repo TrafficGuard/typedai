@@ -3,12 +3,14 @@ import * as bcrypt from 'bcrypt';
 import type { Collection, Db, WithId } from 'mongodb';
 import { NotFound } from '#shared/errors';
 import type { User } from '#shared/user/user.model';
+import { isSingleUser } from '#user/userContext';
 import type { UserService } from '#user/userService';
 
 const USERS_COLLECTION = 'users';
 
 export class MongoUserService implements UserService {
 	private readonly usersCollection: Collection<any>;
+	private singleUser: User | undefined;
 
 	constructor(private db: Db) {
 		this.usersCollection = this.db.collection(USERS_COLLECTION);
@@ -184,8 +186,64 @@ export class MongoUserService implements UserService {
 	}
 
 	async ensureSingleUser(): Promise<void> {
-		// TODO: Implement method
-		throw new Error('Method not implemented.');
+		// 4.a. Call isSingleUser(). If it returns false, the method should return immediately.
+		if (!isSingleUser()) {
+			return;
+		}
+
+		// 4.b. If this.singleUser is already defined (i.e., it's truthy), the method should return immediately.
+		if (this.singleUser) {
+			return;
+		}
+
+		// 4.c. Call const users = await this.listUsers(); to retrieve all existing users.
+		const users = await this.listUsers();
+
+		// 4.d. If users.length > 1:
+		if (users.length > 1) {
+			// 4.d.i. Find the user whose email matches process.env.SINGLE_USER_EMAIL.
+			const user = users.find((u) => u.email === process.env.SINGLE_USER_EMAIL);
+
+			// 4.d.ii. If no such user is found (!user), throw a new error.
+			if (!user) {
+				throw new Error(`No user found with email ${process.env.SINGLE_USER_EMAIL}`);
+			}
+			// 4.d.iii. Otherwise, assign the found user to this.singleUser = user;
+			this.singleUser = user;
+		}
+		// 4.e. Else if users.length === 1:
+		else if (users.length === 1) {
+			// 4.e.i. Assign the single existing user to this.singleUser = users[0];
+			this.singleUser = users[0];
+
+			// 4.e.ii. Check if process.env.SINGLE_USER_EMAIL is defined, this.singleUser.email is defined,
+			// AND they do not match. If all conditions are true, log an error to the console.
+			// Note: User.email is typed as string, so it should always be defined if singleUser is a valid User.
+			if (process.env.SINGLE_USER_EMAIL !== undefined && this.singleUser.email !== process.env.SINGLE_USER_EMAIL) {
+				console.error(`Only user has email ${this.singleUser.email}. Expected ${process.env.SINGLE_USER_EMAIL}`);
+			}
+		}
+		// 4.f. Else (meaning users.length === 0, so no users exist):
+		else {
+			// 4.f.i. Create the single user by calling await this.createUser().
+			// Pass an object with the email from process.env.SINGLE_USER_EMAIL and other sensible defaults.
+			// createUser will throw if process.env.SINGLE_USER_EMAIL is undefined.
+			this.singleUser = await this.createUser({
+				email: process.env.SINGLE_USER_EMAIL,
+				enabled: true,
+				hilCount: 5, // As per requirement example
+				hilBudget: 1, // As per requirement example
+				llmConfig: {}, // As per requirement example
+				functionConfig: {}, // As per requirement example
+				// name, createdAt, lastLoginAt, chat will be handled by createUser defaults
+			});
+		}
+
+		// 4.g. After the conditional logic (steps d-f), if this.singleUser has been successfully set (is truthy),
+		// log its ID to the console.
+		if (this.singleUser) {
+			console.info(`Single user id: ${this.singleUser.id}`);
+		}
 	}
 
 	getSingleUser(): User {
