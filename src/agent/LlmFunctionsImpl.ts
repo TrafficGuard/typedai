@@ -1,7 +1,7 @@
 import { Agent } from '#agent/autonomous/functions/agentFunctions';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { FUNC_SEP, type FunctionSchema, getFunctionSchemas } from '#functionSchema/functions';
-import { FileSystemRead } from '#functions/storage/fileSystemRead';
+import { FileSystemRead } from '#functions/storage/fileSystemRead'; // Ensure FileSystemRead is imported
 import { logger } from '#o11y/logger';
 import type { LlmFunctions } from '#shared/agent/agent.model';
 import { type ToolType, toolType } from '#shared/agent/functions';
@@ -27,13 +27,37 @@ export class LlmFunctionsImpl implements LlmFunctions {
 
 	fromJSON(obj: any): this {
 		if (!obj) return this;
-		const functionClassNames = (obj.functionClasses ?? obj.tools) as string[]; // obj.tools for backward compat with dev version
+
+		// For backward compatibility with an older format that might use 'tools' key
+		const functionClassNames = (obj.functionClasses ?? obj.tools) as string[];
+
+		if (!Array.isArray(functionClassNames)) {
+			logger.warn('LlmFunctionsImpl.fromJSON: functionClassNames is not an array or missing.', { receivedObject: obj });
+			return this;
+		}
+
+		const currentFactory = functionFactory(); // Get the factory
+
 		for (const functionClassName of functionClassNames) {
-			const ctor = functionFactory()[functionClassName];
-			if (ctor) this.functionInstances[functionClassName] = new ctor();
-			else if (functionClassName === 'FileSystem')
-				this.functionInstances[FileSystemRead.name] = new FileSystemRead(); // backwards compatability from creating FileSystemRead/Write wrappers
-			else logger.warn(`${functionClassName} not found`);
+			if (typeof functionClassName !== 'string') {
+				logger.warn(`LlmFunctionsImpl.fromJSON: Encountered non-string class name: ${functionClassName}`, { receivedObject: obj });
+				continue;
+			}
+
+			const FuncClassConstructor = currentFactory[functionClassName];
+
+			if (FuncClassConstructor) {
+				try {
+					this.functionInstances[functionClassName] = new FuncClassConstructor();
+				} catch (e) {
+					logger.error(`Error instantiating function class ${functionClassName} during fromJSON: ${e.message}`, { error: e });
+				}
+			} else if (functionClassName === 'FileSystem') {
+				// Specific backward compatibility for 'FileSystem' mapping to FileSystemRead
+				this.functionInstances[FileSystemRead.name] = new FileSystemRead();
+			} else {
+				logger.warn(`LlmFunctionsImpl.fromJSON: Function class '${functionClassName}' not found in factory.`);
+			}
 		}
 		return this;
 	}

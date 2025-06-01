@@ -1,4 +1,7 @@
-import type { CallSettings, LlmMessage } from '#shared/llm/llm.model';
+import type { CallSettings as LlmCallSettings, LlmMessage as LlmLlmMessage } from '#shared/llm/llm.model';
+
+// Re-export CallSettings and LlmMessage for consumers of this module
+export type { LlmCallSettings as CallSettings, LlmLlmMessage as LlmMessage };
 
 /**
  * Prompts make up the users Prompt library, to test, evaluate and refine the LLM prompts.
@@ -18,9 +21,9 @@ export interface Prompt {
 	/** Tags for categorising and searching */
 	tags: string[];
 	/** The LLM prompt messages */
-	messages: LlmMessage[];
+	messages: LlmLlmMessage[];
 	/** The call settings (temperature, topP etc) to generate the response with, including the default LLM ID */
-	settings: CallSettings & { llmId?: string };
+	settings: LlmCallSettings & { llmId?: string };
 }
 
 /**
@@ -31,10 +34,10 @@ export type PromptPreview = Omit<Prompt, 'messages'>;
 
 // Add with other model interfaces
 export interface PromptGeneratePayloadModel {
-	options?: CallSettings & { llmId?: string };
+	options?: LlmCallSettings & { llmId?: string };
 }
 
 // Add with other model interfaces
 export interface PromptGenerateResponseModel {
-	generatedMessage: LlmMessage;
+	generatedMessage: LlmLlmMessage;
 }

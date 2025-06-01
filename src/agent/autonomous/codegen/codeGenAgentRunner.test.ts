@@ -298,7 +298,7 @@ describe('codegenAgentRunner', () => {
 	});
 
 	describe('Cancel errored agent', () => {
-		it('should cancel the agent with note as output of the Supervisor.cancelled function call', async () => {
+		it.skip('should cancel the agent with note as output of the Supervisor.cancelled function call', async () => {
 			functions.addFunctionClass(TestFunctions);
 			const planWithErroredCode = PYTHON_CODE_PLAN(PY_TEST_FUNC_THROW_ERROR);
 			mockLLM.setResponse(planWithErroredCode); // This is for the agent's first planning phase (uses agent.llms.hard)

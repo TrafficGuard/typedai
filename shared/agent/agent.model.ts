@@ -165,6 +165,10 @@ export interface AgentContext {
 	toolState?: Record<string, any>;
 }
 
+// Re-exporting types that were declared locally but used by other modules
+export type { ToolType } from '#shared/agent/functions';
+export type { FunctionCall, LLM } from '#shared/llm/llm.model';
+
 /**
  * For autonomous agents we save details of each control loop iteration
  * Keep in sync with frontend/src/app/modules/agents/agent.types.ts
