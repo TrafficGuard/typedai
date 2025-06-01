@@ -270,37 +270,65 @@ export class MongoAgentContextService implements AgentContextService {
 			currentUserId = userContext.currentUser().id;
 
 			for (const id of ids) {
+				// Requirement 1: Log processing start
+				logger.info(`Processing delete for id: ${id}`);
+
+				// Requirement 2: Log before findOne
+				logger.info(`Calling findOne for id: ${id}`);
 				const agentDoc = await this.agentContextsCollection.findOne({ _id: id });
+
+				// Requirement 3: Log after findOne
+				if (agentDoc) {
+					logger.info(`Found agentDoc for id: ${id}, state: ${agentDoc.state}, parentId: ${agentDoc.parentAgentId}, user.id: ${agentDoc.user?.id}`);
+				} else {
+					logger.info(`No agentDoc found for id: ${id}`);
+				}
 
 				if (!agentDoc) {
 					logger.warn(`Agent ${id} not found during delete operation.`);
 					continue;
 				}
 
+				// Requirement 4: Log ownership check
+				logger.info(`Checking ownership for id: ${id}. DocUser: ${agentDoc.user?.id}, CurrentUser: ${currentUserId}`);
 				// User ownership check
 				if (agentDoc.user?.id !== currentUserId) {
 					logger.warn(`User ${currentUserId} attempting to delete agent ${id} owned by ${agentDoc.user?.id}. Skipping.`);
+					// Requirement 4: Log skip due to ownership
+					logger.info(`Skipping id ${id} due to ownership mismatch.`);
 					continue;
 				}
 
+				// Requirement 5: Log before dbDocToAgentContext
+				logger.info(`Converting agentDoc to temporaryAgentContext for id: ${id}`);
 				const temporaryAgentContext = dbDocToAgentContext(agentDoc);
 				if (!temporaryAgentContext) {
 					logger.warn(`Agent ${id} could not be converted to a temporary context for state check during delete. Skipping deletion.`);
 					continue;
 				}
 
+				// Requirement 6: Log before isExecuting check
+				logger.info(`Checking isExecuting for id: ${id}. State: ${temporaryAgentContext.state}`);
 				// Check if agent is executing
 				if (isExecuting(temporaryAgentContext)) {
 					logger.warn(`Agent ${id} is in an executing state (${agentDoc.state}). Skipping deletion.`);
+					// Requirement 6: Log skip due to executing state
+					logger.info(`Skipping id ${id} because it is executing. State: ${temporaryAgentContext.state}`);
 					continue;
 				}
 
+				// Requirement 7: Log before child agent check
+				logger.info(`Checking if id ${id} is a child agent. ParentId: ${agentDoc.parentAgentId}`);
 				// Check if it's a child agent
 				if (agentDoc.parentAgentId) {
 					logger.warn(`Agent ${id} is a child agent. Skipping direct deletion. It will be deleted if its parent is deleted.`);
+					// Requirement 7: Log skip due to being a child agent
+					logger.info(`Skipping id ${id} because it is a child agent (ParentId: ${agentDoc.parentAgentId}) and direct deletion of children is skipped.`);
 					continue;
 				}
 
+				// Requirement 8: Log before adding to agentIdsToDelete
+				logger.info(`Adding id ${agentDoc._id} to agentIdsToDelete.`);
 				agentIdsToDelete.add(agentDoc._id);
 
 				if (agentDoc.childAgents && agentDoc.childAgents.length > 0) {
@@ -309,6 +337,9 @@ export class MongoAgentContextService implements AgentContextService {
 					}
 				}
 			}
+
+			// Requirement 9: Log final agentIdsToDelete set
+			logger.info(`Final agentIdsToDelete (before converting to finalIds): ${JSON.stringify(Array.from(agentIdsToDelete))}`);
 
 			if (agentIdsToDelete.size === 0) {
 				logger.info('No agents eligible for deletion after filtering.');
