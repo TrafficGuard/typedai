@@ -1,6 +1,6 @@
-import { MongoClient, type Db } from 'mongodb';
-import { MongoUserService } from './MongoUserService';
+import { type Db, MongoClient } from 'mongodb';
 import { runUserServiceTests } from '../../user/userService.test';
+import { MongoUserService } from './MongoUserService';
 
 describe('MongoUserService', () => {
 	// setupConditionalLoggerOutput() is called within runUserServiceTests,
@@ -16,7 +16,7 @@ describe('MongoUserService', () => {
 	const MONGODB_URI = process.env.TEST_MONGO_URI || 'mongodb://localhost:27017';
 	const TEST_DB_NAME = `test_typedai_userservice_${Date.now()}`;
 
-	beforeAll(async () => {
+	before(async () => {
 		// Establish a connection to the MongoDB server once before all tests.
 		client = new MongoClient(MONGODB_URI);
 		await client.connect();
@@ -24,7 +24,7 @@ describe('MongoUserService', () => {
 		db = client.db(TEST_DB_NAME);
 	});
 
-	afterAll(async () => {
+	after(async () => {
 		// Clean up after all tests are done.
 		if (db) {
 			// Drop the test database to remove all test data.
