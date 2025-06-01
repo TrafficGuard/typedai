@@ -146,9 +146,70 @@ export class MongoCodeReviewService implements CodeReviewService {
 		}
 	}
 
-	async updateCodeReviewConfig(id: string, config: Partial<CodeReviewConfig>): Promise<void> {
-		// TODO: Implement method
-		throw new Error('Method not implemented.');
+	async updateCodeReviewConfig(id: string, updates: Partial<CodeReviewConfig>): Promise<void> {
+		try {
+			let objectId: ObjectId;
+			try {
+				objectId = new ObjectId(id);
+			} catch (e) {
+				// If ObjectId conversion fails, throw an error.
+				// This will be caught by the outer try...catch block.
+				throw new Error(`Invalid ID format for CodeReviewConfig: "${id}"`);
+			}
+
+			// Create a deep copy of the updates object to avoid modifying the original
+			// and to ensure all nested properties are processed.
+			const processedUpdates = JSON.parse(JSON.stringify(updates));
+
+			// Handle large 'examples' data if present in processedUpdates
+			if (processedUpdates.examples && Array.isArray(processedUpdates.examples)) {
+				for (let i = 0; i < processedUpdates.examples.length; i++) {
+					const example = processedUpdates.examples[i];
+
+					// Check example.code size
+					if (typeof example.code === 'string' && Buffer.byteLength(example.code, 'utf8') > MongoCodeReviewService.MAX_FIELD_SIZE_BYTES) {
+						example.code = `gcs_placeholder://${id}/examples/${i}/code`;
+						console.warn(
+							`MOCK EXTERNALIZATION: CodeReviewConfig example code at index ${i} for config ${id} was marked for GCS during update. Actual GCS upload needed.`,
+						);
+					}
+
+					// Check example.reviewComment size
+					if (typeof example.reviewComment === 'string' && Buffer.byteLength(example.reviewComment, 'utf8') > MongoCodeReviewService.MAX_FIELD_SIZE_BYTES) {
+						example.reviewComment = `gcs_placeholder://${id}/examples/${i}/reviewComment`;
+						console.warn(
+							`MOCK EXTERNALIZATION: CodeReviewConfig example reviewComment at index ${i} for config ${id} was marked for GCS during update. Actual GCS upload needed.`,
+						);
+					}
+				}
+			}
+
+			// Sanitize updates: remove the 'id' property from processedUpdates if it exists.
+			// This prevents attempting to modify the immutable '_id' field in MongoDB.
+			// The 'id' field in CodeReviewConfig corresponds to '_id' in the database.
+			if (processedUpdates.hasOwnProperty('id')) {
+				processedUpdates.id = undefined;
+			}
+
+			// Perform the update operation in MongoDB
+			const result = await this.codeReviewConfigsCollection.updateOne(
+				{ _id: objectId }, // Filter by the document's ObjectId
+				{ $set: processedUpdates }, // Use $set to update only the specified fields
+			);
+
+			// Check if any document was matched and updated
+			if (result.matchedCount === 0) {
+				throw new Error(`CodeReviewConfig with id "${id}" not found for update.`);
+			}
+			// A successful updateOne operation (where a document is found and modified)
+			// will have result.modifiedCount > 0 (or result.upsertedCount > 0 if upserting).
+			// result.matchedCount === 0 is sufficient to indicate the document wasn't found.
+		} catch (error) {
+			// Log any errors that occur during the update process
+			console.error(`MongoCodeReviewService.updateCodeReviewConfig: Error updating config "${id}":`, error);
+			// Rethrow the error to be handled by the caller
+			throw error;
+		}
 	}
 
 	async deleteCodeReviewConfig(id: string): Promise<void> {
