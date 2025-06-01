@@ -1,10 +1,10 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
-import * as fs from 'node:fs/promises'; // Use fs.promises for async operations
+import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import micromatch from 'micromatch';
-
-import { FileSystemService } from '#functions/storage/fileSystemService'; // Assuming this path alias works
+import { FileSystemService } from '#functions/storage/fileSystemService';
+import { countTokens } from '#llm/tokens';
 
 /**
  * Recursively finds all file paths within a directory.
@@ -98,6 +98,9 @@ async function main() {
 		const fileSystemService = new FileSystemService();
 		console.log('⚙️ Reading matched files and converting to XML...');
 		const content = await fileSystemService.readFilesAsXml(absoluteMatchedFiles); // Use absolute paths
+		console.log('⚙️ Counting tokens...');
+		const tokens = await countTokens(content);
+		console.log(`export.xml token count: ${tokens}`);
 
 		// 6. Print the final XML output
 		// console.log("\n--- XML Output ---");
