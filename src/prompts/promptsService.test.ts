@@ -4,7 +4,6 @@ import { SINGLE_USER_ID } from '#modules/memory/inMemoryUserService';
 import { system, user } from '#shared/llm/llm.model';
 import type { Prompt } from '#shared/prompts/prompts.model';
 import type { User } from '#shared/user/user.model';
-import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { runWithUser } from '#user/userContext';
 import type { PromptsService } from './promptsService';
 
@@ -42,7 +41,6 @@ const getSamplePromptData = (nameSuffix = ''): Omit<Prompt, 'id' | 'revisionId' 
 });
 
 export function runPromptsServiceTests(createService: () => PromptsService, beforeEachHook: () => Promise<void> | void = () => {}) {
-	setupConditionalLoggerOutput();
 	let service: PromptsService;
 
 	const runWithTestUserContext = (testFn: () => Promise<void>) => {

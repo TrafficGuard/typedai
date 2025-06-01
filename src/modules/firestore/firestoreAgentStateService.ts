@@ -18,15 +18,8 @@ import {
 } from '#shared/agent/agent.model';
 import type { AgentContextSchema } from '#shared/agent/agent.schema';
 import { NotAllowed, NotFound } from '#shared/errors'; // Added import
-import type { User } from '#shared/user/user.model';
 import { currentUser } from '#user/userContext';
 import { firestoreDb } from './firestore';
-
-// Type specifically for Firestore storage, allowing objects for Maps
-type FirestoreAutonomousIteration = Omit<AutonomousIteration, 'memory' | 'toolState'> & {
-	memory: Record<string, string>;
-	toolState: Record<string, any>;
-};
 
 /**
  * Google Firestore implementation of AgentStateService
@@ -313,7 +306,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 		const iterationDocRef = this.db.collection('AgentContext').doc(iterationData.agentId).collection('iterations').doc(String(iterationData.iteration));
 
 		// Create a Firestore-compatible version of the iteration data using the specific type
-		const firestoreIterationData: FirestoreAutonomousIteration = {
+		const firestoreIterationData: AutonomousIteration = {
 			...iterationData,
 			// memory and toolState are expected to be Records. Default to {} if null/undefined.
 			memory: iterationData.memory || {},

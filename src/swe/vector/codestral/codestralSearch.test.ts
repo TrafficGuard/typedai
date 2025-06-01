@@ -493,26 +493,28 @@ describe('getEmbeddingsBatch', () => {
 		// @ts-ignore // Allow modification for test
 		codestralSearchModule.MAX_BATCH_SIZE = 2;
 
-		embeddingsCreateStub
-			.onFirstCall()
-			.resolves({
-				// Batch for text1, text2
-				data: [
-					{ embedding: mockEmbedding1, index: 0, object: 'embedding' },
-					// text2 would be here, but this batch will be made to fail
-				],
-				model: EMBED_MODEL,
-				usage: { prompt_tokens: 1, total_tokens: 1 },
-			}); // This setup is tricky. Let's make the first batch [text1], second [text2, text3] (fails), third [text4]
+		embeddingsCreateStub.onFirstCall().resolves({
+			// Batch for text1, text2
+			data: [
+				{ embedding: mockEmbedding1, index: 0, object: 'embedding' },
+				// text2 would be here, but this batch will be made to fail
+			],
+			model: EMBED_MODEL,
+			usage: { prompt_tokens: 1, total_tokens: 1 },
+		}); // This setup is tricky. Let's make the first batch [text1], second [text2, text3] (fails), third [text4]
 
 		// Reset for a clearer setup:
 		embeddingsCreateStub.reset();
 		// @ts-ignore
 		codestralSearchModule.MAX_BATCH_SIZE = 1; // Make each text its own batch for simpler error isolation
 
-		embeddingsCreateStub.onCall(0).resolves({ data: [{ embedding: mockEmbedding1, index: 0, object: 'embedding' }], model: EMBED_MODEL, usage: { prompt_tokens: 1, total_tokens: 1 } });
+		embeddingsCreateStub
+			.onCall(0)
+			.resolves({ data: [{ embedding: mockEmbedding1, index: 0, object: 'embedding' }], model: EMBED_MODEL, usage: { prompt_tokens: 1, total_tokens: 1 } });
 		embeddingsCreateStub.onCall(1).rejects(new Error('API Error for text2'));
-		embeddingsCreateStub.onCall(2).resolves({ data: [{ embedding: mockEmbedding4, index: 0, object: 'embedding' }], model: EMBED_MODEL, usage: { prompt_tokens: 1, total_tokens: 1 } });
+		embeddingsCreateStub
+			.onCall(2)
+			.resolves({ data: [{ embedding: mockEmbedding4, index: 0, object: 'embedding' }], model: EMBED_MODEL, usage: { prompt_tokens: 1, total_tokens: 1 } });
 
 		const result = await getEmbeddingsBatch(['text1', 'text2', 'text3']); // text3 will use the third call
 		expect(result).to.deep.equal([mockEmbedding1, [], mockEmbedding4]);

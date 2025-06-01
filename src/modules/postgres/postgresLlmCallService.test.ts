@@ -2,8 +2,10 @@ import { runLlmCallServiceTests } from '#llm/llmCallService/llmCallService.test'
 import { db } from '#modules/postgres/db';
 import { PostgresLlmCallService } from '#modules/postgres/postgresLlmCallService';
 import { ensureLlmCallsTableExists } from '#modules/postgres/schemaUtils';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 
 describe('PostgresLlmCallService', () => {
+	setupConditionalLoggerOutput();
 	runLlmCallServiceTests(
 		() => new PostgresLlmCallService(),
 		async () => {

@@ -1,9 +1,11 @@
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { runUserServiceTests } from '#user/userService.test';
 import { db } from './db';
 import { PostgresUserService } from './postgresUserService';
 import { ensureUsersTableExists } from './schemaUtils';
 
 describe('PostgresUserService', () => {
+	setupConditionalLoggerOutput();
 	// The runUserServiceTests function itself contains a describe block with its own beforeEach/afterEach.
 	// The hooks provided to runUserServiceTests will apply within that inner describe block.
 

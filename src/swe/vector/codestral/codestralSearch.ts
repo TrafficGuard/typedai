@@ -252,7 +252,7 @@ export function chunkCorpus(corpus: Corpus, effectiveChunkSize: number = CHUNK_S
 	const newCorpus: Corpus = {};
 	for (const originalId in corpus) {
 		// eslint-disable-next-line no-prototype-builtins
-		if (corpus.hasOwnProperty(originalId)) {
+		if (Object.hasOwn(corpus, originalId)) {
 			const doc = corpus[originalId];
 			const title = doc.title?.trim() || '';
 			const text = doc.text?.trim() || '';

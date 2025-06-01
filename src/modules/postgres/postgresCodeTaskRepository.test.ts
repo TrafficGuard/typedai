@@ -1,9 +1,11 @@
 import { runCodeTaskRepositoryTests } from '#codeTask/codeTaskRepository.test';
 import { PostgresCodeTaskRepository } from '#modules/postgres/postgresCodeTaskRepository';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { db } from './db'; // <-- Add this import
 import { ensureCodeTaskTablesExist } from './schemaUtils';
 
 describe('PostgresCodeTaskRepository', () => {
+	setupConditionalLoggerOutput();
 	// Setup and teardown the emulator environment once for the suite
 	before(async () => {});
 	after(async () => {});

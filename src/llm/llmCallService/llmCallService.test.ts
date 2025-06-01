@@ -5,7 +5,6 @@ import sinon from 'sinon';
 import type { CreateLlmRequest } from '#llm/llmCallService/llmCall';
 import type { LlmMessage } from '#shared/llm/llm.model';
 import type { LlmCall } from '#shared/llmCall/llmCall.model';
-import { setupConditionalLoggerOutput } from '#test/testUtils';
 import type { LlmCallService } from './llmCallService';
 
 chai.use(chaiAsPromised);
@@ -87,8 +86,6 @@ export function runLlmCallServiceTests(
 	let service: LlmCallService;
 
 	describe('LlmCallService Shared Tests', () => {
-		setupConditionalLoggerOutput();
-
 		beforeEach(async () => {
 			if (beforeEachHook) {
 				await beforeEachHook();

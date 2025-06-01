@@ -36,10 +36,7 @@ function norm(p: string): string {
 }
 
 // Helper function to validate paths and return normalized valid paths
-async function validateAndFilterPaths(
-	rawPaths: string[],
-	workingDir: string,
-): Promise<{ validPaths: string[]; invalidPaths: string[] }> {
+async function validateAndFilterPaths(rawPaths: string[], workingDir: string): Promise<{ validPaths: string[]; invalidPaths: string[] }> {
 	const fs = getFileSystem();
 	const validPaths: string[] = [];
 	const invalidPaths: string[] = [];
@@ -210,10 +207,7 @@ async function selectFilesCore(
 	const workingDir = getFileSystem().getWorkingDirectory();
 
 	// Validate initial paths (Fix #5)
-	const { validPaths: validatedInitialInspectPaths, invalidPaths: initiallyInvalidPaths } = await validateAndFilterPaths(
-		initialRawInspectPaths,
-		workingDir,
-	);
+	const { validPaths: validatedInitialInspectPaths, invalidPaths: initiallyInvalidPaths } = await validateAndFilterPaths(initialRawInspectPaths, workingDir);
 
 	// Use Maps to store kept/ignored files to ensure uniqueness by path
 	const keptFiles = new Map<string, string>(); // path -> reason
@@ -232,7 +226,8 @@ async function selectFilesCore(
 	while (true) {
 		iterationCount++;
 		if (iterationCount > maxIterations) {
-			if (keptFiles.size > 0) { // Fix #3
+			if (keptFiles.size > 0) {
+				// Fix #3
 				logger.warn('Maximum interaction iterations reached. Returning current selection.');
 				break;
 			}
@@ -290,9 +285,7 @@ async function selectFilesCore(
 
 		// Enforce that all pending files are addressed if no new inspection/search is requested (Fix #2)
 		if (filesPendingDecision.size > 0 && !response.search && filesToInspect.length === 0) {
-			throw new Error(
-				`LLM did not resolve all pending files and requested no new actions. Still pending: ${[...filesPendingDecision].join(', ')}`,
-			);
+			throw new Error(`LLM did not resolve all pending files and requested no new actions. Still pending: ${[...filesPendingDecision].join(', ')}`);
 		}
 
 		if (response.search) {
@@ -357,9 +350,7 @@ async function selectFilesCore(
 			// No new files requested for inspection, but some files are still pending.
 			// Fix #2 (throw error) handles this if LLM doesn't request search or inspect.
 			// This log remains useful if Fix #2 condition isn't met (e.g., LLM requests search).
-			logger.warn(
-				`LLM did not request new files to inspect, but ${filesPendingDecision.size} files are pending decision. Will proceed to next iteration.`,
-			);
+			logger.warn(`LLM did not request new files to inspect, but ${filesPendingDecision.size} files are pending decision. Will proceed to next iteration.`);
 		} else if (filesToInspect.length > 0) {
 			// New files were requested for inspection (and validated into filesToInspect).
 			logger.debug(`${filesToInspect.length} new files to inspect. Proceeding to next iteration.`);
@@ -469,8 +460,7 @@ The following files are currently pending your decision (some contents may have 
 ${Array.from(pendingFiles).join('\n')}
 These files MUST be addressed by including them in either "keepFiles" or "ignoreFiles" in your response.`;
 	} else {
-		prompt +=
-			'\nNo files are currently pending decision. You can request to inspect new files, search, or complete the selection.';
+		prompt += '\nNo files are currently pending decision. You can request to inspect new files, search, or complete the selection.';
 	}
 
 	prompt += `
@@ -497,7 +487,7 @@ You have the following actions available in your JSON response:
 - You can use "inspectFiles" OR "search" in a single response to gather new information, but decisions on pending files are mandatory in every response that involves them.
 
 Have you inspected enough files OR have enough information from searches to confidently determine the minimal essential set?
-If yes, and all pending files are decided (i.e., `pendingFiles` list above would be empty if this was the start of the turn), return empty arrays for "inspectFiles", no "search" property, and ensure "keepFiles" contains the final selection.
+If yes, and all pending files are decided (i.e., 'pendingFiles' list above would be empty if this was the start of the turn), return empty arrays for "inspectFiles", no "search" property, and ensure "keepFiles" contains the final selection.
 
 The final part of the response must be a JSON object in the following format:
 <json>

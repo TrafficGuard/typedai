@@ -1,7 +1,8 @@
 import sinon from 'sinon';
 // Removed User import
 // Removed userContext import
-import { runCodeTaskRepositoryTests } from '../../codeTask/codeTaskRepository.test';
+import { runCodeTaskRepositoryTests } from '#codeTask/codeTaskRepository.test';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { InMemoryCodeTaskRepository } from './inMemoryCodeTaskRepository';
 
 // Removed mock user constants
@@ -11,6 +12,7 @@ let repositoryInstance: InMemoryCodeTaskRepository;
 
 // Configure and run the shared tests
 describe('InMemoryCodeTaskRepository', () => {
+	setupConditionalLoggerOutput();
 	// Removed beforeEach managing currentUserStub
 
 	afterEach(() => {

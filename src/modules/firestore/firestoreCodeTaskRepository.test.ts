@@ -1,7 +1,8 @@
 import { type RulesTestEnvironment, initializeTestEnvironment } from '@firebase/rules-unit-testing';
 import sinon from 'sinon';
+import { runCodeTaskRepositoryTests } from '#codeTask/codeTaskRepository.test';
 import { logger } from '#o11y/logger';
-import { runCodeTaskRepositoryTests } from '../../codeTask/codeTaskRepository.test';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { firestoreDb } from './firestore'; // To potentially clear data
 import { FirestoreCodeTaskRepository } from './firestoreCodeTaskRepository';
 
@@ -31,6 +32,7 @@ const clearFirestoreData = async () => {
 };
 
 describe('FirestoreCodeTaskRepository', () => {
+	setupConditionalLoggerOutput();
 	// Setup and teardown the emulator environment once for the suite
 	before(async () => {
 		await setupFirestore();

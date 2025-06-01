@@ -1,9 +1,11 @@
 import { runChatServiceTests } from '#chat/chatService.test';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { db } from './db';
 import { PostgresChatService } from './postgresChatService';
 import { ensureChatsTableExists, ensureUsersTableExists } from './schemaUtils';
 
 describe('PostgresChatService', () => {
+	setupConditionalLoggerOutput();
 	beforeEach(async () => {
 		try {
 			// Ensure tables exist FIRST

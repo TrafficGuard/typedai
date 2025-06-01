@@ -3,7 +3,7 @@
 // import type { CodeReviewConfig } from '#swe/codeReview/codeReviewModel'; // Now handled by shared tests
 
 import { runCodeReviewServiceTests } from '#swe/codeReview/codeReviewService.test';
-import { setupConditionalLoggerOutput } from '#test/testUtils'; // Import the reset function
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { FirestoreCodeReviewService } from './firestoreCodeReviewService';
 import { resetFirestoreEmulator } from './resetFirestoreEmulator';
 
@@ -36,30 +36,26 @@ const hooks = useEmulator
 
 // --- Run Shared Tests ---
 
-// Pass a factory function to ensure a fresh service instance potentially,
-// although for Firestore, the instance itself is usually stateless regarding data.
-// Using a factory is good practice for consistency with other implementations like InMemory.
-runCodeReviewServiceTests(() => new FirestoreCodeReviewService(), hooks);
-
-// --- Optional: Add Firestore-Specific Tests Here (if any) ---
-/*
 describe('FirestoreCodeReviewService Specific Tests', () => {
-    // Add tests that are unique to the Firestore implementation,
-    // e.g., testing specific error handling related to Firestore limits,
-    // or verifying internal document structure if absolutely necessary (though discouraged).
+	setupConditionalLoggerOutput();
 
-    // Example: Test Firestore-specific error handling if getCodeReviewConfig throws
-    it('should handle Firestore errors during getCodeReviewConfig gracefully', async () => {
-        const service = new FirestoreCodeReviewService();
-        // Mock the db connection to throw an error
-        (service as any).db = {
-            doc: () => ({
-                get: sinon.stub().rejects(new Error('Firestore unavailable')),
-            }),
-        };
-        // Depending on implementation, it might re-throw or return null/empty
-        await expect(service.getCodeReviewConfig('some-id')).to.be.rejectedWith('Firestore unavailable');
-        // or expect(await service.getCodeReviewConfig('some-id')).to.be.null;
-    });
+	runCodeReviewServiceTests(() => new FirestoreCodeReviewService(), hooks);
+
+	// Add tests that are unique to the Firestore implementation,
+	// e.g., testing specific error handling related to Firestore limits,
+	// or verifying internal document structure if absolutely necessary (though discouraged).
+
+	// Example: Test Firestore-specific error handling if getCodeReviewConfig throws
+	// it('should handle Firestore errors during getCodeReviewConfig gracefully', async () => {
+	//     const service = new FirestoreCodeReviewService();
+	//     // Mock the db connection to throw an error
+	//     (service as any).db = {
+	//         doc: () => ({
+	//             get: sinon.stub().rejects(new Error('Firestore unavailable')),
+	//         }),
+	//     };
+	//     // Depending on implementation, it might re-throw or return null/empty
+	//     await expect(service.getCodeReviewConfig('some-id')).to.be.rejectedWith('Firestore unavailable');
+	//     // or expect(await service.getCodeReviewConfig('some-id')).to.be.null;
+	// });
 });
-*/

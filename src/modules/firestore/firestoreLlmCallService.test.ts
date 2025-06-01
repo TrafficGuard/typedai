@@ -43,6 +43,7 @@ const testUser: User = {
 };
 
 describe('FirestoreLlmCallService', () => {
+	setupConditionalLoggerOutput();
 	// Run shared tests
 	runLlmCallServiceTests(
 		() => new FirestoreLlmCallService(), // Factory to create the service

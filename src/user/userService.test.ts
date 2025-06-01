@@ -49,8 +49,6 @@ export function runUserServiceTests(
 	let service: UserService;
 
 	describe('UserService Shared Tests', () => {
-		setupConditionalLoggerOutput();
-
 		beforeEach(async () => {
 			if (beforeEachHook) {
 				await beforeEachHook();
