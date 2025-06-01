@@ -12,10 +12,14 @@ export class MockLLM extends BaseLLM {
 	lastPrompt = '';
 	private responses: { response: string; callback?: (prompt: string) => void }[] = [];
 	/**
+	 * @param id The identifier for the LLM instance.
+	 * @param service The service name for the LLM.
+	 * @param config Optional configuration for the LLM.
 	 * @param maxInputTokens defaults to 100000
 	 */
-	constructor(maxInputTokens = 100000) {
-		super('mock', 'mock', 'mock', maxInputTokens, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
+	constructor(id: string = 'mock', service: string = 'mock', config?: any, maxInputTokens: number = 100000) {
+		super(id, service, config?.model || 'mock', maxInputTokens, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
+		// NOTE: this.config could be stored here if needed: this.config = config;
 	}
 
 	reset() {

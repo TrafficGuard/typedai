@@ -167,7 +167,7 @@ export interface AgentContext {
 
 // Re-exporting types that were declared locally but used by other modules
 export type { ToolType } from '#shared/agent/functions';
-export type { FunctionCall } from '#shared/llm/llm.model';
+export type { FunctionCall, LLM } from '#shared/llm/llm.model';
 
 /**
  * For autonomous agents we save details of each control loop iteration
