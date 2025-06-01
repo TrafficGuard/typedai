@@ -17,7 +17,7 @@ export class MockLLM extends BaseLLM {
 	 * @param config Optional configuration for the LLM.
 	 * @param maxInputTokens defaults to 100000
 	 */
-	constructor(id: string = 'mock', service: string = 'mock', config?: any, maxInputTokens: number = 100000) {
+	constructor(id = 'mock', service = 'mock', config?: any, maxInputTokens = 100000) {
 		super(id, service, config?.model || 'mock', maxInputTokens, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
 		// NOTE: this.config could be stored here if needed: this.config = config;
 	}

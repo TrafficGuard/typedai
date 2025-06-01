@@ -13,8 +13,8 @@ import {
 	type AutonomousIteration,
 	type AutonomousIterationSummary,
 	type FunctionCall,
-	type LlmFunctions,
 	type LLM, // Ensure LLM type is available for llmData
+	type LlmFunctions,
 	type ToolType,
 } from '#shared/agent/agent.model';
 import { NotAllowed, NotFound } from '#shared/errors';
@@ -68,16 +68,17 @@ function dbDocToAgentContext(doc: any): AgentContext | null {
 	if (context.llms) {
 		for (const key in context.llms) {
 			if (Object.prototype.hasOwnProperty.call(context.llms, key)) {
-				const llmData = context.llms[key] as LLM; // Assuming llmData is a serialized LLM
+				// Assert llmData to a type that includes the properties expected from serialized data
+				const llmData = context.llms[key] as { id: string; service: string; config?: any };
 				// The requirement specifies llmData.provider. The LLM interface has 'service'.
 				// Assuming 'provider' in requirement maps to 'service'.
 				if (llmData && llmData.service === 'mock') {
 					// Requirement: new MockLLM(llmData.id, llmData.provider, llmData.config)
 					// Using llmData.service for provider as per LLM interface.
 					// Note: This assumes MockLLM constructor can accept (id, service, config).
-					// The provided MockLLM constructor in mock-llm.ts is constructor(maxInputTokens).
+					// The provided MockLLM constructor in mock-llm.ts is constructor(maxInputTokens). // This comment is outdated by the actual mock-llm.ts
 					// Proceeding as per requirement.
-					context.llms[key] = new MockLLM(llmData.id as any, llmData.service as any, llmData.config as any) as any;
+					context.llms[key] = new MockLLM(llmData.id, llmData.service, llmData.config);
 				}
 			}
 		}
@@ -133,7 +134,8 @@ export class MongoAgentContextService implements AgentContextService {
 
 			// User ownership check
 			const currentUserId = userContext.currentUser().id;
-			if (doc.user?.id !== currentUserId) { // Ensure doc.user and doc.user.id exist
+			if (doc.user?.id !== currentUserId) {
+				// Ensure doc.user and doc.user.id exist
 				throw new NotAllowed(`User not authorized to access agent ${agentId}`);
 			}
 
@@ -255,7 +257,7 @@ export class MongoAgentContextService implements AgentContextService {
 			// Store as { functionClasses: string[] } to be compatible with LlmFunctions.toJSON/fromJSON
 			const functionsData = { functionClasses: functions };
 			const result = await this.agentContextsCollection.updateOne({ _id: agentId }, { $set: { functions: functionsData, lastUpdate: Date.now() } });
-			
+
 			// The this.load(agentId) call above handles the primary existence/ownership check.
 			// This matchedCount check can remain as a secondary guard or for specific scenarios
 			// where the agent might be deleted between the load and updateOne calls, though unlikely.
@@ -296,7 +298,7 @@ export class MongoAgentContextService implements AgentContextService {
 			await this.load(agentId); // Ensures agent exists and user has access
 
 			const docs = await this.agentIterationsCollection.find({ agentId: agentId }).sort({ iteration: 1 }).toArray();
-			
+
 			// Normalize fields
 			return docs.map((iterDoc) => {
 				const normalizedDoc = { ...iterDoc };
@@ -347,13 +349,13 @@ export class MongoAgentContextService implements AgentContextService {
 				// Specific NotFound for the iteration itself
 				throw new NotFound(`Iteration ${iterationNumber} not found for agent ${agentId}`);
 			}
-			
+
 			// Normalize fields
 			const normalizedIteration = { ...iteration };
 			if (normalizedIteration.draftCode === null) normalizedIteration.draftCode = undefined;
 			if (normalizedIteration.codeReview === null) normalizedIteration.codeReview = undefined;
 			if (normalizedIteration.error === null) normalizedIteration.error = undefined;
-			
+
 			return normalizedIteration as AutonomousIteration;
 		} catch (error) {
 			// Avoid double logging if error is from this.load() or the new NotFound
