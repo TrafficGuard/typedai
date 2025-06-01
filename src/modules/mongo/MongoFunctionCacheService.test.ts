@@ -215,8 +215,8 @@ describe('MongoFunctionCacheService', () => {
 		expect(clearedCount).to.equal(2); // bazAgent and directMethod for agentIdToClear
 
 		// Verify items for agentIdToClear are gone
-		let value1;
-		let value2;
+		let value1: any;
+		let value2: any;
 		await agentContextStorage.run(agentContextToClear, async () => {
 			value1 = await cacheService.getValue('agent', 'TestClass', 'bazAgent', [1, 2]);
 			value2 = await cacheService.getValue('agent', 'DirectSetClass', 'directMethod', [9, 0]);
@@ -225,7 +225,7 @@ describe('MongoFunctionCacheService', () => {
 		expect(value2).to.be.undefined;
 
 		// Verify item for otherAgent still exists
-		let otherValue;
+		let otherValue: any;
 		await agentContextStorage.run(otherAgentContext, async () => {
 			otherValue = await cacheService.getValue('agent', 'TestClass', 'bazAgent', [10, 20]);
 		});
