@@ -213,8 +213,76 @@ export class MongoCodeReviewService implements CodeReviewService {
 	}
 
 	async deleteCodeReviewConfig(id: string): Promise<void> {
-		// TODO: Implement method
-		throw new Error('Method not implemented.');
+		try {
+			// Input Validation
+			if (!id) {
+				throw new Error('ID must be provided for CodeReviewConfig deletion.');
+			}
+
+			// ID Conversion
+			let objectIdToDelete: ObjectId;
+			try {
+				objectIdToDelete = new ObjectId(id);
+			} catch (e) {
+				// This specific error for ID format will be caught by the outer catch block.
+				throw new Error(`Invalid ID format for CodeReviewConfig: "${id}"`);
+			}
+
+			// Fetch Document for GCS Check
+			// The document fetched from MongoDB might not strictly conform to CodeReviewConfig
+			// if fields are missing, so treat it as `any` for flexibility here.
+			const docToDelete = await this.codeReviewConfigsCollection.findOne({ _id: objectIdToDelete });
+
+			if (!docToDelete) {
+				throw new Error(`CodeReviewConfig with id "${id}" not found.`);
+			}
+
+			// Mock GCS Cleanup Logging
+			let hasExternalParts = false;
+			// Accessing 'examples' which might be an array of IExample-like objects.
+			// Cast docToDelete to 'any' to safely access properties that might exist.
+			const examples = (docToDelete as any).examples;
+			if (examples && Array.isArray(examples)) {
+				for (const example of examples) {
+					// Assuming example objects have 'code' and 'reviewComment' properties.
+					const exampleCode = (example as any).code;
+					const exampleReviewComment = (example as any).reviewComment;
+
+					if (
+						(typeof exampleCode === 'string' && exampleCode.startsWith('gcs_placeholder://')) ||
+						(typeof exampleReviewComment === 'string' && exampleReviewComment.startsWith('gcs_placeholder://'))
+					) {
+						hasExternalParts = true;
+						break;
+					}
+				}
+			}
+
+			if (hasExternalParts) {
+				console.info(
+					`CodeReviewConfig ${id} (ObjectId: ${objectIdToDelete.toHexString()}) contained mock GCS references. In a real system, associated GCS assets would also need to be deleted.`,
+				);
+			}
+
+			// Delete from MongoDB
+			const deleteResult = await this.codeReviewConfigsCollection.deleteOne({ _id: objectIdToDelete });
+
+			if (deleteResult.deletedCount === 0) {
+				// This case implies the document was found initially but couldn't be deleted,
+				// or was deleted by another process between the findOne and deleteOne operations.
+				throw new Error(
+					`CodeReviewConfig with id "${id}" (ObjectId: ${objectIdToDelete.toHexString()}) reported 0 deleted, though found earlier. This might indicate a race condition or an issue.`,
+				);
+			}
+
+			// Logging on successful deletion
+			console.log(`CodeReviewConfig ${id} (ObjectId: ${objectIdToDelete.toHexString()}) deleted successfully.`);
+		} catch (error) {
+			// Overall Error Handling
+			// Log the error with context and re-throw it to be handled by the caller.
+			console.error(`MongoCodeReviewService.deleteCodeReviewConfig: Error deleting config "${id}":`, error);
+			throw error;
+		}
 	}
 
 	async getMergeRequestReviewCache(projectId: string | number, mrIid: number): Promise<CodeReviewFingerprintCache> {
