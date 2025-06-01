@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import { expect } from 'chai';
 import { afterEach, beforeEach, describe, it } from 'mocha';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import { Language, formatDoc, getLanguageFromPath, getLocalFileCorpus, chunkCorpus, DO_CHUNKING as ACTUAL_DO_CHUNKING } from './codestralSearch'; // Adjusted path to be relative
+import { DO_CHUNKING as ACTUAL_DO_CHUNKING, Language, chunkCorpus, formatDoc, getLanguageFromPath, getLocalFileCorpus } from './codestralSearch'; // Adjusted path to be relative
 import type { CodeDoc, Corpus } from './types';
 
 describe('includeAlternativeAiToolFiles', () => {
