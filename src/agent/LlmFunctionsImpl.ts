@@ -1,7 +1,7 @@
 import { Agent } from '#agent/autonomous/functions/agentFunctions';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { FUNC_SEP, type FunctionSchema, getFunctionSchemas } from '#functionSchema/functions';
-import { FileSystemRead } from '#functions/storage/fileSystemRead';
+import { FileSystemRead } from '#functions/storage/fileSystemRead'; // Ensure FileSystemRead is imported
 import { logger } from '#o11y/logger';
 import type { LlmFunctions } from '#shared/agent/agent.model';
 import { type ToolType, toolType } from '#shared/agent/functions';

@@ -44,20 +44,9 @@ function dbDocToAgentContext(doc: any): AgentContext | null {
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	const { _id, functions: functionsData, completedHandlerId, ...rest } = doc;
 
-	let llmFunctions: LlmFunctions = new LlmFunctionsImpl(); // Default empty instance
-	if (functionsData && Array.isArray(functionsData.functionClasses) && functionFactory) {
-		const factory = functionFactory(); // Call functionFactory to get the actual factory object
-		if (factory) {
-			llmFunctions = LlmFunctionsImpl.fromJSON(functionsData, factory);
-		} else {
-			logger.warn('Function factory is not available, cannot deserialize LlmFunctions for agent.', { agentId: doc?._id });
-		}
-	} else if (functionsData) { // Only log if functionsData exists but other conditions fail
-		logger.warn('LlmFunctionsImpl.fromJSON could not be called for agent because functionsData.functionClasses array or functionFactory is missing', {
-			agentId: doc?._id,
-			hasFunctionClasses: Array.isArray(functionsData?.functionClasses),
-			hasFunctionFactory: !!functionFactory,
-		});
+	const llmFunctionsInstance = new LlmFunctionsImpl(); // Create instance
+	if (functionsData) {
+		llmFunctionsInstance.fromJSON(functionsData); // Call instance method
 	}
 
 	// The actual AgentCompleted instance is not rehydrated here.
@@ -67,7 +56,7 @@ function dbDocToAgentContext(doc: any): AgentContext | null {
 	const context: AgentContext = {
 		agentId: _id,
 		...rest,
-		functions: llmFunctions,
+		functions: llmFunctionsInstance, // Use the populated instance
 		fileSystem: null, // fileSystem is a runtime concern, not persisted.
 		completedHandler: undefined, // To be re-associated by consumer using doc.completedHandlerId
 	};
