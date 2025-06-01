@@ -1,8 +1,11 @@
+import { randomUUID } from 'node:crypto';
+import { Buffer } from 'node:buffer';
 import type { Db } from 'mongodb';
 import { type Collection, ObjectId } from 'mongodb';
 import type { ChatService } from '#chat/chatService';
 import type { Chat, ChatList, ChatPreview } from '#shared/chat/chat.model';
 import { CHAT_PREVIEW_KEYS } from '#shared/chat/chat.model';
+import type { TextPartExt, ImagePartExt, FilePartExt } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 
 const CHATS_COLLECTION = 'chats';
@@ -203,8 +206,142 @@ export class MongoChatService implements ChatService {
 	}
 
 	async saveChat(chat: Chat): Promise<Chat> {
-		// TODO: Implement method
-		throw new Error('Method not implemented.');
+		try {
+			// a. User Validation
+			const user = currentUser();
+			if (!user || !user.id) {
+				throw new Error('User not authenticated or user ID is missing.');
+			}
+			// If chat.userId is provided, it must match the authenticated user.
+			if (chat.userId && chat.userId !== user.id) {
+				throw new Error('Chat userId does not match authenticated user. Cannot save chat for another user.');
+			}
+			// If chat.userId is not provided, assign the current user's ID.
+			if (!chat.userId) {
+				chat.userId = user.id;
+			}
+
+			// b. ID and Timestamps
+			// Ensure consistency with ObjectId usage in listChats and loadChat.
+			// chat.id (string) is the canonical ID in the Chat object.
+			// mongoId (ObjectId) is used for MongoDB operations.
+			let mongoId: ObjectId;
+			// let isNewChat = false; // Variable not strictly needed for current logic but can be useful for logging
+
+			if (!chat.id) { // This is a new chat
+				mongoId = new ObjectId();
+				chat.id = mongoId.toString();
+				// isNewChat = true;
+			} else { // This is an existing chat, chat.id should be a string representation of an ObjectId
+				try {
+					mongoId = new ObjectId(chat.id);
+				} catch (e) {
+					console.error(`Invalid chat.id format: "${chat.id}". It must be a 24-character hex string to be a valid ObjectId.`, e);
+					throw new Error(`Invalid chat.id format: "${chat.id}". Cannot save chat with non-ObjectId compatible ID.`);
+				}
+			}
+			chat.updatedAt = Date.now();
+
+			// c. Message Externalization (Mock GCS Placeholder)
+			// TODO: This section requires actual GCS integration.
+			// The following is a MOCK implementation that replaces large parts with a placeholder URI.
+			const MAX_PART_SIZE_BYTES = 1 * 1024 * 1024; // 1MB threshold for externalization (example value)
+
+			if (chat.messages) {
+				for (const message of chat.messages) {
+					if (Array.isArray(message.content)) {
+						for (let i = 0; i < message.content.length; i++) {
+							const part = message.content[i] as TextPartExt | ImagePartExt | FilePartExt; // Cast for easier access
+							let dataToSizeCheck: string | Uint8Array | Buffer | null = null;
+							let originalDataField: 'text' | 'image' | 'data' | null = null;
+							let isAlreadyExternalPlaceholder = false;
+
+							if (part.type === 'text') {
+								// Assuming part.text is string as per TextPartExt
+								dataToSizeCheck = part.text;
+								originalDataField = 'text';
+								if (part.text.startsWith('gcs_placeholder://')) isAlreadyExternalPlaceholder = true;
+							} else if (part.type === 'image') {
+								// ImagePartExt.image is string (URL or base64). Requirement implies it could be Buffer/Uint8Array at this stage.
+								const imagePart = part as ImagePartExt;
+								if (typeof imagePart.image === 'string') {
+									dataToSizeCheck = imagePart.image;
+									if (imagePart.image.startsWith('gcs_placeholder://')) isAlreadyExternalPlaceholder = true;
+								} else if (imagePart.image instanceof Uint8Array || Buffer.isBuffer(imagePart.image)) {
+									dataToSizeCheck = imagePart.image;
+								}
+								originalDataField = 'image';
+							} else if (part.type === 'file') {
+								// FilePartExt.data is string (URL or base64). Requirement implies it could be Buffer/Uint8Array.
+								const filePart = part as FilePartExt;
+								if (typeof filePart.data === 'string') {
+									dataToSizeCheck = filePart.data;
+									if (filePart.data.startsWith('gcs_placeholder://')) isAlreadyExternalPlaceholder = true;
+								} else if (filePart.data instanceof Uint8Array || Buffer.isBuffer(filePart.data)) {
+									dataToSizeCheck = filePart.data;
+								}
+								originalDataField = 'data';
+							}
+
+							if (dataToSizeCheck && originalDataField && !isAlreadyExternalPlaceholder) {
+								const partSize = typeof dataToSizeCheck === 'string' ? Buffer.byteLength(dataToSizeCheck, 'utf8') : dataToSizeCheck.byteLength;
+								if (partSize > MAX_PART_SIZE_BYTES) {
+									const placeholderAssetId = randomUUID();
+									// LlmMessage doesn't have a persistent ID, generate one for the placeholder path
+									const messageIdentifier = randomUUID();
+									const placeholderUri = `gcs_placeholder://${chat.id}/${messageIdentifier}/${placeholderAssetId}`;
+
+									// Update the part's data field with the placeholder URI.
+									// This relies on originalDataField being a key of 'part'.
+									(part as any)[originalDataField] = placeholderUri;
+
+									console.warn(`MOCK EXTERNALIZATION: Message part (type: ${part.type}, field: ${originalDataField}) in chat ${chat.id} was marked for GCS. Placeholder: ${placeholderUri}. Size: ${partSize} bytes. Actual GCS upload needed.`);
+								}
+							}
+						}
+					}
+				}
+			}
+
+			// d. Prepare Document for MongoDB
+			// The 'id' field in the chat object is the string representation.
+			// For MongoDB, we use the 'mongoId' (ObjectId instance) as '_id'.
+			const { id, ...chatProps } = chat; // Destructure to get properties other than 'id'
+			const docToSave = {
+				_id: mongoId, // Use the ObjectId instance for MongoDB's _id field
+				...chatProps, // Spread the rest of the chat properties
+			};
+
+			// e. Save to MongoDB
+			const result = await this.chatsCollection.updateOne(
+				{ _id: docToSave._id }, // Filter by ObjectId
+				{ $set: docToSave },    // Set all fields from docToSave
+				{ upsert: true }        // Create if not exists, update if exists
+			);
+
+			if (result.upsertedId) {
+				// MongoDB returns the _id in upsertedId if a new document was inserted.
+				// It will be the same as docToSave._id (which is mongoId).
+				console.log(`Chat ${chat.id} created successfully (upserted _id: ${result.upsertedId}).`);
+			} else if (result.modifiedCount > 0) {
+				console.log(`Chat ${chat.id} updated successfully.`);
+			} else if (result.matchedCount > 0) {
+				// Matched but not modified (e.g., submitted data was identical to stored data)
+				console.log(`Chat ${chat.id} matched but no changes were made (content might be identical).`);
+			} else {
+				// This case (no match, no modification, no upsert) is unusual for an upsert with _id.
+				// It might indicate an unexpected issue.
+				console.warn(`Chat ${chat.id} save operation reported no match, modification, or upsert. Result: ${JSON.stringify(result)}`);
+			}
+
+			// f. Return `chat` (which includes the string ID and updated timestamp)
+			return chat;
+
+		} catch (error) {
+			const chatIdForError = chat && chat.id ? chat.id : 'new chat';
+			console.error(`Error saving chat ${chatIdForError}:`, error);
+			throw error; // Re-throw the error to be handled by the caller
+		}
 	}
 
 	async deleteChat(chatId: string): Promise<void> {
