@@ -75,5 +75,5 @@ describe('MongoAgentContextService', () => {
 	// 1. A factory function to create an instance of MongoAgentContextService.
 	// 2. The beforeEachHook defined above for MongoDB cleanup.
 	// 3. The afterEachHook defined above.
-	runAgentStateServiceTests(() => new MongoAgentContextService(db), beforeEachHook, afterEachHook);
+	runAgentStateServiceTests(() => new MongoAgentContextService(db, client), beforeEachHook, afterEachHook);
 });

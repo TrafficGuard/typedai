@@ -43,7 +43,7 @@ async function getDb(): Promise<Db> {
 export async function mongoApplicationContext(): Promise<ApplicationContext> {
 	const db = await getDb();
 	return {
-		agentStateService: new MongoAgentContextService(db),
+		agentStateService: new MongoAgentContextService(db, mongoClient),
 		userService: new MongoUserService(db),
 		chatService: new MongoChatService(db),
 		llmCallService: new MongoLlmCallService(db),

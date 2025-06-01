@@ -1,4 +1,4 @@
-import type { Collection, Db } from 'mongodb';
+import type { Collection, Db, MongoClient } from 'mongodb';
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import type { AgentContextService } from '#agent/agentContextService/agentContextService';
 import { getCompletedHandler } from '#agent/completionHandlerRegistry';
@@ -108,7 +108,10 @@ export class MongoAgentContextService implements AgentContextService {
 	private agentContextsCollection: Collection<any>;
 	private agentIterationsCollection: Collection<AutonomousIteration>;
 
-	constructor(private db: Db) {
+	constructor(
+		private db: Db,
+		private client: MongoClient,
+	) {
 		this.agentContextsCollection = this.db.collection(AGENT_CONTEXT_COLLECTION);
 		this.agentIterationsCollection = this.db.collection<AutonomousIteration>(AGENT_ITERATIONS_COLLECTION);
 	}
@@ -273,113 +276,133 @@ export class MongoAgentContextService implements AgentContextService {
 			return;
 		}
 
-		const agentIdsToDelete = new Set<string>();
-		let currentUserId: string;
+		const session = this.client.startSession();
 
 		try {
-			currentUserId = userContext.currentUser().id;
+			await session.withTransaction(async (sess) => {
+				const agentIdsToDelete = new Set<string>();
+				let currentUserId: string;
 
-			for (const id of ids) {
-				// Requirement 1: Log processing start
-				logger.info(`Processing delete for id: ${id}`);
+				// This is the beginning of the existing try...catch logic, now inside the transaction
+				try {
+					currentUserId = userContext.currentUser().id;
 
-				// Requirement 2: Log before findOne
-				logger.info(`Calling findOne for id: ${id}`);
-				const agentDoc = await this.agentContextsCollection.findOne({ _id: id });
+					for (const id of ids) {
+						// Requirement 1: Log processing start
+						logger.info(`Processing delete for id: ${id}`);
 
-				// Requirement 3: Log after findOne
-				if (agentDoc) {
-					logger.info(`Found agentDoc for id: ${id}, state: ${agentDoc.state}, parentId: ${agentDoc.parentAgentId}, user.id: ${agentDoc.user?.id}`);
-				} else {
-					logger.info(`No agentDoc found for id: ${id}`);
-				}
+						// Requirement 2: Log before findOne
+						logger.info(`Calling findOne for id: ${id}`);
+						// Pass the session to the findOne operation
+						const agentDoc = await this.agentContextsCollection.findOne({ _id: id }, { session: sess });
 
-				if (!agentDoc) {
-					logger.warn(`Agent ${id} not found during delete operation.`);
-					continue;
-				}
+						// Requirement 3: Log after findOne
+						if (agentDoc) {
+							logger.info(`Found agentDoc for id: ${id}, state: ${agentDoc.state}, parentId: ${agentDoc.parentAgentId}, user.id: ${agentDoc.user?.id}`);
+						} else {
+							logger.info(`No agentDoc found for id: ${id}`);
+						}
 
-				// Requirement 4: Log ownership check
-				logger.info(`Checking ownership for id: ${id}. DocUser: ${agentDoc.user?.id}, CurrentUser: ${currentUserId}`);
-				// User ownership check
-				if (agentDoc.user?.id !== currentUserId) {
-					logger.warn(`User ${currentUserId} attempting to delete agent ${id} owned by ${agentDoc.user?.id}. Skipping.`);
-					// Requirement 4: Log skip due to ownership
-					logger.info(`Skipping id ${id} due to ownership mismatch.`);
-					continue;
-				}
+						if (!agentDoc) {
+							logger.warn(`Agent ${id} not found during delete operation.`);
+							continue;
+						}
 
-				// Requirement 5: Log before dbDocToAgentContext
-				logger.info(`Converting agentDoc to temporaryAgentContext for id: ${id}`);
-				const temporaryAgentContext = dbDocToAgentContext(agentDoc);
-				if (!temporaryAgentContext) {
-					logger.warn(`Agent ${id} could not be converted to a temporary context for state check during delete. Skipping deletion.`);
-					continue;
-				}
+						// Requirement 4: Log ownership check
+						logger.info(`Checking ownership for id: ${id}. DocUser: ${agentDoc.user?.id}, CurrentUser: ${currentUserId}`);
+						// User ownership check
+						if (agentDoc.user?.id !== currentUserId) {
+							logger.warn(`User ${currentUserId} attempting to delete agent ${id} owned by ${agentDoc.user?.id}. Skipping.`);
+							// Requirement 4: Log skip due to ownership
+							logger.info(`Skipping id ${id} due to ownership mismatch.`);
+							continue;
+						}
 
-				// Requirement 6: Log before isExecuting check
-				logger.info(`Checking isExecuting for id: ${id}. State: ${temporaryAgentContext.state}`);
-				// Check if agent is executing
-				if (isExecuting(temporaryAgentContext)) {
-					logger.warn(`Agent ${id} is in an executing state (${agentDoc.state}). Skipping deletion.`);
-					// Requirement 6: Log skip due to executing state
-					logger.info(`Skipping id ${id} because it is executing. State: ${temporaryAgentContext.state}`);
-					continue;
-				}
+						// Requirement 5: Log before dbDocToAgentContext
+						logger.info(`Converting agentDoc to temporaryAgentContext for id: ${id}`);
+						const temporaryAgentContext = dbDocToAgentContext(agentDoc);
+						if (!temporaryAgentContext) {
+							logger.warn(`Agent ${id} could not be converted to a temporary context for state check during delete. Skipping deletion.`);
+							continue;
+						}
 
-				// Requirement 7: Log before child agent check
-				logger.info(`Checking if id ${id} is a child agent. ParentId: ${agentDoc.parentAgentId}`);
-				// Check if it's a child agent
-				if (agentDoc.parentAgentId) {
-					logger.warn(`Agent ${id} is a child agent. Skipping direct deletion. It will be deleted if its parent is deleted.`);
-					// Requirement 7: Log skip due to being a child agent
-					logger.info(`Skipping id ${id} because it is a child agent (ParentId: ${agentDoc.parentAgentId}) and direct deletion of children is skipped.`);
-					continue;
-				}
+						// Requirement 6: Log before isExecuting check
+						logger.info(`Checking isExecuting for id: ${id}. State: ${temporaryAgentContext.state}`);
+						// Check if agent is executing
+						if (isExecuting(temporaryAgentContext)) {
+							logger.warn(`Agent ${id} is in an executing state (${agentDoc.state}). Skipping deletion.`);
+							// Requirement 6: Log skip due to executing state
+							logger.info(`Skipping id ${id} because it is executing. State: ${temporaryAgentContext.state}`);
+							continue;
+						}
 
-				// Requirement 8: Log before adding to agentIdsToDelete
-				logger.info(`Adding id ${agentDoc._id} to agentIdsToDelete.`);
-				agentIdsToDelete.add(agentDoc._id);
+						// Requirement 7: Log before child agent check
+						logger.info(`Checking if id ${id} is a child agent. ParentId: ${agentDoc.parentAgentId}`);
+						// Check if it's a child agent
+						if (agentDoc.parentAgentId) {
+							logger.warn(`Agent ${id} is a child agent. Skipping direct deletion. It will be deleted if its parent is deleted.`);
+							// Requirement 7: Log skip due to being a child agent
+							logger.info(`Skipping id ${id} because it is a child agent (ParentId: ${agentDoc.parentAgentId}) and direct deletion of children is skipped.`);
+							continue;
+						}
 
-				if (agentDoc.childAgents && agentDoc.childAgents.length > 0) {
-					for (const childId of agentDoc.childAgents) {
-						agentIdsToDelete.add(childId);
+						// Requirement 8: Log before adding to agentIdsToDelete
+						logger.info(`Adding id ${agentDoc._id} to agentIdsToDelete.`);
+						agentIdsToDelete.add(agentDoc._id);
+
+						if (agentDoc.childAgents && agentDoc.childAgents.length > 0) {
+							for (const childId of agentDoc.childAgents) {
+								agentIdsToDelete.add(childId);
+							}
+						}
 					}
+
+					// Requirement 9: Log final agentIdsToDelete set
+					logger.info(`Final agentIdsToDelete (before converting to finalIds): ${JSON.stringify(Array.from(agentIdsToDelete))}`);
+
+					const finalIds = Array.from(agentIdsToDelete);
+
+					if (finalIds.length > 0) {
+						logger.info(`Attempting to delete agentContexts with IDs: ${JSON.stringify(finalIds)}`);
+						// Pass the session to the deleteMany operation
+						const contextDeleteResult = await this.agentContextsCollection.deleteMany({ _id: { $in: finalIds } }, { session: sess });
+						logger.info(`AgentContexts deleteMany result: deletedCount=${contextDeleteResult.deletedCount}, acknowledged=${contextDeleteResult.acknowledged}`);
+
+						logger.info(`Attempting to delete agentIterations for agent IDs: ${JSON.stringify(finalIds)}`);
+						// Pass the session to the deleteMany operation
+						const iterationDeleteResult = await this.agentIterationsCollection.deleteMany({ agentId: { $in: finalIds } }, { session: sess });
+						logger.info(
+							`AgentIterations deleteMany result: deletedCount=${iterationDeleteResult.deletedCount}, acknowledged=${iterationDeleteResult.acknowledged}`,
+						);
+
+						if (contextDeleteResult.acknowledged && iterationDeleteResult.acknowledged) {
+							logger.info(
+								`Delete operations acknowledged for agent IDs: ${finalIds.join(', ')}. Contexts deleted: ${contextDeleteResult.deletedCount}, Iterations deleted: ${iterationDeleteResult.deletedCount}`,
+							);
+						} else {
+							logger.warn(
+								`Delete operations might not have been fully acknowledged for agent IDs: ${finalIds.join(', ')}. Contexts acknowledged: ${contextDeleteResult.acknowledged}, Iterations acknowledged: ${iterationDeleteResult.acknowledged}`,
+							);
+						}
+					} else {
+						logger.info('No agent IDs in finalIds, skipping deleteMany operations.');
+						return; // Return from the async lambda passed to withTransaction
+					}
+				} catch (error) {
+					// This is the existing catch block, now inside the transaction
+					// Log the error. If this error is thrown, withTransaction will abort the transaction.
+					logger.error(error, `Failed to delete agent contexts/iterations for IDs [ids=${ids.join(',')}]`);
+					throw error; // Re-throw to ensure transaction aborts and error propagates
 				}
-			}
-
-			// Requirement 9: Log final agentIdsToDelete set
-			logger.info(`Final agentIdsToDelete (before converting to finalIds): ${JSON.stringify(Array.from(agentIdsToDelete))}`);
-
-			const finalIds = Array.from(agentIdsToDelete);
-
-			if (finalIds.length > 0) {
-				logger.info(`Attempting to delete agentContexts with IDs: ${JSON.stringify(finalIds)}`);
-				const contextDeleteResult = await this.agentContextsCollection.deleteMany({ _id: { $in: finalIds } });
-				logger.info(`AgentContexts deleteMany result: deletedCount=${contextDeleteResult.deletedCount}, acknowledged=${contextDeleteResult.acknowledged}`);
-
-				logger.info(`Attempting to delete agentIterations for agent IDs: ${JSON.stringify(finalIds)}`);
-				const iterationDeleteResult = await this.agentIterationsCollection.deleteMany({ agentId: { $in: finalIds } });
-				logger.info(
-					`AgentIterations deleteMany result: deletedCount=${iterationDeleteResult.deletedCount}, acknowledged=${iterationDeleteResult.acknowledged}`,
-				);
-
-				if (contextDeleteResult.acknowledged && iterationDeleteResult.acknowledged) {
-					logger.info(
-						`Delete operations acknowledged for agent IDs: ${finalIds.join(', ')}. Contexts deleted: ${contextDeleteResult.deletedCount}, Iterations deleted: ${iterationDeleteResult.deletedCount}`,
-					);
-				} else {
-					logger.warn(
-						`Delete operations might not have been fully acknowledged for agent IDs: ${finalIds.join(', ')}. Contexts acknowledged: ${contextDeleteResult.acknowledged}, Iterations acknowledged: ${iterationDeleteResult.acknowledged}`,
-					);
-				}
-			} else {
-				logger.info('No agent IDs in finalIds, skipping deleteMany operations.');
-				return;
-			}
-		} catch (error) {
-			logger.error(error, `Failed to delete agent contexts/iterations for IDs [ids=${ids.join(',')}]`);
-			throw error;
+			}); // End of session.withTransaction
+		} catch (transactionError) {
+			// This catch block handles errors from session.startSession(),
+			// errors from session.withTransaction() itself (e.g., transaction commit errors not caught and re-thrown from inside),
+			// or errors from session.endSession() if it were inside this try block (it's in finally).
+			logger.error(transactionError, `Transactional delete operation failed for IDs [ids=${ids.join(',')}]`);
+			throw transactionError; // Re-throw so the caller is aware of the failure
+		} finally {
+			await session.endSession(); // Ensure the session is always closed
 		}
 	}
 
