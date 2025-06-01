@@ -347,8 +347,71 @@ export class MongoCodeReviewService implements CodeReviewService {
 		}
 	}
 
-	async updateMergeRequestReviewCache(projectId: string | number, mrIid: number, fingerprintsToSave: CodeReviewFingerprintCache): Promise<void> {
-		// TODO: Implement method
-		throw new Error('Method not implemented.');
+	async updateMergeRequestReviewCache(projectId: string | number, mrIid: number, cacheObject: CodeReviewFingerprintCache): Promise<void> {
+		const mrDocId = this._getMRCacheDocId(projectId, mrIid);
+		const nowMillis = Date.now();
+
+		console.debug(`MongoCodeReviewService.updateMergeRequestReviewCache: Updating cache for docId: ${mrDocId}`, {
+			projectId,
+			mrIid,
+			fingerprintCount: cacheObject.fingerprints.size,
+			hashKeysCount: cacheObject.hashes?.size ?? 0,
+		});
+
+		try {
+			// Convert Set<string> to Array<string> for fingerprints
+			const fingerprintsArray = Array.from(cacheObject.fingerprints);
+
+			// Convert Map<string, Set<string>> to Record<string, string[]> for hashes
+			const hashesObject: Record<string, string[]> = {};
+			if (cacheObject.hashes && cacheObject.hashes.size > 0) {
+				for (const [key, valueSet] of cacheObject.hashes.entries()) {
+					hashesObject[key] = Array.from(valueSet);
+				}
+			}
+
+			// Prepare the object to be saved to MongoDB
+			const dataToSet = {
+				lastUpdated: nowMillis,
+				fingerprints: fingerprintsArray,
+				hashes: hashesObject, // Store as an object
+			};
+
+			console.debug(`MongoCodeReviewService.updateMergeRequestReviewCache: Data to set for docId ${mrDocId}:`, {
+				lastUpdated: new Date(dataToSet.lastUpdated).toISOString(),
+				fingerprintsCount: dataToSet.fingerprints.length,
+				hashesKeys: Object.keys(dataToSet.hashes).length,
+			});
+
+			// Use updateOne with upsert: true to create the document if it doesn't exist,
+			// or update it if it does. This is similar to Firestore's set() behavior.
+			const result = await this.mergeRequestReviewCacheCollection.updateOne(
+				{ _id: mrDocId }, // Filter by document ID
+				{ $set: dataToSet }, // Data to set/update
+				{ upsert: true }, // Option to insert if not found
+			);
+
+			if (result.upsertedCount > 0) {
+				console.log(`MongoCodeReviewService.updateMergeRequestReviewCache: Cache created successfully for docId: ${mrDocId}`);
+			} else if (result.modifiedCount > 0) {
+				console.log(`MongoCodeReviewService.updateMergeRequestReviewCache: Cache updated successfully for docId: ${mrDocId}`);
+			} else if (result.matchedCount > 0 && result.modifiedCount === 0) {
+				console.log(`MongoCodeReviewService.updateMergeRequestReviewCache: Cache for docId: ${mrDocId} matched but was not modified (data likely the same).`);
+			} else {
+				// This case should ideally not be reached if upsert is true and there's no error.
+				// If matchedCount is 0 and upsertedCount is 0, it might indicate an issue.
+				console.warn(
+					`MongoCodeReviewService.updateMergeRequestReviewCache: Cache update operation for docId ${mrDocId} resulted in no changes. Matched: ${result.matchedCount}, Modified: ${result.modifiedCount}, Upserted: ${result.upsertedId}`,
+				);
+			}
+		} catch (error) {
+			console.error(`MongoCodeReviewService.updateMergeRequestReviewCache: Error updating cache for docId "${mrDocId}":`, error);
+			// Optionally, re-throw the error if the caller needs to handle it,
+			// or handle it gracefully here depending on application requirements.
+			// For consistency with getMergeRequestReviewCache which returns EMPTY_CACHE on error,
+			// this method (returning void) will just log the error.
+			// If specific error handling is needed by callers, consider re-throwing.
+			throw error; // Re-throwing to allow callers to handle if necessary
+		}
 	}
 }
