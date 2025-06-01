@@ -6,7 +6,7 @@
     "compile": "node build.js build",
     "format": "",
     "staticAnalysis": "node build.js lint",
-    "test": "node build.js test",
+    "test": "npm run test:mongoac",
     "languageTools": "typescript",
     "devBranch": "main",
     "indexDocs": [
