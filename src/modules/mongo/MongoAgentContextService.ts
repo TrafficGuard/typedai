@@ -18,6 +18,7 @@ import {
 	type LLM, // Ensure LLM type is available for llmData
 	type LlmFunctions,
 	type ToolType,
+	isExecuting, // Added isExecuting
 } from '#shared/agent/agent.model';
 import { NotAllowed, NotFound } from '#shared/errors';
 import * as userContext from '#user/userContext';
@@ -258,11 +259,70 @@ export class MongoAgentContextService implements AgentContextService {
 	}
 
 	async delete(ids: string[]): Promise<void> {
-		if (!ids || ids.length === 0) return;
+		if (!ids || ids.length === 0) {
+			return;
+		}
+
+		const agentIdsToDelete = new Set<string>();
+		let currentUserId: string;
+
 		try {
-			const deleteAgentContextsPromise = this.agentContextsCollection.deleteMany({ _id: { $in: ids } });
-			const deleteAgentIterationsPromise = this.agentIterationsCollection.deleteMany({ agentId: { $in: ids } });
+			currentUserId = userContext.currentUser().id;
+
+			for (const id of ids) {
+				const agentDoc = await this.agentContextsCollection.findOne({ _id: id });
+
+				if (!agentDoc) {
+					logger.warn(`Agent ${id} not found during delete operation.`);
+					continue;
+				}
+
+				// User ownership check
+				if (agentDoc.user?.id !== currentUserId) {
+					logger.warn(`User ${currentUserId} attempting to delete agent ${id} owned by ${agentDoc.user?.id}. Skipping.`);
+					continue;
+				}
+
+				const temporaryAgentContext = dbDocToAgentContext(agentDoc);
+				if (!temporaryAgentContext) {
+					logger.warn(`Agent ${id} could not be converted to a temporary context for state check during delete. Skipping deletion.`);
+					continue;
+				}
+
+				// Check if agent is executing
+				if (isExecuting(temporaryAgentContext)) {
+					logger.warn(`Agent ${id} is in an executing state (${agentDoc.state}). Skipping deletion.`);
+					continue;
+				}
+
+				// Check if it's a child agent
+				if (agentDoc.parentAgentId) {
+					logger.warn(`Agent ${id} is a child agent. Skipping direct deletion. It will be deleted if its parent is deleted.`);
+					continue;
+				}
+
+				agentIdsToDelete.add(agentDoc._id);
+
+				if (agentDoc.childAgents && agentDoc.childAgents.length > 0) {
+					for (const childId of agentDoc.childAgents) {
+						agentIdsToDelete.add(childId);
+					}
+				}
+			}
+
+			if (agentIdsToDelete.size === 0) {
+				logger.info('No agents eligible for deletion after filtering.');
+				return;
+			}
+
+			const finalIds = Array.from(agentIdsToDelete);
+
+			const deleteAgentContextsPromise = this.agentContextsCollection.deleteMany({ _id: { $in: finalIds } });
+			const deleteAgentIterationsPromise = this.agentIterationsCollection.deleteMany({ agentId: { $in: finalIds } });
+
 			await Promise.all([deleteAgentContextsPromise, deleteAgentIterationsPromise]);
+
+			logger.info(`Successfully deleted agents and their iterations: ${finalIds.join(', ')}`);
 		} catch (error) {
 			logger.error(error, `Failed to delete agent contexts/iterations for IDs [ids=${ids.join(',')}]`);
 			throw error;
