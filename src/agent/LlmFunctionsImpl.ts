@@ -25,22 +25,41 @@ export class LlmFunctionsImpl implements LlmFunctions {
 		};
 	}
 
-	static fromJSON(json: { functionClasses: string[] }, pFunctionFactory: Record<string, new () => any>): LlmFunctionsImpl {
-		const newInstance = new LlmFunctionsImpl();
-		if (json && Array.isArray(json.functionClasses) && pFunctionFactory) {
-			for (const className of json.functionClasses) {
-				const FuncClass = pFunctionFactory[className];
-				if (FuncClass) {
-					newInstance.addFunctionClass(FuncClass);
-				} else {
-					logger.warn(`Function class '${className}' not found in factory during LlmFunctionsImpl.fromJSON`);
-				}
-			}
-		} else {
-			// Optional: Log if json or pFunctionFactory is problematic, though the loop handles array check.
-			// logger.warn('LlmFunctionsImpl.fromJSON received invalid input for json or pFunctionFactory');
+	fromJSON(obj: any): this {
+		if (!obj) return this;
+
+		// For backward compatibility with an older format that might use 'tools' key
+		const functionClassNames = (obj.functionClasses ?? obj.tools) as string[];
+
+		if (!Array.isArray(functionClassNames)) {
+			logger.warn('LlmFunctionsImpl.fromJSON: functionClassNames is not an array or missing.', { receivedObject: obj });
+			return this;
 		}
-		return newInstance;
+
+		const currentFactory = functionFactory(); // Get the factory
+
+		for (const functionClassName of functionClassNames) {
+			if (typeof functionClassName !== 'string') {
+				logger.warn(`LlmFunctionsImpl.fromJSON: Encountered non-string class name: ${functionClassName}`, { receivedObject: obj });
+				continue;
+			}
+
+			const FuncClassConstructor = currentFactory[functionClassName];
+
+			if (FuncClassConstructor) {
+				try {
+					this.functionInstances[functionClassName] = new FuncClassConstructor();
+				} catch (e) {
+					logger.error(`Error instantiating function class ${functionClassName} during fromJSON: ${e.message}`, { error: e });
+				}
+			} else if (functionClassName === 'FileSystem') {
+				// Specific backward compatibility for 'FileSystem' mapping to FileSystemRead
+				this.functionInstances[FileSystemRead.name] = new FileSystemRead();
+			} else {
+				logger.warn(`LlmFunctionsImpl.fromJSON: Function class '${functionClassName}' not found in factory.`);
+			}
+		}
+		return this;
 	}
 
 	removeFunctionClass(functionClassName: string): void {
