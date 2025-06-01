@@ -247,8 +247,15 @@ export class MongoUserService implements UserService {
 	}
 
 	getSingleUser(): User {
-		// TODO: Implement method
-		throw new Error('Method not implemented.');
+		if (!isSingleUser()) {
+			throw new Error('Application is not in single-user mode.');
+		}
+
+		if (!this.singleUser) {
+			throw new Error('Single user is not initialized. ensureSingleUser() must be called first or no single user is configured.');
+		}
+
+		return this.singleUser;
 	}
 
 	async updateUser(updates: Partial<User>, userId: string): Promise<User> {
