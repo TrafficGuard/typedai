@@ -348,7 +348,81 @@ export class MongoChatService implements ChatService {
 	}
 
 	async deleteChat(chatId: string): Promise<void> {
-		// TODO: Implement method
-		throw new Error('Method not implemented.');
+		try {
+			// a. Input Validation
+			if (!chatId) {
+				throw new Error('Chat ID must be provided.');
+			}
+
+			// b. User and Chat Fetching
+			const user = currentUser();
+			if (!user || !user.id) {
+				throw new Error('User not authenticated or user ID is missing.');
+			}
+
+			let objectIdToDelete: ObjectId;
+			try {
+				objectIdToDelete = new ObjectId(chatId);
+			} catch (e) {
+				// console.error(`Invalid chatId format for deletion: ${chatId}`, e); // Optional detailed logging as per requirement's comment
+				throw new Error(`Invalid Chat ID format for deletion: ${chatId}`);
+			}
+
+			const chatDoc = await this.chatsCollection.findOne({ _id: objectIdToDelete });
+
+			if (!chatDoc) {
+				// console.warn(`Chat with ID ${chatId} (ObjectId: ${objectIdToDelete.toHexString()}) not found for deletion.`); // Optional logging as per requirement's comment
+				throw new Error(`Chat with ID ${chatId} not found.`);
+			}
+
+			// c. Authorization
+			if (chatDoc.userId !== user.id) {
+				// console.warn(`User ${user.id} attempted to delete unauthorized chat ${chatId}`); // Optional logging as per requirement's comment
+				throw new Error('User not authorized to delete this chat.');
+			}
+
+			// d. Mock GCS Cleanup Logging
+			let hasExternalParts = false;
+			if (chatDoc.messages && Array.isArray(chatDoc.messages)) {
+				for (const message of chatDoc.messages) {
+					if (Array.isArray(message.content)) {
+						for (const part of message.content) {
+							// Check text, image, and data fields for the placeholder
+							let dataToCheck: string | Uint8Array | Buffer | null = null;
+							if (part.type === 'text') {
+								dataToCheck = part.text;
+							} else if (part.type === 'image') {
+								dataToCheck = (part as any).image as string | Buffer; // Cast to access 'image'
+							} else if (part.type === 'file') {
+								dataToCheck = (part as any).data as string | Buffer; // Cast to access 'data'
+							}
+
+							if (typeof dataToCheck === 'string' && dataToCheck.startsWith('gcs_placeholder://')) {
+								hasExternalParts = true;
+								break;
+							}
+						}
+					}
+					if (hasExternalParts) break;
+				}
+			}
+			if (hasExternalParts) {
+				console.info(
+					`Chat ${chatId} (ObjectId: ${objectIdToDelete.toHexString()}) contained mock GCS references. In a real system, associated GCS assets would also need to be deleted.`,
+				);
+			}
+
+			// e. Delete from MongoDB
+			const deleteResult = await this.chatsCollection.deleteOne({ _id: objectIdToDelete });
+
+			if (deleteResult.deletedCount === 0) {
+				// console.warn(`Chat with ID ${chatId} (ObjectId: ${objectIdToDelete.toHexString()}) reported 0 deleted, though found earlier.`); // Optional logging as per requirement's comment
+				throw new Error(`Chat with ID ${chatId} not found during deletion, or was already deleted.`);
+			}
+			console.log(`Chat ${chatId} (ObjectId: ${objectIdToDelete.toHexString()}) deleted successfully by user ${user.id}.`);
+		} catch (error) {
+			console.error(`Error deleting chat ${chatId}:`, error);
+			throw error;
+		}
 	}
 }
