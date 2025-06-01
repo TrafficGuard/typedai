@@ -117,8 +117,24 @@ export class MongoUserService implements UserService {
 	}
 
 	async createUserWithPassword(email: string, password: string): Promise<User> {
-		// TODO: Implement method
-		throw new Error('Method not implemented.');
+		// 1. Check if a user with the given email already exists.
+		// This relies on getUserByEmail being implemented.
+		const existingUser = await this.getUserByEmail(email);
+
+		// 2. If the user exists, throw an error.
+		if (existingUser) {
+			throw new Error(`User with email ${email} already exists`);
+		}
+
+		// 3. If the user does not exist, hash the password.
+		const passwordHash = await bcrypt.hash(password, 10);
+
+		// 4. Create the new user with email and hashed password.
+		// The createUser method handles setting other default fields.
+		return this.createUser({
+			email,
+			passwordHash,
+		});
 	}
 
 	async updatePassword(userId: string, newPassword: string): Promise<void> {
