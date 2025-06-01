@@ -138,8 +138,16 @@ export class MongoUserService implements UserService {
 	}
 
 	async updatePassword(userId: string, newPassword: string): Promise<void> {
-		// TODO: Implement method
-		throw new Error('Method not implemented.');
+		if (!userId || !newPassword) {
+			throw new Error('User ID and new password must be provided.');
+		}
+
+		// Verify user existence (getUser will throw NotFound if user doesn't exist)
+		await this.getUser(userId);
+
+		const passwordHash = await bcrypt.hash(newPassword, 10);
+
+		await this.usersCollection.updateOne({ _id: userId }, { $set: { passwordHash: passwordHash } });
 	}
 
 	async ensureSingleUser(): Promise<void> {
