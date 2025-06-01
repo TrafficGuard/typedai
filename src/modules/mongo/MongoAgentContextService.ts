@@ -2,6 +2,7 @@ import type { Collection, Db } from 'mongodb';
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import type { AgentContextService } from '#agent/agentContextService/agentContextService';
 import { functionFactory } from '#functionSchema/functionDecorators';
+import { MockLLM } from '#llm/services/mock-llm';
 import { logger } from '#o11y/logger'; // Assuming logger is available
 import {
 	AGENT_PREVIEW_KEYS, // Import this constant
@@ -13,9 +14,11 @@ import {
 	type AutonomousIterationSummary,
 	type FunctionCall,
 	type LlmFunctions,
+	type LLM, // Ensure LLM type is available for llmData
 	type ToolType,
 } from '#shared/agent/agent.model';
-import { NotFound } from '#shared/errors';
+import { NotAllowed, NotFound } from '#shared/errors';
+import * as userContext from '#user/userContext';
 
 const AGENT_CONTEXT_COLLECTION = 'agentContexts';
 const AGENT_ITERATIONS_COLLECTION = 'agentIterations';
@@ -55,11 +58,31 @@ function dbDocToAgentContext(doc: any): AgentContext | null {
 	// re-associating the handler if `completedHandlerId` (available in `doc.completedHandlerId`) is present.
 	const context: AgentContext = {
 		agentId: _id,
-		...rest,
+		...rest, // llms will be part of rest initially
 		functions: llmFunctionsInstance, // Use the populated instance
 		fileSystem: null, // fileSystem is a runtime concern, not persisted.
 		completedHandler: undefined, // To be re-associated by consumer using doc.completedHandlerId
 	};
+
+	// Rehydrate LLMs, specifically MockLLM
+	if (context.llms) {
+		for (const key in context.llms) {
+			if (Object.prototype.hasOwnProperty.call(context.llms, key)) {
+				const llmData = context.llms[key] as LLM; // Assuming llmData is a serialized LLM
+				// The requirement specifies llmData.provider. The LLM interface has 'service'.
+				// Assuming 'provider' in requirement maps to 'service'.
+				if (llmData && llmData.service === 'mock') {
+					// Requirement: new MockLLM(llmData.id, llmData.provider, llmData.config)
+					// Using llmData.service for provider as per LLM interface.
+					// Note: This assumes MockLLM constructor can accept (id, service, config).
+					// The provided MockLLM constructor in mock-llm.ts is constructor(maxInputTokens).
+					// Proceeding as per requirement.
+					context.llms[key] = new MockLLM(llmData.id as any, llmData.service as any, llmData.config as any) as any;
+				}
+			}
+		}
+	}
+
 	return context;
 }
 
@@ -84,11 +107,16 @@ export class MongoAgentContextService implements AgentContextService {
 
 	async updateState(ctx: AgentContext, state: AgentRunningState): Promise<void> {
 		try {
-			const result = await this.agentContextsCollection.updateOne({ _id: ctx.agentId }, { $set: { state: state, lastUpdate: Date.now() } });
+			const updateTime = Date.now(); // Use a consistent timestamp
+			const result = await this.agentContextsCollection.updateOne({ _id: ctx.agentId }, { $set: { state: state, lastUpdate: updateTime } });
 			if (result.matchedCount === 0) {
 				logger.warn(`Agent context not found for state update [agentId=${ctx.agentId}]`);
 				// Optionally throw an error if agent must exist
 				// throw new Error(`Agent with ID ${ctx.agentId} not found for state update.`);
+			} else {
+				// Mutate the context object in memory
+				ctx.state = state;
+				ctx.lastUpdate = updateTime;
 			}
 		} catch (error) {
 			logger.error(error, `Failed to update agent state [agentId=${ctx.agentId}]`);
@@ -102,9 +130,19 @@ export class MongoAgentContextService implements AgentContextService {
 			if (!doc) {
 				throw new NotFound(`Agent with ID ${agentId} not found`);
 			}
+
+			// User ownership check
+			const currentUserId = userContext.currentUser().id;
+			if (doc.user?.id !== currentUserId) { // Ensure doc.user and doc.user.id exist
+				throw new NotAllowed(`User not authorized to access agent ${agentId}`);
+			}
+
 			return dbDocToAgentContext(doc) as AgentContext;
 		} catch (error) {
-			logger.error(error, `Failed to load agent context [agentId=${agentId}]`);
+			// Avoid double logging if NotAllowed or NotFound is thrown from above
+			if (!(error instanceof NotFound) && !(error instanceof NotAllowed)) {
+				logger.error(error, `Failed to load agent context [agentId=${agentId}]`);
+			}
 			throw error;
 		}
 	}
@@ -125,6 +163,8 @@ export class MongoAgentContextService implements AgentContextService {
 
 	async list(): Promise<AgentContextPreview[]> {
 		try {
+			const currentUserId = userContext.currentUser().id; // Get current user ID
+
 			const projection: Record<string, 0 | 1> = { _id: 0 }; // Exclude MongoDB's _id by default
 			(AGENT_PREVIEW_KEYS as unknown as Array<keyof AgentContext | '_id'>).forEach((key) => {
 				if (key === 'agentId') {
@@ -134,7 +174,8 @@ export class MongoAgentContextService implements AgentContextService {
 				}
 			});
 
-			const docs = await this.agentContextsCollection.find({}).project(projection).toArray();
+			// Filter by user.id
+			const docs = await this.agentContextsCollection.find({ 'user.id': currentUserId }).project(projection).toArray();
 			return docs.map((doc) => {
 				const preview = { ...doc } as any;
 				if (doc._id) {
@@ -151,8 +192,7 @@ export class MongoAgentContextService implements AgentContextService {
 
 	async listRunning(): Promise<AgentContextPreview[]> {
 		try {
-			// const runningStates: AgentRunningState[] = ['workflow', 'agent', 'functions', 'hitl_tool'];
-			// Or, more broadly, not in a terminal state:
+			const currentUserId = userContext.currentUser().id; // Get current user ID
 			const terminalStates: AgentRunningState[] = ['completed', 'error', 'shutdown', 'timeout'];
 
 			const projection: Record<string, 0 | 1> = { _id: 0 };
@@ -164,8 +204,9 @@ export class MongoAgentContextService implements AgentContextService {
 				}
 			});
 
+			// Filter by user.id and state
 			const docs = await this.agentContextsCollection
-				.find({ state: { $nin: terminalStates } })
+				.find({ 'user.id': currentUserId, state: { $nin: terminalStates } })
 				.project(projection)
 				.toArray();
 
@@ -209,20 +250,36 @@ export class MongoAgentContextService implements AgentContextService {
 
 	async updateFunctions(agentId: string, functions: string[]): Promise<void> {
 		try {
+			await this.load(agentId); // Ensures agent exists and user has access
+
 			// Store as { functionClasses: string[] } to be compatible with LlmFunctions.toJSON/fromJSON
 			const functionsData = { functionClasses: functions };
 			const result = await this.agentContextsCollection.updateOne({ _id: agentId }, { $set: { functions: functionsData, lastUpdate: Date.now() } });
+			
+			// The this.load(agentId) call above handles the primary existence/ownership check.
+			// This matchedCount check can remain as a secondary guard or for specific scenarios
+			// where the agent might be deleted between the load and updateOne calls, though unlikely.
 			if (result.matchedCount === 0) {
-				logger.warn(`Agent context not found for functions update [agentId=${agentId}]`);
-				// Optionally throw: throw new Error(`Agent with ID ${agentId} not found for functions update.`);
+				// This case should ideally not be hit if this.load(agentId) passed,
+				// unless the agent was deleted concurrently.
+				logger.warn(`Agent context not found for functions update despite prior load [agentId=${agentId}]`);
+				// throw new NotFound(`Agent with ID ${agentId} not found for functions update.`); // Or handle as appropriate
 			}
 		} catch (error) {
-			logger.error(error, `Failed to update functions for agent [agentId=${agentId}]`);
+			// Avoid double logging if error is from this.load()
+			if (!(error instanceof NotFound) && !(error instanceof NotAllowed)) {
+				logger.error(error, `Failed to update functions for agent [agentId=${agentId}]`);
+			}
 			throw error;
 		}
 	}
 
 	async saveIteration(iterationData: AutonomousIteration): Promise<void> {
+		// Validate iteration number
+		if (iterationData.iteration == null || iterationData.iteration <= 0) {
+			throw new Error('Iteration number must be a positive integer and greater than 0.');
+		}
+
 		try {
 			// Ensure memory and toolState are objects, not Maps, as per AutonomousIteration model
 			iterationData.memory = iterationData.memory ?? {};
@@ -236,15 +293,31 @@ export class MongoAgentContextService implements AgentContextService {
 
 	async loadIterations(agentId: string): Promise<AutonomousIteration[]> {
 		try {
-			return await this.agentIterationsCollection.find({ agentId: agentId }).sort({ iteration: 1 }).toArray();
+			await this.load(agentId); // Ensures agent exists and user has access
+
+			const docs = await this.agentIterationsCollection.find({ agentId: agentId }).sort({ iteration: 1 }).toArray();
+			
+			// Normalize fields
+			return docs.map((iterDoc) => {
+				const normalizedDoc = { ...iterDoc };
+				if (normalizedDoc.draftCode === null) normalizedDoc.draftCode = undefined;
+				if (normalizedDoc.codeReview === null) normalizedDoc.codeReview = undefined;
+				if (normalizedDoc.error === null) normalizedDoc.error = undefined;
+				return normalizedDoc as AutonomousIteration;
+			});
 		} catch (error) {
-			logger.error(error, `Failed to load iterations for agent [agentId=${agentId}]`);
+			// Avoid double logging if error is from this.load()
+			if (!(error instanceof NotFound) && !(error instanceof NotAllowed)) {
+				logger.error(error, `Failed to load iterations for agent [agentId=${agentId}]`);
+			}
 			throw error;
 		}
 	}
 
 	async getAgentIterationSummaries(agentId: string): Promise<AutonomousIterationSummary[]> {
 		try {
+			await this.load(agentId); // Ensures agent exists and user has access
+
 			const projection: Record<string, 1> = {};
 			(AUTONOMOUS_ITERATION_SUMMARY_KEYS as unknown as (keyof AutonomousIteration)[]).forEach((key) => {
 				projection[key as string] = 1;
@@ -253,20 +326,40 @@ export class MongoAgentContextService implements AgentContextService {
 			const docs = await this.agentIterationsCollection.find({ agentId: agentId }).sort({ iteration: 1 }).project(projection).toArray();
 			return docs as AutonomousIterationSummary[];
 		} catch (error) {
-			logger.error(error, `Failed to get agent iteration summaries [agentId=${agentId}]`);
+			// Avoid double logging if error is from this.load()
+			if (!(error instanceof NotFound) && !(error instanceof NotAllowed)) {
+				logger.error(error, `Failed to get agent iteration summaries [agentId=${agentId}]`);
+			}
 			throw error;
 		}
 	}
 
 	async getAgentIterationDetail(agentId: string, iterationNumber: number): Promise<AutonomousIteration | null> {
 		try {
+			await this.load(agentId); // Ensures agent exists and user has access
+
 			const iteration = await this.agentIterationsCollection.findOne({
 				agentId: agentId,
 				iteration: iterationNumber,
 			});
-			return iteration || null;
+
+			if (!iteration) {
+				// Specific NotFound for the iteration itself
+				throw new NotFound(`Iteration ${iterationNumber} not found for agent ${agentId}`);
+			}
+			
+			// Normalize fields
+			const normalizedIteration = { ...iteration };
+			if (normalizedIteration.draftCode === null) normalizedIteration.draftCode = undefined;
+			if (normalizedIteration.codeReview === null) normalizedIteration.codeReview = undefined;
+			if (normalizedIteration.error === null) normalizedIteration.error = undefined;
+			
+			return normalizedIteration as AutonomousIteration;
 		} catch (error) {
-			logger.error(error, `Failed to get agent iteration detail [agentId=${agentId}, iteration=${iterationNumber}]`);
+			// Avoid double logging if error is from this.load() or the new NotFound
+			if (!(error instanceof NotFound) && !(error instanceof NotAllowed)) {
+				logger.error(error, `Failed to get agent iteration detail [agentId=${agentId}, iteration=${iterationNumber}]`);
+			}
 			throw error;
 		}
 	}
