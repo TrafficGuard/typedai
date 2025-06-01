@@ -1,12 +1,14 @@
 import type { Collection, Db } from 'mongodb';
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import type { AgentContextService } from '#agent/agentContextService/agentContextService';
+import { getCompletedHandler } from '#agent/completionHandlerRegistry';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { MockLLM } from '#llm/services/mock-llm';
 import { logger } from '#o11y/logger'; // Assuming logger is available
 import {
 	AGENT_PREVIEW_KEYS, // Import this constant
 	AUTONOMOUS_ITERATION_SUMMARY_KEYS, // Import this constant
+	type AgentCompleted,
 	type AgentContext,
 	type AgentContextPreview,
 	type AgentRunningState,
@@ -52,16 +54,20 @@ function dbDocToAgentContext(doc: any): AgentContext | null {
 		llmFunctionsInstance.fromJSON(functionsData); // Call instance method
 	}
 
-	// The actual AgentCompleted instance is not rehydrated here.
-	// The AgentContext will have `completedHandler: undefined`.
-	// The component using the loaded AgentContext is responsible for
-	// re-associating the handler if `completedHandlerId` (available in `doc.completedHandlerId`) is present.
+	let rehydratedCompletedHandler: AgentCompleted | undefined = undefined;
+	if (doc.completedHandlerId) {
+		rehydratedCompletedHandler = getCompletedHandler(doc.completedHandlerId);
+		if (!rehydratedCompletedHandler) {
+			logger.warn(`Completed handler with ID ${doc.completedHandlerId} not found in registry during agent load.`);
+		}
+	}
+
 	const context: AgentContext = {
 		agentId: _id,
 		...rest, // llms will be part of rest initially
 		functions: llmFunctionsInstance, // Use the populated instance
 		fileSystem: null, // fileSystem is a runtime concern, not persisted.
-		completedHandler: undefined, // To be re-associated by consumer using doc.completedHandlerId
+		completedHandler: rehydratedCompletedHandler,
 	};
 
 	// Rehydrate LLMs, specifically MockLLM
@@ -177,7 +183,7 @@ export class MongoAgentContextService implements AgentContextService {
 			});
 
 			// Filter by user.id
-			const docs = await this.agentContextsCollection.find({ 'user.id': currentUserId }).project(projection).toArray();
+			const docs = await this.agentContextsCollection.find({ 'user.id': currentUserId }).sort({ lastUpdate: -1 }).project(projection).toArray();
 			return docs.map((doc) => {
 				const preview = { ...doc } as any;
 				if (doc._id) {
@@ -209,6 +215,7 @@ export class MongoAgentContextService implements AgentContextService {
 			// Filter by user.id and state
 			const docs = await this.agentContextsCollection
 				.find({ 'user.id': currentUserId, state: { $nin: terminalStates } })
+				.sort({ state: 1, lastUpdate: -1 })
 				.project(projection)
 				.toArray();
 
