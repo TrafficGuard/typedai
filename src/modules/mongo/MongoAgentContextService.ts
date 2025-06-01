@@ -76,16 +76,26 @@ function dbDocToAgentContext(doc: any): AgentContext | null {
 		for (const key in context.llms) {
 			if (Object.prototype.hasOwnProperty.call(context.llms, key)) {
 				// Assert llmData to a type that includes the properties expected from serialized data
-				const llmData = context.llms[key] as { id: string; service: string; config?: any };
+				const llmData = context.llms[key] as {
+					id: string;
+					service: string;
+					model?: string;
+					config?: any; // Keep config for now for other LLMs, though MockLLM won't use it directly
+					responses?: { response: string; callback?: (prompt: string) => void }[];
+					/* other potential BaseLLM/LLM fields */
+				};
 				// The requirement specifies llmData.provider. The LLM interface has 'service'.
 				// Assuming 'provider' in requirement maps to 'service'.
 				if (llmData && llmData.service === 'mock') {
 					// Requirement: new MockLLM(llmData.id, llmData.provider, llmData.config)
 					// Using llmData.service for provider as per LLM interface.
-					// Note: This assumes MockLLM constructor can accept (id, service, config).
-					// The provided MockLLM constructor in mock-llm.ts is constructor(maxInputTokens). // This comment is outdated by the actual mock-llm.ts
-					// Proceeding as per requirement.
-					context.llms[key] = new MockLLM(llmData.id, llmData.service, llmData.config);
+					context.llms[key] = new MockLLM(
+						llmData.id,
+						llmData.service,
+						llmData.model ?? 'mock',
+						undefined /* for maxInputTokens, let constructor default kick in */,
+						llmData.responses,
+					);
 				}
 			}
 		}

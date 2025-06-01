@@ -10,16 +10,23 @@ import { BaseLLM } from '../base-llm';
 
 export class MockLLM extends BaseLLM {
 	lastPrompt = '';
-	private responses: { response: string; callback?: (prompt: string) => void }[] = [];
+	public responses: { response: string; callback?: (prompt: string) => void }[] = [];
 	/**
 	 * @param id The identifier for the LLM instance.
 	 * @param service The service name for the LLM.
-	 * @param config Optional configuration for the LLM.
+	 * @param model The model name for the LLM.
 	 * @param maxInputTokens defaults to 100000
+	 * @param initialResponses Optional initial responses for the MockLLM instance.
 	 */
-	constructor(id = 'mock', service = 'mock', config?: any, maxInputTokens = 100000) {
-		super(id, service, config?.model || 'mock', maxInputTokens, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
-		// NOTE: this.config could be stored here if needed: this.config = config;
+	constructor(
+		id = 'mock',
+		service = 'mock',
+		model = 'mock',
+		maxInputTokens = 100000,
+		initialResponses?: { response: string; callback?: (prompt: string) => void }[],
+	) {
+		super(id, service, model, maxInputTokens, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
+		this.responses = initialResponses ?? [];
 	}
 
 	reset() {
