@@ -298,8 +298,23 @@ export class MongoUserService implements UserService {
 	}
 
 	async disableUser(userId: string): Promise<void> {
-		// TODO: Implement method
-		throw new Error('Method not implemented.');
+		// 1. Input validation
+		if (!userId) {
+			throw new Error('User ID must be provided.');
+		}
+
+		// 2. Ensure the user exists by calling getUser.
+		// This will throw a NotFound error if the user does not exist,
+		// which is the desired behavior.
+		await this.getUser(userId);
+
+		// 3. If getUser completes, the user exists. Proceed to update the 'enabled' field.
+		await this.usersCollection.updateOne(
+			{ _id: userId }, // Filter: find the user by their ID
+			{ $set: { enabled: false } }, // Update: set the 'enabled' field to false
+		);
+
+		// 4. No explicit return is needed as the method returns Promise<void>.
 	}
 
 	async listUsers(): Promise<User[]> {
