@@ -118,8 +118,88 @@ export class MongoChatService implements ChatService {
 	}
 
 	async loadChat(chatId: string): Promise<Chat> {
-		// TODO: Implement method
-		throw new Error('Method not implemented.');
+		try {
+			// a. Input Validation
+			if (!chatId) {
+				throw new Error('Chat ID must be provided.');
+			}
+
+			// b. Convert chatId to ObjectId
+			let objectId: ObjectId;
+			try {
+				objectId = new ObjectId(chatId);
+			} catch (e) {
+				// console.error(`Invalid chatId format: ${chatId}`, e); // Optional detailed logging
+				throw new Error(`Invalid Chat ID format: ${chatId}`);
+			}
+
+			// c. Fetch Document
+			const doc = await this.chatsCollection.findOne({ _id: objectId });
+
+			// d. Handle Not Found
+			if (!doc) {
+				// console.warn(`Chat with id ${chatId} not found`); // Optional logging
+				throw new Error(`Chat with id ${chatId} not found`);
+			}
+
+			// e. Map to Chat object (including updatedAt processing)
+			const user = currentUser();
+
+			let updatedAtAsNumber: number;
+			if (typeof doc.updatedAt === 'number') {
+				updatedAtAsNumber = doc.updatedAt;
+			} else if (doc.updatedAt instanceof Date) {
+				updatedAtAsNumber = doc.updatedAt.getTime();
+			} else {
+				// Defaulting to 0 if unparseable or missing, with a warning.
+				// Consider if throwing an error or using a different default is more appropriate
+				// if updatedAt is strictly required and must be valid.
+				console.warn(
+					`Document ${doc._id?.toString()} (chatId: ${chatId}) has missing, unparseable, or invalid updatedAt field (value: ${doc.updatedAt}). Defaulting to 0.`,
+				);
+				updatedAtAsNumber = 0;
+			}
+
+			const chat: Chat = {
+				id: doc._id.toString(),
+				userId: doc.userId,
+				title: doc.title,
+				updatedAt: updatedAtAsNumber,
+				shareable: doc.shareable,
+				parentId: doc.parentId,
+				rootId: doc.rootId,
+				messages: doc.messages ?? [], // Ensure messages is an array, default to empty if null/undefined
+			};
+
+			// Authorization Check
+			if (!chat.shareable && (!user || chat.userId !== user.id)) {
+				// console.warn(`User ${user?.id} attempted to access unauthorized chat ${chatId}`); // Optional logging
+				throw new Error('Chat not visible or user not authorized.');
+			}
+
+			// f. Message Handling
+			// TODO: Implement message hydration here if messages or their parts are stored externally (e.g., GCS, agentfs).
+			// This would involve checking message parts for references (e.g., a special URI scheme)
+			// and fetching the actual content from the external store, then replacing the reference.
+
+			// Backwards compatibility for old message format (text vs content)
+			if (chat.messages) {
+				for (const message of chat.messages) {
+					const oldMessage = message as any;
+					// Ensure content doesn't already exist before populating from old 'text' field
+					if (oldMessage.text && message.content === undefined) {
+						message.content = oldMessage.text;
+						// delete oldMessage.text; // Optional: clean up the old field if desired after migration
+					}
+				}
+			}
+
+			// g. Return chat
+			return chat;
+		} catch (error) {
+			console.error(`Error loading chat ${chatId}:`, error);
+			throw error;
+		}
 	}
 
 	async saveChat(chat: Chat): Promise<Chat> {
