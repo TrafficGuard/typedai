@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import * as bcrypt from 'bcrypt';
-import type { Collection, Db } from 'mongodb';
+import type { Collection, Db, WithId } from 'mongodb';
 import { NotFound } from '#shared/errors';
 import type { User } from '#shared/user/user.model';
 import type { UserService } from '#user/userService';
@@ -34,8 +34,41 @@ export class MongoUserService implements UserService {
 	}
 
 	async getUserByEmail(email: string): Promise<User | null> {
-		// TODO: Implement method
-		throw new Error('Method not implemented.');
+		// 1. Input validation: Check if email is provided.
+		if (!email) {
+			throw new Error('Email must be provided.');
+		}
+
+		// 2. Query the usersCollection for a user with the matching email.
+		const doc = await this.usersCollection.findOne({ email: email });
+
+		// 3. If no document is found, return null.
+		if (!doc) {
+			return null;
+		}
+
+		// 4. If a document is found, transform it into a User object.
+		// The 'doc' object from MongoDB will have an '_id' field.
+		// userProps will contain all other fields from the document.
+		const { _id, ...userProps } = doc as WithId<any>; // Using WithId<any> for type hint on _id
+
+		// Construct the User object, ensuring defaults for nested configuration objects.
+		const user: User = {
+			id: _id as string, // _id is stored as a string, consistent with createUser
+			name: userProps.name,
+			email: userProps.email,
+			enabled: userProps.enabled,
+			passwordHash: userProps.passwordHash, // Undefined if not in doc, matches User model
+			createdAt: userProps.createdAt, // Assumed to be Date object from driver
+			lastLoginAt: userProps.lastLoginAt, // Assumed to be Date object or undefined
+			hilBudget: userProps.hilBudget,
+			hilCount: userProps.hilCount,
+			llmConfig: userProps.llmConfig ?? {}, // Default to empty object if undefined in DB
+			chat: userProps.chat ?? {}, // Default to empty object if undefined in DB
+			functionConfig: userProps.functionConfig ?? {}, // Default to empty object if undefined in DB
+		};
+
+		return user;
 	}
 
 	async createUser(user: Partial<User>): Promise<User> {
