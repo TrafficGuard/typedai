@@ -34,6 +34,29 @@ const APPROX_CHARS_PER_TOKEN = 4; // Approximate characters per token
 function norm(p: string): string {
 	return path.posix.normalize(p.trim().replace(/^\.\/+/, ''));
 }
+
+// Helper function to validate paths and return normalized valid paths
+async function validateAndFilterPaths(
+	rawPaths: string[],
+	workingDir: string,
+): Promise<{ validPaths: string[]; invalidPaths: string[] }> {
+	const fs = getFileSystem();
+	const validPaths: string[] = [];
+	const invalidPaths: string[] = [];
+	for (const rawPath of rawPaths) {
+		if (!rawPath) continue; // Skip empty/null paths
+		const normalizedPath = norm(rawPath);
+		try {
+			await fs.readFile(path.join(workingDir, normalizedPath));
+			validPaths.push(normalizedPath); // Store normalized path
+		} catch (e) {
+			logger.info(`Path validation failed for ${rawPath} (normalized: ${normalizedPath}): ${(e as Error).message}`);
+			invalidPaths.push(rawPath); // Store original raw path for reporting
+		}
+	}
+	return { validPaths, invalidPaths };
+}
+
 const MAX_SEARCH_CHARS = MAX_SEARCH_TOKENS * APPROX_CHARS_PER_TOKEN; // Maximum characters for search results
 
 interface InitialResponse {
@@ -184,74 +207,120 @@ async function selectFilesCore(
 	messages.push({ role: 'assistant', content: JSON.stringify(initialResponse) });
 
 	const initialRawInspectPaths = initialResponse.inspectFiles || [];
+	const workingDir = getFileSystem().getWorkingDirectory();
+
+	// Validate initial paths (Fix #5)
+	const { validPaths: validatedInitialInspectPaths, invalidPaths: initiallyInvalidPaths } = await validateAndFilterPaths(
+		initialRawInspectPaths,
+		workingDir,
+	);
 
 	// Use Maps to store kept/ignored files to ensure uniqueness by path
 	const keptFiles = new Map<string, string>(); // path -> reason
 	const ignoredFiles = new Map<string, string>(); // path -> reason
 	const filesPendingDecision = new Set<string>();
-	for (const rawPath of initialRawInspectPaths) {
-		filesPendingDecision.add(norm(rawPath));
+
+	for (const validPath of validatedInitialInspectPaths) {
+		filesPendingDecision.add(validPath); // Add normalized valid paths
 	}
-	let filesToInspect = initialRawInspectPaths; // Contains raw paths for readFileContents
+	// filesToInspect will carry the validated, normalized paths for content reading
+	let filesToInspect = validatedInitialInspectPaths;
+	let newInvalidPathsFromLastTurn: string[] = initiallyInvalidPaths; // For the first iteration message
 
 	let usingHardLLM = false;
 
 	while (true) {
 		iterationCount++;
-		if (iterationCount > maxIterations) throw new Error('Maximum interaction iterations reached.');
+		if (iterationCount > maxIterations) {
+			if (keptFiles.size > 0) { // Fix #3
+				logger.warn('Maximum interaction iterations reached. Returning current selection.');
+				break;
+			}
+			throw new Error('Maximum interaction iterations reached and no files selected.');
+		}
 
-		const response: IterationResponse = await generateFileSelectionProcessingResponse(messages, filesToInspect, filesPendingDecision, iterationCount, llm);
+		const response: IterationResponse = await generateFileSelectionProcessingResponse(
+			messages,
+			filesToInspect, // These are pre-validated, normalized paths
+			filesPendingDecision,
+			newInvalidPathsFromLastTurn, // Pass invalid paths from previous turn (Fix #5)
+			iterationCount,
+			llm,
+		);
 		console.log(response);
+
+		// Process keep/ignore decisions first (Fix #1)
+		for (const ignored of response.ignoreFiles ?? []) {
+			const key = norm(ignored.filePath);
+			ignoredFiles.set(key, ignored.reason);
+			filesPendingDecision.delete(key);
+		}
+		for (const kept of response.keepFiles ?? []) {
+			const key = norm(kept.filePath);
+			keptFiles.set(key, kept.reason);
+			filesPendingDecision.delete(key);
+		}
+
+		const justKeptPaths = response.keepFiles?.map((f) => norm(f.filePath)) ?? [];
+		if (justKeptPaths.length > 0) {
+			try {
+				const cwd = getFileSystem().getWorkingDirectory();
+				const vcsRoot = getFileSystem().getVcsRoot();
+				const alternativeFiles = await includeAlternativeAiToolFiles(justKeptPaths, { cwd, vcsRoot });
+				for (const altFile of alternativeFiles) {
+					if (!keptFiles.has(altFile) && !ignoredFiles.has(altFile)) {
+						keptFiles.set(altFile, 'Relevant AI tool configuration/documentation file');
+						logger.info(`Automatically included relevant AI tool file: ${altFile}`);
+					}
+				}
+			} catch (error) {
+				logger.warn(error, `Failed to check for or include alternative AI tool files based on: ${justKeptPaths.join(', ')}`);
+			}
+		}
+
+		// Validate newly requested inspectFiles (Fix #5)
+		const rawNewInspectPaths = response.inspectFiles ?? [];
+		const { validPaths: validatedNewInspectPaths, invalidPaths: newlyInvalidPaths } = await validateAndFilterPaths(rawNewInspectPaths, workingDir);
+
+		for (const validPath of validatedNewInspectPaths) {
+			filesPendingDecision.add(validPath); // Add normalized valid paths
+		}
+		filesToInspect = validatedNewInspectPaths; // Update filesToInspect for the next iteration
+		newInvalidPathsFromLastTurn = newlyInvalidPaths; // For the next call to generateFileSelectionProcessingResponse
+
+		// Enforce that all pending files are addressed if no new inspection/search is requested (Fix #2)
+		if (filesPendingDecision.size > 0 && !response.search && filesToInspect.length === 0) {
+			throw new Error(
+				`LLM did not resolve all pending files and requested no new actions. Still pending: ${[...filesPendingDecision].join(', ')}`,
+			);
+		}
 
 		if (response.search) {
 			const searchRegex = response.search;
-			// Ensure all pending files are processed if a search is also returned, though current prompt structure makes this unlikely.
-			// For now, we assume search means no keep/ignore/inspect decision on *other* files in this turn.
-			// If search is combined with keep/ignore, those should be processed first.
-			// The current prompt asks for inspect OR search, so this path is simpler.
 			const searchResultsText = await searchFileSystem(searchRegex);
 			console.log('Search Results ==================');
 			console.log(searchResultsText);
 			console.log('End Search Results ==================');
-			messages.push({ role: 'assistant', content: JSON.stringify({ search: searchRegex, inspectFiles: [], keepFiles: [], ignoreFiles: [] }) });
+			// The assistant message should reflect the actual response, including any keep/ignore/inspect decisions made alongside search.
+			messages.push({ role: 'assistant', content: JSON.stringify(response) });
 			messages.push({ role: 'user', content: searchResultsText, cache: 'ephemeral' });
-
-			filesToInspect = []; // LLM will decide next action based on search results
+			// filesToInspect was already updated with validated new inspectFiles. If search is also present,
+			// LLM might have asked to inspect some files AND search.
+			// If LLM uses search, it typically wouldn't inspect new files in the same turn, but the flexibility is there.
 		} else {
-			// Existing logic for keepFiles, ignoreFiles, inspectFiles
-			for (const ignored of response.ignoreFiles ?? []) {
-				const key = norm(ignored.filePath);
-				ignoredFiles.set(key, ignored.reason);
-				filesPendingDecision.delete(key);
-			}
-			for (const kept of response.keepFiles ?? []) {
-				const key = norm(kept.filePath);
-				keptFiles.set(key, kept.reason);
-				filesPendingDecision.delete(key);
-			}
+			// This 'else' block handles the case where NO search was performed.
+			// Keep/ignore/inspect decisions were already processed before the if(response.search).
+			// We still need to push the assistant's response and potentially user messages with file contents.
 
-			const justKeptPaths = response.keepFiles?.map((f) => norm(f.filePath)) ?? [];
-			if (justKeptPaths.length > 0) {
-				try {
-					const cwd = getFileSystem().getWorkingDirectory();
-					const vcsRoot = getFileSystem().getVcsRoot();
-					const alternativeFiles = await includeAlternativeAiToolFiles(justKeptPaths, { cwd, vcsRoot });
-					for (const altFile of alternativeFiles) {
-						if (!keptFiles.has(altFile) && !ignoredFiles.has(altFile)) {
-							keptFiles.set(altFile, 'Relevant AI tool configuration/documentation file');
-							logger.info(`Automatically included relevant AI tool file: ${altFile}`);
-						}
-					}
-				} catch (error) {
-					logger.warn(error, `Failed to check for or include alternative AI tool files based on: ${justKeptPaths.join(', ')}`);
-				}
-			}
-
-			if ((response.inspectFiles ?? []).length > 0 || (response.keepFiles ?? []).length > 0 || (response.ignoreFiles ?? []).length > 0) {
+			// If new files were requested for inspection (and validated into filesToInspect),
+			// or if files were kept/ignored, this implies an action was taken.
+			if (filesToInspect.length > 0 || (response.keepFiles ?? []).length > 0 || (response.ignoreFiles ?? []).length > 0) {
+				// processedIterativeStepUserPrompt adds contents of KEPT files.
+				// The contents for NEWLY INSPECTED files are added by generateFileSelectionProcessingResponse in the *next* turn.
 				messages.push(await processedIterativeStepUserPrompt(response));
 			}
 
-			const cache = (response.inspectFiles ?? []).length ? 'ephemeral' : undefined;
+			const cache = filesToInspect.length > 0 ? 'ephemeral' : undefined; // Ephemeral if new files are being inspected
 			messages.push({
 				role: 'assistant',
 				content: JSON.stringify(response),
@@ -260,33 +329,41 @@ async function selectFilesCore(
 
 			const cachedMessages = messages.filter((msg) => msg.cache === 'ephemeral');
 			if (cachedMessages.length > 4) {
-				cachedMessages[1].cache = undefined;
+				// This logic to remove 'ephemeral' status from older messages can be kept or revised.
+				// For now, keeping it as is, as it's not the primary focus of the fixes.
+				const firstEphemeralToClear = messages.find((msg, index) => {
+					const originalIndex = messages.indexOf(cachedMessages[1]);
+					return index === originalIndex;
+				});
+				if (firstEphemeralToClear) firstEphemeralToClear.cache = undefined;
 			}
-
-			const rawNewInspectPaths = response.inspectFiles ?? [];
-			for (const rawPath of rawNewInspectPaths) {
-				filesPendingDecision.add(norm(rawPath));
-			}
-			filesToInspect = rawNewInspectPaths; // Update filesToInspect with raw paths for the next iteration's readFileContents
 		}
 
 		// LLM decision logic for switching to hard LLM or breaking
-		if (!response.search) {
-			if (filesToInspect.length === 0 && filesPendingDecision.size === 0) {
-				if (!usingHardLLM) {
-					llm = llms().hard;
-					usingHardLLM = true;
-					logger.info('Switching to hard LLM for final review.');
-				} else {
-					logger.info('Hard LLM also decided not to inspect more files. Completing selection.');
-					break;
-				}
-			} else if (filesToInspect.length === 0 && filesPendingDecision.size > 0) {
-				logger.warn(
-					`LLM did not request new files to inspect, but ${filesPendingDecision.size} files are pending decision. Will proceed to next iteration for LLM to process pending files.`,
-				);
+		// This logic applies whether a search was performed or not.
+		// If a search was performed, filesToInspect might be empty (if LLM only searched),
+		// or it might contain files if LLM searched AND asked to inspect some (uncommon but possible).
+		if (filesToInspect.length === 0 && filesPendingDecision.size === 0) {
+			// No new files to inspect, and all previously pending files decided.
+			if (!usingHardLLM) {
+				llm = llms().hard;
+				usingHardLLM = true;
+				logger.info('Switching to hard LLM for final review.');
+			} else {
+				logger.info('Hard LLM also decided not to inspect more files and no files are pending. Completing selection.');
+				break;
 			}
-		} else {
+		} else if (filesToInspect.length === 0 && filesPendingDecision.size > 0) {
+			// No new files requested for inspection, but some files are still pending.
+			// Fix #2 (throw error) handles this if LLM doesn't request search or inspect.
+			// This log remains useful if Fix #2 condition isn't met (e.g., LLM requests search).
+			logger.warn(
+				`LLM did not request new files to inspect, but ${filesPendingDecision.size} files are pending decision. Will proceed to next iteration.`,
+			);
+		} else if (filesToInspect.length > 0) {
+			// New files were requested for inspection (and validated into filesToInspect).
+			logger.debug(`${filesToInspect.length} new files to inspect. Proceeding to next iteration.`);
+		} else if (response.search) {
 			logger.debug('Search was performed. Proceeding to next iteration for LLM to process search results.');
 		}
 	}
@@ -361,26 +438,39 @@ For this initial file selection step, identify the files you need to **inspect**
 
 async function generateFileSelectionProcessingResponse(
 	messages: LlmMessage[],
-	filesToInspect: string[],
-	pendingFiles: Set<string>,
+	filesToInspect: string[], // These are pre-validated, normalized paths
+	pendingFiles: Set<string>, // Contains normalized, validated paths
+	invalidPathsFromLastInspection: string[], // New parameter for Fix #5
 	iteration: number,
 	llm: LLM,
 ): Promise<IterationResponse> {
-	const filesForContent = filesToInspect.length > 0 ? filesToInspect : Array.from(pendingFiles);
+	// filesForContent are the files whose contents will be shown to the LLM in this turn.
+	// These are the newly requested (and validated) filesToInspect.
+	// If no new files are requested for inspection, but files are pending,
+	// the prompt will still list all pendingFiles, but contents for them are not re-shown unless filesToInspect is empty.
+	// The original logic was: const filesForContent = filesToInspect.length > 0 ? filesToInspect : Array.from(pendingFiles);
+	// This could lead to re-showing all pending files. Let's stick to only showing newly inspected files.
+	// The prompt will remind LLM about all pending files by listing their paths.
+	const filesForContent = filesToInspect; // filesToInspect now contains only valid, newly requested files
 
 	let prompt = '';
-	if (filesForContent.length) {
-		prompt = (await readFileContents(filesForContent)).contents;
+
+	if (invalidPathsFromLastInspection.length > 0) {
+		prompt += `The following paths requested for inspection in the previous turn were invalid or unreadable and have been ignored: ${invalidPathsFromLastInspection.join(', ')}\n\n`;
 	}
 
-	if (pendingFiles.size) {
+	if (filesForContent.length > 0) {
+		prompt += `Contents of newly requested files for inspection:\n${(await readFileContents(filesForContent)).contents}\n`;
+	}
+
+	if (pendingFiles.size > 0) {
 		prompt += `
-The files whose contents were provided in this turn (if any, corresponding to paths listed below) or are still pending decision from earlier turns are:
+The following files are currently pending your decision (some contents may have been provided in this turn or previous turns):
 ${Array.from(pendingFiles).join('\n')}
 These files MUST be addressed by including them in either "keepFiles" or "ignoreFiles" in your response.`;
 	} else {
 		prompt +=
-			'\nNo specific files were provided for direct inspection in this turn, and no files are pending decision. Evaluate based on previous information, search results, or the project overview.';
+			'\nNo files are currently pending decision. You can request to inspect new files, search, or complete the selection.';
 	}
 
 	prompt += `
@@ -389,25 +479,25 @@ You have the following actions available in your JSON response:
 1.  **Decide on Pending/Inspected Files**:
     - "keepFiles": Array of {"filePath": "file/path", "reason": "why_essential"}. Only for files whose necessity is confirmed.
     - "ignoreFiles": Array of {"filePath": "file/path", "reason": "why_not_needed"}. For files previously inspected or considered but found non-essential.
-    *All files listed above as pending or provided for inspection MUST be included in either "keepFiles" or "ignoreFiles".*
+    *All files listed above as pending MUST be included in either "keepFiles" or "ignoreFiles". This is crucial.*
 
 2.  **Request to Inspect New Files**:
-    - "inspectFiles": Array of ["path/to/new/file1", "path/to/new/file2"]. Use this if you need to see the content of specific new files identified from the project structure or previous search results. Only request if you have a strong, specific reason. Do NOT use this if you are using "search".
+    - "inspectFiles": Array of ["path/to/new/file1", "path/to/new/file2"]. Use this if you need to see the content of specific new files. Do NOT use this if you are using "search" in the same response, unless you also have pending files to decide upon.
 
 3.  **Search File Contents**:
-    - "search": "your_regex_pattern_here". Use this if you need to find files based on their content and the existing information (project files, summaries, previous search results) is insufficient.
-    - The search results will be provided in the next turn. You can then decide to inspect files from those search results. Do NOT use this if you are using "inspectFiles".
+    - "search": "your_regex_pattern_here". Use this if you need to find files based on their content.
+    - The search results will be provided in the next turn.
+    - *Important (Fix #4 clarification)*: If you use "search", you **must still** include "keepFiles" and "ignoreFiles" for any files currently pending decision.
 
 **Workflow Strategy**:
-- Prioritize deciding on any files whose contents you've already seen or that are pending decision.
-- If more information is needed:
-    - If you know the specific file paths, use "inspectFiles".
+- **Always prioritize deciding on all pending files.** Include them in "keepFiles" or "ignoreFiles".
+- If more information is needed *after* deciding on all pending files:
+    - If you know specific file paths, use "inspectFiles".
     - If you need to discover files based on content, use "search".
-- You can use "inspectFiles" OR "search" in a single response, but not both. If "search" is used, you will evaluate its results in the next turn.
-- If you have files to keep/ignore from previous steps, always include those decisions alongside any "inspectFiles" or "search" request.
+- You can use "inspectFiles" OR "search" in a single response to gather new information, but decisions on pending files are mandatory in every response that involves them.
 
 Have you inspected enough files OR have enough information from searches to confidently determine the minimal essential set?
-If yes, and all pending files are decided, return empty arrays for "inspectFiles", no "search" property, and ensure "keepFiles" contains the final selection.
+If yes, and all pending files are decided (i.e., `pendingFiles` list above would be empty if this was the start of the turn), return empty arrays for "inspectFiles", no "search" property, and ensure "keepFiles" contains the final selection.
 
 The final part of the response must be a JSON object in the following format:
 <json>
@@ -418,8 +508,8 @@ The final part of the response must be a JSON object in the following format:
   "ignoreFiles": [
     {"filePath": "path/to/nonessential/file2", "reason": "Explains why this file is not needed."}
   ],
-  "inspectFiles": [], // Optional: new files to inspect. Mutually exclusive with "search".
-  "search": "" // Optional: regex to search file contents. Mutually exclusive with "inspectFiles".
+  "inspectFiles": [], // Optional: new files to inspect.
+  "search": "" // Optional: regex to search file contents.
 }
 </json>
 `;
