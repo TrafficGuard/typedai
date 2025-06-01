@@ -187,7 +187,7 @@ export class MongoCodeReviewService implements CodeReviewService {
 			// Sanitize updates: remove the 'id' property from processedUpdates if it exists.
 			// This prevents attempting to modify the immutable '_id' field in MongoDB.
 			// The 'id' field in CodeReviewConfig corresponds to '_id' in the database.
-			if (processedUpdates.hasOwnProperty('id')) {
+			if ('id' in processedUpdates) {
 				processedUpdates.id = undefined;
 			}
 
