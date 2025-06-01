@@ -2,17 +2,20 @@ import { Buffer } from 'node:buffer';
 import { type Collection, type Db, ObjectId } from 'mongodb';
 import type { CodeReviewConfig } from '#shared/codeReview/codeReview.model';
 import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
-import type { CodeReviewFingerprintCache } from '#swe/codeReview/codeReviewTaskModel';
+import { type CodeReviewFingerprintCache, EMPTY_CACHE } from '#swe/codeReview/codeReviewTaskModel';
 
 const CODE_REVIEW_CONFIGS_COLLECTION = 'codeReviewConfigs';
 
 export class MongoCodeReviewService implements CodeReviewService {
 	private static readonly MAX_FIELD_SIZE_BYTES = 1 * 1024 * 1024; // 1MB
+	private static readonly MERGE_REQUEST_REVIEW_CACHE_COLLECTION = 'mergeRequestReviewCache';
 
 	private readonly codeReviewConfigsCollection: Collection<any>;
+	private readonly mergeRequestReviewCacheCollection: Collection<any>;
 
 	constructor(private db: Db) {
 		this.codeReviewConfigsCollection = this.db.collection<any>(CODE_REVIEW_CONFIGS_COLLECTION);
+		this.mergeRequestReviewCacheCollection = this.db.collection<any>(MongoCodeReviewService.MERGE_REQUEST_REVIEW_CACHE_COLLECTION);
 	}
 
 	async getCodeReviewConfig(id: string): Promise<CodeReviewConfig | null> {
@@ -285,9 +288,63 @@ export class MongoCodeReviewService implements CodeReviewService {
 		}
 	}
 
+	private _getMRCacheDocId(projectId: string | number, mrIid: number): string {
+		const safeProjectId = typeof projectId === 'string' ? projectId.replace(/[^a-zA-Z0-9_-]/g, '_') : projectId;
+		return `proj_${safeProjectId}_mr_${mrIid}`;
+	}
+
 	async getMergeRequestReviewCache(projectId: string | number, mrIid: number): Promise<CodeReviewFingerprintCache> {
-		// TODO: Implement method
-		throw new Error('Method not implemented.');
+		try {
+			const mrDocId = this._getMRCacheDocId(projectId, mrIid);
+			console.debug(`MongoCodeReviewService: Loading merge request review cache object for docId: ${mrDocId}`);
+
+			// In MongoDB, the document ID is stored in the _id field.
+			// We are using the generated string mrDocId as the _id.
+			const doc = await this.mergeRequestReviewCacheCollection.findOne({ _id: mrDocId });
+
+			if (!doc) {
+				console.debug(`MongoCodeReviewService: MR cache document not found for docId: ${mrDocId}, returning default empty cache.`);
+				return EMPTY_CACHE();
+			}
+
+			// In MongoDB, findOne returns the document directly, which is the data itself.
+			const data = doc;
+
+			// Validate structure: lastUpdated is number, fingerprints is ARRAY
+			if (data && typeof data.lastUpdated === 'number' && Array.isArray(data.fingerprints)) {
+				console.debug(
+					`MongoCodeReviewService: MR cache object loaded for docId: ${mrDocId}. Last updated: ${new Date(
+						data.lastUpdated,
+					).toISOString()}, Count: ${data.fingerprints.length}`,
+				);
+				// Convert stored array back to a Set
+				const fingerprintSet = new Set<string>(data.fingerprints);
+				const hashes = data.hashes
+					? new Map<string, Set<string>>(Object.entries(data.hashes).map(([key, value]) => [key, new Set(value as string[])]))
+					: new Map<string, Set<string>>();
+				return {
+					lastUpdated: data.lastUpdated,
+					fingerprints: fingerprintSet,
+					hashes,
+				};
+			}
+			console.warn(
+				`MongoCodeReviewService: MR cache document for docId: ${mrDocId} exists but has invalid format. Expected lastUpdated: number, fingerprints: array. Data: ${JSON.stringify(
+					data,
+				)}. Returning default empty cache.`,
+			);
+			return EMPTY_CACHE();
+		} catch (error) {
+			// Attempt to get mrDocId for logging, it might not be available if _getMRCacheDocId itself failed, though unlikely here.
+			let mrDocIdForError = 'unknown';
+			try {
+				mrDocIdForError = this._getMRCacheDocId(projectId, mrIid);
+			} catch {
+				// Ignore error during error handling for docId retrieval
+			}
+			console.error(`MongoCodeReviewService.getMergeRequestReviewCache: Error getting cache for docId "${mrDocIdForError}":`, error);
+			return EMPTY_CACHE(); // Return empty cache on error as per Firestore's behavior
+		}
 	}
 
 	async updateMergeRequestReviewCache(projectId: string | number, mrIid: number, fingerprintsToSave: CodeReviewFingerprintCache): Promise<void> {
