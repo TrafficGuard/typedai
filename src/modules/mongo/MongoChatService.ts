@@ -1,6 +1,6 @@
+import type { Db } from 'mongodb';
 import type { ChatService } from '#chat/chatService';
 import type { Chat, ChatList } from '#shared/chat/chat.model';
-import type { Db } from 'mongodb';
 
 export class MongoChatService implements ChatService {
 	constructor(private db: Db) {}
