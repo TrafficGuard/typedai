@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs'; // Using async fs as per project DOCS.md
 import * as path from 'node:path';
 import { Mistral } from '@mistralai/mistralai';
+import { MistralTokenizer } from 'mistral-tokenizer-ts';
 import type { CodeDoc, Corpus } from './types';
 
 /** The number of top-k most similar documents to retrieve in a search. */
@@ -21,6 +22,7 @@ export const CHUNK_SIZE = 3000;
 export const CHUNK_OVERLAP = 1000;
 
 let client: Mistral | undefined;
+let tokenizerInstance: MistralTokenizer | undefined;
 
 /**
  * Retrieves a singleton instance of the MistralClient.
@@ -37,6 +39,18 @@ export function getMistralClient(): Mistral {
 		client = new Mistral({ apiKey });
 	}
 	return client;
+}
+
+/**
+ * Retrieves a singleton instance of the MistralTokenizer.
+ * Initializes the tokenizer if it hasn't been already.
+ * @returns The MistralTokenizer instance.
+ */
+export function getMistralTokenizer(): MistralTokenizer {
+	if (!tokenizerInstance) {
+		tokenizerInstance = new MistralTokenizer();
+	}
+	return tokenizerInstance;
 }
 
 /** Enum representing supported programming/markup languages for code processing. */
@@ -275,6 +289,133 @@ export function chunkCorpus(corpus: Corpus, effectiveChunkSize: number = CHUNK_S
  * @param dir
  */
 export async function indexRepository(repositoryId: string, dir = './'): Promise<void> {}
+
+/**
+ *
+ * @param repositoryId
+ */
+export async function indexRepository(repositoryId: string, dir = './'): Promise<void> {}
+
+/**
+ * Generates embeddings for a batch of texts using the Mistral API.
+ * Handles tokenization, truncation, batching according to API limits, and API calls.
+ * @param texts An array of strings to embed.
+ * @returns A Promise resolving to an array of number arrays (embeddings), in the same order as the input texts.
+ *          Empty arrays are returned for texts that could not be processed or resulted in errors.
+ */
+export async function getEmbeddingsBatch(texts: string[]): Promise<number[][]> {
+	if (!texts || texts.length === 0) {
+		return [];
+	}
+
+	const tokenizer = getMistralTokenizer();
+	const client = getMistralClient(); // Ensure getMistralClient is called to get the initialized client
+
+	const processedTextData: { textForApi: string; originalIndex: number }[] = [];
+
+	for (let i = 0; i < texts.length; i++) {
+		const originalText = texts[i];
+		if (typeof originalText !== 'string' || originalText.trim() === '') {
+			// Handle non-strings or effectively empty strings early
+			processedTextData.push({ textForApi: '', originalIndex: i }); // Mark for potential empty embedding later
+			continue;
+		}
+
+		const tokens = tokenizer.encode(originalText);
+		const tokenCount = tokens.length;
+
+		if (tokenCount === 0) {
+			processedTextData.push({ textForApi: '', originalIndex: i }); // Mark for potential empty embedding
+			continue;
+		}
+
+		if (tokenCount > MAX_SEQUENCE_LENGTH) {
+			const truncatedTokens = tokens.slice(0, MAX_SEQUENCE_LENGTH);
+			const textForApi = tokenizer.decode(truncatedTokens);
+			processedTextData.push({ textForApi, originalIndex: i });
+			console.warn(`Truncated text at index ${i} from ${tokenCount} to ${MAX_SEQUENCE_LENGTH} tokens (actual truncated tokens: ${truncatedTokens.length})`);
+		} else {
+			processedTextData.push({ textForApi: originalText, originalIndex: i });
+		}
+	}
+
+	if (processedTextData.length === 0) {
+		// Should not happen if input texts is not empty, but as a safeguard
+		return new Array(texts.length).fill([]);
+	}
+
+	const embeddingsMap: Map<number, number[]> = new Map();
+	let currentBatchData: { textForApi: string; originalIndex: number; tokenCount: number }[] = [];
+	let currentBatchTotalTokens = 0;
+
+	for (const item of processedTextData) {
+		// If textForApi was marked as empty earlier (e.g. original was empty, or tokenized to nothing)
+		if (item.textForApi === '') {
+			embeddingsMap.set(item.originalIndex, []);
+			continue;
+		}
+
+		const itemTokens = tokenizer.encode(item.textForApi); // Re-tokenize, as textForApi might be a decoded truncated version
+		const itemTokenCount = itemTokens.length;
+
+		if (itemTokenCount === 0) {
+			// If even the (potentially truncated) text tokenizes to nothing
+			embeddingsMap.set(item.originalIndex, []);
+			continue;
+		}
+		// A single item cannot exceed MAX_SEQUENCE_LENGTH due to prior truncation.
+		// MAX_TOTAL_TOKENS is for the batch. If a single item is larger than MAX_TOTAL_TOKENS,
+		// it will be processed in its own batch. The API might reject it then.
+
+		if (currentBatchData.length > 0 && (currentBatchData.length >= MAX_BATCH_SIZE || currentBatchTotalTokens + itemTokenCount > MAX_TOTAL_TOKENS)) {
+			// Process currentBatchData
+			console.log(`Processing batch of ${currentBatchData.length} texts, total tokens: ${currentBatchTotalTokens}...`);
+			const textsInBatchForApi = currentBatchData.map((d) => d.textForApi);
+			try {
+				const response = await client.embeddings.create({ model: EMBED_MODEL, input: textsInBatchForApi });
+				response.data.forEach((embeddingData, batchIndex) => {
+					const dataItem = currentBatchData[batchIndex];
+					embeddingsMap.set(dataItem.originalIndex, embeddingData.embedding);
+				});
+			} catch (e) {
+				console.error(`Error processing batch: ${e instanceof Error ? e.message : String(e)}`);
+				currentBatchData.forEach((dataItem) => {
+					embeddingsMap.set(dataItem.originalIndex, []); // Store empty array for failed items
+				});
+			}
+			currentBatchData = [];
+			currentBatchTotalTokens = 0;
+		}
+
+		currentBatchData.push({ textForApi: item.textForApi, originalIndex: item.originalIndex, tokenCount: itemTokenCount });
+		currentBatchTotalTokens += itemTokenCount;
+	}
+
+	// Process the last remaining batch
+	if (currentBatchData.length > 0) {
+		console.log(`Processing final batch of ${currentBatchData.length} texts, total tokens: ${currentBatchTotalTokens}...`);
+		const textsInBatchForApi = currentBatchData.map((d) => d.textForApi);
+		try {
+			const response = await client.embeddings.create({ model: EMBED_MODEL, input: textsInBatchForApi });
+			response.data.forEach((embeddingData, batchIndex) => {
+				const dataItem = currentBatchData[batchIndex];
+				embeddingsMap.set(dataItem.originalIndex, embeddingData.embedding);
+			});
+		} catch (e) {
+			console.error(`Error processing final batch: ${e instanceof Error ? e.message : String(e)}`);
+			currentBatchData.forEach((dataItem) => {
+				embeddingsMap.set(dataItem.originalIndex, []);
+			});
+		}
+	}
+
+	const allEmbeddings: number[][] = new Array(texts.length);
+	for (let i = 0; i < texts.length; i++) {
+		allEmbeddings[i] = embeddingsMap.get(i) ?? [];
+	}
+
+	return allEmbeddings;
+}
 
 /**
  *

@@ -2,8 +2,22 @@ import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { expect } from 'chai';
 import { afterEach, beforeEach, describe, it } from 'mocha';
+import * as sinon from 'sinon';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import { DO_CHUNKING as ACTUAL_DO_CHUNKING, Language, chunkCorpus, formatDoc, getLanguageFromPath, getLocalFileCorpus } from './codestralSearch'; // Adjusted path to be relative
+import * as codestralSearchModule from './codestralSearch'; // Adjusted path
+import {
+	DO_CHUNKING as ACTUAL_DO_CHUNKING,
+	EMBED_MODEL,
+	Language,
+	MAX_BATCH_SIZE,
+	MAX_SEQUENCE_LENGTH,
+	MAX_TOTAL_TOKENS,
+	chunkCorpus,
+	formatDoc,
+	getEmbeddingsBatch,
+	getLanguageFromPath,
+	getLocalFileCorpus,
+} from './codestralSearch'; // Adjusted path to be relative
 import type { CodeDoc, Corpus } from './types';
 
 describe('includeAlternativeAiToolFiles', () => {
@@ -15,8 +29,7 @@ describe('includeAlternativeAiToolFiles', () => {
 });
 
 describe('Codestral Search Utilities', () => {
-	// setupConditionalLoggerOutput(); // Already called in the original describe block, should be fine.
-	// If not, uncomment this.
+	setupConditionalLoggerOutput(); // Ensure it's called if this is the main describe for these utils
 
 	describe('getLanguageFromPath', () => {
 		it('should return Language.PYTHON for .py files', () => {
@@ -281,5 +294,293 @@ describe('Codestral Search Utilities', () => {
 				expect(chunked).not.to.equal(originalCorpus); // Ensure it's a copy
 			});
 		}
+	});
+});
+
+describe('getEmbeddingsBatch', () => {
+	let mistralClientMock: any;
+	let embeddingsCreateStub: sinon.SinonStub;
+	let consoleWarnSpy: sinon.SinonSpy;
+	let consoleErrorSpy: sinon.SinonSpy;
+	let consoleLogSpy: sinon.SinonSpy;
+
+	beforeEach(() => {
+		embeddingsCreateStub = sinon.stub();
+		mistralClientMock = { embeddings: { create: embeddingsCreateStub } };
+
+		// Stub getMistralClient as it's imported and used by getEmbeddingsBatch
+		sinon.stub(codestralSearchModule, 'getMistralClient').returns(mistralClientMock);
+
+		// Spy on console methods
+		consoleWarnSpy = sinon.spy(console, 'warn');
+		consoleErrorSpy = sinon.spy(console, 'error');
+		consoleLogSpy = sinon.spy(console, 'log');
+	});
+
+	afterEach(() => {
+		sinon.restore(); // This restores all stubs and spies created by sinon
+	});
+
+	it('should return an empty array for null input texts', async () => {
+		// @ts-expect-error testing null input
+		const result = await getEmbeddingsBatch(null);
+		expect(result).to.deep.equal([]);
+	});
+
+	it('should return an empty array for empty input texts', async () => {
+		const result = await getEmbeddingsBatch([]);
+		expect(result).to.deep.equal([]);
+	});
+
+	it('should process a single short text correctly', async () => {
+		const texts = ['hello'];
+		const mockEmbedding = [0.1, 0.2, 0.3];
+		embeddingsCreateStub.resolves({
+			data: [{ embedding: mockEmbedding, index: 0, object: 'embedding' }],
+			model: EMBED_MODEL,
+			usage: { prompt_tokens: 1, total_tokens: 1 },
+		});
+
+		const result = await getEmbeddingsBatch(texts);
+
+		expect(result).to.deep.equal([mockEmbedding]);
+		expect(embeddingsCreateStub.calledOnce).to.be.true;
+		expect(embeddingsCreateStub.firstCall.args[0]).to.deep.equal({
+			model: EMBED_MODEL,
+			input: texts,
+		});
+		expect(consoleLogSpy.calledWith(sinon.match(/Processing final batch of 1 texts/))).to.be.true;
+	});
+
+	it('should process multiple texts that fit into a single batch', async () => {
+		const texts = ['hello', 'world'];
+		const mockEmbeddings = [[0.1], [0.2]];
+		embeddingsCreateStub.resolves({
+			data: [
+				{ embedding: mockEmbeddings[0], index: 0, object: 'embedding' },
+				{ embedding: mockEmbeddings[1], index: 1, object: 'embedding' },
+			],
+			model: EMBED_MODEL,
+			usage: { prompt_tokens: 2, total_tokens: 2 },
+		});
+
+		const result = await getEmbeddingsBatch(texts);
+		expect(result).to.deep.equal(mockEmbeddings);
+		expect(embeddingsCreateStub.calledOnce).to.be.true;
+		expect(embeddingsCreateStub.firstCall.args[0].input).to.deep.equal(texts);
+		expect(consoleLogSpy.calledWith(sinon.match(/Processing final batch of 2 texts/))).to.be.true;
+	});
+
+	it('should truncate texts exceeding MAX_SEQUENCE_LENGTH and send truncated versions to API', async () => {
+		const tokenizer = codestralSearchModule.getMistralTokenizer(); // Use the actual tokenizer for this test
+		const longText = 'word '.repeat(MAX_SEQUENCE_LENGTH); // Create text likely > MAX_SEQUENCE_LENGTH tokens
+		const tokens = tokenizer.encode(longText);
+		const truncatedTokens = tokens.slice(0, MAX_SEQUENCE_LENGTH);
+		const expectedApiText = tokenizer.decode(truncatedTokens);
+
+		const mockEmbedding = [0.5];
+		embeddingsCreateStub.resolves({
+			data: [{ embedding: mockEmbedding, index: 0, object: 'embedding' }],
+			model: EMBED_MODEL,
+			usage: { prompt_tokens: MAX_SEQUENCE_LENGTH, total_tokens: MAX_SEQUENCE_LENGTH },
+		});
+
+		const result = await getEmbeddingsBatch([longText]);
+		expect(result).to.deep.equal([mockEmbedding]);
+		expect(consoleWarnSpy.calledOnce).to.be.true;
+		expect(consoleWarnSpy.firstCall.args[0]).to.contain('Truncated text at index 0');
+		expect(embeddingsCreateStub.calledOnce).to.be.true;
+		expect(embeddingsCreateStub.firstCall.args[0].input).to.deep.equal([expectedApiText]);
+	});
+
+	it('should create multiple batches if MAX_BATCH_SIZE is exceeded', async () => {
+		const texts: string[] = [];
+		for (let i = 0; i < MAX_BATCH_SIZE + 1; i++) {
+			texts.push(`text${i}`);
+		}
+		const mockEmbedding = [0.1];
+		// Mock API to return one embedding for each text in the batch
+		embeddingsCreateStub.callsFake(async (params: { input: string[] }) => {
+			return {
+				data: params.input.map((_, idx) => ({ embedding: mockEmbedding, index: idx, object: 'embedding' })),
+				model: EMBED_MODEL,
+				usage: { prompt_tokens: params.input.length, total_tokens: params.input.length },
+			};
+		});
+
+		const result = await getEmbeddingsBatch(texts);
+		expect(result.length).to.equal(MAX_BATCH_SIZE + 1);
+		result.forEach((emb) => expect(emb).to.deep.equal(mockEmbedding));
+		expect(embeddingsCreateStub.calledTwice).to.be.true;
+		expect(embeddingsCreateStub.firstCall.args[0].input.length).to.equal(MAX_BATCH_SIZE);
+		expect(embeddingsCreateStub.secondCall.args[0].input.length).to.equal(1);
+		expect(consoleLogSpy.calledWith(sinon.match(`Processing batch of ${MAX_BATCH_SIZE} texts`))).to.be.true;
+		expect(consoleLogSpy.calledWith(sinon.match(/Processing final batch of 1 texts/))).to.be.true;
+	});
+
+	it('should create multiple batches if MAX_TOTAL_TOKENS is exceeded', async () => {
+		// Assume each 'testtext' is e.g. 1 token for simplicity in test setup.
+		// MAX_TOTAL_TOKENS is 16384. Let's use a smaller mock value for easier testing.
+		// This requires modifying the constant for the test, or designing texts carefully.
+		// For now, let's assume a text that tokenizes to a large number.
+		const tokenizer = codestralSearchModule.getMistralTokenizer();
+		const textThatUsesHalfTokens = tokenizer.decode(new Array(Math.floor(MAX_TOTAL_TOKENS / 2)).fill(0)); // Create dummy text
+		const textThatUsesQuarterTokens = tokenizer.decode(new Array(Math.floor(MAX_TOTAL_TOKENS / 4)).fill(0));
+
+		const texts = [textThatUsesHalfTokens, textThatUsesHalfTokens, textThatUsesQuarterTokens]; // 0.5 + 0.5 (batch 1), 0.25 (batch 2)
+
+		const mockEmbedding = [0.1];
+		embeddingsCreateStub.callsFake(async (params: { input: string[] }) => {
+			return {
+				data: params.input.map((_, idx) => ({ embedding: mockEmbedding, index: idx, object: 'embedding' })),
+				model: EMBED_MODEL,
+				usage: { prompt_tokens: params.input.reduce((sum, t) => sum + tokenizer.encode(t).length, 0), total_tokens: 0 }, // Sum tokens for usage
+			};
+		});
+
+		const result = await getEmbeddingsBatch(texts);
+		expect(result.length).to.equal(3);
+		expect(embeddingsCreateStub.calledTwice).to.be.true;
+		// First batch should have 2 items
+		expect(embeddingsCreateStub.firstCall.args[0].input.length).to.equal(2);
+		// Second batch should have 1 item
+		expect(embeddingsCreateStub.secondCall.args[0].input.length).to.equal(1);
+		expect(consoleLogSpy.calledWith(sinon.match(/Processing batch of 2 texts/))).to.be.true;
+		expect(consoleLogSpy.calledWith(sinon.match(/Processing final batch of 1 texts/))).to.be.true;
+	});
+
+	it('should handle API errors for a batch and return empty arrays for that batchs items', async () => {
+		const texts = ['text1', 'text2', 'text3']; // text2 will be in the failing batch
+		const mockEmbedding1 = [0.1];
+		const mockEmbedding3 = [0.3];
+
+		embeddingsCreateStub
+			.onFirstCall()
+			.resolves({
+				// Batch for text1
+				data: [{ embedding: mockEmbedding1, index: 0, object: 'embedding' }],
+				model: EMBED_MODEL,
+				usage: { prompt_tokens: 1, total_tokens: 1 },
+			})
+			.onSecondCall()
+			.rejects(new Error('API Error for text2')) // Batch for text2 fails
+			.onThirdCall()
+			.resolves({
+				// Batch for text3
+				data: [{ embedding: mockEmbedding3, index: 0, object: 'embedding' }],
+				model: EMBED_MODEL,
+				usage: { prompt_tokens: 1, total_tokens: 1 },
+			});
+
+		// To make this test simpler, let's assume MAX_BATCH_SIZE = 1 for this specific test setup
+		// This would require more complex stubbing of constants or careful text construction.
+		// Let's test a simpler scenario: one batch fails.
+		embeddingsCreateStub.reset(); // Reset previous stubbing
+		embeddingsCreateStub.rejects(new Error('API Error'));
+
+		const result = await getEmbeddingsBatch(['fail1', 'fail2']);
+		expect(result).to.deep.equal([[], []]);
+		expect(consoleErrorSpy.calledOnce).to.be.true;
+		expect(consoleErrorSpy.firstCall.args[0]).to.contain('Error processing final batch: API Error');
+	});
+
+	it('should handle API errors for an intermediate batch and proceed with subsequent batches', async () => {
+		const texts = ['text1', 'text2', 'text3', 'text4']; // text2, text3 in failing batch
+		const mockEmbedding1 = [0.1];
+		const mockEmbedding4 = [0.4];
+
+		// Simulate MAX_BATCH_SIZE = 2 for this test
+		const originalMaxBatchSize = codestralSearchModule.MAX_BATCH_SIZE;
+		// @ts-ignore // Allow modification for test
+		codestralSearchModule.MAX_BATCH_SIZE = 2;
+
+		embeddingsCreateStub
+			.onFirstCall()
+			.resolves({
+				// Batch for text1, text2
+				data: [
+					{ embedding: mockEmbedding1, index: 0, object: 'embedding' },
+					// text2 would be here, but this batch will be made to fail
+				],
+				model: EMBED_MODEL,
+				usage: { prompt_tokens: 1, total_tokens: 1 },
+			}); // This setup is tricky. Let's make the first batch [text1], second [text2, text3] (fails), third [text4]
+
+		// Reset for a clearer setup:
+		embeddingsCreateStub.reset();
+		// @ts-ignore
+		codestralSearchModule.MAX_BATCH_SIZE = 1; // Make each text its own batch for simpler error isolation
+
+		embeddingsCreateStub.onCall(0).resolves({ data: [{ embedding: mockEmbedding1, index: 0, object: 'embedding' }], model: EMBED_MODEL, usage: { prompt_tokens: 1, total_tokens: 1 } });
+		embeddingsCreateStub.onCall(1).rejects(new Error('API Error for text2'));
+		embeddingsCreateStub.onCall(2).resolves({ data: [{ embedding: mockEmbedding4, index: 0, object: 'embedding' }], model: EMBED_MODEL, usage: { prompt_tokens: 1, total_tokens: 1 } });
+
+		const result = await getEmbeddingsBatch(['text1', 'text2', 'text3']); // text3 will use the third call
+		expect(result).to.deep.equal([mockEmbedding1, [], mockEmbedding4]);
+		expect(consoleErrorSpy.calledOnce).to.be.true;
+		expect(consoleErrorSpy.firstCall.args[0]).to.contain('Error processing batch: API Error for text2');
+		expect(embeddingsCreateStub.callCount).to.equal(3);
+
+		// @ts-ignore
+		codestralSearchModule.MAX_BATCH_SIZE = originalMaxBatchSize; // Restore
+	});
+
+	it('should skip texts that tokenize to zero tokens initially or after truncation, resulting in empty embedding', async () => {
+		const texts = ['', 'valid', '   ', 'tiny']; // Assume '' and '   ' tokenize to nothing or are pre-filtered
+		// 'tiny' might become empty after truncation if MAX_SEQUENCE_LENGTH is very small
+		const mockEmbedding = [0.7];
+		embeddingsCreateStub.callsFake(async (params: { input: string[] }) => {
+			if (params.input[0] === 'valid') {
+				return { data: [{ embedding: mockEmbedding, index: 0, object: 'embedding' }], model: EMBED_MODEL, usage: { prompt_tokens: 1, total_tokens: 1 } };
+			}
+			if (params.input[0] === 'tiny') {
+				// Simulate 'tiny' also gets an embedding if it's not empty after processing
+				return { data: [{ embedding: [0.8], index: 0, object: 'embedding' }], model: EMBED_MODEL, usage: { prompt_tokens: 1, total_tokens: 1 } };
+			}
+			throw new Error('Unexpected API call');
+		});
+
+		const result = await getEmbeddingsBatch(texts);
+		expect(result.length).to.equal(4);
+		expect(result[0]).to.deep.equal([]); // for ''
+		expect(result[1]).to.deep.equal(mockEmbedding); // for 'valid'
+		expect(result[2]).to.deep.equal([]); // for '   '
+		expect(result[3]).to.deep.equal([0.8]); // for 'tiny'
+
+		expect(embeddingsCreateStub.calledTwice).to.be.true; // Called for 'valid' and 'tiny'
+		expect(embeddingsCreateStub.getCall(0).args[0].input).to.deep.equal(['valid']);
+		expect(embeddingsCreateStub.getCall(1).args[0].input).to.deep.equal(['tiny']);
+	});
+
+	it('should correctly handle texts that become empty after truncation and re-tokenization', async () => {
+		const tokenizer = codestralSearchModule.getMistralTokenizer();
+		// Craft a text that is non-empty, but when truncated and decoded, becomes empty or tokenizes to zero.
+		// This is hard to achieve reliably without knowing tokenizer specifics for edge cases.
+		// A more direct test: if item.textForApi is non-empty but itemTokenCount becomes 0.
+		// The current implementation handles this by `embeddingsMap.set(item.originalIndex, [])`.
+
+		// Let's test the case where initial text is fine, but truncated version is empty.
+		const originalMaxSeqLen = codestralSearchModule.MAX_SEQUENCE_LENGTH;
+		// @ts-ignore
+		codestralSearchModule.MAX_SEQUENCE_LENGTH = 1; // Force truncation to 1 token
+
+		// Assume 'abc' tokenizes to [tA, tB, tC]. Truncated to [tA]. If decode([tA]) is '', then it's covered.
+		// Or, if decode([tA]) is 'a', but encode('a') is [].
+		// This test might be more conceptual given tokenizer behavior.
+		// The logic `if (itemTokenCount === 0)` after re-tokenizing `item.textForApi` covers this.
+
+		const textToBecomeEmpty = '特殊字符'; // A string that might become empty if truncated to 1 token and decoded by some tokenizers
+		// Or a very short string that if truncated further becomes empty.
+
+		embeddingsCreateStub.resolves({ data: [], model: EMBED_MODEL, usage: { prompt_tokens: 0, total_tokens: 0 } }); // Should not be called if text becomes empty
+
+		const result = await getEmbeddingsBatch([textToBecomeEmpty]);
+		expect(result.length).to.equal(1);
+		expect(result[0]).to.deep.equal([]); // Expect empty embedding
+		expect(embeddingsCreateStub.notCalled).to.be.true; // API should not be called for this text
+		expect(consoleWarnSpy.called).to.be.true; // Truncation warning
+
+		// @ts-ignore
+		codestralSearchModule.MAX_SEQUENCE_LENGTH = originalMaxSeqLen; // Restore
 	});
 });
