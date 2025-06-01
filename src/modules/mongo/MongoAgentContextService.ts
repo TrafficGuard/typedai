@@ -103,8 +103,20 @@ export class MongoAgentContextService implements AgentContextService {
 	}
 
 	async save(state: AgentContext): Promise<void> {
-		const doc = agentContextToDbDoc(state);
 		try {
+			// Handle parent agent relationship
+			if (state.parentAgentId) {
+				const parentDoc = await this.agentContextsCollection.findOne({ _id: state.parentAgentId });
+
+				if (!parentDoc) {
+					throw new NotFound(`Parent agent with ID ${state.parentAgentId} not found when attempting to save child agent ${state.agentId}.`);
+				}
+
+				await this.agentContextsCollection.updateOne({ _id: state.parentAgentId }, { $addToSet: { childAgents: state.agentId } });
+			}
+
+			// Save current agent's state
+			const doc = agentContextToDbDoc(state);
 			await this.agentContextsCollection.updateOne({ _id: state.agentId }, { $set: doc }, { upsert: true });
 		} catch (error) {
 			logger.error(error, `Failed to save agent context [agentId=${state.agentId}]`);
