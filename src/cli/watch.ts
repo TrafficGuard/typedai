@@ -5,7 +5,21 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileExistsSync } from 'tsconfig-paths/lib/filesystem';
 import { logger } from '#o11y/logger';
+import { execCommand } from '#utils/exec';
 import { AiderCodeEditor } from '#swe/aiderCodeEditor';
+
+/**
+ * Walks up the directory tree from the file location until a `.git` folder is found.
+ * Falls back to the file's directory when no repository root is detected.
+ */
+function findRepoRoot(startFilePath: string): string {
+	let dir = path.dirname(startFilePath);
+	while (dir !== path.parse(dir).root) {
+		if (fs.existsSync(path.join(dir, '.git'))) return dir;
+		dir = path.dirname(dir);
+	}
+	return path.dirname(startFilePath);
+}
 
 async function main() {
 	startWatcher();
@@ -39,6 +53,25 @@ export function startWatcher() {
 			if (data.includes('AI-STATUS')) {
 				logger.info('AI-STATUS found');
 				return;
+			}
+
+			// -----------------------------------------------------------------
+			// New behaviour: look for @@ai … @@ blocks (can span multiple lines)
+			// -----------------------------------------------------------------
+			const aiCmdMatch = data.match(/@@ai([\\s\\S]*?)@@/m);
+			if (aiCmdMatch) {
+				const cmd = aiCmdMatch[1].trim();
+				const repoRoot = findRepoRoot(filePath);
+				logger.info(\`Executing AI command ("\${cmd}") in \${repoRoot}\`);
+
+				try {
+					const { stdout, stderr } = await execCommand(cmd, { workingDirectory: repoRoot, throwOnError: true });
+					if (stdout) logger.info(stdout);
+					if (stderr) logger.warn(stderr);
+				} catch (e) {
+					logger.error(e, \`Command "\${cmd}" failed\`);
+				}
+				return; // Do not continue with //>> watcher flow
 			}
 
 			const lines = data.split('\n');
