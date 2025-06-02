@@ -31,4 +31,13 @@ export class LocalStorageService {
         const key = this.DRAFT_MESSAGE_KEY_PREFIX + chatId;
         localStorage.setItem(key, message);
     }
+
+    getDraftMessage(chatId: string): string | null {
+        if (chatId === null || chatId === undefined) {
+            console.warn('LocalStorageService: chatId is null or undefined, cannot get draft.');
+            return null;
+        }
+        const key = this.DRAFT_MESSAGE_KEY_PREFIX + chatId;
+        return localStorage.getItem(key);
+    }
 }

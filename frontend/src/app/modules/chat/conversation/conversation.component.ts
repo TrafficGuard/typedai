@@ -239,6 +239,23 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 				}
 				this.updateLlmSelector();
 
+				// Load draft message for the current chat
+				if (currentChat && this.messageInput && this.messageInput.nativeElement) {
+					const chatIdToUse = currentChat.id === NEW_CHAT_ID ? 'new' : currentChat.id;
+					const draft = this._localStorageService.getDraftMessage(chatIdToUse);
+
+					if (draft !== null) {
+						this.messageInput.nativeElement.value = draft;
+						this._resizeMessageInput();
+					} else {
+						// If we switched from a different chat and there's no draft for the new chat, clear the input field.
+						if (this.previousChatId !== undefined && this.previousChatId !== null && this.previousChatId !== currentChat.id) {
+							this.messageInput.nativeElement.value = '';
+							this._resizeMessageInput();
+						}
+					}
+				}
+
 				// Update previousChatId for the next run
 				this.previousChatId = currentChatId;
 			});
