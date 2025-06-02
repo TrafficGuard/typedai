@@ -182,8 +182,37 @@ export class ChatServiceClient {
 	}
 
 	createChat(userContent: UserContentExt, llmId: string, options?: CallSettings, autoReformat?: boolean): Observable<Chat> {
+		let optimisticId: string | undefined; // Declare optimisticId
+
 		// userContent is already prepared by the component
 		const payload: ChatMessagePayload = { llmId, userContent, options, autoReformat: autoReformat ?? false };
+
+		// Optimistic update logic for NEW_CHAT_ID
+		const currentNewChatState = this._chatState();
+		if (currentNewChatState.status === 'success' && currentNewChatState.data.id === NEW_CHAT_ID) {
+			optimisticId = uuidv4();
+			const { attachments: optimisticUiAttachments, text: derivedTextFromUserContent } = userContentExtToAttachmentsAndText(userContent);
+			const userMessageEntry: ChatMessage = {
+				id: optimisticId,
+				content: userContent,
+				textContent: derivedTextFromUserContent,
+				fileAttachments: optimisticUiAttachments.filter((att) => att.type === 'file'),
+				imageAttachments: optimisticUiAttachments.filter((att) => att.type === 'image'),
+				isMine: true,
+				createdAt: new Date().toISOString(),
+				status: 'sending',
+				llmId: llmId, // Store the llmId used for the call
+			};
+			this._chatState.set({
+				status: 'success',
+				data: {
+					...currentNewChatState.data,
+					messages: [...(currentNewChatState.data.messages || []), userMessageEntry],
+				},
+			});
+		}
+		// End of optimistic update logic
+
 		// Returns Observable<Static<typeof ChatModelSchema>>
 		return callApiRoute(this._httpClient, CHAT_API.createChat, { body: payload }).pipe(
 			map((newApiChat: ApiChatModel) => {
@@ -203,8 +232,27 @@ export class ChatServiceClient {
 					});
 				}
 				this._chatState.set({ status: 'success', data: uiChat });
+				optimisticId = undefined; // Clear optimisticId on success path, as server data replaces it
 				return uiChat;
 			}),
+			catchError((error) => {
+				const currentNewChatStateOnError = this._chatState();
+				if (currentNewChatStateOnError.status === 'success' &&
+					currentNewChatStateOnError.data.id === NEW_CHAT_ID &&
+					optimisticId) {
+					const messages = currentNewChatStateOnError.data.messages || [];
+					const updatedMessages = messages.filter(m => m.id !== optimisticId);
+					this._chatState.set({
+						status: 'success',
+						data: {
+							...currentNewChatStateOnError.data,
+							messages: updatedMessages,
+						},
+					});
+				}
+				optimisticId = undefined; // Clear optimisticId on error path
+				return throwError(() => error);
+			})
 		);
 	}
 
@@ -346,6 +394,8 @@ export class ChatServiceClient {
 		attachmentsForUI?: Attachment[],
 		autoReformat?: boolean,
 	): Observable<void> {
+		let optimisticMessageId: string | undefined; // Declare optimisticMessageId
+
 		// userContent is already prepared by the component
 		const payload: ChatMessagePayload = { llmId, userContent, options, autoReformat: autoReformat ?? false };
 
@@ -359,7 +409,10 @@ export class ChatServiceClient {
 			fileAttachments: attachmentsForUI?.filter((att) => att.type === 'file') || [],
 			imageAttachments: attachmentsForUI?.filter((att) => att.type === 'image') || [],
 			createdAt: new Date().toISOString(),
+			status: 'sending', // Add status
+			llmId: llmId, // Store the llmId used for the call
 		};
+		optimisticMessageId = userMessageEntry.id; // Capture the ID
 
 		const currentChatState = this._chatState();
 		if (currentChatState.status === 'success') {
@@ -378,17 +431,25 @@ export class ChatServiceClient {
 				// apiLlmMessage is Static<LlmMessageSchema>
 				const aiChatMessage = convertMessage(apiLlmMessage as ApiLlmMessage);
 
-				const currentChatState = this._chatState();
-				if (currentChatState.status === 'success') {
+				const currentChatStateAfterApi = this._chatState(); // Renamed to avoid conflict
+				if (currentChatStateAfterApi.status === 'success') {
+					let messages = [...(currentChatStateAfterApi.data.messages || [])];
+					// Update status of the optimistic message to 'sent'
+					messages = messages.map(m =>
+						m.id === optimisticMessageId ? { ...m, status: 'sent' as const } : m
+					);
+					messages.push(aiChatMessage); // Add the new AI message
+
 					this._chatState.set({
 						status: 'success',
 						data: {
-							...currentChatState.data,
-							messages: [...(currentChatState.data.messages || []), aiChatMessage],
+							...currentChatStateAfterApi.data,
+							messages: messages,
 							updatedAt: Date.now(),
 						},
 					});
 				}
+				optimisticMessageId = undefined; // Clear on success
 
 				// Update the chat in the main list as well
 				const currentChatsState = this._chatsState();
@@ -423,6 +484,23 @@ export class ChatServiceClient {
 				}
 			}),
 			mapTo(undefined),
+			catchError((error) => {
+				const currentChatStateOnError = this._chatState();
+				if (currentChatStateOnError.status === 'success' && optimisticMessageId) {
+					const messages = currentChatStateOnError.data.messages || [];
+					// Remove the optimistic message that failed to send
+					const updatedMessages = messages.filter(m => m.id !== optimisticMessageId);
+					this._chatState.set({
+						status: 'success',
+						data: {
+							...currentChatStateOnError.data,
+							messages: updatedMessages,
+						},
+					});
+				}
+				optimisticMessageId = undefined; // Clear on error
+				return throwError(() => error);
+			})
 		);
 	}
 
@@ -765,6 +843,7 @@ function convertMessage(apiLlmMessage: ApiLlmMessage): ChatMessage {
 		...baseUiMessage,
 		content: chatMessageSpecificContent, // This is ChatMessage.content (UserContentExt)
 		isMine: apiLlmMessage.role === 'user',
+		status: 'sent', // Messages from API are considered sent
 		// generating is a UI-only state, not set from API message
 	};
 }
