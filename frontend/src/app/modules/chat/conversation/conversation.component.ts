@@ -544,6 +544,9 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 	 */
 	async sendMessage(): Promise<void> {
 		// Make method async
+		const chatStateBeforeSend = this.chat();
+		const draftChatIdToClear = chatStateBeforeSend && chatStateBeforeSend.id === NEW_CHAT_ID ? 'new' : chatStateBeforeSend?.id;
+
 		const messageText: string = this.messageInput.nativeElement.value.trim();
 		const attachments: Attachment[] = [...this.selectedAttachments()];
 
@@ -629,6 +632,10 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 				this.sendIcon.set('heroicons_outline:paper-airplane');
 				this._resizeMessageInput();
 				this._scrollToBottom();
+
+				if (draftChatIdToClear) {
+					this._localStorageService.clearDraftMessage(draftChatIdToClear);
+				}
 			},
 		});
 	}
