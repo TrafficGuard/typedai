@@ -26,8 +26,11 @@ if [ -d "/etc/skel" ] && [ -n "$(ls -A /etc/skel)" ]; then \
 else \
     echo "/etc/skel is empty or does not exist, skipping skel copy." ; \
 fi && \
-chown -R testuser:testuser /home/testuser && \
-echo "Ownership of /home/testuser set to testuser." && \
+# Attempt to chown the entire home directory, but ignore errors coming from
+# read-only mounts such as the GCLOUD config volume.
+chown -R testuser:testuser /home/testuser 2>/dev/null || \
+  echo "Warning: Skipping chown errors in /home/testuser (likely read-only mount)" && \
+echo "Ownership of /home/testuser set to testuser (read-only paths skipped)." && \
 # Setup sudoers for testuser
 echo 'testuser ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers && \
 echo "Sudoers configured for testuser." && \
