@@ -39,11 +39,13 @@ import { ChatInfoComponent } from 'app/modules/chat/chat-info/chat-info.componen
 import { type Chat, type ChatMessage, NEW_CHAT_ID } from 'app/modules/chat/chat.types';
 import { Attachment } from 'app/modules/message.types';
 import { MarkdownModule, MarkdownService, MarkedRenderer, provideMarkdown } from 'ngx-markdown';
-import { EMPTY, type Observable, catchError, combineLatest, distinctUntilChanged, from, interval, switchMap, tap } from 'rxjs';
+import { EMPTY, type Observable, catchError, combineLatest, distinctUntilChanged, from, interval, switchMap, tap, Subject } from 'rxjs';
+import { debounceTime } from 'rxjs/operators';
 import { v4 as uuidv4 } from 'uuid';
 import { UserContentExt } from '#shared/llm/llm.model';
 import { UserProfile } from '#shared/user/user.model';
 import { FuseConfirmationService } from '../../../../@fuse/services/confirmation';
+import { LocalStorageService } from 'app/core/services/local-storage.service';
 import { type LLM, LlmService } from '../../llm.service';
 import { attachmentsAndTextToUserContentExt, fileToAttachment, userContentExtToAttachmentsAndText } from '../../messageUtil';
 import { ChatServiceClient } from '../chat.service';
@@ -114,6 +116,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
 	autoReformatEnabled: WritableSignal<boolean> = signal(false);
 
+	private messageInputChanged: Subject<string> = new Subject<string>();
 	private mediaRecorder: MediaRecorder;
 	private audioChunks: Blob[] = [];
 	recording: WritableSignal<boolean> = signal(false);
@@ -175,6 +178,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 	protected userService = inject(UserService);
 	private _snackBar = inject(MatSnackBar);
 	private destroyRef = inject(DestroyRef);
+	private _localStorageService = inject(LocalStorageService);
 	private routeParamsSignal: Signal<any>;
 
 	constructor() {
@@ -300,13 +304,23 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 	@HostListener('input')
 	@HostListener('ngModelChange')
 	private _resizeMessageInput(): void {
+		// Push current input value to the subject for debounced saving
+		if (this.messageInput && this.messageInput.nativeElement) {
+			const currentMessage = this.messageInput.nativeElement.value;
+			this.messageInputChanged.next(currentMessage);
+		}
+
+		// Existing resize logic
 		// This doesn't need to trigger Angular's change detection by itself
 		this._ngZone.runOutsideAngular(() => {
 			setTimeout(() => {
-				// Set the height to 'auto' so we can correctly read the scrollHeight
-				this.messageInput.nativeElement.style.height = 'auto';
-				// Get the scrollHeight and subtract the vertical padding
-				this.messageInput.nativeElement.style.height = `${this.messageInput.nativeElement.scrollHeight}px`;
+				// Ensure messageInput and nativeElement exist before manipulating style
+				if (this.messageInput && this.messageInput.nativeElement) {
+					// Set the height to 'auto' so we can correctly read the scrollHeight
+					this.messageInput.nativeElement.style.height = 'auto';
+					// Get the scrollHeight and subtract the vertical padding
+					this.messageInput.nativeElement.style.height = `${this.messageInput.nativeElement.scrollHeight}px`;
+				}
 			}, 100);
 		});
 	}
@@ -330,6 +344,18 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 			.subscribe(({ matchingAliases }) => {
 				this.drawerMode.set(matchingAliases.includes('lg') ? 'side' : 'over');
 			});
+
+		this.messageInputChanged.pipe(
+			debounceTime(500),
+			takeUntilDestroyed(this.destroyRef)
+		).subscribe(draftText => {
+			const currentChat = this.chat();
+			if (currentChat) {
+				// Use 'new' as a special identifier for drafts of unsaved chats
+				const chatIdToUse = currentChat.id === NEW_CHAT_ID ? 'new' : currentChat.id;
+				this._localStorageService.saveDraftMessage(chatIdToUse, draftText);
+			}
+		});
 	}
 
 	ngOnDestroy(): void {}
