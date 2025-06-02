@@ -62,14 +62,14 @@ export function startWatcher() {
 			if (aiCmdMatch) {
 				const cmd = aiCmdMatch[1].trim();
 				const repoRoot = findRepoRoot(filePath);
-				logger.info(\`Executing AI command ("\${cmd}") in \${repoRoot}\`);
+				logger.info(`Executing AI command ("${cmd}") in ${repoRoot}`);
 
 				try {
 					const { stdout, stderr } = await execCommand(cmd, { workingDirectory: repoRoot, throwOnError: true });
 					if (stdout) logger.info(stdout);
 					if (stderr) logger.warn(stderr);
 				} catch (e) {
-					logger.error(e, \`Command "\${cmd}" failed\`);
+					logger.error(e, `Command "${cmd}" failed`);
 				}
 				return; // Do not continue with //>> watcher flow
 			}
