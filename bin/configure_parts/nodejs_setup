@@ -102,9 +102,16 @@ then
         print_fnm_shell_setup_instructions # Show detailed instructions again
         echo "==> Please open a NEW terminal window. <=="
         echo "This will allow your shell to load the new fnm environment settings."
-        echo "Then, from the new terminal, re-run this './bin/configure' script."
+        echo "Then, from the new terminal, re-run this './bin/configure' script if automatic setup fails."
         echo "----------------------------------------------------------------------------------"
-        exit 1
+        # Try to fix PATH by automatically adding fnm to shell config
+        ensure_fnm_shell_setup
+        source_current_shell_config
+        # Re-check if fnm is available after the automatic setup
+        if ! command -v fnm &> /dev/null; then
+            echo "Error: fnm still not available after automatic shell setup."
+            exit 1
+        fi
     else
         echo ""
         echo "fnm is now available in PATH."
@@ -131,7 +138,9 @@ if [ -z "$FNM_DIR" ]; then
     echo ""
     echo "If you've just updated it, try running 'source ~/.your_shell_rc_file' (e.g., source ~/.bashrc)"
     echo "or opening a new terminal tab and then re-running this './bin/configure' script."
-    echo "Attempting to proceed, but Node.js version management might not work as expected..."
+    echo "Attempting automatic shell setup for fnm..."
+    ensure_fnm_shell_setup
+    source_current_shell_config
     echo ""
 fi
 
