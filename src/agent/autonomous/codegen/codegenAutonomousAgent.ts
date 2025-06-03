@@ -21,6 +21,7 @@ import { AGENT_COMPLETED_NAME, AGENT_COMPLETED_PARAM_NAME, AGENT_SAVE_MEMORY_CON
 import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
 import { ForceStopError } from '#agent/forceStopAgent';
 import { cloneAndTruncateBuffers, removeConsoleEscapeChars } from '#agent/trimObject';
+import { camelToSnake, isKeywordArgumentCall } from './pythonCodeGenUtils';
 import { appContext } from '#app/applicationContext';
 import { getServiceName } from '#fastify/trace-init/trace-init';
 import { FUNC_SEP, type FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
@@ -474,25 +475,18 @@ function setupPyodideFunctionCallableGlobals(
 			const expectedParamNames = schema.parameters.map((p) => p.name);
 
 			// --- Argument Handling Logic ---
-			let isKeywordArgs = false;
-			// Check if the call *looks* like keyword arguments:
-			// 1. Exactly one argument was received from Pyodide.
-			// 2. That argument, after .toJs(), is a plain JavaScript object (not null, not an array).
-			// 3. The keys of that object are all valid parameter names for the target function.
-			if (args.length === 1 && typeof args[0] === 'object' && args[0] !== null && !Array.isArray(args[0])) {
-				const potentialKwargs = args[0];
+			const potentialKwargs =
+				args.length === 1 && typeof args[0] === 'object' && args[0] !== null && !Array.isArray(args[0]) ? args[0] : null;
+			const isKeywordArgs = potentialKwargs ? isKeywordArgumentCall(potentialKwargs, expectedParamNames) : false;
+
+			if (isKeywordArgs) {
+				logger.debug(`Detected keyword arguments for ${schema.name}: ${JSON.stringify(potentialKwargs)}`);
+			} else if (potentialKwargs) {
 				const receivedKeys = Object.keys(potentialKwargs);
 
-				// Check if *all* received keys are actual parameter names for this function
-				// AND ensure there's at least one key (don't treat {} as kwargs)
-				if (receivedKeys.length > 0 && receivedKeys.every((key) => expectedParamNames.includes(key))) {
-					isKeywordArgs = true;
-					logger.debug(`Detected keyword arguments for ${schema.name}: ${JSON.stringify(potentialKwargs)}`);
-				} else {
-					logger.warn(
-						`Function object arg didnt have keywords match. Had keys ${JSON.stringify(receivedKeys)}. Expected ${JSON.stringify(expectedParamNames)}`,
-					);
-				}
+				logger.warn(
+					`Function object arg didnt have keywords match. Had keys ${JSON.stringify(receivedKeys)}. Expected ${JSON.stringify(expectedParamNames)}`,
+				);
 			}
 
 			if (isKeywordArgs) {
@@ -501,11 +495,12 @@ function setupPyodideFunctionCallableGlobals(
 				// Reconstruct the arguments array in the order defined by the schema
 				for (const paramSchema of schema.parameters) {
 					const paramName = paramSchema.name;
-					// Get the value from the keyword args object, use undefined if missing
-					finalArgs.push(keywordArgs[paramName]);
-					// Populate parameters for logging history (only include provided keys)
-					if (Object.hasOwn(keywordArgs, paramName)) {
-						parameters[paramName] = keywordArgs[paramName];
+					const snakeName = camelToSnake(paramName);
+					const value =
+						Object.hasOwn(keywordArgs, paramName) ? keywordArgs[paramName] : keywordArgs[snakeName];
+					finalArgs.push(value);
+					if (Object.hasOwn(keywordArgs, paramName) || Object.hasOwn(keywordArgs, snakeName)) {
+						parameters[paramName] = value;
 					}
 				}
 			} else {
