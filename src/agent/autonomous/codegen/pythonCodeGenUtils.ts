@@ -1,3 +1,7 @@
+import type {FunctionParameter, FunctionSchema} from "#functionSchema/functions";
+import {logger} from "#o11y/logger";
+import {extractLastXmlTagContent} from "#agent/autonomous/codegen/codegenAutonomousAgentUtils";
+
 /**
  * Utility helpers shared by the CodeGen agent for analysing / transforming
  * Python-generated function calls coming back through Pyodide.
@@ -32,4 +36,149 @@ export function isKeywordArgumentCall(argObj: unknown, expectedParamNames: strin
 	}
 
 	return keys.every((k) => allowedKeys.has(k));
+}
+
+/**
+ * Converts the JSON function schemas to Python function declarations with docString
+ * @param jsonDefinitions The JSON object containing function schemas
+ * @returns A string containing the functions
+ */
+export function convertJsonToPythonDeclaration(jsonDefinitions: FunctionSchema[]): string {
+    let functions = '<functions>';
+
+    for (const def of jsonDefinitions) {
+        functions += `
+fun ${def.name}(${def.parameters.map((p) => `${p.name}: ${p.optional ? `Optional[${pythonType(p)}]` : pythonType(p)}`).join(', ')}) -> ${
+            def.returnType ? convertTypeScriptToPython(def.returnType) : 'None'
+        }
+    """
+    ${def.description}
+
+    Args:
+        ${def.parameters.map((p) => `${p.name}: ${p.description}`).join('\n        ')}
+    ${def.returns ? `Returns:\n        ${def.returns}\n    """` : '"""'}
+	`;
+    }
+    functions += '\n</functions>';
+    // arg and return typings. Shouldn't need to duplicate in the docstring
+    // (${p.optional ? `Optional[${type(p)}]` : type(p)}):
+    // ${def.returnType}:
+    return functions;
+}
+
+export function convertTypeScriptToPython(tsType: string): string {
+    // 0. Handle base cases and trim input
+    const originalTsType = tsType.trim();
+    if (!originalTsType) {
+        return '';
+    }
+
+    // 1. Strip Promise wrapper first
+    const processedType = originalTsType.replace(/^Promise<(.+)>$/, '$1').trim();
+    if (!processedType) {
+        return 'None'; // Handle Promise<void>
+    }
+
+    // 2. Handle Unions by splitting and recursion
+    // Always try splitting by '|' and recurse on parts.
+    // This relies on subsequent steps correctly handling partial/full types.
+    if (processedType.includes('|')) {
+        // Avoid splitting if inside quotes (e.g., literal types - not handled here yet)
+        // Basic check: if no < or { are involved, split directly
+        // If < or { are involved, assume it's complex and let later steps handle maybe?
+        // Let's try splitting always for now and see if recursion handles it.
+        return processedType
+            .split('|')
+            .map((part) => convertTypeScriptToPython(part.trim())) // Recursive call for each part
+            .join(' | ');
+    }
+
+    // --- Process Single Type Part ---
+
+    // 3. Handle specific known types first (Binary, Object Literal, object keyword)
+    if (processedType === 'Uint8Array' || processedType === 'Buffer' || processedType === 'ArrayBuffer') {
+        return 'bytes';
+    }
+    if ((processedType.startsWith('{') && processedType.endsWith('}') && processedType.includes(':')) || processedType === 'object') {
+        return 'Dict[str, Any]';
+    }
+
+    // 4. Handle base keywords
+    const keywordMappings: { [key: string]: string } = {
+        string: 'str',
+        number: 'float',
+        boolean: 'bool',
+        any: 'Any',
+        void: 'None',
+        undefined: 'None',
+        null: 'None',
+    };
+    if (keywordMappings[processedType]) {
+        return keywordMappings[processedType];
+    }
+
+    // 5. Handle Generics (Array<T>, Record<string, T>) - Allow whitespace
+    // Match Array < ... >
+    // Regex: Start, 'Array', optional space, '<', optional space, capture content, optional space, '>', optional space, End
+    const arrayMatch = processedType.match(/^Array\s*<\s*(.+)\s*>\s*$/);
+    if (arrayMatch) {
+        const innerType = arrayMatch[1];
+        return `List[${convertTypeScriptToPython(innerType)}]`; // Recurse on inner type
+    }
+
+    // Match Record < string , ... >
+    // Regex: Start, 'Record', optional space, '<', optional space, 'string', optional space, ',', optional space, capture content, optional space, '>', optional space, End
+    const recordMatch = processedType.match(/^Record\s*<\s*string\s*,\s*(.+)\s*>\s*$/);
+    if (recordMatch) {
+        const valueType = recordMatch[1];
+        return `Dict[str, ${convertTypeScriptToPython(valueType)}]`; // Recurse on value type
+    }
+
+    // 6. If none matched, return the processed type as is
+    return processedType;
+}
+
+export function pythonType(param: FunctionParameter): string {
+    return convertTypeScriptToPython(param.type);
+}
+
+/**
+ * Sometimes an LLM will wrap the reformatted code in Markdown tags, remove them if there.
+ * @param code
+ */
+export function removePythonMarkdownWrapper(code: string): string {
+    if (code.startsWith('```python') && code.endsWith('```')) {
+        // Remove the markdown lines
+        code = code.slice(9, -3).trim();
+    }
+    return code;
+}
+
+/**
+ * Extracts the text within <python-code></python-code> tags
+ * @param llmResponse response from the LLM
+ */
+export function extractPythonCode(llmResponse: string): string {
+    const index = llmResponse.lastIndexOf('<python-code>');
+    if (index < 0) {
+        logger.error(llmResponse);
+        throw new Error('Could not find <python-code> in response');
+    }
+
+    const resultText = llmResponse.slice(index);
+    const regexXml = /<python-code>(.*)<\/python-code>/is;
+    const matchXml = regexXml.exec(resultText);
+
+    if (!matchXml) throw new Error(`Could not find <python-code></python-code> in the response \n${resultText}`);
+
+    const xmlContents = matchXml[1].trim();
+    return removePythonMarkdownWrapper(xmlContents);
+}
+
+/**
+ * Extracts the text within <draft-python-code></draft-python-code> tags.
+ * @param llmResponse response from the LLM
+ */
+export function extractDraftPythonCode(llmResponse: string): string {
+    return extractLastXmlTagContent(llmResponse, 'draft-python-code');
 }

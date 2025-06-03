@@ -6,22 +6,25 @@ import { FUNCTION_OUTPUT_THRESHOLD, summarizeFunctionOutput } from '#agent/agent
 import { runAgentCompleteHandler } from '#agent/autonomous/agentCompletion';
 import type { AgentExecution } from '#agent/autonomous/autonomousAgentRunner';
 import {
-	convertJsonToPythonDeclaration,
 	extractAgentPlan,
 	extractCodeReview,
-	extractDraftPythonCode,
 	extractExpandedUserRequest,
 	extractNextStepDetails,
 	extractObservationsReasoning,
-	extractPythonCode,
-	removePythonMarkdownWrapper,
+
+
 } from '#agent/autonomous/codegen/codegenAutonomousAgentUtils';
 import { AGENT_REQUEST_FEEDBACK, REQUEST_FEEDBACK_PARAM_NAME } from '#agent/autonomous/functions/agentFeedback';
 import { AGENT_COMPLETED_NAME, AGENT_COMPLETED_PARAM_NAME, AGENT_SAVE_MEMORY_CONTENT_PARAM_NAME } from '#agent/autonomous/functions/agentFunctions';
 import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
 import { ForceStopError } from '#agent/forceStopAgent';
 import { cloneAndTruncateBuffers, removeConsoleEscapeChars } from '#agent/trimObject';
-import { camelToSnake, isKeywordArgumentCall } from './pythonCodeGenUtils';
+import {
+	camelToSnake,
+	convertJsonToPythonDeclaration, extractDraftPythonCode, extractPythonCode,
+	isKeywordArgumentCall,
+	removePythonMarkdownWrapper
+} from './pythonCodeGenUtils';
 import { appContext } from '#app/applicationContext';
 import { getServiceName } from '#fastify/trace-init/trace-init';
 import { FUNC_SEP, type FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
@@ -518,6 +521,8 @@ function setupPyodideFunctionCallableGlobals(
 					}
 				}
 			}
+			// --- End Argument Handling Logic ---
+
 			// Un-proxy any Pyodide proxied objects
 			for (const [k, v] of Object.entries(parameters)) {
 				if (v?.toJs) parameters[k] = v.toJs();
