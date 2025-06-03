@@ -17,6 +17,12 @@ export function camelToSnake(camel: string): string {
 		.toLowerCase();
 }
 
+export interface ProcessArgumentsResult {
+    finalArgs: any[];
+    parameters: Record<string, any>;
+    isKeywordArgs: boolean;
+}
+
 /**
  * Returns true if the supplied object looks like a keyword-argument map for the
  * provided parameter names.  A key is considered a match if it is exactly the
@@ -36,6 +42,79 @@ export function isKeywordArgumentCall(argObj: unknown, expectedParamNames: strin
 	}
 
 	return keys.every((k) => allowedKeys.has(k));
+}
+
+/**
+ * Normalises positional / keyword-argument calls coming from the generated
+ * Python and returns the arguments in correct positional order together with a
+ * parameter map for history/logging.
+ *
+ * Accepts both camelCase and snake_case keyword names.
+ */
+export function processFunctionArguments(
+    args: any[],
+    expectedParamNames: string[],
+): ProcessArgumentsResult {
+    // Unproxy already if caller hasn’t
+    args = args.map((a) => (typeof a?.toJs === 'function' ? a.toJs() : a));
+
+    const potentialKwargs =
+        args.length === 1 &&
+        typeof args[0] === 'object' &&
+        args[0] !== null &&
+        !Array.isArray(args[0])
+            ? (args[0] as Record<string, unknown>)
+            : null;
+
+    const isKeywordArgs = potentialKwargs
+        ? isKeywordArgumentCall(potentialKwargs, expectedParamNames)
+        : false;
+
+    const parameters: Record<string, any> = {};
+    let finalArgs: any[];
+
+    if (isKeywordArgs) {
+        logger.debug(
+            `Detected keyword arguments: ${JSON.stringify(potentialKwargs)}`,
+        );
+        finalArgs = [];
+        // Reconstruct the arguments array in the order defined by the schema
+        for (const paramName of expectedParamNames) {
+            const snakeName = camelToSnake(paramName);
+            const value =
+                Object.hasOwn(potentialKwargs, paramName)
+                    ? potentialKwargs[paramName]
+                    : potentialKwargs[snakeName];
+            finalArgs.push(value);
+            if (
+                Object.hasOwn(potentialKwargs, paramName) ||
+                Object.hasOwn(potentialKwargs, snakeName)
+            ) {
+                parameters[paramName] = value;
+            }
+        }
+    } else {
+        if (potentialKwargs)
+            logger.warn(
+                `Keyword object did not match expected keys. Received ${JSON.stringify(
+                    Object.keys(potentialKwargs),
+                )}, expected ${JSON.stringify(expectedParamNames)}`,
+            );
+        finalArgs = args;
+        // Populate parameters for logging history based on position
+        for (let i = 0; i < finalArgs.length; i++) {
+            if (expectedParamNames[i])
+                parameters[expectedParamNames[i]] = finalArgs[i];
+            else parameters[`arg_${i}`] = finalArgs[i];
+        }
+    }
+
+    // Final un-proxy on parameters / finalArgs
+    for (const [k, v] of Object.entries(parameters))
+        if (v?.toJs) parameters[k] = v.toJs();
+    finalArgs = finalArgs.map((a) => (a?.toJs ? a.toJs() : a));
+
+    return { finalArgs, parameters, isKeywordArgs };
 }
 
 /**

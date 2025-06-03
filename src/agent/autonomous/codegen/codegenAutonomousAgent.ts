@@ -467,67 +467,14 @@ function setupPyodideFunctionCallableGlobals(
 		jsGlobals[`_${schema.name}`] = async (...args) => {
 			// logger.info(`args ${JSON.stringify(args)}`); // Can be very verbose
 			// The system prompt instructs the generated code to use positional arguments.
-			// however the generated code may use keyword args so we need to handle that case too.
-
-			// Un-proxy any JsProxy objects. https://pyodide.org/en/stable/usage/type-conversions.html
-			args = args.map((arg) => (typeof arg?.toJs === 'function' ? arg.toJs() : arg));
-
-			let finalArgs: any[]; // This will hold the arguments in the correct positional order for the JS call
-			const parameters: { [key: string]: any } = {}; // For logging history
-
 			const expectedParamNames = schema.parameters.map((p) => p.name);
 
 			// --- Argument Handling Logic ---
-			const potentialKwargs =
-				args.length === 1 && typeof args[0] === 'object' && args[0] !== null && !Array.isArray(args[0]) ? args[0] : null;
-			const isKeywordArgs = potentialKwargs ? isKeywordArgumentCall(potentialKwargs, expectedParamNames) : false;
-
-			if (isKeywordArgs) {
-				logger.debug(`Detected keyword arguments for ${schema.name}: ${JSON.stringify(potentialKwargs)}`);
-			} else if (potentialKwargs) {
-				const receivedKeys = Object.keys(potentialKwargs);
-
-				logger.warn(
-					`Function object arg didnt have keywords match. Had keys ${JSON.stringify(receivedKeys)}. Expected ${JSON.stringify(expectedParamNames)}`,
-				);
-			}
-
-			if (isKeywordArgs) {
-				const keywordArgs = args[0];
-				finalArgs = [];
-				// Reconstruct the arguments array in the order defined by the schema
-				for (const paramSchema of schema.parameters) {
-					const paramName = paramSchema.name;
-					const snakeName = camelToSnake(paramName);
-					const value =
-						Object.hasOwn(keywordArgs, paramName) ? keywordArgs[paramName] : keywordArgs[snakeName];
-					finalArgs.push(value);
-					if (Object.hasOwn(keywordArgs, paramName) || Object.hasOwn(keywordArgs, snakeName)) {
-						parameters[paramName] = value;
-					}
-				}
-			} else {
-				// Assume positional arguments - use args directly
-				finalArgs = args;
-				logger.debug(`Assuming positional arguments for ${schema.name}: ${JSON.stringify(finalArgs)}`);
-				// Populate parameters for logging history based on position
-				for (let i = 0; i < finalArgs.length; i++) {
-					if (expectedParamNames[i]) {
-						// Check if a parameter name exists for this position
-						parameters[expectedParamNames[i]] = finalArgs[i];
-					} else {
-						// Handle extra positional args if necessary (though generally discouraged)
-						parameters[`arg_${i}`] = finalArgs[i]; // Log as generic arg_N
-					}
-				}
-			}
+			const { finalArgs, parameters } = processFunctionArguments(
+				args,
+				expectedParamNames,
+			);
 			// --- End Argument Handling Logic ---
-
-			// Un-proxy any Pyodide proxied objects
-			for (const [k, v] of Object.entries(parameters)) {
-				if (v?.toJs) parameters[k] = v.toJs();
-			}
-			finalArgs = finalArgs.map((arg) => (arg?.toJs ? arg.toJs() : arg));
 
 			try {
 				const functionResponse = await functionInstances[className][method](...finalArgs);
