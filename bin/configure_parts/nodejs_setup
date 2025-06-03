@@ -21,6 +21,68 @@ print_fnm_shell_setup_instructions() {
     echo ""
 }
 
+# ---------------------------------------------------------------------------
+# Helper: ensure fnm initialization line exists in the current shell's rc file
+# and source that file so the environment variables become available
+# immediately, avoiding the need to start a new terminal session.
+# ---------------------------------------------------------------------------
+ensure_fnm_shell_setup() {
+    local shell_name rc_file setup_line
+    shell_name="$(basename "$SHELL")"
+
+    case "$shell_name" in
+        bash)
+            rc_file="$HOME/.bashrc"
+            setup_line='eval "$(fnm env --use-on-cd --shell bash)"'
+            ;;
+        zsh)
+            rc_file="$HOME/.zshrc"
+            setup_line='eval "$(fnm env --use-on-cd --shell zsh)"'
+            ;;
+        fish)
+            # Fish keeps its config in a dedicated file
+            rc_file="$HOME/.config/fish/conf.d/fnm.fish"
+            setup_line='fnm env --use-on-cd --shell fish | source'
+            ;;
+        *)
+            echo "Unknown shell ($shell_name); skipping automatic fnm shell configuration."
+            return 0
+            ;;
+    esac
+
+    # Ensure rc file exists
+    if [ ! -f "$rc_file" ]; then
+        mkdir -p "$(dirname "$rc_file")"
+        touch "$rc_file"
+    fi
+
+    # Add the setup line if it's missing
+    if ! grep -Fq "$setup_line" "$rc_file"; then
+        echo "$setup_line" >> "$rc_file"
+        echo "Added fnm initialization to $rc_file"
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Helper: source the current shell's rc file so the fnm environment becomes
+# active within this script run.
+# ---------------------------------------------------------------------------
+source_current_shell_config() {
+    local shell_name rc_file
+    shell_name="$(basename "$SHELL")"
+
+    case "$shell_name" in
+        bash) rc_file="$HOME/.bashrc" ;;
+        zsh)  rc_file="$HOME/.zshrc" ;;
+        *)    rc_file="" ;;
+    esac
+
+    if [ -n "$rc_file" ] && [ -f "$rc_file" ]; then
+        # shellcheck source=/dev/null
+        source "$rc_file"
+    fi
+}
+
 if ! command -v fnm &> /dev/null
 then
     echo "fnm (Fast Node Manager) is required for Node.js version management, but it's not found."
