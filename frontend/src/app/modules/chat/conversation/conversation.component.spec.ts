@@ -605,4 +605,131 @@ describe('ConversationComponent', () => {
 			// Mock messages with file attachments, check DOM
 		});
 	});
+
+	describe('Optimistic UI for Sending Messages', () => {
+		beforeEach(fakeAsync(() => {
+			// Ensure component is initialized and essential data is available for sendMessage
+			mockActivatedRoute.params.next({ id: 'existingChatId' });
+			fixture.detectChanges(); // Initialize component, process route params
+			tick(); // Allow effects to complete (like chat loading)
+
+			// Set up common prerequisites for sendMessage tests
+			component.llmId.set('test-llm');
+			mockUserService.userProfile.set({
+				id: 'user1',
+				name: 'Test User',
+				email: 'test@example.com',
+				enabled: true,
+				hilBudget: 0,
+				hilCount: 0,
+				llmConfig: {},
+				chat: { defaultLLM: 'test-llm' },
+				functionConfig: {},
+			});
+			if (component.messageInput?.nativeElement) {
+				component.messageInput.nativeElement.value = 'Test message';
+			} else {
+				// Fail test or handle if messageInput is unexpectedly null
+				// For now, assume it will be available after fixture.detectChanges()
+				console.warn('messageInput.nativeElement is null during test setup');
+			}
+			fixture.detectChanges();
+			tick();
+		}));
+
+		it('should set generatingAIMessage when sendMessage is called and clear it on successful completion', fakeAsync(() => {
+			// Arrange
+			mockChatService.sendMessage.and.returnValue(of(void 0)); // Simulate successful send
+
+			// Act
+			component.sendMessage();
+			// Assert: generatingAIMessage should be set immediately or after microtask
+			// Since sendMessage has async parts (attachmentsAndTextToUserContentExt),
+			// and generatingAIMessage.set is called before the API call observable.
+			expect(component.generatingAIMessage()).not.toBeNull();
+			expect(component.generatingAIMessage()?.content).toBe('.'); // Initial placeholder content
+
+			// Act: Allow async operations in sendMessage (like attachmentsAndTextToUserContentExt and API call) to complete
+			tick();
+			fixture.detectChanges(); // Allow UI to update based on signal changes
+
+			// Assert: generatingAIMessage should be cleared on successful completion
+			expect(component.generatingAIMessage()).toBeNull();
+		}));
+
+		it('should set generatingAIMessage and clear it on error during sendMessage', fakeAsync(() => {
+			// Arrange
+			mockChatService.sendMessage.and.returnValue(throwError(() => new Error('Send failed')));
+			if (component.messageInput?.nativeElement) {
+				component.messageInput.nativeElement.value = 'Test message for error';
+			}
+
+			// Act
+			component.sendMessage();
+			expect(component.generatingAIMessage()).not.toBeNull();
+			expect(component.generatingAIMessage()?.content).toBe('.');
+
+			// Act: Allow async operations and error handling to complete
+			tick();
+			fixture.detectChanges();
+
+			// Assert: generatingAIMessage should be cleared on error
+			expect(component.generatingAIMessage()).toBeNull();
+		}));
+
+		it('displayedMessages should include the generatingAIMessage placeholder when active', () => {
+			// Arrange
+			const mockChatMessages: ChatMessage[] = [
+				{ id: 'm1', content: 'Hi', isMine: true, createdAt: new Date().toISOString(), textContent: 'Hi' }
+			];
+			const mockChat: Chat = {
+				id: 'chat1',
+				title: 'Test Chat Display',
+				messages: mockChatMessages,
+				updatedAt: Date.now()
+			};
+			(mockChatService.chat as WritableSignal<Chat | null>).set(mockChat);
+			fixture.detectChanges(); // Update based on chat signal
+
+			const placeholderAiMessage: ChatMessage = {
+				id: 'temp-ai-placeholder',
+				content: '...', // UserContentExt (string)
+				textContent: '...', // textContent for UIMessage compatibility
+				isMine: false,
+				generating: true,
+				createdAt: new Date().toISOString(),
+			};
+			component.generatingAIMessage.set(placeholderAiMessage);
+			fixture.detectChanges(); // Update based on generatingAIMessage signal
+
+			// Assert
+			const displayed = component.displayedMessages();
+			expect(displayed.length).toBe(mockChatMessages.length + 1);
+			
+			const lastDisplayedMessage = displayed[displayed.length - 1];
+			expect(lastDisplayedMessage.id).toBe(placeholderAiMessage.id);
+			expect(lastDisplayedMessage.generating).toBeTrue();
+			// Check derived properties from displayedMessages computation
+			expect(lastDisplayedMessage.textContentForDisplay).toBe('...');
+		});
+	});
+});
+		});
+
+		it('should convert attachments and text to UserContentExt on sendMessage', () => {
+			// Test sendMessage payload
+		});
+
+		it('should parse UserContentExt to display attachments and text in displayedMessages', () => {
+			// Test displayedMessages computation
+		});
+
+		it('should handle image previews correctly in the template', () => {
+			// Mock messages with image attachments, check DOM
+		});
+
+		it('should handle file previews/icons correctly in the template', () => {
+			// Mock messages with file attachments, check DOM
+		});
+	});
 });
