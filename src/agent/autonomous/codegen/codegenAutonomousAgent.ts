@@ -20,10 +20,11 @@ import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
 import { ForceStopError } from '#agent/forceStopAgent';
 import { cloneAndTruncateBuffers, removeConsoleEscapeChars } from '#agent/trimObject';
 import {
-	camelToSnake,
-	convertJsonToPythonDeclaration, extractDraftPythonCode, extractPythonCode,
-	isKeywordArgumentCall,
-	removePythonMarkdownWrapper
+	convertJsonToPythonDeclaration,
+	extractDraftPythonCode,
+	extractPythonCode,
+	removePythonMarkdownWrapper,
+	processFunctionArguments
 } from './pythonCodeGenUtils';
 import { appContext } from '#app/applicationContext';
 import { getServiceName } from '#fastify/trace-init/trace-init';
