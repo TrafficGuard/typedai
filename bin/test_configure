@@ -43,8 +43,12 @@ echo "Copying project into workspace (honoring .gitignore rules)..." && \
 rsync -a --exclude='.git/' --filter=':- .gitignore' /app/ /home/testuser/app/ && \
 echo "Project copied to workspace." && \
 echo 'Switching to testuser and running configure script interactively via login shell...' && \
+# Run configure; if it fails, drop to an interactive shell for debugging
 sudo -u testuser -i HOME=/home/testuser SHELL=/bin/bash \
-     bash -c "cd /home/testuser/app && ./bin/configure"
+    bash -c "cd /home/testuser/app && ./bin/configure" || {
+        echo "❌ bin/configure exited with code $? – opening interactive bash shell for debugging…"
+        exec bash
+    }
 EOF
 
 # Run docker with the command
