@@ -74,6 +74,7 @@ source_current_shell_config() {
     if [ -n "$rc_file" ] && [ -f "$rc_file" ]; then
         # shellcheck source=/dev/null
         echo "Sourcing $rc_file"
+        cat $rc_file
         source "$rc_file"
     fi
 }
