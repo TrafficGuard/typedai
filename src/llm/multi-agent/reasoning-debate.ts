@@ -1,6 +1,8 @@
 import { BaseLLM } from '#llm/base-llm';
 import { getLLM } from '#llm/llmFactory';
 import { Claude4_Opus_Vertex } from '#llm/services/anthropic-vertex';
+import { cerebrasQwen3_32b } from '#llm/services/cerebras';
+import { deepinfraDeepSeekR1 } from '#llm/services/deepinfra';
 import { deepSeekR1, deepSeekV3 } from '#llm/services/deepseek';
 import { Gemini_2_5_Pro } from '#llm/services/gemini';
 import { openAIo3 } from '#llm/services/openai';
@@ -11,17 +13,32 @@ import { type GenerateTextOptions, type LLM, type LlmMessage, lastText } from '#
 
 export function MoA_reasoningLLMRegistry(): Record<string, () => LLM> {
 	return {
-		'MoA:R1x3 DeepSeek': () => new ReasonerDebateLLM('R1x3 DeepSeek', deepSeekV3, [deepSeekR1, deepSeekR1, deepSeekR1], 'MoA R1x3'),
-		'MoA:SOTA': MoA_SOTA,
+		'MAD:Cost': MAD_Cost,
+		'MAD:Fast': MAD_Fast,
+		'MAD:SOTA': MAD_SOTA,
 	};
 }
 
-export function MoA_Fast(): LLM {
-	return new ReasonerDebateLLM('SOTA', openAIo3, [openAIo3, Claude4_Opus_Vertex, Gemini_2_5_Pro], 'MoA:SOTA multi-agent debate (Opus 4, o3, Gemini 2.5 Pro)');
+export function MAD_Cost(): LLM {
+	return new ReasonerDebateLLM(
+		'Cost',
+		deepinfraDeepSeekR1,
+		[deepinfraDeepSeekR1, deepinfraDeepSeekR1, deepinfraDeepSeekR1],
+		'MAD:Cost multi-agent debate (DeepSeek R1x3)',
+	);
 }
 
-export function MoA_SOTA(): LLM {
-	return new ReasonerDebateLLM('SOTA', openAIo3, [openAIo3, Claude4_Opus_Vertex, Gemini_2_5_Pro], 'MoA:SOTA multi-agent debate (Opus 4, o3, Gemini 2.5 Pro)');
+export function MAD_Fast(): LLM {
+	return new ReasonerDebateLLM(
+		'Fast',
+		cerebrasQwen3_32b,
+		[cerebrasQwen3_32b, cerebrasQwen3_32b, cerebrasQwen3_32b],
+		'MAD:Fast multi-agent debate (Cerebras Qwen3 32b)',
+	);
+}
+
+export function MAD_SOTA(): LLM {
+	return new ReasonerDebateLLM('SOTA', openAIo3, [openAIo3, Claude4_Opus_Vertex, Gemini_2_5_Pro], 'MAD:SOTA multi-agent debate (Opus 4, o3, Gemini 2.5 Pro)');
 }
 
 const INITIAL_TEMP = 0.7;
@@ -44,7 +61,7 @@ export class ReasonerDebateLLM extends BaseLLM {
 	 * @param name
 	 */
 	constructor(modelIds = '', providedMediator?: () => LLM, providedDebateLLMs?: Array<() => LLM>, name?: string) {
-		super(name ?? '(MoA)', 'MoA', modelIds, 200_000, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
+		super(name ?? '(MoA)', 'MAD', modelIds, 200_000, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
 		if (providedMediator) this.mediator = providedMediator();
 		if (providedDebateLLMs) {
 			this.llms = providedDebateLLMs.map((factory) => factory());

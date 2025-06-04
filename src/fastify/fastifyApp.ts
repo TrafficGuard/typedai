@@ -210,7 +210,7 @@ export async function initFastify(config: FastifyConfig): Promise<AppFastifyInst
 
 		if (this.statusCode === 500) {
 			console.log('500 response');
-			console.log(this.failedValidations);
+			// console.log(this.failedValidations);
 			console.log(object);
 		}
 

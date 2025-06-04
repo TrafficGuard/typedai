@@ -9,7 +9,7 @@ import {
 	ChatUpdateDetailsSchema,
 	RegenerateMessageSchema,
 } from '#shared/chat/chat.schema';
-import { ApiNullResponseSchema } from '#shared/common.schema';
+import { ApiErrorResponseSchema, ApiNullResponseSchema } from '#shared/common.schema';
 import { LlmMessageSchema } from '#shared/llm/llm.schema';
 
 const CHAT_BASE = '/api/chat';
@@ -29,6 +29,7 @@ export const CHAT_API = {
 			response: {
 				// Assuming 201 Created for new resources
 				201: ChatModelSchema, // Or 200 if preferred
+				400: ApiErrorResponseSchema,
 			},
 		},
 	}),

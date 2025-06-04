@@ -39,7 +39,7 @@ echo "---------------------------------------------------------------------"
 
 # --- Node.js Setup ---
 echo ""
-echo "--- Stage 2: Node.js Environment Setup (using fnm) ---"
+echo "--- Node.js Environment Setup (using fnm) ---"
 # Source the script part. Use '|| exit 1' to ensure main script exits if part fails.
 source ./bin/configure_parts/nodejs_setup || exit 1
 echo "Node.js environment setup complete."
@@ -47,7 +47,7 @@ echo "---------------------------------------------------------------------"
 
 # --- Application Setup (local.env, Angular, CLI paths) ---
 echo ""
-echo "--- Stage 3: Application Configuration and Frontend ---"
+echo "--- Application Configuration and Frontend ---"
 # Source the script part. Use '|| exit 1' to ensure main script exits if part fails.
 # This part is expected to create ./variables/local.env if it doesn't exist.
 source ./bin/configure_parts/app_setup || exit 1
@@ -56,7 +56,7 @@ echo "---------------------------------------------------------------------"
 
 # --- Google Cloud Platform Services Configuration ---
 echo ""
-echo "--- Stage 4: Google Cloud Platform (GCP) Services Configuration ---"
+echo "--- Google Cloud Platform (GCP) Services Configuration ---"
 USE_GCP_SERVICES=false
 GCP_SETUP_SUCCESS=false
 
@@ -70,7 +70,7 @@ if [ -n "$CURRENT_GCLOUD_PROJECT" ]; then # If project is already set, assume us
     GCP_PROMPT_DEFAULT="y"
 fi
 
-read -r -p "Do you plan to use Google Cloud services (e.g., Vertex AI, Gemini, Cloud Tracing)? (Y/n, default: $GCP_PROMPT_DEFAULT) " gcp_choice
+read -r -p "Do you plan to use any Google Cloud services (e.g., Vertex AI, Gemini, Cloud Tracing)? (Y/n, default: $GCP_PROMPT_DEFAULT) " gcp_choice
 gcp_choice_lower=$(echo "$gcp_choice" | tr '[:upper:]' '[:lower:]')
 
 if [[ "$gcp_choice_lower" == "y" ]] || ([[ -z "$gcp_choice" ]] && [[ "$GCP_PROMPT_DEFAULT" == "y" ]]); then
