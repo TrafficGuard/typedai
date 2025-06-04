@@ -8,12 +8,11 @@ print_fnm_shell_setup_instructions() {
     echo "----------------------------------------------------------------------------------"
     echo "To ensure fnm works correctly and is integrated into your interactive shell,"
     echo "you MUST set it up for your shell environment. This usually involves adding a line"
-    echo "to your shell's configuration file (e.g., ~/.bashrc, ~/.zshrc, or ~/.config/fish/conf.d/fnm.fish)."
+    echo "to your shell's configuration file (e.g., ~/.bashrc, ~/.zshrc)."
     echo ""
     echo "Add ONE of the following lines, appropriate for your shell:"
     echo "  For bash: eval \"\$(fnm env --use-on-cd --shell bash)\""
     echo "  For zsh:  eval \"\$(fnm env --use-on-cd --shell zsh)\""
-    echo "  For fish: fnm env --use-on-cd --shell fish | source"
     echo ""
     echo "After adding this line, you MUST open a new terminal window or source your"
     echo "shell configuration file (e.g., 'source ~/.zshrc') for the changes to take effect."
@@ -38,11 +37,6 @@ ensure_fnm_shell_setup() {
         zsh)
             rc_file="$HOME/.zshrc"
             setup_line='eval "$(fnm env --use-on-cd --shell zsh)"'
-            ;;
-        fish)
-            # Fish keeps its config in a dedicated file
-            rc_file="$HOME/.config/fish/conf.d/fnm.fish"
-            setup_line='fnm env --use-on-cd --shell fish | source'
             ;;
         *)
             echo "Unknown shell ($shell_name); skipping automatic fnm shell configuration."
@@ -79,6 +73,7 @@ source_current_shell_config() {
 
     if [ -n "$rc_file" ] && [ -f "$rc_file" ]; then
         # shellcheck source=/dev/null
+        echo "Sourcing $rc_file"
         source "$rc_file"
     fi
 }
