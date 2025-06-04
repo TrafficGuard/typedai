@@ -88,9 +88,12 @@ source_current_shell_config() {
 
     if [ -n "$rc_file" ] && [ -f "$rc_file" ]; then
         echo "Sourcing $rc_file to activate fnm environment..."
-        # Use 'set +u' and 'set +e' temporarily in case the rc file has issues
+        # Use 'set +e' temporarily in case the rc file has issues, then restore.
+        set +e
         # shellcheck source=/dev/null
-        ( set +u; set +e; source "$rc_file" )
+        source "$rc_file"
+        # Assuming the main script (bin/configure) starts with `set -e`
+        set -e
         echo "Sourcing complete."
     else
         echo "Could not find or source shell config file ($rc_file) for shell $shell_name."
@@ -103,18 +106,35 @@ source_current_shell_config() {
 # ---------------------------------------------------------------------------
 add_fnm_paths_to_path() {
     local updated=false
+    local fnm_xdg_data_home="$HOME/.local/share/fnm"
+    local fnm_legacy_home="$HOME/.fnm"
 
-    # Default script-installer dir
-    if [ -d "$HOME/.fnm/bin" ] && ! echo ":$PATH:" | grep -q ":$HOME/.fnm/bin:" ; then
-        export PATH="$HOME/.fnm/bin:$PATH"
-        echo "➕ Added $HOME/.fnm/bin to PATH for this script."
+    # Path where fnm.vercel.app script often installs 'fnm' executable directly
+    # (e.g., $HOME/.local/share/fnm/fnm)
+    if [ -x "$fnm_xdg_data_home/fnm" ] && ! echo ":$PATH:" | grep -q ":$fnm_xdg_data_home:"; then
+        export PATH="$fnm_xdg_data_home:$PATH"
+        echo "➕ Added $fnm_xdg_data_home to PATH for this script (found fnm executable)."
         updated=true
     fi
 
-    # XDG dir sometimes used by fnm
-    if [ -d "$HOME/.local/share/fnm/bin" ] && ! echo ":$PATH:" | grep -q ":$HOME/.local/share/fnm/bin:" ; then
-        export PATH="$HOME/.local/share/fnm/bin:$PATH"
-        echo "➕ Added $HOME/.local/share/fnm/bin to PATH for this script."
+    # Path where fnm might be installed directly in $HOME/.fnm (older default or alternative)
+    if [ -x "$fnm_legacy_home/fnm" ] && ! echo ":$PATH:" | grep -q ":$fnm_legacy_home:"; then
+        export PATH="$fnm_legacy_home:$PATH"
+        echo "➕ Added $fnm_legacy_home to PATH for this script (found fnm executable)."
+        updated=true
+    fi
+
+    # Bin subdirectory of $HOME/.local/share/fnm (less common for fnm executable itself, but for completeness)
+    if [ -d "$fnm_xdg_data_home/bin" ] && ! echo ":$PATH:" | grep -q ":$fnm_xdg_data_home/bin:"; then
+        export PATH="$fnm_xdg_data_home/bin:$PATH"
+        echo "➕ Added $fnm_xdg_data_home/bin to PATH for this script."
+        updated=true
+    fi
+
+    # Bin subdirectory of $HOME/.fnm (older default script-installer dir structure)
+    if [ -d "$fnm_legacy_home/bin" ] && ! echo ":$PATH:" | grep -q ":$fnm_legacy_home/bin:"; then
+        export PATH="$fnm_legacy_home/bin:$PATH"
+        echo "➕ Added $fnm_legacy_home/bin to PATH for this script."
         updated=true
     fi
 
@@ -170,9 +190,9 @@ then
             if curl -fsSL https://fnm.vercel.app/install | bash; then
                 echo "fnm installation script completed."
                 # Attempt to make fnm available in the current script immediately
-                ensure_fnm_shell_setup
-                source_current_shell_config
-                add_fnm_paths_to_path
+                add_fnm_paths_to_path      # 1. Update current script's PATH
+                ensure_fnm_shell_setup     # 2. Ensure rc file is set up for future shells
+                source_current_shell_config # 3. Source rc file to load env into current script
             else
                 echo "Error: fnm installation script failed."
                 echo "Please check any error messages above."
@@ -190,9 +210,9 @@ then
             if brew install fnm; then
                 echo "fnm successfully installed via Homebrew."
                  # Attempt to make fnm available in the current script immediately
-                ensure_fnm_shell_setup
-                source_current_shell_config
-                add_fnm_paths_to_path
+                add_fnm_paths_to_path      # 1. Update current script's PATH
+                ensure_fnm_shell_setup     # 2. Ensure rc file is set up for future shells
+                source_current_shell_config # 3. Source rc file to load env into current script
             else
                 echo "Error: 'brew install fnm' failed."
                 echo "Please check any error messages above."
