@@ -33,9 +33,7 @@ print_fnm_shell_setup_instructions() {
 
 # ---------------------------------------------------------------------------
 # Helper: ensure fnm initialization line exists in the current shell's rc file
-# and source that file so the environment variables become available
-# immediately, avoiding the need to start a new terminal session.
-# This helps make 'fnm' command and its environment available *within this script*.
+# This is for the *user's interactive shell*, not necessarily for the current script.
 # ---------------------------------------------------------------------------
 ensure_fnm_shell_setup() {
     local shell_name rc_file setup_line
@@ -68,35 +66,7 @@ ensure_fnm_shell_setup() {
         echo "" >> "$rc_file" # Add a newline before adding the line
         echo "# Added by TypedAI configure script for fnm" >> "$rc_file"
         echo "$setup_line" >> "$rc_file"
-        echo "Added fnm initialization to ${rc_file} (user: $(id -un))"
-    fi
-}
-
-# ---------------------------------------------------------------------------
-# Helper: source the current shell's rc file so the fnm environment becomes
-# active within this script run.
-# ---------------------------------------------------------------------------
-source_current_shell_config() {
-    local shell_name rc_file
-    shell_name="$(basename "$SHELL")"
-
-    case "$shell_name" in
-        bash) rc_file="$HOME/.bashrc" ;;
-        zsh)  rc_file="$HOME/.zshrc" ;;
-        *)    rc_file="" ;;
-    esac
-
-    if [ -n "$rc_file" ] && [ -f "$rc_file" ]; then
-        echo "Sourcing $rc_file to activate fnm environment..."
-        # Use 'set +e' temporarily in case the rc file has issues, then restore.
-        set +e
-        # shellcheck source=/dev/null
-        source "$rc_file"
-        # Assuming the main script (bin/configure) starts with `set -e`
-        set -e
-        echo "Sourcing complete."
-    else
-        echo "Could not find or source shell config file ($rc_file) for shell $shell_name."
+        echo "Added fnm initialization to ${rc_file} (user: $(id -un)) for interactive sessions."
     fi
 }
 
@@ -155,14 +125,13 @@ add_fnm_paths_to_path() {
 # Ensure common fnm paths are in PATH before any checks, as a first step
 add_fnm_paths_to_path
 
-# Attempt to source shell config early to activate fnm if already installed
-source_current_shell_config
-add_fnm_paths_to_path # Add paths again in case sourcing didn't fully work or added new paths
-
-# Check if fnm is available after initial path setup and sourcing
-if ! command -v fnm &> /dev/null
-then
-    echo "fnm (Fast Node Manager) is required for Node.js version management, but it's not found in the current PATH."
+FNM_COMMAND_AVAILABLE=false
+# Check if fnm is available after initial path setup
+if command -v fnm &> /dev/null; then
+    echo "✅ fnm command is initially available in PATH."
+    FNM_COMMAND_AVAILABLE=true
+else
+    echo "fnm (Fast Node Manager) command not found in PATH. Attempting installation guidance..."
     echo ""
     echo "Please choose an installation method for fnm:"
     echo "  1) Install using the recommended script (macOS/Linux). Requires: curl, unzip."
@@ -190,9 +159,11 @@ then
             if curl -fsSL https://fnm.vercel.app/install | bash; then
                 echo "fnm installation script completed."
                 # Attempt to make fnm available in the current script immediately
-                add_fnm_paths_to_path      # 1. Update current script's PATH
-                ensure_fnm_shell_setup     # 2. Ensure rc file is set up for future shells
-                source_current_shell_config # 3. Source rc file to load env into current script
+                add_fnm_paths_to_path      # Update current script's PATH
+                ensure_fnm_shell_setup     # Ensure rc file is set up for future shells
+                if command -v fnm &> /dev/null; then
+                    FNM_COMMAND_AVAILABLE=true
+                fi
             else
                 echo "Error: fnm installation script failed."
                 echo "Please check any error messages above."
@@ -210,9 +181,11 @@ then
             if brew install fnm; then
                 echo "fnm successfully installed via Homebrew."
                  # Attempt to make fnm available in the current script immediately
-                add_fnm_paths_to_path      # 1. Update current script's PATH
-                ensure_fnm_shell_setup     # 2. Ensure rc file is set up for future shells
-                source_current_shell_config # 3. Source rc file to load env into current script
+                add_fnm_paths_to_path      # Update current script's PATH
+                ensure_fnm_shell_setup     # Ensure rc file is set up for future shells
+                if command -v fnm &> /dev/null; then
+                    FNM_COMMAND_AVAILABLE=true
+                fi
             else
                 echo "Error: 'brew install fnm' failed."
                 echo "Please check any error messages above."
@@ -237,58 +210,57 @@ then
             ;;
     esac
 
-    # After an installation attempt, re-check if fnm command is now available.
-    if ! command -v fnm &> /dev/null; then
+    if ! $FNM_COMMAND_AVAILABLE; then
         echo ""
         echo "----------------------------------------------------------------------------------"
         echo "❌ CRITICAL ERROR: fnm command not found after installation attempt."
         echo "----------------------------------------------------------------------------------"
         echo "fnm was likely installed, but the 'fnm' command is still not available in this script's PATH."
         echo "This indicates a problem with the installation or your shell environment setup."
-        print_fnm_shell_setup_instructions # Show detailed instructions again
+        print_fnm_shell_setup_instructions
         echo "==> Please open a NEW terminal window. <=="
         echo "This will allow your shell to load the new fnm environment settings."
         echo "Verify 'fnm --version' works in the new terminal, then re-run './bin/configure'."
         echo "----------------------------------------------------------------------------------"
         exit 1 # Exit critically as fnm is required
-    else
-        echo ""
-        echo "✅ fnm is now available in PATH for this script run."
-        # Remind about shell setup for ongoing interactive use, even if script setup worked
-        print_fnm_shell_setup_instructions
-        echo "This script will now proceed to use fnm."
-        echo ""
     fi
 fi
 
-# Heuristic check if fnm env seems to be active for interactive use.
-# Proper fnm setup involves 'eval "$(fnm env ...)"' in the shell config, which sets FNM_DIR and modifies PATH.
-# This check is a warning about the *user's interactive shell*, not necessarily a script blocker
-# if 'fnm' command itself is available and 'fnm use' works.
-if [ -z "$FNM_DIR" ]; then
-    echo ""
-    echo "----------------------------------------------------------------------------------"
-    echo "⚠️  Warning: fnm environment variable FNM_DIR is not set."
-    echo "----------------------------------------------------------------------------------"
-    echo "This suggests that fnm's environment might not be fully loaded in your current shell session."
-    echo "While this script might still work if 'fnm' command is found, you may encounter issues"
-    echo "in your interactive terminal sessions or other scripts."
-    echo ""
-    print_fnm_shell_setup_instructions # Remind how to fix interactive shell
-    echo "Attempting to ensure shell setup and re-source for this script..."
-    ensure_fnm_shell_setup
-    source_current_shell_config
-    add_fnm_paths_to_path # Re-add paths just in case
-    # Re-check FNM_DIR after sourcing - it might still be unset if sourcing failed or shell is unusual
+# Activate fnm environment for the current script session
+echo "Attempting to activate fnm environment for this script session..."
+current_shell_name=$(basename "$SHELL")
+# Use set +e temporarily in case fnm env fails in an unexpected shell
+set +e
+eval "$(fnm env --use-on-cd --shell "$current_shell_name")"
+eval_status=$?
+# Restore set -e
+set -e
+
+if [ $eval_status -eq 0 ]; then
+    echo "✅ fnm environment directly activated for this script session."
     if [ -z "$FNM_DIR" ]; then
-         echo "Warning: FNM_DIR is still not set after attempting to source shell config."
-         echo "Proceeding, but be aware of potential environment issues."
+        echo "⚠️ Warning: FNM_DIR is still not set after direct eval of 'fnm env'. This is unexpected."
+        echo "   fnm commands might fail. Check fnm installation and 'fnm env' output manually."
     else
-         echo "FNM_DIR is now set after sourcing."
+        echo "   FNM_DIR is set to: $FNM_DIR"
     fi
+else
     echo "----------------------------------------------------------------------------------"
-    echo ""
+    echo "❌ Error: Failed to evaluate 'fnm env --use-on-cd --shell $current_shell_name'."
+    echo "----------------------------------------------------------------------------------"
+    echo "   This means fnm environment variables (like FNM_DIR) could not be set for the script."
+    echo "   Subsequent 'fnm install' or 'fnm use' commands are likely to fail."
+    echo "   Please ensure 'fnm' command works and 'fnm env' outputs valid shell commands."
+    print_fnm_shell_setup_instructions # Remind user how to set up their interactive shell
+    echo "----------------------------------------------------------------------------------"
+    # Decide if this is a critical failure. For now, we'll exit.
+    exit 1
 fi
+
+# Remind about shell setup for ongoing interactive use, as direct eval only affects current script.
+print_fnm_shell_setup_instructions
+echo "This script will now proceed to use fnm."
+echo ""
 
 
 echo "Installing and using Node.js version specified in .nvmrc using fnm..."
