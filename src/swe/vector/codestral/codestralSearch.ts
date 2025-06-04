@@ -45,9 +45,7 @@ export function getMistralClient(): Mistral {
  * @returns The MistralTokenizer instance.
  */
 export function getMistralTokenizer(): MistralTokenizer {
-	if (!tokenizerInstance) {
-		tokenizerInstance = new MistralTokenizer();
-	}
+	tokenizerInstance ??= new MistralTokenizer();
 	return tokenizerInstance;
 }
 
@@ -293,7 +291,7 @@ export async function getEmbeddingsBatch(texts: string[]): Promise<number[][]> {
 	if (!texts || texts.length === 0) return [];
 
 	const tokenizer = getMistralTokenizer();
-	const client = getMistralClient(); // Ensure getMistralClient is called to get the initialized client
+	const client = getMistralClient();
 
 	const processedTextData: { textForApi: string; originalIndex: number }[] = [];
 

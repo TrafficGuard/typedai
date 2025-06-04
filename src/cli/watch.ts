@@ -5,8 +5,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileExistsSync } from 'tsconfig-paths/lib/filesystem';
 import { logger } from '#o11y/logger';
-import { execCommand } from '#utils/exec';
 import { AiderCodeEditor } from '#swe/aiderCodeEditor';
+import { execCommand } from '#utils/exec';
 
 /**
  * Walks up the directory tree from the file location until a `.git` folder is found.

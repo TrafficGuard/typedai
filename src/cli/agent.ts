@@ -8,6 +8,7 @@ import { appContext, initApplicationContext } from '#app/applicationContext';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
+import type { AgentContext } from '#shared/agent/agent.model';
 import { registerErrorHandlers } from '../errorHandlers';
 import { parseProcessArgs, saveAgentId } from './cli';
 import { resolveFunctionClasses } from './functionResolver';
@@ -23,20 +24,10 @@ export async function main() {
 
 	if (resumeAgentId) {
 		const agent = await appContext().agentStateService.load(resumeAgentId);
-		switch (agent.state) {
-			case 'completed':
-				return await resumeCompleted(resumeAgentId, agent.executionId, initialPrompt);
-			case 'error':
-				return resumeError(resumeAgentId, agent.executionId, initialPrompt);
-			case 'hitl_threshold':
-			case 'hitl_tool':
-				return await resumeHil(resumeAgentId, agent.executionId, initialPrompt);
-			case 'hitl_feedback':
-				return await provideFeedback(resumeAgentId, agent.executionId, initialPrompt);
-			default:
-				await waitForConsoleInput(`Agent is currently in the state ${agent.state}. Only resume if you know it is not `);
-				return resumeError(resumeAgentId, agent.executionId, initialPrompt);
-		}
+		await resumeAgent(agent, resumeAgentId, initialPrompt);
+		console.log('Resume this agent by running:');
+		console.log(`ai codeAgent -r=${agent.agentId}`);
+		return;
 	}
 
 	let functions: LlmFunctionsImpl | Array<new () => any>;
@@ -72,6 +63,23 @@ export async function main() {
 
 	console.log('Resume this agent by running:');
 	console.log(`ai codeAgent -r=${execution.agentId}`);
+}
+
+async function resumeAgent(agent: AgentContext, resumeAgentId: string, initialPrompt: string) {
+	switch (agent.state) {
+		case 'completed':
+			return await resumeCompleted(resumeAgentId, agent.executionId, initialPrompt);
+		case 'error':
+			return resumeError(resumeAgentId, agent.executionId, initialPrompt);
+		case 'hitl_threshold':
+		case 'hitl_tool':
+			return await resumeHil(resumeAgentId, agent.executionId, initialPrompt);
+		case 'hitl_feedback':
+			return await provideFeedback(resumeAgentId, agent.executionId, initialPrompt);
+		default:
+			await waitForConsoleInput(`Agent is currently in the state ${agent.state}. Only resume if you know it is not `);
+			return resumeError(resumeAgentId, agent.executionId, initialPrompt);
+	}
 }
 
 main().then(

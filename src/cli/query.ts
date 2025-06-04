@@ -23,7 +23,7 @@ async function main() {
 
 	const config: RunWorkflowConfig = {
 		agentName: 'Query',
-		subtype: 'workflow',
+		subtype: 'query',
 		llms: agentLLMs,
 		functions: [],
 		initialPrompt: textPrompt,

@@ -1,8 +1,8 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
-import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import { provideFeedback, resumeCompleted, resumeError, resumeHil, startAgent } from '#agent/autonomous/autonomousAgentRunner';
 import { AgentFeedback } from '#agent/autonomous/functions/agentFeedback';
+import { FileSystemTree } from '#agent/autonomous/functions/fileSystemTree';
 import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
 import { waitForConsoleInput } from '#agent/autonomous/humanInTheLoop';
 import { appContext, initApplicationContext } from '#app/applicationContext';
@@ -53,7 +53,7 @@ export async function main() {
 		return;
 	}
 
-	const functions = [AgentFeedback, PublicWeb, CodeFunctions, FileSystemList, LiveFiles, AgentFeedback, Perplexity, CodeEditingAgent];
+	const functions = [AgentFeedback, PublicWeb, CodeFunctions, FileSystemList, FileSystemTree, LiveFiles, AgentFeedback, Perplexity, CodeEditingAgent];
 	// Add any additional functions provided from CLI args
 	let additionalFunctions: Array<new () => any> = [];
 	if (functionClasses?.length) {
@@ -92,7 +92,7 @@ export async function main() {
 		subtype: 'codegen',
 		resumeAgentId,
 		humanInLoop: {
-			count: 40,
+			count: 50,
 			budget: 20,
 		},
 	});

@@ -48,9 +48,9 @@ export function stateNotificationMessage(agent: AgentContext): string {
 		case 'hitl_threshold':
 			return `Agent has reached Human-in-the-loop threshold (budget/iterations).\nName: ${agent.name}`;
 		case 'hitl_feedback':
-			return `Agent has requested feedback.\nName: ${agent.name}\nQuestion: ${getLastFunctionCallArg(agent)}`;
+			return `Agent has requested feedback.\nName: ${agent.name}\nQuestion: ${JSON.stringify(getLastFunctionCallArg(agent))}`;
 		case 'completed':
-			return `Agent has completed.\nName: ${agent.name}\nNote: ${getLastFunctionCallArg(agent)}`;
+			return `Agent has completed.\nName: ${agent.name}\nNote: ${JSON.stringify(getLastFunctionCallArg(agent))}`;
 		default:
 			return `Agent ${agent.name} stopped in unhandled state: ${agent.state}`;
 	}

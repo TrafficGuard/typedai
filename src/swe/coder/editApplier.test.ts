@@ -41,6 +41,7 @@ describe('EditApplier', () => {
 			revertFile: sinon.stub<[string], Promise<void>>().resolves(),
 			commit: sinon.stub<[string], Promise<void>>().resolves(),
 			mergeChangesIntoLatestCommit: sinon.stub<[string[]], Promise<void>>().resolves(),
+			stashChanges: sinon.stub<[], Promise<void>>().resolves(),
 		};
 		// Ensure the getVcs method on the stubbed FileSystemService returns the mockVCS
 		mockFileSystemService.getVcs.returns(mockVCS as any);

@@ -59,6 +59,10 @@ export abstract class AbstractSCM implements SourceControlManagement {
 					logger.info(`Attempting to switch to branch ${targetBranchToEnsure} before pulling updates.`);
 					// switchToBranch should handle fetching the branch if it's remote and not yet local,
 					// now using the authenticated remote.
+					if (await fss.getVcs().isRepoDirty()) {
+						logger.info('Stashing changes');
+						await fss.getVcs().stashChanges();
+					}
 					await fss.getVcs().switchToBranch(targetBranchToEnsure);
 				} else {
 					logger.warn('No specific branch determined for pull. Will attempt to pull the current branch.');
@@ -67,6 +71,11 @@ export abstract class AbstractSCM implements SourceControlManagement {
 				// Fetch all updates from the remote
 				const fetchResult = await execCommand('git fetch', { workingDirectory: targetPath });
 				failOnError('Failed to fetch updates', fetchResult);
+
+				if (await fss.getVcs().isRepoDirty()) {
+					logger.info('Stashing changes');
+					await fss.getVcs().stashChanges();
+				}
 
 				// Pull updates for the current branch
 				const pullResult = await execCommand('git pull', { workingDirectory: targetPath });

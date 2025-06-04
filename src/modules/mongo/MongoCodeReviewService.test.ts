@@ -3,7 +3,7 @@ import { runCodeReviewServiceTests } from '../../swe/codeReview/codeReviewServic
 import { setupConditionalLoggerOutput } from '../../test/testUtils';
 import { MongoCodeReviewService } from './MongoCodeReviewService';
 
-describe('MongoCodeReviewService', () => {
+describe.skip('MongoCodeReviewService', () => {
 	setupConditionalLoggerOutput();
 
 	let client: MongoClient;

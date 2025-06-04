@@ -207,6 +207,13 @@ export async function initFastify(config: FastifyConfig): Promise<AppFastifyInst
 
 		// Fastify will validate against the schema for the given status and then serialize.
 		this.send(object);
+
+		if (this.statusCode === 500) {
+			console.log('500 response');
+			console.log(this.failedValidations);
+			console.log(object);
+		}
+
 		return this;
 	});
 

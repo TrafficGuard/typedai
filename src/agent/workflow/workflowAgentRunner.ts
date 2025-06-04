@@ -15,43 +15,43 @@ import { formatMillisDuration } from '#utils/time';
  * @param workflow
  */
 export async function startWorkflowAgent(config: RunWorkflowConfig, workflow: (agent: AgentContext) => any): Promise<AgentExecution> {
-	let context: AgentContext = createContext(config);
-	if (!config.llms) context.llms = defaultLLMs();
-	await appContext().agentStateService.save(context);
+	let agent: AgentContext = createContext(config);
+	if (!config.llms) agent.llms = defaultLLMs();
+	await appContext().agentStateService.save(agent);
 	let execution: Promise<any>;
 
 	const wrappedWorkflow = async () => {
 		try {
 			const start = Date.now();
 			await withActiveSpan(config.agentName, async (span: Span) => {
-				await workflow(context);
+				await workflow(agent);
 			});
-			context = agentContext();
-			context.state = 'completed';
+			agent = agentContext();
+			agent.state = 'completed';
 			const duration = Date.now() - start;
 
-			logger.info(`Completed. Cost $${context.cost.toFixed(context.cost > 1 ? 2 : 3)}. Time: ${formatMillisDuration(duration)}`);
+			logger.info(`Completed. Cost $${agent.cost.toFixed(agent.cost > 1 ? 2 : 3)}. Time: ${formatMillisDuration(duration)}`);
 		} catch (e) {
 			logger.error(e);
-			context = agentContext();
-			context.state = 'error';
-			context.error = errorToString(e);
+			agent = agentContext();
+			agent.state = 'error';
+			agent.error = errorToString(e);
 		} finally {
-			delete agentExecutions[context.agentId];
-			await appContext().agentStateService.save(context);
+			delete agentExecutions[agent.agentId];
+			await appContext().agentStateService.save(agent);
 		}
-		return context.agentId;
+		return agent.agentId;
 	};
 
-	agentContextStorage.run(context, () => {
+	agentContextStorage.run(agent, () => {
 		execution = wrappedWorkflow();
 	});
 
 	const agentExecution: AgentExecution = {
-		agentId: context.agentId,
+		agentId: agent.agentId,
 		execution,
 	};
-	agentExecutions[context.agentId] = agentExecution;
+	agentExecutions[agent.agentId] = agentExecution;
 
 	return agentExecution;
 }
@@ -63,6 +63,7 @@ export async function startWorkflowAgent(config: RunWorkflowConfig, workflow: (a
  * @returns the agentId
  */
 export async function runWorkflowAgent(config: RunWorkflowConfig, workflow: (agent: AgentContext) => any): Promise<string> {
+	const wrappers: (agent: AgentContext) => any = (agent) => {};
 	const execution = await startWorkflowAgent(config, workflow);
 	await execution.execution;
 	return execution.agentId;

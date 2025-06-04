@@ -222,4 +222,9 @@ export class Git implements VersionControlSystem {
 		const { exitCode, stdout, stderr } = await execCommand(`git restore "${filePath}"`);
 		if (exitCode > 0) logger.warn(`Error reverting ${filePath}: ${stdout} ${stderr}`);
 	}
+
+	async stashChanges(): Promise<void> {
+		const { exitCode, stdout, stderr } = await execCommand('git stash -u');
+		if (exitCode > 0) logger.warn(`Error stashing changes: ${stdout} ${stderr}`);
+	}
 }

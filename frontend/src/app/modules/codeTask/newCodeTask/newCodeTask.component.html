@@ -1,211 +1,213 @@
-<div class="flex min-w-0 flex-auto flex-col">
+<div class="flex flex-col flex-auto p-6">
+    <div class="w-full max-w-[800px] mx-auto">
 
-    <div class="bg-card flex flex-0 flex-col border-b p-6 dark:bg-transparent sm:flex-row sm:items-center sm:justify-between sm:px-10 sm:py-3">
-        <div class="min-w-0 flex-1">
-            <div class="text-3xl font-medium tracking-tight">New Code Task</div>
-        </div>
-    </div>
+    <h2 class="text-2xl font-semibold mb-4">New Code Task</h2>
 
-    <!-- Main -->
-    <mat-card class="code-card mat-elevation-z8 m-5 p-5 max-w-200">
+        <mat-card class="code-card mat-elevation-z8 p-5 pt-1 w-full">
         <mat-card-content>
 
-    <form [formGroup]="wizardForm" (ngSubmit)="onSubmit()">
-        <mat-form-field appearance="fill">
-            <mat-label>Title</mat-label>
-            <input matInput formControlName="title" required />
-        </mat-form-field>
+        <form [formGroup]="wizardForm" (ngSubmit)="onSubmit()">
 
-        <mat-form-field appearance="fill">
-            <mat-label>Instructions</mat-label>
-            <textarea matInput formControlName="instructions" rows="5" required></textarea>
-        </mat-form-field>
+            <fuse-alert [type]="'warning'">
+                <span fuseAlertTitle>Under development, don't expect it to work!</span>
+            </fuse-alert>
 
-        <!-- Load Preset -->
-        <mat-form-field appearance="fill">
-            <mat-label>Load Preset</mat-label>
-            <mat-select (selectionChange)="applyPreset($event.value)">
-                <mat-option *ngIf="loadingPresets">Loading presets...</mat-option>
-                <mat-option *ngIf="presetError" [disabled]="true" class="text-warn">{{ presetError }}</mat-option>
-                <mat-option *ngIf="!(presets$ | async)?.length && !loadingPresets && !presetError" [disabled]="true">
-                    No presets saved
-                </mat-option>
-                <mat-option *ngFor="let preset of presets$ | async" [value]="preset">
-                    {{ preset.name }}
-                </mat-option>
-            </mat-select>
-        </mat-form-field>
-
-        <!-- Repository Source Selection -->
-        <div class="form-field-spacing">
-            <mat-label>Repository Source</mat-label>
-            <mat-radio-group formControlName="selectedSource" aria-label="Select repository source">
-                <!-- Modify the mat-radio-button inside the loop -->
-                <mat-radio-button
-                    *ngFor="let source of repoSources"
-                    [value]="source.value"
-                    [disabled]="(source.value === 'github' || source.value === 'gitlab') && loadingRepos">
-                    {{ source.label }}
-                    <!-- Optional: Add a small spinner next to SCM options when loading -->
-                    <mat-spinner
-                        *ngIf="(source.value === 'github' || source.value === 'gitlab') && loadingRepos"
-                        diameter="16"
-                        style="display: inline-block; margin-left: 8px; vertical-align: middle;">
-                    </mat-spinner>
-                </mat-radio-button>
-            </mat-radio-group>
-        </div>
-
-        <!-- Repository Selection (Conditional) -->
-        <div class="form-field-spacing" [ngSwitch]="wizardForm.get('selectedSource')?.value">
-            <!-- Local Repositories -->
-            <mat-form-field *ngSwitchCase="'local'" appearance="fill">
-                <mat-label>Local Repository Path</mat-label>
-                <mat-select formControlName="selectedRepo" required (selectionChange)="onRepoSelectionChange()">
-                    <mat-option *ngIf="loadingRepos">Loading...</mat-option>
-                    <mat-option *ngFor="let repoPath of localRepos$ | async" [value]="repoPath">
-                        {{ repoPath }}
-                    </mat-option>
-                    <mat-option *ngIf="!(localRepos$ | async)?.length && !loadingRepos && !repoError" [disabled]="true">
-                        No local repositories found
-                    </mat-option>
-                </mat-select>
-                <mat-error *ngIf="repoError">{{ repoError }}</mat-error>
+            <mat-form-field appearance="fill">
+                <mat-label>Title</mat-label>
+                <input matInput formControlName="title" required />
             </mat-form-field>
 
-            <!-- GitHub Repositories -->
-            <mat-form-field *ngSwitchCase="'github'" appearance="fill">
-                <mat-label>GitHub Repository</mat-label>
-                <mat-select formControlName="selectedRepo" required (selectionChange)="onRepoSelectionChange()">
-                    <mat-option *ngIf="loadingRepos">Loading...</mat-option>
-                    <!-- Bind the entire project object to the value -->
-                    <mat-option *ngFor="let project of githubProjects" [value]="project">
-                        {{ project.fullPath }}
-                    </mat-option>
-                    <mat-option *ngIf="!githubProjects.length && !loadingRepos && !repoError" [disabled]="true">
-                        No GitHub repositories found
-                    </mat-option>
-                </mat-select>
-                <mat-error *ngIf="repoError">{{ repoError }}</mat-error>
+            <mat-form-field appearance="fill">
+                <mat-label>Instructions</mat-label>
+                <textarea matInput formControlName="instructions" rows="5" required></textarea>
             </mat-form-field>
 
-            <!-- GitLab Repositories -->
-            <mat-form-field *ngSwitchCase="'gitlab'" appearance="fill">
-                <mat-label>GitLab Repository</mat-label>
-                <mat-select formControlName="selectedRepo" required (selectionChange)="onRepoSelectionChange()">
-                    <mat-option *ngIf="loadingRepos">Loading...</mat-option>
-                    <mat-option *ngFor="let project of gitlabProjects" [value]="project">
-                        {{ project.fullPath }}
+            <!-- Load Preset -->
+            <mat-form-field appearance="fill">
+                <mat-label>Load Preset</mat-label>
+                <mat-select (selectionChange)="applyPreset($event.value)">
+                    <mat-option *ngIf="loadingPresets">Loading presets...</mat-option>
+                    <mat-option *ngIf="presetError" [disabled]="true" class="text-warn">{{ presetError }}</mat-option>
+                    <mat-option *ngIf="!(presets$ | async)?.length && !loadingPresets && !presetError" [disabled]="true">
+                        No presets saved
                     </mat-option>
-                    <mat-option *ngIf="!gitlabProjects.length && !loadingRepos && !repoError" [disabled]="true">
-                        No GitLab repositories found
+                    <mat-option *ngFor="let preset of presets$ | async" [value]="preset">
+                        {{ preset.name }}
                     </mat-option>
                 </mat-select>
-                <mat-error *ngIf="repoError">{{ repoError }}</mat-error>
             </mat-form-field>
-        </div>
 
-        <!-- Target Branch Selection -->
-        <mat-form-field appearance="fill">
-            <mat-label>Target Branch</mat-label>
-            <!-- Use input for local, select for SCM -->
-            <input *ngIf="wizardForm.get('selectedSource')?.value === 'local'" matInput formControlName="targetBranch" required placeholder="e.g., main, master" />
-            <mat-select *ngIf="wizardForm.get('selectedSource')?.value !== 'local'" formControlName="targetBranch" required>
-                <mat-option *ngIf="loadingBranches">Loading branches...</mat-option>
-                <mat-option *ngFor="let branchName of branches$ | async" [value]="branchName">
-                    {{ branchName }}
-                </mat-option>
-                <mat-option *ngIf="!(branches$ | async)?.length && !loadingBranches && !branchError && wizardForm.get('selectedRepo')?.value" [disabled]="true">
-                    No branches found
-                </mat-option>
-                <!-- Add option to handle case where targetBranch control is disabled -->
-                <mat-option *ngIf="wizardForm.get('targetBranch')?.disabled && !loadingBranches" [disabled]="true">
-                    Select a repository first
-                </mat-option>
-            </mat-select>
-            <mat-error *ngIf="branchError">{{ branchError }}</mat-error>
-        </mat-form-field>
-
-        <!-- Working Branch Action -->
-        <div class="form-field-spacing">
-            <mat-label>Working Branch Option</mat-label>
-            <mat-radio-group formControlName="workingBranchAction" aria-label="Select working branch option">
-
-                <!-- Option 1: Use Target Branch -->
-                <div class="radio-option-row">
-                    <mat-radio-button value="target">
-                        Use target branch
+            <!-- Repository Source Selection -->
+            <div class="form-field-spacing">
+                <mat-label>Repository Source</mat-label>
+                <mat-radio-group formControlName="selectedSource" aria-label="Select repository source">
+                    <!-- Modify the mat-radio-button inside the loop -->
+                    <mat-radio-button
+                        *ngFor="let source of repoSources"
+                        [value]="source.value"
+                        [disabled]="(source.value === 'github' || source.value === 'gitlab') && loadingRepos">
+                        {{ source.label }}
+                        <!-- Optional: Add a small spinner next to SCM options when loading -->
+                        <mat-spinner
+                            *ngIf="(source.value === 'github' || source.value === 'gitlab') && loadingRepos"
+                            diameter="16"
+                            style="display: inline-block; margin-left: 8px; vertical-align: middle;">
+                        </mat-spinner>
                     </mat-radio-button>
-                </div>
+                </mat-radio-group>
+            </div>
 
-                <!-- Option 2: Use Existing Branch -->
-                <div class="radio-option-row">
-                    <mat-radio-button value="existing">
-                        Use existing branch
-                    </mat-radio-button>
-                    <mat-form-field appearance="outline" class="inline-field">
-                        <mat-select
-                            formControlName="existingWorkingBranch"
-                            required>
-                            <!-- Handle loading state -->
-                            <mat-option *ngIf="loadingBranches && wizardForm.get('selectedSource')?.value !== 'local'">Loading...</mat-option>
-                            <!-- Show branches from observable -->
-                            <mat-option *ngFor="let branchName of branches$ | async" [value]="branchName">
-                                {{ branchName }}
-                            </mat-option>
-                            <!-- Message if no branches loaded/available (covers local case too if branches$ is empty) -->
-                            <mat-option *ngIf="!(branches$ | async)?.length && !loadingBranches && wizardForm.get('selectedRepo')?.value" [disabled]="true">
-                                No branches found/available
-                            </mat-option>
-                            <!-- Message if control is disabled -->
-                            <mat-option *ngIf="wizardForm.get('existingWorkingBranch')?.disabled && !loadingBranches" [disabled]="true">
-                                Select repo first
-                            </mat-option>
-                        </mat-select>
-                        <mat-error *ngIf="branchError">{{ branchError }}</mat-error>
-                    </mat-form-field>
-                </div>
+            <!-- Repository Selection (Conditional) -->
+            <div class="form-field-spacing" [ngSwitch]="wizardForm.get('selectedSource')?.value">
+                <!-- Local Repositories -->
+                <mat-form-field *ngSwitchCase="'local'" appearance="fill">
+                    <mat-label>Local Repository Path</mat-label>
+                    <mat-select formControlName="selectedRepo" required (selectionChange)="onRepoSelectionChange()">
+                        <mat-option *ngIf="loadingRepos">Loading...</mat-option>
+                        <mat-option *ngFor="let repoPath of localRepos$ | async" [value]="repoPath">
+                            {{ repoPath }}
+                        </mat-option>
+                        <mat-option *ngIf="!(localRepos$ | async)?.length && !loadingRepos && !repoError" [disabled]="true">
+                            No local repositories found
+                        </mat-option>
+                    </mat-select>
+                    <mat-error *ngIf="repoError">{{ repoError }}</mat-error>
+                </mat-form-field>
 
-                <!-- Option 3: Create New Branch (Default) -->
-                <div class="radio-option-row">
-                    <mat-radio-button value="new">
-                        Create new branch
-                    </mat-radio-button>
-                    <mat-form-field appearance="outline" class="inline-field">
-                        <input
-                            matInput
-                            formControlName="newWorkingBranchName"
-                            required
-                            placeholder="Enter new branch name"/>
-                        <mat-hint *ngIf="wizardForm.get('selectedSource')?.value !== 'local' && wizardForm.get('newWorkingBranchName')?.pending" align="end">Checking...</mat-hint>
-                    </mat-form-field>
-                    <span *ngIf="wizardForm.get('workingBranchAction')?.value === 'new'" class="inline-hint">
-                        (from '{{ wizardForm.get('targetBranch')?.value || 'Target Branch' }}')
-                    </span>
-                </div>
+                <!-- GitHub Repositories -->
+                <mat-form-field *ngSwitchCase="'github'" appearance="fill">
+                    <mat-label>GitHub Repository</mat-label>
+                    <mat-select formControlName="selectedRepo" required (selectionChange)="onRepoSelectionChange()">
+                        <mat-option *ngIf="loadingRepos">Loading...</mat-option>
+                        <!-- Bind the entire project object to the value -->
+                        <mat-option *ngFor="let project of githubProjects" [value]="project">
+                            {{ project.fullPath }}
+                        </mat-option>
+                        <mat-option *ngIf="!githubProjects.length && !loadingRepos && !repoError" [disabled]="true">
+                            No GitHub repositories found
+                        </mat-option>
+                    </mat-select>
+                    <mat-error *ngIf="repoError">{{ repoError }}</mat-error>
+                </mat-form-field>
 
-            </mat-radio-group>
-        </div>
+                <!-- GitLab Repositories -->
+                <mat-form-field *ngSwitchCase="'gitlab'" appearance="fill">
+                    <mat-label>GitLab Repository</mat-label>
+                    <mat-select formControlName="selectedRepo" required (selectionChange)="onRepoSelectionChange()">
+                        <mat-option *ngIf="loadingRepos">Loading...</mat-option>
+                        <mat-option *ngFor="let project of gitlabProjects" [value]="project">
+                            {{ project.fullPath }}
+                        </mat-option>
+                        <mat-option *ngIf="!gitlabProjects.length && !loadingRepos && !repoError" [disabled]="true">
+                            No GitLab repositories found
+                        </mat-option>
+                    </mat-select>
+                    <mat-error *ngIf="repoError">{{ repoError }}</mat-error>
+                </mat-form-field>
+            </div>
 
-        <!-- Use Shared Repos -->
-        <div class="form-field-spacing">
-            <mat-checkbox
-                formControlName="useSharedRepos">
-                Use Shared Repositories - Allow the agent to access repositories shared across users.
-            </mat-checkbox>
-        </div>
+            <!-- Target Branch Selection -->
+            <mat-form-field appearance="fill">
+                <mat-label>Target Branch</mat-label>
+                <!-- Use input for local, select for SCM -->
+                <input *ngIf="wizardForm.get('selectedSource')?.value === 'local'" matInput formControlName="targetBranch" required placeholder="e.g., main, master" />
+                <mat-select *ngIf="wizardForm.get('selectedSource')?.value !== 'local'" formControlName="targetBranch" required>
+                    <mat-option *ngIf="loadingBranches">Loading branches...</mat-option>
+                    <mat-option *ngFor="let branchName of branches$ | async" [value]="branchName">
+                        {{ branchName }}
+                    </mat-option>
+                    <mat-option *ngIf="!(branches$ | async)?.length && !loadingBranches && !branchError && wizardForm.get('selectedRepo')?.value" [disabled]="true">
+                        No branches found
+                    </mat-option>
+                    <!-- Add option to handle case where targetBranch control is disabled -->
+                    <mat-option *ngIf="wizardForm.get('targetBranch')?.disabled && !loadingBranches" [disabled]="true">
+                        Select a repository first
+                    </mat-option>
+                </mat-select>
+                <mat-error *ngIf="branchError">{{ branchError }}</mat-error>
+            </mat-form-field>
 
-        <!-- Actions -->
-        <div class="actions">
-            <button mat-raised-button color="primary" type="submit" [disabled]="wizardForm.invalid || isSubmitting">
-                <mat-spinner *ngIf="isSubmitting" diameter="20" style="display: inline-block; margin-right: 8px; vertical-align: middle;"></mat-spinner>
-                {{ isSubmitting ? 'Starting...' : 'Start Code Task' }}
-            </button>
-            <button mat-stroked-button type="button" (click)="savePreset()" [disabled]="wizardForm.invalid || isSubmitting">
-                Save as Preset
-            </button>
-        </div>
-    </form>
+            <!-- Working Branch Action -->
+            <div class="form-field-spacing">
+                <mat-label>Working Branch Option</mat-label>
+                <mat-radio-group formControlName="workingBranchAction" aria-label="Select working branch option">
+
+                    <!-- Option 1: Use Target Branch -->
+                    <div class="radio-option-row">
+                        <mat-radio-button value="target">
+                            Use target branch
+                        </mat-radio-button>
+                    </div>
+
+                    <!-- Option 2: Use Existing Branch -->
+                    <div class="radio-option-row">
+                        <mat-radio-button value="existing">
+                            Use existing branch
+                        </mat-radio-button>
+                        <mat-form-field appearance="outline" class="inline-field">
+                            <mat-select
+                                formControlName="existingWorkingBranch"
+                                required>
+                                <!-- Handle loading state -->
+                                <mat-option *ngIf="loadingBranches && wizardForm.get('selectedSource')?.value !== 'local'">Loading...</mat-option>
+                                <!-- Show branches from observable -->
+                                <mat-option *ngFor="let branchName of branches$ | async" [value]="branchName">
+                                    {{ branchName }}
+                                </mat-option>
+                                <!-- Message if no branches loaded/available (covers local case too if branches$ is empty) -->
+                                <mat-option *ngIf="!(branches$ | async)?.length && !loadingBranches && wizardForm.get('selectedRepo')?.value" [disabled]="true">
+                                    No branches found/available
+                                </mat-option>
+                                <!-- Message if control is disabled -->
+                                <mat-option *ngIf="wizardForm.get('existingWorkingBranch')?.disabled && !loadingBranches" [disabled]="true">
+                                    Select repo first
+                                </mat-option>
+                            </mat-select>
+                            <mat-error *ngIf="branchError">{{ branchError }}</mat-error>
+                        </mat-form-field>
+                    </div>
+
+                    <!-- Option 3: Create New Branch (Default) -->
+                    <div class="radio-option-row">
+                        <mat-radio-button value="new">
+                            Create new branch
+                        </mat-radio-button>
+                        <mat-form-field appearance="outline" class="inline-field">
+                            <input
+                                matInput
+                                formControlName="newWorkingBranchName"
+                                required
+                                placeholder="Enter new branch name"/>
+                            <mat-hint *ngIf="wizardForm.get('selectedSource')?.value !== 'local' && wizardForm.get('newWorkingBranchName')?.pending" align="end">Checking...</mat-hint>
+                        </mat-form-field>
+                        <span *ngIf="wizardForm.get('workingBranchAction')?.value === 'new'" class="inline-hint">
+                            (from '{{ wizardForm.get('targetBranch')?.value || 'Target Branch' }}')
+                        </span>
+                    </div>
+
+                </mat-radio-group>
+            </div>
+
+            <!-- Use Shared Repos -->
+            <div class="form-field-spacing">
+                <mat-checkbox
+                    formControlName="useSharedRepos">
+                    Use Shared Repositories - Allow the agent to access repositories shared across users.
+                </mat-checkbox>
+            </div>
+
+            <!-- Actions -->
+            <div class="actions">
+                <button mat-raised-button color="primary" type="submit" [disabled]="wizardForm.invalid || isSubmitting">
+                    <mat-spinner *ngIf="isSubmitting" diameter="20" style="display: inline-block; margin-right: 8px; vertical-align: middle;"></mat-spinner>
+                    {{ isSubmitting ? 'Starting...' : 'Start Code Task' }}
+                </button>
+                <button mat-stroked-button type="button" (click)="savePreset()" [disabled]="wizardForm.invalid || isSubmitting">
+                    Save as Preset
+                </button>
+            </div>
+        </form>
         </mat-card-content>
     </mat-card>
+  </div>
 </div>

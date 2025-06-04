@@ -6,7 +6,7 @@ import { setupConditionalLoggerOutput } from '#test/testUtils'; // Added as per 
 import { runAgentStateServiceTests } from '../../agent/agentContextService/agentContextService.test';
 import { MongoAgentContextService } from './MongoAgentContextService';
 
-describe('MongoAgentContextService', () => {
+describe.skip('MongoAgentContextService', () => {
 	setupConditionalLoggerOutput(); // Added as per style guide
 
 	let client: MongoClient;

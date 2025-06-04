@@ -120,13 +120,13 @@
                     mat-icon-button
                     color="primary"
                     (click)="requestHilCheck()"
-                    [disabled]="isRequestingHil() || !canRequestHil()"
+                    [disabled]="!canRequestHil()"
                     [matTooltip]="'Request Human-in-the-Loop Check'"
                     class="mr-3">
                     @if (isRequestingHil()) {
-                        <mat-spinner diameter="20" class="inline-block mr-1"></mat-spinner>
+                        <mat-icon>edit_notifications</mat-icon>
                     } @else {
-                        <mat-icon>pan_tool_alt</mat-icon>
+                        <mat-icon>notification_add</mat-icon>
                     }
                 </button>
             }

@@ -9,7 +9,7 @@ import {
 	runAgentAndWait,
 	startAgent,
 } from '#agent/autonomous/autonomousAgentRunner';
-import { convertTypeScriptToPython } from '#agent/autonomous/codegen/codegenAutonomousAgentUtils';
+import { convertTypeScriptToPython } from '#agent/autonomous/codegen/pythonCodeGenUtils';
 import { AGENT_REQUEST_FEEDBACK, AgentFeedback } from '#agent/autonomous/functions/agentFeedback';
 import { AGENT_COMPLETED_NAME, AGENT_SAVE_MEMORY } from '#agent/autonomous/functions/agentFunctions';
 import { appContext, initInMemoryApplicationContext } from '#app/applicationContext';

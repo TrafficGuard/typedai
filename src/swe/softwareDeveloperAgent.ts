@@ -1,4 +1,5 @@
 import { getFileSystem } from '#agent/agentContextLocalStorage';
+import { cacheRetry } from '#cache/cacheRetry';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { type MergeRequest, getSourceControlManagementTool } from '#functions/scm/sourceControlManagement';
 import { logger } from '#o11y/logger';
@@ -8,7 +9,6 @@ import { createBranchName } from '#swe/createBranchName';
 import { generatePullRequestTitleDescription } from '#swe/pullRequestTitleDescription';
 import { selectProject } from '#swe/selectProject';
 import { summariseRequirements } from '#swe/summariseRequirements';
-import { cacheRetry } from '../cache/cacheRetry';
 import { CodeEditingAgent } from './codeEditingAgent';
 import { type ProjectInfo, detectProjectInfo } from './projectDetection';
 

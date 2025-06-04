@@ -203,7 +203,7 @@ export async function promptRoutes(fastify: AppFastifyInstance) {
 			const llmId = payload.options?.llmId || 'default';
 			const llm = getLLM(llmId);
 
-			const generatedMessage = await llm.generateMessage(payload.messages, payload.options);
+			const generatedMessage = await llm.generateMessage(payload.messages, { ...payload.options, id: ' Prompt generation' });
 
 			reply.sendJSON({ generatedMessage });
 		} catch (error: any) {

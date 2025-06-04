@@ -79,6 +79,11 @@ export interface VersionControlSystem {
 	isRepoDirty(): Promise<boolean>;
 
 	/**
+	 * @returns
+	 */
+	stashChanges(): Promise<void>;
+
+	/**
 	 * Revert uncommitted changes to a file
 	 * @param filePath
 	 */
