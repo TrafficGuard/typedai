@@ -78,6 +78,43 @@ source_current_shell_config() {
     fi
 }
 
+# ---------------------------------------------------------------------------
+# Helper: add typical fnm install dirs to PATH for the current script run
+# ---------------------------------------------------------------------------
+add_fnm_paths_to_path() {
+    local updated=false
+
+    # Default script-installer dir
+    if [ -d "$HOME/.fnm/bin" ] && ! echo ":$PATH:" | grep -q ":$HOME/.fnm/bin:" ; then
+        export PATH="$HOME/.fnm/bin:$PATH"
+        echo "➕ Added $HOME/.fnm/bin to PATH"
+        updated=true
+    fi
+
+    # XDG dir sometimes used by fnm
+    if [ -d "$HOME/.local/share/fnm/bin" ] && ! echo ":$PATH:" | grep -q ":$HOME/.local/share/fnm/bin:" ; then
+        export PATH="$HOME/.local/share/fnm/bin:$PATH"
+        echo "➕ Added $HOME/.local/share/fnm/bin to PATH"
+        updated=true
+    fi
+
+    # Homebrew dir
+    if command -v brew &>/dev/null; then
+        local brew_prefix
+        brew_prefix="$(brew --prefix 2>/dev/null)"
+        if [ -n "$brew_prefix" ] && [ -d "$brew_prefix/bin" ] && ! echo ":$PATH:" | grep -q ":$brew_prefix/bin:" ; then
+            export PATH="$brew_prefix/bin:$PATH"
+            echo "➕ Added $brew_prefix/bin to PATH"
+            updated=true
+        fi
+    fi
+
+    $updated && echo "PATH now: $PATH"
+}
+
+# Ensure common fnm paths are in PATH before any checks
+add_fnm_paths_to_path
+
 if ! command -v fnm &> /dev/null
 then
     echo "fnm (Fast Node Manager) is required for Node.js version management, but it's not found."
@@ -107,6 +144,7 @@ then
             echo "Running fnm installation script: curl -fsSL https://fnm.vercel.app/install | bash"
             if curl -fsSL https://fnm.vercel.app/install | bash; then
                 echo "fnm installation script completed."
+                add_fnm_paths_to_path
                 echo "The script may have updated your shell configuration file (e.g., .zshrc, .bashrc)."
             else
                 echo "Error: fnm installation script failed."
@@ -124,6 +162,7 @@ then
             echo "Running: brew install fnm"
             if brew install fnm; then
                 echo "fnm successfully installed via Homebrew."
+                add_fnm_paths_to_path
             else
                 echo "Error: 'brew install fnm' failed."
                 echo "Please check any error messages above. You may need to install fnm manually."
@@ -164,6 +203,7 @@ then
         # Try to fix PATH by automatically adding fnm to shell config
         ensure_fnm_shell_setup
         source_current_shell_config
+        add_fnm_paths_to_path # Add common fnm paths to PATH for this script run
         # Re-check if fnm is available after the automatic setup
         if ! command -v fnm &> /dev/null; then
             echo "Error: fnm still not available after automatic shell setup."
