@@ -5,8 +5,12 @@ set -e
 read -r -d '' DOCKER_CMD << 'EOF' || true
 set -x && \
 echo "Starting Docker command execution..." && \
-apt-get update && \
-apt-get install -y sudo git curl unzip ca-certificates gnupg lsb-release rsync && \
+apt-get update -y && \
+# Install base dependencies AND Python build dependencies
+apt-get install -y sudo git curl unzip ca-certificates gnupg lsb-release rsync \
+    make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev \
+    libsqlite3-dev wget llvm libncursesw5-dev xz-utils tk-dev \
+    libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev && \
 echo "APT packages installed." && \
 # Optional: Install gcloud CLI if you want to test GCP parts thoroughly from a clean gcloud install
 # echo 'Installing gcloud CLI...' && \
@@ -31,9 +35,6 @@ fi && \
 chown -R testuser:testuser /home/testuser 2>/dev/null || \
   echo "Warning: Skipping chown errors in /home/testuser (likely read-only mount)" && \
 echo "Ownership of /home/testuser set to testuser (read-only paths skipped)." && \
-# Setup sudoers for testuser
-echo 'testuser ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers && \
-echo "Sudoers configured for testuser." && \
 # Prepare a writable workspace for testuser that excludes files/dirs
 # ignored by .gitignore to keep the copy lean (no node_modules, etc.).
 mkdir -p /home/testuser/app && \
