@@ -4,6 +4,7 @@ set -e
 # DOCKER_CMD for interactive testing of the configure script
 read -r -d '' DOCKER_CMD << 'EOF' || true
 set -x && \
+export DEBIAN_FRONTEND=noninteractive && \
 echo "Starting Docker command execution..." && \
 apt-get update -y && \
 # Install base dependencies AND Python build dependencies
