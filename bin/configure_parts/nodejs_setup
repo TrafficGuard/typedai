@@ -1,5 +1,16 @@
 # Node.js setup using fnm ---------------------------------
 
+# ---------------------------------------------------------------------------
+# Ensure we are NOT root – fnm must be per-user
+# ---------------------------------------------------------------------------
+if [ "$(id -u)" -eq 0 ]; then
+    echo "❌  nodejs_setup is running as root (user: $(id -un))."
+    echo "    fnm should be installed for the target user, not for root."
+    echo "    Re-run ./bin/configure as the intended user."
+    exit 1
+fi
+echo "🧑‍💻  nodejs_setup running as $(id -un) (HOME=$HOME)"
+
 # Helper function to print fnm shell setup instructions
 print_fnm_shell_setup_instructions() {
     echo ""
@@ -53,7 +64,7 @@ ensure_fnm_shell_setup() {
     # Add the setup line if it's missing
     if ! grep -Fq "$setup_line" "$rc_file"; then
         echo "$setup_line" >> "$rc_file"
-        echo "Added fnm initialization to $rc_file"
+        echo "Added fnm initialization to ${rc_file} (user: $(id -un))"
     fi
 }
 
