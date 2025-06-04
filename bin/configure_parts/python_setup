@@ -1,13 +1,160 @@
 # Python setup ---------------------------------
 
-# Check if pyenv is installed
-if ! command -v pyenv &> /dev/null
-then
-    echo "pyenv could not be found. Please install pyenv."
-    echo "See: https://github.com/pyenv/pyenv?tab=readme-ov-file#installation"
+# ---------------------------------------------------------------------------
+# Ensure we are NOT root – pyenv must be per-user
+# ---------------------------------------------------------------------------
+if [ "$(id -u)" -eq 0 ]; then
+    echo "❌  python_setup is running as root (user: $(id -un))."
+    echo "    pyenv should be installed for the target user, not for root."
+    echo "    Re-run ./bin/configure as the intended user."
+    exit 1
+fi
+echo "🧑‍💻  python_setup running as $(id -un) (HOME=$HOME)"
+
+# ---------------------------------------------------------------------------
+# Read desired Python version from .python-version
+# ---------------------------------------------------------------------------
+PYTHON_VERSION_FILE=".python-version"
+if [ ! -f "$PYTHON_VERSION_FILE" ]; then
+    echo "❌  Error: Required file '$PYTHON_VERSION_FILE' not found."
+    echo "    This file must contain the desired Python version (e.g., 3.11.7)."
     exit 1
 fi
 
-pyenv install $(cat .python-version)
-python -m pip install --upgrade pip
-pip install aider-chat google-cloud-aiplatform "anthropic[vertex]"
+PYTHON_VERSION=$(cat "$PYTHON_VERSION_FILE" | tr -d '[:space:]')
+if [ -z "$PYTHON_VERSION" ]; then
+    echo "❌  Error: '$PYTHON_VERSION_FILE' is empty."
+    echo "    This file must contain the desired Python version (e.g., 3.11.7)."
+    exit 1
+fi
+echo "✅  Desired Python version read from $PYTHON_VERSION_FILE: $PYTHON_VERSION"
+
+# ---------------------------------------------------------------------------
+# Check if pyenv is installed and available
+# ---------------------------------------------------------------------------
+PYENV_COMMAND_AVAILABLE=false
+if command -v pyenv &> /dev/null; then
+    echo "✅  pyenv command is available in PATH."
+    PYENV_COMMAND_AVAILABLE=true
+else
+    echo "pyenv (Python Version Manager) command not found in PATH."
+    echo "Attempting installation guidance..."
+    echo ""
+    echo "Please install pyenv first."
+    echo "Recommended installation methods:"
+    echo "  - pyenv installer script (macOS/Linux): https://github.com/pyenv/pyenv-installer"
+    echo "  - Homebrew (macOS): brew install pyenv"
+    echo "  - Manual installation: https://github.com/pyenv/pyenv?tab=readme-ov-file#installation"
+    echo ""
+    echo "After installing pyenv, you MUST initialize it in your shell."
+    echo "Follow the 'Shell startup configuration' steps in the pyenv documentation."
+    echo "This usually involves adding lines like 'eval \"\$(pyenv init -)\"' to your shell config (~/.bashrc, ~/.zshrc, etc.)."
+    echo ""
+    echo "Once pyenv is installed and initialized in your shell, please open a NEW terminal window"
+    echo "and re-run this './bin/configure' script."
+    exit 1 # Exit critically as pyenv is required
+fi
+
+# ---------------------------------------------------------------------------
+# Attempt to initialize pyenv for the current script session
+# This is needed so 'pyenv install', 'pyenv local', 'python', 'pip' work correctly
+# within this script immediately after installation/setting.
+# ---------------------------------------------------------------------------
+echo "Attempting to initialize pyenv for this script session..."
+# Use set +e temporarily in case pyenv init fails in an unexpected shell or environment
+set +e
+# pyenv init - --no-rehash is recommended for non-interactive shells/scripts
+eval "$(pyenv init - --no-rehash)"
+eval_status=$?
+# Restore set -e
+set -e
+
+if [ $eval_status -eq 0 ]; then
+    echo "✅  pyenv environment directly initialized for this script session."
+    # Check if pyenv shims are in PATH after init
+    if ! echo ":$PATH:" | grep -q ":$HOME/.pyenv/shims:"; then
+         echo "⚠️ Warning: pyenv shims directory ($HOME/.pyenv/shims) is not in PATH after initialization."
+         echo "   This is unexpected and might cause 'python'/'pip' commands to use the wrong version."
+         echo "   Please verify your pyenv installation and shell setup."
+    fi
+else
+    echo "----------------------------------------------------------------------------------"
+    echo "❌ Error: Failed to evaluate 'pyenv init - --no-rehash'."
+    echo "----------------------------------------------------------------------------------"
+    echo "   This means pyenv environment variables and shims could not be set for the script."
+    echo "   Subsequent 'pyenv install', 'pyenv local', 'python', 'pip' commands are likely to fail."
+    echo "   Please ensure 'pyenv' command works and 'pyenv init -' outputs valid shell commands."
+    echo "   Also, ensure pyenv is correctly installed and initialized in your interactive shell."
+    echo "----------------------------------------------------------------------------------"
+    exit 1 # Exit critically as pyenv initialization is required
+fi
+
+# ---------------------------------------------------------------------------
+# Install the specified Python version if not already present
+# ---------------------------------------------------------------------------
+echo "Installing Python version $PYTHON_VERSION using pyenv..."
+# Check if the version is already installed
+if pyenv versions --bare | grep -q "^$PYTHON_VERSION$"; then
+    echo "✅  Python version $PYTHON_VERSION is already installed."
+else
+    echo "Python version $PYTHON_VERSION not found. Installing..."
+    if pyenv install "$PYTHON_VERSION"; then
+        echo "✅  Python version $PYTHON_VERSION installed successfully."
+    else
+        echo "❌  Error: 'pyenv install $PYTHON_VERSION' failed."
+        echo "    Please check the error messages above and ensure the version is valid and can be downloaded."
+        exit 1
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# Set the local Python version for the project
+# ---------------------------------------------------------------------------
+echo "Setting local Python version to $PYTHON_VERSION using pyenv local..."
+if pyenv local "$PYTHON_VERSION"; then
+    echo "✅  Local Python version set to $PYTHON_VERSION in .python-version."
+else
+    echo "❌  Error: 'pyenv local $PYTHON_VERSION' failed."
+    echo "    Please check your pyenv setup."
+    exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# Rehash pyenv shims
+# ---------------------------------------------------------------------------
+echo "Running pyenv rehash..."
+if pyenv rehash; then
+    echo "✅  pyenv rehash completed."
+else
+    echo "❌  Error: 'pyenv rehash' failed."
+    echo "    This might cause issues with finding the correct 'python' and 'pip' commands."
+    # Not critical enough to exit, but warn the user
+fi
+
+# ---------------------------------------------------------------------------
+# Upgrade pip
+# ---------------------------------------------------------------------------
+echo "Upgrading pip..."
+# Use the python command which should now be managed by pyenv
+if python -m pip install --upgrade pip; then
+    echo "✅  pip upgraded successfully."
+else
+    echo "❌  Error: Failed to upgrade pip."
+    echo "    Please check your Python installation and network connection."
+    exit 1 # Critical for installing dependencies
+fi
+
+# ---------------------------------------------------------------------------
+# Install Python dependencies
+# ---------------------------------------------------------------------------
+echo "Installing Python dependencies..."
+# Use the pip command which should now be managed by pyenv
+if pip install aider-chat google-cloud-aiplatform "anthropic[vertex]"; then
+    echo "✅  Python dependencies installed successfully."
+else
+    echo "❌  Error: Failed to install Python dependencies."
+    echo "    Please check your network connection and the package names."
+    exit 1 # Critical for application functionality
+fi
+
+echo "Python environment setup complete."
