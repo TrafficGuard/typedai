@@ -1,14 +1,13 @@
 import { logger } from '#o11y/logger';
 import { stripFilename } from '#swe/coder/applySearchReplaceUtils';
-import { DIVIDER_MARKER, REPLACE_MARKER, SEARCH_MARKER } from './constants';
 /*  remove the self-import – we’ll call functions directly in this module */
-import { EditBlock, EditFormat } from "#swe/coder/coderTypes";
-
+import type { EditBlock, EditFormat } from '#swe/coder/coderTypes';
+import { DIVIDER_MARKER, REPLACE_MARKER, SEARCH_MARKER } from './constants';
 
 export function parseEditResponse(
 	llmResponseContent: string,
 	format: EditFormat,
-	fenceForFilenameScan: [string, string] // May only be relevant for some formats
+	fenceForFilenameScan: [string, string], // May only be relevant for some formats
 ): EditBlock[] {
 	switch (format) {
 		case 'diff':
@@ -114,7 +113,6 @@ function parsePathPrecedingSearchReplaceBlocks(llmResponseContent: string, fence
 	return edits;
 }
 
-
 /**
  * Finds a filename from the last few lines of the preceding text content.
  * Corresponds to find_filename from aider's editblock_coder.py.
@@ -155,14 +153,12 @@ function parseDiffFenced(content: string, fencePair: [string, string]): EditBloc
 	    (e.g. ```typescript) and the matching closing fence.  */
 	const fenceRegex = new RegExp(
 		/* opening fence (with optional lang spec) */
-		`${escapeRegExp(fenceOpen)}[^\\n]*\\n` +
-			/* everything – non-greedy – until the closing fence on its own line */
-			`([\\s\\S]*?)` +
-			`\\n${escapeRegExp(fenceClose)}`,
+		`${escapeRegExp(fenceOpen)}[^\\n]*\\n([\\s\\S]*?)\\n${escapeRegExp(fenceClose)}`,
 		'g',
 	);
 
 	let match: RegExpExecArray | null;
+	// biome-ignore lint:noAssignInExpressions
 	while ((match = fenceRegex.exec(content)) !== null) {
 		const inner = match[1]; // content between the fences (no opening/closing lines)
 		const lines = inner.split('\n');
@@ -172,7 +168,7 @@ function parseDiffFenced(content: string, fencePair: [string, string]): EditBloc
 		while (idx < lines.length && lines[idx].trim() === '') idx++;
 
 		if (idx >= lines.length) {
-			logger.warn(`Empty fenced block found – skipped.`);
+			logger.warn('Empty fenced block found – skipped.');
 			continue; // empty fence – nothing to parse
 		}
 
@@ -194,8 +190,8 @@ function parseDiffFenced(content: string, fencePair: [string, string]): EditBloc
 		const searchIdx = idx;
 
 		/*  Locate DIVIDER and REPLACE markers */
-		let dividerIdx = -1,
-			replaceIdx = -1;
+		let dividerIdx = -1;
+		let replaceIdx = -1;
 		for (let j = searchIdx + 1; j < lines.length; j++) {
 			if (dividerIdx === -1 && lines[j].startsWith(DIVIDER_MARKER)) {
 				dividerIdx = j;
@@ -215,11 +211,10 @@ function parseDiffFenced(content: string, fencePair: [string, string]): EditBloc
 		// Extract original and updated text, preserving newlines.
 		// Add back the newline that split() removed.
 		const originalTextLines = lines.slice(searchIdx + 1, dividerIdx);
-		const originalText = originalTextLines.join('\n') + (originalTextLines.length > 0 || (searchIdx + 1 < dividerIdx) ? '\n' : '');
+		const originalText = originalTextLines.join('\n') + (originalTextLines.length > 0 || searchIdx + 1 < dividerIdx ? '\n' : '');
 
 		const updatedTextLines = lines.slice(dividerIdx + 1, replaceIdx);
-		const updatedText = updatedTextLines.join('\n') + (updatedTextLines.length > 0 || (dividerIdx + 1 < replaceIdx) ? '\n' : '');
-
+		const updatedText = updatedTextLines.join('\n') + (updatedTextLines.length > 0 || dividerIdx + 1 < replaceIdx ? '\n' : '');
 
 		edits.push({ filePath, originalText, updatedText });
 	}
