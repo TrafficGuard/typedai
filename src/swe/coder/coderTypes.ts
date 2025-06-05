@@ -6,4 +6,4 @@ export interface EditBlock {
 
 export type FileEditBlocks = Map<string, EditBlock[]>;
 
-export type EditFormat = 'diff' | 'diff-fenced';
+export type EditFormat = 'diff' | 'diff-fenced'; // more to add
