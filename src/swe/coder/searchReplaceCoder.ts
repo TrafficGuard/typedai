@@ -530,6 +530,10 @@ export class SearchReplaceCoder {
 
 		logger.error(`SearchReplaceCoder: Maximum attempts (${MAX_ATTEMPTS}) reached. Failing.`);
 		const finalReflection = session.reflectionMessages.pop() || 'Unknown error after max attempts.';
-		throw new Error(`Failed to apply edits after ${MAX_ATTEMPTS} attempts. Last reflection: ${finalReflection}`);
+		throw new CoderExhaustedAttemptsError(
+			`SearchReplaceCoder failed to apply edits after ${MAX_ATTEMPTS} attempts.`,
+			MAX_ATTEMPTS,
+			finalReflection,
+		);
 	}
 }
