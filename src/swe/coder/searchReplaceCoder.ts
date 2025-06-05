@@ -9,7 +9,9 @@ import { user as createUserMessage, messageText } from '#shared/llm/llm.model';
 import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
 import type { EditBlock } from '#swe/coder/coderTypes';
 import { EditApplier } from './editApplier';
-import { findOriginalUpdateBlocks } from './editBlockParser';
+import { parseEditResponse } from './editBlockParser';
+import { MODEL_EDIT_FORMATS } from './constants';
+import type { EditFormat } from './coderTypes';
 import type { EditSession, RequestedFileEntry, RequestedPackageInstallEntry, RequestedQueryEntry } from './editSession'; // Import new types
 import { newSession } from './editSession';
 import type { EditHook, HookResult } from './hooks/editHook';
@@ -394,7 +396,17 @@ export class SearchReplaceCoder {
 				continue;
 			}
 
-			session.parsedBlocks = findOriginalUpdateBlocks(session.llmResponse, this.getFence());
+			/*  Decide which edit-response format to parse based on the model name. */
+			const modelId = this.llm.id; // LLM interface has `id` field
+			// Use type assertion as MODEL_EDIT_FORMATS might contain formats not yet in EditFormat union
+			const editFormat: EditFormat =
+				(MODEL_EDIT_FORMATS as Record<string, EditFormat>)[modelId] ?? 'diff';
+
+			session.parsedBlocks = parseEditResponse(
+				session.llmResponse,
+				editFormat,
+				this.getFence(),
+			);
 
 			const hasFileRequests = session.requestedFiles && session.requestedFiles.length > 0;
 			const hasQueryRequests = session.requestedQueries && session.requestedQueries.length > 0;
