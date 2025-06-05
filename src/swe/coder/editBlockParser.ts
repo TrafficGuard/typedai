@@ -1,6 +1,5 @@
 import { logger } from '#o11y/logger';
 import { stripFilename } from '#swe/coder/applySearchReplaceUtils';
-/*  remove the self-import – we’ll call functions directly in this module */
 import type { EditBlock, EditFormat } from '#swe/coder/coderTypes';
 import { DIVIDER_MARKER, REPLACE_MARKER, SEARCH_MARKER } from './constants';
 
@@ -33,7 +32,7 @@ export function parseEditResponse(
  * on a line *preceding* the SEARCH/REPLACE block, which may or may not be fenced.
  * Corresponds to find_original_update_blocks from aider's editblock_coder.py.
  * @param llmResponseContent The raw response from the LLM.
- * @param fenceForFilenameScan The opening fence string (e.g., "```") used by stripFilename.
+ * @param fenceOpen The opening fence string (e.g., "```") used by stripFilename.
  */
 function parsePathPrecedingSearchReplaceBlocks(llmResponseContent: string, fenceOpen: string): EditBlock[] {
 	const edits: EditBlock[] = [];
