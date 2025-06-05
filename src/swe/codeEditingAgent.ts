@@ -19,6 +19,7 @@ import { onlineResearch } from '#swe/onlineResearch';
 import { reviewChanges } from '#swe/reviewChanges';
 import { supportingInformation } from '#swe/supportingInformation';
 import { execCommand } from '#utils/exec';
+import { CompilationError, CoderExhaustedAttemptsError } from './sweErrors';
 import { AiderCodeEditor } from './aiderCodeEditor';
 import { type SelectFilesResponse, selectFilesToEdit } from './discovery/selectFilesToEdit';
 import { type ProjectInfo, getProjectInfo } from './projectDetection';
@@ -285,13 +286,23 @@ export class CodeEditingAgent {
 
 				break;
 			} catch (e) {
-				forceStopErrorCheck(e);
-				logger.info('Compiler error');
-				logger.info(e);
-				const compileErrorOutput = e.message;
-				logger.error(`Compile Error Output: ${compileErrorOutput}`);
-				// TODO handle code editor error separately - what failure modes does it have (invalid args, git error etc)?
-				compileErrorAnalysis = await analyzeCompileErrors(compileErrorOutput, initialSelectedFiles, compileErrorSummaries);
+				if (e instanceof CoderExhaustedAttemptsError) {
+					// Propagate coder failures – these are not compile errors
+					throw e;
+				}
+				if (e instanceof CompilationError) {
+					const compileErrorOutput = e.compileOutput;
+					logger.error(`Compile Error Output: ${compileErrorOutput}`);
+					compileErrorAnalysis = await analyzeCompileErrors(
+						compileErrorOutput,
+						initialSelectedFiles,
+						compileErrorSummaries,
+					);
+				} else {
+					// Unknown error – rethrow after safety checks
+					forceStopErrorCheck(e);
+					throw e;
+				}
 				compileErrorSummaries.push(compileErrorAnalysis.compileIssuesSummary);
 				if (compileErrorAnalysis.fatalError) return compileErrorAnalysis;
 			}
@@ -351,7 +362,7 @@ export class CodeEditingAgent {
 		if (exitCode > 0) {
 			logger.info(stdout);
 			logger.error(stderr);
-			throw new Error(result);
+			throw new CompilationError(result, projectInfo.compile, stdout, stderr, exitCode);
 		}
 	}
 

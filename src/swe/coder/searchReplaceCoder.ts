@@ -17,6 +17,7 @@ import { stripQuotedWrapping } from './patchUtils'; // Updated import
 import { buildFailedEditsReflection, buildHookFailureReflection, buildValidationIssuesReflection } from './reflectionUtils';
 import { EDIT_BLOCK_PROMPTS } from './searchReplacePrompts';
 import { sessionEvents } from './sessionEvents';
+import { CoderExhaustedAttemptsError } from '../sweErrors';
 import { validateBlocks } from './validators/compositeValidator';
 import { ModuleAliasRule } from './validators/moduleAliasRule';
 import { PathExistsRule } from './validators/pathExistsRule';
