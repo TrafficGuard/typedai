@@ -13,7 +13,7 @@ export function parseEditResponse(
 		case 'diff':
 			// The existing parser handles filename preceding the block, regardless of whether
 			// the S/R block itself is fenced. This matches the 'diff' examples.
-			return parsePathPrecedingSearchReplaceBlocks(llmResponseContent, fenceForFilenameScan);
+			return parsePathPrecedingSearchReplaceBlocks(llmResponseContent, fenceForFilenameScan[0]);
 
 		case 'diff-fenced':
 			// This format expects the filename *inside* the outer model-level fence.
@@ -23,7 +23,7 @@ export function parseEditResponse(
 			// Fallback for unimplemented formats. The existing parser might still find blocks
 			// if they happen to match its expected structure.
 			logger.warn(`Unsupported or unimplemented edit format: ${format}. Falling back to 'diff' parser.`);
-			return parsePathPrecedingSearchReplaceBlocks(llmResponseContent, fenceForFilenameScan);
+			return parsePathPrecedingSearchReplaceBlocks(llmResponseContent, fenceForFilenameScan[0]);
 	}
 	// Can we try different parsers to see which one parses them all so it doesn't matter what the edit format is set to?
 }
