@@ -21,6 +21,10 @@ import { validateBlocks } from './validators/compositeValidator';
 import { ModuleAliasRule } from './validators/moduleAliasRule';
 import { PathExistsRule } from './validators/pathExistsRule';
 import type { ValidationIssue, ValidationRule } from './validators/validationRule';
+import {FileSystemTree} from "#agent/autonomous/functions/fileSystemTree";
+import {generateRepositoryMaps} from "#swe/index/repositoryMap";
+import {detectProjectInfo} from "#swe/projectDetection";
+import {buildFileSystemTreePrompt} from "#agent/agentPromptUtils";
 
 const MAX_ATTEMPTS = 5;
 const DEFAULT_FENCE_OPEN = '```';
@@ -284,6 +288,9 @@ export class SearchReplaceCoder {
 		messages.push({ role: 'system', content: this.precomputedSystemMessage });
 		messages.push(...this.precomputedExampleMessages);
 
+		messages.push({role: 'user', content: `Here's all the files in the repository:\n${await buildFileSystemTreePrompt()}`})
+		messages.push({role: 'assistant', content: 'Ok, thanks.'})
+
 		// File Context
 		const formatFileForPrompt = async (relativePath: string): Promise<string> => {
 			const absolutePath = this.getRepoFilePath(session.workingDir, relativePath);
@@ -371,10 +378,8 @@ export class SearchReplaceCoder {
 
 			const llmResponseMsgObj: LlmMessage = await this.llm.generateMessage(currentMessages, {
 				id: `SearchReplaceCoder.editFiles.attempt${session.attempt}`,
-				temperature: 0.0,
+				temperature: 0.05,
 			});
-
-			console.log(messageText(llmResponseMsgObj));
 
 			currentMessages.push(llmResponseMsgObj);
 			session.llmResponse = messageText(llmResponseMsgObj);
@@ -384,11 +389,7 @@ export class SearchReplaceCoder {
 
 			if (!session.llmResponse?.trim()) {
 				logger.warn('SearchReplaceCoder: LLM returned an empty or whitespace-only response.');
-				this._addReflectionToMessages(
-					session,
-					'The LLM returned an empty response. Please provide the edits or request files/queries/packages using the specified formats.',
-					currentMessages,
-				);
+				this._addReflectionToMessages(session, 'The LLM returned an empty response. Please provide the edits or request files/queries/packages using the specified formats.', currentMessages,);
 				continue;
 			}
 

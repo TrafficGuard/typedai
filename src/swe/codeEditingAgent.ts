@@ -41,7 +41,7 @@ export class CodeEditingAgent {
 	 * It also compiles, formats, lints, and runs tests where applicable.
 	 * @param requirements The requirements of the task to make the code changes for.
 	 */
-	@func()
+	// @func()
 	async implementUserRequirements(
 		requirements: string,
 		altOptions?: { projectInfo?: ProjectInfo; workingDirectory?: string }, // altOptions are for programmatic use and not exposed to the autonomous agents.
@@ -104,9 +104,14 @@ export class CodeEditingAgent {
 		// Run in parallel to the requirements generation
 		// NODE_ENV=development is needed to install devDependencies for Node.js projects.
 		// Set this in case the current process has NODE_ENV set to 'production'
-		const installPromise: Promise<any> = projectInfo.initialise
-			? execCommand(projectInfo.initialise, { envVars: { NODE_ENV: 'development' } })
-			: Promise.resolve();
+		let installPromise: Promise<any>;
+		if(projectInfo.initialise) {
+			logger.info(`Executing project initialise script "${projectInfo.initialise}"`)
+			installPromise = execCommand(projectInfo.initialise, { envVars: { NODE_ENV: 'development' } });
+		} else {
+			logger.info("No project initialise script. Skipping.")
+			installPromise = Promise.resolve();
+		}
 
 		const headCommit = await fss.getVcs().getHeadSha();
 		const currentBranch = await fss.getVcs().getBranchName();
