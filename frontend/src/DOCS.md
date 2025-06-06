@@ -9,7 +9,7 @@ Don't convert a TypeBox schema to a plain interface with `import type { Static }
 The correct style is to important a plain interface that represents the schema.
 
 
-# Angular Signals
+# Angular Code Guidelines - Use Signals Where Possible
 
 You should use signals instead of @Input/@Ouput and observables where possible.
 
@@ -1005,11 +1005,7 @@ export class MyComponent {
 ```
 
 
-# Angular code guidelines
-
-# Angular API Service Best Practices Guide
-
-## Overview
+# Angular Code Guidelines - API Usage Design Pattern
 
 This guide establishes patterns for Angular services that interact with APIs, emphasizing:
 - **Minimal component code** - Components only trigger actions and react to state
@@ -1542,3 +1538,209 @@ Key Principles Summary
    Distinguish between error types (404, 403, network)
    Provide retry mechanisms in the UI
    Show appropriate error messages in forms
+
+
+# Angular Code Guidelines - Strictly Typed Forms with Model Derivation
+
+
+Use `ModelToFormGroup<T>` in `frontend/src/app/modules/formType.ts` to derive Angular Reactive Form model interfaces from base data models, enhancing type safety, reducing boilerplate, and improving maintainability.
+
+```typescript
+import { FormControl, FormGroup, FormArray } from '@angular/forms';
+
+// Helper type for FormControl value, allowing null
+type FormControlValue<T> = T | null;
+
+/**
+ * Converts model interface `T` to an Angular FormGroup interface.
+ * - Primitives (string, number, boolean, Date) -> FormControl<Type | null>.
+ * - Objects -> FormGroup<ModelToFormGroup<NestedType>>.
+ * - Arrays -> FormArray of FormControls (primitives) or FormGroups (objects).
+ */
+export type ModelToFormGroup<T> = {
+  [K in keyof T]-?: T[K] extends string | number | boolean | Date // Check for primitives and Date
+    ? FormControl<FormControlValue<T[K]>>
+    : T[K] extends Array<infer U> // Check for Array
+      ? U extends string | number | boolean | Date // Array of primitives
+        ? FormArray<FormControl<FormControlValue<U>>>
+        : FormArray<FormGroup<ModelToFormGroup<U>>>    // Array of objects
+      : T[K] extends object // Check for nested object
+        ? FormGroup<ModelToFormGroup<Required<T[K]>>> // Nested FormGroup, ensure all props of nested object are considered
+        : FormControl<FormControlValue<T[K]>>;       // Fallback for any other types
+};
+```
+
+### Property Mapping:
+
+*   Primitive properties (`string`, `number`, `boolean`, `Date`) in model `T` map to `FormControl<Type | null>`.
+*   Object properties in `T` recursively map to `FormGroup<ModelToFormGroup<NestedType>>`.
+*   Array properties in `T` map to `FormArray` containing `FormControl`s (for primitive arrays) or `FormGroup`s (for object arrays).
+
+## Usage Example
+
+Illustrates `ModelToFormGroup<T>` with `SettingsAccountComponent` (from `frontend/src/app/modules/profile/account/account.component.ts`) and `UserProfileUpdate` model (from `shared/user/user.model.ts`).
+
+**1. Define Specific Form Data Models (If Needed):**
+
+If a form part's structure is more specific than the base model, define a dedicated interface. E.g., `AccountFunctionConfigDataModel` for `functionConfig`.
+
+```typescript
+// Typically defined in component's type file (e.g., account-form.types.ts) or component file itself.
+// Example for: frontend/src/app/modules/profile/account/account.component.ts
+
+interface AccountFunctionConfigDataModel {
+    GitHub: { token?: string };
+    GitLab: { host?: string; token?: string; topLevelGroups?: string };
+    Jira: { baseUrl?: string; email?: string; token?: string };
+    Slack: { token?: string; userId?: string; webhookUrl?: string };
+    Perplexity: { key?: string };
+}
+```
+
+**2. Define Overall Form Shape:**
+
+Create an intermediate "form shape" interface using TypeScript utilities (`Pick`, `Omit`, etc.) or composition to represent the form's data structure.
+
+```typescript
+// Typically in component's type file or component file.
+// Example for: frontend/src/app/modules/profile/account/account.component.ts
+
+import { LLMServicesConfig, ChatSettings, UserProfileUpdate } from '#shared/user/user.model';
+// Assume AccountFunctionConfigDataModel is defined as above or imported.
+
+type AccountFormShape = Pick<UserProfileUpdate, 'hilBudget' | 'hilCount'> & {
+    llmConfig: LLMServicesConfig;
+    chat: Pick<ChatSettings, 'defaultLLM'>;
+    functionConfig: AccountFunctionConfigDataModel;
+};
+```
+
+**3. Derive Strictly Typed Form Model:**
+
+Apply `ModelToFormGroup<T>` to the `AccountFormShape` to generate the strictly typed `FormGroup` model.
+
+```typescript
+// In component.ts (e.g., frontend/src/app/modules/profile/account/account.component.ts)
+import { FormGroup, FormControl } from '@angular/forms';
+import { ModelToFormGroup } from '#shared/typeUtils'; // Adjust path as per your project structure
+
+// ... (AccountFunctionConfigDataModel and AccountFormShape definitions/imports)
+
+// This is the derived, strictly typed model for the accountForm
+export type AccountFormModel = ModelToFormGroup<AccountFormShape>;
+
+/*
+Illustrative expansion of AccountFormModel:
+export type AccountFormModel = {
+    hilBudget: FormControl<number | null>;
+    hilCount: FormControl<number | null>;
+    llmConfig: FormGroup<ModelToFormGroup<LLMServicesConfig>>;
+    chat: FormGroup<{ defaultLLM: FormControl<string | null> }>; // Derived from Pick<ChatSettings, 'defaultLLM'>
+    functionConfig: FormGroup<ModelToFormGroup<AccountFunctionConfigDataModel>>;
+};
+*/
+```
+
+**4. Use in Component:**
+
+Declare your `FormGroup` with the derived type. Initialize it using `new FormGroup()` or `FormBuilder`.
+
+```typescript
+// In your component class, e.g., SettingsAccountComponent
+
+// import { UserProfile } from '#shared/user/user.model'; // For initial values type
+// import { UserService } from '...'; // For fetching initial user data
+// import { FormBuilder } from '@angular/forms'; // If using FormBuilder
+
+export class SettingsAccountComponent implements OnInit {
+    accountForm!: FormGroup<AccountFormModel>;
+    initialUser?: UserProfile; // Store initial user data to reconstruct payload
+
+    // constructor(private userService: UserService, private fb: FormBuilder) {} // Example with FormBuilder
+
+    ngOnInit(): void {
+        // Example: Fetch or set initialUser data
+        // this.initialUser = this.userService.userProfile();
+        const initialUser = this.initialUser; // Use class property
+
+        // Initialize form (example with new FormGroup, FormBuilder.group<AccountFormModel> also works)
+        this.accountForm = new FormGroup<AccountFormModel>({
+            hilBudget: new FormControl<number | null>(initialUser?.hilBudget ?? 0),
+            hilCount: new FormControl<number | null>(initialUser?.hilCount ?? 0),
+            llmConfig: new FormGroup<ModelToFormGroup<LLMServicesConfig>>({
+                vertexProjectId: new FormControl<string | null>(initialUser?.llmConfig?.vertexProjectId ?? null),
+                vertexRegion: new FormControl<string | null>(initialUser?.llmConfig?.vertexRegion ?? null),
+                anthropicKey: new FormControl<string | null>(initialUser?.llmConfig?.anthropicKey ?? ''),
+                // ... other llmConfig FormControl initializations
+            }),
+            chat: new FormGroup<ModelToFormGroup<Pick<ChatSettings, 'defaultLLM'>>>({
+                defaultLLM: new FormControl<string | null>(initialUser?.chat?.defaultLLM ?? ''),
+            }),
+            functionConfig: new FormGroup<ModelToFormGroup<AccountFunctionConfigDataModel>>({
+                GitHub: new FormGroup({ token: new FormControl<string | null>(initialUser?.functionConfig?.GitHub?.token ?? '') }),
+                GitLab: new FormGroup({
+                    host: new FormControl<string | null>(initialUser?.functionConfig?.GitLab?.host ?? ''),
+                    token: new FormControl<string | null>(initialUser?.functionConfig?.GitLab?.token ?? ''),
+                    topLevelGroups: new FormControl<string | null>(initialUser?.functionConfig?.GitLab?.topLevelGroups ?? ''),
+                }),
+                // ... other functionConfig service FormGroups
+                Perplexity: new FormGroup({ key: new FormControl<string | null>(initialUser?.functionConfig?.Perplexity?.key ?? '') }),
+            }),
+        } as AccountFormModel); // Type assertion ensures structural correctness
+    }
+
+    onSave(): void {
+        if (this.accountForm.invalid) return;
+
+        // rawValues is typed based on AccountFormModel['value']
+        const rawValues = this.accountForm.getRawValue();
+
+        const updateUserPayload: UserProfileUpdate = {
+            name: this.initialUser?.name || '', // 'name' is not in this form, get from original
+            hilBudget: rawValues.hilBudget ?? 0,
+            hilCount: rawValues.hilCount ?? 0,
+            // Casts might be needed:
+            // 1. If form's nulls differ from model's undefined/optionality.
+            // 2. To match specific API payload expectations (e.g., generic Record type).
+            llmConfig: rawValues.llmConfig as LLMServicesConfig,
+            chat: rawValues.chat as Partial<ChatSettings>,
+            functionConfig: rawValues.functionConfig as Record<string, Record<string, any>>, // Cast to generic model type
+        };
+        // ... submit updateUserPayload to your service
+    }
+}
+```
+
+## Benefits
+
+*   **Reduced Boilerplate:** Eliminates manual, repetitive form model interface definitions.
+*   **Enhanced Type Safety:** Compile-time errors if base models change, making derived form types incompatible. Catches issues early.
+*   **Improved Maintainability:** Simplifies keeping form types synchronized with data models.
+*   **Better Developer Experience (DX):** Strong autocompletion and type checking for `FormGroup`, `FormControl`, `.value`, `.getRawValue()`, and `.controls`.
+
+## Updating Existing Forms
+
+Existing form components (e.g., `EntityFormComponent`) should be updated to use `ModelToFormGroup<T>`.
+
+```typescript
+// Example for refactoring an EntityFormComponent:
+// import { ModelToFormGroup } from '#shared/typeUtils'; // Adjust path
+// import { Entity } from './path/to/entity.model'; // Assuming Entity model
+// import { Validators } from '@angular/forms';
+
+// // 1. Define the shape of the form based on the Entity model
+// type EntityFormShape = Pick<Entity, 'name' | 'description'>; // Or other relevant fields
+
+// // 2. Derive the strictly typed form model
+// type EntityFormModel = ModelToFormGroup<EntityFormShape>;
+
+// // In EntityFormComponent class:
+// // form!: FormGroup<EntityFormModel>;
+
+// // Initialization example in ngOnInit or constructor:
+// // this.form = new FormGroup<EntityFormModel>({
+// //   name: new FormControl('', Validators.required), // Provide initial value and validators
+// //   description: new FormControl('')
+// // } as EntityFormModel); // Type assertion
+```
+**Note on Path Aliases:** This guide assumes TypeScript path aliases (e.g., `#shared/*`) are configured in `tsconfig.json` for cleaner import paths.
