@@ -55,7 +55,7 @@ export class CodeFunctions {
 
 	/**
 	 * Searches across files under the current working directory to provide an answer to the query
-	 * @param query the query
+	 * @param query the detailed natural language query
 	 * @returns the response from the query agent
 	 */
 	@func()
@@ -65,7 +65,7 @@ export class CodeFunctions {
 
 	/**
 	 * Selects a set of files relevant to the requirements provided.
-	 * @param {string} requirements the requirements to implement, or a query about the repository codebase
+	 * @param {string} requirements the detailed requirements to implement, or a detailed natural language query about the repository codebase
 	 * @return {Promise<string[]>} A list of the relevant files
 	 */
 	@func()

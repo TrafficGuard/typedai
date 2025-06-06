@@ -45,17 +45,15 @@
                                     <mat-panel-title>
                                         <span class="w-20">{{ message.role | titlecase }}:</span>
                                         <span class="expansion-preview">
-                                            @if (message.role === 'error') { <!-- Assuming LlmMessage can have role 'error' -->
-                                                <mat-icon color="warn" class="mr-1 icon-size-5">error_outline</mat-icon>
-                                            }
                                             {{ getPreviewContent(message.content) | slice : 0 : 150 }}
                                             @if (getPreviewContent(message.content).length > 150) {
                                                 <span>...</span>
                                             }
                                         </span>
+                                        <clipboard-button [cdkCopyToClipboard]="isStringContent(message.content) ? message.content : ''" class=""></clipboard-button>
                                     </mat-panel-title>
                                 </mat-expansion-panel-header>
-                                <div style="white-space: pre-wrap; word-wrap: break-word;" [innerHTML]="convertNewlinesToHtml(isStringContent(message.content) ? message.content : '')"></div>
+
                                 @if (isArrayContent(message.content)) {
                                     @for (part of getContentAsArray(message.content); track part.type + '-' + $index) {
                                         <ng-container [ngSwitch]="part.type">
@@ -66,12 +64,32 @@
                                             <div *ngSwitchCase="'tool-result'">[Tool Result for {{part.toolName}} ID: {{part.toolCallId}}] <div style="white-space: pre-wrap; word-wrap: break-word;" [innerHTML]="convertNewlinesToHtml(part.result)"></div></div>
                                             <ng-container *ngSwitchDefault>
                                                 @if (isStringContent(part)) {
-                                                    <div style="white-space: pre-wrap; word-wrap: break-word;" [innerHTML]="convertNewlinesToHtml(part)"></div>
+                                                    @if (message.role === 'assistant') {
+                                                        <markdown
+                                                            mermaid
+                                                            clipboard
+                                                            [clipboardButtonComponent]="clipboardButton"
+                                                            [data]="part"
+                                                        ></markdown>
+                                                    } @else {
+                                                        <div style="white-space: pre-wrap; word-wrap: break-word;" [innerHTML]="convertNewlinesToHtml(part)"></div>
+                                                    }
                                                 } @else {
                                                     <div>[Unknown Part Type: {{ part.type || 'N/A' }}]</div>
                                                 }
                                             </ng-container>
                                         </ng-container>
+                                    }
+                                } @else {
+                                    @if (message.role === 'assistant') {
+                                        <markdown
+                                            mermaid
+                                            clipboard
+                                            [clipboardButtonComponent]="clipboardButton"
+                                            [data]="isStringContent(message.content) ? message.content : ''"
+                                        ></markdown>
+                                    } @else {
+                                        <div style="white-space: pre-wrap; word-wrap: break-word;" [innerHTML]="convertNewlinesToHtml(isStringContent(message.content) ? message.content : '')"></div>
                                     }
                                 }
                             </mat-expansion-panel>

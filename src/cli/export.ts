@@ -2,6 +2,7 @@ import '#fastify/trace-init/trace-init'; // leave an empty line next so this doe
 
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import { join } from 'node:path';
 import micromatch from 'micromatch';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { countTokens } from '#llm/tokens';
@@ -45,9 +46,7 @@ async function main() {
 	const basePath = fileSystemService.getBasePath(); // directory where `ai` was invoked
 
 	// 1. Get glob patterns from command line arguments
-	const patterns = process.argv
-		.slice(2)
-		.filter((arg) => !arg.startsWith('--fs='));
+	const patterns = process.argv.slice(2).filter((arg) => !arg.startsWith('--fs='));
 
 	if (patterns.length === 0) {
 		console.error('Error: No glob patterns provided.');
@@ -111,7 +110,9 @@ async function main() {
 		// console.log("\n--- XML Output ---");
 		// console.log(content);
 		// console.log("--- End XML Output ---");
-		await fs.writeFile('export.xml', content);
+		const outputPath = join(basePath, 'export.xml');
+		await fs.writeFile(outputPath, content);
+		console.log(`Written to ${outputPath}`);
 	} catch (error) {
 		console.error('\n❌ An error occurred during processing:');
 		console.error(error);

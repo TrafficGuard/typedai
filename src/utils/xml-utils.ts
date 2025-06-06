@@ -20,7 +20,7 @@ export function formatXmlContent(content: string | null | undefined): string {
 			return escapeXml(text);
 		}
 		// Otherwise, wrap in CDATA
-		return `${CDATA_START} ${text} ${CDATA_END}`;
+		return `${CDATA_START}\n${text}\n${CDATA_END}`;
 	}
 	// If no special characters, just return the text (it's safe)
 	// Note: escapeXml is technically not needed here if the regex is correct,

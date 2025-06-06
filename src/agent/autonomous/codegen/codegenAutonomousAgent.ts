@@ -179,9 +179,9 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 					agentPlanResponseMessage = await agent.llms.hard.generateMessage(agentMessages, {
 						id: 'Codegen agent plan',
 						stopSequences,
-						temperature: 0.4,
+						temperature: 0.2,
 						thinking: 'high',
-						maxOutputTokens: 60000,
+						maxOutputTokens: 32000,
 					});
 					agentPlanResponse = messageText(agentPlanResponseMessage);
 					pythonMainFnCode = extractPythonCode(agentPlanResponse);
@@ -190,9 +190,9 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 					agentPlanResponseMessage = await agent.llms.hard.generateMessage(agentMessages, {
 						id: 'Codegen agent plan retry',
 						stopSequences,
-						temperature: 0.4,
+						temperature: 0.2,
 						thinking: 'high',
-						maxOutputTokens: 60000,
+						maxOutputTokens: 32000,
 					});
 					agentPlanResponse = messageText(agentPlanResponseMessage);
 					pythonMainFnCode = extractPythonCode(agentPlanResponse);
@@ -272,7 +272,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 					const cleanedError = { ...e, message: removeWasmLines(e.message), stack: removeWasmLines(e.stack) };
 					logger.info(cleanedError, `Caught python script error line ${line}. ${e.message}`);
 
-					const errorString = errorToString(e);
+					const errorString = errorToString(cleanedError);
 					iterationData.error = errorString;
 					agent.error = errorString;
 					if (e instanceof ForceStopError) controlLoopError = e;

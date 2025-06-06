@@ -19,12 +19,12 @@ import { onlineResearch } from '#swe/onlineResearch';
 import { reviewChanges } from '#swe/reviewChanges';
 import { supportingInformation } from '#swe/supportingInformation';
 import { execCommand } from '#utils/exec';
-import { CompilationError, CoderExhaustedAttemptsError } from './sweErrors';
 import { AiderCodeEditor } from './aiderCodeEditor';
 import { type SelectFilesResponse, selectFilesToEdit } from './discovery/selectFilesToEdit';
 import { type ProjectInfo, getProjectInfo } from './projectDetection';
 import { basePrompt } from './prompt';
 import { summariseRequirements } from './summariseRequirements';
+import { CoderExhaustedAttemptsError, CompilationError } from './sweErrors';
 import { tidyDiff } from './tidyDiff';
 
 export function buildPrompt(args: {
@@ -106,11 +106,11 @@ export class CodeEditingAgent {
 		// NODE_ENV=development is needed to install devDependencies for Node.js projects.
 		// Set this in case the current process has NODE_ENV set to 'production'
 		let installPromise: Promise<any>;
-		if(projectInfo.initialise) {
-			logger.info(`Executing project initialise script "${projectInfo.initialise}"`)
+		if (projectInfo.initialise) {
+			logger.info(`Executing project initialise script "${projectInfo.initialise}"`);
 			installPromise = execCommand(projectInfo.initialise, { envVars: { NODE_ENV: 'development' } });
 		} else {
-			logger.info("No project initialise script. Skipping.")
+			logger.info('No project initialise script. Skipping.');
 			installPromise = Promise.resolve();
 		}
 
@@ -293,11 +293,7 @@ export class CodeEditingAgent {
 				if (e instanceof CompilationError) {
 					const compileErrorOutput = e.compileOutput;
 					logger.error(`Compile Error Output: ${compileErrorOutput}`);
-					compileErrorAnalysis = await analyzeCompileErrors(
-						compileErrorOutput,
-						initialSelectedFiles,
-						compileErrorSummaries,
-					);
+					compileErrorAnalysis = await analyzeCompileErrors(compileErrorOutput, initialSelectedFiles, compileErrorSummaries);
 				} else {
 					// Unknown error – rethrow after safety checks
 					forceStopErrorCheck(e);

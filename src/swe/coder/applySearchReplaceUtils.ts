@@ -83,14 +83,11 @@ export function stripFilename(filenameLine: string, fenceOpen: string): string |
 	// Final checks
 	if (!filename || filename.length === 0 || filename.startsWith('<') || filename.startsWith('=')) return undefined;
 
-	// If, after all stripping, the filename is a common language keyword,
-	// and it was extracted from after a fence OR the original line started with a fence,
-	// and it doesn't look like a path, it's not a filename.
+	// If, after all stripping, the candidate is a known language keyword and
+	// it doesn’t look like a file-path, treat it as NOT a filename.
 	const looksLikePath = filename.includes('.') || filename.includes('/') || filename.includes('\\');
 	if (COMMON_LANGUAGES.includes(filename.toLowerCase()) && !looksLikePath) {
-		if (wasNameExtractedFromAfterFence || (fenceIndex !== -1 && originalTrimmedLine.startsWith(fenceOpen))) {
-			return undefined;
-		}
+		return undefined;
 	}
 
 	// Reject if it contains spaces and doesn't look like a path (unless it was from after fence where spaces are more permissible)
@@ -102,5 +99,7 @@ export function stripFilename(filenameLine: string, fenceOpen: string): string |
 	}
 
 	const finalTrimmedFilename = filename.trim();
+	// Ignore model artefacts such as “{fence_0}shell”
+	if (/^\{fence_\d+\}\w*$/i.test(finalTrimmedFilename)) return undefined;
 	return finalTrimmedFilename.length > 0 ? finalTrimmedFilename : undefined;
 }

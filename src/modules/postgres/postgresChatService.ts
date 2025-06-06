@@ -70,9 +70,7 @@ export class PostgresChatService implements ChatService {
 		if (!chat.title) throw new Error('chat title is required');
 
 		chat.userId = chat.userId || currentUser().id;
-		if (chat.userId !== currentUser().id) {
-			throw new Error('chat userId is invalid or does not match current user');
-		}
+		if (chat.userId !== currentUser().id) throw new Error('chat userId is invalid or does not match current user');
 
 		const isUpdate = !!chat.id;
 		chat.id = chat.id || randomUUID();

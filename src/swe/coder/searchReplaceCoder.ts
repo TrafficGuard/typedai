@@ -1,6 +1,8 @@
 import { platform } from 'node:os';
 import * as path from 'node:path';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
+import { buildFileSystemTreePrompt } from '#agent/agentPromptUtils';
+import { FileSystemTree } from '#agent/autonomous/functions/fileSystemTree';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
@@ -8,10 +10,13 @@ import type { LLM, LlmMessage } from '#shared/llm/llm.model';
 import { user as createUserMessage, messageText } from '#shared/llm/llm.model';
 import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
 import type { EditBlock } from '#swe/coder/coderTypes';
+import { generateRepositoryMaps } from '#swe/index/repositoryMap';
+import { detectProjectInfo } from '#swe/projectDetection';
+import { CoderExhaustedAttemptsError } from '../sweErrors';
+import type { EditFormat } from './coderTypes';
+import { MODEL_EDIT_FORMATS } from './constants';
 import { EditApplier } from './editApplier';
 import { parseEditResponse } from './editBlockParser';
-import { MODEL_EDIT_FORMATS } from './constants';
-import type { EditFormat } from './coderTypes';
 import type { EditSession, RequestedFileEntry, RequestedPackageInstallEntry, RequestedQueryEntry } from './editSession'; // Import new types
 import { newSession } from './editSession';
 import type { EditHook, HookResult } from './hooks/editHook';
@@ -19,15 +24,10 @@ import { stripQuotedWrapping } from './patchUtils'; // Updated import
 import { buildFailedEditsReflection, buildHookFailureReflection, buildValidationIssuesReflection } from './reflectionUtils';
 import { EDIT_BLOCK_PROMPTS } from './searchReplacePrompts';
 import { sessionEvents } from './sessionEvents';
-import { CoderExhaustedAttemptsError } from '../sweErrors';
 import { validateBlocks } from './validators/compositeValidator';
 import { ModuleAliasRule } from './validators/moduleAliasRule';
 import { PathExistsRule } from './validators/pathExistsRule';
 import type { ValidationIssue, ValidationRule } from './validators/validationRule';
-import {FileSystemTree} from "#agent/autonomous/functions/fileSystemTree";
-import {generateRepositoryMaps} from "#swe/index/repositoryMap";
-import {detectProjectInfo} from "#swe/projectDetection";
-import {buildFileSystemTreePrompt} from "#agent/agentPromptUtils";
 
 const MAX_ATTEMPTS = 5;
 const DEFAULT_FENCE_OPEN = '```';
@@ -291,8 +291,8 @@ export class SearchReplaceCoder {
 		messages.push({ role: 'system', content: this.precomputedSystemMessage });
 		messages.push(...this.precomputedExampleMessages);
 
-		messages.push({role: 'user', content: `Here's all the files in the repository:\n${await buildFileSystemTreePrompt()}`})
-		messages.push({role: 'assistant', content: 'Ok, thanks.'})
+		messages.push({ role: 'user', content: `Here's all the files in the repository:\n${await buildFileSystemTreePrompt()}` });
+		messages.push({ role: 'assistant', content: 'Ok, thanks.' });
 
 		// File Context
 		const formatFileForPrompt = async (relativePath: string): Promise<string> => {
@@ -392,21 +392,26 @@ export class SearchReplaceCoder {
 
 			if (!session.llmResponse?.trim()) {
 				logger.warn('SearchReplaceCoder: LLM returned an empty or whitespace-only response.');
-				this._addReflectionToMessages(session, 'The LLM returned an empty response. Please provide the edits or request files/queries/packages using the specified formats.', currentMessages,);
+				this._addReflectionToMessages(
+					session,
+					'The LLM returned an empty response. Please provide the edits or request files/queries/packages using the specified formats.',
+					currentMessages,
+				);
 				continue;
 			}
 
 			/*  Decide which edit-response format to parse based on the model name. */
-			const modelId = this.llm.id; // LLM interface has `id` field
+			const modelId = this.llm.getModel(); // LLM interface has `id` field
 			// Use type assertion as MODEL_EDIT_FORMATS might contain formats not yet in EditFormat union
-			const editFormat: EditFormat =
-				(MODEL_EDIT_FORMATS as Record<string, EditFormat>)[modelId] ?? 'diff';
+			let editFormat: EditFormat = 'diff';
+			// TODO we need to sort by longest keys to shortest keys so we try to match o3-mini before o3
+			for (const [k, v] of Object.entries(MODEL_EDIT_FORMATS)) {
+				if (modelId.includes(k)) {
+					editFormat = v;
+				}
+			}
 
-			session.parsedBlocks = parseEditResponse(
-				session.llmResponse,
-				editFormat,
-				this.getFence(),
-			);
+			session.parsedBlocks = parseEditResponse(session.llmResponse, editFormat, this.getFence());
 
 			const hasFileRequests = session.requestedFiles && session.requestedFiles.length > 0;
 			const hasQueryRequests = session.requestedQueries && session.requestedQueries.length > 0;
@@ -542,10 +547,6 @@ export class SearchReplaceCoder {
 
 		logger.error(`SearchReplaceCoder: Maximum attempts (${MAX_ATTEMPTS}) reached. Failing.`);
 		const finalReflection = session.reflectionMessages.pop() || 'Unknown error after max attempts.';
-		throw new CoderExhaustedAttemptsError(
-			`SearchReplaceCoder failed to apply edits after ${MAX_ATTEMPTS} attempts.`,
-			MAX_ATTEMPTS,
-			finalReflection,
-		);
+		throw new CoderExhaustedAttemptsError(`SearchReplaceCoder failed to apply edits after ${MAX_ATTEMPTS} attempts.`, MAX_ATTEMPTS, finalReflection);
 	}
 }

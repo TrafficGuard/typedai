@@ -1,6 +1,7 @@
 import { type Static, Type } from '@sinclair/typebox';
-import type { AreTypesFullyCompatible } from '#shared/typeUtils';
-import { CallSettingsSchema, LlmCallMessageSummaryPartSchema, LlmMessagesSchema } from '../llm/llm.schema';
+import type { Chat } from '#shared/chat/chat.model';
+import type { AreTypesFullyCompatible, ChangePropertyType } from '#shared/typeUtils';
+import { CallSettingsSchema, LlmCallMessageSummaryPartSchema, LlmMessagesSchema, type LlmMessagesSchemaModel } from '../llm/llm.schema';
 import type { LlmCall, LlmCallSummary, LlmRequest } from './llmCall.model';
 
 // Schema for LlmRequest, which LlmCall extends
@@ -11,15 +12,18 @@ const LlmRequestSchema = Type.Object({
 	messages: LlmMessagesSchema,
 	settings: CallSettingsSchema,
 	agentId: Type.Optional(Type.String()),
+	iteration: Type.Optional(Type.Number()),
 	userId: Type.Optional(Type.String()),
 	callStack: Type.Optional(Type.String()),
 	llmId: Type.String(),
 	requestTime: Type.Number(),
-	llmCallId: Type.Optional(Type.String()), // Internal ID
+	llmCallId: Type.Optional(Type.String()),
 });
 
-// Type check for LlmRequest (optional, but good for completeness)
-// const _LlmRequestCheck: AreTypesFullyCompatible<LlmRequest, Static<typeof LlmRequestSchema>> = true;
+// DO NOT CHANGE THIS PART ----
+// LlmMessageSchema doesn't exactly map to LlmMessage, we'll use the more lenient LlmMessagesSchemaModel so this works
+type LlmRequestHack = ChangePropertyType<LlmRequest, 'messages', LlmMessagesSchemaModel>;
+const _LlmRequestCheck: AreTypesFullyCompatible<LlmRequestHack, Static<typeof LlmRequestSchema>> = true;
 
 export const LlmCallSchema = Type.Intersect(
 	[

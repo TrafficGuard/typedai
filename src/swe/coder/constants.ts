@@ -1,3 +1,5 @@
+import type { EditFormat } from '#swe/coder/coderTypes';
+
 export const SEARCH_MARKER = '<<<<<<< SEARCH';
 export const DIVIDER_MARKER = '=======';
 export const REPLACE_MARKER = '>>>>>>> REPLACE';
@@ -28,6 +30,8 @@ export const COMMON_LANGUAGES = [
 	'xml',
 	'json',
 	'yaml',
+	'tf',
+	'terraform',
 	'markdown',
 	'text',
 	'py',
@@ -35,3 +39,43 @@ export const COMMON_LANGUAGES = [
 	'ts',
 	'md',
 ];
+
+export const MODEL_EDIT_FORMATS: Record<string, EditFormat> = {
+	'claude-3-5-haiku': 'diff',
+	'claude-3-5-sonnet': 'diff',
+	'claude-3-7-sonnet': 'diff',
+	'claude-3-opus': 'diff',
+	'claude-3-sonnet': 'whole',
+	'claude-haiku': 'whole',
+	'claude-opus-4': 'diff',
+	'claude-sonnet-4': 'diff',
+	'command-a': 'whole',
+	'command-r': 'whole',
+	'command-r-plus': 'whole',
+	'deepseek-chat': 'diff',
+	'deepseek-coder': 'diff',
+	'deepseek-r1': 'diff',
+	'gemini-1.5-flash': 'whole',
+	'gemini-1.5-pro': 'diff-fenced',
+	'gemini-2.0-flash': 'diff',
+	'gemini-2.5-flash': 'diff',
+	'gemini-2.5-pro': 'diff-fenced',
+	'gemini-exp': 'diff',
+	'gemma-3-27b-it': 'whole',
+	'gpt-4.1': 'diff',
+	'gpt-4.1-mini': 'diff',
+	'gpt-4.5-preview': 'diff',
+	'gpt-4o': 'diff',
+	'grok-3-beta': 'diff',
+	'grok-3-mini-beta': 'whole',
+	'llama-3-70b-instruct': 'diff',
+	o1: 'diff',
+	'o1-mini': 'whole',
+	'o1-preview': 'architect',
+	o3: 'diff',
+	'o3-mini': 'diff',
+	'o4-mini': 'diff',
+	'optimus-alpha': 'diff',
+	'quasar-alpha': 'diff',
+	'qwen-2.5-coder-32b-instruct': 'diff',
+};
