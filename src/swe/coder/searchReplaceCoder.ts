@@ -400,21 +400,11 @@ export class SearchReplaceCoder {
 				continue;
 			}
 
-			/*  Decide which edit-response format to parse based on the model name. */
-			const modelId = this.llm.getModel(); // LLM interface has `id` field
-			// Use type assertion as MODEL_EDIT_FORMATS might contain formats not yet in EditFormat union
-			let editFormat: EditFormat = 'diff';
+			//  Decide which edit-response format to parse based on the model name
+			const modelId = this.llm.getModel();
 			// Sort keys by length in descending order to match longer, more specific keys first (e.g., "o3-mini" before "o3")
-			const sortedModelFormatEntries = Object.entries(MODEL_EDIT_FORMATS).sort(
-				([keyA], [keyB]) => keyB.length - keyA.length,
-			);
-
-			for (const [key, format] of sortedModelFormatEntries) {
-				if (modelId.includes(key)) {
-					editFormat = format;
-					break; // Found the most specific match
-				}
-			}
+			const sortedModelFormatEntries = Object.entries(MODEL_EDIT_FORMATS).sort(([keyA], [keyB]) => keyB.length - keyA.length);
+			const editFormat: EditFormat = sortedModelFormatEntries.find(([key]) => modelId.includes(key))?.[1] ?? 'diff';
 
 			session.parsedBlocks = parseEditResponse(session.llmResponse, editFormat, this.getFence());
 
