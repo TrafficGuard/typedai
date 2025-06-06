@@ -404,10 +404,15 @@ export class SearchReplaceCoder {
 			const modelId = this.llm.getModel(); // LLM interface has `id` field
 			// Use type assertion as MODEL_EDIT_FORMATS might contain formats not yet in EditFormat union
 			let editFormat: EditFormat = 'diff';
-			// TODO we need to sort by longest keys to shortest keys so we try to match o3-mini before o3
-			for (const [k, v] of Object.entries(MODEL_EDIT_FORMATS)) {
-				if (modelId.includes(k)) {
-					editFormat = v;
+			// Sort keys by length in descending order to match longer, more specific keys first (e.g., "o3-mini" before "o3")
+			const sortedModelFormatEntries = Object.entries(MODEL_EDIT_FORMATS).sort(
+				([keyA], [keyB]) => keyB.length - keyA.length,
+			);
+
+			for (const [key, format] of sortedModelFormatEntries) {
+				if (modelId.includes(key)) {
+					editFormat = format;
+					break; // Found the most specific match
 				}
 			}
 
