@@ -1,6 +1,7 @@
 import { type RulesTestEnvironment, initializeTestEnvironment } from '@firebase/rules-unit-testing';
 import sinon from 'sinon';
 import { runCodeTaskRepositoryTests } from '#codeTask/codeTaskRepository.test';
+import { USERS_COLLECTION } from '#firestore/firestoreUserService';
 import { logger } from '#o11y/logger';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { firestoreDb } from './firestore'; // To potentially clear data
@@ -28,7 +29,17 @@ const teardownFirestore = async () => {
 };
 
 const clearFirestoreData = async () => {
+	// Clear top-level collections first
 	await testEnv?.clearFirestore();
+
+	// testEnv.clearFirestore() should handle all data, including subcollections.
+	// The manual deletion loop that was here is usually redundant if testEnv.clearFirestore()
+	// is effective and the Firestore instance used by the repository is correctly
+	// pointed to the emulator.
+	// If tests still fail due to persistent data after this change,
+	// it strongly suggests that firestoreDb() might not be providing the emulated
+	// Firestore instance that testEnv manages, or there's a deeper issue with
+	// how the emulator or test environment is being handled.
 };
 
 describe('FirestoreCodeTaskRepository', () => {

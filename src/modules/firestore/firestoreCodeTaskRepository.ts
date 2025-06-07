@@ -208,8 +208,17 @@ export class FirestoreCodeTaskRepository implements CodeTaskRepository {
 
 			const presets: CodeTaskPreset[] = [];
 			querySnapshot.forEach((doc) => {
-				presets.push(doc.data() as CodeTaskPreset);
+				const data = doc.data() as CodeTaskPreset;
+				// Extra safety-check: only include docs that really belong to this user
+				if (data.userId === userId) {
+					presets.push(data);
+				} else {
+					logger.warn({ requestedUserId: userId, presetId: data.id, ownerId: data.userId }, 'Data inconsistency: CodeTaskPreset userId mismatch – ignored');
+				}
 			});
+
+			// Ensure deterministic order (Firestore already orders, but keep it bullet-proof)
+			presets.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
 
 			logger.info({ userId, count: presets.length }, 'Listed CodeTaskPresets successfully for user');
 			return presets;

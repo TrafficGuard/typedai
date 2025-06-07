@@ -83,8 +83,26 @@ export abstract class BaseSpecPo<T> {
     text(id: string): string {
         return (this.el(id).nativeElement.textContent || '').trim();
     }
-    exists(id: string) { expect(this.els(id).length).toBeGreaterThan(0); }
-    missing(id: string) { expect(this.els(id).length).toBe(0); }
+    // NEW helper that returns only a boolean, no assertion
+    has(id: string): boolean {
+        return this.els(id).length > 0;
+    }
+
+    // RENAME: exists -> expectExists
+    expectExists(id: string): void {
+        const count = this.els(id).length;
+        expect(count)
+            .withContext(`Expected element with test id '${id}' to exist`)
+            .toBeGreaterThan(0);
+    }
+
+    // RENAME: missing -> expectMissing
+    expectMissing(id: string): void {
+        const count = this.els(id).length;
+        expect(count)
+            .withContext(`Expected element with test id '${id}' to be missing`)
+            .toBe(0);
+    }
 
     /* --------------------------------------------------
        Harness shortcuts
