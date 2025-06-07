@@ -61,6 +61,7 @@ describe('serializeContext', () => {
 		getMaxInputTokens: sinon.stub() as any,
 		countTokens: sinon.stub() as any,
 		isConfigured: sinon.stub() as any,
+		getOldModels: sinon.stub().returns([]),
 	});
 
 	// Minimal LlmFunctions mock
