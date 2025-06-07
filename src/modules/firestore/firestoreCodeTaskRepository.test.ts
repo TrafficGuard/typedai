@@ -32,26 +32,14 @@ const clearFirestoreData = async () => {
 	// Clear top-level collections first
 	await testEnv?.clearFirestore();
 
-	// Recursively delete user sub-collections to avoid orphan documents
-	const db = firestoreDb();
-	const usersSnap = await db.collection(USERS_COLLECTION).get();
-
-	for (const userDoc of usersSnap.docs) {
-		const batch = db.batch();
-
-		// Delete codeTasks sub-collection
-		const codeTasksSnap = await userDoc.ref.collection('codeTasks').get();
-		codeTasksSnap.forEach((doc) => batch.delete(doc.ref));
-
-		// Delete codeTaskPresets sub-collection
-		const presetsSnap = await userDoc.ref.collection('codeTaskPresets').get();
-		presetsSnap.forEach((doc) => batch.delete(doc.ref));
-
-		// Finally delete the user doc itself
-		batch.delete(userDoc.ref);
-
-		await batch.commit();
-	}
+	// testEnv.clearFirestore() should handle all data, including subcollections.
+	// The manual deletion loop that was here is usually redundant if testEnv.clearFirestore()
+	// is effective and the Firestore instance used by the repository is correctly
+	// pointed to the emulator.
+	// If tests still fail due to persistent data after this change,
+	// it strongly suggests that firestoreDb() might not be providing the emulated
+	// Firestore instance that testEnv manages, or there's a deeper issue with
+	// how the emulator or test environment is being handled.
 };
 
 describe.only('FirestoreCodeTaskRepository', () => {
