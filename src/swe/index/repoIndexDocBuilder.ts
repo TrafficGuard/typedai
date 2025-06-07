@@ -15,6 +15,8 @@ import {
 	type Summary,
 } from './llmSummaries';
 import { AI_INFO_FILENAME } from '#swe/projectDetection';
+import {IFileSystemService} from "#shared/files/fileSystemService";
+import {LLM, TaskLevel} from "#shared/agent/agent.model";
 
 /**
  * This module builds summary documentation for a project/repository, to assist with searching in the repository.
@@ -32,6 +34,12 @@ const BATCH_SIZE = 10;
 
 function hash(content: string): string {
 	return createHash('md5').update(content).digest('hex');
+}
+
+export class IndexDocBuilder {
+	constructor(private fss: IFileSystemService, private llm: LLM) {
+
+	}
 }
 
 /**
@@ -823,7 +831,7 @@ export async function loadBuildDocsSummaries(createIfNotExits = false): Promise<
 			if (file.endsWith('.json') && fileName !== '_project_summary.json') {
 				try {
 					const content = await fs.readFile(file);
-					const summary: Summary = JSON.parse(content);
+					const summary: Summary = JSON.parse(content.toString());
 					// The path stored in the summary JSON should be relative to CWD
 					summaries.set(summary.path, summary);
 				} catch (error) {
