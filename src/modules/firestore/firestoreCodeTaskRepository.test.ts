@@ -1,11 +1,11 @@
 import { type RulesTestEnvironment, initializeTestEnvironment } from '@firebase/rules-unit-testing';
 import sinon from 'sinon';
 import { runCodeTaskRepositoryTests } from '#codeTask/codeTaskRepository.test';
+import { USERS_COLLECTION } from '#firestore/firestoreUserService';
 import { logger } from '#o11y/logger';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { firestoreDb } from './firestore'; // To potentially clear data
 import { FirestoreCodeTaskRepository } from './firestoreCodeTaskRepository';
-import {USERS_COLLECTION} from "#firestore/firestoreUserService";
 
 let testEnv: RulesTestEnvironment;
 

@@ -213,10 +213,7 @@ export class FirestoreCodeTaskRepository implements CodeTaskRepository {
 				if (data.userId === userId) {
 					presets.push(data);
 				} else {
-					logger.warn(
-						{ requestedUserId: userId, presetId: data.id, ownerId: data.userId },
-						'Data inconsistency: CodeTaskPreset userId mismatch – ignored',
-					);
+					logger.warn({ requestedUserId: userId, presetId: data.id, ownerId: data.userId }, 'Data inconsistency: CodeTaskPreset userId mismatch – ignored');
 				}
 			});
 
