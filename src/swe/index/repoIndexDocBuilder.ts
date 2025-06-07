@@ -7,7 +7,6 @@ import { typedaiDirName } from '#app/appDirs';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { errorToString } from '#utils/errors';
-import { hash } from '#utils/hash';
 
 /**
  * This module builds summary documentation for a project/repository, to assist with searching in the repository.
@@ -36,6 +35,10 @@ export interface Summary {
 
 // Configuration constants
 const BATCH_SIZE = 10;
+
+function hash(content: string): string {
+
+}
 
 /**
  * This auto-generates summary documentation for a project/repository, to assist with searching in the repository.
@@ -149,7 +152,7 @@ async function processFile(filePath: string, easyLlm: any): Promise<void> {
 		return;
 	}
 
-	const currentContentHash = hash(fileContents).toString();
+	const currentContentHash = hash(fileContents);
 
 	try {
 		const summaryFileContent = await fs.readFile(summaryFilePath, 'utf-8');
