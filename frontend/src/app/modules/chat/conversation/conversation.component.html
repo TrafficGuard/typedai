@@ -2,7 +2,7 @@
     <!-- Loading State -->
     @if (!chat()) {
         <div class="flex flex-auto flex-col items-center justify-center bg-gray-100 dark:bg-transparent">
-            <mat-progress-spinner mode="indeterminate" [diameter]="50"></mat-progress-spinner>
+            <mat-progress-spinner data-testid="loading" mode="indeterminate" [diameter]="50"></mat-progress-spinner>
             <div class="text-secondary mt-4 text-lg font-medium">Loading conversation...</div>
         </div>
     }
@@ -11,6 +11,7 @@
         <mat-drawer-container class="h-full flex-auto" [hasBackdrop]="false">
             <!-- Drawer -->
             <mat-drawer
+                data-testid="info-drawer"
                 class="w-full dark:bg-gray-900 sm:w-100 lg:border-l lg:shadow-none"
                 [autoFocus]="false"
                 [mode]="drawerMode()"
@@ -30,11 +31,12 @@
             <mat-drawer-content class="flex flex-col overflow-hidden">
                 <!-- Header -->
                 <div class="flex h-15 flex-0 items-center border-b bg-gray-50 px-4 dark:bg-transparent md:px-6">
-                    <span class="font-semibold text-lg max-w-[calc(100%-120px)] absolute left-1/2 transform -translate-x-1/2 truncate text-ellipsis overflow-hidden whitespace-nowrap">
+                    <span data-testid="chat-title" class="font-semibold text-lg max-w-[calc(100%-120px)] absolute left-1/2 transform -translate-x-1/2 truncate text-ellipsis overflow-hidden whitespace-nowrap">
                         {{ currentChat.title }}
                     </span>
 
                     <button
+                        data-testid="open-info-btn"
                         class="ml-auto"
                         mat-icon-button
                         (click)="openChatInfo()"
@@ -57,7 +59,7 @@
                 </div>
 
                 <!-- Conversation -->
-                <div class="conversation-container flex flex-col-reverse flex-grow overflow-y-auto">
+                <div data-testid="msg-list" class="conversation-container flex flex-col-reverse flex-grow overflow-y-auto">
                     <div class="bg-card flex flex-auto shrink flex-col p-6 dark:bg-transparent">
                         @for (
                             message of displayedMessages();
@@ -67,6 +69,7 @@
                             let last = $last
                         ) {
                             <div
+                                [attr.data-testid]="'msg-'+message.id"
                                 class="flex flex-col"
                                 [ngClass]="{
                                     'max-width': 'w-400',
@@ -210,6 +213,7 @@
                             <div class="flex items-center">
                                 <input
                                     type="file"
+                                    data-testid="file-input"
                                     #fileInput
                                     (change)="onFileSelected($event)"
                                     [multiple]="true"
@@ -217,6 +221,7 @@
                                     accept="image/*,.pdf,.txt,.doc,.docx"
                                 />
                                 <button
+                                    data-testid="attach-btn"
                                     class="ml-0.5"
                                     mat-icon-button
                                     (click)="fileInput.click()"
@@ -233,7 +238,7 @@
                                       (mouseleave)="stopRecording()">
                                     <mat-icon [svgIcon]="'mic'"></mat-icon>
                                 </button>
-                                <button class="ml-0.5 hidden sm:inline-flex"
+                                <button data-testid="toggle-enter-btn" class="ml-0.5 hidden sm:inline-flex"
                                         mat-icon-button
                                         (click)="toggleSendOnEnter()"
                                         [matTooltip]="sendOnEnter() ? 'Send on Enter. Press Shift-enter for new line. Click to toggle' : 'New line on Enter. Press Shift-enter to send. Click to toggle'">
@@ -261,7 +266,7 @@
                             </div>
                             <!-- mat-select -->
                             <mat-form-field appearance="fill" class="w-20 mt-2 hidden sm:block" style="min-width: 225px" subscriptSizing="dynamic">
-                                <mat-select #llmSelect (keydown)="handleLlmKeydown($event)" (selectionChange)="llmId.set($event.value)" placeholder="LLM" [value]="llmId()">
+                                <mat-select data-testid="llm-select" #llmSelect (keydown)="handleLlmKeydown($event)" (selectionChange)="llmId.set($event.value)" placeholder="LLM" [value]="llmId()">
                                     @for (llm of llmsSignal(); track llm.id) {
                                         <mat-option [value]="llm.id">
                                             {{ llm.name }}
@@ -299,6 +304,7 @@
                             <mat-form-field class="fuse-mat-dense fuse-mat-rounded fuse-mat-bold w-full" subscriptSizing="dynamic">
                                 <textarea
                                     matInput
+                                    data-testid="msg-input"
                                     cdkTextareaAutosize
                                     #messageInput
                                     rows="3"
@@ -309,7 +315,7 @@
                         </div>
                         <!-- Send Button -->
                         <div class="ml-1 mt-2 flex h-11 items-center sm:ml-2">
-                            <button mat-icon-button (click)="sendMessage()" [disabled]="generating()">
+                            <button mat-icon-button data-testid="send-btn" (click)="sendMessage()" [disabled]="generating()">
                                 <mat-icon [svgIcon]="sendIcon()"></mat-icon>
                             </button>
                         </div>
