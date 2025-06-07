@@ -43,19 +43,19 @@ export async function buildIndexDocs(): Promise<void> {
 	logger.info('Building index docs');
 	await withActiveSpan('Build index docs', async (span: Span) => {
 		try {
-			await deleteOrphanedSummaries();
+			deleteOrphanedSummaries().catch(error => logger.warn(error));
 
-			// Load and parse projectInfo.json
+			// Load and parse AI_INFO_FILENAME
 			const projectInfoPath = path.join(process.cwd(), AI_INFO_FILENAME);
 			let projectInfoData: string;
 			try {
 				projectInfoData = await fs.readFile(projectInfoPath, 'utf-8');
 			} catch (e: any) {
 				if (e.code === 'ENOENT') {
-					logger.warn(`projectInfo.json not found at ${projectInfoPath}. Cannot determine indexDocs patterns.`);
+					logger.warn(`${AI_INFO_FILENAME} not found at ${projectInfoPath}. Cannot determine indexDocs patterns.`);
 					// Proceed without patterns, potentially indexing everything or nothing depending on default behavior
 					// For now, let's throw as patterns are likely required.
-					throw new Error(`projectInfo.json not found at ${projectInfoPath}`);
+					throw new Error(`${AI_INFO_FILENAME} not found at ${projectInfoPath}`);
 				}
 				throw e; // Re-throw other errors
 			}
@@ -68,7 +68,7 @@ export async function buildIndexDocs(): Promise<void> {
 			// Extract indexDocs patterns
 			const indexDocsPatterns: string[] = projectInfo.indexDocs || [];
 			if (indexDocsPatterns.length === 0) {
-				logger.warn('No indexDocs patterns found in projectInfo.json. No files/folders will be indexed.');
+				logger.warn('No indexDocs patterns found in AI_INFO_FILENAME. No files/folders will be indexed.');
 			}
 
 			const fss = getFileSystem();
@@ -78,12 +78,9 @@ export async function buildIndexDocs(): Promise<void> {
 				if (path.isAbsolute(filePath)) {
 					filePath = path.relative(fss.getWorkingDirectory(), filePath);
 				}
-
 				// Normalize file path to use forward slashes
 				const normalizedPath = filePath.split(path.sep).join('/');
-
 				// logger.info(`Checking indexDocs matching for ${normalizedPath}`); // Too noisy
-
 				return micromatch.isMatch(normalizedPath, indexDocsPatterns);
 			}
 
@@ -383,9 +380,7 @@ async function getFileSummaries(folderPath: string, fileMatchesIndexDocs: (fileP
 					logger.warn(`File summary for ${relativeFilePath} at ${summaryPath} is missing a hash. Skipping for parent hash calculation.`);
 				}
 			} catch (e: any) {
-				if (e.code !== 'ENOENT') {
-					logger.warn(`Failed to read summary for file ${fileName} at ${summaryPath}: ${errorToString(e)}`);
-				}
+				if (e.code !== 'ENOENT') logger.warn(`Failed to read summary for file ${fileName} at ${summaryPath}: ${errorToString(e)}`);
 				// If ENOENT or missing hash, it won't be included in parent hash calculation.
 			}
 		}
@@ -414,9 +409,7 @@ async function getSubFolderSummaries(folderPath: string, folderMatchesIndexDocs:
 					logger.warn(`Folder summary for ${relativeSubFolderPath} at ${summaryPath} is missing a hash. Skipping for parent hash calculation.`);
 				}
 			} catch (e: any) {
-				if (e.code !== 'ENOENT') {
-					logger.warn(`Failed to read summary for subfolder ${subFolderName} at ${summaryPath}: ${errorToString(e)}`);
-				}
+				if (e.code !== 'ENOENT') logger.warn(`Failed to read summary for subfolder ${subFolderName} at ${summaryPath}: ${errorToString(e)}`);
 				// If ENOENT or missing hash, it won't be included in parent hash calculation.
 			}
 		}
