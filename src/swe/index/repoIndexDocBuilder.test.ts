@@ -12,6 +12,7 @@ import { logger } from '#o11y/logger';
 import type { LLM } from '#shared/llm/llm.model';
 import { IndexDocBuilder, buildIndexDocs, getRepositoryOverview, loadBuildDocsSummaries } from '#swe/index/repoIndexDocBuilder';
 import { AI_INFO_FILENAME } from '#swe/projectDetection';
+import { errorToString } from '#utils/errors';
 import * as llmSummaries from './llmSummaries'; // To stub its functions
 
 // Enable chai-subset
@@ -36,14 +37,8 @@ describe.only('IndexDocBuilder', () => {
 	let loggerDebugStub: sinon.SinonStub;
 
 	beforeEach(async () => {
-		// Mock the filesystem first. Specific structures per test.
-		mock({ [MOCK_REPO_ROOT]: {} });
-
-		mockFss = new FileSystemService();
-		// FileSystemService constructor uses process.cwd(), which mock-fs changes.
-		// Explicitly set working directory if needed, or ensure it's correct.
-		// Forcing it here to be sure, as order of beforeEach parts might matter
-		mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
+		// DO NOT mock the filesystem here. It will be mocked in each test.
+		// DO NOT instantiate mockFss or builder here. They will be instantiated in each test.
 
 		// Create stubbed LLM clients
 		mockEasyLlmClient = {
@@ -87,10 +82,7 @@ describe.only('IndexDocBuilder', () => {
 		loggerErrorStub = sinon.stub(logger, 'error');
 		loggerDebugStub = sinon.stub(logger, 'debug');
 
-		builder = new IndexDocBuilder(mockFss, { easy: mockEasyLlmClient, medium: mockMediumLlmClient });
-
 		// Default responses for llmSummaries stubs
-		// These stubs are for the helper functions in llmSummaries.ts, not direct LLM client calls
 		generateFileSummaryStub.resolves({ path: '', short: 'Mocked file short', long: 'Mocked file long', meta: { hash: 'file_hash_placeholder' } });
 		generateFolderSummaryStub.resolves({ path: '', short: 'Mocked folder short', long: 'Mocked folder long', meta: { hash: 'folder_hash_placeholder' } });
 
@@ -100,7 +92,7 @@ describe.only('IndexDocBuilder', () => {
 
 	afterEach(() => {
 		sinon.restore();
-		mock.restore();
+		mock.restore(); // Crucial to restore the filesystem after each test
 	});
 
 	describe('buildIndexDocsInternal', () => {
@@ -110,7 +102,7 @@ describe.only('IndexDocBuilder', () => {
 			const file3Content = 'content of file3.ts';
 
 			const aiConfig = [{ indexDocs: ['src/swe/**/*.ts'] }];
-			mock({
+			mock({ // Test-specific mock setup
 				[MOCK_REPO_ROOT]: {
 					[AI_INFO_FILENAME]: JSON.stringify(aiConfig),
 					src: {
@@ -130,9 +122,11 @@ describe.only('IndexDocBuilder', () => {
 					[typedaiDirName]: { docs: {} },
 				},
 			});
-			// mockFss's working directory is set in beforeEach after mock()
-			// Re-initialize builder if mock structure changes CWD expectations for FSS significantly,
-			// but here it should be fine as MOCK_REPO_ROOT is consistent.
+
+			// Instantiate FSS and Builder AFTER mocking the filesystem for this test
+			mockFss = new FileSystemService();
+			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
+			builder = new IndexDocBuilder(mockFss, { easy: mockEasyLlmClient, medium: mockMediumLlmClient });
 
 			await builder.buildIndexDocsInternal();
 
@@ -220,12 +214,10 @@ describe.only('IndexDocBuilder', () => {
 			expect(projectSummary.projectOverview).to.equal('Mocked project overview');
 
 			// Verify LLM calls
-			// generateFileSummaryStub is called with the LLM client instance
 			expect(generateFileSummaryStub.callCount).to.equal(3);
 			expect(generateFolderSummaryStub.callCount).to.equal(3);
-			expect(mockEasyLlmClient.generateText.callCount).to.equal(1); // Project overview uses easy LLM
+			expect(mockEasyLlmClient.generateText.callCount).to.equal(1);
 
-			// Check that non-matching files/folders were not processed
 			const nonMatchingFileSummaryPath = path.join(MOCK_REPO_ROOT, typedaiDirName, 'docs', 'src/other.js.json');
 			expect(
 				await fsAsync
@@ -247,9 +239,9 @@ describe.only('IndexDocBuilder', () => {
 
 		it('should delete orphaned summary files', async () => {
 			const orphanedSummaryRelPath = 'orphaned/file.ts';
-			const orphanedSummaryJsonPath = path.join(typedaiDirName, 'docs', `${orphanedSummaryRelPath}.json`);
+			// const orphanedSummaryJsonPath = path.join(typedaiDirName, 'docs', `${orphanedSummaryRelPath}.json`); // Not used
 
-			mock({
+			mock({ // Test-specific mock setup
 				[MOCK_REPO_ROOT]: {
 					[AI_INFO_FILENAME]: JSON.stringify([{ indexDocs: ['src/**/*.ts'] }]),
 					src: {
@@ -257,20 +249,21 @@ describe.only('IndexDocBuilder', () => {
 					},
 					[typedaiDirName]: {
 						docs: {
-							// Note: The path in the JSON should be relative to MOCK_REPO_ROOT
 							src: {
-								// This structure for existing.ts.json
 								'existing.ts.json': JSON.stringify({ path: 'src/existing.ts', short: 's', long: 'l', meta: { hash: 'h1' } }),
 							},
 							orphaned: {
-								// This structure for orphaned/file.ts.json
 								'file.ts.json': JSON.stringify({ path: orphanedSummaryRelPath, short: 's', long: 'l', meta: { hash: 'h_orphan' } }),
 							},
 						},
 					},
 				},
 			});
-			// mockFss CWD set in beforeEach
+
+			// Instantiate FSS and Builder AFTER mocking
+			mockFss = new FileSystemService();
+			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
+			builder = new IndexDocBuilder(mockFss, { easy: mockEasyLlmClient, medium: mockMediumLlmClient });
 
 			const orphanedSummaryFullPath = path.join(MOCK_REPO_ROOT, typedaiDirName, 'docs', 'orphaned/file.ts.json');
 			expect(
@@ -303,15 +296,15 @@ describe.only('IndexDocBuilder', () => {
 		it('should not regenerate summaries if content and children hashes are unchanged', async () => {
 			const fileContent = 'content of file.ts';
 			const aiConfig = [{ indexDocs: ['src/file.ts'] }];
-			const fileSummaryPath = path.join(typedaiDirName, 'docs', 'src/file.ts.json');
-			const folderSummaryPath = path.join(typedaiDirName, 'docs', 'src/_index.json');
-			const projectSummaryPath = path.join(typedaiDirName, 'docs', '_project_summary.json');
+			// const fileSummaryPath = path.join(typedaiDirName, 'docs', 'src/file.ts.json'); // Not used
+			// const folderSummaryPath = path.join(typedaiDirName, 'docs', 'src/_index.json'); // Not used
+			// const projectSummaryPath = path.join(typedaiDirName, 'docs', '_project_summary.json'); // Not used
 
 			const initialFileHash = hash(fileContent);
 			const initialFolderChildrenHash = hash(`src/file.ts.json:${initialFileHash}`);
 			const initialProjectChildrenHash = hash(`src/_index.json:${initialFolderChildrenHash}`);
 
-			mock({
+			mock({ // Test-specific mock setup
 				[MOCK_REPO_ROOT]: {
 					[AI_INFO_FILENAME]: JSON.stringify(aiConfig),
 					src: {
@@ -319,7 +312,6 @@ describe.only('IndexDocBuilder', () => {
 					},
 					[typedaiDirName]: {
 						docs: {
-							// Paths in JSON are relative to MOCK_REPO_ROOT
 							src: {
 								'file.ts.json': JSON.stringify({ path: 'src/file.ts', short: 's', long: 'l', meta: { hash: initialFileHash } }),
 								'_index.json': JSON.stringify({ path: 'src', short: 's', long: 'l', meta: { hash: initialFolderChildrenHash } }),
@@ -329,11 +321,14 @@ describe.only('IndexDocBuilder', () => {
 					},
 				},
 			});
-			// mockFss CWD set in beforeEach
+
+			// Instantiate FSS and Builder AFTER mocking
+			mockFss = new FileSystemService();
+			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
+			builder = new IndexDocBuilder(mockFss, { easy: mockEasyLlmClient, medium: mockMediumLlmClient });
 
 			await builder.buildIndexDocsInternal();
 
-			// LLM stubs should not have been called because summaries are up-to-date
 			expect(generateFileSummaryStub.called, 'generateFileSummary helper should not be called').to.be.false;
 			expect(generateFolderSummaryStub.called, 'generateFolderSummary helper should not be called').to.be.false;
 			expect(mockEasyLlmClient.generateText.called, 'Easy LLM generateText for project summary should not be called').to.be.false;
@@ -347,7 +342,7 @@ describe.only('IndexDocBuilder', () => {
 			const fileSummaryRelPath = 'src/file.ts';
 			const fileSummaryJsonPath = path.join(typedaiDirName, 'docs', `${fileSummaryRelPath}.json`);
 
-			mock({
+			mock({ // Test-specific mock setup
 				[MOCK_REPO_ROOT]: {
 					[AI_INFO_FILENAME]: JSON.stringify(aiConfig),
 					src: {
@@ -355,19 +350,21 @@ describe.only('IndexDocBuilder', () => {
 					},
 					[typedaiDirName]: {
 						docs: {
-							// Minimal folder/project summaries for hash propagation
 							src: {
 								'file.ts.json': JSON.stringify({ path: fileSummaryRelPath, short: 's', long: 'l', meta: { hash: hash(oldFileContent) } }),
 								'_index.json': JSON.stringify({ path: 'src', short: 's', long: 'l', meta: { hash: 'folder_h' } }),
 							},
+							'_project_summary.json': JSON.stringify({ projectOverview: 'overview', meta: { hash: 'project_h' } }),
 						},
-						'_project_summary.json': JSON.stringify({ projectOverview: 'overview', meta: { hash: 'project_h' } }),
 					},
 				},
 			});
-			// mockFss CWD set in beforeEach
 
-			// Simulate file content change
+			// Instantiate FSS and Builder AFTER mocking
+			mockFss = new FileSystemService();
+			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
+			builder = new IndexDocBuilder(mockFss, { easy: mockEasyLlmClient, medium: mockMediumLlmClient });
+
 			await fsAsync.writeFile(path.join(MOCK_REPO_ROOT, 'src/file.ts'), newFileContent);
 
 			await builder.buildIndexDocsInternal();
@@ -375,33 +372,37 @@ describe.only('IndexDocBuilder', () => {
 			expect(generateFileSummaryStub.calledOnce, 'generateFileSummary helper should be called once for changed file').to.be.true;
 			const summaryFile = JSON.parse(await fsAsync.readFile(path.join(MOCK_REPO_ROOT, fileSummaryJsonPath), 'utf-8'));
 			expect(summaryFile.meta.hash).to.equal(hash(newFileContent));
-			// Folder and project summaries should also be regenerated due to hash change propagation
 			expect(generateFolderSummaryStub.called, 'generateFolderSummary helper for parent should be called').to.be.true;
 			expect(mockEasyLlmClient.generateText.calledOnce, 'Easy LLM generateText for project summary should be called').to.be.true;
 		});
 
 		it('should handle missing AI_INFO_FILENAME gracefully', async () => {
-			// mock.restore(); // Clear previous mock
-			mock({
+			mock({ // Test-specific mock setup
 				[MOCK_REPO_ROOT]: {
 					// AI_INFO_FILENAME is missing
 				},
 			});
-			// mockFss CWD set in beforeEach
-			// Re-create builder as mockFss might be stale if CWD changed due to mock.restore()
+
+			// Instantiate FSS and Builder AFTER mocking
+			mockFss = new FileSystemService();
+			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
 			builder = new IndexDocBuilder(mockFss, { easy: mockEasyLlmClient, medium: mockMediumLlmClient });
 
 			await expect(builder.buildIndexDocsInternal()).to.be.rejectedWith(Error, `${AI_INFO_FILENAME} not found`);
 		});
 
 		it('should handle empty indexDocs in AI_INFO_FILENAME', async () => {
-			// mock.restore();
-			mock({
+			mock({ // Test-specific mock setup
 				[MOCK_REPO_ROOT]: {
 					[AI_INFO_FILENAME]: JSON.stringify([{ indexDocs: [] }]),
 					src: { 'file.ts': 'content' },
+					[typedaiDirName]: { docs: {} },
 				},
 			});
+
+			// Instantiate FSS and Builder AFTER mocking
+			mockFss = new FileSystemService();
+			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
 			builder = new IndexDocBuilder(mockFss, { easy: mockEasyLlmClient, medium: mockMediumLlmClient });
 
 			await builder.buildIndexDocsInternal();
@@ -409,7 +410,6 @@ describe.only('IndexDocBuilder', () => {
 			expect(loggerWarnStub.calledWithMatch('No indexDocs patterns found')).to.be.true;
 			expect(generateFileSummaryStub.called).to.be.false;
 			expect(generateFolderSummaryStub.called).to.be.false;
-			// Project summary might still be generated (as "empty" or default)
 			expect(mockEasyLlmClient.generateText.calledOnce).to.be.true;
 		});
 	});
@@ -418,8 +418,7 @@ describe.only('IndexDocBuilder', () => {
 		it('should load existing summaries', async () => {
 			const summary1Path = 'src/file1.ts';
 			const summary1Content = { path: summary1Path, short: 's1', long: 'l1', meta: { hash: 'h1' } };
-			// mock.restore();
-			mock({
+			mock({ // Test-specific mock setup
 				[MOCK_REPO_ROOT]: {
 					[typedaiDirName]: {
 						docs: {
@@ -431,6 +430,10 @@ describe.only('IndexDocBuilder', () => {
 					},
 				},
 			});
+
+			// Instantiate FSS and Builder AFTER mocking
+			mockFss = new FileSystemService();
+			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
 			builder = new IndexDocBuilder(mockFss, { easy: mockEasyLlmClient, medium: mockMediumLlmClient });
 
 			const summaries = await builder.loadBuildDocsSummariesInternal();
@@ -439,14 +442,16 @@ describe.only('IndexDocBuilder', () => {
 		});
 
 		it('should call buildIndexDocsInternal if createIfNotExits is true and docs dir is missing', async () => {
-			// mock.restore();
-			mock({
+			mock({ // Test-specific mock setup
 				[MOCK_REPO_ROOT]: {
 					[AI_INFO_FILENAME]: JSON.stringify([{ indexDocs: ['src/file.ts'] }]),
 					src: { 'file.ts': 'content' },
-					// .typedai/docs directory is missing
 				},
 			});
+
+			// Instantiate FSS and Builder AFTER mocking
+			mockFss = new FileSystemService();
+			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
 			builder = new IndexDocBuilder(mockFss, { easy: mockEasyLlmClient, medium: mockMediumLlmClient });
 			const buildInternalStub = sinon.stub(builder, 'buildIndexDocsInternal').resolves();
 
@@ -459,8 +464,7 @@ describe.only('IndexDocBuilder', () => {
 	describe('getTopLevelSummaryInternal', () => {
 		it('should return project overview from _project_summary.json', async () => {
 			const overview = 'Test Project Overview';
-			// mock.restore();
-			mock({
+			mock({ // Test-specific mock setup
 				[MOCK_REPO_ROOT]: {
 					[typedaiDirName]: {
 						docs: {
@@ -469,6 +473,10 @@ describe.only('IndexDocBuilder', () => {
 					},
 				},
 			});
+
+			// Instantiate FSS and Builder AFTER mocking
+			mockFss = new FileSystemService();
+			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
 			builder = new IndexDocBuilder(mockFss, { easy: mockEasyLlmClient, medium: mockMediumLlmClient });
 
 			const result = await builder.getTopLevelSummaryInternal();
@@ -476,8 +484,7 @@ describe.only('IndexDocBuilder', () => {
 		});
 
 		it('should return empty string if _project_summary.json is missing', async () => {
-			//  mock.restore();
-			mock({
+			mock({ // Test-specific mock setup
 				[MOCK_REPO_ROOT]: {
 					[typedaiDirName]: {
 						docs: {
@@ -486,7 +493,12 @@ describe.only('IndexDocBuilder', () => {
 					},
 				},
 			});
+
+			// Instantiate FSS and Builder AFTER mocking
+			mockFss = new FileSystemService();
+			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
 			builder = new IndexDocBuilder(mockFss, { easy: mockEasyLlmClient, medium: mockMediumLlmClient });
+
 			const result = await builder.getTopLevelSummaryInternal();
 			expect(result).to.equal('');
 		});
@@ -495,17 +507,12 @@ describe.only('IndexDocBuilder', () => {
 
 // Minimal tests for exported functions to ensure they setup and call the builder
 describe('Exported repoIndexDocBuilder functions', () => {
-	let mockFssInstance: FileSystemService;
-	let mockEasyLlm: sinon.SinonStubbedInstance<LLM>; // Use LLM
-	let mockMediumLlm: sinon.SinonStubbedInstance<LLM>; // Use LLM
-	let builderInstanceStub: sinon.SinonStubbedInstance<IndexDocBuilder>;
-	let getFileSystemOriginal: any;
-	let llmsOriginal: any;
+	let mockEasyLlmForExported: sinon.SinonStubbedInstance<LLM>;
+	let mockMediumLlmForExported: sinon.SinonStubbedInstance<LLM>;
+	// No need for builderInstanceStub if spying on prototype
 
 	beforeEach(async () => {
-		mockFssInstance = sinon.createStubInstance(FileSystemService);
-		// Create full stubs for LLM clients
-		mockEasyLlm = {
+		mockEasyLlmForExported = {
 			generateText: sinon.stub(),
 			generateTextWithJson: sinon.stub(),
 			generateJson: sinon.stub(),
@@ -521,7 +528,7 @@ describe('Exported repoIndexDocBuilder functions', () => {
 			isConfigured: sinon.stub(),
 			getOldModels: sinon.stub(),
 		} as sinon.SinonStubbedInstance<LLM>;
-		mockMediumLlm = {
+		mockMediumLlmForExported = {
 			generateText: sinon.stub(),
 			generateTextWithJson: sinon.stub(),
 			generateJson: sinon.stub(),
@@ -538,46 +545,39 @@ describe('Exported repoIndexDocBuilder functions', () => {
 			getOldModels: sinon.stub(),
 		} as sinon.SinonStubbedInstance<LLM>;
 
-		// Stub the IndexDocBuilder constructor to control the instance and its methods
-		// This is tricky. Instead, we'll spy on the methods of the actual instance if needed,
-		// or trust the unit tests for IndexDocBuilder cover the internal logic.
-		// For these exported function tests, we mainly care that they call the builder.
-		// A simple way is to stub the builder's methods.
-		builderInstanceStub = sinon.createStubInstance(IndexDocBuilder) as sinon.SinonStubbedInstance<IndexDocBuilder>;
-
-		// This is a bit of a hack: replace the class with a stub returning our controlled instance.
-		// This won't work directly for `new IndexDocBuilder(...)` unless we stub the module.
-		// Awaiting a better way or focusing on testing the builder methods thoroughly.
-		// For now, these tests will be high-level, ensuring the exported functions run.
+		// If getFileSystem() or llms() are used by the exported functions to create IndexDocBuilder,
+		// they would need to be stubbed here to return appropriate mocks.
+		// For example:
+		// sinon.stub(agentContextLocalStorage, 'getFileSystem').returns(sinon.createStubInstance(FileSystemService));
+		// sinon.stub(agentContextLocalStorage, 'llms').returns({ easy: mockEasyLlmForExported, medium: mockMediumLlmForExported });
 	});
 
 	afterEach(async () => {
 		sinon.restore();
-		mock.restore(); // If any test uses mock-fs
+		// mock.restore(); // Only if mock-fs was used in this describe block's tests
 	});
 
 	it('buildIndexDocs exported function should run', async () => {
-		// To truly test this, we'd need to spy on IndexDocBuilder.prototype.buildIndexDocsInternal
-		// or ensure the stubs for getFileSystem/llms are picked up and it doesn't crash.
-		// This is more of an integration smoke test for the exported function.
-		// For now, we assume if IndexDocBuilder is tested, this will work.
-		// A more robust test would involve deeper mocking of the constructor or prototype.
-		// Let's make it call a spy for now.
 		const buildInternalSpy = sinon.spy(IndexDocBuilder.prototype, 'buildIndexDocsInternal');
+		// This test assumes that getFileSystem() and llms() will provide valid (even if unmocked for deep behavior)
+		// instances for the IndexDocBuilder constructor.
 		await buildIndexDocs();
 		expect(buildInternalSpy.calledOnce).to.be.true;
+		buildInternalSpy.restore(); // Restore spy on prototype
 	});
 
 	it('loadBuildDocsSummaries exported function should run', async () => {
 		const loadInternalSpy = sinon.spy(IndexDocBuilder.prototype, 'loadBuildDocsSummariesInternal');
 		await loadBuildDocsSummaries(false);
 		expect(loadInternalSpy.calledOnceWith(false)).to.be.true;
+		loadInternalSpy.restore();
 	});
 
 	it('getRepositoryOverview exported function should run', async () => {
 		const getOverviewInternalSpy = sinon.spy(IndexDocBuilder.prototype, 'getTopLevelSummaryInternal');
-		(mockEasyLlm.generateText as sinon.SinonStub).resolves('overview'); // Ensure it returns something
+		// (mockEasyLlmForExported.generateText as sinon.SinonStub).resolves('overview'); // Not strictly needed if only spying on prototype
 		await getRepositoryOverview();
 		expect(getOverviewInternalSpy.calledOnce).to.be.true;
+		getOverviewInternalSpy.restore();
 	});
 });
