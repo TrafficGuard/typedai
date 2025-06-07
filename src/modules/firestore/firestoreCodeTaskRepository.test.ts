@@ -5,6 +5,7 @@ import { logger } from '#o11y/logger';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { firestoreDb } from './firestore'; // To potentially clear data
 import { FirestoreCodeTaskRepository } from './firestoreCodeTaskRepository';
+import {USERS_COLLECTION} from "#firestore/firestoreUserService";
 
 let testEnv: RulesTestEnvironment;
 
@@ -53,7 +54,7 @@ const clearFirestoreData = async () => {
 	}
 };
 
-describe('FirestoreCodeTaskRepository', () => {
+describe.only('FirestoreCodeTaskRepository', () => {
 	setupConditionalLoggerOutput();
 	// Setup and teardown the emulator environment once for the suite
 	before(async () => {
