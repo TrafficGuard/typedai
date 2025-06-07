@@ -438,11 +438,12 @@ export class NewCodeTaskComponent implements OnInit, OnDestroy {
 	}
 
 	savePreset(): void {
-		this.wizardForm.markAllAsTouched();
-		if (this.wizardForm.invalid) {
-			this.snackBar.open('Cannot save preset: Form is invalid.', 'Close', { duration: 3000, verticalPosition: 'top' });
-			return;
-		}
+		// Remove form-wide validity check
+		// this.wizardForm.markAllAsTouched();
+		// if (this.wizardForm.invalid) {
+		// 	this.snackBar.open('Cannot save preset: Form is invalid.', 'Close', { duration: 3000, verticalPosition: 'top' });
+		// 	return;
+		// }
 
 		const presetName = window.prompt('Enter a name for this preset:');
 		if (!presetName) {
@@ -450,48 +451,82 @@ export class NewCodeTaskComponent implements OnInit, OnDestroy {
 		}
 
 		this.isSubmitting = true; // Use submitting flag to disable button
-		const formValue = this.wizardForm.value;
+		const formValue = this.wizardForm.getRawValue(); // Use getRawValue to include disabled controls
 
-		// --- Logic to derive repo ID/Name (copied from onSubmit) ---
+		// Add specific checks for essential fields required by CodeTaskPresetConfig
+		if (!formValue.selectedSource) {
+            this.snackBar.open('Cannot save preset: Repository Source is required.', 'Close', { duration: 3000, verticalPosition: 'top' });
+            this.isSubmitting = false;
+            return;
+        }
+        if (!formValue.targetBranch) {
+            this.snackBar.open('Cannot save preset: Target Branch is required.', 'Close', { duration: 3000, verticalPosition: 'top' });
+            this.isSubmitting = false;
+            return;
+        }
+
+		// --- Logic to derive repo ID/Name ---
 		let repositoryId = '';
 		let repositoryName: string | undefined | null = undefined;
 
 		if (formValue.selectedSource === 'local') {
+            if (!formValue.selectedRepo) { // Add this check for local repository
+                this.snackBar.open('Cannot save preset: Local Repository Path is required when source is Local.', 'Close', { duration: 3000, verticalPosition: 'top' });
+                this.isSubmitting = false;
+                return;
+            }
 			repositoryId = formValue.selectedRepo as string;
 			const pathParts = repositoryId.split(/[\\/]/);
 			repositoryName = pathParts.pop() || pathParts.pop() || repositoryId;
 		} else {
 			const selectedProject = formValue.selectedRepo as GitProject;
-			if (selectedProject && typeof selectedProject === 'object') {
-				repositoryId = selectedProject.id.toString();
-				repositoryName = selectedProject.name;
-			} else {
-				this.snackBar.open('Cannot save preset: Invalid repository selection.', 'Close', { duration: 5000, verticalPosition: 'top' });
+			if (!selectedProject || typeof selectedProject !== 'object') { // This existing check is good
+				this.snackBar.open('Cannot save preset: A valid GitHub/GitLab repository must be selected.', 'Close', { duration: 5000, verticalPosition: 'top' });
 				this.isSubmitting = false;
 				return;
 			}
+			repositoryId = selectedProject.id.toString();
+			repositoryName = selectedProject.name;
 		}
 		// --- End Repo ID/Name Logic ---
 
-		// --- Logic to derive working branch/create flag (copied from onSubmit) ---
+		// --- Logic to derive working branch/create flag ---
 		let workingBranch: string;
 		let createWorkingBranch: boolean;
 
 		switch (formValue.workingBranchAction) {
 			case 'target':
+                // Ensure targetBranch is not null (already checked above, but good to be mindful)
+                if (!formValue.targetBranch) { // Defensive check, though covered by earlier validation
+                    this.snackBar.open('Cannot save preset: Target Branch is missing for "Use target branch" option.', 'Close', { duration: 3000, verticalPosition: 'top' });
+                    this.isSubmitting = false;
+                    return;
+                }
 				workingBranch = formValue.targetBranch;
 				createWorkingBranch = false;
 				break;
 			case 'existing':
-				workingBranch = formValue.existingWorkingBranch;
+                if (!formValue.existingWorkingBranch) { // Add this check
+                    this.snackBar.open('Cannot save preset: "Existing Working Branch" is required for this option.', 'Close', { duration: 3000, verticalPosition: 'top' });
+                    this.isSubmitting = false;
+                    return;
+                }
+				workingBranch = formValue.existingWorkingBranch; // Use the new control value
 				createWorkingBranch = false;
 				break;
 			case 'new':
+                if (!formValue.newWorkingBranchName) { // Add this check
+                    this.snackBar.open('Cannot save preset: "New Working Branch Name" is required for this option.', 'Close', { duration: 3000, verticalPosition: 'top' });
+                    this.isSubmitting = false;
+                    return;
+                }
 				workingBranch = formValue.newWorkingBranchName;
 				createWorkingBranch = true;
 				break;
 			default:
-				this.snackBar.open('Cannot save preset: Invalid working branch option.', 'Close', { duration: 5000, verticalPosition: 'top' });
+				// Should not happen with validation, but handle defensively
+				console.error('Invalid workingBranchAction:', formValue.workingBranchAction);
+				this.snackBar.open('Cannot save preset: Invalid working branch option selected.', 'Close', { duration: 5000, verticalPosition: 'top' });
 				this.isSubmitting = false;
 				return;
 		}

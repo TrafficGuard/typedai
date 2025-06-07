@@ -1,3 +1,4 @@
+import { animate, style, transition, trigger } from '@angular/animations';
 import { CommonModule, JsonPipe, KeyValuePipe } from '@angular/common';
 import {
 	ChangeDetectionStrategy,
@@ -43,6 +44,12 @@ import { AgentService } from '../../agent.service';
 		JsonPipe,
 		MatTabsModule,
 		KeyValuePipe,
+	],
+	animations: [
+		trigger('summaryFade', [
+			transition(':enter', [style({ opacity: 0 }), animate('250ms cubic-bezier(0.4, 0.0, 0.2, 1)', style({ opacity: 1 }))]),
+			transition(':leave', [animate('250ms cubic-bezier(0.4, 0.0, 0.2, 1)', style({ opacity: 0 }))]),
+		]),
 	],
 })
 export class AgentIterationsComponent implements OnDestroy {

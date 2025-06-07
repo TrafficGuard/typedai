@@ -202,7 +202,7 @@
                     <mat-spinner *ngIf="isSubmitting" diameter="20" style="display: inline-block; margin-right: 8px; vertical-align: middle;"></mat-spinner>
                     {{ isSubmitting ? 'Starting...' : 'Start Code Task' }}
                 </button>
-                <button mat-stroked-button type="button" (click)="savePreset()" [disabled]="wizardForm.invalid || isSubmitting">
+                <button mat-stroked-button type="button" (click)="savePreset()" [disabled]="isSubmitting">
                     Save as Preset
                 </button>
             </div>

@@ -14,12 +14,14 @@
                             <mat-panel-title>
                                 Iteration #{{ iteration.iteration }}
                             </mat-panel-title>
-                            @if (iteration.error) { <!-- This error is from AutonomousIterationSummary -->
-                                <mat-panel-description class="text-red-600 font-semibold flex items-center">
-                                    <mat-icon color="warn" class="mr-1 icon-size-5">error_outline</mat-icon>
-                                    Ended with error
-                                </mat-panel-description>
-                            }
+                            <span *ngIf="!expansionPanel.expanded" [@summaryFade]>
+                                @if (iteration.error) { <!-- This error is from AutonomousIterationSummary -->
+                                    <mat-panel-description class="text-red-600 font-semibold flex items-center">
+                                        <mat-icon color="warn" class="mr-1 icon-size-5">error_outline</mat-icon>
+                                        Ended with error
+                                    </mat-panel-description>
+                                }
+                            </span>
                         </mat-expansion-panel-header>
                         <ng-template matExpansionPanelContent>
                             @let detailState = expandedIterationData()[iteration.iteration];
