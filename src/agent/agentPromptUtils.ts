@@ -5,7 +5,8 @@ import { FileSystemService } from '#functions/storage/fileSystemService';
 import type { FileStore } from '#functions/storage/filestore';
 import { logger } from '#o11y/logger';
 import type { FileMetadata } from '#shared/files/files.model';
-import { type Summary, loadBuildDocsSummaries } from '#swe/index/repoIndexDocBuilder';
+import type { Summary } from '#swe/index/llmSummaries';
+import { loadBuildDocsSummaries } from '#swe/index/repoIndexDocBuilder';
 import { generateFileSystemTreeWithSummaries } from '#swe/index/repositoryMap';
 
 /**

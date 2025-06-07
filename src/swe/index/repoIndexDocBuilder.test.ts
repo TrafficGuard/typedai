@@ -24,7 +24,7 @@ function hash(content: string): string {
 	return createHash('md5').update(content).digest('hex');
 }
 
-describe.only('IndexDocBuilder', () => {
+describe('IndexDocBuilder', () => {
 	let builder: IndexDocBuilder;
 	let mockFss: FileSystemService;
 	let mockEasyLlmClient: sinon.SinonStubbedInstance<LLM>;
@@ -102,7 +102,8 @@ describe.only('IndexDocBuilder', () => {
 			const file3Content = 'content of file3.ts';
 
 			const aiConfig = [{ indexDocs: ['src/swe/**/*.ts'] }];
-			mock({ // Test-specific mock setup
+			mock({
+				// Test-specific mock setup
 				[MOCK_REPO_ROOT]: {
 					[AI_INFO_FILENAME]: JSON.stringify(aiConfig),
 					src: {
@@ -241,7 +242,8 @@ describe.only('IndexDocBuilder', () => {
 			const orphanedSummaryRelPath = 'orphaned/file.ts';
 			// const orphanedSummaryJsonPath = path.join(typedaiDirName, 'docs', `${orphanedSummaryRelPath}.json`); // Not used
 
-			mock({ // Test-specific mock setup
+			mock({
+				// Test-specific mock setup
 				[MOCK_REPO_ROOT]: {
 					[AI_INFO_FILENAME]: JSON.stringify([{ indexDocs: ['src/**/*.ts'] }]),
 					src: {
@@ -304,7 +306,8 @@ describe.only('IndexDocBuilder', () => {
 			const initialFolderChildrenHash = hash(`src/file.ts:${initialFileHash}`);
 			const initialProjectChildrenHash = hash(`src:${initialFolderChildrenHash}`);
 
-			mock({ // Test-specific mock setup
+			mock({
+				// Test-specific mock setup
 				[MOCK_REPO_ROOT]: {
 					[AI_INFO_FILENAME]: JSON.stringify(aiConfig),
 					src: {
@@ -342,7 +345,8 @@ describe.only('IndexDocBuilder', () => {
 			const fileSummaryRelPath = 'src/file.ts';
 			const fileSummaryJsonPath = path.join(typedaiDirName, 'docs', `${fileSummaryRelPath}.json`);
 
-			mock({ // Test-specific mock setup
+			mock({
+				// Test-specific mock setup
 				[MOCK_REPO_ROOT]: {
 					[AI_INFO_FILENAME]: JSON.stringify(aiConfig),
 					src: {
@@ -377,7 +381,8 @@ describe.only('IndexDocBuilder', () => {
 		});
 
 		it('should handle missing AI_INFO_FILENAME gracefully', async () => {
-			mock({ // Test-specific mock setup
+			mock({
+				// Test-specific mock setup
 				[MOCK_REPO_ROOT]: {
 					// AI_INFO_FILENAME is missing
 				},
@@ -392,7 +397,8 @@ describe.only('IndexDocBuilder', () => {
 		});
 
 		it('should handle empty indexDocs in AI_INFO_FILENAME', async () => {
-			mock({ // Test-specific mock setup
+			mock({
+				// Test-specific mock setup
 				[MOCK_REPO_ROOT]: {
 					[AI_INFO_FILENAME]: JSON.stringify([{ indexDocs: [] }]),
 					src: { 'file.ts': 'content' },
@@ -418,7 +424,8 @@ describe.only('IndexDocBuilder', () => {
 		it('should load existing summaries', async () => {
 			const summary1Path = 'src/file1.ts';
 			const summary1Content = { path: summary1Path, short: 's1', long: 'l1', meta: { hash: 'h1' } };
-			mock({ // Test-specific mock setup
+			mock({
+				// Test-specific mock setup
 				[MOCK_REPO_ROOT]: {
 					[typedaiDirName]: {
 						docs: {
@@ -442,7 +449,8 @@ describe.only('IndexDocBuilder', () => {
 		});
 
 		it('should call buildIndexDocsInternal if createIfNotExits is true and docs dir is missing', async () => {
-			mock({ // Test-specific mock setup
+			mock({
+				// Test-specific mock setup
 				[MOCK_REPO_ROOT]: {
 					[AI_INFO_FILENAME]: JSON.stringify([{ indexDocs: ['src/file.ts'] }]),
 					src: { 'file.ts': 'content' },
@@ -464,7 +472,8 @@ describe.only('IndexDocBuilder', () => {
 	describe('getTopLevelSummaryInternal', () => {
 		it('should return project overview from _project_summary.json', async () => {
 			const overview = 'Test Project Overview';
-			mock({ // Test-specific mock setup
+			mock({
+				// Test-specific mock setup
 				[MOCK_REPO_ROOT]: {
 					[typedaiDirName]: {
 						docs: {
@@ -484,7 +493,8 @@ describe.only('IndexDocBuilder', () => {
 		});
 
 		it('should return empty string if _project_summary.json is missing', async () => {
-			mock({ // Test-specific mock setup
+			mock({
+				// Test-specific mock setup
 				[MOCK_REPO_ROOT]: {
 					[typedaiDirName]: {
 						docs: {

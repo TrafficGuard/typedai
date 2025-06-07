@@ -111,6 +111,10 @@ export class FileSystemService implements IFileSystemService {
 		return this.workingDirectory;
 	}
 
+	setWorkingDirectoryUnsafe(dir: string) {
+		this.workingDirectory = dir;
+	}
+
 	/**
 	 * Set the working directory. The dir argument may be an absolute filesystem path, otherwise relative to the current working directory.
 	 * If the dir starts with / it will first be checked as an absolute directory, then as relative path to the working directory.
@@ -288,7 +292,9 @@ export class FileSystemService implements IFileSystemService {
 		const gitRoot = useGitIgnore ? this.getVcsRoot() : null;
 		const ig: Ignore = useGitIgnore ? await this.loadGitignoreRules(startPath, gitRoot) : ignore();
 
-		const files: string[] = await this.listFilesRecurse(this.workingDirectory, startPath, ig, useGitIgnore, gitRoot);
+		// The root for calculating relative paths should be the git root, not always the CWD.
+		const recursionRoot = gitRoot ?? this.workingDirectory;
+		const files: string[] = await this.listFilesRecurse(recursionRoot, startPath, ig, useGitIgnore, gitRoot);
 		return files.map((file) => path.relative(this.workingDirectory, file));
 	}
 

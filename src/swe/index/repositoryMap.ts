@@ -5,8 +5,9 @@ import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
+import type { Summary } from '#swe/index/llmSummaries';
 import type { ProjectInfo } from '#swe/projectDetection';
-import { type Summary, getTopLevelSummary, loadBuildDocsSummaries, loadBuildDocsSummaries as loadBuildDocsSummariesFromBuilder } from './repoIndexDocBuilder'; // Rename the imported function
+import { loadBuildDocsSummaries } from './repoIndexDocBuilder';
 
 const fs = {
 	readdir: promisify(nodeReaddir),
@@ -20,7 +21,6 @@ interface RepositoryMap {
 }
 
 export interface RepositoryMaps {
-	repositorySummary: string;
 	fileSystemTree: RepositoryMap;
 	folderSystemTreeWithSummaries: RepositoryMap;
 	fileSystemTreeWithFolderSummaries: RepositoryMap;
@@ -80,7 +80,6 @@ export async function generateRepositoryMaps(projectInfos: ProjectInfo[]): Promi
 		folderSystemTreeWithSummaries: { text: folderSystemTreeWithSummaries, tokens: await countTokens(folderSystemTreeWithSummaries) },
 		fileSystemTreeWithFolderSummaries: { text: fileSystemTreeWithFolderSummaries, tokens: await countTokens(fileSystemTreeWithFolderSummaries) },
 		fileSystemTreeWithFileSummaries: { text: fileSystemTreeWithFileSummaries, tokens: await countTokens(fileSystemTreeWithFileSummaries) },
-		repositorySummary: await getTopLevelSummary(),
 		languageProjectMap: { text: languageProjectMap, tokens: await countTokens(languageProjectMap) },
 	};
 }

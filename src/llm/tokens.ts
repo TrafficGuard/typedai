@@ -26,5 +26,5 @@ export async function countTokens(text: string): Promise<number> {
 			}
 		}
 	}
-	return tokenizer.encode(text).length;
+	return tokenizer?.encode(text).length ?? 0;
 }

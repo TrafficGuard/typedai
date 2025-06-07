@@ -11,7 +11,7 @@ import type { LanguageTools } from './lang/languageTools';
 
 export type LanguageRuntime = 'nodejs' | 'typescript' | 'php' | 'python' | 'terraform' | 'pulumi' | 'angular';
 
-const PROJECT_FILENAME = 'ai.json';
+export const AI_INFO_FILENAME = 'ai.json';
 
 export interface ProjectScripts {
 	initialise: string;
@@ -36,7 +36,7 @@ export interface ProjectInfo extends ProjectScripts {
 }
 
 export async function getProjectInfo(): Promise<ProjectInfo | null> {
-	const infoPath = path.join(getFileSystem().getWorkingDirectory(), PROJECT_FILENAME);
+	const infoPath = path.join(getFileSystem().getWorkingDirectory(), AI_INFO_FILENAME);
 	if (existsSync(infoPath)) {
 		const infos = parseProjectInfo(readFileSync(infoPath).toString());
 		if (infos.length === 1) return infos[0];
@@ -75,21 +75,21 @@ function parseProjectInfo(fileContents: string): ProjectInfo[] | null {
 export async function detectProjectInfo(requirements?: string): Promise<ProjectInfo[]> {
 	logger.info('detectProjectInfo');
 	const fss = getFileSystem();
-	if (await fss.fileExists(PROJECT_FILENAME)) {
-		const projectInfoJson = await fss.readFile(PROJECT_FILENAME);
+	if (await fss.fileExists(AI_INFO_FILENAME)) {
+		const projectInfoJson = await fss.readFile(AI_INFO_FILENAME);
 		logger.info(`loaded projectInfo.json ${projectInfoJson}`);
 		logger.info(projectInfoJson);
 		// TODO check projectInfo matches the format we expect
 		const info = parseProjectInfo(projectInfoJson);
 		if (info !== null) return info;
-	} else if (await fss.fileExists(join(fss.getVcsRoot(), PROJECT_FILENAME))) {
+	} else if (await fss.fileExists(join(fss.getVcsRoot(), AI_INFO_FILENAME))) {
 		// logger.info('current dir ' + fileSystem.getWorkingDirectory());
 		// logger.info('fileSystem.getVcsRoot() ' + fileSystem.getVcsRoot());
 		// throw new Error(
 		// 	'TODO handle if we are in a directory inside a repository. Look for the projectInfo.json in the repo root folder and see if any entry exists for the current folder or above ',
 		// );
 		logger.info('Found projectInfo.json in repository root folder');
-		const projectInfoJson = await fss.readFile(join(fss.getVcsRoot(), PROJECT_FILENAME));
+		const projectInfoJson = await fss.readFile(join(fss.getVcsRoot(), AI_INFO_FILENAME));
 		const info = parseProjectInfo(projectInfoJson);
 		if (info !== null) return info;
 	}
@@ -97,7 +97,7 @@ export async function detectProjectInfo(requirements?: string): Promise<ProjectI
 	logger.info('Detecting project info...');
 	const projectInfo = await projectDetectionAgent(requirements);
 	logger.info(projectInfo, 'ProjectInfo detected');
-	await getFileSystem().writeFile(PROJECT_FILENAME, JSON.stringify([projectInfo], null, 2));
+	await getFileSystem().writeFile(AI_INFO_FILENAME, JSON.stringify([projectInfo], null, 2));
 	return projectInfo;
 }
 
