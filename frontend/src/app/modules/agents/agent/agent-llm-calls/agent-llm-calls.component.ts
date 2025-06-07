@@ -10,19 +10,22 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { distinctUntilChanged, filter } from 'rxjs/operators';
-// import { environment } from 'environments/environment'; // Not used directly
 import { LlmCallMessageSummaryPart, LlmMessage } from '#shared/llm/llm.model';
 import { LlmCall, LlmCallSummary } from '#shared/llmCall/llmCall.model';
-import { Prompt as AppPrompt } from '#shared/prompts/prompts.model'; // Use an alias if 'Prompt' is ambiguous
+import { Prompt as AppPrompt } from '#shared/prompts/prompts.model';
 import { AgentLinks, GoogleCloudLinks } from '../../agent-links';
 import { AgentService } from '../../agent.service';
+import {ClipboardButtonComponent} from "../../../chat/conversation/clipboard-button.component";
+import {MarkdownModule, MarkdownService, MarkedRenderer, provideMarkdown} from "ngx-markdown";
+import {CdkCopyToClipboard} from "@angular/cdk/clipboard";
 
 @Component({
 	selector: 'agent-llm-calls',
 	templateUrl: './agent-llm-calls.component.html',
 	styleUrl: 'agent-llm-calls.component.scss',
 	standalone: true,
-	imports: [CommonModule, MatCardModule, MatIconModule, MatExpansionModule, MatButtonModule, MatProgressSpinnerModule],
+    imports: [CommonModule, MatCardModule, MatIconModule, MatExpansionModule, MatButtonModule, MatProgressSpinnerModule, MarkdownModule, ClipboardButtonComponent, CdkCopyToClipboard],
+    providers: [provideMarkdown()],
 })
 export class AgentLlmCallsComponent {
 	agentId = input<string | null>(null);
@@ -42,6 +45,7 @@ export class AgentLlmCallsComponent {
 	private agentService = inject(AgentService);
 	private router = inject(Router);
 	private destroyRef = inject(DestroyRef);
+    private markdown = inject(MarkdownService);
 
 	// Expose the state signal for the template
 	readonly llmCallsStateForTemplate = this.agentService.llmCallsState;
@@ -100,6 +104,12 @@ export class AgentLlmCallsComponent {
 					}
 				}
 			});
+
+        this.markdown.options = {
+            renderer: new MarkedRenderer(),
+            gfm: true,
+            breaks: true,
+        };
 	}
 
 	loadLlmCalls(agentId: string): void {
@@ -220,4 +230,6 @@ export class AgentLlmCallsComponent {
 			})
 			.catch((err) => console.error('Failed to navigate to Prompt Studio:', err));
 	}
+
+    protected readonly clipboardButton = ClipboardButtonComponent;
 }

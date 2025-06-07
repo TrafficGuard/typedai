@@ -28,4 +28,5 @@ export interface ChatMessage extends Omit<UIMessage, 'content'> {
 	content: UserContentExt; // New primary content field, superseding UIMessage.content
 	isMine?: boolean;
 	generating?: boolean;
+	status?: 'sending' | 'sent' | 'failed_to_send';
 }

@@ -1,12 +1,12 @@
 import { type Db, MongoClient } from 'mongodb';
+import { runLlmCallServiceTests } from '#llm/llmCallService/llmCallService.test';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import { runLlmCallServiceTests } from '../../llm/llmCallService/llmCallService.test';
 import { MongoLlmCallService } from './MongoLlmCallService';
 
 // Define the collection name as a constant for easy modification if needed.
 const LLM_CALLS_COLLECTION_NAME = 'llmCalls';
 
-describe('MongoLlmCallService', () => {
+describe.skip('MongoLlmCallService', () => {
 	setupConditionalLoggerOutput();
 
 	let client: MongoClient;

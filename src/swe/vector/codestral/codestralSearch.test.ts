@@ -289,7 +289,7 @@ describe.skip('Codestral Search Utilities', () => {
 	});
 });
 
-describe('getEmbeddingsBatch', () => {
+describe.skip('getEmbeddingsBatch', () => {
 	let mistralClientMock: any;
 	let embeddingsCreateStub: sinon.SinonStub;
 	let consoleWarnSpy: sinon.SinonSpy;

@@ -1,6 +1,8 @@
 import { platform } from 'node:os';
 import * as path from 'node:path';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
+import { buildFileSystemTreePrompt } from '#agent/agentPromptUtils';
+import { FileSystemTree } from '#agent/autonomous/functions/fileSystemTree';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
@@ -8,8 +10,13 @@ import type { LLM, LlmMessage } from '#shared/llm/llm.model';
 import { user as createUserMessage, messageText } from '#shared/llm/llm.model';
 import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
 import type { EditBlock } from '#swe/coder/coderTypes';
+import { generateRepositoryMaps } from '#swe/index/repositoryMap';
+import { detectProjectInfo } from '#swe/projectDetection';
+import { CoderExhaustedAttemptsError } from '../sweErrors';
+import type { EditFormat } from './coderTypes';
+import { MODEL_EDIT_FORMATS } from './constants';
 import { EditApplier } from './editApplier';
-import { findOriginalUpdateBlocks } from './editBlockParser';
+import { parseEditResponse } from './editBlockParser';
 import type { EditSession, RequestedFileEntry, RequestedPackageInstallEntry, RequestedQueryEntry } from './editSession'; // Import new types
 import { newSession } from './editSession';
 import type { EditHook, HookResult } from './hooks/editHook';
@@ -284,6 +291,9 @@ export class SearchReplaceCoder {
 		messages.push({ role: 'system', content: this.precomputedSystemMessage });
 		messages.push(...this.precomputedExampleMessages);
 
+		messages.push({ role: 'user', content: `Here's all the files in the repository:\n${await buildFileSystemTreePrompt()}` });
+		messages.push({ role: 'assistant', content: 'Ok, thanks.' });
+
 		// File Context
 		const formatFileForPrompt = async (relativePath: string): Promise<string> => {
 			const absolutePath = this.getRepoFilePath(session.workingDir, relativePath);
@@ -371,10 +381,8 @@ export class SearchReplaceCoder {
 
 			const llmResponseMsgObj: LlmMessage = await this.llm.generateMessage(currentMessages, {
 				id: `SearchReplaceCoder.editFiles.attempt${session.attempt}`,
-				temperature: 0.0,
+				temperature: 0.05,
 			});
-
-			console.log(messageText(llmResponseMsgObj));
 
 			currentMessages.push(llmResponseMsgObj);
 			session.llmResponse = messageText(llmResponseMsgObj);
@@ -392,7 +400,13 @@ export class SearchReplaceCoder {
 				continue;
 			}
 
-			session.parsedBlocks = findOriginalUpdateBlocks(session.llmResponse, this.getFence());
+			//  Decide which edit-response format to parse based on the model name
+			const modelId = this.llm.getModel();
+			// Sort keys by length in descending order to match longer, more specific keys first (e.g., "o3-mini" before "o3")
+			const sortedModelFormatEntries = Object.entries(MODEL_EDIT_FORMATS).sort(([keyA], [keyB]) => keyB.length - keyA.length);
+			const editFormat: EditFormat = sortedModelFormatEntries.find(([key]) => modelId.includes(key))?.[1] ?? 'diff';
+
+			session.parsedBlocks = parseEditResponse(session.llmResponse, editFormat, this.getFence());
 
 			const hasFileRequests = session.requestedFiles && session.requestedFiles.length > 0;
 			const hasQueryRequests = session.requestedQueries && session.requestedQueries.length > 0;
@@ -528,6 +542,6 @@ export class SearchReplaceCoder {
 
 		logger.error(`SearchReplaceCoder: Maximum attempts (${MAX_ATTEMPTS}) reached. Failing.`);
 		const finalReflection = session.reflectionMessages.pop() || 'Unknown error after max attempts.';
-		throw new Error(`Failed to apply edits after ${MAX_ATTEMPTS} attempts. Last reflection: ${finalReflection}`);
+		throw new CoderExhaustedAttemptsError(`SearchReplaceCoder failed to apply edits after ${MAX_ATTEMPTS} attempts.`, MAX_ATTEMPTS, finalReflection);
 	}
 }

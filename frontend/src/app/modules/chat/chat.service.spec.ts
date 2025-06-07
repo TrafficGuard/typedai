@@ -20,28 +20,16 @@ import { LlmMessageSchema } from '#shared/llm/llm.schema';
 import { ChatServiceClient } from './chat.service';
 import { convertMessage } from './chat.service'; // For direct testing if needed, or rely on service methods
 
-// Helper to create a minimal valid API Chat Model
-const createMockApiChatModel = (id: string, title: string, messages: Static<typeof LlmMessageSchema>[] = []): Static<typeof ChatModelSchema> => ({
-	id,
-	userId: 'user-test-id',
-	shareable: false,
-	title,
-	updatedAt: Date.now(),
-	messages,
-	parentId: undefined,
-	rootId: undefined,
-});
-
-// Helper to create a minimal valid API LLM Message
+// Helper to create a minimal valid API LLM Message (Static<typeof LlmMessageSchema>)
+// LlmMessageSchema: role, content, stats (optional, but convertMessage uses it)
 const createMockApiLlmMessage = (
-	id: string,
-	role: 'user' | 'assistant' | 'system',
 	content: UserContentExt,
+	role: 'user' | 'assistant' | 'system' = 'assistant',
 	requestTime: number = Date.now(),
+	llmIdForStats: string = 'test-llm-stats'
 ): Static<typeof LlmMessageSchema> => ({
 	role,
 	content,
-	// Mocking a minimal stats object; adjust as needed for specific tests
 	stats: {
 		requestTime,
 		timeToFirstToken: 50,
@@ -49,10 +37,25 @@ const createMockApiLlmMessage = (
 		inputTokens: 10,
 		outputTokens: 20,
 		cost: 0.001,
-		llmId: 'test-llm-id',
-	},
-	// id is not part of LlmMessageSchema, but often added in UI models.
-	// The convertMessage function generates a UUID if not present on the API message.
+		llmId: llmIdForStats,
+	}
+});
+
+// Helper to create a minimal valid API Chat Model (Static<typeof ChatModelSchema>)
+// ChatModelSchema: id, userId, shareable, title, updatedAt (number), messages (LlmMessageSchema[]), parentId?, rootId?
+const createMockApiChatModel = (
+    id: string,
+    messages: Static<typeof LlmMessageSchema>[],
+    title: string = 'Test Chat from API'
+): Static<typeof ChatModelSchema> => ({
+	id,
+	userId: 'api-user-id',
+	shareable: false,
+	title,
+	updatedAt: Date.now(), // timestamp
+	messages,
+	parentId: undefined,
+	rootId: undefined,
 });
 
 describe('ChatServiceClient', () => {
@@ -228,10 +231,10 @@ describe('ChatServiceClient', () => {
 		const userContent: UserContentExt = 'Hello, new chat!';
 		const llmId = 'llm-test';
 		const expectedPath = CHAT_API.createChat.path;
-		const mockApiResponse = createMockApiChatModel('newChatId', 'New Chat Title', [
-			createMockApiLlmMessage('msg1', 'user', userContent),
-			createMockApiLlmMessage('msg2', 'assistant', 'Response to new chat'),
-		]);
+		const mockApiResponse = createMockApiChatModel('newChatId', [
+			createMockApiLlmMessage(userContent, 'user'),
+			createMockApiLlmMessage('Response to new chat', 'assistant'),
+		], 'New Chat Title');
 
 		it('should POST to create a new chat with autoReformat: false when autoReformat is undefined', fakeAsync(() => {
 			const mockRequestPayload: Static<typeof ChatMessageSendSchema> = { llmId, userContent, options: undefined, autoReformat: false };
@@ -318,7 +321,7 @@ describe('ChatServiceClient', () => {
 	describe('loadChatById', () => {
 		it('should fetch a chat by ID and update signals', fakeAsync(() => {
 			const chatId = 'chat1';
-			const mockApiResponse = createMockApiChatModel(chatId, 'Chat One Details', [createMockApiLlmMessage('msg1', 'user', 'Hello')]);
+			const mockApiResponse = createMockApiChatModel(chatId, [createMockApiLlmMessage('Hello', 'user')], 'Chat One Details');
 			const expectedPath = CHAT_API.getById.buildPath({ chatId });
 			// Set initial state for _chatsState
 			(service as any)._chatsState.set({ status: 'success', data: [{ id: 'chat1', title: 'Old Title', updatedAt: Date.now(), messages: [] }] });
@@ -374,7 +377,7 @@ describe('ChatServiceClient', () => {
 		it('should PATCH chat details and update signals', fakeAsync(() => {
 			const chatId = 'chat1';
 			const updatedProps: Partial<Pick<UIChat, 'title' | 'shareable'>> = { title: 'Updated Title', shareable: true };
-			const mockApiResponse = { ...createMockApiChatModel(chatId, 'Old Title'), ...updatedProps, updatedAt: Date.now() };
+			const mockApiResponse = { ...createMockApiChatModel(chatId, [], 'Old Title'), ...updatedProps, updatedAt: Date.now() };
 			const expectedPath = CHAT_API.updateDetails.buildPath({ chatId });
 
 			// Set initial state for _chatsState and _chatState
@@ -408,7 +411,7 @@ describe('ChatServiceClient', () => {
 		const chatId = 'chat1';
 		const userContent: UserContentExt = 'User message';
 		const llmId = 'llm-test';
-		const mockApiAiResponse = createMockApiLlmMessage('aiMsgId', 'assistant', 'AI response');
+		const mockApiAiResponse = createMockApiLlmMessage('AI response', 'assistant');
 		const expectedPath = CHAT_API.sendMessage.buildPath({ chatId });
 
 		beforeEach(() => {
@@ -517,7 +520,7 @@ describe('ChatServiceClient', () => {
 			const userContentForRegen: UserContentExt = 'Original user prompt'; // This is the content of the message to regenerate *from*
 			const llmId = 'llm-test';
 			const historyTruncateIndex = 1; // Example: regenerate after the first message
-			const mockApiAiResponse = createMockApiLlmMessage('newAiMsgId', 'assistant', 'New AI response');
+			const mockApiAiResponse = createMockApiLlmMessage('New AI response', 'assistant');
 			const expectedPath = CHAT_API.regenerateMessage.buildPath({ chatId });
 
 			const initialMessages: ChatMessage[] = [
@@ -551,7 +554,7 @@ describe('ChatServiceClient', () => {
 			const chatId = 'chat1';
 			const llmId = 'llm-test';
 			const audioBlob = new Blob(['audio data'], { type: 'audio/webm' });
-			const mockApiAiResponse = createMockApiLlmMessage('aiAudioRespId', 'assistant', 'Response to audio');
+			const mockApiAiResponse = createMockApiLlmMessage('Response to audio', 'assistant');
 			const expectedPath = CHAT_API.sendMessage.buildPath({ chatId }); // Uses the same endpoint
 
 			const initialChat: UIChat = { id: chatId, title: 'Test Chat', messages: [], updatedAt: Date.now() };
@@ -685,7 +688,7 @@ describe('ChatServiceClient', () => {
 			(service as any)._chatsState.set({ status: 'success', data: [...chats] });
 			(service as any)._chatState.set({ status: 'success', data: chats.find((c) => c.id === chatIdToUpdate) || chats[0] });
 
-			const mockApiAiResponse = createMockApiLlmMessage('aiMsgId', 'assistant', 'AI response', Date.now());
+			const mockApiAiResponse = createMockApiLlmMessage('AI response', 'assistant', Date.now());
 
 			service.sendMessage(chatIdToUpdate, 'User message', 'llm1').subscribe(() => {});
 			tick(); // optimistic update
@@ -709,7 +712,7 @@ describe('ChatServiceClient', () => {
 	// but a direct test can be useful if its logic is complex.
 	describe('convertMessage (internal utility via service methods)', () => {
 		it('should convert API LLM message to UI ChatMessage correctly (string content)', () => {
-			const apiMsg: Static<typeof LlmMessageSchema> = createMockApiLlmMessage('msg1', 'assistant', 'Hello text');
+			const apiMsg: Static<typeof LlmMessageSchema> = createMockApiLlmMessage('Hello text', 'assistant');
 			const uiMsg = convertMessage(apiMsg); // Assuming convertMessage is exported for testing or test via service
 			expect(uiMsg.id).toBeDefined();
 			expect(uiMsg.isMine).toBeFalse();
@@ -719,7 +722,7 @@ describe('ChatServiceClient', () => {
 		});
 
 		it('should convert API LLM message with array content (text part)', () => {
-			const apiMsg: Static<typeof LlmMessageSchema> = createMockApiLlmMessage('msg2', 'user', [{ type: 'text', text: 'User input' }]);
+			const apiMsg: Static<typeof LlmMessageSchema> = createMockApiLlmMessage([{ type: 'text', text: 'User input' }], 'user');
 			const uiMsg = convertMessage(apiMsg);
 			expect(uiMsg.isMine).toBeTrue();
 			expect(uiMsg.textContent).toBe('User input');
@@ -732,7 +735,7 @@ describe('ChatServiceClient', () => {
 			(apiImagePart as any).filename = 'test.png';
 			(apiImagePart as any).size = 1024;
 
-			const apiMsg: Static<typeof LlmMessageSchema> = createMockApiLlmMessage('msg3', 'assistant', [apiImagePart]);
+			const apiMsg: Static<typeof LlmMessageSchema> = createMockApiLlmMessage([apiImagePart], 'assistant');
 			const uiMsg = convertMessage(apiMsg);
 
 			const { text: derivedText, attachments } = userContentExtToAttachmentsAndText(uiMsg.content as UserContentExt);
@@ -743,5 +746,180 @@ describe('ChatServiceClient', () => {
 			expect(uiMsg.imageAttachments.length).toBe(1);
 			expect(uiMsg.imageAttachments[0].filename).toBe('test.png');
 		});
+	});
+
+	describe('Optimistic UI for sendMessage', () => {
+		const chatId = 'chat1';
+		const llmId = 'llm-test';
+		const userContent: UserContentExt = 'Hello from user';
+		const mockAiResponseContent: UserContentExt = 'AI Reply';
+		// Use the refined helper
+		const mockApiAiResponseMessage = createMockApiLlmMessage(mockAiResponseContent, 'assistant');
+		const sendMessagePath = CHAT_API.sendMessage.buildPath({ chatId });
+
+		it('should optimistically add user message to _chatState before API call', fakeAsync(() => {
+			// Arrange
+			const initialMessages: ChatMessage[] = [{ id: 'prev-msg', content: 'Previous message', isMine: false, createdAt: new Date().toISOString(), textContent: 'Previous message' }];
+			const initialChat: UIChat = { id: chatId, title: 'Test Chat', messages: initialMessages, updatedAt: Date.now() };
+			(service as any)._chatState.set({ status: 'success', data: initialChat });
+
+			// Act
+			service.sendMessage(chatId, userContent, llmId, undefined, [] /* attachmentsForUI */).subscribe();
+			tick(); // Allow optimistic update to run
+
+			// Assert
+			const currentChatState = (service as any)._chatState();
+			expect(currentChatState.status).toBe('success');
+			const updatedMessages = currentChatState.data.messages;
+			expect(updatedMessages.length).toBe(initialMessages.length + 1);
+			const optimisticUserMessage = updatedMessages[initialMessages.length];
+			expect(optimisticUserMessage.content).toEqual(userContent);
+			expect(optimisticUserMessage.isMine).toBeTrue();
+			expect(optimisticUserMessage.status).toBe('sending');
+
+			// Clean up HTTP call
+			const req = httpMock.expectOne(sendMessagePath);
+			req.flush(mockApiAiResponseMessage);
+			tick();
+		}));
+
+		it('should add AI response to _chatState on successful API call, updating optimistic user message status', fakeAsync(() => {
+			// Arrange
+			const initialChat: UIChat = { id: chatId, title: 'Test Chat', messages: [], updatedAt: Date.now() };
+			(service as any)._chatState.set({ status: 'success', data: initialChat });
+
+			// Act
+			service.sendMessage(chatId, userContent, llmId, undefined, []).subscribe();
+			tick(); // Optimistic update
+
+			const req = httpMock.expectOne(sendMessagePath);
+			req.flush(mockApiAiResponseMessage);
+			tick(); // Process API response
+
+			// Assert
+			const currentChatState = (service as any)._chatState();
+			expect(currentChatState.status).toBe('success');
+			const finalMessages = currentChatState.data.messages;
+			expect(finalMessages.length).toBe(2); // User message + AI message
+
+			const userMessage = finalMessages.find(m => m.isMine);
+			expect(userMessage?.content).toEqual(userContent);
+			expect(userMessage?.status).toBe('sent'); // Check status update
+
+			const aiMessage = finalMessages.find(m => !m.isMine);
+			// convertMessage simplifies single text part arrays to string for ChatMessage.content
+			expect(aiMessage?.content).toEqual(mockAiResponseContent);
+			expect(aiMessage?.isMine).toBeFalse();
+		}));
+
+		it('should remove optimistic user message from _chatState if sendMessage API fails', fakeAsync(() => {
+			// Arrange
+			const initialChat: UIChat = { id: chatId, title: 'Test Chat', messages: [], updatedAt: Date.now() };
+			(service as any)._chatState.set({ status: 'success', data: initialChat });
+
+			// Act
+			service.sendMessage(chatId, userContent, llmId, undefined, []).subscribe({ error: () => {} });
+			tick(); // Optimistic update
+
+			const req = httpMock.expectOne(sendMessagePath);
+			req.error(new ProgressEvent('Network error')); // Simulate network error
+			tick(); // Process error
+
+			// Assert (verifying actual behavior: optimistic message is removed)
+			const currentChatState = (service as any)._chatState();
+			expect(currentChatState.status).toBe('success'); // State remains success
+			expect(currentChatState.data.id).toBe(chatId);
+			expect(currentChatState.data.messages.length).toBe(0); // Optimistic message removed
+		}));
+	});
+
+	describe('Optimistic UI for createChat', () => {
+		const llmId = 'llm-create';
+		const userContent: UserContentExt = 'First user message for new chat';
+		const createChatPath = CHAT_API.createChat.path;
+
+		it('should optimistically add user message to _chatState (with NEW_CHAT_ID) before API call', fakeAsync(() => {
+			// Arrange: Component would have set chat to NEW_CHAT_ID
+			const newChatShell: UIChat = { id: NEW_CHAT_ID, title: '', messages: [], updatedAt: Date.now() };
+			(service as any)._chatState.set({ status: 'success', data: newChatShell });
+
+			// Act
+			service.createChat(userContent, llmId).subscribe();
+			tick(); // Allow optimistic update
+
+			// Assert
+			const currentChatState = (service as any)._chatState();
+			expect(currentChatState.status).toBe('success');
+			expect(currentChatState.data.id).toBe(NEW_CHAT_ID);
+			const messages = currentChatState.data.messages;
+			expect(messages.length).toBe(1);
+			expect(messages[0].content).toEqual(userContent);
+			expect(messages[0].isMine).toBeTrue();
+			expect(messages[0].status).toBe('sending');
+
+			// Clean up HTTP call
+			const apiUserMsg = createMockApiLlmMessage(userContent, 'user');
+			const apiAiMsg = createMockApiLlmMessage('AI First Reply', 'assistant');
+			const mockApiResponse = createMockApiChatModel('newlyCreatedChatId', [apiUserMsg, apiAiMsg]);
+			const req = httpMock.expectOne(createChatPath);
+			req.flush(mockApiResponse);
+			tick();
+		}));
+
+		it('should update _chatState with new chat ID and all messages on successful API call', fakeAsync(() => {
+			// Arrange
+			const newChatShell: UIChat = { id: NEW_CHAT_ID, title: '', messages: [], updatedAt: Date.now() };
+			(service as any)._chatState.set({ status: 'success', data: newChatShell });
+
+			const apiUserMsg = createMockApiLlmMessage(userContent, 'user');
+			const apiAiMsg = createMockApiLlmMessage('AI says hi back', 'assistant');
+			const newChatIdFromApi = 'newChatId123';
+			const mockApiResponse = createMockApiChatModel(newChatIdFromApi, [apiUserMsg, apiAiMsg]);
+
+			// Act
+			service.createChat(userContent, llmId).subscribe();
+			tick(); // Optimistic
+
+			const req = httpMock.expectOne(createChatPath);
+			req.flush(mockApiResponse);
+			tick(); // API response
+
+			// Assert
+			const currentChatState = (service as any)._chatState();
+			expect(currentChatState.status).toBe('success');
+			expect(currentChatState.data.id).toBe(newChatIdFromApi);
+			const messages = currentChatState.data.messages;
+			expect(messages.length).toBe(2);
+			// convertMessage simplifies single text part arrays to string for ChatMessage.content
+			expect(messages[0].content).toEqual(userContent); // User message content
+			expect(messages[1].content).toEqual('AI says hi back'); // AI message content
+		}));
+
+		it('should remove optimistic user message from _chatState if createChat API fails, keeping NEW_CHAT_ID state', fakeAsync(() => {
+			// Arrange
+			const newChatShell: UIChat = { id: NEW_CHAT_ID, title: '', messages: [], updatedAt: Date.now() };
+			(service as any)._chatState.set({ status: 'success', data: newChatShell });
+
+			// Act
+			service.createChat(userContent, llmId).subscribe({ error: () => {} });
+			tick(); // Optimistic update
+
+			// Verify optimistic state before error
+			const stateBeforeError = (service as any)._chatState();
+			expect(stateBeforeError.status).toBe('success');
+			expect(stateBeforeError.data.id).toBe(NEW_CHAT_ID);
+			expect(stateBeforeError.data.messages.length).toBe(1);
+			expect(stateBeforeError.data.messages[0].content).toEqual(userContent);
+
+			const req = httpMock.expectOne(createChatPath);
+			req.error(new ProgressEvent('Network error')); // Simulate network error
+			tick(); // Process error
+
+			// Assert (verifying actual behavior)
+			const stateAfterError = (service as any)._chatState();
+			expect(stateAfterError.status).toBe('success'); // Stays 'success' because it was already a NEW_CHAT_ID
+			expect(stateAfterError.data.id).toBe(NEW_CHAT_ID);
+			expect(stateAfterError.data.messages.length).toBe(0); // Optimistic message removed
+		}));
 	});
 });

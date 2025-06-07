@@ -1,5 +1,5 @@
 import { llms } from '#agent/agentContextLocalStorage';
-import { removePythonMarkdownWrapper } from '#agent/autonomous/codegen/codegenAutonomousAgentUtils';
+import { removePythonMarkdownWrapper } from '#agent/autonomous/codegen/pythonCodeGenUtils';
 import { extractTag } from '#llm/responseParsers';
 
 export async function reviewPythonCode(agentPlanResponse: string, functionsXml: string): Promise<string> {

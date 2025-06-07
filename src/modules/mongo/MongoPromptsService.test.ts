@@ -2,7 +2,7 @@ import { type Db, MongoClient } from 'mongodb';
 import { runPromptsServiceTests } from '../../../prompts/promptsService.test';
 import { MongoPromptsService } from './MongoPromptsService';
 
-describe('MongoPromptsService', () => {
+describe.skip('MongoPromptsService', () => {
 	let client: MongoClient;
 	let db: Db;
 

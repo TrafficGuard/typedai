@@ -169,7 +169,31 @@
                                         </button>
                                     }
                                     -->
-                                </div>
+                                </div> <!-- End of Bubble div -->
+
+                                <!-- Status Indicator for user's messages -->
+                                @if (message.isMine) {
+                                    <div class="flex justify-end items-center text-xs mt-1 space-x-1 mr-2"> <!-- Added mr-2 for slight offset from edge -->
+                                        @if (message.status === 'sending') {
+                                            <span class="text-gray-500 dark:text-gray-400 italic flex items-center">
+                                                Sending...
+                                                <mat-spinner [diameter]="14" color="primary" style="display: inline-block; vertical-align: middle; margin-left: 4px;"></mat-spinner>
+                                            </span>
+                                        }
+                                        @if (message.status === 'failed_to_send') {
+                                            <span class="text-red-500 italic flex items-center">
+                                                <mat-icon svgIcon="heroicons_outline:exclamation-circle" class="icon-size-4 mr-1"></mat-icon>
+                                                Failed
+                                            </span>
+                                        }
+                                        <!-- Optionally, add a 'Sent' indicator or checkmark if message.status === 'sent' -->
+                                        <!-- For example:
+                                        @if (message.status === 'sent') {
+                                            <mat-icon svgIcon="heroicons_outline:check" class="icon-size-4 text-green-500"></mat-icon>
+                                        }
+                                        -->
+                                    </div>
+                                }
                                 <!-- Time (conditionally displayed) -->
                             </div>
                         }

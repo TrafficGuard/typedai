@@ -1,6 +1,6 @@
 import { ClipboardModule } from '@angular/cdk/clipboard';
 import { TextFieldModule } from '@angular/cdk/text-field';
-import { signal } from '@angular/core';
+import { signal, WritableSignal } from '@angular/core';
 import { type ComponentFixture, TestBed, fakeAsync, tick, waitForAsync } from '@angular/core/testing';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -12,30 +12,21 @@ import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { By } from '@angular/platform-browser';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
+import { ActivatedRoute, Router, Params } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
 import { MarkdownModule, provideMarkdown } from 'ngx-markdown';
-import { of } from 'rxjs';
+import { BehaviorSubject, of, throwError } from 'rxjs';
 
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
 import { UserService } from 'app/core/user/user.service';
 import { UserContentExt } from '#shared/llm/llm.model';
 import { UserProfile } from '#shared/user/user.model';
-import { LlmService } from '../../llm.service';
-import { LLM } from '../../llm.service';
+import { LlmService, LLM } from '../../llm.service'; // Keep existing LlmService and LLM type
+import { LocalStorageService } from 'app/core/services/local-storage.service';
 import { ChatServiceClient } from '../chat.service';
 import { Chat, ChatMessage, NEW_CHAT_ID } from '../chat.types';
 import { ConversationComponent } from './conversation.component';
-
-const mockChat: Chat = {
-	id: 'chat1',
-	title: 'Test Chat',
-	updatedAt: Date.now(),
-	messages: [
-		{ id: 'msg1', content: 'Hello User', isMine: false, createdAt: new Date().toISOString(), textContent: 'Hello User' },
-		{ id: 'msg2', content: 'Hello Assistant', isMine: true, createdAt: new Date().toISOString(), textContent: 'Hello Assistant' },
-	],
-};
 
 const mockUser: UserProfile = {
 	id: 'user1',
@@ -45,10 +36,8 @@ const mockUser: UserProfile = {
 	hilBudget: 0,
 	hilCount: 0,
 	llmConfig: {},
-	chat: { defaultLLM: 'llm-default' },
+	chat: { defaultLLM: 'llm-default' }, // Ensure chat.defaultLLM is present
 	functionConfig: {},
-	// createdAt: new Date().toISOString(), // Removed as UserProfile does not have these
-	// updatedAt: new Date().toISOString(),
 };
 
 const mockLlms: LLM[] = [
@@ -56,40 +45,73 @@ const mockLlms: LLM[] = [
 	{ id: 'llm-alt', name: 'Alternative LLM', isConfigured: true },
 ];
 
+const initialMockChat: Chat = {
+	id: 'chat1',
+	title: 'Test Chat',
+	updatedAt: Date.now(),
+	messages: [
+		{ id: 'msg1', content: 'Hello User', isMine: false, createdAt: new Date().toISOString(), textContent: 'Hello User' },
+		{ id: 'msg2', content: 'Hello Assistant', isMine: true, createdAt: new Date().toISOString(), textContent: 'Hello Assistant' },
+	],
+};
+
 describe('ConversationComponent', () => {
 	let component: ConversationComponent;
 	let fixture: ComponentFixture<ConversationComponent>;
-	let mockChatService: any;
-	let mockLlmService: any;
-	let mockUserService: any;
-	let mockMediaWatcherService: any;
-	let mockConfirmationService: any;
 
-	beforeEach(waitForAsync(() => {
+	// Mocks for services used by ConversationComponent
+	let mockLocalStorageService: jasmine.SpyObj<LocalStorageService>;
+	let mockChatService: any; // Keep flexible structure from existing spec, enhance for draft tests
+	let mockActivatedRoute: { params: BehaviorSubject<Params> }; // Use Params type
+	let mockRouter: jasmine.SpyObj<Router>;
+	let mockUserService: any; // From existing spec
+	let mockLlmService: any; // From existing spec
+	let mockMediaWatcherService: any; // From existing spec
+	let mockConfirmationService: any; // From existing spec
+
+	// Debounce time for draft saving, matches component's implementation
+	const DRAFT_SAVE_DEBOUNCE_TIME = 500;
+
+	beforeEach(waitForAsync(() => { // Or use async () =>
+		// Initialize mocks
+		mockLocalStorageService = jasmine.createSpyObj('LocalStorageService', ['getDraftMessage', 'saveDraftMessage', 'clearDraftMessage']);
+
 		mockChatService = {
-			chat: signal(null),
-			chats: signal([]),
-			loadChatById: jasmine.createSpy('loadChatById').and.returnValue(of(undefined)), // Returns Observable<void>
-			loadChats: jasmine.createSpy('loadChats').and.returnValue(of(undefined)), // Returns Observable<void>
+			chat: signal(null as Chat | null), // Start with null, will be set by route/init logic
+			chats: signal([] as Chat[]),
+			loadChatById: jasmine.createSpy('loadChatById').and.callFake((chatId: string) => {
+				const loadedChat: Chat = { id: chatId, title: `Loaded ${chatId}`, messages: [], updatedAt: Date.now() };
+				(mockChatService.chat as WritableSignal<Chat | null>).set(loadedChat);
+				return of(undefined);
+			}),
+			loadChats: jasmine.createSpy('loadChats').and.returnValue(of(undefined)),
 			resetChat: jasmine.createSpy('resetChat'),
-			deleteChat: jasmine.createSpy('deleteChat').and.returnValue(of(undefined)), // Returns Observable<void>
-			createChat: jasmine.createSpy('createChat').and.returnValue(of(mockChat)), // Returns Observable<Chat>
+			deleteChat: jasmine.createSpy('deleteChat').and.returnValue(of(undefined)),
+			createChat: jasmine.createSpy('createChat').and.returnValue(of({ ...initialMockChat, id: 'newChatId123' })), // Returns Observable<Chat>
 			sendMessage: jasmine.createSpy('sendMessage').and.returnValue(of(undefined)), // Returns Observable<void>
-			regenerateMessage: jasmine.createSpy('regenerateMessage').and.returnValue(of(undefined)), // Returns Observable<void>
-			sendAudioMessage: jasmine.createSpy('sendAudioMessage').and.returnValue(of(undefined)), // Returns Observable<void>
+			regenerateMessage: jasmine.createSpy('regenerateMessage').and.returnValue(of(undefined)),
+			sendAudioMessage: jasmine.createSpy('sendAudioMessage').and.returnValue(of(undefined)),
 			formatMessageAsMarkdown: jasmine.createSpy('formatMessageAsMarkdown').and.returnValue(of('formatted')),
-			setChat: jasmine.createSpy('setChat'),
+			setChat: jasmine.createSpy('setChat').and.callFake((chatToSet: Chat) => {
+				(mockChatService.chat as WritableSignal<Chat | null>).set(chatToSet);
+			}),
 		};
-		// Set the signal value after creating the mock object
-		mockChatService.chat.set(mockChat);
+
+		mockActivatedRoute = { params: new BehaviorSubject<Params>({}) }; // Initialize with empty params
+		mockRouter = jasmine.createSpyObj('Router', ['navigate']);
+
+		// Mocks from existing spec (ensure they are compatible with component signals)
+		mockUserService = {
+			userProfile: signal(mockUser), // Component uses userProfile() signal
+			loadUser: jasmine.createSpy('loadUser'), // Component calls this
+            // user$: of(mockUser), // Keep if other parts of component use it, but userProfile signal is primary
+			// get: jasmine.createSpy('get').and.returnValue(of(mockUser)),
+		};
 
 		mockLlmService = {
-			getLlms: jasmine.createSpy('getLlms').and.returnValue(of(mockLlms)),
-		};
-
-		mockUserService = {
-			user$: of(mockUser), // UserService exposes user$ as an Observable
-			get: jasmine.createSpy('get').and.returnValue(of(mockUser)), // Mock the get method
+			llmsState: signal({ status: 'success', data: mockLlms as LLM[] }), // Component uses llmsState() signal
+			loadLlms: jasmine.createSpy('loadLlms'), // Component calls this
+            // getLlms: jasmine.createSpy('getLlms').and.returnValue(of(mockLlms)), // Keep if other parts use it
 		};
 
 		mockMediaWatcherService = {
@@ -102,28 +124,22 @@ describe('ConversationComponent', () => {
 
 		TestBed.configureTestingModule({
 			imports: [
-				ConversationComponent, // Import the standalone component
+				ConversationComponent, // Standalone component
 				NoopAnimationsModule,
-				RouterTestingModule,
+				RouterTestingModule, // Useful for [routerLink] etc.
 				MatSnackBarModule,
-				// MatSidenavModule, // Already imported by ConversationComponent
-				// MatFormFieldModule, // Already imported by ConversationComponent
-				// MatInputModule, // Already imported by ConversationComponent
-				// MatIconModule, // Already imported by ConversationComponent
-				// MatButtonModule, // Already imported by ConversationComponent
-				// MatMenuModule, // Already imported by ConversationComponent
-				// MatSelectModule, // Already imported by ConversationComponent
-				// TextFieldModule, // Already imported by ConversationComponent
-				// ClipboardModule, // Already imported by ConversationComponent
-				MarkdownModule.forRoot(), // Ensure MarkdownModule is configured
+				MarkdownModule.forRoot(), // From existing spec
 			],
 			providers: [
-				{ provide: ChatServiceClient, useValue: mockChatService },
-				{ provide: LlmService, useValue: mockLlmService },
+				{ provide: LocalStorageService, useValue: mockLocalStorageService },
+				{ provide: ChatServiceClient, useValue: mockChatService }, // Use ChatServiceClient
+				{ provide: ActivatedRoute, useValue: mockActivatedRoute },
+				{ provide: Router, useValue: mockRouter },
 				{ provide: UserService, useValue: mockUserService },
+				{ provide: LlmService, useValue: mockLlmService },
 				{ provide: FuseMediaWatcherService, useValue: mockMediaWatcherService },
 				{ provide: FuseConfirmationService, useValue: mockConfirmationService },
-				provideMarkdown(), // Provide markdown services
+				provideMarkdown(), // From existing spec
 			],
 		}).compileComponents();
 	}));
@@ -141,19 +157,187 @@ describe('ConversationComponent', () => {
 
 	it('should load chat on init if route has ID', () => {
 		// Simulate route params having an ID
-		mockChatService.chat.set(null); // Reset chat before test
-		spyOnProperty(component.route, 'params', 'get').and.returnValue(of({ id: 'chat1' }));
+		(mockChatService.chat as WritableSignal<Chat | null>).set(null); // Reset chat before test
+		mockActivatedRoute.params.next({ id: 'chat1' }); // Use the BehaviorSubject for params
 		fixture.detectChanges(); // Trigger ngOnInit and effects
 
 		expect(mockChatService.loadChatById).toHaveBeenCalledWith('chat1');
 	});
 
 	it('should display messages from the chat', () => {
-		mockChatService.chat.set(mockChat); // Ensure chat is set
+		(mockChatService.chat as WritableSignal<Chat | null>).set(initialMockChat); // Ensure chat is set
 		fixture.detectChanges(); // Trigger effects and rendering
 		const messages = component.displayedMessages();
-		expect(messages.length).toBe(mockChat.messages.length);
+		expect(messages.length).toBe(initialMockChat.messages.length);
 		// Further checks can be done on the rendered DOM elements
+	});
+
+	describe('Draft Message Loading', () => {
+		it('should load draft message from LocalStorageService on init if chatId from route exists and set input', fakeAsync(() => {
+			const testChatId = 'chat123';
+			const draftText = 'Existing draft';
+			mockLocalStorageService.getDraftMessage.and.returnValue(draftText);
+
+			mockActivatedRoute.params.next({ id: testChatId });
+			fixture.detectChanges(); // Trigger ngOnInit and effects related to route params
+			tick(); // Allow observables from route params and chat loading to resolve
+
+			expect(mockChatService.loadChatById).toHaveBeenCalledWith(testChatId);
+			// The chat signal should have been updated by loadChatById mock
+			expect(mockLocalStorageService.getDraftMessage).toHaveBeenCalledWith(testChatId);
+			expect(component.messageInput.nativeElement.value).toBe(draftText);
+		}));
+
+		it('should attempt to load draft for NEW_CHAT_ID if no route id, after chat service sets new chat', fakeAsync(() => {
+			const draftText = 'New chat draft';
+			mockLocalStorageService.getDraftMessage.and.returnValue(draftText);
+
+			mockActivatedRoute.params.next({}); // No id in route
+			fixture.detectChanges(); // Trigger ngOnInit and effects
+			tick(); // Allow observables to resolve
+
+			// ChatService.setChat should be called by the component, which updates the chat signal
+			expect(mockChatService.setChat).toHaveBeenCalledWith(jasmine.objectContaining({ id: NEW_CHAT_ID }));
+			expect(mockLocalStorageService.getDraftMessage).toHaveBeenCalledWith(NEW_CHAT_ID); // NEW_CHAT_ID is 'new'
+			expect(component.messageInput.nativeElement.value).toBe(draftText);
+		}));
+
+		it('should not set input if no draft message exists for a given chatId', fakeAsync(() => {
+			const testChatId = 'chat789';
+			mockLocalStorageService.getDraftMessage.and.returnValue(null);
+
+			mockActivatedRoute.params.next({ id: testChatId });
+			fixture.detectChanges();
+			tick();
+
+			expect(mockChatService.loadChatById).toHaveBeenCalledWith(testChatId);
+			expect(mockLocalStorageService.getDraftMessage).toHaveBeenCalledWith(testChatId);
+			expect(component.messageInput.nativeElement.value).toBe('');
+		}));
+
+        it('should clear input if switching to a chat with no draft from a chat that might have had one', fakeAsync(() => {
+            // Setup initial chat (simulating it was loaded)
+            const firstChatId = 'firstChatWithDraft';
+            (mockChatService.chat as WritableSignal<Chat | null>).set({ id: firstChatId, title: 'First', messages: [], updatedAt: Date.now() });
+            component.messageInput.nativeElement.value = "Draft from first chat"; // Manually set for test
+            component.previousChatId = firstChatId; // Simulate component state
+            fixture.detectChanges();
+            tick();
+
+            // Switch to a new chat ID that has no draft
+            const secondChatId = 'secondChatNoDraft';
+            mockLocalStorageService.getDraftMessage.and.returnValue(null); // No draft for the second chat
+
+            // Simulate route change and chat loading for the second chat
+            mockActivatedRoute.params.next({ id: secondChatId });
+            // loadChatById mock will update mockChatService.chat signal
+            fixture.detectChanges(); // Process route change
+            tick(); // Allow effects to run
+
+            expect(mockChatService.loadChatById).toHaveBeenCalledWith(secondChatId);
+            expect(mockLocalStorageService.getDraftMessage).toHaveBeenCalledWith(secondChatId);
+            expect(component.messageInput.nativeElement.value).toBe('');
+        }));
+	});
+
+	describe('Draft Message Saving', () => {
+		it('should call saveDraftMessage on input change after debounce with current chatId', fakeAsync(() => {
+			const testChatId = 'activeChatId';
+			mockActivatedRoute.params.next({ id: testChatId });
+			fixture.detectChanges(); // Initialize component, process route params
+			tick(); // Allow effects to complete (like chat loading)
+
+			component.messageInput.nativeElement.value = 'Typing...';
+			component.messageInput.nativeElement.dispatchEvent(new Event('input')); // Simulate input
+			fixture.detectChanges(); // For _resizeMessageInput if it affects DOM
+
+			expect(mockLocalStorageService.saveDraftMessage).not.toHaveBeenCalled(); // Not called immediately
+
+			tick(DRAFT_SAVE_DEBOUNCE_TIME + 50); // Advance time past debounce
+
+			expect(mockLocalStorageService.saveDraftMessage).toHaveBeenCalledWith(testChatId, 'Typing...');
+		}));
+
+		it('should use NEW_CHAT_ID for saving draft if current chat is new (no route id)', fakeAsync(() => {
+			mockActivatedRoute.params.next({});
+			fixture.detectChanges();
+			tick(); // Allow chat to be set to NEW_CHAT_ID
+
+			component.messageInput.nativeElement.value = 'New draft text';
+			component.messageInput.nativeElement.dispatchEvent(new Event('input'));
+			fixture.detectChanges();
+
+			tick(DRAFT_SAVE_DEBOUNCE_TIME + 50);
+
+			expect(mockLocalStorageService.saveDraftMessage).toHaveBeenCalledWith(NEW_CHAT_ID, 'New draft text');
+		}));
+	});
+
+	describe('Draft Message Clearing', () => {
+		beforeEach(fakeAsync(() => {
+            // Ensure userProfile is loaded for sendMessage to proceed
+            mockUserService.userProfile.set(mockUser);
+            // Ensure LLM is selected for sendMessage
+            component.llmId.set(mockLlms[0].id);
+			fixture.detectChanges();
+            tick();
+        }));
+
+		it('should call clearDraftMessage with current chatId on successful message send (existing chat)', fakeAsync(() => {
+			const testChatId = 'chatToClear';
+			mockActivatedRoute.params.next({ id: testChatId });
+			fixture.detectChanges();
+			tick(); // Ensure chat is loaded
+
+			component.messageInput.nativeElement.value = 'Message to send';
+			// mockChatService.sendMessage already returns of(undefined) by default
+
+			component.sendMessage(); // This is async
+			tick(); // Allow async operations in sendMessage (like attachmentsAndTextToUserContentExt)
+			fixture.detectChanges(); // Allow UI updates from sendMessage (optimistic messages, etc.)
+
+			// The clearDraftMessage is in the 'complete' callback of the API call observable
+			// Ensure the observable returned by mockChatService.sendMessage completes. 'of(undefined)' does.
+
+			expect(mockLocalStorageService.clearDraftMessage).toHaveBeenCalledWith(testChatId);
+			expect(component.messageInput.nativeElement.value).toBe('');
+		}));
+
+		it('should call clearDraftMessage with NEW_CHAT_ID on successful new chat creation, then navigate', fakeAsync(() => {
+			mockActivatedRoute.params.next({});
+			fixture.detectChanges();
+			tick(); // Ensure chat is NEW_CHAT_ID
+
+			component.messageInput.nativeElement.value = 'First message';
+			const newChatResponse: Chat = { id: 'newlyCreatedChatId', messages: [], title: 'New Chat', updatedAt: Date.now() };
+			mockChatService.createChat.and.returnValue(of(newChatResponse));
+
+			component.sendMessage();
+			tick();
+			fixture.detectChanges();
+
+			expect(mockLocalStorageService.clearDraftMessage).toHaveBeenCalledWith(NEW_CHAT_ID);
+			expect(mockRouter.navigate).toHaveBeenCalledWith(['/ui/chat', newChatResponse.id]);
+			expect(component.messageInput.nativeElement.value).toBe('');
+		}));
+
+		it('should NOT clearDraftMessage if message send fails', fakeAsync(() => {
+			const testChatId = 'chatKeepDraft';
+			mockActivatedRoute.params.next({ id: testChatId });
+			fixture.detectChanges();
+			tick();
+
+			const failedMessageText = 'Failed message';
+			component.messageInput.nativeElement.value = failedMessageText;
+			mockChatService.sendMessage.and.returnValue(throwError(() => new Error('Send failed')));
+
+			component.sendMessage();
+			tick();
+			fixture.detectChanges();
+
+			expect(mockLocalStorageService.clearDraftMessage).not.toHaveBeenCalled();
+			expect(component.messageInput.nativeElement.value).toBe(failedMessageText);
+		}));
 	});
 
 	describe('Auto-Reformat Feature', () => {
@@ -258,9 +442,9 @@ describe('ConversationComponent', () => {
 				component.selectedAttachments.set([]); // Clear attachments
 			});
 
-			it('should call _chatService.createChat with autoReformat: true for a new chat when autoReformatEnabled is true', async () => {
+			it('should call _chatService.createChat with autoReformat: true for a new chat when autoReformatEnabled is true', fakeAsync(() => {
 				// Arrange
-				mockChatService.chat.set(null); // New chat scenario
+				(mockChatService.chat as WritableSignal<Chat | null>).set(null); // New chat scenario
 				component.autoReformatEnabled.set(true);
 				component.llmId.set(llmId);
 				if (component.messageInput?.nativeElement) {
@@ -270,8 +454,9 @@ describe('ConversationComponent', () => {
 				fixture.detectChanges(); // Ensure UI reflects changes if component reads from DOM directly before send
 
 				// Act
-				await component.sendMessage();
-				tick();
+				component.sendMessage(); // sendMessage is async but test is fakeAsync
+				tick(); // Allow promises within sendMessage to resolve (e.g. attachmentsAndTextToUserContentExt)
+				            // and allow the observable subscription to be processed.
 
 				// Assert
 				expect(mockChatService.createChat).toHaveBeenCalledWith(
@@ -280,11 +465,11 @@ describe('ConversationComponent', () => {
 					jasmine.objectContaining({ thinking: null }), // options
 					true, // autoReformat flag
 				);
-			});
+			}));
 
-			it('should call _chatService.createChat with autoReformat: false for a new chat when autoReformatEnabled is false', async () => {
+			it('should call _chatService.createChat with autoReformat: false for a new chat when autoReformatEnabled is false', fakeAsync(() => {
 				// Arrange
-				mockChatService.chat.set(null); // New chat scenario
+				(mockChatService.chat as WritableSignal<Chat | null>).set(null); // New chat scenario
 				component.autoReformatEnabled.set(false);
 				component.llmId.set(llmId);
 				if (component.messageInput?.nativeElement) {
@@ -294,7 +479,7 @@ describe('ConversationComponent', () => {
 				fixture.detectChanges();
 
 				// Act
-				await component.sendMessage();
+				component.sendMessage();
 				tick();
 
 				// Assert
@@ -304,11 +489,11 @@ describe('ConversationComponent', () => {
 					jasmine.objectContaining({ thinking: null }),
 					false, // autoReformat flag
 				);
-			});
+			}));
 
-			it('should call _chatService.sendMessage with autoReformat: true for an existing chat when autoReformatEnabled is true', async () => {
+			it('should call _chatService.sendMessage with autoReformat: true for an existing chat when autoReformatEnabled is true', fakeAsync(() => {
 				// Arrange
-				mockChatService.chat.set(mockChat); // Existing chat scenario
+				(mockChatService.chat as WritableSignal<Chat | null>).set(initialMockChat); // Existing chat scenario
 				component.autoReformatEnabled.set(true);
 				component.llmId.set(llmId);
 				if (component.messageInput?.nativeElement) {
@@ -318,23 +503,23 @@ describe('ConversationComponent', () => {
 				fixture.detectChanges();
 
 				// Act
-				await component.sendMessage();
+				component.sendMessage();
 				tick();
 
 				// Assert
 				expect(mockChatService.sendMessage).toHaveBeenCalledWith(
-					mockChat.id,
+					initialMockChat.id,
 					userContent, // UserContentExt (string if no attachments)
 					llmId,
 					undefined, // SendMessageOptions
 					[], // attachments
 					true, // autoReformat flag
 				);
-			});
+			}));
 
-			it('should call _chatService.sendMessage with autoReformat: false for an existing chat when autoReformatEnabled is false', async () => {
+			it('should call _chatService.sendMessage with autoReformat: false for an existing chat when autoReformatEnabled is false', fakeAsync(() => {
 				// Arrange
-				mockChatService.chat.set(mockChat); // Existing chat scenario
+				(mockChatService.chat as WritableSignal<Chat | null>).set(initialMockChat); // Existing chat scenario
 				component.autoReformatEnabled.set(false);
 				component.llmId.set(llmId);
 				if (component.messageInput?.nativeElement) {
@@ -344,19 +529,19 @@ describe('ConversationComponent', () => {
 				fixture.detectChanges();
 
 				// Act
-				await component.sendMessage();
+				component.sendMessage();
 				tick();
 
 				// Assert
 				expect(mockChatService.sendMessage).toHaveBeenCalledWith(
-					mockChat.id,
+					initialMockChat.id,
 					userContent,
 					llmId,
 					undefined, // SendMessageOptions
 					[], // attachments
 					false, // autoReformat flag
 				);
-			});
+			}));
 		});
 
 		describe('Button Appearance (Optional)', () => {
@@ -402,6 +587,133 @@ describe('ConversationComponent', () => {
 	xdescribe('Attachment Functionality in ConversationComponent', () => {
 		it('should add files to selectedAttachments using addFiles method', () => {
 			// Test addFiles
+		});
+
+		it('should convert attachments and text to UserContentExt on sendMessage', () => {
+			// Test sendMessage payload
+		});
+
+		it('should parse UserContentExt to display attachments and text in displayedMessages', () => {
+			// Test displayedMessages computation
+		});
+
+		it('should handle image previews correctly in the template', () => {
+			// Mock messages with image attachments, check DOM
+		});
+
+		it('should handle file previews/icons correctly in the template', () => {
+			// Mock messages with file attachments, check DOM
+		});
+	});
+
+	describe('Optimistic UI for Sending Messages', () => {
+		beforeEach(fakeAsync(() => {
+			// Ensure component is initialized and essential data is available for sendMessage
+			mockActivatedRoute.params.next({ id: 'existingChatId' });
+			fixture.detectChanges(); // Initialize component, process route params
+			tick(); // Allow effects to complete (like chat loading)
+
+			// Set up common prerequisites for sendMessage tests
+			component.llmId.set('test-llm');
+			mockUserService.userProfile.set({
+				id: 'user1',
+				name: 'Test User',
+				email: 'test@example.com',
+				enabled: true,
+				hilBudget: 0,
+				hilCount: 0,
+				llmConfig: {},
+				chat: { defaultLLM: 'test-llm' },
+				functionConfig: {},
+			});
+			if (component.messageInput?.nativeElement) {
+				component.messageInput.nativeElement.value = 'Test message';
+			} else {
+				// Fail test or handle if messageInput is unexpectedly null
+				// For now, assume it will be available after fixture.detectChanges()
+				console.warn('messageInput.nativeElement is null during test setup');
+			}
+			fixture.detectChanges();
+			tick();
+		}));
+
+		it('should set generatingAIMessage when sendMessage is called and clear it on successful completion', fakeAsync(() => {
+			// Arrange
+			mockChatService.sendMessage.and.returnValue(of(void 0)); // Simulate successful send
+
+			// Act
+			component.sendMessage();
+			// Assert: generatingAIMessage should be set immediately or after microtask
+			// Since sendMessage has async parts (attachmentsAndTextToUserContentExt),
+			// and generatingAIMessage.set is called before the API call observable.
+			expect(component.generatingAIMessage()).not.toBeNull();
+			expect(component.generatingAIMessage()?.content).toBe('.'); // Initial placeholder content
+
+			// Act: Allow async operations in sendMessage (like attachmentsAndTextToUserContentExt and API call) to complete
+			tick();
+			fixture.detectChanges(); // Allow UI to update based on signal changes
+
+			// Assert: generatingAIMessage should be cleared on successful completion
+			expect(component.generatingAIMessage()).toBeNull();
+		}));
+
+		it('should set generatingAIMessage and clear it on error during sendMessage', fakeAsync(() => {
+			// Arrange
+			mockChatService.sendMessage.and.returnValue(throwError(() => new Error('Send failed')));
+			if (component.messageInput?.nativeElement) {
+				component.messageInput.nativeElement.value = 'Test message for error';
+			}
+
+			// Act
+			component.sendMessage();
+			expect(component.generatingAIMessage()).not.toBeNull();
+			expect(component.generatingAIMessage()?.content).toBe('.');
+
+			// Act: Allow async operations and error handling to complete
+			tick();
+			fixture.detectChanges();
+
+			// Assert: generatingAIMessage should be cleared on error
+			expect(component.generatingAIMessage()).toBeNull();
+		}));
+
+		it('displayedMessages should include the generatingAIMessage placeholder when active', () => {
+			// Arrange
+			const mockChatMessages: ChatMessage[] = [
+				{ id: 'm1', content: 'Hi', isMine: true, createdAt: new Date().toISOString(), textContent: 'Hi' }
+			];
+			const mockChat: Chat = {
+				id: 'chat1',
+				title: 'Test Chat Display',
+				messages: mockChatMessages,
+				updatedAt: Date.now()
+			};
+			(mockChatService.chat as WritableSignal<Chat | null>).set(mockChat);
+			fixture.detectChanges(); // Update based on chat signal
+
+			const placeholderAiMessage: ChatMessage = {
+				id: 'temp-ai-placeholder',
+				content: '...', // UserContentExt (string)
+				textContent: '...', // textContent for UIMessage compatibility
+				isMine: false,
+				generating: true,
+				createdAt: new Date().toISOString(),
+			};
+			component.generatingAIMessage.set(placeholderAiMessage);
+			fixture.detectChanges(); // Update based on generatingAIMessage signal
+
+			// Assert
+			const displayed = component.displayedMessages();
+			expect(displayed.length).toBe(mockChatMessages.length + 1);
+			
+			const lastDisplayedMessage = displayed[displayed.length - 1];
+			expect(lastDisplayedMessage.id).toBe(placeholderAiMessage.id);
+			expect(lastDisplayedMessage.generating).toBeTrue();
+			// Check derived properties from displayedMessages computation
+			expect(lastDisplayedMessage.textContentForDisplay).toBe('...');
+		});
+	});
+});
 		});
 
 		it('should convert attachments and text to UserContentExt on sendMessage', () => {

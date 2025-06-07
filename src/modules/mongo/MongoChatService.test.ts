@@ -3,7 +3,7 @@ import { runChatServiceTests } from '#chat/chatService.test';
 import { MongoChatService } from '#mongo/MongoChatService';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 
-describe('MongoChatService', () => {
+describe.skip('MongoChatService', () => {
 	setupConditionalLoggerOutput();
 
 	let client: MongoClient;

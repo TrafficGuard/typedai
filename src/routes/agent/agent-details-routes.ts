@@ -1,4 +1,4 @@
-import { type Static, Type } from '@sinclair/typebox';
+import { Type } from '@sinclair/typebox';
 import { serializeContext } from '#agent/agentSerialization';
 import { type AgentExecution, agentExecutions } from '#agent/autonomous/autonomousAgentRunner';
 import type { AppFastifyInstance } from '#app/applicationTypes';
@@ -6,28 +6,23 @@ import { send, sendBadRequest, sendNotFound } from '#fastify/index';
 import { logger } from '#o11y/logger';
 import { AGENT_API } from '#shared/agent/agent.api';
 import type { AgentContext, AgentContextPreview, AutonomousIteration, AutonomousIterationSummary } from '#shared/agent/agent.model';
-import { NotAllowed, NotFound } from '#shared/errors'; // Added import
+import { NotAllowed, NotFound } from '#shared/errors';
 import { functionRegistry } from '../../functionRegistry';
 
 export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 	fastify.get(AGENT_API.list.pathTemplate, { schema: AGENT_API.list.schema }, async (req, reply) => {
 		try {
 			const agentPreviews: AgentContextPreview[] = await fastify.agentStateService.list();
-			// The agentPreviews are already in the format defined by AgentContextPreviewSchema.
-			// No further transformation or serialization like `serializeContext` is needed.
 			reply.sendJSON(agentPreviews);
-			console.log('STATUS CODE');
-			console.log(reply.statusCode);
 		} catch (error) {
-			// List should ideally not throw NotFound/NotAllowed for the list itself,
-			// but could throw other errors (e.g., DB connection).
 			logger.error(error, 'Error listing agents');
 			send(reply, 500, { error: 'Failed to list agents' });
 		}
 	});
 
 	fastify.get(AGENT_API.getAvailableFunctions.pathTemplate, { schema: AGENT_API.getAvailableFunctions.schema }, async (req, reply) => {
-		reply.sendJSON(functionRegistry().map((t) => t.name));
+		const functionNames = functionRegistry().map((t) => t.name);
+		reply.sendJSON(functionNames);
 	});
 
 	fastify.get(AGENT_API.listHumanInLoopAgents.pathTemplate, { schema: AGENT_API.listHumanInLoopAgents.schema }, async (req, reply) => {
@@ -36,8 +31,7 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 			const agentContextsPromises = agentPreviews.map(async (preview) => {
 				try {
 					// Use load here, which now throws NotFound/NotAllowed
-					const fullContext = await fastify.agentStateService.load(preview.agentId);
-					return fullContext;
+					return await fastify.agentStateService.load(preview.agentId);
 				} catch (error) {
 					// Log and skip agents that can't be loaded (e.g., deleted between listRunning and load)
 					logger.warn(`Agent with ID ${preview.agentId} found in running list but failed to load: ${error.message}`);

@@ -1,6 +1,7 @@
 import { agentContext, getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { forceStopErrorCheck } from '#agent/forceStopAgent';
 import { appContext } from '#app/applicationContext';
+import { cacheRetry } from '#cache/cacheRetry';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { Perplexity } from '#functions/web/perplexity';
 import { countTokens } from '#llm/tokens';
@@ -18,12 +19,12 @@ import { onlineResearch } from '#swe/onlineResearch';
 import { reviewChanges } from '#swe/reviewChanges';
 import { supportingInformation } from '#swe/supportingInformation';
 import { execCommand } from '#utils/exec';
-import { cacheRetry } from '../cache/cacheRetry';
 import { AiderCodeEditor } from './aiderCodeEditor';
 import { type SelectFilesResponse, selectFilesToEdit } from './discovery/selectFilesToEdit';
 import { type ProjectInfo, getProjectInfo } from './projectDetection';
 import { basePrompt } from './prompt';
 import { summariseRequirements } from './summariseRequirements';
+import { CoderExhaustedAttemptsError, CompilationError } from './sweErrors';
 import { tidyDiff } from './tidyDiff';
 
 export function buildPrompt(args: {
@@ -41,7 +42,7 @@ export class CodeEditingAgent {
 	 * It also compiles, formats, lints, and runs tests where applicable.
 	 * @param requirements The requirements of the task to make the code changes for.
 	 */
-	@func()
+	// @func()
 	async implementUserRequirements(
 		requirements: string,
 		altOptions?: { projectInfo?: ProjectInfo; workingDirectory?: string }, // altOptions are for programmatic use and not exposed to the autonomous agents.
@@ -104,9 +105,14 @@ export class CodeEditingAgent {
 		// Run in parallel to the requirements generation
 		// NODE_ENV=development is needed to install devDependencies for Node.js projects.
 		// Set this in case the current process has NODE_ENV set to 'production'
-		const installPromise: Promise<any> = projectInfo.initialise
-			? execCommand(projectInfo.initialise, { envVars: { NODE_ENV: 'development' } })
-			: Promise.resolve();
+		let installPromise: Promise<any>;
+		if (projectInfo.initialise) {
+			logger.info(`Executing project initialise script "${projectInfo.initialise}"`);
+			installPromise = execCommand(projectInfo.initialise, { envVars: { NODE_ENV: 'development' } });
+		} else {
+			logger.info('No project initialise script. Skipping.');
+			installPromise = Promise.resolve();
+		}
 
 		const headCommit = await fss.getVcs().getHeadSha();
 		const currentBranch = await fss.getVcs().getBranchName();
@@ -259,9 +265,8 @@ export class CodeEditingAgent {
 
 				const ruleFiles = await includeAlternativeAiToolFiles(codeEditorFiles);
 
-				await new AiderCodeEditor().editFilesToMeetRequirements(codeEditorRequirements, [...codeEditorFiles, ...ruleFiles]);
-				// const coder = new SearchReplaceCoder(getFileSystem(), llms().hard, undefined, [new CompileHook(projectInfo.compile, getFileSystem())]);
-				// await coder.editFilesToMeetRequirements(codeEditorRequirements, codeEditorFiles, Array.from(ruleFiles), true, true);
+				const coder = new SearchReplaceCoder(getFileSystem(), llms().hard, undefined, [new CompileHook(projectInfo.compile, getFileSystem())]);
+				await coder.editFilesToMeetRequirements(codeEditorRequirements, codeEditorFiles, Array.from(ruleFiles), true, true);
 
 				// The code editor may add new files, so we want to add them to the initial file set
 				const addedFiles: string[] = await git.getAddedFiles(compiledCommitSha);
@@ -281,13 +286,19 @@ export class CodeEditingAgent {
 
 				break;
 			} catch (e) {
-				forceStopErrorCheck(e);
-				logger.info('Compiler error');
-				logger.info(e);
-				const compileErrorOutput = e.message;
-				logger.error(`Compile Error Output: ${compileErrorOutput}`);
-				// TODO handle code editor error separately - what failure modes does it have (invalid args, git error etc)?
-				compileErrorAnalysis = await analyzeCompileErrors(compileErrorOutput, initialSelectedFiles, compileErrorSummaries);
+				if (e instanceof CoderExhaustedAttemptsError) {
+					// Propagate coder failures – these are not compile errors
+					throw e;
+				}
+				if (e instanceof CompilationError) {
+					const compileErrorOutput = e.compileOutput;
+					logger.error(`Compile Error Output: ${compileErrorOutput}`);
+					compileErrorAnalysis = await analyzeCompileErrors(compileErrorOutput, initialSelectedFiles, compileErrorSummaries);
+				} else {
+					// Unknown error – rethrow after safety checks
+					forceStopErrorCheck(e);
+					throw e;
+				}
 				compileErrorSummaries.push(compileErrorAnalysis.compileIssuesSummary);
 				if (compileErrorAnalysis.fatalError) return compileErrorAnalysis;
 			}
@@ -347,7 +358,7 @@ export class CodeEditingAgent {
 		if (exitCode > 0) {
 			logger.info(stdout);
 			logger.error(stderr);
-			throw new Error(result);
+			throw new CompilationError(result, projectInfo.compile, stdout, stderr, exitCode);
 		}
 	}
 

@@ -4,9 +4,14 @@ set -e
 # DOCKER_CMD for interactive testing of the configure script
 read -r -d '' DOCKER_CMD << 'EOF' || true
 set -x && \
+export DEBIAN_FRONTEND=noninteractive && \
 echo "Starting Docker command execution..." && \
-apt-get update && \
-apt-get install -y sudo git curl unzip ca-certificates gnupg lsb-release && \
+apt-get update -y && \
+# Install base dependencies AND Python build dependencies
+apt-get install -y sudo git curl unzip ca-certificates gnupg lsb-release rsync \
+    make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev \
+    libsqlite3-dev wget llvm libncursesw5-dev xz-utils tk-dev \
+    libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev && \
 echo "APT packages installed." && \
 # Optional: Install gcloud CLI if you want to test GCP parts thoroughly from a clean gcloud install
 # echo 'Installing gcloud CLI...' && \
@@ -26,19 +31,26 @@ if [ -d "/etc/skel" ] && [ -n "$(ls -A /etc/skel)" ]; then \
 else \
     echo "/etc/skel is empty or does not exist, skipping skel copy." ; \
 fi && \
-chown -R testuser:testuser /home/testuser && \
-echo "Ownership of /home/testuser set to testuser." && \
-# Setup sudoers for testuser
-echo 'testuser ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers && \
-echo "Sudoers configured for testuser." && \
-# Chown /app and its contents (excluding .git) to testuser
-chown testuser:testuser /app && \
-echo "Ownership of /app itself changed to testuser." && \
-echo "Changing ownership of /app contents (excluding .git)... This might take a while if /app is large (e.g., node_modules)..." && \
-find /app -mindepth 1 -maxdepth 1 -not -name ".git" -exec chown -R -- testuser:testuser {} + && \
-echo "Ownership of /app contents changed." && \
+# Attempt to chown the entire home directory, but ignore errors coming from
+# read-only mounts such as the GCLOUD config volume.
+chown -R testuser:testuser /home/testuser 2>/dev/null || \
+  echo "Warning: Skipping chown errors in /home/testuser (likely read-only mount)" && \
+echo "Ownership of /home/testuser set to testuser (read-only paths skipped)." && \
+# Prepare a writable workspace for testuser that excludes files/dirs
+# ignored by .gitignore to keep the copy lean (no node_modules, etc.).
+mkdir -p /home/testuser/app && \
+chown testuser:testuser /home/testuser/app && \
+echo "Workspace /home/testuser/app prepared." && \
+echo "Copying project into workspace (honoring .gitignore rules)..." && \
+rsync -a --exclude='.git/' --filter=':- .gitignore' /app/ /home/testuser/app/ && \
+echo "Project copied to workspace." && \
 echo 'Switching to testuser and running configure script interactively via login shell...' && \
-sudo -u testuser -i HOME=/home/testuser SHELL=/bin/bash /app/bin/configure
+# Run configure; if it fails, drop to an interactive shell for debugging
+sudo -u testuser -i HOME=/home/testuser SHELL=/bin/bash \
+    bash -c "cd /home/testuser/app && ./bin/configure" || {
+        echo "❌ bin/configure exited with code $? – opening interactive bash shell for debugging…"
+        exec bash
+    }
 EOF
 
 # Run docker with the command

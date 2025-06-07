@@ -1,9 +1,12 @@
 import { BaseLLM } from '#llm/base-llm';
 import { getLLM } from '#llm/llmFactory';
-import { Claude4_Opus_Vertex } from '#llm/services/anthropic-vertex';
+import { Claude4_Opus_Vertex, Claude4_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
+import { cerebrasQwen3_32b } from '#llm/services/cerebras';
+import { deepinfraDeepSeekR1 } from '#llm/services/deepinfra';
 import { deepSeekR1, deepSeekV3 } from '#llm/services/deepseek';
 import { Gemini_2_5_Pro } from '#llm/services/gemini';
-import { openAIo3 } from '#llm/services/openai';
+import { openAIo3, openAIo4mini } from '#llm/services/openai';
+import { vertexGemini_2_5_Pro } from '#llm/services/vertexai';
 import { logger } from '#o11y/logger';
 import { type GenerateTextOptions, type LLM, type LlmMessage, lastText } from '#shared/llm/llm.model';
 
@@ -11,17 +14,46 @@ import { type GenerateTextOptions, type LLM, type LlmMessage, lastText } from '#
 
 export function MoA_reasoningLLMRegistry(): Record<string, () => LLM> {
 	return {
-		'MoA:R1x3 DeepSeek': () => new ReasonerDebateLLM('R1x3 DeepSeek', deepSeekV3, [deepSeekR1, deepSeekR1, deepSeekR1], 'MoA R1x3'),
-		'MoA:SOTA': MoA_SOTA,
+		'MAD:Cost': MAD_Cost,
+		'MAD:Fast': MAD_Fast,
+		'MAD:SOTA': MAD_SOTA,
 	};
 }
 
-export function MoA_Fast(): LLM {
-	return new ReasonerDebateLLM('SOTA', openAIo3, [openAIo3, Claude4_Opus_Vertex, Gemini_2_5_Pro], 'MoA:SOTA multi-agent debate (Opus 4, o3, Gemini 2.5 Pro)');
+export function MAD_Cost(): LLM {
+	return new ReasonerDebateLLM(
+		'Cost',
+		deepinfraDeepSeekR1,
+		[deepinfraDeepSeekR1, deepinfraDeepSeekR1, deepinfraDeepSeekR1],
+		'MAD:Cost multi-agent debate (DeepSeek R1x3)',
+	);
 }
 
-export function MoA_SOTA(): LLM {
-	return new ReasonerDebateLLM('SOTA', openAIo3, [openAIo3, Claude4_Opus_Vertex, Gemini_2_5_Pro], 'MoA:SOTA multi-agent debate (Opus 4, o3, Gemini 2.5 Pro)');
+export function MAD_Fast(): LLM {
+	return new ReasonerDebateLLM(
+		'Fast',
+		cerebrasQwen3_32b,
+		[cerebrasQwen3_32b, cerebrasQwen3_32b, cerebrasQwen3_32b],
+		'MAD:Fast multi-agent debate (Cerebras Qwen3 32b)',
+	);
+}
+
+export function MAD_Balanced(): LLM {
+	return new ReasonerDebateLLM(
+		'Balanced',
+		vertexGemini_2_5_Pro,
+		[vertexGemini_2_5_Pro, Claude4_Sonnet_Vertex, openAIo4mini],
+		'MAD:Balanced multi-agent debate (Gemini 2.5 Pro, Sonnet 4, o4-mini)',
+	);
+}
+
+export function MAD_SOTA(): LLM {
+	return new ReasonerDebateLLM(
+		'SOTA',
+		openAIo3,
+		[openAIo3, Claude4_Opus_Vertex, vertexGemini_2_5_Pro],
+		'MAD:SOTA multi-agent debate (Opus 4, o3, Gemini 2.5 Pro)',
+	);
 }
 
 const INITIAL_TEMP = 0.7;
@@ -44,7 +76,7 @@ export class ReasonerDebateLLM extends BaseLLM {
 	 * @param name
 	 */
 	constructor(modelIds = '', providedMediator?: () => LLM, providedDebateLLMs?: Array<() => LLM>, name?: string) {
-		super(name ?? '(MoA)', 'MoA', modelIds, 200_000, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
+		super(name ?? '(MoA)', 'MAD', modelIds, 200_000, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
 		if (providedMediator) this.mediator = providedMediator();
 		if (providedDebateLLMs) {
 			this.llms = providedDebateLLMs.map((factory) => factory());
@@ -70,7 +102,12 @@ export class ReasonerDebateLLM extends BaseLLM {
 	}
 
 	isConfigured(): boolean {
-		return this.mediator.isConfigured() && this.llms.findIndex((llm) => !llm.isConfigured()) === -1;
+		for (const llm of this.llms) {
+			if (!llm.isConfigured()) logger.warn(`${llm.getId()} is not configured`);
+		}
+		if (!this.mediator.isConfigured()) logger.warn(`Mediator ${this.mediator.getId()} is not configured`);
+		// return this.mediator.isConfigured() && this.llms.findIndex((llm) => !llm.isConfigured()) === -1;
+		return true;
 	}
 
 	getModel(): string {
@@ -81,14 +118,14 @@ export class ReasonerDebateLLM extends BaseLLM {
 		return true;
 	}
 
-	protected async generateTextFromMessages(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
+	protected async _generateMessage(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<LlmMessage> {
 		const readOnlyMessages = llmMessages as ReadonlyArray<Readonly<LlmMessage>>;
 		logger.info('Generating initial responses');
 		const initialResponses: string[] = await this.generateInitialResponses(readOnlyMessages, opts);
 		logger.info('Debating responses');
 		const debatedResponses = await this.multiAgentDebate(readOnlyMessages, initialResponses, opts);
 		logger.info('Mediating response');
-		return this.mergeBestResponses(readOnlyMessages, debatedResponses);
+		return { role: 'assistant', content: await this.mergeBestResponses(readOnlyMessages, debatedResponses) };
 	}
 
 	private async generateInitialResponses(llmMessages: ReadonlyArray<Readonly<LlmMessage>>, opts?: GenerateTextOptions): Promise<string[]> {
@@ -127,7 +164,12 @@ Ensure any relevant response formatting instructions are followed.`;
 		return debatedResponses;
 	}
 
-	private async mergeBestResponses(llmMessages: ReadonlyArray<Readonly<LlmMessage>>, responses: string[], systemPrompt?: string): Promise<string> {
+	private async mergeBestResponses(
+		llmMessages: ReadonlyArray<Readonly<LlmMessage>>,
+		responses: string[],
+		systemPrompt?: string,
+		opts?: GenerateTextOptions,
+	): Promise<string> {
 		// TODO convert content to string
 		const originalMessage = lastText(llmMessages);
 		const mergePrompt = `<user-message>\n${originalMessage}\n</user-message>
@@ -140,7 +182,7 @@ Answer directly to the original user message and ensure any relevant response fo
         `;
 		const mergedMessages: LlmMessage[] = [...llmMessages];
 		mergedMessages[mergedMessages.length - 1] = { role: 'user', content: mergePrompt };
-		const generation = this.mediator.generateText(mergedMessages, { temperature: FINAL_TEMP, thinking: 'high' });
+		const generation = this.mediator.generateText(mergedMessages, { ...opts, temperature: FINAL_TEMP, thinking: 'high' });
 		logger.info('Merging best response...');
 		return await generation;
 	}

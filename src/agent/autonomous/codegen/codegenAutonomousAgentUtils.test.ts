@@ -1,6 +1,7 @@
 import { expect } from 'chai';
 // Adjust the import path as necessary
-import { convertTypeScriptToPython } from '#agent/autonomous/codegen/codegenAutonomousAgentUtils';
+
+import { convertTypeScriptToPython } from '#agent/autonomous/codegen/pythonCodeGenUtils';
 
 describe('codegenAgentUtils', () => {
 	describe('TypeScript to Python Type Conversion', () => {

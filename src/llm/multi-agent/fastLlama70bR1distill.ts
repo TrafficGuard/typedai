@@ -1,4 +1,4 @@
-import { deepinfraDeepSeekR1_Distill_Llama70b } from '#llm/services/deepinfra';
+import { deepinfraDeepSeekR1 } from '#llm/services/deepinfra';
 import { sambanovaLlama3_3_70b_R1_Distill } from '#llm/services/sambanova';
 import { togetherLlama3_70B_R1_Distill } from '#llm/services/together';
 import { logger } from '#o11y/logger';
@@ -21,12 +21,7 @@ export class MultiLlama3_70B_R1_Distill extends BaseLLM {
 			() => ({ inputCost: 0, outputCost: 0, totalCost: 0 }),
 		);
 		// Define the providers and their priorities. Lower number = higher priority
-		this.providers = [
-			groqLlama3_3_70B_R1_Distill(),
-			sambanovaLlama3_3_70b_R1_Distill(),
-			togetherLlama3_70B_R1_Distill(),
-			deepinfraDeepSeekR1_Distill_Llama70b(),
-		];
+		this.providers = [groqLlama3_3_70B_R1_Distill(), sambanovaLlama3_3_70b_R1_Distill(), togetherLlama3_70B_R1_Distill(), deepinfraDeepSeekR1()];
 
 		this.maxInputTokens = Math.max(...this.providers.map((p) => p.getMaxInputTokens()));
 	}

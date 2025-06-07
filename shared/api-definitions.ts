@@ -1,4 +1,5 @@
 import type { TSchema } from '@sinclair/typebox';
+import { ApiErrorResponseSchema } from './common.schema';
 
 /**
  * Defines a server API route.
@@ -9,7 +10,8 @@ export interface RouteDefinition<
 	TPathParamsSchema extends TSchema | undefined = undefined,
 	TQuerySchema extends TSchema | undefined = undefined,
 	TBodySchema extends TSchema | undefined = undefined,
-	TResponseSchemasMap extends Record<number, TSchema> | undefined = undefined,
+	// biome-ignore lint:noBannedTypes
+	TResponseSchemasMap extends Record<number, TSchema> = {},
 > {
 	method: TMethod;
 	pathTemplate: TPath;
@@ -26,7 +28,8 @@ export function defineRoute<
 	PathParamsSchema extends TSchema | undefined = undefined,
 	QuerySchema extends TSchema | undefined = undefined,
 	BodySchema extends TSchema | undefined = undefined,
-	ResponseSchemasMap extends Record<number, TSchema> | undefined = undefined,
+	// biome-ignore lint:noBannedTypes
+	ResponseSchemasMap extends Record<number, TSchema> = {},
 >(
 	method: Method,
 	pathTemplate: Path,
@@ -45,7 +48,26 @@ export function defineRoute<
 		return resultPath;
 	};
 
+	const defaultErrorStatusCodes: number[] = [400, 401, 403, 404, 409, 422, 429, 500, 502, 503, 504];
+
 	const routeSchema: RouteSchemaConfig<PathParamsSchema, QuerySchema, BodySchema, ResponseSchemasMap> = config?.schema ?? {};
+
+	// Ensure routeSchema.response is initialized and is a mutable copy
+	if (!routeSchema.response) {
+		routeSchema.response = {} as NonNullable<ResponseSchemasMap>;
+	} else {
+		// Create a shallow copy to avoid modifying the original config object from the caller
+		routeSchema.response = { ...routeSchema.response } as NonNullable<ResponseSchemasMap>;
+	}
+
+	// Add default error schemas if not already present
+	// At this point, routeSchema.response is guaranteed to be an object (Record<number, TSchema>)
+	for (const statusCode of defaultErrorStatusCodes) {
+		if (!(statusCode in routeSchema.response)) {
+			// The type assertion to Record<number, TSchema> is safe here.
+			(routeSchema.response as Record<number, TSchema>)[statusCode] = ApiErrorResponseSchema;
+		}
+	}
 
 	return {
 		method,

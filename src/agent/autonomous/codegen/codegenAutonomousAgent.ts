@@ -6,15 +6,11 @@ import { FUNCTION_OUTPUT_THRESHOLD, summarizeFunctionOutput } from '#agent/agent
 import { runAgentCompleteHandler } from '#agent/autonomous/agentCompletion';
 import type { AgentExecution } from '#agent/autonomous/autonomousAgentRunner';
 import {
-	convertJsonToPythonDeclaration,
 	extractAgentPlan,
 	extractCodeReview,
-	extractDraftPythonCode,
 	extractExpandedUserRequest,
 	extractNextStepDetails,
 	extractObservationsReasoning,
-	extractPythonCode,
-	removePythonMarkdownWrapper,
 } from '#agent/autonomous/codegen/codegenAutonomousAgentUtils';
 import { AGENT_REQUEST_FEEDBACK, REQUEST_FEEDBACK_PARAM_NAME } from '#agent/autonomous/functions/agentFeedback';
 import { AGENT_COMPLETED_NAME, AGENT_COMPLETED_PARAM_NAME, AGENT_SAVE_MEMORY_CONTENT_PARAM_NAME } from '#agent/autonomous/functions/agentFunctions';
@@ -23,7 +19,7 @@ import { ForceStopError } from '#agent/forceStopAgent';
 import { cloneAndTruncateBuffers, removeConsoleEscapeChars } from '#agent/trimObject';
 import { appContext } from '#app/applicationContext';
 import { getServiceName } from '#fastify/trace-init/trace-init';
-import { FUNC_SEP, type FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
+import { FUNC_SEP, type FunctionParameter, type FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
 import type { FileStore } from '#functions/storage/filestore';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
@@ -34,13 +30,18 @@ import { errorToString } from '#utils/errors';
 import { agentContext, agentContextStorage, llms } from '../../agentContextLocalStorage';
 import { type HitlCounters, checkHumanInTheLoop } from '../humanInTheLoopChecks';
 import { checkForImageSources } from './agentImageUtils';
+import {
+	convertJsonToPythonDeclaration,
+	extractDraftPythonCode,
+	extractPythonCode,
+	mainFnCodeToFullScript,
+	processFunctionArguments,
+	removePythonMarkdownWrapper,
+} from './pythonCodeGenUtils';
 
 const stopSequences = ['</response>'];
 
 export const CODEGEN_AGENT_SPAN = 'CodeGen Agent';
-
-/** Packages that the agent generated code is allowed to use */
-const ALLOWED_PYTHON_IMPORTS = ['json', 're', 'math', 'datetime'];
 
 let pyodide: PyodideInterface;
 let codegenSystemPrompt: string | null = null;
@@ -178,9 +179,9 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 					agentPlanResponseMessage = await agent.llms.hard.generateMessage(agentMessages, {
 						id: 'Codegen agent plan',
 						stopSequences,
-						temperature: 0.4,
+						temperature: 0.2,
 						thinking: 'high',
-						maxOutputTokens: 60000,
+						maxOutputTokens: 32000,
 					});
 					agentPlanResponse = messageText(agentPlanResponseMessage);
 					pythonMainFnCode = extractPythonCode(agentPlanResponse);
@@ -189,9 +190,9 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 					agentPlanResponseMessage = await agent.llms.hard.generateMessage(agentMessages, {
 						id: 'Codegen agent plan retry',
 						stopSequences,
-						temperature: 0.4,
+						temperature: 0.2,
 						thinking: 'high',
-						maxOutputTokens: 60000,
+						maxOutputTokens: 32000,
 					});
 					agentPlanResponse = messageText(agentPlanResponseMessage);
 					pythonMainFnCode = extractPythonCode(agentPlanResponse);
@@ -242,7 +243,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 						}
 					}
 
-					// --- Check for images BEFORE stringifying/truncating ---
+					// --- Check for images and contents matching memory keys BEFORE stringifying/truncating ---
 					if (typeof pythonScriptResult === 'object' && pythonScriptResult !== null) {
 						// Reset images for this iteration before checking
 						currentImageParts = []; // Use a temporary variable for this iteration's images
@@ -271,7 +272,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 					const cleanedError = { ...e, message: removeWasmLines(e.message), stack: removeWasmLines(e.stack) };
 					logger.info(cleanedError, `Caught python script error line ${line}. ${e.message}`);
 
-					const errorString = errorToString(e);
+					const errorString = errorToString(cleanedError);
 					iterationData.error = errorString;
 					agent.error = errorString;
 					if (e instanceof ForceStopError) controlLoopError = e;
@@ -412,43 +413,6 @@ function extractLineNumber(text: string): number | null {
 	return null;
 }
 
-/**
- * Converts the python code produced by the agent LLM to the complete script which will be executed
- * @param pythonMainFnCode python code
- */
-function mainFnCodeToFullScript(pythonMainFnCode: string): string {
-	// Add the imports from the allowed packages being used in the script
-	let pythonScript = ALLOWED_PYTHON_IMPORTS.filter((pkg) => pythonMainFnCode.includes(`${pkg}.`) || pkg === 'json') // always need json for JsProxyEncoder
-		.map((pkg) => `import ${pkg}\n`)
-		.join('\n');
-
-	pythonScript += `
-from typing import Any, List, Dict, Tuple, Optional, Union, TypedDict, Callable, Iterable, Mapping, Sequence, Set, Final
-from pyodide.ffi import JsProxy
-
-class ImageSource:
-    def __init__(self, type: str, source: str, data: Dict[int, str]):
-        self.type = type
-        self.source = source
-        self.data = data
-        
-class JsProxyEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, JsProxy):
-            return obj.to_py()
-        # Let the base class default method raise the TypeError
-        return super().default(obj)
-
-async def main():
-${pythonMainFnCode
-	.split('\n')
-	.map((line) => `    ${line}`)
-	.join('\n')}
-
-main()`.trim();
-	return pythonScript;
-}
-
 function setupPyodideFunctionCallableGlobals(
 	functionSchemas: FunctionSchema[],
 	agent: AgentContext,
@@ -463,71 +427,9 @@ function setupPyodideFunctionCallableGlobals(
 		jsGlobals[`_${schema.name}`] = async (...args) => {
 			// logger.info(`args ${JSON.stringify(args)}`); // Can be very verbose
 			// The system prompt instructs the generated code to use positional arguments.
-			// however the generated code may use keyword args so we need to handle that case too.
+			const expectedParamNames: string[] = schema.parameters.map((p) => p.name);
 
-			// Un-proxy any JsProxy objects. https://pyodide.org/en/stable/usage/type-conversions.html
-			args = args.map((arg) => (typeof arg?.toJs === 'function' ? arg.toJs() : arg));
-
-			let finalArgs: any[]; // This will hold the arguments in the correct positional order for the JS call
-			const parameters: { [key: string]: any } = {}; // For logging history
-
-			const expectedParamNames = schema.parameters.map((p) => p.name);
-
-			// --- Argument Handling Logic ---
-			let isKeywordArgs = false;
-			// Check if the call *looks* like keyword arguments:
-			// 1. Exactly one argument was received from Pyodide.
-			// 2. That argument, after .toJs(), is a plain JavaScript object (not null, not an array).
-			// 3. The keys of that object are all valid parameter names for the target function.
-			if (args.length === 1 && typeof args[0] === 'object' && args[0] !== null && !Array.isArray(args[0])) {
-				const potentialKwargs = args[0];
-				const receivedKeys = Object.keys(potentialKwargs);
-
-				// Check if *all* received keys are actual parameter names for this function
-				// AND ensure there's at least one key (don't treat {} as kwargs)
-				if (receivedKeys.length > 0 && receivedKeys.every((key) => expectedParamNames.includes(key))) {
-					isKeywordArgs = true;
-					logger.debug(`Detected keyword arguments for ${schema.name}: ${JSON.stringify(potentialKwargs)}`);
-				} else {
-					logger.warn(
-						`Function object arg didnt have keywords match. Had keys ${JSON.stringify(receivedKeys)}. Expected ${JSON.stringify(expectedParamNames)}`,
-					);
-				}
-			}
-
-			if (isKeywordArgs) {
-				const keywordArgs = args[0];
-				finalArgs = [];
-				// Reconstruct the arguments array in the order defined by the schema
-				for (const paramSchema of schema.parameters) {
-					const paramName = paramSchema.name;
-					// Get the value from the keyword args object, use undefined if missing
-					finalArgs.push(keywordArgs[paramName]);
-					// Populate parameters for logging history (only include provided keys)
-					if (Object.hasOwn(keywordArgs, paramName)) {
-						parameters[paramName] = keywordArgs[paramName];
-					}
-				}
-			} else {
-				// Assume positional arguments - use args directly
-				finalArgs = args;
-				logger.debug(`Assuming positional arguments for ${schema.name}: ${JSON.stringify(finalArgs)}`);
-				// Populate parameters for logging history based on position
-				for (let i = 0; i < finalArgs.length; i++) {
-					if (expectedParamNames[i]) {
-						// Check if a parameter name exists for this position
-						parameters[expectedParamNames[i]] = finalArgs[i];
-					} else {
-						// Handle extra positional args if necessary (though generally discouraged)
-						parameters[`arg_${i}`] = finalArgs[i]; // Log as generic arg_N
-					}
-				}
-			}
-			// Un-proxy any Pyodide proxied objects
-			for (const [k, v] of Object.entries(parameters)) {
-				if (v?.toJs) parameters[k] = v.toJs();
-			}
-			finalArgs = finalArgs.map((arg) => (arg?.toJs ? arg.toJs() : arg));
+			const { finalArgs, parameters } = processFunctionArguments(args, expectedParamNames);
 
 			try {
 				const functionResponse = await functionInstances[className][method](...finalArgs);
@@ -538,15 +440,16 @@ function setupPyodideFunctionCallableGlobals(
 				if (className === 'Agent' && method === 'saveMemory') parameters[AGENT_SAVE_MEMORY_CONTENT_PARAM_NAME] = '(See <memory> entry)';
 				if (className === 'Agent' && method === 'getMemory') stdout = '(See <memory> entry)';
 
+				let stdoutSummary: string | undefined;
 				if (stdout && stdout.length > FUNCTION_OUTPUT_THRESHOLD) {
-					stdout = await summarizeFunctionOutput(agent, agentPlanResponse, schema, parameters, stdout);
+					stdoutSummary = await summarizeFunctionOutput(agent, agentPlanResponse, schema, parameters, stdout);
 				}
 
 				const functionCallResult: FunctionCallResult = {
 					function_name: schema.name,
 					parameters,
 					stdout,
-					// stdoutSummary: outputSummary, TODO
+					stdoutSummary,
 				};
 				agent.functionCallHistory.push(functionCallResult);
 				currentIterationFunctionCalls.push(functionCallResult);

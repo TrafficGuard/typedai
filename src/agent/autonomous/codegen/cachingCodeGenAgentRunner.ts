@@ -5,7 +5,7 @@ import { buildFunctionCallHistoryPrompt, buildMemoryPrompt, buildToolStatePrompt
 import { runAgentCompleteHandler } from '#agent/autonomous/agentCompletion';
 import { type AgentExecution, formatFunctionError, formatFunctionResult } from '#agent/autonomous/autonomousAgentRunner';
 import { reviewPythonCode } from '#agent/autonomous/codegen/codeGenAgentCodeReview';
-import { convertJsonToPythonDeclaration, extractPythonCode, removePythonMarkdownWrapper } from '#agent/autonomous/codegen/codegenAutonomousAgentUtils';
+import { convertJsonToPythonDeclaration, extractPythonCode, removePythonMarkdownWrapper } from '#agent/autonomous/codegen/pythonCodeGenUtils';
 import { AGENT_REQUEST_FEEDBACK } from '#agent/autonomous/functions/agentFeedback';
 import { AGENT_COMPLETED_NAME, AGENT_SAVE_MEMORY_CONTENT_PARAM_NAME } from '#agent/autonomous/functions/agentFunctions';
 import { humanInTheLoop, notifySupervisor } from '#agent/autonomous/humanInTheLoop';

@@ -23,25 +23,27 @@ import { BehaviorSubject, type Observable, Subscription, catchError, finalize, m
 import { CodeTask, CodeTaskPreset, CodeTaskPresetConfig } from '#shared/codeTask/codeTask.model';
 import { GitProject } from '#shared/scm/git.model';
 import { CodeTaskServiceClient, type CreateCodeTaskPayload } from '../codeTask.service';
+import { FuseAlertComponent } from "@fuse/components/alert";
 
 @Component({
 	selector: 'app-newCodeTask',
 	standalone: true,
-	imports: [
-		CommonModule,
-		ReactiveFormsModule,
-		MatFormFieldModule,
-		MatInputModule,
-		MatButtonModule,
-		MatRadioModule,
-		MatCheckboxModule,
-		MatSelectModule,
-		MatProgressSpinnerModule,
-		MatCard,
-		MatCardContent,
-		MatSnackBarModule,
-		MatSelectModule, // Import MatSelectModule
-	],
+    imports: [
+        CommonModule,
+        ReactiveFormsModule,
+        MatFormFieldModule,
+        MatInputModule,
+        MatButtonModule,
+        MatRadioModule,
+        MatCheckboxModule,
+        MatSelectModule,
+        MatProgressSpinnerModule,
+        MatCard,
+        MatCardContent,
+        MatSnackBarModule,
+        MatSelectModule,
+        FuseAlertComponent,
+    ],
 	templateUrl: './newCodeTask.component.html',
 	styleUrls: ['./newCodeTask.component.scss'],
 })
@@ -49,7 +51,7 @@ export class NewCodeTaskComponent implements OnInit, OnDestroy {
 	private fb = inject(FormBuilder);
 	private codeTaskService = inject(CodeTaskServiceClient);
 	private router = inject(Router);
-	private snackBar = inject(MatSnackBar); // Inject MatSnackBar
+	private snackBar = inject(MatSnackBar);
 
 	// Form and submission state
 	wizardForm!: FormGroup;

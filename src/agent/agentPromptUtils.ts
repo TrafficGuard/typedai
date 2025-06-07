@@ -26,15 +26,10 @@ export function buildMemoryPrompt(): string {
  * TODO move the string generation into the tool classes
  */
 export async function buildToolStatePrompt(): Promise<string> {
-	return (
-		(await buildLiveFilesPrompt()) +
-		(await buildFileStorePrompt()) +
-		(await buildFileSystemTreePrompt()) + // Add await and call the new function
-		buildFileSystemPrompt()
-	);
+	return (await buildLiveFilesPrompt()) + (await buildFileStorePrompt()) + (await buildFileSystemTreePrompt()) + (await buildFileSystemPrompt());
 }
 
-async function buildFileSystemTreePrompt(): Promise<string> {
+export async function buildFileSystemTreePrompt(): Promise<string> {
 	const agent = agentContext(); // Get the full agent context
 	if (!agent.functions.getFunctionClassNames().includes(FileSystemTree.name)) {
 		return ''; // Tool not active
@@ -71,15 +66,16 @@ ${treeString}
 /**
  * @return An XML representation of the FileSystem tool state
  */
-function buildFileSystemPrompt(): string {
+async function buildFileSystemPrompt(): Promise<string> {
 	const functions = agentContext().functions;
-	if (!functions.getFunctionClassNames().includes(FileSystemService.name)) return '';
+	const hasAnyFileSystemFunction = functions.getFunctionClassNames().some((name) => name.startsWith('FileSystem'));
+	if (!hasAnyFileSystemFunction) return '';
 	const fss = getFileSystem();
 	const vcsRoot = fss.getVcsRoot();
 	return `\n<file_system>
 	<base_path>${fss.getBasePath()}</base_path>
 	<current_working_directory>${fss.getWorkingDirectory()}</current_working_directory>
-	${vcsRoot ? `<git_repository_root_dir>${vcsRoot}</git_repository_root_dir>` : ''}
+	${vcsRoot ? `<git_repository_root_dir>${vcsRoot}</git_repository_root_dir>\n<git_current_branch>${await fss.getVcs().getBranchName()}</git_current_branch>` : ''}
 </file_system>
 `;
 }

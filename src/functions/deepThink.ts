@@ -1,6 +1,6 @@
 import { agentContext } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import { MoA_SOTA } from '#llm/multi-agent/reasoning-debate';
+import { MAD_SOTA } from '#llm/multi-agent/reasoning-debate';
 import type { AgentContext } from '#shared/agent/agent.model';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
 
@@ -41,6 +41,6 @@ export class DeepThink {
 		}
 		prompt += `Query: ${query}`;
 
-		return await MoA_SOTA().generateTextWithResult(prompt);
+		return await MAD_SOTA().generateTextWithResult(prompt);
 	}
 }

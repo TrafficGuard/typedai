@@ -3,7 +3,7 @@ import { expect } from 'chai';
 import { Claude3_5_Sonnet } from '#llm/services/anthropic';
 import { Claude4_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { cerebrasLlama3_8b } from '#llm/services/cerebras';
-import { deepinfraQwQ_32B, deepinfraQwen2_5_Coder32B } from '#llm/services/deepinfra';
+import { deepinfraDeepSeekR1, deepinfraQwen3_235B_A22B } from '#llm/services/deepinfra';
 import { deepSeekV3 } from '#llm/services/deepseek';
 import { fireworksLlama3_70B } from '#llm/services/fireworks';
 import { groqLlama3_3_70B } from '#llm/services/groq';
@@ -126,14 +126,14 @@ describe('LLMs', () => {
 	});
 
 	describe('Deepinfra', () => {
-		it('Qwen2_5_Coder32B should generateText', async () => {
-			const llm = deepinfraQwen2_5_Coder32B();
+		it('Qwen3_235B_A22B should generateText', async () => {
+			const llm = deepinfraQwen3_235B_A22B();
 			const response = await llm.generateText(SKY_PROMPT, { temperature: 0 });
 			expect(response.toLowerCase()).to.include('blue');
 		});
 
-		it('QwQ_32B should generateText', async () => {
-			const llm = deepinfraQwQ_32B();
+		it('DeepSeek R1 should generateText', async () => {
+			const llm = deepinfraDeepSeekR1();
 			const response = await llm.generateText(SKY_PROMPT, { temperature: 0 });
 			expect(response.toLowerCase()).to.include('blue');
 		});

@@ -283,9 +283,31 @@ async function selectFilesCore(
 		filesToInspect = validatedNewInspectPaths; // Update filesToInspect for the next iteration
 		newInvalidPathsFromLastTurn = newlyInvalidPaths; // For the next call to generateFileSelectionProcessingResponse
 
-		// Enforce that all pending files are addressed if no new inspection/search is requested (Fix #2)
+		// If there are still pending files, but the LLM asked for no new action,
+		// remind it and try another iteration instead of failing.
 		if (filesPendingDecision.size > 0 && !response.search && filesToInspect.length === 0) {
-			throw new Error(`LLM did not resolve all pending files and requested no new actions. Still pending: ${[...filesPendingDecision].join(', ')}`);
+			const pending = [...filesPendingDecision].join(', ');
+			logger.warn(`LLM did not resolve pending files (${pending}). Asking again…`);
+
+			messages.push({
+				role: 'user',
+				content: `You have not resolved the following pending files:\n${pending}
+Please either:
+ • move each of them to "keepFiles" or "ignoreFiles",
+ • request them in "inspectFiles", or
+ • perform a "search" that will help you decide.
+
+Respond with a valid JSON object that follows the required schema.`,
+			});
+
+			// Escalate to the hard model once, to give the LLM more capacity.
+			if (!usingHardLLM) {
+				llm = llms().hard;
+				usingHardLLM = true;
+				logger.info('Escalating to hard LLM because of unresolved pending files.');
+			}
+
+			continue; // retry instead of throwing
 		}
 
 		if (response.search) {

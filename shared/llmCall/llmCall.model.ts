@@ -11,6 +11,8 @@ export interface LlmRequest {
 	settings: CallSettings;
 	/** Populated when called by an agent */
 	agentId?: string;
+	/** Iteration of an autonomous agent */
+	iteration?: number;
 	/** Populated when called by a user through the UI */
 	userId?: string;
 	callStack?: string;

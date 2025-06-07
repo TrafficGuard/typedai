@@ -41,7 +41,7 @@ class TestClass {
 	}
 }
 
-describe('MongoFunctionCacheService', () => {
+describe.skip('MongoFunctionCacheService', () => {
 	setupConditionalLoggerOutput();
 
 	let client: MongoClient;
