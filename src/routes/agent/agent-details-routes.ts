@@ -8,9 +8,10 @@ import { AGENT_API } from '#shared/agent/agent.api';
 import type { AgentContext, AgentContextPreview, AutonomousIteration, AutonomousIterationSummary } from '#shared/agent/agent.model';
 import { NotAllowed, NotFound } from '#shared/errors';
 import { functionRegistry } from '../../functionRegistry';
+import { registerApiRoute } from '../routeUtils';
 
 export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
-	fastify.get(AGENT_API.list.pathTemplate, { schema: AGENT_API.list.schema }, async (req, reply) => {
+	registerApiRoute(fastify, AGENT_API.list, async (req, reply) => {
 		try {
 			const agentPreviews: AgentContextPreview[] = await fastify.agentStateService.list();
 			reply.sendJSON(agentPreviews);
@@ -20,12 +21,12 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 		}
 	});
 
-	fastify.get(AGENT_API.getAvailableFunctions.pathTemplate, { schema: AGENT_API.getAvailableFunctions.schema }, async (req, reply) => {
+	registerApiRoute(fastify, AGENT_API.getAvailableFunctions, async (req, reply) => {
 		const functionNames = functionRegistry().map((t) => t.name);
 		reply.sendJSON(functionNames);
 	});
 
-	fastify.get(AGENT_API.listHumanInLoopAgents.pathTemplate, { schema: AGENT_API.listHumanInLoopAgents.schema }, async (req, reply) => {
+	registerApiRoute(fastify, AGENT_API.listHumanInLoopAgents, async (req, reply) => {
 		try {
 			const agentPreviews: AgentContextPreview[] = await fastify.agentStateService.listRunning();
 			const agentContextsPromises = agentPreviews.map(async (preview) => {
@@ -52,7 +53,7 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 		}
 	});
 
-	fastify.get(AGENT_API.details.pathTemplate, { schema: AGENT_API.details.schema }, async (req, reply) => {
+	registerApiRoute(fastify, AGENT_API.details, async (req, reply) => {
 		const { agentId } = req.params;
 		try {
 			const agentContext: AgentContext = await fastify.agentStateService.load(agentId);
@@ -72,7 +73,7 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 	});
 
 	// Endpoint to get iterations for an agent
-	fastify.get(AGENT_API.getIterations.pathTemplate, { schema: AGENT_API.getIterations.schema }, async (req, reply) => {
+	registerApiRoute(fastify, AGENT_API.getIterations, async (req, reply) => {
 		const { agentId } = req.params;
 		try {
 			// service.loadIterations now handles agent existence and ownership check internally
@@ -92,7 +93,7 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 	});
 
 	// Endpoint to get iteration summaries for an agent
-	fastify.get(AGENT_API.getIterationSummaries.pathTemplate, { schema: AGENT_API.getIterationSummaries.schema }, async (req, reply) => {
+	registerApiRoute(fastify, AGENT_API.getIterationSummaries, async (req, reply) => {
 		const { agentId } = req.params;
 		try {
 			// service.getAgentIterationSummaries now handles agent existence and ownership check internally
@@ -111,7 +112,7 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 	});
 
 	// Endpoint to get a specific iteration detail for an agent
-	fastify.get(AGENT_API.getIterationDetail.pathTemplate, { schema: AGENT_API.getIterationDetail.schema }, async (req, reply) => {
+	registerApiRoute(fastify, AGENT_API.getIterationDetail, async (req, reply) => {
 		const { agentId, iterationNumber } = req.params;
 		try {
 			// service.getAgentIterationDetail now handles agent/iteration existence and ownership check internally
@@ -130,7 +131,7 @@ export async function agentDetailsRoutes(fastify: AppFastifyInstance) {
 		}
 	});
 
-	fastify.post(AGENT_API.delete.pathTemplate, { schema: AGENT_API.delete.schema }, async (req, reply) => {
+	registerApiRoute(fastify, AGENT_API.delete, async (req, reply) => {
 		const { agentIds } = req.body;
 		try {
 			// The service.delete method handles ownership and state checks internally
