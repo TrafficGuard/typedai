@@ -7,20 +7,15 @@ import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { typedaiDirName } from '#app/appDirs';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
-import { errorToString } from '#utils/errors';
-import {
-	generateDetailedSummaryPrompt,
-	generateFileSummary,
-	generateFolderSummary,
-	type Summary,
-} from './llmSummaries';
-import { AI_INFO_FILENAME } from '#swe/projectDetection';
-import { IFileSystemService } from '#shared/files/fileSystemService';
-// Import the rich LLM interface for client instances
-import { LLM as LLMClientInterface } from '#shared/llm/llm.model';
 // LLM type for task levels (LLM IDs) can still be imported if needed elsewhere, but be specific.
 // For clarity, if TaskLevel's LLM is just an ID string, it's fine.
 import { TaskLevel } from '#shared/agent/agent.model';
+import type { IFileSystemService } from '#shared/files/fileSystemService';
+// Import the rich LLM interface for client instances
+import type { LLM as LLMClientInterface } from '#shared/llm/llm.model';
+import { AI_INFO_FILENAME } from '#swe/projectDetection';
+import { errorToString } from '#utils/errors';
+import { type Summary, generateDetailedSummaryPrompt, generateFileSummary, generateFolderSummary } from './llmSummaries';
 
 /**
  * This module builds summary documentation for a project/repository, to assist with searching in the repository.
@@ -41,7 +36,10 @@ function hash(content: string): string {
 }
 
 export class IndexDocBuilder {
-	constructor(private fss: IFileSystemService, private llms: { easy: LLMClientInterface, medium: LLMClientInterface }) {}
+	constructor(
+		private fss: IFileSystemService,
+		private llms: { easy: LLMClientInterface; medium: LLMClientInterface },
+	) {}
 
 	private static getSummaryFileName(filePath: string): string {
 		// filePath is already relative to CWD from processFile/buildFolderSummary
@@ -63,7 +61,7 @@ export class IndexDocBuilder {
 		logger.info('Building index docs');
 		await withActiveSpan('Build index docs', async (span: Span) => {
 			try {
-				await this.deleteOrphanedSummaries().catch(error => logger.warn(error));
+				await this.deleteOrphanedSummaries().catch((error) => logger.warn(error));
 
 				const workingDir = this.fss.getWorkingDirectory();
 				const projectInfoPath = path.join(workingDir, AI_INFO_FILENAME);
@@ -86,7 +84,7 @@ export class IndexDocBuilder {
 					logger.warn('No indexDocs patterns found in AI_INFO_FILENAME. No files/folders will be indexed.');
 				}
 
-				const precomputedPatternBases = indexDocsPatterns.map(pattern => {
+				const precomputedPatternBases = indexDocsPatterns.map((pattern) => {
 					const normalizedPattern = pattern.split(path.sep).join('/');
 					const scanResult = micromatch.scan(normalizedPattern, { dot: true });
 					let base = scanResult.base;
@@ -113,7 +111,7 @@ export class IndexDocBuilder {
 					const normalizedFolderPath = folderPath === '.' ? '' : folderPath.split(path.sep).join('/');
 					for (const { originalPattern, baseDir, isGlob } of precomputedPatternBases) {
 						if (baseDir.startsWith(normalizedFolderPath)) {
-							if (normalizedFolderPath === '' || baseDir === normalizedFolderPath || baseDir.startsWith(normalizedFolderPath + '/')) {
+							if (normalizedFolderPath === '' || baseDir === normalizedFolderPath || baseDir.startsWith(`${normalizedFolderPath}/`)) {
 								return true;
 							}
 						}
@@ -121,7 +119,7 @@ export class IndexDocBuilder {
 							if (baseDir === '') {
 								if (isGlob || originalPattern === baseDir) return true;
 							} else {
-								if (normalizedFolderPath === baseDir || normalizedFolderPath.startsWith(baseDir + '/')) {
+								if (normalizedFolderPath === baseDir || normalizedFolderPath.startsWith(`${baseDir}/`)) {
 									if (isGlob || baseDir === normalizedFolderPath) return true;
 								}
 							}
@@ -211,7 +209,8 @@ export class IndexDocBuilder {
 						const filePath = join(folderPath, file);
 						try {
 							await this.processFile(filePath);
-						} catch (e: any) { // Ensure 'e' is typed
+						} catch (e: any) {
+							// Ensure 'e' is typed
 							logger.error(e, `Failed to process file ${filePath}`);
 							errors.push({ file: filePath, error: e as Error });
 						}
@@ -260,7 +259,7 @@ export class IndexDocBuilder {
 		folderMatchesIndexDocs: (folderPath: string) => boolean,
 	): Promise<void> {
 		const relativeFolderPath = path.relative(this.fss.getWorkingDirectory(), folderPath);
-		const folderSummaryFilePath = join(typedaiDirName, 'docs', relativeFolderPath, `_index.json`);
+		const folderSummaryFilePath = join(typedaiDirName, 'docs', relativeFolderPath, '_index.json');
 
 		const fileSummaries = await this.getFileSummaries(folderPath, fileMatchesIndexDocs);
 		const subFolderSummaries = await this.getSubFolderSummaries(folderPath, folderMatchesIndexDocs);
@@ -319,7 +318,7 @@ export class IndexDocBuilder {
 	}
 
 	async getFileSummaries(folderPath: string, fileMatchesIndexDocs: (filePath: string) => boolean): Promise<Summary[]> {
-		const fileNames = (await this.fss.listFilesInDirectory(folderPath)).filter(name => !name.endsWith('/'));
+		const fileNames = (await this.fss.listFilesInDirectory(folderPath)).filter((name) => !name.endsWith('/'));
 		const summaries: Summary[] = [];
 
 		for (const fileName of fileNames) {
@@ -353,7 +352,7 @@ export class IndexDocBuilder {
 			const relativeSubFolderPath = path.relative(this.fss.getWorkingDirectory(), absoluteSubFolderPath);
 
 			if (folderMatchesIndexDocs(relativeSubFolderPath)) {
-				const summaryPath = join(typedaiDirName, 'docs', relativeSubFolderPath, `_index.json`);
+				const summaryPath = join(typedaiDirName, 'docs', relativeSubFolderPath, '_index.json');
 				try {
 					const summaryContent = await fs.readFile(summaryPath, 'utf-8');
 					const summary = JSON.parse(summaryContent);
@@ -369,7 +368,7 @@ export class IndexDocBuilder {
 		}
 		return summaries;
 	}
-	
+
 	async generateTopLevelSummaryInternal(): Promise<string> {
 		const cwd = this.fss.getWorkingDirectory();
 		const topLevelSummaryPath = join(typedaiDirName, 'docs', '_project_summary.json');
@@ -377,9 +376,9 @@ export class IndexDocBuilder {
 		const allFolderSummaries = await this.getAllFolderSummariesInternal(cwd);
 
 		const folderSummariesForHashMap = allFolderSummaries
-			.filter(s => s.meta?.hash)
+			.filter((s) => s.meta?.hash)
 			.sort((a, b) => a.path.localeCompare(b.path))
-			.map(s => `${s.path}:${s.meta.hash}`)
+			.map((s) => `${s.path}:${s.meta.hash}`)
 			.join(',');
 		const currentAllFoldersCombinedHash = hash(folderSummariesForHashMap);
 
@@ -411,7 +410,9 @@ export class IndexDocBuilder {
 		}
 
 		const combinedSummaryText = allFolderSummaries.map((summary) => `${summary.path}:\n${summary.long}`).join('\n\n');
-		const newProjectOverview = await this.llms.easy.generateText(generateDetailedSummaryPrompt(combinedSummaryText), { id: 'Generate top level project summary' }); // Use easy LLM
+		const newProjectOverview = await this.llms.easy.generateText(generateDetailedSummaryPrompt(combinedSummaryText), {
+			id: 'Generate top level project summary',
+		}); // Use easy LLM
 
 		await this.saveTopLevelSummaryInternal(newProjectOverview, currentAllFoldersCombinedHash);
 		return newProjectOverview;
@@ -488,7 +489,7 @@ export class IndexDocBuilder {
 
 		while (currentPath !== '.' && path.relative(cwd, currentPath) !== '') {
 			const relativeCurrentPath = path.relative(cwd, currentPath);
-			const summaryPath = join(typedaiDirName, 'docs', relativeCurrentPath, `_index.json`);
+			const summaryPath = join(typedaiDirName, 'docs', relativeCurrentPath, '_index.json');
 			try {
 				const summaryContent = await fs.readFile(summaryPath, 'utf-8');
 				parentSummaries.unshift(JSON.parse(summaryContent));
@@ -638,7 +639,6 @@ export class IndexDocBuilder {
 	}
 }
 
-
 /**
  * This auto-generates summary documentation for a project/repository, to assist with searching in the repository.
  * This should generally be run in the root folder of a project/repository.
@@ -667,7 +667,6 @@ export async function getRepositoryOverview(): Promise<string> {
 	const repositoryOverview: string = await builder.getTopLevelSummaryInternal();
 	return repositoryOverview ? `<repository-overview>\n${repositoryOverview}\n</repository-overview>\n` : '';
 }
-
 
 /**
  * Loads build documentation summaries from the specified directory.
