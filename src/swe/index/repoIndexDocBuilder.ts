@@ -14,6 +14,7 @@ import {
 	generateFolderSummary,
 	type Summary,
 } from './llmSummaries';
+import {AI_INFO_FILENAME} from "#swe/projectDetection";
 
 /**
  * This module builds summary documentation for a project/repository, to assist with searching in the repository.
@@ -40,11 +41,10 @@ function hash(content: string): string {
  */
 export async function buildIndexDocs(): Promise<void> {
 	logger.info('Building index docs');
-
 	await withActiveSpan('Build index docs', async (span: Span) => {
 		try {
 			// Load and parse projectInfo.json
-			const projectInfoPath = path.join(process.cwd(), 'projectInfo.json');
+			const projectInfoPath = path.join(process.cwd(), AI_INFO_FILENAME);
 			let projectInfoData: string;
 			try {
 				projectInfoData = await fs.readFile(projectInfoPath, 'utf-8');
@@ -241,7 +241,6 @@ async function processFolderRecursively(
 	folderMatchesIndexDocs: (folderPath: string) => boolean,
 ): Promise<void> {
 	logger.info(`Processing folder: ${folderPath}`);
-
 	await withActiveSpan('processFolderRecursively', async (span: Span) => {
 		try {
 			// Get subfolder names (already updated to return names only)
@@ -354,16 +353,12 @@ async function buildFolderSummary(
 						const childSubFolderSummaryStats = await fs.stat(childSubFolderSummaryPath);
 						if (childSubFolderSummaryStats.mtimeMs > folderSummaryStats.mtimeMs) {
 							isStale = true;
-							logger.info(
-								`Child folder summary ${childSubFolderSummaryPath} is newer than folder summary ${folderSummaryFilePath}. Marking folder ${relativeFolderPath} as stale.`,
-							);
+							logger.info(`Child folder summary ${childSubFolderSummaryPath} is newer than folder summary ${folderSummaryFilePath}. Marking folder ${relativeFolderPath} as stale.`);
 							break;
 						}
 					} catch (e: any) {
 						if (e.code === 'ENOENT') {
-							logger.info(
-								`Child folder summary ${childSubFolderSummaryPath} missing for matching subfolder ${relativeChildSubFolderPath}. Marking folder ${relativeFolderPath} as stale.`,
-							);
+							logger.info(`Child folder summary ${childSubFolderSummaryPath} missing for matching subfolder ${relativeChildSubFolderPath}. Marking folder ${relativeFolderPath} as stale.`,);
 							isStale = true;
 							break;
 						}
@@ -541,9 +536,7 @@ export async function generateTopLevelSummary(): Promise<string> {
 			}
 		}
 	} catch (e: any) {
-		if (e.code !== 'ENOENT') {
-			logger.warn(`Error checking top-level summary ${topLevelSummaryPath} stats: ${errorToString(e)}. Proceeding to generate summary.`);
-		}
+		if (e.code !== 'ENOENT') logger.warn(`Error checking top-level summary ${topLevelSummaryPath} stats: ${errorToString(e)}. Proceeding to generate summary.`);
 		// If ENOENT, summary doesn't exist, so proceed.
 	}
 
@@ -588,9 +581,7 @@ async function getAllFolderSummaries(rootDir: string): Promise<Summary[]> {
 		const stats = await fs.stat(docsDir);
 		docsDirExists = stats.isDirectory();
 	} catch (e: any) {
-		if (e.code !== 'ENOENT') {
-			logger.warn(`Error checking stats for docs directory ${docsDir}: ${errorToString(e)}`);
-		}
+		if (e.code !== 'ENOENT') logger.warn(`Error checking stats for docs directory ${docsDir}: ${errorToString(e)}`);
 		// If ENOENT, docsDirExists remains false, which is correct.
 	}
 
@@ -611,9 +602,7 @@ async function getAllFolderSummaries(rootDir: string): Promise<Summary[]> {
 					// The path stored in the summary JSON should already be relative to CWD
 					summaries.push(summary);
 				} catch (e: any) {
-					if (e.code !== 'ENOENT') {
-						logger.warn(`Failed to read or parse folder summary file: ${filePathInDocs}. ${errorToString(e)}`);
-					}
+					if (e.code !== 'ENOENT') logger.warn(`Failed to read or parse folder summary file: ${filePathInDocs}. ${errorToString(e)}`);
 					// If ENOENT, file was deleted between listing and reading, just skip.
 				}
 			}
