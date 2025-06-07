@@ -193,7 +193,7 @@ describe.only('IndexDocBuilder', () => {
 			).to.be.true;
 
 			const summaryFolderSub = JSON.parse(await fsAsync.readFile(summaryFolderSubPath, 'utf-8'));
-			const expectedSubChildrenHash = hash(`src/swe/sub/file3.ts.json:${hash(file3Content)}`);
+			const expectedSubChildrenHash = hash(`src/swe/sub/file3.ts:${hash(file3Content)}`);
 			expect(summaryFolderSub).to.containSubset({
 				path: 'src/swe/sub',
 				short: 'Mocked folder short',
@@ -301,8 +301,8 @@ describe.only('IndexDocBuilder', () => {
 			// const projectSummaryPath = path.join(typedaiDirName, 'docs', '_project_summary.json'); // Not used
 
 			const initialFileHash = hash(fileContent);
-			const initialFolderChildrenHash = hash(`src/file.ts.json:${initialFileHash}`);
-			const initialProjectChildrenHash = hash(`src/_index.json:${initialFolderChildrenHash}`);
+			const initialFolderChildrenHash = hash(`src/file.ts:${initialFileHash}`);
+			const initialProjectChildrenHash = hash(`src:${initialFolderChildrenHash}`);
 
 			mock({ // Test-specific mock setup
 				[MOCK_REPO_ROOT]: {

@@ -67,7 +67,7 @@ export class IndexDocBuilder {
 				const projectInfoPath = path.join(workingDir, AI_INFO_FILENAME);
 				let projectInfoData: string;
 				try {
-					projectInfoData = await fs.readFile(projectInfoPath, 'utf-8');
+					projectInfoData = await this.fss.readFile(projectInfoPath);
 				} catch (e: any) {
 					if (e.code === 'ENOENT') {
 						logger.warn(`${AI_INFO_FILENAME} not found at ${projectInfoPath}. Cannot determine indexDocs patterns.`);
@@ -146,12 +146,9 @@ export class IndexDocBuilder {
 
 		let fileContents: string;
 		try {
-			const sourceFileStats = await fs.stat(filePath);
-			if (!sourceFileStats.isFile()) {
-				logger.info(`Path ${relativeFilePath} is a directory, not a file. Skipping file processing.`);
-				return;
-			}
-			fileContents = await fs.readFile(filePath, 'utf-8');
+			// The isFile check is removed; fss.readFile will throw an error for a directory,
+			// which is caught below, achieving the same goal.
+			fileContents = await this.fss.readFile(filePath);
 		} catch (e: any) {
 			logger.error(`Error reading or stat-ing source file ${filePath}: ${errorToString(e)}. Skipping this file.`);
 			return;
@@ -160,7 +157,7 @@ export class IndexDocBuilder {
 		const currentContentHash = hash(fileContents);
 
 		try {
-			const summaryFileContent = await fs.readFile(summaryFilePath, 'utf-8');
+			const summaryFileContent = await this.fss.readFile(summaryFilePath);
 			const existingSummary: Summary = JSON.parse(summaryFileContent);
 			if (existingSummary.meta?.hash === currentContentHash) {
 				logger.debug(`Summary for ${relativeFilePath} is up to date (hash match).`);
@@ -182,8 +179,8 @@ export class IndexDocBuilder {
 		doc.path = relativeFilePath;
 		doc.meta = { hash: currentContentHash };
 
-		await fs.mkdir(dirname(summaryFilePath), { recursive: true });
-		await fs.writeFile(summaryFilePath, JSON.stringify(doc, null, 2));
+		// fss.writeFile is expected to handle recursive directory creation.
+		await this.fss.writeFile(summaryFilePath, JSON.stringify(doc, null, 2));
 		logger.info(`Completed summary for ${relativeFilePath}`);
 	}
 
@@ -284,7 +281,7 @@ export class IndexDocBuilder {
 		const currentChildrensCombinedHash = hash(childrenHashes);
 
 		try {
-			const existingSummaryContent = await fs.readFile(folderSummaryFilePath, 'utf-8');
+			const existingSummaryContent = await this.fss.readFile(folderSummaryFilePath);
 			const existingSummary: Summary = JSON.parse(existingSummaryContent);
 			if (existingSummary.meta?.hash === currentChildrensCombinedHash) {
 				logger.debug(`Folder summary for ${relativeFolderPath} is up to date (hash match).`);
@@ -308,8 +305,8 @@ export class IndexDocBuilder {
 			folderSummary.path = relativeFolderPath;
 			folderSummary.meta = { hash: currentChildrensCombinedHash };
 
-			await fs.mkdir(dirname(folderSummaryFilePath), { recursive: true });
-			await fs.writeFile(folderSummaryFilePath, JSON.stringify(folderSummary, null, 2));
+			// fss.writeFile is expected to handle recursive directory creation.
+			await this.fss.writeFile(folderSummaryFilePath, JSON.stringify(folderSummary, null, 2));
 			logger.info(`Generated summary for folder ${relativeFolderPath}`);
 		} catch (error) {
 			logger.error(`Failed to generate summary for folder ${folderPath}: ${errorToString(error)}`);
@@ -328,7 +325,7 @@ export class IndexDocBuilder {
 			if (fileMatchesIndexDocs(relativeFilePath)) {
 				const summaryPath = IndexDocBuilder.getSummaryFileName(relativeFilePath);
 				try {
-					const summaryContent = await fs.readFile(summaryPath, 'utf-8');
+					const summaryContent = await this.fss.readFile(summaryPath);
 					const summary = JSON.parse(summaryContent);
 					if (summary.meta?.hash) {
 						summaries.push(summary);
@@ -354,7 +351,7 @@ export class IndexDocBuilder {
 			if (folderMatchesIndexDocs(relativeSubFolderPath)) {
 				const summaryPath = join(typedaiDirName, 'docs', relativeSubFolderPath, '_index.json');
 				try {
-					const summaryContent = await fs.readFile(summaryPath, 'utf-8');
+					const summaryContent = await this.fss.readFile(summaryPath);
 					const summary = JSON.parse(summaryContent);
 					if (summary.meta?.hash) {
 						summaries.push(summary);
@@ -383,7 +380,7 @@ export class IndexDocBuilder {
 		const currentAllFoldersCombinedHash = hash(folderSummariesForHashMap);
 
 		try {
-			const existingSummaryContent = await fs.readFile(topLevelSummaryPath, 'utf-8');
+			const existingSummaryContent = await this.fss.readFile(topLevelSummaryPath);
 			const existingSummary: ProjectSummaryDoc = JSON.parse(existingSummaryContent);
 			if (existingSummary.meta?.hash === currentAllFoldersCombinedHash) {
 				logger.debug(`Top-level project summary at ${topLevelSummaryPath} is up to date (hash match).`);
@@ -425,8 +422,7 @@ export class IndexDocBuilder {
 
 		let docsDirExists = false;
 		try {
-			const stats = await fs.stat(docsDir);
-			docsDirExists = stats.isDirectory();
+			docsDirExists = await this.fss.directoryExists(docsDir);
 		} catch (e: any) {
 			if (e.code !== 'ENOENT') logger.warn(`Error checking stats for docs directory ${docsDir}: ${errorToString(e)}`);
 		}
@@ -441,7 +437,7 @@ export class IndexDocBuilder {
 			for (const filePathInDocs of allFilesInDocs) {
 				if (basename(filePathInDocs) === '_index.json') {
 					try {
-						const content = await fs.readFile(filePathInDocs, 'utf-8');
+						const content = await this.fss.readFile(filePathInDocs);
 						const summary: Summary = JSON.parse(content);
 						summaries.push(summary);
 					} catch (e: any) {
@@ -458,18 +454,18 @@ export class IndexDocBuilder {
 
 	async saveTopLevelSummaryInternal(summaryContent: string, combinedHash: string): Promise<void> {
 		const summaryPath = join(typedaiDirName, 'docs', '_project_summary.json');
-		await fs.mkdir(dirname(summaryPath), { recursive: true });
 		const doc: ProjectSummaryDoc = {
 			projectOverview: summaryContent,
 			meta: { hash: combinedHash },
 		};
-		await fs.writeFile(summaryPath, JSON.stringify(doc, null, 2), 'utf-8');
+		// fss.writeFile is expected to handle recursive directory creation.
+		await this.fss.writeFile(summaryPath, JSON.stringify(doc, null, 2));
 	}
 
 	async getTopLevelSummaryInternal(): Promise<string> {
 		const summaryPath = join(typedaiDirName, 'docs', '_project_summary.json');
 		try {
-			const fileContent = await fs.readFile(summaryPath, 'utf-8');
+			const fileContent = await this.fss.readFile(summaryPath);
 			const doc: ProjectSummaryDoc = JSON.parse(fileContent);
 			return doc.projectOverview || '';
 		} catch (e: any) {
@@ -491,7 +487,7 @@ export class IndexDocBuilder {
 			const relativeCurrentPath = path.relative(cwd, currentPath);
 			const summaryPath = join(typedaiDirName, 'docs', relativeCurrentPath, '_index.json');
 			try {
-				const summaryContent = await fs.readFile(summaryPath, 'utf-8');
+				const summaryContent = await this.fss.readFile(summaryPath);
 				parentSummaries.unshift(JSON.parse(summaryContent));
 			} catch (e: any) {
 				if (e.code === 'ENOENT') break;
@@ -510,6 +506,7 @@ export class IndexDocBuilder {
 			const docsDir = join(cwd, typedaiDirName, 'docs');
 
 			try {
+				// The check is removed; fss.listFilesRecursively should handle non-existent directories.
 				await fs.access(docsDir);
 			} catch (e: any) {
 				if (e.code === 'ENOENT') {
@@ -532,7 +529,7 @@ export class IndexDocBuilder {
 
 					let summaryData: Summary;
 					try {
-						const summaryContent = await fs.readFile(summaryFilePath, 'utf-8');
+						const summaryContent = await this.fss.readFile(summaryFilePath);
 						summaryData = JSON.parse(summaryContent);
 					} catch (e: any) {
 						logger.warn(`Failed to read or parse summary file ${summaryFilePath}: ${errorToString(e)}. Skipping orphan check.`);
@@ -580,8 +577,7 @@ export class IndexDocBuilder {
 
 		let dirExists = false;
 		try {
-			const stats = await fs.stat(docsDir);
-			dirExists = stats.isDirectory();
+			dirExists = await this.fss.directoryExists(docsDir);
 		} catch (e: any) {
 			if (e.code !== 'ENOENT') logger.warn(`Error checking stats for docs directory ${docsDir}: ${errorToString(e)}`);
 		}
@@ -595,8 +591,7 @@ export class IndexDocBuilder {
 				logger.info(`Docs directory ${docsDir} does not exist. Building index docs.`);
 				await this.buildIndexDocsInternal(); // Call the internal method
 				try {
-					const stats = await fs.stat(docsDir);
-					dirExists = stats.isDirectory();
+					dirExists = await this.fss.directoryExists(docsDir);
 				} catch (e: any) {
 					if (e.code !== 'ENOENT') logger.error(`Error re-checking stats for docs directory ${docsDir} after build: ${errorToString(e)}`);
 					dirExists = false;
@@ -621,7 +616,7 @@ export class IndexDocBuilder {
 				const fileName = basename(file);
 				if (file.endsWith('.json') && fileName !== '_project_summary.json') {
 					try {
-						const content = await fs.readFile(file);
+						const content = await this.fss.readFile(file);
 						const summary: Summary = JSON.parse(content.toString());
 						summaries.set(summary.path, summary);
 					} catch (error) {
