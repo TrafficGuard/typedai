@@ -5,6 +5,7 @@ import { MatButtonHarness }       from '@angular/material/button/testing';
 import { MatSelectHarness }       from '@angular/material/select/testing';
 import { ConversationComponent }  from './conversation.component';
 import {BaseSpecPo} from "../../../../test/base.po";
+import { By } from '@angular/platform-browser'; // <-- Add this line
 
 export class ConversationPo extends BaseSpecPo<ConversationComponent> {
 
@@ -25,7 +26,7 @@ export class ConversationPo extends BaseSpecPo<ConversationComponent> {
     /* ────────────── state queries ─────────────────────────────────── */
     isLoading()           { return this.exists(this.ids.loading); }
     chatTitle()           { return this.text(this.ids.title); }
-    messageCount()        { return this.el(this.ids.msgList).queryAllNodes('*').length; }
+    messageCount()        { return this.el(this.ids.msgList).queryAll(By.css('*')).length; } // <-- Modify this line
     inputValue()          { return this.value(this.ids.input); }
 
     /* ────────────── user actions ──────────────────────────────────── */
