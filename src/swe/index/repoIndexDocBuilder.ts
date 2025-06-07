@@ -152,10 +152,6 @@ async function processFile(filePath: string, easyLlm: any): Promise<void> {
 		const existingSummary: Summary = JSON.parse(summaryFileContent);
 		if (existingSummary.meta?.hash === currentContentHash) {
 			logger.debug(`Summary for ${relativeFilePath} is up to date (hash match).`);
-			// Ensure mtime of summary is touched to reflect it's "checked" and "up-to-date"
-			// This helps folder summary staleness checks if they rely on mtime.
-			const now = new Date();
-			await fs.utimes(summaryFilePath, now, now);
 			return;
 		}
 		logger.info(`Content hash mismatch for ${relativeFilePath}. Regenerating summary.`);
@@ -308,92 +304,53 @@ async function buildFolderSummary(
 	const folderName = basename(folderPath);
 	const folderSummaryFilePath = join(typedaiDirName, 'docs', relativeFolderPath, `_${folderName}.json`);
 
-	try {
-		const folderSummaryStats = await fs.stat(folderSummaryFilePath);
-		let isStale = false;
-
-		const fileSystem = getFileSystem();
-		const filesInDir = await fileSystem.listFilesInDirectory(folderPath);
-		for (const fileName of filesInDir) {
-			const sourceFilePath = join(folderPath, fileName);
-			const relativeSourceFilePath = path.relative(fileSystem.getWorkingDirectory(), sourceFilePath);
-			if (fileMatchesIndexDocs(relativeSourceFilePath)) {
-				const childFileSummaryPath = getSummaryFileName(relativeSourceFilePath);
-				try {
-					const childSummaryStats = await fs.stat(childFileSummaryPath);
-					if (childSummaryStats.mtimeMs > folderSummaryStats.mtimeMs) {
-						isStale = true;
-						logger.info(
-							`Child file summary ${childFileSummaryPath} is newer than folder summary ${folderSummaryFilePath}. Marking folder ${relativeFolderPath} as stale.`,
-						);
-						break;
-					}
-				} catch (e: any) {
-					if (e.code === 'ENOENT') {
-						logger.info(
-							`Child file summary ${childFileSummaryPath} missing for matching file ${relativeSourceFilePath}. Marking folder ${relativeFolderPath} as stale.`,
-						);
-						isStale = true;
-						break;
-					}
-					logger.warn(`Error checking stats for child file summary ${childFileSummaryPath}: ${errorToString(e)}`);
-				}
-			}
-		}
-
-		if (!isStale) {
-			const subFolders = await fileSystem.listFolders(folderPath);
-			for (const subFolderName of subFolders) {
-				const childSubFolderPath = join(folderPath, subFolderName);
-				const relativeChildSubFolderPath = path.relative(fileSystem.getWorkingDirectory(), childSubFolderPath);
-				if (folderMatchesIndexDocs(relativeChildSubFolderPath)) {
-					const childSubFolderSummaryName = basename(childSubFolderPath);
-					const childSubFolderSummaryPath = join(typedaiDirName, 'docs', relativeChildSubFolderPath, `_${childSubFolderSummaryName}.json`);
-					try {
-						const childSubFolderSummaryStats = await fs.stat(childSubFolderSummaryPath);
-						if (childSubFolderSummaryStats.mtimeMs > folderSummaryStats.mtimeMs) {
-							isStale = true;
-							logger.info(`Child folder summary ${childSubFolderSummaryPath} is newer than folder summary ${folderSummaryFilePath}. Marking folder ${relativeFolderPath} as stale.`);
-							break;
-						}
-					} catch (e: any) {
-						if (e.code === 'ENOENT') {
-							logger.info(`Child folder summary ${childSubFolderSummaryPath} missing for matching subfolder ${relativeChildSubFolderPath}. Marking folder ${relativeFolderPath} as stale.`,);
-							isStale = true;
-							break;
-						}
-						logger.warn(`Error checking stats for child sub-folder summary ${childSubFolderSummaryPath}: ${errorToString(e)}`);
-					}
-				}
-			}
-		}
-
-		if (!isStale) {
-			logger.debug(`Folder summary for ${relativeFolderPath} is up to date.`);
-			return;
-		}
-	} catch (e: any) {
-		if (e.code !== 'ENOENT') {
-			logger.warn(`Error checking folder summary ${folderSummaryFilePath} stats: ${errorToString(e)}. Proceeding to generate summary.`);
-		}
-		// If ENOENT, summary doesn't exist, so proceed.
-	}
-
-	const fileSummaries = await getFileSummaries(folderPath);
-	const subFolderSummaries = await getSubFolderSummaries(folderPath);
+	const fileSummaries = await getFileSummaries(folderPath, fileMatchesIndexDocs);
+	const subFolderSummaries = await getSubFolderSummaries(folderPath, folderMatchesIndexDocs);
 
 	if (!fileSummaries.length && !subFolderSummaries.length) {
-		logger.debug(`No summaries to build for folder ${folderPath} (no child file/folder summaries found).`);
-		// If the summary file existed but was stale due to a missing child, we might delete it here?
-		// Or just leave it stale until content appears? Let's leave it for now.
+		logger.debug(`No child summaries to build folder summary for ${relativeFolderPath}. Skipping.`);
+		// Optionally, delete existing folder summary if it exists and has no children now
+		try {
+			await fs.unlink(folderSummaryFilePath);
+			logger.debug(`Deleted obsolete folder summary ${folderSummaryFilePath}`);
+		} catch (e: any) {
+			if (e.code !== 'ENOENT') {
+				logger.warn(`Could not delete obsolete folder summary ${folderSummaryFilePath}: ${errorToString(e)}`);
+			}
+		}
 		return;
 	}
 
+	const childrenHashes = [...fileSummaries, ...subFolderSummaries]
+		.sort((a, b) => a.path.localeCompare(b.path))
+		.map((s) => `${s.path}:${s.meta.hash}`)
+		.join(',');
+	const currentChildrensCombinedHash = hash(childrenHashes);
+
 	try {
-		const combinedSummary = combineFileAndSubFoldersSummaries(fileSummaries, subFolderSummaries);
+		const existingSummaryContent = await fs.readFile(folderSummaryFilePath, 'utf-8');
+		const existingSummary: Summary = JSON.parse(existingSummaryContent);
+		if (existingSummary.meta?.hash === currentChildrensCombinedHash) {
+			logger.debug(`Folder summary for ${relativeFolderPath} is up to date (hash match).`);
+			return;
+		}
+		logger.info(`Children hash mismatch for folder ${relativeFolderPath}. Regenerating summary.`);
+	} catch (e: any) {
+		if (e.code === 'ENOENT') {
+			logger.debug(`Folder summary file ${folderSummaryFilePath} not found. Generating new summary.`);
+		} else if (e instanceof SyntaxError) {
+			logger.warn(`Error parsing existing folder summary file ${folderSummaryFilePath}: ${errorToString(e)}. Regenerating summary.`);
+		} else {
+			logger.warn(`Error reading folder summary file ${folderSummaryFilePath}: ${errorToString(e)}. Proceeding to generate summary.`);
+		}
+	}
+
+	try {
+		const combinedSummaryText = combineFileAndSubFoldersSummaries(fileSummaries, subFolderSummaries);
 		const parentSummaries = await getParentSummaries(folderPath); // folderPath here is absolute
-		const folderSummary = await generateFolderSummary(llms().easy, combinedSummary, parentSummaries);
+		const folderSummary = await generateFolderSummary(llms().easy, combinedSummaryText, parentSummaries);
 		folderSummary.path = relativeFolderPath;
+		folderSummary.meta = { hash: currentChildrensCombinedHash };
 
 		await fs.mkdir(dirname(folderSummaryFilePath), { recursive: true });
 		await fs.writeFile(folderSummaryFilePath, JSON.stringify(folderSummary, null, 2));
@@ -404,50 +361,64 @@ async function buildFolderSummary(
 	}
 }
 
-async function getFileSummaries(folderPath: string): Promise<Summary[]> {
+async function getFileSummaries(folderPath: string, fileMatchesIndexDocs: (filePath: string) => boolean): Promise<Summary[]> {
 	const fileSystem = getFileSystem();
-	const fileNames = await fileSystem.listFilesInDirectory(folderPath);
+	const fileNames = (await fileSystem.listFilesInDirectory(folderPath)).filter(name => !name.endsWith('/'));
 	const summaries: Summary[] = [];
 
 	for (const fileName of fileNames) {
-		const relativeFilePath = path.relative(fileSystem.getWorkingDirectory(), join(folderPath, fileName));
-		const summaryPath = getSummaryFileName(relativeFilePath);
-		// logger.info(`Attempting to read file summary from ${summaryPath}`); // Too noisy
-		try {
-			const summaryContent = await fs.readFile(summaryPath, 'utf-8');
-			summaries.push(JSON.parse(summaryContent));
-		} catch (e: any) {
-			if (e.code !== 'ENOENT') {
-				logger.warn(`Failed to read summary for file ${fileName} at ${summaryPath}: ${errorToString(e)}`);
+		const absoluteFilePath = join(folderPath, fileName);
+		const relativeFilePath = path.relative(fileSystem.getWorkingDirectory(), absoluteFilePath);
+
+		if (fileMatchesIndexDocs(relativeFilePath)) {
+			const summaryPath = getSummaryFileName(relativeFilePath);
+			try {
+				const summaryContent = await fs.readFile(summaryPath, 'utf-8');
+				const summary = JSON.parse(summaryContent);
+				if (summary.meta?.hash) { // Only include summaries that have a hash
+					summaries.push(summary);
+				} else {
+					logger.warn(`File summary for ${relativeFilePath} at ${summaryPath} is missing a hash. Skipping for parent hash calculation.`);
+				}
+			} catch (e: any) {
+				if (e.code !== 'ENOENT') {
+					logger.warn(`Failed to read summary for file ${fileName} at ${summaryPath}: ${errorToString(e)}`);
+				}
+				// If ENOENT or missing hash, it won't be included in parent hash calculation.
 			}
-			// If ENOENT, the summary doesn't exist, which is expected if it hasn't been generated yet or was skipped.
 		}
 	}
-
 	return summaries;
 }
 
-async function getSubFolderSummaries(folder: string): Promise<Summary[]> {
+async function getSubFolderSummaries(folderPath: string, folderMatchesIndexDocs: (folderPath: string) => boolean): Promise<Summary[]> {
 	const fileSystem = getFileSystem();
-	const subFolders = await fileSystem.listFolders(folder);
+	const subFolderNames = await fileSystem.listFolders(folderPath);
 	const summaries: Summary[] = [];
 
-	for (const subFolder of subFolders) {
-		const relativeSubFolder = path.relative(fileSystem.getWorkingDirectory(), path.join(folder, subFolder));
-		const folderName = basename(relativeSubFolder); // Use basename of relative path
-		const summaryPath = join(typedaiDirName, 'docs', relativeSubFolder, `_${folderName}.json`);
-		// logger.info(`Attempting to read folder summary from ${summaryPath}`); // Too noisy
-		try {
-			const summaryContent = await fs.readFile(summaryPath, 'utf-8');
-			summaries.push(JSON.parse(summaryContent));
-		} catch (e: any) {
-			if (e.code !== 'ENOENT') {
-				logger.warn(`Failed to read summary for subfolder ${subFolder} at ${summaryPath}: ${errorToString(e)}`);
+	for (const subFolderName of subFolderNames) {
+		const absoluteSubFolderPath = join(folderPath, subFolderName);
+		const relativeSubFolderPath = path.relative(fileSystem.getWorkingDirectory(), absoluteSubFolderPath);
+
+		if (folderMatchesIndexDocs(relativeSubFolderPath)) {
+			const childFolderSummaryName = basename(relativeSubFolderPath);
+			const summaryPath = join(typedaiDirName, 'docs', relativeSubFolderPath, `_${childFolderSummaryName}.json`);
+			try {
+				const summaryContent = await fs.readFile(summaryPath, 'utf-8');
+				const summary = JSON.parse(summaryContent);
+				if (summary.meta?.hash) { // Only include summaries that have a hash
+					summaries.push(summary);
+				} else {
+					logger.warn(`Folder summary for ${relativeSubFolderPath} at ${summaryPath} is missing a hash. Skipping for parent hash calculation.`);
+				}
+			} catch (e: any) {
+				if (e.code !== 'ENOENT') {
+					logger.warn(`Failed to read summary for subfolder ${subFolderName} at ${summaryPath}: ${errorToString(e)}`);
+				}
+				// If ENOENT or missing hash, it won't be included in parent hash calculation.
 			}
-			// If ENOENT, the summary doesn't exist, which is expected if it hasn't been generated yet or was skipped.
 		}
 	}
-
 	return summaries;
 }
 
@@ -476,98 +447,59 @@ function combineFileAndSubFoldersSummaries(fileSummaries: Summary[], subFolderSu
 //   Top-level summary
 // -----------------------------------------------------------------------------
 
+interface ProjectSummaryDoc {
+	projectOverview: string;
+	meta: {
+		hash: string;
+	};
+}
+
 export async function generateTopLevelSummary(): Promise<string> {
 	const fileSystem = getFileSystem();
 	const cwd = fileSystem.getWorkingDirectory();
-	const topLevelSummaryPath = join(typedaiDirName, 'docs', '_summary');
+	const topLevelSummaryPath = join(typedaiDirName, 'docs', '_project_summary.json');
+
+	const allFolderSummaries = await getAllFolderSummaries(cwd);
+
+	const folderSummariesForHashMap = allFolderSummaries
+		.filter(s => s.meta?.hash) // Ensure summaries have hashes
+		.sort((a, b) => a.path.localeCompare(b.path))
+		.map(s => `${s.path}:${s.meta.hash}`)
+		.join(',');
+	const currentAllFoldersCombinedHash = hash(folderSummariesForHashMap);
 
 	try {
-		const topLevelSummaryStats = await fs.stat(topLevelSummaryPath);
-		let isStale = false;
-
-		const docsDirForFolders = join(cwd, typedaiDirName, 'docs');
-		let docsDirExists = false;
-		try {
-			const stats = await fs.stat(docsDirForFolders);
-			docsDirExists = stats.isDirectory();
-		} catch (e: any) {
-			if (e.code !== 'ENOENT') {
-				logger.warn(`Error checking stats for docs directory ${docsDirForFolders}: ${errorToString(e)}`);
-			}
-			// If ENOENT, docsDirExists remains false, which is correct.
+		const existingSummaryContent = await fs.readFile(topLevelSummaryPath, 'utf-8');
+		const existingSummary: ProjectSummaryDoc = JSON.parse(existingSummaryContent);
+		if (existingSummary.meta?.hash === currentAllFoldersCombinedHash) {
+			logger.debug(`Top-level project summary at ${topLevelSummaryPath} is up to date (hash match).`);
+			return existingSummary.projectOverview;
 		}
-
-		if (docsDirExists) {
-			const allFilesInDocs = await fileSystem.listFilesRecursively(docsDirForFolders, true);
-
-			for (const filePathInDocs of allFilesInDocs) {
-				// Check only folder summary files (_*.json)
-				if (basename(filePathInDocs).startsWith('_') && filePathInDocs.endsWith('.json')) {
-					try {
-						const folderSummaryFileStats = await fs.stat(filePathInDocs);
-						if (folderSummaryFileStats.mtimeMs > topLevelSummaryStats.mtimeMs) {
-							isStale = true;
-							logger.info(`Folder summary file ${filePathInDocs} is newer than top-level summary ${topLevelSummaryPath}. Marking top-level summary as stale.`);
-							break;
-						}
-					} catch (e: any) {
-						if (e.code === 'ENOENT') {
-							// This shouldn't happen if listFilesRecursively worked, but handle defensively
-							logger.warn(`Child folder summary file ${filePathInDocs} unexpectedly missing. Marking top-level summary as stale.`);
-							isStale = true;
-							break;
-						}
-						logger.warn(`Error checking stats for folder summary file ${filePathInDocs}: ${errorToString(e)}`);
-					}
-				}
-			}
-		} else {
-			// If docs directory doesn't exist, the top-level summary must be missing or stale.
-			// The outer catch for ENOENT on topLevelSummaryPath will handle this.
-		}
-
-		if (!isStale) {
-			logger.debug(`Top-level summary at ${topLevelSummaryPath} is up to date.`);
-			try {
-				return await fs.readFile(topLevelSummaryPath, 'utf-8');
-			} catch (readError: any) {
-				logger.warn(`Failed to read up-to-date top-level summary ${topLevelSummaryPath}: ${errorToString(readError)}. Regenerating.`);
-				// Fall through to regenerate
-			}
-		}
+		logger.info(`Top-level project summary hash mismatch for ${topLevelSummaryPath}. Regenerating.`);
 	} catch (e: any) {
-		if (e.code !== 'ENOENT') logger.warn(`Error checking top-level summary ${topLevelSummaryPath} stats: ${errorToString(e)}. Proceeding to generate summary.`);
-		// If ENOENT, summary doesn't exist, so proceed.
-	}
-
-	logger.info('Generating new top-level summary.');
-	const folderSummaries = await getAllFolderSummaries(cwd);
-
-	// Check if there's content to summarize or if a placeholder is needed
-	if (folderSummaries.length === 0) {
-		logger.info('No folder summaries found to generate a new top-level summary.');
-		try {
-			// Try to return existing if it was just stale due to read error, not ENOENT
-			const existingSummary = await fs.readFile(topLevelSummaryPath, 'utf-8');
-			logger.info('Returning existing top-level summary.');
-			return existingSummary;
-		} catch (e: any) {
-			if (e.code === 'ENOENT') {
-				// No folder summaries and no existing top-level summary, save a placeholder
-				logger.info('No existing top-level summary found. Saving placeholder.');
-				const placeholderSummary = 'Project summary generation pending: No folder-level summaries available.';
-				await saveTopLevelSummary(cwd, placeholderSummary);
-				return placeholderSummary;
-			}
-			throw e; // rethrow other errors
+		if (e.code === 'ENOENT') {
+			logger.debug(`Top-level project summary file ${topLevelSummaryPath} not found. Generating new summary.`);
+		} else if (e instanceof SyntaxError) {
+			logger.warn(`Error parsing existing top-level project summary file ${topLevelSummaryPath}: ${errorToString(e)}. Regenerating summary.`);
+		} else {
+			logger.warn(`Error reading top-level project summary file ${topLevelSummaryPath}: ${errorToString(e)}. Proceeding to generate summary.`);
 		}
 	}
 
-	const combinedSummary = folderSummaries.map((summary) => `${summary.path}:\n${summary.long}`).join('\n\n');
-	const topLevelSummaryContent = await llms().easy.generateText(generateDetailedSummaryPrompt(combinedSummary), { id: 'Generate top level summary' });
+	logger.info('Generating new top-level project summary.');
 
-	await saveTopLevelSummary(cwd, topLevelSummaryContent);
-	return topLevelSummaryContent;
+	if (allFolderSummaries.length === 0) {
+		logger.info('No folder summaries found to generate a new top-level project summary.');
+		const placeholderSummary = 'Project summary generation pending: No folder-level summaries available.';
+		await saveTopLevelSummary(cwd, placeholderSummary, currentAllFoldersCombinedHash); // Save with current (empty) hash
+		return placeholderSummary;
+	}
+
+	const combinedSummaryText = allFolderSummaries.map((summary) => `${summary.path}:\n${summary.long}`).join('\n\n');
+	const newProjectOverview = await llms().easy.generateText(generateDetailedSummaryPrompt(combinedSummaryText), { id: 'Generate top level project summary' });
+
+	await saveTopLevelSummary(cwd, newProjectOverview, currentAllFoldersCombinedHash);
+	return newProjectOverview;
 }
 
 async function getAllFolderSummaries(rootDir: string): Promise<Summary[]> {
@@ -616,20 +548,29 @@ async function getAllFolderSummaries(rootDir: string): Promise<Summary[]> {
 	return summaries;
 }
 
-async function saveTopLevelSummary(rootDir: string, summary: string): Promise<void> {
-	const summaryPath = join(typedaiDirName, 'docs', '_summary'); // Relative to CWD
+async function saveTopLevelSummary(rootDir: string, summaryContent: string, combinedHash: string): Promise<void> {
+	const summaryPath = join(typedaiDirName, 'docs', '_project_summary.json'); // Relative to CWD
 	await fs.mkdir(dirname(summaryPath), { recursive: true }); // Ensure directory exists
-	await fs.writeFile(summaryPath, summary, 'utf-8'); // Save as plain text
+	const doc: ProjectSummaryDoc = {
+		projectOverview: summaryContent,
+		meta: { hash: combinedHash },
+	};
+	await fs.writeFile(summaryPath, JSON.stringify(doc, null, 2), 'utf-8');
 }
 
 export async function getTopLevelSummary(): Promise<string> {
+	const summaryPath = join(typedaiDirName, 'docs', '_project_summary.json');
 	try {
-		return await fs.readFile(join(typedaiDirName, 'docs', '_summary'), 'utf-8');
+		const fileContent = await fs.readFile(summaryPath, 'utf-8');
+		const doc: ProjectSummaryDoc = JSON.parse(fileContent);
+		return doc.projectOverview || '';
 	} catch (e: any) {
 		if (e.code === 'ENOENT') {
+			logger.debug(`Top-level project summary file ${summaryPath} not found.`);
 			return ''; // File not found, return empty string
 		}
-		throw e; // Re-throw other errors
+		logger.warn(`Error reading or parsing top-level project summary ${summaryPath}: ${errorToString(e)}`);
+		return ''; // Return empty on other errors like parse errors
 	}
 }
 
