@@ -61,8 +61,6 @@ export class ConversationPo extends BaseSpecPo<ConversationComponent> {
             .nativeElement.hasAttribute('aria-hidden');
     }
 
-    /* factory */
-    static async create(f: ComponentFixture<ConversationComponent>) {
-        return super.create.call(this, f) as Promise<ConversationPo>;
-    }
+    // The static create method is inherited from BaseSpecPo and handles polymorphism correctly.
+    // No need to redefine it here.
 }
