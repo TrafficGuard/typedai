@@ -422,14 +422,6 @@ describe('Exported repoIndexDocBuilder functions', () => {
         mockEasyLlm = { generateJson: sinon.stub(), generateText: sinon.stub(), generateFunctionCall: sinon.stub(), getTrace: sinon.stub() };
         mockMediumLlm = { generateJson: sinon.stub(), generateText: sinon.stub(), generateFunctionCall: sinon.stub(), getTrace: sinon.stub() };
 
-        // Stub getFileSystem and llms from agentContextLocalStorage
-        // Need to import them dynamically to stub them after they are loaded.
-        const agentContext = await import('#agent/agentContextLocalStorage');
-        getFileSystemOriginal = agentContext.getFileSystem;
-        llmsOriginal = agentContext.llms;
-        agentContext.getFileSystem = sinon.stub().returns(mockFssInstance);
-        agentContext.llms = sinon.stub().returns({ easy: mockEasyLlm, medium: mockMediumLlm });
-
 
         // Stub the IndexDocBuilder constructor to control the instance and its methods
         // This is tricky. Instead, we'll spy on the methods of the actual instance if needed,
@@ -446,10 +438,6 @@ describe('Exported repoIndexDocBuilder functions', () => {
 
     afterEach(async () => {
         sinon.restore();
-        // Restore original getFileSystem and llms
-        const agentContext = await import('#agent/agentContextLocalStorage');
-        agentContext.getFileSystem = getFileSystemOriginal;
-        agentContext.llms = llmsOriginal;
         mock.restore(); // If any test uses mock-fs
     });
 
