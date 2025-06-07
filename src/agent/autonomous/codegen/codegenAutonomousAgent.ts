@@ -424,7 +424,7 @@ function setupPyodideFunctionCallableGlobals(
 	const jsGlobals = {};
 	for (const schema of functionSchemas) {
 		const [className, method] = schema.name.split(FUNC_SEP);
-		jsGlobals[`_${schema.name}`] = async (...args) => {
+		jsGlobals[`_${schema.name}`] = async (...args: any[]) => {
 			// logger.info(`args ${JSON.stringify(args)}`); // Can be very verbose
 			// The system prompt instructs the generated code to use positional arguments.
 			const expectedParamNames: string[] = schema.parameters.map((p) => p.name);
@@ -446,6 +446,7 @@ function setupPyodideFunctionCallableGlobals(
 				}
 
 				const functionCallResult: FunctionCallResult = {
+					iteration: agent.iterations,
 					function_name: schema.name,
 					parameters,
 					stdout,
@@ -461,6 +462,7 @@ function setupPyodideFunctionCallableGlobals(
 					stderr = await summarizeFunctionOutput(agent, agentPlanResponse, schema, parameters, stderr);
 				}
 				const functionCallResult: FunctionCallResult = {
+					iteration: agent.iterations,
 					function_name: schema.name,
 					parameters,
 					stderr,

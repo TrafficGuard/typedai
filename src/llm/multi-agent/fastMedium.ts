@@ -15,13 +15,11 @@ export class FastMediumLLM extends BaseLLM {
 	private readonly gemini: LLM;
 
 	constructor() {
-		super(
-			'Fast Medium (Cerebras Qwen3 32b - Gemini 2.5 Flash)',
-			'multi',
-			'fast-medium',
-			0, // Initialized later
-			() => ({ inputCost: 0, outputCost: 0, totalCost: 0 }),
-		);
+		super('Fast Medium (Cerebras Qwen3 32b - Gemini 2.5 Flash)', 'multi', 'fast-medium', 0, () => ({
+			inputCost: 0,
+			outputCost: 0,
+			totalCost: 0,
+		}));
 		// Define the providers and their priorities. Lower number = higher priority
 		this.providers = [cerebrasQwen3_32b(), vertexGemini_2_5_Flash()];
 		this.cerebras = this.providers[0];

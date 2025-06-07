@@ -13,7 +13,11 @@ export const OLLAMA_SERVICE = 'ollama';
 
 export class OllamaLLM extends BaseLLM {
 	constructor(name: string, model: string, maxInputTokens: number) {
-		super(`${name} (Ollama)`, OLLAMA_SERVICE, model, maxInputTokens, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
+		super(`${name} (Ollama)`, OLLAMA_SERVICE, model, maxInputTokens, () => ({
+			inputCost: 0,
+			outputCost: 0,
+			totalCost: 0,
+		}));
 	}
 
 	isConfigured(): boolean {

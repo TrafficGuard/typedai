@@ -36,7 +36,7 @@ type RouteGenericFromSchema<Schema extends FastifySchema> = RouteGenericInterfac
 /**
  * Registers a fastify route using a RouteDefinition
  */
-export async function registerRoute<
+export async function registerApiRoute<
 	TPath extends string,
 	TMethod extends 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
 	TPathParamsSchema extends TSchema | undefined,

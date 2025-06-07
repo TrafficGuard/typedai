@@ -587,7 +587,8 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 		this.messageInput.nativeElement.value = '';
 		this.selectedAttachments.set([]);
 
-		const options = { ...currentUser.chat, thinking: this.llmHasThinkingLevels() ? this.thinkingLevel() : null };
+        const baseChatOptions = currentUser.chat && typeof currentUser.chat === 'object' ? currentUser.chat : {};
+		const options = { ...baseChatOptions, thinking: this.llmHasThinkingLevels() ? this.thinkingLevel() : null };
 		// userContentPayload is already created above for the optimistic update
 
 		let apiCall: Observable<any>;

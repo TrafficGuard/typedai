@@ -8,6 +8,7 @@ import { cerebrasLLMRegistry } from '#llm/services/cerebras';
 import { deepinfraLLMRegistry } from '#llm/services/deepinfra';
 import { deepseekLLMRegistry } from '#llm/services/deepseek';
 import { fireworksLLMRegistry } from '#llm/services/fireworks';
+import { geminiLLMRegistry } from '#llm/services/gemini';
 import { groqLLMRegistry } from '#llm/services/groq';
 import { mockLLMRegistry } from '#llm/services/mock-llm';
 import { nebiusLLMRegistry } from '#llm/services/nebius';
@@ -31,6 +32,7 @@ export const LLM_FACTORY: Record<string, () => LLM> = {
 	...openAiLLMRegistry(),
 	...togetherLLMRegistry(),
 	...vertexLLMRegistry(),
+	...geminiLLMRegistry(),
 	...deepseekLLMRegistry(),
 	...deepinfraLLMRegistry(),
 	...cerebrasLLMRegistry(),
@@ -46,12 +48,20 @@ export const LLM_FACTORY: Record<string, () => LLM> = {
 	...mockLLMRegistry(),
 };
 
+const modelMigrations: Record<string, string> = {};
+
+let _llmTypes: Array<{ id: string; name: string }> | null = null;
+
 export function llmTypes(): Array<{ id: string; name: string }> {
-	return Object.values(LLM_FACTORY)
+	_llmTypes ??= Object.values(LLM_FACTORY)
 		.map((factory) => factory())
 		.map((llm) => {
+			for (const model of llm.getOldModels()) {
+				modelMigrations[model] = llm.getModel();
+			}
 			return { id: llm.getId(), name: llm.getDisplayName() };
 		});
+	return _llmTypes;
 }
 
 let _llmRegistryKeys: string[];
@@ -79,6 +89,10 @@ export function getLLM(llmId: string): LLM {
 		logger.warn('TODO MultiLLM deserialization not implemented');
 		return new MultiLLM([], 0);
 	}
+	// Check for old model names
+	llmTypes(); // ensure model migrations are initialized
+	const [id, model] = llmId.split(':');
+	if (modelMigrations[model]) return getLLM(`${id}:${modelMigrations[model]}`);
 
 	throw new Error(`No LLM registered with id ${llmId}`);
 }

@@ -1,12 +1,12 @@
 import { Type } from '@sinclair/typebox';
-import { defineRoute } from '#shared/api-definitions';
+import { defineApiRoute } from '#shared/api-definitions';
 import { ApiNullResponseSchema } from '#shared/common.schema';
 import { UserProfileSchema, UserProfileUpdateSchema } from './user.schema';
 
 const PROFILE_BASE = '/api/profile';
 
 export const USER_API = {
-	view: defineRoute('GET', `${PROFILE_BASE}/view`, {
+	view: defineApiRoute('GET', `${PROFILE_BASE}/view`, {
 		schema: {
 			response: {
 				200: UserProfileSchema,
@@ -14,7 +14,7 @@ export const USER_API = {
 		},
 	}),
 	/** For the user to update their own profile (broader updates) */
-	update: defineRoute('POST', `${PROFILE_BASE}/update`, {
+	update: defineApiRoute('POST', `${PROFILE_BASE}/update`, {
 		schema: {
 			body: UserProfileUpdateSchema,
 			response: {
@@ -23,7 +23,7 @@ export const USER_API = {
 		},
 	}),
 	/** For the user to update their display name */
-	updateProfile: defineRoute('PUT', `${PROFILE_BASE}`, {
+	updateProfile: defineApiRoute('PUT', `${PROFILE_BASE}`, {
 		schema: {
 			body: Type.Object({ name: Type.String() }),
 			response: {
@@ -33,7 +33,7 @@ export const USER_API = {
 		},
 	}),
 	/** For the user to change their password */
-	changePassword: defineRoute('POST', `${PROFILE_BASE}/change-password`, {
+	changePassword: defineApiRoute('POST', `${PROFILE_BASE}/change-password`, {
 		schema: {
 			body: Type.Object({
 				currentPassword: Type.String(),

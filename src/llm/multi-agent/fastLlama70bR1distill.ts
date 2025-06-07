@@ -13,13 +13,11 @@ export class MultiLlama3_70B_R1_Distill extends BaseLLM {
 	private readonly providers: LLM[];
 
 	constructor() {
-		super(
-			'Llama3.3-70b R1 Distill (Fast)',
-			'multi',
-			'fast-llama3-70b-r1-distill',
-			0, // Initialized later
-			() => ({ inputCost: 0, outputCost: 0, totalCost: 0 }),
-		);
+		super('Llama3.3-70b R1 Distill (Fast)', 'multi', 'fast-llama3-70b-r1-distill', 0, () => ({
+			inputCost: 0,
+			outputCost: 0,
+			totalCost: 0,
+		}));
 		// Define the providers and their priorities. Lower number = higher priority
 		this.providers = [groqLlama3_3_70B_R1_Distill(), sambanovaLlama3_3_70b_R1_Distill(), togetherLlama3_70B_R1_Distill(), deepinfraDeepSeekR1()];
 

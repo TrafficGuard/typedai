@@ -391,6 +391,11 @@ export interface LLM {
 	 * @returns true if the LLM is properly configured, false otherwise.
 	 */
 	isConfigured(): boolean;
+
+	/**
+	 * Model ids which have been superseded with this LLM
+	 */
+	getOldModels(): string[];
 }
 
 /**

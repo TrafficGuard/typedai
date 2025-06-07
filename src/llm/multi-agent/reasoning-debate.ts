@@ -9,6 +9,7 @@ import { openAIo3, openAIo4mini } from '#llm/services/openai';
 import { vertexGemini_2_5_Pro } from '#llm/services/vertexai';
 import { logger } from '#o11y/logger';
 import {
+	type AssistantContentExt,
 	type GenerateTextOptions,
 	type GenerationStats,
 	type LLM,
@@ -111,7 +112,7 @@ export class ReasonerDebateLLM extends BaseLLM {
 	 * @param name
 	 */
 	constructor(modelIds = '', providedMediator?: () => LLM, providedDebateLLMs?: Array<() => LLM>, name?: string) {
-		super(name ?? '(MoA)', 'MAD', modelIds, 200_000, () => ({inputCost: 0, outputCost: 0, totalCost: 0}));
+		super(name ?? '(MoA)', 'MAD', modelIds, 200_000, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
 		if (providedMediator) this.mediator = providedMediator();
 		if (providedDebateLLMs) {
 			this.llms = providedDebateLLMs.map((factory) => factory());
@@ -171,18 +172,13 @@ export class ReasonerDebateLLM extends BaseLLM {
 
 		return {
 			role: 'assistant',
-			content: finalMergedMessage.content, // Use content directly from the LlmMessage
+			content: finalMergedMessage.content as AssistantContentExt,
 			stats: totalStats,
 		};
 	}
 
-	private async generateInitialResponses(
-		llmMessages: ReadonlyArray<Readonly<LlmMessage>>,
-		opts?: GenerateTextOptions,
-	): Promise<LlmMessage[]> {
-		return Promise.all(
-			this.llms.map((llm) => llm.generateMessage(llmMessages, { ...opts, temperature: INITIAL_TEMP, thinking: 'high' })),
-		);
+	private async generateInitialResponses(llmMessages: ReadonlyArray<Readonly<LlmMessage>>, opts?: GenerateTextOptions): Promise<LlmMessage[]> {
+		return Promise.all(this.llms.map((llm) => llm.generateMessage(llmMessages, { ...opts, temperature: INITIAL_TEMP, thinking: 'high' })));
 	}
 
 	private async multiAgentDebate(
@@ -195,7 +191,8 @@ export class ReasonerDebateLLM extends BaseLLM {
 		let currentRoundMessages: ReadonlyArray<LlmMessage> = initialMessages;
 		const userMessageContent = lastText(llmMessages); // Original user message text
 
-		for (let round = 1; round <= rounds; round++) { // Adjusted loop to run `rounds` times for debate
+		for (let round = 1; round <= rounds; round++) {
+			// Adjusted loop to run `rounds` times for debate
 			logger.info(`Debate Round ${round}...`);
 			const nextRoundMessagePromises = this.llms.map((llm, index) => {
 				const ownInitialResponseText = messageText(initialMessages[index]); // Agent's own initial response

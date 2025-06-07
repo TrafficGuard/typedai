@@ -94,7 +94,13 @@ export function gemini2_5_Flash_CostFunction(inputMil: number, outputMil: number
 // Prompts less than 200,000 tokens: $1.25/million tokens for input, $10/million for output
 // Prompts more than 200,000 tokens (up to the 1,048,576 max): $2.50/million for input, $15/million for output
 export function vertexGemini_2_5_Pro(): LLM {
-	return new VertexLLM('Gemini 2.5 Pro', 'gemini-2.5-pro-preview-05-06', 1_000_000, gemini2_5_Pro_CostFunction(1.25, 10, 2.5, 15));
+	return new VertexLLM(
+		'Gemini 2.5 Pro',
+		'gemini-2.5-pro-preview-05-06',
+		1_000_000,
+		gemini2_5_Pro_CostFunction(1.25, 10, 2.5, 15), // gemini-2.5-pro-preview-06-05
+		// ['gemini-2.5-pro-preview-05-06']
+	);
 }
 
 export function vertexGemini_2_5_Flash(): LLM {
@@ -123,8 +129,8 @@ let gcloudProjectIndex = 0;
  * Vertex AI models - Gemini
  */
 class VertexLLM extends AiLLM<GoogleVertexProvider> {
-	constructor(displayName: string, model: string, maxInputToken: number, calculateCosts: LlmCostFunction) {
-		super(displayName, VERTEX_SERVICE, model, maxInputToken, calculateCosts);
+	constructor(displayName: string, model: string, maxInputToken: number, calculateCosts: LlmCostFunction, oldIds?: string[]) {
+		super(displayName, VERTEX_SERVICE, model, maxInputToken, calculateCosts, oldIds);
 	}
 
 	protected apiKey(): string {

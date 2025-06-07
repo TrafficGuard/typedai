@@ -1,5 +1,5 @@
 import { Static, Type } from '@sinclair/typebox';
-import { defineRoute } from '#shared/api-definitions';
+import { defineApiRoute } from '#shared/api-definitions';
 import { ApiNullResponseSchema } from '../common.schema';
 import { LlmCallSchema, LlmCallSummarySchema } from '../llmCall/llmCall.schema';
 import {
@@ -32,49 +32,49 @@ const AgentLlmCallParamsSchema = Type.Object({
 });
 
 export const AGENT_API = {
-	list: defineRoute('GET', `${AGENT_BASE_V1}/list`, {
+	list: defineApiRoute('GET', `${AGENT_BASE_V1}/list`, {
 		schema: { response: { 200: Type.Array(AgentContextPreviewSchema) } },
 	}),
-	details: defineRoute('GET', `${AGENT_BASE_V1}/details/:agentId`, {
+	details: defineApiRoute('GET', `${AGENT_BASE_V1}/details/:agentId`, {
 		schema: { params: AgentIdParamsSchema, response: { 200: AgentContextSchema } },
 	}),
-	start: defineRoute('POST', `${AGENT_BASE_V1}/start`, {
+	start: defineApiRoute('POST', `${AGENT_BASE_V1}/start`, {
 		schema: { body: AgentStartRequestSchema, response: { 201: AgentContextSchema } }, // 201 for resource creation
 	}),
-	delete: defineRoute('POST', `${AGENT_BASE_V1}/delete`, {
+	delete: defineApiRoute('POST', `${AGENT_BASE_V1}/delete`, {
 		schema: { body: AgentDeleteRequestSchema, response: { 204: ApiNullResponseSchema } }, // 204 for no content
 	}),
 
-	forceStop: defineRoute('POST', `${AGENT_BASE_V1}/force-stop`, {
+	forceStop: defineApiRoute('POST', `${AGENT_BASE_V1}/force-stop`, {
 		// Assuming executionId might not always be available or relevant for a hard stop
 		schema: { body: AgentActionByIdSchema, response: { 200: ApiNullResponseSchema } }, // Or 204
 	}),
-	feedback: defineRoute('POST', `${AGENT_BASE_V1}/feedback`, {
+	feedback: defineApiRoute('POST', `${AGENT_BASE_V1}/feedback`, {
 		schema: { body: AgentFeedbackRequestSchema, response: { 200: AgentContextSchema } },
 	}),
-	resumeError: defineRoute('POST', `${AGENT_BASE_V1}/resume-error`, {
+	resumeError: defineApiRoute('POST', `${AGENT_BASE_V1}/resume-error`, {
 		schema: { body: AgentFeedbackRequestSchema, response: { 200: AgentContextSchema } },
 	}),
-	resumeHil: defineRoute('POST', `${AGENT_BASE_V1}/resume-hil`, {
+	resumeHil: defineApiRoute('POST', `${AGENT_BASE_V1}/resume-hil`, {
 		schema: { body: AgentFeedbackRequestSchema, response: { 200: AgentContextSchema } },
 	}),
-	requestHil: defineRoute('POST', `${AGENT_BASE_V1}/request-hil`, {
+	requestHil: defineApiRoute('POST', `${AGENT_BASE_V1}/request-hil`, {
 		schema: { body: AgentActionBaseSchema, response: { 200: AgentContextSchema } },
 	}),
-	cancel: defineRoute('POST', `${AGENT_BASE_V1}/cancel`, {
+	cancel: defineApiRoute('POST', `${AGENT_BASE_V1}/cancel`, {
 		schema: { body: AgentCancelRequestSchema, response: { 200: AgentContextSchema } },
 	}),
-	resumeCompleted: defineRoute('POST', `${AGENT_BASE_V1}/resume-completed`, {
+	resumeCompleted: defineApiRoute('POST', `${AGENT_BASE_V1}/resume-completed`, {
 		schema: { body: AgentResumeCompletedRequestSchema, response: { 200: AgentContextSchema } },
 	}),
-	updateFunctions: defineRoute('POST', `${AGENT_BASE_V1}/update-functions`, {
+	updateFunctions: defineApiRoute('POST', `${AGENT_BASE_V1}/update-functions`, {
 		schema: { body: AgentUpdateFunctionsRequestSchema, response: { 200: AgentContextSchema } },
 	}),
 
-	getIterations: defineRoute('GET', `${AGENT_BASE_V1}/iterations/:agentId`, {
+	getIterations: defineApiRoute('GET', `${AGENT_BASE_V1}/iterations/:agentId`, {
 		schema: { params: AgentIdParamsSchema, response: { 200: Type.Array(AutonomousIterationSchema) } },
 	}),
-	getLlmCallsByAgentId: defineRoute('GET', '/api/llms/calls/agent/:agentId', {
+	getLlmCallsByAgentId: defineApiRoute('GET', '/api/llms/calls/agent/:agentId', {
 		schema: {
 			params: AgentIdParamsSchema,
 			// Using Type.Any() for LlmCall items as defining a full LlmCallSchema is out of scope for this refactoring.
@@ -83,24 +83,24 @@ export const AGENT_API = {
 		},
 	}),
 	// Inside AGENT_API object:
-	getAvailableFunctions: defineRoute('GET', `${AGENT_BASE_V1}/functions`, {
+	getAvailableFunctions: defineApiRoute('GET', `${AGENT_BASE_V1}/functions`, {
 		schema: { response: { 200: Type.Array(Type.String()) } }, // Using Type.Array(Type.String()) directly for robustness
 	}),
-	listHumanInLoopAgents: defineRoute('GET', `${AGENT_BASE_V1}/list/humanInLoop`, {
+	listHumanInLoopAgents: defineApiRoute('GET', `${AGENT_BASE_V1}/list/humanInLoop`, {
 		schema: { response: { 200: Type.Array(AgentContextSchema) } },
 	}),
 
 	// New Endpoints for Iteration and LLM Call Summaries/Details
-	getIterationSummaries: defineRoute('GET', `${AGENT_BASE_V1}/iterations-summary/:agentId`, {
+	getIterationSummaries: defineApiRoute('GET', `${AGENT_BASE_V1}/iterations-summary/:agentId`, {
 		schema: { params: AgentIdParamsSchema, response: { 200: Type.Array(AutonomousIterationSummarySchema) } },
 	}),
-	getIterationDetail: defineRoute('GET', `${AGENT_BASE_V1}/iteration-detail/:agentId/:iterationNumber`, {
+	getIterationDetail: defineApiRoute('GET', `${AGENT_BASE_V1}/iteration-detail/:agentId/:iterationNumber`, {
 		schema: { params: AgentIterationParamsSchema, response: { 200: AutonomousIterationSchema } },
 	}),
-	getLlmCallSummaries: defineRoute('GET', `${AGENT_BASE_V1}/llmcalls-summary/:agentId`, {
+	getLlmCallSummaries: defineApiRoute('GET', `${AGENT_BASE_V1}/llmcalls-summary/:agentId`, {
 		schema: { params: AgentIdParamsSchema, response: { 200: Type.Array(LlmCallSummarySchema) } },
 	}),
-	getLlmCallDetail: defineRoute('GET', `${AGENT_BASE_V1}/llmcall-detail/:agentId/:llmCallId`, {
+	getLlmCallDetail: defineApiRoute('GET', `${AGENT_BASE_V1}/llmcall-detail/:agentId/:llmCallId`, {
 		schema: { params: AgentLlmCallParamsSchema, response: { 200: LlmCallSchema } },
 	}),
 };

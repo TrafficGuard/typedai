@@ -22,7 +22,7 @@ export interface RouteDefinition<
 /**
  * Creates a server API route definition with type safety.
  */
-export function defineRoute<
+export function defineApiRoute<
 	Path extends string,
 	Method extends 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
 	PathParamsSchema extends TSchema | undefined = undefined,

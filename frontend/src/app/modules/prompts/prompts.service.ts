@@ -24,7 +24,7 @@ export class PromptsService {
 	private readonly _promptsState = createApiListState<PromptPreview>();
 	readonly promptsState = this._promptsState.asReadonly();
 
-	private readonly _selectedPrompt = signal<Prompt | null>(null); // Retain signal for selectedPrompt as per existing code and no change request for it
+    readonly _selectedPrompt = signal<Prompt | null>(null); // Retain signal for selectedPrompt as per existing code and no change request for it
 	readonly selectedPrompt = this._selectedPrompt.asReadonly();
 
 	constructor() {

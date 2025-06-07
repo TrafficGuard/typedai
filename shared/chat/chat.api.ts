@@ -1,4 +1,4 @@
-import { RouteDefinition, defineRoute } from '#shared/api-definitions';
+import { RouteDefinition, defineApiRoute } from '#shared/api-definitions';
 import {
 	ChatListSchema,
 	ChatMarkdownRequestSchema,
@@ -16,14 +16,14 @@ const CHAT_BASE = '/api/chat';
 const CHATS_BASE = '/api/chats';
 
 export const CHAT_API = {
-	listChats: defineRoute('GET', CHATS_BASE, {
+	listChats: defineApiRoute('GET', CHATS_BASE, {
 		schema: {
 			response: {
 				200: ChatListSchema,
 			},
 		},
 	}),
-	createChat: defineRoute('POST', `${CHAT_BASE}/new`, {
+	createChat: defineApiRoute('POST', `${CHAT_BASE}/new`, {
 		schema: {
 			body: ChatMessageSendSchema,
 			response: {
@@ -33,7 +33,7 @@ export const CHAT_API = {
 			},
 		},
 	}),
-	getById: defineRoute('GET', `${CHAT_BASE}/:chatId`, {
+	getById: defineApiRoute('GET', `${CHAT_BASE}/:chatId`, {
 		schema: {
 			params: ChatParamsSchema,
 			response: {
@@ -41,7 +41,7 @@ export const CHAT_API = {
 			},
 		},
 	}),
-	deleteChat: defineRoute('DELETE', `${CHAT_BASE}/:chatId`, {
+	deleteChat: defineApiRoute('DELETE', `${CHAT_BASE}/:chatId`, {
 		schema: {
 			params: ChatParamsSchema,
 			response: {
@@ -49,7 +49,7 @@ export const CHAT_API = {
 			},
 		},
 	}),
-	updateDetails: defineRoute('PATCH', `${CHAT_BASE}/:chatId/details`, {
+	updateDetails: defineApiRoute('PATCH', `${CHAT_BASE}/:chatId/details`, {
 		schema: {
 			params: ChatParamsSchema,
 			body: ChatUpdateDetailsSchema,
@@ -58,7 +58,7 @@ export const CHAT_API = {
 			},
 		},
 	}),
-	sendMessage: defineRoute('POST', `${CHAT_BASE}/:chatId/send`, {
+	sendMessage: defineApiRoute('POST', `${CHAT_BASE}/:chatId/send`, {
 		schema: {
 			params: ChatParamsSchema,
 			body: ChatMessageSendSchema,
@@ -67,7 +67,7 @@ export const CHAT_API = {
 			},
 		},
 	}),
-	regenerateMessage: defineRoute('POST', `${CHAT_BASE}/:chatId/regenerate`, {
+	regenerateMessage: defineApiRoute('POST', `${CHAT_BASE}/:chatId/regenerate`, {
 		schema: {
 			params: ChatParamsSchema,
 			body: RegenerateMessageSchema,
@@ -76,7 +76,7 @@ export const CHAT_API = {
 			},
 		},
 	}),
-	formatAsMarkdown: defineRoute('POST', `${CHAT_BASE}/markdown`, {
+	formatAsMarkdown: defineApiRoute('POST', `${CHAT_BASE}/markdown`, {
 		schema: {
 			body: ChatMarkdownRequestSchema,
 			response: {

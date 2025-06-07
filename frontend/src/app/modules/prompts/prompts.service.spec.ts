@@ -39,7 +39,7 @@ describe('PromptsService', () => {
 		httpMock = TestBed.inject(HttpTestingController);
 
 		// Handle the initial request made by the service constructor
-		const initialReq = httpMock.expectOne(PROMPT_API.listPrompts.buildPath({}));
+		const initialReq = httpMock.expectOne(PROMPT_API.listPrompts.pathTemplate);
 		initialReq.flush(mockPromptList);
 	});
 
@@ -54,10 +54,10 @@ describe('PromptsService', () => {
 
 	describe('refreshPrompts', () => {
 		it('should fetch prompts and update the prompts BehaviorSubject', fakeAsync(() => {
-			service.refreshPrompts().subscribe();
+			service.refreshPrompts();
 			tick();
 
-			const req = httpMock.expectOne(PROMPT_API.listPrompts.buildPath({}));
+			const req = httpMock.expectOne(PROMPT_API.listPrompts.pathTemplate);
 			expect(req.request.method).toBe('GET');
 			req.flush(mockPromptList);
 			tick();
@@ -90,7 +90,7 @@ describe('PromptsService', () => {
 			});
 			tick();
 
-			const req = httpMock.expectOne(PROMPT_API.createPrompt.buildPath({}));
+			const req = httpMock.expectOne(PROMPT_API.createPrompt.pathTemplate);
 			expect(req.request.method).toBe('POST');
 			expect(req.request.body).toEqual(payload);
 			req.flush(mockPromptSchemaModel);

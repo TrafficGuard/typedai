@@ -1,4 +1,5 @@
-import Pino from 'pino';
+import { createGcpLoggingPinoConfig } from '@google-cloud/pino-logging-gcp-config';
+import Pino, { LoggerOptions } from 'pino';
 import type { AgentContext } from '#shared/agent/agent.model';
 const logLevel = process.env.LOG_LEVEL || 'INFO';
 // Review config at https://github.com/simenandre/pino-cloud-logging/blob/main/src/main.ts
@@ -25,6 +26,40 @@ const transport =
 				},
 			}
 		: undefined;
+
+const transportTargets: Pino.TransportTargetOptions[] = [];
+
+// When running locally log in a human-readable format and not JSON
+if (process.env.LOG_PRETTY === 'true') {
+	transportTargets.push({
+		level: logLevel, // Optional: set level for this specific transport
+		target: 'pino-pretty',
+		options: {
+			colorize: true,
+		},
+	});
+}
+
+// When running locally it can be useful to have the logs sent to Cloud Logging for debugging
+if (process.env.LOG_GCLOUD === 'true') {
+	transportTargets.push({
+		level: logLevel, // Optional: set level for this specific transport
+		target: 'cloud-pine', // Or 'pino-cloud-logging' if you use that
+		options: {
+			// Ensure GCLOUD_PROJECT is set in your environment (variables/local.env)
+			// projectId: process.env.GCLOUD_PROJECT, // cloud-pine might pick this up automatically or require it
+			cloudLoggingOptions: {
+				skipInit: true, // Useful if Google Cloud SDK is initialized elsewhere or using Application Default Credentials
+				sync: true, // For local development, sync can be helpful to see logs immediately in GCP
+			},
+			// For pino-cloud-logging, options might be slightly different, e.g.:
+			// logName: 'my-app-log',
+			// resource: { type: 'global', labels: {} },
+			// projectId: process.env.GCLOUD_PROJECT,
+			// credentials: { /* if needed */ }
+		},
+	});
+}
 
 // const transportTargets = [];
 //

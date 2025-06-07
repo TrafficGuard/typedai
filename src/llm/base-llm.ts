@@ -61,6 +61,7 @@ export abstract class BaseLLM implements LLM {
 		protected model: string,
 		protected maxInputTokens: number,
 		readonly calculateCosts: LlmCostFunction,
+		private oldIds: string[] = [],
 	) {}
 
 	protected _generateText(systemPrompt: string | undefined, userPrompt: string, opts?: GenerateTextOptions): Promise<string> {
@@ -250,6 +251,10 @@ export abstract class BaseLLM implements LLM {
 	isConfigured(): boolean {
 		// Default implementation, should be overridden by specific LLM implementations
 		return true;
+	}
+
+	getOldModels(): string[] {
+		return this.oldIds;
 	}
 
 	/** @deprecated Use callStack in llmCall.ts */

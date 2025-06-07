@@ -24,13 +24,11 @@ export class DeepSeekR1_Fallbacks extends BaseLLM {
 	private llms: LLM[] = [togetherDeepSeekR1(), fireworksDeepSeekR1_Fast(), nebiusDeepSeekR1(), sambanovaDeepseekR1()];
 
 	constructor() {
-		super(
-			'DeepSeek R1 (Together, Fireworks, Nebius, SambaNova)',
-			'DeepSeekFallback',
-			'deepseek-r1-together-fireworks-nebius-sambanova',
-			0, // Initialized later
-			() => ({ inputCost: 0, outputCost: 0, totalCost: 0 }),
-		);
+		super('DeepSeek R1 (Together, Fireworks, Nebius, SambaNova)', 'DeepSeekFallback', 'deepseek-r1-together-fireworks-nebius-sambanova', 0, () => ({
+			inputCost: 0,
+			outputCost: 0,
+			totalCost: 0,
+		}));
 	}
 
 	protected supportsGenerateTextFromMessages(): boolean {

@@ -120,7 +120,11 @@ export class CePO_LLM extends BaseLLM {
 		private config: CePOConfig /*, ratingLlmResolver?: (id: string) => LLM */,
 	) {
 		const baseLlm = llmProvider(); // Call once
-		super(name ?? `CePO ${baseLlm.getId()}`, 'multi', `CePO-${baseLlm.getId()}`, 128_000, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
+		super(name ?? `CePO ${baseLlm.getId()}`, 'multi', `CePO-${baseLlm.getId()}`, 128_000, () => ({
+			inputCost: 0,
+			outputCost: 0,
+			totalCost: 0,
+		}));
 		this.llm = baseLlm;
 
 		// Initialize ratingLlm
