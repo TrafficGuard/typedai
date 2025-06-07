@@ -26,28 +26,22 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 	});
 
 	/** Provides feedback to an agent */
-	fastify.post(
-		AGENT_API.feedback.pathTemplate,
-		{
-			schema: AGENT_API.feedback.schema,
-		},
-		async (req, reply) => {
-			const { agentId, feedback, executionId } = req.body;
+	registerApiRoute(fastify, AGENT_API.feedback, async (req, reply) => {
+		const { agentId, feedback, executionId } = req.body;
 
-			try {
-				// provideFeedback should ideally handle agent existence/ownership or call a service method that does
-				await provideFeedback(agentId!, executionId!, feedback!);
-				// Load the updated agent to return the state
-				const updatedAgent = await fastify.agentStateService.load(agentId!); // load now throws NotFound/NotAllowed
-				send(reply, 200, serializeContext(updatedAgent));
-			} catch (error) {
-				if (error instanceof NotFound) return sendNotFound(reply, error.message);
-				if (error instanceof NotAllowed) return send(reply, 403, { error: error.message });
-				logger.error('Error providing feedback:', error);
-				sendBadRequest(reply, 'Error providing feedback');
-			}
-		},
-	);
+		try {
+			// provideFeedback should ideally handle agent existence/ownership or call a service method that does
+			await provideFeedback(agentId!, executionId!, feedback!);
+			// Load the updated agent to return the state
+			const updatedAgent = await fastify.agentStateService.load(agentId!); // load now throws NotFound/NotAllowed
+			send(reply, 200, serializeContext(updatedAgent));
+		} catch (error) {
+			if (error instanceof NotFound) return sendNotFound(reply, error.message);
+			if (error instanceof NotAllowed) return send(reply, 403, { error: error.message });
+			logger.error('Error providing feedback:', error);
+			sendBadRequest(reply, 'Error providing feedback');
+		}
+	});
 
 	/** Resumes an agent in the error state */
 	registerApiRoute(fastify, AGENT_API.resumeError, async (req, reply) => {
@@ -67,26 +61,20 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 	});
 
 	/** Resumes an agent in the hil (human in the loop) state */
-	fastify.post(
-		AGENT_API.resumeHil.pathTemplate,
-		{
-			schema: AGENT_API.resumeHil.schema,
-		},
-		async (req, reply) => {
-			const { agentId, executionId, feedback } = req.body;
-			try {
-				// resumeHil should ideally handle agent existence/ownership or call a service method that does
-				await resumeHil(agentId!, executionId!, feedback!);
-				const updatedAgent = await fastify.agentStateService.load(agentId!); // load now throws NotFound/NotAllowed
-				send(reply, 200, serializeContext(updatedAgent));
-			} catch (error) {
-				if (error instanceof NotFound) return sendNotFound(reply, error.message);
-				if (error instanceof NotAllowed) return send(reply, 403, { error: error.message });
-				logger.error(error, `Error resuming HIL agent ${agentId}`);
-				sendBadRequest(reply, 'Error resuming HIL agent');
-			}
-		},
-	);
+	registerApiRoute(fastify, AGENT_API.resumeHil, async (req, reply) => {
+		const { agentId, executionId, feedback } = req.body;
+		try {
+			// resumeHil should ideally handle agent existence/ownership or call a service method that does
+			await resumeHil(agentId!, executionId!, feedback!);
+			const updatedAgent = await fastify.agentStateService.load(agentId!); // load now throws NotFound/NotAllowed
+			send(reply, 200, serializeContext(updatedAgent));
+		} catch (error) {
+			if (error instanceof NotFound) return sendNotFound(reply, error.message);
+			if (error instanceof NotAllowed) return send(reply, 403, { error: error.message });
+			logger.error(error, `Error resuming HIL agent ${agentId}`);
+			sendBadRequest(reply, 'Error resuming HIL agent');
+		}
+	});
 
 	/** Requests a human-in-the-loop check for an agent */
 	registerApiRoute(fastify, AGENT_API.requestHil, async (req, reply) => {
@@ -120,27 +108,21 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 	});
 
 	// Cancels an agent and sets it to the completed state
-	fastify.post(
-		AGENT_API.cancel.pathTemplate,
-		{
-			schema: AGENT_API.cancel.schema,
-		},
-		async (req, reply) => {
-			const { agentId, executionId, reason } = req.body;
-			try {
-				// cancelAgent should ideally handle agent existence/ownership or call a service method that does
-				await cancelAgent(agentId!, executionId!, reason!);
-				// Load the updated agent to return the state
-				const updatedAgent = await fastify.agentStateService.load(agentId!); // load now throws NotFound/NotAllowed
-				send(reply, 200, serializeContext(updatedAgent));
-			} catch (error) {
-				if (error instanceof NotFound) return sendNotFound(reply, error.message);
-				if (error instanceof NotAllowed) return send(reply, 403, { error: error.message });
-				logger.error(error, `Error cancelling agent ${agentId}`);
-				sendBadRequest(reply, 'Error cancelling agent');
-			}
-		},
-	);
+	registerApiRoute(fastify, AGENT_API.cancel, async (req, reply) => {
+		const { agentId, executionId, reason } = req.body;
+		try {
+			// cancelAgent should ideally handle agent existence/ownership or call a service method that does
+			await cancelAgent(agentId!, executionId!, reason!);
+			// Load the updated agent to return the state
+			const updatedAgent = await fastify.agentStateService.load(agentId!); // load now throws NotFound/NotAllowed
+			send(reply, 200, serializeContext(updatedAgent));
+		} catch (error) {
+			if (error instanceof NotFound) return sendNotFound(reply, error.message);
+			if (error instanceof NotAllowed) return send(reply, 403, { error: error.message });
+			logger.error(error, `Error cancelling agent ${agentId}`);
+			sendBadRequest(reply, 'Error cancelling agent');
+		}
+	});
 
 	/** Resumes an agent in the completed state */
 	registerApiRoute(fastify, AGENT_API.resumeCompleted, async (req, reply) => {
@@ -159,25 +141,19 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
 	});
 
 	/** Updates the functions available to an agent */
-	fastify.post(
-		AGENT_API.updateFunctions.pathTemplate,
-		{
-			schema: AGENT_API.updateFunctions.schema,
-		},
-		async (req, reply) => {
-			const { agentId, functions } = req.body;
+	registerApiRoute(fastify, AGENT_API.updateFunctions, async (req, reply) => {
+		const { agentId, functions } = req.body;
 
-			try {
-				await fastify.agentStateService.updateFunctions(agentId!, functions!);
-				const updatedAgent = await fastify.agentStateService.load(agentId!); // load now throws NotFound/NotAllowed
-				const serialized = serializeContext(updatedAgent);
-				reply.sendJSON(serialized);
-			} catch (error) {
-				if (error instanceof NotFound) return sendNotFound(reply, error.message);
-				if (error instanceof NotAllowed) return send(reply, 403, { error: error.message });
-				logger.error(error, 'Error updating agent functions [error]');
-				sendBadRequest(reply, 'Error updating agent functions');
-			}
-		},
-	);
+		try {
+			await fastify.agentStateService.updateFunctions(agentId!, functions!);
+			const updatedAgent = await fastify.agentStateService.load(agentId!); // load now throws NotFound/NotAllowed
+			const serialized = serializeContext(updatedAgent);
+			reply.sendJSON(serialized);
+		} catch (error) {
+			if (error instanceof NotFound) return sendNotFound(reply, error.message);
+			if (error instanceof NotAllowed) return send(reply, 403, { error: error.message });
+			logger.error(error, 'Error updating agent functions [error]');
+			sendBadRequest(reply, 'Error updating agent functions');
+		}
+	});
 }
