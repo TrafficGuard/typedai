@@ -16,7 +16,8 @@ export abstract class BaseSpecPo<T> {
     protected readonly fix: ComponentFixture<T>;
     protected readonly loader: HarnessLoader;
 
-    protected constructor(fixture: ComponentFixture<T>) {
+    // Change 'protected' to 'public' to allow static create method to instantiate derived classes
+    public constructor(fixture: ComponentFixture<T>) {
         this.fix = fixture;
         this.loader = TestbedHarnessEnvironment.loader(fixture);
     }
@@ -105,7 +106,8 @@ export abstract class BaseSpecPo<T> {
     /* --------------------------------------------------
        CD + async
        -------------------------------------------------- */
-    protected async detectAndWait() {
+    // Change 'protected' to 'public' to allow test specs to call it
+    public async detectAndWait() {
         this.fix.detectChanges();
         await this.fix.whenStable();
         this.fix.detectChanges();
