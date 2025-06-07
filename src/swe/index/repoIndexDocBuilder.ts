@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { promises as fs, Stats } from 'node:fs';
 import path, { basename, dirname, join } from 'node:path';
 import type { Span } from '@opentelemetry/api';
@@ -37,7 +38,7 @@ export interface Summary {
 const BATCH_SIZE = 10;
 
 function hash(content: string): string {
-
+	return createHash('md5').update(content).digest('hex');
 }
 
 /**
