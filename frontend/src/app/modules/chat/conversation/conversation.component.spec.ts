@@ -17,7 +17,7 @@ import { RouterTestingModule } from '@angular/router/testing';
 import { MarkdownModule, provideMarkdown } from 'ngx-markdown';
 import {BehaviorSubject, catchError, of, throwError} from 'rxjs';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
-import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
+import { FuseMediaWatcherService } from '@fuse/services/media-watcher'; // Import the actual service type
 import { UserService } from 'app/core/user/user.service';
 import { UserContentExt } from '#shared/llm/llm.model';
 import { UserProfile } from '#shared/user/user.model';
@@ -60,6 +60,12 @@ const initialMockChat: Chat = {
 	],
 };
 
+// Create a fake for FuseMediaWatcherService
+export class FakeFuseMediaWatcherService {
+  // Mock the onMediaChange$ observable to emit a typical value
+  onMediaChange$ = of({ matchingAliases: ['lg'] });
+}
+
 
 fdescribe('ConversationComponent', () => {
     let po   : ConversationPo;
@@ -70,7 +76,11 @@ fdescribe('ConversationComponent', () => {
         mockActivatedRouteParams = new BehaviorSubject<Params>({});
 
         await TestBed.configureTestingModule({
-            imports  : [ConversationComponent, NoopAnimationsModule, MatIconModule],
+            imports: [
+                ConversationComponent,
+                NoopAnimationsModule,
+                MatIconModule
+            ],
             providers: [
                 { provide: ChatServiceClient, useClass: FakeChatSvc },
                 { provide: UserService,      useClass: FakeUserSvc },
@@ -83,7 +93,9 @@ fdescribe('ConversationComponent', () => {
                         snapshot: { params: {}, queryParams: {} },
                         queryParams: of({})
                     }
-                }
+                },
+                // Add the provider for FuseMediaWatcherService
+                { provide: FuseMediaWatcherService, useClass: FakeFuseMediaWatcherService }
             ],
         }).compileComponents();
 
@@ -91,12 +103,9 @@ fdescribe('ConversationComponent', () => {
         const sanitizer = TestBed.inject(DomSanitizer);
         iconRegistry.addSvgIconLiteral('heroicons_outline:trash', sanitizer.bypassSecurityTrustHtml('<svg></svg>'));
         const originalGetNamedSvgIcon = iconRegistry.getNamedSvgIcon;
-
         spyOn(iconRegistry, 'getNamedSvgIcon').and.callFake((iconName: string, namespace: string = '') => {
-            // Call the original method
             return originalGetNamedSvgIcon.call(iconRegistry, iconName, namespace).pipe(
                 catchError(() => {
-                    // If an error occurs (icon not found), return a dummy SVGElement
                     const dummySvgElement = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                     return of(dummySvgElement);
                 })
@@ -105,7 +114,6 @@ fdescribe('ConversationComponent', () => {
 
         chat = TestBed.inject(ChatServiceClient) as unknown as FakeChatSvc;
 
-        /* initial route without chat -> loading spinner */
         const fix = TestBed.createComponent(ConversationComponent);
         po = await ConversationPo.create(fix);
     });
@@ -422,7 +430,7 @@ describe('ConversationComponent', () => {
 
 			component.sendMessage(); // This is async
 			tick(); // Allow async operations in sendMessage (like attachmentsAndTextToUserContentExt)
-			fixture.detectChanges(); // Allow UI updates from sendMessage (optimistic messages, etc.)
+			            // and allow the observable subscription to be processed.
 
 			// The clearDraftMessage is in the 'complete' callback of the API call observable
 			// Ensure the observable returned by mockChatService.sendMessage completes. 'of(undefined)' does.
