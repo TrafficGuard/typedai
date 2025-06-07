@@ -12,7 +12,7 @@ import { logger } from '#o11y/logger';
 import { AI_INFO_FILENAME } from '#swe/projectDetection';
 import { IndexDocBuilder, buildIndexDocs, loadBuildDocsSummaries, getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
 import * as llmSummaries from './llmSummaries'; // To stub its functions
-import { LLM } from '#shared/agent/agent.model';
+import { LLM as LLMClientInterface, GenerateJsonOptions, GenerateTextOptions, GenerateTextWithJsonResponse, LlmMessage, SystemUserPrompt, TextStreamPart, GenerationStats } from '#shared/llm/llm.model';
 
 // Enable chai-subset
 chai.use(chaiSubset);
@@ -26,8 +26,8 @@ function hash(content: string): string {
 describe('IndexDocBuilder', () => {
 	let builder: IndexDocBuilder;
 	let mockFss: FileSystemService;
-	let mockEasyLlmClient: sinon.SinonStubbedInstance<LLM>;
-	let mockMediumLlmClient: sinon.SinonStubbedInstance<LLM>;
+	let mockEasyLlmClient: sinon.SinonStubbedInstance<LLMClientInterface>;
+	let mockMediumLlmClient: sinon.SinonStubbedInstance<LLMClientInterface>;
 	let generateFileSummaryStub: sinon.SinonStub;
 	let generateFolderSummaryStub: sinon.SinonStub;
 	let loggerInfoStub: sinon.SinonStub;
@@ -48,19 +48,38 @@ describe('IndexDocBuilder', () => {
 
 		// Create stubbed LLM clients
 		mockEasyLlmClient = {
-			generateJson: sinon.stub(),
 			generateText: sinon.stub(),
-            generateFunctionCall: sinon.stub(), // Add missing properties if LLM type requires them
-            getTrace: sinon.stub(),
-		} as sinon.SinonStubbedInstance<LLM>;
+			generateTextWithJson: sinon.stub(),
+			generateJson: sinon.stub(),
+			generateTextWithResult: sinon.stub(),
+			generateMessage: sinon.stub(),
+			streamText: sinon.stub(),
+			getService: sinon.stub(),
+			getModel: sinon.stub(),
+			getDisplayName: sinon.stub(),
+			getId: sinon.stub(),
+			getMaxInputTokens: sinon.stub(),
+			countTokens: sinon.stub(),
+			isConfigured: sinon.stub(),
+			getOldModels: sinon.stub(),
+		} as sinon.SinonStubbedInstance<LLMClientInterface>;
 		mockMediumLlmClient = {
-			generateJson: sinon.stub(),
 			generateText: sinon.stub(),
-            generateFunctionCall: sinon.stub(),
-            getTrace: sinon.stub(),
-		} as sinon.SinonStubbedInstance<LLM>;
+			generateTextWithJson: sinon.stub(),
+			generateJson: sinon.stub(),
+			generateTextWithResult: sinon.stub(),
+			generateMessage: sinon.stub(),
+			streamText: sinon.stub(),
+			getService: sinon.stub(),
+			getModel: sinon.stub(),
+			getDisplayName: sinon.stub(),
+			getId: sinon.stub(),
+			getMaxInputTokens: sinon.stub(),
+			countTokens: sinon.stub(),
+			isConfigured: sinon.stub(),
+			getOldModels: sinon.stub(),
+		} as sinon.SinonStubbedInstance<LLMClientInterface>;
 		
-
 		generateFileSummaryStub = sinon.stub(llmSummaries, 'generateFileSummary');
 		generateFolderSummaryStub = sinon.stub(llmSummaries, 'generateFolderSummary');
 
@@ -268,8 +287,9 @@ describe('IndexDocBuilder', () => {
 								'file.ts.json': JSON.stringify({ path: fileSummaryRelPath, short: 's', long: 'l', meta: { hash: hash(oldFileContent) } }),
 							},
 							// Minimal folder/project summaries for hash propagation
-							'src': {
-                                ...mockFss[MOCK_REPO_ROOT][typedaiDirName].docs.src, // Keep existing if any
+							// Merged 'src' properties
+                            src: {
+                                'file.ts.json': JSON.stringify({ path: fileSummaryRelPath, short: 's', long: 'l', meta: { hash: hash(oldFileContent) } }),
                                 '_index.json': JSON.stringify({ path: 'src', short: 's', long: 'l', meta: { hash: 'folder_h' } }),
                             },
 						},
@@ -411,17 +431,47 @@ describe('IndexDocBuilder', () => {
 // Minimal tests for exported functions to ensure they setup and call the builder
 describe('Exported repoIndexDocBuilder functions', () => {
     let mockFssInstance: FileSystemService;
-    let mockEasyLlm: LLM;
-    let mockMediumLlm: LLM;
+    let mockEasyLlm: sinon.SinonStubbedInstance<LLMClientInterface>; // Use LLMClientInterface
+    let mockMediumLlm: sinon.SinonStubbedInstance<LLMClientInterface>; // Use LLMClientInterface
     let builderInstanceStub: sinon.SinonStubbedInstance<IndexDocBuilder>;
     let getFileSystemOriginal: any;
     let llmsOriginal: any;
 
     beforeEach(async () => {
         mockFssInstance = sinon.createStubInstance(FileSystemService);
-        mockEasyLlm = { generateJson: sinon.stub(), generateText: sinon.stub(), generateFunctionCall: sinon.stub(), getTrace: sinon.stub() };
-        mockMediumLlm = { generateJson: sinon.stub(), generateText: sinon.stub(), generateFunctionCall: sinon.stub(), getTrace: sinon.stub() };
-
+        // Create full stubs for LLM clients
+        mockEasyLlm = {
+            generateText: sinon.stub(),
+            generateTextWithJson: sinon.stub(),
+            generateJson: sinon.stub(),
+            generateTextWithResult: sinon.stub(),
+            generateMessage: sinon.stub(),
+            streamText: sinon.stub(),
+            getService: sinon.stub(),
+            getModel: sinon.stub(),
+            getDisplayName: sinon.stub(),
+            getId: sinon.stub(),
+            getMaxInputTokens: sinon.stub(),
+            countTokens: sinon.stub(),
+            isConfigured: sinon.stub(),
+            getOldModels: sinon.stub(),
+        } as sinon.SinonStubbedInstance<LLMClientInterface>;
+        mockMediumLlm = {
+            generateText: sinon.stub(),
+            generateTextWithJson: sinon.stub(),
+            generateJson: sinon.stub(),
+            generateTextWithResult: sinon.stub(),
+            generateMessage: sinon.stub(),
+            streamText: sinon.stub(),
+            getService: sinon.stub(),
+            getModel: sinon.stub(),
+            getDisplayName: sinon.stub(),
+            getId: sinon.stub(),
+            getMaxInputTokens: sinon.stub(),
+            countTokens: sinon.stub(),
+            isConfigured: sinon.stub(),
+            getOldModels: sinon.stub(),
+        } as sinon.SinonStubbedInstance<LLMClientInterface>;
 
         // Stub the IndexDocBuilder constructor to control the instance and its methods
         // This is tricky. Instead, we'll spy on the methods of the actual instance if needed,

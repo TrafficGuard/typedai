@@ -15,8 +15,12 @@ import {
 	type Summary,
 } from './llmSummaries';
 import { AI_INFO_FILENAME } from '#swe/projectDetection';
-import {IFileSystemService} from "#shared/files/fileSystemService";
-import {LLM, TaskLevel} from "#shared/agent/agent.model";
+import { IFileSystemService } from '#shared/files/fileSystemService';
+// Import the rich LLM interface for client instances
+import { LLM as LLMClientInterface } from '#shared/llm/llm.model';
+// LLM type for task levels (LLM IDs) can still be imported if needed elsewhere, but be specific.
+// For clarity, if TaskLevel's LLM is just an ID string, it's fine.
+import { TaskLevel } from '#shared/agent/agent.model';
 
 /**
  * This module builds summary documentation for a project/repository, to assist with searching in the repository.
@@ -37,7 +41,7 @@ function hash(content: string): string {
 }
 
 export class IndexDocBuilder {
-	constructor(private fss: IFileSystemService, private llms: { easy: LLM, medium: LLM }) {}
+	constructor(private fss: IFileSystemService, private llms: { easy: LLMClientInterface, medium: LLMClientInterface }) {}
 
 	private static getSummaryFileName(filePath: string): string {
 		// filePath is already relative to CWD from processFile/buildFolderSummary
