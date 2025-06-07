@@ -7,6 +7,7 @@ import { typedaiDirName } from '#app/appDirs';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { errorToString } from '#utils/errors';
+import { hash } from '#utils/hash';
 
 /**
  * This module builds summary documentation for a project/repository, to assist with searching in the repository.
@@ -134,42 +135,48 @@ async function processFile(filePath: string, easyLlm: any): Promise<void> {
 	const relativeFilePath = path.relative(getFileSystem().getWorkingDirectory(), filePath);
 	const summaryFilePath = getSummaryFileName(relativeFilePath);
 
+	let fileContents: string;
+	let sourceFileStats: Stats;
 	try {
-		const sourceFileStats = await fs.stat(filePath);
-
-		// Add this check
+		sourceFileStats = await fs.stat(filePath);
 		if (!sourceFileStats.isFile()) {
 			logger.info(`Path ${relativeFilePath} is a directory, not a file. Skipping file processing.`);
 			return;
 		}
-
-		try {
-			const summaryFileStats = await fs.stat(summaryFilePath);
-			if (sourceFileStats.mtimeMs <= summaryFileStats.mtimeMs) {
-				logger.debug(`Summary for ${relativeFilePath} is up to date.`);
-				return;
-			}
-		} catch (e: any) {
-			if (e.code !== 'ENOENT') {
-				logger.warn(`Error checking summary file ${summaryFilePath} stats: ${errorToString(e)}. Proceeding to generate summary.`);
-			}
-			// If ENOENT, summary doesn't exist, so proceed to generate.
-		}
+		fileContents = await fs.readFile(filePath, 'utf-8');
 	} catch (e: any) {
-		logger.error(`Error checking source file ${filePath} stats: ${errorToString(e)}. Skipping this file.`);
+		logger.error(`Error reading or stat-ing source file ${filePath}: ${errorToString(e)}. Skipping this file.`);
 		return;
 	}
 
-	let fileContents: string;
+	const currentContentHash = hash(fileContents).toString();
+
 	try {
-		fileContents = await fs.readFile(filePath, 'utf-8');
-	} catch (e) {
-		logger.error(`Error reading file ${filePath}. ${e.message}`);
-		throw e;
+		const summaryFileContent = await fs.readFile(summaryFilePath, 'utf-8');
+		const existingSummary: Summary = JSON.parse(summaryFileContent);
+		if (existingSummary.meta?.hash === currentContentHash) {
+			logger.debug(`Summary for ${relativeFilePath} is up to date (hash match).`);
+			// Ensure mtime of summary is touched to reflect it's "checked" and "up-to-date"
+			// This helps folder summary staleness checks if they rely on mtime.
+			const now = new Date();
+			await fs.utimes(summaryFilePath, now, now);
+			return;
+		}
+		logger.info(`Content hash mismatch for ${relativeFilePath}. Regenerating summary.`);
+	} catch (e: any) {
+		if (e.code === 'ENOENT') {
+			logger.debug(`Summary file ${summaryFilePath} not found. Generating new summary.`);
+		} else if (e instanceof SyntaxError) {
+			logger.warn(`Error parsing existing summary file ${summaryFilePath}: ${errorToString(e)}. Regenerating summary.`);
+		} else {
+			logger.warn(`Error reading summary file ${summaryFilePath}: ${errorToString(e)}. Proceeding to generate summary.`);
+		}
 	}
+
 	const parentSummaries = await getParentSummaries(dirname(filePath));
 	const doc = await generateFileSummary(fileContents, parentSummaries, easyLlm);
 	doc.path = relativeFilePath;
+	doc.meta = { hash: currentContentHash };
 
 	await fs.mkdir(dirname(summaryFilePath), { recursive: true });
 	await fs.writeFile(summaryFilePath, JSON.stringify(doc, null, 2));
