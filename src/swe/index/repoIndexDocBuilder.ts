@@ -14,7 +14,7 @@ import {
 	generateFolderSummary,
 	type Summary,
 } from './llmSummaries';
-import {AI_INFO_FILENAME} from "#swe/projectDetection";
+import { AI_INFO_FILENAME } from '#swe/projectDetection';
 
 /**
  * This module builds summary documentation for a project/repository, to assist with searching in the repository.
@@ -43,6 +43,8 @@ export async function buildIndexDocs(): Promise<void> {
 	logger.info('Building index docs');
 	await withActiveSpan('Build index docs', async (span: Span) => {
 		try {
+			await deleteOrphanedSummaries();
+
 			// Load and parse projectInfo.json
 			const projectInfoPath = path.join(process.cwd(), AI_INFO_FILENAME);
 			let projectInfoData: string;
@@ -606,6 +608,89 @@ async function getParentSummaries(folderPath: string): Promise<Summary[]> {
 	}
 
 	return parentSummaries;
+}
+
+async function deleteOrphanedSummaries(): Promise<void> {
+	logger.info('Deleting orphaned summary files...');
+	await withActiveSpan('deleteOrphanedSummaries', async (span: Span) => {
+		const fss = getFileSystem();
+		const cwd = fss.getWorkingDirectory();
+		const docsDir = join(cwd, typedaiDirName, 'docs');
+
+		try {
+			await fs.access(docsDir); // Check if docsDir exists and is accessible
+		} catch (e: any) {
+			if (e.code === 'ENOENT') {
+				logger.info(`Docs directory ${docsDir} does not exist. No summaries to clean.`);
+				return;
+			}
+			logger.warn(`Error accessing docs directory ${docsDir}: ${errorToString(e)}. Skipping cleanup.`);
+			return;
+		}
+
+		const projectSummaryFileName = '_project_summary.json';
+		let deletedCount = 0;
+
+		try {
+			const allFilesInDocs = await fss.listFilesRecursively(docsDir, true); // true for useGitIgnore
+
+			for (const summaryFilePath of allFilesInDocs) {
+				if (!summaryFilePath.endsWith('.json')) {
+					continue; // Skip non-JSON files
+				}
+
+				if (basename(summaryFilePath) === projectSummaryFileName) {
+					logger.debug(`Skipping project summary file: ${summaryFilePath}`);
+					continue;
+				}
+
+				let summaryData: Summary;
+				try {
+					// Use fs.readFile for direct file system access, assuming summaryFilePath is absolute or resolvable
+					const summaryContent = await fs.readFile(summaryFilePath, 'utf-8');
+					summaryData = JSON.parse(summaryContent);
+				} catch (e: any) {
+					logger.warn(`Failed to read or parse summary file ${summaryFilePath}: ${errorToString(e)}. Skipping orphan check for this file.`);
+					continue;
+				}
+
+				if (!summaryData.path) {
+					logger.warn(`Summary file ${summaryFilePath} is missing the 'path' property. Skipping orphan check.`);
+					continue;
+				}
+
+				// summaryData.path is relative to CWD as stored by processFile/buildFolderSummary
+				const sourcePath = join(cwd, summaryData.path);
+
+				try {
+					await fs.stat(sourcePath); // Check if source exists
+					// If fs.stat succeeds, source exists, do nothing.
+				} catch (e: any) {
+					if (e.code === 'ENOENT') {
+						// Source file/folder does not exist, so summary is orphaned
+						logger.info(`Source path ${sourcePath} (from summary ${summaryData.path}) for summary file ${summaryFilePath} not found. Deleting summary.`);
+						try {
+							await fs.unlink(summaryFilePath);
+							deletedCount++;
+						} catch (unlinkError: any) {
+							logger.error(`Failed to delete orphaned summary file ${summaryFilePath}: ${errorToString(unlinkError)}`);
+						}
+					} else {
+						// Other error stat-ing the file, log it but don't delete summary
+						logger.warn(`Error checking status of source path ${sourcePath} for summary ${summaryFilePath}: ${errorToString(e)}. Skipping orphan check.`);
+					}
+				}
+			}
+			if (deletedCount > 0) {
+				logger.info(`Orphaned summary cleanup complete. Deleted ${deletedCount} summary file(s).`);
+			} else {
+				logger.info('Orphaned summary cleanup complete. No orphaned files found.');
+			}
+		} catch (error) {
+			logger.error(`Error during orphaned summary cleanup: ${errorToString(error)}`);
+			// This error won't stop the buildIndexDocs process unless re-thrown
+		}
+	});
 }
 
 /**
