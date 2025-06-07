@@ -94,7 +94,7 @@
                             </div>
 
                             <!-- Name cell with updated routerLink -->
-                            <div>
+                            <div [matTooltip]="agent.name">
                                 <a class="hover:text-primary" [routerLink]="routes.nav.detail(agent.agentId)">
                                     {{ agent.name }}
                                 </a>
