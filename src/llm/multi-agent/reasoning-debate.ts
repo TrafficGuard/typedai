@@ -76,7 +76,7 @@ export class ReasonerDebateLLM extends BaseLLM {
 	 * @param name
 	 */
 	constructor(modelIds = '', providedMediator?: () => LLM, providedDebateLLMs?: Array<() => LLM>, name?: string) {
-		super(name ?? '(MoA)', 'MAD', modelIds, 200_000, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
+		super(name ?? '(MoA)', 'MAD', modelIds, 200_000, () => ({inputCost: 0, outputCost: 0, totalCost: 0}));
 		if (providedMediator) this.mediator = providedMediator();
 		if (providedDebateLLMs) {
 			this.llms = providedDebateLLMs.map((factory) => factory());
@@ -125,7 +125,7 @@ export class ReasonerDebateLLM extends BaseLLM {
 		logger.info('Debating responses');
 		const debatedResponses = await this.multiAgentDebate(readOnlyMessages, initialResponses, opts);
 		logger.info('Mediating response');
-		return { role: 'assistant', content: await this.mergeBestResponses(readOnlyMessages, debatedResponses) };
+		return { role: 'assistant', content: await this.mergeBestResponses(readOnlyMessages, debatedResponses, opts) };
 	}
 
 	private async generateInitialResponses(llmMessages: ReadonlyArray<Readonly<LlmMessage>>, opts?: GenerateTextOptions): Promise<string[]> {
@@ -167,7 +167,6 @@ Ensure any relevant response formatting instructions are followed.`;
 	private async mergeBestResponses(
 		llmMessages: ReadonlyArray<Readonly<LlmMessage>>,
 		responses: string[],
-		systemPrompt?: string,
 		opts?: GenerateTextOptions,
 	): Promise<string> {
 		// TODO convert content to string
