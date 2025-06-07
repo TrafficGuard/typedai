@@ -42,7 +42,7 @@ const clearFirestoreData = async () => {
 	// how the emulator or test environment is being handled.
 };
 
-describe.only('FirestoreCodeTaskRepository', () => {
+describe('FirestoreCodeTaskRepository', () => {
 	setupConditionalLoggerOutput();
 	// Setup and teardown the emulator environment once for the suite
 	before(async () => {
