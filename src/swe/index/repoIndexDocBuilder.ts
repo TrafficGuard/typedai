@@ -46,7 +46,9 @@ export async function buildIndexDocs(): Promise<void> {
 			deleteOrphanedSummaries().catch(error => logger.warn(error));
 
 			// Load and parse AI_INFO_FILENAME
-			const projectInfoPath = path.join(process.cwd(), AI_INFO_FILENAME);
+			const fss = getFileSystem();
+			const workingDir = fss.getWorkingDirectory();
+			const projectInfoPath = path.join(workingDir, AI_INFO_FILENAME);
 			let projectInfoData: string;
 			try {
 				projectInfoData = await fs.readFile(projectInfoPath, 'utf-8');
@@ -69,48 +71,91 @@ export async function buildIndexDocs(): Promise<void> {
 			const indexDocsPatterns: string[] = projectInfo.indexDocs || [];
 			if (indexDocsPatterns.length === 0) {
 				logger.warn('No indexDocs patterns found in AI_INFO_FILENAME. No files/folders will be indexed.');
+				// Early exit if no patterns, as nothing will be processed.
+				// generateTopLevelSummary will still run but likely produce an empty/default summary.
 			}
 
-			const fss = getFileSystem();
+			// Precompute pattern bases for folder matching
+			const precomputedPatternBases = indexDocsPatterns.map(pattern => {
+				const normalizedPattern = pattern.split(path.sep).join('/');
+				const scanResult = micromatch.scan(normalizedPattern, { dot: true });
+				let base = scanResult.base;
+
+				// If the pattern is not a generic glob (like *.ts) and its static base looks like a file path,
+				// then the directory scope for folder matching is its parent directory.
+				// e.g., pattern "src/index.ts" -> base "src/index.ts" -> effective baseDir for folder matching "src"
+				// e.g., pattern "src/app/**/*.ts" -> base "src/app" -> effective baseDir "src/app"
+				// e.g., pattern "*.ts" -> base "" -> effective baseDir ""
+				if (!scanResult.isGlob && base !== '' && path.basename(base).includes('.') && !base.endsWith('/')) {
+					base = path.dirname(base);
+				}
+
+				if (base.endsWith('/') && base.length > 1) {
+					base = base.slice(0, -1);
+				}
+				if (base === '.') {
+					base = ''; // Represent root as empty string
+				}
+				return { originalPattern: normalizedPattern, baseDir: base, isGlob: scanResult.isGlob };
+			});
+
 			// Define fileMatchesIndexDocs function inside buildIndexDocs
 			function fileMatchesIndexDocs(filePath: string): boolean {
 				// If filePath is absolute, make it relative to the working directory
 				if (path.isAbsolute(filePath)) {
-					filePath = path.relative(fss.getWorkingDirectory(), filePath);
+					filePath = path.relative(workingDir, filePath);
 				}
 				// Normalize file path to use forward slashes
 				const normalizedPath = filePath.split(path.sep).join('/');
-				// logger.info(`Checking indexDocs matching for ${normalizedPath}`); // Too noisy
-				return micromatch.isMatch(normalizedPath, indexDocsPatterns);
+				return micromatch.isMatch(normalizedPath, indexDocsPatterns, { dot: true });
 			}
 
 			// Define folderMatchesIndexDocs function inside buildIndexDocs
+			// folderPath is relative to workingDir
 			function folderMatchesIndexDocs(folderPath: string): boolean {
-				// Convert absolute folderPath to a relative path
-				if (path.isAbsolute(folderPath)) {
-					folderPath = path.relative(fss.getWorkingDirectory(), folderPath);
+				if (indexDocsPatterns.length === 0) return false; // No patterns, no folder matches
+
+				const normalizedFolderPath = folderPath === '.' ? '' : folderPath.split(path.sep).join('/');
+
+				for (const { originalPattern, baseDir, isGlob } of precomputedPatternBases) {
+					// Condition 1: The pattern's base directory is at or inside the current folder.
+					// (normalizedFolderPath is an ancestor of or same as baseDir)
+					// e.g., baseDir="src/swe", normalizedFolderPath="src"
+					if (baseDir.startsWith(normalizedFolderPath)) {
+						if (normalizedFolderPath === '') { // current folder is root
+							// If current folder is root, any pattern base means root is an ancestor or same.
+							return true;
+						}
+						if (baseDir === normalizedFolderPath || baseDir.startsWith(normalizedFolderPath + '/')) {
+							return true;
+						}
+					}
+
+					// Condition 2: The current folder is at or inside the pattern's base directory.
+					// (baseDir is an ancestor of or same as normalizedFolderPath)
+					// e.g., baseDir="src", normalizedFolderPath="src/swe"
+					// This is relevant if the original pattern could match deeper.
+					if (normalizedFolderPath.startsWith(baseDir)) {
+						if (baseDir === '') { // pattern's base is root
+							// If pattern base is root, current folder (e.g. "src") is a descendant.
+							// Recurse if pattern could apply to children (isGlob).
+							if (isGlob || originalPattern === baseDir) return true; // originalPattern === baseDir for non-glob root patterns
+						} else {
+							if (normalizedFolderPath === baseDir || normalizedFolderPath.startsWith(baseDir + '/')) {
+								// Current folder is a descendant or same. Recurse if pattern could apply to children.
+								// Recurse if the pattern is a glob or if the folder path exactly matches the baseDir
+								if (isGlob || baseDir === normalizedFolderPath) {
+									return true;
+								}
+							}
+						}
+					}
 				}
-
-				// Normalize paths to use forward slashes
-				const normalizedFolderPath = folderPath.split(path.sep).join('/');
-
-				// Ensure folder path ends with a slash for consistent matching
-				const folderPathWithSlash = normalizedFolderPath.endsWith('/') ? normalizedFolderPath : `${normalizedFolderPath}/`;
-
-				// Extract directory portions from the patterns
-				const patternDirs = indexDocsPatterns.map((pattern) => {
-					const index = pattern.indexOf('**');
-					let dir = index !== -1 ? pattern.substring(0, index) : pattern;
-					dir = dir.endsWith('/') ? dir : `${dir}/`;
-					return dir;
-				});
-
-				// Check if the folder path starts with any of the pattern directories
-				// Also check if the folder path *is* one of the pattern directories
-				return patternDirs.some((patternDir) => folderPathWithSlash.startsWith(patternDir) || normalizedFolderPath === patternDir.slice(0, -1));
+				return false;
 			}
 
-			const startFolder = getFileSystem().getWorkingDirectory();
+			const startFolder = workingDir; // Use the already fetched workingDir
+			// Pass the folderMatchesIndexDocs directly, it will use the precomputedPatternBases from its closure
 			await processFolderRecursively(startFolder, fileMatchesIndexDocs, folderMatchesIndexDocs);
 			await withActiveSpan('generateTopLevelSummary', async (span: Span) => {
 				// Generate a project-level summary from the folder summaries
@@ -301,7 +346,8 @@ async function buildFolderSummary(
 ): Promise<void> {
 	const relativeFolderPath = path.relative(getFileSystem().getWorkingDirectory(), folderPath);
 	const folderName = basename(folderPath);
-	const folderSummaryFilePath = join(typedaiDirName, 'docs', relativeFolderPath, `_${folderName}.json`);
+	// Use _index.json for folder summaries at the folder root
+	const folderSummaryFilePath = join(typedaiDirName, 'docs', relativeFolderPath, `_index.json`);
 
 	const fileSummaries = await getFileSummaries(folderPath, fileMatchesIndexDocs);
 	const subFolderSummaries = await getSubFolderSummaries(folderPath, folderMatchesIndexDocs);
@@ -397,9 +443,10 @@ async function getSubFolderSummaries(folderPath: string, folderMatchesIndexDocs:
 		const absoluteSubFolderPath = join(folderPath, subFolderName);
 		const relativeSubFolderPath = path.relative(fileSystem.getWorkingDirectory(), absoluteSubFolderPath);
 
+		// Check if the subfolder itself matches the indexDocs patterns for traversal
 		if (folderMatchesIndexDocs(relativeSubFolderPath)) {
-			const childFolderSummaryName = basename(relativeSubFolderPath);
-			const summaryPath = join(typedaiDirName, 'docs', relativeSubFolderPath, `_${childFolderSummaryName}.json`);
+			// Folder summary file name is _index.json inside the subfolder's docs directory
+			const summaryPath = join(typedaiDirName, 'docs', relativeSubFolderPath, `_index.json`);
 			try {
 				const summaryContent = await fs.readFile(summaryPath, 'utf-8');
 				const summary = JSON.parse(summaryContent);
@@ -499,8 +546,10 @@ export async function generateTopLevelSummary(): Promise<string> {
 
 async function getAllFolderSummaries(rootDir: string): Promise<Summary[]> {
 	const fileSystem = getFileSystem();
-	// List all files recursively within the docs directory
-	const docsDir = join(rootDir, typedaiDirName, 'docs');
+	// If in a git repo use the repo root to store the summary index files
+	const repoFolder = fileSystem.getVcsRoot() ?? fileSystem.getWorkingDirectory();
+
+	const docsDir = join(repoFolder, typedaiDirName, 'docs');
 	const summaries: Summary[] = [];
 
 	let docsDirExists = false;
@@ -518,14 +567,16 @@ async function getAllFolderSummaries(rootDir: string): Promise<Summary[]> {
 	}
 
 	try {
+		// List all files recursively within the docs directory, relative to docsDir
 		const allFilesInDocs = await fileSystem.listFilesRecursively(docsDir, true);
 
 		for (const filePathInDocs of allFilesInDocs) {
-			// Only process folder summary files (_*.json)
-			if (basename(filePathInDocs).startsWith('_') && filePathInDocs.endsWith('.json')) {
+			// Only process folder summary files (_index.json)
+			if (basename(filePathInDocs) === '_index.json') {
 				try {
-					const summaryContent = await fs.readFile(filePathInDocs, 'utf-8');
-					const summary: Summary = JSON.parse(summaryContent);
+					// filePathInDocs is absolute here from listFilesRecursively
+					const content = await fs.readFile(filePathInDocs, 'utf-8');
+					const summary: Summary = JSON.parse(content);
 					// The path stored in the summary JSON should already be relative to CWD
 					summaries.push(summary);
 				} catch (e: any) {
@@ -583,8 +634,8 @@ async function getParentSummaries(folderPath: string): Promise<Summary[]> {
 	// Stop when we reach the working directory or the root
 	while (currentPath !== '.' && path.relative(cwd, currentPath) !== '') {
 		const relativeCurrentPath = path.relative(cwd, currentPath);
-		const folderName = basename(currentPath);
-		const summaryPath = join(typedaiDirName, 'docs', relativeCurrentPath, `_${folderName}.json`);
+		// Folder summary file name is _index.json inside the parent's docs directory
+		const summaryPath = join(typedaiDirName, 'docs', relativeCurrentPath, `_index.json`);
 		try {
 			const summaryContent = await fs.readFile(summaryPath, 'utf-8');
 			parentSummaries.unshift(JSON.parse(summaryContent));
@@ -625,9 +676,11 @@ async function deleteOrphanedSummaries(): Promise<void> {
 		let deletedCount = 0;
 
 		try {
+			// List all files recursively within the docs directory, relative to docsDir
 			const allFilesInDocs = await fss.listFilesRecursively(docsDir, true); // true for useGitIgnore
 
 			for (const summaryFilePath of allFilesInDocs) {
+				// summaryFilePath is absolute here from listFilesRecursively
 				if (!summaryFilePath.endsWith('.json')) {
 					continue; // Skip non-JSON files
 				}
@@ -639,7 +692,7 @@ async function deleteOrphanedSummaries(): Promise<void> {
 
 				let summaryData: Summary;
 				try {
-					// Use fs.readFile for direct file system access, assuming summaryFilePath is absolute or resolvable
+					// Use fs.readFile for direct file system access
 					const summaryContent = await fs.readFile(summaryFilePath, 'utf-8');
 					summaryData = JSON.parse(summaryContent);
 				} catch (e: any) {
@@ -689,13 +742,13 @@ async function deleteOrphanedSummaries(): Promise<void> {
 /**
  * Loads build documentation summaries from the specified directory.
  *
- * @param {boolean} [createIfNotExits=true] - If true, creates the documentation directory if it doesn't exist.
+ * @param {boolean} [createIfNotExits=true] - If true, creates the documentation directory if it doesn't exist and attempts to build docs.
  * @returns {Promise<Map<string, Summary>>} A promise that resolves to a Map of file paths to their corresponding Summary objects.
  * @throws {Error} If there's an error listing files in the docs directory.
  *
  * @description
  * This function performs the following steps:
- * 1. Checks if the docs directory exists, creating it if necessary.
+ * 1. Checks if the docs directory exists, creating it and building docs if necessary and requested.
  * 2. Lists all JSON files in the docs directory recursively.
  * 3. Reads and parses each JSON file, storing the resulting Summary objects in a Map.
  *
@@ -754,6 +807,7 @@ export async function loadBuildDocsSummaries(createIfNotExits = false): Promise<
 			return summaries;
 		}
 
+		// List all files recursively within the docs directory, relative to docsDir
 		const files = await fss.listFilesRecursively(docsDir, true); // List all files recursively
 		logger.info(`Found ${files.length} files in ${docsDir}`);
 
@@ -763,11 +817,12 @@ export async function loadBuildDocsSummaries(createIfNotExits = false): Promise<
 		}
 
 		for (const file of files) {
-			// Load both file summaries (*.json) and folder summaries (_*.json)
-			if (file.endsWith('.json')) {
+			// file path is absolute here from listFilesRecursively
+			// Load both file summaries (*.json, excluding _*.json) and folder summaries (_index.json)
+			const fileName = basename(file);
+			if (file.endsWith('.json') && fileName !== '_project_summary.json') {
 				try {
-					// file path is absolute here from listFilesRecursively
-					const content = await fss.readFile(file);
+					const content = await fs.readFile(file);
 					const summary: Summary = JSON.parse(content);
 					// The path stored in the summary JSON should be relative to CWD
 					summaries.set(summary.path, summary);
