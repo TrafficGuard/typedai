@@ -28,7 +28,29 @@ const teardownFirestore = async () => {
 };
 
 const clearFirestoreData = async () => {
+	// Clear top-level collections first
 	await testEnv?.clearFirestore();
+
+	// Recursively delete user sub-collections to avoid orphan documents
+	const db = firestoreDb();
+	const usersSnap = await db.collection(USERS_COLLECTION).get();
+
+	for (const userDoc of usersSnap.docs) {
+		const batch = db.batch();
+
+		// Delete codeTasks sub-collection
+		const codeTasksSnap = await userDoc.ref.collection('codeTasks').get();
+		codeTasksSnap.forEach((doc) => batch.delete(doc.ref));
+
+		// Delete codeTaskPresets sub-collection
+		const presetsSnap = await userDoc.ref.collection('codeTaskPresets').get();
+		presetsSnap.forEach((doc) => batch.delete(doc.ref));
+
+		// Finally delete the user doc itself
+		batch.delete(userDoc.ref);
+
+		await batch.commit();
+	}
 };
 
 describe('FirestoreCodeTaskRepository', () => {
