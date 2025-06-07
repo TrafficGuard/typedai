@@ -67,7 +67,6 @@ export class AgentDetailsComponent implements OnInit {
 	isResumingError = signal(false);
 	isForcingStop = signal(false);
 	isRequestingHil = signal(false);
-	userPromptExpanded = signal(false);
 	outputExpanded = signal(false);
 
 	private functionsData = computed(() => {

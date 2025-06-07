@@ -170,10 +170,10 @@
 
 
         <span class="mb-2 pt-3 font-bold text-lg">User prompt</span>
-        <mat-expansion-panel (opened)="userPromptExpanded.set(true)" (closed)="userPromptExpanded.set(false)">
-            <mat-expansion-panel-header>
-                <mat-panel-title>
-                    <span class="expansion-preview" [ngClass]="{ hidden: userPromptExpanded() }">
+        <mat-expansion-panel #expansionPanel>
+            <mat-expansion-panel-header [class.expanded-header]="expansionPanel.expanded">
+                <mat-panel-title *ngIf="!expansionPanel.expanded">
+                    <span class="expansion-preview">
                         {{ agentDetails()?.userPrompt | slice : 0 : 150 }}
                     </span>
                 </mat-panel-title>
