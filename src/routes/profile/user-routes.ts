@@ -2,33 +2,11 @@ import type { AppFastifyInstance } from '#app/applicationTypes';
 import { sendBadRequest } from '#fastify/responses';
 import { logger } from '#o11y/logger';
 import { USER_API } from '#shared/user/user.api';
-import type { User, UserProfile, UserProfileUpdate } from '#shared/user/user.model';
-import { currentUser } from '#user/userContext';
+import type { UserProfileUpdate } from '#shared/user/user.model';
+import { viewProfileRoute } from './view';
 
 export async function userRoutes(fastify: AppFastifyInstance) {
-	fastify.get(
-		USER_API.view.pathTemplate,
-		{
-			schema: USER_API.view.schema,
-		},
-		async (req, reply) => {
-			const user: User = currentUser();
-
-			const userProfileData: UserProfile = {
-				id: user.id,
-				name: user.name ?? '',
-				email: user.email,
-				enabled: user.enabled,
-				hilBudget: user.hilBudget,
-				hilCount: user.hilCount,
-				llmConfig: user.llmConfig,
-				chat: user.chat,
-				functionConfig: user.functionConfig,
-			};
-
-			reply.sendJSON(userProfileData);
-		},
-	);
+	await viewProfileRoute(fastify);
 
 	fastify.post(
 		USER_API.update.pathTemplate,
@@ -40,6 +18,7 @@ export async function userRoutes(fastify: AppFastifyInstance) {
 			logger.info(userProfile, 'Profile update');
 			try {
 				await fastify.userService.updateUser(userProfile);
+				reply.code(204).send();
 			} catch (error) {
 				sendBadRequest(reply, error instanceof Error ? error.message : 'Invalid profile update data');
 			}
