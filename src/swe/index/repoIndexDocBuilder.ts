@@ -27,6 +27,10 @@ export interface Summary {
 	short: string;
 	/** A longer summary of the file/folder */
 	long: string;
+
+	meta: {
+		hash: string;
+	}
 }
 
 // Configuration constants
