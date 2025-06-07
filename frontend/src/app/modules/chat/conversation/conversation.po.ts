@@ -58,8 +58,8 @@ export class ConversationPo extends BaseSpecPo<ConversationComponent> {
     }
 
     drawerOpened() {
-        return !this.el(this.ids.infoDrawer)
-            .nativeElement.hasAttribute('aria-hidden');
+        return this.el(this.ids.infoDrawer)
+                  .nativeElement.classList.contains('mat-drawer-opened');
     }
 
     // The static create method is inherited from BaseSpecPo and handles polymorphism correctly.

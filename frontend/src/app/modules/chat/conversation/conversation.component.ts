@@ -217,7 +217,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 						)
 						.subscribe();
 				} else {
-					this._chatService.setChat({ id: NEW_CHAT_ID, messages: [], title: '', updatedAt: Date.now() });
+					/* keep current chat as-is (null) so the loading spinner is shown */
 				}
 			});
 
