@@ -64,7 +64,7 @@ export function runCodeTaskRepositoryTests(
 	let repo: CodeTaskRepository;
 	// Define fixed user IDs for testing consistency
 	const testUserId = 'test-user-repo-tests';
-	const otherUserId = 'other-user-repo-tests';
+	const otherUserId = 'another-user-repo-tests'; // Must be different from testUserId
 	const userWithNoItemsId = 'user-with-no-items'; // For empty list tests
 
 	beforeEach(async () => {
