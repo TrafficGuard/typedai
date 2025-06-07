@@ -24,7 +24,7 @@ export class ConversationPo extends BaseSpecPo<ConversationComponent> {
     } as const;
 
     /* ────────────── state queries ─────────────────────────────────── */
-    isLoading()           { return this.exists(this.ids.loading); }
+    isLoading()           { return this.has(this.ids.loading); }
     chatTitle()           { return this.text(this.ids.title); }
     messageCount()        { return this.el(this.ids.msgList).queryAll(By.css('*')).length; } // <-- Modify this line
     inputValue()          { return this.value(this.ids.input); }
