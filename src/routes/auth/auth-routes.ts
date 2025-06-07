@@ -4,6 +4,7 @@ import { send } from '#fastify/index';
 import { userToJwtPayload } from '#fastify/jwt';
 import { logger } from '#o11y/logger';
 import { API_ROUTES } from '#shared/routes';
+import { signUpRoute } from './signUp';
 
 const AUTH_ERRORS = {
 	INVALID_CREDENTIALS: 'Invalid credentials',
@@ -42,29 +43,5 @@ export async function authRoutes(fastify: AppFastifyInstance) {
 		},
 	);
 
-	fastify.post(
-		`${basePath}/signup`,
-		{
-			schema: {
-				body: Type.Object({
-					email: Type.String(),
-					password: Type.String(),
-				}),
-			},
-		},
-		async (req, reply) => {
-			try {
-				const user = await fastify.userService.createUserWithPassword(req.body.email, req.body.password);
-				const token = await reply.jwtSign(userToJwtPayload(user));
-
-				send(reply, 200, {
-					user,
-					accessToken: token,
-				});
-			} catch (error) {
-				logger.info(error);
-				send(reply, 400, { error: error.message });
-			}
-		},
-	);
+	await signUpRoute(fastify);
 }
