@@ -36,7 +36,7 @@ type RouteGenericFromSchema<Schema extends FastifySchema> = RouteGenericInterfac
 /**
  * Registers a fastify route using a RouteDefinition
  */
-export async function registerApiRoute<
+export function registerApiRoute<
 	TPath extends string,
 	TMethod extends 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
 	TPathParamsSchema extends TSchema | undefined,
@@ -65,7 +65,7 @@ export async function registerApiRoute<
 			TypeBoxTypeProvider,
 			TSuccessResponsePayload // Explicitly types payload for reply.sendJSON()
 		>,
-	) => Promise<void>,
+	) => void,
 ) {
 	// The schema object to pass to Fastify's options.
 	// Its type is RouteSchemaConfig<...> which is compatible with Fastify's expected schema type.

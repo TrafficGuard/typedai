@@ -413,14 +413,14 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
 		const llmIds = llms.map((llm) => llm.id);
 		const currentChat = this.chat();
-		console.log('updateLlmSelector: Current chat:', currentChat?.id, 'Messages count:', currentChat?.messages?.length || 0);
+		// console.log('updateLlmSelector: Current chat:', currentChat?.id, 'Messages count:', currentChat?.messages?.length || 0);
 
 		// For existing chats with messages, use the last message's LLM if still available
 		if (currentChat?.messages?.length > 0) {
 			const lastMessageLlmId = currentChat.messages.at(-1).llmId;
-			console.log('updateLlmSelector: Last message LLM ID:', lastMessageLlmId);
+			// console.log('updateLlmSelector: Last message LLM ID:', lastMessageLlmId);
 			if (lastMessageLlmId && llmIds.includes(lastMessageLlmId)) {
-				console.log('updateLlmSelector: Using LLM from last message:', lastMessageLlmId);
+				// console.log('updateLlmSelector: Using LLM from last message:', lastMessageLlmId);
 				this.llmId.set(lastMessageLlmId);
 				// this.updateThinkingIcon(); // This will be handled by computed llmHasThinkingLevels
 				return;
@@ -430,9 +430,9 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 		// Try to use default LLM (derived from currentUserSignal)
 		// Access defaultChatLlmId computed signal
 		const defaultLlm = this.defaultChatLlmId();
-		console.log('updateLlmSelector: Default LLM from user profile:', defaultLlm);
+		// console.log('updateLlmSelector: Default LLM from user profile:', defaultLlm);
 		if (defaultLlm && llmIds.includes(defaultLlm)) {
-			console.log('updateLlmSelector: Using default LLM:', defaultLlm);
+			// console.log('updateLlmSelector: Using default LLM:', defaultLlm);
 			this.llmId.set(defaultLlm);
 			// this.updateThinkingIcon();
 			return;
