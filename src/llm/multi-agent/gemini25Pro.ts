@@ -1,7 +1,6 @@
 import { cerebrasQwen3_32b } from '#llm/services/cerebras';
 import { Gemini_2_5_Pro } from '#llm/services/gemini';
 import { vertexGemini_2_5_Flash, vertexGemini_2_5_Pro } from '#llm/services/vertexai';
-import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import { type GenerateTextOptions, type LLM, type LlmMessage, messageContentIfTextOnly, messageText } from '#shared/llm/llm.model';
 import { BaseLLM } from '../base-llm';

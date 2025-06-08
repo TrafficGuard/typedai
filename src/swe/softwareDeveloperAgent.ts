@@ -44,7 +44,7 @@ export class SoftwareDeveloperAgent {
 		const repoPath = await scm.cloneProject(gitProject.fullPath, gitProject.defaultBranch);
 		fileSystem.setWorkingDirectory(repoPath);
 
-		const projectInfo = await this.detectSingleProjectInfo(requirements);
+		const projectInfo = await this.detectSingleProjectInfo();
 
 		// Branch setup -----------------
 
@@ -103,16 +103,16 @@ export class SoftwareDeveloperAgent {
 	}
 
 	// @cacheRetry()
-	async detectProjectInfo(requirements?: string): Promise<ProjectInfo[]> {
-		return await detectProjectInfo(requirements);
+	async detectProjectInfo(): Promise<ProjectInfo[]> {
+		return await detectProjectInfo();
 	}
 
 	/**
-	 * A projectInfo.json file may have references to sub-projects. Calling this method assumes
-	 * there will be only one entry in the projectInfo.json file, and will throw an error if there is more
+	 * A project configuration file may have references to sub-projects. Calling this method assumes
+	 * there will be only one entry in the ${AI_INFO_FILENAME} file, and will throw an error if there is more
 	 */
-	async detectSingleProjectInfo(requirements?: string): Promise<ProjectInfo> {
-		const projectInfos = await this.detectProjectInfo(requirements);
+	async detectSingleProjectInfo(): Promise<ProjectInfo> {
+		const projectInfos = await this.detectProjectInfo();
 		if (projectInfos.length !== 1) throw new Error('detected project info length != 1');
 		const projectInfo = projectInfos[0];
 		logger.info(projectInfo, `Detected project info ${Object.keys(projectInfo).join(', ')}`);

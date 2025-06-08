@@ -2,19 +2,19 @@ import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { queryWorkflowWithSearch, selectFilesAgent } from '#swe/discovery/selectFilesAgentWithSearch';
 import { type SelectFilesResponse, selectFilesToEdit } from '#swe/discovery/selectFilesToEdit';
-import { getProjectInfo } from '#swe/projectDetection';
+import { AI_INFO_FILENAME, getProjectInfo } from '#swe/projectDetection';
 import { reviewChanges } from '#swe/reviewChanges';
 import { execCommand, failOnError } from '#utils/exec';
 
 @funcClass(__filename)
 export class CodeFunctions {
 	/**
-	 * Runs the initialise command from the projectInfo.json
+	 * Runs the initialise command from the project configuration file
 	 */
 	@func()
 	async initialiseProject(): Promise<string> {
 		const projectInfo = await getProjectInfo();
-		if (!projectInfo) throw new Error('No projectInfo.json available');
+		if (!projectInfo) throw new Error(`No ${AI_INFO_FILENAME} available`);
 		if (!projectInfo.initialise) return 'No initialise command defined';
 		const result = await execCommand(projectInfo.initialise);
 		failOnError('Failed to initialise the project', result);
@@ -22,12 +22,12 @@ export class CodeFunctions {
 	}
 
 	/**
-	 * Compiles the project using the compile command from the projectInfo.json
+	 * Compiles the project using the compile command from the project config file
 	 */
 	@func()
 	async compile(): Promise<string> {
 		const projectInfo = await getProjectInfo();
-		if (!projectInfo) throw new Error('No projectInfo.json available');
+		if (!projectInfo) throw new Error(`No ${AI_INFO_FILENAME} available`);
 		if (!projectInfo.compile) return 'No compile command defined';
 		const result = await execCommand(projectInfo.compile);
 		failOnError('Failed to compile the project', result);
@@ -35,12 +35,12 @@ export class CodeFunctions {
 	}
 
 	/**
-	 * Test the project using the test command from the projectInfo.json
+	 * Test the project using the test command from the project config file
 	 */
 	@func()
 	async test(): Promise<string> {
 		const projectInfo = await getProjectInfo();
-		if (!projectInfo) throw new Error('No projectInfo.json available');
+		if (!projectInfo) throw new Error(`No ${AI_INFO_FILENAME} available`);
 		if (!projectInfo.test) return 'No compile command defined';
 		// This is specific to running the agents on the TypedAI project
 		const fss = getFileSystem();

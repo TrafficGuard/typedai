@@ -3,7 +3,7 @@ import { logger } from '#o11y/logger';
 import { agentDetailsRoutes } from '#routes/agent/agent-details-routes';
 import { agentExecutionRoutes } from '#routes/agent/agent-execution-routes';
 import { agentStartRoute } from '#routes/agent/agent-start-route';
-import { authRoutes } from '#routes/auth/auth-routes';
+import { authRoutes } from '#routes/auth';
 import { chatRoutes } from '#routes/chat/chat-routes';
 import { codeReviewRoutes } from '#routes/codeReview/codeReviewRoutes';
 import { codeTaskRoutes } from '#routes/codeTask/codeTaskRoutes';

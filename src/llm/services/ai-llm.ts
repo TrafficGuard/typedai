@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import type { LanguageModelV1, ProviderV1 } from '@ai-sdk/provider';
 import {
-	type FilePart as AiFilePart, // Renamed
-	type ImagePart as AiImagePart, // Renamed
-	type TextPart as AiTextPart, // Renamed to avoid conflict
-	type ToolCallPart as AiToolCallPart, // Renamed
+	type FilePart as AiFilePart,
+	type ImagePart as AiImagePart,
+	type TextPart as AiTextPart,
+	type ToolCallPart as AiToolCallPart,
 	type CoreMessage,
 	type GenerateTextResult,
 	type TextStreamPart,
@@ -27,8 +27,8 @@ import {
 	type GenerationStats,
 	type ImagePartExt,
 	type LlmMessage,
-	type ReasoningPart, // Local definition
-	type RedactedReasoningPart, // Local definition
+	type ReasoningPart,
+	type RedactedReasoningPart,
 	type TextPartExt,
 	type ToolCallPartExt,
 	messageText,

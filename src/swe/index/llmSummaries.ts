@@ -1,5 +1,4 @@
-// TODO: Consider importing a proper LLM type if available and appropriate, e.g.:
-// import type { LLM } from '#shared/llm/llm.model';
+import type { LLM } from '#shared/llm/llm.model';
 
 /** Summary documentation for a file/folder */
 export interface Summary {
@@ -18,7 +17,7 @@ export interface Summary {
 /**
  * Generate a summary for a single file
  */
-export async function generateFileSummary(fileContents: string, parentSummaries: Summary[], llm: any): Promise<Summary> {
+export async function generateFileSummary(fileContents: string, parentSummaries: Summary[], llm: LLM): Promise<Summary> {
 	let parentSummaryText = '';
 	if (parentSummaries.length) {
 		parentSummaryText = '<parent-summaries>\n';

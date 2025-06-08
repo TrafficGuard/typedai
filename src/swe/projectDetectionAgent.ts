@@ -2,7 +2,7 @@ import { llms } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
 import { queryWorkflowWithSearch } from '#swe/discovery/selectFilesAgentWithSearch';
 import { type LanguageRuntime, type ProjectInfo, type ProjectScripts, getLanguageTools } from '#swe/projectDetection';
-import { execCommand } from '#utils/exec';
+import { type ExecResult, execCommand } from '#utils/exec';
 
 interface ProjectDetection {
 	baseDir: string;
@@ -25,7 +25,7 @@ interface DetectedProjectRaw {
 	scripts: ProjectScripts;
 }
 
-export async function projectDetectionAgent(requirements?: string): Promise<ProjectInfo[]> {
+export async function projectDetectionAgent(): Promise<ProjectInfo[]> {
 	const projectDetectionQuery = `
 Analyze the repository to identify all software projects. For each project, provide the following details:
 1.  baseDir: The root directory of the project (e.g., "./", "backend/", "services/api/"). This should be relative to the repository root.
@@ -38,8 +38,6 @@ Analyze the repository to identify all software projects. For each project, prov
     *   format: Command to auto-format the code (e.g., "npm run format", "black .").
     *   staticAnalysis: Command for linting or static code analysis (e.g., "npm run lint", "flake8 .").
     *   test: Command to run unit tests (e.g., "npm test", "pytest").
-
-${requirements ? `Consider the following context or task requirements when identifying projects and their details:\n${requirements}\n` : ''}
 
 Respond with ONLY a JSON array of objects, where each object represents a detected project. Example:
 [
@@ -142,9 +140,87 @@ ${textualProjectInfos}`;
 }
 
 async function testScripts(projectInfos: ProjectInfo[]): Promise<void> {
-	// For each projects
-	// if (project.scripts.compile)
-	// execCommand (project.scripts.compile)
-	const result = await execCommand('', { workingDirectory: '' });
-	// If failed use an LLM to analyse the error to see if because of a bad command or an actual compile failure (which indicates the command is the correct one to run)
+	for (const projectInfo of projectInfos) {
+		if (projectInfo.test && projectInfo.test.trim() !== '') {
+			logger.info({ projectPath: projectInfo.baseDir, command: projectInfo.test }, 'Attempting to validate test script');
+			try {
+				const execResult: ExecResult = await execCommand(projectInfo.test, { workingDirectory: projectInfo.baseDir });
+				logger.info(
+					{ projectPath: projectInfo.baseDir, command: projectInfo.test, exitCode: execResult.exitCode },
+					'Test script execution completed for validation.',
+				);
+
+				if (execResult.exitCode !== 0) {
+					logger.warn(
+						{
+							projectPath: projectInfo.baseDir,
+							command: projectInfo.test,
+							exitCode: execResult.exitCode,
+							stdout: execResult.stdout,
+							stderr: execResult.stderr,
+						},
+						'Test script failed during validation.',
+					);
+
+					const analysisPrompt = `
+                   A test script execution failed for a project located at '${projectInfo.baseDir}'.
+                   The command executed was: '${projectInfo.test}'
+                   Exit Code: ${execResult.exitCode}
+                   Stdout:
+                   ---
+                   ${execResult.stdout.substring(0, 1000)}
+                   ---
+                   Stderr:
+                   ---
+                   ${execResult.stderr.substring(0, 1000)}
+                   ---
+                   Analyze the command, exit code, stdout, and stderr to determine the primary reason for failure.
+                   Possible reasons:
+                   1. 'bad_command': The command itself is incorrect (e.g., typo, wrong tool, invalid arguments).
+                   2. 'test_failure': The command is correct for running tests, but the project's tests are genuinely failing.
+                   3. 'environment_issue': A problem with the environment (e.g., missing dependencies not installed by 'initialise' script, incorrect versions).
+                   4. 'unknown': The cause is unclear from the provided information.
+
+                   Respond ONLY with a JSON object with the following structure:
+                   {
+                     "failure_type": "bad_command" | "test_failure" | "environment_issue" | "unknown",
+                     "reasoning": "A brief explanation for your conclusion.",
+                     "suggested_command_fix": "string (Provide a corrected command if failure_type is 'bad_command' and a fix is obvious. Otherwise, an empty string.)"
+                   }
+                   Focus on the most likely cause. Keep reasoning concise.
+                   `;
+
+					interface TestFailureAnalysis {
+						failure_type: 'bad_command' | 'test_failure' | 'environment_issue' | 'unknown';
+						reasoning: string;
+						suggested_command_fix?: string;
+					}
+
+					try {
+						const llmAnalysis = await llms().easy.generateJson<TestFailureAnalysis>(analysisPrompt, { id: 'analyzeTestScriptFailure' });
+						logger.info(
+							{ projectPath: projectInfo.baseDir, command: projectInfo.test, analysis: llmAnalysis },
+							'LLM analysis of test script failure complete.',
+						);
+						// Further actions based on llmAnalysis (e.g., logging specific insights) can be added here.
+						// For now, the analysis itself is logged.
+					} catch (llmError) {
+						logger.error(
+							{ projectPath: projectInfo.baseDir, command: projectInfo.test, error: (llmError as Error).message },
+							'LLM analysis of test script failure encountered an error.',
+						);
+					}
+				} else {
+					logger.info({ projectPath: projectInfo.baseDir, command: projectInfo.test }, 'Test script executed successfully during validation (exit code 0).');
+				}
+			} catch (executionError) {
+				logger.error(
+					{ projectPath: projectInfo.baseDir, command: projectInfo.test, error: (executionError as Error).message },
+					'Failed to execute test script command itself during validation.',
+				);
+			}
+		} else {
+			logger.info({ projectPath: projectInfo.baseDir }, 'No test script defined for project, skipping validation.');
+		}
+	}
 }
