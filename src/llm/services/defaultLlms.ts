@@ -1,29 +1,28 @@
-import type { AgentLLMs } from '#agent/agentContextTypes';
-import type { LLM } from '#llm/llm';
-
-import { CePO_LLM } from '#llm/multi-agent/cepo';
+import { FastMediumLLM } from '#llm/multi-agent/fastMedium';
 import { MultiLLM } from '#llm/multi-llm';
 import { Claude3_5_Haiku, Claude3_7_Sonnet } from '#llm/services/anthropic';
-import { Gemini_2_0_Flash_Lite, Gemini_2_5_Flash, Gemini_2_5_Pro } from '#llm/services/vertexai';
+import { vertexGemini_2_0_Flash_Lite, vertexGemini_2_5_Flash, vertexGemini_2_5_Pro } from '#llm/services/vertexai';
+import type { AgentLLMs } from '#shared/agent/agent.model';
+import type { LLM } from '#shared/llm/llm.model';
 
 let _summaryLLM: LLM;
 
 export function summaryLLM(): LLM {
-	if (!_summaryLLM) defaultLLMs();
+	_summaryLLM ??= defaultLLMs().easy;
 	return _summaryLLM;
 }
 
 export function defaultLLMs(): AgentLLMs {
 	if (process.env.GCLOUD_PROJECT) {
-		const flashLite = Gemini_2_0_Flash_Lite();
-		const flash = Gemini_2_5_Flash();
-		const pro = Gemini_2_5_Pro();
+		const flashLite = vertexGemini_2_0_Flash_Lite();
+		const flash = vertexGemini_2_5_Flash();
+		const pro = vertexGemini_2_5_Pro();
 		_summaryLLM = flashLite;
 		return {
 			easy: flashLite,
-			medium: flash,
+			medium: new FastMediumLLM(),
 			hard: pro,
-			xhard: null, //new CePO_LLM(Gemini_2_5_Pro),
+			xhard: null,
 		};
 	}
 

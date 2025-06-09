@@ -3,6 +3,8 @@ import path from 'node:path';
 import { createByModelName } from '@microsoft/tiktokenizer';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
+import type { SelectedFile } from '#shared/files/files.model';
+import type { GenerateTextWithJsonResponse } from '#shared/llm/llm.model';
 import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
 import { type RepositoryMaps, generateRepositoryMaps } from '#swe/index/repositoryMap';
 import { type ProjectInfo, getProjectInfo } from '../projectDetection';
@@ -10,11 +12,6 @@ import { type ProjectInfo, getProjectInfo } from '../projectDetection';
 export interface SelectFilesResponse {
 	primaryFiles: SelectedFile[];
 	secondaryFiles: SelectedFile[];
-}
-
-export interface SelectedFile {
-	path: string;
-	reason: string;
 }
 
 /**
@@ -57,22 +54,23 @@ The file paths must exist in the <project_map /> file_contents path attributes.
 <json>
 {
  "primaryFiles": [
-     { "path": "/dir/file1", "reason": "file1 will be edited because..." },
-     { "path": "/dir/file1.test", "reason": "file1.test is a test for /dir/file1 (only if the path exists)" },
-     { "path": "/dir/file2", "reason": "file2 will be edited because..." }
+     { "filePath": "/dir/file1", "reason": "file1 will be edited because..." },
+     { "filePath": "/dir/file1.test", "reason": "file1.test is a test for /dir/file1 (only if the path exists)" },
+     { "filePath": "/dir/file2", "reason": "file2 will be edited because..." }
  ],
  "secondaryFiles": [
-     { "path": "/dir/docs.txt", "reason": "Contains relevant documentation" },
-     { "path": "/dir/file3", "reason": "Contains types referenced by /dir/file1" },
-     { "path": "/dir/file4", "reason": "Contains types referenced by /dir/file1 and /dir/file2" },
-     { "path": "/dir/file5.txt", "reason": "Referenced in the task requirements" },
+     { "filePath": "/dir/docs.txt", "reason": "Contains relevant documentation" },
+     { "filePath": "/dir/file3", "reason": "Contains types referenced by /dir/file1" },
+     { "filePath": "/dir/file4", "reason": "Contains types referenced by /dir/file1 and /dir/file2" },
+     { "filePath": "/dir/file5.txt", "reason": "Referenced in the task requirements" },
  ]
 }
 </json>
 </example>
 </task>
 `;
-	let selectedFiles = (await llms().medium.generateTextWithJson(prompt, { id: 'selectFilesToEdit' })) as SelectFilesResponse;
+	const response: GenerateTextWithJsonResponse<SelectFilesResponse> = await llms().medium.generateTextWithJson(prompt, { id: 'selectFilesToEdit' });
+	let selectedFiles = response.object;
 
 	selectedFiles = removeLockFiles(selectedFiles);
 
@@ -91,7 +89,7 @@ The file paths must exist in the <project_map /> file_contents path attributes.
 async function secondPass(requirements: string, initialSelection: SelectFilesResponse, projectInfo: ProjectInfo): Promise<SelectFilesResponse> {
 	const fileSystem = getFileSystem();
 	const allFiles = [...initialSelection.primaryFiles, ...initialSelection.secondaryFiles];
-	const fileContents = await fileSystem.readFilesAsXml(allFiles.map((file) => file.path));
+	const fileContents = await fileSystem.readFilesAsXml(allFiles.map((file) => file.filePath));
 
 	if (projectInfo.fileSelection) requirements += `\nAdditional note: ${projectInfo.fileSelection}`;
 
@@ -133,44 +131,44 @@ Response with the JSON object in the following format, including the surrounding
 <json>
 {
   "filesToAdd": [
-    { "reason": "Reason for adding", "type": "primary|secondary", "path": "/path/to/newfile.ts" }
+    { "reason": "Reason for adding", "type": "primary|secondary", "filePath": "/path/to/newfile.ts" }
   ],
   "filesToRemove": [
-    { "reason": "Reason for removing", "path": "/path/to/removedfile.ts"  }
+    { "reason": "Reason for removing", "filePath": "/path/to/removedfile.ts"  }
   ]
 }
 </json>
 `;
 
 	const result = (await llms().medium.generateJson(prompt)) as {
-		filesToAdd: { path: string; reason: string; type: 'primary' | 'secondary' }[];
-		filesToRemove: { path: string; reason: string }[];
+		filesToAdd: { filePath: string; reason: string; type: 'primary' | 'secondary' }[];
+		filesToRemove: { filePath: string; reason: string }[];
 	};
 
 	logger.info(
-		`Second pass file selection. Added: [${result.filesToAdd.map((f) => f.path).join(', ')}]. Removed: [${result.filesToRemove.map((f) => f.path).join(', ')}]`,
+		`Second pass file selection. Added: [${result.filesToAdd.map((f) => f.filePath).join(', ')}]. Removed: [${result.filesToRemove.map((f) => f.filePath).join(', ')}]`,
 	);
 
 	// Remove files
-	initialSelection.primaryFiles = initialSelection.primaryFiles.filter((file) => !result.filesToRemove.some((r) => r.path === file.path));
-	initialSelection.secondaryFiles = initialSelection.secondaryFiles.filter((file) => !result.filesToRemove.some((r) => r.path === file.path));
+	initialSelection.primaryFiles = initialSelection.primaryFiles.filter((file) => !result.filesToRemove.some((r) => r.filePath === file.filePath));
+	initialSelection.secondaryFiles = initialSelection.secondaryFiles.filter((file) => !result.filesToRemove.some((r) => r.filePath === file.filePath));
 
 	// Add new files
 	for (const fileToAdd of result.filesToAdd) {
-		const newFile = { path: fileToAdd.path, reason: fileToAdd.reason };
+		const newFile = { filePath: fileToAdd.filePath, reason: fileToAdd.reason };
 
 		if (!(await fileExists(newFile))) continue;
 
 		if (fileToAdd.type === 'primary') {
-			if (!initialSelection.primaryFiles.some((f) => f.path === fileToAdd.path)) {
+			if (!initialSelection.primaryFiles.some((f) => f.filePath === fileToAdd.filePath)) {
 				initialSelection.primaryFiles.push(newFile);
 			}
 		} else if (fileToAdd.type === 'secondary') {
-			if (!initialSelection.secondaryFiles.some((f) => f.path === fileToAdd.path)) {
+			if (!initialSelection.secondaryFiles.some((f) => f.filePath === fileToAdd.filePath)) {
 				initialSelection.secondaryFiles.push(newFile);
 			}
 		} else {
-			logger.info(`Invalid type ${fileToAdd.type} for ${fileToAdd.path}`);
+			logger.info(`Invalid type ${fileToAdd.type} for ${fileToAdd.filePath}`);
 			initialSelection.primaryFiles.push(newFile);
 		}
 	}
@@ -180,7 +178,7 @@ Response with the JSON object in the following format, including the surrounding
 
 function keepOrRemoveFileAnalysisPrompt(requirements: string, file: SelectedFile, fileContents: string): string {
 	return `
-<file_path>${file.path}</file_path>
+<file_path>${file.filePath}</file_path>
 
 <file_contents>${fileContents}</file_contents>
 
@@ -213,7 +211,7 @@ Output the following:
 export async function removeUnrelatedFiles(requirements: string, fileSelection: SelectFilesResponse): Promise<SelectFilesResponse> {
 	const analyzeFile = async (file: SelectedFile): Promise<{ file: SelectedFile; isRelated: boolean; explanation: string }> => {
 		const fileSystem = getFileSystem();
-		const fileContents = (await fs.readFile(path.join(fileSystem.getWorkingDirectory(), file.path))).toString();
+		const fileContents = (await fs.readFile(path.join(fileSystem.getWorkingDirectory(), file.filePath))).toString();
 		const prompt = keepOrRemoveFileAnalysisPrompt(requirements, file, fileContents);
 
 		const jsonResult = await llms().easy.generateTextWithJson(
@@ -236,17 +234,17 @@ export async function removeUnrelatedFiles(requirements: string, fileSelection: 
 	const analysisResults = await Promise.all(allFiles.map(analyzeFile));
 
 	const filteredPrimaryFiles = fileSelection.primaryFiles.filter((file) => {
-		const result = analysisResults.find((result) => result.file.path === file.path);
+		const result = analysisResults.find((result) => result.file.filePath === file.filePath);
 		if (result && !result.isRelated) {
-			logger.info(`Removed unrelated primary file: ${file.path}. Reason: ${result.explanation}`);
+			logger.info(`Removed unrelated primary file: ${file.filePath}. Reason: ${result.explanation}`);
 		}
 		return result?.isRelated;
 	});
 
 	const filteredSecondaryFiles = fileSelection.secondaryFiles.filter((file) => {
-		const result = analysisResults.find((result) => result.file.path === file.path);
+		const result = analysisResults.find((result) => result.file.filePath === file.filePath);
 		if (result && !result.isRelated) {
-			logger.info(`Removed unrelated secondary file: ${file.path}. Reason: ${result.explanation}`);
+			logger.info(`Removed unrelated secondary file: ${file.filePath}. Reason: ${result.explanation}`);
 		}
 		return result?.isRelated;
 	});
@@ -263,8 +261,8 @@ export async function removeUnrelatedFiles(requirements: string, fileSelection: 
  */
 function removeLockFiles(fileSelection: SelectFilesResponse): SelectFilesResponse {
 	// TODO make this generic. maybe not necessary with the default projectInfo.selectFiles message of don't include package manager lock files
-	fileSelection.primaryFiles = fileSelection.primaryFiles.filter((file) => !file.path.endsWith('package-lock.json'));
-	fileSelection.secondaryFiles = fileSelection.secondaryFiles.filter((file) => !file.path.endsWith('package-lock.json'));
+	fileSelection.primaryFiles = fileSelection.primaryFiles.filter((file) => !file.filePath.endsWith('package-lock.json'));
+	fileSelection.secondaryFiles = fileSelection.secondaryFiles.filter((file) => !file.filePath.endsWith('package-lock.json'));
 	return fileSelection;
 }
 
@@ -283,10 +281,10 @@ export async function removeNonExistingFiles(fileSelection: SelectFilesResponse)
 
 async function fileExists(selectedFile: SelectedFile): Promise<SelectedFile> {
 	try {
-		await fs.access(path.join(getFileSystem().getWorkingDirectory(), selectedFile.path));
+		await fs.access(path.join(getFileSystem().getWorkingDirectory(), selectedFile.filePath));
 		return selectedFile;
 	} catch {
-		logger.info(`Selected file for editing "${selectedFile.path}" does not exists.`);
+		logger.info(`Selected file for editing "${selectedFile.filePath}" does not exists.`);
 		return null;
 	}
 }

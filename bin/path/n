@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# Shortcut to running `npm run <script> <arg>`
+# Usage: `n <script> <args>`
+
+# Check if at least one argument is passed
+if [ $# -lt 1 ]; then
+  echo "Usage: n <script> [args]"
+  exit 1
+fi
+
+# Capture the first argument as the npm script
+script=$1
+shift # Shift the arguments so $@ contains the remaining args
+
+# Run the npm script with any additional arguments
+npm run "$script" "$@"

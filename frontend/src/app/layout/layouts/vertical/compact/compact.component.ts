@@ -27,12 +27,12 @@ import {QuickListComponent} from "../../../common/quick-list/quick-list.componen
         MatButtonModule,
         MatIconModule,
         FuseFullscreenComponent,
-        NotificationsComponent,
+        // NotificationsComponent,
         ShortcutsComponent,
         UserComponent,
         RouterOutlet,
         FuseVerticalNavigationComponent,
-        QuickListComponent
+        // QuickListComponent
     ],
 })
 export class CompactLayoutComponent implements OnInit, OnDestroy {

@@ -1,15 +1,22 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path, { join } from 'node:path';
-import { systemDir } from '#app/appVars';
+import { systemDir } from '#app/appDirs';
 import { logger } from '#o11y/logger';
 
+// Define a custom error type
+export class CliArgumentError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'CliArgumentError';
+	}
+}
 export interface CliOptions {
 	/** Name of the executed .ts file without the extension */
 	scriptName: string;
 	initialPrompt: string;
 	resumeAgentId: string | undefined;
-	/** Optional array of function class names to use */
-	functionClasses?: string[];
+	/** Array of function class names to use */
+	functionClasses: string[];
 	useSharedRepos?: boolean;
 }
 
@@ -17,17 +24,18 @@ export function parseProcessArgs(): CliOptions {
 	const scriptPath = process.argv[1];
 	let scriptName = scriptPath.split(path.sep).at(-1);
 	scriptName = scriptName.substring(0, scriptName.length - 3);
-	return parseUserCliArgs(scriptName, process.argv.slice(2));
+	console.log(`Script name: ${scriptName}`);
+	return parseUserCliArgs(scriptName, process.argv.slice(2)); // slice shallow copies as we may want to modify the slice later
 }
 
 /**
  * Parse function class names from -f=FunctionClass,... command line argument
  */
-function parseFunctionArgument(args: string[]): string[] | undefined {
+function parseFunctionArgument(args: string[]): string[] {
 	console.log(args);
-	const toolArg = args.find((arg) => arg.startsWith('-f='));
+	const toolArg = args.find((arg) => arg.startsWith('-f=') || arg.startsWith('-t='));
 	// logger.info(`Function arg: ${toolArg}`);
-	if (!toolArg) return undefined;
+	if (!toolArg) return [];
 	return toolArg
 		.substring(3)
 		.split(',')
@@ -41,14 +49,26 @@ export function parseUserCliArgs(scriptName: string, scriptArgs: string[]): CliO
 		scriptArgs.splice(fsArgIndex, 1);
 	}
 
+	// Check if we're resuming an agent
+	let resumeAgentId: string;
 	let resumeLastRun = false;
 	let i = 0;
 	for (; i < scriptArgs.length; i++) {
-		if (scriptArgs[i] === '-r') {
+		if (scriptArgs[i].startsWith('-r')) {
 			resumeLastRun = true;
+			if (scriptArgs[i].length > 3) resumeAgentId = scriptArgs[i].substring(3);
 		} else {
 			break;
 		}
+	}
+	resumeAgentId = resumeLastRun ? resumeAgentId || getLastRunAgentId(scriptName) : undefined;
+	if (resumeLastRun && !resumeAgentId) {
+		// Throw error instead of exiting
+		throw new CliArgumentError('No agentId to resume');
+	}
+	if (resumeAgentId) {
+		// Log only if we are actually resuming
+		logger.info(`Resuming agent ${resumeAgentId}`);
 	}
 
 	let useSharedRepos = true;
@@ -64,6 +84,11 @@ export function parseUserCliArgs(scriptName: string, scriptArgs: string[]): CliO
 	const promptArgs = scriptArgs.filter((arg) => !arg.startsWith('-t=') && !arg.startsWith('-f='));
 	let initialPrompt = promptArgs.slice(i).join(' ');
 
+	if (initialPrompt.startsWith('-f') || initialPrompt.startsWith('-t') || initialPrompt.startsWith('--fs') || initialPrompt.startsWith('-r'))
+		throw new Error(
+			'If running from the npm command then program argument need to be seperated by "--". e.g. "npm run agent -- -f=code,web,jira". Alternatively use the "ai" script as an alias for "npm run" which doesnt required this, and can be run from any directory.',
+		);
+
 	logger.debug({ functionClasses }, 'Parsed function classes');
 	// logger.info(initialPrompt);
 
@@ -73,8 +98,6 @@ export function parseUserCliArgs(scriptName: string, scriptArgs: string[]): CliO
 	}
 
 	// logger.info(initialPrompt);
-
-	const resumeAgentId = resumeLastRun ? getLastRunAgentId(scriptName) : undefined;
 
 	return { scriptName, resumeAgentId, initialPrompt, functionClasses, useSharedRepos };
 }

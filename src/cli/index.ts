@@ -1,11 +1,12 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
-import type { AgentLLMs } from '#agent/agentContextTypes';
-import type { RunAgentConfig, RunWorkflowConfig } from '#agent/agentRunner';
-import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
+import { llms } from '#agent/agentContextLocalStorage';
+import type { RunAgentConfig, RunWorkflowConfig } from '#agent/autonomous/autonomousAgentRunner';
+import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { initApplicationContext } from '#app/applicationContext';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { defaultLLMs } from '#llm/services/defaultLlms';
+import type { AgentLLMs } from '#shared/agent/agent.model';
 import { buildIndexDocs } from '#swe/index/repoIndexDocBuilder';
 import { generateRepositoryMaps } from '#swe/index/repositoryMap';
 import { detectProjectInfo } from '#swe/projectDetection';
@@ -36,10 +37,10 @@ async function main() {
 	console.log(`fileSystemTree ${maps.fileSystemTree.tokens} tokens`);
 	console.log(`folderSystemTreeWithSummaries ${maps.folderSystemTreeWithSummaries.tokens} tokens`);
 
-	if (console.log) return;
+	// if (console.log) return;
 
-	const agentId = await runAgentWorkflow(config, async () => {
-		await buildIndexDocs();
+	const agentId = await runWorkflowAgent(config, async () => {
+		await buildIndexDocs(llms().easy);
 	});
 
 	if (agentId) {

@@ -25,7 +25,6 @@ import { FuseHighlightService } from '@fuse/components/highlight/highlight.servi
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     exportAs: 'fuseHighlight',
-    standalone: true,
     imports: [NgClass],
 })
 export class FuseHighlightComponent implements OnChanges, AfterViewInit {

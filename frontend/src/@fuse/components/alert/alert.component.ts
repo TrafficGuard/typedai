@@ -34,7 +34,6 @@ import { Subject, filter, takeUntil } from 'rxjs';
     changeDetection: ChangeDetectionStrategy.OnPush,
     animations: fuseAnimations,
     exportAs: 'fuseAlert',
-    standalone: true,
     imports: [MatIconModule, MatButtonModule],
 })
 export class FuseAlertComponent implements OnChanges, OnInit, OnDestroy {
@@ -49,10 +48,10 @@ export class FuseAlertComponent implements OnChanges, OnInit, OnDestroy {
     private _fuseUtilsService = inject(FuseUtilsService);
 
     @Input() appearance: FuseAlertAppearance = 'soft';
-    @Input() dismissed = false;
-    @Input() dismissible = false;
+    @Input() dismissed: boolean = false;
+    @Input() dismissible: boolean = false;
     @Input() name: string = this._fuseUtilsService.randomId();
-    @Input() showIcon = true;
+    @Input() showIcon: boolean = true;
     @Input() type: FuseAlertType = 'primary';
     @Output() readonly dismissedChanged: EventEmitter<boolean> =
         new EventEmitter<boolean>();

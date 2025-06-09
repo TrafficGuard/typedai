@@ -1,6 +1,6 @@
 import { llms } from '#agent/agentContextLocalStorage';
-import type { GitProject } from '#functions/scm/gitProject';
 import { type SourceControlManagement, getSourceControlManagementTool } from '#functions/scm/sourceControlManagement';
+import type { GitProject } from '#shared/scm/git.model';
 import { buildPrompt } from '#swe/prompt';
 
 export async function selectProject(requirements: string): Promise<GitProject> {

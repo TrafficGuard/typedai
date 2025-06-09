@@ -1,22 +1,32 @@
 import { addCost, agentContext } from '#agent/agentContextLocalStorage';
-import type { AgentLLMs } from '#agent/agentContextTypes';
 import { appContext } from '#app/applicationContext';
-import { type LlmCall, callStack } from '#llm/llmCallService/llmCall';
-import { Blueberry } from '#llm/multi-agent/blueberry';
-import { countTokens } from '#llm/tokens';
+import { callStack } from '#llm/llmCallService/llmCall';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
-import { BaseLLM, type LlmCostFunction } from '../base-llm';
-import { type GenerateTextOptions, type GenerationStats, type LLM, type LlmMessage, assistant, combinePrompts, system, toText, user } from '../llm';
+import type { AgentLLMs } from '#shared/agent/agent.model';
+import { type GenerateTextOptions, type GenerationStats, type LLM, type LlmMessage, messageText, system, user } from '#shared/llm/llm.model';
+import type { LlmCall } from '#shared/llmCall/llmCall.model';
+import { BaseLLM } from '../base-llm';
 
 export class MockLLM extends BaseLLM {
 	lastPrompt = '';
-	private responses: { response: string; callback?: (prompt: string) => void }[] = [];
+	public responses: { response: string; callback?: (prompt: string) => void }[] = [];
 	/**
+	 * @param id The identifier for the LLM instance.
+	 * @param service The service name for the LLM.
+	 * @param model The model name for the LLM.
 	 * @param maxInputTokens defaults to 100000
+	 * @param initialResponses Optional initial responses for the MockLLM instance.
 	 */
-	constructor(maxInputTokens = 100000) {
-		super('mock', 'mock', 'mock', maxInputTokens, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
+	constructor(
+		id = 'mock',
+		service = 'mock',
+		model = 'mock',
+		maxInputTokens = 100000,
+		initialResponses?: { response: string; callback?: (prompt: string) => void }[],
+	) {
+		super(id, service, model, maxInputTokens, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
+		this.responses = initialResponses ?? [];
 	}
 
 	reset() {
@@ -46,9 +56,9 @@ export class MockLLM extends BaseLLM {
 
 		return withActiveSpan(`generateMessage ${description}`, async (span) => {
 			// Use the full message array for context, but might use last message for specific logic like callback
-			const fullPromptText = messages.map((m) => toText(m)).join('\n');
+			const fullPromptText = messages.map((m) => messageText(m)).join('\n');
 			const lastUserMessage = messages.findLast((m) => m.role === 'user');
-			const userPromptForCallback = lastUserMessage ? toText(lastUserMessage) : ''; // Use last user message for callback consistency
+			const userPromptForCallback = lastUserMessage ? messageText(lastUserMessage) : ''; // Use last user message for callback consistency
 
 			this.lastPrompt = userPromptForCallback; // Keep track of the last user prompt for testing
 
@@ -62,6 +72,7 @@ export class MockLLM extends BaseLLM {
 				agentId: agentContext()?.agentId,
 				callStack: callStack(),
 				description,
+				settings: opts,
 			});
 			const requestTime = Date.now();
 
@@ -137,7 +148,7 @@ export class MockLLM extends BaseLLM {
 		const resultMessage = await this._generateMessage(messages, opts);
 
 		// Extract the text content
-		return toText(resultMessage);
+		return messageText(resultMessage);
 	}
 }
 

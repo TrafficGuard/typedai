@@ -1,31 +1,25 @@
-import util from 'node:util';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import type { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import { execCmd, execCommand, failOnError } from '#utils/exec';
-import type { VersionControlSystem } from './versionControlSystem';
-const exec = util.promisify(require('node:child_process').exec);
 
-export interface Commit {
-	title: string;
-	description: string;
-	diffs: Map<string, string>;
-}
+import type { IFileSystemService } from '#shared/files/fileSystemService';
+import type { Commit, VersionControlSystem } from '#shared/scm/versionControlSystem';
 
 @funcClass(__filename)
 export class Git implements VersionControlSystem {
 	/** The branch name before calling switchToBranch. This enables getting the diff between the current and previous branch */
 	previousBranch: string | undefined;
 
-	constructor(private fileSystem: FileSystemService = getFileSystem()) {}
+	constructor(private fileSystem: IFileSystemService = getFileSystem()) {}
 
 	/**
 	 * Adds all files which are already tracked by version control to the index and commits.
 	 * If there are no changes
 	 * @param commitMessage
 	 */
+	// @func()
 	async addAllTrackedAndCommit(commitMessage: string): Promise<void> {
 		// If nothing has changed then return
 		const execResult = await execCommand('git status --porcelain');
@@ -81,7 +75,7 @@ export class Git implements VersionControlSystem {
 	 *                - If omitted: Attempts to guess the source branch (e.g., main, develop)
 	 *                  by inspecting other local branches and uses that for the merge-base calculation.
 	 *                  Note: Guessing the source branch may be unreliable in some cases.
-	 * @returns The git diff.
+	 * @returns The git diff. Note this could be a large string.
 	 */
 	@func()
 	async getDiff(baseRef?: string): Promise<string> {
@@ -146,18 +140,13 @@ export class Git implements VersionControlSystem {
 		failOnError(`Failed to amend current commit with outstanding changes to ${files.join(' ')}`, result);
 	}
 
-	// @func()
-	@span({ message: 0 })
+	@func()
 	async commit(commitMessage: string): Promise<void> {
 		const cwd = this.fileSystem.getWorkingDirectory();
 		try {
 			const sanitizedMessage = commitMessage.replace(/"/g, '\\"');
-			const { stderr } = await exec(`git commit -m "${sanitizedMessage}"`, {
-				cwd,
-			});
-			if (stderr.trim().length) {
-				throw new Error(stderr);
-			}
+			const result = await execCommand(`git commit -m "${sanitizedMessage}"`);
+			failOnError('Error committing changes to Git', result);
 		} catch (error) {
 			logger.error(error);
 			throw error;
@@ -169,6 +158,7 @@ export class Git implements VersionControlSystem {
 	 * @param n the number of commits (defaults to 2)
 	 * @returns an array of the commit details
 	 */
+	@func()
 	async getRecentCommits(n = 2): Promise<Array<Commit>> {
 		const commits: Array<Commit> = [];
 
@@ -211,5 +201,30 @@ export class Git implements VersionControlSystem {
 		}
 
 		return commits;
+	}
+
+	async isDirty(path: string): Promise<boolean> {
+		const result = await execCommand(`git status --porcelain "${path}"`);
+		failOnError(`Error checking if ${path} is dirty`, result);
+		return result.stdout.trim().length > 0;
+	}
+
+	/**
+	 * @returns if the repository has any uncommitted changes.
+	 */
+	async isRepoDirty(): Promise<boolean> {
+		const result = await execCommand('git status --porcelain');
+		failOnError('Error checking if repository is dirty', result);
+		return result.stdout.trim().length > 0;
+	}
+
+	async revertFile(filePath: string): Promise<void> {
+		const { exitCode, stdout, stderr } = await execCommand(`git restore "${filePath}"`);
+		if (exitCode > 0) logger.warn(`Error reverting ${filePath}: ${stdout} ${stderr}`);
+	}
+
+	async stashChanges(): Promise<void> {
+		const { exitCode, stdout, stderr } = await execCommand('git stash -u');
+		if (exitCode > 0) logger.warn(`Error stashing changes: ${stdout} ${stderr}`);
 	}
 }

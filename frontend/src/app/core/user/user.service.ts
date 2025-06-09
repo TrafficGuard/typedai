@@ -1,70 +1,98 @@
 import { HttpClient } from '@angular/common/http';
-import { inject, Injectable } from '@angular/core';
-import { User } from 'app/core/user/user.types';
-import { catchError, Observable, BehaviorSubject, tap, throwError, mergeMap } from 'rxjs';
+import { inject, Injectable, computed } from '@angular/core';
+import { catchError, Observable, tap, EMPTY } from 'rxjs';
+import { Router } from '@angular/router';
+import { USER_API } from "#shared/user/user.api";
+import { callApiRoute } from "../api-route";
+import { createApiEntityState } from '../api-state.types';
+import { UserProfile, UserProfileUpdate } from "#shared/user/user.model";
+
 
 @Injectable({ providedIn: 'root' })
 export class UserService {
-    private _httpClient = inject(HttpClient);
-    private _user: BehaviorSubject<User> = new BehaviorSubject<User>(null);
+    private http = inject(HttpClient);
+    private router = inject(Router);
 
-    // -----------------------------------------------------------------------------------------------------
-    // @ Accessors
-    // -----------------------------------------------------------------------------------------------------
+    private readonly _userState = createApiEntityState<UserProfile>();
+
+    /** User Api result for authentication guard/service/components. */
+    readonly authOnlyUserEntityState = this._userState.asReadonly();
+
+    /** Public UserProfile state. Application components should use this state and assume the user is non-null  */
+    readonly userProfile = computed(() => {
+        const state = this._userState();
+        return state.status === 'success' ? state.data : null;
+    });
+
+    set user(value: UserProfile | null) {
+        if (value === null) {
+            this._userState.set({ status: 'idle' });
+        } else {
+            this._userState.set({ status: 'success', data: value });
+        }
+    }
+
+    // -- Public methods -- --
 
     /**
-     * Setter & getter for user
-     *
-     * @param value
+     * Load the current signed-in user data
      */
-    set user(value: User) {
-        // Store the value
-        this._user.next(value);
-    }
+    loadUser(): void {
+        if (this._userState().status === 'loading') return;
 
-    get user$(): Observable<User> {
-        return this._user.asObservable();
-    }
+        this._userState.set({ status: 'loading' });
 
-    // -----------------------------------------------------------------------------------------------------
-    // @ Public methods
-    // -----------------------------------------------------------------------------------------------------
+        callApiRoute(this.http, USER_API.view).pipe(
+            tap((user: UserProfile) => {
+                this._userState.set({ status: 'success', data: user });
+            }),
+            catchError(error => {
+                console.error('Error loading profile [error]', error);
+
+                if (error?.status === 401 || error?.status === 403) {
+                    this.router.navigate(['/ui/sign-in']);
+                }
+
+                this._userState.set({
+                    status: 'error',
+                    error: error instanceof Error ? error : new Error('Error loading profile'),
+                    code: error?.status
+                });
+                return EMPTY;
+            })
+        ).subscribe();
+    }
 
     /**
      * Get the current signed-in user data
      */
-    get(): Observable<User> {
-        // Return the current value if it exists
-        const currentUser = this._user.getValue();
-        if (currentUser) {
-            return this.user$;
-        }
+    getUser(): void {
+        this.loadUser();
+    }
 
-        // Fetch from server if no current value
-        return this._httpClient.get<User>(`/api/profile/view`).pipe(
-            tap((user) => {
-                user = (user as any).data
-                this._user.next(user);
-            }),
-            catchError(error => {
-                console.error('Error loading profile', error);
-                return throwError(() => new Error('Error loading profile'));
-            }),
-            mergeMap(value => this.user$)
+    /**
+     * Update the user (broader profile updates)
+     * @param userProfileUpdate
+     */
+    update(userProfileUpdate: UserProfileUpdate): Observable<void> {
+        const currentState = this._userState();
+        const currentUser = currentState.status === 'success' ? currentState.data : null;
+        const updatedUser = { ...currentUser, ...userProfileUpdate } as UserProfile; // Assume UserProfileUpdate is subset of UserProfile
+
+        return callApiRoute(this.http, USER_API.update, { body: userProfileUpdate }).pipe(
+            tap(() => {
+                // After successful API call, update the local state with the merged data.
+                this._userState.set({ status: 'success', data: updatedUser });
+            })
         );
     }
 
     /**
-     * Update the user
-     *
-     * @param user
+     * Change the user's password.
+     * @param passwordData Object containing current and new passwords.
      */
-    update(user: Partial<User>): Observable<User> {
-        return this._httpClient.post<User>('/api/profile/update', { user }).pipe(
-            tap((response) => {
-                response = (response as any).data;
-                this._user.next({...response});
-            })
-        );
+    changePassword(passwordData: { currentPassword: string; newPassword: string }): Observable<void> {
+        return callApiRoute(this.http, USER_API.changePassword, { body: passwordData });
+        // No tap needed here to update _user unless API returns updated user object with, e.g., new tokens/session info
     }
 }

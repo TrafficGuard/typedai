@@ -1,37 +1,41 @@
 import { lstat, readFile, readdir } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
 import yaml from 'js-yaml';
+import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
 
-// --- Constants ---
 const CURSOR_RULES_FILE = '.cursorrules';
 const CURSOR_RULES_DIR = '.cursor';
 const CURSOR_RULES_SUBDIR = 'rules';
 const CURSOR_RULES_EXT = '.mdc';
 const AIDER_CONVENTIONS_FILE = 'CONVENTIONS.md';
+// Contains which files should be included in the 'read' property (string or list)
 const AIDER_CONFIG_FILE = '.aider.conf.yml';
 const WINDSURF_GLOBAL_RULES_FILE = 'global_rules.md';
 const WINDSURF_LOCAL_RULES_FILE = '.windsurfrules';
+// DOCS.md in the current and parent folders (upto the vcs root) are included
 const TYPEDAI_DOCS_FILE = 'DOCS.md';
-// ---
+// Any markdown files placed in the .clinerules/ folder are automatically aggregated and appended to your prompt,
+// exactly like the single .clinerules file, but with the flexibility of multiple files.
+const CLINE_RULES = '.clinerules';
 
 type AddFileCallback = (absolutePath: string) => void;
 
-// =======================================================================
-// Main Exported Function
-// =======================================================================
-
 /**
- * Finds AI tool configuration/documentation files (Cursor, Aider, Windsurf, TypedAI)
+ * Finds AI tool rules/documentation files (Cursor, Aider, Windsurf, TypedAI, Roo, Cline)
  * in the hierarchy of selected files and adds them to the selection if not already present.
  * Searches directories containing selected files and their ancestors up to VCS root/filesystem root.
+ * @see https://docs.cursor.com/context/rules
+ * @see https://docs.windsurf.com/windsurf/memories#windsurfrules
+ * @see https://aider.chat/docs/usage/conventions.html
  * @param fileSelection Paths relative to CWD of currently selected files.
  * @param options Optional: cwd (defaults to process.cwd()), vcsRoot (absolute path).
  * @returns Set of newly found AI tool file paths, relative to CWD.
  */
 export async function includeAlternativeAiToolFiles(fileSelection: string[], options?: { cwd?: string; vcsRoot?: string }): Promise<Set<string>> {
-	const cwd = resolve(options?.cwd ?? process.cwd());
-	const absoluteVcsRoot = options?.vcsRoot ? resolve(options.vcsRoot) : undefined;
+	const fss = getFileSystem();
+	const cwd = resolve(options?.cwd ?? fss.getWorkingDirectory());
+	const absoluteVcsRoot = options?.vcsRoot ? resolve(options.vcsRoot) : fss.getVcsRoot();
 	const originalSelectionRelative = new Set(fileSelection.map((f) => f?.trim()).filter((f): f is string => !!f));
 	const foundFilesRelative = new Set<string>();
 
@@ -143,7 +147,6 @@ async function _checkAiderConfig(folder: string, addFileCallback: AddFileCallbac
 	try {
 		const stats = await lstat(configPath);
 		if (!stats.isFile()) return; // Not a file
-		addFileCallback(configPath); // Add the config file itself
 		configContent = await readFile(configPath, 'utf-8');
 	} catch {
 		return; // Config file doesn't exist or couldn't be read, stop processing it

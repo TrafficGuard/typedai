@@ -1,8 +1,19 @@
 import path from 'node:path';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
-import type { LLM, LlmMessage } from '#llm/llm';
 import { extractTag } from '#llm/responseParsers';
 import { logger } from '#o11y/logger';
+import type { SelectedFile } from '#shared/files/files.model';
+import {
+	type GenerateTextWithJsonResponse,
+	ImagePartExt,
+	type LLM,
+	type LlmMessage,
+	type UserContentExt,
+	assistant,
+	contentText,
+	extractAttachments,
+} from '#shared/llm/llm.model';
+import { text, user } from '#shared/llm/llm.model';
 import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
 import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
 import { type RepositoryMaps, generateRepositoryMaps } from '#swe/index/repositoryMap';
@@ -26,13 +37,12 @@ interface IterationResponse {
 	inspectFiles?: string[];
 }
 
-export interface SelectedFile {
-	/** The file path */
-	path: string;
-	/** The reason why this file needs to in the file selection */
-	reason: string;
-	/** If the file should not need to be modified when implementing the task. Only relevant when the task is for making changes, and not just a query. */
-	readonly?: boolean;
+/**
+ * When a user wants to continue on previous file selection, this provides the original file selection and the instructions on what needs to change in the file selection.
+ */
+interface FileSelectionUpdate {
+	currentFiles?: SelectedFile[];
+	updatePrompt?: string;
 }
 
 export interface FileExtract {
@@ -42,24 +52,26 @@ export interface FileExtract {
 	extract: string;
 }
 
-export async function selectFilesAgent(requirements: string, projectInfo?: ProjectInfo): Promise<SelectedFile[]> {
-	const { selectedFiles } = await selectFilesCore(requirements, projectInfo);
+export async function selectFilesAgent(requirements: UserContentExt, projectInfo?: ProjectInfo, options?: FileSelectionUpdate): Promise<SelectedFile[]> {
+	if (!requirements) throw new Error('Requirements must be provided');
+	const { selectedFiles } = await selectFilesCore(requirements, projectInfo, options);
 	return selectedFiles;
 }
 
-export async function queryWorkflow(query: string, projectInfo?: ProjectInfo): Promise<string> {
+export async function queryWorkflow(query: UserContentExt, projectInfo?: ProjectInfo): Promise<string> {
+	if (!query) throw new Error('query must be provided');
 	const { files, answer } = await queryWithFileSelection(query, projectInfo);
 	return answer;
 }
 
-export async function queryWithFileSelection(query: string, projectInfo?: ProjectInfo): Promise<{ files: SelectedFile[]; answer: string }> {
+export async function queryWithFileSelection(query: UserContentExt, projectInfo?: ProjectInfo): Promise<{ files: SelectedFile[]; answer: string }> {
 	const { messages, selectedFiles } = await selectFilesCore(query, projectInfo);
 
 	// Construct the final prompt for answering the query
-	const finalPrompt = `<query>                                                                                                                                                                                                                                                                                                                                                                                           
-${query}
-</query>                                                                                                                                                                                                                                                                                                                                                                                          
-																																																																																													 
+	const finalPrompt = `<query>
+${contentText(query)}
+</query>
+
 Please provide a detailed answer to the query using the information from the available file contents, and including citations to the files where the relevant information was found.
 Respond in the following structure, with the answer in Markdown format inside the result tags  (Note only the contents of the result tag will be returned to the user):
 
@@ -122,13 +134,13 @@ Respond in the following structure, with the answer in Markdown format inside th
  * 0 - USER : given <task> and <filesystem-tree> and <repository-overview> select initial files for the task.
  *
  * Messages #4
- * 3 - ASSISTANT: { "selectFiles": [{"path":"file1", "reason":"contains key details"], "ignoreFiles": [{"path":"file2", "reason": "did not contain the config"}] }
+ * 3 - ASSISTANT: { "selectFiles": [{"filePath":"file1", "reason":"contains key details"], "ignoreFiles": [{"filePath":"file2", "reason": "did not contain the config"}] }
  * 2 - USER: <file_contents path="file1"></file_contents><file_contents path="file2"></file_contents>
  * 1 - ASSISTANT: { "inspectFiles": ["file1", "file2"] }
  * 0 - USER : given <task> and <filesystem-tree> and <repository-overview> select initial files for the task.
  *
  * Messages #5
- * 3 - ASSISTANT: { "selectFiles": [{"path":"file1", "reason":"contains key details"], "ignoreFiles": [{"path":"file2", "reason": "did not contain the config"}] }
+ * 3 - ASSISTANT: { "selectFiles": [{"filePath":"file1", "reason":"contains key details"], "ignoreFiles": [{"filePath":"file2", "reason": "did not contain the config"}] }
  * 2 - USER: <file_contents path="file1"></file_contents><file_contents path="file2"></file_contents>
  * 1 - ASSISTANT: { "inspectFiles": ["file1", "file2"] }
  * 0 - USER : given <task> and <filesystem-tree> and <repository-overview> select initial files for the task.
@@ -142,20 +154,22 @@ Respond in the following structure, with the answer in Markdown format inside th
  * @param projectInfo
  */
 async function selectFilesCore(
-	requirements: string,
+	requirements: UserContentExt,
 	projectInfo?: ProjectInfo,
+	options?: FileSelectionUpdate,
 ): Promise<{
 	messages: LlmMessage[];
 	selectedFiles: SelectedFile[];
 }> {
-	const messages: LlmMessage[] = await initializeFileSelectionAgent(requirements, projectInfo);
+	const messages: LlmMessage[] = await initializeFileSelectionAgent(requirements, projectInfo, options);
 
 	const maxIterations = 10;
 	let iterationCount = 0;
 
 	let llm = llms().medium;
 
-	const initialResponse: InitialResponse = await llm.generateTextWithJson(messages, { id: 'Select Files initial' });
+	const response: GenerateTextWithJsonResponse<InitialResponse> = await llm.generateTextWithJson(messages, { id: 'Select Files initial' });
+	const initialResponse = response.object;
 	messages.push({ role: 'assistant', content: JSON.stringify(initialResponse) });
 
 	let filesToInspect = initialResponse.inspectFiles || [];
@@ -174,16 +188,16 @@ async function selectFilesCore(
 		const response: IterationResponse = await generateFileSelectionProcessingResponse(messages, filesToInspect, filesPendingDecision, iterationCount, llm);
 		logger.info(response);
 		for (const ignored of response.ignoreFiles ?? []) {
-			ignoredFiles.set(ignored.path, ignored.reason);
-			filesPendingDecision.delete(ignored.path);
+			ignoredFiles.set(ignored.filePath, ignored.reason);
+			filesPendingDecision.delete(ignored.filePath);
 		}
 		for (const kept of response.keepFiles ?? []) {
-			keptFiles.set(kept.path, kept.reason);
-			filesPendingDecision.delete(kept.path);
+			keptFiles.set(kept.filePath, kept.reason);
+			filesPendingDecision.delete(kept.filePath);
 		}
 
 		// Include relevant rules/documentation/guideline files
-		const justKeptPaths = response.keepFiles?.map((f) => f.path) ?? [];
+		const justKeptPaths = response.keepFiles?.map((f) => f.filePath) ?? [];
 		if (justKeptPaths.length > 0) {
 			try {
 				const cwd = getFileSystem().getWorkingDirectory();
@@ -246,31 +260,37 @@ async function selectFilesCore(
 
 	if (keptFiles.size === 0) throw new Error('No files were selected to fulfill the requirements.');
 
-	const selectedFiles: SelectedFile[] = Array.from(keptFiles.entries()).map(([path, reason]) => ({
-		path,
+	const selectedFiles: SelectedFile[] = Array.from(keptFiles.entries()).map(([filePath, reason]) => ({
+		filePath,
 		reason,
+		// readOnly property is not explicitly handled by the LLM response in this flow, default to undefined or false if needed
 	}));
 
 	return { messages, selectedFiles };
 }
 
-async function initializeFileSelectionAgent(requirements: string, projectInfo?: ProjectInfo): Promise<LlmMessage[]> {
-	// Ensure projectInfo is available
+async function initializeFileSelectionAgent(requirements: UserContentExt, projectInfo?: ProjectInfo, options?: FileSelectionUpdate): Promise<LlmMessage[]> {
 	projectInfo ??= (await detectProjectInfo())[0];
 
-	// Generate repository maps and overview
 	const projectMaps: RepositoryMaps = await generateRepositoryMaps([projectInfo]);
 	const repositoryOverview: string = await getRepositoryOverview();
 	const fileSystemWithSummaries: string = `<project_files>\n${projectMaps.fileSystemTreeWithFileSummaries.text}\n</project_files>\n`;
-
-	// Construct the initial prompt
 	const repoOutlineUserPrompt = `${repositoryOverview}${fileSystemWithSummaries}`;
 
+	const attachments = extractAttachments(requirements);
+
+	const messages: LlmMessage[] = [
+		// Have a separate message for repoOutlineUserPrompt for context caching
+		{ role: 'user', content: repoOutlineUserPrompt },
+		{ role: 'assistant', content: 'What is my task?', cache: 'ephemeral' },
+	];
+
+	// --- Initial Selection Prompt ---
 	// Do not include file contents unless they have been provided to you.
-	const initialUserPrompt = `<requirements>\n${requirements}\n</requirements>
+	const userPromptText = `<requirements>\n${contentText(requirements)}\n</requirements>
 
 Your task is to select the minimal set of files which are essential for completing the task/query described in the requirements, using the provided <project_files>.
-**Focus intensely on necessity.** Only select a file if you are confident its contents are **directly required** to understand the context or make the necessary changes. 
+**Focus intensely on necessity.** Only select a file if you are confident its contents are **directly required** to understand the context or make the necessary changes.
 Avoid selecting files that are only tangentially related or provide general context unless strictly necessary for the core task.
 
 Do not select package manager lock files as they are too large.
@@ -288,11 +308,22 @@ For this initial file selection step, identify the files you need to **inspect**
 }
 </json>
 `;
-	return [
-		{ role: 'user', content: repoOutlineUserPrompt },
-		{ role: 'assistant', content: 'What is my task?', cache: 'ephemeral' },
-		{ role: 'user', content: initialUserPrompt, cache: 'ephemeral' },
-	];
+	messages.push(user([text(userPromptText), ...attachments], true));
+
+	// Construct the initial prompt based on whether it's an initial selection or an update
+	// Work in progress, may need to do this differently
+	// Need to write unit tests for it
+	if (options?.currentFiles) {
+		const filePaths = options.currentFiles.map((selection) => selection.filePath);
+		const fileContents = (await readFileContents(filePaths)).contents;
+		messages.push(assistant(fileContents));
+		const keepAll: IterationResponse = {
+			keepFiles: options.currentFiles,
+		};
+		messages.push(user(JSON.stringify(keepAll)));
+	}
+
+	return messages;
 }
 
 async function generateFileSelectionProcessingResponse(
@@ -327,10 +358,10 @@ The final part of the response must be a JSON object in the following format:
 <json>
 {
   "keepFiles": [
-    {"path": "path/to/essential/file1", "reason": "Clearly explains why this file is indispensable for the task."}
+    {"filePath": "path/to/essential/file1", "reason": "Clearly explains why this file is indispensable for the task."}
   ],
   "ignoreFiles": [
-    {"path": "path/to/nonessential/file2", "reason": "Explains why this file is not needed."}
+    {"filePath": "path/to/nonessential/file2", "reason": "Explains why this file is not needed."}
   ],
   "inspectFiles": [
     "path/to/potentially/critical/file3"
@@ -341,7 +372,10 @@ The final part of the response must be a JSON object in the following format:
 
 	const iterationMessages: LlmMessage[] = [...messages, { role: 'user', content: prompt }];
 
-	return await llm.generateTextWithJson(iterationMessages, { id: `Select Files iteration ${iteration}` });
+	const response: GenerateTextWithJsonResponse<IterationResponse> = await llm.generateTextWithJson(iterationMessages, {
+		id: `Select Files iteration ${iteration}`,
+	});
+	return response.object;
 }
 
 /**
@@ -349,14 +383,14 @@ The final part of the response must be a JSON object in the following format:
  * @param response
  */
 async function processedIterativeStepUserPrompt(response: IterationResponse): Promise<LlmMessage> {
-	const ignored = response.ignoreFiles?.map((s) => s.path) ?? [];
-	const kept = response.keepFiles?.map((s) => s.path) ?? [];
+	const ignored = response.ignoreFiles?.map((s) => s.filePath) ?? [];
+	const kept = response.keepFiles?.map((s) => s.filePath) ?? [];
 
 	let ignoreText = '';
 	if (ignored.length) {
 		ignoreText = '\nRemoved the following ignored files:';
 		for (const ig of response.ignoreFiles) {
-			ignoreText += `\n${ig.path} - ${ig.reason}`;
+			ignoreText += `\n${ig.filePath} - ${ig.reason}`;
 		}
 	}
 
@@ -373,6 +407,7 @@ async function readFileContents(filePaths: string[]): Promise<{ contents: string
 	const invalidPaths = [];
 
 	for (const filePath of filePaths) {
+		if (!filePath) continue;
 		const fullPath = path.join(fileSystem.getWorkingDirectory(), filePath);
 		try {
 			const fileContent = await fileSystem.readFile(fullPath);

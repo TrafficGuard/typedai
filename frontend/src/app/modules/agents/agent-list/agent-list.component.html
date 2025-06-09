@@ -1,17 +1,11 @@
-<div class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden">
+<div class="flex flex-col flex-auto w-full p-4 sm:p-4">
     <!-- Header -->
-    <div class="relative flex flex-0 flex-col border-b px-6 py-3 sm:flex-row sm:items-center sm:justify-between md:px-8">
-        <!-- Loader -->
-        @if (isLoading) {
-            <div class="absolute inset-x-0 bottom-0">
-                <mat-progress-bar [mode]="'indeterminate'"></mat-progress-bar>
-            </div>
-        }
+    <div class="flex items-center justify-between mb-4 mx-3">
         <!-- Title -->
-        <div class="text-3xl font-medium tracking-tight">Agents</div>
+        <h1 class="text-3xl font-medium tracking-tight leading-none">Agents</h1>
         <!-- Actions -->
-        <div class="mt-6 flex shrink-0 items-center sm:ml-4 sm:mt-0">
-            <!-- Search -->
+        <div class="flex shrink-0 items-center">
+            <!-- Search
             <mat-form-field
                     class="fuse-mat-dense fuse-mat-rounded min-w-64"
                     [subscriptSizing]="'dynamic'"
@@ -28,11 +22,23 @@
                         [placeholder]="'Search agents'"
                 />
             </mat-form-field>
+            -->
+            <!-- Refresh Button -->
+            <button
+                    class="ml-4"
+                    mat-flat-button
+                    [matTooltip]="'Refresh List'"
+                    (click)="refreshAgents()"
+                    [disabled]="isLoading()"
+            >
+                <mat-icon [svgIcon]="'heroicons_outline:arrow-path'"></mat-icon>
+            </button>
+            <!-- Add Button -->
             <button
                     class="ml-4"
                     mat-flat-button
                     [color]="'primary'"
-                    [routerLink]="['/ui/agents/new']"
+                    [routerLink]="routes.nav.new()"
             >
                 <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
                 <span class="ml-2 mr-1">Add</span>
@@ -41,14 +47,32 @@
     </div>
 
     <!-- Main -->
-    <div class="flex flex-auto overflow-hidden">
-        <div class="flex flex-auto flex-col overflow-hidden sm:mb-18 sm:overflow-y-auto">
-            @if (agents$ | async; as agents) {
-
-                <div class="grid">
-                    <!-- Header -->
+    <div class="overflow-auto bg-card rounded-lg shadow">
+        @let agents = agentsState();
+        @switch (agents.status) {
+            @case ('idle') {
+                <div class="p-8 text-center text-xl font-medium tracking-tight sm:p-16">
+                    <div class="col-span-full">Initializing...</div>
+                </div>
+            }
+            @case ('loading') {
+                <div class="p-8 text-center text-xl font-medium tracking-tight sm:p-16">
+                    <div class="col-span-full">Loading agents...</div>
+                </div>
+            }
+            @case ('success') {
+                @if (agents.data.length > 0) {
+                    <!-- Header for the list (inventory-grid) -->
                     <div class="inventory-grid text-secondary sticky top-0 z-10 grid gap-4 bg-gray-50 px-2 py-2 text-md font-semibold shadow dark:bg-black dark:bg-opacity-5 md:px-4">
-                        <div class="w-10"></div>
+                        <div class="w-10">
+                            <mat-checkbox
+                                class="compact-checkbox"
+                                [checked]="isAllSelected()"
+                                [indeterminate]="selection.hasValue() && !isAllSelected()"
+                                (change)="masterToggle()"
+                                >
+                            </mat-checkbox>
+                        </div>
                         <div>Name</div>
                         <div>State</div>
                         <div class="hidden lg:block">Type</div>
@@ -57,83 +81,106 @@
                         <div class="hidden lg:block">Cost</div>
                     </div>
 
-                    @if (agents === null) {
-                        <div class="inventory-grid grid items-center gap-4 border-b px-2 py-2 md:px-4">
-                            <div class="col-span-full text-center">
-                                Loading...
+                    <!-- Agent Rows: Loop over agentsState().data -->
+                    @for (agent of agents.data; track trackByFn($index, agent)) {
+                        <div class="inventory-grid grid items-center gap-4 border-b px-2 hover:bg-gray-50 md:px-4">
+                            <!-- Checkbox cell -->
+                            <div class="w-10">
+                                <mat-checkbox
+                                        class="compact-checkbox"
+                                        (click)="$event.stopPropagation()"
+                                        (change)="$event ? selection.toggle(agent) : null"
+                                        [checked]="selection.isSelected(agent)">
+                                </mat-checkbox>
                             </div>
-                        </div>
-                    }
-                    @else if (agents.length > 0) {
-                        <!-- Rows -->
-                        @for (agent of agents; track trackByFn($index, agent)) {
-                            <div class="inventory-grid grid items-center gap-4 border-b px-2 hover:bg-gray-50 md:px-4">
-                                <div class="w-10">
-                                    <mat-checkbox
-                                            (click)="$event.stopPropagation()"
-                                            (change)="$event ? selection.toggle(agent) : null"
-                                            [checked]="selection.isSelected(agent)">
-                                    </mat-checkbox>
-                                </div>
 
-                                <div>
-                                    <a class="hover:text-primary" [routerLink]="['/ui/agents', agent.agentId]">
-                                        {{ agent.name }}
-                                    </a>
-                                </div>
+                            <!-- Name cell with updated routerLink -->
+                            <div [matTooltip]="agent.name">
+                                <a class="hover:text-primary" [routerLink]="routes.nav.detail(agent.agentId)">
+                                    {{ agent.name }}
+                                </a>
+                            </div>
 
-                                <div>
-                                    <span [class]="getStateClass(agent.state)">{{ agent.state }}</span>
-                                </div>
+                            <!-- State cell -->
+                            <div>
+                                <span [class]="getStateClass(agent.state)">{{ agent.state }}</span>
+                            </div>
 
-                                <div class="hidden lg:block">{{ agent.type }}</div>
+                            <!-- Type cell -->
+                            <div class="hidden lg:block">{{ agent.type }}</div>
 
-                                <div [matTooltip]="agent.userPrompt">
-                                    <a class="hover:text-primary" [routerLink]="['/ui/agents', agent.agentId]">
-                                        <div class="max-h-8 truncate">{{ agent.userPrompt }}</div>
-                                    </a>
-                                </div>
+                            <!-- User Prompt cell with updated routerLink -->
+                            <div [matTooltip]="agent.userPrompt">
+                                <a class="hover:text-primary" [routerLink]="routes.nav.detail(agent.agentId)">
+                                    <div class="max-h-8 truncate">{{ agent.userPrompt }}</div>
+                                </a>
+                            </div>
 
-                                <div class="hidden md:block" [matTooltip]="agent.state === 'error' ? agent.error : agent.output">
-                                    <div class="max-h-8 truncate">
-                                        {{ (agent.state === 'error' ? agent.error : agent.output) }}
-                                    </div>
-                                </div>
-
-                                <div class="hidden lg:block">
-                                    ${{ agent.cost | number: '1.2-2' }}
+                            <!-- Error/Output cell -->
+                            <div class="hidden md:block" [matTooltip]="agent.state === 'error' ? agent.error : agent.output">
+                                <div class="max-h-8 truncate">
+                                    {{ (agent.state === 'error' ? agent.error : agent.output) }}
                                 </div>
                             </div>
 
-                            <!--
-                            <mat-paginator
-                                    class="z-10 border-b bg-gray-50 dark:bg-transparent sm:absolute sm:inset-x-0 sm:bottom-0 sm:border-b-0 sm:border-t"
-                                    [ngClass]="{ 'pointer-events-none': isLoading }"
-                                    [length]="pagination.length"
-                                    [pageIndex]="pagination.page"
-                                    [pageSize]="pagination.size"
-                                    [pageSizeOptions]="[5, 10, 25, 100]"
-                                    [showFirstLastButtons]="true"
-                            ></mat-paginator>
-                            -->
-                        }} @else {
-                        <div class="border-t p-8 text-center text-3xl font-medium tracking-tight sm:p-16">
-                            <div class="mb-1">There are no agents!</div>
-
-                            <button
-                                    class="ml-4"
-                                    mat-flat-button
-                                    [color]="'primary'"
-                                    [routerLink]="['/ui/agents/new']"
-                            >
-                                <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
-                                <span class="ml-2 mr-1">Add</span>
-                            </button>
-
+                            <!-- Cost cell -->
+                            <div class="hidden lg:block">
+                                ${{ agent.cost | number: '1.2-2' }}
+                            </div>
                         </div>
                     }
+                } @else {
+                    <!-- No Agents State with updated routerLink -->
+                    <div class="border-t p-8 text-center text-3xl font-medium tracking-tight sm:p-16">
+                        <div class="mb-1">There are no agents!</div>
+                        <button
+                                class="ml-4 mt-4"
+                                mat-flat-button
+                                [color]="'primary'"
+                                [routerLink]="routes.nav.new()"
+                        >
+                            <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
+                            <span class="ml-2 mr-1">Add Agent</span>
+                        </button>
+                    </div>
+                }
+            }
+            @case ('error') {
+                <div class="border-t p-8 text-center text-xl font-medium tracking-tight sm:p-16">
+                    <div class="col-span-full">
+                        Failed to load agents.
+                        @if (agents.error?.message) {
+                            <span>Error: {{ agents.error?.message }}</span>
+                        }
+                        <button
+                            class="ml-2"
+                            mat-stroked-button
+                            color="warn"
+                            (click)="refreshAgents()"
+                        >Retry</button>
+                    </div>
                 </div>
             }
-        </div>
+        }
     </div>
+
+    <!-- Footer - Example for bulk actions -->
+    @if (selection.hasValue()) {
+        <div class="absolute bottom-0 left-0 right-0 z-20 flex items-center justify-between border-t bg-card px-6 py-3 shadow-lg dark:bg-gray-800 md:px-8">
+            <div>
+                <span class="text-lg font-medium">{{ selection.selected.length }}</span>
+                <span class="text-secondary ml-1">selected</span>
+            </div>
+            <div class="flex items-center">
+                <button
+                    mat-flat-button
+                    color="warn"
+                    (click)="deleteSelectedAgents()"
+                    [disabled]="isLoading()">
+                    <mat-icon [svgIcon]="'heroicons_outline:trash'"></mat-icon>
+                    <span class="ml-2">Delete Selected</span>
+                </button>
+            </div>
+        </div>
+    }
 </div>

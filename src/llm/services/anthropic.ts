@@ -1,9 +1,10 @@
 import { type AnthropicProvider, createAnthropic } from '@ai-sdk/anthropic';
-import type { AgentLLMs } from '#agent/agentContextTypes';
+import type { CoreMessage } from 'ai'; // Added import
 import type { LlmCostFunction } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
-import { currentUser } from '#user/userService/userContext';
-import type { LLM, LlmMessage } from '../llm';
+import type { AgentLLMs } from '#shared/agent/agent.model';
+import type { LLM, LlmMessage } from '#shared/llm/llm.model';
+import { currentUser } from '#user/userContext';
 import { MultiLLM } from '../multi-llm';
 
 export const ANTHROPIC_SERVICE = 'anthropic';
@@ -63,14 +64,19 @@ export class Anthropic extends AiLLM<AnthropicProvider> {
 		return currentUser().llmConfig.anthropicKey || process.env.ANTHROPIC_API_KEY;
 	}
 
-	protected processMessages(llmMessages: LlmMessage[]): LlmMessage[] {
+	protected _preprocessProviderMessages(llmMessages: LlmMessage[]): LlmMessage[] {
 		return llmMessages.map((msg) => {
 			const clone = { ...msg };
 			if (msg.cache === 'ephemeral') {
-				clone.experimental_providerMetadata = { anthropic: { cacheControl: { type: 'ephemeral' } } };
+				clone.providerOptions = { anthropic: { cacheControl: { type: 'ephemeral' } } };
 			}
 			return clone;
 		});
+	}
+
+	protected override processMessages(llmMessages: LlmMessage[]): CoreMessage[] {
+		const providerSpecificMessages = this._preprocessProviderMessages(llmMessages);
+		return super.processMessages(providerSpecificMessages);
 	}
 
 	provider(): AnthropicProvider {

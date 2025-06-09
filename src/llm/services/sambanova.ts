@@ -1,13 +1,14 @@
 import { type OpenAIProvider, createOpenAI } from '@ai-sdk/openai';
 import { type LlmCostFunction, fixedCostPerMilTokens } from '#llm/base-llm';
-import { currentUser } from '#user/userService/userContext';
-import type { LLM } from '../llm';
+import type { LLM } from '#shared/llm/llm.model';
+import { currentUser } from '#user/userContext';
 import { AiLLM } from './ai-llm';
 
 export const SAMBANOVA_SERVICE = 'sambanova';
 
 export function sambanovaLLMRegistry(): Record<string, () => LLM> {
 	return {
+		'sambanova:Qwen3-32B': sambanovaQwen3_32b,
 		'sambanova:DeepSeek-R1': sambanovaDeepseekR1,
 		'sambanova:DeepSeek-V3-0324': sambanovaDeepseekV3,
 		'sambanova:DeepSeek-R1-Distill-Llama-70B': sambanovaLlama3_3_70b_R1_Distill,
@@ -15,7 +16,12 @@ export function sambanovaLLMRegistry(): Record<string, () => LLM> {
 	};
 }
 
+// https://docs.sambanova.ai/cloud/docs/get-started/supported-models
 // https://cloud.sambanova.ai/plans/pricing
+
+export function sambanovaQwen3_32b(): LLM {
+	return new SambanovaLLM('Qwen3 32b (Sambanova)', 'Qwen3-32B', 8_192, fixedCostPerMilTokens(0.4, 0.8));
+}
 
 export function sambanovaDeepseekR1(): LLM {
 	return new SambanovaLLM('DeepSeek R1 (Sambanova)', 'DeepSeek-R1', 8_192, fixedCostPerMilTokens(5, 7));

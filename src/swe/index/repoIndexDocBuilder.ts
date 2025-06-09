@@ -1,12 +1,17 @@
-import { promises as fs } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { promises as fs, Stats } from 'node:fs';
 import path, { basename, dirname, join } from 'node:path';
 import type { Span } from '@opentelemetry/api';
 import micromatch from 'micromatch';
-import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
-import { typedaiDirName } from '#app/appVars';
+import { getFileSystem } from '#agent/agentContextLocalStorage';
+import { typedaiDirName } from '#app/appDirs';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
+import type { IFileSystemService } from '#shared/files/fileSystemService';
+import type { LLM } from '#shared/llm/llm.model';
+import { AI_INFO_FILENAME } from '#swe/projectDetection';
 import { errorToString } from '#utils/errors';
+import { type Summary, generateDetailedSummaryPrompt, generateFileSummary, generateFolderSummary } from './llmSummaries';
 
 /**
  * This module builds summary documentation for a project/repository, to assist with searching in the repository.
@@ -19,544 +24,622 @@ import { errorToString } from '#utils/errors';
  * It's advisable to manually create the top level summary before running this.
  */
 
-/** Summary documentation for a file/folder */
-export interface Summary {
-	/** Path to the file/folder */
-	path: string;
-	/** A short of the file/folder */
-	short: string;
-	/** A longer summary of the file/folder */
-	long: string;
-}
-
 // Configuration constants
 const BATCH_SIZE = 10;
+
+function hash(content: string): string {
+	return createHash('md5').update(content).digest('hex');
+}
+
+export class IndexDocBuilder {
+	constructor(
+		private fss: IFileSystemService,
+		private llm: LLM,
+	) {}
+
+	private static getSummaryFileName(filePath: string): string {
+		// filePath is already relative to CWD from processFile/buildFolderSummary
+		const fileName = basename(filePath);
+		const dirPath = dirname(filePath);
+		return join(typedaiDirName, 'docs', dirPath, `${fileName}.json`);
+	}
+
+	private static combineFileAndSubFoldersSummaries(fileSummaries: Summary[], subFolderSummaries: Summary[]): string {
+		// Sort subfolders before files for consistency
+		const sortedSubFolderSummaries = subFolderSummaries.sort((a, b) => a.path.localeCompare(b.path));
+		const sortedFileSummaries = fileSummaries.sort((a, b) => a.path.localeCompare(b.path));
+
+		const allSummaries = [...sortedSubFolderSummaries, ...sortedFileSummaries];
+		return allSummaries.map((summary) => `${summary.path}\n${summary.long}`).join('\n\n');
+	}
+
+	async buildIndexDocsInternal(): Promise<void> {
+		logger.info('Building index docs');
+		await withActiveSpan('Build index docs', async (span: Span) => {
+			try {
+				await this.deleteOrphanedSummaries().catch((error) => logger.warn(error));
+
+				const workingDir = this.fss.getWorkingDirectory();
+				const projectInfoPath = path.join(workingDir, AI_INFO_FILENAME);
+				let projectInfoData: string;
+				try {
+					projectInfoData = await this.fss.readFile(projectInfoPath);
+				} catch (e: any) {
+					if (e.code === 'ENOENT') {
+						logger.warn(`${AI_INFO_FILENAME} not found at ${projectInfoPath}. Cannot determine indexDocs patterns.`);
+						throw new Error(`${AI_INFO_FILENAME} not found`);
+					}
+					throw e;
+				}
+
+				const projectInfos = JSON.parse(projectInfoData);
+				const projectInfo = projectInfos[0];
+				const indexDocsPatterns: string[] = projectInfo.indexDocs || [];
+
+				if (indexDocsPatterns.length === 0) {
+					logger.warn('No indexDocs patterns found in AI_INFO_FILENAME. No files/folders will be indexed.');
+				}
+
+				const precomputedPatternBases = indexDocsPatterns.map((pattern) => {
+					const normalizedPattern = pattern.split(path.sep).join('/');
+					const scanResult = micromatch.scan(normalizedPattern, { dot: true });
+					let base = scanResult.base;
+					if (!scanResult.isGlob && base !== '' && path.basename(base).includes('.') && !base.endsWith('/')) {
+						base = path.dirname(base);
+					}
+					if (base.endsWith('/') && base.length > 1) {
+						base = base.slice(0, -1);
+					}
+					if (base === '.') base = '';
+					return { originalPattern: normalizedPattern, baseDir: base, isGlob: scanResult.isGlob };
+				});
+
+				const fileMatchesIndexDocs = (filePath: string): boolean => {
+					if (path.isAbsolute(filePath)) {
+						filePath = path.relative(workingDir, filePath);
+					}
+					const normalizedPath = filePath.split(path.sep).join('/');
+					return micromatch.isMatch(normalizedPath, indexDocsPatterns, { dot: true });
+				};
+
+				const folderMatchesIndexDocs = (folderPath: string): boolean => {
+					if (indexDocsPatterns.length === 0) return false;
+					const normalizedFolderPath = folderPath === '.' ? '' : folderPath.split(path.sep).join('/');
+					for (const { originalPattern, baseDir, isGlob } of precomputedPatternBases) {
+						if (baseDir.startsWith(normalizedFolderPath)) {
+							if (normalizedFolderPath === '' || baseDir === normalizedFolderPath || baseDir.startsWith(`${normalizedFolderPath}/`)) {
+								return true;
+							}
+						}
+						if (normalizedFolderPath.startsWith(baseDir)) {
+							if (baseDir === '') {
+								if (isGlob || originalPattern === baseDir) return true;
+							} else {
+								if (normalizedFolderPath === baseDir || normalizedFolderPath.startsWith(`${baseDir}/`)) {
+									if (isGlob || baseDir === normalizedFolderPath) return true;
+								}
+							}
+						}
+					}
+					return false;
+				};
+
+				const startFolder = workingDir;
+				await this.processFolderRecursively(startFolder, fileMatchesIndexDocs, folderMatchesIndexDocs);
+				await withActiveSpan('generateTopLevelSummary', async () => {
+					await this.generateTopLevelSummaryInternal();
+				});
+			} catch (error) {
+				logger.error(`Failed to build summary docs: ${errorToString(error)}`);
+				throw error;
+			}
+		});
+	}
+
+	async processFile(filePath: string): Promise<void> {
+		const relativeFilePath = path.relative(this.fss.getWorkingDirectory(), filePath);
+		const summaryFilePath = IndexDocBuilder.getSummaryFileName(relativeFilePath);
+
+		let fileContents: string;
+		try {
+			// The isFile check is removed; fss.readFile will throw an error for a directory,
+			// which is caught below, achieving the same goal.
+			fileContents = await this.fss.readFile(filePath);
+		} catch (e: any) {
+			logger.error(`Error reading or stat-ing source file ${filePath}: ${errorToString(e)}. Skipping this file.`);
+			return;
+		}
+
+		const currentContentHash = hash(fileContents);
+
+		try {
+			const summaryFileContent = await this.fss.readFile(summaryFilePath);
+			const existingSummary: Summary = JSON.parse(summaryFileContent);
+			if (existingSummary.meta?.hash === currentContentHash) {
+				logger.debug(`Summary for ${relativeFilePath} is up to date (hash match).`);
+				return;
+			}
+			logger.info(`Content hash mismatch for ${relativeFilePath}. Regenerating summary.`);
+		} catch (e: any) {
+			if (e.code === 'ENOENT') {
+				logger.debug(`Summary file ${summaryFilePath} not found. Generating new summary.`);
+			} else if (e instanceof SyntaxError) {
+				logger.warn(`Error parsing existing summary file ${summaryFilePath}: ${errorToString(e)}. Regenerating summary.`);
+			} else {
+				logger.warn(`Error reading summary file ${summaryFilePath}: ${errorToString(e)}. Proceeding to generate summary.`);
+			}
+		}
+
+		const parentSummaries = await this.getParentSummaries(dirname(filePath));
+		const doc = await generateFileSummary(fileContents, parentSummaries, this.llm);
+		doc.path = relativeFilePath;
+		doc.meta = { hash: currentContentHash };
+
+		// fss.writeFile is expected to handle recursive directory creation.
+		await this.fss.writeFile(summaryFilePath, JSON.stringify(doc, null, 2));
+		logger.info(`Completed summary for ${relativeFilePath}`);
+	}
+
+	async processFilesInFolder(folderPath: string, fileMatchesIndexDocs: (filePath: string) => boolean): Promise<void> {
+		const filesAndFolders = await this.fss.listFilesInDirectory(folderPath);
+		const filteredFiles = filesAndFolders
+			.filter((name) => !name.endsWith('/'))
+			.filter((file) => {
+				const fullRelativePath = path.relative(this.fss.getWorkingDirectory(), path.join(folderPath, file));
+				return fileMatchesIndexDocs(fullRelativePath);
+			});
+
+		if (filteredFiles.length === 0) return;
+
+		logger.debug(`Processing ${filteredFiles.length} files in folder ${folderPath}`);
+		const errors: Array<{ file: string; error: Error }> = [];
+
+		await withActiveSpan('processFilesInBatches', async (span: Span) => {
+			for (let i = 0; i < filteredFiles.length; i += BATCH_SIZE) {
+				const batch = filteredFiles.slice(i, i + BATCH_SIZE);
+				await Promise.all(
+					batch.map(async (file) => {
+						const filePath = join(folderPath, file);
+						try {
+							await this.processFile(filePath);
+						} catch (e: any) {
+							// Ensure 'e' is typed
+							logger.error(e, `Failed to process file ${filePath}`);
+							errors.push({ file: filePath, error: e as Error });
+						}
+					}),
+				);
+				logger.debug(`Completed batch ${Math.floor(i / BATCH_SIZE) + 1} of ${Math.ceil(filteredFiles.length / BATCH_SIZE)}`);
+			}
+		});
+
+		if (errors.length > 0) {
+			logger.error(`Failed to process ${errors.length} files in folder ${folderPath}`);
+			errors.forEach(({ file, error }) => logger.error(`${file}: ${errorToString(error)}`));
+		}
+	}
+
+	async processFolderRecursively(
+		folderPath: string,
+		fileMatchesIndexDocs: (filePath: string) => boolean,
+		folderMatchesIndexDocs: (folderPath: string) => boolean,
+	): Promise<void> {
+		logger.info(`Processing folder: ${folderPath}`);
+		await withActiveSpan('processFolderRecursively', async (span: Span) => {
+			try {
+				const subFolders = await this.fss.listFolders(folderPath);
+				for (const subFolder of subFolders) {
+					const subFolderPath = path.join(folderPath, subFolder);
+					const relativeSubFolderPath = path.relative(this.fss.getWorkingDirectory(), subFolderPath);
+					if (folderMatchesIndexDocs(relativeSubFolderPath)) {
+						await this.processFolderRecursively(subFolderPath, fileMatchesIndexDocs, folderMatchesIndexDocs);
+					} else {
+						logger.debug(`Skipping folder ${subFolderPath} as it does not match any indexDocs patterns`);
+					}
+				}
+				await this.processFilesInFolder(folderPath, fileMatchesIndexDocs);
+				await this.buildFolderSummary(folderPath, fileMatchesIndexDocs, folderMatchesIndexDocs);
+			} catch (error) {
+				logger.error(`Error processing folder ${folderPath}: ${errorToString(error)}`);
+				throw error;
+			}
+		});
+	}
+
+	async buildFolderSummary(
+		folderPath: string,
+		fileMatchesIndexDocs: (filePath: string) => boolean,
+		folderMatchesIndexDocs: (folderPath: string) => boolean,
+	): Promise<void> {
+		const relativeFolderPath = path.relative(this.fss.getWorkingDirectory(), folderPath);
+		if (relativeFolderPath === '') {
+			logger.debug('Skipping folder summary for root directory, as it is handled by the project summary.');
+			return;
+		}
+		const folderSummaryFilePath = join(typedaiDirName, 'docs', relativeFolderPath, '_index.json');
+
+		const fileSummaries = await this.getFileSummaries(folderPath, fileMatchesIndexDocs);
+		const subFolderSummaries = await this.getSubFolderSummaries(folderPath, folderMatchesIndexDocs);
+
+		if (!fileSummaries.length && !subFolderSummaries.length) {
+			logger.debug(`No child summaries to build folder summary for ${relativeFolderPath}. Skipping.`);
+			try {
+				await fs.unlink(folderSummaryFilePath);
+				logger.debug(`Deleted obsolete folder summary ${folderSummaryFilePath}`);
+			} catch (e: any) {
+				if (e.code !== 'ENOENT') {
+					logger.warn(`Could not delete obsolete folder summary ${folderSummaryFilePath}: ${errorToString(e)}`);
+				}
+			}
+			return;
+		}
+
+		const childrenHashes = [...fileSummaries, ...subFolderSummaries]
+			.sort((a, b) => a.path.localeCompare(b.path))
+			.map((s) => `${s.path}:${s.meta.hash}`)
+			.join(',');
+		const currentChildrensCombinedHash = hash(childrenHashes);
+
+		try {
+			const existingSummaryContent = await this.fss.readFile(folderSummaryFilePath);
+			const existingSummary: Summary = JSON.parse(existingSummaryContent);
+			if (existingSummary.meta?.hash === currentChildrensCombinedHash) {
+				logger.debug(`Folder summary for ${relativeFolderPath} is up to date (hash match).`);
+				return;
+			}
+			logger.info(`Children hash mismatch for folder ${relativeFolderPath}. Regenerating summary.`);
+		} catch (e: any) {
+			if (e.code === 'ENOENT') {
+				logger.debug(`Folder summary file ${folderSummaryFilePath} not found. Generating new summary.`);
+			} else if (e instanceof SyntaxError) {
+				logger.warn(`Error parsing existing folder summary file ${folderSummaryFilePath}: ${errorToString(e)}. Regenerating summary.`);
+			} else {
+				logger.warn(`Error reading folder summary file ${folderSummaryFilePath}: ${errorToString(e)}. Proceeding to generate summary.`);
+			}
+		}
+
+		try {
+			const combinedSummaryText = IndexDocBuilder.combineFileAndSubFoldersSummaries(fileSummaries, subFolderSummaries);
+			const parentSummaries = await this.getParentSummaries(folderPath);
+			const folderSummary = await generateFolderSummary(this.llm, combinedSummaryText, parentSummaries); // Use easy LLM for folder summaries
+			folderSummary.path = relativeFolderPath;
+			folderSummary.meta = { hash: currentChildrensCombinedHash };
+
+			// fss.writeFile is expected to handle recursive directory creation.
+			await this.fss.writeFile(folderSummaryFilePath, JSON.stringify(folderSummary, null, 2));
+			logger.info(`Generated summary for folder ${relativeFolderPath}`);
+		} catch (error) {
+			logger.error(`Failed to generate summary for folder ${folderPath}: ${errorToString(error)}`);
+			throw error;
+		}
+	}
+
+	async getFileSummaries(folderPath: string, fileMatchesIndexDocs: (filePath: string) => boolean): Promise<Summary[]> {
+		const fileNames = (await this.fss.listFilesInDirectory(folderPath)).filter((name) => !name.endsWith('/'));
+		const summaries: Summary[] = [];
+
+		for (const fileName of fileNames) {
+			const absoluteFilePath = join(folderPath, fileName);
+			const relativeFilePath = path.relative(this.fss.getWorkingDirectory(), absoluteFilePath);
+
+			if (fileMatchesIndexDocs(relativeFilePath)) {
+				const summaryPath = IndexDocBuilder.getSummaryFileName(relativeFilePath);
+				try {
+					const summaryContent = await this.fss.readFile(summaryPath);
+					const summary = JSON.parse(summaryContent);
+					if (summary.meta?.hash) {
+						summaries.push(summary);
+					} else {
+						logger.warn(`File summary for ${relativeFilePath} at ${summaryPath} is missing a hash. Skipping for parent hash calculation.`);
+					}
+				} catch (e: any) {
+					if (e.code !== 'ENOENT') logger.warn(`Failed to read summary for file ${fileName} at ${summaryPath}: ${errorToString(e)}`);
+				}
+			}
+		}
+		return summaries;
+	}
+
+	async getSubFolderSummaries(folderPath: string, folderMatchesIndexDocs: (folderPath: string) => boolean): Promise<Summary[]> {
+		const subFolderNames = await this.fss.listFolders(folderPath);
+		const summaries: Summary[] = [];
+
+		for (const subFolderName of subFolderNames) {
+			const absoluteSubFolderPath = join(folderPath, subFolderName);
+			const relativeSubFolderPath = path.relative(this.fss.getWorkingDirectory(), absoluteSubFolderPath);
+
+			if (folderMatchesIndexDocs(relativeSubFolderPath)) {
+				const summaryPath = join(typedaiDirName, 'docs', relativeSubFolderPath, '_index.json');
+				try {
+					const summaryContent = await this.fss.readFile(summaryPath);
+					const summary = JSON.parse(summaryContent);
+					if (summary.meta?.hash) {
+						summaries.push(summary);
+					} else {
+						logger.warn(`Folder summary for ${relativeSubFolderPath} at ${summaryPath} is missing a hash. Skipping for parent hash calculation.`);
+					}
+				} catch (e: any) {
+					if (e.code !== 'ENOENT') logger.warn(`Failed to read summary for subfolder ${subFolderName} at ${summaryPath}: ${errorToString(e)}`);
+				}
+			}
+		}
+		return summaries;
+	}
+
+	async generateTopLevelSummaryInternal(): Promise<string> {
+		const cwd = this.fss.getWorkingDirectory();
+		const topLevelSummaryPath = join(typedaiDirName, 'docs', '_project_summary.json');
+
+		const allFolderSummaries = await this.getAllFolderSummariesInternal(cwd);
+
+		const folderSummariesForHashMap = allFolderSummaries
+			.filter((s) => s.meta?.hash)
+			.sort((a, b) => a.path.localeCompare(b.path))
+			.map((s) => `${s.path}:${s.meta.hash}`)
+			.join(',');
+		const currentAllFoldersCombinedHash = hash(folderSummariesForHashMap);
+
+		try {
+			const existingSummaryContent = await this.fss.readFile(topLevelSummaryPath);
+			const existingSummary: ProjectSummaryDoc = JSON.parse(existingSummaryContent);
+			if (existingSummary.meta?.hash === currentAllFoldersCombinedHash) {
+				logger.debug(`Top-level project summary at ${topLevelSummaryPath} is up to date (hash match).`);
+				return existingSummary.projectOverview;
+			}
+			logger.info(`Top-level project summary hash mismatch for ${topLevelSummaryPath}. Regenerating.`);
+		} catch (e: any) {
+			if (e.code === 'ENOENT') {
+				logger.debug(`Top-level project summary file ${topLevelSummaryPath} not found. Generating new summary.`);
+			} else if (e instanceof SyntaxError) {
+				logger.warn(`Error parsing existing top-level project summary file ${topLevelSummaryPath}: ${errorToString(e)}. Regenerating summary.`);
+			} else {
+				logger.warn(`Error reading top-level project summary file ${topLevelSummaryPath}: ${errorToString(e)}. Proceeding to generate summary.`);
+			}
+		}
+
+		logger.info('Generating new top-level project summary.');
+
+		const combinedSummaryText = allFolderSummaries.map((summary) => `${summary.path}:\n${summary.long}`).join('\n\n');
+		const newProjectOverview = await this.llm.generateText(generateDetailedSummaryPrompt(combinedSummaryText), {
+			id: 'Generate top level project summary',
+		}); // Use easy LLM
+
+		await this.saveTopLevelSummaryInternal(newProjectOverview, currentAllFoldersCombinedHash);
+		return newProjectOverview;
+	}
+
+	async getAllFolderSummariesInternal(rootDir: string): Promise<Summary[]> {
+		const repoFolder = this.fss.getVcsRoot() ?? this.fss.getWorkingDirectory();
+		const docsDir = join(repoFolder, typedaiDirName, 'docs');
+		const summaries: Summary[] = [];
+
+		let docsDirExists = false;
+		try {
+			docsDirExists = await this.fss.directoryExists(docsDir);
+		} catch (e: any) {
+			if (e.code !== 'ENOENT') logger.warn(`Error checking stats for docs directory ${docsDir}: ${errorToString(e)}`);
+		}
+
+		if (!docsDirExists) {
+			logger.info(`Docs directory ${docsDir} does not exist. No folder summaries to load.`);
+			return summaries;
+		}
+
+		try {
+			const allFilesInDocs = await this.fss.listFilesRecursively(docsDir, true);
+			for (const filePathInDocs of allFilesInDocs) {
+				if (basename(filePathInDocs) === '_index.json') {
+					try {
+						const content = await this.fss.readFile(filePathInDocs);
+						const summary: Summary = JSON.parse(content);
+						summaries.push(summary);
+					} catch (e: any) {
+						if (e.code !== 'ENOENT') logger.warn(`Failed to read or parse folder summary file: ${filePathInDocs}. ${errorToString(e)}`);
+					}
+				}
+			}
+		} catch (error) {
+			logger.error(`Error listing files in ${docsDir} for getAllFolderSummaries: ${errorToString(error)}`);
+			throw error;
+		}
+		return summaries;
+	}
+
+	async saveTopLevelSummaryInternal(summaryContent: string, combinedHash: string): Promise<void> {
+		const summaryPath = join(typedaiDirName, 'docs', '_project_summary.json');
+		const doc: ProjectSummaryDoc = {
+			projectOverview: summaryContent,
+			meta: { hash: combinedHash },
+		};
+		// fss.writeFile is expected to handle recursive directory creation.
+		await this.fss.writeFile(summaryPath, JSON.stringify(doc, null, 2));
+	}
+
+	async getTopLevelSummaryInternal(): Promise<string> {
+		const summaryPath = join(typedaiDirName, 'docs', '_project_summary.json');
+		try {
+			const fileContent = await this.fss.readFile(summaryPath);
+			const doc: ProjectSummaryDoc = JSON.parse(fileContent);
+			return doc.projectOverview || '';
+		} catch (e: any) {
+			if (e.code === 'ENOENT') {
+				logger.debug(`Top-level project summary file ${summaryPath} not found.`);
+			} else {
+				logger.warn(`Error reading or parsing top-level project summary ${summaryPath}: ${errorToString(e)}`);
+			}
+			return '';
+		}
+	}
+
+	async getParentSummaries(folderPath: string): Promise<Summary[]> {
+		const parentSummaries: Summary[] = [];
+		let currentPath = dirname(folderPath);
+		const cwd = this.fss.getWorkingDirectory();
+
+		while (currentPath !== '.' && path.relative(cwd, currentPath) !== '') {
+			const relativeCurrentPath = path.relative(cwd, currentPath);
+			const summaryPath = join(typedaiDirName, 'docs', relativeCurrentPath, '_index.json');
+			try {
+				const summaryContent = await this.fss.readFile(summaryPath);
+				parentSummaries.unshift(JSON.parse(summaryContent));
+			} catch (e: any) {
+				if (e.code === 'ENOENT') break;
+				logger.warn(`Failed to read parent summary for ${currentPath} at ${summaryPath}: ${errorToString(e)}`);
+				break;
+			}
+			currentPath = dirname(currentPath);
+		}
+		return parentSummaries;
+	}
+
+	async deleteOrphanedSummaries(): Promise<void> {
+		logger.info('Deleting orphaned summary files...');
+		await withActiveSpan('deleteOrphanedSummaries', async (span: Span) => {
+			const cwd = this.fss.getWorkingDirectory();
+			const docsDir = join(cwd, typedaiDirName, 'docs');
+
+			const docsDirExists = await this.fss.directoryExists(docsDir);
+			if (!docsDirExists) {
+				logger.info(`Docs directory ${docsDir} does not exist. No summaries to clean.`);
+				return;
+			}
+
+			const projectSummaryFileName = '_project_summary.json';
+			let deletedCount = 0;
+
+			try {
+				const allFilesInDocs = await this.fss.listFilesRecursively(docsDir, true);
+				for (const summaryFilePath of allFilesInDocs) {
+					if (!summaryFilePath.endsWith('.json') || basename(summaryFilePath) === projectSummaryFileName) {
+						continue;
+					}
+
+					let summaryData: Summary;
+					try {
+						const summaryContent = await this.fss.readFile(summaryFilePath);
+						summaryData = JSON.parse(summaryContent);
+					} catch (e: any) {
+						logger.warn(`Failed to read or parse summary file ${summaryFilePath}: ${errorToString(e)}. Skipping orphan check.`);
+						continue;
+					}
+
+					if (!summaryData.path) {
+						logger.warn(`Summary file ${summaryFilePath} is missing the 'path' property. Skipping orphan check.`);
+						continue;
+					}
+
+					const isFolderSummary = basename(summaryFilePath) === '_index.json';
+					const sourcePath = summaryData.path;
+
+					const sourceExists = isFolderSummary ? await this.fss.directoryExists(sourcePath) : await this.fss.fileExists(sourcePath);
+
+					if (!sourceExists) {
+						logger.info(`Source path ${sourcePath} for summary file ${summaryFilePath} not found. Deleting summary.`);
+						try {
+							await this.fss.deleteFile(summaryFilePath);
+							deletedCount++;
+						} catch (unlinkError: any) {
+							logger.error(`Failed to delete orphaned summary file ${summaryFilePath}: ${errorToString(unlinkError)}`);
+						}
+					}
+				}
+				if (deletedCount > 0) {
+					logger.info(`Orphaned summary cleanup complete. Deleted ${deletedCount} summary file(s).`);
+				} else {
+					logger.info('Orphaned summary cleanup complete. No orphaned files found.');
+				}
+			} catch (error) {
+				logger.error(`Error during orphaned summary cleanup: ${errorToString(error)}`);
+			}
+		});
+	}
+
+	async loadBuildDocsSummariesInternal(): Promise<Map<string, Summary>> {
+		const summaries = new Map<string, Summary>();
+		const repoFolder = this.fss.getVcsRoot() ?? this.fss.getWorkingDirectory();
+		const docsDir = join(repoFolder, typedaiDirName, 'docs');
+		logger.info(`Load summaries from ${docsDir}`);
+
+		let dirExists = false;
+		try {
+			dirExists = await this.fss.directoryExists(docsDir);
+		} catch (e: any) {
+			if (e.code !== 'ENOENT') logger.warn(`Error checking stats for docs directory ${docsDir}: ${errorToString(e)}`);
+		}
+
+		if (!dirExists) {
+			logger.warn(`The ${docsDir} directory does not exist.`);
+			return summaries;
+		}
+
+		try {
+			const files = await this.fss.listFilesRecursively(docsDir, true);
+			logger.info(`Found ${files.length} files in ${docsDir}`);
+
+			if (files.length === 0) {
+				logger.warn(`No files found in ${docsDir}. Directory might be empty.`);
+				return summaries;
+			}
+
+			for (const file of files) {
+				const fileName = basename(file);
+				if (file.endsWith('.json') && fileName !== '_project_summary.json') {
+					try {
+						const content = await this.fss.readFile(file);
+						const summary: Summary = JSON.parse(content.toString());
+						summaries.set(summary.path, summary);
+					} catch (error) {
+						logger.warn(`Failed to read or parse summary file: ${file}. ${errorToString(error)}`);
+					}
+				}
+			}
+		} catch (error: any) {
+			logger.error(`Error listing files in ${docsDir}: ${errorToString(error)}`);
+			throw error;
+		}
+
+		logger.info(`Loaded ${summaries.size} summaries`);
+		return summaries;
+	}
+}
 
 /**
  * This auto-generates summary documentation for a project/repository, to assist with searching in the repository.
  * This should generally be run in the root folder of a project/repository.
  * The documentation summaries are saved in a parallel directory structure under the .typedai/docs folder
  */
-export async function buildIndexDocs(): Promise<void> {
-	logger.info('Building index docs');
-
-	await withActiveSpan('Build index docs', async (span: Span) => {
-		try {
-			// Load and parse projectInfo.json
-			const projectInfoPath = path.join(process.cwd(), 'projectInfo.json');
-			const projectInfoData = await fs.readFile(projectInfoPath, 'utf-8');
-			const projectInfos = JSON.parse(projectInfoData);
-
-			// Assuming you have only one project in the array
-			const projectInfo = projectInfos[0];
-
-			// Extract indexDocs patterns
-			const indexDocsPatterns: string[] = projectInfo.indexDocs || [];
-
-			const fss = getFileSystem();
-			// Define fileMatchesIndexDocs function inside buildIndexDocs
-			function fileMatchesIndexDocs(filePath: string): boolean {
-				const fss = getFileSystem();
-
-				// If filePath is absolute, make it relative to the working directory
-				if (path.isAbsolute(filePath)) {
-					filePath = path.relative(fss.getWorkingDirectory(), filePath);
-				}
-
-				// Normalize file path to use forward slashes
-				const normalizedPath = filePath.split(path.sep).join('/');
-
-				logger.info(`Checking indexDocs matching for ${normalizedPath}`);
-
-				return micromatch.isMatch(normalizedPath, indexDocsPatterns);
-			}
-
-			// Define folderMatchesIndexDocs function inside buildIndexDocs
-			function folderMatchesIndexDocs(folderPath: string): boolean {
-				const fss = getFileSystem();
-
-				// Convert absolute folderPath to a relative path
-				if (path.isAbsolute(folderPath)) {
-					folderPath = path.relative(fss.getWorkingDirectory(), folderPath);
-				}
-
-				// Normalize paths to use forward slashes
-				const normalizedFolderPath = folderPath.split(path.sep).join('/');
-
-				// Ensure folder path ends with a slash
-				const folderPathWithSlash = normalizedFolderPath.endsWith('/') ? normalizedFolderPath : `${normalizedFolderPath}/`;
-
-				// Extract directory portions from the patterns
-				const patternDirs = indexDocsPatterns.map((pattern) => {
-					const index = pattern.indexOf('**');
-					let dir = index !== -1 ? pattern.substring(0, index) : pattern;
-					dir = dir.endsWith('/') ? dir : `${dir}/`;
-					return dir;
-				});
-
-				// Check if the folder path starts with any of the pattern directories
-				return patternDirs.some((patternDir) => folderPathWithSlash.startsWith(patternDir));
-			}
-
-			const startFolder = getFileSystem().getWorkingDirectory();
-			await processFolderRecursively(startFolder, fileMatchesIndexDocs, folderMatchesIndexDocs);
-			await withActiveSpan('generateTopLevelSummary', async (span: Span) => {
-				// Generate a project-level summary from the folder summaries
-				await generateTopLevelSummary();
-			});
-		} catch (error) {
-			logger.error(`Failed to build summary docs: ${errorToString(error)}`);
-			throw error;
-		}
-	});
+export async function buildIndexDocs(llm: LLM): Promise<void> {
+	const fss = getFileSystem();
+	const builder = new IndexDocBuilder(fss, llm);
+	await builder.buildIndexDocsInternal();
 }
 
-/**
- * Process a single file to generate its documentation summary
- */
-async function processFile(filePath: string, easyLlm: any): Promise<void> {
-	const fileContents = await fs.readFile(filePath, 'utf-8');
-	const parentSummaries = await getParentSummaries(dirname(filePath));
-	const doc = await generateFileSummary(fileContents, parentSummaries, easyLlm);
-	const relativeFilePath = path.relative(getFileSystem().getWorkingDirectory(), filePath);
-	doc.path = relativeFilePath;
-
-	const summaryFilePath = getSummaryFileName(relativeFilePath);
-	await fs.mkdir(dirname(summaryFilePath), { recursive: true });
-	await fs.writeFile(summaryFilePath, JSON.stringify(doc, null, 2));
-	logger.info(`Completed summary for ${relativeFilePath}`);
-}
-
-/**
- * Process all matching files within a single folder.
- * Files are processed in batches to manage memory and API usage.
- */
-async function processFilesInFolder(folderPath: string, fileMatchesIndexDocs: (filePath: string) => boolean): Promise<void> {
-	const fileSystem = getFileSystem();
-	const files = await fileSystem.listFilesInDirectory(folderPath);
-
-	// Use the full relative path for matching
-	const filteredFiles = files.filter((file) => {
-		const fullRelativePath = path.relative(fileSystem.getWorkingDirectory(), path.join(folderPath, file));
-		return fileMatchesIndexDocs(fullRelativePath);
-	});
-
-	if (filteredFiles.length === 0) {
-		logger.info(`No files to process in folder ${folderPath}`);
-		return;
-	}
-
-	logger.info(`Processing ${filteredFiles.length} files in folder ${folderPath}`);
-	const easyLlm = llms().easy;
-	const errors: Array<{ file: string; error: Error }> = [];
-
-	await withActiveSpan('processFilesInBatches', async (span: Span) => {
-		// Process files in batches within the folder
-		for (let i = 0; i < filteredFiles.length; i += BATCH_SIZE) {
-			const batch = filteredFiles.slice(i, i + BATCH_SIZE);
-			await Promise.all(
-				batch.map(async (file) => {
-					const filePath = join(folderPath, file);
-					try {
-						await processFile(filePath, easyLlm);
-					} catch (e) {
-						logger.error(e, `Failed to process file ${filePath}`);
-						errors.push({ file: filePath, error: e });
-					}
-				}),
-			);
-			logger.info(`Completed batch ${Math.floor(i / BATCH_SIZE) + 1} of ${Math.ceil(filteredFiles.length / BATCH_SIZE)}`);
-		}
-	});
-
-	if (errors.length > 0) {
-		logger.error(`Failed to process ${errors.length} files in folder ${folderPath}`);
-		errors.forEach(({ file, error }) => logger.error(`${file}: ${errorToString(error)}`));
-	}
-}
-
-/**
- * Process a folder and its contents recursively in depth-first order.
- * First processes all subfolders, then files in the current folder,
- * and finally builds the folder summary.
- */
-async function processFolderRecursively(
-	folderPath: string,
-	fileMatchesIndexDocs: (filePath: string) => boolean,
-	folderMatchesIndexDocs: (folderPath: string) => boolean,
-): Promise<void> {
-	logger.info(`Processing folder: ${folderPath}`);
-
-	await withActiveSpan('processFolderRecursively', async (span: Span) => {
-		try {
-			// Get subfolder names (already updated to return names only)
-			const subFolders = await getFileSystem().listFolders(folderPath);
-
-			// Process subfolders
-			for (const subFolder of subFolders) {
-				const subFolderPath = path.join(folderPath, subFolder);
-
-				// Ensure relative path is correctly calculated
-				const relativeSubFolderPath = path.relative(getFileSystem().getWorkingDirectory(), subFolderPath);
-
-				if (folderMatchesIndexDocs(relativeSubFolderPath)) {
-					await processFolderRecursively(subFolderPath, fileMatchesIndexDocs, folderMatchesIndexDocs);
-				} else {
-					logger.info(`Skipping folder ${subFolderPath} as it does not match any indexDocs patterns`);
-				}
-			}
-
-			// Process files in the current folder
-			await processFilesInFolder(folderPath, fileMatchesIndexDocs);
-
-			// Build folder summary if any files were processed
-			const hasProcessedFiles = await checkIfFolderHasProcessedFiles(folderPath, fileMatchesIndexDocs);
-			if (hasProcessedFiles) {
-				await buildFolderSummary(folderPath);
-			}
-		} catch (error) {
-			logger.error(`Error processing folder ${folderPath}: ${errorToString(error)}`);
-			throw error;
-		}
-	});
-}
-
-async function checkIfFolderHasProcessedFiles(folderPath: string, fileMatchesIndexDocs: (filePath: string) => boolean): Promise<boolean> {
-	const fileSystem = getFileSystem();
-	const files = await fileSystem.listFilesInDirectory(folderPath);
-	const processedFiles = files.filter((file) => {
-		const fullRelativePath = path.relative(fileSystem.getWorkingDirectory(), path.join(folderPath, file));
-		return fileMatchesIndexDocs(fullRelativePath);
-	});
-	return processedFiles.length > 0;
-}
-
-/**
- * Generate a summary for a single file
- */
-async function generateFileSummary(fileContents: string, parentSummaries: Summary[], llm: any): Promise<Summary> {
-	let parentSummary = '';
-	if (parentSummaries.length) {
-		parentSummary = '<parent-summaries>\n';
-		for (const summary of parentSummaries) {
-			parentSummary += `<parent-summary path="${summary.path}">\n${summary.long}\n</parent-summary>\n`;
-		}
-		parentSummary += '</parent-summaries>\n\n';
-	}
-
-	const prompt = `
-Analyze this source code file and generate a summary that captures its purpose and functionality:
-
-${parentSummary}
-<source-code>
-${fileContents}
-</source-code>
-
-Generate two summaries in JSON format:
-1. A one-sentence overview of the file's purpose
-2. A detailed paragraph describing:
-   - The file's main functionality and features
-   - Key classes/functions/components
-   - Its role in the larger codebase
-   - Important dependencies or relationships
-   - Notable patterns or implementation details
-
-Focus on unique aspects not covered in parent summaries.
-
-Respond only with JSON in this format:
-<json>
-{
-  "short": "One-sentence file summary",
-  "long": "Detailed paragraph describing the file"
-}
-</json>`;
-
-	return await llm.generateJson(prompt, { id: 'Generate file summary' });
-}
-
-// Utils -----------------------------------------------------------
-
-/**
- * Returns the summary file path for a given source file path
- * @param filePath source file path
- * @returns summary file path
- */
-function getSummaryFileName(filePath: string): string {
-	const relativeFilePath = path.relative(getFileSystem().getWorkingDirectory(), filePath);
-	const fileName = basename(relativeFilePath);
-	const dirPath = dirname(relativeFilePath);
-	return join(typedaiDirName, 'docs', dirPath, `${fileName}.json`);
-}
-
-// -----------------------------------------------------------------------------
-//   File-level summaries
-// -----------------------------------------------------------------------------
-
-// -----------------------------------------------------------------------------
-//   Folder-level summaries
-// -----------------------------------------------------------------------------
-
-/**
- * Builds a summary for the current folder using its files and subfolders
- */
-async function buildFolderSummary(folderPath: string): Promise<void> {
-	const fileSummaries = await getFileSummaries(folderPath);
-	const subFolderSummaries = await getSubFolderSummaries(folderPath);
-
-	if (!fileSummaries.length && !subFolderSummaries.length) {
-		logger.info(`No summaries to build for folder ${folderPath}`);
-		return;
-	}
-
-	try {
-		const combinedSummary = combineFileAndSubFoldersSummaries(fileSummaries, subFolderSummaries);
-		const parentSummaries = await getParentSummaries(folderPath);
-		const folderSummary = await generateFolderSummary(llms().easy, combinedSummary, parentSummaries);
-		const relativeFolderPath = path.relative(getFileSystem().getWorkingDirectory(), folderPath);
-		folderSummary.path = relativeFolderPath;
-
-		const folderName = basename(folderPath);
-		const summaryPath = join(typedaiDirName, 'docs', relativeFolderPath, `_${folderName}.json`);
-		await fs.mkdir(dirname(summaryPath), { recursive: true });
-		await fs.writeFile(summaryPath, JSON.stringify(folderSummary, null, 2));
-		logger.info(`Generated summary for folder ${relativeFolderPath}`);
-	} catch (error) {
-		logger.error(`Failed to generate summary for folder ${folderPath}: ${errorToString(error)}`);
-		throw error;
-	}
-}
-
-/**
- * Sort by depth for bottom-up building of the docs
- * @param folders
- */
-function sortFoldersByDepth(folders: string[]): string[] {
-	return folders.sort((a, b) => b.split('/').length - a.split('/').length);
-}
-
-async function getFileSummaries(folderPath: string): Promise<Summary[]> {
-	const fileSystem = getFileSystem();
-	const fileNames = await fileSystem.listFilesInDirectory(folderPath);
-	const summaries: Summary[] = [];
-
-	for (const fileName of fileNames) {
-		const summaryPath = getSummaryFileName(join(folderPath, fileName));
-		logger.info(`File summary path ${summaryPath}`);
-		try {
-			const summaryContent = await fs.readFile(summaryPath, 'utf-8');
-			summaries.push(JSON.parse(summaryContent));
-		} catch (e) {
-			logger.warn(`Failed to read summary for file ${fileName}`);
-		}
-	}
-
-	return summaries;
-}
-
-async function getSubFolderSummaries(folder: string): Promise<Summary[]> {
-	const fileSystem = getFileSystem();
-	const subFolders = await fileSystem.listFolders(folder);
-	const summaries: Summary[] = [];
-
-	for (const subFolder of subFolders) {
-		const folderName = subFolder.split('/').pop();
-		const relativeSubFolder = path.relative(fileSystem.getWorkingDirectory(), path.join(folder, subFolder));
-		const summaryPath = join('.typedai', 'docs', relativeSubFolder, `_${folderName}.json`);
-		logger.info(`Folder summary path ${summaryPath}`);
-		try {
-			const summaryContent = await fs.readFile(summaryPath, 'utf-8');
-			summaries.push(JSON.parse(summaryContent));
-		} catch (e) {
-			// logger.warn(`Failed to read summary for subfolder ${subFolder}`);
-		}
-	}
-
-	return summaries;
-}
-
-/**
- * Formats the summaries of the files and folders into the following format:
- *
- * dir/dir2
- * paragraph summary
- *
- * dir/file1
- * paragraph summary
- *
- * @param fileSummaries
- * @param subFolderSummaries
- */
-function combineFileAndSubFoldersSummaries(fileSummaries: Summary[], subFolderSummaries: Summary[]): string {
-	const allSummaries = [...subFolderSummaries, ...fileSummaries];
-	return allSummaries.map((summary) => `${summary.path}\n${summary.long}`).join('\n\n');
-}
-
-async function generateFolderSummary(llm: any, combinedSummary: string, parentSummaries: Summary[] = []): Promise<Summary> {
-	let parentSummary = '';
-	if (parentSummaries.length) {
-		parentSummary = '<parent-summaries>\n';
-		for (const summary of parentSummaries) {
-			parentSummary += `<parent-summary path="${summary.path}">\n${summary.long}\n</parent-summary>\n`;
-		}
-		parentSummary += '</parent-summaries>\n\n';
-	}
-
-	const prompt = `
-Analyze the following summaries of files and subfolders within this directory:
-
-${parentSummary}
-<summaries>
-${combinedSummary}
-</summaries>
-
-Task: Generate a cohesive summary for this folder that captures its role in the larger project.
-
-1. Key Topics:
-   List 3-5 main topics or functionalities this folder addresses.
-
-2. Folder Summary:
-   Provide two summaries in JSON format:
-   a) A one-sentence overview of the folder's purpose and contents.
-   b) A paragraph-length description highlighting:
-      - The folder's role in the project architecture
-      - Main components or modules contained
-      - Key functionalities implemented in this folder
-      - Relationships with other parts of the codebase
-      - Any patterns or principles evident in the folder's organization
-
-Note: Focus on the folder's unique contributions. Avoid repeating information from parent summaries.
-
-Respond only with JSON in this format:
-<json>
-{
-  "short": "Concise one-sentence folder summary",
-  "long": "Detailed paragraph summarizing the folder's contents and significance"
-}
-</json>
-`;
-
-	return await llm.generateJson(prompt, { id: 'Generate folder summary' });
-}
-
-// -----------------------------------------------------------------------------
-//   Top-level summary
-// -----------------------------------------------------------------------------
-
-export async function generateTopLevelSummary(): Promise<string> {
-	const fileSystem = getFileSystem();
-	const cwd = fileSystem.getWorkingDirectory();
-
-	// Get all folder-level summaries
-	const folderSummaries = await getAllFolderSummaries(cwd);
-
-	// Combine all folder summaries
-	const combinedSummary = folderSummaries.map((summary) => `${summary.path}:\n${summary.long}`).join('\n\n');
-
-	// Generate the top-level summary using LLM
-	const topLevelSummary = await llms().easy.generateText(generateDetailedSummaryPrompt(combinedSummary), { id: 'Generate top level summary' });
-
-	// Save the top-level summary
-	await saveTopLevelSummary(cwd, topLevelSummary);
-
-	return topLevelSummary;
-}
-
-async function getAllFolderSummaries(rootDir: string): Promise<Summary[]> {
-	const fileSystem = getFileSystem();
-	const folders = await fileSystem.getAllFoldersRecursively();
-	const summaries: Summary[] = [];
-
-	for (const folder of folders) {
-		const folderName = folder.split('/').pop();
-		const summaryPath = join(rootDir, '.typedai', 'docs', folder, `_${folderName}.json`);
-		try {
-			const summaryContent = await fs.readFile(summaryPath, 'utf-8');
-			summaries.push(JSON.parse(summaryContent));
-		} catch (e) {
-			// logger.warn(`Failed to read summary for folder ${folder}`);
-		}
-	}
-
-	return summaries;
-}
-
-function generateDetailedSummaryPrompt(combinedSummary: string): string {
-	return `Based on the following folder summaries, create a comprehensive overview of the entire project:
-
-${combinedSummary}
-
-Generate a detailed Markdown summary that includes:
-
-1. Project Overview:
-   - The project's primary purpose and goals
-
-2. Architecture and Structure:
-   - High-level architecture of the project
-   - Key directories and their roles
-   - Main modules or components and their interactions
-
-3. Core Functionalities:
-   - List and briefly describe the main features with their location in the project
-
-4. Technologies and Patterns:
-   - Primary programming languages used
-   - Key frameworks, libraries, or tools
-   - Notable design patterns or architectural decisions
-
-Ensure the summary is well-structured, using appropriate Markdown formatting for readability.
-Include folder path names and file paths where applicable to help readers navigate through the project.
-`;
-}
-
-async function saveTopLevelSummary(rootDir: string, summary: string): Promise<void> {
-	const summaryPath = join(typedaiDirName, 'docs', '_summary');
-	await fs.writeFile(summaryPath, JSON.stringify(summary, null, 2));
-}
-
-export async function getTopLevelSummary(): Promise<string> {
-	try {
-		return (await fs.readFile(join(typedaiDirName, 'docs', '_summary'))).toString();
-	} catch (e) {
-		return '';
-	}
+interface ProjectSummaryDoc {
+	projectOverview: string;
+	meta: {
+		hash: string;
+	};
 }
 
 export async function getRepositoryOverview(): Promise<string> {
-	const repositoryOverview: string = await getTopLevelSummary();
+	const fss = getFileSystem();
+	// getRepositoryOverview doesn't directly use LLM for generation, only for reading existing summary.
+	// Passing a dummy or 'easy' LLM if the builder's methods it calls might need one.
+	// getTopLevelSummaryInternal does not use LLM.
+	const builder = new IndexDocBuilder(fss, {} as LLM);
+	const repositoryOverview: string = await builder.getTopLevelSummaryInternal();
 	return repositoryOverview ? `<repository-overview>\n${repositoryOverview}\n</repository-overview>\n` : '';
-}
-
-async function getParentSummaries(folderPath: string): Promise<Summary[]> {
-	// TODO should walk up to the git root folder
-	const parentSummaries: Summary[] = [];
-	let currentPath = dirname(folderPath);
-
-	while (currentPath !== '.') {
-		const folderName = basename(currentPath);
-		const summaryPath = join(typedaiDirName, 'docs', currentPath, `_${folderName}.json`);
-		try {
-			const summaryContent = await fs.readFile(summaryPath, 'utf-8');
-			parentSummaries.unshift(JSON.parse(summaryContent));
-		} catch (e) {
-			// If we can't read a summary, we've reached the top of the summarized hierarchy
-			break;
-		}
-		currentPath = dirname(currentPath);
-	}
-
-	return parentSummaries;
 }
 
 /**
  * Loads build documentation summaries from the specified directory.
  *
- * @param {boolean} [createIfNotExits=true] - If true, creates the documentation directory if it doesn't exist.
  * @returns {Promise<Map<string, Summary>>} A promise that resolves to a Map of file paths to their corresponding Summary objects.
  * @throws {Error} If there's an error listing files in the docs directory.
  *
  * @description
  * This function performs the following steps:
- * 1. Checks if the docs directory exists, creating it if necessary.
+ * 1. Checks if the docs directory exists.
  * 2. Lists all JSON files in the docs directory recursively.
  * 3. Reads and parses each JSON file, storing the resulting Summary objects in a Map.
  *
@@ -564,52 +647,8 @@ async function getParentSummaries(folderPath: string): Promise<Summary[]> {
  * const summaries = await loadBuildDocsSummaries();
  * console.log(`Loaded ${summaries.size} summaries`);
  */
-export async function loadBuildDocsSummaries(createIfNotExits = false): Promise<Map<string, Summary>> {
-	const summaries = new Map<string, Summary>();
-
+export async function loadBuildDocsSummaries(): Promise<Map<string, Summary>> {
 	const fss = getFileSystem();
-	// If in a git repo use the repo root to store the summary index files
-	const repoFolder = (await fss.getVcsRoot()) ?? fss.getWorkingDirectory();
-
-	const docsDir = join(repoFolder, typedaiDirName, 'docs');
-	logger.info(`Load summaries from ${docsDir}`);
-
-	try {
-		const dirExists = await fss.fileExists(docsDir);
-		if (!dirExists && !createIfNotExits) {
-			logger.warn(`The ${docsDir} directory does not exist.`);
-			return summaries;
-		}
-		if (!dirExists) {
-			await buildIndexDocs();
-		}
-
-		const files = await fss.listFilesRecursively(docsDir, false);
-		logger.info(`Found ${files.length} files in ${docsDir}`);
-
-		if (files.length === 0) {
-			logger.warn(`No files found in ${docsDir}. Directory might be empty.`);
-			return summaries;
-		}
-
-		for (const file of files) {
-			if (file.endsWith('.json')) {
-				try {
-					if (await fss.fileExists(file)) {
-						const content = await fss.readFile(file);
-						const summary: Summary = JSON.parse(content);
-						summaries.set(summary.path, summary);
-					}
-				} catch (error) {
-					logger.warn(`Failed to read or parse summary file: ${file}. ${errorToString(error)}`);
-				}
-			}
-		}
-	} catch (error) {
-		logger.error(`Error listing files in ${docsDir}: ${error.message}`);
-		throw error;
-	}
-
-	logger.info(`Loaded ${summaries.size} summaries`);
-	return summaries;
+	const builder = new IndexDocBuilder(fss, {} as LLM); // LLM not used when only loading
+	return builder.loadBuildDocsSummariesInternal();
 }

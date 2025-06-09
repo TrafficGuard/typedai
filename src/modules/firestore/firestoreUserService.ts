@@ -2,10 +2,12 @@ import { type DocumentSnapshot, Firestore } from '@google-cloud/firestore';
 import * as bcrypt from 'bcrypt';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import type { User } from '#user/user';
-import { currentUser, isSingleUser } from '#user/userService/userContext';
-import type { UserService } from '#user/userService/userService';
+import type { User } from '#shared/user/user.model';
+import { currentUser, isSingleUser } from '#user/userContext';
+import type { UserService } from '#user/userService';
 import { envVar } from '#utils/env-var';
+
+export const USERS_COLLECTION = 'Users';
 
 /*** Google Firestore implementation of UserService*/
 export class FirestoreUserService implements UserService {
@@ -15,7 +17,7 @@ export class FirestoreUserService implements UserService {
 	constructor() {
 		this.db = new Firestore({
 			projectId: process.env.FIRESTORE_EMULATOR_HOST ? 'demo-typedai' : envVar('GCLOUD_PROJECT'),
-			databaseId: process.env.FIRESTORE_DATABASE,
+			databaseId: process.env.DATABASE_NAME,
 			ignoreUndefinedProperties: true,
 		});
 	}
@@ -57,39 +59,50 @@ export class FirestoreUserService implements UserService {
 		if (!docSnap.exists) {
 			throw new Error(`User ${userId} does not exist`);
 		}
-		const data = docSnap.data() as User;
+		const data = docSnap.data();
+		if (!data) {
+			throw new Error(`User data for ${userId} is undefined`);
+		}
 		return this.docToUser(data, userId);
 	}
 
 	docToUser(data: any, id: string): User {
 		const user: User = {
-			...data,
 			id,
+			name: data.name,
+			email: data.email,
+			enabled: data.enabled,
+			hilBudget: data.hilBudget,
+			hilCount: data.hilCount,
+			createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt,
+			lastLoginAt: data.lastLoginAt?.toDate ? data.lastLoginAt.toDate() : data.lastLoginAt,
+			passwordHash: data.passwordHash, // Ensure passwordHash is included
+			llmConfig: data.llmConfig ?? {}, // Ensure llmConfig is included
+			functionConfig: data.functionConfig ?? {}, // Ensure functionConfig is included
+			chat: data.chat, // Will be handled by the nullish coalescing operator below
 		};
-		if (!user.functionConfig) user.functionConfig = {};
-		if (!user.chat) {
-			user.chat = {
-				enabledLLMs: {},
-				defaultLLM: (user as any).defaultChatLlmId, // backward compat
-				temperature: 1,
-				topP: 1,
-				topK: 50,
-				frequencyPenalty: 0,
-				presencePenalty: 0,
-			};
-		}
-		if (!user.chat.enabledLLMs) user.chat.enabledLLMs = {};
-		if (!user.chat.temperature) user.chat.temperature = 0.7;
-		if (!user.chat.topP) user.chat.topP = 1;
-		if (!user.chat.topK) user.chat.topK = 50;
-		if (!user.chat.frequencyPenalty) user.chat.frequencyPenalty = 0;
-		if (!user.chat.presencePenalty) user.chat.presencePenalty = 0;
+		user.chat ??= {
+			enabledLLMs: {},
+			defaultLLM: (data as any).defaultChatLlmId, // backward compat
+			temperature: 1,
+			topP: 1,
+			topK: 50,
+			frequencyPenalty: 0,
+			presencePenalty: 0,
+		};
+		user.chat.enabledLLMs ??= {};
+		user.chat.defaultLLM ??= '';
+		user.chat.temperature ??= 1; // Align with test default
+		user.chat.topP ??= 1;
+		user.chat.topK ??= 50;
+		user.chat.frequencyPenalty ??= 0;
+		user.chat.presencePenalty ??= 0;
 		return user;
 	}
 
 	@span({ email: 0 })
 	async getUserByEmail(email: string): Promise<User | null> {
-		const querySnapshot = await this.db.collection('Users').where('email', '==', email).get();
+		const querySnapshot = await this.db.collection(USERS_COLLECTION).where('email', '==', email).get();
 		const users = querySnapshot.docs.map((doc) => {
 			const data = doc.data();
 			return this.docToUser(data, doc.id);
@@ -101,10 +114,35 @@ export class FirestoreUserService implements UserService {
 
 	@span({ email: 0 })
 	async createUser(user: Partial<User>): Promise<User> {
-		const docRef = this.db.collection('Users').doc();
-		user.llmConfig ??= {};
+		const docRef = this.db.collection(USERS_COLLECTION).doc(); // Firestore generates ID
+
+		const dataToSet: Partial<User> = {
+			name: user.name ?? 'Test User',
+			email: user.email,
+			enabled: user.enabled ?? true,
+			hilBudget: user.hilBudget ?? 0,
+			hilCount: user.hilCount ?? 0,
+			createdAt: user.createdAt instanceof Date ? user.createdAt : new Date(),
+			passwordHash: user.passwordHash,
+			lastLoginAt: user.lastLoginAt instanceof Date ? user.lastLoginAt : undefined,
+			llmConfig: user.llmConfig ?? {},
+			chat: user.chat ?? {
+				enabledLLMs: {},
+				defaultLLM: '',
+				temperature: 1,
+				topP: 1,
+				topK: 50,
+				frequencyPenalty: 0,
+				presencePenalty: 0,
+			},
+			functionConfig: user.functionConfig ?? {},
+		};
+
+		// Remove properties that are undefined, so Firestore doesn't store them as nulls
+		const finalDataToSet = Object.fromEntries(Object.entries(dataToSet).filter(([, value]) => value !== undefined));
+
 		try {
-			await docRef.set({ ...user });
+			await docRef.set(finalDataToSet);
 			return this.getUser(docRef.id);
 		} catch (error) {
 			logger.error(error, 'Error creating user');
@@ -142,7 +180,7 @@ export class FirestoreUserService implements UserService {
 
 	@span()
 	async listUsers(): Promise<User[]> {
-		const querySnapshot = await this.db.collection('Users').get();
+		const querySnapshot = await this.db.collection(USERS_COLLECTION).get();
 		return querySnapshot.docs.map((doc) => {
 			const data = doc.data() as User;
 			return this.docToUser(data, doc.id);

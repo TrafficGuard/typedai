@@ -1,0 +1,46 @@
+#!/bin/bash
+# PostgreSQL Database Setup ---------------------------------
+echo "--- Starting PostgreSQL Database setup ---"
+
+echo "You have selected PostgreSQL as your database."
+echo "This setup part currently provides guidance rather than full automation."
+echo ""
+echo "To use PostgreSQL, you need a running PostgreSQL instance."
+echo "You can use the one defined in the docker-compose.yml file."
+echo ""
+read -r -p "Do you want to attempt to start the PostgreSQL service using Docker Compose? (y/N) " start_docker
+start_docker_lower=$(echo "$start_docker" | tr '[:upper:]' '[:lower:]')
+
+if [[ "$start_docker_lower" == "y" ]]; then
+    if command -v docker-compose &> /dev/null || command -v docker &> /dev/null && docker compose version &> /dev/null; then
+        echo "Attempting to start the 'postgres' service using Docker Compose..."
+        # Use 'up -d' to run in detached mode, '--no-deps' to only start the postgres service
+        if docker compose up -d --no-deps postgres; then
+            echo "PostgreSQL Docker service started successfully."
+            echo "It might take a few moments for the database to be ready."
+        else
+            echo "Warning: Failed to start the PostgreSQL Docker service."
+            echo "Please check your Docker installation and docker-compose.yml file."
+        fi
+    else
+        echo "Warning: Docker or Docker Compose not found."
+        echo "Please install Docker (https://www.docker.com/get-started) to use the Docker Compose setup."
+    fi
+else
+    echo "Skipping Docker Compose start for PostgreSQL."
+fi
+
+echo ""
+echo "Important: Please ensure the following variables in ./variables/local.env are correct for your PostgreSQL instance:"
+echo "  POSTGRES_USER"
+echo "  POSTGRES_PASSWORD"
+echo "  POSTGRES_DB"
+echo "  POSTGRES_HOST (usually 'localhost' if running directly, or the service name like 'postgres' if using Docker Compose)"
+echo "  POSTGRES_PORT (usually 5432)"
+echo ""
+echo "You may also need to run database migrations after starting the application for the first time."
+echo "Refer to the documentation for migration instructions."
+
+echo "PostgreSQL Database setup script completed."
+# Exit with 0 to indicate success of this part (even if Docker failed, user might use external DB)
+exit 0

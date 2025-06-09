@@ -51,5 +51,11 @@ export class IconsService {
                 'icons/heroicons-mini.svg'
             )
         );
+
+        // --- Configure MatIcon to use Material Symbols font class added to index.html ---
+        // This tells mat-icon components to use this CSS class for the font,
+        // ensuring it properly picks up the Material Symbols font.
+        // The default is 'material-icons', so we update it for 'material-symbols-outlined'.
+        matIconRegistry.setDefaultFontSetClass('material-symbols-outlined');
     }
 }

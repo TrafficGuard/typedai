@@ -1,14 +1,14 @@
 import { type OpenAIProvider, createOpenAI } from '@ai-sdk/openai';
 import { type LlmCostFunction, fixedCostPerMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
-import { currentUser } from '#user/userService/userContext';
-import type { LLM } from '../llm';
+import type { LLM } from '#shared/llm/llm.model';
+import { currentUser } from '#user/userContext';
 
 export const XAI_SERVICE = 'xai';
 
 export class XAI extends AiLLM<OpenAIProvider> {
-	constructor(displayName: string, model: string, maxTokens: number, calculateCosts: LlmCostFunction) {
-		super(displayName, XAI_SERVICE, model, maxTokens, calculateCosts);
+	constructor(displayName: string, model: string, maxOutputTokens: number, calculateCosts: LlmCostFunction) {
+		super(displayName, XAI_SERVICE, model, maxOutputTokens, calculateCosts);
 	}
 
 	protected apiKey(): string {

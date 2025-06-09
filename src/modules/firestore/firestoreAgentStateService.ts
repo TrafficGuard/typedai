@@ -1,33 +1,36 @@
-import type { DocumentSnapshot, Firestore } from '@google-cloud/firestore';
-import { LlmFunctions } from '#agent/LlmFunctions';
-import { type AgentContext, type AgentRunningState, type AutonomousIteration, isExecuting } from '#agent/agentContextTypes';
-import { deserializeAgentContext, serializeContext } from '#agent/agentSerialization';
-import type { AgentStateService } from '#agent/agentStateService/agentStateService';
-// Ensure validateFirestoreObject is imported if not already
+import type { DocumentSnapshot, FieldPath, Firestore } from '@google-cloud/firestore';
+import type { Static } from '@sinclair/typebox';
+import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
+import type { AgentContextService } from '#agent/agentContextService/agentContextService';
+import { deserializeContext, serializeContext } from '#agent/agentSerialization';
 import { MAX_PROPERTY_SIZE, truncateToByteLength, validateFirestoreObject } from '#firestore/firestoreUtils';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import type { User } from '#user/user';
-import { currentUser } from '#user/userService/userContext';
+import {
+	AGENT_PREVIEW_KEYS,
+	type AgentContext,
+	type AgentContextPreview,
+	type AgentRunningState,
+	type AutonomousIteration,
+	type AutonomousIterationSummary,
+	isExecuting,
+} from '#shared/agent/agent.model';
+import type { AgentContextSchema } from '#shared/agent/agent.schema';
+import { NotAllowed, NotFound } from '#shared/errors'; // Added import
+import { currentUser } from '#user/userContext';
 import { firestoreDb } from './firestore';
-
-// Type specifically for Firestore storage, allowing objects for Maps
-type FirestoreAutonomousIteration = Omit<AutonomousIteration, 'memory' | 'toolState'> & {
-	memory: Record<string, string>;
-	toolState: Record<string, any>;
-};
 
 /**
  * Google Firestore implementation of AgentStateService
  */
-export class FirestoreAgentStateService implements AgentStateService {
+export class FirestoreAgentStateService implements AgentContextService {
 	db: Firestore = firestoreDb();
 
 	@span()
 	async save(state: AgentContext): Promise<void> {
-		if (state.error && Buffer.byteLength(state.error, 'utf8') > MAX_PROPERTY_SIZE) {
-			state.error = truncateToByteLength(state.error, MAX_PROPERTY_SIZE);
+		if (state.error && Buffer.byteLength(state.error, 'utf8') > MAX_PROPERTY_SIZE / 2) {
+			state.error = truncateToByteLength(state.error, MAX_PROPERTY_SIZE / 2);
 		}
 		if (Buffer.byteLength(state.inputPrompt, 'utf8') > MAX_PROPERTY_SIZE) {
 			// Log instead of throwing, as per original code, but maybe consider throwing if this is critical
@@ -99,36 +102,70 @@ export class FirestoreAgentStateService implements AgentStateService {
 		}
 	}
 
+	async requestHumanInLoopCheck(agent: AgentContext): Promise<void> {
+		const now = Date.now();
+
+		const docRef = this.db.doc(`AgentContext/${agent.agentId}`);
+		try {
+			const update: Partial<AgentContext> = {
+				hilRequested: true,
+				lastUpdate: now,
+			};
+			await docRef.update(update);
+			// Update the state in the context object provided directly for immediate consistency once the firestore update completes
+			agent.hilRequested = true;
+			agent.lastUpdate = now;
+		} catch (error) {
+			logger.error(error, `Error setting hilRequested for agent ${agent.agentId}`);
+			throw error;
+		}
+	}
+
 	@span({ agentId: 0 })
-	async load(agentId: string): Promise<AgentContext | null> {
+	async load(agentId: string): Promise<AgentContext> {
 		const docRef = this.db.doc(`AgentContext/${agentId}`);
 		const docSnap: DocumentSnapshot = await docRef.get();
 		if (!docSnap.exists) {
-			return null;
+			throw new NotFound(`Agent with ID ${agentId} not found.`);
 		}
-		const data = docSnap.data();
-		return deserializeAgentContext({
-			...data,
-			agentId,
-		} as Record<keyof AgentContext, any>);
+		const firestoreData = docSnap.data();
+		if (!firestoreData) {
+			logger.warn({ agentId }, 'Firestore document exists but data is undefined during agent context load.');
+			throw new NotFound(`Agent with ID ${agentId} found but data is missing.`);
+		}
+
+		if (firestoreData.user !== currentUser().id) {
+			logger.warn({ agentId, currentUserId: currentUser().id, ownerId: firestoreData.user }, 'Attempt to load agent not owned by current user.');
+			throw new NotAllowed(`Access denied to agent ${agentId}.`);
+		}
+
+		// Construct the object ensuring it aligns with AgentContextSchema.
+		// AgentContextSchema is designed to include all fields needed by the new deserializeContext.
+		// The new deserializeContext handles defaults for many fields.
+		const schemaCompliantData = {
+			...firestoreData, // Spread all data from Firestore
+			agentId: agentId, // Ensure agentId is present from the method parameter
+		} as Static<typeof AgentContextSchema>; // Cast to the schema type.
+
+		return deserializeContext(schemaCompliantData); // Use the NEW synchronous deserializeContext
 	}
 
 	@span()
-	async list(): Promise<AgentContext[]> {
-		// TODO limit the fields retrieved for performance, esp while functionCallHistory and memory is on the AgentContext object
-		const keys: Array<keyof AgentContext> = ['agentId', 'name', 'state', 'cost', 'error', 'lastUpdate', 'userPrompt', 'inputPrompt', 'user'];
+	async list(): Promise<AgentContextPreview[]> {
 		const querySnapshot = await this.db
 			.collection('AgentContext')
 			.where('user', '==', currentUser().id)
-			.select(...keys)
+			.select(...AGENT_PREVIEW_KEYS)
 			.orderBy('lastUpdate', 'desc')
+			.limit(50)
 			.get();
 		return this.deserializeQuery(querySnapshot);
 	}
 
 	@span()
-	async listRunning(): Promise<AgentContext[]> {
+	async listRunning(): Promise<AgentContextPreview[]> {
 		// Define terminal states to exclude from the "running" list
+		// TODO this list should be defined in agent.model.ts
 		const terminalStates: AgentRunningState[] = ['completed', 'shutdown', 'timeout', 'error']; // Added 'error' as it's typically terminal
 		// NOTE: This query requires a composite index in Firestore.
 		// Example gcloud command:
@@ -141,35 +178,34 @@ export class FirestoreAgentStateService implements AgentStateService {
 			.collection('AgentContext')
 			.where('user', '==', currentUser().id) // Filter by user first
 			.where('state', 'not-in', terminalStates) // Use 'not-in' to exclude multiple terminal states
+			.select(...AGENT_PREVIEW_KEYS) // Ensure this select uses previewKeys
 			.orderBy('state') // Order by the inequality filter field first (Firestore requirement)
 			.orderBy('lastUpdate', 'desc') // Then order by the desired field
 			.get();
 		return this.deserializeQuery(querySnapshot);
 	}
 
-	private async deserializeQuery(querySnapshot: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData, FirebaseFirestore.DocumentData>) {
-		const contexts: Partial<AgentContext>[] = []; // Use Partial<AgentContext> for list view summary
+	private async deserializeQuery(
+		querySnapshot: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData, FirebaseFirestore.DocumentData>,
+	): Promise<AgentContextPreview[]> {
+		const previews: AgentContextPreview[] = [];
 		for (const doc of querySnapshot.docs) {
 			const data = doc.data();
-			// Construct a partial context suitable for list views
-			const partialContext: Partial<AgentContext> = {
+			const preview: AgentContextPreview = {
 				agentId: doc.id,
 				name: data.name,
+				type: data.type,
+				subtype: data.subType ?? '',
 				state: data.state,
-				cost: data.cost,
+				cost: (Number.isNaN(data.cost) ? 0 : data.cost) ?? 0, // Default cost to 0 if undefined/null
 				error: data.error,
 				lastUpdate: data.lastUpdate,
 				userPrompt: data.userPrompt,
 				inputPrompt: data.inputPrompt,
-				// Assign the user ID stored in Firestore. Assume it's stored as a string ID.
-				// Create a minimal User object containing only the ID for type compatibility.
-				user: data.user ? ({ id: data.user } as User) : undefined,
 			};
-			contexts.push(partialContext);
+			previews.push(preview);
 		}
-		// Cast to AgentContext[] for compatibility with current method signature.
-		// Consumers of list() / listRunning() should be aware they might receive partial contexts.
-		return contexts as AgentContext[];
+		return previews;
 	}
 
 	async clear(): Promise<void> {
@@ -181,7 +217,10 @@ export class FirestoreAgentStateService implements AgentStateService {
 
 	@span()
 	async delete(ids: string[]): Promise<void> {
-		// First load all agents to handle parent-child relationships
+		if (ids.length === 0) return;
+		const userId = currentUser().id;
+
+		// First load all agents to handle parent-child relationships and ownership/state checks
 		let agents = await Promise.all(
 			ids.map(async (id) => {
 				try {
@@ -204,11 +243,9 @@ export class FirestoreAgentStateService implements AgentStateService {
 			}),
 		);
 
-		const user = currentUser();
-
 		agents = agents
 			.filter((agent): agent is Partial<AgentContext> => !!agent) // Filter out nulls (non-existent ids)
-			.filter((agent) => agent.user?.id === user.id) // Can only delete your own agents
+			.filter((agent) => agent.user?.id === userId) // Can only delete your own agents
 			.filter((agent) => !agent.state || !isExecuting(agent as AgentContext)) // Can only delete non-executing agents (handle potentially missing state)
 			.filter((agent) => !agent.parentAgentId); // Only delete parent agents. Child agents are deleted with the parent agent.
 
@@ -229,15 +266,12 @@ export class FirestoreAgentStateService implements AgentStateService {
 	}
 
 	async updateFunctions(agentId: string, functions: string[]): Promise<void> {
-		const agent = await this.load(agentId);
-		if (!agent) {
-			throw new Error('Agent not found');
-		}
-		if (agent.user.id !== currentUser().id) {
-			throw new Error('Cannot update functions for an agent you do not own.');
-		}
+		// Load the agent first to check existence and ownership
+		const agent = await this.load(agentId); // This will throw NotFound or NotAllowed if necessary
 
-		agent.functions = new LlmFunctions();
+		// Agent is guaranteed to exist and be owned by the current user here
+
+		agent.functions = new LlmFunctionsImpl();
 		for (const functionName of functions) {
 			const FunctionClass = functionFactory()[functionName];
 			if (FunctionClass) {
@@ -263,16 +297,20 @@ export class FirestoreAgentStateService implements AgentStateService {
 		// e.g., if (iterationData.prompt && Buffer.byteLength(iterationData.prompt, 'utf8') > MAX_PROPERTY_SIZE) { iterationData.prompt = truncateToByteLength(iterationData.prompt, MAX_PROPERTY_SIZE - 100) + '... (truncated)'; }
 		// e.g., if (iterationData.code && Buffer.byteLength(iterationData.code, 'utf8') > MAX_PROPERTY_SIZE) { iterationData.code = truncateToByteLength(iterationData.code, MAX_PROPERTY_SIZE - 100) + '... (truncated)'; }
 		// e.g., if (iterationData.agentPlan && Buffer.byteLength(iterationData.agentPlan, 'utf8') > MAX_PROPERTY_SIZE) { iterationData.agentPlan = truncateToByteLength(iterationData.agentPlan, MAX_PROPERTY_SIZE - 100) + '... (truncated)'; }
-		// e.g., if (iterationData.error && Buffer.byteLength(iterationData.error, 'utf8') > MAX_PROPERTY_SIZE) { iterationData.error = truncateToByteLength(iterationData.error, MAX_PROPERTY_SIZE - 100) + '... (truncated)'; }
+		// e.g., if (iterationData.error && Buffer.byteLength(iterationData.error, 'utf8') > MAX_PROPERTY_SIZE) { iterationData.error = truncateToByteLength(iterationData.error, MAX_PROPERTY_SIZE / 2); }
+
+		if (iterationData.error && Buffer.byteLength(iterationData.error, 'utf8') > MAX_PROPERTY_SIZE / 2) {
+			iterationData.error = truncateToByteLength(iterationData.error, MAX_PROPERTY_SIZE / 2);
+		}
 
 		const iterationDocRef = this.db.collection('AgentContext').doc(iterationData.agentId).collection('iterations').doc(String(iterationData.iteration));
 
 		// Create a Firestore-compatible version of the iteration data using the specific type
-		const firestoreIterationData: FirestoreAutonomousIteration = {
+		const firestoreIterationData: AutonomousIteration = {
 			...iterationData,
-			// Convert Maps to plain objects for Firestore
-			memory: iterationData.memory instanceof Map ? Object.fromEntries(iterationData.memory) : {},
-			toolState: iterationData.toolState instanceof Map ? Object.fromEntries(iterationData.toolState) : {},
+			// memory and toolState are expected to be Records. Default to {} if null/undefined.
+			memory: iterationData.memory || {},
+			toolState: iterationData.toolState || {},
 		};
 
 		// Add validation before saving using the converted data
@@ -297,6 +335,10 @@ export class FirestoreAgentStateService implements AgentStateService {
 
 		try {
 			// Save the Firestore-compatible data
+			console.log(typeof firestoreIterationData.toolState);
+			for (const [k, v] of Object.entries(firestoreIterationData.toolState)) {
+			}
+			console.log(firestoreIterationData.toolState);
 			await iterationDocRef.set(firestoreIterationData); // Save the Firestore-specific object
 			logger.debug({ agentId: iterationData.agentId, iteration: iterationData.iteration }, 'Saved agent iteration');
 		} catch (error) {
@@ -319,9 +361,8 @@ export class FirestoreAgentStateService implements AgentStateService {
 
 	@span()
 	async loadIterations(agentId: string): Promise<AutonomousIteration[]> {
-		const agent = await this.load(agentId);
-		if (!agent) throw new Error('Agent Id does not exist');
-		if (agent.user.id !== currentUser().id) throw new Error('Not your agent');
+		// Load the agent first to check existence and ownership
+		await this.load(agentId); // This will throw NotFound or NotAllowed if necessary
 
 		const iterationsColRef = this.db.collection('AgentContext').doc(agentId).collection('iterations');
 		// Order by the document ID (which is the iteration number as a string)
@@ -335,21 +376,11 @@ export class FirestoreAgentStateService implements AgentStateService {
 		querySnapshot.forEach((doc) => {
 			const data = doc.data();
 			if (data && typeof data.iteration === 'number') {
-				// Convert memory object back to Map if it exists and is an object
-				if (data.memory && typeof data.memory === 'object' && !(data.memory instanceof Map) && !Array.isArray(data.memory)) {
-					data.memory = new Map(Object.entries(data.memory));
-				} else if (!data.memory) {
-					// Ensure memory is at least an empty map if missing or null/undefined from DB
-					data.memory = new Map<string, string>();
-				}
+				// Ensure memory is a Record, defaulting to {} if missing or not a valid object.
+				data.memory = data.memory && typeof data.memory === 'object' && !Array.isArray(data.memory) ? data.memory : {};
 
-				// Convert toolState object back to Map if it exists and is an object
-				if (data.toolState && typeof data.toolState === 'object' && !(data.toolState instanceof Map) && !Array.isArray(data.toolState)) {
-					data.toolState = new Map(Object.entries(data.toolState));
-				} else if (!data.toolState) {
-					// Ensure toolState is at least an empty map if missing or null/undefined from DB
-					data.toolState = new Map<string, any>();
-				}
+				// Ensure toolState is a Record, defaulting to {} if missing or not a valid object.
+				data.toolState = data.toolState && typeof data.toolState === 'object' && !Array.isArray(data.toolState) ? data.toolState : {};
 
 				// Ensure optional fields are correctly handled (set to undefined if missing/null)
 				data.error = data.error || undefined;
@@ -362,6 +393,9 @@ export class FirestoreAgentStateService implements AgentStateService {
 				data.expandedUserRequest = data.expandedUserRequest || undefined;
 				data.observationsReasoning = data.observationsReasoning || undefined;
 				data.nextStepDetails = data.nextStepDetails || undefined;
+				// Ensure optional fields potentially missing from Firestore are set
+				data.draftCode = data.draftCode || undefined;
+				data.codeReview = data.codeReview || undefined;
 
 				iterations.push(data as AutonomousIteration);
 			} else {
@@ -373,5 +407,79 @@ export class FirestoreAgentStateService implements AgentStateService {
 		iterations.sort((a, b) => a.iteration - b.iteration);
 
 		return iterations;
+	}
+
+	@span()
+	async getAgentIterationSummaries(agentId: string): Promise<AutonomousIterationSummary[]> {
+		// Load the agent first to check existence and ownership
+		await this.load(agentId); // This will throw NotFound or NotAllowed if necessary
+
+		const iterationsColRef = this.db.collection('AgentContext').doc(agentId).collection('iterations');
+		// Select only the fields needed for the summary.
+		// Note: Firestore's select() method with FieldPath.documentId() might be complex.
+		// It's often simpler to fetch minimal fields and construct the ID from the doc.id.
+		// Here, 'iteration' is a field, so we can select it directly.
+		const querySnapshot = await iterationsColRef
+			.select('iteration', 'cost', 'summary', 'error') // Select only necessary fields
+			.orderBy('iteration', 'asc') // Order by iteration number
+			.get();
+
+		const summaries: AutonomousIterationSummary[] = [];
+		querySnapshot.forEach((doc) => {
+			const data = doc.data();
+			if (data && typeof data.iteration === 'number') {
+				summaries.push({
+					agentId: agentId,
+					iteration: data.iteration,
+					cost: data.cost ?? 0,
+					summary: data.summary ?? '',
+					error: data.error,
+				});
+			} else {
+				logger.warn({ agentId, iterationId: doc.id }, 'Skipping invalid iteration data during summary load (missing or invalid iteration number)');
+			}
+		});
+		return summaries;
+	}
+
+	@span()
+	async getAgentIterationDetail(agentId: string, iterationNumber: number): Promise<AutonomousIteration> {
+		// Load the agent first to check existence and ownership
+		await this.load(agentId); // This will throw NotFound or NotAllowed if necessary
+
+		const iterationDocRef = this.db.collection('AgentContext').doc(agentId).collection('iterations').doc(String(iterationNumber));
+		const docSnap = await iterationDocRef.get();
+
+		if (!docSnap.exists) {
+			throw new NotFound(`Iteration ${iterationNumber} for agent ${agentId} not found.`);
+		}
+
+		const data = docSnap.data();
+		if (data && typeof data.iteration === 'number') {
+			// Ensure memory is a Record, defaulting to {} if missing or not a valid object.
+			data.memory = data.memory && typeof data.memory === 'object' && !Array.isArray(data.memory) ? data.memory : {};
+			// Ensure toolState is a Record, defaulting to {} if missing or not a valid object.
+			data.toolState = data.toolState && typeof data.toolState === 'object' && !Array.isArray(data.toolState) ? data.toolState : {};
+			// Ensure optional fields are correctly handled
+			data.error = data.error || undefined;
+			data.agentPlan = data.agentPlan || undefined;
+			data.code = data.code || undefined;
+			data.prompt = data.prompt || undefined;
+			data.functionCalls = data.functionCalls || [];
+			data.functions = data.functions || [];
+			data.expandedUserRequest = data.expandedUserRequest || undefined;
+			data.observationsReasoning = data.observationsReasoning || undefined;
+			data.nextStepDetails = data.nextStepDetails || undefined;
+			data.draftCode = data.draftCode || undefined;
+			data.codeReview = data.codeReview || undefined;
+			// Images might be stored as an array of objects
+			data.images = data.images || [];
+
+			return data as AutonomousIteration;
+		}
+		// This case should ideally not be reached if docSnap.exists is true and data is valid.
+		// If data is malformed, it's an unexpected server error or data corruption.
+		logger.error({ agentId, iterationNumber }, 'Invalid iteration data found for detail load despite document existence.');
+		throw new Error(`Invalid iteration data for agent ${agentId}, iteration ${iterationNumber}.`);
 	}
 }

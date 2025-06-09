@@ -1,22 +1,22 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
 import { promises as fs, readFileSync } from 'node:fs';
-import type { AgentLLMs } from '#agent/agentContextTypes';
-import { AGENT_COMPLETED_PARAM_NAME } from '#agent/agentFunctions';
-import { startAgentAndWait } from '#agent/agentRunner';
+import { runAgentAndWait } from '#agent/autonomous/autonomousAgentRunner';
+import { AGENT_COMPLETED_PARAM_NAME } from '#agent/autonomous/functions/agentFunctions';
 import { appContext, initFirestoreApplicationContext } from '#app/applicationContext';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { LlmTools } from '#functions/util';
 import { Perplexity } from '#functions/web/perplexity';
 import { PublicWeb } from '#functions/web/web';
-import { lastText } from '#llm/llm';
-import type { LlmCall } from '#llm/llmCallService/llmCall';
-import { Claude3_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
+import { Claude4_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { groqLlama3_3_70B } from '#llm/services/groq';
-import { openAIo1 } from '#llm/services/openai';
-import { Gemini_2_0_Flash } from '#llm/services/vertexai';
+import { openAIo3 } from '#llm/services/openai';
+import { vertexGemini_2_0_Flash } from '#llm/services/vertexai';
 import { logger } from '#o11y/logger';
+import type { AgentLLMs } from '#shared/agent/agent.model';
+import { lastText } from '#shared/llm/llm.model';
+import type { LlmCall } from '#shared/llmCall/llmCall.model';
 import { sleep } from '#utils/async-utils';
 
 const SYSTEM_PROMPT = `Finish your answer with the following template: FINAL ANSWER: [YOUR FINAL ANSWER]. YOUR FINAL ANSWER should be a number OR as few words as possible OR a comma separated list of numbers and/or strings. If you are asked for a number, don't use comma to write your number neither use units such as $ or percent sign unless specified otherwise. If you are asked for a string, don't use articles, neither abbreviations (e.g. for cities), and write the digits in plain text unless specified otherwise. If you are asked for a comma separated list, apply the above rules depending of whether the element to be put in the list is a number or a string.`;
@@ -88,14 +88,14 @@ async function answerGaiaQuestion(task: GaiaQuestion): Promise<GaiaResult> {
 	if (task.Level === '3') budget = 4;
 
 	try {
-		const agentId = await startAgentAndWait({
+		const agentId = await runAgentAndWait({
 			initialPrompt: prompt,
 			// llms: ClaudeVertexLLMs(),
 			llms: {
-				easy: Gemini_2_0_Flash(),
+				easy: vertexGemini_2_0_Flash(),
 				medium: groqLlama3_3_70B(),
-				hard: Claude3_5_Sonnet_Vertex(),
-				xhard: openAIo1(),
+				hard: Claude4_Sonnet_Vertex(),
+				xhard: openAIo3(),
 			},
 			agentName: `gaia-${task.task_id}`,
 			type: 'autonomous',

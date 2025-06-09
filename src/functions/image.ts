@@ -3,7 +3,7 @@ import ImageGenerateParams, { OpenAI, OpenAI as OpenAISDK } from 'openai';
 import { agentContext, getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
-import { currentUser } from '#user/userService/userContext';
+import { currentUser } from '#user/userContext';
 import { envVar } from '#utils/env-var';
 
 import { writeFileSync } from 'node:fs';

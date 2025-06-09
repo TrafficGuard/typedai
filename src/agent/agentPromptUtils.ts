@@ -1,9 +1,13 @@
 import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
-import { LiveFiles } from '#agent/liveFiles';
+import { FileSystemTree } from '#agent/autonomous/functions/fileSystemTree';
+import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
 import { FileSystemService } from '#functions/storage/fileSystemService';
-import type { FileMetadata, FileStore } from '#functions/storage/filestore';
-import { FunctionCallResult } from '#llm/llm';
+import type { FileStore } from '#functions/storage/filestore';
 import { logger } from '#o11y/logger';
+import type { FileMetadata } from '#shared/files/files.model';
+import type { Summary } from '#swe/index/llmSummaries';
+import { loadBuildDocsSummaries } from '#swe/index/repoIndexDocBuilder';
+import { generateFileSystemTreeWithSummaries } from '#swe/index/repositoryMap';
 
 /**
  * @return An XML representation of the agent's memory
@@ -23,18 +27,56 @@ export function buildMemoryPrompt(): string {
  * TODO move the string generation into the tool classes
  */
 export async function buildToolStatePrompt(): Promise<string> {
-	return (await buildLiveFilesPrompt()) + (await buildFileStorePrompt()) + buildFileSystemPrompt();
+	return (await buildLiveFilesPrompt()) + (await buildFileStorePrompt()) + (await buildFileSystemTreePrompt()) + (await buildFileSystemPrompt());
 }
+
+export async function buildFileSystemTreePrompt(): Promise<string> {
+	const agent = agentContext(); // Get the full agent context
+	if (!agent.functions.getFunctionClassNames().includes(FileSystemTree.name)) {
+		return ''; // Tool not active
+	}
+
+	// Ensure agent.toolState.FileSystemTree is treated as an array, defaulting to empty if not present or not an array.
+	let collapsedFolders: string[] = agent.toolState.FileSystemTree ?? [];
+	if (!Array.isArray(collapsedFolders)) {
+		logger.warn(`agent.toolState.FileSystemTree was not an array (type: ${typeof collapsedFolders}). Defaulting to empty array.`, {
+			currentToolState: agent.toolState.FileSystemTree,
+		});
+		collapsedFolders = [];
+	}
+
+	try {
+		const summaries: Map<string, Summary> = await loadBuildDocsSummaries();
+		// For this prompt, we typically don't want file summaries to keep it concise,
+		// focusing on folder structure and collapsed state.
+		const treeString = await generateFileSystemTreeWithSummaries(summaries, false, collapsedFolders);
+
+		if (!treeString.trim()) {
+			return '\n<file_system_tree>\n<!-- File system is empty or all folders are collapsed at the root. -->\n</file_system_tree>\n';
+		}
+
+		return `\n<file_system_tree>
+${treeString}
+</file_system_tree>\n`;
+	} catch (error) {
+		logger.error(error, 'Error building file system tree prompt');
+		return '\n<file_system_tree>\n<!-- Error generating file system tree. -->\n</file_system_tree>\n';
+	}
+}
+
 /**
  * @return An XML representation of the FileSystem tool state
  */
-function buildFileSystemPrompt(): string {
+async function buildFileSystemPrompt(): Promise<string> {
 	const functions = agentContext().functions;
-	if (!functions.getFunctionClassNames().includes(FileSystemService.name)) return '';
-	const fileSystem = getFileSystem();
+	const hasAnyFileSystemFunction = functions.getFunctionClassNames().some((name) => name.startsWith('FileSystem'));
+	if (!hasAnyFileSystemFunction) return '';
+	const fss = getFileSystem();
+	const vcsRoot = fss.getVcsRoot();
 	return `\n<file_system>
-	<base_path>${fileSystem.basePath}</base_path>
-	<current_working_directory>${fileSystem.getWorkingDirectory()}</current_working_directory>
+	<base_path>${fss.getBasePath()}</base_path>
+	<current_working_directory>${fss.getWorkingDirectory()}</current_working_directory>
+	${vcsRoot ? `<git_repository_root_dir>${vcsRoot}</git_repository_root_dir>\n<git_current_branch>${await fss.getVcs().getBranchName()}</git_current_branch>` : ''}
 </file_system>
 `;
 }
@@ -60,8 +102,8 @@ async function buildLiveFilesPrompt(): Promise<string> {
 	const agent = agentContext();
 	if (!agent.functions.getFunctionClassNames().includes(LiveFiles.name)) return '';
 
-	const liveFiles = agentContext().liveFiles;
-	if (!liveFiles?.length) return '\n<live_files>\n<!-- No files selected. Live files will have their contents displayed here -->\n</live_files>';
+	const liveFiles = agentContext().toolState?.LiveFiles ?? [];
+	if (!liveFiles || !liveFiles.length) return '\n<live_files>\n<!-- No files selected. Live files will have their contents displayed here -->\n</live_files>';
 
 	return `\n<live_files>
 ${await getFileSystem().readFilesAsXml(liveFiles)}
@@ -145,7 +187,7 @@ export function buildFunctionCallHistoryPrompt(type: 'history' | 'results', maxL
  */
 export function updateFunctionSchemas(systemPrompt: string, functionSchemas: string): string {
 	const regex = /<functions>[\s\S]*?<\/functions>/g;
-	const updatedPrompt = systemPrompt.replace(regex, `<functions>${functionSchemas}</functions>`);
+	const updatedPrompt = systemPrompt.replace(regex, functionSchemas);
 	if (!updatedPrompt.includes(functionSchemas)) throw new Error('Unable to update function schemas. Regex replace failed');
 	return updatedPrompt;
 }
@@ -155,14 +197,14 @@ export function updateFunctionSchemas(systemPrompt: string, functionSchemas: str
  * @param functionInstances An array of function class instances.
  * @returns A promise resolving to a Map where keys are class names and values are their states.
  */
-export async function buildToolStateMap(functionInstances: object[]): Promise<Map<string, any>> {
-	const toolStateMap = new Map<string, any>();
+export async function buildToolStateMap(functionInstances: object[]): Promise<Record<string, any>> {
+	const toolStateMap = {};
 	for (const instance of functionInstances) {
 		if (typeof (instance as any).getToolState === 'function') {
 			try {
 				const state = await (instance as any).getToolState();
 				if (state !== null && state !== undefined) {
-					toolStateMap.set(instance.constructor.name, state);
+					toolStateMap[instance.constructor.name] = state;
 				}
 			} catch (error) {
 				logger.error(error, `Error getting tool state for ${instance.constructor.name}`);

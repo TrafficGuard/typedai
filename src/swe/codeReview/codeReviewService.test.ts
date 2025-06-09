@@ -1,7 +1,8 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
-import type { CodeReviewConfig, CodeReviewFingerprintCache } from '#swe/codeReview/codeReviewModel';
+import type { CodeReviewConfig } from '#shared/codeReview/codeReview.model';
 import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
+import type { CodeReviewFingerprintCache } from '#swe/codeReview/codeReviewTaskModel';
 
 // Helper function to compare Sets for equality
 function expectSetsEqual<T>(actual: Set<T>, expected: Set<T>): void {

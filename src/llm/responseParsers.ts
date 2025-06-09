@@ -1,6 +1,6 @@
 import { DOMParser } from 'xmldom';
 import { logger } from '#o11y/logger';
-import type { FunctionCalls } from './llm';
+import type { FunctionCalls } from '#shared/llm/llm.model';
 
 /**
  * Extracts the function call details from an LLM response.
@@ -66,21 +66,33 @@ export function extractJsonResult(rawText: string): any {
 	try {
 		const jsonMarkdownIndex = rawText.toLowerCase().lastIndexOf('```json');
 		if (jsonMarkdownIndex > -1 && text.endsWith('```')) {
-			return JSON.parse(text.slice(jsonMarkdownIndex + 7, -3));
+			let json = text.slice(jsonMarkdownIndex + 7, -3); // Extracts content between ```json and ```
+			// Handle cases like ```json ... </json> ... ``` where </json> is an artifact
+			// before the final ```
+			const malformedSuffix = '</json>';
+			const trimmedJsonContent = json.trim(); // Check the trimmed content for the suffix
+
+			if (trimmedJsonContent.endsWith(malformedSuffix)) {
+				// If the suffix is found, remove it from the original 'json' string
+				// by finding its last occurrence in 'json'. This preserves preceding whitespace
+				// that parseJson might handle (e.g. newlines).
+				json = json.slice(0, json.lastIndexOf(malformedSuffix));
+			}
+			return parseJson(json, rawText);
 		}
 
 		const regex = /```[jJ][sS][oO][nN]\n({.*})\n```/s;
 		const match = regex.exec(text);
 		if (match) {
-			return JSON.parse(match[1]);
+			return parseJson(match[1], rawText);
 		}
 
-		const regexXml = /<json>(.*)<\/json>/is;
+		const regexXml = /(?:[\s\S]*)<json>\s*([\s\S]+?)\s*<\/json>/is;
 		const matchXml = regexXml.exec(text);
 		if (matchXml) {
 			let match = matchXml[1].trim();
 			if (match.startsWith('```json') && text.endsWith('```')) match = match.slice(7, -3);
-			return JSON.parse(match);
+			return parseJson(match, rawText);
 		}
 
 		// Sometimes more than three trailing backticks
@@ -96,9 +108,22 @@ export function extractJsonResult(rawText: string): any {
 			else text = text.slice(Math.min(firstSquare, fistCurly));
 		}
 
-		return JSON.parse(text);
+		return parseJson(text, rawText);
 	} catch (e) {
 		logger.error(`Could not parse:\n${text}`);
+		throw e;
+	}
+}
+
+function parseJson(json: string, rawText: string): any {
+	try {
+		return JSON.parse(json);
+	} catch (e) {
+		console.error('-- RESPONSE --');
+		console.error(rawText);
+		console.error('-- JSON --');
+		console.log(json);
+		console.error(e);
 		throw e;
 	}
 }
@@ -118,4 +143,69 @@ export function extractTag(response: string, tagName: string): string {
 	if (!matchXml) throw new Error(`Could not find <${tagName}></${tagName}> in the response \n${response}`);
 
 	return matchXml[1].trim();
+}
+
+/**
+ * Extracts reasoning text and a JSON object from a raw text response.
+ * Expects the JSON to be in a ```json ... ``` markdown block or a <json> ... </json> XML block,
+ * ideally at the end of the text.
+ * @param rawText The raw text response from the LLM.
+ * @returns An object containing the reasoning, the parsed JSON object, and the raw JSON string.
+ * @throws Error if a structured JSON block is not found and the text cannot be parsed as plain JSON.
+ * @throws SyntaxError if the extracted JSON string is malformed.
+ */
+export function extractReasoningAndJson<T>(rawText: string): { reasoning: string; object: T; jsonString: string } {
+	const text = rawText.trim();
+
+	// Pattern for ```json ... ``` - Greedy prefix to find the LAST block
+	const mdRegex = /([\s\S]*)```[jJ][sS][oO][nN]\s*([\s\S]+?)\s*```/s;
+	// Pattern for <json> ... </json> - Greedy prefix to find the LAST block
+	const xmlRegex = /([\s\S]*)<json>\s*([\s\S]+?)\s*<\/json>/is;
+
+	let reasoning: string | undefined;
+	let jsonString: string | undefined;
+
+	// Try to match the XML block first, as it might encapsulate a markdown block
+	const xmlMatch = text.match(xmlRegex);
+	if (xmlMatch) {
+		reasoning = xmlMatch[1].trim();
+		const xmlContent = xmlMatch[2].trim();
+
+		// Check if the content of the <json> block is itself a ```json ... ``` block
+		const innerMdMatch = xmlContent.match(/^```[jJ][sS][oO][nN]\s*([\s\S]+?)\s*```$/s);
+		if (innerMdMatch) {
+			jsonString = innerMdMatch[1].trim();
+		} else {
+			jsonString = xmlContent; // Content is plain JSON
+		}
+	} else {
+		// No XML block found, try to match a Markdown block
+		const mdMatch = text.match(mdRegex);
+		if (mdMatch) {
+			reasoning = mdMatch[1].trim();
+			jsonString = mdMatch[2].trim();
+		}
+	}
+
+	if (jsonString !== undefined && reasoning !== undefined) {
+		try {
+			const object = JSON.parse(jsonString) as T;
+			return { reasoning, object, jsonString };
+		} catch (e: any) {
+			// logger.error(e, `Failed to parse extracted JSON string. Reasoning: "${reasoning}", JSON String: "${jsonString}"`);
+			throw new SyntaxError(`Failed to parse JSON content: ${e.message}. Extracted JSON string: "${jsonString}"`);
+		}
+	}
+
+	// Fallback: If no markdown or XML block is found,
+	// try to parse the entire text as JSON, assuming no reasoning.
+	try {
+		const object = JSON.parse(text) as T;
+		return { reasoning: '', object, jsonString: text };
+	} catch (e) {
+		// This catch means it's not plain JSON either.
+	}
+
+	logger.error(`Failed to find a structured JSON block (markdown or XML), and the entire text is not valid JSON. Text: ${rawText}`);
+	throw new Error('Failed to extract structured JSON. Expected ```json ... ``` or <json> ... </json> block, or the entire response to be plain JSON.');
 }

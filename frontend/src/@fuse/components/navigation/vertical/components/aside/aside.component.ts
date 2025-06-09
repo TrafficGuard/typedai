@@ -28,7 +28,6 @@ import { Subject, filter, takeUntil } from 'rxjs';
     selector: 'fuse-vertical-navigation-aside-item',
     templateUrl: './aside.component.html',
     changeDetection: ChangeDetectionStrategy.OnPush,
-    standalone: true,
     imports: [
         NgClass,
         MatTooltipModule,
@@ -58,7 +57,7 @@ export class FuseVerticalNavigationAsideItemComponent
     @Input() name: string;
     @Input() skipChildren: boolean;
 
-    active = false;
+    active: boolean = false;
     private _fuseVerticalNavigationComponent: FuseVerticalNavigationComponent;
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 

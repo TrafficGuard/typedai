@@ -2,9 +2,9 @@ import { type Static, Type } from '@sinclair/typebox';
 import * as HttpStatus from 'http-status-codes';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { sendBadRequest, sendJSON, sendServerError } from '#fastify/responses';
-import type { GitProject } from '#functions/scm/gitProject';
 import type { SourceControlManagement } from '#functions/scm/sourceControlManagement';
 import { logger } from '#o11y/logger';
+import type { GitProject } from '#shared/scm/git.model';
 import { getFunctionsByType } from '../../functionRegistry';
 
 // Define a type for the structured project response
@@ -16,7 +16,7 @@ interface ScmProjectResponseItem extends GitProject {
  * Defines routes related to Source Control Management (SCM) operations.
  * @param fastify - The Fastify instance.
  */
-export async function scmRoutes(fastify: AppFastifyInstance): Promise<void> {
+export async function scmRoutes(fastify: AppFastifyInstance) {
 	// Define the response schema for /api/scm/projects
 	const GetProjectsResponseSchema = Type.Array(
 		Type.Object({
@@ -117,7 +117,7 @@ export async function scmRoutes(fastify: AppFastifyInstance): Promise<void> {
 	});
 	type GetBranchesQueryType = Static<typeof GetBranchesQuerySchema>;
 
-	fastify.get<{ Querystring: GetBranchesQueryType }>(
+	fastify.get(
 		'/api/scm/branches',
 		{
 			schema: {

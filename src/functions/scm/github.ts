@@ -1,17 +1,12 @@
-import { promises as fs, existsSync } from 'node:fs';
-import { join } from 'node:path';
 import { request } from '@octokit/request';
-import type { Endpoints } from '@octokit/types';
-import { agentContext } from '#agent/agentContextLocalStorage';
-import { agentStorageDir, systemDir } from '#app/appVars';
 import { func, funcClass } from '#functionSchema/functionDecorators';
+import { AbstractSCM } from '#functions/scm/abstractSCM';
 import type { MergeRequest, SourceControlManagement } from '#functions/scm/sourceControlManagement';
-import type { ToolType } from '#functions/toolType';
 import { logger } from '#o11y/logger';
-import { functionConfig } from '#user/userService/userContext';
+import type { GitProject } from '#shared/scm/git.model';
+import { functionConfig } from '#user/userContext';
 import { envVar } from '#utils/env-var';
-import { execCommand, failOnError, spawnCommand } from '#utils/exec';
-import type { GitProject } from './gitProject';
+import { execCommand, failOnError } from '#utils/exec';
 import { extractOwnerProject } from './scmUtils';
 
 type RequestType = typeof request;
@@ -22,11 +17,33 @@ export interface GitHubConfig {
 	token: string;
 }
 
+export interface GitHubIssue {
+	id: number;
+	number: number; // Issue number in the repository
+	url: string; // HTML URL to the issue
+	apiUrl: string; // API URL for the issue
+	title: string;
+	state: string; // e.g., "open", "closed"
+}
+
+export interface GitHubIssueComment {
+	id: number;
+	html_url: string; // HTML URL to the comment
+	body: string;
+	user: {
+		// Basic user information
+		login: string;
+		id: number;
+	} | null; // User can be null for some system-generated comments
+	created_at: string;
+	updated_at: string;
+}
+
 /**
  *
  */
 @funcClass(__filename)
-export class GitHub implements SourceControlManagement {
+export class GitHub extends AbstractSCM implements SourceControlManagement {
 	/** Do not access. Use request() */
 	private _request;
 	/** Do not access. Use config() */
@@ -82,56 +99,156 @@ export class GitHub implements SourceControlManagement {
 	}
 
 	/**
-	 * Clones a GitHub project to the local filesystem at a system controlled location.
-	 * To use this project the function FileSystem.setWorkingDirectory must be called after with the returned value.
-	 * @param projectPathWithOrg The repo to clone, in the format organisation/project
-	 * @returns the file system path where the repository is located
+	 * Creates an issue in a GitHub repository.
+	 * @param projectPathWithNamespace The full path of the project, e.g., 'owner/repo'.
+	 * @param title The title of the issue.
+	 * @param body Optional description for the issue.
+	 * @param labels Optional array of labels to add to the issue.
+	 * @param assignees Optional array of GitHub usernames to assign to the issue.
+	 * @returns A promise that resolves to the created GitHubIssue object.
 	 */
 	@func()
-	async cloneProject(projectPathWithOrg: string, branchOrCommit: string): Promise<string> {
-		const paths = projectPathWithOrg.split('/');
-		if (paths.length !== 2) throw new Error(`${projectPathWithOrg} must be in the format organisation/project`);
-		const org = paths[0];
-		const project = paths[1];
+	async createIssue(projectPathWithNamespace: string, title: string, body?: string, labels?: string[], assignees?: string[]): Promise<GitHubIssue> {
+		try {
+			const [owner, repo] = extractOwnerProject(projectPathWithNamespace);
 
-		const agent = agentContext();
-		const basePath = agent.useSharedRepos ? join(systemDir(), 'github') : join(agentStorageDir(), 'github');
-		const targetPath = join(basePath, org, project);
-		await fs.mkdir(join(targetPath, org), { recursive: true }); // Ensure the target dir exists
+			const requestPayload: {
+				title: string;
+				body?: string;
+				labels?: string[];
+				assignees?: string[];
+			} = { title };
 
-		// TODO it cloned a project to the main branch when the default is master?
-		// If the project already exists pull updates
-		if (existsSync(targetPath) && existsSync(join(targetPath, '.git'))) {
-			logger.info(`${org}/${project} exists at ${targetPath}. Pulling updates`);
-			// If we're resuming an agent which has already created the branch but not pushed
-			// then it won't exist remotely, so this will return a non-zero code
-			if (branchOrCommit) {
-				// Fetch all branches and commits
-				await execCommand(`git -C ${targetPath} fetch --all`, { workingDirectory: targetPath });
-
-				// Checkout to the branch or commit
-				const result = await execCommand(`git -C ${targetPath} checkout ${branchOrCommit}`, { workingDirectory: targetPath });
-				failOnError(`Failed to checkout ${branchOrCommit} in ${targetPath}`, result);
-
-				// if (this.checkIfBranch(branchOrCommit)) {
-				// 	const pullResult = await execCommand(`git pull`);
-				// 	failOnError(`Failed to pull ${targetPath} after checking out ${branchOrCommit}`, pullResult);
-				// }
+			if (body) {
+				requestPayload.body = body;
 			}
-		} else {
-			logger.info(`Cloning project: ${org}/${project} to ${targetPath}`);
-			const command = `git clone 'https://oauth2:${this.config().token}@github.com/${projectPathWithOrg}.git' ${targetPath}`;
-			const result = await spawnCommand(command);
-			// if(result.error) throw result.error
-			failOnError(`Failed to clone ${projectPathWithOrg}`, result);
+			if (labels && labels.length > 0) {
+				requestPayload.labels = labels;
+			}
+			if (assignees && assignees.length > 0) {
+				requestPayload.assignees = assignees;
+			}
 
-			const checkoutResult = await execCommand(`git -C ${targetPath} checkout ${branchOrCommit}`, { workingDirectory: targetPath });
-			failOnError(`Failed to checkout ${branchOrCommit} in ${targetPath}`, checkoutResult);
+			const response = await this.request()('POST /repos/{owner}/{repo}/issues', {
+				owner,
+				repo,
+				...requestPayload,
+				headers: {
+					'X-GitHub-Api-Version': '2022-11-28',
+				},
+			});
+
+			return {
+				id: response.data.id,
+				number: response.data.number,
+				url: response.data.html_url,
+				apiUrl: response.data.url,
+				title: response.data.title,
+				state: response.data.state,
+			};
+		} catch (error: any) {
+			logger.error(error, `Failed to create issue for ${projectPathWithNamespace} with title "${title}"`);
+			throw new Error(`Failed to create GitHub issue in '${projectPathWithNamespace}': ${error.message || error}`);
 		}
+	}
 
-		if (agent) agentContext().memory[`GitHub_project_${org}_${project}_FileSystem_directory`] = targetPath;
+	/**
+	 * Posts a comment on a GitHub issue.
+	 * @param projectPathWithNamespace The full path of the project, e.g., 'owner/repo'.
+	 * @param issueNumber The number of the issue to comment on.
+	 * @param body The content of the comment.
+	 * @returns A promise that resolves to the created GitHubIssueComment object.
+	 */
+	@func()
+	async postCommentOnIssue(projectPathWithNamespace: string, issueNumber: number, body: string): Promise<GitHubIssueComment> {
+		try {
+			const [owner, repo] = extractOwnerProject(projectPathWithNamespace);
 
-		return targetPath;
+			const requestPayload = { body };
+
+			const response = await this.request()('POST /repos/{owner}/{repo}/issues/{issue_number}/comments', {
+				owner,
+				repo,
+				issue_number: issueNumber,
+				...requestPayload,
+				headers: {
+					'X-GitHub-Api-Version': '2022-11-28',
+					Accept: 'application/vnd.github.v3+json',
+				},
+			});
+
+			return {
+				id: response.data.id,
+				html_url: response.data.html_url,
+				body: response.data.body,
+				user: response.data.user ? { login: response.data.user.login, id: response.data.user.id } : null,
+				created_at: response.data.created_at,
+				updated_at: response.data.updated_at,
+			};
+		} catch (error: any) {
+			logger.error(error, `Failed to post comment on issue #${issueNumber} in ${projectPathWithNamespace}`);
+			throw new Error(`Failed to post GitHub comment on issue #${issueNumber} in '${projectPathWithNamespace}': ${error.message || error}`);
+		}
+	}
+
+	/**
+	 * Gets all comments for a specific GitHub issue.
+	 * @param projectPathWithNamespace The full path of the project, e.g., 'owner/repo'.
+	 * @param issueNumber The number of the issue to get comments for.
+	 * @returns A promise that resolves to an array of GitHubIssueComment objects.
+	 */
+	@func()
+	async getIssueComments(projectPathWithNamespace: string, issueNumber: number): Promise<GitHubIssueComment[]> {
+		try {
+			const [owner, repo] = extractOwnerProject(projectPathWithNamespace);
+			const allComments: GitHubIssueComment[] = [];
+			let page = 1;
+			let response: any;
+
+			do {
+				response = await this.request()('GET /repos/{owner}/{repo}/issues/{issue_number}/comments', {
+					owner,
+					repo,
+					issue_number: issueNumber,
+					per_page: 100,
+					page,
+					headers: {
+						'X-GitHub-Api-Version': '2022-11-28',
+						Accept: 'application/vnd.github.v3+json',
+					},
+				});
+
+				const rawComments = response.data as any[];
+				for (const rawComment of rawComments) {
+					const comment: GitHubIssueComment = {
+						id: rawComment.id,
+						html_url: rawComment.html_url,
+						body: rawComment.body,
+						user: rawComment.user ? { login: rawComment.user.login, id: rawComment.user.id } : null,
+						created_at: rawComment.created_at,
+						updated_at: rawComment.updated_at,
+					};
+					allComments.push(comment);
+				}
+				page++;
+			} while (response.headers.link?.includes('rel="next"'));
+
+			return allComments;
+		} catch (error: any) {
+			logger.error(error, `Failed to get comments for issue #${issueNumber} in ${projectPathWithNamespace}`);
+			throw new Error(`Failed to get GitHub comments for issue #${issueNumber} in '${projectPathWithNamespace}': ${error.message || error}`);
+		}
+	}
+
+	/**
+	 * Clones a project from GitHub to the file system.
+	 * To use this project the function FileSystem.setWorkingDirectory must be called after with the returned value
+	 * @param projectPathWithNamespace the full project path in GitLab
+	 * @returns the file system path where the repository is located. You will need to call FileSystem_setWorkingDirectory() with this result to work with the project.
+	 */
+	@func()
+	async cloneProject(projectPathWithNamespace: string, branchOrCommit?: string, targetDirectory?: string): Promise<string> {
+		return await this.cloneGitProject(projectPathWithNamespace, this.config().token, 'github.com', branchOrCommit, targetDirectory);
 	}
 
 	async checkIfBranch(ref: string): Promise<boolean> {
@@ -331,6 +448,40 @@ export class GitHub implements SourceControlManagement {
 	}
 
 	/**
+	 * Runs an E2E test for creating an issue in a GitHub repository.
+	 * This method will attempt to create a real issue in a pre-defined test repository.
+	 * @returns A promise that resolves to the created GitHubIssue object.
+	 */
+	@func()
+	async testCreateIssueE2E(): Promise<GitHubIssue> {
+		const projectPathWithNamespace = 'trafficguard/test';
+		const title = 'E2E Test: New Issue via Agent';
+		const body = 'This issue was created by an automated E2E test. If you see this, the test was successful.';
+		const labels = ['e2e-test', 'automated'];
+
+		try {
+			logger.info(`Attempting to create E2E test issue in repository '${projectPathWithNamespace}' with title '${title}'`);
+			const createdIssue = await this.createIssue(projectPathWithNamespace, title, body, labels);
+
+			logger.info(
+				`Successfully created E2E test issue: #${createdIssue.number} - '${createdIssue.title}' in '${projectPathWithNamespace}'. URL: ${createdIssue.url}`,
+			);
+
+			if (!createdIssue || createdIssue.title !== title || createdIssue.state !== 'open') {
+				const errorMsg = `E2E Test Failed: Issue creation result did not match expectations. Result: ${JSON.stringify(createdIssue)}`;
+				logger.error(errorMsg);
+				throw new Error(errorMsg);
+			}
+			logger.info('E2E Test: createIssue verification passed (title and state).');
+
+			return createdIssue;
+		} catch (error: any) {
+			logger.error(error, `E2E test 'testCreateIssueE2E' failed for project '${projectPathWithNamespace}'`);
+			throw new Error(`E2E test 'testCreateIssueE2E' failed: ${error.message || error}`);
+		}
+	}
+
+	/**
 	 * Returns the type of this SCM provider.
 	 */
 	getScmType(): string {
@@ -363,10 +514,6 @@ export class GitHub implements SourceControlManagement {
 			logger.error(`Failed to get job logs for job ${jobId} in project ${projectPath}`, error);
 			throw new Error(`Failed to get job logs: ${error.message}`);
 		}
-	}
-
-	getToolType(): ToolType {
-		return 'scm';
 	}
 }
 

@@ -2,7 +2,8 @@
     <!-- Form -->
     <form [formGroup]="accountForm">
         <!-- Hidden ID Field -->
-        <input type="hidden" formControlName="id" />
+        <!-- Note: The 'id' field is disabled in the form group and not included in the save payload -->
+        <!-- <input type="hidden" formControlName="id" /> --> <!-- ID is not part of the form group anymore -->
 
         <!-- Section -->
         <div class="w-full">
@@ -10,19 +11,12 @@
         </div>
 
         <div class="mt-8 grid w-full gap-6 sm:grid-cols-2 pb-2">
-            <!--
+            <!-- Email Display (View Only) -->
             <div class="sm:col-span-1">
-                <mat-form-field class="w-full">
-                    <mat-label>Username</mat-label>
-                    <input matInput formControlName="username" />
-                </mat-form-field>
-            </div>
-            -->
-            <div class="sm:col-span-1">
-                <mat-form-field class="w-full">
-                    <mat-label>Email</mat-label>
-                    <input matInput formControlName="email" />
-                </mat-form-field>
+                <div class="text-gray-500 dark:text-gray-400">Email</div>
+                <div class="font-medium">
+                    {{ userProfile()?.email || 'Loading...' }}
+                </div>
             </div>
 
             <div [formGroupName]="'chat'">
@@ -30,12 +24,32 @@
                     <mat-form-field class="w-full">
                         <mat-label>Default Chat LLM</mat-label>
                         <mat-select formControlName="defaultLLM">
-                            <mat-option *ngFor="let llm of $llms | async" [value]="llm.id">
-                                {{ llm.name }}
-                            </mat-option>
-                            <mat-option *ngIf="($llms | async)?.length === 0" [value]="null" disabled>
-                                No LLMs available
-                            </mat-option>
+                            <!-- Use the llmsState signal directly -->
+                            @let llmsApiResult = llmsState();
+                            @switch (llmsApiResult.status) {
+                                @case ('success') {
+                                    @if (llmsApiResult.data && llmsApiResult.data.length > 0) {
+                                        @for (llm of llmsApiResult.data; track llm.id) {
+                                            <mat-option [value]="llm.id">
+                                                {{ llm.name }}
+                                            </mat-option>
+                                        }
+                                    } @else {
+                                        <mat-option [value]="null" disabled>
+                                            No LLMs available
+                                        </mat-option>
+                                    }
+                                }
+                                @case ('loading') {
+                                    <mat-option [value]="null" disabled>Loading LLMs...</mat-option>
+                                }
+                                @case ('error') {
+                                    <mat-option [value]="null" disabled>Error loading LLMs.</mat-option>
+                                }
+                                @case ('idle') {
+                                    <mat-option [value]="null" disabled>LLMs not loaded yet.</mat-option>
+                                }
+                            }
                         </mat-select>
                     </mat-form-field>
                 </div>
@@ -283,7 +297,7 @@
                 type="button"
                 [color]="'primary'"
                 (click)="onSave()"
-                [disabled]="accountForm.invalid"
+                [disabled]="accountForm.invalid || accountForm.pristine"
             >
                 Save
             </button>

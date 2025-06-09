@@ -2,9 +2,9 @@ import { nebiusDeepSeekR1 } from '#llm/services/nebius';
 import { sambanovaDeepseekR1 } from '#llm/services/sambanova';
 import { togetherDeepSeekR1 } from '#llm/services/together';
 import { logger } from '#o11y/logger';
+import type { GenerateTextOptions, LLM, LlmMessage } from '#shared/llm/llm.model';
 import { BaseLLM } from '../base-llm';
-import type { GenerateTextOptions, LLM, LlmMessage } from '../llm';
-import { fireworksDeepSeekR1 } from '../services/fireworks';
+import { fireworksDeepSeekR1_Fast } from '../services/fireworks';
 
 export function deepSeekFallbackRegistry(): Record<string, () => LLM> {
 	return {
@@ -21,16 +21,14 @@ export function DeepSeekR1_Together_Fireworks_Nebius_SambaNova(): LLM {
  * Tries Together.ai first as is slightly cheaper, then falls back to Fireworks
  */
 export class DeepSeekR1_Fallbacks extends BaseLLM {
-	private llms: LLM[] = [togetherDeepSeekR1(), fireworksDeepSeekR1(), nebiusDeepSeekR1(), sambanovaDeepseekR1()];
+	private llms: LLM[] = [togetherDeepSeekR1(), fireworksDeepSeekR1_Fast(), nebiusDeepSeekR1(), sambanovaDeepseekR1()];
 
 	constructor() {
-		super(
-			'DeepSeek R1 (Together, Fireworks, Nebius, SambaNova)',
-			'DeepSeekFallback',
-			'deepseek-r1-together-fireworks-nebius-sambanova',
-			0, // Initialized later
-			() => ({ inputCost: 0, outputCost: 0, totalCost: 0 }),
-		);
+		super('DeepSeek R1 (Together, Fireworks, Nebius, SambaNova)', 'DeepSeekFallback', 'deepseek-r1-together-fireworks-nebius-sambanova', 0, () => ({
+			inputCost: 0,
+			outputCost: 0,
+			totalCost: 0,
+		}));
 	}
 
 	protected supportsGenerateTextFromMessages(): boolean {

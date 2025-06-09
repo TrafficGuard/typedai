@@ -1,14 +1,14 @@
 import { type OpenAIProvider, createOpenAI } from '@ai-sdk/openai';
 import { type LlmCostFunction, fixedCostPerMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
-import { currentUser } from '#user/userService/userContext';
-import type { LLM } from '../llm';
+import type { LLM } from '#shared/llm/llm.model';
+import { currentUser } from '#user/userContext';
 
 export const DEEPINFRA_SERVICE = 'deepinfra';
 
 export class Deepinfra extends AiLLM<OpenAIProvider> {
-	constructor(displayName: string, model: string, maxTokens: number, calculateCosts: LlmCostFunction) {
-		super(displayName, DEEPINFRA_SERVICE, model, maxTokens, calculateCosts);
+	constructor(displayName: string, model: string, maxOutputTokens: number, calculateCosts: LlmCostFunction) {
+		super(displayName, DEEPINFRA_SERVICE, model, maxOutputTokens, calculateCosts);
 	}
 
 	protected apiKey(): string {
@@ -30,33 +30,17 @@ export class Deepinfra extends AiLLM<OpenAIProvider> {
 // https://deepinfra.com/models/text-generation
 export function deepinfraLLMRegistry(): Record<string, () => LLM> {
 	return {
-		[`${DEEPINFRA_SERVICE}:Qwen/QwQ-32B-Preview`]: deepinfraQwQ_32B,
-		[`${DEEPINFRA_SERVICE}:Qwen/Qwen2.5-Coder-32B-Instruct`]: deepinfraQwen2_5_Coder32B,
-		[`${DEEPINFRA_SERVICE}:Qwen/Qwen2.5-72B-Instruct`]: deepinfraQwen2_5_72B,
-		[`${DEEPINFRA_SERVICE}:deepseek-ai/DeepSeek-R1`]: deepinfraDeepSeekR1,
-		[`${DEEPINFRA_SERVICE}:deepseek-ai/DeepSeek-R1-Distill-Llama-70B`]: deepinfraDeepSeekR1_Distill_Llama70b,
+		[`${DEEPINFRA_SERVICE}:Qwen/Qwen3-235B-A22B`]: deepinfraQwen3_235B_A22B,
+		[`${DEEPINFRA_SERVICE}:deepseek-ai/DeepSeek-R1-0528`]: deepinfraDeepSeekR1,
 	};
 }
 
-// https://deepinfra.com/Qwen/QwQ-32B-Preview
-export function deepinfraQwQ_32B(): LLM {
-	return new Deepinfra('QwQ-32B-Preview (deepinfra)', 'Qwen/QwQ-32B-Preview', 32_768, fixedCostPerMilTokens(0.15, 0.6));
+// https://deepinfra.com/Qwen/Qwen3-235B-A22B
+export function deepinfraQwen3_235B_A22B(): LLM {
+	return new Deepinfra('Qwen3_235B_A22B (deepinfra)', 'Qwen/Qwen3-235B-A22B', 40_960, fixedCostPerMilTokens(0.13, 0.6));
 }
 
+// https://deepinfra.com/deepseek-ai/DeepSeek-R1-0528
 export function deepinfraDeepSeekR1(): LLM {
-	return new Deepinfra('DeepSeek R1 (deepinfra)', 'deepseek-ai/DeepSeek-R1', 15_000, fixedCostPerMilTokens(0.85, 2.5));
-}
-
-export function deepinfraDeepSeekR1_Distill_Llama70b(): LLM {
-	return new Deepinfra('DeepSeek R1 Llama 70b (deepinfra)', 'deepseek-ai/DeepSeek-R1-Distill-Llama-70B', 128_000, fixedCostPerMilTokens(0.23, 0.69));
-}
-
-// https://deepinfra.com/Qwen/Qwen2.5-Coder-32B-Instruct
-export function deepinfraQwen2_5_Coder32B(): LLM {
-	return new Deepinfra('Qwen2.5-Coder-32B-Instruct (deepinfra)', 'Qwen/Qwen2.5-Coder-32B-Instruct', 32_768, fixedCostPerMilTokens(0.07, 0.16));
-}
-
-// https://deepinfra.com/Qwen/Qwen2.5-72B-Instruct
-export function deepinfraQwen2_5_72B(): LLM {
-	return new Deepinfra('Qwen2.5-72B-Instruct (deepinfra)', 'Qwen/Qwen2.5-72B-Instruct', 32_768, fixedCostPerMilTokens(0.23, 0.4));
+	return new Deepinfra('DeepSeek R1 (deepinfra)', 'deepseek-ai/DeepSeek-R1-0528', 163_840, fixedCostPerMilTokens(0.5, 2.15));
 }

@@ -1,6 +1,6 @@
 import { BigQuery as BigQueryClient } from '@google-cloud/bigquery';
 import { addCost } from '#agent/agentContextLocalStorage';
-import { humanInTheLoop } from '#agent/humanInTheLoop';
+import { humanInTheLoop } from '#agent/autonomous/humanInTheLoop';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { execCmd, execCommand, failOnError } from '#utils/exec';

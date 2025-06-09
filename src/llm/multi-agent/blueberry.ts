@@ -1,9 +1,9 @@
 import { BaseLLM } from '#llm/base-llm';
-import type { GenerateTextOptions, LLM } from '#llm/llm';
 import { getLLM } from '#llm/llmFactory';
 import { cerebrasLlama3_3_70b } from '#llm/services/cerebras';
-import { Gemini_2_0_Flash } from '#llm/services/vertexai';
+import { vertexGemini_2_0_Flash } from '#llm/services/vertexai';
 import { logger } from '#o11y/logger';
+import type { GenerateTextOptions, LLM } from '#shared/llm/llm.model';
 
 // sparse multi-agent debate https://arxiv.org/abs/2406.11776
 // self-refine https://arxiv.org/pdf/2303.17651
@@ -103,7 +103,7 @@ export class Blueberry extends BaseLLM {
 		// if (!this.llms) this.llms = [Claude3_5_Sonnet_Vertex(), GPT4o(), Gemini_1_5_Pro(), Claude3_5_Sonnet_Vertex(), fireworksLlama3_405B()];
 		let llm = cerebrasLlama3_3_70b();
 		// llm = groqLlama3_1_70B();
-		llm = Gemini_2_0_Flash();
+		llm = vertexGemini_2_0_Flash();
 		if (!this.llms) this.llms = [llm, llm, llm, llm, llm];
 		if (!this.mediator) this.mediator = llm;
 	}

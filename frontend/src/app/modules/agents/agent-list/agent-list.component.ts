@@ -1,32 +1,22 @@
+import { SelectionModel } from '@angular/cdk/collections';
+import { CommonModule, DecimalPipe } from '@angular/common';
 import {
-    AsyncPipe,
-    CurrencyPipe,
-    NgClass,
-    NgTemplateOutlet, SlicePipe, DecimalPipe
-} from '@angular/common';
-import {
-    AfterViewInit,
-    ChangeDetectionStrategy,
-    ChangeDetectorRef,
-    Component,
-    OnDestroy,
-    OnInit,
-    ViewChild,
-    ViewEncapsulation,
+	AfterViewInit,
+	ChangeDetectionStrategy,
+	Component,
+	DestroyRef,
+	OnInit,
+	ViewChild,
+	ViewEncapsulation,
+	WritableSignal,
+	computed,
+	inject,
+	signal,
 } from '@angular/core';
-import {
-    FormsModule,
-    ReactiveFormsModule,
-    UntypedFormBuilder,
-    UntypedFormControl,
-    UntypedFormGroup,
-    Validators,
-} from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { FormsModule, ReactiveFormsModule, UntypedFormBuilder, UntypedFormControl } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import {
-    MatCheckboxChange,
-    MatCheckboxModule,
-} from '@angular/material/checkbox';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatOptionModule, MatRippleModule } from '@angular/material/core';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -36,321 +26,202 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSort, MatSortModule } from '@angular/material/sort';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { RouterModule } from '@angular/router';
 import { fuseAnimations } from '@fuse/animations';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
-import { AgentService } from 'app/modules/agents/services/agent.service';
-import {
-    AgentContext,
-    AgentType,
-    AgentPagination,
-    AgentTag,
-} from 'app/modules/agents/agent.types';
-import {
-    Observable,
-    Subject,
-    debounceTime,
-    map,
-    merge,
-    switchMap,
-    takeUntil,
-} from 'rxjs';
-import {SelectionModel} from "@angular/cdk/collections";
-import {RouterModule} from "@angular/router";
-import {MatTooltipModule} from "@angular/material/tooltip";
+import { debounceTime, finalize, switchMap } from 'rxjs';
+import { AgentContextPreview, AgentTag, AgentType } from '#shared/agent/agent.model';
+import { Pagination } from '../../../core/types';
+import { AGENT_ROUTE_DEFINITIONS } from '../agent.routes';
+import { AgentService } from '../agent.service';
 
 @Component({
-    selector: 'inventory-list',
-    templateUrl: './agent-list.component.html',
-    styleUrl: './agent-list.component.scss',
-    encapsulation: ViewEncapsulation.None,
-    changeDetection: ChangeDetectionStrategy.OnPush,
-    animations: fuseAnimations,
-    standalone: true,
-    imports: [
-        MatProgressBarModule,
-        MatFormFieldModule,
-        MatIconModule,
-        MatInputModule,
-        MatTooltipModule,
-        FormsModule,
-        ReactiveFormsModule,
-        MatButtonModule,
-        MatSortModule,
-        MatPaginatorModule,
-        MatSlideToggleModule,
-        MatSelectModule,
-        MatOptionModule,
-        MatCheckboxModule,
-        MatRippleModule,
-        AsyncPipe,
-        DecimalPipe,
-        RouterModule,
-    ],
+	selector: 'inventory-list',
+	templateUrl: './agent-list.component.html',
+	styleUrl: './agent-list.component.scss',
+	encapsulation: ViewEncapsulation.None,
+	changeDetection: ChangeDetectionStrategy.OnPush,
+	animations: fuseAnimations,
+	standalone: true,
+	imports: [
+		CommonModule, // For basic Angular directives like *ngIf, *ngFor
+		MatProgressBarModule,
+		MatFormFieldModule,
+		MatIconModule,
+		MatInputModule,
+		MatTooltipModule,
+		FormsModule,
+		ReactiveFormsModule,
+		MatButtonModule,
+		MatSortModule,
+		MatPaginatorModule,
+		MatSlideToggleModule,
+		MatSelectModule,
+		MatOptionModule,
+		MatCheckboxModule,
+		MatRippleModule,
+		// AsyncPipe, // Keep if some observables are still used with async pipe
+		DecimalPipe,
+		RouterModule,
+	],
 })
-export class AgentListComponent
-    implements OnInit, AfterViewInit, OnDestroy
-{
-    @ViewChild(MatPaginator) private _paginator: MatPaginator;
-    @ViewChild(MatSort) private _sort: MatSort;
+export class AgentListComponent implements OnInit, AfterViewInit {
+	@ViewChild(MatPaginator) private _paginator: MatPaginator;
+	@ViewChild(MatSort) private _sort: MatSort;
 
-    agents$: Observable<AgentContext[]>;
+	private agentService = inject(AgentService);
+	private _fuseConfirmationService = inject(FuseConfirmationService);
+	private readonly destroyRef = inject(DestroyRef);
 
-    agentTypes: AgentType[];
-    filteredTags: AgentTag[];
-    flashMessage: 'success' | 'error' | null = null;
-    isLoading = false;
-    pagination: AgentPagination;
-    searchInputControl: UntypedFormControl = new UntypedFormControl();
-    tags: AgentTag[];
-    tagsEditMode = false;
+	readonly agentsState = this.agentService.agentsState;
+	readonly routes = AGENT_ROUTE_DEFINITIONS;
 
-    selection = new SelectionModel<AgentContext>(true, []);
+	flashMessage: WritableSignal<'success' | 'error' | null> = signal(null);
+	isLoading = computed(() => {
+		const currentState = this.agentsState();
+		return currentState.status === 'loading' || currentState.status === 'idle';
+	});
+	searchInputControl: UntypedFormControl = new UntypedFormControl();
 
-    private _unsubscribeAll: Subject<any> = new Subject<any>();
+	selection = new SelectionModel<AgentContextPreview>(true, []);
 
-    /**
-     * Constructor
-     */
-    constructor(
-        private _changeDetectorRef: ChangeDetectorRef,
-        private _fuseConfirmationService: FuseConfirmationService,
-        private _formBuilder: UntypedFormBuilder,
-        private _inventoryService: AgentService
-    ) {}
+	// -----------------------------------------------------------------------------------------------------
+	// @ Lifecycle hooks
+	// -----------------------------------------------------------------------------------------------------
 
-    // -----------------------------------------------------------------------------------------------------
-    // @ Lifecycle hooks
-    // -----------------------------------------------------------------------------------------------------
+	ngOnInit(): void {
+		// Initial data load is triggered by AgentService constructor.
+		// isLoading is computed from agentsState and will be true initially
+		// until the agents signal receives its first value (even an empty array).
 
-    /**
-     * On init
-     */
-    ngOnInit(): void {
-        // Get the pagination
-        this._inventoryService.pagination$
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe((pagination: AgentPagination) => {
-                // Update the pagination
-                this.pagination = pagination;
+		// Subscribe to search input field value changes
+		this.searchInputControl.valueChanges
+			.pipe(
+				takeUntilDestroyed(this.destroyRef),
+				debounceTime(300),
+				switchMap((query) => {
+					if (this.isLoading()) return []; // Prevent multiple loads
+					this.agentService.refreshAgents(); // Triggers update to agentService.agents$
+					return []; // switchMap expects an observable, return empty to satisfy
+				}),
+			)
+			.subscribe();
+		this.refreshAgents();
+	}
 
-                // Mark for check
-                this._changeDetectorRef.markForCheck();
-            });
+	ngAfterViewInit(): void {
+		if (this._sort) {
+			// Removed _paginator check as it's not fully used
+			this._sort.sort({
+				id: 'name',
+				start: 'asc',
+				disableClear: true,
+			});
 
-        // Get the products
-        this.agents$ = this._inventoryService.agents$;
+			this._sort.sortChange.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+				if (this.isLoading()) return;
+				// if (this._paginator) this._paginator.pageIndex = 0; // If paginator is used
+				this.agentService.refreshAgents();
+			});
+		}
+	}
 
-        this._inventoryService.getAgents();
+	// -----------------------------------------------------------------------------------------------------
+	// @ Public methods
+	// -----------------------------------------------------------------------------------------------------
 
-        this._inventoryService.agents$
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe((agents: AgentContext[]) => {
-                // Update the vendors
-                // this.a = vendors;
+	getStateClass(state: string): string {
+		return `state-${state.toLowerCase()}`;
+	}
 
-                // Mark for check
-                this._changeDetectorRef.markForCheck();
-            });
+	isAllSelected(): boolean {
+		const currentState = this.agentsState();
+		if (currentState.status !== 'success' || !currentState.data) {
+			return false;
+		}
+		const numSelected = this.selection.selected.length;
+		const numRows = currentState.data.length;
+		return numSelected === numRows && numRows > 0;
+	}
 
-        // Subscribe to search input field value changes
-        this.searchInputControl.valueChanges
-            .pipe(
-                takeUntil(this._unsubscribeAll),
-                debounceTime(300),
-                switchMap((query) => {
-                    this.isLoading = true;
-                    return this._inventoryService.getAgents();
-                }),
-                map(() => {
-                    this.isLoading = false;
-                })
-            )
-            .subscribe();
-    }
+	masterToggle(): void {
+		const currentState = this.agentsState();
+		if (currentState.status !== 'success' || !currentState.data) {
+			return;
+		}
+		if (this.isAllSelected()) {
+			this.selection.clear();
+		} else {
+			currentState.data.forEach((row) => this.selection.select(row));
+		}
+	}
 
-    /**
-     * After view init
-     */
-    ngAfterViewInit(): void {
-        if (this._sort && this._paginator) {
-            // Set the initial sort
-            this._sort.sort({
-                id: 'name',
-                start: 'asc',
-                disableClear: true,
-            });
+	deleteSelectedAgents(): void {
+		const selectedAgentIds = this.selection.selected.map((agent) => agent.agentId);
+		if (selectedAgentIds.length === 0) {
+			return;
+		}
 
-            // Mark for check
-            this._changeDetectorRef.markForCheck();
+		const confirmation = this._fuseConfirmationService.open({
+			title: 'Delete Agents',
+			message: `Are you sure you want to delete ${selectedAgentIds.length} selected agent(s)? This action cannot be undone.`,
+			actions: {
+				confirm: {
+					label: 'Delete',
+					color: 'warn',
+				},
+			},
+		});
 
-            // If the user changes the sort order...
-            this._sort.sortChange
-                .pipe(takeUntil(this._unsubscribeAll))
-                .subscribe(() => {
-                    // Reset back to the first page
-                    this._paginator.pageIndex = 0;
-                });
+		confirmation.afterClosed().subscribe((result) => {
+			if (result === 'confirmed') {
+				this.agentService
+					.deleteAgents(selectedAgentIds)
+					.pipe(
+						takeUntilDestroyed(this.destroyRef),
+						finalize(() => {
+							// isLoading is computed from agentsState and will update automatically
+						}),
+					)
+					.subscribe({
+						next: () => {
+							this.selection.clear();
+							// Optionally show success message via flashMessage signal
+						},
+						error: (error) => {
+							console.error('Error deleting agents:', error);
+							// Optionally show error message via flashMessage signal
+						},
+					});
+			}
+		});
+	}
 
-            // Get products if sort or page changes
-            merge(this._sort.sortChange, this._paginator.page)
-                .pipe(
-                    switchMap(() => {
-                        this.isLoading = true;
-                        return this._inventoryService.getAgents( );
-                    }),
-                    map(() => {
-                        this.isLoading = false;
-                    })
-                )
-                .subscribe();
-        }
-    }
+	refreshAgents(): void {
+		if (this.isLoading()) {
+			return;
+		}
+		this.agentService.refreshAgents();
+	}
 
-    /**
-     * On destroy
-     */
-    ngOnDestroy(): void {
-        // Unsubscribe from all subscriptions
-        this._unsubscribeAll.next(null);
-        this._unsubscribeAll.complete();
-    }
+	createProduct(): void {
+		console.log('TODO navigate to agent creation');
+		// Example: inject(Router).navigate(['/ui/agents/new']);
+	}
 
-    // -----------------------------------------------------------------------------------------------------
-    // @ Public methods
-    // -----------------------------------------------------------------------------------------------------
+	deleteSelectedProduct(): void {
+		console.warn('deleteSelectedProduct called, but deleteSelectedAgents should be used for agents.');
+	}
 
-    getStateClass(state: string): string {
-        return `state-${state.toLowerCase()}`;
-    }
+	showFlashMessage(type: 'success' | 'error'): void {
+		this.flashMessage.set(type);
+		setTimeout(() => {
+			this.flashMessage.set(null);
+		}, 3000);
+	}
 
-    isAllSelected(): boolean {
-        // const numSelected = this.selection.selected.length;
-        // const numRows = this.agents.length;
-        // return numSelected === numRows && numRows > 0;
-        return false;
-    }
-
-    masterToggle(): void {
-        if (this.isAllSelected()) {
-            this.selection.clear();
-        } else {
-            // this.agents.forEach(row => this.selection.select(row));
-        }
-    }
-
-    deleteSelectedAgents(): void {
-        const selectedAgentIds = this.selection.selected.map(agent => agent.agentId);
-        if (selectedAgentIds.length === 0) {
-            // this._snackBar.open('No agents selected for deletion', 'Close', { duration: 3000 });
-            return;
-        }
-
-        this._inventoryService.deleteAgents(selectedAgentIds).subscribe({
-            next: () => {
-                // this._snackBar.open('Agents deleted successfully', 'Close', { duration: 3000 });
-                this.refreshAgents();
-                this.selection.clear();
-            },
-            error: (error) => {
-                console.error('Error deleting agents:', error);
-                // this._snackBar.open('Error deleting agents', 'Close', { duration: 3000 });
-            },
-        });
-    }
-
-    refreshAgents(): void {
-        this._inventoryService.getAgents().subscribe({
-            next: () => {
-                // this._snackBar.open('Agents refreshed', 'Close', { duration: 1000 });
-            },
-            error: (error) => {
-                console.error('Error refreshing agents:', error);
-                // this._snackBar.open('Error refreshing agents', 'Close', { duration: 3000 });
-            },
-        });
-    }
-
-    /**
-     * Create product
-     */
-    createProduct(): void {
-        console.log('TODO navigate')
-    }
-    // createProduct(): void {
-    //     // Create the product
-    //     this._inventoryService.createProduct().subscribe((newProduct) => {
-    //         // Go to new product
-    //         this.selectedProduct = newProduct;
-    //
-    //         // Fill the form
-    //         this.selectedProductForm.patchValue(newProduct);
-    //
-    //         // Mark for check
-    //         this._changeDetectorRef.markForCheck();
-    //     });
-    // }
-    //
-
-    /**
-     * Delete the selected product using the form data
-     */
-    deleteSelectedProduct(): void {
-        // Open the confirmation dialog
-        const confirmation = this._fuseConfirmationService.open({
-            title: 'Delete product',
-            message:
-                'Are you sure you want to remove this product? This action cannot be undone!',
-            actions: {
-                confirm: {
-                    label: 'Delete',
-                },
-            },
-        });
-
-        // Subscribe to the confirmation dialog closed action
-        confirmation.afterClosed().subscribe((result) => {
-            // If the confirm button pressed...
-            if (result === 'confirmed') {
-                // Get the product object
-                // const product = this.selectedProductForm.getRawValue();
-                //
-                // // Delete the product on the server
-                // this._inventoryService
-                //     .deleteProduct(product.id)
-                //     .subscribe(() => {
-                //         // Close the details
-                //         this.closeDetails();
-                //     });
-            }
-        });
-    }
-
-    /**
-     * Show flash message
-     */
-    showFlashMessage(type: 'success' | 'error'): void {
-        // Show the message
-        this.flashMessage = type;
-
-        // Mark for check
-        this._changeDetectorRef.markForCheck();
-
-        // Hide it after 3 seconds
-        setTimeout(() => {
-            this.flashMessage = null;
-
-            // Mark for check
-            this._changeDetectorRef.markForCheck();
-        }, 3000);
-    }
-
-    /**
-     * Track by function for ngFor loops
-     *
-     * @param index
-     * @param item
-     */
-    trackByFn(index: number, item: any): any {
-        return item.id || index;
-    }
+	trackByFn(index: number, item: AgentContextPreview): string | number {
+		return item.agentId || index;
+	}
 }

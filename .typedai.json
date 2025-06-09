@@ -1,0 +1,19 @@
+[
+  {
+    "baseDir": "./",
+    "language": "typescript",
+    "initialise": "node build.js install",
+    "compile": "node build.js build",
+    "format": "",
+    "staticAnalysis": "node build.js lint",
+    "test": "npm run test",
+    "languageTools": "typescript",
+    "devBranch": "main",
+    "indexDocs": [
+      "src/**/*.ts",
+      "frontend/src/**/*.ts",
+      "bin/**",
+      "shared/**"
+    ]
+  }
+]

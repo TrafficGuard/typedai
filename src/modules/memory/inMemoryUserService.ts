@@ -1,11 +1,12 @@
 import * as bcrypt from 'bcrypt';
-import type { User } from '#user/user';
-import type { UserService } from '#user/userService/userService';
+import type { User } from '#shared/user/user.model';
+import type { UserService } from '#user/userService';
 
 export const SINGLE_USER_ID = 'user';
 
 const singleUser: User = {
 	enabled: false,
+	name: 'John Doe',
 	hilBudget: 0,
 	hilCount: 0,
 	llmConfig: {},
@@ -40,7 +41,7 @@ export class InMemoryUserService implements UserService {
 	}
 
 	async createUserWithPassword(email: string, password: string): Promise<User> {
-		const existingUser = await this.getUserByEmail(email).catch(() => null);
+		const existingUser = await this.getUserByEmail(email);
 		if (existingUser) {
 			throw new Error('User already exists');
 		}
@@ -48,21 +49,29 @@ export class InMemoryUserService implements UserService {
 		const passwordHash = await bcrypt.hash(password, 10);
 		const user = await this.createUser({
 			email,
+			passwordHash, // Pass the hash to createUser
 			enabled: true,
-			createdAt: new Date(),
+			// createdAt will be defaulted by createUser
 			hilCount: 5,
 			hilBudget: 1,
-			functionConfig: {},
-			llmConfig: {},
+			// functionConfig and llmConfig will be defaulted by createUser
 		});
 
-		this.passwordHashes.set(user.id, passwordHash);
-		return user;
+		this.passwordHashes.set(user.id, passwordHash); // Still maintain separate map for auth logic
+		return user; // user object from createUser now includes passwordHash
 	}
 
 	async updatePassword(userId: string, newPassword: string): Promise<void> {
+		const userIndex = this.users.findIndex((u) => u.id === userId);
+		if (userIndex === -1) {
+			throw new Error(`User with ID ${userId} not found.`);
+		}
 		const passwordHash = await bcrypt.hash(newPassword, 10);
 		this.passwordHashes.set(userId, passwordHash);
+		// Update the user object in the array as well
+		if (this.users[userIndex]) {
+			this.users[userIndex].passwordHash = passwordHash;
+		}
 	}
 	users: User[] = [singleUser];
 
@@ -72,10 +81,9 @@ export class InMemoryUserService implements UserService {
 		return user;
 	}
 
-	async getUserByEmail(email: string): Promise<User> {
+	async getUserByEmail(email: string): Promise<User | null> {
 		const user = this.users.find((user) => user.email === email);
-		if (!user) throw new Error(`No user found with email ${email}`);
-		return user;
+		return user || null;
 	}
 
 	async updateUser(updates: Partial<User>, userId?: string): Promise<User> {
@@ -95,20 +103,28 @@ export class InMemoryUserService implements UserService {
 	}
 
 	createUser(user: Partial<User>): Promise<User> {
+		const randomSuffix = Math.random().toString(36).substring(2, 9);
 		const newUser: User = {
-			id: user.id,
-			email: user.email,
+			id: user.id || `mem-id-${randomSuffix}`,
+			name: user.name ?? 'Test User',
+			email: user.email!, // Assume email is always provided for new user creation
 			enabled: user.enabled ?? true,
 			hilBudget: user.hilBudget ?? 0,
 			hilCount: user.hilCount ?? 0,
-			llmConfig: user.llmConfig ?? { anthropicKey: '', openaiKey: '', groqKey: '', togetheraiKey: '' },
-			chat: {
+			createdAt: user.createdAt instanceof Date ? user.createdAt : new Date(),
+			passwordHash: user.passwordHash,
+			lastLoginAt: user.lastLoginAt instanceof Date ? user.lastLoginAt : undefined,
+			llmConfig: user.llmConfig ?? {},
+			chat: user.chat ?? {
 				enabledLLMs: {},
 				defaultLLM: '',
 				temperature: 1,
+				topP: 1,
+				topK: 50,
+				frequencyPenalty: 0,
+				presencePenalty: 0,
 			},
-			functionConfig: {},
-			createdAt: user.createdAt ?? new Date(),
+			functionConfig: user.functionConfig ?? {},
 		};
 		this.users.push(newUser);
 		return Promise.resolve(newUser);

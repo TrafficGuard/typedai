@@ -1,0 +1,105 @@
+#!/bin/bash
+# Firestore Database Setup (Google Cloud) ---------------------------------
+echo "--- Starting Firestore Database setup ---"
+
+# Ensure local.env is sourced to get GCLOUD_PROJECT, GCLOUD_REGION, DATABASE_NAME
+# These should have been set by gcp_services_setup or a previous run.
+# Use set +e and set +u to avoid exiting or erroring on unset variables during source
+(set +e; set +u; source ./variables/local.env)
+
+# Check if required variables are set
+if [ -z "$GCLOUD_PROJECT" ] || [ -z "$GCLOUD_REGION" ]; then
+    echo "Error: GCLOUD_PROJECT or GCLOUD_REGION is not set in ./variables/local.env."
+    echo "Firestore setup requires these. Ensure GCP services setup was completed successfully or set them manually."
+    exit 1 # Exit this sourced script part
+fi
+
+# DATABASE_NAME is specific to Firestore, ensure it's set or default it.
+# The default Firestore database is named '(default)'
+DATABASE_NAME=${DATABASE_NAME:-"(default)"}
+echo "Using Google Cloud Project: $GCLOUD_PROJECT (for Firestore)"
+echo "Using Region: $GCLOUD_REGION (for Firestore)"
+echo "Using Firestore Database Name: $DATABASE_NAME"
+
+if ! command -v gcloud &> /dev/null; then
+    echo "Error: gcloud CLI could not be found. This is a prerequisite for Firestore setup."
+    echo "Please install gcloud SDK: https://cloud.google.com/sdk/docs/install"
+    exit 1 # Exit this sourced script part
+fi
+
+# Set the active project for subsequent gcloud commands in this script session
+gcloud config set project "$GCLOUD_PROJECT" --quiet
+
+echo "Enabling Firestore API (firestore.googleapis.com)..."
+FIRESTORE_API="firestore.googleapis.com"
+# Check if API is already enabled using --filter and --format
+if ! gcloud services list --project="$GCLOUD_PROJECT" --enabled --filter="config.name=$FIRESTORE_API" --format="value(config.name)" --quiet | grep -q "$FIRESTORE_API"; then
+    echo "Enabling API: $FIRESTORE_API"
+    # Use --quiet for less verbose output during enable
+    if ! gcloud services enable "$FIRESTORE_API" --project="$GCLOUD_PROJECT" --quiet; then
+        echo "Error: Failed to enable Firestore API. Please check permissions ('serviceusage.services.enable') and try again."
+        exit 1 # Exit this sourced script part
+    fi
+    echo "Firestore API enabled successfully. It might take a few minutes for changes to propagate."
+    sleep 15 # Give GCP a moment
+else
+    echo "Firestore API [$FIRESTORE_API] is already enabled."
+fi
+
+echo "Checking Firestore database status for '$DATABASE_NAME'..."
+# Note: gcloud firestore databases describe requires the full path
+DB_FULL_PATH="projects/$GCLOUD_PROJECT/databases/$DATABASE_NAME"
+# Use --quiet to suppress output, check exit code
+if gcloud firestore databases describe "$DB_FULL_PATH" --project="$GCLOUD_PROJECT" --quiet > /dev/null 2>&1; then
+    echo "Firestore database '$DATABASE_NAME' already exists in project '$GCLOUD_PROJECT'."
+else
+    echo "Firestore database '$DATABASE_NAME' not found. Attempting to create it in region '$GCLOUD_REGION' (Native Mode)..."
+    # Use --quiet for less verbose output during create
+    if gcloud firestore databases create --database="$DATABASE_NAME" --location="$GCLOUD_REGION" --project="$GCLOUD_PROJECT" --type=firestore-native --quiet; then
+        echo "Firestore database '$DATABASE_NAME' created successfully."
+        echo "Waiting for database to become fully available..."
+        sleep 30 # Give GCP time to provision the database
+    else
+        echo "Error: Failed to create Firestore database '$DATABASE_NAME'."
+        echo "Common reasons: Location conflicts, billing not enabled, insufficient permissions ('datastore.databases.create')."
+        exit 1 # Exit this sourced script part
+    fi
+fi
+
+echo "Creating/Updating Firestore indexes..."
+
+# Function to create a composite index
+create_firestore_index() {
+    local collection_group="$1"
+    shift
+    local field_configs=("$@")
+    echo "Attempting to create/update index for Collection Group: $collection_group..."
+    local gcloud_field_args=()
+    for fc in "${field_configs[@]}"; do
+        gcloud_field_args+=(--field-config="$fc")
+    done
+
+    # Use --quiet for less verbose output during index creation
+    # gcloud index creation is idempotent, so running it multiple times is safe.
+    if gcloud firestore indexes composite create \
+        --project="$GCLOUD_PROJECT" \
+        --database="$DATABASE_NAME" \
+        --collection-group="$collection_group" \
+        "${gcloud_field_args[@]}" --quiet; then
+        echo "Index operation for $collection_group successful (or index already exists)."
+    else
+        echo "Warning: Index creation for $collection_group might have failed. Check gcloud output above for details."
+        # Do not exit here, as some indexes might succeed even if one fails.
+    fi
+}
+
+# Define indexes to create
+create_firestore_index "AgentContext" "field-path=user,order=ascending" "field-path=lastUpdate,order=descending" "field-path=__name__,order=descending"
+create_firestore_index "Chats" "field-path=userId,order=ascending" "field-path=updatedAt,order=descending" "field-path=__name__,order=descending"
+create_firestore_index "LlmCall" "field-path=agentId,order=ascending" "field-path=requestTime,order=descending" "field-path=__name__,order=descending"
+create_firestore_index "CodeTask" "field-path=userId,order=ascending" "field-path=updatedAt,order=descending" "field-path=__name__,order=descending"
+create_firestore_index "Prompts" "field-path=userId,order=ascending" "field-path=updatedAt,order=descending" "field-path=__name__,order=descending"
+
+echo "Firestore Database setup script completed."
+# Exit with 0 to indicate success of this part
+exit 0

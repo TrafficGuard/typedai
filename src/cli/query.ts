@@ -2,48 +2,57 @@ import '#fastify/trace-init/trace-init'; // leave an empty line next so this doe
 
 import { writeFileSync } from 'node:fs';
 import { agentContext, llms } from '#agent/agentContextLocalStorage';
-import type { AgentLLMs } from '#agent/agentContextTypes';
-import type { RunAgentConfig, RunWorkflowConfig } from '#agent/agentRunner';
-import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
+import type { RunWorkflowConfig } from '#agent/autonomous/autonomousAgentRunner';
+import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { appContext, initApplicationContext } from '#app/applicationContext';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { defaultLLMs } from '#llm/services/defaultLlms';
-import { queryWorkflow } from '#swe/discovery/selectFilesAgent';
+import type { AgentLLMs } from '#shared/agent/agent.model';
+import { queryWithFileSelection2 } from '#swe/discovery/selectFilesAgentWithSearch';
 import { parseProcessArgs, saveAgentId } from './cli';
+import { parsePromptWithImages } from './promptParser';
 
 async function main() {
 	const agentLLMs: AgentLLMs = defaultLLMs();
 	await initApplicationContext();
 
-	const { initialPrompt, resumeAgentId } = parseProcessArgs();
+	const { initialPrompt: rawPrompt, resumeAgentId } = parseProcessArgs();
+	const { textPrompt, userContent } = parsePromptWithImages(rawPrompt);
 
-	console.log(`Prompt: ${initialPrompt}`);
+	console.log(`Prompt: ${textPrompt}`);
 
 	const config: RunWorkflowConfig = {
 		agentName: 'Query',
-		subtype: 'workflow',
+		subtype: 'query',
 		llms: agentLLMs,
 		functions: [],
-		initialPrompt,
+		initialPrompt: textPrompt,
 		resumeAgentId,
 		humanInLoop: {
 			budget: 2,
 		},
 	};
 
-	const agentId = await runAgentWorkflow(config, async () => {
+	const agentId = await runWorkflowAgent(config, async () => {
 		const agent = agentContext();
+		// Use textPrompt for generating the agent name summary
 		agent.name = `Query: ${await llms().easy.generateText(
-			`<query>\n${initialPrompt}\n</query>\n\nSummarise the query into only a terse few words for a short title (8 words maximum) for the name of the AI agent completing the task. Output the short title only, nothing else.`,
+			`<query>\n${textPrompt}\n</query>\n\nSummarise the query into only a terse few words for a short title (8 words maximum) for the name of the AI agent completing the task. Output the short title only, nothing else.`,
 			{ id: 'Agent name' },
 		)}`;
 		await appContext().agentStateService.save(agent);
 
-		const response: any = await queryWorkflow(initialPrompt);
-		console.log(response);
+		// Pass the text part of the prompt to the query workflow
+		const { files, answer } = await queryWithFileSelection2(textPrompt);
+		console.log(JSON.stringify(files));
+		console.log(answer);
 
-		writeFileSync('src/cli/query-out', response);
-		console.log('Wrote output to src/cli/query-out');
+		const response = `${answer}\n\n<json>\n${JSON.stringify(files)}\n</json>`;
+
+		agent.output = response;
+
+		writeFileSync('src/cli/query-out.md', response);
+		console.log('Wrote output to src/cli/query-out.md');
 	});
 
 	if (agentId) {

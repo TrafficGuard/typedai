@@ -1,7 +1,7 @@
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
-import { humanInTheLoop } from '#agent/humanInTheLoop';
+import { humanInTheLoop } from '#agent/autonomous/humanInTheLoop';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import { system, user } from '#llm/llm';
+import { system, user } from '#shared/llm/llm.model';
 import { execCommand } from '#utils/exec';
 
 @funcClass(__filename)

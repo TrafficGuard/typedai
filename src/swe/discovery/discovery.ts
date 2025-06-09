@@ -1,6 +1,7 @@
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
-import { type SelectedFile, selectFilesToEdit } from '#swe/discovery/selectFilesToEdit';
+import type { SelectedFile } from '#shared/files/files.model';
+import { selectFilesToEdit } from '#swe/discovery/selectFilesToEdit';
 import { getProjectInfo } from '#swe/projectDetection';
 
 interface DiscoveryResult {
@@ -90,11 +91,11 @@ async function analyzeFiles(files: SelectedFile[]): Promise<string> {
 
 	for (const file of files) {
 		try {
-			const fileContents = await getFileSystem().readFile(file.path);
+			const fileContents = await getFileSystem().readFile(file.filePath);
 			const prompt = `
         Analyze the contents of the following file and summarize the key information that is relevant to the current task:
 
-        <file_path>${file.path}</file_path>
+        <file_path>${file.filePath}</file_path>
         <file_contents>${fileContents}</file_contents>
 
         Provide a concise summary of the relevant information in the file.
@@ -104,10 +105,10 @@ async function analyzeFiles(files: SelectedFile[]): Promise<string> {
 				id: 'analyzeFiles',
 				temperature: 0.5,
 			});
-			analysisResult += `\nFile: ${file.path}\nSummary: ${summary}\n`;
+			analysisResult += `\nFile: ${file.filePath}\nSummary: ${summary}\n`;
 		} catch (error) {
-			logger.error(`Error analyzing file ${file.path}:`, error);
-			analysisResult += `\nFile: ${file.path}\nError: Unable to analyze file\n`;
+			logger.error(`Error analyzing file ${file.filePath}:`, error);
+			analysisResult += `\nFile: ${file.filePath}\nError: Unable to analyze file\n`;
 		}
 	}
 

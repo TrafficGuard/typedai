@@ -3,48 +3,108 @@ FROM python:3.11-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Update package lists without signature verification to avoid "At least one invalid signature was encountered." on debian repos
+# Update package lists
 RUN apt-get -o Acquire::Check-Valid-Until=false -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true update
 
+# Install base dependencies + Python build dependencies for pyenv
 # make g++ gcc build-essential are needed for node-gyp
-RUN apt-get install -y curl make g++ gcc build-essential git
-RUN curl -sL https://deb.nodesource.com/setup_20.x -o nodesource_setup.sh
-RUN bash ./nodesource_setup.sh
-RUN apt-get install -y nodejs
+# Others are common for building Python versions with pyenv
+RUN apt-get install -y --no-install-recommends \
+    curl make g++ gcc build-essential git \
+    libssl-dev zlib1g-dev libbz2-dev \
+    libreadline-dev libsqlite3-dev wget llvm \
+    libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN pip install aider-chat google-cloud-aiplatform "anthropic[vertex]"
+# Install Node.js
+RUN curl -sL https://deb.nodesource.com/setup_20.x -o nodesource_setup.sh \
+    && bash ./nodesource_setup.sh \
+    && apt-get install -y nodejs \
+    && rm nodesource_setup.sh
 
-ENV user=typedai
-ENV homedir=/home/typedai/
-RUN useradd --create-home -g users typedai
+# Install global Python packages
+RUN pip install aider-chat google-cloud-aiplatform "anthropic[vertex]" youtube-transcript-api
 
-WORKDIR $homedir
+# Define user and home directory consistently
+ENV USER_NAME=typedai
+ENV HOMEDIR=/home/${USER_NAME}
 
+# Create user with a specific home directory
+# Consider adding -u <UID> if you need a fixed UID, e.g., -u 1000
+RUN useradd --create-home -d ${HOMEDIR} -g users ${USER_NAME}
+
+# Set working directory (HOMEDIR is now defined)
+WORKDIR ${HOMEDIR}
+
+# Copy application files that are needed before USER switch or owned by root initially (if any)
+# For .husky and package.json, it's usually better to copy them after USER switch
+# so the user owns them, or chown them.
+
+# Copy .python-version file from build context (TYPEDAI_HOME) to the user's home directory in the image
+# This must exist in your TYPEDAI_HOME directory.
+COPY .python-version ${HOMEDIR}/.python-version
+# Ensure the user will own it (important if copied before USER switch, good practice anyway)
+RUN chown ${USER_NAME}:users ${HOMEDIR}/.python-version
+
+# Copy .husky files (assuming they are at the root of TYPEDAI_HOME)
 RUN mkdir ".husky"
 COPY .husky/install.mjs .husky/install.mjs
+RUN chown -R ${USER_NAME}:users ${HOMEDIR}/.husky
 
+# Copy main package.json and install dependencies
 COPY package*.json ./
+# Make chown of lock file optional
+RUN chown ${USER_NAME}:users package.json package-lock.json 2>/dev/null || chown ${USER_NAME}:users package.json
+
+# Switch to non-root user
+USER ${USER_NAME}
+
+# Now, as the user, install npm dependencies
 RUN npm install
 
 # Install Angular dependencies and build Angular app
-WORKDIR $homedir/frontend
-COPY frontend/package*.json ./
+# Ensure frontend/package.json exists in your TYPEDAI_HOME/frontend
+WORKDIR ${HOMEDIR}/frontend
+COPY --chown=${USER_NAME}:users frontend/package.json ./
+# COPY frontend/yarn.lock ./ # if you use yarn
+# If frontend/package-lock.json exists in your TYPEDAI_HOME/frontend, copy it with correct ownership.
+# If it doesn't exist, this COPY command will fail. If it's optional, remove this line.
+COPY --chown=${USER_NAME}:users frontend/package-lock.json ./
+
 RUN npm install
+# RUN npm run build # If you need to build frontend during Docker image creation
 
 # Set work directory back to home
-WORKDIR $homedir
+WORKDIR ${HOMEDIR}
 
-# Switch to non-root user
-USER $user
+# Install pyenv for the typedai user
+RUN git clone https://github.com/pyenv/pyenv.git ${HOMEDIR}/.pyenv
+
+# Add pyenv bin directory to the PATH for the typedai user
+ENV PYENV_ROOT="${HOMEDIR}/.pyenv"
+# Add shims dir too, and move comment
+ENV PATH="${PYENV_ROOT}/bin:${PYENV_ROOT}/shims:${PATH}"
+
+# This comment was on the ENV PATH line before, moving it here:
+# This sets PATH for subsequent RUN commands in Dockerfile and for the runtime environment
+
+# Initialize pyenv, install Python version from .python-version, and set it globally for pyenv
+# Ensure .python-version was copied earlier and is readable
+RUN eval "$(pyenv init --path)" && \
+    eval "$(pyenv init -)" && \
+    eval "$(pyenv virtualenv-init -)" && \
+    pyenv install --skip-existing $(cat ${HOMEDIR}/.python-version) && \
+    pyenv global $(cat ${HOMEDIR}/.python-version) && \
+    pyenv rehash
 
 ENV NODE_ENV=production
 
-# Needed to avoid the error "fatal: detected dubious ownership in repository at '/home/typedai'" when running git commands
-# as the application files are owned by the root user so an agent (which runs as the typedai user) can't modify them.
-RUN git config --global --add safe.directory /home/typedai
+# Needed to avoid "fatal: detected dubious ownership in repository"
+# This applies to /home/typedai because it's mounted from the host and owned by host's user in many cases
+RUN git config --global --add safe.directory ${HOMEDIR}
+# If your /workspace is also a git repo and you run git commands there:
+# RUN git config --global --add safe.directory /workspace
 
-# In the frontend package.json the `ng serve` needs the arg --host 0.0.0.0 for it to be available from the host machine
 EXPOSE 4200
 EXPOSE 3000
 CMD ["./bin/cmd-script"]
-

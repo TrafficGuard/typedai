@@ -25,7 +25,6 @@ import { Subject, takeUntil } from 'rxjs';
     selector: 'fuse-horizontal-navigation-branch-item',
     templateUrl: './branch.component.html',
     changeDetection: ChangeDetectionStrategy.OnPush,
-    standalone: true,
     imports: [
         NgClass,
         MatMenuModule,
@@ -47,7 +46,7 @@ export class FuseHorizontalNavigationBranchItemComponent
     private _changeDetectorRef = inject(ChangeDetectorRef);
     private _fuseNavigationService = inject(FuseNavigationService);
 
-    @Input() child = false;
+    @Input() child: boolean = false;
     @Input() item: FuseNavigationItem;
     @Input() name: string;
     @ViewChild('matMenu', { static: true }) matMenu: MatMenu;

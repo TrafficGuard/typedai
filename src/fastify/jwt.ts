@@ -1,4 +1,4 @@
-import type { User } from '#user/user';
+import type { User } from '#shared/user/user.model';
 
 export interface JWTPayload {
 	userId: string;

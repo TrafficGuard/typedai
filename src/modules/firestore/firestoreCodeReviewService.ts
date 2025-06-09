@@ -1,7 +1,8 @@
 import type { DocumentSnapshot, Firestore } from '@google-cloud/firestore';
 import { logger } from '#o11y/logger';
-import { type CodeReviewConfig, type CodeReviewFingerprintCache, EMPTY_CACHE } from '#swe/codeReview/codeReviewModel';
+import type { CodeReviewConfig } from '#shared/codeReview/codeReview.model';
 import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
+import { type CodeReviewFingerprintCache, EMPTY_CACHE } from '#swe/codeReview/codeReviewTaskModel';
 import { firestoreDb } from './firestore';
 
 export class FirestoreCodeReviewService implements CodeReviewService {

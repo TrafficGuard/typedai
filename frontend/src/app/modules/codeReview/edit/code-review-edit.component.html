@@ -1,0 +1,165 @@
+<div class="flex min-w-0 flex-auto flex-col">
+
+    <!-- Header -->
+    <div class="bg-card flex flex-0 flex-col border-b p-6 dark:bg-transparent sm:flex-row sm:items-center sm:justify-between sm:px-10 sm:py-3">
+        <div class="min-w-0 flex-1">
+            <div class="text-3xl font-medium tracking-tight">{{ pageTitle() }}</div>
+        </div>
+        <div *ngIf="isLoading() || isSaving()" class="flex items-center justify-center">
+            <mat-progress-spinner mode="indeterminate" diameter="50"></mat-progress-spinner>
+        </div>
+    </div>
+
+    <!-- Main -->
+    <mat-card class="code-card mat-elevation-z8 m-5 p-5 max-w-320">
+        <mat-card-content>
+            <div *ngIf="error()" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+                <strong class="font-bold">Error:</strong>
+                <span class="block sm:inline">{{ error() }}</span>
+            </div>
+            <form [formGroup]="editForm()" (ngSubmit)="onSubmit()" class="flex flex-col">
+                <mat-form-field [ngClass]="['fuse-mat-dense', 'w-full']">
+                    <mat-label>Title</mat-label>
+                    <input matInput formControlName="title" required>
+                    <mat-error *ngIf="editForm().get('title')?.hasError('required')">Title is required</mat-error>
+                </mat-form-field>
+
+                <mat-form-field [ngClass]="['fuse-mat-dense', 'w-full']">
+                    <mat-label>Description</mat-label>
+                    <textarea matInput formControlName="description" required rows="4"></textarea>
+                    <mat-error *ngIf="editForm().get('description')?.hasError('required')">Description is required</mat-error>
+                </mat-form-field>
+
+                <mat-checkbox [formControlName]="'enabled'">Enabled</mat-checkbox>
+
+                <div class="flex flex-col md:flex-row gap-4 mt-4">
+                    <div formGroupName="fileExtensions" class="flex-auto">
+                        <mat-form-field [ngClass]="['fuse-mat-dense', 'w-full']">
+                            <mat-label>Included File Extensions</mat-label>
+                            <mat-chip-grid #chipList formControlName="include" required>
+                                <mat-chip
+                                    *ngFor="let ext of editForm().get('fileExtensions.include')?.value"
+                                    [removable]="true"
+                                    (removed)="removeExtension(ext)"
+                                >
+                                    {{ ext }}
+                                    <mat-icon matChipRemove>cancel</mat-icon>
+                                </mat-chip>
+                                <input
+                                    placeholder="Press enter to add..."
+                                    [matChipInputFor]="chipList"
+                                    (matChipInputTokenEnd)="addExtension($event)"
+                                />
+                            </mat-chip-grid>
+                            <mat-error *ngIf="editForm().get('fileExtensions.include')?.hasError('required') && editForm().get('fileExtensions.include')?.touched">
+                                At least one file extension is required.
+                            </mat-error>
+                        </mat-form-field>
+                    </div>
+
+                    <div formGroupName="requires" class="flex-auto">
+                        <mat-form-field [ngClass]="['fuse-mat-dense', 'w-full']">
+                            <mat-label>Required Text In Diff</mat-label>
+                            <mat-chip-grid #requiredChipList formControlName="text" required>
+                                <mat-chip
+                                    *ngFor="let text of editForm().get('requires.text')?.value"
+                                    [removable]="true"
+                                    (removed)="removeRequiredText(text)"
+                                >
+                                    {{ text }}
+                                    <mat-icon matChipRemove>cancel</mat-icon>
+                                </mat-chip>
+                                <input
+                                    placeholder="Press enter to add..."
+                                    [matChipInputFor]="requiredChipList"
+                                    (matChipInputTokenEnd)="addRequiredText($event)"
+                                />
+                            </mat-chip-grid>
+                             <mat-error *ngIf="editForm().get('requires.text')?.hasError('required') && editForm().get('requires.text')?.touched">
+                                At least one required text is necessary.
+                            </mat-error>
+                        </mat-form-field>
+                    </div>
+                    <div class="spacer"></div>
+                </div>
+
+                <div class="flex flex-col md:flex-row gap-4 mt-4">
+                    <div class="flex-auto">
+                        <mat-form-field [ngClass]="['fuse-mat-dense', 'w-full']">
+                            <mat-label>Tags</mat-label>
+                            <mat-chip-grid #tagChipList formControlName="tags">
+                                <mat-chip *ngFor="let tag of editForm().get('tags')?.value" [removable]="true" (removed)="removeTag(tag)">
+                                    {{ tag }}
+                                    <mat-icon matChipRemove>cancel</mat-icon>
+                                </mat-chip>
+                                <input
+                                    placeholder="Press enter to add..."
+                                    [matChipInputFor]="tagChipList"
+                                    (matChipInputTokenEnd)="addTag($event)"
+                                />
+                            </mat-chip-grid>
+                        </mat-form-field>
+                    </div>
+
+                    <div class="flex-auto">
+                        <mat-form-field [ngClass]="['fuse-mat-dense', 'w-full']">
+                            <mat-label>Project Paths</mat-label>
+                            <mat-chip-grid #projectPathChipList formControlName="projectPaths">
+                                <mat-chip
+                                    *ngFor="let path of editForm().get('projectPaths')?.value"
+                                    [removable]="true"
+                                    (removed)="removeProjectPath(path)"
+                                >
+                                    {{ path }}
+                                    <mat-icon matChipRemove>cancel</mat-icon>
+                                </mat-chip>
+                                <input
+                                    placeholder="Press enter to add..."
+                                    [matChipInputFor]="projectPathChipList"
+                                    (matChipInputTokenEnd)="addProjectPath($event)"
+                                />
+                            </mat-chip-grid>
+                        </mat-form-field>
+                    </div>
+                    <div class="spacer"></div>
+                </div>
+
+                <div formArrayName="examples" class="flex flex-col gap-4 mt-4">
+                    <div class="prose prose-sm max-w-3xl">
+                        <h3 class="mt-2 mb-2">
+                            Examples
+                            <button mat-icon-button color="primary" type="button" (click)="addExample()" aria-label="Add example">
+                                <mat-icon class="pt-2">add</mat-icon>
+                            </button>
+                        </h3>
+                         <mat-error *ngIf="editForm().get('examples')?.hasError('required') && editForm().get('examples')?.touched">
+                            At least one example is required.
+                        </mat-error>
+                    </div>
+                    <div *ngFor="let example of examples.controls; let i = index" [formGroupName]="i" class="flex flex-col md:flex-row gap-4">
+                        <mat-form-field [ngClass]="['fuse-mat-dense', 'flex-auto']">
+                            <mat-label>Code</mat-label>
+                            <textarea matInput formControlName="code" required></textarea>
+                             <mat-error *ngIf="examples.controls[i].get('code')?.hasError('required')">Code is required</mat-error>
+                        </mat-form-field>
+                        <mat-form-field [ngClass]="['fuse-mat-dense', 'flex-auto']">
+                            <mat-label>Review Comment</mat-label>
+                            <textarea matInput formControlName="reviewComment" required></textarea>
+                            <mat-error *ngIf="examples.controls[i].get('reviewComment')?.hasError('required')">Review comment is required</mat-error>
+                        </mat-form-field>
+                        <button mat-icon-button color="warn" class="pt-6" type="button" (click)="removeExample(i)">
+                            <mat-icon>delete</mat-icon>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex justify-end mt-6">
+                    <button mat-button type="button" (click)="goBack()">Cancel</button>
+                    <button mat-raised-button color="primary" type="submit" [disabled]="editForm().invalid || isSaving()">
+                        {{ configId() ? 'Update' : 'Create' }}
+                    </button>
+                </div>
+            </form>
+        </mat-card-content>
+    </mat-card>
+</div>

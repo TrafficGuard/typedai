@@ -2,8 +2,11 @@ import '#fastify/trace-init/trace-init'; // leave an empty line next so this doe
 
 import { writeFileSync } from 'node:fs';
 import { defaultLLMs } from '#llm/services/defaultLlms';
+import { vertexGemini_2_5_Flash } from '#llm/services/vertexai';
 import { countTokens } from '#llm/tokens';
+import { messageText, user } from '#shared/llm/llm.model';
 import { parseProcessArgs } from './cli';
+import { parsePromptWithImages } from './promptParser';
 
 // Usage:
 // npm run gen
@@ -11,13 +14,20 @@ import { parseProcessArgs } from './cli';
 async function main() {
 	const llms = defaultLLMs();
 
-	const { initialPrompt } = parseProcessArgs();
+	const { initialPrompt: rawPrompt } = parseProcessArgs();
+	const { textPrompt, userContent } = parsePromptWithImages(rawPrompt);
 
-	const llm = llms.medium;
-	const tokens = await countTokens(initialPrompt);
-	console.log(`Generating with ${llm.getId()}. Input ${tokens} tokens\n`);
+	await countTokens('asdf'); // so countTokensSync works in calculation costs
+
+	const llm = vertexGemini_2_5_Flash(); //  llms.medium;
+	// Count tokens of the text part only for display purposes
+	const tokens = await countTokens(textPrompt);
+	console.log(`Generating with ${llm.getId()}. Input ${tokens} text tokens\n`);
 	const start = Date.now();
-	const text = await llm.generateText(initialPrompt);
+	// Pass the full UserContent (text + images) as a message array
+	const message = await llm.generateMessage([user(userContent)], { id: 'CLI-gen', thinking: 'high' });
+	const text = messageText(message);
+
 	const duration = Date.now() - start;
 
 	writeFileSync('src/cli/gen-out', text);

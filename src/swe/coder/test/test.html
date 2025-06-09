@@ -1,0 +1,53 @@
+<div class="flex flex-col items-start mr-4 -mt-2">
+    <!-- Buttons -->
+    <div class="flex items-center">
+        <input
+                type="file"
+                #fileInput
+                (change)="onFileSelected($event)"
+                [multiple]="true"
+                class="hidden"
+                accept="image/*,.pdf,.txt,.doc,.docx"
+        />
+        <button
+                class="ml-0.5"
+                mat-icon-button
+                (click)="fileInput.click()"
+                [matTooltip]="'Attach a file. You can also drag a file onto the message field.'">
+            <mat-icon [svgIcon]="'heroicons_outline:paper-clip'"></mat-icon>
+        </button>
+        <button class="ml-0.5"
+                mat-icon-button
+                matTooltip="Hold to record"
+                [disabled]="true"
+                [ngClass]="{ 'recording-button': recording }"
+                (mousedown)="startRecording()"
+                (mouseup)="stopRecording()"
+                (mouseleave)="stopRecording()">
+            <mat-icon [svgIcon]="'mic'"></mat-icon> <!-- When recording alternate with the icon settings_voice and set the selected-button class -->
+        </button>
+        <button class="ml-0.5"
+                mat-icon-button
+                (click)="toggleSendOnEnter()"
+                [matTooltip]="sendOnEnter ? 'Send on Enter. Press Shift-enter for new line. Click to toggle' : 'New line on Enter. Press Shift-enter to send. Click to toggle'">
+            <mat-icon [svgIcon]="enterStateIcon"></mat-icon>
+        </button>
+        <button class="ml-0.5"
+                mat-icon-button
+                (click)="toggleThinking()"
+                [disabled]="!llmHasThinkingLevels"
+                [matTooltip]="'Thinking level: ' + thinkingLevel.toUpperCase() + '. Click to cycle through thinking levels'">
+            <mat-icon [svgIcon]="thinkingIcon" [ngClass]="{'text-primary': sendOnEnter}"></mat-icon>
+        </button>
+    </div>
+    <!-- mat-select -->
+    <mat-form-field appearance="fill" class="w-20 mt-2" style="min-width: 225px" subscriptSizing="dynamic">
+        <mat-select #llmSelect (keydown)="handleLlmKeydown($event)" (selectionChange)="updateThinkingIcon()" placeholder="LLM" [(value)]="llmId">
+            @for (llm of llms; track llm.id) {
+            <mat-option [value]="llm.id">
+                {{ llm.name }}
+            </mat-option>
+            }
+        </mat-select>
+    </mat-form-field>
+</div>

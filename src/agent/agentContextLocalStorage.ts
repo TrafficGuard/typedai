@@ -1,12 +1,13 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
-import { LlmFunctions } from '#agent/LlmFunctions';
-import { ConsoleCompletedHandler } from '#agent/agentCompletion';
-import type { AgentContext, AgentLLMs } from '#agent/agentContextTypes';
-import type { RunAgentConfig, RunWorkflowConfig } from '#agent/agentRunner';
+import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
+import { ConsoleCompletedHandler } from '#agent/autonomous/agentCompletion';
+import type { RunAgentConfig, RunWorkflowConfig } from '#agent/autonomous/autonomousAgentRunner';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
-import { currentUser } from '#user/userService/userContext';
+import type { AgentContext, AgentLLMs } from '#shared/agent/agent.model';
+import type { IFileSystemService } from '#shared/files/fileSystemService';
+import { currentUser } from '#user/userContext';
 
 export const agentContextStorage = new AsyncLocalStorage<AgentContext>();
 
@@ -41,7 +42,7 @@ export function addNote(note: string): void {
 /**
  * @return the filesystem on the current agent context
  */
-export function getFileSystem(): FileSystemService {
+export function getFileSystem(): IFileSystemService {
 	if (!agentContextStorage.getStore()) return new FileSystemService();
 	const filesystem = agentContextStorage.getStore()?.fileSystem;
 	if (!filesystem) throw new Error('No file system available on the agent context');
@@ -55,7 +56,7 @@ export function createContext(config: RunAgentConfig | RunWorkflowConfig): Agent
 
 	// type is optional on RunWorkflowConfig, which discriminates between RunAgentConfig and RunWorkflowConfig
 
-	const context: AgentContext = {
+	return {
 		agentId: config.resumeAgentId || randomUUID(),
 		parentAgentId: config.parentAgentId,
 		executionId: randomUUID(),
@@ -82,13 +83,13 @@ export function createContext(config: RunAgentConfig | RunWorkflowConfig): Agent
 		cost: 0,
 		llms: config.llms, // we can't do `?? defaultLLMs()` as compiling breaks from import cycle dependencies,
 		fileSystem,
-		useSharedRepos: true,
-		functions: Array.isArray(config.functions) ? new LlmFunctions(...config.functions) : config.functions,
+		useSharedRepos: config.useSharedRepos ?? true, // Apply default if not provided in config
+		functions: Array.isArray(config.functions) ? new LlmFunctionsImpl(...config.functions) : config.functions,
 		completedHandler: config.completedHandler ?? new ConsoleCompletedHandler(),
 		memory: {},
 		invoking: [],
 		lastUpdate: Date.now(),
-		liveFiles: [],
+		toolState: {},
+		codeTaskId: config.codeTaskId,
 	};
-	return context;
 }

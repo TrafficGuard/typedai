@@ -1,46 +1,59 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
-import { LlmFunctions } from '#agent/LlmFunctions';
-import { agentContextStorage, createContext } from '#agent/agentContextLocalStorage';
-import type { AgentContext, AgentLLMs } from '#agent/agentContextTypes';
-import type { RunWorkflowConfig } from '#agent/agentRunner';
+import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
+import { agentContextStorage, createContext, getFileSystem } from '#agent/agentContextLocalStorage';
+import type { RunWorkflowConfig } from '#agent/autonomous/autonomousAgentRunner';
 import { appContext } from '#app/applicationContext';
+import { Jira } from '#functions/jira';
+import { GitLab } from '#functions/scm/gitlab';
+import { FileSystemList } from '#functions/storage/fileSystemList';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { MultiLLM } from '#llm/multi-llm';
-import { Claude3_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
-import { GPT4o } from '#llm/services/openai';
+import { Claude4_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
+import { defaultLLMs } from '#llm/services/defaultLlms';
+import { GPT41 } from '#llm/services/openai';
+import type { AgentContext, AgentLLMs } from '#shared/agent/agent.model';
+import { SearchReplaceCoder } from '#swe/coder/searchReplaceCoder';
 import { envVarHumanInLoopSettings } from './cliHumanInLoop';
 
 // For running random bits of code
 // Usage:
 // npm run util
 
-const sonnet = Claude3_5_Sonnet_Vertex();
-
-const utilLLMs: AgentLLMs = {
-	easy: sonnet,
-	medium: sonnet,
-	hard: sonnet,
-	xhard: new MultiLLM([sonnet, GPT4o()], 3),
-};
-
 async function main() {
 	await appContext().userService.ensureSingleUser();
-	const functions = new LlmFunctions();
+	const functions = new LlmFunctionsImpl();
 	functions.addFunctionClass(FileSystemService);
 
 	const config: RunWorkflowConfig = {
 		agentName: 'util',
 		subtype: 'util',
-		llms: utilLLMs,
+		llms: defaultLLMs(),
 		functions,
 		initialPrompt: '',
 		humanInLoop: envVarHumanInLoopSettings(),
+		useSharedRepos: true,
 	};
 
 	const context: AgentContext = createContext(config);
 
 	agentContextStorage.enterWith(context);
+
+	const gitlab = new GitLab();
+
+	const projects = await gitlab.getProjects();
+	console.log(projects);
+	const cloned = await gitlab.cloneProject('devops/terraform/waf_infra', 'main');
+	console.log(cloned);
+
+	// console.log(await new Jira().getJiraDetails('CLD-1685'));
+
+	// const edited = await new SearchReplaceCoder().editFilesToMeetRequirements(
+	// 	'Add another button, after the toggle thinking button, with the markdown material icon which calls a function called reformat() method on the component',
+	// 	['frontend/src/app/modules/chat/conversation/conversation.component.html', 'frontend/src/app/modules/chat/conversation/conversation.component.ts'],
+	// 	[],
+	// );
+	// console.log(edited);
 }
 
 main()

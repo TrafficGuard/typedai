@@ -1,4 +1,4 @@
-import { currentUser } from '#user/userService/userContext';
+import { currentUser } from '#user/userContext';
 
 export function envVarHumanInLoopSettings() {
 	// Human in the loop settings

@@ -26,13 +26,18 @@ export async function analyzeCompileErrors(
 	initialFileSelection: string[],
 	compileErrorSummaries: string[],
 ): Promise<CompileErrorAnalysis> {
+	// Maybe want to prune the file system tree from the agents FileSystemTree collapsed folders on the agent context
+	const fileSystemTree = `<file_system_tree>\n${await getFileSystem().getFileSystemTree()}\n</file_system_tree>`;
+
 	const fileContents = `<file_contents>\n${await getFileSystem().readFilesAsXml(initialFileSelection)}\n</file_contents>`;
-	// const fileList = `<project_filenames>\n${(await getFileSystem().listFilesRecursively()).join('\n')}\n</project_filenames>`;
+
 	// TODO need to add ts-imports info to resolve imports to file paths
+	// languageTools.getAliasMappings()
+
 	let compileErrorHistory = '';
 	if (compileErrorSummaries.length) {
 		compileErrorHistory += '<compile-error-history>\n';
-		for (const summary of compileErrorSummaries) compileErrorHistory += '<compile-error-summary>${summary}</compile-error-summary>\n';
+		for (const summary of compileErrorSummaries) compileErrorHistory += `<compile-error-summary>${summary}</compile-error-summary>\n`;
 		compileErrorHistory += '</compile-error-history>';
 	}
 	const compileOutputXml = `<compiler_output>\n${compilerOutput}\n</compiler_output>`;
@@ -64,9 +69,9 @@ export async function analyzeCompileErrors(
 </response_example>`;
 
 	// ${fileList}\n
-	const prompt = `${fileContents}\n${compileErrorHistory}\n${compileOutputXml}\n${currentFileList}\n${instructions}`;
+	const prompt = `${fileSystemTree}\n${fileContents}\n${compileErrorHistory}\n${compileOutputXml}\n${currentFileList}\n${instructions}`;
 	const analysis: CompileErrorAnalysis = await llms().hard.generateJson(prompt, {
-		id: 'analyzeCompileErrors',
+		id: 'Analyze compile errors',
 	});
 	analysis.compilerOutput = compilerOutput;
 	return analysis;

@@ -4,7 +4,7 @@ import { AuthGuard } from 'app/core/auth/guards/auth.guard';
 import { NoAuthGuard } from 'app/core/auth/guards/noAuth.guard';
 import { LayoutComponent } from 'app/layout/layout.component';
 
-// @formatter:off
+// prettier-ignore
 /* eslint-disable max-len */
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 export const appRoutes: Route[] = [
@@ -12,7 +12,7 @@ export const appRoutes: Route[] = [
     // Redirect empty path to '/chat'
     {path: '', pathMatch : 'full', redirectTo: 'ui/chat'},
 
-    // Redirect signed-in user to the '/example'
+    // Redirect signed-in user to the '/ui/chat'
     //
     // After the user signs in, the sign-in page will redirect the user to the 'signed-in-redirect'
     // path. Below is another redirection for that path to redirect the user to the desired
@@ -76,11 +76,14 @@ export const appRoutes: Route[] = [
         children: [
             //{path: 'example', loadChildren: () => import('app/modules/admin/home/home.routes')},
             {path: 'profile', loadChildren: () => import('app/modules/profile/profile.routes')},
-            {path: 'chat', loadChildren: () => import('app/modules/chat/chat.routes')},
+            {path: 'chat', loadChildren: () => import('app/modules/chat/chat.routes').then(m => m.default)},
             {path: 'agents', loadChildren: () => import('app/modules/agents/agent.routes')},
-            {path: 'code-reviews', loadChildren: () => import('app/modules/code-review/code-review.routes')},
-            {path: 'workflows', loadChildren: () => import('app/modules/workflows/workflows.routes')},
-            {path: 'vibe', loadChildren: () => import('app/modules/vibe/vibe.routes')},
+            {path: 'code-reviews', loadChildren: () => import('./modules/codeReview/code-review.routes')},
+            {path: 'prompts', loadChildren: () => import('app/modules/prompts/prompts.routes')},
+            {path: 'codeTask', loadChildren: () => import('./modules/codeTask/codeTask.routes')},
         ]
-    }
+    },
+    // 404 & Catch all
+    // {path: '404-not-found', pathMatch: 'full', loadChildren: () => import('app/modules/admin/pages/error/error-404/error-404.routes')},
+    // {path: '**', redirectTo: '404-not-found'}
 ];

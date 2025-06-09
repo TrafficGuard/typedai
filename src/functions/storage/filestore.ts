@@ -1,12 +1,5 @@
-import type { GetToolType } from '#functions/toolType';
-
-export interface FileMetadata {
-	filename: string;
-	description: string;
-	/** Size in bytes */
-	size: number;
-	lastUpdated: string;
-}
+import type { GetToolType } from '#shared/agent/functions';
+import type { FileMetadata } from '#shared/files/files.model';
 
 export interface FileStore extends GetToolType {
 	/**

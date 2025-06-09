@@ -1,0 +1,311 @@
+//@import 'cdk'; // For cdkTextareaAutosize
+/*
+div.mat-expansion-panel-body {
+    padding-top: 0px;
+    padding-right: 16px;
+    padding-bottom: 10px;
+    padding-left: 26px
+}
+*/
+.mat-expansion-panel-header.mat-expanded {
+    height: 48px;
+}
+:host {
+  display: block; // Recommended for component host elements
+
+
+  .prompt-form-page-container {
+    // This class wraps the toolbar and content area.
+    // No specific styles needed here unless for overall layout like height: 100%.
+  }
+
+  .app-toolbar {
+    background-color: var(--fuse-toolbar-background, #ffffff); // Use theme variable if available, else fallback
+    color: var(--fuse-toolbar-foreground, #333333);
+    border-bottom: 1px solid var(--fuse-border, #e0e0e0); // Use theme variable
+
+    .playground-title {
+      font-size: 1.25rem;
+      font-weight: 500;
+      margin-right: 20px;
+    }
+
+    .toolbar-spacer {
+      flex: 1 1 auto;
+    }
+
+    .model-selector {
+      width: auto;
+      min-width: 200px;
+      max-width: 300px;
+      margin-right: 8px;
+      // For MDC components, targeting internal parts for height/padding in a toolbar context:
+      .mat-mdc-form-field-flex {
+        height: 40px; // Typical toolbar item height
+        align-items: center;
+      }
+      // Hide error/hint space which is usually not wanted in a toolbar select
+      .mat-mdc-form-field-subscript-wrapper {
+        display: none;
+      }
+      // Adjust padding for the input itself if default is too large
+       .mat-mdc-select-value-text {
+         padding-top: 0; // Adjust as needed
+         padding-bottom: 0; // Adjust as needed
+       }
+    }
+
+    .view-code-button {
+      // Uses default mat-stroked-button styling, add overrides if needed
+      .mat-icon {
+        margin-right: 4px;
+      }
+    }
+  }
+
+  .prompt-form-content-area {
+    padding: 20px; // Add padding around the main form content below the toolbar
+  }
+}
+
+mat-card-content {
+  textarea {
+    min-height: 80px;
+    resize: vertical;
+  }
+}
+.mat-chip-grid {
+    width: 100%;
+}
+
+// Ensure spinner color is visible on primary button
+button[mat-flat-button][color="primary"] {
+    mat-spinner ::ng-deep circle {
+        stroke: currentColor;
+    }
+}
+
+// Add these styles, preferably inside :host { ... } or ensure they are properly scoped.
+.prompt-form-toolbar {
+  // Use existing theme variables if available, otherwise use fallback colors.
+  // Assuming a light theme context as per the screenshot.
+  background-color: #ffffff; // Fallback: white background
+  color: #333333; // Fallback: dark text
+  border-bottom: 1px solid #e0e0e0; // Fallback: light grey border
+
+  // If your project uses Fuse theme variables, prefer them:
+  // background-color: var(--fuse-toolbar-background, #ffffff);
+  // color: var(--fuse-toolbar-foreground, #333333);
+  // border-bottom: 1px solid var(--fuse-border, #e0e0e0);
+
+  display: flex; // Ensure flex layout for children
+  align-items: center; // Vertically align items in the toolbar
+
+  .toolbar-title {
+    font-size: 1.25rem;
+    font-weight: 500;
+    margin-right: 20px;
+  }
+
+  .toolbar-spacer {
+    flex: 1 1 auto;
+  }
+
+  .model-selector {
+    width: 250px; // Adjust as needed
+    margin-right: 8px;
+    margin-left: 8px; // Add some space before it too
+
+    // Styling for mat-form-field with appearance="outline" in a toolbar context
+    // to make it align better with buttons and have a more compact look.
+    // These styles target Material's generated classes, so they might need ::ng-deep
+    // if component's ViewEncapsulation is emulated (default).
+    // For simplicity in this plan, ::ng-deep is omitted but may be needed by the agent.
+    .mat-mdc-form-field-flex {
+      height: 40px !important; // Attempt to match button height. Use !important if needed.
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+      align-items: center !important;
+    }
+    .mat-mdc-floating-label {
+      // Adjust based on visual inspection after styles are applied.
+      // This is tricky without ::ng-deep and depends on exact DOM.
+      // A simpler approach might be to set a fixed height on the form field
+      // and ensure the label is positioned correctly by Material defaults.
+      // For now, let's rely on Material's default label positioning with adjusted wrapper height.
+    }
+    .mat-mdc-form-field-subscript-wrapper {
+      display: none !important; // Hide the default empty space below the outline
+    }
+    .mat-mdc-select-value {
+      line-height: normal !important; // Reset line-height if needed for centering
+      display: flex;
+      align-items: center;
+      height: 100%;
+    }
+    input.mat-mdc-input-element, .mat-mdc-select-value-text {
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+    }
+  }
+
+  .view-code-button {
+    // mat-stroked-button provides most styling.
+    .mat-icon {
+      margin-right: 6px; // Space between icon and text
+    }
+  }
+
+  button[mat-icon-button] {
+    color: inherit; // Ensure icon color matches toolbar text
+  }
+
+  // Styles for LLM Options card
+  .parameter-item {
+    .parameter-label {
+      display: block;
+      font-size: 0.875rem; // text-sm
+      margin-bottom: 0.5rem; // mb-2
+      font-weight: 500;
+      color: var(--fuse-text-secondary, #6b7280); // text-gray-500 or theme equivalent
+    }
+
+    .slider-input-group {
+      display: flex;
+      align-items: center;
+      gap: 1rem; // space-x-4 or gap-4
+
+      .parameter-slider {
+        flex-grow: 1;
+      }
+
+      .parameter-input {
+        width: 90px; // Slightly increased width
+        .mat-mdc-form-field-subscript-wrapper {
+          display: none !important; // Hide empty space below input for a cleaner look
+        }
+        input[type="number"] {
+          text-align: right; // Align number input to the right
+        }
+      }
+    }
+    mat-error { // Common styling for error messages in this section
+      display: block; // Ensure errors take full width if needed
+      font-size: 0.75rem; // text-xs
+      margin-top: 0.25rem; // mt-1
+      color: var(--mat-form-field-error-text-color); // Use Material's error color
+    }
+  }
+
+  mat-card[formGroupName="options"] {
+    mat-divider {
+      margin-top: 0.5rem; // Add some space around the divider
+      margin-bottom: 1rem;
+    }
+  }
+
+  .submit-button {
+    border-radius: 20px !important;
+    padding-left: 16px !important;
+    padding-right: 8px !important;
+
+    display: inline-flex;
+    align-items: center;
+    overflow: hidden; // Prevent chip from breaking layout on smaller buttons
+
+    .mat-mdc-chip-set { // Targets mat-chip-listbox generated element
+      background-color: transparent !important;
+      padding: 0 !important;
+      display: inline-flex; // Ensure it aligns properly
+      align-items: center;
+    }
+
+    .submit-shortcut-chip.mat-mdc-chip { // Target the specific chip
+      background-color: rgba(255, 255, 255, 0.2) !important; // Light overlay for primary button
+      color: currentColor !important; // Inherit text color from button
+      padding: 2px 6px !important;
+      min-height: auto !important;
+      height: auto !important;
+      font-size: 0.75rem;
+      line-height: 1; // Ensure consistent height
+      display: inline-flex;
+      align-items: center;
+
+      .mat-icon {
+        font-size: 14px !important;
+        height: 14px !important;
+        width: 14px !important;
+        vertical-align: middle;
+      }
+      .icon-xs { // For even smaller icons if needed
+        font-size: 12px !important;
+        height: 12px !important;
+        width: 12px !important;
+      }
+      span.mx-px {
+        margin-left: 2px;
+        margin-right: 2px;
+      }
+    }
+
+    .mat-mdc-button-persistent-ripple::before {
+      border-radius: 20px;
+    }
+  }
+
+  // Added styles for parameters section
+  .parameters-section {
+    margin-top: 20px;
+    padding: 15px;
+    border: 1px solid var(--fuse-border, #e0e0e0);
+    border-radius: 8px;
+    background-color: var(--fuse-card-background, #ffffff);
+
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 500;
+      margin-bottom: 15px;
+      color: var(--fuse-text-primary, #333333);
+    }
+  }
+
+  .parameter-item {
+    margin-bottom: 20px;
+
+    .parameter-label {
+      display: block;
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+      font-weight: 500;
+      color: var(--fuse-text-secondary, #555555);
+    }
+
+    .slider-input-group {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+
+      .parameter-slider {
+        flex-grow: 1;
+      }
+
+      .parameter-input {
+        width: 80px;
+        .mat-mdc-form-field-subscript-wrapper {
+          display: none;
+        }
+        input[type=number] {
+          text-align: right;
+          padding-right: 8px;
+        }
+      }
+    }
+  }
+
+  // Styles for individual message panels
+  .message-role-select {
+    width: 150px !important; // Fixed width for role dropdown
+    flex-shrink: 0; // Prevent shrinking if space is tight
+  }
+
+}

@@ -2,10 +2,10 @@ import '#fastify/trace-init/trace-init'; // leave an empty line next so this doe
 
 import { writeFileSync } from 'node:fs';
 import { agentContext, agentContextStorage, createContext } from '#agent/agentContextLocalStorage';
-import type { AgentContext } from '#agent/agentContextTypes';
 import { initApplicationContext } from '#app/applicationContext';
 import { Blueberry } from '#llm/multi-agent/blueberry';
 import { mockLLMs } from '#llm/services/mock-llm';
+import type { AgentContext } from '#shared/agent/agent.model';
 import { parseProcessArgs, saveAgentId } from './cli';
 
 // Usage:

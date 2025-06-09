@@ -1,12 +1,16 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
+// const Module = require('module');
+// const originalRequire = Module.prototype.require;
+//
+// Module.prototype.require = function(path) {
+// 	const result = originalRequire.call(this, path);
+// 	console.log(`[LOADED]: ${path}`);
+// 	return result;
+// };
+
+import { registerErrorHandlers } from './errorHandlers';
 import { initServer } from './server';
 
-process.on('uncaughtException', (err) => {
-	console.error('There was an uncaught error', err);
-	// Perform cleanup tasks if necessary
-	// Example: closing database connections, logging, etc.
-	// process.exit(1); // Exit the
-});
-
+registerErrorHandlers();
 initServer().catch(console.error);

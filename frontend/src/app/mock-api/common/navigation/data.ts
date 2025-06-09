@@ -27,27 +27,27 @@ const newAgentNav: FuseNavigationItem = {
     link: '/ui/agents/new',
 }
 
-const workflowsNav: FuseNavigationItem = {
-    id: 'workflows',
-    title: 'Workflows',
+const codeTaskNav: FuseNavigationItem = {
+    id: 'codeTask',
+    title: 'Code tasks',
     type: 'basic',
-    icon: 'heroicons_outline:server-stack',
-    link: '/ui/workflows',
+    icon: 'auto_fix_high',
+    link: '/ui/codeTask',
 }
 
-const vibeNav: FuseNavigationItem = {
-    id: 'vibe',
-    title: 'Vibe',
+const promptsNav: FuseNavigationItem = {
+    id: 'prompts',
+    title: 'Prompts',
     type: 'basic',
-    icon: 'heroicons_outline:code-bracket',
-    link: '/ui/vibe',
+    icon: 'mat_outline:library_books',
+    link: '/ui/prompts',
 }
 
 const codeReviewNav: FuseNavigationItem =     {
     id: 'codereviews',
     title: 'Code review',
     type: 'basic',
-    icon: 'heroicons_outline:code-bracket-square',
+    icon: 'mat_outline:rate_review',
     link: '/ui/code-reviews',
 }
 
@@ -55,8 +55,8 @@ export const defaultNavigation: FuseNavigationItem[] = [
     chatNav,
     agentsNav,
     newAgentNav,
-    workflowsNav,
-    vibeNav,
+    codeTaskNav,
+    promptsNav,
     codeReviewNav,
 ];
 
@@ -66,9 +66,9 @@ if (environment.modules?.trim().length) {
 
     if(modules.includes('chat')) defaultNavigation.push(chatNav);
     if(modules.includes('agents') || modules.includes('workflows')) defaultNavigation.push(agentsNav);
-    if(modules.includes('agents')) defaultNavigation.push(newAgentNav);
-    if(modules.includes('workflows')) defaultNavigation.push(workflowsNav);
-    if(modules.includes('vibe')) defaultNavigation.push(vibeNav);
+    if(modules.includes('agents') || modules.includes('workflows')) defaultNavigation.push(newAgentNav);
+    if(modules.includes('codeTask')) defaultNavigation.push(codeTaskNav);
+    if(modules.includes('prompts')) defaultNavigation.push(promptsNav);
     if(modules.includes('codeReview')) defaultNavigation.push(codeReviewNav);
 }
 

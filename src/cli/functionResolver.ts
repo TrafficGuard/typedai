@@ -1,16 +1,19 @@
-import { AgentFeedback } from '#agent/agentFeedback';
-import { LiveFiles } from '#agent/liveFiles';
+import { AgentFeedback } from '#agent/autonomous/functions/agentFeedback';
+import { FileSystemTree } from '#agent/autonomous/functions/fileSystemTree';
+import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
+import { GoogleCloud } from '#functions/cloud/google/google-cloud';
 import { CommandLineInterface } from '#functions/commandLine';
 import { CustomFunctions } from '#functions/customFunctions';
 import { Jira } from '#functions/jira';
-import { FileSystemList } from '#functions/storage/fileSystemList';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { FileSystemWrite } from '#functions/storage/fileSystemWrite';
+import { LocalFileStore } from '#functions/storage/localFileStore';
+import { LlmTools } from '#functions/util';
 import { Perplexity } from '#functions/web/perplexity';
 import { PublicWeb } from '#functions/web/web';
-import type { LLM } from '#llm/llm';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
+import type { LLM } from '#shared/llm/llm.model';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { CodeFunctions } from '#swe/codeFunctions';
 import { NpmPackages } from '#swe/lang/nodejs/npmPackages';
@@ -26,11 +29,14 @@ const functionAliases: Record<string, string> = {
 	code: CodeEditingAgent.name,
 	query: CodeFunctions.name,
 	fsr: FileSystemRead.name,
-	fsl: FileSystemList.name,
 	fsw: FileSystemWrite.name,
+	fst: FileSystemTree.name,
+	lfs: LocalFileStore.name,
 	web: PublicWeb.name,
+	llm: LlmTools.name,
 	pp: Perplexity.name,
 	npm: NpmPackages.name,
+	gcp: GoogleCloud.name,
 	ts: TypescriptTools.name,
 	jira: Jira.name,
 	live: LiveFiles.name,

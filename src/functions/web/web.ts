@@ -11,7 +11,8 @@ import * as autoconsent from '@duckduckgo/autoconsent';
 import fetch from 'cross-fetch';
 import puppeteer from 'puppeteer';
 import type { Browser } from 'puppeteer';
-import { agentStorageDir } from '#app/appVars';
+import type { ImageSource } from '#agent/autonomous/codegen/agentImageUtils';
+import { agentStorageDir } from '#app/appDirs';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { sleep } from '#utils/async-utils';
@@ -40,7 +41,7 @@ export class PublicWeb {
 	// @cacheRetry({scope: 'global' })
 	async crawlWebsite(url: string): Promise<Map<string, string>> {
 		logger.info(`Crawling ${url}`);
-		const cwd = path.join(getFileSystem().basePath, '.cache', 'wget');
+		const cwd = path.join(getFileSystem().getBasePath(), '.cache', 'wget');
 		const { stdout, stderr, exitCode } = await execCommand(`wget -r -l 1  -k -p ${url}`, { workingDirectory: cwd });
 		if (exitCode > 0) throw new Error(`${stdout} ${stderr}`);
 
@@ -241,10 +242,10 @@ export class PublicWeb {
 	/**
 	 * Takes a screenshot of a web page while hiding cookie banners
 	 * @param url The URL of the web page to screenshot. Must be a complete URL with http(s)://
-	 * @returns {Promise<{ image: Buffer; logs: string[] }>} A Buffer containing the screenshot image data in .png format, and the browser logs
+	 * @returns {Promise<ImageSource>} The screenshot image data in .png format, and the browser logs
 	 */
 	@func()
-	async takeScreenshotAndLogs(url: string): Promise<{ image: Buffer; logs: string[] }> {
+	async takeScreenshotAndLogs(url: string): Promise<{ image: ImageSource; logs: string[] }> {
 		logger.info(`Taking screenshot of ${url}`);
 
 		if (!blocker) blocker = await PuppeteerBlocker.fromLists(fetch as any, ['https://secure.fanboy.co.nz/fanboy-cookiemonster.txt']);
@@ -257,7 +258,7 @@ export class PublicWeb {
 			await page.setViewport({ width: 1280, height: 1024 });
 
 			// page.once('load', async () => {
-			// 	const tab = autoconsent.attachToPage(page, url, [], 10);
+			// 	const tab = autoconsent.attachToPage(page, url, [], 10); // Stack: TypeError: autoconsent.attachToPage is not a function
 			// 	await tab.doOptIn();
 			// });
 
@@ -298,10 +299,11 @@ export class PublicWeb {
 			// Wait for a short time to allow any dynamic content to load
 			await sleep(4000);
 
-			const screenshot = await page.screenshot({ type: 'png' });
+			const screenshot: Buffer = await page.screenshot({ type: 'png' });
+			const base64 = screenshot.toString('base64');
 
 			return {
-				image: screenshot,
+				image: { type: 'image', source: 'bytes', specifier: base64 },
 				logs,
 			};
 		} catch (error) {

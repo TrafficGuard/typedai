@@ -1,0 +1,332 @@
+<div class="flex flex-col w-full min-h-screen">
+
+    <!-- Header - Spans full width -->
+    <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+        <h1 class="text-3xl font-medium tracking-tight leading-none">Prompt Studio</h1>
+        <button mat-stroked-button (click)="goBack()" type="button">
+            <mat-icon svgIcon="heroicons_outline:arrow-left"></mat-icon>
+            <span class="ml-2">Back</span>
+        </button>
+    </div>
+
+    <!-- Container for Left and Right Halves -->
+    <div class="flex flex-row flex-grow w-full">
+
+        <!-- Left Half -->
+        <div class="flex flex-col w-1/2 p-4 sm:p-4 overflow-y-auto">
+            <div class="bg-card rounded-lg shadow p-4">
+                <div *ngIf="isLoading()" class="flex flex-auto justify-center items-center p-8">
+                    <mat-spinner diameter="50"></mat-spinner>
+                </div>
+
+                <ng-container *ngIf="!isLoading()">
+
+                    <form [formGroup]="promptForm" (ngSubmit)="onSubmit()" class="space-y-6 flex-auto flex flex-col">
+                        <div class="flex-auto space-y-6 pr-2">
+
+                            <mat-accordion>
+                                <mat-expansion-panel class="mb-1 !shadow-sm border" #detailsPanel>
+                                    <mat-expansion-panel-header>
+                                        <mat-panel-title class="!text-sm !font-semibold">
+                                            Prompt Details:
+                                            <!-- Display summary only when the panel is NOT expanded -->
+                                            <ng-container *ngIf="!detailsPanel.expanded">
+                                                <span [@summaryFade]>
+                                                @if (promptForm.get('name')?.value?.trim().length) {
+                                                    <span class="ml-2 ">{{ promptForm.get('name')?.value }}</span>
+                                                } @else {
+                                                    <span class="ml-2 text-red-500">Name required</span>
+                                                }
+                                                <mat-chip-listbox *ngIf="tagsFormArray.controls.length > 0" aria-label="Prompt tags" class="inline-flex flex-wrap gap-1 ml-3">
+                                                    <mat-chip *ngFor="let tagControl of tagsFormArray.controls; let i = index"
+                                                              class="text-xs !h-5 !min-h-[20px] !px-2 !py-0.5 !m-0 ml-2"
+                                                              disabled="true" color="accent" selected> <!-- Static look -->
+                                                        {{tagControl.value}}
+                                                    </mat-chip>
+                                                </mat-chip-listbox>
+                                            </span>
+
+                                            </ng-container>
+                                        </mat-panel-title>
+                                    </mat-expansion-panel-header>
+
+                                    <!-- Content of the expansion panel -->
+                                    <mat-form-field class="w-full">
+                                        <mat-label>Name</mat-label>
+                                        <input matInput formControlName="name" required>
+                                        <mat-error *ngIf="promptForm.get('name')?.hasError('required')">Name is required.</mat-error>
+                                    </mat-form-field>
+
+                                    <mat-form-field class="w-full">
+                                        <mat-label>Tags</mat-label>
+                                        <mat-chip-grid #chipGrid aria-label="Enter tags" formArrayName="tags">
+                                            <mat-chip-row *ngFor="let tagControl of tagsFormArray.controls; let i = index" (removed)="removeTagAtIndex(i)" [editable]="true" [removable]="true">
+                                                {{tagControl.value}}
+                                                <button matChipRemove [attr.aria-label]="'remove ' + tagControl.value">
+                                                    <mat-icon>cancel</mat-icon>
+                                                </button>
+                                            </mat-chip-row>
+                                        </mat-chip-grid>
+                                        <input placeholder="New tag..."
+                                               [formControl]="tagCtrl"
+                                               [matChipInputFor]="chipGrid"
+                                               [matChipInputSeparatorKeyCodes]="separatorKeysCodes"
+                                               [matChipInputAddOnBlur]="true"
+                                               (matChipInputTokenEnd)="addTagFromInput($event)"/>
+                                    </mat-form-field>
+                                </mat-expansion-panel>
+                            </mat-accordion>
+
+                            <!-- Messages Section -->
+                            <div class="space-y-4"> <!-- Container for the messages section -->
+                                <div class="flex justify-between items-center">
+                                    <h3 class="text-xl font-semibold pb-4">
+                                        Messages
+                                        <mat-slide-toggle formControlName="includeSystemMessage" class="ml-6">
+                                            Include System Message
+                                        </mat-slide-toggle>
+                                    </h3>
+                                    <button mat-icon-button type="button" (click)="addMessage()" matTooltip="Add Message">
+                                        <mat-icon svgIcon="heroicons_outline:plus-circle"></mat-icon>
+                                    </button>
+                                </div>
+
+                                <div *ngIf="messagesFormArray.controls.length === 0" class="text-center text-gray-500 py-4 border rounded-md bg-gray-50 dark:bg-gray-800">
+                                    No messages yet. Click the '+' button to add one.
+                                    <mat-error *ngIf="promptForm.get('messages')?.hasError('minlength') && promptForm.get('messages')?.touched" class="block mt-1">At least one message is required.</mat-error>
+                                </div>
+
+                                <mat-accordion multi="true" *ngIf="messagesFormArray.controls.length > 0" formArrayName="messages">
+                                    <mat-expansion-panel *ngFor="let msgGroup of messagesFormArray.controls; let i = index" [formGroupName]="i" class="mb-2 !shadow-sm border dark:border-gray-700 bg-white dark:bg-gray-850 rounded-md overflow-hidden mt-0" #messagePanel="matExpansionPanel">
+                                        <mat-expansion-panel-header>
+                                            <mat-panel-title  class="!text-sm !font-semibold">
+                                                {{ msgGroup.get('role')?.value | titlecase }}
+                                                <span *ngIf="!messagePanel.expanded"  [@summaryFade]>
+                                                    <ng-container>
+                                                        <span *ngIf="getMessageContentSummary(msgGroup.get('content')).length > 0" class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2 truncate">
+                                                            - {{ getTruncatedMessageContentSummary(msgGroup.get('content')) }}
+                                                        </span>
+                                                        <span *ngIf="getMessageContentSummary(msgGroup.get('content')).length === 0" class="text-sm font-normal text-red-500 dark:text-red-400 ml-2 italic">
+                                                            - No content
+                                                        </span>
+                                                    </ng-container>
+                                                </span>
+                                        </mat-panel-title>
+                                        </mat-expansion-panel-header>
+
+                                        <!-- Content of the expansion panel (form fields) -->
+                                        <div class="pr-4  dark:border-gray-700 space-y-4" >
+                                            <!--
+                                            <mat-form-field class="message-role-select w-50">
+
+                                                <mat-select formControlName="role" required>
+                                                    <mat-option *ngFor="let role of llmMessageRoles" [value]="role.value">{{ role.viewValue }}</mat-option>
+                                                </mat-select>
+                                                <mat-error *ngIf="msgGroup.get('role')?.hasError('required')">Role is required.</mat-error>
+                                            </mat-form-field>
+                                            -->
+
+                                            <!-- New flex container for textarea and button -->
+                                            <div class="flex items-start gap-2">
+                                                <mat-form-field class="w-full flex-grow"> <!-- Added flex-grow -->
+                                                    <textarea matInput formControlName="content"
+                                                              cdkTextareaAutosize
+                                                              cdkAutosizeMinRows="3"
+                                                              required
+                                                              (dragover)="msgGroup.get('role')?.value === 'user' ? onDragOver($event) : null"
+                                                              (drop)="msgGroup.get('role')?.value === 'user' ? onDrop($event, i) : null"></textarea>
+                                                    <mat-error *ngIf="msgGroup.get('content')?.hasError('required')">Content is required.</mat-error>
+                                                </mat-form-field>
+                                                <!-- Moved button here and adjusted classes -->
+                                                <button mat-icon-button type="button"
+                                                        *ngIf="msgGroup.get('role')?.value !== 'system'"
+                                                        (click)="removeMessage(i)"
+                                                        matTooltip="Remove Message"
+                                                        class="mt-2 text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400">
+                                                    <mat-icon svgIcon="heroicons_outline:trash"></mat-icon>
+                                                </button>
+                                            </div>
+
+                                            <!-- Attachment Section for User Messages -->
+                                            <ng-container *ngIf="msgGroup.get('role')?.value === 'user'">
+                                                <!-- Display selected attachments for this message -->
+                                                <div *ngIf="getAttachmentsFormArray(msgGroup)?.controls.length > 0" class="flex flex-wrap gap-2 mb-2 mt-2 attachment-previews">
+                                                    <div *ngFor="let attachmentControl of getAttachmentsFormArray(msgGroup)?.controls; let attIndex = index"
+                                                         class="relative flex items-center p-1 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-700">
+                                                        <ng-container *ngIf="attachmentControl.value as attachment">
+                                                            <img *ngIf="attachment.type === 'image' && attachment.previewUrl" [src]="attachment.previewUrl" [alt]="attachment.filename" class="w-12 h-12 object-cover rounded mr-2">
+                                                            <mat-icon *ngIf="attachment.type !== 'image'" class="icon-size-8 mx-2 text-gray-500" [svgIcon]="'heroicons_outline:document'"></mat-icon>
+                                                            <div class="flex flex-col overflow-hidden mr-1">
+                                                                <span class="text-xs font-medium truncate max-w-[120px]" [matTooltip]="attachment.filename">{{attachment.filename}}</span>
+                                                                <span class="text-xs text-gray-500">{{ (attachment.size / 1024) | number:'1.0-1' }} KB</span>
+                                                            </div>
+                                                            <button
+                                                                    class="absolute -top-2 -right-2 w-5 h-5 min-h-0 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center"
+                                                                    mat-icon-button
+                                                                    type="button"
+                                                                    (click)="removeAttachment(i, attIndex)"
+                                                                    matTooltip="Remove {{attachment.filename}}">
+                                                                <mat-icon class="icon-size-3 text-white" [svgIcon]="'heroicons_solid:x-mark'"></mat-icon>
+                                                            </button>
+                                                        </ng-container>
+                                                    </div>
+                                                </div>
+
+                                                <!-- File input and attach button -->
+                                                <div class="flex items-center mt-2">
+                                                    <input
+                                                        type="file"
+                                                        #fileInput
+                                                        (change)="onFileSelected($event, i)"
+                                                        multiple
+                                                        class="hidden"
+                                                        accept="image/*,.pdf,.txt,.doc,.docx,.json,.yaml,.yml,.csv,.tsv,.md,.log">
+                                                    <button
+                                                        mat-stroked-button
+                                                        type="button"
+                                                        (click)="triggerFileInputClick(i)"
+                                                        class="mr-2">
+                                                        <mat-icon svgIcon="heroicons_outline:paper-clip" class="mr-2"></mat-icon>
+                                                        Attach Files
+                                                    </button>
+                                                </div>
+                                            </ng-container>
+
+                                            <div class="text-sm text-gray-500 dark:text-gray-400 message-tokens-display">
+                                                Tokens: N/A
+                                            </div>
+                                        </div>
+                                    </mat-expansion-panel>
+                                </mat-accordion>
+                            </div>
+
+                            <!-- Generation Options Card - uses toggleOptions() and optionsCollapsed() -->
+
+                            <div class="flex justify-between items-center">
+                                <h4 class="text-xl font-semibold pb-4">
+                                    Generation Options
+                                </h4>
+                            </div>
+
+
+                            <!-- Content for Generation Options already wrapped with *ngIf="!optionsCollapsed()" -->
+                            <div class="parameters-section" formGroupName="options" *ngIf="!optionsCollapsed()">
+                                <div class="flex flex-row gap-4"> <!-- Flex container for horizontal layout -->
+                                    <div class="parameter-item flex-1"> <!-- flex-1 to allow items to grow and share space -->
+                                        <mat-form-field appearance="outline" class="model-selector w-80">
+                                            <mat-label>Model</mat-label>
+                                            <mat-select formControlName="llmId"> <!-- Changed from selectedModel -->
+                                                <mat-option *ngFor="let model of availableModels" [value]="model.id">{{ model.name }}</mat-option>
+                                            </mat-select>
+                                            <mat-error *ngIf="promptForm.get('options.llmId')?.hasError('required')">Model is required.</mat-error> <!-- Changed from options.selectedModel -->
+                                        </mat-form-field>
+                                    </div>
+
+                                    <div class="parameter-item flex-1"> <!-- flex-1 to allow items to grow and share space -->
+                                        <label id="temperature-label" class="parameter-label">Temperature</label>
+                                        <div class="slider-input-group">
+                                            <mat-slider min="0" max="2" step="0.1" discrete="true"
+                                                        [value]="promptForm.get('options.temperature')?.value"
+                                                        (input)="promptForm.get('options.temperature')?.setValue($event.value)"
+                                                        aria-labelledby="temperature-label"
+                                                        class="parameter-slider">
+                                                <input matSliderThumb>
+                                            </mat-slider>
+                                            <mat-form-field appearance="outline" class="parameter-input w-20">
+                                                <input matInput type="number" formControlName="temperature" min="0" max="2" step="0.1">
+                                            </mat-form-field>
+                                        </div>
+                                    </div>
+
+                                    <div class="parameter-item flex-1"> <!-- flex-1 to allow items to grow and share space -->
+                                        <label id="maxOutputTokens-label" class="parameter-label">Max Tokens</label>
+                                        <div class="slider-input-group">
+                                            <mat-slider min="1" max="8192" step="1" discrete="true"
+                                                        [value]="promptForm.get('options.maxOutputTokens')?.value"
+                                                        (input)="promptForm.get('options.maxOutputTokens')?.setValue($event.value)"
+                                                        aria-labelledby="maxOutputTokens-label"
+                                                        class="parameter-slider">
+                                                <input matSliderThumb>
+                                            </mat-slider>
+                                            <mat-form-field appearance="outline" class="parameter-input w-30">
+                                                <input matInput type="number" formControlName="maxOutputTokens" min="1" max="8192" step="1">
+                                            </mat-form-field>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end gap-2 pt-4 mt-auto border-gray-200 dark:border-gray-700">
+                            <button mat-stroked-button color="accent" type="button" (click)="onGenerate()" [disabled]="promptForm.invalid || isSaving()">
+                                <mat-icon svgIcon="heroicons_outline:bolt" class="mr-2"></mat-icon>
+                                Generate
+                            </button>
+                            <button mat-stroked-button type="button" (click)="goBack()" [disabled]="isSaving()">Cancel</button>
+                            <button mat-flat-button color="primary" type="submit" [disabled]="isSaving() || promptForm.invalid" class="submit-button">
+                                <mat-spinner *ngIf="isSaving()" diameter="20" class="!text-white mr-2"></mat-spinner>
+                                <span>{{ isSaving() ? 'Saving...' : (isEditMode() ? 'Save Changes' : 'Create Prompt') }}</span>
+
+                                <!--
+                              <mat-chip-listbox aria-label="Submit shortcut" class="ml-2 shrink-0" *ngIf="!isSaving()">
+                                <mat-chip selectable="false" focusable="false" class="submit-shortcut-chip">
+                                  <mat-icon svgIcon="heroicons_outline:command-line" class="icon-xs"></mat-icon>
+                                  <span class="mx-px font-mono">+</span>
+                                  <mat-icon svgIcon="heroicons_outline:arrow-uturn-left" class="icon-xs"></mat-icon>
+                                </mat-chip>
+                              </mat-chip-listbox>
+                                -->
+                            </button>
+                        </div>
+                    </form>
+                </ng-container>
+            </div>
+        </div>
+
+        <!-- Right Half -->
+        <div class="flex flex-col w-1/2 p-4 sm:p-4 border-l border-gray-200 dark:border-gray-700 overflow-y-auto">
+            <div class="bg-card rounded-lg shadow p-4 flex-auto">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-semibold">Response</h2>
+                    <div class="flex items-center gap-2">
+                        <button *ngIf="generationResponse()" 
+                                mat-stroked-button 
+                                color="primary" 
+                                (click)="addResponseToPrompt()" 
+                                matTooltip="Add response to prompt messages">
+                            <mat-icon class="mr-2">add</mat-icon>
+                            Add to prompt
+                        </button>
+                        <button *ngIf="generationResponse()" mat-icon-button matTooltip="Copy Response">
+                            <mat-icon>content_copy</mat-icon>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Loading State -->
+                <div *ngIf="isGenerating()" class="flex flex-col items-center justify-center p-8">
+                    <mat-spinner diameter="40"></mat-spinner>
+                    <p class="mt-4 text-gray-500">Generating response...</p>
+                </div>
+
+                <!-- Error State -->
+                <div *ngIf="generationError()" class="p-4 bg-red-50 border border-red-200 rounded-md">
+                    <p class="text-red-700">{{ generationError() }}</p>
+                </div>
+
+                <!-- Response Content -->
+                <div *ngIf="generationResponse() && !isGenerating()" class="prose max-w-none">
+                    <pre class="whitespace-pre-wrap">{{ generationResponse() }}</pre>
+                </div>
+
+                <!-- Placeholder -->
+                <div *ngIf="!generationResponse() && !isGenerating() && !generationError()" class="text-center text-gray-500 py-8">
+                    <mat-icon class="text-4xl mb-2 opacity-50">bolt</mat-icon>
+                    <p>Click Generate to see a response</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>

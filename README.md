@@ -36,6 +36,21 @@ Included are capable software engineering agents, which have assisted building t
 - OpenTelemetry based observability
 - Leverages the extensive Python AI ecosystem through executing Python scripts/packages
 
+## CLI Usage
+
+TypedAI provides powerful command-line tools for automation and development workflows:
+
+```bash
+# Quick examples using the ai wrapper script
+ai query "What test frameworks does this repository use?"
+ai code "Add error handling to the user authentication function"  
+ai research "Latest developments in large language models"
+```
+
+The `ai` script runs locally while `aid` runs in Docker for isolation. Both provide access to all CLI agents including the specialized `codeAgent` for autonomous code editing tasks.
+
+For comprehensive CLI documentation, see the [CLI Usage Guide](https://typedai.dev/cli-usage/).
+
 ## Autonomous agents
 
 - Reasoning/planning inspired from Google's [Self-Discover](https://arxiv.org/abs/2402.03620) and other papers

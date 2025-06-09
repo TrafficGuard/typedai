@@ -1,9 +1,8 @@
 import { App, type KnownEventFromType, type SayFn } from '@slack/bolt';
 import type { StringIndexed } from '@slack/bolt/dist/types/helpers';
 import type { MessageElement } from '@slack/web-api/dist/response/ConversationsRepliesResponse';
-import { getLastFunctionCallArg } from '#agent/agentCompletion';
-import { type AgentCompleted, type AgentContext, isExecuting } from '#agent/agentContextTypes';
-import { resumeCompleted, resumeCompletedWithUpdatedUserRequest, startAgent } from '#agent/agentRunner';
+import { getLastFunctionCallArg } from '#agent/autonomous/agentCompletion';
+import { resumeCompleted, resumeCompletedWithUpdatedUserRequest, startAgent } from '#agent/autonomous/autonomousAgentRunner';
 import { appContext } from '#app/applicationContext';
 import { GoogleCloud } from '#functions/cloud/google/google-cloud';
 import { Jira } from '#functions/jira';
@@ -12,6 +11,7 @@ import { LlmTools } from '#functions/util';
 import { Perplexity } from '#functions/web/perplexity';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
+import { type AgentCompleted, type AgentContext, isExecuting } from '#shared/agent/agent.model';
 import { sleep } from '#utils/async-utils';
 import type { ChatBotService } from '../../chatBot/chatBotService';
 

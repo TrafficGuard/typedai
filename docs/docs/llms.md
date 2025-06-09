@@ -2,7 +2,7 @@
 
 TypedAI provides a simple LLM interface which wraps the Vercel [ai npm package](https://sdk.vercel.ai/) to
 
-- Provide simple overloads to `generateText` with a single user message and optionally a system prompt
+- Provide simple overloads to `generateMessage` with a single user message and optionally a system prompt
 - Add OpenTelemetry tracing
 - Add cost tracking
 - API key lookup and `isConfigured()` check.

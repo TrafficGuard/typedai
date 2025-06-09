@@ -2,10 +2,11 @@ import type { ApplicationContext } from '#app/applicationTypes';
 import { InMemoryAgentStateService } from '#modules/memory/inMemoryAgentStateService';
 import { InMemoryChatService } from '#modules/memory/inMemoryChatService';
 import { InMemoryCodeReviewService } from '#modules/memory/inMemoryCodeReviewService';
+import { InMemoryCodeTaskRepository } from '#modules/memory/inMemoryCodeTaskRepository';
 import { InMemoryFunctionCacheService } from '#modules/memory/inMemoryFunctionCacheService';
 import { InMemoryLlmCallService } from '#modules/memory/inMemoryLlmCallService';
+import { InMemoryPromptService } from '#modules/memory/inMemoryPromptService';
 import { InMemoryUserService } from '#modules/memory/inMemoryUserService';
-import { InMemoryVibeService } from '#modules/memory/inMemoryVibeService';
 
 export function inMemoryApplicationContext(): ApplicationContext {
 	return {
@@ -15,6 +16,7 @@ export function inMemoryApplicationContext(): ApplicationContext {
 		llmCallService: new InMemoryLlmCallService(),
 		codeReviewService: new InMemoryCodeReviewService(),
 		functionCacheService: new InMemoryFunctionCacheService(),
-		vibeService: new InMemoryVibeService(),
+		promptsService: new InMemoryPromptService(),
+		codeTaskRepository: new InMemoryCodeTaskRepository(), // For CodeTask we store the Repository
 	};
 }

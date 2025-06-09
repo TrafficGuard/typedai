@@ -1,7 +1,6 @@
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { CDATA_END, CDATA_START } from '#utils/xml-utils';
-import { LLM } from '../llm/llm';
 import { buildPrompt } from './codeEditingAgent';
 
 @funcClass(__filename)

@@ -2,13 +2,14 @@ import '#fastify/trace-init/trace-init'; // leave an empty line next so this doe
 
 import { writeFileSync } from 'node:fs';
 import { agentContext, llms } from '#agent/agentContextLocalStorage';
-import type { AgentLLMs } from '#agent/agentContextTypes';
-import type { RunAgentConfig, RunWorkflowConfig } from '#agent/agentRunner';
-import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
+import type { RunWorkflowConfig } from '#agent/autonomous/autonomousAgentRunner';
+import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { appContext, initApplicationContext } from '#app/applicationContext';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { defaultLLMs } from '#llm/services/defaultLlms';
-import { selectFilesAgent } from '#swe/discovery/selectFilesAgent';
+import type { AgentLLMs } from '#shared/agent/agent.model';
+import { fastSelectFilesAgent } from '#swe/discovery/fastSelectFilesAgent';
+import { selectFilesAgent } from '#swe/discovery/selectFilesAgentWithSearch';
 import { parseProcessArgs } from './cli';
 
 async function main() {
@@ -31,7 +32,7 @@ async function main() {
 		},
 	};
 
-	await runAgentWorkflow(config, async () => {
+	await runWorkflowAgent(config, async () => {
 		const agent = agentContext();
 		agent.name = `Query: ${await llms().easy.generateText(
 			`<query>\n${initialPrompt}\n</query>\n\nSummarise the query into only a terse few words for a short title (8 words maximum) for the name of the AI agent completing the task. Output the short title only, nothing else.`,
@@ -39,7 +40,7 @@ async function main() {
 		)}`;
 		await appContext().agentStateService.save(agent);
 
-		let response: any = await selectFilesAgent(initialPrompt);
+		let response: any = await fastSelectFilesAgent(initialPrompt);
 		response = JSON.stringify(response);
 		console.log(response);
 

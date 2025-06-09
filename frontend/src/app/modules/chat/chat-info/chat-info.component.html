@@ -1,25 +1,57 @@
 <div class="bg-card flex h-full flex-auto flex-col dark:bg-default">
     <!-- Header -->
-    <div
-        class="flex h-18 flex-0 items-center border-b bg-gray-50 px-4 dark:bg-transparent"
-    >
-        <button mat-icon-button (click)="drawer.close()">
-            <mat-icon [svgIcon]="'heroicons_outline:x-mark'"></mat-icon>
-        </button>
-        <div class="ml-2 text-lg font-medium">Chat Settings
-            <span>
-                <a href="{{ databaseUrl() }}" target="_blank" class="ml-3" [matTooltip]="'View database entry'">
-                    <mat-icon svgIcon="feather:database" class="scale-75"></mat-icon>
-                </a>
-            </span>
+    <div class="flex h-18 flex-0 items-center justify-between border-b bg-gray-50 px-4 dark:bg-transparent">
+        <div class="flex items-center">
+            <button mat-icon-button (click)="drawer.close()">
+                <mat-icon [svgIcon]="'heroicons_outline:x-mark'"></mat-icon>
+            </button>
+            <div class="ml-2 text-lg font-medium">{{ panelTitle() }}</div>
+        </div>
+        <div *ngIf="chat()?.id && chat()?.id !== 'new-chat'">
+            <a *ngIf="databaseUrl()" [href]="databaseUrl()" target="_blank" class="ml-3" [matTooltip]="'View database entry'">
+                <mat-icon svgIcon="feather:database" class="scale-75"></mat-icon>
+            </a>
         </div>
     </div>
 
-    <div class="overflow-y-auto" [class.opacity-50]="loading">
+    <div class="overflow-y-auto" [class.opacity-50]="settingsLoading() || isSavingName() || isDeletingChat()">
         <div class="px-7 py-6">
-            <div class="mt-4 space-y-4">
+            <!-- Chat Name / Title -->
+            <div *ngIf="chat() as currentChat">
+                <div class="mb-4">
+                    <div class="text-lg font-medium mb-1">Chat Title</div>
+                    <div *ngIf="!isEditingName()" class="flex items-center">
+                        <span class="text-secondary">{{ currentChat.title || 'Untitled Chat' }}</span>
+                        <button mat-icon-button (click)="startEditName()" class="ml-2" [matTooltip]="'Edit title'" *ngIf="currentChat.id && currentChat.id !== 'new-chat'">
+                            <mat-icon [svgIcon]="'heroicons_outline:pencil'"></mat-icon>
+                        </button>
+                    </div>
+                    <div *ngIf="isEditingName()" class="flex items-center space-x-2">
+                        <input type="text" class="fuse-mat-input flex-auto" [ngModel]="editedName()" (ngModelChange)="editedName.set($event)" placeholder="Enter chat title">
+                        <button mat-flat-button color="primary" (click)="saveName()" [disabled]="isSavingName()">
+                            <mat-icon *ngIf="!isSavingName()" [svgIcon]="'heroicons_outline:check'"></mat-icon>
+                            <mat-progress-spinner *ngIf="isSavingName()" [diameter]="20" mode="indeterminate"></mat-progress-spinner>
+                            <span *ngIf="!isSavingName()" class="ml-1">Save</span>
+                        </button>
+                        <button mat-button (click)="cancelEditName()">Cancel</button>
+                    </div>
+                </div>
+
+                <div class="mb-2 text-sm text-gray-500">
+                    ID: {{ currentChat.id }}
+                </div>
+                <div class="mb-2 text-sm text-gray-500" *ngIf="currentChat.updatedAt">
+                    Last Updated: {{ currentChat.updatedAt | date:'medium' }}
+                </div>
+                 <div class="mb-4 text-sm text-gray-500" *ngIf="currentChat.userId">
+                    User ID: {{ currentChat.userId }}
+                </div>
+            </div>
+
+
+            <!-- Message Generation Settings -->
+            <div class="mt-6 space-y-4" *ngIf="settings">
                 <div class="mb-2 text-lg font-medium">Message Generation Settings</div>
-                
                 <div class="space-y-1">
                     <div>
                         <label class="text-secondary font-medium">Temperature</label>
@@ -28,7 +60,6 @@
                             <input matSliderThumb [(ngModel)]="settings.temperature" (change)="onSettingChange()">
                         </mat-slider>
                     </div>
-
                     <div>
                         <label class="text-secondary font-medium">Top P</label>
                         <span class="pl-2 font-bold text-secondary">{{settings.topP}}</span>
@@ -36,7 +67,6 @@
                             <input matSliderThumb [(ngModel)]="settings.topP" (change)="onSettingChange()">
                         </mat-slider>
                     </div>
-
                     <div>
                         <label class="text-secondary font-medium">Top K</label>
                         <span class="pl-2 font-bold text-secondary">{{settings.topK}}</span>
@@ -44,7 +74,6 @@
                             <input matSliderThumb [(ngModel)]="settings.topK" (change)="onSettingChange()">
                         </mat-slider>
                     </div>
-
                     <div>
                         <label class="text-secondary font-medium">Presence Penalty</label>
                         <span class="pl-2 font-bold text-secondary">{{settings.presencePenalty}}</span>
@@ -52,7 +81,6 @@
                             <input matSliderThumb [(ngModel)]="settings.presencePenalty" (change)="onSettingChange()">
                         </mat-slider>
                     </div>
-
                     <div>
                         <label class="text-secondary font-medium">Frequency Penalty</label>
                         <span class="pl-2 font-bold text-secondary">{{settings.frequencyPenalty}}</span>
@@ -63,13 +91,27 @@
                 </div>
             </div>
             
-            <div *ngIf="error" class="mt-4 p-3 bg-red-100 text-red-700 rounded">
-                {{ error }}
+            <div *ngIf="settingsError()" class="mt-4 p-3 bg-red-100 text-red-700 rounded">
+                {{ settingsError() }}
             </div>
             
-            <div *ngIf="loading" class="mt-4 flex items-center justify-center">
+            <div *ngIf="settingsLoading()" class="mt-4 flex items-center justify-center">
                 <mat-spinner diameter="24"></mat-spinner>
                 <span class="ml-2">Saving settings...</span>
+            </div>
+
+            <!-- Delete Chat Section -->
+            <div class="mt-8 border-t pt-6" *ngIf="chat()?.id && chat()?.id !== 'new-chat'">
+                <div class="text-lg font-medium text-red-600">Danger Zone</div>
+                <div class="mt-2">
+                    <button mat-stroked-button color="warn" (click)="deleteChat()" [disabled]="isDeletingChat()">
+                        <mat-icon *ngIf="!isDeletingChat()" [svgIcon]="'heroicons_outline:trash'"></mat-icon>
+                        <mat-progress-spinner *ngIf="isDeletingChat()" [diameter]="20" mode="indeterminate"></mat-progress-spinner>
+                        <span *ngIf="!isDeletingChat()" class="ml-1">Delete Chat</span>
+                        <span *ngIf="isDeletingChat()" class="ml-1">Deleting...</span>
+                    </button>
+                    <p class="text-sm text-gray-500 mt-1">This action cannot be undone.</p>
+                </div>
             </div>
         </div>
     </div>

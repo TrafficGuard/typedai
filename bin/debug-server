@@ -1,0 +1,139 @@
+#!/bin/bash
+#
+# Node.js Server Process Finder and Debugger
+# Finds a running Node.js server process, filters out development tools,
+# and connects to it with the Node.js inspector.
+#
+
+# Print script steps for debugging
+echo "Starting Node.js server process finder..."
+
+# Don't use set -e yet, as we want to handle errors ourselves
+# with better diagnostics
+
+# Array of strings to filter out from the node processes
+FILTER_OUT=(
+  "Visual Studio"
+  "WebStorm"
+  "@esbuild"
+  "typingsInstaller.js"
+  "vscode"
+  "nodemon"
+  "webpack"
+  "jest"
+  "mocha"
+  "gulp"
+  "grunt"
+)
+
+# Function to print messages with color (simplified)
+print_message() {
+  local color=$1
+  local message=$2
+  echo "$message"
+}
+
+echo "Looking for Node.js processes..."
+
+# Find all node processes, excluding the grep command itself
+# Store the raw output in a variable to check if it exists
+NODE_PROCESSES_RAW=$(ps aux)
+echo "Found $(echo "$NODE_PROCESSES_RAW" | wc -l) total processes"
+
+# Filter for node processes, excluding grep itself
+NODE_PROCESSES=$(echo "$NODE_PROCESSES_RAW" | grep -i "node" | grep -v grep)
+NODE_COUNT=$(echo "$NODE_PROCESSES" | grep -v "^$" | wc -l)
+echo "Found $NODE_COUNT Node.js processes"
+
+# Debugging: Show all node processes
+echo "All Node.js processes:"
+echo "$NODE_PROCESSES"
+
+if [ -z "$NODE_PROCESSES" ]; then
+  echo "Error: No Node.js processes found running"
+  exit 1
+fi
+
+echo "Filtering out development tools..."
+
+# Filter out common development tools and utilities
+FILTERED_PROCESSES="$NODE_PROCESSES"
+for pattern in "${FILTER_OUT[@]}"; do
+  PREV_COUNT=$(echo "$FILTERED_PROCESSES" | grep -v "^$" | wc -l)
+  FILTERED_PROCESSES=$(echo "$FILTERED_PROCESSES" | grep -v "$pattern")
+  CURR_COUNT=$(echo "$FILTERED_PROCESSES" | grep -v "^$" | wc -l)
+  DIFF=$((PREV_COUNT - CURR_COUNT))
+  if [ $DIFF -gt 0 ]; then
+    echo "Filtered out $DIFF process(es) containing '$pattern'"
+  fi
+done
+
+# Remove empty lines and get count
+FILTERED_PROCESSES=$(echo "$FILTERED_PROCESSES" | grep -v "^$")
+LINE_COUNT=$(echo "$FILTERED_PROCESSES" | grep -v "^$" | wc -l)
+echo "Remaining after filtering: $LINE_COUNT process(es)"
+
+# Check if we found any processes after filtering
+if [ -z "$FILTERED_PROCESSES" ]; then
+  echo "Error: No server process found after filtering"
+  echo "All Node.js processes found:"
+  echo "$NODE_PROCESSES"
+  exit 1
+# Check if we found too many processes
+elif [ $LINE_COUNT -gt 1 ]; then
+  echo "Error: Multiple server instances found ($LINE_COUNT). Output below:"
+  echo "$FILTERED_PROCESSES"
+  echo "Try adding more patterns to FILTER_OUT array to exclude unwanted processes."
+  exit 1
+else
+  # Extract useful information about the process
+  SERVER_PID=$(echo "$FILTERED_PROCESSES" | awk '{print $2}')
+  echo "Found server process with PID: $SERVER_PID"
+
+  # Check if the process exists
+  if ! ps -p $SERVER_PID > /dev/null; then
+    echo "Error: Process with PID $SERVER_PID no longer exists"
+    exit 1
+  fi
+
+  # Display server process information
+  echo "✅  Node.js server process found:"
+  echo "----------------------------------------"
+  echo "PID:          $SERVER_PID"
+  echo "Command:      $(ps -p $SERVER_PID -o command=)"
+  echo "----------------------------------------"
+
+  # Output Node.js debugging URL with clear instructions
+  echo "📌 Node.js Debugging Options:"
+  echo "----------------------------------------"
+  echo "1. Chrome DevTools: chrome://inspect/#devices"
+  echo "2. Node Inspector:  Starting in a moment..."
+  echo "----------------------------------------"
+
+  # Check if user wants to open Chrome directly (with OS detection)
+  echo "Would you like to open Chrome Inspector now? (y/n)"
+  read -r response
+
+  if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+    # Detect OS and use appropriate command
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+      echo "Attempting to open Chrome on macOS..."
+      open -a "Google Chrome" "chrome://inspect/#devices" || echo "Couldn't open Chrome automatically. Please open manually."
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+      echo "Attempting to open Chrome on Linux..."
+      xdg-open "chrome://inspect/#devices" || echo "Couldn't open Chrome automatically. Please open manually."
+    elif [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
+      echo "Attempting to open Chrome on Windows..."
+      start chrome "chrome://inspect/#devices" || echo "Couldn't open Chrome automatically. Please open manually."
+    else
+      echo "Unsupported OS for direct browser opening. Please open Chrome manually."
+    fi
+  fi
+
+  # Start the interactive node inspector
+  echo "Starting interactive Node.js inspector..."
+  echo ""
+  node inspect -p $SERVER_PID
+
+  exit 0
+fi

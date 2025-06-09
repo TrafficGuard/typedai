@@ -1,5 +1,4 @@
 import { BooleanInput } from '@angular/cdk/coercion';
-import { NgClass } from '@angular/common';
 import {
     ChangeDetectionStrategy,
     ChangeDetectorRef,
@@ -8,15 +7,16 @@ import {
     OnDestroy,
     OnInit,
     ViewEncapsulation,
+    computed, Signal,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
-import {Router, RouterModule} from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { UserService } from 'app/core/user/user.service';
-import { User } from 'app/core/user/user.types';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject } from 'rxjs';
+import {UserProfile} from "#shared/user/user.model";
 
 @Component({
     selector: 'user',
@@ -29,7 +29,6 @@ import { Subject, takeUntil } from 'rxjs';
         MatButtonModule,
         MatMenuModule,
         MatIconModule,
-        NgClass,
         MatDividerModule,
         RouterModule,
     ],
@@ -40,11 +39,11 @@ export class UserComponent implements OnInit, OnDestroy {
     /* eslint-enable @typescript-eslint/naming-convention */
 
     @Input() showAvatar = true;
-    user: User = {
-        name: '',
-        email: '',
-        id: ''
-    };
+
+    user: Signal<UserProfile> = computed(() => {
+        const userState = this._userService.authOnlyUserEntityState();
+        return userState.status === 'success' ? userState.data : null;
+    });
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
@@ -65,15 +64,7 @@ export class UserComponent implements OnInit, OnDestroy {
      * On init
      */
     ngOnInit(): void {
-        // Subscribe to user changes
-        this._userService.user$
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe((user: User) => {
-                this.user = user;
-
-                // Mark for check
-                this._changeDetectorRef.markForCheck();
-            });
+        // User state is now handled by computed signal
     }
 
     /**
@@ -94,20 +85,20 @@ export class UserComponent implements OnInit, OnDestroy {
      *
      * @param status
      */
-    updateUserStatus(status: string): void {
-        // Return if user is not available
-        if (!this.user) {
-            return;
-        }
-
-        // Update the user
-        this._userService
-            .update({
-                ...this.user,
-                status,
-            })
-            .subscribe();
-    }
+    // updateUserStatus(status: string): void {
+    //     // Return if user is not available
+    //     if (!this.user) {
+    //         return;
+    //     }
+    //
+    //     // Update the user
+    //     this._userService
+    //         .update({
+    //             ...this.user,
+    //             status,
+    //         })
+    //         .subscribe();
+    // }
 
     /**
      * Sign out

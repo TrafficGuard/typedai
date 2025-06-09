@@ -1,7 +1,7 @@
 import { cerebrasLlama3_3_70b } from '#llm/services/cerebras';
 import { logger } from '#o11y/logger';
+import type { GenerateTextOptions, LLM, LlmMessage } from '#shared/llm/llm.model';
 import { BaseLLM } from '../base-llm';
-import type { GenerateTextOptions, LLM, LlmMessage } from '../llm';
 import { fireworksLlama3_70B } from '../services/fireworks';
 import { groqLlama3_3_70B } from '../services/groq';
 
@@ -12,13 +12,11 @@ export class MultiLlama3_70B extends BaseLLM {
 	private readonly providers: LLM[];
 
 	constructor() {
-		super(
-			'Llama3.3-70b (Fast)',
-			'multi',
-			'fast-llama3-70b',
-			0, // Initialized later
-			() => ({ inputCost: 0, outputCost: 0, totalCost: 0 }),
-		);
+		super('Llama3.3-70b (Fast)', 'multi', 'fast-llama3-70b', 0, () => ({
+			inputCost: 0,
+			outputCost: 0,
+			totalCost: 0,
+		}));
 		// Define the providers and their priorities. Lower number = higher priority
 		this.providers = [cerebrasLlama3_3_70b(), groqLlama3_3_70B(), fireworksLlama3_70B()];
 

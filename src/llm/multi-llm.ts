@@ -1,7 +1,7 @@
 import { llms } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
+import { GenerateJsonOptions, type GenerateTextOptions, type LLM } from '#shared/llm/llm.model';
 import { BaseLLM } from './base-llm';
-import { GenerateJsonOptions, type GenerateTextOptions, type LLM } from './llm';
 
 /*
 https://news.ycombinator.com/item?id=39955725
@@ -16,14 +16,18 @@ Gemini (2...) could be great for this with the context caching reducing the cost
  * Not properly tested yet
  */
 export class MultiLLM extends BaseLLM {
-	maxTokens: number;
+	maxOutputTokens: number;
 
 	constructor(
 		private llms: LLM[],
 		private callsPerLLM = 1,
 	) {
-		super('multi', 'multi', 'multi', Math.min(...llms.map((llm) => llm.getMaxInputTokens())), () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
-		this.maxTokens = Math.min(...llms.map((llm) => llm.getMaxInputTokens()));
+		super('multi', 'multi', 'multi', Math.min(...llms.map((llm) => llm.getMaxInputTokens())), () => ({
+			inputCost: 0,
+			outputCost: 0,
+			totalCost: 0,
+		}));
+		this.maxOutputTokens = Math.min(...llms.map((llm) => llm.getMaxInputTokens()));
 	}
 
 	async _generateText(systemPrompt: string | undefined, userPrompt: string, opts?: GenerateTextOptions): Promise<string> {
@@ -43,7 +47,7 @@ export class MultiLLM extends BaseLLM {
 	}
 
 	getMaxInputTokens(): number {
-		return this.maxTokens;
+		return this.maxOutputTokens;
 	}
 }
 

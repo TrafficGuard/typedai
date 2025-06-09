@@ -1,5 +1,5 @@
 import { agentContext } from '#agent/agentContextLocalStorage';
-import { humanInTheLoop, waitForConsoleInput } from '#agent/humanInTheLoop';
+import { humanInTheLoop, waitForConsoleInput } from '#agent/autonomous/humanInTheLoop';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { execCommand, failOnError } from '#utils/exec';
 

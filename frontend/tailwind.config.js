@@ -66,7 +66,7 @@ const themes = {
  * Tailwind configuration
  */
 const config = {
-    darkMode: 'class',
+    darkMode: ['selector', '.dark'],
     content: ['./src/**/*.{html,scss,ts}'],
     important: true,
     theme: {

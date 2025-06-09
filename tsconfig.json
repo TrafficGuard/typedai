@@ -23,26 +23,33 @@
     "allowImportingTsExtensions": false,
     "noEmit": false,
     "baseUrl": "./",
+    "isolatedModules": true,
     "paths": {
+      "#routes/*": ["./src/routes/*"],
       "#app/*": ["./src/app/*"],
       "#agent/*": ["./src/agent/*"],
       "#chat/*": ["./src/chat/*"],
+      "#codeTask/*": ["./src/codeTask/*"],
       "#fastify/*": ["./src/fastify/*"],
       "#firestore/*": ["./src/modules/firestore/*"],
       "#functionSchema/*": ["./src/functionSchema/*"],
       "#functions/*": ["./src/functions/*"],
       "#llm/*": ["./src/llm/*"],
       "#model/*": ["./src/model/*"],
-      "#o11y/*": ["./src/o11y/*"],
-      "#services/*": ["./src/services/*"],
+      "#mongo/*": ["src/modules/mongo/*"],
+      "#cache/*": ["./src/cache/*"],
       "#modules/*": ["./src/modules/*"],
+      "#o11y/*": ["./src/o11y/*"],
+      "#prompts/*": ["./src/prompts/*"],
+      "#services/*": ["./src/services/*"],
+      "#shared/*": ["./shared/*"],
       "#slack/*": ["./src/modules/slack/*"],
       "#swe/*": ["./src/swe/*"],
+      "#test/*": ["./src/test/*"],
       "#user/*": ["./src/user/*"],
-      "#utils/*": ["./src/utils/*"],
-      "#vibe/*": ["./src/vibe/*"],
+      "#utils/*": ["./src/utils/*"]
     },
     "types": ["node", "mocha"]
   },
-  "exclude": ["frontend"]
+  "exclude": ["frontend", "src/swe/coder/test/*"]
 }

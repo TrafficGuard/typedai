@@ -1,12 +1,12 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
-import type { AgentContext, AgentLLMs } from '#agent/agentContextTypes';
-import type { RunWorkflowConfig } from '#agent/agentRunner';
-import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
+import type { RunWorkflowConfig } from '#agent/autonomous/autonomousAgentRunner';
+import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { initApplicationContext } from '#app/applicationContext';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { Perplexity } from '#functions/web/perplexity';
 import { defaultLLMs } from '#llm/services/defaultLlms';
+import type { AgentContext, AgentLLMs } from '#shared/agent/agent.model';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { SoftwareDeveloperAgent } from '#swe/softwareDeveloperAgent';
 import { parseProcessArgs, saveAgentId } from './cli';
@@ -31,7 +31,7 @@ async function main() {
 		resumeAgentId,
 	};
 
-	await runAgentWorkflow(config, async (agent: AgentContext) => {
+	await runWorkflowAgent(config, async (agent: AgentContext) => {
 		await new SoftwareDeveloperAgent().runSoftwareDeveloperWorkflow(config.initialPrompt);
 		if (agent.agentId) {
 			saveAgentId('swe', agent.agentId);

@@ -1,73 +1,66 @@
-import { Type } from '@sinclair/typebox';
-import { LlmFunctions } from '#agent/LlmFunctions';
-import type { AgentType } from '#agent/agentContextTypes';
-import { type AgentExecution, startAgent } from '#agent/agentRunner';
+import type { Static } from '@sinclair/typebox';
+import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
+import { serializeContext } from '#agent/agentSerialization';
+import { type AgentExecution, startAgent } from '#agent/autonomous/autonomousAgentRunner';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send } from '#fastify/index';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { getLLM } from '#llm/llmFactory';
 import { logger } from '#o11y/logger';
-import { currentUser } from '#user/userService/userContext';
-
-const v1BasePath = '/api/agent/v1';
-
-const AGENT_TYPES: Array<AgentType> = ['autonomous', 'workflow'];
+import { AGENT_API } from '#shared/agent/agent.api';
+import type { AgentType } from '#shared/agent/agent.model';
+import { currentUser } from '#user/userContext';
+import { registerApiRoute } from '../routeUtils';
 
 export async function agentStartRoute(fastify: AppFastifyInstance) {
 	/** Starts a new agent */
-	fastify.post(
-		`${v1BasePath}/start`,
-		{
-			schema: {
-				body: Type.Object({
-					name: Type.String(),
-					userPrompt: Type.String(),
-					functions: Type.Array(Type.String()),
-					type: Type.String({ enum: AGENT_TYPES }),
-					subtype: Type.String(),
-					budget: Type.Number({ minimum: 0 }),
-					count: Type.Integer({ minimum: 0 }),
-					llmEasy: Type.String(),
-					llmMedium: Type.String(),
-					llmHard: Type.String(),
-					useSharedRepos: Type.Optional(Type.Boolean({ default: true })),
-				}),
-			},
-		},
-		async (req, reply) => {
-			const { name, userPrompt, functions, type, subtype, budget, count, llmEasy, llmMedium, llmHard, useSharedRepos } = req.body;
+	registerApiRoute(fastify, AGENT_API.start, async (req, reply) => {
+		const { agentName, initialPrompt, functions, type, subtype, humanInLoop, llms, useSharedRepos, metadata, resumeAgentId, parentAgentId, codeTaskId } =
+			req.body;
 
-			logger.info(req.body, `Starting agent ${name}`);
+		logger.info(req.body, `Starting agent ${agentName}`);
 
-			logger.info(Object.keys(functionFactory()));
-			const llmFunctions = new LlmFunctions();
+		logger.info(Object.keys(functionFactory()));
+		const llmFunctions = new LlmFunctionsImpl();
+		if (functions) {
+			// Handle optional 'functions' array
 			for (const functionClassName of functions) {
 				const functionClass = functionFactory()[functionClassName];
 				if (!functionClass) {
 					logger.error(`Function class ${functionClassName} not found in the functionFactory`);
 				} else {
-					llmFunctions.addFunctionClass(functionFactory()[functionClassName]);
+					llmFunctions.addFunctionClass(functionClass);
 				}
 			}
+		}
 
-			const agentExecution: AgentExecution = await startAgent({
-				user: currentUser(),
-				agentName: name,
-				initialPrompt: userPrompt,
-				type: type as AgentType,
-				subtype: subtype,
-				humanInLoop: { budget, count },
-				llms: {
-					easy: getLLM(llmEasy),
-					medium: getLLM(llmMedium),
-					hard: getLLM(llmHard),
-					xhard: getLLM(llmHard),
-				},
-				functions: llmFunctions,
-				useSharedRepos: useSharedRepos,
-			});
-			const agentId: string = agentExecution.agentId;
-			send(reply, 200, { agentId });
-		},
-	);
+		const agentExecution: AgentExecution = await startAgent({
+			user: currentUser(),
+			agentName: agentName,
+			initialPrompt: initialPrompt,
+			type: type as AgentType,
+			subtype: subtype,
+			humanInLoop: humanInLoop, // Pass the object directly; startAgent should handle if undefined
+			llms: {
+				easy: getLLM(llms.easy),
+				medium: getLLM(llms.medium),
+				hard: getLLM(llms.hard),
+				xhard: getLLM(llms.hard), // xhard is derived from hard
+			},
+			functions: llmFunctions,
+			useSharedRepos: useSharedRepos ?? true, // Default if useSharedRepos is optional and undefined
+			metadata: metadata,
+			resumeAgentId: resumeAgentId,
+			parentAgentId: parentAgentId,
+			codeTaskId: codeTaskId,
+		});
+		const agentId: string = agentExecution.agentId;
+		const agentContext = await fastify.agentStateService.load(agentId);
+		if (!agentContext) {
+			logger.error(`Agent ${agentId} not found after startAgent call. This indicates an issue with agent creation or saving.`);
+			return send(reply, 500, { error: 'Failed to retrieve agent context after creation' });
+		}
+		const responseBody = serializeContext(agentContext);
+		send(reply, 201, responseBody); // HTTP 201 for resource creation
+	});
 }

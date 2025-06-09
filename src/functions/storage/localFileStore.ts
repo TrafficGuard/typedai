@@ -1,10 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { agentContext } from '#agent/agentContextLocalStorage';
-import { systemDir } from '#app/appVars';
+import { systemDir } from '#app/appDirs';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import type { FileMetadata, FileStore } from '#functions/storage/filestore';
-import type { ToolType } from '#functions/toolType';
+import type { FileStore } from '#functions/storage/filestore';
+import type { ToolType } from '#shared/agent/functions';
+import type { FileMetadata } from '#shared/files/files.model';
 
 /**
  * FileStore implementation that stores files on the local file system.
@@ -80,7 +81,7 @@ export class LocalFileStore implements FileStore {
 	 * Lists all files in the current directory with their metadata.
 	 * @returns {Promise<FileMetadata[]>}
 	 */
-	@func()
+	// @func()
 	async listFiles(): Promise<FileMetadata[]> {
 		const agentId = agentContext().agentId;
 		const dirPath = path.join(this.basePath, agentId);

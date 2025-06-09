@@ -1,6 +1,6 @@
 <!-- Shortcuts toggle -->
 <button mat-icon-button (click)="openPanel()" #shortcutsOrigin>
-    <mat-icon [svgIcon]="'add'"></mat-icon>
+    <mat-icon [svgIcon]="'heroicons_outline:squares-plus'"></mat-icon>
 </button>
 
 <!-- Shortcuts panel -->
@@ -37,7 +37,6 @@
                 <!-- View mode -->
                 @if (mode === 'view') {
                     <!-- Enter 'modify' mode -->
-                    <!--
                     <button
                         mat-icon-button
                         (click)="changeMode('modify')"
@@ -48,9 +47,7 @@
                             [svgIcon]="'heroicons_solid:pencil-square'"
                         ></mat-icon>
                     </button>
-                    -->
                     <!-- Enter 'add' mode -->
-                    <!--
                     <button
                         mat-icon-button
                         (click)="newShortcut()"
@@ -61,7 +58,6 @@
                             [svgIcon]="'heroicons_solid:plus-circle'"
                         ></mat-icon>
                     </button>
-                    -->
                 }
 
                 <!-- Modify mode -->

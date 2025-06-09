@@ -8,10 +8,11 @@
 import { env } from './.env';
 
 export const environment = {
-  production: true,
-  gcpProject: env['GCLOUD_PROJECT'],
-  firestoreDb: env['FIRESTORE_DATABASE'],
-  auth: env['AUTH'],
-  apiBaseUrl: env['API_BASE_URL'],
-  modules: env['MODULES'],
+	production: true,
+	gcpProject: env.GCLOUD_PROJECT,
+	databaseName: env.DATABASE_NAME,
+	databaseType: env.DATABASE_TYPE,
+	auth: env.AUTH,
+	apiBaseUrl: env.API_BASE_URL,
+	modules: env.MODULES,
 };

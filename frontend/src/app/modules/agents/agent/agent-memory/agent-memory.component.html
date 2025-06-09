@@ -1,14 +1,18 @@
 <mat-card class="p-5">
-<div *ngIf="agentDetails?.memory">
-  <mat-expansion-panel *ngFor="let entry of agentDetails.memory | keyvalue" 
-                       (opened)="memoryExpanded[entry.key] = true" 
-                       (closed)="memoryExpanded[entry.key] = false">
-    <mat-expansion-panel-header>
-      <mat-panel-title>
-        {{ entry.key }}
-      </mat-panel-title>
-    </mat-expansion-panel-header>
-    <div style="white-space: pre-wrap">{{ convertMemoryValue(entry.value) }}</div>
-  </mat-expansion-panel>
-</div>
+@if (agentDetails()?.memory) {
+  @for (entry of agentDetails()?.memory | keyvalue; track entry.key) {
+    <mat-expansion-panel 
+                         (opened)="toggleExpansion(entry.key)" 
+                         (closed)="toggleExpansion(entry.key)"
+                         [expanded]="memoryExpanded()[entry.key]">
+      <mat-expansion-panel-header>
+        <mat-panel-title>
+          {{ entry.key }}
+        </mat-panel-title>
+      </mat-expansion-panel-header>
+      <!-- Use [innerHTML] to render <br/> tags and remove white-space style -->
+      <div [innerHTML]="convertMemoryValue(entry.value)"></div>
+    </mat-expansion-panel>
+  }
+}
 </mat-card>

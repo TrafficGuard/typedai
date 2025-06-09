@@ -1,6 +1,4 @@
-Fuse built around the idea of multi-purpose and multi-layout. You can think of Fuse as a Starter kit and a guide rather than just a simple template. The purpose of Fuse is not only provide a pre-made styles for visual elements but is also be a guide to follow while building an app.
-
-It's more of an answer to the questions like Where should I put this file? or Which file should I put this piece of code into? rather than just a compilation of example pages and ready to use styles.
+Do not modify frontend/package.json
 
 Here's a simplified version of the entire directory structure of the Fuse:
 
@@ -19,7 +17,7 @@ Default folder for static assets like images, fonts, static styles and etc.
 /src/@fuse/
 This is the core directory of the Fuse. It includes components, directives, services, pipes, custom validators, animations, base styles and much more.
 
-Modifications on this directory is NOT recommended. Since majority of changes happen within this directory on updates, any modifications to this directory and its content will make the updating process complex and time consuming.
+Do not make any modifications in this directory
 
 src/app/
 This directory contains all application related codes. This is where you put your code.
@@ -81,10 +79,6 @@ This directory is designed to contain data services for custom made MockAPI libr
 
 src/app/layout/
 This directory designed to contain everything related to the layout of your app. By default, Fuse provides variety of different layout options for you to use.
-
-The LayoutComponent is an entry component and it provides an easy way of switching between different layouts. More information about how the LayoutComponent works can be found in the Customization > Theme layouts section of this documentation.
-
-The app/layout/common/ folder includes common components for layouts such as:
 
 Messages
 Notifications
@@ -189,3 +183,17 @@ last: new FormControl('Drew', Validators.required)
 // Controls can also be enabled/disabled after creation:
 form.get('first')?.enable();
 form.get('last')?.disable();
+
+# Style
+
+Wrong
+```typescript
+const editedFiles = await coder.applyLlmResponse(llmResponse, llm);
+expect(editedFiles).to.be.a('Set');
+expect(editedFiles).to.include(filePath);
+```
+Correct
+```typescript
+const editedFiles: Set<string> = await coder.applyLlmResponse(llmResponse, llm);
+expect(editedFiles).to.include(filePath);
+```

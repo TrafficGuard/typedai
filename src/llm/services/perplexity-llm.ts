@@ -2,9 +2,9 @@ import type { PerplexityProvider } from '@ai-sdk/perplexity';
 import { createPerplexity } from '@ai-sdk/perplexity';
 import type { GenerateTextResult } from 'ai';
 import { Perplexity } from '#functions/web/perplexity';
-import { functionConfig } from '#user/userService/userContext';
+import type { LLM } from '#shared/llm/llm.model';
+import { functionConfig } from '#user/userContext';
 import type { LlmCostFunction } from '../base-llm';
-import type { LLM } from '../llm';
 import { AiLLM } from './ai-llm';
 
 export const PERPLEXITY_SERVICE = 'perplexity';
@@ -51,7 +51,7 @@ export function perplexityLLM(): LLM {
 	return new PerplexityLLM(
 		'Perplexity',
 		'sonar',
-		127_000, // maxTokens
+		127_000, // maxOutputTokens
 		perplexityCostFunction(1, 1), // $1/M input, $1/M output
 	);
 }
@@ -60,7 +60,7 @@ export function perplexityReasoningProLLM(): LLM {
 	return new PerplexityLLM(
 		'Perplexity Reasoning Pro',
 		'sonar-reasoning-pro',
-		127_000, // maxTokens
+		127_000, // maxOutputTokens
 		perplexityCostFunction(2, 8), // $2/M input, $8/M output
 	);
 }
@@ -69,14 +69,14 @@ export function perplexityDeepResearchLLM(): LLM {
 	return new PerplexityLLM(
 		'Perplexity Deep Research',
 		'sonar-deep-research',
-		60_000, // maxTokens
+		60_000, // maxOutputTokens
 		perplexityCostFunction(2, 8), // $2/M input, $8/M output
 	);
 }
 
 export class PerplexityLLM extends AiLLM<PerplexityProvider> {
-	constructor(displayName: string, model: string, maxTokens: number, calculateCosts: LlmCostFunction) {
-		super(displayName, PERPLEXITY_SERVICE, model, maxTokens, calculateCosts);
+	constructor(displayName: string, model: string, maxOutputTokens: number, calculateCosts: LlmCostFunction) {
+		super(displayName, PERPLEXITY_SERVICE, model, maxOutputTokens, calculateCosts);
 	}
 
 	protected apiKey(): string {

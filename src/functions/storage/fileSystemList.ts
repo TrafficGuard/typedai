@@ -82,67 +82,67 @@ export class FileSystemList {
 		return await getFileSystem().fileExists(filePath);
 	}
 
-	/**
-	 * Generates a textual representation of a directory tree structure.
-	 *
-	 * This function uses listFilesRecursively to get all files and directories,
-	 * respecting .gitignore rules, and produces an indented string representation
-	 * of the file system hierarchy.
-	 *
-	 * @param {string} dirPath - The path of the directory to generate the tree for, defaulting to working directory
-	 * @returns {Promise<string>} A string representation of the directory tree.
-	 *
-	 * @example
-	 * Assuming the following directory structure:
-	 * ./
-	 *  ├── file1.txt
-	 *  ├── images/
-	 *  │   ├── logo.png
-	 *  └── src/
-	 *      └── utils/
-	 *          └── helper.js
-	 *
-	 * The output would be:
-	 * file1.txt
-	 * images/
-	 *   logo.png
-	 * src/utils/
-	 *   helper.js
-	 */
-	@func()
-	async getFileSystemTree(dirPath = './'): Promise<string> {
-		return await getFileSystem().getFileSystemTree(dirPath);
-	}
-
-	/**
-	 * Generates a textual representation of a directory tree structure, with summaries for key files
-	 *
-	 * This function uses listFilesRecursively to get all files and directories,
-	 * respecting .gitignore rules, and produces an indented string representation
-	 * of the file system hierarchy.
-	 *
-	 * @returns {Promise<string>} A string representation of the directory tree.
-	 *
-	 * @example
-	 * Assuming the following directory structure:
-	 * ./
-	 *  ├── file1.txt
-	 *  └── src/
-	 *      └── utils/
-	 *          └── helper.js
-	 *
-	 * The output would be:
-	 * file1.txt Summary of file1.txt
-	 * src/utils/
-	 *   helper.js Summary of helper.js
-	 */
-	@func()
-	async getFileSystemTreeWithFileSummaries(): Promise<string> {
-		// Generate repository maps and overview
-		const projectMaps: RepositoryMaps = await generateRepositoryMaps(await detectProjectInfo());
-		// const repositoryOverview: string = await getRepositoryOverview();
-		return `<project_files>\n${projectMaps.fileSystemTreeWithFileSummaries.text}\n</project_files>\n`;
-	}
+	// /**
+	//  * Generates a textual representation of a directory tree structure.
+	//  *
+	//  * This function uses listFilesRecursively to get all files and directories,
+	//  * respecting .gitignore rules, and produces an indented string representation
+	//  * of the file system hierarchy.
+	//  *
+	//  * @param {string} dirPath - The path of the directory to generate the tree for, defaulting to working directory
+	//  * @returns {Promise<string>} A string representation of the directory tree.
+	//  *
+	//  * @example
+	//  * Assuming the following directory structure:
+	//  * ./
+	//  *  ├── file1.txt
+	//  *  ├── images/
+	//  *  │   ├── logo.png
+	//  *  └── src/
+	//  *      └── utils/
+	//  *          └── helper.js
+	//  *
+	//  * The output would be:
+	//  * file1.txt
+	//  * images/
+	//  *   logo.png
+	//  * src/utils/
+	//  *   helper.js
+	//  */
+	// @func()
+	// async getFileSystemTree(dirPath = './'): Promise<string> {
+	// 	return await getFileSystem().getFileSystemTree(dirPath);
+	// }
+	//
+	// /**
+	//  * Generates a textual representation of a directory tree structure, with summaries for key files
+	//  *
+	//  * This function uses listFilesRecursively to get all files and directories,
+	//  * respecting .gitignore rules, and produces an indented string representation
+	//  * of the file system hierarchy.
+	//  *
+	//  * @returns {Promise<string>} A string representation of the directory tree.
+	//  *
+	//  * @example
+	//  * Assuming the following directory structure:
+	//  * ./
+	//  *  ├── file1.txt
+	//  *  └── src/
+	//  *      └── utils/
+	//  *          └── helper.js
+	//  *
+	//  * The output would be:
+	//  * file1.txt Summary of file1.txt
+	//  * src/utils/
+	//  *   helper.js Summary of helper.js
+	//  */
+	// @func()
+	// async getFileSystemTreeWithFileSummaries(): Promise<string> {
+	// 	// Generate repository maps and overview
+	// 	const projectMaps: RepositoryMaps = await generateRepositoryMaps(await detectProjectInfo());
+	// 	// const repositoryOverview: string = await getRepositoryOverview();
+	// 	return `<project_files baseDirectory="${getFileSystem().getWorkingDirectory()}">\n${projectMaps.fileSystemTreeWithFileSummaries.text}\n</project_files>\n`;
+	// }
 
 	// /**
 	//  * Returns the filesystem structure

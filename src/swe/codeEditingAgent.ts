@@ -1,25 +1,30 @@
 import { agentContext, getFileSystem, llms } from '#agent/agentContextLocalStorage';
+import { forceStopErrorCheck } from '#agent/forceStopAgent';
 import { appContext } from '#app/applicationContext';
+import { cacheRetry } from '#cache/cacheRetry';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import type { FileSystemService } from '#functions/storage/fileSystemService';
 import { Perplexity } from '#functions/web/perplexity';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
+import type { IFileSystemService } from '#shared/files/fileSystemService';
+import type { SelectedFile } from '#shared/files/files.model';
 import { type CompileErrorAnalysis, type CompileErrorAnalysisDetails, analyzeCompileErrors } from '#swe/analyzeCompileErrors';
-import { type SelectedFile, selectFilesAgent } from '#swe/discovery/selectFilesAgent';
+import { CompileHook } from '#swe/coder/hooks/compileHook';
+import { SearchReplaceCoder } from '#swe/coder/searchReplaceCoder';
+import { selectFilesAgent } from '#swe/discovery/selectFilesAgentWithSearch';
 import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
-import { getRepositoryOverview, getTopLevelSummary } from '#swe/index/repoIndexDocBuilder';
+import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
 import { onlineResearch } from '#swe/onlineResearch';
 import { reviewChanges } from '#swe/reviewChanges';
 import { supportingInformation } from '#swe/supportingInformation';
 import { execCommand } from '#utils/exec';
-import { cacheRetry } from '../cache/cacheRetry';
 import { AiderCodeEditor } from './aiderCodeEditor';
 import { type SelectFilesResponse, selectFilesToEdit } from './discovery/selectFilesToEdit';
-import { type ProjectInfo, detectProjectInfo, getProjectInfo } from './projectDetection';
+import { type ProjectInfo, getProjectInfo } from './projectDetection';
 import { basePrompt } from './prompt';
 import { summariseRequirements } from './summariseRequirements';
+import { CoderExhaustedAttemptsError, CompilationError } from './sweErrors';
 import { tidyDiff } from './tidyDiff';
 
 export function buildPrompt(args: {
@@ -36,24 +41,23 @@ export class CodeEditingAgent {
 	 * Runs a workflow which 1) Finds the relevant files and generates and implementation plan. 2) Edits the files to implement the plan and commits changes to version control.
 	 * It also compiles, formats, lints, and runs tests where applicable.
 	 * @param requirements The requirements of the task to make the code changes for.
-	 * @return the diff of the changes made. Note this string may be large
 	 */
-	@func()
+	// @func()
 	async implementUserRequirements(
 		requirements: string,
 		altOptions?: { projectInfo?: ProjectInfo; workingDirectory?: string }, // altOptions are for programmatic use and not exposed to the autonomous agents.
-	): Promise<string> {
+	): Promise<void> {
 		if (!requirements) throw new Error('The argument "requirements" must be provided');
 
 		let projectInfo: ProjectInfo = altOptions?.projectInfo;
 		projectInfo ??= await getProjectInfo();
 
-		const fss: FileSystemService = getFileSystem();
+		const fss: IFileSystemService = getFileSystem();
 		if (altOptions?.workingDirectory) fss.setWorkingDirectory(altOptions.workingDirectory);
 		fss.setWorkingDirectory(projectInfo.baseDir);
 
 		const selectFiles = await this.selectFiles(requirements, projectInfo);
-		const fileSelection = selectFiles.map((sf) => sf.path);
+		const fileSelection = selectFiles.map((sf) => sf.filePath);
 		const fileContents = await fss.readFilesAsXml(fileSelection);
 		logger.info(fileSelection, `Initial selected file count: ${fileSelection.length}. Tokens: ${await countTokens(fileContents)}`);
 
@@ -70,15 +74,14 @@ export class CodeEditingAgent {
 		`;
 		const implementationPlan = await llms().hard.generateText(implementationDetailsPrompt, { id: 'CodeEditingAgent Implementation Plan' });
 
-		return await this.implementDetailedDesignPlan(implementationPlan, fileSelection, requirements, altOptions);
+		await this.implementDetailedDesignPlan(implementationPlan, fileSelection, requirements, altOptions);
 	}
 
 	/**
 	 * Edits the files to implement the plan and commits changes to version control
 	 * It also compiles, formats, lints, and runs tests where applicable.
-	 * @param implementationPlan The detailed implementation plan to make the changes for
+	 * @param implementationPlan The detailed implementation plan to make the changes for. Include any git branch and commit naming conventions to follow
 	 * @param fileSelection {string[]} An array of files which the code editing agent will have access to.
-	 * @return the diff of the changes made. Note this string may be large
 	 */
 	@func()
 	async implementDetailedDesignPlan(
@@ -86,7 +89,7 @@ export class CodeEditingAgent {
 		fileSelection: string[],
 		requirements?: string | null, // The original requirements for when called from runCodeEditWorkflow
 		altOptions?: { projectInfo?: ProjectInfo; workingDirectory?: string }, // altOptions are for programmatic use and not exposed to the autonomous agents.
-	): Promise<string> {
+	): Promise<void> {
 		if (!implementationPlan) throw new Error('The argument "implementationPlan" must be provided');
 		if (fileSelection && !Array.isArray(fileSelection)) {
 			logger.error(`File selection was type ${typeof fileSelection}. Value: ${JSON.stringify(fileSelection)}`);
@@ -95,23 +98,26 @@ export class CodeEditingAgent {
 		let projectInfo: ProjectInfo = altOptions?.projectInfo;
 		projectInfo ??= await getProjectInfo();
 
-		const fss: FileSystemService = getFileSystem();
+		const fss: IFileSystemService = getFileSystem();
 		if (altOptions?.workingDirectory) fss.setWorkingDirectory(altOptions.workingDirectory);
 		fss.setWorkingDirectory(projectInfo.baseDir);
 
 		// Run in parallel to the requirements generation
 		// NODE_ENV=development is needed to install devDependencies for Node.js projects.
 		// Set this in case the current process has NODE_ENV set to 'production'
-		const installPromise: Promise<any> = projectInfo.initialise
-			? execCommand(projectInfo.initialise, { envVars: { NODE_ENV: 'development' } })
-			: Promise.resolve();
+		let installPromise: Promise<any>;
+		if (projectInfo.initialise) {
+			logger.info(`Executing project initialise script "${projectInfo.initialise}"`);
+			installPromise = execCommand(projectInfo.initialise, { envVars: { NODE_ENV: 'development' } });
+		} else {
+			logger.info('No project initialise script. Skipping.');
+			installPromise = Promise.resolve();
+		}
 
 		const headCommit = await fss.getVcs().getHeadSha();
 		const currentBranch = await fss.getVcs().getBranchName();
 		const gitBase = headCommit; // !projectInfo.devBranch || projectInfo.devBranch === currentBranch ? headCommit : projectInfo.devBranch;
 		logger.info(`git base ${gitBase}`);
-
-		await includeAlternativeAiToolFiles(fileSelection);
 
 		const fileContents = await fss.readFilesAsXml(fileSelection);
 		logger.info(fileSelection, `Initial selected file count: ${fileSelection.length}. Tokens: ${await countTokens(fileContents)}`);
@@ -130,33 +136,36 @@ export class CodeEditingAgent {
 
 		await installPromise; // Complete parallel project setup
 
+		console.log(implementationPlan);
+
 		// Edit/compile loop ----------------------------------------
-		let compileErrorAnalysis: CompileErrorAnalysis | null = await this.editCompileLoop(projectInfo, fileSelection, implementationPlan);
+		const compileErrorAnalysis: CompileErrorAnalysis | null = await this.editCompileLoop(projectInfo, fileSelection, implementationPlan);
 		this.failOnCompileError(compileErrorAnalysis);
 
 		// Store in memory for now while we see how the prompt performs
 		const branchName = await getFileSystem().getVcs().getBranchName();
 
 		// If called from runCodeEditWorkflow() then review from the original requirements
-		const reviewItems: string[] = await this.reviewChanges(requirements || implementationPlan, gitBase, fileSelection);
-		if (reviewItems.length) {
-			logger.info(reviewItems, 'Code review results');
-			agentContext().memory[`${branchName}--review`] = JSON.stringify(reviewItems);
+		// const reviewItems: string[] = await this.reviewChanges(requirements || implementationPlan, gitBase, fileSelection);
+		// if (reviewItems.length) {
+		// 	logger.info(reviewItems, 'Code review results');
+		// 	agentContext().memory[`${branchName}--review`] = JSON.stringify(reviewItems);
+		//
+		// 	let reviewRequirements = `${implementationPlan}\n\n# Code Review Results:\n\nThe initial completed implementation changes have been reviewed. Only the following code review items remain to finalize the requirements:`;
+		// 	for (const reviewItem of reviewItems) {
+		// 		reviewRequirements += `\n- ${reviewItem}`;
+		// 	}
+		// 	compileErrorAnalysis = await this.editCompileLoop(projectInfo, fileSelection, reviewRequirements);
+		// 	this.failOnCompileError(compileErrorAnalysis);
+		// }
 
-			let reviewRequirements = `${implementationPlan}\n\n# Code Review Results:\n\nThe initial completed implementation changes have been reviewed. Only the following code review items remain to finalize the requirements:`;
-			for (const reviewItem of reviewItems) {
-				reviewRequirements += `\n- ${reviewItem}`;
-			}
-			compileErrorAnalysis = await this.editCompileLoop(projectInfo, fileSelection, reviewRequirements);
-			this.failOnCompileError(compileErrorAnalysis);
-		}
-
-		await this.tidyDiff(gitBase, projectInfo, fileSelection);
+		// await this.tidyDiff(gitBase, projectInfo, fileSelection);
 
 		// The prompts need some work
 		// await this.testLoop(requirements, projectInfo, initialSelectedFiles);
 
-		return await fss.vcs.getDiff(gitBase);
+		// return await fss.getVcs().getDiff(gitBase);
+		// return execCommand(`git diff --stat HEAD ${gitBase}`)
 	} // end of runCodeEditWorkflow method
 
 	private failOnCompileError(compileErrorAnalysis: CompileErrorAnalysis) {
@@ -179,7 +188,7 @@ export class CodeEditingAgent {
 		   which don't compile, we can provide the diff since the last good commit to help identify causes of compile issues. */
 		let compiledCommitSha: string | null = agentContext().memory.compiledCommitSha;
 
-		const fs: FileSystemService = getFileSystem();
+		const fs: IFileSystemService = getFileSystem();
 		const git = fs.getVcs();
 
 		const MAX_ATTEMPTS = 5;
@@ -254,7 +263,10 @@ export class CodeEditingAgent {
 					codeEditorRequirements += '\nOnly make changes directly related to these requirements.';
 				}
 
-				await new AiderCodeEditor().editFilesToMeetRequirements(codeEditorRequirements, codeEditorFiles);
+				const ruleFiles = await includeAlternativeAiToolFiles(codeEditorFiles);
+
+				const coder = new SearchReplaceCoder(getFileSystem(), llms().hard, undefined, [new CompileHook(projectInfo.compile, getFileSystem())]);
+				await coder.editFilesToMeetRequirements(codeEditorRequirements, codeEditorFiles, Array.from(ruleFiles), true, true);
 
 				// The code editor may add new files, so we want to add them to the initial file set
 				const addedFiles: string[] = await git.getAddedFiles(compiledCommitSha);
@@ -274,12 +286,19 @@ export class CodeEditingAgent {
 
 				break;
 			} catch (e) {
-				logger.info('Compiler error');
-				logger.info(e);
-				const compileErrorOutput = e.message;
-				logger.error(`Compile Error Output: ${compileErrorOutput}`);
-				// TODO handle code editor error separately - what failure modes does it have (invalid args, git error etc)?
-				compileErrorAnalysis = await analyzeCompileErrors(compileErrorOutput, initialSelectedFiles, compileErrorSummaries);
+				if (e instanceof CoderExhaustedAttemptsError) {
+					// Propagate coder failures – these are not compile errors
+					throw e;
+				}
+				if (e instanceof CompilationError) {
+					const compileErrorOutput = e.compileOutput;
+					logger.error(`Compile Error Output: ${compileErrorOutput}`);
+					compileErrorAnalysis = await analyzeCompileErrors(compileErrorOutput, initialSelectedFiles, compileErrorSummaries);
+				} else {
+					// Unknown error – rethrow after safety checks
+					forceStopErrorCheck(e);
+					throw e;
+				}
 				compileErrorSummaries.push(compileErrorAnalysis.compileIssuesSummary);
 				if (compileErrorAnalysis.fatalError) return compileErrorAnalysis;
 			}
@@ -339,7 +358,7 @@ export class CodeEditingAgent {
 		if (exitCode > 0) {
 			logger.info(stdout);
 			logger.error(stderr);
-			throw new Error(result);
+			throw new CompilationError(result, projectInfo.compile, stdout, stderr, exitCode);
 		}
 	}
 
@@ -434,9 +453,10 @@ export class CodeEditingAgent {
 			information: `<project_files>\n${filenames}\n</project_files>`,
 			requirements: summary,
 			action:
-				'You will respond ONLY in JSON. From the requirements quietly consider which the files may be required to complete the task. You MUST output your answer ONLY as JSON in the format of this example:\n<example>\n{\n files: ["file1", "file2", "file3"]\n}\n</example>',
+				'From the requirements consider which the files may be required to complete the task. Output your answer as JSON in the format of this example:\n' +
+				'<example>\n<json>\n{\n files: ["file1", "file2", "file3"]\n}\n</json>\n</example>',
 		});
-		const response: any = await llms().medium.generateJson(prompt, { id: 'Extract Filenames' });
+		const response: any = await llms().medium.generateTextWithJson(prompt, { id: 'Extract Filenames' });
 		return response.files;
 	}
 }

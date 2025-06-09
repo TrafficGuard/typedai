@@ -1,12 +1,12 @@
-import { promises as fs, writeFileSync } from 'node:fs';
+import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 import axios, { type AxiosInstance } from 'axios';
 import { llms } from '#agent/agentContextLocalStorage';
-import { agentStorageDir, systemDir } from '#app/appVars';
+import { agentStorageDir } from '#app/appDirs';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { getJiraIssueType } from '#functions/jiraIssueType';
 import { logger } from '#o11y/logger';
-import { functionConfig } from '#user/userService/userContext';
+import { currentUser, functionConfig } from '#user/userContext';
 import { envVar } from '#utils/env-var';
 import { escapeXml, formatXmlContent } from '#utils/xml-utils';
 import { cacheRetry } from '../cache/cacheRetry';
@@ -25,8 +25,13 @@ export class Jira {
 		if (!this.instance) {
 			const config: JiraConfig = functionConfig(Jira) as JiraConfig;
 			const baseUrl = config.baseUrl || envVar('JIRA_BASE_URL');
-			const email = config.email || envVar('JIRA_EMAIL');
+			const email = config.email || process.env.JIRA_EMAIL || currentUser()?.email;
 			const apiToken = config.token || envVar('JIRA_API_TOKEN');
+
+			if (!baseUrl) throw new Error('Jira baseUrl must be provided from the user profile or JIRA_BASE_URL environment variable');
+			if (!apiToken) throw new Error('Jira apiToken must be provided from the user profile or JIRA_API_TOKEN environment variable');
+			if (!apiToken)
+				throw new Error('Jira email must be provided from the user profile or JIRA_EMAIL environment variable (or currentUser() for workflow authors)');
 
 			this.instance = axios.create({
 				baseURL: baseUrl,
@@ -49,7 +54,7 @@ export class Jira {
 		if (!issueId) throw new Error('issueId is required');
 
 		try {
-			const response = await this.axios().get(`issue/${issueId}`);
+			const response = await this.axios().get(`/rest/api/latest/issue/${issueId}`);
 			const fields = response.data.fields;
 
 			let xml = `<jira-issue id="${issueId}">\n`;
@@ -149,7 +154,7 @@ export class Jira {
 		if (!description) throw new Error('description is required');
 
 		// Lookup the user id
-		const userSearchResponse = await this.axios().get('user/search', {
+		const userSearchResponse = await this.axios().get('/rest/api/latest/user/search', {
 			params: {
 				query: reporterEmail,
 			},
@@ -188,6 +193,32 @@ export class Jira {
 		url = `${url.substring(0, url.indexOf('t/') + 1)}/browse/${key}`;
 
 		return { key, url };
+	}
+
+	async getBacklog(boardId: string): Promise<any> {
+		const response = await this.axios().get(`/rest/agile/1.0/board/${boardId}/backlog?maxResults=250`);
+		const issues = response.data.issues;
+
+		for (const issue of issues) {
+			try {
+				const fields = issue.fields;
+				const issueId = issue.key;
+				const parent = fields.parent?.fields.summary;
+				const epic = fields.epic?.name;
+				const description = fields.description;
+				const title = fields.summary;
+
+				console.log(`<jira-${issueId}>`);
+				console.log(`  <title>${title}</title>`);
+				console.log(`  <description>${description}</description>`);
+				if (parent || epic) console.log(`  <parent>${parent || epic}</parent>`);
+				console.log(`</jira-${issueId}>\n`);
+			} catch (e) {
+				console.log(issue);
+				console.log(e);
+			}
+		}
+		return issues;
 	}
 
 	// /**

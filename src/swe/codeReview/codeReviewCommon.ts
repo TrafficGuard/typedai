@@ -2,7 +2,8 @@ import crypto from 'node:crypto';
 import * as micromatch from 'micromatch';
 import { llms } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
-import { type CodeReviewConfig, type CodeReviewResult, type CodeReviewTask, codeReviewToXml } from '#swe/codeReview/codeReviewModel';
+import type { CodeReviewConfig } from '#shared/codeReview/codeReview.model';
+import { type CodeReviewResult, type CodeReviewTask, codeReviewToXml } from '#swe/codeReview/codeReviewTaskModel';
 
 export function getStartingLineNumber(diff: string): number {
 	diff = diff.slice(diff.indexOf('+'));

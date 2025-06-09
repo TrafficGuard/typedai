@@ -1,16 +1,19 @@
-import { LlmFunctions } from '#agent/LlmFunctions';
-import type { AgentContext, AgentRunningState, AutonomousIteration } from '#agent/agentContextTypes';
-import { deserializeAgentContext, serializeContext } from '#agent/agentSerialization';
-import type { AgentStateService } from '#agent/agentStateService/agentStateService';
+import type { Static } from '@sinclair/typebox';
+import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
+import type { AgentContextService } from '#agent/agentContextService/agentContextService';
+import { deserializeContext, serializeContext } from '#agent/agentSerialization';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
+import type { AgentContext, AgentContextPreview, AgentRunningState, AutonomousIteration, AutonomousIterationSummary } from '#shared/agent/agent.model';
+import type { AgentContextSchema } from '#shared/agent/agent.schema';
 
 /**
  * In-memory implementation of AgentStateService for tests. Serializes/deserializes
  * to behave the same as the FireStore implementation
  */
-export class InMemoryAgentStateService implements AgentStateService {
-	stateMap: Map<string, Record<string, any>> = new Map();
+export class InMemoryAgentStateService implements AgentContextService {
+	// Store in the serialized format
+	stateMap: Map<string, Static<typeof AgentContextSchema>> = new Map();
 	iterationMap: Map<string, AutonomousIteration[]> = new Map();
 
 	clear(): void {
@@ -31,18 +34,33 @@ export class InMemoryAgentStateService implements AgentStateService {
 
 	async load(executionId: string): Promise<AgentContext> {
 		if (!this.stateMap.has(executionId)) throw new Error('Agent state not found');
-		const serialized = this.stateMap.get(executionId);
-		return await deserializeAgentContext(serialized);
+		const serialized = this.stateMap.get(executionId)!; // Added non-null assertion as we check with .has()
+		return deserializeContext(serialized);
 	}
 
-	async list(): Promise<AgentContext[]> {
+	async list(): Promise<AgentContextPreview[]> {
 		const serializedList = Array.from(this.stateMap.values());
-		return Promise.all(serializedList.map(deserializeAgentContext));
+		const deserializedList: AgentContext[] = serializedList.map((data) => deserializeContext(data));
+		const previews: AgentContextPreview[] = deserializedList.map((agent) => ({
+			agentId: agent.agentId,
+			name: agent.name,
+			state: agent.state,
+			type: agent.type,
+			subtype: agent.subtype,
+			cost: agent.cost ?? 0,
+			error: agent.error,
+			lastUpdate: agent.lastUpdate,
+			userPrompt: agent.userPrompt,
+			inputPrompt: agent.inputPrompt,
+			user: agent.user.id, // AgentContext.user is User object, AgentContextPreview.user is string ID
+		}));
+		return Promise.resolve(previews);
 	}
 
-	async listRunning(): Promise<AgentContext[]> {
-		const allAgents = await this.list();
-		return allAgents.filter((agent) => agent.state !== 'completed');
+	async listRunning(): Promise<AgentContextPreview[]> {
+		const allAgentPreviews = await this.list(); // This will now return AgentContextPreview[]
+		const terminalStates: AgentRunningState[] = ['completed', 'shutdown', 'timeout', 'error'];
+		return allAgentPreviews.filter((preview) => !terminalStates.includes(preview.state));
 	}
 
 	async delete(ids: string[]): Promise<void> {
@@ -58,7 +76,7 @@ export class InMemoryAgentStateService implements AgentStateService {
 			throw new Error('Agent not found');
 		}
 
-		agent.functions = new LlmFunctions();
+		agent.functions = new LlmFunctionsImpl();
 		for (const functionName of functions) {
 			const FunctionClass = functionFactory()[functionName];
 			if (FunctionClass) {
@@ -86,5 +104,26 @@ export class InMemoryAgentStateService implements AgentStateService {
 			iterations.sort((a, b) => a.iteration - b.iteration); // Sort by iteration number
 		}
 		this.iterationMap.set(iterationData.agentId, iterations);
+	}
+
+	async requestHumanInLoopCheck(agent: AgentContext): Promise<void> {
+		agent.hilRequested = true;
+		await this.save(agent);
+	}
+
+	async getAgentIterationSummaries(agentId: string): Promise<AutonomousIterationSummary[]> {
+		const iterations = this.iterationMap.get(agentId) || [];
+		return iterations.map((iter) => ({
+			agentId: iter.agentId,
+			iteration: iter.iteration,
+			cost: iter.cost,
+			summary: iter.summary,
+			error: iter.error,
+		}));
+	}
+
+	async getAgentIterationDetail(agentId: string, iterationNumber: number): Promise<AutonomousIteration | null> {
+		const iterations = this.iterationMap.get(agentId) || [];
+		return iterations.find((iter) => iter.iteration === iterationNumber) || null;
 	}
 }

@@ -1,14 +1,15 @@
 export {
 	fastifyInstance as fastifyApp,
 	initFastify,
-	TypeBoxFastifyInstance,
-	FastifyConfig,
-	RouteDefinition,
+	type TypeBoxFastifyInstance,
+	type FastifyConfig,
+	type FastifyRoutes,
 } from './fastifyApp';
 
 export {
 	send,
 	sendBadRequest,
+	sendNotFound,
 	sendSuccess,
 	sendUnauthorized,
 } from './responses';

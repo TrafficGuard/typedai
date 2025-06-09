@@ -1,11 +1,11 @@
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import {
-    APP_INITIALIZER,
-    ENVIRONMENT_INITIALIZER,
     EnvironmentProviders,
     Provider,
     importProvidersFrom,
     inject,
+    provideAppInitializer,
+    provideEnvironmentInitializer,
 } from '@angular/core';
 import { MATERIAL_SANITY_CHECKS } from '@angular/material/core';
 import { MatDialogModule } from '@angular/material/dialog';
@@ -29,7 +29,7 @@ import { FuseUtilsService } from '@fuse/services/utils';
 export type FuseProviderConfig = {
     mockApi?: {
         delay?: number;
-        services?: any[];
+        service?: any;
     };
     fuse?: FuseConfig;
 };
@@ -68,51 +68,24 @@ export const provideFuse = (
         },
 
         importProvidersFrom(MatDialogModule),
-        {
-            provide: ENVIRONMENT_INITIALIZER,
-            useValue: () => inject(FuseConfirmationService),
-            multi: true,
-        },
+        provideEnvironmentInitializer(() => inject(FuseConfirmationService)),
 
         provideHttpClient(withInterceptors([fuseLoadingInterceptor])),
-        {
-            provide: ENVIRONMENT_INITIALIZER,
-            useValue: () => inject(FuseLoadingService),
-            multi: true,
-        },
+        provideEnvironmentInitializer(() => inject(FuseLoadingService)),
 
-        {
-            provide: ENVIRONMENT_INITIALIZER,
-            useValue: () => inject(FuseMediaWatcherService),
-            multi: true,
-        },
-        {
-            provide: ENVIRONMENT_INITIALIZER,
-            useValue: () => inject(FusePlatformService),
-            multi: true,
-        },
-        {
-            provide: ENVIRONMENT_INITIALIZER,
-            useValue: () => inject(FuseSplashScreenService),
-            multi: true,
-        },
-        {
-            provide: ENVIRONMENT_INITIALIZER,
-            useValue: () => inject(FuseUtilsService),
-            multi: true,
-        },
+        provideEnvironmentInitializer(() => inject(FuseMediaWatcherService)),
+        provideEnvironmentInitializer(() => inject(FusePlatformService)),
+        provideEnvironmentInitializer(() => inject(FuseSplashScreenService)),
+        provideEnvironmentInitializer(() => inject(FuseUtilsService)),
     ];
 
     // Mock Api services
-    if (config?.mockApi?.services) {
+    if (config?.mockApi?.service) {
         providers.push(
             provideHttpClient(withInterceptors([mockApiInterceptor])),
-            {
-                provide: APP_INITIALIZER,
-                deps: [...config.mockApi.services],
-                useFactory: () => (): any => null,
-                multi: true,
-            }
+            provideAppInitializer(() => {
+                const mockApiService = inject(config.mockApi.service);
+            })
         );
     }
 

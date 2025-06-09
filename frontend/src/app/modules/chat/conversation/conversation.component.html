@@ -1,43 +1,42 @@
-<div class="bg-card flex flex-auto flex-col overflow-y-auto dark:bg-default lg:overflow-hidden">
-    @if (chat) {
+<div class="flex flex-auto flex-col overflow-y-auto dark:bg-default lg:overflow-hidden">
+    <!-- Loading State -->
+    @if (!chat()) {
+        <div class="flex flex-auto flex-col items-center justify-center bg-gray-100 dark:bg-transparent">
+            <mat-progress-spinner data-testid="loading" mode="indeterminate" [diameter]="50"></mat-progress-spinner>
+            <div class="text-secondary mt-4 text-lg font-medium">Loading conversation...</div>
+        </div>
+    }
+    <!-- Conversation Content (Main chat interface) -->
+    @if (chat(); as currentChat) {
         <mat-drawer-container class="h-full flex-auto" [hasBackdrop]="false">
             <!-- Drawer -->
             <mat-drawer
+                data-testid="info-drawer"
                 class="w-full dark:bg-gray-900 sm:w-100 lg:border-l lg:shadow-none"
                 [autoFocus]="false"
-                [mode]="drawerMode"
+                [mode]="drawerMode()"
                 [position]="'end'"
-                [(opened)]="drawerOpened"
+                [opened]="drawerOpened()"
+                (openedChange)="drawerOpened.set($event)"
                 #drawer
             >
                 <!-- Contact info -->
                 <chat-info
                     [drawer]="drawer"
-                    [chat]="chat"
+                    [chat]="currentChat"
                 ></chat-info>
             </mat-drawer>
 
             <!-- Drawer content -->
             <mat-drawer-content class="flex flex-col overflow-hidden">
                 <!-- Header -->
-                <div class="flex h-18 flex-0 items-center border-b bg-gray-50 px-4 dark:bg-transparent md:px-6">
-                    <!-- Back button -->
-                    @if (chats.length) {
-                        <a
-                            class="md:-ml-2 lg:hidden"
-                            mat-icon-button
-                            [routerLink]="['./']"
-                            (click)="resetChat()"
-                        >
-                            <mat-icon [svgIcon]="'heroicons_outline:arrow-long-left'"></mat-icon>
-                        </a>
-                    }
-
-                    <span class="font-semibold text-lg max-w-[calc(100%-120px)] absolute left-1/2 transform -translate-x-1/2 truncate text-ellipsis overflow-hidden whitespace-nowrap">
-                        {{ chat.title }}
+                <div class="flex h-15 flex-0 items-center border-b bg-gray-50 px-4 dark:bg-transparent md:px-6">
+                    <span data-testid="chat-title" class="font-semibold text-lg max-w-[calc(100%-120px)] absolute left-1/2 transform -translate-x-1/2 truncate text-ellipsis overflow-hidden whitespace-nowrap">
+                        {{ currentChat.title }}
                     </span>
 
                     <button
+                        data-testid="open-info-btn"
                         class="ml-auto"
                         mat-icon-button
                         (click)="openChatInfo()"
@@ -60,42 +59,34 @@
                 </div>
 
                 <!-- Conversation -->
-                <div class="conversation-container flex flex-col-reverse flex-grow overflow-y-auto">
+                <div data-testid="msg-list" class="conversation-container flex flex-col-reverse flex-grow overflow-y-auto">
                     <div class="bg-card flex flex-auto shrink flex-col p-6 dark:bg-transparent">
                         @for (
-                            message of chat.messages;
+                            message of displayedMessages();
                             track trackByFn(i, message);
                             let i = $index;
                             let first = $first;
                             let last = $last
                         ) {
                             <div
+                                [attr.data-testid]="'msg-'+message.id"
                                 class="flex flex-col"
                                 [ngClass]="{
-                                    'max-width': 'fit-content',
+                                    'max-width': 'w-400',
                                     'items-end': message.isMine,
                                     'items-start': !message.isMine,
-                                    'mt-0.5':
-                                        i > 0 &&
-                                        chat.messages[i - 1].isMine ===
-                                            message.isMine,
-                                    'mt-3':
-                                        i > 0 &&
-                                        chat.messages[i - 1].isMine !==
-                                            message.isMine,
+                                    'mt-0.5': i > 0 && displayedMessages()[i - 1].isMine === message.isMine,
+                                    'mt-3': i > 0 && displayedMessages()[i - 1].isMine !== message.isMine
                                 }"
                             >
                                 <!-- Bubble -->
                                 <!-- Image Attachments -->
-                                @if (message.imageAttachments?.length > 0) {
-                                    <div class="flex flex-wrap gap-2 mb-2"> <!-- Added flex-wrap and gap -->
-                                        @for (attachment of message.imageAttachments; track attachment.filename) {
-                                            @if (attachment.previewUrl) { <!-- Check for previewUrl -->
-                                                <div class="mb-1"> <!-- Reduced margin -->
-                                                    <img [src]="attachment.previewUrl" alt="{{ attachment.filename }}" class="max-w-xs max-h-48 h-auto rounded object-contain" /> <!-- Adjusted size constraints -->
-                                                    <!-- Optional: Display filename below image if needed
-                                                    <div class="text-xs text-gray-500 dark:text-gray-400 text-center mt-1">{{ attachment.filename }}</div>
-                                                    -->
+                                @if (message.uiImageAttachments?.length > 0) {
+                                    <div class="flex flex-wrap gap-2 mb-2">
+                                        @for (attachment of message.uiImageAttachments; track attachment.filename) {
+                                            @if (attachment.previewUrl) {
+                                                <div class="mb-1">
+                                                    <img [src]="attachment.previewUrl" alt="{{ attachment.filename }}" class="max-w-xs max-h-48 h-auto rounded object-contain" />
                                                 </div>
                                             }
                                         }
@@ -105,225 +96,233 @@
                                 <div
                                     class="relative max-w-3/4 rounded-lg px-3 py-2"
                                     [ngClass]="{
-                                        'bg-gray-200 text-black-50 dark:bg-primary-600':
-                                            message.isMine,
-                                        'bg-gray-50 text-black-50 dark:bg-gray-700':
-                                            !message.isMine,
+                                        'bg-gray-200 text-black-50 dark:bg-primary-600': message.isMine,
+                                        'bg-gray-50 text-black-50 dark:bg-gray-700': !message.isMine
                                     }"
+                                    style="max-width: 1000px !important;"
                                 >
                                     <!-- Message -->
                                     <div class="min-w-4 leading-5">
-                                        @if (!message.generating) {
-                                            <clipboard-button [offset]="-0.3" [cdkCopyToClipboard]="message.textContent"></clipboard-button>
+                                        <markdown
+                                            mermaid
+                                            clipboard
+                                            [clipboardButtonComponent]="clipboardButton"
+                                            [data]="message.textContentForDisplay"
+                                            ngPreserveWhitespaces
+                                        ></markdown>
+                                        <!--
+                                        @if (message.textChunks && message.textChunks.length > 0) {
+                                            @for (chunk of message.textChunks; track $index) {
+                                                @if (chunk.type === 'markdown') {
+                                                    <markdown
+                                                        mermaid
+                                                        clipboard
+                                                        [clipboardButtonComponent]="clipboardButton"
+                                                        [data]="chunk.value"
+                                                        ngPreserveWhitespaces
+                                                    ></markdown>
+                                                } @else if (chunk.type === 'text') {
+                                                    <markdown
+                                                        [data]="chunk.value"
+                                                        ngPreserveWhitespaces
+                                                    ></markdown>
+                                                }
+                                            }
                                         }
-                                        @if (!message.content || message.content.length === 0) {
-                                            <markdown
-                                                    mermaid
-                                                    clipboard
-                                                    [clipboardButtonComponent]="clipboardButton"
-                                                    [data]="message.textContent"
-                                                    ngPreserveWhitespaces
-                                            ></markdown>
-                                        }
-                                        @for (content of message.content; track content.text) {
-                                            <markdown
-                                                    mermaid
-                                                    clipboard
-                                                    [clipboardButtonComponent]="clipboardButton"
-                                                    [data]="content.text"
-                                                    ngPreserveWhitespaces
-                                            ></markdown>
-                                        }
+                                        -->
                                         <!-- Display non-image attachments -->
-                                        @if (message.fileAttachments?.length > 0) {
-                                            <div class="mt-2 border-t border-gray-300 dark:border-gray-600 pt-1"> <!-- Added separator -->
-                                                @for (attachment of message.fileAttachments; track attachment.filename) {
-                                                    @if (attachment.type !== 'image') {
-                                                        <div class="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-1">
-                                                            <mat-icon class="icon-size-4 mr-1" [svgIcon]="'heroicons_outline:document'"></mat-icon>
-                                                            <span>{{ attachment.filename }} ({{ (attachment.size / 1024) | number:'1.0-1' }} KB)</span>
-                                                        </div>
-                                                    }
+                                        @if (message.uiFileAttachments?.length > 0) {
+                                            <div class="mt-2 border-t border-gray-300 dark:border-gray-600 pt-1">
+                                                @for (attachment of message.uiFileAttachments; track attachment.filename) {
+                                                    <div class="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-1">
+                                                        <mat-icon class="icon-size-4 mr-1" [svgIcon]="'heroicons_outline:document'"></mat-icon>
+                                                        <span>{{ attachment.filename }} ({{ (attachment.size / 1024) | number:'1.0-1' }} KB)</span>
+                                                    </div>
                                                 }
                                             </div>
                                         }
+                                    </div> <!-- End of Message Content div -->
 
-                                        <!-- Buttons for AI messages (Cost, Regenerate, Branch) -->
-                                        @if (!message.isMine && !message.generating) {
-                                            @if (message.stats) {
+                                    <!-- Buttons container: shown for all non-generating messages -->
+                                    @if (!message.generating) {
+                                        <div class="absolute bottom-1 right-1 flex items-center space-x-1" style="line-height: 1;">
+                                            <!-- Info Button: shown only for AI messages with stats -->
+                                            @if (!message.isMine && message.stats) {
+                                                @let stats = message.stats;
                                                 <button mat-icon-button
-                                                        class="regenerate-button mat-primary p-0 m-0"
-                                                        [matTooltip]="'Duration: ' + (message.stats.totalTime / 1000).toFixed(0) + 's Input tokens: ' + message.stats.inputTokens + ' Output tokens: ' + message.stats.outputTokens + ' Cost: $' + (message.stats.cost | number:'1.4-4')"
+                                                        class="mat-primary p-0 m-0"
+                                                        [matTooltip]="'Duration: ' + (stats.totalTime / 1000).toFixed(0) + 's Input tokens: ' + stats.inputTokens + ' Output tokens: ' + stats.outputTokens + (stats.cachedInputTokens ? ' Cached input tokens: ' + stats.cachedInputTokens : '')+ ' Cost: $' + (stats.cost | number:'1.4-4')"
                                                         aria-label="Message generation stats">
-                                                    <mat-icon [svgIcon]="'info'" class="icon-size-4 p-0 m-0"></mat-icon>
+                                                    <mat-icon [svgIcon]="'info'" class="icon-size-3 p-0 m-0"></mat-icon>
                                                 </button>
                                             }
-                                            <!--
-                                            <button mat-icon-button
-                                                    class="regenerate-button mat-primary"
-                                                    matTooltip="Tokens in: Tokens out: Latency: Cost:"
-                                                    aria-label="Message generation information">
-                                                <mat-icon [svgIcon]="'info'" class="icon-size-4"></mat-icon>
-                                            </button>
-                                            -->
-                                            <!--
-                                            <button mat-icon-button
-                                                    class="regenerate-button mat-primary"
-                                                    matTooltip="Regenerate response"
-                                                    aria-label="Regenerate AI response"
-                                                    (click)="regenerateMessage(i)">
-                                                <mat-icon [svgIcon]="'heroicons_outline:arrow-path'" class="icon-size-4"></mat-icon>
-                                            </button>
-                                            -->
-                                            <!--
-                                            <button mat-icon-button
-                                                    class="regenerate-button mat-primary"
-                                                    matTooltip="Branch chat"
-                                                    aria-label="Branch chat"
-                                                    (click)="branchChat(i)">
-                                                <mat-icon [svgIcon]="'account_tree'" class="icon-size-4"></mat-icon>
-                                            </button>
-                                            -->
+                                            <!-- Clipboard Button: always shown if container is shown -->
+                                            <clipboard-button [cdkCopyToClipboard]="message.textContentForDisplay" class=""></clipboard-button>
+                                        </div>
+                                    }
+                                    <!-- The commented-out regenerate button remains unchanged -->
+                                    <!--
+                                    @if (!message.isMine && !message.generating) {
+                                        <button mat-icon-button
+                                                class="regenerate-button mat-primary"
+                                                matTooltip="Regenerate response"
+                                                aria-label="Regenerate AI response"
+                                                (click)="regenerateMessage(i)">
+                                            <mat-icon [svgIcon]="'heroicons_outline:arrow-path'" class="icon-size-4"></mat-icon>
+                                        </button>
+                                    }
+                                    -->
+                                </div> <!-- End of Bubble div -->
+
+                                <!-- Status Indicator for user's messages -->
+                                @if (message.isMine) {
+                                    <div class="flex justify-end items-center text-xs mt-1 space-x-1 mr-2"> <!-- Added mr-2 for slight offset from edge -->
+                                        @if (message.status === 'sending') {
+                                            <span class="text-gray-500 dark:text-gray-400 italic flex items-center">
+                                                Sending...
+                                                <mat-spinner [diameter]="14" color="primary" style="display: inline-block; vertical-align: middle; margin-left: 4px;"></mat-spinner>
+                                            </span>
                                         }
+                                        @if (message.status === 'failed_to_send') {
+                                            <span class="text-red-500 italic flex items-center">
+                                                <mat-icon svgIcon="heroicons_outline:exclamation-circle" class="icon-size-4 mr-1"></mat-icon>
+                                                Failed
+                                            </span>
+                                        }
+                                        <!-- Optionally, add a 'Sent' indicator or checkmark if message.status === 'sent' -->
+                                        <!-- For example:
+                                        @if (message.status === 'sent') {
+                                            <mat-icon svgIcon="heroicons_outline:check" class="icon-size-4 text-green-500"></mat-icon>
+                                        }
+                                        -->
                                     </div>
-                                </div>
-                                <!-- Time
-                                @if (
-                                    first || last ||
-                                    chat.messages[i + 1].isMine !== message.isMine ||
-                                    chat.messages[i + 1].createdAt !== message.createdAt
-                                ) {
-                                    <div
-                                        class="text-secondary my-0.5 text-sm font-medium"
-                                        [ngClass]="{
-                                            'mr-3': message.isMine,
-                                            'ml-3': !message.isMine,
-                                        }"
-                                    >
-                                        {{ message.createdAt | date: 'HH:mm' }}
-                                    </div>
-                                }-->
+                                }
+                                <!-- Time (conditionally displayed) -->
                             </div>
                         }
                     </div>
                 </div>
 
                 <!-- Message field. Don't display if we're viewing someone else's shared conversation -->
-                @if (!chat.shareable || currentUser.id === chat.userId) {
-                    <div class="flex items-start border-t bg-gray-50 p-4 dark:bg-transparent">
-                    <!-- Left Side: Buttons and mat-select -->
-                    <div class="flex flex-col items-start mr-4 -mt-2">
-                        <!-- Buttons -->
-                        <div class="flex items-center">
-                            <input
-                                type="file"
-                                #fileInput
-                                (change)="onFileSelected($event)"
-                                [multiple]="true"
-                                class="hidden"
-                                accept="image/*,.pdf,.txt,.doc,.docx"
-                            />
-                            <button 
-                                class="ml-0.5" 
-                                mat-icon-button 
-                                (click)="fileInput.click()"
-                                [matTooltip]="'Attach a file. You can also drag a file onto the message field.'">
-                                <mat-icon [svgIcon]="'heroicons_outline:paper-clip'"></mat-icon>
-                            </button>
-                            <button class="ml-0.5"
-                                  mat-icon-button
-                                  matTooltip="Hold to record"
-                                  [disabled]="true"
-                                  [ngClass]="{ 'recording-button': recording }"
-                                  (mousedown)="startRecording()"
-                                  (mouseup)="stopRecording()"
-                                  (mouseleave)="stopRecording()">
-                                <mat-icon [svgIcon]="'mic'"></mat-icon> <!-- When recording alternate with the icon settings_voice and set the selected-button class -->
-                            </button>
-                            <button class="ml-0.5"
+                @if (userService.userProfile(); as user) {
+                    @if (!currentChat.shareable || user.id === currentChat.userId) {
+                        <div class="flex items-start border-t bg-gray-50 p-1 dark:bg-transparent sm:p-2">
+                        <!-- Left Side: Buttons and mat-select -->
+                        <div class="flex flex-col items-start mr-1 -mt-2 sm:mr-2">
+                            <!-- Buttons -->
+                            <div class="flex items-center">
+                                <input
+                                    type="file"
+                                    data-testid="file-input"
+                                    #fileInput
+                                    (change)="onFileSelected($event)"
+                                    [multiple]="true"
+                                    class="hidden"
+                                    accept="image/*,.pdf,.txt,.doc,.docx"
+                                />
+                                <button
+                                    data-testid="attach-btn"
+                                    class="ml-0.5"
                                     mat-icon-button
-                                    (click)="toggleSendOnEnter()"
-                                    [matTooltip]="sendOnEnter ? 'Send on Enter. Press Shift-enter for new line. Click to toggle' : 'New line on Enter. Press Shift-enter to send. Click to toggle'">
-                                <mat-icon [svgIcon]="enterStateIcon"></mat-icon>
-                            </button>
-                            <button class="ml-0.5"
-                                    mat-icon-button
-                                    (click)="toggleThinking()"
-                                    [disabled]="!llmHasThinkingLevels"
-                                    [matTooltip]="'Thinking level: ' + thinkingLevel.toUpperCase() + '. Click to cycle through thinking levels'">
-                                <mat-icon [svgIcon]="thinkingIcon" [ngClass]="{'text-primary': sendOnEnter}"></mat-icon>
+                                    (click)="fileInput.click()"
+                                    [matTooltip]="'Attach a file. You can also drag a file onto the message field.'">
+                                    <mat-icon [svgIcon]="'heroicons_outline:paper-clip'"></mat-icon>
+                                </button>
+                                <button class="ml-0.5 hidden sm:inline-flex"
+                                      mat-icon-button
+                                      matTooltip="Hold to record"
+                                      [disabled]="true"
+                                      [ngClass]="{ 'recording-button': recording() }"
+                                      (mousedown)="startRecording()"
+                                      (mouseup)="stopRecording()"
+                                      (mouseleave)="stopRecording()">
+                                    <mat-icon [svgIcon]="'mic'"></mat-icon>
+                                </button>
+                                <button data-testid="toggle-enter-btn" class="ml-0.5 hidden sm:inline-flex"
+                                        mat-icon-button
+                                        (click)="toggleSendOnEnter()"
+                                        [matTooltip]="sendOnEnter() ? 'Send on Enter. Press Shift-enter for new line. Click to toggle' : 'New line on Enter. Press Shift-enter to send. Click to toggle'">
+                                    <mat-icon [svgIcon]="enterStateIcon()"></mat-icon>
+                                </button>
+                                <button class="ml-0.5 hidden sm:inline-flex"
+                                        mat-icon-button
+                                        (click)="toggleThinking()"
+                                        [disabled]="!llmHasThinkingLevels()"
+                                        [matTooltip]="'Thinking level: ' + thinkingLevel().toUpperCase() + '. Click to cycle through thinking levels'">
+                                    <mat-icon [svgIcon]="thinkingIcon()" [ngClass]="{'text-primary': thinkingLevel() !== 'off'}"></mat-icon>
+                                </button>
+                                <button class="ml-0.5 hidden sm:inline-flex"
+                                        mat-icon-button
+                                        (click)="toggleAutoReformat()"
+                                        [matTooltip]="'Auto-reformat message with Markdown (Ctrl+Shift+F)'">
+                                    <mat-icon
+                                        class="material-symbols-outlined"
+                                        [class.g-symbol-solid]="autoReformatEnabled()"
+                                        [class.g-symbol-outline]="!autoReformatEnabled()"
+                                        [ngClass]="{'text-primary': autoReformatEnabled()}">
+                                        markdown
+                                    </mat-icon>
+                                </button>
+                            </div>
+                            <!-- mat-select -->
+                            <mat-form-field appearance="fill" class="w-20 mt-2 hidden sm:block" style="min-width: 225px" subscriptSizing="dynamic">
+                                <mat-select data-testid="llm-select" #llmSelect (keydown)="handleLlmKeydown($event)" (selectionChange)="llmId.set($event.value)" placeholder="LLM" [value]="llmId()">
+                                    @for (llm of llmsSignal(); track llm.id) {
+                                        <mat-option [value]="llm.id">
+                                            {{ llm.name }}
+                                        </mat-option>
+                                    }
+                                </mat-select>
+                            </mat-form-field>
+                        </div>
+                        <div class="flex flex-col w-full min-w-0">
+                            <!-- Attachment previews -->
+                            @if (selectedAttachments().length > 0) {
+                                <div class="flex flex-wrap gap-2 mb-2 attachment-previews">
+                                    @for (attachment of selectedAttachments(); track attachment.filename + attachment.size) {
+                                        <div class="relative flex items-center p-1 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-700">
+                                            @if (attachment.type === 'image' && attachment.previewUrl) {
+                                                <img [src]="attachment.previewUrl" [alt]="attachment.filename" class="w-12 h-12 object-cover rounded mr-2">
+                                            } @else {
+                                                <mat-icon class="icon-size-8 mx-2 text-gray-500" [svgIcon]="'heroicons_outline:document'"></mat-icon>
+                                            }
+                                            <div class="flex flex-col overflow-hidden mr-1">
+                                                 <span class="text-xs font-medium truncate max-w-[120px]" [matTooltip]="attachment.filename">{{attachment.filename}}</span>
+                                                 <span class="text-xs text-gray-500">{{ (attachment.size / 1024) | number:'1.0-1' }} KB)</span>
+                                            </div>
+                                            <button
+                                                    class="absolute -top-2 -right-2 w-5 h-5 min-h-0 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center"
+                                                    mat-icon-button
+                                                    (click)="removeAttachment(attachment)">
+                                                <mat-icon class="icon-size-3 text-white" [svgIcon]="'heroicons_solid:x-mark'"></mat-icon>
+                                            </button>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            <!-- Message Input Field -->
+                            <mat-form-field class="fuse-mat-dense fuse-mat-rounded fuse-mat-bold w-full" subscriptSizing="dynamic">
+                                <textarea
+                                    matInput
+                                    data-testid="msg-input"
+                                    cdkTextareaAutosize
+                                    #messageInput
+                                    rows="3"
+                                    class="max-h-100"
+                                    (dragover)="onDragOver($event)"
+                                    (drop)="onDrop($event)"></textarea>
+                            </mat-form-field>
+                        </div>
+                        <!-- Send Button -->
+                        <div class="ml-1 mt-2 flex h-11 items-center sm:ml-2">
+                            <button mat-icon-button data-testid="send-btn" (click)="sendMessage()" [disabled]="generating()">
+                                <mat-icon [svgIcon]="sendIcon()"></mat-icon>
                             </button>
                         </div>
-                        <!-- mat-select -->
-                        <mat-form-field appearance="fill" class="w-20 mt-2" style="min-width: 225px" subscriptSizing="dynamic">
-                            <mat-select #llmSelect (keydown)="handleLlmKeydown($event)" (selectionChange)="updateThinkingIcon()" placeholder="LLM" [(value)]="llmId">
-                                @for (llm of llms; track llm.id) {
-                                    <mat-option [value]="llm.id">
-                                        {{ llm.name }}
-                                    </mat-option>
-                                }
-                            </mat-select>
-                        </mat-form-field>
                     </div>
-                    <div class="flex flex-col w-full">
-                        <!-- Attachment previews -->
-                        @if (selectedAttachments.length > 0) {
-                            <div class="flex flex-wrap gap-2 mb-2 attachment-previews"> <!-- Added class for styling -->
-                                @for (attachment of selectedAttachments; track attachment.filename + attachment.size) { <!-- More robust tracking -->
-                                    <div class="relative flex items-center p-1 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-700">
-                                        <!-- Image Preview -->
-                                        @if (attachment.type === 'image' && attachment.previewUrl) {
-                                            <img [src]="attachment.previewUrl" [alt]="attachment.filename" class="w-12 h-12 object-cover rounded mr-2">
-                                        } @else {
-                                            <!-- Placeholder/Icon for non-image files -->
-                                            <mat-icon class="icon-size-8 mx-2 text-gray-500" [svgIcon]="'heroicons_outline:document'"></mat-icon>
-                                        }
-                                        <!-- File Info -->
-                                        <div class="flex flex-col overflow-hidden mr-1">
-                                             <span class="text-xs font-medium truncate max-w-[120px]" [matTooltip]="attachment.filename">{{attachment.filename}}</span>
-                                             <span class="text-xs text-gray-500">{{ (attachment.size / 1024) | number:'1.0-1' }} KB</span>
-                                        </div>
-                                        <!-- Remove Button -->
-                                        <button
-                                                class="absolute -top-2 -right-2 w-5 h-5 min-h-0 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center"
-                                                mat-icon-button
-                                                (click)="removeAttachment(attachment)">
-                                            <mat-icon class="icon-size-3 text-white" [svgIcon]="'heroicons_solid:x-mark'"></mat-icon>
-                                        </button>
-                                    </div>
-                                }
-                            </div>
-                        }
-                        <!-- Message Input Field -->
-                        <mat-form-field class="fuse-mat-dense fuse-mat-rounded fuse-mat-bold w-full" subscriptSizing="dynamic">
-                            <textarea
-                                matInput
-                                cdkTextareaAutosize
-                                #messageInput
-                                rows="3"
-                                class="max-h-100"
-                                (dragover)="onDragOver($event)"
-                                (drop)="onDrop($event)"></textarea>
-                        </mat-form-field>
-                    </div>
-                    <!-- Send Button -->
-                    <div class="my-px ml-4 mt-2 flex h-11 items-center">
-                        <button mat-icon-button (click)="sendMessage()" [disabled]="generating">
-                            <mat-icon [svgIcon]="sendIcon"></mat-icon>
-                        </button>
-                    </div>
-                </div>
+                    }
                 }
             </mat-drawer-content>
         </mat-drawer-container>
-    } @else {
-        <div class="flex flex-auto flex-col items-center justify-center bg-gray-100 dark:bg-transparent">
-            <mat-icon class="icon-size-24" [svgIcon]="'heroicons_outline:chat-bubble-oval-left-ellipsis'"></mat-icon>
-            <div class="text-secondary mt-4 text-2xl font-semibold tracking-tight">
-                Start a new chat
-            </div>
-        </div>
     }
-
-    <!-- Select chat or start new template -->
 </div>

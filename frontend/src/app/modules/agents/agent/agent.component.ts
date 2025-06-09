@@ -1,105 +1,124 @@
-import {ChangeDetectionStrategy, Component, ViewEncapsulation, OnInit, ChangeDetectorRef} from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { ActivatedRoute, Router } from '@angular/router';
-import { environment } from 'environments/environment';
-import { MatTabsModule } from '@angular/material/tabs';
-import { MatCardModule } from '@angular/material/card';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatButtonModule } from '@angular/material/button';
-import { MatExpansionModule } from '@angular/material/expansion';
-import { MatListModule } from '@angular/material/list';
-import { MatIconModule } from '@angular/material/icon';
-import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+// MatCardModule, MatFormFieldModule etc. are not directly used by AgentComponent's template, but by its children.
+// Children will import them.
 import { CommonModule } from '@angular/common';
-import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatSelectModule } from '@angular/material/select';
-import { AgentContext } from '../agent.types';
-import { MatDialogModule } from '@angular/material/dialog';
+import { ChangeDetectionStrategy, Component, DestroyRef, ViewEncapsulation, computed, effect, inject, signal } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatTabsModule } from '@angular/material/tabs';
+import { ActivatedRoute, RouterModule } from '@angular/router';
+import { distinctUntilChanged, filter, map, tap } from 'rxjs/operators';
+import { AgentContextApi } from '#shared/agent/agent.schema';
+import { AgentService } from '../agent.service';
 import { AgentDetailsComponent } from './agent-details/agent-details.component';
-import { AgentMemoryComponent } from './agent-memory/agent-memory.component';
 import { AgentFunctionCallsComponent } from './agent-function-calls/agent-function-calls.component';
-import { AgentLlmCallsComponent } from './agent-llm-calls/agent-llm-calls.component';
 import { AgentIterationsComponent } from './agent-iterations/agent-iterations.component';
-import {AgentService} from "../services/agent.service";
+import { AgentLlmCallsComponent } from './agent-llm-calls/agent-llm-calls.component';
+import { AgentMemoryComponent } from './agent-memory/agent-memory.component';
+import { AgentToolStateComponent } from './agent-tool-state/agent-tool-state.component';
 
 @Component({
-    selector: 'agent',
-    templateUrl: './agent.component.html',
-    encapsulation: ViewEncapsulation.None,
-    changeDetection: ChangeDetectionStrategy.OnPush,
-    standalone: true,
-    imports: [
-        MatTabsModule,
-        MatCardModule,
-        MatFormFieldModule,
-        MatInputModule,
-        MatButtonModule,
-        MatExpansionModule,
-        MatListModule,
-        MatIconModule,
-        FormsModule,
-        ReactiveFormsModule,
-        CommonModule,
-        MatCheckboxModule,
-        MatSelectModule,
-        MatDialogModule,
-        AgentDetailsComponent,
-        AgentMemoryComponent,
-        AgentFunctionCallsComponent,
-        AgentLlmCallsComponent,
-        AgentIterationsComponent,
-    ],
+	selector: 'agent',
+	templateUrl: './agent.component.html',
+	encapsulation: ViewEncapsulation.None,
+	changeDetection: ChangeDetectionStrategy.OnPush,
+	standalone: true,
+	imports: [
+		CommonModule, // For @if, @defer
+		RouterModule, // If any router-links or outlets were in this component's template
+		MatTabsModule,
+		AgentDetailsComponent,
+		AgentMemoryComponent,
+		AgentFunctionCallsComponent,
+		AgentLlmCallsComponent,
+		AgentIterationsComponent,
+		AgentToolStateComponent,
+	],
 })
-export class AgentComponent implements OnInit {
-    agentId: string | null = null;
-    agentDetails: AgentContext | null = null;
+export class AgentComponent {
+	private route = inject(ActivatedRoute);
+	private snackBar = inject(MatSnackBar);
+	private agentService = inject(AgentService);
+	private destroyRef = inject(DestroyRef);
 
-    constructor(
-        private route: ActivatedRoute,
-        private snackBar: MatSnackBar,
-        private _changeDetectorRef: ChangeDetectorRef,
-        private agentService: AgentService
-    ) {}
+	agentDetails = computed(() => {
+		const state = this.agentService.selectedAgentDetailsState();
+		console.log(`AgentComponent: Computed (State Sync) - agentService.selectedAgentDetailsState() changed. Status: ${state.status}`);
 
-    ngOnInit(): void {
-        this.route.paramMap.subscribe(params => {
-            this.agentId = params.get('id');
-            console.log(`agent.component ngOnInit ${this.agentId}`)
-            this.loadAgentDetails();
-        });
-    }
+		if (state.status === 'success') {
+			const apiDetails = state.data;
+			const details = { ...apiDetails };
+			details.toolState = details.toolState ?? {};
+			details.output = null;
+			if (details.state === 'completed') {
+				const maybeCompletedFunctionCall = details.functionCallHistory?.length ? details.functionCallHistory.slice(-1)[0] : null;
+				details.output = details.error ?? maybeCompletedFunctionCall?.parameters?.note ?? '';
+			}
+			console.log(
+				'AgentComponent: Computed (State Sync) - Agent Details Processed and Set from Service State. New local agentDetails:',
+				JSON.stringify(details),
+			);
+			return details;
+		}
 
-    loadAgentDetails(): void {
-        if(!this.agentId) return;
+		console.log(`AgentComponent: Computed (State Sync) - Agent service state is '${state.status}'. Returning null.`);
+		return null;
+	});
 
-        this.agentService.getAgentDetails(this.agentId)
-            .subscribe(
-                details => {
-                    this.agentDetails = (details as any).data;
+	private errorState = computed(() => {
+		const state = this.agentService.selectedAgentDetailsState();
+		if (state.status === 'error') {
+			return { type: 'error', message: 'Error loading agent details', error: state.error };
+		}
+		if (state.status === 'not_found') {
+			return { type: 'not_found', message: 'Agent not_found' };
+		}
+		if (state.status === 'forbidden') {
+			return { type: 'forbidden', message: 'Agent forbidden' };
+		}
+		return null;
+	});
 
-                    if(typeof this.agentDetails.functionCallHistory === 'string')
-                        this.agentDetails.functionCallHistory = JSON.parse(this.agentDetails.functionCallHistory);
+	constructor() {
+		this.route.paramMap
+			.pipe(
+				map((params) => params.get('id')),
+				tap((id) => console.log(`AgentComponent: paramMap emitted ID (pre-distinct): '${id}'`)),
+				distinctUntilChanged(),
+				tap((id) => console.log(`AgentComponent: paramMap emitted ID (post-distinct, to be processed): '${id}'`)),
+				takeUntilDestroyed(this.destroyRef),
+			)
+			.subscribe((currentAgentIdVal) => {
+				console.log(`AgentComponent: Subscription Handler - Processed agentId from paramMap: '${currentAgentIdVal}'`);
+				if (currentAgentIdVal) {
+					console.log(`AgentComponent: Subscription Handler - agentId is truthy ('${currentAgentIdVal}'), calling agentService.loadAgentDetails.`);
+					this.agentService.loadAgentDetails(currentAgentIdVal);
+				} else {
+					console.log(`AgentComponent: Subscription Handler - agentId is falsy ('${currentAgentIdVal}'), calling agentService.clearSelectedAgentDetails.`);
+					this.agentService.clearSelectedAgentDetails();
+				}
+			});
 
-                    this.agentDetails.output = null;
-                    if (this.agentDetails && this.agentDetails.state === 'completed') {
-                        // If the agent has been cancelled after an error then display the error
-                        // Otherwise display the Agent_completed argument
-                        const maybeCompletedFunctionCall = this.agentDetails.functionCallHistory.length
-                            ? this.agentDetails.functionCallHistory.slice(-1)[0]
-                            : null;
-                        if (maybeCompletedFunctionCall && maybeCompletedFunctionCall.parameters['note'])
-                            this.agentDetails.output = this.agentDetails.error ?? maybeCompletedFunctionCall?.parameters['note'] ?? '';
-                    }
+		toObservable(this.errorState)
+			.pipe(
+				filter((errorState) => errorState !== null),
+				takeUntilDestroyed(this.destroyRef),
+			)
+			.subscribe((errorState) => {
+				if (errorState.type === 'error') {
+					console.error('AgentComponent: Error in agentService.selectedAgentDetailsState()', errorState.error);
+				} else {
+					console.log(`AgentComponent: Agent service state is '${errorState.type}'. Showing notification.`);
+				}
+				this.snackBar.open(errorState.message, 'Close', { duration: 3000 });
+			});
+	}
 
-                    console.log('Agent Details Loaded:', this.agentDetails);
-                    this._changeDetectorRef.markForCheck();
-                },
-                error => {
-                    console.error('Error loading agent details', error);
-                    this.snackBar.open('Error loading agent details', 'Close', { duration: 3000 });
-                }
-            );
-    }
+	public handleRefreshAgentDetails(): void {
+		const agentCtx = this.agentDetails();
+		if (agentCtx?.agentId) {
+			this.agentService.loadAgentDetails(agentCtx.agentId);
+		} else {
+			console.warn('AgentComponent: refreshRequested, but no agentId found in current agentDetails.');
+		}
+	}
 }

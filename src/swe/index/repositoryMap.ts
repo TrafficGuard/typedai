@@ -1,12 +1,13 @@
-import { type Dirent, readdir as nodeReaddir /* Import async readdir */ } from 'node:fs'; // Remove readdirSync
+import { type Dirent, readdir as nodeReaddir } from 'node:fs';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
-import type { FileSystemService } from '#functions/storage/fileSystemService';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
+import type { IFileSystemService } from '#shared/files/fileSystemService';
+import type { Summary } from '#swe/index/llmSummaries';
 import type { ProjectInfo } from '#swe/projectDetection';
-import { type Summary, getTopLevelSummary, loadBuildDocsSummaries } from './repoIndexDocBuilder';
+import { loadBuildDocsSummaries } from './repoIndexDocBuilder';
 
 const fs = {
 	readdir: promisify(nodeReaddir),
@@ -20,7 +21,6 @@ interface RepositoryMap {
 }
 
 export interface RepositoryMaps {
-	repositorySummary: string;
 	fileSystemTree: RepositoryMap;
 	folderSystemTreeWithSummaries: RepositoryMap;
 	fileSystemTreeWithFolderSummaries: RepositoryMap;
@@ -70,8 +70,7 @@ export async function generateRepositoryMaps(projectInfos: ProjectInfo[]): Promi
 	const fss = getFileSystem();
 	const fileSystemTree = await fss.getFileSystemTree();
 
-	const folderStructure = await buildFolderStructure(fss.getWorkingDirectory(), fss);
-
+	// const folderStructure = await buildFolderStructure(fss.getWorkingDirectory(), fss);
 	const folderSystemTreeWithSummaries = await generateFolderTreeWithSummaries(summaries);
 	const fileSystemTreeWithFolderSummaries = await generateFileSystemTreeWithSummaries(summaries, false);
 	const fileSystemTreeWithFileSummaries = await generateFileSystemTreeWithSummaries(summaries, true);
@@ -81,7 +80,6 @@ export async function generateRepositoryMaps(projectInfos: ProjectInfo[]): Promi
 		folderSystemTreeWithSummaries: { text: folderSystemTreeWithSummaries, tokens: await countTokens(folderSystemTreeWithSummaries) },
 		fileSystemTreeWithFolderSummaries: { text: fileSystemTreeWithFolderSummaries, tokens: await countTokens(fileSystemTreeWithFolderSummaries) },
 		fileSystemTreeWithFileSummaries: { text: fileSystemTreeWithFileSummaries, tokens: await countTokens(fileSystemTreeWithFileSummaries) },
-		repositorySummary: await getTopLevelSummary(),
 		languageProjectMap: { text: languageProjectMap, tokens: await countTokens(languageProjectMap) },
 	};
 }
@@ -103,8 +101,14 @@ async function generateFolderTreeWithSummaries(summaries: Map<string, Summary>):
  * Generates a project file system tree with the folder long summaries and file short summaries
  * @param summaries
  * @param includeFileSummaries
+ * @param collapsedFolders Optional array of folder paths to display as collapsed
  */
-async function generateFileSystemTreeWithSummaries(summaries: Map<string, Summary>, includeFileSummaries: boolean): Promise<string> {
+export async function generateFileSystemTreeWithSummaries(
+	// Ensure 'export' is present
+	summaries: Map<string, Summary>,
+	includeFileSummaries: boolean,
+	collapsedFolders?: string[], // Add this new parameter
+): Promise<string> {
 	const fileSystem = getFileSystem();
 	const treeStructure = await fileSystem.getFileSystemTreeStructure();
 	let documentation = '';
@@ -112,18 +116,23 @@ async function generateFileSystemTreeWithSummaries(summaries: Map<string, Summar
 	for (const [folderPath, files] of Object.entries(treeStructure)) {
 		const folderSummary = summaries.get(folderPath);
 
-		documentation += `${folderPath}/  ${folderSummary ? `  ${folderSummary.short}` : ''}\n`;
+		if (collapsedFolders?.includes(folderPath)) {
+			documentation += `${folderPath}/ (collapsed) ${folderSummary ? `  ${folderSummary.short}` : ''}\n`;
+			// Skip listing files for this collapsed folder
+		} else {
+			documentation += `${folderPath}/  ${folderSummary ? `  ${folderSummary.short}` : ''}\n`;
 
-		for (const file of files) {
-			const filePath = `${folderPath}/${file}`;
-			const fileSummary = summaries.get(filePath);
-			if (fileSummary && includeFileSummaries) {
-				documentation += `  ${file}  ${fileSummary.short}\n`;
-			} else {
-				documentation += `  ${file}\n`;
+			for (const file of files) {
+				const filePath = `${folderPath}/${file}`;
+				const fileSummary = summaries.get(filePath);
+				if (fileSummary && includeFileSummaries) {
+					documentation += `  ${file}  ${fileSummary.short}\n`;
+				} else {
+					documentation += `  ${file}\n`;
+				}
 			}
 		}
-		documentation += '\n';
+		documentation += '\n'; // Add a newline after each folder block or collapsed folder entry
 	}
 	return documentation;
 }
@@ -135,7 +144,7 @@ async function generateFileSystemTreeWithSummaries(summaries: Map<string, Summar
  * @param fileSystemService An instance of FileSystemService to use for file operations.
  * @returns A Promise resolving to a Folder object representing the directory structure and token counts.
  */
-export async function buildFolderStructure(dirPath: string, fileSystemService: FileSystemService): Promise<Folder> {
+export async function buildFolderStructure(dirPath: string, fileSystemService: IFileSystemService): Promise<Folder> {
 	const folderName = path.basename(dirPath) || '.';
 	const currentFolder = new Folder(folderName);
 	// Resolve path relative to the FileSystemService's *current* working directory
@@ -197,13 +206,24 @@ export async function buildFolderStructure(dirPath: string, fileSystemService: F
 			fileProcessingPromises.push(filePromise);
 		} else if (dirent.isDirectory()) {
 			// Recursively process the subdirectory using the relative path
-			const subDirPromise = buildFolderStructure(itemRelativePath, fileSystemService);
+			const subDirPromise = (async (): Promise<Folder | null> => {
+				try {
+					return await buildFolderStructure(itemRelativePath, fileSystemService);
+				} catch (error) {
+					logger.error(`Error processing subdirectory ${itemRelativePath}:`, error);
+					// Return null to signify failure but allow Promise.all to continue
+					return null;
+				}
+			})();
 			subDirProcessingPromises.push(subDirPromise);
 		}
 	}
 
 	const processedFiles = await Promise.all(fileProcessingPromises);
-	const processedSubFolders = await Promise.all(subDirProcessingPromises);
+	// Wait for all subdirectory promises to settle
+	const processedSubFoldersResults = await Promise.all(subDirProcessingPromises);
+	// Filter out null results from failed subdirectory processing
+	const processedSubFolders = processedSubFoldersResults.filter((folder): folder is Folder => folder !== null);
 
 	for (const fileResult of processedFiles) {
 		if (fileResult) {
@@ -223,6 +243,5 @@ export async function buildFolderStructure(dirPath: string, fileSystemService: F
 		currentFolder.totalTokens += sub.totalTokens;
 		currentFolder.totalFiles += sub.totalFiles; // Add file counts from subfolders
 	}
-
 	return currentFolder;
 }

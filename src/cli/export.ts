@@ -1,15 +1,18 @@
-import * as fs from 'node:fs/promises'; // Use fs.promises for async operations
-import * as path from 'node:path';
-import micromatch from 'micromatch';
+import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
-import { FileSystemService } from '#functions/storage/fileSystemService'; // Assuming this path alias works
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
+import { join } from 'node:path';
+import micromatch from 'micromatch';
+import { FileSystemService } from '#functions/storage/fileSystemService';
+import { countTokens } from '#llm/tokens';
 
 /**
  * Recursively finds all file paths within a directory.
  * @param dir - The directory to start searching from.
  * @returns A promise that resolves to an array of file paths.
  */
-async function getAllFiles(dir: string): Promise<string[]> {
+async function getAllFiles(dir: string, root: string = dir): Promise<string[]> {
 	let files: string[] = [];
 	try {
 		const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -18,13 +21,13 @@ async function getAllFiles(dir: string): Promise<string[]> {
 			if (entry.isDirectory()) {
 				// Important: Handle potential errors during recursion (e.g., permission denied)
 				try {
-					files = files.concat(await getAllFiles(fullPath));
+					files = files.concat(await getAllFiles(fullPath, root)); // Pass root
 				} catch (recursiveError) {
 					console.warn(`⚠️  Skipping directory due to error: ${fullPath} (${recursiveError.message})`);
 				}
 			} else if (entry.isFile()) {
 				// Store paths relative to the initial CWD for better matching
-				files.push(path.relative(process.cwd(), fullPath));
+				files.push(path.relative(root, fullPath)); // use supplied root instead of process.cwd()
 				//  files.push(fullPath); // Use absolute if preferred, but relative often matches user input better
 			}
 		}
@@ -38,8 +41,12 @@ async function getAllFiles(dir: string): Promise<string[]> {
 }
 
 async function main() {
+	// NEW – must be the first lines inside main()
+	const fileSystemService = new FileSystemService();
+	const basePath = fileSystemService.getBasePath(); // directory where `ai` was invoked
+
 	// 1. Get glob patterns from command line arguments
-	const patterns = process.argv.slice(2); // Exclude 'node' and script path
+	const patterns = process.argv.slice(2).filter((arg) => !arg.startsWith('--fs='));
 
 	if (patterns.length === 0) {
 		console.error('Error: No glob patterns provided.');
@@ -57,8 +64,8 @@ async function main() {
 		// 2. Get ALL files recursively from the current working directory
 		// NOTE: This is the inefficient part compared to using 'glob'. It reads
 		// potentially many files before filtering.
-		console.log(`📂 Reading all files recursively from: ${process.cwd()}`);
-		const allFiles = await getAllFiles(process.cwd());
+		console.log(`📂 Reading all files recursively from: ${basePath}`);
+		const allFiles = await getAllFiles(basePath, basePath); // Pass basePath as root
 		console.log(`   Found ${allFiles.length} total files/symlinks initially.`);
 		if (allFiles.length > 5000) {
 			// Add a warning for large directories
@@ -72,7 +79,7 @@ async function main() {
 			// matchBase: true, // Use if you want `*.ts` to match `src/index.ts` (like minimatch `matchBase`)
 			// nocase: true, // For case-insensitive matching if needed
 			// posix: true, // Enforces posix path separators for matching consistency might be safer
-			// cwd: process.cwd(), // Often used with micromatch patterns, may help if patterns assume CWD
+			cwd: basePath, // Use basePath as cwd for micromatch
 		});
 
 		if (matchedFiles.length === 0) {
@@ -90,18 +97,22 @@ async function main() {
 
 		// 4. Ensure paths are absolute before passing to FileSystemService if it requires them
 		// (Our getAllFiles returns relative, adjust if needed)
-		const absoluteMatchedFiles = matchedFiles.map((f) => path.resolve(process.cwd(), f));
+		const absoluteMatchedFiles = matchedFiles.map((f) => path.resolve(basePath, f)); // Use basePath
 
 		// 5. Pass the filtered file paths to your service
-		const fileSystemService = new FileSystemService();
 		console.log('⚙️ Reading matched files and converting to XML...');
-		const content = await fileSystemService.readFilesAsXml(absoluteMatchedFiles); // Use absolute paths
+		const content = await fileSystemService.readFilesAsXml(absoluteMatchedFiles); // Use the existing service instance
+		console.log('⚙️ Counting tokens...');
+		const tokens = await countTokens(content);
+		console.log(`export.xml token count: ${tokens}`);
 
 		// 6. Print the final XML output
 		// console.log("\n--- XML Output ---");
 		// console.log(content);
 		// console.log("--- End XML Output ---");
-		await fs.writeFile('export.xml', content);
+		const outputPath = join(basePath, 'export.xml');
+		await fs.writeFile(outputPath, content);
+		console.log(`Written to ${outputPath}`);
 	} catch (error) {
 		console.error('\n❌ An error occurred during processing:');
 		console.error(error);

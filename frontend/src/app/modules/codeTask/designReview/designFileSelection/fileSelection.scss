@@ -1,0 +1,53 @@
+:host {
+  display: block;
+}
+
+.mat-mdc-table { // Target Material v15+ table
+  width: 100%;
+}
+
+.mat-column-reason, .mat-column-category {
+  font-size: 0.875rem;
+  color: #555;
+  padding-right: 16px; // Add some padding
+}
+
+.mat-column-filePath {
+    padding-right: 16px; // Add some padding
+}
+
+.mat-column-actions {
+  width: auto; // Allow natural width for icon button
+  padding-right: 0 !important; // Align to the very end
+  text-align: right;
+
+  .mat-mdc-icon-button { // Target Material v15+ icon button
+    margin-left: auto; // Push button to the right if cell is wider
+  }
+}
+
+.file-path-container {
+  display: flex;
+  align-items: center;
+  gap: 8px; // Space between icon and text
+}
+
+.reason-text-clickable {
+  cursor: pointer;
+  &:hover {
+    text-decoration: underline;
+    color: var(--fuse-primary-500, blue);
+  }
+}
+
+.category-text-clickable {
+  cursor: pointer;
+  &:hover {
+    text-decoration: underline;
+    color: var(--fuse-primary-500, blue); // Or your theme's primary color
+  }
+}
+
+.mat-mdc-cell .mat-mdc-select { // Target Material v15+ select
+    min-width: 150px; // Adjust as needed
+}

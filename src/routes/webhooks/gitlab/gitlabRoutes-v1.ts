@@ -1,7 +1,7 @@
 import { Type } from '@sinclair/typebox';
 import type { FastifyReply } from 'fastify';
-import { RunAgentConfig, type RunWorkflowConfig } from '#agent/agentRunner';
-import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
+import type { RunWorkflowConfig } from '#agent/autonomous/autonomousAgentRunner';
+import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { appContext } from '#app/applicationContext';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send, sendSuccess } from '#fastify/index';
@@ -24,7 +24,7 @@ export async function gitlabRoutesV1(fastify: AppFastifyInstance) {
 		`${basePath}/gitlab`,
 		{
 			schema: {
-				body: Type.Any(),
+				body: Type.Object({}, { additionalProperties: true }),
 			},
 		},
 		async (req, reply) => {
@@ -34,8 +34,15 @@ export async function gitlabRoutesV1(fastify: AppFastifyInstance) {
 
 			if (event.object_attributes.draft) sendSuccess(reply);
 
-			const runAsUser = await appContext().userService.getUserByEmail(envVar('GITLAB_REVIEW_USER_EMAIL'));
-			if (!runAsUser) throw new Error(`Could not find user from env var GITLAB_REVIEW_USER_EMAIL with value ${envVar('GITLAB_REVIEW_USER_EMAIL')}`);
+			const userService = appContext().userService;
+			let email = (process.env.TYPEDAI_AGENT_EMAIL ?? '').trim();
+			if (!email && process.env.AUTH === 'single_user') email = envVar('SINGLE_USER_EMAIL');
+
+			let runAsUser = await userService.getUserByEmail(email);
+			if (!runAsUser) {
+				logger.info(`Creating TypedAI Agent account with email ${email}`);
+				runAsUser = await userService.createUser({ name: 'TypedAI Agent', email, enabled: true });
+			}
 
 			const config: RunWorkflowConfig = {
 				subtype: 'gitlab-review',
@@ -48,7 +55,7 @@ export async function gitlabRoutesV1(fastify: AppFastifyInstance) {
 
 			const mergeRequestId = `project:${event.project.name}, miid:${event.object_attributes.iid}, MR:"${event.object_attributes.title}"`;
 
-			await runAgentWorkflow(config, async (context) => {
+			await runWorkflowAgent(config, async (context) => {
 				logger.info(`Agent ${context.agentId} reviewing merge request ${mergeRequestId}`);
 				return new GitLabCodeReview()
 					.reviewMergeRequest(event.project.id, event.object_attributes.iid)

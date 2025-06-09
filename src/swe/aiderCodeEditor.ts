@@ -4,21 +4,41 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import fs, { unlinkSync } from 'node:fs';
 import path, { join } from 'node:path';
 import { promisify } from 'node:util';
+import { now } from 'lodash';
 import { addCost, agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
-import { systemDir } from '#app/appVars';
+import { systemDir } from '#app/appDirs';
 import { appContext } from '#app/applicationContext';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import type { LLM, LlmMessage } from '#llm/llm';
-import { type LlmCall, callStack } from '#llm/llmCallService/llmCall';
+import { callStack } from '#llm/llmCallService/llmCall';
 import { Claude3_7_Sonnet } from '#llm/services/anthropic';
 import { deepSeekV3 } from '#llm/services/deepseek';
-import { GPT4o } from '#llm/services/openai';
+import { GPT41 } from '#llm/services/openai';
 import { openRouterGemini2_5_Pro } from '#llm/services/openrouter';
-import { Gemini_2_5_Pro } from '#llm/services/vertexai';
+import { vertexGemini_2_5_Pro } from '#llm/services/vertexai';
 import { logger } from '#o11y/logger';
 import { getActiveSpan } from '#o11y/trace';
-import { currentUser } from '#user/userService/userContext';
+import type { LLM, LlmMessage } from '#shared/llm/llm.model';
+import type { LlmCall } from '#shared/llmCall/llmCall.model';
+import { currentUser } from '#user/userContext';
 import { execCommand } from '#utils/exec';
+
+const GEMINI_KEYS: string[] = [];
+if (process.env.GEMINI_API_KEY) GEMINI_KEYS.push(process.env.GEMINI_API_KEY);
+for (let i = 2; i <= 9; i++) {
+	const key = process.env[`GEMINI_API_KEY_${i}`];
+	if (key) GEMINI_KEYS.push(key);
+	else break;
+}
+let geminiKeyIndex = 0;
+
+const GCLOUD_PROJECTS: string[] = [];
+if (process.env.GCLOUD_PROJECT) GCLOUD_PROJECTS.push(process.env.GCLOUD_PROJECT);
+for (let i = 2; i <= 9; i++) {
+	const key = process.env[`GCLOUD_PROJECT_${i}`];
+	if (key) GCLOUD_PROJECTS.push(key);
+	else break;
+}
+let gcloudProjectIndex = 0;
 
 @funcClass(__filename)
 export class AiderCodeEditor {
@@ -29,9 +49,11 @@ export class AiderCodeEditor {
 	 */
 	@func()
 	async editFilesToMeetRequirements(requirements: string, filesToEdit: string[], commit = true): Promise<void> {
+		if (!requirements) throw new Error('Requirements are required');
+		if (!filesToEdit || !filesToEdit.length) throw new Error('filesToEdit array cannot be empty');
 		const span = getActiveSpan();
 		const messageFilePath = '.aider-requirements';
-		logger.debug(requirements);
+		logger.info(requirements);
 		logger.debug(filesToEdit);
 		// TODO insert additional info into the prompt
 		// We could have languageTools.getPrompt()
@@ -51,17 +73,21 @@ export class AiderCodeEditor {
 
 		let llm: LLM;
 
-		if (process.env.GEMINI_API_KEY) {
+		if (GEMINI_KEYS.length) {
+			const key = GEMINI_KEYS[geminiKeyIndex];
+			if (++geminiKeyIndex >= GEMINI_KEYS.length) geminiKeyIndex = 0;
 			llm = openRouterGemini2_5_Pro();
 			modelArg = '--model gemini/gemini-2.5-pro-exp-03-25';
 			span.setAttribute('model', 'gemini 2.5 Pro');
-			env = { GEMINI_API_KEY: process.env.GEMINI_API_KEY };
-		} else if (process.env.GCLOUD_PROJECT) {
+			env = { GEMINI_API_KEY: key };
+		} else if (GCLOUD_PROJECTS.length) {
 			//  && process.env.GCLOUD_CLAUDE_REGION
-			llm = Gemini_2_5_Pro();
-			modelArg = `--model vertex_ai/${llm.getModel()}`;
+			const gcloudProject = GCLOUD_PROJECTS[gcloudProjectIndex];
+			if (++gcloudProjectIndex >= GCLOUD_PROJECTS.length) gcloudProjectIndex = 0;
+			llm = vertexGemini_2_5_Pro();
+			modelArg = `--model vertex_ai/${llm.getModel()} --editor-model vertex_ai/gemini-2.5-flash-preview-04-17 --weak-model vertex_ai/gemini-2.5-flash-preview-04-17`;
 			span.setAttribute('model', llm.getModel());
-			env = { VERTEXAI_PROJECT: process.env.GCLOUD_PROJECT, VERTEXAI_LOCATION: process.env.GCLOUD_REGION };
+			env = { VERTEXAI_PROJECT: gcloudProject, VERTEXAI_LOCATION: process.env.GCLOUD_REGION };
 		} else if (anthropicKey) {
 			modelArg = '--sonnet';
 			env = { ANTHROPIC_API_KEY: anthropicKey };
@@ -77,7 +103,7 @@ export class AiderCodeEditor {
 			modelArg = '';
 			env = { OPENAI_API_KEY: openaiKey };
 			span.setAttribute('model', 'openai');
-			llm = GPT4o();
+			llm = GPT41();
 		} else {
 			throw new Error(
 				'Aider code editing requires either GCLOUD_PROJECT and GCLOUD_CLAUDE_REGION env vars set or else a key for Anthropic, Deepseek or OpenAI',
@@ -125,6 +151,7 @@ export class AiderCodeEditor {
 			let callCount = 0;
 			for (const llmMessages of calls) {
 				const llmCall: LlmCall = {
+					settings: undefined,
 					id: randomUUID(),
 					agentId: agentContext()?.agentId,
 					llmId: llm?.getId(),
@@ -193,15 +220,14 @@ export class AiderCodeEditor {
 	}
 }
 
-function extractSessionCost(text: string): number {
+/**
+ * @param aiderStdOut
+ * @returns the LLM cost, or zero if it could not be extracted
+ */
+function extractSessionCost(aiderStdOut: string): number {
 	const regex = /Cost:.*\$(\d+(?:\.\d+)?) session/;
-	const match = text.match(regex);
-
-	if (match?.[1]) {
-		return Number.parseFloat(match[1]);
-	}
-
-	return 0; // Return null if no match is found
+	const match = aiderStdOut.match(regex);
+	return match?.[1] ? Number.parseFloat(match[1]) : 0;
 }
 
 export function getPythonPath() {

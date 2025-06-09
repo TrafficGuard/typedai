@@ -1,13 +1,13 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
-import { LlmFunctions } from '#agent/LlmFunctions';
+import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import { createContext } from '#agent/agentContextLocalStorage';
-import type { AgentContext } from '#agent/agentContextTypes';
-import type { RunAgentConfig } from '#agent/agentRunner';
-import { deserializeAgentContext, serializeContext } from '#agent/agentSerialization';
+import { deserializeContext, serializeContext } from '#agent/agentSerialization';
+import type { RunAgentConfig } from '#agent/autonomous/autonomousAgentRunner';
 import { appContext } from '#app/applicationContext';
 import { LlmTools } from '#functions/util';
-import { GPT4o } from '#llm/services/openai';
+import { GPT41 } from '#llm/services/openai';
+import type { AgentContext } from '#shared/agent/agent.model';
 import { functionRegistry } from '../functionRegistry';
 
 describe('agentContext', () => {
@@ -19,13 +19,13 @@ describe('agentContext', () => {
 	describe('serialisation', () => {
 		it('should be be identical after serialisation and deserialization', async () => {
 			const llms = {
-				easy: GPT4o(),
-				medium: GPT4o(),
-				hard: GPT4o(),
-				xhard: GPT4o(),
+				easy: GPT41(),
+				medium: GPT41(),
+				hard: GPT41(),
+				xhard: GPT41(),
 			};
 			// We want to check that the FileSystem gets re-added by the resetFileSystemFunction function
-			const functions = new LlmFunctions(LlmTools); // FileSystemRead
+			const functions = new LlmFunctionsImpl(LlmTools); // FileSystemRead
 
 			const config: RunAgentConfig = {
 				agentName: 'SWE',
@@ -60,10 +60,16 @@ describe('agentContext', () => {
 			expect(serializedToString).to.include('medium');
 			expect(serializedToString).to.include('workingDir');
 			expect(serializedToString).to.include('LlmTools');
+			expect(serializedToString).to.include(agentContext.user.id); // Check user ID is serialized
 
-			const deserialised = await deserializeAgentContext(serialized);
+			const deserialised = deserializeContext(serialized);
 			const reserialised = serializeContext(deserialised);
 
+			// Note: Deep equal might fail due to Date objects or other non-plain data structures
+			// that are not perfectly round-tripped or represented differently.
+			// A more robust test might compare specific fields known to be serializable.
+			// However, for the purpose of checking serialization/deserialization logic,
+			// comparing the serialized output after a round trip is a reasonable check.
 			expect(serialized).to.be.deep.equal(reserialised);
 		});
 	});

@@ -1,9 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import type { ProviderV1 } from '@ai-sdk/provider';
+import type { LanguageModelV1, ProviderV1 } from '@ai-sdk/provider';
 import {
+	type FilePart as AiFilePart,
+	type ImagePart as AiImagePart,
+	type TextPart as AiTextPart,
+	type ToolCallPart as AiToolCallPart,
 	type CoreMessage,
 	type GenerateTextResult,
-	type LanguageModelV1,
 	type TextStreamPart,
 	generateText as aiGenerateText,
 	streamText as aiStreamText,
@@ -13,10 +16,63 @@ import { addCost, agentContext } from '#agent/agentContextLocalStorage';
 import { cloneAndTruncateBuffers } from '#agent/trimObject';
 import { appContext } from '#app/applicationContext';
 import { BaseLLM } from '#llm/base-llm';
-import { type GenerateTextOptions, type GenerationStats, type LlmMessage, toText } from '#llm/llm';
-import { type CreateLlmRequest, type LlmCall, callStack } from '#llm/llmCallService/llmCall';
+import { type CreateLlmRequest, callStack } from '#llm/llmCallService/llmCall';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
+import {
+	type AssistantContentExt,
+	type CoreContent,
+	type FilePartExt,
+	type GenerateTextOptions,
+	type GenerationStats,
+	type ImagePartExt,
+	type LlmMessage,
+	type ReasoningPart,
+	type RedactedReasoningPart,
+	type TextPartExt,
+	type ToolCallPartExt,
+	messageText,
+	// Removed RenamedAiFilePart and RenamedAiImagePart imports from llm.model.ts
+	// as AiFilePart and AiImagePart are already imported directly from 'ai' below.
+} from '#shared/llm/llm.model';
+import type { LlmCall } from '#shared/llmCall/llmCall.model';
+import { errorToString } from '#utils/errors';
+
+// Helper to convert DataContent | URL to string for our UI-facing models
+function convertDataContentToString(content: string | URL | Uint8Array | ArrayBuffer | Buffer | undefined): string {
+	if (content === undefined) return '';
+	if (typeof content === 'string') return content;
+	if (content instanceof URL) return content.toString();
+	// Assuming Buffer is available in Node.js environment.
+	// For browser, Uint8Array and ArrayBuffer might need different handling if Buffer polyfill isn't used.
+	if (typeof Buffer !== 'undefined') {
+		if (content instanceof Buffer) return content.toString('base64');
+		if (content instanceof Uint8Array) return Buffer.from(content).toString('base64');
+		if (content instanceof ArrayBuffer) return Buffer.from(content).toString('base64');
+	} else {
+		// Basic browser-compatible Uint8Array to base64 (simplified)
+		if (content instanceof Uint8Array) {
+			let binary = '';
+			const len = content.byteLength;
+			for (let i = 0; i < len; i++) {
+				binary += String.fromCharCode(content[i]);
+			}
+			return btoa(binary);
+		}
+		// ArrayBuffer would need to be converted to Uint8Array first in a pure browser context
+		if (content instanceof ArrayBuffer) {
+			const uint8Array = new Uint8Array(content);
+			let binary = '';
+			const len = uint8Array.byteLength;
+			for (let i = 0; i < len; i++) {
+				binary += String.fromCharCode(uint8Array[i]);
+			}
+			return btoa(binary);
+		}
+	}
+	logger.warn('Unknown DataContent type in convertDataContentToString');
+	return ''; // Should ideally not happen with proper type handling
+}
 
 /**
  * Base class for LLM implementations using the Vercel ai package
@@ -40,18 +96,62 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 		return true;
 	}
 
-	protected processMessages(llmMessages: LlmMessage[]): LlmMessage[] {
-		return llmMessages;
-	}
+	protected processMessages(llmMessages: LlmMessage[]): CoreMessage[] {
+		return llmMessages.map((msg) => {
+			const { llmId, cache, stats, providerOptions, content, ...restOfMsg } = msg;
 
-	async generateTextFromMessages(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
-		const msg = await this.generateMessage(llmMessages, opts);
-		return toText(msg);
+			let processedContent: CoreContent;
+			if (typeof content === 'string') {
+				processedContent = content;
+			} else {
+				processedContent = content.map((part) => {
+					// Strip extra properties not present in CoreMessage parts
+					if (part.type === 'image') {
+						const extPart = part as ImagePartExt;
+						return {
+							type: 'image',
+							image: extPart.image, // string (URL or base64) is compatible with DataContent
+							mimeType: extPart.mimeType,
+						} as AiImagePart;
+					}
+					if (part.type === 'file') {
+						const extPart = part as FilePartExt;
+						return {
+							type: 'file',
+							data: extPart.data, // AiFilePart (from 'ai') expects 'data'
+							mimeType: extPart.mimeType,
+						} as AiFilePart; // Use AiFilePart (alias for 'ai'.FilePart)
+					}
+					if (part.type === 'text') {
+						const extPart = part as TextPartExt;
+						return {
+							type: 'text',
+							text: extPart.text,
+						} as AiTextPart;
+					}
+					if (part.type === 'tool-call') {
+						return part as AiToolCallPart;
+					}
+					if (part.type === 'reasoning') {
+						// Assuming local ReasoningPart is compatible with ai's internal one
+						return part as ReasoningPart;
+					}
+					if (part.type === 'redacted-reasoning') {
+						// Assuming local RedactedReasoningPart (now with data) is compatible
+						return part as RedactedReasoningPart;
+					}
+					// Fallback for unknown parts, though ideally all are handled
+					return part as any;
+				}) as Exclude<CoreContent, string>;
+			}
+			return { ...restOfMsg, content: processedContent } as CoreMessage;
+		});
 	}
 
 	async _generateMessage(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<LlmMessage> {
 		const description = opts?.id ?? '';
 		return await withActiveSpan(`generateTextFromMessages ${description}`, async (span) => {
+			// The processMessages method now correctly returns CoreMessage[]
 			const messages: CoreMessage[] = this.processMessages(llmMessages);
 
 			// Gemini Flash 2.0 thinking max is about 42
@@ -66,6 +166,9 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				description,
 			});
 
+			if (!opts?.id) console.log(new Error('No generateMessage id provided'));
+			logger.info(`LLM call ${opts?.id} using ${this.getId()}`);
+
 			const createLlmCallRequest: CreateLlmRequest = {
 				messages: cloneAndTruncateBuffers(llmMessages),
 				llmId: this.getId(),
@@ -73,6 +176,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				// userId: currentUser().id,
 				callStack: callStack(),
 				description,
+				settings: opts,
 			};
 			let llmCall: LlmCall;
 			try {
@@ -109,8 +213,9 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 						if (opts.thinking === 'low') thinkingBudget = 8192;
 						else if (opts.thinking === 'medium') thinkingBudget = 16384;
 						else if (opts.thinking === 'high') thinkingBudget = 24576;
-						providerOptions.vertex = {
+						providerOptions.google = {
 							thinkingConfig: {
+								includeThoughts: true,
 								thinkingBudget,
 							},
 						};
@@ -127,11 +232,10 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 					presencePenalty: opts?.presencePenalty,
 					stopSequences: opts?.stopSequences,
 					maxRetries: opts?.maxRetries,
-					maxTokens: opts?.maxTokens,
+					maxTokens: opts?.maxOutputTokens,
 					providerOptions,
 				});
 
-				result.response.messages;
 				const responseText = result.text;
 				const finishTime = Date.now();
 
@@ -142,7 +246,9 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 					result.response.timestamp,
 					result,
 				);
-				const cost = totalCost;
+				const cost = Number.isNaN(totalCost) ? 0 : totalCost;
+
+				logger.info(`LLM response ${opts?.id}`);
 
 				// Add the response as an assistant message
 
@@ -188,6 +294,13 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 
 				return message;
 			} catch (error) {
+				llmCall.error = errorToString(error);
+				try {
+					await appContext().llmCallService.saveResponse(llmCall);
+				} catch (e) {
+					logger.warn(e, `Error saving LlmCall response with error ${e.message}`);
+				}
+
 				span.recordException(error);
 				throw error;
 			}
@@ -197,14 +310,10 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 	// https://sdk.vercel.ai/docs/ai-sdk-core/generating-text#streamtext
 	async streamText(llmMessages: LlmMessage[], onChunkCallback: (chunk: TextStreamPart<any>) => void, opts?: GenerateTextOptions): Promise<GenerationStats> {
 		return withActiveSpan(`streamText ${opts?.id ?? ''}`, async (span) => {
-			const messages: CoreMessage[] = llmMessages.map((msg) => {
-				if (msg.cache === 'ephemeral') {
-					msg.experimental_providerMetadata = { anthropic: { cacheControl: { type: 'ephemeral' } } };
-				}
-				return msg;
-			});
+			// The processMessages method now correctly returns CoreMessage[]
+			const messages: CoreMessage[] = this.processMessages(llmMessages);
 
-			const prompt = messages.map((m) => m.content).join('\n');
+			const prompt = messages.map((m) => (typeof m.content === 'string' ? m.content : m.content.map((p) => ('text' in p ? p.text : '')).join(''))).join('\n');
 			span.setAttributes({
 				inputChars: prompt.length,
 				model: this.model,
@@ -216,6 +325,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				llmId: this.getId(),
 				agentId: agentContext()?.agentId,
 				callStack: callStack(),
+				settings: opts,
 			});
 
 			const requestTime = Date.now();
@@ -256,22 +366,60 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 
 			// messages =
 			const responseMessage = response.messages[0];
-			let message: LlmMessage;
-			if (responseMessage.role === 'tool') {
-				message = {
-					role: 'tool',
-					content: responseMessage.content,
-					stats,
-				};
-			} else if (responseMessage.role === 'assistant') {
-				message = {
-					role: 'assistant',
-					content: responseMessage.content,
-					stats,
-				};
+			let assistantResponseMessageContent: AssistantContentExt;
+
+			if (typeof responseMessage.content === 'string') {
+				assistantResponseMessageContent = responseMessage.content;
+			} else {
+				// Map parts from ai.AssistantContent to AssistantContentExt
+				// This needs to handle potential ReasoningPart, etc.
+				assistantResponseMessageContent = responseMessage.content.map((part) => {
+					// Explicitly map parts from ai.AssistantContent to AssistantContentExt
+					if (part.type === 'text') {
+						return part as TextPartExt;
+					}
+					if (part.type === 'image') {
+						const aiImagePart = part as AiImagePart; // ai.ImagePart
+						return {
+							type: 'image',
+							image: convertDataContentToString(aiImagePart.image),
+							mimeType: aiImagePart.mimeType,
+						} as ImagePartExt;
+					}
+					if (part.type === 'file') {
+						const aiFilePart = part as AiFilePart; // ai.FilePart
+						return {
+							type: 'file',
+							data: convertDataContentToString(aiFilePart.data), // Our FilePartExt uses 'data', ai.FilePart has 'data'
+							mimeType: aiFilePart.mimeType,
+						} as FilePartExt;
+					}
+					if (part.type === 'tool-call') {
+						return part as ToolCallPartExt;
+					}
+					if (part.type === 'reasoning') {
+						return part as ReasoningPart;
+					}
+					if (part.type === 'redacted-reasoning') {
+						const aiRedactedPart = part as { type: 'redacted-reasoning'; data?: any; providerMetadata?: Record<string, unknown> }; // Cast to access potential 'data'
+						return {
+							type: 'redacted-reasoning',
+							data: convertDataContentToString(aiRedactedPart.data), // Convert its data field
+							providerMetadata: aiRedactedPart.providerMetadata,
+						} as RedactedReasoningPart;
+					}
+					logger.warn(`Unhandled part type in streamText content conversion: ${part.type}`);
+					return part as any; // Fallback, may cause issues
+				});
 			}
 
-			llmCall.messages = [...llmCall.messages, message];
+			const message: LlmMessage = {
+				role: 'assistant',
+				content: assistantResponseMessageContent,
+				stats,
+			};
+
+			llmCall.messages = [...llmCall.messages, cloneAndTruncateBuffers(message)];
 
 			span.setAttributes({
 				inputTokens: usage.promptTokens,

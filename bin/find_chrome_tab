@@ -7,6 +7,21 @@ TARGET_URL_PREFIX="http://localhost:4200"
 CHROME_APP_NAME="Google Chrome"
 # --- End Configuration ---
 
+# Initialize NEW_URL
+NEW_URL=""
+
+# Check if an argument is provided
+if [[ -n "$1" ]]; then
+  # Argument provided, validate it
+  if [[ "$1" != "$TARGET_URL_PREFIX"* ]]; then
+    echo "Error: Provided URL '$1' must start with '$TARGET_URL_PREFIX'"
+    exit 1
+  else
+    # Valid argument, set NEW_URL
+    NEW_URL="$1"
+  fi
+fi
+
 # Check if running on macOS
 if [[ "$(uname)" != "Darwin" ]]; then
   echo "This script uses AppleScript and is designed for macOS."
@@ -19,6 +34,7 @@ fi
 # AppleScript to find the tab and activate it, or open a new one
 osascript <<EOF
 set targetPrefix to "$TARGET_URL_PREFIX"
+set newTargetURL to "$NEW_URL" # This will be empty if no valid arg was given
 set foundTab to false
 
 try
@@ -33,9 +49,14 @@ try
                     set tabIndex to tabIndex + 1
                     # Check if the URL starts with the target prefix
                     if URL of t starts with targetPrefix then
-                        # If found, activate the window and the tab
+                        # If found, activate the window and the tab/navigate
                         set index of w to 1 -- Bring window to front
-                        set active tab index of w to tabIndex -- Activate the tab
+                        # Check if we have a new URL to navigate to
+                        if newTargetURL is not "" then
+                            set URL of t to newTargetURL # Navigate the tab
+                        else
+                            set active tab index of w to tabIndex # Just activate the tab
+                        end if
                         set foundTab to true
                         exit repeat # Exit inner loop (tabs)
                     end if
@@ -47,13 +68,22 @@ try
             if not foundTab then
                 # Check if there are any windows open
                 if exists window 1 then
-                    # Create a new tab in the first window
-                    tell window 1 to make new tab with properties {URL:targetPrefix}
+                    # Create a new tab in the first window with the appropriate URL
+                    if newTargetURL is not "" then
+                        tell window 1 to make new tab with properties {URL:newTargetURL}
+                    else
+                        tell window 1 to make new tab with properties {URL:targetPrefix}
+                    end if
                     set active tab index of window 1 to (count tabs of window 1)
                 else
                     # No windows open, create a new one
                     make new window
-                    set URL of active tab of window 1 to targetPrefix
+                    # Set the URL of the new window's tab appropriately
+                    if newTargetURL is not "" then
+                        set URL of active tab of window 1 to newTargetURL
+                    else
+                        set URL of active tab of window 1 to targetPrefix
+                    end if
                 end if
             end if
         end tell
@@ -74,7 +104,11 @@ EOF
 
 # Check the exit status of osascript
 if [[ $? -eq 0 ]]; then
-  echo "Successfully activated or opened tab for $TARGET_URL_PREFIX"
+  if [[ -n "$NEW_URL" ]]; then
+    echo "Successfully navigated or opened tab to $NEW_URL"
+  else
+    echo "Successfully activated or opened tab for $TARGET_URL_PREFIX"
+  fi
 else
   echo "An error occurred while interacting with $CHROME_APP_NAME."
   exit 1

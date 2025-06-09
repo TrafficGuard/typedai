@@ -1,18 +1,23 @@
 import axios from 'axios';
 import { agentContext } from '#agent/agentContextLocalStorage';
-import type { AgentLLMs } from '#agent/agentContextTypes';
 import { appContext } from '#app/applicationContext';
-import type { LlmCall } from '#llm/llmCallService/llmCall';
+import { callStack } from '#llm/llmCallService/llmCall';
 import { countTokens } from '#llm/tokens';
 import { withActiveSpan } from '#o11y/trace';
-import { BaseLLM, type LlmCostFunction } from '../base-llm';
-import { type GenerateTextOptions, type LLM, type LlmMessage, assistant, combinePrompts, system, user } from '../llm';
+import type { AgentLLMs } from '#shared/agent/agent.model';
+import { type GenerateTextOptions, type LLM, type LlmMessage, assistant, combinePrompts, system, user } from '#shared/llm/llm.model';
+import type { LlmCall } from '#shared/llmCall/llmCall.model';
+import { BaseLLM } from '../base-llm';
 
 export const OLLAMA_SERVICE = 'ollama';
 
 export class OllamaLLM extends BaseLLM {
 	constructor(name: string, model: string, maxInputTokens: number) {
-		super(`${name} (Ollama)`, OLLAMA_SERVICE, model, maxInputTokens, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
+		super(`${name} (Ollama)`, OLLAMA_SERVICE, model, maxInputTokens, () => ({
+			inputCost: 0,
+			outputCost: 0,
+			totalCost: 0,
+		}));
 	}
 
 	isConfigured(): boolean {
@@ -42,7 +47,8 @@ export class OllamaLLM extends BaseLLM {
 				messages,
 				llmId: this.getId(),
 				agentId: agentContext()?.agentId,
-				callStack: this.callStack(agentContext()),
+				callStack: callStack(),
+				settings: opts,
 			});
 			const requestTime = Date.now();
 

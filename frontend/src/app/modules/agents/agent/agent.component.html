@@ -2,23 +2,49 @@
     <mat-tab-group [animationDuration]="'0'">
 
         <mat-tab label="Details">
-            <agent-details [agentDetails]="agentDetails" (refreshRequested)="loadAgentDetails()"></agent-details>
+            @if (agentDetails()) {
+                <agent-details [agentDetails]="agentDetails()!" (refreshRequested)="handleRefreshAgentDetails()"></agent-details>
+            } @else {
+                <!-- Optional: loading or placeholder for details tab -->
+            }
         </mat-tab>
 
         <mat-tab label="Memory">
-            <agent-memory [agentDetails]="agentDetails"></agent-memory>
+            @defer {
+                @if (agentDetails()) {
+                    <agent-memory [agentDetails]="agentDetails()"></agent-memory>
+                }
+            }
         </mat-tab>
 
         <mat-tab label="Function Calls">
-            <agent-function-calls [agentDetails]="agentDetails"></agent-function-calls>
+            @defer {
+                @if (agentDetails()) {
+                    <agent-function-calls [agentDetails]="agentDetails()"></agent-function-calls>
+                }
+            }
         </mat-tab>
 
-        <mat-tab label="Iterations" *ngIf="agentDetails?.type === 'autonomous'">
-            <agent-iterations [agentId]="agentId"></agent-iterations>
+        @if (agentDetails()?.type === 'autonomous') {
+            <mat-tab label="Iterations">
+                @defer {
+                    <agent-iterations [agentId]="agentDetails()?.agentId"></agent-iterations>
+                }
+            </mat-tab>
+        }
+
+        <mat-tab label="Tool State">
+            @defer {
+                @if (agentDetails()) {
+                    <agent-tool-state [agentDetails]="agentDetails()!"></agent-tool-state>
+                }
+            }
         </mat-tab>
 
         <mat-tab label="LLM Calls">
-            <agent-llm-calls [agentId]="agentId"></agent-llm-calls>
+            @defer {
+                <agent-llm-calls [agentId]="agentDetails()?.agentId"></agent-llm-calls>
+            }
         </mat-tab>
 
     </mat-tab-group>

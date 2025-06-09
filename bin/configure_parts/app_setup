@@ -1,0 +1,114 @@
+#!/bin/bash
+# Application Configuration and Frontend Setup ---------------------------------
+echo "--- Starting Application Configuration and Frontend Setup ---"
+
+# Default environment variables  ----------------
+
+# Create local.env and test.env if they don't exist by copying from example
+if [[ ! -f ./variables/local.env ]]; then
+    echo "Creating local.env by copying from local.env.example"
+    cp ./variables/local.env.example ./variables/local.env
+fi
+if [[ ! -f ./variables/test.env ]]; then
+    echo "Creating test.env by copying from local.env.example"
+    cp ./variables/local.env.example ./variables/test.env
+fi
+
+# Function to update or add a variable in an .env file (local to this script for now)
+# This function is duplicated in configure for robustness, but kept here for standalone testing/clarity.
+_update_app_env_var() {
+    local file_path="$1"
+    local var_name="$2"
+    local new_value="$3"
+    local temp_file
+    mkdir -p "$(dirname "$file_path")"
+    if [ ! -f "$file_path" ]; then touch "$file_path"; fi
+    # Escape forward slashes and ampersands for sed, and handle newlines
+    local escaped_new_value=$(echo "$new_value" | sed -e 's/[\/&]/\\&/g' -e 's/$/\\n/' -e '$s/\\n$//')
+    # Escape characters that have special meaning in regex for the variable name
+    local escaped_var_name=$(echo "$var_name" | sed -e 's/[]\/$*.^|[]/\\&/g')
+    temp_file=$(mktemp)
+    if grep -q "^${escaped_var_name}=" "$file_path"; then
+        sed "s|^${escaped_var_name}=.*|$var_name=$escaped_new_value|" "$file_path" > "$temp_file" && mv "$temp_file" "$file_path"
+        # echo "Updated $var_name in $file_path." # Optional: Add logging
+    else
+        echo "$var_name=$new_value" >> "$file_path"
+        # echo "Added $var_name to $file_path." # Optional: Add logging
+    fi
+    [ -f "$temp_file" ] && rm -f "$temp_file"
+}
+
+
+# Populate SINGLE_USER_EMAIL from gcloud if possible
+# Use set +e and set +u to avoid exiting or erroring on unset variables during source
+(set +e; set +u; source ./variables/local.env)
+CURRENT_SINGLE_USER_EMAIL=${SINGLE_USER_EMAIL:-}
+
+# Only attempt to set if it's currently empty in local.env
+if [ -z "$CURRENT_SINGLE_USER_EMAIL" ]; then
+    echo "Attempting to set SINGLE_USER_EMAIL from gcloud config..."
+    # Use --quiet to suppress output, check exit code
+    GCLOUD_ACCOUNT=$(gcloud config get-value account --quiet 2>/dev/null)
+    # Basic check if GCLOUD_ACCOUNT looks like an email address
+    if [[ "$GCLOUD_ACCOUNT" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+      _update_app_env_var "./variables/local.env" "SINGLE_USER_EMAIL" "${GCLOUD_ACCOUNT}"
+      echo "Set SINGLE_USER_EMAIL to ${GCLOUD_ACCOUNT} in ./variables/local.env"
+    else
+      echo "Could not automatically determine SINGLE_USER_EMAIL from gcloud config."
+      echo "Please manually update SINGLE_USER_EMAIL in ./variables/local.env"
+    fi
+else
+    echo "SINGLE_USER_EMAIL is already set in ./variables/local.env: $CURRENT_SINGLE_USER_EMAIL"
+fi
+
+
+# Angular setup ----------------
+
+echo "Initialising Angular project (frontend)..."
+# Check if frontend directory exists
+if [ -d "frontend" ]; then
+    cd frontend
+    echo "Running npm install in frontend..."
+    if npm install; then
+        echo "Frontend npm install complete."
+    else
+        echo "Error: Frontend npm install failed."
+        echo "Please check the error messages above and resolve any issues."
+        exit 1 # Exit this sourced script part
+    fi
+    cd .. # Return to root directory
+else
+    echo "Warning: 'frontend' directory not found. Skipping Angular setup."
+fi
+
+
+# CLI setup -------------
+
+echo "Setting up CLI environment variables in shell profiles..."
+# Setup for bash
+if [ -f ~/.bashrc ]; then
+    if ! grep -q "TYPEDAI_HOME" ~/.bashrc; then
+        echo "# TypedAI CLI environment" >> ~/.bashrc
+        echo "export TYPEDAI_HOME=$(pwd)" >> ~/.bashrc
+        echo "export PATH=\$TYPEDAI_HOME/bin/path:\$PATH" >> ~/.bashrc
+        echo "Added TypedAI CLI environment variables to ~/.bashrc"
+    else
+        echo "TypedAI CLI environment variables already present in ~/.bashrc"
+    fi
+fi
+
+# Setup for zsh
+if [ -f ~/.zshrc ]; then
+    if ! grep -q "TYPEDAI_HOME" ~/.zshrc; then
+        echo "# TypedAI CLI environment" >> ~/.zshrc
+        echo "export TYPEDAI_HOME=$(pwd)" >> ~/.zshrc
+        echo "export PATH=\$TYPEDAI_HOME/bin/path:\$PATH" >> ~/.zshrc
+        echo "Added TypedAI CLI environment variables to ~/.zshrc"
+    else
+        echo "TypedAI CLI environment variables already present in ~/.zshrc"
+    fi
+fi
+
+echo "Application Configuration and Frontend Setup complete."
+# Exit with 0 to indicate success of this part
+exit 0

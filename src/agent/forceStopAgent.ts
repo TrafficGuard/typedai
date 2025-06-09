@@ -1,9 +1,19 @@
 import { agentContext, agentContextStorage } from '#agent/agentContextLocalStorage';
-import { isExecuting } from '#agent/agentContextTypes';
 import { appContext } from '#app/applicationContext';
-import { currentUser } from '#user/userService/userContext';
+import { isExecuting } from '#shared/agent/agent.model';
+import { currentUser } from '#user/userContext';
 
 const agentsToStop = new Set<string>();
+
+export class ForceStopError extends Error {
+	constructor() {
+		super('The user has force stopped the agent');
+	}
+}
+
+export function forceStopErrorCheck(e: any): void {
+	if (e instanceof ForceStopError) throw e;
+}
 
 /**
  * Terminates the execution of an agent as soon as possible.

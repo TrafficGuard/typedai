@@ -1,0 +1,391 @@
+# Python setup using pyenv ---------------------------------
+
+# ---------------------------------------------------------------------------
+# Ensure we are NOT root – pyenv must be per-user
+# ---------------------------------------------------------------------------
+if [ "$(id -u)" -eq 0 ]; then
+    echo "❌  python_setup is running as root (user: $(id -un))."
+    echo "    pyenv should be installed for the target user, not for root."
+    echo "    Re-run ./bin/configure as the intended user."
+    exit 1
+fi
+echo "🧑‍💻  python_setup running as $(id -un) (HOME=$HOME)"
+
+# Helper function to print pyenv shell setup instructions
+print_pyenv_shell_setup_instructions() {
+    echo ""
+    echo "----------------------------------------------------------------------------------"
+    echo "IMPORTANT: pyenv Shell Setup"
+    echo "----------------------------------------------------------------------------------"
+    echo "To ensure pyenv works correctly and is integrated into your interactive shell,"
+    echo "you MUST set it up for your shell environment. This usually involves adding lines"
+    echo "to your shell's configuration file(s) (e.g., ~/.bashrc, ~/.profile, ~/.zshrc)."
+    echo ""
+    echo "For Bash, add these lines to ~/.bashrc AND to ~/.profile (or ~/.bash_profile):"
+    echo '  export PYENV_ROOT="$HOME/.pyenv"'
+    echo '  [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"'
+    echo '  eval "$(pyenv init - bash)"'
+    echo ""
+    echo "For Zsh, add these lines to ~/.zshrc:"
+    echo '  export PYENV_ROOT="$HOME/.pyenv"'
+    echo '  [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"'
+    echo '  eval "$(pyenv init - zsh)"'
+    echo ""
+    echo "After adding these lines, you MUST open a new terminal window or source your"
+    echo "shell configuration file(s) for the changes to take effect."
+    echo "----------------------------------------------------------------------------------"
+    echo ""
+}
+
+# ---------------------------------------------------------------------------
+# Helper: ensure pyenv initialization lines exist in the current shell's rc file(s)
+# This is for the *user's interactive shell*, not necessarily for the current script.
+# ---------------------------------------------------------------------------
+ensure_pyenv_shell_setup() {
+    local shell_name
+    shell_name="$(basename "$SHELL")"
+
+    local pyenv_root_export='export PYENV_ROOT="$HOME/.pyenv"'
+    local pyenv_path_export='[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"'
+    local pyenv_init_eval # This will be set based on the shell
+
+    local files_to_update=()
+
+    case "$shell_name" in
+        bash)
+            pyenv_init_eval='eval "$(pyenv init - bash)"' # Use 'bash' for consistency with docs
+            files_to_update+=("$HOME/.bashrc")
+
+            # For bash, also add to a profile script
+            if [ -f "$HOME/.bash_profile" ]; then
+                files_to_update+=("$HOME/.bash_profile")
+            elif [ -f "$HOME/.bash_login" ]; then
+                files_to_update+=("$HOME/.bash_login")
+            elif [ -f "$HOME/.profile" ]; then
+                files_to_update+=("$HOME/.profile")
+            else
+                # Create .profile if none of the standard profile files exist
+                echo "Creating $HOME/.profile as no standard profile script was found for Bash."
+                files_to_update+=("$HOME/.profile")
+            fi
+            ;;
+        zsh)
+            pyenv_init_eval='eval "$(pyenv init - zsh)"' # Use 'zsh' for consistency with docs
+            files_to_update+=("$HOME/.zshrc")
+            # Consider ~/.zprofile or ~/.zlogin for non-interactive login shells if needed
+            ;;
+        *)
+            echo "Unknown shell ($shell_name); skipping automatic pyenv shell configuration."
+            print_pyenv_shell_setup_instructions # Still show manual instructions
+            return 0
+            ;;
+    esac
+
+    for rc_file in "${files_to_update[@]}"; do
+        # Ensure rc file exists
+        if [ ! -f "$rc_file" ]; then
+            mkdir -p "$(dirname "$rc_file")"
+            touch "$rc_file"
+            echo "Created empty shell config file at $rc_file"
+        fi
+
+        local updated_rc_file=false
+        if ! grep -Fq "$pyenv_root_export" "$rc_file"; then
+            echo "" >> "$rc_file" # Add a newline before adding the block
+            echo "# Added by TypedAI configure script for pyenv" >> "$rc_file"
+            echo "$pyenv_root_export" >> "$rc_file"
+            updated_rc_file=true
+        fi
+        if ! grep -Fq "$pyenv_path_export" "$rc_file"; then
+            echo "$pyenv_path_export" >> "$rc_file"
+            updated_rc_file=true
+        fi
+        if ! grep -Fq "$pyenv_init_eval" "$rc_file"; then
+            echo "$pyenv_init_eval" >> "$rc_file"
+            updated_rc_file=true
+        fi
+
+        if [ "$updated_rc_file" = true ]; then
+            echo "Updated pyenv initialization in ${rc_file} (user: $(id -un)) for interactive sessions."
+        else
+            echo "pyenv initialization lines already present in ${rc_file}."
+        fi
+    done
+}
+
+# ---------------------------------------------------------------------------
+# Helper: add typical pyenv install dirs to PATH for the current script run
+# ---------------------------------------------------------------------------
+add_pyenv_paths_to_path() {
+    local updated=false
+    local pyenv_bin_dir="$HOME/.pyenv/bin" # PYENV_ROOT/bin
+
+    if [ -d "$pyenv_bin_dir" ] && ! echo ":$PATH:" | grep -q ":$pyenv_bin_dir:"; then
+        export PATH="$pyenv_bin_dir:$PATH"
+        echo "➕ Added $pyenv_bin_dir to PATH for this script."
+        updated=true
+    fi
+
+    # Homebrew dir (if pyenv was installed via brew)
+    if command -v brew &>/dev/null; then
+        local brew_prefix
+        brew_prefix="$(brew --prefix 2>/dev/null)"
+        # pyenv via brew might place the executable directly in brew_prefix/bin
+        if [ -n "$brew_prefix" ] && [ -x "$brew_prefix/bin/pyenv" ] && ! echo ":$PATH:" | grep -q ":$brew_prefix/bin:"; then
+            export PATH="$brew_prefix/bin:$PATH"
+            echo "➕ Added $brew_prefix/bin to PATH for this script (found Homebrew pyenv)."
+            updated=true
+        fi
+    fi
+    # $updated && echo "Current script PATH: $PATH" # Optional: uncomment for debugging
+}
+
+# ---------------------------------------------------------------------------
+# Read desired Python version from .python-version
+# ---------------------------------------------------------------------------
+PYTHON_VERSION_FILE=".python-version"
+if [ ! -f "$PYTHON_VERSION_FILE" ]; then
+    echo "❌  Error: Required file '$PYTHON_VERSION_FILE' not found."
+    echo "    This file must contain the desired Python version (e.g., 3.11.7)."
+    exit 1
+fi
+
+PYTHON_VERSION=$(cat "$PYTHON_VERSION_FILE" | tr -d '[:space:]')
+if [ -z "$PYTHON_VERSION" ]; then
+    echo "❌  Error: '$PYTHON_VERSION_FILE' is empty."
+    echo "    This file must contain the desired Python version (e.g., 3.11.7)."
+    exit 1
+fi
+echo "✅  Desired Python version read from $PYTHON_VERSION_FILE: $PYTHON_VERSION"
+
+
+# Ensure common pyenv paths are in PATH before any checks
+add_pyenv_paths_to_path
+
+PYENV_COMMAND_AVAILABLE=false
+# Check if pyenv is available after initial path setup
+if command -v pyenv &> /dev/null; then
+    echo "✅ pyenv command is initially available in PATH."
+    PYENV_COMMAND_AVAILABLE=true
+else
+    echo "pyenv command not found in PATH. Attempting installation guidance..."
+    echo ""
+    echo "Please choose an installation method for pyenv:"
+    echo "  1) Install using the recommended script (Linux/macOS via pyenv.run). Requires: curl, git."
+    echo "     Command will be: curl -fsSL https://pyenv.run | bash"
+    echo "  2) Install using Homebrew (macOS/Linux). Requires: brew."
+    echo "     Command will be: brew install pyenv"
+    echo "  3) I have already installed pyenv or will install it manually now."
+    echo "     (If choosing this, ensure 'pyenv' is in your PATH and shell is configured, then re-run this script)."
+    echo "  4) Exit configuration."
+
+    choice=""
+    read -r -p "Enter your choice (1-4): " choice
+
+    case $choice in
+        1)
+            if ! command -v curl &> /dev/null; then echo "Error: 'curl' is not installed." >&2; exit 1; fi
+            # pyenv installer also needs git
+            if ! command -v git &> /dev/null; then echo "Error: 'git' is not installed. pyenv installer requires git." >&2; exit 1; fi
+
+            echo "Running pyenv installation script: curl -fsSL https://pyenv.run | bash"
+            if curl -fsSL https://pyenv.run | bash; then
+                echo "pyenv installation script completed."
+                add_pyenv_paths_to_path      # Update current script's PATH
+                ensure_pyenv_shell_setup     # Ensure rc file(s) are set up for future shells
+                if command -v pyenv &> /dev/null; then
+                    PYENV_COMMAND_AVAILABLE=true
+                fi
+            else
+                echo "Error: pyenv installation script failed." >&2
+                print_pyenv_shell_setup_instructions
+                exit 1
+            fi
+            ;;
+        2)
+            if ! command -v brew &> /dev/null; then echo "Error: Homebrew (brew) is not installed." >&2; exit 1; fi
+            echo "Running: brew install pyenv"
+            if brew install pyenv; then
+                echo "pyenv successfully installed via Homebrew."
+                add_pyenv_paths_to_path      # Update current script's PATH
+                ensure_pyenv_shell_setup     # Ensure rc file(s) are set up for future shells
+                if command -v pyenv &> /dev/null; then
+                    PYENV_COMMAND_AVAILABLE=true
+                fi
+            else
+                echo "Error: 'brew install pyenv' failed." >&2
+                print_pyenv_shell_setup_instructions
+                exit 1
+            fi
+            ;;
+        3)
+            echo "Okay. Please ensure pyenv is installed, accessible in your PATH,"
+            echo "and your shell environment is configured for pyenv."
+            print_pyenv_shell_setup_instructions
+            echo "Then, re-run this './bin/configure' script."
+            exit 1
+            ;;
+        4)
+            echo "Exiting configuration."
+            exit 0
+            ;;
+        *)
+            echo "Invalid choice. Exiting." >&2
+            exit 1
+            ;;
+    esac
+
+    if ! $PYENV_COMMAND_AVAILABLE; then
+        echo ""
+        echo "----------------------------------------------------------------------------------"
+        echo "❌ CRITICAL ERROR: pyenv command not found after installation attempt."
+        echo "----------------------------------------------------------------------------------"
+        echo "pyenv was likely installed, but the 'pyenv' command is still not available in this script's PATH."
+        echo "This indicates a problem with the installation or your shell environment setup."
+        print_pyenv_shell_setup_instructions
+        echo "==> Please open a NEW terminal window. <=="
+        echo "This will allow your shell to load the new pyenv environment settings."
+        echo "Verify 'pyenv --version' works in the new terminal, then re-run './bin/configure'."
+        echo "----------------------------------------------------------------------------------"
+        exit 1 # Exit critically as pyenv is required
+    fi
+fi
+
+# Activate pyenv environment for the current script session
+echo "Attempting to activate pyenv environment for this script session..."
+current_shell_name=$(basename "$SHELL")
+
+# Set PYENV_ROOT if not already set (might be set if user's shell config was already sourced by parent script)
+# This is crucial for `pyenv init` to work correctly.
+export PYENV_ROOT="${PYENV_ROOT:-$HOME/.pyenv}"
+echo "   PYENV_ROOT is set to: $PYENV_ROOT"
+
+# Use set +e temporarily in case pyenv init fails in an unexpected shell
+set +e
+# pyenv init - --no-rehash is often recommended for non-interactive shells/scripts.
+# However, to align with user's interactive shell setup and fnm's approach,
+# using the shell name might be more robust for ensuring shims are correctly pathed.
+eval_command=""
+case "$current_shell_name" in
+    bash) eval_command='eval "$(pyenv init - bash)"' ;;
+    zsh)  eval_command='eval "$(pyenv init - zsh)"' ;;
+    *)    eval_command='eval "$(pyenv init - --no-rehash)"' ;; # Fallback for other shells
+esac
+echo "   Executing: $eval_command"
+eval "$eval_command"
+eval_status=$?
+# Restore set -e
+set -e
+
+if [ $eval_status -eq 0 ]; then
+    echo "✅ pyenv environment directly activated for this script session."
+    # Check if pyenv shims are in PATH after init
+    if ! echo ":$PATH:" | grep -q ":$PYENV_ROOT/shims:"; then
+         echo "⚠️ Warning: pyenv shims directory ($PYENV_ROOT/shims) is not in PATH after initialization."
+         echo "   This is unexpected and might cause 'python'/'pip' commands to use the wrong version."
+         echo "   Please verify your pyenv installation and shell setup."
+    else
+        echo "   pyenv shims directory ($PYENV_ROOT/shims) is in PATH."
+    fi
+else
+    echo "----------------------------------------------------------------------------------"
+    echo "❌ Error: Failed to evaluate pyenv initialization command: '$eval_command'."
+    echo "----------------------------------------------------------------------------------"
+    echo "   This means pyenv environment variables and shims could not be set for the script."
+    echo "   Subsequent 'pyenv install', 'pyenv local', 'python', 'pip' commands are likely to fail."
+    echo "   Please ensure 'pyenv' command works and its 'init' subcommand outputs valid shell commands."
+    echo "   Also, ensure pyenv is correctly installed and initialized in your interactive shell."
+    print_pyenv_shell_setup_instructions
+    echo "----------------------------------------------------------------------------------"
+    exit 1 # Exit critically as pyenv is required
+fi
+
+# Remind about shell setup for ongoing interactive use, as direct eval only affects current script.
+print_pyenv_shell_setup_instructions
+echo "This script will now proceed to use pyenv."
+echo ""
+
+# ---------------------------------------------------------------------------
+# Install the specified Python version if not already present
+# ---------------------------------------------------------------------------
+echo "Checking if Python $PYTHON_VERSION is already installed by pyenv..."
+if ! pyenv versions --bare | grep -Fxq "$PYTHON_VERSION"; then
+    echo "Python $PYTHON_VERSION not found, attempting to install it with pyenv..."
+    echo "Note: Python compilation can take several minutes and may require build dependencies."
+    echo "If 'pyenv install' fails, please check pyenv documentation for required dependencies on your OS."
+    echo "Common dependencies for Ubuntu: sudo apt-get install -y make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev"
+    if pyenv install "$PYTHON_VERSION"; then
+        echo "✅ Python $PYTHON_VERSION installed successfully by pyenv."
+    else
+        echo "❌ Error: 'pyenv install $PYTHON_VERSION' failed." >&2
+        echo "Please check the output above for error messages. You might need to install build dependencies."
+        exit 1
+    fi
+else
+    echo "✅ Python $PYTHON_VERSION is already installed by pyenv."
+fi
+
+# ---------------------------------------------------------------------------
+# Set the local Python version for the project
+# ---------------------------------------------------------------------------
+echo "Setting local Python version to $PYTHON_VERSION using 'pyenv local'..."
+if pyenv local "$PYTHON_VERSION"; then
+    echo "✅ Python version set to $PYTHON_VERSION for this directory (updated .python-version if needed)."
+else
+    echo "❌ Error: 'pyenv local $PYTHON_VERSION' failed." >&2
+    exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# Rehash pyenv shims (important after install/local)
+# ---------------------------------------------------------------------------
+echo "Running pyenv rehash..."
+if pyenv rehash; then
+    echo "✅ pyenv rehash completed."
+else
+    echo "⚠️ Warning: 'pyenv rehash' failed. This might cause issues with finding the correct 'python' and 'pip' commands."
+    # Not critical enough to exit, but warn the user
+fi
+
+# ---------------------------------------------------------------------------
+# Verify Python version and paths
+# ---------------------------------------------------------------------------
+echo "Verifying Python environment:"
+echo "  pyenv version-name: $(pyenv version-name)"
+echo "  python --version: $(python --version 2>&1)" # Capture stderr too, as version goes there
+echo "  pyenv which python: $(pyenv which python)"
+echo "  which python: $(which python)"
+echo "  pip --version: $(pip --version 2>&1)"
+echo "  pyenv which pip: $(pyenv which pip)"
+echo "  which pip: $(which pip)"
+
+
+# ---------------------------------------------------------------------------
+# Upgrade pip
+# ---------------------------------------------------------------------------
+echo "Upgrading pip for the current pyenv Python version ($PYTHON_VERSION)..."
+# Use the python command which should now be managed by pyenv
+if python -m pip install --upgrade pip; then
+    echo "✅ pip upgraded successfully."
+else
+    echo "❌ Error: Failed to upgrade pip." >&2
+    echo "    Please check your Python installation and network connection."
+    exit 1 # Critical for installing dependencies
+fi
+echo "Current pip version after upgrade: $(pip --version)"
+
+# ---------------------------------------------------------------------------
+# Install Python dependencies
+# ---------------------------------------------------------------------------
+echo "Installing Python dependencies (aider-chat, google-cloud-aiplatform, anthropic[vertex])..."
+# Use the pip command which should now be managed by pyenv
+# Use quotes around "anthropic[vertex]" because of the special characters
+if python -m pip install aider-chat google-cloud-aiplatform "anthropic[vertex]"; then
+    echo "✅ Python dependencies installed successfully."
+else
+    echo "❌ Error: Failed to install Python dependencies." >&2
+    echo "    Please check your network connection and the package names."
+    exit 1 # Critical for application functionality
+fi
+
+echo "Python environment setup with pyenv complete."

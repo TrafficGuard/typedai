@@ -2,8 +2,8 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { appContext } from '#app/applicationContext';
 import { DEFAULT_HEALTHCHECK } from '#fastify/fastifyApp';
 import { logger } from '#o11y/logger';
-import { runWithUser } from '#user/userService/userContext';
-import { ROUTES } from '../../shared/routes';
+import { API_ROUTES } from '#shared/routes';
+import { runWithUser } from '#user/userContext';
 import { getPayloadUserId } from './jwt';
 
 const WEBHOOKS_BASE_PATH = '/api/webhooks/';
@@ -20,7 +20,7 @@ export function singleUserMiddleware(req: FastifyRequest, _res: any, next: () =>
 
 export function jwtAuthMiddleware(req: FastifyRequest, reply: FastifyReply, done: () => void): void {
 	// Skip auth for public endpoints
-	if (req.raw.url.startsWith(WEBHOOKS_BASE_PATH) || req.raw.url === DEFAULT_HEALTHCHECK || req.raw.url.startsWith(ROUTES.AUTH_ROUTE_PREFIX)) {
+	if (req.raw.url.startsWith(WEBHOOKS_BASE_PATH) || req.raw.url === DEFAULT_HEALTHCHECK || req.raw.url.startsWith(API_ROUTES.AUTH_ROUTE_PREFIX)) {
 		done();
 		return;
 	}

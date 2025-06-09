@@ -1,7 +1,8 @@
 import type { MergeRequestDiffSchema } from '@gitbeaker/rest';
 import { expect } from 'chai';
+import type { CodeReviewConfig } from '#shared/codeReview/codeReview.model';
 import { addCodeWithLineNumbers, getStartingLineNumber, shouldApplyCodeReview } from '#swe/codeReview/codeReviewCommon';
-import type { CodeReviewConfig, CodeReviewTask } from '#swe/codeReview/codeReviewModel';
+import type { CodeReviewTask } from '#swe/codeReview/codeReviewTaskModel';
 
 describe('GitLabCodeReview', () => {
 	describe('diff', () => {

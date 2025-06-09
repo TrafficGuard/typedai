@@ -1,19 +1,25 @@
 import { type GenerateTextResult, StreamTextResult, type TextStreamPart } from 'ai';
-import type { AgentContext } from '#agent/agentContextTypes';
 import { countTokens } from '#llm/tokens';
+import type { AgentContext } from '#shared/agent/agent.model';
 import {
 	type GenerateJsonOptions,
 	type GenerateTextOptions,
+	// Import GenerateTextWithJsonResponse
+	type GenerateTextWithJsonResponse,
 	type GenerationStats,
 	type LLM,
 	type LlmMessage,
 	type Prompt,
 	SystemUserPrompt,
+	// Import assistant
+	assistant,
 	isSystemUserPrompt,
+	messageText,
 	system,
 	user,
-} from './llm';
-import { extractJsonResult, extractTag } from './responseParsers';
+} from '#shared/llm/llm.model';
+// Import extractReasoningAndJson, extractJsonResult is still used by generateJson
+import { extractJsonResult, extractReasoningAndJson, extractTag } from './responseParsers';
 
 export interface SerializedLLM {
 	service: string;
@@ -55,6 +61,7 @@ export abstract class BaseLLM implements LLM {
 		protected model: string,
 		protected maxInputTokens: number,
 		readonly calculateCosts: LlmCostFunction,
+		private oldIds: string[] = [],
 	) {}
 
 	protected _generateText(systemPrompt: string | undefined, userPrompt: string, opts?: GenerateTextOptions): Promise<string> {
@@ -135,24 +142,35 @@ export abstract class BaseLLM implements LLM {
 		return extractTag(response, 'result');
 	}
 
-	generateTextWithJson(userPrompt: string, opts?: GenerateTextOptions): Promise<string>;
-	generateTextWithJson(systemPrompt: string, userPrompt: string, opts?: GenerateTextOptions): Promise<string>;
-	generateTextWithJson(messages: LlmMessage[], opts?: GenerateTextOptions): Promise<string>;
-	async generateTextWithJson(
+	generateTextWithJson<T>(userPrompt: string, opts?: GenerateJsonOptions): Promise<GenerateTextWithJsonResponse<T>>;
+	generateTextWithJson<T>(systemPrompt: string, userPrompt: string, opts?: GenerateJsonOptions): Promise<GenerateTextWithJsonResponse<T>>;
+	generateTextWithJson<T>(messages: LlmMessage[], opts?: GenerateJsonOptions): Promise<GenerateTextWithJsonResponse<T>>;
+	async generateTextWithJson<T>(
 		userOrSystemOrMessages: string | LlmMessage[],
-		userOrOpts?: string | GenerateTextOptions,
-		opts?: GenerateTextOptions,
-	): Promise<string> {
+		userOrOpts?: string | GenerateJsonOptions,
+		opts?: GenerateJsonOptions,
+	): Promise<GenerateTextWithJsonResponse<T>> {
 		const { messages, options } = this.parseGenerateTextParameters(userOrSystemOrMessages, userOrOpts, opts);
 		try {
-			const response = await this.generateText(messages, options);
-			return extractJsonResult(response);
+			const responseText = await this.generateText(messages, options);
+			const { reasoning, object } = extractReasoningAndJson<T>(responseText);
+			return {
+				message: assistant(responseText), // Full raw response text as an assistant message
+				reasoning,
+				object,
+			};
 		} catch (e) {
-			if (e instanceof SyntaxError) {
-				const response = await this.generateText(messages, options);
-				return extractJsonResult(response);
+			// Retry if SyntaxError (JSON parsing failed) or Error (specific structure not found by extractReasoningAndJson)
+			if (e instanceof SyntaxError || (e instanceof Error && e.message.startsWith('Failed to extract structured JSON'))) {
+				const responseText = await this.generateText(messages, options); // Second attempt
+				const { reasoning, object } = extractReasoningAndJson<T>(responseText); // Second parse attempt
+				return {
+					message: assistant(responseText),
+					reasoning,
+					object,
+				};
 			}
-			throw e;
+			throw e; // Re-throw other errors
 		}
 	}
 
@@ -167,6 +185,7 @@ export abstract class BaseLLM implements LLM {
 			return extractJsonResult(response);
 		} catch (e) {
 			if (e instanceof SyntaxError) {
+				// TODO should try to just extract it from the response message
 				const response = await this.generateText(messages, options);
 				return extractJsonResult(response);
 			}
@@ -220,8 +239,9 @@ export abstract class BaseLLM implements LLM {
 		return countTokens(text);
 	}
 
-	protected generateTextFromMessages(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
-		throw new Error(`BaseLLM.generateTextFromMessages Not implemented for ${this.getId()}`);
+	protected async generateTextFromMessages(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
+		const msg = await this.generateMessage(llmMessages, opts);
+		return messageText(msg);
 	}
 
 	async streamText(llmMessages: LlmMessage[], onChunk: (chunk: TextStreamPart<any>) => void, opts?: GenerateTextOptions): Promise<GenerationStats> {
@@ -231,6 +251,10 @@ export abstract class BaseLLM implements LLM {
 	isConfigured(): boolean {
 		// Default implementation, should be overridden by specific LLM implementations
 		return true;
+	}
+
+	getOldModels(): string[] {
+		return this.oldIds;
 	}
 
 	/** @deprecated Use callStack in llmCall.ts */

@@ -1,13 +1,13 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
 import { writeFileSync } from 'node:fs';
-import type { AgentLLMs } from '#agent/agentContextTypes';
-import type { RunAgentConfig, RunWorkflowConfig } from '#agent/agentRunner';
-import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
+import type { RunAgentConfig, RunWorkflowConfig } from '#agent/autonomous/autonomousAgentRunner';
+import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { initApplicationContext } from '#app/applicationContext';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { SummarizerAgent } from '#functions/text/summarizer';
 import { defaultLLMs } from '#llm/services/defaultLlms';
+import type { AgentLLMs } from '#shared/agent/agent.model';
 import { parseProcessArgs, saveAgentId } from './cli';
 
 async function main() {
@@ -29,7 +29,7 @@ async function main() {
 		},
 	};
 
-	const agentId = await runAgentWorkflow(config, async () => {
+	const agentId = await runWorkflowAgent(config, async () => {
 		const response = await new SummarizerAgent().summarizeTranscript(initialPrompt, 2);
 		console.log(response);
 		writeFileSync('src/cli/summarize-out', response);

@@ -3,14 +3,15 @@ import * as path from 'node:path';
 import { join } from 'node:path';
 import { Type } from '@sinclair/typebox';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
-import { RunAgentConfig, type RunWorkflowConfig } from '#agent/agentRunner';
-import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
-import { systemDir, typedaiDirName } from '#app/appVars';
+import type { RunWorkflowConfig } from '#agent/autonomous/autonomousAgentRunner';
+import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
+import { systemDir, typedaiDirName } from '#app/appDirs';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { defaultLLMs, summaryLLM } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
+import { RouteDefinition } from '#shared/api-definitions';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
-import { queryWorkflow } from '#swe/discovery/selectFilesAgent';
+import { queryWorkflowWithSearch } from '#swe/discovery/selectFilesAgentWithSearch';
 import { type SelectFilesResponse, selectFilesToEdit } from '#swe/discovery/selectFilesToEdit';
 
 function findRepositories(dir: string): string[] {
@@ -31,7 +32,6 @@ function findRepositories(dir: string): string[] {
 
 	return repos;
 }
-
 export async function workflowRoutes(fastify: AppFastifyInstance) {
 	// /get
 	// See https://docs.gitlab.com/ee/user/project/integrations/webhook_events.html#merge-request-events
@@ -68,7 +68,7 @@ export async function workflowRoutes(fastify: AppFastifyInstance) {
 					},
 				};
 
-				await runAgentWorkflow(config, async () => {
+				await runWorkflowAgent(config, async () => {
 					if (workingDirectory?.trim()) getFileSystem().setWorkingDirectory(workingDirectory);
 					await new CodeEditingAgent().implementUserRequirements(config.initialPrompt);
 				});
@@ -105,7 +105,7 @@ export async function workflowRoutes(fastify: AppFastifyInstance) {
 				};
 
 				let response = '';
-				await runAgentWorkflow(config, async () => {
+				await runWorkflowAgent(config, async () => {
 					// In the UI we strip out the systemDir
 					logger.info(`systemDir ${systemDir()}`);
 					logger.info(`workinDir ${workingDirectory}`);
@@ -116,7 +116,7 @@ export async function workflowRoutes(fastify: AppFastifyInstance) {
 					getFileSystem().setWorkingDirectory(workingDirectory);
 					logger.info(`Working directory is ${getFileSystem().getWorkingDirectory()}`);
 
-					response = await queryWorkflow(query);
+					response = await queryWorkflowWithSearch(query);
 				});
 
 				reply.send({ response });
@@ -151,7 +151,7 @@ export async function workflowRoutes(fastify: AppFastifyInstance) {
 				};
 
 				let response: SelectFilesResponse;
-				runAgentWorkflow(config, async () => {
+				runWorkflowAgent(config, async () => {
 					if (workingDirectory?.trim()) getFileSystem().setWorkingDirectory(workingDirectory);
 					response = await selectFilesToEdit(requirements);
 				})

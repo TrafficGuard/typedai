@@ -1,10 +1,9 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
 import { promises as fs, readFileSync } from 'node:fs';
-import type { AgentLLMs } from '#agent/agentContextTypes';
-import { AGENT_COMPLETED_PARAM_NAME } from '#agent/agentFunctions';
-import { type RunAgentConfig, type RunWorkflowConfig, startAgent, startAgentAndWait } from '#agent/agentRunner';
-import { runAgentWorkflow } from '#agent/agentWorkflowRunner';
+import { type RunAgentConfig, type RunWorkflowConfig, runAgentAndWait, startAgent } from '#agent/autonomous/autonomousAgentRunner';
+import { AGENT_COMPLETED_PARAM_NAME } from '#agent/autonomous/functions/agentFunctions';
+import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { initFirestoreApplicationContext } from '#app/applicationContext';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { GitLab } from '#functions/scm/gitlab';
@@ -12,16 +11,19 @@ import { FileSystemService } from '#functions/storage/fileSystemService';
 import { LlmTools } from '#functions/util';
 import { Perplexity } from '#functions/web/perplexity';
 import { PublicWeb } from '#functions/web/web';
-import { LlmCall } from '#llm/llmCallService/llmCall';
 import { ClaudeLLMs } from '#llm/services/anthropic';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
+import type { AgentLLMs } from '#shared/agent/agent.model';
+import { LlmCall } from '#shared/llmCall/llmCall.model';
 import { SWEBenchAgent, type SWEInstance } from '#swe/SWEBenchAgent';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { sleep } from '#utils/async-utils';
+import { registerErrorHandlers } from '../errorHandlers';
 import { parseProcessArgs, saveAgentId } from './cli';
 
 async function main() {
+	registerErrorHandlers();
 	const instance = JSON.parse(readFileSync('instance.json').toString()) as SWEInstance;
 
 	await new SWEBenchAgent().runInference(instance);
@@ -53,7 +55,7 @@ async function main() {
 		},
 	};
 
-	const agentId = await runAgentWorkflow(config, async () => {
+	const agentId = await runWorkflowAgent(config, async () => {
 		await new CodeEditingAgent().implementUserRequirements(config.initialPrompt);
 	});
 

@@ -12,11 +12,18 @@
         "importHelpers": true,
         "target": "ES2022",
         "module": "ES2022",
+        "skipLibCheck": true,
         "useDefineForClassFields": false,
-        "lib": ["ES2022", "dom"]
+        "lib": ["ES2022", "dom"],
+        "paths": {
+            "#core/*": ["./src/app/core/*"],
+            "#environments/*": ["./src/environments/*"],
+            "#modules/*": ["./src/app/modules/*"],
+            "#shared/*": ["../../shared/*"]
+        }
     },
     "angularCompilerOptions": {
         "enableI18nLegacyMessageIdFormat": false
     },
-    "include": ["src", "../shared"]
+    "include": ["src", "../../shared/**/*.ts",]
 }
