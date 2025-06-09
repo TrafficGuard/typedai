@@ -22,9 +22,6 @@ RUN curl -sL https://deb.nodesource.com/setup_20.x -o nodesource_setup.sh \
     && apt-get install -y nodejs \
     && rm nodesource_setup.sh
 
-# Install global Python packages
-RUN pip install aider-chat google-cloud-aiplatform "anthropic[vertex]" youtube-transcript-api
-
 # Define user and home directory consistently
 ENV USER_NAME=typedai
 ENV HOMEDIR=/home/${USER_NAME}
@@ -97,7 +94,7 @@ RUN eval "$(pyenv init --path)" && \
     pyenv global $(cat ${HOMEDIR}/.python-version) && \
     pyenv rehash
 
-ENV NODE_ENV=production
+ENV NODE_ENV=development
 
 # Needed to avoid "fatal: detected dubious ownership in repository"
 # This applies to /home/typedai because it's mounted from the host and owned by host's user in many cases

@@ -45,14 +45,35 @@ source ./bin/configure_parts/nodejs_setup || exit 1
 echo "Node.js environment setup complete."
 echo "---------------------------------------------------------------------"
 
-# --- Application Setup (local.env, Angular, CLI paths) ---
+# --- Ripgrep Setup ---
 echo ""
-echo "--- Application Configuration and Frontend ---"
-# Source the script part. Use '|| exit 1' to ensure main script exits if part fails.
-# This part is expected to create ./variables/local.env if it doesn't exist.
-source ./bin/configure_parts/app_setup || exit 1
-echo "Application configuration and frontend setup complete."
+echo "--- Ripgrep (rg) Setup ---"
+source ./bin/configure_parts/ripgrep_setup || exit 1
+echo "Ripgrep setup complete."
 echo "---------------------------------------------------------------------"
+
+# --- Initial Environment File Setup ---
+echo ""
+echo "--- Initial Environment File Setup ---"
+# Ensure local.env and test.env exist before any part tries to read them.
+# They are created from the example file.
+if [ ! -f ./variables/local.env.example ]; then
+    echo "❌ Error: Template file ./variables/local.env.example not found."
+    echo "   This file is required to create initial configuration files."
+    exit 1
+fi
+
+if [[ ! -f ./variables/local.env ]]; then
+    echo "Creating local.env by copying from local.env.example"
+    cp ./variables/local.env.example ./variables/local.env
+fi
+if [[ ! -f ./variables/test.env ]]; then
+    echo "Creating test.env by copying from local.env.example"
+    cp ./variables/local.env.example ./variables/test.env
+fi
+echo "Environment files checked/created."
+echo "---------------------------------------------------------------------"
+
 
 # --- Google Cloud Platform Services Configuration ---
 echo ""
@@ -95,6 +116,15 @@ fi
 # Refresh GCLOUD_PROJECT in case gcp_services_setup set it
 (set +e; set +u; source ./variables/local.env)
 CURRENT_GCLOUD_PROJECT=${GCLOUD_PROJECT:-}
+echo "---------------------------------------------------------------------"
+
+# --- Application Setup (local.env, Angular, CLI paths) ---
+echo ""
+echo "--- Application Configuration and Frontend ---"
+# Source the script part. Use '|| exit 1' to ensure main script exits if it fails.
+# This part is expected to create ./variables/local.env if it doesn't exist.
+source ./bin/configure_parts/app_setup || exit 1
+echo "Application configuration and frontend setup complete."
 echo "---------------------------------------------------------------------"
 
 

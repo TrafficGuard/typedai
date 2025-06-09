@@ -12,8 +12,6 @@ RUN curl -sL https://deb.nodesource.com/setup_20.x -o nodesource_setup.sh
 RUN bash ./nodesource_setup.sh
 RUN apt-get install -y nodejs
 
-RUN pip install aider-chat
-
 ENV user=typedai
 ENV homedir=/home/typedai/
 

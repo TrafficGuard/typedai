@@ -1,6 +1,12 @@
 # AI Code reviews
 
+## Scope
+
 TypedAI has support for AI code reviews of GitLab merge requests. Adding GitHub support is a good candidate for using the Code Editor agent to assist with!
+
+The initial code review functionality is for basic style checks focused on the diff changes. Advanced agentic reviews that perform deeper analysis will be a future goal.
+
+## Code review rules configurations
 
 AI code reviews are useful for guidelines where a lint rule doesn't exist yet, or it can't easily be codified.
 
@@ -26,3 +32,9 @@ In `Settings -> Webhooks` configure a webhook to your TypedAI deployment with th
 ![Gitlab webhook](https://public.trafficguard.ai/typedai/gitlab-webhook1.png)
 
 ![Gitlab webhook](https://public.trafficguard.ai/typedai/gitlab-webhook2.png)
+
+# Reviewer account
+
+
+
+https://docs.gitlab.com/api/user_service_accounts/#specify-a-custom-email-address
