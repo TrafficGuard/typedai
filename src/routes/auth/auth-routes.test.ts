@@ -1,10 +1,10 @@
 import { expect } from 'chai';
 import { initInMemoryApplicationContext } from '#app/applicationContext';
 import type { AppFastifyInstance } from '#app/applicationTypes';
-import { authRoutes } from '.';
 import { initFastify } from '../../fastify';
+import { authRoutes } from './index';
 
-describe.skip('Auth Routes', () => {
+describe('Auth Routes', () => {
 	let fastify: AppFastifyInstance;
 	const testUser = {
 		email: 'test@example.com',

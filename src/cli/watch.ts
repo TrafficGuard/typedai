@@ -4,8 +4,9 @@ import type { WatchEventType } from 'node:fs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileExistsSync } from 'tsconfig-paths/lib/filesystem';
+import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
-import { AiderCodeEditor } from '#swe/aiderCodeEditor';
+import { SearchReplaceCoder } from '#swe/coder/searchReplaceCoder';
 import { execCommand } from '#utils/exec';
 
 /**
@@ -98,9 +99,10 @@ export function startWatcher() {
 			// Write the modified lines back to the file
 			await fs.promises.writeFile(filePath, lines.join('\n'), 'utf-8');
 
-			// Pass the prompt to the AiderCodeEditor
-			logger.info('Running Aider...');
-			const result = await new AiderCodeEditor().editFilesToMeetRequirements(prompt, [filePath], false);
+			logger.info('Running Code agent...');
+			// TODO get the VCS root, get the project Info, see if we are in the root project or a sub-project
+			// What additional files to include? query agent or a custom agent for this
+			const result = await new SearchReplaceCoder(getFileSystem()).editFilesToMeetRequirements(prompt, [filePath], [], true, true);
 			logger.info(result);
 			// Exit early after handling the first valid line
 			return;

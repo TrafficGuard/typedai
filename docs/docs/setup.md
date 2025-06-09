@@ -2,10 +2,15 @@
 
 ```bash
 git clone https://github.com/TrafficGuard/typedai.git
-# Copy the default configuration file
-cd typedai/variables
-cp local.env.example local.env
+cd typedai
+source ./bin/configure
 ```
+
+The `configure` script will guide you through the initial setup of TypedAI
+- Check `pyenv`, `fnm` and `ripgrep` are installed
+- Configure the application variables in `./variables/local.env`
+
+Note that only Linux and OSX are supported in the script. 
 
 ## Configuration quick start
 
@@ -30,7 +35,7 @@ LLMs
 Integrations
 - [Perplexity](https://www.perplexity.ai/settings/api)
 - [Jira](https://id.atlassian.com/manage-profile/security/api-tokens)
-- [GitLab](https://www.gitab.com/-/user_settings/personal_access_tokens)
+- [GitLab](https://www.gitlab.com/-/user_settings/personal_access_tokens)
 - [GitHub](https://github.com/settings/tokens?type=beta)
 
 
@@ -95,12 +100,12 @@ Install:
 - [ripgrep](https://github.com/BurntSushi/ripgrep?tab=readme-ov-file#installation)
 - [gcloud](https://cloud.google.com/sdk/docs/install) (Required if you plan to use Google Cloud services or Firestore)
 
-From the TypedAI repository root run `source ./bin/configure`. Follow the prompts for GCP services and database setup.
+From the TypedAI repository root, run `source ./bin/configure`. This is the recommended approach, as the script will guide you through the setup process.
 
-The configure script will:
+Alternatively, if you prefer to set up your environment manually, you can use the following list of actions (which the script performs) as a guide:
 
-- Ensure the python version in *.python-version* is installed and install [aider](https://aider.chat/).
-- Ensure the node.js version in *.nvmrc* is installed using fnm and run `npm install` for the backend.
+- Ensure the python version in *.python-version* is installed.
+- Ensure the node.js version in *.node-version* is installed using fnm and run `npm install` for the backend.
 - Initialise the environment variable file at *variables/local.env* if it doesn't exist.
 - Guide you through configuring Google Cloud services (optional) and choosing your database type.
 - Change to the `frontend` folder and run `npm install`.

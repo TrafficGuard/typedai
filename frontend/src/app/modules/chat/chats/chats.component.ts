@@ -34,13 +34,11 @@ import { ChatServiceClient } from '../chat.service';
 	],
 })
 export class ChatsComponent implements OnInit, OnDestroy {
-	// Service Injections
 	private chatService = inject(ChatServiceClient);
 	private router = inject(Router);
 	private route = inject(ActivatedRoute);
 	private destroyRef = inject(DestroyRef);
 
-	// State Signals
 	sessions = computed(() => this.chatService.chats() ?? []);
 	selectedSessionId = signal<string | null>(null);
 	filterTerm = signal<string>('');
@@ -51,7 +49,6 @@ export class ChatsComponent implements OnInit, OnDestroy {
 	error = signal<any | null>(null);
 	// isCreatingChat signal is removed as chat creation is deferred
 
-	// Computed properties
 	filteredSessions = computed(() => {
 		const term = this.filterTerm().toLowerCase();
 		const currentSessions = this.sessions();

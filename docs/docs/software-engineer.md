@@ -1,6 +1,6 @@
 # AI Coding Agents
 
-The TypedAI software/coding agents build upon the project [Aider](https://aider.chat/), providing additional agents around it for quality and automation.
+The TypedAI software/coding agents perform patch editing of files to implement requirements, with multiple supporting agent workflows.
 
 ## Code Editing Agent
 
@@ -12,7 +12,7 @@ The [Code Editor Agent](https://github.com/TrafficGuard/typedai/blob/main/src/sw
 - Selects the relevant files to edit and other supporting files.
 - Creates an implementation plan from the input requirements and analysing the current code.
 - Run a edit/compile/lint/test cycle
-    - Calls Aider with the implementation plan and file list.
+    - Calls the Search/Replace coder with the implementation plan and file list.
     - Runs compile, format, lint, test targets auto-detected from project configuration.
     - On compile/lint/test errors the agent may:
         - Perform online research to assist with fixing errors (Requires Perplexity configured).
@@ -25,7 +25,7 @@ The [Code Editor Agent](https://github.com/TrafficGuard/typedai/blob/main/src/sw
 The agent context has a FileSystem, which defaults to the TypedAI project directory. If you want to use the code editing agent
 on another local repo then the options are:
 
-- Use the `ss` script described in the [CLI](cli.md) documentation.
+- Use the `ai` script described in the [CLI](cli.md) documentation.
 - Set the TYPEDAI_FS environment variable to the repository path before running a command to start an agent.
 - In a custom agent/workflow set the `RunAgentConfig.fileSystemPath` property on a new agent.
 
@@ -33,9 +33,9 @@ on another local repo then the options are:
 
 Before the agent can perform the code/test/lint loop it needs to know the commands to run, and also to initialise the project.
 
-The agent searches through the files to find the commands and then saves it to the file `projectInfo.json` for re-use.
+The agent searches through the files to find the commands and then saves it to the file `.typedai.json` for re-use.
 
-If the agent makes a mistake in the detection then manually edit the projectInfo.json file.
+If the agent makes a mistake in the detection then manually edit the `.typedai.json` file.
 
 ### Language Tools
  

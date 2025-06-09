@@ -19,7 +19,6 @@ import { onlineResearch } from '#swe/onlineResearch';
 import { reviewChanges } from '#swe/reviewChanges';
 import { supportingInformation } from '#swe/supportingInformation';
 import { execCommand } from '#utils/exec';
-import { AiderCodeEditor } from './aiderCodeEditor';
 import { type SelectFilesResponse, selectFilesToEdit } from './discovery/selectFilesToEdit';
 import { type ProjectInfo, getProjectInfo } from './projectDetection';
 import { basePrompt } from './prompt';
@@ -330,9 +329,12 @@ export class CodeEditingAgent {
 						logger.info(`Static analysis error output: ${staticAnalysisErrorOutput}`);
 						const staticErrorFiles = await this.extractFilenames(`${staticAnalysisErrorOutput}\n\nExtract the filenames from the compile errors.`);
 
-						await new AiderCodeEditor().editFilesToMeetRequirements(
+						await new SearchReplaceCoder().editFilesToMeetRequirements(
 							`Static analysis command: ${projectInfo.staticAnalysis}\n${staticAnalysisErrorOutput}\nFix these static analysis errors`,
 							staticErrorFiles,
+							[],
+							true,
+							true,
 						);
 						// TODO need to compile again
 					}
@@ -401,7 +403,7 @@ export class CodeEditingAgent {
 			try {
 				let testRequirements = `${requirements}\nSome of the requirements may have already been implemented, so don't duplicate any existing implementation meeting the requirements.\n`;
 				testRequirements += 'Write any additional tests that would be of value.';
-				await new AiderCodeEditor().editFilesToMeetRequirements(testRequirements, initialSelectedFiles);
+				await new SearchReplaceCoder().editFilesToMeetRequirements(testRequirements, initialSelectedFiles, [], true, true);
 				await this.compile(projectInfo);
 				await this.runTests(projectInfo);
 				errorAnalysis = null;

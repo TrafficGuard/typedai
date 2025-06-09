@@ -68,8 +68,8 @@ More details at the [Autonomous agent docs](https://typedai.dev/autonomous-agent
   - Auto-detection of project initialization, compile, test and lint
   - Task file selection agent selects the relevant files
   - Design agent creates the implementation plan.
-  - Code editing loop with compile, lint, test, fix (editing delegates to [Aider](https://aider.chat/))
-    - Compile error analyser can search online, add additional files and packages
+  - Code editing loop with compile, lint, test, fix
+    - Compile error analyser can search online, add additional files and install packages
   - Final review of the changes with an additional code editing loop if required.
 - Software Engineer Agent (For ticket to Pull Request workflow):
   - Find the appropriate repository from GitLab/GitHub

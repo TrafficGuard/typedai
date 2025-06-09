@@ -307,7 +307,8 @@
                                     data-testid="msg-input"
                                     cdkTextareaAutosize
                                     #messageInput
-                                    rows="3"
+                                    cdkAutosizeMinRows="2"
+                                    cdkAutosizeMaxRows="10"
                                     class="max-h-100"
                                     (dragover)="onDragOver($event)"
                                     (drop)="onDrop($event)"></textarea>

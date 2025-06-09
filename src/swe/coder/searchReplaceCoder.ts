@@ -17,10 +17,10 @@ import type { EditFormat } from './coderTypes';
 import { MODEL_EDIT_FORMATS } from './constants';
 import { EditApplier } from './editApplier';
 import { parseEditResponse } from './editBlockParser';
-import type { EditSession, RequestedFileEntry, RequestedPackageInstallEntry, RequestedQueryEntry } from './editSession'; // Import new types
+import type { EditSession, RequestedFileEntry, RequestedPackageInstallEntry, RequestedQueryEntry } from './editSession';
 import { newSession } from './editSession';
 import type { EditHook, HookResult } from './hooks/editHook';
-import { stripQuotedWrapping } from './patchUtils'; // Updated import
+import { stripQuotedWrapping } from './patchUtils';
 import { buildFailedEditsReflection, buildHookFailureReflection, buildValidationIssuesReflection } from './reflectionUtils';
 import { EDIT_BLOCK_PROMPTS } from './searchReplacePrompts';
 import { sessionEvents } from './sessionEvents';
@@ -474,7 +474,7 @@ export class SearchReplaceCoder {
 				const dirtyFilesArray = Array.from(pathsToDirtyCommit);
 				logger.info(`Found uncommitted changes in files targeted for edit: ${dirtyFilesArray.join(', ')}. Attempting dirty commit.`);
 				try {
-					await this.vcs.addAllTrackedAndCommit('Aider: Committing uncommitted changes before applying LLM edits');
+					await this.vcs.addAllTrackedAndCommit('Committing uncommitted changes before applying LLM edits');
 					logger.info('Successfully committed dirty files.');
 				} catch (commitError: any) {
 					logger.error({ err: commitError }, 'Dirty commit failed for uncommitted changes.');

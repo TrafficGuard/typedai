@@ -178,7 +178,7 @@ export class SWEBenchAgent {
 
 		// Install additional pip packages
 		const pipPackages = installInstructions.pip_packages?.join(' ') ?? '';
-		await execCommand(`pip install aider ${pipPackages}`);
+		await execCommand(`pip install ${pipPackages}`);
 
 		// Run install command
 		await execCommand(installInstructions.install);

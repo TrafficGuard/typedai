@@ -1,0 +1,56 @@
+#!/bin/bash
+set -e
+
+# Define the Docker image name for the test environment
+IMAGE_NAME="typedai/test_configure:latest"
+DOCKERFILE="bin/configure_parts/Dockerfile"
+
+# Check if the Docker image exists. If not, build it.
+if ! docker image inspect "$IMAGE_NAME" &> /dev/null; then
+    echo "Test environment Docker image not found. Building '$IMAGE_NAME'..."
+    # Ensure the Dockerfile exists
+    if [ ! -f "$DOCKERFILE" ]; then
+        echo "Error: Dockerfile not found at '$DOCKERFILE'"
+        exit 1
+    fi
+    docker build -t "$IMAGE_NAME" -f "$DOCKERFILE" .
+    echo "Docker image '$IMAGE_NAME' built successfully."
+else
+    echo "Using existing Docker image '$IMAGE_NAME'."
+fi
+
+# DOCKER_CMD for interactive testing of the configure script.
+# This command now runs inside the pre-built Docker image.
+read -r -d '' DOCKER_CMD << 'EOF' || true
+set -x && \
+echo "Starting Docker command execution in pre-built environment..." && \
+# The user and directories are created in the Docker image.
+# We still need to handle permissions on volume mounts.
+# Attempt to chown the entire home directory, but ignore errors coming from
+# read-only mounts such as the GCLOUD config volume.
+chown -R testuser:testuser /home/testuser 2>/dev/null || \
+  echo "Warning: Skipping chown errors in /home/testuser (likely read-only mount)" && \
+echo "Ownership of /home/testuser checked." && \
+# The /home/testuser/app directory is created in the image.
+echo "Copying project into workspace (honoring .gitignore rules)..." && \
+rsync -a --exclude='.git/' --filter=':- .gitignore' /app/ /home/testuser/app/ && \
+echo "Setting ownership and permissions for testuser..." && \
+chown -R testuser:testuser /home/testuser/app && \
+chmod -R u+w /home/testuser/app && \
+echo "Project copied to workspace and permissions set." && \
+echo 'Switching to testuser and running configure script interactively via login shell...' && \
+# Run configure; if it fails, drop to an interactive shell for debugging
+sudo -u testuser -i HOME=/home/testuser SHELL=/bin/bash \
+    bash -c "cd /home/testuser/app && ./bin/configure" || {
+        echo "❌ bin/configure exited with code $? – opening interactive bash shell for debugging…"
+        exec bash
+    }
+EOF
+
+# Run docker with the command
+docker run -it --rm \
+  -v "$(pwd):/app" \
+  -v "${HOME}/.config/gcloud:/home/testuser/.config/gcloud:ro" \
+  --workdir /app \
+  "$IMAGE_NAME" \
+  bash -c "$DOCKER_CMD"

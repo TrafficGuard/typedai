@@ -32,7 +32,7 @@ To run the CLI scripts when using the Docker container, run the script `./bin/co
 
 ### Running outside the repository
 
-To run TypedAI agents/workflows via the CLI script described below, in a folder outside the typedai repository, the script at `bin/path/ss` allows you to invoke the TypedAI package.json scripts from any directory.
+To run TypedAI agents/workflows via the CLI script described below, in a folder outside the typedai repository, the script at `bin/path/ai` allows you to invoke the TypedAI package.json scripts from any directory.
 
 The `bin/configure` script will update your shell configuration files to include it in your PATH.
 
@@ -45,7 +45,7 @@ export PATH=$TYPEDAI_HOME/bin/path:$PATH
 
 Then from any folder you can run commands like:
 
-`ss query what test frameworks does this repository use`
+`ai query 'what test frameworks does this repository use'`
 
 Where *query* is the TypedAI package.json script. For all the examples in the CLI scripts section above you can replace `npm run` with `ai`
 
@@ -79,7 +79,7 @@ This is a useful for editing the typedai codebase. You could run a command like:
 npm run code In the anthropic vertex class update the pricing for claude 3.5 sonnet to be 3 dollars per million input tokens and 15 dollars per million output tokens
 ```
 
-When editing other repositories you will need use the `ss` command to run the agent with its virtual filesystem working 
+When editing other repositories you will need use the `ai` command to run the agent with the filesystem tool working 
 directory set to the current shell directory.
 
 ### index

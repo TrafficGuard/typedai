@@ -1,0 +1,158 @@
+# ripgrep (rg) setup ---------------------------------
+
+echo "Checking for ripgrep (rg)..."
+
+# Check if rg is available
+if command -v rg &> /dev/null; then
+    echo "✅ ripgrep (rg) is already installed and available in PATH."
+    echo "   rg version: $(rg --version | head -n 1)"
+    exit 0 # Exit successfully, no further action needed
+fi
+
+# If not found, proceed with installation guidance
+echo "ripgrep (rg) command not found in PATH. Attempting installation guidance..."
+echo ""
+
+os_name=$(uname -s)
+
+if [ "$os_name" = "Darwin" ]; then # macOS
+    echo "On macOS, the recommended installation method is Homebrew."
+    if ! command -v brew &> /dev/null; then
+        echo "❌ Error: Homebrew (brew) is not installed, which is required to install ripgrep automatically." >&2
+        echo "Please install Homebrew first (see https://brew.sh/) and then re-run this script." >&2
+        exit 1
+    fi
+
+    echo "Please choose an option:"
+    echo "  1) Install ripgrep using Homebrew (recommended)."
+    echo "     Command will be: brew install ripgrep"
+    echo "  2) Exit configuration (to install manually)."
+
+    choice=""
+    read -r -p "Enter your choice (1-2): " choice
+
+    case $choice in
+        1)
+            echo "Running: brew install ripgrep"
+            if brew install ripgrep; then
+                echo "✅ ripgrep successfully installed via Homebrew."
+            else
+                echo "❌ Error: 'brew install ripgrep' failed." >&2
+                exit 1
+            fi
+            ;;
+        2)
+            echo "Exiting configuration. Please install ripgrep manually and re-run."
+            exit 1
+            ;;
+        *)
+            echo "Invalid choice. Exiting." >&2
+            exit 1
+            ;;
+    esac
+
+elif [ "$os_name" = "Linux" ]; then
+    # For Linux, first check for Homebrew (Linuxbrew) as it's often preferred by users who have it
+    if command -v brew &> /dev/null; then
+        echo "Homebrew (Linuxbrew) detected. This is a good option for installing ripgrep."
+        echo "Please choose an installation method:"
+        echo "  1) Install ripgrep using Homebrew (Linuxbrew)."
+        echo "     Command will be: brew install ripgrep"
+        if command -v apt-get &> /dev/null; then
+            echo "  2) Install ripgrep using apt-get (requires sudo)."
+            echo "     Command will be: sudo apt-get update -y && sudo apt-get install -y ripgrep"
+            echo "  3) Exit configuration (to install manually)."
+            read -r -p "Enter your choice (1-3): " choice
+        else
+            echo "  2) Exit configuration (to install manually)."
+            read -r -p "Enter your choice (1-2): " choice
+        fi
+
+        case $choice in
+            1)
+                echo "Running: brew install ripgrep"
+                if brew install ripgrep; then
+                    echo "✅ ripgrep successfully installed via Homebrew."
+                else
+                    echo "❌ Error: 'brew install ripgrep' failed." >&2
+                    exit 1
+                fi
+                ;;
+            2)
+                if command -v apt-get &> /dev/null; then
+                    echo "Running: sudo apt-get update -y && sudo apt-get install -y ripgrep"
+                    echo "Updating package lists..."
+                    if sudo apt-get update -y && sudo apt-get install -y ripgrep; then
+                        echo "✅ ripgrep successfully installed via apt-get."
+                    else
+                        echo "❌ Error: 'sudo apt-get update && sudo apt-get install -y ripgrep' failed." >&2
+                        exit 1
+                    fi
+                else # This case is for when apt-get isn't found and user chose '2'
+                    echo "Exiting configuration. Please install ripgrep manually and re-run."
+                    exit 1
+                fi
+                ;;
+            *) # Covers exit and invalid choices
+                echo "Exiting configuration. Please install ripgrep manually and re-run."
+                exit 1
+                ;;
+        esac
+
+    # If no brew, check for apt-get
+    elif command -v apt-get &> /dev/null; then
+        echo "On Debian/Ubuntu-based systems, the recommended installation method is apt-get."
+        echo "Please choose an option:"
+        echo "  1) Install ripgrep using apt-get (requires sudo)."
+        echo "     Command will be: sudo apt-get update -y && sudo apt-get install -y ripgrep"
+        echo "  2) Exit configuration (to install manually)."
+
+        choice=""
+        read -r -p "Enter your choice (1-2): " choice
+
+        case $choice in
+            1)
+                echo "Running: sudo apt-get update -y && sudo apt-get install -y ripgrep"
+                echo "Updating package lists..."
+                if sudo apt-get update -y && sudo apt-get install -y ripgrep; then
+                    echo "✅ ripgrep successfully installed via apt-get."
+                else
+                    echo "❌ Error: 'sudo apt-get update && sudo apt-get install -y ripgrep' failed." >&2
+                    exit 1
+                fi
+                ;;
+            2)
+                echo "Exiting configuration. Please install ripgrep manually and re-run."
+                exit 1
+                ;;
+            *)
+                echo "Invalid choice. Exiting." >&2
+                exit 1
+                ;;
+        esac
+    else
+        echo "❌ Could not find a known package manager (brew, apt-get) to install ripgrep automatically." >&2
+        echo "Please install ripgrep manually for your system. See: https://github.com/BurntSushi/ripgrep#installation" >&2
+        exit 1
+    fi
+else
+    echo "Unsupported OS: $os_name. Please install ripgrep manually." >&2
+    echo "See: https://github.com/BurntSushi/ripgrep#installation" >&2
+    exit 1
+fi
+
+# Final check after installation attempt
+if ! command -v rg &> /dev/null; then
+    echo ""
+    echo "----------------------------------------------------------------------------------" >&2
+    echo "❌ CRITICAL ERROR: ripgrep (rg) command not found after installation attempt." >&2
+    echo "----------------------------------------------------------------------------------" >&2
+    echo "This indicates a problem with the installation or your shell's PATH." >&2
+    echo "You may need to open a new terminal for PATH changes to take effect." >&2
+    echo "Re-run './bin/configure' once 'rg --version' works in your terminal." >&2
+    echo "----------------------------------------------------------------------------------" >&2
+    exit 1
+fi
+
+echo "✅ ripgrep (rg) is now installed and available."
+echo "   rg version: $(rg --version | head -n 1)"

@@ -25,7 +25,6 @@ Included are capable software engineering agents, which have assisted building t
     - Local repository editing
     - Ticket-to-pull request workflow
     - Repository indexing and ad-hoc query agents
-    - Leverages [Aider](https://aider.chat/) for diff editing
 - [Pull request code review agent](https://typedai.dev/code-review/)
 - [AI chat interface](https://typedai.dev/chat/)
 - [Slack chatbot](https://typedai.dev/chatbot/)

@@ -8,12 +8,6 @@ This document provides comprehensive details about the environment variables uti
 - **Description**: The port on which the server application will listen for incoming requests.
 - **Default Value**: `3000`
 
-**DATABASE**
-
-- **Description**: Specifies the (persistent) implementation type of the services.
-- **Default Value**: `firestore`
-- **Options**: `firestore`, `memory`
-
 **AUTH**
 
 - **Description**: Specifies the authentication system.
@@ -29,6 +23,16 @@ This document provides comprehensive details about the environment variables uti
 
 - **Description**: The base URL for the user interface.
 - **Default Value**: `http://localhost:4200/`
+
+**DATABASE_TYPE**
+
+- **Description**: The database provider. Valid values are memory, firestore or postgres
+- **Default Value**: memory
+-
+**DATABASE_NAME**
+
+- **Description**: The ID/name of the database to use. Leaving blank will use the (default) database.
+- **Default Value**:
 
 **TYPEDAI_FS**
 
@@ -51,16 +55,6 @@ This document provides comprehensive details about the environment variables uti
 
 - **Description**: The region for Claude AI model usage.
 - **Default Value**: `us-east5`
-
-**DATABASE_TYPE**
-
-- **Description**: The database provider. Valid values are memory, firestore or postgres
-- **Default Value**: memory
-- 
-**DATABASE_NAME**
-
-- **Description**: The ID/name of the database to use. Leaving blank will use the (default) database.
-- **Default Value**:
 
 ## Observability
 
@@ -111,29 +105,52 @@ Default human-in-the-loop settings if not configured on a new agent.
 
 ## LLM/AI services
 
-**ANTHROPIC_API_KEY**
+All API keys can be set in your user profile in the web UI, which will take precedence over these environment variables.
 
+**ANTHROPIC_API_KEY**
 - **Description**: API key for accessing Anthropic services.
 
-**OPENAI_API_KEY**
+**CEREBRAS_API_KEY**
+- **Description**: API key for accessing Cerebras services.
 
-- **Description**: API key for accessing OpenAI services.
-
-**GROQ_API_KEY**
-
-- **Description**: API key for accessing groq.com services.
-
-**TOGETHERAI_KEY**
-
-- **Description**: API key for accessing Together AI services.
-
-**FIREWORKS_KEY**
-
-- **Description**: API key for accessing Fireworks services.
+**DEEPINFRA_API_KEY**
+- **Description**: API key for accessing DeepInfra services.
 
 **DEEPSEEK_API_KEY**
-
 - **Description**: API key for accessing DeepSeek services.
+
+**FIREWORKS_API_KEY**
+- **Description**: API key for accessing Fireworks AI services.
+
+**GEMINI_API_KEY**
+- **Description**: API key for accessing Google Gemini services.
+
+**GROQ_API_KEY**
+- **Description**: API key for accessing Groq services.
+
+**MISTRAL_API_KEY**
+- **Description**: API key for accessing Mistral AI services.
+
+**NEBIUS_API_KEY**
+- **Description**: API key for accessing Nebius AI services.
+
+**OPENAI_API_KEY**
+- **Description**: API key for accessing OpenAI services.
+
+**OPENROUTER_API_KEY**
+- **Description**: API key for accessing OpenRouter services.
+
+**PERPLEXITY_API_KEY**
+- **Description**: API key for Perplexity AI services.
+
+**SAMBANOVA_API_KEY**
+- **Description**: API key for accessing SambaNova services.
+
+**TOGETHERAI_API_KEY**
+- **Description**: API key for accessing Together AI services.
+
+**XAI_API_KEY**
+- **Description**: API key for accessing xAI (Grok) services.
 
 ## Tools/Integrations
 
@@ -184,10 +201,6 @@ Default human-in-the-loop settings if not configured on a new agent.
 - **Default Value**: (Not set)
 
 ### Search
-
-**PERPLEXITY_KEY**
-
-- **Description**: API key for Perplexity AI.
 
 **GOOGLE_CUSTOM_SEARCH_ENGINE_ID**
 

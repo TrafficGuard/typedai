@@ -314,12 +314,12 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 	// -----------------------------------------------------------------------------------------------------
 
 	/**
-	 * Resize on 'input' and 'ngModelChange' events
+	 * Handle 'input' events to save draft.
+	 * Visual resizing is handled by the cdkTextareaAutosize directive.
 	 *
 	 * @private
 	 */
 	@HostListener('input')
-	@HostListener('ngModelChange')
 	private _resizeMessageInput(): void {
 		// Push current input value to the subject for debounced saving
 		if (this.messageInput && this.messageInput.nativeElement) {
@@ -327,19 +327,8 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 			this.messageInputChanged.next(currentMessage);
 		}
 
-		// Existing resize logic
-		// This doesn't need to trigger Angular's change detection by itself
-		this._ngZone.runOutsideAngular(() => {
-			setTimeout(() => {
-				// Ensure messageInput and nativeElement exist before manipulating style
-				if (this.messageInput && this.messageInput.nativeElement) {
-					// Set the height to 'auto' so we can correctly read the scrollHeight
-					this.messageInput.nativeElement.style.height = 'auto';
-					// Get the scrollHeight and subtract the vertical padding
-					this.messageInput.nativeElement.style.height = `${this.messageInput.nativeElement.scrollHeight}px`;
-				}
-			}, 100);
-		});
+		// The manual resize logic previously here has been removed.
+		// cdkTextareaAutosize will now solely handle the textarea resizing.
 	}
 
 	// -----------------------------------------------------------------------------------------------------
@@ -543,10 +532,6 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 	 * Handles both new chat creation and message sending in existing chats
 	 */
 	async sendMessage(): Promise<void> {
-		// Make method async
-		const chatStateBeforeSend = this.chat();
-		const draftChatIdToClear = chatStateBeforeSend && chatStateBeforeSend.id === NEW_CHAT_ID ? 'new' : chatStateBeforeSend?.id;
-
 		const messageText: string = this.messageInput.nativeElement.value.trim();
 		const attachments: Attachment[] = [...this.selectedAttachments()];
 
@@ -563,14 +548,25 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 			return;
 		}
 
-		this.generating.set(true);
-		this.sendIcon.set('heroicons_outline:stop-circle'); // Or use a different icon for "sending"
+           // Define these before clearing input
+           const chatStateBeforeSend = this.chat();
+           const draftChatIdToClear = chatStateBeforeSend && chatStateBeforeSend.id === NEW_CHAT_ID ? 'new' : chatStateBeforeSend?.id;
+           const enableReformat = this.autoReformatEnabled();
 
-		const userContentPayload: UserContentExt = await attachmentsAndTextToUserContentExt(attachments, messageText); // await the async function
-		const enableReformat = this.autoReformatEnabled();
+           this.generating.set(true);
+           this.sendIcon.set('heroicons_outline:stop-circle'); // Or use a different icon for "sending"
 
-		// Optimistic UI update: add a "generating" placeholder for AI
-		const aiGeneratingMessageEntry: ChatMessage = {
+           // Clear input and selected attachments OPTIMISTICALLY and EARLY
+           if (this.messageInput && this.messageInput.nativeElement) {
+               this.messageInput.nativeElement.value = '';
+           }
+           this.selectedAttachments.set([]);
+           this._resizeMessageInput(); // Ensure textarea resizes and draft logic is triggered
+
+           const userContentPayload: UserContentExt = await attachmentsAndTextToUserContentExt(attachments, messageText); // await the async function
+
+           // Optimistic UI update: add a "generating" placeholder for AI
+           const aiGeneratingMessageEntry: ChatMessage = {
 			id: uuidv4(),
 			content: '.', // UserContentExt can be a string for simple text
 			textContent: '.', // Required by UIMessage
@@ -579,15 +575,11 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 			createdAt: new Date().toISOString(),
 			// textChunks will be derived in displayedMessages
 		};
-		this.generatingAIMessage.set(aiGeneratingMessageEntry);
+           this.generatingAIMessage.set(aiGeneratingMessageEntry);
 
-		this._scrollToBottom(); // Scroll after adding optimistic messages
+           this._scrollToBottom(); // Scroll after adding optimistic messages
 
-		// Clear input and selected attachments
-		this.messageInput.nativeElement.value = '';
-		this.selectedAttachments.set([]);
-
-        const baseChatOptions = currentUser.chat && typeof currentUser.chat === 'object' ? currentUser.chat : {};
+           const baseChatOptions = currentUser.chat && typeof currentUser.chat === 'object' ? currentUser.chat : {};
 		const options = { ...baseChatOptions, thinking: this.llmHasThinkingLevels() ? this.thinkingLevel() : null };
 		// userContentPayload is already created above for the optimistic update
 
@@ -606,39 +598,45 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 			apiCall = this._chatService.sendMessage(currentChat.id, userContentPayload, currentLlmId, options, attachments, enableReformat);
 		}
 
-		apiCall.subscribe({
-			next: (newOrUpdatedChat?: Chat) => {
-				// createChat returns Chat, sendMessage returns void (updates signal)
-				if (newOrUpdatedChat && (!currentChat || currentChat.id === NEW_CHAT_ID)) {
-					// Navigating to new chat ID, service would have updated the main chat signal
-					this.router.navigate([`/ui/chat/${newOrUpdatedChat.id}`]).catch(console.error);
-				}
-				// For sendMessage, the service updates its chat signal, which the component's effect will pick up.
-				// For createChat, the service also updates its chat signal.
-			},
-			error: (error) => {
-				console.error('Error sending message:', error);
-				this._snackBar.open('Failed to send message. Please try again.', 'Close', { duration: 5000, panelClass: ['error-snackbar'] });
-				// Restore input if needed, though optimistic updates are cleared by effect
-				this.messageInput.nativeElement.value = messageText;
-				this.selectedAttachments.set(attachments);
-				// Reset generating states here as well, as the main effect might not run if chat doesn't change
-				this.generating.set(false);
-				this.generatingAIMessage.set(null);
-				this.sendIcon.set('heroicons_outline:paper-airplane');
-			},
-			complete: () => {
-				this.generating.set(false);
-				this.generatingAIMessage.set(null);
-				this.sendIcon.set('heroicons_outline:paper-airplane');
-				this._resizeMessageInput();
-				this._scrollToBottom();
+           let errorOccurredDuringSend = false;
 
-				if (draftChatIdToClear) {
-					this._localStorageService.clearDraftMessage(draftChatIdToClear);
-				}
-			},
-		});
+           apiCall.subscribe({
+               next: (newOrUpdatedChat?: Chat) => {
+                   // errorOccurredDuringSend = false; // Not strictly needed here if only set in error
+                   if (newOrUpdatedChat && (!currentChat || currentChat.id === NEW_CHAT_ID)) {
+                       // Navigating to new chat ID, service would have updated the main chat signal
+                       this.router.navigate([`/ui/chat/${newOrUpdatedChat.id}`]).catch(console.error);
+                   }
+                   // For sendMessage, the service updates its chat signal, which the component's effect will pick up.
+                   // For createChat, the service also updates its chat signal.
+               },
+               error: (error) => {
+                   errorOccurredDuringSend = true;
+                   console.error('Error sending message:', error);
+                   this._snackBar.open('Failed to send message. Please try again.', 'Close', { duration: 5000, panelClass: ['error-snackbar'] });
+                   // Restore input if needed, though optimistic updates are cleared by effect
+                   if (this.messageInput && this.messageInput.nativeElement) {
+                       this.messageInput.nativeElement.value = messageText; // Restore original text
+                   }
+                   this.selectedAttachments.set(attachments); // Restore original attachments
+                   this._resizeMessageInput(); // Resize after restoring
+
+                   this.generating.set(false);
+                   this.generatingAIMessage.set(null);
+                   this.sendIcon.set('heroicons_outline:paper-airplane');
+               },
+               complete: () => {
+                   this.generating.set(false);
+                   this.generatingAIMessage.set(null);
+                   this.sendIcon.set('heroicons_outline:paper-airplane');
+                   // this._resizeMessageInput(); // Moved earlier
+                   this._scrollToBottom();
+
+                   if (!errorOccurredDuringSend && draftChatIdToClear) {
+                       this._localStorageService.clearDraftMessage(draftChatIdToClear);
+                   }
+               },
+           });
 	}
 
 	// Ensure messages have unique IDs for ngFor trackBy

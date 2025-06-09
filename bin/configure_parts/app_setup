@@ -2,18 +2,6 @@
 # Application Configuration and Frontend Setup ---------------------------------
 echo "--- Starting Application Configuration and Frontend Setup ---"
 
-# Default environment variables  ----------------
-
-# Create local.env and test.env if they don't exist by copying from example
-if [[ ! -f ./variables/local.env ]]; then
-    echo "Creating local.env by copying from local.env.example"
-    cp ./variables/local.env.example ./variables/local.env
-fi
-if [[ ! -f ./variables/test.env ]]; then
-    echo "Creating test.env by copying from local.env.example"
-    cp ./variables/local.env.example ./variables/test.env
-fi
-
 # Function to update or add a variable in an .env file (local to this script for now)
 # This function is duplicated in configure for robustness, but kept here for standalone testing/clarity.
 _update_app_env_var() {

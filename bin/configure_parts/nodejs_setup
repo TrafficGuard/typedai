@@ -131,84 +131,129 @@ if command -v fnm &> /dev/null; then
     echo "✅ fnm command is initially available in PATH."
     FNM_COMMAND_AVAILABLE=true
 else
+    os_name=$(uname -s)
     echo "fnm (Fast Node Manager) command not found in PATH. Attempting installation guidance..."
     echo ""
-    echo "Please choose an installation method for fnm:"
-    echo "  1) Install using the recommended script (macOS/Linux). Requires: curl, unzip."
-    echo "     Command will be: curl -fsSL https://fnm.vercel.app/install | bash"
-    echo "  2) Install using Homebrew (macOS/Linux). Requires: brew."
-    echo "     Command will be: brew install fnm"
-    echo "  3) I have already installed fnm or will install it manually now."
-    echo "     (If choosing this, ensure 'fnm' is in your PATH and shell is configured, then re-run this script)."
-    echo "  4) Exit configuration."
 
-    choice=""
-    read -r -p "Enter your choice (1-4): " choice
+    # Define a shared "manual/source" action
+    handle_manual_source_option() {
+        echo "Okay. Attempting to source your shell configuration to find fnm..."
+        local shell_name
+        shell_name="$(basename "$SHELL")"
+        local rc_file=""
 
-    case $choice in
-        1)
-            if ! command -v curl &> /dev/null; then
-                echo "Error: 'curl' is not installed. Please install 'curl' or choose another fnm installation method."
-                exit 1
+        case "$shell_name" in
+            bash) rc_file="$HOME/.bashrc" ;;
+            zsh)  rc_file="$HOME/.zshrc" ;;
+            *)
+                echo "Could not determine shell config file for shell '$shell_name'."
+                # Let the outer check fail.
+                ;;
+        esac
+
+        if [ -n "$rc_file" ] && [ -f "$rc_file" ]; then
+            echo "Sourcing $rc_file..."
+            set +e
+            # shellcheck source=/dev/null
+            source "$rc_file"
+            set -e
+            add_fnm_paths_to_path # Re-run this to be sure
+            if command -v fnm &> /dev/null; then
+                echo "✅ fnm command found after sourcing shell config."
+                FNM_COMMAND_AVAILABLE=true
             fi
-            if ! command -v unzip &> /dev/null; then
-                echo "Error: 'unzip' is not installed. Please install 'unzip' or choose another fnm installation method."
-                exit 1
-            fi
-            echo "Running fnm installation script: curl -fsSL https://fnm.vercel.app/install | bash"
-            if curl -fsSL https://fnm.vercel.app/install | bash; then
-                echo "fnm installation script completed."
-                # Attempt to make fnm available in the current script immediately
-                add_fnm_paths_to_path      # Update current script's PATH
-                ensure_fnm_shell_setup     # Ensure rc file is set up for future shells
-                if command -v fnm &> /dev/null; then
-                    FNM_COMMAND_AVAILABLE=true
+        elif [ -n "$rc_file" ]; then
+            echo "Shell configuration file ($rc_file) not found."
+        fi
+        # If fnm is still not found, the script will fail at the `if ! $FNM_COMMAND_AVAILABLE` check later.
+    }
+
+    if [ "$os_name" = "Linux" ]; then
+        echo "Please choose an installation method for fnm:"
+        echo "  1) Install using the recommended script (fnm.vercel.app). Requires: curl, unzip."
+        echo "     Command will be: curl -fsSL https://fnm.vercel.app/install | bash"
+        echo "  2) I have already installed fnm. (This will attempt to source your shell config)."
+        echo "  3) Exit configuration."
+
+        choice=""
+        read -r -p "Enter your choice (1-3): " choice
+
+        case $choice in
+            1)
+                if ! command -v curl &> /dev/null; then echo "Error: 'curl' is not installed." >&2; exit 1; fi
+                if ! command -v unzip &> /dev/null; then echo "Error: 'unzip' is not installed." >&2; exit 1; fi
+
+                echo "Running fnm installation script: curl -fsSL https://fnm.vercel.app/install | bash"
+                if curl -fsSL https://fnm.vercel.app/install | bash; then
+                    echo "fnm installation script completed."
+                    add_fnm_paths_to_path
+                    ensure_fnm_shell_setup
+                    if command -v fnm &> /dev/null; then
+                        FNM_COMMAND_AVAILABLE=true
+                    fi
+                else
+                    echo "Error: fnm installation script failed." >&2
+                    # print_fnm_shell_setup_instructions # Removed, critical error block handles this
+                    exit 1
                 fi
-            else
-                echo "Error: fnm installation script failed."
-                echo "Please check any error messages above."
-                print_fnm_shell_setup_instructions
+                ;;
+            2)
+                handle_manual_source_option
+                ;;
+            3)
+                echo "Exiting configuration."
+                exit 0
+                ;;
+            *)
+                echo "Invalid choice. Exiting." >&2
                 exit 1
-            fi
-            ;;
-        2)
-            if ! command -v brew &> /dev/null; then
-                echo "Error: Homebrew (brew) is not installed."
-                echo "Please install Homebrew first (see https://brew.sh/) or choose another fnm installation method."
-                exit 1
-            fi
-            echo "Running: brew install fnm"
-            if brew install fnm; then
-                echo "fnm successfully installed via Homebrew."
-                 # Attempt to make fnm available in the current script immediately
-                add_fnm_paths_to_path      # Update current script's PATH
-                ensure_fnm_shell_setup     # Ensure rc file is set up for future shells
-                if command -v fnm &> /dev/null; then
-                    FNM_COMMAND_AVAILABLE=true
+                ;;
+        esac
+
+    elif [ "$os_name" = "Darwin" ]; then # Darwin is macOS
+        echo "Please choose an installation method for fnm:"
+        echo "  1) Install using Homebrew. Requires: brew."
+        echo "     Command will be: brew install fnm"
+        echo "  2) I have already installed fnm. (This will attempt to source your shell config)."
+        echo "  3) Exit configuration."
+
+        choice=""
+        read -r -p "Enter your choice (1-3): " choice
+
+        case $choice in
+            1)
+                if ! command -v brew &> /dev/null; then echo "Error: Homebrew (brew) is not installed." >&2; exit 1; fi
+                echo "Running: brew install fnm"
+                if brew install fnm; then
+                    echo "fnm successfully installed via Homebrew."
+                    add_fnm_paths_to_path
+                    ensure_fnm_shell_setup
+                    if command -v fnm &> /dev/null; then
+                        FNM_COMMAND_AVAILABLE=true
+                    fi
+                else
+                    echo "Error: 'brew install fnm' failed." >&2
+                    # print_fnm_shell_setup_instructions # Removed, critical error block handles this
+                    exit 1
                 fi
-            else
-                echo "Error: 'brew install fnm' failed."
-                echo "Please check any error messages above."
-                print_fnm_shell_setup_instructions
+                ;;
+            2)
+                handle_manual_source_option
+                ;;
+            3)
+                echo "Exiting configuration."
+                exit 0
+                ;;
+            *)
+                echo "Invalid choice. Exiting." >&2
                 exit 1
-            fi
-            ;;
-        3)
-            echo "Okay. Please ensure fnm is installed, accessible in your PATH,"
-            echo "and your shell environment is configured for fnm."
-            print_fnm_shell_setup_instructions
-            echo "Then, re-run this './bin/configure' script."
-            exit 1
-            ;;
-        4)
-            echo "Exiting configuration."
-            exit 0
-            ;;
-        *)
-            echo "Invalid choice. Exiting."
-            exit 1
-            ;;
-    esac
+                ;;
+        esac
+    else
+        echo "Unsupported OS: $os_name. Please install fnm manually."
+        print_fnm_shell_setup_instructions
+        exit 1
+    fi
 
     if ! $FNM_COMMAND_AVAILABLE; then
         echo ""
@@ -231,7 +276,9 @@ echo "Attempting to activate fnm environment for this script session..."
 current_shell_name=$(basename "$SHELL")
 # Use set +e temporarily in case fnm env fails in an unexpected shell
 set +e
-eval "$(fnm env --use-on-cd --shell "$current_shell_name")"
+# We use `fnm env` without `--use-on-cd` to prevent it from interactively prompting
+# to install a version. The script handles the installation explicitly later.
+eval "$(fnm env --shell "$current_shell_name")"
 eval_status=$?
 # Restore set -e
 set -e
@@ -246,7 +293,7 @@ if [ $eval_status -eq 0 ]; then
     fi
 else
     echo "----------------------------------------------------------------------------------"
-    echo "❌ Error: Failed to evaluate 'fnm env --use-on-cd --shell $current_shell_name'."
+    echo "❌ Error: Failed to evaluate 'fnm env --shell $current_shell_name'."
     echo "----------------------------------------------------------------------------------"
     echo "   This means fnm environment variables (like FNM_DIR) could not be set for the script."
     echo "   Subsequent 'fnm install' or 'fnm use' commands are likely to fail."
@@ -257,33 +304,58 @@ else
     exit 1
 fi
 
-# Remind about shell setup for ongoing interactive use, as direct eval only affects current script.
-print_fnm_shell_setup_instructions
 echo "This script will now proceed to use fnm."
 echo ""
 
-
-echo "Installing and using Node.js version specified in .nvmrc using fnm..."
-# fnm automatically reads .nvmrc (or .node-version) in the current directory.
-# 'fnm install' will install the specified Node.js version if not already present.
-fnm install
-if [ $? -ne 0 ]; then
-    echo "❌ Error: 'fnm install' failed."
-    echo "Please check your fnm setup, .nvmrc file, and ensure Node.js can be downloaded/installed."
+# ---------------------------------------------------------------------------
+# Read desired Node.js version from .node-version
+# ---------------------------------------------------------------------------
+NODE_VERSION_FILE=".node-version"
+if [ ! -f "$NODE_VERSION_FILE" ]; then
+    echo "❌  Error: Required file '$NODE_VERSION_FILE' not found."
+    echo "    This file must contain the desired Node.js version (e.g., v22.14.0)."
     exit 1
 fi
-echo "✅ Node.js version from .nvmrc installed (if needed)."
 
-# Explicitly use the version specified in .nvmrc for the current script session.
-# This is important to ensure subsequent commands like 'npm install' use the correct Node.js version.
-fnm use
-if [ $? -ne 0 ]; then
-    echo "❌ Error: 'fnm use' failed."
-    echo "Could not activate the Node.js version specified in .nvmrc."
-    echo "Please check your fnm setup and .nvmrc file."
+NODE_VERSION=$(cat "$NODE_VERSION_FILE" | tr -d '[:space:]')
+if [ -z "$NODE_VERSION" ]; then
+    echo "❌  Error: '$NODE_VERSION_FILE' is empty."
+    echo "    This file must contain the desired Node.js version (e.g., v22.14.0)."
     exit 1
 fi
-echo "✅ Node.js version from .nvmrc activated for this script."
+echo "✅  Desired Node.js version read from $NODE_VERSION_FILE: $NODE_VERSION"
+echo ""
+
+# ---------------------------------------------------------------------------
+# Install the specified Node.js version if not already present
+# ---------------------------------------------------------------------------
+echo "Checking if Node.js $NODE_VERSION is already installed by fnm..."
+# `fnm list` shows installed versions. We grep for the specific version string.
+if ! fnm list | grep -q "$NODE_VERSION"; then
+    echo "Node.js $NODE_VERSION not found, attempting to install it with fnm..."
+    if fnm install "$NODE_VERSION"; then
+        echo "✅ Node.js $NODE_VERSION installed successfully by fnm."
+    else
+        echo "❌ Error: 'fnm install $NODE_VERSION' failed." >&2
+        echo "Please check the output above for error messages."
+        exit 1
+    fi
+else
+    echo "✅ Node.js $NODE_VERSION is already installed by fnm."
+fi
+
+# ---------------------------------------------------------------------------
+# Set the local Node.js version for the project
+# ---------------------------------------------------------------------------
+echo "Setting local Node.js version using 'fnm use'..."
+# 'fnm use' will activate the version for the current shell session based on .node-version
+if fnm use; then
+    echo "✅ Node.js version from .node-version activated for this script."
+else
+    echo "❌ Error: 'fnm use' failed." >&2
+    echo "Could not activate the Node.js version specified in .node-version."
+    exit 1
+fi
 echo "Current Node.js version: $(node -v)"
 echo "Current npm version: $(npm -v)"
 

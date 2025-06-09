@@ -298,3 +298,31 @@ const maxReflectionAttempts = 3;
 ```
 ## Notes
 Use descriptive variable and function names instead of commenting on generic names.
+
+
+# Example - Minimise unnecessary line count
+
+## Original
+This code was repeated multiple times through the tests
+```typescript
+			expect(
+    await fsAsync
+        .access(orphanedSummaryFullPath)
+        .then(() => true)
+        .catch(() => false),
+    'Orphaned summary should exist initially',
+).to.be.true;
+```
+
+## Updated
+```typescript
+async function fileExists(filePath: string): Promise<boolean> {
+    return fsAsync
+        .access(filePath)
+        .then(() => true)
+        .catch(() => false);
+}
+it('should test foo', async () => {
+    expect(await fileExists(orphanedSummaryFullPath)).to.be.true;
+})
+```
