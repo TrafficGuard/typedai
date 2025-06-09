@@ -345,13 +345,21 @@ export class FileSystemService implements IFileSystemService {
 			if (filePath.startsWith('/')) {
 				try {
 					await fs.access(filePath);
-					getActiveSpan()?.setAttribute('resolvedPath', relativeFullPath);
+					getActiveSpan()?.setAttribute('resolvedPath', filePath);
 					contents = (await fs.readFile(filePath)).toString();
-				} catch (absError) {
-					throw new Error(`File ${filePath} does not exist (checked as absolute and relative to ${this.getWorkingDirectory()})`);
+				} catch (absError: any) {
+					const error = new Error(`File ${filePath} does not exist (checked as absolute and relative to ${this.getWorkingDirectory()})`);
+					if (absError.code === 'ENOENT') {
+						(error as any).code = 'ENOENT';
+					}
+					throw error;
 				}
 			} else {
-				throw new Error(`File ${filePath} does not exist (relative to ${this.getWorkingDirectory()})`);
+				const error = new Error(`File ${filePath} does not exist (relative to ${this.getWorkingDirectory()})`);
+				if (e.code === 'ENOENT') {
+					(error as any).code = 'ENOENT';
+				}
+				throw error;
 			}
 			// try {
 			// 	const matches = await this.searchFilesMatchingName(filePath);
