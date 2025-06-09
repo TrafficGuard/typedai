@@ -24,6 +24,13 @@ function hash(content: string): string {
 	return createHash('md5').update(content).digest('hex');
 }
 
+async function fileExists(filePath: string): Promise<boolean> {
+	return fsAsync
+		.access(filePath)
+		.then(() => true)
+		.catch(() => false);
+}
+
 describe.only('IndexDocBuilder', () => {
 	let builder: IndexDocBuilder;
 	let mockFss: FileSystemService;
@@ -34,6 +41,13 @@ describe.only('IndexDocBuilder', () => {
 	let loggerWarnStub: sinon.SinonStub;
 	let loggerErrorStub: sinon.SinonStub;
 	let loggerDebugStub: sinon.SinonStub;
+
+	const setupMockFs = (mockFileSystemConfig: any) => {
+		mock(mockFileSystemConfig);
+		mockFss = new FileSystemService();
+		mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
+		builder = new IndexDocBuilder(mockFss, llm);
+	};
 
 	beforeEach(async () => {
 		// DO NOT mock the filesystem here. It will be mocked in each test.
@@ -85,8 +99,7 @@ describe.only('IndexDocBuilder', () => {
 			const file3Content = 'content of file3.ts';
 
 			const aiConfig = [{ indexDocs: ['src/swe/**/*.ts'] }];
-			mock({
-				// Test-specific mock setup
+			setupMockFs({
 				[MOCK_REPO_ROOT]: {
 					[AI_INFO_FILENAME]: JSON.stringify(aiConfig),
 					src: {
@@ -107,11 +120,6 @@ describe.only('IndexDocBuilder', () => {
 				},
 			});
 
-			// Instantiate FSS and Builder AFTER mocking the filesystem for this test
-			mockFss = new FileSystemService();
-			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
-			builder = new IndexDocBuilder(mockFss, llm);
-
 			await builder.buildIndexDocsInternal();
 
 			// Verify file summaries
@@ -119,27 +127,9 @@ describe.only('IndexDocBuilder', () => {
 			const summaryFile2Path = path.join(MOCK_REPO_ROOT, typedaiDirName, 'docs', 'src/swe/file2.ts.json');
 			const summaryFile3Path = path.join(MOCK_REPO_ROOT, typedaiDirName, 'docs', 'src/swe/sub/file3.ts.json');
 
-			expect(
-				await fsAsync
-					.access(summaryFile1Path)
-					.then(() => true)
-					.catch(() => false),
-				'file1.ts.json should exist',
-			).to.be.true;
-			expect(
-				await fsAsync
-					.access(summaryFile2Path)
-					.then(() => true)
-					.catch(() => false),
-				'file2.ts.json should exist',
-			).to.be.true;
-			expect(
-				await fsAsync
-					.access(summaryFile3Path)
-					.then(() => true)
-					.catch(() => false),
-				'file3.ts.json should exist',
-			).to.be.true;
+			expect(await fileExists(summaryFile1Path), 'file1.ts.json should exist').to.be.true;
+			expect(await fileExists(summaryFile2Path), 'file2.ts.json should exist').to.be.true;
+			expect(await fileExists(summaryFile3Path), 'file3.ts.json should exist').to.be.true;
 
 			const summaryFile1 = JSON.parse(await fsAsync.readFile(summaryFile1Path, 'utf-8'));
 			expect(summaryFile1).to.containSubset({
@@ -154,27 +144,9 @@ describe.only('IndexDocBuilder', () => {
 			const summaryFolderSwePath = path.join(MOCK_REPO_ROOT, typedaiDirName, 'docs', 'src/swe/_index.json');
 			const summaryFolderSrcPath = path.join(MOCK_REPO_ROOT, typedaiDirName, 'docs', 'src/_index.json');
 
-			expect(
-				await fsAsync
-					.access(summaryFolderSubPath)
-					.then(() => true)
-					.catch(() => false),
-				'src/swe/sub/_index.json should exist',
-			).to.be.true;
-			expect(
-				await fsAsync
-					.access(summaryFolderSwePath)
-					.then(() => true)
-					.catch(() => false),
-				'src/swe/_index.json should exist',
-			).to.be.true;
-			expect(
-				await fsAsync
-					.access(summaryFolderSrcPath)
-					.then(() => true)
-					.catch(() => false),
-				'src/_index.json should exist',
-			).to.be.true;
+			expect(await fileExists(summaryFolderSubPath), 'src/swe/sub/_index.json should exist').to.be.true;
+			expect(await fileExists(summaryFolderSwePath), 'src/swe/_index.json should exist').to.be.true;
+			expect(await fileExists(summaryFolderSrcPath), 'src/_index.json should exist').to.be.true;
 
 			const summaryFolderSub = JSON.parse(await fsAsync.readFile(summaryFolderSubPath, 'utf-8'));
 			const expectedSubChildrenHash = hash(`src/swe/sub/file3.ts:${hash(file3Content)}`);
@@ -187,13 +159,7 @@ describe.only('IndexDocBuilder', () => {
 
 			// Verify project summary
 			const projectSummaryPath = path.join(MOCK_REPO_ROOT, typedaiDirName, 'docs', '_project_summary.json');
-			expect(
-				await fsAsync
-					.access(projectSummaryPath)
-					.then(() => true)
-					.catch(() => false),
-				'_project_summary.json should exist',
-			).to.be.true;
+			expect(await fileExists(projectSummaryPath), '_project_summary.json should exist').to.be.true;
 			const projectSummary = JSON.parse(await fsAsync.readFile(projectSummaryPath, 'utf-8'));
 			expect(projectSummary.projectOverview).to.equal('Mocked project overview');
 
@@ -203,30 +169,16 @@ describe.only('IndexDocBuilder', () => {
 			expect(llm.generateText.callCount).to.equal(1);
 
 			const nonMatchingFileSummaryPath = path.join(MOCK_REPO_ROOT, typedaiDirName, 'docs', 'src/other.js.json');
-			expect(
-				await fsAsync
-					.access(nonMatchingFileSummaryPath)
-					.then(() => true)
-					.catch(() => false),
-				'src/other.js.json should not exist',
-			).to.be.false;
+			expect(await fileExists(nonMatchingFileSummaryPath), 'src/other.js.json should not exist').to.be.false;
 
 			const nonMatchingFolderSummaryPath = path.join(MOCK_REPO_ROOT, typedaiDirName, 'docs', 'another/_index.json');
-			expect(
-				await fsAsync
-					.access(nonMatchingFolderSummaryPath)
-					.then(() => true)
-					.catch(() => false),
-				'another/_index.json should not exist',
-			).to.be.false;
+			expect(await fileExists(nonMatchingFolderSummaryPath), 'another/_index.json should not exist').to.be.false;
 		});
 
 		it('should delete orphaned summary files', async () => {
 			const orphanedSummaryRelPath = 'orphaned/file.ts';
-			// const orphanedSummaryJsonPath = path.join(typedaiDirName, 'docs', `${orphanedSummaryRelPath}.json`); // Not used
 
-			mock({
-				// Test-specific mock setup
+			setupMockFs({
 				[MOCK_REPO_ROOT]: {
 					[AI_INFO_FILENAME]: JSON.stringify([{ indexDocs: ['src/**/*.ts'] }]),
 					src: {
@@ -245,52 +197,25 @@ describe.only('IndexDocBuilder', () => {
 				},
 			});
 
-			// Instantiate FSS and Builder AFTER mocking
-			mockFss = new FileSystemService();
-			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
-			builder = new IndexDocBuilder(mockFss, llm);
-
 			const orphanedSummaryFullPath = path.join(MOCK_REPO_ROOT, typedaiDirName, 'docs', 'orphaned/file.ts.json');
-			expect(
-				await fsAsync
-					.access(orphanedSummaryFullPath)
-					.then(() => true)
-					.catch(() => false),
-				'Orphaned summary should exist initially',
-			).to.be.true;
+			expect(await fileExists(orphanedSummaryFullPath), 'Orphaned summary should exist initially').to.be.true;
 
 			await builder.buildIndexDocsInternal();
 
-			expect(
-				await fsAsync
-					.access(orphanedSummaryFullPath)
-					.then(() => true)
-					.catch(() => false),
-				'Orphaned summary should be deleted',
-			).to.be.false;
+			expect(await fileExists(orphanedSummaryFullPath), 'Orphaned summary should be deleted').to.be.false;
 			const existingSummaryFullPath = path.join(MOCK_REPO_ROOT, typedaiDirName, 'docs', 'src/existing.ts.json');
-			expect(
-				await fsAsync
-					.access(existingSummaryFullPath)
-					.then(() => true)
-					.catch(() => false),
-				'Existing summary should still exist',
-			).to.be.true;
+			expect(await fileExists(existingSummaryFullPath), 'Existing summary should still exist').to.be.true;
 		});
 
 		it('should not regenerate summaries if content and children hashes are unchanged', async () => {
 			const fileContent = 'content of file.ts';
 			const aiConfig = [{ indexDocs: ['src/file.ts'] }];
-			// const fileSummaryPath = path.join(typedaiDirName, 'docs', 'src/file.ts.json'); // Not used
-			// const folderSummaryPath = path.join(typedaiDirName, 'docs', 'src/_index.json'); // Not used
-			// const projectSummaryPath = path.join(typedaiDirName, 'docs', '_project_summary.json'); // Not used
 
 			const initialFileHash = hash(fileContent);
 			const initialFolderChildrenHash = hash(`src/file.ts:${initialFileHash}`);
 			const initialProjectChildrenHash = hash(`src:${initialFolderChildrenHash}`);
 
-			mock({
-				// Test-specific mock setup
+			setupMockFs({
 				[MOCK_REPO_ROOT]: {
 					[AI_INFO_FILENAME]: JSON.stringify(aiConfig),
 					src: {
@@ -308,11 +233,6 @@ describe.only('IndexDocBuilder', () => {
 				},
 			});
 
-			// Instantiate FSS and Builder AFTER mocking
-			mockFss = new FileSystemService();
-			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
-			builder = new IndexDocBuilder(mockFss, llm);
-
 			await builder.buildIndexDocsInternal();
 
 			expect(generateFileSummaryStub.called, 'generateFileSummary helper should not be called').to.be.false;
@@ -328,8 +248,7 @@ describe.only('IndexDocBuilder', () => {
 			const fileSummaryRelPath = 'src/file.ts';
 			const fileSummaryJsonPath = path.join(typedaiDirName, 'docs', `${fileSummaryRelPath}.json`);
 
-			mock({
-				// Test-specific mock setup
+			setupMockFs({
 				[MOCK_REPO_ROOT]: {
 					[AI_INFO_FILENAME]: JSON.stringify(aiConfig),
 					src: {
@@ -347,11 +266,6 @@ describe.only('IndexDocBuilder', () => {
 				},
 			});
 
-			// Instantiate FSS and Builder AFTER mocking
-			mockFss = new FileSystemService();
-			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
-			builder = new IndexDocBuilder(mockFss, llm);
-
 			await fsAsync.writeFile(path.join(MOCK_REPO_ROOT, 'src/file.ts'), newFileContent);
 
 			await builder.buildIndexDocsInternal();
@@ -364,35 +278,23 @@ describe.only('IndexDocBuilder', () => {
 		});
 
 		it('should handle missing AI_INFO_FILENAME gracefully', async () => {
-			mock({
-				// Test-specific mock setup
+			setupMockFs({
 				[MOCK_REPO_ROOT]: {
 					// AI_INFO_FILENAME is missing
 				},
 			});
 
-			// Instantiate FSS and Builder AFTER mocking
-			mockFss = new FileSystemService();
-			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
-			builder = new IndexDocBuilder(mockFss, llm);
-
 			await expect(builder.buildIndexDocsInternal()).to.be.rejectedWith(Error, `${AI_INFO_FILENAME} not found`);
 		});
 
 		it('should handle empty indexDocs in AI_INFO_FILENAME', async () => {
-			mock({
-				// Test-specific mock setup
+			setupMockFs({
 				[MOCK_REPO_ROOT]: {
 					[AI_INFO_FILENAME]: JSON.stringify([{ indexDocs: [] }]),
 					src: { 'file.ts': 'content' },
 					[typedaiDirName]: { docs: {} },
 				},
 			});
-
-			// Instantiate FSS and Builder AFTER mocking
-			mockFss = new FileSystemService();
-			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
-			builder = new IndexDocBuilder(mockFss, llm);
 
 			await builder.buildIndexDocsInternal();
 
@@ -407,8 +309,7 @@ describe.only('IndexDocBuilder', () => {
 		it('should load existing summaries', async () => {
 			const summary1Path = 'src/file1.ts';
 			const summary1Content = { path: summary1Path, short: 's1', long: 'l1', meta: { hash: 'h1' } };
-			mock({
-				// Test-specific mock setup
+			setupMockFs({
 				[MOCK_REPO_ROOT]: {
 					[typedaiDirName]: {
 						docs: {
@@ -421,29 +322,18 @@ describe.only('IndexDocBuilder', () => {
 				},
 			});
 
-			// Instantiate FSS and Builder AFTER mocking
-			mockFss = new FileSystemService();
-			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
-			builder = new IndexDocBuilder(mockFss, llm);
-
 			const summaries = await builder.loadBuildDocsSummariesInternal();
 			expect(summaries.size).to.equal(1);
 			expect(summaries.get(summary1Path)).to.deep.equal(summary1Content);
 		});
 
 		it('should call buildIndexDocsInternal if createIfNotExits is true and docs dir is missing', async () => {
-			mock({
-				// Test-specific mock setup
+			setupMockFs({
 				[MOCK_REPO_ROOT]: {
 					[AI_INFO_FILENAME]: JSON.stringify([{ indexDocs: ['src/file.ts'] }]),
 					src: { 'file.ts': 'content' },
 				},
 			});
-
-			// Instantiate FSS and Builder AFTER mocking
-			mockFss = new FileSystemService();
-			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
-			builder = new IndexDocBuilder(mockFss, llm);
 			const buildInternalStub = sinon.stub(builder, 'buildIndexDocsInternal').resolves();
 
 			await builder.loadBuildDocsSummariesInternal(true);
@@ -455,8 +345,7 @@ describe.only('IndexDocBuilder', () => {
 	describe('getTopLevelSummaryInternal', () => {
 		it('should return project overview from _project_summary.json', async () => {
 			const overview = 'Test Project Overview';
-			mock({
-				// Test-specific mock setup
+			setupMockFs({
 				[MOCK_REPO_ROOT]: {
 					[typedaiDirName]: {
 						docs: {
@@ -466,18 +355,12 @@ describe.only('IndexDocBuilder', () => {
 				},
 			});
 
-			// Instantiate FSS and Builder AFTER mocking
-			mockFss = new FileSystemService();
-			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
-			builder = new IndexDocBuilder(mockFss, llm);
-
 			const result = await builder.getTopLevelSummaryInternal();
 			expect(result).to.equal(overview);
 		});
 
 		it('should return empty string if _project_summary.json is missing', async () => {
-			mock({
-				// Test-specific mock setup
+			setupMockFs({
 				[MOCK_REPO_ROOT]: {
 					[typedaiDirName]: {
 						docs: {
@@ -486,11 +369,6 @@ describe.only('IndexDocBuilder', () => {
 					},
 				},
 			});
-
-			// Instantiate FSS and Builder AFTER mocking
-			mockFss = new FileSystemService();
-			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
-			builder = new IndexDocBuilder(mockFss, llm);
 
 			const result = await builder.getTopLevelSummaryInternal();
 			expect(result).to.equal('');
