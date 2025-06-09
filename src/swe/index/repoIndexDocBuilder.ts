@@ -12,7 +12,7 @@ import { withActiveSpan } from '#o11y/trace';
 import { TaskLevel } from '#shared/agent/agent.model';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
 // Import the rich LLM interface for client instances
-import type { LLM as LLMClientInterface } from '#shared/llm/llm.model';
+import type { LLM } from '#shared/llm/llm.model';
 import { AI_INFO_FILENAME } from '#swe/projectDetection';
 import { errorToString } from '#utils/errors';
 import { type Summary, generateDetailedSummaryPrompt, generateFileSummary, generateFolderSummary } from './llmSummaries';
@@ -38,7 +38,7 @@ function hash(content: string): string {
 export class IndexDocBuilder {
 	constructor(
 		private fss: IFileSystemService,
-		private llms: { easy: LLMClientInterface; medium: LLMClientInterface },
+		private llm: LLM,
 	) {}
 
 	private static getSummaryFileName(filePath: string): string {
@@ -175,7 +175,7 @@ export class IndexDocBuilder {
 		}
 
 		const parentSummaries = await this.getParentSummaries(dirname(filePath));
-		const doc = await generateFileSummary(fileContents, parentSummaries, this.llms.medium); // Use medium LLM for file summaries
+		const doc = await generateFileSummary(fileContents, parentSummaries, this.llm); // Use medium LLM for file summaries
 		doc.path = relativeFilePath;
 		doc.meta = { hash: currentContentHash };
 
@@ -301,7 +301,7 @@ export class IndexDocBuilder {
 		try {
 			const combinedSummaryText = IndexDocBuilder.combineFileAndSubFoldersSummaries(fileSummaries, subFolderSummaries);
 			const parentSummaries = await this.getParentSummaries(folderPath);
-			const folderSummary = await generateFolderSummary(this.llms.easy, combinedSummaryText, parentSummaries); // Use easy LLM for folder summaries
+			const folderSummary = await generateFolderSummary(this.llm, combinedSummaryText, parentSummaries); // Use easy LLM for folder summaries
 			folderSummary.path = relativeFolderPath;
 			folderSummary.meta = { hash: currentChildrensCombinedHash };
 
@@ -407,7 +407,7 @@ export class IndexDocBuilder {
 		}
 
 		const combinedSummaryText = allFolderSummaries.map((summary) => `${summary.path}:\n${summary.long}`).join('\n\n');
-		const newProjectOverview = await this.llms.easy.generateText(generateDetailedSummaryPrompt(combinedSummaryText), {
+		const newProjectOverview = await this.llm.generateText(generateDetailedSummaryPrompt(combinedSummaryText), {
 			id: 'Generate top level project summary',
 		}); // Use easy LLM
 
@@ -641,8 +641,7 @@ export class IndexDocBuilder {
  */
 export async function buildIndexDocs(): Promise<void> {
 	const fss = getFileSystem();
-	const allLlms = llms();
-	const builder = new IndexDocBuilder(fss, { easy: allLlms.easy, medium: allLlms.medium });
+	const builder = new IndexDocBuilder(fss, llms().easy);
 	await builder.buildIndexDocsInternal();
 }
 
@@ -658,7 +657,7 @@ export async function getRepositoryOverview(): Promise<string> {
 	// getRepositoryOverview doesn't directly use LLM for generation, only for reading existing summary.
 	// Passing a dummy or 'easy' LLM if the builder's methods it calls might need one.
 	// getTopLevelSummaryInternal does not use LLM.
-	const builder = new IndexDocBuilder(fss, { easy: llms().easy, medium: llms().medium }); // Pass all LLMs
+	const builder = new IndexDocBuilder(fss, llms().easy);
 	const repositoryOverview: string = await builder.getTopLevelSummaryInternal();
 	return repositoryOverview ? `<repository-overview>\n${repositoryOverview}\n</repository-overview>\n` : '';
 }
@@ -682,7 +681,6 @@ export async function getRepositoryOverview(): Promise<string> {
  */
 export async function loadBuildDocsSummaries(createIfNotExits = false): Promise<Map<string, Summary>> {
 	const fss = getFileSystem();
-	const allLlms = llms();
-	const builder = new IndexDocBuilder(fss, { easy: allLlms.easy, medium: allLlms.medium });
+	const builder = new IndexDocBuilder(fss, llms().easy);
 	return builder.loadBuildDocsSummariesInternal(createIfNotExits);
 }

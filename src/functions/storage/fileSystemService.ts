@@ -111,10 +111,6 @@ export class FileSystemService implements IFileSystemService {
 		return this.workingDirectory;
 	}
 
-	setWorkingDirectoryUnsafe(dir: string) {
-		this.workingDirectory = dir;
-	}
-
 	/**
 	 * Set the working directory. The dir argument may be an absolute filesystem path, otherwise relative to the current working directory.
 	 * If the dir starts with / it will first be checked as an absolute directory, then as relative path to the working directory.
