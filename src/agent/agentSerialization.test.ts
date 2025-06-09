@@ -83,19 +83,19 @@ describe('serializeContext', () => {
 		toJSON: sinon.stub().returns({ basePath, workingDirectory }),
 		fromJSON: sinon.stub(),
 		readFile: sinon.stub(),
-		readFileAsXML: sinon.stub(), // Added missing method
+		readFileAsXML: sinon.stub(),
 		writeFile: sinon.stub(),
-		listFilesInDirectory: sinon.stub(), // Added to reflect interface
-		listFilesRecursively: sinon.stub(), // Added to reflect interface
-		listFilesRecurse: sinon.stub(), // Added to reflect interface
-		fileExists: sinon.stub(), // Added to reflect interface
-		directoryExists: sinon.stub(), // Added to reflect interface
+		listFilesInDirectory: sinon.stub(),
+		listFilesRecursively: sinon.stub(),
+		listFilesRecurse: sinon.stub(),
+		fileExists: sinon.stub(),
+		directoryExists: sinon.stub(),
 		getWorkingDirectory: sinon.stub(),
 		setWorkingDirectory: sinon.stub(),
 		getBasePath: sinon.stub(),
-		searchFilesMatchingContents: sinon.stub(), // Added to reflect interface
-		searchExtractsMatchingContents: sinon.stub(), // Added to reflect interface
-		searchFilesMatchingName: sinon.stub(), // Added to reflect interface
+		searchFilesMatchingContents: sinon.stub(),
+		searchExtractsMatchingContents: sinon.stub(),
+		searchFilesMatchingName: sinon.stub(),
 		getFileContentsRecursively: sinon.stub(),
 		getFileContentsRecursivelyAsXml: sinon.stub(),
 		readFiles: sinon.stub(),
@@ -112,6 +112,7 @@ describe('serializeContext', () => {
 		buildNodeTreeRecursive: sinon.stub(),
 		getVcs: sinon.stub(),
 		getVcsRoot: sinon.stub(),
+		deleteFile: sinon.stub(),
 	});
 
 	// Minimal AgentCompleted mock

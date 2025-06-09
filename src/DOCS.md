@@ -38,6 +38,10 @@ function foo() {
 }
 ```
 
+# Code Guidelines - Unit Tests
+
+### setupConditionalLoggerOutput()
+
 The first line of the top level describe() in a test file must be setupConditionalLoggerOutput();
 ```typescript
 import {setupConditionalLoggerOutput} from "#test/testUtils";
@@ -49,9 +53,9 @@ describe('ModuleName', () => {
 });
 ```
 
+### Shared service/repository tests
 
-
-The main unit/integration test suite for a service/repository must be shared between all implementations.
+The main unit/integration test suite for a database implementation of a service/repository must be shared between all implementations.
 
 fooService.ts
 ```typescript

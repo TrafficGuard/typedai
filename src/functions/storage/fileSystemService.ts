@@ -1,20 +1,20 @@
-import {access, existsSync, lstat, mkdir, readdir, readFile, stat, unlink, writeFile} from 'node:fs';
-import path, {join, resolve} from 'node:path';
-import {promisify} from 'node:util';
-import ignore, {type Ignore} from 'ignore';
+import { access, existsSync, lstat, mkdir, readFile, readdir, stat, unlink, writeFile } from 'node:fs';
+import path, { join, resolve } from 'node:path';
+import { promisify } from 'node:util';
+import ignore, { type Ignore } from 'ignore';
 import type Pino from 'pino';
-import {agentContext} from '#agent/agentContextLocalStorage';
-import {TYPEDAI_FS} from '#app/appDirs';
+import { agentContext } from '#agent/agentContextLocalStorage';
+import { TYPEDAI_FS } from '#app/appDirs';
+import { parseArrayParameterValue } from '#functionSchema/functionUtils';
+import { Git } from '#functions/scm/git';
+import { LlmTools } from '#functions/util';
+import { logger } from '#o11y/logger';
+import { getActiveSpan } from '#o11y/trace';
 import { FileNotFound } from '#shared/errors';
-import {parseArrayParameterValue} from '#functionSchema/functionUtils';
-import {Git} from '#functions/scm/git';
-import {LlmTools} from '#functions/util';
-import {logger} from '#o11y/logger';
-import {getActiveSpan} from '#o11y/trace';
-import type {FileSystemNode, IFileSystemService} from '#shared/files/fileSystemService';
-import type {VersionControlSystem} from '#shared/scm/versionControlSystem';
-import {arg, execCmdSync, spawnCommand} from '#utils/exec';
-import {formatXmlContent} from '#utils/xml-utils';
+import type { FileSystemNode, IFileSystemService } from '#shared/files/fileSystemService';
+import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
+import { arg, execCmdSync, spawnCommand } from '#utils/exec';
+import { formatXmlContent } from '#utils/xml-utils';
 
 const fs = {
 	readFile: promisify(readFile),
@@ -340,7 +340,7 @@ export class FileSystemService implements IFileSystemService {
 			await fs.access(relativeFullPath);
 			getActiveSpan()?.setAttribute('resolvedPath', relativeFullPath);
 			contents = (await fs.readFile(relativeFullPath)).toString();
-		} catch(e: any) {
+		} catch (e: any) {
 			// If relative fails, check if it's an absolute path
 			if (filePath.startsWith('/')) {
 				try {
@@ -348,10 +348,7 @@ export class FileSystemService implements IFileSystemService {
 					getActiveSpan()?.setAttribute('resolvedPath', filePath);
 					contents = (await fs.readFile(filePath)).toString();
 				} catch (absError: any) {
-					throw new FileNotFound(
-						`File ${filePath} does not exist (checked as absolute and relative to ${this.getWorkingDirectory()})`,
-						absError.code,
-					);
+					throw new FileNotFound(`File ${filePath} does not exist (checked as absolute and relative to ${this.getWorkingDirectory()})`, absError.code);
 				}
 			} else {
 				throw new FileNotFound(`File ${filePath} does not exist (relative to ${this.getWorkingDirectory()})`, e.code);

@@ -1,5 +1,6 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
+import { llms } from '#agent/agentContextLocalStorage';
 import type { RunAgentConfig, RunWorkflowConfig } from '#agent/autonomous/autonomousAgentRunner';
 import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { initApplicationContext } from '#app/applicationContext';
@@ -39,7 +40,7 @@ async function main() {
 	// if (console.log) return;
 
 	const agentId = await runWorkflowAgent(config, async () => {
-		await buildIndexDocs();
+		await buildIndexDocs(llms().easy);
 	});
 
 	if (agentId) {

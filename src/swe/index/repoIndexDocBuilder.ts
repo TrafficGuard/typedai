@@ -634,7 +634,6 @@ export async function getRepositoryOverview(): Promise<string> {
 /**
  * Loads build documentation summaries from the specified directory.
  *
- * @param llm
  * @returns {Promise<Map<string, Summary>>} A promise that resolves to a Map of file paths to their corresponding Summary objects.
  * @throws {Error} If there's an error listing files in the docs directory.
  *
@@ -648,8 +647,8 @@ export async function getRepositoryOverview(): Promise<string> {
  * const summaries = await loadBuildDocsSummaries();
  * console.log(`Loaded ${summaries.size} summaries`);
  */
-export async function loadBuildDocsSummaries(llm: LLM): Promise<Map<string, Summary>> {
+export async function loadBuildDocsSummaries(): Promise<Map<string, Summary>> {
 	const fss = getFileSystem();
-	const builder = new IndexDocBuilder(fss, llm);
+	const builder = new IndexDocBuilder(fss, {} as LLM); // LLM not used when only loading
 	return builder.loadBuildDocsSummariesInternal();
 }

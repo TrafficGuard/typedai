@@ -153,6 +153,8 @@ export interface IFileSystemService {
 	 */
 	writeFile(filePath: string, contents: string): Promise<void>;
 
+	deleteFile(filePath: string): Promise<void>;
+
 	/**
 	 * Reads a file, then transforms the contents using a LLM to perform the described changes, then writes back to the file.
 	 * @param {string} filePath The file to update

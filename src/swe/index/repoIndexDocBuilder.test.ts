@@ -1,7 +1,5 @@
 import { createHash } from 'node:crypto';
 import { promises as fsAsync } from 'node:fs';
-import { createHash } from 'node:crypto';
-import { promises as fsAsync } from 'node:fs';
 import path from 'node:path';
 import chai, { expect } from 'chai';
 import chaiSubset from 'chai-subset';
@@ -13,24 +11,10 @@ import { FileSystemService } from '#functions/storage/fileSystemService';
 import type { LLM } from '#shared/llm/llm.model';
 import { IndexDocBuilder, buildIndexDocs, getRepositoryOverview, loadBuildDocsSummaries } from '#swe/index/repoIndexDocBuilder';
 import { AI_INFO_FILENAME } from '#swe/projectDetection';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import * as llmSummaries from './llmSummaries';
-import {setupConditionalLoggerOutput} from "#test/testUtils";
-import {MockLLM} from "#llm/services/mock-llm";
 
 chai.use(chaiSubset);
-
-const MOCK_REPO_ROOT = '/test-repo';
-
-function hash(content: string): string {
-	return createHash('md5').update(content).digest('hex');
-}
-
-async function fileExists(filePath: string): Promise<boolean> {
-	return fsAsync
-		.access(filePath)
-		.then(() => true)
-		.catch(() => false);
-}
 
 const MOCK_REPO_ROOT = '/test-repo';
 
@@ -424,7 +408,7 @@ describe('Exported repoIndexDocBuilder functions', () => {
 
 	it('loadBuildDocsSummaries exported function should run', async () => {
 		const loadInternalSpy = sinon.spy(IndexDocBuilder.prototype, 'loadBuildDocsSummariesInternal');
-		await loadBuildDocsSummaries(llm);
+		await loadBuildDocsSummaries();
 		expect(loadInternalSpy.calledOnceWith()).to.be.true;
 		loadInternalSpy.restore();
 	});
