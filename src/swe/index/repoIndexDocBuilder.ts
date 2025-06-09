@@ -7,11 +7,7 @@ import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { typedaiDirName } from '#app/appDirs';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
-// LLM type for task levels (LLM IDs) can still be imported if needed elsewhere, but be specific.
-// For clarity, if TaskLevel's LLM is just an ID string, it's fine.
-import { TaskLevel } from '#shared/agent/agent.model';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
-// Import the rich LLM interface for client instances
 import type { LLM } from '#shared/llm/llm.model';
 import { AI_INFO_FILENAME } from '#swe/projectDetection';
 import { errorToString } from '#utils/errors';

@@ -1,19 +1,19 @@
-import { access, existsSync, lstat, mkdir, readFile, readdir, stat, unlink, writeFile } from 'node:fs';
-import path, { join, resolve } from 'node:path';
-import { promisify } from 'node:util';
-import ignore, { type Ignore } from 'ignore';
+import {access, existsSync, lstat, mkdir, readdir, readFile, stat, unlink, writeFile} from 'node:fs';
+import path, {join, resolve} from 'node:path';
+import {promisify} from 'node:util';
+import ignore, {type Ignore} from 'ignore';
 import type Pino from 'pino';
-import { agentContext } from '#agent/agentContextLocalStorage';
-import { TYPEDAI_FS } from '#app/appDirs';
-import { parseArrayParameterValue } from '#functionSchema/functionUtils';
-import { Git } from '#functions/scm/git';
-import { LlmTools } from '#functions/util';
-import { logger } from '#o11y/logger';
-import { getActiveSpan } from '#o11y/trace';
-import type { FileSystemNode, IFileSystemService } from '#shared/files/fileSystemService';
-import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
-import { arg, execCmdSync, spawnCommand } from '#utils/exec';
-import { formatXmlContent } from '#utils/xml-utils';
+import {agentContext} from '#agent/agentContextLocalStorage';
+import {TYPEDAI_FS} from '#app/appDirs';
+import {parseArrayParameterValue} from '#functionSchema/functionUtils';
+import {Git} from '#functions/scm/git';
+import {LlmTools} from '#functions/util';
+import {logger} from '#o11y/logger';
+import {getActiveSpan} from '#o11y/trace';
+import type {FileSystemNode, IFileSystemService} from '#shared/files/fileSystemService';
+import type {VersionControlSystem} from '#shared/scm/versionControlSystem';
+import {arg, execCmdSync, spawnCommand} from '#utils/exec';
+import {formatXmlContent} from '#utils/xml-utils';
 
 const fs = {
 	readFile: promisify(readFile),
@@ -327,20 +327,19 @@ export class FileSystemService implements IFileSystemService {
 	/**
 	 * Gets the contents of a local file on the file system. If the user has only provided a filename you may need to find the full path using the searchFilesMatchingName function.
 	 * @param filePath The file path to read the contents of (e.g. src/index.ts)
-	 * @returns the contents of the file(s) in format <file_contents path="dir/file1">file1 contents</file_contents><file_contents path="dir/file2">file2 contents</file_contents>
+	 * @returns the contents of the file
 	 */
 	async readFile(filePath: string): Promise<string> {
 		logger.debug(`readFile ${filePath}`);
 		let contents: string;
 		const relativeFullPath = path.join(this.getWorkingDirectory(), filePath);
-		// logger.debug(`Checking ${filePath} and ${relativeFullPath}`);
 
 		try {
 			// Check relative to current working directory first using async access
 			await fs.access(relativeFullPath);
 			getActiveSpan()?.setAttribute('resolvedPath', relativeFullPath);
 			contents = (await fs.readFile(relativeFullPath)).toString();
-		} catch {
+		} catch(e: any) {
 			// If relative fails, check if it's an absolute path
 			if (filePath.startsWith('/')) {
 				try {
@@ -348,27 +347,13 @@ export class FileSystemService implements IFileSystemService {
 					getActiveSpan()?.setAttribute('resolvedPath', filePath);
 					contents = (await fs.readFile(filePath)).toString();
 				} catch (absError: any) {
-					const error = new Error(`File ${filePath} does not exist (checked as absolute and relative to ${this.getWorkingDirectory()})`);
-					if (absError.code === 'ENOENT') {
-						(error as any).code = 'ENOENT';
-					}
-					throw error;
+					// if (absError.code === 'ENOENT') error.code = 'ENOENT';
+					throw new Error(`File ${filePath} does not exist (checked as absolute and relative to ${this.getWorkingDirectory()})`);
 				}
 			} else {
-				const error = new Error(`File ${filePath} does not exist (relative to ${this.getWorkingDirectory()})`);
-				if (e.code === 'ENOENT') {
-					(error as any).code = 'ENOENT';
-				}
-				throw error;
+				// if (absError.code === 'ENOENT') error.code = 'ENOENT';
+				throw new Error(`File ${filePath} does not exist (relative to ${this.getWorkingDirectory()})`);
 			}
-			// try {
-			// 	const matches = await this.searchFilesMatchingName(filePath);
-			//  if (matches.length === 1) {
-			// 		fullPath = matches[0];
-			// 	}
-			// } catch (e) {
-			// 	console.log(e);
-			// }
 		}
 
 		getActiveSpan()?.setAttribute('size', contents.length);
