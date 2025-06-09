@@ -554,7 +554,7 @@ export class IndexDocBuilder {
 		});
 	}
 
-	async loadBuildDocsSummariesInternal(createIfNotExits = false): Promise<Map<string, Summary>> {
+	async loadBuildDocsSummariesInternal(): Promise<Map<string, Summary>> {
 		const summaries = new Map<string, Summary>();
 		const repoFolder = this.fss.getVcsRoot() ?? this.fss.getWorkingDirectory();
 		const docsDir = join(repoFolder, typedaiDirName, 'docs');
@@ -567,28 +567,12 @@ export class IndexDocBuilder {
 			if (e.code !== 'ENOENT') logger.warn(`Error checking stats for docs directory ${docsDir}: ${errorToString(e)}`);
 		}
 
-		try {
-			if (!dirExists && !createIfNotExits) {
-				logger.warn(`The ${docsDir} directory does not exist.`);
-				return summaries;
-			}
-			if (!dirExists && createIfNotExits) {
-				logger.info(`Docs directory ${docsDir} does not exist. Building index docs.`);
-				await this.buildIndexDocsInternal(); // Call the internal method
-				try {
-					dirExists = await this.fss.directoryExists(docsDir);
-				} catch (e: any) {
-					if (e.code !== 'ENOENT') logger.error(`Error re-checking stats for docs directory ${docsDir} after build: ${errorToString(e)}`);
-					dirExists = false;
-				}
-				if (!dirExists) {
-					logger.error(`Docs directory ${docsDir} still does not exist after attempting to build index docs.`);
-					return summaries;
-				}
-			} else if (!dirExists) {
-				return summaries;
-			}
+		if (!dirExists) {
+			logger.warn(`The ${docsDir} directory does not exist.`);
+			return summaries;
+		}
 
+		try {
 			const files = await this.fss.listFilesRecursively(docsDir, true);
 			logger.info(`Found ${files.length} files in ${docsDir}`);
 
@@ -651,13 +635,12 @@ export async function getRepositoryOverview(): Promise<string> {
  * Loads build documentation summaries from the specified directory.
  *
  * @param llm
- * @param {boolean} [createIfNotExits=false] - If true, creates the documentation directory if it doesn't exist and attempts to build docs.
  * @returns {Promise<Map<string, Summary>>} A promise that resolves to a Map of file paths to their corresponding Summary objects.
  * @throws {Error} If there's an error listing files in the docs directory.
  *
  * @description
  * This function performs the following steps:
- * 1. Checks if the docs directory exists, creating it and building docs if necessary and requested.
+ * 1. Checks if the docs directory exists.
  * 2. Lists all JSON files in the docs directory recursively.
  * 3. Reads and parses each JSON file, storing the resulting Summary objects in a Map.
  *
@@ -665,8 +648,8 @@ export async function getRepositoryOverview(): Promise<string> {
  * const summaries = await loadBuildDocsSummaries();
  * console.log(`Loaded ${summaries.size} summaries`);
  */
-export async function loadBuildDocsSummaries(llm: LLM, createIfNotExits = false): Promise<Map<string, Summary>> {
+export async function loadBuildDocsSummaries(llm: LLM): Promise<Map<string, Summary>> {
 	const fss = getFileSystem();
 	const builder = new IndexDocBuilder(fss, llm);
-	return builder.loadBuildDocsSummariesInternal(createIfNotExits);
+	return builder.loadBuildDocsSummariesInternal();
 }

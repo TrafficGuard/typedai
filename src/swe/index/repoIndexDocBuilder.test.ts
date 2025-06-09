@@ -1,10 +1,13 @@
 import { createHash } from 'node:crypto';
 import { promises as fsAsync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { promises as fsAsync } from 'node:fs';
 import path from 'node:path';
 import chai, { expect } from 'chai';
 import chaiSubset from 'chai-subset';
 import mock from 'mock-fs';
 import sinon from 'sinon';
+import * as agentContextLocalStorage from '#agent/agentContextLocalStorage';
 import { typedaiDirName } from '#app/appDirs';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import type { LLM } from '#shared/llm/llm.model';
@@ -15,6 +18,19 @@ import {setupConditionalLoggerOutput} from "#test/testUtils";
 import {MockLLM} from "#llm/services/mock-llm";
 
 chai.use(chaiSubset);
+
+const MOCK_REPO_ROOT = '/test-repo';
+
+function hash(content: string): string {
+	return createHash('md5').update(content).digest('hex');
+}
+
+async function fileExists(filePath: string): Promise<boolean> {
+	return fsAsync
+		.access(filePath)
+		.then(() => true)
+		.catch(() => false);
+}
 
 const MOCK_REPO_ROOT = '/test-repo';
 
@@ -369,6 +385,18 @@ describe('Exported repoIndexDocBuilder functions', () => {
 	// No need for builderInstanceStub if spying on prototype
 
 	beforeEach(async () => {
+		// Set up a mock filesystem needed for the functions to run
+		mock({
+			[MOCK_REPO_ROOT]: {
+				[AI_INFO_FILENAME]: JSON.stringify([{ indexDocs: ['src/file.ts'] }]),
+				src: { 'file.ts': 'content' },
+			},
+		});
+		// Stub the global getFileSystem to return a service instance for our mock FS
+		const fss = new FileSystemService(MOCK_REPO_ROOT);
+		sinon.stub(fss, 'getVcsRoot').returns(MOCK_REPO_ROOT);
+		sinon.stub(agentContextLocalStorage, 'getFileSystem').returns(fss);
+
 		llm = {
 			generateText: sinon.stub(),
 			generateTextWithJson: sinon.stub(),
@@ -386,16 +414,17 @@ describe('Exported repoIndexDocBuilder functions', () => {
 			getOldModels: sinon.stub(),
 		} as sinon.SinonStubbedInstance<LLM>;
 
-		// If getFileSystem() or llms() are used by the exported functions to create IndexDocBuilder,
-		// they would need to be stubbed here to return appropriate mocks.
-		// For example:
-		// sinon.stub(agentContextLocalStorage, 'getFileSystem').returns(sinon.createStubInstance(FileSystemService));
-		// sinon.stub(agentContextLocalStorage, 'llms').returns({ easy: mockEasyLlmForExported, medium: mockMediumLlmForExported });
+		// Configure the LLM stubs to return the data needed to prevent the error
+		(llm.generateJson as sinon.SinonStub).resolves({
+			short: 'One-sentence file summary',
+			long: 'Detailed paragraph describing the file',
+		});
+		(llm.generateText as sinon.SinonStub).resolves('Mocked project overview');
 	});
 
 	afterEach(async () => {
 		sinon.restore();
-		// mock.restore(); // Only if mock-fs was used in this describe block's tests
+		mock.restore(); // Restore the real filesystem
 	});
 
 	it('buildIndexDocs exported function should run', async () => {
@@ -409,8 +438,8 @@ describe('Exported repoIndexDocBuilder functions', () => {
 
 	it('loadBuildDocsSummaries exported function should run', async () => {
 		const loadInternalSpy = sinon.spy(IndexDocBuilder.prototype, 'loadBuildDocsSummariesInternal');
-		await loadBuildDocsSummaries(false);
-		expect(loadInternalSpy.calledOnceWith(false)).to.be.true;
+		await loadBuildDocsSummaries(llm);
+		expect(loadInternalSpy.calledOnceWith()).to.be.true;
 		loadInternalSpy.restore();
 	});
 
