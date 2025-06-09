@@ -1,5 +1,5 @@
 import { cerebrasQwen3_32b } from '#llm/services/cerebras';
-import { vertexGemini_2_5_Flash } from '#llm/services/vertexai';
+import { vertexGemini_2_5_Flash, vertexGemini_2_5_Flash_Thinking } from '#llm/services/vertexai';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import { type GenerateTextOptions, type LLM, type LlmMessage, messageContentIfTextOnly, messageText } from '#shared/llm/llm.model';
@@ -21,7 +21,7 @@ export class FastMediumLLM extends BaseLLM {
 			totalCost: 0,
 		}));
 		// Define the providers and their priorities. Lower number = higher priority
-		this.providers = [cerebrasQwen3_32b(), vertexGemini_2_5_Flash()];
+		this.providers = [cerebrasQwen3_32b(), vertexGemini_2_5_Flash_Thinking()];
 		this.cerebras = this.providers[0];
 		this.gemini = this.providers[1];
 

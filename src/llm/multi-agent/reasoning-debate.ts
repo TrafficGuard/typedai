@@ -1,10 +1,8 @@
 import { BaseLLM } from '#llm/base-llm';
 import { getLLM } from '#llm/llmFactory';
+import { FastMediumLLM } from '#llm/multi-agent/fastMedium';
 import { Claude4_Opus_Vertex, Claude4_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
-import { cerebrasQwen3_32b } from '#llm/services/cerebras';
 import { deepinfraDeepSeekR1 } from '#llm/services/deepinfra';
-import { deepSeekR1, deepSeekV3 } from '#llm/services/deepseek';
-import { Gemini_2_5_Pro } from '#llm/services/gemini';
 import { openAIo3, openAIo4mini } from '#llm/services/openai';
 import { vertexGemini_2_5_Pro } from '#llm/services/vertexai';
 import { logger } from '#o11y/logger';
@@ -53,6 +51,7 @@ export function MoA_reasoningLLMRegistry(): Record<string, () => LLM> {
 		'MAD:Cost': MAD_Cost,
 		'MAD:Fast': MAD_Fast,
 		'MAD:SOTA': MAD_SOTA,
+		'MAD:Balanced': MAD_Balanced,
 	};
 }
 
@@ -66,11 +65,13 @@ export function MAD_Cost(): LLM {
 }
 
 export function MAD_Fast(): LLM {
+	const fastMedium = new FastMediumLLM();
+	const fastMediumFactory = () => fastMedium;
 	return new ReasonerDebateLLM(
 		'Fast',
-		cerebrasQwen3_32b,
-		[cerebrasQwen3_32b, cerebrasQwen3_32b, cerebrasQwen3_32b],
-		'MAD:Fast multi-agent debate (Cerebras Qwen3 32b)',
+		fastMediumFactory,
+		[fastMediumFactory, fastMediumFactory, fastMediumFactory],
+		'MAD:Fast multi-agent debate (Cerebras Qwen3 32b, Flash 2.5 fallback)',
 	);
 }
 
@@ -155,6 +156,7 @@ export class ReasonerDebateLLM extends BaseLLM {
 	}
 
 	protected async _generateMessage(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<LlmMessage> {
+		opts.thinking = 'high';
 		const readOnlyMessages = llmMessages as ReadonlyArray<Readonly<LlmMessage>>;
 		const totalStats: GenerationStats = createEmptyStats(this.getId());
 

@@ -544,4 +544,117 @@ export class SearchReplaceCoder {
 		const finalReflection = session.reflectionMessages.pop() || 'Unknown error after max attempts.';
 		throw new CoderExhaustedAttemptsError(`SearchReplaceCoder failed to apply edits after ${MAX_ATTEMPTS} attempts.`, MAX_ATTEMPTS, finalReflection);
 	}
+
+	/**
+	 * Dynamically chooses between single-shot and batch editing based on token estimates.
+	 * If the estimated prompt size exceeds the LLM's context window, it uses batch mode;
+	 * otherwise, it uses single-shot mode.
+	 * @param requirements The complete task requirements.
+	 * @param filesToEdit Relative paths of files that can be edited.
+	 * @param readOnlyFiles Relative paths of files for read-only context.
+	 * @param autoCommit Whether to auto-commit changes.
+	 * @param dirtyCommits If files with uncommitted changes should be committed first.
+	 */
+	@func()
+	async edit(requirements: string, filesToEdit: string[], readOnlyFiles: string[], autoCommit = true, dirtyCommits = true): Promise<void> {
+		const maxTokens = this.llm.getMaxInputTokens();
+
+		// The getMaxInputTokens() method in the LLM interface returns a number, not number | undefined.
+		// However, to be safe against implementations that might return 0 or a falsy value, we check for a positive number.
+		if (!maxTokens || maxTokens <= 0) {
+			logger.warn(`LLM's max input tokens is unknown or invalid (${maxTokens}). Defaulting to batch edit mode to be safe.`);
+			await this.batchEditFiles(requirements, filesToEdit, readOnlyFiles, autoCommit, dirtyCommits);
+			return;
+		}
+
+		const estimatedTokens = await this._estimatePromptTokens(requirements, filesToEdit, readOnlyFiles);
+		const tokenLimit = maxTokens * 0.8; // Use 80% of max as a safety buffer
+
+		if (filesToEdit.length > 1 && estimatedTokens > tokenLimit) {
+			logger.info(`Estimated prompt tokens (${estimatedTokens}) exceeds 80% of model's limit (${tokenLimit}/${maxTokens}). Using batch edit mode.`);
+			await this.batchEditFiles(requirements, filesToEdit, readOnlyFiles, autoCommit, dirtyCommits);
+		} else {
+			logger.info(`Estimated prompt tokens (${estimatedTokens}) is within model's limit (${tokenLimit}/${maxTokens}). Using single-shot edit mode.`);
+			await this.editFilesToMeetRequirements(requirements, filesToEdit, readOnlyFiles, autoCommit, dirtyCommits);
+		}
+	}
+
+	/**
+	 * Sequentially makes changes to a batch of files to meet task requirements.
+	 * This is useful for large changes across many files that may not fit in a single LLM context.
+	 * Each file is processed in its own edit session.
+	 * @param requirements The complete task requirements.
+	 * @param filesToEdit Relative paths of files to edit. Each file is processed in a separate batch.
+	 * @param readOnlyFiles Relative paths of files for read-only context for each batch.
+	 * @param autoCommit Whether to auto-commit changes after each file is processed.
+	 * @param dirtyCommits If files with uncommitted changes should be committed first.
+	 */
+	async batchEditFiles(requirements: string, filesToEdit: string[], readOnlyFiles: string[], autoCommit = true, dirtyCommits = true): Promise<void> {
+		logger.info(`Starting batch edit for ${filesToEdit.length} files.`);
+		const failedFiles: string[] = [];
+
+		for (const file of filesToEdit) {
+			logger.info(`Batch editing file: ${file}`);
+			try {
+				// The read-only files provide context for each individual edit.
+				// The file being edited is passed as the sole item in `filesToEdit`.
+				await this.editFilesToMeetRequirements(requirements, [file], readOnlyFiles, autoCommit, dirtyCommits);
+			} catch (error) {
+				logger.error({ err: error }, `Failed to batch edit file: ${file}. Continuing with next file.`);
+				failedFiles.push(file);
+			}
+		}
+
+		if (failedFiles.length > 0) {
+			logger.error({ failedFiles }, `Batch edit completed with ${failedFiles.length} failures.`);
+			throw new Error(`Batch edit failed for the following files: ${failedFiles.join(', ')}`);
+		}
+
+		logger.info('Batch edit completed successfully for all files.');
+	}
+
+	private async _estimatePromptTokens(userRequest: string, filesToEdit: string[], readOnlyFiles: string[]): Promise<number> {
+		let totalChars = 0;
+
+		// System message and examples
+		totalChars += this.precomputedSystemMessage.length;
+		this.precomputedExampleMessages.forEach((msg) => {
+			if (typeof msg.content === 'string') totalChars += msg.content.length;
+		});
+
+		// File system tree prompt
+		const fsTreePrompt = await buildFileSystemTreePrompt();
+		totalChars += fsTreePrompt.length;
+
+		// File content and other prompt text
+		const allFiles = [...filesToEdit, ...readOnlyFiles];
+		if (allFiles.length > 0) {
+			totalChars += EDIT_BLOCK_PROMPTS.files_content_prefix.length;
+			totalChars += EDIT_BLOCK_PROMPTS.files_content_assistant_reply.length;
+			if (readOnlyFiles.length > 0) {
+				totalChars += EDIT_BLOCK_PROMPTS.read_only_files_prefix.length;
+				totalChars += 'Ok, I will treat these files as read-only.'.length;
+			}
+		} else {
+			totalChars += EDIT_BLOCK_PROMPTS.files_no_full_files.length;
+		}
+
+		for (const relPath of allFiles) {
+			const absPath = this.getRepoFilePath(this.fs.getWorkingDirectory(), relPath);
+			const content = await this.fs.readFile(absPath);
+			if (content) {
+				totalChars += content.length;
+			}
+			totalChars += relPath.length; // Add filename length
+			const lang = path.extname(relPath).substring(1) || 'text';
+			totalChars += lang.length;
+			totalChars += 20; // Approx for ```lang ... ``` and newlines
+		}
+
+		// User request
+		totalChars += userRequest.length;
+
+		// A common heuristic is ~4 chars per token.
+		return Math.ceil(totalChars / 4);
+	}
 }

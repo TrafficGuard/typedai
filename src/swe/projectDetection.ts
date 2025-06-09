@@ -13,6 +13,18 @@ export type LanguageRuntime = 'nodejs' | 'typescript' | 'php' | 'python' | 'terr
 
 export const AI_INFO_FILENAME = '.typedai.json';
 
+/**
+ * Interface for the data structure stored in the .typedai.json file.
+ * Excludes runtime-derived fields like languageTools and fileSelection.
+ */
+export interface ProjectInfoFileFormat extends ProjectScripts {
+	baseDir: string;
+	primary?: boolean;
+	language: LanguageRuntime | '';
+	devBranch: string;
+	indexDocs: string[];
+}
+
 export interface ProjectScripts {
 	initialise: string;
 	compile: string;
@@ -50,20 +62,28 @@ export async function getProjectInfo(): Promise<ProjectInfo | null> {
 
 function parseProjectInfo(fileContents: string): ProjectInfo[] | null {
 	try {
-		let projectInfos = JSON.parse(fileContents) as ProjectInfo[];
-		logger.info(projectInfos);
-		if (!Array.isArray(projectInfos)) throw new Error(`${AI_INFO_FILENAME} should be a JSON array`);
-		projectInfos = projectInfos.map((info) => {
-			const path = join(getFileSystem().getWorkingDirectory(), info.baseDir);
-			if (!info.baseDir) {
+		// Parse as the file format
+		const projectInfosFromFile = JSON.parse(fileContents) as ProjectInfoFileFormat[];
+		logger.info(projectInfosFromFile, `Parsed ${AI_INFO_FILENAME}`);
+
+		if (!Array.isArray(projectInfosFromFile)) throw new Error(`${AI_INFO_FILENAME} should be a JSON array`);
+
+		// Map to the full ProjectInfo structure, adding derived fields
+		const projectInfosFull: ProjectInfo[] = projectInfosFromFile.map((infoFromFile) => {
+			const path = join(getFileSystem().getWorkingDirectory(), infoFromFile.baseDir);
+			if (!infoFromFile.baseDir) {
 				throw new Error(`All entries in ${path} must have the basePath property`);
 			}
-			info.languageTools = getLanguageTools(info.language as LanguageRuntime);
-			return info;
+			return {
+				...infoFromFile, // Spread properties from the file format
+				languageTools: getLanguageTools(infoFromFile.language as LanguageRuntime), // Add languageTools
+				fileSelection: 'Do not include package manager lock files', // Add default fileSelection
+			};
 		});
-		return projectInfos;
+
+		return projectInfosFull;
 	} catch (e) {
-		logger.warn(e, `Error loading ${AI_INFO_FILENAME}`);
+		logger.warn(e, `Error loading and parsing ${AI_INFO_FILENAME}`);
 		return null;
 	}
 }
@@ -94,10 +114,26 @@ export async function detectProjectInfo(): Promise<ProjectInfo[]> {
 	}
 
 	logger.info('Detecting project info...');
-	const projectInfo = await projectDetectionAgent();
-	logger.info(projectInfo, 'ProjectInfo detected');
-	await getFileSystem().writeFile(AI_INFO_FILENAME, JSON.stringify([projectInfo], null, 2));
-	return projectInfo;
+	const projectInfosFull = await projectDetectionAgent(); // This returns ProjectInfo[]
+	logger.info(projectInfosFull, 'ProjectInfo detected');
+
+	// Filter out fields that should not be persisted in the file
+	const projectInfosToFile: ProjectInfoFileFormat[] = projectInfosFull.map((info) => ({
+		baseDir: info.baseDir,
+		primary: info.primary,
+		language: info.language,
+		devBranch: info.devBranch,
+		initialise: info.initialise,
+		compile: info.compile,
+		format: info.format,
+		staticAnalysis: info.staticAnalysis,
+		test: info.test,
+		indexDocs: info.indexDocs,
+		// Exclude languageTools and fileSelection
+	}));
+
+	await getFileSystem().writeFile(AI_INFO_FILENAME, JSON.stringify(projectInfosToFile, null, 2));
+	return projectInfosFull; // Return the full objects with languageTools and fileSelection
 }
 
 export function getLanguageTools(type: LanguageRuntime | ''): LanguageTools | null {

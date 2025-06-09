@@ -15,7 +15,7 @@ import {
 import { addCost, agentContext } from '#agent/agentContextLocalStorage';
 import { cloneAndTruncateBuffers } from '#agent/trimObject';
 import { appContext } from '#app/applicationContext';
-import { BaseLLM } from '#llm/base-llm';
+import { BaseLLM, type LlmCostFunction } from '#llm/base-llm';
 import { type CreateLlmRequest, callStack } from '#llm/llmCallService/llmCall';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
@@ -79,6 +79,18 @@ function convertDataContentToString(content: string | URL | Uint8Array | ArrayBu
  */
 export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 	protected aiProvider: Provider | undefined;
+
+	constructor(
+		displayName: string,
+		service: string,
+		model: string,
+		maxInputToken: number,
+		calculateCosts: LlmCostFunction,
+		oldIds?: string[],
+		protected defaultOptions?: GenerateTextOptions,
+	) {
+		super(displayName, service, model, maxInputToken, calculateCosts, oldIds);
+	}
 
 	protected abstract provider(): Provider;
 
@@ -149,13 +161,14 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 	}
 
 	async _generateMessage(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<LlmMessage> {
-		const description = opts?.id ?? '';
+		const combinedOpts = { ...this.defaultOptions, ...opts };
+		const description = combinedOpts.id ?? '';
 		return await withActiveSpan(`generateTextFromMessages ${description}`, async (span) => {
 			// The processMessages method now correctly returns CoreMessage[]
 			const messages: CoreMessage[] = this.processMessages(llmMessages);
 
 			// Gemini Flash 2.0 thinking max is about 42
-			if (opts?.topK > 40) opts.topK = 40;
+			if (combinedOpts.topK > 40) combinedOpts.topK = 40;
 
 			const prompt = messages.map((m) => m.content).join('\n');
 			span.setAttributes({
@@ -166,8 +179,8 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				description,
 			});
 
-			if (!opts?.id) console.log(new Error('No generateMessage id provided'));
-			logger.info(`LLM call ${opts?.id} using ${this.getId()}`);
+			if (!combinedOpts.id) console.log(new Error('No generateMessage id provided'));
+			logger.info(`LLM call ${combinedOpts.id} using ${this.getId()}`);
 
 			const createLlmCallRequest: CreateLlmRequest = {
 				messages: cloneAndTruncateBuffers(llmMessages),
@@ -176,7 +189,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				// userId: currentUser().id,
 				callStack: callStack(),
 				description,
-				settings: opts,
+				settings: combinedOpts,
 			};
 			let llmCall: LlmCall;
 			try {
@@ -192,16 +205,16 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 			const requestTime = Date.now();
 			try {
 				const providerOptions: any = {};
-				if (opts?.thinking) {
+				if (combinedOpts.thinking) {
 					// https://sdk.vercel.ai/docs/guides/o3#refining-reasoning-effort
-					if (this.getService() === 'openai' && this.model.startsWith('o')) providerOptions.openai = { reasoningEffort: opts.thinking };
+					if (this.getService() === 'openai' && this.model.startsWith('o')) providerOptions.openai = { reasoningEffort: combinedOpts.thinking };
 					let thinkingBudget: number;
 					// https://sdk.vercel.ai/docs/guides/sonnet-3-7#reasoning-ability
 					// https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
 					if (this.getModel().includes('claude-3-7')) {
-						if (opts.thinking === 'low') thinkingBudget = 1024;
-						if (opts.thinking === 'medium') thinkingBudget = 6000;
-						else if (opts.thinking === 'high') thinkingBudget = 13000;
+						if (combinedOpts.thinking === 'low') thinkingBudget = 1024;
+						if (combinedOpts.thinking === 'medium') thinkingBudget = 6000;
+						else if (combinedOpts.thinking === 'high') thinkingBudget = 13000;
 						providerOptions.anthropic = {
 							thinking: { type: 'enabled', budgetTokens: thinkingBudget },
 						};
@@ -210,9 +223,9 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 					}
 					// https://cloud.google.com/vertex-ai/generative-ai/docs/thinking#budget
 					else if (this.getId().includes('gemini-2.5-flash')) {
-						if (opts.thinking === 'low') thinkingBudget = 8192;
-						else if (opts.thinking === 'medium') thinkingBudget = 16384;
-						else if (opts.thinking === 'high') thinkingBudget = 24576;
+						if (combinedOpts.thinking === 'low') thinkingBudget = 8192;
+						else if (combinedOpts.thinking === 'medium') thinkingBudget = 16384;
+						else if (combinedOpts.thinking === 'high') thinkingBudget = 24576;
 						providerOptions.google = {
 							thinkingConfig: {
 								includeThoughts: true,
@@ -225,14 +238,14 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				const result: GenerateTextResult<any, any> = await aiGenerateText({
 					model: this.aiModel(),
 					messages,
-					temperature: opts?.temperature,
-					topP: opts?.topP,
-					topK: opts?.topK,
-					frequencyPenalty: opts?.frequencyPenalty,
-					presencePenalty: opts?.presencePenalty,
-					stopSequences: opts?.stopSequences,
-					maxRetries: opts?.maxRetries,
-					maxTokens: opts?.maxOutputTokens,
+					temperature: combinedOpts.temperature,
+					topP: combinedOpts.topP,
+					topK: combinedOpts.topK,
+					frequencyPenalty: combinedOpts.frequencyPenalty,
+					presencePenalty: combinedOpts.presencePenalty,
+					stopSequences: combinedOpts.stopSequences,
+					maxRetries: combinedOpts.maxRetries,
+					maxTokens: combinedOpts.maxOutputTokens,
 					providerOptions,
 				});
 
@@ -248,7 +261,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				);
 				const cost = Number.isNaN(totalCost) ? 0 : totalCost;
 
-				logger.info(`LLM response ${opts?.id}`);
+				logger.info(`LLM response ${combinedOpts.id}`);
 
 				// Add the response as an assistant message
 
@@ -309,7 +322,8 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 
 	// https://sdk.vercel.ai/docs/ai-sdk-core/generating-text#streamtext
 	async streamText(llmMessages: LlmMessage[], onChunkCallback: (chunk: TextStreamPart<any>) => void, opts?: GenerateTextOptions): Promise<GenerationStats> {
-		return withActiveSpan(`streamText ${opts?.id ?? ''}`, async (span) => {
+		const combinedOpts = { ...this.defaultOptions, ...opts };
+		return withActiveSpan(`streamText ${combinedOpts?.id ?? ''}`, async (span) => {
 			// The processMessages method now correctly returns CoreMessage[]
 			const messages: CoreMessage[] = this.processMessages(llmMessages);
 
@@ -325,7 +339,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				llmId: this.getId(),
 				agentId: agentContext()?.agentId,
 				callStack: callStack(),
-				settings: opts,
+				settings: combinedOpts,
 			});
 
 			const requestTime = Date.now();
@@ -336,9 +350,9 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 			const result = aiStreamText({
 				model: this.aiModel(),
 				messages,
-				temperature: opts?.temperature,
-				topP: opts?.topP,
-				stopSequences: opts?.stopSequences,
+				temperature: combinedOpts?.temperature,
+				topP: combinedOpts?.topP,
+				stopSequences: combinedOpts?.stopSequences,
 				experimental_transform: smoothStream(),
 			});
 

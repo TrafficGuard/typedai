@@ -1,8 +1,8 @@
 import { llms } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
 import { queryWorkflowWithSearch } from '#swe/discovery/selectFilesAgentWithSearch';
-import { type LanguageRuntime, type ProjectInfo, type ProjectScripts, getLanguageTools } from '#swe/projectDetection';
 import { type ExecResult, execCommand } from '#utils/exec';
+import { type LanguageRuntime, type ProjectInfo, type ProjectScripts, getLanguageTools } from './projectDetection';
 
 interface ProjectDetection {
 	baseDir: string;
@@ -139,30 +139,69 @@ ${textualProjectInfos}`;
 	return projectInfos;
 }
 
-async function testScripts(projectInfos: ProjectInfo[]): Promise<void> {
+interface ScriptVerificationResult {
+	projectPath: string;
+	command: string;
+	executed: boolean;
+	exitCode?: number;
+	success?: boolean;
+	stdout?: string;
+	stderr?: string;
+	llmAnalysis?: TestFailureAnalysis; // TestFailureAnalysis is already defined in this file
+	executionError?: string; // For errors from execCommand itself
+}
+
+interface TestFailureAnalysis {
+	failure_type: 'bad_command' | 'test_failure' | 'environment_issue' | 'unknown';
+	reasoning: string;
+	suggested_command_fix?: string;
+}
+
+async function verifyProjectScripts(projectInfos: ProjectInfo[]): Promise<ScriptVerificationResult[]> {
+	const verificationResults: ScriptVerificationResult[] = [];
 	for (const projectInfo of projectInfos) {
-		if (projectInfo.test && projectInfo.test.trim() !== '') {
-			logger.info({ projectPath: projectInfo.baseDir, command: projectInfo.test }, 'Attempting to validate test script');
-			try {
-				const execResult: ExecResult = await execCommand(projectInfo.test, { workingDirectory: projectInfo.baseDir });
-				logger.info(
-					{ projectPath: projectInfo.baseDir, command: projectInfo.test, exitCode: execResult.exitCode },
-					'Test script execution completed for validation.',
+		const baseResult: ScriptVerificationResult = {
+			projectPath: projectInfo.baseDir,
+			command: projectInfo.test || '', // Use defined command or empty string
+			executed: false, // Default to false, will be true if script is attempted
+		};
+
+		if (!projectInfo.test || projectInfo.test.trim() === '') {
+			logger.info({ projectPath: projectInfo.baseDir }, 'No test script defined for project, skipping validation.');
+			// baseResult is already initialized with executed: false and correct projectPath/command
+			verificationResults.push(baseResult);
+			continue; // to next projectInfo
+		}
+
+		logger.info({ projectPath: projectInfo.baseDir, command: projectInfo.test }, 'Attempting to validate test script');
+		baseResult.executed = true;
+		baseResult.command = projectInfo.test; // Ensure it's the actual command being run
+
+		try {
+			const execResult: ExecResult = await execCommand(projectInfo.test, { workingDirectory: projectInfo.baseDir });
+			baseResult.exitCode = execResult.exitCode;
+			baseResult.success = execResult.exitCode === 0;
+			baseResult.stdout = execResult.stdout;
+			baseResult.stderr = execResult.stderr;
+
+			logger.info(
+				{ projectPath: projectInfo.baseDir, command: projectInfo.test, exitCode: execResult.exitCode },
+				'Test script execution completed for validation.',
+			);
+
+			if (execResult.exitCode !== 0) {
+				logger.warn(
+					{
+						projectPath: projectInfo.baseDir,
+						command: projectInfo.test,
+						exitCode: execResult.exitCode,
+						stdout: execResult.stdout,
+						stderr: execResult.stderr,
+					},
+					'Test script failed during validation.',
 				);
 
-				if (execResult.exitCode !== 0) {
-					logger.warn(
-						{
-							projectPath: projectInfo.baseDir,
-							command: projectInfo.test,
-							exitCode: execResult.exitCode,
-							stdout: execResult.stdout,
-							stderr: execResult.stderr,
-						},
-						'Test script failed during validation.',
-					);
-
-					const analysisPrompt = `
+				const analysisPrompt = `
                    A test script execution failed for a project located at '${projectInfo.baseDir}'.
                    The command executed was: '${projectInfo.test}'
                    Exit Code: ${execResult.exitCode}
@@ -190,37 +229,31 @@ async function testScripts(projectInfos: ProjectInfo[]): Promise<void> {
                    Focus on the most likely cause. Keep reasoning concise.
                    `;
 
-					interface TestFailureAnalysis {
-						failure_type: 'bad_command' | 'test_failure' | 'environment_issue' | 'unknown';
-						reasoning: string;
-						suggested_command_fix?: string;
-					}
-
-					try {
-						const llmAnalysis = await llms().easy.generateJson<TestFailureAnalysis>(analysisPrompt, { id: 'analyzeTestScriptFailure' });
-						logger.info(
-							{ projectPath: projectInfo.baseDir, command: projectInfo.test, analysis: llmAnalysis },
-							'LLM analysis of test script failure complete.',
-						);
-						// Further actions based on llmAnalysis (e.g., logging specific insights) can be added here.
-						// For now, the analysis itself is logged.
-					} catch (llmError) {
-						logger.error(
-							{ projectPath: projectInfo.baseDir, command: projectInfo.test, error: (llmError as Error).message },
-							'LLM analysis of test script failure encountered an error.',
-						);
-					}
-				} else {
-					logger.info({ projectPath: projectInfo.baseDir, command: projectInfo.test }, 'Test script executed successfully during validation (exit code 0).');
+				try {
+					const llmAnalysis = await llms().easy.generateJson<TestFailureAnalysis>(analysisPrompt, { id: 'analyzeTestScriptFailure' });
+					baseResult.llmAnalysis = llmAnalysis;
+					logger.info({ projectPath: projectInfo.baseDir, command: projectInfo.test, analysis: llmAnalysis }, 'LLM analysis of test script failure complete.');
+					// Further actions based on llmAnalysis (e.g., logging specific insights) can be added here.
+					// For now, the analysis itself is logged.
+				} catch (llmError) {
+					logger.error(
+						{ projectPath: projectInfo.baseDir, command: projectInfo.test, error: (llmError as Error).message },
+						'LLM analysis of test script failure encountered an error.',
+					);
 				}
-			} catch (executionError) {
-				logger.error(
-					{ projectPath: projectInfo.baseDir, command: projectInfo.test, error: (executionError as Error).message },
-					'Failed to execute test script command itself during validation.',
-				);
+			} else {
+				logger.info({ projectPath: projectInfo.baseDir, command: projectInfo.test }, 'Test script executed successfully during validation (exit code 0).');
 			}
-		} else {
-			logger.info({ projectPath: projectInfo.baseDir }, 'No test script defined for project, skipping validation.');
+			verificationResults.push(baseResult);
+		} catch (executionError) {
+			logger.error(
+				{ projectPath: projectInfo.baseDir, command: projectInfo.test, error: (executionError as Error).message },
+				'Failed to execute test script command itself during validation.',
+			);
+			baseResult.success = false;
+			baseResult.executionError = (executionError as Error).message;
+			verificationResults.push(baseResult);
 		}
 	}
+	return verificationResults;
 }

@@ -1,12 +1,10 @@
 import { initApplicationContext } from '#app/applicationContext';
 import { logger } from '#o11y/logger';
-import { agentDetailsRoutes } from '#routes/agent/agent-details-routes';
-import { agentExecutionRoutes } from '#routes/agent/agent-execution-routes';
-import { agentStartRoute } from '#routes/agent/agent-start-route';
+import { agentRoutes } from '#routes/agent';
 import { authRoutes } from '#routes/auth';
-import { chatRoutes } from '#routes/chat/chat-routes';
-import { codeReviewRoutes } from '#routes/codeReview/codeReviewRoutes';
-import { codeTaskRoutes } from '#routes/codeTask/codeTaskRoutes';
+import { chatRoutes } from '#routes/chat';
+import { codeReviewRoutes } from '#routes/codeReview';
+import { codeTaskRoutes } from '#routes/codeTask';
 import { llmCallRoutes } from '#routes/llms/llm-call-routes';
 import { llmRoutes } from '#routes/llms/llm-routes';
 import { userRoutes } from '#routes/profile/user-routes';
@@ -36,9 +34,7 @@ export async function initServer(): Promise<void> {
 				authRoutes,
 				gitlabRoutesV1,
 				githubRoutes,
-				agentStartRoute,
-				agentDetailsRoutes,
-				agentExecutionRoutes,
+				agentRoutes,
 				llmRoutes,
 				promptRoutes,
 				userRoutes,

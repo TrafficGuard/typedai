@@ -157,6 +157,7 @@ export class CePO_LLM extends BaseLLM {
 	}
 
 	protected async generateTextFromMessages(initialMessages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<string> {
+		opts.thinking = 'high';
 		return withActiveSpan(`CePO id:${opts?.id ?? 'N/A'}`, async () => {
 			const completions: string[] = [];
 			let approaches: string[] | undefined = undefined;

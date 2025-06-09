@@ -52,23 +52,34 @@ export function sendSuccess(reply: FastifyReply, message = 'success'): void {
 export function sendBadRequest(reply: FastifyReply, message = 'Bad Request'): void {
 	// Directly send payload matching ErrorResponseSchema { error: string }
 	reply.status(HttpStatus.BAD_REQUEST);
-	reply.send({ error: message });
+	(reply as any).send({ error: message });
 }
 
 export function sendUnauthorized(reply: FastifyReply): void {
 	// Directly send payload matching ErrorResponseSchema { error: string }
 	reply.status(HttpStatus.UNAUTHORIZED);
-	reply.send({ error: 'Unauthorized' });
+	(reply as any).send({ error: 'Unauthorized' });
 }
 
 export function sendNotFound(reply: FastifyReply, message = 'Not Found'): void {
 	// Directly send payload matching ErrorResponseSchema { error: string }
 	reply.status(HttpStatus.NOT_FOUND);
-	reply.send({ error: message });
+	(reply as any).send({ error: message });
 }
 
 export function sendServerError(reply: FastifyReply, message = 'Server error'): void {
 	// Directly send payload matching ErrorResponseSchema { error: string }
 	reply.status(HttpStatus.INTERNAL_SERVER_ERROR);
-	reply.send({ error: message });
+	(reply as any).send({ error: message });
+}
+
+/**
+ * Sends a generic error response with a specific status code and message.
+ * @param reply The Fastify reply object.
+ * @param statusCode The HTTP status code for the error.
+ * @param message The error message.
+ */
+export function sendErrorResponse(reply: FastifyReply, statusCode: number, message: string): void {
+	reply.status(statusCode).type('application/json');
+	(reply as any).send({ error: message });
 }

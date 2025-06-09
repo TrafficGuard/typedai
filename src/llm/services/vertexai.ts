@@ -5,7 +5,7 @@ import axios from 'axios';
 import { type LlmCostFunction, fixedCostPerMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
 import { countTokens, countTokensSync } from '#llm/tokens';
-import { type LLM, combinePrompts } from '#shared/llm/llm.model';
+import { type GenerateTextOptions, type LLM, combinePrompts } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 import { envVar } from '#utils/env-var';
 
@@ -17,6 +17,7 @@ export function vertexLLMRegistry(): Record<string, () => LLM> {
 		[`${VERTEX_SERVICE}:gemini-2.0-flash`]: vertexGemini_2_0_Flash,
 		[`${VERTEX_SERVICE}:gemini-2.5-pro`]: vertexGemini_2_5_Pro,
 		[`${VERTEX_SERVICE}:gemini-2.5-flash`]: vertexGemini_2_5_Flash,
+		[`${VERTEX_SERVICE}:gemini-2.5-flash-thinking`]: vertexGemini_2_5_Flash_Thinking,
 	};
 }
 
@@ -107,6 +108,12 @@ export function vertexGemini_2_5_Flash(): LLM {
 	return new VertexLLM('Gemini 2.5 Flash', 'gemini-2.5-flash-preview-05-20', 1_000_000, gemini2_5_Flash_CostFunction(0.15, 0.6, 3.5));
 }
 
+export function vertexGemini_2_5_Flash_Thinking(): LLM {
+	return new VertexLLM('Gemini 2.5 Flash (Thinking)', 'gemini-2.5-flash-preview-05-20', 1_000_000, gemini2_5_Flash_CostFunction(0.15, 0.6, 3.5), undefined, {
+		thinking: 'high',
+	});
+}
+
 export function vertexGemini_2_0_Flash() {
 	return new VertexLLM('Gemini 2.0 Flash', 'gemini-2.0-flash-001', 1_000_000, fixedCostPerMilTokens(0.1, 0.4));
 }
@@ -129,8 +136,15 @@ let gcloudProjectIndex = 0;
  * Vertex AI models - Gemini
  */
 class VertexLLM extends AiLLM<GoogleVertexProvider> {
-	constructor(displayName: string, model: string, maxInputToken: number, calculateCosts: LlmCostFunction, oldIds?: string[]) {
-		super(displayName, VERTEX_SERVICE, model, maxInputToken, calculateCosts, oldIds);
+	constructor(
+		displayName: string,
+		model: string,
+		maxInputToken: number,
+		calculateCosts: LlmCostFunction,
+		oldIds?: string[],
+		defaultOptions?: GenerateTextOptions,
+	) {
+		super(displayName, VERTEX_SERVICE, model, maxInputToken, calculateCosts, oldIds, defaultOptions);
 	}
 
 	protected apiKey(): string {
@@ -153,64 +167,6 @@ class VertexLLM extends AiLLM<GoogleVertexProvider> {
 		});
 
 		return this.aiProvider;
-	}
-}
-
-async function restCall(userPrompt: string, systemPrompt: string): Promise<string> {
-	// Replace these placeholders with actual values
-	const ACCESS_TOKEN = ''; // You can run `$(gcloud auth print-access-token)` manually to get this
-
-	// Define the payload as an object
-
-	const messages = [];
-	// if(systemPrompt) messages.push({
-	// 	"role": "system",
-	// 	"content": systemPrompt
-	// })
-	// messages.push({
-	// 	"role": "user",
-	// 	"content": userPrompt
-	// })
-	messages.push({
-		role: 'user',
-		content: combinePrompts(userPrompt, systemPrompt),
-	});
-
-	const payload = {
-		model: 'meta/llama3-405b-instruct-maas',
-		stream: false,
-		messages,
-	};
-
-	// Create the request configuration
-	const config = {
-		headers: {
-			Authorization: `Bearer ${ACCESS_TOKEN}`,
-			'Content-Type': 'application/json',
-		},
-	};
-
-	const REGION = 'us-central1';
-	const ENDPOINT = `${REGION}-aiplatform.googleapis.com`;
-	const PROJECT_ID = currentUser().llmConfig.vertexProjectId ?? envVar('GCLOUD_PROJECT');
-	try {
-		const url = `https://${ENDPOINT}/v1beta1/projects/${PROJECT_ID}/locations/${REGION}/endpoints/openapi/chat/completions`;
-		const response: any = await axios.post(url, payload, config);
-
-		console.log(typeof response);
-
-		// response = '{"data":' + response.substring(4) + "}"
-		console.log(response.data);
-		// const data = JSON.parse(response).data
-		const data = response.data;
-		console.log(data);
-		// console.log(data.choices)
-		const content = data.choices[0].delta.content;
-		console.log('Response:', content);
-		return content;
-	} catch (error) {
-		console.error('Error:', error);
-		throw error;
 	}
 }
 
