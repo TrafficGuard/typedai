@@ -5,6 +5,7 @@ import ignore, {type Ignore} from 'ignore';
 import type Pino from 'pino';
 import {agentContext} from '#agent/agentContextLocalStorage';
 import {TYPEDAI_FS} from '#app/appDirs';
+import { FileNotFound } from '#shared/errors';
 import {parseArrayParameterValue} from '#functionSchema/functionUtils';
 import {Git} from '#functions/scm/git';
 import {LlmTools} from '#functions/util';
@@ -347,12 +348,13 @@ export class FileSystemService implements IFileSystemService {
 					getActiveSpan()?.setAttribute('resolvedPath', filePath);
 					contents = (await fs.readFile(filePath)).toString();
 				} catch (absError: any) {
-					// if (absError.code === 'ENOENT') error.code = 'ENOENT';
-					throw new Error(`File ${filePath} does not exist (checked as absolute and relative to ${this.getWorkingDirectory()})`);
+					throw new FileNotFound(
+						`File ${filePath} does not exist (checked as absolute and relative to ${this.getWorkingDirectory()})`,
+						absError.code,
+					);
 				}
 			} else {
-				// if (absError.code === 'ENOENT') error.code = 'ENOENT';
-				throw new Error(`File ${filePath} does not exist (relative to ${this.getWorkingDirectory()})`);
+				throw new FileNotFound(`File ${filePath} does not exist (relative to ${this.getWorkingDirectory()})`, e.code);
 			}
 		}
 

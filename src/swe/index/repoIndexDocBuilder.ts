@@ -67,7 +67,7 @@ export class IndexDocBuilder {
 				} catch (e: any) {
 					if (e.code === 'ENOENT') {
 						logger.warn(`${AI_INFO_FILENAME} not found at ${projectInfoPath}. Cannot determine indexDocs patterns.`);
-						throw new Error(`${AI_INFO_FILENAME} not found at ${projectInfoPath}`);
+						throw new Error(`${AI_INFO_FILENAME} not found`);
 					}
 					throw e;
 				}
