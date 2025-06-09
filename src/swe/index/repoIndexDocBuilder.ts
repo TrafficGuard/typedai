@@ -3,7 +3,7 @@ import { promises as fs, Stats } from 'node:fs';
 import path, { basename, dirname, join } from 'node:path';
 import type { Span } from '@opentelemetry/api';
 import micromatch from 'micromatch';
-import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
+import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { typedaiDirName } from '#app/appDirs';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
@@ -171,7 +171,7 @@ export class IndexDocBuilder {
 		}
 
 		const parentSummaries = await this.getParentSummaries(dirname(filePath));
-		const doc = await generateFileSummary(fileContents, parentSummaries, this.llm); // Use medium LLM for file summaries
+		const doc = await generateFileSummary(fileContents, parentSummaries, this.llm);
 		doc.path = relativeFilePath;
 		doc.meta = { hash: currentContentHash };
 
@@ -624,9 +624,9 @@ export class IndexDocBuilder {
  * This should generally be run in the root folder of a project/repository.
  * The documentation summaries are saved in a parallel directory structure under the .typedai/docs folder
  */
-export async function buildIndexDocs(): Promise<void> {
+export async function buildIndexDocs(llm: LLM): Promise<void> {
 	const fss = getFileSystem();
-	const builder = new IndexDocBuilder(fss, llms().easy);
+	const builder = new IndexDocBuilder(fss, llm);
 	await builder.buildIndexDocsInternal();
 }
 
@@ -642,7 +642,7 @@ export async function getRepositoryOverview(): Promise<string> {
 	// getRepositoryOverview doesn't directly use LLM for generation, only for reading existing summary.
 	// Passing a dummy or 'easy' LLM if the builder's methods it calls might need one.
 	// getTopLevelSummaryInternal does not use LLM.
-	const builder = new IndexDocBuilder(fss, llms().easy);
+	const builder = new IndexDocBuilder(fss, {} as LLM);
 	const repositoryOverview: string = await builder.getTopLevelSummaryInternal();
 	return repositoryOverview ? `<repository-overview>\n${repositoryOverview}\n</repository-overview>\n` : '';
 }
@@ -650,6 +650,7 @@ export async function getRepositoryOverview(): Promise<string> {
 /**
  * Loads build documentation summaries from the specified directory.
  *
+ * @param llm
  * @param {boolean} [createIfNotExits=false] - If true, creates the documentation directory if it doesn't exist and attempts to build docs.
  * @returns {Promise<Map<string, Summary>>} A promise that resolves to a Map of file paths to their corresponding Summary objects.
  * @throws {Error} If there's an error listing files in the docs directory.
@@ -664,8 +665,8 @@ export async function getRepositoryOverview(): Promise<string> {
  * const summaries = await loadBuildDocsSummaries();
  * console.log(`Loaded ${summaries.size} summaries`);
  */
-export async function loadBuildDocsSummaries(createIfNotExits = false): Promise<Map<string, Summary>> {
+export async function loadBuildDocsSummaries(llm: LLM, createIfNotExits = false): Promise<Map<string, Summary>> {
 	const fss = getFileSystem();
-	const builder = new IndexDocBuilder(fss, llms().easy);
+	const builder = new IndexDocBuilder(fss, llm);
 	return builder.loadBuildDocsSummariesInternal(createIfNotExits);
 }

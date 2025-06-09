@@ -5,17 +5,15 @@ import chai, { expect } from 'chai';
 import chaiSubset from 'chai-subset';
 import mock from 'mock-fs';
 import sinon from 'sinon';
-// import { getFileSystem, llms } from '#agent/agentContextLocalStorage'; // No longer needed for direct stubbing here
 import { typedaiDirName } from '#app/appDirs';
 import { FileSystemService } from '#functions/storage/fileSystemService';
-import { logger } from '#o11y/logger';
 import type { LLM } from '#shared/llm/llm.model';
 import { IndexDocBuilder, buildIndexDocs, getRepositoryOverview, loadBuildDocsSummaries } from '#swe/index/repoIndexDocBuilder';
 import { AI_INFO_FILENAME } from '#swe/projectDetection';
-import { errorToString } from '#utils/errors';
-import * as llmSummaries from './llmSummaries'; // To stub its functions
+import * as llmSummaries from './llmSummaries';
+import {setupConditionalLoggerOutput} from "#test/testUtils";
+import {MockLLM} from "#llm/services/mock-llm";
 
-// Enable chai-subset
 chai.use(chaiSubset);
 
 const MOCK_REPO_ROOT = '/test-repo';
@@ -31,29 +29,24 @@ async function fileExists(filePath: string): Promise<boolean> {
 		.catch(() => false);
 }
 
-describe.only('IndexDocBuilder', () => {
+describe('IndexDocBuilder', () => {
+	setupConditionalLoggerOutput();
 	let builder: IndexDocBuilder;
 	let mockFss: FileSystemService;
 	let llm: sinon.SinonStubbedInstance<LLM>;
 	let generateFileSummaryStub: sinon.SinonStub;
 	let generateFolderSummaryStub: sinon.SinonStub;
-	let loggerInfoStub: sinon.SinonStub;
-	let loggerWarnStub: sinon.SinonStub;
-	let loggerErrorStub: sinon.SinonStub;
-	let loggerDebugStub: sinon.SinonStub;
 
 	const setupMockFs = (mockFileSystemConfig: any) => {
 		mock(mockFileSystemConfig);
-		mockFss = new FileSystemService();
-		mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
+		mockFss = new FileSystemService(MOCK_REPO_ROOT);
+		sinon.stub(mockFss, 'getVcsRoot').returns(MOCK_REPO_ROOT);
 		builder = new IndexDocBuilder(mockFss, llm);
 	};
 
 	beforeEach(async () => {
 		// DO NOT mock the filesystem here. It will be mocked in each test.
 		// DO NOT instantiate mockFss or builder here. They will be instantiated in each test.
-
-		// Create stubbed LLM clients
 		llm = {
 			generateText: sinon.stub(),
 			generateTextWithJson: sinon.stub(),
@@ -73,11 +66,6 @@ describe.only('IndexDocBuilder', () => {
 
 		generateFileSummaryStub = sinon.stub(llmSummaries, 'generateFileSummary');
 		generateFolderSummaryStub = sinon.stub(llmSummaries, 'generateFolderSummary');
-
-		loggerInfoStub = sinon.stub(logger, 'info');
-		loggerWarnStub = sinon.stub(logger, 'warn');
-		loggerErrorStub = sinon.stub(logger, 'error');
-		loggerDebugStub = sinon.stub(logger, 'debug');
 
 		// Default responses for llmSummaries stubs
 		generateFileSummaryStub.resolves({ path: '', short: 'Mocked file short', long: 'Mocked file long', meta: { hash: 'file_hash_placeholder' } });
@@ -298,7 +286,6 @@ describe.only('IndexDocBuilder', () => {
 
 			await builder.buildIndexDocsInternal();
 
-			expect(loggerWarnStub.calledWithMatch('No indexDocs patterns found')).to.be.true;
 			expect(generateFileSummaryStub.called).to.be.false;
 			expect(generateFolderSummaryStub.called).to.be.false;
 			expect(llm.generateText.calledOnce).to.be.true;
@@ -378,28 +365,11 @@ describe.only('IndexDocBuilder', () => {
 
 // Minimal tests for exported functions to ensure they setup and call the builder
 describe('Exported repoIndexDocBuilder functions', () => {
-	let mockEasyLlmForExported: sinon.SinonStubbedInstance<LLM>;
-	let mockMediumLlmForExported: sinon.SinonStubbedInstance<LLM>;
+	let llm: sinon.SinonStubbedInstance<LLM>;
 	// No need for builderInstanceStub if spying on prototype
 
 	beforeEach(async () => {
-		mockEasyLlmForExported = {
-			generateText: sinon.stub(),
-			generateTextWithJson: sinon.stub(),
-			generateJson: sinon.stub(),
-			generateTextWithResult: sinon.stub(),
-			generateMessage: sinon.stub(),
-			streamText: sinon.stub(),
-			getService: sinon.stub(),
-			getModel: sinon.stub(),
-			getDisplayName: sinon.stub(),
-			getId: sinon.stub(),
-			getMaxInputTokens: sinon.stub(),
-			countTokens: sinon.stub(),
-			isConfigured: sinon.stub(),
-			getOldModels: sinon.stub(),
-		} as sinon.SinonStubbedInstance<LLM>;
-		mockMediumLlmForExported = {
+		llm = {
 			generateText: sinon.stub(),
 			generateTextWithJson: sinon.stub(),
 			generateJson: sinon.stub(),
@@ -432,7 +402,7 @@ describe('Exported repoIndexDocBuilder functions', () => {
 		const buildInternalSpy = sinon.spy(IndexDocBuilder.prototype, 'buildIndexDocsInternal');
 		// This test assumes that getFileSystem() and llms() will provide valid (even if unmocked for deep behavior)
 		// instances for the IndexDocBuilder constructor.
-		await buildIndexDocs();
+		await buildIndexDocs(llm);
 		expect(buildInternalSpy.calledOnce).to.be.true;
 		buildInternalSpy.restore(); // Restore spy on prototype
 	});
