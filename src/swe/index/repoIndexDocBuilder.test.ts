@@ -24,11 +24,10 @@ function hash(content: string): string {
 	return createHash('md5').update(content).digest('hex');
 }
 
-describe('IndexDocBuilder', () => {
+describe.only('IndexDocBuilder', () => {
 	let builder: IndexDocBuilder;
 	let mockFss: FileSystemService;
-	let mockEasyLlmClient: sinon.SinonStubbedInstance<LLM>;
-	let mockMediumLlmClient: sinon.SinonStubbedInstance<LLM>;
+	let llm: sinon.SinonStubbedInstance<LLM>;
 	let generateFileSummaryStub: sinon.SinonStub;
 	let generateFolderSummaryStub: sinon.SinonStub;
 	let loggerInfoStub: sinon.SinonStub;
@@ -41,23 +40,7 @@ describe('IndexDocBuilder', () => {
 		// DO NOT instantiate mockFss or builder here. They will be instantiated in each test.
 
 		// Create stubbed LLM clients
-		mockEasyLlmClient = {
-			generateText: sinon.stub(),
-			generateTextWithJson: sinon.stub(),
-			generateJson: sinon.stub(),
-			generateTextWithResult: sinon.stub(),
-			generateMessage: sinon.stub(),
-			streamText: sinon.stub(),
-			getService: sinon.stub(),
-			getModel: sinon.stub(),
-			getDisplayName: sinon.stub(),
-			getId: sinon.stub(),
-			getMaxInputTokens: sinon.stub(),
-			countTokens: sinon.stub(),
-			isConfigured: sinon.stub(),
-			getOldModels: sinon.stub(),
-		} as sinon.SinonStubbedInstance<LLM>;
-		mockMediumLlmClient = {
+		llm = {
 			generateText: sinon.stub(),
 			generateTextWithJson: sinon.stub(),
 			generateJson: sinon.stub(),
@@ -87,7 +70,7 @@ describe('IndexDocBuilder', () => {
 		generateFolderSummaryStub.resolves({ path: '', short: 'Mocked folder short', long: 'Mocked folder long', meta: { hash: 'folder_hash_placeholder' } });
 
 		// Default responses for direct LLM client calls (e.g., project overview)
-		mockEasyLlmClient.generateText.resolves('Mocked project overview');
+		llm.generateText.resolves('Mocked project overview');
 	});
 
 	afterEach(() => {
@@ -127,7 +110,7 @@ describe('IndexDocBuilder', () => {
 			// Instantiate FSS and Builder AFTER mocking the filesystem for this test
 			mockFss = new FileSystemService();
 			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
-			builder = new IndexDocBuilder(mockFss, { easy: mockEasyLlmClient, medium: mockMediumLlmClient });
+			builder = new IndexDocBuilder(mockFss, llm);
 
 			await builder.buildIndexDocsInternal();
 
@@ -217,7 +200,7 @@ describe('IndexDocBuilder', () => {
 			// Verify LLM calls
 			expect(generateFileSummaryStub.callCount).to.equal(3);
 			expect(generateFolderSummaryStub.callCount).to.equal(3);
-			expect(mockEasyLlmClient.generateText.callCount).to.equal(1);
+			expect(llm.generateText.callCount).to.equal(1);
 
 			const nonMatchingFileSummaryPath = path.join(MOCK_REPO_ROOT, typedaiDirName, 'docs', 'src/other.js.json');
 			expect(
@@ -265,7 +248,7 @@ describe('IndexDocBuilder', () => {
 			// Instantiate FSS and Builder AFTER mocking
 			mockFss = new FileSystemService();
 			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
-			builder = new IndexDocBuilder(mockFss, { easy: mockEasyLlmClient, medium: mockMediumLlmClient });
+			builder = new IndexDocBuilder(mockFss, llm);
 
 			const orphanedSummaryFullPath = path.join(MOCK_REPO_ROOT, typedaiDirName, 'docs', 'orphaned/file.ts.json');
 			expect(
@@ -328,14 +311,14 @@ describe('IndexDocBuilder', () => {
 			// Instantiate FSS and Builder AFTER mocking
 			mockFss = new FileSystemService();
 			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
-			builder = new IndexDocBuilder(mockFss, { easy: mockEasyLlmClient, medium: mockMediumLlmClient });
+			builder = new IndexDocBuilder(mockFss, llm);
 
 			await builder.buildIndexDocsInternal();
 
 			expect(generateFileSummaryStub.called, 'generateFileSummary helper should not be called').to.be.false;
 			expect(generateFolderSummaryStub.called, 'generateFolderSummary helper should not be called').to.be.false;
-			expect(mockEasyLlmClient.generateText.called, 'Easy LLM generateText for project summary should not be called').to.be.false;
-			expect(mockMediumLlmClient.generateJson.called, 'Medium LLM generateJson should not be called').to.be.false;
+			expect(llm.generateText.called, 'Easy LLM generateText for project summary should not be called').to.be.false;
+			expect(llm.generateJson.called, 'Medium LLM generateJson should not be called').to.be.false;
 		});
 
 		it('should regenerate file summary if file content changes', async () => {
@@ -367,7 +350,7 @@ describe('IndexDocBuilder', () => {
 			// Instantiate FSS and Builder AFTER mocking
 			mockFss = new FileSystemService();
 			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
-			builder = new IndexDocBuilder(mockFss, { easy: mockEasyLlmClient, medium: mockMediumLlmClient });
+			builder = new IndexDocBuilder(mockFss, llm);
 
 			await fsAsync.writeFile(path.join(MOCK_REPO_ROOT, 'src/file.ts'), newFileContent);
 
@@ -377,7 +360,7 @@ describe('IndexDocBuilder', () => {
 			const summaryFile = JSON.parse(await fsAsync.readFile(path.join(MOCK_REPO_ROOT, fileSummaryJsonPath), 'utf-8'));
 			expect(summaryFile.meta.hash).to.equal(hash(newFileContent));
 			expect(generateFolderSummaryStub.called, 'generateFolderSummary helper for parent should be called').to.be.true;
-			expect(mockEasyLlmClient.generateText.calledOnce, 'Easy LLM generateText for project summary should be called').to.be.true;
+			expect(llm.generateText.calledOnce, 'Easy LLM generateText for project summary should be called').to.be.true;
 		});
 
 		it('should handle missing AI_INFO_FILENAME gracefully', async () => {
@@ -391,7 +374,7 @@ describe('IndexDocBuilder', () => {
 			// Instantiate FSS and Builder AFTER mocking
 			mockFss = new FileSystemService();
 			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
-			builder = new IndexDocBuilder(mockFss, { easy: mockEasyLlmClient, medium: mockMediumLlmClient });
+			builder = new IndexDocBuilder(mockFss, llm);
 
 			await expect(builder.buildIndexDocsInternal()).to.be.rejectedWith(Error, `${AI_INFO_FILENAME} not found`);
 		});
@@ -409,14 +392,14 @@ describe('IndexDocBuilder', () => {
 			// Instantiate FSS and Builder AFTER mocking
 			mockFss = new FileSystemService();
 			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
-			builder = new IndexDocBuilder(mockFss, { easy: mockEasyLlmClient, medium: mockMediumLlmClient });
+			builder = new IndexDocBuilder(mockFss, llm);
 
 			await builder.buildIndexDocsInternal();
 
 			expect(loggerWarnStub.calledWithMatch('No indexDocs patterns found')).to.be.true;
 			expect(generateFileSummaryStub.called).to.be.false;
 			expect(generateFolderSummaryStub.called).to.be.false;
-			expect(mockEasyLlmClient.generateText.calledOnce).to.be.true;
+			expect(llm.generateText.calledOnce).to.be.true;
 		});
 	});
 
@@ -441,7 +424,7 @@ describe('IndexDocBuilder', () => {
 			// Instantiate FSS and Builder AFTER mocking
 			mockFss = new FileSystemService();
 			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
-			builder = new IndexDocBuilder(mockFss, { easy: mockEasyLlmClient, medium: mockMediumLlmClient });
+			builder = new IndexDocBuilder(mockFss, llm);
 
 			const summaries = await builder.loadBuildDocsSummariesInternal();
 			expect(summaries.size).to.equal(1);
@@ -460,7 +443,7 @@ describe('IndexDocBuilder', () => {
 			// Instantiate FSS and Builder AFTER mocking
 			mockFss = new FileSystemService();
 			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
-			builder = new IndexDocBuilder(mockFss, { easy: mockEasyLlmClient, medium: mockMediumLlmClient });
+			builder = new IndexDocBuilder(mockFss, llm);
 			const buildInternalStub = sinon.stub(builder, 'buildIndexDocsInternal').resolves();
 
 			await builder.loadBuildDocsSummariesInternal(true);
@@ -486,7 +469,7 @@ describe('IndexDocBuilder', () => {
 			// Instantiate FSS and Builder AFTER mocking
 			mockFss = new FileSystemService();
 			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
-			builder = new IndexDocBuilder(mockFss, { easy: mockEasyLlmClient, medium: mockMediumLlmClient });
+			builder = new IndexDocBuilder(mockFss, llm);
 
 			const result = await builder.getTopLevelSummaryInternal();
 			expect(result).to.equal(overview);
@@ -507,7 +490,7 @@ describe('IndexDocBuilder', () => {
 			// Instantiate FSS and Builder AFTER mocking
 			mockFss = new FileSystemService();
 			mockFss.setWorkingDirectoryUnsafe(MOCK_REPO_ROOT);
-			builder = new IndexDocBuilder(mockFss, { easy: mockEasyLlmClient, medium: mockMediumLlmClient });
+			builder = new IndexDocBuilder(mockFss, llm);
 
 			const result = await builder.getTopLevelSummaryInternal();
 			expect(result).to.equal('');
