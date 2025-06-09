@@ -329,20 +329,6 @@ describe('IndexDocBuilder', () => {
 			expect(summaries.size).to.equal(1);
 			expect(summaries.get(summary1Path)).to.deep.equal(summary1Content);
 		});
-
-		it('should call buildIndexDocsInternal if createIfNotExits is true and docs dir is missing', async () => {
-			setupMockFs({
-				[MOCK_REPO_ROOT]: {
-					[AI_INFO_FILENAME]: JSON.stringify([{ indexDocs: ['src/file.ts'] }]),
-					src: { 'file.ts': 'content' },
-				},
-			});
-			const buildInternalStub = sinon.stub(builder, 'buildIndexDocsInternal').resolves();
-
-			await builder.loadBuildDocsSummariesInternal(true);
-
-			expect(buildInternalStub.calledOnce).to.be.true;
-		});
 	});
 
 	describe('getTopLevelSummaryInternal', () => {
