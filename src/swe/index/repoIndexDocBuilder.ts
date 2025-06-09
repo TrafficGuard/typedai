@@ -256,6 +256,10 @@ export class IndexDocBuilder {
 		folderMatchesIndexDocs: (folderPath: string) => boolean,
 	): Promise<void> {
 		const relativeFolderPath = path.relative(this.fss.getWorkingDirectory(), folderPath);
+		if (relativeFolderPath === '') {
+			logger.debug('Skipping folder summary for root directory, as it is handled by the project summary.');
+			return;
+		}
 		const folderSummaryFilePath = join(typedaiDirName, 'docs', relativeFolderPath, '_index.json');
 
 		const fileSummaries = await this.getFileSummaries(folderPath, fileMatchesIndexDocs);
@@ -399,13 +403,6 @@ export class IndexDocBuilder {
 
 		logger.info('Generating new top-level project summary.');
 
-		if (allFolderSummaries.length === 0) {
-			logger.info('No folder summaries found to generate a new top-level project summary.');
-			const placeholderSummary = 'Project summary generation pending: No folder-level summaries available.';
-			await this.saveTopLevelSummaryInternal(placeholderSummary, currentAllFoldersCombinedHash);
-			return placeholderSummary;
-		}
-
 		const combinedSummaryText = allFolderSummaries.map((summary) => `${summary.path}:\n${summary.long}`).join('\n\n');
 		const newProjectOverview = await this.llm.generateText(generateDetailedSummaryPrompt(combinedSummaryText), {
 			id: 'Generate top level project summary',
@@ -505,15 +502,9 @@ export class IndexDocBuilder {
 			const cwd = this.fss.getWorkingDirectory();
 			const docsDir = join(cwd, typedaiDirName, 'docs');
 
-			try {
-				// The check is removed; fss.listFilesRecursively should handle non-existent directories.
-				await fs.access(docsDir);
-			} catch (e: any) {
-				if (e.code === 'ENOENT') {
-					logger.info(`Docs directory ${docsDir} does not exist. No summaries to clean.`);
-					return;
-				}
-				logger.warn(`Error accessing docs directory ${docsDir}: ${errorToString(e)}. Skipping cleanup.`);
+			const docsDirExists = await this.fss.directoryExists(docsDir);
+			if (!docsDirExists) {
+				logger.info(`Docs directory ${docsDir} does not exist. No summaries to clean.`);
 				return;
 			}
 
@@ -541,20 +532,18 @@ export class IndexDocBuilder {
 						continue;
 					}
 
-					const sourcePath = join(cwd, summaryData.path);
-					try {
-						await fs.stat(sourcePath);
-					} catch (e: any) {
-						if (e.code === 'ENOENT') {
-							logger.info(`Source path ${sourcePath} for summary file ${summaryFilePath} not found. Deleting summary.`);
-							try {
-								await fs.unlink(summaryFilePath);
-								deletedCount++;
-							} catch (unlinkError: any) {
-								logger.error(`Failed to delete orphaned summary file ${summaryFilePath}: ${errorToString(unlinkError)}`);
-							}
-						} else {
-							logger.warn(`Error checking status of source path ${sourcePath} for summary ${summaryFilePath}: ${errorToString(e)}. Skipping orphan check.`);
+					const isFolderSummary = basename(summaryFilePath) === '_index.json';
+					const sourcePath = summaryData.path;
+
+					const sourceExists = isFolderSummary ? await this.fss.directoryExists(sourcePath) : await this.fss.fileExists(sourcePath);
+
+					if (!sourceExists) {
+						logger.info(`Source path ${sourcePath} for summary file ${summaryFilePath} not found. Deleting summary.`);
+						try {
+							await this.fss.deleteFile(summaryFilePath);
+							deletedCount++;
+						} catch (unlinkError: any) {
+							logger.error(`Failed to delete orphaned summary file ${summaryFilePath}: ${errorToString(unlinkError)}`);
 						}
 					}
 				}

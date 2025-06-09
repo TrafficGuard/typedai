@@ -1,4 +1,4 @@
-import { access, existsSync, lstat, mkdir, readFile, readdir, stat, writeFile } from 'node:fs';
+import { access, existsSync, lstat, mkdir, readFile, readdir, stat, unlink, writeFile } from 'node:fs';
 import path, { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import ignore, { type Ignore } from 'ignore';
@@ -23,6 +23,7 @@ const fs = {
 	mkdir: promisify(mkdir),
 	lstat: promisify(lstat),
 	writeFile: promisify(writeFile),
+	unlink: promisify(unlink),
 };
 
 // import fg from 'fast-glob';
@@ -518,6 +519,21 @@ export class FileSystemService implements IFileSystemService {
 		const parentPath = path.dirname(fileSystemPath);
 		await fs.mkdir(parentPath, { recursive: true });
 		await fs.writeFile(fileSystemPath, contents);
+	}
+
+	async deleteFile(filePath: string): Promise<void> {
+		const fileSystemPath = filePath.startsWith(this.basePath) ? filePath : join(this.getWorkingDirectory(), filePath);
+		logger.debug(`Deleting file "${filePath}" from ${fileSystemPath}`);
+		try {
+			await fs.unlink(fileSystemPath);
+		} catch (error: any) {
+			if (error.code !== 'ENOENT') {
+				logger.error(`Failed to delete file ${fileSystemPath}: ${error}`);
+				throw error;
+			}
+			// If file doesn't exist, it's not an error for a delete operation.
+			logger.debug(`File not found, skipping delete: ${fileSystemPath}`);
+		}
 	}
 
 	/**
