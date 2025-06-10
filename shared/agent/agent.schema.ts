@@ -163,8 +163,6 @@ export const AgentContextSchema = Type.Object({
 	functionCallHistory: Type.Array(FunctionCallResultSchema),
 	hilCount: Type.Number(), // Type was 'any' in model, assuming number
 	hilRequested: Type.Optional(Type.Boolean()),
-	liveFiles: Type.Optional(Type.Array(Type.String())),
-	fileStore: Type.Optional(Type.Array(FileMetadataSchema)),
 	toolState: Type.Optional(Type.Record(Type.String(), Type.Any())),
 });
 
@@ -227,9 +225,12 @@ export const AutonomousIterationSummarySchema = Type.Pick(AutonomousIterationSch
 
 const _AutonomousIterationSummaryCheck: AreTypesFullyCompatible<AutonomousIterationSummary, Static<typeof AutonomousIterationSummarySchema>> = true;
 
-export const AgentIdParamsSchema = Type.Object({
-	agentId: Type.String({ description: 'The ID of the agent' }),
-});
+export const AgentIdParamsSchema = Type.Object(
+	{
+		agentId: Type.String({ description: 'The ID of the agent' }),
+	},
+	{ $id: 'AgentIdParams' },
+);
 
 // --- Placeholder Schemas (as per original request, to be defined properly if needed later) ---
 

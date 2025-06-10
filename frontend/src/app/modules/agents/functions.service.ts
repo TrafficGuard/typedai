@@ -1,9 +1,10 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Injectable, WritableSignal, signal, inject } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { EMPTY, Observable } from 'rxjs';
 import { catchError, retry, tap } from 'rxjs/operators';
-import { environment } from '../../../environments/environment';
-import { ApiListState, createApiListState } from '../../core/api-state.types';
+import { createApiListState } from '../../core/api-state.types';
+import { callApiRoute } from "../../core/api-route";
+import { AGENT_API } from "#shared/agent/agent.api";
 
 @Injectable({
 	providedIn: 'root',
@@ -16,9 +17,8 @@ export class FunctionsService {
 	constructor() {}
 
 	public getFunctions(): void {
-		if (this._functionsState().status === 'loading') {
-			return;
-		}
+		if (this._functionsState().status === 'loading') return;
+
 		this._functionsState.set({ status: 'loading' });
 
 		this.fetchFunctions()
@@ -39,6 +39,6 @@ export class FunctionsService {
 	}
 
 	private fetchFunctions(): Observable<string[]> {
-		return this.http.get<string[]>(`${environment.apiBaseUrl}agent/v1/functions`).pipe(retry(3));
-	}
+        return callApiRoute(this.http, AGENT_API.getAvailableFunctions).pipe(retry(3));
+    }
 }

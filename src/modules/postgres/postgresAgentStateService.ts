@@ -66,7 +66,6 @@ export class PostgresAgentStateService implements AgentContextService {
 			input_prompt: serialized.inputPrompt,
 			messages_serialized: JSON.stringify(serialized.messages),
 			function_call_history_serialized: serialized.functionCallHistory ? JSON.stringify(serialized.functionCallHistory) : null,
-			live_files_serialized: serialized.liveFiles ? JSON.stringify(serialized.liveFiles) : null,
 			child_agents_ids: serialized.childAgents ? JSON.stringify(serialized.childAgents) : null,
 			hil_requested: serialized.hilRequested,
 		};
@@ -188,7 +187,6 @@ export class PostgresAgentStateService implements AgentContextService {
 			inputPrompt: row.input_prompt, // Schema expects string, DB schema for input_prompt is NOT NULL.
 			messages: this.safeJsonParse(row.messages_serialized, 'messages_serialized_schema_align') ?? [],
 			functionCallHistory: this.safeJsonParse(row.function_call_history_serialized, 'function_call_history_serialized_schema_align') ?? [],
-			liveFiles: this.safeJsonParse(row.live_files_serialized, 'live_files_serialized_schema_align') ?? [],
 			childAgents: this.safeJsonParse(row.child_agents_ids, 'child_agents_ids_schema_align') ?? [],
 			hilRequested: row.hil_requested === null ? undefined : row.hil_requested,
 
@@ -197,7 +195,6 @@ export class PostgresAgentStateService implements AgentContextService {
 			codeTaskId: undefined,
 			output: undefined,
 			fileSystem: undefined, // deserializeContext handles default for complex objects if schema allows undefined
-			fileStore: undefined,
 			toolState: undefined,
 		};
 		return deserializeContext(dataForDeserialization);
