@@ -11,7 +11,7 @@ import { userRoutes } from '#routes/profile/user-routes';
 import { promptRoutes } from '#routes/prompts/prompts-routes';
 import { scmRoutes } from '#routes/scm/scmRoutes';
 import { githubRoutes } from '#routes/webhooks/github/github-routes';
-import { gitlabRoutesV1 } from '#routes/webhooks/gitlab/gitlabRoutes-v1';
+import { gitlabRoutes } from '#routes/webhooks/gitlab/gitlabRoutes';
 import { jiraRoutes } from '#routes/webhooks/jira/jira-routes';
 import { workflowRoutes } from '#routes/workflows/workflow-routes';
 import { initFastify } from './fastify';
@@ -32,7 +32,7 @@ export async function initServer(): Promise<void> {
 		await initFastify({
 			routes: [
 				authRoutes,
-				gitlabRoutesV1,
+				gitlabRoutes,
 				githubRoutes,
 				agentRoutes,
 				llmRoutes,
