@@ -10,6 +10,7 @@ import { Jira } from '#functions/jira';
 import { Git } from '#functions/scm/git';
 import { GitHub } from '#functions/scm/github';
 import { GitLab } from '#functions/scm/gitlab';
+import { FileSystemList } from '#functions/storage/fileSystemList';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { FileSystemWrite } from '#functions/storage/fileSystemWrite';
 import { LocalFileStore } from '#functions/storage/localFileStore';
@@ -31,6 +32,7 @@ const FUNCTIONS = [
 	FileSystemTree,
 	FileSystemRead,
 	FileSystemWrite,
+	FileSystemList,
 	LocalFileStore,
 	LiveFiles,
 	GitLab,
