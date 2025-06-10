@@ -11,7 +11,7 @@ import { CodeTaskServiceImpl } from '../../codeTask/codeTaskServiceImpl';
 // TypedAI specific imports
 import { codeTaskRoutes } from './codeTaskRoutes';
 
-describe.skip('CodeTask Routes - POST /api/codeTask', () => {
+describe('CodeTask Routes - POST /api/codeTask', () => {
 	setupConditionalLoggerOutput();
 	let fastify: FastifyInstance;
 	let createCodeTaskStub: SinonStub;
