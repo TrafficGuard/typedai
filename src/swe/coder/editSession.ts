@@ -33,6 +33,7 @@ export interface EditSession {
 	// state snapshots
 	absFnamesInChat?: Set<string>; // Absolute paths of files explicitly in chat
 	initiallyDirtyFiles?: Set<string>; // Relative paths of files that were dirty when we started
+	fileContentSnapshots: Map<string, string | null>; // Snapshots of file contents before an attempt
 }
 
 export function newSession(workingDir: string, llmRequest: string): EditSession {
@@ -44,6 +45,7 @@ export function newSession(workingDir: string, llmRequest: string): EditSession 
 		reflectionMessages: [],
 		absFnamesInChat: new Set(),
 		initiallyDirtyFiles: new Set(),
+		fileContentSnapshots: new Map<string, string | null>(),
 		requestedFiles: undefined,
 		requestedQueries: undefined, // Initialize as undefined
 		requestedPackageInstalls: undefined, // Initialize as undefined

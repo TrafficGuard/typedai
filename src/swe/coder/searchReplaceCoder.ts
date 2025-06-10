@@ -297,13 +297,22 @@ export class SearchReplaceCoder {
 		// File Context
 		const formatFileForPrompt = async (relativePath: string): Promise<string> => {
 			const absolutePath = this.getRepoFilePath(session.workingDir, relativePath);
-			const content = await this.fs.readFile(absolutePath);
-			if (content === null) {
-				logger.warn(`Could not read file ${relativePath} for prompt inclusion.`);
+			let fileContent: string | null = null;
+			try {
+				fileContent = await this.fs.readFile(absolutePath);
+			} catch (e) {
+				logger.warn(`Could not read file ${relativePath} for prompt inclusion or snapshot: ${(e as Error).message}`);
+				// fileContent remains null
+			}
+
+			// Store snapshot
+			session.fileContentSnapshots.set(relativePath, fileContent);
+
+			if (fileContent === null) {
 				return `${relativePath}\n[Could not read file content]`;
 			}
 			const lang = path.extname(relativePath).substring(1) || 'text';
-			return `${relativePath}\n${fence[0]}${lang}\n${content}\n${fence[1]}`;
+			return `${relativePath}\n${fence[0]}${lang}\n${fileContent}\n${fence[1]}`;
 		};
 
 		const currentFilesInChatAbs = session.absFnamesInChat ?? new Set();
@@ -501,7 +510,47 @@ export class SearchReplaceCoder {
 			const { appliedFilePaths, failedEdits } = await applier.apply(editsToApply);
 
 			if (failedEdits.length > 0) {
-				await this._reflectOnFailedEdits(session, failedEdits, appliedFilePaths.size, currentMessages);
+				let externalModificationDetectedForFailedEdit = false;
+				for (const failedEdit of failedEdits) {
+					const relativePath = failedEdit.filePath; // EditBlock has filePath
+					const snapshotContent = session.fileContentSnapshots.get(relativePath); // EditSession has fileContentSnapshots
+
+					if (snapshotContent === undefined) {
+						logger.warn(`No content snapshot found for failed edit on file: ${relativePath}. Skipping external modification check for this file.`);
+						continue;
+					}
+
+					let currentContent: string | null = null;
+					const absolutePath = this.getRepoFilePath(session.workingDir, relativePath); // getRepoFilePath is a private method in SearchReplaceCoder
+					try {
+						currentContent = await this.fs.readFile(absolutePath); // this.fs is IFileSystemService
+					} catch (error) {
+						logger.warn(`Failed to read file ${relativePath} for modification check: ${(error as Error).message}`);
+						if (!(await this.fs.fileExists(absolutePath))) {
+							currentContent = null; // Explicitly mark as non-existent
+						} else {
+							// If file exists but readFile failed for other reasons,
+							// we might not want to assume it's an external modification mismatch.
+							// For now, skip this failed edit's check if readFile fails but file exists.
+							continue;
+						}
+					}
+
+					if (snapshotContent !== currentContent) {
+						logger.warn(`File ${relativePath} was modified externally after LLM generation. Edit failed.`);
+						const reflectionText = `The file "${relativePath}" was modified externally after the edit blocks were generated, and the proposed change for this file could not be applied. The file's content has been updated in your context. Please review the changes and try generating the edits again for this file.`;
+						this._addReflectionToMessages(session, reflectionText, currentMessages); // _addReflectionToMessages is a private method
+						externalModificationDetectedForFailedEdit = true;
+						break;
+					}
+				}
+
+				if (externalModificationDetectedForFailedEdit) {
+					continue; // Re-prompt the LLM
+				}
+				// No external modifications detected for any of the failed edits,
+				// so use the standard reflection for failed S/R blocks.
+				await this._reflectOnFailedEdits(session, failedEdits, appliedFilePaths.size, currentMessages); // _reflectOnFailedEdits is a private method
 				continue;
 			}
 
