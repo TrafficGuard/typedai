@@ -1,2 +1,2 @@
 #!/usr/bin/bash
-source ~/.nvm/nvm.sh && nvm use && npm run lint:ci && npm test
+npm run lint:ci && npm test
