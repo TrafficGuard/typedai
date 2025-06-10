@@ -6,7 +6,7 @@ import { searchCode } from './search';
 
 const logger = pino({ name: 'MainSearchScript' });
 
-async function main() {
+export async function main() {
 	const args = process.argv.slice(2); // Remove 'node' and script path
 
 	if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
@@ -76,7 +76,7 @@ async function main() {
 	}
 }
 
-function printUsage() {
+export function printUsage() {
 	console.log(`
 Usage: node dist/swe/search/index.js <command> [options]
 
@@ -100,7 +100,7 @@ Environment Variables:
 `);
 }
 
-main().catch((error) => {
-	logger.fatal(`Unhandled error in main execution: ${error}`);
-	process.exit(1);
-});
+// main().catch((error) => {
+// 	logger.fatal(`Unhandled error in main execution: ${error}`);
+// 	process.exit(1);
+// });
