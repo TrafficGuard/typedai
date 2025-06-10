@@ -4,8 +4,6 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTableModule } from '@angular/material/table';
 import { AgentContextApi } from '#shared/agent/agent.schema';
 import { FileMetadata } from '#shared/files/files.model';
-// AgentService is not used in this component's logic after refactor
-// import { AgentService } from '../../services/agent.service';
 
 @Component({
 	selector: 'agent-tool-state',
@@ -18,10 +16,8 @@ import { FileMetadata } from '#shared/files/files.model';
 export class AgentToolStateComponent {
 	agentDetails = input.required<AgentContextApi>();
 
-	liveFiles = computed(() => this.agentDetails()?.liveFiles || []);
-	fileStore = computed(() => this.agentDetails()?.fileStore || []);
+	liveFiles = computed(() => this.agentDetails()?.toolState.LiveFiles || []);
+	fileStore = computed(() => this.agentDetails()?.toolState.FileStore || []);
 
 	displayedColumns: string[] = ['filename', 'description', 'size', 'lastUpdated'];
-
-	// ngOnInit and ngOnChanges are no longer needed as computed signals handle derivations.
 }
