@@ -30,11 +30,11 @@ import { MatSliderModule } from '@angular/material/slider';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { CallSettings, FilePartExt, ImagePartExt, LlmMessage, TextPart, UserContentExt } from '#shared/llm/llm.model';
-import { Prompt } from '#shared/prompts/prompts.model';
-import { PromptCreatePayload, PromptGenerateResponseSchemaModel, PromptSchemaModel, PromptUpdatePayload } from '#shared/prompts/prompts.schema';
+import type { CallSettings, FilePartExt, ImagePartExt, LlmMessage, TextPart, UserContentExt } from '#shared/llm/llm.model';
+import type { Prompt } from '#shared/prompts/prompts.model';
+import { type PromptCreatePayload, PromptGenerateResponseSchemaModel, type PromptSchemaModel, type PromptUpdatePayload } from '#shared/prompts/prompts.schema';
 import { type LLM as AppLLM, LlmService } from '../../llm.service'; // Renamed LLM to AppLLM to avoid conflict
-import { Attachment } from '../message.types';
+import type { Attachment } from '../message.types';
 import { attachmentsAndTextToUserContentExt, fileToAttachment, userContentExtToAttachmentsAndText } from '../messageUtil';
 import { PromptsService } from '../prompts.service';
 
@@ -205,7 +205,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 			options: this.fb.group({
 				llmId: [null, Validators.required], // Changed from selectedModel to llmId
 				temperature: [1.0, [Validators.required, Validators.min(0), Validators.max(2), Validators.pattern(/^\d*(\.\d+)?$/)]],
-				maxOutputTokens: [2048, [Validators.required, Validators.min(1), Validators.max(8192), Validators.pattern(/^[0-9]*$/)]],
+				maxOutputTokens: [64000, [Validators.required, Validators.min(1), Validators.max(64000), Validators.pattern(/^[0-9]*$/)]],
 			}),
 		});
 
@@ -430,7 +430,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 			// Changed from selectedModel
 			llmId: this.availableModels.length > 0 ? this.availableModels[0].id : null, // Changed from selectedModel
 			temperature: 1.0,
-			maxOutputTokens: 2048,
+			maxOutputTokens: 64000,
 		};
 
 		this.promptForm.patchValue(

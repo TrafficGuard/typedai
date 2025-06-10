@@ -7,7 +7,7 @@ import { FormBuilder, type FormGroup } from '@angular/forms';
 import { ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
-import { MatChipInputEvent } from '@angular/material/chips';
+import type { MatChipInputEvent } from '@angular/material/chips';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -23,10 +23,10 @@ import { By } from '@angular/platform-browser';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { of } from 'rxjs';
-import { FilePartExt, ImagePartExt, LlmMessage, TextPart, UserContentExt } from '#shared/llm/llm.model';
-import { Prompt } from '#shared/prompts/prompts.model';
-import { PromptSchemaModel } from '#shared/prompts/prompts.schema';
-import { LLM as AppLLM } from '../../llm.service';
+import type { FilePartExt, ImagePartExt, LlmMessage, TextPart, UserContentExt } from '#shared/llm/llm.model';
+import type { Prompt } from '#shared/prompts/prompts.model';
+import type { PromptSchemaModel } from '#shared/prompts/prompts.schema';
+import type { LLM as AppLLM } from '../../llm.service';
 import { LlmService } from '../../llm.service';
 import { PromptsService } from '../prompts.service';
 import { PromptFormComponent } from './prompt-form.component';
@@ -374,6 +374,11 @@ describe('PromptFormComponent', () => {
 				expect(maxOutputTokensControl?.hasError('min')).toBeTrue();
 			});
 
+			it('should be invalid for value > 64000', () => {
+				maxOutputTokensControl?.setValue(64001);
+				expect(maxOutputTokensControl?.hasError('max')).toBeTrue();
+			});
+
 			it('should be invalid for non-integer pattern (text)', () => {
 				maxOutputTokensControl?.setValue('abc');
 				expect(maxOutputTokensControl?.hasError('pattern')).toBeTrue();
@@ -386,6 +391,11 @@ describe('PromptFormComponent', () => {
 
 			it('should be valid for a correct integer value like 2048', () => {
 				maxOutputTokensControl?.setValue(2048);
+				expect(maxOutputTokensControl?.valid).toBeTrue();
+			});
+
+			it('should be valid for a correct integer value of 64000', () => {
+				maxOutputTokensControl?.setValue(64000);
 				expect(maxOutputTokensControl?.valid).toBeTrue();
 			});
 		});
