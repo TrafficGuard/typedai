@@ -6,6 +6,7 @@ import { functionFactory } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import type { AgentContext, AgentContextPreview, AgentRunningState, AutonomousIteration, AutonomousIterationSummary } from '#shared/agent/agent.model';
 import type { AgentContextSchema } from '#shared/agent/agent.schema';
+import { currentUser } from '#user/userContext'; // Added import
 
 /**
  * In-memory implementation of AgentStateService for tests. Serializes/deserializes
@@ -36,6 +37,17 @@ export class InMemoryAgentStateService implements AgentContextService {
 		if (!this.stateMap.has(executionId)) throw new Error('Agent state not found');
 		const serialized = this.stateMap.get(executionId)!; // Added non-null assertion as we check with .has()
 		return deserializeContext(serialized);
+	}
+
+	async findByMetadata(key: string, value: string): Promise<AgentContext | null> {
+		const currentUserId = currentUser().id;
+		for (const serialized of this.stateMap.values()) {
+			const agent = deserializeContext(serialized);
+			if (agent.user.id === currentUserId && agent.metadata && agent.metadata[key] === value) {
+				return agent;
+			}
+		}
+		return null;
 	}
 
 	async list(): Promise<AgentContextPreview[]> {

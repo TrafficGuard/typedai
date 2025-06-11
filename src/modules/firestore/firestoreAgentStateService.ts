@@ -151,6 +151,33 @@ export class FirestoreAgentStateService implements AgentContextService {
 	}
 
 	@span()
+	async findByMetadata(key: string, value: string): Promise<AgentContext | null> {
+		const currentUserId = currentUser().id;
+		const metadataFieldPath = `metadata.${key}`;
+
+		const querySnapshot = await this.db.collection('AgentContext').where('user', '==', currentUserId).where(metadataFieldPath, '==', value).limit(1).get();
+
+		if (querySnapshot.empty) {
+			return null;
+		}
+
+		const docSnap = querySnapshot.docs[0];
+		const firestoreData = docSnap.data();
+		if (!firestoreData) {
+			logger.warn({ agentId: docSnap.id, key, value }, 'Firestore document exists for findByMetadata but data is undefined.');
+			return null; // Or throw, but null is consistent with "not found"
+		}
+
+		// Construct the object ensuring it aligns with AgentContextSchema.
+		const schemaCompliantData = {
+			...firestoreData,
+			agentId: docSnap.id,
+		} as Static<typeof AgentContextSchema>;
+
+		return deserializeContext(schemaCompliantData);
+	}
+
+	@span()
 	async list(): Promise<AgentContextPreview[]> {
 		const querySnapshot = await this.db
 			.collection('AgentContext')

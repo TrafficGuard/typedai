@@ -1,5 +1,6 @@
 import type { Static } from '@sinclair/typebox';
 import type { Insertable, Kysely, Selectable, Transaction, Updateable } from 'kysely';
+import { sql } from 'kysely'; // Added import
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import type { AgentContextService } from '#agent/agentContextService/agentContextService';
 import { deserializeContext, serializeContext } from '#agent/agentSerialization';
@@ -338,6 +339,29 @@ export class PostgresAgentStateService implements AgentContextService {
 			throw new NotAllowed(`Access denied to agent ${agentId}.`);
 		}
 
+		return this._deserializeDbRowToAgentContext(row);
+	}
+
+	async findByMetadata(key: string, value: string): Promise<AgentContext | null> {
+		const currentUserId = currentUser().id;
+
+		// Ensure key is a simple string to prevent SQL injection if it were dynamic.
+		// For this use case, key is typically a predefined string like 'gitlab'.
+		// Using db.val(key) for safety if key could come from untrusted input,
+		// but for internal keys, direct interpolation in sql template is common.
+		// The jsonb operator `->>` extracts the value as text.
+		const row = await this.db
+			.selectFrom('agent_contexts')
+			.selectAll()
+			.where('user_id', '=', currentUserId)
+			.where(sql`metadata_serialized->>${key}`, '=', value)
+			.executeTakeFirst();
+
+		if (!row) {
+			return null;
+		}
+
+		// Ownership is already checked by `where('user_id', '=', currentUserId)`
 		return this._deserializeDbRowToAgentContext(row);
 	}
 

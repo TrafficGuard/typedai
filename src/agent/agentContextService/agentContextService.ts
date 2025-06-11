@@ -6,6 +6,15 @@ export interface AgentContextService {
 	load(agentId: string): Promise<AgentContext | null>;
 
 	/**
+	 * Finds an agent by a key-value pair in its metadata.
+	 * Only returns agents owned by the current user.
+	 * @param key The metadata key to search for.
+	 * @param value The metadata value to match.
+	 * @returns The AgentContext if found and owned by the user, otherwise null.
+	 */
+	findByMetadata(key: string, value: string): Promise<AgentContext | null>;
+
+	/**
 	 * For autonomous agents, requests a human-in-the-loop check from the user after the current iteration
 	 * @param agent
 	 */

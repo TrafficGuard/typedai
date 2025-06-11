@@ -181,6 +181,24 @@ export class MongoAgentContextService implements AgentContextService {
 		}
 	}
 
+	async findByMetadata(key: string, value: string): Promise<AgentContext | null> {
+		try {
+			const currentUserId = userContext.currentUser().id;
+			const query: any = { 'user.id': currentUserId };
+			query[`metadata.${key}`] = value;
+
+			const doc = await this.agentContextsCollection.findOne(query);
+			if (!doc) {
+				return null;
+			}
+			// Ownership is already checked by the query for user.id
+			return dbDocToAgentContext(doc);
+		} catch (error) {
+			logger.error(error, `Failed to find agent by metadata [key=${key}, value=${value}]`);
+			throw error;
+		}
+	}
+
 	async requestHumanInLoopCheck(agent: AgentContext): Promise<void> {
 		try {
 			const result = await this.agentContextsCollection.updateOne({ _id: agent.agentId }, { $set: { hilRequested: true, lastUpdate: Date.now() } });
