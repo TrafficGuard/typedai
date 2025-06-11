@@ -89,6 +89,10 @@ describe.only('CodeTaskServiceImpl', () => {
 			// call it makes, but test the object it returns.
 			mockCodeTaskRepo.createCodeTask.resolves(codeTaskId);
 
+			// Add this mock to fix the error log from the background task.
+			const mockTaskForBackground = createMockCodeTask({ ...createData, id: codeTaskId });
+			mockCodeTaskRepo.getCodeTask.resolves(mockTaskForBackground);
+
 			// 2. Act
 			const result = await service.createCodeTask(userId, createData);
 
