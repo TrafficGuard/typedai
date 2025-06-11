@@ -37,7 +37,7 @@ export class CodeTaskCreation {
 			codeDiff: undefined,
 			commitSha: undefined,
 			pullRequestUrl: undefined,
-			error: null,
+			error: undefined,
 			ciCdProposedFix: undefined,
 			ciCdStatus: undefined,
 			ciCdJobUrl: undefined,
