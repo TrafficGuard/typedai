@@ -64,8 +64,6 @@ import { ClipboardButtonComponent } from './clipboard-button.component';
 		MatButtonModule,
 		MatIconModule,
 		MatMenuModule,
-		MatButtonModule,
-		MatMenuModule,
 		MatTooltipModule,
 		CommonModule,
 		MatFormFieldModule,
@@ -79,7 +77,6 @@ import { ClipboardButtonComponent } from './clipboard-button.component';
 		ClipboardButtonComponent,
 		ClipboardModule,
 		// SafeHtmlPipe, // Removed as it's not used
-		NgClass,
 	],
 	providers: [provideMarkdown()],
 })
