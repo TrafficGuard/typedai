@@ -1,6 +1,5 @@
 import { ClipboardModule } from '@angular/cdk/clipboard';
 import { TextFieldModule } from '@angular/cdk/text-field';
-import { CommonModule, NgClass } from '@angular/common';
 import {
 	type AfterViewInit,
 	ChangeDetectionStrategy,
@@ -65,7 +64,6 @@ import { ClipboardButtonComponent } from './clipboard-button.component';
 		MatIconModule,
 		MatMenuModule,
 		MatTooltipModule,
-		CommonModule,
 		MatFormFieldModule,
 		MatProgressSpinnerModule,
 		MatInputModule,
