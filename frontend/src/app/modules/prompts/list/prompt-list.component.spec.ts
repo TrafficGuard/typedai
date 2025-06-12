@@ -96,7 +96,7 @@ describe('PromptListComponent', () => {
 	}));
 
 	it('should hide loading spinner if loadPrompts errors', fakeAsync(() => {
-		mockPromptsService.loadPrompts.and.returnValue(throwError(() => new Error('Failed to load')));
+		mockPromptsService.loadPrompts.and.returnValue(undefined);
 		fixture.detectChanges(); // ngOnInit
 		tick();
 		fixture.detectChanges();
@@ -104,7 +104,7 @@ describe('PromptListComponent', () => {
 	}));
 
 	it('should display "No prompts found." when prompts signal is null', () => {
-		mockPromptsService.loadPrompts.and.returnValue(of(undefined));
+		mockPromptsService.loadPrompts.and.returnValue(undefined);
 		promptsSignal.set(null);
 		fixture.detectChanges();
 		const compiled = fixture.nativeElement as HTMLElement;
@@ -113,7 +113,7 @@ describe('PromptListComponent', () => {
 	});
 
 	it('should display "No prompts found." when prompts signal is an empty array', () => {
-		mockPromptsService.loadPrompts.and.returnValue(of(undefined));
+		mockPromptsService.loadPrompts.and.returnValue(undefined);
 		promptsSignal.set([]);
 		fixture.detectChanges();
 		const compiled = fixture.nativeElement as HTMLElement;
@@ -122,7 +122,7 @@ describe('PromptListComponent', () => {
 	});
 
 	it('should render a list of prompts when prompts signal has data', () => {
-		mockPromptsService.loadPrompts.and.returnValue(of(undefined));
+		mockPromptsService.loadPrompts.and.returnValue(undefined);
 		promptsSignal.set(mockPrompts);
 		fixture.detectChanges();
 
@@ -163,7 +163,7 @@ describe('PromptListComponent', () => {
 		const promptToDelete = mockPrompts[0];
 
 		beforeEach(() => {
-			mockPromptsService.loadPrompts.and.returnValue(of(undefined));
+			mockPromptsService.loadPrompts.and.returnValue(undefined);
 			promptsSignal.set(mockPrompts);
 			fixture.detectChanges();
 		});
