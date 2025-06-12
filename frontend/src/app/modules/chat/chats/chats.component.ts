@@ -28,7 +28,6 @@ import { ChatServiceClient } from '../chat.service';
 		MatFormFieldModule,
 		MatInputModule,
 		MatProgressSpinnerModule,
-		NgClass,
 		RouterLink,
 		RouterOutlet,
 	],
