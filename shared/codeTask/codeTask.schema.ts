@@ -55,8 +55,18 @@ export const CreateCodeTaskDataApiSchema = Type.Object({
 	title: Type.String(),
 	instructions: Type.String(),
 	repositorySource: Type.Union([Type.Literal('local'), Type.Literal('github'), Type.Literal('gitlab')]),
-	repositoryId: Type.Optional(Type.String()),
-	repositoryName: Type.Optional(Type.String()),
+	repositoryFullPath: Type.Optional(
+		Type.String({
+			description:
+				'The full path of the repository (e.g., local file system path, or "owner/repo" for GitHub/GitLab). This will be repositoryName if not provided for SCM and source is GitHub/GitLab.',
+		}),
+	),
+	repositoryName: Type.Optional(
+		Type.String({
+			description:
+				'Optional: User-friendly name for the repository. For GitHub/GitLab, if repositoryFullPath is not provided, this field (in "owner/repo" format) can be used to derive it.',
+		}),
+	),
 	targetBranch: Type.String(),
 	workingBranch: Type.String(),
 	createWorkingBranch: Type.Boolean(),
@@ -171,8 +181,8 @@ const _updateCodeReviewDataApiCheck: AreTypesFullyCompatible<UpdateCodeReviewDat
 // --- CodeTaskPreset Schemas ---
 export const CodeTaskPresetConfigApiSchema = Type.Object({
 	repositorySource: Type.Union([Type.Literal('local'), Type.Literal('github'), Type.Literal('gitlab')]),
-	repositoryId: Type.Optional(Type.String()),
-	repositoryName: Type.Optional(Type.String()), // MODIFIED
+	repositoryFullPath: Type.Optional(Type.String()),
+	repositoryName: Type.Optional(Type.String()),
 	targetBranch: Type.String(),
 	workingBranch: Type.String(),
 	createWorkingBranch: Type.Boolean(),

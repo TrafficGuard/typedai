@@ -327,18 +327,19 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 	 * @param mergeRequestIId The merge request IID. Can get this from the URL of the merge request.
 	 */
 	@func()
-	async getFailedJobLogs(gitlabProjectId: string | number, mergeRequestIId: number) {
+	async getFailedJobLogs(gitlabProjectId: string | number, mergeRequestIId: number): Promise<Record<string, string>> {
 		const pipelines: PipelineSchema[] = await this.api().MergeRequests.allPipelines(gitlabProjectId, mergeRequestIId);
 		if (pipelines.length === 0) throw new Error('No pipelines for the merge request');
+
 		pipelines.sort((a, b) => (Date.parse(a.created_at) < Date.parse(b.created_at) ? 1 : -1));
 		const latestPipeline = pipelines.at(0);
+
 		if (latestPipeline.status !== 'failed' && latestPipeline.status !== 'blocked') throw new Error('Pipeline is not failed or blocked');
 
 		const jobs: JobSchema[] = await this.api().Jobs.all(gitlabProjectId, { pipelineId: latestPipeline.id });
-
 		const failedJobs = jobs.filter((job) => job.status === 'failed' && job.allow_failure === false);
 
-		const jobLogs = {};
+		const jobLogs: Record<string, string> = {};
 		for (const job of failedJobs) {
 			jobLogs[job.name] = await this.getJobLogs(gitlabProjectId, job.id.toString());
 		}

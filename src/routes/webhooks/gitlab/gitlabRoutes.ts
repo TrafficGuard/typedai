@@ -46,6 +46,8 @@ async function handlePipelineEvent(event: any) {
 		}
 	}
 
+	// TODO if this is the first time a job has failed, analyse the logs to see if it looks like it could be a transient timeout failure. If so re-try the job once, otherwise let the failure go through to tne regular processing.
+
 	const summary = {
 		project: fullProjectPath,
 		gitRef,

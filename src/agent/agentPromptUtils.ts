@@ -5,6 +5,7 @@ import { FileSystemService } from '#functions/storage/fileSystemService';
 import type { FileStore } from '#functions/storage/filestore';
 import { logger } from '#o11y/logger';
 import type { FileMetadata } from '#shared/files/files.model';
+import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
 import type { Summary } from '#swe/index/llmSummaries';
 import { loadBuildDocsSummaries } from '#swe/index/repoIndexDocBuilder';
 import { generateFileSystemTreeWithSummaries } from '#swe/index/repositoryMap';
@@ -97,6 +98,7 @@ ${JSON.stringify(files)}
 
 /**
  * @return An XML representation of the Live Files tool if one exists in the agents functions
+ * along with the relevant documentation files for the AI
  */
 async function buildLiveFilesPrompt(): Promise<string> {
 	const agent = agentContext();
@@ -105,7 +107,16 @@ async function buildLiveFilesPrompt(): Promise<string> {
 	const liveFiles = agentContext().toolState?.LiveFiles ?? [];
 	if (!liveFiles || !liveFiles.length) return '\n<live_files>\n<!-- No files selected. Live files will have their contents displayed here -->\n</live_files>';
 
-	return `\n<live_files>
+	const rulesFiles = await includeAlternativeAiToolFiles(liveFiles);
+	for (const liveFile of liveFiles) {
+		if (rulesFiles.has(liveFile)) rulesFiles.delete(liveFile);
+	}
+	let rulesFilesPrompt = '';
+	if (rulesFiles.size) {
+		rulesFilesPrompt = `<rules_files>\n${await getFileSystem().readFilesAsXml(Array.from(rulesFiles.values()))}\n</rules_files>\n`;
+	}
+
+	return `\n${rulesFilesPrompt}<live_files>
 ${await getFileSystem().readFilesAsXml(liveFiles)}
 </live_files>
 `;

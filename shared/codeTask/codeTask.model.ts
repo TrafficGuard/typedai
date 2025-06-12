@@ -54,9 +54,9 @@ export type CreateCodeTaskData = Pick<
 	CodeTask,
 	'title' | 'instructions' | 'repositorySource' | 'repositoryName' | 'targetBranch' | 'workingBranch' | 'createWorkingBranch' | 'useSharedRepos'
 > & {
-	// For creation, repositoryId is made optional.
+	// For creation, repositoryFullPath is made optional.
 	// If not provided directly, it might be derived from repositoryName for certain sources.
-	repositoryId?: string;
+	repositoryFullPath?: string;
 };
 
 // Data allowed for generic updates via the updateCodeTask method

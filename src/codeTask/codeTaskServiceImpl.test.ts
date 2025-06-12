@@ -78,7 +78,7 @@ describe('CodeTaskServiceImpl', () => {
 				title: 'New Task',
 				instructions: 'New instructions',
 				repositorySource: 'github',
-				repositoryId: 'owner/repo',
+				repositoryFullPath: 'owner/repo',
 				targetBranch: 'main',
 				workingBranch: 'feat/new',
 				createWorkingBranch: true,

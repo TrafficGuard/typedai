@@ -1,4 +1,5 @@
 import type { AgentContextService } from '#agent/agentContextService/agentContextService';
+import type { FunctionCacheService } from '#cache/functionCacheService';
 import type { ChatService } from '#chat/chatService';
 import type { CodeTaskRepository } from '#codeTask/codeTaskRepository';
 import type { TypeBoxFastifyInstance } from '#fastify/fastifyApp';
@@ -6,7 +7,6 @@ import type { LlmCallService } from '#llm/llmCallService/llmCallService';
 import type { PromptsService } from '#prompts/promptsService';
 import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
 import type { UserService } from '#user/userService';
-import type { FunctionCacheService } from '../cache/functionCacheService';
 
 export interface ApplicationContext {
 	agentStateService: AgentContextService;

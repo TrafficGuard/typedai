@@ -41,7 +41,8 @@ const createMockPreset = (userId: string, overrides: Partial<CodeTaskPreset> = {
 		name: `Test Preset ${id.substring(0, 4)}`,
 		config: {
 			repositorySource: 'github',
-			repositoryId: 'owner/repo',
+			repositoryFullPath: '12345', // Mock SCM project ID
+			repositoryName: 'owner/repo', // Mock repository name
 			targetBranch: 'develop',
 			workingBranch: 'codeTask/feature-branch',
 			createWorkingBranch: true,

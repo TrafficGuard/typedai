@@ -33,7 +33,7 @@ export function serializeContext(context: AgentContext): AgentContextApi {
 		codeTaskId: context.codeTaskId,
 		state: context.state ?? 'error',
 		callStack: context.callStack ?? [],
-		error: context.error,
+		error: context.error ?? null, // Ensure error is explicitly null if undefined
 		output: context.output,
 		hilBudget: context.hilBudget ?? 0,
 		cost: context.cost ?? 0,

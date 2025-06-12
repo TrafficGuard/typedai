@@ -21,6 +21,37 @@ export class FirestoreCodeTaskRepository implements CodeTaskRepository {
 	}
 
 	/**
+	 * Converts null values in optional fields of a task object to undefined to match the API schema.
+	 * This avoids V8 de-optimization that can be caused by 'delete'.
+	 * @param task The raw task object from Firestore.
+	 * @returns A sanitized CodeTask object.
+	 */
+	private _sanitizeTask(task: any): CodeTask {
+		const optionalFields: (keyof CodeTask)[] = [
+			'repositoryName',
+			'fileSelection',
+			'designAnswer',
+			'codeDiff',
+			'commitSha',
+			'pullRequestUrl',
+			'ciCdStatus',
+			'ciCdJobUrl',
+			'ciCdAnalysis',
+			'ciCdProposedFix',
+			'agentHistory',
+			'error',
+		];
+
+		const sanitized = { ...task };
+		for (const field of optionalFields) {
+			if (sanitized[field] === null) {
+				sanitized[field] = undefined;
+			}
+		}
+		return sanitized as CodeTask;
+	}
+
+	/**
 	 * Saves a new CodeTask to Firestore.
 	 * @param codeTask The complete CodeTask object to save.
 	 * @returns The ID of the saved codeTask.
@@ -80,9 +111,7 @@ export class FirestoreCodeTaskRepository implements CodeTaskRepository {
 				return null; // Or throw an error
 			}
 
-			return {
-				...(data as CodeTask),
-			};
+			return this._sanitizeTask(data);
 		} catch (error) {
 			logger.error(error, `Error retrieving CodeTask ${codeTaskId} for user ${userId}`);
 			throw error;
@@ -102,7 +131,7 @@ export class FirestoreCodeTaskRepository implements CodeTaskRepository {
 			const codeTasks: CodeTask[] = [];
 			querySnapshot.forEach((doc) => {
 				const data = doc.data();
-				codeTasks.push(data as CodeTask);
+				codeTasks.push(this._sanitizeTask(data));
 			});
 
 			logger.info({ userId, count: codeTasks.length }, 'Listed CodeTasks successfully from user subcollection');

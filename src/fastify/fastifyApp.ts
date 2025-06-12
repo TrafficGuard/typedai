@@ -275,9 +275,9 @@ async function loadPlugins(config: FastifyConfig) {
 		secret: process.env.JWT_SECRET || 'your-secret-key',
 	});
 	await fastifyInstance.register(import('@fastify/cors'), {
-		origin: ['*'], // new URL(process.env.UI_URL).origin
-		methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-		allowedHeaders: ['Content-Type', 'Authorization', 'X-Goog-Iap-Jwt-Assertion', 'Enctype'], // Allow these headers
+		origin: [new URL(process.env.UI_URL).origin],
+		methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+		allowedHeaders: ['Content-Type', 'Authorization', 'X-Goog-Iap-Jwt-Assertion', 'Enctype'],
 		credentials: true,
 	});
 	await fastifyInstance.register(require('@fastify/multipart'));

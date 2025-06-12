@@ -79,8 +79,8 @@ export function MAD_Balanced(): LLM {
 	return new ReasonerDebateLLM(
 		'Balanced',
 		vertexGemini_2_5_Pro,
-		[vertexGemini_2_5_Pro, Claude4_Sonnet_Vertex, openAIo4mini],
-		'MAD:Balanced multi-agent debate (Gemini 2.5 Pro, Sonnet 4, o4-mini)',
+		[vertexGemini_2_5_Pro, Claude4_Sonnet_Vertex, openAIo3],
+		'MAD:Balanced multi-agent debate (Gemini 2.5 Pro, Sonnet 4, o3)',
 	);
 }
 
@@ -140,11 +140,9 @@ export class ReasonerDebateLLM extends BaseLLM {
 
 	isConfigured(): boolean {
 		for (const llm of this.llms) {
-			if (!llm.isConfigured()) logger.warn(`${llm.getId()} is not configured`);
+			if (!llm.isConfigured()) return false;
 		}
-		if (!this.mediator.isConfigured()) logger.warn(`Mediator ${this.mediator.getId()} is not configured`);
-		// return this.mediator.isConfigured() && this.llms.findIndex((llm) => !llm.isConfigured()) === -1;
-		return true;
+		return this.mediator.isConfigured();
 	}
 
 	getModel(): string {

@@ -37,7 +37,7 @@ function openAICostFunction(inputMil: number, outputMil: number): LlmCostFunctio
 }
 
 export function openAIo3() {
-	return new OpenAI('OpenAI o3', 'o3', openAICostFunction(10, 40), 200_000);
+	return new OpenAI('OpenAI o3', 'o3', openAICostFunction(2, 8), 200_000);
 }
 
 export function openAIo4mini() {

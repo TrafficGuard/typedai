@@ -154,7 +154,7 @@ export interface AgentContext {
 	/** The prompt the agent execution started/resumed with for codeGen/XML agent */
 	inputPrompt: string;
 	/** The message the agent execution started/resumed with for cachingCodeGen agent */
-	messages?: LlmMessage[];
+	messages: LlmMessage[];
 	/** Completed function calls with success/error output */
 	functionCallHistory: FunctionCallResult[];
 	/** How many iterations of the autonomous agent control loop to require human input to continue */

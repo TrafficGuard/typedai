@@ -61,6 +61,6 @@ export async function startAgentRoute(fastify: AppFastifyInstance) {
 			return send(reply, 500, { error: 'Failed to retrieve agent context after creation' });
 		}
 		const responseBody = serializeContext(agentContext);
-		send(reply, 201, responseBody); // HTTP 201 for resource creation
+		reply.sendJSON(responseBody, 201);
 	});
 }

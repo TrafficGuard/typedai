@@ -1,5 +1,5 @@
-import { DestroyRef, type WritableSignal, signal } from '@angular/core';
-import { type ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { DestroyRef, WritableSignal, signal } from '@angular/core';
+import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -9,7 +9,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { RouterLink } from '@angular/router';
 import { ActivatedRoute, Router } from '@angular/router';
-import { type ParamMap, convertToParamMap } from '@angular/router';
+import { ParamMap, convertToParamMap } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
 import { ApiListState } from 'app/core/api-state.types';
 import { EMPTY, catchError, delay, of, tap, throwError } from 'rxjs';

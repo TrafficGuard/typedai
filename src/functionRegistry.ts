@@ -5,6 +5,7 @@ import { BigQuery } from '#functions/cloud/google/bigquery';
 import { GoogleCloud } from '#functions/cloud/google/google-cloud';
 import { CommandLineInterface } from '#functions/commandLine';
 import { CustomFunctions } from '#functions/customFunctions';
+import { DeepThink } from '#functions/deepThink';
 import { ImageGen } from '#functions/image';
 import { Jira } from '#functions/jira';
 import { Git } from '#functions/scm/git';
@@ -29,6 +30,7 @@ import { SoftwareDeveloperAgent } from '#swe/softwareDeveloperAgent';
 const FUNCTIONS = [
 	AgentFeedback,
 	CodeEditingAgent,
+	DeepThink,
 	FileSystemTree,
 	FileSystemRead,
 	FileSystemWrite,

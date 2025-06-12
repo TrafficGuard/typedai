@@ -1,19 +1,20 @@
 import { ClipboardModule } from '@angular/cdk/clipboard';
 import { TextFieldModule } from '@angular/cdk/text-field';
+import { CommonModule, DecimalPipe } from '@angular/common';
 import {
-	type AfterViewInit,
+	AfterViewInit,
 	ChangeDetectionStrategy,
 	Component,
 	DestroyRef,
 	ElementRef,
 	HostListener,
 	NgZone,
-	type OnDestroy,
-	type OnInit,
-	type Signal,
+	OnDestroy,
+	OnInit,
+	Signal,
 	ViewChild,
 	ViewEncapsulation,
-	type WritableSignal,
+	WritableSignal,
 	computed,
 	inject,
 	signal,
@@ -26,26 +27,26 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { type MatSelect, MatSelectModule } from '@angular/material/select';
+import { MatSelect, MatSelectModule } from '@angular/material/select';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router, RouterLink, RouterModule } from '@angular/router';
 import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
 import { SafeHtmlPipe } from 'app/core/pipes/safe-html.pipe';
+import { LocalStorageService } from 'app/core/services/local-storage.service';
 import { UserService } from 'app/core/user/user.service';
 import { ChatInfoComponent } from 'app/modules/chat/chat-info/chat-info.component';
-import { type Chat, type ChatMessage, NEW_CHAT_ID } from 'app/modules/chat/chat.types';
+import { Chat, ChatMessage, NEW_CHAT_ID } from 'app/modules/chat/chat.types';
 import { Attachment } from 'app/modules/message.types';
 import { MarkdownModule, MarkdownService, MarkedRenderer, provideMarkdown } from 'ngx-markdown';
-import { EMPTY, type Observable, catchError, combineLatest, distinctUntilChanged, from, interval, switchMap, tap, Subject } from 'rxjs';
+import { EMPTY, Observable, Subject, catchError, combineLatest, distinctUntilChanged, from, interval, switchMap, tap } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
 import { v4 as uuidv4 } from 'uuid';
 import { UserContentExt } from '#shared/llm/llm.model';
 import { UserProfile } from '#shared/user/user.model';
 import { FuseConfirmationService } from '../../../../@fuse/services/confirmation';
-import { LocalStorageService } from 'app/core/services/local-storage.service';
-import { type LLM, LlmService } from '../../llm.service';
+import { LLM, LlmService } from '../../llm.service';
 import { attachmentsAndTextToUserContentExt, fileToAttachment, userContentExtToAttachmentsAndText } from '../../messageUtil';
 import { ChatServiceClient } from '../chat.service';
 import { ClipboardButtonComponent } from './clipboard-button.component';
@@ -58,6 +59,7 @@ import { ClipboardButtonComponent } from './clipboard-button.component';
 	changeDetection: ChangeDetectionStrategy.OnPush,
 	standalone: true,
 	imports: [
+		CommonModule,
 		MatSidenavModule,
 		ChatInfoComponent,
 		MatButtonModule,
@@ -76,7 +78,7 @@ import { ClipboardButtonComponent } from './clipboard-button.component';
 		ClipboardModule,
 		// SafeHtmlPipe, // Removed as it's not used
 	],
-	providers: [provideMarkdown()],
+	providers: [provideMarkdown(), DecimalPipe],
 })
 export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 	@ViewChild('messageInput') messageInput: ElementRef;
@@ -95,9 +97,6 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 	defaultChatLlmId = computed(() => (this.userService.userProfile() as any)?.chat?.defaultLLM);
 
 	sendIcon: WritableSignal<string> = signal('heroicons_outline:paper-airplane');
-
-	sendOnEnter: WritableSignal<boolean> = signal(true);
-	enterStateIcon = computed(() => (this.sendOnEnter() ? 'heroicons_outline:paper-airplane' : 'keyboard_return'));
 
 	llmHasThinkingLevels = computed(() => {
 		const currentLlmId = this.llmId();
@@ -317,7 +316,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 	@HostListener('ngModelChange')
 	private _resizeMessageInput(): void {
 		// Push current input value to the subject for debounced saving
-		if (this.messageInput && this.messageInput.nativeElement) {
+		if (this.messageInput?.nativeElement) {
 			const currentMessage = this.messageInput.nativeElement.value;
 			this.messageInputChanged.next(currentMessage);
 		}
@@ -327,7 +326,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 		this._ngZone.runOutsideAngular(() => {
 			setTimeout(() => {
 				// Ensure messageInput and nativeElement exist before manipulating style
-				if (this.messageInput && this.messageInput.nativeElement) {
+				if (this.messageInput?.nativeElement) {
 					// Set the height to 'auto' so we can correctly read the scrollHeight
 					this.messageInput.nativeElement.style.height = 'auto';
 					// Get the scrollHeight and subtract the vertical padding
@@ -357,10 +356,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 				this.drawerMode.set(matchingAliases.includes('lg') ? 'side' : 'over');
 			});
 
-		this.messageInputChanged.pipe(
-			debounceTime(500),
-			takeUntilDestroyed(this.destroyRef)
-		).subscribe(draftText => {
+		this.messageInputChanged.pipe(debounceTime(500), takeUntilDestroyed(this.destroyRef)).subscribe((draftText) => {
 			const currentChat = this.chat();
 			if (currentChat) {
 				// Use 'new' as a special identifier for drafts of unsaved chats
@@ -582,7 +578,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 		this.messageInput.nativeElement.value = '';
 		this.selectedAttachments.set([]);
 
-        const baseChatOptions = currentUser.chat && typeof currentUser.chat === 'object' ? currentUser.chat : {};
+		const baseChatOptions = currentUser.chat && typeof currentUser.chat === 'object' ? currentUser.chat : {};
 		const options = { ...baseChatOptions, thinking: this.llmHasThinkingLevels() ? this.thinkingLevel() : null };
 		// userContentPayload is already created above for the optimistic update
 
@@ -674,7 +670,8 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
 	@HostListener('keydown', ['$event'])
 	handleKeyboardEvent(event: KeyboardEvent): void {
-		if (this.sendOnEnter() && event.key === 'Enter' && !event.shiftKey) {
+		// Send message on Ctrl+Enter or Cmd+Enter
+		if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
 			event.preventDefault();
 			this.sendMessage();
 		}
@@ -685,9 +682,6 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 		}
 		if (event.key === 'a' && event.ctrlKey) {
 			this.fileInput?.nativeElement.click();
-		}
-		if (event.key === 'e' && event.ctrlKey) {
-			this.toggleSendOnEnter();
 		}
 		if (event.key === 'i' && event.ctrlKey) {
 			this.drawerOpened.update((v) => !v);
@@ -700,8 +694,8 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 			this.toggleAutoReformat();
 		}
 
-		if (event.key === 'f' && event.ctrlKey && !event.shiftKey) {
-			// Ensure Shift is not pressed for this one
+		// Format message on Ctrl+Shift+F
+		if (event.key === 'F' && event.ctrlKey && event.shiftKey) {
 			event.preventDefault();
 			event.stopPropagation();
 
@@ -722,11 +716,6 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 					});
 			}
 		}
-	}
-
-	toggleSendOnEnter(): void {
-		this.sendOnEnter.update((v) => !v);
-		// enterStateIcon is a computed signal, no need to set it manually
 	}
 
 	startRecording(): void {

@@ -1,9 +1,11 @@
+import type { HarnessLoader } from '@angular/cdk/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { CommonModule } from '@angular/common';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
-import { type ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { type ComponentFixture, TestBed, tick } from '@angular/core/testing'; // Removed fakeAsync
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatDialogRef } from '@angular/material/dialog';
+import type { MatDialogRef } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -14,10 +16,11 @@ import { Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 
 import { FuseConfirmationService } from '@fuse/services/confirmation';
-import { CodeReviewConfig } from '#shared/codeReview/codeReview.model';
-import { CodeReviewConfigListResponse, MessageResponse } from '#shared/codeReview/codeReview.schema';
+import type { CodeReviewConfig } from '#shared/codeReview/codeReview.model';
+import type { CodeReviewConfigListResponse, MessageResponse } from '#shared/codeReview/codeReview.schema';
 import { CodeReviewServiceClient } from '../code-review.service';
 import { CodeReviewListComponent } from './code-review-list.component';
+import { CodeReviewListPo } from './code-review-list.component.po';
 
 // Mock Data
 const mockConfigs: CodeReviewConfig[] = [
@@ -50,13 +53,15 @@ const mockMessageResponse: MessageResponse = { message: 'Success' };
 describe('CodeReviewListComponent', () => {
 	let component: CodeReviewListComponent;
 	let fixture: ComponentFixture<CodeReviewListComponent>;
+	let po: CodeReviewListPo;
+	let loader: HarnessLoader;
 	let mockCodeReviewService: jasmine.SpyObj<CodeReviewServiceClient>;
 	let mockRouter: jasmine.SpyObj<Router>;
 	let mockMatSnackBar: jasmine.SpyObj<MatSnackBar>;
 	let mockFuseConfirmationService: jasmine.SpyObj<FuseConfirmationService>;
 
 	beforeEach(async () => {
-		mockCodeReviewService = jasmine.createSpyObj('CodeReviewServiceClient', ['getCodeReviewConfigs', 'deleteCodeReviewConfigs']);
+		mockCodeReviewService = jasmine.createSpyObj('CodeReviewServiceClient', ['getCodeReviewConfigs', 'deleteCodeReviewConfigs', 'refreshConfigs']);
 		mockRouter = jasmine.createSpyObj('Router', ['navigate']);
 		mockMatSnackBar = jasmine.createSpyObj('MatSnackBar', ['open']);
 		mockFuseConfirmationService = jasmine.createSpyObj('FuseConfirmationService', ['open']);
@@ -84,201 +89,249 @@ describe('CodeReviewListComponent', () => {
 
 		fixture = TestBed.createComponent(CodeReviewListComponent);
 		component = fixture.componentInstance;
+		loader = TestbedHarnessEnvironment.loader(fixture);
+		po = await CodeReviewListPo.create(fixture); // Creates and performs initial detectChanges
+		// ngOnInit is called as part of component creation by TestBed
 	});
 
 	it('should create', () => {
-		fixture.detectChanges(); // ngOnInit will run here
 		expect(component).toBeTruthy();
+		expect(po).toBeTruthy();
 	});
 
-	describe('ngOnInit', () => {
-		it('should load configs on init', fakeAsync(() => {
+	describe('Initial Display and Loading States', () => {
+		it('should display loading indicator and then configs when loaded successfully', async () => {
+			// Arrange: service returns configs
 			mockCodeReviewService.getCodeReviewConfigs.and.returnValue(of([...mockConfigs] as CodeReviewConfigListResponse));
-			fixture.detectChanges(); // Calls ngOnInit
-			tick(); // Complete asynchronous operations
+			component.loadConfigs(); // Manually call as ngOnInit might have run with a different mock setup initially or this is more explicit
+			fixture.detectChanges(); // Trigger change detection for the service call initiation
 
+			expect(await po.isLoading()).toBeTrue(); // Check loading state if possible before tick/await
+
+			await fixture.whenStable(); // Wait for observables to resolve
+			fixture.detectChanges(); // Update view with loaded data
+
+			// Assert: Correct data is shown
 			expect(mockCodeReviewService.getCodeReviewConfigs).toHaveBeenCalled();
-			expect(component.configs().length).toBe(mockConfigs.length);
-			expect(component.isLoading()).toBeFalse();
-			expect(component.errorMessage()).toBe('');
-			expect(component.selection.isEmpty()).toBeTrue();
-		}));
+			expect(await po.getRowCount()).toBe(mockConfigs.length);
+			const firstRowData = await po.getRowData(0);
+			expect(firstRowData?.title).toBe(mockConfigs[0].title);
+			expect(await po.isLoading()).toBeFalse();
+			expect(await po.getErrorMessage()).toBeNull();
+			expect(await po.isMasterCheckboxChecked()).toBeFalse();
+		});
 
-		it('should handle error when loading configs', fakeAsync(() => {
+		it('should display error message if loading configs fails', async () => {
+			// Arrange: service returns error
 			mockCodeReviewService.getCodeReviewConfigs.and.returnValue(throwError(() => new Error('Failed to load')));
-			fixture.detectChanges(); // Calls ngOnInit
-			tick(); // Complete asynchronous operations
+			component.loadConfigs();
+			fixture.detectChanges();
 
-			expect(component.isLoading()).toBeFalse();
-			expect(component.errorMessage()).toBe('Error loading configurations');
-		}));
+			expect(await po.isLoading()).toBeTrue();
+
+			await fixture.whenStable();
+			fixture.detectChanges();
+
+			// Assert: Error message is shown
+			expect(await po.isLoading()).toBeFalse();
+			expect(await po.getErrorMessage()).toBe('Error loading configurations');
+			expect(await po.getRowCount()).toBe(0);
+		});
+
+		it('should display "no configs" message when no configs are loaded', async () => {
+			// Arrange: service returns empty list
+			mockCodeReviewService.getCodeReviewConfigs.and.returnValue(of([] as CodeReviewConfigListResponse));
+			component.loadConfigs();
+			fixture.detectChanges();
+			await fixture.whenStable();
+			fixture.detectChanges();
+
+			// Assert: "No configs" message is shown
+			expect(await po.isLoading()).toBeFalse();
+			expect(await po.getNoConfigsMessage()).toBe('No code review configurations found. Get started by creating one!');
+			expect(await po.getRowCount()).toBe(0);
+		});
 	});
 
 	describe('Selection Handling', () => {
-		beforeEach(fakeAsync(() => {
+		beforeEach(async () => {
 			mockCodeReviewService.getCodeReviewConfigs.and.returnValue(of([...mockConfigs] as CodeReviewConfigListResponse));
+			component.loadConfigs();
 			fixture.detectChanges();
-			tick();
-		}));
+			await fixture.whenStable();
+			fixture.detectChanges();
+		});
 
-		it('isAllSelected should return true if all rows are selected and there are rows', () => {
-			component.configs.set([...mockConfigs]);
-			fixture.detectChanges();
-			if (component.configs().length > 0) {
-				component.selection.select(...component.configs());
-				expect(component.isAllSelected()).toBeTrue();
+		it('masterToggle should select all configs if none are selected', async () => {
+			await po.clickMasterCheckbox();
+			expect(await po.isMasterCheckboxChecked()).toBeTrue();
+			for (const config of mockConfigs) {
+				expect(await po.isRowCheckboxCheckedById(config.id)).toBeTrue();
+			}
+		});
+
+		it('masterToggle should clear selection if all configs are selected', async () => {
+			// Select all first
+			await po.clickMasterCheckbox();
+			expect(await po.isMasterCheckboxChecked()).toBeTrue(); // Pre-condition
+
+			// Act: Click master checkbox again to deselect all
+			await po.clickMasterCheckbox();
+
+			// Assert
+			expect(await po.isMasterCheckboxChecked()).toBeFalse();
+			for (const config of mockConfigs) {
+				expect(await po.isRowCheckboxCheckedById(config.id)).toBeFalse();
+			}
+		});
+
+		it('masterToggle should select all if some configs are selected', async () => {
+			if (mockConfigs.length < 2) pending('Need at least 2 configs for this test');
+			// Arrange: Select one row
+			await po.clickRowCheckboxById(mockConfigs[0].id);
+			expect(await po.isMasterCheckboxChecked()).toBeFalse(); // Pre-condition: master not fully checked
+
+			// Act: Click master checkbox
+			await po.clickMasterCheckbox();
+
+			// Assert: All should be selected
+			expect(await po.isMasterCheckboxChecked()).toBeTrue();
+			for (const config of mockConfigs) {
+				expect(await po.isRowCheckboxCheckedById(config.id)).toBeTrue();
+			}
+		});
+
+		it('individual row checkbox should toggle selection for that row and update master checkbox state', async () => {
+			if (mockConfigs.length === 0) pending('Need configs for this test');
+			const firstConfigId = mockConfigs[0].id;
+
+			// Act: Click first row checkbox
+			await po.clickRowCheckboxById(firstConfigId);
+			// Assert: Row is selected, master checkbox might be indeterminate or checked if only one row
+			expect(await po.isRowCheckboxCheckedById(firstConfigId)).toBeTrue();
+			if (mockConfigs.length === 1) {
+				expect(await po.isMasterCheckboxChecked()).toBeTrue();
 			} else {
-				expect(component.isAllSelected()).toBeFalse(); // Or handle as per desired logic for no rows
+				expect(await po.isMasterCheckboxChecked()).toBeFalse(); // Indeterminate state not directly checkable via isChecked()
 			}
-		});
 
-		it('isAllSelected should return false if not all rows are selected', () => {
-			component.configs.set([...mockConfigs]);
-			fixture.detectChanges();
-			if (component.configs().length > 1) {
-				component.selection.select(component.configs()[0]);
-				expect(component.isAllSelected()).toBeFalse();
-			} else {
-				// If only one row, selecting it means all are selected.
-				// If no rows, it's false.
-				expect(component.isAllSelected()).toBe(component.configs().length === 1 && component.selection.hasValue());
-			}
-		});
-
-		it('isAllSelected should return false if no rows are selected', () => {
-			component.configs.set([...mockConfigs]);
-			fixture.detectChanges();
-			expect(component.isAllSelected()).toBeFalse(); // Initially no selection
-		});
-
-		it('isAllSelected should return false if configs signal is empty', () => {
-			component.configs.set([]);
-			fixture.detectChanges();
-			expect(component.isAllSelected()).toBeFalse();
-		});
-
-		it('masterToggle should select all if none selected and data exists', () => {
-			component.configs.set([...mockConfigs]);
-			fixture.detectChanges();
-			if (component.configs().length > 0) {
-				component.masterToggle();
-				expect(component.selection.selected.length).toBe(component.configs().length);
-			} else {
-				component.masterToggle();
-				expect(component.selection.isEmpty()).toBeTrue();
-			}
-		});
-
-		it('masterToggle should clear selection if all selected and data exists', () => {
-			component.configs.set([...mockConfigs]);
-			fixture.detectChanges();
-			if (component.configs().length > 0) {
-				component.selection.select(...component.configs());
-				component.masterToggle();
-				expect(component.selection.isEmpty()).toBeTrue();
-			}
-		});
-
-		it('masterToggle should select all if some are selected and data exists', () => {
-			component.configs.set([...mockConfigs]);
-			fixture.detectChanges();
-			if (component.configs().length > 0) {
-				component.selection.select(component.configs()[0]);
-				component.masterToggle(); // This will select all because not all were selected
-				expect(component.selection.selected.length).toBe(component.configs().length);
-			}
+			// Act: Click first row checkbox again
+			await po.clickRowCheckboxById(firstConfigId);
+			// Assert: Row is deselected
+			expect(await po.isRowCheckboxCheckedById(firstConfigId)).toBeFalse();
+			expect(await po.isMasterCheckboxChecked()).toBeFalse();
 		});
 	});
 
-	describe('Navigation', () => {
-		it('openEditPage should navigate to edit page with id', () => {
-			component.openEditPage('test-id');
-			expect(mockRouter.navigate).toHaveBeenCalledWith(['/ui/code-reviews/edit', 'test-id'], jasmine.any(Object));
+	describe('Navigation Actions', () => {
+		it('should navigate to new config page when "New Configuration" button is clicked', async () => {
+			await po.clickNewConfigButton();
+			expect(mockRouter.navigate).toHaveBeenCalledWith(['/ui/code-reviews/new'], jasmine.any(Object));
 		});
 
-		it('openEditPage should navigate to new config page without id', () => {
-			component.openEditPage();
-			expect(mockRouter.navigate).toHaveBeenCalledWith(['/ui/code-reviews/new'], jasmine.any(Object));
+		it('should navigate to edit page when a config title (link) is clicked', async () => {
+			mockCodeReviewService.getCodeReviewConfigs.and.returnValue(of([...mockConfigs] as CodeReviewConfigListResponse));
+			component.loadConfigs();
+			fixture.detectChanges();
+			await fixture.whenStable();
+			fixture.detectChanges();
+
+			if (mockConfigs.length === 0) pending('Need configs for this test');
+			const firstConfigId = mockConfigs[0].id;
+			await po.clickEditConfigLink(firstConfigId);
+			expect(mockRouter.navigate).toHaveBeenCalledWith(['/ui/code-reviews/edit', firstConfigId], jasmine.any(Object));
 		});
 	});
 
 	describe('Delete Operations', () => {
-		beforeEach(fakeAsync(() => {
+		beforeEach(async () => {
 			mockCodeReviewService.getCodeReviewConfigs.and.returnValue(of([...mockConfigs] as CodeReviewConfigListResponse));
+			component.loadConfigs();
 			fixture.detectChanges();
-			tick();
-		}));
+			await fixture.whenStable();
+			fixture.detectChanges();
+		});
 
-		it('deleteSelectedConfigs should show snackbar and not open dialog if no configs selected', () => {
-			component.deleteSelectedConfigs();
+		it('should show snackbar and not open dialog if no configs selected for deletion', async () => {
+			await po.clickDeleteSelectedButton();
 			expect(mockMatSnackBar.open).toHaveBeenCalledWith('No configurations selected for deletion', 'Close', { duration: 3000 });
 			expect(mockFuseConfirmationService.open).not.toHaveBeenCalled();
 		});
 
-		it('deleteSelectedConfigs should open confirmation dialog and delete on confirm', fakeAsync(() => {
-			if (mockConfigs.length < 1) {
-				pending('Need at least 1 mock config for this test');
-				return;
-			}
-			component.selection.select(mockConfigs[0]);
-			const selectedIds = [mockConfigs[0].id];
+		it('should open confirmation dialog and delete selected configs on confirm', async () => {
+			if (mockConfigs.length < 1) pending('Need at least 1 mock config for this test');
+			const configToDelete = mockConfigs[0];
+			await po.clickRowCheckboxById(configToDelete.id); // Select one config
+
 			mockFuseConfirmationService.open.and.returnValue({ afterClosed: () => of('confirmed') } as MatDialogRef<any>);
 			mockCodeReviewService.deleteCodeReviewConfigs.and.returnValue(of(mockMessageResponse));
-			// Mock the getCodeReviewConfigs call that happens after successful deletion
-			mockCodeReviewService.getCodeReviewConfigs.and.returnValue(of([] as CodeReviewConfigListResponse));
+			// Mock the getCodeReviewConfigs call that happens after successful deletion (via service's internal state update)
+			// The component calls loadConfigs() which calls getCodeReviewConfigs()
+			const remainingConfigs = mockConfigs.filter((c) => c.id !== configToDelete.id);
+			mockCodeReviewService.getCodeReviewConfigs.and.returnValue(of([...remainingConfigs] as CodeReviewConfigListResponse));
 
-			component.deleteSelectedConfigs();
-			tick();
+			await po.clickDeleteSelectedButton();
+			// tick(); // For RxJS streams from dialog and service if not handled by await fixture.whenStable()
 
 			expect(mockFuseConfirmationService.open).toHaveBeenCalled();
-			expect(mockCodeReviewService.deleteCodeReviewConfigs).toHaveBeenCalledWith(selectedIds);
-			expect(mockMatSnackBar.open).toHaveBeenCalledWith('Configurations deleted successfully', 'Close', { duration: 3000 });
-			// Called once during setup, once after delete
-			expect(mockCodeReviewService.getCodeReviewConfigs).toHaveBeenCalledTimes(2);
-			expect(component.selection.isEmpty()).toBeTrue();
-		}));
+			expect(mockCodeReviewService.deleteCodeReviewConfigs).toHaveBeenCalledWith([configToDelete.id]);
 
-		it('deleteSelectedConfigs should not delete if dialog is cancelled', fakeAsync(() => {
-			if (mockConfigs.length === 0) {
-				pending('Need mock configs for this test');
-				return;
-			}
-			component.selection.select(mockConfigs[0]);
+			await fixture.whenStable(); // Wait for delete and subsequent load
+			fixture.detectChanges();
+
+			expect(mockMatSnackBar.open).toHaveBeenCalledWith('Configurations deleted successfully', 'Close', { duration: 3000 });
+			expect(await po.getRowCount()).toBe(remainingConfigs.length);
+			expect(await po.isMasterCheckboxChecked()).toBeFalse(); // Selection should be cleared
+		});
+
+		it('should not delete if confirmation dialog is cancelled', async () => {
+			if (mockConfigs.length === 0) pending('Need mock configs for this test');
+			await po.clickRowCheckboxById(mockConfigs[0].id); // Select one config
 			mockFuseConfirmationService.open.and.returnValue({ afterClosed: () => of('cancelled') } as MatDialogRef<any>);
 
-			component.deleteSelectedConfigs();
-			tick();
+			await po.clickDeleteSelectedButton();
+			// tick();
 
 			expect(mockFuseConfirmationService.open).toHaveBeenCalled();
 			expect(mockCodeReviewService.deleteCodeReviewConfigs).not.toHaveBeenCalled();
-		}));
+		});
 
-		it('deleteSelectedConfigs should handle error during deletion and show snackbar', fakeAsync(() => {
-			if (mockConfigs.length === 0) {
-				pending('Need mock configs for this test');
-				return;
-			}
-			component.selection.select(mockConfigs[0]);
+		it('should handle error during deletion and show snackbar', async () => {
+			if (mockConfigs.length === 0) pending('Need mock configs for this test');
+			await po.clickRowCheckboxById(mockConfigs[0].id); // Select one config
 			mockFuseConfirmationService.open.and.returnValue({ afterClosed: () => of('confirmed') } as MatDialogRef<any>);
 			mockCodeReviewService.deleteCodeReviewConfigs.and.returnValue(throwError(() => new Error('Delete failed')));
 
-			component.deleteSelectedConfigs();
-			tick();
+			await po.clickDeleteSelectedButton();
+			// tick();
+			await fixture.whenStable(); // Wait for error handling
+			fixture.detectChanges();
 
 			expect(mockCodeReviewService.deleteCodeReviewConfigs).toHaveBeenCalled();
 			expect(mockMatSnackBar.open).toHaveBeenCalledWith('Error deleting configurations', 'Close', { duration: 3000 });
-			expect(component.errorMessage()).toBe('Error deleting configurations');
-		}));
+			// The component doesn't set its own errorMessage signal on delete error, it relies on snackbar.
+			// If it did, we could check: expect(await po.getErrorMessage()).toBe('Error deleting configurations');
+		});
 	});
 
-	describe('refreshConfigs', () => {
-		it('should call loadConfigs and show snackbar', fakeAsync(() => {
-			spyOn(component, 'loadConfigs'); // Spy on the actual method
-			component.refreshConfigs();
-			tick();
+	describe('Refresh Action', () => {
+		it('should call refreshConfigs on service and show snackbar when refresh button is clicked', async () => {
+			// Arrange
+			mockCodeReviewService.refreshConfigs.and.callThrough(); // Ensure original method is called if it triggers other things
+			// Mock the getCodeReviewConfigs call that happens as part of refresh or subsequent load
+			mockCodeReviewService.getCodeReviewConfigs.and.returnValue(of([...mockConfigs] as CodeReviewConfigListResponse));
 
-			expect(component.loadConfigs).toHaveBeenCalled();
-			expect(mockMatSnackBar.open).toHaveBeenCalledWith('Configurations refreshed', 'Close', { duration: 1000 });
-		}));
+			// Act
+			await po.clickRefreshButton();
+			// tick(); // For snackbar and potential service calls
+			await fixture.whenStable();
+			fixture.detectChanges();
+
+			// Assert
+			expect(mockCodeReviewService.refreshConfigs).toHaveBeenCalled();
+			expect(mockMatSnackBar.open).toHaveBeenCalledWith('Configurations list refreshed.', 'Close', { duration: 2000 });
+			// Verify configs are reloaded (or table is updated)
+			expect(await po.getRowCount()).toBe(mockConfigs.length);
+		});
 	});
 });

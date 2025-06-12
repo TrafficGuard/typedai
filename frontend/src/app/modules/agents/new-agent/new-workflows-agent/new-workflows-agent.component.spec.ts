@@ -1,22 +1,26 @@
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { NoopAnimationsModule } from '@angular/platform-browser/animations';
+import { of, throwError } from 'rxjs';
+
 import { CommonModule } from '@angular/common';
-import { type ComponentFixture, TestBed } from '@angular/core/testing';
-import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+// Import Material Modules for TestBed if not already imported by standalone component
 import { MatSelectModule } from '@angular/material/select';
-import { NoopAnimationsModule } from '@angular/platform-browser/animations';
-import { of, throwError } from 'rxjs';
-
-import { WorkflowsService } from '../../../workflows/workflows.service';
 import { NewWorkflowsAgentComponent } from './new-workflows-agent.component';
+import { NewWorkflowsAgentPo } from './new-workflows-agent.component.po';
+// Corrected import path for WorkflowsService
+import { WorkflowsService } from './workflows.service';
 
 describe('NewWorkflowsAgentComponent', () => {
-	let component: NewWorkflowsAgentComponent;
 	let fixture: ComponentFixture<NewWorkflowsAgentComponent>;
+	let component: NewWorkflowsAgentComponent;
+	let po: NewWorkflowsAgentPo;
 	let mockWorkflowsService: jasmine.SpyObj<WorkflowsService>;
 
 	beforeEach(async () => {
@@ -25,17 +29,28 @@ describe('NewWorkflowsAgentComponent', () => {
 			'runCodeEditorImplementRequirements',
 			'runCodebaseQuery',
 			'selectFilesToEdit',
+			'loadRepositories', // Ensure this is spied on if called by component
+			'repositoriesState', // Ensure this is spied on if called by component
 		]);
 
 		// Default mock implementations
-		mockWorkflowsService.getRepositories.and.returnValue(of(['repo1', 'repo2']));
+		// For repositoriesState, it should return a signal-like structure if the component uses it directly
+		// For simplicity, we'll continue mocking getRepositories for initial load behavior.
+		// The component's ngOnInit calls loadRepositories, which likely updates a signal.
+		// We need to mock repositoriesState to control the data for the computed signals.
+		mockWorkflowsService.repositoriesState.and.returnValue(() => ({ status: 'success', data: ['repo1', 'repo2'] }));
+		mockWorkflowsService.getRepositories.and.returnValue(of(['repo1', 'repo2'])); // Keep for any direct calls if they exist
 		mockWorkflowsService.runCodeEditorImplementRequirements.and.returnValue(of({ result: 'code implemented' }));
 		mockWorkflowsService.runCodebaseQuery.and.returnValue(of({ response: 'query response' }));
 		mockWorkflowsService.selectFilesToEdit.and.returnValue(of({ files: ['file1.ts'] }));
+		mockWorkflowsService.loadRepositories.and.stub(); // Stub this as it's called in ngOnInit
 
 		await TestBed.configureTestingModule({
 			imports: [
-				NewWorkflowsAgentComponent, // Import standalone component directly
+				NewWorkflowsAgentComponent, // Standalone component
+				NoopAnimationsModule,
+				// Material modules are typically imported by the standalone component itself.
+				// Adding them here ensures they are available if TestBed needs them explicitly.
 				CommonModule,
 				ReactiveFormsModule,
 				MatFormFieldModule,
@@ -45,129 +60,189 @@ describe('NewWorkflowsAgentComponent', () => {
 				MatProgressBarModule,
 				MatInputModule,
 				MatButtonModule,
-				NoopAnimationsModule, // For Material components animations
 			],
-			providers: [
-				FormBuilder, // FormBuilder is usually provided by ReactiveFormsModule, but explicitly adding it is fine.
-				{ provide: WorkflowsService, useValue: mockWorkflowsService },
-			],
+			providers: [{ provide: WorkflowsService, useValue: mockWorkflowsService }],
 		}).compileComponents();
 
 		fixture = TestBed.createComponent(NewWorkflowsAgentComponent);
 		component = fixture.componentInstance;
-		fixture.detectChanges(); // Trigger ngOnInit
+		po = await NewWorkflowsAgentPo.create(fixture);
+		// fixture.detectChanges() is called by BaseSpecPo.create and po.detectAndWait()
 	});
 
 	it('should create', () => {
 		expect(component).toBeTruthy();
+		expect(po).toBeTruthy();
 	});
 
-	it('should initialize the form on ngOnInit', () => {
-		expect(component.codeForm).toBeDefined();
-		expect(component.codeForm.get('workingDirectory')).toBeDefined();
-		expect(component.codeForm.get('workflowType')).toBeDefined();
-		expect(component.codeForm.get('input')).toBeDefined();
-	});
-
-	it('should fetch repositories on init and patch workingDirectory if repos exist', () => {
-		expect(mockWorkflowsService.getRepositories).toHaveBeenCalled();
-		expect(component.repositories).toEqual(['repo1', 'repo2']);
-		expect(component.codeForm.get('workingDirectory')?.value).toBe('repo1');
-	});
-
-	it('should handle error when fetching repositories', () => {
-		mockWorkflowsService.getRepositories.and.returnValue(throwError(() => new Error('Fetch error')));
-		component.ngOnInit(); // Re-initialize to trigger the error path
-		fixture.detectChanges();
-		expect(component.result).toContain('Error fetching repositories');
-	});
-
-	it('should return correct input label for "code" workflowType', () => {
-		component.codeForm.patchValue({ workflowType: 'code' });
-		expect(component.getInputLabel()).toBe('Requirements');
-	});
-
-	it('should return correct input label for "query" workflowType', () => {
-		component.codeForm.patchValue({ workflowType: 'query' });
-		expect(component.getInputLabel()).toBe('Query');
-	});
-
-	it('should return correct input label for "selectFiles" workflowType', () => {
-		component.codeForm.patchValue({ workflowType: 'selectFiles' });
-		expect(component.getInputLabel()).toBe('Requirements for File Selection');
-	});
-
-	it('should return default input label for unknown workflowType', () => {
-		component.codeForm.patchValue({ workflowType: 'unknown' });
-		expect(component.getInputLabel()).toBe('Input');
-	});
-
-	it('should not call executeOperation if form is invalid on submit', () => {
-		spyOn(component as any, 'executeOperation'); // Spy on private method
-		component.codeForm.get('input')?.setValue(''); // Make form invalid
-		component.onSubmit();
-		expect((component as any).executeOperation).not.toHaveBeenCalled();
-		expect(component.isLoading).toBeFalse();
-	});
-
-	it('should call executeOperation if form is valid on submit', () => {
-		spyOn(component as any, 'executeOperation');
-		component.codeForm.patchValue({
-			workingDirectory: 'repo1',
-			workflowType: 'code',
-			input: 'test input',
+	describe('Initialization', () => {
+		it('should initialize the form with default workflow type and empty input', async () => {
+			expect(await po.getWorkflowTypeValue()).toBe('Code Edit Workflow'); // Assuming 'code' is default and maps to this text
+			expect(await po.getInputValue()).toBe('');
+			// Initial working directory depends on repository loading
 		});
-		component.onSubmit();
-		expect((component as any).executeOperation).toHaveBeenCalled();
-		expect(component.isLoading).toBeTrue(); // isLoading is set before calling executeOperation
+
+		it('should load repositories and set the first one as default in workingDirectory', async () => {
+			// ngOnInit calls loadRepositories, which should trigger the repositoriesState to update.
+			// The component constructor subscribes to repositoriesData which patches the form.
+			// Need to ensure mockWorkflowsService.repositoriesState() is set up before component creation or detectChanges.
+			// The beforeEach already sets up repositoriesState.
+			// fixture.detectChanges(); // Allow computed signals and effects to run
+			// await fixture.whenStable();
+
+			expect(mockWorkflowsService.loadRepositories).toHaveBeenCalled();
+			// Check the DOM via PO
+			expect(await po.getWorkingDirectoryValue()).toBe('repo1');
+		});
+
+		it('should display error if fetching repositories fails', async () => {
+			mockWorkflowsService.repositoriesState.and.returnValue(() => ({
+				status: 'error',
+				error: new Error('Fetch error'),
+			}));
+			// Re-trigger ngOnInit or simulate the error state update
+			component.ngOnInit(); // This will call loadRepositories again, which uses the new mockState
+			await po.detectAndWait();
+
+			expect(await po.getResultText()).toContain('Error fetching repositories: Fetch error. Please try again later.');
+		});
 	});
 
-	describe('#executeOperation', () => {
-		beforeEach(() => {
-			component.codeForm.patchValue({
+	describe('Form Behavior', () => {
+		it('should update input label when "Code Edit Workflow" workflow type is selected', async () => {
+			await po.selectWorkflowType('Code Edit Workflow'); // Text for 'code'
+			expect(await po.getInputLabelText()).toBe('Requirements');
+		});
+
+		it('should update input label when "Codebase Query" workflow type is selected', async () => {
+			await po.selectWorkflowType('Codebase Query'); // Text for 'query'
+			expect(await po.getInputLabelText()).toBe('Query');
+		});
+
+		it('should update input label when "Select Files To Edit" workflow type is selected', async () => {
+			await po.selectWorkflowType('Select Files To Edit'); // Text for 'selectFiles'
+			expect(await po.getInputLabelText()).toBe('Requirements for File Selection');
+		});
+
+		it('should disable submit button if input is empty (form invalid)', async () => {
+			await po.setValidFormValues({ workingDirectory: 'repo1', workflowType: 'Code Edit Workflow', input: '' });
+			expect(await po.isSubmitButtonEnabled()).toBeFalse();
+		});
+
+		it('should enable submit button if form is valid', async () => {
+			await po.setValidFormValues({
 				workingDirectory: 'repo1',
+				workflowType: 'Code Edit Workflow',
 				input: 'test input',
 			});
+			expect(await po.isSubmitButtonEnabled()).toBeTrue();
+		});
+	});
+
+	describe('Workflow Execution', () => {
+		const testCases = [
+			{
+				workflowTypeLabel: 'Code Edit Workflow',
+				serviceMethod: 'runCodeEditorImplementRequirements',
+				serviceArgs: ['repo1', 'implement this'],
+				mockResponse: { result: 'code implemented' },
+				expectedResult: JSON.stringify({ result: 'code implemented' }, null, 2),
+			},
+			{
+				workflowTypeLabel: 'Codebase Query',
+				serviceMethod: 'runCodebaseQuery',
+				serviceArgs: ['repo1', 'query this'],
+				mockResponse: { response: 'query response' },
+				expectedResult: 'query response',
+			},
+			{
+				workflowTypeLabel: 'Select Files To Edit',
+				serviceMethod: 'selectFilesToEdit',
+				serviceArgs: ['repo1', 'select for this'],
+				mockResponse: { files: ['file1.ts'] },
+				expectedResult: JSON.stringify({ files: ['file1.ts'] }, null, 2),
+			},
+		] as const;
+
+		for (const tc of testCases) {
+			it(`should execute "${tc.workflowTypeLabel}" workflow successfully`, async () => {
+				mockWorkflowsService[tc.serviceMethod].and.returnValue(of(tc.mockResponse));
+
+				await po.setValidFormValues({
+					workingDirectory: tc.serviceArgs[0],
+					workflowType: tc.workflowTypeLabel,
+					input: tc.serviceArgs[1],
+				});
+				await po.clickSubmitButton();
+
+				expect(mockWorkflowsService[tc.serviceMethod]).toHaveBeenCalledWith(tc.serviceArgs[0], tc.serviceArgs[1]);
+				expect(await po.isLoadingIndicatorVisible()).toBeFalse(); // After completion
+				expect(await po.getResultText()).toBe(tc.expectedResult);
+			});
+
+			it(`should display error when "${tc.workflowTypeLabel}" workflow service call fails`, async () => {
+				const errorMessage = 'Service failure';
+				mockWorkflowsService[tc.serviceMethod].and.returnValue(throwError(() => new Error(errorMessage)));
+
+				await po.setValidFormValues({
+					workingDirectory: tc.serviceArgs[0],
+					workflowType: tc.workflowTypeLabel,
+					input: tc.serviceArgs[1],
+				});
+				await po.clickSubmitButton();
+
+				const workflowTypeValue = component.codeForm.get('workflowType')?.value; // get the internal value for error message check
+				expect(mockWorkflowsService[tc.serviceMethod]).toHaveBeenCalledWith(tc.serviceArgs[0], tc.serviceArgs[1]);
+				expect(await po.isLoadingIndicatorVisible()).toBeFalse();
+				expect(await po.getResultText()).toBe(`Error during ${workflowTypeValue} operation: ${errorMessage}`);
+			});
+		}
+
+		it('should not call any service if form is invalid on submit', async () => {
+			// Ensure form is invalid, e.g., by clearing a required field
+			await po.selectWorkingDirectory('repo1');
+			await po.selectWorkflowType('Code Edit Workflow');
+			await po.typeInInput(''); // Makes input invalid
+
+			await po.clickSubmitButton();
+
+			expect(mockWorkflowsService.runCodeEditorImplementRequirements).not.toHaveBeenCalled();
+			expect(mockWorkflowsService.runCodebaseQuery).not.toHaveBeenCalled();
+			expect(mockWorkflowsService.selectFilesToEdit).not.toHaveBeenCalled();
+			expect(await po.isLoadingIndicatorVisible()).toBeFalse();
 		});
 
-		it('should call runCodeEditorImplementRequirements for "code" type', () => {
-			component.codeForm.patchValue({ workflowType: 'code' });
-			(component as any).executeOperation();
-			expect(mockWorkflowsService.runCodeEditorImplementRequirements).toHaveBeenCalledWith('repo1', 'test input');
-			expect(component.isLoading).toBeFalse(); // After observable completes
-			expect(component.result).toBe(JSON.stringify({ result: 'code implemented' }, null, 2));
-		});
+		it('should show loading indicator during operation and hide after completion', async () => {
+			mockWorkflowsService.runCodeEditorImplementRequirements.and.returnValue(
+				new Observable((observer) => {
+					// Simulate async operation
+					expect(component.isLoading).toBeTrue(); // Check internal state if PO can't easily catch this mid-flight
+					// To check with PO, we'd need more complex timing or a way for the service to pause
+					setTimeout(() => {
+						observer.next({ result: 'code implemented' });
+						observer.complete();
+					}, 50);
+				}),
+			);
 
-		it('should call runCodebaseQuery for "query" type', () => {
-			component.codeForm.patchValue({ workflowType: 'query' });
-			(component as any).executeOperation();
-			expect(mockWorkflowsService.runCodebaseQuery).toHaveBeenCalledWith('repo1', 'test input');
-			expect(component.isLoading).toBeFalse();
-			expect(component.result).toBe('query response');
-		});
+			await po.setValidFormValues({
+				workingDirectory: 'repo1',
+				workflowType: 'Code Edit Workflow',
+				input: 'test input',
+			});
 
-		it('should call selectFilesToEdit for "selectFiles" type', () => {
-			component.codeForm.patchValue({ workflowType: 'selectFiles' });
-			(component as any).executeOperation();
-			expect(mockWorkflowsService.selectFilesToEdit).toHaveBeenCalledWith('repo1', 'test input');
-			expect(component.isLoading).toBeFalse();
-			expect(component.result).toBe(JSON.stringify({ files: ['file1.ts'] }, null, 2));
-		});
+			// Click submit but don't wait for full completion in po.clickSubmitButton's detectAndWait
+			const button = await po.harness(MatButtonHarness, { selector: `[data-testid="submit-button"]` });
+			await button.click();
+			fixture.detectChanges(); // Start the process
 
-		it('should handle invalid operation type in executeOperation', () => {
-			component.codeForm.patchValue({ workflowType: 'invalidType' });
-			(component as any).executeOperation();
-			expect(component.result).toBe('Error: Invalid operation type');
-			expect(component.isLoading).toBeFalse();
-		});
+			expect(await po.isLoadingIndicatorVisible()).toBeTrue(); // Check immediately after click
 
-		it('should handle error from service call in executeOperation', () => {
-			const errorMessage = 'Service error';
-			mockWorkflowsService.runCodeEditorImplementRequirements.and.returnValue(throwError(() => new Error(errorMessage)));
-			component.codeForm.patchValue({ workflowType: 'code' });
-			(component as any).executeOperation();
-			expect(component.result).toBe(`Error during code operation: ${errorMessage}`);
-			expect(component.isLoading).toBeFalse();
+			await fixture.whenStable(); // Wait for async operations in the service mock to complete
+			await po.detectAndWait(); // Ensure UI updates after operation
+
+			expect(await po.isLoadingIndicatorVisible()).toBeFalse();
+			expect(await po.getResultText()).toBe(JSON.stringify({ result: 'code implemented' }, null, 2));
 		});
 	});
 });

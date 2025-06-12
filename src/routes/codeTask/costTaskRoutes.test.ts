@@ -73,7 +73,7 @@ describe.skip('CodeTask Routes - POST /api/codeTask', () => {
 				title: codeTaskData.title,
 				instructions: codeTaskData.instructions,
 				repositorySource: codeTaskData.repositorySource,
-				repositoryId: codeTaskData.repositoryId, // Key part for assertion
+				repositoryId: codeTaskData.repositoryFullPath, // Key part for assertion - CodeTask.repositoryId is populated from CreateCodeTaskData.repositoryFullPath
 				repositoryName: codeTaskData.repositoryName,
 				targetBranch: codeTaskData.targetBranch,
 				workingBranch: codeTaskData.workingBranch,
@@ -90,7 +90,7 @@ describe.skip('CodeTask Routes - POST /api/codeTask', () => {
 		}
 	});
 
-	const basePayload: Omit<CreateCodeTaskData, 'repositorySource' | 'repositoryId' | 'repositoryName'> = {
+	const basePayload: Omit<CreateCodeTaskData, 'repositorySource' | 'repositoryFullPath' | 'repositoryName'> = {
 		title: 'Test CodeTask',
 		instructions: 'Do something cool',
 		targetBranch: 'main',
@@ -103,7 +103,7 @@ describe.skip('CodeTask Routes - POST /api/codeTask', () => {
 		const payload: CreateCodeTaskData = {
 			...basePayload,
 			repositorySource: 'github',
-			repositoryId: 'owner/direct-id',
+			repositoryFullPath: 'owner/direct-id',
 		};
 
 		const response = await fastify.inject({
@@ -115,10 +115,10 @@ describe.skip('CodeTask Routes - POST /api/codeTask', () => {
 		expect(response.statusCode).to.equal(201);
 		expect(createCodeTaskStub.calledOnce).to.be.true;
 		const callArg = createCodeTaskStub.firstCall.args[1] as CreateCodeTaskData;
-		expect(callArg.repositoryId).to.equal('owner/direct-id');
+		expect(callArg.repositoryFullPath).to.equal('owner/direct-id');
 	});
 
-	it('should derive repositoryId from repositoryName for GitHub if repositoryId is not provided', async () => {
+	it('should derive repositoryId from repositoryName for GitHub if repositoryFullPath is not provided', async () => {
 		const payload: CreateCodeTaskData = {
 			...basePayload,
 			repositorySource: 'github',
@@ -134,13 +134,13 @@ describe.skip('CodeTask Routes - POST /api/codeTask', () => {
 		expect(response.statusCode).to.equal(201);
 		expect(createCodeTaskStub.calledOnce).to.be.true;
 		const callArg = createCodeTaskStub.firstCall.args[1] as CreateCodeTaskData;
-		expect(callArg.repositoryId).to.equal('owner/github-name');
+		expect(callArg.repositoryFullPath).to.equal('owner/github-name');
 		// Also check that the response from the stub reflects this derived ID
 		const responseBody = JSON.parse(response.payload);
-		expect(responseBody.repositoryId).to.equal('owner/github-name');
+		expect(responseBody.repositoryId).to.equal('owner/github-name'); // CodeTask.repositoryId is populated from CreateCodeTaskData.repositoryFullPath
 	});
 
-	it('should derive repositoryId from repositoryName for GitLab if repositoryId is not provided', async () => {
+	it('should derive repositoryId from repositoryName for GitLab if repositoryFullPath is not provided', async () => {
 		const payload: CreateCodeTaskData = {
 			...basePayload,
 			repositorySource: 'gitlab',
@@ -156,12 +156,12 @@ describe.skip('CodeTask Routes - POST /api/codeTask', () => {
 		expect(response.statusCode).to.equal(201);
 		expect(createCodeTaskStub.calledOnce).to.be.true;
 		const callArg = createCodeTaskStub.firstCall.args[1] as CreateCodeTaskData;
-		expect(callArg.repositoryId).to.equal('group/gitlab-name');
+		expect(callArg.repositoryFullPath).to.equal('group/gitlab-name');
 		const responseBody = JSON.parse(response.payload);
-		expect(responseBody.repositoryId).to.equal('group/gitlab-name');
+		expect(responseBody.repositoryId).to.equal('group/gitlab-name'); // CodeTask.repositoryId is populated from CreateCodeTaskData.repositoryFullPath
 	});
 
-	it('should return 400 if repositoryId is not provided and repositoryName is missing for GitHub', async () => {
+	it('should return 400 if repositoryFullPath is not provided and repositoryName is missing for GitHub', async () => {
 		const payload: CreateCodeTaskData = {
 			...basePayload,
 			repositorySource: 'github',
@@ -175,11 +175,11 @@ describe.skip('CodeTask Routes - POST /api/codeTask', () => {
 
 		expect(response.statusCode).to.equal(400);
 		const responseBody = JSON.parse(response.payload);
-		expect(responseBody.error).to.contain('repositoryId is required');
+		expect(responseBody.error).to.contain('repositoryFullPath is required');
 		expect(createCodeTaskStub.called).to.be.false;
 	});
 
-	it('should return 400 if repositoryId is not provided for "local" source (no derivation)', async () => {
+	it('should return 400 if repositoryFullPath is not provided for "local" source (no derivation)', async () => {
 		const payload: CreateCodeTaskData = {
 			...basePayload,
 			repositorySource: 'local',
@@ -193,15 +193,15 @@ describe.skip('CodeTask Routes - POST /api/codeTask', () => {
 
 		expect(response.statusCode).to.equal(400);
 		const responseBody = JSON.parse(response.payload);
-		expect(responseBody.error).to.contain('repositoryId is required');
+		expect(responseBody.error).to.contain('repositoryFullPath is required');
 		expect(createCodeTaskStub.called).to.be.false;
 	});
 
-	it('should derive repositoryId from repositoryName if repositoryId is an empty string for GitHub', async () => {
+	it('should derive repositoryId from repositoryName if repositoryFullPath is an empty string for GitHub', async () => {
 		const payload: CreateCodeTaskData = {
 			...basePayload,
 			repositorySource: 'github',
-			repositoryId: '',
+			repositoryFullPath: '',
 			repositoryName: 'owner/github-fallback',
 		};
 
@@ -214,16 +214,16 @@ describe.skip('CodeTask Routes - POST /api/codeTask', () => {
 		expect(response.statusCode).to.equal(201);
 		expect(createCodeTaskStub.calledOnce).to.be.true;
 		const callArg = createCodeTaskStub.firstCall.args[1] as CreateCodeTaskData;
-		expect(callArg.repositoryId).to.equal('owner/github-fallback');
+		expect(callArg.repositoryFullPath).to.equal('owner/github-fallback');
 		const responseBody = JSON.parse(response.payload);
-		expect(responseBody.repositoryId).to.equal('owner/github-fallback');
+		expect(responseBody.repositoryId).to.equal('owner/github-fallback'); // CodeTask.repositoryId is populated from CreateCodeTaskData.repositoryFullPath
 	});
 
-	it('should prioritize provided repositoryId over repositoryName for GitHub', async () => {
+	it('should prioritize provided repositoryFullPath over repositoryName for GitHub', async () => {
 		const payload: CreateCodeTaskData = {
 			...basePayload,
 			repositorySource: 'github',
-			repositoryId: 'owner/direct-id-priority',
+			repositoryFullPath: 'owner/direct-id-priority',
 			repositoryName: 'owner/github-name-ignored',
 		};
 
@@ -236,8 +236,8 @@ describe.skip('CodeTask Routes - POST /api/codeTask', () => {
 		expect(response.statusCode).to.equal(201);
 		expect(createCodeTaskStub.calledOnce).to.be.true;
 		const callArg = createCodeTaskStub.firstCall.args[1] as CreateCodeTaskData;
-		expect(callArg.repositoryId).to.equal('owner/direct-id-priority');
+		expect(callArg.repositoryFullPath).to.equal('owner/direct-id-priority');
 		const responseBody = JSON.parse(response.payload);
-		expect(responseBody.repositoryId).to.equal('owner/direct-id-priority');
+		expect(responseBody.repositoryId).to.equal('owner/direct-id-priority'); // CodeTask.repositoryId is populated from CreateCodeTaskData.repositoryFullPath
 	});
 });

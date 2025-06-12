@@ -6,12 +6,12 @@ import { userContentExtToAttachmentsAndText } from 'app/modules/messageUtil';
 import { EMPTY, of, throwError } from 'rxjs';
 import { CHAT_API } from '#shared/chat/chat.api';
 import {
-	type ChatListSchema,
+	ChatListSchema,
 	ChatMarkdownRequestSchema,
-	type ChatMarkdownResponseSchema,
-	type ChatMessageSendSchema,
-	type ChatModelSchema,
-	type ChatPreviewSchema, // Added for mockApiChatList
+	ChatMarkdownResponseSchema,
+	ChatMessageSendSchema,
+	ChatModelSchema,
+	ChatPreviewSchema, // Added for mockApiChatList
 	ChatUpdateDetailsSchema,
 	RegenerateMessageSchema,
 } from '#shared/chat/chat.schema';
@@ -26,7 +26,7 @@ const createMockApiLlmMessage = (
 	content: UserContentExt,
 	role: 'user' | 'assistant' | 'system' = 'assistant',
 	requestTime: number = Date.now(),
-	llmIdForStats: string = 'test-llm-stats'
+	llmIdForStats = 'test-llm-stats',
 ): Static<typeof LlmMessageSchema> => ({
 	role,
 	content,
@@ -38,16 +38,12 @@ const createMockApiLlmMessage = (
 		outputTokens: 20,
 		cost: 0.001,
 		llmId: llmIdForStats,
-	}
+	},
 });
 
 // Helper to create a minimal valid API Chat Model (Static<typeof ChatModelSchema>)
 // ChatModelSchema: id, userId, shareable, title, updatedAt (number), messages (LlmMessageSchema[]), parentId?, rootId?
-const createMockApiChatModel = (
-    id: string,
-    messages: Static<typeof LlmMessageSchema>[],
-    title: string = 'Test Chat from API'
-): Static<typeof ChatModelSchema> => ({
+const createMockApiChatModel = (id: string, messages: Static<typeof LlmMessageSchema>[], title = 'Test Chat from API'): Static<typeof ChatModelSchema> => ({
 	id,
 	userId: 'api-user-id',
 	shareable: false,
@@ -231,10 +227,11 @@ describe('ChatServiceClient', () => {
 		const userContent: UserContentExt = 'Hello, new chat!';
 		const llmId = 'llm-test';
 		const expectedPath = CHAT_API.createChat.path;
-		const mockApiResponse = createMockApiChatModel('newChatId', [
-			createMockApiLlmMessage(userContent, 'user'),
-			createMockApiLlmMessage('Response to new chat', 'assistant'),
-		], 'New Chat Title');
+		const mockApiResponse = createMockApiChatModel(
+			'newChatId',
+			[createMockApiLlmMessage(userContent, 'user'), createMockApiLlmMessage('Response to new chat', 'assistant')],
+			'New Chat Title',
+		);
 
 		it('should POST to create a new chat with autoReformat: false when autoReformat is undefined', fakeAsync(() => {
 			const mockRequestPayload: Static<typeof ChatMessageSendSchema> = { llmId, userContent, options: undefined, autoReformat: false };
@@ -759,7 +756,9 @@ describe('ChatServiceClient', () => {
 
 		it('should optimistically add user message to _chatState before API call', fakeAsync(() => {
 			// Arrange
-			const initialMessages: ChatMessage[] = [{ id: 'prev-msg', content: 'Previous message', isMine: false, createdAt: new Date().toISOString(), textContent: 'Previous message' }];
+			const initialMessages: ChatMessage[] = [
+				{ id: 'prev-msg', content: 'Previous message', isMine: false, createdAt: new Date().toISOString(), textContent: 'Previous message' },
+			];
 			const initialChat: UIChat = { id: chatId, title: 'Test Chat', messages: initialMessages, updatedAt: Date.now() };
 			(service as any)._chatState.set({ status: 'success', data: initialChat });
 
@@ -802,11 +801,11 @@ describe('ChatServiceClient', () => {
 			const finalMessages = currentChatState.data.messages;
 			expect(finalMessages.length).toBe(2); // User message + AI message
 
-			const userMessage = finalMessages.find(m => m.isMine);
+			const userMessage = finalMessages.find((m) => m.isMine);
 			expect(userMessage?.content).toEqual(userContent);
 			expect(userMessage?.status).toBe('sent'); // Check status update
 
-			const aiMessage = finalMessages.find(m => !m.isMine);
+			const aiMessage = finalMessages.find((m) => !m.isMine);
 			// convertMessage simplifies single text part arrays to string for ChatMessage.content
 			expect(aiMessage?.content).toEqual(mockAiResponseContent);
 			expect(aiMessage?.isMine).toBeFalse();

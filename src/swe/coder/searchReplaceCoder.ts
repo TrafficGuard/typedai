@@ -426,7 +426,29 @@ export class SearchReplaceCoder {
 				let reflectionForMetaRequests = '';
 				if (hasFileRequests) {
 					logger.info(`LLM requested additional files: ${JSON.stringify(session.requestedFiles)}`);
-					reflectionForMetaRequests += `You requested ${session.requestedFiles!.length} additional file(s). `;
+					const addedFiles: string[] = [];
+					const alreadyPresentFiles: string[] = [];
+					for (const requestedFile of session.requestedFiles!) {
+						// Basic validation on the requested path
+						if (!requestedFile.filePath || typeof requestedFile.filePath !== 'string') {
+							logger.warn('Invalid file path in request, skipping:', requestedFile);
+							continue;
+						}
+						const absPath = this.getRepoFilePath(session.workingDir, requestedFile.filePath);
+						if (session.absFnamesInChat?.has(absPath)) {
+							alreadyPresentFiles.push(requestedFile.filePath);
+						} else {
+							session.absFnamesInChat?.add(absPath);
+							addedFiles.push(requestedFile.filePath);
+						}
+					}
+
+					if (addedFiles.length > 0) {
+						reflectionForMetaRequests += `I have added the ${addedFiles.length} file(s) you requested to the chat: ${addedFiles.join(', ')}. `;
+					}
+					if (alreadyPresentFiles.length > 0) {
+						reflectionForMetaRequests += `The following file(s) you requested were already in the chat: ${alreadyPresentFiles.join(', ')}. `;
+					}
 				}
 				if (hasQueryRequests) {
 					logger.info(`LLM asked queries: ${JSON.stringify(session.requestedQueries)}`);
@@ -439,8 +461,7 @@ export class SearchReplaceCoder {
 
 				if (session.parsedBlocks.length === 0) {
 					// LLM made meta-request(s) and provided no edit blocks (expected behavior for meta-requests)
-					reflectionForMetaRequests +=
-						'Please wait for these requests to be processed, or proceed with edits if you can now make them without these items. If you no longer need them, provide the edits.';
+					reflectionForMetaRequests += 'Please proceed with the edits now that you have the additional context, or ask for more information if needed.';
 					this._addReflectionToMessages(session, reflectionForMetaRequests, currentMessages);
 					continue;
 				}

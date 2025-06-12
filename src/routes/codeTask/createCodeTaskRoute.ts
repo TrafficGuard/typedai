@@ -15,7 +15,7 @@ export async function createCodeTaskRoute(fastify: AppFastifyInstance) {
 			title,
 			instructions,
 			repositorySource,
-			repositoryId: originalRepositoryIdFromRequest,
+			repositoryFullPath: repositoryFullPathFromRequest,
 			repositoryName,
 			targetBranch,
 			workingBranch,
@@ -23,17 +23,19 @@ export async function createCodeTaskRoute(fastify: AppFastifyInstance) {
 			useSharedRepos,
 		} = request.body;
 
-		let effectiveRepositoryId = originalRepositoryIdFromRequest;
+		let effectiveRepositoryPath = repositoryFullPathFromRequest;
 
-		if (!effectiveRepositoryId && repositoryName && (repositorySource === 'github' || repositorySource === 'gitlab')) {
-			effectiveRepositoryId = repositoryName;
-			fastify.log.info(`Code task creation: repositoryId was not provided for source '${repositorySource}', derived from repositoryName '${repositoryName}'.`);
+		if (!effectiveRepositoryPath && repositoryName && (repositorySource === 'github' || repositorySource === 'gitlab')) {
+			effectiveRepositoryPath = repositoryName;
+			fastify.log.info(
+				`Code task creation: repositoryFullPath was not provided for source '${repositorySource}', derived from repositoryName '${repositoryName}'.`,
+			);
 		}
 
-		if (!effectiveRepositoryId) {
+		if (!effectiveRepositoryPath) {
 			return sendBadRequest(
 				reply,
-				"repositoryId is required. If using GitHub/GitLab and repositoryId is not directly provided, ensure repositoryName is supplied in 'owner/repo' format to be used as a fallback.",
+				"repositoryFullPath is required. If using GitHub/GitLab and repositoryFullPath is not directly provided, ensure repositoryName is supplied in 'owner/repo' format to be used as a fallback.",
 			);
 		}
 
@@ -42,7 +44,7 @@ export async function createCodeTaskRoute(fastify: AppFastifyInstance) {
 				title,
 				instructions,
 				repositorySource,
-				repositoryId: effectiveRepositoryId,
+				repositoryFullPath: effectiveRepositoryPath,
 				repositoryName: repositoryName ?? undefined,
 				targetBranch,
 				workingBranch,

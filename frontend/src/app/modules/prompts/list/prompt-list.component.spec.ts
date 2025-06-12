@@ -1,18 +1,18 @@
 import { CommonModule, DatePipe } from '@angular/common';
 import { type WritableSignal, signal } from '@angular/core';
 import { type ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
-import { MatDialogRef } from '@angular/material/dialog';
-import { ActivatedRoute, Router, RouterModule, convertToParamMap } from '@angular/router';
+import type { MatDialogRef } from '@angular/material/dialog';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { ActivatedRoute, Router, RouterModule, convertToParamMap } from '@angular/router';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
-import { ApiListState } from 'app/core/api-state.types';
+import type { ApiListState } from 'app/core/api-state.types';
 import { of, throwError, timer } from 'rxjs';
 import { delay } from 'rxjs/operators';
-import { PromptPreview } from '#shared/prompts/prompts.model';
+import type { PromptPreview } from '#shared/prompts/prompts.model';
+import { PROMPTS_ROUTES } from '../prompt.paths';
 import { PromptsService } from '../prompts.service';
 import { PromptListComponent } from './prompt-list.component';
 import { PromptListPo } from './prompt-list.po';
-import { PROMPTS_ROUTES } from '../prompt.paths';
 
 describe('PromptListComponent', () => {
 	let component: PromptListComponent;
@@ -31,7 +31,6 @@ describe('PromptListComponent', () => {
 			revisionId: 1,
 			userId: 'user1',
 			settings: { temperature: 0.7 },
-			updatedAt: new Date('2023-10-27T10:00:00Z').getTime(),
 		},
 		{
 			id: '2',
@@ -40,12 +39,11 @@ describe('PromptListComponent', () => {
 			revisionId: 1,
 			userId: 'user1',
 			settings: { temperature: 0.5, llmId: 'test-llm' },
-			updatedAt: new Date('2023-10-26T15:30:00Z').getTime(),
 		},
 	];
 
 	beforeEach(async () => {
-		promptsStateSignal = signal<ApiListState<PromptPreview>>({ status: 'idle', data: null });
+		promptsStateSignal = signal<ApiListState<PromptPreview>>({ status: 'idle' });
 
 		mockPromptsService = jasmine.createSpyObj('PromptsService', ['refreshPrompts', 'deletePrompt'], {
 			promptsState: promptsStateSignal.asReadonly(),
@@ -83,18 +81,22 @@ describe('PromptListComponent', () => {
 
 	it('should call refreshPrompts on init, show loading state, then show prompts', fakeAsync(async () => {
 		mockPromptsService.refreshPrompts.and.callFake(() => {
-			promptsStateSignal.set({ status: 'loading', data: null });
+			promptsStateSignal.set({ status: 'loading' });
 			timer(100).subscribe(() => {
 				promptsStateSignal.set({ status: 'success', data: mockPrompts });
 			});
 		});
 
-		expect(await po.isLoading()).withContext('Should show loading view for initial idle state').toBeTrue();
+		expect(await po.isLoading())
+			.withContext('Should show loading view for initial idle state')
+			.toBeTrue();
 
 		fixture.detectChanges(); // Triggers ngOnInit
 
 		expect(mockPromptsService.refreshPrompts).toHaveBeenCalled();
-		expect(await po.isLoading()).withContext('Should show loading view for loading state').toBeTrue();
+		expect(await po.isLoading())
+			.withContext('Should show loading view for loading state')
+			.toBeTrue();
 
 		tick(100);
 		await po.detectAndWait();
@@ -106,7 +108,7 @@ describe('PromptListComponent', () => {
 	it('should show an error message if refreshing prompts fails', fakeAsync(async () => {
 		const error = new Error('Failed to load');
 		mockPromptsService.refreshPrompts.and.callFake(() => {
-			promptsStateSignal.set({ status: 'loading', data: null });
+			promptsStateSignal.set({ status: 'loading' });
 			timer(100).subscribe(() => {
 				promptsStateSignal.set({ status: 'error', error });
 			});

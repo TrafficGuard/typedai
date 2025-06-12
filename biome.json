@@ -22,7 +22,8 @@
 			},
 			"style": {
 				"noParameterAssign": "off",
-				"noNonNullAssertion": "off"
+				"noNonNullAssertion": "off",
+				"useImportType": "off"
 			}
 		}
 	},
