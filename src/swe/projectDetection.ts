@@ -1,7 +1,7 @@
-import { existsSync, readFileSync } from 'node:fs';
 import path, { join } from 'node:path';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
+import { IFileSystemService } from '#shared/files/fileSystemService';
 import { TypescriptTools } from '#swe/lang/nodejs/typescriptTools';
 import { PhpTools } from '#swe/lang/php/phpTools';
 import { PythonTools } from '#swe/lang/python/pythonTools';
@@ -10,6 +10,8 @@ import { projectDetectionAgent } from '#swe/projectDetectionAgent';
 import type { LanguageTools } from './lang/languageTools';
 
 export type LanguageRuntime = 'nodejs' | 'typescript' | 'php' | 'python' | 'terraform' | 'pulumi' | 'angular';
+
+export type ScriptCommand = string | string[];
 
 export const AI_INFO_FILENAME = '.typedai.json';
 
@@ -36,7 +38,7 @@ export interface ProjectScripts {
 export interface ProjectInfo extends ProjectScripts {
 	baseDir: string;
 	/** If this is the primary project in the repository */
-	primary?: boolean;
+	primary: boolean; // Changed to non-optional, will be defaulted
 	language: LanguageRuntime | '';
 	languageTools: LanguageTools | null;
 	/** The base development branch to make new branches from */
@@ -47,93 +49,169 @@ export interface ProjectInfo extends ProjectScripts {
 	indexDocs: string[];
 }
 
-export async function getProjectInfo(): Promise<ProjectInfo | null> {
-	const infoPath = path.join(getFileSystem().getWorkingDirectory(), AI_INFO_FILENAME);
-	if (existsSync(infoPath)) {
-		const infos = parseProjectInfo(readFileSync(infoPath).toString());
-		if (infos.length === 1) return infos[0];
-		// if (infos.length > 1) return infos.find(project => project.)
-	} else {
-		const infos = await detectProjectInfo();
-		if (infos.length === 1) return infos[0];
-	}
-	return null;
+// Helper function to convert ProjectInfo to ProjectInfoFileFormat for saving
+function mapProjectInfoToFileFormat(projectInfo: ProjectInfo): ProjectInfoFileFormat {
+	// Destructure to explicitly pick fields for ProjectInfoFileFormat
+	const { baseDir, primary, language, devBranch, initialise, compile, format, staticAnalysis, test, indexDocs } = projectInfo;
+	return {
+		baseDir,
+		primary,
+		language,
+		devBranch,
+		initialise,
+		compile,
+		format,
+		staticAnalysis,
+		test,
+		indexDocs,
+	};
 }
 
 function parseProjectInfo(fileContents: string): ProjectInfo[] | null {
 	try {
-		// Parse as the file format
-		const projectInfosFromFile = JSON.parse(fileContents) as ProjectInfoFileFormat[];
-		logger.info(projectInfosFromFile, `Parsed ${AI_INFO_FILENAME}`);
+		const projectInfosFromFile = JSON.parse(fileContents) as Partial<ProjectInfoFileFormat>[]; // Parse as potentially partial
+		logger.info(projectInfosFromFile, `Parsed ${AI_INFO_FILENAME} content`);
 
-		if (!Array.isArray(projectInfosFromFile)) throw new Error(`${AI_INFO_FILENAME} should be a JSON array`);
+		if (!Array.isArray(projectInfosFromFile)) {
+			throw new Error(`${AI_INFO_FILENAME} root should be a JSON array`);
+		}
 
-		// Map to the full ProjectInfo structure, adding derived fields
-		const projectInfosFull: ProjectInfo[] = projectInfosFromFile.map((infoFromFile) => {
-			const path = join(getFileSystem().getWorkingDirectory(), infoFromFile.baseDir);
-			if (!infoFromFile.baseDir) {
-				throw new Error(`All entries in ${path} must have the basePath property`);
+		return projectInfosFromFile.map((infoFromFile, index) => {
+			if (!infoFromFile.baseDir || typeof infoFromFile.baseDir !== 'string' || infoFromFile.baseDir.trim() === '') {
+				throw new Error(`Entry ${index} in ${AI_INFO_FILENAME} is missing a valid "baseDir" property.`);
 			}
+			// Ensure all script properties are strings, defaulting to empty if not present or wrong type
+			const scripts: ProjectScripts = {
+				initialise: typeof infoFromFile.initialise === 'string' ? infoFromFile.initialise : '',
+				compile: typeof infoFromFile.compile === 'string' ? infoFromFile.compile : '',
+				format: typeof infoFromFile.format === 'string' ? infoFromFile.format : '',
+				staticAnalysis: typeof infoFromFile.staticAnalysis === 'string' ? infoFromFile.staticAnalysis : '',
+				test: typeof infoFromFile.test === 'string' ? infoFromFile.test : '',
+			};
+
+			const language = (infoFromFile.language as LanguageRuntime) || ''; // Ensure language is valid or empty string
+
 			return {
-				...infoFromFile, // Spread properties from the file format
-				languageTools: getLanguageTools(infoFromFile.language as LanguageRuntime), // Add languageTools
-				fileSelection: 'Do not include package manager lock files', // Add default fileSelection
+				baseDir: infoFromFile.baseDir.trim(),
+				primary: typeof infoFromFile.primary === 'boolean' ? infoFromFile.primary : false, // Default primary
+				language: language,
+				languageTools: getLanguageTools(language),
+				devBranch: typeof infoFromFile.devBranch === 'string' && infoFromFile.devBranch.trim() !== '' ? infoFromFile.devBranch.trim() : 'main', // Default devBranch
+				...scripts, // Spread validated/defaulted scripts
+				fileSelection: 'Do not include package manager lock files', // Default fileSelection
+				indexDocs: Array.isArray(infoFromFile.indexDocs) ? infoFromFile.indexDocs : [], // Default indexDocs
 			};
 		});
-
-		return projectInfosFull;
 	} catch (e) {
-		logger.warn(e, `Error loading and parsing ${AI_INFO_FILENAME}`);
+		const errorMessage = e instanceof Error ? e.message : String(e);
+		logger.warn({ error: errorMessage, fileContentsPreview: fileContents.substring(0, 200) }, `Error parsing ${AI_INFO_FILENAME}`);
 		return null;
 	}
 }
 
 /**
- * Determines the language/runtime, base folder and key commands for a project on the filesystem.
- * Loads from the file defined by AI_INFO_FILENAME if it exists
+ * Tries to load and parse the project info file from the given path.
+ * Returns ProjectInfo[] if successful (can be an empty array).
+ * Returns null if the file does not exist or is invalid (it will be renamed).
+ */
+async function tryLoadAndParse(filePath: string, fss: IFileSystemService, locationName: string): Promise<ProjectInfo[] | null> {
+	if (await fss.fileExists(filePath)) {
+		logger.info(`Attempting to load ${AI_INFO_FILENAME} from ${locationName} at ${filePath}`);
+		const fileContents = await fss.readFile(filePath);
+		const parsedInfos = parseProjectInfo(fileContents);
+
+		if (parsedInfos === null) {
+			// File is invalid
+			logger.warn(`${AI_INFO_FILENAME} at ${filePath} is invalid. Renaming it.`);
+			try {
+				const newName = `${filePath}.invalid_${Date.now()}`;
+				await fss.rename(filePath, newName);
+				logger.info(`Renamed invalid file to ${newName}`);
+			} catch (renameError) {
+				const errorMessage = renameError instanceof Error ? renameError.message : String(renameError);
+				logger.error({ error: errorMessage, filePath }, 'Failed to rename invalid file.');
+			}
+			return null; // Signifies an invalid file was handled
+		}
+		logger.info(`Successfully parsed ${AI_INFO_FILENAME} from ${locationName}. Projects: ${parsedInfos.length}`);
+		return parsedInfos; // Valid ProjectInfo[] (could be empty)
+	}
+	logger.info(`${AI_INFO_FILENAME} not found in ${locationName} at ${filePath}`);
+	return null;
+}
+
+/**
+ * Determines the language/runtime, base folder and key commands for projects.
+ * It prioritizes loading from .typedai.json in CWD, then VCS root.
+ * If no valid file is found, it runs detection via projectDetectionAgent and saves the result to CWD.
+ * An empty valid file (e.g., "[]") means detection previously ran and found no projects; it will not re-detect.
+ * Invalid files are renamed to avoid re-parsing them in a loop.
  */
 export async function detectProjectInfo(): Promise<ProjectInfo[]> {
-	logger.info('detectProjectInfo');
+	logger.info('detectProjectInfo: Starting project detection process.');
 	const fss = getFileSystem();
-	if (await fss.fileExists(AI_INFO_FILENAME)) {
-		const projectInfoJson = await fss.readFile(AI_INFO_FILENAME);
-		logger.info(projectInfoJson, `Loaded ${AI_INFO_FILENAME}`);
-		// TODO check projectInfo matches the format we expect
-		const info = parseProjectInfo(projectInfoJson);
-		if (info !== null) return info;
-	} else if (await fss.fileExists(join(fss.getVcsRoot(), AI_INFO_FILENAME))) {
-		// logger.info('current dir ' + fileSystem.getWorkingDirectory());
-		// logger.info('fileSystem.getVcsRoot() ' + fileSystem.getVcsRoot());
-		// throw new Error(
-		// 	'TODO handle if we are in a directory inside a repository. Look for the ${AI_INFO_FILENAME} in the repo root folder and see if any entry exists for the current folder or above ',
-		// );
-		logger.info(`Found ${AI_INFO_FILENAME} in repository root folder`);
-		const projectInfoJson = await fss.readFile(join(fss.getVcsRoot(), AI_INFO_FILENAME));
-		const info = parseProjectInfo(projectInfoJson);
-		if (info !== null) return info;
+	const cwdInfoPath = path.join(fss.getWorkingDirectory(), AI_INFO_FILENAME);
+	const vcsRootInfoPath = join(fss.getVcsRoot(), AI_INFO_FILENAME);
+
+	let loadedInfos: ProjectInfo[] | null;
+
+	// 1. Try CWD
+	loadedInfos = await tryLoadAndParse(cwdInfoPath, fss, 'CWD');
+
+	// 2. If not found in CWD, try VCS root
+	if (loadedInfos === null) {
+		if (cwdInfoPath !== vcsRootInfoPath) {
+			// Avoid re-processing if CWD is VCS root
+			loadedInfos = await tryLoadAndParse(vcsRootInfoPath, fss, 'VCS root');
+			if (loadedInfos !== null) {
+				// Successfully loaded from VCS root
+				logger.info(`Using valid project info from VCS root. Writing to CWD for consistency: ${cwdInfoPath}`);
+				const infosToSaveToFileFormat = loadedInfos.map(mapProjectInfoToFileFormat);
+				await fss.writeFile(cwdInfoPath, JSON.stringify(infosToSaveToFileFormat, null, 2));
+			}
+		}
 	}
 
-	logger.info('Detecting project info...');
-	const projectInfosFull = await projectDetectionAgent(); // This returns ProjectInfo[]
-	logger.info(projectInfosFull, 'ProjectInfo detected');
+	// 3. If no valid file loaded from CWD or VCS root, run detection agent
+	if (loadedInfos === null) {
+		logger.info('No valid project information file found. Running project detection agent.');
+		const detectedProjectInfos = await projectDetectionAgent(); // This returns ProjectInfo[]
 
-	// Filter out fields that should not be persisted in the file
-	const projectInfosToFile: ProjectInfoFileFormat[] = projectInfosFull.map((info) => ({
-		baseDir: info.baseDir,
-		primary: info.primary,
-		language: info.language,
-		devBranch: info.devBranch,
-		initialise: info.initialise,
-		compile: info.compile,
-		format: info.format,
-		staticAnalysis: info.staticAnalysis,
-		test: info.test,
-		indexDocs: info.indexDocs,
-		// Exclude languageTools and fileSelection
-	}));
+		// Save detected info to CWD
+		const projectInfosToFileFormat = detectedProjectInfos.map(mapProjectInfoToFileFormat);
+		await fss.writeFile(cwdInfoPath, JSON.stringify(projectInfosToFileFormat, null, 2));
+		logger.info(`Agent detection complete. Wrote ${detectedProjectInfos.length} project(s) to ${cwdInfoPath}`);
+		return detectedProjectInfos;
+	}
 
-	await getFileSystem().writeFile(AI_INFO_FILENAME, JSON.stringify(projectInfosToFile, null, 2));
-	return projectInfosFull; // Return the full objects with languageTools and fileSelection
+	// Valid infos were loaded from a file
+	logger.info(`Using existing valid project information from file. Project count: ${loadedInfos.length}`);
+	return loadedInfos;
+}
+
+export async function getProjectInfo(): Promise<ProjectInfo | null> {
+	const infos = await detectProjectInfo(); // This is now the robust version
+
+	if (!infos || infos.length === 0) {
+		logger.info('getProjectInfo: No projects detected or loaded.');
+		return null;
+	}
+
+	if (infos.length === 1) {
+		logger.info(`getProjectInfo: Exactly one project found: ${infos[0].baseDir}`);
+		return infos[0];
+	}
+
+	// Multiple projects
+	logger.info(`getProjectInfo: Multiple projects (${infos.length}) found. Looking for a primary project.`);
+	const primaryProject = infos.find((project) => project.primary);
+	if (primaryProject) {
+		logger.info(`getProjectInfo: Selecting primary project: ${primaryProject.baseDir}`);
+		return primaryProject;
+	}
+
+	logger.warn('getProjectInfo: Multiple projects detected/loaded, but no primary project is designated. Returning the first project as a fallback.');
+	return infos[0]; // Fallback to the first project if no primary
 }
 
 export function getLanguageTools(type: LanguageRuntime | ''): LanguageTools | null {
@@ -143,6 +221,7 @@ export function getLanguageTools(type: LanguageRuntime | ''): LanguageTools | nu
 		case 'nodejs':
 		case 'typescript':
 		case 'pulumi':
+		case 'angular': // Added angular
 			return new TypescriptTools();
 		case 'python':
 			return new PythonTools();
@@ -150,8 +229,12 @@ export function getLanguageTools(type: LanguageRuntime | ''): LanguageTools | nu
 			return new TerraformTools();
 		case 'php':
 			return new PhpTools();
-		default:
-			logger.warn(`No tooling support for language tool ${type}`);
+		default: {
+			// This ensures all cases in LanguageRuntime are handled.
+			// If a new language is added to LanguageRuntime but not here, TypeScript will error.
+			const _exhaustiveCheck: never = type;
+			logger.warn(`No specific tooling support configured for language tool: ${_exhaustiveCheck}`);
 			return null;
+		}
 	}
 }

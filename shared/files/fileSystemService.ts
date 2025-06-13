@@ -242,4 +242,6 @@ export interface IFileSystemService {
 	 * Gets the version control service (Git) repository root folder, if the current working directory is in a Git repo, else null.
 	 */
 	getVcsRoot(): string | null;
+
+    rename(filePath: string, newPath: string): Promise<void>;
 }

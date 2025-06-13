@@ -1,4 +1,4 @@
-import { access, existsSync, lstat, mkdir, readFile, readdir, stat, unlink, writeFile } from 'node:fs';
+import { access, existsSync, lstat, mkdir, readFile, readdir, rename, stat, unlink, writeFile } from 'node:fs';
 import path, { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import ignore, { type Ignore } from 'ignore';
@@ -25,6 +25,7 @@ const fs = {
 	lstat: promisify(lstat),
 	writeFile: promisify(writeFile),
 	unlink: promisify(unlink),
+	rename: promisify(rename),
 };
 
 // import fg from 'fast-glob';
@@ -148,7 +149,38 @@ export class FileSystemService implements IFileSystemService {
 		this.vcs = null; // lazy loaded in getVcs()
 	}
 
-	async rename(filePath: string, newName: string): Promise<void> {}
+	async rename(filePath: string, newPath: string): Promise<void> {
+		const serviceCwd = this.getWorkingDirectory();
+
+		const oldAbsPath = path.isAbsolute(filePath) ? filePath : path.resolve(serviceCwd, filePath);
+		const newAbsPath = path.isAbsolute(newPath) ? newPath : path.resolve(serviceCwd, newPath);
+
+		if (!oldAbsPath.startsWith(this.basePath)) {
+			throw new Error(`Source path '${filePath}' is outside the allowed directory.`);
+		}
+		if (!newAbsPath.startsWith(this.basePath)) {
+			throw new Error(`Destination path '${newPath}' is outside the allowed directory.`);
+		}
+
+		try {
+			// Check if source exists. fs.rename will also throw but this gives a clearer error.
+			await fs.access(oldAbsPath);
+		} catch (e) {
+			throw new FileNotFound(`Source file or directory not found: ${filePath}`);
+		}
+
+		try {
+			// Ensure parent directory of the new path exists, as fs.rename doesn't create it.
+			const newParentPath = path.dirname(newAbsPath);
+			await fs.mkdir(newParentPath, { recursive: true });
+
+			await fs.rename(oldAbsPath, newAbsPath);
+			this.log.debug(`Renamed '${filePath}' to '${newPath}'`);
+		} catch (error) {
+			this.log.error(`Error renaming from '${filePath}' to '${newPath}': ${error.message}`);
+			throw error;
+		}
+	}
 
 	/**
 	 * Returns the file contents of all the files under the provided directory path
