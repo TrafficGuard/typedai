@@ -148,6 +148,8 @@ export class FileSystemService implements IFileSystemService {
 		this.vcs = null; // lazy loaded in getVcs()
 	}
 
+	async rename(filePath: string, newName: string): Promise<void> {}
+
 	/**
 	 * Returns the file contents of all the files under the provided directory path
 	 * @param dirPath the directory to return all the files contents under
