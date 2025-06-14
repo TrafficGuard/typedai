@@ -115,6 +115,7 @@ export class SearchReplaceCoder {
 	private vcs: VersionControlSystem | null;
 	private readonly precomputedSystemMessage: string;
 	private readonly precomputedExampleMessages: LlmMessage[];
+	private readonly systemReminderForUserPrompt: string; // New instance variable
 
 	constructor(
 		private fs: IFileSystemService = getFileSystem(),
@@ -127,17 +128,37 @@ export class SearchReplaceCoder {
 		const fence = this.getFence();
 		const language = 'TypeScript'; // Default, can be made configurable
 
-		const finalRemindersText = ''; // Add useLazyPrompt/useOvereagerPrompt logic if needed
+		// Construct the detailed reminders text that will be used in both system and user prompts
+		const renameFilesReminder = "To rename files which have been added to the chat, use shell commands at the end of your response.";
+		const userConfirmationReminder = `If the user just says something like "ok" or "go ahead" or "do that" they probably want you to make SEARCH/REPLACE blocks for the code changes you just proposed.
+The user will say when they've applied your edits. If they haven't explicitly confirmed the edits have been applied, they probably want proper SEARCH/REPLACE blocks.`;
+		const overeagerPromptContent = EDIT_BLOCK_PROMPTS.overeager_prompt; // This already ends with a newline
 
-		const mainSystemContent = EDIT_BLOCK_PROMPTS.main_system.replace('{language}', language).replace('{final_reminders}', finalRemindersText.trim());
+		// Combine reminders for the final section of the prompt
+		const finalRemindersText = `${renameFilesReminder}\n\n${userConfirmationReminder}\n\n${overeagerPromptContent}`;
 
-		const systemReminderContent = EDIT_BLOCK_PROMPTS.system_reminder
+		// Specific reminder about quadruple backticks
+		const quadBacktickReminderText = "IMPORTANT: Use *quadruple* backticks ```` as fences, not triple backticks!\n";
+
+		// Build the main system message content
+		const mainSystemContent = EDIT_BLOCK_PROMPTS.main_system
+			.replace('{language}', language)
+			.replace('{final_reminders}', finalRemindersText);
+
+		// Build the detailed system reminder content (used in system message and user prompt suffix)
+		const systemReminderContentForPrompt = EDIT_BLOCK_PROMPTS.system_reminder
 			.replace(/{fence_0}/g, fence[0])
 			.replace(/{fence_1}/g, fence[1])
-			.replace('{quad_backtick_reminder}', '') // Add quadBacktickReminder if needed
-			.replace('{final_reminders}', finalRemindersText.trim());
-		this.precomputedSystemMessage = `${mainSystemContent}\n\n${systemReminderContent}`;
+			.replace('{quad_backtick_reminder}', quadBacktickReminderText)
+			.replace('{final_reminders}', finalRemindersText);
 
+		// The full system message combines the main content and the detailed reminders
+		this.precomputedSystemMessage = `${mainSystemContent}\n\n${systemReminderContentForPrompt}`;
+
+		// Store the detailed reminders separately to append to the user prompt
+		this.systemReminderForUserPrompt = systemReminderContentForPrompt;
+
+		// Precompute example messages, replacing fence placeholders
 		this.precomputedExampleMessages = EDIT_BLOCK_PROMPTS.example_messages_template.map((msgTemplate) => ({
 			role: msgTemplate.role as 'system' | 'user' | 'assistant',
 			content: msgTemplate.content.replace(/{fence_0}/g, fence[0]).replace(/{fence_1}/g, fence[1]),
@@ -343,7 +364,8 @@ export class SearchReplaceCoder {
 			messages.push({ role: 'assistant', content: 'Ok, I will use this repository information for context.' });
 		}
 
-		messages.push({ role: 'user', content: userRequest });
+		// Append the detailed system reminders to the user's request
+		messages.push({ role: 'user', content: `${userRequest}\n\n${this.systemReminderForUserPrompt}` });
 		return messages;
 	}
 
