@@ -137,6 +137,6 @@ export abstract class BaseSpecPo<T> {
 		fix.detectChanges();
 		await fix.whenStable();
 		fix.detectChanges(); // Ensure UI is stable after async operations
-		return new BaseSpecPo(fix);
+		return new this(fix);
 	}
 }
