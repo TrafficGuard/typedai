@@ -1,6 +1,6 @@
 import { CommonModule, Location } from '@angular/common';
 import { ChangeDetectorRef, NO_ERRORS_SCHEMA } from '@angular/core';
-import { signal, WritableSignal } from '@angular/core';
+import { signal, type WritableSignal, type Signal } from '@angular/core';
 import { fakeAsync, tick } from '@angular/core/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormBuilder, FormGroup } from '@angular/forms';
@@ -66,7 +66,7 @@ describe('PromptFormComponent', () => {
 	let mockLlmService: jasmine.SpyObj<Pick<LlmService, 'refreshLlms' | 'clearCache'>> & {
 		loadLlms: jasmine.Spy;
 		// Modified type for llmsState
-		llmsState: ReadonlySignal<ApiListState<AppLLM>>;
+		llmsState: Signal<ApiListState<AppLLM>>;
 	};
 	let mockRouter: jasmine.SpyObj<Router>;
 	let mockLocation: jasmine.SpyObj<Location>;
@@ -78,7 +78,7 @@ describe('PromptFormComponent', () => {
 
 		// Refined LlmService mock
 		// Use createApiListState for initial state to match service's type
-		const llmsStateSignal: WritableSignal<ApiListState<AppLLM>> = signal(createApiListState<AppLLM>());
+		const llmsStateSignal: WritableSignal<ApiListState<AppLLM>> = createApiListState<AppLLM>();
 
 
 		// Create a spy object for methods that are simple spies
@@ -88,10 +88,10 @@ describe('PromptFormComponent', () => {
 			...spiedMethods,
 			llmsState: llmsStateSignal.asReadonly(),
 			loadLlms: jasmine.createSpy('loadLlms').and.callFake(() => {
-				llmsStateSignal.set({ status: 'loading', data: [], error: null, code: null });
+				llmsStateSignal.set({ status: 'loading' });
 				// Simulate async loading and state update, similar to how the actual service would work with an HTTP call
 				Promise.resolve().then(() => { // Using Promise.resolve().then() ensures this runs in a microtask
-					llmsStateSignal.set({ status: 'success', data: mockLlms, error: null, code: null });
+					llmsStateSignal.set({ status: 'success', data: mockLlms });
 				});
 			}),
 		};
