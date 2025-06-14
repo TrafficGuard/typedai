@@ -153,26 +153,46 @@ describe('projectDetection', () => {
 		});
 
 		it('should load from CWD if valid file exists', async () => {
-			const cwdProjectPath = `/test/cwd/${AI_INFO_FILENAME}`;
+			const cwdProjectPath = path.join(MOCK_CWD, AI_INFO_FILENAME);
 			const fileContent: ProjectInfoFileFormat[] = [
 				{
 					baseDir: './',
+					primary: true,
 					language: 'typescript',
-					initialise: 'npm ci',
-					compile: '',
-					format: '',
-					staticAnalysis: '',
-					test: 'npm test',
+					initialise: 'node build.js install',
+					compile: 'node build.js build',
+					format: '', // Will be normalized to []
+					staticAnalysis: 'node build.js lint',
+					test: 'cd frontend && npm run test:ci',
 					devBranch: 'main',
-					indexDocs: [],
+					indexDocs: [
+						'src/**/*.ts',
+						'frontend/src/**/*.ts',
+						'bin/**',
+						'shared/**',
+					],
 				},
 			];
 
+			setupFileSystemAndSpy(
+				{ [cwdProjectPath]: JSON.stringify(fileContent, null, 2) },
+				MOCK_CWD, // CWD
+				MOCK_CWD, // VCS Root is CWD for this test
+			);
 			const result = await detectProjectInfo();
 
 			expect(result).to.be.an('array').with.lengthOf(1);
-			expect(result[0].baseDir).to.equal('./');
-			expect(result[0].initialise).to.deep.equal(['npm ci']);
+			const project = result[0];
+			expect(project.baseDir).to.equal('./');
+			expect(project.primary).to.be.true;
+			expect(project.language).to.equal('typescript');
+			expect(project.initialise).to.deep.equal(['node build.js install']);
+			expect(project.compile).to.deep.equal(['node build.js build']);
+			expect(project.format).to.deep.equal([]);
+			expect(project.staticAnalysis).to.deep.equal(['node build.js lint']);
+			expect(project.test).to.deep.equal(['cd frontend && npm run test:ci']);
+			expect(project.devBranch).to.equal('main');
+			expect(project.indexDocs).to.deep.equal(fileContent[0].indexDocs);
 			expect(projectDetectionAgentStub.called).to.be.false;
 		});
 
