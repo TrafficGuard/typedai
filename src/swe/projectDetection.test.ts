@@ -262,7 +262,7 @@ const MOCK_VCS_ROOT_DIFFERENT = '/test/vcs_root';
 			expect(projectDetectionAgentStub.called).to.be.false;
 
 			// Check if it wrote to CWD
-			const writtenContent = await fssInstance.readFile(cwdAiInfoPath);
+			const writtenContent = await fsAsync.readFile(cwdAiInfoPath, 'utf-8');
 			expect(JSON.parse(writtenContent)).to.deep.equal(fileContentArray);
 		});
 
@@ -315,10 +315,8 @@ const MOCK_VCS_ROOT_DIFFERENT = '/test/vcs_root';
 			await detectProjectInfo();
 
 			// Verify rename by checking old file is gone and new one exists (state validation)
-			// Check that the original file path no longer exists according to fssInstance
-			expect(await fssInstance.fileExists(cwdAiInfoPath)).to.be.false;
-
-			// Check that a renamed file exists (more robustly, check if rename was called)
+			const filesInCwd = await fsAsync.readdir(MOCK_CWD);
+			expect(filesInCwd.find(f => f === AI_INFO_FILENAME)).to.be.undefined;
 			// The exact name of the renamed file includes a timestamp, making it hard to predict.
 			// Verifying the fssInstance.rename spy is a good way if direct file existence is tricky.
 			const renameSpy = fssInstance.rename as sinon.SinonSpy;
@@ -357,12 +355,12 @@ const MOCK_VCS_ROOT_DIFFERENT = '/test/vcs_root';
 					baseDir: './app', // This baseDir is relative to VSC_ROOT_PATH
 					primary: true,
 					language: 'typescript',
-					initialise: 'npm install',
+					devBranch: 'develop',
+					initialise: 'npm install', // Order changed to match mapProjectInfoToFileFormat output
 					compile: 'npm run build',
 					format: 'npm run format',
 					staticAnalysis: 'npm run lint',
 					test: 'npm test',
-					devBranch: 'develop',
 					indexDocs: ['src/**/*.ts', '../common/**/*.ts'],
 				},
 			];
