@@ -154,6 +154,13 @@ describe.only('projectDetection', () => {
 const MOCK_CWD = '/test/cwd';
 const MOCK_VCS_ROOT_DIFFERENT = '/test/vcs_root';
 
+
+    /*
+    REQUIREMENTS:
+    - If there is a .typedai.json in the current directory, then load that
+    - If no .typedai.json exists in the current directory, and we are in a git repository, then load the .typedai.json from the root of the repository
+    */
+
 	describe('detectProjectInfo', () => {
 		let projectDetectionAgentStub: sinon.SinonStub;
 		let fssInstance: FileSystemService; // To hold the FileSystemService instance
