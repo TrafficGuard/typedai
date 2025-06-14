@@ -577,11 +577,37 @@ export class FileSystemService implements IFileSystemService {
 	 * @param contents The contents to write to the file
 	 */
 	async writeFile(filePath: string, contents: string): Promise<void> {
-		const fileSystemPath = filePath.startsWith(this.basePath) ? filePath : join(this.getWorkingDirectory(), filePath);
-		logger.debug(`Writing file "${filePath}" to ${fileSystemPath}`);
-		const parentPath = path.dirname(fileSystemPath);
+		const serviceCwd = this.getWorkingDirectory();
+		let resolvedPath: string;
+
+		if (path.isAbsolute(filePath)) {
+			resolvedPath = path.normalize(filePath);
+		} else {
+			resolvedPath = path.resolve(serviceCwd, filePath);
+		}
+
+		// Security check
+		if (!resolvedPath.startsWith(this.basePath)) {
+			const vcsRoot = this.getVcsRoot();
+			if (!vcsRoot || !resolvedPath.startsWith(vcsRoot)) {
+				this.log.error(
+					{ resolvedPath, basePath: this.basePath, vcsRoot, requestedPath: filePath },
+					'writeFile attempt for path is outside basePath and VCS root. Denying write.',
+				);
+				throw new Error(
+					`Cannot write file ${filePath} (resolved to ${resolvedPath}). Path is outside allowed directories (basePath: ${this.basePath}, vcsRoot: ${vcsRoot || 'null'}).`,
+				);
+			}
+			this.log.debug(
+				{ resolvedPath, basePath: this.basePath, vcsRoot, requestedPath: filePath },
+				'writeFile attempt for path is outside basePath but within VCS root. Allowing write.',
+			);
+		}
+
+		this.log.debug(`Writing file "${filePath}" (resolved: "${resolvedPath}") with ${contents.length} chars`);
+		const parentPath = path.dirname(resolvedPath);
 		await fs.mkdir(parentPath, { recursive: true });
-		await fs.writeFile(fileSystemPath, contents);
+		await fs.writeFile(resolvedPath, contents);
 	}
 
 	async deleteFile(filePath: string): Promise<void> {
