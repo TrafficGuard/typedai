@@ -471,55 +471,77 @@ export class FileSystemService implements IFileSystemService {
 	 * @returns true if the file exists, else false
 	 */
 	async fileExists(filePath: string): Promise<boolean> {
-		// TODO remove the basePath checks. Either absolute or relative to this.cwd
-		logger.debug(`fileExists: ${filePath}`);
-		// Check if we've been given an absolute path
-		if (filePath.startsWith(this.basePath)) {
-			try {
-				logger.debug(`fileExists check on: ${filePath}`);
-				await fs.access(filePath);
-				return true;
-			} catch {}
+		this.log.debug({ func: 'fileExists', filePath, cwd: this.getWorkingDirectory(), basePath: this.basePath }, 'Checking file existence');
+		let absolutePathToCheck: string;
+
+		if (path.isAbsolute(filePath)) {
+			absolutePathToCheck = path.normalize(filePath);
+		} else {
+			absolutePathToCheck = path.resolve(this.getWorkingDirectory(), filePath);
 		}
-		// logger.info(`basePath ${this.basePath}`);
-		// logger.info(`this.workingDirectory ${this.workingDirectory}`);
-		// logger.info(`getWorkingDirectory() ${this.getWorkingDirectory()}`);
-		const path = filePath.startsWith('/') ? resolve(this.basePath, filePath.slice(1)) : resolve(this.workingDirectory, filePath);
+
+		// Security check:
+		if (!absolutePathToCheck.startsWith(this.basePath)) {
+			const vcsRoot = this.getVcsRoot();
+			if (!vcsRoot || !absolutePathToCheck.startsWith(vcsRoot)) {
+				this.log.warn(
+					{ absolutePathToCheck, basePath: this.basePath, vcsRoot, requestedPath: filePath },
+					'fileExists check for path is outside basePath and VCS root (or VCS root is null). Denying access.',
+				);
+				return false;
+			}
+			this.log.debug(
+				{ absolutePathToCheck, basePath: this.basePath, vcsRoot, requestedPath: filePath },
+				'fileExists check for path is outside basePath but within VCS root. Allowing access for check.',
+			);
+		}
+
 		try {
-			logger.debug(`fileExists check on: ${path}`);
-			await fs.access(path);
+			// Use the local fs object which is promisified and should be mocked in tests
+			await fs.access(absolutePathToCheck);
+			this.log.debug({ absolutePathToCheck }, 'fileExists check successful');
 			return true;
-		} catch {
+		} catch (error) {
+			// Log the error message for more context, but still return false
+			this.log.debug({ absolutePathToCheck, error: error.message }, 'fileExists check failed (fs.access error or file not found)');
 			return false;
 		}
 	}
 
 	async directoryExists(dirPath: string): Promise<boolean> {
-		logger.debug(`directoryExists: ${dirPath}`);
-		let pathToStat: string;
+		this.log.debug({ func: 'directoryExists', dirPath, cwd: this.getWorkingDirectory(), basePath: this.basePath }, 'Checking directory existence');
+		let absolutePathToCheck: string;
 
-		// Check if we've been given an absolute path that starts with basePath
-		if (dirPath.startsWith(this.basePath)) {
-			pathToStat = dirPath;
-		}
-		// Check if path starts with '/' (relative to basePath) or is relative to workingDirectory
-		else if (dirPath.startsWith('/')) {
-			pathToStat = resolve(this.basePath, dirPath.slice(1));
+		if (path.isAbsolute(dirPath)) {
+			absolutePathToCheck = path.normalize(dirPath);
 		} else {
-			pathToStat = resolve(this.workingDirectory, dirPath);
+			absolutePathToCheck = path.resolve(this.getWorkingDirectory(), dirPath);
+		}
+
+		// Security check:
+		if (!absolutePathToCheck.startsWith(this.basePath)) {
+			const vcsRoot = this.getVcsRoot();
+			if (!vcsRoot || !absolutePathToCheck.startsWith(vcsRoot)) {
+				this.log.warn(
+					{ absolutePathToCheck, basePath: this.basePath, vcsRoot, requestedPath: dirPath },
+					'directoryExists check for path is outside basePath and VCS root (or VCS root is null). Denying access.',
+				);
+				return false;
+			}
+			this.log.debug(
+				{ absolutePathToCheck, basePath: this.basePath, vcsRoot, requestedPath: dirPath },
+				'directoryExists check for path is outside basePath but within VCS root. Allowing access for check.',
+			);
 		}
 
 		try {
-			logger.debug(`directoryExists stat on: ${pathToStat}`);
-			const stats = await fs.stat(pathToStat);
-			return stats.isDirectory();
+			// Use the local fs object which is promisified
+			const stats = await fs.stat(absolutePathToCheck);
+			const isDirectory = stats.isDirectory();
+			this.log.debug({ absolutePathToCheck, isDirectory }, 'directoryExists stat successful');
+			return isDirectory;
 		} catch (error) {
-			// ENOENT (No such file or directory) or other errors mean it doesn't exist or isn't accessible
-			if (error.code === 'ENOENT') {
-				logger.debug(`Directory not found: ${pathToStat}`);
-			} else {
-				logger.warn(`Error stating path ${pathToStat}: ${error.message}`);
-			}
+			this.log.debug({ absolutePathToCheck, error: error.message }, 'directoryExists stat failed (error or path not found/not a directory)');
 			return false;
 		}
 	}
