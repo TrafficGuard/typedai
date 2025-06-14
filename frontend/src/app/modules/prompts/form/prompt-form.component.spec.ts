@@ -57,9 +57,13 @@ const mockPromptSchema = mockPrompt as PromptSchemaModel; // This cast might nee
 
 describe('PromptFormComponent', () => {
 	let component: PromptFormComponent;
-	let fixture: ComponentFixture<PromptFormComponent>;
+	let fixture: ComponentFixture<ComponentFixture<PromptFormComponent>>;
 	let mockPromptsService: jasmine.SpyObj<PromptsService>;
-	let mockLlmService: jasmine.SpyObj<LlmService>;
+	// Change mockLlmService declaration type to include the methods and properties we'll mock
+	let mockLlmService: jasmine.SpyObj<Pick<LlmService, 'refreshLlms' | 'clearCache'>> & {
+		loadLlms: jasmine.Spy;
+		llmsState: ReturnType<typeof signal<any>['asReadonly']>;
+	};
 	let mockRouter: jasmine.SpyObj<Router>;
 	let mockLocation: jasmine.SpyObj<Location>;
 	let mockActivatedRoute: any;
@@ -68,8 +72,24 @@ describe('PromptFormComponent', () => {
 	beforeEach(async () => {
 		mockPromptsService = jasmine.createSpyObj('PromptsService', ['createPrompt', 'updatePrompt', 'getPromptById', 'clearSelectedPrompt']);
 
-		mockLlmService = jasmine.createSpyObj('LlmService', ['getLlms', 'clearCache']);
-		mockLlmService.loadLlms.and.returnValue(of(mockLlms));
+		// Refined LlmService mock
+		const initialLlmState = { status: 'initial' as const, data: [] as AppLLM[], error: null, code: null };
+		const llmsStateSignal = signal(initialLlmState);
+
+		// Create a spy object for methods that are simple spies
+		const spiedMethods = jasmine.createSpyObj<Pick<LlmService, 'refreshLlms' | 'clearCache'>>('LlmService', ['refreshLlms', 'clearCache']);
+
+		mockLlmService = {
+			...spiedMethods,
+			llmsState: llmsStateSignal.asReadonly(),
+			loadLlms: jasmine.createSpy('loadLlms').and.callFake(() => {
+				llmsStateSignal.set({ status: 'loading', data: [], error: null, code: null });
+				// Simulate async loading and state update, similar to how the actual service would work with an HTTP call
+				Promise.resolve().then(() => { // Using Promise.resolve().then() ensures this runs in a microtask
+					llmsStateSignal.set({ status: 'success', data: mockLlms, error: null, code: null });
+				});
+			}),
+		};
 
 		mockRouter = jasmine.createSpyObj('Router', ['navigate']);
 		mockLocation = jasmine.createSpyObj('Location', ['back']);
@@ -98,8 +118,10 @@ describe('PromptFormComponent', () => {
 				MatSelectModule,
 				MatTooltipModule,
 				MatToolbarModule,
-				MatSelectModule,
+				// MatSelectModule is already listed above
 				MatSliderModule,
+				// Add MatExpansionModule if not already present and if expansion panels are involved in visibility
+				MatExpansionModule,
 			],
 			providers: [
 				FormBuilder,
@@ -109,9 +131,8 @@ describe('PromptFormComponent', () => {
 				{ provide: Location, useValue: mockLocation },
 				{ provide: ActivatedRoute, useValue: mockActivatedRoute },
 				{ provide: MatSnackBar, useValue: jasmine.createSpyObj('MatSnackBar', ['open']) },
-				// NO_ERRORS_SCHEMA should be in the 'schemas' array, not providers
 			],
-			schemas: [NO_ERRORS_SCHEMA], // Ensure this line is present and correct
+			schemas: [NO_ERRORS_SCHEMA],
 		}).compileComponents();
 
 		fixture = TestBed.createComponent(PromptFormComponent);
