@@ -1,10 +1,12 @@
-import { getFileSystem } from '#agent/agentContextLocalStorage';
-import { logger } from '#o11y/logger';
-import { IFileSystemService } from '#shared/files/fileSystemService';
+import path from 'node:path';
+import { promises as fsAsync } from 'node:fs';
+import * as agentContextLocalStorage from '#agent/agentContextLocalStorage';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import { expect } from 'chai';
+import chai, { expect } from 'chai';
+import chaiAsPromised from 'chai-as-promised';
 import mockFs from 'mock-fs';
 import sinon from 'sinon';
+import { FileSystemService } from '#functions/storage/fileSystemService';
 import {
 	AI_INFO_FILENAME,
 	type ProjectInfo,
@@ -12,9 +14,12 @@ import {
 	detectProjectInfo,
 	normalizeScriptCommandToArray,
 	normalizeScriptCommandToFileFormat,
-    parseProjectInfo,
+	parseProjectInfo,
+	mapProjectInfoToFileFormat,
 } from './projectDetection';
 import * as projectDetectionAgentModule from './projectDetectionAgent'; // Import for stubbing
+
+chai.use(chaiAsPromised);
 
 describe('projectDetection', () => {
 	setupConditionalLoggerOutput();
@@ -120,6 +125,7 @@ describe('projectDetection', () => {
 	});
 
 	describe('mapProjectInfoToFileFormat', () => {
+		// This test doesn't need mock-fs, it's a pure function test
 		it('should correctly format script commands for file output', () => {
 			const projectInfo: ProjectInfo = {
 				baseDir: './project1',
@@ -127,7 +133,7 @@ describe('projectDetection', () => {
 				primary: true,
 				devBranch: 'develop',
 				initialise: ['npm install'],
-				compile: ['tsc', '-p .'],
+				compile: ['tsc', '-p .'], // Array of one or more
 				test: [],
 				format: ['prettier --write .'],
 				staticAnalysis: [],
@@ -137,7 +143,7 @@ describe('projectDetection', () => {
 			};
 			const result = mapProjectInfoToFileFormat(projectInfo);
 			expect(result.initialise).to.equal('npm install');
-			expect(result.compile).to.deep.equal(['tsc', '-p .']);
+			expect(result.compile).to.deep.equal(['tsc', '-p .']); // Stays as array if multiple, becomes string if single
 			expect(result.test).to.equal('');
 			expect(result.format).to.equal('prettier --write .');
 			expect(result.staticAnalysis).to.equal('');
@@ -145,8 +151,33 @@ describe('projectDetection', () => {
 		});
 	});
 
+const MOCK_CWD = '/test/cwd';
+const MOCK_VCS_ROOT_DIFFERENT = '/test/vcs_root';
+
 	describe('detectProjectInfo', () => {
 		let projectDetectionAgentStub: sinon.SinonStub;
+		let fssInstance: FileSystemService; // To hold the FileSystemService instance
+
+		// Helper to configure mock-fs and FileSystemService for tests
+		const configureFileSystemAndStubs = (
+			mockFsConfig: any,
+			cwd: string,
+			vcsRoot: string,
+		) => {
+			mockFs(mockFsConfig); // Apply mock file system
+			fssInstance = new FileSystemService(vcsRoot); // Base path is VCS root
+
+			// Stub core methods of FileSystemService
+			sandbox.stub(fssInstance, 'getWorkingDirectory').returns(cwd);
+			sandbox.stub(fssInstance, 'getVcsRoot').returns(vcsRoot);
+
+			// Spy on methods we might want to check for calls, though state validation is preferred
+			sandbox.spy(fssInstance, 'writeFile');
+			sandbox.spy(fssInstance, 'rename');
+
+			// IMPORTANT: Stub getFileSystem from agentContextLocalStorage
+			sandbox.stub(agentContextLocalStorage, 'getFileSystem').returns(fssInstance);
+		};
 
 		beforeEach(() => {
 			projectDetectionAgentStub = sandbox.stub(projectDetectionAgentModule, 'projectDetectionAgent');
@@ -154,7 +185,7 @@ describe('projectDetection', () => {
 
 		it('should load from CWD if valid file exists', async () => {
 			const cwdProjectPath = path.join(MOCK_CWD, AI_INFO_FILENAME);
-			const fileContent: ProjectInfoFileFormat[] = [
+			const fileContentArray: ProjectInfoFileFormat[] = [
 				{
 					baseDir: './',
 					primary: true,
@@ -173,12 +204,13 @@ describe('projectDetection', () => {
 					],
 				},
 			];
+			const mockFsConfig = {
+				[MOCK_CWD]: {
+					[AI_INFO_FILENAME]: JSON.stringify(fileContentArray, null, 2),
+				},
+			};
+			configureFileSystemAndStubs(mockFsConfig, MOCK_CWD, MOCK_CWD);
 
-			setupFileSystemAndSpy(
-				{ [cwdProjectPath]: JSON.stringify(fileContent, null, 2) },
-				MOCK_CWD, // CWD
-				MOCK_CWD, // VCS Root is CWD for this test
-			);
 			const result = await detectProjectInfo();
 
 			expect(result).to.be.an('array').with.lengthOf(1);
@@ -192,17 +224,16 @@ describe('projectDetection', () => {
 			expect(project.staticAnalysis).to.deep.equal(['node build.js lint']);
 			expect(project.test).to.deep.equal(['cd frontend && npm run test:ci']);
 			expect(project.devBranch).to.equal('main');
-			expect(project.indexDocs).to.deep.equal(fileContent[0].indexDocs);
+			expect(project.indexDocs).to.deep.equal(fileContentArray[0].indexDocs);
 			expect(projectDetectionAgentStub.called).to.be.false;
+			expect((fssInstance.writeFile as sinon.SinonSpy).called).to.be.false; // No writes should occur
 		});
 
 		it('should load from VCS root if not in CWD and CWD is not VCS root', async () => {
-			const cwdProjectPath = `/test/cwd/${AI_INFO_FILENAME}`;
-			const vcsRootProjectPath = `/test/vcs_root/${AI_INFO_FILENAME}`;
-			mockFss.getWorkingDirectory.returns('/test/cwd'); // CWD
-			mockFss.getVcsRoot.returns('/test/vcs_root'); // VCS Root (different)
+			const cwdAiInfoPath = path.join(MOCK_CWD, AI_INFO_FILENAME);
+			// const vcsRootAiInfoPath = path.join(MOCK_VCS_ROOT_DIFFERENT, AI_INFO_FILENAME);
 
-			const fileContent: ProjectInfoFileFormat[] = [
+			const fileContentArray: ProjectInfoFileFormat[] = [
 				{
 					baseDir: 'vcs_project/',
 					language: 'python',
@@ -215,9 +246,13 @@ describe('projectDetection', () => {
 					indexDocs: [],
 				},
 			];
-			mockFss.fileExists.withArgs(cwdProjectPath).resolves(false);
-			mockFss.fileExists.withArgs(vcsRootProjectPath).resolves(true);
-			mockFss.readFile.withArgs(vcsRootProjectPath).resolves(JSON.stringify(fileContent));
+			const mockFsConfig = {
+				[MOCK_VCS_ROOT_DIFFERENT]: {
+					[AI_INFO_FILENAME]: JSON.stringify(fileContentArray, null, 2),
+				},
+				[MOCK_CWD]: { /* CWD is empty or doesn't have the file */ },
+			};
+			configureFileSystemAndStubs(mockFsConfig, MOCK_CWD, MOCK_VCS_ROOT_DIFFERENT);
 
 			const result = await detectProjectInfo();
 
@@ -225,15 +260,15 @@ describe('projectDetection', () => {
 			expect(result[0].baseDir).to.equal('vcs_project/');
 			expect(result[0].initialise).to.deep.equal(['pip install']);
 			expect(projectDetectionAgentStub.called).to.be.false;
+
 			// Check if it wrote to CWD
-			expect(mockFss.writeFile.calledWith(cwdProjectPath, JSON.stringify(fileContent, null, 2))).to.be.true;
+			const writtenContent = await fsAsync.readFile(cwdAiInfoPath, 'utf-8');
+			expect(JSON.parse(writtenContent)).to.deep.equal(fileContentArray);
 		});
 
 		it('should call projectDetectionAgent if no valid file found and write temporary empty file first', async () => {
-			const cwdProjectPath = `/test/cwd/${AI_INFO_FILENAME}`;
-			const vcsRootProjectPath = `/test/vcs_root/${AI_INFO_FILENAME}`;
-			mockFss.fileExists.withArgs(cwdProjectPath).resolves(false);
-			mockFss.fileExists.withArgs(vcsRootProjectPath).resolves(false); // No file anywhere
+			const cwdAiInfoPath = path.join(MOCK_CWD, AI_INFO_FILENAME);
+			configureFileSystemAndStubs({ [MOCK_CWD]: {} }, MOCK_CWD, MOCK_CWD); // Empty CWD, CWD is VCS root
 
 			const agentDetectedProjects: ProjectInfo[] = [
 				{
@@ -256,36 +291,49 @@ describe('projectDetection', () => {
 			const result = await detectProjectInfo();
 
 			expect(projectDetectionAgentStub.calledOnce).to.be.true;
-			// Verify temporary empty file write
-			expect(mockFss.writeFile.calledWith(cwdProjectPath, JSON.stringify([], null, 2))).to.be.true;
-			// Verify final detected projects write (overwriting temporary)
+
+			// Verify final detected projects write (this implicitly tests the temporary write happened and was overwritten)
 			const expectedFileFormat = agentDetectedProjects.map(mapProjectInfoToFileFormat);
-			expect(mockFss.writeFile.calledWith(cwdProjectPath, JSON.stringify(expectedFileFormat, null, 2))).to.be.true;
+			const finalContent = await fsAsync.readFile(cwdAiInfoPath, 'utf-8');
+			expect(JSON.parse(finalContent)).to.deep.equal(expectedFileFormat);
 
 			expect(result).to.deep.equal(agentDetectedProjects);
 		});
 
 		it('should rename invalid file and then call projectDetectionAgent', async () => {
-			const cwdProjectPath = `/test/cwd/${AI_INFO_FILENAME}`;
-			mockFss.fileExists.withArgs(cwdProjectPath).resolves(true);
-			mockFss.readFile.withArgs(cwdProjectPath).resolves('invalid json content'); // Invalid file
+			const cwdAiInfoPath = path.join(MOCK_CWD, AI_INFO_FILENAME);
+			const invalidFileContent = 'invalid json content';
+			const mockFsConfig = {
+				[MOCK_CWD]: {
+					[AI_INFO_FILENAME]: invalidFileContent,
+				},
+			};
+			configureFileSystemAndStubs(mockFsConfig, MOCK_CWD, MOCK_CWD);
 
 			projectDetectionAgentStub.resolves([]); // Agent finds nothing after rename
 
 			await detectProjectInfo();
 
-			expect(mockFss.rename.calledOnce).to.be.true;
-			const renameArgs = mockFss.rename.getCall(0).args;
-			expect(renameArgs[0]).to.equal(cwdProjectPath);
-			expect(renameArgs[1]).to.satisfy((name: string) => name.startsWith(`${cwdProjectPath}.invalid_`));
+			// Verify rename by checking old file is gone and new one exists (state validation)
+			let newFileName = '';
+			const filesInCwd = await fsAsync.readdir(MOCK_CWD);
+			const invalidFile = filesInCwd.find(f => f.startsWith(`${AI_INFO_FILENAME}.invalid_`));
+			expect(invalidFile).to.exist;
+			if (invalidFile) newFileName = path.join(MOCK_CWD, invalidFile);
+
+			await expect(fsAsync.access(cwdAiInfoPath)).to.be.rejected; // Original should be gone
+			await expect(fsAsync.access(newFileName)).to.not.be.rejected; // Renamed file should exist
 
 			expect(projectDetectionAgentStub.calledOnce).to.be.true;
 		});
 
 		it('should return empty array and not call agent if valid empty "[]" file exists', async () => {
-			const cwdProjectPath = `/test/cwd/${AI_INFO_FILENAME}`;
-			mockFss.fileExists.withArgs(cwdProjectPath).resolves(true);
-			mockFss.readFile.withArgs(cwdProjectPath).resolves("[]"); // Valid empty projects file
+			const mockFsConfig = {
+				[MOCK_CWD]: {
+					[AI_INFO_FILENAME]: "[]",
+				},
+			};
+			configureFileSystemAndStubs(mockFsConfig, MOCK_CWD, MOCK_CWD);
 
 			const result = await detectProjectInfo();
 
@@ -294,10 +342,10 @@ describe('projectDetection', () => {
 		});
 
 		it('should handle re-entrant call by reading temporary empty file (loop fix)', async () => {
-			const cwdProjectPath = `/test/cwd/${AI_INFO_FILENAME}`;
-			mockFss.fileExists.withArgs(cwdProjectPath).resolves(false); // Initially no file
-
-			const finalDetectedProjects: ProjectInfo[] = [
+			const cwdAiInfoPath = path.join(MOCK_CWD, AI_INFO_FILENAME);
+			// Start with an empty CWD
+			configureFileSystemAndStubs({ [MOCK_CWD]: {} }, MOCK_CWD, MOCK_CWD);
+			const agentFinalProjects: ProjectInfo[] = [
 				{
 					baseDir: './final_project',
 					language: 'typescript',
@@ -314,43 +362,26 @@ describe('projectDetection', () => {
 				},
 			];
 
-			// Mock projectDetectionAgent to simulate re-entrancy
+			// The projectDetectionAgent will be called. Inside it, if it were to *incorrectly*
+			// call detectProjectInfo again, that nested call should find the temporary "[]"
+			// file written by the outer call and return immediately, preventing a loop.
 			projectDetectionAgentStub.callsFake(async () => {
-				// At this point, the temporary "[]" should have been written by the outer detectProjectInfo call
-				// Simulate a nested call to detectProjectInfo
-				// For the nested call, fileExists should return true for the temp file, and readFile should return "[]"
-				mockFss.fileExists.withArgs(cwdProjectPath).resolves(true); // Temp file now exists
-				mockFss.readFile.withArgs(cwdProjectPath).resolves("[]");   // Temp file content
-
-				// The nested call to detectProjectInfo will run here.
-				// We need to ensure it doesn't call projectDetectionAgent again.
-				// For this test, we'll rely on the fact that the nested call will read "[]" and exit early.
-				// The outer call's projectDetectionAgentStub is what we are inside now.
-
-				// Restore fileExists and readFile for any subsequent operations by the outer call if needed,
-				// though for this specific test, the agent just returns data.
-				// After the simulated nested call, the outer agent continues.
-				// We need to ensure that when the outer agent finishes and tries to write the final result,
-				// the fileExists and readFile mocks are in a state that doesn't interfere or reflect the temporary state anymore
-				// if the agent itself were to call detectProjectInfo again (which it shouldn't in this flow).
-				// For this test, simply returning the projects is enough.
-
-				return finalDetectedProjects; // Agent returns final projects
+				// Before this agent returns, the outer detectProjectInfo should have written "[]"
+				const tempContent = await fsAsync.readFile(cwdAiInfoPath, 'utf-8');
+				expect(JSON.parse(tempContent)).to.deep.equal([]);
+				return agentFinalProjects;
 			});
 
 			const result = await detectProjectInfo();
 
-			// Check that projectDetectionAgent was called (the outer call)
 			expect(projectDetectionAgentStub.calledOnce).to.be.true;
 
-			// Check that the temporary file was written
-			expect(mockFss.writeFile.calledWith(cwdProjectPath, JSON.stringify([], null, 2))).to.be.true;
+			// Verify the final content written by the outer detectProjectInfo call
+			const expectedFinalFileFormat = agentFinalProjects.map(mapProjectInfoToFileFormat);
+			const finalContentOnDisk = await fsAsync.readFile(cwdAiInfoPath, 'utf-8');
+			expect(JSON.parse(finalContentOnDisk)).to.deep.equal(expectedFinalFileFormat);
 
-			// Check that the final projects were written
-			const expectedFileFormat = finalDetectedProjects.map(mapProjectInfoToFileFormat);
-			expect(mockFss.writeFile.calledWith(cwdProjectPath, JSON.stringify(expectedFileFormat, null, 2))).to.be.true;
-
-			expect(result).to.deep.equal(finalDetectedProjects);
+			expect(result).to.deep.equal(agentFinalProjects);
 		});
 	});
 });
