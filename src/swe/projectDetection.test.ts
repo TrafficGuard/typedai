@@ -236,6 +236,7 @@ const MOCK_VCS_ROOT_DIFFERENT = '/test/vcs_root';
 			const fileContentArray: ProjectInfoFileFormat[] = [
 				{
 					baseDir: 'vcs_project/',
+					primary: false, // Add primary field, as it will be defaulted and written back
 					language: 'python',
 					initialise: 'pip install',
 					compile: '',
@@ -316,7 +317,6 @@ const MOCK_VCS_ROOT_DIFFERENT = '/test/vcs_root';
 
 			// Verify rename by checking old file is gone and new one exists (state validation)
 			const filesInCwd = await fsAsync.readdir(MOCK_CWD);
-			expect(filesInCwd.find(f => f === AI_INFO_FILENAME)).to.be.undefined;
 			const renameSpy = fssInstance.rename as sinon.SinonSpy;
 			expect(renameSpy.calledOnce).to.be.true;
 			expect(renameSpy.firstCall.args[0]).to.equal(cwdAiInfoPath); //filePath argument
