@@ -106,9 +106,18 @@ export class CodeEditingAgent {
 		// NODE_ENV=development is needed to install devDependencies for Node.js projects.
 		// Set this in case the current process has NODE_ENV set to 'production'
 		let installPromise: Promise<any>;
-		if (projectInfo.initialise) {
-			logger.info(`Executing project initialise script "${projectInfo.initialise}"`);
-			installPromise = execCommand(projectInfo.initialise, { envVars: { NODE_ENV: 'development' } });
+		if (projectInfo.initialise && projectInfo.initialise.length > 0) {
+			logger.info(`Executing project initialise scripts: "${projectInfo.initialise.join('; ')}"`);
+			installPromise = (async () => {
+				for (const cmd of projectInfo.initialise) {
+					const result = await execCommand(cmd, { envVars: { NODE_ENV: 'development' } });
+					if (result.exitCode !== 0) {
+						throw new Error(
+							`Initialise command "${cmd}" failed with exit code ${result.exitCode}. Stdout: ${result.stdout}\nStderr: ${result.stderr}`,
+						);
+					}
+				}
+			})();
 		} else {
 			logger.info('No project initialise script. Skipping.');
 			installPromise = Promise.resolve();
@@ -128,15 +137,13 @@ export class CodeEditingAgent {
 		const onlineResearch = await this.onlineResearch(repositoryOverview, installedPackages, implementationPlan);
 		if (onlineResearch) implementationPlan += onlineResearch;
 
-		implementationPlan +=
-			'\n\nOnly make changes directly related to these requirements. Any other changes will be deleted.\n' +
-			'Do not add spurious comments like "// Adding here". Only add high level comments when there is significant complexity\n' +
-			'Follow existing code styles.';
+		// implementationPlan +=
+		// 	'\n\nOnly make changes directly related to these requirements. Any other changes will be deleted.\n' +
+		// 	'Do not add spurious comments like "// Adding here". Only add high level comments when there is significant complexity\n' +
+		// 	'Follow existing code styles.';
 		console.log(`Implementation Plan:\n${implementationPlan}`);
 
 		await installPromise; // Complete parallel project setup
-
-		console.log(implementationPlan);
 
 		// Edit/compile loop ----------------------------------------
 		const compileErrorAnalysis: CompileErrorAnalysis | null = await this.editCompileLoop(projectInfo, fileSelection, implementationPlan);
@@ -265,7 +272,8 @@ export class CodeEditingAgent {
 
 				const ruleFiles = await includeAlternativeAiToolFiles(codeEditorFiles);
 
-				const coder = new SearchReplaceCoder(getFileSystem(), llms().hard, undefined, [new CompileHook(projectInfo.compile, getFileSystem())]);
+				const compileHooks = projectInfo.compile.map((compileCommand) => new CompileHook(compileCommand, getFileSystem()));
+				const coder = new SearchReplaceCoder(getFileSystem(), llms().hard, undefined, compileHooks);
 				await coder.editFilesToMeetRequirements(codeEditorRequirements, codeEditorFiles, Array.from(ruleFiles), true, true);
 
 				// The code editor may add new files, so we want to add them to the initial file set
@@ -343,10 +351,14 @@ export class CodeEditingAgent {
 	}
 
 	async compile(projectInfo: ProjectInfo): Promise<void> {
-		const { exitCode, stdout, stderr } = await execCommand(projectInfo.compile);
-
-		const result = `<compile_output>
-	<command>${projectInfo.compile}</command>
+		if (!projectInfo.compile || projectInfo.compile.length === 0) {
+			logger.info('No compile commands defined.');
+			return;
+		}
+		for (const cmd of projectInfo.compile) {
+			const { exitCode, stdout, stderr } = await execCommand(cmd);
+			const result = `<compile_output>
+	<command>${cmd}</command>
 	<exit-code>${exitCode}</exit-code>
 	<stdout>
 	${stdout}
@@ -355,10 +367,11 @@ export class CodeEditingAgent {
 	${stderr}
 	</stderr>
 </compile_output>`;
-		if (exitCode > 0) {
-			logger.info(stdout);
-			logger.error(stderr);
-			throw new CompilationError(result, projectInfo.compile, stdout, stderr, exitCode);
+			if (exitCode > 0) {
+				logger.info(stdout);
+				logger.error(stderr);
+				throw new CompilationError(result, cmd, stdout, stderr, exitCode);
+			}
 		}
 	}
 
@@ -373,26 +386,37 @@ export class CodeEditingAgent {
 	}
 
 	async runStaticAnalysis(projectInfo: ProjectInfo): Promise<void> {
-		if (!projectInfo.staticAnalysis) return;
-		const { exitCode, stdout, stderr } = await execCommand(projectInfo.staticAnalysis);
-		const result = `<static_analysis_output><command>${projectInfo.compile}</command><stdout>${stdout}</stdout><stderr>${stderr}</stderr></static_analysis_output>`;
-		if (exitCode > 0) {
-			throw new Error(result);
+		if (!projectInfo.staticAnalysis || projectInfo.staticAnalysis.length === 0) {
+			logger.info('No static analysis commands defined.');
+			return;
+		}
+		for (const cmd of projectInfo.staticAnalysis) {
+			const { exitCode, stdout, stderr } = await execCommand(cmd);
+			// Note: original code used projectInfo.compile in the result string, changed to cmd
+			const result = `<static_analysis_output><command>${cmd}</command><stdout>${stdout}</stdout><stderr>${stderr}</stderr></static_analysis_output>`;
+			if (exitCode > 0) {
+				throw new Error(result);
+			}
 		}
 	}
 
 	async runTests(projectInfo: ProjectInfo): Promise<void> {
-		if (!projectInfo.test) return;
-		const { exitCode, stdout, stderr } = await execCommand(projectInfo.test);
-		const result = `<test_output><command>${projectInfo.test}</command><stdout>${stdout}</stdout><stderr>${stderr}</stderr></test_output>`;
-		if (exitCode > 0) {
-			throw new Error(result);
+		if (!projectInfo.test || projectInfo.test.length === 0) {
+			logger.info('No test commands defined.');
+			return;
+		}
+		for (const cmd of projectInfo.test) {
+			const { exitCode, stdout, stderr } = await execCommand(cmd);
+			const result = `<test_output><command>${cmd}</command><stdout>${stdout}</stdout><stderr>${stderr}</stderr></test_output>`;
+			if (exitCode > 0) {
+				throw new Error(result);
+			}
 		}
 	}
 
 	//
 	async testLoop(requirements: string, projectInfo: ProjectInfo, initialSelectedFiles: string[]): Promise<CompileErrorAnalysis | null> {
-		if (!projectInfo.test) return null;
+		if (!projectInfo.test || projectInfo.test.length === 0) return null;
 		let testErrorOutput = null;
 		let errorAnalysis: CompileErrorAnalysis = null;
 		const compileErrorHistory = [];
