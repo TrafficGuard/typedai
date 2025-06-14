@@ -2,7 +2,6 @@ import { platform } from 'node:os';
 import * as path from 'node:path';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { buildFileSystemTreePrompt } from '#agent/agentPromptUtils';
-import { FileSystemTree } from '#agent/autonomous/functions/fileSystemTree';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
@@ -130,9 +129,7 @@ export class SearchReplaceCoder {
 
 		const finalRemindersText = ''; // Add useLazyPrompt/useOvereagerPrompt logic if needed
 
-		const mainSystemContent = EDIT_BLOCK_PROMPTS.main_system
-			.replace('{language}', language)
-			.replace('{final_reminders}', finalRemindersText.trim());
+		const mainSystemContent = EDIT_BLOCK_PROMPTS.main_system.replace('{language}', language).replace('{final_reminders}', finalRemindersText.trim());
 
 		const systemReminderContent = EDIT_BLOCK_PROMPTS.system_reminder
 			.replace(/{fence_0}/g, fence[0])
@@ -284,7 +281,10 @@ export class SearchReplaceCoder {
 		messages.push({ role: 'system', content: this.precomputedSystemMessage });
 		messages.push(...this.precomputedExampleMessages);
 
-		messages.push({ role: 'user', content: `Here's all the files in the repository:\n${await buildFileSystemTreePrompt()}` });
+		let fileSystemTree = await buildFileSystemTreePrompt();
+		if(!fileSystemTree) fileSystemTree = await getFileSystem().getFileSystemTree();
+
+		messages.push({ role: 'user', content: `Here's all the files in the repository:\n${fileSystemTree}` });
 		messages.push({ role: 'assistant', content: 'Ok, thanks.' });
 
 		// File Context
