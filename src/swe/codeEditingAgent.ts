@@ -272,8 +272,7 @@ export class CodeEditingAgent {
 
 				const ruleFiles = await includeAlternativeAiToolFiles(codeEditorFiles);
 
-				const compileHooks = projectInfo.compile.map((compileCommand) => new CompileHook(compileCommand, getFileSystem()));
-				const coder = new SearchReplaceCoder(getFileSystem(), llms().hard, undefined, compileHooks);
+				const coder = new SearchReplaceCoder(getFileSystem(), llms().hard, undefined, []);
 				await coder.editFilesToMeetRequirements(codeEditorRequirements, codeEditorFiles, Array.from(ruleFiles), true, true);
 
 				// The code editor may add new files, so we want to add them to the initial file set
