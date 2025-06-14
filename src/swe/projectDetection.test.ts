@@ -383,5 +383,77 @@ const MOCK_VCS_ROOT_DIFFERENT = '/test/vcs_root';
 
 			expect(result).to.deep.equal(agentFinalProjects);
 		});
+
+		it('should load from VCS root when CWD is a subdirectory and FileSystemService basePath is CWD', async () => {
+			const VSC_ROOT_PATH = '/test_project_root';
+			// CWD is a subdirectory of the VCS root
+			const CWD_SUBDIR_PATH = path.join(VSC_ROOT_PATH, 'frontend');
+			// Path to .typedai.json in the VCS root
+			const VSC_ROOT_AI_INFO_PATH = path.join(VSC_ROOT_PATH, AI_INFO_FILENAME);
+			// Path to .typedai.json in the CWD (where it will be written after loading from VCS root)
+			const CWD_AI_INFO_PATH = path.join(CWD_SUBDIR_PATH, AI_INFO_FILENAME);
+
+			const fileContentArray: ProjectInfoFileFormat[] = [
+				{
+					baseDir: './app', // This baseDir is relative to VSC_ROOT_PATH
+					primary: true,
+					language: 'typescript',
+					initialise: 'npm install',
+					compile: 'npm run build',
+					format: 'npm run format',
+					staticAnalysis: 'npm run lint',
+					test: 'npm test',
+					devBranch: 'develop',
+					indexDocs: ['src/**/*.ts', '../common/**/*.ts'],
+				},
+			];
+			const mockFsConfig = {
+				// .typedai.json exists only in the VCS root
+				[VSC_ROOT_PATH]: {
+					[AI_INFO_FILENAME]: JSON.stringify(fileContentArray, null, 2),
+					'.git': {}, // Mock .git directory for VCS root detection
+				},
+				// The CWD subdirectory is initially empty or does not contain .typedai.json
+				[CWD_SUBDIR_PATH]: {},
+			};
+			mockFs(mockFsConfig);
+
+			// Configure FileSystemService:
+			// Initialize with CWD_SUBDIR_PATH as its basePath, mimicking the reported scenario.
+			fssInstance = new FileSystemService(CWD_SUBDIR_PATH);
+
+			// Stub getVcsRoot() to ensure it correctly returns the VSC_ROOT_PATH.
+			// The real FileSystemService would search upwards from its basePath (CWD_SUBDIR_PATH)
+			// to find the .git directory in VSC_ROOT_PATH.
+			sandbox.stub(fssInstance, 'getVcsRoot').returns(VSC_ROOT_PATH);
+
+			// getWorkingDirectory() should naturally return CWD_SUBDIR_PATH as it's the basePath.
+			// No need to stub fssInstance.getWorkingDirectory() for this specific test.
+
+			sandbox.stub(agentContextLocalStorage, 'getFileSystem').returns(fssInstance);
+			const writeFileSpy = sandbox.spy(fssInstance, 'writeFile'); // Spy on writeFile
+
+			const result = await detectProjectInfo();
+
+			// Assertions
+			expect(result).to.be.an('array').with.lengthOf(1);
+			const project = result[0];
+			expect(project.baseDir).to.equal('./app'); // As defined in the file content
+			expect(project.language).to.equal('typescript');
+			expect(project.devBranch).to.equal('develop');
+			expect(project.initialise).to.deep.equal(['npm install']);
+
+			// Ensure projectDetectionAgent was not called because the file was found
+			expect(projectDetectionAgentStub.called).to.be.false;
+
+			// Verify that the loaded configuration was written to the CWD
+			const writtenContentInCwd = await fsAsync.readFile(CWD_AI_INFO_PATH, 'utf-8');
+			expect(JSON.parse(writtenContentInCwd)).to.deep.equal(fileContentArray);
+
+			// Verify fssInstance.writeFile was called with the correct CWD path and content
+			expect(
+				writeFileSpy.calledWith(CWD_AI_INFO_PATH, JSON.stringify(fileContentArray, null, 2)),
+			).to.be.true;
+		});
 	});
 });
