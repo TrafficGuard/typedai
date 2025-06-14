@@ -63,7 +63,7 @@ describe.only('FileSystem', () => {
 		const fileSystem = new FileSystemService();
 		it('should return true if a file exists', async () => {
 			expect(await fileSystem.fileExists('package.json')).to.be.true;
-			expect(await fileSystem.fileExists('/package.json')).to.true;
+			expect(await fileSystem.fileExists('/package.json')).to.be.false; // Absolute path to FS root, should be outside basePath
 			expect(await fileSystem.fileExists('./package.json')).to.be.true;
 		});
 		it('should return false if a file doesnt exist', async () => {

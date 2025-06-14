@@ -365,32 +365,47 @@ export class FileSystemService implements IFileSystemService {
 	 * @returns the contents of the file
 	 */
 	async readFile(filePath: string): Promise<string> {
-		logger.debug(`readFile ${filePath}`);
-		let contents: string;
-		const relativeFullPath = path.join(this.getWorkingDirectory(), filePath);
+		this.log.debug({ func: 'readFile', filePath, cwd: this.getWorkingDirectory(), basePath: this.basePath }, 'Reading file');
+		let absolutePathToRead: string;
 
-		try {
-			// Check relative to current working directory first using async access
-			await fs.access(relativeFullPath);
-			getActiveSpan()?.setAttribute('resolvedPath', relativeFullPath);
-			contents = (await fs.readFile(relativeFullPath)).toString();
-		} catch (e: any) {
-			// If relative fails, check if it's an absolute path
-			if (filePath.startsWith('/')) {
-				try {
-					await fs.access(filePath);
-					getActiveSpan()?.setAttribute('resolvedPath', filePath);
-					contents = (await fs.readFile(filePath)).toString();
-				} catch (absError: any) {
-					throw new FileNotFound(`File ${filePath} does not exist (checked as absolute and relative to ${this.getWorkingDirectory()})`, absError.code);
-				}
-			} else {
-				throw new FileNotFound(`File ${filePath} does not exist (relative to ${this.getWorkingDirectory()})`, e.code);
-			}
+		if (path.isAbsolute(filePath)) {
+			absolutePathToRead = path.normalize(filePath);
+		} else {
+			absolutePathToRead = path.resolve(this.getWorkingDirectory(), filePath);
 		}
 
-		getActiveSpan()?.setAttribute('size', contents.length);
-		return contents;
+		// Security check:
+		if (!absolutePathToRead.startsWith(this.basePath)) {
+			const vcsRoot = this.getVcsRoot();
+			if (!vcsRoot || !absolutePathToRead.startsWith(vcsRoot)) {
+				this.log.warn(
+					{ absolutePathToRead, basePath: this.basePath, vcsRoot, requestedPath: filePath },
+					'readFile attempt for path is outside basePath and VCS root (or VCS root is null). Denying access.',
+				);
+				throw new FileNotFound(
+					`File ${filePath} (resolved to ${absolutePathToRead}) is outside allowed directories (basePath: ${this.basePath}, vcsRoot: ${vcsRoot || 'null'})`,
+				);
+			}
+			this.log.debug(
+				{ absolutePathToRead, basePath: this.basePath, vcsRoot, requestedPath: filePath },
+				'readFile attempt for path is outside basePath but within VCS root. Allowing access.',
+			);
+		}
+
+		try {
+			// Ensure file actually exists before reading, fs.readFile might not give a clear ENOENT
+			// await fs.access(absolutePathToRead); // fs.readFile will throw if it doesn't exist.
+			const contents = (await fs.readFile(absolutePathToRead)).toString();
+			getActiveSpan()?.setAttributes({ resolvedPath: absolutePathToRead, size: contents.length });
+			return contents;
+		} catch (e: any) {
+			// Log the error with more context
+			this.log.warn(
+				{ path: filePath, resolvedPath: absolutePathToRead, cwd: this.getWorkingDirectory(), error: e.message, code: e.code },
+				'Error during readFile',
+			);
+			throw new FileNotFound(`File ${filePath} (resolved to ${absolutePathToRead}) does not exist or cannot be read. CWD: ${this.getWorkingDirectory()}`, e.code);
+		}
 	}
 
 	/**

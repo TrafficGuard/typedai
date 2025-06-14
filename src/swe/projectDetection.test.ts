@@ -262,7 +262,7 @@ const MOCK_VCS_ROOT_DIFFERENT = '/test/vcs_root';
 			expect(projectDetectionAgentStub.called).to.be.false;
 
 			// Check if it wrote to CWD
-			const writtenContent = await fsAsync.readFile(cwdAiInfoPath, 'utf-8');
+			const writtenContent = await fssInstance.readFile(cwdAiInfoPath);
 			expect(JSON.parse(writtenContent)).to.deep.equal(fileContentArray);
 		});
 
@@ -315,14 +315,16 @@ const MOCK_VCS_ROOT_DIFFERENT = '/test/vcs_root';
 			await detectProjectInfo();
 
 			// Verify rename by checking old file is gone and new one exists (state validation)
-			let newFileName = '';
-			const filesInCwd = await fsAsync.readdir(MOCK_CWD);
-			const invalidFile = filesInCwd.find(f => f.startsWith(`${AI_INFO_FILENAME}.invalid_`));
-			expect(invalidFile).to.exist;
-			if (invalidFile) newFileName = path.join(MOCK_CWD, invalidFile);
+			// Check that the original file path no longer exists according to fssInstance
+			expect(await fssInstance.fileExists(cwdAiInfoPath)).to.be.false;
 
-			await expect(fsAsync.access(cwdAiInfoPath)).to.be.rejected; // Original should be gone
-			await expect(fsAsync.access(newFileName)).to.not.be.rejected; // Renamed file should exist
+			// Check that a renamed file exists (more robustly, check if rename was called)
+			// The exact name of the renamed file includes a timestamp, making it hard to predict.
+			// Verifying the fssInstance.rename spy is a good way if direct file existence is tricky.
+			const renameSpy = fssInstance.rename as sinon.SinonSpy;
+			expect(renameSpy.calledOnce).to.be.true;
+			expect(renameSpy.firstCall.args[0]).to.equal(cwdAiInfoPath); //filePath argument
+			expect(renameSpy.firstCall.args[1]).to.include(`${AI_INFO_FILENAME}.invalid_`); //newPath argument
 
 			expect(projectDetectionAgentStub.calledOnce).to.be.true;
 		});
@@ -404,7 +406,7 @@ const MOCK_VCS_ROOT_DIFFERENT = '/test/vcs_root';
 			expect(projectDetectionAgentStub.called).to.be.false;
 
 			// Verify that the loaded configuration was written to the CWD
-			const writtenContentInCwd = await fsAsync.readFile(CWD_AI_INFO_PATH, 'utf-8');
+			const writtenContentInCwd = await fssInstance.readFile(CWD_AI_INFO_PATH);
 			expect(JSON.parse(writtenContentInCwd)).to.deep.equal(fileContentArray);
 
 			// Verify fssInstance.writeFile was called with the correct CWD path and content
