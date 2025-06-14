@@ -317,14 +317,19 @@ const MOCK_VCS_ROOT_DIFFERENT = '/test/vcs_root';
 			// Verify rename by checking old file is gone and new one exists (state validation)
 			const filesInCwd = await fsAsync.readdir(MOCK_CWD);
 			expect(filesInCwd.find(f => f === AI_INFO_FILENAME)).to.be.undefined;
-			// The exact name of the renamed file includes a timestamp, making it hard to predict.
-			// Verifying the fssInstance.rename spy is a good way if direct file existence is tricky.
 			const renameSpy = fssInstance.rename as sinon.SinonSpy;
 			expect(renameSpy.calledOnce).to.be.true;
 			expect(renameSpy.firstCall.args[0]).to.equal(cwdAiInfoPath); //filePath argument
 			expect(renameSpy.firstCall.args[1]).to.include(`${AI_INFO_FILENAME}.invalid_`); //newPath argument
+			expect(filesInCwd.some(f => f.includes(`${AI_INFO_FILENAME}.invalid_`))).to.be.true;
 
 			expect(projectDetectionAgentStub.calledOnce).to.be.true;
+
+			// After agent runs (stubbed to return []), .typedai.json should be recreated with agent's output
+			const finalFilesInCwd = await fsAsync.readdir(MOCK_CWD);
+			expect(finalFilesInCwd.find(f => f === AI_INFO_FILENAME)).to.not.be.undefined;
+			const finalContent = await fsAsync.readFile(cwdAiInfoPath, 'utf-8');
+			expect(JSON.parse(finalContent)).to.deep.equal([]);
 		});
 
 		it('should return empty array and not call agent if valid empty "[]" file exists', async () => {
