@@ -165,7 +165,7 @@ const MOCK_VCS_ROOT_DIFFERENT = '/test/vcs_root';
 			vcsRoot: string,
 		) => {
 			mockFs(mockFsConfig); // Apply mock file system
-			fssInstance = new FileSystemService(vcsRoot); // Base path is VCS root
+			fssInstance = new FileSystemService(cwd); // Base path is CWD
 
 			// Stub core methods of FileSystemService
 			sandbox.stub(fssInstance, 'getWorkingDirectory').returns(cwd);
