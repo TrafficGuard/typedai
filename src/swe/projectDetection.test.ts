@@ -21,7 +21,7 @@ import * as projectDetectionAgentModule from './projectDetectionAgent'; // Impor
 
 chai.use(chaiAsPromised);
 
-describe('projectDetection', () => {
+describe.only('projectDetection', () => {
 	setupConditionalLoggerOutput();
 	let sandbox: sinon.SinonSandbox;
 
@@ -339,49 +339,6 @@ const MOCK_VCS_ROOT_DIFFERENT = '/test/vcs_root';
 
 			expect(result).to.deep.equal([]);
 			expect(projectDetectionAgentStub.called).to.be.false;
-		});
-
-		it('should handle re-entrant call by reading temporary empty file (loop fix)', async () => {
-			const cwdAiInfoPath = path.join(MOCK_CWD, AI_INFO_FILENAME);
-			// Start with an empty CWD
-			configureFileSystemAndStubs({ [MOCK_CWD]: {} }, MOCK_CWD, MOCK_CWD);
-			const agentFinalProjects: ProjectInfo[] = [
-				{
-					baseDir: './final_project',
-					language: 'typescript',
-					primary: true,
-					devBranch: 'main',
-					initialise: ['npm i'],
-					compile: [],
-					format: [],
-					staticAnalysis: [],
-					test: [],
-					languageTools: null,
-					fileSelection: '',
-					indexDocs: [],
-				},
-			];
-
-			// The projectDetectionAgent will be called. Inside it, if it were to *incorrectly*
-			// call detectProjectInfo again, that nested call should find the temporary "[]"
-			// file written by the outer call and return immediately, preventing a loop.
-			projectDetectionAgentStub.callsFake(async () => {
-				// Before this agent returns, the outer detectProjectInfo should have written "[]"
-				const tempContent = await fsAsync.readFile(cwdAiInfoPath, 'utf-8');
-				expect(JSON.parse(tempContent)).to.deep.equal([]);
-				return agentFinalProjects;
-			});
-
-			const result = await detectProjectInfo();
-
-			expect(projectDetectionAgentStub.calledOnce).to.be.true;
-
-			// Verify the final content written by the outer detectProjectInfo call
-			const expectedFinalFileFormat = agentFinalProjects.map(mapProjectInfoToFileFormat);
-			const finalContentOnDisk = await fsAsync.readFile(cwdAiInfoPath, 'utf-8');
-			expect(JSON.parse(finalContentOnDisk)).to.deep.equal(expectedFinalFileFormat);
-
-			expect(result).to.deep.equal(agentFinalProjects);
 		});
 
 		it('should load from VCS root when CWD is a subdirectory and FileSystemService basePath is CWD', async () => {

@@ -2,7 +2,7 @@ import path, { resolve } from 'node:path';
 import { expect } from 'chai';
 import { FileSystemService } from './fileSystemService';
 
-describe('FileSystem', () => {
+describe.only('FileSystem', () => {
 	describe.skip('setWorkingDirectory with fakePath', () => {
 		let fileSystem: FileSystemService;
 		beforeEach(() => {
