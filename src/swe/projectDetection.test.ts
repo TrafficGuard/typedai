@@ -17,7 +17,7 @@ import {
 	parseProjectInfo,
 	mapProjectInfoToFileFormat,
 } from './projectDetection';
-import * as projectDetectionAgentModule from './projectDetectionAgent'; // Import for stubbing
+import * as projectDetectionAgentModule from './projectDetectionAgent';
 
 chai.use(chaiAsPromised);
 
