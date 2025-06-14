@@ -1,4 +1,3 @@
-import { platform } from 'node:os';
 import * as path from 'node:path';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { buildFileSystemTreePrompt } from '#agent/agentPromptUtils';
@@ -9,20 +8,16 @@ import type { LLM, LlmMessage } from '#shared/llm/llm.model';
 import { user as createUserMessage, messageText } from '#shared/llm/llm.model';
 import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
 import type { EditBlock } from '#swe/coder/coderTypes';
-import { generateRepositoryMaps } from '#swe/index/repositoryMap';
-import { detectProjectInfo } from '#swe/projectDetection';
 import { CoderExhaustedAttemptsError } from '../sweErrors';
 import type { EditFormat } from './coderTypes';
 import { MODEL_EDIT_FORMATS } from './constants';
 import { EditApplier } from './editApplier';
 import { parseEditResponse } from './editBlockParser';
-import type { EditSession, RequestedFileEntry, RequestedPackageInstallEntry, RequestedQueryEntry } from './editSession'; // Import new types
+import type { EditSession, RequestedFileEntry, RequestedPackageInstallEntry, RequestedQueryEntry } from './editSession';
 import { newSession } from './editSession';
-import type { EditHook, HookResult } from './hooks/editHook';
-import { stripQuotedWrapping } from './patchUtils'; // Updated import
-import { buildFailedEditsReflection, buildHookFailureReflection, buildValidationIssuesReflection } from './reflectionUtils';
+import { stripQuotedWrapping } from './patchUtils';
+import { buildFailedEditsReflection, buildValidationIssuesReflection } from './reflectionUtils';
 import { EDIT_BLOCK_PROMPTS } from './searchReplacePrompts';
-import { sessionEvents } from './sessionEvents';
 import { validateBlocks } from './validators/compositeValidator';
 import { ModuleAliasRule } from './validators/moduleAliasRule';
 import { PathExistsRule } from './validators/pathExistsRule';
@@ -115,13 +110,12 @@ export class SearchReplaceCoder {
 	private vcs: VersionControlSystem | null;
 	private readonly precomputedSystemMessage: string;
 	private readonly precomputedExampleMessages: LlmMessage[];
-	private readonly systemReminderForUserPrompt: string; // New instance variable
+	private readonly systemReminderForUserPrompt: string;
 
 	constructor(
 		private fs: IFileSystemService = getFileSystem(),
 		private llm: LLM = llms().hard,
 		private rules: ValidationRule[] = [new PathExistsRule(), new ModuleAliasRule()],
-		private hooks: EditHook[] = [],
 	) {
 		this.vcs = this.fs.getVcsRoot() ? this.fs.getVcs() : null;
 
@@ -129,21 +123,18 @@ export class SearchReplaceCoder {
 		const language = 'TypeScript'; // Default, can be made configurable
 
 		// Construct the detailed reminders text that will be used in both system and user prompts
-		const renameFilesReminder = "To rename files which have been added to the chat, use shell commands at the end of your response.";
-		const userConfirmationReminder = `If the user just says something like "ok" or "go ahead" or "do that" they probably want you to make SEARCH/REPLACE blocks for the code changes you just proposed.
-The user will say when they've applied your edits. If they haven't explicitly confirmed the edits have been applied, they probably want proper SEARCH/REPLACE blocks.`;
-		const overeagerPromptContent = EDIT_BLOCK_PROMPTS.overeager_prompt; // This already ends with a newline
+		const renameFilesReminder = 'To rename files which have been added to the chat, use shell commands at the end of your response.';
+
+		const overeagerPromptContent = EDIT_BLOCK_PROMPTS.overeager_prompt;
 
 		// Combine reminders for the final section of the prompt
-		const finalRemindersText = `${renameFilesReminder}\n\n${userConfirmationReminder}\n\n${overeagerPromptContent}`;
+		const finalRemindersText = `${renameFilesReminder}\n\n${overeagerPromptContent}`;
 
 		// Specific reminder about quadruple backticks
-		const quadBacktickReminderText = "IMPORTANT: Use *quadruple* backticks ```` as fences, not triple backticks!\n";
+		const quadBacktickReminderText = 'IMPORTANT: Use *quadruple* backticks ```` as fences, not triple backticks!\n';
 
 		// Build the main system message content
-		const mainSystemContent = EDIT_BLOCK_PROMPTS.main_system
-			.replace('{language}', language)
-			.replace('{final_reminders}', finalRemindersText);
+		const mainSystemContent = EDIT_BLOCK_PROMPTS.main_system.replace('{language}', language).replace('{final_reminders}', finalRemindersText);
 
 		// Build the detailed system reminder content (used in system message and user prompt suffix)
 		const systemReminderContentForPrompt = EDIT_BLOCK_PROMPTS.system_reminder
@@ -283,11 +274,6 @@ The user will say when they've applied your edits. If they haven't explicitly co
 		this._addReflectionToMessages(session, reflectionText, currentMessages);
 	}
 
-	private _reflectOnHookFailure(session: EditSession, hookName: string, hookResult: HookResult, currentMessages: LlmMessage[]): void {
-		const reflectionText = buildHookFailureReflection(hookName, hookResult);
-		this._addReflectionToMessages(session, reflectionText, currentMessages);
-	}
-
 	private async _buildPrompt(
 		session: EditSession,
 		userRequest: string,
@@ -303,7 +289,7 @@ The user will say when they've applied your edits. If they haven't explicitly co
 		messages.push(...this.precomputedExampleMessages);
 
 		let fileSystemTree = await buildFileSystemTreePrompt();
-		if(!fileSystemTree) fileSystemTree = await getFileSystem().getFileSystemTree();
+		if (!fileSystemTree) fileSystemTree = await getFileSystem().getFileSystemTree();
 
 		messages.push({ role: 'user', content: `Here's all the files in the repository:\n${fileSystemTree}` });
 		messages.push({ role: 'assistant', content: 'Ok, thanks.' });
@@ -396,7 +382,7 @@ The user will say when they've applied your edits. If they haven't explicitly co
 		const dryRun = false; // Not currently configurable at this level
 
 		// Label for breaking out of nested loops to the main attempt loop
-		attemptLoop: while (session.attempt < MAX_ATTEMPTS) {
+		while (session.attempt < MAX_ATTEMPTS) {
 			session.attempt++;
 			logger.info(`SearchReplaceCoder: Attempt ${session.attempt}/${MAX_ATTEMPTS}`);
 
@@ -592,37 +578,6 @@ The user will say when they've applied your edits. If they haven't explicitly co
 
 			session.appliedFiles = appliedFilePaths;
 			logger.info({ appliedFiles: Array.from(session.appliedFiles) }, 'SearchReplaceCoder: Edits applied successfully.');
-
-			let allHooksPassed = true;
-			for (const hook of this.hooks) {
-				logger.info(`Running hook: ${hook.name}`);
-				const hookResult = await hook.run(session);
-				if (!hookResult.ok) {
-					logger.warn(`Hook ${hook.name} failed: ${hookResult.message}`);
-					sessionEvents.emit('hook-failed', { hook: hook.name, msg: hookResult.message });
-
-					let reflectionText = buildHookFailureReflection(hook.name, hookResult);
-					if (hookResult.additionalFiles && hookResult.additionalFiles.length > 0) {
-						logger.info({ additionalFiles: hookResult.additionalFiles }, `Hook ${hook.name} identified additional files due to failure.`);
-						for (const relPath of hookResult.additionalFiles) {
-							const absPath = this.getRepoFilePath(session.workingDir, relPath);
-							if (session.absFnamesInChat) session.absFnamesInChat.add(absPath);
-						}
-						reflectionText += `\nThe following files, potentially related to the error, have been added to your context: ${hookResult.additionalFiles.join(', ')}. Please review them.`;
-					}
-					this._addReflectionToMessages(session, reflectionText, currentMessages);
-					allHooksPassed = false;
-					continue attemptLoop;
-				}
-				logger.info(`Hook ${hook.name} completed successfully.`);
-			}
-
-			if (allHooksPassed) {
-				sessionEvents.emit('applied', { files: Array.from(session.appliedFiles) });
-				logger.info('SearchReplaceCoder: All edits applied and hooks passed successfully.');
-				return; // Success
-			}
-			// If a hook failed, the attemptLoop will continue due to `continue attemptLoop`
 		}
 
 		logger.error(`SearchReplaceCoder: Maximum attempts (${MAX_ATTEMPTS}) reached. Failing.`);

@@ -1,27 +1,27 @@
-import path from 'node:path';
 import { promises as fsAsync } from 'node:fs';
-import * as agentContextLocalStorage from '#agent/agentContextLocalStorage';
-import { setupConditionalLoggerOutput } from '#test/testUtils';
+import path from 'node:path';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import mockFs from 'mock-fs';
 import sinon from 'sinon';
+import * as agentContextLocalStorage from '#agent/agentContextLocalStorage';
 import { FileSystemService } from '#functions/storage/fileSystemService';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import {
 	AI_INFO_FILENAME,
 	type ProjectInfo,
 	type ProjectInfoFileFormat,
 	detectProjectInfo,
+	mapProjectInfoToFileFormat,
 	normalizeScriptCommandToArray,
 	normalizeScriptCommandToFileFormat,
 	parseProjectInfo,
-	mapProjectInfoToFileFormat,
 } from './projectDetection';
 import * as projectDetectionAgentModule from './projectDetectionAgent';
 
 chai.use(chaiAsPromised);
 
-describe.only('projectDetection', () => {
+describe('projectDetection', () => {
 	setupConditionalLoggerOutput();
 	let sandbox: sinon.SinonSandbox;
 
@@ -111,7 +111,6 @@ describe.only('projectDetection', () => {
 			expect(parseProjectInfo(fileContentEmptyBaseDir)).to.be.null;
 		});
 
-
 		it('should default missing script properties to empty arrays', () => {
 			const fileContent = JSON.stringify([{ baseDir: './project1' }] as Partial<ProjectInfoFileFormat>[]);
 			const result = parseProjectInfo(fileContent);
@@ -151,19 +150,15 @@ describe.only('projectDetection', () => {
 		});
 	});
 
-const MOCK_CWD = '/test/cwd';
-const MOCK_VCS_ROOT_DIFFERENT = '/test/vcs_root';
+	const MOCK_CWD = '/test/cwd';
+	const MOCK_VCS_ROOT_DIFFERENT = '/test/vcs_root';
 
 	describe('detectProjectInfo', () => {
 		let projectDetectionAgentStub: sinon.SinonStub;
 		let fssInstance: FileSystemService; // To hold the FileSystemService instance
 
 		// Helper to configure mock-fs and FileSystemService for tests
-		const configureFileSystemAndStubs = (
-			mockFsConfig: any,
-			cwd: string,
-			vcsRoot: string,
-		) => {
+		const configureFileSystemAndStubs = (mockFsConfig: any, cwd: string, vcsRoot: string) => {
 			mockFs(mockFsConfig); // Apply mock file system
 			fssInstance = new FileSystemService(cwd); // Base path is CWD
 
@@ -196,12 +191,7 @@ const MOCK_VCS_ROOT_DIFFERENT = '/test/vcs_root';
 					staticAnalysis: 'node build.js lint',
 					test: 'cd frontend && npm run test:ci',
 					devBranch: 'main',
-					indexDocs: [
-						'src/**/*.ts',
-						'frontend/src/**/*.ts',
-						'bin/**',
-						'shared/**',
-					],
+					indexDocs: ['src/**/*.ts', 'frontend/src/**/*.ts', 'bin/**', 'shared/**'],
 				},
 			];
 			const mockFsConfig = {
@@ -251,7 +241,9 @@ const MOCK_VCS_ROOT_DIFFERENT = '/test/vcs_root';
 				[MOCK_VCS_ROOT_DIFFERENT]: {
 					[AI_INFO_FILENAME]: JSON.stringify(fileContentArray, null, 2),
 				},
-				[MOCK_CWD]: { /* CWD is empty or doesn't have the file */ },
+				[MOCK_CWD]: {
+					/* CWD is empty or doesn't have the file */
+				},
 			};
 			configureFileSystemAndStubs(mockFsConfig, MOCK_CWD, MOCK_VCS_ROOT_DIFFERENT);
 
@@ -321,13 +313,13 @@ const MOCK_VCS_ROOT_DIFFERENT = '/test/vcs_root';
 			expect(renameSpy.calledOnce).to.be.true;
 			expect(renameSpy.firstCall.args[0]).to.equal(cwdAiInfoPath); //filePath argument
 			expect(renameSpy.firstCall.args[1]).to.include(`${AI_INFO_FILENAME}.invalid_`); //newPath argument
-			expect(filesInCwd.some(f => f.includes(`${AI_INFO_FILENAME}.invalid_`))).to.be.true;
+			expect(filesInCwd.some((f) => f.includes(`${AI_INFO_FILENAME}.invalid_`))).to.be.true;
 
 			expect(projectDetectionAgentStub.calledOnce).to.be.true;
 
 			// After agent runs (stubbed to return []), .typedai.json should be recreated with agent's output
 			const finalFilesInCwd = await fsAsync.readdir(MOCK_CWD);
-			expect(finalFilesInCwd.find(f => f === AI_INFO_FILENAME)).to.not.be.undefined;
+			expect(finalFilesInCwd.find((f) => f === AI_INFO_FILENAME)).to.not.be.undefined;
 			const finalContent = await fsAsync.readFile(cwdAiInfoPath, 'utf-8');
 			expect(JSON.parse(finalContent)).to.deep.equal([]);
 		});
@@ -335,7 +327,7 @@ const MOCK_VCS_ROOT_DIFFERENT = '/test/vcs_root';
 		it('should return empty array and not call agent if valid empty "[]" file exists', async () => {
 			const mockFsConfig = {
 				[MOCK_CWD]: {
-					[AI_INFO_FILENAME]: "[]",
+					[AI_INFO_FILENAME]: '[]',
 				},
 			};
 			configureFileSystemAndStubs(mockFsConfig, MOCK_CWD, MOCK_CWD);
@@ -413,9 +405,7 @@ const MOCK_VCS_ROOT_DIFFERENT = '/test/vcs_root';
 			expect(JSON.parse(writtenContentInCwd)).to.deep.equal(fileContentArray);
 
 			// Verify fssInstance.writeFile was called with the correct CWD path and content
-			expect(
-				writeFileSpy.calledWith(CWD_AI_INFO_PATH, JSON.stringify(fileContentArray, null, 2)),
-			).to.be.true;
+			expect(writeFileSpy.calledWith(CWD_AI_INFO_PATH, JSON.stringify(fileContentArray, null, 2))).to.be.true;
 		});
 	});
 });

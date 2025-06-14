@@ -1,8 +1,7 @@
 import { FastMediumLLM } from '#llm/multi-agent/fastMedium';
+import { MAD_Balanced } from '#llm/multi-agent/reasoning-debate';
 import { MultiLLM } from '#llm/multi-llm';
 import { Claude3_5_Haiku, Claude3_7_Sonnet } from '#llm/services/anthropic';
-// import { Claude4_Opus_Vertex, Claude4_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
-// import { Gemini_2_5_Pro } from '#llm/services/gemini';
 import { vertexGemini_2_0_Flash_Lite, vertexGemini_2_5_Flash, vertexGemini_2_5_Pro } from '#llm/services/vertexai';
 import type { AgentLLMs } from '#shared/agent/agent.model';
 import type { LLM } from '#shared/llm/llm.model';
@@ -18,7 +17,7 @@ export function defaultLLMs(): AgentLLMs {
 	if (process.env.GCLOUD_PROJECT) {
 		const flashLite = vertexGemini_2_0_Flash_Lite();
 		const flash = vertexGemini_2_5_Flash();
-		const pro = vertexGemini_2_5_Pro(); //Claude4_Sonnet_Vertex();
+		const pro = vertexGemini_2_5_Pro();
 		_summaryLLM = flashLite;
 		return {
 			easy: flashLite,

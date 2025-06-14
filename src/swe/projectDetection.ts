@@ -19,20 +19,25 @@ export const AI_INFO_FILENAME = '.typedai.json';
  * Interface for the data structure stored in the .typedai.json file.
  * Excludes runtime-derived fields like languageTools and fileSelection.
  */
-export interface ProjectInfoFileFormat extends ProjectScripts {
+export interface ProjectInfoFileFormat {
 	baseDir: string;
 	primary?: boolean;
 	language: LanguageRuntime | '';
 	devBranch: string;
 	indexDocs: string[];
+	initialise: ScriptCommand;
+	compile: ScriptCommand;
+	format: ScriptCommand;
+	staticAnalysis: ScriptCommand;
+	test: ScriptCommand;
 }
 
 export interface ProjectScripts {
-	initialise: string;
-	compile: string;
-	format: string;
-	staticAnalysis: string;
-	test: string;
+	initialise: string[];
+	compile: string[];
+	format: string[];
+	staticAnalysis: string[];
+	test: string[];
 }
 
 export interface ProjectInfo extends ProjectScripts {
@@ -50,7 +55,7 @@ export interface ProjectInfo extends ProjectScripts {
 }
 
 // Helper function to convert ProjectInfo to ProjectInfoFileFormat for saving
-function mapProjectInfoToFileFormat(projectInfo: ProjectInfo): ProjectInfoFileFormat {
+export function mapProjectInfoToFileFormat(projectInfo: ProjectInfo): ProjectInfoFileFormat {
 	// Destructure to explicitly pick fields for ProjectInfoFileFormat
 	const { baseDir, primary, language, devBranch, initialise, compile, format, staticAnalysis, test, indexDocs } = projectInfo;
 	return {
@@ -58,48 +63,64 @@ function mapProjectInfoToFileFormat(projectInfo: ProjectInfo): ProjectInfoFileFo
 		primary,
 		language,
 		devBranch,
-		initialise,
-		compile,
-		format,
-		staticAnalysis,
-		test,
+		initialise: normalizeScriptCommandToFileFormat(initialise),
+		compile: normalizeScriptCommandToFileFormat(compile),
+		format: normalizeScriptCommandToFileFormat(format),
+		staticAnalysis: normalizeScriptCommandToFileFormat(staticAnalysis),
+		test: normalizeScriptCommandToFileFormat(test),
 		indexDocs,
 	};
 }
 
-function parseProjectInfo(fileContents: string): ProjectInfo[] | null {
+export function normalizeScriptCommandToArray(command: ScriptCommand | undefined | null): string[] {
+	if (command == null) {
+		// Handles undefined and null
+		return [];
+	}
+	if (typeof command === 'string') {
+		const trimmedCommand = command.trim();
+		return trimmedCommand === '' ? [] : [trimmedCommand];
+	}
+	// If it's an array
+	return command.map((c) => String(c).trim()).filter((c) => c !== '');
+}
+
+export function normalizeScriptCommandToFileFormat(commands: string[]): ScriptCommand {
+	if (commands.length === 0) return '';
+	if (commands.length === 1) return commands[0];
+	return commands;
+}
+
+export function parseProjectInfo(fileContents: string): ProjectInfo[] | null {
 	try {
-		const projectInfosFromFile = JSON.parse(fileContents) as Partial<ProjectInfoFileFormat>[]; // Parse as potentially partial
+		const projectInfosFromFile = JSON.parse(fileContents) as Partial<ProjectInfoFileFormat>[];
 		logger.info(projectInfosFromFile, `Parsed ${AI_INFO_FILENAME} content`);
 
-		if (!Array.isArray(projectInfosFromFile)) {
-			throw new Error(`${AI_INFO_FILENAME} root should be a JSON array`);
-		}
+		if (!Array.isArray(projectInfosFromFile)) throw new Error(`${AI_INFO_FILENAME} root should be a JSON array`);
 
 		return projectInfosFromFile.map((infoFromFile, index) => {
-			if (!infoFromFile.baseDir || typeof infoFromFile.baseDir !== 'string' || infoFromFile.baseDir.trim() === '') {
+			if (!infoFromFile.baseDir || typeof infoFromFile.baseDir !== 'string' || infoFromFile.baseDir.trim() === '')
 				throw new Error(`Entry ${index} in ${AI_INFO_FILENAME} is missing a valid "baseDir" property.`);
-			}
-			// Ensure all script properties are strings, defaulting to empty if not present or wrong type
+
 			const scripts: ProjectScripts = {
-				initialise: typeof infoFromFile.initialise === 'string' ? infoFromFile.initialise : '',
-				compile: typeof infoFromFile.compile === 'string' ? infoFromFile.compile : '',
-				format: typeof infoFromFile.format === 'string' ? infoFromFile.format : '',
-				staticAnalysis: typeof infoFromFile.staticAnalysis === 'string' ? infoFromFile.staticAnalysis : '',
-				test: typeof infoFromFile.test === 'string' ? infoFromFile.test : '',
+				initialise: normalizeScriptCommandToArray(infoFromFile.initialise),
+				compile: normalizeScriptCommandToArray(infoFromFile.compile),
+				format: normalizeScriptCommandToArray(infoFromFile.format),
+				staticAnalysis: normalizeScriptCommandToArray(infoFromFile.staticAnalysis),
+				test: normalizeScriptCommandToArray(infoFromFile.test),
 			};
 
-			const language = (infoFromFile.language as LanguageRuntime) || ''; // Ensure language is valid or empty string
+			const language = (infoFromFile.language as LanguageRuntime) || '';
 
 			return {
 				baseDir: infoFromFile.baseDir.trim(),
-				primary: typeof infoFromFile.primary === 'boolean' ? infoFromFile.primary : false, // Default primary
-				language: language,
+				primary: typeof infoFromFile.primary === 'boolean' ? infoFromFile.primary : false,
+				language,
 				languageTools: getLanguageTools(language),
-				devBranch: typeof infoFromFile.devBranch === 'string' && infoFromFile.devBranch.trim() !== '' ? infoFromFile.devBranch.trim() : 'main', // Default devBranch
-				...scripts, // Spread validated/defaulted scripts
-				fileSelection: 'Do not include package manager lock files', // Default fileSelection
-				indexDocs: Array.isArray(infoFromFile.indexDocs) ? infoFromFile.indexDocs : [], // Default indexDocs
+				devBranch: typeof infoFromFile.devBranch === 'string' && infoFromFile.devBranch.trim() !== '' ? infoFromFile.devBranch.trim() : 'main',
+				...scripts,
+				fileSelection: 'Do not include package manager lock files',
+				indexDocs: Array.isArray(infoFromFile.indexDocs) ? infoFromFile.indexDocs : [],
 			};
 		});
 	} catch (e) {
@@ -144,7 +165,6 @@ async function tryLoadAndParse(filePath: string, fss: IFileSystemService, locati
  * Determines the language/runtime, base folder and key commands for projects.
  * It prioritizes loading from .typedai.json in CWD, then VCS root.
  * If no valid file is found, it runs detection via projectDetectionAgent and saves the result to CWD.
- * An empty valid file (e.g., "[]") means detection previously ran and found no projects; it will not re-detect.
  * Invalid files are renamed to avoid re-parsing them in a loop.
  */
 export async function detectProjectInfo(): Promise<ProjectInfo[]> {
@@ -174,8 +194,7 @@ export async function detectProjectInfo(): Promise<ProjectInfo[]> {
 
 	// 3. If no valid file loaded from CWD or VCS root, run detection agent
 	if (loadedInfos === null) {
-		logger.info('No valid project information file found. Running project detection agent.');
-		const detectedProjectInfos = await projectDetectionAgent(); // This returns ProjectInfo[]
+		const detectedProjectInfos = await projectDetectionAgent();
 
 		// Save detected info to CWD
 		const projectInfosToFileFormat = detectedProjectInfos.map(mapProjectInfoToFileFormat);

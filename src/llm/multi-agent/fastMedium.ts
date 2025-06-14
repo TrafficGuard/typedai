@@ -1,5 +1,6 @@
 import { cerebrasQwen3_32b } from '#llm/services/cerebras';
-import { vertexGemini_2_5_Flash, vertexGemini_2_5_Flash_Thinking } from '#llm/services/vertexai';
+import { groqQwen3_32b } from '#llm/services/groq';
+import { vertexGemini_2_5_Flash_Thinking } from '#llm/services/vertexai';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import { type GenerateTextOptions, type LLM, type LlmMessage, messageContentIfTextOnly, messageText } from '#shared/llm/llm.model';
@@ -12,18 +13,19 @@ import { BaseLLM } from '../base-llm';
 export class FastMediumLLM extends BaseLLM {
 	private readonly providers: LLM[];
 	private readonly cerebras: LLM;
+	private readonly groq: LLM;
 	private readonly gemini: LLM;
 
 	constructor() {
-		super('Fast Medium (Cerebras Qwen3 32b - Gemini 2.5 Flash)', 'multi', 'fast-medium', 0, () => ({
+		super('Fast Medium (Qwen3 32b (Cerebras/Groq - Gemini 2.5 Flash)', 'multi', 'fast-medium', 0, () => ({
 			inputCost: 0,
 			outputCost: 0,
 			totalCost: 0,
 		}));
-		// Define the providers and their priorities. Lower number = higher priority
-		this.providers = [cerebrasQwen3_32b(), vertexGemini_2_5_Flash_Thinking()];
+		this.providers = [cerebrasQwen3_32b(), groqQwen3_32b(), vertexGemini_2_5_Flash_Thinking()];
 		this.cerebras = this.providers[0];
-		this.gemini = this.providers[1];
+		this.groq = this.providers[1];
+		this.gemini = this.providers[2];
 
 		this.maxInputTokens = Math.max(...this.providers.map((p) => p.getMaxInputTokens()));
 	}
@@ -41,46 +43,31 @@ export class FastMediumLLM extends BaseLLM {
 		return messageText(message);
 	}
 
-	async useCerebras(messages: ReadonlyArray<LlmMessage>): Promise<boolean> {
-		// if(console.log) return false;
-		if (!this.cerebras.isConfigured()) return false;
+	/**
+	 * @param messages
+	 * @returns the number of tokens, or null if there is non-text messages
+	 */
+	async textTokens(messages: ReadonlyArray<LlmMessage>): Promise<number | null> {
 		let text = '';
 		for (const msg of messages) {
 			const msgText: string | null = messageContentIfTextOnly(msg);
-			if (msgText === null) return false;
+			if (msgText === null) return null;
 			text += `${msgText}\n`;
 		}
-		const tokens = await countTokens(text);
-		return tokens < this.cerebras.getMaxInputTokens() * 0.5;
-		logger.info(`Tokens: ${tokens}`);
+		return await countTokens(text);
 	}
 
 	async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
+		opts.thinking = 'high';
 		try {
-			if (await this.useCerebras(messages)) return await this.cerebras.generateMessage(messages, opts);
+			const tokens = await this.textTokens(messages);
+			if (tokens) {
+				if (this.cerebras.isConfigured() && tokens < this.cerebras.getMaxInputTokens() * 0.5) return await this.cerebras.generateMessage(messages, opts);
+				if (this.groq.isConfigured() && tokens < this.groq.getMaxInputTokens()) return await this.groq.generateMessage(messages, opts);
+			}
 		} catch (e) {
-			logger.warn(e, `Error calling ${this.cerebras.getId()}`);
+			logger.warn(e, 'Error calling fast medium LLM');
 		}
 		return await this.gemini.generateMessage(messages, opts);
-
-		// for (const llm of this.providers) {
-		// 	if (!llm.isConfigured()) {
-		// 		logger.info(`${llm.getId()} is not configured`);
-		// 		continue;
-		// 	}
-		//
-		// 	const combinedPrompt = messages.map((m) => m.content).join('\n');
-		// 	const promptTokens = await countTokens(combinedPrompt);
-		// 	if (promptTokens > llm.getMaxInputTokens()) {
-		// 		logger.info(`Input tokens exceed limit for ${llm.getDisplayName()}. Trying next provider.`);
-		// 		continue;
-		// 	}
-		// 	try {
-		// 		logger.info(`Trying ${llm.getDisplayName()}`);
-		// 		return await llm.generateText(messages, opts);
-		// 	} catch (error) {
-		// 		logger.error(`Error with ${llm.getDisplayName()}: ${error.message}. Trying next provider.`);
-		// 	}
-		// }
 	}
 }

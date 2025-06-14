@@ -4,8 +4,9 @@ import type { WatchEventType } from 'node:fs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileExistsSync } from 'tsconfig-paths/lib/filesystem';
+import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
-import { AiderCodeEditor } from '#swe/aiderCodeEditor';
+import { SearchReplaceCoder } from '#swe/coder/searchReplaceCoder';
 import { execCommand } from '#utils/exec';
 
 /**
@@ -99,8 +100,8 @@ export function startWatcher() {
 			await fs.promises.writeFile(filePath, lines.join('\n'), 'utf-8');
 
 			// Pass the prompt to the AiderCodeEditor
-			logger.info('Running Aider...');
-			const result = await new AiderCodeEditor().editFilesToMeetRequirements(prompt, [filePath], false);
+			logger.info('Running SearchReplaceCoder...');
+			const result = await new SearchReplaceCoder(getFileSystem(), llms().hard).editFilesToMeetRequirements(prompt, [filePath], [], false);
 			logger.info(result);
 			// Exit early after handling the first valid line
 			return;

@@ -10,7 +10,6 @@ import { span } from '#o11y/trace';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
 import type { SelectedFile } from '#shared/files/files.model';
 import { type CompileErrorAnalysis, type CompileErrorAnalysisDetails, analyzeCompileErrors } from '#swe/analyzeCompileErrors';
-import { CompileHook } from '#swe/coder/hooks/compileHook';
 import { SearchReplaceCoder } from '#swe/coder/searchReplaceCoder';
 import { selectFilesAgent } from '#swe/discovery/selectFilesAgentWithSearch';
 import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
@@ -19,7 +18,6 @@ import { onlineResearch } from '#swe/onlineResearch';
 import { reviewChanges } from '#swe/reviewChanges';
 import { supportingInformation } from '#swe/supportingInformation';
 import { execCommand } from '#utils/exec';
-import { AiderCodeEditor } from './aiderCodeEditor';
 import { type SelectFilesResponse, selectFilesToEdit } from './discovery/selectFilesToEdit';
 import { type ProjectInfo, getProjectInfo } from './projectDetection';
 import { basePrompt } from './prompt';
@@ -112,9 +110,7 @@ export class CodeEditingAgent {
 				for (const cmd of projectInfo.initialise) {
 					const result = await execCommand(cmd, { envVars: { NODE_ENV: 'development' } });
 					if (result.exitCode !== 0) {
-						throw new Error(
-							`Initialise command "${cmd}" failed with exit code ${result.exitCode}. Stdout: ${result.stdout}\nStderr: ${result.stderr}`,
-						);
+						throw new Error(`Initialise command "${cmd}" failed with exit code ${result.exitCode}. Stdout: ${result.stdout}\nStderr: ${result.stderr}`);
 					}
 				}
 			})();
@@ -198,7 +194,7 @@ export class CodeEditingAgent {
 		const fs: IFileSystemService = getFileSystem();
 		const git = fs.getVcs();
 
-		const MAX_ATTEMPTS = 5;
+		const MAX_ATTEMPTS = 10;
 		for (let i = 0; i < MAX_ATTEMPTS; i++) {
 			try {
 				// Make sure the project initially compiles
@@ -270,9 +266,11 @@ export class CodeEditingAgent {
 					codeEditorRequirements += '\nOnly make changes directly related to these requirements.';
 				}
 
-				const ruleFiles = await includeAlternativeAiToolFiles(codeEditorFiles);
+				const ruleFiles: Set<string> = await includeAlternativeAiToolFiles(codeEditorFiles);
+				// Remove any duplicates in codeEditorFiles
+				for (const editingFile of codeEditorFiles) if (ruleFiles.has(editingFile)) ruleFiles.delete(editingFile);
 
-				const coder = new SearchReplaceCoder(getFileSystem(), llms().hard, undefined, []);
+				const coder = new SearchReplaceCoder(getFileSystem(), llms().hard, undefined);
 				await coder.editFilesToMeetRequirements(codeEditorRequirements, codeEditorFiles, Array.from(ruleFiles), true, true);
 
 				// The code editor may add new files, so we want to add them to the initial file set
@@ -335,11 +333,14 @@ export class CodeEditingAgent {
 					} else {
 						staticAnalysisErrorOutput = e.message;
 						logger.info(`Static analysis error output: ${staticAnalysisErrorOutput}`);
-						const staticErrorFiles = await this.extractFilenames(`${staticAnalysisErrorOutput}\n\nExtract the filenames from the compile errors.`);
+						const staticErrorFiles: string[] = await this.extractFilenames(`${staticAnalysisErrorOutput}\n\nExtract the filenames from the compile errors.`);
 
-						await new AiderCodeEditor().editFilesToMeetRequirements(
+						await new SearchReplaceCoder(getFileSystem(), llms().hard).editFilesToMeetRequirements(
 							`Static analysis command: ${projectInfo.staticAnalysis}\n${staticAnalysisErrorOutput}\nFix these static analysis errors`,
-							staticErrorFiles,
+							[...initialSelectedFiles, ...staticErrorFiles],
+							[],
+							true,
+							true,
 						);
 						// TODO need to compile again
 					}
@@ -424,7 +425,7 @@ export class CodeEditingAgent {
 			try {
 				let testRequirements = `${requirements}\nSome of the requirements may have already been implemented, so don't duplicate any existing implementation meeting the requirements.\n`;
 				testRequirements += 'Write any additional tests that would be of value.';
-				await new AiderCodeEditor().editFilesToMeetRequirements(testRequirements, initialSelectedFiles);
+				await new SearchReplaceCoder(getFileSystem(), llms().hard).editFilesToMeetRequirements(testRequirements, initialSelectedFiles, [], true, true);
 				await this.compile(projectInfo);
 				await this.runTests(projectInfo);
 				errorAnalysis = null;

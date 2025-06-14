@@ -206,6 +206,10 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 			try {
 				const providerOptions: any = {};
 				if (combinedOpts.thinking) {
+					if (this.getService() === 'groq') {
+						providerOptions.groq = { reasoningFormat: 'parsed' };
+					}
+
 					// https://sdk.vercel.ai/docs/guides/o3#refining-reasoning-effort
 					if (this.getService() === 'openai' && this.model.startsWith('o')) providerOptions.openai = { reasoningEffort: combinedOpts.thinking };
 					let thinkingBudget: number;

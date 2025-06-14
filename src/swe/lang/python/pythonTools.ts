@@ -1,7 +1,6 @@
 import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
-import { getPythonPath } from '#swe/aiderCodeEditor';
 import { execCmd, execCommand } from '#utils/exec';
 import type { LanguageTools } from '../languageTools';
 
@@ -9,11 +8,12 @@ import type { LanguageTools } from '../languageTools';
 export class PythonTools implements LanguageTools {
 	async generateProjectMap(): Promise<string> {
 		logger.info(getFileSystem().getWorkingDirectory());
-		const { stdout, stderr /*, exitCode*/ } = await execCmd(`${getPythonPath()} -m aider --yes --map-tokens 2048 --show-repo-map`);
+		// const { stdout, stderr /*, exitCode*/ } = await execCmd(`${getPythonPath()} -m aider --yes --map-tokens 2048 --show-repo-map`);
 		// stubgen --ignore-errors -o stubs
 
 		// if (exitCode > 0) throw new Error(`${stdout} ${stderr}`);
-		return stdout;
+		// return stdout;
+		return '';
 	}
 
 	async installPackage(packageName: string): Promise<void> {}

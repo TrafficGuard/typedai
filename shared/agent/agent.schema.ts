@@ -84,6 +84,14 @@ const FilePartExtSchema = Type.Object({
 
 const LlmMessageContentPartSchema = Type.Union([TextPartSchema, ImagePartExtSchema, FilePartExtSchema]); // Add other relevant parts like ToolCallPart if needed
 
+const LlmsSchema = Type.Object({
+	// Serialized LLM IDs
+	easy: Type.String(),
+	medium: Type.String(),
+	hard: Type.String(),
+	xhard: Type.Optional(Type.String()),
+});
+
 const LlmMessageSchema = Type.Object({
 	role: Type.String(), // Ideally Type.Union(['system', 'user', 'assistant', 'tool'])
 	content: Type.Union([Type.String(), Type.Array(LlmMessageContentPartSchema)]),
@@ -122,13 +130,7 @@ export const AgentContextSchema = Type.Object({
 	hilBudget: Type.Number(),
 	cost: Type.Number(),
 	budgetRemaining: Type.Number(),
-	llms: Type.Object({
-		// Serialized LLM IDs
-		easy: Type.String(),
-		medium: Type.String(),
-		hard: Type.String(),
-		xhard: Type.Optional(Type.String()),
-	}),
+	llms: LlmsSchema,
 
 	// Represents IFileSystemService.toJSON()
 	// The key 'fileSystem' is always present on AgentContext, its value can be an object or null.
@@ -253,12 +255,7 @@ export const AgentStartRequestSchema = Type.Object(
 				count: Type.Integer(), // Ensure these are not optional if they are mandatory in current route
 			}),
 		),
-		llms: Type.Object({
-			// Expects LLM string IDs
-			easy: Type.String(),
-			medium: Type.String(),
-			hard: Type.String(),
-		}),
+		llms: LlmsSchema,
 		useSharedRepos: Type.Optional(Type.Boolean({ default: true })), // Retain default from original schema
 		metadata: Type.Optional(Type.Record(Type.String(), Type.Any())),
 		resumeAgentId: Type.Optional(Type.String()),

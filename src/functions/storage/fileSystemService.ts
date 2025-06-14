@@ -404,7 +404,10 @@ export class FileSystemService implements IFileSystemService {
 				{ path: filePath, resolvedPath: absolutePathToRead, cwd: this.getWorkingDirectory(), error: e.message, code: e.code },
 				'Error during readFile',
 			);
-			throw new FileNotFound(`File ${filePath} (resolved to ${absolutePathToRead}) does not exist or cannot be read. CWD: ${this.getWorkingDirectory()}`, e.code);
+			throw new FileNotFound(
+				`File ${filePath} (resolved to ${absolutePathToRead}) does not exist or cannot be read. CWD: ${this.getWorkingDirectory()}`,
+				e.code,
+			);
 		}
 	}
 

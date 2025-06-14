@@ -243,5 +243,10 @@ export interface IFileSystemService {
 	 */
 	getVcsRoot(): string | null;
 
-    rename(filePath: string, newPath: string): Promise<void>;
+	/**
+	 * Rename/move a file or folder
+	 * @param filePath
+	 * @param newPath
+	 */
+	rename(filePath: string, newPath: string): Promise<void>;
 }

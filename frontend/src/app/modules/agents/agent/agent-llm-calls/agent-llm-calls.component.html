@@ -6,7 +6,7 @@
                 @if(call.error) {
                     <mat-icon color="warn" class="mr-1 icon-size-5">error_outline</mat-icon>
                 }
-                <span class="mb-3 pt-3 font-medium text-xl">{{ call.callStack }} {{ call.description }}</span>
+                <span class="mb-3 pt-3 font-medium text-xl">{{ call.description }}</span>
                 <a [href]="llmCallUrl(call)" style="font-size: x-small" target="_blank" mat-icon-button matTooltip="Open in Firestore">
                     <mat-icon>storage</mat-icon>
                 </a>

@@ -45,7 +45,7 @@ export async function startAgentRoute(fastify: AppFastifyInstance) {
 				easy: getLLM(llms.easy),
 				medium: getLLM(llms.medium),
 				hard: getLLM(llms.hard),
-				xhard: getLLM(llms.hard), // xhard is derived from hard
+				xhard: llms.xhard ? getLLM(llms.xhard) : null,
 			},
 			functions: llmFunctions,
 			useSharedRepos: useSharedRepos ?? true, // Default if useSharedRepos is optional and undefined

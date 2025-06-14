@@ -123,9 +123,8 @@ describe('PromptFormComponent', () => {
 				MatSelectModule,
 				MatTooltipModule,
 				MatToolbarModule,
-				// MatSelectModule is already listed above
 				MatSliderModule,
-				MatExpansionModule, // Ensure it's here
+				MatExpansionModule,
 			],
 			providers: [
 				FormBuilder,
