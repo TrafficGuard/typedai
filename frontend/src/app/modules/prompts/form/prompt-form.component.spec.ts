@@ -1,10 +1,11 @@
 import { CommonModule, Location } from '@angular/common';
 import { ChangeDetectorRef, NO_ERRORS_SCHEMA } from '@angular/core';
-import { signal } from '@angular/core';
+import { signal, type WritableSignal, type ReadonlySignal } from '@angular/core';
 import { fakeAsync, tick } from '@angular/core/testing';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormBuilder, type FormGroup } from '@angular/forms';
 import { ReactiveFormsModule } from '@angular/forms';
+import { type ApiListState, createApiListState } from '../../../core/api-state.types';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import type { MatChipInputEvent } from '@angular/material/chips';
@@ -23,6 +24,7 @@ import { By } from '@angular/platform-browser';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { of } from 'rxjs';
+import { MatExpansionModule } from '@angular/material/expansion'; // Add this import
 import type { FilePartExt, ImagePartExt, LlmMessage, TextPart, UserContentExt } from '#shared/llm/llm.model';
 import type { Prompt } from '#shared/prompts/prompts.model';
 import type { PromptSchemaModel } from '#shared/prompts/prompts.schema';
@@ -57,12 +59,14 @@ const mockPromptSchema = mockPrompt as PromptSchemaModel; // This cast might nee
 
 describe('PromptFormComponent', () => {
 	let component: PromptFormComponent;
-	let fixture: ComponentFixture<ComponentFixture<PromptFormComponent>>;
+	// Corrected type for fixture
+	let fixture: ComponentFixture<PromptFormComponent>;
 	let mockPromptsService: jasmine.SpyObj<PromptsService>;
 	// Change mockLlmService declaration type to include the methods and properties we'll mock
 	let mockLlmService: jasmine.SpyObj<Pick<LlmService, 'refreshLlms' | 'clearCache'>> & {
 		loadLlms: jasmine.Spy;
-		llmsState: ReturnType<typeof signal<any>['asReadonly']>;
+		// Modified type for llmsState
+		llmsState: ReadonlySignal<ApiListState<AppLLM>>;
 	};
 	let mockRouter: jasmine.SpyObj<Router>;
 	let mockLocation: jasmine.SpyObj<Location>;
@@ -73,8 +77,9 @@ describe('PromptFormComponent', () => {
 		mockPromptsService = jasmine.createSpyObj('PromptsService', ['createPrompt', 'updatePrompt', 'getPromptById', 'clearSelectedPrompt']);
 
 		// Refined LlmService mock
-		const initialLlmState = { status: 'initial' as const, data: [] as AppLLM[], error: null, code: null };
-		const llmsStateSignal = signal(initialLlmState);
+		// Use createApiListState for initial state to match service's type
+		const llmsStateSignal: WritableSignal<ApiListState<AppLLM>> = signal(createApiListState<AppLLM>());
+
 
 		// Create a spy object for methods that are simple spies
 		const spiedMethods = jasmine.createSpyObj<Pick<LlmService, 'refreshLlms' | 'clearCache'>>('LlmService', ['refreshLlms', 'clearCache']);
@@ -120,8 +125,7 @@ describe('PromptFormComponent', () => {
 				MatToolbarModule,
 				// MatSelectModule is already listed above
 				MatSliderModule,
-				// Add MatExpansionModule if not already present and if expansion panels are involved in visibility
-				MatExpansionModule,
+				MatExpansionModule, // Ensure it's here
 			],
 			providers: [
 				FormBuilder,
@@ -434,11 +438,12 @@ describe('PromptFormComponent', () => {
 	});
 
 	it('ngOnDestroy should complete destroy$ subject', () => {
-		spyOn(component.destroy$, 'next');
-		spyOn(component.destroy$, 'complete');
+		// Cast component to any to access private member
+		spyOn((component as any).destroy$, 'next');
+		spyOn((component as any).destroy$, 'complete');
 		component.ngOnDestroy();
-		expect(component.destroy$.next).toHaveBeenCalled();
-		expect(component.destroy$.complete).toHaveBeenCalled();
+		expect((component as any).destroy$.next).toHaveBeenCalled();
+		expect((component as any).destroy$.complete).toHaveBeenCalled();
 	});
 
 	describe('Toolbar', () => {
@@ -826,7 +831,8 @@ describe('PromptFormComponent', () => {
 
 	// TODO: Enable and fix these tests for attachment functionality.
 	// Refactoring to fakeAsync and signal-aware testing for attachments requires more detailed changes.
-	describe.skip('Attachment Functionality', () => {
+	// Use xdescribe to skip this block
+	xdescribe('Attachment Functionality', () => {
 		it('should allow adding an attachment via file input', () => {
 			// Test onFileSelected
 		});
