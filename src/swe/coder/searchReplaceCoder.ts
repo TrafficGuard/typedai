@@ -127,25 +127,18 @@ export class SearchReplaceCoder {
 
 		const fence = this.getFence();
 		const language = 'TypeScript'; // Default, can be made configurable
-		const suggestShellCommands = true; // Default, can be made configurable
 
 		const finalRemindersText = ''; // Add useLazyPrompt/useOvereagerPrompt logic if needed
-		const shellCmdPromptSection = suggestShellCommands
-			? EDIT_BLOCK_PROMPTS.shell_cmd_prompt.replace('{platform}', platform())
-			: EDIT_BLOCK_PROMPTS.no_shell_cmd_prompt.replace('{platform}', platform());
 
 		const mainSystemContent = EDIT_BLOCK_PROMPTS.main_system
 			.replace('{language}', language)
-			.replace('{final_reminders}', finalRemindersText.trim())
-			.replace('{shell_cmd_prompt_section}', shellCmdPromptSection);
+			.replace('{final_reminders}', finalRemindersText.trim());
 
 		const systemReminderContent = EDIT_BLOCK_PROMPTS.system_reminder
 			.replace(/{fence_0}/g, fence[0])
 			.replace(/{fence_1}/g, fence[1])
 			.replace('{quad_backtick_reminder}', '') // Add quadBacktickReminder if needed
-			.replace('{rename_with_shell_section}', suggestShellCommands ? EDIT_BLOCK_PROMPTS.rename_with_shell : '')
-			.replace('{final_reminders}', finalRemindersText.trim())
-			.replace('{shell_cmd_reminder_section}', suggestShellCommands ? EDIT_BLOCK_PROMPTS.shell_cmd_reminder : '');
+			.replace('{final_reminders}', finalRemindersText.trim());
 		this.precomputedSystemMessage = `${mainSystemContent}\n\n${systemReminderContent}`;
 
 		this.precomputedExampleMessages = EDIT_BLOCK_PROMPTS.example_messages_template.map((msgTemplate) => ({

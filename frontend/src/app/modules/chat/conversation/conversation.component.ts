@@ -94,7 +94,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
 	llmsSignal: Signal<LLM[]>;
 	llmId: WritableSignal<string | undefined> = signal(undefined);
-	defaultChatLlmId = computed(() => (this.userService.userProfile() as any)?.chat?.defaultLLM);
+	defaultChatLlmId = computed(() => (this.userService.userProfile() as UserProfile)?.chat?.defaultLLM); // Added UserProfile type
 
 	sendIcon: WritableSignal<string> = signal('heroicons_outline:paper-airplane');
 
@@ -534,16 +534,16 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 	 * Handles both new chat creation and message sending in existing chats
 	 */
 	async sendMessage(): Promise<void> {
-		// Make method async
 		const chatStateBeforeSend = this.chat();
-		const draftChatIdToClear = chatStateBeforeSend && chatStateBeforeSend.id === NEW_CHAT_ID ? 'new' : chatStateBeforeSend?.id;
 
-		const messageText: string = this.messageInput.nativeElement.value.trim();
-		const attachments: Attachment[] = [...this.selectedAttachments()];
+		// Capture raw input values BEFORE any processing or clearing
+		const originalMessageText = this.messageInput.nativeElement.value;
+		const originalAttachments = [...this.selectedAttachments()];
+		const trimmedMessageTextForAPI = originalMessageText.trim();
 
-		if (messageText === '' && attachments.length === 0) return;
+		if (trimmedMessageTextForAPI === '' && originalAttachments.length === 0) return;
 
-		const currentUser = this.userService.userProfile();
+		const currentUser = this.userService.userProfile() as UserProfile; // Added UserProfile type
 		if (!currentUser) {
 			this._snackBar.open('User data not loaded. Cannot send message.', 'Close', { duration: 3000 });
 			return;
@@ -554,82 +554,92 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 			return;
 		}
 
+		// --- Start "sending" process ---
 		this.generating.set(true);
-		this.sendIcon.set('heroicons_outline:stop-circle'); // Or use a different icon for "sending"
+		this.sendIcon.set('heroicons_outline:stop-circle');
 
-		const userContentPayload: UserContentExt = await attachmentsAndTextToUserContentExt(attachments, messageText); // await the async function
-		const enableReformat = this.autoReformatEnabled();
-
-		// Optimistic UI update: add a "generating" placeholder for AI
-		const aiGeneratingMessageEntry: ChatMessage = {
-			id: uuidv4(),
-			content: '.', // UserContentExt can be a string for simple text
-			textContent: '.', // Required by UIMessage
-			isMine: false,
-			generating: true,
-			createdAt: new Date().toISOString(),
-			// textChunks will be derived in displayedMessages
-		};
-		this.generatingAIMessage.set(aiGeneratingMessageEntry);
-
-		this._scrollToBottom(); // Scroll after adding optimistic messages
-
-		// Clear input and selected attachments
+		// Clear input and selected attachments IMMEDIATELY
 		this.messageInput.nativeElement.value = '';
 		this.selectedAttachments.set([]);
+		this._resizeMessageInput(); // Resize after clearing
 
-		const baseChatOptions = currentUser.chat && typeof currentUser.chat === 'object' ? currentUser.chat : {};
-		const options = { ...baseChatOptions, thinking: this.llmHasThinkingLevels() ? this.thinkingLevel() : null };
-		// userContentPayload is already created above for the optimistic update
+		try {
+			// Prepare payload
+			const userContentPayload: UserContentExt = await attachmentsAndTextToUserContentExt(originalAttachments, trimmedMessageTextForAPI);
 
-		let apiCall: Observable<any>;
-		const currentChat = this.chat();
+			// Optimistic UI update for AI's pending message
+			const aiGeneratingMessageEntry: ChatMessage = {
+				id: uuidv4(), content: '.', textContent: '.', isMine: false, generating: true,
+				createdAt: new Date().toISOString(),
+			};
+			this.generatingAIMessage.set(aiGeneratingMessageEntry);
+			this._scrollToBottom();
 
-		if (!currentChat || currentChat.id === NEW_CHAT_ID) {
-			// Pass empty array for attachmentsToSend as it's now part of userContentPayload
-			apiCall = this._chatService.createChat(userContentPayload, currentLlmId, options, enableReformat);
-		} else {
-			// Pass empty array for attachmentsToSend as it's now part of userContentPayload
-			// The service's sendMessage still accepts attachmentsForUI, which is fine. We pass undefined if not needed or the component's attachments.
-			// For now, let's assume attachments are handled by userContentPayload for the API, and UI attachments are for local display if needed by service.
-			// The service's sendMessage signature is: (chatId: string, userContent: UserContentExt, llmId: string, options?: CallSettings, attachmentsForUI?: Attachment[], autoReformat?: boolean)
-			// We can pass the original `attachments` array for `attachmentsForUI` if the service uses it for optimistic updates.
-			apiCall = this._chatService.sendMessage(currentChat.id, userContentPayload, currentLlmId, options, attachments, enableReformat);
+			const baseChatOptions = currentUser.chat && typeof currentUser.chat === 'object' ? currentUser.chat : {};
+			const options = { ...baseChatOptions, thinking: this.llmHasThinkingLevels() ? this.thinkingLevel() : null };
+			const enableReformat = this.autoReformatEnabled();
+
+			let apiCall: Observable<any>;
+			// Use chatStateBeforeSend to determine if chat is new/existing, as this.chat() might change
+			const chatForAPICall = chatStateBeforeSend;
+
+			if (!chatForAPICall || chatForAPICall.id === NEW_CHAT_ID) {
+				apiCall = this._chatService.createChat(userContentPayload, currentLlmId, options, enableReformat);
+			} else {
+				// Pass originalAttachments for UI purposes if service needs it for its own optimistic updates
+				apiCall = this._chatService.sendMessage(chatForAPICall.id, userContentPayload, currentLlmId, options, originalAttachments, enableReformat);
+			}
+
+			apiCall.subscribe({
+				next: (newOrUpdatedChat?: Chat) => {
+					if (newOrUpdatedChat && (!chatForAPICall || chatForAPICall.id === NEW_CHAT_ID)) {
+						this.router.navigate([`/ui/chat/${newOrUpdatedChat.id}`]).catch(console.error);
+					}
+					// Generating states and draft clearing are handled in 'complete'
+				},
+				error: (error) => {
+					console.error('Error sending message via API:', error);
+					this._snackBar.open('Failed to send message. Please try again.', 'Close', { duration: 5000, panelClass: ['error-snackbar'] });
+					
+					// Restore input and attachments
+					this.messageInput.nativeElement.value = originalMessageText;
+					this.selectedAttachments.set(originalAttachments);
+					this._resizeMessageInput(); // Resize after restoring
+
+					// Reset generating states
+					this.generating.set(false);
+					this.generatingAIMessage.set(null);
+					this.sendIcon.set('heroicons_outline:paper-airplane');
+				},
+				complete: () => {
+					this.generating.set(false);
+					this.generatingAIMessage.set(null);
+					this.sendIcon.set('heroicons_outline:paper-airplane');
+					// Input is already clear on success.
+					this._scrollToBottom();
+
+					// Clear draft using chatStateBeforeSend to get correct ID
+					const draftChatIdToClear = chatStateBeforeSend && chatStateBeforeSend.id === NEW_CHAT_ID ? 'new' : chatStateBeforeSend?.id;
+					if (draftChatIdToClear) {
+						this._localStorageService.clearDraftMessage(draftChatIdToClear);
+					}
+				},
+			});
+		} catch (prepareError) {
+			// Handle errors from pre-API call async operations (e.g., attachmentsAndTextToUserContentExt)
+			console.error('Error preparing message for sending:', prepareError);
+			this._snackBar.open('Failed to prepare message. Please try again.', 'Close', { duration: 5000, panelClass: ['error-snackbar'] });
+
+			// Restore input and attachments (since they were cleared optimistically)
+            this.messageInput.nativeElement.value = originalMessageText;
+            this.selectedAttachments.set(originalAttachments);
+            this._resizeMessageInput(); // Resize after restoring
+
+			// Reset generating states
+			this.generating.set(false);
+			this.generatingAIMessage.set(null); // If it was set before the error
+			this.sendIcon.set('heroicons_outline:paper-airplane');
 		}
-
-		apiCall.subscribe({
-			next: (newOrUpdatedChat?: Chat) => {
-				// createChat returns Chat, sendMessage returns void (updates signal)
-				if (newOrUpdatedChat && (!currentChat || currentChat.id === NEW_CHAT_ID)) {
-					// Navigating to new chat ID, service would have updated the main chat signal
-					this.router.navigate([`/ui/chat/${newOrUpdatedChat.id}`]).catch(console.error);
-				}
-				// For sendMessage, the service updates its chat signal, which the component's effect will pick up.
-				// For createChat, the service also updates its chat signal.
-			},
-			error: (error) => {
-				console.error('Error sending message:', error);
-				this._snackBar.open('Failed to send message. Please try again.', 'Close', { duration: 5000, panelClass: ['error-snackbar'] });
-				// Restore input if needed, though optimistic updates are cleared by effect
-				this.messageInput.nativeElement.value = messageText;
-				this.selectedAttachments.set(attachments);
-				// Reset generating states here as well, as the main effect might not run if chat doesn't change
-				this.generating.set(false);
-				this.generatingAIMessage.set(null);
-				this.sendIcon.set('heroicons_outline:paper-airplane');
-			},
-			complete: () => {
-				this.generating.set(false);
-				this.generatingAIMessage.set(null);
-				this.sendIcon.set('heroicons_outline:paper-airplane');
-				this._resizeMessageInput();
-				this._scrollToBottom();
-
-				if (draftChatIdToClear) {
-					this._localStorageService.clearDraftMessage(draftChatIdToClear);
-				}
-			},
-		});
 	}
 
 	// Ensure messages have unique IDs for ngFor trackBy
@@ -917,11 +927,8 @@ export function parseMessageContent(textContent: string | undefined | null): Arr
 	// Regex to find fenced code blocks (e.g., ```lang\ncode\n``` or ```\ncode\n```)
 	// Note: In this string, backslashes for the regex are already escaped (e.g., \n becomes \\n for the TS regex engine).
 	const codeBlockRegex = /```(?:[a-zA-Z0-9\-+_]*)\n([\s\S]*?)\n?```/g;
-
-	let lastIndex = 0;
-	let match: RegExpExecArray | null = null;
-
-	// biome-ignore lint: noAssignInExpressions
+	let lastIndex = 0; let match: RegExpExecArray | null = null;
+	// biome-ignore lint/suspicious/noAssignInExpressions: valid use case for exec loop
 	while ((match = codeBlockRegex.exec(textContent)) !== null) {
 		// Add text before the code block
 		if (match.index > lastIndex) {

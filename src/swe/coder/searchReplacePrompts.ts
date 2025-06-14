@@ -19,7 +19,7 @@ Once you understand the request you MUST:
 
 All changes to files must use this *SEARCH/REPLACE block* format.
 ONLY EVER RETURN CODE IN A *SEARCH/REPLACE BLOCK*!
-{shell_cmd_prompt_section}`,
+`,
 
 	example_messages_template: [
 		{
@@ -146,8 +146,7 @@ If you want to put code in a new file, use a *SEARCH/REPLACE block* with:
 - An empty \`SEARCH\` section
 - The new file's contents in the \`REPLACE\` section
 
-{rename_with_shell_section}{final_reminders}ONLY EVER RETURN CODE IN A *SEARCH/REPLACE BLOCK*!
-{shell_cmd_reminder_section}
+{final_reminders}ONLY EVER RETURN CODE IN A *SEARCH/REPLACE BLOCK*!
 `,
 
 	lazy_prompt: `You are diligent and tireless!
@@ -177,41 +176,5 @@ If you believe edits to these files are necessary, state their full path names a
 
 	read_only_files_prefix: `Here are some READ ONLY files, provided for your reference.
 Do not edit these files!
-`,
-	shell_cmd_prompt: `
-If you suggest any shell commands, put them in a *SHELL_COMMAND block* per the example below.
-The user's OS is {platform}.
-
-*SHELL_COMMAND block* example:
-{fence_0}shell
-# shell command to run
-{fence_1}
-`,
-	no_shell_cmd_prompt: `
-Keep in mind these details about the user's platform and environment:
-{platform}
-`,
-
-	shell_cmd_reminder: `
-Examples of when to suggest shell commands:
-
-- If you changed a self-contained html file, suggest an OS-appropriate command to open a browser to view it.
-- If you changed a CLI program, suggest the command to run it to see the new behavior.
-- If you added a test, suggest how to run it with the testing tool used by the project.
-- Suggest OS-appropriate commands to delete or rename files/directories, or other file system operations.
-- If your code changes add new dependencies, suggest the command to install them.
-- Etc.
-
-If you suggest any shell commands, put them in a *SHELL_COMMAND block* per the example below.
-The user's OS is {platform}.
-
-*SHELL_COMMAND block* example:
-{fence_0}shell
-# shell command to run
-{fence_1}
-`,
-
-	rename_with_shell: `To rename files which have been added to the chat, use shell commands at the end of your response.
-
 `,
 };
