@@ -4,15 +4,11 @@ import { promises as fs, readFileSync } from 'node:fs';
 import { runAgentAndWait } from '#agent/autonomous/autonomousAgentRunner';
 import { AGENT_COMPLETED_PARAM_NAME } from '#agent/autonomous/functions/agentFunctions';
 import { appContext, initFirestoreApplicationContext } from '#app/applicationContext';
+import { LlmTools } from '#functions/llmTools';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
-import { LlmTools } from '#functions/util';
 import { Perplexity } from '#functions/web/perplexity';
 import { PublicWeb } from '#functions/web/web';
-import { Claude4_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { defaultLLMs } from '#llm/services/defaultLlms';
-import { groqLlama3_3_70B } from '#llm/services/groq';
-import { openAIo3 } from '#llm/services/openai';
-import { vertexGemini_2_0_Flash } from '#llm/services/vertexai';
 import { logger } from '#o11y/logger';
 import type { AgentLLMs } from '#shared/agent/agent.model';
 import { lastText } from '#shared/llm/llm.model';
@@ -90,13 +86,6 @@ async function answerGaiaQuestion(task: GaiaQuestion): Promise<GaiaResult> {
 	try {
 		const agentId = await runAgentAndWait({
 			initialPrompt: prompt,
-			// llms: ClaudeVertexLLMs(),
-			llms: {
-				easy: vertexGemini_2_0_Flash(),
-				medium: groqLlama3_3_70B(),
-				hard: Claude4_Sonnet_Vertex(),
-				xhard: openAIo3(),
-			},
 			agentName: `gaia-${task.task_id}`,
 			type: 'autonomous',
 			subtype: 'codegen',

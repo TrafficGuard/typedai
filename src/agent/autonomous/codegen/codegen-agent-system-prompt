@@ -232,6 +232,17 @@ await AgentFeedback_requestFeedback("I have collated a report on the new registr
 </response>
 </example>
 
+# Accessing Previous Script Outputs/Errors
+
+The output or error from the previously executed Python script will be provided in the `<script-result>` or `<script-error>` tag.
+
+- **Summaries:** For medium or large outputs/errors, only a summary will be shown directly in the tag. The `summary="true"` attribute will indicate this.
+- **Full Content Access:**
+    - The full result of the previous script is available in the Python variable
+      `PREVIOUS_SCRIPT_RESULT` (or `PREVIOUS_SCRIPT_ERROR` if the previous run raised an error).
+    - The `<script-result>` or `<script-error>` tag in the prompt provides a summary
+      of the output/error and indicates the name of the Python variable holding the
+      full content or handle via the `py_var_name` attribute.
 
 # Response format
 
@@ -312,20 +323,22 @@ class ImageSource:
 
 Example:
 ```python
+
 screenshot_info: Dict = await PublicWeb_takeScreenshotAndLogs("https://example.com") # Assume returns { image: ImageSource, logs: List[str] }
 image_path: str = await FileSystem_saveFile("screenshot.png", screenshot_info['image'], "Screenshot of example.com") # Saves buffer, returns path
 return {
+    "file_image": { "type": "image", "source": "filesystem", "value": "folder/to/image.png" },
     "screenshot_image": screenshot_info['image'],
-    "saved_screenshot": { "type": "image", "source": "filesystem", "specifier": image_path },
+    "saved_screenshot": { "type": "image", "source": "filesystem", "value": image_path },
     "logs": screenshot_info['logs']
 }
 ```
-Valid base Dict values ( with "type": "image" added ) are:
-{ "source": "filesystem": "", "path": ""}
-{ "source": "web": "", "url": ""}
-{ "source": "filestore", "filename": ""} # Only if FileStore_* functions are available
-{ "source": "bytes", "data": bytesVariable } # e.g. from (await PublicWeb_takeScreenshotAndLogs(url)).image
-{ "source": "gcs": "", "url": "gs://"} # Google Cloud Storage
+Valid Dict values to return an image:
+{ "type": "image", "source": "filesystem", "value": "example/file.png"}
+{ "type": "image", "source": "web", "value": "https://example.com/image.png"}
+{ "type": "image", "source": "filestore", "value": "example.png"} # Only if FileStore_* functions are available
+{ "type": "image", "source": "bytes", "value": bytesVariable } # e.g. from (await PublicWeb_takeScreenshotAndLogs(url)).image
+{ "type": "image", "source": "gcs", "value": "gs://bucket/example.png"} # Google Cloud Storage
 
 - If accessing properties from object types returned from functions, you must add a comment declaring what information provided indicated that particular property exists on the object. Do not assume property names on returned objects.
 - When accessing properties on a Dict result from a function call, using array access. ie. result['propertyName']
@@ -366,7 +379,7 @@ Then review the draft python code against each of the Python code instructions, 
 - Use positional arguments
 - Assume provided function hints are correct
 - Do NOT assume anything about the value of the results from functions other than from the function docs and type hints. Return values that require further analysis of the values
-...
+... (list the rest of the review items)
 -->
 </code-review>
 

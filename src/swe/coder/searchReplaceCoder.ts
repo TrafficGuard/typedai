@@ -275,6 +275,25 @@ export class SearchReplaceCoder {
 		this._addReflectionToMessages(session, reflectionText, currentMessages);
 	}
 
+	/** Returns list of file paths that have changed since their snapshot. */
+	private async _detectExternalChanges(session: EditSession, targetBlocks: EditBlock[]): Promise<string[]> {
+		const changed: string[] = [];
+		const uniquePaths = new Set(targetBlocks.map((b) => b.filePath));
+		for (const relPath of uniquePaths) {
+			const snapshot = session.fileContentSnapshots.get(relPath);
+			if (snapshot === undefined) continue; // no snapshot → ignore
+			const absPath = this.getRepoFilePath(session.workingDir, relPath);
+			let current: string | null = null;
+			try {
+				current = await this.fs.readFile(absPath);
+			} catch {
+				current = null; // treat deletion as a change
+			}
+			if (snapshot !== current) changed.push(relPath);
+		}
+		return changed;
+	}
+
 	private async _buildPrompt(
 		session: EditSession,
 		userRequest: string,
@@ -505,6 +524,19 @@ export class SearchReplaceCoder {
 
 			// Handle "dirty commits" before applying edits
 			const { editsToApply, pathsToDirtyCommit } = await this._prepareToEdit(session, validBlocks);
+
+			// Proactive check for external file modifications before applying edits
+			const externallyChanged = await this._detectExternalChanges(session, editsToApply);
+			if (externallyChanged.length > 0) {
+				this._addReflectionToMessages(
+					session,
+					`The following file(s) were modified after the edit blocks were generated: ${externallyChanged.join(', ')}. \
+Please regenerate the edits using the updated content.`,
+					currentMessages,
+				);
+				continue; // restart attempt with fresh snapshots
+			}
+
 			if (dirtyCommits && this.vcs && pathsToDirtyCommit.size > 0 && !dryRun) {
 				const dirtyFilesArray = Array.from(pathsToDirtyCommit);
 				logger.info(`Found uncommitted changes in files targeted for edit: ${dirtyFilesArray.join(', ')}. Attempting dirty commit.`);

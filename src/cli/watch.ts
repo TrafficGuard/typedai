@@ -101,7 +101,8 @@ export function startWatcher() {
 
 			// Pass the prompt to the AiderCodeEditor
 			logger.info('Running SearchReplaceCoder...');
-			const result = await new SearchReplaceCoder(getFileSystem(), llms().hard).editFilesToMeetRequirements(prompt, [filePath], [], false);
+			// TODO should include all imported files as readonly
+			const result = await new SearchReplaceCoder(llms(), getFileSystem()).editFilesToMeetRequirements(prompt, [filePath], [], false);
 			logger.info(result);
 			// Exit early after handling the first valid line
 			return;

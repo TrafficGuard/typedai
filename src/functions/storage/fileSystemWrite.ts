@@ -1,6 +1,6 @@
 import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import { LlmTools } from '#functions/util';
+import { LlmTools } from '#functions/llmTools';
 import { logger } from '#o11y/logger';
 
 /**

@@ -19,7 +19,7 @@ import { ForceStopError } from '#agent/forceStopAgent';
 import { cloneAndTruncateBuffers, removeConsoleEscapeChars } from '#agent/trimObject';
 import { appContext } from '#app/applicationContext';
 import { getServiceName } from '#fastify/trace-init/trace-init';
-import { FUNC_SEP, type FunctionParameter, type FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
+import { FUNC_SEP, type FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
 import type { FileStore } from '#functions/storage/filestore';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
@@ -27,6 +27,7 @@ import type { AgentContext, AutonomousIteration } from '#shared/agent/agent.mode
 import { FILE_STORE_NAME, type FileMetadata } from '#shared/files/files.model';
 import { type FunctionCallResult, type ImagePartExt, type LlmMessage, type UserContentExt, messageText, system, text, user } from '#shared/llm/llm.model';
 import { errorToString } from '#utils/errors';
+import { CDATA_END, CDATA_START } from '#utils/xml-utils';
 import { agentContext, agentContextStorage, llms } from '../../agentContextLocalStorage';
 import { type HitlCounters, checkHumanInTheLoop } from '../humanInTheLoopChecks';
 import { checkForImageSources } from './agentImageUtils';
@@ -40,6 +41,13 @@ import {
 } from './pythonCodeGenUtils';
 
 const stopSequences = ['</response>'];
+
+// Thresholds for content size (in bytes)
+const LARGE_OUTPUT_THRESHOLD_BYTES = 50 * 1024; // 50KB
+const MAX_PROMPT_TAG_CONTENT_BYTES = 1024; // Max length for summary in <script-result/error> tag
+
+const PREVIOUS_SCRIPT_RESULT_VAR = 'PREVIOUS_SCRIPT_RESULT';
+const PREVIOUS_SCRIPT_ERROR_VAR = 'PREVIOUS_SCRIPT_ERROR';
 
 export const CODEGEN_AGENT_SPAN = 'CodeGen Agent';
 
@@ -101,6 +109,11 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 	let previousScriptResult = '';
 	// Store image parts detected in the last script result, to be included in the *next* prompt
 	let imageParts: ImagePartExt[] = [];
+	// Initialize globals for the first iteration so the variables always exist
+	let pyGlobalsForNextScriptExecution: Record<string, any> = {
+		[PREVIOUS_SCRIPT_RESULT_VAR]: '',
+		[PREVIOUS_SCRIPT_ERROR_VAR]: '',
+	};
 
 	let shouldContinue = true;
 	while (shouldContinue) {
@@ -206,9 +219,6 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				let pythonScriptResult: any;
 				let pythonScriptResultString: string | null = null; // To store the stringified result for the next prompt
 
-				// Store for the next iteration's prompt, wrapped in expected tags
-				previousAgentPlanResponse = `<response>\n${agentPlanResponse}\n</response>`;
-
 				// Extract the code, compile and fix if required
 				iterationData.draftCode = extractDraftPythonCode(agentPlanResponse);
 				iterationData.codeReview = extractCodeReview(agentPlanResponse);
@@ -216,13 +226,22 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				pythonMainFnCode = await ensureCorrectSyntax(pythonMainFnCode, functionsXml);
 				iterationData.code = pythonMainFnCode;
 
+				// Only keep the main-function code in the <python-code> section that we pass to the next iteration, so the agent does not see the full script.
+				// Replace whatever was inside <python-code>…</python-code> with the clean main-function code we just validated.
+				const sanitised = agentPlanResponse.replace(/<python-code>[\s\S]*?<\/python-code>/i, `<python-code>\n${pythonMainFnCode}\n</python-code>`);
+				// Save for next prompt
+				previousAgentPlanResponse = `<response>\n${sanitised}\n</response>`;
+
 				const currentIterationFunctionCalls: FunctionCallResult[] = [];
+
 				// Configure the objects for the Python global scope which proxy to the available @func class methods
 				const functionInstances: Record<string, object> = agent.functions.getFunctionInstanceMap();
 				const functionSchemas: FunctionSchema[] = getAllFunctionSchemas(Object.values(functionInstances));
-				const globals = setupPyodideFunctionCallableGlobals(functionSchemas, agent, agentPlanResponse, currentIterationFunctionCalls);
-				const wrapperCode = generatePythonWrapper(functionSchemas, pythonMainFnCode);
+				const functionProxies = setupPyodideFunctionProxies(functionSchemas, agent, agentPlanResponse, currentIterationFunctionCalls);
+				const allGlobalsForPyodide = { ...functionProxies, ...pyGlobalsForNextScriptExecution }; // Combine proxies with previous script output/error global
+				const pyodideGlobals = pyodide.toPy(allGlobalsForPyodide);
 
+				const wrapperCode = generatePythonWrapper(functionSchemas, pythonMainFnCode);
 				const pythonScript = wrapperCode + mainFnCodeToFullScript(pythonMainFnCode);
 				iterationData.executedCode = pythonScript;
 
@@ -231,7 +250,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				await agentStateService.updateState(agent, 'functions');
 
 				try {
-					const result = await pyodide.runPythonAsync(pythonScript, { globals });
+					const result = await pyodide.runPythonAsync(pythonScript, { globals: pyodideGlobals });
 					// The dict_converter converts to regular JS objects instead of the default Map objects
 					pythonScriptResult = result?.toJs ? result.toJs({ dict_converter: Object.fromEntries }) : result;
 					if (result?.destroy) result.destroy();
@@ -293,10 +312,31 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 					requestFeedback = true;
 				}
 
-				// Store the script result string (or error) for the next iteration's prompt
-				previousScriptResult = agent.error
-					? `<python-script>\n${pythonMainFnCode}\n</python-script>\n<script-error>\n${agent.error}\n</script-error>`
-					: `<script-result>${pythonScriptResultString}</script-result>`;
+				// --- Handling of script output/error ---
+				// The script result/error is added to the prompt for the next iteration
+				// If the result/error is large then it a summary is added to the prompt for the next iteration, and the full content is available in the Python variable
+				// If the result/error is small then it is added to the prompt for the next iteration, and also available in the Python variable
+				const currentScriptOutputContent: string = agent.error ? agent.error : (pythonScriptResultString ?? '');
+				const isError: boolean = !!agent.error;
+				const pyGlobalVarName = isError ? PREVIOUS_SCRIPT_ERROR_VAR : PREVIOUS_SCRIPT_RESULT_VAR;
+				const outputLengthBytes = Buffer.byteLength(currentScriptOutputContent, 'utf8');
+
+				// Content Representation in the LLM Prompt (previousScriptResult) appended to the next iteration's prompt
+				let tagAttributes = `py_var_name="${pyGlobalVarName}"`;
+				if (outputLengthBytes > LARGE_OUTPUT_THRESHOLD_BYTES) {
+					tagAttributes += ' summary="true"';
+				}
+				const promptTagContent =
+					outputLengthBytes > LARGE_OUTPUT_THRESHOLD_BYTES
+						? createPromptTagSummary(currentScriptOutputContent, MAX_PROMPT_TAG_CONTENT_BYTES)
+						: currentScriptOutputContent;
+
+				const tagName = isError ? 'script-error' : 'script-result';
+				previousScriptResult = `<${tagName} ${tagAttributes}>${CDATA_START}\n${promptTagContent}\n${CDATA_END}</${tagName}>`;
+
+				// Prepare Pyodide Global Variable Injection for the *next* iteration
+				pyGlobalsForNextScriptExecution = { [pyGlobalVarName]: currentScriptOutputContent };
+				// --- End of script output/error handling ---
 
 				currentFunctionHistorySize = agent.functionCallHistory.length;
 
@@ -341,35 +381,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				agent.toolState = toolStateMap as typeof agent.toolState;
 
 				// Generate and set iteration summary
-				try {
-					// Ensure required fields for summary are available
-					const planForSummary = iterationData.agentPlan || 'No plan provided.';
-					const observationsForSummary = iterationData.observationsReasoning || 'No observations.';
-					// previousScriptResult is already XML-tagged or contains an error message
-					const scriptResultForSummary = previousScriptResult || 'No script result recorded for this iteration.';
-
-					const summaryPromptContent = `Create a concise summary in a sentence or two for the agent's last iteration.
-User Request: ${agent.userPrompt}
-Agent Plan:
-${planForSummary}
-Observations & Reasoning:
-${observationsForSummary}
-Generated Code:
-${iterationData.code}
-Script Result/Error:
-${scriptResultForSummary.length > 50000 ? scriptResultForSummary.substring(0, 50000) : scriptResultForSummary}
-Focus on the outcome and next step if clear.`;
-
-					const summaryMessage = await llms().easy.generateMessage([{ role: 'user', content: summaryPromptContent }], {
-						id: 'IterationSummary',
-						temperature: 0.3,
-						thinking: 'low',
-					});
-					iterationData.summary = messageText(summaryMessage);
-				} catch (e) {
-					logger.error(e, 'Error creating iteration summary [e]');
-					iterationData.summary = 'Failed to generate iteration summary.';
-				}
+				await createIterationSummary(iterationData, previousScriptResult, agent);
 
 				try {
 					await agentStateService.save(agent);
@@ -402,6 +414,43 @@ Focus on the outcome and next step if clear.`;
 	return agent.agentId;
 }
 
+/**
+ * Creates a summary for the iteration.
+ * @param iterationData The data for the iteration.
+ * @param previousScriptResult The result of the previous script execution.
+ * @param agent The agent context.
+ */
+async function createIterationSummary(iterationData: Partial<AutonomousIteration>, previousScriptResult: string, agent: AgentContext) {
+	try {
+		const planForSummary = iterationData.agentPlan || 'No plan provided.';
+		const observationsForSummary = iterationData.observationsReasoning || 'No observations.';
+		// previousScriptResult is already XML-tagged or contains an error message
+		const scriptResultForSummary = previousScriptResult || 'No script result recorded for this iteration.';
+
+		const summaryPromptContent = `Create a concise summary in a sentence or two for the agent's last iteration.
+User Request: ${agent.userPrompt}
+Agent Plan:
+${planForSummary}
+Observations & Reasoning:
+${observationsForSummary}
+Generated Code:
+${iterationData.code}
+Script Result/Error:
+${scriptResultForSummary.length > 50000 ? scriptResultForSummary.substring(0, 50000) : scriptResultForSummary}
+Focus on the outcome and next step if clear.`;
+
+		const summaryMessage = await llms().easy.generateMessage([{ role: 'user', content: summaryPromptContent }], {
+			id: 'IterationSummary',
+			temperature: 0.3,
+			thinking: 'low',
+		});
+		iterationData.summary = messageText(summaryMessage);
+	} catch (e) {
+		logger.error(e, 'Error creating iteration summary [e]');
+		iterationData.summary = 'Failed to generate iteration summary.';
+	}
+}
+
 function extractLineNumber(text: string): number | null {
 	const regex = /File "<exec>", line\s+(\d+), in main/;
 	const match = text.match(regex);
@@ -413,18 +462,18 @@ function extractLineNumber(text: string): number | null {
 	return null;
 }
 
-function setupPyodideFunctionCallableGlobals(
+function setupPyodideFunctionProxies(
 	functionSchemas: FunctionSchema[],
 	agent: AgentContext,
 	agentPlanResponse: string,
 	currentIterationFunctionCalls: FunctionCallResult[],
-) {
+): Record<string, (...args: any[]) => Promise<any>> {
 	const functionInstances: Record<string, object> = agent.functions.getFunctionInstanceMap();
+	const jsFunctionProxies: Record<string, (...args: any[]) => Promise<any>> = {};
 
-	const jsGlobals = {};
 	for (const schema of functionSchemas) {
 		const [className, method] = schema.name.split(FUNC_SEP);
-		jsGlobals[`_${schema.name}`] = async (...args: any[]) => {
+		jsFunctionProxies[`_${schema.name}`] = async (...args: any[]) => {
 			// logger.info(`args ${JSON.stringify(args)}`); // Can be very verbose
 			// The system prompt instructs the generated code to use positional arguments.
 			const expectedParamNames: string[] = schema.parameters.map((p) => p.name);
@@ -457,9 +506,11 @@ function setupPyodideFunctionCallableGlobals(
 				return functionResponse;
 			} catch (e) {
 				logger.warn(e, 'Error calling function');
-				let stderr = removeConsoleEscapeChars(errorToString(e, false));
+				const stderr = removeConsoleEscapeChars(errorToString(e, false));
 				if (stderr.length > FUNCTION_OUTPUT_THRESHOLD) {
-					stderr = await summarizeFunctionOutput(agent, agentPlanResponse, schema, parameters, stderr);
+					// For function call errors, we might not need to summarize as aggressively as script errors.
+					// Keeping existing logic, or simplify if full error is always preferred for function calls.
+					// stderr = await summarizeFunctionOutput(agent, agentPlanResponse, schema, parameters, stderr);
 				}
 				const functionCallResult: FunctionCallResult = {
 					iteration: agent.iterations,
@@ -474,7 +525,7 @@ function setupPyodideFunctionCallableGlobals(
 			}
 		};
 	}
-	return pyodide.toPy(jsGlobals);
+	return jsFunctionProxies; // Return the JS object directly
 }
 
 /**
@@ -640,4 +691,34 @@ async function ensureCorrectSyntax(pythonMainFnCode: string, functionsXml: strin
 		}
 	}
 	return pythonMainFnCode;
+}
+
+function createPromptTagSummary(content: string, maxLength: number): string {
+	if (Buffer.byteLength(content, 'utf8') <= maxLength) {
+		return content;
+	}
+	// Simple truncation for summary: half from start, half from end
+	const halfMaxLength = Math.floor(maxLength / 2) - 20; // -20 for "...\n...\n..."
+	if (halfMaxLength <= 0) return content.substring(0, maxLength); // Fallback for very small maxLength
+
+	let startStr = '';
+	let endStr = '';
+	let currentLength = 0;
+	for (let i = 0; i < content.length; i++) {
+		const char = content[i];
+		const charLen = Buffer.byteLength(char, 'utf8');
+		if (currentLength + charLen > halfMaxLength) break;
+		startStr += char;
+		currentLength += charLen;
+	}
+
+	currentLength = 0;
+	for (let i = content.length - 1; i >= 0; i--) {
+		const char = content[i];
+		const charLen = Buffer.byteLength(char, 'utf8');
+		if (currentLength + charLen > halfMaxLength) break;
+		endStr = char + endStr;
+		currentLength += charLen;
+	}
+	return `${startStr}\n...\n[Content Truncated]\n...\n${endStr}`;
 }

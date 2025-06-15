@@ -18,7 +18,7 @@ export interface ImageSource {
 	 * - bytes/buffer: The image data (Buffer | Uint8Array | object).
 	 * - web/gcs: The URL (string).
 	 */
-	specifier: string | Buffer | Uint8Array | object; // Type needs to be broad
+	value: string | Buffer | Uint8Array | object; // Type needs to be broad
 	filename?: string; // for filestore or buffer (optional)
 	mimeType?: string; // optional hint
 }
@@ -54,26 +54,26 @@ export async function checkForImageSources(result: Record<string, any>, fileStor
 			try {
 				switch (request.source) {
 					case 'base64':
-						if (typeof request.specifier !== 'string') throw new Error('specifier must be a string when source is base64');
-						base64 = request.specifier;
+						if (typeof request.value !== 'string') throw new Error('value must be a string when source is base64');
+						base64 = request.value;
 						break;
 
 					case 'bytes': {
-						let bufferData = request.specifier;
+						let bufferData = request.value;
 						const sourceDescription = `key '${key}' (source: bytes)`;
-						logger.debug(`Processing ${sourceDescription}. Specifier type: ${typeof bufferData}`); // Log type
+						logger.debug(`Processing ${sourceDescription}. value type: ${typeof bufferData}`); // Log type
 
-						// Optionally log a small part of the specifier if it's an object
+						// Optionally log a small part of the value if it's an object
 						if (typeof bufferData === 'object' && bufferData !== null) {
 							try {
 								const keys = Object.keys(bufferData);
-								logger.debug(`Specifier keys (first 10): ${keys.slice(0, 10).join(', ')}`);
+								logger.debug(`value keys (first 10): ${keys.slice(0, 10).join(', ')}`);
 								if (keys.length > 0) {
 									const firstKey = keys[0];
 									logger.debug(`Type of first value (key: ${firstKey}): ${typeof bufferData[firstKey]}`);
 								}
 							} catch (logErr) {
-								logger.warn('Error logging specifier details:', logErr);
+								logger.warn('Error logging value details:', logErr);
 							}
 						}
 
@@ -128,9 +128,7 @@ export async function checkForImageSources(result: Record<string, any>, fileStor
 							}
 						} else {
 							// Log if bufferData is not an object, buffer, uint8array, or proxy
-							logger.warn(
-								`Specifier for ${sourceDescription} is not a recognized format (Object, Buffer, Uint8Array, PyodideProxy). Type: ${typeof bufferData}`,
-							);
+							logger.warn(`value for ${sourceDescription} is not a recognized format (Object, Buffer, Uint8Array, PyodideProxy). Type: ${typeof bufferData}`);
 						}
 
 						// 4. If imageData was successfully created (from any method above), process filename/mimeType
@@ -158,10 +156,10 @@ export async function checkForImageSources(result: Record<string, any>, fileStor
 						break;
 					}
 					case 'filesystem':
-						if (request.specifier && typeof request.specifier === 'string') {
-							const fullPath = path.resolve(agentStorageDir(), request.specifier);
+						if (request.value && typeof request.value === 'string') {
+							const fullPath = path.resolve(agentStorageDir(), request.value);
 							// Security check: Ensure path is within the allowed agent directory
-							if (!fullPath.startsWith(agentStorageDir())) throw new Error(`Filesystem path "${request.specifier}" is outside the allowed agent directory.`);
+							if (!fullPath.startsWith(agentStorageDir())) throw new Error(`Filesystem path "${request.value}" is outside the allowed agent directory.`);
 							imageData = await fsPromises.readFile(fullPath);
 							filename = path.basename(fullPath);
 							mimeType = getMimeType(filename);
@@ -185,7 +183,7 @@ export async function checkForImageSources(result: Record<string, any>, fileStor
 
 					// case 'buffer': {
 					// 	// Handle potential Pyodide buffer proxy
-					// 	let bufferData = request.specifier;
+					// 	let bufferData = request.value;
 					// 	if (bufferData && typeof bufferData.tobytes === 'function') {
 					// 		logger.debug(`Detected Pyodide buffer proxy for key '${key}', converting.`);
 					// 		bufferData = bufferData.tobytes(); // Convert Pyodide proxy to Uint8Array
@@ -205,14 +203,14 @@ export async function checkForImageSources(result: Record<string, any>, fileStor
 					// }
 
 					case 'web':
-						if (request.specifier && typeof request.specifier === 'string') {
-							const response = await fetch(request.specifier);
-							if (!response.ok) throw new Error(`Failed to fetch web image from ${request.specifier}: ${response.statusText}`);
+						if (request.value && typeof request.value === 'string') {
+							const response = await fetch(request.value);
+							if (!response.ok) throw new Error(`Failed to fetch web image from ${request.value}: ${response.statusText}`);
 
 							const arrayBuffer = await response.arrayBuffer();
 							imageData = Buffer.from(arrayBuffer);
 							try {
-								filename = path.basename(new URL(request.specifier).pathname) || `web_image_${Date.now()}`;
+								filename = path.basename(new URL(request.value).pathname) || `web_image_${Date.now()}`;
 							} catch {
 								filename = `web_image_${Date.now()}`; // Fallback filename if URL parsing fails
 							}

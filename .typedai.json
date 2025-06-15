@@ -7,7 +7,7 @@
     "compile": "node build.js build",
     "format": "",
     "staticAnalysis": "node build.js lint",
-    "test": "cd frontend && npm run test:ci",
+    "test": "node build.js test",
     "devBranch": "main",
     "indexDocs": [
       "src/**/*.ts",
