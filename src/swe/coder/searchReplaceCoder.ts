@@ -3,6 +3,7 @@ import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { buildFileSystemTreePrompt } from '#agent/agentPromptUtils';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
+import type { AgentLLMs } from '#shared/agent/agent.model';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
 import type { LLM, LlmMessage } from '#shared/llm/llm.model';
 import { user as createUserMessage, messageText } from '#shared/llm/llm.model';
@@ -113,8 +114,8 @@ export class SearchReplaceCoder {
 	private readonly systemReminderForUserPrompt: string;
 
 	constructor(
+		private llms: AgentLLMs,
 		private fs: IFileSystemService = getFileSystem(),
-		private llm: LLM = llms().hard,
 		private rules: ValidationRule[] = [new PathExistsRule(), new ModuleAliasRule()],
 	) {
 		this.vcs = this.fs.getVcsRoot() ? this.fs.getVcs() : null;
@@ -381,15 +382,18 @@ export class SearchReplaceCoder {
 		let currentMessages: LlmMessage[] = [];
 		const dryRun = false; // Not currently configurable at this level
 
+		let llm = this.llms.medium;
 		// Label for breaking out of nested loops to the main attempt loop
 		while (session.attempt < MAX_ATTEMPTS) {
 			session.attempt++;
+			if (session.attempt === MAX_ATTEMPTS - 1) llm = this.llms.hard;
+
 			logger.info(`SearchReplaceCoder: Attempt ${session.attempt}/${MAX_ATTEMPTS}`);
 
 			currentMessages = await this._buildPrompt(session, requirements, filesToEdit, readOnlyFiles /* repoMapContent? */);
 			logger.debug({ messagesLength: currentMessages.length }, 'SearchReplaceCoder: Prompt built for LLM');
 
-			const llmResponseMsgObj: LlmMessage = await this.llm.generateMessage(currentMessages, {
+			const llmResponseMsgObj: LlmMessage = await llm.generateMessage(currentMessages, {
 				id: `SearchReplaceCoder.editFiles.attempt${session.attempt}`,
 				temperature: 0.05,
 			});
@@ -411,7 +415,7 @@ export class SearchReplaceCoder {
 			}
 
 			//  Decide which edit-response format to parse based on the model name
-			const modelId = this.llm.getModel();
+			const modelId = llm.getModel();
 			// Sort keys by length in descending order to match longer, more specific keys first (e.g., "o3-mini" before "o3")
 			const sortedModelFormatEntries = Object.entries(MODEL_EDIT_FORMATS).sort(([keyA], [keyB]) => keyB.length - keyA.length);
 			const editFormat: EditFormat = sortedModelFormatEntries.find(([key]) => modelId.includes(key))?.[1] ?? 'diff';
@@ -597,7 +601,7 @@ export class SearchReplaceCoder {
 	 */
 	@func()
 	async edit(requirements: string, filesToEdit: string[], readOnlyFiles: string[], autoCommit = true, dirtyCommits = true): Promise<void> {
-		const maxTokens = this.llm.getMaxInputTokens();
+		const maxTokens = this.llms.medium.getMaxInputTokens();
 
 		// The getMaxInputTokens() method in the LLM interface returns a number, not number | undefined.
 		// However, to be safe against implementations that might return 0 or a falsy value, we check for a positive number.

@@ -86,9 +86,14 @@
                                             Include System Message
                                         </mat-slide-toggle>
                                     </h3>
-                                    <button mat-icon-button type="button" (click)="addMessage()" matTooltip="Add Message">
-                                        <mat-icon svgIcon="heroicons_outline:plus-circle"></mat-icon>
-                                    </button>
+                                    <div class="flex items-center"> <!-- Wrapper for buttons -->
+                                        <button mat-icon-button type="button" (click)="copyMessagesAsXml()" matTooltip="Copy Messages as XML" class="mr-2">
+                                            <mat-icon svgIcon="heroicons_outline:clipboard"></mat-icon>
+                                        </button>
+                                        <button mat-icon-button type="button" (click)="addMessage()" matTooltip="Add Message">
+                                            <mat-icon svgIcon="heroicons_outline:plus-circle"></mat-icon>
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div *ngIf="messagesFormArray.controls.length === 0" class="text-center text-gray-500 py-4 border rounded-md bg-gray-50 dark:bg-gray-800">

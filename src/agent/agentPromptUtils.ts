@@ -28,7 +28,7 @@ export function buildMemoryPrompt(): string {
  * TODO move the string generation into the tool classes
  */
 export async function buildToolStatePrompt(): Promise<string> {
-	return (await buildLiveFilesPrompt()) + (await buildFileStorePrompt()) + (await buildFileSystemTreePrompt()) + (await buildFileSystemPrompt());
+	return (await buildFileSystemTreePrompt()) + (await buildLiveFilesPrompt()) + (await buildFileStorePrompt()) + (await buildFileSystemPrompt());
 }
 
 export async function buildFileSystemTreePrompt(): Promise<string> {
@@ -105,7 +105,8 @@ async function buildLiveFilesPrompt(): Promise<string> {
 	if (!agent.functions.getFunctionClassNames().includes(LiveFiles.name)) return '';
 
 	const liveFiles = agentContext().toolState?.LiveFiles ?? [];
-	if (!liveFiles || !liveFiles.length) return '\n<live_files>\n<!-- No files selected. Live files will have their contents displayed here -->\n</live_files>';
+	if (!liveFiles || !liveFiles.length)
+		return '\n<live_files>\n<!-- No files selected. Live files will have their current contents displayed here -->\n</live_files>';
 
 	const rulesFiles = await includeAlternativeAiToolFiles(liveFiles);
 	for (const liveFile of liveFiles) {

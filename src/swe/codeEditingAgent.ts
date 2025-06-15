@@ -270,7 +270,7 @@ export class CodeEditingAgent {
 				// Remove any duplicates in codeEditorFiles
 				for (const editingFile of codeEditorFiles) if (ruleFiles.has(editingFile)) ruleFiles.delete(editingFile);
 
-				const coder = new SearchReplaceCoder(getFileSystem(), llms().hard, undefined);
+				const coder = new SearchReplaceCoder(llms(), getFileSystem(), undefined);
 				await coder.editFilesToMeetRequirements(codeEditorRequirements, codeEditorFiles, Array.from(ruleFiles), true, true);
 
 				// The code editor may add new files, so we want to add them to the initial file set
@@ -335,7 +335,7 @@ export class CodeEditingAgent {
 						logger.info(`Static analysis error output: ${staticAnalysisErrorOutput}`);
 						const staticErrorFiles: string[] = await this.extractFilenames(`${staticAnalysisErrorOutput}\n\nExtract the filenames from the compile errors.`);
 
-						await new SearchReplaceCoder(getFileSystem(), llms().hard).editFilesToMeetRequirements(
+						await new SearchReplaceCoder(llms(), getFileSystem(), undefined).editFilesToMeetRequirements(
 							`Static analysis command: ${projectInfo.staticAnalysis}\n${staticAnalysisErrorOutput}\nFix these static analysis errors`,
 							[...initialSelectedFiles, ...staticErrorFiles],
 							[],
@@ -425,7 +425,7 @@ export class CodeEditingAgent {
 			try {
 				let testRequirements = `${requirements}\nSome of the requirements may have already been implemented, so don't duplicate any existing implementation meeting the requirements.\n`;
 				testRequirements += 'Write any additional tests that would be of value.';
-				await new SearchReplaceCoder(getFileSystem(), llms().hard).editFilesToMeetRequirements(testRequirements, initialSelectedFiles, [], true, true);
+				await new SearchReplaceCoder(llms(), getFileSystem(), undefined).editFilesToMeetRequirements(testRequirements, initialSelectedFiles, [], true, true);
 				await this.compile(projectInfo);
 				await this.runTests(projectInfo);
 				errorAnalysis = null;

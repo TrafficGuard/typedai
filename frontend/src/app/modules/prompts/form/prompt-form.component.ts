@@ -1,5 +1,6 @@
 import { animate, state, style, transition, trigger } from '@angular/animations';
 import { CdkTextareaAutosize } from '@angular/cdk/text-field';
+import { Clipboard, ClipboardModule } from '@angular/cdk/clipboard';
 import { CommonModule, Location, TitleCasePipe } from '@angular/common';
 import {
 	ChangeDetectionStrategy,
@@ -67,6 +68,7 @@ import { filter, finalize, takeUntil, tap } from 'rxjs/operators';
 		MatTooltipModule,
 		TitleCasePipe,
 		CdkTextareaAutosize, // Add CdkTextareaAutosize here
+		ClipboardModule,
 	],
 	templateUrl: './prompt-form.component.html',
 	styleUrls: ['./prompt-form.component.scss'],
@@ -86,6 +88,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 	private location = inject(Location);
 	private cdr = inject(ChangeDetectorRef);
 	private llmService = inject(LlmService);
+	private clipboard = inject(Clipboard);
 
 	private initialNavigationState: { [k: string]: any } | undefined;
 
@@ -686,6 +689,54 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 		this.destroy$.next();
 		this.destroy$.complete();
 	}
+
+	public copyMessagesAsXml(): void {
+        if (!this.promptForm || !this.promptForm.value.messages) {
+            console.warn('Prompt form or messages not available for XML export.');
+            return;
+        }
+
+        const formMessages = this.promptForm.value.messages as Array<{
+            role: LlmMessage['role'];
+            content: string; // Text content from the textarea
+            attachments: Attachment[] | null; // Structured attachment objects
+        }>;
+
+        if (formMessages.length === 0) {
+            // Optionally, inform the user that there are no messages to copy
+            // For now, we can just copy an empty <llm-messages></llm-messages> or do nothing.
+            // Let's copy an empty structure if no messages.
+            this.clipboard.copy('<llm-messages></llm-messages>');
+            // Consider adding a user notification (e.g., toast) here.
+            return;
+        }
+
+        let xmlString = '<llm-messages>\n';
+
+        for (const formMsg of formMessages) {
+            let contentForXml: string;
+            if (formMsg.role === 'user' && formMsg.attachments && formMsg.attachments.length > 0) {
+                // Ensure attachments are valid before passing to attachmentsAndTextToUserContentExt
+                const validAttachments = formMsg.attachments.filter(att => att); // Filter out any null/undefined attachments if that's possible
+                const userContentExt = attachmentsAndTextToUserContentExt(validAttachments, formMsg.content);
+                contentForXml = this._convertLlmContentToString(userContentExt);
+            } else {
+                // For system, assistant, or user messages without attachments
+                contentForXml = this._convertLlmContentToString(formMsg.content);
+            }
+            // Escape XML special characters in role if necessary, though 'system', 'user', 'assistant' are safe.
+            // Content is wrapped in CDATA, so it doesn't need further escaping.
+            xmlString += `  <${formMsg.role}><![CDATA[${contentForXml}]]></${formMsg.role}>\n`;
+        }
+
+        xmlString += '</llm-messages>';
+
+        this.clipboard.copy(xmlString);
+        // Optionally, add a user notification (e.g., toast) that copy was successful.
+        // For example: this.snackBar.open('Messages copied as XML!', 'Close', { duration: 2000 });
+        // This would require injecting MatSnackBar. For now, console log for confirmation.
+        console.log('Messages copied to clipboard as XML.');
+    }
 
 	public async onFileSelected(event: Event, messageIndex: number): Promise<void> {
 		const inputElement = event.target as HTMLInputElement;
