@@ -12,12 +12,12 @@ export class DeepThink {
 	 * This query runs independent of any context and understanding you currently have. All required information to answer the query must be passed in as arguments.
 	 * @param files Any files to include in the query
 	 * @param memoryKeys Any memory keys to include in the query
-	 * @param additionalInformation Any additional information to include in the query
-	 * @param query The query to answer
+	 * @param additionalInformation Any additional information to include in the query (logs, function outputs, etc)
+	 * @param queryOrRequirements The query to answer or requirements to generate a response for
 	 * @returns The response to the query
 	 */
 	@func()
-	async deepThink(files: string[], memoryKeys: string[], additionalInformation: string, query: string): Promise<string> {
+	async deepThink(files: string[], memoryKeys: string[], additionalInformation: string, queryOrRequirements: string): Promise<string> {
 		const agent: AgentContext = agentContext();
 		const fss: IFileSystemService = agent.fileSystem;
 
@@ -30,16 +30,16 @@ export class DeepThink {
 			.join('\n');
 
 		let prompt = '';
-		if (filesContent.length > 0) {
-			prompt += `Files:\n${filesContent.join('\n')}\n\n`;
-		}
 		if (memoryContent.length > 0) {
 			prompt += `Memory:\n${memoryContent}\n\n`;
+		}
+		if (filesContent.length > 0) {
+			prompt += `Files:\n${filesContent.join('\n')}\n\n`;
 		}
 		if (additionalInformation.length > 0) {
 			prompt += `Additional Information:\n${additionalInformation}\n\n`;
 		}
-		prompt += `Query: ${query}`;
+		prompt += `Request:\n${queryOrRequirements}\n\n`;
 
 		return await MAD_Balanced().generateTextWithResult(prompt);
 	}

@@ -160,7 +160,7 @@ describe('ChatServiceClient', () => {
 			});
 			tick();
 			expect(hasCompleted).toBe(true); // EMPTY completes immediately
-			httpMock.expectNone(CHAT_API.listChats.path);
+			httpMock.expectNone(CHAT_API.listChats.pathTemplate);
 		}));
 	});
 

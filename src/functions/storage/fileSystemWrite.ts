@@ -33,6 +33,15 @@ export class FileSystemWrite {
 	}
 
 	/**
+	 * Delete a file
+	 * @param {string} filePath The file to delete
+	 */
+	@func()
+	async deleteFile(filePath: string): Promise<void> {
+		await getFileSystem().deleteFile(filePath);
+	}
+
+	/**
 	 * Edits a file using a search and replace. Provide the minimal lines of text from the file contents as the unique search string.
 	 * @param filePath The file to edit
 	 * @param search The lines of text in the file to replace. Note that all the whitespace must be identical.
