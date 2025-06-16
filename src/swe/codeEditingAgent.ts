@@ -210,7 +210,7 @@ export class CodeEditingAgent {
 
 				const codeEditorFiles: string[] = [...initialSelectedFiles];
 				// Start with the installed packages list and project conventions
-				let codeEditorRequirements = await supportingInformation(projectInfo);
+				let codeEditorRequirements = await supportingInformation(projectInfo, codeEditorFiles);
 
 				codeEditorRequirements += '\nEnsure when making edits that any existing code comments are retained.\n';
 
