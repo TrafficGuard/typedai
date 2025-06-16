@@ -4,7 +4,7 @@ import mock from 'mock-fs';
 import path from 'node:path';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { supportingInformation } from './supportingInformation';
-import { detectProjectInfo, AI_INFO_FILENAME } from './projectDetection';
+import { detectProjectInfo, AI_INFO_FILENAME, type ProjectInfoFileFormat } from './projectDetection';
 import { TypescriptTools } from './lang/nodejs/typescriptTools';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
 
@@ -14,35 +14,33 @@ describe('supportingInformation', () => {
     const repoRoot = path.resolve('/repo');
     const frontendDir = path.join(repoRoot, 'frontend');
 
-    const typedAiJson = JSON.stringify(
-        [
-            {
-                baseDir: './',
-                language: 'typescript',
-                primary: true,
-                devBranch: 'main',
-                initialise: '',
-                compile: '',
-                format: '',
-                staticAnalysis: '',
-                test: '',
-                indexDocs: [],
-            },
-            {
-                baseDir: 'frontend',
-                language: 'typescript',
-                devBranch: 'main',
-                initialise: '',
-                compile: '',
-                format: '',
-                staticAnalysis: '',
-                test: '',
-                indexDocs: [],
-            },
-        ],
-        null,
-        2,
-    );
+    const projectInfoData: ProjectInfoFileFormat[] = [
+        {
+            baseDir: './',
+            language: 'typescript',
+            primary: true,
+            devBranch: 'main',
+            initialise: '',
+            compile: '',
+            format: '',
+            staticAnalysis: '',
+            test: '',
+            indexDocs: [],
+        },
+        {
+            baseDir: 'frontend',
+            language: 'typescript',
+            devBranch: 'main',
+            initialise: '',
+            compile: '',
+            format: '',
+            staticAnalysis: '',
+            test: '',
+            indexDocs: [],
+        },
+    ];
+
+    const typedAiJson = JSON.stringify(projectInfoData, null, 2);
 
     const fsStructure = {
         [repoRoot]: {
