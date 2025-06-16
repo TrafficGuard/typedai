@@ -60,9 +60,14 @@ export class FileSystemService implements IFileSystemService {
 	log: Pino.Logger;
 
 	// Returns true when the absolute path is inside a directory the service
-	// should always allow: the original basePath OR the current workingDirectory.
+	// should always allow: the original basePath OR the current workingDirectory OR the current Git repository root.
 	private isPathAllowed(absPath: string): boolean {
-		return absPath.startsWith(this.basePath) || absPath.startsWith(this.workingDirectory);
+		const vcsRoot = this.getVcsRoot(); // may be null
+		return (
+			absPath.startsWith(this.basePath) ||
+			absPath.startsWith(this.workingDirectory) ||
+			(vcsRoot !== null && absPath.startsWith(vcsRoot))
+		);
 	}
 
 	/**
@@ -382,17 +387,11 @@ export class FileSystemService implements IFileSystemService {
 
 		// Security check:
 		if (!this.isPathAllowed(absolutePathToRead)) {
-			const vcsRoot = this.getVcsRoot();
-			if (!vcsRoot || !absolutePathToRead.startsWith(vcsRoot)) {
-				this.log.warn(
-					{ absolutePathToRead, basePath: this.basePath, vcsRoot, requestedPath: filePath },
-					'readFile attempt for path is outside basePath and VCS root (or VCS root is null). Denying access.',
-				);
-				throw new FileNotFound(
-					`File ${filePath} (resolved to ${absolutePathToRead}) is outside allowed directories (basePath: ${this.basePath}, vcsRoot: ${vcsRoot || 'null'})`,
-				);
-			}
-			// Path is inside VCS root – allow access
+			this.log.warn(
+				{ absolutePathToRead, basePath: this.basePath, workingDirectory: this.workingDirectory },
+				'Path is outside the allowed directories. Denying access.',
+			);
+			throw new FileNotFound(`File ${filePath} (resolved to ${absolutePathToRead}) is outside the allowed directories.`);
 		}
 
 		try {
@@ -503,15 +502,11 @@ export class FileSystemService implements IFileSystemService {
 
 		// Security check:
 		if (!this.isPathAllowed(absolutePathToCheck)) {
-			const vcsRoot = this.getVcsRoot();
-			if (!vcsRoot || !absolutePathToCheck.startsWith(vcsRoot)) {
-				this.log.warn(
-					{ absolutePathToCheck, basePath: this.basePath, vcsRoot, requestedPath: filePath },
-					'fileExists check for path is outside basePath and VCS root (or VCS root is null). Denying access.',
-				);
-				return false;
-			}
-			// Path is inside VCS root – allowing access for check.
+			this.log.warn(
+				{ absolutePathToCheck, basePath: this.basePath, workingDirectory: this.workingDirectory },
+				'Path is outside the allowed directories. Denying access.',
+			);
+			return false;
 		}
 
 		try {
@@ -538,15 +533,11 @@ export class FileSystemService implements IFileSystemService {
 
 		// Security check:
 		if (!this.isPathAllowed(absolutePathToCheck)) {
-			const vcsRoot = this.getVcsRoot();
-			if (!vcsRoot || !absolutePathToCheck.startsWith(vcsRoot)) {
-				this.log.warn(
-					{ absolutePathToCheck, basePath: this.basePath, vcsRoot, requestedPath: dirPath },
-					'directoryExists check for path is outside basePath and VCS root (or VCS root is null). Denying access.',
-				);
-				return false;
-			}
-			// Path is inside VCS root – allowing access for check.
+			this.log.warn(
+				{ absolutePathToCheck, basePath: this.basePath, workingDirectory: this.workingDirectory },
+				'Path is outside the allowed directories. Denying access.',
+			);
+			return false;
 		}
 
 		try {
@@ -588,17 +579,11 @@ export class FileSystemService implements IFileSystemService {
 
 		// Security check
 		if (!this.isPathAllowed(resolvedPath)) {
-			const vcsRoot = this.getVcsRoot();
-			if (!vcsRoot || !resolvedPath.startsWith(vcsRoot)) {
-				this.log.error(
-					{ resolvedPath, basePath: this.basePath, vcsRoot, requestedPath: filePath },
-					'writeFile attempt for path is outside basePath and VCS root. Denying write.',
-				);
-				throw new Error(
-					`Cannot write file ${filePath} (resolved to ${resolvedPath}). Path is outside allowed directories (basePath: ${this.basePath}, vcsRoot: ${vcsRoot || 'null'}).`,
-				);
-			}
-			// Path is inside VCS root – allowing write.
+			this.log.error(
+				{ resolvedPath, basePath: this.basePath, workingDirectory: this.workingDirectory },
+				'Path is outside the allowed directories. Denying write.',
+			);
+			throw new Error(`Cannot write file ${filePath} (resolved to ${resolvedPath}). Path is outside allowed directories.`);
 		}
 
 		this.log.debug(`Writing file "${filePath}" (resolved: "${resolvedPath}") with ${contents.length} chars`);
