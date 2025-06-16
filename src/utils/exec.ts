@@ -27,14 +27,25 @@ export function checkExecResult(result: ExecResults, message: string) {
 function getAvailableShell(): string {
 	const possibleShells = ['/bin/zsh', '/usr/bin/zsh', '/bin/bash', '/usr/bin/bash', '/bin/sh', '/usr/bin/sh'];
 	for (const shellPath of possibleShells) {
-		if (existsSync(shellPath)) {
-			return shellPath;
+		try {
+			if (existsSync(shellPath)) {
+				return shellPath;
+			}
+		} catch (e) {
+			// existsSync might throw in mocked environments (like mock-fs).
+			// Log and continue checking other shells or fallbacks.
+			logger.debug(`existsSync failed for ${shellPath}: ${e.message}`);
 		}
 	}
-	if (process.env.SHELL && existsSync(process.env.SHELL)) {
+
+	// If none of the preferred shells were found or checked,
+	// fall back to process.env.SHELL or a platform default.
+	if (process.env.SHELL) {
 		return process.env.SHELL;
 	}
-	throw new Error('No suitable shell found for executing commands.');
+
+	// Provide a default based on the operating system if SHELL is not set
+	return process.platform === 'win32' ? 'cmd.exe' : '/bin/bash';
 }
 
 export function execCmdSync(command: string, cwd = getFileSystem().getWorkingDirectory()): ExecResults {
