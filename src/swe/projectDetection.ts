@@ -171,7 +171,15 @@ export async function detectProjectInfo(): Promise<ProjectInfo[]> {
 	logger.info('detectProjectInfo: Starting project detection process.');
 	const fss = getFileSystem();
 	const cwdInfoPath = path.join(fss.getWorkingDirectory(), AI_INFO_FILENAME);
-	const vcsRootInfoPath = join(fss.getVcsRoot(), AI_INFO_FILENAME);
+
+	let vcsRoot: string | null = null;
+	try {
+		vcsRoot = fss.getVcsRoot();
+	} catch (e) {
+		logger.warn(e, 'Failed to get VCS root, proceeding without it.');
+	}
+
+	const vcsRootInfoPath = vcsRoot ? path.join(vcsRoot, AI_INFO_FILENAME) : null;
 
 	let loadedInfos: ProjectInfo[] | null;
 
@@ -180,7 +188,7 @@ export async function detectProjectInfo(): Promise<ProjectInfo[]> {
 
 	// 2. If not found in CWD, try VCS root
 	if (loadedInfos === null) {
-		if (cwdInfoPath !== vcsRootInfoPath) {
+		if (vcsRootInfoPath && cwdInfoPath !== vcsRootInfoPath) {
 			// Avoid re-processing if CWD is VCS root
 			loadedInfos = await tryLoadAndParse(vcsRootInfoPath, fss, 'VCS root');
 			if (loadedInfos !== null) {
