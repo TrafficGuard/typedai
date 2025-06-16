@@ -8,7 +8,7 @@ import { detectProjectInfo, AI_INFO_FILENAME, type ProjectInfoFileFormat } from 
 import { TypescriptTools } from './lang/nodejs/typescriptTools';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
 
-describe('supportingInformation', () => {
+describe.only('supportingInformation', () => {
     setupConditionalLoggerOutput();
 
     const repoRoot = path.resolve('/repo');
