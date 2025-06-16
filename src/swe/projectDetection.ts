@@ -170,7 +170,8 @@ async function tryLoadAndParse(filePath: string, fss: IFileSystemService, locati
 export async function detectProjectInfo(): Promise<ProjectInfo[]> {
 	logger.info('detectProjectInfo: Starting project detection process.');
 	const fss = getFileSystem();
-	const cwdInfoPath = path.join(fss.getWorkingDirectory(), AI_INFO_FILENAME);
+	// Always access the file relative to the current working directory
+	const cwdInfoPath = AI_INFO_FILENAME;
 
 	let vcsRoot: string | null = null;
 	try {
@@ -179,24 +180,28 @@ export async function detectProjectInfo(): Promise<ProjectInfo[]> {
 		logger.warn(e, 'Failed to get VCS root, proceeding without it.');
 	}
 
-	const vcsRootInfoPath = vcsRoot ? path.join(vcsRoot, AI_INFO_FILENAME) : null;
-
 	let loadedInfos: ProjectInfo[] | null;
 
 	// 1. Try CWD
 	loadedInfos = await tryLoadAndParse(cwdInfoPath, fss, 'CWD');
 
-	// 2. If not found in CWD, try VCS root
-	if (loadedInfos === null) {
-		if (vcsRootInfoPath && cwdInfoPath !== vcsRootInfoPath) {
-			// Avoid re-processing if CWD is VCS root
-			loadedInfos = await tryLoadAndParse(vcsRootInfoPath, fss, 'VCS root');
+	// 2. If not found in CWD, try VCS root (by temporarily changing WD)
+	if (loadedInfos === null && vcsRoot && vcsRoot !== fss.getWorkingDirectory()) {
+		const originalWd = fss.getWorkingDirectory();
+		fss.setWorkingDirectory(vcsRoot);
+		try {
+			loadedInfos = await tryLoadAndParse(AI_INFO_FILENAME, fss, 'VCS root');
 			if (loadedInfos !== null) {
 				// Successfully loaded from VCS root
 				logger.info(`Using valid project info from VCS root. Writing to CWD for consistency: ${cwdInfoPath}`);
 				const infosToSaveToFileFormat = loadedInfos.map(mapProjectInfoToFileFormat);
+				// Switch back to original WD before writing
+				fss.setWorkingDirectory(originalWd);
 				await fss.writeFile(cwdInfoPath, JSON.stringify(infosToSaveToFileFormat, null, 2));
 			}
+		} finally {
+			// Ensure working directory is restored
+			fss.setWorkingDirectory(originalWd);
 		}
 	}
 
