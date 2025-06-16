@@ -59,6 +59,12 @@ export class FileSystemService implements IFileSystemService {
 	private vcs: VersionControlSystem | null = null;
 	log: Pino.Logger;
 
+	// Returns true when the absolute path is inside a directory the service
+	// should always allow: the original basePath OR the current workingDirectory.
+	private isPathAllowed(absPath: string): boolean {
+		return absPath.startsWith(this.basePath) || absPath.startsWith(this.workingDirectory);
+	}
+
 	/**
 	 * @param basePath The root folder allowed to be accessed by this file system instance. This should only be accessed by system level
 	 * functions. Generally getWorkingDirectory() should be used
@@ -155,11 +161,11 @@ export class FileSystemService implements IFileSystemService {
 		const oldAbsPath = path.isAbsolute(filePath) ? filePath : path.resolve(serviceCwd, filePath);
 		const newAbsPath = path.isAbsolute(newPath) ? newPath : path.resolve(serviceCwd, newPath);
 
-		if (!oldAbsPath.startsWith(this.basePath)) {
-			throw new Error(`Source path '${filePath}' is outside the allowed directory.`);
+		if (!this.isPathAllowed(oldAbsPath)) {
+			throw new Error(`Source path '${filePath}' (resolved to ${oldAbsPath}) is outside the allowed directories (basePath: ${this.basePath}, workingDirectory: ${this.workingDirectory}).`);
 		}
-		if (!newAbsPath.startsWith(this.basePath)) {
-			throw new Error(`Destination path '${newPath}' is outside the allowed directory.`);
+		if (!this.isPathAllowed(newAbsPath)) {
+			throw new Error(`Destination path '${newPath}' (resolved to ${newAbsPath}) is outside the allowed directories (basePath: ${this.basePath}, workingDirectory: ${this.workingDirectory}).`);
 		}
 
 		try {
@@ -375,7 +381,7 @@ export class FileSystemService implements IFileSystemService {
 		}
 
 		// Security check:
-		if (!absolutePathToRead.startsWith(this.basePath)) {
+		if (!this.isPathAllowed(absolutePathToRead)) {
 			const vcsRoot = this.getVcsRoot();
 			if (!vcsRoot || !absolutePathToRead.startsWith(vcsRoot)) {
 				this.log.warn(
@@ -386,10 +392,7 @@ export class FileSystemService implements IFileSystemService {
 					`File ${filePath} (resolved to ${absolutePathToRead}) is outside allowed directories (basePath: ${this.basePath}, vcsRoot: ${vcsRoot || 'null'})`,
 				);
 			}
-			this.log.debug(
-				{ absolutePathToRead, basePath: this.basePath, vcsRoot, requestedPath: filePath },
-				'readFile attempt for path is outside basePath but within VCS root. Allowing access.',
-			);
+			// Path is inside VCS root – allow access
 		}
 
 		try {
@@ -499,7 +502,7 @@ export class FileSystemService implements IFileSystemService {
 		}
 
 		// Security check:
-		if (!absolutePathToCheck.startsWith(this.basePath)) {
+		if (!this.isPathAllowed(absolutePathToCheck)) {
 			const vcsRoot = this.getVcsRoot();
 			if (!vcsRoot || !absolutePathToCheck.startsWith(vcsRoot)) {
 				this.log.warn(
@@ -508,10 +511,7 @@ export class FileSystemService implements IFileSystemService {
 				);
 				return false;
 			}
-			this.log.debug(
-				{ absolutePathToCheck, basePath: this.basePath, vcsRoot, requestedPath: filePath },
-				'fileExists check for path is outside basePath but within VCS root. Allowing access for check.',
-			);
+			// Path is inside VCS root – allowing access for check.
 		}
 
 		try {
@@ -537,7 +537,7 @@ export class FileSystemService implements IFileSystemService {
 		}
 
 		// Security check:
-		if (!absolutePathToCheck.startsWith(this.basePath)) {
+		if (!this.isPathAllowed(absolutePathToCheck)) {
 			const vcsRoot = this.getVcsRoot();
 			if (!vcsRoot || !absolutePathToCheck.startsWith(vcsRoot)) {
 				this.log.warn(
@@ -546,10 +546,7 @@ export class FileSystemService implements IFileSystemService {
 				);
 				return false;
 			}
-			this.log.debug(
-				{ absolutePathToCheck, basePath: this.basePath, vcsRoot, requestedPath: dirPath },
-				'directoryExists check for path is outside basePath but within VCS root. Allowing access for check.',
-			);
+			// Path is inside VCS root – allowing access for check.
 		}
 
 		try {
@@ -590,7 +587,7 @@ export class FileSystemService implements IFileSystemService {
 		}
 
 		// Security check
-		if (!resolvedPath.startsWith(this.basePath)) {
+		if (!this.isPathAllowed(resolvedPath)) {
 			const vcsRoot = this.getVcsRoot();
 			if (!vcsRoot || !resolvedPath.startsWith(vcsRoot)) {
 				this.log.error(
@@ -601,10 +598,7 @@ export class FileSystemService implements IFileSystemService {
 					`Cannot write file ${filePath} (resolved to ${resolvedPath}). Path is outside allowed directories (basePath: ${this.basePath}, vcsRoot: ${vcsRoot || 'null'}).`,
 				);
 			}
-			this.log.debug(
-				{ resolvedPath, basePath: this.basePath, vcsRoot, requestedPath: filePath },
-				'writeFile attempt for path is outside basePath but within VCS root. Allowing write.',
-			);
+			// Path is inside VCS root – allowing write.
 		}
 
 		this.log.debug(`Writing file "${filePath}" (resolved: "${resolvedPath}") with ${contents.length} chars`);
