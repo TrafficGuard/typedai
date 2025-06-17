@@ -1,6 +1,17 @@
 import { getFileSystem } from '#agent/agentContextLocalStorage';
 import path from 'node:path';
-import { detectProjectInfo, type ProjectInfo } from '#swe/projectDetection';
+import { detectProjectInfo, type ProjectInfo, AI_INFO_FILENAME } from '#swe/projectDetection';
+
+async function findRepoRoot(start: string, fss: typeof getFileSystem): Promise<string | null> {
+	const fileSystemService = fss();
+	let dir = start;
+	while (true) {
+		if (await fileSystemService.fileExists(path.join(dir, AI_INFO_FILENAME))) return dir;
+		const parent = path.dirname(dir);
+		if (parent === dir) return null;
+		dir = parent;
+	}
+}
 
 export async function supportingInformation(
 	projectInfo: ProjectInfo,
@@ -15,15 +26,26 @@ export async function supportingInformation(
 		 * 1. Work out which projects we need to report on
 		 * --------------------------------------------------------- */
 		const allProjects = await detectProjectInfo(); // backend + frontend + any others
+
+		// Determine the repository root using VCS root or by searching upwards for .typedai.json
+		const repoRoot = fss.getVcsRoot() ?? (await findRepoRoot(originalWd, getFileSystem)) ?? originalWd;
+
 		function abs(dir: string) {
-			return path.resolve(fss.getVcsRoot() ?? originalWd, dir);
+			return path.resolve(repoRoot, dir);
 		}
 		const absFiles = selectedFiles.map((p) => path.resolve(originalWd, p));
 
-		const projectsToInclude =
-			selectedFiles.length === 0
-				? [projectInfo] // old behaviour
-				: allProjects.filter((p) => absFiles.some((file) => file.startsWith(abs(p.baseDir))));
+		let projectsToInclude = selectedFiles.length === 0
+			? [projectInfo] // old behaviour
+			: allProjects.filter((p) => absFiles.some((file) => file.startsWith(abs(p.baseDir))));
+
+		// If a more specific project is included, drop the root-level project (./ or .)
+		if (
+			projectsToInclude.some((p) => p.baseDir !== './' && p.baseDir !== '.') &&
+			projectsToInclude.some((p) => p.baseDir === './' || p.baseDir === '.')
+		) {
+			projectsToInclude = projectsToInclude.filter((p) => p.baseDir !== './' && p.baseDir !== '.');
+		}
 
 		/* Always fall back to the current project if nothing matched */
 		if (projectsToInclude.length === 0) projectsToInclude.push(projectInfo);

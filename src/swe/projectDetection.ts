@@ -1,4 +1,4 @@
-import path, { join } from 'node:path';
+import path, { join, dirname, resolve } from 'node:path';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
 import { IFileSystemService } from '#shared/files/fileSystemService';
@@ -145,8 +145,9 @@ async function tryLoadAndParse(filePath: string, fss: IFileSystemService, locati
 			// File is invalid
 			logger.warn(`${AI_INFO_FILENAME} at ${filePath} is invalid. Renaming it.`);
 			try {
-				const newName = `${filePath}.invalid_${Date.now()}`;
-				await fss.rename(filePath, newName);
+				const absPath = path.isAbsolute(filePath) ? filePath : path.resolve(fss.getWorkingDirectory(), filePath);
+				const newName = `${absPath}.invalid_${Date.now()}`;
+				await fss.rename(absPath, newName);
 				logger.info(`Renamed invalid file to ${newName}`);
 			} catch (renameError) {
 				const errorMessage = renameError instanceof Error ? renameError.message : String(renameError);
@@ -159,6 +160,17 @@ async function tryLoadAndParse(filePath: string, fss: IFileSystemService, locati
 	}
 	logger.info(`${AI_INFO_FILENAME} not found in ${locationName} at ${filePath}`);
 	return null;
+}
+
+async function findUpwards(startDir: string, file: string, fss: IFileSystemService): Promise<string | null> {
+	let dir = startDir;
+	while (true) {
+		const candidate = path.join(dir, file);
+		if (await fss.fileExists(candidate)) return candidate;
+		const parent = path.dirname(dir);
+		if (parent === dir) return null;
+		dir = parent;
+	}
 }
 
 /**
@@ -191,7 +203,7 @@ export async function detectProjectInfo(): Promise<ProjectInfo[]> {
 		fss.setWorkingDirectory(vcsRoot);
 		try {
 			loadedInfos = await tryLoadAndParse(AI_INFO_FILENAME, fss, 'VCS root');
-			if (loadedInfos !== null) {
+			if (loadedInfos !== null && Array.isArray(loadedInfos)) {
 				// Successfully loaded from VCS root
 				logger.info(`Using valid project info from VCS root. Writing to CWD for consistency: ${cwdInfoPath}`);
 				const infosToSaveToFileFormat = loadedInfos.map(mapProjectInfoToFileFormat);
@@ -205,7 +217,30 @@ export async function detectProjectInfo(): Promise<ProjectInfo[]> {
 		}
 	}
 
-	// 3. If no valid file loaded from CWD or VCS root, run detection agent
+	// 3. If still no valid file, search upwards from CWD
+	if (loadedInfos === null) {
+		const found = await findUpwards(fss.getWorkingDirectory(), AI_INFO_FILENAME, fss);
+		if (found) {
+			const originalWd = fss.getWorkingDirectory();
+			fss.setWorkingDirectory(path.dirname(found));
+			try {
+				loadedInfos = await tryLoadAndParse(AI_INFO_FILENAME, fss, 'parent directory');
+				if (loadedInfos !== null && Array.isArray(loadedInfos)) {
+					// Successfully loaded from a parent directory
+					logger.info(`Using valid project info from parent directory: ${found}. Writing to CWD for consistency: ${cwdInfoPath}`);
+					const infosToSave = loadedInfos.map(mapProjectInfoToFileFormat);
+					// Switch back to original WD before writing
+					fss.setWorkingDirectory(originalWd);
+					await fss.writeFile(cwdInfoPath, JSON.stringify(infosToSave, null, 2));
+				}
+			} finally {
+				// Ensure working directory is restored
+				fss.setWorkingDirectory(originalWd);
+			}
+		}
+	}
+
+	// 4. If no valid file loaded from CWD, VCS root, or parent directories, run detection agent
 	if (loadedInfos === null) {
 		const detectedProjectInfos = await projectDetectionAgent();
 
