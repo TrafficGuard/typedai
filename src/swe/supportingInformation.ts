@@ -1,6 +1,5 @@
 import { getFileSystem } from '#agent/agentContextLocalStorage';
 import path from 'node:path';
-import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { detectProjectInfo, type ProjectInfo } from '#swe/projectDetection';
 
 export async function supportingInformation(
