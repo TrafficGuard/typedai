@@ -332,11 +332,23 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 					// Get the scrollHeight and subtract the vertical padding
 					this.messageInput.nativeElement.style.height = `${this.messageInput.nativeElement.scrollHeight}px`;
 
-					// --- keep caret visible without forcing full-scroll ---
+					// --- Keep caret line visible without jumping to the bottom ---
 					const textarea = this.messageInput?.nativeElement as HTMLTextAreaElement | undefined;
 					if (textarea) {
-						const pos = textarea.selectionStart ?? 0; // current caret position
-						textarea.setSelectionRange(pos, pos); // re-set → browser scrolls caret into view
+						const pos = textarea.selectionStart ?? 0;
+
+						// Estimate caret’s vertical position
+						const beforeCaret = textarea.value.substring(0, pos);
+						const lineCount = (beforeCaret.match(/\n/g)?.length ?? 0); // zero-based
+						const lineHeight = parseInt(getComputedStyle(textarea).lineHeight, 10) || 16;
+						const caretTopPx = lineCount * lineHeight;
+
+						// If caret is above/ below the visible viewport, scroll just enough
+						if (caretTopPx < textarea.scrollTop) {
+							textarea.scrollTop = caretTopPx;
+						} else if (caretTopPx + lineHeight > textarea.scrollTop + textarea.clientHeight) {
+							textarea.scrollTop = caretTopPx + lineHeight - textarea.clientHeight;
+						}
 					}
 				}
 			}, 100);
