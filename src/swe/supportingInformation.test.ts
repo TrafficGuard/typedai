@@ -8,7 +8,18 @@ import { detectProjectInfo, AI_INFO_FILENAME, type ProjectInfoFileFormat } from 
 import { TypescriptTools } from './lang/nodejs/typescriptTools';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
 
-describe.only('supportingInformation', () => {
+import { FileSystemService } from '#functions/storage/fileSystemService';
+import { expect } from 'chai';
+import sinon from 'sinon';
+import mock from 'mock-fs';
+import path from 'node:path';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
+import { supportingInformation } from './supportingInformation';
+import { detectProjectInfo, AI_INFO_FILENAME, type ProjectInfoFileFormat } from './projectDetection';
+import { TypescriptTools } from './lang/nodejs/typescriptTools';
+import { getFileSystem } from '#agent/agentContextLocalStorage';
+
+describe('supportingInformation', () => {
     setupConditionalLoggerOutput();
 
     const repoRoot = path.resolve('/repo');
@@ -66,6 +77,9 @@ describe.only('supportingInformation', () => {
                     ? '<installed_packages>FRONTEND</installed_packages>'
                     : '<installed_packages>BACKEND</installed_packages>';
             });
+
+        // Stub getVcsRoot to prevent Git calls and agent context issues in tests
+        sinon.stub(FileSystemService.prototype, 'getVcsRoot').returns(null);
 
         getFileSystem().setWorkingDirectory(repoRoot);
     });
