@@ -331,6 +331,13 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 					this.messageInput.nativeElement.style.height = 'auto';
 					// Get the scrollHeight and subtract the vertical padding
 					this.messageInput.nativeElement.style.height = `${this.messageInput.nativeElement.scrollHeight}px`;
+
+					// --- keep caret visible without forcing full-scroll ---
+					const textarea = this.messageInput?.nativeElement as HTMLTextAreaElement | undefined;
+					if (textarea) {
+						const pos = textarea.selectionStart ?? 0; // current caret position
+						textarea.setSelectionRange(pos, pos); // re-set → browser scrolls caret into view
+					}
 				}
 			}, 100);
 		});
