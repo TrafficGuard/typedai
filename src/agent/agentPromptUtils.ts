@@ -58,7 +58,7 @@ export async function buildFileSystemTreePrompt(): Promise<string> {
 
 		return `\n<file_system_tree>
 ${treeString}
-</file_system_tree>\n`;
+</file_system_tree>\n<file_system_tree_collapsed_folders>\n${collapsedFolders.join('\n')}\n</file_system_tree_collapsed_folders>`;
 	} catch (error) {
 		logger.error(error, 'Error building file system tree prompt');
 		return '\n<file_system_tree>\n<!-- Error generating file system tree. -->\n</file_system_tree>\n';
@@ -114,7 +114,7 @@ async function buildLiveFilesPrompt(): Promise<string> {
 	}
 	let rulesFilesPrompt = '';
 	if (rulesFiles.size) {
-		rulesFilesPrompt = `<rules_files>\n${await getFileSystem().readFilesAsXml(Array.from(rulesFiles.values()))}\n</rules_files>\n`;
+		rulesFilesPrompt = `<!-- Rules files are automatically included based on the LiveFiles selection -->\n<rules_files>\n${await getFileSystem().readFilesAsXml(Array.from(rulesFiles.values()))}\n</rules_files>\n`;
 	}
 
 	return `\n${rulesFilesPrompt}<live_files>

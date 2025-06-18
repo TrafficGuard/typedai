@@ -1,6 +1,6 @@
-import { getFileSystem } from '#agent/agentContextLocalStorage';
 import path from 'node:path';
-import { detectProjectInfo, type ProjectInfo, AI_INFO_FILENAME } from '#swe/projectDetection';
+import { getFileSystem } from '#agent/agentContextLocalStorage';
+import { AI_INFO_FILENAME, type ProjectInfo, detectProjectInfo } from '#swe/projectDetection';
 
 async function findRepoRoot(start: string, fss: typeof getFileSystem): Promise<string | null> {
 	const fileSystemService = fss();
@@ -35,15 +35,13 @@ export async function supportingInformation(
 		}
 		const absFiles = selectedFiles.map((p) => path.resolve(originalWd, p));
 
-		let projectsToInclude = selectedFiles.length === 0
-			? [projectInfo] // old behaviour
-			: allProjects.filter((p) => absFiles.some((file) => file.startsWith(abs(p.baseDir))));
+		let projectsToInclude =
+			selectedFiles.length === 0
+				? [projectInfo] // old behaviour
+				: allProjects.filter((p) => absFiles.some((file) => file.startsWith(abs(p.baseDir))));
 
 		// If a more specific project is included, drop the root-level project (./ or .)
-		if (
-			projectsToInclude.some((p) => p.baseDir !== './' && p.baseDir !== '.') &&
-			projectsToInclude.some((p) => p.baseDir === './' || p.baseDir === '.')
-		) {
+		if (projectsToInclude.some((p) => p.baseDir !== './' && p.baseDir !== '.') && projectsToInclude.some((p) => p.baseDir === './' || p.baseDir === '.')) {
 			projectsToInclude = projectsToInclude.filter((p) => p.baseDir !== './' && p.baseDir !== '.');
 		}
 

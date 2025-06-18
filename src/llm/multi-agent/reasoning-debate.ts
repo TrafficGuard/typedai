@@ -154,7 +154,15 @@ export class ReasonerDebateLLM extends BaseLLM {
 	}
 
 	protected async _generateMessage(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<LlmMessage> {
+		opts ??= {};
+		// Use 'thinking' as the number of debate rounds
+		let rounds = 1;
+		if (opts.thinking === 'high') rounds = 3;
+		else if (opts.thinking === 'medium') rounds = 2;
+
+		// We want the actuall LLM calls to use high thinking
 		opts.thinking = 'high';
+
 		const readOnlyMessages = llmMessages as ReadonlyArray<Readonly<LlmMessage>>;
 		const totalStats: GenerationStats = createEmptyStats(this.getId());
 
@@ -163,7 +171,7 @@ export class ReasonerDebateLLM extends BaseLLM {
 		initialResponseMessages.forEach((msg) => accumulateStats(totalStats, msg.stats));
 
 		logger.info('Debating responses');
-		const debatedResponseMessages = await this.multiAgentDebate(readOnlyMessages, initialResponseMessages, opts);
+		const debatedResponseMessages = await this.multiAgentDebate(readOnlyMessages, initialResponseMessages, opts, rounds);
 		debatedResponseMessages.forEach((msg) => accumulateStats(totalStats, msg.stats));
 
 		logger.info('Mediating response');
@@ -184,8 +192,8 @@ export class ReasonerDebateLLM extends BaseLLM {
 	private async multiAgentDebate(
 		llmMessages: ReadonlyArray<Readonly<LlmMessage>>,
 		initialMessages: ReadonlyArray<LlmMessage>, // Changed from responses: string[]
-		opts?: GenerateTextOptions,
-		rounds = 2,
+		opts: GenerateTextOptions,
+		rounds: number,
 	): Promise<LlmMessage[]> {
 		const effectiveOpts = { ...opts, temperature: DEBATE_TEMP };
 		let currentRoundMessages: ReadonlyArray<LlmMessage> = initialMessages;

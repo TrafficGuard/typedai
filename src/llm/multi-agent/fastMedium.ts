@@ -8,7 +8,7 @@ import { BaseLLM } from '../base-llm';
 
 /**
  * LLM implementation for medium level LLM using a fast provider if available and applicable, else falling back to the standard medium LLM
- * https://artificialanalysis.ai/?models_selected=o1-mini%2Cgpt-4o%2Cgpt-4o-mini%2Cllama-3-1-instruct-405b%2Cllama-3-1-instruct-70b%2Cgemini-1-5-pro%2Cgemini-1-5-flash%2Cclaude-35-sonnet%2Cclaude-3-5-haiku%2Cdeepseek-v2-5%2Cqwen2-5-72b-instruct%2Cqwen2-5-coder-32b-instruct&models=gemini-2-5-flash%2Cgemini-2-5-flash-reasoning%2Ccerebras_qwen3-32b-instruct-reasoning%2Csambanova_llama-4-maverick%2Csambanova_deepseek-v3-0324%2Csambanova_qwen3-32b-instruct-reasoning&endpoints=cerebras_qwen3-32b-instruct-reasoning%2Csambanova_llama-4-maverick%2Csambanova_deepseek-v3-0324%2Csambanova_qwen3-32b-instruct-reasoning
+ * https://artificialanalysis.ai/?models=gemini-2-5-flash%2Cgemini-2-5-flash-reasoning%2Cgroq_qwen3-32b-instruct-reasoning%2Cgroq_qwen3-32b-instruct%2Ccerebras_qwen3-32b-instruct-reasoning&endpoints=groq_qwen3-32b-instruct-reasoning%2Cgroq_qwen3-32b-instruct%2Ccerebras_qwen3-32b-instruct-reasoning
  */
 export class FastMediumLLM extends BaseLLM {
 	private readonly providers: LLM[];

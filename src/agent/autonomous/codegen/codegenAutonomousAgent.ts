@@ -122,7 +122,8 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 
 			// Control loop variables
 			let completed = false;
-			let requestFeedback = false;
+			let agentRequestedFeedbackFlag = false;
+			let uiRequestedHilFlag = false;
 			let controlLoopError: Error | null = null;
 			let currentImageParts: ImagePartExt[] = []; // Reset image parts for this iteration's script result processing
 
@@ -309,7 +310,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				} else if (lastFunctionCall?.function_name === AGENT_REQUEST_FEEDBACK) {
 					logger.info(`Feedback requested: ${lastFunctionCall.parameters[REQUEST_FEEDBACK_PARAM_NAME]}`);
 					agent.state = 'hitl_feedback';
-					requestFeedback = true;
+					agentRequestedFeedbackFlag = true;
 				}
 
 				// --- Handling of script output/error ---
@@ -340,13 +341,16 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 
 				currentFunctionHistorySize = agent.functionCallHistory.length;
 
-				// If the agent hasn't already transitioned to completed or hitl_feedback then
-				// update the state to hitl_feedback if requested
-				const currentAgent = await agentStateService.load(agent.agentId);
-				if (currentAgent.hilRequested) {
-					if (agent.state === 'functions') {
-						agent.state = 'hitl_feedback';
-						requestFeedback = true;
+				currentFunctionHistorySize = agent.functionCallHistory.length;
+
+				// Check for UI-initiated HIL request
+				// If the agent hasn't already decided to stop (completed or agent-requested feedback),
+				// check if the UI has requested HIL.
+				if (!completed && !agentRequestedFeedbackFlag) {
+					const currentAgent = await agentStateService.load(agent.agentId); // Ensure we have the latest hilRequested status
+					if (currentAgent.hilRequested) {
+						agent.state = 'hitl_user';
+						uiRequestedHilFlag = true;
 					}
 				}
 			} catch (e) {
@@ -405,7 +409,8 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				}
 			}
 
-			const shouldStopExecution = completed || requestFeedback || !!controlLoopError;
+			// Determine if the control loop should stop
+			const shouldStopExecution = completed || agentRequestedFeedbackFlag || uiRequestedHilFlag || !!controlLoopError;
 			return !shouldStopExecution;
 		});
 	}

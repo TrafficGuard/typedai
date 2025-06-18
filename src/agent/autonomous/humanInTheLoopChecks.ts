@@ -21,7 +21,7 @@ export async function checkHumanInTheLoop(
 	if (hilCount && counters.iteration >= hilCount) {
 		agent.state = 'hitl_threshold';
 		await agentStateService.save(agent);
-		await humanInTheLoop(`Agent control loop has performed ${hilCount} iterations. Total cost $${agentContext().cost.toFixed(2)}`);
+		await humanInTheLoop(agent, `Agent control loop has performed ${hilCount} iterations. Total cost $${agentContext().cost.toFixed(2)}`);
 		agent.state = 'agent';
 		await agentStateService.save(agent);
 		counters.iteration = 0;
@@ -35,7 +35,7 @@ export async function checkHumanInTheLoop(
 	logger.debug(`Spent $${counters.costAccumulated.toFixed(2)} since last input. Total cost $${currentCost.toFixed(2)}`);
 
 	if (hilBudget && counters.costAccumulated > hilBudget) {
-		await humanInTheLoop(`Agent cost has increased by USD\$${counters.costAccumulated.toFixed(2)}`);
+		await humanInTheLoop(agent, `Agent cost has increased by USD\$${counters.costAccumulated.toFixed(2)}`);
 		counters.costAccumulated = 0;
 	}
 

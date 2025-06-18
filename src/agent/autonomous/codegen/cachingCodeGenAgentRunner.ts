@@ -16,7 +16,7 @@ import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import type { AgentContext } from '#shared/agent/agent.model';
 import { errorToString } from '#utils/errors';
-import { agentContextStorage, llms } from '../../agentContextLocalStorage';
+import { agentContext, agentContextStorage, llms } from '../../agentContextLocalStorage';
 
 const stopSequences = ['</response>'];
 
@@ -110,7 +110,7 @@ export async function runCachingCodegenAgent(agent: AgentContext): Promise<Agent
 				try {
 					// Human in the loop checks ------------------------
 					if (hilCount && countSinceHil === hilCount) {
-						await humanInTheLoop(`Agent control loop has performed ${hilCount} iterations`);
+						await humanInTheLoop(agentContext(), `Agent control loop has performed ${hilCount} iterations`);
 						countSinceHil = 0;
 					}
 					countSinceHil++;
@@ -119,7 +119,7 @@ export async function runCachingCodegenAgent(agent: AgentContext): Promise<Agent
 					if (hilBudget && agent.budgetRemaining <= 0) {
 						// HITL happens once budget is exceeded, which may be more than the allocated budget
 						const increase = agent.hilBudget - agent.budgetRemaining;
-						await humanInTheLoop(`Agent cost has increased by USD\$${increase.toFixed(2)}. Increase budget by $${agent.hilBudget}`);
+						await humanInTheLoop(agentContext(), `Agent cost has increased by USD\$${increase.toFixed(2)}. Increase budget by $${agent.hilBudget}`);
 						agent.budgetRemaining = agent.hilBudget;
 					}
 

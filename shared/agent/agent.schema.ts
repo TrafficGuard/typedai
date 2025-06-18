@@ -23,6 +23,7 @@ export const AgentRunningStateSchema = Type.Union(
 		Type.Literal('hitl_threshold'),
 		Type.Literal('hitl_tool'),
 		Type.Literal('hitl_feedback'),
+		Type.Literal('hitl_user'),
 		Type.Literal('completed'),
 		Type.Literal('shutdown'),
 		Type.Literal('child_agents'),

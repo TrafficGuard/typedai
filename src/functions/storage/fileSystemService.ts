@@ -63,11 +63,7 @@ export class FileSystemService implements IFileSystemService {
 	// should always allow: the original basePath OR the current workingDirectory OR the current Git repository root.
 	private isPathAllowed(absPath: string): boolean {
 		const vcsRoot = this.getVcsRoot(); // may be null
-		return (
-			absPath.startsWith(this.basePath) ||
-			absPath.startsWith(this.workingDirectory) ||
-			(vcsRoot !== null && absPath.startsWith(vcsRoot))
-		);
+		return absPath.startsWith(this.basePath) || absPath.startsWith(this.workingDirectory) || (vcsRoot !== null && absPath.startsWith(vcsRoot));
 	}
 
 	/**
@@ -167,10 +163,14 @@ export class FileSystemService implements IFileSystemService {
 		const newAbsPath = path.isAbsolute(newPath) ? newPath : path.resolve(serviceCwd, newPath);
 
 		if (!this.isPathAllowed(oldAbsPath)) {
-			throw new Error(`Source path '${filePath}' (resolved to ${oldAbsPath}) is outside the allowed directories (basePath: ${this.basePath}, workingDirectory: ${this.workingDirectory}).`);
+			throw new Error(
+				`Source path '${filePath}' (resolved to ${oldAbsPath}) is outside the allowed directories (basePath: ${this.basePath}, workingDirectory: ${this.workingDirectory}).`,
+			);
 		}
 		if (!this.isPathAllowed(newAbsPath)) {
-			throw new Error(`Destination path '${newPath}' (resolved to ${newAbsPath}) is outside the allowed directories (basePath: ${this.basePath}, workingDirectory: ${this.workingDirectory}).`);
+			throw new Error(
+				`Destination path '${newPath}' (resolved to ${newAbsPath}) is outside the allowed directories (basePath: ${this.basePath}, workingDirectory: ${this.workingDirectory}).`,
+			);
 		}
 
 		try {

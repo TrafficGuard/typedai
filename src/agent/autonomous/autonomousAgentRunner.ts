@@ -171,16 +171,33 @@ export async function resumeHil(agentId: string, executionId: string, feedback: 
 	const agent = await appContext().agentStateService.load(agentId);
 	if (agent.executionId !== executionId) throw new Error('Invalid executionId. Agent has already been resumed');
 
-	if (feedback.trim().length) {
-		agent.functionCallHistory.push({
-			function_name: SUPERVISOR_RESUMED_FUNCTION_NAME,
-			stdout: feedback,
-			parameters: {},
-		});
+	// Check if the agent is in a state appropriate for this generic resume function
+	if (
+		agent.state === 'hitl_user' ||
+		agent.state === 'hitl_threshold' ||
+		agent.state === 'hitl_tool'
+		// Add other states here if they should use this resume path
+	) {
+		if (agent.state === 'hitl_user') {
+			agent.hilRequested = false; // Clear the flag for UI-requested HIL
+		}
+
+		if (feedback.trim().length) {
+			agent.functionCallHistory.push({
+				function_name: SUPERVISOR_RESUMED_FUNCTION_NAME,
+				stdout: feedback,
+				parameters: {},
+			});
+		}
+		agent.state = 'agent'; // Transition back to agent state for next execution cycle
+		await appContext().agentStateService.save(agent);
+		await _startAgent(agent); // Resume execution
+	} else {
+		// If called for an inappropriate state (e.g., 'hitl_feedback', 'completed', 'error')
+		throw new Error(
+			`Agent in state '${agent.state}' cannot be resumed using resumeHil. Use the appropriate resume function (e.g., provideFeedback, resumeError, resumeCompleted).`,
+		);
 	}
-	agent.state = 'agent';
-	await appContext().agentStateService.save(agent);
-	await _startAgent(agent);
 }
 
 /**
@@ -244,10 +261,17 @@ export async function provideFeedback(agentId: string, executionId: string, feed
 	const agent = await appContext().agentStateService.load(agentId);
 	if (agent.executionId !== executionId) throw new Error('Invalid executionId. Agent has already been provided feedback');
 
-	// The last function call should be the feedback
-	const result: FunctionCallResult = agent.functionCallHistory.slice(-1)[0];
-	if (result.function_name !== AGENT_REQUEST_FEEDBACK) throw new Error(`Expected the last function call to be ${AGENT_REQUEST_FEEDBACK}`);
-	result.stdout = feedback;
+	// This function is specifically for when the agent is in 'hitl_feedback' state
+	if (agent.state !== 'hitl_feedback') {
+		throw new Error(`Agent is not in 'hitl_feedback' state. Current state: ${agent.state}. Cannot use provideFeedback.`);
+	}
+
+	// The last function call should be the AGENT_REQUEST_FEEDBACK
+	const result: FunctionCallResult | undefined = agent.functionCallHistory.at(-1); // Use .at(-1) for safety
+	if (!result || result.function_name !== AGENT_REQUEST_FEEDBACK) {
+		throw new Error(`Expected the last function call in history to be ${AGENT_REQUEST_FEEDBACK} when in 'hitl_feedback' state.`);
+	}
+	result.stdout = feedback; // Provide feedback as output of the agent's request
 	agent.state = 'agent';
 	await appContext().agentStateService.save(agent);
 	await _startAgent(agent);

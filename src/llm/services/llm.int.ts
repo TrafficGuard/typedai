@@ -13,14 +13,16 @@ import { GPT41mini } from '#llm/services/openai';
 import { perplexityLLM } from '#llm/services/perplexity-llm';
 import { sambanovaDeepseekR1, sambanovaLlama3_3_70b, sambanovaLlama3_3_70b_R1_Distill } from '#llm/services/sambanova';
 import { togetherLlama3_70B } from '#llm/services/together';
-import { vertexGemini_2_0_Flash, vertexGemini_2_0_Flash_Lite, vertexGemini_2_5_Pro } from '#llm/services/vertexai';
+import { vertexGemini_2_0_Flash_Lite, vertexGemini_2_5_Flash, vertexGemini_2_5_Flash_Lite, vertexGemini_2_5_Pro } from '#llm/services/vertexai';
 import type { LlmMessage } from '#shared/llm/llm.model';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 
-const elephantBase64 = fs.readFileSync('test/llm/elephant.jpg', 'base64');
-const pdfBase64 = fs.readFileSync('test/llm/purple.pdf', 'base64');
+const elephantBase64 = fs.readFileSync('test/llm/purple.jpg', 'base64');
+const pdfBase64 = fs.readFileSync('test/llm/document.pdf', 'base64');
 
 // Skip until API keys are configured in CI
 describe('LLMs', () => {
+	setupConditionalLoggerOutput();
 	const SKY_PROMPT: LlmMessage[] = [
 		{
 			role: 'system',
@@ -64,7 +66,7 @@ describe('LLMs', () => {
 		const llm = perplexityLLM();
 
 		it('should generateText', async () => {
-			const response = await llm.generateText('why is the sky blue?', { temperature: 0 });
+			const response = await llm.generateText('why is the sky blue?', { temperature: 0, id: 'test' });
 			expect(response.toLowerCase()).to.include('blue');
 		});
 	});
@@ -73,17 +75,17 @@ describe('LLMs', () => {
 		const llm = Claude3_5_Sonnet();
 
 		it('should generateText', async () => {
-			const response = await llm.generateText(SKY_PROMPT, { temperature: 0 });
+			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
 			expect(response.toLowerCase()).to.include('blue');
 		});
 
 		it('should handle image attachments', async () => {
-			const response = await llm.generateText(IMAGE_BASE64_PROMPT, { temperature: 0 });
+			const response = await llm.generateText(IMAGE_BASE64_PROMPT, { temperature: 0, id: 'test' });
 			expect(response.toLowerCase()).to.include('elephant');
 		});
 
 		it('should handle PDF attachments', async () => {
-			const response = await llm.generateText(PDF_PROMPT, { temperature: 0 });
+			const response = await llm.generateText(PDF_PROMPT, { temperature: 0, id: 'test' });
 			expect(response.toLowerCase()).to.include('purple');
 		});
 	});
@@ -92,17 +94,17 @@ describe('LLMs', () => {
 		const llm = Claude4_Sonnet_Vertex();
 
 		it('should generateText', async () => {
-			const response = await llm.generateText(SKY_PROMPT, { temperature: 0 });
+			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
 			expect(response.toLowerCase()).to.include('blue');
 		});
 
 		it('should handle image attachments', async () => {
-			const response = await llm.generateText(IMAGE_BASE64_PROMPT, { temperature: 0 });
+			const response = await llm.generateText(IMAGE_BASE64_PROMPT, { temperature: 0, id: 'test' });
 			expect(response.toLowerCase()).to.include('elephant');
 		});
 
 		it('should handle PDF attachments', async () => {
-			const response = await llm.generateText(PDF_PROMPT, { temperature: 0 });
+			const response = await llm.generateText(PDF_PROMPT, { temperature: 0, id: 'test' });
 			expect(response.toLowerCase()).to.include('purple');
 		});
 
@@ -120,7 +122,7 @@ describe('LLMs', () => {
 		const llm = cerebrasLlama3_8b();
 
 		it('should generateText', async () => {
-			const response = await llm.generateText(SKY_PROMPT, { temperature: 0 });
+			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
 			expect(response.toLowerCase()).to.include('blue');
 		});
 	});
@@ -128,13 +130,13 @@ describe('LLMs', () => {
 	describe('Deepinfra', () => {
 		it('Qwen3_235B_A22B should generateText', async () => {
 			const llm = deepinfraQwen3_235B_A22B();
-			const response = await llm.generateText(SKY_PROMPT, { temperature: 0 });
+			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
 			expect(response.toLowerCase()).to.include('blue');
 		});
 
 		it('DeepSeek R1 should generateText', async () => {
 			const llm = deepinfraDeepSeekR1();
-			const response = await llm.generateText(SKY_PROMPT, { temperature: 0 });
+			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
 			expect(response.toLowerCase()).to.include('blue');
 		});
 	});
@@ -143,7 +145,7 @@ describe('LLMs', () => {
 		const llm = deepSeekV3();
 
 		it('should generateText', async () => {
-			const response = await llm.generateText(SKY_PROMPT, { temperature: 0 });
+			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
 			expect(response.toLowerCase()).to.include('blue');
 		});
 	});
@@ -152,7 +154,7 @@ describe('LLMs', () => {
 		const llm = fireworksLlama3_70B();
 
 		it('should generateText', async () => {
-			const response = await llm.generateText(SKY_PROMPT, { temperature: 0 });
+			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
 			expect(response.toLowerCase()).to.include('blue');
 		});
 	});
@@ -161,7 +163,7 @@ describe('LLMs', () => {
 		const llm = groqLlama3_3_70B();
 
 		it('should generateText', async () => {
-			const response = await llm.generateText(SKY_PROMPT, { temperature: 0 });
+			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
 			expect(response.toLowerCase()).to.include('blue');
 		});
 	});
@@ -170,7 +172,7 @@ describe('LLMs', () => {
 		const llm = nebiusDeepSeekR1();
 
 		it('should generateText', async () => {
-			const response = await llm.generateText(SKY_PROMPT, { temperature: 0 });
+			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
 			expect(response.toLowerCase()).to.include('blue');
 		});
 	});
@@ -179,7 +181,7 @@ describe('LLMs', () => {
 		const llm = Ollama_Phi3();
 
 		it('should generateText', async () => {
-			const response = await llm.generateText(SKY_PROMPT, { temperature: 0 });
+			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
 			expect(response.toLowerCase()).to.include('blue');
 		});
 	});
@@ -188,24 +190,24 @@ describe('LLMs', () => {
 		const llm = GPT41mini();
 
 		it('should generateText', async () => {
-			const response = await llm.generateText(SKY_PROMPT, { temperature: 0 });
+			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
 			expect(response.toLowerCase()).to.include('blue');
 		});
 	});
 
 	describe('SambaNova', () => {
 		it.skip('DeepSeek R1 should generateText', async () => {
-			const response = await sambanovaDeepseekR1().generateText(SKY_PROMPT, { temperature: 0 });
+			const response = await sambanovaDeepseekR1().generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
 			expect(response.toLowerCase()).to.include('blue');
 		});
 
 		it('Llama 70b R1 Distill should generateText', async () => {
-			const response = await sambanovaLlama3_3_70b_R1_Distill().generateText(SKY_PROMPT, { temperature: 0 });
+			const response = await sambanovaLlama3_3_70b_R1_Distill().generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
 			expect(response.toLowerCase()).to.include('blue');
 		});
 
 		it('Llama 70b should generateText', async () => {
-			const response = await sambanovaLlama3_3_70b().generateText(SKY_PROMPT, { temperature: 0 });
+			const response = await sambanovaLlama3_3_70b().generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
 			expect(response.toLowerCase()).to.include('blue');
 		});
 	});
@@ -214,38 +216,43 @@ describe('LLMs', () => {
 		const llm = togetherLlama3_70B();
 
 		it('should generateText', async () => {
-			const response = await llm.generateText(SKY_PROMPT, { temperature: 0 });
+			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
 			expect(response.toLowerCase()).to.include('blue');
 		});
 	});
 
 	describe('VertexAI', () => {
-		describe('Flash 2.0', () => {
-			const llm = vertexGemini_2_0_Flash();
+		describe('Flash 2.5', () => {
+			const llm = vertexGemini_2_5_Flash();
 
 			it('should generateText', async () => {
-				const response = await llm.generateText(SKY_PROMPT, { temperature: 0 });
+				const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
 				expect(response.toLowerCase()).to.include('blue');
 			});
 
 			it('should handle image attachments', async () => {
-				const response = await llm.generateText(IMAGE_BASE64_PROMPT, { temperature: 0 });
+				const response = await llm.generateText(IMAGE_BASE64_PROMPT, { temperature: 0, id: 'test' });
 				expect(response.toLowerCase()).to.include('elephant');
 			});
 
 			it('should handle PDF attachments', async () => {
-				const response = await llm.generateText(PDF_PROMPT, { temperature: 0 });
+				const response = await llm.generateText(PDF_PROMPT, { temperature: 0, id: 'test' });
 				expect(response.toLowerCase()).to.include('purple');
 			});
 		});
 
 		it('Gemini 2.5 Pro should generateText', async () => {
-			const response = await vertexGemini_2_5_Pro().generateText(SKY_PROMPT, { temperature: 0 });
+			const response = await vertexGemini_2_5_Pro().generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
 			expect(response.toLowerCase()).to.include('blue');
 		});
 
 		it('Gemini 2.0 Flash Lite should generateText', async () => {
-			const response = await vertexGemini_2_0_Flash_Lite().generateText(SKY_PROMPT, { temperature: 0 });
+			const response = await vertexGemini_2_0_Flash_Lite().generateText(SKY_PROMPT, { temperature: 0.1, id: 'test' });
+			expect(response.toLowerCase()).to.include('blue');
+		});
+
+		it.skip('Gemini 2.5 Flash Lite should generateText', async () => {
+			const response = await vertexGemini_2_5_Flash_Lite().generateText(SKY_PROMPT, { temperature: 0.1, id: 'test' });
 			expect(response.toLowerCase()).to.include('blue');
 		});
 	});

@@ -30,7 +30,7 @@ export async function requestAgentHilRoute(fastify: AppFastifyInstance) {
 			await fastify.agentStateService.requestHumanInLoopCheck(agent);
 
 			const updatedAgent = await fastify.agentStateService.load(agentId!);
-			send(reply, 200, serializeContext(updatedAgent));
+			reply.sendJSON(serializeContext(updatedAgent));
 		} catch (error: any) {
 			if (error instanceof NotFound) return sendNotFound(reply, error.message);
 			if (error instanceof NotAllowed) return send(reply, 403, { error: error.message });

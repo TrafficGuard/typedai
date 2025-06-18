@@ -1,5 +1,5 @@
 import { agentContext } from '#agent/agentContextLocalStorage';
-import { humanInTheLoop, waitForConsoleInput } from '#agent/autonomous/humanInTheLoop';
+import { humanInTheLoop } from '#agent/autonomous/humanInTheLoop';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { execCommand, failOnError } from '#utils/exec';
 
@@ -43,7 +43,7 @@ export class GoogleCloud {
 		}
 
 		if (!isQuery) {
-			await humanInTheLoop(`Agent "${agentContext().name}" is requesting to run the command ${gcloudQueryCommand}`);
+			await humanInTheLoop(agentContext(), `Agent "${agentContext().name}" is requesting to run the command ${gcloudQueryCommand}`);
 		}
 
 		const result = await execCommand(gcloudQueryCommand);
@@ -58,7 +58,7 @@ export class GoogleCloud {
 	 */
 	@func()
 	async executeGcloudCommandModification(gcloudModifyCommand: string): Promise<string> {
-		await humanInTheLoop(`Agent "${agentContext().name}" is requesting to run the command ${gcloudModifyCommand}`);
+		await humanInTheLoop(agentContext(), `Agent "${agentContext().name}" is requesting to run the command ${gcloudModifyCommand}`);
 		if (!gcloudModifyCommand.includes('--project='))
 			throw new Error('When calling executeGcloudCommandQuery the gcloudQueryCommand parameter must include the --project=<projectId> argument');
 

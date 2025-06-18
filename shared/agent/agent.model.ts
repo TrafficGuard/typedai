@@ -47,7 +47,7 @@ export interface AgentCompleted {
  * hitl_threshold - If the agent has reached budget or iteration thresholds. At this point the agent is not executing any LLM/function calls.
  * hitl_tool - When a function has request real-time HITL in the function calling part of the control loop
  * hitl_feedback - the agent has requested human feedback for a decision. At this point the agent is not executing any LLM/function calls.
- * hil - deprecated version of hitl_feedback
+ * hitl_user - when the user has requested a HITL (eg from the UI)
  * feedback - deprecated version of hitl_feedback
  * child_agents - stopped waiting for child agents to complete
  * completed - the agent has called the completed function.
@@ -63,6 +63,7 @@ export type AgentRunningState =
 	| 'hitl_threshold'
 	| 'hitl_tool'
 	| 'hitl_feedback'
+	| 'hitl_user'
 	| 'completed'
 	| 'shutdown'
 	| 'child_agents'

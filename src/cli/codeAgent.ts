@@ -4,7 +4,7 @@ import { provideFeedback, resumeCompleted, resumeError, resumeHil, startAgent } 
 import { AgentFeedback } from '#agent/autonomous/functions/agentFeedback';
 import { FileSystemTree } from '#agent/autonomous/functions/fileSystemTree';
 import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
-import { waitForConsoleInput } from '#agent/autonomous/humanInTheLoop';
+import { humanInTheLoop } from '#agent/autonomous/humanInTheLoop';
 import { appContext, initApplicationContext } from '#app/applicationContext';
 import { FileSystemList } from '#functions/storage/fileSystemList';
 import { Perplexity } from '#functions/web/perplexity';
@@ -31,7 +31,7 @@ async function resumeAgent(resumeAgentId: string, initialPrompt: string) {
 		case 'hitl_feedback':
 			return await provideFeedback(resumeAgentId, agent.executionId, initialPrompt);
 		default:
-			await waitForConsoleInput(`Agent is currently in the state "${agent.state}". Only resume if you know it is not `);
+			await humanInTheLoop(agent, `Agent is currently in the state "${agent.state}". Only resume if you know it is not `);
 			return resumeError(resumeAgentId, agent.executionId, initialPrompt);
 	}
 }

@@ -1,5 +1,5 @@
 import { BigQuery as BigQueryClient } from '@google-cloud/bigquery';
-import { addCost } from '#agent/agentContextLocalStorage';
+import { addCost, agentContext } from '#agent/agentContextLocalStorage';
 import { humanInTheLoop } from '#agent/autonomous/humanInTheLoop';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
@@ -57,7 +57,7 @@ class BigQueryDriver {
 
 		const estimatedBytesProcessed = dryRun.metadata.statistics.totalBytesProcessed;
 		const gb = estimatedBytesProcessed / 1000 / 1000 / 1000;
-		if (gb > 100) await humanInTheLoop(`Requesting to run bigquery processing ${gb.toFixed(0)}GB.\nQuery:${query}`);
+		if (gb > 100) await humanInTheLoop(agentContext(), `Requesting to run bigquery processing ${gb.toFixed(0)}GB.\nQuery:${query}`);
 		logger.info('querying...');
 		const [job] = await this.bigqueryClient.createQueryJob({
 			query,
