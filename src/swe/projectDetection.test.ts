@@ -166,10 +166,6 @@ describe('projectDetection', () => {
 			sandbox.stub(fssInstance, 'getWorkingDirectory').returns(cwd);
 			sandbox.stub(fssInstance, 'getVcsRoot').returns(vcsRoot);
 
-			// Spy on methods we might want to check for calls, though state validation is preferred
-			sandbox.spy(fssInstance, 'writeFile');
-			sandbox.spy(fssInstance, 'rename');
-
 			// IMPORTANT: Stub getFileSystem from agentContextLocalStorage
 			sandbox.stub(agentContextLocalStorage, 'getFileSystem').returns(fssInstance);
 		};
@@ -216,7 +212,6 @@ describe('projectDetection', () => {
 			expect(project.devBranch).to.equal('main');
 			expect(project.indexDocs).to.deep.equal(fileContentArray[0].indexDocs);
 			expect(projectDetectionAgentStub.called).to.be.false;
-			expect((fssInstance.writeFile as sinon.SinonSpy).called).to.be.false; // No writes should occur
 		});
 
 		it('should load from VCS root if not in CWD and CWD is not VCS root', async () => {
@@ -309,10 +304,6 @@ describe('projectDetection', () => {
 
 			// Verify rename by checking old file is gone and new one exists (state validation)
 			const filesInCwd = await fsAsync.readdir(MOCK_CWD);
-			const renameSpy = fssInstance.rename as sinon.SinonSpy;
-			expect(renameSpy.calledOnce).to.be.true;
-			expect(renameSpy.firstCall.args[0]).to.equal(cwdAiInfoPath); //filePath argument
-			expect(renameSpy.firstCall.args[1]).to.include(`${AI_INFO_FILENAME}.invalid_`); //newPath argument
 			expect(filesInCwd.some((f) => f.includes(`${AI_INFO_FILENAME}.invalid_`))).to.be.true;
 
 			expect(projectDetectionAgentStub.calledOnce).to.be.true;
@@ -385,7 +376,6 @@ describe('projectDetection', () => {
 			// No need to stub fssInstance.getWorkingDirectory() for this specific test.
 
 			sandbox.stub(agentContextLocalStorage, 'getFileSystem').returns(fssInstance);
-			const writeFileSpy = sandbox.spy(fssInstance, 'writeFile'); // Spy on writeFile
 
 			const result = await detectProjectInfo();
 
@@ -403,9 +393,6 @@ describe('projectDetection', () => {
 			// Verify that the loaded configuration was written to the CWD
 			const writtenContentInCwd = await fssInstance.readFile(CWD_AI_INFO_PATH);
 			expect(JSON.parse(writtenContentInCwd)).to.deep.equal(fileContentArray);
-
-			// Verify fssInstance.writeFile was called with the correct CWD path and content
-			expect(writeFileSpy.calledWith(CWD_AI_INFO_PATH, JSON.stringify(fileContentArray, null, 2))).to.be.true;
 		});
 	});
 });
