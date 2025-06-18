@@ -209,7 +209,7 @@ export async function detectProjectInfo(): Promise<ProjectInfo[]> {
 				const infosToSaveToFileFormat = loadedInfos.map(mapProjectInfoToFileFormat);
 				// Switch back to original WD before writing
 				fss.setWorkingDirectory(originalWd);
-				await fss.writeFile(cwdInfoPath, JSON.stringify(infosToSaveToFileFormat, null, 2));
+				await fss.writeFile(join(fss.getWorkingDirectory(), cwdInfoPath), JSON.stringify(infosToSaveToFileFormat, null, 2));
 			}
 		} finally {
 			// Ensure working directory is restored
@@ -231,7 +231,7 @@ export async function detectProjectInfo(): Promise<ProjectInfo[]> {
 					const infosToSave = loadedInfos.map(mapProjectInfoToFileFormat);
 					// Switch back to original WD before writing
 					fss.setWorkingDirectory(originalWd);
-					await fss.writeFile(cwdInfoPath, JSON.stringify(infosToSave, null, 2));
+					await fss.writeFile(join(fss.getWorkingDirectory(), cwdInfoPath), JSON.stringify(infosToSave, null, 2));
 				}
 			} finally {
 				// Ensure working directory is restored
@@ -246,7 +246,7 @@ export async function detectProjectInfo(): Promise<ProjectInfo[]> {
 
 		// Save detected info to CWD
 		const projectInfosToFileFormat = detectedProjectInfos.map(mapProjectInfoToFileFormat);
-		await fss.writeFile(cwdInfoPath, JSON.stringify(projectInfosToFileFormat, null, 2));
+		await fss.writeFile(join(fss.getWorkingDirectory(), cwdInfoPath), JSON.stringify(projectInfosToFileFormat, null, 2));
 		logger.info(`Agent detection complete. Wrote ${detectedProjectInfos.length} project(s) to ${cwdInfoPath}`);
 		return detectedProjectInfos;
 	}
