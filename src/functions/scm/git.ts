@@ -152,6 +152,10 @@ export class Git implements VersionControlSystem {
 		failOnError(`Failed to amend current commit with outstanding changes to ${files.join(' ')}`, result);
 	}
 
+	/**
+	 * Commits the staged changes to the repository
+	 * @param commitMessage the commit message
+	 */
 	@func()
 	async commit(commitMessage: string): Promise<void> {
 		const cwd = this.fileSystem.getWorkingDirectory();
