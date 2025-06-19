@@ -23,10 +23,22 @@ export class Git implements VersionControlSystem {
 	async addAllTrackedAndCommit(commitMessage: string): Promise<void> {
 		// If nothing has changed then return
 		const execResult = await execCommand('git status --porcelain');
-		if (execResult.exitCode === 0) return;
+		// Check if stdout is empty, indicating no changes.
+		// Also ensure the command itself didn't fail (though typically it won't for status).
+		if (execResult.exitCode === 0 && execResult.stdout.trim().length === 0) {
+			logger.debug('addAllTrackedAndCommit: No changes to commit.');
+			return;
+		}
+		// If execResult.exitCode is not 0, it means 'git status --porcelain' itself failed.
+		// This case should ideally be handled, but for now, we'll let it proceed,
+		// and subsequent commands will likely fail and throw.
+		// A more robust check might be:
+		// failOnError('Failed to get git status for addAllTrackedAndCommit', execResult);
+		// if (execResult.stdout.trim().length === 0) { ... return ... }
+
 
 		const { exitCode, stdout, stderr } = await execCommand('git add .');
-		if (exitCode > 0) throw new Error(`${stdout}\n${stderr}`);
+		if (exitCode > 0) throw new Error(`git add . failed: ${stdout}\n${stderr}`);
 
 		await this.commit(commitMessage);
 	}
