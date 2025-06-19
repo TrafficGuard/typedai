@@ -405,6 +405,7 @@ export class SearchReplaceCoder {
 
 		let currentMessages: LlmMessage[] = [];
 		const dryRun = false;
+		let currentFailedEdits: EditBlock[] = []; // Declare currentFailedEdits here
 
 		let llm = this.llms.medium;
 		// Label for breaking out of nested loops to the main attempt loop
