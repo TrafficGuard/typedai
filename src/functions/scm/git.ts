@@ -43,6 +43,30 @@ export class Git implements VersionControlSystem {
 		await this.commit(commitMessage);
 	}
 
+	async addAndCommitFiles(files: string[], commitMessage: string): Promise<void> {
+		if (!files || files.length === 0) {
+			logger.debug('addAndCommitFiles: No files provided to commit.');
+			return;
+		}
+
+		const filesToCheck = files.map((file) => `"${file}"`).join(' ');
+		// Check if the specified files have any uncommitted changes
+		const statusResult = await execCommand(`git status --porcelain ${filesToCheck}`);
+		failOnError(`Failed to get git status for files: ${files.join(', ')}`, statusResult);
+
+		if (statusResult.stdout.trim().length === 0) {
+			logger.debug(`addAndCommitFiles: No changes to commit in specified files: ${files.join(', ')}.`);
+			return;
+		}
+
+		const filesToAdd = files.map((file) => `"${file}"`).join(' ');
+		const addResult = await execCommand(`git add ${filesToAdd}`);
+		failOnError(`Failed to add files for commit: ${files.join(', ')}`, addResult);
+
+		// this.commit will handle the commit operation. It throws if the commit fails.
+		await this.commit(commitMessage);
+	}
+
 	/**
 	 * Get the files added. If no commit argument if provided then it is for the head commit,
 	 */

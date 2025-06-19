@@ -541,10 +541,12 @@ export class SearchReplaceCoder {
 				const dirtyFilesArray = Array.from(pathsToDirtyCommit);
 				logger.info(`Found uncommitted changes in files targeted for edit: ${dirtyFilesArray.join(', ')}. Attempting dirty commit.`);
 				try {
-					await this.vcs.addAllTrackedAndCommit('Aider: Committing uncommitted changes before applying LLM edits');
-					logger.info('Successfully committed dirty files.');
+					const dirtyCommitMsg = 'Aider: Committing uncommitted changes in targeted files before applying LLM edits';
+					await this.vcs.addAndCommitFiles(dirtyFilesArray, dirtyCommitMsg);
+					logger.info(`Successfully committed uncommitted changes for: ${dirtyFilesArray.join(', ')}.`);
 				} catch (commitError: any) {
-					logger.error({ err: commitError }, 'Dirty commit failed for uncommitted changes.');
+					// Log the error, and include which files it attempted to commit.
+					logger.error({ err: commitError, files: dirtyFilesArray }, `Dirty commit failed for files: ${dirtyFilesArray.join(', ')}.`);
 					this._addReflectionToMessages(
 						session,
 						`Failed to commit uncommitted changes for ${dirtyFilesArray.join(', ')}: ${commitError.message}. Please resolve this manually or allow proceeding without committing them.`,
