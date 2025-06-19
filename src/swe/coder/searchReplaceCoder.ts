@@ -1,12 +1,13 @@
 import * as path from 'node:path';
+import * as path from 'node:path'; // Ensure path is imported
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { buildFileSystemTreePrompt } from '#agent/agentPromptUtils';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import type { AgentLLMs } from '#shared/agent/agent.model';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
-import type { LLM, LlmMessage } from '#shared/llm/llm.model';
-import { user as createUserMessage, messageText } from '#shared/llm/llm.model';
+import type { LLM, LlmMessage } from '#shared/llm/llm.model'; // LLM needed for type hint
+import { user as createUserMessage, messageText, assistant as createAssistantMessage } from '#shared/llm/llm.model'; // assistant needed for prompt
 import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
 import type { EditBlock } from '#swe/coder/coderTypes';
 import { CoderExhaustedAttemptsError } from '../sweErrors';
@@ -23,6 +24,7 @@ import { validateBlocks } from './validators/compositeValidator';
 import { ModuleAliasRule } from './validators/moduleAliasRule';
 import { PathExistsRule } from './validators/pathExistsRule';
 import type { ValidationIssue, ValidationRule } from './validators/validationRule';
+import { tryFixSearchBlock } from './fixSearchReplaceBlock';
 
 const MAX_ATTEMPTS = 5;
 const DEFAULT_FENCE_OPEN = '```';
@@ -294,6 +296,8 @@ export class SearchReplaceCoder {
 		return changed;
 	}
 
+
+
 	private async _buildPrompt(
 		session: EditSession,
 		userRequest: string,
@@ -395,11 +399,12 @@ export class SearchReplaceCoder {
 		const rootPath = this.fs.getWorkingDirectory();
 		const session = newSession(rootPath, requirements);
 		await this._initializeSessionContext(session, filesToEdit);
+		session.appliedFiles = new Set<string>(); // Initialize appliedFiles set for the session
 
-		const repoFiles = await this.fs.listFilesRecursively(); // Get all files for validation context ONCE
+		const repoFiles = await this.fs.listFilesRecursively();
 
 		let currentMessages: LlmMessage[] = [];
-		const dryRun = false; // Not currently configurable at this level
+		const dryRun = false;
 
 		let llm = this.llms.medium;
 		// Label for breaking out of nested loops to the main attempt loop
@@ -409,7 +414,10 @@ export class SearchReplaceCoder {
 
 			logger.info(`SearchReplaceCoder: Attempt ${session.attempt}/${MAX_ATTEMPTS}`);
 
-			currentMessages = await this._buildPrompt(session, requirements, filesToEdit, readOnlyFiles /* repoMapContent? */);
+			// Only rebuild the full prompt if not in a re-application cycle from a fix
+			// This check might be more complex if we decide _tryFixSearchBlock can use a different prompt structure.
+			// For now, _buildPrompt is always called at the start of a main attempt.
+			currentMessages = await this._buildPrompt(session, requirements, filesToEdit, readOnlyFiles);
 			logger.debug({ messagesLength: currentMessages.length }, 'SearchReplaceCoder: Prompt built for LLM');
 
 			const llmResponseMsgObj: LlmMessage = await llm.generateMessage(currentMessages, {
@@ -524,9 +532,10 @@ export class SearchReplaceCoder {
 
 			// Handle "dirty commits" before applying edits
 			const { editsToApply, pathsToDirtyCommit } = await this._prepareToEdit(session, validBlocks);
+			let blocksForCurrentApplyAttempt = [...editsToApply]; // Master list of blocks for this attempt, may be modified by fixes
 
 			// Proactive check for external file modifications before applying edits
-			const externallyChanged = await this._detectExternalChanges(session, editsToApply);
+			const externallyChanged = await this._detectExternalChanges(session, blocksForCurrentApplyAttempt);
 			if (externallyChanged.length > 0) {
 				this._addReflectionToMessages(
 					session,
@@ -534,7 +543,7 @@ export class SearchReplaceCoder {
 						`Their content has been updated in your context. Please regenerate the edits using the updated content.`,
 					currentMessages,
 				);
-				continue; // restart attempt with fresh snapshots
+				continue;
 			}
 
 			if (dirtyCommits && this.vcs && pathsToDirtyCommit.size > 0 && !dryRun) {
@@ -545,7 +554,6 @@ export class SearchReplaceCoder {
 					await this.vcs.addAndCommitFiles(dirtyFilesArray, dirtyCommitMsg);
 					logger.info(`Successfully committed uncommitted changes for: ${dirtyFilesArray.join(', ')}.`);
 				} catch (commitError: any) {
-					// Log the error, and include which files it attempted to commit.
 					logger.error({ err: commitError, files: dirtyFilesArray }, `Dirty commit failed for files: ${dirtyFilesArray.join(', ')}.`);
 					this._addReflectionToMessages(
 						session,
@@ -567,32 +575,85 @@ export class SearchReplaceCoder {
 				dryRun,
 			);
 
-			const { appliedFilePaths, failedEdits } = await applier.apply(editsToApply);
+			let { appliedFilePaths: newlyAppliedPaths, failedEdits: currentFailedEdits } = await applier.apply(blocksForCurrentApplyAttempt);
+			newlyAppliedPaths.forEach(p => session.appliedFiles!.add(p));
 
-			if (failedEdits.length > 0) {
-				// The _detectExternalChanges check before applier.apply handles true external changes
-				// (e.g. user editing file while LLM is working).
-				// If we are here, any modifications to files during applier.apply were due to
-				// successfully applied blocks from *this current LLM attempt*.
-				// The file content provided to the LLM in the next attempt (via _buildPrompt)
-				// will correctly reflect these partially applied changes because _buildPrompt reads from disk.
-				// Therefore, we can directly use _reflectOnFailedEdits to give specific feedback
-				// on the blocks that failed against the (potentially partially) modified content.
-				await this._reflectOnFailedEdits(session, failedEdits, appliedFilePaths.size, currentMessages);
-				continue;
+
+			if (currentFailedEdits.length > 0) {
+				let fixesMade = 0;
+				const initialFailedEditsForThisRound = [...currentFailedEdits]; // Store before modification
+				const nextRoundFailedEdits: EditBlock[] = [];
+
+				for (const failedEdit of initialFailedEditsForThisRound) {
+					const filePath = failedEdit.filePath;
+					const fileContentSnapshot = session.fileContentSnapshots.get(filePath);
+
+					// Try to fix only if the file was supposed to exist and had content (i.e., not a failed new file creation with empty SEARCH block)
+					// And originalText is not empty (meaning it's not a "create new file" block that failed for other reasons)
+					if (fileContentSnapshot && failedEdit.originalText.trim() !== '') {
+						logger.info(`Attempting to fix search block for ${filePath} in attempt ${session.attempt}`);
+						const correctedBlock = await tryFixSearchBlock(
+							failedEdit,
+							fileContentSnapshot,
+							llm, // Use the same LLM as the current attempt
+							this.getFence(),
+						);
+
+						if (correctedBlock) {
+							// Replace the original failed block with the corrected one in `blocksForCurrentApplyAttempt`
+							const indexInMasterList = blocksForCurrentApplyAttempt.findIndex(
+								b => b.filePath === failedEdit.filePath && b.originalText === failedEdit.originalText && b.updatedText === failedEdit.updatedText
+							);
+							if (indexInMasterList !== -1) {
+								blocksForCurrentApplyAttempt[indexInMasterList] = correctedBlock;
+								fixesMade++;
+							} else {
+								// Should not happen if blocksForCurrentApplyAttempt is the true source
+								logger.error('Original failed block not found in master list for replacement.');
+								nextRoundFailedEdits.push(failedEdit); // Keep original failed edit
+							}
+						} else {
+							logger.warn(`Failed to generate a corrected block for ${filePath}. Will use standard reflection if it fails again.`);
+							nextRoundFailedEdits.push(failedEdit); // Keep original failed edit
+						}
+					} else {
+						nextRoundFailedEdits.push(failedEdit); // Not a candidate for this type of fix
+					}
+				}
+
+				if (fixesMade > 0) {
+					logger.info(`Re-attempting to apply edits after ${fixesMade} block(s) were corrected in attempt ${session.attempt}.`);
+					// Re-apply with the potentially modified blocksForCurrentApplyAttempt
+					const reappliedResult = await applier.apply(blocksForCurrentApplyAttempt);
+					reappliedResult.appliedFilePaths.forEach(p => session.appliedFiles!.add(p));
+					currentFailedEdits = reappliedResult.failedEdits; // Update currentFailedEdits with the result of the re-application
+
+					if (currentFailedEdits.length === 0) {
+						logger.info('All blocks applied successfully after correction and re-application.');
+						session.parsedBlocks = blocksForCurrentApplyAttempt; // Store the successfully applied (potentially corrected) blocks
+						break; // Exit main attempt loop
+					}
+				} else {
+                    // No fixes were made, currentFailedEdits are from the first apply, or nextRoundFailedEdits if some were not candidates
+                    currentFailedEdits = nextRoundFailedEdits;
+                }
 			}
 
-			session.appliedFiles = appliedFilePaths;
-			logger.info({ appliedFiles: Array.from(session.appliedFiles) }, 'SearchReplaceCoder: Edits applied successfully.');
-			break; // Exit loop on full success for this attempt
-		} // end of while loop
 
-		// If the loop completed due to reaching MAX_ATTEMPTS (i.e., no break occurred on the last attempt)
-		if (session.attempt >= MAX_ATTEMPTS) {
-			// This implies the last attempt did not successfully apply all edits.
-			// The reason for the last failure should be in session.reflectionMessages.
+			if (currentFailedEdits.length > 0) {
+				await this._reflectOnFailedEdits(session, currentFailedEdits, session.appliedFiles!.size, currentMessages);
+				continue; // Continue to next main attempt
+			}
+
+			// If we reach here, it means currentFailedEdits is empty.
+			session.parsedBlocks = blocksForCurrentApplyAttempt; // Store the successfully applied blocks
+			logger.info({ appliedFiles: Array.from(session.appliedFiles!) }, 'SearchReplaceCoder: Edits applied successfully.');
+			break; // Exit loop on full success
+		}
+
+		if (session.attempt >= MAX_ATTEMPTS && (session.appliedFiles?.size === 0 || (currentFailedEdits && currentFailedEdits.length > 0) )) {
 			logger.error(`SearchReplaceCoder: Maximum attempts (${MAX_ATTEMPTS}) reached. Failing.`);
-			const finalReflection = session.reflectionMessages.pop() || 'Unknown error after max attempts, and no edits were successfully applied in the final attempt.';
+			const finalReflection = session.reflectionMessages.pop() || 'Unknown error after max attempts, and not all edits were successfully applied in the final attempt.';
 			throw new CoderExhaustedAttemptsError(
 				`SearchReplaceCoder failed to apply edits after ${MAX_ATTEMPTS} attempts.`,
 				MAX_ATTEMPTS,
