@@ -530,8 +530,8 @@ export class SearchReplaceCoder {
 			if (externallyChanged.length > 0) {
 				this._addReflectionToMessages(
 					session,
-					`The following file(s) were modified after the edit blocks were generated: ${externallyChanged.join(', ')}. \
-Please regenerate the edits using the updated content.`,
+					`The following file(s) were modified after the edit blocks were generated: ${externallyChanged.join(', ')}. ` +
+						`Their content has been updated in your context. Please regenerate the edits using the updated content.`,
 					currentMessages,
 				);
 				continue; // restart attempt with fresh snapshots
@@ -568,57 +568,37 @@ Please regenerate the edits using the updated content.`,
 			const { appliedFilePaths, failedEdits } = await applier.apply(editsToApply);
 
 			if (failedEdits.length > 0) {
-				let externalModificationDetectedForFailedEdit = false;
-				for (const failedEdit of failedEdits) {
-					const relativePath = failedEdit.filePath; // EditBlock has filePath
-					const snapshotContent = session.fileContentSnapshots.get(relativePath); // EditSession has fileContentSnapshots
-
-					if (snapshotContent === undefined) {
-						logger.warn(`No content snapshot found for failed edit on file: ${relativePath}. Skipping external modification check for this file.`);
-						continue;
-					}
-
-					let currentContent: string | null = null;
-					const absolutePath = this.getRepoFilePath(session.workingDir, relativePath); // getRepoFilePath is a private method in SearchReplaceCoder
-					try {
-						currentContent = await this.fs.readFile(absolutePath); // this.fs is IFileSystemService
-					} catch (error) {
-						logger.warn(`Failed to read file ${relativePath} for modification check: ${(error as Error).message}`);
-						if (!(await this.fs.fileExists(absolutePath))) {
-							currentContent = null; // Explicitly mark as non-existent
-						} else {
-							// If file exists but readFile failed for other reasons,
-							// we might not want to assume it's an external modification mismatch.
-							// For now, skip this failed edit's check if readFile fails but file exists.
-							continue;
-						}
-					}
-
-					if (snapshotContent !== currentContent) {
-						logger.warn(`File ${relativePath} was modified externally after LLM generation. Edit failed.`);
-						const reflectionText = `The file "${relativePath}" was modified externally after the edit blocks were generated, and the proposed change for this file could not be applied. The file's content has been updated in your context. Please review the changes and try generating the edits again for this file.`;
-						this._addReflectionToMessages(session, reflectionText, currentMessages); // _addReflectionToMessages is a private method
-						externalModificationDetectedForFailedEdit = true;
-						break;
-					}
-				}
-
-				if (externalModificationDetectedForFailedEdit) {
-					continue; // Re-prompt the LLM
-				}
-				// No external modifications detected for any of the failed edits,
-				// so use the standard reflection for failed S/R blocks.
-				await this._reflectOnFailedEdits(session, failedEdits, appliedFilePaths.size, currentMessages); // _reflectOnFailedEdits is a private method
+				// The _detectExternalChanges check before applier.apply handles true external changes
+				// (e.g. user editing file while LLM is working).
+				// If we are here, any modifications to files during applier.apply were due to
+				// successfully applied blocks from *this current LLM attempt*.
+				// The file content provided to the LLM in the next attempt (via _buildPrompt)
+				// will correctly reflect these partially applied changes because _buildPrompt reads from disk.
+				// Therefore, we can directly use _reflectOnFailedEdits to give specific feedback
+				// on the blocks that failed against the (potentially partially) modified content.
+				await this._reflectOnFailedEdits(session, failedEdits, appliedFilePaths.size, currentMessages);
 				continue;
 			}
 
 			session.appliedFiles = appliedFilePaths;
 			logger.info({ appliedFiles: Array.from(session.appliedFiles) }, 'SearchReplaceCoder: Edits applied successfully.');
-		}
+			break; // Exit loop on full success for this attempt
+		} // end of while loop
 
-		logger.error(`SearchReplaceCoder: Maximum attempts (${MAX_ATTEMPTS}) reached. Failing.`);
-		const finalReflection = session.reflectionMessages.pop() || 'Unknown error after max attempts.';
-		throw new CoderExhaustedAttemptsError(`SearchReplaceCoder failed to apply edits after ${MAX_ATTEMPTS} attempts.`, MAX_ATTEMPTS, finalReflection);
+		// If the loop completed due to reaching MAX_ATTEMPTS (i.e., no break occurred on the last attempt)
+		if (session.attempt >= MAX_ATTEMPTS) {
+			// This implies the last attempt did not successfully apply all edits.
+			// The reason for the last failure should be in session.reflectionMessages.
+			logger.error(`SearchReplaceCoder: Maximum attempts (${MAX_ATTEMPTS}) reached. Failing.`);
+			const finalReflection = session.reflectionMessages.pop() || 'Unknown error after max attempts, and no edits were successfully applied in the final attempt.';
+			throw new CoderExhaustedAttemptsError(
+				`SearchReplaceCoder failed to apply edits after ${MAX_ATTEMPTS} attempts.`,
+				MAX_ATTEMPTS,
+				finalReflection
+			);
+		}
+		// If the loop was exited by a 'break', it means session.attempt < MAX_ATTEMPTS,
+		// and all edits were applied successfully. No error is thrown.
 	}
 
 	/**
