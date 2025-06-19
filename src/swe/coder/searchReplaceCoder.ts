@@ -575,8 +575,9 @@ export class SearchReplaceCoder {
 				dryRun,
 			);
 
-			let { appliedFilePaths: newlyAppliedPaths, failedEdits: currentFailedEdits } = await applier.apply(blocksForCurrentApplyAttempt);
-			newlyAppliedPaths.forEach(p => session.appliedFiles!.add(p));
+			let applierResult = await applier.apply(blocksForCurrentApplyAttempt);
+			applierResult.appliedFilePaths.forEach(p => session.appliedFiles!.add(p));
+			currentFailedEdits = applierResult.failedEdits; // Assign to the outer-scoped variable
 
 
 			if (currentFailedEdits.length > 0) {
