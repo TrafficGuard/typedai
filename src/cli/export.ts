@@ -58,32 +58,63 @@ async function main() {
 		process.exit(1);
 	}
 
-	console.log(`🔍 Using patterns: ${patterns.join(', ')}`);
+	// Determine if any pattern is a glob pattern
+	const hasGlobPatterns = patterns.some(p => micromatch.scan(p).isGlob);
+	let matchedFiles: string[] = [];
 
 	try {
-		// 2. Get ALL files recursively from the current working directory
-		// NOTE: This is the inefficient part compared to using 'glob'. It reads
-		// potentially many files before filtering.
-		console.log(`📂 Reading all files recursively from: ${basePath}`);
-		const allFiles = await getAllFiles(basePath, basePath); // Pass basePath as root
-		console.log(`   Found ${allFiles.length} total files/symlinks initially.`);
-		if (allFiles.length > 5000) {
-			// Add a warning for large directories
-			console.warn(`   ⚠️ Reading a large number of files (${allFiles.length}), this might be slow.`);
+		if (hasGlobPatterns) {
+			console.log(`🔍 Using glob patterns: ${patterns.join(', ')}`);
+			// 2. Get ALL files recursively from the current working directory
+			// NOTE: This is the inefficient part compared to using 'glob'. It reads
+			// potentially many files before filtering.
+			console.log(`📂 Reading all files recursively from: ${basePath}`);
+			const allFiles = await getAllFiles(basePath, basePath); // Pass basePath as root
+			console.log(`   Found ${allFiles.length} total files/symlinks initially.`);
+			if (allFiles.length > 5000) {
+				// Add a warning for large directories
+				console.warn(`   ⚠️ Reading a large number of files (${allFiles.length}), this might be slow.`);
+			}
+
+			// 3. Use micromatch to filter the list of all files
+			console.log('🛡️ Applying micromatch filtering...');
+			matchedFiles = micromatch(allFiles, patterns, {
+				dot: true, // Match dotfiles (like .env)
+				// matchBase: true, // Use if you want `*.ts` to match `src/index.ts` (like minimatch `matchBase`)
+				// nocase: true, // For case-insensitive matching if needed
+				// posix: true, // Enforces posix path separators for matching consistency might be safer
+				cwd: basePath, // Use basePath as cwd for micromatch
+			});
+		} else {
+			console.log(`ℹ️ No glob patterns detected. Processing as direct file paths: ${patterns.join(', ')}`);
+			const validatedFilePaths: string[] = [];
+			for (const p of patterns) {
+				const absolutePath = path.resolve(basePath, p);
+				try {
+					const stats = await fs.stat(absolutePath);
+					if (stats.isFile()) {
+						// Store the original relative path 'p' as it's relative to basePath
+						validatedFilePaths.push(p);
+					} else {
+						console.warn(`⚠️ Path matched but is not a file, skipping: ${p}`);
+					}
+				} catch (error: any) {
+					if (error.code === 'ENOENT') {
+						console.warn(`⚠️ File not found, skipping: ${p}`);
+					} else {
+						console.warn(`⚠️ Error accessing file ${p}, skipping: ${error.message}`);
+					}
+				}
+			}
+			matchedFiles = validatedFilePaths;
 		}
 
-		// 3. Use micromatch to filter the list of all files
-		console.log('🛡️ Applying micromatch filtering...');
-		const matchedFiles = micromatch(allFiles, patterns, {
-			dot: true, // Match dotfiles (like .env)
-			// matchBase: true, // Use if you want `*.ts` to match `src/index.ts` (like minimatch `matchBase`)
-			// nocase: true, // For case-insensitive matching if needed
-			// posix: true, // Enforces posix path separators for matching consistency might be safer
-			cwd: basePath, // Use basePath as cwd for micromatch
-		});
-
 		if (matchedFiles.length === 0) {
-			console.log('❓ No files matched the provided patterns after filtering.');
+			if (hasGlobPatterns) {
+				console.log('❓ No files matched the provided patterns after filtering.');
+			} else {
+				console.log('❓ No valid files found from the provided paths.');
+			}
 			process.exit(0);
 		}
 
