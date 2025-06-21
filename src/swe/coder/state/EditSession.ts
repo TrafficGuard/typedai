@@ -34,6 +34,12 @@ interface SessionState {
 	failedEdits: EditBlock[];
 	/** A history of reflections made by the LLM to correct its course. */
 	reflections: string[];
+	/** Absolute paths of all files that are part of the chat context. */
+	absFnamesInChat: Set<string>;
+	/** Relative paths of files that were dirty at the start of the session. */
+	initiallyDirtyFiles: Set<string>;
+	/** Snapshots of file contents at the time of prompt generation. */
+	fileContentSnapshots: Map<string, string | null>;
 }
 
 /**
@@ -48,6 +54,9 @@ export class EditSession {
 		appliedFiles: new Set<string>(),
 		failedEdits: [],
 		reflections: [],
+		absFnamesInChat: new Set<string>(),
+		initiallyDirtyFiles: new Set<string>(),
+		fileContentSnapshots: new Map<string, string | null>(),
 	};
 
 	/**
@@ -80,6 +89,21 @@ export class EditSession {
 		return [...this._state.reflections];
 	}
 
+	/** A read-only set of absolute file paths currently in the chat context. */
+	get absFnamesInChat(): ReadonlySet<string> {
+		return this._state.absFnamesInChat;
+	}
+
+	/** A read-only set of relative file paths that were dirty at session start. */
+	get initiallyDirtyFiles(): ReadonlySet<string> {
+		return this._state.initiallyDirtyFiles;
+	}
+
+	/** A read-only map of file content snapshots. */
+	get fileContentSnapshots(): ReadonlyMap<string, string | null> {
+		return this._state.fileContentSnapshots;
+	}
+
 	/** The most recent reflection, or undefined if there are none. */
 	get lastReflection(): string | undefined {
 		return this._state.reflections[this._state.reflections.length - 1];
@@ -109,6 +133,33 @@ export class EditSession {
 	 */
 	addReflection(reflection: string): void {
 		this._state.reflections.push(reflection);
+	}
+
+	/**
+	 * Initializes the file-related context for the session.
+	 * @param absFnamesInChat A set of absolute file paths to start the chat with.
+	 * @param initiallyDirtyFiles A set of relative file paths that are dirty.
+	 */
+	initializeFileContext(absFnamesInChat: Set<string>, initiallyDirtyFiles: Set<string>): void {
+		this._state.absFnamesInChat = absFnamesInChat;
+		this._state.initiallyDirtyFiles = initiallyDirtyFiles;
+	}
+
+	/**
+	 * Adds a file to the chat context.
+	 * @param absPath The absolute path of the file to add.
+	 */
+	addFileToChat(absPath: string): void {
+		this._state.absFnamesInChat.add(absPath);
+	}
+
+	/**
+	 * Stores a snapshot of a file's content.
+	 * @param relativePath The relative path of the file.
+	 * @param content The content of the file, or null if it couldn't be read.
+	 */
+	setFileSnapshot(relativePath: string, content: string | null): void {
+		this._state.fileContentSnapshots.set(relativePath, content);
 	}
 
 	/**

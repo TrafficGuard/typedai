@@ -1,6 +1,7 @@
 import { expect } from 'chai';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import { ApplicationResult, EditBlock, EditSession } from './EditSession';
+import type { ApplicationResult, EditBlock } from './EditSession';
+import { EditSession } from './EditSession';
 
 describe('EditSession', () => {
 	setupConditionalLoggerOutput();
@@ -17,6 +18,10 @@ describe('EditSession', () => {
 			expect(session.failedEdits).to.be.an('array').that.is.empty;
 			expect(session.reflections).to.be.an('array').that.is.empty;
 			expect(session.lastReflection).to.be.undefined;
+			// Verify new state properties are initialized
+			expect(session.absFnamesInChat.size).to.equal(0);
+			expect(session.initiallyDirtyFiles.size).to.equal(0);
+			expect(session.fileContentSnapshots.size).to.equal(0);
 		});
 
 		it('should correctly store workingDir and requirements', () => {
@@ -203,6 +208,45 @@ describe('EditSession', () => {
 			// The original state should remain unchanged
 			expect(session.appliedFiles.size).to.equal(1);
 			expect(session.appliedFiles.has('another.ts')).to.be.false;
+		});
+	});
+
+	describe('File Context Management', () => {
+		it('should initialize file context correctly', () => {
+			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS);
+			const fnames = new Set(['/path/to/project/file1.ts']);
+			const dirty = new Set(['file1.ts']);
+
+			session.initializeFileContext(fnames, dirty);
+
+			expect(session.absFnamesInChat).to.deep.equal(fnames);
+			expect(session.initiallyDirtyFiles).to.deep.equal(dirty);
+		});
+
+		it('should add a file to the chat context', () => {
+			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS);
+			const filePath = '/path/to/project/file.ts';
+			session.addFileToChat(filePath);
+			expect(session.absFnamesInChat.has(filePath)).to.be.true;
+		});
+
+		it('should set and retrieve a file snapshot', () => {
+			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS);
+			const relPath = 'src/app.ts';
+			const content = 'console.log("hello");';
+
+			session.setFileSnapshot(relPath, content);
+
+			expect(session.fileContentSnapshots.get(relPath)).to.equal(content);
+		});
+
+		it('should handle null snapshots for unreadable files', () => {
+			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS);
+			const relPath = 'src/unreadable.ts';
+
+			session.setFileSnapshot(relPath, null);
+
+			expect(session.fileContentSnapshots.get(relPath)).to.be.null;
 		});
 	});
 });
