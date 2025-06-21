@@ -27,6 +27,7 @@ describe('ReflectionGenerator', () => {
 		});
 
 		mockFss = new FileSystemService(MOCK_REPO_ROOT);
+		sinon.stub(mockFss, 'getVcsRoot').returns(MOCK_REPO_ROOT);
 		generator = new ReflectionGenerator();
 		sessionContext = {
 			workingDir: MOCK_REPO_ROOT,
