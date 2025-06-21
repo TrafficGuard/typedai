@@ -442,6 +442,19 @@ export class SearchReplaceCoder {
 
 			session.parsedBlocks = parseEditResponse(session.llmResponse, editFormat, this.getFence());
 
+
+			// Proactive check for external file modifications before applying edits. TODO if we can still apply the edits, we should do that
+			const externallyChanged = await this._detectExternalChanges(session, session.parsedBlocks);
+			if (externallyChanged.length > 0) {
+				this._addReflectionToMessages(
+					session,
+					`The following file(s) were modified after the edit blocks were generated: ${externallyChanged.join(', ')}. Their content has been updated in your context. Please regenerate the edits using the updated content.`,
+					currentMessages,
+				);
+				promptNeedsRebuild = true;
+				continue;
+			}
+
 			const hasFileRequests = session.requestedFiles && session.requestedFiles.length > 0;
 			const hasQueryRequests = session.requestedQueries && session.requestedQueries.length > 0;
 			const hasPackageRequests = session.requestedPackageInstalls && session.requestedPackageInstalls.length > 0;
@@ -497,6 +510,15 @@ export class SearchReplaceCoder {
 
 			const { valid: validBlocks, issues: validationIssues } = await validateBlocks(session.parsedBlocks, repoFiles, this.rules);
 
+			logger.info(
+				{
+					parsedBlocks: JSON.stringify(session.parsedBlocks, null, 2),
+					validBlocksCount: validBlocks.length,
+					validationIssues: JSON.stringify(validationIssues, null, 2),
+				},
+				'Validation result',
+			);
+
 			// Filter out any null/undefined issues from a potentially buggy validator
 			const compactIssues = validationIssues.filter((i) => i);
 
@@ -528,18 +550,6 @@ export class SearchReplaceCoder {
 			// Handle "dirty commits" before applying edits
 			const { editsToApply, pathsToDirtyCommit } = await this._prepareToEdit(session, validBlocks);
 			const blocksForCurrentApplyAttempt = [...editsToApply]; // Master list of blocks for this attempt, may be modified by fixes
-
-			// Proactive check for external file modifications before applying edits
-			const externallyChanged = await this._detectExternalChanges(session, blocksForCurrentApplyAttempt);
-			if (externallyChanged.length > 0) {
-				this._addReflectionToMessages(
-					session,
-					`The following file(s) were modified after the edit blocks were generated: ${externallyChanged.join(', ')}. Their content has been updated in your context. Please regenerate the edits using the updated content.`,
-					currentMessages,
-				);
-				promptNeedsRebuild = true;
-				continue;
-			}
 
 			if (dirtyCommits && this.vcs && pathsToDirtyCommit.size > 0 && !dryRun) {
 				const dirtyFilesArray = Array.from(pathsToDirtyCommit);
