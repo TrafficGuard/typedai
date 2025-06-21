@@ -476,7 +476,7 @@ export class SearchReplaceCoder {
 				validBlocks: editsToApply,
 				dirtyFiles: pathsToDirtyCommit,
 				externalChanges,
-			} = await this.editPreparer.prepare(validBlocksFromValidation, session, fileContentSnapshots, absFnamesInChat, initiallyDirtyFiles);
+			} = await this.editPreparer.prepare(validBlocksFromValidation, session);
 
 			if (externalChanges.length > 0) {
 				this._addReflectionToMessages(

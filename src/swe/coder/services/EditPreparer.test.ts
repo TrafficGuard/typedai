@@ -28,9 +28,6 @@ describe('EditPreparer', () => {
 	let mockFss: IFileSystemService;
 	let mockVcs: sinon.SinonStubbedInstance<VersionControlSystem>;
 	let session: EditSession;
-	let absFnamesInChat: Set<string>;
-	let initiallyDirtyFiles: Set<string>;
-	let fileContentSnapshots: Map<string, string | null>;
 
 	beforeEach(() => {
 		mockFs({
@@ -45,9 +42,6 @@ describe('EditPreparer', () => {
 
 		preparer = new EditPreparer(mockFss, mockVcs, FENCE);
 		session = new EditSession(MOCK_REPO_ROOT, 'test request');
-		absFnamesInChat = new Set<string>();
-		initiallyDirtyFiles = new Set<string>();
-		fileContentSnapshots = new Map<string, string | null>();
 	});
 
 	afterEach(() => {
@@ -59,11 +53,11 @@ describe('EditPreparer', () => {
 		it('should return a valid block for an existing, clean file already in context', async () => {
 			const filePath = 'existing.ts';
 			const absPath = join(MOCK_REPO_ROOT, filePath);
-			absFnamesInChat.add(absPath);
+			session.addFileToChat(absPath);
 			mockVcs.isDirty.withArgs(filePath).resolves(false);
 
 			const blocks = [createBlock(filePath, 'initial content', 'new content')];
-			const result = await preparer.prepare(blocks, session, fileContentSnapshots, absFnamesInChat, initiallyDirtyFiles);
+			const result = await preparer.prepare(blocks, session);
 
 			expect(result.validBlocks).to.have.lengthOf(1);
 			expect(result.validBlocks[0]).to.deep.equal(blocks[0]);
@@ -76,20 +70,20 @@ describe('EditPreparer', () => {
 			const absPath = join(MOCK_REPO_ROOT, filePath);
 			const blocks = [createBlock(filePath, '', 'new content')];
 
-			const result = await preparer.prepare(blocks, session, fileContentSnapshots, absFnamesInChat, initiallyDirtyFiles);
+			const result = await preparer.prepare(blocks, session);
 
 			expect(result.validBlocks).to.have.lengthOf(1);
 			expect(result.validBlocks[0]).to.deep.equal(blocks[0]);
 			expect(result.dirtyFiles.size).to.equal(0);
 			expect(result.externalChanges).to.be.empty;
-			expect(absFnamesInChat.has(absPath)).to.be.true;
+			expect(session.absFnamesInChat.has(absPath)).to.be.true;
 		});
 
 		it('should allow creating a new file if the SEARCH block contains only whitespace', async () => {
 			const filePath = 'new-file.ts';
 			const blocks = [createBlock(filePath, '  \n\t  ', 'new content')];
 
-			const result = await preparer.prepare(blocks, session, fileContentSnapshots, absFnamesInChat, initiallyDirtyFiles);
+			const result = await preparer.prepare(blocks, session);
 
 			expect(result.validBlocks).to.have.lengthOf(1);
 			expect(result.dirtyFiles.size).to.equal(0);
@@ -98,25 +92,25 @@ describe('EditPreparer', () => {
 		it('should allow editing an existing file not previously in the session context', async () => {
 			const filePath = 'existing.ts';
 			const absPath = join(MOCK_REPO_ROOT, filePath);
-			expect(absFnamesInChat.has(absPath)).to.be.false;
+			expect(session.absFnamesInChat.has(absPath)).to.be.false;
 
 			const blocks = [createBlock(filePath, 'initial content', 'new content')];
-			const result = await preparer.prepare(blocks, session, fileContentSnapshots, absFnamesInChat, initiallyDirtyFiles);
+			const result = await preparer.prepare(blocks, session);
 
 			expect(result.validBlocks).to.have.lengthOf(1);
 			expect(result.dirtyFiles.size).to.equal(0);
 			expect(result.externalChanges).to.be.empty;
-			expect(absFnamesInChat.has(absPath)).to.be.true;
+			expect(session.absFnamesInChat.has(absPath)).to.be.true;
 		});
 	});
 
 	describe('External Change Detection', () => {
 		it('should detect external changes if file content was modified since snapshot', async () => {
 			const filePath = 'existing.ts';
-			fileContentSnapshots.set(filePath, 'snapshot content'); // Different from 'initial content' on disk
+			session.setFileSnapshot(filePath, 'snapshot content'); // Different from 'initial content' on disk
 
 			const blocks = [createBlock(filePath, 'snapshot content', 'new content')];
-			const result = await preparer.prepare(blocks, session, fileContentSnapshots, absFnamesInChat, initiallyDirtyFiles);
+			const result = await preparer.prepare(blocks, session);
 
 			expect(result.externalChanges).to.deep.equal([filePath]);
 			expect(result.validBlocks).to.be.empty;
@@ -125,11 +119,11 @@ describe('EditPreparer', () => {
 
 		it('should detect external changes if a file was deleted since snapshot', async () => {
 			const filePath = 'deleted-file.ts';
-			fileContentSnapshots.set(filePath, 'i existed once');
+			session.setFileSnapshot(filePath, 'i existed once');
 			// File does not exist in mock-fs
 
 			const blocks = [createBlock(filePath, 'i existed once', 'new content')];
-			const result = await preparer.prepare(blocks, session, fileContentSnapshots, absFnamesInChat, initiallyDirtyFiles);
+			const result = await preparer.prepare(blocks, session);
 
 			expect(result.externalChanges).to.deep.equal([filePath]);
 			expect(result.validBlocks).to.be.empty;
@@ -138,13 +132,13 @@ describe('EditPreparer', () => {
 		it('should short-circuit and not validate blocks if external changes are found', async () => {
 			const changedFile = 'existing.ts';
 			const invalidFile = 'non-existent.ts';
-			fileContentSnapshots.set(changedFile, 'snapshot content'); // Will trigger external change
+			session.setFileSnapshot(changedFile, 'snapshot content'); // Will trigger external change
 
 			const blocks = [
 				createBlock(changedFile, 'snapshot content', 'new content'),
 				createBlock(invalidFile, 'some search content', 'new content'), // This block is invalid
 			];
-			const result = await preparer.prepare(blocks, session, fileContentSnapshots, absFnamesInChat, initiallyDirtyFiles);
+			const result = await preparer.prepare(blocks, session);
 
 			// It should stop after detecting the change and not even process the invalid block
 			expect(result.externalChanges).to.deep.equal([changedFile]);
@@ -156,7 +150,7 @@ describe('EditPreparer', () => {
 			// No snapshot for 'existing.ts' in the session
 
 			const blocks = [createBlock(filePath, 'initial content', 'new content')];
-			const result = await preparer.prepare(blocks, session, fileContentSnapshots, absFnamesInChat, initiallyDirtyFiles);
+			const result = await preparer.prepare(blocks, session);
 
 			expect(result.externalChanges).to.be.empty;
 			expect(result.validBlocks).to.have.lengthOf(1);
@@ -167,12 +161,11 @@ describe('EditPreparer', () => {
 		it('should identify an initially dirty file that is still dirty', async () => {
 			const filePath = 'dirty.ts';
 			const absPath = join(MOCK_REPO_ROOT, filePath);
-			absFnamesInChat.add(absPath);
-			initiallyDirtyFiles.add(filePath);
+			session.initializeFileContext(new Set([absPath]), new Set([filePath]));
 			mockVcs.isDirty.withArgs(filePath).resolves(true);
 
 			const blocks = [createBlock(filePath, 'dirty content', 'new content')];
-			const result = await preparer.prepare(blocks, session, fileContentSnapshots, absFnamesInChat, initiallyDirtyFiles);
+			const result = await preparer.prepare(blocks, session);
 
 			expect(result.validBlocks).to.have.lengthOf(1);
 			expect(result.dirtyFiles.has(filePath)).to.be.true;
@@ -182,12 +175,11 @@ describe('EditPreparer', () => {
 		it('should not mark a file as dirty if it was initially dirty but is now clean', async () => {
 			const filePath = 'dirty.ts';
 			const absPath = join(MOCK_REPO_ROOT, filePath);
-			absFnamesInChat.add(absPath);
-			initiallyDirtyFiles.add(filePath);
+			session.initializeFileContext(new Set([absPath]), new Set([filePath]));
 			mockVcs.isDirty.withArgs(filePath).resolves(false); // VCS now reports the file as clean
 
 			const blocks = [createBlock(filePath, 'dirty content', 'new content')];
-			const result = await preparer.prepare(blocks, session, fileContentSnapshots, absFnamesInChat, initiallyDirtyFiles);
+			const result = await preparer.prepare(blocks, session);
 
 			expect(result.validBlocks).to.have.lengthOf(1);
 			expect(result.dirtyFiles.has(filePath)).to.be.false;
@@ -196,10 +188,10 @@ describe('EditPreparer', () => {
 		it('should not perform dirty checks if VCS is not available', async () => {
 			preparer = new EditPreparer(mockFss, null, FENCE); // Recreate preparer without VCS
 			const filePath = 'dirty.ts';
-			initiallyDirtyFiles.add(filePath);
+			session.initializeFileContext(new Set(), new Set([filePath]));
 
 			const blocks = [createBlock(filePath, 'dirty content', 'new content')];
-			const result = await preparer.prepare(blocks, session, fileContentSnapshots, absFnamesInChat, initiallyDirtyFiles);
+			const result = await preparer.prepare(blocks, session);
 
 			expect(result.validBlocks).to.have.lengthOf(1);
 			expect(result.dirtyFiles.size).to.equal(0); // No VCS means no dirty check
@@ -211,7 +203,7 @@ describe('EditPreparer', () => {
 			const filePath = 'non-existent.ts';
 			const blocks = [createBlock(filePath, 'some search content', 'new content')];
 
-			const result = await preparer.prepare(blocks, session, fileContentSnapshots, absFnamesInChat, initiallyDirtyFiles);
+			const result = await preparer.prepare(blocks, session);
 
 			expect(result.validBlocks).to.be.empty;
 			expect(result.dirtyFiles.size).to.equal(0);
@@ -224,7 +216,7 @@ describe('EditPreparer', () => {
 			const createBlockValid = createBlock('new-file.ts', '', 'new');
 
 			const blocks: EditBlock[] = [validBlock, invalidBlock, createBlockValid];
-			const result = await preparer.prepare(blocks, session, fileContentSnapshots, absFnamesInChat, initiallyDirtyFiles);
+			const result = await preparer.prepare(blocks, session);
 
 			expect(result.validBlocks).to.have.lengthOf(2);
 			expect(result.validBlocks).to.deep.include(validBlock);
