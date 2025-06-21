@@ -1,6 +1,6 @@
 import type { LLM, LlmMessage } from '#shared/llm/llm.model';
-import type { EditApplier } from './editApplier';
 import type { PromptBuilder } from './PromptBuilder';
+import type { EditApplier } from './editApplier';
 import type { EditPreparer } from './services/EditPreparer';
 import type { ReflectionGenerator } from './services/ReflectionGenerator';
 import type { ResponseProcessor } from './services/ResponseProcessor';
