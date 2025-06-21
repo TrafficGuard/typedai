@@ -166,8 +166,8 @@ export class MockLLM extends BaseLLM {
 
 		// Otherwise, it was a string-based call, so use the text-based generation.
 		const hasSystemPrompt = typeof userOrOpts === 'string';
-		const systemPrompt = hasSystemPrompt ? userOrSystemOrMessages : undefined;
-		const userPrompt = hasSystemPrompt ? (userOrOpts as string) : userOrSystemOrMessages;
+		const systemPrompt = hasSystemPrompt ? (userOrSystemOrMessages as string) : undefined;
+		const userPrompt = hasSystemPrompt ? (userOrOpts as string) : (userOrSystemOrMessages as string);
 		const theOpts = hasSystemPrompt ? opts : (userOrOpts as GenerateTextOptions);
 		return this._generateText(systemPrompt, userPrompt, theOpts);
 	}

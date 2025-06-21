@@ -11,9 +11,9 @@ import type { IFileSystemService } from '#shared/files/fileSystemService';
 import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { CoderExhaustedAttemptsError } from '../sweErrors';
+import { DIVIDER_MARKER, REPLACE_MARKER, SEARCH_MARKER } from './constants';
 import { EditApplier } from './editApplier';
 import { SearchReplaceCoder } from './searchReplaceCoder';
-import { DIVIDER_MARKER, REPLACE_MARKER, SEARCH_MARKER } from './constants';
 
 const MOCK_REPO_ROOT = '/repo';
 
@@ -36,7 +36,7 @@ describe('SearchReplaceCoder: Reflection Logic', () => {
 
 	let coder: SearchReplaceCoder;
 	let mockLlms: AgentLLMs;
-	let mockLLM: MockLLM; 
+	let mockLLM: MockLLM;
 	let fss: IFileSystemService;
 	let mockVcs: sinon.SinonStubbedInstance<VersionControlSystem>;
 
@@ -157,15 +157,8 @@ describe('SearchReplaceCoder: Reflection Logic', () => {
 	describe('on Edit Application Failures', () => {
 		it('should reflect when an edit fails to apply due to a non-matching SEARCH block', async () => {
 			setupMockFs({ '/repo/test.ts': 'hello world' });
-			const failingBlock = `test.ts
-\`\`\`typescript
-<<<<<<< SEARCH
-goodbye world
-=======
-new content
->>>>>>> REPLACE
-\`\`\`
-`;
+
+			const failingBlock = searchReplaceBlock('test.ts', 'goodbye world', 'new content');
 			mockLLM
 				.addMessageResponse(failingBlock) // Main attempt
 				.addResponse('null') // Fix attempt fails
@@ -250,19 +243,24 @@ new content
 	});
 
 	describe('on Context and State Failures', () => {
-		it.only('should reflect if a file was modified externally before edits are applied', async () => {
+		it('should reflect if a file was modified externally before edits are applied', async () => {
 			setupMockFs({ '/repo/test.ts': 'initial content' });
 			// Stub readFile to simulate modification after prompt build
 			const readFileStub = sinon.stub(fss, 'readFile');
 			readFileStub.callThrough();
 			readFileStub.withArgs('/repo/test.ts').onFirstCall().resolves('initial content'); // For prompt build
-			readFileStub.withArgs('/repo/test.ts').onSecondCall().resolves('modified content'); // For external change check
+			// For external change check and all subsequent reads, return modified content
+			readFileStub.withArgs('/repo/test.ts').resolves('modified content');
 
-			mockLLM.addMessageResponse(SEARCH_BLOCK_VALID.replace('hello world', 'initial content')).addMessageResponse(SEARCH_BLOCK_VALID);
+			mockLLM
+				.addMessageResponse(SEARCH_BLOCK_VALID.replace('hello world', 'initial content'))
+				.addMessageResponse(SEARCH_BLOCK_VALID.replace('hello world', 'modified content'));
 
 			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);
 
-			const reflection = mockLLM.getMessageCalls()[1].messages.at(-1)?.content;
+			const messageCalls = mockLLM.getMessageCalls();
+			expect(messageCalls).to.have.lengthOf(2);
+			const reflection = messageCalls[1].messages.at(-1)?.content;
 			expect(reflection).to.contain('were modified after the edit blocks were generated');
 		});
 

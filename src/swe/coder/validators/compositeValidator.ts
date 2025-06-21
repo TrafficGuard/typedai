@@ -23,9 +23,9 @@ export async function validateBlocks(blocks: EditBlock[], repoFiles: string[], r
 		const currentBlockIssues: ValidationIssue[] = [];
 
 		for (const rule of rules) {
-			const issue = rule.check(block, repoFiles);
+			const issue: ValidationIssue | null = await rule.check(block, repoFiles);
 			if (issue) {
-				currentBlockIssues.push(await issue);
+				currentBlockIssues.push(issue);
 				blockIsValid = false;
 				// Do not break here, collect all issues for this block from all rules
 			}

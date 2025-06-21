@@ -1,4 +1,5 @@
 import * as path from 'node:path';
+import { agentContext } from '#agent/agentContextLocalStorage';
 import { buildFileSystemTreePrompt } from '#agent/agentPromptUtils';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
@@ -23,7 +24,6 @@ import { validateBlocks } from './validators/compositeValidator';
 import { ModuleAliasRule } from './validators/moduleAliasRule';
 import { PathExistsRule } from './validators/pathExistsRule';
 import type { ValidationIssue, ValidationRule } from './validators/validationRule';
-import { agentContext } from '#agent/agentContextLocalStorage';
 
 const MAX_ATTEMPTS = 5;
 const DEFAULT_FENCE_OPEN = '```';
@@ -310,8 +310,8 @@ export class SearchReplaceCoder {
 		messages.push(...this.precomputedExampleMessages);
 
 		const agent = agentContext();
-		let fileSystemTree;
-		if(agent) {
+		let fileSystemTree: string | undefined;
+		if (agent) {
 			fileSystemTree = await buildFileSystemTreePrompt();
 		}
 		fileSystemTree ??= await this.fs.getFileSystemTree();
@@ -375,15 +375,15 @@ export class SearchReplaceCoder {
 			messages.push({ role: 'assistant', content: 'Ok, I will use this repository information for context.' });
 		}
 
-        // ---------------------------------------------------------------------
-        //  Include any reflection messages gathered in previous attempts
-        // ---------------------------------------------------------------------
-        if (session.reflectionMessages.length > 0) {
-            for (const reflection of session.reflectionMessages) {
-                // Re-add each reflection as a user message so the LLM sees it
-                messages.push(user(reflection));
-            }
-        }
+		// ---------------------------------------------------------------------
+		//  Include any reflection messages gathered in previous attempts
+		// ---------------------------------------------------------------------
+		if (session.reflectionMessages.length > 0) {
+			for (const reflection of session.reflectionMessages) {
+				// Re-add each reflection as a user message so the LLM sees it
+				messages.push(user(reflection));
+			}
+		}
 
 		// Append the detailed system reminders to the user's request
 		messages.push({ role: 'user', content: `${userRequest}\n\n${this.systemReminderForUserPrompt}` });
@@ -451,7 +451,6 @@ export class SearchReplaceCoder {
 			const editFormat: EditFormat = sortedModelFormatEntries.find(([key]) => modelId.includes(key))?.[1] ?? 'diff';
 
 			session.parsedBlocks = parseEditResponse(session.llmResponse, editFormat, this.getFence());
-
 
 			// Proactive check for external file modifications before applying edits. TODO if we can still apply the edits, we should do that
 			const externallyChanged = await this._detectExternalChanges(session, session.parsedBlocks);
@@ -529,11 +528,8 @@ export class SearchReplaceCoder {
 				'Validation result',
 			);
 
-			// Filter out any null/undefined issues from a potentially buggy validator
-			const compactIssues = validationIssues.filter((i) => i);
-
-			if (compactIssues.length > 0) {
-				this._reflectOnValidationIssues(session, compactIssues, currentMessages);
+			if (validationIssues.length > 0) {
+				this._reflectOnValidationIssues(session, validationIssues, currentMessages);
 				continue;
 			}
 
