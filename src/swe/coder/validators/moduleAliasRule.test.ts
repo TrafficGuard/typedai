@@ -36,6 +36,11 @@ describe('ModuleAliasRule', () => {
 		expect(await rule.check(block, [])).to.be.null;
 	});
 
+	it('should return null if filePath is a markdown header', async () => {
+		const block = createEditBlock('# A markdown header');
+		expect(await rule.check(block, [])).to.be.null;
+	});
+
 	it('should return null for empty filePath (other rules might catch this)', async () => {
 		const block = createEditBlock('');
 		expect(await rule.check(block, [])).to.be.null;

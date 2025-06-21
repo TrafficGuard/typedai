@@ -143,19 +143,6 @@ describe('SearchReplaceCoder: Reflection Logic', () => {
 			const editBlock1 = searchReplaceBlock('#services/my-service.ts', 'original', 'updated');
 			const editBlock2 = searchReplaceBlock('non-existent.ts', 'original', 'updated');
 			const editBlocks = `${editBlock1}\n\n${editBlock2}`;
-			mockLLM.addMessageResponse(editBlocks).addMessageResponse(SEARCH_BLOCK_VALID);
-
-			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);
-
-			const reflection = mockLLM.getMessageCalls()[1].messages.at(-1)?.content;
-			expect(reflection).to.contain("should not begin with '#'. It seems like you're writing to a module alias");
-		});
-
-		it('should reflect with all issues if multiple validation rules fail', async () => {
-			setupMockFs({ '/repo/test.ts': 'hello world' });
-			const editBlock1 = searchReplaceBlock('#services/my-service.ts', 'original', 'updated');
-			const editBlock2 = searchReplaceBlock('non-existent.ts', 'original', 'updated');
-			const editBlocks = `${editBlock1}\n\n${editBlock2}`;
 
 			mockLLM.addMessageResponse(editBlocks).addMessageResponse(SEARCH_BLOCK_VALID);
 
