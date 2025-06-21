@@ -15,9 +15,9 @@ import { MODEL_EDIT_FORMATS } from './constants';
 import { EditApplier } from './editApplier';
 import { parseEditResponse } from './editBlockParser';
 import { tryFixSearchBlock } from './fixSearchReplaceBlock';
-import { stripQuotedWrapping } from './patchUtils';
 import { buildFailedEditsReflection, buildValidationIssuesReflection } from './reflectionUtils';
 import { EDIT_BLOCK_PROMPTS } from './searchReplacePrompts';
+import { EditPreparer } from './services/EditPreparer';
 import type { EditSession } from './state/EditSession';
 import { newSession } from './state/EditSession';
 import { validateBlocks } from './validators/compositeValidator';
@@ -113,6 +113,7 @@ export class SearchReplaceCoder {
 	private readonly precomputedSystemMessage: string;
 	private readonly precomputedExampleMessages: LlmMessage[];
 	private readonly systemReminderForUserPrompt: string;
+	private editPreparer: EditPreparer;
 
 	constructor(
 		private llms: AgentLLMs,
@@ -122,6 +123,7 @@ export class SearchReplaceCoder {
 		this.vcs = this.fs.getVcsRoot() ? this.fs.getVcs() : null;
 
 		const fence = this.getFence();
+		this.editPreparer = new EditPreparer(this.fs, this.vcs, fence);
 		const language = 'TypeScript'; // Default, can be made configurable
 
 		// Construct the detailed reminders text that will be used in both system and user prompts
@@ -189,77 +191,6 @@ export class SearchReplaceCoder {
 		}
 	}
 
-	/**
-	 * Prepares edit blocks by checking permissions and identifying files for "dirty commit".
-	 * Corresponds to parts of Coder.prepare_to_edit and Coder.allowed_to_edit.
-	 */
-	private async _prepareToEdit(session: EditSession, parsedBlocks: EditBlock[]): Promise<{ editsToApply: EditBlock[]; pathsToDirtyCommit: Set<string> }> {
-		const editsToApply: EditBlock[] = [];
-		const pathsToDirtyCommit = new Set<string>(); // Relative paths
-		const seenPaths = new Map<string, boolean>(); // Cache for isAllowedToEdit result per path
-
-		for (const edit of parsedBlocks) {
-			const relativePath = edit.filePath;
-			let isAllowed = seenPaths.get(relativePath);
-
-			if (isAllowed === undefined) {
-				const { allowed, needsDirtyCommit } = await this._isAllowedToEdit(session, relativePath, edit.originalText);
-				isAllowed = allowed;
-				seenPaths.set(relativePath, isAllowed);
-				if (needsDirtyCommit) {
-					pathsToDirtyCommit.add(relativePath);
-				}
-			}
-
-			if (isAllowed) {
-				editsToApply.push(edit);
-			}
-		}
-		return { editsToApply, pathsToDirtyCommit };
-	}
-
-	/**
-	 * Checks if an edit is allowed for a given file path and determines if a "dirty commit" is needed.
-	 * Corresponds to Coder.allowed_to_edit and Coder.check_for_dirty_commit.
-	 */
-	private async _isAllowedToEdit(
-		session: EditSession,
-		relativePath: string,
-		originalTextIfNew: string,
-	): Promise<{ allowed: boolean; needsDirtyCommit: boolean }> {
-		const absolutePath = this.getRepoFilePath(session.workingDir, relativePath);
-		let needsDirtyCommit = false;
-
-		if (session.absFnamesInChat?.has(absolutePath)) {
-			if (this.vcs && session.initiallyDirtyFiles?.has(relativePath) && (await this.vcs.isDirty(relativePath))) {
-				needsDirtyCommit = true;
-			}
-			return { allowed: true, needsDirtyCommit };
-		}
-
-		const fileExists = await this.fs.fileExists(absolutePath);
-
-		if (!fileExists) {
-			const isIntentToCreate = !stripQuotedWrapping(originalTextIfNew, relativePath, this.getFence()).trim();
-			if (!isIntentToCreate) {
-				logger.warn(`Skipping edit for non-existent file ${relativePath} with non-empty SEARCH block (validation should catch this).`);
-				// This case should ideally be caught by PathExistsRule, but as a safeguard:
-				return { allowed: false, needsDirtyCommit: false };
-			}
-			logger.info(`Edit targets new file ${relativePath}. Assuming permission to create.`);
-		} else {
-			logger.info(`Edit targets file ${relativePath} not previously in chat. Assuming permission to edit.`);
-		}
-
-		session.absFnamesInChat?.add(absolutePath);
-		// TODO: Add Coder.check_added_files() equivalent to warn if too many files/tokens are in chat.
-
-		if (this.vcs && session.initiallyDirtyFiles?.has(relativePath) && (await this.vcs.isDirty(relativePath))) {
-			needsDirtyCommit = true;
-		}
-		return { allowed: true, needsDirtyCommit };
-	}
-
 	private _addReflectionToMessages(session: EditSession, reflectionText: string, currentMessages: LlmMessage[]): void {
 		session.reflectionMessages.push(reflectionText);
 		currentMessages.push(user(reflectionText));
@@ -274,25 +205,6 @@ export class SearchReplaceCoder {
 	private async _reflectOnFailedEdits(session: EditSession, failedEdits: EditBlock[], numPassed: number, currentMessages: LlmMessage[]): Promise<void> {
 		const reflectionText = await buildFailedEditsReflection(failedEdits, numPassed, this.fs, session.workingDir);
 		this._addReflectionToMessages(session, reflectionText, currentMessages);
-	}
-
-	/** Returns list of file paths that have changed since their snapshot. */
-	private async _detectExternalChanges(session: EditSession, targetBlocks: EditBlock[]): Promise<string[]> {
-		const changed: string[] = [];
-		const uniquePaths = new Set(targetBlocks.map((b) => b.filePath));
-		for (const relPath of uniquePaths) {
-			const snapshot = session.fileContentSnapshots.get(relPath);
-			if (snapshot === undefined) continue; // no snapshot → ignore
-			const absPath = this.getRepoFilePath(session.workingDir, relPath);
-			let current: string | null = null;
-			try {
-				current = await this.fs.readFile(absPath);
-			} catch {
-				current = null; // treat deletion as a change
-			}
-			if (snapshot !== current) changed.push(relPath);
-		}
-		return changed;
 	}
 
 	private async _buildPrompt(
@@ -452,18 +364,6 @@ export class SearchReplaceCoder {
 
 			session.parsedBlocks = parseEditResponse(session.llmResponse, editFormat, this.getFence());
 
-			// Proactive check for external file modifications before applying edits. TODO if we can still apply the edits, we should do that
-			const externallyChanged = await this._detectExternalChanges(session, session.parsedBlocks);
-			if (externallyChanged.length > 0) {
-				this._addReflectionToMessages(
-					session,
-					`The following file(s) were modified after the edit blocks were generated: ${externallyChanged.join(', ')}. Their content has been updated in your context. Please regenerate the edits using the updated content.`,
-					currentMessages,
-				);
-				promptNeedsRebuild = true;
-				continue;
-			}
-
 			const hasFileRequests = session.requestedFiles && session.requestedFiles.length > 0;
 			const hasQueryRequests = session.requestedQueries && session.requestedQueries.length > 0;
 			const hasPackageRequests = session.requestedPackageInstalls && session.requestedPackageInstalls.length > 0;
@@ -517,12 +417,12 @@ export class SearchReplaceCoder {
 				logger.warn(`LLM made meta-request(s) AND provided edit blocks. Processing edit blocks. Meta-requests: ${reflectionForMetaRequests}`);
 			}
 
-			const { valid: validBlocks, issues: validationIssues } = await validateBlocks(session.parsedBlocks, repoFiles, this.rules);
+			const { valid: validBlocksFromValidation, issues: validationIssues } = await validateBlocks(session.parsedBlocks, repoFiles, this.rules);
 
 			logger.info(
 				{
 					parsedBlocks: JSON.stringify(session.parsedBlocks, null, 2),
-					validBlocksCount: validBlocks.length,
+					validBlocksCount: validBlocksFromValidation.length,
 					validationIssues: JSON.stringify(validationIssues, null, 2),
 				},
 				'Validation result',
@@ -533,7 +433,7 @@ export class SearchReplaceCoder {
 				continue;
 			}
 
-			if (validBlocks.length === 0) {
+			if (validBlocksFromValidation.length === 0) {
 				if (session.parsedBlocks.length > 0) {
 					// All blocks were invalid, but no issues were reported (or they were all null).
 					this._addReflectionToMessages(
@@ -553,8 +453,23 @@ export class SearchReplaceCoder {
 				continue;
 			}
 
-			// Handle "dirty commits" before applying edits
-			const { editsToApply, pathsToDirtyCommit } = await this._prepareToEdit(session, validBlocks);
+			// Prepare edits: check for external changes, permissions, and dirty files
+			const {
+				validBlocks: editsToApply,
+				dirtyFiles: pathsToDirtyCommit,
+				externalChanges,
+			} = await this.editPreparer.prepare(validBlocksFromValidation, session);
+
+			if (externalChanges.length > 0) {
+				this._addReflectionToMessages(
+					session,
+					`The following file(s) were modified after the edit blocks were generated: ${externalChanges.join(', ')}. Their content has been updated in your context. Please regenerate the edits using the updated content.`,
+					currentMessages,
+				);
+				promptNeedsRebuild = true;
+				continue;
+			}
+
 			const blocksForCurrentApplyAttempt = [...editsToApply]; // Master list of blocks for this attempt, may be modified by fixes
 
 			if (dirtyCommits && this.vcs && pathsToDirtyCommit.size > 0 && !dryRun) {
