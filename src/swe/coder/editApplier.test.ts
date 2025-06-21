@@ -147,8 +147,7 @@ describe('EditApplier', () => {
 		const block = createBlock(filePath, '', 'New content for commit.');
 		await applier.apply([block]);
 
-		sinon.assert.calledOnce(mockVCS.addAllTrackedAndCommit);
-		sinon.assert.calledWithExactly(mockVCS.addAllTrackedAndCommit, 'Applied LLM-generated edits');
+		sinon.assert.calledOnce(mockVCS.addAndCommitFiles);
 	});
 
 	it('should NOT auto-commit if dryRun is true', async () => {
@@ -160,7 +159,7 @@ describe('EditApplier', () => {
 		const block = createBlock(filePath, '', 'Dry run content.');
 		await applier.apply([block]);
 
-		sinon.assert.notCalled(mockVCS.addAllTrackedAndCommit);
+		sinon.assert.notCalled(mockVCS.addAndCommitFiles);
 		sinon.assert.notCalled(mockFileSystemService.writeFile); // Also check no write for dry run
 	});
 
@@ -174,7 +173,7 @@ describe('EditApplier', () => {
 		const block = createBlock(filePath, 'SearchFail', 'Update'); // This will fail
 		await applier.apply([block]);
 
-		sinon.assert.notCalled(mockVCS.addAllTrackedAndCommit);
+		sinon.assert.notCalled(mockVCS.addAndCommitFiles);
 	});
 
 	it('should handle multiple blocks, some failing, some passing', async () => {
