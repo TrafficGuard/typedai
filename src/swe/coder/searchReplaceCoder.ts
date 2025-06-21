@@ -1,5 +1,4 @@
 import * as path from 'node:path';
-import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { buildFileSystemTreePrompt } from '#agent/agentPromptUtils';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
@@ -24,6 +23,7 @@ import { validateBlocks } from './validators/compositeValidator';
 import { ModuleAliasRule } from './validators/moduleAliasRule';
 import { PathExistsRule } from './validators/pathExistsRule';
 import type { ValidationIssue, ValidationRule } from './validators/validationRule';
+import { agentContext } from '#agent/agentContextLocalStorage';
 
 const MAX_ATTEMPTS = 5;
 const DEFAULT_FENCE_OPEN = '```';
@@ -116,7 +116,7 @@ export class SearchReplaceCoder {
 
 	constructor(
 		private llms: AgentLLMs,
-		private fs: IFileSystemService = getFileSystem(),
+		private fs: IFileSystemService,
 		private rules: ValidationRule[] = [new PathExistsRule(), new ModuleAliasRule()],
 	) {
 		this.vcs = this.fs.getVcsRoot() ? this.fs.getVcs() : null;
@@ -309,8 +309,12 @@ export class SearchReplaceCoder {
 		messages.push({ role: 'system', content: this.precomputedSystemMessage });
 		messages.push(...this.precomputedExampleMessages);
 
-		let fileSystemTree = await buildFileSystemTreePrompt();
-		if (!fileSystemTree) fileSystemTree = await getFileSystem().getFileSystemTree();
+		const agent = agentContext();
+		let fileSystemTree;
+		if(agent) {
+			fileSystemTree = await buildFileSystemTreePrompt();
+		}
+		fileSystemTree ??= await this.fs.getFileSystemTree();
 
 		messages.push({ role: 'user', content: `Here's all the files in the repository:\n${fileSystemTree}` });
 		messages.push({ role: 'assistant', content: 'Ok, thanks.' });
