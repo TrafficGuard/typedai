@@ -33,7 +33,7 @@ export class ReflectionGenerator {
 
 		for (const edit of failedEdits) {
 			report += `\n## SearchReplaceNoExactMatch: This SEARCH block failed to exactly match lines in ${edit.filePath}\n`;
-			report += `<<<<<<< SEARCH\n${edit.originalText}=======\n${edit.updatedText}>>>>>>> REPLACE\n\n`;
+			report += `<<<<<<< SEARCH\n${edit.originalText}\n=======\n${edit.updatedText}\n>>>>>>> REPLACE\n\n`;
 
 			const absolutePath = path.resolve(rootPath, edit.filePath);
 			let content: string | null = null;
