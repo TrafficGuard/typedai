@@ -429,17 +429,7 @@ export class SearchReplaceCoder {
 			session.requestedQueries = parseAskQueryRequest(session.llmResponse);
 			session.requestedPackageInstalls = parseInstallPackageRequest(session.llmResponse);
 
-			if (!session.llmResponse?.trim()) {
-				logger.warn('SearchReplaceCoder: LLM returned an empty or whitespace-only response.');
-				this._addReflectionToMessages(
-					session,
-					'The LLM returned an empty response. Please provide the edits or request files/queries/packages using the specified formats.',
-					currentMessages,
-				);
-				continue;
-			}
-
-			//  Decide which edit-response format to parse based on the model name
+			// Decide which edit-response format to parse based on the model name
 			const modelId = llm.getModel();
 			// Sort keys by length in descending order to match longer, more specific keys first (e.g., "o3-mini" before "o3")
 			const sortedModelFormatEntries = Object.entries(MODEL_EDIT_FORMATS).sort(([keyA], [keyB]) => keyB.length - keyA.length);
@@ -501,30 +491,31 @@ export class SearchReplaceCoder {
 
 			const { valid: validBlocks, issues: validationIssues } = await validateBlocks(session.parsedBlocks, repoFiles, this.rules);
 
-			if (validationIssues.length > 0) {
-				this._reflectOnValidationIssues(session, validationIssues, currentMessages);
+			// Filter out any null/undefined issues from a potentially buggy validator
+			const compactIssues = validationIssues.filter((i) => i);
+
+			if (compactIssues.length > 0) {
+				this._reflectOnValidationIssues(session, compactIssues, currentMessages);
 				continue;
 			}
 
 			if (validBlocks.length === 0) {
-				logger.info('SearchReplaceCoder: No valid edit blocks to apply after validation.');
-				// This condition should only be hit if no meta-requests were made that would have `continue`d the loop earlier.
 				if (session.parsedBlocks.length > 0) {
-					// LLM provided blocks, but none were valid
+					// All blocks were invalid, but no issues were reported (or they were all null).
 					this._addReflectionToMessages(
 						session,
 						'All provided edit blocks were invalid. Please correct them or request necessary files/information/packages using the specified formats.',
 						currentMessages,
 					);
 				} else if (!hasAnyMetaRequest) {
-					// LLM provided no blocks AND no meta-requests (file request case handled above)
+					// No edit blocks were parsed, and no meta-requests were made.
 					this._addReflectionToMessages(
 						session,
 						'No edit blocks or actionable requests (files, query, package install) were found in your response. Please provide edits in the S/R block format or request necessary items using the specified formats.',
 						currentMessages,
 					);
 				}
-				// If meta-requests were made and no blocks, we already reflected and continued.
+				// If there were only meta-requests, we don't need to reflect again, just continue to the next attempt.
 				continue;
 			}
 
