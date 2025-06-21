@@ -503,16 +503,7 @@ export class SearchReplaceCoder {
 				}
 			}
 
-			const applier = new EditApplier(
-				this.fs,
-				this.vcs,
-				DEFAULT_LENIENT_WHITESPACE,
-				this.getFence(),
-				session.workingDir,
-				absFnamesInChat,
-				autoCommit,
-				dryRun,
-			);
+			const applier = new EditApplier(this.fs, this.vcs, DEFAULT_LENIENT_WHITESPACE, this.getFence(), session.workingDir, absFnamesInChat, autoCommit, dryRun);
 
 			const appliedInAttempt = new Set<string>();
 			const applierResult = await applier.apply(blocksForCurrentApplyAttempt);
@@ -593,8 +584,7 @@ export class SearchReplaceCoder {
 
 		if (session.attempt >= MAX_ATTEMPTS && (session.appliedFiles.size === 0 || (currentFailedEdits && currentFailedEdits.length > 0))) {
 			logger.error(`SearchReplaceCoder: Maximum attempts (${MAX_ATTEMPTS}) reached. Failing.`);
-			const finalReflection =
-				session.lastReflection || 'Unknown error after max attempts, and not all edits were successfully applied in the final attempt.';
+			const finalReflection = session.lastReflection || 'Unknown error after max attempts, and not all edits were successfully applied in the final attempt.';
 			throw new CoderExhaustedAttemptsError(`SearchReplaceCoder failed to apply edits after ${MAX_ATTEMPTS} attempts.`, MAX_ATTEMPTS, finalReflection);
 		}
 		// If the loop was exited by a 'break', it means session.attempt < MAX_ATTEMPTS,
