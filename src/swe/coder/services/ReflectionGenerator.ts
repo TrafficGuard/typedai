@@ -9,12 +9,7 @@ export class ReflectionGenerator {
 		throw new Error('Not implemented');
 	}
 
-	async buildFailureReflection(
-		failedEdits: EditBlock[],
-		numPassed: number,
-		fs: IFileSystemService,
-		rootPath: string,
-	): Promise<string> {
+	async buildFailureReflection(failedEdits: EditBlock[], numPassed: number, fs: IFileSystemService, rootPath: string): Promise<string> {
 		// From buildFailedEditsReflection
 		throw new Error('Not implemented');
 	}
