@@ -31,7 +31,7 @@ ${REPLACE_MARKER}
 
 const SEARCH_BLOCK_VALID = searchReplaceBlock('test.ts', 'hello world', 'hello universe');
 
-describe('SearchReplaceCoder: Reflection Logic', () => {
+describe.only('SearchReplaceCoder: Reflection Logic', () => {
 	setupConditionalLoggerOutput();
 
 	let coder: SearchReplaceCoder;
