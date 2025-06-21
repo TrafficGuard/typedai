@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { logger } from '#o11y/logger';
-import { LLM, LlmMessage, messageText, user } from '#shared/llm/llm.model';
+import { LLM, LlmMessage, user } from '#shared/llm/llm.model';
 import { EditBlock } from './coderTypes';
 import { parseEditResponse } from './editBlockParser';
 
@@ -40,12 +40,11 @@ Correct the SEARCH part and provide the full block:`,
 
 	// logger.debug({ prompt: fixPromptMessages[0].content }, 'SearchReplaceCoder: Sending prompt to fix search block.');
 
-	const llmResponseMsgObj = await llm.generateMessage(fixPromptMessages, {
+	const fixedBlockText = await llm.generateText(fixPromptMessages, {
 		id: `SearchReplaceCoder.fixSearchBlock.${failedEdit.filePath}`,
 		temperature: 0.05, // Low temperature for precise correction
 	});
 
-	const fixedBlockText = messageText(llmResponseMsgObj);
 	if (!fixedBlockText?.trim()) {
 		logger.warn('LLM returned empty response for search block fix.', { filePath: failedEdit.filePath });
 		return null;
