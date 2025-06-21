@@ -209,12 +209,7 @@ export class SearchReplaceCoder {
 		this._addReflectionToMessages(session, reflectionText, currentMessages);
 	}
 
-	private async _buildPrompt(
-		session: EditSession,
-		userRequest: string,
-		readOnlyFilesRelativePaths: string[],
-		repoMapContent?: string,
-	): Promise<LlmMessage[]> {
+	private async _buildPrompt(session: EditSession, userRequest: string, readOnlyFilesRelativePaths: string[], repoMapContent?: string): Promise<LlmMessage[]> {
 		const messages: LlmMessage[] = [];
 		const fence = this.getFence(); // Still needed for formatting file content
 
@@ -498,7 +493,16 @@ export class SearchReplaceCoder {
 				}
 			}
 
-			const applier = new EditApplier(this.fs, this.vcs, DEFAULT_LENIENT_WHITESPACE, this.getFence(), session.workingDir, session.absFnamesInChat, autoCommit, dryRun);
+			const applier = new EditApplier(
+				this.fs,
+				this.vcs,
+				DEFAULT_LENIENT_WHITESPACE,
+				this.getFence(),
+				session.workingDir,
+				new Set(session.absFnamesInChat),
+				autoCommit,
+				dryRun,
+			);
 
 			const appliedInAttempt = new Set<string>();
 			const applierResult = await applier.apply(blocksForCurrentApplyAttempt);
