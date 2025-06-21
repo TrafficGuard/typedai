@@ -1,13 +1,12 @@
 import * as path from 'node:path';
-import * as path from 'node:path'; // Ensure path is imported
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { buildFileSystemTreePrompt } from '#agent/agentPromptUtils';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import type { AgentLLMs } from '#shared/agent/agent.model';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
-import type { LLM, LlmMessage } from '#shared/llm/llm.model'; // LLM needed for type hint
-import { user as createUserMessage, messageText, assistant as createAssistantMessage } from '#shared/llm/llm.model'; // assistant needed for prompt
+import type { LLM, LlmMessage } from '#shared/llm/llm.model';
+import { messageText, user } from '#shared/llm/llm.model';
 import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
 import type { EditBlock } from '#swe/coder/coderTypes';
 import { CoderExhaustedAttemptsError } from '../sweErrors';
@@ -17,6 +16,7 @@ import { EditApplier } from './editApplier';
 import { parseEditResponse } from './editBlockParser';
 import type { EditSession, RequestedFileEntry, RequestedPackageInstallEntry, RequestedQueryEntry } from './editSession';
 import { newSession } from './editSession';
+import { tryFixSearchBlock } from './fixSearchReplaceBlock';
 import { stripQuotedWrapping } from './patchUtils';
 import { buildFailedEditsReflection, buildValidationIssuesReflection } from './reflectionUtils';
 import { EDIT_BLOCK_PROMPTS } from './searchReplacePrompts';
@@ -24,7 +24,6 @@ import { validateBlocks } from './validators/compositeValidator';
 import { ModuleAliasRule } from './validators/moduleAliasRule';
 import { PathExistsRule } from './validators/pathExistsRule';
 import type { ValidationIssue, ValidationRule } from './validators/validationRule';
-import { tryFixSearchBlock } from './fixSearchReplaceBlock';
 
 const MAX_ATTEMPTS = 5;
 const DEFAULT_FENCE_OPEN = '```';
@@ -263,7 +262,7 @@ export class SearchReplaceCoder {
 
 	private _addReflectionToMessages(session: EditSession, reflectionText: string, currentMessages: LlmMessage[]): void {
 		session.reflectionMessages.push(reflectionText);
-		currentMessages.push(createUserMessage(reflectionText));
+		currentMessages.push(user(reflectionText));
 		logger.warn({ reflection: reflectionText }, `SearchReplaceCoder: Reflecting to LLM for attempt ${session.attempt}.`);
 	}
 
@@ -295,8 +294,6 @@ export class SearchReplaceCoder {
 		}
 		return changed;
 	}
-
-
 
 	private async _buildPrompt(
 		session: EditSession,
@@ -502,7 +499,7 @@ export class SearchReplaceCoder {
 				logger.warn(`LLM made meta-request(s) AND provided edit blocks. Processing edit blocks. Meta-requests: ${reflectionForMetaRequests}`);
 			}
 
-			const { valid: validBlocks, issues: validationIssues } = validateBlocks(session.parsedBlocks, repoFiles, this.rules);
+			const { valid: validBlocks, issues: validationIssues } = await validateBlocks(session.parsedBlocks, repoFiles, this.rules);
 
 			if (validationIssues.length > 0) {
 				this._reflectOnValidationIssues(session, validationIssues, currentMessages);
@@ -533,15 +530,14 @@ export class SearchReplaceCoder {
 
 			// Handle "dirty commits" before applying edits
 			const { editsToApply, pathsToDirtyCommit } = await this._prepareToEdit(session, validBlocks);
-			let blocksForCurrentApplyAttempt = [...editsToApply]; // Master list of blocks for this attempt, may be modified by fixes
+			const blocksForCurrentApplyAttempt = [...editsToApply]; // Master list of blocks for this attempt, may be modified by fixes
 
 			// Proactive check for external file modifications before applying edits
 			const externallyChanged = await this._detectExternalChanges(session, blocksForCurrentApplyAttempt);
 			if (externallyChanged.length > 0) {
 				this._addReflectionToMessages(
 					session,
-					`The following file(s) were modified after the edit blocks were generated: ${externallyChanged.join(', ')}. ` +
-						`Their content has been updated in your context. Please regenerate the edits using the updated content.`,
+					`The following file(s) were modified after the edit blocks were generated: ${externallyChanged.join(', ')}. Their content has been updated in your context. Please regenerate the edits using the updated content.`,
 					currentMessages,
 				);
 				continue;
@@ -576,10 +572,9 @@ export class SearchReplaceCoder {
 				dryRun,
 			);
 
-			let applierResult = await applier.apply(blocksForCurrentApplyAttempt);
-			applierResult.appliedFilePaths.forEach(p => session.appliedFiles!.add(p));
+			const applierResult = await applier.apply(blocksForCurrentApplyAttempt);
+			applierResult.appliedFilePaths.forEach((p) => session.appliedFiles!.add(p));
 			currentFailedEdits = applierResult.failedEdits; // Assign to the outer-scoped variable
-
 
 			if (currentFailedEdits.length > 0) {
 				let fixesMade = 0;
@@ -604,7 +599,7 @@ export class SearchReplaceCoder {
 						if (correctedBlock) {
 							// Replace the original failed block with the corrected one in `blocksForCurrentApplyAttempt`
 							const indexInMasterList = blocksForCurrentApplyAttempt.findIndex(
-								b => b.filePath === failedEdit.filePath && b.originalText === failedEdit.originalText && b.updatedText === failedEdit.updatedText
+								(b) => b.filePath === failedEdit.filePath && b.originalText === failedEdit.originalText && b.updatedText === failedEdit.updatedText,
 							);
 							if (indexInMasterList !== -1) {
 								blocksForCurrentApplyAttempt[indexInMasterList] = correctedBlock;
@@ -627,7 +622,7 @@ export class SearchReplaceCoder {
 					logger.info(`Re-attempting to apply edits after ${fixesMade} block(s) were corrected in attempt ${session.attempt}.`);
 					// Re-apply with the potentially modified blocksForCurrentApplyAttempt
 					const reappliedResult = await applier.apply(blocksForCurrentApplyAttempt);
-					reappliedResult.appliedFilePaths.forEach(p => session.appliedFiles!.add(p));
+					reappliedResult.appliedFilePaths.forEach((p) => session.appliedFiles!.add(p));
 					currentFailedEdits = reappliedResult.failedEdits; // Update currentFailedEdits with the result of the re-application
 
 					if (currentFailedEdits.length === 0) {
@@ -636,11 +631,10 @@ export class SearchReplaceCoder {
 						break; // Exit main attempt loop
 					}
 				} else {
-                    // No fixes were made, currentFailedEdits are from the first apply, or nextRoundFailedEdits if some were not candidates
-                    currentFailedEdits = nextRoundFailedEdits;
-                }
+					// No fixes were made, currentFailedEdits are from the first apply, or nextRoundFailedEdits if some were not candidates
+					currentFailedEdits = nextRoundFailedEdits;
+				}
 			}
-
 
 			if (currentFailedEdits.length > 0) {
 				await this._reflectOnFailedEdits(session, currentFailedEdits, session.appliedFiles!.size, currentMessages);
@@ -653,129 +647,13 @@ export class SearchReplaceCoder {
 			break; // Exit loop on full success
 		}
 
-		if (session.attempt >= MAX_ATTEMPTS && (session.appliedFiles?.size === 0 || (currentFailedEdits && currentFailedEdits.length > 0) )) {
+		if (session.attempt >= MAX_ATTEMPTS && (session.appliedFiles?.size === 0 || (currentFailedEdits && currentFailedEdits.length > 0))) {
 			logger.error(`SearchReplaceCoder: Maximum attempts (${MAX_ATTEMPTS}) reached. Failing.`);
-			const finalReflection = session.reflectionMessages.pop() || 'Unknown error after max attempts, and not all edits were successfully applied in the final attempt.';
-			throw new CoderExhaustedAttemptsError(
-				`SearchReplaceCoder failed to apply edits after ${MAX_ATTEMPTS} attempts.`,
-				MAX_ATTEMPTS,
-				finalReflection
-			);
+			const finalReflection =
+				session.reflectionMessages.pop() || 'Unknown error after max attempts, and not all edits were successfully applied in the final attempt.';
+			throw new CoderExhaustedAttemptsError(`SearchReplaceCoder failed to apply edits after ${MAX_ATTEMPTS} attempts.`, MAX_ATTEMPTS, finalReflection);
 		}
 		// If the loop was exited by a 'break', it means session.attempt < MAX_ATTEMPTS,
 		// and all edits were applied successfully. No error is thrown.
-	}
-
-	/**
-	 * Dynamically chooses between single-shot and batch editing based on token estimates.
-	 * If the estimated prompt size exceeds the LLM's context window, it uses batch mode;
-	 * otherwise, it uses single-shot mode.
-	 * @param requirements The complete task requirements.
-	 * @param filesToEdit Relative paths of files that can be edited.
-	 * @param readOnlyFiles Relative paths of files for read-only context.
-	 * @param autoCommit Whether to auto-commit changes.
-	 * @param dirtyCommits If files with uncommitted changes should be committed first.
-	 */
-	@func()
-	async edit(requirements: string, filesToEdit: string[], readOnlyFiles: string[], autoCommit = true, dirtyCommits = true): Promise<void> {
-		const maxTokens = this.llms.medium.getMaxInputTokens();
-
-		// The getMaxInputTokens() method in the LLM interface returns a number, not number | undefined.
-		// However, to be safe against implementations that might return 0 or a falsy value, we check for a positive number.
-		if (!maxTokens || maxTokens <= 0) {
-			logger.warn(`LLM's max input tokens is unknown or invalid (${maxTokens}). Defaulting to batch edit mode to be safe.`);
-			await this.batchEditFiles(requirements, filesToEdit, readOnlyFiles, autoCommit, dirtyCommits);
-			return;
-		}
-
-		const estimatedTokens = await this._estimatePromptTokens(requirements, filesToEdit, readOnlyFiles);
-		const tokenLimit = maxTokens * 0.8; // Use 80% of max as a safety buffer
-
-		if (filesToEdit.length > 1 && estimatedTokens > tokenLimit) {
-			logger.info(`Estimated prompt tokens (${estimatedTokens}) exceeds 80% of model's limit (${tokenLimit}/${maxTokens}). Using batch edit mode.`);
-			await this.batchEditFiles(requirements, filesToEdit, readOnlyFiles, autoCommit, dirtyCommits);
-		} else {
-			logger.info(`Estimated prompt tokens (${estimatedTokens}) is within model's limit (${tokenLimit}/${maxTokens}). Using single-shot edit mode.`);
-			await this.editFilesToMeetRequirements(requirements, filesToEdit, readOnlyFiles, autoCommit, dirtyCommits);
-		}
-	}
-
-	/**
-	 * Sequentially makes changes to a batch of files to meet task requirements.
-	 * This is useful for large changes across many files that may not fit in a single LLM context.
-	 * Each file is processed in its own edit session.
-	 * @param requirements The complete task requirements.
-	 * @param filesToEdit Relative paths of files to edit. Each file is processed in a separate batch.
-	 * @param readOnlyFiles Relative paths of files for read-only context for each batch.
-	 * @param autoCommit Whether to auto-commit changes after each file is processed.
-	 * @param dirtyCommits If files with uncommitted changes should be committed first.
-	 */
-	async batchEditFiles(requirements: string, filesToEdit: string[], readOnlyFiles: string[], autoCommit = true, dirtyCommits = true): Promise<void> {
-		logger.info(`Starting batch edit for ${filesToEdit.length} files.`);
-		const failedFiles: string[] = [];
-
-		for (const file of filesToEdit) {
-			logger.info(`Batch editing file: ${file}`);
-			try {
-				// The read-only files provide context for each individual edit.
-				// The file being edited is passed as the sole item in `filesToEdit`.
-				await this.editFilesToMeetRequirements(requirements, [file], readOnlyFiles, autoCommit, dirtyCommits);
-			} catch (error) {
-				logger.error({ err: error }, `Failed to batch edit file: ${file}. Continuing with next file.`);
-				failedFiles.push(file);
-			}
-		}
-
-		if (failedFiles.length > 0) {
-			logger.error({ failedFiles }, `Batch edit completed with ${failedFiles.length} failures.`);
-			throw new Error(`Batch edit failed for the following files: ${failedFiles.join(', ')}`);
-		}
-
-		logger.info('Batch edit completed successfully for all files.');
-	}
-
-	private async _estimatePromptTokens(userRequest: string, filesToEdit: string[], readOnlyFiles: string[]): Promise<number> {
-		let totalChars = 0;
-
-		// System message and examples
-		totalChars += this.precomputedSystemMessage.length;
-		this.precomputedExampleMessages.forEach((msg) => {
-			if (typeof msg.content === 'string') totalChars += msg.content.length;
-		});
-
-		// File system tree prompt
-		const fsTreePrompt = await buildFileSystemTreePrompt();
-		totalChars += fsTreePrompt.length;
-
-		// File content and other prompt text
-		const allFiles = [...filesToEdit, ...readOnlyFiles];
-		if (allFiles.length > 0) {
-			totalChars += EDIT_BLOCK_PROMPTS.files_content_prefix.length;
-			totalChars += EDIT_BLOCK_PROMPTS.files_content_assistant_reply.length;
-			if (readOnlyFiles.length > 0) {
-				totalChars += EDIT_BLOCK_PROMPTS.read_only_files_prefix.length;
-				totalChars += 'Ok, I will treat these files as read-only.'.length;
-			}
-		} else {
-			totalChars += EDIT_BLOCK_PROMPTS.files_no_full_files.length;
-		}
-
-		for (const relPath of allFiles) {
-			const absPath = this.getRepoFilePath(this.fs.getWorkingDirectory(), relPath);
-			const content = await this.fs.readFile(absPath);
-			if (content) {
-				totalChars += content.length;
-			}
-			totalChars += relPath.length; // Add filename length
-			const lang = path.extname(relPath).substring(1) || 'text';
-			totalChars += lang.length;
-			totalChars += 20; // Approx for ```lang ... ``` and newlines
-		}
-
-		// User request
-		totalChars += userRequest.length;
-
-		// A common heuristic is ~4 chars per token.
-		return Math.ceil(totalChars / 4);
 	}
 }
