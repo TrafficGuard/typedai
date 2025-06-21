@@ -14,12 +14,11 @@ import type { EditFormat, RequestedFileEntry, RequestedPackageInstallEntry, Requ
 import { MODEL_EDIT_FORMATS } from './constants';
 import { EditApplier } from './editApplier';
 import { parseEditResponse } from './editBlockParser';
-import type { EditSession } from './editSession';
-import { newSession } from './editSession';
 import { tryFixSearchBlock } from './fixSearchReplaceBlock';
 import { stripQuotedWrapping } from './patchUtils';
 import { buildFailedEditsReflection, buildValidationIssuesReflection } from './reflectionUtils';
-import { EDIT_BLOCK_PROMPTS } from './searchReplacePrompts';
+import type { EditSession } from './state/EditSession';
+import { newSession } from './state/EditSession';
 import { validateBlocks } from './validators/compositeValidator';
 import { ModuleAliasRule } from './validators/moduleAliasRule';
 import { PathExistsRule } from './validators/pathExistsRule';
