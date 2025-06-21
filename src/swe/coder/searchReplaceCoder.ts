@@ -18,6 +18,7 @@ import { tryFixSearchBlock } from './fixSearchReplaceBlock';
 import { buildFailedEditsReflection, buildValidationIssuesReflection } from './reflectionUtils';
 import { EDIT_BLOCK_PROMPTS } from './searchReplacePrompts';
 import { EditPreparer } from './services/EditPreparer';
+import { ResponseProcessor } from './services/ResponseProcessor';
 import { EditSession } from './state/EditSession';
 import { validateBlocks } from './validators/compositeValidator';
 import { ModuleAliasRule } from './validators/moduleAliasRule';
@@ -366,9 +367,6 @@ export class SearchReplaceCoder {
 
 			currentMessages.push(llmResponseMsgObj);
 			llmResponse = messageText(llmResponseMsgObj);
-			requestedFiles = parseAddFilesRequest(llmResponse);
-			requestedQueries = parseAskQueryRequest(llmResponse);
-			requestedPackageInstalls = parseInstallPackageRequest(llmResponse);
 
 			// Decide which edit-response format to parse based on the model name
 			const modelId = llm.getModel();
@@ -376,7 +374,13 @@ export class SearchReplaceCoder {
 			const sortedModelFormatEntries = Object.entries(MODEL_EDIT_FORMATS).sort(([keyA], [keyB]) => keyB.length - keyA.length);
 			const editFormat: EditFormat = sortedModelFormatEntries.find(([key]) => modelId.includes(key))?.[1] ?? 'diff';
 
-			parsedBlocks = parseEditResponse(llmResponse, editFormat, this.getFence());
+			const responseProcessor = new ResponseProcessor(this.getFence(), editFormat);
+			const processedResponse = responseProcessor.process(llmResponse);
+
+			parsedBlocks = processedResponse.editBlocks;
+			requestedFiles = processedResponse.metaRequests.requestedFiles;
+			requestedQueries = processedResponse.metaRequests.requestedQueries;
+			requestedPackageInstalls = processedResponse.metaRequests.requestedPackageInstalls;
 
 			const hasFileRequests = requestedFiles && requestedFiles.length > 0;
 			const hasQueryRequests = requestedQueries && requestedQueries.length > 0;
