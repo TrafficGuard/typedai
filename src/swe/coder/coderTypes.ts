@@ -24,3 +24,8 @@ export interface RequestedPackageInstallEntry {
 	packageName: string;
 	reason: string;
 }
+
+export interface ValidationIssue {
+	file: string;
+	reason: string;
+}

@@ -6,7 +6,7 @@ import { FileSystemService } from '#functions/storage/fileSystemService';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import type { EditBlock, ValidationIssue } from '../coderTypes';
-import { ReflectionGenerator, type MetaRequests, type SessionContext } from './ReflectionGenerator';
+import { type MetaRequests, ReflectionGenerator, type SessionContext } from './ReflectionGenerator';
 
 const MOCK_REPO_ROOT = '/repo';
 
@@ -95,7 +95,10 @@ describe('ReflectionGenerator', () => {
 		it('should generate a reflection for requested files, separating new and existing', () => {
 			sessionContext.absFnamesInChat.add(join(MOCK_REPO_ROOT, 'existing.ts'));
 			const metaRequests: MetaRequests = {
-				requestedFiles: [{ filePath: 'new.ts' }, { filePath: 'existing.ts' }],
+				requestedFiles: [
+					{ filePath: 'new.ts', reason: 'test' },
+					{ filePath: 'existing.ts', reason: 'test' },
+				],
 			};
 
 			const { reflection, addedFiles } = generator.buildMetaRequestReflection(metaRequests, sessionContext);
@@ -108,7 +111,7 @@ describe('ReflectionGenerator', () => {
 		it('should generate a reflection for requested queries and package installs', () => {
 			const metaRequests: MetaRequests = {
 				requestedQueries: [{ query: 'find all todos' }],
-				requestedPackageInstalls: [{ packageName: 'uuid' }],
+				requestedPackageInstalls: [{ packageName: 'uuid', reason: 'test' }],
 			};
 
 			const { reflection } = generator.buildMetaRequestReflection(metaRequests, sessionContext);
@@ -119,7 +122,11 @@ describe('ReflectionGenerator', () => {
 
 		it('should skip invalid file paths in meta requests gracefully', () => {
 			const metaRequests: MetaRequests = {
-				requestedFiles: [{ filePath: 'valid.ts' }, { filePath: null as any }, { filePath: 'another.ts' }],
+				requestedFiles: [
+					{ filePath: 'valid.ts', reason: 'test' },
+					{ filePath: null as any, reason: 'test' },
+					{ filePath: 'another.ts', reason: 'test' },
+				],
 			};
 
 			const { reflection, addedFiles } = generator.buildMetaRequestReflection(metaRequests, sessionContext);
