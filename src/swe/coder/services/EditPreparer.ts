@@ -54,11 +54,7 @@ export class EditPreparer {
 	}
 
 	/** Returns list of file paths that have changed since their snapshot. */
-	private async detectExternalChanges(
-		blocks: EditBlock[],
-		session: EditSession,
-		fileContentSnapshots: Map<string, string | null>,
-	): Promise<string[]> {
+	private async detectExternalChanges(blocks: EditBlock[], session: EditSession, fileContentSnapshots: Map<string, string | null>): Promise<string[]> {
 		const changed: string[] = [];
 		const uniquePaths = new Set(blocks.map((b) => b.filePath));
 		for (const relPath of uniquePaths) {
