@@ -8,7 +8,7 @@ import type { IFileSystemService } from '#shared/files/fileSystemService';
 import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import type { EditBlock } from '../coderTypes';
-import { newSession, type EditSession } from '../state/EditSession';
+import { type EditSession, newSession } from '../state/EditSession';
 import { EditPreparer } from './EditPreparer';
 
 const MOCK_REPO_ROOT = '/repo';
@@ -182,8 +182,6 @@ describe('EditPreparer', () => {
 
 			const blocks = [createBlock(filePath, 'dirty content', 'new content')];
 			const result = await preparer.prepare(blocks, session);
-
-
 
 			expect(result.validBlocks).to.have.lengthOf(1);
 			expect(result.dirtyFiles.has(filePath)).to.be.false;

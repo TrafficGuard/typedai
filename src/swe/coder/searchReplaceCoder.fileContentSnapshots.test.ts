@@ -4,8 +4,8 @@ import { FileSystemService } from '#functions/storage/fileSystemService';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import type { EditBlock } from './coderTypes';
-import { newSession } from './state/EditSession';
 import { SearchReplaceCoder } from './searchReplaceCoder';
+import { newSession } from './state/EditSession';
 
 /* ---------- helpers ---------- */
 function mkDummyLLM() {
