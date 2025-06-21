@@ -18,8 +18,7 @@ import { tryFixSearchBlock } from './fixSearchReplaceBlock';
 import { buildFailedEditsReflection, buildValidationIssuesReflection } from './reflectionUtils';
 import { EDIT_BLOCK_PROMPTS } from './searchReplacePrompts';
 import { EditPreparer } from './services/EditPreparer';
-import type { EditSession } from './state/EditSession';
-import { newSession } from './state/EditSession';
+import { EditSession } from './state/EditSession';
 import { validateBlocks } from './validators/compositeValidator';
 import { ModuleAliasRule } from './validators/moduleAliasRule';
 import { PathExistsRule } from './validators/pathExistsRule';
@@ -176,23 +175,28 @@ export class SearchReplaceCoder {
 	 * Initializes session context related to files, such as which files are in chat
 	 * and which of those were initially dirty.
 	 */
-	private async _initializeSessionContext(session: EditSession, filesToEdit: string[]): Promise<void> {
-		session.absFnamesInChat = new Set(filesToEdit.map((relPath) => this.getRepoFilePath(session.workingDir, relPath)));
-		session.initiallyDirtyFiles = new Set();
+	private async _initializeSessionContext(
+		session: EditSession,
+		filesToEdit: string[],
+		absFnamesInChat: Set<string>,
+		initiallyDirtyFiles: Set<string>,
+	): Promise<void> {
+		filesToEdit.forEach((relPath) => absFnamesInChat.add(this.getRepoFilePath(session.workingDir, relPath)));
+		initiallyDirtyFiles.clear();
 
 		if (!this.vcs) return;
 
-		for (const absPath of session.absFnamesInChat) {
+		for (const absPath of absFnamesInChat) {
 			const relPath = this.getRelativeFilePath(session.workingDir, absPath);
 			if (await this.vcs.isDirty(relPath)) {
-				session.initiallyDirtyFiles.add(relPath);
+				initiallyDirtyFiles.add(relPath);
 				logger.info(`File ${relPath} was dirty before editing session started.`);
 			}
 		}
 	}
 
 	private _addReflectionToMessages(session: EditSession, reflectionText: string, currentMessages: LlmMessage[]): void {
-		session.reflectionMessages.push(reflectionText);
+		session.addReflection(reflectionText);
 		currentMessages.push(user(reflectionText));
 		logger.warn({ reflection: reflectionText }, `SearchReplaceCoder: Reflecting to LLM for attempt ${session.attempt}.`);
 	}
@@ -210,8 +214,9 @@ export class SearchReplaceCoder {
 	private async _buildPrompt(
 		session: EditSession,
 		userRequest: string,
-		filesToEditRelativePaths: string[],
+		absFnamesInChat: Set<string>,
 		readOnlyFilesRelativePaths: string[],
+		fileContentSnapshots: Map<string, string | null>,
 		repoMapContent?: string,
 	): Promise<LlmMessage[]> {
 		const messages: LlmMessage[] = [];
@@ -243,7 +248,7 @@ export class SearchReplaceCoder {
 			}
 
 			// Store snapshot
-			session.fileContentSnapshots.set(relativePath, fileContent);
+			fileContentSnapshots.set(relativePath, fileContent);
 
 			if (fileContent === null) {
 				return `${relativePath}\n[Could not read file content]`;
@@ -252,7 +257,7 @@ export class SearchReplaceCoder {
 			return `${relativePath}\n${fence[0]}${lang}\n${fileContent}\n${fence[1]}`;
 		};
 
-		const currentFilesInChatAbs = session.absFnamesInChat ?? new Set();
+		const currentFilesInChatAbs = absFnamesInChat;
 		if (currentFilesInChatAbs.size > 0) {
 			let filesContentBlock = EDIT_BLOCK_PROMPTS.files_content_prefix;
 			// Sort files alphabetically for consistent prompt order
@@ -290,8 +295,8 @@ export class SearchReplaceCoder {
 		// ---------------------------------------------------------------------
 		//  Include any reflection messages gathered in previous attempts
 		// ---------------------------------------------------------------------
-		if (session.reflectionMessages.length > 0) {
-			for (const reflection of session.reflectionMessages) {
+		if (session.reflections.length > 0) {
+			for (const reflection of session.reflections) {
 				// Re-add each reflection as a user message so the LLM sees it
 				messages.push(user(reflection));
 			}
@@ -320,28 +325,37 @@ export class SearchReplaceCoder {
 		dirtyCommits = true,
 	): Promise<void> {
 		const rootPath = this.fs.getWorkingDirectory();
-		const session = newSession(rootPath, requirements);
-		await this._initializeSessionContext(session, filesToEdit);
-		session.appliedFiles = new Set<string>(); // Initialize appliedFiles set for the session
+		const session = new EditSession(rootPath, requirements);
+
+		// State that was previously on EditSession, now managed here.
+		const absFnamesInChat = new Set<string>();
+		const initiallyDirtyFiles = new Set<string>();
+		const fileContentSnapshots = new Map<string, string | null>();
+		let llmResponse: string | undefined;
+		let parsedBlocks: EditBlock[] = [];
+		let requestedFiles: RequestedFileEntry[] | null = null;
+		let requestedQueries: RequestedQueryEntry[] | null = null;
+		let requestedPackageInstalls: RequestedPackageInstallEntry[] | null = null;
+
+		await this._initializeSessionContext(session, filesToEdit, absFnamesInChat, initiallyDirtyFiles);
 
 		const repoFiles = await this.fs.listFilesRecursively();
 
 		let currentMessages: LlmMessage[] = [];
 		const dryRun = false;
-		let currentFailedEdits: EditBlock[] = []; // Declare currentFailedEdits here
+		let currentFailedEdits: EditBlock[] = [];
 
-		let llm = this.llms.medium;
-		let promptNeedsRebuild = true;
+		let llm: LLM = this.llms.medium;
 		// Label for breaking out of nested loops to the main attempt loop
 		while (session.attempt < MAX_ATTEMPTS) {
-			session.attempt++;
+			session.incrementAttempt();
 			if (session.attempt === MAX_ATTEMPTS - 1) llm = this.llms.hard;
 
 			logger.info(`SearchReplaceCoder: Attempt ${session.attempt}/${MAX_ATTEMPTS}`);
 
-			if (promptNeedsRebuild) {
-				currentMessages = await this._buildPrompt(session, requirements, filesToEdit, readOnlyFiles);
-				promptNeedsRebuild = false;
+			if (session.shouldRebuildPrompt()) {
+				currentMessages = await this._buildPrompt(session, requirements, absFnamesInChat, readOnlyFiles, fileContentSnapshots);
+				session.markPromptBuilt();
 			}
 			logger.debug({ messagesLength: currentMessages.length }, 'SearchReplaceCoder: Prompt built for LLM');
 
@@ -351,10 +365,10 @@ export class SearchReplaceCoder {
 			});
 
 			currentMessages.push(llmResponseMsgObj);
-			session.llmResponse = messageText(llmResponseMsgObj);
-			session.requestedFiles = parseAddFilesRequest(session.llmResponse);
-			session.requestedQueries = parseAskQueryRequest(session.llmResponse);
-			session.requestedPackageInstalls = parseInstallPackageRequest(session.llmResponse);
+			llmResponse = messageText(llmResponseMsgObj);
+			requestedFiles = parseAddFilesRequest(llmResponse);
+			requestedQueries = parseAskQueryRequest(llmResponse);
+			requestedPackageInstalls = parseInstallPackageRequest(llmResponse);
 
 			// Decide which edit-response format to parse based on the model name
 			const modelId = llm.getModel();
@@ -362,52 +376,52 @@ export class SearchReplaceCoder {
 			const sortedModelFormatEntries = Object.entries(MODEL_EDIT_FORMATS).sort(([keyA], [keyB]) => keyB.length - keyA.length);
 			const editFormat: EditFormat = sortedModelFormatEntries.find(([key]) => modelId.includes(key))?.[1] ?? 'diff';
 
-			session.parsedBlocks = parseEditResponse(session.llmResponse, editFormat, this.getFence());
+			parsedBlocks = parseEditResponse(llmResponse, editFormat, this.getFence());
 
-			const hasFileRequests = session.requestedFiles && session.requestedFiles.length > 0;
-			const hasQueryRequests = session.requestedQueries && session.requestedQueries.length > 0;
-			const hasPackageRequests = session.requestedPackageInstalls && session.requestedPackageInstalls.length > 0;
+			const hasFileRequests = requestedFiles && requestedFiles.length > 0;
+			const hasQueryRequests = requestedQueries && requestedQueries.length > 0;
+			const hasPackageRequests = requestedPackageInstalls && requestedPackageInstalls.length > 0;
 			const hasAnyMetaRequest = hasFileRequests || hasQueryRequests || hasPackageRequests;
 
 			if (hasAnyMetaRequest) {
 				let reflectionForMetaRequests = '';
 				if (hasFileRequests) {
-					logger.info(`LLM requested additional files: ${JSON.stringify(session.requestedFiles)}`);
+					logger.info(`LLM requested additional files: ${JSON.stringify(requestedFiles)}`);
 					const addedFiles: string[] = [];
 					const alreadyPresentFiles: string[] = [];
-					for (const requestedFile of session.requestedFiles!) {
+					for (const requestedFile of requestedFiles!) {
 						// Basic validation on the requested path
 						if (!requestedFile.filePath || typeof requestedFile.filePath !== 'string') {
 							logger.warn('Invalid file path in request, skipping:', requestedFile);
 							continue;
 						}
 						const absPath = this.getRepoFilePath(session.workingDir, requestedFile.filePath);
-						if (session.absFnamesInChat?.has(absPath)) {
+						if (absFnamesInChat.has(absPath)) {
 							alreadyPresentFiles.push(requestedFile.filePath);
 						} else {
-							session.absFnamesInChat?.add(absPath);
+							absFnamesInChat.add(absPath);
 							addedFiles.push(requestedFile.filePath);
 						}
 					}
 
 					if (addedFiles.length > 0) {
 						reflectionForMetaRequests += `I have added the ${addedFiles.length} file(s) you requested to the chat: ${addedFiles.join(', ')}. `;
-						promptNeedsRebuild = true;
+						session.markPromptBuilt(); // Invalidate prompt for next turn
 					}
 					if (alreadyPresentFiles.length > 0) {
 						reflectionForMetaRequests += `The following file(s) you requested were already in the chat: ${alreadyPresentFiles.join(', ')}. `;
 					}
 				}
 				if (hasQueryRequests) {
-					logger.info(`LLM asked queries: ${JSON.stringify(session.requestedQueries)}`);
-					reflectionForMetaRequests += `You asked ${session.requestedQueries!.length} quer(y/ies): ${session.requestedQueries!.map((q) => `"${q.query}"`).join(', ')}. `;
+					logger.info(`LLM asked queries: ${JSON.stringify(requestedQueries)}`);
+					reflectionForMetaRequests += `You asked ${requestedQueries!.length} quer(y/ies): ${requestedQueries!.map((q) => `"${q.query}"`).join(', ')}. `;
 				}
 				if (hasPackageRequests) {
-					logger.info(`LLM requested package installs: ${JSON.stringify(session.requestedPackageInstalls)}`);
-					reflectionForMetaRequests += `You requested to install ${session.requestedPackageInstalls!.length} package(s): ${session.requestedPackageInstalls!.map((p) => `"${p.packageName}"`).join(', ')}. `;
+					logger.info(`LLM requested package installs: ${JSON.stringify(requestedPackageInstalls)}`);
+					reflectionForMetaRequests += `You requested to install ${requestedPackageInstalls!.length} package(s): ${requestedPackageInstalls!.map((p) => `"${p.packageName}"`).join(', ')}. `;
 				}
 
-				if (session.parsedBlocks.length === 0) {
+				if (parsedBlocks.length === 0) {
 					// LLM made meta-request(s) and provided no edit blocks (expected behavior for meta-requests)
 					reflectionForMetaRequests += 'Please proceed with the edits now that you have the additional context, or ask for more information if needed.';
 					this._addReflectionToMessages(session, reflectionForMetaRequests, currentMessages);
@@ -417,11 +431,11 @@ export class SearchReplaceCoder {
 				logger.warn(`LLM made meta-request(s) AND provided edit blocks. Processing edit blocks. Meta-requests: ${reflectionForMetaRequests}`);
 			}
 
-			const { valid: validBlocksFromValidation, issues: validationIssues } = await validateBlocks(session.parsedBlocks, repoFiles, this.rules);
+			const { valid: validBlocksFromValidation, issues: validationIssues } = await validateBlocks(parsedBlocks, repoFiles, this.rules);
 
 			logger.info(
 				{
-					parsedBlocks: JSON.stringify(session.parsedBlocks, null, 2),
+					parsedBlocks: JSON.stringify(parsedBlocks, null, 2),
 					validBlocksCount: validBlocksFromValidation.length,
 					validationIssues: JSON.stringify(validationIssues, null, 2),
 				},
@@ -434,7 +448,7 @@ export class SearchReplaceCoder {
 			}
 
 			if (validBlocksFromValidation.length === 0) {
-				if (session.parsedBlocks.length > 0) {
+				if (parsedBlocks.length > 0) {
 					// All blocks were invalid, but no issues were reported (or they were all null).
 					this._addReflectionToMessages(
 						session,
@@ -458,7 +472,7 @@ export class SearchReplaceCoder {
 				validBlocks: editsToApply,
 				dirtyFiles: pathsToDirtyCommit,
 				externalChanges,
-			} = await this.editPreparer.prepare(validBlocksFromValidation, session);
+			} = await this.editPreparer.prepare(validBlocksFromValidation, session, fileContentSnapshots, absFnamesInChat, initiallyDirtyFiles);
 
 			if (externalChanges.length > 0) {
 				this._addReflectionToMessages(
@@ -466,7 +480,6 @@ export class SearchReplaceCoder {
 					`The following file(s) were modified after the edit blocks were generated: ${externalChanges.join(', ')}. Their content has been updated in your context. Please regenerate the edits using the updated content.`,
 					currentMessages,
 				);
-				promptNeedsRebuild = true;
 				continue;
 			}
 
@@ -496,14 +509,15 @@ export class SearchReplaceCoder {
 				DEFAULT_LENIENT_WHITESPACE,
 				this.getFence(),
 				session.workingDir,
-				session.absFnamesInChat ?? new Set(),
+				absFnamesInChat,
 				autoCommit,
 				dryRun,
 			);
 
+			const appliedInAttempt = new Set<string>();
 			const applierResult = await applier.apply(blocksForCurrentApplyAttempt);
-			applierResult.appliedFilePaths.forEach((p) => session.appliedFiles!.add(p));
-			currentFailedEdits = applierResult.failedEdits; // Assign to the outer-scoped variable
+			applierResult.appliedFilePaths.forEach((p) => appliedInAttempt.add(p));
+			currentFailedEdits = applierResult.failedEdits;
 
 			if (currentFailedEdits.length > 0) {
 				let fixesMade = 0;
@@ -512,7 +526,7 @@ export class SearchReplaceCoder {
 
 				for (const failedEdit of initialFailedEditsForThisRound) {
 					const filePath = failedEdit.filePath;
-					const fileContentSnapshot = session.fileContentSnapshots.get(filePath);
+					const fileContentSnapshot = fileContentSnapshots.get(filePath);
 
 					// Try to fix only if the file was supposed to exist and had content (i.e., not a failed new file creation with empty SEARCH block)
 					// And originalText is not empty (meaning it's not a "create new file" block that failed for other reasons)
@@ -551,12 +565,12 @@ export class SearchReplaceCoder {
 					logger.info(`Re-attempting to apply edits after ${fixesMade} block(s) were corrected in attempt ${session.attempt}.`);
 					// Re-apply with the potentially modified blocksForCurrentApplyAttempt
 					const reappliedResult = await applier.apply(blocksForCurrentApplyAttempt);
-					reappliedResult.appliedFilePaths.forEach((p) => session.appliedFiles!.add(p));
+					reappliedResult.appliedFilePaths.forEach((p) => appliedInAttempt.add(p));
 					currentFailedEdits = reappliedResult.failedEdits; // Update currentFailedEdits with the result of the re-application
 
 					if (currentFailedEdits.length === 0) {
 						logger.info('All blocks applied successfully after correction and re-application.');
-						session.parsedBlocks = blocksForCurrentApplyAttempt; // Store the successfully applied (potentially corrected) blocks
+						session.recordApplication({ applied: Array.from(appliedInAttempt), failed: [] });
 						break; // Exit main attempt loop
 					}
 				} else {
@@ -565,21 +579,22 @@ export class SearchReplaceCoder {
 				}
 			}
 
+			session.recordApplication({ applied: Array.from(appliedInAttempt), failed: currentFailedEdits });
+
 			if (currentFailedEdits.length > 0) {
-				await this._reflectOnFailedEdits(session, currentFailedEdits, session.appliedFiles!.size, currentMessages);
+				await this._reflectOnFailedEdits(session, currentFailedEdits, session.appliedFiles.size, currentMessages);
 				continue; // Continue to next main attempt
 			}
 
 			// If we reach here, it means currentFailedEdits is empty.
-			session.parsedBlocks = blocksForCurrentApplyAttempt; // Store the successfully applied blocks
-			logger.info({ appliedFiles: Array.from(session.appliedFiles!) }, 'SearchReplaceCoder: Edits applied successfully.');
+			logger.info({ appliedFiles: Array.from(session.appliedFiles) }, 'SearchReplaceCoder: Edits applied successfully.');
 			break; // Exit loop on full success
 		}
 
-		if (session.attempt >= MAX_ATTEMPTS && (session.appliedFiles?.size === 0 || (currentFailedEdits && currentFailedEdits.length > 0))) {
+		if (session.attempt >= MAX_ATTEMPTS && (session.appliedFiles.size === 0 || (currentFailedEdits && currentFailedEdits.length > 0))) {
 			logger.error(`SearchReplaceCoder: Maximum attempts (${MAX_ATTEMPTS}) reached. Failing.`);
 			const finalReflection =
-				session.reflectionMessages.pop() || 'Unknown error after max attempts, and not all edits were successfully applied in the final attempt.';
+				session.lastReflection || 'Unknown error after max attempts, and not all edits were successfully applied in the final attempt.';
 			throw new CoderExhaustedAttemptsError(`SearchReplaceCoder failed to apply edits after ${MAX_ATTEMPTS} attempts.`, MAX_ATTEMPTS, finalReflection);
 		}
 		// If the loop was exited by a 'break', it means session.attempt < MAX_ATTEMPTS,

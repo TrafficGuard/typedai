@@ -13,7 +13,13 @@ export class EditPreparer {
 		private fence: [string, string],
 	) {}
 
-	async prepare(blocks: EditBlock[], session: EditSession): Promise<PrepareResult> {
+	async prepare(
+		blocks: EditBlock[],
+		session: EditSession,
+		fileContentSnapshots: Map<string, string | null>,
+		absFnamesInChat: Set<string>,
+		initiallyDirtyFiles: Set<string>,
+	): Promise<PrepareResult> {
 		const result: PrepareResult = {
 			validBlocks: [],
 			dirtyFiles: new Set(),
@@ -21,7 +27,7 @@ export class EditPreparer {
 		};
 
 		// Check for external changes first
-		result.externalChanges = await this.detectExternalChanges(blocks, session);
+		result.externalChanges = await this.detectExternalChanges(blocks, session, fileContentSnapshots);
 		if (result.externalChanges.length > 0) {
 			// If files have changed externally, we stop and report it.
 			// The orchestrator will handle this by regenerating the prompt.
@@ -30,7 +36,7 @@ export class EditPreparer {
 
 		// Check permissions and dirty state for each block
 		for (const block of blocks) {
-			const check = await this.checkFilePermissions(block, session);
+			const check = await this.checkFilePermissions(block, session, absFnamesInChat, initiallyDirtyFiles);
 			if (check.allowed) {
 				result.validBlocks.push(block);
 				if (check.isDirty) {
@@ -48,11 +54,15 @@ export class EditPreparer {
 	}
 
 	/** Returns list of file paths that have changed since their snapshot. */
-	private async detectExternalChanges(blocks: EditBlock[], session: EditSession): Promise<string[]> {
+	private async detectExternalChanges(
+		blocks: EditBlock[],
+		session: EditSession,
+		fileContentSnapshots: Map<string, string | null>,
+	): Promise<string[]> {
 		const changed: string[] = [];
 		const uniquePaths = new Set(blocks.map((b) => b.filePath));
 		for (const relPath of uniquePaths) {
-			const snapshot = session.fileContentSnapshots.get(relPath);
+			const snapshot = fileContentSnapshots.get(relPath);
 			if (snapshot === undefined) continue; // no snapshot → ignore
 			const absPath = this.getRepoFilePath(session.workingDir, relPath);
 			let current: string | null = null;
@@ -70,13 +80,18 @@ export class EditPreparer {
 	 * Checks if an edit is allowed for a given file path and determines if a "dirty commit" is needed.
 	 * Corresponds to Coder.allowed_to_edit and Coder.check_for_dirty_commit.
 	 */
-	private async checkFilePermissions(block: EditBlock, session: EditSession): Promise<{ allowed: boolean; isDirty: boolean }> {
+	private async checkFilePermissions(
+		block: EditBlock,
+		session: EditSession,
+		absFnamesInChat: Set<string>,
+		initiallyDirtyFiles: Set<string>,
+	): Promise<{ allowed: boolean; isDirty: boolean }> {
 		const { filePath, originalText } = block;
 		const absolutePath = this.getRepoFilePath(session.workingDir, filePath);
 		let isDirty = false;
 
-		if (session.absFnamesInChat?.has(absolutePath)) {
-			if (this.vcs && session.initiallyDirtyFiles?.has(filePath) && (await this.vcs.isDirty(filePath))) {
+		if (absFnamesInChat?.has(absolutePath)) {
+			if (this.vcs && initiallyDirtyFiles?.has(filePath) && (await this.vcs.isDirty(filePath))) {
 				isDirty = true;
 			}
 			return { allowed: true, isDirty };
@@ -95,9 +110,9 @@ export class EditPreparer {
 			logger.info(`Edit targets file ${filePath} not previously in chat. Assuming permission to edit.`);
 		}
 
-		session.absFnamesInChat?.add(absolutePath);
+		absFnamesInChat?.add(absolutePath);
 
-		if (this.vcs && session.initiallyDirtyFiles?.has(filePath) && (await this.vcs.isDirty(filePath))) {
+		if (this.vcs && initiallyDirtyFiles?.has(filePath) && (await this.vcs.isDirty(filePath))) {
 			isDirty = true;
 		}
 		return { allowed: true, isDirty };

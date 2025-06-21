@@ -1,18 +1,11 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
+import { Git } from '#functions/scm/git';
 import { FileSystemService } from '#functions/storage/fileSystemService';
-import type { IFileSystemService } from '#shared/files/fileSystemService';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import type { EditBlock } from './coderTypes';
-import { SearchReplaceCoder } from './searchReplaceCoder';
-import { newSession } from './state/EditSession';
-
-/* ---------- helpers ---------- */
-function mkDummyLLM() {
-	const genMsg = sinon.stub().resolves({ role: 'assistant', content: '' });
-	return { generateMessage: genMsg, getModel: () => 'dummy', getMaxInputTokens: () => 8_000 };
-}
-const dummyLLMs = { medium: mkDummyLLM(), hard: mkDummyLLM() } as any;
+import { EditPreparer } from './services/EditPreparer';
+import { EditSession } from './state/EditSession';
 
 /* ---------- test suite ---------- */
 describe('SearchReplaceCoder – fileContentSnapshots', () => {
@@ -22,37 +15,40 @@ describe('SearchReplaceCoder – fileContentSnapshots', () => {
 	const relFile = 'file.txt';
 	const absFile = `${repoRoot}/${relFile}`;
 	let fsStub: sinon.SinonStubbedInstance<FileSystemService>;
-	let coder: SearchReplaceCoder;
-	let session: ReturnType<typeof newSession>;
+	let preparer: EditPreparer;
+	let session: EditSession;
+	let fileContentSnapshots: Map<string, string | null>;
 	const targetBlocks: EditBlock[] = [{ filePath: relFile, originalText: '', updatedText: '' }];
 
 	beforeEach(() => {
 		fsStub = sinon.createStubInstance(FileSystemService);
 		fsStub.getWorkingDirectory.returns(repoRoot);
 		fsStub.fileExists.resolves(true);
-		session = newSession(repoRoot, 'req');
-		coder = new SearchReplaceCoder(dummyLLMs, fsStub as unknown as IFileSystemService);
+		session = new EditSession(repoRoot, 'req');
+		fileContentSnapshots = new Map<string, string | null>();
+		const vcs = sinon.createStubInstance(Git);
+		preparer = new EditPreparer(fsStub as any, vcs, ['', '']);
 		// store initial snapshot
-		session.fileContentSnapshots.set(relFile, 'initial');
+		fileContentSnapshots.set(relFile, 'initial');
 	});
 
 	afterEach(() => sinon.restore());
 
 	it('returns empty array when file is unchanged', async () => {
 		fsStub.readFile.withArgs(absFile).resolves('initial');
-		const changed = await (coder as any)._detectExternalChanges(session, targetBlocks);
-		expect(changed).to.be.empty;
+		const { externalChanges } = await preparer.prepare(targetBlocks, session, fileContentSnapshots, new Set(), new Set());
+		expect(externalChanges).to.be.empty;
 	});
 
 	it('detects external content change', async () => {
 		fsStub.readFile.withArgs(absFile).resolves('modified');
-		const changed = await (coder as any)._detectExternalChanges(session, targetBlocks);
-		expect(changed).to.deep.equal([relFile]);
+		const { externalChanges } = await preparer.prepare(targetBlocks, session, fileContentSnapshots, new Set(), new Set());
+		expect(externalChanges).to.deep.equal([relFile]);
 	});
 
 	it('detects file deletion', async () => {
 		fsStub.readFile.withArgs(absFile).rejects(new Error('ENOENT'));
-		const changed = await (coder as any)._detectExternalChanges(session, targetBlocks);
-		expect(changed).to.deep.equal([relFile]);
+		const { externalChanges } = await preparer.prepare(targetBlocks, session, fileContentSnapshots, new Set(), new Set());
+		expect(externalChanges).to.deep.equal([relFile]);
 	});
 });

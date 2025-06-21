@@ -1,5 +1,5 @@
-import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { expect } from 'chai';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import type { ApplicationResult, EditBlock } from './EditSession';
 import { EditSession } from './EditSession';
 
