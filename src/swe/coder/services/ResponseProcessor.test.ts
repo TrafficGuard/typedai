@@ -1,187 +1,209 @@
 import { expect } from 'chai';
 import * as sinon from 'sinon';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import type { EditBlock, EditFormat, RequestedFileEntry, RequestedPackageInstallEntry, RequestedQueryEntry } from '../coderTypes';
-// Import modules to stub their exported functions
-import * as editBlockParser from '../editBlockParser';
-import * as searchReplaceCoder from '../searchReplaceCoder';
+import type { EditFormat } from '../coderTypes';
 import { ResponseProcessor } from './ResponseProcessor';
+
+const DEFAULT_FENCE: [string, string] = ['```', '```'];
+const DEFAULT_EDIT_FORMAT: EditFormat = 'diff-fenced';
 
 describe('ResponseProcessor', () => {
 	setupConditionalLoggerOutput();
 
-	const DEFAULT_FENCE: [string, string] = ['```', '```'];
-	const DEFAULT_EDIT_FORMAT: EditFormat = 'diff-fenced';
-
-	// Mock data for stubbed functions
-	const MOCK_EDIT_BLOCKS: EditBlock[] = [{ filePath: 'src/app.ts', originalText: 'old line', updatedText: 'new line' }];
-	const MOCK_FILE_REQUESTS: RequestedFileEntry[] = [{ filePath: 'src/utils.ts', reason: 'Helper functions needed' }];
-	const MOCK_QUERY_REQUESTS: RequestedQueryEntry[] = [{ query: 'What is the purpose of this module?' }];
-	const MOCK_PACKAGE_REQUESTS: RequestedPackageInstallEntry[] = [{ packageName: 'uuid', reason: 'To generate unique IDs' }];
-
-	// Realistic snippets for integration tests
-	const addFilesSnippet = `<add-files-json>{"files":[{"filePath":"src/new.ts","reason":"A reason"}]}</add-files-json>`;
-	const askQuerySnippet = '<ask-query>A question?</ask-query>';
-	const installPkgSnippet = `<install-packages-json>{"packages":[{"packageName":"axios","reason":"For requests"}]}</install-packages-json>`;
-	const editBlockSnippet = `\`\`\`typescript\nsrc/app.ts\n<<<<<<< SEARCH\nconsole.log("old");\n=======\nconsole.log("new");\n>>>>>>> REPLACE\n\`\`\``;
-
 	let processor: ResponseProcessor;
-	// Stubs will be declared here for type safety and access across tests
-	let parseEditResponseStub: sinon.SinonStub;
-	let parseAddFilesRequestStub: sinon.SinonStub;
-	let parseAskQueryRequestStub: sinon.SinonStub;
-	let parseInstallPackageRequestStub: sinon.SinonStub;
-
-	beforeEach(() => {
-		processor = new ResponseProcessor(DEFAULT_FENCE, DEFAULT_EDIT_FORMAT);
-		// Initialize stubs here
-		parseEditResponseStub = sinon.stub(editBlockParser, 'parseEditResponse');
-		parseAddFilesRequestStub = sinon.stub(searchReplaceCoder, 'parseAddFilesRequest');
-		parseAskQueryRequestStub = sinon.stub(searchReplaceCoder, 'parseAskQueryRequest');
-		parseInstallPackageRequestStub = sinon.stub(searchReplaceCoder, 'parseInstallPackageRequest');
-	});
 
 	afterEach(() => {
 		sinon.restore();
 	});
 
-	it('should correctly parse edit blocks when only they are present', () => {
-		// Arrange
-		parseEditResponseStub.returns(MOCK_EDIT_BLOCKS);
-		parseAddFilesRequestStub.returns(null);
-		parseAskQueryRequestStub.returns(null);
-		parseInstallPackageRequestStub.returns(null);
+	describe('process', () => {
+		it('should correctly parse a response with a single valid diff-fenced edit block', () => {
+			// Arrange
+			processor = new ResponseProcessor(DEFAULT_FENCE, 'diff-fenced');
+			const responseText = `
+Some preceding text.
+\`\`\`typescript
+src/file.ts
+<<<<<<< SEARCH
+const a = 1;
+=======
+const a = 2;
+>>>>>>> REPLACE
+\`\`\`
+Some trailing text.`;
 
-		// Act
-		const result = processor.process('some response text');
+			// Act
+			const result = processor.process(responseText);
 
-		// Assert
-		expect(parseEditResponseStub).to.have.been.calledOnceWith('some response text', DEFAULT_EDIT_FORMAT, DEFAULT_FENCE);
-		expect(result.editBlocks).to.deep.equal(MOCK_EDIT_BLOCKS);
-		expect(result.metaRequests.requestedFiles).to.be.null;
-		expect(result.metaRequests.requestedQueries).to.be.null;
-		expect(result.metaRequests.requestedPackageInstalls).to.be.null;
-	});
+			// Assert
+			expect(result.editBlocks).to.have.lengthOf(1);
+			expect(result.editBlocks[0]).to.deep.equal({
+				filePath: 'src/file.ts',
+				originalText: 'const a = 1;\n',
+				updatedText: 'const a = 2;\n',
+			});
+			expect(result.metaRequests.requestedFiles).to.be.null;
+			expect(result.metaRequests.requestedQueries).to.be.null;
+			expect(result.metaRequests.requestedPackageInstalls).to.be.null;
+		});
 
-	it('should correctly parse file requests when only they are present', () => {
-		// Arrange
-		parseEditResponseStub.returns([]);
-		parseAddFilesRequestStub.returns(MOCK_FILE_REQUESTS);
-		parseAskQueryRequestStub.returns(null);
-		parseInstallPackageRequestStub.returns(null);
+		it('should correctly parse a response with multiple meta-requests simultaneously', () => {
+			// Arrange
+			processor = new ResponseProcessor(DEFAULT_FENCE, DEFAULT_EDIT_FORMAT);
+			const responseText = `
+I need to request files, ask a question, and install a package.
 
-		// Act
-		const result = processor.process('some file request text');
+<add-files-json>
+{
+  "files": [{ "filePath": "path/to/file.ts", "reason": "to inspect it" }]
+}
+</add-files-json>
 
-		// Assert
-		expect(parseAddFilesRequestStub).to.have.been.calledOnceWith('some file request text');
-		expect(result.metaRequests.requestedFiles).to.deep.equal(MOCK_FILE_REQUESTS);
-		expect(result.editBlocks).to.be.an('array').that.is.empty;
-		expect(result.metaRequests.requestedQueries).to.be.null;
-		expect(result.metaRequests.requestedPackageInstalls).to.be.null;
-	});
+<ask-query>find all usages of foobar</ask-query>
 
-	it('should correctly parse query requests when only they are present', () => {
-		// Arrange
-		parseEditResponseStub.returns([]);
-		parseAddFilesRequestStub.returns(null);
-		parseAskQueryRequestStub.returns(MOCK_QUERY_REQUESTS);
-		parseInstallPackageRequestStub.returns(null);
+<install-packages-json>
+{
+  "packages": [{ "packageName": "uuid", "reason": "for generating ids" }]
+}
+</install-packages-json>
+`;
 
-		// Act
-		const result = processor.process('some query text');
+			// Act
+			const result = processor.process(responseText);
 
-		// Assert
-		expect(parseAskQueryRequestStub).to.have.been.calledOnceWith('some query text');
-		expect(result.metaRequests.requestedQueries).to.deep.equal(MOCK_QUERY_REQUESTS);
-		expect(result.editBlocks).to.be.an('array').that.is.empty;
-		expect(result.metaRequests.requestedFiles).to.be.null;
-		expect(result.metaRequests.requestedPackageInstalls).to.be.null;
-	});
+			// Assert
+			expect(result.editBlocks).to.be.empty;
+			expect(result.metaRequests.requestedFiles).to.deep.equal([{ filePath: 'path/to/file.ts', reason: 'to inspect it' }]);
+			expect(result.metaRequests.requestedQueries).to.deep.equal([{ query: 'find all usages of foobar' }]);
+			expect(result.metaRequests.requestedPackageInstalls).to.deep.equal([{ packageName: 'uuid', reason: 'for generating ids' }]);
+		});
 
-	it('should correctly parse package install requests when only they are present', () => {
-		// Arrange
-		parseEditResponseStub.returns([]);
-		parseAddFilesRequestStub.returns(null);
-		parseAskQueryRequestStub.returns(null);
-		parseInstallPackageRequestStub.returns(MOCK_PACKAGE_REQUESTS);
+		it('should correctly parse a response containing both edit blocks and meta-requests', () => {
+			// Arrange
+			processor = new ResponseProcessor(DEFAULT_FENCE, 'diff');
+			const responseText = `
+Here are the edits for the file.
 
-		// Act
-		const result = processor.process('some package text');
+path/to/edit.js
+\`\`\`javascript
+<<<<<<< SEARCH
+console.log('old');
+=======
+console.log('new');
+>>>>>>> REPLACE
+\`\`\`
 
-		// Assert
-		expect(parseInstallPackageRequestStub).to.have.been.calledOnceWith('some package text');
-		expect(result.metaRequests.requestedPackageInstalls).to.deep.equal(MOCK_PACKAGE_REQUESTS);
-		expect(result.editBlocks).to.be.an('array').that.is.empty;
-		expect(result.metaRequests.requestedFiles).to.be.null;
-		expect(result.metaRequests.requestedQueries).to.be.null;
-	});
+Also, I need to install a package.
+<install-packages-json>
+{
+  "packages": [{ "packageName": "lodash", "reason": "for utility functions" }]
+}
+</install-packages-json>
 
-	it('should parse and combine results when response contains both edits and all meta-requests', () => {
-		// Arrange
-		parseEditResponseStub.returns(MOCK_EDIT_BLOCKS);
-		parseAddFilesRequestStub.returns(MOCK_FILE_REQUESTS);
-		parseAskQueryRequestStub.returns(MOCK_QUERY_REQUESTS);
-		parseInstallPackageRequestStub.returns(MOCK_PACKAGE_REQUESTS);
+And I need to see another file.
+<add-files-json>
+{
+  "files": [{ "filePath": "another/file.ts", "reason": "for context" }]
+}
+</add-files-json>
+`;
 
-		// Act
-		const result = processor.process('a complex response');
+			// Act
+			const result = processor.process(responseText);
 
-		// Assert
-		expect(result.editBlocks).to.deep.equal(MOCK_EDIT_BLOCKS);
-		expect(result.metaRequests.requestedFiles).to.deep.equal(MOCK_FILE_REQUESTS);
-		expect(result.metaRequests.requestedQueries).to.deep.equal(MOCK_QUERY_REQUESTS);
-		expect(result.metaRequests.requestedPackageInstalls).to.deep.equal(MOCK_PACKAGE_REQUESTS);
-	});
+			// Assert
+			expect(result.editBlocks).to.have.lengthOf(1);
+			expect(result.editBlocks[0]).to.deep.equal({
+				filePath: 'path/to/edit.js',
+				originalText: "console.log('old');\n",
+				updatedText: "console.log('new');\n",
+			});
 
-	it('should correctly parse a real response containing all content types', () => {
-		// Arrange
-		sinon.restore(); // Use real parsers
-		const responseText = [editBlockSnippet, addFilesSnippet, askQuerySnippet, installPkgSnippet].join('\n');
-		processor = new ResponseProcessor(DEFAULT_FENCE, 'diff-fenced');
+			expect(result.metaRequests.requestedFiles).to.deep.equal([{ filePath: 'another/file.ts', reason: 'for context' }]);
+			expect(result.metaRequests.requestedQueries).to.be.null;
+			expect(result.metaRequests.requestedPackageInstalls).to.deep.equal([{ packageName: 'lodash', reason: 'for utility functions' }]);
+		});
 
-		// Act
-		const result = processor.process(responseText);
+		it('should handle an empty response string gracefully', () => {
+			// Arrange
+			processor = new ResponseProcessor(DEFAULT_FENCE, DEFAULT_EDIT_FORMAT);
+			const responseText = '';
 
-		// Assert
-		expect(result.editBlocks).to.have.lengthOf(1);
-		expect(result.editBlocks[0].filePath).to.equal('src/app.ts');
-		expect(result.metaRequests.requestedFiles).to.have.lengthOf(1);
-		expect(result.metaRequests.requestedFiles?.[0].filePath).to.equal('src/new.ts');
-		expect(result.metaRequests.requestedQueries).to.have.lengthOf(1);
-		expect(result.metaRequests.requestedQueries?.[0].query).to.equal('A question?');
-		expect(result.metaRequests.requestedPackageInstalls).to.have.lengthOf(1);
-		expect(result.metaRequests.requestedPackageInstalls?.[0].packageName).to.equal('axios');
-	});
+			// Act
+			const result = processor.process(responseText);
 
-	it('should return an empty result structure for a response with no actionable content', () => {
-		// Arrange
-		parseEditResponseStub.returns([]);
-		parseAddFilesRequestStub.returns(null);
-		parseAskQueryRequestStub.returns(null);
-		parseInstallPackageRequestStub.returns(null);
+			// Assert
+			expect(result.editBlocks).to.be.empty;
+			expect(result.metaRequests.requestedFiles).to.be.null;
+			expect(result.metaRequests.requestedQueries).to.be.null;
+			expect(result.metaRequests.requestedPackageInstalls).to.be.null;
+		});
 
-		// Act
-		const result = processor.process('Thinking...');
+		it('should handle a response with no valid blocks or requests', () => {
+			// Arrange
+			processor = new ResponseProcessor(DEFAULT_FENCE, DEFAULT_EDIT_FORMAT);
+			const responseText = 'This is a regular text response from the LLM without any special blocks.';
 
-		// Assert
-		expect(result.editBlocks).to.be.an('array').that.is.empty;
-		expect(result.metaRequests.requestedFiles).to.be.null;
-		expect(result.metaRequests.requestedQueries).to.be.null;
-		expect(result.metaRequests.requestedPackageInstalls).to.be.null;
-	});
+			// Act
+			const result = processor.process(responseText);
 
-	it('should return null for a meta-request with malformed JSON', () => {
-		// Arrange
-		sinon.restore(); // Use real parsers
-		const malformedResponse = '<install-packages-json>{ "packages": [ "invalid" ] }</install-packages-json>';
-		processor = new ResponseProcessor(DEFAULT_FENCE, DEFAULT_EDIT_FORMAT);
+			// Assert
+			expect(result.editBlocks).to.be.empty;
+			expect(result.metaRequests.requestedFiles).to.be.null;
+			expect(result.metaRequests.requestedQueries).to.be.null;
+			expect(result.metaRequests.requestedPackageInstalls).to.be.null;
+		});
 
-		// Act
-		const result = processor.process(malformedResponse);
+		it('should handle malformed meta-request JSON gracefully', () => {
+			// Arrange
+			processor = new ResponseProcessor(DEFAULT_FENCE, DEFAULT_EDIT_FORMAT);
+			const responseText = `
+<add-files-json>
+{
+  "files": [
+    {"filePath": "valid.ts", "reason": "valid"},
+    {"invalidStructure": "missing required fields"}
+  ]
+}
+</add-files-json>
 
-		// Assert
-		expect(result.metaRequests.requestedPackageInstalls).to.be.null;
-		expect(result.editBlocks).to.be.an('array').that.is.empty;
+<install-packages-json>
+this is not valid json
+</install-packages-json>
+`;
+			// Act
+			const result = processor.process(responseText);
+
+			// Assert
+			expect(result.editBlocks).to.be.empty;
+			// The underlying parsers are strict and return null for malformed content
+			expect(result.metaRequests.requestedFiles).to.be.null;
+			expect(result.metaRequests.requestedPackageInstalls).to.be.null;
+		});
+
+		it('should parse edit blocks with the "diff" EditFormat setting', () => {
+			// Arrange
+			const diffProcessor = new ResponseProcessor(DEFAULT_FENCE, 'diff');
+			const responseText = `
+src/example.ts
+\`\`\`typescript
+<<<<<<< SEARCH
+const oldContent = 'old';
+=======
+const newContent = 'new';
+>>>>>>> REPLACE
+\`\`\`
+`;
+			// Act
+			const result = diffProcessor.process(responseText);
+
+			// Assert
+			expect(result.editBlocks).to.have.length(1);
+			expect(result.editBlocks[0]).to.deep.equal({
+				filePath: 'src/example.ts',
+				originalText: "const oldContent = 'old';\n",
+				updatedText: "const newContent = 'new';\n",
+			});
+		});
 	});
 });
