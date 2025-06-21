@@ -375,6 +375,16 @@ export class SearchReplaceCoder {
 			messages.push({ role: 'assistant', content: 'Ok, I will use this repository information for context.' });
 		}
 
+        // ---------------------------------------------------------------------
+        //  Include any reflection messages gathered in previous attempts
+        // ---------------------------------------------------------------------
+        if (session.reflectionMessages.length > 0) {
+            for (const reflection of session.reflectionMessages) {
+                // Re-add each reflection as a user message so the LLM sees it
+                messages.push(user(reflection));
+            }
+        }
+
 		// Append the detailed system reminders to the user's request
 		messages.push({ role: 'user', content: `${userRequest}\n\n${this.systemReminderForUserPrompt}` });
 		return messages;
