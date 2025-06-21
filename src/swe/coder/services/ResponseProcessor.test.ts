@@ -58,9 +58,9 @@ describe('ResponseProcessor', () => {
 		// Assert
 		expect(parseEditResponseStub).to.have.been.calledOnceWith('some response text', DEFAULT_EDIT_FORMAT, DEFAULT_FENCE);
 		expect(result.editBlocks).to.deep.equal(MOCK_EDIT_BLOCKS);
-		expect(result.metaRequests.files).to.be.null;
-		expect(result.metaRequests.queries).to.be.null;
-		expect(result.metaRequests.packages).to.be.null;
+		expect(result.metaRequests.requestedFiles).to.be.null;
+		expect(result.metaRequests.requestedQueries).to.be.null;
+		expect(result.metaRequests.requestedPackageInstalls).to.be.null;
 	});
 
 	it('should correctly parse file requests when only they are present', () => {
@@ -75,10 +75,10 @@ describe('ResponseProcessor', () => {
 
 		// Assert
 		expect(parseAddFilesRequestStub).to.have.been.calledOnceWith('some file request text');
-		expect(result.metaRequests.files).to.deep.equal(MOCK_FILE_REQUESTS);
+		expect(result.metaRequests.requestedFiles).to.deep.equal(MOCK_FILE_REQUESTS);
 		expect(result.editBlocks).to.be.an('array').that.is.empty;
-		expect(result.metaRequests.queries).to.be.null;
-		expect(result.metaRequests.packages).to.be.null;
+		expect(result.metaRequests.requestedQueries).to.be.null;
+		expect(result.metaRequests.requestedPackageInstalls).to.be.null;
 	});
 
 	it('should correctly parse query requests when only they are present', () => {
@@ -93,10 +93,10 @@ describe('ResponseProcessor', () => {
 
 		// Assert
 		expect(parseAskQueryRequestStub).to.have.been.calledOnceWith('some query text');
-		expect(result.metaRequests.queries).to.deep.equal(MOCK_QUERY_REQUESTS);
+		expect(result.metaRequests.requestedQueries).to.deep.equal(MOCK_QUERY_REQUESTS);
 		expect(result.editBlocks).to.be.an('array').that.is.empty;
-		expect(result.metaRequests.files).to.be.null;
-		expect(result.metaRequests.packages).to.be.null;
+		expect(result.metaRequests.requestedFiles).to.be.null;
+		expect(result.metaRequests.requestedPackageInstalls).to.be.null;
 	});
 
 	it('should correctly parse package install requests when only they are present', () => {
@@ -111,10 +111,10 @@ describe('ResponseProcessor', () => {
 
 		// Assert
 		expect(parseInstallPackageRequestStub).to.have.been.calledOnceWith('some package text');
-		expect(result.metaRequests.packages).to.deep.equal(MOCK_PACKAGE_REQUESTS);
+		expect(result.metaRequests.requestedPackageInstalls).to.deep.equal(MOCK_PACKAGE_REQUESTS);
 		expect(result.editBlocks).to.be.an('array').that.is.empty;
-		expect(result.metaRequests.files).to.be.null;
-		expect(result.metaRequests.queries).to.be.null;
+		expect(result.metaRequests.requestedFiles).to.be.null;
+		expect(result.metaRequests.requestedQueries).to.be.null;
 	});
 
 	it('should parse and combine results when response contains both edits and all meta-requests', () => {
@@ -129,9 +129,9 @@ describe('ResponseProcessor', () => {
 
 		// Assert
 		expect(result.editBlocks).to.deep.equal(MOCK_EDIT_BLOCKS);
-		expect(result.metaRequests.files).to.deep.equal(MOCK_FILE_REQUESTS);
-		expect(result.metaRequests.queries).to.deep.equal(MOCK_QUERY_REQUESTS);
-		expect(result.metaRequests.packages).to.deep.equal(MOCK_PACKAGE_REQUESTS);
+		expect(result.metaRequests.requestedFiles).to.deep.equal(MOCK_FILE_REQUESTS);
+		expect(result.metaRequests.requestedQueries).to.deep.equal(MOCK_QUERY_REQUESTS);
+		expect(result.metaRequests.requestedPackageInstalls).to.deep.equal(MOCK_PACKAGE_REQUESTS);
 	});
 
 	it('should correctly parse a real response containing all content types', () => {
@@ -146,12 +146,12 @@ describe('ResponseProcessor', () => {
 		// Assert
 		expect(result.editBlocks).to.have.lengthOf(1);
 		expect(result.editBlocks[0].filePath).to.equal('src/app.ts');
-		expect(result.metaRequests.files).to.have.lengthOf(1);
-		expect(result.metaRequests.files?.[0].filePath).to.equal('src/new.ts');
-		expect(result.metaRequests.queries).to.have.lengthOf(1);
-		expect(result.metaRequests.queries?.[0].query).to.equal('A question?');
-		expect(result.metaRequests.packages).to.have.lengthOf(1);
-		expect(result.metaRequests.packages?.[0].packageName).to.equal('axios');
+		expect(result.metaRequests.requestedFiles).to.have.lengthOf(1);
+		expect(result.metaRequests.requestedFiles?.[0].filePath).to.equal('src/new.ts');
+		expect(result.metaRequests.requestedQueries).to.have.lengthOf(1);
+		expect(result.metaRequests.requestedQueries?.[0].query).to.equal('A question?');
+		expect(result.metaRequests.requestedPackageInstalls).to.have.lengthOf(1);
+		expect(result.metaRequests.requestedPackageInstalls?.[0].packageName).to.equal('axios');
 	});
 
 	it('should return an empty result structure for a response with no actionable content', () => {
@@ -166,9 +166,9 @@ describe('ResponseProcessor', () => {
 
 		// Assert
 		expect(result.editBlocks).to.be.an('array').that.is.empty;
-		expect(result.metaRequests.files).to.be.null;
-		expect(result.metaRequests.queries).to.be.null;
-		expect(result.metaRequests.packages).to.be.null;
+		expect(result.metaRequests.requestedFiles).to.be.null;
+		expect(result.metaRequests.requestedQueries).to.be.null;
+		expect(result.metaRequests.requestedPackageInstalls).to.be.null;
 	});
 
 	it('should return null for a meta-request with malformed JSON', () => {
@@ -181,7 +181,7 @@ describe('ResponseProcessor', () => {
 		const result = processor.process(malformedResponse);
 
 		// Assert
-		expect(result.metaRequests.packages).to.be.null;
+		expect(result.metaRequests.requestedPackageInstalls).to.be.null;
 		expect(result.editBlocks).to.be.an('array').that.is.empty;
 	});
 });
