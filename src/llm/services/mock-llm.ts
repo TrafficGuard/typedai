@@ -8,66 +8,184 @@ import { type GenerateTextOptions, type GenerationStats, type LLM, type LlmMessa
 import type { LlmCall } from '#shared/llmCall/llmCall.model';
 import { BaseLLM } from '../base-llm';
 
+// A discriminated union to represent the different types of calls that can be made to the mock.
+export type MockLLMCall =
+	| {
+			type: 'generateMessage';
+			messages: ReadonlyArray<LlmMessage>;
+			options?: GenerateTextOptions;
+	  }
+	| {
+			type: 'generateText';
+			systemPrompt: string | undefined;
+			userPrompt: string;
+			options?: GenerateTextOptions;
+	  };
+
+//  Convenience alias for the “assistant” member of the union
+type AssistantMessage = Extract<LlmMessage, { role: 'assistant' }>;
+
 export class MockLLM extends BaseLLM {
-	lastPrompt = '';
-	public responses: { response: string; callback?: (prompt: string) => void }[] = [];
-	/**
-	 * @param id The identifier for the LLM instance.
-	 * @param service The service name for the LLM.
-	 * @param model The model name for the LLM.
-	 * @param maxInputTokens defaults to 100000
-	 * @param initialResponses Optional initial responses for the MockLLM instance.
-	 */
-	constructor(
-		id = 'mock',
-		service = 'mock',
-		model = 'mock',
-		maxInputTokens = 100000,
-		initialResponses?: { response: string; callback?: (prompt: string) => void }[],
-	) {
+	private messageResponses: (() => Promise<LlmMessage>)[] = [];
+	private textResponses: (() => Promise<string>)[] = [];
+	private calls: MockLLMCall[] = [];
+
+	constructor(id = 'mock', service = 'mock', model = 'mock', maxInputTokens = 100000) {
 		super(id, service, model, maxInputTokens, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
-		this.responses = initialResponses ?? [];
 	}
 
-	reset() {
-		this.responses.length = 0;
+	// =================================================================
+	// Test-Facing API: For setting up and asserting on behavior in tests
+	// =================================================================
+
+	/**
+	 * Resets all configured responses and clears the call history.
+	 * Should be called in `beforeEach` or `afterEach` for test isolation.
+	 */
+	reset(): void {
+		this.messageResponses = [];
+		this.textResponses = [];
+		this.calls = [];
 	}
 
-	setResponse(response: string, callback?: (prompt: string) => void) {
-		this.responses = [{ response, callback }];
+	/**
+	 * Queue a response for the next `generateMessage` call.
+	 * The response is always treated as an *assistant* message.
+	 */
+	addMessageResponse(response: string | Partial<AssistantMessage>): this {
+		// 2.  Build a guaranteed-to-be-assistant LlmMessage
+		const message: AssistantMessage =
+			typeof response === 'string' ? { role: 'assistant', content: response } : ({ ...response, role: 'assistant' } as AssistantMessage);
+
+		this.messageResponses.push(() => Promise.resolve(message));
+		return this;
 	}
 
-	setResponses(responses: { response: string; callback?: (prompt: string) => void }[]) {
-		this.responses = responses;
+	/**
+	 * Adds a successful response to the queue for the next `generateText` call.
+	 * @param response The string content for the response.
+	 * @returns The MockLLM instance for chaining.
+	 */
+	addResponse(response: string): this {
+		this.textResponses.push(() => Promise.resolve(response));
+		return this;
 	}
 
-	addResponse(response: string, callback?: (prompt: string) => void) {
-		this.responses.push({ response, callback });
+	/**
+	 * Configures the next `generateMessage` call to fail with the given error.
+	 * @returns The MockLLM instance for chaining.
+	 */
+	rejectNextMessage(error: Error): this {
+		this.messageResponses.push(() => Promise.reject(error));
+		return this;
 	}
 
-	getLastPrompt(): string {
-		if (!this.lastPrompt) throw new Error('No calls yet');
-		return this.lastPrompt;
+	/**
+	 * Configures the next `generateText` call to fail with the given error.
+	 * @returns The MockLLM instance for chaining.
+	 */
+	rejectNextText(error: Error): this {
+		this.textResponses.push(() => Promise.reject(error));
+		return this;
 	}
+
+	/**
+	 * Gets all calls made to this mock instance.
+	 */
+	getCalls(): ReadonlyArray<MockLLMCall> {
+		return this.calls;
+	}
+
+	/**
+	 * Gets all `generateMessage` calls made to this mock instance for inspection.
+	 */
+	getMessageCalls(): Extract<MockLLMCall, { type: 'generateMessage' }>[] {
+		return this.calls.filter((c): c is Extract<MockLLMCall, { type: 'generateMessage' }> => c.type === 'generateMessage');
+	}
+
+	/**
+	 * Gets all `generateText` calls made to this mock instance for inspection.
+	 */
+	getTextCalls(): Extract<MockLLMCall, { type: 'generateText' }>[] {
+		return this.calls.filter((c): c is Extract<MockLLMCall, { type: 'generateText' }> => c.type === 'generateText');
+	}
+
+	/**
+	 * Gets the last call made to this mock instance.
+	 */
+	getLastCall(): MockLLMCall | undefined {
+		return this.calls.at(-1);
+	}
+
+	/**
+	 * Gets the total number of calls (`generateMessage` and `generateText`) made to this mock.
+	 */
+	getCallCount(): number {
+		return this.calls.length;
+	}
+
+	/**
+	 * Throws an error if any configured responses were not consumed by the test.
+	 * Useful for calling in `afterEach` to ensure test configurations are precise.
+	 */
+	assertNoPendingResponses(): void {
+		const pendingMessages = this.messageResponses.length;
+		const pendingTexts = this.textResponses.length;
+		if (pendingMessages > 0 || pendingTexts > 0) {
+			this.reset(); // Clear to prevent cascading failures
+			throw new Error(`MockLLM Error: Test finished with ${pendingMessages} unconsumed message responses and ${pendingTexts} unconsumed text responses.`);
+		}
+	}
+
+	// =================================================================
+	// Production-Facing API: Implementation of the LLM interface
+	// =================================================================
 
 	protected async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
+		this.calls.push({ type: 'generateMessage', messages, options: opts });
+
+		const responseFn = this.messageResponses.shift();
+		if (!responseFn) {
+			throw new Error(`MockLLM: No more responses configured for generateMessage. Call count: ${this.getCallCount()}`);
+		}
+
+		const assistantMessage = await responseFn();
+		await this.saveLlmCall(messages, assistantMessage, opts);
+		return assistantMessage;
+	}
+
+	protected async _generateText(systemPrompt: string | undefined, userPrompt: string, opts?: GenerateTextOptions): Promise<string> {
+		this.calls.push({ type: 'generateText', systemPrompt, userPrompt, options: opts });
+
+		const responseFn = this.textResponses.shift();
+		if (!responseFn) {
+			throw new Error(`MockLLM: No more responses configured for generateText. Call count: ${this.getCallCount()}`);
+		}
+
+		const messages: LlmMessage[] = [];
+		if (systemPrompt) messages.push(system(systemPrompt));
+		messages.push(user(userPrompt));
+
+		const responseText = await responseFn();
+		const assistantMessage: LlmMessage = { role: 'assistant', content: responseText };
+
+		await this.saveLlmCall(messages, assistantMessage, opts);
+
+		return responseText;
+	}
+
+	/**
+	 * Shared logic to persist the LLM call for both generateMessage and generateText,
+	 * simulating the behavior of a real LLM integration.
+	 */
+	private async saveLlmCall(requestMessages: ReadonlyArray<LlmMessage>, assistantMessage: LlmMessage, opts?: GenerateTextOptions): Promise<void> {
 		const description = opts?.id ?? '';
-		logger.info(`MockLLM ${description} processing ${messages.length} messages.`);
-
-		return withActiveSpan(`generateMessage ${description}`, async (span) => {
-			// Use the full message array for context, but might use last message for specific logic like callback
-			const fullPromptText = messages.map((m) => messageText(m)).join('\n');
-			const lastUserMessage = messages.findLast((m) => m.role === 'user');
-			const userPromptForCallback = lastUserMessage ? messageText(lastUserMessage) : ''; // Use last user message for callback consistency
-
-			this.lastPrompt = userPromptForCallback; // Keep track of the last user prompt for testing
-
-			if (this.responses.length === 0) {
-				throw new Error(`Need to call setResponses on MockLLM before calling generate for prompt id:${description} prompt:${userPromptForCallback}`);
-			}
+		return withActiveSpan(`saveLlmCall ${description}`, async (span) => {
+			const fullPromptText = requestMessages.map((m) => messageText(m)).join('\n');
+			const responseText = messageText(assistantMessage);
 
 			const llmCallSave: Promise<LlmCall> = appContext().llmCallService.saveRequest({
-				messages: messages as LlmMessage[], // Cast needed as input is ReadonlyArray
+				messages: requestMessages as LlmMessage[],
 				llmId: this.getId(),
 				agentId: agentContext()?.agentId,
 				callStack: callStack(),
@@ -76,30 +194,24 @@ export class MockLLM extends BaseLLM {
 			});
 			const requestTime = Date.now();
 
-			// Simulate the LLM call
-			const { response: responseText, callback } = this.responses.shift()!;
-
-			if (callback) callback(userPromptForCallback);
-
-			const timeToFirstToken = 1; // Mock value
+			const timeToFirstToken = 1;
 			const finishTime = Date.now();
 			const llmCall: LlmCall = await llmCallSave;
 
 			const inputTokens = await this.countTokens(fullPromptText);
 			const outputTokens = await this.countTokens(responseText);
 			const { totalCost } = this.calculateCosts(inputTokens, outputTokens);
-			const cost = totalCost; // Will be 0 for MockLLM
-			addCost(cost);
+			addCost(totalCost);
 
 			llmCall.timeToFirstToken = timeToFirstToken;
 			llmCall.totalTime = finishTime - requestTime;
-			llmCall.cost = cost;
+			llmCall.cost = totalCost;
 			llmCall.inputTokens = inputTokens;
 			llmCall.outputTokens = outputTokens;
 
-			const stats: GenerationStats = {
+			assistantMessage.stats = {
 				llmId: this.getId(),
-				cost,
+				cost: totalCost,
 				inputTokens,
 				outputTokens,
 				requestTime,
@@ -107,13 +219,6 @@ export class MockLLM extends BaseLLM {
 				totalTime: llmCall.totalTime,
 			};
 
-			const assistantMessage: LlmMessage = {
-				role: 'assistant',
-				content: responseText,
-				stats,
-			};
-
-			// Update the call log with the response
 			llmCall.messages = [...llmCall.messages, assistantMessage];
 
 			span.setAttributes({
@@ -121,7 +226,7 @@ export class MockLLM extends BaseLLM {
 				outputChars: responseText.length,
 				inputTokens,
 				outputTokens,
-				cost,
+				cost: totalCost,
 				model: this.model,
 				service: this.service,
 				description,
@@ -132,23 +237,7 @@ export class MockLLM extends BaseLLM {
 			} catch (e) {
 				logger.error(e, 'Failed to save MockLLM response');
 			}
-
-			// logger.debug(`MockLLM response ${responseText}`);
-			return assistantMessage;
 		});
-	}
-
-	// @logTextGeneration
-	async _generateText(systemPrompt: string | undefined, userPrompt: string, opts?: GenerateTextOptions): Promise<string> {
-		const messages: LlmMessage[] = [];
-		if (systemPrompt) messages.push(system(systemPrompt));
-		messages.push(user(userPrompt));
-
-		// Delegate the core logic to _generateMessage
-		const resultMessage = await this._generateMessage(messages, opts);
-
-		// Extract the text content
-		return messageText(resultMessage);
 	}
 }
 
