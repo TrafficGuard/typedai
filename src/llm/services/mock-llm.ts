@@ -141,6 +141,37 @@ export class MockLLM extends BaseLLM {
 	// Production-Facing API: Implementation of the LLM interface
 	// =================================================================
 
+	// =================================================================
+	// Production-Facing API: Implementation of the LLM interface
+	// =================================================================
+
+	/**
+	 * Overrides `BaseLLM.generateText` to route calls to either `_generateText` or `_generateMessage`
+	 * based on the arguments. This preserves the dual-queue system of `MockLLM` and allows it to
+	 * handle both simple string prompts and complex message arrays.
+	 */
+	generateText(userPrompt: string, opts?: GenerateTextOptions): Promise<string>;
+	generateText(systemPrompt: string, userPrompt: string, opts?: GenerateTextOptions): Promise<string>;
+	generateText(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<string>;
+	async generateText(
+		userOrSystemOrMessages: string | ReadonlyArray<LlmMessage>,
+		userOrOpts?: string | GenerateTextOptions,
+		opts?: GenerateTextOptions,
+	): Promise<string> {
+		// If the original call was with a message array, use the message-based generation.
+		if (Array.isArray(userOrSystemOrMessages)) {
+			const assistantMessage = await this._generateMessage(userOrSystemOrMessages, userOrOpts as GenerateTextOptions);
+			return messageText(assistantMessage);
+		}
+
+		// Otherwise, it was a string-based call, so use the text-based generation.
+		const hasSystemPrompt = typeof userOrOpts === 'string';
+		const systemPrompt = hasSystemPrompt ? userOrSystemOrMessages : undefined;
+		const userPrompt = hasSystemPrompt ? (userOrOpts as string) : userOrSystemOrMessages;
+		const theOpts = hasSystemPrompt ? opts : (userOrOpts as GenerateTextOptions);
+		return this._generateText(systemPrompt, userPrompt, theOpts);
+	}
+
 	protected async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
 		this.calls.push({ type: 'generateMessage', messages, options: opts });
 
