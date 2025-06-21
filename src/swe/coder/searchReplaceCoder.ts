@@ -17,6 +17,7 @@ import { parseEditResponse } from './editBlockParser';
 import { tryFixSearchBlock } from './fixSearchReplaceBlock';
 import { stripQuotedWrapping } from './patchUtils';
 import { buildFailedEditsReflection, buildValidationIssuesReflection } from './reflectionUtils';
+import { EDIT_BLOCK_PROMPTS } from './searchReplacePrompts';
 import type { EditSession } from './state/EditSession';
 import { newSession } from './state/EditSession';
 import { validateBlocks } from './validators/compositeValidator';

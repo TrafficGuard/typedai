@@ -1,8 +1,6 @@
 import type { IFileSystemService } from '#shared/files/fileSystemService';
 import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
-import { logger } from '#o11y/logger';
 import type { EditBlock } from '../coderTypes';
-import { stripQuotedWrapping } from '../patchUtils';
 import type { EditSession } from '../state/EditSession';
 
 export class EditPreparer {
