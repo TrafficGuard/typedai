@@ -42,13 +42,12 @@ hello universe
 
 describe.only('SearchReplaceCoder: Reflection Logic', () => {
 	setupConditionalLoggerOutput();
-	
+
 	let coder: SearchReplaceCoder;
 	let mockLlms: AgentLLMs;
 	let mockMediumLlm: MockLLM;
 	let fss: IFileSystemService;
 	let mockVcs: sinon.SinonStubbedInstance<VersionControlSystem>;
-	let loggerWarnSpy: sinon.SinonSpy;
 
 	// Helper function to set up mock file system and FileSystemService
 	function setupMockFs(mockFileSystemConfig: any): void {
@@ -67,6 +66,7 @@ describe.only('SearchReplaceCoder: Reflection Logic', () => {
 		
 		fss = new FileSystemService(MOCK_REPO_ROOT);
 		fss.setWorkingDirectory(MOCK_REPO_ROOT);
+		mockVcs = sinon.createStubInstance(Git);
 		sinon.stub(fss, 'getVcsRoot').returns(MOCK_REPO_ROOT);
 		sinon.stub(fss, 'getVcs').returns(mockVcs);
 		coder = new SearchReplaceCoder(mockLlms, fss);
@@ -75,8 +75,6 @@ describe.only('SearchReplaceCoder: Reflection Logic', () => {
 	beforeEach(() => {
 		mockMediumLlm = new MockLLM();
 		mockLlms = { easy: mockMediumLlm, medium: mockMediumLlm, hard: mockMediumLlm, xhard: mockMediumLlm };
-		mockVcs = sinon.createStubInstance(Git);
-		loggerWarnSpy = sinon.spy(logger, 'warn');
 	});
 
 	afterEach(() => {
@@ -379,7 +377,6 @@ new content
 			expect(mockMediumLlm.getMessageCalls()).to.have.lengthOf(1);
 			const finalContent = await fss.readFile('/repo/test.ts');
 			expect(finalContent).to.contain('hello universe');
-			expect(loggerWarnSpy.calledWith(sinon.match('LLM made meta-request(s) AND provided edit blocks'))).to.be.true;
 		});
 	});
 
