@@ -10,11 +10,11 @@ import { messageText, user } from '#shared/llm/llm.model';
 import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
 import type { EditBlock } from '#swe/coder/coderTypes';
 import { CoderExhaustedAttemptsError } from '../sweErrors';
-import type { EditFormat } from './coderTypes';
+import type { EditFormat, RequestedFileEntry, RequestedPackageInstallEntry, RequestedQueryEntry } from './coderTypes';
 import { MODEL_EDIT_FORMATS } from './constants';
 import { EditApplier } from './editApplier';
 import { parseEditResponse } from './editBlockParser';
-import type { EditSession, RequestedFileEntry, RequestedPackageInstallEntry, RequestedQueryEntry } from './editSession';
+import type { EditSession } from './editSession';
 import { newSession } from './editSession';
 import { tryFixSearchBlock } from './fixSearchReplaceBlock';
 import { stripQuotedWrapping } from './patchUtils';
@@ -31,7 +31,7 @@ const DEFAULT_FENCE_CLOSE = '```';
 const DEFAULT_LENIENT_WHITESPACE = true;
 
 // Helper function to parse file requests from LLM response
-function parseAddFilesRequest(responseText: string): RequestedFileEntry[] | null {
+export function parseAddFilesRequest(responseText: string): RequestedFileEntry[] | null {
 	if (!responseText) return null;
 	const match = responseText.match(/<add-files-json>([\s\S]*?)<\/add-files-json>/);
 	if (!match || !match[1]) {
@@ -62,7 +62,7 @@ function parseAddFilesRequest(responseText: string): RequestedFileEntry[] | null
 }
 
 // New helper function to parse query requests
-function parseAskQueryRequest(responseText: string): RequestedQueryEntry[] | null {
+export function parseAskQueryRequest(responseText: string): RequestedQueryEntry[] | null {
 	if (!responseText) return null;
 	const matches = Array.from(responseText.matchAll(/<ask-query>([\s\S]*?)<\/ask-query>/g));
 	if (!matches.length) return null;
@@ -77,7 +77,7 @@ function parseAskQueryRequest(responseText: string): RequestedQueryEntry[] | nul
 }
 
 // New helper function to parse package install requests
-function parseInstallPackageRequest(responseText: string): RequestedPackageInstallEntry[] | null {
+export function parseInstallPackageRequest(responseText: string): RequestedPackageInstallEntry[] | null {
 	if (!responseText) return null;
 	const match = responseText.match(/<install-packages-json>([\s\S]*?)<\/install-packages-json>/);
 	if (!match || !match[1]) {
