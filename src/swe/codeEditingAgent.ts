@@ -18,6 +18,7 @@ import { onlineResearch } from '#swe/onlineResearch';
 import { reviewChanges } from '#swe/reviewChanges';
 import { supportingInformation } from '#swe/supportingInformation';
 import { execCommand } from '#utils/exec';
+import { AiderCodeEditor } from './aiderCodeEditor';
 import { type SelectFilesResponse, selectFilesToEdit } from './discovery/selectFilesToEdit';
 import { type ProjectInfo, getProjectInfo } from './projectDetection';
 import { basePrompt } from './prompt';
@@ -32,6 +33,8 @@ export function buildPrompt(args: {
 }): string {
 	return `${basePrompt}\n${args.information}\n\nThe requirements of the task are as follows:\n<requirements>\n${args.requirements}\n</requirements>\n\nThe action to be performed is as follows:\n<action>\n${args.action}\n</action>\n`;
 }
+
+const useAider = true;
 
 @funcClass(__filename)
 export class CodeEditingAgent {
@@ -270,8 +273,12 @@ export class CodeEditingAgent {
 				// Remove any duplicates in codeEditorFiles
 				for (const editingFile of codeEditorFiles) if (ruleFiles.has(editingFile)) ruleFiles.delete(editingFile);
 
-				const coder = new SearchReplaceCoder(llms(), getFileSystem(), undefined);
-				await coder.editFilesToMeetRequirements(codeEditorRequirements, codeEditorFiles, Array.from(ruleFiles), true, true);
+				if (useAider) {
+					await new AiderCodeEditor().editFilesToMeetRequirements(codeEditorRequirements, [...codeEditorFiles, ...Array.from(ruleFiles)]);
+				} else {
+					const coder = new SearchReplaceCoder(llms(), getFileSystem(), undefined);
+					await coder.editFilesToMeetRequirements(codeEditorRequirements, codeEditorFiles, Array.from(ruleFiles), true, true);
+				}
 
 				// The code editor may add new files, so we want to add them to the initial file set
 				const addedFiles: string[] = await git.getAddedFiles(compiledCommitSha);
@@ -335,13 +342,20 @@ export class CodeEditingAgent {
 						logger.info(`Static analysis error output: ${staticAnalysisErrorOutput}`);
 						const staticErrorFiles: string[] = await this.extractFilenames(`${staticAnalysisErrorOutput}\n\nExtract the filenames from the compile errors.`);
 
-						await new SearchReplaceCoder(llms(), getFileSystem(), undefined).editFilesToMeetRequirements(
-							`Static analysis command: ${projectInfo.staticAnalysis}\n${staticAnalysisErrorOutput}\nFix these static analysis errors`,
-							[...initialSelectedFiles, ...staticErrorFiles],
-							[],
-							true,
-							true,
-						);
+						if (useAider) {
+							await new AiderCodeEditor().editFilesToMeetRequirements(
+								`Static analysis command: ${projectInfo.staticAnalysis}\n${staticAnalysisErrorOutput}\nFix these static analysis errors`,
+								[...initialSelectedFiles, ...staticErrorFiles],
+							);
+						} else {
+							await new SearchReplaceCoder(llms(), getFileSystem(), undefined).editFilesToMeetRequirements(
+								`Static analysis command: ${projectInfo.staticAnalysis}\n${staticAnalysisErrorOutput}\nFix these static analysis errors`,
+								[...initialSelectedFiles, ...staticErrorFiles],
+								[],
+								true,
+								true,
+							);
+						}
 						// TODO need to compile again
 					}
 				}
