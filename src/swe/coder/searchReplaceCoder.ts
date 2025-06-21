@@ -447,6 +447,14 @@ export class SearchReplaceCoder {
 
 			session.parsedBlocks = parseEditResponse(session.llmResponse, editFormat, this.getFence());
 
+			const { valid: validBlocks, issues: validationIssues } = await validateBlocks(session.parsedBlocks, repoFiles, this.rules);
+			const realIssues = validationIssues.filter(Boolean);
+
+			if (realIssues.length > 0) {
+				this._reflectOnValidationIssues(session, realIssues, currentMessages);
+				continue;
+			}
+
 			const hasFileRequests = session.requestedFiles && session.requestedFiles.length > 0;
 			const hasQueryRequests = session.requestedQueries && session.requestedQueries.length > 0;
 			const hasPackageRequests = session.requestedPackageInstalls && session.requestedPackageInstalls.length > 0;

@@ -68,12 +68,14 @@ describe.only('SearchReplaceCoder: Reflection Logic', () => {
 		fss = new FileSystemService(MOCK_REPO_ROOT);
 		fss.setWorkingDirectory(MOCK_REPO_ROOT);
 		sinon.stub(fss, 'getVcsRoot').returns(MOCK_REPO_ROOT);
+		sinon.stub(fss, 'getVcs').returns(mockVcs);
 		coder = new SearchReplaceCoder(mockLlms, fss);
 	}
 
 	beforeEach(() => {
 		mockMediumLlm = new MockLLM();
 		mockLlms = { easy: mockMediumLlm, medium: mockMediumLlm, hard: mockMediumLlm, xhard: mockMediumLlm };
+		mockVcs = sinon.createStubInstance(Git);
 		loggerWarnSpy = sinon.spy(logger, 'warn');
 	});
 
@@ -97,7 +99,7 @@ describe.only('SearchReplaceCoder: Reflection Logic', () => {
 			const messageCalls = mockMediumLlm.getMessageCalls();
 			expect(messageCalls).to.have.lengthOf(2);
 			const reflectionMessage = messageCalls[1].messages.at(-1)?.content;
-			expect(reflectionMessage).to.contain('The LLM returned an empty response.');
+			expect(reflectionMessage).to.contain('No edit blocks or actionable requests');
 		});
 
 		it('should reflect if the LLM provides no edit blocks and no meta-requests', async () => {
@@ -384,10 +386,11 @@ new content
 	describe('on Attempt Exhaustion', () => {
 		it('should throw CoderExhaustedAttemptsError when max attempts are reached with persistent failures', async () => {
 			setupMockFs({ '/repo/test.ts': 'content' });
+			const failingBlock = searchReplaceBlock('test.ts', 'non-matching', 'new content');
 			// Always respond with an invalid block, and always fail to fix it
 			for (let i = 0; i < 5; i++) {
 				// MAX_ATTEMPTS is 5
-				mockMediumLlm.addMessageResponse('...invalid block...').addResponse('null'); // Fix always fails
+				mockMediumLlm.addMessageResponse(failingBlock).addResponse('null'); // Fix always fails
 			}
 
 			let error: Error | null = null;
@@ -402,7 +405,7 @@ new content
 			expect(mockMediumLlm.getCallCount()).to.equal(10);
 			if (error instanceof CoderExhaustedAttemptsError) {
 				expect(error.lastReflection).to.be.a('string');
-				expect(error.lastReflection).to.contain('No edit blocks or actionable requests');
+				expect(error.lastReflection).to.contain('This SEARCH block failed to exactly match lines in test.ts');
 			}
 		});
 	});
