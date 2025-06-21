@@ -409,6 +409,7 @@ export class SearchReplaceCoder {
 		let currentFailedEdits: EditBlock[] = []; // Declare currentFailedEdits here
 
 		let llm = this.llms.medium;
+		let promptNeedsRebuild = true;
 		// Label for breaking out of nested loops to the main attempt loop
 		while (session.attempt < MAX_ATTEMPTS) {
 			session.attempt++;
@@ -416,10 +417,10 @@ export class SearchReplaceCoder {
 
 			logger.info(`SearchReplaceCoder: Attempt ${session.attempt}/${MAX_ATTEMPTS}`);
 
-			// Only rebuild the full prompt if not in a re-application cycle from a fix
-			// This check might be more complex if we decide _tryFixSearchBlock can use a different prompt structure.
-			// For now, _buildPrompt is always called at the start of a main attempt.
-			currentMessages = await this._buildPrompt(session, requirements, filesToEdit, readOnlyFiles);
+			if (promptNeedsRebuild) {
+				currentMessages = await this._buildPrompt(session, requirements, filesToEdit, readOnlyFiles);
+				promptNeedsRebuild = false;
+			}
 			logger.debug({ messagesLength: currentMessages.length }, 'SearchReplaceCoder: Prompt built for LLM');
 
 			const llmResponseMsgObj: LlmMessage = await llm.generateMessage(currentMessages, {
@@ -469,6 +470,7 @@ export class SearchReplaceCoder {
 
 					if (addedFiles.length > 0) {
 						reflectionForMetaRequests += `I have added the ${addedFiles.length} file(s) you requested to the chat: ${addedFiles.join(', ')}. `;
+						promptNeedsRebuild = true;
 					}
 					if (alreadyPresentFiles.length > 0) {
 						reflectionForMetaRequests += `The following file(s) you requested were already in the chat: ${alreadyPresentFiles.join(', ')}. `;
@@ -535,6 +537,7 @@ export class SearchReplaceCoder {
 					`The following file(s) were modified after the edit blocks were generated: ${externallyChanged.join(', ')}. Their content has been updated in your context. Please regenerate the edits using the updated content.`,
 					currentMessages,
 				);
+				promptNeedsRebuild = true;
 				continue;
 			}
 
