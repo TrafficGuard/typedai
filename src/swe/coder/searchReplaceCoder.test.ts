@@ -1,21 +1,26 @@
-// import { expect } from 'chai'; // No longer needed if all tests are removed
-// import { checkEditBlockFilePath } from './searchReplaceCoder'; // Function removed
-import { setupConditionalLoggerOutput } from '#test/testUtils';
+import { expect } from 'chai';
+import mockFs from 'mock-fs';
+import * as sinon from 'sinon';
+import { FileSystemService } from '#functions/storage/fileSystemService';
+import { logger } from '#o11y/logger';
+import type { AgentLLMs } from '#shared/agent/agent.model';
+import type { IFileSystemService } from '#shared/files/fileSystemService';
+import type { LLM } from '#shared/llm/llm.model';
+import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
+import { Git } from '#src/functions/scm/git';
+import { CoderExhaustedAttemptsError } from '../sweErrors';
+import { EditApplier } from './editApplier';
+import { SearchReplaceCoder } from './searchReplaceCoder';
 
-describe('SearchReplaceCoder related functions', () => {
-	// Updated describe to be more general
+describe('SearchReplaceCoder: Reflection Logic', () => {
+	let coder: SearchReplaceCoder;
+	let mockLlms: sinon.SinonStubbedInstance<AgentLLMs>;
+	let mockMediumLlm: sinon.SinonStubbedInstance<LLM>;
+	let fs: IFileSystemService;
+	let mockVcs: sinon.SinonStubbedInstance<VersionControlSystem>;
+	let loggerWarnSpy: sinon.SinonSpy;
 
-	setupConditionalLoggerOutput();
-	// describe('Create file check', () => {}); // This seems empty, can be removed or populated
-
-	// Tests for checkEditBlockFilePath are removed as the function is removed.
-	// Its logic is now tested in:
-	// - pathExistsRule.test.ts
-	// - moduleAliasRule.test.ts
-	// - similarFileNameRule.test.ts
-	// - compositeValidator.test.ts (will test their combined behavior)
-
-	// If there are other tests for SearchReplaceCoder class itself, they would remain.
-	// For now, this file might become empty or be removed if SearchReplaceCoder itself has no other direct utils to test here.
-	// Keeping the describe block for now in case other tests for SearchReplaceCoder are added later.
-});
+	const SEARCH_BLOCK_VALID = `test.ts
+\`\`\`typescript
+<<<<<<< SEARCH
+hello world

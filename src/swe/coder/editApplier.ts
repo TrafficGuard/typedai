@@ -107,11 +107,10 @@ export class EditApplier {
 		if (this.autoCommit && !this.dryRun && this.vcs && appliedFilePaths.size > 0) {
 			const commitMessage = 'Applied LLM-generated edits';
 			try {
-				// Note: addAllTrackedAndCommit might be too broad if only specific files should be committed.
-				// A more precise vcs.commitFiles(Array.from(appliedFilePaths), commitMessage) would be ideal.
-				// For now, using the existing broader method.
-				await this.vcs.addAllTrackedAndCommit(commitMessage);
-				logger.info(`Auto-committed changes for ${appliedFilePaths.size} files.`);
+				const filesToCommit = Array.from(appliedFilePaths);
+				// Use the more precise method already available in the interface
+				await this.vcs.addAndCommitFiles(filesToCommit, commitMessage);
+				logger.info(`Auto-committed changes for ${filesToCommit.length} files: ${filesToCommit.join(', ')}.`);
 			} catch (commitError: any) {
 				logger.error({ err: commitError }, 'Auto-commit failed after applying edits.');
 				// This error is logged, but doesn't make the apply operation fail at this stage.
