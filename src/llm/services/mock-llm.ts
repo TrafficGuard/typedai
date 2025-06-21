@@ -141,10 +141,6 @@ export class MockLLM extends BaseLLM {
 	// Production-Facing API: Implementation of the LLM interface
 	// =================================================================
 
-	// =================================================================
-	// Production-Facing API: Implementation of the LLM interface
-	// =================================================================
-
 	/**
 	 * Overrides `BaseLLM.generateText` to route calls to either `_generateText` or `_generateMessage`
 	 * based on the arguments. This preserves the dual-queue system of `MockLLM` and allows it to
