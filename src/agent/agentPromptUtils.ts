@@ -33,7 +33,7 @@ export async function buildToolStatePrompt(): Promise<string> {
 
 export async function buildFileSystemTreePrompt(): Promise<string> {
 	const agent = agentContext(); // Get the full agent context
-	if (!agent.functions.getFunctionClassNames().includes(FileSystemTree.name)) {
+	if (!agent?.functions.getFunctionClassNames().includes(FileSystemTree.name)) {
 		return ''; // Tool not active
 	}
 

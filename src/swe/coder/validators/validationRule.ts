@@ -7,5 +7,5 @@ export interface ValidationIssue {
 
 export interface ValidationRule {
 	name: string;
-	check(block: EditBlock, repoFiles: string[]): ValidationIssue | null;
+	check(block: EditBlock, repoFiles: string[]): Promise<ValidationIssue | null>;
 }

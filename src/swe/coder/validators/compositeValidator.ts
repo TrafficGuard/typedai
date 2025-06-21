@@ -13,7 +13,7 @@ export interface ValidateBlocksResult {
  * @param rules An array of validation rules to apply.
  * @returns An object containing arrays of valid blocks and any validation issues found.
  */
-export function validateBlocks(blocks: EditBlock[], repoFiles: string[], rules: ValidationRule[]): ValidateBlocksResult {
+export async function validateBlocks(blocks: EditBlock[], repoFiles: string[], rules: ValidationRule[]): Promise<ValidateBlocksResult> {
 	const valid: EditBlock[] = [];
 	const issues: ValidationIssue[] = [];
 	const blockIssuesCache = new Map<EditBlock, ValidationIssue[]>();
@@ -25,7 +25,7 @@ export function validateBlocks(blocks: EditBlock[], repoFiles: string[], rules: 
 		for (const rule of rules) {
 			const issue = rule.check(block, repoFiles);
 			if (issue) {
-				currentBlockIssues.push(issue);
+				currentBlockIssues.push(await issue);
 				blockIsValid = false;
 				// Do not break here, collect all issues for this block from all rules
 			}

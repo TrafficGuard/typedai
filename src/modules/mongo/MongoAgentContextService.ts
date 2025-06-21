@@ -89,13 +89,7 @@ function dbDocToAgentContext(doc: any): AgentContext | null {
 				if (llmData && llmData.service === 'mock') {
 					// Requirement: new MockLLM(llmData.id, llmData.provider, llmData.config)
 					// Using llmData.service for provider as per LLM interface.
-					context.llms[key] = new MockLLM(
-						llmData.id,
-						llmData.service,
-						llmData.model ?? 'mock',
-						undefined /* for maxInputTokens, let constructor default kick in */,
-						llmData.responses,
-					);
+					context.llms[key] = new MockLLM(llmData.id, llmData.service, llmData.model ?? 'mock', undefined);
 				}
 			}
 		}

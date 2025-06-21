@@ -1,21 +1,20 @@
+import { existsSync } from 'node:fs';
 import { expect } from 'chai';
 import mockFs from 'mock-fs';
 import * as sinon from 'sinon';
-import { existsSync } from 'node:fs';
 import { Git } from '#functions/scm/git';
 import { FileSystemService } from '#functions/storage/fileSystemService';
-import { logger } from '#o11y/logger';
 import { MockLLM } from '#llm/services/mock-llm';
+import { logger } from '#o11y/logger';
 import type { AgentLLMs } from '#shared/agent/agent.model';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
 import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { CoderExhaustedAttemptsError } from '../sweErrors';
 import { EditApplier } from './editApplier';
 import { SearchReplaceCoder } from './searchReplaceCoder';
-import { setupConditionalLoggerOutput } from '#test/testUtils';
 
 const MOCK_REPO_ROOT = '/repo';
-
 
 function searchReplaceBlock(filePath: string, search: string, replace: string): string {
 	return `${filePath}
@@ -39,8 +38,7 @@ hello universe
 \`\`\`
 `;
 
-
-describe.only('SearchReplaceCoder: Reflection Logic', () => {
+describe('SearchReplaceCoder: Reflection Logic', () => {
 	setupConditionalLoggerOutput();
 
 	let coder: SearchReplaceCoder;
@@ -52,7 +50,7 @@ describe.only('SearchReplaceCoder: Reflection Logic', () => {
 	// Helper function to set up mock file system and FileSystemService
 	function setupMockFs(mockFileSystemConfig: any): void {
 		mockFs(mockFileSystemConfig);
-		
+
 		// Stub existsSync to work with the mocked file system
 		const existsSyncStub = sinon.stub(require('node:fs'), 'existsSync');
 		existsSyncStub.callsFake((path: unknown) => {
@@ -61,9 +59,9 @@ describe.only('SearchReplaceCoder: Reflection Logic', () => {
 			if (pathStr === MOCK_REPO_ROOT) return true;
 			// For other paths, check if they exist in the mock config
 			const mockPaths = Object.keys(mockFileSystemConfig);
-			return mockPaths.some(mockPath => pathStr.startsWith(mockPath) || mockPath.startsWith(pathStr));
+			return mockPaths.some((mockPath) => pathStr.startsWith(mockPath) || mockPath.startsWith(pathStr));
 		});
-		
+
 		fss = new FileSystemService(MOCK_REPO_ROOT);
 		fss.setWorkingDirectory(MOCK_REPO_ROOT);
 		mockVcs = sinon.createStubInstance(Git);
@@ -87,7 +85,7 @@ describe.only('SearchReplaceCoder: Reflection Logic', () => {
 	describe('on Initial LLM Response Issues', () => {
 		it('should reflect with a specific message when the LLM returns an empty response', async () => {
 			setupMockFs({ '/repo/test.ts': 'hello world' });
-			
+
 			mockMediumLlm
 				.addMessageResponse('') // First call returns empty
 				.addMessageResponse(SEARCH_BLOCK_VALID); // Second call (after reflection) succeeds
@@ -102,7 +100,7 @@ describe.only('SearchReplaceCoder: Reflection Logic', () => {
 
 		it('should reflect if the LLM provides no edit blocks and no meta-requests', async () => {
 			setupMockFs({ '/repo/test.ts': 'hello world' });
-			
+
 			mockMediumLlm
 				.addMessageResponse('Sure, I can do that.') // First call has no blocks
 				.addMessageResponse(SEARCH_BLOCK_VALID); // Second call succeeds
@@ -136,7 +134,7 @@ describe.only('SearchReplaceCoder: Reflection Logic', () => {
 
 		it('should reflect on a file path that uses a module alias like # or @', async () => {
 			setupMockFs({ '/repo/test.ts': 'hello world' });
-		
+
 			const editBlock = searchReplaceBlock('#services/my-service.ts', 'original', 'updated');
 			mockMediumLlm.addMessageResponse(editBlock).addMessageResponse(SEARCH_BLOCK_VALID);
 
@@ -329,9 +327,7 @@ new content
 			readFileStub.withArgs('/repo/test.ts').onFirstCall().resolves('initial content'); // For prompt build
 			readFileStub.withArgs('/repo/test.ts').onSecondCall().resolves('modified content'); // For external change check
 
-			mockMediumLlm
-				.addMessageResponse(SEARCH_BLOCK_VALID.replace('hello world', 'initial content'))
-				.addMessageResponse(SEARCH_BLOCK_VALID);
+			mockMediumLlm.addMessageResponse(SEARCH_BLOCK_VALID.replace('hello world', 'initial content')).addMessageResponse(SEARCH_BLOCK_VALID);
 
 			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);
 
@@ -343,9 +339,7 @@ new content
 			setupMockFs({ '/repo/dirty.ts': 'content' });
 			mockVcs.isDirty.withArgs('dirty.ts').resolves(true);
 			mockVcs.addAndCommitFiles.rejects(new Error('Commit failed'));
-			mockMediumLlm
-				.addMessageResponse('dirty.ts\n<<<<<<< SEARCH\ncontent\n=======\nnew\n>>>>>>> REPLACE')
-				.addMessageResponse(SEARCH_BLOCK_VALID);
+			mockMediumLlm.addMessageResponse('dirty.ts\n<<<<<<< SEARCH\ncontent\n=======\nnew\n>>>>>>> REPLACE').addMessageResponse(SEARCH_BLOCK_VALID);
 
 			await coder.editFilesToMeetRequirements('test', ['dirty.ts'], [], true, true);
 

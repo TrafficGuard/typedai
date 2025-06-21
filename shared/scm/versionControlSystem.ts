@@ -68,7 +68,7 @@ export interface VersionControlSystem {
 	 * @param n the number of commits (defaults to 2)
 	 * @returns an array of the commit details
 	 */
-	getRecentCommits(n: number): Promise<Array<Commit>>;
+	getRecentCommits(n?: number): Promise<Array<Commit>>;
 
 	/**
 	 * @param path full file path

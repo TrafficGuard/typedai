@@ -146,7 +146,26 @@ If you want to put code in a new file, use a *SEARCH/REPLACE block* with:
 - An empty \`SEARCH\` section
 - The new file's contents in the \`REPLACE\` section
 
-{final_reminders}ONLY EVER RETURN CODE IN A *SEARCH/REPLACE BLOCK*!
+
+{final_reminders}ONLY EVER RETURN CODE IN A *SEARCH/REPLACE BLOCK* IN THIS EXACT FORMAT OF THE FOLLOWING EXAMPLE. DO NOT INCLUDE ANY OTHER FORMATTING:
+
+folder/filename.ext
+{fence_0}language
+<<<<<<< SEARCH
+	text to replace
+=======
+	updated text
+>>>>>>> REPLACE
+{fence_1}
+
+folder/subfolder/example
+{fence_0}language
+<<<<<<< SEARCH
+	foo();
+=======
+	bar();
+>>>>>>> REPLACE
+{fence_1}
 `,
 
 	lazy_prompt: `You are diligent and tireless!

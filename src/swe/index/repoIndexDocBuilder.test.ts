@@ -37,12 +37,12 @@ describe('IndexDocBuilder', () => {
 	let generateFileSummaryStub: sinon.SinonStub;
 	let generateFolderSummaryStub: sinon.SinonStub;
 
-	const setupMockFs = (mockFileSystemConfig: any) => {
+	function setupMockFs(mockFileSystemConfig: any) {
 		mock(mockFileSystemConfig);
 		mockFss = new FileSystemService(MOCK_REPO_ROOT);
 		sinon.stub(mockFss, 'getVcsRoot').returns(MOCK_REPO_ROOT);
 		builder = new IndexDocBuilder(mockFss, llm);
-	};
+	}
 
 	beforeEach(async () => {
 		// DO NOT mock the filesystem here. It will be mocked in each test.

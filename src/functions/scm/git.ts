@@ -36,7 +36,6 @@ export class Git implements VersionControlSystem {
 		// failOnError('Failed to get git status for addAllTrackedAndCommit', execResult);
 		// if (execResult.stdout.trim().length === 0) { ... return ... }
 
-
 		const { exitCode, stdout, stderr } = await execCommand('git add .');
 		if (exitCode > 0) throw new Error(`git add . failed: ${stdout}\n${stderr}`);
 

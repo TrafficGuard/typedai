@@ -4,7 +4,7 @@ import type { ValidationIssue, ValidationRule } from './validationRule';
 export class PathExistsRule implements ValidationRule {
 	readonly name = 'PathExistsRule';
 
-	check(block: EditBlock, repoFiles: string[]): ValidationIssue | null {
+	async check(block: EditBlock, repoFiles: string[]): Promise<ValidationIssue | null> {
 		const fileExists = repoFiles.includes(block.filePath);
 
 		if (!fileExists && block.originalText.trim() !== '') {

@@ -59,21 +59,21 @@ async function main() {
 	}
 
 	// Determine if any pattern is a glob pattern
-	const hasGlobPatterns = patterns.some(p => micromatch.scan(p).isGlob);
+	const hasGlobPatterns = patterns.some((p) => micromatch.scan(p).isGlob);
 	let matchedFiles: string[] = [];
 
 	try {
 		if (hasGlobPatterns) {
-			console.log(`🔍 Using glob patterns: ${patterns.join(', ')}`);
+			console.log(`🔍  Using glob patterns: ${patterns.join(', ')}`);
 			// 2. Get ALL files recursively from the current working directory
 			// NOTE: This is the inefficient part compared to using 'glob'. It reads
 			// potentially many files before filtering.
-			console.log(`📂 Reading all files recursively from: ${basePath}`);
+			console.log(`📂  Reading all files recursively from: ${basePath}`);
 			const allFiles = await getAllFiles(basePath, basePath); // Pass basePath as root
 			console.log(`   Found ${allFiles.length} total files/symlinks initially.`);
 			if (allFiles.length > 5000) {
 				// Add a warning for large directories
-				console.warn(`   ⚠️ Reading a large number of files (${allFiles.length}), this might be slow.`);
+				console.warn(`   ⚠️  Reading a large number of files (${allFiles.length}), this might be slow.`);
 			}
 
 			// 3. Use micromatch to filter the list of all files
@@ -86,7 +86,7 @@ async function main() {
 				cwd: basePath, // Use basePath as cwd for micromatch
 			});
 		} else {
-			console.log(`ℹ️ No glob patterns detected. Processing as direct file paths: ${patterns.join(', ')}`);
+			console.log(`ℹ️  No glob patterns detected. Processing as direct file paths: ${patterns.join(', ')}`);
 			const validatedFilePaths: string[] = [];
 			for (const p of patterns) {
 				const absolutePath = path.resolve(basePath, p);
@@ -96,13 +96,13 @@ async function main() {
 						// Store the original relative path 'p' as it's relative to basePath
 						validatedFilePaths.push(p);
 					} else {
-						console.warn(`⚠️ Path matched but is not a file, skipping: ${p}`);
+						console.warn(`⚠️  Path matched but is not a file, skipping: ${p}`);
 					}
 				} catch (error: any) {
 					if (error.code === 'ENOENT') {
-						console.warn(`⚠️ File not found, skipping: ${p}`);
+						console.warn(`⚠️  File not found, skipping: ${p}`);
 					} else {
-						console.warn(`⚠️ Error accessing file ${p}, skipping: ${error.message}`);
+						console.warn(`⚠️  Error accessing file ${p}, skipping: ${error.message}`);
 					}
 				}
 			}
@@ -131,11 +131,13 @@ async function main() {
 		const absoluteMatchedFiles = matchedFiles.map((f) => path.resolve(basePath, f)); // Use basePath
 
 		// 5. Pass the filtered file paths to your service
-		console.log('⚙️ Reading matched files and converting to XML...');
+		console.log('⚙️  Reading matched files and converting to XML...');
 		const content = await fileSystemService.readFilesAsXml(absoluteMatchedFiles); // Use the existing service instance
-		console.log('⚙️ Counting tokens...');
+		console.log('⚙️  Counting tokens...');
 		const tokens = await countTokens(content);
-		console.log(`export.xml token count: ${tokens}`);
+		// Add comma between 1000's
+		const formattedTokens = tokens.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+		console.log(`export.xml token count: ${formattedTokens}`);
 
 		// 6. Print the final XML output
 		// console.log("\n--- XML Output ---");
