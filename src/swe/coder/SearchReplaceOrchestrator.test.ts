@@ -3,12 +3,12 @@ import * as sinon from 'sinon';
 import { MockLLM } from '#llm/services/mock-llm';
 import type { LLM, LlmMessage } from '#shared/llm/llm.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import type { EditApplier } from './editApplier';
-import type { PromptBuilder } from './PromptBuilder';
+import { PromptBuilder } from './PromptBuilder';
 import { CoderConfig, SearchReplaceOrchestrator } from './SearchReplaceOrchestrator';
-import type { EditPreparer } from './services/EditPreparer';
-import type { ReflectionGenerator } from './services/ReflectionGenerator';
-import type { ResponseProcessor } from './services/ResponseProcessor';
+import { EditApplier } from './editApplier';
+import { EditPreparer } from './services/EditPreparer';
+import { ReflectionGenerator } from './services/ReflectionGenerator';
+import { ResponseProcessor } from './services/ResponseProcessor';
 import { EditSession } from './state/EditSession';
 
 describe('SearchReplaceOrchestrator', () => {
