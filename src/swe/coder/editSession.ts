@@ -1,20 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { EditBlock } from './coderTypes'; // Assuming EditBlock is still in applySearchReplace
-
-export interface RequestedFileEntry {
-	filePath: string;
-	reason: string;
-}
-
-export interface RequestedQueryEntry {
-	query: string;
-	reason?: string; // Optional: if LLM provides a reason for the query
-}
-
-export interface RequestedPackageInstallEntry {
-	packageName: string;
-	reason: string;
-}
+import type { EditBlock, RequestedFileEntry, RequestedPackageInstallEntry, RequestedQueryEntry } from './coderTypes';
 
 export interface EditSession {
 	id: string; // uuid()
