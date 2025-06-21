@@ -17,7 +17,6 @@ describe('SearchReplaceCoder – fileContentSnapshots', () => {
 	let fsStub: sinon.SinonStubbedInstance<FileSystemService>;
 	let preparer: EditPreparer;
 	let session: EditSession;
-	let fileContentSnapshots: Map<string, string | null>;
 	const targetBlocks: EditBlock[] = [{ filePath: relFile, originalText: '', updatedText: '' }];
 
 	beforeEach(() => {
@@ -25,30 +24,29 @@ describe('SearchReplaceCoder – fileContentSnapshots', () => {
 		fsStub.getWorkingDirectory.returns(repoRoot);
 		fsStub.fileExists.resolves(true);
 		session = new EditSession(repoRoot, 'req');
-		fileContentSnapshots = new Map<string, string | null>();
 		const vcs = sinon.createStubInstance(Git);
 		preparer = new EditPreparer(fsStub as any, vcs, ['', '']);
 		// store initial snapshot
-		fileContentSnapshots.set(relFile, 'initial');
+		session.setFileSnapshot(relFile, 'initial');
 	});
 
 	afterEach(() => sinon.restore());
 
 	it('returns empty array when file is unchanged', async () => {
 		fsStub.readFile.withArgs(absFile).resolves('initial');
-		const { externalChanges } = await preparer.prepare(targetBlocks, session, fileContentSnapshots, new Set(), new Set());
+		const { externalChanges } = await preparer.prepare(targetBlocks, session);
 		expect(externalChanges).to.be.empty;
 	});
 
 	it('detects external content change', async () => {
 		fsStub.readFile.withArgs(absFile).resolves('modified');
-		const { externalChanges } = await preparer.prepare(targetBlocks, session, fileContentSnapshots, new Set(), new Set());
+		const { externalChanges } = await preparer.prepare(targetBlocks, session);
 		expect(externalChanges).to.deep.equal([relFile]);
 	});
 
 	it('detects file deletion', async () => {
 		fsStub.readFile.withArgs(absFile).rejects(new Error('ENOENT'));
-		const { externalChanges } = await preparer.prepare(targetBlocks, session, fileContentSnapshots, new Set(), new Set());
+		const { externalChanges } = await preparer.prepare(targetBlocks, session);
 		expect(externalChanges).to.deep.equal([relFile]);
 	});
 });

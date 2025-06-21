@@ -176,24 +176,21 @@ export class SearchReplaceCoder {
 	 * Initializes session context related to files, such as which files are in chat
 	 * and which of those were initially dirty.
 	 */
-	private async _initializeSessionContext(
-		session: EditSession,
-		filesToEdit: string[],
-		absFnamesInChat: Set<string>,
-		initiallyDirtyFiles: Set<string>,
-	): Promise<void> {
+	private async _initializeSessionContext(session: EditSession, filesToEdit: string[]): Promise<void> {
+		const absFnamesInChat = new Set<string>();
 		filesToEdit.forEach((relPath) => absFnamesInChat.add(this.getRepoFilePath(session.workingDir, relPath)));
-		initiallyDirtyFiles.clear();
 
-		if (!this.vcs) return;
-
-		for (const absPath of absFnamesInChat) {
-			const relPath = this.getRelativeFilePath(session.workingDir, absPath);
-			if (await this.vcs.isDirty(relPath)) {
-				initiallyDirtyFiles.add(relPath);
-				logger.info(`File ${relPath} was dirty before editing session started.`);
+		const initiallyDirtyFiles = new Set<string>();
+		if (this.vcs) {
+			for (const absPath of absFnamesInChat) {
+				const relPath = this.getRelativeFilePath(session.workingDir, absPath);
+				if (await this.vcs.isDirty(relPath)) {
+					initiallyDirtyFiles.add(relPath);
+					logger.info(`File ${relPath} was dirty before editing session started.`);
+				}
 			}
 		}
+		session.initializeFileContext(absFnamesInChat, initiallyDirtyFiles);
 	}
 
 	private _addReflectionToMessages(session: EditSession, reflectionText: string, currentMessages: LlmMessage[]): void {
@@ -215,9 +212,7 @@ export class SearchReplaceCoder {
 	private async _buildPrompt(
 		session: EditSession,
 		userRequest: string,
-		absFnamesInChat: Set<string>,
 		readOnlyFilesRelativePaths: string[],
-		fileContentSnapshots: Map<string, string | null>,
 		repoMapContent?: string,
 	): Promise<LlmMessage[]> {
 		const messages: LlmMessage[] = [];
@@ -249,7 +244,7 @@ export class SearchReplaceCoder {
 			}
 
 			// Store snapshot
-			fileContentSnapshots.set(relativePath, fileContent);
+			session.setFileSnapshot(relativePath, fileContent);
 
 			if (fileContent === null) {
 				return `${relativePath}\n[Could not read file content]`;
@@ -258,7 +253,7 @@ export class SearchReplaceCoder {
 			return `${relativePath}\n${fence[0]}${lang}\n${fileContent}\n${fence[1]}`;
 		};
 
-		const currentFilesInChatAbs = absFnamesInChat;
+		const currentFilesInChatAbs = session.absFnamesInChat;
 		if (currentFilesInChatAbs.size > 0) {
 			let filesContentBlock = EDIT_BLOCK_PROMPTS.files_content_prefix;
 			// Sort files alphabetically for consistent prompt order
@@ -328,17 +323,13 @@ export class SearchReplaceCoder {
 		const rootPath = this.fs.getWorkingDirectory();
 		const session = new EditSession(rootPath, requirements);
 
-		// State that was previously on EditSession, now managed here.
-		const absFnamesInChat = new Set<string>();
-		const initiallyDirtyFiles = new Set<string>();
-		const fileContentSnapshots = new Map<string, string | null>();
 		let llmResponse: string | undefined;
 		let parsedBlocks: EditBlock[] = [];
 		let requestedFiles: RequestedFileEntry[] | null = null;
 		let requestedQueries: RequestedQueryEntry[] | null = null;
 		let requestedPackageInstalls: RequestedPackageInstallEntry[] | null = null;
 
-		await this._initializeSessionContext(session, filesToEdit, absFnamesInChat, initiallyDirtyFiles);
+		await this._initializeSessionContext(session, filesToEdit);
 
 		const repoFiles = await this.fs.listFilesRecursively();
 
@@ -355,7 +346,7 @@ export class SearchReplaceCoder {
 			logger.info(`SearchReplaceCoder: Attempt ${session.attempt}/${MAX_ATTEMPTS}`);
 
 			if (session.shouldRebuildPrompt()) {
-				currentMessages = await this._buildPrompt(session, requirements, absFnamesInChat, readOnlyFiles, fileContentSnapshots);
+				currentMessages = await this._buildPrompt(session, requirements, readOnlyFiles);
 				session.markPromptBuilt();
 			}
 			logger.debug({ messagesLength: currentMessages.length }, 'SearchReplaceCoder: Prompt built for LLM');
@@ -400,10 +391,10 @@ export class SearchReplaceCoder {
 							continue;
 						}
 						const absPath = this.getRepoFilePath(session.workingDir, requestedFile.filePath);
-						if (absFnamesInChat.has(absPath)) {
+						if (session.absFnamesInChat.has(absPath)) {
 							alreadyPresentFiles.push(requestedFile.filePath);
 						} else {
-							absFnamesInChat.add(absPath);
+							session.addFileToChat(absPath);
 							addedFiles.push(requestedFile.filePath);
 						}
 					}
@@ -507,7 +498,7 @@ export class SearchReplaceCoder {
 				}
 			}
 
-			const applier = new EditApplier(this.fs, this.vcs, DEFAULT_LENIENT_WHITESPACE, this.getFence(), session.workingDir, absFnamesInChat, autoCommit, dryRun);
+			const applier = new EditApplier(this.fs, this.vcs, DEFAULT_LENIENT_WHITESPACE, this.getFence(), session.workingDir, session.absFnamesInChat, autoCommit, dryRun);
 
 			const appliedInAttempt = new Set<string>();
 			const applierResult = await applier.apply(blocksForCurrentApplyAttempt);
@@ -521,7 +512,7 @@ export class SearchReplaceCoder {
 
 				for (const failedEdit of initialFailedEditsForThisRound) {
 					const filePath = failedEdit.filePath;
-					const fileContentSnapshot = fileContentSnapshots.get(filePath);
+					const fileContentSnapshot = session.fileContentSnapshots.get(filePath);
 
 					// Try to fix only if the file was supposed to exist and had content (i.e., not a failed new file creation with empty SEARCH block)
 					// And originalText is not empty (meaning it's not a "create new file" block that failed for other reasons)
