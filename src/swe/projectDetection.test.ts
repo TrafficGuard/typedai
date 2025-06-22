@@ -6,6 +6,7 @@ import mockFs from 'mock-fs';
 import sinon from 'sinon';
 import * as agentContextLocalStorage from '#agent/agentContextLocalStorage';
 import { FileSystemService } from '#functions/storage/fileSystemService';
+import { setFileSystemOverride } from '#agent/agentContextLocalStorage';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import {
 	AI_INFO_FILENAME,
@@ -34,6 +35,7 @@ describe.only('projectDetection', () => {
 		setProjectDetectionAgent(projectDetectionAgent); // restore real impl
 		sandbox.restore();
 		mockFs.restore(); // Ensure mock-fs is restored
+		setFileSystemOverride(null);
 	});
 
 	describe('normalizeScriptCommandToArray', () => {
@@ -159,18 +161,13 @@ describe.only('projectDetection', () => {
 	describe('detectProjectInfo', () => {
 		let fssInstance: FileSystemService; // To hold the FileSystemService instance
 
-		// Helper to configure mock-fs and FileSystemService for tests
-		const configureFileSystemAndStubs = (mockFsConfig: any, cwd: string, vcsRoot: string) => {
-			mockFs(mockFsConfig); // Apply mock file system
-			fssInstance = new FileSystemService(cwd); // Base path is CWD
-
-			// Stub core methods of FileSystemService
+		function setupMockFs(mockFsConfig: any, cwd: string, vcsRoot: string) {
+			mockFs(mockFsConfig);
+			fssInstance = new FileSystemService(cwd);
 			sandbox.stub(fssInstance, 'getWorkingDirectory').returns(cwd);
 			sandbox.stub(fssInstance, 'getVcsRoot').returns(vcsRoot);
-
-			// IMPORTANT: Stub getFileSystem from agentContextLocalStorage
-			sandbox.stub(agentContextLocalStorage, 'getFileSystem').returns(fssInstance);
-		};
+			setFileSystemOverride(fssInstance);
+		}
 
 		it('should load from CWD if valid file exists', async () => {
 			const cwdProjectPath = path.join(MOCK_CWD, AI_INFO_FILENAME);
@@ -193,7 +190,7 @@ describe.only('projectDetection', () => {
 					[AI_INFO_FILENAME]: JSON.stringify(fileContentArray, null, 2),
 				},
 			};
-			configureFileSystemAndStubs(mockFsConfig, MOCK_CWD, MOCK_CWD);
+			setupMockFs(mockFsConfig, MOCK_CWD, MOCK_CWD);
 
 			const result = await detectProjectInfo();
 
@@ -242,7 +239,7 @@ describe.only('projectDetection', () => {
 					/* CWD is empty or doesn't have the file */
 				},
 			};
-			configureFileSystemAndStubs(mockFsConfig, MOCK_CWD, MOCK_VCS_ROOT_DIFFERENT);
+			setupMockFs(mockFsConfig, MOCK_CWD, MOCK_VCS_ROOT_DIFFERENT);
 
 			const result = await detectProjectInfo();
 
@@ -259,7 +256,7 @@ describe.only('projectDetection', () => {
 
 		it('should call projectDetectionAgent if no valid file found and write temporary empty file first', async () => {
 			const cwdAiInfoPath = path.join(MOCK_CWD, AI_INFO_FILENAME);
-			configureFileSystemAndStubs({ [MOCK_CWD]: {} }, MOCK_CWD, MOCK_CWD); // Empty CWD, CWD is VCS root
+			setupMockFs({ [MOCK_CWD]: {} }, MOCK_CWD, MOCK_CWD); // Empty CWD, CWD is VCS root
 
 			const agentDetectedProjects: ProjectInfo[] = [
 				{
@@ -299,7 +296,7 @@ describe.only('projectDetection', () => {
 					[AI_INFO_FILENAME]: invalidFileContent,
 				},
 			};
-			configureFileSystemAndStubs(mockFsConfig, MOCK_CWD, MOCK_CWD);
+			setupMockFs(mockFsConfig, MOCK_CWD, MOCK_CWD);
 
 			setProjectDetectionAgent(sandbox.stub().resolves([])); // Agent finds nothing after rename
 
@@ -324,7 +321,7 @@ describe.only('projectDetection', () => {
 					[AI_INFO_FILENAME]: '[]',
 				},
 			};
-			configureFileSystemAndStubs(mockFsConfig, MOCK_CWD, MOCK_CWD);
+			setupMockFs(mockFsConfig, MOCK_CWD, MOCK_CWD);
 
 			const result = await detectProjectInfo();
 
