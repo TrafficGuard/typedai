@@ -4,7 +4,6 @@ import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import type { Chat, ChatList, ChatPreview } from '#shared/chat/chat.model';
 import { currentUser } from '#user/userContext';
-import { SINGLE_USER_ID } from './inMemoryUserService';
 
 /**
  * In-memory implementation of ChatService
@@ -42,16 +41,29 @@ export class InMemoryChatService implements ChatService {
 	@span()
 	async saveChat(chat: Chat): Promise<Chat> {
 		const currentUserId = currentUser().id;
-		chat.updatedAt = Date.now();
-		if (!chat.title) throw new Error('chat title is required');
-		if (!chat.userId) chat.userId = currentUserId;
-		if (chat.userId !== currentUserId) throw new Error('chat userId is invalid');
 
+		// ---- basic validation --------------------------------
+		if (!chat.title) throw new Error('chat title is required');
 		if (!chat.id) chat.id = randomUUID();
 
-		// Store a clone to prevent changes to the persisted object
-		this.chats.set(chat.id, structuredClone(chat));
+		const existing = this.chats.get(chat.id);
 
+		/* ------------------- UPDATE -------------------------- */
+		if (existing) {
+			if (existing.userId !== currentUserId)
+				throw new Error('chat userId is invalid');
+			chat.userId = existing.userId; // preserve owner
+			chat.updatedAt = Date.now();
+		}
+		/* ------------------- INSERT -------------------------- */
+		else {
+			chat.userId = chat.userId ?? currentUserId;
+			if (chat.userId !== currentUserId)
+				throw new Error('chat userId is invalid');
+			chat.updatedAt = chat.updatedAt ?? Date.now();
+		}
+
+		this.chats.set(chat.id, structuredClone(chat));
 		return { ...chat };
 	}
 
