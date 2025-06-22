@@ -12,6 +12,21 @@ export function functionFactory() {
 	return _functionFactory;
 }
 
+// -----------------------------------------------------------------------------------------------------------------
+// Function-registry helpers (public API – lets tests / runtime add or reset classes without monkey-patching)
+// -----------------------------------------------------------------------------------------------------------------
+export function registerFunctionClasses(...ctors: Array<new (...args: any) => any>): void {
+	for (const ctor of ctors) functionFactory()[ctor.name] = ctor;
+}
+
+/** Removes all previously registered function classes – useful between test cases */
+export function resetFunctionFactory(): void {
+	_functionFactory = {};
+}
+
+/** Convenience single-class variant (optional) */
+export const registerFunctionClass = registerFunctionClasses;
+
 /**
  * Decorator which flags a class method to be exposed as a function for the agents.
  */

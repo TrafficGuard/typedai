@@ -202,7 +202,6 @@ export function runAgentStateServiceTests(
 	afterEachHook: () => Promise<void> | void = () => {},
 ) {
 	let service: AgentContextService;
-	let functionFactoryStub: sinon.SinonStub;
 
 	// Mock the function factory to return known classes
 	const mockFunctionFactoryContent = {
@@ -220,7 +219,8 @@ export function runAgentStateServiceTests(
 		// Stub external dependencies
 		setCurrentUser(testUser);
 		// Ensure functionFactory returns the classes needed by LlmFunctions.fromJSON and tests
-		functionFactoryStub = sinon.stub(functionSchema, 'functionFactory').returns(mockFunctionFactoryContent);
+		functionSchema.resetFunctionFactory();
+		functionSchema.registerFunctionClasses(...Object.values(mockFunctionFactoryContent));
 
 		// Register mock handlers needed for tests
 		clearCompletedHandlers(); // Clear any handlers from previous tests
