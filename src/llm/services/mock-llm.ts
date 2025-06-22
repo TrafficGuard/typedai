@@ -121,7 +121,9 @@ export class MockLLM extends BaseLLM {
 	 * Gets the total number of calls (`generateMessage` and `generateText`) made to this mock.
 	 */
 	getCallCount(): number {
-		return this.calls.length;
+		// Tests expect to count *only* the real LLM requests (generateMessage),
+		// not the synthetic mirror “generateText” entries we record for convenience.
+		return this.calls.filter(c => c.type === 'generateMessage').length;
 	}
 
 	/**
