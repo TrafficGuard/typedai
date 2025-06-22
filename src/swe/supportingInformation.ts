@@ -40,9 +40,18 @@ export async function supportingInformation(
 				? [projectInfo] // old behaviour
 				: allProjects.filter((p) => absFiles.some((file) => file.startsWith(abs(p.baseDir))));
 
-		// If a more specific project is included, drop the root-level project (./ or .)
-		if (projectsToInclude.some((p) => p.baseDir !== './' && p.baseDir !== '.') && projectsToInclude.some((p) => p.baseDir === './' || p.baseDir === '.')) {
-			projectsToInclude = projectsToInclude.filter((p) => p.baseDir !== './' && p.baseDir !== '.');
+		// If both root ("./" or ".") and sub-projects are selected, keep the root project
+		// only when at least one selected file is outside every sub-project.
+		const rootProject = projectsToInclude.find(p => p.baseDir === './' || p.baseDir === '.');
+		const subProjects = projectsToInclude.filter(p => p.baseDir !== './' && p.baseDir !== '.');
+
+		if (rootProject && subProjects.length > 0) {
+			const rootNeeded = absFiles.some(
+				file => !subProjects.some(sp => file.startsWith(abs(sp.baseDir))),
+			);
+			if (!rootNeeded) {
+				projectsToInclude = subProjects; // safe to drop root project
+			}
 		}
 
 		/* Always fall back to the current project if nothing matched */

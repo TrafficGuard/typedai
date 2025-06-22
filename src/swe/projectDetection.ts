@@ -6,10 +6,18 @@ import { TypescriptTools } from '#swe/lang/nodejs/typescriptTools';
 import { PhpTools } from '#swe/lang/php/phpTools';
 import { PythonTools } from '#swe/lang/python/pythonTools';
 import { TerraformTools } from '#swe/lang/terraform/terraformTools';
-import { projectDetectionAgent } from '#swe/projectDetectionAgent';
+import { projectDetectionAgent as defaultProjectDetectionAgent } from '#swe/projectDetectionAgent';
 import type { LanguageTools } from './lang/languageTools';
 
 export type LanguageRuntime = 'nodejs' | 'typescript' | 'php' | 'python' | 'terraform' | 'pulumi' | 'angular';
+
+export type ProjectDetectionAgentFn = typeof defaultProjectDetectionAgent;
+let _projectDetectionAgent: ProjectDetectionAgentFn = defaultProjectDetectionAgent;
+
+/** Allows tests (or other callers) to replace the detection agent implementation. */
+export function setProjectDetectionAgent(fn: ProjectDetectionAgentFn): void {
+	_projectDetectionAgent = fn;
+}
 
 export type ScriptCommand = string | string[];
 
@@ -257,7 +265,7 @@ export async function detectProjectInfo(): Promise<ProjectInfo[]> {
 
 	// 4. If no valid file loaded from CWD, VCS root, or parent directories, run detection agent
 	if (loadedInfos === null) {
-		const detectedProjectInfos = await projectDetectionAgent();
+		const detectedProjectInfos = await _projectDetectionAgent();
 
 		// Save detected info to CWD
 		const projectInfosToFileFormat = detectedProjectInfos.map(mapProjectInfoToFileFormat);
