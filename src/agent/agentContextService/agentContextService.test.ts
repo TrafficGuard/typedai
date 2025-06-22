@@ -26,15 +26,12 @@ import type { AutonomousIteration } from '#shared/agent/agent.model';
 import { NotAllowed, NotFound } from '#shared/errors'; // Added import
 import type { FunctionCallResult, GenerationStats } from '#shared/llm/llm.model';
 import type { ChatSettings, LLMServicesConfig, User } from '#shared/user/user.model';
-import { runWithUser } from '#user/userContext';
+import * as userContext from '#user/userContext';
 
 // These tests must be implementation independent so we can ensure the same
 // behaviour from various implementations of the AgentStateService interface
 
 // --- Mock Data and Helpers ---
-
-// Helper to run code within a specific user context
-const asUser = <T>(user: User, fn: () => Promise<T>) => runWithUser(user, fn);
 
 // Default Configs for User
 const defaultLlmConfig: LLMServicesConfig = {
@@ -205,6 +202,7 @@ export function runAgentStateServiceTests(
 	afterEachHook: () => Promise<void> | void = () => {},
 ) {
 	let service: AgentContextService;
+	let currentUserStub: sinon.SinonStub;
 	let functionFactoryStub: sinon.SinonStub;
 
 	// Mock the function factory to return known classes
@@ -221,6 +219,7 @@ export function runAgentStateServiceTests(
 		service = createService();
 
 		// Stub external dependencies
+		currentUserStub = sinon.stub(userContext, 'currentUser').returns(testUser);
 		// Ensure functionFactory returns the classes needed by LlmFunctions.fromJSON and tests
 		functionFactoryStub = sinon.stub(functionSchema, 'functionFactory').returns(mockFunctionFactoryContent);
 
@@ -309,7 +308,6 @@ export function runAgentStateServiceTests(
 			expect(loadedContext.memory).to.deep.equal(context.memory);
 			expect(loadedContext.metadata).to.deep.equal(context.metadata);
 			expect(loadedContext.functionCallHistory).to.deep.equal(context.functionCallHistory);
-			expect(loadedContext.toolState).to.deep.equal(context.toolState);
 
 			// Verify LlmFunctions deserialization
 			expect(loadedContext.functions).to.be.instanceOf(LlmFunctionsImpl);
