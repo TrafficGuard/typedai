@@ -72,9 +72,7 @@ export class PostgresChatService implements ChatService {
 		chat.userId = chat.userId || currentUserId;
 		chat.updatedAt = now; // keep chat & DB in-sync
 		chat.id = chat.id || randomUUID();
-		if (chat.userId !== currentUserId) {
-			throw new Error('chat userId is invalid or does not match current user');
-		}
+		// Removed early userId check
 
 		if (!chat.title) throw new Error('chat title is required');
 
@@ -89,9 +87,24 @@ export class PostgresChatService implements ChatService {
 				.updateTable('chats')
 				.set(updateData)
 				.where('id', '=', chat.id)
-				.where('user_id', '=', chat.userId)
+				.where('user_id', '=', currentUserId) // <-- Changed here
 				.returningAll()
 				.executeTakeFirst();
+		}
+
+		// If the chat id exists but belongs to someone else, forbid update
+		if (!row && chat.id) {
+			const existsOtherUser = await db
+				.selectFrom('chats')
+				.select('id')
+				.where('id', '=', chat.id)
+				.executeTakeFirst();
+
+			if (existsOtherUser) {
+				throw new Error(
+					'chat userId is invalid or does not match current user',
+				);
+			}
 		}
 
 		if (!row) {
