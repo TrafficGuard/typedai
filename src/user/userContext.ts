@@ -9,9 +9,11 @@ const userContextStorage = new AsyncLocalStorage<User>();
  * Sets the user on an AsyncLocalStorage store so the user available via the currentUser() function for the duration of the provided function call
  * @param user the user set for the function execution
  * @param fn the function which will have the user available via currentUser() during execution
+ * @returns The return value of the provided function `fn`.
  */
-export function runWithUser(user: User, fn: () => any) {
-	userContextStorage.run(user, fn);
+export function runWithUser<T>(user: User, fn: () => T): T {
+	// Allows `await runWithUser(..., async () => { ... })`
+	return userContextStorage.run(user, fn as any) as T;
 }
 
 export function isSingleUser(): boolean {

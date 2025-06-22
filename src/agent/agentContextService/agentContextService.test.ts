@@ -26,12 +26,15 @@ import type { AutonomousIteration } from '#shared/agent/agent.model';
 import { NotAllowed, NotFound } from '#shared/errors'; // Added import
 import type { FunctionCallResult, GenerationStats } from '#shared/llm/llm.model';
 import type { ChatSettings, LLMServicesConfig, User } from '#shared/user/user.model';
-import * as userContext from '#user/userContext';
+import { runWithUser } from '#user/userContext';
 
 // These tests must be implementation independent so we can ensure the same
 // behaviour from various implementations of the AgentStateService interface
 
 // --- Mock Data and Helpers ---
+
+// Helper to run code within a specific user context
+const asUser = <T>(user: User, fn: () => Promise<T>) => runWithUser(user, fn);
 
 // Default Configs for User
 const defaultLlmConfig: LLMServicesConfig = {
