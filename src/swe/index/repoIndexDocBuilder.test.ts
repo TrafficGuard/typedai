@@ -5,14 +5,18 @@ import chai, { expect } from 'chai';
 import chaiSubset from 'chai-subset';
 import mock from 'mock-fs';
 import sinon from 'sinon';
-import * as agentContextLocalStorage from '#agent/agentContextLocalStorage';
+// Use `require` to obtain the real module‐export objects; this makes the
+// exported properties writable/configurable, allowing Sinon to stub them.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const agentContextLocalStorage = require('#agent/agentContextLocalStorage');
 import { typedaiDirName } from '#app/appDirs';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import type { LLM } from '#shared/llm/llm.model';
 import { IndexDocBuilder, buildIndexDocs, getRepositoryOverview, loadBuildDocsSummaries } from '#swe/index/repoIndexDocBuilder';
 import { AI_INFO_FILENAME } from '#swe/projectDetection';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import * as llmSummaries from './llmSummaries';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const llmSummaries = require('./llmSummaries');
 
 chai.use(chaiSubset);
 
