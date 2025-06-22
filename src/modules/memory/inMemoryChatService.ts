@@ -71,7 +71,6 @@ export class InMemoryChatService implements ChatService {
 	 * @param limit Maximum number of chats to return
 	 * @returns Object containing chat previews and hasMore flag
 	 */
-	@span()
 	async listChats(startAfterId?: string, limit = 100): Promise<ChatList> {
 		const currentUserId = currentUser().id;
 

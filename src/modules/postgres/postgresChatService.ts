@@ -123,7 +123,6 @@ export class PostgresChatService implements ChatService {
 		return this.mapDbRowToChat(row);
 	}
 
-	@span()
 	async listChats(startAfterId?: string, limit = 100): Promise<ChatList> {
 		const currentUserId = currentUser().id;
 
