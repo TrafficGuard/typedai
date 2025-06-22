@@ -1,19 +1,17 @@
 import { initApplicationContext } from '#app/applicationContext';
 import { logger } from '#o11y/logger';
-import { agentDetailsRoutes } from '#routes/agent/agent-details-routes';
-import { agentExecutionRoutes } from '#routes/agent/agent-execution-routes';
-import { agentStartRoute } from '#routes/agent/agent-start-route';
+import { agentRoutes } from '#routes/agent';
 import { authRoutes } from '#routes/auth';
-import { chatRoutes } from '#routes/chat/chat-routes';
-import { codeReviewRoutes } from '#routes/codeReview/codeReviewRoutes';
-import { codeTaskRoutes } from '#routes/codeTask/codeTaskRoutes';
+import { chatRoutes } from '#routes/chat';
+import { codeReviewRoutes } from '#routes/codeReview';
+import { codeTaskRoutes } from '#routes/codeTask';
 import { llmCallRoutes } from '#routes/llms/llm-call-routes';
 import { llmRoutes } from '#routes/llms/llm-routes';
 import { userRoutes } from '#routes/profile/user-routes';
 import { promptRoutes } from '#routes/prompts/prompts-routes';
 import { scmRoutes } from '#routes/scm/scmRoutes';
 import { githubRoutes } from '#routes/webhooks/github/github-routes';
-import { gitlabRoutesV1 } from '#routes/webhooks/gitlab/gitlabRoutes-v1';
+import { gitlabRoutes } from '#routes/webhooks/gitlab/gitlabRoutes';
 import { jiraRoutes } from '#routes/webhooks/jira/jira-routes';
 import { workflowRoutes } from '#routes/workflows/workflow-routes';
 import { initFastify } from './fastify';
@@ -34,11 +32,9 @@ export async function initServer(): Promise<void> {
 		await initFastify({
 			routes: [
 				authRoutes,
-				gitlabRoutesV1,
+				gitlabRoutes,
 				githubRoutes,
-				agentStartRoute,
-				agentDetailsRoutes,
-				agentExecutionRoutes,
+				agentRoutes,
 				llmRoutes,
 				promptRoutes,
 				userRoutes,

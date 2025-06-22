@@ -4,7 +4,6 @@ import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import type { Chat, ChatList, ChatPreview } from '#shared/chat/chat.model';
 import { currentUser } from '#user/userContext';
-import { SINGLE_USER_ID } from './inMemoryUserService';
 
 /**
  * In-memory implementation of ChatService
@@ -20,13 +19,14 @@ export class InMemoryChatService implements ChatService {
 	 */
 	@span()
 	async loadChat(chatId: string): Promise<Chat> {
+		const currentUserId = currentUser().id;
 		const chat = this.chats.get(chatId);
 		if (!chat) {
 			logger.warn(`Chat with id ${chatId} not found`);
 			throw new Error(`Chat with id ${chatId} not found`);
 		}
 
-		if (!chat.shareable && chat.userId !== currentUser().id) {
+		if (!chat.shareable && chat.userId !== currentUserId) {
 			throw new Error('Chat not visible.');
 		}
 
@@ -40,16 +40,26 @@ export class InMemoryChatService implements ChatService {
 	 */
 	@span()
 	async saveChat(chat: Chat): Promise<Chat> {
+		const currentUserId = currentUser().id;
+
+		// ---- basic validation --------------------------------
 		if (!chat.title) throw new Error('chat title is required');
-		if (!chat.userId) chat.userId = SINGLE_USER_ID;
-		if (chat.userId !== currentUser().id) throw new Error('chat userId is invalid');
-
 		if (!chat.id) chat.id = randomUUID();
-		chat.updatedAt = Date.now();
 
-		// Store a clone to prevent changes to the persisted object
+		const existing = this.chats.get(chat.id);
+
+		/* ------------------- UPDATE -------------------------- */
+		if (existing) {
+			if (existing.userId !== currentUserId) throw new Error('chat userId is invalid');
+			chat.userId = existing.userId; // preserve owner
+			chat.updatedAt = Date.now();
+		} else {
+			/* ------------------- INSERT -------------------------- */
+			chat.userId = chat.userId ?? currentUserId;
+			chat.updatedAt = chat.updatedAt ?? Date.now();
+		}
+
 		this.chats.set(chat.id, structuredClone(chat));
-
 		return { ...chat };
 	}
 
@@ -59,13 +69,12 @@ export class InMemoryChatService implements ChatService {
 	 * @param limit Maximum number of chats to return
 	 * @returns Object containing chat previews and hasMore flag
 	 */
-	@span()
 	async listChats(startAfterId?: string, limit = 100): Promise<ChatList> {
-		const userId = currentUser().id;
+		const currentUserId = currentUser().id;
 
 		// Get all chats for the current user
 		const userChats = Array.from(this.chats.values())
-			.filter((chat) => chat.userId === userId)
+			.filter((chat) => chat.userId === currentUserId)
 			.sort((a, b) => b.updatedAt - a.updatedAt); // Sort by updatedAt desc
 
 		// Find the starting index if startAfterId is provided
@@ -93,7 +102,7 @@ export class InMemoryChatService implements ChatService {
 	 */
 	@span()
 	async deleteChat(chatId: string): Promise<void> {
-		const userId = currentUser().id;
+		const currentUserId = currentUser().id;
 		const chat = this.chats.get(chatId);
 
 		if (!chat) {
@@ -101,8 +110,8 @@ export class InMemoryChatService implements ChatService {
 			throw new Error(`Chat with id ${chatId} not found`);
 		}
 
-		if (chat.userId !== userId) {
-			logger.warn(`User ${userId} is not authorized to delete chat ${chatId}`);
+		if (chat.userId !== currentUserId) {
+			logger.warn(`User ${currentUserId} is not authorized to delete chat ${chatId}`);
 			throw new Error('Not authorized to delete this chat');
 		}
 

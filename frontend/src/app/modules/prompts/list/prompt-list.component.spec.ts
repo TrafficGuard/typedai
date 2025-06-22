@@ -1,73 +1,70 @@
 import { CommonModule, DatePipe } from '@angular/common';
 import { type WritableSignal, signal } from '@angular/core';
 import { type ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDialogRef } from '@angular/material/dialog';
-import { MatIconModule } from '@angular/material/icon';
-import { MatListModule } from '@angular/material/list';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { ActivatedRoute, RouterModule, convertToParamMap } from '@angular/router'; // Import ActivatedRoute and convertToParamMap
-import { of, throwError } from 'rxjs';
-
-import { provideNoopAnimations } from '@angular/platform-browser/animations'; // Import for animations
+import type { MatDialogRef } from '@angular/material/dialog';
+import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { ActivatedRoute, Router, RouterModule, convertToParamMap } from '@angular/router';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
-import { PromptPreview } from '#shared/prompts/prompts.model';
+import type { ApiListState } from 'app/core/api-state.types';
+import { of, throwError, timer } from 'rxjs';
+import { delay } from 'rxjs/operators';
+import type { PromptPreview } from '#shared/prompts/prompts.model';
+import { PROMPTS_ROUTES } from '../prompt.paths';
 import { PromptsService } from '../prompts.service';
 import { PromptListComponent } from './prompt-list.component';
-
-// Helper to delay observable for fakeAsync
-import { timer } from 'rxjs';
-import { mapTo } from 'rxjs/operators';
-function delay(ms: number) {
-	return timer(ms).pipe(mapTo(undefined));
-}
+import { PromptListPo } from './prompt-list.po';
 
 describe('PromptListComponent', () => {
 	let component: PromptListComponent;
 	let fixture: ComponentFixture<PromptListComponent>;
+	let po: PromptListPo;
 	let mockPromptsService: jasmine.SpyObj<PromptsService>;
 	let mockFuseConfirmationService: jasmine.SpyObj<FuseConfirmationService>;
-	let promptsSignal: WritableSignal<PromptPreview[] | null>;
+	let mockRouter: jasmine.SpyObj<Router>;
+	let promptsStateSignal: WritableSignal<ApiListState<PromptPreview>>;
 
 	const mockPrompts: PromptPreview[] = [
-		{ id: '1', name: 'Test Prompt 1', tags: ['test', 'tag1'], revisionId: 1, userId: 'user1', settings: { temperature: 0.7 } },
-		{ id: '2', name: 'Test Prompt 2', tags: [], revisionId: 1, userId: 'user1', settings: { temperature: 0.5, llmId: 'test-llm' } },
+		{
+			id: '1',
+			name: 'Test Prompt 1',
+			tags: ['test', 'tag1'],
+			revisionId: 1,
+			userId: 'user1',
+			settings: { temperature: 0.7 },
+		},
+		{
+			id: '2',
+			name: 'Test Prompt 2',
+			tags: [],
+			revisionId: 1,
+			userId: 'user1',
+			settings: { temperature: 0.5, llmId: 'test-llm' },
+		},
 	];
 
 	beforeEach(async () => {
-		promptsSignal = signal<PromptPreview[] | null>(null);
-		mockPromptsService = jasmine.createSpyObj(
-			'PromptsService',
-			['loadPrompts', 'deletePrompt', 'getPromptById', 'setSelectedPromptFromPreview', 'clearSelectedPrompt'],
-			{
-				prompts: promptsSignal.asReadonly(),
-			},
-		);
+		promptsStateSignal = signal<ApiListState<PromptPreview>>({ status: 'idle' });
+
+		mockPromptsService = jasmine.createSpyObj('PromptsService', ['refreshPrompts', 'deletePrompt'], {
+			promptsState: promptsStateSignal.asReadonly(),
+		});
+
 		mockFuseConfirmationService = jasmine.createSpyObj('FuseConfirmationService', ['open']);
+		mockRouter = jasmine.createSpyObj('Router', ['navigate']);
 
 		await TestBed.configureTestingModule({
-			imports: [
-				PromptListComponent, // Standalone component
-				RouterModule,
-			],
+			imports: [PromptListComponent, RouterModule.forRoot([])],
 			providers: [
 				{ provide: PromptsService, useValue: mockPromptsService },
 				{ provide: FuseConfirmationService, useValue: mockFuseConfirmationService },
-				DatePipe, // DatePipe is used in the template
-				provideNoopAnimations(), // For Material components that might use animations
-				// Add the ActivatedRoute mock here:
+				{ provide: Router, useValue: mockRouter },
+				DatePipe,
+				provideNoopAnimations(),
 				{
 					provide: ActivatedRoute,
 					useValue: {
-						snapshot: {
-							paramMap: convertToParamMap({}), // Or a more specific mock if needed
-							queryParamMap: convertToParamMap({}), // Or a more specific mock if needed
-							data: {},
-						},
-						paramMap: of(convertToParamMap({})), // Observable version
-						queryParamMap: of(convertToParamMap({})), // Observable version
-						data: of({}), // Observable version
-						// Add other properties/methods of ActivatedRoute if your component uses them
+						snapshot: { paramMap: convertToParamMap({}) },
+						paramMap: of(convertToParamMap({})),
 					},
 				},
 			],
@@ -75,129 +72,157 @@ describe('PromptListComponent', () => {
 
 		fixture = TestBed.createComponent(PromptListComponent);
 		component = fixture.componentInstance;
+		po = await PromptListPo.create(fixture);
 	});
 
 	it('should create', () => {
 		expect(component).toBeTruthy();
 	});
 
-	it('should display loading spinner initially and call loadPrompts on init', fakeAsync(() => {
-		mockPromptsService.loadPrompts.and.returnValue(delay(100));
-		expect(component.isLoading()).toBeTrue();
+	it('should call refreshPrompts on init, show loading state, then show prompts', fakeAsync(async () => {
+		mockPromptsService.refreshPrompts.and.callFake(() => {
+			promptsStateSignal.set({ status: 'loading' });
+			timer(100).subscribe(() => {
+				promptsStateSignal.set({ status: 'success', data: mockPrompts });
+			});
+		});
+
+		expect(await po.isLoading())
+			.withContext('Should show loading view for initial idle state')
+			.toBeTrue();
+
 		fixture.detectChanges(); // Triggers ngOnInit
 
-		expect(mockPromptsService.loadPrompts).toHaveBeenCalled();
-		tick(50);
-		expect(component.isLoading()).toBeTrue();
+		expect(mockPromptsService.refreshPrompts).toHaveBeenCalled();
+		expect(await po.isLoading())
+			.withContext('Should show loading view for loading state')
+			.toBeTrue();
 
 		tick(100);
-		fixture.detectChanges();
-		expect(component.isLoading()).toBeFalse();
+		await po.detectAndWait();
+
+		expect(await po.isLoading()).toBeFalse();
+		expect(await po.isTableVisible()).toBeTrue();
 	}));
 
-	it('should hide loading spinner if loadPrompts errors', fakeAsync(() => {
-		mockPromptsService.loadPrompts.and.returnValue(throwError(() => new Error('Failed to load')));
+	it('should show an error message if refreshing prompts fails', fakeAsync(async () => {
+		const error = new Error('Failed to load');
+		mockPromptsService.refreshPrompts.and.callFake(() => {
+			promptsStateSignal.set({ status: 'loading' });
+			timer(100).subscribe(() => {
+				promptsStateSignal.set({ status: 'error', error });
+			});
+		});
+
 		fixture.detectChanges(); // ngOnInit
-		tick();
-		fixture.detectChanges();
-		expect(component.isLoading()).toBeFalse();
+		expect(await po.isLoading()).toBeTrue();
+
+		tick(100);
+		await po.detectAndWait();
+
+		expect(await po.isLoading()).toBeFalse();
+		expect(await po.isError()).toBeTrue();
+		const errorText = await po.text('error-view');
+		expect(errorText).toContain('Failed to load prompts.');
+		expect(errorText).toContain(error.message);
 	}));
 
-	it('should display "No prompts found." when prompts signal is null', () => {
-		mockPromptsService.loadPrompts.and.returnValue(of(undefined));
-		promptsSignal.set(null);
-		fixture.detectChanges();
-		const compiled = fixture.nativeElement as HTMLElement;
-		const noPromptsEl = compiled.querySelector('p.text-xl');
-		expect(noPromptsEl?.textContent).toContain('No prompts found.');
+	it('should display "No prompts found." when promptsState is success with null data', async () => {
+		promptsStateSignal.set({ status: 'success', data: null });
+		await po.detectAndWait();
+		expect(await po.isNoPromptsViewVisible()).toBeTrue();
+		const text = await po.text('no-prompts-view');
+		expect(text).toContain('No prompts found.');
 	});
 
-	it('should display "No prompts found." when prompts signal is an empty array', () => {
-		mockPromptsService.loadPrompts.and.returnValue(of(undefined));
-		promptsSignal.set([]);
-		fixture.detectChanges();
-		const compiled = fixture.nativeElement as HTMLElement;
-		const noPromptsEl = compiled.querySelector('p.text-xl');
-		expect(noPromptsEl?.textContent).toContain('No prompts found.');
+	it('should display "No prompts found." when promptsState is success with an empty array', async () => {
+		promptsStateSignal.set({ status: 'success', data: [] });
+		await po.detectAndWait();
+		expect(await po.isNoPromptsViewVisible()).toBeTrue();
+		const text = await po.text('no-prompts-view');
+		expect(text).toContain('No prompts found.');
 	});
 
-	it('should render a list of prompts when prompts signal has data', () => {
-		mockPromptsService.loadPrompts.and.returnValue(of(undefined));
-		promptsSignal.set(mockPrompts);
-		fixture.detectChanges();
+	it('should render a table of prompts when promptsState has data', async () => {
+		promptsStateSignal.set({ status: 'success', data: mockPrompts });
+		await po.detectAndWait();
 
-		const listItems = fixture.nativeElement.querySelectorAll('mat-list-item');
-		expect(listItems.length).toBe(mockPrompts.length);
+		expect(await po.getRowCount()).toBe(mockPrompts.length);
 
-		const firstPromptEl = listItems[0];
-		expect(firstPromptEl.textContent).toContain(mockPrompts[0].name);
-		expect(firstPromptEl.textContent).toContain(mockPrompts[0].tags.join(', '));
-		// Note: The 'Last Updated' text content check was removed as 'updatedAt' is not on PromptPreview
-		// and the original selector '.text-xs' was likely incorrect for the mat-table structure.
+		const firstRowText = await po.getRowText(0);
+		expect(firstRowText).toContain(mockPrompts[0].name);
+		expect(firstRowText).toContain(mockPrompts[0].tags.join(', '));
+		expect(firstRowText).toContain('Oct 27, 2023');
 
-		const secondPromptEl = listItems[1];
-		expect(secondPromptEl.textContent).toContain(mockPrompts[1].name);
-		expect(secondPromptEl.textContent).toContain('N/A');
+		const secondRowText = await po.getRowText(1);
+		expect(secondRowText).toContain(mockPrompts[1].name);
+		expect(secondRowText).toContain('N/A');
 	});
 
-	it('should have correct routerLinks for view and edit buttons', () => {
-		mockPromptsService.loadPrompts.and.returnValue(of(undefined));
-		promptsSignal.set([mockPrompts[0]]);
-		fixture.detectChanges();
+	it('should navigate to edit page on row click', async () => {
+		promptsStateSignal.set({ status: 'success', data: mockPrompts });
+		await po.detectAndWait();
 
-		const viewLinkEl = fixture.nativeElement.querySelector('mat-list-item');
-		expect(viewLinkEl.getAttribute('ng-reflect-router-link')).toBe(`../,${mockPrompts[0].id}`);
+		await po.clickRow(0);
 
-		const editButton = fixture.nativeElement.querySelector('button[mattooltip="Edit Prompt"]');
-		expect(editButton.getAttribute('ng-reflect-router-link')).toBe(`../,${mockPrompts[0].id},edit`);
+		expect(mockRouter.navigate).toHaveBeenCalledWith(PROMPTS_ROUTES.edit(mockPrompts[0].id));
 	});
 
-	it('should have a "Create New Prompt" button with correct routerLink', () => {
-		const createButton = fixture.nativeElement.querySelector('button[color="primary"]');
-		expect(createButton.textContent).toContain('Create New Prompt');
-		expect(createButton.getAttribute('ng-reflect-router-link')).toBe('../,new');
+	it('should navigate to edit page on edit button click', async () => {
+		promptsStateSignal.set({ status: 'success', data: mockPrompts });
+		await po.detectAndWait();
+
+		await po.clickEdit(mockPrompts[0].id);
+
+		expect(mockRouter.navigate).toHaveBeenCalledWith(PROMPTS_ROUTES.edit(mockPrompts[0].id));
+	});
+
+	it('should have a "New" button with correct routerLink', async () => {
+		const link = await po.getAttribute('new-prompt-btn', 'ng-reflect-router-link');
+		expect(link).toBe('../,new');
 	});
 
 	describe('deletePrompt', () => {
-		const mockEvent = new MouseEvent('click');
 		const promptToDelete = mockPrompts[0];
 
-		beforeEach(() => {
-			mockPromptsService.loadPrompts.and.returnValue(of(undefined));
-			promptsSignal.set(mockPrompts);
-			fixture.detectChanges();
+		beforeEach(async () => {
+			promptsStateSignal.set({ status: 'success', data: mockPrompts });
+			await po.detectAndWait();
 		});
 
-		it('should call promptsService.deletePrompt when confirmation is confirmed', fakeAsync(() => {
+		it('should call promptsService.deletePrompt and show spinner when confirmation is confirmed', fakeAsync(async () => {
 			mockFuseConfirmationService.open.and.returnValue({
 				afterClosed: () => of('confirmed'),
 			} as MatDialogRef<any>);
-			mockPromptsService.deletePrompt.and.returnValue(of(undefined));
+			mockPromptsService.deletePrompt.and.returnValue(of(undefined).pipe(delay(50)));
 
-			expect(component.isDeletingSignal()).toBeNull();
-			component.deletePrompt(mockEvent, promptToDelete);
+			await po.clickDelete(promptToDelete.id);
 			tick(); // for afterClosed observable
 
 			expect(mockFuseConfirmationService.open).toHaveBeenCalled();
 			expect(component.isDeletingSignal()).toBe(promptToDelete.id);
 
-			tick(); // for deletePrompt observable if it involves async operations internally before signal update
-			fixture.detectChanges();
+			await po.detectAndWait();
+			expect(await po.isDeleteSpinnerVisible(promptToDelete.id))
+				.withContext('Expected spinner to be visible during deletion')
+				.toBeTrue();
+
+			tick(50); // for deletePrompt observable
+			await po.detectAndWait();
 
 			expect(mockPromptsService.deletePrompt).toHaveBeenCalledWith(promptToDelete.id);
-			// Assuming isDeletingSignal is set back to false after completion
-			// This might need another tick if deletePrompt is async and updates signal in finalize/tap
-			// For simplicity, if deletePrompt is synchronous in its signal update:
-			// tick(); // If deletePrompt itself is async and updates the signal upon completion
-			// expect(component.isDeletingSignal()).toBe(false);
+			expect(component.isDeletingSignal()).toBeNull();
+			expect(await po.isDeleteSpinnerVisible(promptToDelete.id))
+				.withContext('Expected spinner to be hidden after deletion')
+				.toBeFalse();
 		}));
 
-		it('should NOT call promptsService.deletePrompt when confirmation is cancelled', fakeAsync(() => {
+		it('should NOT call promptsService.deletePrompt when confirmation is cancelled', fakeAsync(async () => {
 			mockFuseConfirmationService.open.and.returnValue({
 				afterClosed: () => of('cancelled'),
 			} as MatDialogRef<any>);
 
-			component.deletePrompt(mockEvent, promptToDelete);
+			await po.clickDelete(promptToDelete.id);
 			tick();
 
 			expect(mockFuseConfirmationService.open).toHaveBeenCalled();
@@ -205,24 +230,22 @@ describe('PromptListComponent', () => {
 			expect(component.isDeletingSignal()).toBeNull();
 		}));
 
-		it('should set isDeletingSignal to null if deletePrompt errors', fakeAsync(() => {
+		it('should reset deleting signal if deletePrompt errors', fakeAsync(async () => {
 			mockFuseConfirmationService.open.and.returnValue({
 				afterClosed: () => of('confirmed'),
 			} as MatDialogRef<any>);
 			mockPromptsService.deletePrompt.and.returnValue(throwError(() => new Error('Deletion failed')));
 
-			component.deletePrompt(mockEvent, promptToDelete);
+			await po.clickDelete(promptToDelete.id);
 			tick(); // for afterClosed
 
 			expect(component.isDeletingSignal()).toBe(promptToDelete.id);
 
-			try {
-				tick(); // for deletePrompt observable
-			} catch (e) {
-				// Expected error
-			}
-			fixture.detectChanges();
+			tick(); // for deletePrompt observable to error out
+			await po.detectAndWait();
+
 			expect(component.isDeletingSignal()).toBeNull();
+			expect(await po.isDeleteSpinnerVisible(promptToDelete.id)).toBeFalse();
 		}));
 	});
 });

@@ -10,7 +10,7 @@ fi
 
 # Check if at least one argument is passed
 if [ $# -lt 1 ]; then
-  echo "Usage: ai <script> [args]"
+  echo "Usage: ai <npm script> [args]"
   exit 1
 fi
 
@@ -20,13 +20,8 @@ shift # Shift the arguments so $@ contains the remaining args
 
 CWD=$(pwd)
 
-# Load NVM
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-
 # Run the npm script with any additional arguments and the filesystem arg
 (
   cd "$TYPEDAI_HOME"
-  nvm use
   npm run "$script" -- --fs="${CWD}" "$@"
 )

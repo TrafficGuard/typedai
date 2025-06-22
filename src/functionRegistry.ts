@@ -5,15 +5,17 @@ import { BigQuery } from '#functions/cloud/google/bigquery';
 import { GoogleCloud } from '#functions/cloud/google/google-cloud';
 import { CommandLineInterface } from '#functions/commandLine';
 import { CustomFunctions } from '#functions/customFunctions';
+import { DeepThink } from '#functions/deepThink';
 import { ImageGen } from '#functions/image';
 import { Jira } from '#functions/jira';
+import { LlmTools } from '#functions/llmTools';
 import { Git } from '#functions/scm/git';
 import { GitHub } from '#functions/scm/github';
 import { GitLab } from '#functions/scm/gitlab';
+import { FileSystemList } from '#functions/storage/fileSystemList';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { FileSystemWrite } from '#functions/storage/fileSystemWrite';
 import { LocalFileStore } from '#functions/storage/localFileStore';
-import { LlmTools } from '#functions/util';
 import { Perplexity } from '#functions/web/perplexity';
 import { PublicWeb } from '#functions/web/web';
 import { type ToolType, hasGetToolType } from '#shared/agent/functions';
@@ -28,9 +30,11 @@ import { SoftwareDeveloperAgent } from '#swe/softwareDeveloperAgent';
 const FUNCTIONS = [
 	AgentFeedback,
 	CodeEditingAgent,
+	DeepThink,
 	FileSystemTree,
 	FileSystemRead,
 	FileSystemWrite,
+	FileSystemList,
 	LocalFileStore,
 	LiveFiles,
 	GitLab,

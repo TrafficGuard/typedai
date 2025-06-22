@@ -6,8 +6,8 @@
         <mat-card-content>
             <div class="mb-6">
               <mat-radio-group aria-label="Select agent type" [formControl]="agentTypeControl">
-                <mat-radio-button value="autonomous" class="mr-4">Autonomous</mat-radio-button>
-                <mat-radio-button value="workflow">Workflow</mat-radio-button>
+                <mat-radio-button value="autonomous" class="mr-4" data-testid="autonomous-agent-radio">Autonomous</mat-radio-button>
+                <mat-radio-button value="workflow" data-testid="workflows-agent-radio">Workflow</mat-radio-button>
               </mat-radio-group>
             </div>
             @if (agentTypeControl.value === 'autonomous') {

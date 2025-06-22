@@ -1,10 +1,8 @@
-import type { Static } from '@sinclair/typebox';
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import { ConsoleCompletedHandler } from '#agent/autonomous/agentCompletion';
 import { getCompletedHandler } from '#agent/completionHandlerRegistry';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { deserializeLLMs } from '#llm/llmFactory';
-// import { defaultLLMs } from '#llm/services/defaultLlms'; // defaultLLMs is not used
 import { logger } from '#o11y/logger';
 import type { AgentCompleted, AgentContext, AgentLLMs, AgentRunningState, AgentType, AutonomousSubType } from '#shared/agent/agent.model';
 import type { AgentContextApi } from '#shared/agent/agent.schema';
@@ -12,6 +10,16 @@ import type { FunctionCall, FunctionCallResult, LlmMessage } from '#shared/llm/l
 import type { User } from '#shared/user/user.model';
 
 export function serializeContext(context: AgentContext): AgentContextApi {
+	// Ensure 'parameters' is present in invoking and functionCallHistory array items. (Possibly a Firestore issue)
+	const serializedInvoking = (context.invoking ?? []).map((item) => ({
+		...item,
+		parameters: item.parameters ?? {},
+	}));
+	const serializedFunctionCallHistory = (context.functionCallHistory ?? []).map((item) => ({
+		...item,
+		parameters: item.parameters ?? {},
+	}));
+
 	return {
 		agentId: context.agentId ?? 'unknown-agent-id-serialization-default',
 		type: context.type ?? 'autonomous',
@@ -25,7 +33,7 @@ export function serializeContext(context: AgentContext): AgentContextApi {
 		codeTaskId: context.codeTaskId,
 		state: context.state ?? 'error',
 		callStack: context.callStack ?? [],
-		error: context.error,
+		error: context.error ?? null, // Ensure error is explicitly null if undefined
 		output: context.output,
 		hilBudget: context.hilBudget ?? 0,
 		cost: context.cost ?? 0,
@@ -34,20 +42,18 @@ export function serializeContext(context: AgentContext): AgentContextApi {
 		metadata: context.metadata ?? {},
 		iterations: context.iterations ?? 0,
 		pendingMessages: context.pendingMessages ?? [],
-		invoking: context.invoking ?? [],
+		invoking: serializedInvoking,
 		notes: context.notes ?? [],
 		userPrompt: context.userPrompt ?? '',
 		inputPrompt: context.inputPrompt ?? '',
 		messages: context.messages ?? [],
-		functionCallHistory: context.functionCallHistory ?? [],
+		functionCallHistory: serializedFunctionCallHistory,
 		hilCount: context.hilCount ?? 0,
 		hilRequested: context.hilRequested ?? false,
 		useSharedRepos: context.useSharedRepos ?? true,
 		memory: context.memory ?? {},
-		// Serialize complex objects into their JSON representation
 		functions: context.functions ? context.functions.toJSON() : { functionClasses: [] },
 		fileSystem: context.fileSystem ? context.fileSystem.toJSON() : null,
-		// Serialize User object to just its ID
 		user: context.user?.id ?? 'anonymous-serialized-id-missing',
 		llms: context.llms
 			? {
@@ -61,7 +67,6 @@ export function serializeContext(context: AgentContext): AgentContextApi {
 					medium: 'default-llm-id-medium',
 					hard: 'default-llm-id-hard',
 				},
-		// Use the new property name 'completedHandler'
 		completedHandler: context.completedHandler ? context.completedHandler.agentCompletedHandlerId() : undefined,
 		toolState: context.toolState ? JSON.parse(JSON.stringify(context.toolState)) : undefined,
 	};
@@ -79,16 +84,16 @@ export function deserializeContext(data: AgentContextApi): AgentContext {
 
 	const userImpl: User = {
 		id: userId,
-		name: userName, // Placeholder
-		email: userEmail, // Placeholder
+		name: userName,
+		email: userEmail,
 		enabled: userId !== 'anonymous-serialized-id-missing', // Assume enabled if ID is present
-		createdAt: new Date(), // Default
-		lastLoginAt: undefined, // Default
-		hilBudget: data.hilBudget ?? 0, // Default from schema or 0
-		hilCount: data.hilCount ?? 0, // Default from schema or 0
-		llmConfig: {}, // Default
-		chat: {}, // Default
-		functionConfig: {}, // Default
+		createdAt: new Date(),
+		lastLoginAt: undefined,
+		hilBudget: data.hilBudget ?? 0,
+		hilCount: data.hilCount ?? 0,
+		llmConfig: {},
+		chat: {},
+		functionConfig: {},
 	};
 
 	const llmsImpl = deserializeLLMs(data.llms as Record<keyof AgentLLMs, string | undefined>);

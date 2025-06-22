@@ -4,6 +4,7 @@ import type { Span, SpanContext, Tracer } from '@opentelemetry/api';
 import { trace } from '@opentelemetry/api';
 import { logger } from '#o11y/logger';
 import type { AgentContext } from '#shared/agent/agent.model';
+import { currentUser, runWithUser } from '#user/userContext';
 import { type SugaredTracer, wrapTracer } from './trace/SugaredTracer';
 
 const _fakeSpan: Partial<Span> = {
@@ -145,14 +146,21 @@ export function span<T extends (...args: any[]) => any>(
 		const functionName = String(context.name);
 		return async function replacementMethod(this: any, ...args: any[]) {
 			checkForceStopped();
+			const userCtx = (() => {
+				try {
+					return currentUser();
+				} catch {
+					return undefined;
+				}
+			})();
 			try {
 				agentContextStorage?.getStore()?.callStack?.push(functionName);
 				if (!tracer) {
-					return await originalMethod.call(this, ...args);
+					return userCtx ? await runWithUser(userCtx, () => originalMethod.call(this, ...args)) : await originalMethod.call(this, ...args);
 				}
 				return tracer.withActiveSpan(functionName, async (span: Span) => {
 					setFunctionSpanAttributes(span, functionName, attributeExtractors, args);
-					return await originalMethod.call(this, ...args);
+					return userCtx ? await runWithUser(userCtx, () => originalMethod.call(this, ...args)) : await originalMethod.call(this, ...args);
 				});
 			} finally {
 				agentContextStorage?.getStore()?.callStack?.pop();

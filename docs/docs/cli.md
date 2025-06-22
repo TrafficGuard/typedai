@@ -45,7 +45,7 @@ export PATH=$TYPEDAI_HOME/bin/path:$PATH
 
 Then from any folder you can run commands like:
 
-`ai query 'what test frameworks does this repository use'`
+`ai query what test frameworks does this repository use`
 
 Where *query* is the TypedAI package.json script. For all the examples in the CLI scripts section above you can replace `npm run` with `ai`
 
@@ -56,7 +56,7 @@ There are a number of convenience scripts in the package.json for running agents
 
 ### agent
 
-`npm run agent` or `ai agent` will run the autonomous agent configured in `src/cli/agent.ts`. Note that the agent will have the functions available configured in the `agent.ts` file.
+`ai agent` will run the autonomous agent configured in `src/cli/agent.ts`. Note that the agent will have the functions available configured in the `agent.ts` file.
 
 If no arguments are supplied the user prompt will be read from `src/cli/agent-in`
 
@@ -69,7 +69,7 @@ npm run agent research the latest news about large language models and write a r
 
 ### code
 
-`npm run code` or `ai code` runs the [CodeEditingAgent](/software-engineer/) configured in `src/cli/code.ts`
+`ai code` runs the [CodeEditingAgent](/software-engineer/) configured in `src/cli/code.ts`
 
 Without arguments the prompt is read from `src/cli/code-in` otherwise it uses the provided arguments for the prompt.
 
@@ -84,17 +84,17 @@ directory set to the current shell directory.
 
 ### index
 
-`npm run index` or `ai index`
+`ai index`
 
 This runs the agent which indexes a repository, and stores the summary index docs under `.typedai/docs`
 
 ### slack
 
-`npm run slack` or `ai slack` starts the Slack chatbot. The chatbot will have the functions available defined in `src/modules/slack/slackChatBotService.ts`
+`ai slack` starts the Slack chatbot. The chatbot will have the functions available defined in `src/modules/slack/slackChatBotService.ts`
 
 ### swe
 
-`npm run swe` or `ai swe` runs the SoftwareDeveloperAgent configured in `src/cli/swe.ts`
+`ai swe` runs the SoftwareDeveloperAgent configured in `src/cli/swe.ts`
 
 Without arguments the prompt is read from `src/cli/swe-in` otherwise it uses the provided arguments for the prompt.
 
@@ -104,7 +104,7 @@ This agent can be used for process automation and handling requests within the l
 
 ### gen
 
-`npm run gen` or `ai gen` runs the script at `src/cli/gen.ts`
+`ai gen` runs the script at `src/cli/gen.ts`
 
 This simply generates text from a prompt. As with the other scripts you can provide arguments for a quick prompt. 
 Otherwise, prepare the prompt in `src/cli/gen-in` and don't provide any other arguments.
@@ -113,7 +113,7 @@ The output is written to `src/cli/gen-out` and the console
 
 ### gaia
 
-`npm run gaia <task_id>` runs an agent which completes a task from the [GAIA agent benchmark suite](https://huggingface.co/datasets/gaia-benchmark/GAIA) and
+`ai gaia <task_id>` runs an agent which completes a task from the [GAIA agent benchmark suite](https://huggingface.co/datasets/gaia-benchmark/GAIA) and
 completes with the answer in the required format, read and appending from the files defined by the `tasksFile` and `resultsFile` consts in `gaia.ts`.
 
 Without the task_id argument it will attempt to complete all questions in the dataset.
@@ -125,7 +125,7 @@ Make sure the directory you save the files to is in the .gitignore.
 
 ### scrape
 
-`npm run scrape <url>` or `ai scrape <url>` runs the PublicWeb.getWebPage function which uses a headless browser to scrape a web page, and then converts
+`ai scrape <url>` runs the PublicWeb.getWebPage function which uses a headless browser to scrape a web page, and then converts
 it to a slim format by using the `@mozilla/readability` module to first extract the main contents of the page, and then the `turndown`
 package to convert the HTML to Markdown, further reducing the token count.
 
@@ -133,7 +133,7 @@ By default, it writes the output to `scrape.md`. Alternatively you can provide a
 
 ### query
 
-`npm run query <question>` or `ai query <question>` runs the codebase query agent at *src/swe/discovery/fileSelectionAgent.ts* which can answer ad hoc
+`ai query <question>` runs the codebase query agent at *src/swe/discovery/fileSelectionAgent.ts* which can answer ad hoc
 questions about a codebase/folder contents.
 
 ## Development

@@ -15,10 +15,12 @@ export class CodeFunctions {
 	async initialiseProject(): Promise<string> {
 		const projectInfo = await getProjectInfo();
 		if (!projectInfo) throw new Error(`No ${AI_INFO_FILENAME} available`);
-		if (!projectInfo.initialise) return 'No initialise command defined';
-		const result = await execCommand(projectInfo.initialise);
-		failOnError('Failed to initialise the project', result);
-		return `Project successfully intialised calling "${projectInfo.initialise}"`;
+		if (!projectInfo.initialise || projectInfo.initialise.length === 0) return 'No initialise command defined';
+		for (const cmd of projectInfo.initialise) {
+			const result = await execCommand(cmd);
+			failOnError(`Failed to initialise the project (command: ${cmd})`, result);
+		}
+		return `Project successfully intialised calling "${projectInfo.initialise.join(' && ')}"`;
 	}
 
 	/**
@@ -28,10 +30,12 @@ export class CodeFunctions {
 	async compile(): Promise<string> {
 		const projectInfo = await getProjectInfo();
 		if (!projectInfo) throw new Error(`No ${AI_INFO_FILENAME} available`);
-		if (!projectInfo.compile) return 'No compile command defined';
-		const result = await execCommand(projectInfo.compile);
-		failOnError('Failed to compile the project', result);
-		return `Project successfully compile calling "${projectInfo.compile}"`;
+		if (!projectInfo.compile || projectInfo.compile.length === 0) return 'No compile command defined';
+		for (const cmd of projectInfo.compile) {
+			const result = await execCommand(cmd);
+			failOnError(`Failed to compile the project (command: ${cmd})`, result);
+		}
+		return `Project successfully compiled calling "${projectInfo.compile.join(' && ')}"`;
 	}
 
 	/**
@@ -41,16 +45,18 @@ export class CodeFunctions {
 	async test(): Promise<string> {
 		const projectInfo = await getProjectInfo();
 		if (!projectInfo) throw new Error(`No ${AI_INFO_FILENAME} available`);
-		if (!projectInfo.test) return 'No compile command defined';
+		if (!projectInfo.test || projectInfo.test.length === 0) return 'No test command defined';
 		// This is specific to running the agents on the TypedAI project
 		const fss = getFileSystem();
 		let envVars = {};
 		if (await fss.fileExists('./variables/test.env')) {
 			envVars = parseEnvFile(await fss.readFile('./variables/test.env'));
 		}
-		const result = await execCommand(projectInfo.test, { envVars });
-		failOnError('Failure testing the project', result);
-		return `Project successfully tested calling "${projectInfo.test}"`;
+		for (const cmd of projectInfo.test) {
+			const result = await execCommand(cmd, { envVars });
+			failOnError(`Failure testing the project (command: ${cmd})`, result);
+		}
+		return `Project successfully tested calling "${projectInfo.test.join(' && ')}"`;
 	}
 
 	/**

@@ -24,7 +24,7 @@ export class CodeTaskCreation {
 
 		const newCodeTask: CodeTask = {
 			...codeTaskData,
-			repositoryId: codeTaskData.repositoryId!, // Explicitly set and assert non-null based on upstream logic
+			repositoryId: codeTaskData.repositoryFullPath!, // Explicitly set and assert non-null based on upstream logic
 			id: codeTaskId,
 			userId: userId,
 			status: 'initializing',
@@ -37,7 +37,7 @@ export class CodeTaskCreation {
 			codeDiff: undefined,
 			commitSha: undefined,
 			pullRequestUrl: undefined,
-			error: null,
+			error: undefined,
 			ciCdProposedFix: undefined,
 			ciCdStatus: undefined,
 			ciCdJobUrl: undefined,

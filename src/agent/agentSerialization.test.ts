@@ -113,6 +113,7 @@ describe('serializeContext', () => {
 		getVcs: sinon.stub(),
 		getVcsRoot: sinon.stub(),
 		deleteFile: sinon.stub(),
+		rename: sinon.stub(),
 	});
 
 	// Minimal AgentCompleted mock
@@ -156,7 +157,7 @@ describe('serializeContext', () => {
 			expect(result.codeTaskId).to.be.undefined;
 			expect(result.state).to.equal('error');
 			expect(result.callStack).to.deep.equal([]);
-			expect(result.error).to.be.undefined;
+			expect(result.error).to.be.null;
 			expect(result.output).to.be.undefined;
 			expect(result.hilBudget).to.equal(0);
 			expect(result.cost).to.equal(0);
@@ -200,7 +201,7 @@ describe('serializeContext', () => {
 			expect(result.user).to.equal('anonymous-serialized-id-missing');
 			expect(result.state).to.equal('error');
 			expect(result.callStack).to.deep.equal([]);
-			expect(result.error).to.be.undefined;
+			expect(result.error).to.be.null;
 			expect(result.output).to.be.undefined;
 			expect(result.hilBudget).to.equal(0);
 			expect(result.cost).to.equal(0);

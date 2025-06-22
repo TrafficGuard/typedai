@@ -1,14 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, type OnDestroy, type OnInit, inject } from '@angular/core';
-import {
-	type AbstractControl,
-	type AsyncValidatorFn,
-	FormBuilder,
-	type FormGroup,
-	ReactiveFormsModule,
-	type ValidationErrors,
-	Validators,
-} from '@angular/forms';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
+import { AbstractControl, AsyncValidatorFn, FormBuilder, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCard, MatCardContent } from '@angular/material/card';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -19,31 +11,31 @@ import { MatRadioModule } from '@angular/material/radio';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
-import { BehaviorSubject, type Observable, Subscription, catchError, finalize, map, of, take } from 'rxjs';
+import { FuseAlertComponent } from '@fuse/components/alert';
+import { BehaviorSubject, Observable, Subscription, catchError, finalize, map, of, take } from 'rxjs';
 import { CodeTask, CodeTaskPreset, CodeTaskPresetConfig } from '#shared/codeTask/codeTask.model';
 import { GitProject } from '#shared/scm/git.model';
 import { CodeTaskServiceClient, type CreateCodeTaskPayload } from '../codeTask.service';
-import { FuseAlertComponent } from "@fuse/components/alert";
 
 @Component({
 	selector: 'app-newCodeTask',
 	standalone: true,
-    imports: [
-        CommonModule,
-        ReactiveFormsModule,
-        MatFormFieldModule,
-        MatInputModule,
-        MatButtonModule,
-        MatRadioModule,
-        MatCheckboxModule,
-        MatSelectModule,
-        MatProgressSpinnerModule,
-        MatCard,
-        MatCardContent,
-        MatSnackBarModule,
-        MatSelectModule,
-        FuseAlertComponent,
-    ],
+	imports: [
+		CommonModule,
+		ReactiveFormsModule,
+		MatFormFieldModule,
+		MatInputModule,
+		MatButtonModule,
+		MatRadioModule,
+		MatCheckboxModule,
+		MatSelectModule,
+		MatProgressSpinnerModule,
+		MatCard,
+		MatCardContent,
+		MatSnackBarModule,
+		MatSelectModule,
+		FuseAlertComponent,
+	],
 	templateUrl: './newCodeTask.component.html',
 	styleUrls: ['./newCodeTask.component.scss'],
 })
@@ -410,15 +402,16 @@ export class NewCodeTaskComponent implements OnInit, OnDestroy {
 		// Handle selectedRepo based on source
 		let repoToSelect: GitProject | string | null = null;
 		if (config.repositorySource === 'local') {
-			repoToSelect = config.repositoryId; // Local uses path as ID
+			repoToSelect = config.repositoryFullPath ?? null; // Local uses path as ID (now repositoryFullPath)
 		} else {
 			// Find the matching SCM project object
+			// config.repositoryFullPath for SCM presets stores the project ID as a string
 			const projects = config.repositorySource === 'github' ? this.githubProjects : this.gitlabProjects;
-			repoToSelect = projects.find((p) => p.id.toString() === config.repositoryId) || null;
+			repoToSelect = projects.find((p) => p.id.toString() === config.repositoryFullPath) || null;
 
 			if (!repoToSelect) {
 				this.snackBar.open(
-					`Preset Warning: Could not find the saved ${config.repositorySource} repository (${config.repositoryName || config.repositoryId}). Please select it manually.`,
+					`Preset Warning: Could not find the saved ${config.repositorySource} repository (${config.repositoryName || config.repositoryFullPath}). Please select it manually.`,
 					'Close',
 					{ duration: 7000, verticalPosition: 'top' },
 				);
@@ -455,32 +448,34 @@ export class NewCodeTaskComponent implements OnInit, OnDestroy {
 
 		// Add specific checks for essential fields required by CodeTaskPresetConfig
 		if (!formValue.selectedSource) {
-            this.snackBar.open('Cannot save preset: Repository Source is required.', 'Close', { duration: 3000, verticalPosition: 'top' });
-            this.isSubmitting = false;
-            return;
-        }
-        if (!formValue.targetBranch) {
-            this.snackBar.open('Cannot save preset: Target Branch is required.', 'Close', { duration: 3000, verticalPosition: 'top' });
-            this.isSubmitting = false;
-            return;
-        }
+			this.snackBar.open('Cannot save preset: Repository Source is required.', 'Close', { duration: 3000, verticalPosition: 'top' });
+			this.isSubmitting = false;
+			return;
+		}
+		if (!formValue.targetBranch) {
+			this.snackBar.open('Cannot save preset: Target Branch is required.', 'Close', { duration: 3000, verticalPosition: 'top' });
+			this.isSubmitting = false;
+			return;
+		}
 
 		// --- Logic to derive repo ID/Name ---
 		let repositoryId = '';
 		let repositoryName: string | undefined | null = undefined;
 
 		if (formValue.selectedSource === 'local') {
-            if (!formValue.selectedRepo) { // Add this check for local repository
-                this.snackBar.open('Cannot save preset: Local Repository Path is required when source is Local.', 'Close', { duration: 3000, verticalPosition: 'top' });
-                this.isSubmitting = false;
-                return;
-            }
+			if (!formValue.selectedRepo) {
+				// Add this check for local repository
+				this.snackBar.open('Cannot save preset: Local Repository Path is required when source is Local.', 'Close', { duration: 3000, verticalPosition: 'top' });
+				this.isSubmitting = false;
+				return;
+			}
 			repositoryId = formValue.selectedRepo as string;
 			const pathParts = repositoryId.split(/[\\/]/);
 			repositoryName = pathParts.pop() || pathParts.pop() || repositoryId;
 		} else {
 			const selectedProject = formValue.selectedRepo as GitProject;
-			if (!selectedProject || typeof selectedProject !== 'object') { // This existing check is good
+			if (!selectedProject || typeof selectedProject !== 'object') {
+				// This existing check is good
 				this.snackBar.open('Cannot save preset: A valid GitHub/GitLab repository must be selected.', 'Close', { duration: 5000, verticalPosition: 'top' });
 				this.isSubmitting = false;
 				return;
@@ -496,30 +491,42 @@ export class NewCodeTaskComponent implements OnInit, OnDestroy {
 
 		switch (formValue.workingBranchAction) {
 			case 'target':
-                // Ensure targetBranch is not null (already checked above, but good to be mindful)
-                if (!formValue.targetBranch) { // Defensive check, though covered by earlier validation
-                    this.snackBar.open('Cannot save preset: Target Branch is missing for "Use target branch" option.', 'Close', { duration: 3000, verticalPosition: 'top' });
-                    this.isSubmitting = false;
-                    return;
-                }
+				// Ensure targetBranch is not null (already checked above, but good to be mindful)
+				if (!formValue.targetBranch) {
+					// Defensive check, though covered by earlier validation
+					this.snackBar.open('Cannot save preset: Target Branch is missing for "Use target branch" option.', 'Close', {
+						duration: 3000,
+						verticalPosition: 'top',
+					});
+					this.isSubmitting = false;
+					return;
+				}
 				workingBranch = formValue.targetBranch;
 				createWorkingBranch = false;
 				break;
 			case 'existing':
-                if (!formValue.existingWorkingBranch) { // Add this check
-                    this.snackBar.open('Cannot save preset: "Existing Working Branch" is required for this option.', 'Close', { duration: 3000, verticalPosition: 'top' });
-                    this.isSubmitting = false;
-                    return;
-                }
+				if (!formValue.existingWorkingBranch) {
+					// Add this check
+					this.snackBar.open('Cannot save preset: "Existing Working Branch" is required for this option.', 'Close', {
+						duration: 3000,
+						verticalPosition: 'top',
+					});
+					this.isSubmitting = false;
+					return;
+				}
 				workingBranch = formValue.existingWorkingBranch; // Use the new control value
 				createWorkingBranch = false;
 				break;
 			case 'new':
-                if (!formValue.newWorkingBranchName) { // Add this check
-                    this.snackBar.open('Cannot save preset: "New Working Branch Name" is required for this option.', 'Close', { duration: 3000, verticalPosition: 'top' });
-                    this.isSubmitting = false;
-                    return;
-                }
+				if (!formValue.newWorkingBranchName) {
+					// Add this check
+					this.snackBar.open('Cannot save preset: "New Working Branch Name" is required for this option.', 'Close', {
+						duration: 3000,
+						verticalPosition: 'top',
+					});
+					this.isSubmitting = false;
+					return;
+				}
 				workingBranch = formValue.newWorkingBranchName;
 				createWorkingBranch = true;
 				break;
@@ -535,7 +542,7 @@ export class NewCodeTaskComponent implements OnInit, OnDestroy {
 		// Construct the preset config payload (Omit title and instructions)
 		const config: CodeTaskPresetConfig = {
 			repositorySource: formValue.selectedSource,
-			repositoryId: repositoryId,
+			repositoryFullPath: repositoryId, // repositoryId var here holds the path or SCM ID
 			repositoryName: repositoryName || null,
 			targetBranch: formValue.targetBranch,
 			workingBranch: workingBranch,
@@ -595,7 +602,7 @@ export class NewCodeTaskComponent implements OnInit, OnDestroy {
 			// For GitHub/GitLab, selectedRepo is the GitProject object
 			const selectedProject = formValue.selectedRepo as GitProject; // Cast to GitProject
 			if (selectedProject && typeof selectedProject === 'object') {
-				repositoryId = selectedProject.id.toString(); // Use project ID as string
+				repositoryId = selectedProject.fullPath; // Use project full path as string
 				repositoryName = selectedProject.name; // Use project name
 			} else {
 				console.error('Selected SCM project object not found or invalid in form value!');

@@ -1,4 +1,11 @@
-import { BaseHarnessFilters, ComponentHarness, ComponentHarnessConstructor, HarnessLoader, HarnessPredicate } from '@angular/cdk/testing';
+import {
+	type BaseHarnessFilters,
+	type ComponentHarness,
+	type ComponentHarnessConstructor,
+	type HarnessLoader,
+	type HarnessPredicate,
+	TestElement,
+} from '@angular/cdk/testing';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { ComponentFixture } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
@@ -88,18 +95,31 @@ export abstract class BaseSpecPo<T> {
 	/* --------------------------------------------------
        Harness shortcuts
        -------------------------------------------------- */
-	protected harness<H extends ComponentHarness, P extends BaseHarnessFilters>(
-		harnessType: ComponentHarnessConstructor<H>, // This is the constructor type TypeScript is seeing
-		options?: P,
+	/**
+	 * Gets a component harness instance.
+	 * @param harnessType The type of harness to retrieve.
+	 * @param options Optional filters to apply.
+	 * @returns A promise that resolves to the harness instance.
+	 */
+	protected harness<H extends ComponentHarness>(
+		harnessType: ComponentHarnessConstructor<H> & { with?: (options?: BaseHarnessFilters) => HarnessPredicate<H> },
+		options?: BaseHarnessFilters,
 	): Promise<H> {
-		if (options) {
-			// If options are provided, create a HarnessPredicate instance manually.
-			// The HarnessPredicate constructor typically takes the harness type and options.
-			const predicate = new HarnessPredicate(harnessType, options);
-			return this.loader.getHarness(predicate);
+		if (options && harnessType.with) {
+			return this.loader.getHarness(harnessType.with(options));
 		}
-		// If no options, get the harness directly by its type.
 		return this.loader.getHarness(harnessType);
+	}
+
+	/**
+	 * Gets an attribute of an element.
+	 * @param id The data-testid of the element.
+	 * @param attributeName The name of the attribute.
+	 * @returns A promise that resolves to the attribute value or null.
+	 */
+	async getAttribute(id: string, attributeName: string): Promise<string | null> {
+		const el = this.el(id).nativeElement as HTMLElement;
+		return el.getAttribute(attributeName);
 	}
 
 	/* --------------------------------------------------
@@ -116,6 +136,7 @@ export abstract class BaseSpecPo<T> {
 	static async create<C, PO extends BaseSpecPo<C>>(this: new (f: ComponentFixture<C>) => PO, fix: ComponentFixture<C>): Promise<PO> {
 		fix.detectChanges();
 		await fix.whenStable();
-		return new BaseSpecPo(fix);
+		fix.detectChanges(); // Ensure UI is stable after async operations
+		return new this(fix);
 	}
 }

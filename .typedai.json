@@ -1,13 +1,13 @@
 [
   {
     "baseDir": "./",
+    "primary": true,
     "language": "typescript",
     "initialise": "node build.js install",
     "compile": "node build.js build",
     "format": "",
     "staticAnalysis": "node build.js lint",
-    "test": "npm run test",
-    "languageTools": "typescript",
+    "test": "node build.js test",
     "devBranch": "main",
     "indexDocs": [
       "src/**/*.ts",

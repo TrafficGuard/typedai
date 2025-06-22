@@ -23,6 +23,7 @@ export const AgentRunningStateSchema = Type.Union(
 		Type.Literal('hitl_threshold'),
 		Type.Literal('hitl_tool'),
 		Type.Literal('hitl_feedback'),
+		Type.Literal('hitl_user'),
 		Type.Literal('completed'),
 		Type.Literal('shutdown'),
 		Type.Literal('child_agents'),
@@ -84,6 +85,14 @@ const FilePartExtSchema = Type.Object({
 
 const LlmMessageContentPartSchema = Type.Union([TextPartSchema, ImagePartExtSchema, FilePartExtSchema]); // Add other relevant parts like ToolCallPart if needed
 
+const LlmsSchema = Type.Object({
+	// Serialized LLM IDs
+	easy: Type.String(),
+	medium: Type.String(),
+	hard: Type.String(),
+	xhard: Type.Optional(Type.String()),
+});
+
 const LlmMessageSchema = Type.Object({
 	role: Type.String(), // Ideally Type.Union(['system', 'user', 'assistant', 'tool'])
 	content: Type.Union([Type.String(), Type.Array(LlmMessageContentPartSchema)]),
@@ -122,13 +131,7 @@ export const AgentContextSchema = Type.Object({
 	hilBudget: Type.Number(),
 	cost: Type.Number(),
 	budgetRemaining: Type.Number(),
-	llms: Type.Object({
-		// Serialized LLM IDs
-		easy: Type.String(),
-		medium: Type.String(),
-		hard: Type.String(),
-		xhard: Type.Optional(Type.String()),
-	}),
+	llms: LlmsSchema,
 
 	// Represents IFileSystemService.toJSON()
 	// The key 'fileSystem' is always present on AgentContext, its value can be an object or null.
@@ -163,8 +166,6 @@ export const AgentContextSchema = Type.Object({
 	functionCallHistory: Type.Array(FunctionCallResultSchema),
 	hilCount: Type.Number(), // Type was 'any' in model, assuming number
 	hilRequested: Type.Optional(Type.Boolean()),
-	liveFiles: Type.Optional(Type.Array(Type.String())),
-	fileStore: Type.Optional(Type.Array(FileMetadataSchema)),
 	toolState: Type.Optional(Type.Record(Type.String(), Type.Any())),
 });
 
@@ -227,9 +228,12 @@ export const AutonomousIterationSummarySchema = Type.Pick(AutonomousIterationSch
 
 const _AutonomousIterationSummaryCheck: AreTypesFullyCompatible<AutonomousIterationSummary, Static<typeof AutonomousIterationSummarySchema>> = true;
 
-export const AgentIdParamsSchema = Type.Object({
-	agentId: Type.String({ description: 'The ID of the agent' }),
-});
+export const AgentIdParamsSchema = Type.Object(
+	{
+		agentId: Type.String({ description: 'The ID of the agent' }),
+	},
+	{ $id: 'AgentIdParams' },
+);
 
 // --- Placeholder Schemas (as per original request, to be defined properly if needed later) ---
 
@@ -252,12 +256,7 @@ export const AgentStartRequestSchema = Type.Object(
 				count: Type.Integer(), // Ensure these are not optional if they are mandatory in current route
 			}),
 		),
-		llms: Type.Object({
-			// Expects LLM string IDs
-			easy: Type.String(),
-			medium: Type.String(),
-			hard: Type.String(),
-		}),
+		llms: LlmsSchema,
 		useSharedRepos: Type.Optional(Type.Boolean({ default: true })), // Retain default from original schema
 		metadata: Type.Optional(Type.Record(Type.String(), Type.Any())),
 		resumeAgentId: Type.Optional(Type.String()),
@@ -268,29 +267,29 @@ export const AgentStartRequestSchema = Type.Object(
 );
 
 export const AgentActionBaseSchema = Type.Object({
-	agentId: Type.Optional(Type.String()),
+	agentId: Type.String(),
 	executionId: Type.Optional(Type.String()),
 });
 
 export const AgentCancelRequestSchema = Type.Object({
-	agentId: Type.Optional(Type.String()),
+	agentId: Type.String(),
 	executionId: Type.Optional(Type.String()),
 	reason: Type.Optional(Type.String()),
 });
 
 export const AgentResumeCompletedRequestSchema = Type.Object({
-	agentId: Type.Optional(Type.String()),
-	executionId: Type.Optional(Type.String()),
-	instructions: Type.Optional(Type.String()),
+	agentId: Type.String(),
+	executionId: Type.String(),
+	instructions: Type.String(),
 });
 
 export const AgentUpdateFunctionsRequestSchema = Type.Object({
-	agentId: Type.Optional(Type.String()),
-	functions: Type.Optional(Type.Array(Type.String())),
+	agentId: Type.String(),
+	functions: Type.Array(Type.String()),
 });
 
 export const AgentDeleteRequestSchema = Type.Object({
-	agentIds: Type.Optional(Type.Array(Type.String())),
+	agentIds: Type.Array(Type.String()),
 });
 
 export const AgentActionByIdSchema = Type.Object({

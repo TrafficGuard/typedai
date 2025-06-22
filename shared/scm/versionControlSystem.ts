@@ -45,6 +45,9 @@ export interface VersionControlSystem {
 	 */
 	addAllTrackedAndCommit(commitMessage: string): Promise<void>;
 
+	/** Add and commit a specific list of files. */
+	addAndCommitFiles(files: string[], commitMessage: string): Promise<void>;
+
 	/**
 	 * Merges the changes in specific files into the latest commit.
 	 * This is useful for merging lint fixes and compiles fixes into the current commit, so that commit should build.
@@ -65,7 +68,7 @@ export interface VersionControlSystem {
 	 * @param n the number of commits (defaults to 2)
 	 * @returns an array of the commit details
 	 */
-	getRecentCommits(n: number): Promise<Array<Commit>>;
+	getRecentCommits(n?: number): Promise<Array<Commit>>;
 
 	/**
 	 * @param path full file path

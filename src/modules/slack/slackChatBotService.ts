@@ -6,8 +6,8 @@ import { resumeCompleted, resumeCompletedWithUpdatedUserRequest, startAgent } fr
 import { appContext } from '#app/applicationContext';
 import { GoogleCloud } from '#functions/cloud/google/google-cloud';
 import { Jira } from '#functions/jira';
+import { LlmTools } from '#functions/llmTools';
 import { GitLab } from '#functions/scm/gitlab';
-import { LlmTools } from '#functions/util';
 import { Perplexity } from '#functions/web/perplexity';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';

@@ -1,6 +1,6 @@
 import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import { LlmTools } from '#functions/util';
+import { LlmTools } from '#functions/llmTools';
 import { logger } from '#o11y/logger';
 
 /**
@@ -30,6 +30,15 @@ export class FileSystemWrite {
 		const contents = await getFileSystem().readFile(filePath);
 		const updatedContent = await new LlmTools().processText(contents, descriptionOfChanges);
 		await this.writeFile(filePath, updatedContent, true);
+	}
+
+	/**
+	 * Delete a file
+	 * @param {string} filePath The file to delete
+	 */
+	@func()
+	async deleteFile(filePath: string): Promise<void> {
+		await getFileSystem().deleteFile(filePath);
 	}
 
 	/**

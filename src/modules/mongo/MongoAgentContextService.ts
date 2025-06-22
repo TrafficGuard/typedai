@@ -89,13 +89,7 @@ function dbDocToAgentContext(doc: any): AgentContext | null {
 				if (llmData && llmData.service === 'mock') {
 					// Requirement: new MockLLM(llmData.id, llmData.provider, llmData.config)
 					// Using llmData.service for provider as per LLM interface.
-					context.llms[key] = new MockLLM(
-						llmData.id,
-						llmData.service,
-						llmData.model ?? 'mock',
-						undefined /* for maxInputTokens, let constructor default kick in */,
-						llmData.responses,
-					);
+					context.llms[key] = new MockLLM(llmData.id, llmData.service, llmData.model ?? 'mock', undefined);
 				}
 			}
 		}
@@ -177,6 +171,24 @@ export class MongoAgentContextService implements AgentContextService {
 			if (!(error instanceof NotFound) && !(error instanceof NotAllowed)) {
 				logger.error(error, `Failed to load agent context [agentId=${agentId}]`);
 			}
+			throw error;
+		}
+	}
+
+	async findByMetadata(key: string, value: string): Promise<AgentContext | null> {
+		try {
+			const currentUserId = userContext.currentUser().id;
+			const query: any = { 'user.id': currentUserId };
+			query[`metadata.${key}`] = value;
+
+			const doc = await this.agentContextsCollection.findOne(query);
+			if (!doc) {
+				return null;
+			}
+			// Ownership is already checked by the query for user.id
+			return dbDocToAgentContext(doc);
+		} catch (error) {
+			logger.error(error, `Failed to find agent by metadata [key=${key}, value=${value}]`);
 			throw error;
 		}
 	}

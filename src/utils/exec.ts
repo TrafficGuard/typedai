@@ -27,14 +27,25 @@ export function checkExecResult(result: ExecResults, message: string) {
 function getAvailableShell(): string {
 	const possibleShells = ['/bin/zsh', '/usr/bin/zsh', '/bin/bash', '/usr/bin/bash', '/bin/sh', '/usr/bin/sh'];
 	for (const shellPath of possibleShells) {
-		if (existsSync(shellPath)) {
-			return shellPath;
+		try {
+			if (existsSync(shellPath)) {
+				return shellPath;
+			}
+		} catch (e) {
+			// existsSync might throw in mocked environments (like mock-fs).
+			// Log and continue checking other shells or fallbacks.
+			logger.debug(`existsSync failed for ${shellPath}: ${e.message}`);
 		}
 	}
-	if (process.env.SHELL && existsSync(process.env.SHELL)) {
+
+	// If none of the preferred shells were found or checked,
+	// fall back to process.env.SHELL or a platform default.
+	if (process.env.SHELL) {
 		return process.env.SHELL;
 	}
-	throw new Error('No suitable shell found for executing commands.');
+
+	// Provide a default based on the operating system if SHELL is not set
+	return process.platform === 'win32' ? 'cmd.exe' : '/bin/bash';
 }
 
 export function execCmdSync(command: string, cwd = getFileSystem().getWorkingDirectory()): ExecResults {
@@ -409,21 +420,94 @@ export function formatAnsiWithMarkdownLinks(text: string | null | undefined): st
 	// We use the captured groups: $2 is the text, $1 is the URL.
 	let processedText = text.replace(osc8Regex, '[$2]($1)');
 
-	// Regular expression to match *other* common ANSI escape codes
-	// (like SGR for colors/styles: \x1B[...m, and other CSI sequences).
-	// This regex is designed *not* to match the already-processed Markdown links.
-	// It's the same comprehensive regex used before for stripping.
-	const ansiStripRegex = new RegExp(
+	// Enhanced regex to match more ANSI escape sequences and control characters
+	const comprehensiveAnsiRegex = new RegExp(
 		[
+			// Original comprehensive ANSI regex
 			'[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)',
 			'(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))',
+
+			// Additional patterns for edge cases:
+			// Simple bracket sequences like [96m, [0m that might not be caught
+			'\\[[0-9;]*[a-zA-Z]',
+
+			// C1 control characters (0x80-0x9F)
+			'[\\u0080-\\u009F]',
+
+			// Bell character and other common control chars
+			'\\u0007',
+
+			// Backspace sequences
+			'\\u0008+',
+
+			// Form feed, vertical tab
+			'[\\u000B\\u000C]',
+
+			// Delete character
+			'\\u007F',
 		].join('|'),
 		'g',
 	);
 
-	// Second pass: Remove all remaining ANSI codes (colors, formatting, etc.)
-	// from the string that now contains Markdown links.
-	processedText = processedText.replace(ansiStripRegex, '');
+	// Second pass: Remove all remaining ANSI codes and control characters
+	processedText = processedText.replace(comprehensiveAnsiRegex, '');
+
+	// Third pass: Clean up any remaining non-printable characters
+	// This catches characters that might not be standard ANSI but are still control characters
+	// Keep newlines, carriage returns, and tabs as they're meaningful
+	// biome-ignore lint/suspicious/noControlCharactersInRegex: expected
+	processedText = processedText.replace(/[\u0000-\u0008\u000E-\u001F\u007F-\u009F]/g, '');
+
+	// Fourth pass: Handle specific problematic characters like 'ç' that might appear
+	// in malformed sequences - remove any non-ASCII characters that seem out of place
+	// This is more aggressive and might need adjustment based on your specific use case
+	processedText = processedText.replace(/[^\x20-\x7E\r\n\t]/g, '');
+
+	// Final cleanup: normalize whitespace
+	// Replace multiple consecutive spaces with single spaces, but preserve line breaks
+	processedText = processedText.replace(/[ \t]+/g, ' ');
+
+	// Remove trailing spaces from each line
+	processedText = processedText.replace(/[ \t]+$/gm, '');
+
+	// Remove excessive blank lines (more than 2 consecutive)
+	processedText = processedText.replace(/\n{3,}/g, '\n\n');
+
+	return processedText.trim();
+}
+
+/**
+ * Alternative version with more conservative control character removal
+ * Use this if the above version is too aggressive for your use case
+ */
+export function formatAnsiWithMarkdownLinksConservative(text: string | null | undefined): string {
+	if (!text) return text ?? '';
+
+	// biome-ignore lint/suspicious/noControlCharactersInRegex: expected
+	const osc8Regex = /\x1B]8;;(.*?)\x1B\\(.*?)\x1B]8;;\x1B\\/g;
+	let processedText = text.replace(osc8Regex, '[$2]($1)');
+
+	// More targeted approach - only remove known problematic sequences
+	const targetedAnsiRegex = new RegExp(
+		[
+			// Standard ANSI escape sequences
+			'\\x1B\\[[0-9;]*[a-zA-Z]',
+			'\\x1B\\][0-9;]*[a-zA-Z]',
+			'\\x1B\\([AB]',
+
+			// Bracket sequences without escape character (common in your example)
+			'\\[[0-9;]*m',
+
+			// Specific problematic characters
+			'[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]',
+		].join('|'),
+		'g',
+	);
+
+	processedText = processedText.replace(targetedAnsiRegex, '');
+
+	// Light cleanup
+	processedText = processedText.replace(/\s+/g, ' ').trim();
 
 	return processedText;
 }

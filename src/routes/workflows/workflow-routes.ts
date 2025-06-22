@@ -73,7 +73,7 @@ export async function workflowRoutes(fastify: AppFastifyInstance) {
 					await new CodeEditingAgent().implementUserRequirements(config.initialPrompt);
 				});
 
-				reply.send({ success: true, message: 'Code edit workflow completed successfully' });
+				reply.sendJSON({ success: true, message: 'Code edit workflow completed successfully' });
 			} catch (error) {
 				logger.error(error, 'Error running code agent');
 				reply.status(500).send({ success: false, message: error.message });
@@ -156,7 +156,7 @@ export async function workflowRoutes(fastify: AppFastifyInstance) {
 					response = await selectFilesToEdit(requirements);
 				})
 					.then(() => {
-						reply.send(response);
+						reply.sendJSON(response);
 					})
 					.catch((error) => {
 						logger.error(error, 'Error running select files to edit');
@@ -181,7 +181,7 @@ export async function workflowRoutes(fastify: AppFastifyInstance) {
 				...githubRepos.map((path) => path.replace(systemDir(), '.')),
 			];
 
-			reply.send(allRepos);
+			reply.sendJSON(allRepos);
 		} catch (error) {
 			logger.error(error, 'Error fetching repositories');
 			reply.status(500).send({ error: 'Internal Server Error' });

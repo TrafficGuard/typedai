@@ -1,40 +1,44 @@
-import { HttpClientTestingModule } from '@angular/common/http/testing';
-import { signal } from '@angular/core';
-import { type ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { WritableSignal, signal } from '@angular/core';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatDrawer } from '@angular/material/sidenav';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 
-import { MatDrawer } from '@angular/material/sidenav';
 import { UserService } from 'app/core/user/user.service';
 import { ChatServiceClient } from 'app/modules/chat/chat.service';
 import { Chat } from 'app/modules/chat/chat.types';
 import { UserProfile } from '#shared/user/user.model';
 import { ChatInfoComponent } from './chat-info.component';
+import { ChatInfoPo } from './chat-info.component.po';
 
 // Mock User type for UserService
-const mockUser = {
+const mockUser: UserProfile = {
 	id: 'test-user-id',
 	name: 'Test User',
 	email: 'test@example.com',
+	hilBudget: 0,
+	hilCount: 0,
+	llmConfig: {},
+	functionConfig: {},
 	chat: {
-		// Default chat settings
 		temperature: 0.7,
 		topP: 0.9,
 		topK: 20,
 		presencePenalty: 0.5,
 		frequencyPenalty: 0.5,
-	} as UserProfile['chat'],
-	// Add other required User properties if any
+		defaultLLM: 'default-llm',
+	},
 };
 
 describe('ChatInfoComponent', () => {
-	let component: ChatInfoComponent;
 	let fixture: ComponentFixture<ChatInfoComponent>;
+	let po: ChatInfoPo;
 	let mockUserService: jasmine.SpyObj<UserService>;
 	let mockChatService: jasmine.SpyObj<ChatServiceClient>;
 	let mockRouter: jasmine.SpyObj<Router>;
 	let mockMatDrawer: jasmine.SpyObj<MatDrawer>;
+	let mockUserSignal: WritableSignal<UserProfile | null>;
 
 	const initialChatSettings = {
 		temperature: 0.7,
@@ -45,184 +49,260 @@ describe('ChatInfoComponent', () => {
 	};
 
 	beforeEach(async () => {
-		mockUserService = jasmine.createSpyObj('UserService', ['update'], {
-			// Mock user$ as an observable that emits the mockUser
-			user$: of({ ...mockUser, chat: { ...initialChatSettings } } as any),
+		mockUserSignal = signal<UserProfile | null>(null);
+		mockUserService = jasmine.createSpyObj('UserService', ['update']);
+		Object.defineProperty(mockUserService, 'userProfile', {
+			get: () => mockUserSignal,
+			configurable: true,
 		});
+
 		mockChatService = jasmine.createSpyObj('ChatServiceClient', ['updateChatDetails', 'deleteChat']);
 		mockRouter = jasmine.createSpyObj('Router', ['navigate']);
 		mockMatDrawer = jasmine.createSpyObj('MatDrawer', ['close']);
 
 		await TestBed.configureTestingModule({
-			imports: [
-				ChatInfoComponent, // Standalone component
-				NoopAnimationsModule,
-				HttpClientTestingModule, // For services if they make http calls not mocked
-			],
+			imports: [ChatInfoComponent, NoopAnimationsModule],
 			providers: [
 				{ provide: UserService, useValue: mockUserService },
 				{ provide: ChatServiceClient, useValue: mockChatService },
 				{ provide: Router, useValue: mockRouter },
-				{ provide: MatDrawer, useValue: mockMatDrawer }, // Provide mock for MatDrawer
+				{ provide: MatDrawer, useValue: mockMatDrawer },
 			],
 		}).compileComponents();
 
 		fixture = TestBed.createComponent(ChatInfoComponent);
-		component = fixture.componentInstance;
-		component.drawer = mockMatDrawer; // Assign the mock drawer to the component instance
-		// fixture.detectChanges(); // Initial detection after component creation and input setup
+		// Set @Input() drawer
+		fixture.componentRef.setInput('drawer', mockMatDrawer);
+		po = await ChatInfoPo.create(fixture);
 	});
 
 	it('should create', () => {
-		expect(component).toBeTruthy();
+		expect(fixture.componentInstance).toBeTruthy(); // Check component instance via fixture
+		expect(po).toBeTruthy();
 	});
 
-	it('should initialize settings from UserService user$', fakeAsync(() => {
-		fixture.detectChanges(); // Trigger ngOnInit / constructor logic
-		tick(); // Allow observables to emit
-		expect(component.settings).toEqual(initialChatSettings);
-	}));
+	it('should initialize settings from UserService userProfile signal', async () => {
+		// Arrange
+		mockUserSignal.set({ ...mockUser, chat: { ...initialChatSettings, defaultLLM: 'test' } });
+		await po.detectAndWait(); // Ensure computed signal updates and UI reflects it
+
+		// Assert
+		expect(await po.getSliderValue('temperatureSlider')).toEqual(initialChatSettings.temperature);
+		expect(await po.getSliderValue('topPSlider')).toEqual(initialChatSettings.topP);
+		expect(await po.getSliderValue('topKSlider')).toEqual(initialChatSettings.topK);
+		expect(await po.getSliderValue('presencePenaltySlider')).toEqual(initialChatSettings.presencePenalty);
+		expect(await po.getSliderValue('frequencyPenaltySlider')).toEqual(initialChatSettings.frequencyPenalty);
+	});
 
 	describe('Chat Details Display', () => {
-		it('should display chat title and ID when chat input is provided', () => {
+		it('should display chat title and ID when chat input is provided', async () => {
+			// Arrange
 			const testChat: Chat = { id: 'chat123', title: 'Test Chat Title', updatedAt: Date.now(), userId: 'user1', messages: [] };
-			component.chat = signal(testChat) as any; // Use 'as any' if type issues with WritableSignal vs InputSignal
-			fixture.detectChanges();
+			fixture.componentRef.setInput('chat', testChat);
+			await po.detectAndWait();
 
-			const compiled = fixture.nativeElement as HTMLElement;
-			expect(compiled.textContent).toContain('Test Chat Title');
-			expect(compiled.textContent).toContain('chat123');
+			// Assert
+			expect(await po.getChatTitle()).toBe('Test Chat Title');
+			expect(await po.getChatId()).toBe('chat123');
+			expect(await po.getPanelTitle()).toBe('Chat Details & Settings');
 		});
 
-		it('should display "Untitled Chat" if chat title is empty', () => {
+		it('should display "Untitled Chat" if chat title is empty', async () => {
+			// Arrange
 			const testChat: Chat = { id: 'chat123', title: '', updatedAt: Date.now(), userId: 'user1', messages: [] };
-			component.chat = signal(testChat) as any;
-			fixture.detectChanges();
-			const compiled = fixture.nativeElement as HTMLElement;
-			expect(compiled.textContent).toContain('Untitled Chat');
+			fixture.componentRef.setInput('chat', testChat);
+			await po.detectAndWait();
+
+			// Assert
+			expect(await po.getChatTitle()).toBe('Untitled Chat');
+		});
+
+		it('should display "Chat Settings" as panel title if chat is new or not present', async () => {
+			// Arrange: No chat input or new-chat
+			fixture.componentRef.setInput('chat', { id: 'new-chat', title: '', updatedAt: Date.now(), userId: 'user1', messages: [] });
+			await po.detectAndWait();
+			// Assert
+			expect(await po.getPanelTitle()).toBe('Chat Settings');
+
+			// Arrange: Null chat input
+			fixture.componentRef.setInput('chat', null);
+			await po.detectAndWait();
+			// Assert
+			expect(await po.getPanelTitle()).toBe('Chat Settings');
 		});
 	});
 
 	describe('Settings Management', () => {
-		beforeEach(() => {
-			// Ensure settings are initialized
-			fixture.detectChanges(); // This will run constructor and ngOnInit logic
-			tick(); // For user$ emission
+		beforeEach(async () => {
+			// Ensure settings are initialized from a mock user
+			mockUserSignal.set({ ...mockUser, chat: { ...initialChatSettings, defaultLLM: 'test' } });
+			await po.detectAndWait();
 		});
 
-		it('should call saveSettings when onSettingChange is triggered', () => {
-			spyOn(component as any, 'saveSettings').and.callThrough();
-			mockUserService.update.and.returnValue(of({})); // Mock successful update
+		it('should call UserService.update with new settings when a slider changes', async () => {
+			// Arrange
+			mockUserService.update.and.returnValue(of(mockUser)); // Mock successful update
+			const newTemperature = 0.9;
 
-			component.settings.temperature = 0.9; // Simulate slider change
-			component.onSettingChange();
-			fixture.detectChanges();
+			// Act
+			await po.setSliderValue('temperatureSlider', newTemperature);
+			// detectAndWait is called within setSliderValue
 
-			expect((component as any).saveSettings).toHaveBeenCalled();
-			expect(mockUserService.update).toHaveBeenCalledWith({ chat: component.settings });
-			expect(component.settingsLoading()).toBeFalse(); // Assuming it resets
+			// Assert
+			const expectedSettings = { ...initialChatSettings, temperature: newTemperature };
+			expect(mockUserService.update).toHaveBeenCalledWith(jasmine.objectContaining({ chat: expectedSettings }));
+			expect(await po.isSettingsLoadingVisible()).toBeFalse(); // Should reset after call
+			expect(await po.getSettingsErrorText()).toBeNull();
 		});
 
-		it('should set settingsLoading and settingsError on saveSettings failure', () => {
+		it('should display error and hide loader on UserService.update failure', async () => {
+			// Arrange
 			mockUserService.update.and.returnValue(throwError(() => ({ error: { error: 'Update failed' } })));
-			component.settings.temperature = 0.9;
-			component.onSettingChange();
-			fixture.detectChanges();
+			const newTemperature = 0.9;
 
-			expect(component.settingsLoading()).toBeFalse(); // Finalize should set it to false
-			expect(component.settingsError()).toBe('Update failed');
+			// Act
+			await po.setSliderValue('temperatureSlider', newTemperature);
+
+			// Assert
+			expect(mockUserService.update).toHaveBeenCalled();
+			expect(await po.isSettingsLoadingVisible()).toBeFalse();
+			expect(await po.getSettingsErrorText()).toBe('Update failed');
 		});
 	});
 
 	describe('Edit Chat Name', () => {
 		const testChat: Chat = { id: 'chat-edit-id', title: 'Original Title', updatedAt: Date.now(), userId: 'user1', messages: [] };
 
-		beforeEach(() => {
-			component.chat = signal(testChat) as any;
-			fixture.detectChanges();
+		beforeEach(async () => {
+			fixture.componentRef.setInput('chat', testChat);
+			await po.detectAndWait();
 		});
 
-		it('should set isEditingName to true and populate editedName on startEditName', () => {
-			component.startEditName();
-			expect(component.isEditingName()).toBeTrue();
-			expect(component.editedName()).toBe('Original Title');
+		it('should enter edit mode, show input with current title, and hide edit button', async () => {
+			// Act
+			await po.clickEditNameButton();
+
+			// Assert
+			expect(await po.isNameInputVisible()).toBeTrue();
+			expect(await po.getNameInputValue()).toBe('Original Title');
+			expect(await po.isSaveNameButtonVisible()).toBeTrue();
+			expect(await po.isCancelEditNameButtonVisible()).toBeTrue();
+			expect(await po.isEditNameButtonVisible()).toBeFalse();
 		});
 
-		it('should set isEditingName to false on cancelEditName', () => {
-			component.startEditName(); // Go into edit mode
-			component.cancelEditName();
-			expect(component.isEditingName()).toBeFalse();
+		it('should exit edit mode on cancel, hide input, and show edit button', async () => {
+			// Arrange
+			await po.clickEditNameButton(); // Enter edit mode
+
+			// Act
+			await po.clickCancelEditNameButton();
+
+			// Assert
+			expect(await po.isNameInputVisible()).toBeFalse();
+			expect(await po.isEditNameButtonVisible()).toBeTrue();
 		});
 
-		it('should call chatService.updateChatDetails on saveName and reset editing state', () => {
+		it('should call ChatService.updateChatDetails on save, then exit edit mode', async () => {
+			// Arrange
 			mockChatService.updateChatDetails.and.returnValue(of(null)); // Mock successful update
-			component.startEditName();
-			component.editedName.set('New Chat Title');
-			component.saveName();
-			fixture.detectChanges();
+			const newTitle = 'New Chat Title';
+			await po.clickEditNameButton(); // Enter edit mode
 
-			expect(mockChatService.updateChatDetails).toHaveBeenCalledWith('chat-edit-id', { title: 'New Chat Title' });
-			expect(component.isSavingName()).toBeFalse(); // Assuming it resets
-			expect(component.isEditingName()).toBeFalse();
+			// Act
+			await po.typeNameInInput(newTitle);
+			await po.clickSaveNameButton();
+
+			// Assert
+			expect(mockChatService.updateChatDetails).toHaveBeenCalledWith('chat-edit-id', { title: newTitle });
+			expect(await po.isNameSavingVisible()).toBeFalse(); // Spinner should be gone
+			expect(await po.isNameInputVisible()).toBeFalse(); // Back to display mode
+			expect(await po.isEditNameButtonVisible()).toBeTrue();
+			// The title itself should update if the service call leads to the input signal changing.
+			// This test focuses on the interaction; a separate test could verify the title update if needed.
 		});
 
-		it('should handle error when saveName fails', () => {
+		it('should handle error from ChatService.updateChatDetails and exit edit mode', async () => {
+			// Arrange
 			mockChatService.updateChatDetails.and.returnValue(throwError(() => new Error('Update failed')));
-			component.startEditName();
-			component.editedName.set('New Chat Title');
-			component.saveName();
-			fixture.detectChanges();
+			const newTitle = 'New Chat Title';
+			await po.clickEditNameButton();
 
-			expect(mockChatService.updateChatDetails).toHaveBeenCalled();
-			expect(component.isSavingName()).toBeFalse();
-			expect(component.isEditingName()).toBeFalse(); // Should still reset editing mode on finalize
-			// Add error handling checks if UI shows errors for name saving
+			// Act
+			await po.typeNameInInput(newTitle);
+			await po.clickSaveNameButton();
+
+			// Assert
+			expect(mockChatService.updateChatDetails).toHaveBeenCalledWith('chat-edit-id', { title: newTitle });
+			expect(await po.isNameSavingVisible()).toBeFalse();
+			expect(await po.isNameInputVisible()).toBeFalse(); // Should still exit edit mode
+			expect(await po.isEditNameButtonVisible()).toBeTrue();
+			// Optionally check for an error message if the UI displays one for this specific error
 		});
 	});
 
 	describe('Delete Chat', () => {
 		const testChat: Chat = { id: 'chat-delete-id', title: 'To Be Deleted', updatedAt: Date.now(), userId: 'user1', messages: [] };
+		let confirmSpy: jasmine.Spy;
 
-		beforeEach(() => {
-			component.chat = signal(testChat) as any;
-			spyOn(window, 'confirm').and.returnValue(true); // Auto-confirm deletion
-			fixture.detectChanges();
+		beforeEach(async () => {
+			fixture.componentRef.setInput('chat', testChat);
+			confirmSpy = spyOn(window, 'confirm');
+			await po.detectAndWait();
 		});
 
-		it('should call chatService.deleteChat, close drawer, and navigate on deleteChat', () => {
+		it('should call ChatService.deleteChat, close drawer, and navigate on confirmed delete', async () => {
+			// Arrange
+			confirmSpy.and.returnValue(true);
 			mockChatService.deleteChat.and.returnValue(of(undefined)); // Mock successful deletion
-			component.deleteChat();
-			fixture.detectChanges();
 
+			// Act
+			await po.clickDeleteChatButton();
+
+			// Assert
+			expect(confirmSpy).toHaveBeenCalled();
 			expect(mockChatService.deleteChat).toHaveBeenCalledWith('chat-delete-id');
-			expect(component.isDeletingChat()).toBeFalse(); // Assuming it resets
+			expect(await po.isChatDeletingVisible()).toBeFalse(); // Spinner gone
 			expect(mockMatDrawer.close).toHaveBeenCalled();
 			expect(mockRouter.navigate).toHaveBeenCalledWith(['/apps/chat']);
 		});
 
-		it('should not call deleteChat if confirmation is cancelled', () => {
-			(window.confirm as jasmine.Spy).and.returnValue(false);
-			component.deleteChat();
+		it('should not call ChatService.deleteChat if confirmation is cancelled', async () => {
+			// Arrange
+			confirmSpy.and.returnValue(false);
+
+			// Act
+			await po.clickDeleteChatButton();
+
+			// Assert
+			expect(confirmSpy).toHaveBeenCalled();
 			expect(mockChatService.deleteChat).not.toHaveBeenCalled();
+			expect(await po.isChatDeletingVisible()).toBeFalse();
 		});
 
-		it('should handle error when deleteChat fails', () => {
+		it('should handle error from ChatService.deleteChat', async () => {
+			// Arrange
+			confirmSpy.and.returnValue(true);
 			mockChatService.deleteChat.and.returnValue(throwError(() => new Error('Deletion failed')));
-			component.deleteChat();
-			fixture.detectChanges();
 
-			expect(mockChatService.deleteChat).toHaveBeenCalled();
-			expect(component.isDeletingChat()).toBeFalse(); // Finalize should set it to false
-			// Add error handling checks if UI shows errors for deletion
+			// Act
+			await po.clickDeleteChatButton();
+
+			// Assert
+			expect(mockChatService.deleteChat).toHaveBeenCalledWith('chat-delete-id');
+			expect(await po.isChatDeletingVisible()).toBeFalse(); // Spinner should be gone
+			// Optionally check for an error message if the UI displays one
 		});
 	});
 
-	it('databaseUrl should return correct URL', () => {
+	it('databaseUrl should return correct URL via PO', async () => {
+		// Arrange
 		const testChat: Chat = { id: 'chat-db-url-id', title: 'DB URL Test', updatedAt: Date.now(), userId: 'user1', messages: [] };
-		component.chat = signal(testChat) as any;
-		fixture.detectChanges();
-		// This test depends on the implementation of GoogleCloudLinks or whatever AgentLinks is used.
-		// For simplicity, we'll just check it doesn't throw and returns a string.
-		expect(component.databaseUrl()).toContain('chat-db-url-id');
+		fixture.componentRef.setInput('chat', testChat);
+		await po.detectAndWait();
+
+		// Assert
+		const dbUrl = await po.getDatabaseUrl();
+		expect(dbUrl).toBeTruthy();
+		expect(dbUrl).toContain('chat-db-url-id');
 	});
 });

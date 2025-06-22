@@ -1,20 +1,12 @@
 import readline from 'readline';
 import { logger } from '#o11y/logger';
-/**
- * Adding a human in the loop, so it doesn't consume all of your budget
- */
-import { startSpan, withSpan } from '#o11y/trace';
+import { withSpan } from '#o11y/trace';
 import type { AgentContext } from '#shared/agent/agent.model';
 import { Slack } from '#slack/slack';
-import { sleep } from '#utils/async-utils';
 import { beep } from '#utils/beep';
 
-export async function waitForConsoleInput(humanInLoopReason: string) {
+export async function waitForConsoleInput(agent: AgentContext, humanInLoopReason: string) {
 	await withSpan('consoleHumanInLoop', async () => {
-		// The span is created by withSpan, so the inner startSpan call was redundant.
-
-		// await appContext().agentContextService.updateState(agentContextStorage.getStore(), 'humanInLoop_agent');
-
 		const rl = readline.createInterface({
 			input: process.stdin,
 			output: process.stdout,
@@ -38,6 +30,7 @@ export async function waitForConsoleInput(humanInLoopReason: string) {
 
 			logger.flush();
 
+			console.log(`Agent: ${agent.name}`);
 			await question(`Human-in-the-loop check: ${humanInLoopReason} \nPress enter to continue...`);
 		} finally {
 			if (beepIntervalId) clearInterval(beepIntervalId);
@@ -58,6 +51,6 @@ export async function notifySupervisor(agent: AgentContext, message: string) {
 	}
 }
 
-export async function humanInTheLoop(reason: string) {
-	await waitForConsoleInput(reason);
+export async function humanInTheLoop(agent: AgentContext, reason: string) {
+	await waitForConsoleInput(agent, reason);
 }

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, type OnDestroy, type OnInit, ViewEncapsulation, computed, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, ViewEncapsulation, computed, inject } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatButtonModule } from '@angular/material/button';

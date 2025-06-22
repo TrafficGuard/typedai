@@ -1,10 +1,8 @@
 import { BaseLLM } from '#llm/base-llm';
 import { getLLM } from '#llm/llmFactory';
+import { FastMediumLLM } from '#llm/multi-agent/fastMedium';
 import { Claude4_Opus_Vertex, Claude4_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
-import { cerebrasQwen3_32b } from '#llm/services/cerebras';
 import { deepinfraDeepSeekR1 } from '#llm/services/deepinfra';
-import { deepSeekR1, deepSeekV3 } from '#llm/services/deepseek';
-import { Gemini_2_5_Pro } from '#llm/services/gemini';
 import { openAIo3, openAIo4mini } from '#llm/services/openai';
 import { vertexGemini_2_5_Pro } from '#llm/services/vertexai';
 import { logger } from '#o11y/logger';
@@ -53,6 +51,7 @@ export function MoA_reasoningLLMRegistry(): Record<string, () => LLM> {
 		'MAD:Cost': MAD_Cost,
 		'MAD:Fast': MAD_Fast,
 		'MAD:SOTA': MAD_SOTA,
+		'MAD:Balanced': MAD_Balanced,
 	};
 }
 
@@ -66,11 +65,13 @@ export function MAD_Cost(): LLM {
 }
 
 export function MAD_Fast(): LLM {
+	const fastMedium = new FastMediumLLM();
+	const fastMediumFactory = () => fastMedium;
 	return new ReasonerDebateLLM(
 		'Fast',
-		cerebrasQwen3_32b,
-		[cerebrasQwen3_32b, cerebrasQwen3_32b, cerebrasQwen3_32b],
-		'MAD:Fast multi-agent debate (Cerebras Qwen3 32b)',
+		fastMediumFactory,
+		[fastMediumFactory, fastMediumFactory, fastMediumFactory],
+		'MAD:Fast multi-agent debate (Cerebras Qwen3 32b, Flash 2.5 fallback)',
 	);
 }
 
@@ -78,8 +79,8 @@ export function MAD_Balanced(): LLM {
 	return new ReasonerDebateLLM(
 		'Balanced',
 		vertexGemini_2_5_Pro,
-		[vertexGemini_2_5_Pro, Claude4_Sonnet_Vertex, openAIo4mini],
-		'MAD:Balanced multi-agent debate (Gemini 2.5 Pro, Sonnet 4, o4-mini)',
+		[vertexGemini_2_5_Pro, Claude4_Sonnet_Vertex, openAIo3],
+		'MAD:Balanced multi-agent debate (Gemini 2.5 Pro, Sonnet 4, o3)',
 	);
 }
 
@@ -139,11 +140,9 @@ export class ReasonerDebateLLM extends BaseLLM {
 
 	isConfigured(): boolean {
 		for (const llm of this.llms) {
-			if (!llm.isConfigured()) logger.warn(`${llm.getId()} is not configured`);
+			if (!llm.isConfigured()) return false;
 		}
-		if (!this.mediator.isConfigured()) logger.warn(`Mediator ${this.mediator.getId()} is not configured`);
-		// return this.mediator.isConfigured() && this.llms.findIndex((llm) => !llm.isConfigured()) === -1;
-		return true;
+		return this.mediator.isConfigured();
 	}
 
 	getModel(): string {
@@ -155,6 +154,15 @@ export class ReasonerDebateLLM extends BaseLLM {
 	}
 
 	protected async _generateMessage(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<LlmMessage> {
+		opts ??= {};
+		// Use 'thinking' as the number of debate rounds
+		let rounds = 1;
+		if (opts.thinking === 'high') rounds = 3;
+		else if (opts.thinking === 'medium') rounds = 2;
+
+		// We want the actuall LLM calls to use high thinking
+		opts.thinking = 'high';
+
 		const readOnlyMessages = llmMessages as ReadonlyArray<Readonly<LlmMessage>>;
 		const totalStats: GenerationStats = createEmptyStats(this.getId());
 
@@ -163,7 +171,7 @@ export class ReasonerDebateLLM extends BaseLLM {
 		initialResponseMessages.forEach((msg) => accumulateStats(totalStats, msg.stats));
 
 		logger.info('Debating responses');
-		const debatedResponseMessages = await this.multiAgentDebate(readOnlyMessages, initialResponseMessages, opts);
+		const debatedResponseMessages = await this.multiAgentDebate(readOnlyMessages, initialResponseMessages, opts, rounds);
 		debatedResponseMessages.forEach((msg) => accumulateStats(totalStats, msg.stats));
 
 		logger.info('Mediating response');
@@ -184,8 +192,8 @@ export class ReasonerDebateLLM extends BaseLLM {
 	private async multiAgentDebate(
 		llmMessages: ReadonlyArray<Readonly<LlmMessage>>,
 		initialMessages: ReadonlyArray<LlmMessage>, // Changed from responses: string[]
-		opts?: GenerateTextOptions,
-		rounds = 2,
+		opts: GenerateTextOptions,
+		rounds: number,
 	): Promise<LlmMessage[]> {
 		const effectiveOpts = { ...opts, temperature: DEBATE_TEMP };
 		let currentRoundMessages: ReadonlyArray<LlmMessage> = initialMessages;

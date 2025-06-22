@@ -1,17 +1,6 @@
 import { animate, style, transition, trigger } from '@angular/animations';
 import { CommonModule, JsonPipe, KeyValuePipe } from '@angular/common';
-import {
-	ChangeDetectionStrategy,
-	Component,
-	DestroyRef,
-	type OnDestroy,
-	ViewEncapsulation,
-	WritableSignal,
-	computed,
-	inject,
-	input,
-	signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnDestroy, ViewEncapsulation, WritableSignal, computed, inject, input, signal } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';

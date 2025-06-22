@@ -1,10 +1,11 @@
 import { CommonModule, Location } from '@angular/common';
 import { ChangeDetectorRef, NO_ERRORS_SCHEMA } from '@angular/core';
-import { signal } from '@angular/core';
+import { signal, type WritableSignal, type Signal } from '@angular/core';
 import { fakeAsync, tick } from '@angular/core/testing';
-import { type ComponentFixture, TestBed } from '@angular/core/testing';
-import { FormBuilder, type FormGroup } from '@angular/forms';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { FormBuilder, FormGroup } from '@angular/forms';
 import { ReactiveFormsModule } from '@angular/forms';
+import { ApiListState, createApiListState } from '../../../core/api-state.types';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatChipInputEvent } from '@angular/material/chips';
@@ -23,6 +24,7 @@ import { By } from '@angular/platform-browser';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { of } from 'rxjs';
+import { MatExpansionModule } from '@angular/material/expansion';
 import { FilePartExt, ImagePartExt, LlmMessage, TextPart, UserContentExt } from '#shared/llm/llm.model';
 import { Prompt } from '#shared/prompts/prompts.model';
 import { PromptSchemaModel } from '#shared/prompts/prompts.schema';
@@ -57,9 +59,15 @@ const mockPromptSchema = mockPrompt as PromptSchemaModel; // This cast might nee
 
 describe('PromptFormComponent', () => {
 	let component: PromptFormComponent;
+	// Corrected type for fixture
 	let fixture: ComponentFixture<PromptFormComponent>;
 	let mockPromptsService: jasmine.SpyObj<PromptsService>;
-	let mockLlmService: jasmine.SpyObj<LlmService>;
+	// Change mockLlmService declaration type to include the methods and properties we'll mock
+	let mockLlmService: jasmine.SpyObj<Pick<LlmService, 'refreshLlms' | 'clearCache'>> & {
+		loadLlms: jasmine.Spy;
+		// Modified type for llmsState
+		llmsState: Signal<ApiListState<AppLLM>>;
+	};
 	let mockRouter: jasmine.SpyObj<Router>;
 	let mockLocation: jasmine.SpyObj<Location>;
 	let mockActivatedRoute: any;
@@ -68,8 +76,25 @@ describe('PromptFormComponent', () => {
 	beforeEach(async () => {
 		mockPromptsService = jasmine.createSpyObj('PromptsService', ['createPrompt', 'updatePrompt', 'getPromptById', 'clearSelectedPrompt']);
 
-		mockLlmService = jasmine.createSpyObj('LlmService', ['getLlms', 'clearCache']);
-		mockLlmService.loadLlms.and.returnValue(of(mockLlms));
+		// Refined LlmService mock
+		// Use createApiListState for initial state to match service's type
+		const llmsStateSignal: WritableSignal<ApiListState<AppLLM>> = createApiListState<AppLLM>();
+
+
+		// Create a spy object for methods that are simple spies
+		const spiedMethods = jasmine.createSpyObj<Pick<LlmService, 'refreshLlms' | 'clearCache'>>('LlmService', ['refreshLlms', 'clearCache']);
+
+		mockLlmService = {
+			...spiedMethods,
+			llmsState: llmsStateSignal.asReadonly(),
+			loadLlms: jasmine.createSpy('loadLlms').and.callFake(() => {
+				llmsStateSignal.set({ status: 'loading' });
+				// Simulate async loading and state update, similar to how the actual service would work with an HTTP call
+				Promise.resolve().then(() => { // Using Promise.resolve().then() ensures this runs in a microtask
+					llmsStateSignal.set({ status: 'success', data: mockLlms });
+				});
+			}),
+		};
 
 		mockRouter = jasmine.createSpyObj('Router', ['navigate']);
 		mockLocation = jasmine.createSpyObj('Location', ['back']);
@@ -98,8 +123,8 @@ describe('PromptFormComponent', () => {
 				MatSelectModule,
 				MatTooltipModule,
 				MatToolbarModule,
-				MatSelectModule,
 				MatSliderModule,
+				MatExpansionModule,
 			],
 			providers: [
 				FormBuilder,
@@ -109,9 +134,8 @@ describe('PromptFormComponent', () => {
 				{ provide: Location, useValue: mockLocation },
 				{ provide: ActivatedRoute, useValue: mockActivatedRoute },
 				{ provide: MatSnackBar, useValue: jasmine.createSpyObj('MatSnackBar', ['open']) },
-				// NO_ERRORS_SCHEMA should be in the 'schemas' array, not providers
 			],
-			schemas: [NO_ERRORS_SCHEMA], // Ensure this line is present and correct
+			schemas: [NO_ERRORS_SCHEMA],
 		}).compileComponents();
 
 		fixture = TestBed.createComponent(PromptFormComponent);
@@ -374,6 +398,11 @@ describe('PromptFormComponent', () => {
 				expect(maxOutputTokensControl?.hasError('min')).toBeTrue();
 			});
 
+			it('should be invalid for value > 64000', () => {
+				maxOutputTokensControl?.setValue(64001);
+				expect(maxOutputTokensControl?.hasError('max')).toBeTrue();
+			});
+
 			it('should be invalid for non-integer pattern (text)', () => {
 				maxOutputTokensControl?.setValue('abc');
 				expect(maxOutputTokensControl?.hasError('pattern')).toBeTrue();
@@ -386,6 +415,11 @@ describe('PromptFormComponent', () => {
 
 			it('should be valid for a correct integer value like 2048', () => {
 				maxOutputTokensControl?.setValue(2048);
+				expect(maxOutputTokensControl?.valid).toBeTrue();
+			});
+
+			it('should be valid for a correct integer value of 64000', () => {
+				maxOutputTokensControl?.setValue(64000);
 				expect(maxOutputTokensControl?.valid).toBeTrue();
 			});
 		});
@@ -403,11 +437,12 @@ describe('PromptFormComponent', () => {
 	});
 
 	it('ngOnDestroy should complete destroy$ subject', () => {
-		spyOn(component.destroy$, 'next');
-		spyOn(component.destroy$, 'complete');
+		// Cast component to any to access private member
+		spyOn((component as any).destroy$, 'next');
+		spyOn((component as any).destroy$, 'complete');
 		component.ngOnDestroy();
-		expect(component.destroy$.next).toHaveBeenCalled();
-		expect(component.destroy$.complete).toHaveBeenCalled();
+		expect((component as any).destroy$.next).toHaveBeenCalled();
+		expect((component as any).destroy$.complete).toHaveBeenCalled();
 	});
 
 	describe('Toolbar', () => {
@@ -795,7 +830,8 @@ describe('PromptFormComponent', () => {
 
 	// TODO: Enable and fix these tests for attachment functionality.
 	// Refactoring to fakeAsync and signal-aware testing for attachments requires more detailed changes.
-	describe.skip('Attachment Functionality', () => {
+	// Use xdescribe to skip this block
+	xdescribe('Attachment Functionality', () => {
 		it('should allow adding an attachment via file input', () => {
 			// Test onFileSelected
 		});

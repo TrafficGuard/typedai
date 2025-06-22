@@ -10,3 +10,22 @@ export type FileEditBlocks = Map<string, EditBlock[]>;
     Parsing logic is only implemented for 'diff' and 'diff-fenced' for now;
     the others will fall back to the 'diff' parser (handled in dispatcher). */
 export type EditFormat = 'diff' | 'diff-fenced' | 'whole' | 'architect';
+
+export interface RequestedFileEntry {
+	filePath: string;
+	reason: string;
+}
+
+export interface RequestedQueryEntry {
+	query: string;
+}
+
+export interface RequestedPackageInstallEntry {
+	packageName: string;
+	reason: string;
+}
+
+export interface ValidationIssue {
+	file: string;
+	reason: string;
+}

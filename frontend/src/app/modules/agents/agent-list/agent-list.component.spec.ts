@@ -1,16 +1,17 @@
 import { CommonModule } from '@angular/common';
-import { type WritableSignal, effect, signal } from '@angular/core';
-import { type ComponentFixture, TestBed, fakeAsync, tick, waitForAsync } from '@angular/core/testing';
+import { WritableSignal } from '@angular/core';
+import { ComponentFixture, TestBed, fakeAsync, tick, waitForAsync } from '@angular/core/testing';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { RouterTestingModule } from '@angular/router/testing';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
-import { type Observable, of } from 'rxjs';
-import { AgentContextPreview, AgentRunningState, AgentType } from '#shared/agent/agent.model';
-import { type ApiListState, createApiListState } from '../../../core/api-state.types';
+import { Observable, of } from 'rxjs';
+import { Agent, AgentContextPreview, AgentRunningState } from '#shared/agent/agent.model';
+import { ApiListState, createApiListState } from '../../../core/api-state.types';
 import { AgentService } from '../agent.service';
 import { AgentListComponent } from './agent-list.component';
+import { AgentListPo } from './agent-list.component.po';
 
 // Helper to create a minimal valid AgentContextPreview
 const createMockAgentPreviewApi = (id: string, name: string, state: AgentRunningState): AgentContextPreview => ({
@@ -25,9 +26,6 @@ const createMockAgentPreviewApi = (id: string, name: string, state: AgentRunning
 	user: '',
 	inputPrompt: '',
 	lastUpdate: Date.now(),
-
-	// subtype: 'xml', // Add if part of AgentContextPreview and used
-	// lastUpdate: Date.now(), // Add if part of AgentContextPreview and used
 });
 
 class MockAgentService {
@@ -35,7 +33,7 @@ class MockAgentService {
 	readonly agentsState;
 
 	constructor() {
-		this._agentsStateSignal = createApiListState<AgentContextPreview>(); // Initializes to { status: 'idle' }
+		this._agentsStateSignal = createApiListState<AgentContextPreview>();
 		this.agentsState = this._agentsStateSignal.asReadonly();
 	}
 
@@ -49,8 +47,6 @@ class MockAgentService {
 
 	refreshAgents() {
 		this._agentsStateSignal.set({ status: 'loading' });
-		// In a real service, an HTTP call would follow.
-		// For the mock, the test will then call setAgentsData or setAgentsState to simulate response.
 	}
 
 	deleteAgents(agentIds: string[]): Observable<void> {
@@ -65,7 +61,7 @@ class MockAgentService {
 
 class MockFuseConfirmationService {
 	open() {
-		return { afterClosed: () => of('confirmed') };
+		return { afterClosed: () => of('confirmed') }; // Default to confirmed for most tests
 	}
 }
 
@@ -74,6 +70,7 @@ describe('AgentListComponent', () => {
 	let fixture: ComponentFixture<AgentListComponent>;
 	let mockAgentService: MockAgentService;
 	let mockFuseConfirmationService: MockFuseConfirmationService;
+	let po: AgentListPo;
 
 	const mockAgentsData: AgentContextPreview[] = [
 		createMockAgentPreviewApi('id1', 'Agent Alpha', 'completed'),
@@ -82,15 +79,7 @@ describe('AgentListComponent', () => {
 
 	beforeEach(waitForAsync(() => {
 		TestBed.configureTestingModule({
-			imports: [
-				AgentListComponent, // Import standalone component
-				NoopAnimationsModule,
-				RouterTestingModule,
-				MatSnackBarModule,
-				FormsModule,
-				ReactiveFormsModule,
-				CommonModule,
-			],
+			imports: [AgentListComponent, NoopAnimationsModule, RouterTestingModule, MatSnackBarModule, FormsModule, ReactiveFormsModule, CommonModule],
 			providers: [
 				{ provide: AgentService, useClass: MockAgentService },
 				{ provide: FuseConfirmationService, useClass: MockFuseConfirmationService },
@@ -98,166 +87,221 @@ describe('AgentListComponent', () => {
 		}).compileComponents();
 	}));
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		fixture = TestBed.createComponent(AgentListComponent);
 		component = fixture.componentInstance;
 		mockAgentService = TestBed.inject(AgentService) as unknown as MockAgentService;
 		mockFuseConfirmationService = TestBed.inject(FuseConfirmationService) as unknown as MockFuseConfirmationService;
-
-		// Initial state is 'idle' from createApiListState, no data set yet.
-		fixture.detectChanges(); // Trigger ngOnInit and initial signal setup
+		po = await AgentListPo.create(fixture);
+		// fixture.detectChanges() is called by AgentListPo.create, triggers ngOnInit
 	});
 
-	it('should create', () => {
+	it('should create and be in idle state initially', async () => {
 		expect(component).toBeTruthy();
+		expect(await po.isLoading()).toBeTrue(); // idle state also implies loading from component's computed signal
 		expect(component.agentsState().status).toBe('idle');
 	});
 
-	it('should display agents when agentsState is success', fakeAsync(() => {
+	it('should display agents when data is loaded successfully', async () => {
+		// Arrange
 		mockAgentService.setAgentsData([...mockAgentsData]);
-		tick();
-		fixture.detectChanges();
+		await po.detectAndWait(); // Allow signals and DOM to update
 
-		const state = component.agentsState();
-		expect(state.status).toBe('success');
-		if (state.status === 'success') {
-			expect(state.data.length).toBe(2);
-			expect(state.data[0].name).toBe('Agent Alpha');
-		}
-	}));
+		// Assert
+		expect(await po.isLoading()).toBeFalse();
+		const displayedIds = await po.getDisplayedAgentIds();
+		expect(displayedIds.length).toBe(2);
+		expect(displayedIds).toContain('id1');
+		expect(displayedIds).toContain('id2');
+		expect(await po.getAgentName('id1')).toBe('Agent Alpha');
+		expect(await po.getAgentState('id1')).toBe('completed'); // Assuming data-testid="agent-state-id1" shows this
+	});
 
-	it('trackByFn should return agentId or index', () => {
-		// trackByFn operates on the data array, so mockAgentsData is fine here
+	it('should show "no agents" message when data is empty', async () => {
+		// Arrange
+		mockAgentService.setAgentsData([]);
+		await po.detectAndWait();
+
+		// Assert
+		expect(await po.isLoading()).toBeFalse();
+		expect(await po.getDisplayedAgentIds()).toEqual([]);
+		expect(await po.getNoAgentsMessageText()).toContain('No agents found');
+	});
+
+	it('trackByFn should return agentId or index (non-PO test, component logic)', () => {
 		expect(component.trackByFn(0, mockAgentsData[0])).toBe('id1');
-		const agentWithoutId = { ...mockAgentsData[0], agentId: '' }; // Create a version without agentId
+		const agentWithoutId = { ...mockAgentsData[0], agentId: '' };
 		expect(component.trackByFn(1, agentWithoutId)).toBe(1);
 	});
 
-	it('refreshAgents should call agentService.refreshAgents and set isLoading and agentsState to loading', fakeAsync(() => {
-		spyOn(mockAgentService, 'refreshAgents').and.callThrough();
-		component.isLoading.set(false); // Ensure it's false
-		mockAgentService.setAgentsState({ status: 'idle' }); // Start from idle
-		tick();
-		fixture.detectChanges();
+	it('should refresh agents when refresh button is clicked', async () => {
+		// Arrange
+		const refreshSpy = spyOn(mockAgentService, 'refreshAgents').and.callThrough();
+		mockAgentService.setAgentsData([]); // Initial empty state
+		await po.detectAndWait();
+		expect(await po.isLoading()).toBeFalse(); // Starts not loading
 
-		component.refreshAgents();
-		tick(); // Allow signal updates and effects
+		// Act
+		await po.clickRefreshButton(); // This calls detectAndWait internally
 
-		expect(component.isLoading()).toBeTrue();
-		expect(component.agentsState().status).toBe('loading');
-		expect(mockAgentService.refreshAgents).toHaveBeenCalled();
+		// Assert
+		expect(refreshSpy).toHaveBeenCalled();
+		expect(await po.isLoading()).toBeTrue(); // Should be loading now
 
 		// Simulate data arrival
 		mockAgentService.setAgentsData([...mockAgentsData]);
-		tick(); // Allow effect to run (component's isLoading should update)
-		fixture.detectChanges();
-
-		expect(component.isLoading()).toBeFalse();
-		expect(component.agentsState().status).toBe('success');
-	}));
-
-	it('deleteSelectedAgents should do nothing if no agents are selected', () => {
-		spyOn(mockFuseConfirmationService, 'open').and.callThrough();
-		component.selection.clear();
-		component.deleteSelectedAgents();
-		expect(mockFuseConfirmationService.open).not.toHaveBeenCalled();
+		await po.detectAndWait();
+		expect(await po.isLoading()).toBeFalse();
+		expect((await po.getDisplayedAgentIds()).length).toBe(2);
 	});
 
-	it('deleteSelectedAgents should call confirmation, then service, and update isLoading and selection', fakeAsync(() => {
-		spyOn(mockFuseConfirmationService, 'open').and.returnValue({ afterClosed: () => of('confirmed') });
-		const deleteServiceSpy = spyOn(mockAgentService, 'deleteAgents').and.callThrough();
-
-		// Setup initial state with data
+	it('should not open confirmation if no agents are selected for deletion', async () => {
+		// Arrange
+		const confirmOpenSpy = spyOn(mockFuseConfirmationService, 'open').and.callThrough();
 		mockAgentService.setAgentsData([...mockAgentsData]);
-		tick();
-		fixture.detectChanges();
+		await po.detectAndWait();
+		// Ensure nothing is selected
+		expect(await po.getSelectedAgentIds()).toEqual([]);
 
-		component.selection.select(mockAgentsData[0]);
-		component.isLoading.set(false); // Ensure isLoading is false before action
-		tick();
+		// Act
+		await po.clickDeleteSelectedAgentsButton();
 
-		component.deleteSelectedAgents();
-		tick(); // For afterClosed promise
+		// Assert
+		expect(confirmOpenSpy).not.toHaveBeenCalled();
+	});
 
-		expect(mockFuseConfirmationService.open).toHaveBeenCalled();
-		expect(component.isLoading()).toBeTrue(); // isLoading set by component before service call
+	it('should delete selected agents after confirmation', async () => {
+		// Arrange
+		const confirmOpenSpy = spyOn(mockFuseConfirmationService, 'open').and.returnValue({ afterClosed: () => of('confirmed') });
+		const deleteServiceSpy = spyOn(mockAgentService, 'deleteAgents').and.callThrough();
+		mockAgentService.setAgentsData([...mockAgentsData]);
+		await po.detectAndWait();
 
-		// deleteAgents in mock service updates the signal.
-		// The component's effect watching agentsState should update isLoading.
-		tick(); // For service call and subsequent signal/effect processing
-		fixture.detectChanges();
+		await po.clickAgentRowCheckbox('id1'); // Select 'Agent Alpha'
+		expect(await po.isAgentRowCheckboxChecked('id1')).toBeTrue();
+		expect(await po.getSelectedAgentIds()).toEqual(['id1']);
 
-		expect(deleteServiceSpy).toHaveBeenCalledWith([mockAgentsData[0].agentId]);
-		expect(component.isLoading()).toBeFalse(); // isLoading set by component's effect
+		// Act
+		await po.clickDeleteSelectedAgentsButton(); // This calls detectAndWait
 
-		const state = component.agentsState();
-		expect(state.status).toBe('success');
-		if (state.status === 'success') {
-			expect(state.data.length).toBe(1);
-			expect(state.data[0].agentId).toBe('id2');
-		}
-		expect(component.selection.isEmpty()).toBeTrue();
-	}));
+		// Assert
+		expect(confirmOpenSpy).toHaveBeenCalled();
+		// isLoading becomes true due to service call initiation logic in component, then false after completion.
+		// The PO's isLoading checks the DOM state which reflects the component's computed signal.
+		// The mock service updates the state synchronously, so the loading state might be brief.
+		// We'll check the end state.
+		expect(deleteServiceSpy).toHaveBeenCalledWith(['id1']);
+		await po.detectAndWait(); // Ensure DOM updates after delete
 
-	it('getStateClass should return correct CSS class string', () => {
+		expect(await po.isLoading()).toBeFalse();
+		const displayedIds = await po.getDisplayedAgentIds();
+		expect(displayedIds.length).toBe(1);
+		expect(displayedIds[0]).toBe('id2');
+		expect(await po.getSelectedAgentIds()).toEqual([]); // Selection should be cleared
+	});
+
+	it('should not delete agents if confirmation is cancelled', async () => {
+		// Arrange
+		const confirmOpenSpy = spyOn(mockFuseConfirmationService, 'open').and.returnValue({ afterClosed: () => of('cancelled') });
+		const deleteServiceSpy = spyOn(mockAgentService, 'deleteAgents').and.callThrough();
+		mockAgentService.setAgentsData([...mockAgentsData]);
+		await po.detectAndWait();
+		await po.clickAgentRowCheckbox('id1');
+
+		// Act
+		await po.clickDeleteSelectedAgentsButton();
+
+		// Assert
+		expect(confirmOpenSpy).toHaveBeenCalled();
+		expect(deleteServiceSpy).not.toHaveBeenCalled();
+		expect((await po.getDisplayedAgentIds()).length).toBe(2); // No change in displayed agents
+		expect(await po.isAgentRowCheckboxChecked('id1')).toBeTrue(); // Still selected
+	});
+
+	it('getStateClass should return correct CSS class string (non-PO test, component logic)', () => {
 		expect(component.getStateClass('completed')).toBe('state-completed');
-		expect(component.getStateClass('Agent')).toBe('state-agent');
+		expect(component.getStateClass('Agent')).toBe('state-agent'); // Note: case sensitivity from spec
 		expect(component.getStateClass('ERROR')).toBe('state-error');
 	});
 
-	it('masterToggle should select all if not all selected, or clear if all selected', fakeAsync(() => {
+	it('master toggle should select all agents if none or some are selected', async () => {
+		// Arrange
 		mockAgentService.setAgentsData([...mockAgentsData]);
-		tick();
-		fixture.detectChanges();
+		await po.detectAndWait();
+		expect(await po.isMasterToggleChecked()).toBeFalse();
+		expect(await po.getSelectedAgentIds()).toEqual([]);
 
-		// Ensure component.agents() (derived from agentsState) is populated for selection logic
-		const state = component.agentsState();
-		if (state.status !== 'success') throw new Error('Agents not loaded for masterToggle test');
+		// Act: Select all
+		await po.clickMasterToggle();
 
-		expect(component.selection.isEmpty()).toBeTrue();
-		component.masterToggle(); // Should select all
-		expect(component.selection.selected.length).toBe(mockAgentsData.length);
+		// Assert: All selected
+		expect(await po.isMasterToggleChecked()).toBeTrue();
+		expect(await po.isAgentRowCheckboxChecked('id1')).toBeTrue();
+		expect(await po.isAgentRowCheckboxChecked('id2')).toBeTrue();
+		expect((await po.getSelectedAgentIds()).length).toBe(2);
+	});
 
-		component.masterToggle(); // Should clear selection
-		expect(component.selection.isEmpty()).toBeTrue();
-	}));
-
-	it('isAllSelected should return true if all agents are selected, false otherwise', fakeAsync(() => {
+	it('master toggle should clear selection if all agents are selected', async () => {
+		// Arrange: Select all initially
 		mockAgentService.setAgentsData([...mockAgentsData]);
-		tick();
-		fixture.detectChanges();
+		await po.detectAndWait();
+		await po.clickMasterToggle(); // Selects all
+		expect(await po.isMasterToggleChecked()).toBeTrue();
 
-		// Ensure component.agents() (derived from agentsState) is populated for selection logic
-		const state = component.agentsState();
-		if (state.status !== 'success') throw new Error('Agents not loaded for isAllSelected test');
+		// Act: Click master toggle again to clear selection
+		await po.clickMasterToggle();
+
+		// Assert: None selected
+		expect(await po.isMasterToggleChecked()).toBeFalse();
+		expect(await po.isAgentRowCheckboxChecked('id1')).toBeFalse();
+		expect(await po.isAgentRowCheckboxChecked('id2')).toBeFalse();
+		expect(await po.getSelectedAgentIds()).toEqual([]);
+	});
+
+	it('isAllSelected should reflect selection state (non-PO test, component logic)', async () => {
+		// This test verifies the component's helper method logic.
+		// Interactions are done via PO to set up state for the component method.
+		mockAgentService.setAgentsData([...mockAgentsData]);
+		await po.detectAndWait();
 
 		expect(component.isAllSelected()).toBeFalse();
-		component.selection.select(...mockAgentsData); // Select all based on the mock data array
+
+		// Select all using PO
+		await po.clickMasterToggle();
 		expect(component.isAllSelected()).toBeTrue();
 
-		component.selection.deselect(mockAgentsData[0]); // Deselect one
+		// Deselect one using PO
+		await po.clickAgentRowCheckbox('id1');
 		expect(component.isAllSelected()).toBeFalse();
-	}));
+	});
 
-	it('searchInputControl valueChanges should trigger refresh and manage isLoading', fakeAsync(() => {
-		spyOn(mockAgentService, 'refreshAgents').and.callThrough();
-		component.isLoading.set(false);
-		mockAgentService.setAgentsState({ status: 'idle' }); // Start from idle
-		tick();
-		fixture.detectChanges();
+	it('should filter agents when search input changes', fakeAsync(async () => {
+		// Arrange
+		const refreshSpy = spyOn(mockAgentService, 'refreshAgents').and.callThrough();
+		mockAgentService.setAgentsData([...mockAgentsData]); // Initial data
+		await po.detectAndWait(); // Initial render
+		tick(); // Clear any pending timers
 
-		component.searchInputControl.setValue('test query');
+		// Act
+		// Use typeInSearchInputWithoutWait because we are in fakeAsync and want to control tick for debounce
+		await po.typeInSearchInputWithoutWait('Agent Alpha');
+		fixture.detectChanges(); // For input value change to be picked up by form control
 		tick(300); // Debounce time
+		await po.detectAndWait(); // For effects of refreshAgents call
 
-		expect(component.isLoading()).toBeTrue();
-		expect(component.agentsState().status).toBe('loading');
-		expect(mockAgentService.refreshAgents).toHaveBeenCalled();
+		// Assert
+		expect(refreshSpy).toHaveBeenCalled();
+		expect(await po.isLoading()).toBeTrue(); // refreshAgents sets state to loading
 
-		// Simulate data arrival
-		mockAgentService.setAgentsData([...mockAgentsData]);
-		tick(); // Allow effect to run
-		fixture.detectChanges();
-		expect(component.isLoading()).toBeFalse();
-		expect(component.agentsState().status).toBe('success');
+		// Simulate filtered data arrival
+		mockAgentService.setAgentsData([mockAgentsData[0]]); // Only Agent Alpha
+		tick(); // Allow signal updates
+		await po.detectAndWait(); // Allow DOM to update
+
+		expect(await po.isLoading()).toBeFalse();
+		const displayedIds = await po.getDisplayedAgentIds();
+		expect(displayedIds.length).toBe(1);
+		expect(displayedIds[0]).toBe('id1');
+		expect(await po.getAgentName('id1')).toBe('Agent Alpha');
 	}));
 });

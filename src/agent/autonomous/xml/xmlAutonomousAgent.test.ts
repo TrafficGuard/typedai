@@ -190,7 +190,7 @@ describe.skip('xmlAgentRunner', () => {
 
 			const functionName = 'TestFunctions.throwError';
 			const response = `<function_calls><function_call><function_name>${functionName}</function_name><parameters></parameters></function_call></function_calls>`;
-			mockLLM.setResponse(response);
+			mockLLM.addResponse(response);
 
 			const id = await runAgentAndWait(runConfig({ functions }));
 			const ctx = await appContext().agentStateService.load(id);
@@ -224,7 +224,7 @@ describe.skip('xmlAgentRunner', () => {
 			functions.addFunctionClass(TestFunctions);
 			const functionName = 'TestFunctions.throwError';
 			const response = `<function_calls><function_call><function_name>${functionName}</function_name><parameters></parameters></function_call></function_calls>`;
-			mockLLM.setResponse(response);
+			mockLLM.addResponse(response);
 			await startAgent(runConfig({ functions }));
 			let agent = await waitForAgent();
 			expect(agent).to.exist;

@@ -1,4 +1,5 @@
 import { FastMediumLLM } from '#llm/multi-agent/fastMedium';
+import { MAD_Balanced } from '#llm/multi-agent/reasoning-debate';
 import { MultiLLM } from '#llm/multi-llm';
 import { Claude3_5_Haiku, Claude3_7_Sonnet } from '#llm/services/anthropic';
 import { vertexGemini_2_0_Flash_Lite, vertexGemini_2_5_Flash, vertexGemini_2_5_Pro } from '#llm/services/vertexai';

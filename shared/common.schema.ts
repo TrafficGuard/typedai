@@ -27,3 +27,5 @@ export const ApiPresetParamsSchema = Type.Object({
 
 // Schema for an empty success response (e.g., 204 No Content)
 export const ApiNullResponseSchema = Type.Null();
+
+export const Nullish = Type.Union([Type.Optional(Type.Null()), Type.Undefined()]);

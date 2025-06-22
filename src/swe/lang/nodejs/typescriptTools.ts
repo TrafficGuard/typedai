@@ -68,14 +68,13 @@ export class TypescriptTools implements LanguageTools {
 		// TODO check Snyk etc for any major vulnerability
 		const fss = getFileSystem();
 		let result: ExecResult;
-		const nvmPrefix: string = ''; //nvm isnt working (await fss.fileExists('.nvmrc')) ? 'unset NPM_CONFIG_PREFIX && nvm use && ' : '';
 		// NODE_ENV=development is required other if it's set to production the devDependencies won't be installed
 		if (existsSync(join(fss.getWorkingDirectory(), 'yarn.lock'))) {
-			result = await execCommand(`${nvmPrefix}yarn add ${packageName}`, { envVars: { NODE_ENV: 'development' } });
+			result = await execCommand(`yarn add ${packageName}`, { envVars: { NODE_ENV: 'development' } });
 		} else if (existsSync(join(fss.getWorkingDirectory(), 'pnpm-lock.yaml'))) {
-			result = await execCommand(`${nvmPrefix}pnpm install ${packageName}`, { envVars: { NODE_ENV: 'development' } });
+			result = await execCommand(`pnpm install ${packageName}`, { envVars: { NODE_ENV: 'development' } });
 		} else {
-			result = await execCommand(`${nvmPrefix}npm install ${packageName}`, { envVars: { NODE_ENV: 'development' } });
+			result = await execCommand(`npm install ${packageName}`, { envVars: { NODE_ENV: 'development' } });
 		}
 
 		if (result.exitCode > 0) throw new Error(`${result.stdout}\n${result.stderr}`);

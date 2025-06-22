@@ -6,9 +6,9 @@ import { AGENT_COMPLETED_PARAM_NAME } from '#agent/autonomous/functions/agentFun
 import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { initFirestoreApplicationContext } from '#app/applicationContext';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
+import { LlmTools } from '#functions/llmTools';
 import { GitLab } from '#functions/scm/gitlab';
 import { FileSystemService } from '#functions/storage/fileSystemService';
-import { LlmTools } from '#functions/util';
 import { Perplexity } from '#functions/web/perplexity';
 import { PublicWeb } from '#functions/web/web';
 import { ClaudeLLMs } from '#llm/services/anthropic';

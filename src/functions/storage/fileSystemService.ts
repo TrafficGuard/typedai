@@ -1,4 +1,4 @@
-import { access, existsSync, lstat, mkdir, readFile, readdir, stat, unlink, writeFile } from 'node:fs';
+import { access, existsSync, lstat, mkdir, readFile, readdir, rename, stat, unlink, writeFile } from 'node:fs';
 import path, { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import ignore, { type Ignore } from 'ignore';
@@ -6,8 +6,8 @@ import type Pino from 'pino';
 import { agentContext } from '#agent/agentContextLocalStorage';
 import { TYPEDAI_FS } from '#app/appDirs';
 import { parseArrayParameterValue } from '#functionSchema/functionUtils';
+import { LlmTools } from '#functions/llmTools';
 import { Git } from '#functions/scm/git';
-import { LlmTools } from '#functions/util';
 import { logger } from '#o11y/logger';
 import { getActiveSpan } from '#o11y/trace';
 import { FileNotFound } from '#shared/errors';
@@ -25,6 +25,7 @@ const fs = {
 	lstat: promisify(lstat),
 	writeFile: promisify(writeFile),
 	unlink: promisify(unlink),
+	rename: promisify(rename),
 };
 
 // import fg from 'fast-glob';
@@ -57,6 +58,13 @@ export class FileSystemService implements IFileSystemService {
 	private workingDirectory = '';
 	private vcs: VersionControlSystem | null = null;
 	log: Pino.Logger;
+
+	// Returns true when the absolute path is inside a directory the service
+	// should always allow: the original basePath OR the current workingDirectory OR the current Git repository root.
+	private isPathAllowed(absPath: string): boolean {
+		const vcsRoot = this.getVcsRoot(); // may be null
+		return absPath.startsWith(this.basePath) || absPath.startsWith(this.workingDirectory) || (vcsRoot !== null && absPath.startsWith(vcsRoot));
+	}
 
 	/**
 	 * @param basePath The root folder allowed to be accessed by this file system instance. This should only be accessed by system level
@@ -148,6 +156,43 @@ export class FileSystemService implements IFileSystemService {
 		this.vcs = null; // lazy loaded in getVcs()
 	}
 
+	async rename(filePath: string, newPath: string): Promise<void> {
+		const serviceCwd = this.getWorkingDirectory();
+
+		const oldAbsPath = path.isAbsolute(filePath) ? filePath : path.resolve(serviceCwd, filePath);
+		const newAbsPath = path.isAbsolute(newPath) ? newPath : path.resolve(serviceCwd, newPath);
+
+		if (!this.isPathAllowed(oldAbsPath)) {
+			throw new Error(
+				`Source path '${filePath}' (resolved to ${oldAbsPath}) is outside the allowed directories (basePath: ${this.basePath}, workingDirectory: ${this.workingDirectory}).`,
+			);
+		}
+		if (!this.isPathAllowed(newAbsPath)) {
+			throw new Error(
+				`Destination path '${newPath}' (resolved to ${newAbsPath}) is outside the allowed directories (basePath: ${this.basePath}, workingDirectory: ${this.workingDirectory}).`,
+			);
+		}
+
+		try {
+			// Check if source exists. fs.rename will also throw but this gives a clearer error.
+			await fs.access(oldAbsPath);
+		} catch (e) {
+			throw new FileNotFound(`Source file or directory not found: ${filePath}`);
+		}
+
+		try {
+			// Ensure parent directory of the new path exists, as fs.rename doesn't create it.
+			const newParentPath = path.dirname(newAbsPath);
+			await fs.mkdir(newParentPath, { recursive: true });
+
+			await fs.rename(oldAbsPath, newAbsPath);
+			this.log.debug(`Renamed '${filePath}' to '${newPath}'`);
+		} catch (error) {
+			this.log.error(`Error renaming from '${filePath}' to '${newPath}': ${error.message}`);
+			throw error;
+		}
+	}
+
 	/**
 	 * Returns the file contents of all the files under the provided directory path
 	 * @param dirPath the directory to return all the files contents under
@@ -208,8 +253,8 @@ export class FileSystemService implements IFileSystemService {
 		if (results.stderr.includes('command not found: rg')) {
 			throw new Error('Command not found: rg. Install ripgrep');
 		}
-		if (results.exitCode > 0) throw new Error(results.stderr);
-		return results.stdout;
+		if (results.exitCode > 0) throw new Error(`${results.stdout}${results.stderr}`);
+		return compactRipgrepOutput(results.stdout);
 	}
 
 	/**
@@ -331,32 +376,41 @@ export class FileSystemService implements IFileSystemService {
 	 * @returns the contents of the file
 	 */
 	async readFile(filePath: string): Promise<string> {
-		logger.debug(`readFile ${filePath}`);
-		let contents: string;
-		const relativeFullPath = path.join(this.getWorkingDirectory(), filePath);
+		this.log.debug({ func: 'readFile', filePath, cwd: this.getWorkingDirectory(), basePath: this.basePath }, 'Reading file');
+		let absolutePathToRead: string;
 
-		try {
-			// Check relative to current working directory first using async access
-			await fs.access(relativeFullPath);
-			getActiveSpan()?.setAttribute('resolvedPath', relativeFullPath);
-			contents = (await fs.readFile(relativeFullPath)).toString();
-		} catch (e: any) {
-			// If relative fails, check if it's an absolute path
-			if (filePath.startsWith('/')) {
-				try {
-					await fs.access(filePath);
-					getActiveSpan()?.setAttribute('resolvedPath', filePath);
-					contents = (await fs.readFile(filePath)).toString();
-				} catch (absError: any) {
-					throw new FileNotFound(`File ${filePath} does not exist (checked as absolute and relative to ${this.getWorkingDirectory()})`, absError.code);
-				}
-			} else {
-				throw new FileNotFound(`File ${filePath} does not exist (relative to ${this.getWorkingDirectory()})`, e.code);
-			}
+		if (path.isAbsolute(filePath)) {
+			absolutePathToRead = path.normalize(filePath);
+		} else {
+			absolutePathToRead = path.resolve(this.getWorkingDirectory(), filePath);
 		}
 
-		getActiveSpan()?.setAttribute('size', contents.length);
-		return contents;
+		// Security check:
+		if (!this.isPathAllowed(absolutePathToRead)) {
+			this.log.warn(
+				{ absolutePathToRead, basePath: this.basePath, workingDirectory: this.workingDirectory },
+				'Path is outside the allowed directories. Denying access.',
+			);
+			throw new FileNotFound(`File ${filePath} (resolved to ${absolutePathToRead}) is outside the allowed directories.`);
+		}
+
+		try {
+			// Ensure file actually exists before reading, fs.readFile might not give a clear ENOENT
+			// await fs.access(absolutePathToRead); // fs.readFile will throw if it doesn't exist.
+			const contents = (await fs.readFile(absolutePathToRead)).toString();
+			getActiveSpan()?.setAttributes({ resolvedPath: absolutePathToRead, size: contents.length });
+			return contents;
+		} catch (e: any) {
+			// Log the error with more context
+			this.log.warn(
+				{ path: filePath, resolvedPath: absolutePathToRead, cwd: this.getWorkingDirectory(), error: e.message, code: e.code },
+				'Error during readFile',
+			);
+			throw new FileNotFound(
+				`File ${filePath} (resolved to ${absolutePathToRead}) does not exist or cannot be read. CWD: ${this.getWorkingDirectory()}`,
+				e.code,
+			);
+		}
 	}
 
 	/**
@@ -437,55 +491,63 @@ export class FileSystemService implements IFileSystemService {
 	 * @returns true if the file exists, else false
 	 */
 	async fileExists(filePath: string): Promise<boolean> {
-		// TODO remove the basePath checks. Either absolute or relative to this.cwd
-		logger.debug(`fileExists: ${filePath}`);
-		// Check if we've been given an absolute path
-		if (filePath.startsWith(this.basePath)) {
-			try {
-				logger.debug(`fileExists check on: ${filePath}`);
-				await fs.access(filePath);
-				return true;
-			} catch {}
+		this.log.debug({ func: 'fileExists', filePath, cwd: this.getWorkingDirectory(), basePath: this.basePath }, 'Checking file existence');
+		let absolutePathToCheck: string;
+
+		if (path.isAbsolute(filePath)) {
+			absolutePathToCheck = path.normalize(filePath);
+		} else {
+			absolutePathToCheck = path.resolve(this.getWorkingDirectory(), filePath);
 		}
-		// logger.info(`basePath ${this.basePath}`);
-		// logger.info(`this.workingDirectory ${this.workingDirectory}`);
-		// logger.info(`getWorkingDirectory() ${this.getWorkingDirectory()}`);
-		const path = filePath.startsWith('/') ? resolve(this.basePath, filePath.slice(1)) : resolve(this.workingDirectory, filePath);
+
+		// Security check:
+		if (!this.isPathAllowed(absolutePathToCheck)) {
+			this.log.warn(
+				{ absolutePathToCheck, basePath: this.basePath, workingDirectory: this.workingDirectory },
+				'Path is outside the allowed directories. Denying access.',
+			);
+			return false;
+		}
+
 		try {
-			logger.debug(`fileExists check on: ${path}`);
-			await fs.access(path);
+			// Use the local fs object which is promisified and should be mocked in tests
+			await fs.access(absolutePathToCheck);
+			this.log.debug({ absolutePathToCheck }, 'fileExists check successful');
 			return true;
-		} catch {
+		} catch (error) {
+			// Log the error message for more context, but still return false
+			this.log.debug({ absolutePathToCheck, error: error.message }, 'fileExists check failed (fs.access error or file not found)');
 			return false;
 		}
 	}
 
 	async directoryExists(dirPath: string): Promise<boolean> {
-		logger.debug(`directoryExists: ${dirPath}`);
-		let pathToStat: string;
+		this.log.debug({ func: 'directoryExists', dirPath, cwd: this.getWorkingDirectory(), basePath: this.basePath }, 'Checking directory existence');
+		let absolutePathToCheck: string;
 
-		// Check if we've been given an absolute path that starts with basePath
-		if (dirPath.startsWith(this.basePath)) {
-			pathToStat = dirPath;
-		}
-		// Check if path starts with '/' (relative to basePath) or is relative to workingDirectory
-		else if (dirPath.startsWith('/')) {
-			pathToStat = resolve(this.basePath, dirPath.slice(1));
+		if (path.isAbsolute(dirPath)) {
+			absolutePathToCheck = path.normalize(dirPath);
 		} else {
-			pathToStat = resolve(this.workingDirectory, dirPath);
+			absolutePathToCheck = path.resolve(this.getWorkingDirectory(), dirPath);
+		}
+
+		// Security check:
+		if (!this.isPathAllowed(absolutePathToCheck)) {
+			this.log.warn(
+				{ absolutePathToCheck, basePath: this.basePath, workingDirectory: this.workingDirectory },
+				'Path is outside the allowed directories. Denying access.',
+			);
+			return false;
 		}
 
 		try {
-			logger.debug(`directoryExists stat on: ${pathToStat}`);
-			const stats = await fs.stat(pathToStat);
-			return stats.isDirectory();
+			// Use the local fs object which is promisified
+			const stats = await fs.stat(absolutePathToCheck);
+			const isDirectory = stats.isDirectory();
+			this.log.debug({ absolutePathToCheck, isDirectory }, 'directoryExists stat successful');
+			return isDirectory;
 		} catch (error) {
-			// ENOENT (No such file or directory) or other errors mean it doesn't exist or isn't accessible
-			if (error.code === 'ENOENT') {
-				logger.debug(`Directory not found: ${pathToStat}`);
-			} else {
-				logger.warn(`Error stating path ${pathToStat}: ${error.message}`);
-			}
+			this.log.debug({ absolutePathToCheck, error: error.message }, 'directoryExists stat failed (error or path not found/not a directory)');
 			return false;
 		}
 	}
@@ -506,11 +568,28 @@ export class FileSystemService implements IFileSystemService {
 	 * @param contents The contents to write to the file
 	 */
 	async writeFile(filePath: string, contents: string): Promise<void> {
-		const fileSystemPath = filePath.startsWith(this.basePath) ? filePath : join(this.getWorkingDirectory(), filePath);
-		logger.debug(`Writing file "${filePath}" to ${fileSystemPath}`);
-		const parentPath = path.dirname(fileSystemPath);
+		const serviceCwd = this.getWorkingDirectory();
+		let resolvedPath: string;
+
+		if (path.isAbsolute(filePath)) {
+			resolvedPath = path.normalize(filePath);
+		} else {
+			resolvedPath = path.resolve(serviceCwd, filePath);
+		}
+
+		// Security check
+		if (!this.isPathAllowed(resolvedPath)) {
+			this.log.error(
+				{ resolvedPath, basePath: this.basePath, workingDirectory: this.workingDirectory },
+				'Path is outside the allowed directories. Denying write.',
+			);
+			throw new Error(`Cannot write file ${filePath} (resolved to ${resolvedPath}). Path is outside allowed directories.`);
+		}
+
+		this.log.debug(`Writing file "${filePath}" (resolved: "${resolvedPath}") with ${contents.length} chars`);
+		const parentPath = path.dirname(resolvedPath);
 		await fs.mkdir(parentPath, { recursive: true });
-		await fs.writeFile(fileSystemPath, contents);
+		await fs.writeFile(resolvedPath, contents);
 	}
 
 	async deleteFile(filePath: string): Promise<void> {
@@ -912,4 +991,38 @@ export class FileSystemService implements IFileSystemService {
 			return null;
 		}
 	}
+}
+
+/**
+ * Compacts the output of ripgrep by outputting the filename only once per match
+ * @param raw
+ * @returns
+ */
+function compactRipgrepOutput(raw: string): string {
+	if (!raw.trim()) return raw;
+	const out: string[] = [];
+	let currentFile: string | null = null;
+
+	for (const line of raw.split('\n')) {
+		if (line === '--') {
+			// section separator
+			out.push('--');
+			currentFile = null; // force header on next real line
+			continue;
+		}
+		const match = /^(.+?)([:\-])(.*)$/.exec(line); // filePath + ':' | '-' + rest
+		if (!match) {
+			out.push(line);
+			continue;
+		} // defensive – keep as is
+		const [, file, delim, rest] = match;
+
+		if (file !== currentFile) {
+			// new file ⇒ print header once
+			currentFile = file;
+			out.push(`${file}:`);
+		}
+		out.push(`${delim} ${rest.trimStart()}`); // keep “- ” or “: ” indicator
+	}
+	return out.join('\n');
 }

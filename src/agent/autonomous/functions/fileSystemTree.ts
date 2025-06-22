@@ -7,7 +7,7 @@ import { func, funcClass } from '#functionSchema/functionDecorators';
 @funcClass(__filename)
 export class FileSystemTree {
 	/**
-	 * Collapses a folder in the FileSystemTree view to reduce LLM token usage
+	 * Collapses a folder in the FileSystemTree view to reduce LLM token usage. Any collapsed child folders are removed from the collapsed list.
 	 * @param {string} folderPath the folder to collapse in the File System tree view
 	 * @returns if the node was collapsed, i.e. the folderPath exists and is a folder
 	 */
@@ -17,6 +17,9 @@ export class FileSystemTree {
 		if (!(await getFileSystem().directoryExists(folderPath))) return false;
 		agent.toolState ??= {};
 		agent.toolState.FileSystemTree ??= [];
+
+		// Remove any child folders of the folderPath
+		agent.toolState.FileSystemTree = agent.toolState.FileSystemTree.filter((path) => !path.startsWith(`${folderPath}/`));
 
 		agent.toolState.FileSystemTree = Array.from(new Set([...agent.toolState.FileSystemTree, folderPath]));
 		return true;

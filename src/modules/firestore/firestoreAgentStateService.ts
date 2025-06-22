@@ -17,7 +17,7 @@ import {
 	isExecuting,
 } from '#shared/agent/agent.model';
 import type { AgentContextSchema } from '#shared/agent/agent.schema';
-import { NotAllowed, NotFound } from '#shared/errors'; // Added import
+import { NotAllowed, NotFound } from '#shared/errors';
 import { currentUser } from '#user/userContext';
 import { firestoreDb } from './firestore';
 
@@ -37,6 +37,11 @@ export class FirestoreAgentStateService implements AgentContextService {
 			logger.warn({ agentId: state.agentId }, `Input prompt is greater than ${MAX_PROPERTY_SIZE} bytes and might be truncated by Firestore`);
 		}
 		const serialized = serializeContext(state);
+		// // Always persist a simple string so that ownership checks work reliably
+		// serialized.user =
+		// 	typeof serialized.user === 'object' && serialized.user !== null
+		// 		? (serialized.user as User).id
+		// 		: (serialized.user ?? (typeof state.user === 'string' ? state.user : state.user.id));
 		serialized.lastUpdate = Date.now();
 
 		// Add this validation step
@@ -134,8 +139,11 @@ export class FirestoreAgentStateService implements AgentContextService {
 			throw new NotFound(`Agent with ID ${agentId} found but data is missing.`);
 		}
 
-		if (firestoreData.user !== currentUser().id) {
-			logger.warn({ agentId, currentUserId: currentUser().id, ownerId: firestoreData.user }, 'Attempt to load agent not owned by current user.');
+		// Extract owner id whether the field is stored as a string or an object
+		const ownerId = typeof firestoreData.user === 'string' ? firestoreData.user : firestoreData.user?.id;
+
+		if (ownerId !== currentUser().id) {
+			logger.warn({ agentId, currentUserId: currentUser().id, ownerId: ownerId }, 'Attempt to load agent not owned by current user.');
 			throw new NotAllowed(`Access denied to agent ${agentId}.`);
 		}
 
@@ -148,6 +156,33 @@ export class FirestoreAgentStateService implements AgentContextService {
 		} as Static<typeof AgentContextSchema>; // Cast to the schema type.
 
 		return deserializeContext(schemaCompliantData); // Use the NEW synchronous deserializeContext
+	}
+
+	@span()
+	async findByMetadata(key: string, value: string): Promise<AgentContext | null> {
+		const currentUserId = currentUser().id;
+		const metadataFieldPath = `metadata.${key}`;
+
+		const querySnapshot = await this.db.collection('AgentContext').where('user', '==', currentUserId).where(metadataFieldPath, '==', value).limit(1).get();
+
+		if (querySnapshot.empty) {
+			return null;
+		}
+
+		const docSnap = querySnapshot.docs[0];
+		const firestoreData = docSnap.data();
+		if (!firestoreData) {
+			logger.warn({ agentId: docSnap.id, key, value }, 'Firestore document exists for findByMetadata but data is undefined.');
+			return null; // Or throw, but null is consistent with "not found"
+		}
+
+		// Construct the object ensuring it aligns with AgentContextSchema.
+		const schemaCompliantData = {
+			...firestoreData,
+			agentId: docSnap.id,
+		} as Static<typeof AgentContextSchema>;
+
+		return deserializeContext(schemaCompliantData);
 	}
 
 	@span()

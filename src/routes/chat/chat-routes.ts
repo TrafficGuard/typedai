@@ -48,7 +48,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			let currentUserContent: UserContentExt = userContent as UserContentExt;
 
 			let chat: Chat = {
-				id: randomUUID(),
+				id: undefined,
 				messages: [],
 				title: '',
 				updatedAt: Date.now(),

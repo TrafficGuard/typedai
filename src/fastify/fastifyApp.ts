@@ -70,10 +70,44 @@ declare module 'fastify' {
 		): FastifyReply<RawServer, RawRequest, RawReply, RouteGeneric, ContextConfig, SchemaCompiler, TypeProvider, ReplyType>;
 	}
 }
+
+// Get the default serializerCompiler from a temporary instance to wrap it.
+// const { serializerCompiler: defaultSerializerCompiler } = fastify().withTypeProvider<TypeBoxTypeProvider>();
+
+// // This custom serializer wraps the default one. It attempts to validate the response,
+// // but if it fails, it logs the error instead of throwing, and then sends the
+// // unvalidated payload.
+// const loggingSerializerCompiler: typeof defaultSerializerCompiler = (routeConfig) => {
+// 	const originalSerializer = defaultSerializerCompiler(routeConfig);
+
+// 	return (data) => {
+// 		try {
+// 			// Attempt to validate and serialize as normal.
+// 			return originalSerializer(data);
+// 		} catch (err: any) {
+// 			// If validation fails, log the error with details.
+// 			logger.error({
+// 				message: 'Response schema validation failed but sending success response.',
+// 				error: err.message,
+// 				validation: err.validation, // Contains detailed validation errors
+// 				route: {
+// 					method: routeConfig.method,
+// 					url: routeConfig.url,
+// 				},
+// 			});
+// 			// Instead of throwing, just serialize the data to a string without validation.
+// 			// This allows the response to be sent with a 2xx status code.
+// 			return JSON.stringify(data);
+// 		}
+// 	};
+// };
+
 export const fastifyInstance: TypeBoxFastifyInstance = fastify({
 	maxParamLength: 256,
 	bodyLimit: 20048576,
 }).withTypeProvider<TypeBoxTypeProvider>() as AppFastifyInstance;
+
+// fastifyInstance.setSerializerCompiler(NODE_ENV === 'production' ? defaultSerializerCompiler : loggingSerializerCompiler);
 
 export interface FastifyConfig {
 	/** The port to listen on. If not provided looks up from process.env.PORT or else process.env.SERVER_PORT */
@@ -275,9 +309,9 @@ async function loadPlugins(config: FastifyConfig) {
 		secret: process.env.JWT_SECRET || 'your-secret-key',
 	});
 	await fastifyInstance.register(import('@fastify/cors'), {
-		origin: ['*'], // new URL(process.env.UI_URL).origin
-		methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-		allowedHeaders: ['Content-Type', 'Authorization', 'X-Goog-Iap-Jwt-Assertion', 'Enctype'], // Allow these headers
+		origin: [new URL(process.env.UI_URL).origin],
+		methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+		allowedHeaders: ['Content-Type', 'Authorization', 'X-Goog-Iap-Jwt-Assertion', 'Enctype'],
 		credentials: true,
 	});
 	await fastifyInstance.register(require('@fastify/multipart'));

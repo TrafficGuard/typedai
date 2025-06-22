@@ -1,5 +1,5 @@
 import { CommonModule, NgClass } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, type OnDestroy, type OnInit, ViewEncapsulation, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnDestroy, OnInit, ViewEncapsulation, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -7,7 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ActivatedRoute, Router, RouterLink, RouterOutlet } from '@angular/router';
-import { type Chat, NEW_CHAT_ID } from 'app/modules/chat/chat.types';
+import { Chat, NEW_CHAT_ID } from 'app/modules/chat/chat.types';
 
 import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { EMPTY } from 'rxjs';
@@ -20,18 +20,7 @@ import { ChatServiceClient } from '../chat.service';
 	encapsulation: ViewEncapsulation.None,
 	changeDetection: ChangeDetectionStrategy.OnPush,
 	standalone: true,
-	imports: [
-		CommonModule,
-		FormsModule,
-		MatButtonModule,
-		MatIconModule,
-		MatFormFieldModule,
-		MatInputModule,
-		MatProgressSpinnerModule,
-		NgClass,
-		RouterLink,
-		RouterOutlet,
-	],
+	imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatProgressSpinnerModule, RouterLink, RouterOutlet],
 })
 export class ChatsComponent implements OnInit, OnDestroy {
 	private chatService = inject(ChatServiceClient);

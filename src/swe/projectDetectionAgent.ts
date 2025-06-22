@@ -1,152 +1,270 @@
 import { llms } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
 import { queryWorkflowWithSearch } from '#swe/discovery/selectFilesAgentWithSearch';
-import { type LanguageRuntime, type ProjectInfo, type ProjectScripts, getLanguageTools } from '#swe/projectDetection';
 import { type ExecResult, execCommand } from '#utils/exec';
+import { type LanguageRuntime, type ProjectInfo, type ScriptCommand, getLanguageTools, normalizeScriptCommandToArray } from './projectDetection';
 
-interface ProjectDetection {
-	baseDir: string;
-	language: LanguageRuntime;
-	primary: boolean;
-	files: string[];
-	/** The base development branch to make new branches from */
-	devBranch: string;
-}
-
-interface ProjectDetections {
-	projects: ProjectDetection[];
-}
-
+// Structure expected from LLM. Fields are optional as LLM might not provide all.
 interface DetectedProjectRaw {
 	baseDir: string;
-	language: LanguageRuntime | string; // Allow string initially, then validate/cast
-	primary: boolean;
-	devBranch: string;
-	scripts: ProjectScripts;
+	language?: string;
+	primary?: boolean;
+	devBranch?: string;
+	scripts?: Partial<{
+		initialise?: ScriptCommand;
+		compile?: ScriptCommand;
+		format?: ScriptCommand;
+		staticAnalysis?: ScriptCommand;
+		test?: ScriptCommand;
+	}>;
 }
 
-export async function projectDetectionAgent(): Promise<ProjectInfo[]> {
+// Keep a set of known LanguageRuntime values for efficient validation
+const KNOWN_LANGUAGES_SET: ReadonlySet<LanguageRuntime> = new Set(['nodejs', 'typescript', 'php', 'python', 'terraform', 'pulumi', 'angular']);
+
+function normalizeAndValidateLanguage(langStr?: string): LanguageRuntime | '' {
+	if (!langStr || typeof langStr !== 'string') return '';
+	const lowerLang = langStr.toLowerCase().trim();
+
+	if (KNOWN_LANGUAGES_SET.has(lowerLang as LanguageRuntime)) {
+		return lowerLang as LanguageRuntime;
+	}
+	// Add common aliases
+	if (lowerLang === 'node' || lowerLang === 'javascript' || lowerLang === 'js') return 'nodejs';
+	if (lowerLang === 'ts') return 'typescript';
+	// Add other aliases if needed
+
+	logger.warn(`Detected language "${langStr}" is not a recognized LanguageRuntime or known alias. Treating as unspecified.`);
+	return '';
+}
+
+export async function projectDetectionAgent(maxRetries = 2): Promise<ProjectInfo[]> {
+	// Total attempts = maxRetries + 1
 	const projectDetectionQuery = `
 Analyze the repository to identify all software projects. For each project, provide the following details:
-1.  baseDir: The root directory of the project (e.g., "./", "backend/", "services/api/"). This should be relative to the repository root.
+1.  baseDir: The root directory of the project (e.g., "./", "backend/", "services/api/"). This should be relative to the repository root. Must be a non-empty string.
 2.  language: The primary programming language or runtime. Choose from: 'nodejs', 'typescript', 'php', 'python', 'terraform', 'pulumi', 'angular', 'java', 'csharp', 'ruby', or other common ones if necessary.
 3.  primary: A boolean (true/false) indicating if this is the main project in the repository. If only one project is found, it should be marked as primary.
-4.  devBranch: The typical base branch for development (e.g., "main", "develop", "master").
-5.  scripts: An object containing shell commands for the project:
-    *   initialise: Command to set up the project or install dependencies (e.g., "npm install", "pip install -r requirements.txt").
-    *   compile: Command to build or compile the project (e.g., "npm run build", "mvn compile"). Empty string if not applicable.
-    *   format: Command to auto-format the code (e.g., "npm run format", "black .").
-    *   staticAnalysis: Command for linting or static code analysis (e.g., "npm run lint", "flake8 .").
-    *   test: Command to run unit tests (e.g., "npm test", "pytest").
+4.  devBranch: The typical base branch for development (e.g., "main", "develop", "master"). Default to "main" if unsure.
+5.  scripts: An object containing arrays of shell commands for the project:
+    *   initialise: Array of commands to set up the project or install dependencies (e.g., ["npm install"], ["pip install -r requirements.txt", "another_command"]). If none, use [].
+    *   compile: Array of commands to build or compile the project (e.g., ["npm run build"], ["mvn compile"]). If none, use [].
+    *   format: Array of commands to auto-format the code (e.g., ["npm run format"], ["black ."]). If none, use [].
+    *   staticAnalysis: Array of commands for linting or static code analysis (e.g., ["npm run lint"], ["flake8 ."]). If none, use [].
+    *   test: Array of commands to run unit tests (e.g., ["npm test"], ["pytest"]). If none, use [].
 
 Respond with ONLY a JSON array of objects, where each object represents a detected project. Example:
 [
   {
-    "baseDir": "backend",
+    "baseDir": "backend/",
     "language": "python",
     "primary": true,
     "devBranch": "main",
     "scripts": {
-      "initialise": "pip install -r requirements.txt",
-      "compile": "",
-      "format": "black .",
-      "staticAnalysis": "flake8 .",
-      "test": "pytest"
-    }
-  },
-  {
-    "baseDir": "frontend",
-    "language": "typescript",
-    "primary": false,
-    "devBranch": "develop",
-    "scripts": {
-      "initialise": "npm install",
-      "compile": "npm run build",
-      "format": "npm run format",
-      "staticAnalysis": "npm run lint",
-      "test": "npm test"
+      "initialise": ["pip install -r requirements.txt"],
+      "compile": [],
+      "format": ["black ."],
+      "staticAnalysis": ["flake8 ."],
+      "test": ["pytest"]
     }
   }
 ]
-If no specific command is found for a script category, provide an empty string for that script.
+If no specific command is found for a script category, provide an empty array [] for that script.
 Ensure the 'language' field uses one of the suggested values or a common programming language identifier.
+Ensure 'baseDir' is always present and a non-empty string.
+If no projects are found, respond with an empty JSON array [].
 `;
 
-	const textualProjectInfos = await queryWorkflowWithSearch(projectDetectionQuery);
-	logger.info({ textualProjectInfos }, 'Raw project info string from queryWorkflowWithSearch');
+	let textualProjectInfos: string;
+	let detectedProjectsRawList: DetectedProjectRaw[] = [];
+	let attempts = 0;
+	let lastError: Error | undefined;
 
-	let detectedProjectsRaw: DetectedProjectRaw[];
+	while (attempts <= maxRetries) {
+		logger.info(`Project detection agent: Attempt ${attempts + 1} of ${maxRetries + 1}`);
+		try {
+			textualProjectInfos = await queryWorkflowWithSearch(projectDetectionQuery, {
+				baseDir: './',
+				compile: [],
+				format: [],
+				initialise: [],
+				staticAnalysis: [],
+				test: [],
+				primary: false,
+				language: '',
+				languageTools: undefined,
+				devBranch: '',
+				fileSelection: '',
+				indexDocs: [],
+			});
+			logger.info({ textualProjectInfosLength: textualProjectInfos.length }, 'Raw project info string from queryWorkflowWithSearch');
 
-	try {
-		// queryWorkflowWithSearch should return the content of the <result> tag,
-		// which our prompt has asked to be a JSON array.
-		detectedProjectsRaw = JSON.parse(textualProjectInfos);
-	} catch (error) {
-		logger.warn(
-			{ error, textualProjectInfos },
-			'Failed to directly parse project info JSON from queryWorkflowWithSearch. Attempting fallback extraction with llms().easy.',
-		);
-		const fallbackPrompt = `The following text is supposed to be a JSON array describing software projects.
+			try {
+				const parsedJson = JSON.parse(textualProjectInfos);
+				if (Array.isArray(parsedJson)) {
+					detectedProjectsRawList = parsedJson;
+				} else if (parsedJson && typeof parsedJson === 'object' && Array.isArray(parsedJson.projects)) {
+					detectedProjectsRawList = parsedJson.projects;
+					logger.info('Parsed projects from a root object {projects: []}.');
+				} else {
+					throw new Error('Parsed JSON is not an array and not the expected {projects: []} structure.');
+				}
+				logger.info('Successfully parsed project info from direct JSON.');
+				lastError = undefined;
+				break;
+			} catch (parseError) {
+				const pErrorMsg = parseError instanceof Error ? parseError.message : String(parseError);
+				logger.warn(
+					{ error: pErrorMsg, textualProjectInfosPreview: textualProjectInfos.substring(0, 200) },
+					'Failed to directly parse project info JSON. Attempting fallback extraction with llms().easy.',
+				);
+				const fallbackPrompt = `The following text is supposed to be a JSON array describing software projects.
 It might be malformed or contain surrounding text. Extract the valid JSON array.
 If it's already valid JSON, just return it.
+If the text indicates no projects were found or is an empty array, return [].
 Respond ONLY with the JSON array.
 
 Text:
 ${textualProjectInfos}`;
-		try {
-			// Allow for the LLM to sometimes wrap the array in a root object like {"projects": []}
-			const result = await llms().easy.generateJson<DetectedProjectRaw[] | { projects: DetectedProjectRaw[] }>(fallbackPrompt, {
-				id: 'extractProjectInfoWithSearchFallback',
-			});
-			if (Array.isArray(result)) {
-				detectedProjectsRaw = result;
-			} else if (result && Array.isArray(result.projects)) {
-				detectedProjectsRaw = result.projects;
-				logger.info('Fallback LLM extracted projects from a root object.');
-			} else {
-				throw new Error('Fallback LLM extraction did not yield a valid project array or expected object structure.');
+				const result = await llms().easy.generateJson<DetectedProjectRaw[] | { projects: DetectedProjectRaw[] }>(fallbackPrompt, {
+					id: 'extractProjectInfoWithSearchFallback',
+				});
+				if (Array.isArray(result)) {
+					detectedProjectsRawList = result;
+				} else if (result && typeof result === 'object' && Array.isArray((result as { projects: DetectedProjectRaw[] }).projects)) {
+					detectedProjectsRawList = (result as { projects: DetectedProjectRaw[] }).projects;
+					logger.info('Fallback LLM extracted projects from a root object.');
+				} else {
+					throw new Error('Fallback LLM extraction did not yield a valid project array or expected object structure.');
+				}
+				lastError = undefined;
+				break;
 			}
-		} catch (fallbackError) {
-			logger.error({ fallbackError, originalError: (error as Error).message }, 'Fallback LLM extraction also failed.');
-			throw new Error(
-				`Failed to obtain valid project information. Original parsing error: ${(error as Error).message}. Fallback error: ${(fallbackError as Error).message}`,
-			);
+		} catch (error) {
+			lastError = error as Error;
+			logger.warn(`Attempt ${attempts + 1} for projectDetectionAgent failed: ${lastError.message}`);
+			attempts++;
+			if (attempts > maxRetries) {
+				logger.error({ error: lastError.message, attempts }, 'Max retries reached for projectDetectionAgent. Failing.');
+				throw new Error(`Project detection agent failed after ${maxRetries + 1} attempts: ${lastError.message}`);
+			}
+			// Optional: await new Promise(resolve => setTimeout(resolve, 500 * attempts));
 		}
 	}
 
-	if (!detectedProjectsRaw || !Array.isArray(detectedProjectsRaw) || detectedProjectsRaw.length === 0) {
-		logger.warn({ detectedProjectsRaw }, 'No software projects detected or extracted by the search-based agent.');
-		// Depending on desired behavior, could throw an error or return empty array.
-		// Let's align with existing agent and throw if nothing found.
-		throw new Error('Could not detect any software projects using search-based agent.');
+	if (!Array.isArray(detectedProjectsRawList)) {
+		logger.error(
+			{ detectedProjectsRawList, lastError: lastError?.message },
+			'Detected projects data is not an array after all attempts. Returning empty array.',
+		);
+		return [];
 	}
 
-	const projectInfos: ProjectInfo[] = detectedProjectsRaw.map((raw) => {
-		const language = raw.language as LanguageRuntime; // Cast, assuming LLM provided a compatible or known string
-		return {
-			baseDir: raw.baseDir,
-			language: language, // This might be a string not strictly in LanguageRuntime, getLanguageTools handles null
-			primary: raw.primary,
-			devBranch: raw.devBranch,
-			...raw.scripts, // Spreads initialise, compile, format, staticAnalysis, test
-			languageTools: getLanguageTools(language),
-			fileSelection: 'Do not include package manager lock files', // Default value
-			indexDocs: [], // Default value
-		};
-	});
+	if (detectedProjectsRawList.length === 0) {
+		logger.info('No software projects detected by the agent or extracted list was empty.');
+		return [];
+	}
 
-	logger.info({ projectInfos }, 'Detected project infos using projectDetectionAgentWithSearch');
+	const projectInfos: ProjectInfo[] = detectedProjectsRawList
+		.map((raw, index): ProjectInfo | null => {
+			if (!raw || typeof raw !== 'object') {
+				logger.warn({ projectIndex: index, projectRaw: raw }, 'Detected project entry is not a valid object. Skipping.');
+				return null;
+			}
+			if (!raw.baseDir || typeof raw.baseDir !== 'string' || raw.baseDir.trim() === '') {
+				logger.warn({ projectIndex: index, projectRaw: raw }, 'Detected project is missing a valid "baseDir" property. Skipping.');
+				return null;
+			}
+
+			const language = normalizeAndValidateLanguage(raw.language);
+			const rawScripts = raw.scripts || {};
+
+			return {
+				baseDir: raw.baseDir.trim(),
+				language: language,
+				primary: typeof raw.primary === 'boolean' ? raw.primary : false,
+				devBranch: typeof raw.devBranch === 'string' && raw.devBranch.trim() !== '' ? raw.devBranch.trim() : 'main',
+				initialise: normalizeScriptCommandToArray(rawScripts.initialise),
+				compile: normalizeScriptCommandToArray(rawScripts.compile),
+				format: normalizeScriptCommandToArray(rawScripts.format),
+				staticAnalysis: normalizeScriptCommandToArray(rawScripts.staticAnalysis),
+				test: normalizeScriptCommandToArray(rawScripts.test),
+				languageTools: getLanguageTools(language),
+				fileSelection: 'Do not include package manager lock files',
+				indexDocs: [], // Default, can be populated by other means if necessary
+			};
+		})
+		.filter((p): p is ProjectInfo => p !== null);
+
+	if (projectInfos.length === 0 && detectedProjectsRawList.length > 0) {
+		logger.warn(
+			{ detectedProjectsRawListCount: detectedProjectsRawList.length },
+			'No valid projects remained after filtering raw detected projects. All raw entries might have had issues.',
+		);
+	}
+
+	logger.info({ projectInfosCount: projectInfos.length }, 'Detected and processed project infos using projectDetectionAgent.');
 	return projectInfos;
 }
 
-async function testScripts(projectInfos: ProjectInfo[]): Promise<void> {
+// verifyProjectScripts function remains unchanged from your original code
+interface ScriptVerificationResult {
+	projectPath: string;
+	command: string;
+	executed: boolean;
+	exitCode?: number;
+	success?: boolean;
+	stdout?: string;
+	stderr?: string;
+	llmAnalysis?: TestFailureAnalysis;
+	executionError?: string;
+}
+
+interface TestFailureAnalysis {
+	failure_type: 'bad_command' | 'test_failure' | 'environment_issue' | 'unknown';
+	reasoning: string;
+	suggested_command_fix?: string;
+}
+
+async function verifyProjectScripts(projectInfos: ProjectInfo[]): Promise<ScriptVerificationResult[]> {
+	const allVerificationResults: ScriptVerificationResult[] = [];
 	for (const projectInfo of projectInfos) {
-		if (projectInfo.test && projectInfo.test.trim() !== '') {
-			logger.info({ projectPath: projectInfo.baseDir, command: projectInfo.test }, 'Attempting to validate test script');
+		// projectInfo.test is now string[]
+		if (!projectInfo.test || projectInfo.test.length === 0) {
+			logger.info({ projectPath: projectInfo.baseDir }, 'No test scripts defined for project, skipping validation.');
+			allVerificationResults.push({
+				projectPath: projectInfo.baseDir,
+				command: '',
+				executed: false,
+			});
+			continue;
+		}
+
+		for (const testCommand of projectInfo.test) {
+			if (testCommand.trim() === '') {
+				logger.debug({ projectPath: projectInfo.baseDir, command: testCommand }, 'Empty test script command found, skipping.');
+				continue;
+			}
+
+			const baseResult: ScriptVerificationResult = {
+				projectPath: projectInfo.baseDir,
+				command: testCommand, // Current command being tested
+				executed: false, // Initialize as false
+				// Initialize other fields as needed
+			};
+			baseResult.executed = true; // Mark as attempted
+
+			logger.info({ projectPath: projectInfo.baseDir, command: testCommand }, 'Attempting to validate test script');
+
 			try {
-				const execResult: ExecResult = await execCommand(projectInfo.test, { workingDirectory: projectInfo.baseDir });
+				const execResult: ExecResult = await execCommand(testCommand, { workingDirectory: projectInfo.baseDir });
+				baseResult.exitCode = execResult.exitCode;
+				baseResult.success = execResult.exitCode === 0;
+				baseResult.stdout = execResult.stdout;
+				baseResult.stderr = execResult.stderr;
+
 				logger.info(
-					{ projectPath: projectInfo.baseDir, command: projectInfo.test, exitCode: execResult.exitCode },
+					{ projectPath: projectInfo.baseDir, command: testCommand, exitCode: execResult.exitCode },
 					'Test script execution completed for validation.',
 				);
 
@@ -154,73 +272,68 @@ async function testScripts(projectInfos: ProjectInfo[]): Promise<void> {
 					logger.warn(
 						{
 							projectPath: projectInfo.baseDir,
-							command: projectInfo.test,
+							command: testCommand,
 							exitCode: execResult.exitCode,
-							stdout: execResult.stdout,
-							stderr: execResult.stderr,
+							stdout: execResult.stdout.substring(0, 500),
+							stderr: execResult.stderr.substring(0, 500),
 						},
 						'Test script failed during validation.',
 					);
 
 					const analysisPrompt = `
-                   A test script execution failed for a project located at '${projectInfo.baseDir}'.
-                   The command executed was: '${projectInfo.test}'
-                   Exit Code: ${execResult.exitCode}
-                   Stdout:
-                   ---
-                   ${execResult.stdout.substring(0, 1000)}
-                   ---
-                   Stderr:
-                   ---
-                   ${execResult.stderr.substring(0, 1000)}
-                   ---
-                   Analyze the command, exit code, stdout, and stderr to determine the primary reason for failure.
-                   Possible reasons:
-                   1. 'bad_command': The command itself is incorrect (e.g., typo, wrong tool, invalid arguments).
-                   2. 'test_failure': The command is correct for running tests, but the project's tests are genuinely failing.
-                   3. 'environment_issue': A problem with the environment (e.g., missing dependencies not installed by 'initialise' script, incorrect versions).
-                   4. 'unknown': The cause is unclear from the provided information.
+                       A test script execution failed for a project located at '${projectInfo.baseDir}'.
+                       The command executed was: '${testCommand}'
+                       Exit Code: ${execResult.exitCode}
+                       Stdout:
+                       ---
+                       ${execResult.stdout.substring(0, 1000)}
+                       ---
+                       Stderr:
+                       ---
+                       ${execResult.stderr.substring(0, 1000)}
+                       ---
+                       Analyze the command, exit code, stdout, and stderr to determine the primary reason for failure.
+                       Possible reasons:
+                       1. 'bad_command': The command itself is incorrect (e.g., typo, wrong tool, invalid arguments).
+                       2. 'test_failure': The command is correct for running tests, but the project's tests are genuinely failing.
+                       3. 'environment_issue': A problem with the environment (e.g., missing dependencies not installed by 'initialise' script, incorrect versions).
+                       4. 'unknown': The cause is unclear from the provided information.
 
-                   Respond ONLY with a JSON object with the following structure:
-                   {
-                     "failure_type": "bad_command" | "test_failure" | "environment_issue" | "unknown",
-                     "reasoning": "A brief explanation for your conclusion.",
-                     "suggested_command_fix": "string (Provide a corrected command if failure_type is 'bad_command' and a fix is obvious. Otherwise, an empty string.)"
-                   }
-                   Focus on the most likely cause. Keep reasoning concise.
-                   `;
-
-					interface TestFailureAnalysis {
-						failure_type: 'bad_command' | 'test_failure' | 'environment_issue' | 'unknown';
-						reasoning: string;
-						suggested_command_fix?: string;
-					}
+                       Respond ONLY with a JSON object with the following structure:
+                       {
+                         "failure_type": "bad_command" | "test_failure" | "environment_issue" | "unknown",
+                         "reasoning": "A brief explanation for your conclusion.",
+                         "suggested_command_fix": "string (Provide a corrected command if failure_type is 'bad_command' and a fix is obvious. Otherwise, an empty string.)"
+                       }
+                       Focus on the most likely cause. Keep reasoning concise.
+                       `;
 
 					try {
 						const llmAnalysis = await llms().easy.generateJson<TestFailureAnalysis>(analysisPrompt, { id: 'analyzeTestScriptFailure' });
-						logger.info(
-							{ projectPath: projectInfo.baseDir, command: projectInfo.test, analysis: llmAnalysis },
-							'LLM analysis of test script failure complete.',
-						);
-						// Further actions based on llmAnalysis (e.g., logging specific insights) can be added here.
-						// For now, the analysis itself is logged.
+						baseResult.llmAnalysis = llmAnalysis;
+						logger.info({ projectPath: projectInfo.baseDir, command: testCommand, analysis: llmAnalysis }, 'LLM analysis of test script failure complete.');
 					} catch (llmError) {
+						const llmErrorMsg = llmError instanceof Error ? llmError.message : String(llmError);
 						logger.error(
-							{ projectPath: projectInfo.baseDir, command: projectInfo.test, error: (llmError as Error).message },
+							{ projectPath: projectInfo.baseDir, command: testCommand, error: llmErrorMsg },
 							'LLM analysis of test script failure encountered an error.',
 						);
 					}
 				} else {
-					logger.info({ projectPath: projectInfo.baseDir, command: projectInfo.test }, 'Test script executed successfully during validation (exit code 0).');
+					logger.info({ projectPath: projectInfo.baseDir, command: testCommand }, 'Test script executed successfully during validation (exit code 0).');
 				}
+				allVerificationResults.push(baseResult);
 			} catch (executionError) {
+				const execErrorMsg = executionError instanceof Error ? executionError.message : String(executionError);
 				logger.error(
-					{ projectPath: projectInfo.baseDir, command: projectInfo.test, error: (executionError as Error).message },
+					{ projectPath: projectInfo.baseDir, command: testCommand, error: execErrorMsg },
 					'Failed to execute test script command itself during validation.',
 				);
+				baseResult.success = false;
+				baseResult.executionError = execErrorMsg;
+				allVerificationResults.push(baseResult);
 			}
-		} else {
-			logger.info({ projectPath: projectInfo.baseDir }, 'No test script defined for project, skipping validation.');
 		}
 	}
+	return allVerificationResults;
 }

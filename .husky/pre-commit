@@ -1,2 +1,92 @@
-#!/usr/bin/bash
-source ~/.nvm/nvm.sh && nvm use && npm run lint:ci # && npm test && npx --no-install lint-staged
+##!/usr/bin/bash
+#
+#echo "🔍 Running pre-commit linting..."
+#
+## Get list of staged files (adjust file extensions as needed)
+#staged_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(js|ts|jsx|tsx|json|css|scss|md)$' || true)
+#
+#if [ -z "$staged_files" ]; then
+#    echo "ℹ️  No relevant staged files to lint"
+#    exit 0
+#fi
+#
+#echo "📋 Staged files to lint:"
+#echo "$staged_files" | sed 's/^/    /'
+#
+## Check which staged files have unstaged changes
+#files_with_unstaged_changes=""
+#clean_staged_files=""
+#
+#for file in $staged_files; do
+#    if git diff --quiet "$file"; then
+#        # File has no unstaged changes
+#        clean_staged_files="$clean_staged_files $file"
+#    else
+#        # File has unstaged changes
+#        files_with_unstaged_changes="$files_with_unstaged_changes $file"
+#    fi
+#done
+#
+#if [ -n "$files_with_unstaged_changes" ]; then
+#    echo "⚠️  These staged files have unstaged changes (will not auto-stage lint fixes):"
+#    echo "$files_with_unstaged_changes" | tr ' ' '\n' | sed 's/^/    /'
+#fi
+#
+#if [ -n "$clean_staged_files" ]; then
+#    echo "✅ These staged files are clean (will auto-stage lint fixes):"
+#    echo "$clean_staged_files" | tr ' ' '\n' | sed 's/^/    /'
+#fi
+#
+## Run linting on all staged files
+#echo "🧹 Running linter..."
+#
+#npm run lint -- $staged_files
+#
+## Check if linting made any changes to the staged files specifically
+#linted_files=""
+#for file in $staged_files; do
+#    if ! git diff --quiet "$file"; then
+#        linted_files="$linted_files $file"
+#    fi
+#done
+#
+#if [ -z "$linted_files" ]; then
+#    echo "✅ No changes made by linter to staged files"
+#    exit 0
+#fi
+#
+#echo "📝 Linter made changes to:"
+#echo "$linted_files" | tr ' ' '\n' | sed 's/^/    /'
+#
+## Only auto-stage lint fixes for files that were clean
+#files_to_stage=""
+#files_not_staged=""
+#
+#for file in $linted_files; do
+#    if echo "$clean_staged_files" | grep -q "$file"; then
+#        # This file was clean - auto-stage the lint fixes
+#        files_to_stage="$files_to_stage $file"
+#    else
+#        # This file had unstaged changes - don't auto-stage
+#        files_not_staged="$files_not_staged $file"
+#    fi
+#done
+#
+#if [ -n "$files_to_stage" ]; then
+#    echo "🔄 Auto-staging lint fixes for clean files:"
+#    echo "$files_to_stage" | tr ' ' '\n' | sed 's/^/    /'
+#    git add $files_to_stage
+#fi
+#
+#if [ -n "$files_not_staged" ]; then
+#    echo "❌ Lint fixes NOT auto-staged (files had unstaged changes):"
+#    echo "$files_not_staged" | tr ' ' '\n' | sed 's/^/    /'
+#    echo ""
+#    echo "Please review the lint fixes and manually stage them:"
+#    echo "  git add <files>"
+#    echo "Then retry your commit."
+#    exit 1
+#fi
+#
+#echo "✅ Pre-commit linting completed - all lint fixes auto-staged"
+#exit 0

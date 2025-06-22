@@ -1,0 +1,2058 @@
+<file_content file_path="shared/files/fileSystemService.ts"><![CDATA[
+import type { Ignore } from 'ignore';
+
+import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
+
+export interface FileSystemNode {
+	path: string;
+	name: string;
+	type: 'file' | 'directory';
+	children?: FileSystemNode[];
+	summary?: string; // Optional summary from indexing agent
+}
+
+export interface IFileSystemService {
+	toJSON(): { basePath: string; workingDirectory: string };
+
+	fromJSON(obj: any): this | null;
+
+	/**
+	 * The base path set from the constructor or environment variables or program args
+	 */
+	getBasePath(): string;
+
+	/**
+	 * @returns the full path of the working directory on the filesystem
+	 */
+	getWorkingDirectory(): string;
+
+	/**
+	 * Set the working directory. The dir argument may be an absolute filesystem path, otherwise relative to the current working directory.
+	 * If the dir starts with / it will first be checked as an absolute directory, then as relative path to the working directory.
+	 * @param dir the new working directory
+	 */
+	setWorkingDirectory(dir: string): void;
+
+	/**
+	 * Returns the file contents of all the files under the provided directory path
+	 * @param dirPath the directory to return all the files contents under
+	 * @returns the contents of the file(s) as a Map keyed by the file path
+	 */
+	getFileContentsRecursively(dirPath: string, useGitIgnore?: boolean): Promise<Map<string, string>>;
+
+	/**
+	 * Returns the file contents of all the files recursively under the provided directory path
+	 * @param dirPath the directory to return all the files contents under
+	 * @param storeToMemory if the file contents should be stored to memory. The key will be in the format file-contents-<FileSystem.workingDirectory>-<dirPath>
+	 * @returns the contents of the file(s) in format <file_contents path="dir/file1">file1 contents</file_contents><file_contents path="dir/file2">file2 contents</file_contents>
+	 */
+	getFileContentsRecursivelyAsXml(dirPath: string, storeToMemory: boolean, filter?: (path: string) => boolean): Promise<string>;
+
+	/**
+	 * Searches for files on the filesystem (using ripgrep) with contents matching the search regex.
+	 * @param contentsRegex the regular expression to search the content all the files recursively for
+	 * @returns the list of filenames (with postfix :<match_count>) which have contents matching the regular expression.
+	 */
+	searchFilesMatchingContents(contentsRegex: string): Promise<string>;
+
+	/**
+	 * Searches for files on the filesystem (using ripgrep) with contents matching the search regex.
+	 * The number of lines before/after the matching content will be included for context.
+	 * The response format will be like
+	 * <code>
+	 * dir/subdir/filename
+	 * 26-foo();
+	 * 27-matchedString();
+	 * 28-bar();
+	 * </code>
+	 * @param contentsRegex the regular expression to search the content all the files recursively for
+	 * @param linesBeforeAndAfter the number of lines above/below the matching lines to include in the output
+	 * @returns the matching lines from each files with additional lines above/below for context.
+	 */
+	searchExtractsMatchingContents(contentsRegex: string, linesBeforeAndAfter?: number): Promise<string>;
+
+	/**
+	 * Searches for files on the filesystem where the filename matches the regex.
+	 * @param fileNameRegex the regular expression to match the filename.
+	 * @returns the list of filenames matching the regular expression.
+	 */
+	searchFilesMatchingName(fileNameRegex: string): Promise<string[]>;
+
+	/**
+	 * Lists the file and folder names in a single directory.
+	 * Folder names will end with a /
+	 * @param dirPath the folder to list the files in. Defaults to the working directory
+	 * @returns the list of file and folder names
+	 */
+	listFilesInDirectory(dirPath?: string): Promise<string[]>;
+
+	/**
+	 * List all the files recursively under the given path, excluding any paths in a .gitignore file if it exists
+	 * @param dirPath
+	 * @returns the list of files
+	 */
+	listFilesRecursively(dirPath?: string, useGitIgnore?: boolean): Promise<string[]>;
+
+	listFilesRecurse(
+		rootPath: string,
+		dirPath: string,
+		parentIg: Ignore,
+		useGitIgnore: boolean,
+		gitRoot: string | null,
+		filter?: (file: string) => boolean,
+	): Promise<string[]>;
+
+	/**
+	 * Gets the contents of a local file on the file system. If the user has only provided a filename you may need to find the full path using the searchFilesMatchingName function.
+	 * @param filePath The file path to read the contents of (e.g. src/index.ts)
+	 * @returns the contents of the file(s) in format <file_contents path="dir/file1">file1 contents</file_contents><file_contents path="dir/file2">file2 contents</file_contents>
+	 */
+	readFile(filePath: string): Promise<string>;
+
+	/**
+	 * Gets the contents of a local file on the file system and returns it in XML tags
+	 * @param filePath The file path to read the contents of (e.g. src/index.ts)
+	 * @returns the contents of the file(s) in format <file_contents path="dir/file1">file1 contents</file_contents>
+	 */
+	readFileAsXML(filePath: string): Promise<string>;
+
+	/**
+	 * Gets the contents of a list of local files. Input paths can be absolute or relative to the service's working directory.
+	 * @param {Array<string>} filePaths The files paths to read the contents of.
+	 * @returns {Promise<Map<string, string>>} the contents of the files in a Map object keyed by the file path *relative* to the service's working directory.
+	 */
+	readFiles(filePaths: string[]): Promise<Map<string, string>>;
+
+	/**
+	 * Gets the contents of a list of files, returning a formatted XML string of all file contents
+	 * @param {Array<string>} filePaths The files paths to read the contents of
+	 * @returns {Promise<string>} the contents of the file(s) in format <file_contents path="dir/file1">file1 contents</file_contents><file_contents path="dir/file2">file2 contents</file_contents>
+	 */
+	readFilesAsXml(filePaths: string | string[]): Promise<string>;
+
+	formatFileContentsAsXml(fileContents: Map<string, string>): string;
+
+	/**
+	 * Check if a file exists. A filePath starts with / is it relative to FileSystem.basePath, otherwise its relative to FileSystem.workingDirectory
+	 * @param filePath The file path to check
+	 * @returns true if the file exists, else false
+	 */
+	fileExists(filePath: string): Promise<boolean>;
+
+	directoryExists(dirPath: string): Promise<boolean>;
+	/**
+	 * Writes to a file. If the file path already exists an Error will be thrown. This will create any parent directories required,
+	 * @param filePath The file path (either full filesystem path or relative to current working directory)
+	 * @param contents The contents to write to the file
+	 */
+	writeNewFile(filePath: string, contents: string): Promise<void>;
+
+	/**
+	 * Writes to a file. If the file exists it will overwrite the contents. This will create any parent directories required,
+	 * @param filePath The file path (either full filesystem path or relative to current working directory)
+	 * @param contents The contents to write to the file
+	 */
+	writeFile(filePath: string, contents: string): Promise<void>;
+
+	deleteFile(filePath: string): Promise<void>;
+
+	/**
+	 * Reads a file, then transforms the contents using a LLM to perform the described changes, then writes back to the file.
+	 * @param {string} filePath The file to update
+	 * @param {string} descriptionOfChanges A natual language description of the changes to make to the file contents
+	 */
+	editFileContents(filePath: string, descriptionOfChanges: string): Promise<void>;
+
+	loadGitignoreRules(startPath: string, gitRoot: string | null): Promise<Ignore>;
+
+	listFolders(dirPath?: string): Promise<string[]>;
+
+	/**
+	 * Recursively lists all folders under the given root directory.
+	 * @param dir The root directory to start the search from. Defaults to the current working directory.
+	 * @returns A promise that resolves to an array of folder paths relative to the working directory.
+	 */
+	getAllFoldersRecursively(dir?: string): Promise<string[]>;
+
+	/**
+	 * Generates a textual representation of a directory tree structure.
+	 *
+	 * This function uses listFilesRecursively to get all files and directories,
+	 * respecting .gitignore rules, and produces an indented string representation
+	 * of the file system hierarchy.
+	 *
+	 * @param {string} dirPath - The path of the directory to generate the tree for, defaulting to working directory
+	 * @returns {Promise<string>} A string representation of the directory tree.
+	 *
+	 * @example
+	 * Assuming the following directory structure:
+	 * ./
+	 *  ├── file1.txt
+	 *  ├── images/
+	 *  │   ├── logo.png
+	 *  └── src/
+	 *      └── utils/
+	 *          └── helper.js
+	 *
+	 * The output would be:
+	 * file1.txt
+	 * images/
+	 *   logo.png
+	 * src/utils/
+	 *   helper.js
+	 */
+	getFileSystemTree(dirPath?: string): Promise<string>;
+
+	/**
+	 * Returns the filesystem structure
+	 * @param dirPath
+	 * @returns a record with the keys as the folders paths, and the list values as the files in the folder
+	 */
+	getFileSystemTreeStructure(dirPath?: string): Promise<Record<string, string[]>>;
+
+	/**
+	 * Generates a hierarchical representation of the file system structure starting from a given path,
+	 * respecting .gitignore rules if enabled.
+	 *
+	 * @param dirPath The starting directory path, relative to the working directory or absolute. Defaults to the working directory.
+	 * @param useGitIgnore Whether to respect .gitignore rules. Defaults to true.
+	 * @returns A Promise resolving to the root FileSystemNode representing the requested directory structure, or null if the path is not a directory.
+	 */
+	getFileSystemNodes(dirPath?: string, useGitIgnore?: boolean): Promise<FileSystemNode | null>;
+
+	/**
+	 * Recursive helper function to build the FileSystemNode tree.
+	 * @param currentPathAbs Absolute path of the directory currently being processed.
+	 * @param serviceWorkingDir Absolute path of the service's working directory (for relative path calculation).
+	 * @param parentIg Ignore rules inherited from the parent directory.
+	 * @param useGitIgnore Whether to respect .gitignore rules.
+	 * @param gitRoot Absolute path to the git repository root, if applicable.
+	 * @returns A Promise resolving to an array of FileSystemNode children for the current directory.
+	 */
+	buildNodeTreeRecursive(
+		currentPathAbs: string,
+		serviceWorkingDir: string,
+		parentIg: Ignore,
+		useGitIgnore: boolean,
+		gitRoot: string | null,
+	): Promise<FileSystemNode[]>;
+
+	getVcs(): VersionControlSystem;
+
+	/**
+	 * Gets the version control service (Git) repository root folder, if the current working directory is in a Git repo, else null.
+	 */
+	getVcsRoot(): string | null;
+
+	/**
+	 * Rename/move a file or folder
+	 * @param filePath
+	 * @param newPath
+	 */
+	rename(filePath: string, newPath: string): Promise<void>;
+}
+
+]]></file_content>
+<file_content file_path="shared/scm/versionControlSystem.ts"><![CDATA[
+export interface Commit {
+	title: string;
+	description: string;
+	diffs: Map<string, string>;
+}
+
+/**
+ * Version control system
+ */
+export interface VersionControlSystem {
+	/**
+	 * Returns the diff from the merge-base (common ancestor) of HEAD and a reference, up to HEAD.
+	 * This effectively shows changes introduced on the current branch relative to that base.
+	 *
+	 * @param baseRef Optional commit SHA or branch name.
+	 *                - If provided: Uses `git merge-base <baseRef> HEAD` to find the diff start point.
+	 *                - If omitted: Attempts to guess the source branch (e.g., main, develop)
+	 *                  by inspecting other local branches and uses that for the merge-base calculation.
+	 *                  Note: Guessing the source branch may be unreliable in some cases.
+	 * @returns The git diff.
+	 */
+	getDiff(baseRef?: string): Promise<string>;
+
+	/**
+	 * Creates a new branch, or if it already exists then switches to it
+	 * @param branchName
+	 * @return if the branch was created, or false if switched to an existing one
+	 */
+	createBranch(branchName: string): Promise<boolean>;
+
+	switchToBranch(branchName: string): Promise<void>;
+
+	/** Pull the changes from the remote/origin server for the current branch */
+	pull(): Promise<void>;
+
+	/** Gets the current branch name */
+	getBranchName(): Promise<string>;
+
+	/** @return the SHA value for the HEAD commit */
+	getHeadSha(): Promise<string>;
+
+	/**
+	 * Adds all files which are already tracked by version control to the index and commits
+	 * @param commitMessage
+	 */
+	addAllTrackedAndCommit(commitMessage: string): Promise<void>;
+
+	/** Add and commit a specific list of files. */
+	addAndCommitFiles(files: string[], commitMessage: string): Promise<void>;
+
+	/**
+	 * Merges the changes in specific files into the latest commit.
+	 * This is useful for merging lint fixes and compiles fixes into the current commit, so that commit should build.
+	 */
+	mergeChangesIntoLatestCommit(files: string[]): Promise<void>;
+
+	commit(commitMessage: string): Promise<void>;
+
+	/**
+	 * Gets the filenames which were added in the most recent commit
+	 * @param commitSha The commit to search back to, otherwise is for the HEAD commit.
+	 * @return the filenames which were added
+	 */
+	getAddedFiles(commitSha?: string): Promise<string[]>;
+
+	/**
+	 * Gets the details of the most recent commits
+	 * @param n the number of commits (defaults to 2)
+	 * @returns an array of the commit details
+	 */
+	getRecentCommits(n?: number): Promise<Array<Commit>>;
+
+	/**
+	 * @param path full file path
+	 * @returns if the file has uncommitted changes.
+	 */
+	isDirty(path: string): Promise<boolean>;
+
+	/**
+	 * @returns if the repository has any uncommitted changes.
+	 */
+	isRepoDirty(): Promise<boolean>;
+
+	/**
+	 * @returns
+	 */
+	stashChanges(): Promise<void>;
+
+	/**
+	 * Revert uncommitted changes to a file
+	 * @param filePath
+	 */
+	revertFile(filePath: string): Promise<void>;
+}
+
+]]></file_content>
+<file_content file_path="src/llm/services/mock-llm.ts"><![CDATA[
+import { addCost, agentContext } from '#agent/agentContextLocalStorage';
+import { appContext } from '#app/applicationContext';
+import { callStack } from '#llm/llmCallService/llmCall';
+import { logger } from '#o11y/logger';
+import { withActiveSpan } from '#o11y/trace';
+import type { AgentLLMs } from '#shared/agent/agent.model';
+import { type GenerateTextOptions, type GenerationStats, type LLM, type LlmMessage, messageText, system, user } from '#shared/llm/llm.model';
+import type { LlmCall } from '#shared/llmCall/llmCall.model';
+import { BaseLLM } from '../base-llm';
+
+// A discriminated union to represent the different types of calls that can be made to the mock.
+export type MockLLMCall =
+	| {
+			type: 'generateMessage';
+			messages: ReadonlyArray<LlmMessage>;
+			options?: GenerateTextOptions;
+	  }
+	| {
+			type: 'generateText';
+			systemPrompt: string | undefined;
+			userPrompt: string;
+			options?: GenerateTextOptions;
+	  };
+
+//  Convenience alias for the “assistant” member of the union
+type AssistantMessage = Extract<LlmMessage, { role: 'assistant' }>;
+
+export class MockLLM extends BaseLLM {
+	private messageResponses: (() => Promise<LlmMessage>)[] = [];
+	private textResponses: (() => Promise<string>)[] = [];
+	private calls: MockLLMCall[] = [];
+
+	constructor(id = 'mock', service = 'mock', model = 'mock', maxInputTokens = 100000) {
+		super(id, service, model, maxInputTokens, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
+	}
+
+	// =================================================================
+	// Test-Facing API: For setting up and asserting on behavior in tests
+	// =================================================================
+
+	/**
+	 * Resets all configured responses and clears the call history.
+	 * Should be called in `beforeEach` or `afterEach` for test isolation.
+	 */
+	reset(): void {
+		this.messageResponses = [];
+		this.textResponses = [];
+		this.calls = [];
+	}
+
+	/**
+	 * Queue a response for the next `generateMessage` call.
+	 * The response is always treated as an *assistant* message.
+	 */
+	addMessageResponse(response: string | Partial<AssistantMessage>): this {
+		// 2.  Build a guaranteed-to-be-assistant LlmMessage
+		const message: AssistantMessage =
+			typeof response === 'string' ? { role: 'assistant', content: response } : ({ ...response, role: 'assistant' } as AssistantMessage);
+
+		this.messageResponses.push(() => Promise.resolve(message));
+		return this;
+	}
+
+	/**
+	 * Adds a successful response to the queue for the next `generateText` call.
+	 * @param response The string content for the response.
+	 * @returns The MockLLM instance for chaining.
+	 */
+	addResponse(response: string): this {
+		this.textResponses.push(() => Promise.resolve(response));
+		return this;
+	}
+
+	/**
+	 * Configures the next `generateMessage` call to fail with the given error.
+	 * @returns The MockLLM instance for chaining.
+	 */
+	rejectNextMessage(error: Error): this {
+		this.messageResponses.push(() => Promise.reject(error));
+		return this;
+	}
+
+	/**
+	 * Configures the next `generateText` call to fail with the given error.
+	 * @returns The MockLLM instance for chaining.
+	 */
+	rejectNextText(error: Error): this {
+		this.textResponses.push(() => Promise.reject(error));
+		return this;
+	}
+
+	/**
+	 * Gets all calls made to this mock instance.
+	 */
+	getCalls(): ReadonlyArray<MockLLMCall> {
+		return this.calls;
+	}
+
+	/**
+	 * Gets all `generateMessage` calls made to this mock instance for inspection.
+	 */
+	getMessageCalls(): Extract<MockLLMCall, { type: 'generateMessage' }>[] {
+		return this.calls.filter((c): c is Extract<MockLLMCall, { type: 'generateMessage' }> => c.type === 'generateMessage');
+	}
+
+	/**
+	 * Gets all `generateText` calls made to this mock instance for inspection.
+	 */
+	getTextCalls(): Extract<MockLLMCall, { type: 'generateText' }>[] {
+		return this.calls.filter((c): c is Extract<MockLLMCall, { type: 'generateText' }> => c.type === 'generateText');
+	}
+
+	/**
+	 * Gets the last call made to this mock instance.
+	 */
+	getLastCall(): MockLLMCall | undefined {
+		return this.calls.at(-1);
+	}
+
+	/**
+	 * Gets the total number of calls (`generateMessage` and `generateText`) made to this mock.
+	 */
+	getCallCount(): number {
+		return this.calls.length;
+	}
+
+	/**
+	 * Throws an error if any configured responses were not consumed by the test.
+	 * Useful for calling in `afterEach` to ensure test configurations are precise.
+	 */
+	assertNoPendingResponses(): void {
+		const pendingMessages = this.messageResponses.length;
+		const pendingTexts = this.textResponses.length;
+		if (pendingMessages > 0 || pendingTexts > 0) {
+			this.reset(); // Clear to prevent cascading failures
+			throw new Error(`MockLLM Error: Test finished with ${pendingMessages} unconsumed message responses and ${pendingTexts} unconsumed text responses.`);
+		}
+	}
+
+	// =================================================================
+	// Production-Facing API: Implementation of the LLM interface
+	// =================================================================
+
+	/**
+	 * Overrides `BaseLLM.generateText` to route calls to either `_generateText` or `_generateMessage`
+	 * based on the arguments. This preserves the dual-queue system of `MockLLM` and allows it to
+	 * handle both simple string prompts and complex message arrays.
+	 */
+	generateText(userPrompt: string, opts?: GenerateTextOptions): Promise<string>;
+	generateText(systemPrompt: string, userPrompt: string, opts?: GenerateTextOptions): Promise<string>;
+	generateText(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<string>;
+	async generateText(
+		userOrSystemOrMessages: string | ReadonlyArray<LlmMessage>,
+		userOrOpts?: string | GenerateTextOptions,
+		opts?: GenerateTextOptions,
+	): Promise<string> {
+		// If the original call was with a message array, use the message-based generation.
+		if (Array.isArray(userOrSystemOrMessages)) {
+			const assistantMessage = await this._generateMessage(userOrSystemOrMessages, userOrOpts as GenerateTextOptions);
+			return messageText(assistantMessage);
+		}
+
+		// Otherwise, it was a string-based call, so use the text-based generation.
+		const hasSystemPrompt = typeof userOrOpts === 'string';
+		const systemPrompt = hasSystemPrompt ? (userOrSystemOrMessages as string) : undefined;
+		const userPrompt = hasSystemPrompt ? (userOrOpts as string) : (userOrSystemOrMessages as string);
+		const theOpts = hasSystemPrompt ? opts : (userOrOpts as GenerateTextOptions);
+		return this._generateText(systemPrompt, userPrompt, theOpts);
+	}
+
+	protected async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
+		this.calls.push({ type: 'generateMessage', messages, options: opts });
+
+		const responseFn = this.messageResponses.shift();
+		if (!responseFn) {
+			throw new Error(`MockLLM: No more responses configured for generateMessage. Call count: ${this.getCallCount()}`);
+		}
+
+		const assistantMessage = await responseFn();
+		await this.saveLlmCall(messages, assistantMessage, opts);
+		return assistantMessage;
+	}
+
+	protected async _generateText(systemPrompt: string | undefined, userPrompt: string, opts?: GenerateTextOptions): Promise<string> {
+		this.calls.push({ type: 'generateText', systemPrompt, userPrompt, options: opts });
+
+		const responseFn = this.textResponses.shift();
+		if (!responseFn) {
+			throw new Error(`MockLLM: No more responses configured for generateText. Call count: ${this.getCallCount()}`);
+		}
+
+		const messages: LlmMessage[] = [];
+		if (systemPrompt) messages.push(system(systemPrompt));
+		messages.push(user(userPrompt));
+
+		const responseText = await responseFn();
+		const assistantMessage: LlmMessage = { role: 'assistant', content: responseText };
+
+		await this.saveLlmCall(messages, assistantMessage, opts);
+
+		return responseText;
+	}
+
+	/**
+	 * Shared logic to persist the LLM call for both generateMessage and generateText,
+	 * simulating the behavior of a real LLM integration.
+	 */
+	private async saveLlmCall(requestMessages: ReadonlyArray<LlmMessage>, assistantMessage: LlmMessage, opts?: GenerateTextOptions): Promise<void> {
+		const description = opts?.id ?? '';
+		return withActiveSpan(`saveLlmCall ${description}`, async (span) => {
+			const fullPromptText = requestMessages.map((m) => messageText(m)).join('\n');
+			const responseText = messageText(assistantMessage);
+
+			const llmCallSave: Promise<LlmCall> = appContext().llmCallService.saveRequest({
+				messages: requestMessages as LlmMessage[],
+				llmId: this.getId(),
+				agentId: agentContext()?.agentId,
+				callStack: callStack(),
+				description,
+				settings: opts,
+			});
+			const requestTime = Date.now();
+
+			const timeToFirstToken = 1;
+			const finishTime = Date.now();
+			const llmCall: LlmCall = await llmCallSave;
+
+			const inputTokens = await this.countTokens(fullPromptText);
+			const outputTokens = await this.countTokens(responseText);
+			const { totalCost } = this.calculateCosts(inputTokens, outputTokens);
+			addCost(totalCost);
+
+			llmCall.timeToFirstToken = timeToFirstToken;
+			llmCall.totalTime = finishTime - requestTime;
+			llmCall.cost = totalCost;
+			llmCall.inputTokens = inputTokens;
+			llmCall.outputTokens = outputTokens;
+
+			assistantMessage.stats = {
+				llmId: this.getId(),
+				cost: totalCost,
+				inputTokens,
+				outputTokens,
+				requestTime,
+				timeToFirstToken,
+				totalTime: llmCall.totalTime,
+			};
+
+			llmCall.messages = [...llmCall.messages, assistantMessage];
+
+			span.setAttributes({
+				inputChars: fullPromptText.length,
+				outputChars: responseText.length,
+				inputTokens,
+				outputTokens,
+				cost: totalCost,
+				model: this.model,
+				service: this.service,
+				description,
+			});
+
+			try {
+				await appContext().llmCallService.saveResponse(llmCall);
+			} catch (e) {
+				logger.error(e, 'Failed to save MockLLM response');
+			}
+		});
+	}
+}
+
+export const mockLLM = new MockLLM();
+
+export function mockLLMRegistry(): Record<string, () => LLM> {
+	return {
+		// Tests need the same instance returned
+		'mock:mock': () => mockLLM,
+	};
+}
+
+export function mockLLMs(): AgentLLMs {
+	return {
+		easy: mockLLM,
+		medium: mockLLM,
+		hard: mockLLM,
+		xhard: mockLLM,
+	};
+}
+
+]]></file_content>
+<file_content file_path="src/swe/coder/validators/moduleAliasRule.ts"><![CDATA[
+import type { EditBlock } from '../coderTypes';
+import type { ValidationIssue, ValidationRule } from './validationRule';
+
+/**
+ * Sometimes the search/replace coder will write a file with the module alias e.g. #shard/common.service.ts instead of src/shard/common.service.ts
+ * We want to detect and prevent this.
+ */
+export class ModuleAliasRule implements ValidationRule {
+	readonly name = 'ModuleAliasRule';
+
+	async check(block: EditBlock, _repoFiles: string[]): Promise<ValidationIssue | null> {
+		// Make sure we haven't parsed a markdown header (e.g starting with '# ', '## ', '### '). Regex match on #'s then space.
+		const pathIsMarkdownHeader = block.filePath.match(/^#\s/);
+		if ((block.filePath.startsWith('#') && !pathIsMarkdownHeader) || block.filePath.startsWith('@')) {
+			return {
+				file: block.filePath,
+				reason: `File path "${block.filePath}" should not begin with '${block.filePath.charAt(0)}'. It seems like you're writing to a module alias. You need to write to a real file path.`,
+			};
+		}
+		return null;
+	}
+}
+
+]]></file_content>
+<file_content file_path="src/swe/coder/validators/compositeValidator.ts"><![CDATA[
+import type { EditBlock } from '../coderTypes';
+import type { ValidationIssue, ValidationRule } from './validationRule';
+
+export interface ValidateBlocksResult {
+	valid: EditBlock[];
+	issues: ValidationIssue[];
+}
+
+/**
+ * Validates a list of edit blocks against a set of validation rules.
+ * @param blocks The edit blocks to validate.
+ * @param repoFiles A list of all file paths in the repository.
+ * @param rules An array of validation rules to apply.
+ * @returns An object containing arrays of valid blocks and any validation issues found.
+ */
+export async function validateBlocks(blocks: EditBlock[], repoFiles: string[], rules: ValidationRule[]): Promise<ValidateBlocksResult> {
+	const valid: EditBlock[] = [];
+	const issues: ValidationIssue[] = [];
+	const blockIssuesCache = new Map<EditBlock, ValidationIssue[]>();
+
+	for (const block of blocks) {
+		let blockIsValid = true;
+		const currentBlockIssues: ValidationIssue[] = [];
+
+		for (const rule of rules) {
+			const issue: ValidationIssue | null = await rule.check(block, repoFiles);
+			if (issue) {
+				currentBlockIssues.push(issue);
+				blockIsValid = false;
+				// Do not break here, collect all issues for this block from all rules
+			}
+		}
+
+		if (blockIsValid) {
+			valid.push(block);
+		} else {
+			issues.push(...currentBlockIssues);
+			// Optionally, store per-block issues if needed later, though current return aggregates all issues.
+			// blockIssuesCache.set(block, currentBlockIssues);
+		}
+	}
+
+	// If a block has any issue, it's not in `valid`. `issues` contains all found issues.
+	// If a block is invalid, it should not be processed. The current logic correctly excludes them from `valid`.
+	// The requirement is to return {valid: EditBlock[], issues: ValidationIssue[]}
+	// where `issues` are for the blocks that were *not* valid.
+
+	return { valid, issues };
+}
+
+]]></file_content>
+<file_content file_path="src/swe/coder/fixSearchReplaceBlock.ts"><![CDATA[
+import path from 'node:path';
+import { logger } from '#o11y/logger';
+import { LLM, LlmMessage, user } from '#shared/llm/llm.model';
+import { EditBlock } from './coderTypes';
+import { parseEditResponse } from './editBlockParser';
+
+export async function tryFixSearchBlock(failedEdit: EditBlock, fileContentSnapshot: string, llm: LLM, fence: [string, string]): Promise<EditBlock | null> {
+	const lang = path.extname(failedEdit.filePath).substring(1) || 'text';
+
+	const fixPromptMessages: LlmMessage[] = [
+		user(
+			`You are an expert at correcting SEARCH/REPLACE blocks for code editing.
+You will be given the content of a file and a SEARCH/REPLACE block that failed to apply, likely because the SEARCH part does not exactly match any segment of the file.
+
+Your task is to:
+1. Analyze the provided file content for the file: ${failedEdit.filePath}
+2. Analyze the failed SEARCH/REPLACE block.
+3. Modify *only* the SEARCH part of the block so that it exactly matches a contiguous segment of the provided file content.
+   - The corrected SEARCH part should be as short as possible while still being unique and accurately targeting the intended change location.
+   - Aim to preserve the original intent of the change.
+4. Do *NOT* change the file path.
+5. Do *NOT* change the REPLACE part.
+6. Return *only* the complete, corrected SEARCH/REPLACE block in the specified format. Do not add any explanations or other text.
+
+File content for: ${failedEdit.filePath}
+${fence[0]}${lang}
+${fileContentSnapshot}
+${fence[1]}
+
+Failed SEARCH/REPLACE block for: ${failedEdit.filePath}
+${fence[0]}${lang}
+<<<<<<< SEARCH
+${failedEdit.originalText}=======
+${failedEdit.updatedText}>>>>>>> REPLACE
+${fence[1]}
+
+Correct the SEARCH part and provide the full block:`,
+		),
+	];
+
+	// logger.debug({ prompt: fixPromptMessages[0].content }, 'SearchReplaceCoder: Sending prompt to fix search block.');
+
+	const fixedBlockText = await llm.generateText(fixPromptMessages, {
+		id: `SearchReplaceCoder.fixSearchBlock.${failedEdit.filePath}`,
+		temperature: 0.05, // Low temperature for precise correction
+	});
+
+	if (!fixedBlockText?.trim()) {
+		logger.warn('LLM returned empty response for search block fix.', { filePath: failedEdit.filePath });
+		return null;
+	}
+
+	const parsedFix = parseEditResponse(fixedBlockText, 'diff', fence); // Assuming 'diff' format for the fix
+	if (parsedFix.length === 1 && parsedFix[0].filePath === failedEdit.filePath) {
+		// Basic validation: ensure it's one block and for the same file.
+		// More validation could be added (e.g., REPLACE part is unchanged).
+		if (parsedFix[0].updatedText.trim() === failedEdit.updatedText.trim()) {
+			logger.info(`Successfully parsed corrected block for ${failedEdit.filePath}.`);
+			return parsedFix[0];
+		}
+		logger.warn('Corrected block changed the REPLACE part. Discarding.', {
+			filePath: failedEdit.filePath,
+			originalReplace: failedEdit.updatedText,
+			newReplace: parsedFix[0].updatedText,
+		});
+		return null;
+	}
+	logger.warn('Failed to parse corrected block or filePath mismatch.', {
+		filePath: failedEdit.filePath,
+		parsedCount: parsedFix.length,
+		parsedFilePath: parsedFix[0]?.filePath,
+		rawResponse: fixedBlockText,
+	});
+	return null;
+}
+
+]]></file_content>
+<file_content file_path="src/swe/coder/editSession.ts"><![CDATA[
+import { v4 as uuidv4 } from 'uuid';
+import type { EditBlock } from './coderTypes'; // Assuming EditBlock is still in applySearchReplace
+
+export interface RequestedFileEntry {
+	filePath: string;
+	reason: string;
+}
+
+export interface RequestedQueryEntry {
+	query: string;
+	reason?: string; // Optional: if LLM provides a reason for the query
+}
+
+export interface RequestedPackageInstallEntry {
+	packageName: string;
+	reason: string;
+}
+
+export interface EditSession {
+	id: string; // uuid()
+	workingDir: string;
+	attempt: number;
+	// input & result
+	llmRequest: string;
+	llmResponse?: string;
+	parsedBlocks?: EditBlock[];
+	validatedBlocks?: EditBlock[];
+	appliedFiles?: Set<string>; // Relative paths of successfully edited files
+	reflectionMessages: string[];
+	requestedFiles?: RequestedFileEntry[]; // To store parsed file requests from LLM
+	requestedQueries?: RequestedQueryEntry[]; // New: To store parsed query requests
+	requestedPackageInstalls?: RequestedPackageInstallEntry[]; // New: To store parsed package install requests
+	// state snapshots
+	absFnamesInChat?: Set<string>; // Absolute paths of files explicitly in chat
+	initiallyDirtyFiles?: Set<string>; // Relative paths of files that were dirty when we started
+	fileContentSnapshots: Map<string, string | null>; // Snapshots of file contents before an attempt
+}
+
+export function newSession(workingDir: string, llmRequest: string): EditSession {
+	return {
+		id: uuidv4(),
+		workingDir,
+		attempt: 0,
+		llmRequest,
+		reflectionMessages: [],
+		absFnamesInChat: new Set(),
+		initiallyDirtyFiles: new Set(),
+		fileContentSnapshots: new Map<string, string | null>(),
+		requestedFiles: undefined,
+		requestedQueries: undefined, // Initialize as undefined
+		requestedPackageInstalls: undefined, // Initialize as undefined
+	};
+}
+
+]]></file_content>
+<file_content file_path="src/swe/coder/editApplier.ts"><![CDATA[
+import * as path from 'node:path';
+import { logger } from '#o11y/logger';
+import type { IFileSystemService } from '#shared/files/fileSystemService';
+import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
+import type { EditBlock } from './coderTypes';
+import { doReplace } from './patchUtils'; // Updated import
+
+export class EditApplier {
+	constructor(
+		private fs: IFileSystemService,
+		private vcs: VersionControlSystem | null,
+		private lenientWhitespace: boolean,
+		private fence: [string, string],
+		private rootPath: string, // Absolute path to the project root
+		private absFnamesInChat: Set<string>, // Absolute paths of files explicitly in chat for fallback
+		private autoCommit: boolean, // For committing successful edits
+		private dryRun: boolean,
+	) {}
+
+	private getRepoFilePath(relativePath: string): string {
+		return path.resolve(this.rootPath, relativePath);
+	}
+
+	private getRelativeFilePath(absolutePath: string): string {
+		return path.relative(this.rootPath, absolutePath);
+	}
+
+	private async fileExists(absolutePath: string): Promise<boolean> {
+		return this.fs.fileExists(absolutePath);
+	}
+
+	private async readText(absolutePath: string): Promise<string | null> {
+		try {
+			return await this.fs.readFile(absolutePath);
+		} catch (e: any) {
+			logger.warn(`Failed to read file at ${absolutePath}: ${e.message}`);
+			return null;
+		}
+	}
+
+	private async writeText(absolutePath: string, content: string): Promise<void> {
+		// Note: content is expected to end with a newline, as ensured by the _doReplace processing chain.
+		await this.fs.writeFile(absolutePath, content);
+	}
+
+	async apply(blocks: EditBlock[]): Promise<{ appliedFilePaths: Set<string>; failedEdits: EditBlock[] }> {
+		const appliedFilePaths = new Set<string>(); // Stores relative paths
+		const failedEdits: EditBlock[] = [];
+
+		for (const edit of blocks) {
+			const originalRelativePath = edit.filePath;
+			const originalAbsolutePath = this.getRepoFilePath(originalRelativePath);
+			let currentContent: string | null = null;
+
+			if (await this.fileExists(originalAbsolutePath)) {
+				currentContent = await this.readText(originalAbsolutePath);
+			}
+
+			let newContent = doReplace(originalRelativePath, currentContent, edit.originalText, edit.updatedText, this.fence, this.lenientWhitespace);
+
+			let appliedToAbsolutePath = originalAbsolutePath;
+			let appliedRelativePath = originalRelativePath;
+
+			// Fallback logic
+			if (newContent === undefined && currentContent !== null) {
+				logger.debug(`Edit for ${originalRelativePath} failed. Attempting fallback on other in-chat files.`);
+				for (const chatFileAbs of this.absFnamesInChat) {
+					if (chatFileAbs === originalAbsolutePath) continue;
+
+					const chatFileRel = this.getRelativeFilePath(chatFileAbs);
+					let fallbackContent: string | null = null;
+					if (await this.fileExists(chatFileAbs)) {
+						fallbackContent = await this.readText(chatFileAbs);
+					}
+
+					if (fallbackContent !== null) {
+						const fallbackNewContent = doReplace(chatFileRel, fallbackContent, edit.originalText, edit.updatedText, this.fence, this.lenientWhitespace);
+						if (fallbackNewContent !== undefined) {
+							logger.info(`Applied edit originally for ${originalRelativePath} to ${chatFileRel} as a fallback.`);
+							newContent = fallbackNewContent;
+							appliedToAbsolutePath = chatFileAbs;
+							appliedRelativePath = chatFileRel;
+							break; // Found a successful fallback
+						}
+					}
+				}
+			}
+
+			if (newContent !== undefined) {
+				if (!this.dryRun) {
+					try {
+						await this.writeText(appliedToAbsolutePath, newContent);
+					} catch (e: any) {
+						logger.error(`Failed to write applied edit to ${appliedRelativePath}: ${e.message}`);
+						failedEdits.push({ ...edit, filePath: originalRelativePath }); // Report failure against original path
+						continue;
+					}
+				}
+				logger.info(`Successfully applied edit to ${appliedRelativePath}${this.dryRun ? ' (dry run)' : ''}`);
+				appliedFilePaths.add(appliedRelativePath);
+			} else {
+				logger.warn(`Failed to apply edit for ${originalRelativePath}, no suitable match or fallback found.`);
+				failedEdits.push(edit);
+			}
+		}
+
+		if (this.autoCommit && !this.dryRun && this.vcs && appliedFilePaths.size > 0) {
+			const commitMessage = 'Applied LLM-generated edits';
+			try {
+				const filesToCommit = Array.from(appliedFilePaths);
+				// Use the more precise method already available in the interface
+				await this.vcs.addAndCommitFiles(filesToCommit, commitMessage);
+				logger.info(`Auto-committed changes for ${filesToCommit.length} files: ${filesToCommit.join(', ')}.`);
+			} catch (commitError: any) {
+				logger.error({ err: commitError }, 'Auto-commit failed after applying edits.');
+				// This error is logged, but doesn't make the apply operation fail at this stage.
+				// The orchestrator (SearchReplaceCoder) might handle this if it's critical.
+			}
+		}
+
+		return { appliedFilePaths, failedEdits };
+	}
+}
+
+]]></file_content>
+<file_content file_path="src/swe/coder/reflectionUtils.ts"><![CDATA[
+import * as path from 'node:path';
+import { logger } from '#o11y/logger'; // Added for potential logging within utils if needed
+import type { IFileSystemService } from '#shared/files/fileSystemService';
+import type { EditBlock } from './coderTypes';
+import type { ValidationIssue } from './validators/validationRule';
+
+export function buildValidationIssuesReflection(issues: ValidationIssue[]): string {
+	let reflectionText = 'There were issues with the file paths or structure of your proposed changes:\n';
+	for (const issue of issues) {
+		reflectionText += `- File "${issue.file}": ${issue.reason}\n`;
+	}
+	reflectionText += 'Please correct these issues and resubmit your changes.';
+	return reflectionText;
+}
+
+export async function buildFailedEditsReflection(
+	failedEdits: EditBlock[],
+	numPassed: number,
+	fs: IFileSystemService,
+	rootPath: string, // Equivalent to session.workingDir
+): Promise<string> {
+	const numFailed = failedEdits.length;
+	const blocks = numFailed === 1 ? 'block' : 'blocks';
+	let report = `# ${numFailed} SEARCH/REPLACE ${blocks} failed to match!\n`;
+
+	for (const edit of failedEdits) {
+		report += `\n## SearchReplaceNoExactMatch: This SEARCH block failed to exactly match lines in ${edit.filePath}\n`;
+		report += `<<<<<<< SEARCH\n${edit.originalText}=======\n${edit.updatedText}>>>>>>> REPLACE\n\n`;
+
+		const absolutePath = path.resolve(rootPath, edit.filePath);
+		let content: string | null = null;
+		// Check if fileExists before readFile to align with original logic's implicit check
+		try {
+			if (await fs.fileExists(absolutePath)) {
+				content = await fs.readFile(absolutePath);
+			}
+		} catch (e: any) {
+			logger.warn(`Error reading file ${absolutePath} during reflection: ${e.message}`);
+			// content remains null
+		}
+
+		if (content) {
+			// TODO: Implement _findSimilarLines if desired for richer feedback (from original Coder)
+			if (edit.updatedText && content.includes(edit.updatedText)) {
+				report += `NOTE: The REPLACE lines are already present in ${edit.filePath}. Consider if this block is needed.\n\n`;
+			}
+		}
+	}
+	report += 'The SEARCH section must exactly match an existing block of lines including all white space, comments, indentation, etc.\n';
+	if (numPassed > 0) {
+		const pblocks = numPassed === 1 ? 'block' : 'blocks';
+		report += `\n# The other ${numPassed} SEARCH/REPLACE ${pblocks} were applied successfully.\n`;
+		report += `Don't re-send them.\nJust reply with fixed versions of the ${blocks} above that failed to match.\n`;
+	}
+	return report;
+}
+
+]]></file_content>
+<file_content file_path="src/swe/coder/searchReplaceCoder.test.ts"><![CDATA[
+import { existsSync } from 'node:fs';
+import { expect } from 'chai';
+import mockFs from 'mock-fs';
+import * as sinon from 'sinon';
+import { Git } from '#functions/scm/git';
+import { FileSystemService } from '#functions/storage/fileSystemService';
+import { MockLLM } from '#llm/services/mock-llm';
+import { logger } from '#o11y/logger';
+import type { AgentLLMs } from '#shared/agent/agent.model';
+import type { IFileSystemService } from '#shared/files/fileSystemService';
+import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
+import { CoderExhaustedAttemptsError } from '../sweErrors';
+import { DIVIDER_MARKER, REPLACE_MARKER, SEARCH_MARKER } from './constants';
+import { EditApplier } from './editApplier';
+import { SearchReplaceCoder } from './searchReplaceCoder';
+
+const MOCK_REPO_ROOT = '/repo';
+
+function searchReplaceBlock(filePath: string, search: string, replace: string): string {
+	return `${filePath}
+\`\`\`typescript
+${SEARCH_MARKER}
+${search}
+${DIVIDER_MARKER}
+${replace}
+${REPLACE_MARKER}
+\`\`\`
+`;
+}
+
+const SEARCH_BLOCK_VALID = searchReplaceBlock('test.ts', 'hello world', 'hello universe');
+
+describe.only('SearchReplaceCoder: Reflection Logic', () => {
+	setupConditionalLoggerOutput();
+
+	let coder: SearchReplaceCoder;
+	let mockLlms: AgentLLMs;
+	let mockLLM: MockLLM;
+	let fss: IFileSystemService;
+	let mockVcs: sinon.SinonStubbedInstance<VersionControlSystem>;
+
+	// Helper function to set up mock file system and FileSystemService
+	function setupMockFs(mockFileSystemConfig: any): void {
+		mockFileSystemConfig[`${MOCK_REPO_ROOT}/.gitignore`] = '';
+		mockFs(mockFileSystemConfig);
+
+		// Stub existsSync to work with the mocked file system
+		const existsSyncStub = sinon.stub(require('node:fs'), 'existsSync');
+		existsSyncStub.callsFake((path: unknown) => {
+			const pathStr = String(path);
+			// Return true for the mock repo root and any paths that should exist
+			if (pathStr === MOCK_REPO_ROOT) return true;
+			// For other paths, check if they exist in the mock config
+			const mockPaths = Object.keys(mockFileSystemConfig);
+			return mockPaths.some((mockPath) => pathStr.startsWith(mockPath) || mockPath.startsWith(pathStr));
+		});
+
+		fss = new FileSystemService(MOCK_REPO_ROOT);
+		fss.setWorkingDirectory(MOCK_REPO_ROOT);
+		mockVcs = sinon.createStubInstance(Git);
+		sinon.stub(fss, 'getVcsRoot').returns(MOCK_REPO_ROOT);
+		sinon.stub(fss, 'getVcs').returns(mockVcs);
+		coder = new SearchReplaceCoder(mockLlms, fss);
+	}
+
+	beforeEach(() => {
+		mockLLM = new MockLLM();
+		mockLlms = { easy: mockLLM, medium: mockLLM, hard: mockLLM, xhard: mockLLM };
+	});
+
+	afterEach(() => {
+		mockLLM.reset();
+		mockLLM.assertNoPendingResponses(); // Ensures no leftover responses
+		sinon.restore();
+		mockFs.restore();
+	});
+
+	describe('on Initial LLM Response Issues', () => {
+		it('should reflect with a specific message when the LLM returns an empty response', async () => {
+			setupMockFs({ '/repo/test.ts': 'hello world' });
+
+			mockLLM
+				.addMessageResponse('') // First call returns empty
+				.addMessageResponse(SEARCH_BLOCK_VALID); // Second call (after reflection) succeeds
+
+			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);
+
+			const messageCalls = mockLLM.getMessageCalls();
+			expect(messageCalls).to.have.lengthOf(2);
+			const reflectionMessage = messageCalls[1].messages.at(-2)?.content;
+			expect(reflectionMessage).to.contain('No edit blocks or actionable requests');
+		});
+
+		it('should reflect if the LLM provides no edit blocks and no meta-requests', async () => {                                                                                                                                                  
+			setupMockFs({ '/repo/test.ts': 'hello world' });                                                                                                                                                                                        
+																																																													
+			mockLLM                                                                                                                                                                                                                                 
+				.addMessageResponse('Sure, I can do that.') // First call has no blocks                                                                                                                                                             
+				.addMessageResponse(SEARCH_BLOCK_VALID); // Second call succeeds                                                                                                                                                                    
+																																																													
+			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);                                                                                                                                                                       
+																																																													
+			const messageCalls = mockLLM.getMessageCalls();                                                                                                                                                                                         
+			expect(messageCalls).to.have.lengthOf(2);                                                                                                                                                                                               
+			const reflectionMessage = messageCalls[1].messages.at(-2)?.content;                                                                                                                                                                     
+			expect(reflectionMessage).to.contain('No edit blocks or actionable requests');                                                                                                                                                          
+		});               
+	});
+
+	describe('on Validation Failures', () => {                                                                                                                                                                                                      
+		it('should reflect on a file path that does not exist', async () => {                                                                                                                                                                       
+			setupMockFs({ '/repo/existing.ts': 'file content', '/repo/test.ts': 'hello world' });                                                                                                                                                   
+																																																													
+			const editBlock = searchReplaceBlock('non-existent.ts', 'original', 'updated');                                                                                                                                                         
+			mockLLM                                                                                                                                                                                                                                 
+				.addMessageResponse(editBlock) // First attempt fails validation                                                                                                                                                                    
+				.addMessageResponse(SEARCH_BLOCK_VALID); // Second attempt succeeds                                                                                                                                                                 
+			const applierSpy = sinon.spy(EditApplier.prototype, 'apply');                                                                                                                                                                           
+																																																													
+			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);                                                                                                                                                                       
+																																																													
+			expect(mockLLM.getMessageCalls()).to.have.lengthOf(2);                                                                                                                                                                                  
+			const reflection = mockLLM.getMessageCalls()[1].messages.at(-2)?.content;                                                                                                                                                               
+			expect(reflection).to.contain('File does not exist, but the SEARCH block is not empty.');                                                                                                                                               
+			expect(applierSpy.calledOnce).to.be.true;                                                                                                                                                                                               
+		});                                                                                                                                                                                                                                         
+																																																													
+		it('should reflect on a file path that uses a module alias like # or @', async () => {                                                                                                                                                      
+			setupMockFs({ '/repo/test.ts': 'hello world' });                                                                                                                                                                                        
+																																																													
+			const editBlock = searchReplaceBlock('@services/my-service.ts', 'original', 'updated');                                                                                                                                                 
+			mockLLM.addMessageResponse(editBlock).addMessageResponse(SEARCH_BLOCK_VALID);                                                                                                                                                           
+																																																													
+			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);                                                                                                                                                                       
+																																																													
+			const reflection = mockLLM.getMessageCalls()[1].messages.at(-2)?.content;                                                                                                                                                               
+			expect(reflection).to.contain("should not begin with '@'. It seems like you're writing to a module alias");                                                                                                                             
+		});                                                                                                                                                                                                                                         
+																																																													
+		it('should reflect with all issues if multiple validation rules fail', async () => {                                                                                                                                                        
+			setupMockFs({ '/repo/test.ts': 'hello world' });                                                                                                                                                                                        
+			const editBlock1 = searchReplaceBlock('@services/my-service.ts', 'original', 'updated');                                                                                                                                                
+			const editBlock2 = searchReplaceBlock('non-existent.ts', 'original', 'updated');                                                                                                                                                        
+			const editBlocks = `${editBlock1}\n\n${editBlock2}`;                                                                                                                                                                                    
+																																																													
+			mockLLM.addMessageResponse(editBlocks).addMessageResponse(SEARCH_BLOCK_VALID);                                                                                                                                                          
+																																																													
+			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);                                                                                                                                                                       
+																																																													
+			const reflection = mockLLM.getMessageCalls()[1].messages.at(-2)?.content;                                                                                                                                                               
+			expect(reflection).to.contain("should not begin with '@'");                                                                                                                                                                             
+			expect(reflection).to.contain('File does not exist');                                                                                                                                                                                   
+		});                                                                                                                                                                                                                                         
+	});                                                                                                                                                                                                                                             
+																																																													
+	describe('on Edit Application Failures', () => {                                                                                                                                                                                                
+		it('should reflect when an edit fails to apply due to a non-matching SEARCH block', async () => {                                                                                                                                           
+			setupMockFs({ '/repo/test.ts': 'hello world' });                                                                                                                                                                                        
+																																																													
+			const failingBlock = searchReplaceBlock('test.ts', 'goodbye world', 'new content');                                                                                                                                                     
+			mockLLM                                                                                                                                                                                                                                 
+				.addMessageResponse(failingBlock) // Main attempt                                                                                                                                                                                   
+				.addMessageResponse('null') // Fix attempt fails                                                                                                                                                                                    
+				.addMessageResponse(SEARCH_BLOCK_VALID); // Reflection attempt                                                                                                                                                                      
+																																																													
+			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);                                                                                                                                                                       
+																																																													
+			expect(mockLLM.getMessageCalls()).to.have.lengthOf(3); // Main (msg) + fix (msg) + reflection (msg)                                                                                                                                     
+			const reflection = mockLLM.getMessageCalls()[2].messages.at(-2)?.content;                                                                                                                                                               
+			expect(reflection).to.contain('This SEARCH block failed to exactly match lines in test.ts');                                                                                                                                            
+		});                                                                                                                                                                                                                                         
+																																																													
+		it('should reflect with a summary of both passed and failed edits', async () => {                                                                                                                                                    
+			setupMockFs({                                                                                                                                                                                                                    
+				'/repo/pass.ts': 'pass content',                                                                                                                                                                                             
+				'/repo/fail.ts': 'fail content',                                                                                                                                                                                             
+				'/repo/test.ts': 'hello world',  // added                                                                                                                                                                                    
+			});                                                                                                                                                                                                                              
+			const passBlock = searchReplaceBlock('pass.ts', 'pass content', 'new pass content');                                                                                                                                             
+			const failBlock = searchReplaceBlock('fail.ts', 'mismatch text', 'new fail content');                                                                                                                                            
+			const editBlocks = `${passBlock}\n\n${failBlock}`;                                                                                                                                                                               
+																																																											 
+			mockLLM                                                                                                                                                                                                                          
+				.addMessageResponse(editBlocks)                                                                                                                                                                                              
+				.addMessageResponse('null') // Fail fix attempt                                                                                                                                                                              
+				.addMessageResponse(SEARCH_BLOCK_VALID); // Reflection attempt                                                                                                                                                               
+																																																											 
+			await coder.editFilesToMeetRequirements('test', ['pass.ts', 'fail.ts'], []);                                                                                                                                                     
+																																																											 
+			const reflection = mockLLM.getMessageCalls()[2].messages.at(-2)?.content;                                                                                                                                                        
+			expect(reflection).to.contain('1 SEARCH/REPLACE block failed to match!');                                                                                                                                                        
+			expect(reflection).to.contain('The other 1 SEARCH/REPLACE block were applied successfully.');                                                                                                                                     
+		});                                                                                                                                                                                                                                         
+	});                                                                                                                                                                                                                                             
+																																																													
+	describe('on Edit Fixing and Re-application Logic', () => {                                                                                                                                                                                     
+		it('should attempt to fix a failed block and NOT reflect if the fix and re-application succeed', async () => {                                                                                                                              
+			setupMockFs({ '/repo/test.ts': 'original content' });                                                                                                                                                                                   
+			// use searchReplaceBlock                                                                                                                                                                                                               
+			const failingBlock = searchReplaceBlock('test.ts', 'bad search', 'new content');                                                                                                                                                        
+			const correctedBlock = searchReplaceBlock('test.ts', 'original content', 'new content');                                                                                                                                                
+																																																													
+			mockLLM.addMessageResponse(failingBlock).addMessageResponse(correctedBlock); // Stub tryFixSearchBlock to succeed                                                                                                                       
+																																																													
+			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);                                                                                                                                                                       
+																																																													
+			expect(mockLLM.getMessageCalls()).to.have.lengthOf(2); // Main attempt + fix attempt                                                                                                                                                    
+			expect(mockLLM.getCallCount()).to.equal(2); // Main (msg) + fix (msg)                                                                                                                                                                   
+			const finalContent = await fss.readFile('/repo/test.ts');                                                                                                                                                                               
+			expect(finalContent).to.contain('new content');                                                                                                                                                                                         
+		});                                                                                                                                                                                                                                         
+																																																													
+		it('should reflect with remaining failures if the corrected block also fails to apply', async () => {                                                                                                                                       
+			setupMockFs({ '/repo/test.ts': 'original content' });                                                                                                                                                                                   
+			const failingBlock = searchReplaceBlock('test.ts', 'bad search', 'new content');                                                                                                                                                        
+			const correctedBlock = searchReplaceBlock('test.ts', 'original content', 'new content');                                                                                                                                                
+			mockLLM.addMessageResponse(failingBlock).addMessageResponse(correctedBlock); // Stub tryFixSearchBlock to succeed                                                                                                                       
+																																																													
+			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);                                                                                                                                                                       
+																																																													
+			expect(mockLLM.getMessageCalls()).to.have.lengthOf(2); // Main attempt only                                                                                                                                                             
+			expect(mockLLM.getCallCount()).to.equal(2); // Main (msg) + fix (txt)                                                                                                                                                                   
+			const finalContent = await fss.readFile('/repo/test.ts');                                                                                                                                                                               
+			expect(finalContent).to.contain('new content');                                                                                                                                                                                         
+		});                                                                                                                                                                                                                                         
+																																																													
+		it('should reflect with remaining failures if the corrected block also fails to apply', async () => {                                                                                                                                       
+			setupMockFs({ '/repo/test.ts': 'original content' });                                                                                                                                                                                   
+			const failingBlock = searchReplaceBlock('test.ts', 'bad search', 'new content');                                                                                                                                                        
+			const stillFailingBlock = searchReplaceBlock('test.ts', 'still bad search', 'new content');                                                                                                                                      
+			mockLLM                                                                                                                                                                                                                          
+				.addMessageResponse(failingBlock)                                                                                                                                                                                            
+				.addMessageResponse(stillFailingBlock) // Fix returns another bad block                                                                                                                                                      
+				.addMessageResponse('null')                                                                                                                                                                                                  
+				.addMessageResponse(SEARCH_BLOCK_VALID)
+				.addMessageResponse('null');                                                                                                                                                                               
+																																																											 
+			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);                                                                                                                                                                
+																																																											 
+			const messageCalls = mockLLM.getMessageCalls();                                                                                                                                                                                  
+			expect(messageCalls).to.have.lengthOf(5); // Main attempt + fix attempt + reflection + final reflection                                                                                                                                             
+			const reflection = messageCalls[3].messages.at(-2)?.content;                                                                                                                                                                     
+			expect(reflection).to.contain('This SEARCH block failed to exactly match lines in test.ts');                                                                                                                                          
+		});                                                                                                                                                                                                                                         
+	});                                                                                                                                                                                                                                             
+																																																													
+	describe('on Context and State Failures', () => {                                                                                                                                                                                               
+		it('should reflect if a file was modified externally before edits are applied', async () => {                                                                                                                                               
+			setupMockFs({ '/repo/test.ts': 'initial content' });                                                                                                                                                                                    
+			// Stub readFile to simulate modification after prompt build                                                                                                                                                                            
+			const readFileStub = sinon.stub(fss, 'readFile');                                                                                                                                                                                       
+			readFileStub.callThrough();                                                                                                                                                                                                             
+			readFileStub.withArgs('/repo/test.ts').onFirstCall().resolves('initial content'); // For prompt build                                                                                                                                   
+			// For external change check and all subsequent reads, return modified content                                                                                                                                                          
+			readFileStub.withArgs('/repo/test.ts').resolves('modified content');                                                                                                                                                                    
+																																																													
+			mockLLM                                                                                                                                                                                                                                 
+				.addMessageResponse(SEARCH_BLOCK_VALID.replace('hello world', 'initial content'))                                                                                                                                                   
+				.addMessageResponse(SEARCH_BLOCK_VALID.replace('hello world', 'modified content'));                                                                                                                                                 
+																																																													
+				await coder.editFilesToMeetRequirements('test', ['test.ts'], []);                                                                                                                                                                
+                                                                                                                                                                                                                                              
+				const messageCalls = mockLLM.getMessageCalls();                                                                                                                                                                                  
+				expect(messageCalls).to.have.lengthOf(2);                                                                                                                                                                                        
+				const reflection = messageCalls[1].messages                                                                                                                                                                                      
+					.find((m) => typeof m.content === 'string' && m.content.includes('were modified after the edit blocks'))!                                                                                                                    
+					.content as string;                                                                                                                                                                                                          
+				expect(reflection).to.contain('were modified after the edit blocks were generated');                                                                                                                                                  
+		});                                                                                                                                                                                                                                         
+																																																													
+		it('should reflect if a required dirty commit fails', async () => {      
+			setupMockFs({ '/repo/dirty.ts': 'content', '/repo/test.ts': 'hello world' });                                                                                                                                                                        
+			mockVcs.isDirty.withArgs('dirty.ts').resolves(true);                                                                                                                                                                             
+			mockVcs.addAndCommitFiles.rejects(new Error('Commit failed'));                                                                                                                                                                   
+			mockLLM.addMessageResponse('dirty.ts\n<<<<<<< SEARCH\ncontent\n=======\nnew\n>>>>>>> REPLACE').addMessageResponse(SEARCH_BLOCK_VALID).addMessageResponse(SEARCH_BLOCK_VALID);                                                    
+																																																											 
+			await coder.editFilesToMeetRequirements('test', ['dirty.ts'], [], true, true);                                                                                                                                                   
+																																																											 
+			const reflection = mockLLM.getMessageCalls()[1].messages                                                                                                                                                                         
+				.find((m) => typeof m.content === 'string' && m.content.includes('Failed to commit uncommitted changes'))!                                                                                                                   
+				.content as string;                                                                                                                                                                                                          
+			expect(reflection).to.contain('Failed to commit uncommitted changes');                                                                                                                                                                        
+		});                                                                                                                                                                                                                                         
+	});                                                                                                                                                                                                                                             
+																																																													
+	describe('on Meta-Requests (Files, Queries, Packages)', () => {                                                                                                                                                                                 
+		it('should reflect to confirm file requests and ask to proceed when no edit blocks are present', async () => {                                                                                                                              
+			setupMockFs({ '/repo/test.ts': 'hello world' });                                                                                                                                                                                        
+			const fileRequest = `<add-files-json>{"files":[{"filePath":"src/utils.ts","reason":"..."}]}</add-files-json>`;                                                                                                                          
+			mockLLM.addMessageResponse(fileRequest).addMessageResponse(SEARCH_BLOCK_VALID);                                                                                                                                                         
+																																																													
+			await coder.editFilesToMeetRequirements('test', [], []);                                                                                                                                                                         
+                                                                                                                                                                                                                                              
+			const reflection = mockLLM.getMessageCalls()[1].messages                                                                                                                                                                         
+				.find((m) => typeof m.content === 'string' && m.content.includes('I have added the 1 file(s) you requested'))!                                                                                                               
+				.content as string;                                                                                                                                                                                                          
+			expect(reflection).to.contain('I have added the 1 file(s) you requested');                                                                                                                                                       
+			expect(reflection).to.contain('Please proceed with the edits');                                                                                                                                                                           
+		});                                                                                                                                                                                                                                         
+																																																													
+		it('should process edits and log a warning if meta-requests and edit blocks are in the same response', async () => {                                                                                                                        
+			setupMockFs({ '/repo/test.ts': 'hello world' });                                                                                                                                                                                        
+			const response = `<add-files-json>{"files":[]}</add-files-json>\n${SEARCH_BLOCK_VALID}`;                                                                                                                                                
+			mockLLM.addMessageResponse(response);                                                                                                                                                                                                   
+																																																													
+			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);                                                                                                                                                                       
+																																																													
+			expect(mockLLM.getMessageCalls()).to.have.lengthOf(1);                                                                                                                                                                                  
+			const finalContent = await fss.readFile('/repo/test.ts');                                                                                                                                                                               
+			expect(finalContent).to.contain('hello universe');                                                                                                                                                                                      
+		});                                                                                                                                                                                                                                         
+	});                                                                                                                                                                                                                                             
+																																																													
+	describe('on Attempt Exhaustion', () => {                                                                                                                                                                                                       
+		it('should throw CoderExhaustedAttemptsError when max attempts are reached with persistent failures', async () => {                                                                                                                         
+			setupMockFs({ '/repo/test.ts': 'content' });                                                                                                                                                                                            
+			const failingBlock = searchReplaceBlock('test.ts', 'non-matching', 'new content');                                                                                                                                                      
+			// Always respond with an invalid block, and always fail to fix it                                                                                                                                                                      
+			for (let i = 0; i < 5; i++) {                                                                                                                                                                                                           
+				// MAX_ATTEMPTS is 5                                                                                                                                                                                                                
+				mockLLM.addMessageResponse(failingBlock).addMessageResponse('null'); // Fix always fails                                                                                                                                            
+			}                                                                                                                                                                                                                                       
+																																																													
+			let error: Error | null = null;                                                                                                                                                                                                         
+			try {                                                                                                                                                                                                                                   
+				await coder.editFilesToMeetRequirements('test', ['test.ts'], []);                                                                                                                                                                   
+			} catch (e) {                                                                                                                                                                                                                           
+				error = e as Error;                                                                                                                                                                                                                 
+			}                                                                                                                                                                                                                                       
+																																																													
+			expect(error).to.be.instanceOf(CoderExhaustedAttemptsError);                                                                                                                                                                            
+			// 5 attempts = 5 message calls (initial attempt) + 5 text calls (fix attempt)                                                                                                                                                          
+			expect(mockLLM.getCallCount()).to.equal(10);                                                                                                                                                                                            
+			if (error instanceof CoderExhaustedAttemptsError) {                                                                                                                                                                                     
+				expect(error.lastReflection).to.be.a('string');                                                                                                                                                                                     
+				expect(error.lastReflection).to.contain('This SEARCH block failed to exactly match lines in test.ts');                                                                                                                              
+			}                                                                                                                                                                                                                                       
+		});                                                                                                                                                                                                                                         
+	});                                         
+});
+
+]]></file_content>
+<file_content file_path="src/swe/coder/searchReplaceCoder.ts"><![CDATA[
+import * as path from 'node:path';
+import { agentContext } from '#agent/agentContextLocalStorage';
+import { buildFileSystemTreePrompt } from '#agent/agentPromptUtils';
+import { func, funcClass } from '#functionSchema/functionDecorators';
+import { logger } from '#o11y/logger';
+import type { AgentLLMs } from '#shared/agent/agent.model';
+import type { IFileSystemService } from '#shared/files/fileSystemService';
+import type { LLM, LlmMessage } from '#shared/llm/llm.model';
+import { messageText, user } from '#shared/llm/llm.model';
+import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
+import type { EditBlock } from '#swe/coder/coderTypes';
+import { CoderExhaustedAttemptsError } from '../sweErrors';
+import type { EditFormat } from './coderTypes';
+import { MODEL_EDIT_FORMATS } from './constants';
+import { EditApplier } from './editApplier';
+import { parseEditResponse } from './editBlockParser';
+import type { EditSession, RequestedFileEntry, RequestedPackageInstallEntry, RequestedQueryEntry } from './editSession';
+import { newSession } from './editSession';
+import { tryFixSearchBlock } from './fixSearchReplaceBlock';
+import { stripQuotedWrapping } from './patchUtils';
+import { buildFailedEditsReflection, buildValidationIssuesReflection } from './reflectionUtils';
+import { EDIT_BLOCK_PROMPTS } from './searchReplacePrompts';
+import { validateBlocks } from './validators/compositeValidator';
+import { ModuleAliasRule } from './validators/moduleAliasRule';
+import { PathExistsRule } from './validators/pathExistsRule';
+import type { ValidationIssue, ValidationRule } from './validators/validationRule';
+
+const MAX_ATTEMPTS = 5;
+const DEFAULT_FENCE_OPEN = '```';
+const DEFAULT_FENCE_CLOSE = '```';
+const DEFAULT_LENIENT_WHITESPACE = true;
+
+// Helper function to parse file requests from LLM response
+function parseAddFilesRequest(responseText: string): RequestedFileEntry[] | null {
+	if (!responseText) return null;
+	const match = responseText.match(/<add-files-json>([\s\S]*?)<\/add-files-json>/);
+	if (!match || !match[1]) {
+		return null;
+	}
+
+	const jsonString = match[1];
+	try {
+		const parsed = JSON.parse(jsonString);
+		if (parsed && Array.isArray(parsed.files)) {
+			const requestedFiles: RequestedFileEntry[] = [];
+			for (const item of parsed.files) {
+				if (typeof item.filePath === 'string' && typeof item.reason === 'string') {
+					requestedFiles.push({ filePath: item.filePath, reason: item.reason });
+				} else {
+					logger.warn('Invalid item in files array for add-files-json', { item });
+					return null; // Strict parsing: if one item is bad, reject all
+				}
+			}
+			return requestedFiles.length > 0 ? requestedFiles : null;
+		}
+		logger.warn('Invalid structure for add-files-json content', { jsonString });
+		return null;
+	} catch (error) {
+		logger.error({ err: error }, 'Failed to parse JSON from add-files-json block');
+		return null;
+	}
+}
+
+// New helper function to parse query requests
+function parseAskQueryRequest(responseText: string): RequestedQueryEntry[] | null {
+	if (!responseText) return null;
+	const matches = Array.from(responseText.matchAll(/<ask-query>([\s\S]*?)<\/ask-query>/g));
+	if (!matches.length) return null;
+
+	const requestedQueries: RequestedQueryEntry[] = [];
+	for (const match of matches) {
+		if (match[1]) {
+			requestedQueries.push({ query: match[1].trim() });
+		}
+	}
+	return requestedQueries.length > 0 ? requestedQueries : null;
+}
+
+// New helper function to parse package install requests
+function parseInstallPackageRequest(responseText: string): RequestedPackageInstallEntry[] | null {
+	if (!responseText) return null;
+	const match = responseText.match(/<install-packages-json>([\s\S]*?)<\/install-packages-json>/);
+	if (!match || !match[1]) {
+		return null;
+	}
+
+	const jsonString = match[1];
+	try {
+		const parsed = JSON.parse(jsonString);
+		if (parsed && Array.isArray(parsed.packages)) {
+			const requestedPackages: RequestedPackageInstallEntry[] = [];
+			for (const item of parsed.packages) {
+				if (typeof item.packageName === 'string' && typeof item.reason === 'string') {
+					requestedPackages.push({ packageName: item.packageName, reason: item.reason });
+				} else {
+					logger.warn('Invalid item in packages array for install-packages-json', { item });
+					return null; // Strict parsing
+				}
+			}
+			return requestedPackages.length > 0 ? requestedPackages : null;
+		}
+		logger.warn('Invalid structure for install-packages-json content', { jsonString });
+		return null;
+	} catch (error) {
+		logger.error({ err: error }, 'Failed to parse JSON from install-packages-json block');
+		return null;
+	}
+}
+
+@funcClass(__filename)
+export class SearchReplaceCoder {
+	private vcs: VersionControlSystem | null;
+	private readonly precomputedSystemMessage: string;
+	private readonly precomputedExampleMessages: LlmMessage[];
+	private readonly systemReminderForUserPrompt: string;
+
+	constructor(
+		private llms: AgentLLMs,
+		private fs: IFileSystemService,
+		private rules: ValidationRule[] = [new PathExistsRule(), new ModuleAliasRule()],
+	) {
+		this.vcs = this.fs.getVcsRoot() ? this.fs.getVcs() : null;
+
+		const fence = this.getFence();
+		const language = 'TypeScript'; // Default, can be made configurable
+
+		// Construct the detailed reminders text that will be used in both system and user prompts
+		const renameFilesReminder = 'To rename files which have been added to the chat, use shell commands at the end of your response.';
+
+		const overeagerPromptContent = EDIT_BLOCK_PROMPTS.overeager_prompt;
+
+		// Combine reminders for the final section of the prompt
+		const finalRemindersText = `${renameFilesReminder}\n\n${overeagerPromptContent}`;
+
+		// Specific reminder about quadruple backticks
+		const quadBacktickReminderText = 'IMPORTANT: Use *quadruple* backticks ```` as fences, not triple backticks!\n';
+
+		// Build the main system message content
+		const mainSystemContent = EDIT_BLOCK_PROMPTS.main_system.replace('{language}', language).replace('{final_reminders}', finalRemindersText);
+
+		// Build the detailed system reminder content (used in system message and user prompt suffix)
+		const systemReminderContentForPrompt = EDIT_BLOCK_PROMPTS.system_reminder
+			.replace(/{fence_0}/g, fence[0])
+			.replace(/{fence_1}/g, fence[1])
+			.replace('{quad_backtick_reminder}', quadBacktickReminderText)
+			.replace('{final_reminders}', finalRemindersText);
+
+		// The full system message combines the main content and the detailed reminders
+		this.precomputedSystemMessage = `${mainSystemContent}\n\n${systemReminderContentForPrompt}`;
+
+		// Store the detailed reminders separately to append to the user prompt
+		this.systemReminderForUserPrompt = systemReminderContentForPrompt;
+
+		// Precompute example messages, replacing fence placeholders
+		this.precomputedExampleMessages = EDIT_BLOCK_PROMPTS.example_messages_template.map((msgTemplate) => ({
+			role: msgTemplate.role as 'system' | 'user' | 'assistant',
+			content: msgTemplate.content.replace(/{fence_0}/g, fence[0]).replace(/{fence_1}/g, fence[1]),
+		}));
+	}
+
+	private getFence(): [string, string] {
+		return [DEFAULT_FENCE_OPEN, DEFAULT_FENCE_CLOSE];
+	}
+
+	private getRepoFilePath(rootPath: string, relativePath: string): string {
+		return path.resolve(rootPath, relativePath);
+	}
+
+	private getRelativeFilePath(rootPath: string, absolutePath: string): string {
+		return path.relative(rootPath, absolutePath);
+	}
+
+	/**
+	 * Initializes session context related to files, such as which files are in chat
+	 * and which of those were initially dirty.
+	 */
+	private async _initializeSessionContext(session: EditSession, filesToEdit: string[]): Promise<void> {
+		session.absFnamesInChat = new Set(filesToEdit.map((relPath) => this.getRepoFilePath(session.workingDir, relPath)));
+		session.initiallyDirtyFiles = new Set();
+
+		if (!this.vcs) return;
+
+		for (const absPath of session.absFnamesInChat) {
+			const relPath = this.getRelativeFilePath(session.workingDir, absPath);
+			if (await this.vcs.isDirty(relPath)) {
+				session.initiallyDirtyFiles.add(relPath);
+				logger.info(`File ${relPath} was dirty before editing session started.`);
+			}
+		}
+	}
+
+	/**
+	 * Prepares edit blocks by checking permissions and identifying files for "dirty commit".
+	 * Corresponds to parts of Coder.prepare_to_edit and Coder.allowed_to_edit.
+	 */
+	private async _prepareToEdit(session: EditSession, parsedBlocks: EditBlock[]): Promise<{ editsToApply: EditBlock[]; pathsToDirtyCommit: Set<string> }> {
+		const editsToApply: EditBlock[] = [];
+		const pathsToDirtyCommit = new Set<string>(); // Relative paths
+		const seenPaths = new Map<string, boolean>(); // Cache for isAllowedToEdit result per path
+
+		for (const edit of parsedBlocks) {
+			const relativePath = edit.filePath;
+			let isAllowed = seenPaths.get(relativePath);
+
+			if (isAllowed === undefined) {
+				const { allowed, needsDirtyCommit } = await this._isAllowedToEdit(session, relativePath, edit.originalText);
+				isAllowed = allowed;
+				seenPaths.set(relativePath, isAllowed);
+				if (needsDirtyCommit) {
+					pathsToDirtyCommit.add(relativePath);
+				}
+			}
+
+			if (isAllowed) {
+				editsToApply.push(edit);
+			}
+		}
+		return { editsToApply, pathsToDirtyCommit };
+	}
+
+	/**
+	 * Checks if an edit is allowed for a given file path and determines if a "dirty commit" is needed.
+	 * Corresponds to Coder.allowed_to_edit and Coder.check_for_dirty_commit.
+	 */
+	private async _isAllowedToEdit(
+		session: EditSession,
+		relativePath: string,
+		originalTextIfNew: string,
+	): Promise<{ allowed: boolean; needsDirtyCommit: boolean }> {
+		const absolutePath = this.getRepoFilePath(session.workingDir, relativePath);
+		let needsDirtyCommit = false;
+
+		if (session.absFnamesInChat?.has(absolutePath)) {
+			if (this.vcs && session.initiallyDirtyFiles?.has(relativePath) && (await this.vcs.isDirty(relativePath))) {
+				needsDirtyCommit = true;
+			}
+			return { allowed: true, needsDirtyCommit };
+		}
+
+		const fileExists = await this.fs.fileExists(absolutePath);
+
+		if (!fileExists) {
+			const isIntentToCreate = !stripQuotedWrapping(originalTextIfNew, relativePath, this.getFence()).trim();
+			if (!isIntentToCreate) {
+				logger.warn(`Skipping edit for non-existent file ${relativePath} with non-empty SEARCH block (validation should catch this).`);
+				// This case should ideally be caught by PathExistsRule, but as a safeguard:
+				return { allowed: false, needsDirtyCommit: false };
+			}
+			logger.info(`Edit targets new file ${relativePath}. Assuming permission to create.`);
+		} else {
+			logger.info(`Edit targets file ${relativePath} not previously in chat. Assuming permission to edit.`);
+		}
+
+		session.absFnamesInChat?.add(absolutePath);
+		// TODO: Add Coder.check_added_files() equivalent to warn if too many files/tokens are in chat.
+
+		if (this.vcs && session.initiallyDirtyFiles?.has(relativePath) && (await this.vcs.isDirty(relativePath))) {
+			needsDirtyCommit = true;
+		}
+		return { allowed: true, needsDirtyCommit };
+	}
+
+	private _addReflectionToMessages(session: EditSession, reflectionText: string, currentMessages: LlmMessage[]): void {
+		session.reflectionMessages.push(reflectionText);
+		currentMessages.push(user(reflectionText));
+		logger.warn({ reflection: reflectionText }, `SearchReplaceCoder: Reflecting to LLM for attempt ${session.attempt}.`);
+	}
+
+	private _reflectOnValidationIssues(session: EditSession, issues: ValidationIssue[], currentMessages: LlmMessage[]): void {
+		const reflectionText = buildValidationIssuesReflection(issues);
+		this._addReflectionToMessages(session, reflectionText, currentMessages);
+	}
+
+	private async _reflectOnFailedEdits(session: EditSession, failedEdits: EditBlock[], numPassed: number, currentMessages: LlmMessage[]): Promise<void> {
+		const reflectionText = await buildFailedEditsReflection(failedEdits, numPassed, this.fs, session.workingDir);
+		this._addReflectionToMessages(session, reflectionText, currentMessages);
+	}
+
+	/** Returns list of file paths that have changed since their snapshot. */
+	private async _detectExternalChanges(session: EditSession, targetBlocks: EditBlock[]): Promise<string[]> {
+		const changed: string[] = [];
+		const uniquePaths = new Set(targetBlocks.map((b) => b.filePath));
+		for (const relPath of uniquePaths) {
+			const snapshot = session.fileContentSnapshots.get(relPath);
+			if (snapshot === undefined) continue; // no snapshot → ignore
+			const absPath = this.getRepoFilePath(session.workingDir, relPath);
+			let current: string | null = null;
+			try {
+				current = await this.fs.readFile(absPath);
+			} catch {
+				current = null; // treat deletion as a change
+			}
+			if (snapshot !== current) changed.push(relPath);
+		}
+		return changed;
+	}
+
+	private async _buildPrompt(
+		session: EditSession,
+		userRequest: string,
+		filesToEditRelativePaths: string[],
+		readOnlyFilesRelativePaths: string[],
+		repoMapContent?: string,
+	): Promise<LlmMessage[]> {
+		const messages: LlmMessage[] = [];
+		const fence = this.getFence(); // Still needed for formatting file content
+
+		// Use precomputed system and example messages
+		messages.push({ role: 'system', content: this.precomputedSystemMessage });
+		messages.push(...this.precomputedExampleMessages);
+
+		const agent = agentContext();
+		let fileSystemTree: string | undefined;
+		if (agent) {
+			fileSystemTree = await buildFileSystemTreePrompt();
+		}
+		fileSystemTree ??= await this.fs.getFileSystemTree();
+
+		messages.push({ role: 'user', content: `Here's all the files in the repository:\n${fileSystemTree}` });
+		messages.push({ role: 'assistant', content: 'Ok, thanks.' });
+
+		// File Context
+		const formatFileForPrompt = async (relativePath: string): Promise<string> => {
+			const absolutePath = this.getRepoFilePath(session.workingDir, relativePath);
+			let fileContent: string | null = null;
+			try {
+				fileContent = await this.fs.readFile(absolutePath);
+			} catch (e) {
+				logger.warn(`Could not read file ${relativePath} for prompt inclusion or snapshot: ${(e as Error).message}`);
+				// fileContent remains null
+			}
+
+			// Store snapshot
+			session.fileContentSnapshots.set(relativePath, fileContent);
+
+			if (fileContent === null) {
+				return `${relativePath}\n[Could not read file content]`;
+			}
+			const lang = path.extname(relativePath).substring(1) || 'text';
+			return `${relativePath}\n${fence[0]}${lang}\n${fileContent}\n${fence[1]}`;
+		};
+
+		const currentFilesInChatAbs = session.absFnamesInChat ?? new Set();
+		if (currentFilesInChatAbs.size > 0) {
+			let filesContentBlock = EDIT_BLOCK_PROMPTS.files_content_prefix;
+			// Sort files alphabetically for consistent prompt order
+			const sortedChatFilesRel = Array.from(currentFilesInChatAbs)
+				.map((absPath) => this.getRelativeFilePath(session.workingDir, absPath))
+				.sort();
+			for (const relPath of sortedChatFilesRel) {
+				filesContentBlock += `\n\n${await formatFileForPrompt(relPath)}`;
+			}
+			messages.push({ role: 'user', content: filesContentBlock });
+			messages.push({ role: 'assistant', content: EDIT_BLOCK_PROMPTS.files_content_assistant_reply });
+		} else {
+			messages.push({ role: 'user', content: EDIT_BLOCK_PROMPTS.files_no_full_files });
+		}
+
+		if (readOnlyFilesRelativePaths.length > 0) {
+			let readOnlyFilesContentBlock = EDIT_BLOCK_PROMPTS.read_only_files_prefix;
+			// Sort read-only files alphabetically for consistent prompt order
+			const sortedReadOnlyFilesRel = readOnlyFilesRelativePaths.sort();
+			for (const relPath of sortedReadOnlyFilesRel) {
+				readOnlyFilesContentBlock += `\n\n${await formatFileForPrompt(relPath)}`;
+			}
+			messages.push({ role: 'user', content: readOnlyFilesContentBlock });
+			messages.push({ role: 'assistant', content: 'Ok, I will treat these files as read-only.' });
+		}
+
+		// If there's a repo map, and we haven't already sent a "no files" message that implies repo map usage,
+		// or if we have sent files, then add the repo map.
+		// The main idea is to always include repoMapContent if available, unless a more specific "no files, use map" prompt was already used.
+		if (repoMapContent) {
+			messages.push({ role: 'user', content: `${EDIT_BLOCK_PROMPTS.repo_content_prefix}\n${repoMapContent}` });
+			messages.push({ role: 'assistant', content: 'Ok, I will use this repository information for context.' });
+		}
+
+		// ---------------------------------------------------------------------
+		//  Include any reflection messages gathered in previous attempts
+		// ---------------------------------------------------------------------
+		if (session.reflectionMessages.length > 0) {
+			for (const reflection of session.reflectionMessages) {
+				// Re-add each reflection as a user message so the LLM sees it
+				messages.push(user(reflection));
+			}
+		}
+
+		// Append the detailed system reminders to the user's request
+		messages.push({ role: 'user', content: `${userRequest}\n\n${this.systemReminderForUserPrompt}` });
+		return messages;
+	}
+
+	/**
+	 * Makes the changes to the project files to meet the task requirements using search/replace blocks.
+	 * Max attempts for the LLM to generate valid and applicable edits is 5.
+	 * @param requirements The complete task requirements with all supporting documentation and code samples.
+	 * @param filesToEdit Relative paths of files that can be edited. These will be included in the chat context.
+	 * @param readOnlyFiles Relative paths of files to be used as read-only context.
+	 * @param autoCommit Whether to commit the changes automatically after applying them.
+	 * @param dirtyCommits If files which have uncommitted changes should be committed before applying changes.
+	 */
+	@func()
+	async editFilesToMeetRequirements(
+		requirements: string,
+		filesToEdit: string[],
+		readOnlyFiles: string[],
+		autoCommit = true,
+		dirtyCommits = true,
+	): Promise<void> {
+		const rootPath = this.fs.getWorkingDirectory();
+		const session = newSession(rootPath, requirements);
+		await this._initializeSessionContext(session, filesToEdit);
+		session.appliedFiles = new Set<string>(); // Initialize appliedFiles set for the session
+
+		const repoFiles = await this.fs.listFilesRecursively();
+
+		let currentMessages: LlmMessage[] = [];
+		const dryRun = false;
+		let currentFailedEdits: EditBlock[] = []; // Declare currentFailedEdits here
+
+		let llm = this.llms.medium;
+		let promptNeedsRebuild = true;
+		// Label for breaking out of nested loops to the main attempt loop
+		while (session.attempt < MAX_ATTEMPTS) {
+			session.attempt++;
+			if (session.attempt === MAX_ATTEMPTS - 1) llm = this.llms.hard;
+
+			logger.info(`SearchReplaceCoder: Attempt ${session.attempt}/${MAX_ATTEMPTS}`);
+
+			if (promptNeedsRebuild) {
+				currentMessages = await this._buildPrompt(session, requirements, filesToEdit, readOnlyFiles);
+				promptNeedsRebuild = false;
+			}
+			logger.debug({ messagesLength: currentMessages.length }, 'SearchReplaceCoder: Prompt built for LLM');
+
+			const llmResponseMsgObj: LlmMessage = await llm.generateMessage(currentMessages, {
+				id: `SearchReplaceCoder.editFiles.attempt${session.attempt}`,
+				temperature: 0.05,
+			});
+
+			currentMessages.push(llmResponseMsgObj);
+			session.llmResponse = messageText(llmResponseMsgObj);
+			session.requestedFiles = parseAddFilesRequest(session.llmResponse);
+			session.requestedQueries = parseAskQueryRequest(session.llmResponse);
+			session.requestedPackageInstalls = parseInstallPackageRequest(session.llmResponse);
+
+			// Decide which edit-response format to parse based on the model name
+			const modelId = llm.getModel();
+			// Sort keys by length in descending order to match longer, more specific keys first (e.g., "o3-mini" before "o3")
+			const sortedModelFormatEntries = Object.entries(MODEL_EDIT_FORMATS).sort(([keyA], [keyB]) => keyB.length - keyA.length);
+			const editFormat: EditFormat = sortedModelFormatEntries.find(([key]) => modelId.includes(key))?.[1] ?? 'diff';
+
+			session.parsedBlocks = parseEditResponse(session.llmResponse, editFormat, this.getFence());
+
+			// Proactive check for external file modifications before applying edits. TODO if we can still apply the edits, we should do that
+			const externallyChanged = await this._detectExternalChanges(session, session.parsedBlocks);
+			if (externallyChanged.length > 0) {
+				this._addReflectionToMessages(
+					session,
+					`The following file(s) were modified after the edit blocks were generated: ${externallyChanged.join(', ')}. Their content has been updated in your context. Please regenerate the edits using the updated content.`,
+					currentMessages,
+				);
+				promptNeedsRebuild = true;
+				continue;
+			}
+
+			const hasFileRequests = session.requestedFiles && session.requestedFiles.length > 0;
+			const hasQueryRequests = session.requestedQueries && session.requestedQueries.length > 0;
+			const hasPackageRequests = session.requestedPackageInstalls && session.requestedPackageInstalls.length > 0;
+			const hasAnyMetaRequest = hasFileRequests || hasQueryRequests || hasPackageRequests;
+
+			if (hasAnyMetaRequest) {
+				let reflectionForMetaRequests = '';
+				if (hasFileRequests) {
+					logger.info(`LLM requested additional files: ${JSON.stringify(session.requestedFiles)}`);
+					const addedFiles: string[] = [];
+					const alreadyPresentFiles: string[] = [];
+					for (const requestedFile of session.requestedFiles!) {
+						// Basic validation on the requested path
+						if (!requestedFile.filePath || typeof requestedFile.filePath !== 'string') {
+							logger.warn('Invalid file path in request, skipping:', requestedFile);
+							continue;
+						}
+						const absPath = this.getRepoFilePath(session.workingDir, requestedFile.filePath);
+						if (session.absFnamesInChat?.has(absPath)) {
+							alreadyPresentFiles.push(requestedFile.filePath);
+						} else {
+							session.absFnamesInChat?.add(absPath);
+							addedFiles.push(requestedFile.filePath);
+						}
+					}
+
+					if (addedFiles.length > 0) {
+						reflectionForMetaRequests += `I have added the ${addedFiles.length} file(s) you requested to the chat: ${addedFiles.join(', ')}. `;
+						promptNeedsRebuild = true;
+					}
+					if (alreadyPresentFiles.length > 0) {
+						reflectionForMetaRequests += `The following file(s) you requested were already in the chat: ${alreadyPresentFiles.join(', ')}. `;
+					}
+				}
+				if (hasQueryRequests) {
+					logger.info(`LLM asked queries: ${JSON.stringify(session.requestedQueries)}`);
+					reflectionForMetaRequests += `You asked ${session.requestedQueries!.length} quer(y/ies): ${session.requestedQueries!.map((q) => `"${q.query}"`).join(', ')}. `;
+				}
+				if (hasPackageRequests) {
+					logger.info(`LLM requested package installs: ${JSON.stringify(session.requestedPackageInstalls)}`);
+					reflectionForMetaRequests += `You requested to install ${session.requestedPackageInstalls!.length} package(s): ${session.requestedPackageInstalls!.map((p) => `"${p.packageName}"`).join(', ')}. `;
+				}
+
+				if (session.parsedBlocks.length === 0) {
+					// LLM made meta-request(s) and provided no edit blocks (expected behavior for meta-requests)
+					reflectionForMetaRequests += 'Please proceed with the edits now that you have the additional context, or ask for more information if needed.';
+					this._addReflectionToMessages(session, reflectionForMetaRequests, currentMessages);
+					continue;
+				}
+				// LLM made meta-request(s) AND provided edit blocks. Warn but proceed with blocks.
+				logger.warn(`LLM made meta-request(s) AND provided edit blocks. Processing edit blocks. Meta-requests: ${reflectionForMetaRequests}`);
+			}
+
+			const { valid: validBlocks, issues: validationIssues } = await validateBlocks(session.parsedBlocks, repoFiles, this.rules);
+
+			logger.info(
+				{
+					parsedBlocks: JSON.stringify(session.parsedBlocks, null, 2),
+					validBlocksCount: validBlocks.length,
+					validationIssues: JSON.stringify(validationIssues, null, 2),
+				},
+				'Validation result',
+			);
+
+			if (validationIssues.length > 0) {
+				this._reflectOnValidationIssues(session, validationIssues, currentMessages);
+				continue;
+			}
+
+			if (validBlocks.length === 0) {
+				if (session.parsedBlocks.length > 0) {
+					// All blocks were invalid, but no issues were reported (or they were all null).
+					this._addReflectionToMessages(
+						session,
+						'All provided edit blocks were invalid. Please correct them or request necessary files/information/packages using the specified formats.',
+						currentMessages,
+					);
+				} else if (!hasAnyMetaRequest) {
+					// No edit blocks were parsed, and no meta-requests were made.
+					this._addReflectionToMessages(
+						session,
+						'No edit blocks or actionable requests (files, query, package install) were found in your response. Please provide edits in the S/R block format or request necessary items using the specified formats.',
+						currentMessages,
+					);
+				}
+				// If there were only meta-requests, we don't need to reflect again, just continue to the next attempt.
+				continue;
+			}
+
+			// Handle "dirty commits" before applying edits
+			const { editsToApply, pathsToDirtyCommit } = await this._prepareToEdit(session, validBlocks);
+			const blocksForCurrentApplyAttempt = [...editsToApply]; // Master list of blocks for this attempt, may be modified by fixes
+
+			if (dirtyCommits && this.vcs && pathsToDirtyCommit.size > 0 && !dryRun) {
+				const dirtyFilesArray = Array.from(pathsToDirtyCommit);
+				logger.info(`Found uncommitted changes in files targeted for edit: ${dirtyFilesArray.join(', ')}. Attempting dirty commit.`);
+				try {
+					const dirtyCommitMsg = 'Aider: Committing uncommitted changes in targeted files before applying LLM edits';
+					await this.vcs.addAndCommitFiles(dirtyFilesArray, dirtyCommitMsg);
+					logger.info(`Successfully committed uncommitted changes for: ${dirtyFilesArray.join(', ')}.`);
+				} catch (commitError: any) {
+					logger.error({ err: commitError, files: dirtyFilesArray }, `Dirty commit failed for files: ${dirtyFilesArray.join(', ')}.`);
+					this._addReflectionToMessages(
+						session,
+						`Failed to commit uncommitted changes for ${dirtyFilesArray.join(', ')}: ${commitError.message}. Please resolve this manually or allow proceeding without committing them.`,
+						currentMessages,
+					);
+					continue;
+				}
+			}
+
+			const applier = new EditApplier(
+				this.fs,
+				this.vcs,
+				DEFAULT_LENIENT_WHITESPACE,
+				this.getFence(),
+				session.workingDir,
+				session.absFnamesInChat ?? new Set(),
+				autoCommit,
+				dryRun,
+			);
+
+			const applierResult = await applier.apply(blocksForCurrentApplyAttempt);
+			applierResult.appliedFilePaths.forEach((p) => session.appliedFiles!.add(p));
+			currentFailedEdits = applierResult.failedEdits; // Assign to the outer-scoped variable
+
+			if (currentFailedEdits.length > 0) {
+				let fixesMade = 0;
+				const initialFailedEditsForThisRound = [...currentFailedEdits]; // Store before modification
+				const nextRoundFailedEdits: EditBlock[] = [];
+
+				for (const failedEdit of initialFailedEditsForThisRound) {
+					const filePath = failedEdit.filePath;
+					const fileContentSnapshot = session.fileContentSnapshots.get(filePath);
+
+					// Try to fix only if the file was supposed to exist and had content (i.e., not a failed new file creation with empty SEARCH block)
+					// And originalText is not empty (meaning it's not a "create new file" block that failed for other reasons)
+					if (fileContentSnapshot && failedEdit.originalText.trim() !== '') {
+						logger.info(`Attempting to fix search block for ${filePath} in attempt ${session.attempt}`);
+						const correctedBlock = await tryFixSearchBlock(
+							failedEdit,
+							fileContentSnapshot,
+							llm, // Use the same LLM as the current attempt
+							this.getFence(),
+						);
+
+						if (correctedBlock) {
+							// Replace the original failed block with the corrected one in `blocksForCurrentApplyAttempt`
+							const indexInMasterList = blocksForCurrentApplyAttempt.findIndex(
+								(b) => b.filePath === failedEdit.filePath && b.originalText === failedEdit.originalText && b.updatedText === failedEdit.updatedText,
+							);
+							if (indexInMasterList !== -1) {
+								blocksForCurrentApplyAttempt[indexInMasterList] = correctedBlock;
+								fixesMade++;
+							} else {
+								// Should not happen if blocksForCurrentApplyAttempt is the true source
+								logger.error('Original failed block not found in master list for replacement.');
+								nextRoundFailedEdits.push(failedEdit); // Keep original failed edit
+							}
+						} else {
+							logger.warn(`Failed to generate a corrected block for ${filePath}. Will use standard reflection if it fails again.`);
+							nextRoundFailedEdits.push(failedEdit); // Keep original failed edit
+						}
+					} else {
+						nextRoundFailedEdits.push(failedEdit); // Not a candidate for this type of fix
+					}
+				}
+
+				if (fixesMade > 0) {
+					logger.info(`Re-attempting to apply edits after ${fixesMade} block(s) were corrected in attempt ${session.attempt}.`);
+					// Re-apply with the potentially modified blocksForCurrentApplyAttempt
+					const reappliedResult = await applier.apply(blocksForCurrentApplyAttempt);
+					reappliedResult.appliedFilePaths.forEach((p) => session.appliedFiles!.add(p));
+					currentFailedEdits = reappliedResult.failedEdits; // Update currentFailedEdits with the result of the re-application
+
+					if (currentFailedEdits.length === 0) {
+						logger.info('All blocks applied successfully after correction and re-application.');
+						session.parsedBlocks = blocksForCurrentApplyAttempt; // Store the successfully applied (potentially corrected) blocks
+						break; // Exit main attempt loop
+					}
+				} else {
+					// No fixes were made, currentFailedEdits are from the first apply, or nextRoundFailedEdits if some were not candidates
+					currentFailedEdits = nextRoundFailedEdits;
+				}
+			}
+
+			if (currentFailedEdits.length > 0) {
+				await this._reflectOnFailedEdits(session, currentFailedEdits, session.appliedFiles!.size, currentMessages);
+				continue; // Continue to next main attempt
+			}
+
+			// If we reach here, it means currentFailedEdits is empty.
+			session.parsedBlocks = blocksForCurrentApplyAttempt; // Store the successfully applied blocks
+			logger.info({ appliedFiles: Array.from(session.appliedFiles!) }, 'SearchReplaceCoder: Edits applied successfully.');
+			break; // Exit loop on full success
+		}
+
+		if (session.attempt >= MAX_ATTEMPTS && (session.appliedFiles?.size === 0 || (currentFailedEdits && currentFailedEdits.length > 0))) {
+			logger.error(`SearchReplaceCoder: Maximum attempts (${MAX_ATTEMPTS}) reached. Failing.`);
+			const finalReflection =
+				session.reflectionMessages.pop() || 'Unknown error after max attempts, and not all edits were successfully applied in the final attempt.';
+			throw new CoderExhaustedAttemptsError(`SearchReplaceCoder failed to apply edits after ${MAX_ATTEMPTS} attempts.`, MAX_ATTEMPTS, finalReflection);
+		}
+		// If the loop was exited by a 'break', it means session.attempt < MAX_ATTEMPTS,
+		// and all edits were applied successfully. No error is thrown.
+	}
+}
+
+]]></file_content>

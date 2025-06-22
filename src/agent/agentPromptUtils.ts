@@ -1,10 +1,10 @@
 import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
 import { FileSystemTree } from '#agent/autonomous/functions/fileSystemTree';
 import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
-import { FileSystemService } from '#functions/storage/fileSystemService';
 import type { FileStore } from '#functions/storage/filestore';
 import { logger } from '#o11y/logger';
 import type { FileMetadata } from '#shared/files/files.model';
+import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
 import type { Summary } from '#swe/index/llmSummaries';
 import { loadBuildDocsSummaries } from '#swe/index/repoIndexDocBuilder';
 import { generateFileSystemTreeWithSummaries } from '#swe/index/repositoryMap';
@@ -27,17 +27,17 @@ export function buildMemoryPrompt(): string {
  * TODO move the string generation into the tool classes
  */
 export async function buildToolStatePrompt(): Promise<string> {
-	return (await buildLiveFilesPrompt()) + (await buildFileStorePrompt()) + (await buildFileSystemTreePrompt()) + (await buildFileSystemPrompt());
+	return (await buildFileSystemTreePrompt()) + (await buildLiveFilesPrompt()) + (await buildFileStorePrompt()) + (await buildFileSystemPrompt());
 }
 
 export async function buildFileSystemTreePrompt(): Promise<string> {
 	const agent = agentContext(); // Get the full agent context
-	if (!agent.functions.getFunctionClassNames().includes(FileSystemTree.name)) {
+	if (!agent?.functions?.getFunctionClassNames().includes(FileSystemTree.name)) {
 		return ''; // Tool not active
 	}
 
 	// Ensure agent.toolState.FileSystemTree is treated as an array, defaulting to empty if not present or not an array.
-	let collapsedFolders: string[] = agent.toolState.FileSystemTree ?? [];
+	let collapsedFolders: string[] = agent.toolState?.FileSystemTree ?? [];
 	if (!Array.isArray(collapsedFolders)) {
 		logger.warn(`agent.toolState.FileSystemTree was not an array (type: ${typeof collapsedFolders}). Defaulting to empty array.`, {
 			currentToolState: agent.toolState.FileSystemTree,
@@ -57,7 +57,7 @@ export async function buildFileSystemTreePrompt(): Promise<string> {
 
 		return `\n<file_system_tree>
 ${treeString}
-</file_system_tree>\n`;
+</file_system_tree>\n<file_system_tree_collapsed_folders>\n${collapsedFolders.join('\n')}\n</file_system_tree_collapsed_folders>`;
 	} catch (error) {
 		logger.error(error, 'Error building file system tree prompt');
 		return '\n<file_system_tree>\n<!-- Error generating file system tree. -->\n</file_system_tree>\n';
@@ -97,15 +97,26 @@ ${JSON.stringify(files)}
 
 /**
  * @return An XML representation of the Live Files tool if one exists in the agents functions
+ * along with the relevant documentation files for the AI
  */
 async function buildLiveFilesPrompt(): Promise<string> {
 	const agent = agentContext();
 	if (!agent.functions.getFunctionClassNames().includes(LiveFiles.name)) return '';
 
 	const liveFiles = agentContext().toolState?.LiveFiles ?? [];
-	if (!liveFiles || !liveFiles.length) return '\n<live_files>\n<!-- No files selected. Live files will have their contents displayed here -->\n</live_files>';
+	if (!liveFiles || !liveFiles.length)
+		return '\n<live_files>\n<!-- No files selected. Live files will have their current contents displayed here -->\n</live_files>';
 
-	return `\n<live_files>
+	const rulesFiles = await includeAlternativeAiToolFiles(liveFiles);
+	for (const liveFile of liveFiles) {
+		if (rulesFiles.has(liveFile)) rulesFiles.delete(liveFile);
+	}
+	let rulesFilesPrompt = '';
+	if (rulesFiles.size) {
+		rulesFilesPrompt = `<!-- Rules files are automatically included based on the LiveFiles selection -->\n<rules_files>\n${await getFileSystem().readFilesAsXml(Array.from(rulesFiles.values()))}\n</rules_files>\n`;
+	}
+
+	return `\n${rulesFilesPrompt}<live_files>
 ${await getFileSystem().readFilesAsXml(liveFiles)}
 </live_files>
 `;

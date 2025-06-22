@@ -303,7 +303,7 @@ export class PublicWeb {
 			const base64 = screenshot.toString('base64');
 
 			return {
-				image: { type: 'image', source: 'bytes', specifier: base64 },
+				image: { type: 'image', source: 'bytes', value: base64 },
 				logs,
 			};
 		} catch (error) {

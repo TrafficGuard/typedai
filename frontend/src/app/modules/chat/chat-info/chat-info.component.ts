@@ -1,5 +1,5 @@
-import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, Input, ViewEncapsulation, computed, inject, input, signal } from '@angular/core';
+import { CommonModule, DecimalPipe } from '@angular/common';
+import { ChangeDetectionStrategy, Component, DestroyRef, Input, ViewEncapsulation, computed, effect, inject, input, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -18,22 +18,19 @@ import { AgentLinks, GoogleCloudLinks } from '../../agents/agent-links';
 
 @Component({
 	selector: 'chat-info',
-	templateUrl: './chat-info.component.html',
+	templateUrl: 'chat-info.component.html',
 	encapsulation: ViewEncapsulation.None,
 	changeDetection: ChangeDetectionStrategy.OnPush,
 	standalone: true,
 	imports: [CommonModule, MatButtonModule, MatIconModule, MatSliderModule, MatProgressSpinnerModule, MatTooltipModule, FormsModule],
+	providers: [DecimalPipe],
 })
 export class ChatInfoComponent {
 	chat = input<Chat | null | undefined>();
 	@Input() drawer: MatDrawer;
 
 	links: AgentLinks = new GoogleCloudLinks();
-	readonly settings = computed(() => {
-		const user = this.userService.userProfile();
-		// Ensure settings is a new object to avoid direct mutation if user.chat is frozen or shared
-		return user?.chat ? { ...user.chat } : ({} as UserProfile['chat']);
-	});
+	settings = signal<UserProfile['chat']>({} as UserProfile['chat']);
 
 	// Signals for UI state
 	settingsLoading = signal(false);
@@ -56,6 +53,32 @@ export class ChatInfoComponent {
 	private chatService = inject(ChatServiceClient);
 	private router = inject(Router);
 	private destroyRef = inject(DestroyRef);
+	private decimalPipe = inject(DecimalPipe);
+
+	constructor() {
+		effect(() => {
+			const user = this.userService.userProfile();
+			const chatSettings = user?.chat ? { ...user.chat } : ({} as UserProfile['chat']);
+			// Only update the signal if the user profile chat settings are available and not empty
+			// This prevents overwriting with an empty object if userProfile is null initially
+			if (user && Object.keys(chatSettings).length > 0) {
+				this.settings.set(chatSettings);
+			}
+		});
+	}
+
+	/**
+	 * Formats the slider label value.
+	 * @param value The numeric value from the slider.
+	 * @returns The formatted string representation.
+	 */
+	formatSliderLabel = (value: number | null): string => {
+		if (value === null) {
+			return '';
+		}
+		const formatted = this.decimalPipe.transform(value, '1.1-2');
+		return formatted === null ? value.toString() : formatted;
+	};
 
 	/**
 	 * Saves the current chat settings to the user profile
@@ -106,7 +129,11 @@ export class ChatInfoComponent {
 	 * Handler for slider value changes
 	 * Triggers immediate save of updated settings
 	 */
-	onSettingChange(): void {
+	onSettingChange(key: keyof NonNullable<UserProfile['chat']>, value: number): void {
+		this.settings.update((s) => {
+			if (!s) return s;
+			return { ...s, [key]: value };
+		});
 		this.saveSettings();
 	}
 

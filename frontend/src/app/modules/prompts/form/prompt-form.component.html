@@ -86,9 +86,14 @@
                                             Include System Message
                                         </mat-slide-toggle>
                                     </h3>
-                                    <button mat-icon-button type="button" (click)="addMessage()" matTooltip="Add Message">
-                                        <mat-icon svgIcon="heroicons_outline:plus-circle"></mat-icon>
-                                    </button>
+                                    <div class="flex items-center"> <!-- Wrapper for buttons -->
+                                        <button mat-icon-button type="button" (click)="copyMessagesAsXml()" matTooltip="Copy Messages as XML" class="mr-2">
+                                            <mat-icon svgIcon="heroicons_outline:clipboard"></mat-icon>
+                                        </button>
+                                        <button mat-icon-button type="button" (click)="addMessage()" matTooltip="Add Message">
+                                            <mat-icon svgIcon="heroicons_outline:plus-circle"></mat-icon>
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div *ngIf="messagesFormArray.controls.length === 0" class="text-center text-gray-500 py-4 border rounded-md bg-gray-50 dark:bg-gray-800">
@@ -222,36 +227,34 @@
                                         </mat-form-field>
                                     </div>
 
-                                    <div class="parameter-item flex-1"> <!-- flex-1 to allow items to grow and share space -->
-                                        <label id="temperature-label" class="parameter-label">Temperature</label>
-                                        <div class="slider-input-group">
-                                            <mat-slider min="0" max="2" step="0.1" discrete="true"
-                                                        [value]="promptForm.get('options.temperature')?.value"
-                                                        (input)="promptForm.get('options.temperature')?.setValue($event.value)"
-                                                        aria-labelledby="temperature-label"
-                                                        class="parameter-slider">
-                                                <input matSliderThumb>
-                                            </mat-slider>
-                                            <mat-form-field appearance="outline" class="parameter-input w-20">
-                                                <input matInput type="number" formControlName="temperature" min="0" max="2" step="0.1">
-                                            </mat-form-field>
+                                    <div class="parameter-item flex-1">
+                                        <div class="flex items-center justify-between mb-1"> <!-- Container for label and value -->
+                                            <label id="temperature-label" class="parameter-label !mb-0">Temperature</label>
+                                            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                {{ promptForm.get('options.temperature')?.value | number:'1.1-1' }}
+                                            </span>
                                         </div>
+                                        <mat-slider min="0" max="2" step="0.1" discrete="true"
+                                                    formControlName="temperature"
+                                                    aria-labelledby="temperature-label"
+                                                    class="parameter-slider w-full">
+                                            <input matSliderThumb>
+                                        </mat-slider>
                                     </div>
 
-                                    <div class="parameter-item flex-1"> <!-- flex-1 to allow items to grow and share space -->
-                                        <label id="maxOutputTokens-label" class="parameter-label">Max Tokens</label>
-                                        <div class="slider-input-group">
-                                            <mat-slider min="1" max="8192" step="1" discrete="true"
-                                                        [value]="promptForm.get('options.maxOutputTokens')?.value"
-                                                        (input)="promptForm.get('options.maxOutputTokens')?.setValue($event.value)"
-                                                        aria-labelledby="maxOutputTokens-label"
-                                                        class="parameter-slider">
-                                                <input matSliderThumb>
-                                            </mat-slider>
-                                            <mat-form-field appearance="outline" class="parameter-input w-30">
-                                                <input matInput type="number" formControlName="maxOutputTokens" min="1" max="8192" step="1">
-                                            </mat-form-field>
+                                    <div class="parameter-item flex-1">
+                                        <div class="flex items-center justify-between mb-1"> <!-- Container for label and value -->
+                                            <label id="maxOutputTokens-label" class="parameter-label !mb-0">Max Tokens</label>
+                                            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                {{ promptForm.get('options.maxOutputTokens')?.value }}
+                                            </span>
                                         </div>
+                                        <mat-slider min="1" max="64000" step="1" discrete="true"
+                                                    formControlName="maxOutputTokens"
+                                                    aria-labelledby="maxOutputTokens-label"
+                                                    class="parameter-slider w-full">
+                                            <input matSliderThumb>
+                                        </mat-slider>
                                     </div>
                                 </div>
                             </div>
@@ -289,10 +292,10 @@
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="text-xl font-semibold">Response</h2>
                     <div class="flex items-center gap-2">
-                        <button *ngIf="generationResponse()" 
-                                mat-stroked-button 
-                                color="primary" 
-                                (click)="addResponseToPrompt()" 
+                        <button *ngIf="generationResponse()"
+                                mat-stroked-button
+                                color="primary"
+                                (click)="addResponseToPrompt()"
                                 matTooltip="Add response to prompt messages">
                             <mat-icon class="mr-2">add</mat-icon>
                             Add to prompt

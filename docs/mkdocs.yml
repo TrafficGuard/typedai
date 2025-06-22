@@ -37,7 +37,8 @@ nav:
   - index.md
   - 'Getting stared':
       - 'Setup': setup.md
-      - 'CLI': cli.md
+      - 'AI coder quickstart': code.md
+      - 'CLI tools': cli.md
       - 'Environment variables': environment-variables.md
       - 'Observability / Tracing': observability.md
       - 'LLMs': llms.md

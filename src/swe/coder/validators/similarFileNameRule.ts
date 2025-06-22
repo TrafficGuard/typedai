@@ -21,7 +21,7 @@ export class SimilarFileNameRule implements ValidationRule {
 		}
 	}
 
-	check(block: EditBlock, repoFiles: string[]): ValidationIssue | null {
+	async check(block: EditBlock, repoFiles: string[]): Promise<ValidationIssue | null> {
 		if (repoFiles.includes(block.filePath)) {
 			return null; // File already exists, no need for similarity checks for creation
 		}

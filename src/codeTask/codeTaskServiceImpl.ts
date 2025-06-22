@@ -193,5 +193,27 @@ export class CodeTaskServiceImpl implements CodeTaskService {
 		return await new FileSystemService(path).readFile(filePath);
 	}
 
+	async resetFileSelection(userId: string, codeTaskId: string): Promise<void> {
+		logger.info({ userId, codeTaskId }, '[CodeTaskServiceImpl] Resetting file selection...');
+		const codeTask = await this.codeTaskRepo.getCodeTask(userId, codeTaskId);
+		if (!codeTask) {
+			throw new Error(`Code task with ID ${codeTaskId} not found or user not authorized.`);
+		}
+		// Basic state check, can be more granular
+		if (['coding', 'committing', 'completed', 'ci_monitoring'].includes(codeTask.status)) {
+			throw new Error('Cannot reset file selection in current task state. Task is already processing or completed.');
+		}
+
+		await this.codeTaskRepo.updateCodeTask(userId, codeTaskId, {
+			fileSelection: undefined, // Clear selected files
+			designAnswer: undefined, // Clear design as it might depend on file selection
+			codeDiff: undefined, // Clear previous code diff
+			status: 'file_selection_review', // Reset status to allow new file selection
+			lastAgentActivity: Date.now(),
+			error: undefined, // Clear any previous errors
+		});
+		logger.info({ userId, codeTaskId }, '[CodeTaskServiceImpl] File selection reset and task status updated to file_selection_review.');
+	}
+
 	// applyCiCdFix is optional in the interface, so no placeholder needed unless implemented
 }

@@ -5,7 +5,7 @@ import { createContext } from '#agent/agentContextLocalStorage';
 import { deserializeContext, serializeContext } from '#agent/agentSerialization';
 import type { RunAgentConfig } from '#agent/autonomous/autonomousAgentRunner';
 import { appContext } from '#app/applicationContext';
-import { LlmTools } from '#functions/util';
+import { LlmTools } from '#functions/llmTools';
 import { GPT41 } from '#llm/services/openai';
 import type { AgentContext } from '#shared/agent/agent.model';
 import { functionRegistry } from '../functionRegistry';

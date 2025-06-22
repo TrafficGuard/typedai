@@ -238,12 +238,6 @@
                                       (mouseleave)="stopRecording()">
                                     <mat-icon [svgIcon]="'mic'"></mat-icon>
                                 </button>
-                                <button data-testid="toggle-enter-btn" class="ml-0.5 hidden sm:inline-flex"
-                                        mat-icon-button
-                                        (click)="toggleSendOnEnter()"
-                                        [matTooltip]="sendOnEnter() ? 'Send on Enter. Press Shift-enter for new line. Click to toggle' : 'New line on Enter. Press Shift-enter to send. Click to toggle'">
-                                    <mat-icon [svgIcon]="enterStateIcon()"></mat-icon>
-                                </button>
                                 <button class="ml-0.5 hidden sm:inline-flex"
                                         mat-icon-button
                                         (click)="toggleThinking()"

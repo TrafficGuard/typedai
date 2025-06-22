@@ -3,7 +3,7 @@ import '#fastify/trace-init/trace-init'; // leave an empty line next so this doe
 import type { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import { provideFeedback, resumeCompleted, resumeError, resumeHil, startAgent } from '#agent/autonomous/autonomousAgentRunner';
 import { AgentFeedback } from '#agent/autonomous/functions/agentFeedback';
-import { waitForConsoleInput } from '#agent/autonomous/humanInTheLoop';
+import { humanInTheLoop } from '#agent/autonomous/humanInTheLoop';
 import { appContext, initApplicationContext } from '#app/applicationContext';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { defaultLLMs } from '#llm/services/defaultLlms';
@@ -77,7 +77,7 @@ async function resumeAgent(agent: AgentContext, resumeAgentId: string, initialPr
 		case 'hitl_feedback':
 			return await provideFeedback(resumeAgentId, agent.executionId, initialPrompt);
 		default:
-			await waitForConsoleInput(`Agent is currently in the state ${agent.state}. Only resume if you know it is not `);
+			await humanInTheLoop(agent, `Agent is currently in the state ${agent.state}. Only resume if you know it is not `);
 			return resumeError(resumeAgentId, agent.executionId, initialPrompt);
 	}
 }

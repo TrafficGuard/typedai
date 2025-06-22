@@ -23,30 +23,30 @@ describe('validateBlocks', () => {
 
 	const ruleAlwaysFail: ValidationRule = {
 		name: 'AlwaysFail',
-		check: (block) => ({ file: block.filePath, reason: 'Always fails' }),
+		check: (block) => Promise.resolve({ file: block.filePath, reason: 'Always fails' }),
 	};
 
 	const ruleFailForFileA: ValidationRule = {
 		name: 'FailForFileA',
-		check: (block) => (block.filePath === 'fileA.ts' ? { file: block.filePath, reason: 'FileA is not allowed' } : null),
+		check: (block) => (block.filePath === 'fileA.ts' ? Promise.resolve({ file: block.filePath, reason: 'FileA is not allowed' }) : null),
 	};
 
-	it('should return all blocks as valid if no rules or all rules pass', () => {
+	it('should return all blocks as valid if no rules or all rules pass', async () => {
 		const blocks = [createEditBlock('file1.ts'), createEditBlock('file2.ts')];
-		const result1 = validateBlocks(blocks, [], []);
+		const result1 = await validateBlocks(blocks, [], []);
 		expect(result1.valid).to.deep.equal(blocks);
 		expect(result1.issues).to.be.empty;
 
-		const result2 = validateBlocks(blocks, [], [ruleAlwaysPass]);
+		const result2 = await validateBlocks(blocks, [], [ruleAlwaysPass]);
 		expect(result2.valid).to.deep.equal(blocks);
 		expect(result2.issues).to.be.empty;
 	});
 
-	it('should return no valid blocks and all issues if a rule always fails', () => {
+	it('should return no valid blocks and all issues if a rule always fails', async () => {
 		const block1 = createEditBlock('file1.ts');
 		const block2 = createEditBlock('file2.ts');
 		const blocks = [block1, block2];
-		const result = validateBlocks(blocks, [], [ruleAlwaysFail]);
+		const result = await validateBlocks(blocks, [], [ruleAlwaysFail]);
 
 		expect(result.valid).to.be.empty;
 		expect(result.issues).to.deep.equal([
@@ -55,7 +55,7 @@ describe('validateBlocks', () => {
 		]);
 	});
 
-	it('should correctly separate valid blocks and issues with mixed rules', () => {
+	it('should correctly separate valid blocks and issues with mixed rules', async () => {
 		const blockA = createEditBlock('fileA.ts'); // Will fail ruleFailForFileA
 		const blockB = createEditBlock('fileB.ts'); // Will pass ruleFailForFileA
 		const blocks = [blockA, blockB];
@@ -67,17 +67,17 @@ describe('validateBlocks', () => {
 		const blocksForMixed = [blockAValidForPath, blockB];
 
 		const rules: ValidationRule[] = [new PathExistsRule(), ruleFailForFileA];
-		const result = validateBlocks(blocksForMixed, repoFiles, rules);
+		const result = await validateBlocks(blocksForMixed, repoFiles, rules);
 
 		expect(result.valid).to.deep.equal([blockB]);
 		expect(result.issues).to.deep.equal([{ file: 'fileA.ts', reason: 'FileA is not allowed' }]);
 	});
 
-	it('should collect issues from multiple failing rules for the same block', () => {
+	it('should collect issues from multiple failing rules for the same block', async () => {
 		const block = createEditBlock('#fileA.ts', 'original content'); // Fails ModuleAlias, PathExists (if #fileA not in repoFiles)
 		const repoFiles: string[] = [];
 		const rules: ValidationRule[] = [new ModuleAliasRule(), new PathExistsRule()];
-		const result = validateBlocks([block], repoFiles, rules);
+		const result = await validateBlocks([block], repoFiles, rules);
 
 		expect(result.valid).to.be.empty;
 		expect(result.issues).to.have.lengthOf(2);
@@ -93,8 +93,8 @@ describe('validateBlocks', () => {
 		]);
 	});
 
-	it('should handle empty blocks array', () => {
-		const result = validateBlocks([], ['someFile.ts'], [ruleAlwaysFail]);
+	it('should handle empty blocks array', async () => {
+		const result = await validateBlocks([], ['someFile.ts'], [ruleAlwaysFail]);
 		expect(result.valid).to.be.empty;
 		expect(result.issues).to.be.empty;
 	});

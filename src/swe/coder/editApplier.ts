@@ -6,16 +6,33 @@ import type { EditBlock } from './coderTypes';
 import { doReplace } from './patchUtils'; // Updated import
 
 export class EditApplier {
+	private rootPath: string;
+	private absFnamesInChat: Set<string>;
+	private autoCommit: boolean;
+	private dryRun: boolean;
+
 	constructor(
 		private fs: IFileSystemService,
 		private vcs: VersionControlSystem | null,
 		private lenientWhitespace: boolean,
 		private fence: [string, string],
-		private rootPath: string, // Absolute path to the project root
-		private absFnamesInChat: Set<string>, // Absolute paths of files explicitly in chat for fallback
-		private autoCommit: boolean, // For committing successful edits
-		private dryRun: boolean,
-	) {}
+	) {
+		this.rootPath = '';
+		this.absFnamesInChat = new Set();
+		this.autoCommit = false;
+		this.dryRun = false;
+	}
+
+	/**
+	 * Configures the applier for a specific run. This is used by the orchestrator
+	 * to set the context for each application attempt.
+	 */
+	configure(rootPath: string, absFnamesInChat: ReadonlySet<string>, autoCommit: boolean, dryRun: boolean): void {
+		this.rootPath = rootPath;
+		this.absFnamesInChat = new Set(absFnamesInChat);
+		this.autoCommit = autoCommit;
+		this.dryRun = dryRun;
+	}
 
 	private getRepoFilePath(relativePath: string): string {
 		return path.resolve(this.rootPath, relativePath);
@@ -107,11 +124,10 @@ export class EditApplier {
 		if (this.autoCommit && !this.dryRun && this.vcs && appliedFilePaths.size > 0) {
 			const commitMessage = 'Applied LLM-generated edits';
 			try {
-				// Note: addAllTrackedAndCommit might be too broad if only specific files should be committed.
-				// A more precise vcs.commitFiles(Array.from(appliedFilePaths), commitMessage) would be ideal.
-				// For now, using the existing broader method.
-				await this.vcs.addAllTrackedAndCommit(commitMessage);
-				logger.info(`Auto-committed changes for ${appliedFilePaths.size} files.`);
+				const filesToCommit = Array.from(appliedFilePaths);
+				// Use the more precise method already available in the interface
+				await this.vcs.addAndCommitFiles(filesToCommit, commitMessage);
+				logger.info(`Auto-committed changes for ${filesToCommit.length} files: ${filesToCommit.join(', ')}.`);
 			} catch (commitError: any) {
 				logger.error({ err: commitError }, 'Auto-commit failed after applying edits.');
 				// This error is logged, but doesn't make the apply operation fail at this stage.

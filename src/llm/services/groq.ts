@@ -8,15 +8,20 @@ export const GROQ_SERVICE = 'groq';
 
 export function groqLLMRegistry(): Record<string, () => LLM> {
 	return {
-		'groq:llama-3.3-70b-versatile': groqLlama3_3_70B,
-		'groq:deepseek-r1-distill-llama-70b': groqLlama3_3_70B_R1_Distill,
-		'groq:qwen-qwq-32b': groqQwenQwq32b,
+		// 'groq:llama-3.3-70b-versatile': groqLlama3_3_70B,
+		'groq:qwen/qwen3-32b': groqQwen3_32b,
 	};
 }
 
 // Pricing and model ids at
 // https://groq.com/pricing/
 // https://console.groq.com/docs/models
+
+// Qwen3 32B 131khttps://console.groq.com/docs/model/qwen3-32b
+// 16,384 max output tokens
+export function groqQwen3_32b(): LLM {
+	return new GroqLLM('Qwen3 32b (Groq)', 'qwen/qwen3-32b', 131_072, fixedCostPerMilTokens(0.29, 0.59));
+}
 
 export function groqLlama3_3_70B(): LLM {
 	return new GroqLLM('Llama3.3 70b (Groq)', 'llama-3.3-70b-versatile', 131_072, fixedCostPerMilTokens(0.59, 0.79));

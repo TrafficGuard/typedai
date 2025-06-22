@@ -1,4 +1,4 @@
-import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
+import { agentContext, getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { humanInTheLoop } from '#agent/autonomous/humanInTheLoop';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { system, user } from '#shared/llm/llm.model';
@@ -27,7 +27,10 @@ Git repo folder: ${fss.getVcsRoot() ?? '<none>'}
 			),
 		]);
 		// if (response !== 'SAFE')
-		await humanInTheLoop(`Requesting to execute the shell command: ${command}\nCWD: ${getFileSystem().getWorkingDirectory()}\nSafety analysis: ${response}`);
+		await humanInTheLoop(
+			agentContext(),
+			`Requesting to execute the shell command: ${command}\nCWD: ${getFileSystem().getWorkingDirectory()}\nSafety analysis: ${response}`,
+		);
 
 		const result = await execCommand(command);
 		if (result.exitCode !== 0) throw new Error(`Error executing command ${command}. Return code ${result.exitCode}. Err: ${result.stderr}`);
