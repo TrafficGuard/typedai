@@ -207,5 +207,6 @@ export function extractReasoningAndJson<T>(rawText: string): { reasoning: string
 	}
 
 	logger.error(`Failed to find a structured JSON block (markdown or XML), and the entire text is not valid JSON. Text: ${rawText}`);
+	console.log(`\n${rawText}\n`);
 	throw new Error('Failed to extract structured JSON. Expected ```json ... ``` or <json> ... </json> block, or the entire response to be plain JSON.');
 }

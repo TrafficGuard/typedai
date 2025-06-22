@@ -87,37 +87,21 @@ export class PostgresChatService implements ChatService {
 				...chat,
 				updatedAt: Date.now(), // force new timestamp on updates
 			});
-			row = await db
-				.updateTable('chats')
-				.set(updateData)
-				.where('id', '=', chat.id)
-				.where('user_id', '=', currentUserId)
-				.returningAll()
-				.executeTakeFirst();
+			row = await db.updateTable('chats').set(updateData).where('id', '=', chat.id).where('user_id', '=', currentUserId).returningAll().executeTakeFirst();
 		}
 
 		// If the chat id exists but belongs to someone else, forbid update
 		if (!row && chat.id) {
-			const existsOtherUser = await db
-				.selectFrom('chats')
-				.select('id')
-				.where('id', '=', chat.id)
-				.executeTakeFirst();
+			const existsOtherUser = await db.selectFrom('chats').select('id').where('id', '=', chat.id).executeTakeFirst();
 
 			if (existsOtherUser) {
-				throw new Error(
-					'chat userId is invalid or does not match current user',
-				);
+				throw new Error('chat userId is invalid or does not match current user');
 			}
 		}
 
 		if (!row) {
 			const insertData = this.mapChatToDbInsert(chat);
-			row = await db
-				.insertInto('chats')
-				.values(insertData)
-				.returningAll()
-				.executeTakeFirstOrThrow();
+			row = await db.insertInto('chats').values(insertData).returningAll().executeTakeFirstOrThrow();
 		}
 
 		return this.mapDbRowToChat(row);

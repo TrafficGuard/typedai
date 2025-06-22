@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Selectable } from 'kysely';
-import { logger } from '#o11y/logger';
 import { sql } from 'kysely';
+import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import type { PromptsService } from '#prompts/promptsService';
 import type { CallSettings, LlmMessage } from '#shared/llm/llm.model';
@@ -138,12 +138,7 @@ export class PostgresPromptsService implements PromptsService {
 	}
 
 	@span()
-	async updatePrompt(
-		promptId: string,
-		updates: Partial<Omit<Prompt, 'id' | 'userId' | 'revisionId'>>,
-		userId: string,
-		newVersion: boolean,
-	): Promise<Prompt> {
+	async updatePrompt(promptId: string, updates: Partial<Omit<Prompt, 'id' | 'userId' | 'revisionId'>>, userId: string, newVersion: boolean): Promise<Prompt> {
 		const updatedPrompt = await db.transaction().execute(async (trx) => {
 			const group = await trx.selectFrom('prompt_groups').selectAll().where('id', '=', promptId).executeTakeFirst();
 
@@ -179,21 +174,14 @@ export class PostgresPromptsService implements PromptsService {
 				if (Object.hasOwn(updates, 'appId')) setData.app_id = updates.appId ?? null;
 				if (Object.hasOwn(updates, 'parentId')) setData.parent_id = updates.parentId ?? null;
 				if (updates.tags !== undefined) setData.tags_serialized = JSON.stringify(updates.tags);
-				if (updates.messages !== undefined)
-					setData.messages_serialized = JSON.stringify(updates.messages);
-				if (updates.settings !== undefined)
-					setData.settings_serialized = JSON.stringify(updates.settings);
+				if (updates.messages !== undefined) setData.messages_serialized = JSON.stringify(updates.messages);
+				if (updates.settings !== undefined) setData.settings_serialized = JSON.stringify(updates.settings);
 
 				// Nothing to update on the revision – skip touching it.
 				const targetRevisionRef =
 					Object.keys(setData).length === 0
 						? latestRevision
-						: await trx
-								.updateTable('prompt_revisions')
-								.set(setData)
-								.where('id', '=', latestRevision.id)
-								.returningAll()
-								.executeTakeFirstOrThrow();
+						: await trx.updateTable('prompt_revisions').set(setData).where('id', '=', latestRevision.id).returningAll().executeTakeFirstOrThrow();
 
 				const updatedGroup = await trx
 					.updateTable('prompt_groups')

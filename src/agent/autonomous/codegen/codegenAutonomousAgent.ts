@@ -364,9 +364,9 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				// Capture current memory and tool state before saving
 				iterationData.memory = { ...agent.memory }; // agent.memory is Record, so spread to clone
 				const toolStateMap = await buildToolStateMap(agent.functions.getFunctionInstances());
-				toolStateMap[LiveFiles.name] = agent.toolState.LiveFiles ? [...agent.toolState.LiveFiles] : [];
+				toolStateMap[LiveFiles.name] = agent.toolState?.LiveFiles ? [...agent.toolState.LiveFiles] : [];
 
-				if (agent.toolState.FileSystemTree) toolStateMap.FileSystemTree = [...agent.toolState.FileSystemTree];
+				if (agent.toolState?.FileSystemTree) toolStateMap.FileSystemTree = [...agent.toolState.FileSystemTree];
 
 				// Store FileStore state
 				const fileStoreTool: FileStore | null = agent.functions.getFunctionType('filestore');

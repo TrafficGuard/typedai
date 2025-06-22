@@ -12,7 +12,7 @@ import { currentUser } from '#user/userContext';
 let _fileSystemOverride: IFileSystemService | null = null;
 
 export function setFileSystemOverride(fs: IFileSystemService | null): void {
-    _fileSystemOverride = fs;
+	_fileSystemOverride = fs;
 }
 
 export const agentContextStorage = new AsyncLocalStorage<AgentContext>();

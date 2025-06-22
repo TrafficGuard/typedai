@@ -13,9 +13,10 @@ export async function resumeAgentCompletedRoute(fastify: AppFastifyInstance) {
 		const { agentId, executionId, instructions } = req.body;
 
 		try {
-			await resumeCompleted(agentId!, executionId!, instructions!);
-			const updatedAgent = await fastify.agentStateService.load(agentId!); // load now throws NotFound/NotAllowed
-			send(reply, 200, serializeContext(updatedAgent));
+			await resumeCompleted(agentId, executionId, instructions);
+			const updatedAgent = await fastify.agentStateService.load(agentId);
+			if (!updatedAgent) throw new NotFound(`Agent ${agentId} not found`);
+			reply.sendJSON(serializeContext(updatedAgent));
 		} catch (error) {
 			if (error instanceof NotFound) return sendNotFound(reply, error.message);
 			if (error instanceof NotAllowed) return send(reply, 403, { error: error.message });

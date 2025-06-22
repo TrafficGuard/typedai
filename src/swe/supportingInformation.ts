@@ -42,13 +42,11 @@ export async function supportingInformation(
 
 		// If both root ("./" or ".") and sub-projects are selected, keep the root project
 		// only when at least one selected file is outside every sub-project.
-		const rootProject = projectsToInclude.find(p => p.baseDir === './' || p.baseDir === '.');
-		const subProjects = projectsToInclude.filter(p => p.baseDir !== './' && p.baseDir !== '.');
+		const rootProject = projectsToInclude.find((p) => p.baseDir === './' || p.baseDir === '.');
+		const subProjects = projectsToInclude.filter((p) => p.baseDir !== './' && p.baseDir !== '.');
 
 		if (rootProject && subProjects.length > 0) {
-			const rootNeeded = absFiles.some(
-				file => !subProjects.some(sp => file.startsWith(abs(sp.baseDir))),
-			);
+			const rootNeeded = absFiles.some((file) => !subProjects.some((sp) => file.startsWith(abs(sp.baseDir))));
 			if (!rootNeeded) {
 				projectsToInclude = subProjects; // safe to drop root project
 			}

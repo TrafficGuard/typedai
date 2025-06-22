@@ -180,21 +180,21 @@ async function tryLoadAndParse(filePath: string, fss: IFileSystemService, locati
 // 		dir = parent;
 // 	}
 // }
-import { promises as fsAsync } from 'node:fs';          
-async function findUpwards(startDir: string): Promise<string | null> {                                                                                                                                               
-	    let dir = startDir;                                                                                                                                                                                              
-	    while (true) {                                                                                                                                                                                                   
-	        const candidate = path.join(dir, AI_INFO_FILENAME); // absolute path                                                                                                                                         
-	        try {                                                                                                                                                                                                        
-	            await fsAsync.access(candidate);   // found                                                                                                                                                              
-	            return candidate;                                                                                                                                                                                        
-	        } catch {                                                                                                                                                                                                    
-	            const parent = path.dirname(dir);                                                                                                                                                                        
-	            if (parent === dir) return null;   // reached FS root                                                                                                                                                    
-	            dir = parent;                                                                                                                                                                                            
-	        }                                                                                                                                                                                                            
-	    }                                                                                                                                                                                                                
-	}    
+import { promises as fsAsync } from 'node:fs';
+async function findUpwards(startDir: string): Promise<string | null> {
+	let dir = startDir;
+	while (true) {
+		const candidate = path.join(dir, AI_INFO_FILENAME); // absolute path
+		try {
+			await fsAsync.access(candidate); // found
+			return candidate;
+		} catch {
+			const parent = path.dirname(dir);
+			if (parent === dir) return null; // reached FS root
+			dir = parent;
+		}
+	}
+}
 
 /**
  * Determines the language/runtime, base folder and key commands for projects.

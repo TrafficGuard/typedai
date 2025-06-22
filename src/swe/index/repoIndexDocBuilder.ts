@@ -627,9 +627,7 @@ interface ProjectSummaryDoc {
 	};
 }
 
-export async function getRepositoryOverview(
-	fss: IFileSystemService = getFileSystem(),
-): Promise<string> {
+export async function getRepositoryOverview(fss: IFileSystemService = getFileSystem()): Promise<string> {
 	// getRepositoryOverview doesn't directly use LLM for generation, only for reading existing summary.
 	// Passing a dummy or 'easy' LLM if the builder's methods it calls might need one.
 	// getTopLevelSummaryInternal does not use LLM.
@@ -654,9 +652,7 @@ export async function getRepositoryOverview(
  * const summaries = await loadBuildDocsSummaries();
  * console.log(`Loaded ${summaries.size} summaries`);
  */
-export async function loadBuildDocsSummaries(
-	fss: IFileSystemService = getFileSystem(),
-): Promise<Map<string, Summary>> {
+export async function loadBuildDocsSummaries(fss: IFileSystemService = getFileSystem()): Promise<Map<string, Summary>> {
 	const builder = new IndexDocBuilder(fss, {} as LLM); // LLM not used when only loading
 	return builder.loadBuildDocsSummariesInternal();
 }

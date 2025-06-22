@@ -220,9 +220,7 @@ export async function ensureLlmCallsTableExists(dbInstance: Kysely<Database> = d
 	// }
 }
 
-export async function ensurePromptsTablesExist(
-	dbInstance: Kysely<Database> = db,
-): Promise<void> {
+export async function ensurePromptsTablesExist(dbInstance: Kysely<Database> = db): Promise<void> {
 	/* prompt_groups ------------------------------------------------------ */
 	await dbInstance.schema
 		.createTable('prompt_groups')
@@ -254,12 +252,6 @@ export async function ensurePromptsTablesExist(
 		.addColumn('settings_serialized', 'text', (c) => c.notNull())
 		.addColumn('created_at', 'timestamptz', (c) => c.notNull().defaultTo(sql`now()`))
 		// FK → prompt_groups.id, cascade on delete
-		.addForeignKeyConstraint(
-			'prompt_revisions_group_fk',
-			['prompt_group_id'],
-			'prompt_groups',
-			['id'],
-			(cb) => cb.onDelete('cascade'),
-		)
+		.addForeignKeyConstraint('prompt_revisions_group_fk', ['prompt_group_id'], 'prompt_groups', ['id'], (cb) => cb.onDelete('cascade'))
 		.execute();
 }

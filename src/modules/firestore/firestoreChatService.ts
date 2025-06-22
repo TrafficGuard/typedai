@@ -64,7 +64,7 @@ export class FirestoreChatService implements ChatService {
 
 		if (!chat.id) chat.id = randomUUID();
 		if (chat.updatedAt === undefined) {
-			chat.updatedAt = Date.now();          // generate only if absent
+			chat.updatedAt = Date.now(); // generate only if absent
 		}
 
 		try {
@@ -118,11 +118,7 @@ export class FirestoreChatService implements ChatService {
 					hasMore = true;
 				}
 			}
-			chats.sort(
-				(a, b) =>
-					b.updatedAt - a.updatedAt ||
-					(b.id > a.id ? 1 : b.id < a.id ? -1 : 0),
-			);
+			chats.sort((a, b) => b.updatedAt - a.updatedAt || (b.id > a.id ? 1 : b.id < a.id ? -1 : 0));
 			return { chats, hasMore };
 		} catch (error) {
 			logger.error(error, 'Error listing chats');

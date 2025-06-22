@@ -50,13 +50,11 @@ export class InMemoryChatService implements ChatService {
 
 		/* ------------------- UPDATE -------------------------- */
 		if (existing) {
-			if (existing.userId !== currentUserId)
-				throw new Error('chat userId is invalid');
+			if (existing.userId !== currentUserId) throw new Error('chat userId is invalid');
 			chat.userId = existing.userId; // preserve owner
 			chat.updatedAt = Date.now();
-		}
+		} else {
 		/* ------------------- INSERT -------------------------- */
-		else {
 			chat.userId = chat.userId ?? currentUserId;
 			chat.updatedAt = chat.updatedAt ?? Date.now();
 		}

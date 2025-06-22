@@ -79,10 +79,10 @@ export function runChatServiceTests(createService: () => ChatService, beforeEach
 	};
 
 	beforeEach(async () => {
-		service = createService();
 		// Note: beforeEachHook runs *outside* the user context set by runWithTestUser
 		// If the hook needs user context, the approach needs adjustment.
 		await beforeEachHook();
+		service = createService(); // Create the servic after the environment has been setup with beforeEachHook()
 	});
 
 	it(

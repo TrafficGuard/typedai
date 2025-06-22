@@ -5,8 +5,8 @@ import chaiAsPromised from 'chai-as-promised';
 import mockFs from 'mock-fs';
 import sinon from 'sinon';
 import * as agentContextLocalStorage from '#agent/agentContextLocalStorage';
-import { FileSystemService } from '#functions/storage/fileSystemService';
 import { setFileSystemOverride } from '#agent/agentContextLocalStorage';
+import { FileSystemService } from '#functions/storage/fileSystemService';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import {
 	AI_INFO_FILENAME,
@@ -23,7 +23,7 @@ import { projectDetectionAgent } from './projectDetectionAgent';
 
 chai.use(chaiAsPromised);
 
-describe.only('projectDetection', () => {
+describe('projectDetection', () => {
 	setupConditionalLoggerOutput();
 	let sandbox: sinon.SinonSandbox;
 
@@ -368,8 +368,8 @@ describe.only('projectDetection', () => {
 			// Configure FileSystemService:
 			// Initialize with CWD_SUBDIR_PATH as its basePath, mimicking the reported scenario.
 			fssInstance = new FileSystemService(CWD_SUBDIR_PATH);
-			fssInstance.setWorkingDirectory(CWD_SUBDIR_PATH);    // ensure correct WD
-			setFileSystemOverride(fssInstance);                  // use this instance in detectProjectInfo
+			fssInstance.setWorkingDirectory(CWD_SUBDIR_PATH); // ensure correct WD
+			setFileSystemOverride(fssInstance); // use this instance in detectProjectInfo
 
 			// Stub getVcsRoot() to ensure it correctly returns the VSC_ROOT_PATH.
 			// The real FileSystemService would search upwards from its basePath (CWD_SUBDIR_PATH)

@@ -41,7 +41,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 		serialized.user =
 			typeof serialized.user === 'object' && serialized.user !== null
 				? serialized.user.id
-				: serialized.user ?? (typeof state.user === 'string' ? state.user : state.user.id);
+				: (serialized.user ?? (typeof state.user === 'string' ? state.user : state.user.id));
 		serialized.lastUpdate = Date.now();
 
 		// Add this validation step
@@ -140,10 +140,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 		}
 
 		// Extract owner id whether the field is stored as a string or an object
-		const ownerId =
-			typeof firestoreData.user === 'string'
-				? firestoreData.user
-				: firestoreData.user?.id;
+		const ownerId = typeof firestoreData.user === 'string' ? firestoreData.user : firestoreData.user?.id;
 
 		if (ownerId !== currentUser().id) {
 			logger.warn({ agentId, currentUserId: currentUser().id, ownerId: ownerId }, 'Attempt to load agent not owned by current user.');

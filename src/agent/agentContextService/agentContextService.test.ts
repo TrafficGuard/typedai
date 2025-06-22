@@ -243,7 +243,7 @@ export function runAgentStateServiceTests(
 	afterEach(async () => {
 		sinon.restore();
 		clearCompletedHandlers(); // Clean up registered handlers
-		setCurrentUser(null);    // clear override
+		setCurrentUser(null); // clear override
 		await afterEachHook();
 	});
 

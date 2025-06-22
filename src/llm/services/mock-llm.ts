@@ -123,7 +123,7 @@ export class MockLLM extends BaseLLM {
 	getCallCount(): number {
 		// Tests expect to count *only* the real LLM requests (generateMessage),
 		// not the synthetic mirror “generateText” entries we record for convenience.
-		return this.calls.filter(c => c.type === 'generateMessage').length;
+		return this.calls.filter((c) => c.type === 'generateMessage').length;
 	}
 
 	/**

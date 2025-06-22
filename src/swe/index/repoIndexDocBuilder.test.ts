@@ -31,16 +31,16 @@ async function fileExists(filePath: string): Promise<boolean> {
 describe('IndexDocBuilder', () => {
 	setupConditionalLoggerOutput();
 	let builder: IndexDocBuilder;
-	let mockFss: FileSystemService;
+	let fss: FileSystemService;
 	let llm: sinon.SinonStubbedInstance<LLM>;
 	let generateFileSummaryStub: sinon.SinonStub;
 	let generateFolderSummaryStub: sinon.SinonStub;
 
 	function setupMockFs(mockFileSystemConfig: any) {
 		mock(mockFileSystemConfig);
-		mockFss = new FileSystemService(MOCK_REPO_ROOT);
-		sinon.stub(mockFss, 'getVcsRoot').returns(MOCK_REPO_ROOT);
-		builder = new IndexDocBuilder(mockFss, llm, generateFileSummaryStub, generateFolderSummaryStub);
+		fss = new FileSystemService(MOCK_REPO_ROOT);
+		sinon.stub(fss, 'getVcsRoot').returns(MOCK_REPO_ROOT);
+		builder = new IndexDocBuilder(fss, llm, generateFileSummaryStub, generateFolderSummaryStub);
 	}
 
 	beforeEach(async () => {
@@ -63,8 +63,12 @@ describe('IndexDocBuilder', () => {
 			getOldModels: sinon.stub(),
 		} as sinon.SinonStubbedInstance<LLM>;
 
-		generateFileSummaryStub = sinon.stub().resolves({ path: '', short: 'Mocked file short', long: 'Mocked file long', meta: { hash: 'file_hash_placeholder' } });
-		generateFolderSummaryStub = sinon.stub().resolves({ path: '', short: 'Mocked folder short', long: 'Mocked folder long', meta: { hash: 'folder_hash_placeholder' } });
+		generateFileSummaryStub = sinon
+			.stub()
+			.resolves({ path: '', short: 'Mocked file short', long: 'Mocked file long', meta: { hash: 'file_hash_placeholder' } });
+		generateFolderSummaryStub = sinon
+			.stub()
+			.resolves({ path: '', short: 'Mocked folder short', long: 'Mocked folder long', meta: { hash: 'folder_hash_placeholder' } });
 
 		// Default responses for direct LLM client calls (e.g., project overview)
 		llm.generateText.resolves('Mocked project overview');
@@ -347,7 +351,7 @@ describe('IndexDocBuilder', () => {
 // Minimal tests for exported functions to ensure they setup and call the builder
 describe('Exported repoIndexDocBuilder functions', () => {
 	let llm: sinon.SinonStubbedInstance<LLM>;
-	// No need for builderInstanceStub if spying on prototype
+	let fss: FileSystemService;
 
 	beforeEach(async () => {
 		// Set up a mock filesystem needed for the functions to run
@@ -357,7 +361,7 @@ describe('Exported repoIndexDocBuilder functions', () => {
 				src: { 'file.ts': 'content' },
 			},
 		});
-		const fss = new FileSystemService(MOCK_REPO_ROOT);
+		fss = new FileSystemService(MOCK_REPO_ROOT);
 		sinon.stub(fss, 'getVcsRoot').returns(MOCK_REPO_ROOT);
 
 		llm = {

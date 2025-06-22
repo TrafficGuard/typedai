@@ -156,17 +156,11 @@ export function span<T extends (...args: any[]) => any>(
 			try {
 				agentContextStorage?.getStore()?.callStack?.push(functionName);
 				if (!tracer) {
-					return userCtx
-						? await runWithUser(userCtx, () => originalMethod.call(this, ...args))
-						: await originalMethod.call(this, ...args);
+					return userCtx ? await runWithUser(userCtx, () => originalMethod.call(this, ...args)) : await originalMethod.call(this, ...args);
 				}
 				return tracer.withActiveSpan(functionName, async (span: Span) => {
 					setFunctionSpanAttributes(span, functionName, attributeExtractors, args);
-					return userCtx
-						? await runWithUser(userCtx, () =>
-								originalMethod.call(this, ...args),
-							)
-						: await originalMethod.call(this, ...args);
+					return userCtx ? await runWithUser(userCtx, () => originalMethod.call(this, ...args)) : await originalMethod.call(this, ...args);
 				});
 			} finally {
 				agentContextStorage?.getStore()?.callStack?.pop();
