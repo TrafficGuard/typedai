@@ -23,7 +23,6 @@ const userContextStorage = new AsyncLocalStorage<User>();
  * @returns The return value of the provided function `fn`.
  */
 export function runWithUser<T>(user: User, fn: () => T): T {
-	// Allows `await runWithUser(..., async () => { ... })`
 	return userContextStorage.run(user, fn as any) as T;
 }
 
@@ -35,17 +34,19 @@ export function isSingleUser(): boolean {
  * @returns If called in an agent's execution, returns the agent's user, otherwise the user from a web request, or the single user if in single user mode.
  */
 export function currentUser(): User {
-	const agent = agentCtx();
-	if (agent) return agent.user;
-
-	const user = userContextStorage.getStore();
-	if (!user) {
-		if (isSingleUser()) {
-			return appCtx().userService.getSingleUser();
-		}
-		throw new Error('User has not been set on the userContextStorage');
-	}
-	return user;
+     // 1. Prefer an explicit user set via runWithUser / setCurrentUser                                                                                                                                                                                   
+     const user = userContextStorage.getStore();                                                                                                                                                                                                          
+     if (user) return user;                                                                                                                                                                                                                               
+                                                                                                                                                                                                                                                          
+     // 2. Fall back to an agent-execution context (if any)                                                                                                                                                                                               
+     const agent = agentCtx();                                                                                                                                                                                                                            
+     if (agent) return agent.user;                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                          
+     // 3. Single-user / error handling (unchanged)                                                                                                                                                                                                       
+     if (isSingleUser()) {                                                                                                                                                                                                                                
+         return appCtx().userService.getSingleUser();                                                                                                                                                                                                     
+     }                                                                                                                                                                                                                                                    
+     throw new Error('User has not been set on the userContextStorage');    
 }
 
 /**
