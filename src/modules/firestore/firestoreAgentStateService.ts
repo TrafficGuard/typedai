@@ -37,6 +37,10 @@ export class FirestoreAgentStateService implements AgentContextService {
 			logger.warn({ agentId: state.agentId }, `Input prompt is greater than ${MAX_PROPERTY_SIZE} bytes and might be truncated by Firestore`);
 		}
 		const serialized = serializeContext(state);
+		// Always store the user as the user-id string (not the full object) so
+		// user-ownership checks (`firestoreData.user === currentUser().id`) work.
+		serialized.user =
+			typeof state.user === 'string' ? state.user : state.user.id;
 		serialized.lastUpdate = Date.now();
 
 		// Add this validation step
