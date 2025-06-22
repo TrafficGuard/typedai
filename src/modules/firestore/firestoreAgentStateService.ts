@@ -17,7 +17,7 @@ import {
 	isExecuting,
 } from '#shared/agent/agent.model';
 import type { AgentContextSchema } from '#shared/agent/agent.schema';
-import { NotAllowed, NotFound } from '#shared/errors'; // Added import
+import { NotAllowed, NotFound } from '#shared/errors';
 import { currentUser } from '#user/userContext';
 import { firestoreDb } from './firestore';
 
@@ -37,11 +37,11 @@ export class FirestoreAgentStateService implements AgentContextService {
 			logger.warn({ agentId: state.agentId }, `Input prompt is greater than ${MAX_PROPERTY_SIZE} bytes and might be truncated by Firestore`);
 		}
 		const serialized = serializeContext(state);
-		// Always persist a simple string so that ownership checks work reliably
-		serialized.user =
-			typeof serialized.user === 'object' && serialized.user !== null
-				? serialized.user.id
-				: (serialized.user ?? (typeof state.user === 'string' ? state.user : state.user.id));
+		// // Always persist a simple string so that ownership checks work reliably
+		// serialized.user =
+		// 	typeof serialized.user === 'object' && serialized.user !== null
+		// 		? (serialized.user as User).id
+		// 		: (serialized.user ?? (typeof state.user === 'string' ? state.user : state.user.id));
 		serialized.lastUpdate = Date.now();
 
 		// Add this validation step
