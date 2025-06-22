@@ -28,10 +28,18 @@ export interface ProcessedResponse {
  * parsing functions.
  */
 export class ResponseProcessor {
+	public editFormat: EditFormat;
+
 	constructor(
 		private readonly fence: [string, string],
-		private readonly editFormat: EditFormat,
-	) {}
+		editFormat: EditFormat,
+	) {
+		this.editFormat = editFormat;
+	}
+
+	getFence(): [string, string] {
+		return this.fence;
+	}
 
 	/**
 	 * Processes the full response text from the LLM.

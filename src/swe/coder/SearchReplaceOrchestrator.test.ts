@@ -1,61 +1,126 @@
+import { existsSync } from 'node:fs';
 import { expect } from 'chai';
+import mockFs from 'mock-fs';
 import * as sinon from 'sinon';
+import { Git } from '#functions/scm/git';
+import { FileSystemService } from '#functions/storage/fileSystemService';
 import { MockLLM } from '#llm/services/mock-llm';
-import type { LLM, LlmMessage } from '#shared/llm/llm.model';
+import { logger } from '#o11y/logger';
+import type { AgentLLMs } from '#shared/agent/agent.model';
+import type { IFileSystemService } from '#shared/files/fileSystemService';
+import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import { PromptBuilder } from './PromptBuilder';
-import { CoderConfig, SearchReplaceOrchestrator } from './SearchReplaceOrchestrator';
-import { EditApplier } from './editApplier';
-import { EditPreparer } from './services/EditPreparer';
-import { ReflectionGenerator } from './services/ReflectionGenerator';
-import { ResponseProcessor } from './services/ResponseProcessor';
-import { EditSession } from './state/EditSession';
+import { CoderExhaustedAttemptsError } from '../sweErrors';
+import { DIVIDER_MARKER, REPLACE_MARKER, SEARCH_MARKER } from './constants';
+import { SearchReplaceCoder } from './searchReplaceCoder';
 
-describe('SearchReplaceOrchestrator', () => {
+const MOCK_REPO_ROOT = '/repo';
+
+function searchReplaceBlock(filePath: string, search: string, replace: string): string {
+	return `${filePath}
+\`\`\`typescript
+${SEARCH_MARKER}
+${search}
+${DIVIDER_MARKER}
+${replace}
+${REPLACE_MARKER}
+\`\`\`
+`;
+}
+
+const SEARCH_BLOCK_VALID = searchReplaceBlock('test.ts', 'hello world', 'hello universe');
+
+describe('SearchReplaceOrchestrator: Full Integration', () => {
 	setupConditionalLoggerOutput();
 
-	let orchestrator: SearchReplaceOrchestrator;
-	let mockConfig: CoderConfig;
-	let mockResponseProcessor: sinon.SinonStubbedInstance<ResponseProcessor>;
-	let mockEditPreparer: sinon.SinonStubbedInstance<EditPreparer>;
-	let mockReflectionGenerator: sinon.SinonStubbedInstance<ReflectionGenerator>;
-	let mockPromptBuilder: sinon.SinonStubbedInstance<PromptBuilder>;
-	let mockEditApplier: sinon.SinonStubbedInstance<EditApplier>;
-	let session: EditSession;
-	let llm: LLM;
-	let messages: LlmMessage[];
+	let coder: SearchReplaceCoder;
+	let mockLlms: AgentLLMs;
+	let mockLLM: MockLLM;
+	let fss: IFileSystemService;
+	let mockVcs: sinon.SinonStubbedInstance<VersionControlSystem>;
+
+	function setupMockFs(mockFileSystemConfig: any): void {
+		mockFileSystemConfig[`${MOCK_REPO_ROOT}/.gitignore`] = '';
+		mockFs(mockFileSystemConfig);
+
+		const existsSyncStub = sinon.stub(require('node:fs'), 'existsSync');
+		existsSyncStub.callsFake((path: unknown) => {
+			const pathStr = String(path);
+			if (pathStr === MOCK_REPO_ROOT) return true;
+			const mockPaths = Object.keys(mockFileSystemConfig);
+			return mockPaths.some((mockPath) => pathStr.startsWith(mockPath) || mockPath.startsWith(pathStr));
+		});
+
+		fss = new FileSystemService(MOCK_REPO_ROOT);
+		fss.setWorkingDirectory(MOCK_REPO_ROOT);
+		mockVcs = sinon.createStubInstance(Git);
+		sinon.stub(fss, 'getVcsRoot').returns(MOCK_REPO_ROOT);
+		sinon.stub(fss, 'getVcs').returns(mockVcs);
+		coder = new SearchReplaceCoder(mockLlms, fss);
+	}
 
 	beforeEach(() => {
-		mockConfig = { maxAttempts: 3 };
-		// Use createStubInstance to create type-safe stubs of the dependency classes
-		mockResponseProcessor = sinon.createStubInstance(ResponseProcessor);
-		mockEditPreparer = sinon.createStubInstance(EditPreparer);
-		mockReflectionGenerator = sinon.createStubInstance(ReflectionGenerator);
-		mockPromptBuilder = sinon.createStubInstance(PromptBuilder);
-		mockEditApplier = sinon.createStubInstance(EditApplier);
-
-		orchestrator = new SearchReplaceOrchestrator(
-			mockConfig,
-			mockResponseProcessor,
-			mockEditPreparer,
-			mockReflectionGenerator,
-			mockPromptBuilder,
-			mockEditApplier,
-		);
-
-		session = new EditSession('/repo', 'test requirements');
-		llm = new MockLLM();
-		messages = [{ role: 'user', content: 'test' }];
+		mockLLM = new MockLLM();
+		mockLlms = { easy: mockLLM, medium: mockLLM, hard: mockLLM, xhard: mockLLM };
 	});
 
 	afterEach(() => {
+		mockLLM.reset();
+		mockLLM.assertNoPendingResponses();
 		sinon.restore();
+		mockFs.restore();
 	});
 
-	describe('execute', () => {
-		it('should be implemented in a future step', () => {
-			// This test serves as a placeholder for the orchestration logic tests.
-			expect(orchestrator).to.exist;
-		});
+	it('should successfully apply a valid edit on the first attempt', async () => {
+		setupMockFs({ '/repo/test.ts': 'hello world' });
+		mockLLM.addMessageResponse(SEARCH_BLOCK_VALID);
+
+		await coder.editFilesToMeetRequirements('test', ['test.ts'], []);
+
+		expect(mockLLM.getCallCount()).to.equal(1);
+		const finalContent = await fss.readFile('/repo/test.ts');
+		expect(finalContent).to.equal('hello universe\n');
+	});
+
+	it('should reflect on validation failure and succeed on the second attempt', async () => {
+		setupMockFs({ '/repo/test.ts': 'hello world' });
+		const failingBlock = searchReplaceBlock('non-existent.ts', 'search', 'replace');
+		mockLLM.addMessageResponse(failingBlock).addMessageResponse(SEARCH_BLOCK_VALID);
+
+		await coder.editFilesToMeetRequirements('test', ['test.ts'], []);
+
+		const messageCalls = mockLLM.getMessageCalls();
+		expect(messageCalls).to.have.lengthOf(2);
+		const reflectionMessage = messageCalls[1].messages.at(-2)?.content;
+		expect(reflectionMessage).to.contain('File does not exist');
+		const finalContent = await fss.readFile('/repo/test.ts');
+		expect(finalContent).to.equal('hello universe\n');
+	});
+
+	it('should reflect on application failure, attempt to fix, and then succeed', async () => {
+		setupMockFs({ '/repo/test.ts': 'original content' });
+		const failingBlock = searchReplaceBlock('test.ts', 'bad search', 'new content');
+		const correctedBlock = searchReplaceBlock('test.ts', 'original content', 'new content');
+
+		mockLLM
+			.addMessageResponse(failingBlock) // Main attempt fails to apply
+			.addMessageResponse(correctedBlock); // Fix attempt succeeds
+
+		await coder.editFilesToMeetRequirements('test', ['test.ts'], []);
+
+		expect(mockLLM.getCallCount()).to.equal(2); // Main LLM call + fix LLM call
+		const finalContent = await fss.readFile('/repo/test.ts');
+		expect(finalContent).to.equal('new content\n');
+	});
+
+	it('should throw CoderExhaustedAttemptsError after multiple persistent failures', async () => {
+		setupMockFs({ '/repo/test.ts': 'content' });
+		const failingBlock = searchReplaceBlock('test.ts', 'non-matching', 'new content');
+		for (let i = 0; i < 5; i++) {
+			mockLLM.addMessageResponse(failingBlock).addMessageResponse('null'); // Main call fails, fix call fails
+		}
+
+		await expect(coder.editFilesToMeetRequirements('test', ['test.ts'], [])).to.be.rejectedWith(CoderExhaustedAttemptsError);
+		expect(mockLLM.getCallCount()).to.equal(10); // 5 main calls + 5 fix calls
 	});
 });

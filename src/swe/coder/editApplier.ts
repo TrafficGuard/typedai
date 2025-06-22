@@ -6,16 +6,33 @@ import type { EditBlock } from './coderTypes';
 import { doReplace } from './patchUtils'; // Updated import
 
 export class EditApplier {
+	private rootPath: string;
+	private absFnamesInChat: Set<string>;
+	private autoCommit: boolean;
+	private dryRun: boolean;
+
 	constructor(
 		private fs: IFileSystemService,
 		private vcs: VersionControlSystem | null,
 		private lenientWhitespace: boolean,
 		private fence: [string, string],
-		private rootPath: string, // Absolute path to the project root
-		private absFnamesInChat: Set<string>, // Absolute paths of files explicitly in chat for fallback
-		private autoCommit: boolean, // For committing successful edits
-		private dryRun: boolean,
-	) {}
+	) {
+		this.rootPath = '';
+		this.absFnamesInChat = new Set();
+		this.autoCommit = false;
+		this.dryRun = false;
+	}
+
+	/**
+	 * Configures the applier for a specific run. This is used by the orchestrator
+	 * to set the context for each application attempt.
+	 */
+	configure(rootPath: string, absFnamesInChat: ReadonlySet<string>, autoCommit: boolean, dryRun: boolean): void {
+		this.rootPath = rootPath;
+		this.absFnamesInChat = new Set(absFnamesInChat);
+		this.autoCommit = autoCommit;
+		this.dryRun = dryRun;
+	}
 
 	private getRepoFilePath(relativePath: string): string {
 		return path.resolve(this.rootPath, relativePath);

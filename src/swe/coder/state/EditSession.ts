@@ -1,12 +1,4 @@
-/**
- * Represents a single SEARCH/REPLACE block for a file edit.
- * This structure is used to track failed edits.
- */
-export interface EditBlock {
-	filePath: string;
-	originalText: string;
-	updatedText: string;
-}
+import type { EditBlock } from '../coderTypes';
 
 /**
  * Describes the result of applying a set of edits to the workspace.
@@ -26,8 +18,8 @@ export interface ApplicationResult {
 interface SessionState {
 	/** The current attempt number, starting from 0. */
 	attempt: number;
-	/** Flag indicating if the prompt for the current attempt has been built. */
-	promptBuilt: boolean;
+	/** Flag indicating if the prompt for the current attempt is stale and needs rebuilding. */
+	promptStale: boolean;
 	/** A set of file paths that have been successfully modified during the session. */
 	appliedFiles: Set<string>;
 	/** A list of edit blocks that failed to apply in the last attempt. */
@@ -50,7 +42,7 @@ interface SessionState {
 export class EditSession {
 	private _state: SessionState = {
 		attempt: 0,
-		promptBuilt: false,
+		promptStale: true, // Start as stale to force initial build
 		appliedFiles: new Set<string>(),
 		failedEdits: [],
 		reflections: [],
@@ -63,10 +55,14 @@ export class EditSession {
 	 * Creates a new edit session.
 	 * @param workingDir The absolute path to the workspace directory.
 	 * @param requirements The user's initial requirements for the coding task.
+	 * @param autoCommit Whether to commit the changes automatically after applying them.
+	 * @param dirtyCommits If files which have uncommitted changes should be committed before applying changes.
 	 */
 	constructor(
 		public readonly workingDir: string,
 		public readonly requirements: string,
+		public readonly autoCommit: boolean,
+		public readonly dirtyCommits: boolean,
 	) {}
 
 	/** The current attempt number. */
@@ -110,12 +106,10 @@ export class EditSession {
 	}
 
 	/**
-	 * Increments the attempt counter and resets the prompt-built flag.
-	 * This should be called when starting a new attempt after a failure.
+	 * Increments the attempt counter.
 	 */
 	incrementAttempt(): void {
 		this._state.attempt++;
-		this._state.promptBuilt = false;
 	}
 
 	/**
@@ -164,17 +158,25 @@ export class EditSession {
 
 	/**
 	 * Checks if the prompt for the current attempt needs to be rebuilt.
-	 * @returns True if the prompt has not yet been built for this attempt.
+	 * @returns True if the prompt is stale and has not yet been built for this attempt.
 	 */
-	shouldRebuildPrompt(): boolean {
-		return !this._state.promptBuilt;
+	isPromptStale(): boolean {
+		return this._state.promptStale;
 	}
 
 	/**
-	 * Marks the prompt for the current attempt as built.
+	 * Marks the prompt as stale, indicating it should be rebuilt.
+	 * This is typically done after a reflection that adds new context.
+	 */
+	markPromptStale(): void {
+		this._state.promptStale = true;
+	}
+
+	/**
+	 * Marks the prompt as up-to-date for the current attempt.
 	 */
 	markPromptBuilt(): void {
-		this._state.promptBuilt = true;
+		this._state.promptStale = false;
 	}
 
 	/**
