@@ -368,6 +368,8 @@ describe.only('projectDetection', () => {
 			// Configure FileSystemService:
 			// Initialize with CWD_SUBDIR_PATH as its basePath, mimicking the reported scenario.
 			fssInstance = new FileSystemService(CWD_SUBDIR_PATH);
+			fssInstance.setWorkingDirectory(CWD_SUBDIR_PATH);    // ensure correct WD
+			setFileSystemOverride(fssInstance);                  // use this instance in detectProjectInfo
 
 			// Stub getVcsRoot() to ensure it correctly returns the VSC_ROOT_PATH.
 			// The real FileSystemService would search upwards from its basePath (CWD_SUBDIR_PATH)
