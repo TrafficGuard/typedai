@@ -1,6 +1,7 @@
 import { expect } from 'chai';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import type { ApplicationResult, EditBlock } from './EditSession';
+import type { EditBlock } from '../coderTypes';
+import type { ApplicationResult } from './EditSession';
 import { EditSession } from './EditSession';
 
 describe('EditSession', () => {
@@ -11,7 +12,7 @@ describe('EditSession', () => {
 
 	describe('constructor and initial state', () => {
 		it('should initialize with attempt 0 and empty collections', () => {
-			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS);
+			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS, false, false);
 
 			expect(session.attempt).to.equal(0);
 			expect(session.appliedFiles.size).to.equal(0);
@@ -25,7 +26,7 @@ describe('EditSession', () => {
 		});
 
 		it('should correctly store workingDir and requirements', () => {
-			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS);
+			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS, false, false);
 
 			expect(session.workingDir).to.equal(MOCK_WORKING_DIR);
 			expect(session.requirements).to.equal(MOCK_REQUIREMENTS);
@@ -34,7 +35,7 @@ describe('EditSession', () => {
 
 	describe('#incrementAttempt', () => {
 		it('should increment the attempt counter', () => {
-			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS);
+			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS, false, false);
 			expect(session.attempt).to.equal(0);
 
 			session.incrementAttempt();
@@ -43,20 +44,26 @@ describe('EditSession', () => {
 			session.incrementAttempt();
 			expect(session.attempt).to.equal(2);
 		});
+	});
 
-		it('should reset the promptBuilt flag to false', () => {
-			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS);
+	describe('Prompt Stale Management', () => {
+		it('should manage the prompt stale state correctly', () => {
+			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS, false, false);
 
-			// Initially, prompt should be rebuilt
-			expect(session.shouldRebuildPrompt()).to.be.true;
+			// Initially, prompt should be stale
+			expect(session.isPromptStale()).to.be.true;
 
 			// Mark as built
 			session.markPromptBuilt();
-			expect(session.shouldRebuildPrompt()).to.be.false;
+			expect(session.isPromptStale()).to.be.false;
 
-			// Incrementing attempt should reset the flag
+			// Incrementing attempt should not change the flag
 			session.incrementAttempt();
-			expect(session.shouldRebuildPrompt()).to.be.true;
+			expect(session.isPromptStale()).to.be.false;
+
+			// Mark as stale again
+			session.markPromptStale();
+			expect(session.isPromptStale()).to.be.true;
 		});
 	});
 
@@ -64,7 +71,7 @@ describe('EditSession', () => {
 		const failedEdit: EditBlock = { filePath: 'src/b.ts', originalText: 'b', updatedText: 'B' };
 
 		it('should add applied files to the appliedFiles set', () => {
-			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS);
+			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS, false, false);
 			const result: ApplicationResult = {
 				applied: ['src/a.ts'],
 				failed: [],
@@ -76,7 +83,7 @@ describe('EditSession', () => {
 		});
 
 		it('should overwrite failedEdits with the new list', () => {
-			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS);
+			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS, false, false);
 
 			// First attempt
 			const result1: ApplicationResult = { applied: [], failed: [failedEdit] };
@@ -92,7 +99,7 @@ describe('EditSession', () => {
 		});
 
 		it('should not add duplicate file paths to appliedFiles', () => {
-			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS);
+			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS, false, false);
 
 			session.recordApplication({ applied: ['src/a.ts', 'src/b.ts'], failed: [] });
 			session.recordApplication({ applied: ['src/b.ts', 'src/c.ts'], failed: [] });
@@ -104,7 +111,7 @@ describe('EditSession', () => {
 
 	describe('#addReflection', () => {
 		it('should add a new reflection to the history', () => {
-			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS);
+			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS, false, false);
 			const reflection1 = 'I should try a different approach.';
 			const reflection2 = 'The second approach worked better.';
 
@@ -116,7 +123,7 @@ describe('EditSession', () => {
 		});
 
 		it('should update lastReflection to the most recent one', () => {
-			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS);
+			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS, false, false);
 			const reflection1 = 'First reflection.';
 			const reflection2 = 'Second reflection.';
 
@@ -130,12 +137,12 @@ describe('EditSession', () => {
 
 	describe('#isComplete', () => {
 		it('should return false on initial state', () => {
-			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS);
+			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS, false, false);
 			expect(session.isComplete()).to.be.false;
 		});
 
 		it('should return false if there are failed edits', () => {
-			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS);
+			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS, false, false);
 			const result: ApplicationResult = {
 				applied: ['src/a.ts'],
 				failed: [{ filePath: 'src/b.ts', originalText: 'b', updatedText: 'B' }],
@@ -145,7 +152,7 @@ describe('EditSession', () => {
 		});
 
 		it('should return false if no files have been applied', () => {
-			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS);
+			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS, false, false);
 			const result: ApplicationResult = {
 				applied: [],
 				failed: [],
@@ -155,7 +162,7 @@ describe('EditSession', () => {
 		});
 
 		it('should return true when there are no failed edits and at least one file has been applied', () => {
-			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS);
+			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS, false, false);
 			const result: ApplicationResult = {
 				applied: ['src/a.ts'],
 				failed: [],
@@ -167,7 +174,7 @@ describe('EditSession', () => {
 
 	describe('state immutability', () => {
 		it('should not allow modification of the failedEdits array via its getter', () => {
-			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS);
+			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS, false, false);
 			const failedEdit: EditBlock = { filePath: 'src/b.ts', originalText: 'b', updatedText: 'B' };
 			session.recordApplication({ applied: [], failed: [failedEdit] });
 
@@ -181,7 +188,7 @@ describe('EditSession', () => {
 		});
 
 		it('should not allow modification of the reflections array via its getter', () => {
-			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS);
+			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS, false, false);
 			session.addReflection('First thought');
 
 			// Attempt to mutate the retrieved array
@@ -194,7 +201,7 @@ describe('EditSession', () => {
 		});
 
 		it('should not allow modification of the appliedFiles set via its getter', () => {
-			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS);
+			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS, false, false);
 			session.recordApplication({ applied: ['file.ts'], failed: [] });
 
 			// Attempt to mutate the retrieved set by casting away ReadonlySet
@@ -213,7 +220,7 @@ describe('EditSession', () => {
 
 	describe('File Context Management', () => {
 		it('should initialize file context correctly', () => {
-			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS);
+			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS, false, false);
 			const fnames = new Set(['/path/to/project/file1.ts']);
 			const dirty = new Set(['file1.ts']);
 
@@ -224,14 +231,14 @@ describe('EditSession', () => {
 		});
 
 		it('should add a file to the chat context', () => {
-			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS);
+			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS, false, false);
 			const filePath = '/path/to/project/file.ts';
 			session.addFileToChat(filePath);
 			expect(session.absFnamesInChat.has(filePath)).to.be.true;
 		});
 
 		it('should set and retrieve a file snapshot', () => {
-			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS);
+			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS, false, false);
 			const relPath = 'src/app.ts';
 			const content = 'console.log("hello");';
 
@@ -241,7 +248,7 @@ describe('EditSession', () => {
 		});
 
 		it('should handle null snapshots for unreadable files', () => {
-			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS);
+			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS, false, false);
 			const relPath = 'src/unreadable.ts';
 
 			session.setFileSnapshot(relPath, null);

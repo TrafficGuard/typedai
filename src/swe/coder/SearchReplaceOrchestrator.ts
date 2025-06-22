@@ -5,11 +5,11 @@ import type { IFileSystemService } from '#shared/files/fileSystemService';
 import type { LLM, LlmMessage } from '#shared/llm/llm.model';
 import { messageText, user } from '#shared/llm/llm.model';
 import { CoderExhaustedAttemptsError } from '../sweErrors';
+import type { PromptBuilder } from './PromptBuilder';
 import type { EditBlock, EditFormat } from './coderTypes';
 import { MODEL_EDIT_FORMATS } from './constants';
-import { tryFixSearchBlock } from './fixSearchReplaceBlock';
 import type { EditApplier } from './editApplier';
-import type { PromptBuilder } from './PromptBuilder';
+import { tryFixSearchBlock } from './fixSearchReplaceBlock';
 import type { EditPreparer } from './services/EditPreparer';
 import type { ReflectionGenerator } from './services/ReflectionGenerator';
 import type { ResponseProcessor } from './services/ResponseProcessor';
@@ -221,8 +221,7 @@ export class SearchReplaceOrchestrator {
 
 		if (session.attempt >= this.config.maxAttempts && (session.appliedFiles.size === 0 || currentFailedEdits.length > 0)) {
 			logger.error(`SearchReplaceOrchestrator: Maximum attempts (${this.config.maxAttempts}) reached. Failing.`);
-			const finalReflection =
-				session.lastReflection || 'Unknown error after max attempts, and not all edits were successfully applied in the final attempt.';
+			const finalReflection = session.lastReflection || 'Unknown error after max attempts, and not all edits were successfully applied in the final attempt.';
 			throw new CoderExhaustedAttemptsError(
 				`SearchReplaceOrchestrator failed to apply edits after ${this.config.maxAttempts} attempts.`,
 				this.config.maxAttempts,

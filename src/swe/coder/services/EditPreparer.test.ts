@@ -41,7 +41,7 @@ describe('EditPreparer', () => {
 		mockVcs = sinon.createStubInstance(Git);
 
 		preparer = new EditPreparer(mockFss, mockVcs, FENCE);
-		session = new EditSession(MOCK_REPO_ROOT, 'test request');
+		session = new EditSession(MOCK_REPO_ROOT, 'test request', false, false);
 	});
 
 	afterEach(() => {

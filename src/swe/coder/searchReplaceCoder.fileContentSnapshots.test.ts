@@ -23,7 +23,7 @@ describe('SearchReplaceCoder – fileContentSnapshots', () => {
 		fsStub = sinon.createStubInstance(FileSystemService);
 		fsStub.getWorkingDirectory.returns(repoRoot);
 		fsStub.fileExists.resolves(true);
-		session = new EditSession(repoRoot, 'req');
+		session = new EditSession(repoRoot, 'req', false, false);
 		const vcs = sinon.createStubInstance(Git);
 		preparer = new EditPreparer(fsStub as any, vcs, ['', '']);
 		// store initial snapshot
