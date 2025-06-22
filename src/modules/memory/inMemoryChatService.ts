@@ -20,13 +20,14 @@ export class InMemoryChatService implements ChatService {
 	 */
 	@span()
 	async loadChat(chatId: string): Promise<Chat> {
+		const currentUserId = currentUser().id;
 		const chat = this.chats.get(chatId);
 		if (!chat) {
 			logger.warn(`Chat with id ${chatId} not found`);
 			throw new Error(`Chat with id ${chatId} not found`);
 		}
 
-		if (!chat.shareable && chat.userId !== currentUser().id) {
+		if (!chat.shareable && chat.userId !== currentUserId) {
 			throw new Error('Chat not visible.');
 		}
 
@@ -40,9 +41,10 @@ export class InMemoryChatService implements ChatService {
 	 */
 	@span()
 	async saveChat(chat: Chat): Promise<Chat> {
+		const currentUserId = currentUser().id;
 		if (!chat.title) throw new Error('chat title is required');
 		if (!chat.userId) chat.userId = SINGLE_USER_ID;
-		if (chat.userId !== currentUser().id) throw new Error('chat userId is invalid');
+		if (chat.userId !== currentUserId) throw new Error('chat userId is invalid');
 
 		if (!chat.id) chat.id = randomUUID();
 		chat.updatedAt = Date.now();
@@ -61,11 +63,11 @@ export class InMemoryChatService implements ChatService {
 	 */
 	@span()
 	async listChats(startAfterId?: string, limit = 100): Promise<ChatList> {
-		const userId = currentUser().id;
+		const currentUserId = currentUser().id;
 
 		// Get all chats for the current user
 		const userChats = Array.from(this.chats.values())
-			.filter((chat) => chat.userId === userId)
+			.filter((chat) => chat.userId === currentUserId)
 			.sort((a, b) => b.updatedAt - a.updatedAt); // Sort by updatedAt desc
 
 		// Find the starting index if startAfterId is provided
@@ -93,7 +95,7 @@ export class InMemoryChatService implements ChatService {
 	 */
 	@span()
 	async deleteChat(chatId: string): Promise<void> {
-		const userId = currentUser().id;
+		const currentUserId = currentUser().id;
 		const chat = this.chats.get(chatId);
 
 		if (!chat) {
@@ -101,8 +103,8 @@ export class InMemoryChatService implements ChatService {
 			throw new Error(`Chat with id ${chatId} not found`);
 		}
 
-		if (chat.userId !== userId) {
-			logger.warn(`User ${userId} is not authorized to delete chat ${chatId}`);
+		if (chat.userId !== currentUserId) {
+			logger.warn(`User ${currentUserId} is not authorized to delete chat ${chatId}`);
 			throw new Error('Not authorized to delete this chat');
 		}
 

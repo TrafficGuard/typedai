@@ -72,38 +72,93 @@ export class PostgresChatService implements ChatService {
 		chat.userId = chat.userId || currentUser().id;
 		if (chat.userId !== currentUser().id) throw new Error('chat userId is invalid or does not match current user');
 
-		const isUpdate = !!chat.id;
 		chat.id = chat.id || randomUUID();
 
-		try {
-			if (isUpdate) {
-				const updateData = this.mapChatToDbUpdate(chat);
-				const updatedRow = await db
-					.updateTable('chats')
-					.set(updateData)
-					.where('id', '=', chat.id)
-					.where('user_id', '=', chat.userId)
-					.returningAll()
-					.executeTakeFirst();
-				if (!updatedRow) {
-					const existingChat = await db.selectFrom('chats').select('id').where('id', '=', chat.id).executeTakeFirst();
-					if (existingChat) throw new Error('Failed to update chat, possibly due to ownership or concurrent modification.');
-					throw new Error(`Chat with id ${chat.id} not found for update.`);
-				}
-				return this.mapDbRowToChat(updatedRow);
-			}
-			const insertData = this.mapChatToDbInsert(chat);
-			const insertedRow = await db.insertInto('chats').values(insertData).returningAll().executeTakeFirstOrThrow();
-			return this.mapDbRowToChat(insertedRow);
-		} catch (error) {
-			logger.error(error, `Error saving chat ${chat.id}`);
-			throw error;
+		// Try to update first (only if an id is supplied).  If no row was
+		// touched we fall back to an insert – this lets callers pass a
+		// pre-allocated id on the first write.
+		let row: Selectable<ChatsTable> | undefined;
+
+		if (chat.id) {
+			const updateData = this.mapChatToDbUpdate(chat);
+			row = await db
+				.updateTable('chats')
+				.set(updateData)
+				.where('id', '=', chat.id)
+				.where('user_id', '=', chat.userId)
+				.returningAll()
+				.executeTakeFirst();
 		}
+
+		if (!row) {
+			const insertData = this.mapChatToDbInsert(chat);
+			row = await db
+				.insertInto('chats')
+				.values(insertData)
+				.returningAll()
+				.executeTakeFirstOrThrow();
+		}
+
+		return this.mapDbRowToChat(row);
+	}
+
+	@span()
+	async loadChat(chatId: string): Promise<Chat> {
+		const currentUserId = currentUser().id;
+		const row = await db.selectFrom('chats').selectAll().where('id', '=', chatId).executeTakeFirst();
+
+		if (!row) {
+			logger.warn(`Chat with id ${chatId} not found`);
+			throw new Error(`Chat with id ${chatId} not found`);
+		}
+		const chat = this.mapDbRowToChat(row);
+		if (!chat.shareable && chat.userId !== currentUserId) {
+			throw new Error('Chat not visible.');
+		}
+		return chat;
+	}
+
+	@span()
+	async saveChat(chat: Chat): Promise<Chat> {
+		const currentUserId = currentUser().id;
+		if (!chat.title) throw new Error('chat title is required');
+
+		chat.userId = chat.userId || currentUserId;
+		if (chat.userId !== currentUserId) throw new Error('chat userId is invalid or does not match current user');
+
+		chat.id = chat.id || randomUUID();
+
+		// Try to update first (only if an id is supplied).  If no row was
+		// touched we fall back to an insert – this lets callers pass a
+		// pre-allocated id on the first write.
+		let row: Selectable<ChatsTable> | undefined;
+
+		if (chat.id) {
+			const updateData = this.mapChatToDbUpdate(chat);
+			row = await db
+				.updateTable('chats')
+				.set(updateData)
+				.where('id', '=', chat.id)
+				.where('user_id', '=', chat.userId)
+				.returningAll()
+				.executeTakeFirst();
+		}
+
+		if (!row) {
+			const insertData = this.mapChatToDbInsert(chat);
+			row = await db
+				.insertInto('chats')
+				.values(insertData)
+				.returningAll()
+				.executeTakeFirstOrThrow();
+		}
+
+		return this.mapDbRowToChat(row);
 	}
 
 	@span()
 	async listChats(startAfterId?: string, limit = 100): Promise<ChatList> {
-		const userId = currentUser().id;
+		const currentUserId = currentUser().id;
 
 		const selection = ['id', 'user_id as userId', 'title', 'updated_at as updatedAt', 'shareable', 'parent_id as parentId', 'root_id as rootId'];
 
@@ -146,8 +201,8 @@ export class PostgresChatService implements ChatService {
 
 	@span()
 	async deleteChat(chatId: string): Promise<void> {
-		const userId = currentUser().id;
-		const chatOwnerCheck = await db.selectFrom('chats').select('id').where('id', '=', chatId).where('user_id', '=', userId).executeTakeFirst();
+		const currentUserId = currentUser().id;
+		const chatOwnerCheck = await db.selectFrom('chats').select('id').where('id', '=', chatId).where('user_id', '=', currentUserId).executeTakeFirst();
 
 		if (!chatOwnerCheck) {
 			const existsAnyUser = await db.selectFrom('chats').select('id').where('id', '=', chatId).executeTakeFirst();
@@ -155,11 +210,11 @@ export class PostgresChatService implements ChatService {
 				logger.warn(`Chat with id ${chatId} not found for deletion.`);
 				throw new Error(`Chat with id ${chatId} not found`);
 			}
-			logger.warn(`User ${userId} is not authorized to delete chat ${chatId}`);
+			logger.warn(`User ${currentUserId} is not authorized to delete chat ${chatId}`);
 			throw new Error('Not authorized to delete this chat');
 		}
 
-		const result = await db.deleteFrom('chats').where('id', '=', chatId).where('user_id', '=', userId).executeTakeFirst();
+		const result = await db.deleteFrom('chats').where('id', '=', chatId).where('user_id', '=', currentUserId).executeTakeFirst();
 
 		if (Number(result.numDeletedRows) === 0) {
 			logger.warn(`Chat with id ${chatId} was not deleted, though ownership check passed. It might have been deleted concurrently.`);
