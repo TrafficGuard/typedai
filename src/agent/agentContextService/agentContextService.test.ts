@@ -205,7 +205,6 @@ export function runAgentStateServiceTests(
 	afterEachHook: () => Promise<void> | void = () => {},
 ) {
 	let service: AgentContextService;
-	let currentUserStub: sinon.SinonStub;
 	let functionFactoryStub: sinon.SinonStub;
 
 	// Mock the function factory to return known classes
