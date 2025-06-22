@@ -41,7 +41,7 @@
     "emulators": "gcloud emulators firestore start --host-port=127.0.0.1:8243",
     "test": "npm run test:unit && echo \"Skipping system and integration tests\"",
     "test:ci": "firebase emulators:exec --only firestore \"npm run test\"",
-    "test:unit": "       node --env-file=variables/test.env ./node_modules/mocha/bin/mocha -r esbuild-register -r \"./src/test/testSetup.ts\" \"src/swe/coder/services/ReflectionGenerator.test.ts\" --timeout 10000",
+    "test:unit": "       node --env-file=variables/test.env ./node_modules/mocha/bin/mocha -r esbuild-register -r \"./src/test/testSetup.ts\" \"src/**/*.test.[jt]s\" --timeout 10000",
     "test:integration": "node --env-file=variables/test.env ./node_modules/mocha/bin/mocha -r ts-node/register -r \"./src/test/testSetup.ts\" \"src/**/*.int.[jt]s\" --timeout 0 --exit",
     "test:system": "     node --env-file=variables/test.env ./node_modules/mocha/bin/mocha -r ts-node/register \"src/**/*.sys.ts\" --timeout 0 --exit",
     "test:unit:dev": "TS_NODE_PROJECT='./tsconfig.swc.json' node --env-file=variables/test.env ./node_modules/mocha/bin/mocha -r ts-node/register -t 0 --exit --colors \"src/**/*.test.[jt]s\"",

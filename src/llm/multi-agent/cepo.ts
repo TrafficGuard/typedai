@@ -1,11 +1,9 @@
 import { BaseLLM } from '#llm/base-llm';
-import { Claude4_Opus_Vertex } from '#llm/services/anthropic-vertex';
 import { cerebrasLlama3_3_70b, cerebrasQwen3_32b } from '#llm/services/cerebras';
-import { openAIo3 } from '#llm/services/openai';
-import { vertexGemini_2_5_Pro } from '#llm/services/vertexai';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { type GenerateTextOptions, type LLM, type LlmMessage, assistant, lastText, user } from '#shared/llm/llm.model';
+import { FastMediumLLM } from './fastMedium';
 
 interface CePOConfig {
 	bestofn_n: number;
@@ -73,14 +71,10 @@ const sotaConfig: CePOConfig = {
 	printOutput: false,
 };
 
-const o3 = openAIo3();
-const gemini_2_5_Pro = vertexGemini_2_5_Pro();
-const opus4 = Claude4_Opus_Vertex();
-
 //  https://github.com/codelion/optillm/blob/main/optillm/cepo/README.md
 
-export function CePO_Cerebras_Qwen3_32b(llmProvider: () => LLM = () => cerebrasLlama3_3_70b(), name?: string): LLM {
-	return new CePO_LLM(() => cerebrasQwen3_32b(), 'CePO (Qwen3 32b Cerebras)', limitedConfig);
+export function CePO_FastMedium(llmProvider: () => LLM = () => cerebrasLlama3_3_70b(), name?: string): LLM {
+	return new CePO_LLM(() => new FastMediumLLM(), 'CePO (FastMedium)', limitedConfig);
 }
 
 /**

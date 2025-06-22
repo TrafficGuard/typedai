@@ -47,6 +47,7 @@ describe('supportingInformation', () => {
 		[repoRoot]: {
 			'package.json': JSON.stringify({ dependencies: { express: '1.0.0' } }),
 			'.git': { HEAD: 'ref: refs/heads/main', config: '' },
+			'.gitignore': '',
 			src: { 'index.ts': '' },
 			[AI_INFO_FILENAME]: typedAiJson,
 			frontend: {

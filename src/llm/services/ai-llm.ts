@@ -215,7 +215,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 					let thinkingBudget: number;
 					// https://sdk.vercel.ai/docs/guides/sonnet-3-7#reasoning-ability
 					// https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
-					if (this.getModel().includes('claude-3-7')) {
+					if (this.getModel().includes('claude-3-7') || this.getModel().includes('opus-4') || this.getModel().includes('sonnet-4')) {
 						if (combinedOpts.thinking === 'low') thinkingBudget = 1024;
 						if (combinedOpts.thinking === 'medium') thinkingBudget = 6000;
 						else if (combinedOpts.thinking === 'high') thinkingBudget = 13000;

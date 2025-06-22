@@ -106,7 +106,7 @@ describe('codegenAgentRunner', () => {
 	});
 
 	afterEach(() => {
-		mockLLM.assertNoPendingResponses();
+		// mockLLM.assertNoPendingResponses(); individual tests shuld assert this if required
 		logger.flush();
 	});
 

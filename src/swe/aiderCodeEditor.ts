@@ -29,7 +29,7 @@ for (let i = 2; i <= 9; i++) {
 	if (key) GEMINI_KEYS.push(key);
 	else break;
 }
-let geminiKeyIndex = 0;
+const geminiKeyIndex = 0;
 
 const GCLOUD_PROJECTS: string[] = [];
 if (process.env.GCLOUD_PROJECT) GCLOUD_PROJECTS.push(process.env.GCLOUD_PROJECT);
@@ -73,14 +73,15 @@ export class AiderCodeEditor {
 
 		let llm: LLM;
 
-		if (GEMINI_KEYS.length) {
-			const key = GEMINI_KEYS[geminiKeyIndex];
-			if (++geminiKeyIndex >= GEMINI_KEYS.length) geminiKeyIndex = 0;
-			llm = openRouterGemini2_5_Pro();
-			modelArg = '--model gemini/gemini-2.5-pro-exp-03-25';
-			span.setAttribute('model', 'gemini 2.5 Pro');
-			env = { GEMINI_API_KEY: key };
-		} else if (GCLOUD_PROJECTS.length) {
+		// if (GEMINI_KEYS.length) {
+		// 	const key = GEMINI_KEYS[geminiKeyIndex];
+		// 	if (++geminiKeyIndex >= GEMINI_KEYS.length) geminiKeyIndex = 0;
+		// 	llm = openRouterGemini2_5_Pro();
+		// 	modelArg = '--model gemini/gemini-2.5-pro-exp-03-25';
+		// 	span.setAttribute('model', 'gemini 2.5 Pro');
+		// 	env = { GEMINI_API_KEY: key };
+		// } else
+		if (GCLOUD_PROJECTS.length) {
 			//  && process.env.GCLOUD_CLAUDE_REGION
 			const gcloudProject = GCLOUD_PROJECTS[gcloudProjectIndex];
 			if (++gcloudProjectIndex >= GCLOUD_PROJECTS.length) gcloudProjectIndex = 0;
