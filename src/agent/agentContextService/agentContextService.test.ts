@@ -221,7 +221,6 @@ export function runAgentStateServiceTests(
 		service = createService();
 
 		// Stub external dependencies
-		currentUserStub = sinon.stub(userContext, 'currentUser').returns(testUser);
 		// Ensure functionFactory returns the classes needed by LlmFunctions.fromJSON and tests
 		functionFactoryStub = sinon.stub(functionSchema, 'functionFactory').returns(mockFunctionFactoryContent);
 
