@@ -308,6 +308,7 @@ export function runAgentStateServiceTests(
 			expect(loadedContext.memory).to.deep.equal(context.memory);
 			expect(loadedContext.metadata).to.deep.equal(context.metadata);
 			expect(loadedContext.functionCallHistory).to.deep.equal(context.functionCallHistory);
+			expect(loadedContext.toolState).to.deep.equal(context.toolState);
 
 			// Verify LlmFunctions deserialization
 			expect(loadedContext.functions).to.be.instanceOf(LlmFunctionsImpl);
