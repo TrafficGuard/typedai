@@ -5,18 +5,13 @@ import chai, { expect } from 'chai';
 import chaiSubset from 'chai-subset';
 import mock from 'mock-fs';
 import sinon from 'sinon';
-// Use `require` to obtain the real module‐export objects; this makes the
-// exported properties writable/configurable, allowing Sinon to stub them.
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const agentContextLocalStorage = require('#agent/agentContextLocalStorage');
+import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { typedaiDirName } from '#app/appDirs';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import type { LLM } from '#shared/llm/llm.model';
 import { IndexDocBuilder, buildIndexDocs, getRepositoryOverview, loadBuildDocsSummaries } from '#swe/index/repoIndexDocBuilder';
 import { AI_INFO_FILENAME } from '#swe/projectDetection';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const llmSummaries = require('./llmSummaries');
 
 chai.use(chaiSubset);
 
@@ -45,7 +40,7 @@ describe('IndexDocBuilder', () => {
 		mock(mockFileSystemConfig);
 		mockFss = new FileSystemService(MOCK_REPO_ROOT);
 		sinon.stub(mockFss, 'getVcsRoot').returns(MOCK_REPO_ROOT);
-		builder = new IndexDocBuilder(mockFss, llm);
+		builder = new IndexDocBuilder(mockFss, llm, generateFileSummaryStub, generateFolderSummaryStub);
 	}
 
 	beforeEach(async () => {
@@ -68,12 +63,8 @@ describe('IndexDocBuilder', () => {
 			getOldModels: sinon.stub(),
 		} as sinon.SinonStubbedInstance<LLM>;
 
-		generateFileSummaryStub = sinon.stub(llmSummaries, 'generateFileSummary');
-		generateFolderSummaryStub = sinon.stub(llmSummaries, 'generateFolderSummary');
-
-		// Default responses for llmSummaries stubs
-		generateFileSummaryStub.resolves({ path: '', short: 'Mocked file short', long: 'Mocked file long', meta: { hash: 'file_hash_placeholder' } });
-		generateFolderSummaryStub.resolves({ path: '', short: 'Mocked folder short', long: 'Mocked folder long', meta: { hash: 'folder_hash_placeholder' } });
+		generateFileSummaryStub = sinon.stub().resolves({ path: '', short: 'Mocked file short', long: 'Mocked file long', meta: { hash: 'file_hash_placeholder' } });
+		generateFolderSummaryStub = sinon.stub().resolves({ path: '', short: 'Mocked folder short', long: 'Mocked folder long', meta: { hash: 'folder_hash_placeholder' } });
 
 		// Default responses for direct LLM client calls (e.g., project overview)
 		llm.generateText.resolves('Mocked project overview');
@@ -366,10 +357,8 @@ describe('Exported repoIndexDocBuilder functions', () => {
 				src: { 'file.ts': 'content' },
 			},
 		});
-		// Stub the global getFileSystem to return a service instance for our mock FS
 		const fss = new FileSystemService(MOCK_REPO_ROOT);
 		sinon.stub(fss, 'getVcsRoot').returns(MOCK_REPO_ROOT);
-		sinon.stub(agentContextLocalStorage, 'getFileSystem').returns(fss);
 
 		llm = {
 			generateText: sinon.stub(),
@@ -403,24 +392,23 @@ describe('Exported repoIndexDocBuilder functions', () => {
 
 	it('buildIndexDocs exported function should run', async () => {
 		const buildInternalSpy = sinon.spy(IndexDocBuilder.prototype, 'buildIndexDocsInternal');
-		// This test assumes that getFileSystem() and llms() will provide valid (even if unmocked for deep behavior)
-		// instances for the IndexDocBuilder constructor.
-		await buildIndexDocs(llm);
+		const fileSumStub = sinon.stub().resolves({ short: 'One-sentence file summary', long: 'Detailed paragraph', meta: { hash: 'h' }, path: '' });
+		const folderSumStub = sinon.stub().resolves({ short: 'folder', long: 'folder', meta: { hash: 'h' }, path: '' });
+		await buildIndexDocs(llm, fss, fileSumStub, folderSumStub);
 		expect(buildInternalSpy.calledOnce).to.be.true;
 		buildInternalSpy.restore(); // Restore spy on prototype
 	});
 
 	it('loadBuildDocsSummaries exported function should run', async () => {
 		const loadInternalSpy = sinon.spy(IndexDocBuilder.prototype, 'loadBuildDocsSummariesInternal');
-		await loadBuildDocsSummaries();
+		await loadBuildDocsSummaries(fss);
 		expect(loadInternalSpy.calledOnceWith()).to.be.true;
 		loadInternalSpy.restore();
 	});
 
 	it('getRepositoryOverview exported function should run', async () => {
 		const getOverviewInternalSpy = sinon.spy(IndexDocBuilder.prototype, 'getTopLevelSummaryInternal');
-		// (mockEasyLlmForExported.generateText as sinon.SinonStub).resolves('overview'); // Not strictly needed if only spying on prototype
-		await getRepositoryOverview();
+		await getRepositoryOverview(fss);
 		expect(getOverviewInternalSpy.calledOnce).to.be.true;
 		getOverviewInternalSpy.restore();
 	});

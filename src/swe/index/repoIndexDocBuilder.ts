@@ -33,8 +33,10 @@ function hash(content: string): string {
 
 export class IndexDocBuilder {
 	constructor(
-		private fss: IFileSystemService,
-		private llm: LLM,
+		private readonly fss: IFileSystemService,
+		private readonly llm: LLM,
+		private readonly generateFileSummaryFn: typeof generateFileSummary = generateFileSummary,
+		private readonly generateFolderSummaryFn: typeof generateFolderSummary = generateFolderSummary,
 	) {}
 
 	private static getSummaryFileName(filePath: string): string {
@@ -171,7 +173,7 @@ export class IndexDocBuilder {
 		}
 
 		const parentSummaries = await this.getParentSummaries(dirname(filePath));
-		const doc = await generateFileSummary(fileContents, parentSummaries, this.llm);
+		const doc = await this.generateFileSummaryFn(fileContents, parentSummaries, this.llm);
 		doc.path = relativeFilePath;
 		doc.meta = { hash: currentContentHash };
 
@@ -301,7 +303,7 @@ export class IndexDocBuilder {
 		try {
 			const combinedSummaryText = IndexDocBuilder.combineFileAndSubFoldersSummaries(fileSummaries, subFolderSummaries);
 			const parentSummaries = await this.getParentSummaries(folderPath);
-			const folderSummary = await generateFolderSummary(this.llm, combinedSummaryText, parentSummaries); // Use easy LLM for folder summaries
+			const folderSummary = await this.generateFolderSummaryFn(this.llm, combinedSummaryText, parentSummaries); // Use easy LLM for folder summaries
 			folderSummary.path = relativeFolderPath;
 			folderSummary.meta = { hash: currentChildrensCombinedHash };
 
@@ -608,9 +610,13 @@ export class IndexDocBuilder {
  * This should generally be run in the root folder of a project/repository.
  * The documentation summaries are saved in a parallel directory structure under the .typedai/docs folder
  */
-export async function buildIndexDocs(llm: LLM): Promise<void> {
-	const fss = getFileSystem();
-	const builder = new IndexDocBuilder(fss, llm);
+export async function buildIndexDocs(
+	llm: LLM,
+	fss: IFileSystemService = getFileSystem(),
+	fileSummaryFn: typeof generateFileSummary = generateFileSummary,
+	folderSummaryFn: typeof generateFolderSummary = generateFolderSummary,
+): Promise<void> {
+	const builder = new IndexDocBuilder(fss, llm, fileSummaryFn, folderSummaryFn);
 	await builder.buildIndexDocsInternal();
 }
 
@@ -621,8 +627,9 @@ interface ProjectSummaryDoc {
 	};
 }
 
-export async function getRepositoryOverview(): Promise<string> {
-	const fss = getFileSystem();
+export async function getRepositoryOverview(
+	fss: IFileSystemService = getFileSystem(),
+): Promise<string> {
 	// getRepositoryOverview doesn't directly use LLM for generation, only for reading existing summary.
 	// Passing a dummy or 'easy' LLM if the builder's methods it calls might need one.
 	// getTopLevelSummaryInternal does not use LLM.
@@ -647,8 +654,9 @@ export async function getRepositoryOverview(): Promise<string> {
  * const summaries = await loadBuildDocsSummaries();
  * console.log(`Loaded ${summaries.size} summaries`);
  */
-export async function loadBuildDocsSummaries(): Promise<Map<string, Summary>> {
-	const fss = getFileSystem();
+export async function loadBuildDocsSummaries(
+	fss: IFileSystemService = getFileSystem(),
+): Promise<Map<string, Summary>> {
 	const builder = new IndexDocBuilder(fss, {} as LLM); // LLM not used when only loading
 	return builder.loadBuildDocsSummariesInternal();
 }
