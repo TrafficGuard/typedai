@@ -5,7 +5,7 @@ import { callStack } from '#llm/llmCallService/llmCall';
 import { countTokens } from '#llm/tokens';
 import { withActiveSpan } from '#o11y/trace';
 import type { AgentLLMs } from '#shared/agent/agent.model';
-import { type GenerateTextOptions, type LLM, type LlmMessage, assistant, combinePrompts, system, user } from '#shared/llm/llm.model';
+import { type GenerateTextOptions, type LLM, type LlmMessage } from '#shared/llm/llm.model';
 import type { LlmCall } from '#shared/llmCall/llmCall.model';
 import { BaseLLM } from '../base-llm';
 
@@ -28,17 +28,17 @@ export class OllamaLLM extends BaseLLM {
 		return process.env.OLLAMA_API_URL;
 	}
 
-	async _generateText(systemPrompt: string | undefined, userPrompt: string, opts?: GenerateTextOptions): Promise<string> {
-		return withActiveSpan(`generateText ${opts?.id ?? ''}`, async (span) => {
-			const messages: LlmMessage[] = [];
-			if (systemPrompt) messages.push(system(systemPrompt));
-			messages.push(user(userPrompt));
+	protected supportsGenerateTextFromMessages(): boolean {
+		return true;
+	}
 
-			const prompt = combinePrompts(userPrompt, systemPrompt);
+	async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
+		return withActiveSpan(`generateMessage ${opts?.id ?? ''}`, async (span) => {
+			const inputPromptString = messages.map((m) => m.content).join('\n');
 
 			span.setAttributes({
-				userPrompt,
-				inputChars: prompt.length,
+				input: inputPromptString,
+				inputChars: inputPromptString.length,
 				model: this.model,
 				service: this.service,
 			});
@@ -52,11 +52,11 @@ export class OllamaLLM extends BaseLLM {
 			});
 			const requestTime = Date.now();
 
-			const url = `${this.getOllamaApiUrl()}/api/generate`;
+			const url = `${this.getOllamaApiUrl()}/api/chat`;
 
 			const response = await axios.post(url, {
 				model: this.model,
-				prompt: prompt,
+				messages: messages,
 				stream: false,
 				options: {
 					temperature: opts?.temperature ?? 1,
@@ -64,14 +64,14 @@ export class OllamaLLM extends BaseLLM {
 				},
 			});
 
-			const responseText = response.data.response;
-			messages.push(assistant(responseText));
+			const responseMessage: LlmMessage = response.data.message;
+			const responseText = responseMessage.content as string;
 
 			const timeToFirstToken = Date.now() - requestTime;
 			const finishTime = Date.now();
 
 			const llmCall: LlmCall = await llmCallSave;
-			const inputTokens = await countTokens(prompt);
+			const inputTokens = await countTokens(inputPromptString);
 			const outputTokens = await countTokens(responseText);
 			const { totalCost } = this.calculateCosts(inputTokens, outputTokens); // Will be 0
 			llmCall.timeToFirstToken = timeToFirstToken;
@@ -93,7 +93,7 @@ export class OllamaLLM extends BaseLLM {
 				outputChars: responseText.length,
 			});
 
-			return responseText;
+			return responseMessage;
 		});
 	}
 }
