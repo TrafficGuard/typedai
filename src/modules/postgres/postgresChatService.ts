@@ -23,13 +23,12 @@ export class PostgresChatService implements ChatService {
 	}
 
 	private mapChatToDbInsert(chat: Chat): Insertable<ChatsTable> {
-		const now = new Date();
 		return {
 			id: chat.id,
 			user_id: chat.userId,
 			title: chat.title,
-			updated_at: now,
-			created_at: now,
+			updated_at: new Date(chat.updatedAt),
+			created_at: new Date(chat.updatedAt),
 			shareable: chat.shareable,
 			parent_id: chat.parentId ?? null,
 			root_id: chat.rootId ?? null,
@@ -40,7 +39,7 @@ export class PostgresChatService implements ChatService {
 	// Ensure this only includes fields that can be updated and are part of ChatsTable
 	private mapChatToDbUpdate(chat: Partial<Chat>): Omit<Updateable<ChatsTable>, 'id' | 'user_id' | 'created_at'> {
 		const updateData: Partial<Omit<Updateable<ChatsTable>, 'id' | 'user_id' | 'created_at'>> & { updated_at: Date } = {
-			updated_at: new Date(), // Always update updated_at
+			updated_at: new Date(chat.updatedAt as number),
 		};
 		if (chat.title !== undefined) updateData.title = chat.title;
 		if (chat.shareable !== undefined) updateData.shareable = chat.shareable;
@@ -48,58 +47,6 @@ export class PostgresChatService implements ChatService {
 		if (chat.rootId !== undefined) updateData.root_id = chat.rootId ?? null;
 		if (chat.messages !== undefined) updateData.messages_serialized = JSON.stringify(chat.messages);
 		return updateData;
-	}
-
-	@span()
-	async loadChat(chatId: string): Promise<Chat> {
-		const row = await db.selectFrom('chats').selectAll().where('id', '=', chatId).executeTakeFirst();
-
-		if (!row) {
-			logger.warn(`Chat with id ${chatId} not found`);
-			throw new Error(`Chat with id ${chatId} not found`);
-		}
-		const chat = this.mapDbRowToChat(row);
-		if (!chat.shareable && chat.userId !== currentUser().id) {
-			throw new Error('Chat not visible.');
-		}
-		return chat;
-	}
-
-	@span()
-	async saveChat(chat: Chat): Promise<Chat> {
-		if (!chat.title) throw new Error('chat title is required');
-
-		chat.userId = chat.userId || currentUser().id;
-		if (chat.userId !== currentUser().id) throw new Error('chat userId is invalid or does not match current user');
-
-		chat.id = chat.id || randomUUID();
-
-		// Try to update first (only if an id is supplied).  If no row was
-		// touched we fall back to an insert – this lets callers pass a
-		// pre-allocated id on the first write.
-		let row: Selectable<ChatsTable> | undefined;
-
-		if (chat.id) {
-			const updateData = this.mapChatToDbUpdate(chat);
-			row = await db
-				.updateTable('chats')
-				.set(updateData)
-				.where('id', '=', chat.id)
-				.where('user_id', '=', chat.userId)
-				.returningAll()
-				.executeTakeFirst();
-		}
-
-		if (!row) {
-			const insertData = this.mapChatToDbInsert(chat);
-			row = await db
-				.insertInto('chats')
-				.values(insertData)
-				.returningAll()
-				.executeTakeFirstOrThrow();
-		}
-
-		return this.mapDbRowToChat(row);
 	}
 
 	@span()
@@ -121,12 +68,15 @@ export class PostgresChatService implements ChatService {
 	@span()
 	async saveChat(chat: Chat): Promise<Chat> {
 		const currentUserId = currentUser().id;
-		if (!chat.title) throw new Error('chat title is required');
-
+		const now = Date.now();
 		chat.userId = chat.userId || currentUserId;
-		if (chat.userId !== currentUserId) throw new Error('chat userId is invalid or does not match current user');
-
+		chat.updatedAt = now; // keep chat & DB in-sync
 		chat.id = chat.id || randomUUID();
+		if (chat.userId !== currentUserId) {
+			throw new Error('chat userId is invalid or does not match current user');
+		}
+
+		if (!chat.title) throw new Error('chat title is required');
 
 		// Try to update first (only if an id is supplied).  If no row was
 		// touched we fall back to an insert – this lets callers pass a
@@ -165,7 +115,7 @@ export class PostgresChatService implements ChatService {
 		let query = db
 			.selectFrom('chats')
 			.select(selection as any[])
-			.where('user_id', '=', userId)
+			.where('user_id', '=', currentUserId)
 			.orderBy('updated_at', 'desc')
 			.orderBy('id', 'desc');
 
@@ -174,7 +124,7 @@ export class PostgresChatService implements ChatService {
 				.selectFrom('chats')
 				.select(['updated_at', 'id'])
 				.where('id', '=', startAfterId)
-				.where('user_id', '=', userId)
+				.where('user_id', '=', currentUserId)
 				.executeTakeFirst();
 
 			if (cursorDoc) {

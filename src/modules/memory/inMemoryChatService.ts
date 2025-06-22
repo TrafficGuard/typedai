@@ -42,12 +42,12 @@ export class InMemoryChatService implements ChatService {
 	@span()
 	async saveChat(chat: Chat): Promise<Chat> {
 		const currentUserId = currentUser().id;
+		chat.updatedAt = Date.now();
 		if (!chat.title) throw new Error('chat title is required');
-		if (!chat.userId) chat.userId = SINGLE_USER_ID;
+		if (!chat.userId) chat.userId = currentUserId;
 		if (chat.userId !== currentUserId) throw new Error('chat userId is invalid');
 
 		if (!chat.id) chat.id = randomUUID();
-		chat.updatedAt = Date.now();
 
 		// Store a clone to prevent changes to the persisted object
 		this.chats.set(chat.id, structuredClone(chat));
