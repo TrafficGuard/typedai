@@ -219,3 +219,47 @@ export async function ensureLlmCallsTableExists(dbInstance: Kysely<Database> = d
 	// 	// console.warn("Could not create/update trigger for updated_at on llm_calls:", error);
 	// }
 }
+
+export async function ensurePromptsTablesExist(
+	dbInstance: Kysely<Database> = db,
+): Promise<void> {
+	/* prompt_groups ------------------------------------------------------ */
+	await dbInstance.schema
+		.createTable('prompt_groups')
+		.ifNotExists()
+		.addColumn('id', 'text', (c) => c.primaryKey())
+		.addColumn('user_id', 'text', (c) => c.notNull())
+		.addColumn('latest_revision_id', 'integer', (c) => c.notNull())
+		.addColumn('name', 'text', (c) => c.notNull())
+		.addColumn('app_id', 'text')
+		.addColumn('tags_serialized', 'text', (c) => c.notNull())
+		.addColumn('parent_id', 'text')
+		.addColumn('settings_serialized', 'text', (c) => c.notNull())
+		.addColumn('created_at', 'timestamptz', (c) => c.notNull().defaultTo(sql`now()`))
+		.addColumn('updated_at', 'timestamptz', (c) => c.notNull().defaultTo(sql`now()`))
+		.execute();
+
+	/* prompt_revisions --------------------------------------------------- */
+	await dbInstance.schema
+		.createTable('prompt_revisions')
+		.ifNotExists()
+		.addColumn('id', 'text', (c) => c.primaryKey())
+		.addColumn('prompt_group_id', 'text', (c) => c.notNull())
+		.addColumn('revision_number', 'integer', (c) => c.notNull())
+		.addColumn('name', 'text', (c) => c.notNull())
+		.addColumn('app_id', 'text')
+		.addColumn('tags_serialized', 'text', (c) => c.notNull())
+		.addColumn('parent_id', 'text')
+		.addColumn('messages_serialized', 'text', (c) => c.notNull())
+		.addColumn('settings_serialized', 'text', (c) => c.notNull())
+		.addColumn('created_at', 'timestamptz', (c) => c.notNull().defaultTo(sql`now()`))
+		// FK → prompt_groups.id, cascade on delete
+		.addForeignKeyConstraint(
+			'prompt_revisions_group_fk',
+			['prompt_group_id'],
+			'prompt_groups',
+			['id'],
+			(cb) => cb.onDelete('cascade'),
+		)
+		.execute();
+}
