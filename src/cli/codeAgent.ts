@@ -6,10 +6,15 @@ import { FileSystemTree } from '#agent/autonomous/functions/fileSystemTree';
 import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
 import { humanInTheLoop } from '#agent/autonomous/humanInTheLoop';
 import { appContext, initApplicationContext } from '#app/applicationContext';
+import { DeepThink } from '#functions/deepThink';
+import { Jira } from '#functions/jira';
+import { Git } from '#functions/scm/git';
+import { GitLab } from '#functions/scm/gitlab';
 import { FileSystemList } from '#functions/storage/fileSystemList';
 import { Perplexity } from '#functions/web/perplexity';
 import { PublicWeb } from '#functions/web/web';
 import { defaultLLMs } from '#llm/services/defaultLlms';
+import { Slack } from '#modules/slack/slack';
 import { logger } from '#o11y/logger';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { CodeFunctions } from '#swe/codeFunctions';
@@ -53,7 +58,21 @@ export async function main() {
 		return;
 	}
 
-	const functions = [AgentFeedback, PublicWeb, CodeFunctions, FileSystemList, FileSystemTree, LiveFiles, AgentFeedback, Perplexity, CodeEditingAgent];
+	const functions = [
+		AgentFeedback,
+		PublicWeb,
+		CodeFunctions,
+		FileSystemList,
+		FileSystemTree,
+		LiveFiles,
+		Perplexity,
+		CodeEditingAgent,
+		// Git,
+		// GitLab,
+		DeepThink,
+		// Jira,
+		Slack,
+	];
 	// Add any additional functions provided from CLI args
 	let additionalFunctions: Array<new () => any> = [];
 	if (functionClasses?.length) {
@@ -64,6 +83,7 @@ export async function main() {
 
 	const fullPrompt = `# General function calling guidelines for code tasks
 
+- Use FileSystemTree_collapseFolder to hide unrelated folders for the current task to minimize token usage.
 - Use the CodeFunctions_findRelevantFiles to to quickly get an initial file list to add to the LiveFiles 
 - Use LiveFile to view the files. These will always show the current file contents after functions/agents modifies it.
 - Use LiveFiles to understand the current state of the code base and to determine what needs to be done next.
@@ -74,6 +94,9 @@ export async function main() {
 - If you get stuck on a step, you can provide a mock/fake implementation and make a note in memory. Then continue on to the next steps. Only request feedback if you are really stuck.
 - You are working in an existing codebase. Use the CodeFunctions_queryRepository to ask questions about the codebase to ensure you are making the correct changes.
 - Write tests but dont spend too long on then if you are having difficulties writing the tests. You can always add a describe.skip and we'll come back to it later.
+- Use DeepThink when generating a detailed implementation plan for the code editing agent.
+- Use DeepThink, along with online research with Perplexity if relevant, when stuck on compile/test errors.
+
 # Requirements
 
 ${initialPrompt}
@@ -93,7 +116,7 @@ ${initialPrompt}
 		subtype: 'codegen',
 		resumeAgentId,
 		humanInLoop: {
-			count: 50,
+			count: 60,
 			budget: 20,
 		},
 	});
