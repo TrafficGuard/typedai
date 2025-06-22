@@ -164,8 +164,8 @@ describe.only('projectDetection', () => {
 		function setupMockFs(mockFsConfig: any, cwd: string, vcsRoot: string) {
 			mockFs(mockFsConfig);
 			fssInstance = new FileSystemService(cwd);
-			sandbox.stub(fssInstance, 'getWorkingDirectory').returns(cwd);
-			sandbox.stub(fssInstance, 'getVcsRoot').returns(vcsRoot);
+			fssInstance.setWorkingDirectory(cwd);
+			sinon.stub(fssInstance, 'getVcsRoot').returns(vcsRoot);
 			setFileSystemOverride(fssInstance);
 		}
 
@@ -274,11 +274,12 @@ describe.only('projectDetection', () => {
 					indexDocs: [],
 				},
 			];
-			setProjectDetectionAgent(sandbox.stub().resolves(agentDetectedProjects));
+			const detectionStub = sandbox.stub().resolves(agentDetectedProjects);
+			setProjectDetectionAgent(detectionStub);
 
 			const result = await detectProjectInfo();
 
-			// expect(projectDetectionAgentStub.calledOnce).to.be.true;
+			expect(detectionStub.calledOnce).to.be.true;
 
 			// Verify final detected projects write (this implicitly tests the temporary write happened and was overwritten)
 			const expectedFileFormat = agentDetectedProjects.map(mapProjectInfoToFileFormat);
@@ -298,7 +299,8 @@ describe.only('projectDetection', () => {
 			};
 			setupMockFs(mockFsConfig, MOCK_CWD, MOCK_CWD);
 
-			setProjectDetectionAgent(sandbox.stub().resolves([])); // Agent finds nothing after rename
+			const detectionStub = sandbox.stub().resolves([]); // Agent finds nothing after rename
+			setProjectDetectionAgent(detectionStub);
 
 			await detectProjectInfo();
 
@@ -306,7 +308,7 @@ describe.only('projectDetection', () => {
 			const filesInCwd = await fsAsync.readdir(MOCK_CWD);
 			expect(filesInCwd.some((f) => f.includes(`${AI_INFO_FILENAME}.invalid_`))).to.be.true;
 
-			expect(projectDetectionAgentStub.calledOnce).to.be.true;
+			expect(detectionStub.calledOnce).to.be.true;
 
 			// After agent runs (stubbed to return []), .typedai.json should be recreated with agent's output
 			const finalFilesInCwd = await fsAsync.readdir(MOCK_CWD);
@@ -326,7 +328,7 @@ describe.only('projectDetection', () => {
 			const result = await detectProjectInfo();
 
 			expect(result).to.deep.equal([]);
-			// expect(projectDetectionAgentStub.called).to.be.false;
+			// The agent should not be called if a valid file is found
 		});
 
 		it('should load from VCS root when CWD is a subdirectory and FileSystemService basePath is CWD', async () => {
