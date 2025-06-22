@@ -267,29 +267,29 @@ export const AgentStartRequestSchema = Type.Object(
 );
 
 export const AgentActionBaseSchema = Type.Object({
-	agentId: Type.Optional(Type.String()),
+	agentId: Type.String(),
 	executionId: Type.Optional(Type.String()),
 });
 
 export const AgentCancelRequestSchema = Type.Object({
-	agentId: Type.Optional(Type.String()),
+	agentId: Type.String(),
 	executionId: Type.Optional(Type.String()),
 	reason: Type.Optional(Type.String()),
 });
 
 export const AgentResumeCompletedRequestSchema = Type.Object({
-	agentId: Type.Optional(Type.String()),
-	executionId: Type.Optional(Type.String()),
-	instructions: Type.Optional(Type.String()),
+	agentId: Type.String(),
+	executionId: Type.String(),
+	instructions: Type.String(),
 });
 
 export const AgentUpdateFunctionsRequestSchema = Type.Object({
-	agentId: Type.Optional(Type.String()),
-	functions: Type.Optional(Type.Array(Type.String())),
+	agentId: Type.String(),
+	functions: Type.Array(Type.String()),
 });
 
 export const AgentDeleteRequestSchema = Type.Object({
-	agentIds: Type.Optional(Type.Array(Type.String())),
+	agentIds: Type.Array(Type.String()),
 });
 
 export const AgentActionByIdSchema = Type.Object({

@@ -15,7 +15,7 @@ describe('EditApplier', () => {
 	const testRoot = '/test-repo';
 	const defaultFence: [string, string] = ['```', '```'];
 
-	let mockFileSystemService: sinon.SinonStubbedInstance<FileSystemService>;
+	let mockFileSystemService: sinon.SinonStubbedInstance<IFileSystemService>;
 	let mockVCS: sinon.SinonStubbedInstance<VersionControlSystem>;
 
 	beforeEach(() => {
@@ -45,7 +45,7 @@ describe('EditApplier', () => {
 			addAndCommitFiles: sinon.stub<[string[], string], Promise<void>>().resolves(),
 		};
 		// Ensure the getVcs method on the stubbed FileSystemService returns the mockVCS
-		mockFileSystemService.getVcs.returns(mockVCS as any);
+		(mockFileSystemService as any).getVcs = () => mockVCS;
 	});
 
 	afterEach(() => {
@@ -68,12 +68,13 @@ describe('EditApplier', () => {
 		mockFileSystemService.fileExists.withArgs(absFilePath).resolves(true);
 		mockFileSystemService.readFile.withArgs(absFilePath).resolves(initialContent);
 
-		const applier = new EditApplier(mockFileSystemService, mockVCS, true, defaultFence, testRoot, new Set(), false, false);
+		const applier = new EditApplier(mockFileSystemService, mockVCS, true, defaultFence);
+		applier.configure(testRoot, new Set(), false, false);
 		const block = createBlock(filePath, 'Hello world.', 'Hello universe.');
 		const { appliedFilePaths, failedEdits } = await applier.apply([block]);
 
 		expect(failedEdits).to.be.empty;
-		expect(appliedFilePaths).to.have.keys(filePath);
+		expect(appliedFilePaths.has(filePath)).to.be.true;
 		sinon.assert.calledOnceWithExactly(mockFileSystemService.writeFile, absFilePath, `${newContent}\n`);
 	});
 
@@ -84,12 +85,13 @@ describe('EditApplier', () => {
 
 		mockFileSystemService.fileExists.withArgs(absFilePath).resolves(false); // File does not exist
 
-		const applier = new EditApplier(mockFileSystemService, mockVCS, true, defaultFence, testRoot, new Set(), false, false);
+		const applier = new EditApplier(mockFileSystemService, mockVCS, true, defaultFence);
+		applier.configure(testRoot, new Set(), false, false);
 		const block = createBlock(filePath, '', newContent); // Empty originalText
 		const { appliedFilePaths, failedEdits } = await applier.apply([block]);
 
 		expect(failedEdits).to.be.empty;
-		expect(appliedFilePaths).to.have.keys(filePath);
+		expect(appliedFilePaths.has(filePath)).to.be.true;
 		sinon.assert.calledOnceWithExactly(mockFileSystemService.writeFile, absFilePath, `${newContent}\n`);
 	});
 
@@ -101,7 +103,8 @@ describe('EditApplier', () => {
 		mockFileSystemService.fileExists.withArgs(absFilePath).resolves(true);
 		mockFileSystemService.readFile.withArgs(absFilePath).resolves(initialContent);
 
-		const applier = new EditApplier(mockFileSystemService, mockVCS, true, defaultFence, testRoot, new Set(), false, false);
+		const applier = new EditApplier(mockFileSystemService, mockVCS, true, defaultFence);
+		applier.configure(testRoot, new Set(), false, false);
 		const block = createBlock(filePath, 'NonExistentSearch', 'Update');
 		const { appliedFilePaths, failedEdits } = await applier.apply([block]);
 
@@ -126,14 +129,15 @@ describe('EditApplier', () => {
 		mockFileSystemService.readFile.withArgs(absFallbackFilePath).resolves(fallbackContent);
 
 		const absFnamesInChat = new Set([absOriginalFilePath, absFallbackFilePath]);
-		const applier = new EditApplier(mockFileSystemService, mockVCS, true, defaultFence, testRoot, absFnamesInChat, false, false);
+		const applier = new EditApplier(mockFileSystemService, mockVCS, true, defaultFence);
+		applier.configure(testRoot, absFnamesInChat, false, false);
 
 		// This block will fail on original.txt but succeed on fallback.txt
 		const block = createBlock(originalFilePath, 'Search this in fallback.', replacement);
 		const { appliedFilePaths, failedEdits } = await applier.apply([block]);
 
 		expect(failedEdits).to.be.empty;
-		expect(appliedFilePaths).to.have.keys(fallbackFilePath); // Applied to fallback
+		expect(appliedFilePaths.has(fallbackFilePath)).to.be.true; // Applied to fallback
 		expect(appliedFilePaths.size).to.equal(1);
 		sinon.assert.calledOnceWithExactly(mockFileSystemService.writeFile, absFallbackFilePath, `${replacement}\nMore lines.\n`);
 	});
@@ -143,7 +147,8 @@ describe('EditApplier', () => {
 		const absFilePath = path.join(testRoot, filePath);
 		mockFileSystemService.fileExists.withArgs(absFilePath).resolves(false); // New file
 
-		const applier = new EditApplier(mockFileSystemService, mockVCS, true, defaultFence, testRoot, new Set(), true, false); // autoCommit = true
+		const applier = new EditApplier(mockFileSystemService, mockVCS, true, defaultFence);
+		applier.configure(testRoot, new Set(), true, false); // autoCommit = true
 		const block = createBlock(filePath, '', 'New content for commit.');
 		await applier.apply([block]);
 
@@ -155,7 +160,8 @@ describe('EditApplier', () => {
 		const absFilePath = path.join(testRoot, filePath);
 		mockFileSystemService.fileExists.withArgs(absFilePath).resolves(false);
 
-		const applier = new EditApplier(mockFileSystemService, mockVCS, true, defaultFence, testRoot, new Set(), true, true); // dryRun = true
+		const applier = new EditApplier(mockFileSystemService, mockVCS, true, defaultFence);
+		applier.configure(testRoot, new Set(), true, true); // dryRun = true
 		const block = createBlock(filePath, '', 'Dry run content.');
 		await applier.apply([block]);
 
@@ -169,7 +175,8 @@ describe('EditApplier', () => {
 		mockFileSystemService.fileExists.withArgs(absFilePath).resolves(true);
 		mockFileSystemService.readFile.withArgs(absFilePath).resolves('Initial');
 
-		const applier = new EditApplier(mockFileSystemService, mockVCS, true, defaultFence, testRoot, new Set(), true, false);
+		const applier = new EditApplier(mockFileSystemService, mockVCS, true, defaultFence);
+		applier.configure(testRoot, new Set(), true, false);
 		const block = createBlock(filePath, 'SearchFail', 'Update'); // This will fail
 		await applier.apply([block]);
 
@@ -187,13 +194,14 @@ describe('EditApplier', () => {
 		mockFileSystemService.fileExists.withArgs(absFailFilePath).resolves(true);
 		mockFileSystemService.readFile.withArgs(absFailFilePath).resolves('Fail original.');
 
-		const applier = new EditApplier(mockFileSystemService, mockVCS, true, defaultFence, testRoot, new Set(), false, false);
+		const applier = new EditApplier(mockFileSystemService, mockVCS, true, defaultFence);
+		applier.configure(testRoot, new Set(), false, false);
 		const passingBlock = createBlock(passFilePath, 'Pass original.', 'Pass updated.');
 		const failingBlock = createBlock(failFilePath, 'Search text not in file.', 'Fail update.');
 
 		const { appliedFilePaths, failedEdits } = await applier.apply([passingBlock, failingBlock]);
 
-		expect(appliedFilePaths).to.have.keys(passFilePath);
+		expect(appliedFilePaths.has(passFilePath)).to.be.true;
 		expect(appliedFilePaths.size).to.equal(1);
 		expect(failedEdits).to.deep.equal([failingBlock]);
 		sinon.assert.calledOnceWithExactly(mockFileSystemService.writeFile, absPassFilePath, 'Pass updated.\n');

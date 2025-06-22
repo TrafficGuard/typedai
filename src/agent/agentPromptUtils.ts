@@ -1,7 +1,6 @@
 import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
 import { FileSystemTree } from '#agent/autonomous/functions/fileSystemTree';
 import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
-import { FileSystemService } from '#functions/storage/fileSystemService';
 import type { FileStore } from '#functions/storage/filestore';
 import { logger } from '#o11y/logger';
 import type { FileMetadata } from '#shared/files/files.model';
@@ -38,7 +37,7 @@ export async function buildFileSystemTreePrompt(): Promise<string> {
 	}
 
 	// Ensure agent.toolState.FileSystemTree is treated as an array, defaulting to empty if not present or not an array.
-	let collapsedFolders: string[] = agent.toolState.FileSystemTree ?? [];
+	let collapsedFolders: string[] = agent.toolState?.FileSystemTree ?? [];
 	if (!Array.isArray(collapsedFolders)) {
 		logger.warn(`agent.toolState.FileSystemTree was not an array (type: ${typeof collapsedFolders}). Defaulting to empty array.`, {
 			currentToolState: agent.toolState.FileSystemTree,

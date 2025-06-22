@@ -9,6 +9,12 @@ import type { AgentContext, AgentLLMs } from '#shared/agent/agent.model';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
 import { currentUser } from '#user/userContext';
 
+let _fileSystemOverride: IFileSystemService | null = null;
+
+export function setFileSystemOverride(fs: IFileSystemService | null): void {
+	_fileSystemOverride = fs;
+}
+
 export const agentContextStorage = new AsyncLocalStorage<AgentContext>();
 
 export function agentContext(): AgentContext | undefined {
@@ -43,6 +49,7 @@ export function addNote(note: string): void {
  * @return the filesystem on the current agent context
  */
 export function getFileSystem(): IFileSystemService {
+	if (_fileSystemOverride) return _fileSystemOverride;
 	if (!agentContextStorage.getStore()) return new FileSystemService();
 	const filesystem = agentContextStorage.getStore()?.fileSystem;
 	if (!filesystem) throw new Error('No file system available on the agent context');

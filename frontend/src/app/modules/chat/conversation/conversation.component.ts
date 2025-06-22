@@ -102,7 +102,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 		const currentLlmId = this.llmId();
 		if (!currentLlmId) return false;
 		return (
-			currentLlmId.startsWith('openai:o') || currentLlmId.includes('claude-3-7') || currentLlmId.includes('claude-4') || currentLlmId.includes('flash-2.5')
+			currentLlmId.startsWith('openai:o') || currentLlmId.includes('claude-3-7') || currentLlmId.includes('sonnet-4') || (currentLlmId.includes('gemini') && currentLlmId.includes('2.5'))
 		);
 	});
 	thinkingIcon: WritableSignal<string> = signal('heroicons_outline:minus-small');

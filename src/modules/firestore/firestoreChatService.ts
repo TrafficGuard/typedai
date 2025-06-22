@@ -63,7 +63,9 @@ export class FirestoreChatService implements ChatService {
 		if (chat.userId !== currentUser().id) throw new Error('chat userId is invalid');
 
 		if (!chat.id) chat.id = randomUUID();
-		chat.updatedAt = Date.now();
+		if (chat.updatedAt === undefined) {
+			chat.updatedAt = Date.now(); // generate only if absent
+		}
 
 		try {
 			const docRef = this.db.doc(`Chats/${chat.id}`);
@@ -76,7 +78,6 @@ export class FirestoreChatService implements ChatService {
 		}
 	}
 
-	@span()
 	async listChats(startAfterId?: string, limit = 100): Promise<{ chats: ChatPreview[]; hasMore: boolean }> {
 		try {
 			const userId = currentUser().id;
@@ -117,6 +118,7 @@ export class FirestoreChatService implements ChatService {
 					hasMore = true;
 				}
 			}
+			chats.sort((a, b) => b.updatedAt - a.updatedAt || (b.id > a.id ? 1 : b.id < a.id ? -1 : 0));
 			return { chats, hasMore };
 		} catch (error) {
 			logger.error(error, 'Error listing chats');

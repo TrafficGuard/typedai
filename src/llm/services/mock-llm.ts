@@ -121,7 +121,9 @@ export class MockLLM extends BaseLLM {
 	 * Gets the total number of calls (`generateMessage` and `generateText`) made to this mock.
 	 */
 	getCallCount(): number {
-		return this.calls.length;
+		// Tests expect to count *only* the real LLM requests (generateMessage),
+		// not the synthetic mirror “generateText” entries we record for convenience.
+		return this.calls.filter((c) => c.type === 'generateMessage').length;
 	}
 
 	/**
@@ -169,12 +171,38 @@ export class MockLLM extends BaseLLM {
 	}
 
 	protected async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
-		this.calls.push({ type: 'generateMessage', messages, options: opts });
+		/*                                                                                                                                                  
+		   Record this call in BOTH flavours so that tests using                                                                                                                                                           
+		   getTextCalls() (expecting ‘generateText’ entries) and/or                                                                                                                                                        
+		   getMessageCalls() continue to work.                                                                                                                                                                             
+		*/
+		const systemPrompt = messages.find((m) => m.role === 'system') ? messageText(messages.find((m) => m.role === 'system')!) : undefined;
+		const userPrompt = messages
+			.filter((m) => m.role === 'user')
+			.map((m) => messageText(m))
+			.join('\n');
 
-		const responseFn = this.messageResponses.shift();
+		this.calls.push({ type: 'generateMessage', messages, options: opts });
+		this.calls.push({
+			// Allow tests that only look at “text” calls to see this one
+			type: 'generateText',
+			systemPrompt,
+			userPrompt,
+			options: opts,
+		} as any);
+
+		// Pick a response – prefer messageResponses, but fall back to textResponses (tests queue responses with addResponse).
+		let responseFn = this.messageResponses.shift();
 		if (!responseFn) {
-			throw new Error(`MockLLM: No more responses configured for generateMessage. Call count: ${this.getCallCount()}`);
+			const textResponseFn = this.textResponses.shift();
+			if (textResponseFn) {
+				responseFn = async () => {
+					const text = await textResponseFn();
+					return { role: 'assistant', content: text };
+				};
+			}
 		}
+		if (!responseFn) throw new Error(`MockLLM: No more responses configured for generateMessage. Call count: ${this.getCallCount()}`);
 
 		const assistantMessage = await responseFn();
 		await this.saveLlmCall(messages, assistantMessage, opts);

@@ -276,7 +276,7 @@ export class CodeEditingAgent {
 				if (useAider) {
 					await new AiderCodeEditor().editFilesToMeetRequirements(codeEditorRequirements, [...codeEditorFiles, ...Array.from(ruleFiles)]);
 				} else {
-					const coder = new SearchReplaceCoder(llms(), getFileSystem(), undefined);
+					const coder = new SearchReplaceCoder(llms(), getFileSystem());
 					await coder.editFilesToMeetRequirements(codeEditorRequirements, codeEditorFiles, Array.from(ruleFiles), true, true);
 				}
 
@@ -348,7 +348,7 @@ export class CodeEditingAgent {
 								[...initialSelectedFiles, ...staticErrorFiles],
 							);
 						} else {
-							await new SearchReplaceCoder(llms(), getFileSystem(), undefined).editFilesToMeetRequirements(
+							await new SearchReplaceCoder(llms(), getFileSystem()).editFilesToMeetRequirements(
 								`Static analysis command: ${projectInfo.staticAnalysis}\n${staticAnalysisErrorOutput}\nFix these static analysis errors`,
 								[...initialSelectedFiles, ...staticErrorFiles],
 								[],
@@ -439,7 +439,7 @@ export class CodeEditingAgent {
 			try {
 				let testRequirements = `${requirements}\nSome of the requirements may have already been implemented, so don't duplicate any existing implementation meeting the requirements.\n`;
 				testRequirements += 'Write any additional tests that would be of value.';
-				await new SearchReplaceCoder(llms(), getFileSystem(), undefined).editFilesToMeetRequirements(testRequirements, initialSelectedFiles, [], true, true);
+				await new SearchReplaceCoder(llms(), getFileSystem()).editFilesToMeetRequirements(testRequirements, initialSelectedFiles, [], true, true);
 				await this.compile(projectInfo);
 				await this.runTests(projectInfo);
 				errorAnalysis = null;

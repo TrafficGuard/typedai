@@ -254,7 +254,7 @@ export class FileSystemService implements IFileSystemService {
 			throw new Error('Command not found: rg. Install ripgrep');
 		}
 		if (results.exitCode > 0) throw new Error(`${results.stdout}${results.stderr}`);
-		return results.stdout;
+		return compactRipgrepOutput(results.stdout);
 	}
 
 	/**
@@ -991,4 +991,38 @@ export class FileSystemService implements IFileSystemService {
 			return null;
 		}
 	}
+}
+
+/**
+ * Compacts the output of ripgrep by outputting the filename only once per match
+ * @param raw
+ * @returns
+ */
+function compactRipgrepOutput(raw: string): string {
+	if (!raw.trim()) return raw;
+	const out: string[] = [];
+	let currentFile: string | null = null;
+
+	for (const line of raw.split('\n')) {
+		if (line === '--') {
+			// section separator
+			out.push('--');
+			currentFile = null; // force header on next real line
+			continue;
+		}
+		const match = /^(.+?)([:\-])(.*)$/.exec(line); // filePath + ':' | '-' + rest
+		if (!match) {
+			out.push(line);
+			continue;
+		} // defensive – keep as is
+		const [, file, delim, rest] = match;
+
+		if (file !== currentFile) {
+			// new file ⇒ print header once
+			currentFile = file;
+			out.push(`${file}:`);
+		}
+		out.push(`${delim} ${rest.trimStart()}`); // keep “- ” or “: ” indicator
+	}
+	return out.join('\n');
 }

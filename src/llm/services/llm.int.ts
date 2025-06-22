@@ -93,6 +93,16 @@ describe('LLMs', () => {
 	describe('Anthropic Vertex', () => {
 		const llm = Claude4_Sonnet_Vertex();
 
+		it('should have thinking', async () => {
+			const response: LlmMessage = await llm.generateMessage(SKY_PROMPT, { temperature: 0, id: 'test', thinking: 'high' });
+			const content = response.content;
+			expect(Array.isArray(content)).to.be.true;
+			if (Array.isArray(content)) {
+				expect(content.find((c) => c.type === 'reasoning')).to.not.be.undefined;
+				expect(content.find((c) => c.type === 'text').text.toLowerCase()).to.include('blue');
+			}
+		});
+
 		it('should generateText', async () => {
 			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
 			expect(response.toLowerCase()).to.include('blue');

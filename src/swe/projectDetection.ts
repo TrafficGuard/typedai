@@ -6,10 +6,18 @@ import { TypescriptTools } from '#swe/lang/nodejs/typescriptTools';
 import { PhpTools } from '#swe/lang/php/phpTools';
 import { PythonTools } from '#swe/lang/python/pythonTools';
 import { TerraformTools } from '#swe/lang/terraform/terraformTools';
-import { projectDetectionAgent } from '#swe/projectDetectionAgent';
+import { projectDetectionAgent as defaultProjectDetectionAgent } from '#swe/projectDetectionAgent';
 import type { LanguageTools } from './lang/languageTools';
 
 export type LanguageRuntime = 'nodejs' | 'typescript' | 'php' | 'python' | 'terraform' | 'pulumi' | 'angular';
+
+export type ProjectDetectionAgentFn = typeof defaultProjectDetectionAgent;
+let _projectDetectionAgent: ProjectDetectionAgentFn = defaultProjectDetectionAgent;
+
+/** Allows tests (or other callers) to replace the detection agent implementation. */
+export function setProjectDetectionAgent(fn: ProjectDetectionAgentFn): void {
+	_projectDetectionAgent = fn;
+}
 
 export type ScriptCommand = string | string[];
 
@@ -162,14 +170,29 @@ async function tryLoadAndParse(filePath: string, fss: IFileSystemService, locati
 	return null;
 }
 
-async function findUpwards(startDir: string, file: string, fss: IFileSystemService): Promise<string | null> {
+// async function findUpwards(startDir: string, file: string, fss: IFileSystemService): Promise<string | null> {
+// 	let dir = startDir;
+// 	while (true) {
+// 		const candidate = path.join(dir, file);
+// 		if (await fss.fileExists(candidate)) return candidate;
+// 		const parent = path.dirname(dir);
+// 		if (parent === dir) return null;
+// 		dir = parent;
+// 	}
+// }
+import { promises as fsAsync } from 'node:fs';
+async function findUpwards(startDir: string): Promise<string | null> {
 	let dir = startDir;
 	while (true) {
-		const candidate = path.join(dir, file);
-		if (await fss.fileExists(candidate)) return candidate;
-		const parent = path.dirname(dir);
-		if (parent === dir) return null;
-		dir = parent;
+		const candidate = path.join(dir, AI_INFO_FILENAME); // absolute path
+		try {
+			await fsAsync.access(candidate); // found
+			return candidate;
+		} catch {
+			const parent = path.dirname(dir);
+			if (parent === dir) return null; // reached FS root
+			dir = parent;
+		}
 	}
 }
 
@@ -219,7 +242,7 @@ export async function detectProjectInfo(): Promise<ProjectInfo[]> {
 
 	// 3. If still no valid file, search upwards from CWD
 	if (loadedInfos === null) {
-		const found = await findUpwards(fss.getWorkingDirectory(), AI_INFO_FILENAME, fss);
+		const found = await findUpwards(fss.getWorkingDirectory()); // , AI_INFO_FILENAME, fss
 		if (found) {
 			const originalWd = fss.getWorkingDirectory();
 			fss.setWorkingDirectory(path.dirname(found));
@@ -242,7 +265,7 @@ export async function detectProjectInfo(): Promise<ProjectInfo[]> {
 
 	// 4. If no valid file loaded from CWD, VCS root, or parent directories, run detection agent
 	if (loadedInfos === null) {
-		const detectedProjectInfos = await projectDetectionAgent();
+		const detectedProjectInfos = await _projectDetectionAgent();
 
 		// Save detected info to CWD
 		const projectInfosToFileFormat = detectedProjectInfos.map(mapProjectInfoToFileFormat);

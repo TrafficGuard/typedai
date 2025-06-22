@@ -8,7 +8,7 @@ const path = require('path');
 // Define the directories involved relative to where build.js is located
 const ROOT_DIR_INFO = { name: 'root', path: '.' };
 const FRONTEND_DIR_INFO = { name: 'frontend', path: './frontend' };
-const DIRS_TO_OPERATE_ON = [ROOT_DIR_INFO, FRONTEND_DIR_INFO];
+const DIRS_TO_OPERATE_ON = [ROOT_DIR_INFO];
 
 // List of common npm commands that DO NOT require 'run' prefix
 const NPM_BUILTIN_COMMANDS = new Set([
