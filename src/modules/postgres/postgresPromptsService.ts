@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Selectable } from 'kysely';
 import { logger } from '#o11y/logger';
+import { sql } from 'kysely';
 import { span } from '#o11y/trace';
 import type { PromptsService } from '#prompts/promptsService';
 import type { CallSettings, LlmMessage } from '#shared/llm/llm.model';
@@ -169,21 +170,29 @@ export class PostgresPromptsService implements PromptsService {
 
 			if (!newVersion) {
 				/* ---------------- In-place update of latest revision ---------------- */
+				// Build the SET object dynamically so that Kysely never receives an
+				// empty list (which results in `SET` followed by `WHERE` → syntax error).
+				const setData: Record<string, any> = {
+					updated_at: sql`now()`, // always touch updated_at so at least one column is set
+				};
+
+				if (updates.name !== undefined) setData.name = updates.name;
+				if (Object.hasOwn(updates, 'appId')) setData.app_id = updates.appId ?? null;
+				if (Object.hasOwn(updates, 'parentId')) setData.parent_id = updates.parentId ?? null;
+				if (updates.tags !== undefined) setData.tags_serialized = JSON.stringify(updates.tags);
+				if (updates.messages !== undefined)
+					setData.messages_serialized = JSON.stringify(updates.messages);
+				if (updates.settings !== undefined)
+					setData.settings_serialized = JSON.stringify(updates.settings);
+
+				// If caller supplied no fields to mutate, just return the latest revision as-is
+				if (Object.keys(setData).length === 1) {
+					return this._mapRevisionToPrompt(group, latestRevision);
+				}
+
 				const targetRevisionRef = trx
 					.updateTable('prompt_revisions')
-					.set({
-						name: updates.name ?? latestRevision.name,
-						app_id: Object.hasOwn(updates, 'appId') ? updates.appId ?? null : latestRevision.app_id,
-						parent_id: Object.hasOwn(updates, 'parentId') ? updates.parentId ?? null : latestRevision.parent_id,
-						tags_serialized: JSON.stringify(updates.tags ?? JSON.parse(latestRevision.tags_serialized)),
-						messages_serialized: JSON.stringify(
-							updates.messages ?? JSON.parse(latestRevision.messages_serialized) ?? [],
-						),
-						settings_serialized: JSON.stringify(
-							updates.settings ??
-								(JSON.parse(latestRevision.settings_serialized) as CallSettings & { llmId?: string }),
-						),
-					})
+					.set(setData)
 					.where('id', '=', latestRevision.id)
 					.returningAll()
 					.executeTakeFirstOrThrow();
@@ -196,6 +205,7 @@ export class PostgresPromptsService implements PromptsService {
 						parent_id: targetRevisionRef.parent_id,
 						tags_serialized: targetRevisionRef.tags_serialized,
 						settings_serialized: targetRevisionRef.settings_serialized,
+						updated_at: sql`now()`,
 					})
 					.where('id', '=', group.id)
 					.returningAll()
