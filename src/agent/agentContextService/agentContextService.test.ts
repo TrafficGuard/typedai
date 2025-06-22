@@ -26,7 +26,7 @@ import type { AutonomousIteration } from '#shared/agent/agent.model';
 import { NotAllowed, NotFound } from '#shared/errors'; // Added import
 import type { FunctionCallResult, GenerationStats } from '#shared/llm/llm.model';
 import type { ChatSettings, LLMServicesConfig, User } from '#shared/user/user.model';
-import * as userContext from '#user/userContext';
+import { setCurrentUser } from '#user/userContext';
 
 // These tests must be implementation independent so we can ensure the same
 // behaviour from various implementations of the AgentStateService interface
@@ -202,7 +202,6 @@ export function runAgentStateServiceTests(
 	afterEachHook: () => Promise<void> | void = () => {},
 ) {
 	let service: AgentContextService;
-	let currentUserStub: sinon.SinonStub;
 	let functionFactoryStub: sinon.SinonStub;
 
 	// Mock the function factory to return known classes
@@ -219,7 +218,7 @@ export function runAgentStateServiceTests(
 		service = createService();
 
 		// Stub external dependencies
-		currentUserStub = sinon.stub(userContext, 'currentUser').returns(testUser);
+		setCurrentUser(testUser);
 		// Ensure functionFactory returns the classes needed by LlmFunctions.fromJSON and tests
 		functionFactoryStub = sinon.stub(functionSchema, 'functionFactory').returns(mockFunctionFactoryContent);
 
@@ -244,6 +243,7 @@ export function runAgentStateServiceTests(
 	afterEach(async () => {
 		sinon.restore();
 		clearCompletedHandlers(); // Clean up registered handlers
+		setCurrentUser(null);    // clear override
 		await afterEachHook();
 	});
 
@@ -354,10 +354,10 @@ export function runAgentStateServiceTests(
 		// Added test for NotAllowed error
 		it('should throw NotAllowed when trying to load an agent belonging to another user', async () => {
 			const idForOtherUser = agentId();
-			currentUserStub.returns(otherUser);
+			setCurrentUser(otherUser);
 			const contextForOtherUser = createMockAgentContext(idForOtherUser, {}, otherUser);
 			await service.save(contextForOtherUser);
-			currentUserStub.returns(testUser); // Switch back to testUser
+			setCurrentUser(testUser); // Switch back to testUser
 
 			await expect(service.load(idForOtherUser)).to.be.rejectedWith(NotAllowed);
 		});
@@ -427,7 +427,7 @@ export function runAgentStateServiceTests(
 		let otherUserAgentId: string;
 
 		beforeEach(async () => {
-			currentUserStub.returns(testUser);
+			setCurrentUser(testUser);
 			agentId1 = agentId();
 			agentId2 = agentId();
 			otherUserAgentId = agentId();
@@ -437,13 +437,13 @@ export function runAgentStateServiceTests(
 			await service.save(createMockAgentContext(agentId2, { name: 'Newest', lastUpdate: Date.now() - 1000 }, testUser));
 
 			// Save one for other user
-			currentUserStub.returns(otherUser);
+			setCurrentUser(otherUser);
 			await service.save(createMockAgentContext(otherUserAgentId, { name: 'Other User Agent', lastUpdate: Date.now() - 1500 }, otherUser));
-			currentUserStub.returns(testUser); // Switch back
+			setCurrentUser(testUser); // Switch back
 		});
 
 		it('should list agent contexts for the current user, ordered by lastUpdate descending', async () => {
-			currentUserStub.returns(testUser); // Ensure correct user context
+			setCurrentUser(testUser); // Ensure correct user context
 			const contexts = await service.list();
 
 			// Assert the correct number of agents for the current user
@@ -461,7 +461,7 @@ export function runAgentStateServiceTests(
 
 		it('should return an empty array if no agents exist for the current user', async () => {
 			// Switch to a user guaranteed to have no agents saved in beforeEach
-			currentUserStub.returns({ ...otherUser, id: 'no-agents-user-404' });
+			setCurrentUser({ ...otherUser, id: 'no-agents-user-404' });
 			const contexts = await service.list();
 			expect(contexts).to.be.an('array').that.is.empty;
 		});
@@ -469,7 +469,7 @@ export function runAgentStateServiceTests(
 
 	describe('listRunning', () => {
 		beforeEach(async () => {
-			currentUserStub.returns(testUser); // Consistent user for saving
+			setCurrentUser(testUser); // Consistent user for saving
 
 			// Running states based on isExecuting definition + non-terminal states
 			await service.save(createMockAgentContext(agentId(), { state: 'workflow', lastUpdate: Date.now() - 1000 }));
@@ -572,7 +572,7 @@ export function runAgentStateServiceTests(
 			}
 
 			// 4. Set the current user for subsequent save operations
-			currentUserStub.returns(testUser);
+			setCurrentUser(testUser);
 
 			// Generate IDs
 			agentIdCompleted = agentId();
@@ -603,7 +603,7 @@ export function runAgentStateServiceTests(
 		});
 
 		it('should delete specified agents belonging to the current user in non-executing states', async () => {
-			currentUserStub.returns(testUser); // Ensure correct user context
+			setCurrentUser(testUser); // Ensure correct user context
 			await service.delete([agentIdCompleted, agentIdError]);
 
 			// Verify the specified agents are deleted (load should now throw NotFound)
@@ -612,7 +612,7 @@ export function runAgentStateServiceTests(
 		});
 
 		it('should NOT delete agents belonging to other users', async () => {
-			currentUserStub.returns(testUser); // Ensure correct user context
+			setCurrentUser(testUser); // Ensure correct user context
 			await service.delete([agentIdCompleted, otherUserAgentId]);
 
 			// Verify testUser's agent is deleted (load should now throw NotFound)
@@ -622,7 +622,7 @@ export function runAgentStateServiceTests(
 		});
 
 		it('should NOT delete executing agents', async () => {
-			currentUserStub.returns(testUser); // Ensure correct user context
+			setCurrentUser(testUser); // Ensure correct user context
 			await service.delete([agentIdCompleted, executingAgentId]);
 
 			// Verify the non-executing agent is deleted (load should now throw NotFound)
@@ -636,7 +636,7 @@ export function runAgentStateServiceTests(
 		});
 
 		it('should delete a parent agent AND its children when parent ID is provided (if parent is deletable)', async () => {
-			currentUserStub.returns(testUser); // Ensure correct user context
+			setCurrentUser(testUser); // Ensure correct user context
 			// Delete the parent (which is in 'completed' state)
 			await service.delete([parentIdCompleted]);
 
@@ -647,7 +647,7 @@ export function runAgentStateServiceTests(
 		});
 
 		it('should NOT delete child agents if only child ID is provided (due to implementation filter)', async () => {
-			currentUserStub.returns(testUser); // Ensure correct user context
+			setCurrentUser(testUser); // Ensure correct user context
 			// Attempt to delete only a child agent
 			await service.delete([childId1]);
 
@@ -669,7 +669,7 @@ export function runAgentStateServiceTests(
 
 		it('should handle non-existent IDs gracefully without error', async () => {
 			const nonExistentId = agentId();
-			currentUserStub.returns(testUser); // Ensure correct user context
+			setCurrentUser(testUser); // Ensure correct user context
 
 			// Attempt to delete an existing deletable agent and a non-existent one
 			await expect(service.delete([agentIdCompleted, nonExistentId])).to.not.be.rejected;
@@ -689,13 +689,13 @@ export function runAgentStateServiceTests(
 			agentId1 = agentId();
 			agentIdForOtherUser = agentId();
 			// Start with default functions (like Agent) + potentially FileSystemRead based on LlmFunctions constructor/fromJSON behavior
-			currentUserStub.returns(testUser);
+			setCurrentUser(testUser);
 			await service.save(createMockAgentContext(agentId1, { functions: new LlmFunctionsImpl() }, testUser));
 
 			// Save an agent for another user
-			currentUserStub.returns(otherUser);
+			setCurrentUser(otherUser);
 			await service.save(createMockAgentContext(agentIdForOtherUser, { functions: new LlmFunctionsImpl() }, otherUser));
-			currentUserStub.returns(testUser); // Switch back
+			setCurrentUser(testUser); // Switch back
 		});
 
 		// No need for a specific afterEach here, as the main afterEach's sinon.restore() will handle it.
@@ -744,7 +744,7 @@ export function runAgentStateServiceTests(
 		// Added test for NotAllowed error
 		it('should throw NotAllowed if trying to update functions for an agent not owned by current user', async () => {
 			// agentIdForOtherUser was saved for otherUser in beforeEach
-			currentUserStub.returns(testUser); // Ensure current user is testUser
+			setCurrentUser(testUser); // Ensure current user is testUser
 
 			await expect(service.updateFunctions(agentIdForOtherUser, [MockFunction.name])).to.be.rejectedWith(NotAllowed);
 		});
@@ -776,14 +776,14 @@ export function runAgentStateServiceTests(
 			agentIdForIterations = agentId();
 			agentIdForOtherUser = agentId();
 			// Save a base agent context first, as iterations belong to an agent
-			currentUserStub.returns(testUser);
+			setCurrentUser(testUser);
 			await service.save(createMockAgentContext(agentIdForIterations, {}, testUser));
 
 			// Save an agent for another user and an iteration for it
-			currentUserStub.returns(otherUser);
+			setCurrentUser(otherUser);
 			await service.save(createMockAgentContext(agentIdForOtherUser, {}, otherUser));
 			await service.saveIteration(createMockIteration(1, agentIdForOtherUser));
-			currentUserStub.returns(testUser); // Switch back
+			setCurrentUser(testUser); // Switch back
 		});
 
 		const createMockIteration = (iterNum: number, agentIdToUse: string = agentIdForIterations): AutonomousIteration => ({
@@ -850,7 +850,7 @@ export function runAgentStateServiceTests(
 		it('should return an empty array if no iterations exist for the agent', async () => {
 			// Create a new agent with no iterations saved
 			const agentIdNoIterations = agentId();
-			currentUserStub.returns(testUser);
+			setCurrentUser(testUser);
 			await service.save(createMockAgentContext(agentIdNoIterations, {}, testUser));
 
 			const loadedIterations = await service.loadIterations(agentIdNoIterations); // loadIterations now throws on agent not found/not allowed
@@ -990,15 +990,15 @@ export function runAgentStateServiceTests(
 		beforeEach(async () => {
 			agentIdForIterations = agentId();
 			otherUsersAgentId = agentId();
-			currentUserStub.returns(testUser);
+			setCurrentUser(testUser);
 			await service.save(createMockAgentContext(agentIdForIterations, {}, testUser));
 			await service.saveIteration(createMockIteration(iterationNumber, agentIdForIterations));
 
 			// Save an agent and iteration for another user
-			currentUserStub.returns(otherUser);
+			setCurrentUser(otherUser);
 			await service.save(createMockAgentContext(otherUsersAgentId, {}, otherUser));
 			await service.saveIteration(createMockIteration(iterationNumber, otherUsersAgentId));
-			currentUserStub.returns(testUser); // Switch back
+			setCurrentUser(testUser); // Switch back
 		});
 
 		const createMockIteration = (iterNum: number, agentIdToUse: string): AutonomousIteration => ({
@@ -1040,7 +1040,7 @@ export function runAgentStateServiceTests(
 		// Added test for NotAllowed error
 		it('should throw NotAllowed if agent is not owned by current user', async () => {
 			// otherUsersAgentId was saved for otherUser in beforeEach
-			currentUserStub.returns(testUser); // Ensure current user is testUser
+			setCurrentUser(testUser); // Ensure current user is testUser
 
 			await expect(service.getAgentIterationDetail(otherUsersAgentId, iterationNumber)).to.be.rejectedWith(NotAllowed);
 		});
@@ -1060,16 +1060,16 @@ export function runAgentStateServiceTests(
 		beforeEach(async () => {
 			agentIdForIterations = agentId();
 			otherUsersAgentId = agentId();
-			currentUserStub.returns(testUser);
+			setCurrentUser(testUser);
 			await service.save(createMockAgentContext(agentIdForIterations, {}, testUser));
 			await service.saveIteration(createMockIteration(1, agentIdForIterations)); // Save at least one iteration
 			await service.saveIteration(createMockIteration(2, agentIdForIterations));
 
 			// Save an agent and iteration for another user
-			currentUserStub.returns(otherUser);
+			setCurrentUser(otherUser);
 			await service.save(createMockAgentContext(otherUsersAgentId, {}, otherUser));
 			await service.saveIteration(createMockIteration(1, otherUsersAgentId));
-			currentUserStub.returns(testUser); // Switch back
+			setCurrentUser(testUser); // Switch back
 		});
 
 		const createMockIteration = (iterNum: number, agentIdToUse: string): AutonomousIteration => ({
@@ -1113,14 +1113,14 @@ export function runAgentStateServiceTests(
 		// Added test for NotAllowed error
 		it('should throw NotAllowed if agent is not owned by current user', async () => {
 			// otherUsersAgentId was saved for otherUser in beforeEach
-			currentUserStub.returns(testUser); // Ensure current user is testUser
+			setCurrentUser(testUser); // Ensure current user is testUser
 
 			await expect(service.getAgentIterationSummaries(otherUsersAgentId)).to.be.rejectedWith(NotAllowed);
 		});
 
 		it('should return empty array if agent exists but has no iterations (and not throw NotFound for iterations)', async () => {
 			const agentWithNoIterationsId = agentId();
-			currentUserStub.returns(testUser);
+			setCurrentUser(testUser);
 			await service.save(createMockAgentContext(agentWithNoIterationsId, {}, testUser));
 			// Do not save any iterations for this agent
 
