@@ -172,9 +172,8 @@ export class PostgresPromptsService implements PromptsService {
 				/* ---------------- In-place update of latest revision ---------------- */
 				// Build the SET object dynamically so that Kysely never receives an
 				// empty list (which results in `SET` followed by `WHERE` → syntax error).
-				const setData: Record<string, any> = {
-					updated_at: sql`now()`, // always touch updated_at so at least one column is set
-				};
+				// Collect only the fields that really need changing.
+				const setData: Record<string, any> = {};
 
 				if (updates.name !== undefined) setData.name = updates.name;
 				if (Object.hasOwn(updates, 'appId')) setData.app_id = updates.appId ?? null;
@@ -185,17 +184,16 @@ export class PostgresPromptsService implements PromptsService {
 				if (updates.settings !== undefined)
 					setData.settings_serialized = JSON.stringify(updates.settings);
 
-				// If caller supplied no fields to mutate, just return the latest revision as-is
-				if (Object.keys(setData).length === 1) {
-					return this._mapRevisionToPrompt(group, latestRevision);
-				}
-
-				const targetRevisionRef = trx
-					.updateTable('prompt_revisions')
-					.set(setData)
-					.where('id', '=', latestRevision.id)
-					.returningAll()
-					.executeTakeFirstOrThrow();
+				// Nothing to update on the revision – skip touching it.
+				const targetRevisionRef =
+					Object.keys(setData).length === 0
+						? latestRevision
+						: await trx
+								.updateTable('prompt_revisions')
+								.set(setData)
+								.where('id', '=', latestRevision.id)
+								.returningAll()
+								.executeTakeFirstOrThrow();
 
 				const updatedGroup = await trx
 					.updateTable('prompt_groups')
