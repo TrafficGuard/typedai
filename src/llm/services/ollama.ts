@@ -44,7 +44,7 @@ export class OllamaLLM extends BaseLLM {
 			});
 
 			const llmCallSave: Promise<LlmCall> = appContext().llmCallService.saveRequest({
-				messages,
+				messages: [...messages],
 				llmId: this.getId(),
 				agentId: agentContext()?.agentId,
 				callStack: callStack(),
