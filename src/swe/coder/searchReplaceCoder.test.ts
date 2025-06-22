@@ -31,7 +31,7 @@ ${REPLACE_MARKER}
 
 const SEARCH_BLOCK_VALID = searchReplaceBlock('test.ts', 'hello world', 'hello universe');
 
-describe.only('SearchReplaceCoder: Reflection Logic', () => {
+describe('SearchReplaceCoder: Reflection Logic', () => {
 	setupConditionalLoggerOutput();
 
 	let coder: SearchReplaceCoder;
@@ -92,248 +92,252 @@ describe.only('SearchReplaceCoder: Reflection Logic', () => {
 			expect(reflectionMessage).to.contain('No edit blocks or actionable requests');
 		});
 
-		it('should reflect if the LLM provides no edit blocks and no meta-requests', async () => {                                                                                                                                                  
-			setupMockFs({ '/repo/test.ts': 'hello world' });                                                                                                                                                                                        
-																																																													
-			mockLLM                                                                                                                                                                                                                                 
-				.addMessageResponse('Sure, I can do that.') // First call has no blocks                                                                                                                                                             
-				.addMessageResponse(SEARCH_BLOCK_VALID); // Second call succeeds                                                                                                                                                                    
-																																																													
-			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);                                                                                                                                                                       
-																																																													
-			const messageCalls = mockLLM.getMessageCalls();                                                                                                                                                                                         
-			expect(messageCalls).to.have.lengthOf(2);                                                                                                                                                                                               
-			const reflectionMessage = messageCalls[1].messages.at(-2)?.content;                                                                                                                                                                     
-			expect(reflectionMessage).to.contain('No edit blocks or actionable requests');                                                                                                                                                          
-		});               
+		it('should reflect if the LLM provides no edit blocks and no meta-requests', async () => {
+			setupMockFs({ '/repo/test.ts': 'hello world' });
+
+			mockLLM
+				.addMessageResponse('Sure, I can do that.') // First call has no blocks
+				.addMessageResponse(SEARCH_BLOCK_VALID); // Second call succeeds
+
+			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);
+
+			const messageCalls = mockLLM.getMessageCalls();
+			expect(messageCalls).to.have.lengthOf(2);
+			const reflectionMessage = messageCalls[1].messages.at(-2)?.content;
+			expect(reflectionMessage).to.contain('No edit blocks or actionable requests');
+		});
 	});
 
-	describe('on Validation Failures', () => {                                                                                                                                                                                                      
-		it('should reflect on a file path that does not exist', async () => {                                                                                                                                                                       
-			setupMockFs({ '/repo/existing.ts': 'file content', '/repo/test.ts': 'hello world' });                                                                                                                                                   
-																																																													
-			const editBlock = searchReplaceBlock('non-existent.ts', 'original', 'updated');                                                                                                                                                         
-			mockLLM                                                                                                                                                                                                                                 
-				.addMessageResponse(editBlock) // First attempt fails validation                                                                                                                                                                    
-				.addMessageResponse(SEARCH_BLOCK_VALID); // Second attempt succeeds                                                                                                                                                                 
-			const applierSpy = sinon.spy(EditApplier.prototype, 'apply');                                                                                                                                                                           
-																																																													
-			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);                                                                                                                                                                       
-																																																													
-			expect(mockLLM.getMessageCalls()).to.have.lengthOf(2);                                                                                                                                                                                  
-			const reflection = mockLLM.getMessageCalls()[1].messages.at(-2)?.content;                                                                                                                                                               
-			expect(reflection).to.contain('File does not exist, but the SEARCH block is not empty.');                                                                                                                                               
-			expect(applierSpy.calledOnce).to.be.true;                                                                                                                                                                                               
-		});                                                                                                                                                                                                                                         
-																																																													
-		it('should reflect on a file path that uses a module alias like # or @', async () => {                                                                                                                                                      
-			setupMockFs({ '/repo/test.ts': 'hello world' });                                                                                                                                                                                        
-																																																													
-			const editBlock = searchReplaceBlock('@services/my-service.ts', 'original', 'updated');                                                                                                                                                 
-			mockLLM.addMessageResponse(editBlock).addMessageResponse(SEARCH_BLOCK_VALID);                                                                                                                                                           
-																																																													
-			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);                                                                                                                                                                       
-																																																													
-			const reflection = mockLLM.getMessageCalls()[1].messages.at(-2)?.content;                                                                                                                                                               
-			expect(reflection).to.contain("should not begin with '@'. It seems like you're writing to a module alias");                                                                                                                             
-		});                                                                                                                                                                                                                                         
-																																																													
-		it('should reflect with all issues if multiple validation rules fail', async () => {                                                                                                                                                        
-			setupMockFs({ '/repo/test.ts': 'hello world' });                                                                                                                                                                                        
-			const editBlock1 = searchReplaceBlock('@services/my-service.ts', 'original', 'updated');                                                                                                                                                
-			const editBlock2 = searchReplaceBlock('non-existent.ts', 'original', 'updated');                                                                                                                                                        
-			const editBlocks = `${editBlock1}\n\n${editBlock2}`;                                                                                                                                                                                    
-																																																													
-			mockLLM.addMessageResponse(editBlocks).addMessageResponse(SEARCH_BLOCK_VALID);                                                                                                                                                          
-																																																													
-			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);                                                                                                                                                                       
-																																																													
-			const reflection = mockLLM.getMessageCalls()[1].messages.at(-2)?.content;                                                                                                                                                               
-			expect(reflection).to.contain("should not begin with '@'");                                                                                                                                                                             
-			expect(reflection).to.contain('File does not exist');                                                                                                                                                                                   
-		});                                                                                                                                                                                                                                         
-	});                                                                                                                                                                                                                                             
-																																																													
-	describe('on Edit Application Failures', () => {                                                                                                                                                                                                
-		it('should reflect when an edit fails to apply due to a non-matching SEARCH block', async () => {                                                                                                                                           
-			setupMockFs({ '/repo/test.ts': 'hello world' });                                                                                                                                                                                        
-																																																													
-			const failingBlock = searchReplaceBlock('test.ts', 'goodbye world', 'new content');                                                                                                                                                     
-			mockLLM                                                                                                                                                                                                                                 
-				.addMessageResponse(failingBlock) // Main attempt                                                                                                                                                                                   
-				.addMessageResponse('null') // Fix attempt fails                                                                                                                                                                                    
-				.addMessageResponse(SEARCH_BLOCK_VALID); // Reflection attempt                                                                                                                                                                      
-																																																													
-			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);                                                                                                                                                                       
-																																																													
-			expect(mockLLM.getMessageCalls()).to.have.lengthOf(3); // Main (msg) + fix (msg) + reflection (msg)                                                                                                                                     
-			const reflection = mockLLM.getMessageCalls()[2].messages.at(-2)?.content;                                                                                                                                                               
-			expect(reflection).to.contain('This SEARCH block failed to exactly match lines in test.ts');                                                                                                                                            
-		});                                                                                                                                                                                                                                         
-																																																													
-		it('should reflect with a summary of both passed and failed edits', async () => {                                                                                                                                                    
-			setupMockFs({                                                                                                                                                                                                                    
-				'/repo/pass.ts': 'pass content',                                                                                                                                                                                             
-				'/repo/fail.ts': 'fail content',                                                                                                                                                                                             
-				'/repo/test.ts': 'hello world',  // added                                                                                                                                                                                    
-			});                                                                                                                                                                                                                              
-			const passBlock = searchReplaceBlock('pass.ts', 'pass content', 'new pass content');                                                                                                                                             
-			const failBlock = searchReplaceBlock('fail.ts', 'mismatch text', 'new fail content');                                                                                                                                            
-			const editBlocks = `${passBlock}\n\n${failBlock}`;                                                                                                                                                                               
-																																																											 
-			mockLLM                                                                                                                                                                                                                          
-				.addMessageResponse(editBlocks)                                                                                                                                                                                              
-				.addMessageResponse('null') // Fail fix attempt                                                                                                                                                                              
-				.addMessageResponse(SEARCH_BLOCK_VALID); // Reflection attempt                                                                                                                                                               
-																																																											 
-			await coder.editFilesToMeetRequirements('test', ['pass.ts', 'fail.ts'], []);                                                                                                                                                     
-																																																											 
-			const reflection = mockLLM.getMessageCalls()[2].messages.at(-2)?.content;                                                                                                                                                        
-			expect(reflection).to.contain('1 SEARCH/REPLACE block failed to match!');                                                                                                                                                        
-			expect(reflection).to.contain('The other 1 SEARCH/REPLACE block was applied successfully.');                                                                                                                                     
-		});                                                                                                                                                                                                                                         
-	});                                                                                                                                                                                                                                             
-																																																													
-	describe('on Edit Fixing and Re-application Logic', () => {                                                                                                                                                                                     
-		it('should attempt to fix a failed block and NOT reflect if the fix and re-application succeed', async () => {                                                                                                                              
-			setupMockFs({ '/repo/test.ts': 'original content' });                                                                                                                                                                                   
-			// use searchReplaceBlock                                                                                                                                                                                                               
-			const failingBlock = searchReplaceBlock('test.ts', 'bad search', 'new content');                                                                                                                                                        
-			const correctedBlock = searchReplaceBlock('test.ts', 'original content', 'new content');                                                                                                                                                
-																																																													
-			mockLLM.addMessageResponse(failingBlock).addMessageResponse(correctedBlock); // Stub tryFixSearchBlock to succeed                                                                                                                       
-																																																													
-			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);                                                                                                                                                                       
-																																																													
-			expect(mockLLM.getMessageCalls()).to.have.lengthOf(2); // Main attempt + fix attempt                                                                                                                                                    
-			expect(mockLLM.getCallCount()).to.equal(2); // Main (msg) + fix (msg)                                                                                                                                                                   
-			const finalContent = await fss.readFile('/repo/test.ts');                                                                                                                                                                               
-			expect(finalContent).to.contain('new content');                                                                                                                                                                                         
-		});                                                                                                                                                                                                                                         
-																																																													
-		it('should reflect with remaining failures if the corrected block also fails to apply', async () => {                                                                                                                                       
-			setupMockFs({ '/repo/test.ts': 'original content' });                                                                                                                                                                                   
-			const failingBlock = searchReplaceBlock('test.ts', 'bad search', 'new content');                                                                                                                                                        
-			const correctedBlock = searchReplaceBlock('test.ts', 'original content', 'new content');                                                                                                                                                
-			mockLLM.addMessageResponse(failingBlock).addMessageResponse(correctedBlock); // Stub tryFixSearchBlock to succeed                                                                                                                       
-																																																													
-			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);                                                                                                                                                                       
-																																																													
-			expect(mockLLM.getMessageCalls()).to.have.lengthOf(2); // Main attempt only                                                                                                                                                             
-			expect(mockLLM.getCallCount()).to.equal(2); // Main (msg) + fix (txt)                                                                                                                                                                   
-			const finalContent = await fss.readFile('/repo/test.ts');                                                                                                                                                                               
-			expect(finalContent).to.contain('new content');                                                                                                                                                                                         
-		});                                                                                                                                                                                                                                         
-																																																													
-		it('should reflect with remaining failures if the corrected block also fails to apply', async () => {                                                                                                                                       
-			setupMockFs({ '/repo/test.ts': 'original content' });                                                                                                                                                                                   
-			const failingBlock = searchReplaceBlock('test.ts', 'bad search', 'new content');                                                                                                                                                        
-			const stillFailingBlock = searchReplaceBlock('test.ts', 'still bad search', 'new content');                                                                                                                                      
-			mockLLM                                                                                                                                                                                                                          
-				.addMessageResponse(failingBlock)                                                                                                                                                                                            
-				.addMessageResponse(stillFailingBlock) // Fix returns another bad block                                                                                                                                                      
-				.addMessageResponse('null')                                                                                                                                                                                                  
-				.addMessageResponse(SEARCH_BLOCK_VALID);                                                                                                                                                                                     
-																																																											 
-			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);                                                                                                                                                                
-																																																											 
-			const messageCalls = mockLLM.getMessageCalls();                                                                                                                                                                                  
-			expect(messageCalls).to.have.lengthOf(4); // Main attempt + fix attempt + reflection                                                                                                                                             
-			const reflection = messageCalls[2].messages.at(-2)?.content;                                                                                                                                                                     
-			expect(reflection).to.contain('This SEARCH block failed to exactly match lines in test.ts');                                                                                                                                          
-		});                                                                                                                                                                                                                                         
-	});                                                                                                                                                                                                                                             
-																																																													
-	describe('on Context and State Failures', () => {                                                                                                                                                                                               
-		it('should reflect if a file was modified externally before edits are applied', async () => {                                                                                                                                               
-			setupMockFs({ '/repo/test.ts': 'initial content' });                                                                                                                                                                                    
-			// Stub readFile to simulate modification after prompt build                                                                                                                                                                            
-			const readFileStub = sinon.stub(fss, 'readFile');                                                                                                                                                                                       
-			readFileStub.callThrough();                                                                                                                                                                                                             
-			readFileStub.withArgs('/repo/test.ts').onFirstCall().resolves('initial content'); // For prompt build                                                                                                                                   
-			// For external change check and all subsequent reads, return modified content                                                                                                                                                          
-			readFileStub.withArgs('/repo/test.ts').resolves('modified content');                                                                                                                                                                    
-																																																													
-			mockLLM                                                                                                                                                                                                                                 
-				.addMessageResponse(SEARCH_BLOCK_VALID.replace('hello world', 'initial content'))                                                                                                                                                   
-				.addMessageResponse(SEARCH_BLOCK_VALID.replace('hello world', 'modified content'));                                                                                                                                                 
-																																																													
-				await coder.editFilesToMeetRequirements('test', ['test.ts'], []);                                                                                                                                                                
-                                                                                                                                                                                                                                              
-				const messageCalls = mockLLM.getMessageCalls();                                                                                                                                                                                  
-				expect(messageCalls).to.have.lengthOf(2);                                                                                                                                                                                        
-				const reflection = messageCalls[1].messages                                                                                                                                                                                      
-					.find((m) => typeof m.content === 'string' && m.content.includes('were modified after the edit blocks'))!                                                                                                                    
-					.content as string;                                                                                                                                                                                                          
-				expect(reflection).to.contain('were modified after the edit blocks were generated');                                                                                                                                                  
-		});                                                                                                                                                                                                                                         
-																																																													
-		it('should reflect if a required dirty commit fails', async () => {                                                                                                                                                                         
-			mockVcs.isDirty.withArgs('dirty.ts').resolves(true);                                                                                                                                                                             
-			mockVcs.addAndCommitFiles.rejects(new Error('Commit failed'));                                                                                                                                                                   
-			mockLLM.addMessageResponse('dirty.ts\n<<<<<<< SEARCH\ncontent\n=======\nnew\n>>>>>>> REPLACE').addMessageResponse(SEARCH_BLOCK_VALID).addMessageResponse(SEARCH_BLOCK_VALID);                                                    
-																																																											 
-			await coder.editFilesToMeetRequirements('test', ['dirty.ts'], [], true, true);                                                                                                                                                   
-																																																											 
-			const reflection = mockLLM.getMessageCalls()[1].messages                                                                                                                                                                         
-				.find((m) => typeof m.content === 'string' && m.content.includes('Failed to commit uncommitted changes'))!                                                                                                                   
-				.content as string;                                                                                                                                                                                                          
-			expect(reflection).to.contain('Failed to commit uncommitted changes');                                                                                                                                                                        
-		});                                                                                                                                                                                                                                         
-	});                                                                                                                                                                                                                                             
-																																																													
-	describe('on Meta-Requests (Files, Queries, Packages)', () => {                                                                                                                                                                                 
-		it('should reflect to confirm file requests and ask to proceed when no edit blocks are present', async () => {                                                                                                                              
-			setupMockFs({ '/repo/test.ts': 'hello world' });                                                                                                                                                                                        
-			const fileRequest = `<add-files-json>{"files":[{"filePath":"src/utils.ts","reason":"..."}]}</add-files-json>`;                                                                                                                          
-			mockLLM.addMessageResponse(fileRequest).addMessageResponse(SEARCH_BLOCK_VALID);                                                                                                                                                         
-																																																													
-			await coder.editFilesToMeetRequirements('test', [], []);                                                                                                                                                                         
-                                                                                                                                                                                                                                              
-			const reflection = mockLLM.getMessageCalls()[1].messages                                                                                                                                                                         
-				.find((m) => typeof m.content === 'string' && m.content.includes('I have added the 1 file(s) you requested'))!                                                                                                               
-				.content as string;                                                                                                                                                                                                          
-			expect(reflection).to.contain('I have added the 1 file(s) you requested');                                                                                                                                                       
-			expect(reflection).to.contain('Please proceed with the edits');                                                                                                                                                                           
-		});                                                                                                                                                                                                                                         
-																																																													
-		it('should process edits and log a warning if meta-requests and edit blocks are in the same response', async () => {                                                                                                                        
-			setupMockFs({ '/repo/test.ts': 'hello world' });                                                                                                                                                                                        
-			const response = `<add-files-json>{"files":[]}</add-files-json>\n${SEARCH_BLOCK_VALID}`;                                                                                                                                                
-			mockLLM.addMessageResponse(response);                                                                                                                                                                                                   
-																																																													
-			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);                                                                                                                                                                       
-																																																													
-			expect(mockLLM.getMessageCalls()).to.have.lengthOf(1);                                                                                                                                                                                  
-			const finalContent = await fss.readFile('/repo/test.ts');                                                                                                                                                                               
-			expect(finalContent).to.contain('hello universe');                                                                                                                                                                                      
-		});                                                                                                                                                                                                                                         
-	});                                                                                                                                                                                                                                             
-																																																													
-	describe('on Attempt Exhaustion', () => {                                                                                                                                                                                                       
-		it('should throw CoderExhaustedAttemptsError when max attempts are reached with persistent failures', async () => {                                                                                                                         
-			setupMockFs({ '/repo/test.ts': 'content' });                                                                                                                                                                                            
-			const failingBlock = searchReplaceBlock('test.ts', 'non-matching', 'new content');                                                                                                                                                      
-			// Always respond with an invalid block, and always fail to fix it                                                                                                                                                                      
-			for (let i = 0; i < 5; i++) {                                                                                                                                                                                                           
-				// MAX_ATTEMPTS is 5                                                                                                                                                                                                                
-				mockLLM.addMessageResponse(failingBlock).addMessageResponse('null'); // Fix always fails                                                                                                                                            
-			}                                                                                                                                                                                                                                       
-																																																													
-			let error: Error | null = null;                                                                                                                                                                                                         
-			try {                                                                                                                                                                                                                                   
-				await coder.editFilesToMeetRequirements('test', ['test.ts'], []);                                                                                                                                                                   
-			} catch (e) {                                                                                                                                                                                                                           
-				error = e as Error;                                                                                                                                                                                                                 
-			}                                                                                                                                                                                                                                       
-																																																													
-			expect(error).to.be.instanceOf(CoderExhaustedAttemptsError);                                                                                                                                                                            
-			// 5 attempts = 5 message calls (initial attempt) + 5 text calls (fix attempt)                                                                                                                                                          
-			expect(mockLLM.getCallCount()).to.equal(10);                                                                                                                                                                                            
-			if (error instanceof CoderExhaustedAttemptsError) {                                                                                                                                                                                     
-				expect(error.lastReflection).to.be.a('string');                                                                                                                                                                                     
-				expect(error.lastReflection).to.contain('This SEARCH block failed to exactly match lines in test.ts');                                                                                                                              
-			}                                                                                                                                                                                                                                       
-		});                                                                                                                                                                                                                                         
-	});                                         
+	describe('on Validation Failures', () => {
+		it('should reflect on a file path that does not exist', async () => {
+			setupMockFs({ '/repo/existing.ts': 'file content', '/repo/test.ts': 'hello world' });
+
+			const editBlock = searchReplaceBlock('non-existent.ts', 'original', 'updated');
+			mockLLM
+				.addMessageResponse(editBlock) // First attempt fails validation
+				.addMessageResponse(SEARCH_BLOCK_VALID); // Second attempt succeeds
+			const applierSpy = sinon.spy(EditApplier.prototype, 'apply');
+
+			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);
+
+			expect(mockLLM.getMessageCalls()).to.have.lengthOf(2);
+			const reflection = mockLLM.getMessageCalls()[1].messages.at(-2)?.content;
+			expect(reflection).to.contain('File does not exist, but the SEARCH block is not empty.');
+			expect(applierSpy.calledOnce).to.be.true;
+		});
+
+		it('should reflect on a file path that uses a module alias like # or @', async () => {
+			setupMockFs({ '/repo/test.ts': 'hello world' });
+
+			const editBlock = searchReplaceBlock('@services/my-service.ts', 'original', 'updated');
+			mockLLM.addMessageResponse(editBlock).addMessageResponse(SEARCH_BLOCK_VALID);
+
+			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);
+
+			const reflection = mockLLM.getMessageCalls()[1].messages.at(-2)?.content;
+			expect(reflection).to.contain("should not begin with '@'. It seems like you're writing to a module alias");
+		});
+
+		it('should reflect with all issues if multiple validation rules fail', async () => {
+			setupMockFs({ '/repo/test.ts': 'hello world' });
+			const editBlock1 = searchReplaceBlock('@services/my-service.ts', 'original', 'updated');
+			const editBlock2 = searchReplaceBlock('non-existent.ts', 'original', 'updated');
+			const editBlocks = `${editBlock1}\n\n${editBlock2}`;
+
+			mockLLM.addMessageResponse(editBlocks).addMessageResponse(SEARCH_BLOCK_VALID);
+
+			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);
+
+			const reflection = mockLLM.getMessageCalls()[1].messages.at(-2)?.content;
+			expect(reflection).to.contain("should not begin with '@'");
+			expect(reflection).to.contain('File does not exist');
+		});
+	});
+
+	describe('on Edit Application Failures', () => {
+		it('should reflect when an edit fails to apply due to a non-matching SEARCH block', async () => {
+			setupMockFs({ '/repo/test.ts': 'hello world' });
+
+			const failingBlock = searchReplaceBlock('test.ts', 'goodbye world', 'new content');
+			mockLLM
+				.addMessageResponse(failingBlock) // Main attempt
+				.addMessageResponse('null') // Fix attempt fails
+				.addMessageResponse(SEARCH_BLOCK_VALID); // Reflection attempt
+
+			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);
+
+			expect(mockLLM.getMessageCalls()).to.have.lengthOf(3); // Main (msg) + fix (msg) + reflection (msg)
+			const reflection = mockLLM.getMessageCalls()[2].messages.at(-2)?.content;
+			expect(reflection).to.contain('This SEARCH block failed to exactly match lines in test.ts');
+		});
+
+		it('should reflect with a summary of both passed and failed edits', async () => {
+			setupMockFs({
+				'/repo/pass.ts': 'pass content',
+				'/repo/fail.ts': 'fail content',
+				'/repo/test.ts': 'hello world', // added
+			});
+			const passBlock = searchReplaceBlock('pass.ts', 'pass content', 'new pass content');
+			const failBlock = searchReplaceBlock('fail.ts', 'mismatch text', 'new fail content');
+			const editBlocks = `${passBlock}\n\n${failBlock}`;
+
+			mockLLM
+				.addMessageResponse(editBlocks)
+				.addMessageResponse('null') // Fail fix attempt
+				.addMessageResponse(SEARCH_BLOCK_VALID); // Reflection attempt
+
+			await coder.editFilesToMeetRequirements('test', ['pass.ts', 'fail.ts'], []);
+
+			const reflection = mockLLM.getMessageCalls()[2].messages.at(-2)?.content;
+			expect(reflection).to.contain('1 SEARCH/REPLACE block failed to match!');
+			expect(reflection).to.contain('The other 1 SEARCH/REPLACE block were applied successfully.');
+		});
+	});
+
+	describe('on Edit Fixing and Re-application Logic', () => {
+		it('should attempt to fix a failed block and NOT reflect if the fix and re-application succeed', async () => {
+			setupMockFs({ '/repo/test.ts': 'original content' });
+			// use searchReplaceBlock
+			const failingBlock = searchReplaceBlock('test.ts', 'bad search', 'new content');
+			const correctedBlock = searchReplaceBlock('test.ts', 'original content', 'new content');
+
+			mockLLM.addMessageResponse(failingBlock).addMessageResponse(correctedBlock); // Stub tryFixSearchBlock to succeed
+
+			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);
+
+			expect(mockLLM.getMessageCalls()).to.have.lengthOf(2); // Main attempt + fix attempt
+			expect(mockLLM.getCallCount()).to.equal(2); // Main (msg) + fix (msg)
+			const finalContent = await fss.readFile('/repo/test.ts');
+			expect(finalContent).to.contain('new content');
+		});
+
+		it('should reflect with remaining failures if the corrected block also fails to apply', async () => {
+			setupMockFs({ '/repo/test.ts': 'original content' });
+			const failingBlock = searchReplaceBlock('test.ts', 'bad search', 'new content');
+			const correctedBlock = searchReplaceBlock('test.ts', 'original content', 'new content');
+			mockLLM.addMessageResponse(failingBlock).addMessageResponse(correctedBlock); // Stub tryFixSearchBlock to succeed
+
+			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);
+
+			expect(mockLLM.getMessageCalls()).to.have.lengthOf(2); // Main attempt only
+			expect(mockLLM.getCallCount()).to.equal(2); // Main (msg) + fix (txt)
+			const finalContent = await fss.readFile('/repo/test.ts');
+			expect(finalContent).to.contain('new content');
+		});
+
+		it('should reflect with remaining failures if the corrected block also fails to apply', async () => {
+			setupMockFs({ '/repo/test.ts': 'original content' });
+			const failingBlock = searchReplaceBlock('test.ts', 'bad search', 'new content');
+			const stillFailingBlock = searchReplaceBlock('test.ts', 'still bad search', 'new content');
+			mockLLM
+				.addMessageResponse(failingBlock)
+				.addMessageResponse(stillFailingBlock) // Fix returns another bad block
+				.addMessageResponse('null')
+				.addMessageResponse(SEARCH_BLOCK_VALID)
+				.addMessageResponse('null');
+
+			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);
+
+			const messageCalls = mockLLM.getMessageCalls();
+			expect(messageCalls).to.have.lengthOf(5); // Main attempt + fix attempt + reflection + final reflection
+			const reflection = messageCalls[3].messages.at(-2)?.content;
+			expect(reflection).to.contain('This SEARCH block failed to exactly match lines in test.ts');
+		});
+	});
+
+	describe('on Context and State Failures', () => {
+		it('should reflect if a file was modified externally before edits are applied', async () => {
+			setupMockFs({ '/repo/test.ts': 'initial content' });
+			// Stub readFile ´to simulate modification after prompt build
+			const readFileStub = sinon.stub(fss, 'readFile');
+			readFileStub.callThrough();
+			readFileStub.withArgs('/repo/test.ts').onFirstCall().resolves('initial content'); // For prompt build
+			// For external change check and all subsequent reads, return modified content
+			readFileStub.withArgs('/repo/test.ts').resolves('modified content');
+
+			mockLLM
+				.addMessageResponse(SEARCH_BLOCK_VALID.replace('hello world', 'initial content'))
+				.addMessageResponse(SEARCH_BLOCK_VALID.replace('hello world', 'modified content'));
+
+			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);
+
+			const messageCalls = mockLLM.getMessageCalls();
+			expect(messageCalls).to.have.lengthOf(2);
+			const reflection = messageCalls[1].messages.find((m) => typeof m.content === 'string' && m.content.includes('were modified after the edit blocks'))!
+				.content as string;
+			expect(reflection).to.contain('were modified after the edit blocks were generated');
+		});
+
+		it('should reflect if a required dirty commit fails', async () => {
+			setupMockFs({ '/repo/dirty.ts': 'content', '/repo/test.ts': 'hello world' });
+			mockVcs.isDirty.withArgs('dirty.ts').resolves(true);
+			mockVcs.addAndCommitFiles.rejects(new Error('Commit failed'));
+			mockLLM
+				.addMessageResponse('dirty.ts\n<<<<<<< SEARCH\ncontent\n=======\nnew\n>>>>>>> REPLACE')
+				.addMessageResponse(SEARCH_BLOCK_VALID)
+				.addMessageResponse(SEARCH_BLOCK_VALID);
+
+			await coder.editFilesToMeetRequirements('test', ['dirty.ts'], [], true, true);
+
+			const reflection = mockLLM
+				.getMessageCalls()[1]
+				.messages.find((m) => typeof m.content === 'string' && m.content.includes('Failed to commit uncommitted changes'))!.content as string;
+			expect(reflection).to.contain('Failed to commit uncommitted changes');
+		});
+	});
+
+	describe('on Meta-Requests (Files, Queries, Packages)', () => {
+		it('should reflect to confirm file requests and ask to proceed when no edit blocks are present', async () => {
+			setupMockFs({ '/repo/test.ts': 'hello world' });
+			const fileRequest = `<add-files-json>{"files":[{"filePath":"src/utils.ts","reason":"..."}]}</add-files-json>`;
+			mockLLM.addMessageResponse(fileRequest).addMessageResponse(SEARCH_BLOCK_VALID);
+
+			await coder.editFilesToMeetRequirements('test', [], []);
+
+			const reflection = mockLLM
+				.getMessageCalls()[1]
+				.messages.find((m) => typeof m.content === 'string' && m.content.includes('I have added the 1 file(s) you requested'))!.content as string;
+			expect(reflection).to.contain('I have added the 1 file(s) you requested');
+			expect(reflection).to.contain('Please proceed with the edits');
+		});
+
+		it('should process edits and log a warning if meta-requests and edit blocks are in the same response', async () => {
+			setupMockFs({ '/repo/test.ts': 'hello world' });
+			const response = `<add-files-json>{"files":[]}</add-files-json>\n${SEARCH_BLOCK_VALID}`;
+			mockLLM.addMessageResponse(response);
+
+			await coder.editFilesToMeetRequirements('test', ['test.ts'], []);
+
+			expect(mockLLM.getMessageCalls()).to.have.lengthOf(1);
+			const finalContent = await fss.readFile('/repo/test.ts');
+			expect(finalContent).to.contain('hello universe');
+		});
+	});
+
+	describe('on Attempt Exhaustion', () => {
+		it('should throw CoderExhaustedAttemptsError when max attempts are reached with persistent failures', async () => {
+			setupMockFs({ '/repo/test.ts': 'content' });
+			const failingBlock = searchReplaceBlock('test.ts', 'non-matching', 'new content');
+			// Always respond with an invalid block, and always fail to fix it
+			for (let i = 0; i < 5; i++) {
+				// MAX_ATTEMPTS is 5
+				mockLLM.addMessageResponse(failingBlock).addMessageResponse('null'); // Fix always fails
+			}
+
+			let error: Error | null = null;
+			try {
+				await coder.editFilesToMeetRequirements('test', ['test.ts'], []);
+			} catch (e) {
+				error = e as Error;
+			}
+
+			expect(error).to.be.instanceOf(CoderExhaustedAttemptsError);
+			// 5 attempts = 5 message calls (initial attempt) + 5 text calls (fix attempt)
+			expect(mockLLM.getCallCount()).to.equal(10);
+			if (error instanceof CoderExhaustedAttemptsError) {
+				expect(error.lastReflection).to.be.a('string');
+				expect(error.lastReflection).to.contain('This SEARCH block failed to exactly match lines in test.ts');
+			}
+		});
+	});
 });
