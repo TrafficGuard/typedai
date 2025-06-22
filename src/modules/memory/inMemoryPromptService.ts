@@ -12,7 +12,10 @@ export class InMemoryPromptService implements PromptsService {
 	 * This ensures that the in-memory store is not mutated by external references.
 	 */
 	private _deepCopyPrompt(prompt: Prompt): Prompt {
-		return JSON.parse(JSON.stringify(prompt));
+		// Use structuredClone to accurately preserve all properties, including those
+		// explicitly set to undefined. JSON serialization drops such keys which
+		// causes deep-equality test failures.
+		return structuredClone(prompt);
 	}
 
 	/**
@@ -81,7 +84,7 @@ export class InMemoryPromptService implements PromptsService {
 			parentId: promptData.parentId,
 			appId: promptData.appId,
 			tags: [...promptData.tags], // Deep copy of tags array
-			messages: JSON.parse(JSON.stringify(promptData.messages)), // Deep copy of messages array
+			messages: structuredClone(promptData.messages), // Deep copy of messages array (preserves undefined properties)
 			settings: { ...promptData.settings }, // Shallow copy of options object
 		};
 
@@ -113,7 +116,7 @@ export class InMemoryPromptService implements PromptsService {
 			if (updates.appId !== undefined) newRevision.appId = updates.appId;
 
 			if (updates.tags) newRevision.tags = [...updates.tags];
-			if (updates.messages) newRevision.messages = JSON.parse(JSON.stringify(updates.messages));
+			if (updates.messages) newRevision.messages = structuredClone(updates.messages);
 			if (updates.settings) newRevision.settings = { ...updates.settings }; // Shallow copy of new options
 
 			newRevision.revisionId = latestRevisionInArray.revisionId + 1;
@@ -129,7 +132,7 @@ export class InMemoryPromptService implements PromptsService {
 		if (updates.appId !== undefined) targetRevision.appId = updates.appId;
 
 		if (updates.tags) targetRevision.tags = [...updates.tags];
-		if (updates.messages) targetRevision.messages = JSON.parse(JSON.stringify(updates.messages));
+		if (updates.messages) targetRevision.messages = structuredClone(updates.messages);
 		if (updates.settings) targetRevision.settings = { ...updates.settings }; // Shallow copy of new options
 
 		// No change to revisionId, object already in map is mutated
