@@ -866,7 +866,7 @@ export function runAgentStateServiceTests(
 		// Added test for NotAllowed error
 		it('should throw NotAllowed when loading iterations for an agent not owned by current user', async () => {
 			// agentIdForOtherUser was saved for otherUser in beforeEach, with an iteration
-			currentUserStub.returns(testUser); // Ensure current user is testUser
+			setCurrentUser(testUser); // Ensure current user is testUser
 
 			await expect(service.loadIterations(agentIdForOtherUser)).to.be.rejectedWith(NotAllowed);
 		});
