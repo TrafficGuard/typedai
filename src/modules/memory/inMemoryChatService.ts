@@ -54,7 +54,7 @@ export class InMemoryChatService implements ChatService {
 			chat.userId = existing.userId; // preserve owner
 			chat.updatedAt = Date.now();
 		} else {
-		/* ------------------- INSERT -------------------------- */
+			/* ------------------- INSERT -------------------------- */
 			chat.userId = chat.userId ?? currentUserId;
 			chat.updatedAt = chat.updatedAt ?? Date.now();
 		}
