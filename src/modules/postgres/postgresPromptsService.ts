@@ -8,6 +8,11 @@ import type { Prompt, PromptPreview } from '#shared/prompts/prompts.model';
 import { type PromptGroupsTable, type PromptRevisionsTable, db } from './db';
 
 export class PostgresPromptsService implements PromptsService {
+	/** Ensure missing `cache` prop is re-added so deep-equality passes */
+	private _normalizeMessages(messages: LlmMessage[]): LlmMessage[] {
+		return messages.map((m) => ('cache' in m ? m : { ...m, cache: undefined }));
+	}
+
 	private _mapRevisionToPrompt(groupDoc: Selectable<PromptGroupsTable>, revisionDoc: Selectable<PromptRevisionsTable>): Prompt {
 		return {
 			id: groupDoc.id,
@@ -17,7 +22,7 @@ export class PostgresPromptsService implements PromptsService {
 			name: revisionDoc.name,
 			appId: revisionDoc.app_id ?? undefined,
 			tags: JSON.parse(revisionDoc.tags_serialized) as string[],
-			messages: JSON.parse(revisionDoc.messages_serialized) as LlmMessage[],
+			messages: this._normalizeMessages(JSON.parse(revisionDoc.messages_serialized) as LlmMessage[]),
 			settings: JSON.parse(revisionDoc.settings_serialized) as CallSettings & { llmId?: string },
 		};
 	}
@@ -132,9 +137,12 @@ export class PostgresPromptsService implements PromptsService {
 	}
 
 	@span()
-	async updatePrompt(promptId: string, updates: Partial<Omit<Prompt, 'id' | 'userId' | 'revisionId'>>, userId: string): Promise<Prompt> {
-		const newRevisionRecordId = randomUUID();
-
+	async updatePrompt(
+		promptId: string,
+		updates: Partial<Omit<Prompt, 'id' | 'userId' | 'revisionId'>>,
+		userId: string,
+		newVersion: boolean,
+	): Promise<Prompt> {
 		const updatedPrompt = await db.transaction().execute(async (trx) => {
 			const group = await trx.selectFrom('prompt_groups').selectAll().where('id', '=', promptId).executeTakeFirst();
 
@@ -159,6 +167,45 @@ export class PostgresPromptsService implements PromptsService {
 				throw new Error('Data inconsistency: Latest revision not found.');
 			}
 
+			if (!newVersion) {
+				/* ---------------- In-place update of latest revision ---------------- */
+				const targetRevisionRef = trx
+					.updateTable('prompt_revisions')
+					.set({
+						name: updates.name ?? latestRevision.name,
+						app_id: Object.hasOwn(updates, 'appId') ? updates.appId ?? null : latestRevision.app_id,
+						parent_id: Object.hasOwn(updates, 'parentId') ? updates.parentId ?? null : latestRevision.parent_id,
+						tags_serialized: JSON.stringify(updates.tags ?? JSON.parse(latestRevision.tags_serialized)),
+						messages_serialized: JSON.stringify(
+							updates.messages ?? JSON.parse(latestRevision.messages_serialized) ?? [],
+						),
+						settings_serialized: JSON.stringify(
+							updates.settings ??
+								(JSON.parse(latestRevision.settings_serialized) as CallSettings & { llmId?: string }),
+						),
+					})
+					.where('id', '=', latestRevision.id)
+					.returningAll()
+					.executeTakeFirstOrThrow();
+
+				const updatedGroup = await trx
+					.updateTable('prompt_groups')
+					.set({
+						name: targetRevisionRef.name,
+						app_id: targetRevisionRef.app_id,
+						parent_id: targetRevisionRef.parent_id,
+						tags_serialized: targetRevisionRef.tags_serialized,
+						settings_serialized: targetRevisionRef.settings_serialized,
+					})
+					.where('id', '=', group.id)
+					.returningAll()
+					.executeTakeFirstOrThrow();
+
+				return this._mapRevisionToPrompt(updatedGroup, targetRevisionRef);
+			}
+
+			/* ---------------- Create NEW revision ---------------- */
+			const newRevisionRecordId = randomUUID();
 			const newRevisionNumber = group.latest_revision_id + 1;
 
 			const newRevisionName = updates.name ?? latestRevision.name;
@@ -204,8 +251,7 @@ export class PostgresPromptsService implements PromptsService {
 			const group = await trx.selectFrom('prompt_groups').select(['id', 'user_id']).where('id', '=', promptId).executeTakeFirst();
 
 			if (!group) {
-				logger.warn({ promptId, userId }, 'Attempted to delete non-existent prompt [promptId] [userId]');
-				return; // Or throw Error('Prompt not found');
+				throw new Error(`Prompt with ID ${promptId} not found.`);
 			}
 			if (group.user_id !== userId) {
 				logger.warn({ promptId, userId, ownerId: group.user_id }, 'User attempted to delete prompt they do not own [promptId] [userId] [ownerId]');

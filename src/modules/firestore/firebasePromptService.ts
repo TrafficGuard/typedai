@@ -51,6 +51,11 @@ export class FirebasePromptService implements PromptsService {
 	}
 
 	// Helper to convert a RevisionDoc and its parent PromptGroupDoc's ID to a Prompt object
+	/** Re-add `cache` field so objects round-trip identical */
+	private _normalizeMessages(messages: LlmMessage[]): LlmMessage[] {
+		return messages.map((m) => ('cache' in m ? m : { ...m, cache: undefined }));
+	}
+
 	private _toPrompt(promptGroupId: string, revisionDocData: RevisionDoc): Prompt {
 		return {
 			id: promptGroupId,
@@ -60,7 +65,7 @@ export class FirebasePromptService implements PromptsService {
 			name: revisionDocData.name,
 			appId: revisionDocData.appId === null ? undefined : revisionDocData.appId,
 			tags: revisionDocData.tags,
-			messages: revisionDocData.messages,
+			messages: this._normalizeMessages(revisionDocData.messages),
 			settings: revisionDocData.options,
 		};
 	}
@@ -298,10 +303,7 @@ export class FirebasePromptService implements PromptsService {
 		const promptGroupSnap = await promptGroupRef.get();
 
 		if (!promptGroupSnap.exists) {
-			// If prompt doesn't exist, consider it successfully "deleted" or throw specific error
-			// throw new Error('Prompt not found');
-			logger.warn(`Attempted to delete non-existent prompt ${promptId}`);
-			return; // Or throw error as per desired behavior
+			throw new Error(`Prompt with ID ${promptId} not found.`);
 		}
 
 		const groupDocData = promptGroupSnap.data() as PromptGroupDoc;
