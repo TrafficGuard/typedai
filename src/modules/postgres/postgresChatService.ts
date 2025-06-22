@@ -68,26 +68,30 @@ export class PostgresChatService implements ChatService {
 	@span()
 	async saveChat(chat: Chat): Promise<Chat> {
 		const currentUserId = currentUser().id;
-		const now = Date.now();
 		chat.userId = chat.userId || currentUserId;
-		chat.updatedAt = now; // keep chat & DB in-sync
 		chat.id = chat.id || randomUUID();
-		// Removed early userId check
+		// keep caller-supplied updatedAt for new chats; generate it only when missing
+		if (chat.updatedAt === undefined) {
+			chat.updatedAt = Date.now();
+		}
 
 		if (!chat.title) throw new Error('chat title is required');
 
-		// Try to update first (only if an id is supplied).  If no row was
+		// Try to update first (only if an id is supplied). If no row was
 		// touched we fall back to an insert – this lets callers pass a
 		// pre-allocated id on the first write.
 		let row: Selectable<ChatsTable> | undefined;
 
 		if (chat.id) {
-			const updateData = this.mapChatToDbUpdate(chat);
+			const updateData = this.mapChatToDbUpdate({
+				...chat,
+				updatedAt: Date.now(), // force new timestamp on updates
+			});
 			row = await db
 				.updateTable('chats')
 				.set(updateData)
 				.where('id', '=', chat.id)
-				.where('user_id', '=', currentUserId) // <-- Changed here
+				.where('user_id', '=', currentUserId)
 				.returningAll()
 				.executeTakeFirst();
 		}
