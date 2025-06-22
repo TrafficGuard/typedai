@@ -1,7 +1,18 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { agentContext } from '#agent/agentContextLocalStorage';
-import { appContext } from '#app/applicationContext';
 import type { User } from '#shared/user/user.model';
+
+// Lazy accessors – use require() to defer evaluation until first call.
+// This avoids running #agent/… (which indirectly imports functionDecorators)
+// before this module finishes initialising.
+function agentCtx() {
+	// eslint-disable-next-line @typescript-eslint/no-var-requires
+	return (require('#agent/agentContextLocalStorage') as typeof import('#agent/agentContextLocalStorage')).agentContext();
+}
+
+function appCtx() {
+	// eslint-disable-next-line @typescript-eslint/no-var-requires
+	return (require('#app/applicationContext') as typeof import('#app/applicationContext')).appContext();
+}
 
 const userContextStorage = new AsyncLocalStorage<User>();
 
@@ -24,13 +35,13 @@ export function isSingleUser(): boolean {
  * @returns If called in an agent's execution, returns the agent's user, otherwise the user from a web request, or the single user if in single user mode.
  */
 export function currentUser(): User {
-	const agent = agentContext();
+	const agent = agentCtx();
 	if (agent) return agent.user;
 
 	const user = userContextStorage.getStore();
 	if (!user) {
 		if (isSingleUser()) {
-			return appContext().userService.getSingleUser();
+			return appCtx().userService.getSingleUser();
 		}
 		throw new Error('User has not been set on the userContextStorage');
 	}
