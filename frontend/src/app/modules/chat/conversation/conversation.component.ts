@@ -50,6 +50,7 @@ import { LLM, LlmService } from '../../llm.service';
 import { attachmentsAndTextToUserContentExt, fileToAttachment, userContentExtToAttachmentsAndText } from '../../messageUtil';
 import { ChatServiceClient } from '../chat.service';
 import { ClipboardButtonComponent } from './clipboard-button.component';
+import { MatExpansionModule } from '@angular/material/expansion';
 
 @Component({
 	selector: 'chat-conversation',
@@ -63,6 +64,7 @@ import { ClipboardButtonComponent } from './clipboard-button.component';
 		MatSidenavModule,
 		ChatInfoComponent,
 		MatButtonModule,
+		MatExpansionModule,
 		MatIconModule,
 		MatMenuModule,
 		MatTooltipModule,
@@ -815,7 +817,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 		let userMessagePromptIndex = -1;
 		for (let i = messageIndex - 1; i >= 0; i--) {
 			if (currentChat.messages[i].isMine) {
-				lastUserMessageContent = currentChat.messages[i].content;
+				lastUserMessageContent = currentChat.messages[i].content as UserContentExt;
 				userMessagePromptIndex = i;
 				break;
 			}

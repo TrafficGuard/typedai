@@ -1,8 +1,8 @@
 import { type GoogleGenerativeAIProvider, createGoogleGenerativeAI } from '@ai-sdk/google';
-import { type LlmCostFunction, fixedCostPerMilTokens } from '#llm/base-llm';
+import { fixedCostPerMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
 import { gemini2_5_Pro_CostFunction } from '#llm/services/vertexai';
-import type { LLM } from '#shared/llm/llm.model';
+import type { LLM, LlmCostFunction } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 
 export const GEMINI_SERVICE = 'gemini';

@@ -77,7 +77,7 @@ export function execCmdSync(command: string, cwd = getFileSystem().getWorkingDir
 			cwd,
 		};
 	} catch (error) {
-		logger.error(error);
+		logger.error(error, `Error executing command: ${command} in ${cwd}`);
 		return {
 			cmd: command,
 			stdout: error.stdout?.toString() || '',

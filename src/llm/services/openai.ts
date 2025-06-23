@@ -1,7 +1,6 @@
 import { type OpenAIProvider, createOpenAI } from '@ai-sdk/openai';
-import type { LlmCostFunction } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
-import type { GenerateTextOptions, LLM, LlmMessage } from '#shared/llm/llm.model';
+import type { GenerateTextOptions, LLM, LlmCostFunction, LlmMessage } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 
 export const OPENAI_SERVICE = 'openai';

@@ -101,6 +101,25 @@
                                     }"
                                     style="max-width: 1000px !important;"
                                 >
+
+                                    <!-- Reasoning -->
+                                    @if (message.reasoning) {
+                                        <mat-expansion-panel class="mb-3">
+                                            <mat-expansion-panel-header>
+                                                <mat-panel-title>
+                                                    Reasoning
+                                                </mat-panel-title>
+                                            </mat-expansion-panel-header>
+                                            <markdown
+                                                mermaid
+                                                clipboard
+                                                [clipboardButtonComponent]="clipboardButton"
+                                                [data]="message.reasoning"
+                                                ngPreserveWhitespaces
+                                            ></markdown>
+                                        </mat-expansion-panel>
+                                    }
+
                                     <!-- Message -->
                                     <div class="min-w-4 leading-5">
                                         <markdown

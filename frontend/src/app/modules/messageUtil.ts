@@ -1,5 +1,5 @@
 import { Attachment } from 'app/modules/message.types';
-import { FilePartExt, ImagePartExt, TextPart, UserContentExt } from '#shared/llm/llm.model';
+import { AssistantContentExt, FilePartExt, ImagePartExt, TextPart, UserContentExt } from '#shared/llm/llm.model';
 
 // Helper function to convert File to base64 string (extracting only the data part)
 async function fileToBase64(file: File): Promise<string> {
@@ -107,17 +107,18 @@ export async function attachmentsAndTextToUserContentExt(attachments: Attachment
  * @param content The UserContentExt data.
  * @returns An object containing an array of Attachments and a text string.
  */
-export function userContentExtToAttachmentsAndText(content: UserContentExt | undefined): { attachments: Attachment[]; text: string } {
+export function userContentExtToAttachmentsAndText(content: UserContentExt | AssistantContentExt | undefined): { attachments: Attachment[]; text: string; reasoning: string } {
 	let text = '';
+	let reasoning = '';
 	const attachments: Attachment[] = [];
-
+	
 	if (!content) {
-		return { attachments, text };
+		return { attachments, text, reasoning };
 	}
 
 	if (typeof content === 'string') {
 		text = content;
-		return { attachments, text };
+		return { attachments, text, reasoning };
 	}
 
 	if (Array.isArray(content)) {
@@ -127,7 +128,9 @@ export function userContentExtToAttachmentsAndText(content: UserContentExt | und
 					text += '\n'; // Add newline if concatenating multiple text parts
 				}
 				text += (part as TextPart).text;
-			} else if (part.type === 'image') {
+			} else if (part.type === 'reasoning') {
+				reasoning = part.text;
+			}else if (part.type === 'image') {
 				const imagePart = part as ImagePartExt;
 				const attachment: Attachment = {
 					type: 'image',
@@ -158,5 +161,5 @@ export function userContentExtToAttachmentsAndText(content: UserContentExt | und
 		}
 	}
 
-	return { attachments, text };
+	return { attachments, text, reasoning };
 }

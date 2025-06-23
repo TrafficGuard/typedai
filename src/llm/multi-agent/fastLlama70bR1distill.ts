@@ -4,7 +4,6 @@ import { togetherLlama3_70B_R1_Distill } from '#llm/services/together';
 import { logger } from '#o11y/logger';
 import type { GenerateTextOptions, LLM, LlmMessage } from '#shared/llm/llm.model';
 import { BaseLLM } from '../base-llm';
-import { groqLlama3_3_70B_R1_Distill } from '../services/groq';
 
 /**
  * LLM implementation for Llama 3.3 70b DeepSeek R1 distill that prioritizes speed and falls back to other providers.
@@ -19,7 +18,7 @@ export class MultiLlama3_70B_R1_Distill extends BaseLLM {
 			totalCost: 0,
 		}));
 		// Define the providers and their priorities. Lower number = higher priority
-		this.providers = [groqLlama3_3_70B_R1_Distill(), sambanovaLlama3_3_70b_R1_Distill(), togetherLlama3_70B_R1_Distill(), deepinfraDeepSeekR1()];
+		this.providers = [sambanovaLlama3_3_70b_R1_Distill(), togetherLlama3_70B_R1_Distill(), deepinfraDeepSeekR1()];
 
 		this.maxInputTokens = Math.max(...this.providers.map((p) => p.getMaxInputTokens()));
 	}

@@ -1,17 +1,15 @@
-import { type GenerateTextResult, StreamTextResult, type TextStreamPart } from 'ai';
+import { type TextStreamPart } from 'ai';
 import { countTokens } from '#llm/tokens';
 import type { AgentContext } from '#shared/agent/agent.model';
 import {
 	type GenerateJsonOptions,
 	type GenerateTextOptions,
-	// Import GenerateTextWithJsonResponse
 	type GenerateTextWithJsonResponse,
 	type GenerationStats,
 	type LLM,
+	LlmCostFunction,
 	type LlmMessage,
 	type Prompt,
-	SystemUserPrompt,
-	// Import assistant
 	assistant,
 	isSystemUserPrompt,
 	messageText,
@@ -25,22 +23,6 @@ export interface SerializedLLM {
 	service: string;
 	model: string;
 }
-
-/**
- * Function signature for calculating LLM costs.
- * @param inputTokens - The number of input tokens used.
- * @param outputTokens - The number of output tokens generated.
- * @param usage - Optional provider-specific usage metadata (e.g., cache info, search queries).
- * @param completionTime - Optional timestamp when the LLM call completed.
- * @returns An object containing the calculated inputCost, outputCost, and totalCost.
- */
-export type LlmCostFunction = (
-	inputTokens: number,
-	outputTokens: number,
-	usage?: any,
-	completionTime?: Date,
-	result?: GenerateTextResult<any, any>,
-) => { inputCost: number; outputCost: number; totalCost: number };
 
 export function fixedCostPerMilTokens(inputMil: number, outputMil: number): LlmCostFunction {
 	return (inputTokens: number, outputTokens: number) => {

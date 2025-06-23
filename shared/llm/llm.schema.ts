@@ -134,7 +134,7 @@ const _CallSettingsCheck: AreTypesFullyCompatible<CallSettings, Static<typeof Ca
 const GenerateTextOptionsSpecificSchema = Type.Object({
 	type: Type.Optional(Type.Union([Type.Literal('text'), Type.Literal('json')])),
 	id: Type.Optional(Type.String()),
-	thinking: Type.Optional(Type.Union([Type.Literal('low'), Type.Literal('medium'), Type.Literal('high')])),
+	thinking: Type.Optional(Type.Union([Type.Literal('none'), Type.Literal('low'), Type.Literal('medium'), Type.Literal('high')])),
 });
 
 export const GenerateTextOptionsSchema = Type.Intersect([CallSettingsSchema, GenerateTextOptionsSpecificSchema], { $id: 'GenerateTextOptions' });

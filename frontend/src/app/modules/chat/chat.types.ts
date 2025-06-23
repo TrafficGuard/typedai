@@ -1,4 +1,4 @@
-import { UserContentExt } from '#shared/llm/llm.model';
+import { AssistantContentExt, UserContentExt } from '#shared/llm/llm.model';
 import { UIMessage } from '../message.types';
 
 export const NEW_CHAT_ID = 'new';
@@ -14,7 +14,7 @@ export interface Chat {
 	unreadCount?: number;
 	lastMessage?: string;
 	lastMessageAt?: string;
-	updatedAt: number; // Ensure this is consistently a number (timestamp)
+	updatedAt: number;
 	messages?: ChatMessage[];
 	parentId?: string;
 	rootId?: string;
@@ -25,7 +25,7 @@ export interface ChatMessage extends Omit<UIMessage, 'content'> {
 	// textContent from UIMessage is inherited.
 	// UIMessage.content (TextContent[]) is omitted.
 	// ChatMessage defines its own 'content' of type UserContentExt.
-	content: UserContentExt; // New primary content field, superseding UIMessage.content
+	content: UserContentExt | AssistantContentExt;
 	isMine?: boolean;
 	generating?: boolean;
 	status?: 'sending' | 'sent' | 'failed_to_send';

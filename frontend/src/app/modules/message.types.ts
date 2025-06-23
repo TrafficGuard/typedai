@@ -20,6 +20,7 @@ export interface UIMessage {
 	createdAt?: string;
 	content?: TextContent[];
 	textContent: string;
+	reasoning?: string;
 	fileAttachments?: Attachment[];
 	imageAttachments?: Attachment[];
 	stats?: GenerationStats;

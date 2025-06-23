@@ -45,7 +45,7 @@ export class GoogleCloudLinks implements AgentLinks {
 		}
 		return `https://console.cloud.google.com/firestore/databases/${
 			environment.databaseName || '(default)'
-		}/data/panel/Chat/${chatId}?project=${environment.gcpProject}`;
+		}/data/panel/Chats/${chatId}?project=${environment.gcpProject}`;
 	}
 
 	llmCallUrl(call: LlmCall): string {

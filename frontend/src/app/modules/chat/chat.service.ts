@@ -14,7 +14,7 @@ import {
 	ChatUpdateDetailsPayload,
 	RegenerateMessagePayload,
 } from '#shared/chat/chat.schema';
-import { LlmMessage as ApiLlmMessage } from '#shared/llm/llm.model';
+import { LlmMessage as ApiLlmMessage, AssistantContentExt, ReasoningPart } from '#shared/llm/llm.model';
 import { CallSettings, FilePartExt, ImagePartExt, TextPart, UserContentExt } from '#shared/llm/llm.model';
 
 import { callApiRoute } from 'app/core/api-route';
@@ -732,16 +732,19 @@ export class ChatServiceClient {
  */
 function convertMessage(apiLlmMessage: ApiLlmMessage): ChatMessage {
 	const sourceApiContent = apiLlmMessage.content; // This is CoreContent from 'ai' (via shared/model/llm.model LlmMessage type)
-	let chatMessageSpecificContent: UserContentExt; // Target type for ChatMessage.content
+	let chatMessageSpecificContent: UserContentExt | AssistantContentExt; // Target type for ChatMessage.content
 
 	if (typeof sourceApiContent === 'string') {
 		chatMessageSpecificContent = sourceApiContent;
 	} else if (Array.isArray(sourceApiContent)) {
 		// Map parts from API's CoreContent to UserContentExt parts (TextPart, ImagePartExt, FilePartExt)
-		const extendedParts: Array<TextPart | ImagePartExt | FilePartExt> = sourceApiContent
+		const extendedParts: Array<TextPart | ImagePartExt | FilePartExt | ReasoningPart> = sourceApiContent
 			.map((part) => {
 				if (part.type === 'text') {
 					return part as TextPart; // TextPart is directly compatible
+				}
+				if (part.type === 'reasoning') {
+					return part as ReasoningPart;
 				}
 				if (part.type === 'image') {
 					// API part is 'ai'.ImagePart, map to ImagePartExt
@@ -801,7 +804,7 @@ function convertMessage(apiLlmMessage: ApiLlmMessage): ChatMessage {
 	}
 
 	// Derive UIMessage fields from the authoritative chatMessageSpecificContent for compatibility
-	const { attachments: uiAttachmentsFromUserContent, text: uiTextContentForUIMessage } = userContentExtToAttachmentsAndText(chatMessageSpecificContent);
+	const { attachments: uiAttachmentsFromUserContent, text: uiTextContentForUIMessage, reasoning } = userContentExtToAttachmentsAndText(chatMessageSpecificContent);
 
 	let uiMessageCompatibleContentField: TextContent[] | undefined;
 	if (typeof chatMessageSpecificContent === 'string') {
@@ -830,6 +833,7 @@ function convertMessage(apiLlmMessage: ApiLlmMessage): ChatMessage {
 		id: (apiLlmMessage as any).id || uuidv4(), // Ensure all messages have a unique ID for trackBy
 		textContent: uiTextContentForUIMessage,
 		content: uiMessageCompatibleContentField, // UIMessage.content (TextContent[])
+		reasoning,
 		imageAttachments: uiAttachmentsFromUserContent.filter((att) => att.type === 'image'),
 		fileAttachments: uiAttachmentsFromUserContent.filter((att) => att.type === 'file'),
 		stats: apiLlmMessage.stats,

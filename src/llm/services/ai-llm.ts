@@ -15,7 +15,7 @@ import {
 import { addCost, agentContext } from '#agent/agentContextLocalStorage';
 import { cloneAndTruncateBuffers } from '#agent/trimObject';
 import { appContext } from '#app/applicationContext';
-import { BaseLLM, type LlmCostFunction } from '#llm/base-llm';
+import { BaseLLM } from '#llm/base-llm';
 import { type CreateLlmRequest, callStack } from '#llm/llmCallService/llmCall';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
@@ -26,6 +26,7 @@ import {
 	type GenerateTextOptions,
 	type GenerationStats,
 	type ImagePartExt,
+	LlmCostFunction,
 	type LlmMessage,
 	type ReasoningPart,
 	type RedactedReasoningPart,
@@ -206,9 +207,9 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 			try {
 				const providerOptions: any = {};
 				if (combinedOpts.thinking) {
-					if (this.getService() === 'groq') {
-						providerOptions.groq = { reasoningFormat: 'parsed' };
-					}
+					// if (this.getService() === 'groq') {
+					// 	providerOptions.groq = { reasoningFormat: 'parsed' };
+					// }
 
 					// https://sdk.vercel.ai/docs/guides/o3#refining-reasoning-effort
 					if (this.getService() === 'openai' && this.model.startsWith('o')) providerOptions.openai = { reasoningEffort: combinedOpts.thinking };
@@ -286,9 +287,47 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 					timeToFirstToken: llmCall.timeToFirstToken,
 					totalTime: llmCall.totalTime,
 				};
+
+				// Convert to AssistantContentExt
+				const assistantMsg = result.response.messages.find((msg) => msg.role === 'assistant');
+				const assistantContent: AssistantContentExt = [];
+				if (Array.isArray(assistantMsg.content)) {
+					for (const content of assistantMsg.content) {
+						if (content.type === 'text') {
+							assistantContent.push({
+								type: 'text',
+								text: content.text.trim(),
+							});
+						} else if (content.type === 'reasoning') {
+							assistantContent.push({
+								type: 'reasoning',
+								text: content.text.trim(),
+							});
+						} else if (content.type === 'tool-call') {
+							assistantContent.push({
+								type: 'tool-call',
+								toolCallId: content.toolCallId,
+								toolName: content.toolName,
+								args: content.args,
+							});
+						}
+						// else if(content.type === 'file') {
+						// 	assistantContent.push({
+						// 		type: 'image',
+						// 		url: content.url,
+						// 	})
+						// }
+					}
+				} else {
+					assistantContent.push({
+						type: 'text',
+						text: assistantMsg.content,
+					});
+				}
+
 				const message: LlmMessage = {
 					role: 'assistant',
-					content: responseText,
+					content: assistantContent,
 					stats,
 				};
 

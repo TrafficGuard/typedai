@@ -2,10 +2,9 @@ import { type GoogleVertexAnthropicProvider, createVertexAnthropic } from '@ai-s
 import { AiLLM } from '#llm/services/ai-llm';
 import { logger } from '#o11y/logger';
 import type { AgentLLMs } from '#shared/agent/agent.model';
-import type { LLM } from '#shared/llm/llm.model';
+import type { LLM, LlmCostFunction } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 import { envVar } from '#utils/env-var';
-import type { LlmCostFunction } from '../base-llm';
 
 export const ANTHROPIC_VERTEX_SERVICE = 'anthropic-vertex';
 

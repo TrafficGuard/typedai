@@ -6,7 +6,6 @@ import { cerebrasLlama3_8b } from '#llm/services/cerebras';
 import { deepinfraDeepSeekR1, deepinfraQwen3_235B_A22B } from '#llm/services/deepinfra';
 import { deepSeekV3 } from '#llm/services/deepseek';
 import { fireworksLlama3_70B } from '#llm/services/fireworks';
-import { groqLlama3_3_70B } from '#llm/services/groq';
 import { nebiusDeepSeekR1 } from '#llm/services/nebius';
 import { Ollama_Phi3 } from '#llm/services/ollama';
 import { GPT41mini } from '#llm/services/openai';
@@ -16,6 +15,7 @@ import { togetherLlama3_70B } from '#llm/services/together';
 import { vertexGemini_2_0_Flash_Lite, vertexGemini_2_5_Flash, vertexGemini_2_5_Flash_Lite, vertexGemini_2_5_Pro } from '#llm/services/vertexai';
 import type { LlmMessage } from '#shared/llm/llm.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
+import { groqQwen3_32b } from './groq';
 
 const elephantBase64 = fs.readFileSync('test/llm/purple.jpg', 'base64');
 const pdfBase64 = fs.readFileSync('test/llm/document.pdf', 'base64');
@@ -170,7 +170,7 @@ describe('LLMs', () => {
 	});
 
 	describe('Groq', () => {
-		const llm = groqLlama3_3_70B();
+		const llm = groqQwen3_32b();
 
 		it('should generateText', async () => {
 			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });

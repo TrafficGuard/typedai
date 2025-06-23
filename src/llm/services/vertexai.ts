@@ -1,10 +1,12 @@
 import { type GoogleVertexProvider, createVertex } from '@ai-sdk/google-vertex';
 import { HarmBlockThreshold, HarmCategory, type SafetySetting } from '@google-cloud/vertexai';
-import { type LlmCostFunction, fixedCostPerMilTokens } from '#llm/base-llm';
+import { type GenerateTextResult, LanguageModelResponseMetadata } from 'ai';
+import axios from 'axios';
+import { fixedCostPerMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
 import { countTokens, countTokensSync } from '#llm/tokens';
 import { logger } from '#o11y/logger';
-import { type GenerateTextOptions, type LLM } from '#shared/llm/llm.model';
+import { type GenerateTextOptions, type LLM, LlmCostFunction, combinePrompts } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 import { envVar } from '#utils/env-var';
 

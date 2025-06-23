@@ -4,6 +4,7 @@ import type {
 	ImagePart as AiImagePart, // Renamed
 	AssistantContent,
 	CoreMessage,
+	GenerateTextResult,
 	ToolCallPart as ModelToolCallPart, // Corrected import: ModelToolCallPart is an alias for ToolCallPart
 	ToolContent as ModelToolContent, // Alias to avoid conflict if we re-export
 	TextPart,
@@ -14,7 +15,6 @@ import type {
 } from 'ai';
 export type { AssistantContent } from 'ai'; // Re-export AssistantContent
 export type ToolContent = ModelToolContent; // Re-export ToolContent
-import { ChangePropertyType } from '../typeUtils';
 
 // Local definitions for unexported types from 'ai'
 export interface ReasoningPart {
@@ -76,11 +76,13 @@ export interface CallSettings {
 	maxOutputTokens?: number;
 }
 
+export type ThinkingLevel = 'none' | 'low' | 'medium' | 'high';
+
 export interface GenerateTextOptions extends CallSettings {
 	type?: 'text' | 'json';
 	/** Identifier used in trace spans, UI etc */
 	id?: string;
-	thinking?: 'low' | 'medium' | 'high'; // For openai o series and Claude Sonnet 3.7
+	thinking?: ThinkingLevel;
 }
 
 /**
@@ -443,3 +445,19 @@ export interface LlmCallMessageSummaryPart {
 	imageCount: number;
 	fileCount: number;
 }
+
+/**
+ * Function signature for calculating LLM costs.
+ * @param inputTokens - The number of input tokens used.
+ * @param outputTokens - The number of output tokens generated.
+ * @param usage - Optional provider-specific usage metadata (e.g., cache info, search queries).
+ * @param completionTime - Optional timestamp when the LLM call completed.
+ * @returns An object containing the calculated inputCost, outputCost, and totalCost.
+ */
+export type LlmCostFunction = (
+	inputTokens: number,
+	outputTokens: number,
+	usage?: any,
+	completionTime?: Date,
+	result?: GenerateTextResult<any, any>,
+) => { inputCost: number; outputCost: number; totalCost: number };

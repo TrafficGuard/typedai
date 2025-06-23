@@ -1,7 +1,7 @@
 import { type OpenAIProvider, createOpenAI } from '@ai-sdk/openai';
-import { type LlmCostFunction, fixedCostPerMilTokens } from '#llm/base-llm';
+import { fixedCostPerMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
-import type { LLM } from '#shared/llm/llm.model';
+import type { LLM, LlmCostFunction } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 
 export const XAI_SERVICE = 'xai';
