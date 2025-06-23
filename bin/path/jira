@@ -8,24 +8,21 @@ if [ -z "$TYPEDAI_HOME" ]; then
   exit 1
 fi
 
-# Check if exactly one argument is passed
-if [ $# -ne 1 ]; then
-  echo "Usage: jira <jira_id>"
+# Need at least the Jira id
+if [ $# -lt 1 ]; then
+  echo "Usage: jira <jira_id> [extra words …]"
   exit 1
 fi
 
-# Capture the argument
-arg=$1
+jira_id=$1      # first arg is the issue key
+shift           # $@ now holds any extra words for the prompt
 
 CWD=$(pwd)
 
-# Load NVM
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
 # Run the npm script with the argument and the filesystem arg
 (
   cd "$TYPEDAI_HOME"
   nvm use
-  npm run agent -- --fs="${CWD}" -f=jira,swe,slack "Complete Jira $arg"
+  npm run agent -- --fs="${CWD}" -f=jira,swe,slack "Complete Jira ${jira_id}" "$@"
 )
