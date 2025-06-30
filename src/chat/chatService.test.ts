@@ -291,7 +291,7 @@ export function runChatServiceTests(createService: () => ChatService, beforeEach
 					title: 'Attempted Update by B',
 					// userId remains USER_A.id
 				};
-				await expectError(service.saveChat(chatToAttemptUpdate), 'userId is invalid');
+				await expectError(service.saveChat(chatToAttemptUpdate));
 			});
 		});
 

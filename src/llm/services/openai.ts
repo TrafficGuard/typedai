@@ -7,9 +7,9 @@ export const OPENAI_SERVICE = 'openai';
 
 export function openAiLLMRegistry(): Record<string, () => LLM> {
 	return {
-		'openai:gpt-4.1': () => GPT41(),
-		'openai:gpt-4.1-mini': () => GPT41mini(),
-		'openai:gpt-4.1-nano': () => GPT41nano(),
+		'openai:gpt-4.1': () => openaiGPT41(),
+		'openai:gpt-4.1-mini': () => openaiGPT41mini(),
+		'openai:gpt-4.1-nano': () => openaiGPT41nano(),
 		'openai:o3': () => openAIo3(),
 		'openai:o4-mini': () => openAIo4mini(),
 	};
@@ -43,15 +43,15 @@ export function openAIo4mini() {
 	return new OpenAI('OpenAI o4-mini', 'o4-mini', openAICostFunction(1.1, 4.4), 200_000);
 }
 
-export function GPT41() {
+export function openaiGPT41() {
 	return new OpenAI('GPT4.1', 'gpt-4.1', openAICostFunction(2, 8), 1_047_576);
 }
 
-export function GPT41mini() {
+export function openaiGPT41mini() {
 	return new OpenAI('GPT4.1 mini', 'gpt-4.1-mini', openAICostFunction(0.4, 1.6), 1_047_576);
 }
 
-export function GPT41nano() {
+export function openaiGPT41nano() {
 	return new OpenAI('GPT4.1 nano', 'gpt-4.1-nano', openAICostFunction(0.1, 0.4), 1_047_576);
 }
 

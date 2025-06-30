@@ -11,7 +11,6 @@ import { FileSystemService } from '#functions/storage/fileSystemService';
 import { MultiLLM } from '#llm/multi-llm';
 import { Claude4_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { defaultLLMs } from '#llm/services/defaultLlms';
-import { GPT41 } from '#llm/services/openai';
 import type { AgentContext, AgentLLMs } from '#shared/agent/agent.model';
 import { SearchReplaceCoder } from '#swe/coder/searchReplaceCoder';
 import { envVarHumanInLoopSettings } from './cliHumanInLoop';

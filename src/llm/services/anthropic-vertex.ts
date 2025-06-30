@@ -20,18 +20,18 @@ export function anthropicVertexLLMRegistry(): Record<string, () => LLM> {
 
 // Supported image types image/jpeg', 'image/png', 'image/gif' or 'image/webp'
 export function Claude4_Opus_Vertex() {
-	return new AnthropicVertexLLM('Claude 4 Opus (Vertex)', 'claude-opus-4', 200_000, anthropicVertexCostFunction(15, 75));
+	return new AnthropicVertexLLM('Claude 4 Opus (Vertex)', 'claude-opus-4', 200_000, anthropicCostFunction(15, 75));
 }
 
 export function Claude4_Sonnet_Vertex() {
-	return new AnthropicVertexLLM('Claude 4 Sonnet (Vertex)', 'claude-sonnet-4', 200_000, anthropicVertexCostFunction(3, 15));
+	return new AnthropicVertexLLM('Claude 4 Sonnet (Vertex)', 'claude-sonnet-4', 200_000, anthropicCostFunction(3, 15));
 }
 
 export function Claude3_5_Haiku_Vertex() {
-	return new AnthropicVertexLLM('Claude 3.5 Haiku (Vertex)', 'claude-3-5-haiku@20241022', 200_000, anthropicVertexCostFunction(1, 5));
+	return new AnthropicVertexLLM('Claude 3.5 Haiku (Vertex)', 'claude-3-5-haiku@20241022', 200_000, anthropicCostFunction(1, 5));
 }
 
-function anthropicVertexCostFunction(inputMil: number, outputMil: number): LlmCostFunction {
+export function anthropicCostFunction(inputMil: number, outputMil: number): LlmCostFunction {
 	return (inputTokens: number, outputTokens: number, usage: any) => {
 		const anthropicUsage = usage.anthropic;
 		const inputCost =

@@ -11,21 +11,29 @@ export const ANTHROPIC_SERVICE = 'anthropic';
 export function anthropicLLMRegistry(): Record<string, () => LLM> {
 	return {
 		[`${ANTHROPIC_SERVICE}:claude-3-5-haiku`]: Claude3_5_Haiku,
-		[`${ANTHROPIC_SERVICE}:claude-3-5-sonnet`]: Claude3_5_Sonnet,
-		[`${ANTHROPIC_SERVICE}:claude-3-7-sonnet`]: Claude3_7_Sonnet,
+		[`${ANTHROPIC_SERVICE}:claude-4-sonnet`]: anthropicClaude4_Sonnet,
+		[`${ANTHROPIC_SERVICE}:claude-4-opus`]: anthropicClaude4_Opus,
 	};
 }
 
-export function Claude3_5_Sonnet() {
-	return new Anthropic('Claude 3.5 Sonnet', 'claude-3-5-sonnet-20241022', 3, 15);
+export function anthropicClaude4_Opus() {
+	return new Anthropic('Claude 4 Opus (Anthropic)', 'claude-opus-4', anthropicCostFunction(15, 75));
 }
 
-export function Claude3_7_Sonnet() {
-	return new Anthropic('Claude 3.7 Sonnet', 'claude-3-7-sonnet-latest', 3, 15);
+export function anthropicClaude4_Sonnet() {
+	return new Anthropic('Claude 4 Sonnet (Anthropic)', 'claude-sonnet-4', anthropicCostFunction(3, 15));
 }
+
+// export function Claude3_5_Sonnet() {
+// 	return new Anthropic('Claude 3.5 Sonnet', 'claude-3-5-sonnet-20241022', 3, 15);
+// }
+
+// export function Claude3_7_Sonnet() {
+// 	return new Anthropic('Claude 3.7 Sonnet', 'claude-3-7-sonnet-latest', 3, 15);
+// }
 
 export function Claude3_5_Haiku() {
-	return new Anthropic('Claude 3.5 Haiku', 'claude-3-5-haiku-20241022', 1, 5);
+	return new Anthropic('Claude 3.5 Haiku', 'claude-3-5-haiku-20241022', anthropicCostFunction(1, 5));
 }
 
 function anthropicCostFunction(inputMil: number, outputMil: number): LlmCostFunction {
@@ -45,18 +53,19 @@ function anthropicCostFunction(inputMil: number, outputMil: number): LlmCostFunc
 }
 
 export function ClaudeLLMs(): AgentLLMs {
-	const sonnet35 = Claude3_5_Sonnet();
+	const sonnet4 = anthropicClaude4_Sonnet();
+	const opus = anthropicClaude4_Opus();
 	return {
 		easy: Claude3_5_Haiku(),
-		medium: sonnet35,
-		hard: sonnet35,
-		xhard: new MultiLLM([sonnet35], 5),
+		medium: sonnet4,
+		hard: opus,
+		xhard: new MultiLLM([opus], 3),
 	};
 }
 
 export class Anthropic extends AiLLM<AnthropicProvider> {
-	constructor(displayName: string, model: string, inputMilTokens: number, outputMilTokens: number) {
-		super(displayName, ANTHROPIC_SERVICE, model, 200_000, anthropicCostFunction(inputMilTokens, outputMilTokens));
+	constructor(displayName: string, model: string, calculateCosts: LlmCostFunction) {
+		super(displayName, ANTHROPIC_SERVICE, model, 200_000, calculateCosts);
 	}
 
 	protected apiKey(): string {

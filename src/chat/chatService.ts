@@ -1,7 +1,7 @@
 import type { Chat, ChatList } from '#shared/chat/chat.model';
 
 /**
- * The service only handles tne persistence of the Chat objects.
+ * The service only handles the persistence of the Chat objects.
  */
 export interface ChatService {
 	listChats(startAfter?: string, limit?: number): Promise<ChatList>;
