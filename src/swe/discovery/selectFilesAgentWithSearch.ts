@@ -198,7 +198,7 @@ async function selectFilesCore(
 
 	let llm = llms().medium;
 
-	const response: GenerateTextWithJsonResponse<InitialResponse> = await llm.generateTextWithJson(messages, { id: 'Select Files initial' });
+	const response: GenerateTextWithJsonResponse<InitialResponse> = await llm.generateTextWithJson(messages, { id: 'Select Files initial', thinking: 'high' });
 	logger.info(messageText(response.message));
 	const initialResponse = response.object;
 	messages.push({ role: 'assistant', content: JSON.stringify(initialResponse) });
@@ -530,6 +530,7 @@ The final part of the response must be a JSON object in the following format:
 
 	const response: GenerateTextWithJsonResponse<IterationResponse> = await llm.generateTextWithJson(iterationMessages, {
 		id: `Select Files iteration ${iteration}`,
+		thinking: 'high',
 	});
 	console.log(messageText(response.message));
 	return response.object;
