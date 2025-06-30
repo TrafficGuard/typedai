@@ -244,7 +244,7 @@ const dialect = new PostgresDialect({
 		port: Number.parseInt(envVar('DATABASE_PORT', '5432'), 10),
 		user: envVar('DATABASE_USER', 'user'),
 		password: envVar('DATABASE_PASSWORD', 'password'),
-		database: envVar('DATABASE_NAME', 'test'),
+		database: process.env.NODE_ENV === 'test' ? 'test' : process.env.DATABASE_NAME,
 		max: 10, // Max number of clients in the pool
 	}),
 });
