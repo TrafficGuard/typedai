@@ -2,7 +2,7 @@ import path from 'node:path';
 import { expect } from 'chai';
 import mock from 'mock-fs';
 import sinon from 'sinon';
-import { getFileSystem } from '#agent/agentContextLocalStorage';
+import { getFileSystem, setFileSystemOverride } from '#agent/agentContextLocalStorage';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { TypescriptTools } from './lang/nodejs/typescriptTools';
@@ -60,20 +60,23 @@ describe('supportingInformation', () => {
 	// Stub getInstalledPackages so we don’t depend on real implementation
 	beforeEach(() => {
 		mock(fsStructure, { createCwd: false });
+
+		const fss = new FileSystemService(repoRoot);
+		setFileSystemOverride(fss);
+
 		sinon.stub(TypescriptTools.prototype, 'getInstalledPackages').callsFake(async () => {
 			const wd = getFileSystem().getWorkingDirectory();
 			return wd.includes('frontend') ? '<installed_packages>FRONTEND</installed_packages>' : '<installed_packages>BACKEND</installed_packages>';
 		});
 
 		// Stub getVcsRoot to prevent Git calls and agent context issues in tests
-		sinon.stub(FileSystemService.prototype, 'getVcsRoot').returns(null);
-
-		getFileSystem().setWorkingDirectory(repoRoot);
+		sinon.stub(fss, 'getVcsRoot').returns(null);
 	});
 
 	afterEach(() => {
 		sinon.restore();
 		mock.restore();
+		setFileSystemOverride(null);
 	});
 
 	it('returns backend packages for backend-only selection', async () => {

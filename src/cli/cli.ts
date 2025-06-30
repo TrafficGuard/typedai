@@ -165,7 +165,6 @@ export function parseUserCliArgs(scriptName: string, scriptArgs: string[]): CliO
 		scriptArgs.splice(privateRepoArgIndex, 1); // Remove the flag after processing
 	}
 
-	// --- model selector --------------------------------------------
 	// --- LLM selector --------------------------------------------
 	// The llmId value is now parsed into the 'flags' map.
 	// We still need to remove the model arguments from scriptArgs to prevent them from becoming part of the prompt.
