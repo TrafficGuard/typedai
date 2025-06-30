@@ -7,28 +7,61 @@ on:
     branches: [ main ]
 
 jobs:
-  backend:
-    runs-on: ubuntu-latest
 
+  unit-tests:
+    name: Backend (Unit Tests)
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-
       - name: Use Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '20.x'
-
       - name: Install dependencies (server)
         run: npm ci
-
       - name: Install biome linux-x64 (server)
         run: npm install --save-dev @biomejs/cli-linux-x64 || true
-
       - name: Lint (server)
         run: npm run lint:ci
+      - name: Run unit tests (server)
+        run: npm run test:unit
 
-      - name: Run tests (server)
-        run: npm run test:ci
+  db-tests:
+    name: Database tests (${{ matrix.database }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        database: [firestore, postgres, mongo]
+    services:
+      postgres:
+        if: ${{ matrix.database == 'postgres' }}
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+      mongo:
+        if: ${{ matrix.database == 'mongo' }}
+        image: mongo:6
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand({serverStatus:1})' --quiet" --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20.x'
+      - name: Install dependencies (server)
+        run: npm ci
+      - name: Run database tests (server)
+        run: npm run test:ci:${{ matrix.database }}
 
   frontend:
     runs-on: ubuntu-latest

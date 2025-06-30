@@ -43,7 +43,7 @@ export class GroqLLM extends AiLLM<GroqProvider> {
 	}
 
 	protected apiKey(): string {
-		return currentUser().llmConfig.groqKey || process.env.GROQ_API_KEY;
+		return currentUser()?.llmConfig.groqKey || process.env.GROQ_API_KEY;
 	}
 
 	provider(): GroqProvider {

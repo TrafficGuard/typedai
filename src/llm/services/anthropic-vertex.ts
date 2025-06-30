@@ -78,7 +78,7 @@ class AnthropicVertexLLM extends AiLLM<GoogleVertexAnthropicProvider> {
 	}
 
 	protected apiKey(): string {
-		return currentUser().llmConfig.vertexProjectId || process.env.GCLOUD_PROJECT;
+		return currentUser()?.llmConfig.vertexProjectId || process.env.GCLOUD_PROJECT;
 	}
 
 	provider(): GoogleVertexAnthropicProvider {
@@ -87,13 +87,13 @@ class AnthropicVertexLLM extends AiLLM<GoogleVertexAnthropicProvider> {
 			project = GCLOUD_PROJECTS[gcloudProjectIndex];
 			if (++gcloudProjectIndex >= GCLOUD_PROJECTS.length) gcloudProjectIndex = 0;
 		} else {
-			project = currentUser().llmConfig.vertexProjectId || project || envVar('GCLOUD_PROJECT');
+			project = currentUser()?.llmConfig.vertexProjectId || project || envVar('GCLOUD_PROJECT');
 		}
 
 		console.log(`Configuring anthropic vertex provider with ${project}`);
 		this.aiProvider ??= createVertexAnthropic({
 			project: project,
-			location: currentUser().llmConfig.vertexRegion || process.env.GCLOUD_CLAUDE_REGION || envVar('GCLOUD_REGION'),
+			location: currentUser()?.llmConfig.vertexRegion || process.env.GCLOUD_CLAUDE_REGION || envVar('GCLOUD_REGION'),
 		});
 
 		return this.aiProvider;

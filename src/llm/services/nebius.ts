@@ -22,7 +22,7 @@ export class NebiusLLM extends AiLLM<OpenAIProvider> {
 	}
 
 	protected apiKey(): string {
-		return currentUser().llmConfig.nebiusKey || process.env.NEBIUS_API_KEY;
+		return currentUser()?.llmConfig.nebiusKey || process.env.NEBIUS_API_KEY;
 	}
 
 	provider(): OpenAIProvider {

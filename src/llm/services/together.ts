@@ -35,7 +35,7 @@ export class TogetherLLM extends AiLLM<TogetherAIProvider> {
 	}
 
 	protected apiKey(): string {
-		return currentUser().llmConfig.togetheraiKey || process.env.TOGETHERAI_API_KEY;
+		return currentUser()?.llmConfig.togetheraiKey || process.env.TOGETHERAI_API_KEY;
 	}
 
 	provider(): TogetherAIProvider {

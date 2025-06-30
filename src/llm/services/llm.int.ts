@@ -1,6 +1,5 @@
 import fs from 'node:fs';
 import { expect } from 'chai';
-import { Claude3_5_Sonnet } from '#llm/services/anthropic';
 import { Claude4_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { cerebrasLlama3_8b } from '#llm/services/cerebras';
 import { deepinfraDeepSeekR1, deepinfraQwen3_235B_A22B } from '#llm/services/deepinfra';

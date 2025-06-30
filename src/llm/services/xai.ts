@@ -12,7 +12,7 @@ export class XAI extends AiLLM<OpenAIProvider> {
 	}
 
 	protected apiKey(): string {
-		return currentUser().llmConfig.xaiKey || process.env.XAI_API_KEY;
+		return currentUser()?.llmConfig.xaiKey || process.env.XAI_API_KEY;
 	}
 
 	provider(): OpenAIProvider {

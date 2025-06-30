@@ -60,7 +60,7 @@ export function currentUser(): User {
  * @param functionClass The function class
  */
 export function functionConfig(functionClass: any): Record<string, any> {
-	const functionConfig: Record<string, Record<string, any>> = currentUser().functionConfig;
+	const functionConfig: Record<string, Record<string, any>> = currentUser()?.functionConfig;
 	if (!functionConfig) return {};
 	return functionConfig[functionClass.name] ?? {};
 }

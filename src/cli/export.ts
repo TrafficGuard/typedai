@@ -30,7 +30,7 @@ async function main() {
 				const [, val] = fileFlag.split('=');
 				return (val?.trim() || 'export.xml').replace(/^\.?[\\/]/, '');
 			})()
-		: null;
+		: 'export.xml';
 
 	// build patterns list (strip control flags and optional --fs=… flag)
 	const patterns = rawArgs.filter((a) => !a.startsWith('--fs=') && a !== '-v' && a !== '--verbose' && !(a === '-f') && !a.startsWith('-f='));
@@ -127,11 +127,12 @@ async function main() {
 		const tokens = await countTokens(content);
 		// Add comma between 1000's
 		const formattedTokens = tokens.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-		dbg(`export.xml token count: ${formattedTokens}`);
+		dbg(`${outputFile} token count: ${formattedTokens}`);
 
 		const outputPath = join(basePath, outputFile);
 		await fs.writeFile(outputPath, content);
-		console.log(`Written to ${outputPath}`);
+		console.log(content);
+		dbg(`Written to ${outputPath}`);
 	} catch (error) {
 		console.error('\n❌ An error occurred during processing:');
 		console.error(error);

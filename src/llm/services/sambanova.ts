@@ -55,6 +55,6 @@ export class SambanovaLLM extends AiLLM<OpenAIProvider> {
 	}
 
 	protected apiKey(): string | undefined {
-		return currentUser().llmConfig.sambanovaKey || process.env.SAMBANOVA_API_KEY;
+		return currentUser()?.llmConfig.sambanovaKey || process.env.SAMBANOVA_API_KEY;
 	}
 }

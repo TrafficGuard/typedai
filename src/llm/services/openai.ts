@@ -61,7 +61,7 @@ export class OpenAI extends AiLLM<OpenAIProvider> {
 	}
 
 	protected apiKey(): string {
-		return currentUser().llmConfig.openaiKey || process.env.OPENAI_API_KEY;
+		return currentUser()?.llmConfig.openaiKey || process.env.OPENAI_API_KEY;
 	}
 
 	provider(): OpenAIProvider {

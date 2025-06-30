@@ -12,7 +12,7 @@ export class Fireworks extends AiLLM<OpenAIProvider> {
 	}
 
 	protected apiKey(): string {
-		return currentUser().llmConfig.fireworksKey?.trim() || process.env.FIREWORKS_API_KEY;
+		return currentUser()?.llmConfig.fireworksKey?.trim() || process.env.FIREWORKS_API_KEY;
 	}
 
 	provider(): OpenAIProvider {

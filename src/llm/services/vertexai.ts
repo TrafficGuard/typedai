@@ -133,7 +133,7 @@ class VertexLLM extends AiLLM<GoogleVertexProvider> {
 	}
 
 	protected apiKey(): string {
-		return currentUser().llmConfig.vertexProjectId || process.env.GCLOUD_PROJECT;
+		return currentUser()?.llmConfig.vertexProjectId || process.env.GCLOUD_PROJECT;
 	}
 
 	provider(): GoogleVertexProvider {

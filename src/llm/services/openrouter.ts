@@ -39,6 +39,6 @@ export class OpenRouterLLM extends AiLLM<OpenAIProvider> {
 	}
 
 	protected apiKey(): string | undefined {
-		return currentUser().llmConfig.openrouterKey || process.env.OPENROUTER_API_KEY;
+		return currentUser()?.llmConfig.openrouterKey || process.env.OPENROUTER_API_KEY;
 	}
 }

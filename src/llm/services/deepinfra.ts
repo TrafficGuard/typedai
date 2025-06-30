@@ -12,7 +12,7 @@ export class Deepinfra extends AiLLM<OpenAIProvider> {
 	}
 
 	protected apiKey(): string {
-		return currentUser().llmConfig.deepinfraKey?.trim() || process.env.DEEPINFRA_API_KEY;
+		return currentUser()?.llmConfig.deepinfraKey?.trim() || process.env.DEEPINFRA_API_KEY;
 	}
 
 	provider(): OpenAIProvider {

@@ -166,20 +166,21 @@ export function parseUserCliArgs(scriptName: string, scriptArgs: string[]): CliO
 	}
 
 	// --- model selector --------------------------------------------
-	// The model value is now parsed into the 'flags' map.
+	// --- LLM selector --------------------------------------------
+	// The llmId value is now parsed into the 'flags' map.
 	// We still need to remove the model arguments from scriptArgs to prevent them from becoming part of the prompt.
-	const mIdx = scriptArgs.findIndex((a) => a === '-m' || a.startsWith('-m=') || a.startsWith('--model='));
+	const mIdx = scriptArgs.findIndex((a) => a === '-l' || a.startsWith('-l=') || a.startsWith('--llm='));
 	if (mIdx > -1) {
 		const token = scriptArgs[mIdx];
-		if (token === '-m') {
-			// If it's '-m value', remove the value part too
+		if (token === '-l') {
+			// If it's '-l value', remove the value part too
 			if (scriptArgs[mIdx + 1] && !scriptArgs[mIdx + 1].startsWith('-')) {
 				scriptArgs.splice(mIdx + 1, 1);
 			}
 		}
 		scriptArgs.splice(mIdx, 1); // Remove the flag itself
 	}
-	const model: string | undefined = (flags.m as string) || (flags.model as string); // Assign model from the flags map
+	const llmId: string | undefined = (flags.l as string) || (flags.llm as string); // Assign llm from the flags map
 
 	// Extract function classes before processing prompt
 	const functionClasses = parseFunctionArgument(scriptArgs);
@@ -219,7 +220,7 @@ export function parseUserCliArgs(scriptName: string, scriptArgs: string[]): CliO
 		initialPrompt,
 		functionClasses,
 		useSharedRepos,
-		llmId: model,
+		llmId,
 		flags,
 	};
 }

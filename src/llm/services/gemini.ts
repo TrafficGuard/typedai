@@ -53,7 +53,7 @@ class GeminiLLM extends AiLLM<GoogleGenerativeAIProvider> {
 			envKey = GEMINI_KEYS[geminiKeyIndex];
 			if (++geminiKeyIndex > GEMINI_KEYS.length) geminiKeyIndex = 0;
 		}
-		return currentUser().llmConfig.geminiKey || envKey || process.env.GEMINI_API_KEY;
+		return currentUser()?.llmConfig.geminiKey || envKey || process.env.GEMINI_API_KEY;
 	}
 
 	provider(): GoogleGenerativeAIProvider {

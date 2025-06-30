@@ -63,7 +63,7 @@ export class FastMediumLLM extends BaseLLM {
 		try {
 			const tokens = await this.textTokens(messages);
 			if (tokens) {
-				if (this.cerebras.isConfigured() && tokens < this.cerebras.getMaxInputTokens() * 0.5) return await this.cerebras.generateMessage(messages, opts);
+				if (this.cerebras.isConfigured() && tokens < this.cerebras.getMaxInputTokens() * 0.6) return await this.cerebras.generateMessage(messages, opts);
 				if (this.groq.isConfigured() && tokens < this.groq.getMaxInputTokens()) return await this.groq.generateMessage(messages, opts);
 			} else {
 				logger.info('non-text messages, skipping cerebras/groq');

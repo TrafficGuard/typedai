@@ -69,7 +69,7 @@ export class Anthropic extends AiLLM<AnthropicProvider> {
 	}
 
 	protected apiKey(): string {
-		return currentUser().llmConfig.anthropicKey || process.env.ANTHROPIC_API_KEY;
+		return currentUser()?.llmConfig.anthropicKey || process.env.ANTHROPIC_API_KEY;
 	}
 
 	protected _preprocessProviderMessages(llmMessages: LlmMessage[]): LlmMessage[] {
