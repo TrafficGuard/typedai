@@ -3,7 +3,7 @@ import '#fastify/trace-init/trace-init'; // leave an empty line next so this doe
 import { promises as fs, readFileSync } from 'node:fs';
 import { runAgentAndWait } from '#agent/autonomous/autonomousAgentRunner';
 import { AGENT_COMPLETED_PARAM_NAME } from '#agent/autonomous/functions/agentFunctions';
-import { appContext, initFirestoreApplicationContext } from '#app/applicationContext';
+import { appContext, initApplicationContext } from '#app/applicationContext';
 import { LlmTools } from '#functions/llmTools';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { Perplexity } from '#functions/web/perplexity';
@@ -123,12 +123,8 @@ async function answerGaiaQuestion(task: GaiaQuestion): Promise<GaiaResult> {
 }
 
 async function main() {
-	if (process.env.GCLOUD_PROJECT) {
-		await initFirestoreApplicationContext();
-		llms = defaultLLMs();
-	} else {
-		llms = defaultLLMs();
-	}
+	await initApplicationContext();
+	const llms = defaultLLMs();
 
 	const args = process.argv.slice(2);
 	const questions = JSON.parse(readFileSync(tasksFile).toString()) as GaiaQuestion[];

@@ -3,33 +3,12 @@ import '#fastify/trace-init/trace-init';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { appContext, initApplicationContext } from '#app/applicationContext';
 import { getLLM } from '#llm/llmFactory';
-import { FastMediumLLM } from '#llm/multi-agent/fastMedium';
-import { MAD_Balanced, MAD_Fast, MAD_SOTA } from '#llm/multi-agent/reasoning-debate';
-import { Claude4_Opus_Vertex } from '#llm/services/anthropic-vertex';
 import { defaultLLMs, summaryLLM } from '#llm/services/defaultLlms';
-import { openAIo3 } from '#llm/services/openai';
-import { perplexityDeepResearchLLM, perplexityLLM, perplexityReasoningProLLM } from '#llm/services/perplexity-llm';
 import { logger } from '#o11y/logger';
 import { getMarkdownFormatPrompt } from '#routes/chat/chatPromptUtils';
 import { LLM, LlmMessage, UserContentExt, contentText, messageText, user } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
-import { parseProcessArgs, saveAgentId } from './cli';
-
-const LLM_CLI_ALIAS: Record<string, () => LLM> = {
-	e: () => defaultLLMs().easy,
-	m: () => defaultLLMs().medium,
-	h: () => defaultLLMs().hard,
-	x: () => defaultLLMs().xhard,
-	fm: () => new FastMediumLLM(),
-	o3: openAIo3,
-	madb: MAD_Balanced,
-	mads: MAD_SOTA,
-	madf: MAD_Fast,
-	opus: Claude4_Opus_Vertex,
-	p1: perplexityLLM,
-	p2: perplexityReasoningProLLM,
-	p3: perplexityDeepResearchLLM,
-};
+import { LLM_CLI_ALIAS, parseProcessArgs, saveAgentId } from './cli';
 
 async function main() {
 	await initApplicationContext();

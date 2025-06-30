@@ -244,24 +244,31 @@ async function selectFilesCore(
 		);
 		console.log(response);
 
-		// Process keep/ignore decisions first (Fix #1)
+		// Process keep/ignore decisions first
 		for (const ignored of response.ignoreFiles ?? []) {
-			const key = norm(ignored.filePath);
-			ignoredFiles.set(key, ignored.reason);
+			const path = typeof ignored === 'string' ? ignored : ignored?.filePath; // Handle both string and object responses
+			if (!path) continue;
+			const reason = typeof ignored === 'object' && ignored?.reason ? ignored.reason : 'Reason not provided by LLM.';
+			const key = norm(path);
+			ignoredFiles.set(key, reason);
 			filesPendingDecision.delete(key);
 		}
+		const newlyKeptPaths: string[] = [];
 		for (const kept of response.keepFiles ?? []) {
-			const key = norm(kept.filePath);
-			keptFiles.set(key, kept.reason);
+			const path = typeof kept === 'string' ? kept : kept?.filePath; // Handle both string and object responses
+			if (!path) continue;
+			const reason = typeof kept === 'object' && kept?.reason ? kept.reason : 'Reason not provided by LLM.';
+			const key = norm(path);
+			keptFiles.set(key, reason);
 			filesPendingDecision.delete(key);
+			newlyKeptPaths.push(key);
 		}
 
-		const justKeptPaths = response.keepFiles?.map((f) => norm(f.filePath)) ?? [];
-		if (justKeptPaths.length > 0) {
+		if (newlyKeptPaths.length) {
 			try {
 				const cwd = getFileSystem().getWorkingDirectory();
 				const vcsRoot = getFileSystem().getVcsRoot();
-				const alternativeFiles = await includeAlternativeAiToolFiles(justKeptPaths, { cwd, vcsRoot });
+				const alternativeFiles = await includeAlternativeAiToolFiles(newlyKeptPaths, { cwd, vcsRoot });
 				for (const altFile of alternativeFiles) {
 					if (!keptFiles.has(altFile) && !ignoredFiles.has(altFile)) {
 						keptFiles.set(altFile, 'Relevant AI tool configuration/documentation file');
@@ -269,7 +276,7 @@ async function selectFilesCore(
 					}
 				}
 			} catch (error) {
-				logger.warn(error, `Failed to check for or include alternative AI tool files based on: ${justKeptPaths.join(', ')}`);
+				logger.warn(error, `Failed to check for or include alternative AI tool files based on: ${newlyKeptPaths.join(', ')}`);
 			}
 		}
 
@@ -515,10 +522,10 @@ The final part of the response must be a JSON object in the following format:
 <json>
 {
   "keepFiles": [
-    {"filePath": "path/to/essential/file1", "reason": "Clearly explains why this file is indispensable for the task."}
+    { "reason": "Clearly explains why this file is indispensable for the task.", "filePath": "path/to/essential/file1" }
   ],
   "ignoreFiles": [
-    {"filePath": "path/to/nonessential/file2", "reason": "Explains why this file is not needed."}
+    { "reason": "Explains why this file is not needed.", "filePath": "path/to/nonessential/file2" }
   ],
   "inspectFiles": [], // Optional: new files to inspect.
   "search": "" // Optional: regex to search file contents.

@@ -4,7 +4,7 @@ import { promises as fs, readFileSync } from 'node:fs';
 import { type RunAgentConfig, type RunWorkflowConfig, runAgentAndWait, startAgent } from '#agent/autonomous/autonomousAgentRunner';
 import { AGENT_COMPLETED_PARAM_NAME } from '#agent/autonomous/functions/agentFunctions';
 import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
-import { initFirestoreApplicationContext } from '#app/applicationContext';
+import { initApplicationContext, initFirestoreApplicationContext } from '#app/applicationContext';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { LlmTools } from '#functions/llmTools';
 import { GitLab } from '#functions/scm/gitlab';
@@ -28,17 +28,14 @@ async function main() {
 
 	await new SWEBenchAgent().runInference(instance);
 
-	if (!process.env.ASDF) return;
+	// if (!process.env.ASDF) return;
 	// let args = process.argv.toSpliced(2);
 	//
 	// args = args.filter(arg => !arg.startsWith('-'))
 	// if(!args.length) throw new Error('instanceId is required')
 
-	let agentLlms: AgentLLMs = ClaudeLLMs();
-	if (process.env.GCLOUD_PROJECT) {
-		await initFirestoreApplicationContext();
-		agentLlms = defaultLLMs();
-	}
+	await initApplicationContext();
+	const agentLlms = defaultLLMs();
 
 	const { initialPrompt, resumeAgentId } = parseProcessArgs();
 

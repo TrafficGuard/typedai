@@ -13,8 +13,8 @@ import { detectProjectInfo } from '#swe/projectDetection';
 import { parseProcessArgs, saveAgentId } from './cli';
 
 async function main() {
-	const agentLlms: AgentLLMs = defaultLLMs();
 	await initApplicationContext();
+	const agentLlms: AgentLLMs = defaultLLMs();
 
 	const { initialPrompt, resumeAgentId } = parseProcessArgs();
 

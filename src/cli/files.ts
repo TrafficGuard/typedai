@@ -13,8 +13,8 @@ import { selectFilesAgent } from '#swe/discovery/selectFilesAgentWithSearch';
 import { parseProcessArgs } from './cli';
 
 async function main() {
-	const agentLLMs: AgentLLMs = defaultLLMs();
 	await initApplicationContext();
+	const agentLLMs: AgentLLMs = defaultLLMs();
 
 	const { initialPrompt, resumeAgentId } = parseProcessArgs();
 

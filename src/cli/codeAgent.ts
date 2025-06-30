@@ -43,8 +43,8 @@ async function resumeAgent(resumeAgentId: string, initialPrompt: string) {
 
 export async function main() {
 	registerErrorHandlers();
-	const llms = defaultLLMs();
 	await initApplicationContext();
+	const llms = defaultLLMs();
 
 	const { initialPrompt, resumeAgentId, functionClasses } = parseProcessArgs();
 

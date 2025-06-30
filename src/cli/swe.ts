@@ -17,8 +17,8 @@ import { parseProcessArgs, saveAgentId } from './cli';
 // npm run swe
 
 async function main() {
-	const llms: AgentLLMs = defaultLLMs();
 	await initApplicationContext();
+	const llms: AgentLLMs = defaultLLMs();
 
 	const { initialPrompt, resumeAgentId } = parseProcessArgs();
 

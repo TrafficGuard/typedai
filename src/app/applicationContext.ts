@@ -4,8 +4,17 @@ import type { ApplicationContext } from './applicationTypes';
 
 export let applicationContext: ApplicationContext;
 
+let initialInit: Error | undefined;
+
 export async function initApplicationContext(): Promise<ApplicationContext> {
-	if (applicationContext) throw new Error('Application context already initialized');
+	if (applicationContext) {
+		logger.warn('Application context already initialized at');
+		logger.warn(initialInit);
+		logger.warn('Application context attempted to be re-initialized at');
+		logger.warn(new Error());
+		return;
+	}
+	initialInit = new Error();
 
 	// Security check to prevent single-user mode in production environments
 	const authMode = process.env.AUTH;

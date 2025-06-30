@@ -1,25 +1,24 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
 import { writeFileSync } from 'node:fs';
+import { initInMemoryApplicationContext } from '#app/applicationContext';
 import { defaultLLMs } from '#llm/services/defaultLlms';
-import { vertexGemini_2_5_Flash } from '#llm/services/vertexai';
 import { countTokens } from '#llm/tokens';
-import { messageText, user } from '#shared/llm/llm.model';
-import { parseProcessArgs } from './cli';
+import { LLM, messageText, user } from '#shared/llm/llm.model';
+import { LLM_CLI_ALIAS, parseProcessArgs } from './cli';
 import { parsePromptWithImages } from './promptParser';
 
 // Usage:
 // npm run gen
 
 async function main() {
-	const llms = defaultLLMs();
+	await initInMemoryApplicationContext();
 
-	const { initialPrompt: rawPrompt } = parseProcessArgs();
+	const { initialPrompt: rawPrompt, llmId } = parseProcessArgs();
 	const { textPrompt, userContent } = parsePromptWithImages(rawPrompt);
 
-	await countTokens('asdf'); // so countTokensSync works in calculation costs
+	const llm: LLM = llmId && LLM_CLI_ALIAS[llmId] ? LLM_CLI_ALIAS[llmId]() : defaultLLMs().medium;
 
-	const llm = vertexGemini_2_5_Flash(); //  llms.medium;
 	// Count tokens of the text part only for display purposes
 	const tokens = await countTokens(textPrompt);
 	console.log(`Generating with ${llm.getId()}. Input ${tokens} text tokens\n`);

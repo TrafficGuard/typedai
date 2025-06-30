@@ -13,9 +13,8 @@ import { parseProcessArgs, saveAgentId } from './cli';
 import { parsePromptWithImages } from './promptParser';
 
 async function main() {
-	const agentLLMs: AgentLLMs = defaultLLMs();
 	await initApplicationContext();
-
+	const agentLLMs: AgentLLMs = defaultLLMs();
 	const { initialPrompt: rawPrompt, resumeAgentId } = parseProcessArgs();
 	const { textPrompt, userContent } = parsePromptWithImages(rawPrompt);
 

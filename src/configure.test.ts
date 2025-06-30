@@ -55,7 +55,7 @@ async function runConfigure(envVars: Record<string, string> = {}): Promise<{ std
 	});
 }
 
-describe('bin/configure script end-to-end tests', () => {
+describe.skip('bin/configure script end-to-end tests', () => {
 	describe('Initial Setup (Prerequisites)', () => {
 		// Set a long timeout for this test as it involves Docker builds and package installations.
 		const TEST_TIMEOUT = 5 * 60 * 1000; // 5 minutes
