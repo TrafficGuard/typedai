@@ -5,7 +5,6 @@
         "outDir": "./out-tsc/app",
         "types": [],
         "paths": {
-            "@env/*": ["./src/environments/*"],
             "#shared/*": ["../../shared/*"]
         }
     },
