@@ -97,6 +97,9 @@ jobs:
         with:
           node-version: '20.x'
 
+      - name: Install root dependencies
+        run: npm ci
+
       - name: Install dependencies (frontend)
         working-directory: ./frontend
         run: npm ci
