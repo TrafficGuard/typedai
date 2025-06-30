@@ -1,4 +1,5 @@
 import { type GroqProvider, createGroq } from '@ai-sdk/groq';
+import { LanguageModelV1, extractReasoningMiddleware, wrapLanguageModel } from 'ai';
 import { fixedCostPerMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
 import type { GenerateTextOptions, LLM, LlmCostFunction, LlmMessage } from '#shared/llm/llm.model';
@@ -30,20 +31,19 @@ export class GroqLLM extends AiLLM<GroqProvider> {
 		super(displayName, GROQ_SERVICE, model, maxOutputTokens, calculateCosts);
 	}
 
-	protected apiKey(): string {
-		return currentUser().llmConfig.groqKey || process.env.GROQ_API_KEY;
+	aiModel(): LanguageModelV1 {
+		const aiModel = super.aiModel();
+		if (this.getModel().includes('qwen3-32b')) {
+			return wrapLanguageModel({
+				model: aiModel,
+				middleware: extractReasoningMiddleware({ tagName: 'think' }),
+			});
+		}
+		return aiModel;
 	}
 
-	async generateTextFromMessages(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
-		const genOpts = { ...opts };
-		// https://groq.com/a-guide-to-reasoning-with-qwen-qwq-32b/
-		// https://console.groq.com/docs/model/qwen-qwq-32b
-		if (this.getModel() === 'qwen-qwq-32b') {
-			genOpts.temperature = 0.6;
-			genOpts.maxOutputTokens = 131072;
-			genOpts.topP = 0.95;
-		}
-		return super.generateTextFromMessages(llmMessages, genOpts);
+	protected apiKey(): string {
+		return currentUser().llmConfig.groqKey || process.env.GROQ_API_KEY;
 	}
 
 	provider(): GroqProvider {
