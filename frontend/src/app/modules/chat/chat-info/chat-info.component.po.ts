@@ -114,7 +114,7 @@ export class ChatInfoPo extends BaseSpecPo<ChatInfoComponent> {
 		// Use harness for potentially disabled button
 		const button = await this.harness(MatButtonHarness, { selector: `[data-testid="${this.ids.saveNameButton}"]` });
 		await button.click();
-		await this.detectAndWait(); // Ensure changes propagate
+		await this.detectAndWait();
 	}
 
 	async clickCancelEditNameButton(): Promise<void> {
@@ -128,12 +128,13 @@ export class ChatInfoPo extends BaseSpecPo<ChatInfoComponent> {
 	async clickDeleteChatButton(): Promise<void> {
 		const button = await this.harness(MatButtonHarness, { selector: `[data-testid="${this.ids.deleteChatButton}"]` });
 		await button.click();
-		await this.detectAndWait(); // Ensure changes propagate
+		await this.detectAndWait();
 	}
 
 	async setSliderValue(sliderTestId: keyof typeof this.ids, value: number): Promise<void> {
 		const sliderHarness = await this.harness(MatSliderHarness, { selector: `[data-testid="${this.ids[sliderTestId]}"]` });
-		await sliderHarness.setValue(value);
-		await this.detectAndWait(); // ngModelChange should trigger onSettingChange
+		throw new Error('TODO implement setSliderValue()');
+		// await sliderHarness.setValue(value); // invalid
+		// await this.detectAndWait(); // ngModelChange should trigger onSettingChange
 	}
 }

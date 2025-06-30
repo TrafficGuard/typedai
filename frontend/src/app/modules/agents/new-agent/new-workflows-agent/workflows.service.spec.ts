@@ -1,7 +1,8 @@
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
-import { TestBed, effect, fakeAsync, tick } from '@angular/core/testing';
+import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { ApiListState } from '../../../../core/api-state.types'; // Assuming this path is correct based on usage
 import { WorkflowsService } from './workflows.service';
+import { effect } from '@angular/core';
 
 describe('WorkflowsService', () => {
 	let service: WorkflowsService;

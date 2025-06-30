@@ -1,10 +1,20 @@
-import type { TestElement } from '@angular/cdk/testing';
+import { ComponentHarness, type TestElement } from '@angular/cdk/testing';
 import type { ComponentFixture } from '@angular/core/testing';
 import { MatProgressSpinnerHarness } from '@angular/material/progress-spinner/testing';
-import { MatHeaderRowHarness, type MatRowHarness, MatTableHarness } from '@angular/material/table/testing';
-import { type AgentContextApi, FileMetadata } from '#shared/agent/agent.schema'; // Assuming FileMetadata is in agent.schema
+import { MatHeaderRowHarness, type MatRowHarness, MatRowHarnessColumnsText, MatTableHarness } from '@angular/material/table/testing';
+import { type AgentContextApi } from '#shared/agent/agent.schema';
 import { BaseSpecPo } from '../../../../../test/base.po';
 import type { AgentToolStateComponent } from './agent-tool-state.component';
+
+class LiveFilesListHarness extends ComponentHarness {
+	static hostSelector = '[data-testid="live-files-list"]';
+
+	private readonly listItemsLocator = this.locatorForAll('li');
+
+	async getItems(): Promise<TestElement[]> {
+		return this.listItemsLocator();
+	}
+}
 
 export class AgentToolStatePo extends BaseSpecPo<AgentToolStateComponent> {
 	private ids = {
@@ -25,7 +35,8 @@ export class AgentToolStatePo extends BaseSpecPo<AgentToolStateComponent> {
 	async getLiveFileItems(): Promise<TestElement[]> {
 		// Ensure the list itself exists before querying items within it
 		if (await this.has(this.ids.liveFilesList)) {
-			return this.els(this.ids.liveFilesList)[0].queryAll(() => true); // queryAll(By.css('li'))
+			const listHarness = await this.loader.getHarness(LiveFilesListHarness);
+			return listHarness.getItems();
 		}
 		return [];
 	}
@@ -59,7 +70,13 @@ export class AgentToolStatePo extends BaseSpecPo<AgentToolStateComponent> {
 		if (!table) return [];
 		const headerRows = await table.getHeaderRows();
 		if (headerRows.length === 0) return [];
-		return headerRows[0].getCellTextByColumnName();
+		const cellTexts: MatRowHarnessColumnsText = await  headerRows[0].getCellTextByColumnName()
+		// /** Text extracted from a table row organized by columns. */
+		// interface MatRowHarnessColumnsText {
+		//     [columnName: string]: string;
+		// }
+
+		return Object.values(cellTexts);
 	}
 
 	async getFileStoreTableRows(): Promise<MatRowHarness[]> {
@@ -83,7 +100,7 @@ export class AgentToolStatePo extends BaseSpecPo<AgentToolStateComponent> {
 		return null;
 	}
 
-	async setAgentDetails(agentDetails?: AgentContextApi): Promise<void> {
+	async setAgentDetails(agentDetails?: Partial<AgentContextApi>): Promise<void> {
 		this.fix.componentRef.setInput('agentDetails', agentDetails);
 		await this.detectAndWait();
 	}

@@ -45,7 +45,9 @@ export class PromptListPo extends BaseSpecPo<PromptListComponent> {
 		if (rows.length <= rowIndex) {
 			throw new Error(`Row index ${rowIndex} is out of bounds.`);
 		}
-		return rows[rowIndex].getText();
+
+		const text = await rows[rowIndex].getCellTextByColumnName();
+		return text['title'];
 	}
 
 	async isDeleteSpinnerVisible(promptId: string): Promise<boolean> {

@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
-import { of, throwError } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule } from '@angular/forms';
@@ -16,6 +16,7 @@ import { NewWorkflowsAgentComponent } from './new-workflows-agent.component';
 import { NewWorkflowsAgentPo } from './new-workflows-agent.component.po';
 // Corrected import path for WorkflowsService
 import { WorkflowsService } from './workflows.service';
+import { MatButtonHarness } from '@angular/material/button/testing';
 
 describe('NewWorkflowsAgentComponent', () => {
 	let fixture: ComponentFixture<NewWorkflowsAgentComponent>;
@@ -25,7 +26,6 @@ describe('NewWorkflowsAgentComponent', () => {
 
 	beforeEach(async () => {
 		mockWorkflowsService = jasmine.createSpyObj('WorkflowsService', [
-			'getRepositories',
 			'runCodeEditorImplementRequirements',
 			'runCodebaseQuery',
 			'selectFilesToEdit',
@@ -35,11 +35,9 @@ describe('NewWorkflowsAgentComponent', () => {
 
 		// Default mock implementations
 		// For repositoriesState, it should return a signal-like structure if the component uses it directly
-		// For simplicity, we'll continue mocking getRepositories for initial load behavior.
 		// The component's ngOnInit calls loadRepositories, which likely updates a signal.
 		// We need to mock repositoriesState to control the data for the computed signals.
-		mockWorkflowsService.repositoriesState.and.returnValue(() => ({ status: 'success', data: ['repo1', 'repo2'] }));
-		mockWorkflowsService.getRepositories.and.returnValue(of(['repo1', 'repo2'])); // Keep for any direct calls if they exist
+		mockWorkflowsService.repositoriesState.and.returnValue({ status: 'success', data: ['repo1', 'repo2'] });
 		mockWorkflowsService.runCodeEditorImplementRequirements.and.returnValue(of({ result: 'code implemented' }));
 		mockWorkflowsService.runCodebaseQuery.and.returnValue(of({ response: 'query response' }));
 		mockWorkflowsService.selectFilesToEdit.and.returnValue(of({ files: ['file1.ts'] }));
@@ -96,10 +94,10 @@ describe('NewWorkflowsAgentComponent', () => {
 		});
 
 		it('should display error if fetching repositories fails', async () => {
-			mockWorkflowsService.repositoriesState.and.returnValue(() => ({
+			mockWorkflowsService.repositoriesState.and.returnValue({
 				status: 'error',
 				error: new Error('Fetch error'),
-			}));
+			});
 			// Re-trigger ngOnInit or simulate the error state update
 			component.ngOnInit(); // This will call loadRepositories again, which uses the new mockState
 			await po.detectAndWait();
@@ -166,7 +164,9 @@ describe('NewWorkflowsAgentComponent', () => {
 
 		for (const tc of testCases) {
 			it(`should execute "${tc.workflowTypeLabel}" workflow successfully`, async () => {
-				mockWorkflowsService[tc.serviceMethod].and.returnValue(of(tc.mockResponse));
+// 				The problem is that TypeScript can't connect that the 'runCodebaseQuery' method is always paired with the { response: ... } shape. It checks the mockResponse against the requirements for all possible methods in the union, and the type check fails because, for example, a response of { result: '...' } doesn't have the response property required by the runCodebaseQuery method.
+// This is a well-known limitation in TypeScript often referred to as a "correlated unions" problem.
+				mockWorkflowsService[tc.serviceMethod].and.returnValue(of(tc.mockResponse as any));
 
 				await po.setValidFormValues({
 					workingDirectory: tc.serviceArgs[0],

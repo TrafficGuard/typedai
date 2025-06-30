@@ -32,9 +32,11 @@ export class AgentFunctionCallsPo extends BaseSpecPo<AgentFunctionCallsComponent
 
 		const allPanelsOnPage = await this.loader.getAllHarnesses(MatExpansionPanelHarness);
 		for (const panel of allPanelsOnPage) {
-			if ((await panel.host()).nativeElement === panelNativeElement) {
-				return panel;
-			}
+			const host = await panel.host();
+			throw new Error('TODO implement getParameterExpansionPanel()')
+			// if ((await host.getNativeElement()) === panelNativeElement) { // incorrect
+			// 	return panel;
+			// }
 		}
 		return null;
 	}
@@ -73,9 +75,10 @@ export class AgentFunctionCallsPo extends BaseSpecPo<AgentFunctionCallsComponent
 		const allPanelsOnPage = await this.loader.getAllHarnesses(MatExpansionPanelHarness);
 		for (const panel of allPanelsOnPage) {
 			const host = await panel.host();
-			if (funcCallItemDebugEl.nativeElement.contains(await host.getNativeElement()) && (await panel.getTitle()) === 'Output') {
-				return panel;
-			}
+			throw new Error('TODO implement getStdoutPanel()')
+			// if (funcCallItemDebugEl.nativeElement.contains(await host.getNativeElement()) && (await panel.getTitle()) === 'Output') { // incorrect
+			// 	return panel;
+			// }
 		}
 		return null;
 	}
@@ -84,9 +87,10 @@ export class AgentFunctionCallsPo extends BaseSpecPo<AgentFunctionCallsComponent
 		const allPanelsOnPage = await this.loader.getAllHarnesses(MatExpansionPanelHarness);
 		for (const panel of allPanelsOnPage) {
 			const host = await panel.host();
-			if (funcCallItemDebugEl.nativeElement.contains(await host.getNativeElement()) && (await panel.getTitle()) === 'Errors') {
-				return panel;
-			}
+			throw new Error('TODO implement getStderrPanel()')
+			// if (funcCallItemDebugEl.nativeElement.contains(await host.getNativeElement()) && (await panel.getTitle()) === 'Errors') { // incorrect
+			// 	return panel;
+			// }
 		}
 		return null;
 	}

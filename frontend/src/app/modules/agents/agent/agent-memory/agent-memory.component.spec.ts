@@ -9,22 +9,22 @@ describe('AgentMemoryComponent', () => {
 	let fixture: ComponentFixture<AgentMemoryComponent>;
 	let po: AgentMemoryPo;
 
-	const mockAgentDetailsWithMemory: AgentContextApi = {
+	const mockAgentDetailsWithMemory: Partial<AgentContextApi> = {
 		agentId: 'test-agent',
 		// Add other required AgentContextApi properties if any, or use a partial mock if schema allows
 		memory: {
 			key1: 'value1',
-			key2: { nested: 'value2' },
+			key2: 'value2',
 			longKey3: 'This is a longer value for key3 to test preview and full view.',
 		},
 	};
 
-	const mockAgentDetailsEmptyMemory: AgentContextApi = {
+	const mockAgentDetailsEmptyMemory: Partial<AgentContextApi> = {
 		agentId: 'test-agent-empty',
 		memory: {},
 	};
 
-	const mockAgentDetailsNullMemory: AgentContextApi = {
+	const mockAgentDetailsNullMemory: Partial<AgentContextApi> = {
 		agentId: 'test-agent-null',
 		memory: null,
 	};

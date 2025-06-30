@@ -8,8 +8,7 @@ import { Router } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
 import { Static } from '@sinclair/typebox';
 import { of, throwError } from 'rxjs';
-
-import { AgentContextApi, AgentRunningState, AgentType, AutonomousSubTypeSchema, LlmFunctionsSchema } from '#shared/agent/agent.schema';
+import { AgentContextApi, AutonomousSubTypeSchema } from '#shared/agent/agent.schema';
 import { ApiListState } from '../../../../core/api-state.types';
 import { LLM, LlmService } from '../../../llm.service';
 import { AGENT_ROUTE_DEFINITIONS } from '../../agent.routes';
@@ -19,6 +18,7 @@ import { FunctionEditModalComponent } from '../function-edit-modal/function-edit
 import { ResumeAgentModalComponent } from '../resume-agent-modal/resume-agent-modal.component';
 import { AgentDetailsComponent } from './agent-details.component';
 import { AgentDetailsPo } from './agent-details.component.po';
+import { AgentRunningState, AgentType } from '#shared/agent/agent.model';
 
 describe('AgentDetailsComponent', () => {
 	let component: AgentDetailsComponent;
@@ -41,7 +41,7 @@ describe('AgentDetailsComponent', () => {
 		state: 'completed' as AgentRunningState,
 		userPrompt: 'Test user prompt',
 		inputPrompt: 'Test system prompt',
-		functions: { functionClasses: ['TestFunc1', 'TestFunc2'] } as Static<typeof LlmFunctionsSchema>,
+		functions: { functionClasses: ['TestFunc1', 'TestFunc2'] },
 		llms: { easy: 'llm1', medium: 'llm2', hard: 'llm3' },
 		cost: 123.45,
 		fileSystem: { basePath: '/base', workingDirectory: '/test' },
@@ -68,9 +68,9 @@ describe('AgentDetailsComponent', () => {
 	let currentMockAgentContext: AgentContextApi;
 
 	const mockLlms: LLM[] = [
-		{ id: 'llm1', name: 'LLM One', provider: 'providerA', model: 'modelA' },
-		{ id: 'llm2', name: 'LLM Two', provider: 'providerB', model: 'modelB' },
-		{ id: 'llm3', name: 'LLM Three', provider: 'providerC', model: 'modelC' },
+		{ id: 'llm1', name: 'LLM One', isConfigured: true },
+		{ id: 'llm2', name: 'LLM Two', isConfigured: true },
+		{ id: 'llm3', name: 'LLM Three', isConfigured: true },
 	];
 
 	const mockAvailableFunctions = ['TestFunc1', 'TestFunc2', 'AnotherFunc'];
@@ -88,14 +88,14 @@ describe('AgentDetailsComponent', () => {
 			'requestHilCheck',
 			'resumeCompletedAgent',
 		]);
-		mockAgentService.submitFeedback.and.returnValue(of({}));
-		mockAgentService.resumeAgent.and.returnValue(of({}));
-		mockAgentService.resumeError.and.returnValue(of({}));
-		mockAgentService.cancelAgent.and.returnValue(of({}));
+		mockAgentService.submitFeedback.and.returnValue(of(currentMockAgentContext));
+		mockAgentService.resumeAgent.and.returnValue(of(currentMockAgentContext));
+		mockAgentService.resumeError.and.returnValue(of(currentMockAgentContext));
+		mockAgentService.cancelAgent.and.returnValue(of(currentMockAgentContext));
 		mockAgentService.updateAgentFunctions.and.returnValue(of(currentMockAgentContext)); // Simulate returning updated agent
 		mockAgentService.forceStopAgent.and.returnValue(of(null));
 		mockAgentService.requestHilCheck.and.returnValue(of(null));
-		mockAgentService.resumeCompletedAgent.and.returnValue(of({}));
+		mockAgentService.resumeCompletedAgent.and.returnValue(of(currentMockAgentContext));
 
 		mockFunctionsService = jasmine.createSpyObj('FunctionsService', ['getFunctions'], {
 			functionsState: signal<ApiListState<string>>({ status: 'success', data: mockAvailableFunctions }),
@@ -247,8 +247,8 @@ describe('AgentDetailsComponent', () => {
 	describe('Agent Links', () => {
 		it('should display correct trace, logs, and database URLs', async () => {
 			// Assuming GoogleCloudLinks implementation for URLs
-			const expectedTraceUrl = `https://console.cloud.google.com/traces/traces?project=${component.agentLinks.gcpProjectId()}&tid=${currentMockAgentContext.traceId}`;
-			const expectedLogsUrl = component.agentLinks.logsUrl(currentMockAgentContext); // More complex, check if it's formed
+			const expectedTraceUrl = component.agentLinks.traceUrl(currentMockAgentContext);
+			const expectedLogsUrl = component.agentLinks.logsUrl(currentMockAgentContext);
 			const expectedDbUrl = component.agentLinks.agentDatabaseUrl(currentMockAgentContext);
 
 			expect(await po.getTraceUrl()).toBe(expectedTraceUrl);

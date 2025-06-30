@@ -156,7 +156,7 @@ describe('AgentComponent', () => {
 		it('should call loadAgentDetails with the current agentId if agent details are successfully loaded', async () => {
 			mockAgentService.setAgentDetailsState({
 				status: 'success',
-				data: { agentId: 'test-agent-id', name: 'Test Agent', state: 'running', toolState: {}, functionCallHistory: [] } as AgentContextApi,
+				data: { agentId: 'test-agent-id', name: 'Test Agent', state: 'agent', toolState: {}, functionCallHistory: [] } satisfies Partial<AgentContextApi> as AgentContextApi,
 			});
 			await po.detectAndWait();
 
@@ -213,19 +213,35 @@ describe('AgentComponent', () => {
 			const mockApiData: AgentContextApi = {
 				agentId: 'agent1',
 				name: 'Test Agent',
-				state: 'running',
+				state: 'agent',
 				toolState: undefined, // To test the ?? {}
 				functionCallHistory: [],
 				// Add other mandatory fields from AgentContextApi as needed, or cast to Partial if appropriate for the test
 				hilCount: 0,
 				hilBudget: 0,
-				llmProvider: 'openai',
-				modelName: 'gpt-4',
-				prompt: 'Test prompt',
-				temperature: 0.7,
-				created: new Date().toISOString(),
-				updated: new Date().toISOString(),
+				inputPrompt: 'Test prompt',
 				messages: [],
+				type: 'autonomous',
+				subtype: '',
+				executionId: '',
+				typedAiRepoDir: '',
+				traceId: '',
+				user: '',
+				functions: undefined,
+				callStack: [],
+				cost: 0,
+				budgetRemaining: 0,
+				llms: undefined,
+				fileSystem: undefined,
+				useSharedRepos: false,
+				memory: undefined,
+				lastUpdate: 0,
+				metadata: undefined,
+				pendingMessages: [],
+				iterations: 0,
+				invoking: [],
+				notes: [],
+				userPrompt: ''
 			};
 			mockAgentService.setAgentDetailsState({ status: 'success', data: mockApiData });
 			await po.detectAndWait();
@@ -257,7 +273,7 @@ describe('AgentComponent', () => {
 				name: 'Test Agent',
 				state: 'completed',
 				error: null,
-				functionCallHistory: [{ name: 'func1', parameters: { note: 'Final Note' }, status: 'completed', result: '', created: '', updated: '', llmCalls: [] }],
+				functionCallHistory: [{ function_name: 'func1', parameters: { note: 'Final Note' } }],
 			};
 			mockAgentService.setAgentDetailsState({ status: 'success', data: mockApiData as AgentContextApi });
 			await po.detectAndWait();
@@ -271,7 +287,7 @@ describe('AgentComponent', () => {
 				name: 'Test Agent',
 				state: 'completed',
 				error: null,
-				functionCallHistory: [{ name: 'func1', parameters: {}, status: 'completed', result: '', created: '', updated: '', llmCalls: [] }],
+				functionCallHistory: [{ function_name: 'func1', parameters: {} }],
 			};
 			mockAgentService.setAgentDetailsState({ status: 'success', data: mockApiData as AgentContextApi });
 			await po.detectAndWait();

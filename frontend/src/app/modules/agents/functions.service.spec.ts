@@ -27,7 +27,7 @@ describe('FunctionsService', () => {
 	});
 
 	it('should have initial state "idle"', () => {
-		const currentState = service.functionsState()();
+		const currentState = service.functionsState();
 		expect(currentState.status).toBe('idle');
 	});
 
@@ -35,7 +35,7 @@ describe('FunctionsService', () => {
 		it('should fetch functions successfully and update state', () => {
 			service.getFunctions();
 
-			let currentState = service.functionsState()();
+			let currentState = service.functionsState();
 			expect(currentState.status).toBe('loading');
 
 			const req = httpMock.expectOne(`${environment.apiBaseUrl}agent/v1/functions`);
@@ -44,7 +44,7 @@ describe('FunctionsService', () => {
 			const mockFunctions = ['func1', 'func2', 'func3'];
 			req.flush(mockFunctions);
 
-			currentState = service.functionsState()();
+			currentState = service.functionsState();
 			expect(currentState.status).toBe('success');
 			if (currentState.status === 'success') {
 				expect(currentState.data).toEqual(mockFunctions);
@@ -56,13 +56,13 @@ describe('FunctionsService', () => {
 		it('should handle HTTP error and update state to "error"', () => {
 			service.getFunctions();
 
-			let currentState = service.functionsState()();
+			let currentState = service.functionsState();
 			expect(currentState.status).toBe('loading');
 
 			const req = httpMock.expectOne(`${environment.apiBaseUrl}agent/v1/functions`);
 			req.flush('Test Error', { status: 500, statusText: 'Server Error' }); // Simulates HttpErrorResponse from server
 
-			currentState = service.functionsState()();
+			currentState = service.functionsState();
 			expect(currentState.status).toBe('error');
 			if (currentState.status === 'error') {
 				// The service wraps the HttpErrorResponse in a new Error object
@@ -98,7 +98,7 @@ describe('FunctionsService', () => {
 				req.flush(`Error attempt ${i + 1}`, { status: 500, statusText: 'Server Error' });
 			}
 
-			const currentState = service.functionsState()();
+			const currentState = service.functionsState();
 			expect(currentState.status).toBe('error');
 			if (currentState.status === 'error') {
 				expect(currentState.code).toBe(500);
@@ -111,7 +111,7 @@ describe('FunctionsService', () => {
 			service.getFunctions(); // First call
 
 			const req = httpMock.expectOne(`${environment.apiBaseUrl}agent/v1/functions`);
-			expect(service.functionsState()().status).toBe('loading');
+			expect(service.functionsState().status).toBe('loading');
 
 			service.getFunctions(); // Second call while first is pending
 
@@ -120,7 +120,7 @@ describe('FunctionsService', () => {
 			// This implicitly tests that no new request for this URL was made.
 
 			req.flush(['funcX']); // Complete the first request
-			expect(service.functionsState()().status).toBe('success');
+			expect(service.functionsState().status).toBe('success');
 		});
 	});
 });

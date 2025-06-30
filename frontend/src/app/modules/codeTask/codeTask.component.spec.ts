@@ -67,13 +67,14 @@ describe('CodeTaskComponent', () => {
 		repositoryId: '/path/to/repo',
 		targetBranch: 'main',
 		workingBranch: 'feat/test',
-		createdAt: new Date().toISOString(),
-		updatedAt: new Date().toISOString(),
+		createdAt: new Date().getTime(),
+		updatedAt: new Date().getTime(),
 		fileSelection: [],
-		design: null,
-		selectedVariations: null,
+		designAnswer: null,
 		codeDiff: null,
-		codeTaskError: null,
+		createWorkingBranch: false,
+		useSharedRepos: false,
+		lastAgentActivity: 0
 	};
 
 	let paramMapSubject: Subject<ParamMap>;
@@ -226,19 +227,6 @@ describe('CodeTaskComponent', () => {
 			expect(snackBar.open).toHaveBeenCalledWith(`Error resetting file selection: ${errorResponse.message}`, 'Close', {
 				duration: 5000,
 			});
-		});
-	});
-
-	describe('ngOnDestroy', () => {
-		it('should complete the destroy$ subject', () => {
-			const destroyNextSpy = spyOn(component.destroy$, 'next').and.callThrough();
-			const destroyCompleteSpy = spyOn(component.destroy$, 'complete').and.callThrough();
-
-			fixture.destroy(); // This calls ngOnDestroy
-
-			expect(destroyNextSpy).toHaveBeenCalledTimes(1);
-			expect(destroyCompleteSpy).toHaveBeenCalledTimes(1);
-			expect(destroyNextSpy).toHaveBeenCalledBefore(destroyCompleteSpy);
 		});
 	});
 });

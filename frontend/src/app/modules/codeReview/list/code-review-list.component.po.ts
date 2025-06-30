@@ -79,7 +79,7 @@ export class CodeReviewListPo extends BaseSpecPo<CodeReviewListComponent> {
 			throw new Error(`Row index ${rowIndex} out of bounds.`);
 		}
 		// Column definitions in component: 'title', 'description', 'enabled', 'select'
-		const cells = await rows[rowIndex].getCellTextByIndex({ columnName: 'title' }, { columnName: 'description' }, { columnName: 'enabled' });
+		const cells = await rows[rowIndex].getCellTextByIndex();
 		return {
 			title: cells[0],
 			description: cells[1],
@@ -117,11 +117,11 @@ export class CodeReviewListPo extends BaseSpecPo<CodeReviewListComponent> {
 	}
 
 	async clickMasterCheckbox(): Promise<void> {
-		await (await this.harness(MatCheckboxHarness, { selector: `[data-testid="${this.ids.masterCheckbox}"]` })).click();
+		await (await this.harness(MatCheckboxHarness, { selector: `[data-testid="${this.ids.masterCheckbox}"]` })).toggle();
 	}
 
 	async clickRowCheckboxById(configId: string): Promise<void> {
-		await (await this.harness(MatCheckboxHarness, { selector: `[data-testid="${this.ids.rowCheckboxPrefix}${configId}"]` })).click();
+		await (await this.harness(MatCheckboxHarness, { selector: `[data-testid="${this.ids.rowCheckboxPrefix}${configId}"]` })).toggle();
 	}
 
 	async clickEditConfigLink(configId: string): Promise<void> {
@@ -131,8 +131,7 @@ export class CodeReviewListPo extends BaseSpecPo<CodeReviewListComponent> {
 
 	// Helper to get cell text by column name for a specific row using MatRowHarness
 	async getCellTextFromRowByColumnName(row: MatRowHarness, columnName: string): Promise<string> {
-		const cell = await row.getCell({ columnName });
-		return cell.getText();
+		return (await row.getCellTextByColumnName())[columnName];
 	}
 
 	async getAllRows(): Promise<MatRowHarness[]> {

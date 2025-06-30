@@ -81,8 +81,9 @@ export class FunctionEditModalPo extends BaseSpecPo<FunctionEditModalComponent> 
 	async clickFunctionByName(name: string): Promise<void> {
 		const itemHarness = await this.getFunctionListItemHarnessByName(name);
 		if (itemHarness) {
-			await itemHarness.click();
-			await this.detectAndWait();
+			// await itemHarness.click(); // invalid
+			// await this.detectAndWait();
+			throw new Error('TODO implement clickFunctionByName()')
 		} else {
 			throw new Error(`Function item with name "${name}" not found.`);
 		}

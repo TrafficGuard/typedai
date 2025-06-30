@@ -3,9 +3,11 @@ import { ComponentFixture }       from '@angular/core/testing';
 import { MatInputHarness }        from '@angular/material/input/testing';
 import { MatButtonHarness }       from '@angular/material/button/testing';
 import { MatSelectHarness }       from '@angular/material/select/testing';
+import { MatSliderHarness } from '@angular/material/slider/testing';
 import { ConversationComponent }  from './conversation.component';
 import {BaseSpecPo} from "../../../../test/base.po";
 import { By } from '@angular/platform-browser'; // <-- Add this line
+import { ChatInfoPo } from '../chat-info/chat-info.component.po';
 
 export class ConversationPo extends BaseSpecPo<ConversationComponent> {
 
@@ -55,6 +57,17 @@ export class ConversationPo extends BaseSpecPo<ConversationComponent> {
 
     async openDrawer() {
         await this.click(this.ids.openInfo);
+    }
+
+    async openChatInfo(): Promise<ChatInfoPo> {
+        await this.openDrawer();
+        await this.detectAndWait();
+        return ChatInfoPo.create(this.fix as any);
+    }
+
+    async setTemperature(value: number): Promise<void> {
+        const chatInfo = await this.openChatInfo();
+        await chatInfo.setSliderValue('temperatureSlider', value);
     }
 
     drawerOpened() {

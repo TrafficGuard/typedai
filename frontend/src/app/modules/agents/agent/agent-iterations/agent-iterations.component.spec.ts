@@ -67,11 +67,11 @@ describe('AgentIterationsComponent', () => {
 		]);
 
 		// Make the spy return the mock signals for the component to read
-		ObjectdefineProperty(agentServiceSpy, 'agentIterationsState', {
+		Object.defineProperty(agentServiceSpy, 'agentIterationsState', {
 			value: mockAgentIterationsState.asReadonly(),
 			writable: false,
 		});
-		ObjectdefineProperty(agentServiceSpy, 'selectedAgentIterationDetailState', {
+		Object.defineProperty(agentServiceSpy, 'selectedAgentIterationDetailState', {
 			value: mockSelectedAgentIterationDetailState.asReadonly(),
 			writable: false,
 		});

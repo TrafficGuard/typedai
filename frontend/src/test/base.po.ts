@@ -69,24 +69,24 @@ export abstract class BaseSpecPo<T> {
 		await this.detectAndWait();
 	}
 
-	/* --------------------------------------------------
-       Expectations
-       -------------------------------------------------- */
+
 	text(id: string): string {
 		return (this.el(id).nativeElement.textContent || '').trim();
 	}
-	// NEW helper that returns only a boolean, no assertion
+
 	has(id: string): boolean {
 		return this.els(id).length > 0;
 	}
 
-	// RENAME: exists -> expectExists
+	/* --------------------------------------------------
+       Expectations
+       -------------------------------------------------- */
+
 	expectExists(id: string): void {
 		const count = this.els(id).length;
 		expect(count).withContext(`Expected element with test id '${id}' to exist`).toBeGreaterThan(0);
 	}
 
-	// RENAME: missing -> expectMissing
 	expectMissing(id: string): void {
 		const count = this.els(id).length;
 		expect(count).withContext(`Expected element with test id '${id}' to be missing`).toBe(0);
@@ -101,7 +101,7 @@ export abstract class BaseSpecPo<T> {
 	 * @param options Optional filters to apply.
 	 * @returns A promise that resolves to the harness instance.
 	 */
-	protected harness<H extends ComponentHarness>(
+	harness<H extends ComponentHarness>(
 		harnessType: ComponentHarnessConstructor<H> & { with?: (options?: BaseHarnessFilters) => HarnessPredicate<H> },
 		options?: BaseHarnessFilters,
 	): Promise<H> {

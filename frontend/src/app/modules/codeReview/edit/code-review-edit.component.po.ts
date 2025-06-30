@@ -1,5 +1,6 @@
 import { ENTER } from '@angular/cdk/keycodes';
 import { ComponentFixture } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { MatButtonHarness } from '@angular/material/button/testing';
 import { MatCheckboxHarness } from '@angular/material/checkbox/testing';
 import { MatChipInputHarness } from '@angular/material/chips/testing';
@@ -98,7 +99,7 @@ export class CodeReviewEditPo extends BaseSpecPo<CodeReviewEditComponent> {
 	async getExamplesCount(): Promise<number> {
 		// Examples are in a FormArray, rendered with *ngFor.
 		// We can count one of the consistent elements, e.g., remove buttons.
-		const removeButtons = this.fix.debugElement.queryAll((by) => by.css(`[data-testid^="${this.ids.removeExampleButtonPrefix}"]`));
+		const removeButtons = this.fix.debugElement.queryAll(By.css(`[data-testid^="${this.ids.removeExampleButtonPrefix}"]`));
 		return removeButtons.length;
 	}
 
@@ -130,7 +131,7 @@ export class CodeReviewEditPo extends BaseSpecPo<CodeReviewEditComponent> {
 	private async addChipToInput(chipInputTestId: string, value: string): Promise<void> {
 		const chipInput = await this.harness(MatChipInputHarness, { selector: `[data-testid="${chipInputTestId}"]` });
 		await chipInput.setValue(value);
-		await chipInput.sendKeys(ENTER); // Simulate Enter to trigger (matChipInputTokenEnd)
+		await chipInput.host().then((h) => h.sendKeys(ENTER)); // Simulate Enter to trigger (matChipInputTokenEnd)
 		await this.detectAndWait();
 	}
 

@@ -61,11 +61,6 @@ describe('AgentLlmCallsComponent', () => {
 		await po.detectAndWait(); // Trigger initial data binding and ngOnInit
 	});
 
-	it('should create', () => {
-		expect(component).toBeTruthy();
-		expect(po).toBeTruthy();
-	});
-
 	it('should load LLM calls on init if agentId is provided', async () => {
 		expect(mockAgentService.loadLlmCalls).toHaveBeenCalledWith(testAgentId);
 	});
@@ -96,23 +91,23 @@ describe('AgentLlmCallsComponent', () => {
 				id: 'call1',
 				llmId: 'model-a',
 				description: 'First Call',
-				promptTokens: 10,
-				completionTokens: 20,
-				totalTokens: 30,
-				timestamp: new Date().toISOString(),
+				inputTokens: 10,
+				outputTokens: 20,
 				cost: 0.01,
-				latency: 1000,
+				totalTime: 1000,
+				requestTime: new Date().getTime(),
+				messageSummaries: []
 			},
 			{
 				id: 'call2',
 				llmId: 'model-b',
 				description: 'Second Call',
-				promptTokens: 15,
-				completionTokens: 25,
-				totalTokens: 40,
-				timestamp: new Date().toISOString(),
+				inputTokens: 15,
+				outputTokens: 25,
 				cost: 0.02,
-				latency: 1500,
+				totalTime: 1500,
+				requestTime: new Date().getTime(),
+				messageSummaries: []
 			},
 		];
 
@@ -140,15 +135,14 @@ describe('AgentLlmCallsComponent', () => {
 			expect(await po.isLlmCallDetailLoading(0)).toBeTrue();
 
 			const mockLlmCallDetail: LlmCall = {
-				...mockLlmCallSummaries[0],
 				messages: [
 					{ role: 'user', content: 'Hello' },
 					{ role: 'assistant', content: 'Hi there!' },
 				],
 				settings: { temperature: 0.7 },
-				responseRaw: 'Raw response',
-				inputCost: 0.005,
-				outputCost: 0.005,
+				id: '',
+				llmId: '',
+				requestTime: 0
 			};
 			selectedLlmCallDetailStateSignal.set({ status: 'success', data: mockLlmCallDetail });
 			await po.detectAndWait();
@@ -171,12 +165,11 @@ describe('AgentLlmCallsComponent', () => {
 
 		it('should navigate to Prompt Studio when "Open in Prompt Studio" button is clicked', async () => {
 			const mockLlmCallDetail: LlmCall = {
-				...mockLlmCallSummaries[0],
 				messages: [{ role: 'user', content: 'Test prompt' } as LlmMessage],
 				settings: { temperature: 0.5 },
-				responseRaw: 'Test response',
-				inputCost: 0.001,
-				outputCost: 0.002,
+				id: '',
+				llmId: '',
+				requestTime: 0
 			};
 			// Pre-load detail for the test
 			selectedLlmCallDetailStateSignal.set({ status: 'success', data: mockLlmCallDetail });

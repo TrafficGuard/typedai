@@ -7,7 +7,7 @@ import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { RouterTestingModule } from '@angular/router/testing';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { Observable, of } from 'rxjs';
-import { Agent, AgentContextPreview, AgentRunningState } from '#shared/agent/agent.model';
+import { AgentContextPreview, AgentRunningState, AgentType } from '#shared/agent/agent.model';
 import { ApiListState, createApiListState } from '../../../core/api-state.types';
 import { AgentService } from '../agent.service';
 import { AgentListComponent } from './agent-list.component';
@@ -23,7 +23,6 @@ const createMockAgentPreviewApi = (id: string, name: string, state: AgentRunning
 	cost: 10.0,
 	error: state === 'error' ? 'Simulated error' : undefined,
 	subtype: '',
-	user: '',
 	inputPrompt: '',
 	lastUpdate: Date.now(),
 });

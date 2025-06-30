@@ -1,7 +1,5 @@
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { adminApi } from '../../../../shared/api/admin.api';
-import { AdminDashboardStats } from '../../../../shared/model/admin.model';
 import { AdminService } from './admin.service';
 
 describe('AdminService', () => {

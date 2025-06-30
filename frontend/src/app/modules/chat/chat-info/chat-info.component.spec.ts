@@ -29,6 +29,7 @@ const mockUser: UserProfile = {
 		frequencyPenalty: 0.5,
 		defaultLLM: 'default-llm',
 	},
+	enabled: false
 };
 
 describe('ChatInfoComponent', () => {
@@ -139,9 +140,9 @@ describe('ChatInfoComponent', () => {
 			await po.detectAndWait();
 		});
 
-		it('should call UserService.update with new settings when a slider changes', async () => {
+		it('should call UserService.update with new settings when a slider changes', async () => {	
 			// Arrange
-			mockUserService.update.and.returnValue(of(mockUser)); // Mock successful update
+			mockUserService.update.and.returnValue(of(undefined));
 			const newTemperature = 0.9;
 
 			// Act
