@@ -1,55 +1,24 @@
 import { type DocumentSnapshot, Firestore } from '@google-cloud/firestore';
-import * as bcrypt from 'bcrypt';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import type { User } from '#shared/user/user.model';
-import { currentUser, isSingleUser } from '#user/userContext';
-import type { UserService } from '#user/userService';
+import { AbstractUserService } from '#user/abstractUserService';
+import { currentUser } from '#user/userContext';
 import { envVar } from '#utils/env-var';
 
 export const USERS_COLLECTION = 'Users';
 
 /*** Google Firestore implementation of UserService*/
-export class FirestoreUserService implements UserService {
+export class FirestoreUserService extends AbstractUserService {
 	db: Firestore;
-	singleUser: User | undefined;
 
 	constructor() {
+		super();
 		this.db = new Firestore({
 			projectId: process.env.FIRESTORE_EMULATOR_HOST ? 'demo-typedai' : envVar('GCLOUD_PROJECT'),
 			databaseId: process.env.DATABASE_NAME,
 			ignoreUndefinedProperties: true,
 		});
-	}
-
-	/**
-	 * When running the application in single user mode there is
-	 * a single user account which is automatically created and logged in.
-	 */
-	async ensureSingleUser(): Promise<void> {
-		if (!isSingleUser()) return;
-		if (!this.singleUser) {
-			const users = await this.listUsers();
-			if (users.length > 1) {
-				const user = users.find((user) => user.email === process.env.SINGLE_USER_EMAIL);
-				if (!user) throw new Error(`No user found with email ${process.env.SINGLE_USER_EMAIL}`);
-				this.singleUser = user;
-			} else if (users.length === 1) {
-				this.singleUser = users[0];
-				if (process.env.SINGLE_USER_EMAIL && this.singleUser.email && this.singleUser.email !== process.env.SINGLE_USER_EMAIL)
-					logger.error(`Only user has email ${this.singleUser.email}. Expected ${process.env.SINGLE_USER_EMAIL}`);
-			} else {
-				this.singleUser = await this.createUser({
-					email: process.env.SINGLE_USER_EMAIL,
-					functionConfig: {},
-					llmConfig: {},
-					enabled: true,
-					hilCount: 5,
-					hilBudget: 1,
-				});
-			}
-			logger.info(`Single user id: ${this.singleUser.id}`);
-		}
 	}
 
 	@span({ userId: 0 })
@@ -168,16 +137,6 @@ export class FirestoreUserService implements UserService {
 		}
 	}
 
-	async disableUser(userId: string): Promise<void> {
-		const userDocRef = this.db.doc(`Users/${userId}`);
-		try {
-			await userDocRef.update({ enabled: false });
-		} catch (error) {
-			logger.error(error, 'Error disabling user');
-			throw error;
-		}
-	}
-
 	@span()
 	async listUsers(): Promise<User[]> {
 		const querySnapshot = await this.db.collection(USERS_COLLECTION).get();
@@ -185,65 +144,5 @@ export class FirestoreUserService implements UserService {
 			const data = doc.data() as User;
 			return this.docToUser(data, doc.id);
 		});
-	}
-
-	getSingleUser(): User {
-		return this.singleUser;
-	}
-
-	@span({ email: 0 })
-	async authenticateUser(email: string, password: string): Promise<User> {
-		let user: User;
-		try {
-			user = await this.getUserByEmail(email);
-		} catch (e) {
-			throw new Error('Server error');
-		}
-
-		if (!user) {
-			throw new Error('Invalid credentials');
-		}
-
-		if (!user || !user.passwordHash) {
-			throw new Error('Invalid credentials (no hash)');
-		}
-
-		const isValid = await bcrypt.compare(password, user.passwordHash);
-		if (!isValid) {
-			throw new Error('Invalid credentials');
-		}
-		try {
-			await this.updateUser({ lastLoginAt: new Date() }, user.id);
-		} catch (e) {
-			logger.error('Error updating lastLoginAt in authenticateUser');
-		}
-		return user;
-	}
-
-	@span({ email: 0 })
-	async createUserWithPassword(email: string, password: string): Promise<User> {
-		const existingUser = await this.getUserByEmail(email);
-		if (existingUser) {
-			logger.debug(`User ${email} already exists`);
-			throw new Error('User already exists');
-		}
-
-		const passwordHash = await bcrypt.hash(password, 10);
-		return this.createUser({
-			email,
-			passwordHash,
-			enabled: true,
-			createdAt: new Date(),
-			hilCount: 5,
-			hilBudget: 1,
-			functionConfig: {},
-			llmConfig: {},
-		});
-	}
-
-	@span({ userId: 0 })
-	async updatePassword(userId: string, newPassword: string): Promise<void> {
-		const passwordHash = await bcrypt.hash(newPassword, 10);
-		await this.updateUser({ passwordHash }, userId);
 	}
 }

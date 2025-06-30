@@ -1,6 +1,5 @@
-import * as bcrypt from 'bcrypt';
 import type { User } from '#shared/user/user.model';
-import type { UserService } from '#user/userService';
+import { AbstractUserService } from '#user/abstractUserService';
 
 export const SINGLE_USER_ID = 'user';
 
@@ -21,58 +20,7 @@ const singleUser: User = {
 	createdAt: new Date(),
 };
 
-export class InMemoryUserService implements UserService {
-	private passwordHashes: Map<string, string> = new Map();
-
-	async authenticateUser(email: string, password: string): Promise<User> {
-		const user = await this.getUserByEmail(email);
-		const hash = this.passwordHashes.get(user.id);
-		if (!hash) {
-			throw new Error('Invalid credentials');
-		}
-
-		const isValid = await bcrypt.compare(password, hash);
-		if (!isValid) {
-			throw new Error('Invalid credentials');
-		}
-
-		await this.updateUser({ lastLoginAt: new Date() }, user.id);
-		return user;
-	}
-
-	async createUserWithPassword(email: string, password: string): Promise<User> {
-		const existingUser = await this.getUserByEmail(email);
-		if (existingUser) {
-			throw new Error('User already exists');
-		}
-
-		const passwordHash = await bcrypt.hash(password, 10);
-		const user = await this.createUser({
-			email,
-			passwordHash, // Pass the hash to createUser
-			enabled: true,
-			// createdAt will be defaulted by createUser
-			hilCount: 5,
-			hilBudget: 1,
-			// functionConfig and llmConfig will be defaulted by createUser
-		});
-
-		this.passwordHashes.set(user.id, passwordHash); // Still maintain separate map for auth logic
-		return user; // user object from createUser now includes passwordHash
-	}
-
-	async updatePassword(userId: string, newPassword: string): Promise<void> {
-		const userIndex = this.users.findIndex((u) => u.id === userId);
-		if (userIndex === -1) {
-			throw new Error(`User with ID ${userId} not found.`);
-		}
-		const passwordHash = await bcrypt.hash(newPassword, 10);
-		this.passwordHashes.set(userId, passwordHash);
-		// Update the user object in the array as well
-		if (this.users[userIndex]) {
-			this.users[userIndex].passwordHash = passwordHash;
-		}
-	}
+export class InMemoryUserService extends AbstractUserService {
 	users: User[] = [singleUser];
 
 	async getUser(userId: string): Promise<User> {
@@ -91,11 +39,6 @@ export class InMemoryUserService implements UserService {
 		const user = await this.getUser(userId);
 		Object.assign(user, updates);
 		return user;
-	}
-
-	async disableUser(userId: string): Promise<void> {
-		const user = await this.getUser(userId);
-		user.enabled = false;
 	}
 
 	async listUsers(): Promise<User[]> {
@@ -128,11 +71,5 @@ export class InMemoryUserService implements UserService {
 		};
 		this.users.push(newUser);
 		return Promise.resolve(newUser);
-	}
-
-	async ensureSingleUser(): Promise<void> {}
-
-	getSingleUser(): User {
-		return singleUser;
 	}
 }

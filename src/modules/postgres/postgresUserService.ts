@@ -1,16 +1,13 @@
 import { randomUUID } from 'node:crypto';
-import * as bcrypt from 'bcrypt';
 import type { ExpressionBuilder, Insertable, Selectable, Updateable } from 'kysely';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import type { ChatSettings, LLMServicesConfig, User } from '#shared/user/user.model';
-import { currentUser, isSingleUser } from '#user/userContext'; // Added isSingleUser
-import type { UserService } from '#user/userService';
-// No envVar import needed as process.env will be used directly for SINGLE_USER_EMAIL
+import { AbstractUserService } from '#user/abstractUserService';
+import { currentUser } from '#user/userContext';
 import { type Database, type UsersTable, db } from './db';
 
-export class PostgresUserService implements UserService {
-	singleUser: User | undefined; // Added singleUser member
+export class PostgresUserService extends AbstractUserService {
 	private docToUser(row: Selectable<UsersTable>): User {
 		const parsedLlmConfig: LLMServicesConfig = row.llm_config_serialized ? JSON.parse(row.llm_config_serialized) : {};
 		const parsedChatConfig = row.chat_config_serialized ? JSON.parse(row.chat_config_serialized) : {};
@@ -117,94 +114,6 @@ export class PostgresUserService implements UserService {
 		return this.docToUser(insertedRow);
 	}
 
-	async authenticateUser(email: string, password: string): Promise<User> {
-		const user = await this.getUserByEmail(email);
-		if (!user || !user.passwordHash) throw new Error('Invalid credentials');
-		const isValid = await bcrypt.compare(password, user.passwordHash);
-		if (!isValid) throw new Error('Invalid credentials');
-		// lastLoginAt is updated via updateUser, which also fetches the user again.
-		// This ensures the returned user object includes the updated lastLoginAt.
-		const updatedUser = await this.updateUser({ lastLoginAt: new Date() }, user.id);
-		return updatedUser;
-	}
-
-	async createUserWithPassword(email: string, password: string): Promise<User> {
-		const existingUser = await this.getUserByEmail(email);
-		if (existingUser) throw new Error('User already exists');
-		const passwordHash = await bcrypt.hash(password, 10);
-		const newUserPartial: Partial<User> = {
-			email,
-			passwordHash,
-			enabled: true,
-			hilBudget: 0, // Default value
-			hilCount: 0, // Default value
-			llmConfig: {}, // Default value
-			chat: { enabledLLMs: {}, defaultLLM: '', temperature: 1, topP: 1, topK: 50, frequencyPenalty: 0, presencePenalty: 0 }, // Default value
-			functionConfig: {}, // Default value
-		};
-		return this.createUser(newUserPartial);
-	}
-
-	async updatePassword(userId: string, newPassword: string): Promise<void> {
-		const passwordHash = await bcrypt.hash(newPassword, 10);
-		await this.updateUser({ passwordHash }, userId);
-	}
-
-	async ensureSingleUser(): Promise<void> {
-		if (!isSingleUser()) return;
-		if (!this.singleUser) {
-			const singleUserEmailFromEnv = process.env.SINGLE_USER_EMAIL;
-			const users = await this.listUsers();
-
-			if (users.length > 1) {
-				if (!singleUserEmailFromEnv) {
-					throw new Error(
-						'Multiple users exist, but SINGLE_USER_EMAIL environment variable is not set. Cannot determine the single user for single user mode.',
-					);
-				}
-				const user = users.find((u) => u.email === singleUserEmailFromEnv);
-				if (!user) {
-					throw new Error(`Multiple users exist, but no user found with email ${singleUserEmailFromEnv} (from SINGLE_USER_EMAIL) for single user mode.`);
-				}
-				this.singleUser = user;
-			} else if (users.length === 1) {
-				this.singleUser = users[0];
-				if (singleUserEmailFromEnv && this.singleUser.email && this.singleUser.email !== singleUserEmailFromEnv) {
-					logger.warn(
-						`The only existing user has email ${this.singleUser.email}, but SINGLE_USER_EMAIL is set to ${singleUserEmailFromEnv}. Using the existing user as the single user.`,
-					);
-				}
-			} else {
-				// No users exist
-				if (!singleUserEmailFromEnv) {
-					throw new Error('No users exist and SINGLE_USER_EMAIL environment variable is not set. Cannot create single user.');
-				}
-				this.singleUser = await this.createUser({
-					email: singleUserEmailFromEnv,
-					// Defaults for a new single user, matching Firestore's ensureSingleUser behavior
-					functionConfig: {},
-					llmConfig: {},
-					enabled: true,
-					hilCount: 5,
-					hilBudget: 1,
-				});
-			}
-
-			if (this.singleUser) {
-				logger.info(`Single user initialized: id=${this.singleUser.id}, email=${this.singleUser.email}`);
-			}
-			// If isSingleUser() is true at this point and this.singleUser is still not set,
-			// an error would have been thrown by the logic above (e.g., missing SINGLE_USER_EMAIL).
-		}
-	}
-
-	getSingleUser(): User {
-		if (!this.singleUser) {
-			throw new Error('Single user instance is not available. ensureSingleUser() must be called and successfully complete in single-user mode.');
-		}
-		return this.singleUser;
-	}
-
 	async updateUser(updates: Partial<User>, userId?: string): Promise<User> {
 		const targetUserId = userId ?? currentUser().id;
 		await this.getUser(targetUserId); // Ensures user exists, throws if not.
@@ -229,10 +138,6 @@ export class PostgresUserService implements UserService {
 			this.singleUser = returnedUser;
 		}
 		return returnedUser;
-	}
-
-	async disableUser(userId: string): Promise<void> {
-		await this.updateUser({ enabled: false }, userId);
 	}
 
 	async listUsers(): Promise<User[]> {

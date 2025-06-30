@@ -26,7 +26,8 @@ export interface UserService {
 	updatePassword(userId: string, newPassword: string): Promise<void>;
 
 	/**
-	 * When running in single-user mode ensure the single user as been created
+	 * When running the application in single user mode ensure there is a user account
+	 * created with the email of the SINGLE_USER_EMAIL environment variable.
 	 */
 	ensureSingleUser(): Promise<void>;
 
