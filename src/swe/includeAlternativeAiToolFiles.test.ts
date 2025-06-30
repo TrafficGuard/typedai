@@ -31,6 +31,7 @@ describe('includeAlternativeAiToolFiles', () => {
 			'CONVENTIONS.md': 'Root conventions', // Aider conventions / Aider read target
 			'global_rules.md': 'Global windsurf rules', // Windsurf global (only if repoRoot is vcsRoot)
 			'DOCS.md': 'Root DOCS.md', // TypedAI docs
+			'GEMINI.md': 'Root GEMINI.md', // Gemini docs
 			'QUICKSTART.md': 'Quickstart guide', // Referenced by subdir aider config
 			// Sub directory
 			sub_dir: {
@@ -38,6 +39,7 @@ describe('includeAlternativeAiToolFiles', () => {
 				'.cursorrules': 'Subdir cursor rules', // Cursor legacy (should be found for files in sub_dir)
 				'CONVENTIONS.md': 'Subdir conventions', // Aider conventions (should be found)
 				'DOCS.md': 'Subdir DOCS.md', // TypedAI docs (should be found)
+				'GEMINI.md': 'Subdir GEMINI.md', // Gemini docs (should be found)
 				'.aider.conf.yml': 'read:\n  - ../QUICKSTART.md\n  - non_existent.md', // Aider config (list read, relative path up, non-existent file)
 
 				// Nested directory
@@ -92,6 +94,7 @@ describe('includeAlternativeAiToolFiles', () => {
 			'.cursorrules', // Found in sub_dir
 			'CONVENTIONS.md', // Found in sub_dir
 			'DOCS.md', // Found in sub_dir
+			'GEMINI.md', // Found in sub_dir
 			// Files relative to cwd, found in parent ('/')
 			`..${sep}.cursorrules`,
 			`..${sep}.cursor${sep}rules${sep}root_rule.mdc`,
@@ -100,6 +103,7 @@ describe('includeAlternativeAiToolFiles', () => {
 			`..${sep}CONVENTIONS.md`, // Read by root .aider.conf.yml
 			`..${sep}global_rules.md`, // Found in vcsRoot
 			`..${sep}DOCS.md`,
+			`..${sep}GEMINI.md`, // Found in vcsRoot
 			`..${sep}QUICKSTART.md`, // Read by sub_dir .aider.conf.yml
 		]);
 
@@ -123,6 +127,7 @@ describe('includeAlternativeAiToolFiles', () => {
 			'.cursorrules', // Found in sub_dir
 			'CONVENTIONS.md', // Found in sub_dir
 			'DOCS.md', // Found in sub_dir
+			'GEMINI.md', // Found in sub_dir
 			// Files relative to cwd, found in parent ('/')
 			`..${sep}.cursorrules`,
 			`..${sep}.cursor${sep}rules${sep}root_rule.mdc`,
@@ -131,6 +136,7 @@ describe('includeAlternativeAiToolFiles', () => {
 			`..${sep}CONVENTIONS.md`, // Read by root .aider.conf.yml
 			`..${sep}global_rules.md`, // Found in vcsRoot
 			`..${sep}DOCS.md`,
+			`..${sep}GEMINI.md`, // Found in vcsRoot
 			`..${sep}QUICKSTART.md`, // Read by sub_dir .aider.conf.yml
 		]);
 
@@ -155,6 +161,7 @@ describe('includeAlternativeAiToolFiles', () => {
 			'.cursorrules', // Found in sub_dir (from sub_file1, nested_file)
 			'CONVENTIONS.md', // Found in sub_dir (from sub_file1, nested_file)
 			'DOCS.md', // Found in sub_dir (from sub_file1, nested_file)
+			'GEMINI.md', // Found in sub_dir (from sub_file1, nested_file)
 			// Files relative to cwd, found in parent ('/') (from all files)
 			`..${sep}.cursorrules`,
 			`..${sep}.cursor${sep}rules${sep}root_rule.mdc`,
@@ -163,6 +170,7 @@ describe('includeAlternativeAiToolFiles', () => {
 			`..${sep}CONVENTIONS.md`, // Read by root .aider.conf.yml
 			`..${sep}global_rules.md`, // Found in vcsRoot
 			`..${sep}DOCS.md`,
+			`..${sep}GEMINI.md`, // Found in vcsRoot
 			`..${sep}QUICKSTART.md`, // Read by sub_dir .aider.conf.yml
 		]);
 
@@ -188,6 +196,7 @@ describe('includeAlternativeAiToolFiles', () => {
 			'.cursorrules', // Found in sub_dir (NOT the one from selection)
 			// 'CONVENTIONS.md' - Excluded as it was in fileSelection
 			'DOCS.md', // Found in sub_dir
+			'GEMINI.md', // Found in sub_dir
 			// Files relative to cwd, found in parent ('/')
 			// `..${sep}.cursorrules` - Excluded as it was in fileSelection
 			`..${sep}.cursor${sep}rules${sep}root_rule.mdc`,
@@ -196,6 +205,7 @@ describe('includeAlternativeAiToolFiles', () => {
 			`..${sep}CONVENTIONS.md`, // Read by root .aider.conf.yml
 			`..${sep}global_rules.md`, // Found in vcsRoot
 			`..${sep}DOCS.md`,
+			`..${sep}GEMINI.md`, // Found in vcsRoot
 			`..${sep}QUICKSTART.md`, // Read by sub_dir .aider.conf.yml
 		]);
 
@@ -220,6 +230,7 @@ describe('includeAlternativeAiToolFiles', () => {
 			'.cursorrules',
 			'CONVENTIONS.md',
 			'DOCS.md',
+			'GEMINI.md',
 			// Files relative to cwd, found in parent ('/')
 			`..${sep}.cursorrules`,
 			`..${sep}.cursor${sep}rules${sep}root_rule.mdc`,
@@ -228,6 +239,7 @@ describe('includeAlternativeAiToolFiles', () => {
 			`..${sep}CONVENTIONS.md`, // Read by root .aider.conf.yml
 			`..${sep}global_rules.md`, // Found in vcsRoot
 			`..${sep}DOCS.md`,
+			`..${sep}GEMINI.md`,
 			`..${sep}QUICKSTART.md`, // Read by sub_dir .aider.conf.yml
 		]);
 		expect(additions).to.be.an.instanceOf(Set);
@@ -243,11 +255,13 @@ describe('includeAlternativeAiToolFiles', () => {
 			[outsideDir]: {
 				'outer_file.txt': '',
 				'DOCS.md': 'Outer docs',
+				'GEMINI.md': 'Outer Gemini',
 			},
 			[repoRoot]: {
 				// Keep repo structure for comparison
 				'file1.txt': '',
 				'DOCS.md': 'Repo Root DOCS.md',
+				'GEMINI.md': 'Repo Root Gemini',
 				sub_dir: {
 					'sub_file1.ts': '',
 					'DOCS.md': 'Subdir DOCS.md',
@@ -272,9 +286,11 @@ describe('includeAlternativeAiToolFiles', () => {
 			// From sub_file1.ts hierarchy (relative to currentTestCwd: /mock-repo/sub_dir)
 			'DOCS.md', // sub_dir/DOCS.md
 			`..${sep}DOCS.md`, // mock-repo/DOCS.md (Repo Root DOCS.md)
+			`..${sep}GEMINI.md`, // mock-repo/GEMINI.md (Repo Root Gemini)
 			// From /outside/outer_file.txt hierarchy (relative to currentTestCwd: /mock-repo/sub_dir)
 			// relative('/mock-repo/sub_dir', '/outside/DOCS.md') -> '../../outside/DOCS.md'
 			`..${sep}..${sep}outside${sep}DOCS.md`, // /outside/DOCS.md
+			`..${sep}..${sep}outside${sep}GEMINI.md`, // /outside/GEMINI.md
 		]);
 
 		expect(additions).to.be.an.instanceOf(Set);

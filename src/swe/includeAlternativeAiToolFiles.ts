@@ -15,6 +15,8 @@ const WINDSURF_GLOBAL_RULES_FILE = 'global_rules.md';
 const WINDSURF_LOCAL_RULES_FILE = '.windsurfrules';
 // DOCS.md in the current and parent folders (upto the vcs root) are included
 const TYPEDAI_DOCS_FILE = 'DOCS.md';
+// For Google Gemini CLI tool
+const GEMINI_DOCS_FILE = 'GEMINI.md';
 // Any markdown files placed in the .clinerules/ folder are automatically aggregated and appended to your prompt,
 // exactly like the single .clinerules file, but with the flexibility of multiple files.
 const CLINE_RULES = '.clinerules';
@@ -117,7 +119,7 @@ async function _checkFileExists(folder: string, filename: string, addFileCallbac
  * Checks for multiple simple, single AI tool files in the given folder.
  */
 async function _checkSimpleFilesExist(folder: string, addFileCallback: AddFileCallback): Promise<void> {
-	const filesToCheck = [CURSOR_RULES_FILE, AIDER_CONVENTIONS_FILE, WINDSURF_LOCAL_RULES_FILE, TYPEDAI_DOCS_FILE];
+	const filesToCheck = [CURSOR_RULES_FILE, AIDER_CONVENTIONS_FILE, WINDSURF_LOCAL_RULES_FILE, TYPEDAI_DOCS_FILE, GEMINI_DOCS_FILE];
 	await Promise.all(filesToCheck.map((filename) => _checkFileExists(folder, filename, addFileCallback)));
 }
 
