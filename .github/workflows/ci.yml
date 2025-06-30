@@ -26,16 +26,25 @@ jobs:
       - name: Run unit tests (server)
         run: npm run test:unit
 
-  db-tests:
-    name: Database tests (${{ matrix.database }})
+  db-tests-firestore:
+    name: Database tests (firestore)
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        database: [firestore, postgres, mongo]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20.x'
+      - name: Install dependencies (server)
+        run: npm ci
+      - name: Run database tests (server)
+        run: npm run test:ci:firestore
+
+  db-tests-postgres:
+    name: Database tests (postgres)
+    runs-on: ubuntu-latest
     services:
       postgres:
-        if: ${{ matrix.database == 'postgres' }}
         image: postgres:15-alpine
         env:
           POSTGRES_USER: user
@@ -45,8 +54,22 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20.x'
+      - name: Install dependencies (server)
+        run: npm ci
+      - name: Run database tests (server)
+        run: npm run test:ci:postgres
+
+  db-tests-mongo:
+    name: Database tests (mongo)
+    runs-on: ubuntu-latest
+    services:
       mongo:
-        if: ${{ matrix.database == 'mongo' }}
         image: mongo:6
         ports:
           - 27017:27017
@@ -61,7 +84,7 @@ jobs:
       - name: Install dependencies (server)
         run: npm ci
       - name: Run database tests (server)
-        run: npm run test:ci:${{ matrix.database }}
+        run: npm run test:ci:mongo
 
   frontend:
     runs-on: ubuntu-latest
