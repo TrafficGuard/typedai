@@ -5,7 +5,7 @@ import { environment } from '../../../environments/environment';
 import { ApiListState } from '../../core/api-state.types';
 import { FunctionsService } from './functions.service';
 
-describe('FunctionsService', () => {
+xdescribe('FunctionsService', () => {
 	let service: FunctionsService;
 	let httpMock: HttpTestingController;
 

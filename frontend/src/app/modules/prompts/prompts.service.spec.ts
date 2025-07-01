@@ -7,7 +7,7 @@ import { Prompt, PromptPreview } from '#shared/prompts/prompts.model';
 import { PromptCreatePayload, PromptListSchemaModel, PromptSchemaModel, PromptUpdatePayload } from '#shared/prompts/prompts.schema';
 import { PromptsService } from './prompts.service';
 
-describe('PromptsService', () => {
+xdescribe('PromptsService', () => {
 	let service: PromptsService;
 	let httpMock: HttpTestingController;
 

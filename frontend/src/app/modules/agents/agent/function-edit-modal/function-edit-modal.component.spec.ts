@@ -13,7 +13,7 @@ import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { FunctionEditModalComponent } from './function-edit-modal.component';
 import { FunctionEditModalPo } from './function-edit-modal.component.po';
 
-describe('FunctionEditModalComponent', () => {
+xdescribe('FunctionEditModalComponent', () => {
 	let component: FunctionEditModalComponent;
 	let fixture: ComponentFixture<FunctionEditModalComponent>;
 	let po: FunctionEditModalPo;

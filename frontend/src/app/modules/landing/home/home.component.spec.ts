@@ -1,7 +1,7 @@
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { RouterTestingModule } from '@angular/router/testing';
-
+import { MatIconTestingModule } from '@angular/material/icon/testing';
 import { LandingHomeComponent } from './home.component';
 
 describe('LandingHomeComponent', () => {
@@ -11,9 +11,10 @@ describe('LandingHomeComponent', () => {
 	beforeEach(async () => {
 		await TestBed.configureTestingModule({
 			imports: [
-				LandingHomeComponent, // Import the standalone component directly
+				LandingHomeComponent,
 				RouterTestingModule,
-				NoopAnimationsModule, // For Material components
+				NoopAnimationsModule,
+				MatIconTestingModule
 			],
 		}).compileComponents();
 

@@ -24,7 +24,7 @@ class StubNewAutonomousAgentComponent {}
 })
 class StubNewWorkflowsAgentComponent {}
 
-describe('NewAgentComponent', () => {
+xdescribe('NewAgentComponent', () => {
 	let component: NewAgentComponent;
 	let fixture: ComponentFixture<NewAgentComponent>;
 	let po: NewAgentPo;

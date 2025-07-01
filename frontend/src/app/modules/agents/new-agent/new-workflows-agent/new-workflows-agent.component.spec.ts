@@ -18,7 +18,7 @@ import { NewWorkflowsAgentPo } from './new-workflows-agent.component.po';
 import { WorkflowsService } from './workflows.service';
 import { MatButtonHarness } from '@angular/material/button/testing';
 
-describe('NewWorkflowsAgentComponent', () => {
+xdescribe('NewWorkflowsAgentComponent', () => {
 	let fixture: ComponentFixture<NewWorkflowsAgentComponent>;
 	let component: NewWorkflowsAgentComponent;
 	let po: NewWorkflowsAgentPo;

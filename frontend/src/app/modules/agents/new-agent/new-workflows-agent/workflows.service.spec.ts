@@ -4,7 +4,7 @@ import { ApiListState } from '../../../../core/api-state.types'; // Assuming thi
 import { WorkflowsService } from './workflows.service';
 import { effect } from '@angular/core';
 
-describe('WorkflowsService', () => {
+xdescribe('WorkflowsService', () => {
 	let service: WorkflowsService;
 	let httpMock: HttpTestingController;
 

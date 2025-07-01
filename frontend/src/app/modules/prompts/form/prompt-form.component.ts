@@ -31,10 +31,10 @@ import { MatSliderModule } from '@angular/material/slider';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import type { CallSettings, FilePartExt, ImagePartExt, LlmMessage, TextPart, UserContentExt } from '#shared/llm/llm.model';
+import type { CallSettings, FilePartExt, ImagePartExt, LlmInfo, LlmMessage, TextPart, UserContentExt } from '#shared/llm/llm.model';
 import type { Prompt } from '#shared/prompts/prompts.model';
 import { type PromptCreatePayload, PromptGenerateResponseSchemaModel, type PromptSchemaModel, type PromptUpdatePayload } from '#shared/prompts/prompts.schema';
-import { type LLM as AppLLM, LlmService } from '../../llm.service'; // Renamed LLM to AppLLM to avoid conflict
+import { LlmService } from '../../llm.service';
 import type { Attachment } from '../message.types';
 import { attachmentsAndTextToUserContentExt, fileToAttachment, userContentExtToAttachmentsAndText } from '../messageUtil';
 import { PromptsService } from '../prompts.service';
@@ -149,7 +149,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 	];
 
 	public selectedModel = '';
-	public availableModels: AppLLM[] = [];
+	public availableModels: LlmInfo[] = [];
 
 	// Signals for card collapsibility (matching HTML usage)
 	optionsCollapsed = signal(false);

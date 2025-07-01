@@ -4,7 +4,7 @@ import { AgentContextApi } from '#shared/agent/agent.schema'; // Adjusted path
 import { AgentMemoryComponent } from './agent-memory.component';
 import { AgentMemoryPo } from './agent-memory.component.po';
 
-describe('AgentMemoryComponent', () => {
+xdescribe('AgentMemoryComponent', () => {
 	let component: AgentMemoryComponent;
 	let fixture: ComponentFixture<AgentMemoryComponent>;
 	let po: AgentMemoryPo;

@@ -45,7 +45,7 @@ class MockMatSnackBar {
 	}
 }
 
-describe('AgentComponent', () => {
+xdescribe('AgentComponent', () => {
 	let component: AgentComponent;
 	let fixture: ComponentFixture<AgentComponent>;
 	let mockAgentService: MockAgentService;

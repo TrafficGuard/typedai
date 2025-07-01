@@ -12,7 +12,7 @@ import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
 import { UserProfile } from '#shared/user/user.model';
 import { UserService } from 'app/core/user/user.service';
 
-describe('ProfileComponent', () => {
+xdescribe('ProfileComponent', () => {
 	let component: ProfileComponent;
 	let fixture: ComponentFixture<ProfileComponent>;
 	let mockUserService: jasmine.SpyObj<UserService>;

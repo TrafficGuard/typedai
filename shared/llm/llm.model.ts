@@ -461,3 +461,9 @@ export type LlmCostFunction = (
 	completionTime?: Date,
 	result?: GenerateTextResult<any, any>,
 ) => { inputCost: number; outputCost: number; totalCost: number };
+
+export interface LlmInfo {
+	id: string;
+	name: string;
+	isConfigured: boolean;
+}

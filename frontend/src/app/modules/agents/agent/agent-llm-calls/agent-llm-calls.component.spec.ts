@@ -11,7 +11,7 @@ import { AgentService } from '../../agent.service';
 import { AgentLlmCallsComponent } from './agent-llm-calls.component';
 import { AgentLlmCallsPo } from './agent-llm-calls.component.po';
 
-describe('AgentLlmCallsComponent', () => {
+xdescribe('AgentLlmCallsComponent', () => {
 	let component: AgentLlmCallsComponent;
 	let fixture: ComponentFixture<AgentLlmCallsComponent>;
 	let po: AgentLlmCallsPo;

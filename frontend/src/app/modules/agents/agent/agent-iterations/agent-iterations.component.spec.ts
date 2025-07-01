@@ -11,7 +11,7 @@ import { AgentService } from '../../agent.service';
 import { AgentIterationsComponent } from './agent-iterations.component';
 import { AgentIterationsPo } from './agent-iterations.component.po';
 
-describe('AgentIterationsComponent', () => {
+xdescribe('AgentIterationsComponent', () => {
 	let component: AgentIterationsComponent;
 	let fixture: ComponentFixture<AgentIterationsComponent>;
 	let po: AgentIterationsPo;

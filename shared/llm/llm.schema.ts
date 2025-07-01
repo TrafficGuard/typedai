@@ -7,6 +7,7 @@ import type {
 	GenerationStats,
 	ImagePartExt,
 	LlmCallMessageSummaryPart,
+	LlmInfo,
 	LlmMessage,
 	TextPartExt,
 	ToolCallPartExt, // Corrected import: Model exports ToolCallPartExt
@@ -248,8 +249,20 @@ export const LlmSchema = Type.Object(
 	},
 	{ $id: 'Llm' },
 );
+const _LlmInfoCheck: AreTypesFullyCompatible<LlmInfo, Static<typeof LlmSchema>> = true;
 
 export type LlmSchemaModel = Static<typeof LlmSchema>;
 
 export const LlmsListSchema = Type.Array(LlmSchema, { $id: 'LlmsList' });
+const _LlmsListCheck: AreTypesFullyCompatible<LlmInfo[], Static<typeof LlmsListSchema>> = true;
 export type LlmsListSchemaModel = Static<typeof LlmsListSchema>;
+
+export const LlmsResponseSchema = Type.Object(
+	{
+		data: LlmsListSchema,
+	},
+	{ $id: 'LlmsResponse' },
+);
+
+type LlmsResponse = { data: LlmInfo[] };
+const _LlmsResponseCheck: AreTypesFullyCompatible<LlmsResponse, Static<typeof LlmsResponseSchema>> = true;

@@ -1,33 +1,30 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { EMPTY } from 'rxjs';
-import { catchError, map, retry, tap } from 'rxjs/operators';
+import { catchError, tap } from 'rxjs/operators';
 import { createApiListState } from '../core/api-state.types';
-
-export interface LLM {
-	id: string;
-	name: string;
-	isConfigured: boolean;
-}
+import { callApiRoute } from 'app/core/api-route';
+import { LLMS_API } from '#shared/llm/llm.api';
+import { LlmInfo } from '#shared/llm/llm.model';
 
 @Injectable({
 	providedIn: 'root',
 })
 export class LlmService {
-	private readonly _llmsState = createApiListState<LLM>();
+	private readonly httpClient = inject(HttpClient);
+
+	private readonly _llmsState = createApiListState<LlmInfo>();
 	readonly llmsState = this._llmsState.asReadonly();
 
-	constructor(private http: HttpClient) {}
-
-	loadLlms(): void {
-		if (this._llmsState().status === 'loading' || this._llmsState().status === 'success') return;
+	loadLlms(force = false): void {
+		if (!force && (this._llmsState().status === 'loading' || this._llmsState().status === 'success')) return;
 
 		this._llmsState.set({ status: 'loading' });
 
-		this.fetchLlms()
+		callApiRoute(this.httpClient, LLMS_API.list)
 			.pipe(
-				tap((llms: LLM[]) => {
-					this._llmsState.set({ status: 'success', data: llms });
+				tap((response) => {
+					this._llmsState.set({ status: 'success', data: response.data });
 				}),
 				catchError((error: HttpErrorResponse) => {
 					this._llmsState.set({
@@ -41,32 +38,11 @@ export class LlmService {
 			.subscribe();
 	}
 
-	private fetchLlms() {
-		return this.http.get<{ data: LLM[] }>('/api/llms/list').pipe(
-			map((response) => response.data),
-			retry(3),
-			catchError(this.handleError),
-		);
-	}
-
 	refreshLlms(): void {
-		this.loadLlms();
+		this.loadLlms(true);
 	}
 
 	clearCache() {
 		this.refreshLlms();
-	}
-
-	private handleError(error: HttpErrorResponse) {
-		let errorMessage = 'An error occurred';
-		if (error.error instanceof ErrorEvent) {
-			// Client-side error
-			errorMessage = `Error: ${error.error.message}`;
-		} else {
-			// Server-side error
-			errorMessage = `Error Code: ${error.status}\nMessage: ${error.message}`;
-		}
-		console.error(errorMessage);
-		return EMPTY;
 	}
 }

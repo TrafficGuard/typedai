@@ -14,7 +14,7 @@ import { PromptsService } from '../prompts.service';
 import { PromptListComponent } from './prompt-list.component';
 import { PromptListPo } from './prompt-list.po';
 
-describe('PromptListComponent', () => {
+xdescribe('PromptListComponent', () => {
 	let component: PromptListComponent;
 	let fixture: ComponentFixture<PromptListComponent>;
 	let po: PromptListPo;

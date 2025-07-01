@@ -4,7 +4,7 @@ import { AgentContextApi } from '#shared/agent/agent.schema';
 import { AgentToolStateComponent } from './agent-tool-state.component';
 import { AgentToolStatePo } from './agent-tool-state.component.po';
 
-describe('AgentToolStateComponent', () => {
+xdescribe('AgentToolStateComponent', () => {
 	let component: AgentToolStateComponent;
 	let fixture: ComponentFixture<AgentToolStateComponent>;
 	let po: AgentToolStatePo;

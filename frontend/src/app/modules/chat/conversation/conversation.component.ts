@@ -43,10 +43,10 @@ import { MarkdownModule, MarkdownService, MarkedRenderer, provideMarkdown } from
 import { EMPTY, Observable, Subject, catchError, combineLatest, distinctUntilChanged, from, interval, switchMap, tap } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
 import { v4 as uuidv4 } from 'uuid';
-import { UserContentExt } from '#shared/llm/llm.model';
+import { LlmInfo, UserContentExt } from '#shared/llm/llm.model';
 import { UserProfile } from '#shared/user/user.model';
 import { FuseConfirmationService } from '../../../../@fuse/services/confirmation';
-import { LLM, LlmService } from '../../llm.service';
+import { LlmService } from '../../llm.service';
 import { attachmentsAndTextToUserContentExt, fileToAttachment, userContentExtToAttachmentsAndText } from '../../messageUtil';
 import { ChatServiceClient } from '../chat.service';
 import { ClipboardButtonComponent } from './clipboard-button.component';
@@ -94,7 +94,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 	drawerMode: WritableSignal<'over' | 'side'> = signal('side');
 	drawerOpened: WritableSignal<boolean> = signal(false);
 
-	llmsSignal: Signal<LLM[]>;
+	llmsSignal: Signal<LlmInfo[]>;
 	llmId: WritableSignal<string | undefined> = signal(undefined);
 	defaultChatLlmId = computed(() => (this.userService.userProfile() as UserProfile)?.chat?.defaultLLM); // Added UserProfile type
 

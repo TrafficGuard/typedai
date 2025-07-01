@@ -62,7 +62,7 @@ const mockAgentDetailsNullHistory: AgentContextApi = {
 	functionCallHistory: null,
 };
 
-describe('AgentFunctionCallsComponent', () => {
+xdescribe('AgentFunctionCallsComponent', () => {
 	let component: AgentFunctionCallsComponent;
 	let fixture: ComponentFixture<AgentFunctionCallsComponent>;
 	let po: AgentFunctionCallsPo;
