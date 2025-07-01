@@ -1,4 +1,6 @@
 #!/bin/bash
+# Source the helper function
+source ./bin/configure_parts/shell_helpers.sh
 # Application Configuration and Frontend Setup ---------------------------------
 echo "--- Starting Application Configuration and Frontend Setup ---"
 
@@ -37,13 +39,30 @@ if [ -z "$CURRENT_SINGLE_USER_EMAIL" ]; then
     echo "Attempting to set SINGLE_USER_EMAIL from gcloud config..."
     # Use --quiet to suppress output, check exit code
     GCLOUD_ACCOUNT=$(gcloud config get-value account --quiet 2>/dev/null)
+    # There could be version update output. If there is more than one line, take the first line
+    GCLOUD_ACCOUNT=$(echo "$GCLOUD_ACCOUNT" | head -n 1)
     # Basic check if GCLOUD_ACCOUNT looks like an email address
     if [[ "$GCLOUD_ACCOUNT" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
       _update_app_env_var "./variables/local.env" "SINGLE_USER_EMAIL" "${GCLOUD_ACCOUNT}"
       echo "Set SINGLE_USER_EMAIL to ${GCLOUD_ACCOUNT} in ./variables/local.env"
     else
       echo "Could not automatically determine SINGLE_USER_EMAIL from gcloud config."
-      echo "Please manually update SINGLE_USER_EMAIL in ./variables/local.env"
+      user_email=""
+      if [ -n "$TYPEDAI_TEST_SINGLE_USER_EMAIL" ]; then
+          echo "Using TYPEDAI_TEST_SINGLE_USER_EMAIL. Value: $TYPEDAI_TEST_SINGLE_USER_EMAIL"
+          user_email="$TYPEDAI_TEST_SINGLE_USER_EMAIL"
+      else
+          read -r -p "Please enter the email address for the single user account: " user_email
+      fi
+
+      if [[ "$user_email" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+          _update_app_env_var "./variables/local.env" "SINGLE_USER_EMAIL" "$user_email"
+          echo "Set SINGLE_USER_EMAIL to $user_email in ./variables/local.env"
+      else
+          echo "Warning: Invalid email address provided for SINGLE_USER_EMAIL. Value was: \"$user_email\""
+          echo "Please manually update SINGLE_USER_EMAIL in ./variables/local.env"
+          exit 1
+      fi
     fi
 else
     echo "SINGLE_USER_EMAIL is already set in ./variables/local.env: $CURRENT_SINGLE_USER_EMAIL"
@@ -73,30 +92,9 @@ fi
 # CLI setup -------------
 
 echo "Setting up CLI environment variables in shell profiles..."
-# Setup for bash
-if [ -f ~/.bashrc ]; then
-    if ! grep -q "TYPEDAI_HOME" ~/.bashrc; then
-        echo "# TypedAI CLI environment" >> ~/.bashrc
-        echo "export TYPEDAI_HOME=$(pwd)" >> ~/.bashrc
-        echo "export PATH=\$TYPEDAI_HOME/bin/path:\$PATH" >> ~/.bashrc
-        echo "Added TypedAI CLI environment variables to ~/.bashrc"
-    else
-        echo "TypedAI CLI environment variables already present in ~/.bashrc"
-    fi
-fi
-
-# Setup for zsh
-if [ -f ~/.zshrc ]; then
-    if ! grep -q "TYPEDAI_HOME" ~/.zshrc; then
-        echo "# TypedAI CLI environment" >> ~/.zshrc
-        echo "export TYPEDAI_HOME=$(pwd)" >> ~/.zshrc
-        echo "export PATH=\$TYPEDAI_HOME/bin/path:\$PATH" >> ~/.zshrc
-        echo "Added TypedAI CLI environment variables to ~/.zshrc"
-    else
-        echo "TypedAI CLI environment variables already present in ~/.zshrc"
-    fi
-fi
+comment="# TypedAI CLI environment"
+content="export TYPEDAI_HOME=$(pwd)\nexport PATH=\$TYPEDAI_HOME/bin/path:\$PATH"
+update_shell_profiles "$comment" "$content"
 
 echo "Application Configuration and Frontend Setup complete."
-# Exit with 0 to indicate success of this part
 exit 0

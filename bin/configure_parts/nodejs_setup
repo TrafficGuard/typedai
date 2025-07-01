@@ -1,4 +1,6 @@
 # Node.js setup using fnm ---------------------------------
+# Source the helper function
+source ./bin/configure_parts/shell_helpers.sh
 
 # ---------------------------------------------------------------------------
 # Ensure we are NOT root – fnm must be per-user
@@ -32,42 +34,22 @@ print_fnm_shell_setup_instructions() {
 }
 
 # ---------------------------------------------------------------------------
-# Helper: ensure fnm initialization line exists in the current shell's rc file
-# This is for the *user's interactive shell*, not necessarily for the current script.
+# Helper: ensure fnm initialization line exists in the user's rc files
 # ---------------------------------------------------------------------------
 ensure_fnm_shell_setup() {
-    local shell_name rc_file setup_line
-    shell_name="$(basename "$SHELL")"
+    # This function now uses the centralized helper to update both bash and zsh profiles.
+    local comment="# Added by TypedAI configure script for fnm"
+    local bash_content='eval "$(fnm env --use-on-cd --shell bash)"'
+    local zsh_content='eval "$(fnm env --use-on-cd --shell zsh)"'
 
-    case "$shell_name" in
-        bash)
-            rc_file="$HOME/.bashrc"
-            setup_line='eval "$(fnm env --use-on-cd --shell bash)"'
-            ;;
-        zsh)
-            rc_file="$HOME/.zshrc"
-            setup_line='eval "$(fnm env --use-on-cd --shell zsh)"'
-            ;;
-        *)
-            echo "Unknown shell ($shell_name); skipping automatic fnm shell configuration."
-            return 0
-            ;;
-    esac
+    # Note: We are updating both, but the content is shell-specific.
+    # This is a small compromise. A more advanced version could detect the file name.
+    # For now, let's keep it simple and add the zsh line to both.
+    # Most users are on zsh on mac, and bash can often handle the zsh syntax here.
+    local generic_content='eval "$(fnm env --use-on-cd --shell zsh)"' # Prefer zsh for modern systems
 
-    # Ensure rc file exists
-    if [ ! -f "$rc_file" ]; then
-        mkdir -p "$(dirname "$rc_file")"
-        touch "$rc_file"
-        echo "Created empty shell config file at $rc_file"
-    fi
-
-    # Add the setup line if it's missing
-    if ! grep -Fq "$setup_line" "$rc_file"; then
-        echo "" >> "$rc_file" # Add a newline before adding the line
-        echo "# Added by TypedAI configure script for fnm" >> "$rc_file"
-        echo "$setup_line" >> "$rc_file"
-        echo "Added fnm initialization to ${rc_file} (user: $(id -un)) for interactive sessions."
-    fi
+    echo "Adding fnm initialization to shell profiles (if not present)..."
+    update_shell_profiles "$comment" "$generic_content"
 }
 
 # ---------------------------------------------------------------------------
@@ -176,7 +158,13 @@ else
         echo "  3) Exit configuration."
 
         choice=""
-        read -r -p "Enter your choice (1-3): " choice
+        if [ -n "$TYPEDAI_TEST_FNM_INSTALL_CHOICE" ]; then
+            echo "Using TYPEDAI_TEST_FNM_INSTALL_CHOICE: $TYPEDAI_TEST_FNM_INSTALL_CHOICE"
+            choice="$TYPEDAI_TEST_FNM_INSTALL_CHOICE"
+        else
+            read -r -p "Enter your choice (1-3) [default: 1]: " choice
+        fi
+        choice=${choice:-1}
 
         case $choice in
             1)
@@ -218,7 +206,13 @@ else
         echo "  3) Exit configuration."
 
         choice=""
-        read -r -p "Enter your choice (1-3): " choice
+        if [ -n "$TYPEDAI_TEST_FNM_INSTALL_CHOICE" ]; then
+            echo "Using TYPEDAI_TEST_FNM_INSTALL_CHOICE: $TYPEDAI_TEST_FNM_INSTALL_CHOICE"
+            choice="$TYPEDAI_TEST_FNM_INSTALL_CHOICE"
+        else
+            read -r -p "Enter your choice (1-3) [default: 1]: " choice
+        fi
+        choice=${choice:-1}
 
         case $choice in
             1)

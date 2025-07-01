@@ -17,12 +17,8 @@ fi
 jira_id=$1      # first arg is the issue key
 shift           # $@ now holds any extra words for the prompt
 
-CWD=$(pwd)
-
-
 # Run the npm script with the argument and the filesystem arg
 (
   cd "$TYPEDAI_HOME"
-  nvm use
-  npm run agent -- --fs="${CWD}" -f=jira,swe,slack "Complete Jira ${jira_id}" "$@"
+  npm run agent -- --fs="${TYPEDAI_HOME}" -f=jira,swe,slack,gitlab "Complete Jira ${jira_id}" "$@"
 )

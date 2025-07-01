@@ -1,4 +1,6 @@
 # Python setup using pyenv ---------------------------------
+# Source the helper function
+source ./bin/configure_parts/shell_helpers.sh
 
 # ---------------------------------------------------------------------------
 # Ensure we are NOT root – pyenv must be per-user
@@ -38,79 +40,18 @@ print_pyenv_shell_setup_instructions() {
 }
 
 # ---------------------------------------------------------------------------
-# Helper: ensure pyenv initialization lines exist in the current shell's rc file(s)
-# This is for the *user's interactive shell*, not necessarily for the current script.
+# Helper: ensure pyenv initialization lines exist in the user's rc file(s)
 # ---------------------------------------------------------------------------
 ensure_pyenv_shell_setup() {
-    local shell_name
-    shell_name="$(basename "$SHELL")"
+    local comment="# Added by TypedAI configure script for pyenv"
+    # The content includes newlines, which is handled by echo -e
+    local content='export PYENV_ROOT="$HOME/.pyenv"\n[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"\neval "$(pyenv init -)"'
 
-    local pyenv_root_export='export PYENV_ROOT="$HOME/.pyenv"'
-    local pyenv_path_export='[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"'
-    local pyenv_init_eval # This will be set based on the shell
+    echo "Adding pyenv initialization to shell profiles (if not present)..."
+    update_shell_profiles "$comment" "$content"
 
-    local files_to_update=()
-
-    case "$shell_name" in
-        bash)
-            pyenv_init_eval='eval "$(pyenv init - bash)"' # Use 'bash' for consistency with docs
-            files_to_update+=("$HOME/.bashrc")
-
-            # For bash, also add to a profile script
-            if [ -f "$HOME/.bash_profile" ]; then
-                files_to_update+=("$HOME/.bash_profile")
-            elif [ -f "$HOME/.bash_login" ]; then
-                files_to_update+=("$HOME/.bash_login")
-            elif [ -f "$HOME/.profile" ]; then
-                files_to_update+=("$HOME/.profile")
-            else
-                # Create .profile if none of the standard profile files exist
-                echo "Creating $HOME/.profile as no standard profile script was found for Bash."
-                files_to_update+=("$HOME/.profile")
-            fi
-            ;;
-        zsh)
-            pyenv_init_eval='eval "$(pyenv init - zsh)"' # Use 'zsh' for consistency with docs
-            files_to_update+=("$HOME/.zshrc")
-            # Consider ~/.zprofile or ~/.zlogin for non-interactive login shells if needed
-            ;;
-        *)
-            echo "Unknown shell ($shell_name); skipping automatic pyenv shell configuration."
-            print_pyenv_shell_setup_instructions # Still show manual instructions
-            return 0
-            ;;
-    esac
-
-    for rc_file in "${files_to_update[@]}"; do
-        # Ensure rc file exists
-        if [ ! -f "$rc_file" ]; then
-            mkdir -p "$(dirname "$rc_file")"
-            touch "$rc_file"
-            echo "Created empty shell config file at $rc_file"
-        fi
-
-        local updated_rc_file=false
-        if ! grep -Fq "$pyenv_root_export" "$rc_file"; then
-            echo "" >> "$rc_file" # Add a newline before adding the block
-            echo "# Added by TypedAI configure script for pyenv" >> "$rc_file"
-            echo "$pyenv_root_export" >> "$rc_file"
-            updated_rc_file=true
-        fi
-        if ! grep -Fq "$pyenv_path_export" "$rc_file"; then
-            echo "$pyenv_path_export" >> "$rc_file"
-            updated_rc_file=true
-        fi
-        if ! grep -Fq "$pyenv_init_eval" "$rc_file"; then
-            echo "$pyenv_init_eval" >> "$rc_file"
-            updated_rc_file=true
-        fi
-
-        if [ "$updated_rc_file" = true ]; then
-            echo "Updated pyenv initialization in ${rc_file} (user: $(id -un)) for interactive sessions."
-        else
-            echo "pyenv initialization lines already present in ${rc_file}."
-        fi
-    done
+    # pyenv recommends updating profile scripts for login shells, which is a bit more complex.
+    # For our use case, updating the interactive shells is sufficient and safer.
 }
 
 # ---------------------------------------------------------------------------
@@ -213,7 +154,13 @@ else
         echo "  3) Exit configuration."
 
         choice=""
-        read -r -p "Enter your choice (1-3): " choice
+        if [ -n "$TYPEDAI_TEST_PYENV_INSTALL_CHOICE" ]; then
+            echo "Using TYPEDAI_TEST_PYENV_INSTALL_CHOICE: $TYPEDAI_TEST_PYENV_INSTALL_CHOICE"
+            choice="$TYPEDAI_TEST_PYENV_INSTALL_CHOICE"
+        else
+            read -r -p "Enter your choice (1-3) [default: 1]: " choice
+        fi
+        choice=${choice:-1}
 
         case $choice in
             1)
@@ -255,7 +202,13 @@ else
         echo "  3) Exit configuration."
 
         choice=""
-        read -r -p "Enter your choice (1-3): " choice
+        if [ -n "$TYPEDAI_TEST_PYENV_INSTALL_CHOICE" ]; then
+            echo "Using TYPEDAI_TEST_PYENV_INSTALL_CHOICE: $TYPEDAI_TEST_PYENV_INSTALL_CHOICE"
+            choice="$TYPEDAI_TEST_PYENV_INSTALL_CHOICE"
+        else
+            read -r -p "Enter your choice (1-3) [default: 1]: " choice
+        fi
+        choice=${choice:-1}
 
         case $choice in
             1)
@@ -357,8 +310,6 @@ else
     exit 1 # Exit critically as pyenv is required
 fi
 
-# Remind about shell setup for ongoing interactive use, as direct eval only affects current script.
-print_pyenv_shell_setup_instructions
 echo "This script will now proceed to use pyenv."
 echo ""
 
@@ -424,11 +375,11 @@ echo "Upgrading pip for the current pyenv Python version ($PYTHON_VERSION)..."
 # Use the python command which should now be managed by pyenv
 if python -m pip install --upgrade pip; then
     echo "✅ pip upgraded successfully."
+    echo "Current pip version after upgrade: $(pip --version)"
 else
     echo "❌ Error: Failed to upgrade pip." >&2
     echo "    Please check your Python installation and network connection."
     exit 1 # Critical for installing dependencies
 fi
-echo "Current pip version after upgrade: $(pip --version)"
 
 echo "Python environment setup with pyenv complete."

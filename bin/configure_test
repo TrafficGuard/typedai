@@ -19,36 +19,61 @@ else
     echo "Using existing Docker image '$IMAGE_NAME'."
 fi
 
-# DOCKER_CMD for interactive testing of the configure script.
+# --- Pass through test environment variables ---
+DOCKER_ENV_ARGS=""
+# Get all environment variables starting with TYPEDAI_TEST_
+# and format them for the 'docker run --env' flag.
+# Using `printenv` and `grep` for portability.
+for var in $(printenv | grep '^TYPEDAI_TEST_' | cut -d= -f1); do
+  # Pass the variable to the docker container
+  DOCKER_ENV_ARGS+="--env $var "
+done
+
+# DOCKER_CMD for testing of the configure script.
 # This command now runs inside the pre-built Docker image.
 read -r -d '' DOCKER_CMD << 'EOF' || true
-set -x && \
-echo "Starting Docker command execution in pre-built environment..." && \
-# The user and directories are created in the Docker image.
-# We still need to handle permissions on volume mounts.
-# Attempt to chown the entire home directory, but ignore errors coming from
-# read-only mounts such as the GCLOUD config volume.
-chown -R testuser:testuser /home/testuser 2>/dev/null || \
-  echo "Warning: Skipping chown errors in /home/testuser (likely read-only mount)" && \
-echo "Ownership of /home/testuser checked." && \
-# The /home/testuser/app directory is created in the image.
-echo "Copying project into workspace (honoring .gitignore rules)..." && \
-rsync -a --exclude='.git/' --filter=':- .gitignore' /app/ /home/testuser/app/ && \
-echo "Setting ownership and permissions for testuser..." && \
-chown -R testuser:testuser /home/testuser/app && \
-chmod -R u+w /home/testuser/app && \
-echo "Project copied to workspace and permissions set." && \
-echo 'Switching to testuser and running configure script interactively via login shell...' && \
-# Run configure; if it fails, drop to an interactive shell for debugging
-sudo -u testuser -i HOME=/home/testuser SHELL=/bin/bash \
-    bash -c "cd /home/testuser/app && ./bin/configure" || {
-        echo "❌ bin/configure exited with code $? – opening interactive bash shell for debugging…"
-        exec bash
-    }
+set -ex
+
+echo "configure_test: --- Preparing environment inside Docker ---"
+
+# The /app directory is a mount of the host project. To avoid file permission
+# issues on the host, we copy the project into a directory owned by the
+# container's 'testuser' and run the script from there.
+echo "configure_test: Copying project files into the container's workspace..."
+rsync -a --exclude='.git/' --filter=':- .gitignore' /app/ /home/testuser/app/
+chown -R testuser:testuser /home/testuser/app
+
+# Change to the workspace directory
+cd /home/testuser/app
+
+echo "configure_test: --- Running configure script as 'testuser' ---"
+
+# Execute the configure script as 'testuser' while preserving the
+# TYPEDAI_TEST_* environment variables passed into the container.
+# We must explicitly set HOME for the testuser so that tools like pyenv
+# are installed in the correct directory (/home/testuser/.pyenv).
+# If the script fails, drop into a shell for debugging.
+sudo -E -u testuser HOME=/home/testuser ./bin/configure || {
+    echo "❌ bin/configure exited with code $? – opening interactive bash shell for debugging…"
+    exec bash
+}
+
+echo "configure_test: --- Configure script finished successfully ---"
 EOF
 
-# Run docker with the command
-docker run -it --rm \
+# Determine if we should run in interactive mode.
+# If stdin is a TTY, we're likely in an interactive shell.
+DOCKER_RUN_FLAGS="--rm"
+if [[ -t 0 ]]; then
+    echo "Interactive terminal detected. Running with -it flags."
+    DOCKER_RUN_FLAGS="-it --rm"
+fi
+
+# Run docker with the command.
+# The flags will be '-it --rm' for interactive sessions (manual runs from a TTY)
+# and just '--rm' for non-interactive sessions (e.g., from an automated test runner).
+docker run $DOCKER_RUN_FLAGS \
+  $DOCKER_ENV_ARGS \
   -v "$(pwd):/app" \
   -v "${HOME}/.config/gcloud:/home/testuser/.config/gcloud:ro" \
   --workdir /app \

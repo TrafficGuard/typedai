@@ -8,7 +8,13 @@ echo ""
 echo "To use PostgreSQL, you need a running PostgreSQL instance."
 echo "You can use the one defined in the docker-compose.yml file."
 echo ""
-read -r -p "Do you want to attempt to start the PostgreSQL service using Docker Compose? (y/N) " start_docker
+start_docker=""
+if [ -n "$TYPEDAI_TEST_POSTGRES_DOCKER_START" ]; then
+    echo "Using TYPEDAI_TEST_POSTGRES_DOCKER_START: $TYPEDAI_TEST_POSTGRES_DOCKER_START"
+    start_docker="$TYPEDAI_TEST_POSTGRES_DOCKER_START"
+else
+    read -r -p "Do you want to attempt to start the PostgreSQL service using Docker Compose? (y/N) " start_docker
+fi
 start_docker_lower=$(echo "$start_docker" | tr '[:upper:]' '[:lower:]')
 
 if [[ "$start_docker_lower" == "y" ]]; then

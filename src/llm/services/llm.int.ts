@@ -14,6 +14,7 @@ import { togetherLlama3_70B } from '#llm/services/together';
 import { vertexGemini_2_0_Flash_Lite, vertexGemini_2_5_Flash, vertexGemini_2_5_Flash_Lite, vertexGemini_2_5_Pro } from '#llm/services/vertexai';
 import type { LlmMessage } from '#shared/llm/llm.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
+import { anthropicClaude4_Sonnet } from './anthropic';
 import { groqQwen3_32b } from './groq';
 
 const elephantBase64 = fs.readFileSync('test/llm/purple.jpg', 'base64');
@@ -71,7 +72,7 @@ describe('LLMs', () => {
 	});
 
 	describe('Anthropic', () => {
-		const llm = Claude3_5_Sonnet();
+		const llm = anthropicClaude4_Sonnet();
 
 		it('should generateText', async () => {
 			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
