@@ -5,7 +5,11 @@ let tokenizer: TikTokenizer | null = null;
 let loadingTokenizer: Promise<any> | null = null;
 
 export function countTokensSync(text: string): number {
-	if (!tokenizer) return 0;
+	if (!tokenizer) {
+		logger.warn('Tokenizer not initialized');
+		countTokens('').catch((e) => console.error(e));
+		return 0;
+	}
 	return tokenizer.encode(text).length;
 }
 

@@ -4,9 +4,6 @@
     "compilerOptions": {
         "outDir": "./out-tsc/spec",
         "types": ["jasmine"],
-        "paths": {
-            "#shared/*": ["../../shared/*"]
-        }
     },
     "include": ["src/**/*.spec.ts", "src/**/*.d.ts", "../../shared/**/*.ts"]
 }

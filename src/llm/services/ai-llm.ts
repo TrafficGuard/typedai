@@ -227,7 +227,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 						// Streaming is required when max_tokens is greater than 21,333
 					}
 					// https://cloud.google.com/vertex-ai/generative-ai/docs/thinking#budget
-					else if (this.getId().includes('gemini-2.5-flash')) {
+					else if (this.getId().includes('gemini-2.5')) {
 						if (combinedOpts.thinking === 'low') thinkingBudget = 8192;
 						else if (combinedOpts.thinking === 'medium') thinkingBudget = 16384;
 						else if (combinedOpts.thinking === 'high') thinkingBudget = 24576;

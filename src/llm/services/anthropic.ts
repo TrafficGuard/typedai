@@ -11,8 +11,8 @@ export const ANTHROPIC_SERVICE = 'anthropic';
 export function anthropicLLMRegistry(): Record<string, () => LLM> {
 	return {
 		[`${ANTHROPIC_SERVICE}:claude-3-5-haiku`]: Claude3_5_Haiku,
-		[`${ANTHROPIC_SERVICE}:claude-4-sonnet`]: anthropicClaude4_Sonnet,
-		[`${ANTHROPIC_SERVICE}:claude-4-opus`]: anthropicClaude4_Opus,
+		[`${ANTHROPIC_SERVICE}:claude-sonnet-4`]: anthropicClaude4_Sonnet,
+		[`${ANTHROPIC_SERVICE}:claude-opus-4`]: anthropicClaude4_Opus,
 	};
 }
 

@@ -16,9 +16,9 @@
         "useDefineForClassFields": false,
         "lib": ["ES2022", "dom"],
         "paths": {
-            "#core/*": ["./src/app/core/*"],
-            "#environments/*": ["./src/environments/*"],
-            "#modules/*": ["./src/app/modules/*"],
+            "#core/*": ["./app/core/*"],
+            "#environments/*": ["./environments/*"],
+            "#modules/*": ["./app/modules/*"],
             "#shared/*": ["../../shared/*"]
         }
     },

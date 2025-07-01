@@ -32,7 +32,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			const userId = currentUser().id;
 			const chat: Chat = await fastify.chatService.loadChat(chatId);
 			if (chat.userId !== userId) return sendBadRequest(reply, 'Unauthorized to view this chat');
-			console.log(JSON.stringify(chat));
+			// console.log(JSON.stringify(chat));
 			reply.sendJSON(chat);
 		},
 	);
@@ -219,9 +219,7 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			const userId = currentUser().id;
 
 			const chat: Chat = await fastify.chatService.loadChat(chatId);
-			if (chat.userId !== userId) {
-				return sendBadRequest(reply, 'Unauthorized to regenerate this chat');
-			}
+			if (chat.userId !== userId) return sendBadRequest(reply, 'Unauthorized to regenerate this chat');
 
 			let llm: LLM;
 			try {
@@ -271,9 +269,8 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 			const userId = currentUser().id;
 			try {
 				const chat = await fastify.chatService.loadChat(chatId);
-				if (chat.userId !== userId) {
-					return sendBadRequest(reply, 'Unauthorized to delete this chat');
-				}
+				if (chat.userId !== userId) return sendBadRequest(reply, 'Unauthorized to delete this chat');
+
 				await fastify.chatService.deleteChat(chatId);
 				reply.code(204).send(); // 204 No Content, no body, so no sendJSON
 			} catch (error) {

@@ -8,9 +8,9 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { UserProfile, UserProfileUpdate } from '#shared/user/user.model';
-import { ApiListState } from '../../../core/api-state.types';
-import { UserService } from '../../../core/user/user.service';
-import { LlmService } from '../../llm.service';
+import { ApiListState } from '#core/api-state.types';
+import { UserService } from '#core/user/user.service';
+import { LlmService } from '#modules/llm.service';
 import { LlmInfo } from '#shared/llm/llm.model';
 
 @Component({
@@ -23,6 +23,8 @@ import { LlmInfo } from '#shared/llm/llm.model';
 })
 export class SettingsAccountComponent implements OnInit {
 	private readonly destroyRef = inject(DestroyRef);
+	private userService = inject(UserService);
+	private llmService = inject(LlmService);
 
 	accountForm!: FormGroup;
 
@@ -31,11 +33,7 @@ export class SettingsAccountComponent implements OnInit {
 	// Expose UserProfile signal for the template (for view-only email)
 	readonly userProfile: Signal<UserProfile> = this.userService.userProfile;
 
-	constructor(
-		private snackBar: MatSnackBar,
-		private llmService: LlmService,
-		private userService: UserService,
-	) {
+	constructor(private snackBar: MatSnackBar) {
 		// Effect to react to user profile changes and patch the form
 		effect(() => {
 			const user = this.userService.userProfile();
