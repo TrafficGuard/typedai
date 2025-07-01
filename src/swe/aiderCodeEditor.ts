@@ -10,7 +10,7 @@ import { systemDir } from '#app/appDirs';
 import { appContext } from '#app/applicationContext';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { callStack } from '#llm/llmCallService/llmCall';
-import { Claude3_7_Sonnet } from '#llm/services/anthropic';
+import { anthropicClaude4_Sonnet } from '#llm/services/anthropic';
 import { deepSeekV3 } from '#llm/services/deepseek';
 import { openaiGPT41 } from '#llm/services/openai';
 import { openRouterGemini2_5_Pro } from '#llm/services/openrouter';
@@ -93,7 +93,7 @@ export class AiderCodeEditor {
 			modelArg = '--sonnet';
 			env = { ANTHROPIC_API_KEY: anthropicKey };
 			span.setAttribute('model', 'sonnet');
-			llm = Claude3_7_Sonnet();
+			llm = anthropicClaude4_Sonnet();
 		} else if (deepSeekKey) {
 			modelArg = '--model deepseek/deepseek-chat';
 			env = { DEEPSEEK_API_KEY: deepSeekKey };
