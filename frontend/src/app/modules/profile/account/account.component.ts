@@ -10,7 +10,8 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { UserProfile, UserProfileUpdate } from '#shared/user/user.model';
 import { ApiListState } from '../../../core/api-state.types';
 import { UserService } from '../../../core/user/user.service';
-import { LLM, LlmService } from '../../llm.service';
+import { LlmService } from '../../llm.service';
+import { LlmInfo } from '#shared/llm/llm.model';
 
 @Component({
 	selector: 'settings-account',
@@ -26,7 +27,7 @@ export class SettingsAccountComponent implements OnInit {
 	accountForm!: FormGroup;
 
 	// Expose LLM state signal directly to the template
-	readonly llmsState: Signal<ApiListState<LLM>> = this.llmService.llmsState;
+	readonly llmsState: Signal<ApiListState<LlmInfo>> = this.llmService.llmsState;
 	// Expose UserProfile signal for the template (for view-only email)
 	readonly userProfile: Signal<UserProfile> = this.userService.userProfile;
 
