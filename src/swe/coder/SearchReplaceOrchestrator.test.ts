@@ -38,6 +38,7 @@ describe('SearchReplaceOrchestrator: Full Integration', () => {
 	let mockLLM: MockLLM;
 	let fss: IFileSystemService;
 	let mockVcs: sinon.SinonStubbedInstance<VersionControlSystem>;
+	let execCommandStub: sinon.SinonStub;
 
 	function setupMockFs(mockFileSystemConfig: any): void {
 		mockFileSystemConfig[`${MOCK_REPO_ROOT}/.gitignore`] = '';
@@ -56,12 +57,13 @@ describe('SearchReplaceOrchestrator: Full Integration', () => {
 		mockVcs = sinon.createStubInstance(Git);
 		sinon.stub(fss, 'getVcsRoot').returns(MOCK_REPO_ROOT);
 		sinon.stub(fss, 'getVcs').returns(mockVcs);
-		coder = new SearchReplaceCoder(mockLlms, fss);
+		coder = new SearchReplaceCoder(mockLlms, fss, execCommandStub);
 	}
 
 	beforeEach(() => {
 		mockLLM = new MockLLM();
 		mockLlms = { easy: mockLLM, medium: mockLLM, hard: mockLLM, xhard: mockLLM };
+		execCommandStub = sinon.stub();
 	});
 
 	afterEach(() => {
@@ -71,15 +73,42 @@ describe('SearchReplaceOrchestrator: Full Integration', () => {
 		mockFs.restore();
 	});
 
-	it('should successfully apply a valid edit on the first attempt', async () => {
+	it('should successfully apply a valid edit on the first attempt and auto-commit', async () => {
 		setupMockFs({ '/repo/test.ts': 'hello world' });
 		mockLLM.addMessageResponse(SEARCH_BLOCK_VALID);
+		mockVcs.addAndCommitFiles.resolves();
 
 		await coder.editFilesToMeetRequirements('test', ['test.ts'], []);
 
 		expect(mockLLM.getCallCount()).to.equal(1);
 		const finalContent = await fss.readFile('/repo/test.ts');
 		expect(finalContent).to.equal('hello universe\n');
+		expect(mockVcs.addAndCommitFiles.calledOnce).to.be.true;
+		expect(mockVcs.addAndCommitFiles.firstCall.args[0]).to.deep.equal(['test.ts']);
+	});
+
+	it('should commit dirty files before applying edits', async () => {
+		setupMockFs({ '/repo/test.ts': 'original dirty content' });
+		const block = searchReplaceBlock('test.ts', 'original dirty content', 'clean new content');
+		mockLLM
+			.addMessageResponse(block) // Main edit
+			.addResponse('feat: commit dirty changes'); // Commit message for dirty changes
+
+		mockVcs.isDirty.withArgs('test.ts').resolves(true);
+		execCommandStub.withArgs('git diff test.ts').resolves({ stdout: 'diff content', stderr: '', exitCode: 0, command: '' });
+		mockVcs.addAndCommitFiles.resolves();
+
+		await coder.editFilesToMeetRequirements('test', ['test.ts'], []);
+
+		expect(mockLLM.getCallCount()).to.equal(2);
+		expect(mockVcs.addAndCommitFiles.callCount).to.equal(2);
+		expect(mockVcs.addAndCommitFiles.firstCall.args[0]).to.deep.equal(['test.ts']);
+		expect(mockVcs.addAndCommitFiles.firstCall.args[1]).to.equal('feat: commit dirty changes');
+		expect(mockVcs.addAndCommitFiles.secondCall.args[0]).to.deep.equal(['test.ts']);
+		expect(mockVcs.addAndCommitFiles.secondCall.args[1]).to.equal('Applied LLM-generated edits');
+
+		const finalContent = await fss.readFile('/repo/test.ts');
+		expect(finalContent).to.equal('clean new content\n');
 	});
 
 	it('should reflect on validation failure and succeed on the second attempt', async () => {

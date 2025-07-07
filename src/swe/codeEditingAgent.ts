@@ -34,7 +34,7 @@ export function buildPrompt(args: {
 	return `${basePrompt}\n${args.information}\n\nThe requirements of the task are as follows:\n<requirements>\n${args.requirements}\n</requirements>\n\nThe action to be performed is as follows:\n<action>\n${args.action}\n</action>\n`;
 }
 
-const useAider = true;
+const useAider = false;
 
 @funcClass(__filename)
 export class CodeEditingAgent {
@@ -270,7 +270,7 @@ export class CodeEditingAgent {
 				}
 
 				const ruleFiles: Set<string> = await includeAlternativeAiToolFiles(codeEditorFiles);
-				// Remove any duplicates in codeEditorFiles
+				// Remove any duplicates fron ruleFiles found in codeEditorFiles
 				for (const editingFile of codeEditorFiles) if (ruleFiles.has(editingFile)) ruleFiles.delete(editingFile);
 
 				if (useAider) {

@@ -3,7 +3,6 @@ import { logger } from '#o11y/logger';
 
 /**
  * Strips quoting and language specifier from content of a SEARCH or REPLACE block.
- * Corresponds to strip_quoted_wrapping from aider's editblock_coder.py.
  * @param text The text content of the block.
  * @param filename Optional filename, used to detect if the first line is a filename header.
  * @param fencePair Optional fence pair (e.g., ['```', '```']). Defaults to ['```', '```'].
@@ -37,7 +36,6 @@ export function stripQuotedWrapping(text: string, filename?: string, fencePair?:
 /**
  * Prepares content for diffing by ensuring it ends with a newline and splitting it into lines.
  * Each line in the returned array will end with a newline character.
- * Corresponds to prep from aider's editblock_coder.py.
  * @param content The string content to prepare.
  * @returns An object containing the processed text (ending with a newline) and an array of lines (each ending with a newline).
  */

@@ -6,7 +6,7 @@ import type { IFileSystemService } from '#shared/files/fileSystemService';
 import type { LlmMessage } from '#shared/llm/llm.model';
 import { user } from '#shared/llm/llm.model';
 import { EDIT_BLOCK_PROMPTS } from './searchReplacePrompts';
-import type { EditSession } from './state/EditSession';
+import type { EditSession } from './state/editSession';
 
 export class PromptBuilder {
 	constructor(
@@ -96,6 +96,7 @@ export class PromptBuilder {
 		}
 
 		messages.push({ role: 'user', content: `${userRequest}\n\n${this.systemReminderForUserPrompt}` });
+		session.markPromptBuilt();
 		return messages;
 	}
 }

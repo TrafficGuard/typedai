@@ -1,6 +1,6 @@
 import type { EditBlock, EditFormat, RequestedFileEntry, RequestedPackageInstallEntry, RequestedQueryEntry } from '#swe/coder/coderTypes';
 import { parseEditResponse } from '#swe/coder/editBlockParser';
-import { parseAddFilesRequest, parseAskQueryRequest, parseInstallPackageRequest } from '#swe/coder/searchReplaceCoder';
+import { parseAddFilesRequest, parseAskQueryRequest, parseInstallPackageRequest } from '../metaRequestParser';
 
 /**
  * Defines the structure for "meta" requests an LLM can make, such as asking for files,
@@ -22,56 +22,28 @@ export interface ProcessedResponse {
 }
 
 /**
- * A service class responsible for parsing the raw text response from an LLM
- * into structured data (edit blocks and meta requests). This class provides a
- * unified interface for processing LLM output by delegating to specialized
- * parsing functions.
+ * Parses the response text to extract various meta requests.
+ * @param text The response text to parse.
+ * @returns A MetaRequests object containing all parsed requests.
  */
-export class ResponseProcessor {
-	public editFormat: EditFormat;
+function parseMetaRequests(text: string): MetaRequests {
+	return {
+		requestedFiles: parseAddFilesRequest(text),
+		requestedQueries: parseAskQueryRequest(text),
+		requestedPackageInstalls: parseInstallPackageRequest(text),
+	};
+}
 
-	constructor(
-		private readonly fence: [string, string],
-		editFormat: EditFormat,
-	) {
-		this.editFormat = editFormat;
-	}
-
-	getFence(): [string, string] {
-		return this.fence;
-	}
-
-	/**
-	 * Processes the full response text from the LLM.
-	 * @param responseText The raw string content from the LLM response.
-	 * @returns A ProcessedResponse object containing parsed edit blocks and meta requests.
-	 */
-	process(responseText: string): ProcessedResponse {
-		return {
-			editBlocks: this.parseEditBlocks(responseText),
-			metaRequests: this.parseMetaRequests(responseText),
-		};
-	}
-
-	/**
-	 * Parses the response text to extract structured edit blocks.
-	 * @param text The response text to parse.
-	 * @returns An array of EditBlock objects.
-	 */
-	private parseEditBlocks(text: string): EditBlock[] {
-		return parseEditResponse(text, this.editFormat, this.fence);
-	}
-
-	/**
-	 * Parses the response text to extract various meta requests.
-	 * @param text The response text to parse.
-	 * @returns A MetaRequests object containing all parsed requests.
-	 */
-	private parseMetaRequests(text: string): MetaRequests {
-		return {
-			requestedFiles: parseAddFilesRequest(text),
-			requestedQueries: parseAskQueryRequest(text),
-			requestedPackageInstalls: parseInstallPackageRequest(text),
-		};
-	}
+/**
+ * Processes the full response text from the LLM.
+ * @param responseText The raw string content from the LLM response.
+ * @param editFormat The expected format of the edit blocks.
+ * @param fence The fence strings used for code blocks.
+ * @returns A ProcessedResponse object containing parsed edit blocks and meta requests.
+ */
+export function processResponse(responseText: string, editFormat: EditFormat, fence: [string, string]): ProcessedResponse {
+	return {
+		editBlocks: parseEditResponse(responseText, editFormat, fence),
+		metaRequests: parseMetaRequests(responseText),
+	};
 }

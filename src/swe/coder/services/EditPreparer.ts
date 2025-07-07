@@ -4,7 +4,7 @@ import type { IFileSystemService } from '#shared/files/fileSystemService';
 import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
 import type { EditBlock } from '../coderTypes';
 import { stripQuotedWrapping } from '../patchUtils';
-import type { EditSession } from '../state/EditSession';
+import type { EditSession } from '../state/editSession';
 
 export class EditPreparer {
 	constructor(
@@ -16,26 +16,13 @@ export class EditPreparer {
 	async prepare(blocks: EditBlock[], session: EditSession): Promise<PrepareResult> {
 		const result: PrepareResult = {
 			validBlocks: [],
-			dirtyFiles: new Set(),
-			externalChanges: [],
 		};
-
-		// Check for external changes first
-		result.externalChanges = await this.detectExternalChanges(blocks, session);
-		if (result.externalChanges.length > 0) {
-			// If files have changed externally, we stop and report it.
-			// The orchestrator will handle this by regenerating the prompt.
-			return result;
-		}
 
 		// Check permissions and dirty state for each block
 		for (const block of blocks) {
 			const check = await this.checkFilePermissions(block, session);
 			if (check.allowed) {
 				result.validBlocks.push(block);
-				if (check.isDirty) {
-					result.dirtyFiles.add(block.filePath);
-				}
 			}
 			// If not allowed, the block is simply ignored and not added to validBlocks.
 		}
@@ -47,39 +34,16 @@ export class EditPreparer {
 		return join(workingDir, relativePath);
 	}
 
-	/** Returns list of file paths that have changed since their snapshot. */
-	private async detectExternalChanges(blocks: EditBlock[], session: EditSession): Promise<string[]> {
-		const changed: string[] = [];
-		const uniquePaths = new Set(blocks.map((b) => b.filePath));
-		for (const relPath of uniquePaths) {
-			const snapshot = session.fileContentSnapshots.get(relPath);
-			if (snapshot === undefined) continue; // no snapshot → ignore
-			const absPath = this.getRepoFilePath(session.workingDir, relPath);
-			let current: string | null = null;
-			try {
-				current = await this.fs.readFile(absPath);
-			} catch {
-				current = null; // treat deletion as a change
-			}
-			if (snapshot !== current) changed.push(relPath);
-		}
-		return changed;
-	}
-
 	/**
 	 * Checks if an edit is allowed for a given file path and determines if a "dirty commit" is needed.
 	 * Corresponds to Coder.allowed_to_edit and Coder.check_for_dirty_commit.
 	 */
-	private async checkFilePermissions(block: EditBlock, session: EditSession): Promise<{ allowed: boolean; isDirty: boolean }> {
+	private async checkFilePermissions(block: EditBlock, session: EditSession): Promise<{ allowed: boolean }> {
 		const { filePath, originalText } = block;
 		const absolutePath = this.getRepoFilePath(session.workingDir, filePath);
-		let isDirty = false;
 
 		if (session.absFnamesInChat?.has(absolutePath)) {
-			if (this.vcs && session.initiallyDirtyFiles?.has(filePath) && (await this.vcs.isDirty(filePath))) {
-				isDirty = true;
-			}
-			return { allowed: true, isDirty };
+			return { allowed: true };
 		}
 
 		const fileExists = await this.fs.fileExists(absolutePath);
@@ -88,7 +52,7 @@ export class EditPreparer {
 			const isIntentToCreate = !stripQuotedWrapping(originalText, filePath, this.fence).trim();
 			if (!isIntentToCreate) {
 				logger.warn(`Skipping edit for non-existent file ${filePath} with non-empty SEARCH block (validation should catch this).`);
-				return { allowed: false, isDirty: false };
+				return { allowed: false };
 			}
 			logger.info(`Edit targets new file ${filePath}. Assuming permission to create.`);
 		} else {
@@ -97,15 +61,10 @@ export class EditPreparer {
 
 		session.addFileToChat(absolutePath);
 
-		if (this.vcs && session.initiallyDirtyFiles?.has(filePath) && (await this.vcs.isDirty(filePath))) {
-			isDirty = true;
-		}
-		return { allowed: true, isDirty };
+		return { allowed: true };
 	}
 }
 
 export interface PrepareResult {
 	validBlocks: EditBlock[];
-	dirtyFiles: Set<string>;
-	externalChanges: string[];
 }

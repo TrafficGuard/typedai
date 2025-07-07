@@ -1,8 +1,8 @@
 import { expect } from 'chai';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import type { EditBlock } from '../coderTypes';
-import type { ApplicationResult } from './EditSession';
-import { EditSession } from './EditSession';
+import type { ApplicationResult } from './editSession';
+import { EditSession } from './editSession';
 
 describe('EditSession', () => {
 	setupConditionalLoggerOutput();

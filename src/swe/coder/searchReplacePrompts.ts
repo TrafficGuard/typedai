@@ -1,4 +1,3 @@
-// Store prompt templates (based on aider's EditBlockPrompts and BasePrompts)
 export const EDIT_BLOCK_PROMPTS = {
 	main_system: `Act as an expert software developer.
 Always use best practices when coding.

@@ -2,15 +2,13 @@ import { expect } from 'chai';
 import * as sinon from 'sinon';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import type { EditFormat } from '../coderTypes';
-import { ResponseProcessor } from './ResponseProcessor';
+import { processResponse } from './responseProcessor';
 
 const DEFAULT_FENCE: [string, string] = ['```', '```'];
 const DEFAULT_EDIT_FORMAT: EditFormat = 'diff-fenced';
 
 describe('ResponseProcessor', () => {
 	setupConditionalLoggerOutput();
-
-	let processor: ResponseProcessor;
 
 	afterEach(() => {
 		sinon.restore();
@@ -19,7 +17,6 @@ describe('ResponseProcessor', () => {
 	describe('process', () => {
 		it('should correctly parse a response with a single valid diff-fenced edit block', () => {
 			// Arrange
-			processor = new ResponseProcessor(DEFAULT_FENCE, 'diff-fenced');
 			const responseText = `
 Some preceding text.
 \`\`\`typescript
@@ -33,7 +30,7 @@ const a = 2;
 Some trailing text.`;
 
 			// Act
-			const result = processor.process(responseText);
+			const result = processResponse(responseText, 'diff-fenced', DEFAULT_FENCE);
 
 			// Assert
 			expect(result.editBlocks).to.have.lengthOf(1);
@@ -49,7 +46,6 @@ Some trailing text.`;
 
 		it('should correctly parse a response with multiple meta-requests simultaneously', () => {
 			// Arrange
-			processor = new ResponseProcessor(DEFAULT_FENCE, DEFAULT_EDIT_FORMAT);
 			const responseText = `
 I need to request files, ask a question, and install a package.
 
@@ -69,7 +65,7 @@ I need to request files, ask a question, and install a package.
 `;
 
 			// Act
-			const result = processor.process(responseText);
+			const result = processResponse(responseText, 'diff-fenced', DEFAULT_FENCE);
 
 			// Assert
 			expect(result.editBlocks).to.be.empty;
@@ -80,7 +76,6 @@ I need to request files, ask a question, and install a package.
 
 		it('should correctly parse a response containing both edit blocks and meta-requests', () => {
 			// Arrange
-			processor = new ResponseProcessor(DEFAULT_FENCE, 'diff');
 			const responseText = `
 Here are the edits for the file.
 
@@ -109,7 +104,7 @@ And I need to see another file.
 `;
 
 			// Act
-			const result = processor.process(responseText);
+			const result = processResponse(responseText, 'diff-fenced', DEFAULT_FENCE);
 
 			// Assert
 			expect(result.editBlocks).to.have.lengthOf(1);
@@ -126,11 +121,10 @@ And I need to see another file.
 
 		it('should handle an empty response string gracefully', () => {
 			// Arrange
-			processor = new ResponseProcessor(DEFAULT_FENCE, DEFAULT_EDIT_FORMAT);
 			const responseText = '';
 
 			// Act
-			const result = processor.process(responseText);
+			const result = processResponse(responseText, 'diff-fenced', DEFAULT_FENCE);
 
 			// Assert
 			expect(result.editBlocks).to.be.empty;
@@ -141,11 +135,10 @@ And I need to see another file.
 
 		it('should handle a response with no valid blocks or requests', () => {
 			// Arrange
-			processor = new ResponseProcessor(DEFAULT_FENCE, DEFAULT_EDIT_FORMAT);
 			const responseText = 'This is a regular text response from the LLM without any special blocks.';
 
 			// Act
-			const result = processor.process(responseText);
+			const result = processResponse(responseText, 'diff-fenced', DEFAULT_FENCE);
 
 			// Assert
 			expect(result.editBlocks).to.be.empty;
@@ -156,7 +149,6 @@ And I need to see another file.
 
 		it('should handle malformed meta-request JSON gracefully', () => {
 			// Arrange
-			processor = new ResponseProcessor(DEFAULT_FENCE, DEFAULT_EDIT_FORMAT);
 			const responseText = `
 <add-files-json>
 {
@@ -172,7 +164,7 @@ this is not valid json
 </install-packages-json>
 `;
 			// Act
-			const result = processor.process(responseText);
+			const result = processResponse(responseText, 'diff-fenced', DEFAULT_FENCE);
 
 			// Assert
 			expect(result.editBlocks).to.be.empty;
@@ -183,7 +175,6 @@ this is not valid json
 
 		it('should parse edit blocks with the "diff" EditFormat setting', () => {
 			// Arrange
-			const diffProcessor = new ResponseProcessor(DEFAULT_FENCE, 'diff');
 			const responseText = `
 src/example.ts
 \`\`\`typescript
@@ -195,7 +186,7 @@ const newContent = 'new';
 \`\`\`
 `;
 			// Act
-			const result = diffProcessor.process(responseText);
+			const result = processResponse(responseText, 'diff', DEFAULT_FENCE);
 
 			// Assert
 			expect(result.editBlocks).to.have.length(1);

@@ -8,8 +8,8 @@ import type { AgentLLMs } from '#shared/agent/agent.model';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
 import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import { SearchReplaceOrchestrator } from './SearchReplaceOrchestrator';
 import { SearchReplaceCoder } from './searchReplaceCoder';
+import { SearchReplaceOrchestrator } from './searchReplaceOrchestrator';
 
 const MOCK_REPO_ROOT = '/repo';
 
