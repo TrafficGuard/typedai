@@ -259,14 +259,13 @@ export function messageContentIfTextOnly(message: LlmMessage): string | null {
 export function contentText(content: CoreContent): string {
 	if (typeof content === 'string') return content;
 
-	let text = '';
+	const text = '';
 	for (const part of content) {
 		const type = part.type;
-		if (type === 'text') text += part.text;
-		else if (type === 'reasoning') text += `${(part as ReasoningPart).text}\n`;
-		else if (type === 'redacted-reasoning') text += '<redacted-reasoning>\n';
-		else if (type === 'tool-call')
-			text += `Tool Call (${(part as ModelToolCallPart).toolCallId} ${(part as ModelToolCallPart).toolName} Args:${JSON.stringify((part as ModelToolCallPart).args)})`;
+		if (type === 'text') return part.text;
+		if (type === 'tool-call')
+			return `Tool Call (${(part as ModelToolCallPart).toolCallId} ${(part as ModelToolCallPart).toolName} Args:${JSON.stringify((part as ModelToolCallPart).args)})`;
+		if (type === 'tool-result') return JSON.stringify(part.result);
 		// Note: ImagePart and FilePart do not contribute to text content in this function
 	}
 	return text;

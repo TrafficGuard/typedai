@@ -157,7 +157,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 
 				// Build the main control loop prompt message content
 				const agentUserMessageContent: UserContentExt = [];
-				agentUserMessageContent.push(text(buildMemoryPrompt()));
+				agentUserMessageContent.push(text(await buildMemoryPrompt()));
 				if (toolStatePrompt) agentUserMessageContent.push(text(toolStatePrompt));
 				agentUserMessageContent.push(text(userRequestXml));
 

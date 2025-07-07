@@ -57,26 +57,23 @@
                                 @if (isArrayContent(message.content)) {
                                     @for (part of getContentAsArray(message.content); track part.type + '-' + $index) {
                                         <ng-container [ngSwitch]="part.type">
+                                            <div *ngSwitchCase="'reasoning'">
+                                                <mat-expansion-panel class="mb-3">
+                                                    <mat-expansion-panel-header>
+                                                        <mat-panel-title>
+                                                            Reasoning
+                                                        </mat-panel-title>
+                                                    </mat-expansion-panel-header>
+                                                    {{ part.text }}
+                                                </mat-expansion-panel>
+                                            </div>
                                             <div *ngSwitchCase="'text'" style="white-space: pre-wrap; word-wrap: break-word;" [innerHTML]="convertNewlinesToHtml(part.text)"></div>
                                             <div *ngSwitchCase="'image'">[Image Part: {{ part.mimeType || 'type unknown' }}]</div>
                                             <div *ngSwitchCase="'file'">[File Part: {{ part.mimeType || 'type unknown' }}]</div>
                                             <div *ngSwitchCase="'tool-call'">[Tool Call: {{part.toolName}} ID: {{part.toolCallId}}]</div>
                                             <div *ngSwitchCase="'tool-result'">[Tool Result for {{part.toolName}} ID: {{part.toolCallId}}] <div style="white-space: pre-wrap; word-wrap: break-word;" [innerHTML]="convertNewlinesToHtml(part.result)"></div></div>
                                             <ng-container *ngSwitchDefault>
-                                                @if (isStringContent(part)) {
-                                                    @if (message.role === 'assistant') {
-                                                        <markdown
-                                                            mermaid
-                                                            clipboard
-                                                            [clipboardButtonComponent]="clipboardButton"
-                                                            [data]="part"
-                                                        ></markdown>
-                                                    } @else {
-                                                        <div style="white-space: pre-wrap; word-wrap: break-word;" [innerHTML]="convertNewlinesToHtml(part)"></div>
-                                                    }
-                                                } @else {
-                                                    <div>[Unknown Part Type: {{ part.type || 'N/A' }}]</div>
-                                                }
+                                               <div>[Unknown Part Type: {{ part.type || 'N/A' }}]</div>
                                             </ng-container>
                                         </ng-container>
                                     }

@@ -84,6 +84,15 @@ export function MAD_Balanced(): LLM {
 	);
 }
 
+export function MAD_Vertex(): LLM {
+	return new ReasonerDebateLLM(
+		'Vertex',
+		vertexGemini_2_5_Pro,
+		[vertexGemini_2_5_Pro, Claude4_Sonnet_Vertex, Claude4_Opus_Vertex],
+		'MAD:Vertex multi-agent debate (Gemini 2.5 Pro, Sonnet 4, Opus 4)',
+	);
+}
+
 export function MAD_SOTA(): LLM {
 	return new ReasonerDebateLLM(
 		'SOTA',

@@ -40,22 +40,18 @@
     "start": "      node -r ts-node/register src/index.ts",
     "start:local": "node -r ts-node/register --env-file=variables/local.env --inspect=0.0.0.0:9229 src/index.ts",
     "emulators": "gcloud emulators firestore start --host-port=127.0.0.1:8243",
-
     "test": "          npm run test:unit && npm run test:db",
     "test:unit": "     node --env-file=variables/test.env ./node_modules/mocha/bin/mocha -r esbuild-register -r \"./src/test/testSetup.ts\" \"src/**/*.test.[jt]s\" --exclude \"src/modules/{firestore,mongo,postgres}/*.test.ts\" --timeout 10000",
     "test:firestore": "node --env-file=variables/test.env ./node_modules/mocha/bin/mocha -r esbuild-register -r \"./src/test/testSetup.ts\" \"src/modules/firestore/*.test.ts\" --timeout 10000",
     "test:postgres": " node --env-file=variables/test.env ./node_modules/mocha/bin/mocha -r esbuild-register -r \"./src/test/testSetup.ts\" \"src/modules/postgres/*.test.ts\" --timeout 10000",
     "test:mongo": "    node --env-file=variables/test.env ./node_modules/mocha/bin/mocha -r esbuild-register -r \"./src/test/testSetup.ts\" \"src/modules/mongo/*.test.ts\" --timeout 10000",
     "test:db": "       node --env-file=variables/test.env ./node_modules/mocha/bin/mocha -r esbuild-register -r \"./src/test/testSetup.ts\" \"src/modules/{firestore,mongo,postgres}/*.test.ts\" --timeout 10000",
-
     "test:ci:firestore": "firebase emulators:exec --only firestore \"npm run test:firestore\"",
     "test:ci:postgres": " npm run test:postgres",
     "test:ci:mongo": "    npm run test:mongo",
-
     "test:integration": "node --env-file=variables/test.env ./node_modules/mocha/bin/mocha -r ts-node/register -r \"./src/test/testSetup.ts\" \"src/**/*.int.[jt]s\" --timeout 0 --exit",
     "test:system": "     node --env-file=variables/test.env ./node_modules/mocha/bin/mocha -r ts-node/register \"src/**/*.sys.ts\" --timeout 0 --exit",
     "test:unit:dev": "TS_NODE_PROJECT='./tsconfig.swc.json' node --env-file=variables/test.env ./node_modules/mocha/bin/mocha -r ts-node/register -t 0 --exit --colors \"src/**/*.test.[jt]s\"",
-
     "format": " biome format --write ./src",
     "lint": "   biome check --write --unsafe ./src ./shared",
     "lint:ci": "biome ci ./src ./shared",
@@ -67,7 +63,7 @@
   "license": "ISC",
   "dependencies": {
     "@ai-sdk/anthropic": "^1.2.11",
-    "@ai-sdk/cerebras": "^0.2.14", 
+    "@ai-sdk/cerebras": "^0.2.14",
     "@ai-sdk/deepinfra": "^0.2.15",
     "@ai-sdk/deepseek": "^0.2.14",
     "@ai-sdk/google": "^1.2.19",
@@ -120,6 +116,7 @@
     "axios-retry": "^4.1.0",
     "bcrypt": "^5.1.1",
     "chromadb": "^1.9.2",
+    "clipboardy": "^4.0.0",
     "cloud-pine": "^2.0.1",
     "crawlee": "^3.8.1",
     "cross-fetch": "^3.1.8",

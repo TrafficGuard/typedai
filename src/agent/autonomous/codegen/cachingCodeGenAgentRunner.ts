@@ -137,7 +137,7 @@ export async function runCachingCodegenAgent(agent: AgentContext): Promise<Agent
 					agent.messages[1] = { role: 'user', content: userRequestXml, cache: 'ephemeral' };
 
 					// Memory output
-					agent.messages[2] = { role: 'assistant', content: `This is my current memory items:\n${buildMemoryPrompt()}`, cache: 'ephemeral' };
+					agent.messages[2] = { role: 'assistant', content: `This is my current memory items:\n${await buildMemoryPrompt()}`, cache: 'ephemeral' };
 
 					// Function history and tool state
 					const toolStatePrompt = await buildToolStatePrompt();

@@ -210,16 +210,17 @@ export class MockLLM extends BaseLLM {
 	}
 
 	protected async _generateText(systemPrompt: string | undefined, userPrompt: string, opts?: GenerateTextOptions): Promise<string> {
+		const messages: LlmMessage[] = [];
+		if (systemPrompt) messages.push(system(systemPrompt));
+		messages.push(user(userPrompt));
+
 		this.calls.push({ type: 'generateText', systemPrompt, userPrompt, options: opts });
+		this.calls.push({ type: 'generateMessage', messages, options: opts });
 
 		const responseFn = this.textResponses.shift();
 		if (!responseFn) {
 			throw new Error(`MockLLM: No more responses configured for generateText. Call count: ${this.getCallCount()}`);
 		}
-
-		const messages: LlmMessage[] = [];
-		if (systemPrompt) messages.push(system(systemPrompt));
-		messages.push(user(userPrompt));
 
 		const responseText = await responseFn();
 		const assistantMessage: LlmMessage = { role: 'assistant', content: responseText };
