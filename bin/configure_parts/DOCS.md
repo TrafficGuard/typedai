@@ -21,3 +21,21 @@ Example:
 # ./bin/configure_parts/Dockerfile
 
 This is used from configure_test to manually test the setup script in a fresh environment
+
+## Sourcing vs. Executing – Return/Exit Convention
+
+Every script in `bin/configure_parts` **may** be either
+1. sourced by `./bin/configure` (so control must come back), or  
+2. executed directly for stand-alone testing.
+
+To make this reliable, each part **must** finish with:
+
+```bash
+# If sourced, just return; if executed directly, exit.
+(return 0 2>/dev/null) && return 0 || exit 0
+```
+
+• Use `exit <non-zero>` freely for **fatal errors**;  
+• Never use `exit 0` for normal completion—use the pattern above instead.  
+This keeps the parent `configure` script running while still allowing the
+file to act as a self-contained executable.

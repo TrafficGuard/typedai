@@ -101,5 +101,6 @@ create_firestore_index "CodeTask" "field-path=userId,order=ascending" "field-pat
 create_firestore_index "Prompts" "field-path=userId,order=ascending" "field-path=updatedAt,order=descending" "field-path=__name__,order=descending"
 
 echo "Firestore Database setup script completed."
-# Exit with 0 to indicate success of this part
-exit 0
+
+# If this file was sourced, return; if executed directly, exit.
+(return 0 2>/dev/null) && return 0 || exit 0

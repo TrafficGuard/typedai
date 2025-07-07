@@ -383,3 +383,6 @@ else
 fi
 
 echo "Python environment setup with pyenv complete."
+
+# If this file was sourced, return; if executed directly, exit.
+(return 0 2>/dev/null) && return 0 || exit 0

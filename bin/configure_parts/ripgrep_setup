@@ -180,3 +180,6 @@ fi
 
 echo "✅ ripgrep (rg) is now installed and available."
 echo "   rg version: $(rg --version | head -n 1)"
+
+# If this file was sourced, return; if executed directly, exit.
+(return 0 2>/dev/null) && return 0 || exit 0

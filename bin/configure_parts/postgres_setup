@@ -48,5 +48,7 @@ echo "You may also need to run database migrations after starting the applicatio
 echo "Refer to the documentation for migration instructions."
 
 echo "PostgreSQL Database setup script completed."
-# Exit with 0 to indicate success of this part (even if Docker failed, user might use external DB)
-exit 0
+# Exit/return with 0 to indicate success of this part (even if Docker failed, user might use external DB)
+# If we were sourced, return; if executed directly, exit.                                                                                                     
+(return 0 2>/dev/null) && return 0 || exit 0
+
