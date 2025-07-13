@@ -40,8 +40,7 @@ export async function searchCode(
 	lexicalFieldBoosts: Record<string, number> = { lexical_search_text: 0.7 },
 	hybridAlpha = 0.5,
 ): Promise<SearchResultItem[]> {
-	const functionName = 'searchCode';
-	logger.info({ functionName, query, numResults, lexicalFieldBoosts, hybridAlpha }, `Performing search for query: "${query}"`);
+	logger.info({ query, numResults, lexicalFieldBoosts, hybridAlpha }, `Performing search for query: "${query}"`);
 
 	if (!query) {
 		logger.warn('Search query is empty.');
@@ -61,7 +60,7 @@ export async function searchCode(
 	// 1. Generate embedding for the query
 	const queryEmbedding = await generateEmbedding(query, 'CODE_RETRIEVAL_QUERY');
 	if (!queryEmbedding || queryEmbedding.length === 0) {
-		logger.error({ functionName, query }, 'Failed to generate embedding for the search query after all retries. Cannot perform search.');
+		logger.error({ query }, 'Failed to generate embedding for the search query after all retries. Cannot perform search.');
 		return [];
 	}
 
@@ -70,33 +69,32 @@ export async function searchCode(
 		servingConfig: servingConfigPath,
 		query: query, // Include original query text for potential hybrid search/logging
 		pageSize: numResults,
-		queryExpansionSpec: {
-			condition: google.cloud.discoveryengine.v1beta.SearchRequest.QueryExpansionSpec.Condition.AUTO,
-		},
-		spellCorrectionSpec: {
-			mode: google.cloud.discoveryengine.v1beta.SearchRequest.SpellCorrectionSpec.Mode.AUTO,
-		},
-		contentSearchSpec: {
-			snippetSpec: {
-				returnSnippet: true, // Optionally return snippets
-			},
-			summarySpec: {
-				// Optionally request summaries
-				summaryResultCount: 3, // Number of results to summarize
-				// includeCitations: true, // If using grounding/citations
-			},
-			extractiveContentSpec: {
-				maxExtractiveAnswerCount: 1, // If using extractive answers
-			},
-			// Vector search specific configuration
-			searchResultMode: google.cloud.discoveryengine.v1beta.SearchRequest.ContentSearchSpec.SearchResultMode.DOCUMENTS, // Or CHUNKS if using chunk-level indexing
-			chunkSpec: {
-				// If searching chunks within documents
-				// numPreviousChunks: 1,
-				// numPreviousChunks: 1,
-				// numNextChunks: 1,
-			},
-		},
+		// queryExpansionSpec: {
+		// 	condition: google.cloud.discoveryengine.v1beta.SearchRequest.QueryExpansionSpec.Condition.DISABLED,
+		// },
+		// spellCorrectionSpec: {
+		// 	mode: google.cloud.discoveryengine.v1beta.SearchRequest.SpellCorrectionSpec.Mode.MODE_UNSPECIFIED,
+		// },
+		// contentSearchSpec: {
+		// 	// snippetSpec: {
+		// 	// 	returnSnippet: false, // Optionally return snippets
+		// 	// },
+		// 	// summarySpec: {
+		// 	// 	// Optionally request summaries
+		// 	// 	summaryResultCount: 3, // Number of results to summarize
+		// 	// 	// includeCitations: true, // If using grounding/citations
+		// 	// },
+		// 	extractiveContentSpec: {
+		// 		maxExtractiveAnswerCount: 0, // If using extractive answers
+		// 	},
+		// 	// Vector search specific configuration
+		// 	searchResultMode: google.cloud.discoveryengine.v1beta.SearchRequest.ContentSearchSpec.SearchResultMode.CHUNKS, // Or CHUNKS if using chunk-level indexing
+		// 	chunkSpec: {
+		// 		// If searching chunks within documents
+		// 		numPreviousChunks: 1,
+		// 		numNextChunks: 1,
+		// 	},
+		// },
 		// Moved embeddingSpec to the top level of the request object
 		embeddingSpec: {
 			embeddingVectors: [
@@ -106,26 +104,24 @@ export async function searchCode(
 				},
 			],
 		},
-		// Optional: Filter based on metadata fields (e.g., language)
-		// filter: 'language = "python"',
 	};
 
 	// Add hybrid search parameters
 	const requestParamsInternal: { [key: string]: any } = {};
 
-	if (hybridAlpha !== undefined && hybridAlpha >= 0 && hybridAlpha <= 1) {
-		// The actual key name 'alpha' or 'hybrid_alpha' or similar needs to be confirmed
-		// from Discovery Engine documentation for use with the 'params' field.
-		// Based on Perplexity research, 'alpha' is a common term.
-		requestParamsInternal.alpha = hybridAlpha;
-	}
+	// if (hybridAlpha !== undefined && hybridAlpha >= 0 && hybridAlpha <= 1) {
+	// 	// The actual key name 'alpha' or 'hybrid_alpha' or similar needs to be confirmed
+	// 	// from Discovery Engine documentation for use with the 'params' field.
+	// 	// Based on Perplexity research, 'alpha' is a common term.
+	// 	requestParamsInternal.alpha = hybridAlpha;
+	// }
 
-	if (lexicalFieldBoosts && Object.keys(lexicalFieldBoosts).length > 0) {
-		// The actual key name 'field_boosts' or 'fieldBoosts' or similar needs to be confirmed
-		// from Discovery Engine documentation for use with the 'params' field.
-		// Based on Perplexity research, 'field_boosts' is a common term.
-		requestParamsInternal.field_boosts = lexicalFieldBoosts;
-	}
+	// if (lexicalFieldBoosts && Object.keys(lexicalFieldBoosts).length > 0) {
+	// 	// The actual key name 'field_boosts' or 'fieldBoosts' or similar needs to be confirmed
+	// 	// from Discovery Engine documentation for use with the 'params' field.
+	// 	// Based on Perplexity research, 'field_boosts' is a common term.
+	// 	requestParamsInternal.field_boosts = lexicalFieldBoosts;
+	// }
 
 	if (Object.keys(requestParamsInternal).length > 0) {
 		const encodedParams = struct.encode(requestParamsInternal);
@@ -134,90 +130,57 @@ export async function searchCode(
 		}
 	}
 
-	for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-		try {
-			logger.info(
-				{ functionName, query, attempt: attempt + 1, maxRetries: MAX_RETRIES, lexicalFieldBoosts, hybridAlpha },
-				`Attempting search (attempt ${attempt + 1}/${MAX_RETRIES})...`,
-			);
-			logger.debug({ functionName, query, attempt: attempt + 1, searchRequest: JSON.stringify(searchRequest, null, 2) }, 'Sending search request');
+	try {
+		// 3. Call the Search API
+		// The response is a tuple containing: [results, request, response]
+		const [searchApiResponse] = await client.search(searchRequest);
 
-			// 3. Call the Search API
-			// The response is a tuple containing: [results, request, response]
-			const [searchApiResponse] = await client.search(searchRequest);
+		logger.info({ query }, `Received ${searchApiResponse?.length ?? 0} search results.`);
+		// logger.debug(`Search response: ${JSON.stringify(searchApiResponse, null, 2)}`);
 
-			logger.info({ functionName, query, attempt: attempt + 1 }, `Received ${searchApiResponse?.length ?? 0} search results.`);
-			// logger.debug(`Search response: ${JSON.stringify(searchApiResponse, null, 2)}`);
+		// 4. Process Results
+		const results: SearchResultItem[] = [];
+		if (searchApiResponse) {
+			for (const result of searchApiResponse) {
+				// Ensure result and document exist before proceeding
+				if (result.document?.structData?.fields) {
+					const fields = result.document.structData.fields;
+					// Helper to safely extract string values from Struct fields
+					const getString = (fieldName: string): string | undefined => fields[fieldName]?.stringValue;
+					// Helper to safely extract number values
+					const getNumber = (fieldName: string): number | undefined => fields[fieldName]?.numberValue;
 
-			// 4. Process Results
-			const results: SearchResultItem[] = [];
-			if (searchApiResponse) {
-				for (const result of searchApiResponse) {
-					// Ensure result and document exist before proceeding
-					if (result.document?.structData?.fields) {
-						const fields = result.document.structData.fields;
-						// Helper to safely extract string values from Struct fields
-						const getString = (fieldName: string): string | undefined => fields[fieldName]?.stringValue;
-						// Helper to safely extract number values
-						const getNumber = (fieldName: string): number | undefined => fields[fieldName]?.numberValue;
-
-						const item: SearchResultItem = {
-							id: result.document.id ?? 'unknown-id',
-							score: result.document.derivedStructData?.fields?.search_score?.numberValue ?? 0, // Check actual score field name
-							document: {
-								filePath: getString('file_path') ?? 'unknown_path',
-								functionName: getString('function_name'), // Optional
-								startLine: getNumber('start_line') ?? 0,
-								endLine: getNumber('end_line') ?? 0,
-								language: getString('language') ?? 'unknown',
-								naturalLanguageDescription: getString('natural_language_description') ?? '',
-								originalCode: getString('original_code') ?? '',
-							},
-						};
-						results.push(item);
-					}
+					const item: SearchResultItem = {
+						id: result.document.id ?? 'unknown-id',
+						score: result.document.derivedStructData?.fields?.search_score?.numberValue ?? 0, // Check actual score field name
+						document: {
+							filePath: getString('file_path') ?? 'unknown_path',
+							functionName: getString('function_name'), // Optional
+							startLine: getNumber('start_line') ?? 0,
+							endLine: getNumber('end_line') ?? 0,
+							language: getString('language') ?? 'unknown',
+							naturalLanguageDescription: getString('natural_language_description') ?? '',
+							originalCode: getString('original_code') ?? '',
+						},
+					};
+					results.push(item);
 				}
 			}
-
-			// Sort by score if needed (API might already do this)
-			results.sort((a, b) => b.score - a.score);
-
-			logger.info(
-				{ functionName, query, resultsCount: results.length, attempt: attempt + 1 },
-				`Search successful on attempt ${attempt + 1}. Found ${results.length} results.`,
-			);
-			return results; // Success, exit function
-		} catch (apiError: any) {
-			const delay = INITIAL_RETRY_DELAY_MS * RETRY_DELAY_MULTIPLIER ** attempt;
-			logger.error(
-				{
-					functionName,
-					err: { message: apiError.message, stack: apiError.stack, details: apiError.details },
-					attempt: attempt + 1,
-					maxRetries: MAX_RETRIES,
-					delay,
-					query,
-				},
-				`API call failed for search (Attempt ${attempt + 1}/${MAX_RETRIES}). Retrying in ${delay}ms...`,
-			);
-
-			if (attempt < MAX_RETRIES - 1) {
-				await sleep(delay);
-			} else {
-				logger.error(
-					{ functionName, err: { message: apiError.message, stack: apiError.stack }, query },
-					`All ${MAX_RETRIES} retries failed for search. Returning empty results.`,
-				);
-				return []; // All retries failed
-			}
 		}
-	}
-	// Fallback, should ideally be unreachable if all paths in loop return.
-	logger.warn({ functionName, query }, 'Search function reached end without returning, implies an issue in retry logic. Returning empty array.');
-	return [];
-}
 
-// Example usage (called from index.ts)
-// searchCode('function to load user data from database')
-//   .then(results => console.log('Search results:', results))
-//   .catch(err => console.error('Search failed:', err));
+		// Sort by score if needed (API might already do this)
+		results.sort((a, b) => b.score - a.score);
+
+		logger.info({ query, resultsCount: results.length }, `Search successful. Found ${results.length} results.`);
+		return results;
+	} catch (apiError: any) {
+		logger.error(
+			{
+				err: { message: apiError.message, stack: apiError.stack, details: apiError.details },
+				query,
+			},
+			'API call failed for search.',
+		);
+		throw apiError;
+	}
+}

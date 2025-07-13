@@ -1,7 +1,6 @@
 import pino from 'pino';
 import { llms } from '#agent/agentContextLocalStorage';
 import type { LLM } from '#shared/llm/llm.model';
-import { TRANSLATION_LLM_MODEL_ID } from '../config';
 import { GENERATE_CHUNK_CONTEXT_PROMPT, TRANSLATE_CODE_TO_NL_PROMPT } from './prompts';
 
 const logger = pino({ name: 'Translator' });
@@ -11,19 +10,7 @@ const INITIAL_RETRY_DELAY_MS = 1000; // 1 second
 const RETRY_DELAY_MULTIPLIER = 2; // For exponential backoff
 
 function getTranslationLLM(): LLM {
-	logger.info(`Attempting to use LLM model ID for translation: ${TRANSLATION_LLM_MODEL_ID}`);
-	const allConfiguredLlms = llms(); // Retrieves Record<TaskLevel, LLM>
-
-	for (const llmInstance of Object.values(allConfiguredLlms)) {
-		// The getModel() method is part of the LLM interface
-		if (llmInstance.getModel() === TRANSLATION_LLM_MODEL_ID) {
-			logger.info(`Found configured LLM for translation: ${TRANSLATION_LLM_MODEL_ID}`);
-			return llmInstance;
-		}
-	}
-
-	logger.warn(`Configured LLM model ID '${TRANSLATION_LLM_MODEL_ID}' not found. Falling back to 'easy' tier LLM for translation.`);
-	return allConfiguredLlms.easy; // Fallback to the 'easy' LLM instance
+	return llms().easy;
 }
 
 /**

@@ -2,7 +2,7 @@ import { PredictionServiceClient, protos } from '@google-cloud/aiplatform';
 import { struct } from 'pb-util'; // Helper for converting JS objects to Struct proto
 import pino from 'pino';
 import { sleep } from '#utils/async-utils';
-import { DISCOVERY_ENGINE_EMBEDDING_MODEL, DISCOVERY_ENGINE_LOCATION, EMBEDDING_API_BATCH_SIZE, GCLOUD_PROJECT } from '../config';
+import { DISCOVERY_ENGINE_EMBEDDING_MODEL, DISCOVERY_ENGINE_LOCATION, EMBEDDING_API_BATCH_SIZE, GCLOUD_PROJECT, GCLOUD_REGION } from '../config';
 
 const logger = pino({ name: 'Embedder' });
 
@@ -24,10 +24,10 @@ class VertexAITextEmbeddingService implements TextEmbeddingService {
 
 	constructor() {
 		const clientOptions = {
-			apiEndpoint: `${DISCOVERY_ENGINE_LOCATION}-aiplatform.googleapis.com`,
+			apiEndpoint: `${GCLOUD_REGION}-aiplatform.googleapis.com`,
 		};
 		this.client = new PredictionServiceClient(clientOptions);
-		this.endpointPath = `projects/${GCLOUD_PROJECT}/locations/${DISCOVERY_ENGINE_LOCATION}/publishers/google/models/${DISCOVERY_ENGINE_EMBEDDING_MODEL}`;
+		this.endpointPath = `projects/${GCLOUD_PROJECT}/locations/${GCLOUD_REGION}/publishers/google/models/${DISCOVERY_ENGINE_EMBEDDING_MODEL}`;
 	}
 
 	async generateEmbedding(text: string, taskType: string): Promise<number[]> {
@@ -99,16 +99,16 @@ class VertexAITextEmbeddingService implements TextEmbeddingService {
 					} else {
 						for (let j = 0; j < response.predictions.length; j++) {
 							const prediction = response.predictions[j] as protos.google.protobuf.IValue;
-							const embeddingStruct = prediction?.structValue?.fields?.embedding;
+							const embeddingValue = prediction?.structValue?.fields?.embeddings?.structValue?.fields?.values;
 
-							if (!embeddingStruct?.listValue?.values) {
+							if (!embeddingValue?.listValue?.values) {
 								logger.warn(
 									{ prediction, functionName, taskType, textIndexInSubBatch: j, globalTextIndex: subBatchIndices[j] },
 									'Empty or invalid embedding structure for a text in sub-batch.',
 								);
 								subBatchEmbeddings[j] = null; // Mark as null for this specific text
 							} else {
-								const embedding = embeddingStruct.listValue.values.map((v) => v.numberValue as number);
+								const embedding = embeddingValue.listValue.values.map((v) => v.numberValue as number);
 								if (embedding.some((n) => typeof n !== 'number' || Number.isNaN(n))) {
 									logger.warn(
 										{ prediction, functionName, taskType, textIndexInSubBatch: j, globalTextIndex: subBatchIndices[j] },
