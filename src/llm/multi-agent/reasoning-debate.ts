@@ -52,7 +52,6 @@ export function MoA_reasoningLLMRegistry(): Record<string, () => LLM> {
 		'MAD:Cost': MAD_Cost,
 		'MAD:Fast': MAD_Fast,
 		'MAD:SOTA': MAD_SOTA,
-		'MAD:Dual': MAD_Dual,
 		'MAD:Vertex': MAD_Vertex,
 		'MAD:Balanced': MAD_Balanced,
 	};
