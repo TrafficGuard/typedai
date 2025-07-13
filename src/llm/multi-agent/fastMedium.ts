@@ -1,6 +1,6 @@
 import { cerebrasQwen3_32b } from '#llm/services/cerebras';
 import { groqQwen3_32b } from '#llm/services/groq';
-import { vertexGemini_2_5_Flash_Thinking } from '#llm/services/vertexai';
+import { vertexGemini_2_5_Flash } from '#llm/services/vertexai';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import { type GenerateTextOptions, type LLM, type LlmMessage, messageContentIfTextOnly, messageText } from '#shared/llm/llm.model';
@@ -22,7 +22,7 @@ export class FastMediumLLM extends BaseLLM {
 			outputCost: 0,
 			totalCost: 0,
 		}));
-		this.providers = [cerebrasQwen3_32b(), groqQwen3_32b(), vertexGemini_2_5_Flash_Thinking()];
+		this.providers = [cerebrasQwen3_32b(), groqQwen3_32b(), vertexGemini_2_5_Flash({ thinking: 'high' })];
 		this.cerebras = this.providers[0];
 		this.groq = this.providers[1];
 		this.gemini = this.providers[2];

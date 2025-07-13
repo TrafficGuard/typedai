@@ -11,7 +11,7 @@ import { BaseLLM } from '../base-llm';
 // A discriminated union to represent the different types of calls that can be made to the mock.
 interface MockLLMCallBase {
 	/** true ⇢ helper entry automatically added by MockLLM (not a real call) */
-	synthetic?: true;
+	synthetic?: boolean;
 }
 
 export type MockLLMCall =
