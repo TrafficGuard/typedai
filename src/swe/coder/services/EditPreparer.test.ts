@@ -9,7 +9,7 @@ import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import type { EditBlock } from '../coderTypes';
 import { EditSession } from '../state/editSession';
-import { EditPreparer } from './EditPreparer';
+import { EditPreparer } from './editPreparer';
 
 const MOCK_REPO_ROOT = '/repo';
 // The fence values don't matter for most tests, but are required by the constructor.

@@ -11,7 +11,7 @@ import { MODEL_EDIT_FORMATS } from './constants';
 import { applyEdits } from './editApplier';
 import { tryFixSearchBlock } from './fixSearchReplaceBlock';
 import type { PromptBuilder } from './promptBuilder';
-import type { EditPreparer } from './services/EditPreparer';
+import type { EditPreparer } from './services/editPreparer';
 import { buildExternalChangeReflection, buildFailureReflection, buildMetaRequestReflection, buildValidationReflection } from './services/reflectionGenerator';
 import { processResponse } from './services/responseProcessor';
 import type { EditSession } from './state/editSession';

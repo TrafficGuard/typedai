@@ -10,7 +10,7 @@ import type { EditBlock } from './coderTypes';
 import { PromptBuilder } from './promptBuilder';
 import { CoderConfig, SearchReplaceOrchestrator } from './searchReplaceOrchestrator';
 import { EDIT_BLOCK_PROMPTS } from './searchReplacePrompts';
-import { EditPreparer } from './services/EditPreparer';
+import { EditPreparer } from './services/editPreparer';
 import { EditSession } from './state/editSession';
 import { ModuleAliasRule } from './validators/moduleAliasRule';
 import { PathExistsRule } from './validators/pathExistsRule';
