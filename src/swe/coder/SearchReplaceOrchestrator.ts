@@ -297,7 +297,7 @@ export class SearchReplaceOrchestrator {
 			const diff = appliedEdits.map((edit) => `# ${edit.filePath}\nSEARCH>>>>>>${edit.originalText}\nREPLACE>>>>>${edit.updatedText}\n<<<<<<<`).join('\n\n');
 			const commitMessage = await this.llms.medium.generateText(
 				`<requirements>${session.requirements}</requirements>\n\n<diff>${diff}</diff>\n\nGenerate a Git commit message for the changes in this diff. Output only the commit message.`,
-				{ thinking: 'none' },
+				{ id: 'autoCommitMessage', thinking: 'none' },
 			);
 			try {
 				await vcs.addAndCommitFiles(filesToCommit, commitMessage);
@@ -337,6 +337,7 @@ export class SearchReplaceOrchestrator {
 			const diff = result.stdout;
 			const dirtyCommitMsg = await llm.generateText(
 				`<diff>${diff}</diff>\n\nGenerate a commit message for the changes in this diff. Output only the commit message.`,
+				{ id: 'dirtyCommitMessage' },
 			);
 			await vcs.addAndCommitFiles(dirtyFilesArray, dirtyCommitMsg);
 			logger.info(`Successfully committed uncommitted changes for: ${dirtyFilesArray.join(', ')}.`);
