@@ -1,6 +1,5 @@
-import { openai } from '@ai-sdk/openai';
 import { FastMediumLLM } from '#llm/multi-agent/fastMedium';
-import { MAD_Balanced } from '#llm/multi-agent/reasoning-debate';
+import { MAD_Balanced, MAD_Dual, MAD_SOTA, MAD_Vertex } from '#llm/multi-agent/reasoning-debate';
 import { MultiLLM } from '#llm/multi-llm';
 import { Claude3_5_Haiku, anthropicClaude4_Opus, anthropicClaude4_Sonnet } from '#llm/services/anthropic';
 import { vertexGemini_2_0_Flash_Lite, vertexGemini_2_5_Flash, vertexGemini_2_5_Pro } from '#llm/services/vertexai';
@@ -8,6 +7,7 @@ import type { AgentLLMs } from '#shared/agent/agent.model';
 import type { LLM } from '#shared/llm/llm.model';
 import { Ollama_LLMs } from './ollama';
 import { openAIo3, openAIo4mini, openaiGPT41, openaiGPT41mini } from './openai';
+import { xai_Grok4 } from './xai';
 
 let _summaryLLM: LLM;
 
@@ -20,6 +20,8 @@ export function defaultLLMs(): AgentLLMs {
 	const o3 = openAIo3();
 	const gemini25Pro = vertexGemini_2_5_Pro();
 	const sonnet4 = anthropicClaude4_Sonnet();
+	const grok4 = xai_Grok4();
+	const madBalanced = MAD_Balanced();
 
 	if (gemini25Pro.isConfigured()) {
 		const flashLite = vertexGemini_2_0_Flash_Lite();
@@ -30,7 +32,7 @@ export function defaultLLMs(): AgentLLMs {
 			easy: flashLite,
 			medium: new FastMediumLLM(),
 			hard: gemini25Pro,
-			xhard: null,
+			xhard: madBalanced.isConfigured() ? madBalanced : MAD_Vertex(),
 		};
 	}
 

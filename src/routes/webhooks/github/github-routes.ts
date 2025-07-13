@@ -1,5 +1,40 @@
 import crypto from 'node:crypto';
 import type { AppFastifyInstance } from '#app/applicationTypes';
+import { GitHub } from '#functions/scm/github';
+import { logger } from '#o11y/logger';
+
+interface WorkflowRunPayload {
+	action: 'completed' | 'requested' | 'in_progress';
+	workflow_run: {
+		id: number;
+		name: string;
+		status: string;
+		conclusion: 'success' | 'failure' | 'cancelled' | 'timed_out' | null;
+	};
+	repository: {
+		full_name: string;
+	};
+}
+
+interface WorkflowJobPayload {
+	action: 'completed' | 'queued' | 'in_progress';
+	workflow_job: {
+		id: number;
+		run_id: number;
+		name: string;
+		status: string;
+		conclusion: 'success' | 'failure' | 'cancelled' | 'timed_out' | null;
+		steps: Array<{
+			name: string;
+			status: string;
+			conclusion: string | null;
+			number: number;
+		}>;
+	};
+	repository: {
+		full_name: string;
+	};
+}
 
 const basePath = '/api/webhooks';
 
@@ -19,6 +54,7 @@ export async function githubRoutes(fastify: AppFastifyInstance) {
 				// 2. Process GitHub event
 				const eventType = request.headers['x-github-event'];
 				const payload = request.body;
+				logger.debug(payload);
 
 				switch (eventType) {
 					case 'issue_comment':
@@ -26,6 +62,15 @@ export async function githubRoutes(fastify: AppFastifyInstance) {
 						break;
 					case 'issues':
 						await handleIssueEvent(payload, fastify);
+						break;
+					case 'pull_request':
+						await handlePullRequestEvent(payload, fastify);
+						break;
+					case 'workflow_run':
+						await handleWorkflowRunEvent(payload as WorkflowRunPayload, fastify);
+						break;
+					case 'workflow_job':
+						await handleWorkflowJobEvent(payload as WorkflowJobPayload, fastify);
 						break;
 				}
 
@@ -101,6 +146,79 @@ export async function handleIssueEvent(payload: any, fastify: AppFastifyInstance
 	}
 }
 
+async function handleWorkflowRunEvent(payload: WorkflowRunPayload, fastify: AppFastifyInstance) {
+	if (payload.action !== 'completed') {
+		fastify.log.info(`GitHub Webhook: Received 'workflow_run' event with action '${payload.action}'. Ignoring as it's not 'completed'.`);
+		return;
+	}
+
+	const { workflow_run, repository } = payload;
+	const projectPath = repository.full_name;
+
+	fastify.log.info(
+		`GitHub Webhook: Workflow run '${workflow_run.name}' (ID: ${workflow_run.id}) in '${projectPath}' completed with conclusion: ${workflow_run.conclusion}.`,
+	);
+
+	if (workflow_run.conclusion === 'failure') {
+		fastify.log.warn(`🔥 Workflow run ${workflow_run.id} failed in '${projectPath}'. Investigating...`);
+		try {
+			const github = new GitHub();
+			const jobs = await github.listJobsForWorkflowRun(projectPath, workflow_run.id);
+			const failedJobs = jobs.filter((job) => job.conclusion === 'failure');
+
+			if (failedJobs.length === 0) {
+				fastify.log.info(`No failed jobs found for workflow run ${workflow_run.id}. The failure may be at the workflow level.`);
+				return;
+			}
+
+			fastify.log.info(`Found ${failedJobs.length} failed jobs for workflow run ${workflow_run.id}:`);
+			for (const job of failedJobs) {
+				fastify.log.info(`- Job: '${job.name}' (ID: ${job.id})`);
+				const failedSteps = job.steps.filter((step) => step.conclusion === 'failure');
+				if (failedSteps.length > 0) {
+					const stepNames = failedSteps.map((s) => `'${s.name}'`).join(', ');
+					fastify.log.info(`  - Failed steps: ${stepNames}`);
+				}
+				// Fetch and log a snippet of the logs
+				const logs = await github.getJobLogs(projectPath, String(job.id));
+				fastify.log.info(`  - Fetched ${logs.length} bytes of logs for job ${job.id}.`);
+			}
+		} catch (error) {
+			fastify.log.error(error, `Error investigating failed workflow run ${workflow_run.id}`);
+		}
+	}
+}
+
+async function handleWorkflowJobEvent(payload: WorkflowJobPayload, fastify: AppFastifyInstance) {
+	if (payload.action !== 'completed') {
+		fastify.log.info(`GitHub Webhook: Received 'workflow_job' event with action '${payload.action}'. Ignoring as it's not 'completed'.`);
+		return;
+	}
+
+	const { workflow_job, repository } = payload;
+	const projectPath = repository.full_name;
+
+	fastify.log.info(
+		`GitHub Webhook: Job '${workflow_job.name}' (ID: ${workflow_job.id}) in '${projectPath}' completed with conclusion: ${workflow_job.conclusion}.`,
+	);
+
+	if (workflow_job.conclusion === 'failure') {
+		fastify.log.warn(`🔥 Job '${workflow_job.name}' (ID: ${workflow_job.id}) failed in '${projectPath}'.`);
+		try {
+			const failedSteps = workflow_job.steps.filter((step) => step.conclusion === 'failure');
+			if (failedSteps.length > 0) {
+				const stepNames = failedSteps.map((s) => `'${s.name}'`).join(', ');
+				fastify.log.info(`  - Failed steps: ${stepNames}`);
+			}
+
+			const github = new GitHub();
+			const logs = await github.getJobLogs(projectPath, String(workflow_job.id));
+			fastify.log.info(`  - Fetched ${logs.length} bytes of logs for job ${workflow_job.id}.`);
+		} catch (error) {
+			fastify.log.error(error, `Error processing failed job ${workflow_job.id}`);
+		}
+	}
+}
 function verifyGitHubSignature(request: any) {
 	const secret = process.env.GITHUB_WEBHOOK_SECRET;
 	const signature = request.headers['x-hub-signature-256'] as string;
@@ -114,4 +232,8 @@ function verifyGitHubSignature(request: any) {
 	const hmac = crypto.createHmac('sha256', secret);
 	const digest = `sha256=${hmac.update(payload).digest('hex')}`;
 	return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest));
+}
+
+async function handlePullRequestEvent(payload: unknown, fastify: AppFastifyInstance) {
+	logger.warn('Function not implemented.');
 }

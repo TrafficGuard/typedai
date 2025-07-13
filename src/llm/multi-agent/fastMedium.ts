@@ -1,5 +1,4 @@
-import { cerebrasQwen3_32b } from '#llm/services/cerebras';
-import { groqQwen3_32b } from '#llm/services/groq';
+import { cerebrasQwen3_235b } from '#llm/services/cerebras';
 import { vertexGemini_2_5_Flash } from '#llm/services/vertexai';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
@@ -8,24 +7,22 @@ import { BaseLLM } from '../base-llm';
 
 /**
  * LLM implementation for medium level LLM using a fast provider if available and applicable, else falling back to the standard medium LLM
- * https://artificialanalysis.ai/?models=gemini-2-5-flash%2Cgemini-2-5-flash-reasoning%2Cgroq_qwen3-32b-instruct-reasoning%2Cgroq_qwen3-32b-instruct%2Ccerebras_qwen3-32b-instruct-reasoning&endpoints=groq_qwen3-32b-instruct-reasoning%2Cgroq_qwen3-32b-instruct%2Ccerebras_qwen3-32b-instruct-reasoning
+ * https://artificialanalysis.ai/?models=gemini-2-5-flash%2Cgemini-2-5-flash-reasoning%2Cgroq_qwen3-32b-instruct-reasoning%2Cgroq_qwen3-32b-instruct%2Ccerebras_qwen3-32b-instruct-reasoning&endpoints=groq_qwen3-32b-instruct%2Cgroq_qwen3-32b-instruct-reasoning%2Ccerebras_qwen3-235b-a22b-instruct%2Ccerebras_qwen3-32b-instruct-reasoning%2Ccerebras_qwen3-235b-a22b-instruct-reasoning
  */
 export class FastMediumLLM extends BaseLLM {
 	private readonly providers: LLM[];
 	private readonly cerebras: LLM;
-	private readonly groq: LLM;
 	private readonly gemini: LLM;
 
 	constructor() {
-		super('Fast Medium (Qwen3 32b (Cerebras/Groq - Gemini 2.5 Flash)', 'multi', 'fast-medium', 0, () => ({
+		super('Fast Medium (Qwen3 235b (Cerebras) - Gemini 2.5 Flash)', 'multi', 'fast-medium', 0, () => ({
 			inputCost: 0,
 			outputCost: 0,
 			totalCost: 0,
 		}));
-		this.providers = [cerebrasQwen3_32b(), groqQwen3_32b(), vertexGemini_2_5_Flash({ thinking: 'high' })];
+		this.providers = [cerebrasQwen3_235b(), vertexGemini_2_5_Flash({ thinking: 'high' })];
 		this.cerebras = this.providers[0];
-		this.groq = this.providers[1];
-		this.gemini = this.providers[2];
+		this.gemini = this.providers[1];
 
 		this.maxInputTokens = Math.max(...this.providers.map((p) => p.getMaxInputTokens()));
 	}
@@ -63,10 +60,9 @@ export class FastMediumLLM extends BaseLLM {
 		try {
 			const tokens = await this.textTokens(messages);
 			if (tokens) {
-				if (this.cerebras.isConfigured() && tokens < this.cerebras.getMaxInputTokens() * 0.6) return await this.cerebras.generateMessage(messages, opts);
-				if (this.groq.isConfigured() && tokens < this.groq.getMaxInputTokens()) return await this.groq.generateMessage(messages, opts);
+				if (this.cerebras.isConfigured() && tokens < this.cerebras.getMaxInputTokens() * 0.7) return await this.cerebras.generateMessage(messages, opts);
 			} else {
-				logger.info('non-text messages, skipping cerebras/groq');
+				logger.info('non-text messages, skipping cerebras');
 			}
 		} catch (e) {
 			logger.warn(e, 'Error calling fast medium LLM');

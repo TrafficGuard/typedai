@@ -8,22 +8,17 @@ export const TOGETHER_SERVICE = 'together';
 
 export function togetherLLMRegistry(): Record<string, () => LLM> {
 	return {
-		[`${TOGETHER_SERVICE}:meta-llama/Llama-3-70b-chat-hf`]: () => togetherLlama3_70B(),
 		[`${TOGETHER_SERVICE}:deepseek-ai/DeepSeek-R1`]: () => togetherDeepSeekR1(),
-		[`${TOGETHER_SERVICE}:deepseek-ai/DeepSeek-R1-Distill-Llama-70B`]: () => togetherLlama3_70B_R1_Distill(),
+		[`${TOGETHER_SERVICE}:deepseek-ai/DeepSeek-R1-0528-tput`]: () => togetherDeepSeekR1_0528_tput(),
 	};
-}
-
-export function togetherLlama3_70B(): LLM {
-	return new TogetherLLM('Llama3 70b (Together)', 'meta-llama/Llama-3-70b-chat-hf', 8000, fixedCostPerMilTokens(0.9, 0.9));
-}
-
-export function togetherLlama3_70B_R1_Distill(): LLM {
-	return new TogetherLLM('Llama3 70b R1 Distill (Together)', 'deepseek-ai/DeepSeek-R1-Distill-Llama-70B', 128_000, fixedCostPerMilTokens(2, 2));
 }
 
 export function togetherDeepSeekR1(): LLM {
 	return new TogetherLLM('DeepSeek R1 (Together)', 'deepseek-ai/DeepSeek-R1', 64000, fixedCostPerMilTokens(3, 7));
+}
+
+export function togetherDeepSeekR1_0528_tput(): LLM {
+	return new TogetherLLM('DeepSeek R1 0528 tput (Together)', 'deepseek-ai/DeepSeek-R1-0528-tput', 64000, fixedCostPerMilTokens(0.55, 2.19));
 }
 
 /**
