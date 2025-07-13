@@ -5,8 +5,8 @@ import { logger } from '#o11y/logger';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
 import type { LlmMessage } from '#shared/llm/llm.model';
 import { user } from '#shared/llm/llm.model';
-import { EDIT_BLOCK_PROMPTS } from '#swe/coder/searchReplacePrompts';
-import type { EditSession } from '#swe/coder/state/editSession';
+import { EDIT_BLOCK_PROMPTS } from './searchReplacePrompts';
+import type { EditSession } from './state/editSession';
 
 export class PromptBuilder {
 	constructor(
