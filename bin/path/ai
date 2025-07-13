@@ -8,6 +8,12 @@ if [ -z "$TYPEDAI_HOME" ]; then
   exit 1
 fi
 
+# If there arg is "b" then run ../find_chrome_tab
+if [ "$1" = "b" ]; then
+  $TYPEDAI_HOME/bin/find_chrome_tab
+  exit 0
+fi
+
 # Check if at least one argument is passed
 if [ $# -lt 1 ]; then
   echo "Usage: ai <npm script> [args]"

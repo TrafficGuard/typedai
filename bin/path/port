@@ -1,0 +1,25 @@
+#!/bin/bash
+# Usage: port <port> [-k]
+# -k will kill the process
+
+# Store the output of lsof so we can extract the PID
+OUTPUT=$(sudo lsof -i :$1)
+KILL=""
+if [ "$2" = "-k" ]; then
+  echo "Killing process"
+  KILL="-k"
+fi
+# The output will be like
+# username@MACHINE cwd % port 8243
+# Password:
+# COMMAND   PID     USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
+# java    44607 johndoe  138u  IPv6 0xce01389c90ae50c9      0t0  TCP localhost:8243 (LISTEN)
+#
+
+# Extract the PID from the output
+PID=$(echo "$OUTPUT" | awk 'NR==2 {print $2}')
+
+# If the -k option is used, the process will be killed.
+if [ "$KILL" = "-k" ]; then
+  sudo kill -9 "$PID"
+fi

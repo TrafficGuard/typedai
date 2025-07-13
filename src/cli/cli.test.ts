@@ -10,14 +10,22 @@ describe('parseUserCliArgs', () => {
 	const stateFilePath = `${systemDir()}/cli/test.lastRun`;
 
 	beforeEach(() => {
-		// Ensure the state file does not exist before each test
-		if (existsSync(stateFilePath)) unlinkSync(stateFilePath);
+		safeUnlink(stateFilePath);
 	});
 
 	afterEach(() => {
-		// Clean up the state file after each test
-		if (existsSync(stateFilePath)) unlinkSync(stateFilePath);
+		safeUnlink(stateFilePath);
 	});
+
+	function safeUnlink(file: string): void {
+		try {
+			if (existsSync(file)) unlinkSync(file);
+			// existsSync may occasionally return a stale result when mock-fs is active,
+			// so swallow ENOENT that appears between the check and the unlink
+		} catch (err: any) {
+			if (err.code !== 'ENOENT') throw err;
+		}
+	}
 
 	it('should parse -r flag correctly and set resumeAgentId if the state file exists', () => {
 		saveAgentId('test', 'id');
