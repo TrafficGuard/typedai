@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
+import { ReasonerDebateLLM } from '#llm/multi-agent/reasoning-debate';
 import { extractTag } from '#llm/responseParsers';
 import { logger } from '#o11y/logger';
 import type { SelectedFile } from '#shared/files/files.model';
@@ -7,6 +8,7 @@ import {
 	type GenerateTextWithJsonResponse,
 	type LLM,
 	type LlmMessage,
+	ThinkingLevel,
 	type UserContentExt,
 	assistant,
 	contentText,
@@ -113,7 +115,10 @@ Respond in the following structure, with the answer in Markdown format inside th
 	messages.push({ role: 'user', content: finalPrompt });
 
 	// Perform the additional LLM call to get the answer
-	let answer = await llms().hard.generateText(messages, { id: 'Select Files query', thinking: 'high' });
+	const llm: LLM = llms().xhard ?? llms().hard;
+	const thinking: ThinkingLevel = llm instanceof ReasonerDebateLLM ? 'none' : 'high';
+
+	let answer = await llm.generateText(messages, { id: 'Select Files query Answer', thinking });
 	try {
 		answer = extractTag(answer, 'result');
 	} catch {}
@@ -531,6 +536,8 @@ The final part of the response must be a JSON object in the following format:
   "search": "" // Optional: regex to search file contents.
 }
 </json>
+
+You MUST responsd with a valid JSON object that follows the required schema inside <json></json> tags.
 `;
 
 	const iterationMessages: LlmMessage[] = [...messages, { role: 'user', content: prompt }];
