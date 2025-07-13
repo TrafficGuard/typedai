@@ -246,8 +246,9 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 					temperature: combinedOpts.temperature,
 					topP: combinedOpts.topP,
 					topK: combinedOpts.topK,
-					frequencyPenalty: combinedOpts.frequencyPenalty,
-					presencePenalty: combinedOpts.presencePenalty,
+					// Not supported by Grok4
+					// frequencyPenalty: combinedOpts.frequencyPenalty,
+					// presencePenalty: combinedOpts.presencePenalty,
 					stopSequences: combinedOpts.stopSequences,
 					maxRetries: combinedOpts.maxRetries,
 					maxTokens: combinedOpts.maxOutputTokens,

@@ -18,7 +18,6 @@ export function vertexLLMRegistry(): Record<string, () => LLM> {
 		[`${VERTEX_SERVICE}:gemini-2.5-flash-lite`]: vertexGemini_2_5_Flash_Lite,
 		[`${VERTEX_SERVICE}:gemini-2.5-pro`]: vertexGemini_2_5_Pro,
 		[`${VERTEX_SERVICE}:gemini-2.5-flash`]: vertexGemini_2_5_Flash,
-		[`${VERTEX_SERVICE}:gemini-2.5-flash-thinking`]: vertexGemini_2_5_Flash_Thinking,
 	};
 }
 
@@ -86,14 +85,8 @@ export function vertexGemini_2_5_Pro(): LLM {
 }
 
 // https://cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/2-5-flash
-export function vertexGemini_2_5_Flash(): LLM {
-	return new VertexLLM('Gemini 2.5 Flash', 'gemini-2.5-flash', 1_000_000, fixedCostPerMilTokens(0.3, 2.5), ['gemini-2.5-flash-preview-05-20']);
-}
-
-export function vertexGemini_2_5_Flash_Thinking(): LLM {
-	return new VertexLLM('Gemini 2.5 Flash (Thinking)', 'gemini-2.5-flash', 1_000_000, fixedCostPerMilTokens(0.3, 2.5), ['gemini-2.5-flash-preview-05-20'], {
-		thinking: 'high',
-	});
+export function vertexGemini_2_5_Flash(defaultOpts?: GenerateTextOptions): LLM {
+	return new VertexLLM('Gemini 2.5 Flash', 'gemini-2.5-flash', 1_000_000, fixedCostPerMilTokens(0.3, 2.5), ['gemini-2.5-flash-preview-05-20'], defaultOpts);
 }
 
 export function vertexGemini_2_0_Flash_Lite() {

@@ -9,18 +9,23 @@ import type { LlmCall } from '#shared/llmCall/llmCall.model';
 import { BaseLLM } from '../base-llm';
 
 // A discriminated union to represent the different types of calls that can be made to the mock.
+interface MockLLMCallBase {
+	/** true ⇢ helper entry automatically added by MockLLM (not a real call) */
+	synthetic?: true;
+}
+
 export type MockLLMCall =
-	| {
+	| (MockLLMCallBase & {
 			type: 'generateMessage';
 			messages: ReadonlyArray<LlmMessage>;
 			options?: GenerateTextOptions;
-	  }
-	| {
+	  })
+	| (MockLLMCallBase & {
 			type: 'generateText';
-			systemPrompt: string | undefined;
+			systemPrompt?: string;
 			userPrompt: string;
 			options?: GenerateTextOptions;
-	  };
+	  });
 
 //  Convenience alias for the “assistant” member of the union
 type AssistantMessage = Extract<LlmMessage, { role: 'assistant' }>;
@@ -100,7 +105,7 @@ export class MockLLM extends BaseLLM {
 	 * Gets all `generateMessage` calls made to this mock instance for inspection.
 	 */
 	getMessageCalls(): Extract<MockLLMCall, { type: 'generateMessage' }>[] {
-		return this.calls.filter((c): c is Extract<MockLLMCall, { type: 'generateMessage' }> => c.type === 'generateMessage');
+		return this.calls.filter((c): c is Extract<MockLLMCall, { type: 'generateMessage' }> => c.type === 'generateMessage' && !c.synthetic);
 	}
 
 	/**
@@ -114,16 +119,18 @@ export class MockLLM extends BaseLLM {
 	 * Gets the last call made to this mock instance.
 	 */
 	getLastCall(): MockLLMCall | undefined {
-		return this.calls.at(-1);
+		// last *real* call
+		for (let i = this.calls.length - 1; i >= 0; i--) {
+			if (!this.calls[i].synthetic) return this.calls[i];
+		}
+		return undefined;
 	}
 
 	/**
 	 * Gets the total number of calls (`generateMessage` and `generateText`) made to this mock.
 	 */
 	getCallCount(): number {
-		// Tests expect to count *only* the real LLM requests (generateMessage),
-		// not the synthetic mirror “generateText” entries we record for convenience.
-		return this.calls.filter((c) => c.type === 'generateMessage').length;
+		return this.calls.filter((c) => !c.synthetic).length;
 	}
 
 	/**
@@ -171,6 +178,7 @@ export class MockLLM extends BaseLLM {
 	}
 
 	protected async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
+		const isAutoCommit = opts?.id === 'autoCommitMessage';
 		/*                                                                                                                                                  
 		   Record this call in BOTH flavours so that tests using                                                                                                                                                           
 		   getTextCalls() (expecting ‘generateText’ entries) and/or                                                                                                                                                        
@@ -182,14 +190,23 @@ export class MockLLM extends BaseLLM {
 			.map((m) => messageText(m))
 			.join('\n');
 
-		this.calls.push({ type: 'generateMessage', messages, options: opts });
 		this.calls.push({
-			// Allow tests that only look at “text” calls to see this one
-			type: 'generateText',
-			systemPrompt,
-			userPrompt,
+			// real entry
+			type: 'generateMessage',
+			messages,
 			options: opts,
-		} as any);
+			synthetic: isAutoCommit,
+		});
+		if (!isAutoCommit) {
+			// mirror entry
+			this.calls.push({
+				type: 'generateText',
+				systemPrompt,
+				userPrompt,
+				options: opts,
+				synthetic: true,
+			});
+		}
 
 		// Pick a response – prefer messageResponses, but fall back to textResponses (tests queue responses with addResponse).
 		let responseFn = this.messageResponses.shift();
@@ -210,16 +227,43 @@ export class MockLLM extends BaseLLM {
 	}
 
 	protected async _generateText(systemPrompt: string | undefined, userPrompt: string, opts?: GenerateTextOptions): Promise<string> {
+		const isAutoCommit = opts?.id === 'autoCommitMessage';
 		const messages: LlmMessage[] = [];
 		if (systemPrompt) messages.push(system(systemPrompt));
 		messages.push(user(userPrompt));
 
-		this.calls.push({ type: 'generateText', systemPrompt, userPrompt, options: opts });
-		this.calls.push({ type: 'generateMessage', messages, options: opts });
+		this.calls.push({
+			// real entry
+			type: 'generateText',
+			systemPrompt,
+			userPrompt,
+			options: opts,
+			synthetic: isAutoCommit,
+		});
+		if (!isAutoCommit) {
+			// mirror entry
+			this.calls.push({
+				type: 'generateMessage',
+				messages,
+				options: opts,
+				synthetic: true,
+			});
+		}
 
-		const responseFn = this.textResponses.shift();
+		let responseFn = this.textResponses.shift();
 		if (!responseFn) {
-			throw new Error(`MockLLM: No more responses configured for generateText. Call count: ${this.getCallCount()}`);
+			const msgResponseFn = this.messageResponses.shift();
+			if (msgResponseFn) {
+				// wrap assistant-message producer so _generateText receives string
+				responseFn = async () => {
+					const msg = await msgResponseFn();
+					return messageText(msg);
+				};
+			}
+		}
+		if (!responseFn) {
+			// Default response so tests that do not queue a commit-message still pass
+			responseFn = async () => 'Applied LLM-generated edits';
 		}
 
 		const responseText = await responseFn();

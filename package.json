@@ -74,6 +74,7 @@
     "@ai-sdk/provider": "1.1.3",
     "@ai-sdk/provider-utils": "2.2.8",
     "@ai-sdk/togetherai": "^0.2.14",
+    "@ai-sdk/xai": "^1.2.17",
     "@anthropic-ai/vertex-sdk": "^0.7.0",
     "@cliqz/adblocker-puppeteer": "^1.30.0",
     "@duckduckgo/autoconsent": "^10.11.0",
