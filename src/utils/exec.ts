@@ -56,19 +56,6 @@ function getAvailableShell(): string {
  * @param innerCommand The original command to be executed inside the container.
  * @returns The full `docker exec` command string.
  */
-/**
- * Wraps a shell command to be executed inside a Docker container via `docker exec`.
- * The final command will be: `docker exec <containerId> bash -c "cd /app && <innerCommand>"`
- * @param containerId The ID of the Docker container.
- * @param innerCommand The original command to be executed inside the container.
- * @returns The full `docker exec` command string.
- */
-function buildDockerExecCommand(containerId: string, innerCommand: string): string {
-	// The inner command first changes to the standard container working directory, then executes the user's command.
-	const containerCommand = `cd ${CONTAINER_PATH} && ${innerCommand}`;
-	// The full command for the host to execute.
-	return `docker exec ${containerId} bash -c ${shellEscape(containerCommand)}`;
-}
 
 export function execCmdSync(command: string, cwd = getFileSystem().getWorkingDirectory()): ExecResults {
 	const context = agentContext();
