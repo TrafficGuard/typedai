@@ -63,6 +63,20 @@ function buildDockerExecCommand(containerId: string, innerCommand: string): stri
 	return `docker exec ${containerId} bash -c ${shellEscape(containerCommand)}`;
 }
 
+/**
+ * Wraps a shell command to be executed inside a Docker container via `docker exec`.
+ * The final command will be: `docker exec <containerId> bash -c "cd /app && <innerCommand>"`
+ * @param containerId The ID of the Docker container.
+ * @param innerCommand The original command to be executed inside the container.
+ * @returns The full `docker exec` command string.
+ */
+function buildDockerExecCommand(containerId: string, innerCommand: string): string {
+	// The inner command first changes to the standard container working directory, then executes the user's command.
+	const containerCommand = `cd ${CONTAINER_PATH} && ${innerCommand}`;
+	// The full command for the host to execute.
+	return `docker exec ${containerId} bash -c ${shellEscape(containerCommand)}`;
+}
+
 export function execCmdSync(command: string, cwd = getFileSystem().getWorkingDirectory()): ExecResults {
 	const context = agentContext();
 	const containerId = context?.containerId;
@@ -300,27 +314,35 @@ export async function execCommand(command: string, opts?: ExecCmdOptions): Promi
 
 export async function spawnCommand(command: string, workingDirectory?: string): Promise<ExecResult> {
 	return withSpan('spawnCommand', async (span) => {
+		const context = agentContext();
+		const containerId = context?.containerId;
 		const shell = getAvailableShell();
 		const cwd = workingDirectory ?? getFileSystem().getWorkingDirectory();
+
+		// For parity with execCommand, only use container if workingDirectory is not explicitly set.
+		// The helper function handles setting the CWD inside the container.
+		const commandToRun = containerId && !workingDirectory ? buildDockerExecCommand(containerId, command) : command;
+
 		const options: SpawnOptionsWithoutStdio = { cwd, shell, env: process.env };
 		try {
-			logger.info(`${options.cwd} % ${command}`);
-			let { stdout, stderr, code } = await spawnAsync(command, options);
+			logger.info(`${options.cwd} % ${command}${containerId ? ` [container: ${containerId}]` : ''}`);
+			// Use the potentially wrapped command string here
+			let { stdout, stderr, code } = await spawnAsync(commandToRun, options);
 			stdout = formatAnsiWithMarkdownLinks(stdout);
 			stderr = formatAnsiWithMarkdownLinks(stderr);
 			span.setAttributes({
 				cwd,
-				command,
+				command: commandToRun,
 				stdout,
 				stderr,
-				exitCode: 0,
+				exitCode: code,
 			});
-			span.setStatus({ code: SpanStatusCode.OK });
-			return { stdout, stderr, exitCode: 0, command };
+			span.setStatus({ code: code === 0 ? SpanStatusCode.OK : SpanStatusCode.ERROR });
+			return { stdout, stderr, exitCode: code, command };
 		} catch (error) {
 			span.setAttributes({
 				cwd,
-				command,
+				command: commandToRun,
 				stdout: formatAnsiWithMarkdownLinks(error.stdout),
 				stderr: formatAnsiWithMarkdownLinks(error.stderr),
 				exitCode: error.code,
