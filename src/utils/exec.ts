@@ -56,6 +56,12 @@ function getAvailableShell(): string {
  * @param innerCommand The original command to be executed inside the container.
  * @returns The full `docker exec` command string.
  */
+function buildDockerExecCommand(containerId: string, innerCommand: string): string {
+	// The inner command first changes to the standard container working directory, then executes the user's command.
+	const containerCommand = `cd ${CONTAINER_PATH} && ${innerCommand}`;
+	// The full command for the host to execute.
+	return `docker exec ${containerId} bash -c ${shellEscape(containerCommand)}`;
+}
 
 export function execCmdSync(command: string, cwd = getFileSystem().getWorkingDirectory()): ExecResults {
 	const context = agentContext();
@@ -90,7 +96,7 @@ export function execCmdSync(command: string, cwd = getFileSystem().getWorkingDir
 			stdout,
 			stderr: '',
 			error: null,
-			exitCode: 0,
+			exitCode: 0, // Add exitCode for success
 			cwd,
 		};
 	} catch (error) {
@@ -153,7 +159,7 @@ export async function execCmd(command: string, cwd = getFileSystem().getWorkingD
 				command: commandToRun, // Log the actual command executed
 				stdout: result.stdout,
 				stderr: result.stderr,
-				exitCode: result.error ? 1 : 0,
+				exitCode: result.exitCode,
 			});
 			span.setStatus({ code: result.error ? SpanStatusCode.ERROR : SpanStatusCode.OK });
 		}
