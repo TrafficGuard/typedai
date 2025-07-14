@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import { access, existsSync, lstat, mkdir, readFile, readdir, rename, stat, unlink, writeFile } from 'node:fs';
 import path, { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
@@ -13,7 +14,7 @@ import { getActiveSpan } from '#o11y/trace';
 import { FileNotFound } from '#shared/errors';
 import type { FileSystemNode, IFileSystemService } from '#shared/files/fileSystemService';
 import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
-import { arg, execCmdSync, spawnCommand } from '#utils/exec';
+import { arg, spawnCommand } from '#utils/exec';
 import { formatXmlContent } from '#utils/xml-utils';
 
 const fs = {
@@ -34,7 +35,6 @@ const fs = {
 type FileFilter = (filename: string) => boolean;
 
 // Cache paths to Git repositories and .gitignore files
-const gitRoots = new Set<string>();
 /** Maps a directory to a git root */
 const gitRootMapping = new Map<string, string>();
 const gitIgnorePaths = new Set<string>();
@@ -957,8 +957,6 @@ export class FileSystemService implements IFileSystemService {
 	 * Gets the version control service (Git) repository root folder, if the current working directory is in a Git repo, else null.
 	 */
 	getVcsRoot(): string | null {
-		// First, check if workingDirectory is under any known Git roots
-		if (gitRoots.has(this.workingDirectory)) return this.workingDirectory;
 		// Do we need gitRoots now that we have gitRootMapping?
 		const cachedRoot = gitRootMapping.get(this.workingDirectory);
 		if (cachedRoot) return cachedRoot;
@@ -972,22 +970,25 @@ export class FileSystemService implements IFileSystemService {
 
 		// If not found in cache, execute Git command
 		try {
-			// Use execCmdSync to get the Git root directory synchronously
-			// Need to pass the workingDirectory to avoid recursion with the default workingDirectory arg
-			const result = execCmdSync('git rev-parse --show-toplevel', this.workingDirectory);
-			if (result.error) {
-				logger.warn(result.stderr || result.error, `Git command failed in ${this.workingDirectory}. Not a git repository or git not found.`);
-				return null;
-			}
-			const gitRoot = result.stdout.trim();
+			// Use execSync directly from node:child_process to break the recursive dependency on execCmdSync.
+			// execSync throws an error if the command fails (e.g., not a git repo), which is handled by the catch block.
+			const gitRoot = execSync('git rev-parse --show-toplevel', {
+				cwd: this.workingDirectory,
+				encoding: 'utf8',
+				stdio: 'pipe', // Prevent command output from polluting the console
+				env: { ...process.env, PATH: `${process.env.PATH}:/bin:/usr/bin` }, // Ensure git is in PATH
+			}).trim();
+
+			if (!gitRoot) return null; // Handle case where command succeeds but output is empty
+
 			logger.debug(`Adding git root ${gitRoot} for working dir ${this.workingDirectory}`);
-			gitRoots.add(gitRoot);
 			gitRootMapping.set(this.workingDirectory, gitRoot);
 
 			return gitRoot;
 		} catch (e) {
-			logger.error(e, `Error checking if ${this.workingDirectory} is in a Git repo`);
-			// Any unexpected errors also result in null
+			// This is an expected failure case when not in a git repository.
+			// Log at debug level to avoid cluttering logs with non-error information.
+			logger.debug(`'git rev-parse' failed in '${this.workingDirectory}', indicating it's not a git repository or git is not installed.`);
 			return null;
 		}
 	}
