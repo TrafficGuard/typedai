@@ -49,6 +49,20 @@ function getAvailableShell(): string {
 	return process.platform === 'win32' ? 'cmd.exe' : '/bin/bash';
 }
 
+/**
+ * Wraps a shell command to be executed inside a Docker container via `docker exec`.
+ * The final command will be: `docker exec <containerId> bash -c "cd /app && <innerCommand>"`
+ * @param containerId The ID of the Docker container.
+ * @param innerCommand The original command to be executed inside the container.
+ * @returns The full `docker exec` command string.
+ */
+function buildDockerExecCommand(containerId: string, innerCommand: string): string {
+	// The inner command first changes to the standard container working directory, then executes the user's command.
+	const containerCommand = `cd ${CONTAINER_PATH} && ${innerCommand}`;
+	// The full command for the host to execute.
+	return `docker exec ${containerId} bash -c ${shellEscape(containerCommand)}`;
+}
+
 export function execCmdSync(command: string, cwd = getFileSystem().getWorkingDirectory()): ExecResults {
 	const home = process.env.HOME;
 
@@ -106,14 +120,22 @@ export interface ExecResults {
  */
 export async function execCmd(command: string, cwd = getFileSystem().getWorkingDirectory()): Promise<ExecResults> {
 	return withSpan('execCmd', async (span) => {
+		const context = agentContext();
+		const containerId = context?.containerId;
 		const home = process.env.HOME;
-		logger.info(`execCmd ${home ? command.replace(home, '~') : command} ${cwd}`);
+
+		logger.info(`execCmd ${home ? command.replace(home, '~') : command} ${cwd}${containerId ? ` [container: ${containerId}]` : ''}`);
+
+		// If a containerId is present, wrap the command. Otherwise, use the original command.
+		const commandToRun = containerId ? buildDockerExecCommand(containerId, command) : command;
+
 		// Use the available shell
 		const shell = getAvailableShell();
 		const result = await new Promise<ExecResults>((resolve, reject) => {
-			exec(command, { cwd, shell }, (error, stdout, stderr) => {
+			// Use the potentially wrapped command string here
+			exec(commandToRun, { cwd, shell }, (error, stdout, stderr) => {
 				resolve({
-					cmd: command,
+					cmd: command, // IMPORTANT: Return the original command for compatibility
 					stdout: formatAnsiWithMarkdownLinks(stdout),
 					stderr: formatAnsiWithMarkdownLinks(stderr),
 					error,
@@ -126,7 +148,7 @@ export async function execCmd(command: string, cwd = getFileSystem().getWorkingD
 		if (!result.error) {
 			span.setAttributes({
 				cwd,
-				command,
+				command: commandToRun, // Log the actual command executed
 				stdout: result.stdout,
 				stderr: result.stderr,
 				exitCode: result.error ? 1 : 0,
@@ -351,6 +373,16 @@ function spawnAsync(command: string, options: SpawnOptionsWithoutStdio): Promise
  * @param opts
  */
 export async function runShellCommand(cmd: string, opts?: ExecCmdOptions): Promise<ExecResult> {
+	const context = agentContext();
+	const containerId = context?.containerId;
+
+	// If in a container, delegate to execCommand, which handles non-interactive docker exec well.
+	// This avoids the complexity of managing a persistent shell over docker exec.
+	if (containerId) {
+		logger.info(`Running shell command in container by delegating to execCommand: ${cmd}`);
+		return execCommand(cmd, opts);
+	}
+
 	const shell: string = process.platform === 'win32' ? 'cmd.exe' : os.platform() === 'darwin' ? '/bin/zsh' : '/bin/bash';
 	const env: Record<string, string> = opts?.envVars ? { ...process.env, ...opts.envVars } : { ...process.env };
 	const cwd: string = opts?.workingDirectory ?? getFileSystem().getWorkingDirectory();
