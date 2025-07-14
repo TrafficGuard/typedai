@@ -72,8 +72,10 @@ export class Git implements VersionControlSystem {
 		const addResult = await execCommand(`git add ${filesToAdd}`);
 		failOnError(`Failed to add files for commit: ${files.join(', ')}`, addResult);
 
-		// this.commit will handle the commit operation. It throws if the commit fails.
-		await this.commit(commitMessage);
+		// The fix is to execute a specific commit command that targets only the added files.
+		const sanitizedMessage = commitMessage.replace(/"/g, '\\"');
+		const commitResult = await execCommand(`git commit -m "${sanitizedMessage}" -- ${filesToAdd}`);
+		failOnError(`Failed to commit changes for files: ${files.join(', ')}`, commitResult);
 	}
 
 	/**

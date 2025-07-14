@@ -6,10 +6,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { SpanStatusCode } from '@opentelemetry/api';
+import { CONTAINER_PATH } from 'src/benchmarks/swebench/swe-bench-runner';
 import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
 import { withSpan } from '#o11y/trace';
-import { CONTAINER_PATH } from 'src/benchmarks/swebench/swe-bench-runner';
 
 const execAsync = promisify(exec);
 /**
@@ -56,13 +56,6 @@ function getAvailableShell(): string {
  * @param innerCommand The original command to be executed inside the container.
  * @returns The full `docker exec` command string.
  */
-function buildDockerExecCommand(containerId: string, innerCommand: string): string {
-	// The inner command first changes to the standard container working directory, then executes the user's command.
-	const containerCommand = `cd ${CONTAINER_PATH} && ${innerCommand}`;
-	// The full command for the host to execute.
-	return `docker exec ${containerId} bash -c ${shellEscape(containerCommand)}`;
-}
-
 /**
  * Wraps a shell command to be executed inside a Docker container via `docker exec`.
  * The final command will be: `docker exec <containerId> bash -c "cd /app && <innerCommand>"`
@@ -100,7 +93,7 @@ export function execCmdSync(command: string, cwd = getFileSystem().getWorkingDir
 			env: { ...process.env, PATH: `${process.env.PATH}:/bin:/usr/bin` },
 		};
 
-		let stdout = execSync(command, options);
+		let stdout = execSync(commandToRun, options);
 		if (typeof stdout !== 'string') stdout = stdout.toString();
 
 		logger.info(stdout);
@@ -110,11 +103,11 @@ export function execCmdSync(command: string, cwd = getFileSystem().getWorkingDir
 			stdout,
 			stderr: '',
 			error: null,
-			exitCode: 0, // Add exitCode for success
+			exitCode: 0,
 			cwd,
 		};
 	} catch (error) {
-		logger.error(error, `Error executing command: ${command} in ${cwd}`);
+		logger.error(error, `Error executing command: ${commandToRun} in ${cwd}`);
 		return {
 			cmd: command,
 			stdout: error.stdout?.toString() || '',
@@ -173,7 +166,7 @@ export async function execCmd(command: string, cwd = getFileSystem().getWorkingD
 				command: commandToRun, // Log the actual command executed
 				stdout: result.stdout,
 				stderr: result.stderr,
-				exitCode: result.exitCode,
+				exitCode: result.error ? 1 : 0,
 			});
 			span.setStatus({ code: result.error ? SpanStatusCode.ERROR : SpanStatusCode.OK });
 		}

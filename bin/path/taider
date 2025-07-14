@@ -18,6 +18,22 @@ WEAK_MODEL=vertex_ai/gemini-2.5-flash
 
 echo $MODEL $EDITOR_MODEL $VERTEXAI_PROJECT $VERTEXAI_LOCATION
 
+# Ensure we use the Python version specified in the repository
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="${TYPEDAI_HOME:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
+if [[ -f "$ROOT_DIR/.python-version" ]]; then
+	PY_VERSION=$(cat "$ROOT_DIR/.python-version")
+	if command -v pyenv >/dev/null 2>&1; then
+		# Tell pyenv which version to use for this invocation
+		export PYENV_VERSION="$PY_VERSION"
+		# Prefer direct path to avoid shim issues; fall back to `pyenv which`
+		AIDER_BIN="$(pyenv root)/versions/$PY_VERSION/bin/aider"
+		[[ -x "$AIDER_BIN" ]] || AIDER_BIN="$(pyenv which aider 2>/dev/null)"
+		[[ -x "$AIDER_BIN" ]] && AIDER_CMD="$AIDER_BIN"
+	fi
+fi
+: ${AIDER_CMD:=aider}
+
 # npm run test && 
 # cd frontend && npm run test:ci
-aider --model $MODEL  --editor-model $EDITOR_MODEL  --weak-model $WEAK_MODEL --no-auto-accept-architect --test-cmd "npm run build" --auto-test
+"$AIDER_CMD" --model $MODEL  --editor-model $EDITOR_MODEL  --weak-model $WEAK_MODEL --no-auto-accept-architect --test-cmd "npm run build" --auto-test

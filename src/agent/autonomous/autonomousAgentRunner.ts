@@ -52,6 +52,8 @@ export interface RunAgentConfig {
 	fileSystemPath?: string;
 	/** Use shared repository location instead of agent-specific directory. Defaults to true. */
 	useSharedRepos?: boolean;
+	/** If running in a container, the ID of the container */
+	containerId?: string;
 	/** Additional details for the agent */
 	metadata?: Record<string, any>;
 }

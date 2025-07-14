@@ -162,6 +162,20 @@
                                         }
                                     </div> <!-- End of Message Content div -->
 
+                                    <!-- Display sources -->
+                                    @if (message.sources?.length > 0) {
+                                        <div class="mt-2 border-t border-gray-300 dark:border-gray-600 pt-2">
+                                            <h4 class="text-sm font-semibold mb-1 text-gray-800 dark:text-gray-200">Sources</h4>
+                                            <ol class="list-decimal list-inside text-sm space-y-1">
+                                                @for (source of message.sources; track $index) {
+                                                    <li class="text-gray-600 dark:text-gray-400">
+                                                        <a [href]="source.sourceName" target="_blank" rel="noopener noreferrer" class="text-primary-600 dark:text-primary-400 hover:underline break-all">{{ source.sourceName }}</a>
+                                                    </li>
+                                                }
+                                            </ol>
+                                        </div>
+                                    }
+
                                     <!-- Buttons container: shown for all non-generating messages -->
                                     @if (!message.generating) {
                                         <div class="absolute bottom-1 right-1 flex items-center space-x-1" style="line-height: 1;">

@@ -176,3 +176,35 @@ For testing large protocol buffers, some languages provide libraries for verifyi
 
 `protocmp.FilterField` in Go (protocmp)
 
+
+
+# Page Objects
+
+```typescript
+    async openDrawer() {
+        await this.click(this.ids.openInfo);
+    }
+
+    async openChatInfo(): Promise<ChatInfoPo> {
+        await this.openDrawer();
+        await this.detectAndWait();
+        return ChatInfoPo.create(this.fix as any);
+    }
+```
+
+```typescript
+    async openDrawer() {
+        await this.click(this.ids.openInfo);
+        await this.detectAndWait();
+    }
+
+    async openChatInfo(): Promise<ChatInfoPo> {
+        await this.openDrawer();
+        return ChatInfoPo.create(this.fix as any);
+    }
+```
+<!-- Explain why second version is better -->
+
+# Icons
+
+In tests use MatIconTestingModule
