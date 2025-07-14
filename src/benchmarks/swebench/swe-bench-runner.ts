@@ -1,8 +1,8 @@
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import { v4 as uuidv4 } from 'uuid';
 import { logger } from '#o11y/logger';
 import { execCommand, failOnError } from '#utils/exec';
-import { promises as fs } from 'fs';
-import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
 
 export interface SWEInstance {
 	instance_id: string;
@@ -24,7 +24,7 @@ function getIssueImageName(problemId: string): string {
 	return `ghcr.io/epoch-research/swe-bench.eval.x86_64.${problemId}:latest`;
 }
 
-async function stopContainer(containerIdOrName: string): Promise<void> {
+export async function stopContainer(containerIdOrName: string): Promise<void> {
 	logger.info(`Stopping and removing container ${containerIdOrName}`);
 	// Use execCommand but ignore errors since container might not exist.
 	await execCommand(`docker stop ${containerIdOrName}`).catch(() => {
@@ -35,10 +35,9 @@ async function stopContainer(containerIdOrName: string): Promise<void> {
 	});
 }
 
-async function startContainer(
-	workspacePath: string,
-	problemId: string,
-): Promise<{ containerId: string; repoPathOnHost: string }> {
+export const CONTAINER_PATH = '/testbed';
+
+export async function startContainer(workspacePath: string, problemId: string): Promise<{ containerId: string; repoPathOnHost: string }> {
 	const containerName = `sweb.augment.${problemId}_${uuidv4().slice(0, 8)}`;
 	await stopContainer(containerName); // Clean up previous runs if any
 
@@ -48,7 +47,7 @@ async function startContainer(
 
 	logger.info(`Starting container for ${problemId} with name ${containerName}`);
 	const runResult = await execCommand(
-		`docker run --name ${containerName} -d -v /testbed ${imageName} bash -c "git config --global user.email a && git config --global user.name a && git config --global --add safe.directory /testbed && git commit --allow-empty -am augment && sleep 7200"`,
+		`docker run --name ${containerName} -d -v ${CONTAINER_PATH} ${imageName} bash -c "git config --global user.email a && git config --global user.name a && git config --global --add safe.directory ${CONTAINER_PATH} && git commit --allow-empty -am augment && sleep 7200"`,
 	);
 	failOnError(`Failed to start container for ${problemId}`, runResult);
 	const containerId = runResult.stdout.trim();
@@ -58,9 +57,9 @@ async function startContainer(
 	const inspectResult = await execCommand(`docker inspect ${containerId}`);
 	failOnError(`Failed to inspect container ${containerId}`, inspectResult);
 	const inspectData = JSON.parse(inspectResult.stdout);
-	const volumePath = inspectData[0].Mounts.find((m) => m.Destination === '/testbed')?.Source;
+	const volumePath = inspectData[0].Mounts.find((m: any) => m.Destination === CONTAINER_PATH)?.Source;
 	if (!volumePath) {
-		throw new Error('Could not find volume path for /testbed');
+		throw new Error(`Could not find volume path for ${CONTAINER_PATH}`);
 	}
 
 	const repoPathOnHost = path.join(workspacePath, problemId);
@@ -77,7 +76,7 @@ async function startContainer(
 
 async function generatePatch(repoPath: string): Promise<string> {
 	logger.info(`Generating patch in ${repoPath}`);
-	const result = await execCommand(`git --no-pager diff -U5 --no-color HEAD`, { workingDirectory: repoPath });
+	const result = await execCommand('git --no-pager diff -U5 --no-color HEAD', { workingDirectory: repoPath });
 	failOnError(`Failed to generate patch in ${repoPath}`, result);
 	return result.stdout;
 }
@@ -130,7 +129,7 @@ async function runEvalOnSingleProblem(problemId: string, workspacePath: string):
 		const swebenchVenvPath = process.env.SWEBENCH_VENV_PATH || path.join(process.env.HOME, 'swebench_eval_tools_env');
 		await runEvaluation(predictionsFile, 'princeton-nlp/SWE-bench', problemId, swebenchVenvPath);
 
-		const evalFile = path.join(workspacePath, `augment-agent.${problemId}.json`);
+		const evalFile = path.join(workspacePath, `typedai-agent.${problemId}.json`);
 		const evalDict = JSON.parse(await fs.readFile(evalFile, 'utf-8'));
 		if (evalDict.resolved_ids.includes(problemId)) {
 			evalOutcomes.is_success = true;
@@ -187,7 +186,7 @@ export async function runAgentOnSingleProblem(
 		const predictions = [
 			{
 				instance_id: problemId,
-				model_name_or_path: 'augment-agent',
+				model_name_or_path: 'typedai-agent',
 				model_patch: diff,
 			},
 		];
