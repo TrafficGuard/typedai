@@ -49,18 +49,15 @@ function getAvailableShell(): string {
 	return process.platform === 'win32' ? 'cmd.exe' : '/bin/bash';
 }
 
-/**
- * Wraps a shell command to be executed inside a Docker container via `docker exec`.
- * The final command will be: `docker exec <containerId> bash -c "cd /app && <innerCommand>"`
- * @param containerId The ID of the Docker container.
- * @param innerCommand The original command to be executed inside the container.
- * @returns The full `docker exec` command string.
- */
-function buildDockerExecCommand(containerId: string, innerCommand: string): string {
-	// The inner command first changes to the standard container working directory, then executes the user's command.
-	const containerCommand = `cd ${CONTAINER_PATH} && ${innerCommand}`;
-	// The full command for the host to execute.
-	return `docker exec ${containerId} bash -c ${shellEscape(containerCommand)}`;
+function buildDockerCommand(containerId: string, command: string, workdir?: string, envVars?: Record<string, string>): string {
+	const effectiveWorkdir = workdir || CONTAINER_PATH;
+	const workdirFlag = `--workdir ${shellEscape(effectiveWorkdir)}`;
+	const envVarsString = envVars
+		? Object.entries(envVars)
+				.map(([key, value]) => `-e ${key}=${shellEscape(value)}`)
+				.join(' ')
+		: '';
+	return `docker exec ${envVarsString} ${workdirFlag} ${containerId} bash -c ${shellEscape(command)}`;
 }
 
 export function execCmdSync(command: string, cwd = getFileSystem().getWorkingDirectory()): ExecResults {
@@ -71,16 +68,17 @@ export function execCmdSync(command: string, cwd = getFileSystem().getWorkingDir
 	let commandToRun = command;
 	if (commandToRun.startsWith('~') && home) commandToRun = home + commandToRun.substring(1);
 
+	const hostCwd = containerId ? getFileSystem().getGitRepositoryRootDir() : cwd;
 	if (containerId) {
-		commandToRun = buildDockerExecCommand(containerId, commandToRun);
+		commandToRun = buildDockerCommand(containerId, commandToRun, cwd);
 	}
 
 	try {
 		const shell = getAvailableShell();
-		logger.debug(`execCmdSync ${commandToRun}\ncwd: ${cwd}\nshell: ${shell}`);
+		logger.debug(`execCmdSync ${commandToRun}\ncwd: ${hostCwd}\nshell: ${shell}`);
 
 		const options: ExecSyncOptions = {
-			cwd,
+			cwd: hostCwd,
 			shell,
 			encoding: 'utf8',
 			env: { ...process.env, PATH: `${process.env.PATH}:/bin:/usr/bin` },
@@ -134,14 +132,15 @@ export async function execCmd(command: string, cwd = getFileSystem().getWorkingD
 
 		logger.info(`execCmd ${home ? command.replace(home, '~') : command} ${cwd}${containerId ? ` [container: ${containerId}]` : ''}`);
 
+		const hostCwd = containerId ? getFileSystem().getGitRepositoryRootDir() : cwd;
 		// If a containerId is present, wrap the command. Otherwise, use the original command.
-		const commandToRun = containerId ? buildDockerExecCommand(containerId, command) : command;
+		const commandToRun = containerId ? buildDockerCommand(containerId, command, cwd) : command;
 
 		// Use the available shell
 		const shell = getAvailableShell();
 		const result = await new Promise<ExecResults>((resolve, reject) => {
 			// Use the potentially wrapped command string here
-			exec(commandToRun, { cwd, shell }, (error, stdout, stderr) => {
+			exec(commandToRun, { cwd: hostCwd, shell }, (error, stdout, stderr) => {
 				resolve({
 					cmd: command, // IMPORTANT: Return the original command for compatibility
 					stdout: formatAnsiWithMarkdownLinks(stdout),
@@ -204,19 +203,11 @@ export async function execCommand(command: string, opts?: ExecCmdOptions): Promi
 		// Docker container Id to run the command in
 		const containerId = context?.containerId;
 
-		if (containerId && !opts?.workingDirectory) {
+		if (containerId) {
 			// Running inside a container via docker exec
-			const containerCommand = `cd ${CONTAINER_PATH} && ${command}`;
-			const envVarsString = opts?.envVars
-				? Object.entries(opts.envVars)
-						.map(([key, value]) => `-e ${key}=${shellEscape(value)}`)
-						.join(' ')
-				: '';
-
-			const dockerCommand = `docker exec ${envVarsString} ${containerId} bash -c ${shellEscape(containerCommand)}`;
-
-			const cwd = opts?.workingDirectory ?? getFileSystem().getWorkingDirectory();
-			const options: ExecOptions = { cwd, env: process.env };
+			const dockerCommand = buildDockerCommand(containerId, command, opts?.workingDirectory, opts?.envVars);
+			const hostCwd = getFileSystem().getGitRepositoryRootDir();
+			const options: ExecOptions = { cwd: hostCwd, env: process.env };
 
 			try {
 				logger.info(`DOCKER_EXEC: ${command} (in container ${containerId})`);
@@ -227,7 +218,7 @@ export async function execCommand(command: string, opts?: ExecCmdOptions): Promi
 				span.setAttributes({
 					'container.id': containerId,
 					'container.command': command,
-					cwd: options.cwd as string,
+					cwd: opts?.workingDirectory ?? CONTAINER_PATH, // Log container CWD
 					command: dockerCommand,
 					stdout,
 					stderr,
@@ -239,7 +230,7 @@ export async function execCommand(command: string, opts?: ExecCmdOptions): Promi
 				span.setAttributes({
 					'container.id': containerId,
 					'container.command': command,
-					cwd: options.cwd as string,
+					cwd: opts?.workingDirectory ?? CONTAINER_PATH, // Log container CWD
 					command: dockerCommand,
 					stdout: formatAnsiWithMarkdownLinks(error.stdout),
 					stderr: formatAnsiWithMarkdownLinks(error.stderr),
@@ -303,15 +294,21 @@ export async function spawnCommand(command: string, workingDirectory?: string): 
 		const context = agentContext();
 		const containerId = context?.containerId;
 		const shell = getAvailableShell();
-		const cwd = workingDirectory ?? getFileSystem().getWorkingDirectory();
+		let commandToRun: string;
+		let hostCwd: string;
 
-		// For parity with execCommand, only use container if workingDirectory is not explicitly set.
-		// The helper function handles setting the CWD inside the container.
-		const commandToRun = containerId && !workingDirectory ? buildDockerExecCommand(containerId, command) : command;
+		if (containerId) {
+			commandToRun = buildDockerCommand(containerId, command, workingDirectory);
+			hostCwd = getFileSystem().getGitRepositoryRootDir();
+		} else {
+			commandToRun = command;
+			hostCwd = workingDirectory ?? getFileSystem().getWorkingDirectory();
+		}
 
-		const options: SpawnOptionsWithoutStdio = { cwd, shell, env: process.env };
+		const options: SpawnOptionsWithoutStdio = { cwd: hostCwd, shell, env: process.env };
 		try {
-			logger.info(`${options.cwd} % ${command}${containerId ? ` [container: ${containerId}]` : ''}`);
+			const logCwd = workingDirectory ?? getFileSystem().getWorkingDirectory();
+			logger.info(`${logCwd} % ${command}${containerId ? ` [container: ${containerId}]` : ''}`);
 			// Use the potentially wrapped command string here
 			let { stdout, stderr, code } = await spawnAsync(commandToRun, options);
 			stdout = formatAnsiWithMarkdownLinks(stdout);
