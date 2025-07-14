@@ -1,4 +1,5 @@
 // https://github.com/AgentOps-AI/tokencost/blob/main/tokencost/model_prices.json
+import { LanguageModelV1Source } from '@ai-sdk/provider';
 import type {
 	FilePart as AiFilePart, // Renamed to avoid conflict if we define our own FilePart
 	ImagePart as AiImagePart, // Renamed
@@ -162,7 +163,7 @@ interface TextPartUI {
 	text: string;
 }
 
-export type TextPartExt = TextPartUI & { providerOptions?: Record<string, any> };
+export type TextPartExt = TextPartUI & { providerOptions?: Record<string, any>; sources?: Array<LanguageModelV1Source> };
 export type ImagePartExt = ImagePartUI & AttachmentInfo & { providerOptions?: Record<string, any> | undefined };
 export type FilePartExt = FilePartUI & AttachmentInfo & { providerOptions?: Record<string, any> | undefined };
 export type ToolCallPartExt = ModelToolCallPart;

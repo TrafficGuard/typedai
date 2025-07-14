@@ -3,6 +3,10 @@
 /*  @ Styles from this file will override 'vendors.scss' and Fuse's base styles.
 /* ----------------------------------------------------------------------------------------------------- */
 
+/* The allows \n in a tooltip to be rendered as a new line */
+.mdc-tooltip--multiline .mat-mdc-tooltip-surface {
+    white-space: break-spaces;
+}
 
 .compact-checkbox {
   .mdc-checkbox__native-control {

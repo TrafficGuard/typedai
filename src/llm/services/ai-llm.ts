@@ -298,6 +298,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 							assistantContent.push({
 								type: 'text',
 								text: content.text.trim(),
+								sources: result.sources,
 							});
 						} else if (content.type === 'reasoning') {
 							assistantContent.push({

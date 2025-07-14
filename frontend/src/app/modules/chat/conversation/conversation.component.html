@@ -170,7 +170,7 @@
                                                 @let stats = message.stats;
                                                 <button mat-icon-button
                                                         class="mat-primary p-0 m-0"
-                                                        [matTooltip]="'Duration: ' + (stats.totalTime / 1000).toFixed(0) + 's Input tokens: ' + stats.inputTokens + ' Output tokens: ' + stats.outputTokens + (stats.cachedInputTokens ? ' Cached input tokens: ' + stats.cachedInputTokens : '')+ ' Cost: $' + (stats.cost | number:'1.4-4')"
+                                                        [matTooltip]="message.llmId + '\n' + (stats.totalTime / 1000).toFixed(0) + 's - $' + (stats.cost | number:'1.4-4')+ '\nIn: ' + stats.inputTokens + ' Out: ' + stats.outputTokens + (stats.cachedInputTokens ? ' Cached: ' + stats.cachedInputTokens : '')"
                                                         aria-label="Message generation stats">
                                                     <mat-icon [svgIcon]="'info'" class="icon-size-3 p-0 m-0"></mat-icon>
                                                 </button>

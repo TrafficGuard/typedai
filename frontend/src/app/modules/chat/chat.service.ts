@@ -26,6 +26,7 @@ import {
 	// ServerChat is effectively ApiChatModel now
 } from 'app/modules/chat/chat.types';
 import { Attachment, TextContent } from 'app/modules/message.types';
+import { LanguageModelV1Source } from '@ai-sdk/provider';
 
 // Helper function to convert File to base64 string (extracting only the data part)
 async function fileToBase64(file: File): Promise<string> {
@@ -734,6 +735,8 @@ function convertMessage(apiLlmMessage: ApiLlmMessage): ChatMessage {
 	const sourceApiContent = apiLlmMessage.content; // This is CoreContent from 'ai' (via shared/model/llm.model LlmMessage type)
 	let chatMessageSpecificContent: UserContentExt | AssistantContentExt; // Target type for ChatMessage.content
 
+	let sources: LanguageModelV1Source[] | undefined;
+
 	if (typeof sourceApiContent === 'string') {
 		chatMessageSpecificContent = sourceApiContent;
 	} else if (Array.isArray(sourceApiContent)) {
@@ -741,6 +744,7 @@ function convertMessage(apiLlmMessage: ApiLlmMessage): ChatMessage {
 		const extendedParts: Array<TextPart | ImagePartExt | FilePartExt | ReasoningPart> = sourceApiContent
 			.map((part) => {
 				if (part.type === 'text') {
+					sources = part.sources;
 					return part as TextPart; // TextPart is directly compatible
 				}
 				if (part.type === 'reasoning') {
@@ -839,6 +843,7 @@ function convertMessage(apiLlmMessage: ApiLlmMessage): ChatMessage {
 		stats: apiLlmMessage.stats,
 		createdAt: apiLlmMessage.stats?.requestTime ? new Date(apiLlmMessage.stats.requestTime).toISOString() : new Date().toISOString(),
 		llmId: apiLlmMessage.stats?.llmId,
+		sources,
 		// textChunks is populated by displayedMessages in the ConversationComponent
 	};
 

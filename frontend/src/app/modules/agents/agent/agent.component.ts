@@ -48,10 +48,12 @@ export class AgentComponent {
 			const apiDetails = state.data;
 			const details = { ...apiDetails };
 			details.toolState = details.toolState ?? {};
-			details.output = null;
+		
 			if (details.state === 'completed') {
 				const maybeCompletedFunctionCall = details.functionCallHistory?.length ? details.functionCallHistory.slice(-1)[0] : null;
-				details.output = details.error ?? maybeCompletedFunctionCall?.parameters?.note ?? '';
+				details.output = details.output ?? details.error ?? maybeCompletedFunctionCall?.parameters?.note ?? '';
+			} else {
+				details.output = null;
 			}
 			console.log(
 				'AgentComponent: Computed (State Sync) - Agent Details Processed and Set from Service State. New local agentDetails:',
