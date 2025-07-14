@@ -3,7 +3,7 @@ import '#fastify/trace-init/trace-init';
 import { startAgentAndWaitForCompletion } from '#agent/autonomous/autonomousAgentRunner';
 import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
 import { initApplicationContext } from '#app/applicationContext';
-import { startContainer, stopContainer, type SWEInstance } from '#benchmarks/swebench/swe-bench-runner';
+import { startContainer, stopContainer, type SWEInstance } from '../benchmarks/swebench/swe-bench-runner';
 import { FileSystemList } from '#functions/storage/fileSystemList';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';

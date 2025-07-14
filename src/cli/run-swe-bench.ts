@@ -1,10 +1,9 @@
 import '#fastify/trace-init/trace-init';
 
-import { parseUserCliArgs } from '../cli';
+import { parseUserCliArgs } from './cli';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { logger } from '#o11y/logger';
-import { type SWEInstance } from '#swe/SWEBenchAgent';
-import { runAgentOnSingleProblem } from 'src/benchmarks/swebench/swe-bench-runner';
+import { runAgentOnSingleProblem, type SWEInstance } from '../benchmarks/swebench/swe-bench-runner';
 import { promises as fs } from 'fs';
 import path from 'path';
 import pLimit from 'p-limit';
