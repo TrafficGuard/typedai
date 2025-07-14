@@ -1,69 +1,55 @@
-import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
+import '#fastify/trace-init/trace-init';
 
-import { promises as fs, readFileSync } from 'node:fs';
-import { type RunAgentConfig, type RunWorkflowConfig, runAgentAndWait, startAgent } from '#agent/autonomous/autonomousAgentRunner';
-import { AGENT_COMPLETED_PARAM_NAME } from '#agent/autonomous/functions/agentFunctions';
-import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
-import { initApplicationContext, initFirestoreApplicationContext } from '#app/applicationContext';
-import { shutdownTrace } from '#fastify/trace-init/trace-init';
-import { LlmTools } from '#functions/llmTools';
-import { GitLab } from '#functions/scm/gitlab';
-import { FileSystemService } from '#functions/storage/fileSystemService';
-import { Perplexity } from '#functions/web/perplexity';
-import { PublicWeb } from '#functions/web/web';
-import { ClaudeLLMs } from '#llm/services/anthropic';
+import { startAgentAndWaitForCompletion } from '#agent/autonomous/autonomousAgentRunner';
+import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
+import { initApplicationContext } from '#app/applicationContext';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
-import type { AgentLLMs } from '#shared/agent/agent.model';
-import { LlmCall } from '#shared/llmCall/llmCall.model';
-import { SWEBenchAgent, type SWEInstance } from '#swe/SWEBenchAgent';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
-import { sleep } from '#utils/async-utils';
+import { CodeFunctions } from '#swe/codeFunctions';
 import { registerErrorHandlers } from '../errorHandlers';
 import { parseProcessArgs, saveAgentId } from './cli';
+import { FileSystemTree } from '#agent/autonomous/functions/fileSystemTree';
+import { FileSystemList } from '#functions/storage/fileSystemList';
 
 async function main() {
 	registerErrorHandlers();
-	const instance = JSON.parse(readFileSync('instance.json').toString()) as SWEInstance;
-
-	await new SWEBenchAgent().runInference(instance);
-
-	// if (!process.env.ASDF) return;
-	// let args = process.argv.toSpliced(2);
-	//
-	// args = args.filter(arg => !arg.startsWith('-'))
-	// if(!args.length) throw new Error('instanceId is required')
-
 	await initApplicationContext();
-	const agentLlms = defaultLLMs();
+	const llms = defaultLLMs();
 
-	const { initialPrompt, resumeAgentId } = parseProcessArgs();
+	const { initialPrompt, flags } = parseProcessArgs();
+	const containerId = flags['container-id'] as string;
 
-	console.log(`Prompt: ${initialPrompt}`);
-
-	const config: RunWorkflowConfig = {
-		agentName: `SWE-Bench ${instance.instance_id}`,
-		subtype: 'code',
-		llms: agentLlms,
-		initialPrompt,
-		resumeAgentId,
-		humanInLoop: {
-			budget: 4,
-		},
-	};
-
-	const agentId = await runWorkflowAgent(config, async () => {
-		await new CodeEditingAgent().implementUserRequirements(config.initialPrompt);
-	});
-
-	if (agentId) {
-		saveAgentId('swebench', agentId);
+	if (!initialPrompt) {
+		throw new Error('Problem statement must be provided as an argument.');
+	}
+	if (!containerId) {
+		logger.warn('Running without a container. Commands will be executed on the host.');
 	}
 
-	await shutdownTrace();
+	const functions = [CodeEditingAgent, CodeFunctions, LiveFiles, FileSystemTree, FileSystemList];
+
+	logger.info(`Available functions ${functions.map((f) => f.name).join(', ')}`);
+
+	const requirements = `Please fix the following issue:\n${initialPrompt}`;
+
+	const agentName = `SWE-bench agent for: ${initialPrompt.slice(0, 50)}...`;
+
+	logger.info('Starting new swebench agent');
+	const result = await startAgentAndWaitForCompletion({
+		agentName,
+		initialPrompt: requirements,
+		functions: functions,
+		llms,
+		type: 'autonomous',
+		subtype: 'codegen',
+		containerId,
+		// The working directory is set by the runner script, so we don't need to set fileSystemPath here
+	});
+
+	// The orchestrator will generate the patch via `git diff`.
+	// This output can be used for debugging or if the agent directly produces a patch.
+	console.log(result);
 }
 
-main().then(
-	() => console.log('done'),
-	(e) => console.error(e),
-);
+main().catch(console.error);
