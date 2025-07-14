@@ -132,7 +132,7 @@ export async function execCmd(command: string, cwd = getFileSystem().getWorkingD
 
 		logger.info(`execCmd ${home ? command.replace(home, '~') : command} ${cwd}${containerId ? ` [container: ${containerId}]` : ''}`);
 
-		const hostCwd = containerId ? getFileSystem().getGitRepositoryRootDir() : cwd;
+		const hostCwd = containerId ? getFileSystem().getVcsRoot() : cwd;
 		// If a containerId is present, wrap the command. Otherwise, use the original command.
 		const commandToRun = containerId ? buildDockerCommand(containerId, command, cwd) : command;
 
@@ -218,7 +218,7 @@ export async function execCommand(command: string, opts?: ExecCmdOptions): Promi
 				span.setAttributes({
 					'container.id': containerId,
 					'container.command': command,
-					cwd: opts?.workingDirectory ?? CONTAINER_PATH, // Log container CWD
+					cwd: opts?.workingDirectory ?? CONTAINER_PATH,
 					command: dockerCommand,
 					stdout,
 					stderr,
@@ -314,7 +314,7 @@ export async function spawnCommand(command: string, workingDirectory?: string): 
 			stdout = formatAnsiWithMarkdownLinks(stdout);
 			stderr = formatAnsiWithMarkdownLinks(stderr);
 			span.setAttributes({
-				cwd,
+				cwd: hostCwd,
 				command: commandToRun,
 				stdout,
 				stderr,
@@ -324,7 +324,7 @@ export async function spawnCommand(command: string, workingDirectory?: string): 
 			return { stdout, stderr, exitCode: code, command };
 		} catch (error) {
 			span.setAttributes({
-				cwd,
+				cwd: hostCwd,
 				command: commandToRun,
 				stdout: formatAnsiWithMarkdownLinks(error.stdout),
 				stderr: formatAnsiWithMarkdownLinks(error.stderr),
