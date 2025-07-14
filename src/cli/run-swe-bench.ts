@@ -1,6 +1,6 @@
 import '#fastify/trace-init/trace-init';
 
-import { parseUserCliArgs } from '#cli/cli';
+import { parseUserCliArgs } from '../cli';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { logger } from '#o11y/logger';
 import { type SWEInstance } from '#swe/SWEBenchAgent';
@@ -66,3 +66,4 @@ async function main() {
 	const allDiffData = [];
 	const workspaceBasePath = path.resolve(`/tmp/workspace/${uuidv4().slice(0, 8)}`);
 	logger.info(`Workspace base path: ${workspaceBasePath}`);
+}
