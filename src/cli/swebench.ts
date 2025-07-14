@@ -46,6 +46,7 @@ async function main() {
 		logger.error(`Instance with ID "${instanceId}" not found.`);
 		process.exit(1);
 	}
+	logger.info('Found problem instance', { problemId: problem.instance_id });
 
 	const workspacePath = path.resolve(`/tmp/workspace/${uuidv4().slice(0, 8)}`);
 	await fs.mkdir(workspacePath, { recursive: true });
@@ -71,7 +72,9 @@ async function main() {
 	});
 
 	try {
+		logger.info('Starting container...');
 		({ containerId, repoPathOnHost } = await startContainer(workspacePath, problem.instance_id));
+		logger.info('Container started successfully', { containerId, repoPathOnHost });
 
 		const functions = [CodeEditingAgent, CodeFunctions, LiveFiles, FileSystemTree, FileSystemList];
 
@@ -82,6 +85,7 @@ async function main() {
 		const agentName = `SWE-bench agent: ${problem.problem_statement.slice(0, 50)}...`;
 
 		logger.info('Starting new swebench agent');
+		logger.info('Starting agent...');
 		const result = await startAgentAndWaitForCompletion({
 			agentName,
 			initialPrompt: requirements,
@@ -97,6 +101,7 @@ async function main() {
 		// This output can be used for debugging or if the agent directly produces a patch.
 		console.log(result);
 	} finally {
+		logger.info('Entering finally block for cleanup...');
 		await cleanup();
 	}
 }
