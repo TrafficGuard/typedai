@@ -125,10 +125,41 @@ async function _startAgent(agent: AgentContext): Promise<AgentExecution> {
 
 export async function startAgentAndWaitForCompletion(config: RunAgentConfig): Promise<string> {
 	const agentExecution = await startAgent(config);
-	await agentExecution.execution;
+
+	// Wait for the initial execution promise to settle, but also poll for terminal state
+	// as the promise might resolve early in fire-and-forget scenarios.
+	try {
+		await agentExecution.execution;
+	} catch (e) {
+		logger.warn(e, `Agent execution promise for ${agentExecution.agentId} rejected. Polling for final state.`);
+	}
+
+	// Polling loop to ensure we wait until the agent is in a terminal state.
+	const poll = async (agentId: string): Promise<void> => {
+		const terminalStates = ['completed', 'error', 'cancelled'];
+		let agent = await appContext().agentStateService.load(agentId);
+
+		while (!terminalStates.includes(agent.state)) {
+			await new Promise(resolve => setTimeout(resolve, 2000)); // Poll every 2 seconds
+			agent = await appContext().agentStateService.load(agentId);
+			logger.debug(`Polling agent ${agentId}, current state: ${agent.state}`);
+		}
+	};
+
+	await poll(agentExecution.agentId);
+
 	const agent = await appContext().agentStateService.load(agentExecution.agentId);
-	if (agent.state !== 'completed') throw new Error(`Agent has completed executing in state "${agent.state}"`);
-	return agent.functionCallHistory.at(-1).parameters[AGENT_COMPLETED_PARAM_NAME];
+	if (agent.state !== 'completed') {
+		const errorMessage = agent.error ? errorToString(agent.error) : `Agent finished in non-completed state: ${agent.state}`;
+		throw new Error(errorMessage);
+	}
+
+	const lastCall = agent.functionCallHistory.at(-1);
+	if (!lastCall || !lastCall.parameters || !(AGENT_COMPLETED_PARAM_NAME in lastCall.parameters)) {
+		throw new Error('Agent completed, but could not find the final result note.');
+	}
+
+	return lastCall.parameters[AGENT_COMPLETED_PARAM_NAME];
 }
 
 export async function runAgentAndWait(config: RunAgentConfig): Promise<string> {
