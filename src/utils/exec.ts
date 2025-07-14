@@ -68,7 +68,7 @@ export function execCmdSync(command: string, cwd = getFileSystem().getWorkingDir
 	let commandToRun = command;
 	if (commandToRun.startsWith('~') && home) commandToRun = home + commandToRun.substring(1);
 
-	const hostCwd = containerId ? getFileSystem().getGitRepositoryRootDir() : cwd;
+	const hostCwd = containerId ? getFileSystem().getVcsRoot() : cwd;
 	if (containerId) {
 		commandToRun = buildDockerCommand(containerId, commandToRun, cwd);
 	}
@@ -206,7 +206,7 @@ export async function execCommand(command: string, opts?: ExecCmdOptions): Promi
 		if (containerId) {
 			// Running inside a container via docker exec
 			const dockerCommand = buildDockerCommand(containerId, command, opts?.workingDirectory, opts?.envVars);
-			const hostCwd = getFileSystem().getGitRepositoryRootDir();
+			const hostCwd = getFileSystem().getVcsRoot();
 			const options: ExecOptions = { cwd: hostCwd, env: process.env };
 
 			try {
@@ -299,7 +299,7 @@ export async function spawnCommand(command: string, workingDirectory?: string): 
 
 		if (containerId) {
 			commandToRun = buildDockerCommand(containerId, command, workingDirectory);
-			hostCwd = getFileSystem().getGitRepositoryRootDir();
+			hostCwd = getFileSystem().getVcsRoot();
 		} else {
 			commandToRun = command;
 			hostCwd = workingDirectory ?? getFileSystem().getWorkingDirectory();
