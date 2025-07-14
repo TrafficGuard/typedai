@@ -64,12 +64,20 @@ function buildDockerExecCommand(containerId: string, innerCommand: string): stri
 }
 
 export function execCmdSync(command: string, cwd = getFileSystem().getWorkingDirectory()): ExecResults {
+	const context = agentContext();
+	const containerId = context?.containerId;
 	const home = process.env.HOME;
 
-	if (command.startsWith('~') && home) command = home + command.substring(1);
+	let commandToRun = command;
+	if (commandToRun.startsWith('~') && home) commandToRun = home + commandToRun.substring(1);
+
+	if (containerId) {
+		commandToRun = buildDockerExecCommand(containerId, commandToRun);
+	}
+
 	try {
 		const shell = getAvailableShell();
-		logger.debug(`execCmdSync ${command}\ncwd: ${cwd}\nshell: ${shell}`);
+		logger.debug(`execCmdSync ${commandToRun}\ncwd: ${cwd}\nshell: ${shell}`);
 
 		const options: ExecSyncOptions = {
 			cwd,
@@ -151,7 +159,7 @@ export async function execCmd(command: string, cwd = getFileSystem().getWorkingD
 				command: commandToRun, // Log the actual command executed
 				stdout: result.stdout,
 				stderr: result.stderr,
-				exitCode: result.error ? 1 : 0,
+				exitCode: result.exitCode,
 			});
 			span.setStatus({ code: result.error ? SpanStatusCode.ERROR : SpanStatusCode.OK });
 		}
