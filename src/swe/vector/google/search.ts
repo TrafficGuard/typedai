@@ -3,7 +3,7 @@ import { google } from '@google-cloud/discoveryengine/build/protos/protos';
 import { struct } from 'pb-util'; // Helper for converting JS objects to Struct proto
 import pino from 'pino';
 import { sleep } from '#utils/async-utils';
-import { DISCOVERY_ENGINE_DATA_STORE_ID, DISCOVERY_ENGINE_LOCATION, GCLOUD_PROJECT, getSearchServiceClient } from './config'; // Corrected relative path
+import { DISCOVERY_ENGINE_DATA_STORE_ID, DISCOVERY_ENGINE_LOCATION, GCLOUD_PROJECT, getSearchServiceClient } from './config';
 import { generateEmbedding } from './indexing/embedder'; // Use the same embedder
 
 const logger = pino({ name: 'Search' });

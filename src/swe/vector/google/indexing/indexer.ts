@@ -6,9 +6,9 @@ import { struct } from 'pb-util'; // Helper for converting JS objects to Struct 
 import pino from 'pino';
 import { settleAllWithInput, sleep } from '#utils/async-utils';
 import { INDEXER_EMBEDDING_PROCESSING_BATCH_SIZE, getDiscoveryEngineDataStorePath, getDocumentServiceClient } from '../config';
-import { type CodeFile, loadCodeFiles } from '../processing/codeLoader';
-import { type ContextualizedChunkItem, generateContextualizedChunksFromFile } from '../processing/unifiedChunkContextualizer';
+import { type CodeFile, loadCodeFiles } from './codeLoader';
 import { type TextEmbeddingService, getEmbeddingService } from './embedder';
+import { type ContextualizedChunkItem, generateContextualizedChunksFromFile } from './unifiedChunkContextualizer';
 
 const logger = pino({ name: 'Indexer' });
 

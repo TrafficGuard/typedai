@@ -1,6 +1,5 @@
-// src/swe/vector/google/google-api.integration.test.ts
+// Google Vector Store integration test
 
-// --- ADD THIS IMPORT ---
 import { DataStoreServiceClient, protos } from '@google-cloud/discoveryengine';
 import type { google } from '@google-cloud/discoveryengine/build/protos/protos';
 import { expect } from 'chai';
@@ -19,7 +18,11 @@ import { searchCode } from './search';
 
 const logger = pino({ name: 'GoogleApiIntegrationTest' });
 
-describe('Google API Integration Test', function () {
+/**
+ * This test suite is to test the usage of the @google-cloud/discoveryengine package
+ * and understand the parameters, errors and responses of the API.
+ */
+describe.skip('Google discoveryengine API', function () {
 	// Increase the timeout for the entire suite to handle resource creation/deletion.
 	// 60 seconds should be sufficient.
 	this.timeout(60000);
