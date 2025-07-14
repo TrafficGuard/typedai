@@ -29,7 +29,6 @@
     "summarize": "node --env-file=variables/local.env -r esbuild-register src/cli/summarize.ts",
     "swe": "      node --env-file=variables/local.env -r esbuild-register src/cli/swe.ts",
     "swebench": " node --env-file=variables/local.env -r esbuild-register src/cli/swebench.ts",
-    "swebench:run": "node --env-file=variables/local.env -r esbuild-register src/cli/run-swe-bench.ts",
     "research": " node --env-file=variables/local.env -r esbuild-register src/cli/research.ts",
     "review": "   node --env-file=variables/local.env -r esbuild-register src/cli/review.ts",
     "util": "     node --env-file=variables/local.env -r esbuild-register src/cli/util.ts",

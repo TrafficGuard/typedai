@@ -168,7 +168,7 @@ export async function runAgentOnSingleProblem(
 		logger.info(`${logsPrefix} Starting Node.js agent run...`);
 		const startTime = Date.now();
 
-		const agentEntrypoint = path.resolve(process.cwd(), 'src/cli/swebench.ts');
+		const agentEntrypoint = path.resolve(process.cwd(), 'src/cli/swe-bench-agent.ts');
 
 		const agentCmd = `node --env-file=variables/local.env -r esbuild-register ${agentEntrypoint} --container-id ${containerId} "${problem.problem_statement.replace(/"/g, '\\"')}"`;
 		logger.info(`Executing agent: ${agentCmd} in ${repoPathOnHost}`);
