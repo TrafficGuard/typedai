@@ -1,30 +1,31 @@
 import '#fastify/trace-init/trace-init';
 
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import { v4 as uuidv4 } from 'uuid';
 import { startAgentAndWaitForCompletion } from '#agent/autonomous/autonomousAgentRunner';
+import { FileSystemTree } from '#agent/autonomous/functions/fileSystemTree';
 import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
 import { initApplicationContext } from '#app/applicationContext';
-import { startContainer, stopContainer, type SWEInstance } from '../benchmarks/swebench/swe-bench-runner';
 import { FileSystemList } from '#functions/storage/fileSystemList';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { CodeFunctions } from '#swe/codeFunctions';
-import { FileSystemTree } from '#agent/autonomous/functions/fileSystemTree';
-import { promises as fs } from 'fs';
-import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
+import { type SWEInstance, startContainer, stopContainer } from '../benchmarks/swebench/swe-bench-runner';
 import { registerErrorHandlers } from '../errorHandlers';
 import { parseProcessArgs } from './cli';
 
 async function loadDataset(datasetName: string, split: string): Promise<SWEInstance[]> {
-	const url = `https://huggingface.co/datasets/${datasetName}/resolve/main/swe-bench.json`;
-	logger.info(`Loading dataset from ${url}`);
-	const response = await fetch(url);
-	if (!response.ok) {
-		throw new Error(`Failed to fetch dataset: ${response.statusText}`);
-	}
-	const data = await response.json();
-	return data as SWEInstance[];
+	// const url = `https://huggingface.co/datasets/${datasetName}/resolve/main/swe-bench.json`;
+	// logger.info(`Loading dataset from ${url}`);
+	// const response = await fetch(url);
+	// if (!response.ok) {
+	// 	throw new Error(`Failed to fetch dataset: ${response.statusText}`);
+	// }
+	// const data = await response.json();
+	// return data as SWEInstance[];
+	return JSON.parse((await fs.readFile('bench/datasets/SWE-bench_Verified/dataset.json', 'utf-8')).toString()) as SWEInstance[];
 }
 
 async function main() {
@@ -33,6 +34,7 @@ async function main() {
 	const llms = defaultLLMs();
 
 	const { flags } = parseProcessArgs();
+	// Test instance ID
 	const instanceId = flags['instance-id'] as string;
 	if (!instanceId) {
 		throw new Error('An --instance-id must be provided.');
@@ -77,7 +79,7 @@ async function main() {
 
 		const requirements = `Please fix the following issue:\n${problem.problem_statement}`;
 
-		const agentName = `SWE-bench agent for: ${problem.problem_statement.slice(0, 50)}...`;
+		const agentName = `SWE-bench agent: ${problem.problem_statement.slice(0, 50)}...`;
 
 		logger.info('Starting new swebench agent');
 		const result = await startAgentAndWaitForCompletion({
@@ -86,7 +88,7 @@ async function main() {
 			functions: functions,
 			llms,
 			type: 'autonomous',
-			subtype: 'codegen',
+			subtype: 'swebench',
 			containerId,
 			fileSystemPath: repoPathOnHost,
 		});
@@ -98,3 +100,5 @@ async function main() {
 		await cleanup();
 	}
 }
+
+main().catch(console.error);
