@@ -140,7 +140,7 @@ export async function startAgentAndWaitForCompletion(config: RunAgentConfig): Pr
 		let agent = await appContext().agentStateService.load(agentId);
 
 		while (!terminalStates.includes(agent.state)) {
-			await new Promise(resolve => setTimeout(resolve, 2000)); // Poll every 2 seconds
+			await new Promise((resolve) => setTimeout(resolve, 2000)); // Poll every 2 seconds
 			agent = await appContext().agentStateService.load(agentId);
 			logger.debug(`Polling agent ${agentId}, current state: ${agent.state}`);
 		}
@@ -150,7 +150,7 @@ export async function startAgentAndWaitForCompletion(config: RunAgentConfig): Pr
 
 	const agent = await appContext().agentStateService.load(agentExecution.agentId);
 	if (agent.state !== 'completed') {
-		const errorMessage = agent.error ? errorToString(agent.error) : `Agent finished in non-completed state: ${agent.state}`;
+		const errorMessage = agent.error ? errorToString(agent.error as any) : `Agent finished in non-completed state: ${agent.state}`;
 		throw new Error(errorMessage);
 	}
 
