@@ -6,9 +6,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { getFileSystem } from '#agent/agentContextLocalStorage';
+import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
 import { withSpan } from '#o11y/trace';
+import { CONTAINER_PATH } from 'src/benchmarks/swebench/swe-bench-runner';
 
 const execAsync = promisify(exec);
 /**
@@ -169,6 +170,64 @@ export interface ExecCmdOptions {
 
 export async function execCommand(command: string, opts?: ExecCmdOptions): Promise<ExecResult> {
 	return withSpan('execCommand', async (span) => {
+		const context = agentContext();
+		// Docker container Id to run the command in
+		const containerId = context?.containerId;
+
+		if (containerId && !opts?.workingDirectory) {
+			// Running inside a container via docker exec
+			const containerCommand = `cd ${CONTAINER_PATH} && ${command}`;
+			const envVarsString = opts?.envVars
+				? Object.entries(opts.envVars)
+						.map(([key, value]) => `-e ${key}=${shellEscape(value)}`)
+						.join(' ')
+				: '';
+
+			const dockerCommand = `docker exec ${envVarsString} ${containerId} bash -c ${shellEscape(containerCommand)}`;
+
+			const cwd = opts?.workingDirectory ?? getFileSystem().getWorkingDirectory();
+			const options: ExecOptions = { cwd, env: process.env };
+
+			try {
+				logger.info(`DOCKER_EXEC: ${command} (in container ${containerId})`);
+				logger.debug(`Executing: ${dockerCommand}`);
+				let { stdout, stderr } = await execAsync(dockerCommand, options);
+				stdout = formatAnsiWithMarkdownLinks(stdout);
+				stderr = formatAnsiWithMarkdownLinks(stderr);
+				span.setAttributes({
+					'container.id': containerId,
+					'container.command': command,
+					cwd: options.cwd as string,
+					command: dockerCommand,
+					stdout,
+					stderr,
+					exitCode: 0,
+				});
+				span.setStatus({ code: SpanStatusCode.OK });
+				return { stdout, stderr, exitCode: 0, command };
+			} catch (error) {
+				span.setAttributes({
+					'container.id': containerId,
+					'container.command': command,
+					cwd: options.cwd as string,
+					command: dockerCommand,
+					stdout: formatAnsiWithMarkdownLinks(error.stdout),
+					stderr: formatAnsiWithMarkdownLinks(error.stderr),
+					exitCode: error.code,
+				});
+				span.recordException(error);
+				span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+				logger.error(error, `Error executing ${command} in container ${containerId}`);
+				if (opts?.throwOnError) {
+					const e: any = new Error(`Error running ${command} in container. ${error.stdout} ${error.stderr}`);
+					e.code = error.code;
+					throw e;
+				}
+				return { stdout: error.stdout, stderr: error.stderr, exitCode: error.code, command };
+			}
+		}
+
+		// Original logic for host execution
 		const shell = getAvailableShell();
 
 		const env = opts?.envVars ? { ...process.env, ...opts.envVars } : process.env;
