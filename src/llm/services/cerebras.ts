@@ -11,7 +11,7 @@ export const CEREBRAS_SERVICE = 'cerebras';
 export function cerebrasLLMRegistry(): Record<string, () => LLM> {
 	return {
 		'cerebras:qwen-3-32b': () => cerebrasQwen3_32b(),
-		'cerebras:qwen-3-235b': () => cerebrasQwen3_235b(),
+		'cerebras:qwen-3-235b-a22b': () => cerebrasQwen3_235b(),
 		'cerebras:llama3.1-8b': () => cerebrasLlama3_8b(),
 	};
 }
@@ -22,7 +22,7 @@ export function cerebrasQwen3_32b(): LLM {
 
 // https://inference-docs.cerebras.ai/models/qwen-3-235b
 export function cerebrasQwen3_235b(): LLM {
-	return new CerebrasLLM('Qwen3 235b (Cerebras)', 'qwen-3-235b', 131_000, fixedCostPerMilTokens(0.6, 1.2));
+	return new CerebrasLLM('Qwen3 235b (Cerebras)', 'qwen-3-235b-a22b', 131_000, fixedCostPerMilTokens(0.6, 1.2));
 }
 
 export function cerebrasLlama3_8b(): LLM {

@@ -15,6 +15,16 @@ export class Git implements VersionControlSystem {
 	constructor(private fileSystem: IFileSystemService = getFileSystem()) {}
 
 	/**
+	 * Executes the 'git remote get-url origin' command to find the remote URL.
+	 * @returns The git origin URL.
+	 */
+	async getGitOriginUrl(): Promise<string> {
+		const statusResult = await execCommand('git remote get-url origin');
+		failOnError('Failed to get git origin URL.', statusResult);
+		return statusResult.stdout.trim();
+	}
+
+	/**
 	 * Adds all files which are already tracked by version control to the index and commits.
 	 * If there are no changes
 	 * @param commitMessage

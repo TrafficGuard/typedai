@@ -105,12 +105,7 @@ ${contentText(query)}
 </query>
 
 Please provide a detailed answer to the query using the information from the available file contents, and including citations to the files where the relevant information was found.
-Respond in the following structure, with the answer in Markdown format inside the result tags  (Note only the contents of the result tag will be returned to the user):
-
-<think></think>
-<reflection></reflection>
-<result></result>                                                                                                                                                                                                                                                                                 
- `;
+Think systematically and methodically through the query, considering multiple options, then output your final reasoning and answer wrapped in <result></result> tags.`;
 
 	messages.push({ role: 'user', content: finalPrompt });
 
@@ -532,12 +527,12 @@ The final part of the response must be a JSON object in the following format:
   "ignoreFiles": [
     { "reason": "Explains why this file is not needed.", "filePath": "path/to/nonessential/file2" }
   ],
-  "inspectFiles": [], // Optional: new files to inspect.
-  "search": "" // Optional: regex to search file contents.
+  "inspectFiles": ["path/to/new/file1", "path/to/new/file2"],
+  "search": "regex search pattern if needed (optional)"
 }
 </json>
-
-You MUST responsd with a valid JSON object that follows the required schema inside <json></json> tags.
+Only inspect files which are in the provided list.
+You MUST responsd with a valid JSON object that follows the required schema inside <json></json> tags. Be carefuly to have the correct closing braces.
 `;
 
 	const iterationMessages: LlmMessage[] = [...messages, { role: 'user', content: prompt }];

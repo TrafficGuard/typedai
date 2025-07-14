@@ -13,12 +13,14 @@ export function togetherLLMRegistry(): Record<string, () => LLM> {
 	};
 }
 
+// https://www.together.ai/models/deepseek-r1
 export function togetherDeepSeekR1(): LLM {
-	return new TogetherLLM('DeepSeek R1 (Together)', 'deepseek-ai/DeepSeek-R1', 64000, fixedCostPerMilTokens(3, 7));
+	return new TogetherLLM('DeepSeek R1 (Together fast)', 'deepseek-ai/DeepSeek-R1', 128_000, fixedCostPerMilTokens(3, 7));
 }
 
+// https://www.together.ai/models/deepseek-r1-0528-throughput
 export function togetherDeepSeekR1_0528_tput(): LLM {
-	return new TogetherLLM('DeepSeek R1 0528 tput (Together)', 'deepseek-ai/DeepSeek-R1-0528-tput', 64000, fixedCostPerMilTokens(0.55, 2.19));
+	return new TogetherLLM('DeepSeek R1 (Together cheap)', 'deepseek-ai/DeepSeek-R1-0528-tput', 128_000, fixedCostPerMilTokens(0.55, 2.19));
 }
 
 /**

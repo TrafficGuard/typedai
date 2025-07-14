@@ -13,5 +13,6 @@ export async function selectProject(requirements: string): Promise<GitProject> {
 			'You task is to only select the project object for the relevant repository which needs to cloned so we can later edit it to complete task requirements. Output your answer in JSON format and only output JSON',
 	});
 
-	return await llms().hard.generateJson(prompt, { id: 'selectProject' });
+	const result = await llms().hard.generateTextWithJson(prompt, { id: 'selectProject', thinking: 'high' });
+	return result.object as GitProject;
 }

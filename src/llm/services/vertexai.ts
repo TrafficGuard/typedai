@@ -135,11 +135,11 @@ class VertexLLM extends AiLLM<GoogleVertexProvider> {
 			project = GCLOUD_PROJECTS[gcloudProjectIndex];
 			if (++gcloudProjectIndex >= GCLOUD_PROJECTS.length) gcloudProjectIndex = 0;
 		} else {
-			project = currentUser().llmConfig.vertexProjectId || project || envVar('GCLOUD_PROJECT');
+			project = currentUser()?.llmConfig.vertexProjectId || project || envVar('GCLOUD_PROJECT');
 		}
 
 		console.log(`Configuring vertex provider with ${project}`);
-		let location = currentUser().llmConfig.vertexRegion || envVar('GCLOUD_REGION');
+		let location = currentUser()?.llmConfig.vertexRegion || envVar('GCLOUD_REGION');
 		// Currently a note at https://cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/2-5-flash-lite states that the model is only available in global location
 		if (this.getId().includes('gemini-2.5-flash-lite')) {
 			logger.info('Setting global location for flash-lite');
