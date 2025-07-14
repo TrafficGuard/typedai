@@ -3,7 +3,7 @@
 # -k will kill the process
 
 # Store the output of lsof so we can extract the PID
-OUTPUT=$(sudo lsof -i :$1)
+OUTPUT=$(sudo lsof -i:$1)
 KILL=""
 if [ "$2" = "-k" ]; then
   echo "Killing process"
