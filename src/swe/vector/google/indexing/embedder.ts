@@ -1,8 +1,8 @@
-import { PredictionServiceClient, protos } from '@google-cloud/aiplatform';
-import { struct } from 'pb-util'; // Helper for converting JS objects to Struct proto
+import { PredictionServiceClient, helpers, protos } from '@google-cloud/aiplatform';
+import { struct } from 'pb-util';
 import pino from 'pino';
 import { sleep } from '#utils/async-utils';
-import { DISCOVERY_ENGINE_EMBEDDING_MODEL, DISCOVERY_ENGINE_LOCATION, EMBEDDING_API_BATCH_SIZE, GCLOUD_PROJECT, GCLOUD_REGION } from '../config';
+import { DISCOVERY_ENGINE_EMBEDDING_MODEL, EMBEDDING_API_BATCH_SIZE, GCLOUD_PROJECT, GCLOUD_REGION } from '../config';
 
 const logger = pino({ name: 'Embedder' });
 
@@ -10,14 +10,18 @@ const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY_MS = 1000; // 1 second
 const RETRY_DELAY_MULTIPLIER = 2; // For exponential backoff
 
+type PredictRequest = protos.google.cloud.aiplatform.v1.IPredictRequest;
+
+export type TaskType = 'RETRIEVAL_DOCUMENT' | 'CODE_RETRIEVAL_QUERY';
 /**
  * Interface for a text embedding service.
  */
 export interface TextEmbeddingService {
-	generateEmbedding(text: string, taskType: string): Promise<number[]>;
-	generateEmbeddings(texts: string[], taskType: string): Promise<(number[] | null)[]>;
+	generateEmbedding(text: string, taskType: TaskType): Promise<number[]>;
+	generateEmbeddings(texts: string[], taskType: TaskType): Promise<(number[] | null)[]>;
 }
 
+// https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/text-embeddings-api#generative-ai-get-text-embedding-nodejs
 class VertexAITextEmbeddingService implements TextEmbeddingService {
 	private client: PredictionServiceClient;
 	private endpointPath: string;
@@ -73,9 +77,11 @@ class VertexAITextEmbeddingService implements TextEmbeddingService {
 				return instanceProto;
 			});
 
-			const request = {
+			const request: PredictRequest = {
 				endpoint: this.endpointPath,
 				instances: instances,
+				// discoveryengine datastore only supports 768 dimensions, even though gemini-embedding-001 can generate 3072 dimensions
+				parameters: helpers.toValue({ outputDimensionality: 768 }),
 			};
 
 			const subBatchEmbeddings: (number[] | null)[] = new Array(subBatchTexts.length).fill(null);
@@ -179,7 +185,7 @@ export function getEmbeddingService(): TextEmbeddingService {
  * @param taskType The task type for the embedding (e.g., 'RETRIEVAL_DOCUMENT', 'CODE_RETRIEVAL_QUERY').
  * @returns A promise that resolves to the vector embedding (array of numbers).
  */
-export async function generateEmbedding(text: string, taskType: string): Promise<number[]> {
+export async function generateEmbedding(text: string, taskType: TaskType): Promise<number[]> {
 	const functionName = 'generateEmbedding (exported)';
 	// logger.debug(`Generating embedding for text length: ${text.length}, task type: ${taskType}`);
 	if (!text || text.trim() === '') {

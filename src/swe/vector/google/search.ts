@@ -1,16 +1,10 @@
-// Changed 'import type' to 'import' because enum values are used
 import { google } from '@google-cloud/discoveryengine/build/protos/protos';
-import { struct } from 'pb-util'; // Helper for converting JS objects to Struct proto
+import { struct } from 'pb-util';
 import pino from 'pino';
-import { sleep } from '#utils/async-utils';
-import { DISCOVERY_ENGINE_DATA_STORE_ID, DISCOVERY_ENGINE_LOCATION, GCLOUD_PROJECT, getSearchServiceClient } from './config';
-import { generateEmbedding } from './indexing/embedder'; // Use the same embedder
+import { DISCOVERY_ENGINE_LOCATION, GCLOUD_PROJECT, getSearchServiceClient } from './config';
+import { generateEmbedding } from './indexing/embedder';
 
 const logger = pino({ name: 'Search' });
-
-const MAX_RETRIES = 3;
-const INITIAL_RETRY_DELAY_MS = 1000;
-const RETRY_DELAY_MULTIPLIER = 2;
 
 export interface SearchResultItem {
 	id: string;
@@ -28,6 +22,7 @@ export interface SearchResultItem {
 
 /**
  * Performs a vector search in Discovery Engine based on a natural language query.
+ * @param dataStoreId The ID of the Discovery Engine Data Store to search in.
  * @param query The natural language query string.
  * @param numResults The maximum number of results to return.
  * @param lexicalFieldBoosts Optional: Allows specifying boosts for fields in lexical search.
@@ -35,6 +30,7 @@ export interface SearchResultItem {
  * @returns A promise that resolves to an array of search result items.
  */
 export async function searchCode(
+	dataStoreId: string,
 	query: string,
 	numResults = 10,
 	lexicalFieldBoosts: Record<string, number> = { lexical_search_text: 0.7 },
@@ -50,15 +46,10 @@ export async function searchCode(
 	const client = getSearchServiceClient();
 	// Construct the serving config path directly using imported constants
 	const servingConfigId = 'default_config'; // Default serving config ID
-	const servingConfigPath = client.projectLocationDataStoreServingConfigPath(
-		GCLOUD_PROJECT,
-		DISCOVERY_ENGINE_LOCATION,
-		DISCOVERY_ENGINE_DATA_STORE_ID,
-		servingConfigId,
-	);
+	const servingConfigPath = client.projectLocationDataStoreServingConfigPath(GCLOUD_PROJECT, DISCOVERY_ENGINE_LOCATION, dataStoreId, servingConfigId);
 
 	// 1. Generate embedding for the query
-	const queryEmbedding = await generateEmbedding(query, 'CODE_RETRIEVAL_QUERY');
+	const queryEmbedding = await generateEmbedding(query, 'RETRIEVAL_DOCUMENT');
 	if (!queryEmbedding || queryEmbedding.length === 0) {
 		logger.error({ query }, 'Failed to generate embedding for the search query after all retries. Cannot perform search.');
 		return [];
@@ -67,35 +58,8 @@ export async function searchCode(
 	// 2. Construct the Search Request
 	const searchRequest: google.cloud.discoveryengine.v1beta.ISearchRequest = {
 		servingConfig: servingConfigPath,
-		query: query, // Include original query text for potential hybrid search/logging
+		// query: query, // Include original query text for potential hybrid search/logging
 		pageSize: numResults,
-		// queryExpansionSpec: {
-		// 	condition: google.cloud.discoveryengine.v1beta.SearchRequest.QueryExpansionSpec.Condition.DISABLED,
-		// },
-		// spellCorrectionSpec: {
-		// 	mode: google.cloud.discoveryengine.v1beta.SearchRequest.SpellCorrectionSpec.Mode.MODE_UNSPECIFIED,
-		// },
-		// contentSearchSpec: {
-		// 	// snippetSpec: {
-		// 	// 	returnSnippet: false, // Optionally return snippets
-		// 	// },
-		// 	// summarySpec: {
-		// 	// 	// Optionally request summaries
-		// 	// 	summaryResultCount: 3, // Number of results to summarize
-		// 	// 	// includeCitations: true, // If using grounding/citations
-		// 	// },
-		// 	extractiveContentSpec: {
-		// 		maxExtractiveAnswerCount: 0, // If using extractive answers
-		// 	},
-		// 	// Vector search specific configuration
-		// 	searchResultMode: google.cloud.discoveryengine.v1beta.SearchRequest.ContentSearchSpec.SearchResultMode.CHUNKS, // Or CHUNKS if using chunk-level indexing
-		// 	chunkSpec: {
-		// 		// If searching chunks within documents
-		// 		numPreviousChunks: 1,
-		// 		numNextChunks: 1,
-		// 	},
-		// },
-		// Moved embeddingSpec to the top level of the request object
 		embeddingSpec: {
 			embeddingVectors: [
 				{
@@ -134,9 +98,7 @@ export async function searchCode(
 		// 3. Call the Search API
 		// The response is a tuple containing: [results, request, response]
 		const [searchApiResponse] = await client.search(searchRequest);
-
 		logger.info({ query }, `Received ${searchApiResponse?.length ?? 0} search results.`);
-		// logger.debug(`Search response: ${JSON.stringify(searchApiResponse, null, 2)}`);
 
 		// 4. Process Results
 		const results: SearchResultItem[] = [];

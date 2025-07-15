@@ -43,8 +43,13 @@ export async function main() {
 			}
 			const query = args.slice(1).join(' '); // Join remaining args as query
 			logger.info(`Starting search command for query: "${query}"`);
+			const dataStoreId = process.env.DISCOVERY_ENGINE_DATA_STORE_ID;
+			if (!dataStoreId) {
+				logger.error('DISCOVERY_ENGINE_DATA_STORE_ID environment variable is not set.');
+				process.exit(1);
+			}
 			try {
-				const results = await searchCode(query);
+				const results = await searchCode(dataStoreId, query);
 				if (results.length > 0) {
 					logger.info('Search Results:');
 					// Simple console output - enhance as needed
