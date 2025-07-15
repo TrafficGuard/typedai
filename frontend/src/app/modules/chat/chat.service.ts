@@ -684,6 +684,28 @@ export class ChatServiceClient {
 		);
 	}
 
+	public updateMessageStatus(chatId: string, messageId: string, status: 'failed_to_send'): void {
+		const currentChatState = this._chatState();
+
+		// Ensure we are updating the correct, currently loaded chat.
+		if (currentChatState.status !== 'success' || currentChatState.data.id !== chatId) {
+			return;
+		}
+
+		const messages = currentChatState.data.messages || [];
+		const updatedMessages = messages.map(m =>
+			m.id === messageId ? { ...m, status } : m,
+		);
+
+		this._chatState.set({
+			status: 'success',
+			data: {
+				...currentChatState.data,
+				messages: updatedMessages,
+			},
+		});
+	}
+
 	forceReloadChats(): Observable<void> {
 		this._cachedChats = null;
 		this._cachePopulated.set(false);

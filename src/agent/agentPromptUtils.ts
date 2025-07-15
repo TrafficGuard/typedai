@@ -29,7 +29,7 @@ export async function buildMemoryPrompt(): Promise<string> {
  * TODO move the string generation into the tool classes
  */
 export async function buildToolStatePrompt(): Promise<string> {
-	return (await buildFileSystemTreePrompt()) + (await buildLiveFilesPrompt()) + (await buildFileStorePrompt()) + (await buildFileSystemPrompt());
+	return (await buildLiveFilesPrompt()) + (await buildFileStorePrompt()) + (await buildFileSystemServicePrompt());
 }
 
 export async function buildFileSystemTreePrompt(): Promise<string> {
@@ -67,9 +67,9 @@ ${treeString}
 }
 
 /**
- * @return An XML representation of the FileSystem tool state
+ * @return An XML representation of the FileSystemService tool state
  */
-async function buildFileSystemPrompt(): Promise<string> {
+async function buildFileSystemServicePrompt(): Promise<string> {
 	const functions = agentContext().functions;
 	const hasAnyFileSystemFunction = functions.getFunctionClassNames().some((name) => name.startsWith('FileSystem'));
 	if (!hasAnyFileSystemFunction) return '';

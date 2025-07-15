@@ -8,6 +8,7 @@ import { cerebrasQwen3_235b } from '#llm/services/cerebras';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { openAIo3 } from '#llm/services/openai';
 import { perplexityDeepResearchLLM, perplexityLLM, perplexityReasoningProLLM } from '#llm/services/perplexity-llm';
+import { xai_Grok4 } from '#llm/services/xai';
 import { logger } from '#o11y/logger';
 import { LLM } from '#shared/llm/llm.model';
 
@@ -18,6 +19,7 @@ export const LLM_CLI_ALIAS: Record<string, () => LLM> = {
 	xh: () => defaultLLMs().xhard,
 	fm: () => new FastMediumLLM(),
 	f: cerebrasQwen3_235b,
+	x: xai_Grok4,
 	o3: openAIo3,
 	madb: MAD_Balanced,
 	mads: MAD_SOTA,

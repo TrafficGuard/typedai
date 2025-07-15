@@ -50,10 +50,10 @@
                                                 <span>...</span>
                                             }
                                         </span>
-                                        <clipboard-button [cdkCopyToClipboard]="isStringContent(message.content) ? message.content : ''" class=""></clipboard-button>
+                                        <clipboard-button [cdkCopyToClipboard]="toContentText(message.content)" class=""></clipboard-button>
                                     </mat-panel-title>
                                 </mat-expansion-panel-header>
-
+                                
                                 @if (isArrayContent(message.content)) {
                                     @for (part of getContentAsArray(message.content); track part.type + '-' + $index) {
                                         <ng-container [ngSwitch]="part.type">

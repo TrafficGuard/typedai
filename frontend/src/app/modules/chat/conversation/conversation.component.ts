@@ -52,6 +52,9 @@ import { attachmentsAndTextToUserContentExt, fileToAttachment, userContentExtToA
 import { ChatServiceClient } from '../chat.service';
 import { ClipboardButtonComponent } from './clipboard-button.component';
 
+/** How long to wait for CdkTextareaAutosize to finish (ms) */
+const CARET_SCROLL_DELAY = 50;
+
 @Component({
 	selector: 'chat-conversation',
 	templateUrl: './conversation.component.html',
@@ -239,18 +242,27 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
 				// Load draft message for the current chat
 				if (currentChat && this.messageInput && this.messageInput.nativeElement) {
-					const chatIdToUse = currentChat.id === NEW_CHAT_ID ? 'new' : currentChat.id;
-					const draft = this._localStorageService.getDraftMessage(chatIdToUse);
+					// Only load the draft if we are NOT currently generating a response.
+					// If we are generating, the input should remain cleared by sendMessage().
+					if (!this.generating()) {
+						const chatIdToUse = currentChat.id === NEW_CHAT_ID ? 'new' : currentChat.id;
+						const draft = this._localStorageService.getDraftMessage(chatIdToUse);
 
-					if (draft !== null) {
-						this.messageInput.nativeElement.value = draft;
-						this._triggerResizeAndScroll();
-					} else {
-						// If we switched from a different chat and there's no draft for the new chat, clear the input field.
-						if (this.previousChatId !== undefined && this.previousChatId !== null && this.previousChatId !== currentChat.id) {
-							this.messageInput.nativeElement.value = '';
+						if (draft !== null) {
+							this.messageInput.nativeElement.value = draft;
 							this._triggerResizeAndScroll();
+						} else {
+							// If we switched from a different chat and there's no draft for the new chat, clear the input field.
+							if (this.previousChatId !== undefined && this.previousChatId !== null && this.previousChatId !== currentChat.id) {
+								this.messageInput.nativeElement.value = '';
+								this._triggerResizeAndScroll();
+							}
 						}
+					} else {
+						// If we are generating, ensure the input stays cleared,
+						// even if the chat signal updates during the generation phase.
+						this.messageInput.nativeElement.value = '';
+						this._triggerResizeAndScroll();
 					}
 				}
 
@@ -317,14 +329,14 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 	 * @private
 	 */
 	@HostListener('input')
-	private _onUserInput(): void {
-		// Push current input value to the subject for debounced saving
+	private _onUserInput(): void
+	{
+		/* save draft – unchanged */
 		if (this.messageInput?.nativeElement) {
-			const currentMessage = this.messageInput.nativeElement.value;
-			this.messageInputChanged.next(currentMessage);
+			this.messageInputChanged.next(this.messageInput.nativeElement.value);
 		}
-
-		// Ensure the caret is visible, especially when adding new lines.
+	
+		/* keep the cursor in view */
 		this._scrollToCaret();
 	}
 
@@ -555,6 +567,8 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 		this.messageInput.nativeElement.value = '';
 		this.selectedAttachments.set([]);
 		this._triggerResizeAndScroll(); // Resize after clearing
+		// Focus the textarea to ensure UI updates
+		this.messageInput.nativeElement.focus();
 
 		try {
 			// Prepare payload
@@ -685,41 +699,46 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 	 */
 	private _triggerResizeAndScroll(): void {
 		if (this._autosize) {
-			// Defer to allow the value to update in the DOM, then resize.
-			this._ngZone.runOutsideAngular(() => {
-				setTimeout(() => this._autosize.resizeToFitContent(true), 0);
-			});
+		  this._ngZone.runOutsideAngular(() => {
+			setTimeout(() => {
+			  this._autosize.resizeToFitContent(true);
+			  // Delay scroll slightly to ensure resize completes
+			  setTimeout(() => this._scrollToCaret(), 50);
+			}, 0);
+		  });
+		} else {
+		  this._scrollToCaret();
 		}
-		this._scrollToCaret();
 	}
 
-	/**
-	 * Adjusts the textarea's scroll position to keep the typing caret visible.
-	 */
-	private _scrollToCaret(): void {
+	/** Scroll so that the caret is visible (bottom-align if needed) */
+	private _scrollToCaret(): void
+	{
 		this._ngZone.runOutsideAngular(() => {
-			// Defer execution to allow the DOM to update after input/resize.
 			setTimeout(() => {
-				const textarea = this.messageInput?.nativeElement as HTMLTextAreaElement | undefined;
-				if (!textarea) {
+				const ta = this.messageInput?.nativeElement as HTMLTextAreaElement | undefined;
+				if (!ta) { return; }
+
+				/* If caret is on the last visual line, cheapest = jump to bottom   */
+				const caretIsLast = (ta.selectionStart ?? ta.value.length) === ta.value.length;
+				if (caretIsLast) {
+					ta.scrollTop = ta.scrollHeight;
 					return;
 				}
 
-				const pos = textarea.selectionStart ?? 0;
+				/* Fallback to the “count new-lines” algorithm (rarely used now)   */
+				const pos        = ta.selectionStart ?? 0;
+				const before     = ta.value.substring(0, pos);
+				const rows       = (before.match(/\n/g)?.length ?? 0);
+				const lineHeight = parseInt(getComputedStyle(ta).lineHeight!, 10) || 16;
+				const caretPx    = rows * lineHeight;
 
-				// Estimate caret’s vertical position
-				const beforeCaret = textarea.value.substring(0, pos);
-				const lineCount = (beforeCaret.match(/\n/g)?.length ?? 0); // zero-based
-				const lineHeight = parseInt(getComputedStyle(textarea).lineHeight, 10) || 16;
-				const caretTopPx = lineCount * lineHeight;
-
-				// If caret is above or below the visible viewport, scroll just enough.
-				if (caretTopPx < textarea.scrollTop) {
-					textarea.scrollTop = caretTopPx;
-				} else if (caretTopPx + lineHeight > textarea.scrollTop + textarea.clientHeight) {
-					textarea.scrollTop = caretTopPx + lineHeight - textarea.clientHeight;
+				if (caretPx < ta.scrollTop) {
+					ta.scrollTop = caretPx;
+				} else if (caretPx + lineHeight > ta.scrollTop + ta.clientHeight) {
+					ta.scrollTop = caretPx + lineHeight - ta.clientHeight;
 				}
-			}, 0);
+			}, CARET_SCROLL_DELAY);                 //  <── key change
 		});
 	}
 
