@@ -117,6 +117,7 @@ export const AgentContextSchema = Type.Object({
 	subtype: Type.String(),
 	childAgents: Type.Optional(Type.Array(Type.String())),
 	executionId: Type.String(),
+	containerId: Type.String(),
 	typedAiRepoDir: Type.String(),
 	traceId: Type.String(),
 	name: Type.String(),
@@ -205,6 +206,7 @@ export const AutonomousIterationSchema = Type.Object({
 	summary: Type.String(),
 	functions: Type.Array(Type.String()), // class names
 	prompt: Type.String(),
+	response: Type.String(),
 	images: Type.Array(ImagePartExtSchema),
 	expandedUserRequest: Type.String(),
 	observationsReasoning: Type.Optional(Type.String()),

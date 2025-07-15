@@ -169,7 +169,7 @@
                                             <ol class="list-decimal list-inside text-sm space-y-1">
                                                 @for (source of message.sources; track $index) {
                                                     <li class="text-gray-600 dark:text-gray-400">
-                                                        <a [href]="source.sourceName" target="_blank" rel="noopener noreferrer" class="text-primary-600 dark:text-primary-400 hover:underline break-all">{{ source.sourceName }}</a>
+                                                        <a [href]="source.url" target="_blank" rel="noopener noreferrer" class="text-primary-600 dark:text-primary-400 hover:underline break-all">{{ source.url }}</a>
                                                     </li>
                                                 }
                                             </ol>

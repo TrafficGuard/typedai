@@ -38,38 +38,45 @@ export async function stopContainer(containerIdOrName: string): Promise<void> {
 export const CONTAINER_PATH = '/testbed';
 
 export async function startContainer(workspacePath: string, problemId: string): Promise<{ containerId: string; repoPathOnHost: string }> {
-	const containerName = `sweb.augment.${problemId}_${uuidv4().slice(0, 8)}`;
-	await stopContainer(containerName); // Clean up previous runs if any
+	const containerName = `sweb.typedai.${problemId}_${uuidv4().slice(0, 8)}`;
+	const tempContainerName = `${containerName}.temp`;
+
+	// Clean up previous runs if any
+	await stopContainer(containerName);
+	await stopContainer(tempContainerName);
 
 	const imageName = getIssueImageName(problemId);
 	logger.info(`Pulling image ${imageName}`);
 	failOnError(`Failed to pull image ${imageName}`, await execCommand(`docker pull ${imageName}`));
 
+	// This function uses a bind mount to avoid host permission issues with Docker volumes.
+	// First, we prepare a directory on the host.
+	const repoPathOnHost = path.join(workspacePath, problemId);
+	await fs.rm(repoPathOnHost, { recursive: true, force: true }); // Clean up from previous runs
+	await fs.mkdir(repoPathOnHost, { recursive: true });
+
+	// Then, create a temporary container to copy the initial repository state from.
+	logger.info(`Creating temporary container ${tempContainerName} to copy repo contents...`);
+	const createResult = await execCommand(`docker create --name ${tempContainerName} ${imageName}`);
+	failOnError(`Failed to create temporary container for ${problemId}`, createResult);
+
+	// Copy the repository from the temporary container to the host directory.
+	logger.info(`Copying from ${tempContainerName}:${CONTAINER_PATH}/. to ${repoPathOnHost}`);
+	const cpResult = await execCommand(`docker cp ${tempContainerName}:${CONTAINER_PATH}/. ${repoPathOnHost}`);
+	failOnError(`Failed to copy repo contents for ${problemId}`, cpResult);
+
+	// Clean up the temporary container.
+	await stopContainer(tempContainerName);
+
+	// Start the main container, bind mounting the host directory into the container.
 	logger.info(`Starting container for ${problemId} with name ${containerName}`);
 	const runResult = await execCommand(
-		`docker run --name ${containerName} -d -v ${CONTAINER_PATH} ${imageName} bash -c "git config --global user.email a && git config --global user.name a && git config --global --add safe.directory ${CONTAINER_PATH} && git commit --allow-empty -am augment && sleep 7200"`,
+		`docker run --name ${containerName} -d -v ${repoPathOnHost}:${CONTAINER_PATH} ${imageName} bash -c "git config --global user.email a && git config --global user.name a && git config --global --add safe.directory ${CONTAINER_PATH} && git commit --allow-empty -am typedai && sleep 7200"`,
 	);
 	failOnError(`Failed to start container for ${problemId}`, runResult);
 	const containerId = runResult.stdout.trim();
 
 	await new Promise((resolve) => setTimeout(resolve, 10000)); // Wait for container to be ready
-
-	const inspectResult = await execCommand(`docker inspect ${containerId}`);
-	failOnError(`Failed to inspect container ${containerId}`, inspectResult);
-	const inspectData = JSON.parse(inspectResult.stdout);
-	const volumePath = inspectData[0].Mounts.find((m: any) => m.Destination === CONTAINER_PATH)?.Source;
-	if (!volumePath) {
-		throw new Error(`Could not find volume path for ${CONTAINER_PATH}`);
-	}
-
-	const repoPathOnHost = path.join(workspacePath, problemId);
-	// Use rm instead of unlink to handle both files and directories (symlinks)
-	await fs.rm(repoPathOnHost, { recursive: true, force: true });
-	await fs.symlink(volumePath, repoPathOnHost, 'dir');
-
-	// Note: The original python script attempted to set volume permissions with sudo.
-	// This is skipped here as it's highly environment-dependent. The user running
-	// this script may need to have appropriate permissions for Docker volumes.
 
 	return { containerId, repoPathOnHost };
 }

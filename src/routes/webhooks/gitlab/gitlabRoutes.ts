@@ -131,9 +131,8 @@ export async function gitlabRoutes(fastify: AppFastifyInstance) {
 			},
 		},
 		async (req, reply) => {
-			logger.debug('/webhooks/gitlab route');
 			const event = req.body as any;
-			logger.debug('Gitlab webhook %o', event);
+			logger.info(event, `Gitlab webhook ${event.kind}`);
 
 			switch (event.kind) {
 				case 'pipeline':

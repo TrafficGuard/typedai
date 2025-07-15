@@ -411,7 +411,7 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 	async getBranches(projectId: string | number): Promise<string[]> {
 		try {
 			// The Gitbeaker library handles pagination internally for `all()` methods
-			const branches: BranchSchema[] = await this.api().RepositoryBranches.all(projectId);
+			const branches: BranchSchema[] = await this.api().Branches.all(projectId);
 			return branches.map((branch) => branch.name);
 		} catch (error) {
 			logger.error(error, `Failed to get branches for GitLab project ${projectId}`);

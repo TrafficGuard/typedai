@@ -39,6 +39,7 @@ export class PostgresAgentStateService implements AgentContextService {
 		const serialized = serializeContext(context);
 		return {
 			execution_id: serialized.executionId,
+			container_id: serialized.containerId,
 			typed_ai_repo_dir: serialized.typedAiRepoDir,
 			trace_id: serialized.traceId,
 			name: serialized.name,
@@ -159,6 +160,7 @@ export class PostgresAgentStateService implements AgentContextService {
 		const dataForDeserialization: Static<typeof AgentContextSchema> = {
 			agentId: row.agent_id,
 			executionId: row.execution_id,
+			containerId: row.container_id,
 			typedAiRepoDir: row.typed_ai_repo_dir === null ? undefined : row.typed_ai_repo_dir,
 			traceId: row.trace_id,
 			name: row.name === null ? undefined : row.name,
@@ -205,6 +207,7 @@ export class PostgresAgentStateService implements AgentContextService {
 		return {
 			functions_serialized: iteration.functions ? JSON.stringify(iteration.functions) : null,
 			prompt: iteration.prompt,
+			response: iteration.response,
 			summary: iteration.summary,
 			expanded_user_request: iteration.expandedUserRequest,
 			observations_reasoning: iteration.observationsReasoning,
@@ -237,6 +240,7 @@ export class PostgresAgentStateService implements AgentContextService {
 		return {
 			agentId: row.agent_id,
 			iteration: row.iteration_number,
+			response: row.response === null ? undefined : row.response,
 			functions: parsedFunctions === null ? undefined : parsedFunctions,
 			prompt: row.prompt === null ? undefined : row.prompt,
 			summary: row.summary === null ? undefined : row.summary,

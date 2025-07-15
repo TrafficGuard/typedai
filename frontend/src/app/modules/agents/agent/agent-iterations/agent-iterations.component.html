@@ -32,6 +32,8 @@
                                             <mat-spinner [diameter]="32"></mat-spinner> <span class="ml-2">Loading details...</span>
                                         </div>
                                     } @else if (detailState?.status === 'success' && detailState?.data) {
+                                        {{ iteration.summary }}
+                                        <br/>
                                         <!-- Functions -->
                                         <div class="mb-3">
                                             <h4 class="font-medium text-lg mb-1">Functions Available:</h4>

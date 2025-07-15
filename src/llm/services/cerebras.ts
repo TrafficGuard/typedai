@@ -48,7 +48,7 @@ export class CerebrasLLM extends AiLLM<OpenAIProvider> {
 
 	aiModel(): LanguageModelV1 {
 		const aiModel = super.aiModel();
-		if (this.getModel() === 'qwen-3-32b') {
+		if (this.getModel().includes('qwen-3')) {
 			return wrapLanguageModel({
 				model: aiModel,
 				middleware: extractReasoningMiddleware({ tagName: 'think' }),

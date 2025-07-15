@@ -109,21 +109,20 @@ export async function attachmentsAndTextToUserContentExt(attachments: Attachment
  * @returns An object containing an array of Attachments, a text string, reasoning, and sources.
  */
 export function userContentExtToAttachmentsAndText(
-	content: UserContentExt | AssistantContentExt | undefined,
-): { attachments: Attachment[]; text: string; reasoning: string; sources: LanguageModelV1Source[] } {
+	content: UserContentExt | AssistantContentExt | undefined, sources: LanguageModelV1Source[] = []
+): { attachments: Attachment[]; text: string; reasoning: string } {
 	let text = '';
 	let reasoning = '';
 	const attachments: Attachment[] = [];
-	const sources: LanguageModelV1Source[] = [];
 	let totalSourcesCount = 0;
 
 	if (!content) {
-		return { attachments, text, reasoning, sources };
+		return { attachments, text, reasoning };
 	}
 
 	if (typeof content === 'string') {
-		text = content;
-		return { attachments, text, reasoning, sources };
+		text = linkCitations(content, sources);
+		return { attachments, text, reasoning };
 	}
 
 	if (Array.isArray(content)) {
@@ -131,30 +130,10 @@ export function userContentExtToAttachmentsAndText(
 			if (part.type === 'text') {
 				const textPart = part as TextPartExt;
 				let currentText = textPart.text;
-
-				if (textPart.sources && textPart.sources.length > 0) {
-					sources.push(...textPart.sources);
-
-					// Replace citations in the text, using a running total for numbering
-					textPart.sources.forEach((source, index) => {
-						const originalCitationNumber = index + 1;
-						const newCitationNumber = totalSourcesCount + originalCitationNumber;
-
-						// Regex to find the original citation tag, e.g., [1]
-						const originalCitationTagRegex = new RegExp(`\\\[${originalCitationNumber}\\\]`, 'g');
-						// The new markdown link with the re-numbered citation
-						const newCitationLink = `[${newCitationNumber}](${source.sourceName})`;
-
-						currentText = currentText.replace(originalCitationTagRegex, newCitationLink);
-					});
-
-					totalSourcesCount += textPart.sources.length;
-				}
-
 				if (text !== '') {
 					text += '\n'; // Add newline if concatenating multiple text parts
 				}
-				text += currentText;
+				text += linkCitations(currentText, sources);
 			} else if (part.type === 'reasoning') {
 				reasoning = part.text;
 			} else if (part.type === 'image') {
@@ -188,5 +167,22 @@ export function userContentExtToAttachmentsAndText(
 		}
 	}
 
-	return { attachments, text, reasoning, sources };
+	return { attachments, text, reasoning };
+}
+
+
+function linkCitations(text: string, sources: LanguageModelV1Source[]): string {
+	if (sources?.length > 0) {
+		// Replace citations in the text, using a running total for numbering
+		sources.forEach((source, index) => {	
+			const originalCitationNumber = index + 1;
+			// Regex to find the original citation tag, e.g., [1]
+			const originalCitationTagRegex = new RegExp(`\\\[${originalCitationNumber}\\\]`, 'g');
+			// The new markdown link with the re-numbered citation
+			const newCitationLink = `[[${index + 1}]](${source.url})`;
+			console.log('updating citation', originalCitationTagRegex, newCitationLink);
+			text = text.replace(originalCitationTagRegex, newCitationLink);
+		});
+	}
+	return text;
 }

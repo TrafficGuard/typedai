@@ -180,7 +180,12 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				description,
 			});
 
-			if (!combinedOpts.id) console.log(new Error('No generateMessage id provided'));
+			if (!combinedOpts.id) {
+				const lastMessage = llmMessages[llmMessages.length - 1];
+				const lastMessageText = messageText(lastMessage);
+				const promptPreview = lastMessageText.length > 50 ? `${lastMessageText.slice(0, 50)}...` : lastMessageText;
+				console.log(new Error(`No generateMessage id provided. (${promptPreview})`));
+			}
 			logger.info(`LLM call ${combinedOpts.id} using ${this.getId()}`);
 
 			const createLlmCallRequest: CreateLlmRequest = {
@@ -266,6 +271,10 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 					result,
 				);
 				const cost = Number.isNaN(totalCost) ? 0 : totalCost;
+
+				if (result.finishReason === 'length') {
+					logger.info(`LLM finished due to length. Output tokens: ${result.usage.completionTokens}. Opts Max Output Tokens: ${combinedOpts.maxOutputTokens}`);
+				}
 
 				logger.info(`LLM response ${combinedOpts.id}`);
 

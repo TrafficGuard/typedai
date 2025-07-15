@@ -95,7 +95,7 @@ export interface AgentContext {
 	childAgents?: string[];
 	/** Id of the running execution. This changes after the agent restarts due to an error, pausing, human in loop, completion etc */
 	executionId: string;
-	/** If running in a container, the ID of the container */
+	/** Docker container ID this agent is interacting with */
 	containerId?: string;
 	/** The path to the TypedAI repo. i.e. TYPEDAI_HOME env variable or process.cwd() of the most recent execution. If the agent re-starts on a machine with a different value then the file system working directory can be updated. */
 	typedAiRepoDir: string;
@@ -188,6 +188,8 @@ export interface AutonomousIteration {
 	functions: string[];
 	/** The input prompt */
 	prompt: string;
+	/** The response from the LLM */
+	response: string;
 	/** Images included with the input prompt */
 	images: ImagePartExt[];
 	/** Extracted from <expanded_user_request></expanded_user_request>*/

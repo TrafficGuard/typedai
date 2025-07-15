@@ -214,7 +214,7 @@ export async function removeUnrelatedFiles(requirements: string, fileSelection: 
 		const fileContents = (await fs.readFile(path.join(fileSystem.getWorkingDirectory(), file.filePath))).toString();
 		const prompt = keepOrRemoveFileAnalysisPrompt(requirements, file, fileContents);
 
-		const jsonResult = await llms().easy.generateTextWithJson(
+		const jsonResult: GenerateTextWithJsonResponse<{ isRelated: boolean; explanation: string }> = await llms().easy.generateTextWithJson(
 			'You are an expert software developer tasked with identifying relevant files for a coding task.',
 			prompt,
 			{
@@ -225,8 +225,8 @@ export async function removeUnrelatedFiles(requirements: string, fileSelection: 
 
 		return {
 			file,
-			isRelated: (jsonResult as any).isRelated,
-			explanation: (jsonResult as any).explanation,
+			isRelated: jsonResult.object.isRelated,
+			explanation: jsonResult.object.explanation,
 		};
 	};
 

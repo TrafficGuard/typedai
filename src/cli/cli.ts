@@ -4,6 +4,7 @@ import { systemDir } from '#app/appDirs';
 import { FastMediumLLM } from '#llm/multi-agent/fastMedium';
 import { MAD_Balanced, MAD_Fast, MAD_SOTA } from '#llm/multi-agent/reasoning-debate';
 import { Claude4_Opus_Vertex } from '#llm/services/anthropic-vertex';
+import { cerebrasQwen3_235b } from '#llm/services/cerebras';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { openAIo3 } from '#llm/services/openai';
 import { perplexityDeepResearchLLM, perplexityLLM, perplexityReasoningProLLM } from '#llm/services/perplexity-llm';
@@ -16,6 +17,7 @@ export const LLM_CLI_ALIAS: Record<string, () => LLM> = {
 	h: () => defaultLLMs().hard,
 	xh: () => defaultLLMs().xhard,
 	fm: () => new FastMediumLLM(),
+	f: cerebrasQwen3_235b,
 	o3: openAIo3,
 	madb: MAD_Balanced,
 	mads: MAD_SOTA,

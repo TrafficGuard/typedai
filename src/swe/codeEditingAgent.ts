@@ -494,7 +494,11 @@ export class CodeEditingAgent {
 				'From the requirements consider which the files may be required to complete the task. Output your answer as JSON in the format of this example:\n' +
 				'<example>\n<json>\n{\n files: ["file1", "file2", "file3"]\n}\n</json>\n</example>',
 		});
-		const response: any = await llms().medium.generateTextWithJson(prompt, { id: 'Extract Filenames' });
-		return response.files;
+		const response = await llms().medium.generateTextWithJson(prompt, { id: 'Extract Filenames' });
+		if (!Array.isArray((response.object as any).files)) {
+			logger.info(response.message, 'Extract Filenames response is not an array');
+			return [];
+		}
+		return (response.object as any).files;
 	}
 }

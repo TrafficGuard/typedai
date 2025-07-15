@@ -145,7 +145,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 		}
 
 		return messagesToProcess.map((msg) => {
-			const { attachments, text, sources } = userContentExtToAttachmentsAndText(msg.content);
+			const { attachments, text } = userContentExtToAttachmentsAndText(msg.content, msg.sources);
 			const uiImageAttachments = attachments.filter((a) => a.type === 'image');
 			const uiFileAttachments = attachments.filter((a) => a.type === 'file');
 
@@ -154,7 +154,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 				textContentForDisplay: text,
 				uiImageAttachments: uiImageAttachments.length > 0 ? uiImageAttachments : undefined,
 				uiFileAttachments: uiFileAttachments.length > 0 ? uiFileAttachments : undefined,
-				sources: sources.length > 0 ? sources : undefined, // Add sources property
+				sources: msg.sources,
 				textChunks: parseMessageContent(text),
 			};
 		});

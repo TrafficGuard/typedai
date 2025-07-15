@@ -32,7 +32,7 @@ export function defaultLLMs(): AgentLLMs {
 			easy: flashLite,
 			medium: new FastMediumLLM(),
 			hard: gemini25Pro,
-			xhard: madBalanced.isConfigured() ? madBalanced : MAD_Vertex(),
+			xhard: null, //madBalanced.isConfigured() ? madBalanced : MAD_Vertex(),
 		};
 	}
 

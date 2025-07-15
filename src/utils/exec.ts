@@ -289,6 +289,7 @@ export async function execCommand(command: string, opts?: ExecCmdOptions): Promi
 	});
 }
 
+// only used by ripgrep in the filesystem at the moment. had issues with the other exec functions
 export async function spawnCommand(command: string, workingDirectory?: string): Promise<ExecResult> {
 	return withSpan('spawnCommand', async (span) => {
 		const context = agentContext();
@@ -297,7 +298,7 @@ export async function spawnCommand(command: string, workingDirectory?: string): 
 		let commandToRun: string;
 		let hostCwd: string;
 
-		if (containerId) {
+		if (containerId && !command.startsWith('rg ')) {
 			commandToRun = buildDockerCommand(containerId, command, workingDirectory);
 			hostCwd = getFileSystem().getVcsRoot();
 		} else {

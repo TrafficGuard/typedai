@@ -70,6 +70,7 @@ export function createContext(config: RunAgentConfig | RunWorkflowConfig): Agent
 		typedAiRepoDir: process.env.TYPEDAI_HOME || process.cwd(),
 		childAgents: [],
 		traceId: '',
+		containerId: config.containerId,
 		metadata: config.metadata ?? {},
 		name: config.agentName,
 		type: (config as RunAgentConfig).type ?? 'workflow',

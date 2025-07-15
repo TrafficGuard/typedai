@@ -175,6 +175,13 @@ async function findUpwards(startDir: string, file: string, fss: IFileSystemServi
 	while (true) {
 		const candidate = path.join(dir, file);
 		if (await fss.fileExists(candidate)) return candidate;
+
+		// Don't search above the VCS root
+		const gitDir = path.join(dir, '.git');
+		if (await fss.directoryExists(gitDir)) {
+			return null;
+		}
+
 		const parent = path.dirname(dir);
 		if (parent === dir) return null;
 		dir = parent;

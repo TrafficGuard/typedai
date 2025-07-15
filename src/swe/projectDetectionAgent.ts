@@ -53,6 +53,8 @@ Analyze the repository to identify all software projects. For each project, prov
     *   staticAnalysis: Array of commands for linting or static code analysis (e.g., ["npm run lint"], ["flake8 ."]). If none, use [].
     *   test: Array of commands to run unit tests (e.g., ["npm test"], ["pytest"]). If none, use [].
 
+If there is multiple project types in the primary project, only include the commands for the main project type.
+
 Respond with ONLY a JSON array of objects, where each object represents a detected project. Example:
 [
   {

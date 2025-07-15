@@ -356,14 +356,24 @@ export class FileSystemService implements IFileSystemService {
 
 		const dirents = await fs.readdir(dirPath, { withFileTypes: true });
 		for (const dirent of dirents) {
-			const relativePath = path.relative(rootPath, path.join(dirPath, dirent.name));
-			if (dirent.isDirectory()) {
-				if (!useGitIgnore || (!mergedIg.ignores(relativePath) && !mergedIg.ignores(`${relativePath}/`))) {
-					files.push(...(await this.listFilesRecurse(rootPath, path.join(dirPath, dirent.name), mergedIg, useGitIgnore, gitRoot, filter)));
-				}
-			} else {
-				if (!useGitIgnore || !mergedIg.ignores(relativePath)) {
-					files.push(path.join(dirPath, dirent.name));
+			const fullPath = path.join(dirPath, dirent.name);
+			const relativePath = path.relative(rootPath, fullPath);
+
+			// A path is invalid for the `ignore` library if it's absolute or starts with `../`.
+			// This happens when `fullPath` is not inside `rootPath`. In this case,
+			// .gitignore rules from within `rootPath` should not apply, so we don't ignore it.
+			const isInvalidForIgnore = relativePath.startsWith('..') || path.isAbsolute(relativePath);
+
+			let shouldIgnore = false;
+			if (useGitIgnore && !isInvalidForIgnore) {
+				shouldIgnore = dirent.isDirectory() ? mergedIg.ignores(relativePath) || mergedIg.ignores(`${relativePath}/`) : mergedIg.ignores(relativePath);
+			}
+
+			if (!shouldIgnore) {
+				if (dirent.isDirectory()) {
+					files.push(...(await this.listFilesRecurse(rootPath, fullPath, mergedIg, useGitIgnore, gitRoot, filter)));
+				} else {
+					files.push(fullPath);
 				}
 			}
 		}

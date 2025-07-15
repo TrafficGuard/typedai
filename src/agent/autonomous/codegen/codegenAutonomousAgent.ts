@@ -211,6 +211,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 					agentPlanResponse = messageText(agentPlanResponseMessage);
 					pythonMainFnCode = extractPythonCode(agentPlanResponse);
 				}
+				iterationData.response = agentPlanResponse;
 				iterationData.stats = agentPlanResponseMessage.stats;
 				iterationData.expandedUserRequest = extractExpandedUserRequest(agentPlanResponse);
 				iterationData.observationsReasoning = extractObservationsReasoning(agentPlanResponse);
