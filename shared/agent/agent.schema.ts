@@ -117,7 +117,7 @@ export const AgentContextSchema = Type.Object({
 	subtype: Type.String(),
 	childAgents: Type.Optional(Type.Array(Type.String())),
 	executionId: Type.String(),
-	containerId: Type.String(),
+	containerId: Type.Optional(Type.String()),
 	typedAiRepoDir: Type.String(),
 	traceId: Type.String(),
 	name: Type.String(),
