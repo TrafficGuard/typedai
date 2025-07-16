@@ -92,7 +92,7 @@ async function main() {
 			functions: functions,
 			llms,
 			type: 'autonomous',
-			subtype: 'swebench',
+			subtype: 'codegen',
 			containerId,
 			fileSystemPath: repoPathOnHost,
 		});

@@ -83,9 +83,8 @@ export class VertexAITextEmbeddingService implements TextEmbeddingService {
 						return null;
 					}
 					return embedding; // Success
-				} else {
-					throw new Error('Invalid embedding structure in response');
 				}
+				throw new Error('Invalid embedding structure in response');
 			} catch (error: any) {
 				const delay = INITIAL_RETRY_DELAY_MS * RETRY_DELAY_MULTIPLIER ** attempt;
 				logger.error(
@@ -95,7 +94,10 @@ export class VertexAITextEmbeddingService implements TextEmbeddingService {
 				if (attempt < MAX_RETRIES - 1) {
 					await sleep(delay);
 				} else {
-					logger.error({ err: { message: error.message, stack: error.stack, details: error.details } }, `All ${MAX_RETRIES} retries failed for ${functionName}.`);
+					logger.error(
+						{ err: { message: error.message, stack: error.stack, details: error.details } },
+						`All ${MAX_RETRIES} retries failed for ${functionName}.`,
+					);
 					return null;
 				}
 			}

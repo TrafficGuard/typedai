@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { generateContextualizedChunksFromFile } from './unifiedChunkContextualizer';
+import { generateContextualizedChunks } from './contextualizedChunker';
 
 describe('UnifiedChunkContextualizer', () => {
 	describe('generateContextualizedChunksFromFile', () => {

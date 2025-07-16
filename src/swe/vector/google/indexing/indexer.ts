@@ -6,10 +6,10 @@ import { struct } from 'pb-util'; // Helper for converting JS objects to Struct 
 import pino from 'pino';
 import { countTokensSync } from '#llm/tokens';
 import { settleAllWithInput, sleep } from '#utils/async-utils';
-import { INDEXER_EMBEDDING_PROCESSING_BATCH_SIZE, getDiscoveryEngineDataStorePath, getDocumentServiceClient } from '../config';
 import { type CodeFile, readFilesToIndex } from '../../codeLoader';
-import { type TextEmbeddingService, getEmbeddingService } from './vertexEmbedder';
+import { INDEXER_EMBEDDING_PROCESSING_BATCH_SIZE, getDiscoveryEngineDataStorePath, getDocumentServiceClient } from '../config';
 import { type ContextualizedChunkItem, generateContextualizedChunks } from './contextualizedChunker';
+import { type TextEmbeddingService, getEmbeddingService } from './vertexEmbedder';
 
 const logger = pino({ name: 'Indexer' });
 

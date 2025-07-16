@@ -38,7 +38,7 @@ interface RawChunk {
  * @param language The programming language of the file.
  * @returns A promise that resolves to an array of contextualized chunk items.
  */
-export async function generateContextualizedChunksFromFile(filePath: string, fileContent: string, language: string): Promise<ContextualizedChunkItem[]> {
+export async function generateContextualizedChunks(filePath: string, fileContent: string, language: string): Promise<ContextualizedChunkItem[]> {
 	logger.info({ filePath, language, contentLength: fileContent.length }, 'Starting contextualized chunk generation from file');
 
 	const prompt = `

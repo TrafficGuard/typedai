@@ -1,13 +1,14 @@
 import { DataStoreServiceClient, DocumentServiceClient, SearchServiceClient } from '@google-cloud/discoveryengine';
 import { google } from '@google-cloud/discoveryengine/build/protos/protos';
-import pino from 'pino';
 import { struct } from 'pb-util';
+import pino from 'pino';
 import { settleAllWithInput } from '#utils/async-utils';
 import { sleep } from '#utils/async-utils';
-import { createDataStoreServiceClient, getDocumentServiceClient, getSearchServiceClient } from './config';
 import { CodeFile, readFilesToIndex } from '../codeLoader';
-import { TextEmbeddingService, VertexAITextEmbeddingService } from './indexing/vertexEmbedder';
+import { SearchResult, VectorStore } from '../vector';
+import { createDataStoreServiceClient, getDocumentServiceClient, getSearchServiceClient } from './config';
 import { ContextualizedChunkItem, generateContextualizedChunks } from './indexing/contextualizedChunker';
+import { TextEmbeddingService, VertexAITextEmbeddingService } from './indexing/vertexEmbedder';
 
 const logger = pino({ name: 'GoogleVectorStore' });
 
@@ -18,7 +19,6 @@ const RETRY_DELAY_MULTIPLIER = 2;
 
 const FILE_PROCESSING_PARALLEL_BATCH_SIZE = 5;
 const INDEXER_EMBEDDING_PROCESSING_BATCH_SIZE = 100;
-
 
 interface ChunkWithFileContext extends ContextualizedChunkItem {
 	filePath: string;
@@ -49,7 +49,7 @@ export class GoogleVectorStore implements VectorStore {
 		this.embeddingService = new VertexAITextEmbeddingService();
 	}
 
-	async indexRepository(dir: string = './'): Promise<void> {
+	async indexRepository(dir = './'): Promise<void> {
 		logger.info(`Starting indexing pipeline for directory: ${dir}`);
 		await this.ensureDataStoreExists();
 
@@ -89,7 +89,7 @@ export class GoogleVectorStore implements VectorStore {
 
 			for (const result of settledFileResults.rejected) {
 				failedFilesCount.count++;
-				logger.error({ err: result.reason, filePath: result.input.filePath }, `File failed during batched parallel processing.`);
+				logger.error({ err: result.reason, filePath: result.input.filePath }, 'File failed during batched parallel processing.');
 			}
 
 			// Check if current embedding batch is ready or if it's the last file batch
@@ -97,11 +97,7 @@ export class GoogleVectorStore implements VectorStore {
 				processedChunksReadyForEmbedding.length >= INDEXER_EMBEDDING_PROCESSING_BATCH_SIZE ||
 				(i + FILE_PROCESSING_PARALLEL_BATCH_SIZE >= codeFiles.length && processedChunksReadyForEmbedding.length > 0)
 			) {
-				const successfullyEmbeddedInBatch = await this._processAndIndexEmbeddingBatch(
-					processedChunksReadyForEmbedding,
-					documentsToIndex,
-					failedChunksCount,
-				);
+				const successfullyEmbeddedInBatch = await this._processAndIndexEmbeddingBatch(processedChunksReadyForEmbedding, documentsToIndex, failedChunksCount);
 				successfullyProcessedAndEmbeddedChunks += successfullyEmbeddedInBatch;
 				processedChunksReadyForEmbedding.length = 0; // Clear the array for the next batch
 
@@ -217,7 +213,7 @@ export class GoogleVectorStore implements VectorStore {
 				return; // Success
 			} catch (apiError: any) {
 				const delay = INITIAL_RETRY_DELAY_MS * RETRY_DELAY_MULTIPLIER ** attempt;
-				logger.error({ err: apiError, attempt: attempt + 1, delay }, `API call failed for importDocuments. Retrying...`);
+				logger.error({ err: apiError, attempt: attempt + 1, delay }, 'API call failed for importDocuments. Retrying...');
 				if (attempt < MAX_RETRIES - 1) {
 					await sleep(delay);
 				} else {

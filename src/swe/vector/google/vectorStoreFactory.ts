@@ -10,7 +10,7 @@ import { GoogleVectorStore, sanitizeGitUrlForDataStoreId } from './googleVectorS
  * @param repoPath The path to the root of the git repository.
  * @returns A promise that resolves to a configured VectorStore instance.
  */
-export async function createGoogleVectorStore(repoPath: string): Promise<VectorStore> {
+export async function createGoogleVectorService(repoPath: string): Promise<VectorStore> {
 	const git = new Git(getFileSystem());
 	const originUrl = await git.getGitOriginUrl();
 	if (!originUrl) {

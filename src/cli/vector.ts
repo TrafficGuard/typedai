@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 
 import pino from 'pino';
-import { runIndexingPipeline } from './indexing/indexer';
-import { searchCode } from './search';
+import { createGoogleVectorService } from '../swe/vector/google/vectorStoreFactory';
 
 const logger = pino({ name: 'MainSearchScript' });
 
@@ -16,6 +15,8 @@ export async function main() {
 
 	const command = args[0];
 
+	const vectorStore = await createGoogleVectorService(process.cwd());
+
 	switch (command) {
 		case 'index': {
 			if (args.length < 2) {
@@ -23,10 +24,10 @@ export async function main() {
 				printUsage();
 				process.exit(1);
 			}
-			const sourceDir = args[1];
+			const sourceDir = args[1] || './';
 			logger.info(`Starting indexing command for directory: ${sourceDir}`);
 			try {
-				await runIndexingPipeline(sourceDir);
+				await vectorStore.indexRepository(sourceDir);
 				logger.info('Indexing completed successfully.');
 			} catch (error) {
 				logger.error(`Indexing failed: ${error}`);
@@ -43,13 +44,8 @@ export async function main() {
 			}
 			const query = args.slice(1).join(' '); // Join remaining args as query
 			logger.info(`Starting search command for query: "${query}"`);
-			const dataStoreId = process.env.DISCOVERY_ENGINE_DATA_STORE_ID;
-			if (!dataStoreId) {
-				logger.error('DISCOVERY_ENGINE_DATA_STORE_ID environment variable is not set.');
-				process.exit(1);
-			}
 			try {
-				const results = await searchCode(dataStoreId, query);
+				const results = await vectorStore.search(query);
 				if (results.length > 0) {
 					logger.info('Search Results:');
 					// Simple console output - enhance as needed

@@ -3,7 +3,7 @@
 import { expect } from 'chai';
 import pino from 'pino';
 import { DISCOVERY_ENGINE_LOCATION, GCLOUD_PROJECT } from './config';
-import { GoogleVectorStore, sanitizeGitUrlForDataStoreId } from './googleVectorStore';
+import { GoogleVectorStore, sanitizeGitUrlForDataStoreId } from './googleVectorService';
 
 const logger = pino({ name: 'GoogleVectorStoreIntTest' });
 

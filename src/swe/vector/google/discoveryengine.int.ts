@@ -6,11 +6,7 @@ import { expect } from 'chai';
 import { struct } from 'pb-util';
 import pino from 'pino';
 import { sleep } from '#utils/async-utils';
-import {
-	DISCOVERY_ENGINE_LOCATION,
-	GCLOUD_PROJECT,
-	getDocumentServiceClient,
-} from './config';
+import { DISCOVERY_ENGINE_LOCATION, GCLOUD_PROJECT, getDocumentServiceClient } from './config';
 import { GoogleVectorStore } from './googleVectorService';
 import { VertexAITextEmbeddingService } from './indexing/vertexEmbedder';
 

@@ -496,24 +496,36 @@ function setupPyodideFunctionProxies(
 
 			const { finalArgs, parameters } = processFunctionArguments(args, expectedParamNames);
 
+			// Convert any Pyodide proxies in the parameters to plain JS objects before storing.
+			// toJs() is recursive by default and will handle nested objects and arrays.
+			const convertedParameters: Record<string, any> = {};
+			for (const key of Object.keys(parameters)) {
+				const value = parameters[key];
+				if (value && typeof value.toJs === 'function') {
+					convertedParameters[key] = value.toJs({ dict_converter: Object.fromEntries });
+				} else {
+					convertedParameters[key] = value;
+				}
+			}
+
 			try {
 				const functionResponse = await functionInstances[className][method](...finalArgs);
 				// Don't need to duplicate the content in the function call history
 				// TODO Would be nice to save over-written memory keys for history/debugging
 				let stdout = removeConsoleEscapeChars(functionResponse);
 				stdout = JSON.stringify(cloneAndTruncateBuffers(stdout));
-				if (className === 'Agent' && method === 'saveMemory') parameters[AGENT_SAVE_MEMORY_CONTENT_PARAM_NAME] = '(See <memory> entry)';
+				if (className === 'Agent' && method === 'saveMemory') convertedParameters[AGENT_SAVE_MEMORY_CONTENT_PARAM_NAME] = '(See <memory> entry)';
 				if (className === 'Agent' && method === 'getMemory') stdout = '(See <memory> entry)';
 
 				let stdoutSummary: string | undefined;
 				if (stdout && stdout.length > FUNCTION_OUTPUT_THRESHOLD) {
-					stdoutSummary = await summarizeFunctionOutput(agent, agentPlanResponse, schema, parameters, stdout);
+					stdoutSummary = await summarizeFunctionOutput(agent, agentPlanResponse, schema, convertedParameters, stdout);
 				}
 
 				const functionCallResult: FunctionCallResult = {
 					iteration: agent.iterations,
 					function_name: schema.name,
-					parameters,
+					parameters: convertedParameters,
 					stdout,
 					stdoutSummary,
 				};
@@ -526,12 +538,12 @@ function setupPyodideFunctionProxies(
 				if (stderr.length > FUNCTION_OUTPUT_THRESHOLD) {
 					// For function call errors, we might not need to summarize as aggressively as script errors.
 					// Keeping existing logic, or simplify if full error is always preferred for function calls.
-					// stderr = await summarizeFunctionOutput(agent, agentPlanResponse, schema, parameters, stderr);
+					// stderr = await summarizeFunctionOutput(agent, agentPlanResponse, schema, convertedParameters, stderr);
 				}
 				const functionCallResult: FunctionCallResult = {
 					iteration: agent.iterations,
 					function_name: schema.name,
-					parameters,
+					parameters: convertedParameters,
 					stderr,
 					// stderrSummary: outputSummary, TODO
 				};
@@ -602,7 +614,7 @@ async def ${originalName}(*args, **kwargs):
 
 async function initPyodide(): Promise<PyodideInterface> {
 	pyodide = await loadPyodide();
-	// pyodide.setDebug(true); // This can be very verbose, enable if needed for Pyodide internal debugging
+	pyodide.setDebug(true); // This can be very verbose, enable if needed for Pyodide internal debugging
 
 	pyodide.setStdout({
 		batched: (outputLine: string) => {

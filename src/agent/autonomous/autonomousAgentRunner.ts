@@ -109,7 +109,6 @@ async function _startAgent(agent: AgentContext): Promise<AgentExecution> {
 		case 'xml':
 			execution = await runXmlAgent(agent);
 			break;
-		case 'swebench':
 		case 'codegen':
 			execution = await runCodeGenAgent(agent);
 			break;
