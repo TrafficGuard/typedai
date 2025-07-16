@@ -54,7 +54,7 @@ export async function githubRoutes(fastify: AppFastifyInstance) {
 				// 2. Process GitHub event
 				const eventType = request.headers['x-github-event'];
 				const payload = request.body;
-				logger.debug(payload);
+				logger.info(payload);
 
 				switch (eventType) {
 					case 'issue_comment':
@@ -220,7 +220,7 @@ async function handleWorkflowJobEvent(payload: WorkflowJobPayload, fastify: AppF
 	}
 }
 function verifyGitHubSignature(request: any) {
-	const secret = process.env.GITHUB_WEBHOOK_SECRET;
+	const secret = process.env.GITHUB_WEBHOOK_SECRET ?? '';
 	const signature = request.headers['x-hub-signature-256'] as string;
 	const payload = request.rawBody;
 

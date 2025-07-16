@@ -279,6 +279,8 @@ export class CodeEditingAgent {
 					const coder = new SearchReplaceCoder(llms(), getFileSystem());
 					await coder.editFilesToMeetRequirements(codeEditorRequirements, codeEditorFiles, Array.from(ruleFiles), true, true);
 				}
+				// https://docs.morphllm.com/api-reference/introduction
+				// https://news.ycombinator.com/item?id=44490863
 
 				// The code editor may add new files, so we want to add them to the initial file set
 				const addedFiles: string[] = await git.getAddedFiles(compiledCommitSha);

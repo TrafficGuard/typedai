@@ -240,6 +240,7 @@ The output or error from the previously executed Python script will be provided 
 - **Full Content Access:**
     - The full result of the previous script is available in the Python variable
       `PREVIOUS_SCRIPT_RESULT` (or `PREVIOUS_SCRIPT_ERROR` if the previous run raised an error).
+    - Note that PREVIOUS_SCRIPT_RESULT is a string value in JSON format. You will need to parse it to a Dict to lookup keys.
     - The `<script-result>` or `<script-error>` tag in the prompt provides a summary
       of the output/error and indicates the name of the Python variable holding the
       full content or handle via the `py_var_name` attribute.
