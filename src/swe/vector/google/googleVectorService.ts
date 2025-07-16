@@ -1,21 +1,16 @@
-import { DataStoreServiceClient, DocumentServiceClient, SearchServiceClient } from '@google-cloud/discoveryengine';
 import { google } from '@google-cloud/discoveryengine/build/protos/protos';
 import { struct } from 'pb-util';
 import pino from 'pino';
 import { settleAllWithInput } from '#utils/async-utils';
-import { sleep } from '#utils/async-utils';
 import { CodeFile, readFilesToIndex } from '../codeLoader';
 import { SearchResult, VectorStore } from '../vector';
-import { createDataStoreServiceClient, getDocumentServiceClient, getSearchServiceClient } from './config';
+import { DiscoveryEngineDataStore } from './discoveryEngineDataStore';
 import { ContextualizedChunkItem, generateContextualizedChunks } from './indexing/contextualizedChunker';
 import { TextEmbeddingService, VertexAITextEmbeddingService } from './indexing/vertexEmbedder';
 
 const logger = pino({ name: 'GoogleVectorStore' });
 
 const BATCH_SIZE = 100; // Max documents per ImportDocuments request
-const MAX_RETRIES = 3;
-const INITIAL_RETRY_DELAY_MS = 1000;
-const RETRY_DELAY_MULTIPLIER = 2;
 
 const FILE_PROCESSING_PARALLEL_BATCH_SIZE = 5;
 const INDEXER_EMBEDDING_PROCESSING_BATCH_SIZE = 100;
@@ -31,10 +26,7 @@ export class GoogleVectorStore implements VectorStore {
 	private readonly location: string;
 	private readonly collection: string;
 	private dataStoreId: string;
-	private dataStoreClient: DataStoreServiceClient;
-	private documentClient: DocumentServiceClient;
-	private searchClient: SearchServiceClient;
-	private dataStorePath: string | null = null;
+	private dataStore: DiscoveryEngineDataStore;
 	private embeddingService: TextEmbeddingService;
 
 	constructor(project: string, location: string, collection: string, dataStoreId: string) {
@@ -43,15 +35,13 @@ export class GoogleVectorStore implements VectorStore {
 		this.collection = collection;
 		this.dataStoreId = dataStoreId;
 
-		this.documentClient = getDocumentServiceClient();
-		this.searchClient = getSearchServiceClient();
-		this.dataStoreClient = createDataStoreServiceClient(this.location);
+		this.dataStore = new DiscoveryEngineDataStore(project, location, collection, dataStoreId);
 		this.embeddingService = new VertexAITextEmbeddingService();
 	}
 
 	async indexRepository(dir = './'): Promise<void> {
 		logger.info(`Starting indexing pipeline for directory: ${dir}`);
-		await this.ensureDataStoreExists();
+		await this.dataStore.ensureDataStoreExists();
 
 		const codeFiles = await readFilesToIndex(dir);
 		if (codeFiles.length === 0) {
@@ -61,7 +51,7 @@ export class GoogleVectorStore implements VectorStore {
 		logger.info(`Loaded ${codeFiles.length} code files.`);
 
 		// Before indexing new content, purge all documents associated with the files being re-indexed.
-		await this.deleteDocuments(codeFiles.map((file) => file.filePath));
+		await this.dataStore.purgeDocuments(codeFiles.map((file) => file.filePath));
 
 		const failedFilesCount = { count: 0 };
 		const failedChunksCount = { count: 0 };
@@ -104,7 +94,7 @@ export class GoogleVectorStore implements VectorStore {
 				// Check if documentsToIndex needs to be flushed to Discovery Engine
 				if (documentsToIndex.length >= BATCH_SIZE || (i + FILE_PROCESSING_PARALLEL_BATCH_SIZE >= codeFiles.length && documentsToIndex.length > 0)) {
 					logger.info(`Indexing batch of ${documentsToIndex.length} documents to Discovery Engine...`);
-					await this._importDocumentsBatch(documentsToIndex);
+					await this.dataStore.importDocuments(documentsToIndex);
 					documentsToIndex.length = 0; // Clear the Discovery Engine batch array
 				}
 			}
@@ -196,72 +186,14 @@ export class GoogleVectorStore implements VectorStore {
 		return document;
 	}
 
-	private async _importDocumentsBatch(documents: google.cloud.discoveryengine.v1beta.IDocument[]): Promise<void> {
-		if (documents.length === 0) return;
-
-		const request: google.cloud.discoveryengine.v1beta.IImportDocumentsRequest = {
-			parent: `${this.dataStorePath}/branches/default_branch`,
-			inlineSource: { documents },
-			reconciliationMode: google.cloud.discoveryengine.v1beta.ImportDocumentsRequest.ReconciliationMode.INCREMENTAL,
-		};
-
-		for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-			try {
-				const [operation] = await this.documentClient.importDocuments(request);
-				logger.info(`ImportDocuments operation started: ${operation.name}`);
-				// Not waiting for completion to speed up process.
-				return; // Success
-			} catch (apiError: any) {
-				const delay = INITIAL_RETRY_DELAY_MS * RETRY_DELAY_MULTIPLIER ** attempt;
-				logger.error({ err: apiError, attempt: attempt + 1, delay }, 'API call failed for importDocuments. Retrying...');
-				if (attempt < MAX_RETRIES - 1) {
-					await sleep(delay);
-				} else {
-					logger.error(`All ${MAX_RETRIES} retries failed for importDocuments. Skipping batch.`);
-					throw apiError;
-				}
-			}
-		}
-	}
-
-	private async deleteDocuments(filePaths: string[]): Promise<void> {
-		if (filePaths.length === 0) return;
-		logger.info(`Purging documents for ${filePaths.length} file(s)...`);
-
-		const BATCH_SIZE_PURGE = 20;
-		for (let i = 0; i < filePaths.length; i += BATCH_SIZE_PURGE) {
-			const batchFilePaths = filePaths.slice(i, i + BATCH_SIZE_PURGE);
-			const filter = batchFilePaths.map((p) => `struct_field("file_path") = "${p}"`).join(' OR ');
-
-			const request: google.cloud.discoveryengine.v1beta.IPurgeDocumentsRequest = {
-				parent: `${this.dataStorePath}/branches/default_branch`,
-				filter: filter,
-				force: true,
-			};
-
-			try {
-				const [operation] = await this.documentClient.purgeDocuments(request);
-				logger.info(`PurgeDocuments operation started for ${batchFilePaths.length} files: ${operation.name}`);
-			} catch (error) {
-				logger.error({ error, filter }, 'Failed to start PurgeDocuments operation.');
-			}
-		}
-	}
-
 	async search(query: string, maxResults = 10): Promise<SearchResult[]> {
-		await this.ensureDataStoreExists();
+		await this.dataStore.ensureDataStoreExists();
 		logger.info({ query, maxResults }, `Performing search in data store: ${this.dataStoreId}`);
 		return this.runSearchInternal(query, maxResults);
 	}
 
 	private async runSearchInternal(query: string, maxResults: number): Promise<SearchResult[]> {
-		const servingConfigPath = this.searchClient.projectLocationCollectionDataStoreServingConfigPath(
-			this.project,
-			this.location,
-			this.collection,
-			this.dataStoreId,
-			'default_config',
-		);
+		const servingConfigPath = this.dataStore.getServingConfigPath();
 
 		const queryEmbedding = await this.embeddingService.generateEmbedding(query, 'CODE_RETRIEVAL_QUERY');
 		if (!queryEmbedding) {
@@ -283,9 +215,7 @@ export class GoogleVectorStore implements VectorStore {
 			},
 		};
 
-		const [response] = (await this.searchClient.search(searchRequest, {
-			autoPaginate: false,
-		})) as [google.cloud.discoveryengine.v1beta.ISearchResponse, any, any];
+		const response = await this.dataStore.search(searchRequest);
 
 		const searchResultsWithScore = (response.results || [])
 			.map((result) => {
@@ -314,39 +244,6 @@ export class GoogleVectorStore implements VectorStore {
 			...item.searchResult,
 			score: item.score,
 		}));
-	}
-
-	private async ensureDataStoreExists(): Promise<void> {
-		if (this.dataStorePath) return;
-
-		const parent = `projects/${this.project}/locations/${this.location}/collections/${this.collection}`;
-		const prospectivePath = `${parent}/dataStores/${this.dataStoreId}`;
-
-		try {
-			await this.dataStoreClient.getDataStore({ name: prospectivePath });
-			logger.info(`Data store "${this.dataStoreId}" already exists.`);
-		} catch (error: any) {
-			if (error.code === 5) {
-				// gRPC code for NOT_FOUND
-				logger.warn(`Data store "${this.dataStoreId}" not found. Creating...`);
-				const [operation] = await this.dataStoreClient.createDataStore({
-					parent,
-					dataStoreId: this.dataStoreId,
-					dataStore: {
-						displayName: `Repo: ${this.dataStoreId}`,
-						industryVertical: 'GENERIC',
-						solutionTypes: [google.cloud.discoveryengine.v1beta.SolutionType.SOLUTION_TYPE_SEARCH],
-						contentConfig: 'NO_CONTENT',
-					},
-				});
-				await operation.promise();
-				logger.info(`Successfully created data store "${this.dataStoreId}".`);
-			} else {
-				logger.error({ error }, `Failed to get or create data store "${this.dataStoreId}".`);
-				throw error;
-			}
-		}
-		this.dataStorePath = prospectivePath;
 	}
 }
 
