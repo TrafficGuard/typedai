@@ -140,7 +140,7 @@ describe.skip('Google discoveryengine API', function () {
 		setDiscoveryEngineDataStoreIdForTesting(testDataStoreId);
 
 		logger.info(`Step 4: Performing search with query: "${testQuery}"...`);
-		const results = await searchCode(testQuery, 5);
+		const results = await searchCode(testDataStoreId, testQuery);
 
 		// Restore the original ID immediately after the call
 		setDiscoveryEngineDataStoreIdForTesting(originalId);
