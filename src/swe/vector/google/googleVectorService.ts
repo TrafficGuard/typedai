@@ -2,8 +2,8 @@ import { DataStoreServiceClient, DocumentServiceClient, SearchServiceClient } fr
 import { google } from '@google-cloud/discoveryengine/build/protos/protos';
 import pino from 'pino';
 import { struct } from 'pb-util';
+import { settleAllWithInput } from '#utils/async-utils';
 import { sleep } from '#utils/async-utils';
-import { SearchResult, VectorStore } from '../vector';
 import { createDataStoreServiceClient, getDocumentServiceClient, getSearchServiceClient } from './config';
 import { CodeFile, readFilesToIndex } from '../codeLoader';
 import { TextEmbeddingService, VertexAITextEmbeddingService } from './indexing/vertexEmbedder';
@@ -15,6 +15,9 @@ const BATCH_SIZE = 100; // Max documents per ImportDocuments request
 const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY_MS = 1000;
 const RETRY_DELAY_MULTIPLIER = 2;
+
+const FILE_PROCESSING_PARALLEL_BATCH_SIZE = 5;
+const INDEXER_EMBEDDING_PROCESSING_BATCH_SIZE = 100;
 
 
 interface ChunkWithFileContext extends ContextualizedChunkItem {
@@ -47,25 +50,126 @@ export class GoogleVectorStore implements VectorStore {
 	}
 
 	async indexRepository(dir: string = './'): Promise<void> {
-		const files = await readFilesToIndex(dir);
-		await this.indexFiles(files);
-	}
-
-	private async indexFiles(files: CodeFile[]): Promise<void> {
+		logger.info(`Starting indexing pipeline for directory: ${dir}`);
 		await this.ensureDataStoreExists();
 
-		const documents: ChunkWithFileContext[] = await this.generateContextualizedChunks(files);
+		const codeFiles = await readFilesToIndex(dir);
+		if (codeFiles.length === 0) {
+			logger.warn('No code files found to index.');
+			return;
+		}
+		logger.info(`Loaded ${codeFiles.length} code files.`);
 
-		await this.addEmbeddings(documents);
+		// Before indexing new content, purge all documents associated with the files being re-indexed.
+		await this.deleteDocuments(codeFiles.map((file) => file.filePath));
 
-		await this.deleteDocuments(files.map((file) => file.filePath));
+		const failedFilesCount = { count: 0 };
+		const failedChunksCount = { count: 0 };
+		let totalChunks = 0;
+		let successfullyProcessedAndEmbeddedChunks = 0;
+		const documentsToIndex: google.cloud.discoveryengine.v1beta.IDocument[] = [];
+		const processedChunksReadyForEmbedding: ChunkWithFileContext[] = [];
 
-		await this.importDocuments(documents);
+		// Process files in parallel batches
+		for (let i = 0; i < codeFiles.length; i += FILE_PROCESSING_PARALLEL_BATCH_SIZE) {
+			const fileBatch = codeFiles.slice(i, i + FILE_PROCESSING_PARALLEL_BATCH_SIZE);
+			logger.info(`Processing a batch of ${fileBatch.length} files in parallel (batch starting at index ${i})...`);
+
+			const settledFileResults = await settleAllWithInput(fileBatch, (currentFile) => this._processFileAndGetContextualizedChunks(currentFile));
+
+			const chunksFromBatch: ChunkWithFileContext[] = [];
+			for (const result of settledFileResults.fulfilledInputs) {
+				const chunksFromThisFile = result[1]; // resolvedValue is ChunkWithFileContext[]
+				if (chunksFromThisFile.length > 0) {
+					chunksFromBatch.push(...chunksFromThisFile);
+				}
+			}
+			processedChunksReadyForEmbedding.push(...chunksFromBatch);
+			totalChunks += chunksFromBatch.length;
+
+			for (const result of settledFileResults.rejected) {
+				failedFilesCount.count++;
+				logger.error({ err: result.reason, filePath: result.input.filePath }, `File failed during batched parallel processing.`);
+			}
+
+			// Check if current embedding batch is ready or if it's the last file batch
+			if (
+				processedChunksReadyForEmbedding.length >= INDEXER_EMBEDDING_PROCESSING_BATCH_SIZE ||
+				(i + FILE_PROCESSING_PARALLEL_BATCH_SIZE >= codeFiles.length && processedChunksReadyForEmbedding.length > 0)
+			) {
+				const successfullyEmbeddedInBatch = await this._processAndIndexEmbeddingBatch(
+					processedChunksReadyForEmbedding,
+					documentsToIndex,
+					failedChunksCount,
+				);
+				successfullyProcessedAndEmbeddedChunks += successfullyEmbeddedInBatch;
+				processedChunksReadyForEmbedding.length = 0; // Clear the array for the next batch
+
+				// Check if documentsToIndex needs to be flushed to Discovery Engine
+				if (documentsToIndex.length >= BATCH_SIZE || (i + FILE_PROCESSING_PARALLEL_BATCH_SIZE >= codeFiles.length && documentsToIndex.length > 0)) {
+					logger.info(`Indexing batch of ${documentsToIndex.length} documents to Discovery Engine...`);
+					await this._importDocumentsBatch(documentsToIndex);
+					documentsToIndex.length = 0; // Clear the Discovery Engine batch array
+				}
+			}
+		}
+
+		logger.info(
+			`Indexing pipeline completed. Successfully prepared ${successfullyProcessedAndEmbeddedChunks} chunks from ${
+				codeFiles.length - failedFilesCount.count
+			} files for indexing.`,
+		);
+	}
+
+	private async _processFileAndGetContextualizedChunks(file: CodeFile): Promise<ChunkWithFileContext[]> {
+		try {
+			const contextualizedItems = await generateContextualizedChunks(file.filePath, file.content, file.language);
+			return contextualizedItems.map((item) => ({
+				...item,
+				filePath: file.filePath,
+				language: file.language,
+			}));
+		} catch (fileProcessingError: any) {
+			logger.error(
+				{ err: { message: fileProcessingError.message, stack: fileProcessingError.stack }, filePath: file.filePath },
+				`Critical error processing file ${file.filePath}. Skipping this file.`,
+			);
+			return [];
+		}
+	}
+
+	private async _processAndIndexEmbeddingBatch(
+		chunksToProcess: ChunkWithFileContext[],
+		documentsTarget: google.cloud.discoveryengine.v1beta.IDocument[],
+		globalFailedChunksCounter: { count: number },
+	): Promise<number> {
+		if (chunksToProcess.length === 0) return 0;
+
+		logger.info(`Processing batch of ${chunksToProcess.length} chunks for embedding...`);
+		const textsToEmbed = chunksToProcess.map((chunk) => chunk.contextualized_chunk_content);
+		const embeddingsBatchResults = await this.embeddingService.generateEmbeddings(textsToEmbed, 'RETRIEVAL_DOCUMENT');
+
+		let successfullyEmbeddedInBatch = 0;
+		for (let i = 0; i < embeddingsBatchResults.length; i++) {
+			const embeddingVector = embeddingsBatchResults[i];
+			const currentChunk = chunksToProcess[i];
+
+			if (embeddingVector && embeddingVector.length > 0) {
+				currentChunk.embedding = embeddingVector;
+				const docProto = this._prepareDocumentProto(currentChunk);
+				documentsTarget.push(docProto);
+				successfullyEmbeddedInBatch++;
+			} else {
+				globalFailedChunksCounter.count++;
+				logger.warn(`Skipping chunk in ${currentChunk.filePath} at line ${currentChunk.source_location.start_line} due to embedding failure.`);
+			}
+		}
+		logger.info(`Successfully embedded ${successfullyEmbeddedInBatch} documents from batch of ${chunksToProcess.length}.`);
+		return successfullyEmbeddedInBatch;
 	}
 
 	private _createDocumentId(filePath: string, functionName: string | undefined, startLine: number): string {
 		const identifier = `${filePath}:${functionName || 'file'}:${startLine}`;
-		// Use base64 encoding for safe IDs
 		return Buffer.from(identifier).toString('base64url');
 	}
 
@@ -79,94 +183,56 @@ export class GoogleVectorStore implements VectorStore {
 			end_line: chunk.source_location.end_line,
 			language: chunk.language,
 			natural_language_description: chunk.generated_context,
-			chunk_specific_context: chunk.generated_context,
 			original_code: chunk.original_chunk_content,
 		};
 
 		const jsonData = struct.encode(metadata);
-
-		const document: google.cloud.discoveryengine.v1beta.IDocument = {
-			id: docId,
-			structData: jsonData,
-		};
+		const document: google.cloud.discoveryengine.v1beta.IDocument = { id: docId, structData: jsonData };
 
 		if (document.structData?.fields) {
 			if (chunk.embedding && chunk.embedding.length > 0) {
 				document.structData.fields.embedding_vector = {
-					listValue: {
-						values: chunk.embedding.map((value) => ({ numberValue: value })),
-					},
+					listValue: { values: chunk.embedding.map((value) => ({ numberValue: value })) },
 				};
-			} else {
-				logger.warn(`No embedding generated for doc ${docId}`);
 			}
-
-			const lexicalSearchContent = chunk.contextualized_chunk_content;
-			if (lexicalSearchContent && lexicalSearchContent.trim() !== '') {
-				document.structData.fields.lexical_search_text = { stringValue: lexicalSearchContent };
-			} else {
-				logger.warn(`Document ID ${docId} has empty lexicalSearchContent. Not adding lexical_search_text field.`);
-			}
-		} else {
-			logger.warn(`structData or structData.fields missing for doc ${docId}. Cannot add embedding or lexical_search_text.`);
+			document.structData.fields.lexical_search_text = { stringValue: chunk.contextualized_chunk_content };
 		}
-
 		return document;
 	}
 
-	private async importDocuments(documents: ChunkWithFileContext[]): Promise<void> {
-		logger.info(`Starting import for ${documents.length} documents.`);
-		for (let i = 0; i < documents.length; i += BATCH_SIZE) {
-			const batch = documents.slice(i, i + BATCH_SIZE);
-			const docProtos = batch.map((doc) => this._prepareDocumentProto(doc));
+	private async _importDocumentsBatch(documents: google.cloud.discoveryengine.v1beta.IDocument[]): Promise<void> {
+		if (documents.length === 0) return;
 
-			if (docProtos.length === 0) continue;
+		const request: google.cloud.discoveryengine.v1beta.IImportDocumentsRequest = {
+			parent: `${this.dataStorePath}/branches/default_branch`,
+			inlineSource: { documents },
+			reconciliationMode: google.cloud.discoveryengine.v1beta.ImportDocumentsRequest.ReconciliationMode.INCREMENTAL,
+		};
 
-			const request: google.cloud.discoveryengine.v1beta.IImportDocumentsRequest = {
-				parent: `${this.dataStorePath}/branches/default_branch`,
-				inlineSource: {
-					documents: docProtos,
-				},
-				reconciliationMode: google.cloud.discoveryengine.v1beta.ImportDocumentsRequest.ReconciliationMode.INCREMENTAL,
-			};
-
-			for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-				try {
-					logger.info(`Attempting to import batch of ${docProtos.length} documents (Attempt ${attempt + 1}/${MAX_RETRIES})...`);
-					const [operation] = await this.documentClient.importDocuments(request);
-					logger.info(`ImportDocuments operation started: ${operation.name}`);
-					// Not waiting for completion for now to speed up process, can be changed.
-					// await operation.promise();
-					break; // Success
-				} catch (apiError: any) {
-					const delay = INITIAL_RETRY_DELAY_MS * RETRY_DELAY_MULTIPLIER ** attempt;
-					logger.error(
-						{ err: apiError, attempt: attempt + 1, maxRetries: MAX_RETRIES, delay },
-						`API call failed for importDocuments. Retrying in ${delay}ms...`,
-					);
-					if (attempt < MAX_RETRIES - 1) {
-						await sleep(delay);
-					} else {
-						logger.error(`All ${MAX_RETRIES} retries failed for importDocuments. Skipping batch.`);
-						// Decide if to throw or just log and continue
-					}
+		for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+			try {
+				const [operation] = await this.documentClient.importDocuments(request);
+				logger.info(`ImportDocuments operation started: ${operation.name}`);
+				// Not waiting for completion to speed up process.
+				return; // Success
+			} catch (apiError: any) {
+				const delay = INITIAL_RETRY_DELAY_MS * RETRY_DELAY_MULTIPLIER ** attempt;
+				logger.error({ err: apiError, attempt: attempt + 1, delay }, `API call failed for importDocuments. Retrying...`);
+				if (attempt < MAX_RETRIES - 1) {
+					await sleep(delay);
+				} else {
+					logger.error(`All ${MAX_RETRIES} retries failed for importDocuments. Skipping batch.`);
+					throw apiError;
 				}
 			}
 		}
-		logger.info('Finished importing all document batches.');
 	}
 
 	private async deleteDocuments(filePaths: string[]): Promise<void> {
-		if (filePaths.length === 0) {
-			logger.info('No file paths provided for deletion. Skipping.');
-			return;
-		}
+		if (filePaths.length === 0) return;
 		logger.info(`Purging documents for ${filePaths.length} file(s)...`);
 
-		// Discovery Engine filter string can get very long.
-		// Let's batch the deletions to avoid hitting filter length limits.
-		const BATCH_SIZE_PURGE = 20; // Number of files to purge per API call
-
+		const BATCH_SIZE_PURGE = 20;
 		for (let i = 0; i < filePaths.length; i += BATCH_SIZE_PURGE) {
 			const batchFilePaths = filePaths.slice(i, i + BATCH_SIZE_PURGE);
 			const filter = batchFilePaths.map((p) => `struct_field("file_path") = "${p}"`).join(' OR ');
@@ -174,57 +240,17 @@ export class GoogleVectorStore implements VectorStore {
 			const request: google.cloud.discoveryengine.v1beta.IPurgeDocumentsRequest = {
 				parent: `${this.dataStorePath}/branches/default_branch`,
 				filter: filter,
-				force: true, // Required for purge
+				force: true,
 			};
 
 			try {
 				const [operation] = await this.documentClient.purgeDocuments(request);
 				logger.info(`PurgeDocuments operation started for ${batchFilePaths.length} files: ${operation.name}`);
-				// Not waiting for completion to speed up process.
-				// await operation.promise();
 			} catch (error) {
 				logger.error({ error, filter }, 'Failed to start PurgeDocuments operation.');
-				// Decide if to throw or continue
 			}
 		}
 	}
-
-	private async addEmbeddings(documents: ChunkWithFileContext[]): Promise<void> {
-		logger.info(`Generating embeddings for ${documents.length} document chunks.`);
-		const BATCH_SIZE_EMBEDDING = 25; // As per EMBEDDING_API_BATCH_SIZE in config
-
-		for (let i = 0; i < documents.length; i += BATCH_SIZE_EMBEDDING) {
-			const batch = documents.slice(i, i + BATCH_SIZE_EMBEDDING);
-			const textsToEmbed = batch.map((c) => c.contextualized_chunk_content);
-
-			const embeddings = await this.embeddingService.generateEmbeddings(textsToEmbed, 'RETRIEVAL_DOCUMENT');
-
-			embeddings.forEach((embedding, index) => {
-				if (embedding) {
-					batch[index].embedding = embedding;
-				} else {
-					logger.warn(`Failed to generate embedding for chunk starting at line ${batch[index].source_location.start_line} in ${batch[index].filePath}`);
-				}
-			});
-		}
-		logger.info('Finished generating embeddings for all chunks.');
-	}
-
-	private async generateContextualizedChunks(files: CodeFile[]): Promise<ChunkWithFileContext[]> {
-		const allChunks: ChunkWithFileContext[] = [];
-		for (const file of files) {
-			const chunksForFile = await generateContextualizedChunks(file.filePath, file.content, file.language);
-			for (const chunk of chunksForFile) {
-				allChunks.push({
-					...chunk,
-					filePath: file.filePath,
-					language: file.language,
-				});
-			}
-		}
-		return allChunks;
-	}
-
 
 	async search(query: string, maxResults = 10): Promise<SearchResult[]> {
 		await this.ensureDataStoreExists();
