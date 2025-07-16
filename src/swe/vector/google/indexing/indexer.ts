@@ -7,9 +7,9 @@ import pino from 'pino';
 import { countTokensSync } from '#llm/tokens';
 import { settleAllWithInput, sleep } from '#utils/async-utils';
 import { INDEXER_EMBEDDING_PROCESSING_BATCH_SIZE, getDiscoveryEngineDataStorePath, getDocumentServiceClient } from '../config';
-import { type CodeFile, loadCodeFiles } from './codeLoader';
+import { type CodeFile, readFilesToIndex } from './codeLoader';
 import { type TextEmbeddingService, getEmbeddingService } from './embedder';
-import { type ContextualizedChunkItem, generateContextualizedChunksFromFile } from './unifiedChunkContextualizer';
+import { type ContextualizedChunkItem, generateContextualizedChunks } from './unifiedChunkContextualizer';
 
 const logger = pino({ name: 'Indexer' });
 
@@ -58,7 +58,7 @@ async function processFileAndGetContextualizedChunks(file: CodeFile, globalFaile
 	const processedChunksForEmbedding: ProcessedChunkForEmbedding[] = [];
 
 	try {
-		const contextualizedItems: ContextualizedChunkItem[] = await generateContextualizedChunksFromFile(file.filePath, file.content, file.language);
+		const contextualizedItems: ContextualizedChunkItem[] = await generateContextualizedChunks(file.filePath, file.content, file.language);
 
 		for (const item of contextualizedItems) {
 			const processedChunk: ProcessedChunkForEmbedding = {
@@ -166,7 +166,7 @@ export async function runIndexingPipeline(sourceDir: string): Promise<void> {
 	const embedderService = getEmbeddingService();
 
 	// 1. Load Code Files
-	const codeFiles = await loadCodeFiles(sourceDir);
+	const codeFiles = await readFilesToIndex(sourceDir);
 	if (codeFiles.length === 0) {
 		logger.warn('No code files found to index.');
 		return;
@@ -189,10 +189,21 @@ export async function runIndexingPipeline(sourceDir: string): Promise<void> {
 		}
 		logger.info(`Processing batch of ${chunksToProcess.length} processed chunks for embedding...`);
 
-		const textsToEmbed = chunksToProcess.map((c) => c.embeddingContent);
+		// Gemini Embedding Quota limit input tokens per minute: 200000
+		const TOKENS_PER_MINUTE_QUOTA = 200000;
+		// Get chunks to just under 200k tokens
+		let batchTokens = 0;
+		let textsToEmbed: string[] = [];
+		for (const chunk of chunksToProcess) {
+			const chunkTokens = countTokensSync(chunk.embeddingContent);
+			if (batchTokens + chunkTokens > TOKENS_PER_MINUTE_QUOTA) {
+				break;
+			}
+			batchTokens += chunkTokens;
+			textsToEmbed.push(chunk.embeddingContent);
 
-		// Calculate the total number of tokens in the current batch of texts to be embedded.
-		const batchTokens = textsToEmbed.reduce((sum, text) => sum + countTokensSync(text), 0);
+			processedChunksReadyForEmbedding.push(chunk);
+		}
 
 		// Get the current time to define the rolling window for quota management.
 		let now = Date.now();

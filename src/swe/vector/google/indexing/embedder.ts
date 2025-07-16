@@ -22,7 +22,7 @@ export interface TextEmbeddingService {
 }
 
 // https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/text-embeddings-api#generative-ai-get-text-embedding-nodejs
-class VertexAITextEmbeddingService implements TextEmbeddingService {
+export class VertexAITextEmbeddingService implements TextEmbeddingService {
 	private client: PredictionServiceClient;
 	private endpointPath: string;
 
