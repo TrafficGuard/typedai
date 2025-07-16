@@ -12,8 +12,6 @@ export const EMBEDDING_API_BATCH_SIZE = 25;
 export const INDEXER_EMBEDDING_PROCESSING_BATCH_SIZE = 100;
 export const TOKENS_PER_MINUTE_QUOTA = 200_000;
 
-let testOverrideDataStoreId: string | undefined;
-
 /**
  * Creates a DocumentServiceClient for a specific location.
  * @param location The Google Cloud location (e.g., 'global', 'us').
@@ -47,16 +45,9 @@ export function getDiscoveryEngineDataStorePath(): string {
 		GCLOUD_PROJECT,
 		DISCOVERY_ENGINE_LOCATION,
 		DISCOVERY_ENGINE_COLLECTION_ID,
-		testOverrideDataStoreId ?? DISCOVERY_ENGINE_DATA_STORE_ID,
+		DISCOVERY_ENGINE_DATA_STORE_ID,
 		branchId,
 	);
-}
-
-/**
- * Test-only function to override the data store ID.
- */
-export function setDiscoveryEngineDataStoreIdForTesting(id: string | undefined): void {
-	testOverrideDataStoreId = id;
 }
 
 /**
