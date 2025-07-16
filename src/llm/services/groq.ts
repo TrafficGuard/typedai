@@ -28,8 +28,8 @@ export function groqKimiK2(): LLM {
 	return new GroqLLM(
 		'Kimi K2 (Groq)',
 		'moonshotai/kimi-k2-instruct',
-		// 8,192 max output tokens (assumption)
-		8192,
+		// 16,384 max output tokens (based on DeepInfra documentation)
+		16384,
 		// TODO: Update with official pricing.
 		fixedCostPerMilTokens(0.5, 0.5),
 	);
