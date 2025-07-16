@@ -82,7 +82,7 @@ export class VertexAITextEmbeddingService implements TextEmbeddingService {
 						logger.warn({ prediction, functionName, taskType }, 'Invalid data type or NaN in embedding vector.');
 						return null;
 					}
-					return embedding; // Success
+					return embedding;
 				}
 				throw new Error('Invalid embedding structure in response');
 			} catch (error: any) {

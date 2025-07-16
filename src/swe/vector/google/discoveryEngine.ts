@@ -79,8 +79,7 @@ export class DiscoveryEngine {
 			try {
 				const [operation] = await this.documentClient.importDocuments(request);
 				logger.info(`ImportDocuments operation started: ${operation.name}`);
-				// Not waiting for completion to speed up process.
-				return; // Success
+				return;
 			} catch (apiError: any) {
 				const delay = INITIAL_RETRY_DELAY_MS * RETRY_DELAY_MULTIPLIER ** attempt;
 				logger.error({ err: apiError, attempt: attempt + 1, delay }, 'API call failed for importDocuments. Retrying...');

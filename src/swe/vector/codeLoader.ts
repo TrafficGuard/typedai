@@ -46,9 +46,9 @@ export async function readFilesToIndex(sourceDir: string, excludeDirs: string[] 
 	for (const filePath of files) {
 		try {
 			const content = await fs.readFile(filePath, 'utf-8');
-			const language = path.extname(filePath).substring(1); // Get extension without dot
+			const language = path.extname(filePath).substring(1);
 			codeFiles.push({
-				filePath: path.relative(sourceDir, filePath), // Store relative path
+				filePath: path.relative(sourceDir, filePath),
 				content,
 				language,
 			});

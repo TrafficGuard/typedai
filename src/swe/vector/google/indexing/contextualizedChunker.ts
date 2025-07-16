@@ -1,6 +1,7 @@
 import pino from 'pino';
 import { summaryLLM } from '#llm/services/defaultLlms';
 import type { LLM } from '#shared/llm/llm.model';
+import { GENERATE_CHUNK_CONTEXT_PROMPT } from './prompts';
 
 const logger = pino({ name: 'UnifiedChunkContextualizer' });
 
@@ -102,16 +103,7 @@ JSON Array:
 		}
 
 		const contextGenerationPromises = rawChunks.map(async (chunk) => {
-			const contextPrompt = `
-<document>
-${fileContent}
-</document>
-Here is the chunk we want to situate within the whole document
-<chunk>
-${chunk.original_chunk_content}
-</chunk>
-Please give a short succinct context to situate this chunk within the overall document for the purposes of improving search retrieval of the chunk. Answer only with the succinct context and nothing else.
-`;
+			const contextPrompt = GENERATE_CHUNK_CONTEXT_PROMPT(chunk.original_chunk_content, fileContent, language);
 			try {
 				logger.info({ filePath, chunk_start_line: chunk.start_line, llmId: llmForContext.getId() }, 'Requesting context for chunk from LLM');
 				const generated_context_for_chunk = await llmForContext.generateText(contextPrompt, { id: 'Chunk Context Generation' });
