@@ -497,6 +497,7 @@ function setupPyodideFunctionProxies(
 			const { finalArgs, parameters } = processFunctionArguments(args, expectedParamNames);
 
 			// Convert any Pyodide proxies in the parameters to plain JS objects before storing.
+			// This is necessary because Firestore cannot handle JsProxy objects.
 			// toJs() is recursive by default and will handle nested objects and arrays.
 			const convertedParameters: Record<string, any> = {};
 			for (const key of Object.keys(parameters)) {
