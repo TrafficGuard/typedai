@@ -6,9 +6,9 @@ import pino from 'pino';
 import { settleAllWithInput, sleep } from '#utils/async-utils';
 import { SearchResult, VectorStore } from '../vector';
 import { createDataStoreServiceClient, getDocumentServiceClient, getSearchServiceClient } from './config';
-import { CodeFile, loadCodeFiles } from './indexing/codeLoader';
-import { TextEmbeddingService, getEmbeddingService } from './indexing/embedder';
-import { generateContextualizedChunksFromFile } from './indexing/unifiedChunkContextualizer';
+import { CodeFile, readFilesToIndex } from './indexing/codeLoader';
+import { TextEmbeddingService, VertexAITextEmbeddingService, getEmbeddingService } from './indexing/embedder';
+import { ContextualizedChunkItem, generateContextualizedChunks } from './indexing/unifiedChunkContextualizer';
 
 const logger = pino({ name: 'GoogleVectorStore' });
 
@@ -21,6 +21,7 @@ export class GoogleVectorStore implements VectorStore {
 	private documentClient: DocumentServiceClient;
 	private searchClient: SearchServiceClient;
 	private dataStorePath: string | null = null;
+	private embeddingService: TextEmbeddingService;
 
 	constructor(project: string, location: string, collection: string, dataStoreId: string) {
 		this.project = project;
@@ -31,17 +32,48 @@ export class GoogleVectorStore implements VectorStore {
 		this.documentClient = getDocumentServiceClient();
 		this.searchClient = getSearchServiceClient();
 		this.dataStoreClient = createDataStoreServiceClient(this.location);
+		this.embeddingService = new VertexAITextEmbeddingService()
 	}
 
-	async indexRepository(rootDir: string): Promise<void> {
+	async indexRepository(dir: string = './'): Promise<void> {
+		const files = await readFilesToIndex(dir);
+		await this.indexFiles(files);
+	}
+
+	private async indexFiles(files: CodeFile[]): Promise<void> {
 		await this.ensureDataStoreExists();
-		logger.info(`Starting indexing for data store: ${this.dataStoreId}`);
-		await this.runIndexingPipelineInternal(rootDir);
+
+		const documents = await this.generateContextualizedChunks(files);
+
+		await this.addEmbeddings(documents);
+
+		await this.deleteDocuments(files.map(file => file.filePath));
+
+		await this.importDocuments(documents);
 	}
 
-	private async runIndexingPipelineInternal(sourceDir: string): Promise<void> {
-		// TODO: Implement indexing logic
+	private async importDocuments(documents: any[]): Promise<void> {
 	}
+	
+
+	private async deleteDocuments(filePaths: string[]): Promise<void> {
+		
+	}
+
+	private async addEmbeddings(documents: any[]): Promise<void> {
+		
+	}
+
+
+	private async generateContextualizedChunks(files: CodeFile[]): Promise<ContextualizedChunkItem[]> {
+		const contextualizedChunks: ContextualizedChunkItem[] = [];
+		for(const file of files) {
+			const contextualizedChunksForFile = await generateContextualizedChunks(file.filePath, file.content, file.language);
+			contextualizedChunks.push(...contextualizedChunksForFile);
+		}
+		return contextualizedChunks;
+	}
+
 
 	async search(query: string, maxResults = 10): Promise<SearchResult[]> {
 		await this.ensureDataStoreExists();
