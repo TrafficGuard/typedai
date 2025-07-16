@@ -10,7 +10,7 @@ const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY_MS = 1000;
 const RETRY_DELAY_MULTIPLIER = 2;
 
-export class DiscoveryEngineDataStore {
+export class DiscoveryEngine {
 	private readonly project: string;
 	private readonly location: string;
 	private readonly collection: string;

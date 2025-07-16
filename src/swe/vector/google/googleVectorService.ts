@@ -4,7 +4,7 @@ import pino from 'pino';
 import { settleAllWithInput } from '#utils/async-utils';
 import { CodeFile, readFilesToIndex } from '../codeLoader';
 import { SearchResult, VectorStore } from '../vector';
-import { DiscoveryEngineDataStore } from './discoveryEngineDataStore';
+import { DiscoveryEngine } from './discoveryEngine';
 import { ContextualizedChunkItem, generateContextualizedChunks } from './indexing/contextualizedChunker';
 import { TextEmbeddingService, VertexAITextEmbeddingService } from './indexing/vertexEmbedder';
 
@@ -26,7 +26,7 @@ export class GoogleVectorStore implements VectorStore {
 	private readonly location: string;
 	private readonly collection: string;
 	private dataStoreId: string;
-	private dataStore: DiscoveryEngineDataStore;
+	private dataStore: DiscoveryEngine;
 	private embeddingService: TextEmbeddingService;
 
 	constructor(project: string, location: string, collection: string, dataStoreId: string) {
@@ -35,7 +35,7 @@ export class GoogleVectorStore implements VectorStore {
 		this.collection = collection;
 		this.dataStoreId = dataStoreId;
 
-		this.dataStore = new DiscoveryEngineDataStore(project, location, collection, dataStoreId);
+		this.dataStore = new DiscoveryEngine(project, location, collection, dataStoreId);
 		this.embeddingService = new VertexAITextEmbeddingService();
 	}
 
