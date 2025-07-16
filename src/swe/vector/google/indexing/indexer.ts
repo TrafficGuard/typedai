@@ -4,6 +4,7 @@ import type { DocumentServiceClient } from '@google-cloud/discoveryengine';
 import { google } from '@google-cloud/discoveryengine/build/protos/protos';
 import { struct } from 'pb-util'; // Helper for converting JS objects to Struct proto
 import pino from 'pino';
+import { countTokensSync } from '#llm/tokens';
 import { settleAllWithInput, sleep } from '#utils/async-utils';
 import { INDEXER_EMBEDDING_PROCESSING_BATCH_SIZE, getDiscoveryEngineDataStorePath, getDocumentServiceClient } from '../config';
 import { type CodeFile, loadCodeFiles } from './codeLoader';
@@ -18,6 +19,10 @@ const RETRY_DELAY_MULTIPLIER = 2; // For exponential backoff
 
 const BATCH_SIZE = 100; // Max documents per ImportDocuments request (check API limits)
 const FILE_PROCESSING_PARALLEL_BATCH_SIZE = 5;
+
+// New constants and state for rate limiting Gemini embedding requests.
+const TOKENS_PER_MINUTE_QUOTA = 200_000;
+const tokenUsageHistory: { timestamp: number; tokens: number }[] = [];
 
 /**
  * Creates a unique ID for a code chunk document.
@@ -185,6 +190,45 @@ export async function runIndexingPipeline(sourceDir: string): Promise<void> {
 		logger.info(`Processing batch of ${chunksToProcess.length} processed chunks for embedding...`);
 
 		const textsToEmbed = chunksToProcess.map((c) => c.embeddingContent);
+
+		// Calculate the total number of tokens in the current batch of texts to be embedded.
+		const batchTokens = textsToEmbed.reduce((sum, text) => sum + countTokensSync(text), 0);
+
+		// Get the current time to define the rolling window for quota management.
+		let now = Date.now();
+		const oneMinuteAgo = now - 60_000;
+
+		// Remove entries from the token usage history that are older than one minute.
+		while (tokenUsageHistory.length > 0 && tokenUsageHistory[0].timestamp < oneMinuteAgo) {
+			tokenUsageHistory.shift();
+		}
+
+		// Calculate the total number of tokens that have been sent in the last minute.
+		const currentTokensInLastMinute = tokenUsageHistory.reduce((sum, record) => sum + record.tokens, 0);
+
+		// Check if processing the current batch would exceed the per-minute token quota.
+		if (currentTokensInLastMinute + batchTokens > TOKENS_PER_MINUTE_QUOTA) {
+			// If the quota would be exceeded, determine the oldest request in the window to calculate how long to wait.
+			const oldestTimestamp = tokenUsageHistory.length > 0 ? tokenUsageHistory[0].timestamp : now;
+			// Calculate wait time to ensure the oldest batch expires from the 60-second window. Add a small buffer.
+			const timeToWait = oldestTimestamp + 60_000 - now + 1000;
+
+			if (timeToWait > 0) {
+				logger.warn(`Token quota will be exceeded. Waiting for ${Math.round(timeToWait / 1000)}s to avoid hitting the limit.`);
+				await sleep(timeToWait);
+			}
+
+			// After waiting, re-prune the history based on the new current time.
+			now = Date.now();
+			const newOneMinuteAgo = now - 60_000;
+			while (tokenUsageHistory.length > 0 && tokenUsageHistory[0].timestamp < newOneMinuteAgo) {
+				tokenUsageHistory.shift();
+			}
+		}
+
+		// Record the current batch's token count and timestamp in the usage history before making the API call.
+		tokenUsageHistory.push({ timestamp: Date.now(), tokens: batchTokens });
+
 		const embeddingsBatchResults = await service.generateEmbeddings(textsToEmbed, 'RETRIEVAL_DOCUMENT');
 
 		let successfullyEmbeddedInBatch = 0;
