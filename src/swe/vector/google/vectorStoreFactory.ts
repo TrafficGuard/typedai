@@ -2,7 +2,7 @@ import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { Git } from '#functions/scm/git';
 import { VectorStore } from '../vector';
 import { DISCOVERY_ENGINE_COLLECTION_ID, DISCOVERY_ENGINE_LOCATION, GCLOUD_PROJECT } from './config';
-import { GoogleVectorStore } from './googleVectorStore';
+import { GoogleVectorStore } from './googleVectorService';
 
 function sanitizeGitUrlForDataStoreId(url: string): string {
 	// Basic sanitization: remove protocol and special characters
@@ -18,7 +18,7 @@ function sanitizeGitUrlForDataStoreId(url: string): string {
  * @param repoPath The path to the root of the git repository.
  * @returns A promise that resolves to a configured VectorStore instance.
  */
-export async function createVectorStoreForRepo(repoPath: string): Promise<VectorStore> {
+export async function createGoogleVectorService(repoPath: string): Promise<VectorStore> {
 	const git = new Git(getFileSystem());
 	const originUrl = await git.getGitOriginUrl();
 	if (!originUrl) {

@@ -13,8 +13,8 @@ import {
 	getDocumentServiceClient,
 	setDiscoveryEngineDataStoreIdForTesting,
 } from './config';
-import { generateEmbedding } from './indexing/embedder';
-import { searchCode } from './search';
+import { createGoogleVectorService } from './googleVectorService';
+import { VertexAITextEmbeddingService } from './indexing/vertexEmbedder';
 
 const logger = pino({ name: 'GoogleApiIntegrationTest' });
 
@@ -22,7 +22,7 @@ const logger = pino({ name: 'GoogleApiIntegrationTest' });
  * This test suite is to test the usage of the @google-cloud/discoveryengine package
  * and understand the parameters, errors and responses of the API.
  */
-describe.skip('Google discoveryengine API', function () {
+describe('Google discoveryengine API', function () {
 	// Increase the timeout for the entire suite to handle resource creation/deletion.
 	// 60 seconds should be sufficient.
 	this.timeout(60000);
@@ -104,7 +104,8 @@ describe.skip('Google discoveryengine API', function () {
 
 		// 1. === EMBED ===
 		logger.info('Step 1: Generating embedding for the test document...');
-		const embedding = await generateEmbedding(testCodeContent, 'RETRIEVAL_DOCUMENT');
+		const embeddingService = new VertexAITextEmbeddingService();
+		const embedding = await embeddingService.generateEmbedding(testCodeContent, 'RETRIEVAL_DOCUMENT');
 		expect(embedding).to.be.an('array').with.length.greaterThan(0);
 		logger.info(`Embedding generated successfully. Dimension: ${embedding.length}`);
 
