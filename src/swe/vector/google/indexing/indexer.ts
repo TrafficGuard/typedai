@@ -7,9 +7,9 @@ import pino from 'pino';
 import { countTokensSync } from '#llm/tokens';
 import { settleAllWithInput, sleep } from '#utils/async-utils';
 import { INDEXER_EMBEDDING_PROCESSING_BATCH_SIZE, getDiscoveryEngineDataStorePath, getDocumentServiceClient } from '../config';
-import { type CodeFile, readFilesToIndex } from './codeLoader';
-import { type TextEmbeddingService, getEmbeddingService } from './embedder';
-import { type ContextualizedChunkItem, generateContextualizedChunks } from './unifiedChunkContextualizer';
+import { type CodeFile, readFilesToIndex } from '../../codeLoader';
+import { type TextEmbeddingService, getEmbeddingService } from './vertexEmbedder';
+import { type ContextualizedChunkItem, generateContextualizedChunks } from './contextualizedChunker';
 
 const logger = pino({ name: 'Indexer' });
 

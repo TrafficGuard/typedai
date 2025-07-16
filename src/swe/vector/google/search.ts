@@ -2,7 +2,7 @@ import { google } from '@google-cloud/discoveryengine/build/protos/protos';
 import { struct } from 'pb-util';
 import pino from 'pino';
 import { DISCOVERY_ENGINE_LOCATION, GCLOUD_PROJECT, getSearchServiceClient } from './config';
-import { generateEmbedding } from './indexing/embedder';
+import { VertexAITextEmbeddingService } from './indexing/vertexEmbedder';
 
 const logger = pino({ name: 'Search' });
 
@@ -49,7 +49,7 @@ export async function searchCode(
 	const servingConfigPath = client.projectLocationDataStoreServingConfigPath(GCLOUD_PROJECT, DISCOVERY_ENGINE_LOCATION, dataStoreId, servingConfigId);
 
 	// 1. Generate embedding for the query
-	const queryEmbedding = await generateEmbedding(query, 'RETRIEVAL_DOCUMENT');
+	const queryEmbedding = await new VertexAITextEmbeddingService().generateEmbedding(query, 'RETRIEVAL_DOCUMENT');
 	if (!queryEmbedding || queryEmbedding.length === 0) {
 		logger.error({ query }, 'Failed to generate embedding for the search query after all retries. Cannot perform search.');
 		return [];
