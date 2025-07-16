@@ -496,18 +496,8 @@ function setupPyodideFunctionProxies(
 
 			const { finalArgs, parameters } = processFunctionArguments(args, expectedParamNames);
 
-			// Convert any Pyodide proxies in the parameters to plain JS objects before storing.
-			// This is necessary because Firestore cannot handle JsProxy objects.
-			// toJs() is recursive by default and will handle nested objects and arrays.
-			const convertedParameters: Record<string, any> = {};
-			for (const key of Object.keys(parameters)) {
-				const value = parameters[key];
-				if (value && typeof value.toJs === 'function') {
-					convertedParameters[key] = value.toJs({ dict_converter: Object.fromEntries });
-				} else {
-					convertedParameters[key] = value;
-				}
-			}
+			// The `parameters` object returned from processFunctionArguments is already fully converted,
+			// so the conversion block below is no longer needed and has been removed.
 
 			try {
 				const functionResponse = await functionInstances[className][method](...finalArgs);
@@ -515,18 +505,18 @@ function setupPyodideFunctionProxies(
 				// TODO Would be nice to save over-written memory keys for history/debugging
 				let stdout = removeConsoleEscapeChars(functionResponse);
 				stdout = JSON.stringify(cloneAndTruncateBuffers(stdout));
-				if (className === 'Agent' && method === 'saveMemory') convertedParameters[AGENT_SAVE_MEMORY_CONTENT_PARAM_NAME] = '(See <memory> entry)';
+				if (className === 'Agent' && method === 'saveMemory') parameters[AGENT_SAVE_MEMORY_CONTENT_PARAM_NAME] = '(See <memory> entry)';
 				if (className === 'Agent' && method === 'getMemory') stdout = '(See <memory> entry)';
 
 				let stdoutSummary: string | undefined;
 				if (stdout && stdout.length > FUNCTION_OUTPUT_THRESHOLD) {
-					stdoutSummary = await summarizeFunctionOutput(agent, agentPlanResponse, schema, convertedParameters, stdout);
+					stdoutSummary = await summarizeFunctionOutput(agent, agentPlanResponse, schema, parameters, stdout);
 				}
 
 				const functionCallResult: FunctionCallResult = {
 					iteration: agent.iterations,
 					function_name: schema.name,
-					parameters: convertedParameters,
+					parameters,
 					stdout,
 					stdoutSummary,
 				};
@@ -539,12 +529,12 @@ function setupPyodideFunctionProxies(
 				if (stderr.length > FUNCTION_OUTPUT_THRESHOLD) {
 					// For function call errors, we might not need to summarize as aggressively as script errors.
 					// Keeping existing logic, or simplify if full error is always preferred for function calls.
-					// stderr = await summarizeFunctionOutput(agent, agentPlanResponse, schema, convertedParameters, stderr);
+					// stderr = await summarizeFunctionOutput(agent, agentPlanResponse, schema, parameters, stderr);
 				}
 				const functionCallResult: FunctionCallResult = {
 					iteration: agent.iterations,
 					function_name: schema.name,
-					parameters: convertedParameters,
+					parameters,
 					stderr,
 					// stderrSummary: outputSummary, TODO
 				};
