@@ -32,6 +32,7 @@ export function deepinfraLLMRegistry(): Record<string, () => LLM> {
 	return {
 		[`${DEEPINFRA_SERVICE}:Qwen/Qwen3-235B-A22B`]: deepinfraQwen3_235B_A22B,
 		[`${DEEPINFRA_SERVICE}:deepseek-ai/DeepSeek-R1-0528`]: deepinfraDeepSeekR1,
+		[`${DEEPINFRA_SERVICE}:moonshotai/Kimi-K2-Instruct`]: deepinfraKimiK2,
 	};
 }
 
@@ -43,4 +44,9 @@ export function deepinfraQwen3_235B_A22B(): LLM {
 // https://deepinfra.com/deepseek-ai/DeepSeek-R1-0528
 export function deepinfraDeepSeekR1(): LLM {
 	return new Deepinfra('DeepSeek R1 (deepinfra)', 'deepseek-ai/DeepSeek-R1-0528', 163_840, fixedCostPerMilTokens(0.5, 2.15));
+}
+
+// https://deepinfra.com/moonshotai/Kimi-K2-Instruct
+export function deepinfraKimiK2(): LLM {
+	return new Deepinfra('Kimi-K2-Instruct (deepinfra)', 'moonshotai/Kimi-K2-Instruct', 16384, fixedCostPerMilTokens(0.55, 2.2));
 }
