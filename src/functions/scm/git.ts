@@ -2,7 +2,7 @@ import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import { execCmd, execCommand, failOnError } from '#utils/exec';
+import { arg, execCmd, execCommand, failOnError } from '#utils/exec';
 
 import type { IFileSystemService } from '#shared/files/fileSystemService';
 import type { Commit, VersionControlSystem } from '#shared/scm/versionControlSystem';
@@ -73,8 +73,7 @@ export class Git implements VersionControlSystem {
 		failOnError(`Failed to add files for commit: ${files.join(', ')}`, addResult);
 
 		// The fix is to execute a specific commit command that targets only the added files.
-		const sanitizedMessage = commitMessage.replace(/"/g, '\\"');
-		const commitResult = await execCommand(`git commit -m "${sanitizedMessage}" -- ${filesToAdd}`);
+		const commitResult = await execCommand(`git commit -m ${arg(commitMessage)} -- ${filesToAdd}`);
 		failOnError(`Failed to commit changes for files: ${files.join(', ')}`, commitResult);
 	}
 
@@ -195,8 +194,7 @@ export class Git implements VersionControlSystem {
 	async commit(commitMessage: string): Promise<void> {
 		const cwd = this.fileSystem.getWorkingDirectory();
 		try {
-			const sanitizedMessage = commitMessage.replace(/"/g, '\\"');
-			const result = await execCommand(`git commit -m "${sanitizedMessage}"`);
+			const result = await execCommand(`git commit -m ${arg(commitMessage)}`);
 			failOnError('Error committing changes to Git', result);
 		} catch (error) {
 			logger.error(error);
