@@ -2,15 +2,7 @@ import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { Git } from '#functions/scm/git';
 import { VectorStore } from '../vector';
 import { DISCOVERY_ENGINE_COLLECTION_ID, DISCOVERY_ENGINE_LOCATION, GCLOUD_PROJECT } from './config';
-import { GoogleVectorStore } from './googleVectorService';
-
-function sanitizeGitUrlForDataStoreId(url: string): string {
-	// Basic sanitization: remove protocol and special characters
-	return url
-		.replace(/^https?:\/\//, '')
-		.replace(/[^a-zA-Z0-9-]/g, '_')
-		.substring(0, 64); // Limit to 64 characters as per Google Cloud constraints
-}
+import { GoogleVectorStore, sanitizeGitUrlForDataStoreId } from './googleVectorService';
 
 /**
  * Creates and returns a VectorStore instance configured for the repository
