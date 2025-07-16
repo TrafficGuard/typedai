@@ -9,7 +9,7 @@ export const TOGETHER_SERVICE = 'together';
 export function togetherLLMRegistry(): Record<string, () => LLM> {
 	return {
 		[`${TOGETHER_SERVICE}:deepseek-ai/DeepSeek-R1`]: () => togetherDeepSeekR1(),
-		[`${TOGEVER_SERVICE}:deepseek-ai/DeepSeek-R1-0528-tput`]: () => togetherDeepSeekR1_0528_tput(),
+		[`${TOGETHER_SERVICE}:deepseek-ai/DeepSeek-R1-0528-tput`]: () => togetherDeepSeekR1_0528_tput(),
 		[`${TOGETHER_SERVICE}:moonshotai/kimi-k2-instruct`]: () => togetherKimiK2(),
 	};
 }
