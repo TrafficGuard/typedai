@@ -36,162 +36,94 @@ export class VertexAITextEmbeddingService implements TextEmbeddingService {
 		this.endpointPath = `projects/${GCLOUD_PROJECT}/locations/${GCLOUD_REGION}/publishers/google/models/${DISCOVERY_ENGINE_EMBEDDING_MODEL}`;
 	}
 
-	async generateEmbedding(text: string, taskType: string): Promise<number[]> {
-		const functionName = 'VertexAITextEmbeddingService.generateEmbedding';
-		if (!text || text.trim() === '') {
-			logger.warn({ functionName, taskType }, 'Attempted to generate embedding for empty text. Returning empty vector.');
-			return [];
-		}
-		const results = await this.generateEmbeddings([text], taskType);
-		if (results.length > 0 && results[0]) {
-			return results[0];
-		}
-		return [];
+	async generateEmbedding(text: string, taskType: TaskType): Promise<number[]> {
+		const result = await this.generateEmbeddingWithRetries(text, taskType);
+		return result ?? [];
 	}
 
-	async generateEmbeddings(texts: string[], taskType: string): Promise<(number[] | null)[]> {
-		const functionName = 'VertexAITextEmbeddingService.generateEmbeddings';
-		if (!texts || texts.length === 0) {
-			logger.warn({ functionName, taskType }, 'Attempted to generate embeddings for empty text array. Returning empty array.');
-			return [];
+	async generateEmbeddings(texts: string[], taskType: TaskType): Promise<(number[] | null)[]> {
+		const allResults: (number[] | null)[] = [];
+		// Since gemini-embedding-001 only supports one input per request,
+		// we must iterate and call the API for each text individually.
+		for (const text of texts) {
+			const embedding = await this.generateEmbeddingWithRetries(text, taskType);
+			allResults.push(embedding);
+		}
+		return allResults;
+	}
+
+	private async generateEmbeddingWithRetries(text: string, taskType: TaskType): Promise<number[] | null> {
+		const functionName = 'VertexAITextEmbeddingService.generateEmbeddingWithRetries';
+		if (!text || text.trim() === '') {
+			logger.warn({ functionName, taskType }, 'Attempted to generate embedding for empty text. Returning null.');
+			return null;
 		}
 
-		const allResults: (number[] | null)[] = new Array(texts.length).fill(null);
-		const subBatchSize = EMBEDDING_API_BATCH_SIZE;
+		for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+			try {
+				const tokensInRequest = countTokensSync(text);
+				await this.waitForRateLimit(tokensInRequest);
 
-		for (let i = 0; i < texts.length; i += subBatchSize) {
-			const subBatchTexts = texts.slice(i, i + subBatchSize);
-			const subBatchIndices = Array.from({ length: subBatchTexts.length }, (_, k) => i + k);
+				const instances = [helpers.toValue({ content: text, task_type: taskType })];
+				const request: PredictRequest = {
+					endpoint: this.endpointPath,
+					instances: instances,
+					parameters: helpers.toValue({ outputDimensionality: 768 }),
+				};
 
-			const batchTokens = subBatchTexts.reduce((sum, text) => sum + countTokensSync(text), 0);
+				const [response] = await this.client.predict(request);
+				this.tokenUsageHistory.push({ timestamp: Date.now(), tokens: tokensInRequest });
 
-			// Rate limiting logic
-			while (true) {
-				let now = Date.now();
-				const oneMinuteAgo = now - 60_000;
-
-				// Prune old history
-				while (this.tokenUsageHistory.length > 0 && this.tokenUsageHistory[0].timestamp < oneMinuteAgo) {
-					this.tokenUsageHistory.shift();
-				}
-
-				const currentTokensInLastMinute = this.tokenUsageHistory.reduce((sum, record) => sum + record.tokens, 0);
-
-				if (currentTokensInLastMinute + batchTokens > TOKENS_PER_MINUTE_QUOTA) {
-					const oldestTimestamp = this.tokenUsageHistory.length > 0 ? this.tokenUsageHistory[0].timestamp : now;
-					const timeToWait = oldestTimestamp + 60_000 - now + 1000;
-
-					if (timeToWait > 0) {
-						logger.warn(`Token quota will be exceeded. Waiting for ${Math.round(timeToWait / 1000)}s to avoid hitting the limit.`);
-						await sleep(timeToWait);
+				const prediction = response.predictions?.[0];
+				const embeddingValue = prediction?.structValue?.fields?.embeddings?.structValue?.fields?.values;
+				if (embeddingValue?.listValue?.values) {
+					const embedding = embeddingValue.listValue.values.map((v) => v.numberValue as number);
+					if (embedding.some((n) => typeof n !== 'number' || Number.isNaN(n))) {
+						logger.warn({ prediction, functionName, taskType }, 'Invalid data type or NaN in embedding vector.');
+						return null;
 					}
-					// After waiting, re-evaluate in the next loop iteration
+					return embedding; // Success
 				} else {
-					// We have capacity, break the while loop and proceed
-					break;
+					throw new Error('Invalid embedding structure in response');
 				}
-			}
-
-			this.tokenUsageHistory.push({ timestamp: Date.now(), tokens: batchTokens });
-
-			const instances = subBatchTexts.map((text) => {
-				if (!text || text.trim() === '') {
-					// This case should ideally be pre-filtered or handled by caller,
+			} catch (error: any) {
+				const delay = INITIAL_RETRY_DELAY_MS * RETRY_DELAY_MULTIPLIER ** attempt;
+				logger.error(
+					{ err: { message: error.message, stack: error.stack, details: error.details }, attempt: attempt + 1, maxRetries: MAX_RETRIES, delay },
+					`Error in ${functionName} (attempt ${attempt + 1}/${MAX_RETRIES}). Retrying in ${delay}ms...`,
+				);
+				if (attempt < MAX_RETRIES - 1) {
+					await sleep(delay);
+				} else {
+					logger.error({ err: { message: error.message, stack: error.stack, details: error.details } }, `All ${MAX_RETRIES} retries failed for ${functionName}.`);
 					return null;
 				}
-				return helpers.toValue({ content: text });
-			});
-
-			const request: PredictRequest = {
-				endpoint: this.endpointPath,
-				instances: instances,
-				// discoveryengine datastore only supports 768 dimensions, even though gemini-embedding-001 can generate 3072 dimensions
-				parameters: helpers.toValue({ outputDimensionality: 768 }),
-			};
-
-			const subBatchEmbeddings: (number[] | null)[] = new Array(subBatchTexts.length).fill(null);
-
-			for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-				logger.debug(
-					{ functionName, taskType, subBatchSize: subBatchTexts.length, attempt: attempt + 1, maxRetries: MAX_RETRIES, globalStartIndex: i },
-					`Requesting embeddings for sub-batch from Vertex AI (attempt ${attempt + 1}/${MAX_RETRIES})`,
-				);
-				try {
-					const [response] = await this.client.predict(request);
-
-					if (!response.predictions || response.predictions.length !== subBatchTexts.length) {
-						logger.error(
-							{ response, functionName, taskType, expectedCount: subBatchTexts.length, receivedCount: response.predictions?.length },
-							'Mismatched predictions count from Vertex AI or empty/invalid predictions structure.',
-						);
-						// This is a batch-level error, mark all in sub-batch as null if retries exhausted
-						if (attempt === MAX_RETRIES - 1) throw new Error('Mismatched or invalid prediction structure from Vertex AI for sub-batch.');
-						// Continue to retry
-					} else {
-						for (let j = 0; j < response.predictions.length; j++) {
-							const prediction = response.predictions[j] as protos.google.protobuf.IValue;
-							const embeddingValue = prediction?.structValue?.fields?.embeddings?.structValue?.fields?.values;
-
-							if (!embeddingValue?.listValue?.values) {
-								logger.warn(
-									{ prediction, functionName, taskType, textIndexInSubBatch: j, globalTextIndex: subBatchIndices[j] },
-									'Empty or invalid embedding structure for a text in sub-batch.',
-								);
-								subBatchEmbeddings[j] = null; // Mark as null for this specific text
-							} else {
-								const embedding = embeddingValue.listValue.values.map((v) => v.numberValue as number);
-								if (embedding.some((n) => typeof n !== 'number' || Number.isNaN(n))) {
-									logger.warn(
-										{ prediction, functionName, taskType, textIndexInSubBatch: j, globalTextIndex: subBatchIndices[j] },
-										'Invalid data type or NaN in embedding vector for a text in sub-batch.',
-									);
-									subBatchEmbeddings[j] = null;
-								} else {
-									subBatchEmbeddings[j] = embedding;
-								}
-							}
-						}
-						// Successfully processed this sub-batch
-						break; // Exit retry loop for this sub-batch
-					}
-				} catch (error: any) {
-					const delay = INITIAL_RETRY_DELAY_MS * RETRY_DELAY_MULTIPLIER ** attempt;
-					logger.error(
-						{
-							err: { message: error.message, stack: error.stack, details: error.details },
-							attempt: attempt + 1,
-							maxRetries: MAX_RETRIES,
-							functionName,
-							taskType,
-							delay,
-							globalStartIndex: i,
-						},
-						`Error in ${functionName} for sub-batch (attempt ${attempt + 1}/${MAX_RETRIES}). Retrying in ${delay}ms...`,
-					);
-
-					if (attempt < MAX_RETRIES - 1) {
-						await sleep(delay);
-					} else {
-						logger.error(
-							{ err: { message: error.message, stack: error.stack, details: error.details }, functionName, taskType, globalStartIndex: i },
-							`All ${MAX_RETRIES} retries failed for sub-batch in ${functionName}. Marking all in sub-batch as null.`,
-						);
-						// Error already thrown by the last attempt or will be implicitly handled by subBatchEmbeddings remaining null
-					}
-				}
-			} // End retry loop for sub-batch
-
-			// Assign results from subBatchEmbeddings to the correct positions in allResults
-			for (let k = 0; k < subBatchEmbeddings.length; k++) {
-				allResults[subBatchIndices[k]] = subBatchEmbeddings[k];
 			}
-		} // End loop over sub-batches
+		}
+		return null;
+	}
 
-		logger.debug(
-			{ functionName, taskType, totalTexts: texts.length, successfulEmbeddings: allResults.filter((r) => r !== null).length },
-			'Finished generating embeddings for all texts.',
-		);
-		return allResults;
+	private async waitForRateLimit(tokensInRequest: number): Promise<void> {
+		while (true) {
+			const now = Date.now();
+			const oneMinuteAgo = now - 60_000;
+
+			this.tokenUsageHistory = this.tokenUsageHistory.filter((record) => record.timestamp >= oneMinuteAgo);
+
+			const currentTokensInLastMinute = this.tokenUsageHistory.reduce((sum, record) => sum + record.tokens, 0);
+
+			if (currentTokensInLastMinute + tokensInRequest > TOKENS_PER_MINUTE_QUOTA) {
+				const oldestTimestamp = this.tokenUsageHistory.length > 0 ? this.tokenUsageHistory[0].timestamp : now;
+				const timeToWait = oldestTimestamp + 60_000 - now + 100;
+
+				if (timeToWait > 0) {
+					logger.warn(`Token quota will be exceeded. Waiting for ${Math.round(timeToWait / 1000)}s to avoid hitting the limit.`);
+					await sleep(timeToWait);
+				}
+			} else {
+				break;
+			}
+		}
 	}
 }
 
