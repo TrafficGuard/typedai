@@ -1,8 +1,9 @@
 import { PredictionServiceClient, helpers, protos } from '@google-cloud/aiplatform';
 import { struct } from 'pb-util';
 import pino from 'pino';
+import { countTokensSync } from '#llm/tokens';
 import { sleep } from '#utils/async-utils';
-import { DISCOVERY_ENGINE_EMBEDDING_MODEL, EMBEDDING_API_BATCH_SIZE, GCLOUD_PROJECT, GCLOUD_REGION } from '../config';
+import { DISCOVERY_ENGINE_EMBEDDING_MODEL, EMBEDDING_API_BATCH_SIZE, GCLOUD_PROJECT, GCLOUD_REGION, TOKENS_PER_MINUTE_QUOTA } from '../config';
 
 const logger = pino({ name: 'Embedder' });
 
@@ -25,6 +26,7 @@ export interface TextEmbeddingService {
 export class VertexAITextEmbeddingService implements TextEmbeddingService {
 	private client: PredictionServiceClient;
 	private endpointPath: string;
+	private tokenUsageHistory: { timestamp: number; tokens: number }[] = [];
 
 	constructor() {
 		const clientOptions = {
@@ -61,21 +63,40 @@ export class VertexAITextEmbeddingService implements TextEmbeddingService {
 			const subBatchTexts = texts.slice(i, i + subBatchSize);
 			const subBatchIndices = Array.from({ length: subBatchTexts.length }, (_, k) => i + k);
 
+			const batchTokens = subBatchTexts.reduce((sum, text) => sum + countTokensSync(text), 0);
+
+			// Rate limiting logic
+			while (true) {
+				let now = Date.now();
+				const oneMinuteAgo = now - 60_000;
+
+				// Prune old history
+				while (this.tokenUsageHistory.length > 0 && this.tokenUsageHistory[0].timestamp < oneMinuteAgo) {
+					this.tokenUsageHistory.shift();
+				}
+
+				const currentTokensInLastMinute = this.tokenUsageHistory.reduce((sum, record) => sum + record.tokens, 0);
+
+				if (currentTokensInLastMinute + batchTokens > TOKENS_PER_MINUTE_QUOTA) {
+					const oldestTimestamp = this.tokenUsageHistory.length > 0 ? this.tokenUsageHistory[0].timestamp : now;
+					const timeToWait = oldestTimestamp + 60_000 - now + 1000;
+
+					if (timeToWait > 0) {
+						logger.warn(`Token quota will be exceeded. Waiting for ${Math.round(timeToWait / 1000)}s to avoid hitting the limit.`);
+						await sleep(timeToWait);
+					}
+					// After waiting, re-evaluate in the next loop iteration
+				} else {
+					// We have capacity, break the while loop and proceed
+					break;
+				}
+			}
+
+			this.tokenUsageHistory.push({ timestamp: Date.now(), tokens: batchTokens });
+
 			const instances = subBatchTexts.map((text) => {
 				if (!text || text.trim() === '') {
 					// This case should ideally be pre-filtered or handled by caller,
-					// but as a safeguard, we create a valid proto that might result in an error or empty embedding from the API.
-					// Or, we can choose to return null directly for this text.
-					// For now, let the API handle potentially empty content.
-					logger.warn({ functionName, taskType, textIndexGlobal: i + subBatchTexts.indexOf(text) }, 'Processing potentially empty text in sub-batch.');
-				}
-				const instanceProto = new protos.google.protobuf.Value();
-				instanceProto.structValue = struct.encode({
-					content: text,
-					task_type: taskType,
-				});
-				return instanceProto;
-			});
 
 			const request: PredictRequest = {
 				endpoint: this.endpointPath,

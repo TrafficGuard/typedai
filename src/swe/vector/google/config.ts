@@ -10,6 +10,7 @@ export const DISCOVERY_ENGINE_DATA_STORE_ID = envVar('DISCOVERY_ENGINE_DATA_STOR
 export const DISCOVERY_ENGINE_EMBEDDING_MODEL = process.env.DISCOVERY_ENGINE_EMBEDDING_MODEL || 'gemini-embedding-001';
 export const EMBEDDING_API_BATCH_SIZE = 25;
 export const INDEXER_EMBEDDING_PROCESSING_BATCH_SIZE = 100;
+export const TOKENS_PER_MINUTE_QUOTA = 200_000;
 
 let testOverrideDataStoreId: string | undefined;
 

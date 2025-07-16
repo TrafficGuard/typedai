@@ -3,9 +3,8 @@
 import { DataStoreServiceClient, DocumentServiceClient, SearchServiceClient } from '@google-cloud/discoveryengine';
 import { google } from '@google-cloud/discoveryengine/build/protos/protos';
 import pino from 'pino';
-import { countTokensSync } from '#llm/tokens';
 import { struct } from 'pb-util';
-import { settleAllWithInput, sleep } from '#utils/async-utils';
+import { sleep } from '#utils/async-async-utils';
 import { SearchResult, VectorStore } from '../vector';
 import { createDataStoreServiceClient, getDocumentServiceClient, getSearchServiceClient } from './config';
 import { CodeFile, readFilesToIndex } from './indexing/codeLoader';
@@ -14,7 +13,6 @@ import { ContextualizedChunkItem, generateContextualizedChunks } from './indexin
 
 const logger = pino({ name: 'GoogleVectorStore' });
 
-const TOKENS_PER_MINUTE_QUOTA = 200_000;
 const BATCH_SIZE = 100; // Max documents per ImportDocuments request
 const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY_MS = 1000;
@@ -36,7 +34,6 @@ export class GoogleVectorStore implements VectorStore {
 	private searchClient: SearchServiceClient;
 	private dataStorePath: string | null = null;
 	private embeddingService: TextEmbeddingService;
-	private tokenUsageHistory: { timestamp: number; tokens: number }[] = [];
 
 	constructor(project: string, location: string, collection: string, dataStoreId: string) {
 		this.project = project;
@@ -47,7 +44,7 @@ export class GoogleVectorStore implements VectorStore {
 		this.documentClient = getDocumentServiceClient();
 		this.searchClient = getSearchServiceClient();
 		this.dataStoreClient = createDataStoreServiceClient(this.location);
-		this.embeddingService = new VertexAITextEmbeddingService()
+		this.embeddingService = new VertexAITextEmbeddingService();
 	}
 
 	async indexRepository(dir: string = './'): Promise<void> {
@@ -200,37 +197,6 @@ export class GoogleVectorStore implements VectorStore {
 		for (let i = 0; i < documents.length; i += BATCH_SIZE_EMBEDDING) {
 			const batch = documents.slice(i, i + BATCH_SIZE_EMBEDDING);
 			const textsToEmbed = batch.map((c) => c.contextualized_chunk_content);
-
-			const batchTokens = textsToEmbed.reduce((sum, text) => sum + countTokensSync(text), 0);
-
-			// Rate limiting logic
-			while (true) {
-				let now = Date.now();
-				const oneMinuteAgo = now - 60_000;
-
-				// Prune old history
-				while (this.tokenUsageHistory.length > 0 && this.tokenUsageHistory[0].timestamp < oneMinuteAgo) {
-					this.tokenUsageHistory.shift();
-				}
-
-				const currentTokensInLastMinute = this.tokenUsageHistory.reduce((sum, record) => sum + record.tokens, 0);
-
-				if (currentTokensInLastMinute + batchTokens > TOKENS_PER_MINUTE_QUOTA) {
-					const oldestTimestamp = this.tokenUsageHistory.length > 0 ? this.tokenUsageHistory[0].timestamp : now;
-					const timeToWait = oldestTimestamp + 60_000 - now + 1000;
-
-					if (timeToWait > 0) {
-						logger.warn(`Token quota will be exceeded. Waiting for ${Math.round(timeToWait / 1000)}s to avoid hitting the limit.`);
-						await sleep(timeToWait);
-					}
-					// After waiting, re-evaluate in the next loop iteration
-				} else {
-					// We have capacity, break the while loop and proceed
-					break;
-				}
-			}
-
-			this.tokenUsageHistory.push({ timestamp: Date.now(), tokens: batchTokens });
 
 			const embeddings = await this.embeddingService.generateEmbeddings(textsToEmbed, 'RETRIEVAL_DOCUMENT');
 
