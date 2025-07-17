@@ -151,7 +151,7 @@ export class GoogleVectorStore implements VectorStore {
 				embedding_vector: chunk.embedding,
 				lexical_search_text: chunk.contextualized_chunk_content,
 			}),
-		};
+		} as any;
 		return document;
 	}
 
