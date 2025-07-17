@@ -22,7 +22,7 @@ const INDEXER_EMBEDDING_PROCESSING_BATCH_SIZE = 100;
 class IndexingStats {
 	fileCount: number = 0;
 	failedFiles: string[] = [];
-	failedChunksCount: any;
+	failedChunksCount: number = 0;
 }
 
 export class GoogleVectorStore implements VectorStore {
@@ -48,35 +48,50 @@ export class GoogleVectorStore implements VectorStore {
 	private async indexFiles(codeFiles: CodeFile[], stats = new IndexingStats()): Promise<void> {
 		await this.dataStore.ensureDataStoreExists();
 		stats.fileCount = codeFiles.length;
-
+	
 		// Before indexing new content, purge all documents associated with the files being re-indexed.
 		await this.dataStore.purgeDocuments(codeFiles.map((file) => file.filePath));
-
-		const chunks = await this.generateContextualizedChunks(codeFiles, stats);
-
-		const documents = await this._generateEmbeddingsAndPrepareDocuments(chunks, stats);
-
-		await this.storeDocuments(documents);
-
+	
+		// Use p-limit to control the concurrency of file processing for chunk generation.
+		const limit = pLimit(FILE_PROCESSING_PARALLEL_BATCH_SIZE);
+	
+		logger.info(`Generating chunks for ${codeFiles.length} files with a concurrency of ${FILE_PROCESSING_PARALLEL_BATCH_SIZE}...`);
+	
+		// Create a promise for each file's chunk generation, wrapped in the limiter.
+		const chunkGenerationPromises = codeFiles.map((file) =>
+			limit(() =>
+				this._processFileAndGetContextualizedChunks(file).catch((e) => {
+					stats.failedFiles.push(file.filePath);
+					logger.error({ err: e, filePath: file.filePath }, `File failed during chunk generation.`);
+					return []; // Return an empty array on failure to not break Promise.all
+				}),
+			),
+		);
+	
+		// Wait for all chunk generation promises to resolve.
+		const nestedChunks = await Promise.all(chunkGenerationPromises);
+		const allChunks = nestedChunks.flat();
+	
+		logger.info(`Completed chunk generation. Total chunks: ${allChunks.length}.`);
+	
+		if (allChunks.length === 0) {
+			logger.warn('No chunks were generated from any of the files. Indexing will stop.');
+			return;
+		}
+	
+		// Pass all generated chunks to the embedding and storage stages.
+		// These stages have their own internal batching.
+		const documents = await this._generateEmbeddingsAndPrepareDocuments(allChunks, stats);
+	
+		if (documents.length > 0) {
+			await this.storeDocuments(documents);
+		}
+	
 		logger.info(
 			`Indexing pipeline completed. Successfully prepared ${documents.length} chunks from ${
 				codeFiles.length - stats.failedFiles.length
 			} files for indexing. Failed to process ${stats.failedFiles.length} files and ${stats.failedChunksCount} chunks.`,
 		);
-	}
-
-	private async generateContextualizedChunks(codeFiles: CodeFile[], stats: IndexingStats): Promise<ChunkWithFileContext[]> {
-		const allChunks: ChunkWithFileContext[] = [];
-		for(const file of codeFiles	) {
-			try {
-				const contextualizedChunks = await this._processFileAndGetContextualizedChunks(file);
-				allChunks.push(...contextualizedChunks);
-			}catch(e) {
-				stats.failedFiles.push(file.filePath);
-				logger.error({ err: { message: e.message, stack: e.stack }, filePath: file.filePath }, `File failed during chunk generation.`);
-			}
-		}
-		return allChunks;
 	}
 
 
