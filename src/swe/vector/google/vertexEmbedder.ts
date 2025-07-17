@@ -1,9 +1,8 @@
 import { PredictionServiceClient, helpers, protos } from '@google-cloud/aiplatform';
-import { struct } from 'pb-util';
 import pino from 'pino';
 import { countTokensSync } from '#llm/tokens';
 import { sleep } from '#utils/async-utils';
-import { DISCOVERY_ENGINE_EMBEDDING_MODEL, EMBEDDING_API_BATCH_SIZE, GCLOUD_PROJECT, GCLOUD_REGION, TOKENS_PER_MINUTE_QUOTA } from '../config';
+import { DISCOVERY_ENGINE_EMBEDDING_MODEL, GCLOUD_PROJECT, GCLOUD_REGION, TOKENS_PER_MINUTE_QUOTA } from './config';
 
 const logger = pino({ name: 'Embedder' });
 

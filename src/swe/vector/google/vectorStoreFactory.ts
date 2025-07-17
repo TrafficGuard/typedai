@@ -11,6 +11,9 @@ import { GoogleVectorStore, sanitizeGitUrlForDataStoreId } from './googleVectorS
  * @returns A promise that resolves to a configured VectorStore instance.
  */
 export async function createGoogleVectorService(repoPath: string): Promise<VectorStore> {
+	// const vcs = getFileSystem().getVcs();
+	// if (!vcs) throw new Error('Could not determine git origin URL for the current repository')
+
 	const git = new Git(getFileSystem());
 	const originUrl = await git.getGitOriginUrl();
 	if (!originUrl) {

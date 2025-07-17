@@ -2,11 +2,11 @@ import { google } from '@google-cloud/discoveryengine/build/protos/protos';
 import { struct } from 'pb-util';
 import pino from 'pino';
 import { settleAllWithInput } from '#utils/async-utils';
+import { ContextualizedChunkItem, generateContextualizedChunks } from '../chunking/contextualizedChunker';
 import { CodeFile, readFilesToIndex } from '../codeLoader';
 import { SearchResult, VectorStore } from '../vector';
 import { DiscoveryEngine } from './discoveryEngine';
-import { ContextualizedChunkItem, generateContextualizedChunks } from './indexing/contextualizedChunker';
-import { TextEmbeddingService, VertexAITextEmbeddingService } from './indexing/vertexEmbedder';
+import { TextEmbeddingService, VertexAITextEmbeddingService } from './vertexEmbedder';
 
 const logger = pino({ name: 'GoogleVectorStore' });
 
@@ -58,11 +58,10 @@ export class GoogleVectorStore implements VectorStore {
 		await this.dataStore.ensureDataStoreExists();
 
 		const codeFiles = await readFilesToIndex(dir);
-		if (codeFiles.length === 0) {
-			logger.warn('No code files found to index.');
-			return;
-		}
+
 		logger.info(`Loaded ${codeFiles.length} code files.`);
+
+		if (codeFiles.length === 0) return;
 
 		// Before indexing new content, purge all documents associated with the files being re-indexed.
 		await this.dataStore.purgeDocuments(codeFiles.map((file) => file.filePath));
@@ -185,37 +184,13 @@ export class GoogleVectorStore implements VectorStore {
 				lexical_search_text: chunk.contextualized_chunk_content,
 			}),
 		};
-		// const metadata = {
-		// 	file_path: chunk.filePath,
-		// 	function_name: chunk.chunk_type || undefined,
-		// 	start_line: chunk.source_location.start_line,
-		// 	end_line: chunk.source_location.end_line,
-		// 	language: chunk.language,
-		// 	natural_language_description: chunk.generated_context,
-		// 	original_code: chunk.original_chunk_content,
-		// };
-
-		// const jsonData = struct.encode(metadata);
-		// const document: google.cloud.discoveryengine.v1beta.IDocument = { id: docId, structData: jsonData };
-
-		// if (document.structData?.fields) {
-		// 	if (chunk.embedding && chunk.embedding.length > 0) {
-		// 		document.structData.fields.embedding_vector = {
-		// 			listValue: { values: chunk.embedding.map((value) => ({ numberValue: value })) },
-		// 		};
-		// 	}
-		// 	document.structData.fields.lexical_search_text = { stringValue: chunk.contextualized_chunk_content };
-		// }
 		return document;
 	}
 
 	async search(query: string, maxResults = 10): Promise<SearchResult[]> {
 		await this.dataStore.ensureDataStoreExists();
 		logger.info({ query, maxResults }, `Performing search in data store: ${this.dataStoreId}`);
-		return this.runSearchInternal(query, maxResults);
-	}
 
-	private async runSearchInternal(query: string, maxResults: number): Promise<SearchResult[]> {
 		const servingConfigPath = this.dataStore.getServingConfigPath();
 
 		const queryEmbedding = await this.embeddingService.generateEmbedding(query, 'RETRIEVAL_DOCUMENT');

@@ -68,6 +68,7 @@ describe('GoogleVectorStore Integration Test', () => {
 
 			// Index
 			await vectorStore.indexRepository(repoTempDir);
+			// It takes a little while for the index to be ready.
 			await sleep(8000);
 			// Search and assert state
 			const query = 'a function that adds two numbers';
