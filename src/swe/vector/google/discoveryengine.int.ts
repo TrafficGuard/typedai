@@ -9,6 +9,7 @@ import { sleep } from '#utils/async-utils';
 import { DISCOVERY_ENGINE_LOCATION, GCLOUD_PROJECT, getDocumentServiceClient } from './config';
 import { GoogleVectorStore } from './googleVectorService';
 import { VertexAITextEmbeddingService } from './indexing/vertexEmbedder';
+import { searchCode } from './search';
 
 const logger = pino({ name: 'GoogleApiIntegrationTest' });
 
@@ -126,13 +127,21 @@ describe('Google discoveryengine API', function () {
 		logger.info(`Import operation started: ${operation.name}`);
 		await operation.promise();
 		// Optional short cushion
-		await sleep(3000);
+		await sleep(5000);
 
 		// 4. === QUERY ===
-		const vectorStore = new GoogleVectorStore(GCLOUD_PROJECT, location, collectionId, testDataStoreId);
+		// const vectorStore = new GoogleVectorStore(GCLOUD_PROJECT, location, collectionId, testDataStoreId);
+		// logger.info(`Step 4: Performing search with query: "${testQuery}"...`);
+		// const results = await vectorStore.search(testQuery);
 
+		// We need to override the DATA_STORE_ID used by searchCode for this test run.
+		// We'll use a test-only setter to do this temporarily.
+		// const originalId = DATA_STORE_ID_CONST;
+		// setDiscoveryEngineDataStoreIdForTesting(testDataStoreId);
 		logger.info(`Step 4: Performing search with query: "${testQuery}"...`);
-		const results = await vectorStore.search(testQuery);
+		const results = await searchCode(testDataStoreId, testQuery);
+		// Restore the original ID immediately after the call
+		// setDiscoveryEngineDataStoreIdForTesting(originalId);
 
 		// 5. === ASSERT ===
 		logger.info('Step 5: Asserting search results...');

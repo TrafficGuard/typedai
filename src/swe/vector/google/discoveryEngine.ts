@@ -79,6 +79,7 @@ export class DiscoveryEngine {
 			try {
 				const [operation] = await this.documentClient.importDocuments(request);
 				logger.info(`ImportDocuments operation started: ${operation.name}`);
+				await operation.promise(); // wait until the indexing finishes
 				return;
 			} catch (apiError: any) {
 				const delay = INITIAL_RETRY_DELAY_MS * RETRY_DELAY_MULTIPLIER ** attempt;
@@ -118,21 +119,13 @@ export class DiscoveryEngine {
 		}
 	}
 
-	async search(searchRequest: google.cloud.discoveryengine.v1beta.ISearchRequest): Promise<google.cloud.discoveryengine.v1beta.ISearchResponse> {
+	async search(searchRequest: google.cloud.discoveryengine.v1beta.ISearchRequest): Promise<google.cloud.discoveryengine.v1.SearchResponse.ISearchResult[]> {
 		await this.ensureDataStoreExists();
-		const [response] = (await this.searchClient.search(searchRequest, {
-			autoPaginate: false,
-		})) as [google.cloud.discoveryengine.v1beta.ISearchResponse, any, any];
-		return response;
+		const [results] = await this.searchClient.search(searchRequest); // {autoPaginate: false}
+		return results;
 	}
 
 	getServingConfigPath(): string {
-		return this.searchClient.projectLocationCollectionDataStoreServingConfigPath(
-			this.project,
-			this.location,
-			this.collection,
-			this.dataStoreId,
-			'default_config',
-		);
+		return this.searchClient.projectLocationDataStoreServingConfigPath(this.project, this.location, this.dataStoreId, 'default_config');
 	}
 }

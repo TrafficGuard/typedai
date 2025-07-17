@@ -21,6 +21,20 @@ interface ChunkWithFileContext extends ContextualizedChunkItem {
 	embedding?: number[];
 }
 
+export interface CodeSearchResultItem {
+	id: string;
+	score: number;
+	document: {
+		filePath: string;
+		functionName?: string;
+		startLine: number;
+		endLine: number;
+		language: string;
+		naturalLanguageDescription: string;
+		originalCode: string;
+	};
+}
+
 export class GoogleVectorStore implements VectorStore {
 	private readonly project: string;
 	private readonly location: string;
@@ -162,27 +176,36 @@ export class GoogleVectorStore implements VectorStore {
 	private _prepareDocumentProto(chunk: ChunkWithFileContext): google.cloud.discoveryengine.v1beta.IDocument {
 		const docId = this._createDocumentId(chunk.filePath, chunk.chunk_type, chunk.source_location.start_line);
 
-		const metadata = {
-			file_path: chunk.filePath,
-			function_name: chunk.chunk_type || undefined,
-			start_line: chunk.source_location.start_line,
-			end_line: chunk.source_location.end_line,
-			language: chunk.language,
-			natural_language_description: chunk.generated_context,
-			original_code: chunk.original_chunk_content,
+		const document: google.cloud.discoveryengine.v1beta.IDocument = {
+			id: docId,
+			structData: struct.encode({
+				file_path: chunk.filePath,
+				original_code: chunk.original_chunk_content,
+				embedding_vector: chunk.embedding,
+				lexical_search_text: chunk.contextualized_chunk_content,
+			}),
 		};
+		// const metadata = {
+		// 	file_path: chunk.filePath,
+		// 	function_name: chunk.chunk_type || undefined,
+		// 	start_line: chunk.source_location.start_line,
+		// 	end_line: chunk.source_location.end_line,
+		// 	language: chunk.language,
+		// 	natural_language_description: chunk.generated_context,
+		// 	original_code: chunk.original_chunk_content,
+		// };
 
-		const jsonData = struct.encode(metadata);
-		const document: google.cloud.discoveryengine.v1beta.IDocument = { id: docId, structData: jsonData };
+		// const jsonData = struct.encode(metadata);
+		// const document: google.cloud.discoveryengine.v1beta.IDocument = { id: docId, structData: jsonData };
 
-		if (document.structData?.fields) {
-			if (chunk.embedding && chunk.embedding.length > 0) {
-				document.structData.fields.embedding_vector = {
-					listValue: { values: chunk.embedding.map((value) => ({ numberValue: value })) },
-				};
-			}
-			document.structData.fields.lexical_search_text = { stringValue: chunk.contextualized_chunk_content };
-		}
+		// if (document.structData?.fields) {
+		// 	if (chunk.embedding && chunk.embedding.length > 0) {
+		// 		document.structData.fields.embedding_vector = {
+		// 			listValue: { values: chunk.embedding.map((value) => ({ numberValue: value })) },
+		// 		};
+		// 	}
+		// 	document.structData.fields.lexical_search_text = { stringValue: chunk.contextualized_chunk_content };
+		// }
 		return document;
 	}
 
@@ -195,7 +218,7 @@ export class GoogleVectorStore implements VectorStore {
 	private async runSearchInternal(query: string, maxResults: number): Promise<SearchResult[]> {
 		const servingConfigPath = this.dataStore.getServingConfigPath();
 
-		const queryEmbedding = await this.embeddingService.generateEmbedding(query, 'CODE_RETRIEVAL_QUERY');
+		const queryEmbedding = await this.embeddingService.generateEmbedding(query, 'RETRIEVAL_DOCUMENT');
 		if (!queryEmbedding) {
 			logger.error({ query }, 'Failed to generate embedding for search query.');
 			return [];
@@ -203,7 +226,6 @@ export class GoogleVectorStore implements VectorStore {
 
 		const searchRequest: google.cloud.discoveryengine.v1beta.ISearchRequest = {
 			servingConfig: servingConfigPath,
-			query: query,
 			pageSize: maxResults,
 			embeddingSpec: {
 				embeddingVectors: [
@@ -215,35 +237,43 @@ export class GoogleVectorStore implements VectorStore {
 			},
 		};
 
-		const response = await this.dataStore.search(searchRequest);
+		const searchResults = await this.dataStore.search(searchRequest);
+		logger.info({ query }, `Received ${searchResults?.length ?? 0} search results.`);
 
-		const searchResultsWithScore = (response.results || [])
-			.map((result) => {
-				const fields = result.document?.structData?.fields;
-				return {
-					searchResult: {
-						id: result.document?.id ?? 'unknown-id',
+		// 4. Process Results
+		const results: CodeSearchResultItem[] = [];
+		if (searchResults) {
+			for (const result of searchResults) {
+				// Ensure result and document exist before proceeding
+				logger.info({ result }, 'Processing search result.');
+				if (result.document?.structData?.fields) {
+					const fields = result.document.structData.fields;
+					// Helper to safely extract string values from Struct fields
+					const getString = (fieldName: string): string | undefined => fields[fieldName]?.stringValue;
+					// Helper to safely extract number values
+					const getNumber = (fieldName: string): number | undefined => fields[fieldName]?.numberValue;
+
+					const item: CodeSearchResultItem = {
+						id: result.document.id ?? 'unknown-id',
+						score: result.document.derivedStructData?.fields?.search_score?.numberValue ?? 0, // Check actual score field name
 						document: {
-							filePath: fields?.file_path?.stringValue ?? 'unknown_path',
-							functionName: fields?.function_name?.stringValue,
-							startLine: fields?.start_line?.numberValue ?? 0,
-							endLine: fields?.end_line?.numberValue ?? 0,
-							language: fields?.language?.stringValue ?? 'unknown',
-							naturalLanguageDescription: fields?.natural_language_description?.stringValue ?? '',
-							originalCode: fields?.original_code?.stringValue ?? '',
+							filePath: getString('file_path') ?? 'unknown_path',
+							functionName: getString('function_name'), // Optional
+							startLine: getNumber('start_line') ?? 0,
+							endLine: getNumber('end_line') ?? 0,
+							language: getString('language') ?? 'unknown',
+							naturalLanguageDescription: getString('natural_language_description') ?? '',
+							originalCode: getString('original_code') ?? '',
 						},
-					},
-					score: result.document?.derivedStructData?.fields?.search_score?.numberValue ?? 0,
-				};
-			})
-			.filter((item) => item.searchResult.id !== 'unknown-id');
+					};
+					results.push(item);
+				}
+			}
+		}
 
-		searchResultsWithScore.sort((a, b) => b.score - a.score);
+		results.sort((a, b) => b.score - a.score);
 
-		return searchResultsWithScore.map((item) => ({
-			...item.searchResult,
-			score: item.score,
-		}));
+		return results;
 	}
 }
 

@@ -23,7 +23,7 @@ export interface SearchResult {
 
 export interface VectorIndex {
 	/**
-	 * Initial index of a repository
+	 * Initial index of a repository.
 	 * @param rootDir the root directory of the repository
 	 * @param subFolder (optional) only index files under this sub folder
 	 */
