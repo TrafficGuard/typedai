@@ -134,4 +134,20 @@ export class DiscoveryEngine {
 	getServingConfigPath(): string {
 		return this.searchClient.projectLocationDataStoreServingConfigPath(this.project, this.location, this.dataStoreId, 'default_config');
 	}
+
+	async deleteDataStore(): Promise<void> {
+		if (!this.dataStorePath) {
+			logger.warn(`No data store path available for deletion. Skipping.`);
+			return;
+		}
+		try {
+			const [operation] = await this.dataStoreClient.deleteDataStore({ name: this.dataStorePath, force: true });
+			await operation.promise();
+			logger.info(`Successfully deleted data store "${this.dataStoreId}".`);
+			this.dataStorePath = null;
+		} catch (error: any) {
+			logger.error({ error }, `Failed to delete data store "${this.dataStoreId}".`);
+			throw error;
+		}
+	}
 }

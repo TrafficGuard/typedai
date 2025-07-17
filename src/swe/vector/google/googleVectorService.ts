@@ -222,6 +222,14 @@ export class GoogleVectorStore implements VectorStore {
 
 		return results;
 	}
+
+	async createDataStore(): Promise<string> {
+		return this.dataStore.ensureDataStoreExists();
+	}
+
+	async deleteDataStore(): Promise<void> {
+		await this.dataStore.deleteDataStore();
+	}
 }
 
 /**
