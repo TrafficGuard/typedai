@@ -92,7 +92,7 @@ export class DiscoveryEngine {
 		const BATCH_SIZE_PURGE = 20;
 		for (let i = 0; i < filePaths.length; i += BATCH_SIZE_PURGE) {
 			const batchFilePaths = filePaths.slice(i, i + BATCH_SIZE_PURGE);
-			const filter = batchFilePaths.map((p) => `struct_field("file_path") = "${p}"`).join(' OR ');      
+			const filter = batchFilePaths.map((p) => `uri = "${p}"`).join(' OR ');
 
 			const request: google.cloud.discoveryengine.v1beta.IPurgeDocumentsRequest = {
 				parent: `${this.dataStorePath}/branches/default_branch`,

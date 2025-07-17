@@ -144,6 +144,7 @@ export class GoogleVectorStore implements VectorStore {
 
 		const document: google.cloud.discoveryengine.v1beta.IDocument = {
 			id: docId,
+			uri: chunk.filePath,
 			structData: struct.encode({
 				file_path: chunk.filePath,
 				original_code: chunk.original_chunk_content,
