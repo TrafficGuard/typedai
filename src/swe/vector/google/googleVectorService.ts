@@ -101,7 +101,6 @@ export class GoogleVectorStore implements VectorStore {
 		allChunks: ChunkWithFileContext[], stats: IndexingStats
 		): Promise<google.cloud.discoveryengine.v1beta.IDocument[]> {
 		const documentsToIndex: google.cloud.discoveryengine.v1beta.IDocument[] = [];
-		let failedChunksCount = 0;
 		let successfullyEmbeddedChunks = 0;
 
 		for (let i = 0; i < allChunks.length; i += INDEXER_EMBEDDING_PROCESSING_BATCH_SIZE) {
