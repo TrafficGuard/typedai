@@ -2,7 +2,7 @@ import { PredictionServiceClient, helpers, protos } from '@google-cloud/aiplatfo
 import pino from 'pino';
 import { countTokensSync } from '#llm/tokens';
 import { sleep } from '#utils/async-utils';
-import { DISCOVERY_ENGINE_EMBEDDING_MODEL, GCLOUD_PROJECT, GCLOUD_REGION, TOKENS_PER_MINUTE_QUOTA } from './config';
+import { GoogleVectorServiceConfig, TOKENS_PER_MINUTE_QUOTA, getGoogleVectorServiceConfig } from './config';
 
 const logger = pino({ name: 'Embedder' });
 
@@ -27,12 +27,10 @@ export class VertexAITextEmbeddingService implements TextEmbeddingService {
 	private endpointPath: string;
 	private tokenUsageHistory: { timestamp: number; tokens: number }[] = [];
 
-	constructor() {
-		const clientOptions = {
-			apiEndpoint: `${GCLOUD_REGION}-aiplatform.googleapis.com`,
-		};
+	constructor(googleCloudConfig: GoogleVectorServiceConfig) {
+		const clientOptions = { apiEndpoint: `${googleCloudConfig.region}-aiplatform.googleapis.com` };
 		this.client = new PredictionServiceClient(clientOptions);
-		this.endpointPath = `projects/${GCLOUD_PROJECT}/locations/${GCLOUD_REGION}/publishers/google/models/${DISCOVERY_ENGINE_EMBEDDING_MODEL}`;
+		this.endpointPath = `projects/${googleCloudConfig.project}/locations/${googleCloudConfig.region}/publishers/google/models/${googleCloudConfig.embeddingModel}`;
 	}
 
 	async generateEmbedding(text: string, taskType: TaskType): Promise<number[]> {
@@ -132,7 +130,7 @@ export class VertexAITextEmbeddingService implements TextEmbeddingService {
 let serviceInstance: TextEmbeddingService | null = null;
 export function getEmbeddingService(): TextEmbeddingService {
 	if (!serviceInstance) {
-		serviceInstance = new VertexAITextEmbeddingService();
+		serviceInstance = new VertexAITextEmbeddingService(getGoogleVectorServiceConfig());
 	}
 	return serviceInstance;
 }

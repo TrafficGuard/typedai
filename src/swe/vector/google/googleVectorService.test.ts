@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import pino from 'pino';
-import { DISCOVERY_ENGINE_LOCATION, GCLOUD_PROJECT } from './config';
+import { DISCOVERY_ENGINE_EMBEDDING_MODEL, DISCOVERY_ENGINE_LOCATION, GCLOUD_PROJECT, GCLOUD_REGION, GoogleVectorServiceConfig } from './config';
 import { GoogleVectorStore, sanitizeGitUrlForDataStoreId } from './googleVectorService';
 
 import * as fs from 'node:fs/promises';
@@ -19,6 +19,7 @@ describe('GoogleVectorStore Integration Test', () => {
 		this.timeout(300000); // 5 minutes
 
 		const project = GCLOUD_PROJECT;
+		const region = GCLOUD_REGION;
 		const location = DISCOVERY_ENGINE_LOCATION;
 		const collection = 'default_collection';
 		const testRepoUrl = `https://github.com/test-org/test-repo-${Date.now()}`;
@@ -45,7 +46,15 @@ describe('GoogleVectorStore Integration Test', () => {
 				},
 			});
 			await operation.promise();
-			vectorStore = new GoogleVectorStore(project, location, collection, dataStoreId);
+			const config: GoogleVectorServiceConfig = {
+				project,
+				region,
+				discoveryEngineLocation: location,
+				collection,
+				dataStoreId,
+				embeddingModel: DISCOVERY_ENGINE_EMBEDDING_MODEL,
+			};
+			vectorStore = new GoogleVectorStore(config);
 		});
 
 		// Adapt example after: Delete data store
@@ -70,7 +79,7 @@ describe('GoogleVectorStore Integration Test', () => {
 			// Index
 			await vectorStore.indexRepository(repoTempDir);
 			// It takes a little while for the index to be ready.
-			await sleep(8000);
+			await sleep(10000);
 			// Search and assert state
 			const query = 'a function that adds two numbers';
 			const results: ChunkSearchResult[] = await vectorStore.search(query);

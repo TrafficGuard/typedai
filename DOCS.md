@@ -303,7 +303,7 @@ Use descriptive variable and function names instead of commenting on generic nam
 # Example - Minimise unnecessary line count
 
 ## Original
-This code was repeated multiple times through the tests
+This code was repeated multiple times through the tests. Extract it into a helper function.
 ```typescript
 			expect(
     await fsAsync
@@ -326,3 +326,22 @@ it('should test foo', async () => {
     expect(await fileExists(orphanedSummaryFullPath)).to.be.true;
 })
 ```
+
+## Original
+
+```typescript
+logger.info(
+			`Indexing pipeline completed. Successfully prepared ${successfullyProcessedAndEmbeddedChunks} chunks from ${
+				codeFiles.length - failedFilesCount.count
+			} files for indexing.`,
+		);
+```
+
+# Updated
+```typescript
+const successCount = codeFiles.length - failedFilesCount.count
+logger.info(`Indexing completed. Prepared ${successfullyProcessedAndEmbeddedChunks} chunks from ${successCount} files.`);
+```
+
+## Notes
+Extracting the successCount calculation into a variable and shortening the wording so the statement can be on a single line reduces the line count from 5 down to 2.

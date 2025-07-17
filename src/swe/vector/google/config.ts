@@ -12,21 +12,24 @@ export const EMBEDDING_API_BATCH_SIZE = 25;
 export const INDEXER_EMBEDDING_PROCESSING_BATCH_SIZE = 100;
 export const TOKENS_PER_MINUTE_QUOTA = 200_000;
 
-/**
- * Creates a DocumentServiceClient for a specific location.
- * @param location The Google Cloud location (e.g., 'global', 'us').
- */
-export function createDocumentServiceClient(location: string): DocumentServiceClient {
-	return new DocumentServiceClient({
-		apiEndpoint: `${location}-discoveryengine.googleapis.com`,
-	});
+export interface GoogleVectorServiceConfig {
+	project: string;
+	region: string;
+	discoveryEngineLocation: string;
+	collection: string;
+	dataStoreId: string;
+	embeddingModel: string;
 }
 
-/**
- * Returns a singleton DocumentServiceClient for the default location.
- */
-export function getDocumentServiceClient(): DocumentServiceClient {
-	return createDocumentServiceClient(DISCOVERY_ENGINE_LOCATION);
+export function getGoogleVectorServiceConfig(): GoogleVectorServiceConfig {
+	return {
+		project: GCLOUD_PROJECT,
+		region: GCLOUD_REGION,
+		discoveryEngineLocation: DISCOVERY_ENGINE_LOCATION,
+		collection: DISCOVERY_ENGINE_COLLECTION_ID,
+		dataStoreId: DISCOVERY_ENGINE_DATA_STORE_ID,
+		embeddingModel: DISCOVERY_ENGINE_EMBEDDING_MODEL,
+	};
 }
 
 /**
@@ -36,19 +39,19 @@ export function getSearchServiceClient(): SearchServiceClient {
 	return createSearchServiceClient(DISCOVERY_ENGINE_LOCATION);
 }
 
-/**
- * Returns the full resource path for the data store branch.
- */
-export function getDiscoveryEngineDataStorePath(): string {
-	const branchId = 'default_branch';
-	return getDocumentServiceClient().projectLocationCollectionDataStoreBranchPath(
-		GCLOUD_PROJECT,
-		DISCOVERY_ENGINE_LOCATION,
-		DISCOVERY_ENGINE_COLLECTION_ID,
-		DISCOVERY_ENGINE_DATA_STORE_ID,
-		branchId,
-	);
-}
+// /**
+//  * Returns the full resource path for the data store branch.
+//  */
+// export function getDiscoveryEngineDataStorePath(): string {
+// 	const branchId = 'default_branch';
+// 	return getDocumentServiceClient().projectLocationCollectionDataStoreBranchPath(
+// 		GCLOUD_PROJECT,
+// 		DISCOVERY_ENGINE_LOCATION,
+// 		DISCOVERY_ENGINE_COLLECTION_ID,
+// 		DISCOVERY_ENGINE_DATA_STORE_ID,
+// 		branchId,
+// 	);
+// }
 
 /**
  * Creates a SearchServiceClient for a specific location.

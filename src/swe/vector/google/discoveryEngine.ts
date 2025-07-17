@@ -2,7 +2,7 @@ import { DataStoreServiceClient, DocumentServiceClient, SearchServiceClient } fr
 import { google } from '@google-cloud/discoveryengine/build/protos/protos';
 import pino from 'pino';
 import { sleep } from '#utils/async-utils';
-import { createDataStoreServiceClient, getDocumentServiceClient, getSearchServiceClient } from './config';
+import { GoogleVectorServiceConfig } from './config';
 
 const logger = pino({ name: 'DiscoveryEngineDataStore' });
 
@@ -20,15 +20,21 @@ export class DiscoveryEngine {
 	private searchClient: SearchServiceClient;
 	private dataStorePath: string | null = null;
 
-	constructor(project: string, location: string, collection: string, dataStoreId: string) {
-		this.project = project;
-		this.location = location;
-		this.collection = collection;
-		this.dataStoreId = dataStoreId;
+	constructor(config: GoogleVectorServiceConfig) {
+		this.project = config.project;
+		this.location = config.discoveryEngineLocation;
+		this.collection = config.collection;
+		this.dataStoreId = config.dataStoreId;
 
-		this.documentClient = getDocumentServiceClient();
-		this.searchClient = getSearchServiceClient();
-		this.dataStoreClient = createDataStoreServiceClient(this.location);
+		this.documentClient = new DocumentServiceClient({
+			apiEndpoint: `${config.discoveryEngineLocation}-discoveryengine.googleapis.com`,
+		});
+		this.searchClient = new SearchServiceClient({
+			apiEndpoint: `${config.discoveryEngineLocation}-discoveryengine.googleapis.com`,
+		});
+		this.dataStoreClient = new DataStoreServiceClient({
+			apiEndpoint: `${config.discoveryEngineLocation}-discoveryengine.googleapis.com`,
+		});
 	}
 
 	async ensureDataStoreExists(): Promise<string> {

@@ -2,10 +2,11 @@ import { google } from '@google-cloud/discoveryengine/build/protos/protos';
 import { struct } from 'pb-util';
 import pino from 'pino';
 import { settleAllWithInput } from '#utils/async-utils';
-import { generateContextualizedChunks } from '../chunking/contextualizedChunker';
 import { ChunkSearchResult, ChunkWithFileContext, ContextualizedChunkItem } from '../chunking/chunkTypes';
+import { generateContextualizedChunks } from '../chunking/contextualizedChunker';
 import { CodeFile, readFilesToIndex } from '../codeLoader';
 import { SearchResult, VectorStore } from '../vector';
+import { GoogleVectorServiceConfig } from './config';
 import { DiscoveryEngine } from './discoveryEngine';
 import { TextEmbeddingService, VertexAITextEmbeddingService } from './vertexEmbedder';
 
@@ -17,21 +18,12 @@ const FILE_PROCESSING_PARALLEL_BATCH_SIZE = 5;
 const INDEXER_EMBEDDING_PROCESSING_BATCH_SIZE = 100;
 
 export class GoogleVectorStore implements VectorStore {
-	private readonly project: string;
-	private readonly location: string;
-	private readonly collection: string;
-	private dataStoreId: string;
 	private dataStore: DiscoveryEngine;
 	private embeddingService: TextEmbeddingService;
 
-	constructor(project: string, location: string, collection: string, dataStoreId: string) {
-		this.project = project;
-		this.location = location;
-		this.collection = collection;
-		this.dataStoreId = dataStoreId;
-
-		this.dataStore = new DiscoveryEngine(project, location, collection, dataStoreId);
-		this.embeddingService = new VertexAITextEmbeddingService();
+	constructor(private config: GoogleVectorServiceConfig) {
+		this.dataStore = new DiscoveryEngine(config);
+		this.embeddingService = new VertexAITextEmbeddingService(config);
 	}
 
 	async indexRepository(dir = './'): Promise<void> {
@@ -170,7 +162,7 @@ export class GoogleVectorStore implements VectorStore {
 
 	async search(query: string, maxResults = 10): Promise<ChunkSearchResult[]> {
 		await this.dataStore.ensureDataStoreExists();
-		logger.info({ query, maxResults }, `Performing search in data store: ${this.dataStoreId}`);
+		logger.info({ query, maxResults }, `Performing search in data store: ${this.config.dataStoreId}`);
 
 		const servingConfigPath = this.dataStore.getServingConfigPath();
 
@@ -201,7 +193,6 @@ export class GoogleVectorStore implements VectorStore {
 		if (searchResults) {
 			for (const result of searchResults) {
 				// Ensure result and document exist before proceeding
-				logger.info({ result }, 'Processing search result.');
 				if (result.document?.structData?.fields) {
 					const fields = result.document.structData.fields;
 					// Helper to safely extract string values from Struct fields
