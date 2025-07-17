@@ -101,22 +101,19 @@ export class GoogleVectorStore implements VectorStore {
 		allChunks: ChunkWithFileContext[],
 		stats: IndexingStats,
 	): Promise<google.cloud.discoveryengine.v1beta.IDocument[]> {
-		const limit = pLimit(INDEXER_EMBEDDING_PROCESSING_BATCH_SIZE);
-		logger.info(`Generating embeddings for ${allChunks.length} chunks with concurrency ${INDEXER_EMBEDDING_PROCESSING_BATCH_SIZE}...`);
+		logger.info(`Generating embeddings for ${allChunks.length} chunks in parallel...`);
 
-		const documentPromises = allChunks.map((chunk) =>
-			limit(async () => {
-				const embeddingVector = await this.embeddingService.generateEmbedding(chunk.contextualized_chunk_content, 'RETRIEVAL_DOCUMENT');
-				if (embeddingVector && embeddingVector.length > 0) {
-					chunk.embedding = embeddingVector;
-					return this._prepareDocumentProto(chunk);
-				} else {
-					stats.failedChunksCount++;
-					logger.warn(`Skipping chunk in ${chunk.filePath} at line ${chunk.source_location.start_line} due to embedding failure.`);
-					return null;
-				}
-			}),
-		);
+		const documentPromises = allChunks.map(async (chunk) => {
+			const embeddingVector = await this.embeddingService.generateEmbedding(chunk.contextualized_chunk_content, 'RETRIEVAL_DOCUMENT');
+			if (embeddingVector && embeddingVector.length > 0) {
+				chunk.embedding = embeddingVector;
+				return this._prepareDocumentProto(chunk);
+			} else {
+				stats.failedChunksCount++;
+				logger.warn(`Skipping chunk in ${chunk.filePath} at line ${chunk.source_location.start_line} due to embedding failure.`);
+				return null;
+			}
+		});
 
 		const settledResults = await Promise.all(documentPromises);
 		const documentsToIndex = settledResults.filter((doc) => doc !== null) as google.cloud.discoveryengine.v1beta.IDocument[];
