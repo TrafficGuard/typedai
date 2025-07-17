@@ -6,8 +6,8 @@ import { ChunkSearchResult, ChunkWithFileContext, ContextualizedChunkItem } from
 import { generateContextualizedChunks } from '../chunking/contextualizedChunker';
 import { CodeFile, readFilesToIndex } from '../codeLoader';
 import { SearchResult, VectorStore } from '../vector';
-import { GoogleVectorServiceConfig } from './config';
 import { DiscoveryEngine } from './discoveryEngine';
+import { GoogleVectorServiceConfig } from './googleVectorConfig';
 import { TextEmbeddingService, VertexAITextEmbeddingService } from './vertexEmbedder';
 
 const logger = pino({ name: 'GoogleVectorStore' });
