@@ -20,29 +20,30 @@ describe('GoogleVectorStore Integration Test', function () {
 	const collection = 'default_collection';
 
 	let vectorStore: GoogleVectorStore;
+	let testDataStoreId: string; // Declare testDataStoreId in the outer scope
 
 	before(async () => {
 		const uniqueSuffix = Date.now();
-		const dataStoreId = `test-datastore-${uniqueSuffix}`;
+		testDataStoreId = `test-datastore-${uniqueSuffix}`; // Assign to the outer scope variable
 
 		const config: GoogleVectorServiceConfig = {
 			project,
 			region,
 			discoveryEngineLocation: location,
 			collection,
-			dataStoreId,
+			dataStoreId: testDataStoreId, // Use the outer scope variable
 			embeddingModel: DISCOVERY_ENGINE_EMBEDDING_MODEL,
 		};
 		vectorStore = new GoogleVectorStore(config);
 
 		await vectorStore.createDataStore();
-		logger.info(`Created/ensured test data store with ID: ${dataStoreId}`);
+		logger.info(`Created/ensured test data store with ID: ${testDataStoreId}`);
 	});
 
 	after(async () => {
 		try {
 			await vectorStore.deleteDataStore();
-			logger.info(`Deleted test data store: ${vectorStore.dataStore.dataStoreId}`);
+			logger.info(`Deleted test data store: ${testDataStoreId}`); // Use the outer scope variable for logging
 		} catch (err) {
 			logger.error({ err }, 'Failed to delete test data store');
 		}
