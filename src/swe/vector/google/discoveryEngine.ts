@@ -2,7 +2,7 @@ import { DataStoreServiceClient, DocumentServiceClient, SearchServiceClient } fr
 import { google } from '@google-cloud/discoveryengine/build/protos/protos';
 import pino from 'pino';
 import { sleep } from '#utils/async-utils';
-import { GoogleVectorServiceConfig } from './config';
+import { GoogleVectorServiceConfig } from './googleVectorConfig';
 
 const logger = pino({ name: 'DiscoveryEngineDataStore' });
 
@@ -14,11 +14,13 @@ export class DiscoveryEngine {
 	private readonly project: string;
 	private readonly location: string;
 	private readonly collection: string;
-	private dataStoreId: string;
+	private readonly dataStoreId: string;
 	private dataStoreClient: DataStoreServiceClient;
 	private documentClient: DocumentServiceClient;
 	private searchClient: SearchServiceClient;
 	private dataStorePath: string | null = null;
+	private parentPath: string;
+	private datastoreName: string;
 
 	constructor(config: GoogleVectorServiceConfig) {
 		this.project = config.project;
@@ -35,23 +37,20 @@ export class DiscoveryEngine {
 		this.dataStoreClient = new DataStoreServiceClient({
 			apiEndpoint: `${config.discoveryEngineLocation}-discoveryengine.googleapis.com`,
 		});
+		this.parentPath = `projects/${this.project}/locations/${this.location}/collections/${this.collection}`;
+		this.datastoreName = `${this.parentPath}/dataStores/${this.dataStoreId}`;
+		this.dataStorePath = this.datastoreName;
 	}
 
-	async ensureDataStoreExists(): Promise<string> {
-		if (this.dataStorePath) return this.dataStorePath;
-
-		const parent = `projects/${this.project}/locations/${this.location}/collections/${this.collection}`;
-		const prospectivePath = `${parent}/dataStores/${this.dataStoreId}`;
-
+	async ensureDataStoreExists(): Promise<void> {
 		try {
-			await this.dataStoreClient.getDataStore({ name: prospectivePath });
-			logger.info(`Data store "${this.dataStoreId}" already exists.`);
+			await this.dataStoreClient.getDataStore({ name: this.datastoreName });
 		} catch (error: any) {
 			if (error.code === 5) {
 				// gRPC code for NOT_FOUND
 				logger.warn(`Data store "${this.dataStoreId}" not found. Creating...`);
 				const [operation] = await this.dataStoreClient.createDataStore({
-					parent,
+					parent: this.parentPath,
 					dataStoreId: this.dataStoreId,
 					dataStore: {
 						displayName: `Repo: ${this.dataStoreId}`,
@@ -67,16 +66,14 @@ export class DiscoveryEngine {
 				throw error;
 			}
 		}
-		this.dataStorePath = prospectivePath;
-		return this.dataStorePath;
 	}
 
 	async importDocuments(documents: google.cloud.discoveryengine.v1beta.IDocument[]): Promise<void> {
 		if (documents.length === 0) return;
-		const dataStorePath = await this.ensureDataStoreExists();
+		await this.ensureDataStoreExists();
 
 		const request: google.cloud.discoveryengine.v1beta.IImportDocumentsRequest = {
-			parent: `${dataStorePath}/branches/default_branch`,
+			parent: `${this.dataStorePath}/branches/default_branch`,
 			inlineSource: { documents },
 			reconciliationMode: google.cloud.discoveryengine.v1beta.ImportDocumentsRequest.ReconciliationMode.INCREMENTAL,
 		};
@@ -102,7 +99,7 @@ export class DiscoveryEngine {
 
 	async purgeDocuments(filePaths: string[]): Promise<void> {
 		if (filePaths.length === 0) return;
-		const dataStorePath = await this.ensureDataStoreExists();
+		await this.ensureDataStoreExists();
 		logger.info(`Purging documents for ${filePaths.length} file(s)...`);
 
 		const BATCH_SIZE_PURGE = 20;
@@ -111,7 +108,7 @@ export class DiscoveryEngine {
 			const filter = batchFilePaths.map((p) => `struct_field("file_path") = "${p}"`).join(' OR ');
 
 			const request: google.cloud.discoveryengine.v1beta.IPurgeDocumentsRequest = {
-				parent: `${dataStorePath}/branches/default_branch`,
+				parent: `${this.dataStorePath}/branches/default_branch`,
 				filter: filter,
 				force: true,
 			};
@@ -136,17 +133,16 @@ export class DiscoveryEngine {
 	}
 
 	async deleteDataStore(): Promise<void> {
-		if (!this.dataStorePath) {
-			logger.warn(`No data store path available for deletion. Skipping.`);
-			return;
-		}
 		try {
 			const [operation] = await this.dataStoreClient.deleteDataStore({ name: this.dataStorePath });
 			await operation.promise();
-			logger.info(`Successfully deleted data store "${this.dataStoreId}".`);
-			this.dataStorePath = null;
+			logger.info(`Successfully deleted data store "${this.dataStorePath}".`);
 		} catch (error: any) {
-			logger.error({ error }, `Failed to delete data store "${this.dataStoreId}".`);
+			if (error.code === 5) {
+				logger.info(`Data store "${this.dataStorePath}" does not exist.`);
+				return;
+			}
+			logger.error({ error }, `Failed to delete data store "${this.dataStorePath}".`);
 			throw error;
 		}
 	}

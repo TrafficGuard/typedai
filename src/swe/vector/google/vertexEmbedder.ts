@@ -2,7 +2,7 @@ import { PredictionServiceClient, helpers, protos } from '@google-cloud/aiplatfo
 import pino from 'pino';
 import { countTokensSync } from '#llm/tokens';
 import { sleep } from '#utils/async-utils';
-import { GoogleVectorServiceConfig, TOKENS_PER_MINUTE_QUOTA, getGoogleVectorServiceConfig } from './config';
+import { GoogleVectorServiceConfig, TOKENS_PER_MINUTE_QUOTA, getGoogleVectorServiceConfig } from './googleVectorConfig';
 
 const logger = pino({ name: 'Embedder' });
 
