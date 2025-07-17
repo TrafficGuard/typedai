@@ -1,8 +1,10 @@
 import { DataStoreServiceClient, DocumentServiceClient, SearchServiceClient } from '@google-cloud/discoveryengine';
 import { google } from '@google-cloud/discoveryengine/build/protos/protos';
 import pino from 'pino';
+import { RetryableError, cacheRetry } from '#cache/cacheRetry';
 import { sleep } from '#utils/async-utils';
-import { cacheRetry, RetryableError } from '#cache/cacheRetry';
+import { quotaRetry } from '#utils/quotaRetry';
+import { CodeFile } from '../codeLoader';
 import { GoogleVectorServiceConfig } from './googleVectorConfig';
 
 const logger = pino({ name: 'DiscoveryEngineDataStore' });
@@ -65,6 +67,8 @@ export class DiscoveryEngine {
 		}
 	}
 
+	@cacheRetry({ retries: 3, backOffMs: 1000 })
+	@quotaRetry()
 	async importDocuments(documents: google.cloud.discoveryengine.v1beta.IDocument[]): Promise<void> {
 		if (documents.length === 0) return;
 		await this.ensureDataStoreExists();
@@ -75,23 +79,9 @@ export class DiscoveryEngine {
 			reconciliationMode: google.cloud.discoveryengine.v1beta.ImportDocumentsRequest.ReconciliationMode.INCREMENTAL,
 		};
 
-		await this._importDocumentsRequest(request);
-	}
-
-	@cacheRetry({ retries: 3, backOffMs: 1000 })
-	private async _importDocumentsRequest(request: google.cloud.discoveryengine.v1beta.IImportDocumentsRequest): Promise<void> {
-		try {
-			const [operation] = await this.documentClient.importDocuments(request);
-			logger.info(`ImportDocuments operation started: ${operation.name}`);
-			await operation.promise(); // wait until the indexing finishes
-		} catch (e: any) {
-			// gRPC code 8 is RESOURCE_EXHAUSTED, HTTP 429 is Too Many Requests
-			if (e.code === 8 || e.code === 429) {
-				logger.warn({ code: e.code, message: e.message }, `Quota exceeded during document import, will retry...`);
-				throw new RetryableError(e);
-			}
-			throw e;
-		}
+		const [operation] = await this.documentClient.importDocuments(request);
+		logger.info(`ImportDocuments operation started: ${operation.name}`);
+		await operation.promise(); // wait until the indexing finishes
 	}
 
 	async purgeDocuments(filePaths: string[]): Promise<void> {
@@ -102,7 +92,7 @@ export class DiscoveryEngine {
 		const BATCH_SIZE_PURGE = 20;
 		for (let i = 0; i < filePaths.length; i += BATCH_SIZE_PURGE) {
 			const batchFilePaths = filePaths.slice(i, i + BATCH_SIZE_PURGE);
-			const filter = batchFilePaths.map((p) => `struct_field("file_path") = "${p}"`).join(' OR ');
+			const filter = batchFilePaths.map((p) => `struct_field("file_path") = "${p}"`).join(' OR ');      
 
 			const request: google.cloud.discoveryengine.v1beta.IPurgeDocumentsRequest = {
 				parent: `${this.dataStorePath}/branches/default_branch`,
@@ -110,12 +100,9 @@ export class DiscoveryEngine {
 				force: true,
 			};
 
-			try {
-				const [operation] = await this.documentClient.purgeDocuments(request);
-				logger.info(`PurgeDocuments operation started for ${batchFilePaths.length} files: ${operation.name}`);
-			} catch (error) {
-				logger.error({ error, filter }, 'Failed to start PurgeDocuments operation.');
-			}
+			const [operation] = await this.documentClient.purgeDocuments(request);
+			logger.info(`PurgeDocuments operation started for ${batchFilePaths.length} files: ${operation.name}`);
+			await operation.promise(); // wait until the purge finishes
 		}
 	}
 

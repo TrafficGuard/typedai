@@ -1,33 +1,29 @@
 import { google } from '@google-cloud/discoveryengine/build/protos/protos';
+import pLimit from 'p-limit';
 import { struct } from 'pb-util';
 import pino from 'pino';
-import { settleAllWithInput } from '#utils/async-utils';
-import { ChunkSearchResult, ChunkWithFileContext, ContextualizedChunkItem } from '../chunking/chunkTypes';
+import { span } from '#o11y/trace';
+import { ChunkSearchResult, ChunkWithFileContext } from '../chunking/chunkTypes';
 import { generateContextualizedChunks } from '../chunking/contextualizedChunker';
 import { CodeFile, readFilesToIndex } from '../codeLoader';
-import { SearchResult, VectorStore } from '../vector';
+import { VectorStore } from '../vector';
 import { DiscoveryEngine } from './discoveryEngine';
 import { GoogleVectorServiceConfig } from './googleVectorConfig';
-import { TextEmbeddingService, VertexAITextEmbeddingService } from './vertexEmbedder';
-import { span } from '#o11y/trace';
-import pLimit from 'p-limit';
+import { VertexAITextEmbeddingService } from './vertexEmbedder';
 
 const logger = pino({ name: 'GoogleVectorStore' });
 
-const BATCH_SIZE = 100; // Max documents per ImportDocuments request
-
 const FILE_PROCESSING_PARALLEL_BATCH_SIZE = 5;
-const INDEXER_EMBEDDING_PROCESSING_BATCH_SIZE = 100;
 
 class IndexingStats {
-	fileCount: number = 0;
+	fileCount = 0;
 	failedFiles: string[] = [];
-	failedChunksCount: number = 0;
+	failedChunksCount = 0;
 }
 
 export class GoogleVectorStore implements VectorStore {
 	private dataStore: DiscoveryEngine;
-	private embeddingService: TextEmbeddingService;
+	private embeddingService: VertexAITextEmbeddingService;
 
 	constructor(private config: GoogleVectorServiceConfig) {
 		this.dataStore = new DiscoveryEngine(config);
@@ -41,7 +37,7 @@ export class GoogleVectorStore implements VectorStore {
 		logger.info(`Loaded ${codeFiles.length} code files.`);
 
 		if (codeFiles.length === 0) return;
-		
+
 		await this.indexFiles(codeFiles);
 	}
 
@@ -57,11 +53,11 @@ export class GoogleVectorStore implements VectorStore {
 
 		logger.info(`Starting pipelined indexing for ${codeFiles.length} files with a concurrency of ${FILE_PROCESSING_PARALLEL_BATCH_SIZE}...`);
 
-		const processingPromises = codeFiles.map((file) =>
+		const processingPromises = codeFiles.map((file: CodeFile) =>
 			limit(async () => {
 				try {
 					// 1. Chunk file
-					const fileChunks = await this._processFileAndGetContextualizedChunks(file);
+					const fileChunks = await this.generateContextualizedChunks(file, stats);
 					if (fileChunks.length === 0) {
 						logger.debug({ filePath: file.filePath }, 'No chunks generated for file, skipping.');
 						return;
@@ -69,7 +65,7 @@ export class GoogleVectorStore implements VectorStore {
 					logger.info({ filePath: file.filePath, chunkCount: fileChunks.length }, 'File chunked, starting embedding.');
 
 					// 2. Embed chunks and prepare documents
-					const documents = await this._generateEmbeddingsAndPrepareDocuments(fileChunks, stats);
+					const documents = await this.generateEmbeddingsAndPrepareDocuments(fileChunks, stats);
 					if (documents.length === 0) {
 						logger.warn({ filePath: file.filePath }, 'No documents generated from chunks, skipping storage.');
 						return;
@@ -78,11 +74,11 @@ export class GoogleVectorStore implements VectorStore {
 					logger.info({ filePath: file.filePath, documentCount: documents.length }, 'Embeddings generated, starting storage.');
 
 					// 3. Store documents
-					await this.storeDocuments(documents);
-					logger.info({ filePath: file.filePath, documentCount: documents.length }, 'Documents stored.');
+					await this.dataStore.importDocuments(documents);
+					logger.info(`Completed import of ${documents.length} documents for ${file.filePath}.`);
 				} catch (e) {
 					stats.failedFiles.push(file.filePath);
-					logger.error({ err: e, filePath: file.filePath }, `File failed during processing pipeline.`);
+					logger.error({ err: e, filePath: file.filePath }, 'File failed during processing pipeline.');
 				}
 			}),
 		);
@@ -90,14 +86,13 @@ export class GoogleVectorStore implements VectorStore {
 		await Promise.all(processingPromises);
 
 		logger.info(
-			`Indexing pipeline completed. Successfully processed ${totalDocuments} chunks from ${
+			`Processed ${totalDocuments} chunks from ${
 				codeFiles.length - stats.failedFiles.length
-			} files. Failed to process ${stats.failedFiles.length} files and ${stats.failedChunksCount} chunks.`,
+			} files. ${stats.failedFiles.length} files failed. ${stats.failedChunksCount} chunks failed.`,
 		);
 	}
 
-
-	private async _generateEmbeddingsAndPrepareDocuments(
+	private async generateEmbeddingsAndPrepareDocuments(
 		allChunks: ChunkWithFileContext[],
 		stats: IndexingStats,
 	): Promise<google.cloud.discoveryengine.v1beta.IDocument[]> {
@@ -107,12 +102,11 @@ export class GoogleVectorStore implements VectorStore {
 			const embeddingVector = await this.embeddingService.generateEmbedding(chunk.contextualized_chunk_content, 'RETRIEVAL_DOCUMENT');
 			if (embeddingVector && embeddingVector.length > 0) {
 				chunk.embedding = embeddingVector;
-				return this._prepareDocumentProto(chunk);
-			} else {
-				stats.failedChunksCount++;
-				logger.warn(`Skipping chunk in ${chunk.filePath} at line ${chunk.source_location.start_line} due to embedding failure.`);
-				return null;
+				return this.createDocument(chunk);
 			}
+			stats.failedChunksCount++;
+			logger.warn(`Skipping chunk in ${chunk.filePath} at line ${chunk.source_location.start_line} due to embedding failure.`);
+			return null;
 		});
 
 		const settledResults = await Promise.all(documentPromises);
@@ -122,16 +116,7 @@ export class GoogleVectorStore implements VectorStore {
 		return documentsToIndex;
 	}
 
-	private async storeDocuments(documents: google.cloud.discoveryengine.v1beta.IDocument[]): Promise<void> {
-		for (let i = 0; i < documents.length; i += BATCH_SIZE) {
-			const batch = documents.slice(i, i + BATCH_SIZE);
-			logger.info(`Indexing batch of ${batch.length} documents to Discovery Engine...`);
-			await this.dataStore.importDocuments(batch);
-		}
-		logger.info(`Completed import of ${documents.length} documents.`);
-	}
-
-	private async _processFileAndGetContextualizedChunks(file: CodeFile): Promise<ChunkWithFileContext[]> {
+	private async generateContextualizedChunks(file: CodeFile, stats: IndexingStats): Promise<ChunkWithFileContext[]> {
 		try {
 			const contextualizedItems = await generateContextualizedChunks(file.filePath, file.content, file.language);
 			return contextualizedItems.map((item) => ({
@@ -140,6 +125,7 @@ export class GoogleVectorStore implements VectorStore {
 				language: file.language,
 			}));
 		} catch (fileProcessingError: any) {
+			stats.failedFiles.push(file.filePath);
 			logger.error(
 				{ err: { message: fileProcessingError.message, stack: fileProcessingError.stack }, filePath: file.filePath },
 				`Critical error processing file ${file.filePath}. Skipping this file.`,
@@ -148,13 +134,13 @@ export class GoogleVectorStore implements VectorStore {
 		}
 	}
 
-	private _createDocumentId(filePath: string, functionName: string | undefined, startLine: number): string {
+	private createDocumentId(filePath: string, functionName: string | undefined, startLine: number): string {
 		const identifier = `${filePath}:${functionName || 'file'}:${startLine}`;
 		return Buffer.from(identifier).toString('base64url');
 	}
 
-	private _prepareDocumentProto(chunk: ChunkWithFileContext): google.cloud.discoveryengine.v1beta.IDocument {
-		const docId = this._createDocumentId(chunk.filePath, chunk.chunk_type, chunk.source_location.start_line);
+	private createDocument(chunk: ChunkWithFileContext): google.cloud.discoveryengine.v1beta.IDocument {
+		const docId = this.createDocumentId(chunk.filePath, chunk.chunk_type, chunk.source_location.start_line);
 
 		const document: google.cloud.discoveryengine.v1beta.IDocument = {
 			id: docId,
