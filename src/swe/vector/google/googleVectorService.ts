@@ -61,15 +61,15 @@ export class GoogleVectorStore implements VectorStore {
 			limit(async () => {
 				try {
 					// 1. Chunk file
-					const chunks = await this._processFileAndGetContextualizedChunks(file);
-					if (chunks.length === 0) {
+					const fileChunks = await this._processFileAndGetContextualizedChunks(file);
+					if (fileChunks.length === 0) {
 						logger.debug({ filePath: file.filePath }, 'No chunks generated for file, skipping.');
 						return;
 					}
-					logger.info({ filePath: file.filePath, chunkCount: chunks.length }, 'File chunked, starting embedding.');
+					logger.info({ filePath: file.filePath, chunkCount: fileChunks.length }, 'File chunked, starting embedding.');
 
 					// 2. Embed chunks and prepare documents
-					const documents = await this._generateEmbeddingsAndPrepareDocuments(chunks, stats);
+					const documents = await this._generateEmbeddingsAndPrepareDocuments(fileChunks, stats);
 					if (documents.length === 0) {
 						logger.warn({ filePath: file.filePath }, 'No documents generated from chunks, skipping storage.');
 						return;
