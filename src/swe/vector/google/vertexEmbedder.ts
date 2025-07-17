@@ -12,7 +12,6 @@ type PredictRequest = protos.google.cloud.aiplatform.v1.IPredictRequest;
 
 export type TaskType = 'RETRIEVAL_DOCUMENT' | 'CODE_RETRIEVAL_QUERY';
 
-
 /**
  * @see https://ai.google.dev/gemini-api/docs/embeddings#control-embedding-size
  * Normalize a vector to unit length (L2 normalization)
@@ -20,14 +19,14 @@ export type TaskType = 'RETRIEVAL_DOCUMENT' | 'CODE_RETRIEVAL_QUERY';
  * @returns A new array where each value is normalized such that the Euclidean norm is 1.
  */
 function normalizeEmbedding(values: number[]): number[] {
-    const sumOfSquares = values.reduce((acc, value) => acc + value * value, 0);
-    const norm = Math.sqrt(sumOfSquares);
+	const sumOfSquares = values.reduce((acc, value) => acc + value * value, 0);
+	const norm = Math.sqrt(sumOfSquares);
 
-    if (norm === 0) {
-        throw new Error("Cannot normalize a zero vector.");
-    }
+	if (norm === 0) {
+		throw new Error('Cannot normalize a zero vector.');
+	}
 
-    return values.map(x => x / norm);
+	return values.map((x) => x / norm);
 }
 
 // https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/text-embeddings-api#generative-ai-get-text-embedding-nodejs

@@ -29,7 +29,11 @@ export interface CodeFile {
  * @param excludeDirs Optional array of directory names to exclude.
  * @returns A promise that resolves to an array of CodeFile objects.
  */
-export async function readFilesToIndex(sourceDir: string, subFolder: string = './', excludeDirs: string[] = ['node_modules', '.git', 'dist', 'build']): Promise<CodeFile[]> {
+export async function readFilesToIndex(
+	sourceDir: string,
+	subFolder = './',
+	excludeDirs: string[] = ['node_modules', '.git', 'dist', 'build'],
+): Promise<CodeFile[]> {
 	logger.info(`Scanning directory: ${sourceDir}`);
 	const pattern = `**/*.{${SUPPORTED_EXTENSIONS.join(',')}}`;
 	const ignorePatterns = excludeDirs.map((dir) => `**/${dir}/**`);

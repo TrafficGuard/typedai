@@ -11,7 +11,7 @@ import { ChunkSearchResult } from '../chunking/chunkTypes';
 
 const logger = pino({ name: 'GoogleVectorStoreIntTest' });
 
-describe.only('GoogleVectorStore Integration Test', function () {
+describe('GoogleVectorStore Integration Test', function () {
 	this.timeout(300000); // 5 minutes
 
 	const project = GCLOUD_PROJECT;

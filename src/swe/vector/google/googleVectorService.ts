@@ -36,7 +36,7 @@ export class GoogleVectorStore implements VectorStore {
 	 * @param subFolder only index files under this folder
 	 */
 	@span()
-	async indexRepository(dir = './', subFolder: string = './'): Promise<void> {
+	async indexRepository(dir = './', subFolder = './'): Promise<void> {
 		logger.info(`Starting indexing pipeline for directory: ${dir}`);
 		const codeFiles = await readFilesToIndex(dir, subFolder);
 		logger.info(`Loaded ${codeFiles.length} code files.`);
@@ -60,7 +60,7 @@ export class GoogleVectorStore implements VectorStore {
 
 		const processingPromises = codeFiles.map((file: CodeFile) =>
 			limit(async () => {
-				logger.info(`Starting processing for ${file.filePath}`)
+				logger.info(`Starting processing for ${file.filePath}`);
 				try {
 					// 1. Chunk file
 					const fileChunks = await this.generateContextualizedChunks(file, stats);
@@ -68,7 +68,7 @@ export class GoogleVectorStore implements VectorStore {
 						logger.debug({ filePath: file.filePath }, 'No chunks generated for file, skipping.');
 						return;
 					}
-					for (const chunk of fileChunks) console.log(chunk.filePath + ' =====================\n' + chunk.contextualized_chunk_content + '\n\n\n');
+					for (const chunk of fileChunks) console.log(`${chunk.filePath} =====================\n${chunk.contextualized_chunk_content}\n\n\n`);
 					logger.debug({ filePath: file.filePath, chunkCount: fileChunks.length }, 'File chunked, starting embedding.');
 
 					// 2. Embed chunks and prepare documents
@@ -205,10 +205,10 @@ export class GoogleVectorStore implements VectorStore {
 					const getString = (fieldName: string): string | undefined => fields[fieldName]?.stringValue;
 					// Helper to safely extract number values
 					const getNumber = (fieldName: string): number | undefined => fields[fieldName]?.numberValue;
-					console.log(result)
+					console.log(result);
 					const item: ChunkSearchResult = {
 						id: result.document.id ?? 'unknown-id',
-						score: 0,//result.modelScores[0].score,
+						score: 0, //result.modelScores[0].score,
 						document: {
 							filePath: getString('file_path') ?? 'unknown_path',
 							functionName: getString('function_name'), // Optional

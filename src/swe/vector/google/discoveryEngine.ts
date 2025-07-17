@@ -85,8 +85,8 @@ export class DiscoveryEngine {
 	}
 
 	async purgeDocuments(filePaths: string[]): Promise<void> {
-		logger.warn('purging not implemented')
-		if(filePaths.length) return; // this is broken atm
+		logger.warn('purging not implemented');
+		if (filePaths.length) return; // this is broken atm
 		if (filePaths.length === 0) return;
 		await this.ensureDataStoreExists();
 		logger.info(`Purging documents for ${filePaths.length} file(s)...`);
@@ -109,8 +109,8 @@ export class DiscoveryEngine {
 	}
 
 	async search(searchRequest: google.cloud.discoveryengine.v1.ISearchRequest): Promise<google.cloud.discoveryengine.v1.SearchResponse.ISearchResult[]> {
-		const start = Date.now()
-		const [results] = await this.searchClient.search(searchRequest, {autoPaginate: false});
+		const start = Date.now();
+		const [results] = await this.searchClient.search(searchRequest, { autoPaginate: false });
 		console.log(`Search completed in ${Date.now() - start}ms`);
 		return results;
 	}
