@@ -2,12 +2,10 @@ import { cacheRetry, RetryableError } from '#cache/cacheRetry';
 import pino from 'pino';
 import { summaryLLM } from '#llm/services/defaultLlms';
 import type { LLM } from '#shared/llm/llm.model';
+import { quotaRetry } from '#utils/quotaRetry';
 import { ContextualizedChunkItem, RawChunk } from './chunkTypes';
-import { sleep } from '#utils/async-utils';
 
 const logger = pino({ name: 'UnifiedChunkContextualizer' });
-
-const QUOTA_RETRY_COUNT = 20;
 
 class ContextGenerator {
 	constructor(
@@ -18,28 +16,13 @@ class ContextGenerator {
 	) {}
 
 	@cacheRetry({ retries: 5, backOffMs: 2000, version: 1 })
+	@quotaRetry()
 	async generateContextForChunk(chunk: RawChunk): Promise<string> {
 		const contextPrompt = GENERATE_CHUNK_CONTEXT_PROMPT(chunk.original_chunk_content, this.fileContent, this.language);
-		// If a quota error, then retry in a loop
-		// Start sleeping for 5s, double the sleep time up to 10 min
-		let generated_context_for_chunk = '';
-		let quotaRetryCount = 1;
-		while (quotaRetryCount < QUOTA_RETRY_COUNT) {
-			try {
-				logger.info({ filePath: this.filePath, chunk_start_line: chunk.start_line, llmId: this.llm.getId() }, 'Requesting context for chunk from LLM');
-				generated_context_for_chunk = await this.llm.generateText(contextPrompt, { id: 'Chunk Context Generation' });
-				logger.info({ filePath: this.filePath, chunk_start_line: chunk.start_line, contextLength: generated_context_for_chunk.length }, 'Received context for chunk');
-				return generated_context_for_chunk.trim();
-			} catch (e: any) {
-				// gRPC code 8 is RESOURCE_EXHAUSTED, HTTP 429 is Too Many Requests
-				if (e.code === 8 || e.code === 429) {
-					logger.warn({ code: e.code, message: e.message }, `Quota exceeded during context generation, will retry...`);
-					quotaRetryCount++;
-					await sleep(5000 * Math.pow(2, quotaRetryCount));
-					continue;
-				}
-			throw e;
-		}
+		logger.info({ filePath: this.filePath, chunk_start_line: chunk.start_line, llmId: this.llm.getId() }, 'Requesting context for chunk from LLM');
+		const generated_context_for_chunk = await this.llm.generateText(contextPrompt, { id: 'Chunk Context Generation' });
+		logger.info({ filePath: this.filePath, chunk_start_line: chunk.start_line, contextLength: generated_context_for_chunk.length }, 'Received context for chunk');
+		return generated_context_for_chunk.trim();
 	}
 }
 
