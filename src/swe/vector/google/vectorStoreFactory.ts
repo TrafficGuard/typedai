@@ -21,5 +21,13 @@ export async function createGoogleVectorService(repoPath: string): Promise<Vecto
 	}
 	const dataStoreId = sanitizeGitUrlForDataStoreId(originUrl);
 
-	return new GoogleVectorStore(GCLOUD_PROJECT, DISCOVERY_ENGINE_LOCATION, DISCOVERY_ENGINE_COLLECTION_ID, dataStoreId);
+	return new GoogleVectorStore({
+		project: GCLOUD_PROJECT,
+		discoveryEngineLocation: DISCOVERY_ENGINE_LOCATION,
+		collection: DISCOVERY_ENGINE_COLLECTION_ID,
+		dataStoreId: dataStoreId,
+		// Assuming a default or configurable embedding model is needed here
+		embeddingModel: 'gemini-embedding-001', // Or import from config if available
+		region: 'us-central1', // Or import from config if available
+	});
 }

@@ -141,7 +141,7 @@ export class DiscoveryEngine {
 			return;
 		}
 		try {
-			const [operation] = await this.dataStoreClient.deleteDataStore({ name: this.dataStorePath, force: true });
+			const [operation] = await this.dataStoreClient.deleteDataStore({ name: this.dataStorePath });
 			await operation.promise();
 			logger.info(`Successfully deleted data store "${this.dataStoreId}".`);
 			this.dataStorePath = null;

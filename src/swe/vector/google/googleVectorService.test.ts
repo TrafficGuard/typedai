@@ -42,7 +42,7 @@ describe('GoogleVectorStore Integration Test', function () {
 	after(async () => {
 		try {
 			await vectorStore.deleteDataStore();
-			logger.info(`Deleted test data store: ${vectorStore.config.dataStoreId}`);
+			logger.info(`Deleted test data store: ${vectorStore.dataStore.dataStoreId}`);
 		} catch (err) {
 			logger.error({ err }, 'Failed to delete test data store');
 		}
