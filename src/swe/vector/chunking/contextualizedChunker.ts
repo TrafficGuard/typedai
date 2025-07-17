@@ -1,9 +1,37 @@
+import { cacheRetry, RetryableError } from '#cache/cacheRetry';
 import pino from 'pino';
 import { summaryLLM } from '#llm/services/defaultLlms';
 import type { LLM } from '#shared/llm/llm.model';
 import { ContextualizedChunkItem, RawChunk } from './chunkTypes';
 
 const logger = pino({ name: 'UnifiedChunkContextualizer' });
+
+class ContextGenerator {
+	constructor(
+		private llm: LLM,
+		private fileContent: string,
+		private language: string,
+		private filePath: string,
+	) {}
+
+	@cacheRetry({ retries: 5, backOffMs: 2000, version: 1 })
+	async generateContextForChunk(chunk: RawChunk): Promise<string> {
+		const contextPrompt = GENERATE_CHUNK_CONTEXT_PROMPT(chunk.original_chunk_content, this.fileContent, this.language);
+		try {
+			logger.info({ filePath: this.filePath, chunk_start_line: chunk.start_line, llmId: this.llm.getId() }, 'Requesting context for chunk from LLM');
+			const generated_context_for_chunk = await this.llm.generateText(contextPrompt, { id: 'Chunk Context Generation' });
+			logger.info({ filePath: this.filePath, chunk_start_line: chunk.start_line, contextLength: generated_context_for_chunk.length }, 'Received context for chunk');
+			return generated_context_for_chunk.trim();
+		} catch (e: any) {
+			// gRPC code 8 is RESOURCE_EXHAUSTED, HTTP 429 is Too Many Requests
+			if (e.code === 8 || e.code === 429) {
+				logger.warn({ code: e.code, message: e.message }, `Quota exceeded during context generation, will retry...`);
+				throw new RetryableError(e);
+			}
+			throw e;
+		}
+	}
+}
 
 /**
  * Processes an entire file content using an LLM to break it down into

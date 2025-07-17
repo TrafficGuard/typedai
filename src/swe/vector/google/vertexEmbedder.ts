@@ -80,8 +80,13 @@ export class VertexAITextEmbeddingService implements TextEmbeddingService {
 		let response;
 		try {
 			[response] = await this.client.predict(request);
-		} catch (e) {
-			throw new RetryableError(e as Error);
+		} catch (e: any) {
+			// gRPC code 8 is RESOURCE_EXHAUSTED, HTTP 429 is Too Many Requests
+			if (e.code === 8 || e.code === 429) {
+				logger.warn({ code: e.code, message: e.message }, `Quota exceeded while generating embedding, will retry...`);
+				throw new RetryableError(e);
+			}
+			throw e;
 		}
 
 		this.tokenUsageHistory.push({ timestamp: Date.now(), tokens: tokensInRequest });

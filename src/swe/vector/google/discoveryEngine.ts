@@ -84,8 +84,13 @@ export class DiscoveryEngine {
 			const [operation] = await this.documentClient.importDocuments(request);
 			logger.info(`ImportDocuments operation started: ${operation.name}`);
 			await operation.promise(); // wait until the indexing finishes
-		} catch (e) {
-			throw new RetryableError(e as Error);
+		} catch (e: any) {
+			// gRPC code 8 is RESOURCE_EXHAUSTED, HTTP 429 is Too Many Requests
+			if (e.code === 8 || e.code === 429) {
+				logger.warn({ code: e.code, message: e.message }, `Quota exceeded during document import, will retry...`);
+				throw new RetryableError(e);
+			}
+			throw e;
 		}
 	}
 
