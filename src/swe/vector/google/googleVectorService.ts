@@ -13,7 +13,7 @@ import { VertexAITextEmbeddingService } from './vertexEmbedder';
 
 const logger = pino({ name: 'GoogleVectorStore' });
 
-const FILE_PROCESSING_PARALLEL_BATCH_SIZE = 5;
+const FILE_PROCESSING_PARALLEL_BATCH_SIZE = 20;
 
 class IndexingStats {
 	fileCount = 0;
@@ -30,10 +30,15 @@ export class GoogleVectorStore implements VectorStore {
 		this.embeddingService = new VertexAITextEmbeddingService(config);
 	}
 
+	/**
+	 *
+	 * @param dir the root directory of the repository
+	 * @param subFolder only index files under this folder
+	 */
 	@span()
-	async indexRepository(dir = './'): Promise<void> {
+	async indexRepository(dir = './', subFolder: string = './'): Promise<void> {
 		logger.info(`Starting indexing pipeline for directory: ${dir}`);
-		const codeFiles = await readFilesToIndex(dir);
+		const codeFiles = await readFilesToIndex(dir, subFolder);
 		logger.info(`Loaded ${codeFiles.length} code files.`);
 
 		if (codeFiles.length === 0) return;
@@ -55,6 +60,7 @@ export class GoogleVectorStore implements VectorStore {
 
 		const processingPromises = codeFiles.map((file: CodeFile) =>
 			limit(async () => {
+				logger.info(`Starting processing for ${file.filePath}`)
 				try {
 					// 1. Chunk file
 					const fileChunks = await this.generateContextualizedChunks(file, stats);
@@ -62,7 +68,8 @@ export class GoogleVectorStore implements VectorStore {
 						logger.debug({ filePath: file.filePath }, 'No chunks generated for file, skipping.');
 						return;
 					}
-					logger.info({ filePath: file.filePath, chunkCount: fileChunks.length }, 'File chunked, starting embedding.');
+					for (const chunk of fileChunks) console.log(chunk.filePath + ' =====================\n' + chunk.contextualized_chunk_content + '\n\n\n');
+					logger.debug({ filePath: file.filePath, chunkCount: fileChunks.length }, 'File chunked, starting embedding.');
 
 					// 2. Embed chunks and prepare documents
 					const documents = await this.generateEmbeddingsAndPrepareDocuments(fileChunks, stats);
@@ -75,7 +82,7 @@ export class GoogleVectorStore implements VectorStore {
 
 					// 3. Store documents
 					await this.dataStore.importDocuments(documents);
-					logger.info(`Completed import of ${documents.length} documents for ${file.filePath}.`);
+					// logger.info(`Completed import of ${documents.length} documents for ${file.filePath}.`);
 				} catch (e) {
 					stats.failedFiles.push(file.filePath);
 					logger.error({ err: e, filePath: file.filePath }, 'File failed during processing pipeline.');
@@ -161,24 +168,28 @@ export class GoogleVectorStore implements VectorStore {
 
 		const servingConfigPath = this.dataStore.getServingConfigPath();
 
-		const queryEmbedding = await this.embeddingService.generateEmbedding(query, 'RETRIEVAL_DOCUMENT');
-		if (!queryEmbedding) {
-			logger.error({ query }, 'Failed to generate embedding for search query.');
-			return [];
-		}
+		// const queryEmbedding = await this.embeddingService.generateEmbedding(query, 'RETRIEVAL_DOCUMENT');
+		// if (!queryEmbedding) {
+		// 	logger.error({ query }, 'Failed to generate embedding for search query.');
+		// 	return [];
+		// }
 
-		const searchRequest: google.cloud.discoveryengine.v1beta.ISearchRequest = {
+		const searchRequest: google.cloud.discoveryengine.v1.ISearchRequest = {
 			servingConfig: servingConfigPath,
 			pageSize: maxResults,
-			embeddingSpec: {
-				embeddingVectors: [
-					{
-						fieldPath: 'embedding_vector',
-						vector: queryEmbedding,
-					},
-				],
+			relevanceScoreSpec: {
+				returnRelevanceScore: true,
 			},
-		};
+			query,
+			// embeddingSpec: {
+			// 	embeddingVectors: [
+			// 		{
+			// 			fieldPath: 'embedding_vector',
+			// 			vector: queryEmbedding,
+			// 		},
+			// 	],
+			// },
+		} as google.cloud.discoveryengine.v1.ISearchRequest;
 
 		const searchResults = await this.dataStore.search(searchRequest);
 		logger.info({ query }, `Received ${searchResults?.length ?? 0} search results.`);
@@ -194,10 +205,10 @@ export class GoogleVectorStore implements VectorStore {
 					const getString = (fieldName: string): string | undefined => fields[fieldName]?.stringValue;
 					// Helper to safely extract number values
 					const getNumber = (fieldName: string): number | undefined => fields[fieldName]?.numberValue;
-
+					console.log(result)
 					const item: ChunkSearchResult = {
 						id: result.document.id ?? 'unknown-id',
-						score: result.document.derivedStructData?.fields?.search_score?.numberValue ?? 0, // Check actual score field name
+						score: 0,//result.modelScores[0].score,
 						document: {
 							filePath: getString('file_path') ?? 'unknown_path',
 							functionName: getString('function_name'), // Optional

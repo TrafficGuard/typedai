@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import pino from 'pino';
-import { DISCOVERY_ENGINE_EMBEDDING_MODEL, DISCOVERY_ENGINE_LOCATION, GCLOUD_PROJECT, GCLOUD_REGION, GoogleVectorServiceConfig } from './config';
+import { DISCOVERY_ENGINE_EMBEDDING_MODEL, DISCOVERY_ENGINE_LOCATION, GCLOUD_PROJECT, GCLOUD_REGION, GoogleVectorServiceConfig } from './googleVectorConfig';
 import { GoogleVectorStore } from './googleVectorService';
 
 import * as fs from 'node:fs/promises';
@@ -11,7 +11,7 @@ import { ChunkSearchResult } from '../chunking/chunkTypes';
 
 const logger = pino({ name: 'GoogleVectorStoreIntTest' });
 
-describe('GoogleVectorStore Integration Test', function () {
+describe.only('GoogleVectorStore Integration Test', function () {
 	this.timeout(300000); // 5 minutes
 
 	const project = GCLOUD_PROJECT;
@@ -20,30 +20,29 @@ describe('GoogleVectorStore Integration Test', function () {
 	const collection = 'default_collection';
 
 	let vectorStore: GoogleVectorStore;
-	let testDataStoreId: string; // Declare testDataStoreId in the outer scope
+	let testDataStoreId: string;
 
 	before(async () => {
 		const uniqueSuffix = Date.now();
-		testDataStoreId = `test-datastore-${uniqueSuffix}`; // Assign to the outer scope variable
+		testDataStoreId = `test-datastore-${uniqueSuffix}`;
 
 		const config: GoogleVectorServiceConfig = {
 			project,
 			region,
 			discoveryEngineLocation: location,
 			collection,
-			dataStoreId: testDataStoreId, // Use the outer scope variable
+			dataStoreId: testDataStoreId,
 			embeddingModel: DISCOVERY_ENGINE_EMBEDDING_MODEL,
 		};
 		vectorStore = new GoogleVectorStore(config);
 
 		await vectorStore.createDataStore();
-		logger.info(`Created/ensured test data store with ID: ${testDataStoreId}`);
+		logger.debug(`Created/ensured test data store with ID: ${testDataStoreId}`);
 	});
 
 	after(async () => {
 		try {
 			await vectorStore.deleteDataStore();
-			logger.info(`Deleted test data store: ${testDataStoreId}`); // Use the outer scope variable for logging
 		} catch (err) {
 			logger.error({ err }, 'Failed to delete test data store');
 		}
@@ -56,11 +55,10 @@ describe('GoogleVectorStore Integration Test', function () {
 		const sampleFile = path.join(repoTempDir, filePath);
 		await fs.writeFile(sampleFile, 'function calculateSum(a, b) { return a + b; }');
 
-		// Index using GoogleVectorStore
 		await vectorStore.indexRepository(repoTempDir);
 
-		// Short delay for indexing to propagate (adjust as needed for real API)
-		await sleep(5000);
+		// This delay is required for the indexing to complete
+		await sleep(8000);
 
 		// Search and assert
 		const query = 'a function that adds two numbers';

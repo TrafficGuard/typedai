@@ -54,7 +54,7 @@ export class DiscoveryEngine {
 					dataStore: {
 						displayName: `Repo: ${this.dataStoreId}`,
 						industryVertical: 'GENERIC',
-						solutionTypes: [google.cloud.discoveryengine.v1beta.SolutionType.SOLUTION_TYPE_SEARCH],
+						solutionTypes: [google.cloud.discoveryengine.v1.SolutionType.SOLUTION_TYPE_SEARCH],
 						contentConfig: 'NO_CONTENT',
 					},
 				});
@@ -69,14 +69,14 @@ export class DiscoveryEngine {
 
 	@cacheRetry({ retries: 3, backOffMs: 1000 })
 	@quotaRetry()
-	async importDocuments(documents: google.cloud.discoveryengine.v1beta.IDocument[]): Promise<void> {
+	async importDocuments(documents: google.cloud.discoveryengine.v1.IDocument[]): Promise<void> {
 		if (documents.length === 0) return;
 		await this.ensureDataStoreExists();
 
-		const request: google.cloud.discoveryengine.v1beta.IImportDocumentsRequest = {
+		const request: google.cloud.discoveryengine.v1.IImportDocumentsRequest = {
 			parent: `${this.dataStorePath}/branches/default_branch`,
 			inlineSource: { documents },
-			reconciliationMode: google.cloud.discoveryengine.v1beta.ImportDocumentsRequest.ReconciliationMode.INCREMENTAL,
+			reconciliationMode: google.cloud.discoveryengine.v1.ImportDocumentsRequest.ReconciliationMode.INCREMENTAL,
 		};
 
 		const [operation] = await this.documentClient.importDocuments(request);
@@ -85,6 +85,8 @@ export class DiscoveryEngine {
 	}
 
 	async purgeDocuments(filePaths: string[]): Promise<void> {
+		logger.warn('purging not implemented')
+		if(filePaths.length) return; // this is broken atm
 		if (filePaths.length === 0) return;
 		await this.ensureDataStoreExists();
 		logger.info(`Purging documents for ${filePaths.length} file(s)...`);
@@ -94,7 +96,7 @@ export class DiscoveryEngine {
 			const batchFilePaths = filePaths.slice(i, i + BATCH_SIZE_PURGE);
 			const filter = batchFilePaths.map((p) => `uri = "${p}"`).join(' OR ');
 
-			const request: google.cloud.discoveryengine.v1beta.IPurgeDocumentsRequest = {
+			const request: google.cloud.discoveryengine.v1.IPurgeDocumentsRequest = {
 				parent: `${this.dataStorePath}/branches/default_branch`,
 				filter: filter,
 				force: true,
@@ -106,9 +108,10 @@ export class DiscoveryEngine {
 		}
 	}
 
-	async search(searchRequest: google.cloud.discoveryengine.v1beta.ISearchRequest): Promise<google.cloud.discoveryengine.v1.SearchResponse.ISearchResult[]> {
-		await this.ensureDataStoreExists();
-		const [results] = await this.searchClient.search(searchRequest); // {autoPaginate: false}
+	async search(searchRequest: google.cloud.discoveryengine.v1.ISearchRequest): Promise<google.cloud.discoveryengine.v1.SearchResponse.ISearchResult[]> {
+		const start = Date.now()
+		const [results] = await this.searchClient.search(searchRequest, {autoPaginate: false});
+		console.log(`Search completed in ${Date.now() - start}ms`);
 		return results;
 	}
 

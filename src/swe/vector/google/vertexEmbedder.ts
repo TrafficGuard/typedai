@@ -1,25 +1,37 @@
 import { PredictionServiceClient, helpers, protos } from '@google-cloud/aiplatform';
 import pino from 'pino';
-import { countTokensSync } from '#llm/tokens';
+import { cacheRetry } from '#cache/cacheRetry';
+import { countTokens } from '#llm/tokens';
 import { sleep } from '#utils/async-utils';
-import { cacheRetry, RetryableError } from '#cache/cacheRetry';
-import { GoogleVectorServiceConfig, TOKENS_PER_MINUTE_QUOTA, getGoogleVectorServiceConfig } from './googleVectorConfig';
+import { quotaRetry } from '#utils/quotaRetry';
+import { GoogleVectorServiceConfig, TOKENS_PER_MINUTE_QUOTA } from './googleVectorConfig';
 
 const logger = pino({ name: 'Embedder' });
 
 type PredictRequest = protos.google.cloud.aiplatform.v1.IPredictRequest;
 
 export type TaskType = 'RETRIEVAL_DOCUMENT' | 'CODE_RETRIEVAL_QUERY';
+
+
 /**
- * Interface for a text embedding service.
+ * @see https://ai.google.dev/gemini-api/docs/embeddings#control-embedding-size
+ * Normalize a vector to unit length (L2 normalization)
+ * @param values A numeric array.
+ * @returns A new array where each value is normalized such that the Euclidean norm is 1.
  */
-export interface TextEmbeddingService {
-	generateEmbedding(text: string, taskType: TaskType): Promise<number[]>;
-	generateEmbeddings(texts: string[], taskType: TaskType): Promise<(number[] | null)[]>;
+function normalizeEmbedding(values: number[]): number[] {
+    const sumOfSquares = values.reduce((acc, value) => acc + value * value, 0);
+    const norm = Math.sqrt(sumOfSquares);
+
+    if (norm === 0) {
+        throw new Error("Cannot normalize a zero vector.");
+    }
+
+    return values.map(x => x / norm);
 }
 
 // https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/text-embeddings-api#generative-ai-get-text-embedding-nodejs
-export class VertexAITextEmbeddingService implements TextEmbeddingService {
+export class VertexAITextEmbeddingService {
 	private client: PredictionServiceClient;
 	private endpointPath: string;
 	private tokenUsageHistory: { timestamp: number; tokens: number }[] = [];
@@ -32,16 +44,14 @@ export class VertexAITextEmbeddingService implements TextEmbeddingService {
 
 	async generateEmbedding(text: string, taskType: TaskType): Promise<number[]> {
 		if (!text || text.trim() === '') {
-			logger.warn({ functionName: 'VertexAITextEmbeddingService.generateEmbedding', taskType }, 'Attempted to generate embedding for empty text. Returning empty vector.');
+			logger.warn(
+				{ functionName: 'VertexAITextEmbeddingService.generateEmbedding', taskType },
+				'Attempted to generate embedding for empty text. Returning empty vector.',
+			);
 			return [];
 		}
 
-		try {
-			return await this._generateEmbedding(text, taskType);
-		} catch (error) {
-			logger.error({ err: error }, `All retries failed for generating embedding.`);
-			return [];
-		}
+		return await this._generateEmbedding(text, taskType);
 	}
 
 	async generateEmbeddings(texts: string[], taskType: TaskType): Promise<(number[] | null)[]> {
@@ -52,22 +62,16 @@ export class VertexAITextEmbeddingService implements TextEmbeddingService {
 				continue;
 			}
 
-			try {
-				const embedding = await this._generateEmbedding(text, taskType);
-				allResults.push(embedding);
-			} catch (error) {
-				logger.error({ err: error, textSnippet: text.substring(0, 50) }, `All retries failed for generating embedding in batch.`);
-				allResults.push(null);
-			}
+			const embedding = await this._generateEmbedding(text, taskType);
+			allResults.push(embedding);
 		}
 		return allResults;
 	}
 
 	@cacheRetry({ retries: 3, backOffMs: 1000, scope: 'global' })
+	@quotaRetry()
 	private async _generateEmbedding(text: string, taskType: TaskType): Promise<number[]> {
-		const functionName = 'VertexAITextEmbeddingService._generateEmbedding';
-
-		const tokensInRequest = countTokensSync(text);
+		const tokensInRequest = await countTokens(text);
 		await this.waitForRateLimit(tokensInRequest);
 
 		const instances = [helpers.toValue({ content: text, task_type: taskType })];
@@ -77,17 +81,7 @@ export class VertexAITextEmbeddingService implements TextEmbeddingService {
 			parameters: helpers.toValue({ outputDimensionality: 768 }),
 		};
 
-		let response;
-		try {
-			[response] = await this.client.predict(request);
-		} catch (e: any) {
-			// gRPC code 8 is RESOURCE_EXHAUSTED, HTTP 429 is Too Many Requests
-			if (e.code === 8 || e.code === 429) {
-				logger.warn({ code: e.code, message: e.message }, `Quota exceeded while generating embedding, will retry...`);
-				throw new RetryableError(e);
-			}
-			throw e;
-		}
+		const [response] = await this.client.predict(request);
 
 		this.tokenUsageHistory.push({ timestamp: Date.now(), tokens: tokensInRequest });
 
@@ -96,12 +90,11 @@ export class VertexAITextEmbeddingService implements TextEmbeddingService {
 		if (embeddingValue?.listValue?.values) {
 			const embedding = embeddingValue.listValue.values.map((v) => v.numberValue as number);
 			if (embedding.some((n) => typeof n !== 'number' || Number.isNaN(n))) {
-				throw new RetryableError(new Error('Invalid data type or NaN in embedding vector.'));
+				throw new Error('Invalid data type or NaN in embedding vector.');
 			}
-			return embedding;
-		} else {
-			throw new RetryableError(new Error('Invalid embedding structure in response'));
+			return normalizeEmbedding(embedding);
 		}
+		throw new Error('Invalid embedding structure in response');
 	}
 
 	private async waitForRateLimit(tokensInRequest: number): Promise<void> {
@@ -125,50 +118,5 @@ export class VertexAITextEmbeddingService implements TextEmbeddingService {
 				break;
 			}
 		}
-	}
-}
-
-// Function to select the appropriate embedding model
-let serviceInstance: TextEmbeddingService | null = null;
-export function getEmbeddingService(): TextEmbeddingService {
-	if (!serviceInstance) {
-		serviceInstance = new VertexAITextEmbeddingService(getGoogleVectorServiceConfig());
-	}
-	return serviceInstance;
-}
-
-/**
- * Generates a vector embedding for the given text content.
- * @param text The text content to embed (e.g., contextualized chunk).
- * @param taskType The task type for the embedding (e.g., 'RETRIEVAL_DOCUMENT', 'CODE_RETRIEVAL_QUERY').
- * @returns A promise that resolves to the vector embedding (array of numbers).
- */
-export async function generateEmbedding(text: string, taskType: TaskType): Promise<number[]> {
-	const functionName = 'generateEmbedding (exported)';
-	if (!text || text.trim() === '') {
-		logger.warn({ functionName, taskType }, 'Attempted to generate embedding for empty text. Returning empty vector.');
-		return [];
-	}
-	try {
-		const embedder = getEmbeddingService();
-		const embedding = await embedder.generateEmbedding(text, taskType);
-		if (!Array.isArray(embedding)) {
-			logger.error(
-				{ functionName, taskType, textLength: text.length, embeddingResult: embedding },
-				'Embedding generation returned invalid result (not an array). Returning empty vector.',
-			);
-			return [];
-		}
-		logger.debug(
-			{ functionName, taskType, embeddingDimension: embedding.length },
-			`Generated embedding vector of dimension: ${embedding.length} for task type ${taskType}`,
-		);
-		return embedding;
-	} catch (error: any) {
-		logger.error(
-			{ err: { message: error.message, stack: error.stack }, functionName, taskType, textLength: text.length },
-			`Error in ${functionName} after all retries. Returning empty vector as fallback.`,
-		);
-		return [];
 	}
 }

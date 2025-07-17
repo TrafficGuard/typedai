@@ -35,8 +35,8 @@ export function quotaRetry(options: Partial<QuotaRetryOptions> = {}) {
 					// gRPC code 8 is RESOURCE_EXHAUSTED, HTTP 429 is Too Many Requests
 					if (e.code === 8 || e.code === 429) {
 						if (attempt < retries) {
-							const backoff = initialBackoffMs * Math.pow(2, attempt - 1);
-							logger.warn({ code: e.code, message: e.message, methodName, attempt, backoff }, `Quota exceeded, will retry...`);
+							const backoff = initialBackoffMs * 2 ** (attempt - 1);
+							logger.warn({ code: e.code, message: e.message, methodName, attempt, backoff }, 'Quota exceeded, will retry...');
 							await sleep(backoff);
 							continue;
 						}

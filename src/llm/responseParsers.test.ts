@@ -1,9 +1,12 @@
 import { expect } from 'chai';
 
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 // Import extractReasoningAndJson
 import { extractJsonResult, extractReasoningAndJson, extractTag, parseFunctionCallsXml } from './responseParsers';
 
 describe('responseParsers', () => {
+	setupConditionalLoggerOutput();
+
 	describe('extractJsonResult', () => {
 		// TODO handle when the json is indented
 

@@ -1,5 +1,5 @@
-import { cacheRetry, RetryableError } from '#cache/cacheRetry';
 import pino from 'pino';
+import { RetryableError, cacheRetry } from '#cache/cacheRetry';
 import { summaryLLM } from '#llm/services/defaultLlms';
 import type { LLM } from '#shared/llm/llm.model';
 import { quotaRetry } from '#utils/quotaRetry';
@@ -15,13 +15,16 @@ class ContextGenerator {
 		private filePath: string,
 	) {}
 
-	@cacheRetry({ retries: 5, backOffMs: 2000, version: 1 })
+	@cacheRetry({ retries: 2, backOffMs: 2000, version: 1 })
 	@quotaRetry()
 	async generateContextForChunk(chunk: RawChunk): Promise<string> {
 		const contextPrompt = GENERATE_CHUNK_CONTEXT_PROMPT(chunk.original_chunk_content, this.fileContent, this.language);
-		logger.info({ filePath: this.filePath, chunk_start_line: chunk.start_line, llmId: this.llm.getId() }, 'Requesting context for chunk from LLM');
+		logger.debug({ filePath: this.filePath, chunk_start_line: chunk.start_line, llmId: this.llm.getId() }, 'Requesting context for chunk from LLM');
 		const generated_context_for_chunk = await this.llm.generateText(contextPrompt, { id: 'Chunk Context Generation' });
-		logger.info({ filePath: this.filePath, chunk_start_line: chunk.start_line, contextLength: generated_context_for_chunk.length }, 'Received context for chunk');
+		logger.debug(
+			{ filePath: this.filePath, chunk_start_line: chunk.start_line, contextLength: generated_context_for_chunk.length },
+			'Received context for chunk',
+		);
 		return generated_context_for_chunk.trim();
 	}
 }
@@ -60,11 +63,11 @@ JSON Array:
 		const llm: LLM = summaryLLM(); // Using a default fast LLM for chunk identification
 		const llmForContext = llm; // Using the same LLM for context generation for now
 
-		logger.info({ filePath, language, llmId: llm.getId() }, 'Requesting chunk identification from LLM');
+		logger.debug({ filePath, language, llmId: llm.getId() }, 'Requesting chunk identification from LLM');
 
 		const rawLlmResponse = await llm.generateText(prompt, { id: 'Contextualized Chunking' });
-		logger.info({ filePath, rawLlmResponseLength: rawLlmResponse.length }, 'Received raw response from LLM for chunk identification');
-		// For debugging, you might want to log the full rawLlmResponse, but be cautious with large responses.
+		logger.debug({ filePath, rawLlmResponseLength: rawLlmResponse.length }, 'Received raw response from LLM for chunk identification');
+		// For debugging, you might want to log the full rawLlmResponse, but be caution with large responses.
 		// logger.debug({ filePath, rawLlmResponse }, 'Full raw response from LLM');
 
 		let rawChunks: RawChunk[];
@@ -97,7 +100,7 @@ JSON Array:
 					return [];
 				}
 			}
-			logger.info({ filePath, count: rawChunks.length }, 'Successfully parsed raw chunks from LLM response');
+			logger.debug({ filePath, count: rawChunks.length }, 'Successfully parsed raw chunks from LLM response');
 		} catch (parseError) {
 			logger.error({ filePath, rawLlmResponse, error: parseError }, 'Failed to parse LLM response as JSON for chunk identification');
 			return [];
@@ -105,7 +108,7 @@ JSON Array:
 
 		const contextGenerator = new ContextGenerator(llmForContext, fileContent, language, filePath);
 
-		logger.info({ filePath, totalChunks: rawChunks.length }, `Generating context for all chunks...`);
+		logger.info({ filePath, totalChunks: rawChunks.length }, 'Generating context for all chunks...');
 		const contextGenerationPromises = rawChunks.map(async (chunk) => {
 			try {
 				const generated_context = await contextGenerator.generateContextForChunk(chunk);
