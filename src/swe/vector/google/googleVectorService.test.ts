@@ -9,6 +9,7 @@ import * as path from 'node:path';
 import { DataStoreServiceClient, protos } from '@google-cloud/discoveryengine';
 import { countTokens } from '#llm/tokens';
 import { sleep } from '#utils/async-utils';
+import { ChunkSearchResult } from '../chunking/chunkTypes';
 
 const logger = pino({ name: 'GoogleVectorStoreIntTest' });
 
@@ -72,7 +73,7 @@ describe('GoogleVectorStore Integration Test', () => {
 			await sleep(8000);
 			// Search and assert state
 			const query = 'a function that adds two numbers';
-			const results = await vectorStore.search(query);
+			const results: ChunkSearchResult[] = await vectorStore.search(query);
 			expect(results).to.be.an('array').with.length.greaterThan(0);
 			const found = results[0];
 			expect(found.document.filePath).to.equal(filePath);

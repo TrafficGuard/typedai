@@ -2,7 +2,8 @@ import { google } from '@google-cloud/discoveryengine/build/protos/protos';
 import { struct } from 'pb-util';
 import pino from 'pino';
 import { settleAllWithInput } from '#utils/async-utils';
-import { ContextualizedChunkItem, generateContextualizedChunks } from '../chunking/contextualizedChunker';
+import { generateContextualizedChunks } from '../chunking/contextualizedChunker';
+import { ChunkSearchResult, ChunkWithFileContext, ContextualizedChunkItem } from '../chunking/chunkTypes';
 import { CodeFile, readFilesToIndex } from '../codeLoader';
 import { SearchResult, VectorStore } from '../vector';
 import { DiscoveryEngine } from './discoveryEngine';
@@ -14,26 +15,6 @@ const BATCH_SIZE = 100; // Max documents per ImportDocuments request
 
 const FILE_PROCESSING_PARALLEL_BATCH_SIZE = 5;
 const INDEXER_EMBEDDING_PROCESSING_BATCH_SIZE = 100;
-
-interface ChunkWithFileContext extends ContextualizedChunkItem {
-	filePath: string;
-	language: string;
-	embedding?: number[];
-}
-
-export interface CodeSearchResultItem {
-	id: string;
-	score: number;
-	document: {
-		filePath: string;
-		functionName?: string;
-		startLine: number;
-		endLine: number;
-		language: string;
-		naturalLanguageDescription: string;
-		originalCode: string;
-	};
-}
 
 export class GoogleVectorStore implements VectorStore {
 	private readonly project: string;
@@ -187,7 +168,7 @@ export class GoogleVectorStore implements VectorStore {
 		return document;
 	}
 
-	async search(query: string, maxResults = 10): Promise<SearchResult[]> {
+	async search(query: string, maxResults = 10): Promise<ChunkSearchResult[]> {
 		await this.dataStore.ensureDataStoreExists();
 		logger.info({ query, maxResults }, `Performing search in data store: ${this.dataStoreId}`);
 
@@ -216,7 +197,7 @@ export class GoogleVectorStore implements VectorStore {
 		logger.info({ query }, `Received ${searchResults?.length ?? 0} search results.`);
 
 		// 4. Process Results
-		const results: CodeSearchResultItem[] = [];
+		const results: ChunkSearchResult[] = [];
 		if (searchResults) {
 			for (const result of searchResults) {
 				// Ensure result and document exist before proceeding
@@ -228,7 +209,7 @@ export class GoogleVectorStore implements VectorStore {
 					// Helper to safely extract number values
 					const getNumber = (fieldName: string): number | undefined => fields[fieldName]?.numberValue;
 
-					const item: CodeSearchResultItem = {
+					const item: ChunkSearchResult = {
 						id: result.document.id ?? 'unknown-id',
 						score: result.document.derivedStructData?.fields?.search_score?.numberValue ?? 0, // Check actual score field name
 						document: {

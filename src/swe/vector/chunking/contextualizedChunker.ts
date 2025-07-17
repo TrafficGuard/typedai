@@ -1,30 +1,9 @@
 import pino from 'pino';
 import { summaryLLM } from '#llm/services/defaultLlms';
 import type { LLM } from '#shared/llm/llm.model';
+import { ContextualizedChunkItem, RawChunk } from './chunkTypes';
 
 const logger = pino({ name: 'UnifiedChunkContextualizer' });
-
-// This interface defines the structure for a single contextualized chunk
-// produced by the LLM.
-export interface ContextualizedChunkItem {
-	original_chunk_content: string;
-	generated_context: string;
-	contextualized_chunk_content: string;
-	source_location: {
-		start_line: number;
-		end_line: number;
-		start_char_offset?: number;
-		end_char_offset?: number;
-	};
-	chunk_type?: string;
-}
-
-interface RawChunk {
-	original_chunk_content: string;
-	start_line: number;
-	end_line: number;
-	chunk_type: string;
-}
 
 /**
  * Processes an entire file content using an LLM to break it down into
