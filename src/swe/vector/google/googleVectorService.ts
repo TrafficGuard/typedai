@@ -30,69 +30,94 @@ export class GoogleVectorStore implements VectorStore {
 	@span()
 	async indexRepository(dir = './'): Promise<void> {
 		logger.info(`Starting indexing pipeline for directory: ${dir}`);
-		await this.dataStore.ensureDataStoreExists();
-
 		const codeFiles = await readFilesToIndex(dir);
-
 		logger.info(`Loaded ${codeFiles.length} code files.`);
 
-		if (codeFiles.length === 0) return;
+		if (codeFiles.length === 0) {
+			logger.info('No files to index.');
+			return;
+		}
+		await this.indexFiles(codeFiles);
+	}
+
+	private async indexFiles(codeFiles: CodeFile[]): Promise<void> {
+		await this.dataStore.ensureDataStoreExists();
 
 		// Before indexing new content, purge all documents associated with the files being re-indexed.
 		await this.dataStore.purgeDocuments(codeFiles.map((file) => file.filePath));
 
-		const failedFilesCount = { count: 0 };
-		const failedChunksCount = { count: 0 };
-		let totalChunks = 0;
-		let successfullyProcessedAndEmbeddedChunks = 0;
-		const documentsToIndex: google.cloud.discoveryengine.v1beta.IDocument[] = [];
-		const processedChunksReadyForEmbedding: ChunkWithFileContext[] = [];
+		const { chunks, failedFilesCount } = await this._generateAllContextualizedChunks(codeFiles);
+
+		if (chunks.length === 0) {
+			logger.info('No chunks were generated from the files. Indexing complete.');
+			return;
+		}
+
+		const { documents, failedChunksCount } = await this._generateEmbeddingsAndPrepareDocuments(chunks);
+
+		if (documents.length > 0) {
+			await this._importDocumentsToDataStore(documents);
+		}
+
+		logger.info(
+			`Indexing pipeline completed. Successfully prepared ${documents.length} chunks from ${
+				codeFiles.length - failedFilesCount
+			} files for indexing. Failed to process ${failedFilesCount} files and ${failedChunksCount} chunks.`,
+		);
+	}
+
+	private async _generateAllContextualizedChunks(codeFiles: CodeFile[]): Promise<{ chunks: ChunkWithFileContext[]; failedFilesCount: number }> {
+		const allChunks: ChunkWithFileContext[] = [];
+		let failedFilesCount = 0;
 
 		// Process files in parallel batches
 		for (let i = 0; i < codeFiles.length; i += FILE_PROCESSING_PARALLEL_BATCH_SIZE) {
 			const fileBatch = codeFiles.slice(i, i + FILE_PROCESSING_PARALLEL_BATCH_SIZE);
-			logger.info(`Processing a batch of ${fileBatch.length} files in parallel (batch starting at index ${i})...`);
+			logger.info(`Generating chunks for a batch of ${fileBatch.length} files (batch starting at index ${i})...`);
 
 			const settledFileResults = await settleAllWithInput(fileBatch, (currentFile) => this._processFileAndGetContextualizedChunks(currentFile));
 
-			const chunksFromBatch: ChunkWithFileContext[] = [];
 			for (const result of settledFileResults.fulfilledInputs) {
 				const chunksFromThisFile = result[1]; // resolvedValue is ChunkWithFileContext[]
 				if (chunksFromThisFile.length > 0) {
-					chunksFromBatch.push(...chunksFromThisFile);
+					allChunks.push(...chunksFromThisFile);
 				}
 			}
-			processedChunksReadyForEmbedding.push(...chunksFromBatch);
-			totalChunks += chunksFromBatch.length;
 
 			for (const result of settledFileResults.rejected) {
-				failedFilesCount.count++;
-				logger.error({ err: result.reason, filePath: result.input.filePath }, 'File failed during batched parallel processing.');
-			}
-
-			// Check if current embedding batch is ready or if it's the last file batch
-			if (
-				processedChunksReadyForEmbedding.length >= INDEXER_EMBEDDING_PROCESSING_BATCH_SIZE ||
-				(i + FILE_PROCESSING_PARALLEL_BATCH_SIZE >= codeFiles.length && processedChunksReadyForEmbedding.length > 0)
-			) {
-				const successfullyEmbeddedInBatch = await this._processAndIndexEmbeddingBatch(processedChunksReadyForEmbedding, documentsToIndex, failedChunksCount);
-				successfullyProcessedAndEmbeddedChunks += successfullyEmbeddedInBatch;
-				processedChunksReadyForEmbedding.length = 0; // Clear the array for the next batch
-
-				// Check if documentsToIndex needs to be flushed to Discovery Engine
-				if (documentsToIndex.length >= BATCH_SIZE || (i + FILE_PROCESSING_PARALLEL_BATCH_SIZE >= codeFiles.length && documentsToIndex.length > 0)) {
-					logger.info(`Indexing batch of ${documentsToIndex.length} documents to Discovery Engine...`);
-					await this.dataStore.importDocuments(documentsToIndex);
-					documentsToIndex.length = 0; // Clear the Discovery Engine batch array
-				}
+				failedFilesCount++;
+				logger.error({ err: result.reason, filePath: result.input.filePath }, 'File failed during chunk generation.');
 			}
 		}
+		logger.info(`Generated ${allChunks.length} chunks from ${codeFiles.length - failedFilesCount} files.`);
+		return { chunks: allChunks, failedFilesCount };
+	}
 
-		logger.info(
-			`Indexing pipeline completed. Successfully prepared ${successfullyProcessedAndEmbeddedChunks} chunks from ${
-				codeFiles.length - failedFilesCount.count
-			} files for indexing.`,
-		);
+	private async _generateEmbeddingsAndPrepareDocuments(
+		allChunks: ChunkWithFileContext[],
+	): Promise<{ documents: google.cloud.discoveryengine.v1beta.IDocument[]; failedChunksCount: number }> {
+		const documentsToIndex: google.cloud.discoveryengine.v1beta.IDocument[] = [];
+		const failedChunksCount = { count: 0 };
+		let successfullyEmbeddedChunks = 0;
+
+		for (let i = 0; i < allChunks.length; i += INDEXER_EMBEDDING_PROCESSING_BATCH_SIZE) {
+			const chunkBatch = allChunks.slice(i, i + INDEXER_EMBEDDING_PROCESSING_BATCH_SIZE);
+
+			const successfullyEmbeddedInBatch = await this._processAndIndexEmbeddingBatch(chunkBatch, documentsToIndex, failedChunksCount);
+			successfullyEmbeddedChunks += successfullyEmbeddedInBatch;
+		}
+
+		logger.info(`Successfully generated embeddings for ${successfullyEmbeddedChunks} of ${allChunks.length} chunks.`);
+		return { documents: documentsToIndex, failedChunksCount: failedChunksCount.count };
+	}
+
+	private async _importDocumentsToDataStore(documents: google.cloud.discoveryengine.v1beta.IDocument[]): Promise<void> {
+		for (let i = 0; i < documents.length; i += BATCH_SIZE) {
+			const batch = documents.slice(i, i + BATCH_SIZE);
+			logger.info(`Indexing batch of ${batch.length} documents to Discovery Engine...`);
+			await this.dataStore.importDocuments(batch);
+		}
+		logger.info(`Completed import of ${documents.length} documents.`);
 	}
 
 	private async _processFileAndGetContextualizedChunks(file: CodeFile): Promise<ChunkWithFileContext[]> {
