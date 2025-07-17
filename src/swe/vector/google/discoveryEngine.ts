@@ -2,13 +2,10 @@ import { DataStoreServiceClient, DocumentServiceClient, SearchServiceClient } fr
 import { google } from '@google-cloud/discoveryengine/build/protos/protos';
 import pino from 'pino';
 import { sleep } from '#utils/async-utils';
+import { cacheRetry, RetryableError } from '#cache/cacheRetry';
 import { GoogleVectorServiceConfig } from './googleVectorConfig';
 
 const logger = pino({ name: 'DiscoveryEngineDataStore' });
-
-const MAX_RETRIES = 3;
-const INITIAL_RETRY_DELAY_MS = 1000;
-const RETRY_DELAY_MULTIPLIER = 2;
 
 export class DiscoveryEngine {
 	private readonly project: string;
@@ -78,22 +75,17 @@ export class DiscoveryEngine {
 			reconciliationMode: google.cloud.discoveryengine.v1beta.ImportDocumentsRequest.ReconciliationMode.INCREMENTAL,
 		};
 
-		for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-			try {
-				const [operation] = await this.documentClient.importDocuments(request);
-				logger.info(`ImportDocuments operation started: ${operation.name}`);
-				await operation.promise(); // wait until the indexing finishes
-				return;
-			} catch (apiError: any) {
-				const delay = INITIAL_RETRY_DELAY_MS * RETRY_DELAY_MULTIPLIER ** attempt;
-				logger.error({ err: apiError, attempt: attempt + 1, delay }, 'API call failed for importDocuments. Retrying...');
-				if (attempt < MAX_RETRIES - 1) {
-					await sleep(delay);
-				} else {
-					logger.error(`All ${MAX_RETRIES} retries failed for importDocuments. Skipping batch.`);
-					throw apiError;
-				}
-			}
+		await this._importDocumentsRequest(request);
+	}
+
+	@cacheRetry({ retries: 3, backOffMs: 1000 })
+	private async _importDocumentsRequest(request: google.cloud.discoveryengine.v1beta.IImportDocumentsRequest): Promise<void> {
+		try {
+			const [operation] = await this.documentClient.importDocuments(request);
+			logger.info(`ImportDocuments operation started: ${operation.name}`);
+			await operation.promise(); // wait until the indexing finishes
+		} catch (e) {
+			throw new RetryableError(e as Error);
 		}
 	}
 

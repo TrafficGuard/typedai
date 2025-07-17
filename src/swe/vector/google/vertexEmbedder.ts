@@ -2,13 +2,10 @@ import { PredictionServiceClient, helpers, protos } from '@google-cloud/aiplatfo
 import pino from 'pino';
 import { countTokensSync } from '#llm/tokens';
 import { sleep } from '#utils/async-utils';
+import { cacheRetry, RetryableError } from '#cache/cacheRetry';
 import { GoogleVectorServiceConfig, TOKENS_PER_MINUTE_QUOTA, getGoogleVectorServiceConfig } from './googleVectorConfig';
 
 const logger = pino({ name: 'Embedder' });
-
-const MAX_RETRIES = 3;
-const INITIAL_RETRY_DELAY_MS = 1000; // 1 second
-const RETRY_DELAY_MULTIPLIER = 2; // For exponential backoff
 
 type PredictRequest = protos.google.cloud.aiplatform.v1.IPredictRequest;
 
@@ -34,72 +31,72 @@ export class VertexAITextEmbeddingService implements TextEmbeddingService {
 	}
 
 	async generateEmbedding(text: string, taskType: TaskType): Promise<number[]> {
-		const result = await this.generateEmbeddingWithRetries(text, taskType);
-		return result ?? [];
+		if (!text || text.trim() === '') {
+			logger.warn({ functionName: 'VertexAITextEmbeddingService.generateEmbedding', taskType }, 'Attempted to generate embedding for empty text. Returning empty vector.');
+			return [];
+		}
+
+		try {
+			return await this._generateEmbedding(text, taskType);
+		} catch (error) {
+			logger.error({ err: error }, `All retries failed for generating embedding.`);
+			return [];
+		}
 	}
 
 	async generateEmbeddings(texts: string[], taskType: TaskType): Promise<(number[] | null)[]> {
 		const allResults: (number[] | null)[] = [];
-		// Since gemini-embedding-001 only supports one input per request,
-		// we must iterate and call the API for each text individually.
 		for (const text of texts) {
-			const embedding = await this.generateEmbeddingWithRetries(text, taskType);
-			allResults.push(embedding);
+			if (!text || text.trim() === '') {
+				allResults.push(null);
+				continue;
+			}
+
+			try {
+				const embedding = await this._generateEmbedding(text, taskType);
+				allResults.push(embedding);
+			} catch (error) {
+				logger.error({ err: error, textSnippet: text.substring(0, 50) }, `All retries failed for generating embedding in batch.`);
+				allResults.push(null);
+			}
 		}
 		return allResults;
 	}
 
-	private async generateEmbeddingWithRetries(text: string, taskType: TaskType): Promise<number[] | null> {
-		const functionName = 'VertexAITextEmbeddingService.generateEmbeddingWithRetries';
-		if (!text || text.trim() === '') {
-			logger.warn({ functionName, taskType }, 'Attempted to generate embedding for empty text. Returning null.');
-			return null;
+	@cacheRetry({ retries: 3, backOffMs: 1000, scope: 'global' })
+	private async _generateEmbedding(text: string, taskType: TaskType): Promise<number[]> {
+		const functionName = 'VertexAITextEmbeddingService._generateEmbedding';
+
+		const tokensInRequest = countTokensSync(text);
+		await this.waitForRateLimit(tokensInRequest);
+
+		const instances = [helpers.toValue({ content: text, task_type: taskType })];
+		const request: PredictRequest = {
+			endpoint: this.endpointPath,
+			instances: instances,
+			parameters: helpers.toValue({ outputDimensionality: 768 }),
+		};
+
+		let response;
+		try {
+			[response] = await this.client.predict(request);
+		} catch (e) {
+			throw new RetryableError(e as Error);
 		}
 
-		for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-			try {
-				const tokensInRequest = countTokensSync(text);
-				await this.waitForRateLimit(tokensInRequest);
+		this.tokenUsageHistory.push({ timestamp: Date.now(), tokens: tokensInRequest });
 
-				const instances = [helpers.toValue({ content: text, task_type: taskType })];
-				const request: PredictRequest = {
-					endpoint: this.endpointPath,
-					instances: instances,
-					parameters: helpers.toValue({ outputDimensionality: 768 }),
-				};
-
-				const [response] = await this.client.predict(request);
-				this.tokenUsageHistory.push({ timestamp: Date.now(), tokens: tokensInRequest });
-
-				const prediction = response.predictions?.[0];
-				const embeddingValue = prediction?.structValue?.fields?.embeddings?.structValue?.fields?.values;
-				if (embeddingValue?.listValue?.values) {
-					const embedding = embeddingValue.listValue.values.map((v) => v.numberValue as number);
-					if (embedding.some((n) => typeof n !== 'number' || Number.isNaN(n))) {
-						logger.warn({ prediction, functionName, taskType }, 'Invalid data type or NaN in embedding vector.');
-						return null;
-					}
-					return embedding;
-				}
-				throw new Error('Invalid embedding structure in response');
-			} catch (error: any) {
-				const delay = INITIAL_RETRY_DELAY_MS * RETRY_DELAY_MULTIPLIER ** attempt;
-				logger.error(
-					{ err: { message: error.message, stack: error.stack, details: error.details }, attempt: attempt + 1, maxRetries: MAX_RETRIES, delay },
-					`Error in ${functionName} (attempt ${attempt + 1}/${MAX_RETRIES}). Retrying in ${delay}ms...`,
-				);
-				if (attempt < MAX_RETRIES - 1) {
-					await sleep(delay);
-				} else {
-					logger.error(
-						{ err: { message: error.message, stack: error.stack, details: error.details } },
-						`All ${MAX_RETRIES} retries failed for ${functionName}.`,
-					);
-					return null;
-				}
+		const prediction = response.predictions?.[0];
+		const embeddingValue = prediction?.structValue?.fields?.embeddings?.structValue?.fields?.values;
+		if (embeddingValue?.listValue?.values) {
+			const embedding = embeddingValue.listValue.values.map((v) => v.numberValue as number);
+			if (embedding.some((n) => typeof n !== 'number' || Number.isNaN(n))) {
+				throw new RetryableError(new Error('Invalid data type or NaN in embedding vector.'));
 			}
+			return embedding;
+		} else {
+			throw new RetryableError(new Error('Invalid embedding structure in response'));
 		}
-		return null;
 	}
 
 	private async waitForRateLimit(tokensInRequest: number): Promise<void> {
@@ -143,7 +140,6 @@ export function getEmbeddingService(): TextEmbeddingService {
  */
 export async function generateEmbedding(text: string, taskType: TaskType): Promise<number[]> {
 	const functionName = 'generateEmbedding (exported)';
-	// logger.debug(`Generating embedding for text length: ${text.length}, task type: ${taskType}`);
 	if (!text || text.trim() === '') {
 		logger.warn({ functionName, taskType }, 'Attempted to generate embedding for empty text. Returning empty vector.');
 		return [];
@@ -152,8 +148,6 @@ export async function generateEmbedding(text: string, taskType: TaskType): Promi
 		const embedder = getEmbeddingService();
 		const embedding = await embedder.generateEmbedding(text, taskType);
 		if (!Array.isArray(embedding)) {
-			// This case should ideally be handled by the retry logic within VertexAITextEmbeddingService
-			// or if a different embedder implementation returns non-array.
 			logger.error(
 				{ functionName, taskType, textLength: text.length, embeddingResult: embedding },
 				'Embedding generation returned invalid result (not an array). Returning empty vector.',
