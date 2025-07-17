@@ -110,20 +110,27 @@ JSON Array:
 			return [];
 		}
 
-		const contextGenerationPromises = rawChunks.map(async (chunk) => {
-			const contextPrompt = GENERATE_CHUNK_CONTEXT_PROMPT(chunk.original_chunk_content, fileContent, language);
-			try {
-				logger.info({ filePath, chunk_start_line: chunk.start_line, llmId: llmForContext.getId() }, 'Requesting context for chunk from LLM');
-				const generated_context_for_chunk = await llmForContext.generateText(contextPrompt, { id: 'Chunk Context Generation' });
-				logger.info({ filePath, chunk_start_line: chunk.start_line, contextLength: generated_context_for_chunk.length }, 'Received context for chunk');
-				return { ...chunk, generated_context: generated_context_for_chunk.trim() };
-			} catch (error) {
-				logger.error({ filePath, chunk_start_line: chunk.start_line, error }, 'Failed to generate context for chunk');
-				return { ...chunk, generated_context: '' }; // Assign empty context on error
-			}
-		});
+		const contextGenerator = new ContextGenerator(llmForContext, fileContent, language, filePath);
+		const CONTEXT_GENERATION_BATCH_SIZE = 5;
+		const chunksWithGeneratedContext: (RawChunk & { generated_context: string })[] = [];
 
-		const chunksWithGeneratedContext = await Promise.all(contextGenerationPromises);
+		for (let i = 0; i < rawChunks.length; i += CONTEXT_GENERATION_BATCH_SIZE) {
+			const batch = rawChunks.slice(i, i + CONTEXT_GENERATION_BATCH_SIZE);
+			logger.info({ filePath, batchSize: batch.length, totalChunks: rawChunks.length }, `Processing batch of chunks for context generation`);
+
+			const batchPromises = batch.map(async (chunk) => {
+				try {
+					const generated_context = await contextGenerator.generateContextForChunk(chunk);
+					return { ...chunk, generated_context };
+				} catch (error) {
+					logger.error({ filePath, chunk_start_line: chunk.start_line, error }, 'Failed to generate context for chunk after all retries');
+					return { ...chunk, generated_context: '' }; // Assign empty context on error
+				}
+			});
+
+			const results = await Promise.all(batchPromises);
+			chunksWithGeneratedContext.push(...results);
+		}
 
 		const contextualizedChunks: ContextualizedChunkItem[] = chunksWithGeneratedContext.map((processedChunk) => {
 			const original_chunk_content = processedChunk.original_chunk_content;
