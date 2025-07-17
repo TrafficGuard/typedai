@@ -9,6 +9,7 @@ import { SearchResult, VectorStore } from '../vector';
 import { DiscoveryEngine } from './discoveryEngine';
 import { GoogleVectorServiceConfig } from './googleVectorConfig';
 import { TextEmbeddingService, VertexAITextEmbeddingService } from './vertexEmbedder';
+import { span } from '#o11y/trace';
 
 const logger = pino({ name: 'GoogleVectorStore' });
 
@@ -26,6 +27,7 @@ export class GoogleVectorStore implements VectorStore {
 		this.embeddingService = new VertexAITextEmbeddingService(config);
 	}
 
+	@span()
 	async indexRepository(dir = './'): Promise<void> {
 		logger.info(`Starting indexing pipeline for directory: ${dir}`);
 		await this.dataStore.ensureDataStoreExists();
