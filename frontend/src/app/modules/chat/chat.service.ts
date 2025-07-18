@@ -13,6 +13,7 @@ import {
 	ChatMessagePayload,
 	ChatUpdateDetailsPayload,
 	RegenerateMessagePayload,
+	CreateChatFromLlmCallPayload,
 } from '#shared/chat/chat.schema';
 import { LlmMessage as ApiLlmMessage, AssistantContentExt, ReasoningPart } from '#shared/llm/llm.model';
 import { CallSettings, FilePartExt, ImagePartExt, TextPart, UserContentExt } from '#shared/llm/llm.model';
@@ -684,6 +685,30 @@ export class ChatServiceClient {
 		);
 	}
 
+	createChatFromLlmCall(llmCallId: string): Observable<Chat> {
+		const payload: CreateChatFromLlmCallPayload = { llmCallId };
+		return callApiRoute(this._httpClient, CHAT_API.createChatFromLlmCall, { body: payload }).pipe(
+			map((newApiChat: ApiChatModel) => {
+				const uiChat: Chat = {
+					...newApiChat,
+					messages: newApiChat.messages.map((msg) => convertMessage(msg as ApiLlmMessage)),
+				};
+				// Optimistically add to cache
+				if (this._cachedChats) {
+					this._cachedChats = [uiChat, ...this._cachedChats];
+				}
+				const currentChatsState = this._chatsState();
+				if (currentChatsState.status === 'success') {
+					this._chatsState.set({
+						status: 'success',
+						data: [uiChat, ...currentChatsState.data],
+					});
+				}
+				return uiChat;
+			})
+		);
+	}
+
 	forceReloadChats(): Observable<void> {
 		this._cachedChats = null;
 		this._cachePopulated.set(false);
@@ -731,7 +756,7 @@ export class ChatServiceClient {
  * Convert the server LlmMessage (API model) to the UI ChatMessage type
  * @param apiLlmMessage This is effectively Static<typeof LlmMessageSchema>
  */
-function convertMessage(apiLlmMessage: ApiLlmMessage): ChatMessage {
+export function convertMessage(apiLlmMessage: ApiLlmMessage): ChatMessage {
 	const sourceApiContent = apiLlmMessage.content; // This is CoreContent from 'ai' (via shared/model/llm.model LlmMessage type)
 	let chatMessageSpecificContent: UserContentExt | AssistantContentExt; // Target type for ChatMessage.content
 

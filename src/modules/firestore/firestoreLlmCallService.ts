@@ -743,7 +743,7 @@ export class FirestoreLlmCallService implements LlmCallService {
 			requestTime: call.requestTime,
 			totalTime: call.totalTime,
 			inputTokens: call.inputTokens,
-			outputTokens: call.outputTokens,
+			outputTokens: Number.isInteger(call.outputTokens) ? call.outputTokens : undefined,
 			cost: call.cost,
 			error: !!call.error,
 			callStack: call.callStack,

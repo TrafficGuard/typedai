@@ -13,6 +13,9 @@
                 <button mat-icon-button (click)="openInPromptStudio(call)" matTooltip="Open in Prompt Studio" style="font-size: x-small">
                     <mat-icon>library_books</mat-icon>
                 </button>
+                <button mat-icon-button (click)="createChatFromLlmCall(call.id)" matTooltip="Create a chat from this LLM call" style="font-size: x-small">
+                    <mat-icon>forum</mat-icon>
+                </button>
             </div>
 
             <div class="mb-1 text-sm">
