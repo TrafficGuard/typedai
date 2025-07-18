@@ -15,9 +15,9 @@ describe('PostgresAgentStateService', () => {
 
 	const beforeEachHook = async () => {
 		// Drop tables to ensure schema is recreated with latest definitions
-		await db.schema.dropTableIfExists('agent_iterations').execute();
-		await db.schema.dropTableIfExists('agent_contexts').execute();
-		await db.schema.dropTableIfExists('users').execute();
+		await db.schema.dropTable('agent_iterations').ifExists().execute();
+		await db.schema.dropTable('agent_contexts').ifExists().execute();
+		await db.schema.dropTable('users').ifExists().execute();
 
 		// Ensure all necessary tables exist with latest schema
 		await ensureUsersTableExists(db);
