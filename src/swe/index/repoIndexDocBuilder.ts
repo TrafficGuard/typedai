@@ -560,7 +560,7 @@ export class IndexDocBuilder {
 		const summaries = new Map<string, Summary>();
 		const repoFolder = this.fss.getVcsRoot() ?? this.fss.getWorkingDirectory();
 		const docsDir = join(repoFolder, typedaiDirName, 'docs');
-		logger.info(`Load summaries from ${docsDir}`);
+		logger.debug(`Load summaries from ${docsDir}`);
 
 		let dirExists = false;
 		try {
@@ -576,10 +576,9 @@ export class IndexDocBuilder {
 
 		try {
 			const files = await this.fss.listFilesRecursively(docsDir, true);
-			logger.info(`Found ${files.length} files in ${docsDir}`);
+			logger.debug(`Found ${files.length} files in ${docsDir}`);
 
 			if (files.length === 0) {
-				logger.warn(`No files found in ${docsDir}. Directory might be empty.`);
 				return summaries;
 			}
 

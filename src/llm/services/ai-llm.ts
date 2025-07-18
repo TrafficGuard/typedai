@@ -186,7 +186,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				const promptPreview = lastMessageText.length > 50 ? `${lastMessageText.slice(0, 50)}...` : lastMessageText;
 				console.log(new Error(`No generateMessage id provided. (${promptPreview})`));
 			}
-			logger.info(`LLM call ${combinedOpts.id} using ${this.getId()}`);
+			// logger.info(`LLM call ${combinedOpts.id} using ${this.getId()}`);
 
 			const createLlmCallRequest: CreateLlmRequest = {
 				messages: cloneAndTruncateBuffers(llmMessages),
@@ -273,10 +273,12 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				const cost = Number.isNaN(totalCost) ? 0 : totalCost;
 
 				if (result.finishReason === 'length') {
-					logger.info(`LLM finished due to length. Output tokens: ${result.usage.completionTokens}. Opts Max Output Tokens: ${combinedOpts.maxOutputTokens}`);
+					logger.info(
+						`LLM finished due to length. ${this.getId()} Output tokens: ${result.usage.completionTokens}. Opts Max Output Tokens: ${combinedOpts.maxOutputTokens}. LLM CallId ${llmCall.id}`,
+					);
 				}
 
-				logger.info(`LLM response ${combinedOpts.id}`);
+				// logger.info(`LLM response ${combinedOpts.id}`);
 
 				// Add the response as an assistant message
 
