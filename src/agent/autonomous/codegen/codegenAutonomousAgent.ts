@@ -1,7 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { type Span, SpanStatusCode } from '@opentelemetry/api';
 import { type PyodideInterface, loadPyodide } from 'pyodide';
-import { buildMemoryPrompt, buildToolStateMap, buildToolStatePrompt, updateFunctionSchemas } from '#agent/agentPromptUtils';
+import {
+	buildFileSystemTreePrompt,
+	buildFunctionCallHistoryPrompt,
+	buildMemoryPrompt,
+	buildToolStateMap,
+	buildToolStatePrompt,
+	updateFunctionSchemas,
+} from '#agent/agentPromptUtils';
 import { FUNCTION_OUTPUT_THRESHOLD, summarizeFunctionOutput } from '#agent/agentUtils';
 import { runAgentCompleteHandler } from '#agent/autonomous/agentCompletion';
 import type { AgentExecution } from '#agent/autonomous/autonomousAgentRunner';
@@ -141,6 +148,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				// Might need to reload the agent for dynamic updating of the tools
 				const functionsXml = convertJsonToPythonDeclaration(getAllFunctionSchemas(agent.functions.getFunctionInstances()));
 				const systemPromptWithFunctions = updateFunctionSchemas(codegenSystemPrompt, functionsXml);
+				const fileSystemTreePrompt = await buildFileSystemTreePrompt();
 				const toolStatePrompt = await buildToolStatePrompt();
 
 				// Add function call history (handle potential requestFeedback at the end)
@@ -157,6 +165,8 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 
 				// Build the main control loop prompt message content
 				const agentUserMessageContent: UserContentExt = [];
+				if (fileSystemTreePrompt) agentUserMessageContent.push(text(fileSystemTreePrompt));
+				agentUserMessageContent.push(text(buildFunctionCallHistoryPrompt('history', 20000, 0, historyEndIndex)));
 				agentUserMessageContent.push(text(await buildMemoryPrompt()));
 				if (toolStatePrompt) agentUserMessageContent.push(text(toolStatePrompt));
 				agentUserMessageContent.push(text(userRequestXml));

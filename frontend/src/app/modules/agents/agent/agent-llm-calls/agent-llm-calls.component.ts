@@ -11,7 +11,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { distinctUntilChanged, filter } from 'rxjs/operators';
-import { LlmCallMessageSummaryPart, LlmMessage } from '#shared/llm/llm.model';
+import { contentText, LlmCallMessageSummaryPart, LlmMessage } from '#shared/llm/llm.model';
 import { LlmCall, LlmCallSummary } from '#shared/llmCall/llmCall.model';
 import { Prompt as AppPrompt } from '#shared/prompts/prompts.model';
 import { AgentLinks, GoogleCloudLinks } from '../../agent-links';
@@ -145,6 +145,10 @@ export class AgentLlmCallsComponent {
 		}
 		this.expandedLlmCallData.update((s) => ({ ...s, [callId]: { status: 'loading' } }));
 		this.agentService.loadLlmCallDetail(currentAgentId, callId);
+	}
+
+	toContentText(content): string {
+		return contentText(content);
 	}
 
 	isStringContent(content: any): content is string {

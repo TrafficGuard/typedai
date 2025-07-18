@@ -20,6 +20,37 @@ import { envVarHumanInLoopSettings } from '../../../cli/cliHumanInLoop';
 
 const basePath = '/api/webhooks';
 
+export async function gitlabRoutes(fastify: AppFastifyInstance) {
+	fastify.get(`${basePath}/test`, {}, async (req, reply) => {
+		send(reply as FastifyReply, 200, { message: 'ok' });
+	});
+
+	// See https://docs.gitlab.com/ee/user/project/integrations/webhook_events.html#merge-request-events
+	fastify.post(
+		`${basePath}/gitlab`,
+		{
+			schema: {
+				body: Type.Object({}, { additionalProperties: true }),
+			},
+		},
+		async (req, reply) => {
+			const event = req.body as any;
+			logger.info(event, `Gitlab webhook ${event.kind}`);
+
+			switch (event.kind) {
+				case 'pipeline':
+					await handlePipelineEvent(event);
+					break;
+				case 'merge_request':
+					await handleMergeRequestEvent(event);
+					break;
+			}
+
+			send(reply, 200);
+		},
+	);
+}
+
 /**
  * https://docs.gitlab.com/user/project/integrations/webhook_events/#pipeline-events
  * @param event
@@ -57,33 +88,21 @@ async function handlePipelineEvent(event: any) {
 		failedLogs,
 	};
 
-	const agent = await appContext().agentStateService.findByMetadata('gitlab', gitlabId);
+	// Need the firestore index
+	// const agent = await appContext().agentStateService.findByMetadata('gitlab', gitlabId);
 
 	// TODO could get the project pipeline file,
 
-	if (!agent) {
-		await startAgent({
-			initialPrompt: '',
-			subtype: 'pipeline',
-			agentName: `GitLab ${gitlabId} pipeline`,
-			type: 'autonomous',
-			user: runAsUser,
-			functions: [Git, LiveFiles, GitLab, CodeEditingAgent, Perplexity, FileSystemTree, FileSystemList],
-		});
-	}
-}
-
-async function getGitLabAgentUser() {
-	const userService = appContext().userService;
-	let email = (process.env.TYPEDAI_AGENT_EMAIL ?? '').trim();
-	if (!email && process.env.AUTH === 'single_user') email = envVar('SINGLE_USER_EMAIL');
-
-	let runAsUser = await userService.getUserByEmail(email);
-	if (!runAsUser) {
-		logger.info(`Creating TypedAI Agent account with email ${email}`);
-		runAsUser = await userService.createUser({ name: 'TypedAI Agent', email, enabled: true });
-	}
-	return runAsUser;
+	// if (!agent) {
+	await startAgent({
+		initialPrompt: '',
+		subtype: 'gitlab-pipeline',
+		agentName: `GitLab ${gitlabId} pipeline`,
+		type: 'autonomous',
+		user: runAsUser,
+		functions: [Git, LiveFiles, GitLab, CodeEditingAgent, Perplexity, FileSystemTree, FileSystemList],
+	});
+	// }
 }
 
 /**
@@ -117,33 +136,18 @@ async function handleMergeRequestEvent(event: any) {
 	});
 }
 
-export async function gitlabRoutes(fastify: AppFastifyInstance) {
-	fastify.get(`${basePath}/test`, {}, async (req, reply) => {
-		send(reply as FastifyReply, 200, { message: 'ok' });
-	});
+/**
+ * @returns the user to run the agent as
+ */
+async function getGitLabAgentUser() {
+	const userService = appContext().userService;
+	let email = (process.env.TYPEDAI_AGENT_EMAIL ?? '').trim();
+	if (!email && process.env.AUTH === 'single_user') email = envVar('SINGLE_USER_EMAIL');
 
-	// See https://docs.gitlab.com/ee/user/project/integrations/webhook_events.html#merge-request-events
-	fastify.post(
-		`${basePath}/gitlab`,
-		{
-			schema: {
-				body: Type.Object({}, { additionalProperties: true }),
-			},
-		},
-		async (req, reply) => {
-			const event = req.body as any;
-			logger.info(event, `Gitlab webhook ${event.kind}`);
-
-			switch (event.kind) {
-				case 'pipeline':
-					await handlePipelineEvent(event);
-					break;
-				case 'merge_request':
-					await handleMergeRequestEvent(event);
-					break;
-			}
-
-			send(reply, 200);
-		},
-	);
+	let runAsUser = await userService.getUserByEmail(email);
+	if (!runAsUser) {
+		logger.info(`Creating TypedAI Agent account with email ${email}`);
+		runAsUser = await userService.createUser({ name: 'TypedAI Agent', email, enabled: true });
+	}
+	return runAsUser;
 }

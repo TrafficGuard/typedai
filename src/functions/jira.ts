@@ -195,6 +195,27 @@ export class Jira {
 		return { key, url };
 	}
 
+	/**
+	 * Posts a comment to an existing JIRA issue
+	 * @param issueId The issue ID (e.g., ABC-123)
+	 * @param comment The comment text to post
+	 * @returns {Promise<string>} The ID of the created comment
+	 */
+	@func()
+	async postComment(issueId: string, comment: string): Promise<string> {
+		if (!issueId) throw new Error('issueId is required');
+		if (!comment) throw new Error('comment is required');
+
+		try {
+			const requestBody = { body: comment };
+			const response = await this.axios().post(`/rest/api/latest/issue/${issueId}/comment`, requestBody);
+			return response.data.id;
+		} catch (error) {
+			logger.error(error, `Error posting comment to Jira issue ${issueId}`);
+			throw error;
+		}
+	}
+
 	async getBacklog(boardId: string): Promise<any> {
 		const response = await this.axios().get(`/rest/agile/1.0/board/${boardId}/backlog?maxResults=250`);
 		const issues = response.data.issues;

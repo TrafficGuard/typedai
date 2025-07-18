@@ -686,27 +686,49 @@ export class ChatServiceClient {
 	}
 
 	createChatFromLlmCall(llmCallId: string): Observable<Chat> {
-		const payload: CreateChatFromLlmCallPayload = { llmCallId };
-		return callApiRoute(this._httpClient, CHAT_API.createChatFromLlmCall, { body: payload }).pipe(
-			map((newApiChat: ApiChatModel) => {
-				const uiChat: Chat = {
-					...newApiChat,
-					messages: newApiChat.messages.map((msg) => convertMessage(msg as ApiLlmMessage)),
-				};
-				// Optimistically add to cache
-				if (this._cachedChats) {
-					this._cachedChats = [uiChat, ...this._cachedChats];
-				}
-				const currentChatsState = this._chatsState();
-				if (currentChatsState.status === 'success') {
-					this._chatsState.set({
-						status: 'success',
-						data: [uiChat, ...currentChatsState.data],
-					});
-				}
-				return uiChat;
-			})
+        const payload: CreateChatFromLlmCallPayload = {llmCallId};
+        return callApiRoute(this._httpClient, CHAT_API.createChatFromLlmCall, {body: payload}).pipe(
+            map((newApiChat: ApiChatModel) => {
+                const uiChat: Chat = {
+                    ...newApiChat,
+                    messages: newApiChat.messages.map((msg) => convertMessage(msg as ApiLlmMessage)),
+                };
+                // Optimistically add to cache
+                if (this._cachedChats) {
+                    this._cachedChats = [uiChat, ...this._cachedChats];
+                }
+                const currentChatsState = this._chatsState();
+                if (currentChatsState.status === 'success') {
+                    this._chatsState.set({
+                        status: 'success',
+                        data: [uiChat, ...currentChatsState.data],
+                    });
+                }
+                return uiChat;
+            })
+        );
+    }
+
+	public updateMessageStatus(chatId: string, messageId: string, status: 'failed_to_send'): void {
+		const currentChatState = this._chatState();
+
+		// Ensure we are updating the correct, currently loaded chat.
+		if (currentChatState.status !== 'success' || currentChatState.data.id !== chatId) {
+			return;
+		}
+
+		const messages = currentChatState.data.messages || [];
+		const updatedMessages = messages.map(m =>
+			m.id === messageId ? { ...m, status } : m,
 		);
+
+		this._chatState.set({
+			status: 'success',
+			data: {
+				...currentChatState.data,
+				messages: updatedMessages,
+			},
+		});
 	}
 
 	forceReloadChats(): Observable<void> {
