@@ -192,7 +192,7 @@ function verifyGitHubSignature(request: any): boolean {
 	const secretPreview = secret?.length > 4 ? `${secret.slice(0, 4)}...` : secret;
 
 	if (!secret || !signature || !payload) {
-		logger.warn({ signature, secretPreview }, 'Invalid GitHub webhook request');
+		logger.warn({ signature, secretPreview, payload }, 'Invalid GitHub webhook request');
 		return false;
 	}
 
@@ -200,7 +200,7 @@ function verifyGitHubSignature(request: any): boolean {
 	const digest = `sha256=${hmac.update(payload).digest('hex')}`;
 	const valid = crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest));
 
-	if (!valid) logger.warn({ signature, digest, secretPreview }, 'Invalid GitHub webhook signature');
+	if (!valid) logger.warn({ signature, digest, secretPreview, payload }, 'Invalid GitHub webhook signature');
 
 	return valid;
 }
