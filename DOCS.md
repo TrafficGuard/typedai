@@ -345,3 +345,77 @@ logger.info(`Indexing completed. Prepared ${successfullyProcessedAndEmbeddedChun
 
 ## Notes
 Extracting the successCount calculation into a variable and shortening the wording so the statement can be on a single line reduces the line count from 5 down to 2.
+
+## Example
+## Before
+```typescript
+async indexRepository(dir = './'): Promise<void> {
+    const codeFiles = await readFilesToIndex(dir);
+    logger.info(`Loaded ${codeFiles.length} code files.`);
+
+    if (codeFiles.length === 0) {
+        logger.info('No files to index.');
+        return;
+    }
+    // ...
+}
+```
+Review - Its already logged that 0 files were loaded. The additional logging is redundant
+
+### After
+
+```typescript
+async indexRepository(dir = './'): Promise<void> {
+    const codeFiles = await readFilesToIndex(dir);
+    logger.info(`Loaded ${codeFiles.length} code files.`);
+
+    if (codeFiles.length === 0) return;
+    // ...
+}
+```
+
+# Unnecassary seperate function
+
+## Before
+```typescript
+async importDocuments(documents: google.cloud.discoveryengine.v1beta.IDocument[], file: CodeFile): Promise<void> {
+    if (documents.length === 0) return;
+    await this.ensureDataStoreExists();
+
+    const request: google.cloud.discoveryengine.v1beta.IImportDocumentsRequest = {
+        parent: `${this.dataStorePath}/branches/default_branch`,
+        inlineSource: { documents },
+        reconciliationMode: google.cloud.discoveryengine.v1beta.ImportDocumentsRequest.ReconciliationMode.INCREMENTAL,
+    };
+
+    await this._importDocumentsRequest(request);
+}
+
+@cacheRetry({ retries: 3, backOffMs: 1000 })
+@quotaRetry()
+private async _importDocumentsRequest(request: google.cloud.discoveryengine.v1beta.IImportDocumentsRequest): Promise<void> {
+    const [operation] = await this.documentClient.importDocuments(request);
+    logger.info(`ImportDocuments operation started: ${operation.name}`);
+    await operation.promise(); // wait until the indexing finishes
+}
+```
+
+## After
+```typescript
+@cacheRetry({ retries: 3, backOffMs: 1000 })
+@quotaRetry()
+async importDocuments(documents: google.cloud.discoveryengine.v1beta.IDocument[], file: CodeFile): Promise<void> {
+    if (documents.length === 0) return;
+
+    const request: google.cloud.discoveryengine.v1beta.IImportDocumentsRequest = {
+        parent: `${this.dataStorePath}/branches/default_branch`,
+        inlineSource: { documents },
+        reconciliationMode: google.cloud.discoveryengine.v1beta.ImportDocumentsRequest.ReconciliationMode.INCREMENTAL,
+    };
+
+    const [operation] = await this.documentClient.importDocuments(request);
+    logger.info(`ImportDocuments operation started: ${operation.name}`);
+    await operation.promise(); // wait until the indexing finishes
+}
+```
+    
