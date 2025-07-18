@@ -233,6 +233,10 @@ export class GoogleVectorStore implements VectorStore {
 		await this.dataStore.ensureDataStoreExists();
 	}
 
+	async purgeAllDocuments(): Promise<void> {
+		await this.dataStore.purgeAllDocuments();
+	}
+
 	async deleteDataStore(): Promise<void> {
 		await this.dataStore.deleteDataStore();
 	}

@@ -9,6 +9,13 @@ import { GoogleVectorServiceConfig } from './googleVectorConfig';
 
 const logger = pino({ name: 'DiscoveryEngineDataStore' });
 
+/**
+ * Vector Search engine using Google AI Application Vertex AI Search (Discovery Engine)
+ * https://cloud.google.com/generative-ai-app-builder/docs/create-datastore-ingest
+ * https://cloud.google.com/generative-ai-app-builder/docs/create-data-store-es#api-json
+ * https://cloud.google.com/generative-ai-app-builder/docs/configure-field-settings
+ * https://cloud.google.com/nodejs/docs/reference/discoveryengine/latest
+ */
 export class DiscoveryEngine {
 	private readonly project: string;
 	private readonly location: string;
@@ -82,6 +89,18 @@ export class DiscoveryEngine {
 		const [operation] = await this.documentClient.importDocuments(request);
 		logger.info(`ImportDocuments operation started: ${operation.name}`);
 		await operation.promise(); // wait until the indexing finishes
+	}
+
+	/**
+	 * https://cloud.google.com/generative-ai-app-builder/docs/delete-datastores#discoveryengine_v1_generated_DocumentService_PurgeDocuments_sync-nodejs
+	 */
+	async purgeAllDocuments(): Promise<void> {
+		const request: google.cloud.discoveryengine.v1.IPurgeDocumentsRequest = {
+			parent: this.parentPath,
+			filter: '*',
+		};
+		const [operation] = await this.documentClient.purgeDocuments(request);
+		await operation.promise();
 	}
 
 	async purgeDocuments(filePaths: string[]): Promise<void> {
