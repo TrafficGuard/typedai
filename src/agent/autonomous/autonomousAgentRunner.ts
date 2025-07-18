@@ -7,6 +7,7 @@ import { AGENT_COMPLETED_PARAM_NAME } from '#agent/autonomous/functions/agentFun
 import { runXmlAgent } from '#agent/autonomous/xml/xmlAutonomousAgent';
 import { appContext } from '#app/applicationContext';
 import { FUNC_SEP } from '#functionSchema/functions';
+import { GitHub } from '#functions/scm/github';
 import { logger } from '#o11y/logger';
 import type { AgentCompleted, AgentContext, AgentLLMs, AgentType } from '#shared/agent/agent.model';
 import type { FunctionCallResult } from '#shared/llm/llm.model';
@@ -104,6 +105,13 @@ async function _startAgent(agent: AgentContext): Promise<AgentExecution> {
 	let execution: AgentExecution;
 
 	await checkRepoHomeAndWorkingDirectory(agent);
+
+	const metadata = agent.metadata ?? {};
+	const githubProject = metadata.github?.repository;
+	if (githubProject) {
+		const repoPath = await new GitHub().cloneProject(githubProject);
+		agent.fileSystem.setWorkingDirectory(repoPath);
+	}
 
 	switch (agent.subtype) {
 		case 'xml':

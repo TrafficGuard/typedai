@@ -4,6 +4,9 @@ import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 
 /*
+https://docs.morphllm.com/guides/quickstart
+https://news.ycombinator.com/item?id=44490863
+
 Fast Apply Models
 morph-v3-fast
 Fastest model

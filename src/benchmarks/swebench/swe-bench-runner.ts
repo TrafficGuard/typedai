@@ -20,6 +20,7 @@ export interface SWEInstance {
 	environment_setup_commit: string;
 }
 
+// https://epoch.ai/blog/swebench-docker
 function getIssueImageName(problemId: string): string {
 	return `ghcr.io/epoch-research/swe-bench.eval.x86_64.${problemId}:latest`;
 }

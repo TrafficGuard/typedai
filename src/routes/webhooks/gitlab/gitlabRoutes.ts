@@ -17,6 +17,7 @@ import { logger } from '#o11y/logger';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { envVar } from '#utils/env-var';
 import { envVarHumanInLoopSettings } from '../../../cli/cliHumanInLoop';
+import { getAgentUser } from '../webhookAgentUser';
 
 const basePath = '/api/webhooks';
 
@@ -56,7 +57,7 @@ export async function gitlabRoutes(fastify: AppFastifyInstance) {
  * @param event
  */
 async function handlePipelineEvent(event: any) {
-	const runAsUser = await getGitLabAgentUser();
+	const runAsUser = await getAgentUser();
 	const gitRef = event.ref;
 	const fullProjectPath = event.project.path_with_namespace;
 	const user = event.user;
@@ -112,7 +113,7 @@ async function handlePipelineEvent(event: any) {
 async function handleMergeRequestEvent(event: any) {
 	if (event.object_attributes.draft) return;
 
-	const runAsUser = await getGitLabAgentUser();
+	const runAsUser = await getAgentUser();
 
 	const config: RunWorkflowConfig = {
 		subtype: 'gitlab-review',
@@ -134,20 +135,4 @@ async function handleMergeRequestEvent(event: any) {
 			})
 			.catch((error) => logger.error(error, `Error reviewing merge request ${mergeRequestId}. Message: ${error.message} [error]`));
 	});
-}
-
-/**
- * @returns the user to run the agent as
- */
-async function getGitLabAgentUser() {
-	const userService = appContext().userService;
-	let email = (process.env.TYPEDAI_AGENT_EMAIL ?? '').trim();
-	if (!email && process.env.AUTH === 'single_user') email = envVar('SINGLE_USER_EMAIL');
-
-	let runAsUser = await userService.getUserByEmail(email);
-	if (!runAsUser) {
-		logger.info(`Creating TypedAI Agent account with email ${email}`);
-		runAsUser = await userService.createUser({ name: 'TypedAI Agent', email, enabled: true });
-	}
-	return runAsUser;
 }

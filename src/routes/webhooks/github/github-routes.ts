@@ -1,7 +1,10 @@
 import crypto from 'node:crypto';
+import { appContext } from '#app/applicationContext';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { GitHub } from '#functions/scm/github';
 import { logger } from '#o11y/logger';
+import { envVar } from '#utils/env-var';
+import { handleGitHubIssueEvent } from './github-issue';
 
 interface WorkflowRunPayload {
 	action: 'completed' | 'requested' | 'in_progress';
@@ -46,10 +49,7 @@ export async function githubRoutes(fastify: AppFastifyInstance) {
 		handler: async (request, reply) => {
 			try {
 				const isValid = verifyGitHubSignature(request);
-				if (!isValid) {
-					fastify.log.warn('Invalid webhook signature');
-					return reply.code(401).send({ error: 'Unauthorized' });
-				}
+				if (!isValid) return reply.code(401).send({ error: 'Unauthorized' });
 
 				// 2. Process GitHub event
 				const eventType = request.headers['x-github-event'];
@@ -61,7 +61,7 @@ export async function githubRoutes(fastify: AppFastifyInstance) {
 						await handleCommentEvent(payload, fastify);
 						break;
 					case 'issues':
-						await handleIssueEvent(payload, fastify);
+						await handleGitHubIssueEvent(payload, fastify);
 						break;
 					case 'pull_request':
 						await handlePullRequestEvent(payload, fastify);
@@ -107,41 +107,6 @@ export async function handleCommentEvent(payload: any, fastify: AppFastifyInstan
 	} else {
 		fastify.log.info(
 			`GitHub Webhook: Received 'issue_comment' event with action '${payload.action}' for ${commentType} #${issueNumber} in repository '${repositoryFullName}'. Not a 'created' action.`,
-		);
-	}
-}
-
-// Placeholder function - implement AI logic here
-export async function handleIssueEvent(payload: any, fastify: AppFastifyInstance) {
-	const repositoryFullName = payload.repository?.full_name || 'unknown repository';
-	const issueNumber = payload.issue?.number;
-	const issueTitle = payload.issue?.title;
-	const issueUrl = payload.issue?.html_url;
-
-	if (payload.action === 'opened') {
-		fastify.log.info(
-			`GitHub Webhook: New issue created in repository '${repositoryFullName}'. ` + `Issue #: ${issueNumber}, Title: '${issueTitle}', URL: ${issueUrl}`,
-		);
-		// TODO: Add further AI logic for new issue processing here in future iterations.
-	} else if (payload.action === 'labeled') {
-		const labelName = payload.label?.name;
-		const labelColor = payload.label?.color; // Color might not always be present or relevant for all logs
-		fastify.log.info(
-			`GitHub Webhook: Issue labeled in repository '${repositoryFullName}'. Issue #: ${issueNumber}, Title: '${issueTitle}', URL: ${issueUrl}. Label added: '${labelName}'${labelColor ? ` (Color: ${labelColor})` : ''}`,
-		);
-		// TODO: Add further AI logic for issue labeled processing here.
-	} else if (payload.action === 'unlabeled') {
-		const labelName = payload.label?.name;
-		fastify.log.info(
-			`GitHub Webhook: Issue unlabeled in repository '${repositoryFullName}'. ` +
-				`Issue #: ${issueNumber}, Title: '${issueTitle}', URL: ${issueUrl}. ` +
-				`Label removed: '${labelName}'`,
-		);
-		// TODO: Add further AI logic for issue unlabeled processing here.
-	} else {
-		// Log other 'issues' actions for visibility, but don't treat them as new issues.
-		fastify.log.info(
-			`GitHub Webhook: Received 'issues' event with action '${payload.action}' for repository '${repositoryFullName}'.${issueNumber ? ` Issue #: ${issueNumber}.` : ''} Not an 'opened', 'labeled', or 'unlabeled' action.`, // Updated message
 		);
 	}
 }
@@ -219,19 +184,25 @@ async function handleWorkflowJobEvent(payload: WorkflowJobPayload, fastify: AppF
 		}
 	}
 }
-function verifyGitHubSignature(request: any) {
+function verifyGitHubSignature(request: any): boolean {
 	const secret = process.env.GITHUB_WEBHOOK_SECRET ?? '';
 	const signature = request.headers['x-hub-signature-256'] as string;
 	const payload = request.rawBody;
 
+	const secretPreview = secret?.length > 4 ? `${secret.slice(0, 4)}...` : secret;
+
 	if (!secret || !signature || !payload) {
-		// Or handle this more gracefully, perhaps log and return false
-		throw new Error('Missing secret, signature, or payload for verification');
+		logger.warn({ signature, secretPreview }, 'Invalid GitHub webhook request');
+		return false;
 	}
 
 	const hmac = crypto.createHmac('sha256', secret);
 	const digest = `sha256=${hmac.update(payload).digest('hex')}`;
-	return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest));
+	const valid = crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest));
+
+	if (!valid) logger.warn({ signature, digest, secretPreview }, 'Invalid GitHub webhook signature');
+
+	return valid;
 }
 
 async function handlePullRequestEvent(payload: unknown, fastify: AppFastifyInstance) {
