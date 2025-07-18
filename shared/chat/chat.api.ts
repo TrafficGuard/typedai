@@ -7,6 +7,7 @@ import {
 	ChatModelSchema,
 	ChatParamsSchema,
 	ChatUpdateDetailsSchema,
+	CreateChatFromLlmCallSchema,
 	RegenerateMessageSchema,
 } from '#shared/chat/chat.schema';
 import { ApiErrorResponseSchema, ApiNullResponseSchema } from '#shared/common.schema';
@@ -81,6 +82,14 @@ export const CHAT_API = {
 			body: ChatMarkdownRequestSchema,
 			response: {
 				200: ChatMarkdownResponseSchema,
+			},
+		},
+	}),
+	createChatFromLlmCall: defineApiRoute('POST', `${CHAT_BASE}/from-llm-call`, {
+		schema: {
+			body: CreateChatFromLlmCallSchema,
+			response: {
+				201: ChatModelSchema,
 			},
 		},
 	}),
