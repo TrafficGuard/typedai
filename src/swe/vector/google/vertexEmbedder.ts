@@ -12,6 +12,8 @@ type PredictRequest = protos.google.cloud.aiplatform.v1.IPredictRequest;
 
 export type TaskType = 'RETRIEVAL_DOCUMENT' | 'CODE_RETRIEVAL_QUERY';
 
+type Dimensionality = 768 | 1536 | 3072;
+
 /**
  * @see https://ai.google.dev/gemini-api/docs/embeddings#control-embedding-size
  * Normalize a vector to unit length (L2 normalization)
@@ -21,10 +23,7 @@ export type TaskType = 'RETRIEVAL_DOCUMENT' | 'CODE_RETRIEVAL_QUERY';
 function normalizeEmbedding(values: number[]): number[] {
 	const sumOfSquares = values.reduce((acc, value) => acc + value * value, 0);
 	const norm = Math.sqrt(sumOfSquares);
-
-	if (norm === 0) {
-		throw new Error('Cannot normalize a zero vector.');
-	}
+	if (norm === 0) throw new Error('Cannot normalize a zero vector.');
 
 	return values.map((x) => x / norm);
 }
@@ -41,7 +40,7 @@ export class VertexAITextEmbeddingService {
 		this.endpointPath = `projects/${googleCloudConfig.project}/locations/${googleCloudConfig.region}/publishers/google/models/${googleCloudConfig.embeddingModel}`;
 	}
 
-	async generateEmbedding(text: string, taskType: TaskType): Promise<number[]> {
+	async generateEmbedding(text: string, taskType: TaskType, outputDimensionality: Dimensionality = 768): Promise<number[]> {
 		if (!text || text.trim() === '') {
 			logger.warn(
 				{ functionName: 'VertexAITextEmbeddingService.generateEmbedding', taskType },
@@ -50,10 +49,10 @@ export class VertexAITextEmbeddingService {
 			return [];
 		}
 
-		return await this._generateEmbedding(text, taskType);
+		return await this._generateEmbedding(text, taskType, outputDimensionality);
 	}
 
-	async generateEmbeddings(texts: string[], taskType: TaskType): Promise<(number[] | null)[]> {
+	async generateEmbeddings(texts: string[], taskType: TaskType, outputDimensionality: Dimensionality = 768): Promise<(number[] | null)[]> {
 		const allResults: (number[] | null)[] = [];
 		for (const text of texts) {
 			if (!text || text.trim() === '') {
@@ -61,7 +60,7 @@ export class VertexAITextEmbeddingService {
 				continue;
 			}
 
-			const embedding = await this._generateEmbedding(text, taskType);
+			const embedding = await this._generateEmbedding(text, taskType, outputDimensionality);
 			allResults.push(embedding);
 		}
 		return allResults;
@@ -69,7 +68,7 @@ export class VertexAITextEmbeddingService {
 
 	@cacheRetry({ retries: 3, backOffMs: 1000, scope: 'global' })
 	@quotaRetry()
-	private async _generateEmbedding(text: string, taskType: TaskType): Promise<number[]> {
+	private async _generateEmbedding(text: string, taskType: TaskType, outputDimensionality: Dimensionality): Promise<number[]> {
 		const tokensInRequest = await countTokens(text);
 		await this.waitForRateLimit(tokensInRequest);
 
@@ -77,7 +76,7 @@ export class VertexAITextEmbeddingService {
 		const request: PredictRequest = {
 			endpoint: this.endpointPath,
 			instances: instances,
-			parameters: helpers.toValue({ outputDimensionality: 768 }),
+			parameters: helpers.toValue({ outputDimensionality }),
 		};
 
 		const [response] = await this.client.predict(request);
@@ -88,10 +87,8 @@ export class VertexAITextEmbeddingService {
 		const embeddingValue = prediction?.structValue?.fields?.embeddings?.structValue?.fields?.values;
 		if (embeddingValue?.listValue?.values) {
 			const embedding = embeddingValue.listValue.values.map((v) => v.numberValue as number);
-			if (embedding.some((n) => typeof n !== 'number' || Number.isNaN(n))) {
-				throw new Error('Invalid data type or NaN in embedding vector.');
-			}
-			return normalizeEmbedding(embedding);
+			if (embedding.some((n) => typeof n !== 'number' || Number.isNaN(n))) throw new Error('Invalid data type or NaN in embedding vector.');
+			return outputDimensionality === 3072 ? embedding : normalizeEmbedding(embedding);
 		}
 		throw new Error('Invalid embedding structure in response');
 	}
