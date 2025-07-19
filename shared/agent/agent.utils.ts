@@ -9,7 +9,7 @@ export function toAgentContextPreview(agent: AgentContext): AgentContextPreview 
 	return {
 		agentId: agent.agentId,
 		parentAgentId: agent.parentAgentId,
-		name: agent.agentName,
+		name: agent.name,
 		type: agent.type,
 		subtype: agent.subtype,
 		state: agent.state,
