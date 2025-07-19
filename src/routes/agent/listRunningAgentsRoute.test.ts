@@ -1,12 +1,12 @@
+import { expect } from 'chai';
 import { agentExecutions } from '#agent/autonomous/autonomousAgentRunner';
 import type { AppFastifyInstance } from '#app/applicationTypes';
+import { initFastify } from '#fastify/fastifyApp';
 import { inMemoryApplicationContext } from '#modules/memory/inMemoryApplicationContext';
 import { AGENT_API } from '#shared/agent/agent.api';
 import type { AgentContext, AgentContextPreview, FunctionCall, LlmFunctions, ToolType } from '#shared/agent/agent.model';
 import { toAgentContextPreview } from '#shared/agent/agent.utils';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import { expect } from 'chai';
-import Fastify, { type FastifyInstance } from 'fastify';
 import { listRunningAgentsRoute } from './listRunningAgentsRoute';
 
 describe.skip('GET /api/agents/running', () => {
@@ -15,9 +15,11 @@ describe.skip('GET /api/agents/running', () => {
 
 	before(async () => {
 		const applicationContext = inMemoryApplicationContext();
-		fastify = Fastify() as AppFastifyInstance;
-		Object.assign(fastify, applicationContext);
-		await listRunningAgentsRoute(fastify);
+		fastify = (await initFastify({
+			...applicationContext,
+			routes: [listRunningAgentsRoute],
+			port: 3003,
+		})) as AppFastifyInstance;
 	});
 
 	after(() => {
