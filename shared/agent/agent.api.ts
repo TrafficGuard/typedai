@@ -89,6 +89,17 @@ export const AGENT_API = {
 	listHumanInLoopAgents: defineApiRoute('GET', `${AGENT_BASE}/list/humanInLoop`, {
 		schema: { response: { 200: Type.Array(AgentContextSchema) } },
 	}),
+	listRunning: defineApiRoute('GET', `${AGENT_BASE}/list/running`, {
+		schema: {
+			description: 'Retrieves a list of currently active (running) agents.',
+			summary: 'List running agents',
+			response: {
+				200: Type.Array(AgentContextPreviewSchema, {
+					description: 'An array of agent context previews for running agents.',
+				}),
+			},
+		},
+	}),
 
 	// New Endpoints for Iteration and LLM Call Summaries/Details
 	getIterationSummaries: defineApiRoute('GET', `${AGENT_BASE}/iterations-summary/:agentId`, {
