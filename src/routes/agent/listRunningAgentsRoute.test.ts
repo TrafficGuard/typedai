@@ -1,22 +1,23 @@
 import { agentExecutions } from '#agent/autonomous/autonomousAgentRunner';
 import type { AppFastifyInstance } from '#app/applicationTypes';
-import { initInMemoryApplicationContext } from '#modules/memory/inMemoryApplicationContext';
+import { inMemoryApplicationContext } from '#modules/memory/inMemoryApplicationContext';
 import { AGENT_API } from '#shared/agent/agent.api';
-import type { AgentContext, AgentContextPreview, LlmFunctions, ToolType } from '#shared/agent/agent.model';
+import type { AgentContext, AgentContextPreview, FunctionCall, LlmFunctions, ToolType } from '#shared/agent/agent.model';
 import { toAgentContextPreview } from '#shared/agent/agent.utils';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { expect } from 'chai';
-import type { FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance } from 'fastify';
 import { listRunningAgentsRoute } from './listRunningAgentsRoute';
 
 describe.skip('GET /api/agents/running', () => {
 	setupConditionalLoggerOutput();
-	let fastify: FastifyInstance;
+	let fastify: AppFastifyInstance;
 
 	before(async () => {
-		const applicationContext = await initInMemoryApplicationContext();
-		fastify = (applicationContext as any).fastify;
-		await listRunningAgentsRoute(fastify as AppFastifyInstance);
+		const applicationContext = inMemoryApplicationContext();
+		fastify = Fastify() as AppFastifyInstance;
+		Object.assign(fastify, applicationContext);
+		await listRunningAgentsRoute(fastify);
 	});
 
 	after(() => {
@@ -53,32 +54,57 @@ describe.skip('GET /api/agents/running', () => {
 			getFunctionType: (type: ToolType) => null,
 			addFunctionInstance: (functionClassInstance: object, name: string) => {},
 			addFunctionClass: (...functionClasses: Array<new () => any>) => {},
-			callFunction: (functionCall: any) => Promise.resolve(null),
+			callFunction: (functionCall: FunctionCall) => Promise.resolve(null),
+		};
+
+		const baseAgentContext = {
+			name: 'Test Agent',
+			cost: 0,
+			lastUpdate: Date.now(),
+			type: 'autonomous',
+			subtype: 'test',
+			createdAt: Date.now(),
+			user: { id: 'test-user', name: 'Test User', email: 'test@test.com' },
+			metadata: {},
+			messages: [],
+			functions: mockLlmFunctions,
+			toolState: {},
+			executionId: 'exec-1',
+			typedAiRepoDir: '',
+			traceId: 'trace-1',
+			callStack: [],
+			hilBudget: 0,
+			budgetRemaining: 0,
+			llms: {} as any,
+			fileSystem: null,
+			useSharedRepos: true,
+			memory: {},
+			pendingMessages: [],
+			iterations: 0,
+			invoking: [],
+			notes: [],
+			inputPrompt: '',
+			functionCallHistory: [],
+			hilCount: 0,
 		};
 
 		const runningAgent = {
+			...baseAgentContext,
 			agentId: 'running-1',
 			state: 'agent',
 			userPrompt: 'running agent',
-			messages: [],
-			functions: mockLlmFunctions,
-			toolState: {},
 		} as AgentContext;
 		const pendingAgent = {
+			...baseAgentContext,
 			agentId: 'pending-1',
 			state: 'workflow',
 			userPrompt: 'pending agent',
-			messages: [],
-			functions: mockLlmFunctions,
-			toolState: {},
 		} as AgentContext;
 		const completedAgent = {
+			...baseAgentContext,
 			agentId: 'completed-1',
 			state: 'completed',
 			userPrompt: 'completed agent',
-			messages: [],
-			functions: mockLlmFunctions,
-			toolState: {},
 		} as AgentContext;
 
 		await (fastify as AppFastifyInstance).agentStateService.save(runningAgent);
