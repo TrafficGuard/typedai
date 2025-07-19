@@ -27,8 +27,8 @@ export async function agentRoutes(fastify: AppFastifyInstance) {
 	await getAgentIterationSummariesRoute(fastify);
 	await getAgentIterationDetailRoute(fastify);
 	await deleteAgentsRoute(fastify);
-	await listenAgentEventsRoute(fastify); // This function internally calls fastify.get, so it's awaited for consistency.
-
+	await listenAgentEventsRoute(fastify);
+	
 	// Execution routes
 	await forceStopAgentRoute(fastify);
 	await provideFeedbackRoute(fastify);
