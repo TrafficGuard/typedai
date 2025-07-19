@@ -233,12 +233,12 @@ export class FirestoreAgentStateService implements AgentContextService {
 				subtype: data.subType ?? '',
 				state: data.state,
 				cost: (Number.isNaN(data.cost) ? 0 : data.cost) ?? 0,
-				error: data.error,
+				error: typeof data.error === 'string' ? data.error : undefined,
 				lastUpdate: data.lastUpdate,
 				userPrompt: data.userPrompt,
 				inputPrompt: data.inputPrompt,
 				user: data.user,
-				createdAt: data.createdAt,
+				createdAt: Number.isInteger(data.createdAt) ? data.createdAt : Date.now(),
 				metadata: data.metadata,
 			};
 			previews.push(preview);

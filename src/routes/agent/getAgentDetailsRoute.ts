@@ -4,6 +4,7 @@ import { send, sendNotFound } from '#fastify/index';
 import { logger } from '#o11y/logger';
 import { AGENT_API } from '#shared/agent/agent.api';
 import type { AgentContext } from '#shared/agent/agent.model';
+import { AgentContextApi } from '#shared/agent/agent.schema';
 import { NotAllowed, NotFound } from '#shared/errors';
 import { registerApiRoute } from '../routeUtils';
 
@@ -13,7 +14,7 @@ export async function getAgentDetailsRoute(fastify: AppFastifyInstance) {
 		try {
 			const agentContext: AgentContext = await fastify.agentStateService.load(agentId);
 			// No need for: if (!agentContext) { ... } as load now throws
-			const response = serializeContext(agentContext);
+			const response: AgentContextApi = serializeContext(agentContext);
 			reply.sendJSON(response);
 		} catch (error) {
 			if (error instanceof NotFound) {

@@ -115,7 +115,7 @@ export interface AgentContext {
 	/** Tracks what functions/spans we've called into */
 	callStack: string[];
 	/** Error message & stack */
-	error?: string | null;
+	error?: string;
 	output?: string;
 	/** Budget spend in $USD until a human-in-the-loop is required */
 	hilBudget: number;
@@ -220,7 +220,7 @@ export interface AutonomousIteration {
 	/** Tool state, LiveFile's, FileStore etc. Class name as the key */
 	toolState?: Record<string, any>;
 	/** Any error */
-	error?: string | null;
+	error?: string;
 	/** Plan generation stats */
 	stats: GenerationStats;
 }

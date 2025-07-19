@@ -95,7 +95,7 @@ export const AgentContextSchema = Type.Object({
 	user: Type.String(),
 	state: AgentRunningStateSchema,
 	callStack: Type.Array(Type.String()),
-	error: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+	error: Type.Optional(Type.String()),
 	output: Type.Optional(Type.String()),
 	hilBudget: Type.Number(),
 	cost: Type.Number(),

@@ -79,6 +79,7 @@ export function createContext(config: RunAgentConfig | RunWorkflowConfig): Agent
 		inputPrompt: '',
 		userPrompt: config.initialPrompt,
 		state: 'agent',
+		error: undefined,
 		iterations: 0,
 		functionCallHistory: [],
 		messages: [],
