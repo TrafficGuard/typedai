@@ -21,6 +21,7 @@ import { updateAgentFunctionsRoute } from './updateAgentFunctionsRoute';
 
 export async function agentRoutes(fastify: AppFastifyInstance) {
 	await listAgentsRoute(fastify);
+	await listRunningAgentsRoute(fastify);
 	await getAvailableFunctionsRoute(fastify);
 	await listHumanInLoopAgentsRoute(fastify);
 	await getAgentDetailsRoute(fastify);
