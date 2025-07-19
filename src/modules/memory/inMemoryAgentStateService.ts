@@ -64,7 +64,9 @@ export class InMemoryAgentStateService implements AgentContextService {
 			lastUpdate: agent.lastUpdate,
 			userPrompt: agent.userPrompt,
 			inputPrompt: agent.inputPrompt,
-			user: agent.user.id, // AgentContext.user is User object, AgentContextPreview.user is string ID
+			user: agent.user.id,
+			createdAt: agent.createdAt,
+			metadata: agent.metadata,
 		}));
 		return Promise.resolve(previews);
 	}
@@ -128,6 +130,7 @@ export class InMemoryAgentStateService implements AgentContextService {
 		return iterations.map((iter) => ({
 			agentId: iter.agentId,
 			iteration: iter.iteration,
+			createdAt: iter.createdAt,
 			cost: iter.cost,
 			summary: iter.summary,
 			error: iter.error,

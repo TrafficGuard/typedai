@@ -1,4 +1,5 @@
-import type { AgentContext, AgentContextPreview } from '#shared/agent/agent.model';
+import type { AgentContext } from '#shared/agent/agent.model';
+import type { AgentContextPreview } from '#shared/agent/agent.model'; // Import the updated AgentContextPreview
 
 /**
  * Maps a full AgentContext object to a lightweight AgentContextPreview object.
@@ -15,7 +16,11 @@ export function toAgentContextPreview(agent: AgentContext): AgentContextPreview 
 		state: agent.state,
 		createdAt: agent.createdAt,
 		lastUpdate: agent.lastUpdate,
-		user: agent.user,
+		user: agent.user.id,
 		metadata: agent.metadata,
+		cost: agent.cost,
+		userPrompt: agent.userPrompt,
+		inputPrompt: agent.inputPrompt,
+		error: agent.error,
 	};
 }

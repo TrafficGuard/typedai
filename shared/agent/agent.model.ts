@@ -1,9 +1,10 @@
 import type { ToolType } from '#shared/agent/functions';
 import { CHAT_PREVIEW_KEYS } from '#shared/chat/chat.model';
 import type { IFileSystemService as ImportedFileSystemService } from '#shared/files/fileSystemService';
+import type { FunctionCall, FunctionCallResult, GenerationStats, ImagePartExt, LLM, LlmMessage } from '#shared/llm/llm.model';
 import { ChangePropertyType } from '#shared/typeUtils';
-import type { FunctionCall, FunctionCallResult, GenerationStats, ImagePartExt, LLM, LlmMessage } from '../llm/llm.model';
 import type { User } from '../user/user.model';
+import { AgentContextApi } from './agent.schema';
 
 //#region == Property types ====
 
@@ -83,7 +84,7 @@ export function isExecuting(agent: AgentContext): boolean {
 
 /**
  * The state of an agent.
- * Ensure any new fields are handled in agentSerialization.ts
+ * Ensure any new fields are handled in agentSerialization.ts, postgresAgentStateService.ts, postgres schemaUtils.ts, firestoreAgentStateService.ts, agent.schema.ts
  */
 export interface AgentContext {
 	/** Primary Key - Agent instance id. Allocated when the agent is first starts */
@@ -172,7 +173,7 @@ export interface AgentContext {
 
 // Re-exporting types that were declared locally but used by other modules
 export type { ToolType } from '#shared/agent/functions';
-export type { FunctionCall, LLM } from '#shared/llm/llm.model';
+export type { LLM, FunctionCall, FunctionCallResult } from '#shared/llm/llm.model';
 
 /**
  * For autonomous agents we save details of each control loop iteration
@@ -182,6 +183,8 @@ export interface AutonomousIteration {
 	agentId: string;
 	/** Starts from 1 */
 	iteration: number;
+	/** Time when the iteration was created */
+	createdAt?: number;
 	/** The LLM and other costs for this iteration */
 	cost: number;
 	/** A summary of what was done/attempted */
@@ -203,9 +206,9 @@ export interface AutonomousIteration {
 	/** Extracted from <next_step_details></next_step_details> */
 	nextStepDetails: string;
 	/** Initial generated code */
-	draftCode: string;
+	draftCode?: string;
 	/** Self review of the code */
-	codeReview: string;
+	codeReview?: string;
 	/** Generated code, after review (for code gen agents extracted from <python-code></python-code>) */
 	code: string;
 	/** The full script which was executed */
@@ -213,11 +216,11 @@ export interface AutonomousIteration {
 	/** Function calls executed this iteration */
 	functionCalls: FunctionCallResult[];
 	/** The memory contents at the end of the iteration */
-	memory: Record<string, string>; // Changed from Map<string, string>
+	memory: Record<string, string>;
 	/** Tool state, LiveFile's, FileStore etc. Class name as the key */
-	toolState: Record<string, any>; // Changed from Map<string, any>
+	toolState?: Record<string, any>;
 	/** Any error */
-	error?: string;
+	error?: string | null;
 	/** Plan generation stats */
 	stats: GenerationStats;
 }
@@ -248,13 +251,20 @@ export const AGENT_PREVIEW_KEYS = [
 /**
  * A summarized version of AgentContext for list views.
  */
-export type AgentContextPreview = Pick<AgentContext, (typeof AGENT_PREVIEW_KEYS)[number]>;
+export type AgentContextPreview = Pick<AgentContextApi, (typeof AGENT_PREVIEW_KEYS)[number]>;
 
-//#endregion AgentContextPreview
+//#endregion
 
 //#region == AutonomousIterationSummary ====
 
-export const AUTONOMOUS_ITERATION_SUMMARY_KEYS = ['agentId', 'iteration', 'cost', 'error', 'summary'] as const satisfies readonly (keyof AutonomousIteration)[];
+export const AUTONOMOUS_ITERATION_SUMMARY_KEYS = [
+	'agentId',
+	'iteration',
+	'createdAt',
+	'cost',
+	'summary',
+	'error',
+] as const satisfies readonly (keyof AutonomousIteration)[];
 
 export type AutonomousIterationSummary = Pick<AutonomousIteration, (typeof AUTONOMOUS_ITERATION_SUMMARY_KEYS)[number]>;
 

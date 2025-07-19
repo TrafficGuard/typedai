@@ -51,7 +51,7 @@ export async function main() {
 		resumeAgentId,
 		humanInLoop: {
 			count: 30,
-			budget: 30,
+			budget: 5,
 		},
 	});
 	saveAgentId('agent', execution.agentId);

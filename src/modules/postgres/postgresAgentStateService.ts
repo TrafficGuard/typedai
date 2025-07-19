@@ -1,6 +1,6 @@
 import type { Static } from '@sinclair/typebox';
 import type { Insertable, Kysely, Selectable, Transaction, Updateable } from 'kysely';
-import { sql } from 'kysely'; // Added import
+import { sql } from 'kysely';
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import type { AgentContextService } from '#agent/agentContextService/agentContextService';
 import { deserializeContext, serializeContext } from '#agent/agentSerialization';
@@ -16,7 +16,7 @@ import {
 	isExecuting,
 } from '#shared/agent/agent.model';
 import type { AgentContextSchema } from '#shared/agent/agent.schema';
-import { NotAllowed, NotFound } from '#shared/errors'; // Added import
+import { NotAllowed, NotFound } from '#shared/errors';
 import type { FunctionCallResult, GenerationStats, ImagePartExt } from '#shared/llm/llm.model';
 import type { User } from '#shared/user/user.model';
 import { currentUser } from '#user/userContext';
@@ -195,10 +195,9 @@ export class PostgresAgentStateService implements AgentContextService {
 
 			// Ensure all fields from AgentContextSchema are present, using undefined for those not in AgentContextsTable
 			// or not yet handled. deserializeContext should have defaults for these.
-			codeTaskId: undefined,
-			output: undefined,
 			fileSystem: undefined, // deserializeContext handles default for complex objects if schema allows undefined
 			toolState: undefined,
+			createdAt: row.created_at ? (row.created_at as Date).getTime() : undefined, // Safely handle optional field
 		};
 		return deserializeContext(dataForDeserialization);
 	}
@@ -240,26 +239,26 @@ export class PostgresAgentStateService implements AgentContextService {
 		return {
 			agentId: row.agent_id,
 			iteration: row.iteration_number,
-			response: row.response === null ? undefined : row.response,
-			functions: parsedFunctions === null ? undefined : parsedFunctions,
-			prompt: row.prompt === null ? undefined : row.prompt,
-			summary: row.summary === null ? undefined : row.summary,
-			expandedUserRequest: row.expanded_user_request === null ? undefined : row.expanded_user_request,
+			createdAt: (row.created_at as Date).getTime(),
+			response: row.response ?? '',
+			functions: parsedFunctions ?? [],
+			prompt: row.prompt ?? '',
+			summary: row.summary ?? '',
+			expandedUserRequest: row.expanded_user_request ?? '',
 			observationsReasoning: row.observations_reasoning === null ? undefined : row.observations_reasoning,
-			agentPlan: row.agent_plan === null ? undefined : row.agent_plan,
-			nextStepDetails: row.next_step_details === null ? undefined : row.next_step_details,
-			code: row.code === null ? undefined : row.code,
-			executedCode: row.executed_code === null ? undefined : row.executed_code,
+			agentPlan: row.agent_plan ?? '',
+			nextStepDetails: row.next_step_details ?? '',
+			code: row.code ?? '',
+			executedCode: row.executed_code ?? '',
 			draftCode: row.draft_code === null ? undefined : row.draft_code,
 			codeReview: row.code_review === null ? undefined : row.code_review,
-			images: parsedImages === null ? undefined : parsedImages,
-			functionCalls: parsedFunctionCalls === null ? undefined : parsedFunctionCalls,
-			memory: parsedMemory === null ? undefined : parsedMemory,
+			images: parsedImages ?? [],
+			functionCalls: parsedFunctionCalls ?? [],
+			memory: parsedMemory ?? {},
 			toolState: parsedToolState === null ? undefined : parsedToolState,
 			error: row.error === null ? undefined : row.error,
-			stats: parsedStats === null ? undefined : parsedStats,
-			cost: row.cost !== null && row.cost !== undefined ? Number.parseFloat(String(row.cost)) : null,
-			// created_at is not part of AutonomousIteration model
+			stats: parsedStats ?? ({} as GenerationStats),
+			cost: row.cost !== null && row.cost !== undefined ? Number.parseFloat(String(row.cost)) : 0,
 		};
 	}
 
@@ -398,6 +397,10 @@ export class PostgresAgentStateService implements AgentContextService {
 			lastUpdate: agent.lastUpdate,
 			userPrompt: agent.userPrompt,
 			inputPrompt: agent.inputPrompt,
+			user: agent.user.id,
+			createdAt: agent.createdAt,
+			metadata: agent.metadata,
+			parentAgentId: agent.parentAgentId,
 		}));
 	}
 
@@ -426,6 +429,10 @@ export class PostgresAgentStateService implements AgentContextService {
 			lastUpdate: agent.lastUpdate,
 			userPrompt: agent.userPrompt,
 			inputPrompt: agent.inputPrompt,
+			user: agent.user.id,
+			createdAt: agent.createdAt,
+			metadata: agent.metadata,
+			parentAgentId: agent.parentAgentId,
 		}));
 	}
 
@@ -546,7 +553,7 @@ export class PostgresAgentStateService implements AgentContextService {
 
 		const rows = await this.db
 			.selectFrom('agent_iterations')
-			.select(['agent_id', 'iteration_number', 'cost', 'summary', 'error'])
+			.select(['agent_id', 'iteration_number', 'created_at', 'cost', 'summary', 'error'])
 			.where('agent_id', '=', agentId)
 			.orderBy('iteration_number', 'asc')
 			.execute();
@@ -554,6 +561,7 @@ export class PostgresAgentStateService implements AgentContextService {
 		return rows.map((row) => ({
 			agentId: row.agent_id,
 			iteration: row.iteration_number,
+			createdAt: (row.created_at as Date).getTime(),
 			cost: row.cost !== null && row.cost !== undefined ? Number.parseFloat(String(row.cost)) : 0,
 			summary: row.summary ?? '',
 			error: row.error,

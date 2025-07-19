@@ -228,6 +228,9 @@ export class FileSystemService implements IFileSystemService {
 		if (results.stderr.includes('command not found: rg')) {
 			throw new Error('Command not found: rg. Install ripgrep');
 		}
+		// ripgrep returns 1 if no matches are found, and doesn't return any output
+		if (!results.stdout && !results.stderr) return '';
+
 		if (results.exitCode > 0) throw new Error(results.stderr);
 		return results.stdout;
 	}

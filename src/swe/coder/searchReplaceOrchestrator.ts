@@ -117,7 +117,7 @@ export class SearchReplaceOrchestrator {
 		let currentFailedEdits: EditBlock[] = [];
 		const repoFiles = await this.fs.listFilesRecursively();
 
-		let llm: LLM = this.llms.medium;
+		let llm: LLM = this.llms.hard;
 
 		while (session.attempt < this.config.maxAttempts) {
 			session.incrementAttempt();
@@ -258,7 +258,7 @@ export class SearchReplaceOrchestrator {
 					currentFailedEdits = reappliedResult.failedEdits;
 
 					if (currentFailedEdits.length === 0) {
-						session.recordApplication({ applied: Array.from(appliedInAttempt), failed: [] });
+						session.recordEditApplication({ applied: Array.from(appliedInAttempt), failed: [] });
 						break;
 					}
 				} else {
@@ -266,7 +266,7 @@ export class SearchReplaceOrchestrator {
 				}
 			}
 
-			session.recordApplication({ applied: Array.from(appliedInAttempt), failed: currentFailedEdits });
+			session.recordEditApplication({ applied: Array.from(appliedInAttempt), failed: currentFailedEdits });
 
 			if (currentFailedEdits.length > 0) {
 				const reflection = await buildFailureReflection(currentFailedEdits, session.appliedFiles.size, this.fs, session.workingDir);

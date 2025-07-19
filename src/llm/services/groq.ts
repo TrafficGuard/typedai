@@ -11,6 +11,7 @@ export function groqLLMRegistry(): Record<string, () => LLM> {
 	return {
 		'groq:qwen/qwen3-32b': groqQwen3_32b,
 		'groq:moonshotai/kimi-k2-instruct': groqKimiK2,
+		'groq:meta-llama/llama-4-scout-17b-16e-instruct': groqLlama4_Scout,
 	};
 }
 
@@ -22,6 +23,10 @@ export function groqLLMRegistry(): Record<string, () => LLM> {
 // 16,384 max output tokens
 export function groqQwen3_32b(): LLM {
 	return new GroqLLM('Qwen3 32b (Groq)', 'qwen/qwen3-32b', 131_072, fixedCostPerMilTokens(0.29, 0.59));
+}
+
+export function groqLlama4_Scout(): LLM {
+	return new GroqLLM('Llama4 Scout (Groq)', 'meta-llama/llama-4-scout-17b-16e-instruct', 131_072, fixedCostPerMilTokens(0.11, 0.34));
 }
 
 export function groqKimiK2(): LLM {

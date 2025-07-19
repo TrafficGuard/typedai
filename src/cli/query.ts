@@ -1,7 +1,7 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
 import { writeFileSync } from 'node:fs';
-import { agentContext, llms } from '#agent/agentContextLocalStorage';
+import { agentContext, getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import type { RunWorkflowConfig } from '#agent/autonomous/autonomousAgentRunner';
 import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { appContext, initApplicationContext } from '#app/applicationContext';
@@ -46,7 +46,11 @@ async function main() {
 		console.log(JSON.stringify(files));
 		console.log(answer);
 
-		const response = `${answer}\n\n<json>\n${JSON.stringify(files)}\n</json>`;
+		const vcs = getFileSystem().getVcs();
+		let headSha = '';
+		if (vcs) headSha = `\nHEAD SHA: ${await vcs.getHeadSha()}`;
+
+		const response = `${answer}\n\n<json>\n${JSON.stringify(files)}\n</json>${headSha}`;
 
 		agent.output = response;
 

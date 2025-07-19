@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import type { EditBlock } from '../coderTypes';
-import type { ApplicationResult } from './editSession';
+import type { EditApplicationResult } from './editSession';
 import { EditSession } from './editSession';
 
 describe('EditSession', () => {
@@ -72,12 +72,12 @@ describe('EditSession', () => {
 
 		it('should add applied files to the appliedFiles set', () => {
 			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS, false, false);
-			const result: ApplicationResult = {
+			const result: EditApplicationResult = {
 				applied: ['src/a.ts'],
 				failed: [],
 			};
 
-			session.recordApplication(result);
+			session.recordEditApplication(result);
 
 			expect(Array.from(session.appliedFiles)).to.deep.equal(['src/a.ts']);
 		});
@@ -86,14 +86,14 @@ describe('EditSession', () => {
 			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS, false, false);
 
 			// First attempt
-			const result1: ApplicationResult = { applied: [], failed: [failedEdit] };
-			session.recordApplication(result1);
+			const result1: EditApplicationResult = { applied: [], failed: [failedEdit] };
+			session.recordEditApplication(result1);
 			expect(session.failedEdits).to.deep.equal([failedEdit]);
 
 			// Second attempt (e.g., after a fix)
 			const newFailedEdit: EditBlock = { filePath: 'src/c.ts', originalText: 'c', updatedText: 'C' };
-			const result2: ApplicationResult = { applied: ['src/b.ts'], failed: [newFailedEdit] };
-			session.recordApplication(result2);
+			const result2: EditApplicationResult = { applied: ['src/b.ts'], failed: [newFailedEdit] };
+			session.recordEditApplication(result2);
 
 			expect(session.failedEdits).to.deep.equal([newFailedEdit]);
 		});
@@ -101,8 +101,8 @@ describe('EditSession', () => {
 		it('should not add duplicate file paths to appliedFiles', () => {
 			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS, false, false);
 
-			session.recordApplication({ applied: ['src/a.ts', 'src/b.ts'], failed: [] });
-			session.recordApplication({ applied: ['src/b.ts', 'src/c.ts'], failed: [] });
+			session.recordEditApplication({ applied: ['src/a.ts', 'src/b.ts'], failed: [] });
+			session.recordEditApplication({ applied: ['src/b.ts', 'src/c.ts'], failed: [] });
 
 			expect(session.appliedFiles.size).to.equal(3);
 			expect(Array.from(session.appliedFiles)).to.have.members(['src/a.ts', 'src/b.ts', 'src/c.ts']);
@@ -143,31 +143,31 @@ describe('EditSession', () => {
 
 		it('should return false if there are failed edits', () => {
 			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS, false, false);
-			const result: ApplicationResult = {
+			const result: EditApplicationResult = {
 				applied: ['src/a.ts'],
 				failed: [{ filePath: 'src/b.ts', originalText: 'b', updatedText: 'B' }],
 			};
-			session.recordApplication(result);
+			session.recordEditApplication(result);
 			expect(session.isComplete()).to.be.false;
 		});
 
 		it('should return false if no files have been applied', () => {
 			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS, false, false);
-			const result: ApplicationResult = {
+			const result: EditApplicationResult = {
 				applied: [],
 				failed: [],
 			};
-			session.recordApplication(result);
+			session.recordEditApplication(result);
 			expect(session.isComplete()).to.be.false;
 		});
 
 		it('should return true when there are no failed edits and at least one file has been applied', () => {
 			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS, false, false);
-			const result: ApplicationResult = {
+			const result: EditApplicationResult = {
 				applied: ['src/a.ts'],
 				failed: [],
 			};
-			session.recordApplication(result);
+			session.recordEditApplication(result);
 			expect(session.isComplete()).to.be.true;
 		});
 	});
@@ -176,7 +176,7 @@ describe('EditSession', () => {
 		it('should not allow modification of the failedEdits array via its getter', () => {
 			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS, false, false);
 			const failedEdit: EditBlock = { filePath: 'src/b.ts', originalText: 'b', updatedText: 'B' };
-			session.recordApplication({ applied: [], failed: [failedEdit] });
+			session.recordEditApplication({ applied: [], failed: [failedEdit] });
 
 			// Attempt to mutate the retrieved array by casting away readonly
 			const failed = session.failedEdits as EditBlock[];
@@ -202,7 +202,7 @@ describe('EditSession', () => {
 
 		it('should not allow modification of the appliedFiles set via its getter', () => {
 			const session = new EditSession(MOCK_WORKING_DIR, MOCK_REQUIREMENTS, false, false);
-			session.recordApplication({ applied: ['file.ts'], failed: [] });
+			session.recordEditApplication({ applied: ['file.ts'], failed: [] });
 
 			// Attempt to mutate the retrieved set by casting away ReadonlySet
 			const applied = session.appliedFiles as Set<string>;

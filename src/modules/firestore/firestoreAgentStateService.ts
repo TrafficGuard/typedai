@@ -232,11 +232,14 @@ export class FirestoreAgentStateService implements AgentContextService {
 				type: data.type,
 				subtype: data.subType ?? '',
 				state: data.state,
-				cost: (Number.isNaN(data.cost) ? 0 : data.cost) ?? 0, // Default cost to 0 if undefined/null
+				cost: (Number.isNaN(data.cost) ? 0 : data.cost) ?? 0,
 				error: data.error,
 				lastUpdate: data.lastUpdate,
 				userPrompt: data.userPrompt,
 				inputPrompt: data.inputPrompt,
+				user: data.user,
+				createdAt: data.createdAt,
+				metadata: data.metadata,
 			};
 			previews.push(preview);
 		}
@@ -266,7 +269,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 					const data = docSnap.data();
 					return {
 						agentId: id,
-						user: { id: data.user }, // Assuming user is stored as ID string
+						user: data.user,
 						state: data.state,
 						parentAgentId: data.parentAgentId,
 						childAgents: data.childAgents,
@@ -455,7 +458,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 		// It's often simpler to fetch minimal fields and construct the ID from the doc.id.
 		// Here, 'iteration' is a field, so we can select it directly.
 		const querySnapshot = await iterationsColRef
-			.select('iteration', 'cost', 'summary', 'error') // Select only necessary fields
+			.select('iteration', 'createdAt', 'cost', 'summary', 'error') // Select only necessary fields
 			.orderBy('iteration', 'asc') // Order by iteration number
 			.get();
 
@@ -466,6 +469,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 				summaries.push({
 					agentId: agentId,
 					iteration: data.iteration,
+					createdAt: data.createdAt?.toMillis() ?? 0,
 					cost: data.cost ?? 0,
 					summary: data.summary ?? '',
 					error: data.error,

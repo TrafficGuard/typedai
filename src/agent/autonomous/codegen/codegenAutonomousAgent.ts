@@ -47,7 +47,7 @@ import {
 	removePythonMarkdownWrapper,
 } from './pythonCodeGenUtils';
 
-const stopSequences = ['</response>'];
+const stopSequences = undefined; //['</response>']; grok4 does not support stop sequences
 
 // Thresholds for content size (in bytes)
 const LARGE_OUTPUT_THRESHOLD_BYTES = 50 * 1024; // 50KB

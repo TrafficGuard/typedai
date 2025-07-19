@@ -97,6 +97,7 @@ export function createContext(config: RunAgentConfig | RunWorkflowConfig): Agent
 		memory: {},
 		invoking: [],
 		lastUpdate: Date.now(),
+		createdAt: Date.now(),
 		toolState: {},
 		codeTaskId: config.codeTaskId,
 	};

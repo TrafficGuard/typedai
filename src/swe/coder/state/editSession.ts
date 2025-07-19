@@ -4,7 +4,7 @@ import type { EditBlock } from '../coderTypes';
  * Describes the result of applying a set of edits to the workspace.
  * This is used as input for recording the outcome of an attempt.
  */
-export interface ApplicationResult {
+export interface EditApplicationResult {
 	/** A list of file paths that were successfully modified. */
 	applied: string[];
 	/** A list of edit blocks that could not be applied. */
@@ -116,7 +116,7 @@ export class EditSession {
 	 * Records the result of applying edits to the workspace.
 	 * @param result The outcome of the edit application process.
 	 */
-	recordApplication(result: ApplicationResult): void {
+	recordEditApplication(result: EditApplicationResult): void {
 		result.applied.forEach((f) => this._state.appliedFiles.add(f));
 		this._state.failedEdits = result.failed;
 	}

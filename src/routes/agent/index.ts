@@ -9,6 +9,7 @@ import { getAgentIterationsRoute } from './getAgentIterationsRoute';
 import { getAvailableFunctionsRoute } from './getAvailableFunctionsRoute';
 import { listAgentsRoute } from './listAgentsRoute';
 import { listHumanInLoopAgentsRoute } from './listHumanInLoopAgentsRoute';
+import { listRunningAgentsRoute } from './listRunningAgentsRoute';
 import { listenAgentEventsRoute } from './listenAgentEventsRoute';
 import { provideFeedbackRoute } from './provideFeedbackRoute';
 import { requestAgentHilRoute } from './requestAgentHilRoute';
@@ -28,7 +29,7 @@ export async function agentRoutes(fastify: AppFastifyInstance) {
 	await getAgentIterationDetailRoute(fastify);
 	await deleteAgentsRoute(fastify);
 	await listenAgentEventsRoute(fastify);
-	
+
 	// Execution routes
 	await forceStopAgentRoute(fastify);
 	await provideFeedbackRoute(fastify);

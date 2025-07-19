@@ -6,7 +6,7 @@ import sinon from 'sinon';
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import type { AgentContextService } from '#agent/agentContextService/agentContextService';
 import { Agent } from '#agent/autonomous/functions/agentFunctions';
-import { clearCompletedHandlers, registerCompletedHandler } from '#agent/completionHandlerRegistry'; // Adjust path if needed
+import { clearCompletedHandlers, registerCompletedHandler } from '#agent/completionHandlerRegistry';
 import { appContext } from '#app/applicationContext';
 import * as functionSchema from '#functionSchema/functionDecorators';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
@@ -150,6 +150,7 @@ const createMockAgentContext = (id: string, overrides: Partial<AgentContext> = {
 		useSharedRepos: true,
 		memory: { defaultMemory: 'some data' },
 		lastUpdate: now - 5000,
+		createdAt: now,
 		metadata: { source: 'unit-test' },
 		functions: new LlmFunctionsImpl(),
 		completedHandler: undefined,
@@ -160,7 +161,7 @@ const createMockAgentContext = (id: string, overrides: Partial<AgentContext> = {
 		invoking: [],
 		notes: [],
 		userPrompt: 'Default user prompt',
-		inputPrompt: 'Default input prompt string', // Ensure it's a string
+		inputPrompt: 'Default input prompt string',
 		messages: [{ role: 'user', content: 'Default initial message' }],
 		functionCallHistory: [],
 		childAgents: [],
@@ -789,6 +790,7 @@ export function runAgentStateServiceTests(
 		const createMockIteration = (iterNum: number, agentIdToUse: string = agentIdForIterations): AutonomousIteration => ({
 			agentId: agentIdToUse,
 			iteration: iterNum,
+			createdAt: Date.now(),
 			functions: ['Agent', MockFunction.name],
 			prompt: `Prompt for iteration ${iterNum}`,
 			response: `Response for iteration ${iterNum}`,
@@ -914,6 +916,7 @@ export function runAgentStateServiceTests(
 			const originalIteration: AutonomousIteration = {
 				agentId: agentIdForIterations,
 				iteration: iterationNumber,
+				createdAt: Date.now(),
 				functions: ['Agent', MockFunction.name, 'LiveFiles_tool', 'FileStore_tool'],
 				prompt: `Detailed prompt for iteration ${iterationNumber} with specific instructions.`,
 				response: `Response for iteration ${iterationNumber}`,
@@ -1006,6 +1009,7 @@ export function runAgentStateServiceTests(
 		const createMockIteration = (iterNum: number, agentIdToUse: string): AutonomousIteration => ({
 			agentId: agentIdToUse,
 			iteration: iterNum,
+			createdAt: Date.now(),
 			functions: ['Agent'],
 			prompt: `Prompt ${iterNum}`,
 			response: `Response ${iterNum}`,
@@ -1078,6 +1082,7 @@ export function runAgentStateServiceTests(
 		const createMockIteration = (iterNum: number, agentIdToUse: string): AutonomousIteration => ({
 			agentId: agentIdToUse,
 			iteration: iterNum,
+			createdAt: Date.now(),
 			functions: ['Agent'],
 			prompt: `Prompt ${iterNum}`,
 			response: `Response ${iterNum}`,
