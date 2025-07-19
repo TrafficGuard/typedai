@@ -147,6 +147,7 @@ export const AgentContextSchema = Type.Object({
 	useSharedRepos: Type.Boolean(),
 	memory: Type.Record(Type.String(), Type.String()),
 	lastUpdate: Type.Number(),
+	createdAt: Type.Number(),
 	metadata: Type.Record(Type.String(), Type.Any()),
 	// Represents LlmFunctions.toJSON()
 	functions: Type.Object({

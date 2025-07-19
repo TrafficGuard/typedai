@@ -91,8 +91,6 @@ export const AGENT_API = {
 	}),
 	listRunning: defineApiRoute('GET', `${AGENT_BASE}/list/running`, {
 		schema: {
-			description: 'Retrieves a list of currently active (running) agents.',
-			summary: 'List running agents',
 			response: {
 				200: Type.Array(AgentContextPreviewSchema, {
 					description: 'An array of agent context previews for running agents.',

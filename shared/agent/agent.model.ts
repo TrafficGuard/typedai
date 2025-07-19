@@ -132,6 +132,8 @@ export interface AgentContext {
 	memory: Record<string, string>;
 	/** Time of the last database write of the state */
 	lastUpdate: number;
+	/** Time when the agent was created */
+	createdAt: number;
 	/** Agent custom fields. Always present, can be an empty object. */
 	metadata: Record<string, any>;
 
@@ -237,6 +239,10 @@ export const AGENT_PREVIEW_KEYS = [
 	'inputPrompt',
 	'type',
 	'subtype',
+	'parentAgentId',
+	'createdAt',
+	'user',
+	'metadata',
 ] as const satisfies readonly (keyof AgentContext)[];
 
 /**
