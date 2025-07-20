@@ -24,6 +24,7 @@ import type { AppFastifyInstance } from '#app/applicationTypes';
 import { googleIapMiddleware, jwtAuthMiddleware, singleUserMiddleware } from '#fastify/authenticationMiddleware';
 import { sendBadRequest } from '#fastify/responses'; // mapReplacer might not be needed by sendJSON anymore
 import { logger } from '#o11y/logger';
+import { codeEditRoutes } from '#routes/codeEdit';
 import { loadOnRequestHooks } from './hooks';
 
 const NODE_ENV = process.env.NODE_ENV ?? 'development';
@@ -252,6 +253,7 @@ export async function initFastify(config: FastifyConfig): Promise<AppFastifyInst
 	});
 
 	registerRoutes(config.routes); // New application routes must be added the config in server.ts
+	await fastifyInstance.register(codeEditRoutes);
 
 	// All backend API routes start with /api/ so any unmatched at this point is a 404
 	fastifyInstance.get('/api/*', async (request, reply) => {
