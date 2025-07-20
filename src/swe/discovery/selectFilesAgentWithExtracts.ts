@@ -26,7 +26,7 @@ export interface SelectFilesAndExtractsResult {
 }
 
 export async function selectFilesAndExtracts(requirements: UserContentExt, projectInfo?: ProjectInfo): Promise<SelectFilesAndExtractsResult> {
-	const { files: initialSelectedFiles, answer: answerFromInitialQuery } = await queryWithFileSelection2(requirements, projectInfo);
+	const { files: initialSelectedFiles, answer: answerFromInitialQuery } = await queryWithFileSelection2(requirements, !!projectInfo);
 	if (!initialSelectedFiles || initialSelectedFiles.length === 0) {
 		logger.info('selectFilesAndExtracts: No initial files selected by queryWithFileSelection2.');
 		return { editableFiles: [], readOnlyFilesWithExtracts: {}, answerFromInitialQuery };
