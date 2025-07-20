@@ -398,7 +398,7 @@ export class CodeEditingAgent {
 
 	@cacheRetry()
 	async selectFiles(requirements: string, projectInfo: ProjectInfo): Promise<SelectedFile[]> {
-		return await selectFilesAgent(requirements, projectInfo);
+		return await selectFilesAgent(requirements, { projectInfo });
 	}
 
 	async runStaticAnalysis(projectInfo: ProjectInfo): Promise<void> {

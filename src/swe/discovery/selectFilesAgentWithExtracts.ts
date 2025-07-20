@@ -4,7 +4,7 @@ import { logger } from '#o11y/logger';
 import type { SelectedFile } from '#shared/files/files.model';
 import { type LlmMessage, type UserContentExt, user } from '#shared/llm/llm.model';
 import type { ProjectInfo } from '#swe/projectDetection';
-import { queryWithFileSelection2 } from './selectFilesAgentWithSearch';
+import { QueryOptions, queryWithFileSelection2 } from './selectFilesAgentWithSearch';
 
 // Interface for line number extracts
 export interface LineNumberExtract {
@@ -25,8 +25,8 @@ export interface SelectFilesAndExtractsResult {
 	answerFromInitialQuery: string;
 }
 
-export async function selectFilesAndExtracts(requirements: UserContentExt, projectInfo?: ProjectInfo): Promise<SelectFilesAndExtractsResult> {
-	const { files: initialSelectedFiles, answer: answerFromInitialQuery } = await queryWithFileSelection2(requirements, !!projectInfo);
+export async function selectFilesAndExtracts(requirements: UserContentExt, options: QueryOptions = {}): Promise<SelectFilesAndExtractsResult> {
+	const { files: initialSelectedFiles, answer: answerFromInitialQuery } = await queryWithFileSelection2(requirements, options);
 	if (!initialSelectedFiles || initialSelectedFiles.length === 0) {
 		logger.info('selectFilesAndExtracts: No initial files selected by queryWithFileSelection2.');
 		return { editableFiles: [], readOnlyFilesWithExtracts: {}, answerFromInitialQuery };

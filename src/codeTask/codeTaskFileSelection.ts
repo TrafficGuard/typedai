@@ -49,25 +49,20 @@ export class CodeTaskFileSelection {
 			const currentSelection: SelectedFile[] = codeTask.fileSelection || [];
 
 			logger.debug({ codeTaskId }, 'Preparing inputs for selectFilesAgent within workflow...');
-			// Call selectFilesAgent with the corrected signature (3 arguments: requirements, projectInfo, options)
-			// Pass undefined for projectInfo for now, assuming selectFilesAgent handles it internally if needed.
-			// The agent context (including fileSystem) is implicitly available to selectFilesAgent via agentContextStorage
-			const updatedFileSelection = await selectFilesAgent(instructions, undefined, { currentFiles: currentSelection, updatePrompt: prompt });
 
-			// Map results
-			if (!updatedFileSelection || !Array.isArray(updatedFileSelection)) {
-				throw new Error('Invalid response structure from selectFilesAgent during update.');
-			}
+			const prompt = `<original-instruction>${instructions}</original-instruction>\n\n# Update instructions\n${instructions}`;
+			const updatedFileSelection = await selectFilesAgent(prompt, { initialFiles: currentSelection });
+			if (!updatedFileSelection || !Array.isArray(updatedFileSelection)) throw new Error('Invalid response structure from selectFilesAgent during update.');
 
 			logger.info({ codeTaskId, count: updatedFileSelection.length }, 'selectFilesAgent completed and result mapped within workflow.');
 
-			let updateData: Partial<CodeTask>; // Using Partial<CodeTask> which aligns with UpdateCodeTaskData structure
+			let updateData: Partial<CodeTask>;
 			if (updatedFileSelection && updatedFileSelection.length > 0) {
 				logger.info({ codeTaskId, count: updatedFileSelection.length }, 'AI selected files for review.');
 				updateData = {
-					fileSelection: JSON.parse(JSON.stringify(updatedFileSelection)), // Deep copy for safety
+					fileSelection: JSON.parse(JSON.stringify(updatedFileSelection)),
 					status: 'design_review',
-					error: null, // Clear any previous error
+					error: null,
 					lastAgentActivity: Date.now(),
 				};
 			} else {
