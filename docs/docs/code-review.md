@@ -1,40 +1,114 @@
-# AI Code reviews
+# AI Code Reviews
+
+TypedAI includes a configurable code review system to analyze code changes and provide feedback. This system helps enforce coding standards, catch potential bugs, and improve overall code quality.
+
+The AI reviewer can be used in two primary ways:
+
+1.  **Locally from the command line** to review changes on your current feature branch before you even create a pull request.
+2.  **Automatically on GitLab Merge Requests** to provide feedback as part of your team's CI/CD process.
 
 ## Scope
 
-TypedAI has support for AI code reviews of GitLab merge requests. Adding GitHub support is a good candidate for using the Code Editor agent to assist with!
+The initial code review functionality is focused on analyzing `diffs` (the specific changes in a commit or merge request) against a set of configurable guidelines. These code reviews are especially useful in two scenarios:
 
-The initial code review functionality is for basic style checks focused on the diff changes. Advanced agentic reviews that perform deeper analysis will be a future goal.
+1.  For enforcing team-specific guidelines where a standard linter rule doesn't exist.
+2.  When a linter rule *does* exist, but there are too many existing violations to enable it. The AI can act as a gatekeeper, preventing *new* violations from being introduced.
 
-## Code review rules configurations
+Advanced agentic reviews that perform deeper, contextual analysis will be implemented in the future re-using much of the existing functionality in the platform.
 
-AI code reviews are useful for guidelines where a lint rule doesn't exist yet, or it can't easily be codified.
+## Configuring Code Review Guidelines
 
-It can also be useful when a lint rule does exist, but there are many violations which need be fixed in a project before the rule can be enabled at the error level.
-In this case the AI reviewer can stop additional violations of a lint rule being added to the code base.
+Each guideline contains configuration to limit which diffs are inspected to reduce LLM costs.
 
-Each configuration has three filters to determine if a review will be done on a diff to minimize LLM costs.
+*   **File extendions**, to filter files with the correct language for the examples
+*   **Diff content**, to only analyse diffs which potentially contain violations.
+*   **Project filter**, to only analyse diffs from specific projects.
 
-- Included file extensions: The filename must end with one of the file extension(s)
-- Required text in diff: The diff must contain the provided text.
-- Project paths: If any values are provided the project path must match one of the path globs.
+Tags are used to group related guidelines. This is useful for enabling or disabling groups of guidelines at once.
 
-Lines numbers are added to the diffs as comments every 10 lines and in blank lines to assist the AI in providing the correct line number in the merge request diff to add the comment.
+Provide a few before and after examples of the code standards you want to enforce, which provides multi-shot prompting to the LLM.
+The review comment is the note that will be posted on the merge request, you can include URLs etc which provide more
+information on the review comment.
 
 ![Code review config](https://public.trafficguard.ai/typedai/code-reviews.png)
 
-# GitLab Configuration
-
-You will need to create a webhook in GitLab for the group(s)/project(s) you want to have the AI reviews enabled on.
-
-In `Settings -> Webhooks` configure a webhook to your TypedAI deployment with the *Merge request events* checked.
-
-![Gitlab webhook](https://public.trafficguard.ai/typedai/gitlab-webhook1.png)
-
-![Gitlab webhook](https://public.trafficguard.ai/typedai/gitlab-webhook2.png)
-
-# Reviewer account
 
 
+### Local Command-Line Review
 
-https://docs.gitlab.com/api/user_service_accounts/#specify-a-custom-email-address
+You can get instant feedback on your work-in-progress by running a code review directly from your terminal. This helps you catch issues early, long before your code is seen by teammates.
+
+#### Prerequisites
+
+*   You must be inside a Git repository.
+*   You must be on a feature branch. The tool will prevent you from running on primary branches like `main`, `master`, or `develop`.
+
+### Running the Review
+
+To run the review on all staged and unstaged changes in your current branch, execute the following command from the root of your project:
+
+```bash
+npm run review
+```
+Or if you have configured the `ai` script on your path
+```bash
+ai review
+```
+
+The agent will then perform the review process, and output the results to the console.
+
+### Example Output
+
+```
+$ npm run review
+
+> node --env-file=variables/local.env -r esbuild-register src/cli/review.ts
+
+INFO: Found 5 active code review configs
+INFO: Found 3 review tasks needing LLM analysis.
+
+== Review @ src/services/payment.go:49   ======================================
+-- Config: Go: Check for Missing Error Handling
+-- Code --------------------------------------------------------
+   47 | func MakePayment(w http.ResponseWriter, r *http.Request) {
+   48 |   _, err := processPayment(100)
+   49 |   _ = err // Error is ignored
+   50 | }
+
+-- Comment @ line:49 ------------------------------------------
+The error returned from `processPayment` is explicitly ignored. This could lead to silent failures. Consider logging the error or returning it to the caller.
+----------------------------------------------------------------
+```
+
+## GitLab Merge Request Reviews
+
+You can configure a webhook to automatically review new Merge Requests (MRs) in GitLab.
+
+### Environment Variables
+
+Before configuring webhooks, you must set the following environment variables to allow the system to connect to your GitLab instance:
+
+*   `GITLAB_TOKEN`: A GitLab Personal Access Token with `api` scope.
+*   `GITLAB_HOST`: The base URL of your GitLab instance (e.g., `gitlab.com`).
+*   `GITLAB_GROUPS`: A comma-separated list of top-level GitLab group names that the system should operate on.
+
+### GitLab Webhook Configuration
+
+You will need to create a webhook in GitLab for the group or project you want to enable AI reviews on.
+
+1.  Navigate to your GitLab project or group's **Settings > Webhooks**.
+2.  Enter the URL to your TypedAI deployment's webhook endpoint.
+3.  Under **Trigger**, select **Merge request events**.
+4.  Click **Add webhook**.
+
+![Gitlab webhook](https://public.trafficguard.ai/typedai/gitlab-webhook1.png)![Gitlab webhook](https://public.trafficguard.ai/typedai/gitlab-webhook2.png)
+
+### Reviewer Account
+
+The AI reviews will be posted to GitLab by the user with the email defined the environment variable `TYPEDAI_AGENT_EMAIL`. This should be a service account associated with the `GITLAB_TOKEN` with the `api` scope. It is highly recommended to use a dedicated bot/service account for this purpose.
+
+For more details on creating tokens, refer to the [GitLab documentation](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html).
+
+## GitHub Pull Request Reviews
+
+Not yet implemented. A task to use the coding agents to assist with, leveraging the existing GitHub webhook routes

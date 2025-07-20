@@ -41,7 +41,7 @@ interface WorkflowJobPayload {
 
 const basePath = '/api/webhooks';
 
-export function githubRoutes(fastify: AppFastifyInstance): void {
+export async function githubRoutes(fastify: AppFastifyInstance): Promise<void> {
 	fastify.post(`${basePath}/github`, {
 		config: {
 			rawBody: true, // Required for signature validation

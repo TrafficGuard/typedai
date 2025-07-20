@@ -42,7 +42,8 @@ export type TypeBoxFastifyInstance = FastifyInstance<
 	TypeBoxTypeProvider
 >;
 
-export type FastifyRoutes = (fastify: AppFastifyInstance) => Promise<void> | void;
+// These need to return a Promise otherwise have to call a 'done' function
+export type FastifyRoutes = (fastify: AppFastifyInstance) => Promise<void>;
 
 /** Our Fastify request type used in the application */
 export interface FastifyRequest extends FastifyRequestBase {}

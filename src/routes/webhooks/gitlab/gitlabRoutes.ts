@@ -21,7 +21,7 @@ import { getAgentUser } from '../webhookAgentUser';
 
 const basePath = '/api/webhooks';
 
-export function gitlabRoutes(fastify: AppFastifyInstance): void {
+export async function gitlabRoutes(fastify: AppFastifyInstance): Promise<void> {
 	fastify.get(`${basePath}/test`, {}, async (req, reply) => {
 		send(reply as FastifyReply, 200, { message: 'ok' });
 	});

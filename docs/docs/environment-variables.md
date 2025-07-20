@@ -1,215 +1,112 @@
-This document provides comprehensive details about the environment variables utilized within the application, along with their purposes and default values where applicable.
+<style>
+code {
+    white-space: nowrap;
+}
+</style>
 
+# Environment Variables
 
-## Core Server Config
+This document outlines the environment variables used to configure the application. These variables are typically defined in a `.env` file, such as `variables/local.env`. An example file is provided at `variables/local.env.example`.
 
-**PORT**
+## General Configuration
 
-- **Description**: The port on which the server application will listen for incoming requests.
-- **Default Value**: `3000`
-
-**AUTH**
-
-- **Description**: Specifies the authentication system.
-- **Default Value**: `single_user`
-- **Options**: `single_user`, `google_iap`
-
-**SINGLE_USER_EMAIL**
-
-- **Description**: Email of the user in single-user mode.
-- **Default Value**: (None - must be set if AUTH=single_user)
-
-**UI_URL**
-
-- **Description**: The base URL for the user interface.
-- **Default Value**: `http://localhost:4200/`
-
-**DATABASE_TYPE**
-
-- **Description**: The database provider. Valid values are memory, firestore or postgres
-- **Default Value**: memory
--
-**DATABASE_NAME**
-
-- **Description**: The ID/name of the database to use. Leaving blank will use the (default) database.
-- **Default Value**:
-
-**TYPEDAI_FS**
-
-- **Description**: The base path for the FileSystem interface/tool. Useful for editing code in other local repositories. Alternatively use the -fs= arg.
-- **Default Value**: (Not set - defaults to `process.cwd()`)
+| Variable | Description | Default Value |
+| --- | --- | --- |
+| `NODE_ENV` | The runtime environment. | `development` |
+| `LOG_LEVEL` | The logging level. | `debug` |
+| `LOG_PRETTY` | If `true`, logs will be formatted for human readability. | `false` |
+| `PORT` | The port on which the server will run. | `3000` |
+| `DATABASE_TYPE` | The type of database to use (`firestore`, `postgres`, or `memory`). | `memory` |
+| `DATABASE_NAME` | The name of the database. | `typedai` |
+| `AUTH` | The authentication mode (`single_user` or `google_iap`) | `single_user` |
+| `SINGLE_USER_EMAIL` | The email for the user in `single_user` mode. | |
+| `API_BASE_URL` | The base URL for the API. | `http://localhost:3000/api/` |
+| `UI_URL` | The URL for the user interface. | `http://localhost:4200/` |
+| `DEPLOYMENT` | The deployment mode (e.g., `server` or `local`). When not in server mode the human-in-the-loop check will wait for user console input. | `local` |
 
 ## Google Cloud
 
-**GCLOUD_PROJECT**
-
-- **Description**: The Google Cloud project ID.
-- **Default Value**: (Not set)
-
-**GCLOUD_REGION**
-
-- **Description**: The region for Google Cloud resources.
-- **Default Value**: `us-central1`
-
-**GCLOUD_CLAUDE_REGION**
-
-- **Description**: The region for Claude AI model usage.
-- **Default Value**: `us-east5`
-
-## Observability
-
-**LOG_LEVEL**
-
-- **Description**: Specifies the logging level for the application.
-- **Default Value**: `debug`
-- **Options**: `debug`, `info`, `warn`, `error`, `fatal`
-
-**LOG_PRETTY**
-
-- **Description**: Determines if logging output should be human-readable (pretty format). Set to false for structured JSON logging in server deployments.
-- **Default Value**: `true`
-
-**TRACE_AGENT_ENABLED**
-
-- **Description**: Enables or disables OpenTelemetry tracing.
-- **Default Value**: `false`
-
-**TRACE_SERVICE_NAME**
-
-- **Description**: The name of the service for tracing purposes.
-- **Default Value**: `typedai`
-
-**TRACE_AUTO_INSTRUMENT**
-
-- **Description**: Automatically instruments supported libraries.
-- **Default Value**: `false`
-
-**TRACE_SAMPLE_RATE**
-
-- **Description**: The rate at which traces should be sampled.
-- **Default Value**: `1` (100%)
-
-## Human-In-The-Loop
-
-Default human-in-the-loop settings if not configured on a new agent.
-
-**HIL_BUDGET**
-
-- **Description**: The budget (in $USD) that can be spent until a human-in-the-loop check is required.
-- **Default Value**: `1`
-
-**HIL_COUNT**
-
-- **Description**: The number of iterations of the agent control loop allowed until a human-in-the-loop check is required.
-- **Default Value**: `5`
-
-## LLM/AI services
-
-All API keys can be set in your user profile in the web UI, which will take precedence over these environment variables.
-
-**ANTHROPIC_API_KEY**
-- **Description**: API key for accessing Anthropic services.
-
-**CEREBRAS_API_KEY**
-- **Description**: API key for accessing Cerebras services.
-
-**DEEPINFRA_API_KEY**
-- **Description**: API key for accessing DeepInfra services.
-
-**DEEPSEEK_API_KEY**
-- **Description**: API key for accessing DeepSeek services.
-
-**FIREWORKS_API_KEY**
-- **Description**: API key for accessing Fireworks AI services.
-
-**GEMINI_API_KEY**
-- **Description**: API key for accessing Google Gemini services.
-
-**GROQ_API_KEY**
-- **Description**: API key for accessing Groq services.
-
-**MISTRAL_API_KEY**
-- **Description**: API key for accessing Mistral AI services.
-
-**NEBIUS_API_KEY**
-- **Description**: API key for accessing Nebius AI services.
-
-**OPENAI_API_KEY**
-- **Description**: API key for accessing OpenAI services.
-
-**OPENROUTER_API_KEY**
-- **Description**: API key for accessing OpenRouter services.
-
-**PERPLEXITY_API_KEY**
-- **Description**: API key for Perplexity AI services.
-
-**SAMBANOVA_API_KEY**
-- **Description**: API key for accessing SambaNova services.
-
-**TOGETHERAI_API_KEY**
-- **Description**: API key for accessing Together AI services.
-
-**XAI_API_KEY**
-- **Description**: API key for accessing xAI (Grok) services.
-
-## Tools/Integrations
-
-### GitLab
-
-**GITLAB_TOKEN**
-
-- **Description**: Token for authenticating with GitLab.
-
-**GITLAB_HOST**
-
-- **Description**: Hostname of the GitLab instance. If using a self-hosted instance, specify the domain.
-- **Default Value**: `www.gitlab.com`
-
-**GITLAB_GROUPS**
-
-- **Description**: Comma-separated list of your groups in GitLab.
-
-### GitHub
-
-**GITHUB_TOKEN**
-
-- **Description**: Token for authenticating with GitHub.
-
-**GITHUB_ORG**
-
-- **Description**: Organization on GitHub.
-
-**GITHUB_USER**
-
-- **Description**: GitHub username.
-
-### Jira
-
-**JIRA_BASE_URL**
-
-- **Description**: Base URL for Jira API.
-- **Default Value**: `https://<accountName>.atlassian.net/rest/api/latest/`
-
-**JIRA_EMAIL**
-
-- **Description**: Email address used for Jira authentication.
-- **Default Value**: (Not set)
-
-**JIRA_API_TOKEN**
-
-- **Description**: API token for Jira authentication.
-- **Default Value**: (Not set)
-
-### Search
-
-**GOOGLE_CUSTOM_SEARCH_ENGINE_ID**
-
-- **Description**: Google Custom Search Engine ID for performing searches.
-
-**GOOGLE_CUSTOM_SEARCH_KEY**
-
-- **Description**: Key for Google Custom Search API.
-
-**SERP_API_KEY**
-
-- **Description**: API key for accessing the SERP API.
+| Variable | Description | Default Value |
+| --- | --- | --- |
+| `GCLOUD_PROJECT` | The Google Cloud project ID. | |
+| `GCLOUD_REGION` | The default Google Cloud region. | `us-central1` |
+| `GCLOUD_CLAUDE_REGION` | The region for Anthropic's Claude model on Vertex AI. | `us-east5` |
+
+## OpenTelemetry Tracing
+
+| Variable | Description | Default Value |
+| --- | --- | --- |
+| `TRACE_AGENT_ENABLED` | If `true`, OpenTelemetry tracing is enabled. | `true` |
+| `TRACE_SERVICE_NAME` | The name of the service for tracing. | `typedai` |
+| `TRACE_AUTO_INSTRUMENT` | If `true`, auto-instrumentation is enabled. | `false` |
+| `TRACE_SAMPLE_RATE` | The trace sample rate. | `1` |
+
+## Human-in-the-Loop (HITL)
+
+| Variable | Description | Default Value |
+| --- | --- | --- |
+| `HIL_BUDGET` | The budget in USD for autonomous agents before HITL is triggered. | `1` |
+| `HIL_COUNT` | The number of agent iterations before HITL is triggered. | `5` |
+
+## LLM Provider API Keys
+
+| Variable | Description |
+| --- | --- |
+| `ANTHROPIC_API_KEY` | API key for Anthropic. |
+| `CEREBRAS_API_KEY` | API key for Cerebras. |
+| `DEEPSEEK_API_KEY` | API key for DeepSeek. |
+| `DEEPINFRA_API_KEY` | API key for DeepInfra. |
+| `FIREWORKS_API_KEY` | API key for Fireworks. |
+| `GEMINI_API_KEY` | API key for Gemini. |
+| `GROQ_API_KEY` | API key for Groq. |
+| `MISTRAL_API_KEY` | API key for Mistral. |
+| `NEBIUS_API_KEY` | API key for Nebius. |
+| `OLLAMA_API_URL` | URL for a local Ollama instance. |
+| `OPENAI_API_KEY` | API key for OpenAI. |
+| `OPENROUTER_API_KEY` | API key for OpenRouter. |
+| `PERPLEXITY_API_KEY` | API key for Perplexity. |
+| `SAMBANOVA_API_KEY` | API key for SambaNova. |
+| `TOGETHERAI_API_KEY` | API key for TogetherAI. |
+| `XAI_API_KEY` | API key for xAI. |
+
+## GitLab
+
+| Variable | Description |
+| --- | --- |
+| `GITLAB_TOKEN` | GitLab personal access token. |
+| `GITLAB_HOST` | GitLab host (e.g., `www.gitlab.com`). |
+| `GITLAB_GROUPS` | Comma-separated list of GitLab groups. |
+
+## GitHub
+
+| Variable | Description |
+| --- | --- |
+| `GITHUB_TOKEN` | GitHub personal access token. |
+| `GITHUB_ORG` | GitHub organization. |
+| `GITHUB_USER` | GitHub username. |
+| `GITHUB_WEBHOOK_SECRET` | Secret for GitHub webhooks. |
+
+## Jira
+
+| Variable | Description |
+| --- | --- |
+| `JIRA_BASE_URL` | Your Atlassian instance URL. |
+| `JIRA_EMAIL` | Your Jira email address. |
+| `JIRA_API_TOKEN` | Your Jira API token. |
+
+## Search
+
+| Variable | Description |
+| --- | --- |
+| `GOOGLE_CUSTOM_SEARCH_ENGINE_ID` | Google Custom Search Engine ID. |
+| `GOOGLE_CUSTOM_SEARCH_KEY` | Google Custom Search API key. |
+| `SERP_API_KEY` | SerpApi API key. |
+
+## Slack
+
+| Variable | Description |
+| --- | --- |
+| `SLACK_BOT_TOKEN` | Slack bot token. |
+| `SLACK_SIGNING_SECRET` | Slack signing secret. |
+| `SLACK_CHANNELS` | Comma-separated list of channels for the bot to listen to. |
+| `SLACK_APP_TOKEN` | Slack app-level token. |

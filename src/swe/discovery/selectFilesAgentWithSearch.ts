@@ -446,20 +446,24 @@ For this initial file selection step, identify the files you need to **inspect**
 	// Construct the initial prompt based on whether it's an initial selection or an update
 	// Work in progress, may need to do this differently
 	// Need to write unit tests for it
-	const keepAll: IterationResponse = { keepFiles: [] };
-	let fileContents = '';
 
-	if (opts.initialFiles) {
-		const filePaths = opts.initialFiles.map((selection) => selection.filePath);
-		fileContents = (await readFileContents(filePaths)).contents;
-		keepAll.keepFiles.push(...opts.initialFiles);
+	if (opts?.initialFiles?.length || opts.initialFilePaths?.length) {
+		let fileContents = '';
+		const keepAll: IterationResponse = {
+			keepFiles: [],
+		};
+		if (opts.initialFiles) {
+			const filePaths = opts.initialFiles.map((selection) => selection.filePath);
+			fileContents = (await readFileContents(filePaths)).contents;
+			keepAll.keepFiles.push(...opts.initialFiles);
+		}
+		if (opts.initialFilePaths) {
+			fileContents += (await readFileContents(opts.initialFilePaths)).contents;
+			keepAll.keepFiles.push(...opts.initialFilePaths.map((path) => ({ filePath: path, reason: 'previously selected' })));
+		}
+		messages.push(assistant(fileContents));
+		messages.push(user(JSON.stringify(keepAll)));
 	}
-	if (opts.initialFilePaths) {
-		fileContents += (await readFileContents(opts.initialFilePaths)).contents;
-		keepAll.keepFiles.push(...opts.initialFilePaths.map((path) => ({ filePath: path, reason: 'initial' })));
-	}
-	messages.push(assistant(fileContents));
-	messages.push(user(JSON.stringify(keepAll)));
 
 	return messages;
 }
