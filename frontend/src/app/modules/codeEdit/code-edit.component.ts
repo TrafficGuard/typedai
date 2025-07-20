@@ -1,6 +1,7 @@
 import { Component, HostListener, OnInit, effect, inject, signal, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
 import { AngularSplitModule } from 'angular-split';
 import { CodeEditService } from './code-edit.service';
 import { NestedTreeControl } from '@angular/cdk/tree';
@@ -13,6 +14,9 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { FileSystemNode } from '#shared/files/fileSystemService';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { switchMap } from 'rxjs/operators';
+import { ChatServiceClient } from '../chat/chat.service';
+import { FilesContentResponse } from '#shared/codeEdit/codeEdit.api';
 
 @Component({
 	selector: 'app-code-edit',
@@ -33,7 +37,11 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 	styleUrls: ['./code-edit.component.scss'],
 })
 export class CodeEditComponent implements OnInit {
+	private static readonly DEFAULT_LLM_ID = 'deepseek-coder';
+
 	readonly codeEditService = inject(CodeEditService);
+	private readonly chatService = inject(ChatServiceClient);
+	private readonly router = inject(Router);
 	private readonly fb = inject(FormBuilder);
 	private readonly destroyRef = inject(DestroyRef);
 
@@ -131,32 +139,49 @@ export class CodeEditComponent implements OnInit {
 		this.showFilePanels.update((v) => !v);
 	}
 
+	private _buildPrompt(instructions: string, fileContents: FilesContentResponse): string {
+		const fileBlocks = Object.entries(fileContents)
+			.map(([path, content]) => {
+				const extension = path.split('.').pop()?.toLowerCase() || 'text';
+				return `File: \`${path}\`\n\`\`\`${extension}\n${content}\n\`\`\``;
+			})
+			.join('\n\n');
+
+		return `${instructions}\n\n---\n\nHere are the files:\n\n${fileBlocks}`;
+	}
+
 	onSubmit(): void {
 		if (this.instructionForm.invalid || this.isSubmitting()) {
+			return;
+		}
+
+		const filePaths = this.selectedFiles();
+		if (filePaths.length === 0) {
+			this.submissionError.set('Please select at least one file.');
 			return;
 		}
 
 		this.isSubmitting.set(true);
 		this.submissionError.set(null);
 
-		const filePaths = this.selectedFiles();
-		if (filePaths.length === 0) {
-			this.submissionError.set('Please select at least one file.');
-			this.isSubmitting.set(false);
-			return;
-		}
-
 		this.codeEditService
 			.getFilesContent(filePaths)
-			.pipe(takeUntilDestroyed(this.destroyRef))
+			.pipe(
+				switchMap((fileContents) => {
+					const instructions = this.instructionForm.value.instructions ?? '';
+					const prompt = this._buildPrompt(instructions, fileContents);
+					return this.chatService.createChat(prompt, CodeEditComponent.DEFAULT_LLM_ID);
+				}),
+				takeUntilDestroyed(this.destroyRef),
+			)
 			.subscribe({
-				next: (fileContents) => {
-					console.log(fileContents);
+				next: (newChat) => {
 					this.isSubmitting.set(false);
+					this.router.navigate(['/ui/chat', newChat.id]);
 				},
 				error: (error) => {
-					this.submissionError.set('Failed to fetch file content.');
-					console.error('Failed to fetch file content.', error);
+					this.submissionError.set('Failed to create chat. Please try again.');
+					console.error('Failed to create chat.', error);
 					this.isSubmitting.set(false);
 				},
 			});
