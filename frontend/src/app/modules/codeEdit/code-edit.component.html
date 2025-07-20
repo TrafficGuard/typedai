@@ -1,1 +1,37 @@
-<p>code-edit works!</p>
+<div class="code-edit-container">
+    <as-split direction="horizontal" unit="percent">
+        <as-split-area *ngIf="showFilePanels()" [size]="25" [minSize]="20" [maxSize]="50">
+            <div class="panel-content">
+                <h3 class="text-lg font-semibold mb-2">File Tree</h3>
+                <div class="placeholder">File Tree Placeholder</div>
+            </div>
+        </as-split-area>
+        <as-split-area>
+            <as-split direction="vertical" unit="percent">
+                <as-split-area [size]="60">
+                     <div class="panel-content">
+                        <h3 class="text-lg font-semibold mb-2">Selected Files</h3>
+                        <div class="placeholder">File Selection Table Placeholder</div>
+                    </div>
+                </as-split-area>
+                <as-split-area [size]="40">
+                    <div class="panel-content">
+                        <h3 class="text-lg font-semibold mb-2">Instructions</h3>
+                        <form [formGroup]="instructionForm" (ngSubmit)="onSubmit()" class="flex flex-col h-full">
+                            <textarea
+                                formControlName="instructions"
+                                class="w-full flex-grow border rounded-md p-2"
+                                placeholder="Enter your code editing instructions here..."></textarea>
+                            <button
+                                type="submit"
+                                class="mt-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
+                                [disabled]="instructionForm.invalid">
+                                Submit
+                            </button>
+                        </form>
+                    </div>
+                </as-split-area>
+            </as-split>
+        </as-split-area>
+    </as-split>
+</div>

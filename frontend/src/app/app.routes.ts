@@ -81,6 +81,7 @@ export const appRoutes: Route[] = [
             {path: 'code-reviews', loadChildren: () => import('./modules/codeReview/code-review.routes')},
             {path: 'prompts', loadChildren: () => import('app/modules/prompts/prompts.routes')},
             {path: 'codeTask', loadChildren: () => import('./modules/codeTask/codeTask.routes')},
+            {path: 'code-edit', loadChildren: () => import('./modules/codeEdit/code-edit.routes').then(m => m.default)},
         ]
     },
     // 404 & Catch all
