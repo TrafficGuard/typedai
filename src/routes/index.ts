@@ -8,7 +8,7 @@ import { codeTaskRoutes } from './codeTask';
 import { llmCallRoutes } from './llms/llm-call-routes';
 import { llmRoutes } from './llms/llm-routes';
 import { userRoutes } from './profile/user-routes';
-import { promptsRoutes } from './prompts/prompts-routes';
+import { promptRoutes } from './prompts/prompts-routes';
 import { scmRoutes } from './scm/scmRoutes';
 import { workflowRoutes } from './workflows/workflow-routes';
 
@@ -26,7 +26,7 @@ export async function apiRoutes(fastify: AppFastifyInstance) {
 	await fastify.register(llmCallRoutes);
 	await fastify.register(llmRoutes);
 	await fastify.register(userRoutes);
-	await fastify.register(promptsRoutes);
+	await fastify.register(promptRoutes);
 	await fastify.register(scmRoutes);
 	await fastify.register(workflowRoutes);
 }
