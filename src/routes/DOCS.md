@@ -22,9 +22,11 @@ fastify.get(PROMPT_API.getPromptById.pathTemplate, { schema: PROMPT_API.getPromp
     const userId = currentUser().id;
     try {
         const prompt = await (fastify as AppFastifyInstance).promptsService.getPrompt(promptId, userId);
-        if (!prompt)  return sendNotFound(reply, 'Prompt not found');
+        if (!prompt) {
+            return sendNotFound(reply, 'Prompt not found');
+        } 
         
-        sendJSON(reply, prompt as PromptSchemaModel);
+        reply.sendJSON(prompt as PromptSchemaModel);
     } catch (error: any) {
         // omitted
     }
@@ -34,6 +36,7 @@ fastify.get(PROMPT_API.getPromptById.pathTemplate, { schema: PROMPT_API.getPromp
 Notes:
 - Remove `as Static<typeof PromptParamsSchema>`. Do not cast. Let the static typing do its work to catch errors.
 - `(fastify as AppFastifyInstance)` is redundant.
+- `if return sendNotFound` should be on a single line
 - sendJSON(reply, prompt as PromptSchemaModel) - Do not cast, rely on the static typing to catch errors. Always use reply.sendJSON() to have type checking on the response.
 
 CORRECT example

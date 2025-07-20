@@ -1,7 +1,7 @@
 import { agentContext } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import { MAD_Balanced, MAD_SOTA } from '#llm/multi-agent/reasoning-debate';
-import type { AgentContext } from '#shared/agent/agent.model';
+import { MAD_Balanced, MAD_Cost, MAD_Fast, MAD_SOTA, MAD_Vertex } from '#llm/multi-agent/reasoning-debate';
+import type { AgentContext, LLM } from '#shared/agent/agent.model';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
 import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
 
@@ -49,6 +49,8 @@ export class DeepThink {
 		prompt += `Request:\n${queryOrRequirements}\n\n`;
 
 		// Use 'low' thinking to limit the number of debate rounds
-		return await MAD_Balanced().generateText(prompt, { id: 'DeepThink', thinking: 'low' });
+		const llms: LLM[] = [MAD_Balanced(), MAD_Vertex(), MAD_Fast(), MAD_Cost(), MAD_SOTA()];
+		const mad = llms.find((llm) => llm.isConfigured());
+		return await mad.generateText(prompt, { id: 'DeepThink', thinking: 'low' });
 	}
 }

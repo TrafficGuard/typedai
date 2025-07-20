@@ -513,13 +513,12 @@ export class PostgresAgentStateService implements AgentContextService {
 			throw new Error('Iteration number must be a positive integer.');
 		}
 		const dbData = this._serializeIterationForDb(iterationData);
-		const now = new Date();
 
 		const valuesToInsert: Insertable<AgentIterationsTable> = {
 			...dbData,
 			agent_id: iterationData.agentId,
 			iteration_number: iterationData.iteration,
-			created_at: now,
+			created_at: new Date(iterationData.createdAt),
 		};
 
 		// For ON CONFLICT DO UPDATE, Kysely expects a subset of Updateable<AgentIterationsTable>

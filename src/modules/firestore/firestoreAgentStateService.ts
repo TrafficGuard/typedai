@@ -232,6 +232,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 				type: data.type,
 				subtype: data.subType ?? '',
 				state: data.state,
+				parentAgentId: data.parentAgentId,
 				cost: (Number.isNaN(data.cost) ? 0 : data.cost) ?? 0,
 				error: typeof data.error === 'string' ? data.error : undefined,
 				lastUpdate: data.lastUpdate,
@@ -283,7 +284,10 @@ export class FirestoreAgentStateService implements AgentContextService {
 
 		agents = agents
 			.filter((agent): agent is Partial<AgentContext> => !!agent) // Filter out nulls (non-existent ids)
-			.filter((agent) => agent.user?.id === userId) // Can only delete your own agents
+			.filter((agent) => {
+				const ownerId = typeof agent.user === 'string' ? agent.user : agent.user?.id;
+				return ownerId === userId;
+			})
 			.filter((agent) => !agent.state || !isExecuting(agent as AgentContext)) // Can only delete non-executing agents (handle potentially missing state)
 			.filter((agent) => !agent.parentAgentId); // Only delete parent agents. Child agents are deleted with the parent agent.
 
@@ -427,6 +431,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 				data.prompt = data.prompt || undefined;
 				data.functionCalls = data.functionCalls || [];
 				data.functions = data.functions || [];
+				data.createdAt = data.createdAt || Date.now();
 				// expandedUserRequest, observationsReasoning, nextStepDetails might also need default handling if optional
 				data.expandedUserRequest = data.expandedUserRequest || undefined;
 				data.observationsReasoning = data.observationsReasoning || undefined;
@@ -469,7 +474,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 				summaries.push({
 					agentId: agentId,
 					iteration: data.iteration,
-					createdAt: data.createdAt?.toMillis() ?? 0,
+					createdAt: data.createdAt ?? 0,
 					cost: data.cost ?? 0,
 					summary: data.summary ?? '',
 					error: data.error,

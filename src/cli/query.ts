@@ -7,6 +7,7 @@ import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { appContext, initApplicationContext } from '#app/applicationContext';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { defaultLLMs } from '#llm/services/defaultLlms';
+import { logger } from '#o11y/logger';
 import type { AgentLLMs } from '#shared/agent/agent.model';
 import { queryWithFileSelection2 } from '#swe/discovery/selectFilesAgentWithSearch';
 import { parseProcessArgs, saveAgentId } from './cli';
@@ -15,8 +16,14 @@ import { parsePromptWithImages } from './promptParser';
 async function main() {
 	await initApplicationContext();
 	const agentLLMs: AgentLLMs = defaultLLMs();
-	const { initialPrompt: rawPrompt, resumeAgentId } = parseProcessArgs();
+	const { initialPrompt: rawPrompt, resumeAgentId, flags } = parseProcessArgs();
 	const { textPrompt, userContent } = parsePromptWithImages(rawPrompt);
+
+	const useXhard = flags.xhr && !!llms().xhard;
+	if (flags.xhr && !useXhard) {
+		logger.error('Xhard LLM not cofigured. Check defaultLLMs.ts');
+		return;
+	}
 
 	console.log(`Prompt: ${textPrompt}`);
 
@@ -42,7 +49,7 @@ async function main() {
 		await appContext().agentStateService.save(agent);
 
 		// Pass the text part of the prompt to the query workflow
-		const { files, answer } = await queryWithFileSelection2(textPrompt);
+		const { files, answer } = await queryWithFileSelection2(textPrompt, useXhard);
 		console.log(JSON.stringify(files));
 		console.log(answer);
 

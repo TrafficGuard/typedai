@@ -188,6 +188,9 @@ export function extractReasoningAndJson<T>(rawText: string): { reasoning: string
 	}
 
 	if (jsonString !== undefined && reasoning !== undefined) {
+		// Add closing bracket if missing - happens occasionally with qwen3
+		if (jsonString.startsWith('{') && !jsonString.endsWith('}')) jsonString += '}';
+
 		try {
 			const object = JSON.parse(jsonString) as T;
 			return { reasoning, object, jsonString };

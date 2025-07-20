@@ -90,13 +90,17 @@ export async function selectFilesAgent(requirements: UserContentExt, projectInfo
 	return selectedFiles;
 }
 
-export async function queryWorkflowWithSearch(query: UserContentExt, projectInfo?: ProjectInfo): Promise<string> {
+export async function queryWorkflowWithSearch(query: UserContentExt, useXtraHardLLM = false, projectInfo?: ProjectInfo): Promise<string> {
 	if (!query) throw new Error('query must be provided');
-	const { files, answer } = await queryWithFileSelection2(query, projectInfo);
+	const { files, answer } = await queryWithFileSelection2(query, useXtraHardLLM, projectInfo);
 	return answer;
 }
 
-export async function queryWithFileSelection2(query: UserContentExt, projectInfo?: ProjectInfo): Promise<{ files: SelectedFile[]; answer: string }> {
+export async function queryWithFileSelection2(
+	query: UserContentExt,
+	useXtraHardLLM = false,
+	projectInfo?: ProjectInfo,
+): Promise<{ files: SelectedFile[]; answer: string }> {
 	const { messages, selectedFiles } = await selectFilesCore(query, projectInfo);
 
 	// Construct the final prompt for answering the query
@@ -110,7 +114,8 @@ Think systematically and methodically through the query, considering multiple op
 	messages.push({ role: 'user', content: finalPrompt });
 
 	// Perform the additional LLM call to get the answer
-	const llm: LLM = llms().xhard ?? llms().hard;
+	const xhard = llms().xhard;
+	const llm: LLM = useXtraHardLLM && xhard ? xhard : llms().hard;
 	const thinking: ThinkingLevel = llm instanceof ReasonerDebateLLM ? 'none' : 'high';
 
 	let answer = await llm.generateText(messages, { id: 'Select Files query Answer', thinking });
