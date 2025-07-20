@@ -17,7 +17,7 @@ export async function getFileSystemTreeRoute(fastify: AppFastifyInstance) {
 
 			return reply.sendJSON(tree);
 		} catch (error: any) {
-			fastify.log.error(error, `Error getting file system tree`);
+			fastify.log.error(error, 'Error getting file system tree');
 			return sendServerError(reply, error.message || 'Failed to get file system tree');
 		}
 	});

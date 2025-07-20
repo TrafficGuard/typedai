@@ -253,7 +253,7 @@ export async function initFastify(config: FastifyConfig): Promise<AppFastifyInst
 	});
 
 	registerRoutes(config.routes); // New application routes must be added the config in server.ts
-	await fastifyInstance.register(codeEditRoutes);
+	await fastifyInstance.register(codeEditRoutes as any);
 
 	// All backend API routes start with /api/ so any unmatched at this point is a 404
 	fastifyInstance.get('/api/*', async (request, reply) => {

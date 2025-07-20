@@ -1,6 +1,6 @@
 import { type Static, Type } from '@sinclair/typebox';
-import type { FileSystemNode } from './fileSystemService';
 import type { AreTypesFullyCompatible } from '#shared/typeUtils';
+import type { FileSystemNode } from './fileSystemService';
 
 export const FileSystemNodeSchema = Type.Recursive(
 	(Self) =>
