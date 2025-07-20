@@ -6,3 +6,9 @@ export async function codeEditRoutes(fastify: AppFastifyInstance) {
 	await getFileSystemTreeRoute(fastify);
 	// Future routes for the 'code-edit' feature can be registered here.
 }
+import type { AppFastifyInstance } from '#app/applicationTypes';
+import { getFileSystemTreeRoute } from './getFileSystemTreeRoute';
+
+export async function codeEditRoutes(fastify: AppFastifyInstance) {
+	await getFileSystemTreeRoute(fastify);
+}
