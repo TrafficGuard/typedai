@@ -1,33 +1,29 @@
-import type { AppFastifyInstance } from '#app/applicationTypes';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
-import { CODE_EDIT_API, type FilesContentResponse } from '#shared/codeEdit/codeEdit.api';
-import { sendInternalServerError } from '#fastify/responses';
+import type { AppFastifyInstance } from '#app/applicationTypes';
+import { sendServerError } from '#fastify/responses';
 import { logger } from '#o11y/logger';
+import { CODE_EDIT_API, type FilesContentResponse } from '#shared/codeEdit/codeEdit.api';
 
 /**
  * Registers the route for fetching the content of multiple files.
  * POST /api/code-edit/files-content
  */
 export async function getFilesContentRoute(fastify: AppFastifyInstance): Promise<void> {
-	fastify.post(
-		CODE_EDIT_API.getFilesContent.pathTemplate,
-		{ schema: CODE_EDIT_API.getFilesContent.schema },
-		async (req, reply) => {
-			const { filePaths } = req.body;
-			const fss = getFileSystem();
+	fastify.post(CODE_EDIT_API.getFilesContent.pathTemplate, { schema: CODE_EDIT_API.getFilesContent.schema }, async (req, reply) => {
+		const { filePaths } = req.body;
+		const fss = getFileSystem();
 
-			try {
-				// Use the FileSystemService to read multiple files.
-				const contentsMap = await fss.readFiles(filePaths);
+		try {
+			// Use the FileSystemService to read multiple files.
+			const contentsMap = await fss.readFiles(filePaths);
 
-				// Convert the Map to a plain object for the JSON response.
-				const response: FilesContentResponse = Object.fromEntries(contentsMap);
+			// Convert the Map to a plain object for the JSON response.
+			const response: FilesContentResponse = Object.fromEntries(contentsMap);
 
-				return await reply.sendJSON(response);
-			} catch (error: any) {
-				logger.error(error, 'Failed to get files content [error]');
-				return sendInternalServerError(reply, 'An error occurred while reading file contents.');
-			}
-		},
-	);
+			return await reply.sendJSON(response);
+		} catch (error: any) {
+			logger.error(error, 'Failed to get files content [error]');
+			return sendServerError(reply, 'An error occurred while reading file contents.');
+		}
+	});
 }

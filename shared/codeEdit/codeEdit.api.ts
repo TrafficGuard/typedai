@@ -1,5 +1,5 @@
+import { type Static, Type } from '@sinclair/typebox';
 import { defineApiRoute } from '#shared/api-definitions';
-import { Type, type Static } from '@sinclair/typebox';
 import { FileSystemNodeSchema } from '#shared/files/files.schema';
 import type { AreTypesFullyCompatible } from '#shared/typeUtils';
 
