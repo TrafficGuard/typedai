@@ -61,6 +61,7 @@ export async function analyzeCompileErrors(
 		'- If you need to perform research to fix a compile issue (e.g. how to use a library/API, or fix an obscure compiler error) then set a natural language query to search on the "researchQuery" property.\n' +
 		'- If the compile errors indicate one or more missing packages/modules, then set an array with the missing packages, e.g. ["package1", "package2"], on the "installPackages" property.\n' +
 		'- If there appears to be an fatal error which can\'t be fixed (e.g. configuration issue, or stuck on the same error multiple times, or a dependant project needs to be updated) that requires human intervention, then set a message describing the problem in the "fatalError" property.\n' +
+		'- Check closely for any comments in the code or any Code Guidelines that would indicate how this code/requirements should be implemented.\n' +
 		`Respond with your resoning following by the JSON object that MUST be in the format of this example:
 <response_example>
 - Analysis of the compile issues
