@@ -26,3 +26,69 @@
     justify-content: center;
     color: var(--fuse-text-secondary);
 }
+.code-edit-container {
+	@apply h-full w-full;
+}
+
+.panel-content {
+	@apply h-full w-full p-4 overflow-auto;
+	@apply bg-card;
+}
+
+.file-tree {
+	.mat-tree-node {
+		@apply min-h-8;
+	}
+
+	.node-name {
+		@apply ml-2;
+	}
+
+	.leaf-node {
+		@apply pl-10; // 40px, same as mat-icon-button width
+	}
+
+	.mat-tree-node-toggle-placeholder {
+		@apply w-10; // 40px
+	}
+
+	.tree-node-container-invisible {
+		@apply hidden;
+	}
+}
+// Basic styling for the file tree to ensure it's readable.
+.file-tree {
+    background-color: transparent; // Match panel background
+
+    .mat-tree-node,
+    .mat-nested-tree-node {
+        min-height: 32px;
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+
+        &:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+    }
+
+    .node-name {
+        margin-left: 8px;
+    }
+
+    .mat-icon {
+        vertical-align: middle;
+    }
+
+    .leaf-node {
+        // Indent leaf nodes to align with folders.
+        .mat-tree-node-toggle-placeholder {
+            width: 40px; // Same width as the expand/collapse button.
+        }
+    }
+
+    // Make the nested div take up the full width
+    .tree-node-container-invisible {
+        display: none;
+    }
+}
