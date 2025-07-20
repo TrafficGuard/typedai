@@ -185,7 +185,7 @@ export class CodeEditingAgent {
 	private async editCompileLoop(
 		projectInfo: ProjectInfo,
 		initialSelectedFiles: string[],
-		implementationRequirements: string,
+		implementationPlan: string,
 	): Promise<CompileErrorAnalysisDetails | null> {
 		let compileErrorAnalysis: CompileErrorAnalysisDetails | null = null;
 		let compileErrorSearchResults: string[] = [];
@@ -265,7 +265,7 @@ export class CodeEditingAgent {
 					codeEditorFiles.push(...(compileErrorAnalysis.additionalFiles ?? []));
 				} else {
 					// project is compiling, lets implement the requirements
-					codeEditorRequirements += implementationRequirements;
+					codeEditorRequirements += implementationPlan;
 					codeEditorRequirements += '\nOnly make changes directly related to these requirements.';
 				}
 

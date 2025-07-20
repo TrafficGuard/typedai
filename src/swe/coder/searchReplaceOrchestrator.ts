@@ -302,6 +302,7 @@ export class SearchReplaceOrchestrator {
 			try {
 				await vcs.addAndCommitFiles(filesToCommit, commitMessage);
 				logger.info(`Auto-committed changes for ${filesToCommit.length} files: ${filesToCommit.join(', ')}.`);
+				await vcs.addNote(session.requirements);
 			} catch (commitError: any) {
 				logger.error({ err: commitError }, 'Auto-commit failed after applying edits.');
 			}

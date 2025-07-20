@@ -77,6 +77,16 @@ export class Git implements VersionControlSystem {
 		failOnError(`Failed to commit changes for files: ${files.join(', ')}`, commitResult);
 	}
 
+	async addNote(note: string): Promise<void> {
+		try {
+			const result = await execCommand(`git notes add -m ${arg(note)} ${await this.getHeadSha()}`);
+			failOnError(`Failed to add note: ${note}`, result);
+		} catch (error) {
+			logger.error(error);
+			throw error;
+		}
+	}
+
 	/**
 	 * Get the files added. If no commit argument if provided then it is for the head commit,
 	 */

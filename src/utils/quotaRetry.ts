@@ -18,7 +18,7 @@ function optionsWithDefaults(opts: Partial<QuotaRetryOptions>): QuotaRetryOption
  * @param options
  */
 export function quotaRetry(options: Partial<QuotaRetryOptions> = {}) {
-	return function quotaRetryDecorator(originalMethod: any, context: ClassMethodDecoratorContext) {
+	return function quotaRetryDecorator(originalMethod: any, context: ClassMethodDecoratorContext): (this: any, ...args: any[]) => Promise<any> {
 		const methodName = String(context.name);
 
 		async function replacementMethod(this: any, ...args: any[]) {

@@ -124,7 +124,7 @@ export interface ExecResults {
  * @param cwd current working directory
  * @returns
  */
-export async function execCmd(command: string, cwd = getFileSystem().getWorkingDirectory()): Promise<ExecResults> {
+export async function execCmd(command: string, cwd: string = getFileSystem().getWorkingDirectory()): Promise<ExecResults> {
 	return withSpan('execCmd', async (span) => {
 		const context = agentContext();
 		const containerId = context?.containerId;

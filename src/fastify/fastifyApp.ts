@@ -42,7 +42,7 @@ export type TypeBoxFastifyInstance = FastifyInstance<
 	TypeBoxTypeProvider
 >;
 
-export type FastifyRoutes = (fastify: AppFastifyInstance) => Promise<void>;
+export type FastifyRoutes = (fastify: AppFastifyInstance) => Promise<void> | void;
 
 /** Our Fastify request type used in the application */
 export interface FastifyRequest extends FastifyRequestBase {}
