@@ -83,7 +83,7 @@ describe.skip('selectFilesAndExtracts', () => {
 		};
 		generateTextWithJsonStub.withArgs(sinon.match.any, sinon.match.has('id', sinon.match(/sfawe-extract-file2_md/))).resolves({ object: file2ExtractDetail });
 
-		const result = await selectFilesAndExtracts(mockRequirementsString, mockProjectInfo);
+		const result = await selectFilesAndExtracts(mockRequirementsString, { projectInfo: mockProjectInfo });
 
 		expect(result.answerFromInitialQuery).to.equal(answerFromQuery);
 		expect(result.editableFiles).to.deep.equal([{ filePath: 'file1.ts', reason: 'Needs code changes', category: 'edit' }]);
@@ -96,7 +96,7 @@ describe.skip('selectFilesAndExtracts', () => {
 		const answerFromQuery = 'No files found for this query.';
 		queryWithFileSelection2Stub.resolves({ files: [], answer: answerFromQuery });
 
-		const result = await selectFilesAndExtracts(mockRequirementsString, mockProjectInfo);
+		const result = await selectFilesAndExtracts(mockRequirementsString, { projectInfo: mockProjectInfo });
 
 		expect(result.answerFromInitialQuery).to.equal(answerFromQuery);
 		expect(result.editableFiles).to.be.empty;
@@ -122,7 +122,7 @@ describe.skip('selectFilesAndExtracts', () => {
 			},
 		});
 
-		const result = await selectFilesAndExtracts(mockRequirementsString, mockProjectInfo);
+		const result = await selectFilesAndExtracts(mockRequirementsString, { projectInfo: mockProjectInfo });
 
 		expect(result.answerFromInitialQuery).to.equal(answerFromQuery);
 		expect(result.editableFiles).to.deep.equal([
@@ -161,7 +161,7 @@ describe.skip('selectFilesAndExtracts', () => {
 		generateTextWithJsonStub.withArgs(sinon.match.any, sinon.match.has('id', sinon.match(/sfawe-extract-file2_md/))).resolves({ object: file2Extract });
 		generateTextWithJsonStub.withArgs(sinon.match.any, sinon.match.has('id', sinon.match(/sfawe-extract-file3_txt/))).resolves({ object: file3Extract });
 
-		const result = await selectFilesAndExtracts(mockRequirementsString, mockProjectInfo);
+		const result = await selectFilesAndExtracts(mockRequirementsString, { projectInfo: mockProjectInfo });
 
 		expect(result.answerFromInitialQuery).to.equal(answerFromQuery);
 		expect(result.editableFiles).to.be.empty;
@@ -200,7 +200,7 @@ describe.skip('selectFilesAndExtracts', () => {
 		const file3Extract: FileExtractDetail = { extractReasoning: 'Extract file3', lineNumberExtracts: [{ from: 1, to: 1 }] };
 		generateTextWithJsonStub.withArgs(sinon.match.any, sinon.match.has('id', sinon.match(/sfawe-extract-file3_txt/))).resolves({ object: file3Extract });
 
-		const result = await selectFilesAndExtracts(mockRequirementsString, mockProjectInfo);
+		const result = await selectFilesAndExtracts(mockRequirementsString, { projectInfo: mockProjectInfo });
 
 		expect(result.editableFiles).to.be.empty;
 		expect(result.readOnlyFilesWithExtracts['file2.md']).to.be.undefined;
@@ -219,7 +219,7 @@ describe.skip('selectFilesAndExtracts', () => {
 		// LLM Classification fails
 		generateTextWithJsonStub.withArgs(sinon.match.any, sinon.match.has('id', 'sfawe-classification')).rejects(new Error('LLM classification failed'));
 
-		const result = await selectFilesAndExtracts(mockRequirementsString, mockProjectInfo);
+		const result = await selectFilesAndExtracts(mockRequirementsString, { projectInfo: mockProjectInfo });
 
 		expect(result.answerFromInitialQuery).to.equal(answerFromQuery);
 		expect(result.editableFiles).to.deep.equal([
@@ -246,7 +246,7 @@ describe.skip('selectFilesAndExtracts', () => {
 		// readFile for file2.md fails
 		readFileStub.withArgs('/test/project/file2.md').rejects(new Error('Failed to read file'));
 
-		const result = await selectFilesAndExtracts(mockRequirementsString, mockProjectInfo);
+		const result = await selectFilesAndExtracts(mockRequirementsString, { projectInfo: mockProjectInfo });
 
 		expect(result.editableFiles).to.be.empty;
 		expect(result.readOnlyFilesWithExtracts['file2.md']).to.be.undefined;
@@ -274,7 +274,7 @@ describe.skip('selectFilesAndExtracts', () => {
 		};
 		generateTextWithJsonStub.withArgs(sinon.match.any, sinon.match.has('id', sinon.match(/sfawe-extract-file2_md/))).resolves({ object: file2ExtractEmpty });
 
-		const result = await selectFilesAndExtracts(mockRequirementsString, mockProjectInfo);
+		const result = await selectFilesAndExtracts(mockRequirementsString, { projectInfo: mockProjectInfo });
 
 		expect(result.editableFiles).to.be.empty;
 		expect(result.readOnlyFilesWithExtracts['file2.md']).to.deep.equal(file2ExtractEmpty);
@@ -291,7 +291,7 @@ describe.skip('selectFilesAndExtracts', () => {
 		});
 
 		// Test with string requirements
-		let result = await selectFilesAndExtracts(mockRequirementsString, mockProjectInfo);
+		let result = await selectFilesAndExtracts(mockRequirementsString, { projectInfo: mockProjectInfo });
 		expect(result.editableFiles[0].filePath).to.equal('file1.ts');
 		expect(
 			generateTextWithJsonStub.firstCall.args[0][0].content.includes(
@@ -305,7 +305,7 @@ describe.skip('selectFilesAndExtracts', () => {
 		queryWithFileSelection2Stub.resolves({ files: initialFiles, answer: 'Test' }); // Re-stub
 
 		// Test with object requirements
-		result = await selectFilesAndExtracts(mockRequirementsObject, mockProjectInfo);
+		result = await selectFilesAndExtracts(mockRequirementsObject, { projectInfo: mockProjectInfo });
 		expect(result.editableFiles[0].filePath).to.equal('file1.ts');
 		expect(
 			generateTextWithJsonStub.firstCall.args[0][0].content.includes(
@@ -327,7 +327,7 @@ describe.skip('selectFilesAndExtracts', () => {
 			},
 		});
 
-		const result = await selectFilesAndExtracts(mockRequirementsString, mockProjectInfo);
+		const result = await selectFilesAndExtracts(mockRequirementsString, { projectInfo: mockProjectInfo });
 		expect(result.editableFiles.length).to.equal(1);
 		expect(result.editableFiles[0].filePath).to.equal('file1.ts');
 		expect(loggerWarnStub.calledWith('selectFilesAndExtracts: Classified file non_existent_file.ts not in initial selection.')).to.be.true;
@@ -349,7 +349,7 @@ describe.skip('selectFilesAndExtracts', () => {
 			object: { extractReasoning: 'Some reason' } as any, // Cast to any to simulate malformed
 		});
 
-		const result = await selectFilesAndExtracts(mockRequirementsString, mockProjectInfo);
+		const result = await selectFilesAndExtracts(mockRequirementsString, { projectInfo: mockProjectInfo });
 		expect(result.readOnlyFilesWithExtracts['file2.md']).to.be.undefined;
 		expect(loggerWarnStub.calledWith('selectFilesAndExtracts: Malformed extraction response for file2.md')).to.be.true;
 	});

@@ -49,7 +49,7 @@ async function main() {
 		await appContext().agentStateService.save(agent);
 
 		// Pass the text part of the prompt to the query workflow
-		const { files, answer } = await queryWithFileSelection2(textPrompt, useXhard);
+		const { files, answer } = await queryWithFileSelection2(textPrompt, { useXtraHardLLM: useXhard });
 		console.log(JSON.stringify(files));
 		console.log(answer);
 

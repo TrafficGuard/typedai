@@ -69,12 +69,14 @@ interface IterationResponse {
 	search?: string; // Regex string for searching file contents
 }
 
-/**
- * When a user wants to continue on previous file selection, this provides the original file selection and the instructions on what needs to change in the file selection.
- */
-export interface FileSelectionUpdate {
-	currentFiles?: SelectedFile[];
-	updatePrompt?: string;
+export interface QueryOptions {
+	/** Use the xtra hard LLM for the final answer if available */
+	useXtraHardLLM?: boolean;
+	projectInfo?: ProjectInfo;
+	/** File paths which will be used as the initial file selection */
+	initialFilePaths?: string[];
+	/** Previously selected files which will be used as the initial file selection */
+	initialFiles?: SelectedFile[];
 }
 
 export interface FileExtract {
@@ -84,24 +86,20 @@ export interface FileExtract {
 	extract: string;
 }
 
-export async function selectFilesAgent(requirements: UserContentExt, projectInfo?: ProjectInfo, options?: FileSelectionUpdate): Promise<SelectedFile[]> {
+export async function selectFilesAgent(requirements: UserContentExt, options: QueryOptions = {}): Promise<SelectedFile[]> {
 	if (!requirements) throw new Error('Requirements must be provided');
-	const { selectedFiles } = await selectFilesCore(requirements, projectInfo, options);
+	const { selectedFiles } = await selectFilesCore(requirements, options);
 	return selectedFiles;
 }
 
-export async function queryWorkflowWithSearch(query: UserContentExt, useXtraHardLLM = false, projectInfo?: ProjectInfo): Promise<string> {
+export async function queryWorkflowWithSearch(query: UserContentExt, opts: QueryOptions = {}): Promise<string> {
 	if (!query) throw new Error('query must be provided');
-	const { files, answer } = await queryWithFileSelection2(query, useXtraHardLLM, projectInfo);
+	const { files, answer } = await queryWithFileSelection2(query, opts);
 	return answer;
 }
 
-export async function queryWithFileSelection2(
-	query: UserContentExt,
-	useXtraHardLLM = false,
-	projectInfo?: ProjectInfo,
-): Promise<{ files: SelectedFile[]; answer: string }> {
-	const { messages, selectedFiles } = await selectFilesCore(query, projectInfo);
+export async function queryWithFileSelection2(query: UserContentExt, opts: QueryOptions = {}): Promise<{ files: SelectedFile[]; answer: string }> {
+	const { messages, selectedFiles } = await selectFilesCore(query, opts);
 
 	// Construct the final prompt for answering the query
 	const finalPrompt = `<query>
@@ -115,7 +113,7 @@ Think systematically and methodically through the query, considering multiple op
 
 	// Perform the additional LLM call to get the answer
 	const xhard = llms().xhard;
-	const llm: LLM = useXtraHardLLM && xhard ? xhard : llms().hard;
+	const llm: LLM = opts.useXtraHardLLM && xhard ? xhard : llms().hard;
 	const thinking: ThinkingLevel = llm instanceof ReasonerDebateLLM ? 'none' : 'high';
 
 	let answer = await llm.generateText(messages, { id: 'Select Files query Answer', thinking });
@@ -190,13 +188,12 @@ Think systematically and methodically through the query, considering multiple op
  */
 async function selectFilesCore(
 	requirements: UserContentExt,
-	projectInfo?: ProjectInfo,
-	options?: FileSelectionUpdate,
+	opts: QueryOptions,
 ): Promise<{
 	messages: LlmMessage[];
 	selectedFiles: SelectedFile[];
 }> {
-	const messages: LlmMessage[] = await initializeFileSelectionAgent(requirements, projectInfo, options);
+	const messages: LlmMessage[] = await initializeFileSelectionAgent(requirements, opts);
 
 	const maxIterations = 10;
 	let iterationCount = 0;
@@ -404,7 +401,8 @@ Respond with a valid JSON object that follows the required schema.`,
 	return { messages, selectedFiles };
 }
 
-async function initializeFileSelectionAgent(requirements: UserContentExt, projectInfo?: ProjectInfo, options?: FileSelectionUpdate): Promise<LlmMessage[]> {
+async function initializeFileSelectionAgent(requirements: UserContentExt, opts: QueryOptions): Promise<LlmMessage[]> {
+	let projectInfo = opts.projectInfo;
 	projectInfo ??= (await detectProjectInfo())[0];
 
 	const projectMaps: RepositoryMaps = await generateRepositoryMaps([projectInfo]);
@@ -448,15 +446,20 @@ For this initial file selection step, identify the files you need to **inspect**
 	// Construct the initial prompt based on whether it's an initial selection or an update
 	// Work in progress, may need to do this differently
 	// Need to write unit tests for it
-	if (options?.currentFiles) {
-		const filePaths = options.currentFiles.map((selection) => selection.filePath);
-		const fileContents = (await readFileContents(filePaths)).contents;
-		messages.push(assistant(fileContents));
-		const keepAll: IterationResponse = {
-			keepFiles: options.currentFiles,
-		};
-		messages.push(user(JSON.stringify(keepAll)));
+	const keepAll: IterationResponse = { keepFiles: [] };
+	let fileContents = '';
+
+	if (opts.initialFiles) {
+		const filePaths = opts.initialFiles.map((selection) => selection.filePath);
+		fileContents = (await readFileContents(filePaths)).contents;
+		keepAll.keepFiles.push(...opts.initialFiles);
 	}
+	if (opts.initialFilePaths) {
+		fileContents += (await readFileContents(opts.initialFilePaths)).contents;
+		keepAll.keepFiles.push(...opts.initialFilePaths.map((path) => ({ filePath: path, reason: 'initial' })));
+	}
+	messages.push(assistant(fileContents));
+	messages.push(user(JSON.stringify(keepAll)));
 
 	return messages;
 }

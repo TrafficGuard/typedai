@@ -70,7 +70,18 @@
                                                     {{ part.text }}
                                                 </mat-expansion-panel>
                                             </div>
-                                            <div *ngSwitchCase="'text'" style="white-space: pre-wrap; word-wrap: break-word;" [innerHTML]="convertNewlinesToHtml(part.text)"></div>
+                                            <div *ngSwitchCase="'text'">
+                                                @if (message.role === 'assistant') {
+                                                    <markdown
+                                                        mermaid
+                                                        clipboard
+                                                        [clipboardButtonComponent]="clipboardButton"
+                                                        [data]="part.text"
+                                                    ></markdown>
+                                                } @else {
+                                                    <div style="white-space: pre-wrap; word-wrap: break-word;" [innerHTML]="convertNewlinesToHtml(part.text)"></div>
+                                                }
+                                            </div>
                                             <div *ngSwitchCase="'image'">[Image Part: {{ part.mimeType || 'type unknown' }}]</div>
                                             <div *ngSwitchCase="'file'">[File Part: {{ part.mimeType || 'type unknown' }}]</div>
                                             <div *ngSwitchCase="'tool-call'">[Tool Call: {{part.toolName}} ID: {{part.toolCallId}}]</div>
@@ -82,6 +93,7 @@
                                     }
                                 } @else {
                                     @if (message.role === 'assistant') {
+                                        MARKDOWN
                                         <markdown
                                             mermaid
                                             clipboard

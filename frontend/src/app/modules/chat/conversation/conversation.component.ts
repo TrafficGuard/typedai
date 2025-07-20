@@ -108,7 +108,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 		const currentLlmId = this.llmId();
 		if (!currentLlmId) return false;
 		return (
-			currentLlmId.startsWith('openai:o') || currentLlmId.includes('claude-3-7') || currentLlmId.includes('sonnet-4') || (currentLlmId.includes('gemini') && currentLlmId.includes('2.5'))
+			currentLlmId.startsWith('openai:o') || currentLlmId.includes('claude-3-7') || currentLlmId.includes('sonnet-4') || currentLlmId.includes('opus-4') || (currentLlmId.includes('gemini') && currentLlmId.includes('2.5'))
 		);
 	});
 	thinkingIcon: WritableSignal<string> = signal('heroicons_outline:minus-small');
@@ -711,34 +711,49 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 		}
 	}
 
-	/** Scroll so that the caret is visible (bottom-align if needed) */
-	private _scrollToCaret(): void
-	{
+	/**
+	 * Scroll so that the caret is visible (bottom-align if needed).
+	 * This method is designed to be called after the textarea has potentially resized.
+	 */
+	private _scrollToCaret(): void {
+		// Run outside Angular's zone to prevent unnecessary change detection cycles.
 		this._ngZone.runOutsideAngular(() => {
+			// A minimal delay is used to ensure this logic runs after the browser has
+			// processed the resize from CdkTextareaAutosize.
 			setTimeout(() => {
-				const ta = this.messageInput?.nativeElement as HTMLTextAreaElement | undefined;
-				if (!ta) { return; }
-
-				/* If caret is on the last visual line, cheapest = jump to bottom   */
-				const caretIsLast = (ta.selectionStart ?? ta.value.length) === ta.value.length;
-				if (caretIsLast) {
-					ta.scrollTop = ta.scrollHeight;
+				const ta = this.messageInput?.nativeElement as HTMLTextAreaElement;
+				if (!ta) {
 					return;
 				}
 
-				/* Fallback to the “count new-lines” algorithm (rarely used now)   */
-				const pos        = ta.selectionStart ?? 0;
-				const before     = ta.value.substring(0, pos);
-				const rows       = (before.match(/\n/g)?.length ?? 0);
-				const lineHeight = parseInt(getComputedStyle(ta).lineHeight!, 10) || 16;
-				const caretPx    = rows * lineHeight;
+				// The 'selectionEnd' property gives us the position of the caret.
+				// We create a temporary 'span' element to measure its exact coordinates.
+				const span = document.createElement('span');
+				// The span is positioned absolutely within the textarea's parent.
+				span.style.position = 'absolute';
+				// We copy relevant font styles to ensure accurate measurement.
+				span.style.font = getComputedStyle(ta).font;
+				span.style.whiteSpace = 'pre-wrap'; // Match textarea wrapping
+				span.style.visibility = 'hidden';
 
-				if (caretPx < ta.scrollTop) {
-					ta.scrollTop = caretPx;
-				} else if (caretPx + lineHeight > ta.scrollTop + ta.clientHeight) {
-					ta.scrollTop = caretPx + lineHeight - ta.clientHeight;
+				// We insert the text content up to the caret position into the span.
+				// A non-breaking space ensures the span has height even on a new line.
+				span.textContent = ta.value.substring(0, ta.selectionEnd) + '\u00A0';
+				document.body.appendChild(span);
+
+				// Now we get the height of the text leading up to the caret.
+				const caretTopPosition = span.offsetHeight;
+				document.body.removeChild(span); // Clean up the temporary element.
+
+				// The ideal scroll position is where the caret is just visible at the bottom.
+				const desiredScrollTop = caretTopPosition - ta.clientHeight;
+
+				// If the current scroll position is less than the ideal (e.g., caret is hidden above),
+				// we adjust the scroll position to bring it into view.
+				if (ta.scrollTop < desiredScrollTop) {
+					ta.scrollTop = desiredScrollTop;
 				}
-			}, CARET_SCROLL_DELAY);                 //  <── key change
+			}, 50); // A 50ms delay is typically sufficient for the DOM to update.
 		});
 	}
 

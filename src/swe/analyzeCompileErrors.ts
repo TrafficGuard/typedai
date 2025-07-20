@@ -1,4 +1,5 @@
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
+import { extractFilenames } from './extractFilenames';
 
 export interface CompileErrorAnalysis {
 	compilerOutput: string;
@@ -29,7 +30,7 @@ export async function analyzeCompileErrors(
 	// Maybe want to prune the file system tree from the agents FileSystemTree collapsed folders on the agent context
 	const fileSystemTree = `<file_system_tree>\n${await getFileSystem().getFileSystemTree()}\n</file_system_tree>`;
 
-	const fileContents = `<file_contents>\n${await getFileSystem().readFilesAsXml(initialFileSelection)}\n</file_contents>`;
+	let fileContents = `<file_contents>\n${await getFileSystem().readFilesAsXml(initialFileSelection)}\n</file_contents>`;
 
 	// TODO need to add ts-imports info to resolve imports to file paths
 	// languageTools.getAliasMappings()
@@ -43,6 +44,15 @@ export async function analyzeCompileErrors(
 	const compileOutputXml = `<compiler_output>\n${compilerOutput}\n</compiler_output>`;
 
 	const currentFileList = `<current-files>\n${initialFileSelection.join('\n')}\n</current-files>`;
+
+	// First check if we need to include additional files referenced in the compiler errors.
+	const additionalFiles: string[] = await extractFilenames(
+		`${compilerOutput}\n${currentFileList}\nExtract the filenames from the compile errors, not in the current files list, where the file contents would be needed to provided an accurate analysis and solution proposal of the compiler errors.`,
+	);
+	// Could add something about it if looks like a change an invadvertanly broken many files, then just return a selection of the files that look most relevant.
+
+	const fileSelection: string[] = Array.from(new Set([...initialFileSelection, ...additionalFiles]));
+	fileContents = `<file_contents>\n${await getFileSystem().readFilesAsXml(fileSelection)}\n</file_contents>`;
 
 	const instructions =
 		'The compile errors above need to be analyzed to determine next steps fixing them. You will respond with a JSON object in the format of the example.\n' +
@@ -68,7 +78,6 @@ export async function analyzeCompileErrors(
 </json>
 </response_example>`;
 
-	// ${fileList}\n
 	const prompt = `${fileSystemTree}\n${fileContents}\n${compileErrorHistory}\n${compileOutputXml}\n${currentFileList}\n${instructions}`;
 	const analysis: CompileErrorAnalysis = await llms().hard.generateJson(prompt, {
 		id: 'Analyze compile errors',
