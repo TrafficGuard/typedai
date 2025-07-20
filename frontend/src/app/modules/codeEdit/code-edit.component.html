@@ -109,11 +109,23 @@
                                 formControlName="instructions"
                                 class="w-full flex-grow border rounded-md p-2"
                                 placeholder="Enter your code editing instructions here..."></textarea>
+                            
+                            @if (submissionError(); as error) {
+                                <div class="text-red-500 text-sm my-2">
+                                    {{ error }}
+                                </div>
+                            }
+
                             <button
                                 type="submit"
-                                class="mt-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
-                                [disabled]="instructionForm.invalid">
-                                Submit
+                                class="mt-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark flex items-center justify-center"
+                                [disabled]="instructionForm.invalid || isSubmitting()">
+                                @if (isSubmitting()) {
+                                    <mat-spinner diameter="20" class="mr-2"></mat-spinner>
+                                    <span>Submitting...</span>
+                                } @else {
+                                    <span>Submit</span>
+                                }
                             </button>
                         </form>
                     </div>

@@ -1,4 +1,4 @@
-import { Component, HostListener, OnInit, effect, inject, signal } from '@angular/core';
+import { Component, HostListener, OnInit, effect, inject, signal, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AngularSplitModule } from 'angular-split';
@@ -12,6 +12,7 @@ import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { FileSystemNode } from '#shared/files/fileSystemService';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
 	selector: 'app-code-edit',
@@ -34,10 +35,13 @@ import { FileSystemNode } from '#shared/files/fileSystemService';
 export class CodeEditComponent implements OnInit {
 	readonly codeEditService = inject(CodeEditService);
 	private readonly fb = inject(FormBuilder);
+	private readonly destroyRef = inject(DestroyRef);
 
 	readonly treeState = this.codeEditService.treeState;
 	readonly showFilePanels = signal(true);
 	readonly selectedFiles = signal<string[]>([]);
+	readonly isSubmitting = signal(false);
+	readonly submissionError = signal<string | null>(null);
 
 	instructionForm: FormGroup<{ instructions: FormControl<string> }>;
 
@@ -128,10 +132,33 @@ export class CodeEditComponent implements OnInit {
 	}
 
 	onSubmit(): void {
-		if (this.instructionForm.invalid) return;
-		const instructions = this.instructionForm.value.instructions;
-		console.log('Submitted instructions:', instructions);
-		console.log('Selected files:', this.selectedFiles());
-		// Future: Call a service to process the instructions
+		if (this.instructionForm.invalid || this.isSubmitting()) {
+			return;
+		}
+
+		this.isSubmitting.set(true);
+		this.submissionError.set(null);
+
+		const filePaths = this.selectedFiles();
+		if (filePaths.length === 0) {
+			this.submissionError.set('Please select at least one file.');
+			this.isSubmitting.set(false);
+			return;
+		}
+
+		this.codeEditService
+			.getFilesContent(filePaths)
+			.pipe(takeUntilDestroyed(this.destroyRef))
+			.subscribe({
+				next: (fileContents) => {
+					console.log(fileContents);
+					this.isSubmitting.set(false);
+				},
+				error: (error) => {
+					this.submissionError.set('Failed to fetch file content.');
+					console.error('Failed to fetch file content.', error);
+					this.isSubmitting.set(false);
+				},
+			});
 	}
 }
