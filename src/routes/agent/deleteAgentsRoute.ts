@@ -4,7 +4,7 @@ import { logger } from '#o11y/logger';
 import { AGENT_API } from '#shared/agent/agent.api';
 import { registerApiRoute } from '../routeUtils';
 
-export async function deleteAgentsRoute(fastify: AppFastifyInstance) {
+export async function deleteAgentsRoute(fastify: AppFastifyInstance): Promise<void> {
 	registerApiRoute(fastify, AGENT_API.delete, async (req, reply) => {
 		const { agentIds } = req.body;
 		try {

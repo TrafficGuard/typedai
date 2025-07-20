@@ -9,7 +9,7 @@ import { regenerateMessageRoute } from './regenerateMessageRoute';
 import { sendMessageRoute } from './sendMessageRoute';
 import { updateChatDetailsRoute } from './updateChatDetailsRoute';
 
-export async function chatRoutes(fastify: AppFastifyInstance) {
+export async function chatRoutes(fastify: AppFastifyInstance): Promise<void> {
 	await getChatByIdRoute(fastify);
 	await createChatRoute(fastify);
 	await sendMessageRoute(fastify);

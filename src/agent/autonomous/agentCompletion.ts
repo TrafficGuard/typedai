@@ -20,7 +20,7 @@ export async function runAgentCompleteHandler(agent: AgentContext): Promise<void
  * Creates a generic notification message for the completion of an agent execution
  * @param agent
  */
-export function completedNotificationMessage(agent: AgentContext) {
+export function completedNotificationMessage(agent: AgentContext): string {
 	const uiUrl = envVar('UI_URL');
 	let message = stateNotificationMessage(agent);
 	message += `\n${uiUrl}/ui/agents/${agent.agentId}`;
@@ -56,7 +56,7 @@ export function stateNotificationMessage(agent: AgentContext): string {
 	}
 }
 
-export function getLastFunctionCallArg(agent: AgentContext) {
+export function getLastFunctionCallArg(agent: AgentContext): any {
 	const result: FunctionCallResult = agent.functionCallHistory.slice(-1)[0];
 	return Object.values(result.parameters)[0];
 }

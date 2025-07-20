@@ -17,7 +17,7 @@ const execAsync = promisify(exec);
  * @param result
  * @param message
  */
-export function checkExecResult(result: ExecResults, message: string) {
+export function checkExecResult(result: ExecResults, message: string): void {
 	if (result.error) {
 		logger.info(result.stdout);
 		logger.error(result.stderr);

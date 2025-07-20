@@ -3,7 +3,7 @@ import { AGENT_API } from '#shared/agent/agent.api';
 import { functionRegistry } from '../../functionRegistry';
 import { registerApiRoute } from '../routeUtils';
 
-export async function getAvailableFunctionsRoute(fastify: AppFastifyInstance) {
+export async function getAvailableFunctionsRoute(fastify: AppFastifyInstance): Promise<void> {
 	registerApiRoute(fastify, AGENT_API.getAvailableFunctions, async (req, reply) => {
 		const functionNames = functionRegistry().map((t) => t.name);
 		reply.sendJSON(functionNames);

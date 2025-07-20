@@ -34,7 +34,7 @@ main().then(
 /**
  * This starts a file watcher which looks for particularly formatted lines which contain prompts for the AI code editor
  */
-export function startWatcher() {
+export function startWatcher(): void {
 	const watchPath = 'src';
 	const watcher = fs.watch(watchPath, { recursive: true }, async (event: WatchEventType, filename: string | null) => {
 		// Early exit if filename is null

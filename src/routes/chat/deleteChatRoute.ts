@@ -7,7 +7,7 @@ import { CHAT_API } from '#shared/chat/chat.api';
 import type { ChatParamsSchema } from '#shared/chat/chat.schema';
 import { currentUser } from '#user/userContext';
 
-export async function deleteChatRoute(fastify: AppFastifyInstance) {
+export async function deleteChatRoute(fastify: AppFastifyInstance): Promise<void> {
 	registerApiRoute(fastify, CHAT_API.deleteChat, async (req, reply) => {
 		const { chatId } = req.params as Static<typeof ChatParamsSchema>;
 		const userId = currentUser().id;

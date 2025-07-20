@@ -7,7 +7,7 @@ import { AGENT_API } from '#shared/agent/agent.api';
 import { NotAllowed, NotFound } from '#shared/errors';
 import { registerApiRoute } from '../routeUtils';
 
-export async function resumeAgentErrorRoute(fastify: AppFastifyInstance) {
+export async function resumeAgentErrorRoute(fastify: AppFastifyInstance): Promise<void> {
 	/** Resumes an agent in the error state */
 	registerApiRoute(fastify, AGENT_API.resumeError, async (req, reply) => {
 		const { agentId, executionId, feedback } = req.body;

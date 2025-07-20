@@ -9,7 +9,7 @@ import type { ChatParamsSchema, RegenerateMessageSchema } from '#shared/chat/cha
 import type { LLM, LlmMessage, UserContentExt } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 
-export async function regenerateMessageRoute(fastify: AppFastifyInstance) {
+export async function regenerateMessageRoute(fastify: AppFastifyInstance): Promise<void> {
 	registerApiRoute(fastify, CHAT_API.regenerateMessage, async (req, reply) => {
 		const { chatId } = req.params as Static<typeof ChatParamsSchema>;
 		const { userContent, llmId, historyTruncateIndex, options } = req.body as Static<typeof RegenerateMessageSchema>;

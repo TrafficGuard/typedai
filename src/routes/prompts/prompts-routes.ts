@@ -19,7 +19,7 @@ import type {
 } from '#shared/prompts/prompts.schema';
 import { currentUser } from '#user/userContext';
 
-export async function promptRoutes(fastify: AppFastifyInstance) {
+export async function promptRoutes(fastify: AppFastifyInstance): Promise<void> {
 	/**
 	 * List all prompts for the current user.
 	 */

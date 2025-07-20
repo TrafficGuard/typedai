@@ -5,7 +5,7 @@ import type { AgentContext } from '#shared/agent/agent.model';
 import { Slack } from '#slack/slack';
 import { beep } from '#utils/beep';
 
-export async function waitForConsoleInput(agent: AgentContext, humanInLoopReason: string) {
+export async function waitForConsoleInput(agent: AgentContext, humanInLoopReason: string): Promise<void> {
 	await withSpan('consoleHumanInLoop', async () => {
 		const rl = readline.createInterface({
 			input: process.stdin,
@@ -39,7 +39,7 @@ export async function waitForConsoleInput(agent: AgentContext, humanInLoopReason
 	});
 }
 
-export async function notifySupervisor(agent: AgentContext, message: string) {
+export async function notifySupervisor(agent: AgentContext, message: string): Promise<void> {
 	const slackConfig = agent.user.functionConfig[Slack.name];
 	// TODO check for env vars
 	if (slackConfig?.webhookUrl || slackConfig?.token) {
@@ -51,6 +51,6 @@ export async function notifySupervisor(agent: AgentContext, message: string) {
 	}
 }
 
-export async function humanInTheLoop(agent: AgentContext, reason: string) {
+export async function humanInTheLoop(agent: AgentContext, reason: string): Promise<void> {
 	await waitForConsoleInput(agent, reason);
 }

@@ -2,7 +2,7 @@ import { llms } from '#agent/agentContextLocalStorage';
 import { buildPrompt } from '#swe/prompt';
 
 // work in progress
-export async function getTestRequirements(requirements: string, implementationRequirements: string, branchDiff: string) {
+export async function getTestRequirements(requirements: string, implementationRequirements: string, branchDiff: string): Promise<any> {
 	const prompt = buildPrompt({
 		information: `<git-branch-diff>branchDiff</git-branch-diff><user-requirements>${requirements}</user-requirements>\n<implementation-requirements>${implementationRequirements}</implementation-requirements>\n`,
 		requirements: 'Generate requirements for the creating/updating of tests to cover behaviours added/changed by the implementation requirements',

@@ -5,7 +5,7 @@ import { logger } from '#o11y/logger';
 import { registerApiRoute } from '#routes/routeUtils';
 import { AUTH_API } from '#shared/auth/auth.api';
 
-export async function signUpRoute(fastify: AppFastifyInstance) {
+export async function signUpRoute(fastify: AppFastifyInstance): Promise<void> {
 	registerApiRoute(fastify, AUTH_API.signUp, async (req, reply) => {
 		try {
 			const user = await fastify.userService.createUserWithPassword(req.body.email, req.body.password);

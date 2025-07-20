@@ -9,7 +9,7 @@ import { isExecuting } from '#shared/agent/agent.model';
 import { NotAllowed, NotFound } from '#shared/errors';
 import { registerApiRoute } from '../routeUtils';
 
-export async function agentExecutionRoutes(fastify: AppFastifyInstance) {
+export async function agentExecutionRoutes(fastify: AppFastifyInstance): Promise<void> {
 	/** Forcibly stop an agent */
 	registerApiRoute(fastify, AGENT_API.forceStop, async (req, reply) => {
 		const { agentId } = req.body;

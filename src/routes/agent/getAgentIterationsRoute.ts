@@ -6,7 +6,7 @@ import type { AutonomousIteration } from '#shared/agent/agent.model';
 import { NotAllowed, NotFound } from '#shared/errors';
 import { registerApiRoute } from '../routeUtils';
 
-export async function getAgentIterationsRoute(fastify: AppFastifyInstance) {
+export async function getAgentIterationsRoute(fastify: AppFastifyInstance): Promise<void> {
 	// Endpoint to get iterations for an agent
 	registerApiRoute(fastify, AGENT_API.getIterations, async (req, reply) => {
 		const { agentId } = req.params;

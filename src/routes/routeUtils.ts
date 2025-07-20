@@ -66,7 +66,7 @@ export function registerApiRoute<
 			TSuccessResponsePayload // Explicitly types payload for reply.sendJSON()
 		>,
 	) => void,
-) {
+): void {
 	// The schema object to pass to Fastify's options.
 	// Its type is RouteSchemaConfig<...> which is compatible with Fastify's expected schema type.
 	const fastifySchemaOptions = { schema: route.schema };

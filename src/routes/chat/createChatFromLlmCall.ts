@@ -7,7 +7,7 @@ import type { Chat } from '#shared/chat/chat.model';
 import type { CreateChatFromLlmCallSchema } from '#shared/chat/chat.schema';
 import { currentUser } from '#user/userContext';
 
-export function createChatFromLlmCallRoute(fastify: AppFastifyInstance) {
+export function createChatFromLlmCallRoute(fastify: AppFastifyInstance): void {
 	registerApiRoute(fastify, CHAT_API.createChatFromLlmCall, async (req, reply) => {
 		const { llmCallId } = req.body;
 

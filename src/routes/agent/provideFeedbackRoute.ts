@@ -7,7 +7,7 @@ import { AGENT_API } from '#shared/agent/agent.api';
 import { NotAllowed, NotFound } from '#shared/errors';
 import { registerApiRoute } from '../routeUtils';
 
-export async function provideFeedbackRoute(fastify: AppFastifyInstance) {
+export async function provideFeedbackRoute(fastify: AppFastifyInstance): Promise<void> {
 	/** Provides feedback to an agent */
 	registerApiRoute(fastify, AGENT_API.feedback, async (req, reply) => {
 		const { agentId, feedback, executionId } = req.body;

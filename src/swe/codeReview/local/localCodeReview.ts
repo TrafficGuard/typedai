@@ -11,7 +11,7 @@ import { allSettledAndFulFilled, settleAllWithInput } from '#utils/async-utils';
 /**
  * Performs a code review of a local branch
  */
-export async function performLocalBranchCodeReview() {
+export async function performLocalBranchCodeReview(): Promise<void> {
 	const git = new Git();
 	await checkInvalidBranch();
 

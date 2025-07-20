@@ -4,7 +4,7 @@ import { logger } from '#o11y/logger';
 import { registerApiRoute } from '#routes/routeUtils';
 import { CODE_REVIEW_API } from '#shared/codeReview/codeReview.api';
 
-export async function updateCodeReviewRoute(fastify: AppFastifyInstance) {
+export async function updateCodeReviewRoute(fastify: AppFastifyInstance): Promise<void> {
 	registerApiRoute(fastify, CODE_REVIEW_API.update, async (request, reply) => {
 		const { id } = request.params;
 		const config = request.body;

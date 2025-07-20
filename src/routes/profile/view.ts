@@ -4,7 +4,7 @@ import { USER_API } from '#shared/user/user.api';
 import type { User, UserProfile } from '#shared/user/user.model';
 import { currentUser } from '#user/userContext';
 
-export async function viewProfileRoute(fastify: AppFastifyInstance) {
+export async function viewProfileRoute(fastify: AppFastifyInstance): Promise<void> {
 	registerApiRoute(fastify, USER_API.view, async (req, reply) => {
 		const user: User = currentUser();
 

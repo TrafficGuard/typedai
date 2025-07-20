@@ -8,7 +8,7 @@ import { AgentContextApi } from '#shared/agent/agent.schema';
 import { NotAllowed, NotFound } from '#shared/errors';
 import { registerApiRoute } from '../routeUtils';
 
-export async function getAgentDetailsRoute(fastify: AppFastifyInstance) {
+export async function getAgentDetailsRoute(fastify: AppFastifyInstance): Promise<void> {
 	registerApiRoute(fastify, AGENT_API.details, async (req, reply) => {
 		const { agentId } = req.params;
 		try {

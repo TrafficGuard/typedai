@@ -169,7 +169,7 @@ export function span<T extends (...args: any[]) => any>(
 	};
 }
 
-export function setFunctionSpanAttributes(span: Span, functionName: string, attributeExtractors, args) {
+export function setFunctionSpanAttributes(span: Span, functionName: string, attributeExtractors, args): void {
 	for (const [attribute, extractor] of Object.entries(attributeExtractors)) {
 		if (typeof extractor === 'number') {
 			const value = args[extractor] ?? '';

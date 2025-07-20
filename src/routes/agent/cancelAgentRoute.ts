@@ -7,7 +7,7 @@ import { AGENT_API } from '#shared/agent/agent.api';
 import { NotAllowed, NotFound } from '#shared/errors';
 import { registerApiRoute } from '../routeUtils';
 
-export async function cancelAgentRoute(fastify: AppFastifyInstance) {
+export async function cancelAgentRoute(fastify: AppFastifyInstance): Promise<void> {
 	// Cancels an agent and sets it to the completed state
 	registerApiRoute(fastify, AGENT_API.cancel, async (req, reply) => {
 		const { agentId, executionId, reason } = req.body;

@@ -2,7 +2,7 @@
  * Registers uncaughtException and unhandledRejection event handlers for Node.js applications.
  * @param terminateOnError
  */
-export function registerErrorHandlers(terminateOnError = false) {
+export function registerErrorHandlers(terminateOnError = false): void {
 	// 1. Uncaught Exception Handler
 	process.on('uncaughtException', (err, origin) => {
 		console.error('------------------------------------');

@@ -5,7 +5,7 @@ import { createGoogleVectorService } from '../swe/vector/google/vectorStoreFacto
 
 const logger = pino({ name: 'MainSearchScript' });
 
-export async function main() {
+export async function main(): Promise<void> {
 	const args = process.argv.slice(2); // Remove 'node' and script path
 
 	if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
@@ -77,7 +77,7 @@ export async function main() {
 	}
 }
 
-export function printUsage() {
+export function printUsage(): void {
 	console.log(`
 Usage: node dist/swe/search/index.js <command> [options]
 

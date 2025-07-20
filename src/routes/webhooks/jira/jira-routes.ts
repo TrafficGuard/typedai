@@ -19,7 +19,7 @@ const basePath = '/api/webhooks';
 
 const COMMENT_ACTION = '/@ai ';
 
-export async function jiraRoutes(fastify: AppFastifyInstance) {
+export async function jiraRoutes(fastify: AppFastifyInstance): Promise<void> {
 	// See https://developer.atlassian.com/server/jira/platform/webhooks/
 	fastify.post(
 		`${basePath}/jira`,

@@ -11,7 +11,7 @@ import { registerApiRoute } from '../routeUtils';
 // We only want to show agents that are genuinely active and not in a terminal state.
 const TERMINAL_STATES = ['completed', 'error', 'cancelled'];
 
-export async function listRunningAgentsRoute(fastify: AppFastifyInstance) {
+export async function listRunningAgentsRoute(fastify: AppFastifyInstance): Promise<void> {
 	registerApiRoute(fastify, AGENT_API.listRunning, async (req, reply) => {
 		try {
 			const runningAgentIds = Object.keys(agentExecutions);

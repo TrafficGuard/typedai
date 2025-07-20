@@ -41,7 +41,7 @@ async function resumeAgent(resumeAgentId: string, initialPrompt: string) {
 	}
 }
 
-export async function main() {
+export async function main(): Promise<void> {
 	registerErrorHandlers();
 	await initApplicationContext();
 	const llms = defaultLLMs();

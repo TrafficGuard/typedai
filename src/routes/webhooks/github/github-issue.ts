@@ -11,7 +11,7 @@ import { logger } from '#o11y/logger';
 import { CodeFunctions } from '#swe/codeFunctions';
 import { getAgentUser } from '../webhookAgentUser';
 
-export async function handleGitHubIssueEvent(payload: any, fastify: AppFastifyInstance) {
+export async function handleGitHubIssueEvent(payload: any, fastify: AppFastifyInstance): Promise<void> {
 	const repositoryFullName = payload.repository?.full_name || 'unknown repository';
 	const issueNumber = payload.issue?.number;
 	const issueTitle = payload.issue?.title;

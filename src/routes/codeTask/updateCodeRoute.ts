@@ -6,7 +6,7 @@ import type { UpdateCodeReviewData } from '#shared/codeTask/codeTask.model';
 import { currentUser } from '#user/userContext';
 import { registerApiRoute } from '../routeUtils';
 
-export async function updateCodeRoute(fastify: AppFastifyInstance) {
+export async function updateCodeRoute(fastify: AppFastifyInstance): Promise<void> {
 	const codeTaskService = new CodeTaskServiceImpl(fastify.codeTaskRepository);
 
 	registerApiRoute(fastify, CODE_TASK_API.updateCode, async (request, reply) => {

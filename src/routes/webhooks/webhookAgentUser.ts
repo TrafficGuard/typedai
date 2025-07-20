@@ -1,11 +1,12 @@
 import { appContext } from '#app/applicationContext';
 import { logger } from '#o11y/logger';
+import { User } from '#shared/user/user.model';
 import { envVar } from '#utils/env-var';
 
 /**
  * @returns the user to run the agent as
  */
-export async function getAgentUser() {
+export async function getAgentUser(): Promise<User> {
 	const userService = appContext().userService;
 	let email = (process.env.TYPEDAI_AGENT_EMAIL ?? '').trim();
 	if (!email && process.env.AUTH === 'single_user') email = envVar('SINGLE_USER_EMAIL');
