@@ -1,9 +1,9 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { catchError, tap, EMPTY, Observable } from 'rxjs';
+import { catchError, tap, EMPTY } from 'rxjs';
 
 import { createApiEntityState } from '#core/state/api-entity-state.helper';
-import { CODE_EDIT_API, type FilesContentResponse } from '#shared/codeEdit/codeEdit.api';
+import { CODE_EDIT_API } from '#shared/codeEdit/codeEdit.api';
 import { callApiRoute } from '#core/api-route';
 import { FileSystemNode } from '#shared/files/fileSystemService';
 
@@ -52,16 +52,5 @@ export class CodeEditService {
 			)
 			// Subscribe to execute the entire observable chain.
 			.subscribe();
-	}
-
-	/**
-	 * Fetches the content for a given list of file paths.
-	 * @param filePaths An array of file paths to fetch content for.
-	 * @returns An Observable that emits an object mapping file paths to their content.
-	 */
-	getFilesContent(filePaths: string[]): Observable<FilesContentResponse> {
-		return callApiRoute(this.httpClient, CODE_EDIT_API.getFilesContent, {
-			body: { filePaths },
-		});
 	}
 }
