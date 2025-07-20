@@ -1,5 +1,5 @@
 import type { AppFastifyInstance } from '#app/applicationTypes';
-import { sendServerError } from '#fastify/responses';
+import { sendNotFound, sendServerError } from '#fastify/responses';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { CODE_EDIT_API } from '#shared/codeEdit/codeEdit.api';
 import { registerApiRoute } from '../routeUtils';

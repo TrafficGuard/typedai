@@ -3,7 +3,53 @@
         <as-split-area *ngIf="showFilePanels()" [size]="25" [minSize]="20" [maxSize]="50">
             <div class="panel-content">
                 <h3 class="text-lg font-semibold mb-2">File Tree</h3>
-                <div class="placeholder">File Tree Placeholder</div>
+                @switch (treeState().status) {
+                    @case ('loading') {
+                        <div class="flex items-center justify-center h-full">
+                            <mat-spinner diameter="40"></mat-spinner>
+                        </div>
+                    }
+                    @case ('error') {
+                        <div class="text-red-500 p-4">
+                            <p>Error loading file tree:</p>
+                            <p class="text-sm">{{ treeState().error?.message }}</p>
+                            <button mat-button color="warn" (click)="codeEditService.getFileSystemTree()">Retry</button>
+                        </div>
+                    }
+                    @case ('success') {
+                        <mat-tree [dataSource]="dataSource" [treeControl]="treeControl" class="file-tree">
+                            <!-- Node with children -->
+                            <mat-nested-tree-node *matTreeNodeDef="let node; when: hasChild">
+                                <div class="mat-tree-node">
+                                    <button mat-icon-button matTreeNodeToggle [attr.aria-label]="'Toggle ' + node.name">
+                                        <mat-icon class="mat-icon-rtl-mirror">
+                                            {{treeControl.isExpanded(node) ? 'expand_more' : 'chevron_right'}}
+                                        </mat-icon>
+                                    </button>
+                                    <mat-icon>folder</mat-icon>
+                                    <span class="node-name">{{node.name}}</span>
+                                </div>
+                                <div [class.tree-node-container-invisible]="!treeControl.isExpanded(node)">
+                                    <ng-container matTreeNodeOutlet></ng-container>
+                                </div>
+                            </mat-nested-tree-node>
+                            <!-- Leaf node -->
+                            <mat-tree-node *matTreeNodeDef="let node">
+                                <div class="mat-tree-node leaf-node">
+                                    <div class="mat-tree-node-toggle-placeholder"></div>
+                                    <mat-icon>insert_drive_file</mat-icon>
+                                    <span class="node-name">{{node.name}}</span>
+                                </div>
+                            </mat-tree-node>
+                        </mat-tree>
+                    }
+                    @case ('not_found') {
+                        <p class="p-4 text-gray-500">File tree could not be found.</p>
+                    }
+                    @case ('idle') {
+                        <!-- Initial state before loading begins -->
+                    }
+                }
             </div>
         </as-split-area>
         <as-split-area>

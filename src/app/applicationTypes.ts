@@ -21,3 +21,7 @@ export interface ApplicationContext {
 }
 
 export interface AppFastifyInstance extends TypeBoxFastifyInstance, ApplicationContext {}
+
+declare module 'fastify' {
+	interface FastifyInstance extends ApplicationContext {}
+}
