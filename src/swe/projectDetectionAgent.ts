@@ -85,7 +85,7 @@ If no projects are found, respond with an empty JSON array [].
 	while (attempts <= maxRetries) {
 		logger.info(`Project detection agent: Attempt ${attempts + 1} of ${maxRetries + 1}`);
 		try {
-			textualProjectInfos = await queryWorkflowWithSearch(projectDetectionQuery, {
+			textualProjectInfos = await queryWorkflowWithSearch(projectDetectionQuery, false, {
 				baseDir: './',
 				compile: [],
 				format: [],

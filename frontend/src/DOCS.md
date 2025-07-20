@@ -1,23 +1,19 @@
-# API schemas
+# Angular code style/design rules
+
+## API schemas
 
 Angular services should always use RouteDefinitions from the shared/api folder when calling server routes.
 
-## Model/schema types
+### Model/schema types
 
 Don't convert a TypeBox schema to a plain interface with `import type { Static } from '@sinclair/typebox';` This is incorrect.
 
 The correct style is to important a plain interface that represents the schema.
 
 
-# Angular Code Guidelines - Use Signals Where Possible
+## Signals - Use Where Possible
 
 You should use signals instead of @Input/@Ouput and observables where possible.
-
-A **signal** is a wrapper around a value that notifies interested consumers when that value changes. Signals can contain any value, from primitives to complex data structures.
-
-You read a signal's value by calling its getter function, which allows Angular to track where the signal is used.
-
-Signals may be either _writable_ or _read-only_.
 
 ### Writable signals
 
@@ -41,8 +37,6 @@ or use the `.update()` operation to compute a new value from the previous one:
 // Increment the count by 1.
 count.update(value => value + 1);
 ```
-
-Writable signals have the type `WritableSignal`.
 
 ### Computed signals
 
@@ -96,11 +90,11 @@ If you set `showCount` to `true` and then read `conditionalCount` again, the der
 
 Note that dependencies can be removed during a derivation as well as added. If you later set `showCount` back to `false`, then `count` will no longer be considered a dependency of `conditionalCount`.
 
-# Reading signals in `OnPush` components
+### Reading signals in `OnPush` components
 
 When you read a signal within an `OnPush` component's template, Angular tracks the signal as a dependency of that component. When the value of that signal changes, Angular automatically [marks](https://v18.angular.dev/api/core/ChangeDetectorRef#markforcheck) the component to ensure it gets updated the next time change detection runs. Refer to the [Skipping component subtrees](https://v18.angular.dev/best-practices/skipping-subtrees) guide for more information about `OnPush` components.
 
-# Effects
+## Effects
 
 Signals are useful because they notify interested consumers when they change. An **effect** is an operation that runs whenever one or more signal values change. You can create an effect with the `effect` function:
 
@@ -183,7 +177,7 @@ When you create an effect, it is automatically destroyed when its enclosing cont
 
 Effects return an `EffectRef` that you can use to destroy them manually, by calling the `.destroy()` method. You can combine this with the `manualCleanup` option to create an effect that lasts until it is manually destroyed. Be careful to actually clean up such effects when they're no longer required.
 
-# Advanced topics
+## Advanced topics
 
 ### Signal equality functions
 
@@ -259,7 +253,7 @@ effect((onCleanup) => {
 
 
 
-# Signal inputs
+## Signal inputs
 
 Signal inputs allow values to be bound from parent components. Those values are exposed using a `Signal` and can change during the lifecycle of your component.
 
@@ -285,8 +279,7 @@ export class MyComp {
 
 An input is automatically recognized by Angular whenever you use the `input` or `input.required` functions as initializer of class members.
 
-## Aliasing an input
-
+### Aliasing an input
 
 Angular uses the class member name as the name of the input. You can alias inputs to change their public name to be different.
 
@@ -298,8 +291,7 @@ class StudentDirective {
 
 This allows users to bind to your input using `[studentAge]`, while inside your component you can access the input values using `this.age`.
 
-## Using in templates
-
+### Using in templates
 
 Signal inputs are read-only signals. As with signals declared via `signal()`, you access the current value of the input by calling the input signal.
 
@@ -316,8 +308,7 @@ An input signal in practice is a trivial extension of signals that you know from
 export class InputSignal<T> extends Signal<T> { ... }
 ```
 
-## Deriving values
-
+### Deriving values
 
 As with signals, you can derive values from inputs using `computed`.
 
@@ -335,7 +326,7 @@ export class MyComp {
 
 Computed signals memoize values. See more details in the dedicated section for computed.
 
-## Monitoring changes
+### Monitoring changes
 
 
 With signal inputs, users can leverage the `effect` function. The function will execute whenever the input changes.
@@ -358,8 +349,7 @@ class MyComp {
 
 The `console.log` function is invoked every time the `firstName` input changes. This will happen as soon as `firstName` is available, and for subsequent changes during the lifetime of `MyComp`.
 
-## Value transforms
-
+### Value transforms
 
 You may want to coerce or parse input values without changing the meaning of the input. Transforms convert the raw value from parent templates to the expected input type. Transforms should be pure functions.
 
@@ -381,7 +371,7 @@ That way, you are only dealing with `boolean` inside your component when calling
 
 **IMPORTANT:** Do not use transforms if they change the meaning of the input, or if they are impure. Instead, use `computed` for transformations with different meaning, or an `effect` for impure code that should run whenever the input changes.
 
-## Why should we use signal inputs and not `@Input()`?
+### Why should we use signal inputs and not `@Input()`?
 
 
 Signal inputs are a reactive alternative to decorator-based `@Input()`.
@@ -397,10 +387,7 @@ In comparison to decorator-based `@Input`, signal inputs provide numerous benefi
 
 
 
-
-
-
-# Model inputs
+## Model inputs
 
 **Model inputs** are a special type of input that enable a component to propagate new values back to another component.
 
@@ -443,7 +430,7 @@ export class CustomCheckbox {
 
 When a component writes a new value into a model input, Angular can propagate the new value back to the component that is binding a value into that input. This is called **two-way binding** because values can flow in both directions.
 
-# Two-way binding with signals
+### Two-way binding with signals
 
 You can bind a writable signal to a model input.
 
@@ -466,7 +453,7 @@ export class UserProfile {
 
 In the above example, the `CustomCheckbox` can write values into its `checked` model input, which then propagates those values back to the `isAdmin` signal in `UserProfile`. This binding keeps that values of `checked` and `isAdmin` in sync. Notice that the binding passes the `isAdmin` signal itself, not the _value_ of the signal.
 
-# Two-way binding with plain properties
+### Two-way binding with plain properties
 
 You can bind a plain JavaScript property to a model input.
 
@@ -489,7 +476,7 @@ export class UserProfile {
 
 In the example above, the `CustomCheckbox` can write values into its `checked` model input, which then propagates those values back to the `isAdmin` property in `UserProfile`. This binding keeps that values of `checked` and `isAdmin` in sync.
 
-# Implicit `change` events
+### Implicit `change` events
 
 When you declare a model input in a component or directive, Angular automatically creates a corresponding output for that model. The output's name is the model input's name suffixed with "Change".
 
@@ -506,13 +493,13 @@ export class CustomCheckbox {
 
 Angular emits this change event whenever you write a new value into the model input by calling its `set` or `update` methods.
 
-# Customizing model inputs
+### Customizing model inputs
 
 You can mark a model input as required or provide an alias in the same way as a standard input.
 
 Model inputs do not support input transforms.
 
-# Differences between `model()` and `input()`
+### Differences between `model()` and `input()`
 
 Both `input()` and `model()` functions are ways to define signal-based inputs in Angular, but they differ in a few ways:
 
@@ -520,12 +507,12 @@ Both `input()` and `model()` functions are ways to define signal-based inputs in
 2.  `ModelSignal` is a `WritableSignal` which means that its value can be changed from anywhere using the `set` and `update` methods. When a new value is assigned, the `ModelSignal` will emit to its output. This is different from `InputSignal` which is read-only and can only be changed through the template.
 3.  Model inputs do not support input transforms while signal inputs do.
 
-# When to use model inputs
+### When to use model inputs
 
 Use model inputs when you want a component to support two-way binding. This is typically appropriate when a component exists to modify a value based on user interaction. Most commonly, custom form controls such as a date picker or combobox should use model inputs for their primary value.
 
 
-# HTTP resource signals
+## HTTP resource signals
 
 ```typescript
 import { Component } from '@angular/core';
@@ -556,7 +543,7 @@ export class ResourceExampleComponent {
 ```
 
 
-# Untagged template literals in expressions
+## Untagged template literals in expressions
 
 Angular 19.2 introduces an improvement related to template literals, previously unsupported in HTML templates. This enhancement simplifies how we combine variables with text in templates.
 
@@ -580,7 +567,7 @@ Starting from version 19.2, Angular allows template literals – a modern string
 
 Instead of using the + operator, we insert variables directly into the string using ${}. This approach is more elegant, improves readability, and makes templates more manageable to maintain, especially for longer or more complex text strings.
 
-# New Features of NgComponentOutlet
+## New Features of NgComponentOutlet
 
 NgComponentOutlet is a directive in Angular that allows the dynamic loading of components at a specified location within an application. In previous versions, its usage was limited to the .ts file. That was the case until Angular 19.1.
 
@@ -645,11 +632,11 @@ With componentInstance, you can:
 - Perform operations on the loaded component, which was more difficult before because NgComponentOutlet did not provide direct access to the instance.
 
 
-# RxJS Interoperability
+## RxJS Interoperability
 
 The `@angular/rxjs-interop` package offers APIs to integrate RxJS and Angular signals.
 
-## Create a signal from an RxJS Observable with `toSignal`
+### Create a signal from an RxJS Observable with `toSignal`
 
 Use the `toSignal` function to create a signal that tracks an Observable's value. It behaves similarly to the `async` pipe in templates but is more flexible and can be used anywhere.
 
@@ -707,7 +694,7 @@ If an Observable used in `toSignal` produces an error, the error is thrown when 
 
 If an Observable used in `toSignal` completes, the signal continues to return its most recently emitted value.
 
-## Create an RxJS Observable from a signal with `toObservable`
+### Create an RxJS Observable from a signal with `toObservable`
 
 Use the `toObservable` utility to create an `Observable` that tracks a signal's value. The signal's value is monitored with an `effect` which emits the value to the Observable when it changes.
 
@@ -749,9 +736,9 @@ Here, only the last value (3) will be logged.
 
 
 
-# Avoid Effects
+## Avoid Effects
 
-## Angular Signals: A Cautious Approach to Effects
+### Angular Signals: A Cautious Approach to Effects
 
 Angular's Signals offer a powerful and reactive way to manage state in your applications.  `Signal effects` are a key part of this system, designed to automatically react to changes in signals and execute side effects. They're primarily used to synchronize the reactive world of signals with the non-reactive world, such as manipulating the DOM or interacting with external APIs.
 
@@ -1005,7 +992,7 @@ export class MyComponent {
 ```
 
 
-# Angular Code Guidelines - API Usage Design Pattern
+## API Usage Design Pattern
 
 This guide establishes patterns for Angular services that interact with APIs, emphasizing:
 - **Minimal component code** - Components only trigger actions and react to state
@@ -1014,7 +1001,7 @@ This guide establishes patterns for Angular services that interact with APIs, em
 - **Non-blocking operations** - Keeping the UI responsive
 - **Flexible navigation** - Components control navigation based on context
 
-## Core Framework Code
+**Core Framework Code**
 
 ### 1. API State Types
 
@@ -1066,7 +1053,7 @@ export const ENTITIES_ROUTES = {
 } as const;
 ```
 
-## Service Implementation Pattern
+### 3. Service Implementation Pattern
 
 Services should:
 1. **Expose only readonly signals** for state
@@ -1211,9 +1198,9 @@ export class EntitiesService {
 }
 ```
 
-## Component Patterns
+### 4. Component Patterns
 
-### List Component
+#### List Component
 
 ```typescript
 // components/entity-list.component.ts
@@ -1304,7 +1291,7 @@ export class EntityListComponent implements OnInit {
 }
 ```
 
-### Create/Edit Component
+#### Create/Edit Component
 
 ```typescript
 // components/entity-form.component.ts
@@ -1414,7 +1401,7 @@ export class EntityFormComponent implements OnInit {
 }
 ```
 
-### Detail Component
+#### Detail Component
 
 ```typescript
 // components/entity-detail.component.ts
@@ -1540,8 +1527,7 @@ Key Principles Summary
    Show appropriate error messages in forms
 
 
-# Angular Code Guidelines - Strictly Typed Forms with Model Derivation
-
+## Strictly Typed Forms with Model Derivation
 
 Use `ModelToFormGroup<T>` in `frontend/src/app/modules/formType.ts` to derive Angular Reactive Form model interfaces from base data models, enhancing type safety, reducing boilerplate, and improving maintainability.
 
@@ -1576,7 +1562,7 @@ export type ModelToFormGroup<T> = {
 *   Object properties in `T` recursively map to `FormGroup<ModelToFormGroup<NestedType>>`.
 *   Array properties in `T` map to `FormArray` containing `FormControl`s (for primitive arrays) or `FormGroup`s (for object arrays).
 
-## Usage Example
+### Usage Example
 
 Illustrates `ModelToFormGroup<T>` with `SettingsAccountComponent` (from `frontend/src/app/modules/profile/account/account.component.ts`) and `UserProfileUpdate` model (from `shared/user/user.model.ts`).
 
@@ -1711,14 +1697,14 @@ export class SettingsAccountComponent implements OnInit {
 }
 ```
 
-## Benefits
+### Benefits
 
 *   **Reduced Boilerplate:** Eliminates manual, repetitive form model interface definitions.
 *   **Enhanced Type Safety:** Compile-time errors if base models change, making derived form types incompatible. Catches issues early.
 *   **Improved Maintainability:** Simplifies keeping form types synchronized with data models.
 *   **Better Developer Experience (DX):** Strong autocompletion and type checking for `FormGroup`, `FormControl`, `.value`, `.getRawValue()`, and `.controls`.
 
-## Updating Existing Forms
+### Updating Existing Forms
 
 Existing form components (e.g., `EntityFormComponent`) should be updated to use `ModelToFormGroup<T>`.
 
@@ -1744,3 +1730,99 @@ Existing form components (e.g., `EntityFormComponent`) should be updated to use 
 // // } as EntityFormModel); // Type assertion
 ```
 **Note on Path Aliases:** This guide assumes TypeScript path aliases (e.g., `#shared/*`) are configured in `tsconfig.json` for cleaner import paths.
+
+
+## Page Objects and testing
+
+###  FILE STRUCTURE & NAMING  
+    1.  Component, PO and spec live side-by-side:  
+        `foo.component.ts | foo.component.html | foo.component.po.ts | foo.component.spec.ts`.  
+    2.  PO class ends with `Po`; spec keeps component name.  
+    3.  Specs import *stand-alone* component (not its module).  
+    4.  Every PO extends `BasePo<TComponent>`; no third inheritance level.
+
+###  ELEMENT LOCATORS  
+    1.  Expose elements via unique `data-testid` or ARIA role.  
+    2.  Selectors stay in a single readonly map in the PO.  
+    3.  Never chain deep CSS, positional selectors, or class names.  
+    4.  If you need a new hook → add it to the template first.
+
+###  USE HARNESS FIRST  
+    –  Interact with Material / CDK widgets through their test harnesses.  
+    –  Drop to `DebugElement` / native element only when no harness exists.
+
+###  PAGE-OBJECT API DESIGN  
+    1.  Split into *queries* (pure getters) and *actions* (user gestures).  
+    2.  No `expect` inside the PO.  
+    3.  Actions return `Promise<void>` and call `await this.detectAndWait()` internally.  
+    4.  Methods are parameterised – the spec owns the data.  
+    5.  Keep method names business-oriented (`sendInvoice()`, not `clickButton()`).
+
+###  FACTORY & BASE CLASS  
+    ```ts
+    static async create(fix: ComponentFixture<T>): Promise<FooPo> {
+        const po = new FooPo(fix);
+        await po.detectAndWait();   // waits for CD + stability
+        return po;
+    }
+    ```  
+    The base class offers helpers: `click(id)`, `value(id)`, `has(id)`…
+
+###  COMPOSITION & SIZE  
+    1.  Break big screens into smaller “component-objects”; compose them in the page.  
+    2.  If a PO grows beyond ~250 lines, split it.
+
+###  ASYNCHRONY & ANIMATIONS  
+    1.  All PO methods are `async`; tests always `await`.  
+    2.  Add `NoopAnimationsModule` to disable animations.  
+    3.  Prefer harness wait-helpers; use `fakeAsync`/`tick` only for explicit timer tests.  
+    4.  Provide `waitFor(fn)` helper (poll until clause passes) for exotic cases.
+
+###  SPEC STYLE  
+    1.  Use GIVEN / WHEN / THEN blocks separated by blank lines.  
+    2.  One user scenario per `it()`.  
+    3.  Keep assertions readable; add `.withContext()` where failure could be vague.  
+    4.  Spy with `and.callThrough()` to keep original behaviour.
+
+###  COMMON RERACTORING RULES  
+    –  If a PO method contains “and” → split.  
+    –  Re-use component-objects across pages (e.g., `NavbarPo`).  
+    –  Remove dead selectors immediately (they bloat tests fast).
+
+###  EXAMPLE BLUEPRINT  
+
+```ts
+// chat.component.po.ts
+export class ChatPo extends BasePo<ChatComponent> {
+  /* selectors */
+  private readonly id = {
+    input : 'chat-input',
+    send  : 'chat-send',
+    row   : 'chat-row',
+  } as const;
+
+  /* queries */
+  async messageCount(): Promise<number> {
+    return (await this.all(this.id.row)).length;
+  }
+
+  value() { return this.valueOf(this.id.input); }
+
+  /* actions */
+  async type(v: string) {
+    await (await this.harness(MatInputHarness, {selector: `[data-testid="${this.id.input}"]`})).setValue(v);
+    await this.detectAndWait();
+  }
+
+  async clickSend() { await this.click(this.id.send); }
+
+  async send(v: string) { await this.type(v); await this.clickSend(); }
+
+  /* factory */
+  static async create(fix: ComponentFixture<ChatComponent>) {
+    const po = new ChatPo(fix);
+    await po.detectAndWait();
+    return po;
+  }
+}
+```
