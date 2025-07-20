@@ -182,3 +182,93 @@
 		padding: 0 8px 0 0;
 	}
 }
+:host {
+	display: block;
+	height: 100%;
+}
+
+.code-edit-container {
+	height: 100%;
+}
+
+.panel-content {
+	padding: 1rem;
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden; // Prevent padding from causing scrollbars
+}
+
+.file-tree {
+	flex-grow: 1;
+	overflow: auto;
+	background: transparent;
+}
+
+.mat-tree-node {
+	display: flex;
+	align-items: center;
+	min-height: 40px;
+	padding-right: 8px;
+	border-radius: 4px;
+	cursor: pointer;
+
+	&.leaf-node {
+		font-weight: normal;
+	}
+
+	&.selected {
+		background-color: var(--fuse-primary-50, rgba(25, 118, 210, 0.08));
+	}
+
+	.mat-icon {
+		margin-right: 8px;
+	}
+
+	.node-checkbox {
+		margin-right: 4px;
+	}
+
+	.node-name {
+		flex-grow: 1;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+}
+
+.mat-tree-node-toggle-placeholder {
+	width: 40px; // same width as the icon button
+}
+
+.tree-node-container-invisible {
+	display: none;
+}
+
+.table-container {
+	flex-grow: 1;
+	overflow: auto;
+	border: 1px solid var(--fuse-border);
+	border-radius: 6px;
+}
+
+.selection-table {
+	width: 100%;
+
+	.mat-mdc-header-cell {
+		font-weight: 600;
+	}
+
+	.mat-mdc-cell {
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		padding-right: 16px;
+	}
+
+	.mat-column-actions {
+		width: 48px; // For the icon button
+		text-align: right;
+		padding: 0 8px 0 0;
+	}
+}
