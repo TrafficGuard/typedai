@@ -29,19 +29,24 @@ export async function jiraRoutes(fastify: AppFastifyInstance): Promise<void> {
 			},
 		},
 		async (req, reply) => {
-			const event = req.body as any;
-			logger.info({ event }, 'Jira webhook');
+			const body = req.body as any;
+			logger.info({ body, rawBody: req.rawBody }, 'Jira webhook');
 
 			const hmacHeader = req.headers['x-hub-signature'];
 			const hmacToken = process.env.JIRA_WEBHOOK_SECRET ?? '';
 
-			const hmac = crypto.createHmac('sha256', hmacToken);
-			hmac.update(req.rawBody);
-			const digest = `sha256=${hmac.digest('hex')}`;
+			try {
+				const hmac = crypto.createHmac('sha256', hmacToken);
+				hmac.update(req.rawBody);
+				const digest = `sha256=${hmac.digest('hex')}`;
 
-			if (hmac && digest !== hmacHeader) {
-				const webhookSecretEnvVarPreview = hmacToken?.length > 4 ? `${hmacToken.slice(0, 4)}...` : hmacToken;
-				logger.info({ hmac, digest, hmacHeader, secretPreview: webhookSecretEnvVarPreview }, 'Jira webhook HMAC verification failed');
+				if (hmac && digest !== hmacHeader) {
+					const webhookSecretEnvVarPreview = hmacToken?.length > 4 ? `${hmacToken.slice(0, 4)}...` : hmacToken;
+					logger.info({ hmac, digest, hmacHeader, secretPreview: webhookSecretEnvVarPreview }, 'Jira webhook HMAC verification failed');
+					return sendBadRequest(reply, 'Verification failed');
+				}
+			} catch (error) {
+				logger.error({ error, hmacHeader, hmacToken }, 'Error in Jira webhook HMAC verification');
 				return sendBadRequest(reply, 'Verification failed');
 			}
 

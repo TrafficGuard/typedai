@@ -1,3 +1,10 @@
+---
+draft: true 
+date: 2024-01-31 
+categories:
+  - Intro
+---
+
 # Diff
  export async function selectFilesAndExtracts(requirements: UserContentExt, projectInfo?: ProjectInfo): Promise<SelectFilesAndExtractsResult> {
 -	const { files: initialSelectedFiles, answer: answerFromInitialQuery } = await queryWithFileSelection2(requirements, projectInfo);
