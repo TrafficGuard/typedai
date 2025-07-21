@@ -96,7 +96,6 @@ async function handlePipelineEvent(event: any) {
 		subtype: 'gitlab-pipeline',
 		agentName: `GitLab ${gitlabId} pipeline`,
 		type: 'autonomous',
-		user: runAsUser,
 		functions: [Git, LiveFiles, GitLab, CodeEditingAgent, Perplexity, FileSystemTree, FileSystemList],
 	});
 	// }
