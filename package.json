@@ -14,6 +14,7 @@
     "agent": "    node --env-file=variables/local.env -r esbuild-register src/cli/agent.ts",
     "chat": "     node --env-file=variables/local.env -r esbuild-register src/cli/chat.ts",
     "codeAgent": "node --env-file=variables/local.env -r esbuild-register src/cli/codeAgent.ts",
+    "commit": "node --env-file=variables/local.env -r esbuild-register src/cli/commit.ts",
     "blueberry": "node --env-file=variables/local.env -r ts-node/register src/cli/blueberry.ts",
     "index": "    node --env-file=variables/local.env -r esbuild-register src/cli/index.ts",
     "easy": "     node --env-file=variables/local.env -r esbuild-register src/cli/easy.ts",
