@@ -3,7 +3,7 @@ import { appContext } from '#app/applicationContext';
 import { DEFAULT_HEALTHCHECK } from '#fastify/fastifyApp';
 import { logger } from '#o11y/logger';
 import { API_ROUTES } from '#shared/routes';
-import { runWithUser } from '#user/userContext';
+import { runAsUser } from '#user/userContext';
 import { getPayloadUserId } from './jwt';
 
 const WEBHOOKS_BASE_PATH = '/api/webhooks/';
@@ -13,7 +13,7 @@ export function singleUserMiddleware(req: FastifyRequest, _res: any, next: () =>
 	const user = appContext().userService.getSingleUser();
 	if (!user) throw new Error('Single user not found');
 	req.user = { userId: user.id, email: user.email };
-	runWithUser(user, () => {
+	runAsUser(user, () => {
 		next();
 	});
 }
@@ -43,7 +43,7 @@ export function jwtAuthMiddleware(req: FastifyRequest, reply: FastifyReply, done
 				email: user.email,
 			};
 
-			runWithUser(user, () => {
+			runAsUser(user, () => {
 				done();
 			});
 		})
@@ -72,7 +72,7 @@ export function googleIapMiddleware(req: FastifyRequest, reply: FastifyReply, ne
 		// Create the user if they don't exist in the database
 		.then((user) => user ?? appContext().userService.createUser({ email: email }))
 		.then((user) => {
-			runWithUser(user, () => {
+			runAsUser(user, () => {
 				next();
 			});
 		})

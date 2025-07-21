@@ -3,7 +3,9 @@ import { appContext } from '#app/applicationContext';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { GitHub } from '#functions/scm/github';
 import { logger } from '#o11y/logger';
+import { runAsUser } from '#user/userContext';
 import { envVar } from '#utils/env-var';
+import { getAgentUser } from '../webhookAgentUser';
 import { handleGitHubIssueEvent } from './github-issue';
 
 interface WorkflowRunPayload {
@@ -51,28 +53,31 @@ export async function githubRoutes(fastify: AppFastifyInstance): Promise<void> {
 				const isValid = verifyGitHubSignature(request);
 				if (!isValid) return reply.code(401).send({ error: 'Unauthorized' });
 
-				// 2. Process GitHub event
-				const eventType = request.headers['x-github-event'];
-				const payload = request.body;
-				logger.info(payload);
+				const user = await getAgentUser();
+				runAsUser(user, async () => {
+					// 2. Process GitHub event
+					const eventType = request.headers['x-github-event'];
+					const payload = request.body;
+					logger.info(payload);
 
-				switch (eventType) {
-					case 'issue_comment':
-						await handleCommentEvent(payload, fastify);
-						break;
-					case 'issues':
-						await handleGitHubIssueEvent(payload, fastify);
-						break;
-					case 'pull_request':
-						await handlePullRequestEvent(payload, fastify);
-						break;
-					case 'workflow_run':
-						await handleWorkflowRunEvent(payload as WorkflowRunPayload, fastify);
-						break;
-					case 'workflow_job':
-						await handleWorkflowJobEvent(payload as WorkflowJobPayload, fastify);
-						break;
-				}
+					switch (eventType) {
+						case 'issue_comment':
+							await handleCommentEvent(payload, fastify);
+							break;
+						case 'issues':
+							await handleGitHubIssueEvent(payload, fastify);
+							break;
+						case 'pull_request':
+							await handlePullRequestEvent(payload, fastify);
+							break;
+						case 'workflow_run':
+							await handleWorkflowRunEvent(payload as WorkflowRunPayload, fastify);
+							break;
+						case 'workflow_job':
+							await handleWorkflowJobEvent(payload as WorkflowJobPayload, fastify);
+							break;
+					}
+				});
 
 				return reply.code(200).send({ status: 'processed' });
 			} catch (error) {

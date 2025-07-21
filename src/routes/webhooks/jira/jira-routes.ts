@@ -14,6 +14,8 @@ import { Perplexity } from '#functions/web/perplexity';
 import { logger } from '#o11y/logger';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { SoftwareDeveloperAgent } from '#swe/softwareDeveloperAgent';
+import { runAsUser } from '#user/userContext';
+import { getAgentUser } from '../webhookAgentUser';
 
 const basePath = '/api/webhooks';
 
@@ -24,9 +26,10 @@ export async function jiraRoutes(fastify: AppFastifyInstance): Promise<void> {
 	fastify.post(
 		`${basePath}/jira`,
 		{
-			schema: {
-				body: Type.Any(),
+			config: {
+				rawBody: true, // Required for signature validation
 			},
+			schema: { body: Type.Any() },
 		},
 		async (req, reply) => {
 			const event: any = req.body;
@@ -50,48 +53,50 @@ export async function jiraRoutes(fastify: AppFastifyInstance): Promise<void> {
 				return sendBadRequest(reply, 'Verification failed');
 			}
 
-			// Check if this is a comment event
-			if (event.webhookEvent === 'comment_created') {
-				const commentBody = event.comment.body;
+			const user = await getAgentUser();
+			const response: () => void = await runAsUser(user, async (): Promise<() => void> => {
+				// Check if this is a comment event
+				if (event.webhookEvent === 'comment_created') {
+					const commentBody = event.comment.body;
 
-				// Check if the comment contains our command
-				if (commentBody.includes(COMMENT_ACTION)) {
-					// Get issue details
-					const issueKey = event.issue.key;
-					const commentId = event.comment.id;
-					const authorName = event.comment.author.displayName;
-					const summary = event.issue.fields.summary;
-					// get the user who made the comment from their email
-					const userService = appContext().userService;
+					// Check if the comment contains our command
+					if (commentBody.includes(COMMENT_ACTION)) {
+						// Get issue details
+						const issueKey = event.issue.key;
+						const commentId = event.comment.id;
+						const authorName = event.comment.author.displayName;
+						const summary = event.issue.fields.summary;
+						// get the user who made the comment from their email
+						const userService = appContext().userService;
 
-					let user = await userService.getUserByEmail(event.comment.author.emailAddress);
-					if (!user) {
-						if (process.env.AUTH === 'google_iap') {
-							user = await userService.createUser({ name: authorName, email: event.comment.author.emailAddress, enabled: true });
-						} else {
-							logger.error(`User ${authorName} not found`);
-							return sendBadRequest(reply, 'User not found');
+						let user = await userService.getUserByEmail(event.comment.author.emailAddress);
+						if (!user) {
+							if (process.env.AUTH === 'google_iap') {
+								user = await userService.createUser({ name: authorName, email: event.comment.author.emailAddress, enabled: true });
+							} else {
+								logger.error(`User ${authorName} not found`);
+								return () => sendBadRequest(reply, 'User not found');
+							}
 						}
-					}
 
-					const jira = new Jira();
-					const issue = await jira.getJiraDetails(issueKey);
+						const jira = new Jira();
+						const issue = await jira.getJiraDetails(issueKey);
 
-					const prompt = `You (AI agent) have been tagged on a comment on issue: \n ${issue} \n. 
+						const prompt = `You (AI agent) have been tagged on a comment on issue: \n ${issue} \n. 
 					The comment you have been tagged in is: \n ${commentBody}. \n \n 
 					Please take appropriate action based on the comment. If you need additional information or context, please post a comment on the Jira issue.`;
 
-					await startAgent({
-						initialPrompt: prompt,
-						subtype: 'jira-comment',
-						agentName: `Jira ${issueKey} comment (${summary})`,
-						type: 'autonomous',
-						user,
-						functions: [Jira, SoftwareDeveloperAgent, Perplexity, GoogleCloud], // CodeEditingAgent, GitLab, Git, FileSystemTree, FileSystemList,
-					});
+						await startAgent({
+							initialPrompt: prompt,
+							subtype: 'jira-comment',
+							agentName: `Jira ${issueKey} comment (${summary})`,
+							type: 'autonomous',
+							user,
+							functions: [Jira, SoftwareDeveloperAgent, Perplexity, GoogleCloud], // CodeEditingAgent, GitLab, Git, FileSystemTree, FileSystemList,
+						});
+					}
 				}
-			}
-
+			});
 			/*
              {
                 "timestamp"
@@ -114,7 +119,8 @@ export async function jiraRoutes(fastify: AppFastifyInstance): Promise<void> {
 			const self = event.comment.self;
 			const commentBody = event.comment.body;
 
-			send(reply, 200);
+			if (response) response();
+			else send(reply, 200);
 		},
 	);
 }

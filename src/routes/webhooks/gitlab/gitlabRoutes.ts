@@ -15,6 +15,7 @@ import { Perplexity } from '#functions/web/perplexity';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
+import { runAsUser } from '#user/userContext';
 import { envVar } from '#utils/env-var';
 import { envVarHumanInLoopSettings } from '../../../cli/cliHumanInLoop';
 import { getAgentUser } from '../webhookAgentUser';
@@ -27,18 +28,13 @@ export async function gitlabRoutes(fastify: AppFastifyInstance): Promise<void> {
 	});
 
 	// See https://docs.gitlab.com/ee/user/project/integrations/webhook_events.html#merge-request-events
-	fastify.post(
-		`${basePath}/gitlab`,
-		{
-			schema: {
-				body: Type.Object({}, { additionalProperties: true }),
-			},
-		},
-		async (req, reply) => {
-			const event = req.body as any;
-			const objectKind = event.object_kind;
-			logger.info(event, `Gitlab webhook ${objectKind}`);
+	fastify.post(`${basePath}/gitlab`, { schema: { body: Type.Object({}, { additionalProperties: true }) } }, async (req, reply) => {
+		const event = req.body as any;
+		const objectKind = event.object_kind;
+		logger.info(event, `Gitlab webhook ${objectKind}`);
 
+		const user = await getAgentUser();
+		runAsUser(user, async () => {
 			switch (objectKind) {
 				case 'pipeline':
 					await handlePipelineEvent(event);
@@ -47,10 +43,10 @@ export async function gitlabRoutes(fastify: AppFastifyInstance): Promise<void> {
 					await handleMergeRequestEvent(event);
 					break;
 			}
+		});
 
-			send(reply, 200);
-		},
-	);
+		send(reply, 200);
+	});
 }
 
 /**
@@ -58,7 +54,6 @@ export async function gitlabRoutes(fastify: AppFastifyInstance): Promise<void> {
  * @param event
  */
 async function handlePipelineEvent(event: any) {
-	const runAsUser = await getAgentUser();
 	const gitRef = event.ref;
 	const fullProjectPath = event.project.path_with_namespace;
 	const user = event.user;
