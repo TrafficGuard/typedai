@@ -5,7 +5,7 @@ import { CODE_TASK_API } from '#shared/codeTask/codeTask.api';
 import { currentUser } from '#user/userContext';
 import { registerApiRoute } from '../routeUtils';
 
-export async function deleteCodeTaskRoute(fastify: AppFastifyInstance) {
+export async function deleteCodeTaskRoute(fastify: AppFastifyInstance): Promise<void> {
 	const codeTaskService = new CodeTaskServiceImpl(fastify.codeTaskRepository);
 
 	registerApiRoute(fastify, CODE_TASK_API.delete, async (request, reply) => {

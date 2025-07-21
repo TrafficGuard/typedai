@@ -74,6 +74,13 @@ export interface AgentExecution {
 export const agentExecutions: Record<string, AgentExecution> = {};
 
 /**
+ * The agents that are in a human-in-the-loop check to continue
+ * Key: agentId
+ * Value: reason for the human-in-the-loop check and a function to resume the agent
+ */
+export const agentHumanInLoop: Record<string, { reason: string; resume: () => void }> = {};
+
+/**
  * Starts a new autonomous agent
  * @param config
  */

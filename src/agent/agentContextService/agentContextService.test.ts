@@ -201,7 +201,7 @@ export function runAgentStateServiceTests(
 	createService: () => AgentContextService,
 	beforeEachHook: () => Promise<void> | void = () => {},
 	afterEachHook: () => Promise<void> | void = () => {},
-) {
+): void {
 	let service: AgentContextService;
 
 	// Mock the function factory to return known classes

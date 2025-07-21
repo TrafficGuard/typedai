@@ -19,7 +19,7 @@ import { resumeAgentHilRoute } from './resumeAgentHilRoute';
 import { startAgentRoute } from './startAgentRoute';
 import { updateAgentFunctionsRoute } from './updateAgentFunctionsRoute';
 
-export async function agentRoutes(fastify: AppFastifyInstance) {
+export async function agentRoutes(fastify: AppFastifyInstance): Promise<void> {
 	await listAgentsRoute(fastify);
 	await listRunningAgentsRoute(fastify);
 	await getAvailableFunctionsRoute(fastify);

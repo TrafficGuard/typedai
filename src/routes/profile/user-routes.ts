@@ -5,7 +5,7 @@ import { USER_API } from '#shared/user/user.api';
 import type { UserProfileUpdate } from '#shared/user/user.model';
 import { viewProfileRoute } from './view';
 
-export async function userRoutes(fastify: AppFastifyInstance) {
+export async function userRoutes(fastify: AppFastifyInstance): Promise<void> {
 	await viewProfileRoute(fastify);
 
 	fastify.post(

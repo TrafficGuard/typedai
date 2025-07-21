@@ -8,7 +8,7 @@ const instance = axios.create({
 	baseURL: `http://${emulatorHost}/`,
 });
 
-export async function resetFirestoreEmulator() {
+export async function resetFirestoreEmulator(): Promise<void> {
 	if (!emulatorHost) console.error('FIRESTORE_EMULATOR_HOST not defined');
 	try {
 		const response = await instance.post('reset');

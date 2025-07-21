@@ -8,7 +8,7 @@ export interface RouteInterface {
 	endpoint: string | string[];
 }
 
-export function loadOnRequestHooks(fastify: FastifyInstance) {
+export function loadOnRequestHooks(fastify: FastifyInstance): void {
 	fastify.addHook('onRequest', (request: any, reply: any, done: () => void) => {
 		const routerMethod = request.routeOptions.method;
 		const routerPath = request.routeOptions.url;

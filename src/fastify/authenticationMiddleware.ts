@@ -52,7 +52,7 @@ export function jwtAuthMiddleware(req: FastifyRequest, reply: FastifyReply, done
 		});
 }
 
-export function googleIapMiddleware(req: FastifyRequest, reply: FastifyReply, next: () => void) {
+export function googleIapMiddleware(req: FastifyRequest, reply: FastifyReply, next: () => void): void {
 	// It would be nicer if the health-check was earlier in the chain. Maybe when nextauthjs integration is done.
 	if (req.raw.url.startsWith(WEBHOOKS_BASE_PATH) || req.raw.url === DEFAULT_HEALTHCHECK) {
 		next();

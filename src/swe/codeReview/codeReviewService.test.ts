@@ -22,7 +22,7 @@ export function runCodeReviewServiceTests(
 		beforeEach?: () => Promise<void> | void;
 		afterEach?: () => Promise<void> | void;
 	} = {},
-) {
+): void {
 	let service: CodeReviewService;
 
 	// --- Test Data ---

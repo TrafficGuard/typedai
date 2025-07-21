@@ -41,7 +41,7 @@ interface WorkflowJobPayload {
 
 const basePath = '/api/webhooks';
 
-export async function githubRoutes(fastify: AppFastifyInstance) {
+export async function githubRoutes(fastify: AppFastifyInstance): Promise<void> {
 	fastify.post(`${basePath}/github`, {
 		config: {
 			rawBody: true, // Required for signature validation
@@ -84,7 +84,7 @@ export async function githubRoutes(fastify: AppFastifyInstance) {
 }
 
 // Placeholder function - implement AI logic here
-export async function handleCommentEvent(payload: any, fastify: AppFastifyInstance) {
+export async function handleCommentEvent(payload: any, fastify: AppFastifyInstance): Promise<void> {
 	const repositoryFullName = payload.repository?.full_name || 'unknown repository';
 	const issueNumber = payload.issue?.number;
 	const issueTitle = payload.issue?.title || 'unknown title';

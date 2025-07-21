@@ -43,6 +43,7 @@ export type TypeBoxFastifyInstance = FastifyInstance<
 	TypeBoxTypeProvider
 >;
 
+// These need to return a Promise otherwise have to call a 'done' function
 export type FastifyRoutes = (fastify: AppFastifyInstance) => Promise<void>;
 
 /** Our Fastify request type used in the application */
@@ -251,9 +252,8 @@ export async function initFastify(config: FastifyConfig): Promise<AppFastifyInst
 
 		return this;
 	});
-
-	registerRoutes(config.routes); // New application routes must be added the config in server.ts
-	await fastifyInstance.register(codeEditRoutes as any);
+	
+	registerRoutes(config.routes); // NOTE: New application routes must be added to the routes array in server.ts
 
 	// All backend API routes start with /api/ so any unmatched at this point is a 404
 	fastifyInstance.get('/api/*', async (request, reply) => {

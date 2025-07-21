@@ -19,7 +19,7 @@ import { updateDesignPromptRoute } from './updateDesignPromptRoute';
 import { updateDesignRoute } from './updateDesignRoute';
 import { updateSelectionPromptRoute } from './updateSelectionPromptRoute';
 
-export async function codeTaskRoutes(fastify: AppFastifyInstance) {
+export async function codeTaskRoutes(fastify: AppFastifyInstance): Promise<void> {
 	await createCodeTaskRoute(fastify);
 	await listCodeTasksRoute(fastify);
 	await getCodeTaskByIdRoute(fastify);

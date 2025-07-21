@@ -32,7 +32,7 @@ function findRepositories(dir: string): string[] {
 
 	return repos;
 }
-export async function workflowRoutes(fastify: AppFastifyInstance) {
+export async function workflowRoutes(fastify: AppFastifyInstance): Promise<void> {
 	// /get
 	// See https://docs.gitlab.com/ee/user/project/integrations/webhook_events.html#merge-request-events
 	fastify.post(

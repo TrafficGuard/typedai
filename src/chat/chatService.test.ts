@@ -56,7 +56,7 @@ export const USER_B: User = {
 	createdAt: new Date(),
 };
 
-export function runChatServiceTests(createService: () => ChatService, beforeEachHook: () => Promise<void> | void = () => {}) {
+export function runChatServiceTests(createService: () => ChatService, beforeEachHook: () => Promise<void> | void = () => {}): void {
 	let service: ChatService;
 
 	async function expectError(promise: Promise<any>, partialMessage?: string) {

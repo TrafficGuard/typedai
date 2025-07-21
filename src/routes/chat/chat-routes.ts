@@ -21,7 +21,7 @@ import type { LLM, LlmMessage, TextPartExt, UserContentExt } from '#shared/llm/l
 import { currentUser } from '#user/userContext';
 import { getMarkdownFormatPrompt } from './chatPromptUtils';
 
-export async function chatRoutes(fastify: AppFastifyInstance) {
+export async function chatRoutes(fastify: AppFastifyInstance): Promise<void> {
 	fastify.get(
 		CHAT_API.getById.pathTemplate,
 		{

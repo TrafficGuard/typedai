@@ -38,14 +38,17 @@ nav:
   - 'Getting stared':
       - 'Setup': setup.md
       - 'AI coder quickstart': code.md
-      - 'CLI tools': cli.md
+      - 'Local server': cli.md
+      - 'CLI commands': cli-commands.md
       - 'Environment variables': environment-variables.md
       - 'Observability / Tracing': observability.md
       - 'LLMs': llms.md
   - Agents:
     - agent-concepts.md
     - autonomous-agents.md
-    - software-engineer.md
+    - Coding Agents:
+      - software-engineer.md
+      - codebase-awareness.md
     - code-review.md
     - examples.md
   - Function Calling:

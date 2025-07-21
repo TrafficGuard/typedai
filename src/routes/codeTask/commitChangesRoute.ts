@@ -6,7 +6,7 @@ import type { CommitChangesData } from '#shared/codeTask/codeTask.model';
 import { currentUser } from '#user/userContext';
 import { registerApiRoute } from '../routeUtils';
 
-export async function commitChangesRoute(fastify: AppFastifyInstance) {
+export async function commitChangesRoute(fastify: AppFastifyInstance): Promise<void> {
 	const codeTaskService = new CodeTaskServiceImpl(fastify.codeTaskRepository);
 
 	registerApiRoute(fastify, CODE_TASK_API.commitChanges, async (request, reply) => {

@@ -40,7 +40,7 @@ const getSamplePromptData = (nameSuffix = ''): Omit<Prompt, 'id' | 'revisionId' 
 	settings: { temperature: 0.5, maxOutputTokens: 100, topK: 40 },
 });
 
-export function runPromptsServiceTests(createService: () => PromptsService, beforeEachHook: () => Promise<void> | void = () => {}) {
+export function runPromptsServiceTests(createService: () => PromptsService, beforeEachHook: () => Promise<void> | void = () => {}): void {
 	let service: PromptsService;
 
 	const runWithTestUserContext = (testFn: () => Promise<void>) => {

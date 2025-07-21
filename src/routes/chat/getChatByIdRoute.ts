@@ -7,7 +7,7 @@ import type { Chat } from '#shared/chat/chat.model';
 import type { ChatParamsSchema } from '#shared/chat/chat.schema';
 import { currentUser } from '#user/userContext';
 
-export async function getChatByIdRoute(fastify: AppFastifyInstance) {
+export async function getChatByIdRoute(fastify: AppFastifyInstance): Promise<void> {
 	registerApiRoute(fastify, CHAT_API.getById, async (req, reply) => {
 		const { chatId } = req.params as Static<typeof ChatParamsSchema>;
 		const userId = currentUser().id;

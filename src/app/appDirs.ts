@@ -10,7 +10,7 @@ export const TYPEDAI_FS = 'TYPEDAI_FS';
 /**
  * @return the directory path where TypedAI stores persistent data (agent specific data etc)
  */
-export function systemDir() {
+export function systemDir(): string {
 	// When deploying TypedAI on a VM with a non-boot persistent disk for storage, or mounting
 	// a Cloud Storage bucket for persistent storage, then set TYPEDAI_SYS_DIR
 	return process.env.TYPEDAI_SYS_DIR || `${process.cwd()}/${typedaiDirName}`;

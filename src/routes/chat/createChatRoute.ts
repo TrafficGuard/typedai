@@ -12,7 +12,7 @@ import { type LLM, type LlmMessage, type TextPartExt, type UserContentExt, conte
 import { currentUser } from '#user/userContext';
 import { getMarkdownFormatPrompt } from './chatPromptUtils';
 
-export async function createChatRoute(fastify: AppFastifyInstance) {
+export async function createChatRoute(fastify: AppFastifyInstance): Promise<void> {
 	registerApiRoute(fastify, CHAT_API.createChat, async (req, reply) => {
 		const { llmId, userContent, options, autoReformat } = req.body as Static<typeof ChatMessageSendSchema>;
 

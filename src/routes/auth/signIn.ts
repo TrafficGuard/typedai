@@ -5,7 +5,7 @@ import { logger } from '#o11y/logger';
 import { registerApiRoute } from '#routes/routeUtils';
 import { AUTH_API } from '#shared/auth/auth.api';
 
-export async function signInRoute(fastify: AppFastifyInstance) {
+export async function signInRoute(fastify: AppFastifyInstance): Promise<void> {
 	registerApiRoute(fastify, AUTH_API.signIn, async (req, reply) => {
 		try {
 			logger.debug(`signin email:${req.body.email}`);

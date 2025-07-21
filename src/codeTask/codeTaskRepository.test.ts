@@ -54,14 +54,12 @@ const createMockPreset = (userId: string, overrides: Partial<CodeTaskPreset> = {
 	};
 };
 
-import type { User } from '#shared/user/user.model';
-
 export function runCodeTaskRepositoryTests(
 	createRepository: () => CodeTaskRepository,
 	beforeEachHook: () => Promise<void> | void,
 	afterEachHook: () => Promise<void> | void,
 	// Removed parameters for currentUserStub and user objects
-) {
+): void {
 	let repo: CodeTaskRepository;
 	// Define fixed user IDs for testing consistency
 	const testUserId = 'test-user-repo-tests';

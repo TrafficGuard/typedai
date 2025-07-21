@@ -8,7 +8,7 @@ import { CHAT_API } from '#shared/chat/chat.api';
 import type { ChatMarkdownRequestSchema, ChatMarkdownResponseModel } from '#shared/chat/chat.schema';
 import { currentUser } from '#user/userContext';
 
-export async function formatAsMarkdownRoute(fastify: AppFastifyInstance) {
+export async function formatAsMarkdownRoute(fastify: AppFastifyInstance): Promise<void> {
 	registerApiRoute(fastify, CHAT_API.formatAsMarkdown, async (req, reply) => {
 		currentUser();
 

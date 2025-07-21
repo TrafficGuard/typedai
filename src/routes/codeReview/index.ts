@@ -5,7 +5,7 @@ import { getCodeReviewByIdRoute } from './getCodeReviewByIdRoute';
 import { listCodeReviewsRoute } from './listCodeReviewsRoute';
 import { updateCodeReviewRoute } from './updateCodeReviewRoute';
 
-export async function codeReviewRoutes(fastify: AppFastifyInstance) {
+export async function codeReviewRoutes(fastify: AppFastifyInstance): Promise<void> {
 	await listCodeReviewsRoute(fastify);
 	await getCodeReviewByIdRoute(fastify);
 	await createCodeReviewRoute(fastify);
