@@ -29,8 +29,8 @@ export async function jiraRoutes(fastify: AppFastifyInstance): Promise<void> {
 			},
 		},
 		async (req, reply) => {
-			const body = req.body as any;
-			logger.info({ body, rawBody: req.rawBody }, 'Jira webhook');
+			const event: any = req.body;
+			logger.info({ body: event, rawBody: req.rawBody }, 'Jira webhook');
 
 			const hmacHeader = req.headers['x-hub-signature'];
 			const hmacToken = process.env.JIRA_WEBHOOK_SECRET ?? '';
@@ -50,26 +50,24 @@ export async function jiraRoutes(fastify: AppFastifyInstance): Promise<void> {
 				return sendBadRequest(reply, 'Verification failed');
 			}
 
-			const webhookEvent: any = req.body;
-
 			// Check if this is a comment event
-			if (webhookEvent.webhookEvent === 'comment_created') {
-				const commentBody = webhookEvent.comment.body;
+			if (event.webhookEvent === 'comment_created') {
+				const commentBody = event.comment.body;
 
 				// Check if the comment contains our command
 				if (commentBody.includes(COMMENT_ACTION)) {
 					// Get issue details
-					const issueKey = webhookEvent.issue.key;
-					const commentId = webhookEvent.comment.id;
-					const authorName = webhookEvent.comment.author.displayName;
-					const summary = webhookEvent.issue.fields.summary;
+					const issueKey = event.issue.key;
+					const commentId = event.comment.id;
+					const authorName = event.comment.author.displayName;
+					const summary = event.issue.fields.summary;
 					// get the user who made the comment from their email
 					const userService = appContext().userService;
 
-					let user = await userService.getUserByEmail(webhookEvent.comment.author.emailAddress);
+					let user = await userService.getUserByEmail(event.comment.author.emailAddress);
 					if (!user) {
 						if (process.env.AUTH === 'google_iap') {
-							user = await userService.createUser({ name: authorName, email: webhookEvent.comment.author.emailAddress, enabled: true });
+							user = await userService.createUser({ name: authorName, email: event.comment.author.emailAddress, enabled: true });
 						} else {
 							logger.error(`User ${authorName} not found`);
 							return sendBadRequest(reply, 'User not found');
