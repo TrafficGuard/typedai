@@ -1,9 +1,10 @@
 import { BaseLLM } from '#llm/base-llm';
 import { getLLM } from '#llm/llmFactory';
 import { FastMediumLLM } from '#llm/multi-agent/fastMedium';
+import { anthropicClaude4_Sonnet } from '#llm/services/anthropic';
 import { Claude4_Opus_Vertex, Claude4_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { deepinfraDeepSeekR1 } from '#llm/services/deepinfra';
-import { openAIo3, openAIo4mini } from '#llm/services/openai';
+import { openAIo3 } from '#llm/services/openai';
 import { vertexGemini_2_5_Pro } from '#llm/services/vertexai';
 import { xai_Grok4 } from '#llm/services/xai';
 import { logger } from '#o11y/logger';
@@ -95,6 +96,23 @@ export function MAD_Vertex(): LLM {
 	);
 }
 
+export function MAD_Anthropic(): LLM {
+	return new ReasonerDebateLLM(
+		'Anthropic',
+		anthropicClaude4_Sonnet,
+		[anthropicClaude4_Sonnet, anthropicClaude4_Sonnet, anthropicClaude4_Sonnet],
+		'MAD:Anthropic multi-agent debate (Sonnet 4 x3)',
+	);
+}
+
+export function MAD_OpenAI(): LLM {
+	return new ReasonerDebateLLM('OpenAI', openAIo3, [openAIo3, openAIo3, openAIo3], 'MAD:OpenAI multi-agent debate (o3 x3)');
+}
+
+export function MAD_Grok(): LLM {
+	return new ReasonerDebateLLM('Grok', xai_Grok4, [xai_Grok4, xai_Grok4, xai_Grok4], 'MAD:Grok multi-agent debate (Grok 4 x3)');
+}
+
 export function MAD_SOTA(): LLM {
 	return new ReasonerDebateLLM(
 		'SOTA',
@@ -103,6 +121,12 @@ export function MAD_SOTA(): LLM {
 		'MAD:SOTA multi-agent debate (Opus 4, o3, Gemini 2.5 Pro, Grok 4)',
 	);
 }
+
+// export function MAD_Hard(): LLM {
+// 	const hardLLM = llms().hard; // cant have a dependancy to agentContextLocalStorage
+// 	const hardFactory = () => hardLLM;
+// 	return new ReasonerDebateLLM('Hard', hardFactory, [hardFactory, hardFactory, hardFactory], `MAD:Hard multi-agent debate (${hardLLM.getDisplayName} x3)`);
+// }
 
 const INITIAL_TEMP = 0.7;
 const DEBATE_TEMP = 0.5;

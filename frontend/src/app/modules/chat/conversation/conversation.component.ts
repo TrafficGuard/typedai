@@ -16,6 +16,7 @@ import {
 	ViewEncapsulation,
 	WritableSignal,
 	computed,
+	effect,
 	inject,
 	signal,
 } from '@angular/core';
@@ -98,20 +99,31 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 	drawerMode: WritableSignal<'over' | 'side'> = signal('side');
 	drawerOpened: WritableSignal<boolean> = signal(false);
 
+	sendIcon: WritableSignal<string> = signal('heroicons_outline:paper-airplane')
+
 	llmsSignal: Signal<LlmInfo[]>;
 	llmId: WritableSignal<string | undefined> = signal(undefined);
-	defaultChatLlmId = computed(() => (this.userService.userProfile() as UserProfile)?.chat?.defaultLLM); // Added UserProfile type
-
-	sendIcon: WritableSignal<string> = signal('heroicons_outline:paper-airplane');
+	defaultChatLlmId = computed(() => (this.userService.userProfile()?.chat?.defaultLLM));
 
 	llmHasThinkingLevels = computed(() => {
-		const currentLlmId = this.llmId();
-		if (!currentLlmId) return false;
-		return (
-			currentLlmId.startsWith('openai:o') || currentLlmId.includes('claude-3-7') || currentLlmId.includes('sonnet-4') || currentLlmId.includes('opus-4') || (currentLlmId.includes('gemini') && currentLlmId.includes('2.5'))
+		const id = this.llmId();
+		return !!id && (
+			   id.startsWith('openai:o')          ||
+			   id.includes('claude-3-7')          ||
+			   id.includes('sonnet-4')            ||
+			   id.includes('opus-4')              ||
+			  (id.includes('gemini') && id.includes('2.5'))
 		);
-	});
-	thinkingIcon: WritableSignal<string> = signal('heroicons_outline:minus-small');
+	  });
+
+	thinkingIcon = computed(() => {
+		switch (this.thinkingLevel()) {
+		  case 'low'   : return 'heroicons_outline:bars-2';
+		  case 'medium': return 'heroicons_outline:bars-3';
+		  case 'high'  : return 'heroicons_outline:bars-4';
+		  default      : return 'heroicons_outline:minus-small';
+		}
+	  });
 	thinkingLevel: WritableSignal<'off' | 'low' | 'medium' | 'high'> = signal('off');
 
 	autoReformatEnabled: WritableSignal<boolean> = signal(false);
@@ -317,6 +329,18 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 				}),
 			)
 			.subscribe();
+
+			/* Any time llmId changes, make sure the level is valid */
+			effect(() => {
+				const supportsThinking = this.llmHasThinkingLevels();
+				const currentLevel     = this.thinkingLevel();
+
+				/* LLM supports thinking ➜ default to HIGH (if user hasn’t already chosen another value). */
+				if (supportsThinking && currentLevel === 'off') this.thinkingLevel.set('high');
+
+				/* LLM does *not* support thinking ➜ force OFF */
+				if (!supportsThinking && currentLevel !== 'off') this.thinkingLevel.set('off');
+			});
 	}
 
 	// -----------------------------------------------------------------------------------------------------
@@ -447,25 +471,18 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 		} else {
 			console.log('updateLlmSelector: Keeping current LLM ID:', currentLlmId);
 		}
-		// this.updateThinkingIcon();
 	}
-
-	// updateThinkingIcon is replaced by computed llmHasThinkingLevels
 
 	toggleThinking(): void {
 		const currentLevel = this.thinkingLevel();
 		if (currentLevel === 'off') {
 			this.thinkingLevel.set('low');
-			this.thinkingIcon.set('heroicons_outline:bars-2');
 		} else if (currentLevel === 'low') {
 			this.thinkingLevel.set('medium');
-			this.thinkingIcon.set('heroicons_outline:bars-3');
 		} else if (currentLevel === 'medium') {
 			this.thinkingLevel.set('high');
-			this.thinkingIcon.set('heroicons_outline:bars-4');
 		} else if (currentLevel === 'high') {
 			this.thinkingLevel.set('off');
-			this.thinkingIcon.set('heroicons_outline:minus-small');
 		}
 	}
 
