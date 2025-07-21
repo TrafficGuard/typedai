@@ -36,9 +36,10 @@ export async function gitlabRoutes(fastify: AppFastifyInstance): Promise<void> {
 		},
 		async (req, reply) => {
 			const event = req.body as any;
-			logger.info(event, `Gitlab webhook ${event.kind}`);
+			const objectKind = event.object_kind;
+			logger.info(event, `Gitlab webhook ${objectKind}`);
 
-			switch (event.kind) {
+			switch (objectKind) {
 				case 'pipeline':
 					await handlePipelineEvent(event);
 					break;
@@ -111,7 +112,7 @@ async function handlePipelineEvent(event: any) {
  * @param event
  */
 async function handleMergeRequestEvent(event: any) {
-	if (event.object_attributes.draft) return;
+	if (event.object_attributes?.draft) return;
 
 	const runAsUser = await getAgentUser();
 

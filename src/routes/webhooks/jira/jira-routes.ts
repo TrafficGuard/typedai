@@ -30,9 +30,9 @@ export async function jiraRoutes(fastify: AppFastifyInstance): Promise<void> {
 		},
 		async (req, reply) => {
 			const event = req.body as any;
+			logger.info({ event }, 'Jira webhook');
 
 			const hmacHeader = req.headers['x-hub-signature'];
-			logger.debug(`HMAC header ${hmacHeader}`);
 			const hmacToken = process.env.JIRA_WEBHOOK_SECRET ?? '';
 
 			const hmac = crypto.createHmac('sha256', hmacToken);
@@ -40,11 +40,10 @@ export async function jiraRoutes(fastify: AppFastifyInstance): Promise<void> {
 			const digest = `sha256=${hmac.digest('hex')}`;
 
 			if (hmac && digest !== hmacHeader) {
-				logger.info('Jira webhook HMAC verification failed');
+				const webhookSecretEnvVarPreview = hmacToken?.length > 4 ? `${hmacToken.slice(0, 4)}...` : hmacToken;
+				logger.info({ hmac, digest, hmacHeader, secretPreview: webhookSecretEnvVarPreview }, 'Jira webhook HMAC verification failed');
 				return sendBadRequest(reply, 'Verification failed');
 			}
-
-			logger.info(event, 'Jira webhook');
 
 			const webhookEvent: any = req.body;
 
