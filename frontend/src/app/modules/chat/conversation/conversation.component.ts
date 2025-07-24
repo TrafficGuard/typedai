@@ -23,6 +23,7 @@ import {
 import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -38,6 +39,7 @@ import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
 import { LocalStorageService } from 'app/core/services/local-storage.service';
 import { UserService } from 'app/core/user/user.service';
 import { ChatInfoComponent } from 'app/modules/chat/chat-info/chat-info.component';
+import { MarkdownFormatDialogComponent } from './markdown-format-dialog/markdown-format-dialog.component';
 import { Chat, ChatMessage, NEW_CHAT_ID } from 'app/modules/chat/chat.types';
 import { Attachment } from 'app/modules/message.types';
 import { MarkdownModule, MarkdownService, MarkedRenderer, provideMarkdown } from 'ngx-markdown';
@@ -68,6 +70,7 @@ const CARET_SCROLL_DELAY = 50;
 		MatSidenavModule,
 		ChatInfoComponent,
 		MatButtonModule,
+		MatDialogModule,
 		MatExpansionModule,
 		MatIconModule,
 		MatMenuModule,
@@ -192,6 +195,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 	private _snackBar = inject(MatSnackBar);
 	private destroyRef = inject(DestroyRef);
 	private _localStorageService = inject(LocalStorageService);
+	private dialog = inject(MatDialog);
 	private routeParamsSignal: Signal<any>;
 
 	constructor() {
@@ -790,6 +794,12 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 			this.sendMessage();
 		}
 
+		// New shortcut for code block formatting
+		if (event.key === '`' && (event.ctrlKey || event.metaKey)) {
+			event.preventDefault();
+			this.openMarkdownFormatDialog();
+		}
+
 		if (event.key === 'm' && event.ctrlKey) {
 			this.llmSelect?.open();
 			this.llmSelect?.focus();
@@ -830,6 +840,49 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 					});
 			}
 		}
+	}
+
+	/**
+	 * Opens a dialog to select a markdown language for a code block.
+	 */
+	private openMarkdownFormatDialog(): void {
+		const dialogRef = this.dialog.open(MarkdownFormatDialogComponent, {
+			width: '300px',
+			autoFocus: 'input',
+		});
+
+		dialogRef.afterClosed().subscribe((language: string | undefined) => {
+			if (language) {
+				this.insertCodeBlock(language);
+			}
+		});
+	}
+
+	/**
+	 * Inserts a markdown code block into the message input at the current caret position.
+	 * @param language The selected language identifier for the code block.
+	 */
+	private insertCodeBlock(language: string): void {
+		const textarea = this.messageInput.nativeElement as HTMLTextAreaElement;
+		const textToInsert = `\`\`\`${language}\n\n\`\`\``;
+		const startPos = textarea.selectionStart;
+		const endPos = textarea.selectionEnd;
+		const currentValue = textarea.value;
+
+		// Insert the code block template
+		textarea.value = currentValue.substring(0, startPos) + textToInsert + currentValue.substring(endPos);
+
+		// Set the caret position to the empty line inside the block
+		const newCaretPosition = startPos + language.length + 4; // Position after ```lang\n
+		textarea.selectionStart = newCaretPosition;
+		textarea.selectionEnd = newCaretPosition;
+
+		// Focus the textarea and trigger a resize to accommodate the new content
+		textarea.focus();
+		this._triggerResizeAndScroll();
+
+		// Update the draft message
+		this.messageInputChanged.next(textarea.value);
 	}
 
 	startRecording(): void {

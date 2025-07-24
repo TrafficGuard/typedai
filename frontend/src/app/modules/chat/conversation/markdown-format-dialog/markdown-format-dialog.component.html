@@ -2,10 +2,23 @@
 
 <mat-dialog-content class="mat-typography">
     <mat-form-field class="w-full">
-        <input matInput [formControl]="searchControl" cdkFocusInitial placeholder="Filter">
+        <input
+            #filterInput
+            matInput
+            [formControl]="searchControl"
+            cdkFocusInitial
+            placeholder="Filter"
+            (keydown.enter)="onEnterKey($event)"
+            (keydown.arrowdown)="focusList()"
+        />
     </mat-form-field>
 
-    <mat-selection-list [multiple]="false" (selectionChange)="onLanguageSelected($event.options[0].value)">
+    <mat-selection-list
+        #languageList
+        [multiple]="false"
+        (keydown.arrowup)="focusFilter($event)"
+        (selectionChange)="onLanguageSelected($event.options[0].value)"
+    >
         @for (language of filteredLanguages$ | async; track language) {
             <mat-list-option [value]="language">
                 {{ language }}
