@@ -7,11 +7,13 @@ import { AGENT_COMPLETED_PARAM_NAME } from '#agent/autonomous/functions/agentFun
 import { runXmlAgent } from '#agent/autonomous/xml/xmlAutonomousAgent';
 import { appContext } from '#app/applicationContext';
 import { FUNC_SEP } from '#functionSchema/functions';
+import { Git } from '#functions/scm/git';
 import { GitHub } from '#functions/scm/github';
 import { logger } from '#o11y/logger';
 import type { AgentCompleted, AgentContext, AgentLLMs, AgentType } from '#shared/agent/agent.model';
 import type { FunctionCallResult } from '#shared/llm/llm.model';
 import type { User } from '#shared/user/user.model';
+import { runAsUser } from '#user/userContext';
 import { errorToString } from '#utils/errors';
 import { CDATA_END, CDATA_START } from '#utils/xml-utils';
 
@@ -116,8 +118,11 @@ async function _startAgent(agent: AgentContext): Promise<AgentExecution> {
 	const metadata = agent.metadata ?? {};
 	const githubProject = metadata.github?.repository;
 	if (githubProject) {
-		const repoPath = await new GitHub().cloneProject(githubProject);
-		agent.fileSystem.setWorkingDirectory(repoPath);
+		runAsUser(agent.user, async () => {
+			const repoPath = await new GitHub().cloneProject(githubProject);
+			agent.fileSystem.setWorkingDirectory(repoPath);
+			if (metadata.github.branch) await new Git().switchToBranch(metadata.github.branch);
+		});
 	}
 
 	switch (agent.subtype) {
