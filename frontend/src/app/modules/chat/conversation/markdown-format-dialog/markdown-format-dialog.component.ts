@@ -38,13 +38,13 @@ export class MarkdownFormatDialogComponent {
     @ViewChild('filterInput') filterInput: ElementRef<HTMLInputElement>;
     @ViewChild('languageList') languageList: MatSelectionList;
 
-    searchControl = new FormControl('');
+    filterControl = new FormControl('');
     filteredLanguages$: Observable<string[]>;
 
     private lastFilteredLanguages: string[] = [];
 
     constructor() {
-        this.filteredLanguages$ = this.searchControl.valueChanges.pipe(
+        this.filteredLanguages$ = this.filterControl.valueChanges.pipe(
             startWith(''),
             map(searchText => this._filter(searchText || '')),
             tap(filtered => (this.lastFilteredLanguages = filtered)),
@@ -70,7 +70,7 @@ export class MarkdownFormatDialogComponent {
     }
 
     focusFilter(event: KeyboardEvent): void {
-        if (this.languageList?.listKeyManager.activeItemIndex === 0) {
+        if (this.languageList?.options.first) {
             event.preventDefault();
             this.filterInput.nativeElement.focus();
         }

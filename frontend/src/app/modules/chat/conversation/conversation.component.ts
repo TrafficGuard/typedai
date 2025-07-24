@@ -794,8 +794,8 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 			this.sendMessage();
 		}
 
-		// New shortcut for code block formatting
-		if (event.key === '`' && (event.ctrlKey || event.metaKey)) {
+		// Open dialog to add a markdown code block
+		if (event.key === '`' && (event.ctrlKey || event.metaKey || event.altKey)) {
 			event.preventDefault();
 			this.openMarkdownFormatDialog();
 		}
