@@ -31,11 +31,6 @@ export class CodeEditPo extends BaseSpecPo<CodeEditComponent> {
 		this.loader = TestbedHarnessEnvironment.loader(this.fix);
 	}
 
-	static async create(fixture: ComponentFixture<CodeEditComponent>): Promise<CodeEditPo> {
-		const po = new CodeEditPo(fixture);
-		await po.detectAndWait();
-		return po;
-	}
 
 	// --- State Queries ---
 
