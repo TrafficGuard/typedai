@@ -11,7 +11,6 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatTableModule } from '@angular/material/table';
 import { Router } from '@angular/router';
-import { ChatServiceClient } from '../chat/chat.service';
 import { catchError, finalize, of, switchMap, tap } from 'rxjs';
 import { FileSystemNode } from '#shared/files/fileSystemService';
 
@@ -36,7 +35,6 @@ export class CodeEditComponent implements OnInit {
 	readonly codeEditService = inject(CodeEditService);
 	private readonly fb = inject(FormBuilder);
 	private readonly router = inject(Router);
-	private readonly chatService = inject(ChatServiceClient);
 
 	readonly treeState = this.codeEditService.treeState;
 	readonly showFilePanels = signal(true);
@@ -132,27 +130,6 @@ export class CodeEditComponent implements OnInit {
 		const instructions = this.instructionForm.value.instructions as string;
 		const files = this.selectedFiles();
 
-		this.codeEditService
-			.getFilesContent(files)
-			.pipe(
-				switchMap((filesContent) => {
-					const fileContentStrings = Object.entries(filesContent).map(
-						([path, content]) => `File: \`${path}\`\n\`\`\`\n${content}\n\`\`\``,
-					);
-					const prompt = `${instructions}\n\n${fileContentStrings.join('\n\n')}`;
-					return this.chatService.createChat(prompt, 'deepseek-coder');
-				}),
-				tap((chat) => {
-					this.router.navigate(['/ui/chat', chat.id]);
-				}),
-				catchError(() => {
-					this.submissionError.set('Failed to create chat. Please try again.');
-					return of(null);
-				}),
-				finalize(() => {
-					this.submitting.set(false);
-				}),
-			)
-			.subscribe();
+		// this.codeEditService.proposeEdits(instructions, files);
 	}
 }
