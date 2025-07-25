@@ -5,9 +5,10 @@ import { MatCheckboxHarness } from '@angular/material/checkbox/testing';
 import { MatInputHarness } from '@angular/material/input/testing';
 import { MatButtonHarness } from '@angular/material/button/testing';
 import { CodeEditComponent } from './code-edit.component';
-import { BasePo } from 'app/testing/base.po';
+import { BaseSpecPo } from 'test/base.po';
 
-export class CodeEditPo extends BasePo<CodeEditComponent> {
+
+export class CodeEditPo extends BaseSpecPo<CodeEditComponent> {
 	protected loader: HarnessLoader;
 
 	private readonly ids = {
