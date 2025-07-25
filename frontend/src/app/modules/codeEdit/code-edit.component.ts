@@ -8,6 +8,11 @@ import { MatTreeModule, MatTreeNestedDataSource } from '@angular/material/tree';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatTableModule } from '@angular/material/table';
+import { Router } from '@angular/router';
+import { ChatServiceClient } from '../chat/chat.service';
+import { catchError, finalize, of, switchMap, tap } from 'rxjs';
 import { FileSystemNode } from '#shared/files/fileSystemService';
 
 @Component({
@@ -21,6 +26,8 @@ import { FileSystemNode } from '#shared/files/fileSystemService';
 		MatIconModule,
 		MatButtonModule,
 		MatProgressSpinnerModule,
+		MatCheckboxModule,
+		MatTableModule,
 	],
 	templateUrl: './code-edit.component.html',
 	styleUrls: ['./code-edit.component.scss'],
@@ -28,10 +35,14 @@ import { FileSystemNode } from '#shared/files/fileSystemService';
 export class CodeEditComponent implements OnInit {
 	readonly codeEditService = inject(CodeEditService);
 	private readonly fb = inject(FormBuilder);
+	private readonly router = inject(Router);
+	private readonly chatService = inject(ChatServiceClient);
 
 	readonly treeState = this.codeEditService.treeState;
 	readonly showFilePanels = signal(true);
 	readonly selectedFiles = signal<string[]>([]);
+	readonly submitting = signal(false);
+	readonly submissionError = signal<string | null>(null);
 
 	instructionForm: FormGroup<{ instructions: FormControl<string> }>;
 
@@ -68,10 +79,80 @@ export class CodeEditComponent implements OnInit {
 		this.showFilePanels.update((v) => !v);
 	}
 
+	private getAllDescendantFiles(node: FileSystemNode): string[] {
+		if (node.type === 'file') {
+			return [node.path];
+		}
+		if (!node.children) {
+			return [];
+		}
+		return node.children.flatMap((child) => this.getAllDescendantFiles(child));
+	}
+
+	descendantsAllSelected(node: FileSystemNode): boolean {
+		const descendantFiles = this.getAllDescendantFiles(node);
+		if (descendantFiles.length === 0) return false;
+		return descendantFiles.every((path) => this.selectedFiles().includes(path));
+	}
+
+	descendantsPartiallySelected(node: FileSystemNode): boolean {
+		const descendantFiles = this.getAllDescendantFiles(node);
+		const selectedCount = descendantFiles.filter((path) => this.selectedFiles().includes(path)).length;
+		return selectedCount > 0 && selectedCount < descendantFiles.length;
+	}
+
+	toggleNodeSelection(node: FileSystemNode): void {
+		const descendantFiles = this.getAllDescendantFiles(node);
+		const allSelected = this.descendantsAllSelected(node);
+
+		this.selectedFiles.update((currentSelection) => {
+			const selectionSet = new Set(currentSelection);
+			if (allSelected) {
+				descendantFiles.forEach((path) => selectionSet.delete(path));
+			} else {
+				descendantFiles.forEach((path) => selectionSet.add(path));
+			}
+			return Array.from(selectionSet);
+		});
+	}
+
+	removeFileFromSelection(path: string): void {
+		this.selectedFiles.update((files) => files.filter((f) => f !== path));
+	}
+
 	onSubmit(): void {
+		this.submissionError.set(null);
 		if (this.instructionForm.invalid) return;
-		const instructions = this.instructionForm.value.instructions;
-		console.log('Submitted instructions:', instructions);
-		// Future: Call a service to process the instructions
+		if (this.selectedFiles().length === 0) {
+			this.submissionError.set('Please select at least one file.');
+			return;
+		}
+
+		this.submitting.set(true);
+		const instructions = this.instructionForm.value.instructions as string;
+		const files = this.selectedFiles();
+
+		this.codeEditService
+			.getFilesContent(files)
+			.pipe(
+				switchMap((filesContent) => {
+					const fileContentStrings = Object.entries(filesContent).map(
+						([path, content]) => `File: \`${path}\`\n\`\`\`\n${content}\n\`\`\``,
+					);
+					const prompt = `${instructions}\n\n${fileContentStrings.join('\n\n')}`;
+					return this.chatService.createChat(prompt, 'deepseek-coder');
+				}),
+				tap((chat) => {
+					this.router.navigate(['/ui/chat', chat.id]);
+				}),
+				catchError(() => {
+					this.submissionError.set('Failed to create chat. Please try again.');
+					return of(null);
+				}),
+				finalize(() => {
+					this.submitting.set(false);
+				}),
+			)
+			.subscribe();
 	}
 }
