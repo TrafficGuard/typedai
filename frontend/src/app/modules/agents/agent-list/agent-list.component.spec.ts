@@ -24,6 +24,9 @@ const createMockAgentPreviewApi = (id: string, name: string, state: AgentRunning
 	error: state === 'error' ? 'Simulated error' : undefined,
 	subtype: '',
 	inputPrompt: '',
+	createdAt: Date.now(),
+	metadata: {},
+	user: 'test-user-id',
 	lastUpdate: Date.now(),
 });
 

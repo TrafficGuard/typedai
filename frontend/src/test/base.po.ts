@@ -1,9 +1,4 @@
-import {
-	type ComponentHarness,
-	type ComponentHarnessConstructor,
-	type HarnessLoader,
-	type HarnessPredicate,
-} from '@angular/cdk/testing';
+import { type ComponentHarness, type ComponentHarnessConstructor, type HarnessLoader, type HarnessPredicate } from '@angular/cdk/testing';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { ComponentFixture } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
@@ -67,7 +62,6 @@ export abstract class BaseSpecPo<T> {
 		await this.detectAndWait();
 	}
 
-
 	text(id: string): string {
 		return (this.el(id).nativeElement.textContent || '').trim();
 	}
@@ -107,11 +101,13 @@ export abstract class BaseSpecPo<T> {
 	): Promise<H> {
 		if (typeof harnessType === 'function') {
 			// It's a constructor
-			const constructor = harnessType as ComponentHarnessConstructor<H> & { with?: (options?: import('@angular/cdk/testing').BaseHarnessFilters) => HarnessPredicate<H> };
-			if (options && constructor.with) {
-				return this.loader.getHarness(constructor.with(options));
+			const ctor = harnessType as ComponentHarnessConstructor<H> & {
+				with?: (options?: import('@angular/cdk/testing').BaseHarnessFilters) => HarnessPredicate<H>;
+			};
+			if (options && ctor.with) {
+				return this.loader.getHarness(ctor.with(options));
 			}
-			return this.loader.getHarness(constructor);
+			return this.loader.getHarness(ctor);
 		}
 		// It's a predicate
 		return this.loader.getHarness(harnessType as HarnessPredicate<H>);
@@ -140,11 +136,10 @@ export abstract class BaseSpecPo<T> {
 
 	/* Utility so tests can write: const po = await LoginPo.create(fix) */
 	static async create<C, PO extends BaseSpecPo<C>>(this: new (f: ComponentFixture<C>) => PO, fix: ComponentFixture<C>): Promise<PO> {
-		console.log('=== Entering BaseSpecPo.create() ===');
 		fix.detectChanges();
 		await fix.whenStable();
 		fix.detectChanges(); // Ensure UI is stable after async operations
-		console.log('=== Exiting BaseSpecPo.create() ===');
+		// biome-ignore lint:correctness/useThisInStatic: dont change this
 		return new this(fix);
 	}
 }

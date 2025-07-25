@@ -214,6 +214,7 @@ xdescribe('AgentComponent', () => {
 				agentId: 'agent1',
 				name: 'Test Agent',
 				state: 'agent',
+				createdAt: Date.now(),
 				toolState: undefined, // To test the ?? {}
 				functionCallHistory: [],
 				// Add other mandatory fields from AgentContextApi as needed, or cast to Partial if appropriate for the test

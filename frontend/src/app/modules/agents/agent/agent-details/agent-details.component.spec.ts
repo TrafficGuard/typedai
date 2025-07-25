@@ -38,6 +38,7 @@ xdescribe('AgentDetailsComponent', () => {
 		executionId: 'test-exec-id',
 		name: 'Test Agent',
 		type: 'autonomous' as AgentType,
+		createdAt: Date.now(),
 		subtype: 'xml' as Static<typeof AutonomousSubTypeSchema>,
 		state: 'completed' as AgentRunningState,
 		userPrompt: 'Test user prompt',
