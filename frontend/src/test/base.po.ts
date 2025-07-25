@@ -1,10 +1,8 @@
 import {
-	type BaseHarnessFilters,
 	type ComponentHarness,
 	type ComponentHarnessConstructor,
 	type HarnessLoader,
 	type HarnessPredicate,
-	TestElement,
 } from '@angular/cdk/testing';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { ComponentFixture } from '@angular/core/testing';
@@ -101,14 +99,22 @@ export abstract class BaseSpecPo<T> {
 	 * @param options Optional filters to apply.
 	 * @returns A promise that resolves to the harness instance.
 	 */
+	harness<H extends ComponentHarness>(harnessType: ComponentHarnessConstructor<H>, options?: import('@angular/cdk/testing').BaseHarnessFilters): Promise<H>;
+	harness<H extends ComponentHarness>(harnessType: HarnessPredicate<H>): Promise<H>;
 	harness<H extends ComponentHarness>(
-		harnessType: ComponentHarnessConstructor<H> & { with?: (options?: BaseHarnessFilters) => HarnessPredicate<H> },
-		options?: BaseHarnessFilters,
+		harnessType: ComponentHarnessConstructor<H> | HarnessPredicate<H>,
+		options?: import('@angular/cdk/testing').BaseHarnessFilters,
 	): Promise<H> {
-		if (options && harnessType.with) {
-			return this.loader.getHarness(harnessType.with(options));
+		if (typeof harnessType === 'function') {
+			// It's a constructor
+			const constructor = harnessType as ComponentHarnessConstructor<H> & { with?: (options?: import('@angular/cdk/testing').BaseHarnessFilters) => HarnessPredicate<H> };
+			if (options && constructor.with) {
+				return this.loader.getHarness(constructor.with(options));
+			}
+			return this.loader.getHarness(constructor);
 		}
-		return this.loader.getHarness(harnessType);
+		// It's a predicate
+		return this.loader.getHarness(harnessType as HarnessPredicate<H>);
 	}
 
 	/**
@@ -134,9 +140,11 @@ export abstract class BaseSpecPo<T> {
 
 	/* Utility so tests can write: const po = await LoginPo.create(fix) */
 	static async create<C, PO extends BaseSpecPo<C>>(this: new (f: ComponentFixture<C>) => PO, fix: ComponentFixture<C>): Promise<PO> {
+		console.log('=== Entering BaseSpecPo.create() ===');
 		fix.detectChanges();
 		await fix.whenStable();
 		fix.detectChanges(); // Ensure UI is stable after async operations
+		console.log('=== Exiting BaseSpecPo.create() ===');
 		return new this(fix);
 	}
 }
