@@ -95,6 +95,7 @@
                         <h3 class="text-lg font-semibold mb-2">Instructions</h3>
                         <form [formGroup]="instructionForm" (ngSubmit)="onSubmit()" class="flex flex-col h-full">
                             <textarea
+                                matInput
                                 formControlName="instructions"
                                 class="w-full flex-grow border rounded-md p-2"
                                 placeholder="Enter your code editing instructions here..."

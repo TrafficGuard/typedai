@@ -10,6 +10,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatTableModule } from '@angular/material/table';
+import { MatInputModule } from '@angular/material/input';
 import { Router } from '@angular/router';
 import { catchError, finalize, of, switchMap, tap } from 'rxjs';
 import { FileSystemNode } from '#shared/files/fileSystemService';
@@ -27,6 +28,7 @@ import { FileSystemNode } from '#shared/files/fileSystemService';
 		MatProgressSpinnerModule,
 		MatCheckboxModule,
 		MatTableModule,
+		MatInputModule,
 	],
 	templateUrl: './code-edit.component.html',
 	styleUrls: ['./code-edit.component.scss'],
