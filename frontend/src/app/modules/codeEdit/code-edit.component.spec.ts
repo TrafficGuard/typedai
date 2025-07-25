@@ -12,22 +12,23 @@ import { ChatServiceClient } from '../chat/chat.service';
 import { FileSystemNode } from '#shared/files/fileSystemService';
 import type { ApiState } from 'app/core/api-state.types';
 import { FilesContentResponse } from '#shared/codeEdit/codeEdit.api';
-import { BasePo } from 'app/testing/base.po';
 
 // --- Mock Data ---
 const MOCK_FILE_SYSTEM_NODE: FileSystemNode = {
 	name: 'root',
 	path: 'root',
+	type: 'directory',
 	children: [
 		{
 			name: 'src',
 			path: 'root/src',
+			type: 'directory',
 			children: [
-				{ name: 'main.ts', path: 'root/src/main.ts', children: [] },
-				{ name: 'styles.scss', path: 'root/src/styles.scss', children: [] },
+				{ name: 'main.ts', path: 'root/src/main.ts', type: 'file', children: [] },
+				{ name: 'styles.scss', path: 'root/src/styles.scss', type: 'file', children: [] },
 			],
 		},
-		{ name: 'package.json', path: 'root/package.json', children: [] },
+		{ name: 'package.json', path: 'root/package.json', type: 'file', children: [] },
 	],
 };
 
@@ -57,7 +58,6 @@ describe('CodeEditComponent', () => {
 				{ provide: CodeEditService, useValue: fakeCodeEditService },
 				{ provide: ChatServiceClient, useValue: fakeChatService },
 				{ provide: Router, useValue: routerSpy },
-				{ provide: BasePo, useClass: BasePo },
 			],
 		}).compileComponents();
 
@@ -154,7 +154,7 @@ describe('CodeEditComponent', () => {
 		const selectedFiles = ['root/package.json'];
 		const fileContents: FilesContentResponse = { 'root/package.json': '{}' };
 		const instructions = 'Add a new dependency';
-		const newChat = { id: 'chat-123', messages: [], createdAt: 0, title: '' };
+		const newChat = { id: 'chat-123', messages: [], createdAt: 0, updatedAt: 0, title: '' };
 
 		fakeCodeEditService.getFilesContent.and.returnValue(of(fileContents));
 		fakeChatService.createChat.and.returnValue(of(newChat));

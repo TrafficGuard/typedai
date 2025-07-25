@@ -31,6 +31,7 @@ export class CodeEditComponent implements OnInit {
 
 	readonly treeState = this.codeEditService.treeState;
 	readonly showFilePanels = signal(true);
+	readonly selectedFiles = signal<string[]>([]);
 
 	instructionForm: FormGroup<{ instructions: FormControl<string> }>;
 

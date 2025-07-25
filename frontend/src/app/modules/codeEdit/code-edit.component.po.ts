@@ -1,3 +1,4 @@
+import { By } from '@angular/platform-browser';
 import { ComponentFixture } from '@angular/core/testing';
 import { HarnessLoader } from '@angular/cdk/testing';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
@@ -27,7 +28,7 @@ export class CodeEditPo extends BaseSpecPo<CodeEditComponent> {
 
 	constructor(fixture: ComponentFixture<CodeEditComponent>) {
 		super(fixture);
-		this.loader = TestbedHarnessEnvironment.loader(this.fixture);
+		this.loader = TestbedHarnessEnvironment.loader(this.fix);
 	}
 
 	static async create(fixture: ComponentFixture<CodeEditComponent>): Promise<CodeEditPo> {
@@ -38,12 +39,16 @@ export class CodeEditPo extends BaseSpecPo<CodeEditComponent> {
 
 	// --- State Queries ---
 
+	private findAll(idPrefix: string) {
+		return this.fix.debugElement.queryAll(By.css(`[data-testid^="${idPrefix}"]`));
+	}
+
 	async isLoadingFileTree(): Promise<boolean> {
 		return this.has(this.ids.fileTreeSpinner);
 	}
 
 	async getFileTreeError(): Promise<string | null> {
-		return this.getText(this.ids.fileTreeError);
+		return this.has(this.ids.fileTreeError) ? this.text(this.ids.fileTreeError) : null;
 	}
 
 	async isNodeSelected(path: string): Promise<boolean> {
@@ -57,7 +62,8 @@ export class CodeEditPo extends BaseSpecPo<CodeEditComponent> {
 	}
 
 	async getSelectionCount(): Promise<number> {
-		const text = await this.getText(this.ids.selectionCount);
+		if (!this.has(this.ids.selectionCount)) return 0;
+		const text = this.text(this.ids.selectionCount);
 		const match = text?.match(/\((\d+)\)/);
 		return match ? parseInt(match[1], 10) : 0;
 	}
@@ -68,7 +74,7 @@ export class CodeEditPo extends BaseSpecPo<CodeEditComponent> {
 	}
 
 	async getSubmissionError(): Promise<string | null> {
-		return this.getText(this.ids.submissionError);
+		return this.has(this.ids.submissionError) ? this.text(this.ids.submissionError) : null;
 	}
 
 	async isSubmitButtonDisabled(): Promise<boolean> {
