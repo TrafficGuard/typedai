@@ -20,6 +20,8 @@ export class GoogleCloud {
 		return result.stdout;
 	}
 
+	// does secret value equal
+
 	/**
 	 * Query resource information by executing the gcloud command line tool. This must ONLY be used for querying information, and MUST NOT update or modify resources.
 	 * Must have the --project=<projectId> argument.

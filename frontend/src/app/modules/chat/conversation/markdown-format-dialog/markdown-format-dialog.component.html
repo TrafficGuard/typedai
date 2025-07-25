@@ -18,6 +18,7 @@
         [multiple]="false"
         (keydown.arrowup)="focusFilter($event)"
         (selectionChange)="onLanguageSelected($event.options[0].value)"
+        hideSingleSelectionIndicator
     >
         @for (language of filteredLanguages$ | async; track language) {
             <mat-list-option [value]="language">

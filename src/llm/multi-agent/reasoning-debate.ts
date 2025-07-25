@@ -55,6 +55,7 @@ export function MoA_reasoningLLMRegistry(): Record<string, () => LLM> {
 		'MAD:SOTA': MAD_SOTA,
 		'MAD:Vertex': MAD_Vertex,
 		'MAD:Balanced': MAD_Balanced,
+		'MAD:Balanced4': MAD_Balanced4,
 	};
 }
 
@@ -84,6 +85,15 @@ export function MAD_Balanced(): LLM {
 		vertexGemini_2_5_Pro,
 		[vertexGemini_2_5_Pro, xai_Grok4, openAIo3],
 		'MAD:Balanced multi-agent debate (Gemini 2.5 Pro, Grok 4, o3)',
+	);
+}
+
+export function MAD_Balanced4(): LLM {
+	return new ReasonerDebateLLM(
+		'Balanced4',
+		vertexGemini_2_5_Pro,
+		[vertexGemini_2_5_Pro, xai_Grok4, openAIo3, Claude4_Sonnet_Vertex],
+		'MAD:Balanced multi-agent debate (Gemini 2.5 Pro, Grok 4, o3, Sonnet 4)',
 	);
 }
 

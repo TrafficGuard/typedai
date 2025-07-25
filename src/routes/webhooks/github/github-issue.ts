@@ -46,7 +46,7 @@ If you need more information from the user, you can ask for it.
 			subtype: 'codegen',
 			agentName: `GitHub ${repositoryFullName} issue ${issueNumber} opened`,
 			type: 'autonomous',
-			useSharedRepos: true, // As this is a read-only operation, we can use the shared repos
+			useSharedRepos: true, // As this is a read-only operation on the default branch, we can use the shared repos
 			metadata: {
 				github: {
 					repository: repositoryFullName,
