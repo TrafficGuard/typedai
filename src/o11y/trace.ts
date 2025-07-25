@@ -4,7 +4,7 @@ import type { Span, SpanContext, Tracer } from '@opentelemetry/api';
 import { trace } from '@opentelemetry/api';
 import { logger } from '#o11y/logger';
 import type { AgentContext } from '#shared/agent/agent.model';
-import { currentUser, runWithUser } from '#user/userContext';
+import { currentUser, runAsUser } from '#user/userContext';
 import { type SugaredTracer, wrapTracer } from './trace/SugaredTracer';
 
 const _fakeSpan: Partial<Span> = {
@@ -156,11 +156,11 @@ export function span<T extends (...args: any[]) => any>(
 			try {
 				agentContextStorage?.getStore()?.callStack?.push(functionName);
 				if (!tracer) {
-					return userCtx ? await runWithUser(userCtx, () => originalMethod.call(this, ...args)) : await originalMethod.call(this, ...args);
+					return userCtx ? await runAsUser(userCtx, () => originalMethod.call(this, ...args)) : await originalMethod.call(this, ...args);
 				}
 				return tracer.withActiveSpan(functionName, async (span: Span) => {
 					setFunctionSpanAttributes(span, functionName, attributeExtractors, args);
-					return userCtx ? await runWithUser(userCtx, () => originalMethod.call(this, ...args)) : await originalMethod.call(this, ...args);
+					return userCtx ? await runAsUser(userCtx, () => originalMethod.call(this, ...args)) : await originalMethod.call(this, ...args);
 				});
 			} finally {
 				agentContextStorage?.getStore()?.callStack?.pop();

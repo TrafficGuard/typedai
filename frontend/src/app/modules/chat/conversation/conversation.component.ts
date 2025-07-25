@@ -16,12 +16,14 @@ import {
 	ViewEncapsulation,
 	WritableSignal,
 	computed,
+	effect,
 	inject,
 	signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -37,6 +39,7 @@ import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
 import { LocalStorageService } from 'app/core/services/local-storage.service';
 import { UserService } from 'app/core/user/user.service';
 import { ChatInfoComponent } from 'app/modules/chat/chat-info/chat-info.component';
+import { MarkdownFormatDialogComponent } from './markdown-format-dialog/markdown-format-dialog.component';
 import { Chat, ChatMessage, NEW_CHAT_ID } from 'app/modules/chat/chat.types';
 import { Attachment } from 'app/modules/message.types';
 import { MarkdownModule, MarkdownService, MarkedRenderer, provideMarkdown } from 'ngx-markdown';
@@ -67,6 +70,7 @@ const CARET_SCROLL_DELAY = 50;
 		MatSidenavModule,
 		ChatInfoComponent,
 		MatButtonModule,
+		MatDialogModule,
 		MatExpansionModule,
 		MatIconModule,
 		MatMenuModule,
@@ -98,20 +102,31 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 	drawerMode: WritableSignal<'over' | 'side'> = signal('side');
 	drawerOpened: WritableSignal<boolean> = signal(false);
 
+	sendIcon: WritableSignal<string> = signal('heroicons_outline:paper-airplane')
+
 	llmsSignal: Signal<LlmInfo[]>;
 	llmId: WritableSignal<string | undefined> = signal(undefined);
-	defaultChatLlmId = computed(() => (this.userService.userProfile() as UserProfile)?.chat?.defaultLLM); // Added UserProfile type
-
-	sendIcon: WritableSignal<string> = signal('heroicons_outline:paper-airplane');
+	defaultChatLlmId = computed(() => (this.userService.userProfile()?.chat?.defaultLLM));
 
 	llmHasThinkingLevels = computed(() => {
-		const currentLlmId = this.llmId();
-		if (!currentLlmId) return false;
-		return (
-			currentLlmId.startsWith('openai:o') || currentLlmId.includes('claude-3-7') || currentLlmId.includes('sonnet-4') || currentLlmId.includes('opus-4') || (currentLlmId.includes('gemini') && currentLlmId.includes('2.5'))
+		const id = this.llmId();
+		return !!id && (
+			   id.startsWith('openai:o')          ||
+			   id.includes('claude-3-7')          ||
+			   id.includes('sonnet-4')            ||
+			   id.includes('opus-4')              ||
+			  (id.includes('gemini') && id.includes('2.5'))
 		);
-	});
-	thinkingIcon: WritableSignal<string> = signal('heroicons_outline:minus-small');
+	  });
+
+	thinkingIcon = computed(() => {
+		switch (this.thinkingLevel()) {
+		  case 'low'   : return 'heroicons_outline:bars-2';
+		  case 'medium': return 'heroicons_outline:bars-3';
+		  case 'high'  : return 'heroicons_outline:bars-4';
+		  default      : return 'heroicons_outline:minus-small';
+		}
+	  });
 	thinkingLevel: WritableSignal<'off' | 'low' | 'medium' | 'high'> = signal('off');
 
 	autoReformatEnabled: WritableSignal<boolean> = signal(false);
@@ -180,6 +195,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 	private _snackBar = inject(MatSnackBar);
 	private destroyRef = inject(DestroyRef);
 	private _localStorageService = inject(LocalStorageService);
+	private dialog = inject(MatDialog);
 	private routeParamsSignal: Signal<any>;
 
 	constructor() {
@@ -317,6 +333,18 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 				}),
 			)
 			.subscribe();
+
+			/* Any time llmId changes, make sure the level is valid */
+			effect(() => {
+				const supportsThinking = this.llmHasThinkingLevels();
+				const currentLevel     = this.thinkingLevel();
+
+				/* LLM supports thinking ➜ default to HIGH (if user hasn’t already chosen another value). */
+				if (supportsThinking && currentLevel === 'off') this.thinkingLevel.set('high');
+
+				/* LLM does *not* support thinking ➜ force OFF */
+				if (!supportsThinking && currentLevel !== 'off') this.thinkingLevel.set('off');
+			});
 	}
 
 	// -----------------------------------------------------------------------------------------------------
@@ -447,25 +475,18 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 		} else {
 			console.log('updateLlmSelector: Keeping current LLM ID:', currentLlmId);
 		}
-		// this.updateThinkingIcon();
 	}
-
-	// updateThinkingIcon is replaced by computed llmHasThinkingLevels
 
 	toggleThinking(): void {
 		const currentLevel = this.thinkingLevel();
 		if (currentLevel === 'off') {
 			this.thinkingLevel.set('low');
-			this.thinkingIcon.set('heroicons_outline:bars-2');
 		} else if (currentLevel === 'low') {
 			this.thinkingLevel.set('medium');
-			this.thinkingIcon.set('heroicons_outline:bars-3');
 		} else if (currentLevel === 'medium') {
 			this.thinkingLevel.set('high');
-			this.thinkingIcon.set('heroicons_outline:bars-4');
 		} else if (currentLevel === 'high') {
 			this.thinkingLevel.set('off');
-			this.thinkingIcon.set('heroicons_outline:minus-small');
 		}
 	}
 
@@ -773,6 +794,12 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 			this.sendMessage();
 		}
 
+		// Open dialog to add a markdown code block
+		if (event.key === '`' && (event.ctrlKey || event.metaKey || event.altKey)) {
+			event.preventDefault();
+			this.openMarkdownFormatDialog();
+		}
+
 		if (event.key === 'm' && event.ctrlKey) {
 			this.llmSelect?.open();
 			this.llmSelect?.focus();
@@ -813,6 +840,49 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 					});
 			}
 		}
+	}
+
+	/**
+	 * Opens a dialog to select a markdown language for a code block.
+	 */
+	private openMarkdownFormatDialog(): void {
+		const dialogRef = this.dialog.open(MarkdownFormatDialogComponent, {
+			width: '300px',
+			autoFocus: 'input',
+		});
+
+		dialogRef.afterClosed().subscribe((language: string | undefined) => {
+			if (language) {
+				this.insertCodeBlock(language);
+			}
+		});
+	}
+
+	/**
+	 * Inserts a markdown code block into the message input at the current caret position.
+	 * @param language The selected language identifier for the code block.
+	 */
+	private insertCodeBlock(language: string): void {
+		const textarea = this.messageInput.nativeElement as HTMLTextAreaElement;
+		const textToInsert = `\`\`\`${language}\n\n\`\`\``;
+		const startPos = textarea.selectionStart;
+		const endPos = textarea.selectionEnd;
+		const currentValue = textarea.value;
+
+		// Insert the code block template
+		textarea.value = currentValue.substring(0, startPos) + textToInsert + currentValue.substring(endPos);
+
+		// Set the caret position to the empty line inside the block
+		const newCaretPosition = startPos + language.length + 4; // Position after ```lang\n
+		textarea.selectionStart = newCaretPosition;
+		textarea.selectionEnd = newCaretPosition;
+
+		// Focus the textarea and trigger a resize to accommodate the new content
+		textarea.focus();
+		this._triggerResizeAndScroll();
+
+		// Update the draft message
+		this.messageInputChanged.next(textarea.value);
 	}
 
 	startRecording(): void {

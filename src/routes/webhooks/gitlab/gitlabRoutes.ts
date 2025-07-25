@@ -13,8 +13,10 @@ import { GitLabCodeReview } from '#functions/scm/gitlabCodeReview';
 import { FileSystemList } from '#functions/storage/fileSystemList';
 import { Perplexity } from '#functions/web/perplexity';
 import { defaultLLMs } from '#llm/services/defaultLlms';
+import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
+import { runAsUser } from '#user/userContext';
 import { envVar } from '#utils/env-var';
 import { envVarHumanInLoopSettings } from '../../../cli/cliHumanInLoop';
 import { getAgentUser } from '../webhookAgentUser';
@@ -27,18 +29,14 @@ export async function gitlabRoutes(fastify: AppFastifyInstance): Promise<void> {
 	});
 
 	// See https://docs.gitlab.com/ee/user/project/integrations/webhook_events.html#merge-request-events
-	fastify.post(
-		`${basePath}/gitlab`,
-		{
-			schema: {
-				body: Type.Object({}, { additionalProperties: true }),
-			},
-		},
-		async (req, reply) => {
-			const event = req.body as any;
-			logger.info(event, `Gitlab webhook ${event.kind}`);
+	fastify.post(`${basePath}/gitlab`, { schema: { body: Type.Object({}, { additionalProperties: true }) } }, async (req, reply) => {
+		const event = req.body as any;
+		const objectKind = event.object_kind;
+		logger.info(event, `Gitlab webhook ${objectKind}`);
 
-			switch (event.kind) {
+		const user = await getAgentUser();
+		runAsUser(user, async () => {
+			switch (objectKind) {
 				case 'pipeline':
 					await handlePipelineEvent(event);
 					break;
@@ -46,10 +44,10 @@ export async function gitlabRoutes(fastify: AppFastifyInstance): Promise<void> {
 					await handleMergeRequestEvent(event);
 					break;
 			}
+		});
 
-			send(reply, 200);
-		},
-	);
+		send(reply, 200);
+	});
 }
 
 /**
@@ -57,7 +55,6 @@ export async function gitlabRoutes(fastify: AppFastifyInstance): Promise<void> {
  * @param event
  */
 async function handlePipelineEvent(event: any) {
-	const runAsUser = await getAgentUser();
 	const gitRef = event.ref;
 	const fullProjectPath = event.project.path_with_namespace;
 	const user = event.user;
@@ -69,9 +66,12 @@ async function handlePipelineEvent(event: any) {
 	if (event.status === 'success') {
 		// check if there is a CodeTask and notify it of a successful build
 	} else {
-		failedLogs = await new GitLab().getFailedJobLogs(event.project.id, event.iid);
+		failedLogs = await new GitLab().getFailedJobLogs(event.project.id, event.object_attributes.iid);
 		for (const [k, v] of Object.entries(failedLogs)) {
-			if (v.length > 200000) {
+			const lines = v.split('\n').length;
+			const tokens = await countTokens(v);
+			logger.info(`Failed pipeline job ${k}. Log size: ${tokens} tokens. ${lines} lines.`);
+			if (tokens > 50000) {
 				// ~50k tokens
 				// TODO use flash to reduce the size, or just remove the middle section
 			}
@@ -95,14 +95,13 @@ async function handlePipelineEvent(event: any) {
 	// TODO could get the project pipeline file,
 
 	// if (!agent) {
-	await startAgent({
-		initialPrompt: '',
-		subtype: 'gitlab-pipeline',
-		agentName: `GitLab ${gitlabId} pipeline`,
-		type: 'autonomous',
-		user: runAsUser,
-		functions: [Git, LiveFiles, GitLab, CodeEditingAgent, Perplexity, FileSystemTree, FileSystemList],
-	});
+	// await startAgent({
+	// 	initialPrompt: '',
+	// 	subtype: 'gitlab-pipeline',
+	// 	agentName: `GitLab ${gitlabId} pipeline`,
+	// 	type: 'autonomous',
+	// 	functions: [Git, LiveFiles, GitLab, CodeEditingAgent, Perplexity, FileSystemTree, FileSystemList],
+	// });
 	// }
 }
 
@@ -111,9 +110,11 @@ async function handlePipelineEvent(event: any) {
  * @param event
  */
 async function handleMergeRequestEvent(event: any) {
-	if (event.object_attributes.draft) return;
+	if (event.object_attributes?.draft) return;
 
 	const runAsUser = await getAgentUser();
+
+	// Code review agent
 
 	const config: RunWorkflowConfig = {
 		subtype: 'gitlab-review',

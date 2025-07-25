@@ -4,7 +4,7 @@ import { SINGLE_USER_ID } from '#modules/memory/inMemoryUserService';
 import { system, user } from '#shared/llm/llm.model';
 import type { Prompt } from '#shared/prompts/prompts.model';
 import type { User } from '#shared/user/user.model';
-import { runWithUser } from '#user/userContext';
+import { runAsUser } from '#user/userContext';
 import type { PromptsService } from './promptsService';
 
 // Test User Definitions
@@ -44,7 +44,7 @@ export function runPromptsServiceTests(createService: () => PromptsService, befo
 	let service: PromptsService;
 
 	const runWithTestUserContext = (testFn: () => Promise<void>) => {
-		return () => runWithUser(TEST_USER, testFn);
+		return () => runAsUser(TEST_USER, testFn);
 	};
 
 	beforeEach(async () => {

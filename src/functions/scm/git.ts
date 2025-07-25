@@ -148,6 +148,34 @@ export class Git implements VersionControlSystem {
 	}
 
 	/**
+	 * Gets the diff of all currently staged files against the HEAD commit.
+	 * @returns The git diff for staged changes. This could be a large string.
+	 */
+	@func()
+	async getStagedDiff(): Promise<string> {
+		const result = await execCommand('git diff --staged');
+		failOnError('Failed to get staged diff.', result);
+		return result.stdout;
+	}
+
+	/**
+	 * Gets the list of file paths for all currently staged files.
+	 * @returns An array of file paths that are staged for the next commit.
+	 */
+	@func()
+	async getStagedFiles(): Promise<string[]> {
+		const result = await execCommand('git diff --staged --name-only');
+		failOnError('Failed to get list of staged files.', result);
+
+		// The output is a newline-separated list of files.
+		// We split it into an array and filter out any empty lines.
+		return result.stdout
+			.trim()
+			.split('\n')
+			.filter((line) => line.length > 0);
+	}
+
+	/**
 	 * Creates a new branch, or if it already exists then switches to it
 	 * @param branchName
 	 * @return if the branch was created, or false if switched to an existing one

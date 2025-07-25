@@ -198,6 +198,19 @@ ai summarize [prompt]
 - **Output**: The final summary is logged to the console and saved to `src/cli/summarize-out`.
 - **Best for**: Condensing large documents, meeting transcripts, or articles into detailed summaries.
 
+### `commit` - AI-Generated Commit Messages
+
+*   **Usage**: `npm run commit`
+*   **Description**:
+    *   **Purpose**: Automatically generates a conventional commit message based on staged changes.
+    *   **Features**:
+        *   Analyzes staged files and their diffs.
+        *   Uses an LLM to generate a descriptive commit title and body.
+        *   Outputs the generated message to the console.
+    *   **Input**: Reads all staged files from the Git index. No command-line arguments are required.
+    *   **Output**: Prints a JSON object to the console containing the `title` and `description` for the commit message.
+    *   **Best for**: Quickly creating well-formatted and descriptive commit messages without manual effort, ensuring consistency in the commit history.
+
 ### Development and Testing Scripts
 
 ### swe

@@ -50,6 +50,7 @@ If you need more information from the user, you can ask for it.
 			metadata: {
 				github: {
 					repository: repositoryFullName,
+					issueNumber,
 				},
 			},
 			user: runAsUser,

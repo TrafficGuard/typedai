@@ -1,0 +1,32 @@
+<h2 mat-dialog-title>Insert Code Block</h2>
+
+<mat-dialog-content class="mat-typography">
+    <mat-form-field class="w-full">
+        <input
+            #filterInput
+            matInput
+            [formControl]="filterControl"
+            cdkFocusInitial
+            placeholder="Filter"
+            (keydown.enter)="onEnterKey($event)"
+            (keydown.arrowdown)="focusList()"
+        />
+    </mat-form-field>
+
+    <mat-selection-list
+        #languageList
+        [multiple]="false"
+        (keydown.arrowup)="focusFilter($event)"
+        (selectionChange)="onLanguageSelected($event.options[0].value)"
+    >
+        @for (language of filteredLanguages$ | async; track language) {
+            <mat-list-option [value]="language">
+                {{ language }}
+            </mat-list-option>
+        }
+    </mat-selection-list>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+    <button mat-button (click)="onCancel()">Cancel</button>
+</mat-dialog-actions>

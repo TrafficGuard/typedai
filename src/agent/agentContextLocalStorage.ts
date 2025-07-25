@@ -18,11 +18,11 @@ export function setFileSystemOverride(fs: IFileSystemService | null): void {
 export const agentContextStorage = new AsyncLocalStorage<AgentContext>();
 
 export function agentContext(): AgentContext | undefined {
-	return agentContextStorage?.getStore();
+	return agentContextStorage.getStore();
 }
 
 export function llms(): AgentLLMs {
-	return agentContextStorage.getStore().llms;
+	return agentContextStorage.getStore()?.llms;
 }
 
 /**
