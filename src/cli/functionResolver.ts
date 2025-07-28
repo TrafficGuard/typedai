@@ -40,6 +40,7 @@ const functionAliases: Record<string, string> = {
 	ts: TypescriptTools.name,
 	jira: Jira.name,
 	live: LiveFiles.name,
+	gcloud: GoogleCloud.name,
 	custom: CustomFunctions.name,
 };
 

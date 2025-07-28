@@ -9,7 +9,7 @@ import { defaultLLMs } from '#llm/services/defaultLlms';
 import type { AgentLLMs } from '#shared/agent/agent.model';
 import { buildIndexDocs } from '#swe/index/repoIndexDocBuilder';
 import { generateRepositoryMaps } from '#swe/index/repositoryMap';
-import { detectProjectInfo } from '#swe/projectDetection';
+import { getProjectInfos } from '#swe/projectDetection';
 import { parseProcessArgs, saveAgentId } from './cli';
 
 async function main() {
@@ -31,7 +31,7 @@ async function main() {
 		},
 	};
 
-	const maps = await generateRepositoryMaps(await detectProjectInfo());
+	const maps = await generateRepositoryMaps(await getProjectInfos());
 
 	console.log(`languageProjectMap ${maps.languageProjectMap.tokens} tokens`);
 	console.log(`fileSystemTree ${maps.fileSystemTree.tokens} tokens`);

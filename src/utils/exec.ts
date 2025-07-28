@@ -211,7 +211,7 @@ export async function execCommand(command: string, opts?: ExecCmdOptions): Promi
 
 			try {
 				logger.info(`DOCKER_EXEC: ${command} (in container ${containerId})`);
-				logger.debug(`Executing: ${dockerCommand}`);
+				logger.info(`Executing: ${dockerCommand}`);
 				let { stdout, stderr } = await execAsync(dockerCommand, options);
 				stdout = formatAnsiWithMarkdownLinks(stdout);
 				stderr = formatAnsiWithMarkdownLinks(stderr);

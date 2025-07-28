@@ -10,7 +10,7 @@ import { generatePullRequestTitleDescription } from '#swe/pullRequestTitleDescri
 import { selectProject } from '#swe/selectProject';
 import { summariseRequirements } from '#swe/summariseRequirements';
 import { CodeEditingAgent } from './codeEditingAgent';
-import { type ProjectInfo, detectProjectInfo } from './projectDetection';
+import { type ProjectInfo, getProjectInfos } from './projectDetection';
 
 /**
  * Workflow for completing requirements. This will look up the appropriate project in source control, clone, make the changes and create a pull/merge request.
@@ -104,7 +104,7 @@ export class SoftwareDeveloperAgent {
 
 	// @cacheRetry()
 	async detectProjectInfo(): Promise<ProjectInfo[]> {
-		return await detectProjectInfo();
+		return await getProjectInfos();
 	}
 
 	/**

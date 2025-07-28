@@ -19,7 +19,7 @@ import { text, user } from '#shared/llm/llm.model';
 import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
 import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
 import { type RepositoryMaps, generateRepositoryMaps } from '#swe/index/repositoryMap';
-import { type ProjectInfo, detectProjectInfo } from '#swe/projectDetection';
+import { type ProjectInfo, getProjectInfos } from '#swe/projectDetection';
 
 /*
 Agent which iteratively loads files to find the file set required for a task/query.
@@ -403,7 +403,7 @@ Respond with a valid JSON object that follows the required schema.`,
 
 async function initializeFileSelectionAgent(requirements: UserContentExt, opts: QueryOptions): Promise<LlmMessage[]> {
 	let projectInfo = opts.projectInfo;
-	projectInfo ??= (await detectProjectInfo())[0];
+	projectInfo ??= (await getProjectInfos())[0];
 
 	const projectMaps: RepositoryMaps = await generateRepositoryMaps([projectInfo]);
 	const repositoryOverview: string = await getRepositoryOverview();

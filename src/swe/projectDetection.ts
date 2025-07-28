@@ -189,12 +189,12 @@ async function findUpwards(startDir: string, file: string, fss: IFileSystemServi
 }
 
 /**
- * Determines the language/runtime, base folder and key commands for projects.
+ * Gets the preconfigured language/runtime, base folder and key commands for projects.
  * It prioritizes loading from .typedai.json in CWD, then VCS root.
  * If no valid file is found, it runs detection via projectDetectionAgent and saves the result to CWD.
  * Invalid files are renamed to avoid re-parsing them in a loop.
  */
-export async function detectProjectInfo(): Promise<ProjectInfo[]> {
+export async function getProjectInfos(autoDetect = true): Promise<ProjectInfo[]> {
 	logger.debug('Starting project detection process.');
 	const fss = getFileSystem();
 	// Always access the file relative to the current working directory
@@ -257,8 +257,10 @@ export async function detectProjectInfo(): Promise<ProjectInfo[]> {
 		}
 	}
 
+	if (loadedInfos) return loadedInfos;
+
 	// 4. If no valid file loaded from CWD, VCS root, or parent directories, run detection agent
-	if (loadedInfos === null) {
+	if (autoDetect) {
 		const detectedProjectInfos = await _projectDetectionAgent();
 
 		// Save detected info to CWD
@@ -268,13 +270,11 @@ export async function detectProjectInfo(): Promise<ProjectInfo[]> {
 		return detectedProjectInfos;
 	}
 
-	// Valid infos were loaded from a file
-	logger.debug(`Using existing valid project information from file. Project count: ${loadedInfos.length}`);
-	return loadedInfos;
+	return null;
 }
 
-export async function getProjectInfo(): Promise<ProjectInfo | null> {
-	const infos = await detectProjectInfo(); // This is now the robust version
+export async function getProjectInfo(autoDetect = false): Promise<ProjectInfo | null> {
+	const infos = await getProjectInfos(autoDetect); // This is now the robust version
 
 	if (!infos || infos.length === 0) {
 		logger.info('getProjectInfo: No projects detected or loaded.');

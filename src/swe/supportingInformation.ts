@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
-import { AI_INFO_FILENAME, type ProjectInfo, detectProjectInfo } from '#swe/projectDetection';
+import { AI_INFO_FILENAME, type ProjectInfo, getProjectInfos } from '#swe/projectDetection';
 
 async function findRepoRoot(start: string, fss: typeof getFileSystem): Promise<string | null> {
 	const fileSystemService = fss();
@@ -25,7 +25,7 @@ export async function supportingInformation(
 		/* -----------------------------------------------------------
 		 * 1. Work out which projects we need to report on
 		 * --------------------------------------------------------- */
-		const allProjects = await detectProjectInfo(); // backend + frontend + any others
+		const allProjects = await getProjectInfos(); // backend + frontend + any others
 
 		// Determine the repository root using VCS root or by searching upwards for .typedai.json
 		const repoRoot = fss.getVcsRoot() ?? (await findRepoRoot(originalWd, getFileSystem)) ?? originalWd;
