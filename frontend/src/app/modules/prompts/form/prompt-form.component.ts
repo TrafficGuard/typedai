@@ -31,7 +31,7 @@ import { MatSliderModule } from '@angular/material/slider';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import type { CallSettings, FilePartExt, ImagePartExt, LlmInfo, LlmMessage, TextPart, UserContentExt } from '#shared/llm/llm.model';
+import type { CallSettings, FilePartExt, ImagePartExt, LlmInfo, LlmMessage, TextPart, UserContentExt, AssistantContentExt } from '#shared/llm/llm.model';
 import type { Prompt } from '#shared/prompts/prompts.model';
 import { type PromptCreatePayload, PromptGenerateResponseSchemaModel, type PromptSchemaModel, type PromptUpdatePayload } from '#shared/prompts/prompts.schema';
 import { LlmService } from '../../llm.service';
@@ -98,9 +98,10 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 	isLoading = signal(true);
 	isSaving = signal(false);
 	isGenerating = signal(false);
-	generationResponse = signal<string | null>(null);
+	generationResponse = signal<AssistantContentExt | null>(null);
 	generationError = signal<string | null>(null);
 	private destroy$ = new Subject<void>();
+	private llmsState$ = toObservable(this.llmService.llmsState);
 
 	@ViewChildren('fileInput') fileInputs!: QueryList<ElementRef<HTMLInputElement>>;
 
@@ -154,7 +155,26 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 	// Signals for card collapsibility (matching HTML usage)
 	optionsCollapsed = signal(false);
 
-	constructor() {
+	constructor() {}
+
+	public isString(value: any): value is string {
+		return typeof value === 'string';
+	}
+
+	public isArray(value: any): value is any[] {
+		return Array.isArray(value);
+	}
+
+	public getImageUrl(part: ImagePartExt): string {
+		// If the image data is already a data URL or a web URL, use it directly.
+		if (part.image.startsWith('data:') || part.image.startsWith('http')) {
+			return part.image;
+		}
+		// Otherwise, construct a data URL from base64 data and mime type.
+		return `data:${part.mimeType || 'image/jpeg'};base64,${part.image}`;
+	}
+
+	ngOnInit(): void {
 		// Attempt to get navigation state.
 		// history.state is generally reliable for state passed via router.navigate.
 		const navStateFromHistory = history.state;
@@ -180,7 +200,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 		}
 
 		// React to LLM state changes
-		toObservable(this.llmService.llmsState)
+		this.llmsState$
 			.pipe(takeUntil(this.destroy$))
 			.subscribe((state) => {
 				if (state.status === 'success') {
@@ -193,11 +213,8 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 				// Process route data after LLM state is available
 				this.processRouteData();
 			});
-	}
-
-	ngOnInit(): void {
 		this.isLoading.set(true);
-		// Load LLMs - state changes will be handled by constructor subscription
+		// Load LLMs - state changes will be handled by the subscription above
 		this.llmService.loadLlms();
 
 		this.promptForm = this.fb.group({
@@ -322,6 +339,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 			role: [role, Validators.required],
 			content: [content, Validators.required],
 			attachments: role === 'user' ? this.fb.array(attachmentsData.map((att) => this.fb.control(att))) : this.fb.array([]),
+			fullContent: [null as UserContentExt | AssistantContentExt | null], // To preserve complex content
 		});
 	}
 
@@ -400,7 +418,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 		this.cdr.detectChanges();
 	}
 
-	private _convertLlmContentToString(content: UserContentExt | undefined): string {
+	private _convertLlmContentToString(content: UserContentExt | AssistantContentExt | undefined): string {
 		if (typeof content === 'string') {
 			return content;
 		}
@@ -482,8 +500,28 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 
 		// Add other messages after the system message (if added)
 		otherMessages.forEach((msg) => {
-			const { attachments: parsedAttachments, text: parsedText } = userContentExtToAttachmentsAndText(msg.content as UserContentExt);
-			this.messagesFormArray.push(this.createMessageGroup(msg.role, parsedText, msg.role === 'user' ? parsedAttachments : []));
+			const contentForTextarea = this._convertLlmContentToString(msg.content as UserContentExt);
+			let attachmentsForForm: Attachment[] = [];
+
+			// Only attempt to parse attachments for user messages, as other roles don't have them.
+			if (msg.role === 'user') {
+				// Safely call the utility. If it returns nothing or lacks an attachments property,
+				// attachmentsForForm will remain an empty array, preventing errors.
+				const parsed = userContentExtToAttachmentsAndText(msg.content as UserContentExt);
+				if (parsed?.attachments) {
+					attachmentsForForm = parsed.attachments;
+				}
+			}
+
+			const messageGroup = this.createMessageGroup(msg.role, contentForTextarea, attachmentsForForm);
+
+			// For any message with complex content (array of parts), store the original content
+			// to ensure it's not lost when saving. This is crucial for assistant-generated images.
+			if (typeof msg.content !== 'string') {
+				messageGroup.get('fullContent')?.setValue(msg.content);
+			}
+
+			this.messagesFormArray.push(messageGroup);
 		});
 
 		// Set includeSystemMessage form control value *without* emitting event initially
@@ -515,17 +553,23 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 		const formValue = this.promptForm.value;
 
 		// Filter out the includeSystemMessage control value from the payload
-		const payloadMessages = formValue.messages.map((formMsg: { role: LlmMessage['role']; content: string; attachments: Attachment[] | null }) => {
-			let messageContentPayload: UserContentExt;
-			// Check if formMsg.attachments is an array and has items. It might be null or empty if not a user message or no attachments.
-			if (formMsg.role === 'user' && Array.isArray(formMsg.attachments) && formMsg.attachments.length > 0) {
-				messageContentPayload = attachmentsAndTextToUserContentExt(formMsg.attachments, formMsg.content);
-			} else {
-				// For system/assistant messages, or user messages without attachments, content is just text.
-				messageContentPayload = formMsg.content;
-			}
-			return { role: formMsg.role, content: messageContentPayload };
-		});
+		const payloadMessages = formValue.messages.map(
+			(formMsg: { role: LlmMessage['role']; content: string; attachments: Attachment[] | null; fullContent: AssistantContentExt | null }) => {
+				let messageContentPayload: UserContentExt | AssistantContentExt;
+
+				// Prioritize the preserved fullContent if it exists. This is key for assistant messages with images.
+				if (formMsg.fullContent) {
+					messageContentPayload = formMsg.fullContent;
+				} else if (formMsg.role === 'user' && Array.isArray(formMsg.attachments) && formMsg.attachments.length > 0) {
+					// Reconstruct user content from attachments and text if fullContent isn't there.
+					messageContentPayload = attachmentsAndTextToUserContentExt(formMsg.attachments, formMsg.content);
+				} else {
+					// Fallback to simple text content.
+					messageContentPayload = formMsg.content;
+				}
+				return { role: formMsg.role, content: messageContentPayload };
+			},
+		);
 
 		const payload: PromptCreatePayload | PromptUpdatePayload = {
 			name: formValue.name,
@@ -600,7 +644,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 			)
 			.subscribe({
 				next: (response) => {
-					this.generationResponse.set(response.generatedMessage.content as string);
+					this.generationResponse.set(response.generatedMessage.content as AssistantContentExt);
 					this.cdr.detectChanges();
 				},
 				error: (error) => {
@@ -611,13 +655,18 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 	}
 
 	addResponseToPrompt(): void {
-		const response = this.generationResponse();
-		if (!response) {
+		const responseContent = this.generationResponse();
+		if (!responseContent) {
 			console.warn('No generated response to add');
 			return;
 		}
 
-		this.addMessage('assistant', response);
+		const contentString = this._convertLlmContentToString(responseContent);
+
+		// Create the group and set fullContent to preserve the original complex response.
+		const messageGroup = this.createMessageGroup('assistant', contentString);
+		messageGroup.get('fullContent')?.setValue(responseContent);
+		this.messagesFormArray.push(messageGroup);
 
 		this.generationResponse.set(null);
 		this.generationError.set(null);

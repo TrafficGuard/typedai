@@ -1826,3 +1826,33 @@ export class ChatPo extends BasePo<ChatComponent> {
   }
 }
 ```
+
+
+
+# Consider multiple options when implementing a feature and search for best practices
+
+## Example
+
+### Request
+
+<mat-selection-list
+        #languageList
+        [multiple]="false"
+        (keydown.arrowup)="focusFilter($event)"
+        (selectionChange)="onLanguageSelected($event.options[0].value)"
+    >
+        @for (language of filteredLanguages$ | async; track language) {
+            <mat-list-option [value]="language">
+                {{ language }}
+            </mat-list-option>
+        }
+    </mat-selection-list>
+The request is to not display the radio buttons on the single selection list.
+
+The initial solution provided was to apply CSS to hide the radio buttons, however this is not the best practice.
+
+The best practice is to use the `hideSingleSelectionIndicator` attribute.
+
+### Solution
+
+Always consider multiple options when implementing a feature and search for best practices.

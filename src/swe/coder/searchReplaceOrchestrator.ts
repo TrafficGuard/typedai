@@ -4,6 +4,7 @@ import type { AgentLLMs } from '#shared/agent/agent.model';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
 import type { LLM, LlmMessage } from '#shared/llm/llm.model';
 import { messageText, user } from '#shared/llm/llm.model';
+import { ProjectInfo, getProjectInfo } from '#swe/projectDetection';
 import type { ExecCmdOptions, ExecResult } from '#utils/exec';
 import { CoderExhaustedAttemptsError } from '../sweErrors';
 import type { EditBlock } from './coderTypes';
@@ -333,6 +334,15 @@ export class SearchReplaceOrchestrator {
 		if (pathsToCommit.size > 0) {
 			const dirtyFilesArray = Array.from(pathsToCommit);
 			logger.info(`Found uncommitted changes in files targeted for edit: ${dirtyFilesArray.join(', ')}. Attempting dirty commit.`);
+
+			// Format and lint so pre-commit hooks dont fail
+			const projectInfo = await getProjectInfo();
+			try {
+				for (const cmd of projectInfo?.staticAnalysis ?? []) await this.execCommand(cmd);
+			} catch (e) {}
+			try {
+				for (const cmd of projectInfo?.format ?? []) await this.execCommand(cmd);
+			} catch (e) {}
 
 			const result: ExecResult = await this.execCommand(`git diff ${dirtyFilesArray.join(' ')}`);
 			const diff = result.stdout;

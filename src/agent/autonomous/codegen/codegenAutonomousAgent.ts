@@ -267,7 +267,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 					pythonScriptResult = result?.toJs ? result.toJs({ dict_converter: Object.fromEntries }) : result;
 					if (result?.destroy) result.destroy();
 
-					logger.info(`pythonScriptResult type ${typeof pythonScriptResult}`);
+					// logger.debug(`pythonScriptResult type ${typeof pythonScriptResult}`);
 					if (pythonScriptResult && typeof pythonScriptResult === 'object') {
 						for (const [k, v] of Object.entries(pythonScriptResult)) {
 							logger.info(`${k} type ${typeof v}`);

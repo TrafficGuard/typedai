@@ -78,7 +78,7 @@ export async function analyzeCompileErrors(
 }
 </json>
 </response_example>`;
-
+	// Would creating a helper function simplify fixing the compile errors?
 	const prompt = `${fileSystemTree}\n${fileContents}\n${compileErrorHistory}\n${compileOutputXml}\n${currentFileList}\n${instructions}`;
 	const analysis: CompileErrorAnalysis = await llms().hard.generateJson(prompt, {
 		id: 'Analyze compile errors',

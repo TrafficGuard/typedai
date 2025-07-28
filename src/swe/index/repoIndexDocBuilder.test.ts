@@ -343,7 +343,7 @@ describe('IndexDocBuilder', () => {
 			});
 
 			const result = await builder.getTopLevelSummaryInternal();
-			expect(result).to.equal('');
+			expect(result).to.equal(null);
 		});
 	});
 });

@@ -57,15 +57,12 @@ export class FastMediumLLM extends BaseLLM {
 	async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
 		opts ??= {};
 		opts.thinking = 'high';
+		const tokens = await this.textTokens(messages);
 		try {
-			const tokens = await this.textTokens(messages);
-			if (tokens) {
-				if (this.cerebras.isConfigured() && tokens < this.cerebras.getMaxInputTokens() * 0.7) return await this.cerebras.generateMessage(messages, opts);
-			} else {
-				logger.info('non-text messages, skipping cerebras');
-			}
+			if (tokens && this.cerebras.isConfigured() && tokens < this.cerebras.getMaxInputTokens() * 0.4)
+				return await this.cerebras.generateMessage(messages, opts);
 		} catch (e) {
-			logger.warn(e, 'Error calling fast medium LLM');
+			logger.warn(`Error calling fast medium LLM with ${tokens} tokens: ${e.message}`);
 		}
 		return await this.gemini.generateMessage(messages, opts);
 	}

@@ -41,13 +41,13 @@ describe('FileSystem', () => {
 		it('should not allow setting the working directory higher than the basePath', () => {
 			fileSystem.setWorkingDirectory('dir1');
 			fileSystem.setWorkingDirectory('../..');
-			expect(resolve(fileSystem.getWorkingDirectory())).to.equal(resolve(fileSystem.basePath));
+			expect(resolve(fileSystem.getWorkingDirectory())).to.equal(resolve(fileSystem.getBasePath()));
 
 			fileSystem.setWorkingDirectory('/..');
-			expect(resolve(fileSystem.getWorkingDirectory())).to.equal(resolve(fileSystem.basePath));
+			expect(resolve(fileSystem.getWorkingDirectory())).to.equal(resolve(fileSystem.getBasePath()));
 
 			fileSystem.setWorkingDirectory('./../..');
-			expect(resolve(fileSystem.getWorkingDirectory())).to.equal(resolve(fileSystem.basePath));
+			expect(resolve(fileSystem.getWorkingDirectory())).to.equal(resolve(fileSystem.getBasePath()));
 		});
 	});
 

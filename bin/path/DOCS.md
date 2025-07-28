@@ -1,0 +1,1 @@
+This folder is intended to be added to the users PATH so the commands are available from any directory.

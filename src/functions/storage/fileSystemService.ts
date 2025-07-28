@@ -56,6 +56,7 @@ const gitIgnorePaths = new Set<string>();
 export class FileSystemService implements IFileSystemService {
 	/** The filesystem path */
 	private workingDirectory = '';
+	private basePath?: string;
 	private vcs: VersionControlSystem | null = null;
 	log: Pino.Logger;
 
@@ -70,13 +71,13 @@ export class FileSystemService implements IFileSystemService {
 	 * @param basePath The root folder allowed to be accessed by this file system instance. This should only be accessed by system level
 	 * functions. Generally getWorkingDirectory() should be used
 	 */
-	constructor(public basePath?: string) {
-		this.basePath ??= process.cwd();
+	constructor(readonly basePathArg?: string) {
+		this.basePath = basePathArg ?? process.cwd();
 
 		const args = process.argv;
 		const fsArg = args.find((arg) => arg.startsWith('--fs='));
 		const fsEnvVar = process.env[TYPEDAI_FS];
-		if (fsArg) {
+		if (!basePathArg && fsArg) {
 			const fsPath = fsArg.slice(5);
 			if (existsSync(fsPath)) {
 				this.basePath = fsPath;
@@ -84,7 +85,7 @@ export class FileSystemService implements IFileSystemService {
 			} else {
 				throw new Error(`Invalid -fs arg value. ${fsPath} does not exist`);
 			}
-		} else if (fsEnvVar) {
+		} else if (!basePathArg && fsEnvVar) {
 			if (existsSync(fsEnvVar)) {
 				this.basePath = fsEnvVar;
 			} else {
@@ -152,7 +153,7 @@ export class FileSystemService implements IFileSystemService {
 		}
 
 		// After setting the working directory, update the vcs (version control system) property
-		logger.info(`setWorkingDirectory ${this.workingDirectory}`);
+		logger.debug(`setWorkingDirectory ${this.workingDirectory}`);
 		this.vcs = null; // lazy loaded in getVcs()
 	}
 

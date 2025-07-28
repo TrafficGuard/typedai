@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Shortcut to running `npm run <script> <arg>` from the TypedAI installation
+# Shortcut for users to run `npm run <script> <arg>` from the TypedAI installation
 # Usage: `ai <script> <args>`
 
 if [ -z "$TYPEDAI_HOME" ]; then

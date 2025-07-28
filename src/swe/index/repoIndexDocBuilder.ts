@@ -457,7 +457,7 @@ export class IndexDocBuilder {
 		await this.fss.writeFile(summaryPath, JSON.stringify(doc, null, 2));
 	}
 
-	async getTopLevelSummaryInternal(): Promise<string> {
+	async getTopLevelSummaryInternal(): Promise<string | null> {
 		const summaryPath = join(typedaiDirName, 'docs', '_project_summary.json');
 		try {
 			const fileContent = await this.fss.readFile(summaryPath);
@@ -467,9 +467,9 @@ export class IndexDocBuilder {
 			if (e.code === 'ENOENT') {
 				logger.debug(`Top-level project summary file ${summaryPath} not found.`);
 			} else {
-				logger.warn(`Error reading or parsing top-level project summary ${summaryPath}: ${errorToString(e)}`);
+				logger.debug(`Error reading or parsing top-level project summary ${summaryPath}: ${errorToString(e)}`);
 			}
-			return '';
+			return null;
 		}
 	}
 
@@ -570,7 +570,7 @@ export class IndexDocBuilder {
 		}
 
 		if (!dirExists) {
-			logger.warn(`The ${docsDir} directory does not exist.`);
+			logger.debug(`The ${docsDir} directory does not exist.`);
 			return summaries;
 		}
 
@@ -631,7 +631,7 @@ export async function getRepositoryOverview(fss: IFileSystemService = getFileSys
 	// Passing a dummy or 'easy' LLM if the builder's methods it calls might need one.
 	// getTopLevelSummaryInternal does not use LLM.
 	const builder = new IndexDocBuilder(fss, {} as LLM);
-	const repositoryOverview: string = await builder.getTopLevelSummaryInternal();
+	const repositoryOverview: string | null = await builder.getTopLevelSummaryInternal();
 	return repositoryOverview ? `<repository-overview>\n${repositoryOverview}\n</repository-overview>\n` : '';
 }
 

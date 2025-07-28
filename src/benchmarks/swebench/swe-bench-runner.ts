@@ -20,20 +20,24 @@ export interface SWEInstance {
 	environment_setup_commit: string;
 }
 
+const CONTAINER_MEMORY = '8g';
+
 // https://epoch.ai/blog/swebench-docker
 function getIssueImageName(problemId: string): string {
 	return `ghcr.io/epoch-research/swe-bench.eval.x86_64.${problemId}:latest`;
 }
 
-export async function stopContainer(containerIdOrName: string): Promise<void> {
+export async function stopContainer(containerIdOrName: string, removeContainer = true): Promise<void> {
 	logger.info(`Stopping and removing container ${containerIdOrName}`);
 	// Use execCommand but ignore errors since container might not exist.
 	await execCommand(`docker stop ${containerIdOrName}`).catch(() => {
 		/* ignore */
 	});
-	await execCommand(`docker rm ${containerIdOrName}`).catch(() => {
-		/* ignore */
-	});
+	if (removeContainer) {
+		await execCommand(`docker rm ${containerIdOrName}`).catch(() => {
+			/* ignore */
+		});
+	}
 }
 
 export const CONTAINER_PATH = '/testbed';
@@ -72,7 +76,7 @@ export async function startContainer(workspacePath: string, problemId: string): 
 	// Start the main container, bind mounting the host directory into the container.
 	logger.info(`Starting container for ${problemId} with name ${containerName}`);
 	const runResult = await execCommand(
-		`docker run --name ${containerName} -d -v ${repoPathOnHost}:${CONTAINER_PATH} ${imageName} bash -c "git config --global user.email a && git config --global user.name a && git config --global --add safe.directory ${CONTAINER_PATH} && git commit --allow-empty -am typedai && sleep 7200"`,
+		`docker run --name ${containerName} --memory="${CONTAINER_MEMORY}" -d -v ${repoPathOnHost}:${CONTAINER_PATH} ${imageName} bash -c "git config --global user.email a && git config --global user.name a && git config --global --add safe.directory ${CONTAINER_PATH} && git commit --allow-empty -am typedai && sleep 7200"`,
 	);
 	failOnError(`Failed to start container for ${problemId}`, runResult);
 	const containerId = runResult.stdout.trim();
