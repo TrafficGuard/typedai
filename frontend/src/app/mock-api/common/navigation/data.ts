@@ -79,7 +79,7 @@ if (environment.modules?.trim().length) {
     if(modules.includes('codeTask')) defaultNavigation.push(codeTaskNav);
     if(modules.includes('prompts')) defaultNavigation.push(promptsNav);
     if(modules.includes('codeReview')) defaultNavigation.push(codeReviewNav);
-    if(modules.includes('codeEdit')) defaultNavigation.push(codeEditNav);
+    // if(modules.includes('codeEdit')) defaultNavigation.push(codeEditNav);
 }
 
 export const compactNavigation: FuseNavigationItem[] = defaultNavigation;
